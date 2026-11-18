@@ -1105,11 +1105,21 @@ function ApplicationCard({
         </p>
       ) : null}
 
-      {(['dti_certificate', 'bir_2303', 'mayors_permit'] as const).some((k) => typedBySupplier(application.doc_uploads?.[k] as DocUpload)) ? (
-        <p className="rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900">
-          Typed by the supplier after 3 tries. Compare it with the kept file by hand.
-        </p>
-      ) : null}
+      {(() => {
+        // W1-B41 (live walk, 18 Nov 2026): "Typed by the supplier" showed when nothing had been typed (every send had
+        // failed). A paper kept after three tries says so; "typed" only when the supplier's values are on file.
+        const kept = (['dti_certificate', 'bir_2303', 'mayors_permit'] as const)
+          .map((k) => typedBySupplier(application.doc_uploads?.[k] as DocUpload))
+          .filter((t): t is NonNullable<typeof t> => t !== null);
+        if (kept.length === 0) return null;
+        return (
+          <p className="rounded-md border border-warn-300 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900">
+            {kept.some((t) => Object.keys(t.values).length > 0)
+              ? 'Typed by the supplier after 3 tries. Compare it with the kept file by hand.'
+              : 'Kept after 3 unreadable tries — nothing typed. Check the kept file by hand.'}
+          </p>
+        );
+      })()}
 
       {autoCheck ? <AutoCheckBlock auto={autoCheck} application={application} /> : null}
 
@@ -1770,7 +1780,12 @@ function SlotRead({
            supplier typed the details and this paper waits for a person. The kept file is the Open button above. */
         <div className="space-y-1 rounded-md border border-warn-300 bg-warn-50 px-2 py-1.5">
           <p className="font-semibold text-ink">
-            Typed by the supplier · Try {formatCount(typed.attempts)} of {formatCount(3)} — compare it with the paper by hand
+            {/* W1-B41: "Typed by the supplier" only when something was typed. */}
+            {Object.keys(typed.values).length > 0 ? (
+              <>Typed by the supplier · Try {formatCount(typed.attempts)} of {formatCount(3)} — compare it with the paper by hand</>
+            ) : (
+              <>Kept after 3 unreadable tries · Try {formatCount(typed.attempts)} of {formatCount(3)} — check the paper by hand</>
+            )}
           </p>
           {Object.keys(typed.values).length > 0 ? (
             <ul className="space-y-0.5">

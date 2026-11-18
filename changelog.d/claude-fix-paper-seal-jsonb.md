@@ -16,6 +16,16 @@ sent. The Shop row says "Not sent" (not "Checking") until they are.
 longer repeats it. "Is checking" is gone before anything is sent, "photo" is gone, and the typed-details toast says it
 is saved, not sent.
 
+**B38 + B40 (same cause as B37).** Admin › Verify ran every check as "read could not be confirmed". It also said the
+permit has no valid-until date while another line gave its renewal date. Both come from the auto-check opening each
+paper through the same broken seal. W3's stored result is not rewritten; a new submit reads the papers.
+
+**B41.** Admin said "Typed by the supplier after 3 tries" when nothing was typed. It now says "Kept after 3 unreadable
+tries — nothing typed" until the supplier's values are on file.
+
+**B42.** The same toast words replace the earlier copy, so failed sends no longer stack errors over the bottom nav.
+(The floating search bar covering the "Get verified" row is a layout fix, not done here.)
+
 B34 (papers stamped "TEST — NOT VALID" read as Recognised) is logged only, not fixed here.
 
 SPEC IMPACT: None in the corpus. Reverses the W1-B10 (16 Nov) "papers in = step 5 done" rule, per the owner's 18 Nov walk. Flagged in the PR.

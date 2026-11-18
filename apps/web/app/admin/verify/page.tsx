@@ -62,13 +62,14 @@ import {
   demoteVendor,
   markVendorContactConfirmed,
   rejectApplication,
-  rejectVendor,
+  setVendorPause,
   openApplicationDocument,
   runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
+import { isShopPaused } from '@/lib/shop-status';
 import { FindLine } from './_components/find-line';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
@@ -152,9 +153,13 @@ type Props = {
   searchParams: Promise<{
     surface?: string; // 'applications' (default) | 'visibility'
     status?: string;
+    /** 🔦 ONE shop's application — the per-shop Verify address Focus opens (`?shop=<vendor_profile_id>`). */
+    shop?: string;
     approved?: string;
     rejected?: string;
     archived?: string;
+    paused?: string;
+    unpaused?: string;
     app_approved?: string;
     app_rejected?: string;
     demoted?: string;
@@ -191,6 +196,8 @@ type VendorVisibilityRow = {
   fraud_tombstoned?: boolean | null;
   /** False once the shop's papers lapsed (migration 20271348041863). */
   papers_current?: boolean | null;
+  /** ⏸ Set while the shop is paused (migration 20271350091032) — read by `isShopFindable` via FINDABLE_INPUT_COLUMNS. */
+  paused_at?: string | null;
 };
 
 type ApplicationRow = {
@@ -277,7 +284,7 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
       <SurfaceTabs current={surface} />
 
       {surface === 'applications' ? (
-        <ApplicationsSurface statusParam={search.status} error={search.error} />
+        <ApplicationsSurface statusParam={search.status} error={search.error} shopParam={search.shop} />
       ) : (
         <VisibilitySurface statusParam={search.status} error={search.error} />
       )}
@@ -380,6 +387,20 @@ function FlashBanner({
       </p>
     );
   }
+  if (search.paused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        Shop paused — it takes no new bookings or clients, and its QR says it is paused. Existing bookings carry on.
+      </p>
+    );
+  }
+  if (search.unpaused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        Shop unpaused — it takes new bookings again.
+      </p>
+    );
+  }
   if (search.archived === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
@@ -397,12 +418,20 @@ function FlashBanner({
 async function ApplicationsSurface({
   statusParam,
   error,
+  shopParam,
 }: {
   statusParam?: string;
   error?: string;
+  shopParam?: string;
 }) {
   const tabFilter = parseApplicationsTab(statusParam);
   const admin = createAdminClient();
+  /*
+    🔦 THE PER-SHOP VERIFY ADDRESS (Focus at Spotlight level, owner approved 18 Nov 2026): a supplier found in Focus
+    with papers waiting opens HERE, on its own application, instead of the whole queue. Only a uuid is read —
+    anything else is ignored and the whole queue shows.
+  */
+  const shopId = typeof shopParam === 'string' && /^[0-9a-f-]{36}$/i.test(shopParam) ? shopParam.toLowerCase() : null;
 
   // Read applications joined with their vendor row. We don't use a foreign-key
   // joined select via Supabase JS because the relationship hasn't been declared
@@ -413,6 +442,7 @@ async function ApplicationsSurface({
       'application_id,public_id,vendor_profile_id,application_type,fee_php_centavos,status,doc_uploads,docs_complete,submitted_at,sla_due_at,decision,decision_reason,decided_at,admin_user_id,created_at',
     )
     .in('status', tabFilter.statuses)
+    .match(shopId ? { vendor_profile_id: shopId } : {})
     .order('submitted_at', { ascending: true, nullsFirst: false })
     .limit(200);
 
@@ -754,6 +784,15 @@ async function ApplicationsSurface({
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
+
+      {shopId ? (
+        <p className="mb-3 text-sm text-ink/75" data-verify-one-shop="">
+          Showing one shop&apos;s application.{' '}
+          <Link href={`/admin/verify?status=${encodeURIComponent(statusParam ?? 'pending_review')}`} className="underline underline-offset-2">
+            Show the whole queue
+          </Link>
+        </p>
+      ) : null}
 
       {appErr ? (
         <FormFlash tone="error">
@@ -2555,6 +2594,8 @@ function VerifyCard({
   bypass: { expiresAt: string | null; expiredAt: string | null } | null;
 }) {
   const visibility = parseVisibility(vendor.public_visibility);
+  /** ⏸ The admin's Pause (and a supplier's own) — `paused_at`, read through FINDABLE_INPUT_COLUMNS. */
+  const paused = isShopPaused(vendor);
   const vouch = bypassState({
     expiresAt: bypass?.expiresAt ?? null,
     // The desk does not re-read the applications table per card; a shop whose
@@ -2579,7 +2620,14 @@ function VerifyCard({
             ) : null}
           </div>
         </div>
-        <VisibilityBadge value={visibility} />
+        <div className="flex flex-col items-end gap-1">
+          <VisibilityBadge value={visibility} />
+          {paused ? (
+            <span data-shop-paused className="text-xs font-medium text-ink/70">
+              Paused
+            </span>
+          ) : null}
+        </div>
       </header>
 
       {vendor.tagline ? <p className="text-xs text-ink/65">{vendor.tagline}</p> : null}
@@ -2647,19 +2695,38 @@ function VerifyCard({
           vouch={vouch}
           alreadyListed={visibility === 'verified'}
         />
-        {visibility !== 'hidden' ? (
-          <ConfirmForm
-            action={rejectVendor}
-            title="Hide this supplier?"
-            confirmLabel="Reject → Hidden"
-            message="This hides the supplier from marketplace browse — couples can no longer find them. Reversible by approving again later."
-          >
-            <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
-            <input type="hidden" name="reject_to" value="hidden" />
-            <SubmitButton pendingLabel="Hiding…" className="button-secondary h-9 px-3 text-xs">
-              Reject → Hidden
-            </SubmitButton>
-          </ConfirmForm>
+        {/* ⏸ Owner 2026-11-16 (answer 3 to PR #7890): the admin's "Hide" BECAME Pause — one control. A pause holds
+            for verified and unverified shops alike (Hide did nothing to an unverified one). A closed (archived) shop
+            has nothing to pause. */}
+        {visibility !== 'archived' ? (
+          paused ? (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Unpause this shop?"
+              confirmLabel="Unpause"
+              destructive={false}
+              message="The shop takes new bookings and clients again, and its QR works as before."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="open" />
+              <SubmitButton pendingLabel="Unpausing…" className="button-secondary h-9 px-3 text-xs">
+                Unpause
+              </SubmitButton>
+            </ConfirmForm>
+          ) : (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Pause this shop?"
+              confirmLabel="Pause"
+              message="The shop leaves every list and takes no new bookings or clients; its page and QR say it is paused. Couples who already booked keep their bookings and can still message it. Unpause any time."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="paused" />
+              <SubmitButton pendingLabel="Pausing…" className="button-secondary h-9 px-3 text-xs">
+                Pause
+              </SubmitButton>
+            </ConfirmForm>
+          )
         ) : null}
         {visibility !== 'archived' ? (
           <ConfirmForm

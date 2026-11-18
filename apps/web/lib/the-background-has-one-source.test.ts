@@ -280,7 +280,8 @@ test('(5) a Video card is the loop itself: muted, metadata only, playing only on
   // The panel hands every Video card its loop, and the editor page builds that address.
   const panel = read(`${E}/main-background-panel.tsx`);
   assert.match(panel, /<LoopPicture src=\{l\.loopUrl \?\? null\}>\s*<StillOverSwatch src=\{l\.stillUrl\} swatch=\{loopSwatch\(l\.id, colours\.canvas\)\} \/>\s*<\/LoopPicture>/);
-  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /loopUrl: resolveThemeGround\(id, \{ ownColours: false \}\)\?\.loop \?\? null,/);
+  /* ⚡ One ground per loop, built once (`themeLoops`, speed pass 2026-11-18): the card's clip is that ground's own loop. */
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /const ground = resolveThemeGround\(id, \{ ownColours: false \}\);[\s\S]{0,200}loopUrl: ground\?\.loop \?\? null/);
 });
 
 /* ── (6) the fade bar where Shade ▾ was; Candlelight no longer offered ────── */

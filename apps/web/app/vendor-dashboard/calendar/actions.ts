@@ -19,6 +19,8 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchVendorPools } from '@/lib/vendor-schedule';
+import { outsideClientPoolOf } from '@/lib/outside-client-pool';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -60,7 +62,7 @@ async function ownedServiceIds(
   supabase: SupabaseClient,
   vendorProfileId: string,
   requested: FormDataEntryValue[],
-): Promise<string[]> {
+): Promise<string[] | null> {
   const ids = [
     ...new Set(
       requested
@@ -70,11 +72,17 @@ async function ownedServiceIds(
     ),
   ];
   if (ids.length === 0) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('vendor_services')
     .select('vendor_service_id')
     .eq('vendor_profile_id', vendorProfileId)
     .in('vendor_service_id', ids);
+  // 🔎 A refused read is NOT "none of these are yours" — returned as [] it made editCalendar unassign EVERY service
+  // on the schedule and still say "Schedule saved". null = unread; every caller answers save_failed.
+  if (error) {
+    console.error('[calendar] owned services read failed:', error.message);
+    return null;
+  }
   return ((data ?? []) as { vendor_service_id: string }[]).map((r) => r.vendor_service_id);
 }
 
@@ -287,7 +295,10 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   // A venue's booking from outside may hold SEVERAL halls (owner 2026-10-14 🏛, "Which halls") — one row per hall,
   // each the same shipped RPC (one pool each, by CHECK).
   const hallIds = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))].slice(0, 12);
-  const poolId = hallIds[0] ?? str(formData, 'pool_id');
+  // 🗓 W1-B18: an empty `pool_id` from a shop with ONE schedule is that schedule (`lib/outside-client-pool.ts`) — a new
+  // shop's first outside client was refused with "pick a schedule" and no picker on screen.
+  const postedPool = hallIds[0] ?? str(formData, 'pool_id');
+  const poolId = postedPool || outsideClientPoolOf(null, await fetchVendorPools(supabase, profile.vendor_profile_id).catch(() => [])) || '';
   const clientName = str(formData, 'client_name');
   const startDate = str(formData, 'start_date');
   const endDate = str(formData, 'end_date') || startDate;
@@ -424,12 +435,16 @@ export async function notifyWaitlistSlot(formData: FormData): Promise<void> {
   const vendorProfileId = profile.vendor_profile_id;
   // Run synchronously so the notice reflects the real outcome; emails inside
   // are best-effort (Promise.allSettled) so a slow provider can't hang us long.
-  await notifyWaitlistForFreedDate(vendorProfileId, requestedDate).catch((e) => {
+  // 🔎 The count it returns is the answer: -1 = it threw, 0 = nobody was told (no one waiting, or the day is
+  // closed again). Only a real count may say "Told them".
+  const told = await notifyWaitlistForFreedDate(vendorProfileId, requestedDate).catch((e) => {
     console.error('[waitlist] one-click notify failed:', String(e));
+    return -1;
   });
 
   revalidateScheduleSurfaces();
-  backToCalendar(formData, 'waitlist_notified');
+  if (told < 0) backToCalendar(formData, 'save_failed');
+  backToCalendar(formData, told === 0 ? 'waitlist_none' : 'waitlist_notified');
 }
 
 /**
@@ -771,11 +786,13 @@ export async function reassignCategoryPool(formData: FormData): Promise<void> {
 
   // Deactivate (never delete — booking history) pools with no categories left.
   if (fromPool) {
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from('vendor_schedule_pool_categories')
       .select('category_key', { count: 'exact', head: true })
       .eq('pool_id', fromPool);
-    if ((count ?? 0) === 0) {
+    // 🔎 A refused count is not 0 — read as 0 it switched off a schedule that still had services. Left on instead.
+    if (countErr) console.error('[calendar] pool category count failed; schedule left on:', countErr.message);
+    if (!countErr && count === 0) {
       await supabase
         .from('vendor_schedule_pools')
         .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -819,6 +836,7 @@ export async function createCalendar(formData: FormData): Promise<void> {
     profile.vendor_profile_id,
     formData.getAll('service_ids'),
   );
+  if (services === null) backToCalendar(formData, 'save_failed');
 
   const { data: created, error } = await supabase
     .from('vendor_schedule_pools')
@@ -914,6 +932,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
     profile.vendor_profile_id,
     formData.getAll('service_ids'),
   );
+  if (desired === null) backToCalendar(formData, 'save_failed');
   const { data: currentRows } = await supabase
     .from('vendor_schedule_calendar_services')
     .select('vendor_service_id')
@@ -941,12 +960,13 @@ export async function editCalendar(formData: FormData): Promise<void> {
     if (addErr) backToCalendar(formData, 'save_failed');
   }
   if (toRemove.length > 0) {
-    await supabase
+    const { error: removeErr } = await supabase
       .from('vendor_schedule_calendar_services')
       .delete()
       .eq('pool_id', poolId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('vendor_service_id', toRemove);
+    if (removeErr) backToCalendar(formData, 'save_failed');
   }
 
   revalidateShopPage(profile.vendor_profile_id);
@@ -964,7 +984,7 @@ export async function editCalendar(formData: FormData): Promise<void> {
  */
 export async function setServiceHalls(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
-  const [serviceId] = await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')]);
+  const [serviceId] = (await ownedServiceIds(supabase, profile.vendor_profile_id, [str(formData, 'vendor_service_id')])) ?? [];
   if (!serviceId) backToCalendar(formData, 'save_failed');
   const asked = [...new Set(formData.getAll('pool_ids').map((v) => String(v)).filter(Boolean))];
   let halls: string[] = [];

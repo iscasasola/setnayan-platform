@@ -570,7 +570,7 @@ COMMENT ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT) IS
   'fee the booking would have carried. Once per booking. Service-role only (vendorAgreeToLock, after the yes).';
 
 -- ── 6 · stock readers count agree-time stock picks as held ──────────────────
--- Re-created from 20271346218077 (packs) and 20271345709071 (kinds). ADDED: a stock line picked at a yes
+-- Re-created from 20271351048946 (packs) and 20271348181787 (kinds, Black Diamond). ADDED: a stock line picked at a yes
 -- holds stock while its booking stands, until the event received it. To add it, what an event is
 -- promised is now summed PER EVENT (its live quotes' lines + its agree picks) before what that event
 -- already received is taken off — the same answer as before whenever an event has one live quote.
@@ -730,7 +730,7 @@ REVOKE ALL ON FUNCTION public.shop_gift_stock_status(UUID, UUID) FROM PUBLIC, an
 GRANT EXECUTE ON FUNCTION public.shop_gift_stock_status(UUID, UUID) TO authenticated, service_role;
 
 -- ── 7 · the two stock doors also give the agree-time stock picks ────────────
--- Re-created from 20271346218077 (Papic) and 20271345709071 (plans). ADDED: the booking's own
+-- Re-created from 20271351048946 (Papic, with its pre-pack "never twice" guard) and 20271348181787 (plans, Black Diamond). ADDED: the booking's own
 -- from-stock picks are wanted beside the accepted quote's lines, and a booking with picks but no
 -- accepted quote is no longer turned away. Locks, per-pack shortness, the pool grant and the given
 -- rows are the old bodies.
@@ -791,6 +791,20 @@ BEGIN
 
   PERFORM pg_advisory_xact_lock(
     hashtextextended('shop_gift_stock:' || v_shop::text, 0));
+
+  -- A gift given BEFORE packs were counted (a 'given' row the backfill could not
+  -- name a pack for) is invisible to the per-pack count below: that event already
+  -- received its gift from the credit-counted door, so it is 'already' — never twice.
+  SELECT COALESCE(-SUM(e.delta), 0)::INTEGER INTO v_given
+    FROM public.shop_gift_stock_entries e
+   WHERE e.vendor_profile_id = v_shop
+     AND e.event_id = v_event
+     AND e.gift_kind = 'papic'
+     AND e.kind = 'given'
+     AND e.pack_code IS NULL;
+  IF v_given > 0 THEN
+    RETURN jsonb_build_object('status', 'already', 'credits', v_given);
+  END IF;
 
   -- Per pack: the quote's lines + the booking's stock picks − what this shop already gave this event.
   SELECT COALESCE(jsonb_agg(jsonb_build_object(

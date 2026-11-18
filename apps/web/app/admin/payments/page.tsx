@@ -46,6 +46,8 @@ import { receivingAccounts, type ChannelSettings } from '@/lib/payment-channels'
 import { isSameDayInManila } from '@/lib/papic-buy-urgency';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import type { ReceivedPileRead } from './_components/received-pile';
+import { readReceivedDesk } from './received';
 import { readRemedyDesk } from '@/lib/admin/service-remedies.server';
 import RefundsPage from './supplier-refunds/page';
 import PayoutsPage from '../payouts/page';
@@ -152,8 +154,8 @@ async function AdminPaymentsPage({ searchParams }: Props) {
     // embed would keep them with a null order). Every payment has an order, so
     // !inner drops nothing else.
     const orderEmbed = platformFilter
-      ? 'order:orders!inner(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)'
-      : 'order:orders(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform)';
+      ? 'order:orders!inner(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform, created_at)'
+      : 'order:orders(public_id, event_id, reference_code, description, service_key, requested_total_php, confirmed_total_php, voucher_discount_centavos, status, platform, created_at)';
     let paymentsQuery = admin
       .from('payments')
       .select(
@@ -255,6 +257,13 @@ async function AdminPaymentsPage({ searchParams }: Props) {
       if (!receiptReads[r.payment_id]) receiptReads[r.payment_id] = r;
     }
   }
+
+  // ── RECEIVED SCREENSHOTS FROM OUR BDO (owner 2026-11-17) ──────────────────
+  // The open pile: not matched, not set aside as "not Setnayan". A refused read
+  // is drawn as a failure, never as "nothing received".
+  const receivedDesk = await readReceivedDesk({ withWaiting: false });
+  const received: ReceivedPileRead = receivedDesk.read;
+
 
   // ── SAME-DAY FIRST (owner 2026-08-02) ─────────────────────────────────────
   // "have an emergency purchase part if the event day is the day itself. these
@@ -358,6 +367,8 @@ async function AdminPaymentsPage({ searchParams }: Props) {
               channelSettings={channelSettings}
               readFailed={readFailed}
               query={qDisplay}
+              received={received}
+              receivedLastDrop={receivedDesk.lastDrop}
             />
           )}
         </>

@@ -5709,11 +5709,11 @@
         "markVendorContactConfirmed",
         "openApplicationDocument",
         "rejectApplication",
-        "rejectVendor",
         "revokeVerificationBypass",
         "runVendorDeepSearchAction",
         "saveManualDossierAction",
         "setApplicationInReview",
+        "setVendorPause",
         "verifyVendorExperience"
       ],
       "blocks": [
@@ -14140,6 +14140,7 @@
         "ShopHeroGallery",
         "ShopInspirationSection",
         "ShopPagePackage",
+        "ShopPausedNotice",
         "ShopReachLine",
         "ShopReachMap",
         "ShopSectionBar",

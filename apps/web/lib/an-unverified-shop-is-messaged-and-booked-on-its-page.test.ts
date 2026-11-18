@@ -45,6 +45,7 @@ test('shopTakesMessages: an undecided shop takes messages — locked or not — 
   assert.equal(shopTakesMessages({ ...undecided, public_visibility: 'archived' }, false), false);
   assert.equal(shopTakesMessages({ ...undecided, fraud_suspended_at: '2026-11-01T00:00:00Z' }, false), false);
   assert.equal(shopTakesMessages({ ...undecided, fraud_tombstoned: true }, false), false);
+  assert.equal(shopTakesMessages({ ...undecided, paused_at: '2026-11-16T00:00:00Z' }, false), false, 'a paused shop takes a new inquiry');
   // A short select (fraud columns not read) fails CLOSED.
   assert.equal(shopTakesMessages({ public_visibility: 'hidden', verification_state: 'unverified' }, false), false);
   assert.equal(shopTakesMessages(null, false), false);
@@ -53,7 +54,7 @@ test('shopTakesMessages: an undecided shop takes messages — locked or not — 
 });
 
 test('the one booking rule books an undecided shop that is open, and refuses the rest', () => {
-  const open = { public_visibility: 'hidden', verification_state: 'unverified', fraud_suspended_at: null, fraud_banned_at: null };
+  const open = { public_visibility: 'hidden', verification_state: 'unverified', fraud_suspended_at: null, fraud_banned_at: null, paused_at: null };
   assert.equal(shopBookingRefusal(open), null, 'an unverified shop cannot be booked on its own page');
   assert.equal(shopBookingRefusal({ ...open, verification_state: 'pending_review' }), null);
   assert.equal(shopBookingRefusal({ ...open, public_visibility: 'archived' }), 'not_listed', 'a closed unverified shop can be booked');
@@ -62,6 +63,7 @@ test('the one booking rule books an undecided shop that is open, and refuses the
   assert.equal(shopBookingRefusal({ ...open, verification_state: 'demoted' }), 'not_verified');
   assert.equal(shopBookingRefusal({ ...open, fraud_suspended_at: '2026-11-01T00:00:00Z' }), 'suspended');
   assert.equal(shopBookingRefusal({ ...open, fraud_banned_at: '2026-11-01T00:00:00Z' }), 'banned');
+  assert.equal(shopBookingRefusal({ ...open, paused_at: '2026-11-16T00:00:00Z' }), 'paused', 'an admin-paused unverified shop books');
   assert.equal(shopBookingRefusal({ ...open, fraud_suspended_at: undefined }), 'suspended', 'an unread fraud column books');
   // A verified shop still needs to be listed; `isBookable` (visibility only) is now the Check a date gate alone.
   assert.equal(shopBookingRefusal({ ...open, verification_state: 'verified' }), 'not_listed');

@@ -137,7 +137,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       question: 'Does Setnayan track supplier payment schedules?',
       answer:
         'Yes. Each supplier booking carries a payment plan — a reservation, payments in between and a balance, each with a due date — and when a price changes, the unpaid payments are re-plotted to the new remainder while paid ones stay as they were. ' +
-        'Couples log each payment with its receipt in the supplier chat, the supplier marks it received, and with Setnayan AI (in Event Plus, Event Pro and Event Ultra) the couple is reminded the day before a payment is due.',
+        'Couples log each payment with its receipt in the supplier chat, the supplier marks it received, and with Setnayan AI (in Event Pro and Event Ultra) the couple is reminded the day before a payment is due.',
       corrects: '"Budget lacks payment milestones / alerts"',
       route: '/features',
       evidence:

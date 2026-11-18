@@ -62,7 +62,7 @@ test('no `run:` line of ci.yml is lost by the reader', () => {
 test('the cheap set is not silently empty, and holds the guards that failed PRs on 2026-10-08', () => {
   const cheap = cheapCommands(CI).map((c) => c.run);
   assert.ok(cheap.length >= 35, `only ${cheap.length} cheap commands — the classifier stopped recognising guard steps`);
-  for (const must of ['lint:dup-rule', 'check-ugat-screens.mjs', 'lint-port-no-lost-controls.mjs', 'lint-no-card.mjs', 'lint-server-action-budget.mjs', 'check-migration-timestamps.mjs', 'lint-exposure-baseline.mjs', 'lint-nested-forms.mjs', 'lint-bottom-nav.mjs', 'lint-entitlement-gates.mjs', 'lint-guest-legibility.mjs', 'lint-nav-icon-source.mjs']) {
+  for (const must of ['lint:dup-rule', 'check-ugat-screens.mjs', 'lint-port-no-lost-controls.mjs', 'lint-no-card.mjs', 'lint-server-action-budget.mjs', 'check-migration-timestamps.mjs', 'lint-exposure-baseline.mjs', 'lint-nested-forms.mjs', 'lint-bottom-nav.mjs', 'lint-entitlement-gates.mjs', 'lint-guest-legibility.mjs', 'lint-nav-icon-source.mjs', 'lint-motion-raw.mjs']) {
     assert.ok(cheap.some((c) => c.includes(must)), `${must} is a CI step and must be in preflight's cheap set`);
   }
 });
@@ -294,5 +294,6 @@ test('a stale generated file is answered with its generator, never a hand-merge'
   assert.match(regenerateHint('tests/db/user-fk-behaviour.db.test.ts'), /UPDATE_FK_BEHAVIOUR=1/);
   assert.match(regenerateHint('tests/db/exposure-freeze.db.test.ts'), /exposure:baseline/);
   assert.match(regenerateHint('pnpm --filter @setnayan/web lint:dup-rule'), /never add a baseline line/);
+  assert.match(regenerateHint('node scripts/lint-motion-raw.mjs'), /lint-motion-raw\.mjs --write/);
   assert.equal(regenerateHint('node apps/web/scripts/lint-email-links.mjs'), null);
 });

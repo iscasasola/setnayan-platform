@@ -467,6 +467,7 @@ export const REGENERATE = [
   [/lint-guest-legibility/, 'after a legitimate change: pnpm -C apps/web lint:legibility -- --update-baseline'],
   [/lint-migrations-never-deleted/, 'a NEW migration → pnpm -C apps/web migrations:manifest (a missing one is a real fault)'],
   [/lint-scene-fills-its-frame/, 'node apps/web/scripts/lint-scene-fills-its-frame.mjs --write'],
+  [/lint-motion-raw/, 'a count FELL → node scripts/lint-motion-raw.mjs --write (a count that ROSE is the fault: read a --sn-m-* token / lib/motion-table.ts instead)'],
   [/lint:dup-rule/, 'use the canonical *_SELECT / shared helper; never add a baseline line (pnpm -C apps/web dup-rule:baseline only ever narrows)'],
   [/lint-exposure-baseline|exposure-freeze/, 'pnpm -C apps/web exposure:baseline (then READ the diff — every added line is new reach for anon/authenticated)'],
   [/user-fk-behaviour/, 'cd apps/web && UPDATE_FK_BEHAVIOUR=1 npx tsx --test tests/db/user-fk-behaviour.db.test.ts'],

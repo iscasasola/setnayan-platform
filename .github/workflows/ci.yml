@@ -348,6 +348,15 @@ jobs:
         continue-on-error: true
         run: node scripts/lint-dup-rule-baseline.mjs
 
+      # The motion standard (owner 18 Nov 2026; specs MOTION_STANDARD_2026-11-18.md § 11 Phase 1): no NEW raw
+      # duration or cubic-bezier( in a transition / animation, a Tailwind duration-NNN, or a Web Animations
+      # literal — read the --sn-m-* tokens / lib/motion-table.ts instead. Per-file counts against
+      # scripts/motion-raw.baseline.json may only fall; regenerate with: node scripts/lint-motion-raw.mjs --write
+      - name: Lint motion raw timings
+        id: guard_motion_raw
+        continue-on-error: true
+        run: node scripts/lint-motion-raw.mjs
+
       # Protects the 2026-07-01 vendor-dashboard perf work (PRs #2529/#2533/#2543/
       # #2546). The layout re-renders server-side on every navigation, so a broad
       # `revalidatePath('/vendor-dashboard', 'layout')` (or global `'/', 'layout'`)
@@ -594,6 +603,7 @@ jobs:
           PINNED_BARS: ${{ steps.guard_pinned_bars.outcome }}
           BOOTH_POSTER: ${{ steps.guard_booth_poster.outcome }}
           DUP_RULE_BASELINE: ${{ steps.guard_dup_rule_baseline.outcome }}
+          MOTION_RAW: ${{ steps.guard_motion_raw.outcome }}
           VENDOR_REVALIDATE: ${{ steps.guard_vendor_revalidate.outcome }}
           CHANGELOG_DIR: ${{ steps.guard_changelog_dir.outcome }}
           SERVER_ONLY: ${{ steps.guard_server_only.outcome }}
@@ -635,6 +645,7 @@ jobs:
           check 'lint stacked pinned bars'   "$PINNED_BARS"
           check 'lint booth poster placement' "$BOOTH_POSTER"
           check 'lint duplicated-rule baseline' "$DUP_RULE_BASELINE"
+          check 'lint motion raw timings'    "$MOTION_RAW"
           check 'lint vendor layout revalidate' "$VENDOR_REVALIDATE"
           check 'lint changelog fragment dir'  "$CHANGELOG_DIR"
           check 'lint server-only boundary'   "$SERVER_ONLY"

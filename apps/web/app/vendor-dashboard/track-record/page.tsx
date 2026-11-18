@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CalendarHeart } from 'lucide-react';
@@ -23,9 +24,7 @@ export const metadata = { title: 'Track record · Supplier' };
  */
 export default async function VendorTrackRecordPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const role = await resolveVendorRole(supabase, user.id);

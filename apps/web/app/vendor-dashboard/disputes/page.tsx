@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Scale, ShieldCheck, MessageSquareWarning, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -79,9 +80,7 @@ type Props = {
 export default async function VendorDisputesPage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

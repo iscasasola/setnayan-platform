@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -96,9 +98,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const embedded = sp?.__embed === 'chat';
   const { eventId, threadId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const thread = await fetchThreadById(supabase, threadId);
@@ -124,11 +124,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // Event date bounds the meeting-request picker (today → day before the event).
   const eventDateRead = (async () => {
-    const { data: eventRow, error: eventRowError } = await supabase
+    const { data: eventRow, error: eventRowError } = await eventRowOnce(supabase, eventId, 'event_date', () =>
+      supabase
       .from('events')
       .select('event_date')
       .eq('event_id', eventId)
-      .maybeSingle();
+      .maybeSingle());
     if (eventRowError) {
       logQueryError(
         'CoupleThreadPage.event',
@@ -142,11 +143,12 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // 🗂 The chat-files rule (C2) counts from the event's LAST day and only from a real day — its precision and end.
   const eventDayRead = (async () => {
-    const { data, error } = await supabase
+    const { data, error } = await eventRowOnce(supabase, eventId, 'event_date_precision, event_end_date', () =>
+      supabase
       .from('events')
       .select('event_date_precision, event_end_date')
       .eq('event_id', eventId)
-      .maybeSingle();
+      .maybeSingle());
     if (error) logQueryError('CoupleThreadPage.eventDay', error, { event_id: eventId }, 'graceful_degrade');
     return (data ?? null) as { event_date_precision?: string | null; event_end_date?: string | null } | null;
   })();

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import Link from 'next/link';
@@ -37,9 +38,7 @@ export default async function AdminVendorTeamPage({ params }: Props) {
   const { vendorProfileId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

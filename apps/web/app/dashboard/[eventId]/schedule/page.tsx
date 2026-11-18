@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
 import { readOpenChangeRequests } from '@/lib/change-requests.server';
 import { redirect } from 'next/navigation';
@@ -147,6 +149,7 @@ import { eventClockNow } from '@/lib/event-clock.server';
 import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { startAhead } from '@/lib/start-ahead';
+import { eventDelegateGrantOnce } from '@/lib/event-delegate-once';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { wholeMarchLabel } from '@/lib/schedule-chapters';
@@ -210,9 +213,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // treated as no flash at all, so a hand-edited URL cannot forge "Sent."
   const noteFlash = parseNoteFlash(noteParam);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   /* 📅 THE SCHEDULE IS ITS OWN PAGE, OPENED FROM HOME — AND IT NEVER SENDS YOU AWAY (owner 2026-11-01 "SCHEDULE AND
@@ -237,11 +238,12 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // Defensive maybeSingle — a missing event row falls through to nulls,
   // which the agenda treats as "no wedding date yet".
   const [eventRes, blocks, suggestionsRes, chapterReadFirst, taskRead, peopleRead, marchRead, asksRes, contactRead, changeRequests] = await Promise.all([
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date', () =>
+      supabase
       .from('events')
       .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name, date_candidates, date_window_start, cleared_at, timezone, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
     /* 🛑 A REFUSED READ OF THE DAY IS SAID, NEVER DRAWN AS AN EMPTY DAY. Inside the Maker (Studio › Schedule) the
        page says so where the moments would be, with Try again — and stops there, before anything could seed a
        run of show over moments it merely failed to read. Everywhere else the read throws, as it always has. */
@@ -367,16 +369,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           .eq('user_id', user.id)
           .maybeSingle(),
       ),
-      Promise.resolve(
-        supabase
-          .from('event_moderators')
-          .select('permissions_json')
-          .eq('event_id', eventId)
-          .eq('user_id', user.id)
-          .not('accepted_at', 'is', null)
-          .is('removed_at', null)
-          .maybeSingle(),
-      ),
+      // The render's one delegate-grant read (lib/event-delegate-once.ts) — `fetchEventViewer` above asked it already.
+      eventDelegateGrantOnce(supabase, eventId, user.id),
     ]),
   );
   const announceRead = startAhead(Promise.all([resolveBroadcastAuthority(supabase, eventId, user.id), isCoordinatorP3Enabled()]));

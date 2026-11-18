@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
@@ -146,9 +147,7 @@ export default async function VendorQrCodesPage({
   // not this shop's own outside booking.
   const blockId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.block ?? '') ? (search.block as string) : null;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

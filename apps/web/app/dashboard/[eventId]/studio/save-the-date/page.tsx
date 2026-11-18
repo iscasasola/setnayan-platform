@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -86,9 +87,7 @@ function coerceTemplate(v: unknown): RevealChoice | null {
 export default async function SaveTheDatePage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   // Every paid-feature read on this page asks "does THIS EVENT hold it?" (owner
   // 2026-10-02) — the one host-facing resolver, never the visitor's own session.

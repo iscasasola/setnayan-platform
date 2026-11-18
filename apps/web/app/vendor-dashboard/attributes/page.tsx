@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronDown, AlertTriangle, CheckCircle2 } from 'lucide-react';
@@ -56,9 +57,7 @@ type Props = {
 export default async function VendorAttributesPage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   let loaderState:

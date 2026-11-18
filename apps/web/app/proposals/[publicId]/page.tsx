@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
@@ -129,9 +130,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const { publicId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // RLS is the gate: vendor org OR couple/delegate (non-draft) — anyone else

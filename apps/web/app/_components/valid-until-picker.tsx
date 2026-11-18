@@ -58,7 +58,9 @@ export function ValidUntilPicker({
       />
       {key === 'pick' ? (
         <DateRow
-          name={`${name}_pick`}
+          // CHAT-31 (walk 16 Nov 2026): a DateRow's `name` is the WORD drawn on the row (`RowName`), not a form field —
+          // `${name}_pick` printed the raw "valid_until_pick" beside the calendar. The hidden input below carries the date.
+          name="Date"
           value={picked}
           today={todayIso}
           min={addDaysIso(todayIso, 1)}

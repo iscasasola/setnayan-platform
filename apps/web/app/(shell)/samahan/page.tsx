@@ -57,7 +57,7 @@ const PAGE_TITLE = 'Groups — Your Barkada, Ninongs, Family · Setnayan';
 /** The document title ONLY — see the sibling doorways. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('samahan');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

@@ -5,6 +5,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readLogoFrame } from '@/lib/open-shop-logo';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { AddYourLogo } from './_components/add-your-logo';
+import { planOfferPath } from '@/lib/supplier-plan-offer';
 
 /**
  * /open-shop/logo — "Add your logo", the screen RIGHT AFTER "Open my shop" (owner, the 2026-11-06 gate walk, A2).
@@ -18,7 +19,13 @@ import { AddYourLogo } from './_components/add-your-logo';
  */
 export const metadata = { title: 'Add your logo' };
 
-export default async function OpenShopLogoPage() {
+export default async function OpenShopLogoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  // W1-B21: the plan a supplier picked on /for-suppliers rides through to its offer.
+  const offer = planOfferPath((await searchParams).plan);
   const supabase = await createClient();
   const {
     data: { user },
@@ -64,6 +71,7 @@ export default async function OpenShopLogoPage() {
       storedLogoRef={row.logo_url}
       displayUrl={displayUrl}
       frame={readLogoFrame(row)}
+      doneHref={offer ?? '/vendor-dashboard'}
     />
   );
 }

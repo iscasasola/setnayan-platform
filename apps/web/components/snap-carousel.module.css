@@ -7,6 +7,11 @@
   --sc-peek: 18px;
   --sc-gap: 8px;
   min-width: 0;
+  /* W4 B2 (18 Nov 2026): at 390 px the Guests page measured scrollWidth 406 — the slides' ~16 px reached the page. The
+     track scrolls its own overflow; nothing of the carousel may widen the PAGE. `clip` (not `hidden`) makes no scroll
+     container, so nothing sticky inside is affected. 🔒 lib/the-snap-carousel-never-widens-the-page.test.ts */
+  max-width: 100%;
+  overflow-x: clip;
 }
 .track {
   display: flex;

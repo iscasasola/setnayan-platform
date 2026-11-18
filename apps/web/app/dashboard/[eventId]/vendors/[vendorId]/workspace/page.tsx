@@ -52,6 +52,7 @@ import {
   paymentScheduleSource,
   paymentDoor,
   scheduleDueText,
+  quoteScheduleFrame,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -1851,6 +1852,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     scheduleSource === 'quote' && acceptedQuote
       ? acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0)
       : null;
+  // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
+  // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
+  const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
   const statusSection = (
       <section id="payments" aria-label="Payment" className="space-y-1">
         <PaymentAsksCard
@@ -1897,9 +1901,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         */}
         {scheduleSource === 'quote' && acceptedQuote ? (
           <TemplateSection
-            label="Schedule"
+            label={quoteSchedule.label}
             right={scheduleTotalCentavos !== null ? <b className={TEMPLATE_MONEY}>Total {pesoFromCentavos(scheduleTotalCentavos)}</b> : undefined}
-            tip={`From the quote you accepted. Pay ${displayName} directly; they confirm each payment as received.`}
+            tip={quoteSchedule.tip}
             data="schedule"
           >
             <TemplateRows label="Payment schedule">
@@ -2023,6 +2027,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             summary={vendorBudgetSummary}
             eventId={eventId}
             variant="embed"
+            vendorName={displayName}
             directPayMethods={directPayMethods}
             installments={paymentPlan}
             acceptedQuoteLines={acceptedQuote?.lines ?? null}

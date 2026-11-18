@@ -5984,7 +5984,7 @@ html.dark [data-art='candlelight'] {
      · reduced motion: at once (the base layer's freeze), and each motion says so below. ═══ */
 
 /* SCRIM (#3) — Quick in, on Settle; out is `--sn-scrim-fade` (the same 200 ms, `OverlayBackdrop`). */
-.sn-fade.sn-popup-dark {
+.sn-popup-dark:is(.sn-fade) {
   animation-duration: var(--sn-m-quick);
   animation-timing-function: var(--sn-m-settle);
 }

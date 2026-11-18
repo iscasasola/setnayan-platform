@@ -172,7 +172,7 @@ test('5 · ONE shake — the two old ones are retired, and nothing shakes on a l
 test('6 · every Phase 2 motion reads the standard’s tokens — no raw time, no raw curve', () => {
   const a = CSS.indexOf('THE MOTION STANDARD · PHASE 2');
   // (comments are stripped — find the block by its first and last rules instead)
-  const from = CSS.indexOf('.sn-fade.sn-popup-dark {');
+  const from = CSS.indexOf('.sn-popup-dark:is(.sn-fade) {');
   const to = CSS.indexOf('.sn-m-status { transition: none !important; }');
   assert.ok(a < 0 && from > 0 && to > from, 'anti-vacuity: the Phase 2 block was not found in globals.css');
   const block = CSS.slice(from, to);
@@ -191,7 +191,7 @@ test('6 · every Phase 2 motion reads the standard’s tokens — no raw time, n
   assert.match(rule('.sn-row-field'), /animation:\s*sn-row-field-in var\(--sn-m-move\) var\(--sn-m-spring\);/);
   assert.match(rule('.sn-row-field[data-leaving]'), /animation:\s*sn-row-field-out var\(--sn-m-quick\) var\(--sn-m-settle\);/);
   /* The scrim: Quick on Settle, in. */
-  assert.match(rule('.sn-fade.sn-popup-dark'), /animation-duration:\s*var\(--sn-m-quick\);\s*animation-timing-function:\s*var\(--sn-m-settle\);/);
+  assert.match(rule('.sn-popup-dark:is(.sn-fade)'), /animation-duration:\s*var\(--sn-m-quick\);\s*animation-timing-function:\s*var\(--sn-m-settle\);/);
 });
 
 test('7 · cascade six, 60 ms apart — and a list’s first drawing never plays', () => {

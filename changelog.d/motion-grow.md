@@ -1,3 +1,31 @@
+## 2026-11-18 · feat(motion): the 18 Nov motion standard combined with the 13 Nov system — tokens, retimes, Sheet grow, guards
+
+Owner, 18 Nov: *"Combine them"* — `MOTION_STANDARD_2026-11-18.md` (specs) is the source; the 13 Nov details keep their
+numbers. This block supersedes the numbers in the 2026-11-15 block below where they differ.
+
+- **Tokens** (`lib/motion-table.ts` ↔ `--sn-m-*` in `globals.css`): Tap 100 · Quick 200 · Release 280 · Move 320 ·
+  Rise 700 · Sheen loop 1400 linear. Easings: **Settle `cubic-bezier(.2,.8,.2,1)`** (replaces the emphasized
+  `(.2,0,0,1)`; the old names stay as aliases, the reversed close is Settle's reverse `(.8,0,.8,.2)`) and **Spring**, a
+  27-stop `linear()` real spring (one ~5 % overshoot) with the `cubic-bezier(.34,1.56,.64,1)` fallback under
+  `@supports not (transition-timing-function: linear(0, 1))`.
+- **Retimes:** grow press 120 → Tap 100 · grow shape 360 → Move 320 · content 320 → 278 and chrome 440 → 384 ms from the
+  press (the same proportions of the shape, 200/360 and 320/360 — arithmetic in `motion-table.ts`) · Saved ✓ 200 / hold
+  1400 / out 200 · swipe leave 240 → Quick 200, then the gap closes on Move 320. Kept from 13 Nov: press 100 → 0.97
+  (row 0.985), release 280, switch 260, chips 220/180, field 260/280, swipe snap 220, close = open at 80 %, page behind
+  0.96 + dim, three content steps 40 ms apart, chrome last.
+- **Ported from #7686** onto the ONE grow player (`playGrowParts` / `playBehind` moved from `rise-screen.tsx` into
+  `lib/rise-screen.ts`, shared): the **Sheet grows out of the pressed button** (`sheetGrowFrames`, transform + one clip)
+  and closes back into it at 80 %, still showing what it showed; with no fresh press it just appears. The **swipe snap**
+  reads `--sn-m-swipe-snap` on Settle. `lib/grow-motion.ts` was NOT ported (a second engine).
+- **Guards:** new `lib/the-motion-standard-tokens.test.ts` (5 speeds, 2 easings, Sheen, spring + fallback, aliases) ·
+  new `lib/no-var-in-keyframe-timing.test.ts` (house rule § 3.7) · re-anchored `the-motion-table-is-one`,
+  `the-rise-is-0-7s`, `the-top-scrolls-up-and-locks`, `the-picked-client-opens-over-the-list` · new CI guard
+  `scripts/lint-motion-raw.mjs` + `scripts/motion-raw.baseline.json` in the `guards` job (counts may only fall).
+- **Not changed:** the couple's Event Hub motion (`lib/motion.ts`, `.sn-editorial`), the `--sn-pill-dur` 700 users,
+  toasts, loading, the website — later phases.
+
+SPEC IMPACT: MOTION_STANDARD_2026-11-18.md § 0 (already applied in specs fae41fef)
+
 ## 2026-11-15 · feat(motion): one timing table — grow from the pressed element, touch feel, rows that open
 
 Owner "motion approved" on prototype `Setnayan-specs/prototypes/approved_2026-11-13/grow-full-screen-fable.html` v1

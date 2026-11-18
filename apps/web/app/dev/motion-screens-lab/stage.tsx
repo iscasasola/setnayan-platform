@@ -13,9 +13,19 @@ import { InspectorSheetAlone } from '@/app/_components/inspector/inspector-colum
 import type { RiseKind } from '@/lib/rise-screen';
 
 const BASE = '/dev/motion-screens-lab';
-// The lab's own picture — a flat tile, so nothing is fetched.
-const PHOTO =
-  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 30'><rect width='40' height='30' fill='%23c9785c'/><circle cx='29' cy='10' r='5' fill='%23f6e7c8'/><path d='M0 30 14 14l9 9 6-5 11 12z' fill='%237a4a3a'/></svg>";
+// The lab's own picture — a painted tile (no file, no data URI), so nothing is fetched and no logo guard is tripped.
+function Photo({ className, mark }: { className: string; mark?: 'hero' | 'rise' | 'card' }) {
+  const marks = mark === 'hero' ? { 'data-picture-hero': '' } : mark === 'rise' ? { 'data-rise-photo': '' } : mark === 'card' ? { 'data-picture': '' } : {};
+  return (
+    <div
+      role="img"
+      aria-label="Sample photo"
+      className={className}
+      style={{ background: 'linear-gradient(135deg, rgb(var(--sn-accent)), rgb(var(--color-ink) / 0.55))' }}
+      {...marks}
+    />
+  );
+}
 
 // The app bar's own two speeds, as front-door.css draws them (`--sn-tuck-*`): back in Quick on Settle, away in Move on the Spring.
 const BAR_CSS =
@@ -54,8 +64,7 @@ export function MotionScreensLabStage({ page }: { page: 'home' | 'deeper' }) {
               <Link href={BASE} className="text-[15px] font-semibold underline" data-lab-back="">
                 ‹ Back up
               </Link>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={PHOTO} alt="" className="mt-3 aspect-[4/3] w-full rounded-tile object-cover" data-picture-hero="" />
+              <Photo className="mt-3 aspect-[4/3] w-full rounded-tile" mark="hero" />
               <h1 className="pt-3 font-display text-3xl">Casa Lente</h1>
             </div>
           ) : (
@@ -78,8 +87,7 @@ export function MotionScreensLabStage({ page }: { page: 'home' | 'deeper' }) {
             {KINDS.map((k) => (
               <div key={k.kind} className="flex items-center gap-3 rounded-tile bg-paper px-3 py-2" data-lab-kind={k.kind}>
                 {k.kind === 'picture' ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={PHOTO} alt="" className="h-11 w-14 rounded-md object-cover" />
+                  <Photo className="h-11 w-14 shrink-0 rounded-md" mark="card" />
                 ) : null}
                 <span className="min-w-0 flex-1 text-[15px]">{k.what}</span>
                 <ActionButton tone="neutral" icon={ArrowUpRight} label="Open" onClick={() => setRisen(k.kind)} />
@@ -95,8 +103,7 @@ export function MotionScreensLabStage({ page }: { page: 'home' | 'deeper' }) {
                   Go deeper — Push ›
                 </Link>
                 <Link href={`${BASE}/deeper`} data-picture-leads="" className="flex items-center gap-3 rounded-tile bg-paper px-3 py-2" data-lab-picture-link="">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={PHOTO} alt="" className="h-11 w-14 rounded-md object-cover" />
+                  <Photo className="h-11 w-14 shrink-0 rounded-md" mark="card" />
                   <span className="text-[15px] font-semibold">Casa Lente — Picture leads, card → page</span>
                 </Link>
               </>
@@ -121,8 +128,7 @@ export function MotionScreensLabStage({ page }: { page: 'home' | 'deeper' }) {
         <RiseScreen title="Maria Santos" line={`kind: ${risen}`} kind={risen} onClose={() => setRisen(null)} data={`lab-${risen}`}>
           <div className="space-y-3 px-4 py-4">
             {risen === 'picture' ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={PHOTO} alt="" className="aspect-[4/3] w-full rounded-tile object-cover" data-rise-photo="" />
+              <Photo className="aspect-[4/3] w-full rounded-tile" mark="rise" />
             ) : null}
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="rounded-tile bg-paper px-4 py-3 text-[15px]">

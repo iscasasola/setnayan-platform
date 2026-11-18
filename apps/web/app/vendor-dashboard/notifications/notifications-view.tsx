@@ -36,7 +36,7 @@ export function NotificationsView({
         }}
       />
 
-      <div className="mx-4 mt-4 border-t border-ink/10">
+      <div className="mx-4 mt-4 border-t border-[color:var(--m-line)]">
         <DatesRow data="notifications-settings" title="Push and email" line="How we reach you · Settings" href="/vendor-dashboard/settings" />
       </div>
     </div>

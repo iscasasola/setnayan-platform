@@ -21,6 +21,8 @@ import { arrivalSteps, inviteReplyPath } from '@/lib/invite-arrival';
 import { joinDoorRefusalMessage } from '@/lib/join-door-refusal-copy';
 import { REPLY_WINDOW_EVENT_COLUMNS, replyWindowWords } from '@/lib/reply-window';
 import { replyWindowOfRow } from '@/lib/reply-window.server';
+import { actionButtonClass } from '@/components/action-button-class';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /*
   🔴 THESE WERE A MODULE CONSTANT SAYING "the couple" ON EVERY EVENT TYPE, and
@@ -189,10 +191,10 @@ export async function JoinFlow({
           Sign in or create an account to ask {w.theOrganizer} to add you to this event.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link className="button-primary" href={loginHref}>
+          <Link className={actionButtonClass('brand', { main: true, extra: '!h-11' })} href={loginHref}>
             Sign in
           </Link>
-          <Link className="button-secondary" href={signupHref}>
+          <Link className={actionButtonClass('neutral', { extra: '!h-11' })} href={signupHref}>
             Create account
           </Link>
         </div>
@@ -372,7 +374,7 @@ function FindMeDigitsStep({
             autoComplete="off"
             required
             placeholder="••••"
-            className="input-field text-center font-mono text-2xl tracking-[0.5em]"
+            className="input-field text-center text-2xl font-semibold tabular-nums tracking-[0.5em]"
           />
         </div>
         <SubmitButton className="button-primary w-full" pendingLabel="Checking…">
@@ -417,7 +419,10 @@ function AskToJoinIntro({ organizer }: { organizer: string }) {
       <p className="font-serif text-2xl text-ink">You&rsquo;re not on the guest list for this event yet</p>
       <p className="text-sm text-ink/70">
         Ask to join. If {organizer} has you down under another name or on a family member&rsquo;s invite, they
-        will link you. You get your own Digital ticket right away — it unlocks the moment they confirm you.
+        will link you.{' '}
+        <InfoTip label="" ariaLabel="Your Digital ticket" align="start">
+          You get your own Digital ticket right away — it unlocks the moment they confirm you.
+        </InfoTip>
       </p>
     </div>
   );
@@ -450,7 +455,7 @@ export function RequestSentScreen({
         </p>
       </div>
       {slug ? (
-        <Link className="button-secondary mt-6 w-full sm:w-auto" href={`/${slug}`}>
+        <Link className={actionButtonClass('neutral', { extra: 'mt-6 w-full sm:w-auto !h-11' })} href={`/${slug}`}>
           Back to the details
         </Link>
       ) : null}

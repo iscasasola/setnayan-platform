@@ -13,7 +13,7 @@
  * the database refuses a total under the paid floor (migration 20271332041210) — the card's own checks only draw.
  */
 import { useCallback, useEffect, useId, useRef, useState, type PointerEvent } from 'react';
-import { Pencil, Undo2 } from 'lucide-react';
+import { FilePlus2, Pencil, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
@@ -22,6 +22,7 @@ import { sendCustomProposalFromChat } from '@/app/vendor-dashboard/messages/[thr
 import { formatCentavosPhp } from '@/lib/php';
 import { applyQuoteEdits, deltaWords, floorRefusal, linesTotal, planLedger, toProposalLineItems, type MarkedLine, type QuoteEdit } from '@/lib/chat-cards';
 import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
+import { supplierChangeOrderHref } from '@/lib/chat-plus';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { loadQuoteForCard, type QuoteForCard } from './card-calls';
 import { MakeQuoteCard } from './make-quote-card';
@@ -30,6 +31,9 @@ import { CouldNotLoad, EmptyLine, LedgerStrip, Loading, Problem, type Read } fro
 type Op = 'add' | 'edit' | 'remove';
 type Cur = { op: Op | null; pick: string | null; key: string | null; name: string; pricePhp: string };
 const NONE: Cur = { op: null, pick: null, key: null, name: '', pricePhp: '' };
+
+/** The locked-quote sentence (CHAT-19) — drawn with its door to the change orders. */
+const DEAL_LOCKED_LINE = 'This booking is already locked at the accepted quote — a change now goes through a change order.';
 
 function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -71,7 +75,14 @@ export function QuoteStepCard({
   // 🧾 No quote out yet (cut 7, 2026-11-14): the short Make a quote card, never a dead "No quote in this chat yet".
   if (!q) return <MakeQuoteCard threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} />;
   if (q.locks.quote) return shell(<EmptyLine line="Your quotation is final — unlock it in Details to change it." />);
-  if (q.requote === 'deal_locked') return shell(<EmptyLine line="This booking is already locked at the accepted quote — use a change order instead of a new quote." />);
+  // 🔒 CHAT-19 (walk 16 Nov): the sentence named a change order with no way to one — it now opens the shipped
+  // Change orders ("Propose a change", the picked client's Schedule).
+  if (q.requote === 'deal_locked')
+    return shell(
+      <EmptyLine line={DEAL_LOCKED_LINE}>
+        <ActionButton tone="brand" main icon={FilePlus2} label="Propose a change order" href={supplierChangeOrderHref(q.eventId)} onClick={onClose} />
+      </EmptyLine>,
+    );
   if (q.requote === 'lock_requested') return shell(<EmptyLine line="They asked to lock at the quote they accepted. Answer that first." />);
   return <QuoteSteps q={q} threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} seed={seed} />;
 }

@@ -16,6 +16,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
+import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
@@ -151,6 +152,13 @@ function deskUrl(q: string | null, notice?: string, warn = false): string {
   return `/admin/payments?${parts.join('&')}`;
 }
 
+/** A Focus `next` address — only `/admin` or `/admin?card=…`, never a URL from elsewhere. */
+function focusNext(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== 'string') return null;
+  if (raw === '/admin') return raw;
+  return /^\/admin\?card=[A-Za-z0-9%:_-]{1,120}$/.test(raw) ? raw : null;
+}
+
 /** The search term as the desk sanitises it — never fed raw to a URL. */
 function deskQuery(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -166,6 +174,59 @@ export async function approvePayment(formData: FormData) {
   // at its ceiling, and recording money an admin SAW arrive is approval with
   // the "I paid" step done on the customer's behalf.
   if (formData.get('intent') === 'record') return recordPaymentReceived(userId, q, formData);
+  // ── RECEIVED SCREENSHOTS FROM OUR BDO (owner 2026-11-17) ──────────────────
+  // Three more intent branches for the same reason as 'record': no new route.
+  // ⛔ 'received-match' approves ONLY because the admin pressed Match, and only
+  // through approvePaymentCore. Nothing matches by itself in this phase.
+  const intent = formData.get('intent');
+  if (intent === 'received-drop') {
+    await dropReceived(userId, formData);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin');
+    return;
+  }
+  // A card opened from Focus carries `next` — the following card ("after you
+  // act, the next one opens", v5 drawing). Only an /admin address is followed.
+  const next = focusNext(formData.get('next'));
+  if (intent === 'received-leave') {
+    await leaveReceived(formData);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin');
+    if (next) redirect(next);
+    return;
+  }
+  if (intent === 'received-match') {
+    const res = await matchReceived(userId, formData, approvePaymentCore);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin/payouts');
+    revalidatePath('/admin');
+    after(() => revalidatePath('/dashboard', 'layout'));
+    if (res.openPaymentId) {
+      redirect(`/admin/payments?open=${encodeURIComponent(res.openPaymentId)}&notice=${encodeURIComponent(res.notice)}&noticeType=warn`);
+    }
+    if (next && !res.warn) redirect(next);
+    redirect(deskUrl(q, res.notice, res.warn));
+  }
+  // "Not received ▾" on a Buyer-says-paid card — the SHIPPED reject / ask-again
+  // actions, with the reason's words as the note. Nothing new decides money.
+  if (intent === 'received-not') {
+    const reason = formData.get('reason');
+    const paymentId = formData.get('payment_id');
+    if (!isNotReceivedReason(reason) || typeof paymentId !== 'string' || paymentId === '') {
+      redirect(deskUrl(q, 'Pick why it was not received.', true));
+    }
+    const fd = new FormData();
+    fd.set('payment_id', paymentId);
+    if (reason === 'unreadable') {
+      fd.set('admin_resubmit_notice', NOT_RECEIVED_REASONS.unreadable.notes);
+      await requestPaymentResubmit(fd);
+    } else {
+      fd.set('admin_notes', NOT_RECEIVED_REASONS[reason].notes);
+      await rejectPayment(fd);
+    }
+    revalidatePath('/admin');
+    redirect(next ?? deskUrl(q, reason === 'unreadable' ? 'Asked them for a clearer photo.' : 'Marked not received.'));
+  }
 
   const paymentId = formData.get('payment_id');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));

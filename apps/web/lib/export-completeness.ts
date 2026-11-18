@@ -177,6 +177,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'derived from a credential. Same line as resolved_by on event_day_requests.',
   },
   {
+    table: 'admin_received_transactions',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s own bank record — a transfer that arrived in our BDO, read from the admin\'s screenshot. ' +
+      '`created_by` / `matched_by` are the staff member who dropped or matched it; the row is not about them. ' +
+      'The buyer\'s side of the same money is their payment row, which is exported. Same line as platform_expenses.',
+  },
+  {
     table: 'platform_expenses',
     decision: 'excluded',
     why:

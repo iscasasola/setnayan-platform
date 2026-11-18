@@ -14,6 +14,7 @@ import { ProofImage } from '@/app/_components/proof-image';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './inbox-matcher';
+import { ReceivedPile, type ReceivedPileRead } from './received-pile';
 import { BatchApproveBar, BatchApproveCheckbox } from './batch-approve-controls';
 import { RemedyReasonRow } from './remedy-reason-row';
 import { FormPick } from '../../work/_components/form-pick';
@@ -121,6 +122,8 @@ export type PaymentJoined = {
     // Originating platform — web | ios | android (migration 20270103040000).
     // Null on pre-migration rows / pre-stamp orders → shown as "web".
     platform: string | null;
+    /** When the order was placed — received money older than this is flagged. */
+    created_at?: string | null;
   } | null;
   user: { email: string | null; public_id: string } | null;
 };
@@ -503,7 +506,13 @@ export function PaymentsList({
   channelSettings,
   readFailed,
   query,
+  received,
+  receivedLastDrop = null,
 }: {
+  /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
+  received?: ReceivedPileRead;
+  /** The newest drop: how many rows one press read, and when. */
+  receivedLastDrop?: { count: number; at: string } | null;
   /** 🏷 F-A-15: an event type's admin-managed name (the opened payment uses it). */
   typeName: EventTypeName;
   /** Where the desk is — each row opens its payment on top of it. */
@@ -569,6 +578,22 @@ export function PaymentsList({
 
   return (
     <>
+      {received ? (
+        <ReceivedPile
+          read={received}
+          lastDrop={receivedLastDrop}
+          query={query}
+          waiting={payments
+            .filter((p) => p.status === 'pending')
+            .map((p) => ({
+              payment_id: p.payment_id,
+              amount_php: Number(p.amount_php),
+              reference_number: p.reference_number,
+              order_created_at: p.order?.created_at ?? null,
+              label: p.user?.email ?? p.order?.public_id ?? '—',
+            }))}
+        />
+      ) : null}
       <div className="mt-3">
         <Fold title="Match a notification" line="Paste the SMS or app alert" data="payments-matcher">
           <InboxMatcher payments={matcherRows} />

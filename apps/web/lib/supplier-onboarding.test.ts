@@ -23,6 +23,12 @@ import {
   CHECK_FACT_LABEL,
   CHECK_FACTS,
   FIRST_CARD_CARRY_LINE,
+  FIRST_CARD_NOT_LIVE,
+  TODAY_WELCOME_DONE,
+  firstCardLiveFrom,
+  firstCardLivePath,
+  firstCardStateFrom,
+  welcomeDoneRow,
   ONBOARDING_HEADS,
   SELF_SERVE_LATER,
   checkFactEmpty,
@@ -184,7 +190,7 @@ test('8 · a first card the door could not make is SAID on Today, never dropped 
   const waiting = firstCardCarryPath(WELCOME_OPENED_PATH, { state: 'waiting', title: 'Bridal bouquet', price: 8500, category: 'florist' });
   const q = Object.fromEntries(new URL(waiting, 'https://x.invalid').searchParams);
   assert.equal(q.opened, '1');
-  assert.deepEqual(firstCardFrom(q), { state: 'waiting', title: 'Bridal bouquet', price: 8500, category: 'florist', why: null });
+  assert.deepEqual(firstCardFrom(q), { state: 'waiting', title: 'Bridal bouquet', price: 8500, category: 'florist', why: null, id: null });
   // A refusal carries the maker's own sentence.
   const refused = firstCardCarryPath(WELCOME_OPENED_PATH, { state: 'refused', title: 'Bridal bouquet', price: 8500, category: 'florist', why: 'Remove the phone number.' });
   assert.equal(firstCardFrom(Object.fromEntries(new URL(refused, 'https://x.invalid').searchParams))?.why, 'Remove the phone number.');
@@ -194,7 +200,7 @@ test('8 · a first card the door could not make is SAID on Today, never dropped 
   assert.equal(firstCardFrom({ card: 'waiting', card_title: 'x', card_price: '10', card_category: '../x' }), null);
   // The action: the link lands on that welcome; a refused card lands there SAYING so — never a silent Today.
   assert.match(ACTION, /confirmNext: afterConfirm,/);
-  assert.match(ACTION, /if \(made && made\.ok === false\) \{\s*redirect\(\s*viaInvite\(\s*firstCardCarryPath\(WELCOME_OPENED_PATH, \{\s*state: 'refused'/);
+  assert.match(ACTION, /if \(made\.ok === false\) return firstCardCarryPath\(welcome, \{ \.\.\.card, state: 'refused', why: made\.why \}\)/);
   assert.match(ACTION, /return \{ ok: false, why: refused \?\? FIRST_CARD_NOT_MADE \}/);
   assert.match(ACTION, /export async function approveFirstCard\(/);
   // The welcome draws it, with Approve card (the shipped maker, through `approveFirstCard`) and the Card Maker.
@@ -204,7 +210,42 @@ test('8 · a first card the door could not make is SAID on Today, never dropped 
   assert.match(WELCOME, /role=\{card\.state === 'refused' \? 'alert' : undefined\}/);
   assert.ok(FIRST_CARD_CARRY_LINE.refused.includes('wasn’t made'));
   // The ticked row never claims a card that does not exist.
-  assert.match(WELCOME, /\{card \|\| skipped \? TODAY_WELCOME_DONE\.shopOnly : TODAY_WELCOME_DONE\.withCard\}/);
+  assert.match(WELCOME, /\{welcomeDoneRow\(cardState\)\}/);
+});
+
+test('11 · "on your page" only when the shipped switch said yes — a refusal is said, no ✓ (20 Nov review)', () => {
+  // The switch's answers, read: live; the live-cards cap refusing (its own sentence); the publish gate; no answer.
+  assert.deepEqual(firstCardLiveFrom('/vendor-dashboard/services?saved=1'), { live: true });
+  const cap = 'Your plan holds 1 live card. Turn one off, or upgrade in Plan.';
+  assert.deepEqual(firstCardLiveFrom(`/vendor-dashboard/services?error=${encodeURIComponent(cap)}`), { live: false, why: cap });
+  assert.deepEqual(firstCardLiveFrom('/vendor-dashboard/services?error=Add%20a%20cover%20photo%20first.'), { live: false, why: 'Add a cover photo first.' });
+  assert.deepEqual(firstCardLiveFrom('/vendor-dashboard/services'), { live: false, why: FIRST_CARD_NOT_LIVE });
+  assert.deepEqual(firstCardLiveFrom(null), { live: false, why: FIRST_CARD_NOT_LIVE });
+  // The landings: live → `card=live`; refused by the switch → `card=draft` with ITS sentence and the card's id.
+  assert.equal(firstCardLivePath(WELCOME_OPENED_PATH), `${WELCOME_OPENED_PATH}&card=live`);
+  const id = '0b7e6c1a-3f1e-4c2b-9d5a-1a2b3c4d5e6f';
+  const draft = firstCardCarryPath(WELCOME_OPENED_PATH, { state: 'draft', title: 'Bridal bouquet', price: 8500, category: 'florist', why: cap, id });
+  const got = firstCardFrom(Object.fromEntries(new URL(draft, 'https://x.invalid').searchParams));
+  assert.equal(got?.state, 'draft');
+  assert.equal(got?.why, cap);
+  assert.equal(got?.id, id);
+  assert.equal(firstCardFrom({ card: 'draft', card_title: 'x', card_price: '10', card_category: 'florist', card_id: '../x' })?.id, null);
+  // The ticked row: the card ONLY on `card=live` — a bare `?opened=1`, a skip or a draft names the shop alone.
+  assert.equal(welcomeDoneRow(firstCardStateFrom({ opened: '1' })), TODAY_WELCOME_DONE.shopOnly);
+  assert.equal(welcomeDoneRow(firstCardStateFrom({ opened: '1', card: 'skipped' })), TODAY_WELCOME_DONE.shopOnly);
+  assert.equal(welcomeDoneRow(firstCardStateFrom({ opened: '1', card: 'draft' })), TODAY_WELCOME_DONE.shopOnly);
+  assert.equal(welcomeDoneRow(firstCardStateFrom({ opened: '1', card: 'live' })), TODAY_WELCOME_DONE.withCard);
+  assert.ok(!FIRST_CARD_CARRY_LINE.draft.includes('on your page ✓'));
+  // The action: the maker's card goes through the SHIPPED switch, and lands where the truth says.
+  assert.match(ACTION, /const live = await putFirstCardLive\(id\);/);
+  assert.match(ACTION, /if \(made\.live\) return firstCardLivePath\(welcome\);/);
+  assert.match(ACTION, /state: 'draft', why: made\.why, id: made\.id/);
+  // Idempotent: a card this shop already has under this name is reused — a second Approve makes no duplicate.
+  assert.match(ACTION, /const before = await findMade\(\);[\s\S]*?if \(!id\) \{[\s\S]*?await createVendorService\(fd\)/);
+  // The wizard's last screen never says "on your page" or ticks the card before it exists.
+  assert.doesNotMatch(WIZARD, /· on your page`/);
+  assert.match(WELCOME, /FIRST_CARD_RETRY/);
+  assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
 });
 
 test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {
@@ -219,7 +260,7 @@ test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite sho
   assert.match(ACTION, /const coordinating = formData\.get\('as'\) === 'coordinator';/);
   assert.match(ACTION, /const viaInvite = \(path: string\) => \(coordinating \? `\$\{INVITE_SHOPS_PATH\}\?next=\$\{encodeURIComponent\(path\)\}` : path\);/);
   assert.match(ACTION, /const afterConfirm = viaInvite\(/);
-  assert.equal((ACTION.match(/redirect\(viaInvite\(/g) ?? []).length, 2, 'both session-path landings');
+  assert.equal((ACTION.match(/redirect\(viaInvite\(/g) ?? []).length, 3, 'every session-path landing — the first card\'s truth, Edit, and the rest');
   // PC4 · PC6 · PC7, and the tab keeps its shipped word (the rename was the tie and the page section only).
   assert.match(WIZARD, /coordinating \? YOUR_PAGE_HEAD : ONBOARDING_HEADS\.card\[0\]/);
   assert.match(WIZARD, /label=\{coordinating \? APPROVE_PAGE : 'Approve card'\}/);

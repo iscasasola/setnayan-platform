@@ -237,7 +237,8 @@ test('1 · 🎁 Setnayan’s invite: pre-filled from the staged shop, the offer 
 test('4 · only the screens changed — the consent is the shipped finalize', () => {
   assert.doesNotMatch(ACT, /applyClaimAutoLink\(|seatClaimedCoupleAsCustomer\(|claim_ask_for_access/, 'the door grew its own consent');
   // 🚪 19 Nov: Edit on the first card rides through finalize as `?edit=` — the consent still comes first.
-  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize\$\{editId \? `\?edit=\$\{encodeURIComponent\(editId\)\}` : ''\}`\);\s*\}/, 'the finish no longer ends on the shipped finalize');
+  // 🃏 20 Nov: …and the first card's state rides through it too (`claimCardQuery`) — still ending on finalize.
+  assert.match(ACT, /const finalize = `\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize`;\s*redirect\(editId \? `\$\{finalize\}\?edit=\$\{encodeURIComponent\(editId\)\}` : cardCarry \? `\$\{finalize\}\?\$\{claimCardQuery\(cardCarry\)\}` : finalize\);\s*\}/, 'the finish no longer ends on the shipped finalize');
   assert.match(ACT, /await createVendorService\(fd\)/, 'the cards are no longer made by the shipped card maker');
   assert.match(ACT, /await savePackage\(\{/, 'the bundle is no longer made by the shipped package maker');
 });

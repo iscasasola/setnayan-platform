@@ -3,7 +3,8 @@
 import { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { usePrefersReducedMotion, useIsMobile } from '@/lib/use-responsive';
-import { activeTabIndex, tabSlideDir } from '@/lib/nav-slide';
+import { activeTabIndex, pushDir, tabSlideDir } from '@/lib/nav-slide';
+import { MOVE_MS } from '@/lib/motion-table';
 
 /**
  * NavSlideController — the mobile bottom-nav "carousel" page slide (owner 2026-06-21).
@@ -47,6 +48,15 @@ import { activeTabIndex, tabSlideDir } from '@/lib/nav-slide';
  * the broken-out FAB / sidebar links are excluded (they're outside the nav). Any
  * miss → we never preventDefault, so the native <Link> navigates instantly. No
  * error on older browsers, reduced-motion, or desktop.
+ *
+ * ── → PUSH: A PAGE DEEPER IN ITS SECTION, AND ITS BACK (motion standard 18 Nov 2026, § 5 #30) ──
+ * The same listener also NOTES — it never stops or redirects — a tap on a link that goes deeper into the section you
+ * are in (or back up out of it), and the phone's / browser's Back: it writes `html[data-sn-push="fwd" | "back"]`
+ * (`pushDir`, lib/nav-slide.ts) and the four shell templates' `.sn-page-enter` then arrives from the right, or from
+ * the left for a Back, instead of the plain Enter (globals.css). The mark is cleared once the page has landed. Nothing
+ * is intercepted: a link whose own handler cancels the navigation, or that opens a risen page over this one, simply
+ * leaves a mark nobody reads. Every width; never under reduced motion (the page then keeps its 120 ms fade / freeze).
+ * 🔒 app/_components/nav/the-screens-move-by-the-standard.test.ts
  */
 
 type VTDocument = Document & {
@@ -54,6 +64,10 @@ type VTDocument = Document & {
 };
 
 const NAV_SEL = 'nav[aria-label="Primary navigation"]';
+/** After the page lands, the mark stays for the Push's own length plus this, then goes. */
+const PUSH_SETTLE_MS = 80;
+/** A mark nobody answered (the tap did not navigate) is dropped after this long. */
+const PUSH_STALE_MS = 4000;
 
 export function NavSlideController() {
   const router = useRouter();
@@ -71,6 +85,56 @@ export function NavSlideController() {
       pending.current = null;
     }
   }, [pathname]);
+
+  // → PUSH — note which way the next page arrives; clear the note once it has landed.
+  const lastPath = useRef<string | null>(null);
+  useEffect(() => {
+    lastPath.current = pathname;
+    const root = document.documentElement;
+    if (!root.dataset.snPush) return;
+    const t = window.setTimeout(() => delete root.dataset.snPush, MOVE_MS + PUSH_SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [pathname]);
+  useEffect(() => {
+    if (reduced) return;
+    const root = document.documentElement;
+    let stale = 0;
+    const mark = (dir: 'fwd' | 'back' | null) => {
+      window.clearTimeout(stale);
+      if (!dir) {
+        delete root.dataset.snPush;
+        return;
+      }
+      root.dataset.snPush = dir;
+      // A tap that never navigated (its own handler said no) must not colour a later, unrelated arrival.
+      stale = window.setTimeout(() => delete root.dataset.snPush, PUSH_STALE_MS);
+    };
+    function onClick(e: MouseEvent) {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor || anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
+      // A tab press is the Slide's, not a Push.
+      if (anchor.closest(NAV_SEL)) return mark(null);
+      let url: URL;
+      try {
+        url = new URL(anchor.href, location.href);
+      } catch {
+        return;
+      }
+      if (url.origin !== location.origin) return;
+      mark(pushDir(location.pathname, url.pathname));
+    }
+    // The phone's Back (and Forward): the address has already moved; `lastPath` is still the page being left.
+    const onPop = () => mark(lastPath.current ? pushDir(lastPath.current, location.pathname) : null);
+    document.addEventListener('click', onClick, true);
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.clearTimeout(stale);
+      document.removeEventListener('click', onClick, true);
+      window.removeEventListener('popstate', onPop);
+      delete root.dataset.snPush;
+    };
+  }, [reduced]);
 
   useEffect(() => {
     const doc = document as VTDocument;
@@ -149,6 +213,54 @@ export function NavSlideController() {
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
   }, [router, reduced, isMobile]);
+
+  // 🖼 PICTURE LEADS, card → its page (motion standard 18 Nov 2026, § 5 #33): a link marked `data-picture-leads` whose
+  // photo (`[data-picture]`, else its first image) becomes the next page's picture (`[data-picture-hero]`) — a
+  // same-document View Transition with ONE shared name, `sn-picture`, worn only while it runs. Opt-in per link, so
+  // nothing else is ever intercepted; every width; no support or reduced motion → the link simply navigates.
+  useEffect(() => {
+    const doc = document as VTDocument;
+    if (reduced || typeof doc.startViewTransition !== 'function') return;
+    function onPicture(e: MouseEvent) {
+      if (e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href][data-picture-leads]') as HTMLAnchorElement | null;
+      const photo = anchor?.querySelector<HTMLElement>('[data-picture], img') ?? null;
+      if (!anchor || !photo) return;
+      let url: URL;
+      try {
+        url = new URL(anchor.href, location.href);
+      } catch {
+        return;
+      }
+      if (url.origin !== location.origin || url.pathname === location.pathname) return;
+      e.preventDefault();
+
+      const myToken = ++token.current;
+      const root = document.documentElement;
+      root.dataset.snNavDir = 'picture';
+      photo.style.setProperty('view-transition-name', 'sn-picture');
+      const navDone = new Promise<void>((resolve) => {
+        pending.current = { path: url.pathname, resolve };
+        window.setTimeout(() => {
+          if (pending.current && pending.current.resolve === resolve) {
+            pending.current = null;
+            resolve();
+          }
+        }, 600);
+      });
+      const vt = doc.startViewTransition!(() => {
+        router.push(url.pathname + url.search);
+        return navDone;
+      });
+      vt.finished.finally(() => {
+        photo.style.removeProperty('view-transition-name');
+        if (token.current === myToken) delete root.dataset.snNavDir;
+      });
+    }
+    document.addEventListener('click', onPicture, true);
+    return () => document.removeEventListener('click', onPicture, true);
+  }, [router, reduced]);
 
   return null;
 }

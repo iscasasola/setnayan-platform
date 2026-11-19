@@ -175,10 +175,13 @@ test('4 · both listeners raise the flag BEFORE the transition starts (or the ol
 
 /* ── 5 · one name, one timing ──────────────────────────────────────────── */
 
-test('5 · sn-page is declared once, on .sn-vt-page, and runs 320 ms on one easing', () => {
+test('5 · sn-page is declared once, on .sn-vt-page, and runs the standard’s Move on Settle (320 ms, one easing)', () => {
   const decl = [...CSS.matchAll(/([^{}]*)\{[^}]*view-transition-name\s*:\s*sn-page\s*;[^}]*\}/g)].map((m) => m[1]!.trim().split('\n').pop()!.trim());
   assert.deepEqual(decl, ['.sn-vt-page']);
   const timing = /::view-transition-old\(sn-page\),\s*::view-transition-new\(sn-page\)\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
-  assert.match(timing, /animation-duration:\s*320ms/);
-  assert.match(timing, /animation-timing-function:\s*cubic-bezier\(0\.22, 0\.61, 0\.36, 1\)/);
+  // ⏱ 18 Nov 2026 (motion standard § 5 #29 Slide): the tokens, not numbers of its own — Move is 320 ms, Settle the one
+  // travel curve (held equal to lib/motion-table.ts by lib/the-motion-standard-tokens.test.ts).
+  assert.match(timing, /animation-duration:\s*var\(--sn-m-move\)/);
+  assert.match(timing, /animation-timing-function:\s*var\(--sn-m-settle\)/);
+  assert.match(CSS, /--sn-m-move:\s*320ms;/);
 });

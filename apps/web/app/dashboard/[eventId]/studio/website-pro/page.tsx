@@ -9,7 +9,8 @@ import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { EVENT_PLUS_SKU, HUB_PARTS, type HubPartId } from '@/lib/hub-parts';
 import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
-import { isPlanKey } from '@/lib/plan-buy-doors';
+import { isPlanKey, type PlanKey } from '@/lib/plan-buy-doors';
+import { CapizLight } from '@/app/_components/signature/capiz-light';
 import { ProPartsBody } from './_components/pro-parts-body';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
@@ -143,7 +144,11 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     const php = prices?.onSale.has(p.sku) ? prices.parts.get(p.sku) : undefined;
     if (php !== undefined) partPricePhp[p.id] = php;
   }
+  // 🕯 Capiz light (motion standard § 9 ⑥): the highest plan now ON for this event — once, when this device first sees it.
+  const planOn: PlanKey | null = ultraActive ? 'ultra' : active?.full ? 'pro' : plusActive ? 'plus' : null;
   return (
+    <>
+    <CapizLight subject={`event:${eventId}`} plan={planOn} word={`${planOn === 'pro' ? (prices?.fullTitle ?? PLAN_NAME.pro) : planOn ? PLAN_NAME[planOn] : ''} unlocked`} />
     <ProPartsBody
       eventId={eventId}
       title={HERO.label}
@@ -163,5 +168,6 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
       vatRatePct={vatRatePct}
       plans={plans}
     />
+    </>
   );
 }

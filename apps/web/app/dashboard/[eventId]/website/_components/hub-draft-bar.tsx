@@ -14,6 +14,7 @@ import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
 import { ApplyProSheet } from './apply-pro-sheet';
+import { MakerGoLive } from './maker-go-live';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import { hubOwnershipOfView, hubSummaryFor, ownsHubGate, ownsHubPart, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
 import {
@@ -614,7 +615,11 @@ export function HubDraftToolbar({
           {makerSaveStatusText(status)}
         </span>
       ) : outcome ? (
-        <OutcomeLine key={outcomeN} outcome={outcome} />
+        <>
+          <OutcomeLine key={outcomeN} outcome={outcome} />
+          {/* 🕯 Go live (motion standard § 9 ③) — beside the words, once per answer. */}
+          {outcome.kind === 'live' ? <MakerGoLive key={`live:${outcomeN}`} eventId={eventId} /> : null}
+        </>
       ) : null}
       {readError ? (
         <span role="alert" className={`text-[12px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>

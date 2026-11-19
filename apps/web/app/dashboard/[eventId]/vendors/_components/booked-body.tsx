@@ -33,6 +33,7 @@ import {
   type BookedView,
 } from '@/lib/booked-rows';
 import { BookedRowList, BookedRowsExample, WaitingRowItem } from './booked-row';
+import { BookedTie } from './booked-tie';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import type { ServiceCounts } from '@/lib/supplier-count';
 import { WhereAsk } from './booked-where';
@@ -175,6 +176,8 @@ export function BookedBody({
                 We couldn’t check whether a date change is waiting.
               </p>
             ) : null}
+            {/* 🕯 The Tie (motion standard § 9 ①) — once per booking, for the first one this device has not seen booked. */}
+            <BookedTie eventId={eventId} bookings={booked.map((r) => ({ id: r.vendorId, name: r.name, sub: r.service }))} />
             <BookedRowList eventId={eventId} rows={booked} firstOpen={firstOpen} counts={counts} />
             {/* 📖 "Which chapters will they serve?" — for the first booked supplier on no chapter yet (2026-11-04). */}
             <WhereAsk eventId={eventId} rows={booked} />

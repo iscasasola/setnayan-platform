@@ -18,6 +18,7 @@
  * PURE: no I/O, no env. 🔒 lib/supplier-storage.test.ts
  */
 import { storageWords } from './downgrade-limits';
+import { formatCount } from './format-number';
 import {
   STORAGE_GB,
   TIER_CAPS,
@@ -106,7 +107,7 @@ export function storageFullMessage(plan: string | null | undefined, usedBytes: n
   const up = next
     ? ` or move to ${planWord(next)} for ${storageWords(TIER_CAPS[next].storageBytes ?? 0)}`
     : canBuyTheUltraAddOn(plan)
-      ? `, or add the Ultra Add-on (+${ULTRA_ADDON_GIVES.storageGb} GB) on your Plan page`
+      ? `, or add the Ultra Add-on (+${formatCount(ULTRA_ADDON_GIVES.storageGb)} GB) on your Plan page`
       : '';
   const reason =
     left < 1e6

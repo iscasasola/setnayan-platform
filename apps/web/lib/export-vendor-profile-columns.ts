@@ -89,7 +89,7 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   'compatible_ceremony_types, compatible_venue_settings, contact_email, contact_phone, ' +
   'created_at, created_by_admin_user_id, demo_batch_id, demotion_count, event_types, ' +
   'experience_verified_at, experience_verified_by, extra_agent_seats, ' +
-  'extra_bookings_per_date, extra_parent_categories, extra_services_per_leaf, extra_waitlist_acceptances, ' +
+  'extra_bookings_per_date, extra_parent_categories, extra_services_per_leaf, extra_ultra_addons, extra_waitlist_acceptances, ' +
   // find_lock_* · is_findable (migration 20271320303985, #7373) — whether the shop can be found, and the lock its first
   // unverified inquiry put on that (when, why, when lifted). The shop's own state, exported like fraud_* below.
   // find_lock_lifted_by is a staff uid: it is READ (so T12 stays complete) and then EXPORTED AS A LABEL, never the uid

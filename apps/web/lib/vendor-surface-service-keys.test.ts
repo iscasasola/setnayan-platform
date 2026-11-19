@@ -57,7 +57,8 @@ test('every vendor-surface family is covered — the three left after Custom ret
     );
   }
   assert.equal(VENDOR_SURFACE_SERVICE_KEY_PREFIXES.length, 3 + COUNT_ADDON_SERVICE_KEY_PREFIXES.length);
-  assert.equal(COUNT_ADDON_SERVICE_KEY_PREFIXES.length, 4, 'an Ultra add-on family dropped out');
+  // The four "+1" add-ons of 2026-11-06 (kept: their old orders stay a supplier's own purchase) + the Ultra Add-on (2026-11-19).
+  assert.equal(COUNT_ADDON_SERVICE_KEY_PREFIXES.length, 5, 'an Ultra add-on family dropped out');
 });
 
 test('the list is frozen — a caller cannot widen the gate at runtime', () => {

@@ -288,7 +288,7 @@ export async function createBranch(
     const total = planCaps.branchesIncluded;
     return err(
       canBuyTheUltraAddOn(tier)
-        ? `Your plan includes ${formatCount(total)} branches and they are all in use. The Ultra Add-on adds ${ULTRA_ADDON_GIVES.branches} more — on your Plan page.`
+        ? `Your plan includes ${formatCount(total)} branches and they are all in use. The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.branches)} more — on your Plan page.`
         : total > 0
           ? `Your plan includes ${formatCount(total)} branches and they are all in use. More branches come with ${TIER_LABEL.enterprise}.`
           : `Branches come with Pro and ${TIER_LABEL.enterprise}.`,

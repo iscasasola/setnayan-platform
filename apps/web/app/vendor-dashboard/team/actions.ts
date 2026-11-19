@@ -8,6 +8,7 @@ import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { formatCount } from '@/lib/format-number';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -153,7 +154,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
       // 🛒 No single seat is sold any more (owner 2026-11-19 — the "at cap" seat-fee hint is gone). On Ultra the way
       // past the cap is the Ultra Add-on (+3 people each, bought on the Plan page); below Ultra, a bigger plan.
       const moreHint = canBuyTheUltraAddOn(ctx.tierState)
-        ? `The Ultra Add-on adds ${ULTRA_ADDON_GIVES.people} people — on your Plan page.`
+        ? `The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`
         : 'Upgrade for more.';
       const helperHint =
         role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
@@ -255,7 +256,12 @@ export async function updateVendorTeamMember(formData: FormData) {
         })
       ) {
         return err(
-          `Your plan has no seat for another ${role === 'agent' ? 'Team member' : 'Admin'} — this person is your free Helper. Add a seat or pick a plan with more.`,
+          // 2026-11-19: no single seat is sold — the way past the cap is a bigger plan, or on Ultra the Ultra Add-on.
+          `Your plan has no seat for another ${role === 'agent' ? 'Team member' : 'Admin'} — this person is your free Helper. ${
+            canBuyTheUltraAddOn(ctx.tierState)
+              ? `The Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`
+              : 'Pick a plan with more.'
+          }`,
         );
       }
     }
@@ -433,7 +439,7 @@ export async function buyExtraSeat(formData: FormData) {
   // 🛒 Single extra seats are not sold since 2026-11-19 (owner: the only add-on is the Ultra Add-on, +3 people each).
   // `canBuyExtraSeats` answers false on every plan; seats already bought keep counting (`fetchExtraAgentSeats`).
   if (!canBuyExtraSeats(ctx.tierState)) {
-    return err(`Single extra seats are not sold any more. On Ultra, the Ultra Add-on adds ${ULTRA_ADDON_GIVES.people} people — on your Plan page.`);
+    return err(`Single extra seats are not sold any more. On Ultra, the Ultra Add-on adds ${formatCount(ULTRA_ADDON_GIVES.people)} people — on your Plan page.`);
   }
 
   // The rail is CHOSEN ON THE PAYMENT PAGE now, where the QR that carries it is

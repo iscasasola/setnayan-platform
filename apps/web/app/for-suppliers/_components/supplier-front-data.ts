@@ -340,7 +340,7 @@ export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyTheUltraAd
 export function buyMoreLine(deepSearchPrice: string | null): string {
   const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
   if (ADDON_TIERS.length === 0) return deep;
-  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, the Ultra Add-on adds ${ULTRA_ADDON_GIVES.branches} branch, ${ULTRA_ADDON_GIVES.liveCards} live cards, ${ULTRA_ADDON_GIVES.people} people and ${ULTRA_ADDON_GIVES.storageGb} GB.`;
+  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, the Ultra Add-on adds ${countNoun(ULTRA_ADDON_GIVES.branches, 'branch', 'branches')}, ${formatCount(ULTRA_ADDON_GIVES.liveCards)} live cards, ${formatCount(ULTRA_ADDON_GIVES.people)} people and ${formatCount(ULTRA_ADDON_GIVES.storageGb)} GB.`;
 }
 
 /** The Free card's words (drawing § 1, desktop): what Free gives, and that Verified joins it. */

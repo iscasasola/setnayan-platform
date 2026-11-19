@@ -281,3 +281,26 @@ test('the "+1" recount is the service role\'s alone — a signed-in shop cannot 
     await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
   }
 });
+
+test('📮 THE RENEWAL REMINDER FIRES FOR AN ULTRA ADD-ON (owner 2026-11-19, ad44b079) — and never for a retired "+1"', async () => {
+  const ultra = await newVendor('ultra-renewal-reminder', 'enterprise');
+  await ultraAddOnOrder(ultra, 3); // ends in 3 days → due for the 7-day reminder
+  await ultraAddOnOrder(ultra, 20); // not yet due
+  await ultraAddOnOrder(ultra, -1); // already lapsed
+  await plusOneOrder(ultra, 'vendor_extra_category__', 3); // retired, not sold — never told to renew
+  const due = await db.query<{ service_key: string; buyer_email: string | null }>(
+    `SELECT service_key, buyer_email FROM public.subscriptions_due_for_renewal_reminder(7)
+      WHERE service_key LIKE '%' || $1`,
+    [ultra],
+  );
+  assert.deepEqual(due.rows.map((r) => r.service_key), [`vendor_ultra_addon__${ultra}`], 'the reminder did not pick the due Ultra Add-on, or picked a retired "+1"');
+  assert.ok(due.rows[0]!.buyer_email, 'the reminder has nobody to send to');
+  // Once reminded for this window it is not picked again (the sender's lock).
+  const order = await db.query<{ order_id: string }>(
+    `SELECT order_id FROM public.orders WHERE service_key = $1 AND expires_at < now() + interval '7 days' AND expires_at > now()`,
+    [`vendor_ultra_addon__${ultra}`],
+  );
+  await db.query(`INSERT INTO public.renewal_reminder_log (order_id, reminder_window) VALUES ($1, '7d')`, [order.rows[0]!.order_id]);
+  const again = await db.query(`SELECT 1 FROM public.subscriptions_due_for_renewal_reminder(7) WHERE service_key LIKE '%' || $1`, [ultra]);
+  assert.equal(again.rows.length, 0, 'an Ultra Add-on was reminded twice in one window');
+});

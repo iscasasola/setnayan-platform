@@ -33,6 +33,15 @@ also is 1 for all already"* · the final table: *"this is good"*. Specs: SUPPLIE
   new hourly request-driven job (`count-addon-recount` → `recount_vendor_count_addons()`, service role only) lowers a
   stored count when a window lapses with no order event. Tests: `vendor-ultra-addons.test.ts` (the window rule) and
   `vendor-plan-allowances.db.test.ts` (two live + lapsed + refunded + window-less = 2; the shop cannot call it).
+- **📮 The Ultra Add-on gets the renewal reminder** (owner 2026-11-19, specs ad44b079, "all your picks"). It goes through the
+  ONE existing sender, the daily `renewal-reminders` job (`runRenewalReminders` over
+  `subscriptions_due_for_renewal_reminder`, through `sendEmail`). No second sender. That path has no allowlist:
+  `EMAIL_ENABLED_TYPES` gates only `emitNotification` types, so what decides who is mailed is the SQL function, and a
+  paid Ultra Add-on order with its 28-day window is selected 7 days before it ends. New pure
+  `lib/renewal-reminder-products.ts`: it is named "Ultra Add-on", says "four prepaid weeks" (not "a year"), and opens
+  the Plan page; every older product reads exactly as before. The four retired "+1" add-ons are left out of the SQL,
+  because they are no longer sold and their orders now carry windows. Tests: `lib/ultra-addon-renewal-reminder.test.ts`
+  and a DB test (a due Ultra Add-on is picked, a retired "+1" is not, and none is picked twice in one window).
 - **§C tests:** `lib/lowered-limits-keep-what-you-have.test.ts` (an over-limit shop keeps its cards, branches and people
   and cannot add one; the migration takes nothing away) and `tests/db/pro-renews-at-the-price-of-the-day.db.test.ts`
   (a current Pro subscriber's renewal is billed the catalogue price on the day it renews; Pro's year = 10×).

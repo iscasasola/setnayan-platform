@@ -414,4 +414,48 @@ COMMENT ON FUNCTION public.recount_vendor_count_addons() IS
 -- 5c · the same once now, so a lapsed window from before this shipped stops counting at once.
 SELECT public.recount_vendor_count_addons();
 
+-- ── 6 · the renewal reminder ────────────────────────────────────────────────
+-- Owner 2026-11-19 (specs ad44b079, "all your picks"): Ultra Add-on buyers DO get the renewal reminder. There is ONE
+-- sender — the daily `renewal-reminders` job (`runRenewalReminders`, lib/daily-email-jobs.ts) over this function: paid
+-- orders whose prepaid window ends within p_days. Every paid Ultra Add-on order now has its window (section 3), so it is
+-- already selected; the app names it and links the Plan page (lib/renewal-reminder-products.ts).
+-- The ONE change: the four retired "+1" add-ons are left out. They are no longer sold, and section 5 gave their orders
+-- windows for the first time — without this they would start receiving "renew" emails for something nobody can buy.
+-- Same signature, same body otherwise; CREATE OR REPLACE keeps the service-role-only grant of 20271028837115.
+CREATE OR REPLACE FUNCTION public.subscriptions_due_for_renewal_reminder(p_days INT DEFAULT 7)
+RETURNS TABLE (
+  order_id    UUID,
+  service_key TEXT,
+  expires_at  TIMESTAMPTZ,
+  buyer_email TEXT,
+  buyer_name  TEXT
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT o.order_id, o.service_key, o.expires_at, u.email, u.display_name
+  FROM public.orders o
+  JOIN public.users u ON u.user_id = o.user_id
+  WHERE o.status = 'paid'
+    AND o.expires_at IS NOT NULL
+    AND o.expires_at > now()
+    AND o.expires_at <= now() + make_interval(days => GREATEST(p_days, 1))
+    AND u.email IS NOT NULL
+    AND o.service_key NOT LIKE 'vendor\_extra\_category\_\_%'
+    AND o.service_key NOT LIKE 'vendor\_extra\_service\_card\_\_%'
+    AND o.service_key NOT LIKE 'vendor\_extra\_waitlist\_\_%'
+    AND o.service_key NOT LIKE 'vendor\_extra\_booking\_per\_date\_\_%'
+    AND NOT EXISTS (
+      SELECT 1 FROM public.renewal_reminder_log l
+      WHERE l.order_id = o.order_id
+        AND l.reminder_window = (GREATEST(p_days, 1) || 'd')
+    )
+  ORDER BY o.expires_at ASC
+  LIMIT 200;
+$$;
+
+REVOKE ALL ON FUNCTION public.subscriptions_due_for_renewal_reminder(p_days integer) FROM PUBLIC, anon, authenticated;
+
 COMMIT;

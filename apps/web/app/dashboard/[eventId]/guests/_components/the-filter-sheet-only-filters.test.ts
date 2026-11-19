@@ -70,10 +70,11 @@ test('3 · every option the old ≡ held is still offered', () => {
 });
 
 test('4 · each action in its new home', () => {
-  const add = SCREEN.slice(SCREEN.indexOf('const addMenu: ThumbMenu | null'), SCREEN.indexOf('const arrangeMenu: ThumbMenu'));
-  assert.match(add, /key: 'add:type', label: 'Type a name'/, '＋ Add ▾ has no “Type a name”');
-  assert.match(add, /\.\.\.addWays\.map\(/, '＋ Add ▾ lost From your people · Import a file');
-  assert.match(SCREEN, /action=\{addMenu\}/, '＋ Add ▾ is not seated on the List row');
+  // 18–19 Nov 2026 (owner: "our text box is search / add feature"): ＋ Add ▾ left the row. Type a name → the field itself
+  // (`field.onAdd`); From your people · Import a file → the rows above the EMPTY field and in the typed results.
+  assert.match(SCREEN, /onAdd: writesOff \|\| gview !== 'list' \? undefined : addTypedOrSheet,/, 'the field is not the add');
+  assert.match(SCREEN, /data-empty-ways=""[^>]*>\s*<TypedWays eventId=\{eventId\}/, 'the empty field lost From your people · Import a file');
+  assert.doesNotMatch(SCREEN, /action=\{addMenu\}/, '＋ Add ▾ is back beside the field that adds');
   assert.match(SCREEN, /label="Select" onClick=\{\(\) => setSelectMode\(true\)\} data-testid="guests-select"/, '☑ Select is not on the top row');
   assert.match(ROWS, /<DownloadExcelRow \/>/, 'Guests ⚙ has no Download as Excel');
 });

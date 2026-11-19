@@ -123,6 +123,19 @@ export function clientLandingPage(f: ClientDoorFacts): PickedClientPage {
   return 'details';
 }
 
+/**
+ * 📅 A client's Schedule ON A DAY (owner 18 Nov 2026): Calendar › a day › a client, and a date on a chat card, open the
+ * client's Schedule with that day picked in its days strip (`?tab=schedule&day=YYYY-MM-DD`). A malformed day is
+ * dropped — the page then opens on its own day.
+ */
+export const SCHEDULE_DAY_PARAM = 'day';
+/** A chat card's date asks the open Schedule strip to pick its day (`ScheduleDayDoor`) — same page, no request. */
+export const SCHEDULE_DAY_EVENT = 'sn:schedule-day';
+export function clientScheduleDayHref(eventId: string, day: string): string {
+  const base = customerCardHref(eventId, 'schedule');
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) ? `${base}&${SCHEDULE_DAY_PARAM}=${day}` : base;
+}
+
 /** A client's link through the one open path: the landing page, then the one door function. */
 export function openClientHref(eventId: string, f: ClientDoorFacts): string {
   return customerCardHref(eventId, clientLandingPage(f));

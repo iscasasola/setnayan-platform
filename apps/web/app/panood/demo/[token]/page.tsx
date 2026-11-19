@@ -34,8 +34,8 @@ type Props = { params: Promise<{ token: string }> };
  */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[var(--m-paper)] px-4 py-12 text-[var(--m-ink)]">
-      <div className="w-full max-w-md rounded-2xl border border-[var(--m-line)] bg-white p-7 text-center shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-page px-4 py-12 text-[var(--m-ink)]">
+      <div className="w-full max-w-md bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-7 text-center">
         {children}
       </div>
     </main>

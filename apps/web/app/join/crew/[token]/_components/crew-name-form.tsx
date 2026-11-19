@@ -57,7 +57,7 @@ export function CrewJoinForm({ token, anonymous }: { token: string; anonymous: b
             guest's name in five parts. */}
         <span className="block pb-1 text-[13px] text-ink/65">What the shop calls you</span>
         <input
-          className="h-12 w-full rounded-xl border border-ink/15 bg-white px-4 text-[16px] text-ink dark:bg-raised"
+          className="h-12 w-full rounded-xl bg-white px-4 text-[16px] text-ink dark:bg-raised"
           name="call_name"
           required
           maxLength={60}

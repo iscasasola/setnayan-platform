@@ -186,7 +186,7 @@ export function TodayRow({ href, label, line, pill, lineTone, marker, rowIcon, a
       <span className="min-w-0">
         <span className="home-t block truncate text-[15px] leading-tight text-ink">{label}</span>
         {line ? (
-          <span className="block truncate text-[13px] text-ink/60" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
+          <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]" style={lineTone ? { color: LINE_TONE[lineTone] } : undefined}>
             {line}
           </span>
         ) : null}
@@ -212,7 +212,7 @@ export function TodayNoteRow({ label, line, pill, rowIcon, marker }: {
       <RowIcon name={rowIcon} />
       <span className="min-w-0">
         <span className="home-t block text-[15px] leading-tight text-ink">{label}</span>
-        {line ? <span className="block text-[13px] text-ink/60">{line}</span> : null}
+        {line ? <span className="block text-[13px] text-[color:var(--m-slate-2)]">{line}</span> : null}
       </span>
       <span className="flex items-center gap-2">{pill}</span>
     </div>
@@ -265,9 +265,19 @@ export type SupplierTodayFirstScreenProps = {
   thumb?: ReactNode;
   /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
   minis?: ReactNode;
+  /**
+   * 📋 TODAY v2 (owner 18 Nov, `Today, one task` v2): the Needs-you rows drawn by `TodayV2Needs` — quick rows answered
+   * in place, bigger ones opening ONE focused screen. Given → it replaces the jumping rows below; the pinned heading
+   * and its count stay. 🔒 today-is-one-task.test.ts
+   */
+  needsRows?: ReactNode;
+  /** 🏅 v2's Next badge card — under the cover, above the five stats. */
+  nextBadge?: ReactNode;
+  /** 🌱 v2's Grow your business · Also for your badges and your page · What's trending — under Needs you today. */
+  grow?: ReactNode;
 };
 
-const PILL_TONE: Record<ShopPill, BadgeTone> = { Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
+const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
 
 /**
  * 📱 THE SUPPLIER'S TODAY — THE ONE BUILD (owner 8 Nov 2026, *"Approved suuplier dashboard"*; contract prototype
@@ -303,6 +313,9 @@ export function SupplierTodayFirstScreen({
   setup = null,
   thumb = null,
   minis = null,
+  needsRows = null,
+  nextBadge = null,
+  grow = null,
 }: SupplierTodayFirstScreenProps) {
   const nothing = needs.length === 0 && !hasBills;
   return (
@@ -314,6 +327,7 @@ export function SupplierTodayFirstScreen({
           draws nothing of its own. */}
       {setup ? null : (
         <div data-today-top-only="">
+          {nextBadge}
           {nextEvents}
           {stats}
         </div>
@@ -324,7 +338,7 @@ export function SupplierTodayFirstScreen({
         <div
           role="status"
           data-supplier-outcome={outcome.tone}
-          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink/80'}`}
+          className={`mb-1 flex items-center gap-3 py-2.5 text-[13.5px] leading-snug ${outcome.tone === 'bad' ? 'text-[rgb(var(--color-danger))]' : 'text-ink'}`}
         >
           <span className="min-w-0 flex-1">{outcome.text}</span>
           {outcome.door ? (
@@ -370,7 +384,8 @@ export function SupplierTodayFirstScreen({
           {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
         </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
-          {needs.map((n) => (
+          {needsRows}
+          {needsRows ? null : needs.map((n) => (
             <TodayRow
               key={n.key}
               href={nextHref(n.target)}
@@ -383,21 +398,23 @@ export function SupplierTodayFirstScreen({
               pill={n.pill ? <Badge tone={n.pill.tone} data="today-need">{n.pill.word}</Badge> : undefined}
             />
           ))}
-          {hasBills ? (
+          {hasBills && !needsRows ? (
             /* 💸 Every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the payment screen to
                pay us") — the shipped rows, kind "Payments" for Show. */
             <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
               {bills}
             </div>
           ) : null}
-          {nothing ? (
+          {nothing && !needsRows ? (
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
-        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-ink/60">
+        <p hidden data-today-needs-none="" className="py-4 text-center text-[13.5px] text-[color:var(--m-slate-2)]">
           Nothing waiting matches that search
         </p>
       </div>
+
+      {grow}
 
       {/* 🌑 ALSO TODAY — on an event day, the day's own rows (Schedule · the Event Hub's tools). */}
       {alsoToday.length > 0 ? (
@@ -482,7 +499,7 @@ export function SupplierTodayFirstScreen({
       </div>
       {/* ✅ SETNAYAN VERIFIED — only once Setnayan has checked the papers (the Shop pill says Live or Not yet); while
           they are being checked the Shop row already says so, and nothing here claims more. */}
-      {shop.pill === 'Checking' ? null : (
+      {shop.pill === 'Checking' || shop.pill === 'Not sent' ? null : (
         <div data-today-side-verified="" className="[&>a]:border-t-0">
           <TodayRow href={PERMIT_PAPERS_HREF} label="Setnayan Verified" line="Couples can book you" pill={<span className="text-[13px] font-medium text-sn-accent">See it</span>} marker="verified" rowIcon="check" />
         </div>

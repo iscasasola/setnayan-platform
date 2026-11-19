@@ -1,45 +1,30 @@
-import { TIER_CAPS, TIER_LABEL, isTierAtLeast } from './vendor-tier-caps';
+import { formatCount } from './format-number';
+import { DAILY_CAPACITY_MAX } from './vendor-tier-caps';
 
 /**
- * A SERVICE CARD'S BOOKINGS PER DATE, INSIDE ITS PLAN — owner 2026-11-06 (DECISION_LOG "BOOKINGS PER DATE PER SERVICE
- * IS A PLAN ALLOWANCE"), verbatim: *"Supplier Plus has 1 per date/service, pro has 3 per date/service, ultra has 5 per
- * date/service"*. Free and Verified: 1 each, like Supplier Plus (owner click 2026-11-06, "BOOKINGS PER DATE PER SERVICE — FREE
- * AND VERIFIED"), so every plan has a cap and every plan's editor shows it.
+ * A SERVICE CARD'S BOOKINGS PER DATE — THE SHOP'S OWN NUMBER, ON EVERY PLAN (owner 2026-11-18, DECISION_LOG "SUPPLIER
+ * PLANS REBUILT", ruling 17, verbatim: *"a cake business can handle 30 cakes in a day. So they need to purchase
+ * unlimited from us. I think that is wrong pricing."*). Bookings per date stopped being a plan allowance — it reverses
+ * the 2026-11-06 "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE" row and returns to 23 Oct "plans price reach,
+ * never income": every booking pays the booking fee.
  *
- * The card editor's number (`vendor_services.daily_capacity`, "How many events a day can this service take?") may be LOWER than the
- * plan's, never higher. The DATABASE is the gate that counts (`service_card_daily_limit`, read by every day check);
- * this is the editor's half, so a supplier is never shown a number their plan will not honour.
- *
- * Pure — the caller passes the EFFECTIVE cap (plan + any bought "+1 booking per date", lib/vendor-ultra-addons.ts · fetchCapsWithAddOns).
+ * The card editor's number (`vendor_services.daily_capacity`, "How many events a day can this service take?") is the
+ * shop's to set, up to {@link DAILY_CAPACITY_MAX} (500 since ruling 18: *"Yes, 500"*). The DATABASE honours that number
+ * (`service_card_daily_limit`, with no plan cap over it since migration `supplier_plans_rebuilt`). Pure.
  */
 
-/**
- * The words the editor shows beside the field: the cap, and — below the top plan — what the top plan takes. Since
- * 2026-11-14 ("SIMPLER SUPPLIER PLANS") the number is counted per SERVICE at each branch (every card of this service
- * at this branch shares it; venues: per room), and nothing is bought on top of it.
- */
-export function bookingsPerDateHelp(tier: string | null | undefined, effectiveCap: number): string {
-  const n = Math.max(0, Math.floor(effectiveCap));
-  const head = `Your plan: up to ${n} ${n === 1 ? 'booking' : 'bookings'} a day for this service at this branch.`;
-  if (isTierAtLeast(tier, 'enterprise')) return head;
-  return `${head} ${TIER_LABEL.enterprise} takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}.`;
+/** The words the editor shows beside the field. */
+export function bookingsPerDateHelp(): string {
+  return `You set how many bookings a day this service takes, up to ${formatCount(DAILY_CAPACITY_MAX)}. Every plan.`;
 }
 
 /**
- * Null when the number may be saved; otherwise the sentence the editor shows. Blank (null) always saves — a blank card
- * takes the plan's number. GRANDFATHERED: a card already holding a number above a lowered cap may be re-saved with
- * that SAME number (bookings it holds are never touched, and the database only ever honours the cap); only a NEW
- * number past the cap is refused.
+ * Null when the number may be saved; otherwise the sentence the editor shows. Blank (null) always saves. A card that
+ * already holds a number above the ceiling (set before it existed) may be re-saved with that SAME number.
  */
-export function bookingsPerDateRefusal(input: {
-  tier: string | null | undefined;
-  effectiveCap: number;
-  requested: number | null;
-  stored: number | null;
-}): string | null {
-  const { tier, effectiveCap, requested, stored } = input;
-  if (requested === null || !Number.isFinite(effectiveCap)) return null;
-  if (requested <= effectiveCap) return null;
+export function bookingsPerDateRefusal(input: { requested: number | null; stored: number | null }): string | null {
+  const { requested, stored } = input;
+  if (requested === null || requested <= DAILY_CAPACITY_MAX) return null;
   if (stored !== null && requested === stored) return null;
-  return bookingsPerDateHelp(tier, effectiveCap);
+  return `A service takes up to ${formatCount(DAILY_CAPACITY_MAX)} bookings a day.`;
 }

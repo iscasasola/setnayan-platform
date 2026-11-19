@@ -45,8 +45,10 @@ test('Trusted by is still the shop\'s own choice, keeps "couldn\'t load", and is
   assert.match(fn, /<TrustedByCarousel/);
 });
 
-test('each partner wears the app\'s own kind words, strongest first, and its round shop photo', () => {
-  assert.match(PAGE, /kindLabel: PARTNERSHIP_PUBLIC_LABEL\[v\.relationshipType\]/);
+test('each partner wears its tie\'s ⓘ tag (Worked together · Added · Invited), strongest first, and its round shop photo', () => {
+  // 🤝 Invite a supplier v3 (owner 16 Nov): the chip names where the tie came from, not the commercial kind.
+  assert.match(PAGE, /kindLabel: ORIGIN_TAG\[v\.origin\]/);
+  assert.match(PAGE, /kindHint: trustedByHint\(/);
   assert.match(TRUSTED, /PARTNERSHIP_RANK\[b\.relationshipType\] - PARTNERSHIP_RANK\[a\.relationshipType\]/, 'sorted by the one rank, strongest first');
   assert.match(TRUSTED, /logoRef: nameRevealed \?/, 'a still-hidden partner never shows its logo — it would name the shop');
   assert.match(PAGE, /logoUrl: v\.logoRef \? await resolveDisplayUrl\(v\.logoRef\) : null/);
@@ -89,9 +91,11 @@ test('the similar row draws Discover\'s SHIPPED card and grid words, with no bad
   assert.match(DATA, /if \(opts\.badgeStats === false\) return null;/);
 });
 
+// The door's words and address are unchanged; WHEN it shows is v16's rule (owner 15 Nov: only for the supplier's own
+// QR / link and a typed address — `shopColdDoorShows`, held by lib/the-shop-website-follows-v16.test.ts).
 test('"See more suppliers" is unchanged', () => {
   assert.match(read('lib/shop-back.ts'), /export const SHOP_BACK_COLD: ShopBackDoor = \{ href: '\/', label: 'See more suppliers', back: false \};/);
-  assert.match(PAGE, /\{!shopBack\.back \? \(\s*<Link href=\{shopBack\.href\} className="button-secondary" data-shop-back="cold">/);
+  assert.match(PAGE, /\{shopColdDoorShows\(shopArrival\) \? \(\s*<Link href=\{shopBack\.href\} className="button-secondary" data-shop-back="cold">/);
 });
 
 // ── The card's CSS copy cannot drift from Discover's ────────────────────────────────────────────────────────────

@@ -29,9 +29,12 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 
 const KEY = 'test-only-derived-key-not-a-secret';
 const CTX = { nowIso: '2026-11-16T02:00:00.000Z', todayManila: '2026-11-16', key: KEY };
+// W1-B34: a Recognised read names its issuing office and carries no "SAMPLE" (`lib/paper-recognised.ts`).
+const ISSUED_BY: Record<string, string> = { dti: 'Department of Trade and Industry', sec: 'Securities and Exchange Commission', bir: 'Bureau of Internal Revenue', lgu: 'Office of the City Mayor, Pasig City' };
 const m = (over: Partial<ModelPaperRead>): ModelPaperRead => ({
-  registry: 'bir', accountName: 'SAMPLE BLOOMS', ownerName: 'JUAN DELA CRUZ', registrationNumber: '210334871000',
-  rdo: null, address: '1 Sample St, Pasig', city: 'Pasig', barangay: null, expirationDate: null, readAs: null,
+  issuer: ISSUED_BY[over.registry ?? 'bir'] ?? null, markings: [],
+  registry: 'bir', accountName: 'LIWANAG BLOOMS', ownerName: 'JUAN DELA CRUZ', registrationNumber: '210334871000',
+  rdo: '043', address: '1 Kalayaan St, Pasig', city: 'Pasig', barangay: null, expirationDate: null, readAs: null,
   couldNotRead: [], tin: null, unsure: [], ...over,
 });
 const page = (r2Key: string, model: ModelPaperRead | null, extra: Partial<PageRead> = {}): PageRead => ({
@@ -112,7 +115,9 @@ test('4 · ruling 17 — past the tries a paper goes to a person; it is never re
 
   // The words say a person checks it — never "you've used your tries".
   assert.doesNotMatch(INTAKE_MESSAGE.triesUsed, /used your three tries/);
-  assert.match(INTAKE_MESSAGE.keptTyped, /a person at Setnayan is checking this paper/i);
+  assert.match(INTAKE_MESSAGE.keptTyped, /kept it for a person at Setnayan to check/i);
+  // W1-B35: before the papers are sent nothing says a person is checking it NOW.
+  assert.doesNotMatch(INTAKE_MESSAGE.keptTyped + INTAKE_MESSAGE.triesUsed, /is (already )?checking/i);
 });
 
 test('audit #7898 · a sent-back paper\'s "Needs a new copy · …" line is still announced (role="alert")', () => {

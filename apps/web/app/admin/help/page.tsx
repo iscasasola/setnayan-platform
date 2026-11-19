@@ -7,6 +7,8 @@ import { HelpMessenger, type HelpThread } from './_components/help-messenger';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { reportOriginWords } from '@/lib/supplier-report';
+import DemoInquiriesPage from '../demo-vendors/inquiries/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 
 export const metadata = { title: 'Messages · Admin' };
 
@@ -35,7 +37,7 @@ type HelpMessageRow = {
 
 type Props = { searchParams: Promise<{ status?: string; m?: string }> };
 
-export default async function AdminHelpPage({ searchParams }: Props) {
+async function AdminHelpPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const filter = (search.status ?? 'open') as 'open' | 'all' | 'new' | 'in_progress' | 'closed';
@@ -108,4 +110,21 @@ export default async function AdminHelpPage({ searchParams }: Props) {
       <HelpMessenger threads={threads} filter={filter} openId={openId} failed={Boolean(error)} nowMs={Date.now()} action={setHelpMessageStatus} />
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Work › Messages · From ▾ — help messages and demo-shop inquiries, one inbox.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'demo-inquiries': DemoInquiriesPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminHelpPage, sp);
 }

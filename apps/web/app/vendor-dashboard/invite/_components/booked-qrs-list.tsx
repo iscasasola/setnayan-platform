@@ -57,7 +57,7 @@ export function BookedQrsList({ rows }: { rows: readonly BookedQrRow[] }) {
         if (mine.length === 0) return null;
         return (
           <section key={g.status} data-booked-qrs-group={g.status}>
-            <h3 className="pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink/60">
+            <h3 className="pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-[color:var(--m-slate-2)]">
               {g.word} · {mine.length}
             </h3>
             {mine.map((r) => {

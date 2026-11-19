@@ -19,10 +19,10 @@ import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
+import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
-import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
-import { Wordmark } from '@/app/_components/brand-marks';
+import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store, CircleAlert } from 'lucide-react';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -75,7 +75,7 @@ import {
   TRUSTED_BY_UNREADABLE,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
-import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
+import { ORIGIN_TAG, trustedByHint, trustedByLine } from '@/lib/supplier-invite';
 import {
   ServicesGallery,
   type ServiceCard,
@@ -87,6 +87,7 @@ import { eventVendorCategoryForCardKind } from '@/lib/event-vendor-category';
 import type { CoarseCategorySource } from '@/lib/vendor-branch-category';
 import { resolveAddShopToEvent } from './_components/add-shop-to-event-data';
 import { InquireSheet, type InquireEvent, type InquireService } from './_components/inquire-sheet';
+import { viewerBookedChatHref } from '@/lib/shop-booking.server';
 import { inquireServiceList } from '@/lib/shop-inquire';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { ReportPageButton } from '@/app/_components/report-page-button';
@@ -117,7 +118,14 @@ import {
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { ShareButton } from './_components/share-button';
-import { arrivalParams, shopBackDoor, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { ShopTopBar } from './_components/shop-top-bar';
+import { awardFact, awardsRowItems } from '@/lib/shop-award-fact';
+import { publicBadgeView, sealsFromEngine, sealsGivenFromEngine, tiersFromCounts, unreadFamilies, type ShopTierCounts } from '@/lib/public-badges';
+import { readShopTierCounts } from '@/lib/badge-rewards.server';
+import { AwardRowButton } from './_components/award-row-button';
+import { readShopSeals } from '@/lib/shop-seals.server';
+import { arrivalParams, SETNAYAN_HOME_URL, shopBackDoor, shopColdDoorShows, shopTopBack, withShopArrival } from '@/lib/shop-back';
+import { actionButtonClass } from '@/components/action-button-class';
 import { BackButton } from '@/app/_components/back-button';
 import {
   SHOP_ARTICLE_WIDTH,
@@ -169,6 +177,9 @@ import type { CardRecordRating } from '@/app/_components/card-record-section';
 import { cardRecordEnabled } from '@/lib/card-record-flag';
 import { readShopWork } from '@/lib/card-portfolio-albums.server';
 import { startRead } from '@/lib/start-read';
+import { readThisMonthNotBookable } from '@/lib/check-a-date.server';
+import { sideCardPrice, sideCardVerifiedLine } from '@/lib/shop-side-card';
+import { ShopSideCard } from './_components/shop-side-card';
 import { cardAlbums, eventPhotosOf, toAlbumViews, type AlbumView } from '@/lib/card-portfolio-albums';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceRow } from './_components/photos-by-service';
@@ -246,9 +257,7 @@ import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { readCardBadges } from '@/lib/card-badges.server';
-import { readShopSeals } from '@/lib/shop-seals.server';
 import type { CardBadgesRead } from '@/lib/card-badges';
-import { AWARD_LABELS, fetchVendorCurrentAwards } from '@/lib/spotlight-awards';
 // The compatibility-badge labels — DERIVED, never re-typed here. See the note
 // at their former hand-typed definitions further down this file.
 import {
@@ -258,7 +267,11 @@ import {
 import { envFlagEnabled } from '@/lib/env-flag';
 import { formatCount } from '@/lib/format-number';
 import { ShopSectionBar, type ShopSectionTab } from './_components/shop-section-bar';
-import { ShopHero, SealCaption, shopMotion } from './_components/shop-hero';
+import { ShopHero, shopMotion } from './_components/shop-hero';
+import { ShopHeroGallery } from './_components/shop-hero-gallery';
+import { HERO_PHOTO_COUNT } from '@/lib/shop-hero-photos';
+import { quotePriceOf } from '@/lib/shop-quote';
+import { VerifiedAwardButton } from './_components/verified-award-button';
 import { ShopCanDoPanel } from './_components/shop-can-do-panel';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
 
@@ -402,6 +415,8 @@ export type PublicVendorRow = {
   find_locked_at?: string | null;
   fraud_suspended_at?: string | null;
   fraud_banned_at?: string | null;
+  /** ⏸ Shop status — a paused shop's page takes no new ask or booking (`isShopBookable`). */
+  paused_at?: string | null;
   fraud_tombstoned?: boolean | null;
 };
 
@@ -516,7 +531,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,paused_at,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -527,7 +542,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned|paused_at)/i.test(
       error.message,
     )
   ) {
@@ -572,7 +587,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
   if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
-    return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
+    return { title: 'Supplier', robots: { index: false, follow: false } };
   }
   // 🧪 A demo shop's page is PUBLIC now (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS") but it is NEVER
   // indexed: a search engine must not list a demo as a supplier (plan § 6(a) — "noindex stays"). The sitemap keeps
@@ -615,6 +630,10 @@ export async function vendorMetadataBySlug(slug: string) {
     is_verified: vendor.verification_state === 'verified',
   });
   const titleText = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Setnayan supplier${suffix}`;
+  // The DOCUMENT title goes through the root layout's `template: '%s · Setnayan'`, so it must not carry the brand
+  // itself ("NAME · Setnayan supplier · Setnayan" read it twice — W5-B5). The share cards (openGraph/twitter) do NOT
+  // go through the template, so they keep the full `titleText`.
+  const docTitle = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Supplier${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
   // resolve `vendor.logo_url` straight into a presigned R2 URL
@@ -636,7 +655,7 @@ export async function vendorMetadataBySlug(slug: string) {
     alt: displayLabel,
   };
   return {
-    title: titleText,
+    title: docTitle,
     description: descText,
     // Two rules, two lines — each is its own ruling and its own guard (demo: 2026-11-06; not yet verified: 2026-11-07).
     ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),
@@ -1051,6 +1070,11 @@ export async function renderVendorBySlug({
     boothTierCanBrand(effectiveTierState) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
+  // ⏸ Paused (by the shop or by Setnayan) or closed: the page says so FIRST, in the owner's own words (16 Nov, "its
+  // website and QR show "This shop is paused"") — never the verification line, which would be false for a verified
+  // shop. One source: SHOP_PAUSED_LINE (lib/shop-status.ts). A closed shop's page normally opens for nobody
+  // (`shopPageGate`); the arm is here so a future gate change cannot make it read as "finishing verification".
+  const shopPaused = isShopPaused(vendor) || visibility === 'archived';
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
   // `image` below both consume it. See resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
@@ -1155,7 +1179,25 @@ export async function renderVendorBySlug({
       ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
       : Promise.resolve(null),
   );
-  const awardsP = startRead(fetchVendorCurrentAwards(admin, vendor.vendor_profile_id).catch(() => []));
+  // 🗂 v16 S4: this month's Not-bookable days for the desktop side card — Check a date's own reads over one month
+  // (`readThisMonthNotBookable`). Verified and date-checkable only, as the door; a failure is `unreadable`, never green.
+  const thisMonthP =
+    dateCheckable && vendor.verification_state === 'verified'
+      ? startRead(readThisMonthNotBookable(vendor.vendor_profile_id).catch(() => ({ kind: 'unreadable' }) as const))
+      : null;
+  // 🏆 The seals the shop holds (the seals engine, #7825 — `readShopSeals`). null = the read failed: no seal is drawn.
+  const sealsP = startRead(
+    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
+  );
+  // 🪜 The tiered badges' counters (J0, #7753 — `readShopTierCounts`); each null when its read was refused, never 0.
+  const tierCountsP = startRead(
+    readShopTierCounts(admin, vendor.vendor_profile_id).catch(() => ({
+      completedBookings: null,
+      fiveStarReviews: null,
+      giftPoints: null,
+      trustedBy: null,
+    })),
+  );
   /* 🏅 THE CARD BADGES (badge build J3) — each service card's medals, Verified last. Verified is the SAME fact as the
      blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
   const cardBadgesP = startRead(
@@ -1227,20 +1269,43 @@ export async function renderVendorBySlug({
   const finalizedBookingCount = finalizedBookingRead.count;
   const bookingCountMeasured = finalizedBookingRead.measured;
   const expTier = experienceTier(finalizedBookingCount);
-  // 🏅 The pills (lib/shop-badges.ts). Verified has its own gate below (the route's strict `verification_state`), so it
-  // is left out here; the ★ pill keeps the Free-tier star gate it always had. Awards fail soft to none (the shipped
-  // `fetchVendorCurrentAwards` contract).
-  const spotlightAwards = await awardsP;
+  // 🏅 The ★ pill (lib/shop-badges.ts) keeps the Free-tier star gate it always had. Verified has its own gate below (the
+  // route's strict `verification_state`), so it is left out here.
   const pagePills = shopBadges({
     verified: false,
     completedEvents: bookingCountMeasured ? (finalizedBookingCount ?? 0) : null,
     trusted: trustedReviewStats,
     inBusinessSinceYear: null,
-    awards: [...new Set(spotlightAwards)].map((a) => AWARD_LABELS[a]),
+    awards: [],
     nowYear: new Date().getFullYear(),
   });
-  const performancePills = pagePills.filter((b) => b.kind === 'milestone' || b.kind === 'award');
   const ratingPill = pagePills.find((b) => b.kind === 'rating') ?? null;
+  // 🏅 THE AWARDS ROW READS THE ONE ADAPTER (`publicBadgeView`, lib/public-badges.ts — #7807 / #7810): Setnayan
+  // Verified from the route's gate, the seals from the seals engine (#7825), and Completed bookings on its own ladder
+  // (`shopBadgeTier`, lib/badge-tiers.ts) from the SAME measured count the experience chip states — never from an
+  // unread one. The retired monthly Spotlight awards are not badges any more (4b8cc3a3: the seals replace them).
+  const [shopSeals, tierCounts, thisMonth] = await Promise.all([sealsP, tierCountsP, thisMonthP]);
+  // An unverified shop's row is its "Not yet" slot alone (v16): the tiered badges and the seals are a verified shop's.
+  const countsForRow: ShopTierCounts = {
+    bookings: tierCounts.completedBookings,
+    five_star: tierCounts.fiveStarReviews,
+    gifts: tierCounts.giftPoints,
+    trusted_by: tierCounts.trustedBy,
+  };
+  const awardsView = publicBadgeView({
+    verified: vendor.verification_state === 'verified',
+    seals: sealsFromEngine(shopSeals?.seals),
+    tiers: tiersFromCounts(countsForRow),
+  });
+  const awardsRow = awardsRowItems(awardsView, sealsGivenFromEngine(shopSeals?.rows));
+  // 🔑 A FAILED READ IS NEVER "NO AWARDS": the row says it could not load them. This also keeps a Verified Partner from
+  // silently reading as plain Setnayan Verified when its seals could not be read.
+  const awardsUnread = shopSeals === null || unreadFamilies(countsForRow).length > 0;
+  // The full-screen Verified award's art: the row's own blue-check seal, larger (the top bar's check opens it too).
+  const verifiedFullArt = (
+    <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-full" size={168} label="Setnayan Verified" />
+  );
+  const showsVerifiedSeal = awardsView.seals.some((seal) => seal.key === 'verified');
 
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
   // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
@@ -1499,21 +1564,6 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
-  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
-  const trustedByTiles: TrustedByTile[] = showTrustedBy
-    ? await Promise.all(
-        trustedBy.map(async (v) => ({
-          id: v.vendorProfileId,
-          name: v.displayName,
-          href: v.href,
-          kindLabel: PARTNERSHIP_PUBLIC_LABEL[v.relationshipType],
-          kindHint: PARTNERSHIP_PUBLIC_HINT[v.relationshipType],
-          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
-          initials: shopInitials(v.displayName, 2, 'SN'),
-        })),
-      )
-    : [];
   // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
   // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
   const distinctServiceKeys = distinctShopServices(
@@ -1694,6 +1744,15 @@ export async function renderVendorBySlug({
   const cinematicHero = vendor.verification_state === 'verified';
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
+  // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
+  // become the swipeable slides; a full five also make the desktop mosaic (`ShopHeroGallery`). One photo keeps the
+  // single hero exactly as before.
+  const heroGalleryPhotos = showPortfolio
+    ? (() => {
+        const lead = heroPhotoUrl ? portfolioPhotos.find((p) => p.key === microsite.heroPhotoKey) : undefined;
+        return lead ? [lead, ...portfolioPhotos.filter((p) => p !== lead)] : [...portfolioPhotos];
+      })()
+    : [];
   // Featured videos — ONE unified, all-tier video set (owner 2026-07-05: single
   // video system). The retired Enterprise-only "Films" rack (microsite_video_ids)
   // was folded into gallery_video_links (data migration
@@ -1738,6 +1797,22 @@ export async function renderVendorBySlug({
     isPaidTier: isTrueNameTier(effectiveTierState),
     is_verified: vendor.verification_state === 'verified',
   });
+  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
+  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  const trustedByTiles: TrustedByTile[] = showTrustedBy
+    ? await Promise.all(
+        trustedBy.map(async (v) => ({
+          id: v.vendorProfileId,
+          name: v.displayName,
+          href: v.href,
+          // 🤝 The ⓘ tag is where the tie came from (Invite a supplier v3, owner 16 Nov): Worked together · Added · Invited.
+          kindLabel: ORIGIN_TAG[v.origin],
+          kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
+          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          initials: shopInitials(v.displayName, 2, 'SN'),
+        })),
+      )
+    : [];
 
   // The shop's OTHER locations, as a customer may see them (owner-ruled
   // 2026-08-28: yes, customers should see a supplier's branches — and a branch
@@ -1868,6 +1943,9 @@ export async function renderVendorBySlug({
   /* ‹ THE TOP-LEFT BACK (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): where the arrival
      came from, returned to in place; cold, Discover signed out and Home signed in (lib/shop-back.ts `shopTopBack`). */
   const shopTop = shopTopBack(shopArrival, viewerSignedIn);
+  // 💬 CHAT-08: a couple already BOOKED with this shop has nothing to inquire about — their button opens the chat they
+  // already have (the door their Messages list opens). Null for everyone else, and the shipped Inquire stays.
+  const bookedChatHref = canMessage && viewerSignedIn && !viewerOwnsShop ? await viewerBookedChatHref(supabase, vendor.vendor_profile_id) : null;
   const inquireEventState = canMessage && viewerSignedIn ? await resolveAddShopToEvent(slug) : null;
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
@@ -2407,26 +2485,62 @@ export async function renderVendorBySlug({
   // stamps down, the circles pop — prototype motion 3), in the calm header for an unverified one. Same circles, same
   // gates, same `title`s as before — only where it sits changed (owner-approved 13 Nov 2026).
   const shopBadgesRow = (
-      <div data-shop-hero-badges="" className="flex flex-wrap items-center gap-2">
-      {vendor.verification_state === 'verified' ? (
-        <>
-          {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3). */}
-          <HeroBadge
-            badge={verifiedBadge()}
-            title="Setnayan reviewed this shop’s business documents before it went public."
-            drawn
-          />
-          <SealCaption />
-        </>
-      ) : null}
-      {/* 🏅 THE PERFORMANCE BADGES (circles since 12 Nov; pills from 2026-10-28) — the milestone medal from the SAME
-          public completed-events count the experience chip states (`finalizedBookingCount`, measured only),
-          in its step's material, and this month's Spotlight Awards. `lib/shop-badges.ts` decides; nothing is stored, so a voided
-          booking un-earns the medal on the next render. The QR on a supplier's card/tarp lands here, so a
+      <div data-shop-hero-badges="" className="grid gap-3">
+      {/* 🏅 AWARDS (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE AWARDS ROW: THE BADGE + ONE PLAIN FACT"): the row's
+          heading is just "Awards" — never instruction wording ("tap one", "Earned on Setnayan") — and each award is
+          its badge + ONE plain fact (`awardFact`, lib/shop-award-fact.ts). The tier name and the award date belong to
+          the full-screen view, never to this row. */}
+      {vendor.verification_state === 'verified' || awardsRow.length > 0 || awardsUnread ? (
+        <div data-shop-awards="" className="grid gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            {vendor.verification_state === 'verified' ? (
+              /* The strict gate stays first (identity-chips guard); a Verified Partner shows its own seal instead. */
+              showsVerifiedSeal ? (
+              <li id="shop-verified-award">
+                {/* ✍ `drawn`: its ring and ✓ are strokes the verified look's CSS draws after the stamp (motion 3).
+                    v16 `data-vr`: the item is a button that opens the full-screen Verified award (#7752), and its fact
+                    is the plain "Setnayan Verified" like every other award in the row. */}
+                <VerifiedAwardButton art={verifiedFullArt} shopName={displayLabel} className="flex min-h-11 items-center gap-2 text-left">
+                  <HeroBadge
+                    badge={verifiedBadge()}
+                    title="Setnayan reviewed this shop’s business documents before it went public."
+                    drawn
+                  />
+                  <span className="text-sm leading-snug">{awardFact(verifiedBadge())}</span>
+                </VerifiedAwardButton>
+              </li>
+              ) : null
+            ) : null}
+      {/* 🏅 THE SEALS, THEN THE TIERED BADGES (v16 order) — from the one adapter (`awardsRowItems`): the seals the
+          shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
+          is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-      {performancePills.map((b) => (
-        <HeroBadge key={b.key} badge={b} title={b.label} />
-      ))}
+            {vendor.verification_state !== 'verified' ? (
+              /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
+                 (`ImageBadge` `on={false}`, the shipped not-yet face). */
+              <li className="flex min-h-11 items-center gap-2" data-shop-not-verified-slot="">
+                <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-not-yet" size={48} on={false} label="Setnayan Verified — not yet" />
+                <span className="grid text-sm leading-snug">
+                  <b className="font-semibold">{awardFact(verifiedBadge())}</b>
+                  <small className="text-xs opacity-75">Not yet — papers not checked</small>
+                </span>
+              </li>
+            ) : null}
+            {awardsRow.map((item) => (
+              <li key={item.key}>
+                <AwardRowButton item={item} shopName={displayLabel} />
+              </li>
+            ))}
+            {awardsUnread ? (
+              <li className="text-sm leading-snug opacity-75" role="status" data-shop-awards-unread="">
+                Couldn’t load every award — open this page again in a moment.
+              </li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
       {/* Experience tier badge (Vendor_Quality_Rating_System §5) — a
           subtle violet chip stating how many finalized bookings flowed
           through Setnayan. The profile keeps the honest "New to Setnayan"
@@ -2483,11 +2597,13 @@ export async function renderVendorBySlug({
         </p>
       ) : null}
       </div>
+      </div>
   );
 
   return (
     <main
       id="shop-top"
+      style={{ ['--shop-bar-h' as string]: '3.5rem' }}
       className={`min-h-dvh bg-page ${canMessage ? 'pb-24 md:pb-0' : ''} ${cinematicHero ? shopMotion.verified : ''}`}
     >
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
@@ -2499,35 +2615,51 @@ export async function renderVendorBySlug({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <header className="border-b border-ink/5">
-        <div className={`mx-auto flex w-full ${SHOP_ARTICLE_WIDTH} items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8`}>
-          {/* v2.1 visual treatment per CLAUDE-CODE-BRIEF-v2.1 § 8 design
-              system. Wordmark from @/app/_components/brand-marks is the
-              canonical brand mark across /, /vendors, /login, /signup,
-              /vendors, and all dashboard chromes after V2 cutover Phase B
-              (PRs #560-#564 + #572-#580). Matches the marketplace overlay
-              pattern from PR #580. */}
-          <div className="flex items-center gap-3">
-            {/* ‹ ONE WAY BACK, AT THE TOP LEFT, FOR EVERYONE (2026-11-12, DECISION_LOG "DISCOVER WITH SUPPLIERS —
-                PROTOTYPE APPROVED"; owner: "when we enter a shop, event or anything, we should be able to go back to
-                home"). The shipped BackButton, returning in place; the page itself is not redrawn. */}
-            <BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />
-            <Link href="/" className="flex items-center text-ink">
-              <Wordmark size={22} />
-            </Link>
-          </div>
-          {/* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). It sent a person who came to ask THIS
-              shop to /signup, away from the shop. Inquire is the one ask; signed out, it opens the sign-in sheet first. */}
-          {user ? (
+      {/* 🧭 THE TOP BAR (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE TOP BAR, ONCE SCROLLED"): sticky; ‹ back named for
+          where the visitor came from (`shopTopBack`) + SETNAYAN, an absolute link to www.setnayan.com; once the shop's
+          name scrolls under it, the shop's own logo + name (back to the top) and, verified, the blue check. Share + the
+          heart (Add to event) join it only after the page's own buttons have scrolled away. */}
+      <ShopTopBar
+        widthClass={SHOP_ARTICLE_WIDTH}
+        back={<BackButton href={shopTop.href} label={shopTop.label} className="mb-0" inPlace />}
+        backCompact={<BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />}
+        shopName={displayLabel}
+        logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
+        verified={vendor.verification_state === 'verified'}
+        verifiedArt={verifiedFullArt}
+        acts={
+          canMessage ? (
+            <>
+              <ShareButton title={displayLabel} iconOnly className={actionButtonClass('neutral', { iconOnly: true, quiet: true, extra: '!w-11' })} />
+              <SaveVendorButton
+                vendorProfileId={vendor.vendor_profile_id}
+                initiallySaved={false}
+                variant="profile"
+                label="Add to your event"
+                icon="heart"
+                iconOnly
+                className={actionButtonClass('neutral', { iconOnly: true, quiet: true, extra: '!w-11' })}
+                events={
+                  inquireEventState?.signedIn && inquireEventState.options.length >= 2
+                    ? inquireEventState.options.map(({ eventId, title, kindWord, dateISO }) => ({ eventId, title, kindWord, dateISO }))
+                    : []
+                }
+              />
+            </>
+          ) : null
+        }
+        end={
+          /* 🚫 "PLAN WITH SETNAYAN" IS RETIRED ON SHOP PAGES (owner 2026-11-07). Inquire is the one ask. */
+          user ? (
             <Link
               href="/dashboard"
               className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:inline"
             >
               Return to Dashboard
             </Link>
-          ) : null}
-        </div>
-      </header>
+          ) : null
+        }
+      />
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
       {/* 🌄 THE VERIFIED SHOP'S HERO — full-bleed, the name on the photo, the seal and badge circles on it; no buttons on
           the photo (the calling card below carries Inquire). Every verified plan alike (owner-approved 13 Nov 2026). */}
@@ -2539,6 +2671,18 @@ export async function renderVendorBySlug({
           photoUrl={heroImage ?? VENDOR_PLACEHOLDER_PHOTO}
           photoIsMarked={heroImage !== null}
           badges={shopBadgesRow}
+          gallery={
+            heroGalleryPhotos.length >= 2 ? (
+              <ShopHeroGallery
+                photos={heroGalleryPhotos}
+                shopName={displayLabel}
+                vendorProfileId={vendor.vendor_profile_id}
+                count={!isDemoVendor && teamPreview === null}
+                bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
+              />
+            ) : undefined
+          }
+          bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
         />
       ) : null}
 
@@ -2563,6 +2707,11 @@ export async function renderVendorBySlug({
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app —
             since 13 Nov a soft card at the top of the calm column (prototype `.notice`), its ⓘ carrying the words. */}
+        {shopPaused ? (
+          <div className={SHOP_CALM_COLUMN_CLASS}>
+            <ShopPausedNotice />
+          </div>
+        ) : null}
         {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
           <div className={SHOP_CALM_COLUMN_CLASS}>
             <NotYetVerifiedNotice />
@@ -2787,19 +2936,39 @@ export async function renderVendorBySlug({
                 Enterprise shop with no way to share it at all. */}
             {/* 📅 No "Their real calendar" strip: the website's own day strip is gone (DECISION_LOG 2026-11-15 "THE OWNER
                 APPROVES THE SUPPLIER WEBSITE DESIGN…" — its calendar is the Check a date v7 seat plan). Check a date
-                stays the action row's door. */}
+                stays the action row's door on a phone; on a computer it is the side card's month (v16 S4). */}
+            {/* 🗂 v16 S4 — THE SIDE CARD'S BOOKING HALF (prototype `<aside><div class="bk">`): from ₱ + offer · the
+                Verified line · this month's Check a date · the quote, above the card's own Inquire · Add · Share row.
+                A computer only (`md:block`); verified only — the unverified side card (`nvbk`) is S6. */}
+            {cinematicHero ? (
+              <ShopSideCard
+                price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
+                verifiedLine={sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats)}
+                month={thisMonth}
+                datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
+              />
+            ) : null}
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
+                data-shop-quick=""
               >
                 {/* ✅ THE ONE INQUIRE (owner 2026-11-13: "Yes, one main button" · "Yes, only one"): filled, in the card, on
                     every look — and the ONLY Inquire on the page (no tab, no foot section, no hero button). It opens the
                     pop-up. On a phone the card scrolls away, so this same button floats at the bottom-right to stay in
                     reach (one element, never a second copy); on a tablet+ the card itself is pinned beside the page. */}
-                <a href="#get-in-touch" className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="">
-                  <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-                  Inquire
-                </a>
+                {bookedChatHref === null ? (
+                  <a href="#get-in-touch" className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Inquire
+                  </a>
+                ) : (
+                  /* 💬 Booked (CHAT-08): the same button, in the same place, opens the conversation they already have. */
+                  <Link href={bookedChatHref} className={SHOP_MAIN_INQUIRE_CLASS} data-shop-main-inquire="" data-booked-chat="">
+                    <Send className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                    Message
+                  </Link>
+                )}
                 {/* ➕ ADD TO YOUR EVENT — beside it, quieter: puts the shop on the couple's event list, no message. The
                     shipped Save action (`saveVendorToPicks`), which asks which event when there are two or more ahead. */}
                 <SaveVendorButton
@@ -2807,6 +2976,7 @@ export async function renderVendorBySlug({
                   initiallySaved={false}
                   variant="profile"
                   label="Add to your event"
+                  icon="heart"
                   className="button-secondary inline-flex items-center gap-2"
                   events={
                     inquireEventState?.signedIn && inquireEventState.options.length >= 2
@@ -2823,7 +2993,7 @@ export async function renderVendorBySlug({
                 {dateCheckable ? (
                   <CheckADateLink
                     href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
-                    className="button-secondary inline-flex items-center gap-2"
+                    className={`button-secondary inline-flex items-center gap-2${cinematicHero ? ' md:hidden' : ''}`}
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
@@ -3110,6 +3280,7 @@ export async function renderVendorBySlug({
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             inquireMode={canMessage ? 'anchor' : 'none'}
             cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
+            quoteInSideCard={cinematicHero}
           />
         ) : null}
 
@@ -3157,6 +3328,7 @@ export async function renderVendorBySlug({
                the Lock button off it — the same quiet "Not yet bookable" line, never a Lock that the
                `event_vendors_require_verified_before_lock` trigger would refuse a step later. */
             isComingSoon={isComingSoon || !bookable}
+            paused={shopPaused}
             bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
@@ -3525,7 +3697,9 @@ export async function renderVendorBySlug({
                 2026-11-12 ("DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED": "The low button stays for cold arrivals"):
                 with an arrival the top-left ‹ IS the way back, so this foot door is drawn only cold — never two
                 "Back"s on one page. */}
-            {!shopBack.back ? (
+            {/* 🚪 Owner 15 Nov 2026: only a visitor from OUTSIDE — the supplier's own QR / link (`?src=own`) or a typed
+                address — gets this door (`shopColdDoorShows`). */}
+            {shopColdDoorShows(shopArrival) ? (
               <Link href={shopBack.href} className="button-secondary" data-shop-back="cold">
                 {shopBack.label}
               </Link>
@@ -3539,14 +3713,26 @@ export async function renderVendorBySlug({
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 pt-6 text-xs text-ink/50">
           {/* Setnayan brand mark — visible on every vendor site, every tier
               (owner 2026-07-03), incl. Enterprise custom domains. */}
-          <p>
-            Powered by{' '}
-            <span className="font-semibold tracking-wide text-ink/70">SETNAYAN</span>{' '}
-            <span className="italic">· Set na &lsquo;yan</span>
-          </p>
-          <p>
-            Supplier ID · <span className="font-mono">{vendor.public_id}</span>
-          </p>
+          <div className="grid gap-1">
+            <p>
+              Powered by{' '}
+              {/* 🌐 An ABSOLUTE address (owner 15 Nov 2026): on a shop's own domain a "/" would stay on the shop. */}
+              <a href={SETNAYAN_HOME_URL} className="font-semibold tracking-wide text-ink/70 hover:text-ink">
+                SETNAYAN
+              </a>{' '}
+              <span className="italic">· Set na &lsquo;yan</span>
+            </p>
+            <p>
+              Supplier ID · <span className="font-mono">{vendor.public_id}</span>
+            </p>
+            {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
+            {vendor.verification_state !== 'verified' ? (
+              <p className="inline-flex items-center gap-1 font-semibold text-warn-800" data-shop-footer-not-verified="">
+                <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
+                Not yet verified
+              </p>
+            ) : null}
+          </div>
           {/*
             🔴 A COUPLE HAD NO WAY TO REPORT A SHOP — CTRL-B3 build 9, 2026-09-22.
             `PublicPageActions` carries Share + Report on the celebration page
@@ -3572,12 +3758,14 @@ export async function renderVendorBySlug({
             light and dark (live walk 2026-11-01, /setnaprod and /v/setnaprod).
             Held by `no-block-inside-a-paragraph.test.ts`.
           */}
+          {/* ⚑ ITS OWN BUTTON (owner 15 Nov 2026, "fix this also · report this shop"): outlined, 44 px, after the two
+              lines — no longer an underlined link wedged between them. */}
           <div className="pt-1">
             <ReportPageButton
               targetType="vendor"
               targetId={vendor.vendor_profile_id}
               label="Report this shop"
-              className="inline-flex min-h-[44px] items-center text-ink/45 hover:text-ink/70"
+              triggerClassName={actionButtonClass('neutral', { extra: 'min-h-11' })}
             />
           </div>
         </footer>
@@ -3602,6 +3790,16 @@ export async function renderVendorBySlug({
 export default async function PublicVendorPage({ params, searchParams }: Props) {
   const { slug } = await params;
   return renderVendorBySlug({ slug, searchParams });
+}
+
+/** ⏸ The paused shop's line — plain, at the top of the calm column, the owner's words from lib/shop-status.ts. */
+function ShopPausedNotice() {
+  return (
+    <div data-shop-paused role="status" className="mb-6 py-2">
+      <p className="text-base font-medium text-ink">{SHOP_PAUSED_LINE}</p>
+      <p className="mt-1 text-sm text-ink/70">{SHOP_PAUSED_DETAIL}</p>
+    </div>
+  );
 }
 
 function ComingSoonBanner({ vendorName }: { vendorName: string }) {
@@ -3688,7 +3886,30 @@ function Logo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; 
   );
 }
 
+/** The shop's own small round logo for the top bar (initials when it has none). */
+function TopBarLogo({ logoUrl, name, frame }: { logoUrl: string | null; name: string; frame?: LogoFrame }) {
+  if (logoUrl) {
+    return (
+      <span className="inline-flex h-7 w-7 shrink-0 overflow-hidden rounded-full border border-ink/10 bg-cream">
+        <Image src={logoUrl} alt="" width={28} height={28} className="h-full w-full object-cover" style={logoFrameStyle(frame)} />
+      </span>
+    );
+  }
+  const initials = name
+    .split(/\s+/)
+    .map((p) => p.charAt(0).toUpperCase())
+    .slice(0, 2)
+    .join('');
+  return (
+    <span aria-hidden className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta/15 text-[11px] font-semibold text-terracotta-700">
+      {initials || '?'}
+    </span>
+  );
+}
+
 type ServicesPricingProps = {
+  /** 🗂 v16 S4: the verified page shows the quote in the desktop side card, so its tray is for phones. */
+  quoteInSideCard?: boolean;
   /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
@@ -3900,9 +4121,26 @@ function buildServiceGroups({
   return groups;
 }
 
+/** v16 S3's Services line, where the quote is offered (prototype `#services .sub`). */
+const QUOTE_HINT = 'Add the ones you want to one quote — final quotes happen in chat.';
+
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
   const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor, cardBadges, badgesNow } = props;
+  // 🧾 v16 S3: the quote rides on the page's ONE Inquire, so it is offered only where that pop-up is (`'anchor'`).
+  const quote =
+    inquireMode === 'anchor'
+      ? {
+          cards: groups.flatMap((g) =>
+            g.cards.map((c) => {
+              const row = props.services.find((r) => r.vendor_service_id === c.id);
+              return { id: c.id, label: c.label, fromPhp: row ? quotePriceOf(row, props.hidePrices) : null };
+            }),
+          ),
+          // 🗂 v16 S4: on the verified page a computer shows the quote in the side card, so the tray is for phones.
+          inSideCard: props.quoteInSideCard === true,
+        }
+      : null;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -3910,7 +4148,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
           Services &amp; pricing
         </h2>
         <p className="text-sm text-ink/65">
-          Starting prices set by {businessName}. Final quotes happen in chat.
+          Starting prices set by {businessName}. {quote ? QUOTE_HINT : 'Final quotes happen in chat.'}
         </p>
       </header>
       <ServicesGallery
@@ -3922,6 +4160,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         shopName={businessName}
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
+        quote={quote}
         cardBadges={cardBadges}
         badgesNow={badgesNow}
       />
@@ -3991,9 +4230,7 @@ function TrustedBySection({
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Trusted by
         </h2>
-        <p className="text-sm text-ink/65">
-          Fellow suppliers who endorsed {businessName} — each one confirmed it.
-        </p>
+        <p className="text-sm text-ink/65">{trustedByLine(businessName)}</p>
       </header>
       <TrustedByCarousel tiles={vendors} label={`Suppliers who trust ${businessName}`} />
     </section>
@@ -4572,6 +4809,7 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  paused,
   bookingsOpen,
   hidePrices,
   paxCount,
@@ -4583,6 +4821,8 @@ function VendorPackagesSection({
   shopName: string | null;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** ⏸ Paused or closed — the package says so, ahead of every other line (never "finishing verification"). */
+  paused: boolean;
   /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
   bookingsOpen: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
@@ -4611,7 +4851,9 @@ function VendorPackagesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         {packages.map((pkg) => {
           let cta: React.ReactNode = null;
-          if (!bookingsOpen) {
+          if (paused) {
+            cta = <p className="text-xs text-ink/55">{SHOP_PAUSED_LINE}</p>;
+          } else if (!bookingsOpen) {
             cta = <p className="text-xs text-ink/55">{BOOKINGS_OPEN_SOON}</p>;
           } else if (isComingSoon) {
             cta = (

@@ -83,25 +83,22 @@ export const SP_PORTFOLIO: readonly SpImageKey[] = ['sp-hero', 'sp-debut', 'sp-c
 
 /**
  * Which cards are LIVE at a plan — the plan's own allowances, read from `TIER_CAPS`, never typed: a card is live only
- * while its parent category fits `parentCategories` and its leaf fits `servicesPerLeaf`. Free additionally shows ONE
+ * while its parent category fits `parentCategories` and the shop's cards fit `serviceCardsTotal` (in total, 2026-11-18). Free additionally shows ONE
  * live card (the owner brief: "Free: … 1 live service") — a new shop starts with one card; this is the fixture's
  * choice for the Free picture, not a plan rule, and says so.
  */
 export function liveServiceTitles(
   plan: SpPlan,
-  caps: { parentCategories: number; servicesPerLeaf: number },
+  caps: { parentCategories: number; serviceCardsTotal: number },
 ): string[] {
   const parents: string[] = [];
-  const perLeaf = new Map<string, number>();
   const live: string[] = [];
   for (const s of SP_SERVICES) {
     if (!parents.includes(s.folder)) {
       if (parents.length >= caps.parentCategories) continue;
       parents.push(s.folder);
     }
-    const n = perLeaf.get(s.category) ?? 0;
-    if (n >= caps.servicesPerLeaf) continue;
-    perLeaf.set(s.category, n + 1);
+    if (live.length >= caps.serviceCardsTotal) continue;
     live.push(s.title);
   }
   return plan === 'free' ? live.slice(0, 1) : live;

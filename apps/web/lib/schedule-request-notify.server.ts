@@ -44,6 +44,62 @@ export async function notifyScheduleRequest(input: {
    */
   where?: { names: string; suggestionId: string };
 }): Promise<void> {
+  const recipients = await scheduleHosts(input.eventId);
+  const title = input.where
+    ? `${input.supplierName} ${input.applied ? 'is now on' : 'asks to work'} ${input.where.names}`.slice(0, 160)
+    : scheduleRequestTitle({
+    supplierName: input.supplierName,
+    kind: input.kind,
+    itemLabel: input.itemLabel,
+    proposesChange: input.proposesChange,
+    applied: input.applied === true,
+  });
+  for (const userId of recipients) {
+    if (input.where) {
+      // 📍 A supplier's Where pick: in the app only, opening the Requests sheet (OK / Decline / Change).
+      await emitNotification({
+        userId,
+        type: 'supplier_where_asked',
+        title,
+        body: input.applied ? 'Auto-agree put them on those chapters.' : 'OK it, or change their chapters yourself.',
+        // The request rides the link, so the notice's own OK answers exactly it (`whereNoticeTarget`).
+        relatedUrl: whereNoticeUrl(input.eventId, input.where.suggestionId),
+      });
+      continue;
+    }
+    await emitNotification({
+      userId,
+      type: 'schedule_change_requested',
+      title,
+      body: input.note.trim().slice(0, 200),
+      relatedUrl: `/dashboard/${input.eventId}/schedule`,
+    });
+  }
+}
+
+/**
+ * 🕕 THE HOSTS HEAR A SUPPLIER'S OWN TIMES (owner, DECISION_LOG 16 Nov "SCHEDULE MODEL", rule 3): when a supplier sets
+ * or changes their crew call / arrive / done, or presses Confirm my times, the same people who answer their requests
+ * are told — IN THE APP ONLY. `schedule_suggestion` is on neither email list (`EMAIL_ENABLED_TYPES`,
+ * `MARKETING_GATED_EMAIL_TYPES`), so this sends no email. Best-effort: the save is already written.
+ */
+export async function notifySupplierTimes(input: { eventId: string; title: string; body: string }): Promise<void> {
+  const recipients = await scheduleHosts(input.eventId);
+  for (const userId of recipients) {
+    await emitNotification({
+      userId,
+      type: 'schedule_suggestion',
+      eventId: input.eventId,
+      title: input.title,
+      body: input.body,
+      relatedUrl: `/dashboard/${input.eventId}/vendors`,
+    });
+  }
+}
+
+/** Who answers a supplier's part of the day: the couple + delegates with The Day = Edit, inside their window. */
+async function scheduleHosts(eventId: string): Promise<string[]> {
+  const input = { eventId };
   const admin = createAdminClient();
   const [membersRes, seatsRes, eventRes, suppliers] = await Promise.all([
     admin.from('event_members').select('user_id').eq('event_id', input.eventId).eq('member_type', 'couple'),
@@ -85,34 +141,5 @@ export async function notifyScheduleRequest(input: {
     suppliers,
   });
 
-  const title = input.where
-    ? `${input.supplierName} ${input.applied ? 'is now on' : 'asks to work'} ${input.where.names}`.slice(0, 160)
-    : scheduleRequestTitle({
-    supplierName: input.supplierName,
-    kind: input.kind,
-    itemLabel: input.itemLabel,
-    proposesChange: input.proposesChange,
-    applied: input.applied === true,
-  });
-  for (const userId of recipients) {
-    if (input.where) {
-      // 📍 A supplier's Where pick: in the app only, opening the Requests sheet (OK / Decline / Change).
-      await emitNotification({
-        userId,
-        type: 'supplier_where_asked',
-        title,
-        body: input.applied ? 'Auto-agree put them on those chapters.' : 'OK it, or change their chapters yourself.',
-        // The request rides the link, so the notice's own OK answers exactly it (`whereNoticeTarget`).
-        relatedUrl: whereNoticeUrl(input.eventId, input.where.suggestionId),
-      });
-      continue;
-    }
-    await emitNotification({
-      userId,
-      type: 'schedule_change_requested',
-      title,
-      body: input.note.trim().slice(0, 200),
-      relatedUrl: `/dashboard/${input.eventId}/schedule`,
-    });
-  }
+  return [...recipients];
 }

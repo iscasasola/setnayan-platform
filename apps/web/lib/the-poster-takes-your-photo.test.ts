@@ -40,7 +40,10 @@ test('the poster draws it full-bleed under a paper veil; the route saves only th
   assert.match(layout, /const placed = data\.hasPosterBg \? posterGround\(front\.ops, look, w, h, bleed\) : still\(/);
   assert.match(layout, /ref: 'posterBg', x: -b, y: -b, w: w \+ 2 \* b, h: h \+ 2 \* b/);
   const set = read('lib/print-set.server.ts');
-  assert.match(set, /const posterBg = stored\.posterPhoto \? await posterPhotoBytes\(stored\.posterPhoto\.ref, opts\.mode\) : null;/);
+  // ⚡ Started beside the other reads (speed pass 2026-11-18) — from the same stored value, awaited where it always was.
+  assert.match(set, /const posterRef = parsePrintDetails\(event\.print_details\)\.posterPhoto\?\.ref \?\? null;/);
+  assert.match(set, /const posterRead = posterRef \? startAhead\(posterPhotoBytes\(posterRef, opts\.mode\)\) : null;/);
+  assert.match(set, /const posterBg = stored\.posterPhoto && posterRead \? await posterRead : null;/);
   const route = read('app/api/hub-print/[piece]/route.ts');
   const post = route.slice(route.indexOf("if (piece === 'poster-photo') {"));
   assert.match(post, /if \(!posterPhotoRefAllowed\(ref, eventId\)\) return NextResponse\.json\(\{ ok: false \}, \{ status: 400 \}\)/);

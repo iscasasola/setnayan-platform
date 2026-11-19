@@ -32,7 +32,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode }
 import { shellBarShows } from '@/app/dashboard/[eventId]/guests/_components/use-shell-bar-offset';
 import { COLLAPSE_PINNED_AT, COLLAPSE_ROW_H, collapseProgress, stackBefore } from './collapse-progress';
 
-type Entry = { el: HTMLElement; row: number };
+type Entry = { el: HTMLElement; row: number; atRest: boolean };
 
 /** One stack: its blocks, its ONE scroll listener, its one frame. */
 class CollapseStack {
@@ -45,8 +45,8 @@ class CollapseStack {
   private lastH = new WeakMap<HTMLElement, number>();
   private reduce: MediaQueryList | null = null;
 
-  add(el: HTMLElement, row: number): () => void {
-    this.entries.push({ el, row });
+  add(el: HTMLElement, row: number, atRest = false): () => void {
+    this.entries.push({ el, row, atRest });
     // DOM order decides who stacks under whom, not mount order.
     this.entries.sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
     if (this.entries.length === 1) this.start();
@@ -98,8 +98,11 @@ class CollapseStack {
       const pinned = q > COLLAPSE_PINNED_AT;
       if (e.el.hasAttribute('data-pinned') !== pinned) {
         e.el.toggleAttribute('data-pinned', pinned);
-        const row = e.el.querySelector<HTMLElement>(':scope > [data-ct-row]');
-        row?.toggleAttribute('inert', !pinned);
+        // A row drawn at rest (`rowAtRest`) is live the whole time — it is never made inert.
+        if (!e.atRest) {
+          const row = e.el.querySelector<HTMLElement>(':scope > [data-ct-row]');
+          row?.toggleAttribute('inert', !pinned);
+        }
       }
     });
   };
@@ -143,6 +146,7 @@ export function CollapsingTop({
   children,
   className = '',
   data,
+  rowAtRest = false,
 }: {
   /** The pinned row drawn once the top has locked — usually the shared `PinnedRow`. */
   row: ReactNode;
@@ -153,6 +157,12 @@ export function CollapsingTop({
   className?: string;
   /** Data marks for the page's own guards (`{ 'today-cover': '' }` → `data-today-cover=""`). */
   data?: Record<string, string>;
+  /**
+   * 📌 The row is drawn AT REST too, over the last R px of the content, and stays when the top locks — the row never
+   * fades, only the content above it does. Home's one pinned row (owner 17 Nov 2026, "the pinned row is the one
+   * switch"): the content reserves the row's R px at its foot. Default off: every other top fades its row in.
+   */
+  rowAtRest?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const shared = useContext(StackContext);
@@ -161,17 +171,23 @@ export function CollapsingTop({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    return stack.add(el, rowHeight);
-  }, [stack, rowHeight]);
+    return stack.add(el, rowHeight, rowAtRest);
+  }, [stack, rowHeight, rowAtRest]);
   const marks = Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v]));
   return (
     <div ref={ref} className={`sn-ct ${className}`} data-collapsing-top="" {...marks}>
       <div className="sn-ct-full" data-ct-full="">
         {children}
       </div>
-      <div className="sn-ct-row" data-ct-row="" inert>
-        {row}
-      </div>
+      {rowAtRest ? (
+        <div className="sn-ct-row" data-ct-row="" data-ct-row-at-rest="" style={{ opacity: 1, pointerEvents: 'auto' }}>
+          {row}
+        </div>
+      ) : (
+        <div className="sn-ct-row" data-ct-row="" inert>
+          {row}
+        </div>
+      )}
     </div>
   );
 }

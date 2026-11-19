@@ -36,12 +36,15 @@ test('3 · the line under a tile', () => {
   assert.equal(bestWorkLine(1, false), '1 view');
 });
 
-test('4 · the Portfolio reads the EXISTING counter and draws Your best work as its first section', () => {
+// UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): "Your best work" is no longer a section —
+// Row 1 is the most-viewed ALBUMS. The photo counter is still the ONE reader, and now also feeds the page album's count.
+test('4 · the Portfolio reads the EXISTING counter; Your best work became Row 1’s albums', () => {
   const data = readFileSync(join(process.cwd(), 'app/vendor-dashboard/collections/collections-data.ts'), 'utf8');
   assert.match(data, /readPortfolioPhotoViews\(supabase, vendorId\)/, 'best work does not read the shipped view counter');
   assert.doesNotMatch(data, /from\('vendor_portfolio_photo_views'\)/, 'a second reader of the view counter appeared');
   const list = readFileSync(join(process.cwd(), 'app/vendor-dashboard/collections/_components/collections-list.tsx'), 'utf8');
-  assert.match(list, /id="best"\s+title="Your best work"/, 'Your best work is not a section');
+  assert.doesNotMatch(list, /id="best"/, 'Your best work is a section again');
+  assert.match(data, /pageViews: views === null \? null : portfolioRefs\.reduce\(/, 'the page album’s views are not the shipped counter, summed');
   const order = readFileSync(join(process.cwd(), 'lib/portfolio-section-order.ts'), 'utf8');
   assert.match(order, /PORTFOLIO_SECTIONS = \[\s*'best',/, 'Your best work is not first');
 });

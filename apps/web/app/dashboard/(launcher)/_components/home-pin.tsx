@@ -6,9 +6,10 @@ import type { ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { PinnedRow } from '@/app/_components/pinned-row/pinned-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { HOME_SEG_LABEL, homeSegHref, type HomeSeg } from '@/lib/home-segments';
+import { HOME_SEG_LABEL, type HomeSeg } from '@/lib/home-segments';
+import { homeSegOptions } from '@/lib/home-seg-options';
 import hp from './home-profile.module.css';
-import { HomePinPortal } from './home-segment-bar';
+import { HomePinPortal, useHomeSegCounts } from './home-segment-bar';
 
 /**
  * home-pin.tsx — 📌 HOME'S ONE PINNED ROW (owner 11 Nov 2026, "One profile page approve" — v3 row 7).
@@ -22,10 +23,10 @@ import { HomePinPortal } from './home-segment-bar';
  * none, so the seat stays empty); ⚙ is Profile & settings. People keeps its OWN shipped pinned row
  * (`people-pinned-row.tsx`), whose picker gains the same "Home" group — so each section still has exactly one row.
  *
- * WHERE IT SHOWS (v3 row 7): in Home's top, above the tabs, once the header has scrolled away — the shared
- * `CollapsingTop` locks and the row fades in (`HomePinPortal` carries it up into the top's seat). At rest it is not
- * drawn: "＋ Create an event" and the tabs (with their numbers) say the same things there — the header's pill doors
- * were removed 13 Nov 2026 (owner: "dupes … just 1"), so the tabs are the one row of sections.
+ * WHERE IT SHOWS (owner 17 Nov 2026, "Yes, all 3" — "the pinned row is the one switch"): in Home's top, right under
+ * the header AT REST, and it stays when the header scrolls away (`HomePinPortal` carries it into the top's seat; the
+ * shared `CollapsingTop` draws that seat with `rowAtRest`). The tab row and the big "＋ Create an event" it replaced
+ * are gone: the picker lists the sections (with their numbers), and "＋ Event" is the row's action.
  *
  * Everything crossing from the server is plain data (hrefs, words, numbers); the row turns it into presses here.
  * 🔒 lib/home-is-the-profile.test.ts
@@ -35,10 +36,8 @@ export type HomePinOption = { key: string; label: string; group: string; href: s
 export type HomePinDoor = { key: string; n: number; word: string; href: string; hot?: boolean };
 export type HomePinAction = { label: string; ariaLabel?: string; href: string; mark: string };
 
-/** The picker's "Home" group — the sections, as `seg:<section>` keys. */
-export function homeSegOptions(segs: readonly HomeSeg[]): HomePinOption[] {
-  return segs.map((s) => ({ key: `seg:${s}`, label: HOME_SEG_LABEL[s], group: 'Home', href: homeSegHref(s) }));
-}
+/** The picker's "Home" group lives in a plain module (`lib/home-seg-options.ts`) — re-exported, every import unchanged. */
+export { homeSegOptions, type HomeSegOption } from '@/lib/home-seg-options';
 
 /** ⚙ — Profile & settings (the avatar sheet's same door). A link, so it needs no sheet of its own. */
 export function HomeGear() {
@@ -78,10 +77,10 @@ export function HomePinnedRow({
   action?: HomePinAction | null;
 }) {
   const go = useGo();
-  const options: (PickOption & { href: string })[] = [...homeSegOptions(segs), ...sub];
+  const options: (PickOption & { href: string })[] = [...homeSegOptions(segs, useHomeSegCounts()), ...sub];
   return (
     <HomePinPortal>
-    <div className={hp.pin} data-home-pin={seg}>
+    <div className={hp.pin} data-home-pin={seg} data-tour="home-segments">
       <PinnedRow
         data={{ 'data-home-pinned': seg }}
         picker={{

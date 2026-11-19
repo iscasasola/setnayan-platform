@@ -126,7 +126,8 @@ test('4 · ONE row open at a time; the opened row’s verbs are ONE row of equal
   assert.match(row, /<BookedFold eventId=\{eventId\} row=\{openRow\}(?: counts=\{counts\})? \/>/, 'the wide right column draws its own fold');
   // The fold carries the call time, the plan, the feeds and the tiles — in that order.
   const fold = row.slice(row.indexOf('function BookedFold('));
-  const order = ['<CallTimeLine', '<PlanRows', 'data-booked-feeds', '<VerbRow'].map((t) => fold.indexOf(t));
+  // 🕕 The times are `<TimesLines>` since 16 Nov (SCHEDULE MODEL: Crew call + On site from) — the same place in the fold.
+  const order = ['<TimesLines', '<PlanRows', 'data-booked-feeds', '<VerbRow'].map((t) => fold.indexOf(t));
   assert.ok(order.every((i, k) => i > -1 && (k === 0 || i > order[k - 1]!)), `the fold's order is not call time · plan · feeds · tiles (${order})`);
   assert.match(fold.slice(fold.indexOf('<VerbRow')), /^<VerbRow[\s\S]*?\btiles\b/, 'the opened row’s verbs are not tiles');
 

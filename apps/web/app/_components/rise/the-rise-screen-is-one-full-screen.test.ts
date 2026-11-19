@@ -224,3 +224,27 @@ test('7 · every avatar row rises its page — one screen, the same page, the sh
     'the sheet draws over the risen page',
   );
 });
+
+// ⤴ 16 Nov (W1 walk): the half-height sheets that are FORMS rise through the ONE screen — Discover's Filters (place,
+// selects, checkboxes, Apply) and the Booked QR deal (client · date · service · schedule · proof). DECISION_LOG
+// 2026-11-10 "RISE FULL SCREEN"; pickers and menus (the chat ＋, a code viewer) stay the half sheet, 2026-11-12.
+// Discover keeps the shipped form (`FilterDrawerForm`, the same fields `/explore`'s drawer draws).
+// 🛡 SABOTAGE (seen RED, then restored): `<FilterDrawer {...drawer} open` back in discover-filter-sheet.tsx;
+// `rise: key === 'locked'` removed from qr-codes.tsx; the QR list's `<RiseScreen` branch removed.
+test('8 · Discover Filters and the Booked QR rise full screen — the ＋ and the code viewers stay half', () => {
+  const filters = code('app/_components/frontdoor/discover-filter-sheet.tsx');
+  assert.match(filters, /<RiseScreen title="Filters" fill onClose=\{onClose\} data="discover-filters">/, 'Discover Filters does not rise');
+  assert.match(filters, /<FilterDrawerForm \{\.\.\.drawer\}/, 'Discover Filters is not the shipped filter form');
+  assert.doesNotMatch(filters, /<FilterDrawer\b(?!Form)|createPortal/, 'Discover Filters still opens the half-height drawer');
+  const drawer = code('app/(shell)/explore/_components/filter-drawer.tsx');
+  assert.match(drawer, /export function FilterDrawerForm\(/);
+  assert.equal([...drawer.matchAll(/name="city"/g)].length, 1, 'the filter fields were copied — one form, two frames');
+  const qr = code('app/vendor-dashboard/invite/_components/qr-codes.tsx');
+  assert.match(qr, /rise: key === 'locked',/, 'the Booked deal form no longer rises');
+  const list = code('app/vendor-dashboard/invite/_components/qr-code-list.tsx');
+  assert.match(list, /\{row\?\.rise \? \(\s*<RiseScreen title=\{row\.name\}/, 'a rising QR row is drawn in the half sheet');
+  assert.match(list, /open=\{row !== null && !row\.rise\}/, 'the Booked form opens twice — risen and in the sheet');
+  // The chat ＋ is a menu: it stays the half sheet (2026-11-12 "A POP-UP SHEET OPENS AT HALF THE SCREEN").
+  const plus = code('app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx');
+  assert.doesNotMatch(plus, /<RiseScreen\b/, 'the chat ＋ menu rises — it stays half with drag-up');
+});

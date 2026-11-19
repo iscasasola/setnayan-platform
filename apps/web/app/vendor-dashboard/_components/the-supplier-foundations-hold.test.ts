@@ -1,7 +1,8 @@
 /**
  * the-supplier-foundations-hold.test.ts — S-PR0 of the supplier dashboard
  * redesign (corpus `SUPPLIER_DASHBOARD_REDESIGN_2026-10-08_fable.md` § 6, row
- * S-PR0): the thumb row, the shell's envelope, and the two tour keys.
+ * S-PR0): the thumb row and the shell's envelope (the two tour keys it also held were
+ * retired with their tours, 16 Nov 2026).
  *
  * The buttons are held by `../every-supplier-action-is-a-button.test.ts`; this
  * file holds the three other foundations, each by the thing that would go
@@ -12,8 +13,7 @@
  *   · `sn-glass-row` taken off the row                       → test 2 (and
  *     `lib/floating-rows-are-glass.test.ts`, which lists this row too)
  *   · the envelope seeded from the notification count        → test 4
- *   · `vendor_shop_v1` mounted on Today                      → test 5
- *     (since 2026-10-22: Today mapped to a page tour           → test 5)
+ *   · (test 5, the Shop/Hub page tours, retired 16 Nov 2026 with the tours themselves)
  *   · `useFitRow` called in the shell that renders null      → test 2
  */
 import test from 'node:test';
@@ -22,10 +22,8 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { TOURS, TOUR_KEYS } from '@/lib/tours';
 import { SUPPLIER_CHATS_HREF } from '../customers/anchors';
 import { leavesThePage } from './supplier-thumb-leave';
-import { supplierPageTourOn } from '@/lib/supplier-page-tours';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
@@ -126,39 +124,9 @@ test('4 · the shell hands the shared bar the envelope, seeded from the messages
   assert.match(cluster, /data-supplier-shell-shop=""[^>]*>\s*\{vendorSidebarName\}/, 'the bar names the person, not the shop');
 });
 
-test('5 · the two new tour keys are registered — and each mounts only with its own page', () => {
-  for (const key of ['vendor_shop_v1', 'vendor_hub_v1'] as const) {
-    assert.ok(TOUR_KEYS.includes(key), `${key} is not in TOUR_KEYS — completeTour would refuse it`);
-    const tour = TOURS[key];
-    assert.equal(tour.key, key);
-    assert.equal(tour.slides.length, 1, `${key}: the redesign draws ONE slide per page`);
-    const words = `${tour.label} ${tour.blurb} ${tour.slides.map((s) => `${s.title} ${s.body}`).join(' ')}`;
-    assert.doesNotMatch(words, /\bvendor/i, `${key} says "vendor"`);
-    assert.doesNotMatch(words, /celebration|website/i, `${key} uses a retired word`);
-    assert.doesNotMatch(tour.slides[0]!.title, /&[a-z#0-9]+;/, 'a title is plain text — an entity prints literally');
-  }
-  assert.equal(TOURS.vendor_shop_v1.slides[0]!.title, 'Services · Page · Insights');
-  assert.equal(TOURS.vendor_shop_v1.slides[0]!.body, 'What you sell, how your page looks, how it is doing.');
-  assert.equal(TOURS.vendor_hub_v1.slides[0]!.title, 'Run the day');
-  assert.equal(TOURS.vendor_hub_v1.slides[0]!.body, 'Scan, schedule, shot list, headcount — for this event only.');
-
-  // A tour is a claim about a page. It plays on that page and nowhere else. ⚠ CHANGED ON PURPOSE
-  // 2026-10-22 (owner "Yes to all", journey_fixes Supplier 3): both are switched on as spotlights and are
-  // mounted ONCE in the supplier layout (a page mount dies when Shop's first stop walks into Page), so
-  // "its own page" is now the address rule `supplierPageTourOn` — asked here, and in full by
-  // `each-supplier-page-has-its-tour.test.ts`.
-  assert.equal(supplierPageTourOn('/vendor-dashboard/shop', {}), 'vendor_shop_v1');
-  assert.equal(supplierPageTourOn('/vendor-dashboard/on-the-day', {}), 'vendor_hub_v1');
-  // Today has its own page tour since 2026-10-25 (owner: "missing so many parts") — never the Shop or Hub one.
-  assert.equal(supplierPageTourOn('/vendor-dashboard', {}), 'vendor_today_v3', 'Today plays another page’s tour');
-  const files = walk(join(WEB, 'app'));
-  for (const key of ['vendor_shop_v1', 'vendor_hub_v1']) {
-    const mounts = files
-      .filter((f) => new RegExp(`tourKey="${key}"`).test(stripComments(readFileSync(f, 'utf8'))))
-      .map((f) => relative(WEB, f));
-    assert.deepEqual(mounts, [], `${key} is mounted page by page: ${mounts.join(', ')}`);
-  }
-});
+// 5 · (retired 16 Nov 2026, W1-B14) the Shop and Hub page tours this test held were deleted with the other five
+// supplier page tours — the owner ruled the supplier's journey is the one tour. Their absence is held by
+// `lib/the-supplier-page-tours-are-retired.test.ts`.
 
 test('6 · every control in the thumb row is 44 px — a door (`<a class="ab">`) too, and the field (look call 3, 2026-10-12)', () => {
   // Measured on the 375 walk (2026-10-12): Chat · Quote · Payment · Call and Add were 40 px — the house floor

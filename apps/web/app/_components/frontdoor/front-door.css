@@ -775,8 +775,11 @@ html.dark .fd {
      paragraph broke "Acceptable use" into "Acceptable / use". A 32 px line is the drawing's tap target. */
   display: block;
   white-space: nowrap;
-  min-height: 32px;
-  line-height: 32px;
+  /* 44, the locked press floor (W5 walk 2026-11-18: every Company / Legal link measured 32 at 390). A stacked row
+     cannot borrow its neighbour's room with an invisible halo — the next link sits on top of it — so the ROW itself
+     is 44 tall. Only the spacing changes; the words, columns and order are the approved drawing's. */
+  min-height: 44px;
+  line-height: 44px;
   font-size: 12.5px;
 }
 /* The two labelled columns — Company · Legal (owner 2026-11-11, drawn in
@@ -3210,4 +3213,77 @@ html[data-chrome-away] [data-account-sheet-layer] {
   .fd[data-boundary='tab'] .fd-rail:not([data-open='true']) .fd-row.fd-hsub {
     display: none;
   }
+}
+
+/* ═ DISCOVER IN SIX PARTS (owner 16 Nov) — desktop rows: shelves 4 across (`.fd-grid`), Event stories 3,
+   Inspiration 6. Doubled class so these beat `.fd-grid`'s own steps above at every width. ═ */
+.fd-grid.fd-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.fd-grid.fd-grid-6 {
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1023.98px) {
+  .fd-grid.fd-grid-6 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 700.98px) {
+  .fd-grid.fd-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fd-grid.fd-grid-6 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+ul.fd-grid {
+  list-style: none;
+  padding: 0;
+}
+
+/* Inspiration — a supplier's own shop photo, credited to the shop; type · venue · month, never a name. */
+.fd-insp {
+  margin: 0;
+  min-width: 0;
+}
+.fd-insp-img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: var(--m-r-md);
+  background: var(--fd-wash);
+}
+.fd-insp-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  min-width: 0;
+}
+.fd-insp-part {
+  font-weight: 600;
+  color: var(--fd-ink);
+}
+.fd-insp-line,
+.fd-insp-shop {
+  color: var(--fd-m1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.fd-insp-shop:hover {
+  text-decoration: underline;
+}
+.fd-insp-save {
+  margin-top: 4px;
+  align-self: flex-start;
+  font-weight: 600;
+  color: var(--fd-link);
+}
+.fd-insp-save:hover {
+  text-decoration: underline;
 }

@@ -7,6 +7,7 @@ import { StarRatingInput } from '@/app/_components/star-rating-input';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GUEST_REVIEW_LINE_MAX, type GuestShownAs } from '@/lib/guest-reviews';
+import { actionButtonClass } from '@/components/action-button';
 
 /**
  * ⭐ THE GUEST FORM — prototype § 7 "Guest review · new screen", one screen, ONE supplier (owner, 6 Nov: "a request
@@ -89,7 +90,7 @@ export function GuestReviewForm({
         <StarRatingInput name="rating_overall" label="Overall" required />
       </div>
 
-      <label htmlFor="guest_review_line" className="mb-2 mt-3.5 block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
+      <label htmlFor="guest_review_line" className="mb-2 mt-3.5 block text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
         What stood out? (optional)
       </label>
       <textarea
@@ -105,7 +106,7 @@ export function GuestReviewForm({
 
       {shots.length > 0 ? (
         <>
-          <p className="mb-2 mt-[18px] block font-mono text-[11px] uppercase tracking-[0.2em] text-ink/70">
+          <p className="mb-2 mt-[18px] block text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
             A photo from the day (optional)
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="A photo from the day" data-guest-review-shots>
@@ -198,7 +199,7 @@ export function GuestReviewThanks({
         </div>
       ) : null}
       <div className="mt-3.5 flex flex-col gap-2.5">
-        <Link href={backHref} className="button-secondary inline-flex h-11 w-full items-center justify-center">
+        <Link href={backHref} className={actionButtonClass('neutral', { extra: 'w-full !h-11' })}>
           Back to the event
         </Link>
       </div>

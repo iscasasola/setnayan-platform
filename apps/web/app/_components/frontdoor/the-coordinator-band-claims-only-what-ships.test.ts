@@ -24,7 +24,6 @@ async function band(floorKitFree: boolean): Promise<string> {
       planFacts: { plusCredits: null, proCredits: null, freePapic: null },
       floorKitFree,
       sample: null,
-      shelves: null,
     }),
   );
   const m = /<section\b[^>]*\bid="coordinators"[^>]*>([\s\S]*?)<\/section>/.exec(html);

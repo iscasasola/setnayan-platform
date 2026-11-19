@@ -50,7 +50,7 @@ test('the Verified line carries ★ only behind the page’s star gate and the t
   assert.equal(sideCardVerifiedLine(true, { trusted_avg_rating: 4.94, trusted_review_count: 1038 }), 'Setnayan Verified · ★ 4.9 · 1,038 reviews');
   assert.equal(sideCardVerifiedLine(false, { trusted_avg_rating: 4.9, trusted_review_count: 38 }), 'Setnayan Verified');
   assert.equal(sideCardVerifiedLine(true, { trusted_avg_rating: null, trusted_review_count: 0 }), 'Setnayan Verified');
-  assert.match(PAGE, /verifiedLine=\{isVerifiedShop \? sideCardVerifiedLine\(viewerTierCaps\.reviewStarsCounted, trustedReviewStats\) : null\}/);
+  assert.match(PAGE, /verifiedLine=\{vendor\.verification_state === 'verified' \? sideCardVerifiedLine\(viewerTierCaps\.reviewStarsCounted, trustedReviewStats\) : null\}/);
 });
 
 // Sabotage: read the mini month from anywhere but Check a date's own reads / draw every day green on a failure → red.

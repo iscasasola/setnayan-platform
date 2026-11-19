@@ -2227,8 +2227,11 @@ export async function renderVendorBySlug({
   // TRUSTED stat (receipt-backed, arm's-length) so a crawler never sees a
   // fake-inflated star average.
   // v16 S6: and none for a shop Setnayan has not checked yet — a crawler reads no rating the page does not show.
+  // It reads the PAPER state, and never a demo shop: sample reviews are for people looking at the page, not for a
+  // crawler to index as a real shop's rating.
   if (
-    isVerifiedShop &&
+    vendor.verification_state === 'verified' &&
+    !isDemoVendor &&
     viewerTierCaps.reviewStarsCounted &&
     trustedReviewStats.trusted_review_count > 0 &&
     trustedReviewStats.trusted_avg_rating > 0
@@ -2952,7 +2955,8 @@ export async function renderVendorBySlug({
                 place of the Verified line, and no month (Check a date is verified only). */}
             <ShopSideCard
               price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
-              verifiedLine={isVerifiedShop ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
+              /* a CLAIM: reads the paper state, never the content gate */
+              verifiedLine={vendor.verification_state === 'verified' ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
               month={isVerifiedShop ? thisMonth : null}
               datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
             />

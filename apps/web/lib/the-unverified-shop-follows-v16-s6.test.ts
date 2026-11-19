@@ -40,7 +40,7 @@ test('one website: every shop wears the hero, the two columns and the side card'
 test('the content an unverified shop leaves out: blue check, Check a date, rating + reviews, exact address, web address', () => {
   assert.match(PAGE, /verified=\{vendor\.verification_state === 'verified'\}/, 'the top bar check is not verified-only');
   assert.match(PAGE, /month=\{isVerifiedShop \? thisMonth : null\}/);
-  assert.match(PAGE, /verifiedLine=\{isVerifiedShop \? sideCardVerifiedLine\(/);
+  assert.match(PAGE, /verifiedLine=\{vendor\.verification_state === 'verified' \? sideCardVerifiedLine\(/);
   assert.match(PAGE, /\{isVerifiedShop &&\s*viewerTierCaps\.reviewStarsCounted &&/, 'the rating chip shows for an unverified shop');
   assert.match(PAGE, /\{isVerifiedShop \? \(\s*<ReviewsSection\b/, 'the reviews show for an unverified shop');
   assert.match(PAGE, /data-shop-reviews-held=""[\s\S]{0,500}\{REVIEWS_HELD\.title\}[\s\S]{0,40}\{REVIEWS_HELD\.body\}/);

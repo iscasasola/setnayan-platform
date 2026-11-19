@@ -33,7 +33,9 @@ test('a crawler reads no aggregateRating the page does not show', () => {
   const at = PAGE.indexOf('vendorJsonLd.aggregateRating = {');
   assert.ok(at > 0);
   const cond = PAGE.slice(PAGE.lastIndexOf('if (', at), at);
-  assert.match(cond, /^if \(\s*isVerifiedShop &&/, 'the JSON-LD rating is emitted for an unverified shop');
+  // The REAL paper state — not the content gate, which a demo shop and a team preview also pass — and never a demo shop.
+  assert.match(cond, /^if \(\s*vendor\.verification_state === 'verified' &&\s*!isDemoVendor &&/, 'the JSON-LD rating is emitted for an unverified or a demo shop');
+  assert.doesNotMatch(cond, /isVerifiedShop/, 'the JSON-LD rating reads the content gate');
   assert.equal((PAGE.match(/aggregateRating\s*=/g) ?? []).length, 1, 'a second, ungated aggregateRating');
 });
 
@@ -54,4 +56,12 @@ test('a demo shop and a team preview keep the full page: the exclusion is made o
   assert.match(PAGE, /if \(!isVerifiedShop\) \{\s*const \{ count, error: heldError \}/);
   // The blue check is NOT lifted by the exclusion: Verified is still read from the paper state.
   assert.match(PAGE, /\{vendor\.verification_state === 'verified' \? \(/);
+});
+
+test('"Setnayan Verified" is a claim: the side card reads the paper state, never the content gate', () => {
+  // An unverified demo shop, or a pending shop in team preview, passes `isVerifiedShop` — and must not wear the line.
+  const lines = PAGE.match(/verifiedLine=\{[^\n]*/g) ?? [];
+  assert.equal(lines.length, 1, 'the side card is handed its Verified line once');
+  assert.match(lines[0]!, /^verifiedLine=\{vendor\.verification_state === 'verified' \? sideCardVerifiedLine\(/, `the line reads: ${lines[0]}`);
+  assert.doesNotMatch(lines[0]!, /isVerifiedShop/);
 });

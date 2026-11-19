@@ -30,3 +30,12 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG row as written.
 - **P6:** Today's claimed welcome says "<couple>'s <event> is in Clients." (`lib/claimed-welcome.server.ts`, read only on `?claimed=1`; any refused read names nobody).
 - Step names under the bars: Accept · Account · Your shop · Your card · Done.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
+
+## 2026-11-20 · fix(onboarding): Door A carries the first card through finalize
+
+- `finishClaimDoor` asks the shipped switch about the first card. The answer is `live`, `draft` (with the switch's sentence and the card id), `refused` (not made) or `skipped`, and it rides through `/vendor/claim/<token>/finalize` to `?claimed=1&card=…`. A bare `?claimed=1` no longer reads as "and first card".
+- Today's claimed welcome says draft or refused with the way to the card. Its ticked row names the card only on `live`.
+- P5's Cards row has no ✓: the cards are made as drafts when the shop opens, and the welcome says which ones went on the page.
+- Tests: `lib/supplier-onboarding.test.ts` 12.
+
+SPEC IMPACT: None.

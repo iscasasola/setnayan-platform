@@ -42,7 +42,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { ServicePicker, type PickerParentView } from '@/app/_components/service-picker';
 import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
 import { Sheet } from '@/app/_components/sheet';
-import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
+import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, CLAIM_CARDS_MADE_AS, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
 // 🔵 The supplier blue look (owner 19 Nov) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 import type { SpecialtyField } from './service-cards';
@@ -1132,7 +1132,7 @@ export function ClaimDoor({
     // 🚪 YOU'RE ALL SET (19 Nov) — the plan sits on this last screen, then Open my shop.
     [title] = ONBOARDING_HEADS.done;
     line = ONBOARDING_HEADS.done[1];
-    // 🚪 P5's rows (19 Nov): Shop ✓ · Cards ✓ · Client ✓ · the Free row · its line · the tick. Cards names what the
+    // 🚪 P5's rows (19 Nov): Shop ✓ · Cards (no ✓ — 20 Nov) · Client ✓ · the Free row · its line · the tick. Cards names what the
     // finish makes — every unbundled card, less the first when Skip was picked (`finishClaimDoor`).
     const cardNames = d.cards
       .filter((c, n) => !c.bundled && !(n === 0 && d.firstCard === 'skip'))
@@ -1140,7 +1140,9 @@ export function ClaimDoor({
       .filter(Boolean);
     const doneRows: { key: string; name: string; value: string; ok: boolean }[] = [
       { key: 'shop', name: 'Shop', value: d.name.trim() || record.business, ok: true },
-      { key: 'cards', name: 'Cards', value: cardNames.length ? cardNames.join(' · ') : team ? 'None yet — add one from Today' : 'None yet — the booking stays in Clients', ok: cardNames.length > 0 },
+      // 🃏 No ✓ on Cards (review 20 Nov): they are made when the shop opens, as drafts, and only the shipped switch puts
+      // the first on the page — Today says which are.
+      { key: 'cards', name: 'Cards', value: cardNames.length ? `${cardNames.join(' · ')} — ${CLAIM_CARDS_MADE_AS}` : team ? 'None yet — add one from Today' : 'None yet — the booking stays in Clients', ok: false },
       ...(team ? [] : [{ key: 'client', name: 'Client', value: record.inviterName, ok: true }]),
     ];
     body = (

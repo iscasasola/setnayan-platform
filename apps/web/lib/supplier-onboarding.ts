@@ -315,11 +315,36 @@ export function firstCardFrom(search: Record<string, string | string[] | undefin
   return { state, title, price, category, why, id };
 }
 
-/** What `?card=` says on its own — `live` / `skipped` / `draft` with no carried card (the claim door's other cards). */
-export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): 'live' | 'skipped' | 'draft' | null {
+/** What `?card=` says on its own — `live` / `skipped` / `draft` / `refused` with no carried card (the claim door). */
+export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): ClaimFirstCardState | null {
   const v = search[FIRST_CARD_PARAM.state];
-  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' ? v : null;
+  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' || v === 'refused' ? v : null;
 }
+
+/** 🚪 The claim door's first card, as the finish found it (review 20 Nov) — carried THROUGH finalize to the welcome. */
+export type ClaimFirstCardState = 'live' | 'skipped' | 'draft' | 'refused';
+type ClaimCardCarry = { state: ClaimFirstCardState; why: string | null; id: string | null };
+
+/** `card=…[&card_why=…][&card_id=…]` — the state, the switch's own sentence, and the card (the Card Maker opens on it). */
+export function claimCardQuery(c: ClaimCardCarry): string {
+  const q = new URLSearchParams({ [FIRST_CARD_PARAM.state]: c.state });
+  if (c.why) q.set(FIRST_CARD_PARAM.why, c.why.slice(0, 200));
+  if (c.id && UUID.test(c.id)) q.set(FIRST_CARD_PARAM.id, c.id);
+  return q.toString();
+}
+
+/** Finalize's read of that carry — anything off on the address (it is typed by anyone) is dropped, never trusted. */
+export function claimCardFrom(search: Record<string, string | string[] | undefined>): ClaimCardCarry | null {
+  const state = firstCardStateFrom(search);
+  if (!state) return null;
+  const one = (k: string) => (typeof search[k] === 'string' ? (search[k] as string) : null);
+  const why = (one(FIRST_CARD_PARAM.why) ?? '').trim().slice(0, 200) || null;
+  const rawId = one(FIRST_CARD_PARAM.id);
+  return { state, why: state === 'draft' ? why : null, id: rawId && UUID.test(rawId) ? rawId : null };
+}
+
+/** Where finalize lands a claim: the claimed welcome, carrying what the door found about its first card. */
+export const claimedWelcomePath = (c: ClaimCardCarry | null) => (c ? `${WELCOME_CLAIMED_PATH}&${claimCardQuery(c)}` : WELCOME_CLAIMED_PATH);
 
 /** What the welcome says about a first card that is not on the page. */
 export const FIRST_CARD_CARRY_LINE: Readonly<Record<FirstCardState, string>> = {
@@ -346,6 +371,8 @@ export function firstCardLiveFrom(redirectUrl: string | null | undefined): { liv
 /** The draft card's button on the welcome — asks the shipped switch again (idempotent: no second card is made). */
 export const FIRST_CARD_RETRY = 'Put it on my page';
 /** A door that made cards as drafts with no single card to carry (the claim door's picks). */
+/** P5 on the claim door — what happens to the cards it lists (made as drafts; Today says which went on the page). */
+export const CLAIM_CARDS_MADE_AS = 'made when you open, as drafts; Today says which are on your page';
 export const FIRST_CARD_DRAFTS_LINE = 'Your cards are made as drafts — put each on your page from the Card Maker.';
 
 /** The welcome's three next steps, in the owner's order (PB6). No leads are promised. */

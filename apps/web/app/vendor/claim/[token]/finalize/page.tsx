@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { WELCOME_CLAIMED_PATH, firstCardLanding } from '@/lib/supplier-onboarding';
+import { claimCardFrom, claimedWelcomePath, firstCardLanding } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -38,10 +38,13 @@ type Props = { params: Promise<{ token: string }> };
  *      to the shop only on Approve), and insert vendor_follows for the couple.
  *   3. Redirect to /vendor-dashboard.
  */
-export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<{ edit?: string }> }) {
+export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { token } = await params;
+  const search = (await searchParams) ?? {};
   // 🚪 Edit on the door's first card (supplier onboarding, owner 19 Nov): after the consent, the shipped Card Maker.
-  const editCard = firstCardToEdit((await searchParams)?.edit);
+  const editCard = firstCardToEdit(typeof search.edit === 'string' ? search.edit : undefined);
+  // 🃏 …and what the door found about it (live · draft · refused · skipped), passed on to the welcome (review 20 Nov).
+  const cardCarry = claimCardFrom(search);
 
   const supabase = await createClient();
   const {
@@ -282,7 +285,7 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
   // (already-has-services).
   // 🚪 …and Today reads `?claimed=1` for its welcome (supplier onboarding, owner 19 Nov) — or, Edit picked on the
   // door's first card, the shipped Card Maker on that card.
-  redirect(editCard ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null }) : WELCOME_CLAIMED_PATH);
+  redirect(editCard ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null }) : claimedWelcomePath(cardCarry));
 }
 
 /** A card id the door handed over (`?edit=`) — a uuid, or nothing. The Card Maker re-checks it is this shop's. */

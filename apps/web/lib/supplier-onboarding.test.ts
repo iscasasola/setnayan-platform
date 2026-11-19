@@ -267,3 +267,34 @@ test('9 · Door A (P1 · P3 · P5 · P6) speaks the drawing’s words, and the t
   // P6
   assert.equal(mod.claimedWelcomeLine('Ana & Ben', 'wedding'), 'Ana & Ben’s wedding is in Clients.');
 });
+
+test('12 · Door A carries the first card through finalize — the claimed welcome never claims a card on a bare ?claimed=1 (20 Nov)', async () => {
+  const sb = await import('./supplier-onboarding');
+  const CLAIM_ACTION = read('app/open-shop/claim-actions.ts');
+  const FINALIZE = read('app/vendor/claim/[token]/finalize/page.tsx');
+  const DOOR = read('app/open-shop/_components/claim-door.tsx');
+  // Every state round-trips through the address; the switch's sentence rides only with a draft.
+  const id = '0b7e6c1a-3f1e-4c2b-9d5a-1a2b3c4d5e6f';
+  for (const state of ['live', 'skipped', 'draft', 'refused'] as const) {
+    const path = sb.claimedWelcomePath({ state, why: state === 'draft' ? 'Add a cover photo first.' : null, id: state === 'draft' ? id : null });
+    const q = Object.fromEntries(new URL(path, 'https://x.invalid').searchParams);
+    assert.equal(q.claimed, '1');
+    assert.equal(sb.firstCardStateFrom(q), state);
+    assert.equal(sb.welcomeDoneRow(sb.firstCardStateFrom(q)), state === 'live' ? sb.TODAY_WELCOME_DONE.withCard : sb.TODAY_WELCOME_DONE.shopOnly);
+  }
+  assert.equal(sb.claimedWelcomePath(null), sb.WELCOME_CLAIMED_PATH);
+  assert.equal(sb.welcomeDoneRow(sb.firstCardStateFrom({ claimed: '1' })), sb.TODAY_WELCOME_DONE.shopOnly);
+  // Anything off on the address is dropped.
+  assert.equal(sb.claimCardFrom({ card: 'made' }), null);
+  assert.equal(sb.claimCardFrom({ card: 'draft', card_id: '../x' })?.id, null);
+  assert.equal(sb.claimCardFrom({ card: 'live', card_why: 'x' })?.why, null);
+  // The finish asks the SHIPPED switch, and finalize passes the carry on — never a bare WELCOME_CLAIMED_PATH.
+  assert.match(CLAIM_ACTION, /const live = await putFirstCardLive\(firstId\);/);
+  assert.match(CLAIM_ACTION, /\$\{finalize\}\?\$\{claimCardQuery\(cardCarry\)\}/);
+  assert.match(FINALIZE, /const cardCarry = claimCardFrom\(search\);/);
+  assert.match(FINALIZE, /: claimedWelcomePath\(cardCarry\)\);/);
+  assert.doesNotMatch(FINALIZE, /: WELCOME_CLAIMED_PATH\);/);
+  // P5's Cards row is never ticked — the cards are drafts until the switch says otherwise.
+  assert.match(DOOR, /\$\{CLAIM_CARDS_MADE_AS\}`[^\n]*ok: false \}/);
+  assert.match(sb.CLAIM_CARDS_MADE_AS, /drafts/);
+});

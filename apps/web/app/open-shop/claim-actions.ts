@@ -2,6 +2,9 @@
 
 import { CHECK_INBOX_FLAG, parkSentTo } from '@/lib/open-shop-sent-to';
 import { redirect } from 'next/navigation';
+
+import { putFirstCardLive } from '@/lib/first-card-live.server';
+import { claimCardQuery, type ClaimFirstCardState } from '@/lib/supplier-onboarding';
 import { revalidatePath } from 'next/cache';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
@@ -379,11 +382,24 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
   // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
-  const editId =
-    answers.firstCard === 'edit' && firstCardName && made.includes(firstCardName)
-      ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
-      : null;
-  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editId ? `?edit=${encodeURIComponent(editId)}` : ''}`);
+  const firstMade = Boolean(firstCardName && made.includes(firstCardName));
+  const firstId = firstMade && answers.firstCard !== 'skip' ? await firstCardIdOf(admin, vendorProfileId, firstCardName as string) : null;
+  const editId = answers.firstCard === 'edit' ? firstId : null;
+  // 🃏 WHAT THE WELCOME MAY SAY ABOUT THE FIRST CARD (review 20 Nov) — carried through finalize, never a bare
+  // `?claimed=1` that reads as "and first card". The maker makes every card as a draft; Approve asks the SHIPPED switch
+  // (publish gate + the plan's live-cards cap) and only its yes is `live`. Skip · not made · refused by the switch, each
+  // said. The supplier's other cards stay drafts (P5 says so).
+  let cardCarry: { state: ClaimFirstCardState; why: string | null; id: string | null } | null = null;
+  if (answers.firstCard === 'skip') cardCarry = { state: 'skipped', why: null, id: null };
+  else if (answers.firstCard !== 'edit' && firstCard) {
+    if (!firstMade || !firstId) cardCarry = { state: 'refused', why: null, id: null };
+    else {
+      const live = await putFirstCardLive(firstId);
+      cardCarry = live.live ? { state: 'live', why: null, id: firstId } : { state: 'draft', why: live.why, id: firstId };
+    }
+  }
+  const finalize = `/vendor/claim/${encodeURIComponent(token)}/finalize`;
+  redirect(editId ? `${finalize}?edit=${encodeURIComponent(editId)}` : cardCarry ? `${finalize}?${claimCardQuery(cardCarry)}` : finalize);
 }
 
 /** The id of the card the door just made under `title` on this shop (the newest), or null. */

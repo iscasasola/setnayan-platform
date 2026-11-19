@@ -34,6 +34,7 @@ import { ServicesAtEvents, eventsTheyCanServe } from './services-at-events';
 import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useRidingRow } from '@/app/_components/typing-band';
 import {
   FIELD_FACT,
   FIRST_CARD_FIELD,
@@ -374,6 +375,10 @@ export function OpenShopWizard({
    */
   const sheetOf = (field: OpenShopField | null): CheckFact | null => (field ? (FIELD_FACT[field] ?? null) : null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  /* ⌨ A fact's sheet sits at the screen's foot and holds text boxes, so it RIDES the keyboard (owner 2026-10-24,
+     "Applies all textbox like that"): the ONE riding row — it stands on the keyboard (`--sn-keyboard-h`) and wears the
+     band while a box in it is typed into. */
+  const sheetRide = useRidingRow(sheetRef);
   const [sheet, setSheet] = useState<CheckFact | null>(
     refusalStep(errorField, initialStep) === CHECK_STEP ? sheetOf(errorField) : null,
   );
@@ -1001,13 +1006,13 @@ export function OpenShopWizard({
   const inSheet = (fact: CheckFact) => step === CHECK_STEP && sheet === fact;
   const orderOf = (fact: CheckFact) => 10 + 2 * Math.max(0, SELF_SERVE_FACTS.indexOf(fact));
   const sheetClass =
-    'fixed inset-x-0 bottom-0 z-[var(--sn-z-panel)] mx-auto max-h-[88dvh] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
+    'fixed inset-x-0 bottom-[var(--sn-keyboard-h,0px)] z-[var(--sn-z-panel)] mx-auto max-h-[calc(88dvh-var(--sn-keyboard-h,0px))] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
   const sheetStyle = (fact: CheckFact): React.CSSProperties | undefined =>
     inSheet(fact) ? { background: 'var(--m-paper)' } : undefined;
   /** What the open fact's panel carries to be the sheet: its ref, and the dialog's name. */
   const sheetProps = (fact: CheckFact) =>
     inSheet(fact)
-      ? ({ ref: sheetRef, role: 'dialog', 'aria-modal': true, 'aria-labelledby': `onboarding-sheet-${fact}` } as const)
+      ? ({ ref: sheetRef, role: 'dialog', 'aria-modal': true, 'aria-labelledby': `onboarding-sheet-${fact}`, ...sheetRide.rowProps } as const)
       : {};
   /** Each sheet's one line — the shipped steps' own words, carried into the sheet that now holds their boxes. */
   const factLine: Partial<Record<CheckFact, string>> = {
@@ -1039,6 +1044,7 @@ export function OpenShopWizard({
     inSheet(fact) ? (
       <div className="grid pt-1 [&>.ab]:w-full [&>.ab]:justify-center">
         <ActionButton tone="brand" main icon={Check} label="Save" onClick={doneSheet} data-testid="onboarding-sheet-done" />
+        {sheetRide.band}
       </div>
     ) : null;
 

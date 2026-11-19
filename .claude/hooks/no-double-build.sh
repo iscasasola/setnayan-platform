@@ -21,6 +21,9 @@ for pid in $(pgrep -f 'next dev|next-server|vite( |$)|webpack( serve|-dev-server
   fi
   cwd=$(cd "$cwd" 2>/dev/null && pwd -P)
   case "$cwd/" in
+    # A builder worktree nested inside this checkout is another checkout, not this one
+    # (controller review 2026-11-18): its dev server must never block this tree's build.
+    "$here"/.claude/worktrees/*) continue ;;
     "$here"/*)
       echo "BLOCKED: a dev server (pid $pid, in $cwd) is already running in this checkout — stop it first (preview_stop), then build once." >&2
       exit 2 ;;

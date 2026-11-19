@@ -264,6 +264,9 @@ app code, and a block on a production build while a dev server runs **in the sam
 Nothing in that file asks or stops a builder mid-flow — builds and pushes run freely; only the Read
 tool is denied `.env*`, `secrets/**` and `~/.ssh`. Per the permissions docs those rules also cover
 `cat`/`head`/`tail`/`sed`/`tee` on those files, but not `cp` — so a lab's `cp apps/web/.env.local <wt>/apps/web/` still works.
+Measured 2026-11-19: `set -a; source .env.local; set +a` and `node --env-file=.env.local` still load the
+values under the deny; `cat` and Read on the file are refused. A dev server in a `.claude/worktrees/*`
+builder never blocks the main checkout's build.
 
 1. **One source of truth.** Never create `v2`, `-copy`, `-old`, `-new` or backup files/folders, and
    keep no backup folders in the workspace — change the shipped file; git keeps the history.

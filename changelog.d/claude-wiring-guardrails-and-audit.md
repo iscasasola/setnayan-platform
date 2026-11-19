@@ -8,6 +8,11 @@
   **in the same checkout** (another session's server never blocks you);
   `.claude/hooks/warn-hardcoded.sh` warns when an edit writes TODO/FIXME/localhost/dummy/mockData into
   app code (labs and tests exempt). Both sabotage-tested (9 cases, see the PR's STATUS comment).
+  Review fix (19 Nov): a dev server in a builder worktree under `.claude/worktrees/*` is another checkout
+  and no longer blocks the main checkout's build (4 cases re-tested: main + nested server → allowed;
+  the worktree's own server → blocked; main's own server → blocked; worktree vs main's server → allowed).
+- Measured 19 Nov under the `Read(**/.env.*)` deny: `set -a; source .env.local; set +a` and
+  `node --env-file=.env.local` still load the values; `cat` and the Read tool on the file are refused.
 - `/audit` and `/verify-wiring` slash commands in `.claude/commands/` (report only).
 - CLAUDE.md: "WIRING STANDARD — house rules" section (one source of truth, no backup folders, one
   `ActionButton`/input/modal, colour tokens only, folder homes, flat pages under 3 levels with no

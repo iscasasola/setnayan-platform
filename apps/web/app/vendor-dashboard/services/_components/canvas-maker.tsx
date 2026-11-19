@@ -996,7 +996,7 @@ export function CanvasMaker({
     hint: o.hint,
   }));
   const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
-  /** "Start another from this" — the ONE copy doorway (the fold's row and the edit lock's way out both open it). */
+  /** "Start another from this" for the edit lock's way out — the fold's row is inert while the card is locked. */
   const copyHref = editing ? `/vendor-dashboard/services/new/${category}?from=${editing.serviceId}` : null;
   /** What the couple reads for a shop pack on this card — never a count (lib/gift-pick.ts). */
   const packLine = giftPick && giftPick !== GIFT_SETNAYAN ? coupleCardPackLine(giftPick, shopName) : null;
@@ -1714,7 +1714,7 @@ export function CanvasMaker({
                             <p className="text-[13px] text-ink/60">Your old promise · {editing.legacyPromise} · it stays on the card</p>
                           ) : null}
                           <Link
-                            href={copyHref ?? '#'}
+                            href={`/vendor-dashboard/services/new/${category}?from=${editing.serviceId}`}
                             className="sn-press flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink"
                             data-maker-copy=""
                           >

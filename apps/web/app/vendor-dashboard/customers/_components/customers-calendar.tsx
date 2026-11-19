@@ -8,6 +8,7 @@ import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { InfoTip } from '@/app/_components/info-tip';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { useTabReselect } from '@/app/_components/nav/use-chrome-away';
 import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
@@ -168,6 +169,11 @@ export function CustomersCalendar({
   */
   const [wholeMonth, setWholeMonth] = useState(false);
   const restWeek = oneScreen && onClients && !wholeMonth;
+  /* "Whole month" is a fold like every other (owner 2026-11-04, app-wide reveal-on-open): when the opened grid runs past
+     the bottom, its head glides up to the pin line through the ONE shared reveal. */
+  const monthHeadRef = useRef<HTMLDivElement>(null);
+  // `monthRef` (the grid, declared below) is read when the reveal runs, after render — never during it.
+  const intendWholeMonth = useRevealOnOpen(wholeMonth, () => ({ head: monthHeadRef.current, end: monthRef.current }));
   /* 🖥 Only a computer (the Clients 1280 line, `supplier-frame.css`) opens This day's events across columns 2 + 3; the
      phone keeps the day sheet exactly as before (audit 17 Nov — the drawing names the computer only). SSR-safe: false
      on the server and the first paint, so both draw the day sheet's link. */
@@ -595,7 +601,7 @@ export function CustomersCalendar({
       {/* 📅 THE PHONE'S MONTH HEAD (one Clients screen): the month ▾ while only the week shows, the legend ⓘ, and "Whole
           month" — which opens the shipped grid in place and folds it back. A computer always draws the grid (`tab:hidden`). */}
       {oneScreen && onClients ? (
-        <div className="flex min-h-11 items-center gap-2 tab:hidden" data-dates-month-head="">
+        <div ref={monthHeadRef} className="flex min-h-11 items-center gap-2 tab:hidden" data-dates-month-head="">
           {wholeMonth ? null : monthPick({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) }, (m) => goToMonth(m))}
           {legendTip}
           <span className="min-w-0 flex-1" aria-hidden />
@@ -603,7 +609,10 @@ export function CustomersCalendar({
             type="button"
             className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent"
             aria-expanded={wholeMonth}
-            onClick={() => setWholeMonth((was) => !was)}
+            onClick={() => {
+              intendWholeMonth();
+              setWholeMonth((was) => !was);
+            }}
             data-dates-whole-month={wholeMonth ? 'open' : 'shut'}
           >
             Whole month

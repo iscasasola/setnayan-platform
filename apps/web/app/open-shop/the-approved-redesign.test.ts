@@ -186,7 +186,7 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
 /* ── step 2, v14 → v16: one card per category, the plan explained on Continue, events per service ─────────────── */
 
 test('v16 ① · one plain card per CATEGORY; a blank "Also do …?" row; a dashed "Another category" frame → tile → row', () => {
-  assert.match(WIZARD, /\{service \? 'Your services' : 'Main service'\}/);
+  assert.match(WIZARD, /\{service && !\(coordinating && step === 1\) \? 'Your services' : 'Main service'\}/);
   // The card is the tier-2 category (the tree's branch), never the group.
   assert.match(CARDS, /categoryId: b\.tileId,\s*categoryLabel: b\.label,/);
   assert.match(CARDS, /buttonText=\{`Also do \$\{remain\.map\(\(x\) => x\.label\)\.join\(', '\)\}\?`\}/);

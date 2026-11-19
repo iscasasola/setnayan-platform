@@ -21,7 +21,7 @@ ADDS 28 DAYS" · "PRESSING REDEEM IS THE CLAIM" · "GIFT DESIGN APPROVED").
   (`sweep_vendor_tier_expiry`) hands it back with exactly the days it had left (`setnayan_plan_gift_return`).
 - **Exactly once**: `setnayan_shop_gift_claim` sets `claimed_at` in one conditional UPDATE; a repeat answers
   `already`. `tests/db/a-setnayan-gift-is-claimed-once.db.test.ts` (9 tests, Event Ultra stock among them).
-- Migrations `20271345573127_setnayan_gifts_to_a_shop.sql` and `20271346219255_plan_gift_ending_notice_type.sql` (the notification type + two once-only send stamps) — adds one table (RLS at create), five functions, and two
+- Migrations `20271352202109_setnayan_gifts_to_a_shop.sql` and `20271352914112_plan_gift_ending_notice_type.sql` (the notification type + two once-only send stamps) — adds one table (RLS at create), five functions, and two
   branches in `sweep_vendor_tier_expiry` (body copied from the object's newest definition, 20271310256381). Ugat map:
   `setnayan_shop_gifts` on the Papic ↔ Vendor joint.
 - The moment is G2's GiftMoment, reused unchanged (and it stays a press, not an automatic claim, under J7's gift box:

@@ -10,7 +10,7 @@
  *
  * 🔑 WHAT A SHOP MAY PRESS is decided by the DATABASE (`setnayan_shop_gift_choices`), from its plan at that moment —
  * never re-derived here. This file only words each choice. The claim itself is `setnayan_shop_gift_claim`: the press
- * IS the claim, exactly once (migration 20271345573127; tests/db/a-setnayan-gift-is-claimed-once.db.test.ts).
+ * IS the claim, exactly once (migration 20271352202109; tests/db/a-setnayan-gift-is-claimed-once.db.test.ts).
  *
  * 🔑 NO PRICE LIVES HERE. "Stay on <plan>" shows the 28-day price READ from `vendor_billing_catalog`
  * (`readPersonalInvitePlanPrices`), passed in; with no price read the button says no price rather than a typed one.

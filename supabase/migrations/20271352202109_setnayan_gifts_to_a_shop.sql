@@ -464,7 +464,7 @@ AS $function$
 DECLARE
   v_p          public.vendor_profiles;
 BEGIN
-  -- ── 🎁 A SETNAYAN PLAN GIFT THAT HAS RUN ITS DAYS (20271345573127) ───────
+  -- ── 🎁 A SETNAYAN PLAN GIFT THAT HAS RUN ITS DAYS (20271352202109) ───────
   -- Hands the shop back the plan it paused, with the days it had left, BEFORE
   -- anything below can read the gift's end day as the shop's own term ending.
   -- 'returned' = the shop is on its own plan again (nothing more to do here).
@@ -541,7 +541,7 @@ BEGIN
   END IF;
 
   -- ── 🎁 A HELD SETNAYAN PLAN GIFT STARTS WHEN THE SHOP'S OWN PLAN ENDS ────
-  -- ("Start it when my plan ends", 20271345573127.) Runs after a PAID
+  -- ("Start it when my plan ends", 20271352202109.) Runs after a PAID
   -- scheduled plan had its chance above — a shop that is continuing is not
   -- ending — and in place of the lapse's tier change: the gift's days are the
   -- shop's plan now. Its credit still goes, as a lapse (inside the helper).
@@ -585,6 +585,6 @@ $function$;
 
 
 COMMENT ON FUNCTION public.sweep_vendor_tier_expiry(UUID) IS
-  'Login-driven, cron-free. First hands a shop whose Setnayan plan gift has run its days back to the plan the gift paused, with the days it had left (setnayan_plan_gift_return, 20271345573127). Applies a PAID scheduled plan change the moment the current term runs out and RETURNS; starts a held Setnayan plan gift instead of a lapse; otherwise reverts an expired solo/pro/enterprise tier to verified/free and EXPIRES any carried credit with it (owner 2026-08-28), leaving a vendor_credit_ledger row. A scheduled plan with no paid purchase behind it is dropped, never granted. Applying a scheduled change is NOT a lapse and never touches the balance.';
+  'Login-driven, cron-free. First hands a shop whose Setnayan plan gift has run its days back to the plan the gift paused, with the days it had left (setnayan_plan_gift_return, 20271352202109). Applies a PAID scheduled plan change the moment the current term runs out and RETURNS; starts a held Setnayan plan gift instead of a lapse; otherwise reverts an expired solo/pro/enterprise tier to verified/free and EXPIRES any carried credit with it (owner 2026-08-28), leaving a vendor_credit_ledger row. A scheduled plan with no paid purchase behind it is dropped, never granted. Applying a scheduled change is NOT a lapse and never touches the balance.';
 
 COMMIT;

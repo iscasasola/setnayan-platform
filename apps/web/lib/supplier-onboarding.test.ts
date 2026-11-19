@@ -298,7 +298,6 @@ test('12 · Door A carries the first card through finalize — the claimed welco
   assert.match(DOOR, /\$\{CLAIM_CARDS_MADE_AS\}`[^\n]*ok: false \}/);
   assert.match(sb.CLAIM_CARDS_MADE_AS, /drafts/);
 });
-||||||| f363e366c7
 
 test('14 · a row’s sheet holds text boxes, so its foot rides the keyboard (the one reading)', () => {
   // Its exemption in every-bottom-input-rides-the-keyboard.test.ts says so; this holds the claim.

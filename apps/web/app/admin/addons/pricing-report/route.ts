@@ -27,7 +27,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { formatCentavosPhp } from '@/lib/sku-catalog';
+import { formatCentavosPhp } from '@/lib/php';
 
 type ServiceCatalogRow = {
   sku_code: string;

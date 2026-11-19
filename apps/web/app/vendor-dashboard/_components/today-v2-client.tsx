@@ -128,6 +128,7 @@ export function TodayQuickRow({
   foot = null,
   href = null,
   attrs,
+  below = null,
   children,
 }: {
   rowKey: string;
@@ -143,6 +144,11 @@ export function TodayQuickRow({
   href?: string | null;
   /** Extra data attributes on the row (a fee bill's `data-fee-bill-today`, so Today's search finds it as a payment). */
   attrs?: Record<`data-${string}`, string>;
+  /**
+   * Drawn UNDER the row's line, shut or open (drawing V3 · 3 `.bg`: the badge tag sits under the line, so at 390 px the
+   * line is not squeezed by a pill and a tag side by side). Fold's own `between` slot.
+   */
+  below?: ReactNode;
   children: ReactNode;
 }) {
   const g = useContext(QuickGroup);
@@ -203,6 +209,7 @@ export function TodayQuickRow({
           lead={lead}
           aside={aside}
           data="today-quick"
+          between={below ? <div className="-mt-2.5 pb-2.5 pl-[44px]">{below}</div> : undefined}
           open={open}
           onOpenChange={g ? (next) => g.setOpen(next ? rowKey : null) : undefined}
         >

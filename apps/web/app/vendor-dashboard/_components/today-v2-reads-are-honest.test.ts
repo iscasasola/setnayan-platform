@@ -66,7 +66,7 @@ test('5 · there is one count, and every fee bill is one task in it', () => {
   // Re-aimed 19 Nov (#8032 fix): the count is the ONE list (`todayOneList`), and every fee bill is an entry in it —
   // lib/supplier-today-v2.test.ts V6 holds that each bill is its own entry.
   assert.match(BUILD, /const list = todayOneList\(\{ split, bills: i\.view\.bills,/, 'a fee bill is not a task in the one list');
-  assert.match(BUILD, /const left = i\.deskIncomplete \? null : list\.length;/);
+  assert.match(BUILD, /const left = i\.deskIncomplete \|\| i\.eventsUnread \? null : list\.length;/);
   assert.match(BUILD, /view: \{ \.\.\.i\.view, needsCount: left \}/, 'the pinned heading counts something other than the mast does');
   assert.doesNotMatch(SCREEN, /Opens a screen ·|Quick ·/, 'a second count is back beside the one');
   assert.doesNotMatch(SCREEN, /hasBills/, 'the one-for-all bill count is back');

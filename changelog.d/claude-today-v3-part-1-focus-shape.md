@@ -31,6 +31,11 @@ Drawing: artifact F4vQbaCwFtu2iawYd2r6q2 (v3.5). This is PART 1 of five — the 
 - **Every row opens in place as a card.** The bigger kinds (inquiry, message, booking ask, cancel request, quote and
   contract drafts, dispute, a lapsed ask) no longer rise as a second screen: each opens in its own row with the SAME
   shipped body, in the shared frame, and ends with "Open in page ›".
+- **A short bookings read is never "done"** (controller re-review): the overview read now returns `bookingsComplete`
+  (its booked-events read reached the end); when it is false Today gets `eventsUnread` — no count, never "You're done
+  for today", and a "Couldn't load your bookings just now" row. Held by `today-unread-bookings-are-never-done.test.ts`.
+- **A row's badge tag sits under its line** (drawing V3 · 3 `.bg`), so at 390 px the line is no longer cut off by a
+  pill and a tag side by side.
 
 NOT in this part (each its own PR, in this order): drag right / drag left and "Do it tomorrow" (needs a put-off record)
 · the finished-event wrap-up card · admin Focus opening in place · the three urgency windows that are admin settings

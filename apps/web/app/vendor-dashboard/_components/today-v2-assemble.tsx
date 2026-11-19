@@ -68,6 +68,12 @@ export type TodayV2Input = {
    * (drawing V3 · 3: "an event you run today" red · "a booked event tomorrow" amber). Absent → none.
    */
   events?: readonly TodayEventDay[];
+  /**
+   * 📅 The booked-events read did NOT reach its end (`bookingsComplete === false`). An event today (red) may be
+   * missing from the list, so the count is withheld, Today is never "done", and a "couldn't load" row says so — never
+   * a shorter list that reads as success.
+   */
+  eventsUnread?: boolean;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -98,7 +104,7 @@ export function buildTodayV2(i: TodayV2Input): {
   const later = todayHeldOff({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
   // The count is the one list, as drawn (V3 · 3 "Needs you today 6"): every task, every bill, the permit when it wears a
   // level, an event today or tomorrow.
-  const left = i.deskIncomplete ? null : list.length;
+  const left = i.deskIncomplete || i.eventsUnread ? null : list.length;
   const progress = todayProgress(left, doneCount, { billsUnread: i.billsUnread });
   const stage = growStage({
     setupDrawn: i.setupDrawn,
@@ -155,6 +161,7 @@ export function buildTodayV2(i: TodayV2Input): {
           todayIso={i.todayIso}
           onDesk={deskKeys}
           billsUnread={i.billsUnread}
+          eventsUnread={i.eventsUnread ?? false}
           doneUnread={doneCount === null}
           done={doneTodayRows(r?.done ?? null, gotIt)}
           allDone={progress.allDone}

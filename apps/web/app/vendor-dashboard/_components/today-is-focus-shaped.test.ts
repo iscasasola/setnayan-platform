@@ -67,7 +67,7 @@ test('3 · one list, most urgent first — no Quick or "Opens a screen" groups; 
   assert.doesNotMatch(V2, />\s*Quick ·|Opens a screen ·|data-today-opens-a-screen|data-today-quick=""/, 'a group heading is back');
   assert.match(V2, /data-today-one-list=""/);
   assert.match(ASSEMBLE, /const list = todayOneList\(\{ split, bills: i\.view\.bills, events: i\.events \?\? \[\], todayIso: i\.todayIso \}\)/, 'the list is not ordered by urgency as one');
-  assert.match(ASSEMBLE, /const left = i\.deskIncomplete \? null : list\.length;/, 'the count is not the one list, as drawn');
+  assert.match(ASSEMBLE, /const left = i\.deskIncomplete \|\| i\.eventsUnread \? null : list\.length;/, 'the count is not the one list, as drawn');
   const list = V2.slice(V2.indexOf('data-today-one-list=""'));
   assert.match(list, /\{list\.map\(\(e\) =>/, 'the list is not drawn in its one order');
   assert.doesNotMatch(V2, /billsBlock|billsLevel/, 'the fee bills move as one block again');

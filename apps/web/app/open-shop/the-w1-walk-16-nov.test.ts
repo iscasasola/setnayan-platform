@@ -46,7 +46,8 @@ test('W1-B3 · a refusal that arrives WITHOUT a remount is still shown — the p
   assert.match(body, /const at = refusalStep\(field, initialStep\);\s*setStep\(at\);/, 'the step that owns the box is not shown');
   // …and on Check your shop, the sheet that holds the box is opened (19 Nov).
   assert.match(body, /setSheet\(at === CHECK_STEP \? sheetOf\(field\) : null\)/, 'the sheet that owns the box is not opened');
-  assert.match(body, /setAcctEmail\(true\)/, 'the email + password boxes stay folded away');
+  // 19 Nov (PB2): the email + password boxes are never folded away, so there is nothing to open on a refusal.
+  assert.doesNotMatch(WIZARD, /acctEmail/, 'the email + password boxes can be folded away again');
 });
 
 test('W1-B3 · the account step says the leak rule in /reset-password\'s words, red when the server refused it', () => {

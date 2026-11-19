@@ -16,6 +16,8 @@
  *      `suite-doorway-guardrails.test.ts`, and it only walks the handful of
  *      builders the Suite page happens to name — so a builder with NO callers,
  *      which is exactly what a dead one becomes, was unwatched by construction.
+ *      (2026-11-18: `every-route-builder-reaches-a-page.test.ts` now walks
+ *      EVERY builder; `routes.ts` no longer cites the missing script.)
  *
  *   2. `scripts/page-masthead-baseline.json` still listed the deleted page. That
  *      ratchet is deliberately non-fatal on stale lines (it prints "remove them

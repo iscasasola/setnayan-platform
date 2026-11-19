@@ -428,7 +428,7 @@ const QUICK_WORD = 'whitespace-nowrap text-[12px] font-semibold leading-tight te
 /** The tile's 32 px icon square on the wash, the icon in the link colour. */
 function QuickIcon({ icon: I }: { icon: LucideIcon }) {
   return (
-    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-md bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
+    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
       <I className="h-[17px] w-[17px]" strokeWidth={1.8} />
     </i>
   );

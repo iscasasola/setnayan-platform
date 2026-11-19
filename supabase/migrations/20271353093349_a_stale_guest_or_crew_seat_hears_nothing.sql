@@ -57,7 +57,8 @@
 --   6 · chat_group_former_members(): their past lines stay attributed
 --       ("Rita · left") in the group's stream.
 --   7 · the same, once, for co-hosts removed before this file.
---   left_note is NOT written (the person's own words); NO line is posted.
+--   left_note is NOT written (the person's own words); NO chat line is
+--   posted (a reopened group seat does send the shipped "added you" notice — § 5).
 --   Reactivating a member does NOT reopen a closed seat: a host puts them
 --   back with chat_group_add, which revives the row (ON CONFLICT … left_at =
 --   NULL) — the same as anyone who left.
@@ -207,9 +208,13 @@ COMMENT ON FUNCTION public.tg_event_members_close_chat_seats() IS
 -- Owner, 20 Nov: "A co-host added back regains the groups they were in." When
 -- a person BECOMES a host of the event (a fresh row, or guest → couple), every
 -- host-made group seat a removal closed reopens. A seat they left themselves
--- (left_by_removal FALSE) stays closed — that was their choice. No line is
--- posted. Supplier chats keep the 20271352461498 behaviour: the host rejoins
--- by themselves (chat_thread_add_host) or is re-seated by another host.
+-- (left_by_removal FALSE) stays closed — that was their choice. No CHAT line
+-- is posted. They ARE told, once per restored group: clearing left_at fires
+-- a_chat_add_reaches_the_account (20271346481550), which sends the in-app
+-- notice "{the person who first added them} added you to {group}" — the
+-- shipped wording for any return to a group. Supplier chats keep the
+-- 20271352461498 behaviour: the host rejoins by themselves
+-- (chat_thread_add_host) or is re-seated by another host.
 CREATE OR REPLACE FUNCTION public.tg_event_members_reopen_chat_seats()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -240,7 +245,7 @@ $$;
 REVOKE ALL ON FUNCTION public.tg_event_members_reopen_chat_seats() FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION public.tg_event_members_reopen_chat_seats() IS
-  'When a person becomes a host (''couple'') of an event, their host-made group seats that a removal closed (left_by_removal) reopen. Seats they left themselves stay closed. Posts no line. Migration 20271353093349.';
+  'When a person becomes a host (''couple'') of an event, their host-made group seats that a removal closed (left_by_removal) reopen. Seats they left themselves stay closed. Posts no chat line; each reopened seat fires the shipped "… added you to {group}" notice (a_chat_add_reaches_the_account). Migration 20271353093349.';
 
 DROP TRIGGER IF EXISTS event_members_reopen_chat_seats ON public.event_members;
 CREATE TRIGGER event_members_reopen_chat_seats

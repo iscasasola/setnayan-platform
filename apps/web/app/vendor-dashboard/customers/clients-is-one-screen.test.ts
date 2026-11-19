@@ -52,7 +52,9 @@ test('(c) the tiles are their own row under the month, never on the pinned row',
 
 test('(d) the thumb row is Search clients · ⇅ · ＋ — "Check a date" folded into the day bar', () => {
   assert.doesNotMatch(PAGE, /<CheckADate\b|from '\.\/_components\/check-a-date'/, 'Check a date is back on the thumb row');
-  assert.match(PAGE, /placeholder="Search clients"/);
+  // The search box moved into its own part (Search or add, 19 Nov): the page draws it, the part names what it searches.
+  assert.match(PAGE, /<ClientsSearch\b/, 'the thumb row lost its search');
+  assert.match(read('_components', 'clients-search.tsx'), /placeholder="Search clients"/);
   assert.match(PAGE, /<ClientsShowSort\b/);
   assert.match(PAGE, /<OutsideClientAdd\b/);
 });

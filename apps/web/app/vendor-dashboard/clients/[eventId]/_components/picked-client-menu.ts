@@ -1,28 +1,32 @@
 /**
- * 🗂 THE PICKED CLIENT'S MENU — nine pages, one dynamic segment (THE ONE BUILD, 8 Nov 2026 · prototype v113).
+ * 🗂 THE PICKED CLIENT'S MENU — SEVEN TABS (owner 18 Nov 2026, DECISION_LOG "THE CLIENT PAGE GOES TO SEVEN TABS — BOTH
+ * SIDES"; drawing Q37bc7Bf v12): **Chat · Details · Book & Budget · Schedule · Files · Hub · Report**. Hub shows only
+ * once booked, sixth so the first five never move when it appears. The page OPENS ON CHAT (owner 11 Nov).
  *
- * Owner-approved order (owner 11 Nov 2026, on the live screen — *"Sequence for client supplier page: Chat details
- * quotation forms schedule files report"*): **Chat · Details · Quotation · Payment · Forms · Schedule · Files · Hub ·
- * Report**. Payment and Hub show only once booked and sit beside their nearest neighbour (Payment after Quotation —
- * the money follows the quote; Hub before Report). The page OPENS ON CHAT. DECISION_LOG 2026-11-11 "THE PICKED-CLIENT
- * MENU AND THE CHAT (+) FOLLOW ONE ORDER" — the chat's (+) rows (`lib/chat-plus.ts`) follow this same order, and
- * `lib/chat-plus.test.ts` derives the (+)'s order from THIS list so the two can never drift.
- * (Supersedes the 8 Nov order Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub · Report.)
+ *   · **Book & Budget** is the id `quote`: the shipped Quotation body and the shipped Payment body on ONE page (owner:
+ *     *"we have agreed to integrate quotation and payments together"*). Before booking, the quote only; booked, the
+ *     payments first (`#payments`), then the locked quote.
+ *   · **Details** holds Forms (`#forms`, the two groups) and Decisions (`#decisions`) after their info.
+ *
+ * Supersedes the 11 Nov nine-tab order (Chat · Details · Quotation · Payment · Forms · Schedule · Files · Hub · Report).
+ * The chat's (+) rows (`lib/chat-plus.ts`) follow this same order, and `lib/chat-plus.test.ts` derives the (+)'s order
+ * from THIS list so the two can never drift.
  *
  * Every page is a body under `clients/[eventId]/_pages/<page>.tsx`, rendered by the ONE route
  * `/vendor-dashboard/clients/[eventId]` and switched on the client with `history.replaceState(?tab=)` — a page
- * switch costs no request (the Vercel route ceiling is why it is one segment, not nine routes).
+ * switch costs no request (the Vercel route ceiling is why it is one segment, not seven routes).
  *
- * `pickedPageOf` is the switch from any `?tab=` a door has ever written to the page it means:
+ * `pickedPageOf` is the switch from any `?tab=` a door has ever written to the page it means — and `pickedAnchorOf`
+ * the part of it to land on. Every inbound link keeps working (notifications, the Calendar, chat cards):
+ *   • `payments` / `payment` → Book & Budget at `#payments` · `quotation` → Book & Budget
+ *   • `forms` / `form`       → Details at `#forms`
  *   • `script`   → Schedule (the Script is a fold at the END of Schedule, `#script` — 7 Nov ruling)
  *   • `call`     → Chat (the chat has no calls)
  *   • `overview` → Details (the flag-off card's word for the brief)
  *   • `activity` → Report (the activity feed + private notes live on Report)
  *   • anything unknown or missing → Chat (the page's first tab, owner 11 Nov)
- *
- * Payment and Hub show only for a BOOKED client (prototype v113 `miniKeys`: an unbooked client has no money
- * schedule and no Hub to open); their ids still resolve so an old door never 404s — it lands on the default page.
  */
+import { BOOK_AND_BUDGET_LABEL } from '@/lib/book-and-budget';
 import {
   PICKED_CLIENT_PAGE_IDS,
   type PickedClientPage,
@@ -37,17 +41,23 @@ export type PickedClientMenuEntry = {
   bookedOnly: boolean;
 };
 
+export { BOOK_AND_BUDGET_LABEL };
+
 export const PICKED_CLIENT_PAGES: readonly PickedClientMenuEntry[] = [
   { id: 'chat', label: 'Chat', bookedOnly: false },
   { id: 'details', label: 'Details', bookedOnly: false },
-  { id: 'quote', label: 'Quotation', bookedOnly: false },
-  { id: 'payments', label: 'Payment', bookedOnly: true },
-  { id: 'forms', label: 'Forms', bookedOnly: false },
+  { id: 'quote', label: BOOK_AND_BUDGET_LABEL, bookedOnly: false },
   { id: 'schedule', label: 'Schedule', bookedOnly: false },
   { id: 'files', label: 'Files', bookedOnly: false },
   { id: 'hub', label: 'Hub', bookedOnly: true },
   { id: 'report', label: 'Report', bookedOnly: false },
 ] as const;
+
+/** The ids that are no longer tabs (18 Nov) — still valid door ids, each landing on its part of a tab. */
+export const FOLDED_PAGE_ANCHORS: Readonly<Partial<Record<PickedClientPage, { page: PickedClientPage; anchor: string }>>> = {
+  payments: { page: 'quote', anchor: 'payments' },
+  forms: { page: 'details', anchor: 'forms' },
+};
 
 /** The tab's word for a page — the (+) sheet labels its groups with these, so it reads as the menu's mirror. */
 export function pickedPageLabel(id: PickedClientPage): string {
@@ -62,9 +72,24 @@ export const LEGACY_PAGE_ALIASES: Readonly<Record<string, PickedClientPage>> = {
   activity: 'report',
   // The prototype's own words, in case a door copies them.
   quotation: 'quote',
-  payment: 'payments',
-  form: 'forms',
+  payment: 'quote',
+  form: 'details',
+  payments: 'quote',
+  forms: 'details',
+  book: 'quote',
+  budget: 'quote',
+  decisions: 'details',
 };
+
+/** The part of its page a raw `?tab=` lands on (`#payments`, `#forms`), or null for the page's top. */
+export function pickedAnchorOf(rawTab: string | null | undefined): string | null {
+  const t = (rawTab ?? '').trim().toLowerCase();
+  if (t === 'payments' || t === 'payment') return 'payments';
+  if (t === 'forms' || t === 'form') return 'forms';
+  if (t === 'decisions') return 'decisions';
+  if (t === 'script') return SCRIPT_FOLD_ID;
+  return null;
+}
 
 /** The page the picked client opens on when no door names one (owner 11 Nov: the first tab is Chat). */
 export const DEFAULT_PICKED_PAGE: PickedClientPage = 'chat';
@@ -73,8 +98,16 @@ export const DEFAULT_PICKED_PAGE: PickedClientPage = 'chat';
 export function pickedPageOf(rawTab: string | null | undefined): PickedClientPage {
   if (!rawTab) return DEFAULT_PICKED_PAGE;
   const t = rawTab.trim().toLowerCase();
+  if (Object.hasOwn(LEGACY_PAGE_ALIASES, t)) return LEGACY_PAGE_ALIASES[t]!;
   if ((PICKED_CLIENT_PAGE_IDS as readonly string[]).includes(t)) return t as PickedClientPage;
-  return LEGACY_PAGE_ALIASES[t] ?? DEFAULT_PICKED_PAGE;
+  return DEFAULT_PICKED_PAGE;
+}
+
+/** The page a raw id NAMES — a page id or a known alias — or null (the shell's `pageOf`: an unknown hash is an anchor). */
+export function pickedPageNamed(raw: string): PickedClientPage | null {
+  const t = raw.trim().toLowerCase();
+  if (!Object.hasOwn(LEGACY_PAGE_ALIASES, t) && !(PICKED_CLIENT_PAGE_IDS as readonly string[]).includes(t)) return null;
+  return pickedPageOf(t);
 }
 
 /** The menu a client of this stage sees. */
@@ -83,14 +116,13 @@ export function pickedMenuFor(isBooked: boolean): PickedClientMenuEntry[] {
 }
 
 /**
- * The page actually drawn: the asked page if this client's menu has it. An unbooked client asked for Payment lands on
- * the Quotation — "Confirm a payment" before booking is about the quote (Build 2 row #38: no Payment page before
- * booking); asked for Hub, on the default page (Chat).
+ * The page actually drawn: the asked page if this client's menu has it. Payment and Forms are parts of Book & Budget
+ * and Details now (`pickedPageOf` already folds them); asked for Hub before booking, the default page (Chat).
  */
 export function visiblePickedPage(rawTab: string | null | undefined, isBooked: boolean): PickedClientPage {
   const p = pickedPageOf(rawTab);
   if (pickedMenuFor(isBooked).some((e) => e.id === p)) return p;
-  return p === 'payments' ? 'quote' : DEFAULT_PICKED_PAGE;
+  return DEFAULT_PICKED_PAGE;
 }
 
 /** `?tab=script` lands on Schedule scrolled to the Script fold. */

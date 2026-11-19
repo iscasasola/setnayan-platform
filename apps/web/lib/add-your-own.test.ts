@@ -151,9 +151,9 @@ test('the first add opens the walk in the one-screen shape; editing stays the on
 test('a name typed in the thumb row rides into the walk', () => {
   const thumb = code(THUMB);
   assert.match(thumb, /onAdd: \(typed: string\) => void/);
-  assert.match(thumb, /label: text\.trim\(\) \? 'Add' : 'Add your own',/);
-  // …and the press hands the typed name to the walk (the shared row's ＋ round, owner 2026-10-22).
-  assert.match(thumb, /const typed = text;[\s\S]{0,160}onAdd\(typed\);/);
+  // …and the press hands the typed name to the walk — since 18–19 Nov 2026 the field's own 🔍 → ＋ (or Enter), not a ＋ round.
+  assert.match(thumb, /const addTyped = \(typed: string\) => \{[\s\S]{0,160}onAdd\(typed\);/);
+  assert.match(thumb, /onAdd: addTyped,\s*query: text,/);
   assert.match(code(BENCH), /function addYourOwn\(typed = ''\)/);
 });
 

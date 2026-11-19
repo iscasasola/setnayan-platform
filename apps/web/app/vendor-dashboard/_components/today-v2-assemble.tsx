@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { nextHref } from './supplier-today-first-screen';
 import { TodayGrow, TodayNextBadge, TodayRecommended, TodayTrending, TodayV2Needs, TodayV2Sub } from './today-v2';
 import {
@@ -8,9 +7,9 @@ import {
   growStage,
   nextBadgeWords,
   roomToGrowRows,
-  billsSlot,
-  billsUrgency,
   splitTodayNeeds,
+  todayOneList,
+  type TodayEventDay,
   todayProgress,
   trendingLines,
   type TodayBadgeTag,
@@ -59,6 +58,11 @@ export type TodayV2Input = {
   billsUnread: boolean;
   /** v3: the clock the deadlines are read against (a date change's `dueAt`) — the page's render clock. */
   now: number;
+  /**
+   * v3: the booked events (the page's `upcoming`) — one TODAY or TOMORROW is a row in the one list with its level
+   * (drawing V3 · 3: "an event you run today" red · "a booked event tomorrow" amber). Absent → none.
+   */
+  events?: readonly TodayEventDay[];
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -84,7 +88,10 @@ export function buildTodayV2(i: TodayV2Input): {
   const deskKeys = deskCards.map((c) => c.id);
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);
-  const left = i.deskIncomplete ? null : split.quick.length + split.screen.length + i.view.bills.length;
+  const list = todayOneList({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
+  // The count is the one list, as drawn (V3 · 3 "Needs you today 6"): every task, every bill, the permit when it wears a
+  // level, an event today or tomorrow.
+  const left = i.deskIncomplete ? null : list.length;
   const progress = todayProgress(left, doneCount, { billsUnread: i.billsUnread });
   const stage = growStage({
     setupDrawn: i.setupDrawn,
@@ -101,7 +108,8 @@ export function buildTodayV2(i: TodayV2Input): {
     hasQuoteDraft: i.needsAnswer.some((c) => c.kind === 'quote_draft'),
     payoutNone: i.payoutReadiness === 'none',
     hasMarkComplete: i.needsAnswer.some((c) => c.kind === 'mark_complete'),
-    permitDue: i.view.needs.some((n) => n.key === 'renewal'),
+    // A permit already on the list (it wears a level) is not said again as a grow move.
+    permitDue: !split.permit && i.view.needs.some((n) => n.key === 'renewal'),
     completedToGo: nextBadge?.toGo ?? null,
   });
   // A gap the grow stage already shows as a move is not said twice.
@@ -132,14 +140,14 @@ export function buildTodayV2(i: TodayV2Input): {
       needsRows: (
         <TodayV2Needs
           split={split}
+          list={list}
+          billCopy={i.view.billCopy}
+          lockLine={i.view.lockLine}
           answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts }}
           todayIso={i.todayIso}
           onDesk={deskKeys}
-          billCount={i.view.bills.length}
           billsUnread={i.billsUnread}
-          billsLevel={billsSlot(billsUrgency(i.view.bills, i.todayIso))}
           doneUnread={doneCount === null}
-          bills={<BookingFeeBills today bills={i.view.bills} copyFor={i.view.billCopy} />}
           done={doneTodayRows(r?.done ?? null, gotIt)}
           allDone={progress.allDone}
         />

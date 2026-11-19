@@ -65,6 +65,7 @@ export function TodayQuickRow({
   aside,
   urgency = null,
   foot = null,
+  attrs,
   children,
 }: {
   rowKey: string;
@@ -76,6 +77,8 @@ export function TodayQuickRow({
   urgency?: 'red' | 'amber' | null;
   /** v3: the open card's small links under the answer ("Open in page ›"). */
   foot?: ReactNode;
+  /** Extra data attributes on the row (a fee bill's `data-fee-bill-today`, so Today's search finds it as a payment). */
+  attrs?: Record<`data-${string}`, string>;
   children: ReactNode;
 }) {
   const g = useContext(QuickGroup);
@@ -84,6 +87,7 @@ export function TodayQuickRow({
   const tint = urgency === 'red' ? 'var(--sn-danger-soft)' : urgency === 'amber' ? 'var(--sn-warning-soft)' : undefined;
   return (
     <div
+      {...attrs}
       data-today-quick-row={rowKey}
       data-today-urgency={urgency ?? undefined}
       data-today-card={open ? 'open' : undefined}

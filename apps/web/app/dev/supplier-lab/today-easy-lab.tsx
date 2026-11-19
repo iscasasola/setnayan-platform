@@ -568,6 +568,7 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = 
         closed,
         deskIncomplete: moment === 'unread',
         billsUnread: false,
+        events: upcoming,
         now: NOW,
         reads: moment === 'unread' ? null : {
           done: { replies: 2, payments: 0, delivered: 0, bookings: 0, dates: 0, inquiries: 0, meetings: 0, cancels: 0 },

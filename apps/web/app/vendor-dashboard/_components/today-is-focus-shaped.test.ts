@@ -14,7 +14,7 @@
  *   5 · ⏭ NOT IN THIS PART (each its own PR): drag right / drag left, "Do it tomorrow", the wrap-up card, admin Focus
  *       in place, and the three unset urgency windows. Nothing here may pretend to do them.
  * 🛡 SABOTAGE (each seen RED, then restored — 2026-11-19): `<SupplierHero` put back in the cover (red: 1) · the
- *   top-only block moved back above the list (red: 2) · a "Quick ·" heading added (red: 3) · `<SupplierOpenRow rise`
+ *   top-only block moved back above the list (red: 2) · a "Quick ·" heading added (red: 3) · the bills folded back into one block (red: 3) · `<SupplierOpenRow rise`
  *   used for a task (red: 4) · a "Do it tomorrow" button added (red: 5).
  */
 import test from 'node:test';
@@ -32,6 +32,7 @@ const FIRST = read('supplier-today-first-screen.tsx');
 const V2 = read('today-v2.tsx');
 const ROW = read('today-v2-client.tsx');
 const PAGE = read('../page.tsx');
+const ASSEMBLE = read('today-v2-assemble.tsx');
 
 test('1 · no photo and no band: the top is the short mast', () => {
   for (const [name, src] of [['today-cover.tsx', COVER], ['supplier-today-screen.tsx', SCREEN], ['page.tsx', PAGE]] as const) {
@@ -56,16 +57,27 @@ test('2 · the list comes first; the Next badge card, Next events and the number
   assert.match(FIRST.slice(top, top + 160), /\{nextBadge\}\s*\{nextEvents\}\s*\{stats\}/, 'one of the three blocks was dropped — they move, they are not removed');
 });
 
-test('3 · one list, most urgent first — no Quick or "Opens a screen" groups', () => {
+// Re-aimed 19 Nov (Fable review of #8032, FIX-FIRST): the fee bills used to move as ONE block at their most pressing
+// level, with no tint, edge, word or card of their own. Now every entry of the one list — task, bill, permit, event —
+// is its own row at its own level (`todayOneList`, unit-tested in lib/supplier-today-v2.test.ts V3–V6).
+test('3 · one list, most urgent first — no Quick or "Opens a screen" groups; every bill, the permit and today’s events are rows of their own', () => {
   assert.doesNotMatch(V2, />\s*Quick ·|Opens a screen ·|data-today-opens-a-screen|data-today-quick=""/, 'a group heading is back');
   assert.match(V2, /data-today-one-list=""/);
+  assert.match(ASSEMBLE, /const list = todayOneList\(\{ split, bills: i\.view\.bills, events: i\.events \?\? \[\], todayIso: i\.todayIso \}\)/, 'the list is not ordered by urgency as one');
+  assert.match(ASSEMBLE, /const left = i\.deskIncomplete \? null : list\.length;/, 'the count is not the one list, as drawn');
   const list = V2.slice(V2.indexOf('data-today-one-list=""'));
-  const at = (re: RegExp) => list.search(re);
-  const red = at(/r\.urgency\?\.level === 'red'/);
-  const amber = at(/r\.urgency\?\.level === 'amber'/);
-  const rest = at(/!r\.urgency\)/);
-  assert.ok(red > 0 && amber > red && rest > amber, 'the list is not drawn red, then amber, then the rest');
-  assert.match(list, /billsLevel === 'red' \? billsBlock : null\}[\s\S]*billsLevel !== 'red' \? billsBlock : null\}/, 'the fee bills do not sit beside their own level');
+  assert.match(list, /\{list\.map\(\(e\) =>/, 'the list is not drawn in its one order');
+  assert.doesNotMatch(V2, /billsBlock|billsLevel/, 'the fee bills move as one block again');
+  for (const kind of ['BillRow', 'PermitRow', 'EventRow']) {
+    const at = V2.indexOf(`function ${kind}(`);
+    assert.ok(at > 0, `anti-vacuity: ${kind} not found`);
+    const body = V2.slice(at, V2.indexOf('\n}\n', at));
+    assert.match(body, /<TodayQuickRow\b/, `${kind} is not a row that opens as a card`);
+    assert.match(body, /urgency=\{urgency\.level\}/, `${kind} wears no tint or edge`);
+    assert.match(body, /line=\{`\$\{urgency\.word\} · /, `${kind}'s level is colour alone — it must wear its word`);
+    assert.match(body, /foot=\{<CardFoot href=/, `${kind}'s card has no "Open in page ›"`);
+  }
+  assert.match(V2, /attrs=\{\{ 'data-fee-bill-today': '', 'data-testid': 'booking-fee-bill' \}\}/, 'search can no longer find a bill as a payment');
   assert.equal((V2.match(/<TodayQuickGroup\b/g) ?? []).length, 1, 'more than one group — two rows could be open at once');
 });
 

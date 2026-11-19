@@ -39,7 +39,7 @@ html.dark .sn-sig {
   width: 100%;
   max-width: 300px;
   margin-inline: auto;
-  border-radius: 16px;
+  border-radius: var(--m-r-md);
   border: 1px solid var(--sn-sig-line);
   background: var(--sn-sig-wash);
 }
@@ -53,7 +53,7 @@ html.dark .sn-sig {
   top: 34px;
   width: 92px;
   padding: 9px 8px;
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
   border: 1px solid var(--sn-sig-line);
   background: var(--sn-sig-surface);
   color: rgb(var(--color-ink));
@@ -167,11 +167,11 @@ html.dark .sn-sig {
 .sn-sig-foil {
   display: inline-flex;
   overflow: hidden;
-  border-radius: 9999px;
+  border-radius: var(--m-r-full);
   isolation: isolate;
 }
 .sn-sig-foil[data-sig-shape='square'] {
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
 }
 .sn-sig-foil-light {
   position: absolute;
@@ -212,7 +212,7 @@ html.dark .sn-sig {
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--m-r-md);
   border: 1px solid var(--sn-sig-line);
   background: var(--sn-sig-surface);
   color: rgb(var(--color-ink));
@@ -254,7 +254,7 @@ html.dark .sn-sig {
   z-index: 4;
   margin-left: 36px;
   padding: 2px 9px;
-  border-radius: 99px;
+  border-radius: var(--m-r-full);
   background: rgb(var(--color-ok));
   color: rgb(var(--color-raised));
   font-size: 10px;
@@ -328,7 +328,7 @@ html.dark .sn-sig {
   flex: none;
   width: 34px;
   height: 24px;
-  border-radius: 4px;
+  border-radius: var(--m-r-xs);
   border: 1.5px solid var(--sn-sig-gold);
   background: var(--sn-sig-surface);
   perspective: 120px;
@@ -351,7 +351,7 @@ html.dark .sn-sig {
   right: 6px;
   top: 4px;
   height: 14px;
-  border-radius: 2px;
+  border-radius: calc(var(--m-r-xs) / 2);
   background: var(--sn-sig-gold);
   transform: translateY(-12px);
 }
@@ -473,7 +473,7 @@ html.dark .sn-sig {
   grid-template-rows: repeat(2, 1fr);
   gap: 2px;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: var(--m-r-sm);
   background: var(--sn-sig-gold);
 }
 .sn-sig-capiz-pane {
@@ -516,7 +516,7 @@ html.dark .sn-sig {
   z-index: 70;
   display: flex;
   justify-content: center;
-  padding: 0 16px;
+  padding: 0 calc(16px + var(--sn-safe-r, 0px)) 0 calc(16px + var(--sn-safe-l, 0px));
   pointer-events: none;
 }
 .sn-sig-over > .sn-sig-stage {

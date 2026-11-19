@@ -35,6 +35,8 @@ import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
 import { CardQuoteActions, QuoteTray } from './shop-quote';
+import { NotYetVerifiedTag } from './not-yet-verified-tag';
+import { NOT_VERIFIED_STAMP } from '@/lib/not-yet-verified-markings';
 import { setShopQuote } from './shop-quote-store';
 import { quoteSummary, toggleQuote, type QuoteCard } from '@/lib/shop-quote';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
@@ -73,6 +75,7 @@ export function ServicesGallery({
   countOpensFor = null,
   ownerCheckFor = null,
   quote = null,
+  notVerified = false,
   cardBadges = null,
   badgesNow = 0,
 }: {
@@ -106,6 +109,8 @@ export function ServicesGallery({
    * decided server-side (`quotePriceOf`). null = no quote (a page with no Inquire pop-up to send it through).
    */
   quote?: { cards: QuoteCard[]; inSideCard?: boolean } | null;
+  /** ⚠ v16 S6: the shop is not verified yet — every card wears the drawing's "Not verified" stamp (`.nvp`). */
+  notVerified?: boolean;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -316,10 +321,14 @@ export function ServicesGallery({
                   cardBadges?.kind === 'ok' && (cardBadges.byCard[c.id]?.length ?? 0) > 0 ? (
                     <>
                       <CardBadgeRow badges={cardBadges.byCard[c.id]!} cardName={c.label} shopName={shopName} now={badgesNow} />
+                      {notVerified ? <NotYetVerifiedTag label={NOT_VERIFIED_STAMP} /> : null}
                       {quoteActionsFor(c)}
                     </>
                   ) : (
-                    quoteActionsFor(c)
+                    <>
+                      {notVerified ? <NotYetVerifiedTag label={NOT_VERIFIED_STAMP} /> : null}
+                      {quoteActionsFor(c)}
+                    </>
                   )
                 }
               />
@@ -328,7 +337,9 @@ export function ServicesGallery({
         )}
       </ul>
 
-      {quote ? <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} /> : null}
+      {quote ? (
+        <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} notVerified={notVerified} />
+      ) : null}
 
       <PhotosByServiceSheet
         view={photoServices.find((v) => v.key === openService) ?? null}

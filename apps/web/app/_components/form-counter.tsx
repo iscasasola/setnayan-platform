@@ -22,7 +22,13 @@ export function FormCounter({
   saveAfterMs,
   data,
   blankUntilTouched = false,
+  onCount,
+  typeable = false,
 }: {
+  /** Tapping the number lets you type it (`Counter`'s `onType`), clamped to min..max. Left out, taps only. */
+  typeable?: boolean;
+  /** Told the new number after each tap (a sentence beside it that reads the number). Left out, nothing is told. */
+  onCount?: (n: number) => void;
   /**
    * Post '' until a person taps − or ＋ — for a stored blank (it means "the plan's number") the screen must SHOW a number for,
    * so opening and saving never writes a figure nobody chose. Left out, it posts the number it shows.
@@ -52,11 +58,13 @@ export function FormCounter({
     },
     [],
   );
-  const step = (by: number) => {
-    const next = Math.min(max, Math.max(min, n + by));
+  const step = (by: number) => setTo(n + by);
+  const setTo = (want: number) => {
+    const next = Math.min(max, Math.max(min, want));
     if (next === n) return;
     setN(next);
     setTouched(true);
+    onCount?.(next);
     if (saveAfterMs === undefined) return;
     if (wait.current) clearTimeout(wait.current);
     wait.current = setTimeout(() => {
@@ -75,6 +83,7 @@ export function FormCounter({
         onMore={() => step(1)}
         lessDisabled={n <= min}
         moreDisabled={n >= max}
+        onType={typeable ? setTo : undefined}
       />
     </>
   );

@@ -6153,6 +6153,24 @@ html.dark [data-art='candlelight'] {
   .sn-m-pop { scale: 0.92; opacity: 0; }
 }
 
+/* CHAT SEND (#26, Phase 6 — `MOTION_STANDARD_2026-11-18.md` § 4 row 26; drawing "Your message rises from the box to its
+   place") — the line you just sent (`[data-chat-pending]`, chat-message-stream.tsx) rises 40 px from the box and grows
+   from 0.9 at its own corner: Move on Spring; its fade is Move on Settle. An entrance, so `@starting-style` — no
+   keyframe, no class toggle. It replaces the snap. Reduced motion: no travel, no growth — it is simply there (the base
+   layer's freeze). Held by lib/a-whisper-never-reaches-the-supplier.test.ts (8). */
+.sn-m-chat-send {
+  transform-origin: 100% 100%;
+  transition: translate var(--sn-m-move) var(--sn-m-spring), scale var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-move) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-chat-send { translate: 0 40px; scale: 0.9; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .sn-m-chat-send { translate: none; scale: none; }
+  }
+}
+
 /* ENTER · A ROW ARRIVES (#13) — played by `lib/rows-move.ts` (`rowArrives`): Move on Settle, 8 px up; only the first
    6 of a batch cascade (60 ms apart), the rest are simply there; the wash below fades over Rise. */
 .sn-m-row-wash {
@@ -11472,6 +11490,35 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   .sn-composer-tools,
   .sn-composer-tools > *,
   .sn-composer-box { transition: none; }
+}
+
+/* 🤫 ONE BOX · MESSAGE ⇄ WHISPER (owner 2026-11-19, "MESSAGE ⇄ WHISPER APPROVED"; drawing
+ * `prototypes/chat_send_to_private_2026-11-19.html`; app/_components/chat-send-form.tsx). The ＋ and Send live INSIDE
+ * the one message box. On a host's composer the BOX is dragged right (never Send) to whisper to the co-hosts: it rides
+ * under the thumb and snaps back (`--sn-m-swipe-snap`), its outline and its Send turn sky blue (`--color-private`), and
+ * the ＋ folds away at Quick. Every speed is a motion token; the Send icon's own morph is `whisper-send-icon.tsx`.
+ * `pan-y` leaves the page's up/down scroll to the page and gives the sideways drag to the box.
+ * Reduced motion: the same end states, nothing travels. Held by lib/a-whisper-never-reaches-the-supplier.test.ts. */
+.sn-chat-onebox {
+  transition: box-shadow var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-swipe-snap) var(--sn-m-settle);
+}
+.sn-chat-onebox[data-chat-whisper] { touch-action: pan-y; }
+.sn-chat-onebox[data-chat-dragging] { transition: box-shadow var(--sn-m-move) var(--sn-m-settle); }
+.sn-chat-onebox[data-chat-whisper='on'] { box-shadow: inset 0 0 0 1.5px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on']:focus-within { box-shadow: inset 0 0 0 2px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools,
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools > * {
+  transition-duration: var(--sn-m-quick);
+  transition-timing-function: var(--sn-m-settle);
+}
+.sn-whisper-send,
+.sn-chat-onebox-field { transition: color var(--sn-m-move) var(--sn-m-settle); }
+/* Back to Message: the blue leaves with the line that completes the plane, a Move after the dots have gone. */
+.sn-chat-onebox[data-chat-whisper='off'] .sn-whisper-send { transition-delay: var(--sn-m-move); }
+@media (prefers-reduced-motion: reduce) {
+  .sn-chat-onebox,
+  .sn-whisper-send,
+  .sn-chat-onebox-field { transition: none; }
 }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by

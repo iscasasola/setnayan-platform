@@ -52,7 +52,7 @@
 import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowLeft, Camera, ImageIcon, Lock, Paperclip, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { useChatHome } from '@/app/_components/chat/chat-home';
 import { KIND_CHIPS } from '@/lib/chat-kinds';
 import { pickKind, useKinds } from '@/lib/chat-kind-store';
@@ -875,7 +875,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           <span className="min-w-0 flex-1">
             {offer.lead} <b className="font-semibold text-ink">{offer.figure}</b>?
           </span>
-          <ActionButton tone="brand" main label={offer.button} onClick={() => openTool(offer.card)} className="shrink-0" />
+          <ActionButton tone="brand" main icon={Plus} label={offer.button} onClick={() => openTool(offer.card)} className="shrink-0" />
         </div>
       ) : null}
       {/* 💬 THE CHIPS — compact, floating above the box (they push nothing up); they pour out of the sliders icon and

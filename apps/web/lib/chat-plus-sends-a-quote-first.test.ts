@@ -21,7 +21,7 @@ test('no quote yet → "Make a quote", the short card (its door still the builde
   assert.equal(quote.card, 'quote', 'Make a quote left the chat again');
   assert.equal(quote.door, 'build-quote', 'Full quotation lost its builder');
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.key === 'build-quote')?.label, SEND_A_QUOTE_LABEL, 'the builder was renamed');
-  assert.equal(rows.some((r) => r.key === 'versions'), false);
+  assert.equal(rows.some((r) => /every version/i.test(r.label)), false);
   /* The card a no-quote chat opens is the Make a quote card, never the dead "No quote in this chat yet". */
   const card = stripComments(readFileSync(join(import.meta.dirname, '..', 'app/_components/chat/cards/quote-step-card.tsx'), 'utf8'));
   assert.match(card, /if \(!q\) return <MakeQuoteCard /);

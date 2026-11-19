@@ -109,7 +109,7 @@ test('4 · the summary strip is FIRST in the chat’s one pinned stack, fed only
 });
 
 test('5 · ONE switch, in the text box: the sliders raise the chips; the old 📎 is not drawn beside them', () => {
-  assert.match(SEND, /import \{ ArrowLeft, Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
+  assert.match(SEND, /import \{ ArrowLeft, Camera, ImageIcon, Lock, Paperclip, Plus, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
   const box = SEND.slice(SEND.indexOf('data-chat-one-box=""'));
   const sliders = box.indexOf('data-chat-kind-open=');
   const send = box.indexOf('aria-label="Send"');

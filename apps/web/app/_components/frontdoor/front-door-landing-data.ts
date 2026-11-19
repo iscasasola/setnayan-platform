@@ -438,6 +438,6 @@ export const ADD_ONS: readonly { photo: string; title: string; line: string; hre
     line: 'Stream the day on your Event Hub, for family who can’t be there.',
     href: '/features/live-watch',
   },
-  { photo: 'addon-music', title: 'Music Maker', line: 'A song of your own, made for your event.', href: '/features/music-maker' },
-  { photo: 'addon-patiktok', title: 'Patiktok', line: 'Short reels made from your day.', href: '/features/patiktok' },
+  // 🪦 Music Maker and Patiktok left 2026-11-20 (owner: *"Retire Patiktok and Music Maker ( we do not want to serve
+  // this anymore)"* — lib/retired-products.ts).
 ];

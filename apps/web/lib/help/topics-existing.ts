@@ -140,12 +140,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
       },
-      {
-        slug: 'what-is-pakanta',
-        title: 'What is Music Maker?',
-        appBody: HELP_NOT_IN_THE_APP,
-        body: 'A custom Filipino-style song made for the couple — written from what you already told us about your story, and yours to keep for the ceremony or reception. A one-time per-event purchase (current price on setnayan.com/pricing).',
-      },
+      // 🪦 'what-is-pakanta' (Music Maker) left 2026-11-20 — retired (lib/retired-products.ts).
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
@@ -625,7 +620,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch, Music Maker and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
+        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',

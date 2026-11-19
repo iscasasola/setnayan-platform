@@ -194,8 +194,9 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
    */
   ...(
     [
-      ['music_maker', 'PAKANTA', 'Music Maker'],
-      ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
+      /* 🗑 `music_maker` (PAKANTA) and `patiktok` (PATIKTOK_COMPILER) are RETIRED (owner 2026-11-20, *"Retire Patiktok
+         and Music Maker ( we do not want to serve this anymore)"*) — delivery only, in lib/iap/products-delivery.ts
+         `RETIRED_EVENT_PRODUCTS`. Never re-add them here, never reuse their ids. */
       /* 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
          2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id. */
     ] as const

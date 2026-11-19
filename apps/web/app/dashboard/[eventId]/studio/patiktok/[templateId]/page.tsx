@@ -1,3 +1,4 @@
+import { redirectUnlessEventKeepsRetired } from '@/lib/retired-products.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Music, Sparkles } from 'lucide-react';
@@ -33,6 +34,8 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // 🪦 RETIRED (owner 2026-11-20) — an event that does not already have it goes to its dashboard.
+  await redirectUnlessEventKeepsRetired(eventId, 'PATIKTOK_COMPILER');
 
   const { data: event, error: eventError } = await supabase
     .from('events')

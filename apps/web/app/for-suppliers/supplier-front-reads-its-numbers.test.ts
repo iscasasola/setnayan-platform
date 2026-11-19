@@ -38,7 +38,6 @@ const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
   'app/for-suppliers/_components/supplier-front-info.tsx',
-  'app/for-suppliers/_components/supplier-badge-shelf.tsx',
   'app/(shell)/for-suppliers/page.tsx',
 ];
 

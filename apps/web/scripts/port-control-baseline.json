@@ -383,7 +383,6 @@
         "for-suppliers/_components/plan-page-preview.tsx",
         "for-suppliers/_components/plan-table-chips.tsx",
         "for-suppliers/_components/plan-table-data.ts",
-        "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",

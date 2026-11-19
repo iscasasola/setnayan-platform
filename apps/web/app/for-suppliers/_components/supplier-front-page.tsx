@@ -95,7 +95,7 @@ const SAMPLE_CARDS: ReadonlyArray<{
     cover: `${A}/c-photo.webp`,
     shop: 'Lumen Studio',
     price: 45999,
-    includes: ['2 shooters', 'Online gallery', 'Same-day edit'],
+    includes: ['2 shooters', 'Online album', 'Same-day edit'],
     notIncluded: ['crew meal'],
     badges: [
       { key: 'trending_now', since: null },

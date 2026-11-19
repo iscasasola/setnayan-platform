@@ -48,7 +48,7 @@ import {
   isEmailOrPhone,
   ownGiftMenu,
   ownGiftPacks,
-  packsLeft,
+  ownPackLeft,
   usedWhenJoinsLine,
 } from '@/lib/own-clients';
 import { saveOwnClient, type OwnClientActionState } from '../own-client-actions';
@@ -117,7 +117,7 @@ function GiftPicks({
       {picks.map((code, i) => {
         const room = roomForLine(data.free, data.packs, picks, i);
         const pack = packs.find((p) => p.code === code) ?? null;
-        const left = pack && room ? packsLeft(room[pack.kind], pack) : null;
+        const left = pack ? ownPackLeft(room, pack) : null;
         return (
           <ChosenRow
             key={`${i}-${code}`}

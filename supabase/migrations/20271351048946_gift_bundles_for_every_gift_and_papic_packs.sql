@@ -54,6 +54,8 @@
 --   6. vendor_pays_gift_price — answers FALSE: nobody pays a gift price any more,
 --      so setnayan_gift_for_fee(BIGINT, UUID) charges every shop the list price
 --      (its body is untouched; it already falls back to list on FALSE).
+--   7. own_client_gift_give (main's Own clients v4 door, 20271349849472) — re-created per pack for
+--      Papic, and its earlier 'own_client' rows backfilled with their pack (review 19 Nov).
 --
 -- KEEP IDEMPOTENT. 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md).
 -- ============================================================================
@@ -629,5 +631,347 @@ COMMENT ON FUNCTION public.vendor_pays_gift_price(UUID) IS
   'Retired as a price rule 2026-11-14 (owner: the only gift discount is the buy-10-get-1 '
   'Papic bundle). Always FALSE, so every shop is charged the list price. Kept so its '
   'callers need no change.';
+
+-- ── 7 · an own-client gift leaves the stock PER PACK too ────────────────────
+-- (review of #7678, 19 Nov 2026.) Main's `own_client_gift_give` (20271349849472, Own clients v4) wrote its
+-- Papic row with no pack_code / packs. The pack ledger above (shop_gift_pack_stock_status) and the quote door
+-- (shop_gift_deliver_for_booking) read ONLY SUM(packs) — so a pack given to an own client stayed in "Your
+-- gifts" and could be given a SECOND time on a quote. Per pack is the ruling (DECISION_LOG 2026-11-14 "counted
+-- in packs", 2026-11-17).
+--
+-- Re-created from its latest body (20271349849472 — still the latest on main; same signature, same grants).
+-- 🔢 CHANGED, Papic only: a Papic line must name its pack (`service_code`, which the app has always sent —
+-- lib/own-clients.ts OwnGiftLine); the stock test is per pack (bought = free packs − that pack's reward packs);
+-- and one 'own_client' row is written per pack with pack_code + packs. A 'short' answer now also carries
+-- `pack_code`, and `wanted` / `free` are in packs for a Papic line. The plans (Event Plus / Pro / Ultra), the
+-- idempotency, the import facts and every other answer are unchanged.
+CREATE OR REPLACE FUNCTION public.own_client_gift_give(
+  p_vendor_profile_id UUID,
+  p_event_id          UUID,
+  p_via               TEXT,
+  p_invite_id         UUID,
+  p_lines             JSONB,
+  p_user_id           UUID DEFAULT NULL,
+  p_event_has         TEXT DEFAULT 'none'
+)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_line     JSONB;
+  v_kind     TEXT;
+  v_credits  INTEGER;
+  v_papic    INTEGER := 0;
+  v_need     jsonb := '{}'::jsonb;
+  v_code     TEXT;
+  v_packs    jsonb := '{}'::jsonb;   -- {pack_code: {packs, credits}} — the Papic lines, per pack
+  v_pk       RECORD;
+  v_units    INTEGER;
+  v_balance  INTEGER;
+  v_held     INTEGER;
+  v_earned   INTEGER;
+  v_used     INTEGER;
+  v_free     INTEGER;
+  v_reward   INTEGER;
+  v_bought   INTEGER;
+  v_has      TEXT := p_event_has;
+  v_sim      TEXT;
+  v_givable  INTEGER := 0;
+  v_name     TEXT;
+  v_grant    UUID;
+  v_plan_grant UUID;
+  v_gift     UUID;
+  v_sku      TEXT;
+  v_included INTEGER;
+  v_pool     INTEGER;
+  v_invited  TIMESTAMPTZ;
+  v_acct_new BOOLEAN;
+  v_evt_new  BOOLEAN;
+  v_first    BOOLEAN;
+  v_row      public.own_client_gifts%ROWTYPE;
+  i          INTEGER;
+BEGIN
+  IF p_vendor_profile_id IS NULL OR p_event_id IS NULL
+     OR p_via IS NULL OR p_via NOT IN ('invite', 'own_link')
+     OR v_has IS NULL OR v_has NOT IN ('none', 'plus', 'pro', 'ultra')
+     OR p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array'
+     OR jsonb_array_length(p_lines) < 1 OR jsonb_array_length(p_lines) > 5 THEN
+    RETURN jsonb_build_object('status', 'bad_input');
+  END IF;
+
+  FOR v_line IN SELECT * FROM jsonb_array_elements(p_lines) LOOP
+    v_kind := COALESCE(v_line->>'kind', '');
+    v_credits := NULLIF(v_line->>'credits', '')::INTEGER;
+    IF v_kind NOT IN ('papic', 'event_plus', 'event_pro', 'event_ultra')
+       OR v_credits IS NULL OR v_credits <= 0
+       OR (v_kind <> 'papic' AND v_credits <> 1)
+       OR length(btrim(COALESCE(v_line->>'title', ''))) = 0 THEN
+      RETURN jsonb_build_object('status', 'bad_input');
+    END IF;
+    IF v_kind = 'papic' THEN
+      -- A Papic line is ONE PACK, named: the stock is counted per pack, so a line that does not say which
+      -- pack it is cannot be taken from the ledger.
+      v_code := btrim(COALESCE(v_line->>'service_code', ''));
+      IF length(v_code) = 0 THEN
+        RETURN jsonb_build_object('status', 'bad_input');
+      END IF;
+      v_papic := v_papic + v_credits;
+      v_packs := jsonb_set(v_packs, ARRAY[v_code], jsonb_build_object(
+        'packs',   COALESCE((v_packs->v_code->>'packs')::INTEGER, 0) + 1,
+        'credits', COALESCE((v_packs->v_code->>'credits')::INTEGER, 0) + v_credits));
+    ELSE
+      v_need := jsonb_set(v_need, ARRAY[v_kind], to_jsonb(COALESCE((v_need->>v_kind)::INTEGER, 0) + v_credits));
+    END IF;
+  END LOOP;
+
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('shop_gift_stock:' || p_vendor_profile_id::text, 0));
+
+  SELECT o.* INTO v_row
+    FROM public.own_client_gifts o
+   WHERE o.vendor_profile_id = p_vendor_profile_id
+     AND o.event_id = p_event_id;
+  IF v_row.own_gift_id IS NOT NULL THEN
+    IF p_invite_id IS NOT NULL THEN
+      UPDATE public.vendor_client_invites
+         SET status = 'joined', claimed_event_id = p_event_id, claimed_at = NOW()
+       WHERE invite_id = p_invite_id AND vendor_profile_id = p_vendor_profile_id AND status = 'waiting';
+    END IF;
+    RETURN jsonb_build_object('status', 'already', 'own_gift_id', v_row.own_gift_id,
+      'account_new', v_row.account_new_by_import, 'event_new', v_row.event_new_by_import,
+      'first_import', v_row.first_import_on_event);
+  END IF;
+
+  -- 📦 Papic, PER PACK (owner 2026-11-14 "counted in packs"): each pack named must be in BOUGHT stock AS THAT
+  -- PACK — free (balance − held, in packs) less what is still that pack's badge reward. Short on any → nothing.
+  FOR v_pk IN SELECT k.key AS pack_code, (k.value->>'packs')::INTEGER AS packs
+             FROM jsonb_each(v_packs) k ORDER BY k.key LOOP
+    v_balance := NULL; v_held := NULL; v_earned := NULL; v_used := NULL;
+    SELECT s.balance, s.held INTO v_balance, v_held
+      FROM public.shop_gift_pack_stock_status(p_vendor_profile_id) s
+     WHERE s.pack_code = v_pk.pack_code;
+    SELECT w.earned, w.used INTO v_earned, v_used
+      FROM public.shop_gift_reward_pack_status(p_vendor_profile_id) w
+     WHERE w.pack_code = v_pk.pack_code;
+    v_free   := GREATEST(0, COALESCE(v_balance, 0) - COALESCE(v_held, 0));
+    v_reward := GREATEST(0, LEAST(v_free, COALESCE(v_earned, 0) - COALESCE(v_used, 0)));
+    v_bought := v_free - v_reward;
+    IF v_bought < v_pk.packs THEN
+      RETURN jsonb_build_object('status', 'short', 'kind', 'papic', 'pack_code', v_pk.pack_code,
+        'wanted', v_pk.packs, 'free', v_bought);
+    END IF;
+  END LOOP;
+
+  -- Bought stock, per kind (the plans): free to offer less what is still badge reward. Short on any → nothing at all.
+  FOR v_kind IN SELECT jsonb_object_keys(v_need) LOOP
+    SELECT s.balance, s.held INTO v_balance, v_held
+      FROM public.shop_gift_stock_status(p_vendor_profile_id) s
+     WHERE s.gift_kind = v_kind;
+    SELECT r.earned, r.used INTO v_earned, v_used
+      FROM public.shop_gift_reward_stock_status(p_vendor_profile_id) r
+     WHERE r.gift_kind = v_kind;
+    v_free   := GREATEST(0, COALESCE(v_balance, 0) - COALESCE(v_held, 0));
+    v_reward := GREATEST(0, LEAST(v_free, COALESCE(v_earned, 0) - COALESCE(v_used, 0)));
+    v_bought := v_free - v_reward;
+    IF v_bought < (v_need->>v_kind)::INTEGER THEN
+      RETURN jsonb_build_object('status', 'short', 'kind', v_kind,
+        'wanted', (v_need->>v_kind)::INTEGER, 'free', v_bought);
+    END IF;
+  END LOOP;
+
+  -- What would really be given: the Papic credits, and each plan the event does not already hold.
+  v_sim := v_has;
+  FOREACH v_kind IN ARRAY ARRAY['event_ultra', 'event_pro', 'event_plus'] LOOP
+    FOR i IN 1 .. COALESCE((v_need->>v_kind)::INTEGER, 0) LOOP
+      IF v_sim = 'ultra' OR (v_sim = 'pro' AND v_kind <> 'event_ultra') THEN
+        CONTINUE;
+      END IF;
+      v_givable := v_givable + 1;
+      v_sim := CASE WHEN v_kind = 'event_ultra' THEN 'ultra'
+                    WHEN v_kind = 'event_pro' OR v_sim = 'plus' THEN 'pro' ELSE 'plus' END;
+    END LOOP;
+  END LOOP;
+  IF v_papic = 0 AND v_givable = 0 THEN
+    RETURN jsonb_build_object('status', 'nothing_to_give');
+  END IF;
+
+  -- 🎟 The import's facts (2026-11-16 ruling). Measured against the INVITE's own birth: an account or an event
+  -- made after the shop made this invite was made through it. No invite (own link) → unknown (NULL).
+  IF p_invite_id IS NOT NULL THEN
+    SELECT i2.created_at INTO v_invited
+      FROM public.vendor_client_invites i2
+     WHERE i2.invite_id = p_invite_id AND i2.vendor_profile_id = p_vendor_profile_id;
+  END IF;
+  IF v_invited IS NOT NULL THEN
+    SELECT (u.created_at >= v_invited) INTO v_acct_new FROM auth.users u WHERE u.id = p_user_id;
+    SELECT (e.created_at >= v_invited) INTO v_evt_new FROM public.events e WHERE e.event_id = p_event_id;
+  END IF;
+  -- First import on the event: no OTHER shop already gave an own-client gift here, or holds a row it brought.
+  v_first := NOT EXISTS (
+      SELECT 1 FROM public.own_client_gifts o
+       WHERE o.event_id = p_event_id AND o.vendor_profile_id <> p_vendor_profile_id)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.event_vendors ev
+       WHERE ev.event_id = p_event_id
+         AND ev.marketplace_vendor_id IS DISTINCT FROM p_vendor_profile_id
+         AND ev.source IN ('vendor_invite', 'vendor_locked_qr', 'reuse_accept'));
+
+  SELECT vp.business_name INTO v_name
+    FROM public.vendor_profiles vp
+   WHERE vp.vendor_profile_id = p_vendor_profile_id;
+
+  IF v_papic > 0 THEN
+    INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
+    VALUES (p_event_id, v_papic, 'shop_gift',
+            'Gift from ' || COALESCE(NULLIF(btrim(v_name), ''), 'your supplier') || ' · your own supplier')
+    RETURNING grant_id INTO v_grant;
+  END IF;
+
+  INSERT INTO public.own_client_gifts
+    (vendor_profile_id, event_id, via, invite_id, gift_lines, credits, pool_grant_id,
+     account_new_by_import, event_new_by_import, first_import_on_event)
+  VALUES (p_vendor_profile_id, p_event_id, p_via, p_invite_id, p_lines, v_papic + v_givable, v_grant,
+          v_acct_new, v_evt_new, v_first)
+  RETURNING own_gift_id INTO v_gift;
+
+  -- One 'own_client' row PER PACK, carrying pack_code + packs: the pack ledger (SUM(packs)) and the quote door
+  -- (shop_gift_deliver_for_booking) both read only that, so a pack given here leaves "Your gifts" and can never
+  -- be given a second time on a quote. `delta` stays the credits, as on every other Papic row.
+  FOR v_pk IN SELECT k.key AS pack_code, (k.value->>'packs')::INTEGER AS packs, (k.value->>'credits')::INTEGER AS credits
+             FROM jsonb_each(v_packs) k ORDER BY k.key LOOP
+    INSERT INTO public.shop_gift_stock_entries
+      (vendor_profile_id, gift_kind, delta, kind, event_id, pool_grant_id, own_client_gift_id, note, pack_code, packs)
+    VALUES (p_vendor_profile_id, 'papic', -v_pk.credits, 'own_client', p_event_id, v_grant, v_gift,
+            CASE WHEN p_via = 'invite' THEN 'Own client · Add a client' ELSE 'Own client · your own link' END,
+            v_pk.pack_code, -v_pk.packs);
+  END LOOP;
+
+  FOREACH v_kind IN ARRAY ARRAY['event_ultra', 'event_pro', 'event_plus'] LOOP
+    FOR i IN 1 .. COALESCE((v_need->>v_kind)::INTEGER, 0) LOOP
+      IF v_has = 'ultra' OR (v_has = 'pro' AND v_kind <> 'event_ultra') THEN
+        CONTINUE;   -- the event already holds it; the unit stays in the shop's stock
+      END IF;
+      v_sku := CASE
+                 WHEN v_kind = 'event_ultra' THEN 'EVENT_ULTRA'
+                 WHEN v_kind = 'event_pro' THEN 'COUPLE_WEBSITE_PRO'
+                 WHEN v_has = 'plus' THEN 'COUPLE_WEBSITE_PRO'   -- rule E: a second Plus is Pro
+                 ELSE 'EVENT_PLUS'
+               END;
+      UPDATE public.events SET setnayan_ai_active = TRUE
+       WHERE event_id = p_event_id AND setnayan_ai_active IS DISTINCT FROM TRUE;
+      v_plan_grant := NULL;
+      SELECT c.included_papic_credits INTO v_included
+        FROM public.platform_retail_catalog_v2 c
+       WHERE c.service_code = v_sku;
+      SELECT COALESCE(SUM(g.points), 0)::INTEGER INTO v_pool
+        FROM public.papic_event_point_grants g
+       WHERE g.event_id = p_event_id
+         AND g.source = 'plan_included';
+      IF COALESCE(v_included, 0) > v_pool THEN
+        INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
+        VALUES (p_event_id, v_included - v_pool, 'plan_included',
+                'Included with ' || v_sku || ' · gift from '
+                  || COALESCE(NULLIF(btrim(v_name), ''), 'your supplier'))
+        RETURNING grant_id INTO v_plan_grant;
+      END IF;
+      INSERT INTO public.shop_gift_stock_entries
+        (vendor_profile_id, gift_kind, delta, kind, event_id, pool_grant_id, unlocks_sku,
+         own_client_gift_id, note)
+      VALUES (p_vendor_profile_id, v_kind, -1, 'given', p_event_id, v_plan_grant, v_sku, v_gift,
+              CASE WHEN p_via = 'invite' THEN 'Own client · Add a client' ELSE 'Own client · your own link' END);
+      v_has := CASE WHEN v_sku = 'EVENT_ULTRA' THEN 'ultra'
+                    WHEN v_sku = 'COUPLE_WEBSITE_PRO' THEN 'pro' ELSE 'plus' END;
+    END LOOP;
+  END LOOP;
+
+  IF p_invite_id IS NOT NULL THEN
+    UPDATE public.vendor_client_invites
+       SET status = 'joined', claimed_event_id = p_event_id, claimed_at = NOW()
+     WHERE invite_id = p_invite_id AND vendor_profile_id = p_vendor_profile_id;
+  END IF;
+
+  RETURN jsonb_build_object('status', 'ok', 'own_gift_id', v_gift, 'credits', v_papic + v_givable,
+    'account_new', v_acct_new, 'event_new', v_evt_new, 'first_import', v_first);
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID, TEXT) TO service_role;
+
+COMMENT ON FUNCTION public.own_client_gift_give(UUID, UUID, TEXT, UUID, JSONB, UUID, TEXT) IS
+  'The one door an own-client gift takes (Own clients v4, 2026-11-16). Since the pack ledger (2026-11-14 '
+  '"counted in packs") Papic is checked and written PER PACK: each line names its pack, the pack must be in '
+  'BOUGHT stock as that pack, and one own_client stock row per pack carries pack_code + packs — so a given pack '
+  'leaves the pack count and cannot be given again on a quote. Exactly once per (shop, event). Service-role only.';
+
+-- ⟦own-client-pack-backfill:begin⟧ (the DB test re-runs exactly this block)
+-- Backfill: the 'own_client' Papic rows written before this file carry no pack. Each takes its pack(s) from the
+-- gift it belongs to (own_client_gifts.gift_lines — the stored lines, service_code + credits). Fills / splits
+-- NULL-pack rows only; the credits a gift moved (SUM(delta)) never change.
+--   (a) every Papic line of the gift is ONE pack → the row is named in place.
+UPDATE public.shop_gift_stock_entries e
+   SET pack_code = w.pack_code,
+       packs     = -w.lines
+  FROM (
+    SELECT o.own_gift_id, MIN(btrim(x->>'service_code')) AS pack_code,
+           COUNT(*)::INTEGER AS lines, SUM(NULLIF(x->>'credits', '')::INTEGER)::INTEGER AS credits
+      FROM public.own_client_gifts o
+      CROSS JOIN LATERAL jsonb_array_elements(o.gift_lines) x
+     WHERE x->>'kind' = 'papic'
+     GROUP BY o.own_gift_id
+    HAVING COUNT(DISTINCT btrim(COALESCE(x->>'service_code', ''))) = 1
+       AND MIN(length(btrim(COALESCE(x->>'service_code', '')))) > 0
+  ) w
+ WHERE e.gift_kind = 'papic'
+   AND e.kind = 'own_client'
+   AND e.pack_code IS NULL
+   AND e.own_client_gift_id = w.own_gift_id
+   AND -e.delta = w.credits;
+
+--   (b) the gift held MORE THAN ONE pack → one new row per pack, then the unnamed row goes: the same credits,
+--       now counted per pack. Only when every line names its pack and the lines add up to the row exactly;
+--       anything else is left as it is (a credit row), never guessed.
+WITH split AS (
+  SELECT e.entry_id, e.vendor_profile_id, e.event_id, e.pool_grant_id, e.own_client_gift_id, e.note, e.created_at,
+         btrim(x->>'service_code') AS pack_code,
+         COUNT(*)::INTEGER AS packs,
+         SUM(NULLIF(x->>'credits', '')::INTEGER)::INTEGER AS credits
+    FROM public.shop_gift_stock_entries e
+    JOIN public.own_client_gifts o ON o.own_gift_id = e.own_client_gift_id
+    CROSS JOIN LATERAL jsonb_array_elements(o.gift_lines) x
+   WHERE e.gift_kind = 'papic'
+     AND e.kind = 'own_client'
+     AND e.pack_code IS NULL
+     AND x->>'kind' = 'papic'
+   GROUP BY e.entry_id, e.vendor_profile_id, e.event_id, e.pool_grant_id, e.own_client_gift_id, e.note,
+            e.created_at, e.delta, btrim(x->>'service_code')
+),
+whole AS (
+  SELECT s.entry_id
+    FROM split s
+    JOIN public.shop_gift_stock_entries e ON e.entry_id = s.entry_id
+   GROUP BY s.entry_id, e.delta
+  HAVING SUM(s.credits) = -e.delta
+     AND MIN(length(COALESCE(s.pack_code, ''))) > 0
+     AND COUNT(*) > 1
+),
+added AS (
+  INSERT INTO public.shop_gift_stock_entries
+    (vendor_profile_id, gift_kind, delta, kind, event_id, pool_grant_id, own_client_gift_id, note, created_at,
+     pack_code, packs)
+  SELECT s.vendor_profile_id, 'papic', -s.credits, 'own_client', s.event_id, s.pool_grant_id,
+         s.own_client_gift_id, s.note, s.created_at, s.pack_code, -s.packs
+    FROM split s
+    JOIN whole w ON w.entry_id = s.entry_id
+  RETURNING 1
+)
+DELETE FROM public.shop_gift_stock_entries e
+ USING whole w
+ WHERE e.entry_id = w.entry_id
+   AND (SELECT COUNT(*) FROM added) > 0;
+-- ⟦own-client-pack-backfill:end⟧
+
 
 COMMIT;

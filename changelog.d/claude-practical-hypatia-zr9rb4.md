@@ -91,3 +91,9 @@ SPEC IMPACT: specs DECISION_LOG a74f265b (logged by the controller); its OPEN "t
 - The six `GIFT_BUNDLE_*` rows stay off `fetchV2CustomerCatalog`, so they never show on /pricing as couple products and never appear in the discount or free-window pickers.
 - A failed bundle read reaches the Buy sheet as "Couldn't load the Buy 10, get 1 free bundles". Before, it rendered as no bundles on sale.
 - 🏅 **Badge-reward Papic is kept per pack** (Gold = Papic 1000, Ruby = Papic 3000). There is a new read, `shop_gift_reward_pack_status`, in this migration: earned packs come from the badge-reward rows the trigger names, and used packs are the live or delivered `from_badge_reward` lines. `allocateRewardLines` lets a Papic line draw one pack from its OWN pack's reward stock, never the smallest pack's and never counted in credits. So a Gold shop's Papic 1000 line now sits outside the 40% limit, and a Papic 1000 reward no longer exempts six Papic 150s that delivery would then refuse as short. Each Papic row's 🏅 chip shows that pack's own reward count. A failed per-pack read is null, so no line is treated as a reward. Tests: `shop-gifts.test.ts`, `badge-rewards.test.ts`, and `a-supplier-gift-lands-once` test 10.
+
+Review fix (19 Nov): **an own-client gift leaves the stock per pack.** Main's `own_client_gift_give` wrote its Papic
+row with no pack, and the pack ledger reads only `SUM(packs)` — so a pack given to an own client stayed in "Your
+gifts" and could be given again on a quote. The door is re-created per pack in this PR's migration (a Papic line
+names its pack; the pack must be in bought stock as that pack; one `own_client` row per pack), earlier `own_client`
+rows are backfilled with their pack, and the app's gift step counts Papic per pack too. DB tests 11–13 added.

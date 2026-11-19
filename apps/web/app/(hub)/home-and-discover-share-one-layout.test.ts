@@ -121,5 +121,8 @@ test('4 · signed out, `/` is the public front door exactly as before', () => {
   // The page keeps its metadata and its cron-free jobs (held in detail by their own guards).
   const page = code(join(HUB, 'page.tsx'));
   assert.match(page, /<FrontDoor q=\{q\} params=\{params\} \/>/);
-  assert.match(page, /export const revalidate = 300;/);
+  // Main's speed pass (#7987, 2026-11-18) dropped `revalidate = 300`: the page awaits `searchParams`, so it was always
+  // request-rendered and the window never applied. Hold what is true now; the jobs' window is held by
+  // `home-carries-the-cron-free-jobs.test.ts`.
+  assert.match(page, /await\s+searchParams\b/);
 });

@@ -3,10 +3,10 @@
 import QRCode from 'qrcode';
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { setnayanMarkSvg } from '@/lib/qr-style-svg';
-import { badgePill } from '@/lib/shop-badge-print';
+import { printBadgeG } from '@/lib/shop-badge-print';
 import { verifiedV84PrintG } from '@/lib/verified-v84-art';
 import { formatCount } from '@/lib/format-number';
-import type { ShopBadge } from '@/lib/shop-badges';
+import { printBadgeWords, type PrintBadgeArt } from '@/lib/print-badges-v84';
 import {
   PRINT_QR,
   pieceHasQr,
@@ -30,7 +30,8 @@ import {
  *     draws a `<text>` blank (the finding `lib/glyph-path.ts` records). Nothing here asks the host for a font;
  *   · the QR is the app's own `qrcode` library at level H (the shop's real address, never a drawn pattern), dark on a
  *     white plate, with every ornament masked out of the piece's keep-out zone;
- *   · the badges on the big pieces are the shipped pill (`badgePill`, `lib/shop-badge-print.ts`).
+ *   · the badges on the big pieces are ONLY the approved v84 art (`printBadgeG`, `lib/shop-badge-print.ts`) — the
+ *     retired pills (milestone · ★ rating · years · monthly awards) never print (`lib/print-badges-v84.ts`).
  *
  * The layout is the prototype's CSS, re-stated in piece units (width = 100, so 1 unit = the prototype's 1cqw): each
  * piece has ONE fixed layout, and a design only sets the look. The words are the prototype's, never invented.
@@ -47,8 +48,8 @@ export type PrintShop = {
   handle: string;
   verified: boolean;
   rating: { avg: number; count: number } | null;
-  /** Every badge the shop wears today, in the shipped order (`shopBadges`). */
-  badges: readonly ShopBadge[];
+  /** Every v84 badge the shop wears today, art resolved (`readPrintBadges` → `resolvePrintBadgeArt`). */
+  badges: readonly PrintBadgeArt[];
   /*
    * PRINTS BY PURPOSE AND SIZE (owner 2026-11-06) — each one optional: a fact the shop does not have is absent, and
    * its block is not printed (never a zero, never an empty box). NO PRICE and NO phone/email exist here at all.
@@ -335,9 +336,8 @@ export function onPrint(shop: PrintShop, hidden: readonly PrintBlock[]): { shop:
       tagline: off.has('tagline') ? null : txt(shop.tagline),
       services: off.has('services') ? [] : [...new Set((shop.services ?? []).map((t) => txt(t)).filter((t): t is string => !!t))],
       rating: off.has('stars') ? null : shop.rating,
-      // a fact switched off leaves EVERY place it prints (controller 2026-11-06): "Stars and reviews" off takes the rating
-      // pill too, "In business since" off the years pill — they never come back as a badge
-      badges: off.has('badges') ? [] : shop.badges.filter((b) => !(off.has('stars') && b.kind === 'rating') && !(off.has('since') && b.kind === 'years')),
+      // the v84 badges are their own block: no rating or years pill prints any more (`lib/print-badges-v84.ts`)
+      badges: off.has('badges') ? [] : shop.badges,
       since: off.has('since') ? null : txt(shop.since),
       area: off.has('area') ? null : txt(shop.area),
       photo: off.has('photo') ? null : (shop.photo ?? null),
@@ -409,7 +409,7 @@ function rateLn(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle'): Bo
 }
 
 function badgeLn(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle', max: number): Box {
-  const words = c.shop.badges.filter((b) => b.kind !== 'verified' && b.kind !== 'rating').slice(0, max).map((b) => b.label);
+  const words = c.shop.badges.filter((b) => b.badge.kind !== 'verified').slice(0, max).map((b) => printBadgeWords(b.badge));
   return words.length ? lnBox(c, words.join(' · '), fs, maxW, align) : EMPTY;
 }
 
@@ -419,23 +419,20 @@ function meta(lines: Box[], fs: number, align: 'start' | 'middle'): Box {
 }
 
 /**
- * The big pieces' badges: the shipped pills (`badgePill`), `h` units tall, wrapped like the prototype's flex row.
- * 🔑 ONE FACT, ONE PLACE (the prototype's `pills(…, drawn)`): where the piece draws the stars line it drops the rating
- * pill; where it draws the "In business since" line, the years pill.
+ * The big pieces' badges: ONLY the approved v84 art (`printBadgeG`) — Verified's check, the tier pictures, the seals —
+ * in the prototype's flex row. A picture is near-square, so it stands `PICTURE_K` × the old pill's height to read at
+ * the same distance. The stars and "In business since" lines are text of their own, never a badge.
  */
-function pills(c: Ctx, h: number, maxW: number, justify: 'start' | 'middle', cap: number, drawn: { stars: boolean; since: boolean } = { stars: true, since: false }): Box {
-  const list = c.shop.badges
-    .filter((b) => !(drawn.stars && c.shop.rating && b.kind === 'rating') && !(drawn.since && c.shop.since && b.kind === 'years'))
-    .slice(0, cap);
+const PICTURE_K = 1.3;
+function pills(c: Ctx, h: number, maxW: number, justify: 'start' | 'middle', cap: number): Box {
+  const list = c.shop.badges.slice(0, cap);
   if (list.length === 0 || h <= 0) return EMPTY;
-  const lightInk = /^#(F|E)|^#FFF|rgba\(25/i.test(c.d.ink);
-  // the shipped pill is drawn at its own 34 pt em (its 1.4 pt edge is sized for that) and scaled down to h units tall
-  const EM = 34;
-  const raw = list.map((b, i) => ({ ...badgePill(b, EM, lightInk ? 'dark' : 'white', i), kind: b.kind }));
-  const k = h / Math.max(...raw.map((d) => d.height));
-  const F = EM * k;
-  const items = raw.map((d) => ({ ...d, width: d.width * k, height: d.height * k }));
-  return flowPills(c, items, k, F, maxW, justify);
+  const H = h * PICTURE_K;
+  const items = list.map((a) => {
+    const w = (a.w / a.h) * H;
+    return { svg: printBadgeG(a, 0, 0, H).svg, defs: '', width: w, height: H, kind: a.badge.kind };
+  });
+  return flowPills(c, items, 1, H / 3.01, maxW, justify);
 }
 
 function flowPills(c: Ctx, drawn: Array<{ svg: string; defs: string; width: number; height: number; kind?: string }>, k: number, F: number, maxW: number, justify: 'start' | 'middle'): Box {
@@ -839,7 +836,7 @@ function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number, member: Print
     const leftW = 100 - 2 * px - qw - cg;
     const textW = leftW - 10 - 3;
     const head = hrow([logoBox(c, 10), vstack([nm(c, 6.2, textW, 'start'), rule(c, 12), subTxt(c, c.shop.tagline, 1.9, Math.min(56, textW), 'start')], 1.2, 'start')], 3);
-    const foot = vstack([flow([starsBox(c, 2), pills(c, 3.4, leftW, 'start', 5, { stars: true, since: true })], 2.6, 1.2, leftW, 'start'), metaBox(c, 1.8, leftW, 'start')], 1.2, 'start');
+    const foot = vstack([flow([starsBox(c, 2), pills(c, 3.4, leftW, 'start', 5)], 2.6, 1.2, leftW, 'start'), metaBox(c, 1.8, leftW, 'start')], 1.2, 'start');
     return (
       column([head, 1.2, svcBox(c, 4, 2.1, leftW, 'start'), 1.2, foot], px, leftW, py, H - py, 'between', 'start') +
       column([qrBox(c, qw, 1.8, 1.8), 2, reachBox(c, 1.7, qw, 'middle')], 100 - px - qw, qw, py, H - py, 'center', 'middle')
@@ -854,7 +851,7 @@ function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number, member: Print
     const ph = photoBox(c, 44, bot2 - top2, 0.7, 0.4);
     const colX = ph.h ? P + 44 + 5 : P;
     const colW = ph.h ? W - 44 - 5 : W;
-    const info = vstack([starsBox(c, 2), pills(c, 3.2, colW, 'middle', 5, { stars: true, since: true }), metaBox(c, 1.7, colW, 'middle')], 1.8, 'middle');
+    const info = vstack([starsBox(c, 2), pills(c, 3.2, colW, 'middle', 5), metaBox(c, 1.7, colW, 'middle')], 1.8, 'middle');
     return (
       head.draw(P + (W - head.w) / 2, P) +
       (ph.h ? ph.draw(P, top2) : '') +
@@ -868,7 +865,7 @@ function layout(c: Ctx, p: PrintPiece, side: PrintSide, H: number, member: Print
       9, logoBox(c, 16), 3.5, nm(c, 12, W, 'middle'), 3, rule(c, 18), 3, subTxt(c, c.shop.tagline, 3.6, W, 'middle'),
       4.5, photoBox(c, 78, 28), 4, aboutBox(c, 2.8, 3, 78),
       5, qrBox(c, 52, 3.4, 3.4), 5, svcBox(c, 6, 3.4, W, 'middle'),
-      4.5, flow([starsBox(c, 3.1), pills(c, 5.8, W, 'middle', 5, { stars: true, since: true })], 3.5, 2, W, 'middle'),
+      4.5, flow([starsBox(c, 3.1), pills(c, 5.8, W, 'middle', 5)], 3.5, 2, W, 'middle'),
       4, metaBox(c, 2.6, W, 'middle'), 4, flow([reachBox(c, 2.8, W, 'middle'), mk(c, 3.4)], 5, 2, W, 'middle'),
     ],
     L, W, 0, H - 9, 'start', 'middle',

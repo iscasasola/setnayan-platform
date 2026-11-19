@@ -1092,7 +1092,7 @@ export function CanvasMaker({
           Find — `ServiceCardFace`, the one face `supplier-sheet.tsx` renders; never a second drawing. ═══ */}
       {/* 🧰 BEHIND ONE TAP ON A PHONE (owner-approved 2026-11-14, cut 3 — it supersedes the 9 Nov "always pinned"): pinned,
           the card left a ~60 px window for the fields at 390. "See it as couples do" opens the same face, live, in place. */}
-      <div className="-mx-4 border-b px-4 pb-2 pt-1 md:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
+      <div className="-mx-4 border-b px-4 pb-2 pt-1 tab:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
         <button
           type="button"
           aria-expanded={peekOpen}
@@ -1106,8 +1106,8 @@ export function CanvasMaker({
         {peekOpen ? <div className="pb-1">{cardFace}</div> : null}
       </div>
 
-      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the card is pinned above ═══ */}
-      <div className="md:grid md:grid-cols-2 md:items-start md:gap-8" data-maker-split="">
+      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 701 up; on a phone the card is pinned above ═══ */}
+      <div className="tab:grid tab:grid-cols-2 tab:items-start tab:gap-8" data-maker-split="">
         {/* noValidate: some fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
             show focuses nothing and says nothing — the press just does nothing. commitVendorService re-validates
             every field and says why (carried from the live card-fields fix, #6534). */}
@@ -1337,8 +1337,8 @@ export function CanvasMaker({
               <PhotoCheckNotes checks={checks} serviceId={editing?.serviceId ?? null} showcaseRefs={checkInput.showcaseRefs} />
             </div>
 
-            {/* The status line — on a phone it closes the surface; from 820 up the preview beside it says it. */}
-            <div className="md:hidden">
+            {/* The status line — on a phone it closes the surface; from 701 up the preview beside it says it. */}
+            <div className="tab:hidden">
               <p
                 data-maker-status={status.tone}
                 className="flex items-start gap-2.5 text-[14px] leading-snug"
@@ -1676,8 +1676,8 @@ export function CanvasMaker({
           ) : null}
         </form>
 
-        {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 820 up ═══ */}
-        <aside className="hidden md:sticky md:top-24 md:block" data-maker-card="">
+        {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 701 up ═══ */}
+        <aside className="hidden tab:sticky tab:top-24 tab:block" data-maker-card="">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>

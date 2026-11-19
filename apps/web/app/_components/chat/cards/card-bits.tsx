@@ -37,7 +37,7 @@ const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: st
   plain: { edge: 'border-kind-plain', chip: 'bg-kind-plain-bg text-kind-plain', ink: 'text-kind-plain', fill: 'bg-kind-plain', soft: 'bg-kind-plain-bg', wash: 'bg-kind-plain-bg/55' },
 };
 
-const HOT = 'transition-shadow duration-[var(--sn-pill-dur)] data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
+const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
 /** Phone: the chat's own width. Computer: a bubble's width — mine to the right, the rest to the left. */
 const place = (tone: 'mine' | 'theirs' | 'auto') => `w-full max-w-[30rem] ${tone === 'mine' ? 'ml-auto' : ''}`;
 

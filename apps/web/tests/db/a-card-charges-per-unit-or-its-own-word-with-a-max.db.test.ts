@@ -111,6 +111,43 @@ test('"Copy to another branch" carries the word, the Max and the price there as 
   assert.deepEqual(r, { unit_word: 'chair', unit_base_php: 6000, initial_units: 10, extra_unit_php: 500, price_max: 60, starting_price_php: 6000 });
 });
 
+test('"Copy to another branch" keeps the Availability style, "Order at least", the usual preparation time and a schedule above 50 (review 2026-11-20)', async () => {
+  // This migration redefines copy_vendor_service_to_branch AFTER #8011 (20271351451190) and #8012 (20271352068061).
+  // Drafted from an older definition, it silently dropped all three and put the copy's schedule back to 50 — so a
+  // Made to order card copied to a branch booked by no style, with no lead rule. Each value below is the source's.
+  const src = await unitCard({ unit_word: 'table', price_max: 80 });
+  await db.query(
+    `UPDATE public.vendor_services SET availability_style = 'order', order_lead_days = 14, usual_prep_days = 5 WHERE vendor_service_id = $1`,
+    [src],
+  );
+  const pool = (
+    await db.query<{ p: string }>(
+      `INSERT INTO public.vendor_schedule_pools (vendor_profile_id, pool_label, daily_booking_capacity, is_active)
+       VALUES ($1, 'Tables', 300, TRUE) RETURNING pool_id AS p`,
+      [vendor],
+    )
+  ).rows[0]!.p;
+  await db.query(`INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [src, pool, vendor]);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'service_role', false)`);
+  const id = (await db.query<{ id: string }>(`SELECT public.copy_vendor_service_to_branch($1, $2, $3, 7000) AS id`, [vendor, src, branch])).rows[0]!.id;
+  await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+  const r = (
+    await db.query(
+      `SELECT availability_style, order_lead_days, usual_prep_days, unit_word, price_max FROM public.vendor_services WHERE vendor_service_id = $1`,
+      [id],
+    )
+  ).rows[0];
+  assert.deepEqual(r, { availability_style: 'order', order_lead_days: 14, usual_prep_days: 5, unit_word: 'table', price_max: 80 });
+  const cap = (
+    await db.query<{ c: number }>(
+      `SELECT p.daily_booking_capacity AS c FROM public.vendor_schedule_calendar_services c
+         JOIN public.vendor_schedule_pools p ON p.pool_id = c.pool_id WHERE c.vendor_service_id = $1`,
+      [id],
+    )
+  ).rows[0]!.c;
+  assert.equal(cap, 300, 'the copy\'s own schedule was clamped below the source\'s 300 (the old cap of 50)');
+});
+
 test('the one save writes a per-unit card in the same statement, and a switch back to Flat clears the word and the Max', async () => {
   const save = async (id: string | null, fields: Record<string, unknown>) =>
     (

@@ -47,6 +47,7 @@ import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule 
 import type { CanvasInitial } from '@/lib/canvas-initial';
 import type { CardMakerLibrary } from '@/lib/card-maker-library';
 import { QuickFormsEditor } from '@/app/admin/categories/_components/quick-forms-editor';
+import { isAvailabilityStyle } from '@/lib/availability-styles';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
@@ -81,10 +82,10 @@ const VP = '00000000-0000-4000-8000-0000000000bb';
  * (`fetchShopGiftPacks`). The stock covers the Papic pack only, so Event Plus shows its "buy first" note.
  */
 const LAB_GIFT_PACKS: ShopGiftPack[] = [
-  { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0, giftPriceCentavos: null },
-  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0, giftPriceCentavos: null },
+  { code: 'PAPIC_GUEST', title: 'Papic credits for their guests', kind: 'papic', credits: 100, srpCentavos: 0 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 0 },
 ];
-const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0 };
+const LAB_GIFT_FREE: FreeByKind = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 3 } };
 
 type Shop = {
   name: string;
@@ -234,6 +235,9 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
       coverUrl: null,
       coverKey: 'r2://media/lab/cover.jpg',
       dailyCapacity: '',
+      availabilityStyle: null,
+      orderLeadDays: '',
+      usualPrepDays: '',
       branchId: '',
       schedule: [
         {
@@ -402,6 +406,11 @@ export default async function CardMakerLabPage({
       </div>
     );
   }
+  // 🗓 `&av=order|piece|none|day|hour` — the service's recommended Availability style (step 2) for every kind on show;
+  // `&avcard=` — the saved card's own style (edit only). LAB FIXTURES.
+  const labAv = isAvailabilityStyle(sp.av) ? sp.av : null;
+  const availabilityOf = labAv ? Object.fromEntries([shop.edit.kind, ...shop.covered.map((c) => c.value)].map((k) => [k, labAv])) : {};
+  if (fx && isAvailabilityStyle(sp.avcard)) fx.editing.availabilityStyle = sp.avcard;
   const inToday = sp.host === 'today';
   const withChecks = sp.checks === '1';
   const labTrades = FAKE_TREE.flatMap((p) =>
@@ -482,6 +491,7 @@ export default async function CardMakerLabPage({
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
         checkRules={checkRules}
+        availabilityOf={availabilityOf}
         photoCheck={withChecks ? labPhotoCheck : undefined}
       />
   );

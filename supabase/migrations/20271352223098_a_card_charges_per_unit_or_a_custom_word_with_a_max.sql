@@ -29,8 +29,13 @@
 -- save (no base yet) and every switch back to a Flat price (a stale Max). Absent keys write NULL, as every other
 -- per-basis column does. ⚠ Any later migration that redefines it must keep them.
 --
--- copy_vendor_service_to_branch lists a card's columns BY NAME, so it is redefined (from 20271351531329, its latest
--- definition) to carry the five — unchanged otherwise. ⚠ Any later migration that redefines it must keep them.
+-- copy_vendor_service_to_branch lists a card's columns BY NAME, so it is redefined to carry the five. 🔀 It is the
+-- UNION of every earlier definition (review 2026-11-20): it starts from 20271352068061 (#8012 — availability_style,
+-- order_lead_days and usual_prep_days, carried since 20271351451190 · #8011, and the 1..500 schedule cap) and adds
+-- 20271351531329's description, video link and pay plan, then the five. Redefining it from 20271351531329 alone (as
+-- first drafted) would have silently dropped a branch copy's Availability style, its "Order at least" and its usual
+-- preparation time, and put the schedule cap back to 50 — undoing #8011 (live) and #8012. ⚠ Any later migration that
+-- redefines it must keep EVERY column listed here (DB test: a-card-charges-per-unit… "a branch copy keeps …").
 BEGIN;
 
 ALTER TABLE public.vendor_services DROP CONSTRAINT IF EXISTS vendor_services_pricing_basis_check;
@@ -152,7 +157,8 @@ BEGIN
     is_demo, demo_batch_id, base_pax, coverage_id, pricing_basis, min_pax, min_hours, extra_hour_php,
     includes_setnayan_gift, gift_pack_code, category_request_id,
     description, video_url, pay_plan_id,
-    unit_word, unit_base_php, initial_units, extra_unit_php, price_max
+    unit_word, unit_base_php, initial_units, extra_unit_php, price_max,
+    availability_style, order_lead_days, usual_prep_days
   ) VALUES (
     v_new_id, s.vendor_profile_id, s.category, s.title, p_branch_id, s.vendor_service_id, s.is_active,
     v_start,
@@ -167,7 +173,8 @@ BEGIN
     s.description, s.video_url, s.pay_plan_id,
     s.unit_word,
     CASE WHEN s.pricing_basis = 'per_unit' THEN p_price_php ELSE s.unit_base_php END,
-    s.initial_units, s.extra_unit_php, s.price_max
+    s.initial_units, s.extra_unit_php, s.price_max,
+    s.availability_style, s.order_lead_days, s.usual_prep_days
   );
 
   PERFORM set_config('setnayan.branch_copy', '', true);
@@ -206,7 +213,7 @@ BEGIN
     s.vendor_profile_id,
     left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
     left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
-    LEAST(GREATEST(COALESCE(v_capacity, 1), 1), 50),
+    LEAST(GREATEST(COALESCE(v_capacity, 1), 1), 500),  -- the schedule's own CHECK 1..500 (20271350427190), as #8012 set it
     TRUE
   )
   RETURNING pool_id INTO v_pool_id;
@@ -218,7 +225,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) IS
-  'Copy to another branch (owner 2026-11-14, item 10). Admin of the shop only. Copies the card''s AUTHORED fields and children, references the same photos, sets branch_copy_of (so it uses no card), gives it its own price and its own schedule pool. Never copies bookings, reviews, halls, agents or the public id. Since 20271351531329 it also carries the description, the video link and the pay plan the card follows; since 20271352223098 the per-unit price, its word and the Max.';
+  'Copy to another branch (owner 2026-11-14, item 10). Admin of the shop only. Copies the card''s AUTHORED fields and children, references the same photos, sets branch_copy_of (so it uses no card), gives it its own price and its own schedule pool. Never copies bookings, reviews, halls, agents or the public id. Since 20271351531329 it also carries the description, the video link and the pay plan the card follows; since 20271351451190 / 20271352068061 the Availability style, "Order at least", the usual preparation time and the 1..500 schedule cap; since 20271352223098 the per-unit price, its word and the Max.';
 
 REVOKE ALL ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) TO authenticated, service_role;

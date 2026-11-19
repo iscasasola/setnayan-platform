@@ -19,7 +19,7 @@
  * 🎁 EVERY GIFT KIND: Papic credits land in the couple's pool; an Event Plus / Pro / Ultra unlocks the event the way the
  * quote door does (one unit each). Each kind is counted from its OWN bought stock — never pooled across kinds.
  */
-import { SHOP_GIFT_KINDS, freeByKind, giftCount, type FreeByKind, type ShopGiftKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
+import { SHOP_GIFT_KINDS, freeByKind, giftCount, type FreeByKind, type ShopGiftBundle, type ShopGiftKind, type ShopGiftPack, type ShopGiftStocks } from './shop-gifts';
 import { shopInvitePath } from './shop-address';
 
 /** One gift line on an own client, as stored (`vendor_client_invites.gift_lines`, `vendor_own_link_gifts`). */
@@ -102,7 +102,7 @@ export function fromStockLine(left: number | null): string {
 
 /* ── the stock, as gifts (per kind) ───────────────────────────────────────────────────────────────────────────── */
 
-const ZERO: FreeByKind = Object.fromEntries(SHOP_GIFT_KINDS.map((k) => [k, 0])) as FreeByKind;
+const ZERO: FreeByKind = { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} };
 
 /**
  * What is free to give AS AN OWN-CLIENT GIFT, per kind: free to offer, less what is still badge reward (v4 answer 3).
@@ -110,12 +110,15 @@ const ZERO: FreeByKind = Object.fromEntries(SHOP_GIFT_KINDS.map((k) => [k, 0])) 
  */
 export function boughtFreeByKind(free: FreeByKind | null, rewardLeft: FreeByKind | null | undefined): FreeByKind | null {
   if (!free) return null;
-  const out = { ...ZERO };
+  const out: Record<ShopGiftKind, number> = { ...ZERO };
   for (const k of SHOP_GIFT_KINDS) {
     const reward = rewardLeft ? Math.max(0, Math.min(free[k], rewardLeft[k] ?? 0)) : 0;
     out[k] = Math.max(0, free[k] - reward);
   }
-  return out;
+  // Papic is also kept per pack (#7678): each pack's free stock less that pack's own reward stock.
+  const packs: Record<string, number> = {};
+  for (const [code, n] of Object.entries(free.packs ?? {})) packs[code] = Math.max(0, n - Math.min(n, rewardLeft?.packs?.[code] ?? 0));
+  return { ...out, packs };
 }
 
 /** How many of one pack a kind's stock covers ("7 left"). */
@@ -282,7 +285,8 @@ export function isEmailOrPhone(raw: string): boolean {
 export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
   stock: ShopGiftStocks | null;
   packs: ShopGiftPack[] | null;
-  paysGiftPrice: boolean;
+  /** The 10+1 bundles on sale (`fetchShopGiftBundles`); null = unread. The only gift discount (owner 2026-11-14). */
+  bundles?: ShopGiftBundle[] | null;
   canBuy: boolean;
   openRails: R[];
   rewards?: { left: FreeByKind | null } | undefined;
@@ -296,7 +300,7 @@ export function ownGiftDataOf<R extends { id: string; label: string }>(g: {
     free: boughtFreeByKind(free, g.rewards?.left ?? null),
     rewardLeft,
     canBuy: g.canBuy,
-    paysGiftPrice: g.paysGiftPrice,
+    bundles: g.bundles === undefined ? [] : g.bundles,
     openRails: g.openRails,
   };
 }

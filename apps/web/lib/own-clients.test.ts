@@ -31,11 +31,11 @@ import {
 
 // Catalogue-shaped samples: the module never types these — they arrive read.
 const packs: ShopGiftPack[] = [
-  { code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150, srpCentavos: 9900, giftPriceCentavos: null },
-  { code: 'PAPIC_GUEST_1000', title: 'Papic 1000', kind: 'papic', credits: 1000, srpCentavos: 49900, giftPriceCentavos: null },
-  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900, giftPriceCentavos: null },
+  { code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150, srpCentavos: 9900 },
+  { code: 'PAPIC_GUEST_1000', title: 'Papic 1000', kind: 'papic', credits: 1000, srpCentavos: 49900 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900 },
 ];
-const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
+const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra, packs: {} });
 
 test('a badge reward never counts toward the gift, per kind (v4 answer 3)', () => {
   assert.deepEqual(boughtFreeByKind(stock(1200, 2), stock(300, 1)), stock(900, 1));
@@ -128,16 +128,15 @@ test('email or phone', () => {
 
 test('the gift step reads the same stock read as Your gifts', () => {
   const d = ownGiftDataOf({
-    stock: { papic: { balance: 1500, held: 300 }, event_plus: { balance: 0, held: 0 }, event_pro: { balance: 0, held: 0 }, event_ultra: { balance: 0, held: 0 } },
+    stock: { papic: { balance: 1500, held: 300 }, event_plus: { balance: 0, held: 0 }, event_pro: { balance: 0, held: 0 }, event_ultra: { balance: 0, held: 0 }, packs: {} },
     packs,
-    paysGiftPrice: true,
     canBuy: true,
     openRails: [{ id: 'gcash', label: 'GCash' }],
-    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0 } },
+    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} } },
   });
   assert.equal(d.free?.papic, 1050);
   assert.equal(d.rewardLeft.papic, 150);
-  assert.equal(ownGiftDataOf({ stock: null, packs, paysGiftPrice: false, canBuy: true, openRails: [] }).free, null);
+  assert.equal(ownGiftDataOf({ stock: null, packs, canBuy: true, openRails: [] }).free, null);
 });
 
 test('no price is typed in the own-client modules', () => {

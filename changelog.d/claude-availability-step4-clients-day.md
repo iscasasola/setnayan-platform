@@ -5,8 +5,10 @@ pick on `prototypes/availability_steps_3_4_2026-11-19.html`, DECISION_LOG 2026-1
 APPROVED"):
 
 - **An AV tag on each group heading** ("AV-ORDER · made to order", "AV-PIECE · by the piece").
-- **The day bar** (`lib/day-count-bar.ts`, `count-bar.tsx`): Made to order counts orders by the date they are due —
-  "3 of 5 orders due · 2 free", one piece per order up to ten. Rented by the piece counts the SUM of quantities —
+- **The day bar** (`lib/day-count-bar.ts`, `count-bar.tsx`): Made to order counts orders IN PROGRESS across each
+  order's preparation window, not on its due date (owner 19 Nov, DECISION_LOG "AVAILABILITY FINALIZED", "Wrong, fix")
+  — "3 of 5 in progress · 2 free", one piece per order up to ten. The count is the database's
+  (`schedule_pool_in_progress_on`, returned by `vendor_day_pool_taken` as `in_progress`). Rented by the piece counts the SUM of quantities —
   "320 of 500 out · 180 free", a bar above ten. The dot is green when all are free, yellow when some are left, black
   when full; the words always say it too. A refused read says "Couldn't read how many are out", never "0 out".
 - **The answer line sums the free counts** ("2 orders and 180 pieces free").
@@ -25,8 +27,14 @@ APPROVED"):
   before.
 - A schedule whose cards all rent by the piece may hold more than 500 (ruling 3).
 
-New column `event_vendors.booked_quantity` (NULL = one), written only by `set_booked_quantity` (a trigger refuses a
-browser session). Migration `20271352068061_a_booking_takes_its_pieces_all_or_nothing`. Motions: none.
+- **Usual preparation time** (card maker, Made to order only, `vendor_services.usual_prep_days`, 0..365): the days an
+  order is being made before its date. Kept apart from "Order at least" (the couple's rule). Branch copies carry it.
+  `event_vendors.prep_days` is THIS order's own time (NULL = the card's) — no writer yet: 2b's accept sheet adds it.
+  The hard refusal (`acquire_schedule_pools`) still counts the due date only until 2b brings the soft warning.
+
+New columns `event_vendors.booked_quantity` (NULL = one), written only by `set_booked_quantity`, and
+`event_vendors.prep_days`, not browser-readable and written only by a definer (the same triggers refuse a browser
+session). Migration `20271352068061_a_booking_takes_its_pieces_all_or_nothing`. Motions: none.
 
 SPEC IMPACT: None — builds the approved step 4 drawing as ruled. (The drawing says "chairs"; cards have no noun field,
 so the bar says "pieces" and names the card.)

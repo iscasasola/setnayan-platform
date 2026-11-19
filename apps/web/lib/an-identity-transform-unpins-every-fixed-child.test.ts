@@ -70,7 +70,7 @@ test('.sn-page-enter never holds a transform again', () => {
   // And positively: the rule still runs its animation, it was not just deleted.
   assert.match(
     CSS(),
-    /\.sn-page-enter \{ animation: sn-rise-soft 400ms backwards/,
+    /\.sn-page-enter \{ animation: sn-rise-soft var\(--sn-m-move\) backwards/,
     'the route-entry animation was removed rather than corrected',
   );
 });

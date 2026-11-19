@@ -17,6 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { SWIPE_HOLD_MS } from '@/app/_components/swipe-to-delete';
+import { SEAT_HOLD_MS } from '@/lib/seat-list-drop';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
@@ -26,7 +27,10 @@ test('1 · a seated guest: no red Remove — the row is the swipe, the same onRe
   assert.doesNotMatch(list, /data-testid="seat-row-remove"/);
   assert.match(list, /<SwipeToDelete\s+key=\{key\}\s+label=\{`Remove \$\{g\.name\} from the seat`\}[\s\S]*?onRemove\(g\.id\);/);
   assert.match(list, /data-seat-drag=\{canEdit \? g\.id : undefined\}/, 'the row lost its drag');
-  assert.equal(Number(/const HOLD_MS = (\d+);/.exec(list)?.[1]), SWIPE_HOLD_MS, 'the swipe and the drag no longer agree on a hold');
+  // 19 Nov 2026: the drag's hold is the motion standard's ONE hold (350 ms, via SEAT_HOLD_MS), no longer a 300 typed
+  // to equal the swipe's. What must hold is the ORDER: the swipe lets go of a still finger BEFORE the row lifts.
+  assert.match(list, /const HOLD_MS = SEAT_HOLD_MS;/, 'the drag holds for a time of its own');
+  assert.ok(SWIPE_HOLD_MS <= SEAT_HOLD_MS, 'the row would lift while the swipe still holds the finger');
   const ed = read('_components/seating-editor.tsx');
   assert.match(ed, /const unseat = [\s\S]*?pushUndo\(\{[\s\S]*?back\.set\('table_id', tableId\);[\s\S]*?assignGuest\(back\)/, 'unseat has no Undo back to the chair');
 });

@@ -2864,7 +2864,7 @@ export async function renderVendorBySlug({
               </a>
             ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
-              {/* 📍 The city line carries the plan's reach (2026-10-23 · 2026-10-29): "Serves up to 20 km around
+              {/* 📍 The city line carries the shop's reach (2026-10-23 · 2026-10-29; never the plan's since 2026-11-19): "Serves up to 20 km around
                   Tagaytay", or "… · distance search opens once verified" before Setnayan has verified the shop. */}
               {/* The calm (unverified) page says its reach under Where, beside its pin. */}
               {cinematicHero ? <ShopReachLine reach={reach} city={vendor.location_city ?? null} /> : null}

@@ -18,6 +18,7 @@ import './_components/pinned-row/pin-fold.css';
 import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
 import './service-icons.css';
+import './signature-moments.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
@@ -27,6 +28,7 @@ import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { NavProgress } from './_components/nav-progress';
+import { PhotoArrives } from './_components/photo-arrives';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
@@ -758,6 +760,9 @@ export default async function RootLayout({
             their own loading.tsx, and any added later). Pure client → no
             static-generation impact. See _components/nav-progress.tsx. */}
         <NavProgress />
+        {/* Photo arrives (motion standard 18 Nov 2026) — one capture listener; a photo carrying `PHOTO_ARRIVES`
+            fades and settles in as it lands. Never hides a photo. See lib/photo-arrives.ts. */}
+        <PhotoArrives />
         {/* Mobile bottom-nav carousel page-slide (NAV · 2026-06-21). Global
             client interceptor; drives a directional View Transition on top-level
             tab taps. No-op on desktop / reduced-motion / unsupported browsers,

@@ -1,0 +1,525 @@
+/*
+ * signature-moments.css — 🕯 THE SIX SIGNATURE MOMENTS (motion standard 18 Nov 2026, § 9; owner, verbatim: "Ghost + all
+ * six"; un-parked 19 Nov: "animations build the rest"). The visual contract is the prototype's Part I
+ * (`Setnayan-specs/prototypes/motion_standard_2026-11-18_fable.html`, `.sig` · `.who` · `.thread` · `.seal` · `.mono` ·
+ * `.hubc` · `.livec` · `.env` · `.dayc` · `.cap-z`) — sizes and order copied, colours read from the app's own tokens.
+ *
+ *   ① The Tie        thread Rise · Settle → seal Quick · Spring → ripple Move · Settle → "Booked" Quick · Settle
+ *   ② Foil glint     one pass, Rise · Settle
+ *   ③ Go live        lift Move · Spring · glow Rise · Settle · chip Quick · Spring
+ *   ④ Reply arrives  flap Move · Settle · count Quick · Settle
+ *   ⑤ Day turns      Move in two halves: out on Settle, in on Spring
+ *   ⑥ Capiz light    each pane Rise · Settle, panes one `--sn-m-sig-step` apart
+ *
+ * THE RULES EVERY ONE OF THEM KEEPS (🔒 lib/the-six-signature-moments.test.ts):
+ *   · TRANSFORM AND OPACITY ONLY — no keyframe here names any other property;
+ *   · the REST state is the finished picture. A moment only moves while its part wears `data-sig-play` (set once, by
+ *     `lib/signature-moments.ts`), and every animation fills BACKWARDS — never `both`, never `forwards` — so nothing is
+ *     left holding a transform once it lands;
+ *   · tokens only (`--sn-m-*`), on the element's `animation` — never `var()` inside a keyframe's timing;
+ *   · each has its own reduced-motion STILL below (the global freeze in globals.css would already end them at rest; the
+ *     rules here say what the still IS where the prototype asks for less than the finished picture).
+ */
+
+/* ── shared: the colours a moment reads, and the stage a moment that is its own card stands on (`.stage`) ──────── */
+.sn-sig {
+  --sn-sig-gold: rgb(var(--color-terracotta));
+  --sn-sig-gold-soft: rgb(var(--color-terracotta) / 0.16);
+  --sn-sig-surface: rgb(var(--color-raised));
+  --sn-sig-line: rgb(var(--color-ink) / 0.12);
+  --sn-sig-wash: rgb(var(--color-ink) / 0.05);
+  --sn-sig-sheen: rgb(255 255 255 / 0.7);
+  position: relative;
+}
+html.dark .sn-sig {
+  --sn-sig-sheen: rgb(255 255 255 / 0.14);
+}
+.sn-sig-stage {
+  overflow: hidden;
+  width: 100%;
+  max-width: 300px;
+  margin-inline: auto;
+  border-radius: var(--m-r-md);
+  border: 1px solid var(--sn-sig-line);
+  background: var(--sn-sig-wash);
+}
+
+/* ══ ① THE TIE ═══════════════════════════════════════════════════════════════════════════════════════════════════ */
+.sn-sig-tie {
+  height: 144px;
+}
+.sn-sig-tie-who {
+  position: absolute;
+  top: 34px;
+  width: 92px;
+  padding: 9px 8px;
+  border-radius: var(--m-r-md);
+  border: 1px solid var(--sn-sig-line);
+  background: var(--sn-sig-surface);
+  color: rgb(var(--color-ink));
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sn-sig-tie-who small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  font-weight: 400;
+  color: rgb(var(--color-ink) / 0.7);
+}
+.sn-sig-tie-who[data-side='couple'] {
+  left: 12px;
+}
+.sn-sig-tie-who[data-side='supplier'] {
+  right: 12px;
+}
+.sn-sig-tie-thread {
+  position: absolute;
+  left: 104px;
+  right: 104px;
+  top: 58px;
+  height: 1.75px;
+  background: var(--sn-sig-gold);
+  transform-origin: 0 50%;
+}
+.sn-sig-tie-seal,
+.sn-sig-tie-ring {
+  position: absolute;
+  left: 50%;
+  top: 58px;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+}
+.sn-sig-tie-seal {
+  display: grid;
+  place-items: center;
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-raised));
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 0.22), 0 4px 10px -4px rgb(var(--color-ink) / 0.35);
+}
+.sn-sig-tie-ring {
+  border: 1.5px solid rgb(var(--color-mulberry));
+  opacity: 0;
+  pointer-events: none;
+}
+.sn-sig-tie-word {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 112px;
+  color: rgb(var(--color-ink));
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+@keyframes sn-sig-tie-thread {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes sn-sig-tie-seal {
+  from { opacity: 0; transform: scale(1.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sn-sig-tie-ring {
+  0% { opacity: 0; transform: scale(1); }
+  8% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+@keyframes sn-sig-tie-word {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sn-sig-tie[data-sig-play] .sn-sig-tie-thread {
+  animation: sn-sig-tie-thread var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+.sn-sig-tie[data-sig-play] .sn-sig-tie-seal {
+  animation: sn-sig-tie-seal var(--sn-m-quick) var(--sn-m-spring) var(--sn-m-rise) backwards;
+}
+.sn-sig-tie[data-sig-play] .sn-sig-tie-ring {
+  animation: sn-sig-tie-ring var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-rise) + var(--sn-m-quick)) backwards;
+}
+.sn-sig-tie[data-sig-play] .sn-sig-tie-word {
+  animation: sn-sig-tie-word var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-rise) + var(--sn-m-quick)) backwards;
+}
+/* Reduced: thread and seal shown at once. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-tie[data-sig-play] .sn-sig-tie-thread,
+  .sn-sig-tie[data-sig-play] .sn-sig-tie-seal,
+  .sn-sig-tie[data-sig-play] .sn-sig-tie-ring,
+  .sn-sig-tie[data-sig-play] .sn-sig-tie-word {
+    animation: none;
+  }
+}
+
+/* ══ ② FOIL GLINT ════════════════════════════════════════════════════════════════════════════════════════════════
+   A wrapper round the event's own mark. It adds nothing at rest: the light is one absolutely placed strip that exists
+   only while the glint plays, clipped to the mark's own shape. */
+.sn-sig-foil {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: var(--m-r-full);
+  isolation: isolate;
+}
+.sn-sig-foil[data-sig-shape='square'] {
+  border-radius: var(--m-r-sm);
+}
+.sn-sig-foil-light {
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 36%;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--sn-sig-sheen), rgb(203 167 102 / 0.45), var(--sn-sig-sheen), transparent);
+}
+@keyframes sn-sig-foil-pass {
+  from { opacity: 1; transform: translateX(-170%) skewX(-20deg); }
+  to { opacity: 1; transform: translateX(270%) skewX(-20deg); }
+}
+.sn-sig-foil[data-sig-play] .sn-sig-foil-light {
+  animation: sn-sig-foil-pass var(--sn-m-rise) var(--sn-m-settle) var(--sn-m-move) backwards;
+}
+/* Reduced: no glint. The monogram simply shows. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-foil[data-sig-play] .sn-sig-foil-light {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ══ ③ GO LIVE ═══════════════════════════════════════════════════════════════════════════════════════════════════ */
+.sn-sig-live {
+  height: 136px;
+}
+.sn-sig-live-card {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  width: 150px;
+  height: 104px;
+  margin-left: -75px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+  border: 1px solid var(--sn-sig-line);
+  background: var(--sn-sig-surface);
+  color: rgb(var(--color-ink));
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+.sn-sig-live-card > span {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sn-sig-live-card small {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: rgb(var(--color-ink) / 0.7);
+}
+.sn-sig-live-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 90% at 50% 0%, var(--sn-sig-gold-soft), transparent 70%);
+}
+.sn-sig-live-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--sn-sig-wash);
+  opacity: 0;
+}
+.sn-sig-live-chip {
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  z-index: 4;
+  margin-left: 36px;
+  padding: 2px 9px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-ok));
+  color: rgb(var(--color-raised));
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* On first publish the card rests lifted and lit; a re-publish shows only the chip, so the card rests flat, unlit. */
+.sn-sig-live[data-sig-kind='first'] .sn-sig-live-card {
+  transform: scale(1.03);
+}
+.sn-sig-live[data-sig-kind='chip'] .sn-sig-live-glow {
+  opacity: 0;
+}
+@keyframes sn-sig-live-lift {
+  from { transform: scale(1); }
+  to { transform: scale(1.03); }
+}
+@keyframes sn-sig-live-glow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sn-sig-live-dim {
+  from { opacity: 0.6; }
+  to { opacity: 0; }
+}
+@keyframes sn-sig-live-chip {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+.sn-sig-live[data-sig-play][data-sig-kind='first'] .sn-sig-live-card {
+  animation: sn-sig-live-lift var(--sn-m-move) var(--sn-m-spring) backwards;
+}
+.sn-sig-live[data-sig-play][data-sig-kind='first'] .sn-sig-live-glow {
+  animation: sn-sig-live-glow var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+.sn-sig-live[data-sig-play][data-sig-kind='first'] .sn-sig-live-dim {
+  animation: sn-sig-live-dim var(--sn-m-rise) var(--sn-m-settle) backwards;
+}
+.sn-sig-live[data-sig-play][data-sig-kind='first'] .sn-sig-live-chip {
+  animation: sn-sig-live-chip var(--sn-m-quick) var(--sn-m-spring) calc(var(--sn-m-release) + var(--sn-m-quick)) backwards;
+}
+.sn-sig-live[data-sig-play][data-sig-kind='chip'] .sn-sig-live-chip {
+  animation: sn-sig-live-chip var(--sn-m-quick) var(--sn-m-spring) backwards;
+}
+/* Reduced: the chip appears. No lift, no glow. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-live[data-sig-play] .sn-sig-live-card,
+  .sn-sig-live[data-sig-play] .sn-sig-live-glow,
+  .sn-sig-live[data-sig-play] .sn-sig-live-dim,
+  .sn-sig-live[data-sig-play] .sn-sig-live-chip {
+    animation: none;
+  }
+  .sn-sig-live .sn-sig-live-card {
+    transform: none;
+  }
+  .sn-sig-live .sn-sig-live-glow {
+    opacity: 0;
+  }
+}
+
+/* ══ ④ REPLY ARRIVES ═════════════════════════════════════════════════════════════════════════════════════════════
+   Sits INSIDE the Guests card's own "N coming" figure: an envelope before the number, and the number ticks up. */
+.sn-sig-reply {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: bottom;
+}
+.sn-sig-reply-env {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 24px;
+  border-radius: var(--m-r-xs);
+  border: 1.5px solid var(--sn-sig-gold);
+  background: var(--sn-sig-surface);
+  perspective: 120px;
+}
+.sn-sig-reply-flap {
+  position: absolute;
+  left: -1.5px;
+  right: -1.5px;
+  top: -1.5px;
+  height: 14px;
+  border-top: 1.5px solid var(--sn-sig-gold);
+  background: var(--sn-sig-gold-soft);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform: rotateX(180deg);
+  transform-origin: 50% 0;
+}
+.sn-sig-reply-note {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 4px;
+  height: 14px;
+  border-radius: calc(var(--m-r-xs) / 2);
+  background: var(--sn-sig-gold);
+  transform: translateY(-12px);
+}
+.sn-sig-reply-tick {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.sn-sig-reply-old {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  transform: translateY(-100%);
+}
+.sn-sig-reply-new {
+  display: inline-block;
+}
+@keyframes sn-sig-reply-flap {
+  from { transform: rotateX(0deg); }
+  to { transform: rotateX(180deg); }
+}
+@keyframes sn-sig-reply-note {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(-12px); }
+}
+@keyframes sn-sig-reply-old {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-100%); }
+}
+@keyframes sn-sig-reply-new {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.sn-sig-reply[data-sig-play] .sn-sig-reply-flap {
+  animation: sn-sig-reply-flap var(--sn-m-move) var(--sn-m-settle) var(--sn-m-move) backwards;
+}
+.sn-sig-reply[data-sig-play] .sn-sig-reply-note {
+  animation: sn-sig-reply-note var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-quick)) backwards;
+}
+.sn-sig-reply[data-sig-play] .sn-sig-reply-old {
+  animation: sn-sig-reply-old var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-move) + var(--sn-m-tap)) backwards;
+}
+.sn-sig-reply[data-sig-play] .sn-sig-reply-new {
+  animation: sn-sig-reply-new var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-move) + var(--sn-m-tap)) backwards;
+}
+/* Reduced: the count changes at once. The envelope stays shut. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-reply[data-sig-play] .sn-sig-reply-flap,
+  .sn-sig-reply[data-sig-play] .sn-sig-reply-note,
+  .sn-sig-reply[data-sig-play] .sn-sig-reply-old,
+  .sn-sig-reply[data-sig-play] .sn-sig-reply-new {
+    animation: none;
+  }
+  .sn-sig-reply .sn-sig-reply-flap {
+    transform: none;
+  }
+  .sn-sig-reply .sn-sig-reply-note {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+/* ══ ⑤ DAY TURNS ═════════════════════════════════════════════════════════════════════════════════════════════════
+   Sits INSIDE the event card's countdown figure: yesterday's number turns away, today's turns in. Only the two numbers
+   turn — the card behind them is the shipped one and does not move. */
+.sn-sig-day {
+  display: inline-block;
+  perspective: 400px;
+}
+.sn-sig-day-old {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: rotateX(90deg);
+  backface-visibility: hidden;
+}
+.sn-sig-day-new {
+  display: inline-block;
+  backface-visibility: hidden;
+}
+@keyframes sn-sig-day-old {
+  from { opacity: 1; transform: rotateX(0deg); }
+  99% { opacity: 1; transform: rotateX(90deg); }
+  to { opacity: 0; transform: rotateX(90deg); }
+}
+@keyframes sn-sig-day-new {
+  from { opacity: 0; transform: rotateX(-90deg); }
+  1% { opacity: 1; transform: rotateX(-90deg); }
+  to { opacity: 1; transform: rotateX(0deg); }
+}
+.sn-sig-day[data-sig-play] .sn-sig-day-old {
+  animation: sn-sig-day-old calc(var(--sn-m-move) / 2) var(--sn-m-settle) var(--sn-m-rise) backwards;
+}
+.sn-sig-day[data-sig-play] .sn-sig-day-new {
+  animation: sn-sig-day-new calc(var(--sn-m-move) / 2) var(--sn-m-spring) calc(var(--sn-m-rise) + var(--sn-m-move) / 2) backwards;
+}
+/* Reduced: the number changes at once. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-day[data-sig-play] .sn-sig-day-old,
+  .sn-sig-day[data-sig-play] .sn-sig-day-new {
+    animation: none;
+  }
+}
+
+/* ══ ⑥ CAPIZ LIGHT ═══════════════════════════════════════════════════════════════════════════════════════════════ */
+.sn-sig-capiz {
+  height: 130px;
+}
+.sn-sig-capiz-window {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 14px;
+  height: 70px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 2px;
+  overflow: hidden;
+  border-radius: var(--m-r-sm);
+  background: var(--sn-sig-gold);
+}
+.sn-sig-capiz-pane {
+  background: var(--sn-sig-surface);
+  opacity: 0.95;
+}
+.sn-sig-capiz-word {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+@keyframes sn-sig-capiz-pane {
+  from { opacity: 0.3; }
+  to { opacity: 0.95; }
+}
+.sn-sig-capiz[data-sig-play] .sn-sig-capiz-pane {
+  animation: sn-sig-capiz-pane var(--sn-m-rise) var(--sn-m-settle) calc(var(--sn-m-sig-step) * var(--sn-sig-i, 0)) backwards;
+}
+/* Reduced: a still window. No light. */
+@media (prefers-reduced-motion: reduce) {
+  .sn-sig-capiz[data-sig-play] .sn-sig-capiz-pane {
+    animation: none;
+  }
+  .sn-sig-capiz .sn-sig-capiz-pane {
+    opacity: 0.3;
+  }
+}
+
+/* ── a moment shown OVER a screen (Go live, over the Maker's canvas): centred, solid behind its stage, never tappable ── */
+.sn-sig-over {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 22vh;
+  z-index: 70;
+  display: flex;
+  justify-content: center;
+  padding: 0 calc(16px + var(--sn-safe-r, 0px)) 0 calc(16px + var(--sn-safe-l, 0px));
+  pointer-events: none;
+}
+.sn-sig-over > .sn-sig-stage {
+  background: rgb(var(--color-raised));
+  box-shadow: 0 14px 30px -14px rgb(var(--color-ink) / 0.45);
+}

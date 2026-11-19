@@ -50,6 +50,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { planWord } from '@/lib/vendor-plan-change-words';
+import { CapizLight } from '@/app/_components/signature/capiz-light';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -561,6 +562,13 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
                 tierExpiresAt,
                 creditPhp: heldCreditPhp,
               }}
+            />
+            {/* 🕯 Capiz light (motion standard § 9 ⑥) — once, when this device first sees a paid plan on. */}
+            <CapizLight
+              subject={`shop:${profile.vendor_profile_id}`}
+              plan={currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise' ? currentTier : null}
+              word={`${planWord(currentTier)} unlocked`}
+              justNow={Boolean(search.applied)}
             />
             {search.applied && (
               <ShopNotice tone="success" role="status">

@@ -3,7 +3,8 @@ import Image from 'next/image';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
 import { canSeeTheftWatch } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
@@ -57,7 +58,15 @@ export default async function VendorTheftWatchPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const role = await resolveVendorRole(supabase, user.id);
-  if (!canManageVendor(role)) redirect('/vendor-dashboard');
+  // 🔒 A role that does not open the shop's numbers is TOLD so — Problem and Solution — never bounced in silence.
+  if (!canManageVendor(role)) {
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-role-locked-page="insights">
+        <h1 className="sn-h1">Theft Watch</h1>
+        <RoleLock duty={(await resolveVendorStanding(supabase, user.id).catch(() => null))?.duty ?? null} capability="insights" className="mt-4" />
+      </section>
+    );
+  }
 
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
   if (isVendorFeatureGateEnabled() && !canSeeTheftWatch(tier)) {

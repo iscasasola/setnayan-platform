@@ -18,6 +18,13 @@
  * A teammate at `agent` or `viewer` with no grant is refused — being on a shop's
  * roster is not being put on a wedding.
  *
+ * 🧑‍🤝‍🧑 SIX ROLES (owner 19 Nov 2026: *"event can also be handled by agent and branch admin and admin"*) — FOUR ways
+ * in, not two: the Shop Manager (runs the shop) · Event Crew (granted for this celebration) · and now the client's
+ * ACCOUNT MANAGER and the BRANCH MANAGER of the card's branch — `handlesThisClient`: the celebration booked a card
+ * they hold (`vendor_service_agents`), so no separate grant is needed. The database says the same in
+ * `current_vendor_dayof_grant_event_ids()` (migration `supplier_six_roles`). A Marketing seat or a Helper, with no
+ * grant, is still refused.
+ *
  * ⚖ THE CONSEQUENCE IS NAMED, NOT DISCOVERED LATER. The answer here feeds
  * `resolveVendorCapability`, which feeds `belongsToThisEvent` — the single
  * boolean deciding whether somebody is "one of the people of this celebration",
@@ -44,6 +51,8 @@ export type ShopStanding = {
   runsTheShop: boolean;
   /** A live, unrevoked per-event grant for THE event being asked about. */
   grantedForThisEvent: boolean;
+  /** An Account Manager or Branch Manager whose card this celebration booked (six roles, 19 Nov 2026). */
+  handlesThisClient?: boolean;
 };
 
 /**
@@ -52,7 +61,12 @@ export type ShopStanding = {
  * Total and fail-closed: a standing that establishes neither fact is a no.
  */
 export function mayActForShopHere(standing: ShopStanding): boolean {
-  return standing.runsTheShop || standing.grantedForThisEvent;
+  return standing.runsTheShop || standing.grantedForThisEvent || standing.handlesThisClient === true;
+}
+
+/** The roles that reach their own clients' event days without a grant. */
+export function dutyHandlesItsClients(duty: string | null | undefined): boolean {
+  return duty === 'account_manager' || duty === 'branch_manager';
 }
 
 /** Does this team role run the shop? `owner` is legacy data; both count. */
@@ -75,6 +89,11 @@ export function shopsThisAccountMayActFor(input: {
   ownedProfileIds: readonly string[];
   teamRows: readonly { vendorProfileId: string; role: string | null }[];
   grantedProfileIds: readonly string[];
+  /**
+   * Shops whose card THIS celebration booked and which this account holds as Account / Branch Manager — already
+   * filtered to the event and to those two roles by the caller, exactly like the grants.
+   */
+  handlingProfileIds?: readonly string[];
 }): string[] {
   const standing = new Map<string, ShopStanding>();
   const touch = (vendorProfileId: string): ShopStanding => {
@@ -84,6 +103,7 @@ export function shopsThisAccountMayActFor(input: {
       vendorProfileId,
       runsTheShop: false,
       grantedForThisEvent: false,
+      handlesThisClient: false,
     };
     standing.set(vendorProfileId, fresh);
     return fresh;
@@ -95,6 +115,7 @@ export function shopsThisAccountMayActFor(input: {
     if (teamRoleRunsTheShop(row.role)) s.runsTheShop = true;
   }
   for (const id of input.grantedProfileIds) touch(id).grantedForThisEvent = true;
+  for (const id of input.handlingProfileIds ?? []) touch(id).handlesThisClient = true;
 
   return [...standing.values()].filter(mayActForShopHere).map((s) => s.vendorProfileId);
 }

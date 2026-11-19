@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import type { ActiveShop } from '@/lib/active-shop';
-import { dutyOfRank, isVendorDuty, type VendorDuty } from '@/lib/vendor-duties';
+import { dutyMay, dutyOfRank, isVendorDuty, type VendorCapability, type VendorDuty } from '@/lib/vendor-duties';
 
 /**
  * Vendor role helpers — the UI side of the multi-user vendor workspace.
@@ -159,6 +159,20 @@ export async function resolveVendorStandingForProfile(
   }
   const role = await resolveVendorRoleForProfile(supabase, userId, vendorProfileId, known);
   return role ? { role, duty: dutyOfRank(role), branchId: null } : null;
+}
+
+/**
+ * May this person do this, on this shop? The action-side gate for the six roles: a missing seat, an unread role and
+ * an unknown role all answer NO (fail closed — the owner rule for every action).
+ */
+export async function mayOnProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  vendorProfileId: string,
+  capability: VendorCapability,
+): Promise<boolean> {
+  const standing = await resolveVendorStandingForProfile(supabase, userId, vendorProfileId);
+  return dutyMay(standing?.duty ?? null, capability);
 }
 
 /**

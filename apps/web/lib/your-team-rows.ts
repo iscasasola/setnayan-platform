@@ -82,6 +82,8 @@ export type TeamRowFacts = {
   isVerified?: boolean;
   /** 🛡 Owner 2026-11-16 (36d74d48): a marketplace shop whose state was READ and is not verified — the row says so. */
   notYetVerified?: boolean;
+  /** 📄 Papers lapsed — the not-verified line reads the renewing words (owner 16 Nov). */
+  papersRenewing?: boolean;
 };
 
 export type TeamRowAction =
@@ -119,6 +121,7 @@ export type TeamRow = {
   needsYou: boolean;
   isVerified?: boolean;
   notYetVerified: boolean;
+  papersRenewing: boolean;
 };
 
 const GROUP_ORDER: Record<TeamRowGroup, number> = { booked: 0, asked: 1, deciding: 2, waiting: 3 };
@@ -155,6 +158,7 @@ export function teamRowOf(
     initials: initialsOf(f.name),
     isVerified: f.isVerified,
     notYetVerified: f.notYetVerified === true,
+    papersRenewing: f.papersRenewing === true,
   };
   const state = lockRequestStateOf(
     { status: f.status, lock_request_state: f.lockRequestState },

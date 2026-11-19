@@ -21,3 +21,12 @@ APPROVED — all 13 picks"). Stacked on part 1 (the shared vocabulary, `lib/supp
 Events served and the map pin are not on this door's record — Today asks for them (noted for the controller).
 
 SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG row as written.
+
+### Review fixes (19–20 Nov, drawing `36jmQMWrANcgd2HxihAUw5`)
+- **P1 Accept:** "<couple> added you." · "For their wedding · <date>." · the shop card as the couple typed it (name, Covers, Contact, Booked) · "Accept to run this booking on Setnayan. Free." · the grey pills became quiet links — I have an account · Not my business.
+- **P3 Check your shop:** "Change anything <couple> got wrong." · Door A's own rows Shop name · Contact · Number · Covers · Booked · Pays · They pay you (`CLAIM_CHECK_LABEL`) · a "Changed" tag on a row that now differs from the couple's record · the two notes (contact changes are seen; price/service changes are approved) · "Looks right".
+- **P4 team door:** the Setnayan team's finish lands on Shop › Your details and never reaches the Card Maker hand-off, so its card screen draws no Edit and promises none.
+- **P5 You're all set:** Shop ✓ · Cards ✓ (what the finish actually makes) · Client ✓ · the Free row and its line · the "I understand" tick on EVERY claim, and Open my shop waits for it.
+- **P6:** Today's claimed welcome says "<couple>'s <event> is in Clients." (`lib/claimed-welcome.server.ts`, read only on `?claimed=1`; any refused read names nobody).
+- Step names under the bars: Accept · Account · Your shop · Your card · Done.
+SPEC IMPACT: None — builds the approved 19 Nov drawing.

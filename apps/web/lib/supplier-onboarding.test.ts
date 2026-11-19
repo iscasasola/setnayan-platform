@@ -203,3 +203,26 @@ test('8 · a first card the door could not make is SAID on Today, never dropped 
   // The ticked row never claims a card that does not exist.
   assert.match(WELCOME, /\{card \|\| skipped \? TODAY_WELCOME_DONE\.shopOnly : TODAY_WELCOME_DONE\.withCard\}/);
 });
+
+test('9 · Door A (P1 · P3 · P5 · P6) speaks the drawing’s words, and the team door promises no Card Maker', async () => {
+  const { readFileSync } = await import('node:fs');
+  const door = readFileSync(new URL('../app/open-shop/_components/claim-door.tsx', import.meta.url), 'utf8');
+  const mod = await import('./supplier-onboarding');
+  // P1
+  assert.equal(mod.ACCEPT_LINE, 'Accept to run this booking on Setnayan. Free.');
+  assert.match(door, /`\$\{record\.inviterName\} added you\.`/);
+  assert.match(door, /data-claim-door-shop=""/);
+  // P3 — the claim door's own row names, its two notes, Looks right
+  assert.deepEqual(Object.values(mod.CLAIM_CHECK_LABEL), ['Shop name', 'Contact', 'Number', 'Covers', 'Booked', 'Pays', 'They pay you']);
+  assert.equal(mod.claimCheckLine('Ana & Ben'), 'Change anything Ana & Ben got wrong.');
+  assert.match(door, /\{CLAIM_CHECK_LABEL\[r\.fact\]\}/);
+  assert.match(door, /primary = \{ label: LOOKS_RIGHT, onClick: next \};/);
+  // P4 — the Setnayan team's finish never reaches the Card Maker hand-off, so its door draws no Edit and says none.
+  assert.match(door, /\{team \? null : <ActionButton tone="neutral" icon=\{PenLine\} label="Edit"/);
+  assert.match(door, /\? 'Skip makes no card — add one from Today\.'/);
+  // P5 — the tick on every claim's last screen; Open my shop waits for it
+  assert.match(door, /<PlanAgree\b/);
+  assert.match(door, /!d\.planAgreed \? \(/);
+  // P6
+  assert.equal(mod.claimedWelcomeLine('Ana & Ben', 'wedding'), 'Ana & Ben’s wedding is in Clients.');
+});

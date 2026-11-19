@@ -143,10 +143,10 @@ test('2 · 🚪 19 Nov order: Accept → Create account (SECOND) → Check your 
   // The package sheet holds what the price / inclusions / payment plan slides and the bundle slide asked.
   assert.match(DOOR, /\(\['price', 'incl', 'plan'\] as const\)\.filter\(\(k\) => detailKeys\.includes\(k\)\)\.map\(\(k\) => slide\(`ed:\$\{k\}`\)\.body\)/);
   // Slide 1 wears the door's frame: the main verb is "Accept" (owner 19 Nov; it was "Claim it"),
-  // the grey pills for Sign in & accept and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).
   assert.match(DOOR, /primary = \{\s*label: ACCEPT_LABEL,/);
-  assert.match(DOOR, /<ActionButton tone="neutral" icon=\{LogIn\} label="Sign in & accept" href=\{signInHref\} \/>/);
-  assert.match(DOOR, /label="I’m not this supplier"/);
+  // P1 (19 Nov): the grey pills became quiet links — I have an account · Not my business.
+  assert.match(DOOR, /<ActionButton tone="neutral" quiet icon=\{LogIn\} label="I have an account" href=\{signInHref\} \/>/);
+  assert.match(DOOR, /label=\{NOT_MY_BUSINESS\}/);
   // Specialties are optional — never in a Continue gate.
   assert.match(DOOR, /Specialties[\s\S]{0,400}optional/);
 });

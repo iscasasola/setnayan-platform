@@ -37,13 +37,12 @@ test('(2) pressing Accept (was Claim it, 19 Nov) fills "Your role at the shop" w
   assert.match(DOOR, /role: d\.role\.trim\(\),/);
 });
 
-test('(1) the claim door’s two equal-weight choices: ONE row, EQUAL widths, one fit state', () => {
+test('(1) the claim door’s two quiet choices sit in ONE row under Accept (P1, owner 19 Nov: "the two grey pills → two quiet links")', () => {
   const row = DOOR.slice(DOOR.indexOf('data-claim-door-choices'), DOOR.indexOf('label: ACCEPT_LABEL,'));
-  assert.match(DOOR, /<div ref=\{inviteRowRef\} className=\{`grid gap-2 \[&_\.ab\]:w-full \[&_\.ab\]:justify-center /);
-  assert.match(DOOR, /useFitRow\(inviteRowRef\);/);
-  assert.match(row, /label="Sign in & accept"/);
-  assert.match(row, /label="I’m not this supplier"/);
-  assert.doesNotMatch(row, /flex flex-wrap items-center gap-2/, 'no longer two pills at their own widths');
+  assert.match(DOOR, /<div ref=\{inviteRowRef\} className="flex flex-wrap items-center gap-2" data-claim-door-choices="">/);
+  assert.match(row, /<ActionButton tone="neutral" quiet icon=\{LogIn\} label="I have an account" href=\{signInHref\} \/>/);
+  assert.match(row, /label=\{NOT_MY_BUSINESS\}/);
+  assert.doesNotMatch(row, /tone="neutral" icon=/, 'neither is a grey pill any more — both are quiet');
 });
 
 test('(1) Events you serve: the label above, then Select all · Clear as one equal-width row', () => {

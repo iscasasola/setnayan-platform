@@ -12,6 +12,7 @@ import {
   TODAY_WELCOME_STEPS,
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
+  claimedWelcomeLine,
   welcomeTitle,
   type FirstCardCarry,
 } from '@/lib/supplier-onboarding';
@@ -35,12 +36,15 @@ export function TodayWelcome({
   shopName,
   card = null,
   skipped = false,
+  claimed = null,
 }: {
   kind: 'claimed' | 'opened';
   shopName: string | null;
   card?: FirstCardCarry | null;
   /** The door's card screen was skipped — no card was made, so the ticked row names the shop alone. */
   skipped?: boolean;
+  /** P6 — the couple whose invite this was, and their event's word; null names nobody. */
+  claimed?: { couple: string; eventWord: string } | null;
 }) {
   const welcome = kind === 'claimed' ? WELCOME_CLAIMED_PATH : WELCOME_OPENED_PATH;
   return (
@@ -49,7 +53,9 @@ export function TodayWelcome({
         <h2 id="today-welcome-title" className="text-lg font-semibold text-ink">
           {welcomeTitle(kind, shopName)}
         </h2>
-        <p className="text-sm text-ink/70">{TODAY_WELCOME_LINE}</p>
+        <p className="text-sm text-ink/70">
+          {kind === 'claimed' && claimed ? claimedWelcomeLine(claimed.couple, claimed.eventWord) : TODAY_WELCOME_LINE}
+        </p>
       </div>
       {card ? (
         <form

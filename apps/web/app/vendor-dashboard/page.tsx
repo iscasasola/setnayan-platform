@@ -73,6 +73,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
+import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
 import { FIRST_CARD_SKIPPED, firstCardFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
@@ -327,6 +328,8 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
+  // 🚪 P6: the claimed welcome names the couple — read only on `?claimed=1`, null on any refusal.
+  const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
@@ -801,6 +804,7 @@ export default async function VendorOverviewPage({
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
           skipped={search.card === FIRST_CARD_SKIPPED}
+          claimed={await claimedWelcomeP}
         />
       ) : null}
       <ClaimWaitLines read={await claimWaitsP} />

@@ -44,6 +44,7 @@ import {
 } from '@/lib/taxonomy';
 import { categoryLadder } from '@/lib/vendor-tier-caps';
 import { DEFAULT_LOGO_FRAME } from '@/lib/open-shop-logo';
+import { siteOrigin } from '@/lib/site-origin';
 
 export const dynamic = 'force-dynamic';
 
@@ -214,8 +215,9 @@ export default async function OpenShopLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
-  const host = (await headers()).get('host') ?? 'localhost:3000';
-  const LAB_LOGO = `http://${host}${LAB_LOGO_PATH}`;
+  const host = (await headers()).get('host');
+  const labOrigin = host ? 'http://' + host : siteOrigin();
+  const LAB_LOGO = labOrigin + LAB_LOGO_PATH;
   if (q.screen === 'logo') {
     return (
       <AddYourLogo

@@ -21,10 +21,10 @@ import { ActionButton } from '@/components/action-button';
 import { ChosenRow } from '@/app/_components/form-row';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { pushUndo, guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
-import { offerMaker } from '@/app/vendor-dashboard/offers/actions';
+import { offerMaker, type OfferReply } from '@/app/vendor-dashboard/offers/actions';
 import { papersProgress } from '@/lib/locks';
 import { offerStatus, priceWords, type Offer } from '@/lib/offers';
-import { newOfferHref, offerTitle, offersOffCard, offersOnCard, otherCardsLine, withCard, withoutCard } from '@/lib/card-shop-offers';
+import { SHOP_OFFERS_UNREAD, newOfferHref, offerTitle, offersOffCard, offersOnCard, otherCardsLine, withCard, withoutCard } from '@/lib/card-shop-offers';
 
 export type CardShopOffersState =
   | { k: 'idle' }
@@ -33,7 +33,10 @@ export type CardShopOffersState =
   | { k: 'unread'; message: string }
   | { k: 'ok'; offers: Offer[]; cardIds: string[]; today: string };
 
-export const SHOP_OFFERS_UNREAD = 'Your offers could not be read just now.';
+/** The offer a reply carries, when it carries one (`{ ok: true }` alone is a switch, which returns none). */
+function savedOffer(r: OfferReply): Offer | null {
+  return r.ok && 'offer' in r ? (r.offer as Offer) : null;
+}
 
 export function CardShopOffers({
   cardId,
@@ -90,12 +93,12 @@ export function CardShopOffers({
       guestToast.error(r && !r.ok ? r.message : 'Couldn’t save your offer — check your connection and try again.');
       return;
     }
-    replace('offer' in r ? r.offer : { ...before, isOn: false });
+    replace(savedOffer(r) ?? { ...before, isOn: false });
     pushUndo({
       label,
       undo: async () => {
         const back = 'switchOff' in after ? await offerMaker({ op: 'switch', id: before.id, on: true }) : await offerMaker({ op: 'save', offer: before });
-        if (back.ok) replace('offer' in back ? back.offer : before);
+        if (back.ok) replace(savedOffer(back) ?? before);
         else guestToast.error(back.message);
       },
     });
@@ -162,7 +165,7 @@ function OfferList({
             const status = offerStatus(o, today);
             const only = !o.reachesAll && o.cards.filter((c) => c !== cardId).length === 0;
             return (
-              <li key={o.id} className="flex items-center gap-3 rounded-xl bg-white px-3 py-2 shadow-sm" data-card-shop-offer={o.id}>
+              <li key={o.id} className="sn-row flex items-center gap-3 px-3 py-2" data-card-shop-offer={o.id}>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14.5px] font-semibold">{offerTitle(o)}</p>
                   <p className="text-[12.5px] leading-snug text-ink/60">

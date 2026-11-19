@@ -55,3 +55,6 @@ export function withoutCard(o: Offer, cardId: string, shopCardIds: readonly stri
 export function newOfferHref(cardId: string): string {
   return `/vendor-dashboard/shop?maker=offers&new=card&card=${encodeURIComponent(cardId)}`;
 }
+
+/** What the fold says when the shop's offers could not be read — never "none". A plain module, so server files may import it. */
+export const SHOP_OFFERS_UNREAD = 'Your offers could not be read just now.';

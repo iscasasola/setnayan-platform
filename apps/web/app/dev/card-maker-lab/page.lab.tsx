@@ -40,7 +40,8 @@
  * Names are the prototype's samples: nobody real.
  */
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { CardShopOffers, SHOP_OFFERS_UNREAD, type CardShopOffersState } from '@/app/vendor-dashboard/services/_components/card-shop-offers';
+import { CardShopOffers, type CardShopOffersState } from '@/app/vendor-dashboard/services/_components/card-shop-offers';
+import { SHOP_OFFERS_UNREAD } from '@/lib/card-shop-offers';
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { TheirWorkList } from '@/app/vendor-dashboard/services/their-work/their-work-list';

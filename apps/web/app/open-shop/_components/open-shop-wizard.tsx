@@ -90,6 +90,7 @@ import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
+import { useKeyboardRide } from '@/lib/keyboard-ride';
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
 /**
@@ -374,6 +375,8 @@ export function OpenShopWizard({
    */
   const sheetOf = (field: OpenShopField | null): CheckFact | null => (field ? (FIELD_FACT[field] ?? null) : null);
   const sheetRef = useRef<HTMLDivElement>(null);
+  /** A row's sheet holds text boxes, so its foot RIDES the keyboard (the one reading) — never typed blind. */
+  const keyboard = useKeyboardRide();
   const [sheet, setSheet] = useState<CheckFact | null>(
     refusalStep(errorField, initialStep) === CHECK_STEP ? sheetOf(errorField) : null,
   );
@@ -1003,7 +1006,13 @@ export function OpenShopWizard({
   const sheetClass =
     'fixed inset-x-0 bottom-0 z-[var(--sn-z-panel)] mx-auto max-h-[88dvh] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
   const sheetStyle = (fact: CheckFact): React.CSSProperties | undefined =>
-    inSheet(fact) ? { background: 'var(--m-paper)' } : undefined;
+    inSheet(fact)
+      ? {
+          background: 'var(--m-paper)',
+          bottom: keyboard.open ? keyboard.bottom : 0,
+          maxHeight: keyboard.open ? `calc(88dvh - ${keyboard.bottom}px)` : undefined,
+        }
+      : undefined;
   /** What the open fact's panel carries to be the sheet: its ref, and the dialog's name. */
   const sheetProps = (fact: CheckFact) =>
     inSheet(fact)

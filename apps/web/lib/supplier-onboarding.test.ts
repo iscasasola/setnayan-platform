@@ -244,3 +244,9 @@ test('11 · "on your page" only when the shipped switch said yes — a refusal i
   assert.match(WELCOME, /FIRST_CARD_RETRY/);
   assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
 });
+
+test('14 · a row’s sheet holds text boxes, so its foot rides the keyboard (the one reading)', () => {
+  // Its exemption in every-bottom-input-rides-the-keyboard.test.ts says so; this holds the claim.
+  assert.match(WIZARD, /const keyboard = useKeyboardRide\(\);/);
+  assert.match(WIZARD, /bottom: keyboard\.open \? keyboard\.bottom : 0/);
+});

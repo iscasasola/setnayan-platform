@@ -62,44 +62,26 @@ test('an add-on raises a number, never a feature — and never an unlimited one'
   assert.equal(g.serviceCardsTotal, TIER_CAPS.enterprise.serviceCardsTotal);
 });
 
-test('only Ultra may buy a seat or a branch; the four "+1" add-ons are not sold on any plan (2026-11-14)', () => {
-  for (const kind of ULTRA_ADDON_ORDER) {
-    const stillSold = kind === 'seat' || kind === 'branch';
-    for (const t of VENDOR_TIERS) {
-      assert.equal(canBuyUltraAddOn(kind, t), stillSold && t === 'enterprise', `${kind} on ${t}`);
-    }
-    assert.equal(canBuyUltraAddOn(kind, null), false);
-  }
-});
-
-test('the list is the catalogue’s, in the owner’s order, with nothing off sale and no price typed', () => {
-  assert.deepEqual([...ULTRA_ADDON_ORDER], ['category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date']);
+test('the list is the catalogue’s, with ONLY what is sold — the Ultra Add-on (2026-11-19) — and no price typed', () => {
+  assert.deepEqual([...ULTRA_ADDON_ORDER], ['ultra', 'category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date']);
   const rows = ultraAddOnsFromRows([
-    // deliberately shuffled, one off sale, one unpriced
+    // deliberately shuffled: the retired single seat and branch still priced (they renew), a "+1" still active
     { sku_code: 'vendor_extra_booking_per_date', title: 'Per date', price_php: '199.00', is_active: true },
     { sku_code: 'vendor_additional_branch', title: 'Branch', price_php: 990, is_active: true },
-    { sku_code: 'vendor_extra_waitlist', title: 'Wait list', price_php: 199, is_active: false },
-    { sku_code: 'vendor_extra_category', title: 'Category', price_php: 199, is_active: true },
     { sku_code: 'vendor_extra_seat', title: 'Seat', price_php: 990, is_active: true },
-    { sku_code: 'vendor_extra_service_card', title: 'Card', price_php: null, is_active: true },
+    { sku_code: 'vendor_ultra_addon', title: 'Ultra Add-on (4 weeks · Ultra only)', price_php: '2490.00', is_active: true },
   ]);
-  assert.deepEqual(
-    rows.map((r) => [r.kind, r.pricePhp]),
-    [
-      ['category', 199],
-      ['seat', 990],
-      ['branch', 990],
-      ['booking_per_date', 199],
-    ],
-  );
-  assert.equal(rows.find((r) => r.kind === 'seat')?.buyHref, '/vendor-dashboard/team');
-  assert.equal(rows.find((r) => r.kind === 'category')?.buyHref, null);
+  assert.deepEqual(rows.map((r) => [r.kind, r.pricePhp]), [['ultra', 2490]]);
+  assert.equal(rows[0]?.buyHref, null, 'the Ultra Add-on is bought on the Plan page');
+  // Off sale or unpriced → not listed, never a fallback figure.
+  assert.deepEqual(ultraAddOnsFromRows([{ sku_code: 'vendor_ultra_addon', title: 'x', price_php: 2490, is_active: false }]), []);
+  assert.deepEqual(ultraAddOnsFromRows([{ sku_code: 'vendor_ultra_addon', title: 'x', price_php: null, is_active: true }]), []);
 
   // No peso figure is typed in the module or the card — every price is the catalogue's.
   // (The Ultra add-ons card was deleted 2026-11-14 — the four "+1" add-ons folded into Ultra's limits.)
   for (const f of [join(HERE, 'vendor-ultra-addons.ts')]) {
     const src = stripComments(readFileSync(f, 'utf8'));
-    assert.doesNotMatch(src, /₱\s?\d|\b(199|990)\b/, `${f} types an add-on price`);
+    assert.doesNotMatch(src, /₱\s?\d|\b(199|990|2490|2,490)\b/, `${f} types an add-on price`);
   }
 });
 

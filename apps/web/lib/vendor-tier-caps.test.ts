@@ -14,6 +14,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canBuyExtraBranches,
+  canBuyExtraSeats,
+  canBuyTheUltraAddOn,
+  canRenewExtraBranches,
+  holdsExtraSeats,
   canBuyExtraCategories,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
@@ -32,19 +36,24 @@ import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
 const NUMERIC = ['parentCategories', 'serviceCardsTotal', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
-test('allowances · the owner\'s 2026-11-18 numbers, Free / Verified / Plus / Pro / Max', () => {
+test('allowances · the owner\'s 2026-11-19 numbers, Free / Verified / Plus / Pro / Ultra', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
-  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" (+ ruling 39). `enterprise` is the plan now called Max.
+  // Owner 2026-11-19, the approved table ("this is good"; specs SUPPLIER_PLANS_CHANGE_PLAN_2026-11-19.md). People include
+  // the owner, branches are extras besides the main shop. `enterprise` is Ultra (the old Max numbers, renamed).
   // 🔓 No reach row: reach is not a plan allowance since 2026-11-19 (owner, "unlock the range. not plan dependend
   // anymore") — held by `reach-is-not-a-plan-allowance.test.ts`.
   // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS"): all 16 main categories · 30 cards each · 10 bookings a day.
   assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 12], 'main categories: 1 / 1 / 2 / 8 / all 12');
-  assert.deepEqual(row('serviceCardsTotal'), [1, 3, 10, 20, 80], 'service cards in total: 1 / 3 / 10 / 20 / 80');
-  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 5, 11], 'seats beyond the owner: 0 / 0 / 1 / 5 / 11 (1 / 1 / 2 / 6 / 12 with the owner)');
+  assert.deepEqual(row('serviceCardsTotal'), [1, 3, 10, 27, 68], 'live cards: 1 / 3 / 10 / 27 / 68');
+  assert.deepEqual(row('agentAccounts'), [0, 0, 1, 4, 15], 'seats beyond the owner: 0 / 0 / 1 / 4 / 15 (1 / 1 / 2 / 5 / 16 with the owner)');
   assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
-  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 2, 5], 'branches besides the main shop: 0 / 0 / 0 / 2 / 5');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Supplier Plus, Pro, Ultra');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, false, true, true], 'the Pro page parts stay Pro+');
+  assert.deepEqual(row('branchesIncluded'), [0, 0, 0, 1, 3], 'branches besides the main shop: 0 / 0 / 0 / 1 / 3');
+  // "shop page also is 1 for all already" · "we do not limit the potential of a card" (owner 2026-11-19).
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [true, true, true, true, true], 'own web address on every plan');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [true, true, true, true, true], 'the same shop page on every plan');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].slotsTimeBounded), [true, true, true, true, true], 'morning + afternoon slots on every plan');
+  // Storage (unchanged): — · — · 5 · 10 · 20 GB.
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [null, null, 5e9, 10e9, 20e9]);
 });
 
 test('allowances · every numeric allowance is monotonic up the ladder (no rung gives less than the one below)', () => {
@@ -55,9 +64,16 @@ test('allowances · every numeric allowance is monotonic up the ladder (no rung 
   }
 });
 
-test('branches · only Ultra may buy more', () => {
-  for (const t of VENDOR_TIERS) assert.equal(canBuyExtraBranches(t), t === 'enterprise', t);
-  assert.equal(canBuyExtraBranches(null), false);
+test('only the Ultra Add-on is sold — no single seat or branch on any plan (owner 2026-11-19)', () => {
+  for (const t of VENDOR_TIERS) {
+    assert.equal(canBuyExtraBranches(t), false, `branch · ${t}`);
+    assert.equal(canBuyExtraSeats(t), false, `seat · ${t}`);
+    assert.equal(canBuyTheUltraAddOn(t), t === 'enterprise', `Ultra Add-on · ${t}`);
+    // A seat or branch ALREADY bought is kept and renews on Ultra — no existing subscriber loses one.
+    assert.equal(holdsExtraSeats(t), t === 'enterprise', `holds seats · ${t}`);
+    assert.equal(canRenewExtraBranches(t), t === 'enterprise', `renews a branch · ${t}`);
+  }
+  assert.equal(canBuyTheUltraAddOn(null), false);
   // The four Ultra "+1" add-ons of 2026-11-06 are folded into Ultra's limits (2026-11-14 "SIMPLER SUPPLIER PLANS"):
   // no plan buys them any more — and an Ultra shop that bought one still holds it until it runs out.
   for (const can of [canBuyExtraCategories, canBuyExtraServiceCards, canBuyExtraWaitlist, canBuyExtraBookingsPerDate]) {
@@ -100,13 +116,13 @@ test('ladder · Pro: Market Intel + up to 5 seats', () => {
   const c = TIER_CAPS.pro;
   assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
   assert.equal(canSeeMarketIntel('pro'), true);
-  assert.equal(c.agentAccounts, 5, 'Pro = up to 5 agent seats (owner 2026-11-04; was 3)');
+  assert.equal(c.agentAccounts, 4, 'Pro = 5 people with the owner (owner 2026-11-19; was 6)');
 });
 
-test('ladder · Max (enterprise): 12 seats + all 12 categories', () => {
+test('ladder · Ultra (enterprise): 16 people + all 12 categories', () => {
   const c = TIER_CAPS.enterprise;
-  assert.equal(c.agentAccounts, 11, 'Max = 12 seats with the owner (owner 2026-11-18)');
-  assert.equal(c.parentCategories, 12, 'Max = all 12 main categories (owner 2026-11-18)');
+  assert.equal(c.agentAccounts, 15, 'Ultra = 16 people with the owner (owner 2026-11-19)');
+  assert.equal(c.parentCategories, 12, 'Ultra keeps all 12 main categories (owner 2026-11-19)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
 });
 

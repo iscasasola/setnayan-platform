@@ -21,7 +21,7 @@ import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords } from '@/lib/plan-sheet';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, WAITLIST_SETTING_MAX, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, WAITLIST_SETTING_MAX } from '@/lib/vendor-tier-caps';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
@@ -143,9 +143,10 @@ test('every price cell is the price the page read — or "—" when it read noth
   assert.equal(row(g, 'price:yr').cells.enterprise.text, SENT('ent-yr'));
   for (const t of TABLE_TIERS) {
     assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
-    const sb = row(g, 'buy:seatbranch').cells[t];
-    if (canBuyExtraSeats(t) && canBuyExtraBranches(t)) assert.match(sb.text, /₱SENT:vendor_extra_seat|₱SENT:vendor_additional_branch/);
-    else assert.equal(sb.kind, 'no', `${t} is offered a seat or branch it cannot buy`);
+    // 🛒 The ONE add-on (owner 2026-11-19): the Ultra Add-on, at the SKU it charges — no single seat or branch row.
+    const ua = row(g, 'buy:ultra-addon').cells[t];
+    if (canBuyUltraAddOn('ultra', t)) assert.match(ua.text, /₱SENT:vendor_ultra_addon every 4 weeks/);
+    else assert.equal(ua.kind, 'no', `${t} is offered the Ultra Add-on it cannot buy`);
   }
   assert.equal(row(g, 'price:yr').cells.free.kind, 'no', 'Free has nothing to pay for a year');
   const none = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
@@ -156,8 +157,8 @@ test('every price cell is the price the page read — or "—" when it read noth
   const buyable = ULTRA_ADDON_ORDER.filter((k) => (['solo', 'pro', 'enterprise'] as const).some((t) => canBuyUltraAddOn(k, t)));
   assert.deepEqual(lines.map((l) => l.kind), buyable);
   for (const l of lines) assert.equal(l.price, SENT(ultraAddOnSku(l.kind)));
-  // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only the extra seat and the extra branch are left to buy on top of Ultra.
-  assert.deepEqual(lines.map((l) => l.kind), ['seat', 'branch'], 'the add-ons left to buy are the seat and the branch');
+  // 2026-11-19 (owner, "just 1 pack"): the ONE thing left to buy on top of Ultra is the Ultra Add-on.
+  assert.deepEqual(lines.map((l) => l.kind), ['ultra'], 'the one add-on left to buy is the Ultra Add-on');
 });
 
 test('a lock is printed only when the app enforces it — and every enforced one is', () => {

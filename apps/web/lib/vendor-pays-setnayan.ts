@@ -68,6 +68,8 @@ export const VENDOR_PAYS_SETNAYAN_PREFIXES: readonly string[] = [
   'vendor_extra_service_card__',
   'vendor_extra_waitlist__',
   'vendor_extra_booking_per_date__',
+  // 2026-11-19 — the Ultra Add-on, the ONE add-on (owner, "just 1 pack"; lib/vendor-ultra-addons.ts).
+  'vendor_ultra_addon__',
   'vendor_subscription__',
 ] as const;
 

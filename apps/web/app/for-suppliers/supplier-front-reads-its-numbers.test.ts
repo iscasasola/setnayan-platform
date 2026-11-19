@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, canBuyTheUltraAddOn } from '@/lib/vendor-tier-caps';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { formatCount } from '@/lib/format-number';
 import {
@@ -82,8 +82,8 @@ test('every Grow line still finds its Plans-page row, and sits under exactly one
 
 test('Verified names the papers it asks for, and the add-ons name who may buy them', () => {
   assert.equal(VERIFIED_PAPERS.length, REQUIRED_DOC_COUNT, 'the Verified step lists a different number of papers than verification asks for');
-  assert.ok(ADDON_TIERS.length > 0, 'no plan may buy an extra branch and seat — the add-on block would be a promise nobody can take');
-  for (const t of GROW_TIERS) assert.equal(ADDON_TIERS.includes(t), canBuyExtraBranches(t) && canBuyExtraSeats(t), t);
+  assert.ok(ADDON_TIERS.length > 0, 'no plan may buy the Ultra Add-on — the add-on line would be a promise nobody can take');
+  for (const t of GROW_TIERS) assert.equal(ADDON_TIERS.includes(t), canBuyTheUltraAddOn(t), t);
 });
 
 test('the fold keeps the prototype’s five groups', () => {

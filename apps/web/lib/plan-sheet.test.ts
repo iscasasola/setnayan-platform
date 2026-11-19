@@ -34,9 +34,10 @@ test('every limit is read from TIER_CAPS', () => {
     assert.equal(limitOf(t, 'mainCategories', true), c.parentCategories);
     assert.equal(limitOf(t, 'teamSeats', true), c.agentAccounts);
     assert.equal(limitOf(t, 'branches', true), c.branchesIncluded);
-    assert.equal(limitOf(t, 'reach', true), c.serviceRadiusKm);
   }
-  assert.equal(PLAN_LIMITS.length, 5);
+  // No reach limit since 2026-11-19 — reach is not a plan allowance (owner: "unlock the range. not plan dependend anymore").
+  assert.equal(PLAN_LIMITS.length, 4);
+  assert.ok(!PLAN_LIMITS.some((l) => (l.key as string) === 'reach'));
   // Bookings a day are not a plan limit since 2026-11-18 (ruling 17) — the sheet never asks to upgrade for them.
   assert.equal(PLAN_LIMITS.some((l) => /booking/i.test(l.title)), false);
 });
@@ -69,8 +70,8 @@ test('Door 1 says nothing within the limit, and says so when no plan takes it', 
   assert.match(top.headline, /^No plan takes more than/);
 });
 
-test('an unverified shop past its reach is sent to get verified', () => {
-  const ask = limitAsk('free', 'reach', TIER_CAPS.free.serviceRadiusKm + 1, true);
+test('an unverified shop past its live cards is sent to get verified', () => {
+  const ask = limitAsk('free', 'serviceCards', TIER_CAPS.free.serviceCardsTotal + 1, true);
   assert.ok(ask);
   assert.equal(ask.plan, 'verified');
   assert.match(ask.headline, /^Get verified/);

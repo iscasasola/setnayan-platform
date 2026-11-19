@@ -34,7 +34,8 @@ import type { EventVenueColumns } from '@/lib/event-venues';
 import { demoScopeFor } from '@/lib/demo-scope';
 import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { reachCeilingKm } from '@/lib/vendor-service-radius';
 // The ladder's own vocabulary lives in the PURE module that enforces the
 // boundary, so "which rung is protected?" has one answer in the codebase.
 import type { LadderTier } from '@/lib/inline-more-order';
@@ -166,13 +167,14 @@ export type CategoryVendorResult = {
    * Used to float known vendors to the top and render a contextual badge.
    */
   relationshipDepth: 0 | 1 | 2 | 3;
-  /** Service-radius coverage (vendor-tier-caps · serviceRadiusKm vs the
-   *  reception anchor). TRUE = the vendor's tier radius reaches this reception
-   *  ("✓ Serves your area"); FALSE = out of range ("travel fee likely"). Always
-   *  TRUE when distance is unknown / the vendor is unscoped (fail-open). */
+  /** Service-radius coverage (`reachCeilingKm` vs the reception anchor).
+   *  TRUE = in reach ("✓ Serves your area"); FALSE = out of range ("travel fee
+   *  likely"). Always TRUE when distance is unknown / the vendor is unscoped
+   *  (fail-open) — and since 2026-11-19 no plan sets a radius, so every shop is. */
   withinRadius: boolean;
-  /** The vendor's tier service radius in km (20 verified · 50 pro). null =
-   *  unscoped (Free 0) or nationwide (Enterprise ∞) — no finite range to show. */
+  /** A finite service radius in km, or null = unscoped. Null for every shop
+   *  since 2026-11-19 (reach is not a plan allowance; the shop's own ring
+   *  speaks through the travel-fee verdict). */
   serviceRadiusKm: number | null;
   /** Facet refinement (lib/vendor-facets · vendor_service_attributes ⋈ the
    *  couple's facet picks/seed). How many of the selected facet dimensions this
@@ -759,11 +761,10 @@ export async function searchCategoryVendors(input: {
     // onboarding-only (the dashboard stores just the coarse venue_setting).
     eventType: (ev.event_type as string | null) ?? null,
     pax: (ev.estimated_pax as number | null) ?? null,
-    // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). The
-    // dashboard Services surface is the ONLY caller that passes anchor coords,
-    // so the radius cut applies here but NOT on /vendors browse / onboarding.
-    // Verified vendors drop beyond 20km of the event, Pro beyond 50km;
-    // Enterprise (∞) + Free (0 = unscoped) + unknown tier are admitted.
+    // Phase C service-radius gate (`reachCeilingKm`, lib/vendor-service-radius.ts).
+    // The dashboard Services surface is the ONLY caller that passes anchor coords.
+    // Since 2026-11-19 no plan sets a radius, so the gate admits every shop by
+    // distance; it stays as the one seam a future distance rule would use.
     // Null coords (event has no venue lat/lng) → radius scope off (fail-open).
     anchorLat: lat,
     anchorLng: lng,
@@ -1210,10 +1211,11 @@ export async function searchCategoryVendors(input: {
       anchors.ceremony && vLat !== null && vLng !== null
         ? Math.round(distanceKm(anchors.ceremony.latitude, anchors.ceremony.longitude, vLat, vLng) * 10) / 10
         : null;
-    // Service-radius coverage — same fail-open as the recs radiusOk gate
-    // (vendor-tier-caps): unknown/Free tier → 0 (unscoped → within), Enterprise
-    // → ∞ (within), Verified 20 / Pro 50 → within iff distance ≤ radius.
-    const radiusKm = tierCaps(asVendorTier(prof?.tier_state ?? null)).serviceRadiusKm;
+    // Service-radius coverage — same fail-open as the recs radiusOk gate. Since
+    // 2026-11-19 reach is NOT a plan allowance (owner: "unlock the range. not plan
+    // dependend anymore"): `reachCeilingKm` is ∞ verified / 0 unverified, both
+    // unscoped → within. The shop's own declared ring is its only distance claim.
+    const radiusKm = reachCeilingKm(r.verification_state === 'verified');
     const withinRadius =
       dKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0 || dKm <= radiusKm;
     const serviceRadiusKm =

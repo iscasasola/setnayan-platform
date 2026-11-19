@@ -330,8 +330,8 @@ export type PublicVendorRow = {
   hq_address: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  /** The shop's own declared furthest distance — clamped to the plan on read (`effectiveOuterRadiusKm`). Optional:
-   *  the legacy select omits it, which reads as undeclared (the plan's ring). */
+  /** The shop's own declared furthest distance — clamped on read to the verification ceiling, never the plan
+   *  (`effectiveOuterRadiusKm`, owner 2026-11-19). Optional: the legacy select omits it, which reads as undeclared. */
   outer_radius_km?: number | null;
   website: string | null;
   // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
@@ -1642,11 +1642,10 @@ export async function renderVendorBySlug({
   });
 
   // ── SUPPLIER WEBSITE BY PLAN (owner-approved 2026-10-30) — the card column's plan pieces ─────────────────────────
-  // Reach: the plan's ring (lib/vendor-tier-caps.ts serviceRadiusKm) clamping the shop's own outer ring — the SAME
+  // Reach: the shop's own outer ring under the verification ceiling — never the plan's (owner 2026-11-19) — the SAME
   // number couples' search and the supplier's Where you work map draw; an unverified shop reaches 0 km and says why.
   const reach = shopReach({
     verified: vendor.verification_state === 'verified',
-    tier: effectiveTierState,
     declaredOuterKm: vendor.outer_radius_km ?? null,
   });
   // Solo+ — their own web address pointing at this page (approved Q4 = A; Solo since owner 2026-11-04). Read only when

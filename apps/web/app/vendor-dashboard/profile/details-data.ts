@@ -27,10 +27,11 @@ import {
 import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, type VendorBranchView } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
-import { tierCaps, asVendorTier, isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
+import { isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { shopCategoryCount } from '@/lib/shop-category-count';
+import { reachCeilingKm } from '@/lib/vendor-service-radius';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
 import { fetchCorrectionRequests, identityLockOf, type LockedIdentityFieldKey, type VendorCorrectionRequestRow } from '@/lib/vendor-corrections';
@@ -407,12 +408,13 @@ export async function loadDetailsData(
       tier,
       hqLat: profile.hq_latitude ?? null,
       hqLng: profile.hq_longitude ?? null,
-      reachKm: tierCaps(asVendorTier(tier)).serviceRadiusKm,
+      // Reach is verification, never the plan (owner 2026-11-19): ∞ verified · 0 unverified.
+      reachKm: reachCeilingKm(isVerified),
       innerRadiusKm: own.inner_radius_km ?? null,
       outerRadiusKm: own.outer_radius_km ?? null,
       branches,
       branchFeePhp,
-      branchAutoRadius: branchAutoRadiusKm(own.tier_state ?? null),
+      branchAutoRadius: branchAutoRadiusKm(),
       branchPay,
       isVerified,
       tierMeasured: ownMeasured,

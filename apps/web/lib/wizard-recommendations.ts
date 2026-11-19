@@ -42,7 +42,7 @@ import {
 import { fetchPreferenceMatches, type PreferenceMatch } from '@/lib/preference-match';
 import { regionForCity } from '@/lib/regions';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
-import { tierCaps } from '@/lib/vendor-tier-caps';
+import { isVerifiedForReach, reachCeilingKm } from '@/lib/vendor-service-radius';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { haversineKm } from '@/lib/geo';
 import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
@@ -113,8 +113,8 @@ export type WizardVendorRec = {
    *  vendor_profiles (free | verified | pro | enterprise) · NOT NULL
    *  DEFAULT 'free'. Drives the day-1 name reveal on the wizard grid
    *  card (isTrueNameTier → pro/enterprise reveal real business_name) +
-   *  the optional service-radius scope (tierCaps.serviceRadiusKm) when
-   *  the caller passes anchor coords. Populated from the same batched
+   *  (reach is NOT read from the tier since 2026-11-19 — see `reachCeilingKm`).
+   *  Populated from the same batched
    *  vendor_profiles read as verification_state + name_revealed_at +
    *  screen_name. Null = unknown tier → treated as free (name hidden,
    *  radius unscoped / admit). */
@@ -254,14 +254,15 @@ type Args = {
    *  (`event_song_picks`) they perform, and each row gets a match label. Omit
    *  (or non-music category) → exact prior behavior, no extra reads. */
   matchEventId?: string;
-  /** Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Anchor
+  /** Phase C service-radius gate (`reachCeilingKm`, lib/vendor-service-radius.ts). Anchor
    *  coordinates (the event venue) the per-vendor distance is measured FROM.
    *  Supplied ONLY by the dashboard Services surface (category-search.ts); the
    *  /vendors browse + onboarding region-ring callers omit them, so the radius
    *  cut never applies there. When BOTH are non-null the candidate pool drops
-   *  any vendor whose tier radius (Verified 20km · Pro 50km · Enterprise ∞ ·
-   *  Free 0 = unscoped) is exceeded — fail-open for unknown tier / missing
-   *  coords (see the radiusOk predicate). Omit/null = no radius scope. */
+   *  any vendor beyond its `reachCeilingKm` — since 2026-11-19 that is ∞ for a
+   *  verified shop and 0 (= unscoped) for an unverified one, so nobody is cut by
+   *  distance; fail-open for a missing row / coords (see the radiusOk predicate).
+   *  Omit/null = no radius scope. */
   anchorLat?: number | null;
   anchorLng?: number | null;
   /** When TRUE, the service-radius gate stops EXCLUDING out-of-range vendors —
@@ -340,7 +341,7 @@ export async function fetchWizardVendorRecommendations(
   // ranked outside the top-N by ad_rank can still float up. Inert until vendor
   // facet tags exist, so this only widens the read when an event is in context.
   const needsPreferenceMatch = !!args.matchEventId;
-  // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Only
+  // Phase C service-radius gate (`reachCeilingKm`). Only
   // active when the caller supplies anchor coords (dashboard Services surface);
   // narrows the candidate pool in JS post-fetch, so it over-fetches like the
   // region / pax scopes to keep a full `limit` of in-radius rows.
@@ -551,7 +552,7 @@ export async function fetchWizardVendorRecommendations(
       .in('vendor_profile_id', attrIds);
     const attrById = new Map<
       string,
-      { cap: number | null; type: string | null; tier: string | null }
+      { cap: number | null; type: string | null; verified: boolean }
     >(
       (attrRows ?? []).map((r) => {
         const row = r as {
@@ -567,8 +568,8 @@ export async function fetchWizardVendorRecommendations(
           {
             cap: row.capacity_max ?? null,
             type: row.venue_type ?? null,
-            // A plan whose paid days ended reads as the sweep will write it (`liveTierState`).
-            tier: liveTierState(row, Date.now()),
+            // Reach reads verification, never the plan (owner 2026-11-19).
+            verified: isVerifiedForReach(row.verification_state ?? null),
           },
         ];
       }),
@@ -579,22 +580,21 @@ export async function fetchWizardVendorRecommendations(
       const type = a?.type ?? null;
       const paxOk = pax === null || cap === null || cap >= pax;
       const typeOk = vType === null || type === null || type === vType;
-      // Phase C service-radius gate. EXPLICIT fail-open — do NOT route an
-      // unknown/missing tier through tierCaps (which coerces null → free → 0
-      // and would wrongly distance-scope it). A vendor is admitted when:
-      // radius scope is off · the tier probe row is missing (unknown tier) ·
-      // the vendor has no HQ coords · the tier radius is Infinity (Enterprise)
-      // · the tier radius is 0 (Free = not distance-scoped) · OR it's within
-      // the tier radius of the anchor.
-      const radiusKm = a ? tierCaps(a.tier).serviceRadiusKm : Infinity;
+      // Phase C service-radius gate. EXPLICIT fail-open. A vendor is admitted
+      // when: radius scope is off · the probe row is missing · the vendor has no
+      // HQ coords · the ceiling is Infinity (verified) · the ceiling is 0 (not
+      // distance-scoped) · OR it's within the ceiling of the anchor.
+      // Since 2026-11-19 no plan sets a radius (owner: "unlock the range. not plan
+      // dependend anymore"): ∞ verified / 0 unverified — both admitted below.
+      const radiusKm = a ? reachCeilingKm(a.verified) : Infinity;
       const radiusOk =
         !!args.includeOutOfRadius || // expander mode → never exclude on radius
         !needsRadiusScope ||
         a === undefined || // row missing from probe → admit (unknown tier)
         r.hq_latitude == null ||
         r.hq_longitude == null ||
-        !Number.isFinite(radiusKm) || // enterprise = Infinity → admit
-        radiusKm <= 0 || // free = 0 → not distance-scoped → admit
+        !Number.isFinite(radiusKm) || // verified = Infinity → admit
+        radiusKm <= 0 || // unverified = 0 → not distance-scoped → admit
         haversineKm(args.anchorLat!, args.anchorLng!, r.hq_latitude, r.hq_longitude) <=
           radiusKm;
       return paxOk && typeOk && radiusOk;

@@ -6,6 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { countSuppliersByArea, rankAreas, shopReachKm } from './area-supplier-counts';
+import { tierCaps } from './vendor-tier-caps';
 
 const TAGAYTAY = { key: 'tagaytay', lat: 14.106, lon: 120.962 };
 const CEBU = { key: 'cebu', lat: 10.316, lon: 123.886 };
@@ -18,14 +19,17 @@ test('a shop counts where its own reach covers the area — and nowhere it canno
       nearTagaytay,
       { lat: 14.12, lon: 120.95, tier: 'pro', innerKm: null, outerKm: 80 }, // reaches Manila too (~55 km)
       { lat: null, lon: null, tier: 'pro', innerKm: null, outerKm: 500 }, // unpinned → nowhere
-      { lat: 14.12, lon: 120.95, tier: 'free', innerKm: null, outerKm: null }, // free tier: no reach → nowhere
+      // Free reaches its tier's radius (owner 2026-11-18 "SUPPLIER PLANS REBUILT") — a free shop ~40 km south of
+      // Tagaytay is out of its own reach of every area, so it counts nowhere.
+      { lat: 13.75, lon: 120.95, tier: 'free', innerKm: null, outerKm: null },
     ],
     [TAGAYTAY, CEBU, MANILA],
   );
   assert.equal(counts.get('tagaytay'), 2);
   assert.equal(counts.get('manila'), 1);
   assert.equal(counts.get('cebu'), 0, 'a measured zero is present, not missing');
-  assert.equal(shopReachKm({ lat: 0, lon: 0, tier: 'free', innerKm: null, outerKm: null }), null);
+  // A shop that declared no ring reaches its tier's radius — read from the plan table, never typed here.
+  assert.equal(shopReachKm({ lat: 0, lon: 0, tier: 'free', innerKm: null, outerKm: null }), tierCaps('free').serviceRadiusKm);
 });
 
 test('areas rank by suppliers there, then nearest the guests’ home; an empty area is never suggested', () => {

@@ -96,6 +96,11 @@ AS $$
   END;
 $$;
 
+REVOKE ALL ON FUNCTION public.vendor_duty_rank(TEXT) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.vendor_duty_of_rank(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.vendor_duty_rank(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.vendor_duty_of_rank(TEXT) TO authenticated;
+
 COMMENT ON FUNCTION public.vendor_duty_rank(TEXT) IS
   'Six supplier roles → the RLS rank every existing policy reads. Mirrored in apps/web/lib/vendor-duties.ts (VENDOR_DUTY_RANK) and pinned by a test.';
 

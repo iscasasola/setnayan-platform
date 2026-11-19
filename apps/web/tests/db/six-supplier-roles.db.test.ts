@@ -18,7 +18,7 @@ import { insertLiveCard } from './live-card-fixture';
 
 let replay: ReplayResult;
 let db: PGlite;
-const F = {} as Record<string, string>;
+const F = {} as Record<'am' | 'amSeat' | 'bm' | 'bmSeat' | 'elsewhereBranch' | 'helper' | 'helperSeat' | 'mainCard' | 'makati' | 'makatiCard' | 'mkt' | 'mktSeat' | 'newbie' | 'other' | 'otherShop' | 'owner' | 'shop', string>;
 
 async function setRole(role: string): Promise<void> {
   await db.query(`SELECT set_config('request.jwt.claim.role', $1, false)`, [role]);
@@ -66,7 +66,7 @@ before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
   await reset();
-  for (const k of ['owner', 'bm', 'am', 'mkt', 'helper', 'newbie', 'other']) F[k] = await mkUser(`${k}@six-roles.test`);
+  for (const k of ['owner', 'bm', 'am', 'mkt', 'helper', 'newbie', 'other'] as const) F[k] = await mkUser(`${k}@six-roles.test`);
   F.shop = (
     await db.query<{ v: string }>(
       `INSERT INTO public.vendor_profiles (user_id, business_name) VALUES ($1, 'Blooms & Co.')

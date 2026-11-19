@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { StayForm } from '@/app/_components/stay-form';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import {
   VENDOR_DUTIES,
@@ -29,7 +30,7 @@ function badgeOf(duty: VendorDuty): string | null {
 export function RolesForm({ names, action }: { names: VendorRoleNames; action: Action }) {
   const [typed, setTyped] = useState<VendorRoleNames>(names);
   return (
-    <form action={action} className="mt-4" data-team-roles-form="">
+    <StayForm door="supTeam.setVendorRoleNames" action={action} className="mt-4" data-team-roles-form="">
       <FormRows width="wide" data="team-roles">
         {VENDOR_DUTIES.map((duty) => (
           <TypedRow
@@ -51,7 +52,7 @@ export function RolesForm({ names, action }: { names: VendorRoleNames; action: A
         ))}
       </FormRows>
       <p className="mt-2 text-[12.5px] text-[color:var(--m-slate-2)]">
-        A blank box keeps the fixed name. Renaming changes only the words — what the role can do stays the same.
+        A blank box keeps the fixed name. Renaming changes only the words.
       </p>
       <div className="mt-4">
         <SupplierSubmit
@@ -63,6 +64,6 @@ export function RolesForm({ names, action }: { names: VendorRoleNames; action: A
           className="w-full"
         />
       </div>
-    </form>
+    </StayForm>
   );
 }

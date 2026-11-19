@@ -5,7 +5,6 @@ import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
-import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
@@ -611,21 +610,19 @@ function ProofForm({
         }}
       />
 
-      {/* 🚦 READ ON THIS PHONE — ONLY WITH `BUYER_RECEIPTS_READ_ON_PHONE` ON. It
-          is OFF: the 17 Nov ruling keeps the existing reader (the server reads
-          the picture after it is sent). ON, the amount, date, time and reference
-          are filled from the picture by the in-app reader and the payer can fix
-          any of them. The owner has not ruled on the swap. */}
-      {BUYER_RECEIPTS_READ_ON_PHONE && (
-        <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
-      )}
+      {/* 🔒 READ ON THIS PHONE (owner 19 Nov 2026: "BDO buyer receipts are read
+          on the phone; the outside AI call is removed"): the amount, date, time
+          and reference are filled from the picture by the in-app reader, and
+          the payer can fix any of them. No outside AI. */}
+      <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
 
       {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
           *"the don't have to type. we detect after they sent it and log the
           data for the admin to send his counterpart screenshot"*). The action
           reads the reference, the amount, the date and the time off this
-          picture with the receipt reader and stores them on the payment for
-          the admin to match. Advisory only — nothing read here approves money. */}
+          picture ON THIS PHONE (ReceiptReadFields, above) and stores them on
+          the payment for the admin to match. Advisory only — nothing read here
+          approves money. */}
 
       <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
         I&rsquo;ve sent the payment

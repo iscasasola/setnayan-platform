@@ -53,8 +53,7 @@ import { channelLabel, payerAccountsFor, resolveChannel, PAYMENTS_PAUSED_MESSAGE
 import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
 import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
-import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
-import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
+import { loggedFromPhone, phoneReceiptRead, readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
@@ -970,29 +969,22 @@ export async function submitOrderAction(
     }
   }
 
-  // 🚦 READ ON THEIR PHONE — ONLY WITH `BUYER_RECEIPTS_READ_ON_PHONE` ON (it is
-  // OFF: the 17 Nov ruling keeps the existing reader, which runs after the
-  // response, below). ON, the drawer read the screenshot on the couple's phone
-  // (lib/on-phone-reader.ts) and posted only the text and the four fields they
-  // confirmed; the same pure parser reads it here. ⚠ ADVISORY either way: it
-  // fills lookup keys of THIS pending payment, never a status or an order.
-  const phoneRead = BUYER_RECEIPTS_READ_ON_PHONE
-    ? await (async () => {
-        const { phoneReceiptRead } = await import('@/lib/payment-receipt-read');
-        return phoneReceiptRead({
-          form: formData,
-          typed: referenceNumberClean,
-          expectedPhp: finalAmountForPayment,
-          channel: typeof channel === 'string' ? channel : null,
-        });
-      })()
-    : null;
-  const phoneLogged = phoneRead
-    ? await (async () => {
-        const { loggedFromPhone } = await import('@/lib/payment-receipt-read');
-        return loggedFromPhone(formData, phoneRead);
-      })()
-    : null;
+  // ── THE RECEIPT IS READ ON THEIR PHONE, NOT TYPED (owner 2026-11-17/19) ───
+  // *"the don't have to type. we detect after they sent it and log the data for
+  // the admin"*; 19 Nov (specs DECISION_LOG): "BDO buyer receipts are read on
+  // the phone; the outside AI call is removed". The drawer read the screenshot
+  // on the couple's phone (lib/on-phone-reader.ts) and posted only the text and
+  // the four fields they confirmed; the same pure parser reads it here. No
+  // picture is fetched or sent anywhere to be read.
+  // ⚠ ADVISORY: it fills the lookup keys of THIS pending payment and nothing
+  // else — never a status, never an order. Approval stays the admin's.
+  const phoneRead = phoneReceiptRead({
+    form: formData,
+    typed: referenceNumberClean,
+    expectedPhp: finalAmountForPayment,
+    channel: typeof channel === 'string' ? channel : null,
+  });
+  const phoneLogged = loggedFromPhone(formData, phoneRead);
 
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
@@ -1009,12 +1001,11 @@ export async function submitOrderAction(
     {
       amount_php: finalAmountForPayment,
       channel,
-      // 🚨 Gated like /pay (`readReferenceToLog`, `receiptPaidOnToLog`). With the
-      // switch OFF `phoneLogged` is null and these are exactly as before.
+      // 🚨 Gated like /pay (`readReferenceToLog`, `receiptPaidOnToLog`).
       reference_number:
-        referenceNumberClean ?? readReferenceToLog(phoneLogged?.reference, referenceCode),
+        referenceNumberClean ?? readReferenceToLog(phoneLogged.reference, referenceCode),
       screenshot_url: screenshotUrl,
-      paid_at: receiptPaidOnToLog(phoneLogged?.paidOn) ?? new Date().toISOString().slice(0, 10),
+      paid_at: receiptPaidOnToLog(phoneLogged.paidOn) ?? new Date().toISOString().slice(0, 10),
     },
   );
   if (idempotencyKey) {
@@ -1045,50 +1036,12 @@ export async function submitOrderAction(
   }
   const paymentId = paymentRow.payment_id as string;
 
-  // ── THE RECEIPT IS READ, NOT TYPED (owner 2026-11-17) ─────────────────────
-  // *"the don't have to type. we detect after they sent it and log the data for
-  // the admin"*. The drawer no longer asks for a reference, so the receipt
-  // reader takes the reference, amount, date and time off the screenshot and
-  // files them for the admin — AFTER the response, so the couple never waits on
-  // it (this lane has no "check your digits" ask to make; nothing was typed).
-  // ⚠ ADVISORY: it fills the empty lookup keys of THIS pending payment and
-  // nothing else — never a status, never an order. Approval stays the admin's.
-  if (BUYER_RECEIPTS_READ_ON_PHONE) {
-    // File what the phone read for the admin's card — AFTER the response.
-    if (phoneRead) {
-      after(async () => {
-        const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-        await recordPaymentReceiptRead(moneyWriter, paymentId, { ...phoneRead, model: ON_PHONE_READER_NAME });
-      });
-    }
-  } else {
+  // File what the phone read for the admin's card — AFTER the response, so the
+  // couple never waits on a note about their payment.
+  if (phoneRead) {
     after(async () => {
-      const { readPaymentReceiptFromR2, recordPaymentReceiptRead } = await import(
-        '@/lib/payment-receipt-read.server'
-      );
-      const read = await readPaymentReceiptFromR2({
-        screenshotRef: screenshotUrl,
-        proofPolicy: inlineCheckoutProofPolicy(eventIdClean, user.id),
-        typedReference: referenceNumberClean,
-        expectedPhp: finalAmountForPayment,
-        channel: typeof channel === 'string' ? channel : null,
-      });
-      if (!read) return;
-      await recordPaymentReceiptRead(moneyWriter, paymentId, read);
-      const fill: Record<string, string> = {};
-      // 🚨 Gated like /pay: never a read carrying this order's own code (it would
-      // make the row a one-click clean match), never an implausible date.
-      const readRef = readReferenceToLog(read.readReference, referenceCode);
-      if (!referenceNumberClean && readRef) fill.reference_number = readRef;
-      const readPaidOn = receiptPaidOnToLog(read.seenPaidOn);
-      if (readPaidOn) fill.paid_at = readPaidOn;
-      if (Object.keys(fill).length === 0) return;
-      const { error: fillErr } = await moneyWriter
-        .from('payments')
-        .update(fill)
-        .eq('payment_id', paymentId)
-        .eq('status', 'pending');
-      if (fillErr) console.error('[checkout] receipt read was not logged on the payment', paymentId, fillErr.message);
+      const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+      await recordPaymentReceiptRead(moneyWriter, paymentId, { ...phoneRead, model: ON_PHONE_READER_NAME });
     });
   }
 

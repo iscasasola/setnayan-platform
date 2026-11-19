@@ -79,14 +79,13 @@ test('the pay form has no typed reference field any more', () => {
 test('the action REQUIRES the picture and logs what was read on the payment', () => {
   const action = read('app/pay/[reference]/actions.ts');
   assert.match(action, /if \(!screenshotUrl\) \{/, 'a send with no receipt is accepted again');
-  // OFF (default): what the server read is logged; ON: what the phone read, or
-  // what the payer corrected it to. Both pass the same two filters.
-  assert.match(action, /\{ reference: receiptRead\?\.readReference \?\? null, paidOn: receiptRead\?\.seenPaidOn \?\? null \}/);
-  assert.match(action, /return loggedFromPhone\(formData, receiptRead\);/);
+  // What was read on the payer's phone — or what they corrected it to — is
+  // logged, through the same two filters as before.
+  assert.match(action, /const logged = loggedFromPhone\(formData, receiptRead\);/);
   assert.match(action, /bankReference \?\? readReferenceToLog\(logged\.reference, payable\.reference\)/);
   assert.match(action, /receiptPaidOnToLog\(logged\.paidOn\) \?\?/);
   // …and the read is still filed for the admin, with the date and time.
-  assert.match(action, /recordPaymentReceiptRead\(moneyWriter, newPaymentId, receiptRead\)/);
+  assert.match(action, /recordPaymentReceiptRead\(moneyWriter, newPaymentId, \{ \.\.\.receiptRead, model: ON_PHONE_READER_NAME \}\)/);
   const server = read('lib/payment-receipt-read.server.ts');
   assert.match(server, /seen_paid_on: read\.seenPaidOn/);
   assert.match(server, /seen_paid_time: read\.seenPaidTime/);

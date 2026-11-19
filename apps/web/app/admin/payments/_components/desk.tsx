@@ -55,10 +55,8 @@ import {
   refundOrder,
   rejectPayment,
   requestPaymentResubmit,
-  rereadPaymentReceipt,
 } from '../actions';
 import { RereadOnThisPhone } from './reread-on-this-phone';
-import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
 import {
   channelLabel,
   type ChannelSettings,
@@ -1599,13 +1597,13 @@ export function ReceiptReadCard({
   read,
   paymentId,
   hasScreenshot,
-  imageUrl = null,
+  imageUrl,
 }: {
   read: ReceiptReadRow | undefined;
   paymentId: string;
   hasScreenshot: boolean;
-  /** The signed link this screen already shows — read on the admin's phone only with `BUYER_RECEIPTS_READ_ON_PHONE` on. */
-  imageUrl?: string | null;
+  /** The signed link this screen already shows — the admin's phone reads it (no outside AI). */
+  imageUrl: string | null;
 }) {
   // No picture ⇒ nothing to read, and no card. A buyer may send a reference
   // number alone (the form allows it), and an empty "we could not read it" card
@@ -1626,20 +1624,9 @@ export function ReceiptReadCard({
   return (
     <TemplateSection
       label="Reading their screenshot"
-      tip="Advisory only — it gates nothing. The AI prepares; you press."
+      tip="Advisory only — it gates nothing. The in-app reader prepares; you press."
       right={
-        // 🚦 OFF (default, 17 Nov "keep the existing reader"): the server reads it.
-        // ON: the admin's phone reads the picture this screen already shows.
-        BUYER_RECEIPTS_READ_ON_PHONE ? (
-          <RereadOnThisPhone paymentId={paymentId} imageUrl={imageUrl} label={read ? 'Read it again' : 'Read it'} />
-        ) : (
-          <form action={rereadPaymentReceipt}>
-            <input type="hidden" name="payment_id" value={paymentId} />
-            <SubmitButton className="ab ab-neutral" pendingLabel="Reading…">
-              {read ? 'Read it again' : 'Read it'}
-            </SubmitButton>
-          </form>
-        )
+        <RereadOnThisPhone paymentId={paymentId} imageUrl={imageUrl} label={read ? 'Read it again' : 'Read it'} />
       }
       data="payment-ai-read"
     >

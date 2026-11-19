@@ -30,13 +30,14 @@
  * picture and pictures are made in seconds. Only the bank's own message settles
  * it, and an admin still opens it.
  *
- * 🚦 WHO TRANSCRIBES — ONE SWITCH (`BUYER_RECEIPTS_READ_ON_PHONE` in
- * lib/receipt-fields.ts, OFF). OFF: the existing server reader
- * (lib/payment-receipt-read.server.ts) — a 17 Nov 2026 ruling keeps it for buyer
- * receipts. ON: the buyer's phone reads the picture (Tesseract.js,
- * lib/on-phone-reader.ts) and posts only the TEXT. Either way the split above is
- * unchanged — the reader transcribes, this file decides — and so is every rule
- * below. The owner has not ruled on the swap.
+ * 🔁 WHO TRANSCRIBES NOW (owner 19 Nov 2026, specs DECISION_LOG: "BDO buyer
+ * receipts are read on the phone; the outside AI call is removed"): the
+ * ON-PHONE reader, Tesseract.js (lib/on-phone-reader.ts). The buyer's
+ * screenshot is read on the buyer's own phone and only the TEXT is posted; no
+ * outside AI sees it. The split above is unchanged — the reader transcribes,
+ * this file decides — and so is every rule below. `RECEIPT_TRANSCRIBE_PROMPT`
+ * remains only for the verification-paper reader, which still shares the old
+ * model seam.
  *
  * Pure and dependency-free so every rule below can be tested without a network,
  * a database or a key.

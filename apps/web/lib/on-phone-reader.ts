@@ -7,10 +7,6 @@
  * Receipt" (/pay and the couple checkout drawer) and the admin's "Read it again"
  * all run the SAME reader at the SAME pinned versions. Do not fork it.
  *
- * 🚦 That ruling covered the admin's own BDO screenshots (#7924). For BUYER
- * receipts a 17 Nov ruling keeps the existing reader, so this ships DARK behind
- * `BUYER_RECEIPTS_READ_ON_PHONE` (lib/receipt-fields.ts, OFF) until the owner rules.
- *
  * 🔒 THE PICTURE NEVER LEAVES THE DEVICE FOR READING. Tesseract runs in a web
  * worker on the phone; only the TEXT it produced is ever posted, and plain code
  * (`lib/payment-proof-scan.ts`) decides what that text says. No outside AI.

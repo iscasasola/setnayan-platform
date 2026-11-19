@@ -952,11 +952,18 @@ export function OpenShopWizard({
     where: confirmedCity,
     number: phoneOk ? `+63 ${formatPhoneDigits(phoneDigits)}` : null,
   });
-  /** The panel class of a fact: its sheet over the list when open, hidden otherwise. */
+  /**
+   * ③ A FACT'S SHEET OPENS IN PLACE, UNDER ITS LINE — one at a time. Every box must stay INSIDE the one form (a single
+   * submit posts them all), and the house `Sheet` portals to <body>, out of the form; a hand-made overlay would be a
+   * second backdrop / scrim / modal. So the list's lines and the open fact are children of the form's own column, set in
+   * place by CSS `order`: line i at `10 + 2i`, its open fact right under it. The panels never move in the DOM, so nothing
+   * typed is lost when a sheet closes.
+   */
   const inSheet = (fact: CheckFact) => step === CHECK_STEP && sheet === fact;
-  const sheetClass = // no-card-ok: the fact sheet over "Check your shop" (owner 19 Nov, "a sheet per fact") — its boxes must stay INSIDE the one form, so the portalled house Sheet cannot hold them
-    'fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[88dvh] w-full max-w-[640px] space-y-4 overflow-y-auto rounded-t-2xl border-t px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3 shadow-xl';
-  const sheetStyle = { borderColor: 'var(--m-line)', background: 'var(--m-paper)' } as const;
+  const orderOf = (fact: CheckFact) => 10 + 2 * Math.max(0, SELF_SERVE_FACTS.indexOf(fact));
+  // Space and type, not a box (rows on white): the open fact sits a step in from its line, under it.
+  const sheetClass = 'max-w-[620px] space-y-4 border-b pb-5 pl-9';
+  const sheetStyle = (fact: CheckFact) => (inSheet(fact) ? { order: orderOf(fact) + 1 } : undefined);
   /** Each sheet's one line — the shipped steps' own words, carried into the sheet that now holds their boxes. */
   const factLine: Partial<Record<CheckFact, string>> = {
     name: 'This becomes your page address.',
@@ -1177,24 +1184,11 @@ export function OpenShopWizard({
             {plan ? <input type="hidden" name="plan" value={plan} /> : null}
             {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
 
-            {/* ③ A fact sheet is open over the list — the dark behind it closes it (its boxes keep what was typed). */}
-            {step === CHECK_STEP && sheet ? (
-              <button /* button-ok: the dark behind an open fact sheet — a tap-out surface, not an action */
-                type="button"
-                aria-label="Close"
-                className="fixed inset-0 z-40 cursor-default bg-black/40"
-                onClick={() => setSheet(null)}
-                data-onboarding-sheet-backdrop=""
-              />
-            ) : null}
-
             {/* 1 · Open your shop — the name (PB1, first half). Always mounted, like every panel — inputs persist
                 across screens and there is ONE submit at the end. On "Check your shop" it is the Shop name sheet. */}
             <div
               className={inSheet('name') ? sheetClass : `${step === 1 ? 'space-y-4' : 'hidden'} ${slide}`}
-              style={inSheet('name') ? sheetStyle : undefined}
-              role={inSheet('name') ? 'dialog' : undefined}
-              aria-modal={inSheet('name') ? true : undefined}
+              style={sheetStyle('name')}
               data-onboarding-fact="name"
             >
               {sheetHead('name')}
@@ -1251,8 +1245,9 @@ export function OpenShopWizard({
             </div>
 
             {/* 1 · Open your shop — what you do (PB1, second half: the main service, more if they do more). On "Check
-                your shop" it is the What you do sheet; the events are their own sheet. Both always mounted. */}
-            <div>
+                your shop" it is the What you do sheet; the events are their own sheet. Both always mounted. `contents`:
+                each takes its own place (CSS order) in the form's column. */}
+            <div className="contents">
               <div
                 className={
                   inSheet('categories')
@@ -1261,9 +1256,7 @@ export function OpenShopWizard({
                       ? `block space-y-1.5 ${service ? 'max-w-[620px] lg:max-w-none' : 'max-w-[620px]'} ${slide}`
                       : 'hidden'
                 }
-                style={inSheet('categories') ? sheetStyle : undefined}
-                role={inSheet('categories') ? 'dialog' : undefined}
-                aria-modal={inSheet('categories') ? true : undefined}
+                style={sheetStyle('categories')}
                 data-open-shop-page="services"
                 data-onboarding-fact="categories"
               >
@@ -1387,9 +1380,7 @@ export function OpenShopWizard({
 
               <div
                 className={inSheet('events') ? sheetClass : 'hidden'}
-                style={inSheet('events') ? sheetStyle : undefined}
-                role={inSheet('events') ? 'dialog' : undefined}
-                aria-modal={inSheet('events') ? true : undefined}
+                style={sheetStyle('events')}
                 data-open-shop-page="events"
                 data-onboarding-fact="events"
               >
@@ -1481,9 +1472,7 @@ export function OpenShopWizard({
             {/* ③ Where you are — its own sheet; the map pin stays (owner 19 Nov: "keep the map pin"). */}
             <div
               className={inSheet('where') ? sheetClass : 'hidden'}
-              style={inSheet('where') ? sheetStyle : undefined}
-              role={inSheet('where') ? 'dialog' : undefined}
-              aria-modal={inSheet('where') ? true : undefined}
+              style={sheetStyle('where')}
               data-onboarding-fact="where"
             >
               {sheetHead('where')}
@@ -1516,9 +1505,7 @@ export function OpenShopWizard({
             {/* ③ Contact person — your name, and your role at the shop (optional). */}
             <div
               className={inSheet('contact') ? sheetClass : 'hidden'}
-              style={inSheet('contact') ? sheetStyle : undefined}
-              role={inSheet('contact') ? 'dialog' : undefined}
-              aria-modal={inSheet('contact') ? true : undefined}
+              style={sheetStyle('contact')}
               data-onboarding-fact="contact"
             >
               {sheetHead('contact')}
@@ -1573,9 +1560,7 @@ export function OpenShopWizard({
             {/* ③ Contact number — its own sheet. */}
             <div
               className={inSheet('number') ? sheetClass : 'hidden'}
-              style={inSheet('number') ? sheetStyle : undefined}
-              role={inSheet('number') ? 'dialog' : undefined}
-              aria-modal={inSheet('number') ? true : undefined}
+              style={sheetStyle('number')}
               data-onboarding-fact="number"
             >
               {sheetHead('number')}
@@ -1693,17 +1678,18 @@ export function OpenShopWizard({
 
             {/* 3 · Check your shop — ONE list, a sheet per fact (owner 19 Nov; SUPERSEDES "let it flow step by step"
                 for onboarding). A line with no answer reads "Add" and holds Continue; a tap opens its sheet. */}
-            <div className={`${step === CHECK_STEP ? 'grid' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-check="">
-              <ul className="sn-tile divide-y" style={{ borderColor: 'var(--m-line)' }}>
-                {rows.map((r) => {
+            {step === CHECK_STEP ? <span hidden data-onboarding-check="" /> : null}
+            {step === CHECK_STEP
+              ? rows.map((r) => {
                   const refused = errorField ? sheetOf(errorField) === r.fact : false;
+                  const open = sheet === r.fact;
                   return (
-                    <li key={r.fact}>
-                      <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet */
+                    <div key={r.fact} className={`max-w-[620px] border-b ${slide}`} style={{ order: orderOf(r.fact), borderColor: 'var(--m-line)' }}>
+                      <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet, in place */
                         type="button"
-                        onClick={() => openSheet(r.fact)}
-                        className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left"
-                        aria-haspopup="dialog"
+                        onClick={() => (open ? doneSheet() : openSheet(r.fact))}
+                        className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
+                        aria-expanded={open}
                         data-onboarding-row={r.fact}
                         data-missing={r.missing ? '' : undefined}
                       >
@@ -1729,21 +1715,25 @@ export function OpenShopWizard({
                             {r.value ?? 'Add'}
                           </span>
                         </span>
-                        <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+                        <ChevronRight
+                          aria-hidden
+                          className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
+                          strokeWidth={1.75}
+                          style={{ color: 'var(--m-slate-3)' }}
+                        />
                       </button>
-                    </li>
+                    </div>
                   );
-                })}
-              </ul>
-            </div>
+                })
+              : null}
 
             {/* 4 · Your first service card — drafted from the category + the main service; the supplier types the price
                 (no number is guessed). Approve needs the price · Edit opens the shipped Card Maker once the shop is
                 open · Skip makes no card. Posted with the shop; nothing is written before Open my shop. */}
             <div className={`${step === CARD_STEP ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-card="">
               <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
-              <div className="sn-tile grid gap-3 p-4" data-onboarding-card-face="">
-                <span className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
+              <div className="grid gap-3 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
                   {serviceLabel ?? 'Your service'} · {shopName.trim() || 'Your shop'}
                 </span>
                 <label className="block space-y-1">
@@ -1856,7 +1846,7 @@ export function OpenShopWizard({
             </div>
 
             {/* A refusal no box owns (the account could not be created just now) — above the button that retries. */}
-            {fieldError('submit')}
+            {errorFor('submit') ? <div style={{ order: 99 }}>{fieldError('submit')}</div> : null}
 
             {/* One nav row for every step — a sticky bar at the bottom of a phone, under the step on wider screens.
                 Back appears from step 2; the primary becomes the real submit only on the last one — a SubmitButton
@@ -1864,7 +1854,7 @@ export function OpenShopWizard({
                 🔘 THE HOUSE PRIMARY SHAPE IS A PILL (both-sign-up-doors-wear-one-button.test.ts). */}
             <div
               className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', order: 100 }}
               data-open-shop-bar=""
             >
               {/* 🔘 THE BUTTON RULE (T19, Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons … is not followed

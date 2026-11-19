@@ -188,7 +188,7 @@ export function firstCardLanding(input: {
 export const TODAY_WELCOME_STEPS = [
   { key: 'clients', label: 'Add the clients you already have', href: '/vendor-dashboard/customers?add=outside' },
   { key: 'logo', label: 'Add your logo', href: '/open-shop/logo' },
-  { key: 'verify', label: 'Get verified', href: '/vendor-dashboard/verify' },
+  { key: 'verify', label: 'Get verified', href: '/vendor-dashboard/profile#docs' },
 ] as const;
 
 /** The welcome's own line. Says what is true without a verified seal (unverified Free reaches 0 km) — never a lead. */

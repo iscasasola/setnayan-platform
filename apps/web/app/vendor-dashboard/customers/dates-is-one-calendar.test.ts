@@ -138,7 +138,11 @@ test('2 · the month folds the ONE derivation — it counts nothing itself, and 
   // (`the-schedule-pick-is-in-show-sort.test.ts`); its words are the shared `scheduleScopeOptions`.
   assert.match(MONTH, /<PickMenu\s+label="Schedule"[\s\S]{0,120}options=\{options\}/, 'the month lost its ONE schedule dropdown (the chip)');
   assert.match(MONTH, /const options = scheduleScopeOptions\(\{ pools, agents, halls \}\)/, 'the month builds its own schedule choices again');
-  assert.match(MONTH, /monthPicker=\{\(view, go\) => \(\s*<PickMenu\s+label="Month"/, 'the month is not a dropdown between ‹ and ›');
+  // The ONE month dropdown is `monthPick` — the grid's title between ‹ and ›, and (owner 19 Nov) the phone's head row
+  // while only the week shows. One part, two places; never a second month menu.
+  assert.match(MONTH, /const monthPick = \(view: CalendarMonth, go: \(m: CalendarMonth\) => void\) => \(\s*<PickMenu\s+label="Month"/, 'the month is not a dropdown');
+  assert.match(MONTH, /monthPicker=\{\(view, go\) =>[\s\S]{0,200}monthPick\(view, go\)/, 'the month is not a dropdown between ‹ and ›');
+  assert.equal((MONTH.match(/label="Month"/g) ?? []).length, 1, 'a second month menu');
   // The pure fold, executed: blocked and held are blocked; a seat is booked; an ask or a waiter is holding.
   const base = { state: null, consumed: 0, inquiryCount: 0, waitlistCount: 0 } as const;
   assert.deepEqual(dayStateOf({ ...base, state: 'blocked', consumed: 1 }), { blocked: true });

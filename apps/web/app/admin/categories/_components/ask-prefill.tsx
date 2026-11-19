@@ -30,7 +30,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
+import { TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createCanonicalLeaf, createTaxonomyNode } from '../actions';
@@ -42,6 +46,7 @@ import {
   type PreparedJobSpec,
   type PreparedValues,
 } from './prepared-jobs';
+import { nearMatches } from './model';
 
 type AddServicePrefill = {
   nonce: string;
@@ -60,6 +65,8 @@ type NewCategoryPrefill = {
   parentId: string | null;
   parentQuery: string;
   labelEn: string;
+  /** true = filled in from the search box; false = opened empty by the Catalogue ＋ (`?new=category`). */
+  prepared: boolean;
 };
 
 const FIELD = 'mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
@@ -135,8 +142,17 @@ export function AskPrefill({
       parentId: parent?.id ?? null,
       parentQuery,
       labelEn: searchParams.get('aa_label_en') ?? '',
+      prepared: true,
     });
   }, [searchParams, askSignature, groups]);
+
+  // ── THE SAME FORM, OPENED EMPTY — the Catalogue tab's one ＋ (`?new=category`, 14 Nov 2026 build). ONE form for
+  // "add a new category", whichever door the admin came through: the box prepares it, the ＋ opens it blank.
+  const newCategoryAsked = searchParams.get('new') === 'category';
+  useEffect(() => {
+    if (!newCategoryAsked || searchParams.get(ADMIN_ASK_PARAM)) return;
+    setNewCategoryPrefill((cur) => cur ?? { nonce: 'new', parentId: null, parentQuery: '', labelEn: '', prepared: false });
+  }, [newCategoryAsked, searchParams]);
 
   // ── EVERY OTHER WIRED JOB (the generic table) ──────────────────────────────
   const [preparedJob, setPreparedJob] = useState<{
@@ -177,56 +193,16 @@ export function AskPrefill({
       ) : null}
 
       {newCategoryPrefill ? (
-        <form key={newCategoryPrefill.nonce} action={createTaxonomyNode} className={CARD}>
-          <p className="flex items-center gap-1.5 text-xs text-success-800">
-            <Sparkles className="h-3 w-3 shrink-0" aria-hidden />
-            Prepared from your question in the search box — check the group and the name, then press Create
-            category yourself. Nothing has been added yet.
-          </p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="flex-1 text-xs text-ink/70">
-              Group it goes under
-              <select name="parent_id" required defaultValue={newCategoryPrefill.parentId ?? ''} className={FIELD}>
-                <option value="" disabled>
-                  — choose a group —
-                </option>
-                {groups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex-1 text-xs text-ink/70">
-              Category name
-              <input
-                name="label_en"
-                required
-                minLength={2}
-                maxLength={80}
-                defaultValue={newCategoryPrefill.labelEn}
-                className={FIELD}
-              />
-            </label>
-            <div className="flex items-center gap-2">
-              <SubmitButton className="rounded-full bg-success-600 px-3 py-1.5 text-xs font-semibold text-white" pendingLabel="Creating…">
-                Create category
-              </SubmitButton>
-              <button
-                type="button"
-                onClick={() => setNewCategoryPrefill(null)}
-                className="rounded-full border border-ink/15 px-3 py-1.5 text-xs text-ink"
-              >
-                Discard
-              </button>
-            </div>
-          </div>
-          {newCategoryPrefill.parentId === null && newCategoryPrefill.parentQuery ? (
-            <p className="mt-2 text-xs text-warn-800">
-              No group here is called “{newCategoryPrefill.parentQuery}” — pick the right one above before creating.
-            </p>
-          ) : null}
-        </form>
+        <NewCategoryForm
+          key={newCategoryPrefill.nonce}
+          prefill={newCategoryPrefill}
+          groups={groups}
+          tiles={tiles}
+          unresolvedParent={
+            newCategoryPrefill.parentId === null && newCategoryPrefill.parentQuery ? newCategoryPrefill.parentQuery : null
+          }
+          onDiscard={() => setNewCategoryPrefill(null)}
+        />
       ) : null}
 
       {addServicePrefill ? (
@@ -266,5 +242,94 @@ export function AskPrefill({
         </form>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * New category — the ONE form for "add a new category" (whichever door: the search box prepares it, the Catalogue ＋
+ * opens it blank). Posts to the shipped `createTaxonomyNode`. Drawn with the house form rows (`FormRows` · `ChosenRow`
+ * for the group, the ▾ never a native select · `TypedRow` for the name, posted under `label_en`) and the shared button
+ * (`actionButtonClass` · `ActionButton`) — no hand-made frame. Lands last in its group.
+ *
+ * 🔒 IT PREPARES, IT NEVER PRESSES: a prefill only fills the rows — nothing is added until the admin presses Add.
+ */
+function NewCategoryForm({
+  prefill,
+  groups,
+  tiles,
+  unresolvedParent,
+  onDiscard,
+}: {
+  prefill: NewCategoryPrefill;
+  /** The group words the search box carried that named no group — said out loud, never guessed. */
+  unresolvedParent: string | null;
+  groups: ReadonlyArray<{ id: string; label: string }>;
+  tiles: ReadonlyArray<{ id: string; label: string }>;
+  onDiscard: () => void;
+}) {
+  const [parentId, setParentId] = useState(prefill.parentId ?? '');
+  const [name, setName] = useState(prefill.labelEn);
+  const near = useMemo(() => nearMatches(name, tiles.map((t) => ({ key: t.id, label: t.label }))), [name, tiles]);
+  const groupLabel = groups.find((g) => g.id === parentId)?.label;
+  const ready = parentId !== '' && name.trim().length >= 2;
+  return (
+    <form action={createTaxonomyNode} className="pb-4" data-new-category="">
+      <h2 className="text-lg font-semibold text-ink">
+        <InfoTip label="New category" labelAs="span" align="start">
+          A category is the heading couples see on their Inspiration board, under one group. It lands last in its group;
+          a new group shows to couples once it holds a category.
+        </InfoTip>
+      </h2>
+      {prefill.prepared ? (
+        <p className={`mt-1 flex items-center gap-1.5 ${TEMPLATE_SUBLINE}`}>
+          <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Prepared from your search — nothing is added until you press Add.
+        </p>
+      ) : (
+        <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>Lands last in its group</p>
+      )}
+      <input type="hidden" name="parent_id" value={parentId} />
+      {/* The name posts from this hidden box, kept in step as it is typed — the row below only draws it. */}
+      <input type="hidden" name="label_en" value={name} />
+      <FormRows className="mt-3" data="new-category">
+        <ChosenRow
+          name="Group it goes under"
+          value={parentId || null}
+          buttonText={groupLabel ?? 'Choose a group'}
+          options={groups.map((g) => ({ key: g.id, label: g.label }))}
+          onPick={setParentId}
+          dataAttr="data-new-category-group"
+          problem={
+            !parentId && unresolvedParent ? `No group here is called “${unresolvedParent}” — choose the right one before adding.` : undefined
+          }
+        />
+        <TypedRow
+          name="Name it"
+          value={name}
+          placeholder="e.g. Ceremony essentials"
+          empty="Add a name"
+          maxLength={80}
+          required
+          onType={setName}
+          onKeep={(text) => {
+            setName(text);
+            return { ok: true };
+          }}
+          note={
+            name.trim().length >= 2 && near.length > 0 ? (
+              <span className="text-warn-800" data-near-matches="">
+                Close to what we have: {near.map((m) => m.label).join(' · ')}
+              </span>
+            ) : undefined
+          }
+        />
+      </FormRows>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <SubmitButton disabled={!ready} className={actionButtonClass('brand', { main: true })} pendingLabel="Adding…">
+          Add
+        </SubmitButton>
+        <ActionButton tone="neutral" icon={<X />} label={prefill.prepared ? 'Discard' : 'Cancel'} onClick={onDiscard} />
+      </div>
+    </form>
   );
 }

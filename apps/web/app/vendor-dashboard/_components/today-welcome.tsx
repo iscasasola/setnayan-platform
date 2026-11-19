@@ -89,7 +89,7 @@ export function TodayWelcome({
       ) : null}
       <ul className="grid gap-1.5">
         <li className="flex min-h-12 items-center gap-3 px-2 py-2 text-[14.5px] font-medium text-ink" data-today-welcome-done="">
-          <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-ok text-paper">
+          <span aria-hidden className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-paper" style={{ background: 'rgb(var(--color-ok))' }}>
             <Check className="h-3.5 w-3.5" strokeWidth={3} />
           </span>
           <span className="flex-1">{card || skipped ? TODAY_WELCOME_DONE.shopOnly : TODAY_WELCOME_DONE.withCard}</span>

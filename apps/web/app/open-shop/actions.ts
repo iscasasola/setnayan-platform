@@ -15,6 +15,7 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import {
   clipBusinessSlug,
@@ -891,16 +892,11 @@ export async function approveFirstCard(formData: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login?next=' + encodeURIComponent(firstCardCarryPath(welcome, card)) + '&as=vendor');
-  const { data: shop, error } = await supabase
-    .from('vendor_profiles')
-    .select('vendor_profile_id')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  const vendorProfileId = (shop as { vendor_profile_id?: string } | null)?.vendor_profile_id ?? null;
-  if (error || !vendorProfileId) {
-    redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: "We couldn't find your shop just now. Please try again." }));
-  }
-  const made = await makeFirstCard(createAdminClient(), vendorProfileId, card);
+  // The shop on screen, through the ONE resolver (lib/active-shop.ts) — and only when this login OWNS it: the card is
+  // made with the admin client, so a helper standing in somebody else's shop is told why, never given a write.
+  const shop = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: shop.error }));
+  const made = await makeFirstCard(createAdminClient(), shop.vendorProfileId, card);
   if (made.ok === false) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why }));
   revalidatePath('/vendor-dashboard');
   redirect(welcome);

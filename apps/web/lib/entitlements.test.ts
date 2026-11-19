@@ -609,13 +609,14 @@ test('alias query shape: EDITORIAL_PRO filters over itself + COUPLE_WEBSITE_PRO'
   assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
 });
 
-test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO', async () => {
+test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO + Ultra + Event Plus', async () => {
+  // 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too.
   const { supabase, calls } = makeSupabase({ data: [], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'STD_PREMIUM_OPENINGS');
   const skuIn = calls
     .filter((c) => c.method === 'in')
     .find((c) => (c.args[0] as string) === 'service_key');
-  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
+  assert.deepEqual(skuIn?.args[1], ['STD_PREMIUM_OPENINGS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'EVENT_PLUS']);
 });
 
 test('umbrella: a COUPLE_WEBSITE_PRO order confers EDITORIAL_PRO ownership', async () => {
@@ -783,7 +784,8 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
+  // 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too.
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'EVENT_PLUS']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', 'EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_WEBSITE_PRO, ['EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER, ['EVENT_ULTRA']);

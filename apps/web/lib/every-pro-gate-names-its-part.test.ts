@@ -139,7 +139,8 @@ test('(2) the footer is the one guest-page gate that asks for everything', () =>
   assert.match(loaders, /proWatermarkHiddenAhead\s*=\s*startAhead\(websiteProActiveFor\(/, 'the footer stopped asking for everything');
   const look = FILES.find((f) => f.rel === 'app/[slug]/_lib/hub-look.ts')!.code;
   /* The theme and the page ground ask their parts, never everything. */
-  assert.match(look, /hubPartActiveFor\(event\.event_id, 'style'\)/);
+  /* 2026-11-19: the theme asks gate 13 (its home is Style; Event Plus passes it too) — one gate, still not everything. */
+  assert.match(look, /hubGateActiveFor\(event\.event_id, '13'\)/);
   assert.match(look, /hubPartActiveFor\(event\.event_id, 'background'\)/);
 });
 

@@ -40,6 +40,21 @@
 > drawing's table called the frame `--color-frame` and the decision `--color-decision`; the app already had
 > `--color-raised` and `--color-mulberry` for exactly those jobs, so those names stand.
 >
+> **Light moves no pixel:** every Light token equals the literal its pointers held on 18 Nov (every custom property
+> on `<html>` resolves to the same colour; held by `apps/web/lib/the-colour-set-is-one.test.ts`). A pointer on `:root`
+> resolves on `<html>`, so `html.dark` re-points it for free; a hub theme or `[data-art]` scope that re-points
+> `--color-ink` / `--color-mulberry` on its own element does not move `--m-*` (it never did).
+>
+> **Dark (owner 18 Nov, pick 2):** page `#121110` · frame `#1C1A16` · raised `#26231E` · wash `#302C26` — each a step
+> lighter; depth from light (a 6 % top highlight + a deep soft shadow, `--sn-frame-shadow`), never a border. It
+> supersedes the 13 Oct pair (page `#17160F` · card `#232019`). Measured (WCAG 2): ink on page 17.18 · frame 15.83 ·
+> raised 14.26 · wash 12.64 · ink-2 on frame 10.88 · ink-3 on page 7.09 / frame 6.53 / raised 5.88 / wash 5.21 ·
+> decision `#EE8456` 7.25 on the page, 6.68 on the frame · its words `#1A120C` 7.11 (white reads 2.6) · ink on the
+> hero's brightest glow (`#704430`) 7.48 · private tint `#203136`: sky on it 6.31, ink 12.31.
+>
+> These notes lived in `globals.css` until 19 Nov; they moved here because every page parses that sheet and
+> `apps/web/lib/the-stylesheet-stays-in-budget.test.ts` holds its size.
+>
 > The original proposal follows.
 > Measured on `origin/main` @ `0e9f11ab51` (14 Nov 2026, 21:18). It scanned 11,510 files under
 > `apps/web/{app,components,lib}`, with comments removed by `lib/strip-comments.ts`. Scanner:

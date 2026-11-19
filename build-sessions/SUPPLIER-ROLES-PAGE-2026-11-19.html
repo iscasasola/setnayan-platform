@@ -228,6 +228,11 @@
               <div class="grow"><div class="t">Carlo Cruz</div><div class="rolename">Helper</div><div class="l">Cebu branch</div></div>
               <details class="i"><summary>i</summary></details>
             </div>
+            <div class="row" style="flex-wrap:wrap">
+              <span class="ava">LO</span>
+              <div class="grow"><div class="t">Lia Ong <span class="badge" style="background:var(--warn-tint);color:var(--warn)">Added · waiting for plan</span></div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · 1 card</div></div>
+              <details class="i"><summary>i</summary><div class="pop">Pro has 6 of 6 active. Lia is on the team but can't sign in to the shop until a plan that covers her is active. <u>See plans ›</u></div></details>
+            </div>
             <p class="note">Your name for the role (gold) · the branch · the fixed role behind ⓘ. The same card shows wherever the person appears — Clients, a booking, event day. Tapping a card opens the same Role ▾ · Branch ▾ as the invite (c), and ✕ Remove.</p>
           </div>
         </div>
@@ -281,8 +286,9 @@
               <span class="pick btn" style="gap:6px;color:var(--slate-3)"><input type="checkbox" disabled> Wedding Styling: Premium · full, 5 of 5</span>
             </div>
             <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
-            <span class="cta">Send invite</span>
-            <p class="note">One role per person. An Account Manager is set to the service cards you tick; they join the inquiry split for those cards straight away — see (e).</p>
+            <div class="pop" style="display:block"><b>Pro has 6 of 6 active.</b> You can still add them — they show as <b>Added · waiting for plan</b> and can't sign in to the shop until a plan that covers them is active. <u>See plans ›</u></div>
+            <span class="cta">Add · waits for the plan</span>
+            <p class="note">When the plan has room the button says "Send invite". One role per person. An Account Manager is set to the service cards you tick; they join the inquiry split for those cards straight away — see (e).</p>
           </div>
         </div>
       </div>
@@ -315,14 +321,16 @@
             <div class="h1">Your plan</div>
             <p class="sub">① Pick the plan · ② it sets your seats and branches · ③ give each seat a role and where it works.</p>
             <div class="row" style="flex-wrap:wrap">
-              <div class="grow"><div class="t">Your team on Pro</div><div class="l">6 seats with you · main + 2 branches · 1 Helper free</div></div>
+              <div class="grow"><div class="t">Members active</div><div class="l">6 of 6 with you · 1 Helper free · 2 added · waiting for plan</div></div>
               <details class="i" open><summary>i</summary><div class="pop">
-                Seats and branches are read from the plan rows (<b>max_sub_seats</b> + branches), counting you:<br>
+                Owner 19 Nov: the plan limits ACTIVE members and cards — more can be added, and they come in when a plan that covers them is active. Read from the plan rows, counting you:<br>
                 Free 1 · Verified 1 · Plus 2 · Pro 6 · Ultra 12 seats.<br>
                 Branches besides the main shop: 0 · 0 · 0 · 2 · 5.<br>
-                One Helper rides free on every plan.
+                One Helper rides free on every plan.<br>
+                Service cards active: 1 · 3 · 10 · 20 · 80.
               </div></details>
             </div>
+            <div class="row"><div class="grow"><div class="t">Service cards active</div><div class="l">5 of 20 · cards over the plan wait, like people</div></div></div>
             <div class="row"><div class="grow"><div class="t">Roles and who covers what</div><div class="l">4 of 6 seats given · Makati, Cebu</div></div><span style="color:var(--slate-3)">›</span></div>
             <p class="note"><span class="badge ok">Decided 19 Nov</span> How many people a plan allows is the plan table's own seat number. Any mix of roles fills those seats. <span class="confirm">STILL OPEN: is any role kept off a plan?</span> (e.g. Branch Manager only on plans that have branches — drawn: no role is kept off).</p>
 
@@ -514,11 +522,11 @@
         <div class="phone">
           <div class="bar">‹ Your plan</div>
           <div class="scr">
-            <div class="t" style="font-size:17px">Switch to Plus <span class="confirm">REVERSES 5683 — CONFIRM</span></div>
-            <p class="l" style="margin:4px 0 8px">Plus holds 2 seats with you. Pick who stays — the others pause until a bigger plan comes back.</p>
+            <div class="t" style="font-size:17px">Switch to Plus <span class="badge ok">Owner 19 Nov · plan limits ACTIVE members</span></div>
+            <p class="l" style="margin:4px 0 8px">Plus holds 2 active with you. Pick who stays active — the others become <b>Added · waiting for plan</b> until a plan that covers them is active.</p>
             <div class="row"><span class="ava">AR</span><div class="grow"><div class="t">Ana Reyes · COO</div><div class="l">You · always stays</div></div><input type="checkbox" checked disabled></div>
             <div class="row"><span class="ava">BS</span><div class="grow"><div class="t">Bea Santos · Lead Stylist</div><div class="l">Makati · 2 cards · 14 clients</div></div><input type="checkbox" checked></div>
-            <div class="row"><span class="ava">JT</span><div class="grow"><div class="t">Joy Tan · Lead Stylist</div><div class="l">Makati · 1 card · 9 clients · pauses</div></div><input type="checkbox"></div>
+            <div class="row"><span class="ava">JT</span><div class="grow"><div class="t">Joy Tan · Lead Stylist</div><div class="l">Makati · 1 card · 9 clients · will wait for plan</div></div><input type="checkbox"></div>
             <div class="row"><span class="ava">CC</span><div class="grow"><div class="t">Carlo Cruz · Helper</div><div class="l">Free on every plan · stays</div></div><input type="checkbox" checked disabled></div>
 
             <div class="role" style="margin-top:10px">

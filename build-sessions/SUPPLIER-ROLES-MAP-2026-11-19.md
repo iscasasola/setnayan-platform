@@ -199,7 +199,12 @@ even on a card they don't cover (a per-client read grant on top of card scoping)
 
 ## 3e · When the plan ends (owner 19 Nov: *"the chat will temporarily be migrated to the nearest account that stays alive. since other accounts will be paused"*)
 
-⚠ **REVERSES A SHIPPED RULE — needs the owner's explicit confirm.** Today `downgradeFit` (`lib/downgrade-limits.ts`,
+✅ **SETTLED BY THE OWNER, 19 Nov (relayed):** *"the plan must depend on how many accounts are using it"* and *"do we keep
+in the plan the number of cards active and number of members active. they can be added. but cannot come in until the plan
+is activated."* — the plan limits ACTIVE members (seats with the owner = `agentAccounts` + 1 + paid extras; the one free
+Helper stays) and ACTIVE cards (`serviceCardsTotal` 1 · 3 · 10 · 20 · 80). A Shop or Branch Manager may ADD anyone; over
+the limit they show **Added · waiting for plan** and cannot sign in to the shop until a plan that covers them is active
+(oldest added first). This replaces ruling 5683's "everyone stays" — previously flagged here as needing confirmation. Today `downgradeFit` (`lib/downgrade-limits.ts`,
 ruling 5683) and `canSeat` (`lib/vendor-free-helper.ts`) keep every seat over a lower plan: *"Everyone stays; you can't add
 more."* The proposal pauses the seats over the new plan's count instead.
 

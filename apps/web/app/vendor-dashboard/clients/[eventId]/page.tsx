@@ -68,6 +68,9 @@ import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
+import { QuoteTopLines } from './_components/quote-top-lines';
+import { quotePlanLine } from '@/lib/quote-top-lines';
+import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -131,6 +134,7 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -173,9 +177,11 @@ import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
-import { ScheduleCalendar } from './_components/schedule-calendar';
+import { ScheduleDays } from './_components/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { DetailsFormsDoor } from './_components/details-forms-door';
+import { ClientNextStepRow } from './_components/client-next-step-row';
+import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
@@ -183,6 +189,7 @@ import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
+  pickedAnchorOf,
   pickedMenuFor,
   visiblePickedPage,
   wantsScriptFold,
@@ -1877,9 +1884,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // event, both under the vendor's own RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  // 🔎 A refused appointments read is KEPT (19 Nov 2026 review): the days strip says "couldn't load", never an empty day.
+  let appointmentsReadFailed = false;
   if (isBooked) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
-    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: catalogRows }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
         .from('appointment_type_catalog')
         .select('category, type, label, default_mode, default_duration_min, sort_order')
@@ -1894,6 +1903,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false }),
     ]);
+    if (apptError) {
+      appointmentsReadFailed = true;
+      console.error('[client-page] appointments read failed', apptError);
+    }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
       type: string;
@@ -1962,6 +1975,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (
@@ -2685,22 +2709,52 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor eventName={eventName} />
     </div>
   );
 
+  // ➡ THE NEXT STEP ROW (owner 18 Nov 2026) — from reads above; an unread stage gives no row (`lib/client-next-step.ts`).
+  const nextStepSteps = planRowsAll.flatMap((p) => p.steps ?? []);
+  const nextDueRollup = computePlanRollup(nextStepSteps).next;
+  const crewCalls = myTasksRes.error
+    ? undefined
+    : crewHere.map((c) => c.startIso).filter((at) => at.slice(0, 10) === (brief.event.event_date ?? '').slice(0, 10)).sort();
+  const nextStep = clientNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date ?? null,
+    isBooked,
+    quoteWaiting: proposalRowsError ? null : isQuoted && !isAccepted && !lockRequest,
+    nextDue: !planReadComplete ? undefined : nextDueRollup ? { amountPhp: nextDueRollup.amountPhp, dueDate: nextDueRollup.dueDate } : null,
+    crewCallAt: crewCalls === undefined ? undefined : (crewCalls[0] ?? null),
+    handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
+  });
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
+    // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
+    decisions: <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />,
     shipped: {
       details: detailsShipped,
       schedule: (
         <>
-          {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
-              on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
-          {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
-          {gated(scheduleNode)}
+          {/* 📅 THE DAYS STRIP (owner 18 Nov 2026, drawing NL5NDoD6 v7 — replaces v113's shop month here): this client's
+              days on top — the event day(s), Meeting-card days, payment due days, all from reads above — with "All
+              clients" asking the Clients month (one request, only when chosen). The blow-by-blow below is unchanged. A
+              chapter's day is operating detail, so it joins only once the fee unlocks the event. */}
+          <ScheduleDays
+            eventId={eventId}
+            eventName={eventName}
+            eventDate={brief.event.event_date ?? null}
+            todayIso={manilaTodayIso()}
+            items={clientScheduleDays({
+              eventDate: brief.event.event_date ?? null,
+              chapters: feeUnlocked ? allBlocks : [],
+              meetings: appointmentViews,
+              payments: planRowsAll.flatMap((p) => p.steps ?? []),
+            })}
+            unread={scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })}
+          >
+            {gated(scheduleNode)}
+          </ScheduleDays>
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (
             <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">
@@ -2737,6 +2791,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
           : undefined,
     },
+    // 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" → Payment and "Who it counts · rule · N", above the quote. Both
+    // from reads above (the plan, `get_vendor_headcount_rule`) — booked only, as Payment is.
+    quoteTop: isBooked ? (
+      <QuoteTopLines
+        eventId={eventId}
+        plan={(() => {
+          const steps = planRowsAll.flatMap((p) => p.steps ?? []);
+          return quotePlanLine(planReadComplete, steps, computePlanRollup(steps).next?.dueDate ?? null);
+        })()}
+        count={
+          headcountRule
+            ? { rule: ruleWords(headcountRule.mode, [...ruleRoleLabels(headcountRule.roles, headcountNames), ...headcountRule.groups]), counted: headcountRule.counted }
+            : null
+        }
+      />
+    ) : null,
   });
 
   return (
@@ -2748,7 +2818,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
-      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
+      nextStep={nextStep ? <ClientNextStepRow step={nextStep} /> : null}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

@@ -469,9 +469,11 @@ export function dayGroupsOf(
       style?: AvailabilityStyle | null;
       barName?: string;
       /**
-       * 🔒 The DATABASE's own taken count for the day (`vendor_day_pool_taken` → `schedule_pool_taken_on`, the very
-       * count `acquire_schedule_pools` refuses by), so the bar and the guard can never disagree. `null` = that read was
-       * refused (the bar says so). Absent = counted here from the rows (the lab, and groups without a bar).
+       * 🔒 The DATABASE's own count for the day, from `vendor_day_pool_taken`, read from the same function the matching
+       * guard refuses by: Made to order → `in_progress` (`schedule_pool_in_progress_on`); by the piece → `pieces_out`
+       * (`service_card_bookings_on`, the yes's count, each stock once). Each bar reads its own guard's count; they are
+       * different counts on purpose (seats vs pieces), never two counts of one thing. `null` = that read was refused
+       * (the bar says so). Absent = counted here from the rows (the lab, and groups without a bar).
        */
       dbTaken?: number | null;
     }[];
@@ -479,7 +481,7 @@ export function dayGroupsOf(
      * `quantity`: the pieces a by-the-piece booking takes (`event_vendors.booked_quantity`, NULL = 1). `null` = that read
      * was REFUSED — the bar then says so, never "0 out". Absent = 1.
      */
-    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null; quantity?: number | null }[];
+    bookings: readonly { key: string; poolId: string; title: string; line: string; href: string | null; quantity?: number | null; /** false = a by-the-piece booking: listed, never a seat (owner 2c). */ seat?: boolean }[];
     blocks: readonly (DatesBlock & { blockId?: string })[];
     /** The shop's own holds on the day (`locked` closes; `whitelist` is shown on the day, not here). */
     holds: readonly DatesHold[];
@@ -498,7 +500,7 @@ export function dayGroupsOf(
     const unreadQty = fromDb ? p.dbTaken === null : kind === 'pieces' && booked.some((b) => b.quantity === null);
     const taken = fromDb
       ? (p.dbTaken ?? 0)
-      : (kind === 'pieces' ? booked.reduce((n, b) => n + (b.quantity ?? 1), 0) : booked.length) + outside.length;
+      : (kind === 'pieces' ? booked.reduce((n, b) => n + (b.quantity ?? 1), 0) : booked.filter((b) => b.seat !== false).length) + outside.length;
     const allDay = closures.filter((b) => (b.dayPart ?? 'all_day') === 'all_day');
     const held = input.holds.some((h) => h.stateDate === day && h.dayState === 'locked' && mine(h.poolId));
     const closed = allDay.length > 0 || held;

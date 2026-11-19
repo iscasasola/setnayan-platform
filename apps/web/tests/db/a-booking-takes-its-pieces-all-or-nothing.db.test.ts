@@ -355,22 +355,56 @@ test('8 · the yes and the piece number take ONE lock per shop (the guard is in 
   assert.match(lock, /pg_advisory_xact_lock/);
 });
 
-test('9 · the Clients day bar reads the guard\'s own count (vendor_day_pool_taken = schedule_pool_taken_on)', async () => {
+test('9 · ONE count per fact: chairs never fill a shared schedule\'s seats, and the day reads each guard\'s own count, each stock once', async () => {
   const shop = await mkShop('Bar Rentals', 'pro');
-  const chairs = await pieceCard(shop.vpid, 900);
-  const pool = await mkPool(shop.vpid, 500);
+  // A schedule left at "1 a day", shared by two chair cards of ONE service (one stock of 500) and a photo booth.
+  const pool = await mkPool(shop.vpid, 1);
+  const chairs = await pieceCard(shop.vpid, 500);
+  const chairs2 = await pieceCard(shop.vpid, 500);
+  const booth = await mkCard(shop.vpid, 1);
+  await db.query(`UPDATE public.vendor_services SET category = 'photography' WHERE vendor_service_id = $1`, [booth]);
+  for (const card of [chairs, chairs2, booth]) {
+    await db.query(
+      `INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`,
+      [card, pool, shop.vpid],
+    );
+  }
+  // 320 chairs AGREED (contracted) and not yet deposited — no seat row yet.
   const first = await booked(shop.vpid, chairs);
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [first]);
+  const read = async (uid: string) =>
+    asUser(uid, async () =>
+      (await db.query<{ pool_id: string; taken: number; pieces_out: number | null; pieces_have: number | null }>(
+        `SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY],
+      )).rows,
+    );
+  let r = (await read(shop.uid)).find((x) => x.pool_id === pool);
+  // (2) the bar reads the yes's count — agreed-but-undeposited chairs are OUT, not free.
+  assert.equal(r?.pieces_out, 320, 'agreed chairs read as free on the day');
+  assert.equal(r?.pieces_out, await outOn(chairs), 'the day and the guard disagree on chairs out');
+  // (smaller) one stock counted once: two cards of one service read "of 500", not "of 1,000".
+  assert.equal(r?.pieces_have, 500, 'a shared stock was counted twice');
+  // The deposit takes the chairs' seat row — still never a SEAT.
   assert.equal((await acquire(first, pool)).status, 'ok');
-  const rows = await asUser(shop.uid, async () =>
-    (await db.query<{ pool_id: string; taken: number }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY])).rows,
-  );
-  assert.equal(rows.find((r) => r.pool_id === pool)?.taken, 320);
+  r = (await read(shop.uid)).find((x) => x.pool_id === pool);
+  assert.equal(r?.taken, 0, 'chairs took a seat on the shared schedule');
+  assert.equal(r?.pieces_out, 320);
+  // (1) the booth's one seat is free — the guard, the mirror and the day all say so, then all say it is taken.
+  const hidden = async (card: string) =>
+    asService(async () => (await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.service_cards_unbookable_on($1::uuid[], $2::date[])`, [[card], [DAY]],
+    )).rows[0]!.n);
+  assert.equal(await hidden(booth), 0, 'the bench hid the booth because chairs were out');
+  const boothRow = await booked(shop.vpid, booth);
+  assert.equal((await acquire(boothRow, pool)).status, 'ok', 'chairs filled the booth\'s seat');
+  r = (await read(shop.uid)).find((x) => x.pool_id === pool);
+  assert.equal(r?.taken, 1);
+  assert.equal(await hidden(booth), 1, 'the bench offered a booth whose one seat is taken');
+  const secondBooth = await booked(shop.vpid, booth);
+  assert.equal((await acquire(secondBooth, pool)).status, 'full');
+  // Only the shop reads its own schedule.
   const stranger = await mkShop('Nosy Rentals', 'pro');
-  const theirs = await asUser(stranger.uid, async () =>
-    (await db.query<{ pool_id: string }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY])).rows,
-  );
-  assert.equal(theirs.some((r) => r.pool_id === pool), false, "another shop read this shop's schedule");
+  assert.equal((await read(stranger.uid)).some((x) => x.pool_id === pool), false, "another shop read this shop's schedule");
 });
 
 /** The schedule's in-progress and taken counts on a day, as the shop's Clients day bar reads them. */

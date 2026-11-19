@@ -26,7 +26,7 @@ APPROVED"):
   schedule gate, the bench search's mirror (`service_cards_unbookable_on`) and the Clients day bar
   (`vendor_day_pool_taken`), so they cannot disagree. Every booking that is not by the piece is refused exactly as
   before.
-- A schedule whose cards all rent by the piece may hold more than 500 (ruling 3).
+- Rented by the piece has no cap above 500 (ruling 3) on the CARD's own "How many do you have"; a schedule keeps its 1..500 and never holds pieces.
 
 - **Usual preparation time** (card maker, Made to order only, `vendor_services.usual_prep_days`, 0..365): the days an
   order is being made before its date. Kept apart from "Order at least" (the couple's rule). Branch copies carry it.

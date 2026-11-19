@@ -17,22 +17,21 @@
 --     vendor_agree_to_lock / vendor_day_check / service_cards_unbookable_on / the couple's ask all read "320 of 500
 --     out" for chairs without being touched.
 --
--- 3 · acquire_schedule_pools — CARRIED TO QUANTITY. A booking takes its N pieces on every pool it spans, ALL OR
---     NOTHING, under the same FOR UPDATE locks: occupancy = the SUM of the other live bookings' quantities + outside
---     clients, and the booking is refused when occupancy + N exceeds the pool's number. N = booked_quantity (NULL = 1),
---     so every booking that is not by the piece is refused exactly as before (used + 1 > cap ⇔ used >= cap).
+-- 3 · acquire_schedule_pools — PIECES BY THEIR CARD, SEATS BY THE SCHEDULE. Every booking that is not by the piece
+--     takes one seat on every pool it spans, all or nothing, under the same FOR UPDATE locks, exactly as before
+--     (used + 1 > cap ⇔ used >= cap).
 --     🔢 ONE NUMBER FOR PIECES (review 2026-11-19; owner 2a "one field, vendor_services.daily_capacity, labelled by
 --     style" and 2c "pieces take only pieces"): a by-the-piece booking is checked against its CARD's own "How many do
---     you have" (service_card_daily_limit — the same number the yes reads), never against the schedule's
---     daily_booking_capacity. It still takes its seat on the schedule (the Day bar lists it), but the schedule's
---     number does not hold pieces.
+--     you have" (service_card_daily_limit) with the yes's own count (service_card_bookings_on), never against the
+--     schedule's daily_booking_capacity. Its seat row is still written (so the day lists who has the chairs), but it
+--     is never COUNTED as a seat: schedule_pool_taken_on skips piece cards, so chairs never fill a shared schedule's
+--     seats for its other cards — and the H6 mirror, which reads the same function, agrees.
 --     An Always available card (availability_style 'none', owner ruling 4) is never counted: it takes no seat and is
 --     never on the calendar ('status' 'ok', 'counted' false). Body otherwise identical to 20271269411264.
 --
 -- 4 · set_booked_quantity(booking, n) — the supplier's yes for a piece booking. Same callers as acquire (the shop on
---     its own booking, or an admin). Locks the card row (one piece yes at a time per card) and every pool the
---     booking already holds; refuses when the card's own "How many do you have" would go past its number (the ONE
---     number for pieces — see 3); else writes n.
+--     its own booking, or an admin). Locks the card row and the shop's one count lock; refuses when the card's own
+--     "How many do you have" would go past its number (the ONE number for pieces — see 3); else writes n.
 --
 -- 5 · (withdrawn in review, 2026-11-19) the schedule's daily_booking_capacity keeps its 1..500 (20271350427190). The
 --     "no cap above 500 for pieces" (owner ruling 3) lives on the card's own number, which is the only one pieces are
@@ -150,9 +149,11 @@ CREATE TRIGGER trg_booked_quantity_set_on_insert_only_by_the_definer
 
 
 -- ── 1b · THE ONE COUNT and THE ONE LOCK ───────────────────────────────────────
--- schedule_pool_taken_on — a schedule's taken count on a day: the pieces of every live seat (booked_quantity, NULL = 1)
--- + outside clients on that day. acquire_schedule_pools, set_booked_quantity AND the Clients day bar
--- (vendor_day_pool_taken) all read THIS function, so the bar and the guard can never disagree.
+-- schedule_pool_taken_on — a schedule's taken SEATS on a day: every live seat whose card is NOT by the piece (each = 1)
+-- + outside clients on that day. 🔢 Pieces never take a seat (owner 2c "pieces take only pieces"; review 2026-11-19):
+-- 200 chairs on a schedule shared with a photo booth leave the booth's seats alone — pieces are held by their card's
+-- own number (service_card_bookings_on · service_card_daily_limit). acquire_schedule_pools and the H6 mirror refuse by
+-- this count, and the Clients day reads it for every group that is not by the piece (vendor_day_pool_taken).
 CREATE OR REPLACE FUNCTION public.schedule_pool_taken_on(p_pool_id uuid, p_day date, p_exclude uuid DEFAULT NULL)
 RETURNS integer
 LANGUAGE sql
@@ -161,11 +162,13 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
   SELECT (
-    (SELECT COALESCE(sum(COALESCE(ev.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb
+    (SELECT count(*) FROM public.vendor_schedule_pool_bookings pb
        LEFT JOIN public.event_vendors ev ON ev.vendor_id = pb.event_vendor_id
+       LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = ev.service_id
       WHERE pb.pool_id = p_pool_id
         AND pb.booked_date = p_day
         AND pb.released_at IS NULL
+        AND vs.availability_style IS DISTINCT FROM 'piece'
         AND (p_exclude IS NULL OR pb.event_vendor_id <> p_exclude))
     +
     (SELECT count(*) FROM public.vendor_calendar_blocks b
@@ -180,7 +183,7 @@ GRANT EXECUTE ON FUNCTION public.schedule_pool_taken_on(uuid, date, uuid) TO ser
 -- schedule_pool_in_progress_on — a schedule's IN PROGRESS count on a day (section 10): every live seat whose
 -- [due − prep, due] covers the day, prep = the order's own prep_days, else its card's usual_prep_days when the card is
 -- Made to order, else 0 — so a booking with no preparation time counts on its due date exactly as schedule_pool_taken_on
--- does (same rows, same released_at, same NULL = 1 pieces) + outside clients on that day. The Day bar reads this.
+-- does (same rows, same released_at, pieces never a seat) + outside clients on that day. The Day bar reads this.
 CREATE OR REPLACE FUNCTION public.schedule_pool_in_progress_on(p_pool_id uuid, p_day date)
 RETURNS integer
 LANGUAGE sql
@@ -189,11 +192,12 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
   SELECT (
-    (SELECT COALESCE(sum(COALESCE(ev.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb
+    (SELECT count(*) FROM public.vendor_schedule_pool_bookings pb
        LEFT JOIN public.event_vendors ev ON ev.vendor_id = pb.event_vendor_id
        LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = ev.service_id
       WHERE pb.pool_id = p_pool_id
         AND pb.released_at IS NULL
+        AND vs.availability_style IS DISTINCT FROM 'piece'
         AND pb.booked_date >= p_day
         AND pb.booked_date - COALESCE(ev.prep_days,
                                       CASE WHEN vs.availability_style = 'order' THEN vs.usual_prep_days END,
@@ -568,18 +572,51 @@ REVOKE ALL ON FUNCTION public.set_asked_quantity(uuid, int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_asked_quantity(uuid, int) TO authenticated, service_role;
 
 -- ── 7 · the Clients day bar reads the guard's own count ─────────────────────
--- vendor_day_pool_taken(day) — every schedule of the CALLER's shop with schedule_pool_taken_on for that day: the
--- exact number acquire_schedule_pools refuses by — and `in_progress`, schedule_pool_in_progress_on (section 10), the
--- number a Made to order schedule's bar says. One call per screen (the shop's schedules are few).
+-- vendor_day_pool_taken(day) — every schedule of the CALLER's shop, for the Clients day:
+--   taken / in_progress — the schedule's SEATS (schedule_pool_taken_on / _in_progress_on), what acquire refuses by;
+--   pieces_out / pieces_have — its by-the-piece cards, read with THE GUARD's own count and number
+--     (service_card_bookings_on · service_card_daily_limit = the card's daily_capacity), EACH STOCK ONCE: the cards
+--     service_card_bookings_on shares one count across (same service + branch, or the same hall) are one stock, so
+--     two chair cards of one service read "320 of 500", not "640 of 1,000". NULL have = a piece card with no number.
+-- Scoped to the caller's own shop by current_vendor_ids().
 CREATE OR REPLACE FUNCTION public.vendor_day_pool_taken(p_day date)
-RETURNS TABLE (pool_id uuid, taken integer, in_progress integer)
+RETURNS TABLE (pool_id uuid, taken integer, in_progress integer, pieces_out integer, pieces_have integer)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
-  SELECT sp.pool_id, public.schedule_pool_taken_on(sp.pool_id, p_day, NULL), public.schedule_pool_in_progress_on(sp.pool_id, p_day)
+  SELECT sp.pool_id,
+         public.schedule_pool_taken_on(sp.pool_id, p_day, NULL),
+         public.schedule_pool_in_progress_on(sp.pool_id, p_day),
+         pc.out,
+         pc.have
     FROM public.vendor_schedule_pools sp
+    LEFT JOIN LATERAL (
+      SELECT sum(st.out)::integer AS out,
+             CASE WHEN bool_and(st.have IS NOT NULL) THEN sum(st.have)::integer END AS have
+        FROM (
+          SELECT public.service_card_bookings_on(min(c.sid::text)::uuid, p_day, NULL) AS out,
+                 max(public.service_card_daily_limit(c.sid)) AS have
+            FROM (
+              SELECT vs.vendor_service_id AS sid, vs.category, vs.branch_id,
+                     (SELECT min(h.pool_id::text) FROM public.vendor_service_halls h
+                       WHERE h.vendor_service_id = vs.vendor_service_id) AS hall
+                FROM public.vendor_services vs
+               WHERE vs.vendor_profile_id = sp.vendor_profile_id
+                 AND vs.availability_style = 'piece'
+                 AND (vs.vendor_service_id IN (SELECT cs.vendor_service_id FROM public.vendor_schedule_calendar_services cs
+                                                WHERE cs.pool_id = sp.pool_id)
+                      OR vs.vendor_service_id IN (SELECT h.vendor_service_id FROM public.vendor_service_halls h
+                                                   WHERE h.pool_id = sp.pool_id))
+            ) c
+           -- one stock = the cards service_card_bookings_on counts together (its `sharing` CTE)
+           GROUP BY COALESCE('h:' || c.hall,
+                             CASE WHEN c.category IS NOT NULL AND length(c.category) > 0
+                                  THEN 'c:' || c.category || ':' || COALESCE(c.branch_id::text, '')
+                                  ELSE 's:' || c.sid::text END)
+        ) st
+    ) pc ON TRUE
    WHERE sp.vendor_profile_id IN (SELECT public.current_vendor_ids())
      AND sp.is_active;
 $function$;

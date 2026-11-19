@@ -1413,23 +1413,30 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
-    supabase.from('vendor_services').select('vendor_service_id, title, availability_style, daily_capacity').eq('vendor_profile_id', vendorProfileId),
-    // 🔒 Step 4: the day's taken count per schedule FROM THE GUARD's own function (`schedule_pool_taken_on`) — one call.
+    supabase.from('vendor_services').select('vendor_service_id, title, availability_style').eq('vendor_profile_id', vendorProfileId),
+    // 🔒 Step 4: the day's counts per schedule FROM THE GUARDS' own functions — one call: seats (`schedule_pool_taken_on`,
+    // what acquire refuses by) and, for by-the-piece cards, pieces out of the card's own number, each stock once
+    // (`service_card_bookings_on` · `service_card_daily_limit`, what the yes refuses by).
     supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
   if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
   if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
-  const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number }[];
+  const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number; pieces_out: number | null; pieces_have: number | null }[];
   const takenByPool = new Map(takenRows.map((r) => [r.pool_id, r.taken]));
   // 🛠 Made to order is counted IN PROGRESS across each order's preparation window (owner 19 Nov, AVAILABILITY FINALIZED).
   const inProgressByPool = new Map(takenRows.map((r) => [r.pool_id, r.in_progress]));
+  const piecesByPool = new Map(takenRows.map((r) => [r.pool_id, { out: r.pieces_out, have: r.pieces_have }]));
   /** The database's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
   const dbTakenOf = (poolId: string, style: string | null | undefined): number | null =>
-    poolTaken.error ? null : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
+    poolTaken.error
+      ? null
+      : style === 'piece'
+        ? (piecesByPool.get(poolId)?.out ?? 0)
+        : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
   const cardById = new Map(
-    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null; daily_capacity: number | null }[]).map((c) => [
+    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
       c.vendor_service_id,
-      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null, have: typeof c.daily_capacity === 'number' && c.daily_capacity > 0 ? c.daily_capacity : null },
+      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null },
     ]),
   );
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
@@ -1464,22 +1471,17 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   };
   // 🗓 A schedule's style: the ONE style every card on it books by (Made to order · by the piece). Mixed, Not set or
   // unread → null, and the group keeps today's look. An Always available card is never on the calendar (ruling 4).
-  // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a): a by-the-piece group's total is its cards' own "How many do
-  // you have" (`vendor_services.daily_capacity`) — the number the yes and the deposit gate hold to — never the
-  // schedule's "how many a day". A piece card with no number leaves the group without a bar (nothing to count against).
-  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string; have?: number } => {
+  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string } => {
     if (cardStyles.error) return { style: null };
     const cards = [...new Set([...p.serviceIds, ...bookedToday.filter((b) => b.poolId === p.poolId).map((b) => rowById.get(b.eventVendorId ?? '')?.service_id ?? '')])]
       .filter(Boolean)
       .map((sid) => cardById.get(sid))
-      .filter((c): c is { title: string | null; style: AvailabilityStyle | null; have: number | null } => Boolean(c) && c!.style !== 'none');
+      .filter((c): c is { title: string | null; style: AvailabilityStyle | null } => Boolean(c) && c!.style !== 'none');
     const styles = new Set(cards.map((c) => c.style));
     if (cards.length === 0 || styles.size !== 1) return { style: null };
     const style = [...styles][0] ?? null;
     if (style !== 'order' && style !== 'piece') return { style };
-    if (style === 'order') return { style };
-    if (cards.some((c) => c.have === null)) return { style: null };
-    return { style, barName: cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined, have: cards.reduce((n, c) => n + (c.have ?? 0), 0) };
+    return { style, barName: style === 'piece' && cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined };
   };
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(
@@ -1520,8 +1522,14 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const groups = dayGroupsOf(day, {
     today: todayIso,
     pools: pools.map((p) => {
-      const { have, ...st } = poolStyle(p);
-      return { poolId: p.poolId, label: p.label, capacity: st.style === 'piece' && have !== undefined ? have : p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
+      const st = poolStyle(p);
+      // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a): a by-the-piece group counts against its cards' own
+      // "How many do you have", each stock once — the yes's number — never the schedule's "how many a day". A piece
+      // card with no number has nothing to count against, so the group keeps the plain look.
+      const have = piecesByPool.get(p.poolId)?.have ?? null;
+      if (st.style === 'piece' && !poolTaken.error && have === null) return { poolId: p.poolId, label: p.label, capacity: p.capacity, style: null };
+      const capacity = st.style === 'piece' && have !== null ? have : p.capacity;
+      return { poolId: p.poolId, label: p.label, capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
     }),
     bookings: bookedToday
       // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.
@@ -1540,6 +1548,9 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
             .join(' · '),
           href: `/vendor-dashboard/clients/${b.eventId}`,
           quantity,
+          // 🔢 Pieces never take a seat (owner 2c): a chair booking is LISTED on its schedule's day but never counted
+          // against the schedule's seats — the same rule as `schedule_pool_taken_on`.
+          seat: !piece,
         };
       }),
     blocks: blocksRead.blocks,

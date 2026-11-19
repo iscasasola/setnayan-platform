@@ -56,6 +56,11 @@ async function draw(props: Record<string, unknown>): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   return renderToStaticMarkup(
     React.createElement(CollectionsList, {
+      // UPDATED ON PURPOSE (owner 2026-11-19, "portfolio simpler approved"): the groups live inside the four ways in
+      // now, and a risen screen is a portal a static render cannot see — `drawAll` draws every way's body in place, so
+      // this guard still holds every group to its finished empty look.
+      vendorId: 'lab',
+      drawAll: true,
       input: EMPTY,
       gallery: null,
       groups: NONE,
@@ -78,11 +83,12 @@ function sections(html: string): Map<string, string> {
   return out;
 }
 
-const EMPTY_SECTIONS = ['page', 'cards', 'albums', 'own', 'delivered', 'instagram', 'moodboard', 'songs', 'stories', 'video'];
+// 'video' left this list on purpose: Video links is the shipped editor itself now (its own "No links yet"), not a section.
+const EMPTY_SECTIONS = ['page', 'cards', 'albums', 'own', 'delivered', 'instagram', 'moodboard', 'songs', 'stories'];
 
 test('1 · an empty shop keeps EVERY section — each with its greyed Example and at most one door', async () => {
   const s = sections(await draw({}));
-  for (const k of [...EMPTY_SECTIONS, 'more']) assert.ok(s.has(k), `the ${k} section is hidden for being empty`);
+  for (const k of EMPTY_SECTIONS) assert.ok(s.has(k), `the ${k} section is hidden for being empty`);
   for (const k of EMPTY_SECTIONS) {
     const sec = s.get(k)!;
     assert.match(sec, new RegExp(`data-portfolio-empty="${k}"`), `${k}: no placeholder tile with its honest line`);
@@ -132,9 +138,11 @@ test('4 · a filled shop wears no Example, and its tiles carry names on the phot
     moodboard: { looks: 2, declined: 0 },
   });
   const s = sections(html);
-  for (const k of ['page', 'cards', 'albums', 'own', 'delivered', 'moodboard', 'songs', 'stories', 'video']) {
+  // UPDATED ON PURPOSE (owner 2026-11-19): inside a way in, a photo group is its full grid and an album group is each
+  // album under its own name (one level, never a second screen on top) — so a filled group draws a tile OR its grid.
+  for (const k of ['page', 'cards', 'albums', 'own', 'delivered', 'moodboard', 'songs', 'stories']) {
     assert.doesNotMatch(s.get(k)!, /data-example=/, `${k}: a filled section still wears an Example`);
-    assert.match(s.get(k)!, new RegExp(`data-portfolio-tile="${k}"`), `${k}: a filled section draws no tile`);
+    assert.match(s.get(k)!, new RegExp(`data-portfolio-tile="${k}"|data-collection-grid=""`), `${k}: a filled section draws neither a tile nor its photos`);
   }
   for (const name of ['Santos wedding', 'Photo booth', 'Reception styling', 'Ana &amp; Ben']) assert.ok(html.includes(name), `the tile “${name}” has no name on its photo`);
 });

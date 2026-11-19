@@ -12,8 +12,8 @@
  * `readBadgeRewardFacts`), the steps and tier names `lib/badge-tiers.ts`, the words the J4 page model
  * (`badge-page-model.ts`), the reward lines `rewardLineFor` (`lib/badge-rewards.ts`). No number is typed here.
  *
- * 🔑 HONEST: an unread count is "Couldn't load" — never "Not yet" and never 0. Invites has no counter yet, so it says
- * "Not counted yet" (`BADGE_REWARDS.invites.measured === false`).
+ * 🔑 HONEST: an unread count is "Couldn't load" — never "Not yet" and never 0. A badge with no counter says
+ * "Not counted yet" (`BADGE_REWARDS[badge].measured === false`); Invites is counted since #7891.
  *
  * PURE — no I/O, no clock. 🔒 lib/shop-badge-shelf.test.ts
  */
@@ -39,6 +39,41 @@ export function badgeArtSrc(family: ShelfFamily, tier: number): string {
 /** The pictures' own size (px) — every v84 tier image is 300 × 286. */
 export const BADGE_ART_W = 300;
 export const BADGE_ART_H = 286;
+
+/**
+ * 📐 THE ART'S OWN BOX in each v84 picture (owner 18 Nov, on his phone: *"the badges are small and not centered
+ * properly"*). Every picture is a 300 × 286 canvas, but the drawn badge sits LOW in it with a soft shadow under it, and
+ * the lower tiers are far smaller than the canvas (Bronze is ~158 × 165). Drawn at the canvas size, a Bronze badge was
+ * about half the Verified check, sat high-and-low off its ring's middle, and the lock covered its face.
+ * MEASURED, not guessed: the bounding box of alpha > 60 in each file (the shadow's faint tail is left out), read with
+ * PIL from `public/badges/v84/*.webp` on 18 Nov 2026 — `[x0, y0, x1, y1]`, tiers 1 → 7.
+ * 🔒 lib/shop-badge-shelf.test.ts re-measures nothing at test time; it holds the shape (7 boxes per family, inside the
+ * canvas). Re-measure if the art files ever change.
+ */
+type ArtBox = readonly [number, number, number, number];
+const ART_BOX: Readonly<Record<ShelfFamily, readonly ArtBox[]>> = {
+  calendar: [[71, 86, 229, 251], [59, 86, 241, 251], [45, 35, 255, 251], [31, 26, 269, 251], [17, 18, 282, 251], [5, 10, 300, 251], [0, 1, 300, 251]],
+  bubble: [[71, 97, 229, 269], [59, 97, 241, 269], [45, 35, 255, 269], [31, 26, 269, 269], [17, 18, 282, 269], [5, 10, 300, 269], [0, 1, 300, 269]],
+  giftbox: [[71, 94, 229, 248], [59, 94, 241, 248], [45, 35, 255, 248], [31, 26, 269, 248], [17, 18, 283, 248], [5, 10, 300, 248], [0, 1, 300, 248]],
+  invite: [[71, 95, 229, 258], [59, 95, 241, 258], [45, 35, 255, 257], [31, 26, 269, 257], [17, 18, 282, 257], [5, 10, 300, 257], [0, 1, 300, 257]],
+  shield: [[71, 91, 229, 253], [59, 91, 241, 253], [45, 35, 255, 252], [31, 26, 269, 252], [17, 18, 283, 252], [5, 10, 300, 252], [0, 1, 300, 253]],
+};
+export const BADGE_ART_BOX = ART_BOX;
+
+/**
+ * Where to put a v84 picture so its DRAWN badge fills a `box` × `box` square, centred both ways: the image's width and
+ * its offset inside that square (px). null for a src that is not a v84 tier picture (the caller draws it as before).
+ */
+export function badgeArtFit(src: string, box: number): { width: number; left: number; top: number } | null {
+  const m = /\/badges\/v84\/(calendar|bubble|giftbox|shield|invite)-([1-7])\.webp$/.exec(src);
+  if (!m) return null;
+  const [x0, y0, x1, y1] = ART_BOX[m[1] as ShelfFamily][Number(m[2]) - 1]!;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const s = box / Math.max(w, h);
+  const r = (n: number) => Math.round(n * 10) / 10;
+  return { width: r(BADGE_ART_W * s), left: r((box - w * s) / 2 - x0 * s), top: r((box - h * s) / 2 - y0 * s) };
+}
 
 export const COULDNT_LOAD = 'Couldn’t load';
 export const NOT_COUNTED_YET = 'Not counted yet';
@@ -190,6 +225,9 @@ const BAND: Readonly<Record<ShelfState, number>> = { earned: 0, locked: 1, not_c
 /**
  * The row: what is EARNED first, far left (Verified, then the badges in the prototype's order); then the badges IN
  * PROGRESS, the closest first — that one says "N to go" (Lane E, 9 Nov); then not counted and unread.
+ * Owner 18 Nov, verbatim: *"the sequence is completed nearest to achieve the next badge and then the highest ranking of
+ * them all"* — a tie goes by rank, lowest first (Verified, then the prototype's order). When the seals join this row
+ * (Part B, drawn, not built) they come last, highest last, ending with No. 1. 🔒 lib/shop-badge-shelf.test.ts § 9.
  */
 export function shopBadgeShelf(i: ShelfInput): ShelfTile[] {
   const tiles = [shelfVerified(i), ...SHOP_BADGE_KEYS.map((k) => shelfBadge(k, i))];

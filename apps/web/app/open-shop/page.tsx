@@ -19,6 +19,10 @@ import { claimDoorHref } from '@/lib/claim-door';
 import { declineVendorInviteByToken } from '@/lib/vendor-invite-actions';
 import { ClaimDoor } from './_components/claim-door';
 import { loadClaimWordList } from '@/lib/fair-presentation.server';
+import { cookies } from 'next/headers';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { SUPPLIER_INVITE_COOKIE } from '@/lib/supplier-invite';
+import { readInviter } from '@/lib/supplier-invite.server';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -204,6 +208,12 @@ export default async function OpenShopPage({
   ]);
   const feeNotice = feeSchedule === 'off' ? null : bookingFeeJoinDisclosure(feeSchedule);
 
+  // 🤝 Arrived through another supplier's invite link (`/i/<slug>/join` left the cookie): the "Invited by" line. A link
+  // we cannot read, or that no longer opens a shop, draws no line — the setup is the same either way.
+  const invitedVia = (await cookies()).get(SUPPLIER_INVITE_COOKIE)?.value ?? null;
+  const inviter = invitedVia ? await readInviter(createAdminClient(), invitedVia) : null;
+  const invitedBy = inviter && inviter !== 'unreadable' ? inviter.businessName : null;
+
   // W1-B4 (walk 16 Nov 2026): `?check_inbox=1` only says the screen is due — the address is this browser's cookie
   // (`parkSentTo`). With no cookie (another browser) the screen still shows, naming no address.
   const sentTo = checkInbox ? ((await readSentTo()) ?? 'your email') : null;
@@ -238,6 +248,7 @@ export default async function OpenShopPage({
       // on record) — so an account change redraws the account's boxes, and the server re-reads an untouched prefill.
       accountKey={user?.id ?? 'guest'}
       prefilledAccountEmail={row?.contact_email ? null : (user?.email ?? null)}
+      invitedBy={invitedBy}
       existingSlug={row?.business_slug ?? null}
       savedServiceLabel={savedServiceLabel}
       eventTypeOptions={eventTypeOptions}

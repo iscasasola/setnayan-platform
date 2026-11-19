@@ -1,4 +1,5 @@
 {
+  "apps/web/app/(hub)/dashboard/page.tsx": 5,
   "apps/web/app/(shell)/explore/_components/taxonomy-search.tsx": 2,
   "apps/web/app/(shell)/for-coordinators/_for-coordinators.css": 25,
   "apps/web/app/(shell)/pa3d/_pa3d.css": 5,
@@ -73,7 +74,6 @@
   "apps/web/app/dashboard/(account)/life-flash/_components/flash.module.css": 2,
   "apps/web/app/dashboard/(account)/samahan/[communityId]/_components/samahan-stories.tsx": 1,
   "apps/web/app/dashboard/(launcher)/_components/home-profile.module.css": 3,
-  "apps/web/app/dashboard/(launcher)/page.tsx": 5,
   "apps/web/app/dashboard/[eventId]/_components/expand-card.tsx": 1,
   "apps/web/app/dashboard/[eventId]/_components/home-cover-band.tsx": 1,
   "apps/web/app/dashboard/[eventId]/_components/home-cover-pin.tsx": 1,

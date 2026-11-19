@@ -179,7 +179,8 @@ import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
 import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { DetailsFormsDoor } from './_components/details-forms-door';
+import { ClientNextStepRow } from './_components/client-next-step-row';
+import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
@@ -187,6 +188,7 @@ import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
+  pickedAnchorOf,
   pickedMenuFor,
   visiblePickedPage,
   wantsScriptFold,
@@ -2695,14 +2697,29 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor eventName={eventName} />
     </div>
   );
 
+  // ➡ THE NEXT STEP ROW (owner 18 Nov 2026) — from reads above; an unread stage gives no row (`lib/client-next-step.ts`).
+  const nextStepSteps = planRowsAll.flatMap((p) => p.steps ?? []);
+  const nextDueRollup = computePlanRollup(nextStepSteps).next;
+  const crewCalls = myTasksRes.error
+    ? undefined
+    : crewHere.map((c) => c.startIso).filter((at) => at.slice(0, 10) === (brief.event.event_date ?? '').slice(0, 10)).sort();
+  const nextStep = clientNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date ?? null,
+    isBooked,
+    quoteWaiting: proposalRowsError ? null : isQuoted && !isAccepted && !lockRequest,
+    nextDue: !planReadComplete ? undefined : nextDueRollup ? { amountPhp: nextDueRollup.amountPhp, dueDate: nextDueRollup.dueDate } : null,
+    crewCallAt: crewCalls === undefined ? undefined : (crewCalls[0] ?? null),
+    handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
+  });
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
+    // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
+    decisions: <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />,
     shipped: {
       details: detailsShipped,
       schedule: (
@@ -2789,7 +2806,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
-      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
+      nextStep={nextStep ? <ClientNextStepRow step={nextStep} /> : null}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

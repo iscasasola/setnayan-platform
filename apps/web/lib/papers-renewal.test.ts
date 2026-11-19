@@ -184,7 +184,9 @@ test('ruling 4 · a lapsed shop that WAS verified reads the renewing words; a ne
   assert.match(notice, /renewing \? RENEWING_COUPLE_MARK : NOT_YET_VERIFIED_LINE/);
   const page = code('app/v/[slug]/page.tsx');
   assert.match(page, /const renewing = coupleShopRenewing\(vendor\);/);
-  assert.match(page, /const cinematicHero = vendor\.verification_state === 'verified' && !renewing;/, '§4: the calm page, no hero');
+  // §4 was "the calm page, no hero"; v16 S6 gave every shop the one look, so a lapsed shop now shuts the CONTENT gate.
+  assert.match(page, /const isVerifiedShop = \(vendor\.verification_state === 'verified' && !renewing\) \|\| isDemoVendor \|\| teamPreview !== null;/, '§4: a lapsed shop reads as not checked');
+  assert.match(page, /verifiedLine=\{vendor\.verification_state === 'verified' && !renewing \? /, '§4: no Verified line on a lapsed shop');
   assert.match(page, /vendor\.verification_state === 'verified' && !renewing \? \(/, '§4: no badge on a lapsed shop');
   assert.match(page, /<NotYetVerifiedNotice renewing=\{renewing\} \/>/);
   assert.match(page, /papers_current,/, 'the page must select papers_current');

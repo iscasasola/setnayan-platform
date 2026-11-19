@@ -76,6 +76,7 @@ import { HUB_PARTS_ORDER_KEY, hubPart, parseHubPartsField } from '@/lib/hub-part
 import { hubPartPrices } from '@/lib/couple-website-pro';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { EVENT_ULTRA_SKU, type UltraUpgradeFrom } from '@/lib/event-ultra';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * Same reference-code shape as createOrder · 'SN' prefix + 8 uppercase hex.
@@ -1107,7 +1108,7 @@ export async function submitOrderAction(
   // prints the open ones from the accounts list). Email failure NEVER blocks
   // the order — the row is the truth · this email is the convenience surface.
   try {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const appUrl = siteOrigin();
     // Eventless subscription orders have no event route — link to the dashboard.
     const orderUrl = eventIdClean
       ? `${appUrl}/dashboard/${eventIdClean}/orders/${orderId}`

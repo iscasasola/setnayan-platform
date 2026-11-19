@@ -60,7 +60,7 @@ test('the seed equals TIER_CAPS for every plan and every editable allowance', as
     }
   }
   assert.equal(r.rows.length, n, 'a seed row exists that no editable key names');
-  assert.ok(n >= 35);
+  assert.ok(n >= 30);
 });
 
 test('a cap edit changes what vendor_tier_limit() returns — and a missing row falls back to the code value', async () => {
@@ -81,8 +81,8 @@ test('a cap edit changes what vendor_tier_limit() returns — and a missing row 
   assert.equal(await limit('pro', 'branches_included'), TIER_CAPS.pro.branchesIncluded);
 
   // An unknown tier reads as Free; an unknown key is still NULL, never a silent 0.
-  await db.query(`UPDATE public.vendor_plan_contents SET value = 3 WHERE plan = 'free' AND key = 'bookings_per_date_per_service'`);
-  assert.equal(await limit('platinum', 'bookings_per_date_per_service'), 3);
+  await db.query(`UPDATE public.vendor_plan_contents SET value = 3 WHERE plan = 'free' AND key = 'whitelist_per_date'`);
+  assert.equal(await limit('platinum', 'whitelist_per_date'), 3);
   assert.equal(await limit('pro', 'no_such_key'), null);
 
   // put things back for the tests below
@@ -91,8 +91,8 @@ test('a cap edit changes what vendor_tier_limit() returns — and a missing row 
      ON CONFLICT (plan, key) DO UPDATE SET value = EXCLUDED.value`,
     [TIER_CAPS.pro.branchesIncluded],
   );
-  await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'free' AND key = 'bookings_per_date_per_service'`, [
-    TIER_CAPS.free.bookingsPerDatePerService,
+  await db.query(`UPDATE public.vendor_plan_contents SET value = $1 WHERE plan = 'free' AND key = 'whitelist_per_date'`, [
+    TIER_CAPS.free.whitelistPerDate,
   ]);
 });
 
@@ -148,7 +148,7 @@ test('every change writes a history row; an unchanged write writes none', async 
 test('anyone may read the plan table; nobody but the service role may write it; history is not public', async () => {
   await asRole('anon');
   const r = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_plan_contents`);
-  assert.ok(r.rows[0]!.n >= 35, 'anon cannot read the plan table (the Plans page and vendor_tier_limit need it)');
+  assert.ok(r.rows[0]!.n >= 30, 'anon cannot read the plan table (the Plans page and vendor_tier_limit need it)');
   await assert.rejects(db.query(`UPDATE public.vendor_plan_contents SET value = 99 WHERE plan='pro' AND key='agent_accounts'`));
   await asRole('authenticated');
   await assert.rejects(db.query(`UPDATE public.vendor_plan_contents SET value = 99 WHERE plan='pro' AND key='agent_accounts'`));
@@ -159,9 +159,9 @@ test('anyone may read the plan table; nobody but the service role may write it; 
   assert.equal(await limit('pro', 'agent_accounts'), TIER_CAPS.pro.agentAccounts);
 });
 
-test('the four allowances vendor_tier_limit() serves can never be "no limit"', async () => {
+test('the allowances vendor_tier_limit() serves can never be "no limit"', async () => {
   await asRole(null);
-  for (const key of ['whitelist_per_date', 'waitlist_acceptances', 'branches_included', 'bookings_per_date_per_service']) {
+  for (const key of ['whitelist_per_date', 'waitlist_acceptances', 'branches_included']) {
     await assert.rejects(
       db.query(`UPDATE public.vendor_plan_contents SET value = NULL WHERE plan = 'pro' AND key = $1`, [key]),
       /vendor_plan_contents_sql_keys_finite_ck/,

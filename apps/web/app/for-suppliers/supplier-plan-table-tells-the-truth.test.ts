@@ -21,7 +21,7 @@ import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords } from '@/lib/plan-sheet';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, WAITLIST_SETTING_MAX, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
@@ -99,14 +99,16 @@ test('every limit cell is the entitlement code — in both states of the plan pa
     const wl = row(g, 'limit:waitlist');
     for (const t of TABLE_TIERS) {
       const v = allowance(TIER_CAPS[t].waitlistAcceptances, 'waitlistAcceptances', paywallOn);
-      assert.equal(wl.cells[t].text, v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
+      assert.equal(wl.cells[t].text, v >= WAITLIST_SETTING_MAX ? 'No plan limit' : v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
     }
   }
-  // Anti-vacuity: the six limits are the plan sheet's six, and Pro/Ultra differ on bookings a day (3 vs 5 today).
+  // Anti-vacuity: the limits are the plan sheet's, and Pro/Max differ on service cards (20 vs 80 today). No bookings-a-day
+  // row since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   const g = planTable({ paywallOn: true, prices: PRICES });
-  const bpd = row(g, 'limit:bookingsPerDate');
-  assert.equal(bpd.cells.pro.text, formatCount(TIER_CAPS.pro.bookingsPerDatePerService));
-  assert.equal(bpd.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.bookingsPerDatePerService));
+  const cards = row(g, 'limit:serviceCards');
+  assert.equal(cards.cells.pro.text, formatCount(TIER_CAPS.pro.serviceCardsTotal));
+  assert.equal(cards.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.serviceCardsTotal));
+  assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 
 test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gifts are the gift-price rule', () => {

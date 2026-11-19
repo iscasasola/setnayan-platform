@@ -48,7 +48,7 @@ export const EVENT_TYPES_FALLBACK: readonly EventTypeRow[] = [
   { key: 'wedding', label: 'Wedding', emoji: '💍', enabled: true, onboardingHref: '/onboarding/wedding', description: 'The day you say “I do.”' },
   { key: 'debut', label: 'Debut', emoji: '👑', enabled: true, onboardingHref: null, description: 'Her grand eighteenth.' },
   { key: 'gender_reveal', label: 'Gender Reveal', emoji: '🎈', enabled: true, onboardingHref: null, description: 'Pink or blue?' },
-  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: true, onboardingHref: null, description: 'Another year, celebrated.' },
+  { key: 'birthday', label: 'Birthday', emoji: '🎂', enabled: true, onboardingHref: null, description: 'Another year, with your people.' },
   { key: 'celebration', label: 'Celebration', emoji: '🥂', enabled: true, onboardingHref: null, description: 'Moments worth gathering for.' },
   { key: 'travel', label: 'Travel', emoji: '✈️', enabled: true, onboardingHref: null, description: 'The trip you’ll always remember.' },
   { key: 'corporate', label: 'Corporate', emoji: '🏢', enabled: true, onboardingHref: null, description: 'Where your brand shines.' },
@@ -104,6 +104,11 @@ export const EVENT_TYPE_PHOTO_VERSION = '20261107';
 /** The repo photo for a type — the ONE place its path is built. */
 export function eventTypeRepoPhotoSrc(key: string): string {
   return `/event-types/${key}.webp?v=${EVENT_TYPE_PHOTO_VERSION}`;
+}
+
+/** The 330-px copy of a repo photo (`public/event-types/sm/`) — for tiles drawn ~150 px wide. Same picture, same 4:5. */
+export function eventTypeSmallPhotoSrc(key: string): string {
+  return `/event-types/sm/${key}.webp?v=${EVENT_TYPE_PHOTO_VERSION}`;
 }
 
 /** Hero-photo resolution shared by both pickers: admin upload → repo asset. */

@@ -29,6 +29,8 @@ export type PendingSend = {
   reason?: string;
   /** 🔒 Sent privately — the other people's names (one or several, owner 12 Nov), so the faded bubble already wears the private look. */
   privateTo?: string | readonly string[] | null;
+  /** 🤫 Sent as a whisper — the faded bubble already wears "Whisper · co-hosts only" (`lib/chat-whisper.ts`). */
+  whisper?: boolean;
 };
 
 export const CHAT_PENDING_EVENT = 'chat-stream:pending';

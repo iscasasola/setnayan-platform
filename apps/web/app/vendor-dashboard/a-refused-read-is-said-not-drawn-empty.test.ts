@@ -14,10 +14,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..');
-const code = (src: string): string => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments;
 const dash = (rel: string) => code(readFileSync(join(HERE, rel), 'utf8'));
 const web = (rel: string) => code(readFileSync(join(WEB, rel), 'utf8'));
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -66,9 +67,16 @@ function categoryLabel(key: string): string {
 export async function CustomersSettingsBody({
   seg,
   search,
+  daysTools = null,
 }: {
   seg: CustomersSegment;
   search: { m?: string; gnotice?: string; gmsg?: string; gerror?: string };
+  /**
+   * 🧹 The month's own tools — Not available · Waiting list · QR codes, the SHIPPED `DatesFolds` the Clients page draws
+   * from what it already read (owner "Yes, all three", 19 Nov, Q2: they left the foot of the page for here). Drawn under
+   * How many a day, inside Teams and days. Null on a ⚙ opened anywhere that has no month.
+   */
+  daysTools?: ReactNode;
 }) {
   const supabase = await createClient();
   const {
@@ -147,6 +155,7 @@ export async function CustomersSettingsBody({
         venue={venue}
         actions={{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool }}
       />
+      {daysTools}
 
       <p className="home-k2 pt-4" data-customers-settings-section="booked-qrs">
         Booked QRs

@@ -3057,10 +3057,24 @@
         "TypedRow"
       ]
     },
+    "/admin/catalogue": {
+      "files": [
+        "admin/catalogue/loading.tsx",
+        "admin/catalogue/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ListPageSkeleton",
+        "TabLanding"
+      ]
+    },
     "/admin/categories": {
       "files": [
         "admin/categories/_components/add-rows.tsx",
         "admin/categories/_components/ask-prefill.tsx",
+        "admin/categories/_components/availability-choices.ts",
+        "admin/categories/_components/availability-picks.tsx",
         "admin/categories/_components/back.ts",
         "admin/categories/_components/category-panels.tsx",
         "admin/categories/_components/download-pick.tsx",
@@ -3157,6 +3171,8 @@
         "CardRow",
         "CategoriesData",
         "CategoriesListPane",
+        "CategoryAvailability",
+        "CategoryAvailabilityPick",
         "CategoryBack",
         "CategoryCards",
         "CategoryPanel",
@@ -3228,6 +3244,7 @@
         "MoveGroupPick",
         "MovePartHomePick",
         "NavPick",
+        "NewCategoryForm",
         "NewCategoryPrefill",
         "OnboardingContent",
         "OnboardingEditor",
@@ -3276,6 +3293,7 @@
         "ScanMode",
         "SearchParamsRecord",
         "Section",
+        "ServiceAvailabilityPick",
         "ServiceBack",
         "ServiceCards",
         "ServiceInfo",
@@ -14060,6 +14078,7 @@
         "v/[slug]/_components/events-by-kind.tsx",
         "v/[slug]/_components/inquire-sheet.tsx",
         "v/[slug]/_components/not-yet-verified-notice.tsx",
+        "v/[slug]/_components/not-yet-verified-tag.tsx",
         "v/[slug]/_components/photos-by-service.tsx",
         "v/[slug]/_components/pinned-review-card.tsx",
         "v/[slug]/_components/portfolio-photo-tiles.tsx",
@@ -14162,6 +14181,7 @@
         "MessageDelivery",
         "Name",
         "NotYetVerifiedNotice",
+        "NotYetVerifiedTag",
         "OverlayBackdrop",
         "PackageCard",
         "PhotosByServiceRow",
@@ -14609,6 +14629,7 @@
         "SidePanel",
         "Sk",
         "SnapCarousel",
+        "SortFace",
         "Spotlight",
         "SpotlightMount",
         "StageBadge",
@@ -15184,6 +15205,7 @@
         "StudioPopup",
         "SubmitButton",
         "SuggestSheet",
+        "SupplierColumns",
         "SupplierCountTile",
         "SupplierLocksSection",
         "SupplierLocksView",
@@ -16899,6 +16921,8 @@
         "AddonsEditor",
         "AmountInput",
         "AttributeFieldRenderer",
+        "AvailabilityBlock",
+        "AvailabilityStyle",
         "Basis",
         "BranchAssignment",
         "BranchSelect",
@@ -16964,6 +16988,7 @@
         "Muted",
         "OfferServiceResult",
         "OpensRow",
+        "OrderLeadRow",
         "OverlayBackdrop",
         "PField",
         "ParsedScheduleRow",
@@ -17430,6 +17455,7 @@
         "Show",
         "SocialLinksInput",
         "Sort",
+        "SortFace",
         "SpecializedToolKey",
         "StatusChip",
         "StatusIcon",
@@ -17496,6 +17522,7 @@
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
+        "BadgeReads",
         "BadgesPiece",
         "Big",
         "BigPiece",
@@ -17540,8 +17567,6 @@
         "ShareYourWork",
         "ShareYourWorkData",
         "Sheet",
-        "ShopBadgeFacts",
-        "ShopBadgePill",
         "ShopGiftsSection",
         "ShopGiftsSectionData",
         "ShopPrintsSection",
@@ -17549,6 +17574,7 @@
         "StoryNoteForm",
         "SupplierSubmit",
         "SwitchTrack",
+        "T",
         "TemplateEmpty",
         "TypedRow"
       ]

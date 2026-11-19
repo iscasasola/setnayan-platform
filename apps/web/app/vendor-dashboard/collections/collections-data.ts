@@ -42,7 +42,7 @@ import {
   type EventFacts,
   type PortfolioGroups,
 } from '@/lib/portfolio-groups';
-import { readTagEventLines } from '@/lib/inspiration-tags.server';
+import { readTagEventLinesOrUnread } from '@/lib/inspiration-tags.server';
 import type { AlbumStats } from '@/lib/portfolio-albums';
 
 /**
@@ -353,6 +353,8 @@ export async function loadCollectionsData(
   // the cards asked about are this shop's own, read above with its own client). Unread → null: albums as shipped.
   const eventFactsRead: Promise<{ byEvent: Map<string, EventFacts>; byService: Map<string, string> } | null> = Promise.all([cardsRead, albumsRead])
     .then(async ([c, a]) => {
+      // 🔑 The cards were not read: which cards were booked where is UNKNOWN — unread, never "no card was booked there".
+      if (c === null) return null;
       const albumEvents = [...new Set((a?.shown ?? []).map((p) => p.eventId))];
       const cardIds = (c?.perCard ?? []).map((x) => x.id);
       const titleOf = new Map((c?.perCard ?? []).map((x) => [x.id, (x.title ?? '').trim()] as const));
@@ -394,7 +396,9 @@ export async function loadCollectionsData(
   const lookLinesRead: Promise<Map<string, string> | null | 'unread'> = looksRead
     .then(async (looks) => {
       if (!Array.isArray(looks) || looks.length === 0) return null;
-      const lines = await readTagEventLines(supabase, looks.map((l) => l.id));
+      // 🔑 The RPC RESOLVES with `{ error }` — it does not throw — so the refusal is `null` here, never the `catch` below.
+      const lines = await readTagEventLinesOrUnread(supabase, looks.map((l) => l.id));
+      if (lines === null) return 'unread' as const;
       return new Map([...lines.entries()].filter(([, v]) => v.line).map(([id, v]) => [id, v.line!] as const));
     })
     .catch((err) => {

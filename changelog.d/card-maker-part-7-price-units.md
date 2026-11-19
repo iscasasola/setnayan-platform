@@ -18,3 +18,11 @@ nothing can be negative — checked on screen, in the save, and by the database.
   enforced in the quote (owner questions in the PR).
 
 SPEC IMPACT: None — builds the approved HYBRID map rows (Price: Per unit · Custom · Max) as drawn; no ruling changed.
+
+**Review fix (20 Nov) — no silent undo:** `copy_vendor_service_to_branch` in `20271352223098` is now the UNION of every
+earlier definition — #8012's (`availability_style`, `order_lead_days`, `usual_prep_days`, the 1..500 schedule cap,
+carried since #8011) plus part 2's description, video link and pay plan, plus part 7's five price columns. As first
+drafted (from `20271351531329`) it dropped the three Availability columns and put the copy's schedule cap back to 50,
+which would have undone #8011 (live) and #8012 on merge. DB test: a branch copy keeps all three and a schedule of 300.
+#8012 merged in (merge commit); the card maker's "How clients book" group (HYBRID layout) carries #8011's Availability
+block, the Made to order rows and the style-aware day count; main's 701 px `tab:` breakpoint wins.

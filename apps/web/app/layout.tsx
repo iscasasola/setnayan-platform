@@ -518,8 +518,15 @@ const organizationJsonLd = {
   // SoftwareApplication node on the same homepage described two different
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
+  // 📄 REWRITTEN 2026-11-20 from the one source (specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md
+  // §1 + §2, owner: "Yes, send it"): the meaning is "let's get that set", never the
+  // retired "that's all set"; the retired Logo & QR part is gone. ⚠ The source's
+  // brand line says "home of every Filipino CELEBRATION" (19 Nov ruling: brand lines
+  // say celebration), but `lib/the-app-says-event-in-plain-words.test.ts` refuses the
+  // noun in this file — so it says "event" until the owner rules (an owner question on
+  // the PR), rather than the guard being widened.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is the home of every Filipino event: where you plan it, where your guests live it, and where you keep it for life. Plan it: a host plans any event free, with no guest limit: guest list, replies, seat plan in 2D and 3D, budget in pesos, schedule, mood board, and verified Filipino suppliers booked in writing at 0% commission. Live it: every guest opens their own page from a link or QR, with no app and no account; on the day their phones become the camera crew (Papic), the door scans their pass, and relatives abroad watch on the same page (Live Watch). Keep it: every photo lands in one album that finds the people in it, the page becomes the story of the day, and each family's events stay together on one Memories page, year after year. For weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more, across the Philippines.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {

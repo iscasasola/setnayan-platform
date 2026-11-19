@@ -205,8 +205,16 @@ export async function fetchDiscountsByService(
   supabase: SupabaseClient,
   serviceIds: string[],
 ): Promise<Map<string, VendorServiceDiscount[]>> {
+  return (await fetchDiscountsByServiceRead(supabase, serviceIds)).byService;
+}
+
+/** The same read with its outcome kept — `ok: false` = REFUSED, not "no discounts" (V-4, supplier audit 2026-11-17). */
+export async function fetchDiscountsByServiceRead(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<{ byService: Map<string, VendorServiceDiscount[]>; ok: boolean }> {
   const out = new Map<string, VendorServiceDiscount[]>();
-  if (serviceIds.length === 0) return out;
+  if (serviceIds.length === 0) return { byService: out, ok: true };
   const { data, error } = await supabase
     .from('vendor_service_discounts')
     .select(
@@ -216,14 +224,14 @@ export async function fetchDiscountsByService(
     .order('sort_order', { ascending: true });
   if (error) {
     console.error('[supabase-error] vendor-services: vendor_service_discounts', error);
-    return out;
+    return { byService: out, ok: false };
   }
   for (const row of (data ?? []) as VendorServiceDiscount[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
     out.set(row.vendor_service_id, list);
   }
-  return out;
+  return { byService: out, ok: true };
 }
 
 // ── Inclusions (vendor_service_inclusions · migration 20270502342558) ───────
@@ -246,8 +254,16 @@ export async function fetchInclusionsByService(
   supabase: SupabaseClient,
   serviceIds: string[],
 ): Promise<Map<string, VendorServiceInclusion[]>> {
+  return (await fetchInclusionsByServiceRead(supabase, serviceIds)).byService;
+}
+
+/** The same read with its outcome kept — `ok: false` = REFUSED, not "nothing included" (V-4, supplier audit 2026-11-17). */
+export async function fetchInclusionsByServiceRead(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<{ byService: Map<string, VendorServiceInclusion[]>; ok: boolean }> {
   const out = new Map<string, VendorServiceInclusion[]>();
-  if (serviceIds.length === 0) return out;
+  if (serviceIds.length === 0) return { byService: out, ok: true };
   const { data, error } = await supabase
     .from('vendor_service_inclusions')
     .select('vendor_service_id,label,sort_order')
@@ -255,14 +271,14 @@ export async function fetchInclusionsByService(
     .order('sort_order', { ascending: true });
   if (error) {
     console.error('[supabase-error] lib/vendor-services.ts · from:vendor_service_inclusions.select', error);
-    return out;
+    return { byService: out, ok: false };
   }
   for (const row of (data ?? []) as VendorServiceInclusion[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
     out.set(row.vendor_service_id, list);
   }
-  return out;
+  return { byService: out, ok: true };
 }
 
 // ── Price brackets (vendor_service_price_brackets · migration 20270502342558) ─

@@ -59,14 +59,20 @@ export default async function VendorEditorialMediaPage({
   // Existing submissions by this vendor on this event (any moderation state —
   // the vendor sees their own pending/blocked rows with a status).
   let existing: ExistingMedia[] = [];
+  // C-5 (supplier audit 2026-11-17): a REFUSED read hid "Already on their editorial" and showed the full allowance.
+  let existingUnread = false;
   if (eventVendorId) {
-    const { data: rows } = await admin
+    const { data: rows, error: rowsErr } = await admin
       .from('editorial_vendor_media')
       .select('media_id, media_type, still_r2_key, boomerang_r2_key, caption, moderation_state, hidden_by_couple')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true });
+    if (rowsErr) {
+      console.error('[supabase-error] editorial-media: own submissions read', rowsErr);
+      existingUnread = true;
+    }
     existing = await Promise.all(
       ((rows ?? []) as Array<Record<string, unknown>>).map(async (r) => ({
         mediaId: String(r.media_id),
@@ -109,6 +115,7 @@ export default async function VendorEditorialMediaPage({
           eventId={eventId}
           vendorProfileId={profile.vendor_profile_id}
           existing={existing}
+          existingUnread={existingUnread}
         />
       ) : eligibility.isRecommendedPick ? (
         // Recommended pick, but the service isn't confirmed complete yet —

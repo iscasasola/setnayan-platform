@@ -341,27 +341,39 @@ function PrintsSheet({
               </FactRow>
               <FactRow k="Verified seal" small="If you have it">
                 {/* No block switches the seal off (the 6 Nov block table has none): it prints when the shop is verified. */}
-                <FactSwitch label="Verified seal" on={badgeRead.k === 'ok' && badgeRead.verified} disabled data="seal" />
+                {badgeRead.k === 'ok' ? (
+                  <FactSwitch label="Verified seal" on={badgeRead.verified} disabled data="seal" />
+                ) : (
+                  <FactPending k={badgeRead.k} />
+                )}
               </FactRow>
               {/* The prototype's rule: each prints only if you have it — so a shop with no rating (or no badge) sees the switch
                   off and still, never "on" for a fact no print can carry. Where it has one, the switch hides it everywhere. */}
               <FactRow k="Rating" small="If you have one">
-                <FactSwitch
-                  label="Rating"
-                  on={badgeRead.k === 'ok' && badgeRead.rated && !hidden.includes('stars')}
-                  disabled={!(badgeRead.k === 'ok' && badgeRead.rated)}
-                  onToggle={() => flip('stars', 'Rating')}
-                  data="stars"
-                />
+                {badgeRead.k === 'ok' ? (
+                  <FactSwitch
+                    label="Rating"
+                    on={badgeRead.rated && !hidden.includes('stars')}
+                    disabled={!badgeRead.rated}
+                    onToggle={() => flip('stars', 'Rating')}
+                    data="stars"
+                  />
+                ) : (
+                  <FactPending k={badgeRead.k} />
+                )}
               </FactRow>
               <FactRow k="Badges" small="If you have them">
-                <FactSwitch
-                  label="Badges"
-                  on={badgeRead.k === 'ok' && badgeRead.badges.length > 0 && !hidden.includes('badges')}
-                  disabled={!(badgeRead.k === 'ok' && badgeRead.badges.length > 0)}
-                  onToggle={() => flip('badges', 'Badges')}
-                  data="badges"
-                />
+                {badgeRead.k === 'ok' ? (
+                  <FactSwitch
+                    label="Badges"
+                    on={badgeRead.badges.length > 0 && !hidden.includes('badges')}
+                    disabled={badgeRead.badges.length === 0}
+                    onToggle={() => flip('badges', 'Badges')}
+                    data="badges"
+                  />
+                ) : (
+                  <FactPending k={badgeRead.k} />
+                )}
               </FactRow>
               <div className="flex items-center justify-between gap-3 border-t border-ink/10 px-4 py-2" data-prints-blocks="">
                 <span className="text-[color:var(--m-slate-2)]">
@@ -483,6 +495,18 @@ function FactRow({ k, small, first = false, children }: { k: string; small?: str
   );
 }
 
+/**
+ * P-1 (supplier audit 2026-11-17): while the facts load, or when they could not be read, the Verified · Rating · Badges
+ * switches were drawn OFF — the same picture as "you don't have it". Until the read lands they are a word instead.
+ */
+function FactPending({ k }: { k: 'loading' | 'unread' }) {
+  return (
+    <span className="text-[13px] text-[color:var(--m-slate-2)]" data-prints-fact={k}>
+      {k === 'loading' ? 'Checking…' : 'Couldn’t load'}
+    </span>
+  );
+}
+
 function FactSwitch({ label, on, onToggle, disabled = false, data }: { label: string; on: boolean; onToggle?: () => void; disabled?: boolean; data: string }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={onToggle} className={SWITCH_BUTTON} data-prints-switch={data}>
@@ -499,7 +523,7 @@ function SaveAllButton({ d, qr }: { d: PrintDesign; qr: PrintQrMode }) {
     <SaveFileLink
       href={printAllHref({ design: d.id, qr, base, hide })}
       filename={printAllFilename(d)}
-      className="sn-press inline-flex h-9 flex-none items-center justify-center rounded-full bg-sn-accent px-3.5 text-[14px] font-medium text-sn-on-accent"
+      className="sn-press relative inline-flex h-9 flex-none items-center justify-center rounded-full bg-sn-accent px-3.5 text-[14px] font-medium text-sn-on-accent after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']"
       data-prints-save="all"
     >
       {(s) => (s === 'saving' ? 'Saving…' : 'Save all')}
@@ -540,7 +564,7 @@ function SaveButton({ piece, d, qr, small = false, member = null }: { piece: Pri
       filename={printFilename(piece, d, member?.name)}
       className={
         small
-          ? 'sn-press inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink'
+          ? "sn-press relative inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-['']"
           : 'sn-press inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full bg-sn-accent px-4 text-[14px] font-medium text-sn-on-accent'
       }
       data-prints-save={piece.id}
@@ -768,7 +792,7 @@ function BadgesPiece({ open, factsUrl }: { open: boolean; factsUrl: string }) {
           <SaveFileLink
             href={BADGE_PRINT_API}
             filename="setnayan-badges.svg"
-            className="sn-press inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink"
+            className="sn-press relative inline-flex h-[34px] flex-none items-center rounded-full border-[1.5px] border-ink/15 px-3 text-[13px] font-medium text-ink after:absolute after:inset-x-0 after:-inset-y-[5px] after:content-['']"
             data-prints-save="badges"
           >
             Save

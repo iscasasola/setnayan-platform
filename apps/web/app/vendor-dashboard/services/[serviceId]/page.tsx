@@ -77,9 +77,9 @@ export default async function EditServiceCardPage({
               if (r.error) console.error('[supabase-error] service card halls read', r.error);
               return r;
             },
-            () => ({ data: null }),
+            (err: unknown) => ({ data: null, error: err }),
           )
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     readCardBookedCount(supabase, serviceId),
     readCardBookings(createAdminClient(), [serviceId]),
     // The card is proved this shop's own just above (`loadCardForEdit`).
@@ -100,6 +100,8 @@ export default async function EditServiceCardPage({
     refusal: thisCardBookings ? openBookingsRefusal(thisCardBookings.open) : BOOKINGS_UNREAD,
     lines: deleteWarningLines(thisCardBookings?.picked ?? 0),
   };
+  // V-6 (supplier audit 2026-11-17): a refused halls read made the venue's "Uses" row vanish — said instead.
+  const hallsUnread = Boolean((hallsRes as { error?: unknown }).error);
   const hallRows = ((hallsRes as { data: unknown }).data ?? []) as {
     pool_id: string;
     pool_label: string;
@@ -181,7 +183,11 @@ export default async function EditServiceCardPage({
         returnTo={`/vendor-dashboard/services/${serviceId}`}
       />
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
-      {venueHalls.length > 0 ? (
+      {hallsUnread ? (
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-card-halls-unread="">
+          Couldn&rsquo;t load which halls this card uses. Refresh in a moment to try again.
+        </p>
+      ) : venueHalls.length > 0 ? (
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
       ) : null}
     </div>

@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { SERVICE_REQUEST_NEW_HREF } from '@/lib/service-requests';
 import { Plus, X, Check, Tag, Folder, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { allowedEventOptions, droppedEventTypes } from '@/lib/coverage-allowed-events';
@@ -218,7 +220,9 @@ function YourCoverage({
                           e.preventDefault();
                       }}
                       aria-label={`Remove ${c.leafLabel}`}
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full"
+                      // V-9 (supplier audit 2026-11-17): a destructive ✕ only 16 px wide. The drawn circle is unchanged;
+                      // the ::after reaches 44 × 44 so the press lands.
+                      className="relative inline-flex h-4 w-4 items-center justify-center rounded-full after:absolute after:-inset-3.5 after:content-['']"
                       style={{ color: 'var(--m-slate-3)' }}
                     >
                       <X className="h-3 w-3" strokeWidth={2} />
@@ -485,7 +489,14 @@ function CoverageBrowse({
             })}
           </div>
         ) : (
-          <Muted>No categories match “{query}”. Try a broader word — or request it under Tools.</Muted>
+          // V-8: "under Tools" pointed at a view that was removed — the request form is its own page now.
+          <Muted>
+            No categories match “{query}”. Try a broader word — or{' '}
+            <Link href={SERVICE_REQUEST_NEW_HREF} className="font-medium underline underline-offset-2" data-coverage-request-link="">
+              ask us to add it
+            </Link>
+            .
+          </Muted>
         )
       ) : (
         <>
@@ -505,7 +516,7 @@ function CoverageBrowse({
             {branch ? (
               <>
                 <ChevronRight className="h-3 w-3" strokeWidth={2} style={{ color: 'var(--m-slate-3)' }} />
-                <Crumb active onClick={() => {}}>
+                <Crumb active>
                   {branch.label}
                 </Crumb>
               </>
@@ -608,7 +619,15 @@ function GridCard({
   );
 }
 
-function Crumb({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick: () => void }) {
+function Crumb({ children, active, onClick }: { children: ReactNode; active?: boolean; onClick?: () => void }) {
+  // V-9: the current crumb with nowhere to go is the place you are, not a button that does nothing.
+  if (!onClick) {
+    return (
+      <span aria-current="location" className="rounded px-1 py-0.5 font-medium" style={{ color: 'var(--m-ink)' }}>
+        {children}
+      </span>
+    );
+  }
   return (
     <button
       type="button"

@@ -206,11 +206,15 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // migration the plan screen silently loses the current plan, the renewal date
   // AND both add-ons at once. Kept separate, an unmigrated database degrades to
   // "nothing scheduled, no money held", which is the truth there anyway.
-  const { data: planChangeRow } = await supabase
+  const { data: planChangeRow, error: planChangeErr } = await supabase
     .from('vendor_profiles')
     .select('pending_tier, subscription_credit_php')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
+  // L-4 (supplier audit 2026-11-17): a REFUSED read was "nothing scheduled, no money held" — the "Today" figure then
+  // ignored held credit and a scheduled change (and its undo) vanished. Unread: no Today figure, and it is said.
+  const planChangeUnread = Boolean(planChangeErr);
+  if (planChangeUnread) console.error('[supabase-error] plan-screen: pending_tier / credit read', planChangeErr);
   const pendingTier =
     (planChangeRow as { pending_tier?: string | null } | null)?.pending_tier ?? null;
   const heldCreditPhp = Number(
@@ -422,7 +426,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         paid,
         price,
         tooShort: pick?.tooShort ?? {},
-        today: Object.fromEntries(
+        today: planChangeUnread ? {} : Object.fromEntries(
           (Object.entries(price) as [keyof typeof price, number][]).map(([cy, v]) => [
             cy,
             payToday({ kind, price: v, unusedPhp, creditPhp: heldCreditPhp, currentRaw: currentTier, endsOn: expiresOn }),
@@ -555,6 +559,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             {/* A scheduled change, and money the shop is holding — in plain words,
                 each shown only when it is true. The date it names is
                 `tierExpiresAt`; there is no separate stored effective date. */}
+            {planChangeUnread ? (
+              <ShopNotice tone="gold" role="status">
+                We couldn&rsquo;t load a scheduled plan change or money on your account, so no amount for today is shown.
+                Refresh in a moment to try again.
+              </ShopNotice>
+            ) : null}
             <PlanChangeNotice
               situation={{
                 currentTier,

@@ -554,18 +554,20 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
   const unlimited = !Number.isFinite(planCap);
 
   // Cap: how many already picked (accepted) for this date.
-  const { count } = await supabase
+  const { count, error: countErr } = await supabase
     .from('vendor_date_waitlist')
     .select('waitlist_id', { count: 'exact', head: true })
     .eq('vendor_profile_id', vp)
     .eq('requested_date', requestedDate)
     .not('accepted_at', 'is', null);
+  // D-6 (supplier audit 2026-11-17): a REFUSED count is not 0 — `count ?? 0` let a pick past the cap. Fail closed.
+  if (countErr || count == null) backToCalendar(formData, 'save_failed');
   if (!unlimited && (count ?? 0) >= cap) backToCalendar(formData, 'waitlist_full');
 
   // Pick the next couple in line (oldest interest) that isn't picked yet.
   // `user_id` comes back too — it is who the pick HAPPENED TO, and the reason
   // this action can tell them at all.
-  const { data: next } = await supabase
+  const { data: next, error: nextErr } = await supabase
     .from('vendor_date_waitlist')
     .select('waitlist_id, user_id')
     .eq('vendor_profile_id', vp)
@@ -575,6 +577,8 @@ export async function pickWaitlistCouple(formData: FormData): Promise<void> {
     .order('created_at', { ascending: true })
     .limit(1)
     .maybeSingle();
+  // D-6: a refused read is "that didn't go through", never "No one is waiting".
+  if (nextErr) backToCalendar(formData, 'save_failed');
   if (!next) backToCalendar(formData, 'waitlist_none');
 
   const picked = next as { waitlist_id: string; user_id: string | null };

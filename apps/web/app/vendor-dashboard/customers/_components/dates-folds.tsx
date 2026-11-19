@@ -68,6 +68,8 @@ export type DatesWaitlist = {
   settingsMeasured: boolean;
   /** The picked counts were read. Unread, a date says "—", never 0. */
   pickedMeasured: boolean;
+  /** D-4: the waiting couples were read. Unread, the fold says so — never "Nobody waiting." */
+  datesMeasured?: boolean;
   dates: { requestedDate: string; pendingCount: number; picked: number }[];
 };
 
@@ -239,7 +241,11 @@ export function DatesFolds({
               </>
             )}
 
-            {waitlist.dates.length === 0 ? (
+            {waitlist.dates.length === 0 && waitlist.datesMeasured === false ? (
+              <p className="border-t border-ink/10 py-3 text-[13px] text-[color:var(--m-slate-2)]" data-waitlist-unread="">
+                Couldn&rsquo;t load who&rsquo;s waiting. Refresh in a moment to try again.
+              </p>
+            ) : waitlist.dates.length === 0 ? (
               waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13px] text-[color:var(--m-slate-2)]">Nobody waiting.</p> : null
             ) : (
               waitlist.dates.map((w) => (

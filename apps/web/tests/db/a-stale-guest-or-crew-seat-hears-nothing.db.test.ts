@@ -506,9 +506,14 @@ test('a co-host ADDED BACK regains the groups a removal closed — not one she l
   assert.equal(await seatIsLive(kept, w.rita), false, 'the removal closes Planning');
   await groupLine(kept, w.eventId, w.host, 'While you were away');
 
+  const told = async () => (await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.notifications WHERE user_id = $1 AND title LIKE '%added you to Planning'`,
+    [w.rita])).rows[0]!.n;
+  const toldBefore = await told();
   await addBack(w.seat);
   assert.equal(await membership(w.eventId, w.rita), 'couple', 'picked again → a host again');
   assert.equal(await seatIsLive(kept, w.rita), true, 'Planning reopens by itself');
+  assert.equal(await told(), toldBefore + 1, 'she is told once, with the shipped "… added you to Planning" notice');
   assert.ok((await myThreads(w.rita)).includes(kept), 'she reads it again');
   assert.deepEqual((await linesAs(kept, w.rita)).map((l) => l.body), ['While you were away'], 'the whole group, the gap included');
   assert.ok((await groupPinged(kept, w.eventId, w.host)).includes(w.rita), 'and is pinged again');

@@ -259,10 +259,13 @@ If you cannot name the existing component and the existing design, **you have no
 
 Full map + current audit: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). Checks: `/verify-wiring`
 (hardcoded data, raw routes, dead handlers) and `/audit` (build configs, page layers, buttons/themes).
-`.claude/settings.json` hooks: a warning when an edit writes TODO/FIXME/localhost/dummy/mockData into
-app code, and a block on a production build while a dev server runs **in the same checkout**.
+`.claude/settings.json` hooks: a warning (never a block — owner, 2026-11-20) when an edit writes
+TODO/FIXME/localhost/dummy/mockData into app code, and a block on a production build while a dev server
+runs **in the same checkout** (every build form it catches is in `.claude/hooks/no-double-build.test.sh`).
 Nothing in that file asks or stops a builder mid-flow — builds and pushes run freely; only the Read
-tool is denied `.env*`, `secrets/**` and `~/.ssh`. Per the permissions docs those rules also cover
+tool is denied the real env files (`.env`, `.env.local`, `.env.*.local`, `.env.development`,
+`.env.production`, `.env.preview`, `.env.staging`, `.env.test`), `secrets/**` and `~/.ssh` — the tracked
+`.env.example` files stay readable. Per the permissions docs those rules also cover
 `cat`/`head`/`tail`/`sed`/`tee` on those files, but not `cp` — so a lab's `cp apps/web/.env.local <wt>/apps/web/` still works.
 Measured 2026-11-19: `set -a; source .env.local; set +a` and `node --env-file=.env.local` still load the
 values under the deny; `cat` and Read on the file are refused. A dev server in a `.claude/worktrees/*`
@@ -286,8 +289,12 @@ builder never blocks the main checkout's build.
    | Reads, services, config, constants | `apps/web/lib/` |
    | Types | next to their module (`lib/<area>/types.ts`) or `apps/web/types/` |
    | Prices / plans / taxonomy | the database (`platform_retail_catalog_v2`, vendor billing catalog, taxonomy tables) — never a literal |
-5. **No hardcoding inside UI:** no data arrays, prices, URLs, API keys or business rules. Routes come
-   from `apps/web/lib/routes.ts` builders, never `"/dashboard"`.
+5. **No hardcoding inside UI:** no data arrays, prices, URLs, API keys or business rules. New links
+   should use the `apps/web/lib/routes.ts` builders rather than a raw `"/dashboard"`.
+   ⚠ **NOBODY IS CHECKING THE ROUTES HALF.** `routes.ts`'s own docblock names a guard
+   `scripts/lint-routes.mjs` — **that file does not exist**, and most of the app still writes raw paths
+   (see the Routes row in `docs/ARCHITECTURE.md`). The only check today is the report-only
+   `/verify-wiring` command; a raw path does not fail any build.
 6. **Flat pages:** under 3 nesting levels between a page and its content, no pass-through wrappers
    (a component that only forwards props to one child), one batched read per screen (`Promise.all`).
 7. **Clean build outputs before a production build:** `rm -rf apps/web/.next` first, so a stale

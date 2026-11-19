@@ -1,7 +1,8 @@
 #!/bin/bash
 # PostToolUse(Edit|Write): warn when an edit to app code writes a TODO/FIXME,
-# a localhost URL, or mock/dummy data. Warns only (the edit already happened);
-# exit 2 makes the warning reach the model so it wires the value properly.
+# a localhost URL, or mock/dummy data. WARNS ONLY — owner ruling 2026-11-20: it never blocks.
+# It always exits 0 and prints the warning on stdout as JSON `systemMessage` (shown in the
+# transcript); exit 2 would feed it back as a blocking error, which is what the ruling removed.
 # Scope: apps/web/{app,components,lib} and packages/*/src — this repo has no src/.
 # Tests, dev labs (*.lab.tsx, app/dev/) and fixtures are exempt.
 input=$(cat)
@@ -14,8 +15,9 @@ esac
 text=$(printf '%s' "$input" | jq -r '[.tool_input.new_string, .tool_input.content, (.tool_input.edits // [] | map(.new_string) | join("\n"))] | map(select(. != null)) | join("\n")')
 hits=$(printf '%s' "$text" | grep -noE 'TODO:|FIXME:|localhost:[0-9]*|[Dd]ummy|mockData' | head -5)
 if [ -n "$hits" ]; then
-  echo "WARNING in $file: possible hardcoded URL, mock data, or TODO — wire it to lib/routes.ts, env config, or a lib/ service before finishing:" >&2
-  echo "$hits" >&2
-  exit 2
+  msg="WARNING (not blocking) in $file: possible hardcoded URL, mock data, or TODO — wire it to env config or a lib/ service before finishing:
+$hits"
+  jq -nc --arg m "$msg" '{systemMessage: $m}'
+  echo "$msg" >&2
 fi
 exit 0

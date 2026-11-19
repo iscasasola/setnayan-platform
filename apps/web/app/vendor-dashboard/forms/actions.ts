@@ -29,6 +29,8 @@ import {
  *                supplier, tells the hosts in the app. 🔑 THE SEND IS THE SUCCESS (the shipped
  *                `sendQuestionsToEvent` rule): a failed line or notice is logged, never reported as a failed send.
  *   • `keep`   — "Save to my library": a form made for one event joins the library (`in_library` → TRUE, never back).
+ *   • `plan-retire` — Shop › Templates › Payment Strategies: a saved pay plan leaves the library (`retired_at`); every
+ *                card keeps its own payment rows (Card Maker part 4).
  *
  * 📋 PIECE 3a (DECISION_LOG 2026-11-12 "AN EDIT SAVES A NEW FORM"): a `save` whose draft carries `forEventId` is an
  * edit made from a client's page — its FIRST save INSERTS a new form for that event (`for_event_id`,
@@ -168,6 +170,26 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
     if (error || !data || data.length !== 1) return { status: 'error', message: 'We couldn’t remove that form. Please try again.' };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
     return { status: 'retired', formId };
+  }
+
+  // 💳 SHOP › TEMPLATES › PAYMENT STRATEGIES (Card Maker part 4) — a saved pay plan leaves the library. It rides THIS
+  // dispatcher because Templates is where forms and plans are kept together and the action budget is at its ceiling.
+  // Every card keeps its own payment rows (`vendor_service_payment_schedules`); the plan only stops being offered.
+  // The Undo is the caller's `deleteWithUndo` window (nothing is written until it closes), so no restore op.
+  if (op === 'plan-retire') {
+    const planId = String(formData.get('plan_id') ?? '');
+    if (!/^[0-9a-f-]{36}$/i.test(planId)) return { status: 'error', message: 'We couldn’t delete that plan. Please try again.' };
+    const { data, error } = await supabase
+      .from('vendor_pay_plans')
+      .update({ retired_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('pay_plan_id', planId)
+      .eq('vendor_profile_id', shop)
+      .is('retired_at', null)
+      .select('pay_plan_id');
+    if (error) logQueryError('formsAction.planRetire', error, { vendor_profile_id: shop }, 'graceful_degrade');
+    if (error || !data || data.length !== 1) return { status: 'error', message: 'We couldn’t delete that plan. Please try again.' };
+    if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);
+    return { status: 'retired', formId: planId };
   }
 
   if (op === 'use') {

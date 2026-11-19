@@ -109,7 +109,7 @@ async function newWorld(): Promise<World> {
   );
   const e = await db.query<{ event_id: string }>(
     `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)
-     VALUES ('A wedding', 'wedding', DATE '2026-12-12', 'day') RETURNING event_id`,
+     VALUES ('A celebration', 'birthday', DATE '2026-12-12', 'day') RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
   await db.query(

@@ -142,7 +142,7 @@ export function PricingBasisEditor({
       return start.trim() !== '' && Number.isFinite(s0) && Number(x) <= s0 ? `Must be more than the ${startLabel}.` : null;
     };
     const maxRow = (name: string) => (
-      <TypedRow key="price_max" name={name} about={{ title: name, words: `The most one booking takes. Empty = no limit. Must be more than the ${startLabel}.` }} value={v(defaults.price_max)} empty="No limit" inputMode="numeric" check={maxCheck} fieldName="price_max" onKeep={() => undefined} data="price-max" attrs={{ 'data-maker-price-field': 'price_max' }} />
+      <TypedRow key="price_max" name={name} about={{ title: name, words: `Saved for later: couples don’t see it yet and bookings are not held to it. Empty = no limit. Must be more than the ${startLabel}.` }} value={v(defaults.price_max)} empty="No limit" inputMode="numeric" check={maxCheck} fieldName="price_max" onKeep={() => undefined} data="price-max" attrs={{ 'data-maker-price-field': 'price_max' }} />
     );
     if (basis === 'per_unit') {
       const w = unitWord(custom ? word : null);

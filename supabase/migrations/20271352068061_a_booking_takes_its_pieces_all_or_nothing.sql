@@ -30,7 +30,7 @@
 --     never on the calendar ('status' 'ok', 'counted' false). Body otherwise identical to 20271269411264.
 --
 -- 4 · set_booked_quantity(booking, n) — the supplier's yes for a piece booking. Same callers as acquire (the shop on
---     its own booking, or an admin). Locks the card row and the shop's one count lock; refuses when the card's own
+--     its own booking, or an admin). Locks the booking row, then the card row, then the shop's one count lock (the yes's order); refuses when the card's own
 --     "How many do you have" would go past its number (the ONE number for pieces — see 3); else writes n.
 --
 -- 5 · (withdrawn in review, 2026-11-19) the schedule's daily_booking_capacity keeps its 1..500 (20271350427190). The
@@ -470,18 +470,24 @@ BEGIN
   IF p_event_vendor_id NOT IN (SELECT public.current_vendor_event_vendor_ids()) AND NOT public.is_admin() THEN
     RETURN jsonb_build_object('status', 'not_authorized');
   END IF;
+  -- 🔒 LOCK ORDER (review 2026-11-20): the BOOKING row first, then the card, then the shop's one count lock — the
+  -- same order vendor_agree_to_lock takes them (event_vendors FOR UPDATE → vendor_services FOR NO KEY UPDATE →
+  -- lock_shop_day_counts). Taking the card first and the booking last (as drafted) deadlocks against a yes on the same
+  -- booking. set_asked_quantity takes the booking row first too.
   SELECT ev.event_id, ev.service_id INTO v_event_id, v_service
     FROM public.event_vendors ev
-   WHERE ev.vendor_id = p_event_vendor_id;
+   WHERE ev.vendor_id = p_event_vendor_id
+     FOR UPDATE;
   IF v_service IS NULL THEN
     RETURN jsonb_build_object('status', 'no_card');
   END IF;
 
-  -- One piece yes at a time per card: the card row is the lock.
+  -- One piece yes at a time per card: the card row is the lock (NO KEY, as the yes takes it — bookings that merely
+  -- reference the card are not blocked).
   SELECT vs.availability_style, NULLIF(vs.daily_capacity, 0) INTO v_style, v_cap
     FROM public.vendor_services vs
    WHERE vs.vendor_service_id = v_service
-     FOR UPDATE;
+     FOR NO KEY UPDATE;
   PERFORM public.lock_shop_day_counts(v_service);
   IF v_style IS DISTINCT FROM 'piece' THEN
     RETURN jsonb_build_object('status', 'not_by_the_piece');
@@ -540,9 +546,14 @@ DECLARE
   v_date     date;
   v_prec     text;
   v_out      int;
+  v_qty      int;
 BEGIN
-  SELECT ev.event_id, ev.service_id, ev.status::text INTO v_event_id, v_service, v_status
-    FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
+  -- 🔒 The BOOKING row is locked before its status is read (review 2026-11-20): read-then-write without it let a
+  -- couple's ask racing the supplier's yes rewrite booked_quantity on a booking the yes had just contracted, past the
+  -- number the yes checked. Same first lock as set_booked_quantity and vendor_agree_to_lock (booking → card → shop).
+  SELECT ev.event_id, ev.service_id, ev.status::text, ev.booked_quantity INTO v_event_id, v_service, v_status, v_qty
+    FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id
+     FOR UPDATE;
   IF v_event_id IS NULL OR (v_event_id NOT IN (SELECT public.current_couple_event_ids()) AND NOT public.is_admin()) THEN
     RETURN jsonb_build_object('status', 'not_authorized');
   END IF;
@@ -554,18 +565,31 @@ BEGIN
   IF v_style IS DISTINCT FROM 'piece' THEN
     RETURN jsonb_build_object('status', 'not_by_the_piece');
   END IF;
-  IF p_quantity IS NULL OR p_quantity < 1 THEN
+  -- A door that asks no number (book-this-build, pending-lock-proposals — review 2026-11-20) sends NULL: the row's own
+  -- number from an earlier ask stands. No number anywhere → 'pieces_needed' (the app sends the couple to the picker);
+  -- a number that is not a whole number of at least one → 'bad_quantity'. Never "one piece" by default.
+  IF p_quantity IS NULL AND v_qty IS NULL THEN
+    RETURN jsonb_build_object('status', 'pieces_needed');
+  END IF;
+  v_qty := COALESCE(p_quantity, v_qty);
+  IF v_qty < 1 THEN
     RETURN jsonb_build_object('status', 'bad_quantity');
   END IF;
   SELECT event_date, event_date_precision INTO v_date, v_prec FROM public.events WHERE event_id = v_event_id;
   IF v_cap IS NOT NULL AND v_date IS NOT NULL AND v_prec = 'day' THEN
     v_out := public.service_card_bookings_on(v_service, v_date, p_event_vendor_id);
-    IF v_out + p_quantity > v_cap THEN
+    IF v_out + v_qty > v_cap THEN
       RETURN jsonb_build_object('status', 'full', 'have', v_cap, 'free', GREATEST(v_cap - v_out, 0));
     END IF;
   END IF;
-  UPDATE public.event_vendors SET booked_quantity = p_quantity WHERE vendor_id = p_event_vendor_id;
-  RETURN jsonb_build_object('status', 'ok', 'quantity', p_quantity);
+  -- The status predicate rides the write too: a booked row is never rewritten by an ask, lock or no lock.
+  UPDATE public.event_vendors SET booked_quantity = v_qty
+   WHERE vendor_id = p_event_vendor_id
+     AND status::text NOT IN ('contracted', 'deposit_paid', 'delivered', 'complete');
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('status', 'already_booked');
+  END IF;
+  RETURN jsonb_build_object('status', 'ok', 'quantity', v_qty);
 END;
 $function$;
 REVOKE ALL ON FUNCTION public.set_asked_quantity(uuid, int) FROM PUBLIC, anon;
@@ -838,22 +862,28 @@ BEGIN
       FROM public.event_vendors ev
      WHERE ev.vendor_id = p_event_vendor_id;
 
-    IF v_service IS NOT NULL AND NOT EXISTS (
+    SELECT vs.availability_style INTO v_own_style FROM public.vendor_services vs WHERE vs.vendor_service_id = v_service;
+
+    -- 🪑 A by-the-piece card is judged by its pieces WHETHER OR NOT it has time slots (review 2026-11-20): a slot
+    -- counts bookings in the window, never pieces, so a slotted piece card checked only by its slot let a yes take
+    -- more pieces than the card has. A card that is not by the piece and HAS an active slot is judged by the slot
+    -- alone (above), exactly as before.
+    IF v_service IS NOT NULL AND (v_own_style = 'piece' OR NOT EXISTS (
       SELECT 1 FROM public.vendor_service_time_slots t
        WHERE t.vendor_service_id = v_service
          AND t.is_active
-    ) THEN
+    )) THEN
       PERFORM 1
         FROM public.vendor_services vs
        WHERE vs.vendor_service_id = v_service
        FOR NO KEY UPDATE;
       -- 🔒 STEP 4: the count spans every card that shares this one's stock (same shop, service, branch — or its halls),
       -- so locking this card's row alone let two yeses on two sharing cards both read the last free place. One lock
-      -- per SHOP serializes every yes of the shop (and set_booked_quantity takes the same one).
+      -- per SHOP serializes every yes of the shop (and set_booked_quantity takes the same one, in the same order:
+      -- booking row → card row → shop).
       PERFORM public.lock_shop_day_counts(v_service);
       -- 🪑 A by-the-piece card counts the booking's OWN pieces too: out + mine > have refuses. Every other card: mine = 1,
       -- so `out + 1 > cap` is exactly the old `out >= cap`. A piece booking with no number is refused — never "one".
-      SELECT vs.availability_style INTO v_own_style FROM public.vendor_services vs WHERE vs.vendor_service_id = v_service;
       SELECT ev.booked_quantity INTO v_own_qty FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
       IF v_own_style = 'piece' AND v_own_qty IS NULL THEN
         RETURN jsonb_build_object('status', 'pieces_needed', 'event_id', v_event_id);

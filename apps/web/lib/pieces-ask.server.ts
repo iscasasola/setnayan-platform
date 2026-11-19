@@ -9,7 +9,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Null = the card is not by the piece (or the read failed) — Agree stands exactly as before. A failed read cannot
  * let a piece booking through without a number: `vendorAgreeToLock` refuses it (`pieces_needed`) server-side.
  */
-export type PiecesAsk = { cardName: string; have: number; /** The couple's own number from their ask (NULL = not said). */ asked: number | null };
+export type PiecesAsk = {
+  cardName: string;
+  /** The card's "How many do you have"; NULL = the card has no number yet — the field still shows (review 2026-11-20:
+   *  the notice says "type how many", so the field must be there), only without a "You have N" line or a maximum. */
+  have: number | null;
+  /** The couple's own number from their ask (NULL = not said). */
+  asked: number | null;
+};
 
 export async function piecesAskOf(supabase: SupabaseClient, eventVendorId: string): Promise<PiecesAsk | null> {
   try {
@@ -30,8 +37,9 @@ export async function piecesAskOf(supabase: SupabaseClient, eventVendorId: strin
     if (cardErr) console.error('[piecesAskOf] card read failed', cardErr.message);
     if (cardErr || !card) return null;
     const c = card as { title: string | null; availability_style: string | null; daily_capacity: number | null };
-    if (c.availability_style !== 'piece' || !c.daily_capacity || c.daily_capacity < 1) return null;
-    return { cardName: c.title?.trim() || 'this card', have: c.daily_capacity, asked: row?.booked_quantity ?? null };
+    if (c.availability_style !== 'piece') return null;
+    const have = c.daily_capacity && c.daily_capacity >= 1 ? c.daily_capacity : null;
+    return { cardName: c.title?.trim() || 'this card', have, asked: row?.booked_quantity ?? null };
   } catch (e) {
     console.error('[piecesAskOf] read threw', e);
     return null;

@@ -548,7 +548,7 @@ export function dayGroupsOf(
           : { tone: 'ok', word: 'Free all day' };
     const why = allDay[0]?.label?.trim();
     const bar = kind
-      ? countBarOf({ kind, name: kind === 'orders' ? 'Orders in progress' : (p.barName ?? p.label), taken: unreadQty ? null : taken, total: p.capacity })
+      ? countBarOf({ kind, name: kind === 'orders' ? 'Orders in progress' : (p.barName ?? p.label), noun: p.label, taken: unreadQty ? null : taken, total: p.capacity })
       : null;
     return {
       poolId: p.poolId,
@@ -581,7 +581,7 @@ export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): 
     closedWhy: everyClosed ? (groups.find((g) => g.closedWhy)?.closedWhy ?? '') : null,
     partWords: [...new Set(groups.flatMap((g) => g.parts))],
   });
-  // 📊 Step 4: when every open group draws a bar, the line SUMS what is free ("2 orders and 180 pieces free").
+  // 📊 Step 4: when every open group draws a bar, the line SUMS what is free ("2 orders and 180 chairs free" — the schedule's own word).
   if (answer && answer.word === 'Still has room') {
     const free = freeWords(open.map((g) => g.bar ?? null));
     if (free) return { ...answer, line: free };

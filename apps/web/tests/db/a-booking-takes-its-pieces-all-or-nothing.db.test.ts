@@ -12,6 +12,9 @@
  *   5. Made to order is counted IN PROGRESS on every day of [due − prep, due] (owner 19 Nov, AVAILABILITY FINALIZED),
  *      the order's own prep_days over the card's usual_prep_days; prep_days is neither browser-readable nor -writable.
  *
+ *   6. every writer of a booking's pieces locks booking row → card → shop (no deadlock); the couple's ask locks the row
+ *      before its status check; a door with no number keeps the earlier one; a slotted piece card is counted by pieces.
+ *
  * Run: pnpm --filter @setnayan/web test:db
  */
 import { test, before, after } from 'node:test';
@@ -467,4 +470,83 @@ test('11 · a couple can neither read nor change an order\'s prep_days — only 
   });
   const p = (await db.query<{ p: number }>(`SELECT prep_days AS p FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.p;
   assert.equal(p, 10, 'a couple shortened their order\'s preparation window');
+});
+
+/** The function's own text with `--` comments removed, so an order read from it is the code's, not a comment's. */
+async function bodyOf(fn: string): Promise<string> {
+  const def = (await db.query<{ d: string }>(`SELECT pg_get_functiondef(oid) AS d FROM pg_proc WHERE proname = $1`, [fn])).rows[0]!.d;
+  return def.replace(/--[^\n]*/g, '');
+}
+/** Where a lock is first taken in a body: the booking row, the card row, the shop's one count lock. */
+function lockAt(body: string, what: 'booking' | 'card' | 'shop'): number {
+  const re =
+    what === 'booking'
+      ? /FROM\s+public\.event_vendors(?:\s+ev)?\s+WHERE\s+(?:ev\.)?vendor_id\s*=\s*p_event_vendor_id\s+FOR\s+UPDATE/i
+      : what === 'card'
+        ? /FROM\s+public\.vendor_services\s+vs\s+WHERE\s+vs\.vendor_service_id\s*=\s*v_service\s+FOR\s+(?:NO\s+KEY\s+)?UPDATE/i
+        : /lock_shop_day_counts\(v_service\)/i;
+  const m = re.exec(body);
+  return m ? m.index : -1;
+}
+
+test('12 · every writer of a booking\'s pieces locks in ONE order — booking row, then card, then shop (no deadlock, review 2026-11-20)', async () => {
+  // Two transactions that take the same two locks in opposite orders deadlock: set_booked_quantity drafted card →
+  // booking while vendor_agree_to_lock takes booking → card. PGlite has one connection, so the deadlock itself cannot
+  // be staged here; the ORDER can be read from each function's own code, and it is the order that prevents it.
+  for (const fn of ['vendor_agree_to_lock', 'set_booked_quantity']) {
+    const body = await bodyOf(fn);
+    const [booking, card, shop] = [lockAt(body, 'booking'), lockAt(body, 'card'), lockAt(body, 'shop')];
+    assert.ok(booking >= 0, `${fn} never locks the booking row`);
+    assert.ok(card >= 0, `${fn} never locks the card row`);
+    assert.ok(shop >= 0, `${fn} never takes the shop lock`);
+    assert.ok(booking < card && card < shop, `${fn} locks out of order (booking ${booking}, card ${card}, shop ${shop})`);
+  }
+  // The couple's ask locks the booking row BEFORE it reads the status it checks.
+  const asked = await bodyOf('set_asked_quantity');
+  const lockedAt = lockAt(asked, 'booking');
+  assert.ok(lockedAt >= 0, 'set_asked_quantity reads the status without locking the booking row');
+  assert.ok(lockedAt < asked.search(/v_status\s+IN\s*\(/i), 'set_asked_quantity checks the status before it locks the row');
+  // …and the write carries the status predicate too, so a booked row is never rewritten by an ask.
+  assert.match(asked, /UPDATE\s+public\.event_vendors\s+SET\s+booked_quantity[\s\S]*?status::text\s+NOT\s+IN\s*\(\s*'contracted'/i);
+});
+
+test('13 · a door with no "how many" field keeps the couple\'s earlier number; no number anywhere is pieces_needed, never one', async () => {
+  const shop = await mkShop('Door Rentals', 'pro');
+  const chairs = await pieceCard(shop.vpid, 500);
+  const row = await ask(couple, shop.vpid, chairs);
+  // No number yet, none sent (book-this-build / pending-lock-proposals) → the couple is sent to the picker.
+  assert.equal((await askQty(couple, row, null)).status, 'pieces_needed');
+  assert.equal((await db.query<{ q: number | null }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q, null);
+  // The accordion asked 150; a later door sends nothing → 150 stands, and is re-checked against what is free.
+  assert.equal((await askQty(couple, row, 150)).status, 'ok');
+  const again = await askQty(couple, row, null);
+  assert.equal(again.status, 'ok');
+  assert.equal((again as { quantity?: number }).quantity, 150);
+  const other = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 400 WHERE vendor_id = $1`, [other]);
+  const late = await askQty(couple, row, null);
+  assert.equal(late.status, 'full', 'a kept number was not re-checked against what is free now');
+  assert.equal(late.free, 100);
+  assert.equal((await askQty(couple, row, 0)).status, 'bad_quantity');
+});
+
+test('14 · a piece card WITH time windows is still counted by its pieces at the yes (review 2026-11-20)', async () => {
+  const shop = await mkShop('Slot Rentals', 'pro');
+  const chairs = await pieceCard(shop.vpid, 500);
+  await db.query(
+    `INSERT INTO public.vendor_service_time_slots (vendor_profile_id, vendor_service_id, slot_label, start_time, end_time, slot_capacity)
+     VALUES ($1, $2, 'Morning', '08:00', '12:00', 50)`,
+    [shop.vpid, chairs],
+  );
+  const other = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 450 WHERE vendor_id = $1`, [other]);
+  const cx = await mkUser('slot-couple', 'customer');
+  const row = await ask(cx, shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 100 WHERE vendor_id = $1`, [row]);
+  assert.equal((await agree(shop.uid, row)).status, 'daily_limit_reached', '450 + 100 of 500 was taken on a slotted piece card');
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = NULL WHERE vendor_id = $1`, [row]);
+  assert.equal((await agree(shop.uid, row)).status, 'pieces_needed', 'a slotted piece yes with no number went through');
+  assert.equal((await setQty(shop.uid, row, 50)).status, 'ok');
+  assert.equal((await agree(shop.uid, row)).status, 'ok', '450 + 50 of 500 was refused');
+  assert.equal(await outOn(chairs), 500);
 });

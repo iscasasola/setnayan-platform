@@ -1053,6 +1053,11 @@ async function resolveLockImpact(args: {
   }
 }
 
+/** 🪑 A by-the-piece card with no number anywhere (a door with no "how many" field, and no earlier ask) — the couple is
+ *  sent to the supplier's card, whose Book asks how many (review 2026-11-20). Never booked as one piece. */
+const PIECES_NEEDED_COUPLE_MESSAGE =
+  'This supplier rents by the piece. Open their card and tap Book to say how many you need — nothing was asked yet.';
+
 export async function finalizeVendor(
   formData: FormData,
 ): Promise<FinalizeVendorResult> {
@@ -1724,6 +1729,40 @@ export async function finalizeVendor(
       .eq('vendor_service_id', targetVendor.service_id)
       .eq('is_active', true);
 
+    // 🪑 RENTED BY THE PIECE — the couple says how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN
+    // AV-PIECE "the couple picks how many"). Written by ONE definer (`set_asked_quantity`, their own row only, before
+    // the yes). An ask holds nothing; only the supplier's yes takes the pieces (`vendor_agree_to_lock`, under one
+    // lock per shop) — so "only N free" here is an honest answer, not a hold. A card not by the piece answers
+    // `not_by_the_piece` and the ask goes on as before. A refused write is refused, never booked as one piece.
+    // ⏱ Asked on BOTH paths (review 2026-11-20): a piece card with time windows is still counted by its pieces.
+    // 🚪 A door with no "how many" field (book-this-build, pending-lock-proposals) sends nothing: the definer keeps the
+    // number from the couple's earlier ask; with none anywhere it answers `pieces_needed` and the couple is sent to
+    // the supplier's card, where the lock asks how many.
+    {
+      const rawQty = String(formData.get('booked_quantity') ?? '').trim();
+      const { data: qRaw, error: qErr } = await supabase.rpc('set_asked_quantity', {
+        p_event_vendor_id: vendorId,
+        p_quantity: rawQty === '' ? null : Number.isInteger(Number(rawQty)) ? Number(rawQty) : 0,
+      });
+      const q = (qRaw ?? {}) as { status?: string; free?: number };
+      if (qErr) {
+        console.error('[finalizeVendor] pieces write failed', qErr.message);
+        return { status: 'error', message: 'We couldn’t save how many you need. Try again.' };
+      }
+      if (q.status === 'pieces_needed') {
+        return { status: 'error', message: PIECES_NEEDED_COUPLE_MESSAGE };
+      }
+      if (q.status === 'bad_quantity') {
+        return { status: 'error', message: 'Say how many you need, then book.' };
+      }
+      if (q.status === 'full') {
+        return {
+          status: 'error',
+          message: q.free && q.free > 0 ? `Only ${q.free.toLocaleString('en-US')} are free on your date. Ask for fewer.` : 'None are free on your date.',
+        };
+      }
+    }
+
     let useSlotPath = false;
     if ((slotCount ?? 0) > 0) {
       // Only enforce/assign a slot on a day-precise event (verifier C4).
@@ -1892,32 +1931,6 @@ export async function finalizeVendor(
           if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
             return { status: 'error', message: orderTooSoonMessage(lead) };
           }
-        }
-      }
-      // 🪑 RENTED BY THE PIECE — the couple says how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN
-      // AV-PIECE "the couple picks how many"). Written by ONE definer (`set_asked_quantity`, their own row only, before
-      // the yes). An ask holds nothing; only the supplier's yes takes the pieces (`vendor_agree_to_lock`, under one
-      // lock per shop) — so "only N free" here is an honest answer, not a hold. A card not by the piece answers
-      // `not_by_the_piece` and the ask goes on as before. A refused write is refused, never booked as one piece.
-      {
-        const rawQty = String(formData.get('booked_quantity') ?? '').trim();
-        const { data: qRaw, error: qErr } = await supabase.rpc('set_asked_quantity', {
-          p_event_vendor_id: vendorId,
-          p_quantity: rawQty === '' ? null : Number.isInteger(Number(rawQty)) ? Number(rawQty) : 0,
-        });
-        const q = (qRaw ?? {}) as { status?: string; free?: number };
-        if (qErr) {
-          console.error('[finalizeVendor] pieces write failed', qErr.message);
-          return { status: 'error', message: 'We couldn’t save how many you need. Try again.' };
-        }
-        if (q.status === 'bad_quantity') {
-          return { status: 'error', message: 'Say how many you need, then book.' };
-        }
-        if (q.status === 'full') {
-          return {
-            status: 'error',
-            message: q.free && q.free > 0 ? `Only ${q.free.toLocaleString('en-US')} are free on your date. Ask for fewer.` : 'None are free on your date.',
-          };
         }
       }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN

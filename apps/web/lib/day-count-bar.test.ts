@@ -41,8 +41,15 @@ test('a refused read draws "unread", never 0 out — and the answer line keeps t
 
 test('the answer line sums the free counts', () => {
   const o = countBarOf({ kind: 'orders', name: 'Orders in progress', taken: 3, total: 5 });
-  const p = countBarOf({ kind: 'pieces', name: 'Chairs', taken: 320, total: 500 });
-  assert.equal(freeWords([o, p]), '2 orders and 180 pieces free');
+  const p = countBarOf({ kind: 'pieces', name: 'Tiffany chairs', noun: 'Chairs', taken: 320, total: 500 });
+  // As drawn: the pieces in the schedule's own word ("180 chairs free"), never "180 pieces free" (review 2026-11-20).
+  assert.equal(freeWords([o, p]), '2 orders and 180 chairs free');
+  // A bar with no noun falls back to "pieces", and a single one to "piece".
+  assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', taken: 320, total: 500 })]), '180 pieces free');
+  assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', noun: ' ', taken: 499, total: 500 })]), '1 piece free');
+  // The noun belongs to pieces only — an orders bar never carries it.
+  const on = countBarOf({ kind: 'orders', name: 'Orders in progress', noun: 'Cakes', taken: 3, total: 5 });
+  assert.equal(on.unread ? null : on.noun, undefined);
   assert.equal(freeWords([o, null]), null);
   assert.equal(countBarKind('day'), null);
   assert.equal(countBarKind(null), null);
@@ -57,7 +64,7 @@ test('dayGroupsOf counts a by-the-piece schedule by the SUM of quantities (NULL 
   assert.equal(g!.taken, 321);
   assert.ok(g!.bar && !g!.bar.unread);
   assert.equal(g!.bar && !g!.bar.unread ? g!.bar.words : '', '321 of 500 out');
-  assert.equal(dayAnswerOfGroups([g!], 1)?.line, '179 pieces free');
+  assert.equal(dayAnswerOfGroups([g!], 1)?.line, '179 chairs free');
   const [u] = dayGroupsOf(day, { ...base, pools, bookings: [row('a', 200), row('b', null)] });
   assert.equal(u!.bar?.unread, true);
 });
@@ -85,7 +92,7 @@ test('a FULL day of pieces or orders says it in their words — never "500 booki
   const [chairs] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p1', label: 'Chairs', capacity: 500, style: 'piece' as const, dbTaken: 500 }] });
   const a = dayAnswerOfGroups([chairs!], 0);
   assert.equal(a?.word, 'Full');
-  assert.equal(a?.line, 'All 500 pieces out');
+  assert.equal(a?.line, 'All 500 chairs out');
   const [cakes] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p2', label: 'Cakes', capacity: 5, style: 'order' as const, dbTaken: 5 }] });
   assert.equal(dayAnswerOfGroups([cakes!], 0)?.line, '5 of 5 orders in progress');
 });

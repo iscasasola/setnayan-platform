@@ -21,6 +21,8 @@ export type CountBar =
       kind: CountBarKind;
       /** The bar's name: "Orders in progress" · the card's own name ("Tiffany chairs"). */
       name: string;
+      /** What one piece is called, as drawn — the schedule's own name, lower case ("chairs"); absent = "pieces". */
+      noun?: string;
       taken: number;
       total: number;
       free: number;
@@ -43,15 +45,24 @@ export function countBarKind(style: AvailabilityStyle | null): CountBarKind | nu
 
 const n = (x: number) => x.toLocaleString('en-US');
 
-export function countBarOf(input: { kind: CountBarKind; name: string; taken: number | null; total: number }): CountBar {
+export function countBarOf(input: {
+  kind: CountBarKind;
+  name: string;
+  /** The schedule's own name ("Chairs") — the answer line says "180 chairs free" as drawn, not "180 pieces free". */
+  noun?: string | null;
+  taken: number | null;
+  total: number;
+}): CountBar {
   const { kind, name, total } = input;
   if (input.taken === null) return { kind, name, unread: true };
+  const noun = input.noun?.trim().toLowerCase() || undefined;
   const taken = Math.max(0, input.taken);
   const free = Math.max(0, total - taken);
   const words = kind === 'orders' ? `${n(taken)} of ${n(total)} in progress` : `${n(taken)} of ${n(total)} out`;
   return {
     kind,
     name,
+    ...(kind === 'pieces' && noun ? { noun } : {}),
     taken,
     total,
     free,
@@ -62,6 +73,10 @@ export function countBarOf(input: { kind: CountBarKind; name: string; taken: num
   };
 }
 
+/** "chairs" when the bar has its noun, else "piece"/"pieces" by count. The noun is the schedule's own word, kept as
+ *  typed — never singularised by a guess ("1 chairs free" is the honest cost of not inventing a word). */
+const pieceWord = (b: { noun?: string }, count: number) => b.noun ?? (count === 1 ? 'piece' : 'pieces');
+
 /** The taken share of the fill bar, 0..100, for a bar above ten. */
 export function countBarFillPct(bar: { taken: number; total: number }): number {
   if (bar.total <= 0) return 100;
@@ -69,13 +84,14 @@ export function countBarFillPct(bar: { taken: number; total: number }): number {
 }
 
 /**
- * The answer line's free part, summed over the bars (drawing: "2 orders and 180 chairs free"). Null when no bar can
+ * The answer line's free part, summed over the bars (drawing: "2 orders and 180 chairs free" — the pieces in the
+ * schedule's own word, `noun`). Null when no bar can
  * say it — a group with no bar, or one whose read was refused, keeps the day's own line.
  */
 export function freeWords(bars: readonly (CountBar | null)[]): string | null {
   if (bars.length === 0 || bars.some((b) => b === null || b.unread)) return null;
   const parts = (bars as Exclude<CountBar, { unread: true }>[]).map((b) =>
-    b.kind === 'orders' ? `${n(b.free)} ${b.free === 1 ? 'order' : 'orders'}` : `${n(b.free)} ${b.free === 1 ? 'piece' : 'pieces'}`,
+    b.kind === 'orders' ? `${n(b.free)} ${b.free === 1 ? 'order' : 'orders'}` : `${n(b.free)} ${pieceWord(b, b.free)}`,
   );
   const joined = parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   return `${joined} free`;
@@ -90,7 +106,7 @@ export function fullWords(bars: readonly (CountBar | null)[]): string | null {
   const parts = (bars as Exclude<CountBar, { unread: true }>[]).map((b) =>
     b.kind === 'orders'
       ? `${n(b.taken)} of ${n(b.total)} ${b.total === 1 ? 'order' : 'orders'} in progress`
-      : `all ${n(b.total)} ${b.total === 1 ? 'piece' : 'pieces'} out`,
+      : `all ${n(b.total)} ${pieceWord(b, b.total)} out`,
   );
   const joined = parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   return joined.charAt(0).toUpperCase() + joined.slice(1);

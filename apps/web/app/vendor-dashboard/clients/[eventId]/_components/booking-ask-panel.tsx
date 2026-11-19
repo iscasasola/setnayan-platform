@@ -195,15 +195,17 @@ export function LockRequestAnswer({
                   required={askPieces.asked === null}
                   defaultValue={askPieces.asked ?? undefined}
                   min={1}
-                  max={askPieces.have}
+                  max={askPieces.have ?? undefined}
                   step={1}
                   inputMode="numeric"
                   className={`${shopInputClass} mt-1 h-11 w-32`}
-                  aria-describedby="booking-ask-pieces-have"
+                  aria-describedby={askPieces.have !== null ? 'booking-ask-pieces-have' : undefined}
                 />
-                <small id="booking-ask-pieces-have" className="mt-0.5 text-[12px] text-ink/60">
-                  You have {askPieces.have.toLocaleString('en-US')}
-                </small>
+                {askPieces.have !== null ? (
+                  <small id="booking-ask-pieces-have" className="mt-0.5 text-[12px] text-ink/60">
+                    You have {askPieces.have.toLocaleString('en-US')}
+                  </small>
+                ) : null}
               </label>
             ) : null}
             <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />

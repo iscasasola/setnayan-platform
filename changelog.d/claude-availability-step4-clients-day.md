@@ -38,7 +38,17 @@ couple's ask and the supplier's Agree can show it), written only by `set_booked_
 `event_vendors.prep_days`, not browser-readable and written only by a definer (the same triggers refuse a browser
 session). Migration `20271352068061_a_booking_takes_its_pieces_all_or_nothing`. Motions: none.
 
-SPEC IMPACT: None — builds the approved step 4 drawing as ruled. (The drawing says "chairs"; cards have no noun field,
-so the bar says "pieces" and names the card.)
+SPEC IMPACT: None — builds the approved step 4 drawing as ruled. (The drawing says "180 chairs free": the pieces are
+named in the schedule's own word — its label, lower case — and "pieces" only when a schedule has no name.)
 
 **Review fixes (19 Nov):** a failed or refused pieces write stops the supplier's yes instead of agreeing on the couple's number · a refused day count reads "Couldn't read", never "Free" · ONE number for pieces: the yes, the deposit gate (`acquire_schedule_pools`), `set_booked_quantity`, the bench mirror and the Day bar all hold pieces to the card's own "How many do you have" (`service_card_daily_limit`), never the schedule's "how many a day"; the schedule keeps its 1..500 (the >500 piece-schedule change is withdrawn) · a branch copy clamps to 500, not 50 · the couple's pieces popup no longer shows how many the supplier has · a full day reads "All 500 pieces out" / "5 of 5 orders in progress".
+
+**Review fixes (20 Nov):** every writer of a booking's pieces locks in ONE order — the booking row, then the card, then
+the shop's one count lock — so `set_booked_quantity` (drafted card → booking) can no longer deadlock against
+`vendor_agree_to_lock` · the couple's ask (`set_asked_quantity`) locks the booking row before it reads its status, and
+its write carries the status predicate, so an ask racing the supplier's yes can never rewrite a contracted booking's
+number · a door with no "how many" field (Book this build, pending lock proposals) keeps the couple's earlier number;
+with none anywhere the couple is sent to the supplier's card (`pieces_needed`), never a dead end · the pieces ask runs
+on the time-slot path too, and the yes counts a slotted piece card by its pieces · the supplier's "how many" field
+shows on every piece card (no "You have N" until the card has a number) · "180 chairs free", as drawn · DB tests 12–14
+(lock order read from each function's code, the kept number, the slotted piece card).

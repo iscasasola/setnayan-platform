@@ -9,6 +9,8 @@
  *   3. a card that is not by the piece is left alone; a piece yes with no number is refused (never "one" by default);
  *   4. `acquire_schedule_pools` carries quantity — a pool with 500 and 320 out refuses a 200-piece booking and takes
  *      nothing; an Always available card takes no seat at all.
+ *   5. Made to order is counted IN PROGRESS on every day of [due − prep, due] (owner 19 Nov, AVAILABILITY FINALIZED),
+ *      the order's own prep_days over the card's usual_prep_days; prep_days is neither browser-readable nor -writable.
  *
  * Run: pnpm --filter @setnayan/web test:db
  */
@@ -344,4 +346,66 @@ test('9 · the Clients day bar reads the guard\'s own count (vendor_day_pool_tak
     (await db.query<{ pool_id: string }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [DAY])).rows,
   );
   assert.equal(theirs.some((r) => r.pool_id === pool), false, "another shop read this shop's schedule");
+});
+
+/** The schedule's in-progress and taken counts on a day, as the shop's Clients day bar reads them. */
+async function barOn(uid: string, pool: string, day: string): Promise<{ in_progress: number; taken: number }> {
+  const rows = await asUser(uid, async () =>
+    (await db.query<{ pool_id: string; taken: number; in_progress: number }>(`SELECT * FROM public.vendor_day_pool_taken($1::date)`, [day])).rows,
+  );
+  const r = rows.find((x) => x.pool_id === pool);
+  assert.ok(r, 'the shop could not read its own schedule');
+  return { in_progress: r.in_progress, taken: r.taken };
+}
+
+test('10 · Made to order is IN PROGRESS across its preparation window, not only on its due date (owner 19 Nov)', async () => {
+  // Owner, DECISION_LOG 2026-11-19 "AVAILABILITY FINALIZED" — "Wrong, fix": an order due the 14th that takes 13 days
+  // is being made from the 1st. Counting it on the due date only reads the 1st as free — this test fails on that.
+  const shop = await mkShop('Cake Studio', 'pro');
+  const cakes = await mkCard(shop.vpid, 5);
+  await db.query(`UPDATE public.vendor_services SET availability_style = 'order', usual_prep_days = 13 WHERE vendor_service_id = $1`, [cakes]);
+  const pool = await mkPool(shop.vpid, 5);
+  const first = await booked(shop.vpid, cakes); // due DAY = 2028-03-14
+  assert.equal((await acquire(first, pool)).status, 'ok');
+
+  assert.deepEqual(await barOn(shop.uid, pool, '2028-03-01'), { in_progress: 1, taken: 0 }, 'an order 13 days from due was not in progress');
+  assert.deepEqual(await barOn(shop.uid, pool, '2028-03-14'), { in_progress: 1, taken: 1 });
+  assert.equal((await barOn(shop.uid, pool, '2028-02-29')).in_progress, 0, 'counted before its preparation began');
+  assert.equal((await barOn(shop.uid, pool, '2028-03-15')).in_progress, 0, 'counted after its due date');
+
+  // THIS order's own time wins over the card's (2b writes it at accept; the definer here is the test's own role).
+  const second = await booked(shop.vpid, cakes);
+  await db.query(`UPDATE public.event_vendors SET prep_days = 2 WHERE vendor_id = $1`, [second]);
+  assert.equal((await acquire(second, pool)).status, 'ok');
+  assert.equal((await barOn(shop.uid, pool, '2028-03-12')).in_progress, 2);
+  assert.equal((await barOn(shop.uid, pool, '2028-03-11')).in_progress, 1, "the order's own 2 days were not used");
+
+  // A card that is NOT Made to order keeps its usual_prep_days out of the count (day precision, as today).
+  const day = await mkCard(shop.vpid, 5);
+  await db.query(`UPDATE public.vendor_services SET usual_prep_days = 13 WHERE vendor_service_id = $1`, [day]);
+  const dayPool = await mkPool(shop.vpid, 5);
+  const third = await booked(shop.vpid, day);
+  assert.equal((await acquire(third, dayPool)).status, 'ok');
+  assert.equal((await barOn(shop.uid, dayPool, '2028-03-01')).in_progress, 0);
+
+  // The hard refusal still counts the due date only (until 2b): two orders in progress on the 12th, five fit on it.
+  assert.equal((await barOn(shop.uid, pool, '2028-03-12')).taken, 0);
+});
+
+test('11 · a couple can neither read nor change an order\'s prep_days — only a definer writes it', async () => {
+  const shop = await mkShop('Prep Guard Cakes', 'pro');
+  const cakes = await mkCard(shop.vpid, 5);
+  await db.query(`UPDATE public.vendor_services SET availability_style = 'order', usual_prep_days = 10 WHERE vendor_service_id = $1`, [cakes]);
+  const row = await ask(couple, shop.vpid, cakes);
+  await db.query(`UPDATE public.event_vendors SET prep_days = 10 WHERE vendor_id = $1`, [row]);
+  await assert.rejects(
+    asUser(couple, () => db.query(`SELECT prep_days FROM public.event_vendors WHERE vendor_id = $1`, [row])),
+    /permission denied/i,
+    'a browser session read prep_days',
+  );
+  await asUser(couple, () => db.query(`UPDATE public.event_vendors SET prep_days = 0 WHERE vendor_id = $1`, [row])).catch((e: Error) => {
+    assert.match(e.message, /set only by a definer|permission denied/i);
+  });
+  const p = (await db.query<{ p: number }>(`SELECT prep_days AS p FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.p;
+  assert.equal(p, 10, 'a couple shortened their order\'s preparation window');
 });

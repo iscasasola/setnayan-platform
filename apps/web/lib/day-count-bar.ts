@@ -2,7 +2,9 @@
  * day-count-bar.ts — THE DAY BAR's numbers (Availability plan step 4, the widget approved 18 Nov; drawing
  * `prototypes/availability_steps_3_4_2026-11-19.html` § Step 4). Pure: safe in a server or client component.
  *
- *   Made to order      "3 of 5 orders due · 2 free" — orders counted by the date they are DUE (the event date).
+ *   Made to order      "3 of 5 in progress · 2 free" — orders counted IN PROGRESS on every day of their preparation
+ *                      window [due − prep, due] (owner 19 Nov, DECISION_LOG "AVAILABILITY FINALIZED" — not by due date).
+ *                      The count is the database's (`schedule_pool_in_progress_on`); this file only words it.
  *   Rented by the piece "320 of 500 out · 180 free" — pieces = the SUM of the bookings' quantities.
  *
  * The strip: up to ten, one piece per order (or per piece); above ten, a bar. The dark part is taken, the light part
@@ -17,12 +19,12 @@ export type CountBarKind = 'orders' | 'pieces';
 export type CountBar =
   | {
       kind: CountBarKind;
-      /** The bar's name: "Orders due" · the card's own name ("Tiffany chairs"). */
+      /** The bar's name: "Orders in progress" · the card's own name ("Tiffany chairs"). */
       name: string;
       taken: number;
       total: number;
       free: number;
-      /** "3 of 5 orders due" · "320 of 500 out". */
+      /** "3 of 5 in progress" · "320 of 500 out". */
       words: string;
       /** The computer's shorter words (drawing: "3 of 5" · "320 of 500"). */
       short: string;
@@ -46,7 +48,7 @@ export function countBarOf(input: { kind: CountBarKind; name: string; taken: num
   if (input.taken === null) return { kind, name, unread: true };
   const taken = Math.max(0, input.taken);
   const free = Math.max(0, total - taken);
-  const words = kind === 'orders' ? `${n(taken)} of ${n(total)} ${total === 1 ? 'order' : 'orders'} due` : `${n(taken)} of ${n(total)} out`;
+  const words = kind === 'orders' ? `${n(taken)} of ${n(total)} in progress` : `${n(taken)} of ${n(total)} out`;
   return {
     kind,
     name,

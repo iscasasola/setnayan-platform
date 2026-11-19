@@ -212,6 +212,8 @@ export type MakerEditing = {
   availabilityStyle: AvailabilityStyle | null;
   /** 🗓 Made to order: "Order at least N days" (`vendor_services.order_lead_days`); '' = no rule. */
   orderLeadDays: string;
+  /** 🛠 Made to order: "Usual preparation time" in days (`vendor_services.usual_prep_days`); '' = none. */
+  usualPrepDays: string;
   branchId: string;
   schedule: ScheduleItemDraft[];
   addons: AddonDraft[];
@@ -627,6 +629,7 @@ export function CanvasMaker({
     pickedStyle !== undefined ? pickedStyle : recommendedStyle && isCardPickableStyle(recommendedStyle) ? recommendedStyle : null;
   const storedPerDay = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
   const storedLead = editing && editing.orderLeadDays.trim() !== '' ? Number(editing.orderLeadDays) : null;
+  const storedPrep = editing && editing.usualPrepDays.trim() !== '' ? Number(editing.usualPrepDays) : null;
   const [perDay, setPerDay] = useState<number | null>(storedPerDay ?? (editing ? null : 1));
   const [leadDays, setLeadDays] = useState<number | null>(storedLead);
 
@@ -1518,10 +1521,12 @@ export function CanvasMaker({
                       ) : (
                         <FormRows data="same-day-rows">
                           <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} style={cardStyle} onCount={setPerDay} />
+                          {cardStyle === 'order' ? <UsualPrepRow stored={storedPrep} /> : null}
                           {cardStyle === 'order' ? <OrderLeadRow stored={storedLead} onCount={setLeadDays} /> : null}
                         </FormRows>
                       )}
                       {cardStyle !== 'order' ? <input type="hidden" name="order_lead_days" value={editing?.orderLeadDays ?? ''} /> : null}
+                      {cardStyle !== 'order' ? <input type="hidden" name="usual_prep_days" value={editing?.usualPrepDays ?? ''} /> : null}
                       {cardIsNeverCounted(cardStyle) ? null : <SlotRows existing={editing?.slots ?? []} />}
                     </div>
                   </Fold>
@@ -2213,6 +2218,32 @@ function OrderLeadRow({ stored, onCount }: { stored: number | null; onCount: (n:
       >
         <span className="flex flex-none" data-maker-order-lead="">
           <FormCounter name="order_lead_days" value={stored ?? 0} min={0} max={365} label="Days to order ahead" data="order-lead" blankUntilTouched={stored === null} onCount={onCount} />
+        </span>
+      </FormRow>
+    </div>
+  );
+}
+
+/**
+ * 🛠 MADE TO ORDER — "Usual preparation time" (owner 19 Nov, DECISION_LOG "AVAILABILITY FINALIZED"): how many days an
+ * order is being made before its date. Each order is counted IN PROGRESS on every one of those days, not only on the
+ * date it is due. Kept apart from "Order at least" (the couple's rule). Posts `usual_prep_days`; 0 = counted on the due
+ * date only. A stored blank shows 0 and posts blank until a tap — opening and saving never writes a number.
+ */
+function UsualPrepRow({ stored }: { stored: number | null }) {
+  return (
+    <div data-maker-row="usual-prep">
+      <FormRow
+        name="Usual preparation time"
+        line="days to make one order"
+        about={{
+          title: 'Usual preparation time',
+          words: 'An order counts as in progress on each of these days before its date, not only on the date. 0 = only on the date.',
+        }}
+        data="usual-prep"
+      >
+        <span className="flex flex-none" data-maker-usual-prep="">
+          <FormCounter name="usual_prep_days" value={stored ?? 0} min={0} max={365} label="Days to make one order" data="usual-prep" blankUntilTouched={stored === null} />
         </span>
       </FormRow>
     </div>

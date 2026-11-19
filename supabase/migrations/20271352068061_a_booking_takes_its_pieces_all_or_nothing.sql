@@ -33,6 +33,21 @@
 --     schedule that rents chairs holds as many as the shop has (owner ruling 3: no cap above 500 for pieces). The app
 --     keeps 500 for every schedule that is not by the piece (calendar/actions.ts). >= 1 still.
 --
+-- 10 · MADE TO ORDER IS COUNTED WHILE IT IS BEING MADE (owner, DECISION_LOG 2026-11-19 "AVAILABILITY FINALIZED",
+--     "Wrong, fix"): an order is "in progress" on every day of its preparation window [due − prep, due], not only on
+--     the date it is due. Two new numbers, kept apart from order_lead_days ("Order at least N days", the couple's rule):
+--       vendor_services.usual_prep_days — "Usual preparation time" on a Made to order card, 0..365, NULL = none.
+--       event_vendors.prep_days         — THIS order's own time (2b: the accept sheet asks "Is the time right?"),
+--                                         0..365, NULL = the card's. No writer yet (2b adds the definer).
+--     🔒 prep_days is NOT browser-readable (event_vendors SELECT is a column allow-list since 20271343340931 and it is
+--     not granted) and NOT browser-writable (the booked_quantity triggers now cover it: an `authenticated` / `anon`
+--     change is refused, an insert's value is dropped) — a couple could otherwise shorten their order's window.
+--     schedule_pool_in_progress_on(pool, day) is THE count; vendor_day_pool_taken returns it beside `taken` and the
+--     Clients day bar reads it ("N of M in progress · K free"). The HARD refusal (acquire_schedule_pools) still counts
+--     the due date only, unchanged, until 2b brings the soft warning.
+--
+-- 11 · copy_vendor_service_to_branch carries usual_prep_days (a branch copy is counted the same way).
+--
 -- Production today: no card carries a style yet (step 3 is new), so no booking counts differently today than it did
 -- yesterday — booked_quantity is NULL everywhere, i.e. 1.
 
@@ -58,6 +73,31 @@ COMMENT ON COLUMN public.event_vendors.booked_quantity IS
   'Rented by the piece: how many pieces this booking takes (typed by the supplier at the yes, owner 2026-11-19). '
   'NULL = one. Written only by set_booked_quantity (trg_booked_quantity_only_by_the_definer).';
 
+-- ── 1a · preparation time (section 10 of the header) ─────────────────────────
+ALTER TABLE public.vendor_services ADD COLUMN IF NOT EXISTS usual_prep_days INT;
+ALTER TABLE public.event_vendors   ADD COLUMN IF NOT EXISTS prep_days INT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'vendor_services_usual_prep_days_check'
+                    AND conrelid = 'public.vendor_services'::regclass) THEN
+    ALTER TABLE public.vendor_services
+      ADD CONSTRAINT vendor_services_usual_prep_days_check CHECK (usual_prep_days IS NULL OR usual_prep_days BETWEEN 0 AND 365);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'event_vendors_prep_days_check'
+                    AND conrelid = 'public.event_vendors'::regclass) THEN
+    ALTER TABLE public.event_vendors
+      ADD CONSTRAINT event_vendors_prep_days_check CHECK (prep_days IS NULL OR prep_days BETWEEN 0 AND 365);
+  END IF;
+END $$;
+
+COMMENT ON COLUMN public.vendor_services.usual_prep_days IS
+  'Made to order: "Usual preparation time" in days (owner 2026-11-19, AVAILABILITY FINALIZED). An order is counted '
+  'in progress on every day of [due - prep, due]. NULL or 0 = counted on its due date only. Not order_lead_days.';
+COMMENT ON COLUMN public.event_vendors.prep_days IS
+  'Made to order: THIS order''s preparation time in days (2b, confirmed at accept). NULL = the card''s usual_prep_days. '
+  'Not browser-readable; written only by a definer (trg_booked_quantity_only_by_the_definer covers it).';
+
 CREATE OR REPLACE FUNCTION public.booked_quantity_only_by_the_definer()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -67,13 +107,16 @@ BEGIN
   IF NEW.booked_quantity IS DISTINCT FROM OLD.booked_quantity AND current_user IN ('authenticated', 'anon') THEN
     RAISE EXCEPTION 'booked_quantity is set only by set_booked_quantity' USING ERRCODE = '42501';
   END IF;
+  IF NEW.prep_days IS DISTINCT FROM OLD.prep_days AND current_user IN ('authenticated', 'anon') THEN
+    RAISE EXCEPTION 'prep_days is set only by a definer' USING ERRCODE = '42501';
+  END IF;
   RETURN NEW;
 END;
 $function$;
 
 DROP TRIGGER IF EXISTS trg_booked_quantity_only_by_the_definer ON public.event_vendors;
 CREATE TRIGGER trg_booked_quantity_only_by_the_definer
-  BEFORE UPDATE OF booked_quantity ON public.event_vendors
+  BEFORE UPDATE OF booked_quantity, prep_days ON public.event_vendors
   FOR EACH ROW EXECUTE FUNCTION public.booked_quantity_only_by_the_definer();
 
 CREATE OR REPLACE FUNCTION public.booked_quantity_set_on_insert_only_by_the_definer()
@@ -82,8 +125,9 @@ LANGUAGE plpgsql
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF NEW.booked_quantity IS NOT NULL AND current_user IN ('authenticated', 'anon') THEN
+  IF current_user IN ('authenticated', 'anon') THEN
     NEW.booked_quantity := NULL;
+    NEW.prep_days := NULL;
   END IF;
   RETURN NEW;
 END;
@@ -122,6 +166,37 @@ AS $function$
 $function$;
 REVOKE ALL ON FUNCTION public.schedule_pool_taken_on(uuid, date, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.schedule_pool_taken_on(uuid, date, uuid) TO service_role;
+
+-- schedule_pool_in_progress_on — a schedule's IN PROGRESS count on a day (section 10): every live seat whose
+-- [due − prep, due] covers the day, prep = the order's own prep_days, else its card's usual_prep_days when the card is
+-- Made to order, else 0 — so a booking with no preparation time counts on its due date exactly as schedule_pool_taken_on
+-- does (same rows, same released_at, same NULL = 1 pieces) + outside clients on that day. The Day bar reads this.
+CREATE OR REPLACE FUNCTION public.schedule_pool_in_progress_on(p_pool_id uuid, p_day date)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  SELECT (
+    (SELECT COALESCE(sum(COALESCE(ev.booked_quantity, 1)), 0) FROM public.vendor_schedule_pool_bookings pb
+       LEFT JOIN public.event_vendors ev ON ev.vendor_id = pb.event_vendor_id
+       LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = ev.service_id
+      WHERE pb.pool_id = p_pool_id
+        AND pb.released_at IS NULL
+        AND pb.booked_date >= p_day
+        AND pb.booked_date - COALESCE(ev.prep_days,
+                                      CASE WHEN vs.availability_style = 'order' THEN vs.usual_prep_days END,
+                                      0) <= p_day)
+    +
+    (SELECT count(*) FROM public.vendor_calendar_blocks b
+      WHERE b.pool_id = p_pool_id
+        AND b.block_source = 'external_client'
+        AND public.calendar_block_on_day(b.blocked_at, b.blocked_until, b.repeat_rule, b.repeat_until, p_day))
+  )::integer;
+$function$;
+REVOKE ALL ON FUNCTION public.schedule_pool_in_progress_on(uuid, date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.schedule_pool_in_progress_on(uuid, date) TO service_role;
 
 -- lock_shop_day_counts — one transaction-scoped lock per SHOP, taken by every write that grows a card's count
 -- (the yes, the piece quantity). A card's count spans its sharing cards, so a lock on one card row is not enough.
@@ -492,15 +567,16 @@ GRANT EXECUTE ON FUNCTION public.set_asked_quantity(uuid, int) TO authenticated,
 
 -- ── 7 · the Clients day bar reads the guard's own count ─────────────────────
 -- vendor_day_pool_taken(day) — every schedule of the CALLER's shop with schedule_pool_taken_on for that day: the
--- exact number acquire_schedule_pools refuses by. One call per screen (the shop's schedules are few).
+-- exact number acquire_schedule_pools refuses by — and `in_progress`, schedule_pool_in_progress_on (section 10), the
+-- number a Made to order schedule's bar says. One call per screen (the shop's schedules are few).
 CREATE OR REPLACE FUNCTION public.vendor_day_pool_taken(p_day date)
-RETURNS TABLE (pool_id uuid, taken integer)
+RETURNS TABLE (pool_id uuid, taken integer, in_progress integer)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
-  SELECT sp.pool_id, public.schedule_pool_taken_on(sp.pool_id, p_day, NULL)
+  SELECT sp.pool_id, public.schedule_pool_taken_on(sp.pool_id, p_day, NULL), public.schedule_pool_in_progress_on(sp.pool_id, p_day)
     FROM public.vendor_schedule_pools sp
    WHERE sp.vendor_profile_id IN (SELECT public.current_vendor_ids())
      AND sp.is_active;
@@ -1086,5 +1162,140 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.service_cards_unbookable_on(uuid[], date[], boolean) TO service_role;
+
+-- ── 11 · Copy to another branch carries the usual preparation time too ─────
+-- copy_vendor_service_to_branch: body identical to 20271351451190 (step 3) plus usual_prep_days, so a branch copy of a
+-- Made to order card is counted in progress the same way.
+-- ⚠ Any later migration that redefines it must keep availability_style, order_lead_days AND usual_prep_days.
+CREATE OR REPLACE FUNCTION public.copy_vendor_service_to_branch(
+  p_vendor_profile_id UUID,
+  p_source_service_id UUID,
+  p_branch_id         UUID,      -- NULL = the main location
+  p_price_php         INTEGER
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  s          public.vendor_services%ROWTYPE;
+  v_new_id   UUID := gen_random_uuid();
+  v_pool_id  UUID;
+  v_capacity INTEGER;
+  v_label    TEXT;
+  v_start    INTEGER;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role'
+     AND p_vendor_profile_id NOT IN (SELECT public.current_vendor_ids('admin')) THEN
+    RAISE EXCEPTION 'Only an admin of this shop can copy its cards.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  IF p_price_php IS NULL OR p_price_php <= 0 OR p_price_php > 100000000 THEN
+    RAISE EXCEPTION 'Set the price there before you copy.' USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT * INTO s FROM public.vendor_services
+   WHERE vendor_service_id = p_source_service_id AND vendor_profile_id = p_vendor_profile_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Service not found.' USING ERRCODE = 'no_data_found';
+  END IF;
+  IF s.branch_id IS NOT DISTINCT FROM p_branch_id THEN
+    RAISE EXCEPTION 'That card is already at this branch.' USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF p_branch_id IS NOT NULL THEN
+    SELECT branch_label INTO v_label FROM public.vendor_branches
+     WHERE branch_id = p_branch_id AND parent_vendor_profile_id = p_vendor_profile_id AND cancelled_at IS NULL;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'That branch is not one of yours.' USING ERRCODE = 'check_violation';
+    END IF;
+  ELSE
+    v_label := 'Main';
+  END IF;
+
+  -- "Price there" is the card's headline number on its own basis; the "from ₱X" anchor follows it the same way
+  -- parsePricingFields (services/actions.ts) computes it.
+  v_start := CASE COALESCE(s.pricing_basis, 'fixed')
+               WHEN 'per_pax'  THEN p_price_php * COALESCE(NULLIF(s.min_pax, 0), 1)
+               ELSE p_price_php
+             END;
+
+  PERFORM set_config('setnayan.branch_copy', 'on', true);
+  INSERT INTO public.vendor_services (
+    vendor_service_id, vendor_profile_id, category, title, branch_id, branch_copy_of, is_active,
+    starting_price_php, per_pax_price_php, hour_base_php,
+    crew_size, crew_meal_required, crew_meal_included, transport_included, transport_flat_fee_php,
+    package_inclusions, primary_photo_r2_key, showcase_video_r2_key, showcase_photo_r2_keys,
+    last_minute_end_months, last_minute_surcharge_pct, daily_capacity, is_linked_only,
+    added_pax_price_php, added_pax_block, recommended_lead_time_months, exclusive_perk_text,
+    is_demo, demo_batch_id, base_pax, coverage_id, pricing_basis, min_pax, min_hours, extra_hour_php,
+    includes_setnayan_gift, gift_pack_code, category_request_id,
+    availability_style, order_lead_days, usual_prep_days
+  ) VALUES (
+    v_new_id, s.vendor_profile_id, s.category, s.title, p_branch_id, s.vendor_service_id, s.is_active,
+    v_start,
+    CASE WHEN s.pricing_basis = 'per_pax'  THEN p_price_php ELSE s.per_pax_price_php END,
+    CASE WHEN s.pricing_basis = 'per_hour' THEN p_price_php ELSE s.hour_base_php END,
+    s.crew_size, s.crew_meal_required, s.crew_meal_included, s.transport_included, s.transport_flat_fee_php,
+    s.package_inclusions, s.primary_photo_r2_key, s.showcase_video_r2_key, s.showcase_photo_r2_keys,
+    s.last_minute_end_months, s.last_minute_surcharge_pct, s.daily_capacity, s.is_linked_only,
+    s.added_pax_price_php, s.added_pax_block, s.recommended_lead_time_months, s.exclusive_perk_text,
+    s.is_demo, s.demo_batch_id, s.base_pax, s.coverage_id, s.pricing_basis, s.min_pax, s.min_hours, s.extra_hour_php,
+    s.includes_setnayan_gift, s.gift_pack_code, s.category_request_id,
+    s.availability_style, s.order_lead_days, s.usual_prep_days
+  );
+
+  PERFORM set_config('setnayan.branch_copy', '', true);
+
+  INSERT INTO public.vendor_service_price_brackets (vendor_service_id, vendor_profile_id, min_pax, max_pax, price_php, sort_order)
+  SELECT v_new_id, vendor_profile_id, min_pax, max_pax, price_php, sort_order
+    FROM public.vendor_service_price_brackets WHERE vendor_service_id = s.vendor_service_id;
+
+  INSERT INTO public.vendor_service_inclusions (vendor_service_id, vendor_profile_id, label, worth_php, sort_order)
+  SELECT v_new_id, vendor_profile_id, label, worth_php, sort_order
+    FROM public.vendor_service_inclusions WHERE vendor_service_id = s.vendor_service_id;
+
+  INSERT INTO public.vendor_service_discounts (vendor_service_id, vendor_profile_id, discount_type, rate, unit, expires_at, conditions_md, sort_order, min_lead_months)
+  SELECT v_new_id, vendor_profile_id, discount_type, rate, unit, expires_at, conditions_md, sort_order, min_lead_months
+    FROM public.vendor_service_discounts WHERE vendor_service_id = s.vendor_service_id;
+
+  INSERT INTO public.vendor_service_addons (vendor_service_id, vendor_profile_id, label, from_price_php, sort_order)
+  SELECT v_new_id, vendor_profile_id, label, from_price_php, sort_order
+    FROM public.vendor_service_addons WHERE vendor_service_id = s.vendor_service_id;
+
+  INSERT INTO public.vendor_service_payment_schedules (vendor_service_id, vendor_profile_id, seq, label, amount_kind, percent_bps, amount_centavos, due_anchor, due_offset_days, cancellation_terms, downpayment_non_refundable, refund_window_days, no_show_forfeit)
+  SELECT v_new_id, vendor_profile_id, seq, label, amount_kind, percent_bps, amount_centavos, due_anchor, due_offset_days, cancellation_terms, downpayment_non_refundable, refund_window_days, no_show_forfeit
+    FROM public.vendor_service_payment_schedules WHERE vendor_service_id = s.vendor_service_id;
+
+  INSERT INTO public.vendor_service_time_slots (vendor_service_id, vendor_profile_id, slot_label, start_time, end_time, slot_capacity, display_order, is_active, seat_capacity)
+  SELECT v_new_id, vendor_profile_id, slot_label, start_time, end_time, slot_capacity, display_order, is_active, seat_capacity
+    FROM public.vendor_service_time_slots WHERE vendor_service_id = s.vendor_service_id;
+
+  -- Its own calendar: a new vendor-named pool, as many a day as the original's calendar allows.
+  SELECT p.daily_booking_capacity INTO v_capacity
+    FROM public.vendor_schedule_calendar_services c
+    JOIN public.vendor_schedule_pools p ON p.pool_id = c.pool_id
+   WHERE c.vendor_service_id = s.vendor_service_id;
+  INSERT INTO public.vendor_schedule_pools (vendor_profile_id, pool_label, calendar_name, daily_booking_capacity, is_vendor_created)
+  VALUES (
+    s.vendor_profile_id,
+    left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
+    left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
+    LEAST(GREATEST(COALESCE(v_capacity, 1), 1), 50),
+    TRUE
+  )
+  RETURNING pool_id INTO v_pool_id;
+  INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id)
+  VALUES (v_new_id, v_pool_id, s.vendor_profile_id);
+
+  RETURN v_new_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.copy_vendor_service_to_branch(UUID, UUID, UUID, INTEGER) IS
+  'Copy to another branch (owner 2026-11-14, item 10). Admin of the shop only. Copies the card''s AUTHORED fields and children, references the same photos, sets branch_copy_of (so it uses no card), gives it its own price and its own schedule pool. Never copies bookings, reviews, halls, agents or the public id.';
 
 COMMIT;

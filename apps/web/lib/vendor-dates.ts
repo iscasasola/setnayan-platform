@@ -431,7 +431,7 @@ export type DayGroup = {
   label: string;
   /** 🗓 The style its cards book by (step 4) — the heading's AV label tag; null = keeps today's look. */
   style?: AvailabilityStyle | null;
-  /** 📊 The approved Day bar (orders due · pieces out); null = a group that is not Made to order or by the piece. */
+  /** 📊 The approved Day bar (orders in progress · pieces out); null = a group that is not Made to order or by the piece. */
   bar?: CountBar | null;
   /** The group's right-hand word (prototype `.grp .r`): Full · Not available · "room for 1 more" · "Free all day". */
   right: { tone: 'ok' | 'bad' | 'warn'; word: string };
@@ -535,7 +535,7 @@ export function dayGroupsOf(
           : { tone: 'ok', word: 'Free all day' };
     const why = allDay[0]?.label?.trim();
     const bar = kind
-      ? countBarOf({ kind, name: kind === 'orders' ? 'Orders due' : (p.barName ?? p.label), taken: unreadQty ? null : taken, total: p.capacity })
+      ? countBarOf({ kind, name: kind === 'orders' ? 'Orders in progress' : (p.barName ?? p.label), taken: unreadQty ? null : taken, total: p.capacity })
       : null;
     return {
       poolId: p.poolId,

@@ -548,11 +548,11 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
 /**
  * 🗓 The Availability block's two fields (plan step 3). Null when the form did not carry the block (every older form —
  * they leave the stored style alone). '' = Not set. A Coming soon style is refused, never stored: the maker never
- * offers it, so only a tampered form sends one. `order_lead_days` 0..365; '' or 0 = no rule.
+ * offers it, so only a tampered form sends one. `order_lead_days` 0..365; '' or 0 = no rule. `usual_prep_days` 0..365.
  */
 function parseCardAvailability(
   formData: FormData,
-): { style: AvailabilityStyle | null; leadDays: number | null } | { problem: string } | null {
+): { style: AvailabilityStyle | null; leadDays: number | null; prepDays: number | null } | { problem: string } | null {
   if (formData.get('availability_present') !== '1') return null;
   const rawStyle = String(formData.get('availability_style') ?? '').trim();
   if (rawStyle !== '' && !isCardPickableStyle(rawStyle)) return { problem: 'That way of booking can’t be picked yet.' };
@@ -564,7 +564,15 @@ function parseCardAvailability(
     if (!Number.isInteger(d) || d < 0 || d > 365) return { problem: 'Order at least: a whole number of days, 0 to 365.' };
     leadDays = d;
   }
-  return { style, leadDays };
+  // 🛠 Made to order: "Usual preparation time" (owner 19 Nov, AVAILABILITY FINALIZED), 0..365; '' = none.
+  const rawPrep = String(formData.get('usual_prep_days') ?? '').trim();
+  let prepDays: number | null = null;
+  if (rawPrep !== '') {
+    const d = Number(rawPrep);
+    if (!Number.isInteger(d) || d < 0 || d > 365) return { problem: 'Usual preparation time: a whole number of days, 0 to 365.' };
+    prepDays = d;
+  }
+  return { style, leadDays, prepDays };
 }
 
 /**
@@ -2199,7 +2207,7 @@ export async function commitVendorService(formData: FormData) {
     if (availability) {
       const { error: availErr } = await supabase
         .from('vendor_services')
-        .update({ availability_style: availability.style, order_lead_days: availability.leadDays })
+        .update({ availability_style: availability.style, order_lead_days: availability.leadDays, usual_prep_days: availability.prepDays })
         .eq('vendor_service_id', cardId)
         .eq('vendor_profile_id', profile.vendor_profile_id);
       if (availErr) partProblems.push('how it books');

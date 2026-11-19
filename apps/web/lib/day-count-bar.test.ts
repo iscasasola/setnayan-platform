@@ -8,11 +8,11 @@ import assert from 'node:assert/strict';
 import { countBarKind, countBarOf, countBarFillPct, freeWords } from './day-count-bar';
 import { dayGroupsOf, dayAnswerOfGroups } from './vendor-dates';
 
-test('orders: "3 of 5 orders due · 2 free", one piece per order up to ten, the dot by how many are left', () => {
-  const b = countBarOf({ kind: 'orders', name: 'Orders due', taken: 3, total: 5 });
+test('orders: "3 of 5 in progress · 2 free", one piece per order up to ten, the dot by how many are left', () => {
+  const b = countBarOf({ kind: 'orders', name: 'Orders in progress', taken: 3, total: 5 });
   assert.ok(!b.unread);
   if (b.unread) return;
-  assert.equal(b.words, '3 of 5 orders due');
+  assert.equal(b.words, '3 of 5 in progress');
   assert.equal(b.free, 2);
   assert.equal(b.strip, 'pieces');
   assert.equal(b.dot, 'some');
@@ -40,7 +40,7 @@ test('a refused read draws "unread", never 0 out — and the answer line keeps t
 });
 
 test('the answer line sums the free counts', () => {
-  const o = countBarOf({ kind: 'orders', name: 'Orders due', taken: 3, total: 5 });
+  const o = countBarOf({ kind: 'orders', name: 'Orders in progress', taken: 3, total: 5 });
   const p = countBarOf({ kind: 'pieces', name: 'Chairs', taken: 320, total: 500 });
   assert.equal(freeWords([o, p]), '2 orders and 180 pieces free');
   assert.equal(freeWords([o, null]), null);

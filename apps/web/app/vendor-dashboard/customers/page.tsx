@@ -1421,9 +1421,13 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   ]);
   if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
   if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
-  const takenByPool = new Map(((poolTaken.data ?? []) as { pool_id: string; taken: number }[]).map((r) => [r.pool_id, r.taken]));
-  /** The guard's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
-  const dbTakenOf = (poolId: string): number | null => (poolTaken.error ? null : takenByPool.get(poolId) ?? 0);
+  const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number }[];
+  const takenByPool = new Map(takenRows.map((r) => [r.pool_id, r.taken]));
+  // 🛠 Made to order is counted IN PROGRESS across each order's preparation window (owner 19 Nov, AVAILABILITY FINALIZED).
+  const inProgressByPool = new Map(takenRows.map((r) => [r.pool_id, r.in_progress]));
+  /** The database's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
+  const dbTakenOf = (poolId: string, style: string | null | undefined): number | null =>
+    poolTaken.error ? null : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
   const cardById = new Map(
     ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
       c.vendor_service_id,
@@ -1514,7 +1518,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     today: todayIso,
     pools: pools.map((p) => {
       const st = poolStyle(p);
-      return { poolId: p.poolId, label: p.label, capacity: p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId) } : {}) };
+      return { poolId: p.poolId, label: p.label, capacity: p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
     }),
     bookings: bookedToday
       // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.

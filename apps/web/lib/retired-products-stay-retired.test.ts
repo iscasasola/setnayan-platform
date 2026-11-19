@@ -6,9 +6,8 @@
  * DESCRIBED on a public surface again (the front door, the site description, the homepage JSON-LD, /features,
  * /help, llms.txt, the sitemap, the in-app service cards and menus, the App Store product list).
  *
- * ⚠ ONE KNOWN EXCEPTION, held open on purpose: Event Ultra still GRANTS Patiktok (`EVENT_ULTRA_GRANTS`) and its
- * copy says so. Whether Ultra keeps it is an OWNER question (STATUS "Owner questions"), so a line that names Event
- * Ultra may still name Patiktok. When the owner answers, delete `ULTRA_EXCEPTION` and fix what this prints.
+ * Event Ultra no longer SAYS it includes Patiktok (owner 2026-11-20, *"Keep ₱9,990"*: Ultra loses it, keeps its
+ * price). Its read-side GRANT (`EVENT_ULTRA_GRANTS` + the two gifted-Ultra SQL functions) is a separate follow-up.
  *
  * Run: `pnpm test:unit` (from apps/web).
  */
@@ -34,12 +33,11 @@ import { IAP_PRODUCTS } from './iap/products';
 import { ALL_HELP_ARTICLES } from './help';
 import { renderLlmsTxt, LINKED_ROUTES } from './llms-txt';
 import { INPUT_FOR_GUARDS } from './llms-txt-guard-input';
-import { ADD_ONS as FRONT_DOOR_ADD_ONS } from '../app/_components/frontdoor/front-door-landing-data';
+import { ADD_ONS as FRONT_DOOR_ADD_ONS, ULTRA_PEEK, ultraMore } from '../app/_components/frontdoor/front-door-landing-data';
 
 const WEB = resolve(import.meta.dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const NAME_RE = new RegExp(`\\b(${RETIRED_PRODUCT_NAMES.join('|')})\\b`, 'i');
-const ULTRA_EXCEPTION = /Event Ultra|\bUltra\b/;
 
 /* ── 1 · NOT BUYABLE ──────────────────────────────────────────────────────── */
 
@@ -142,10 +140,29 @@ test('/features has no page for a retired product, and no page links one', () =>
   const rows = stripComments(read('lib/features-page.ts'))
     .split('\n')
     // The EXCLUDED register (rows deliberately NOT on the page, with why) may say it was retired.
-    .filter((l) => NAME_RE.test(l) && !ULTRA_EXCEPTION.test(l) && !/— retired 2026-11-20/.test(l));
+    .filter((l) => NAME_RE.test(l) && !/— retired 2026-11-20/.test(l));
   assert.deepEqual(rows, [], 'lib/features-page.ts still lists a retired product');
   const how = stripComments(read('app/features/_sections/_HowItWorks.tsx'));
   assert.ok(!NAME_RE.test(how), 'the /features "how it works" add-on list names a retired product');
+});
+
+test('/pricing prices no retired product, even before the catalogue row is retired', async () => {
+  const { ourPricesFrom } = await import('../app/(shell)/pricing/_pricing-reads');
+  const rows = [...RETIRED_PRODUCT_CODES].map(
+    (service_code) => ({ service_code, retail_price_php: 2490, billing_period: 'per_day' }) as unknown as Parameters<typeof ourPricesFrom>[0][number],
+  );
+  const prices = ourPricesFrom(rows, []);
+  assert.equal(prices.patiktok, null);
+  assert.equal(prices.musicMaker, null);
+});
+
+test('the Event Ultra plan copy never lists Patiktok (front door, plan offer, /pricing)', () => {
+  assert.ok(!NAME_RE.test(ultraMore({ plusCredits: 1, proCredits: 1, ultraCredits: 1, freePapic: 1 } as never).join(' ')));
+  assert.ok(!NAME_RE.test(ULTRA_PEEK.join(' ')));
+  const pricing = stripComments(read('app/(shell)/pricing/page.tsx'));
+  const ultraTip = pricing.match(/name="Event Ultra"\s*\n\s*tip=\{`([^`]*)`/)?.[1];
+  assert.ok(ultraTip, 'the /pricing Event Ultra tip moved — update this guard');
+  assert.ok(!NAME_RE.test(ultraTip), `/pricing Event Ultra tip: ${ultraTip}`);
 });
 
 test('the front door add-on tiles never name or link a retired product', () => {
@@ -166,16 +183,16 @@ test('the site description and the homepage structured data never name a retired
   assert.ok(!NAME_RE.test(home), 'app/page.tsx (homepage JSON-LD) names a retired product');
 });
 
-test('/help describes no retired product (except the Event Ultra line held for the owner)', () => {
+test('/help describes no retired product', () => {
   const hits = ALL_HELP_ARTICLES.filter(
-    (a) => NAME_RE.test(a.title) || (NAME_RE.test(a.body) && !ULTRA_EXCEPTION.test(a.body)),
+    (a) => NAME_RE.test(a.title) || NAME_RE.test(a.body),
   ).map((a) => a.slug);
   assert.deepEqual(hits, [], `help articles naming a retired product: ${hits.join(', ')}`);
 });
 
-test('llms.txt neither describes nor links a retired product (except Event Ultra’s own line)', () => {
+test('llms.txt neither describes nor links a retired product', () => {
   const body = renderLlmsTxt(INPUT_FOR_GUARDS);
-  const lines = body.split('\n').filter((l) => NAME_RE.test(l) && !ULTRA_EXCEPTION.test(l));
+  const lines = body.split('\n').filter((l) => NAME_RE.test(l));
   assert.deepEqual(lines, [], `llms.txt lines naming a retired product:\n${lines.join('\n')}`);
   for (const p of RETIRED_PUBLIC_PATHS) assert.ok(!LINKED_ROUTES.includes(p), `llms.txt links ${p}`);
   for (const s of RETIRED_FEATURE_SLUGS) assert.ok(!body.includes(`/features/${s}`), `llms.txt links /features/${s}`);

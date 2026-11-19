@@ -149,8 +149,7 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/pa3d',
   '/palogo',
   '/pawebsite',
-  '/patiktok',
-  '/pakanta',
+  // '/patiktok' and '/pakanta' left 2026-11-20 — retired; both now redirect to /features.
   // The mood board's public doorway — free tool, page added 2026-09-03.
   '/mood-board',
   // The other three free tools' doorways — pages added 2026-09-05.

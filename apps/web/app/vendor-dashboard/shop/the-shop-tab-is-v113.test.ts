@@ -59,7 +59,9 @@ test('3 · Makers = one row of tiles (Forms Maker + Specialized tools, Scanner f
   assert.match(PAGE, /<ShopMakers\s+scanners=\{scanners\}\s+formsBody=\{shopFormsBody\(sp\)\}/, 'the Forms tile has no body behind it (a dead tile)');
   assert.match(read('_components/shop-forms-body.tsx'), /return sp\.maker === 'forms' \? <ShopFormsBody \/> : null;/, 'the Forms body is read when the panel is shut');
   // The tools' lines are already on the page — opening them must not touch the address (a server re-draw of the Shop).
-  assert.match(MAKERS, /if \(k !== 'forms' && !params\.get\('maker'\)\) return;/, 'opening the tools costs a server round-trip');
+  // 🔁 UPDATED ON PURPOSE 2026-11-19 (Card Maker part 4): Templates is server-drawn like the Forms Maker, so it writes
+  // the address too — the tools still never do.
+  assert.match(MAKERS, /const writes = k === 'forms' \|\| k === 'templates';\s*if \(!writes && !params\.get\('maker'\)\) return;/, 'opening the tools costs a server round-trip');
   // A tile with no door is not drawn: no Tools Maker and no "Make your own" until the Tools Maker exists.
   assert.doesNotMatch(MAKERS + PAGE, /Tools Maker'|data-maker="tools-maker"|Make your own/, 'a Tools Maker tile is drawn with no maker behind it');
 });

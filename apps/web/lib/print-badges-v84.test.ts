@@ -28,7 +28,7 @@ const counts = (over: Partial<BadgeRewardFacts> = {}): BadgeRewardFacts => ({
   fiveStarReviews: 12,
   giftPoints: 160,
   trustedBy: 0,
-  invites: null,
+  invites: 0, // counted since Invite a supplier v3 (#7891, on main): 0 = read, nothing earned; null = unread
   ...over,
 });
 const keys = (b: PrintBadge[]) => b.map((x) => x.key);
@@ -54,7 +54,7 @@ test('years in business and the monthly awards have NO v84 badge — they never 
 test('only an EARNED tier prints — locked, unread and not-counted badges never do', () => {
   assert.deepEqual(keys(printBadgesV84({ verified: false, counts: counts({ completedBookings: 4, fiveStarReviews: 0, giftPoints: 0 }), seals: [] })), []);
   assert.deepEqual(keys(printBadgesV84({ verified: true, counts: null, seals: null })), ['verified'], 'unread counts: no tier, never a guess');
-  assert.ok(!keys(printBadgesV84({ verified: true, counts: counts({ invites: 999 }), seals: [] })).includes('invites'), 'Invites is not counted yet');
+  assert.ok(!keys(printBadgesV84({ verified: true, counts: counts({ invites: null }), seals: [] })).includes('invites'), 'an unread Invites count never prints');
 });
 
 test('the seals print in the flow order; Verified Partner replaces Setnayan Verified; one year per seal', () => {

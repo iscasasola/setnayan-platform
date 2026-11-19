@@ -1,0 +1,99 @@
+## 2026-11-14 · feat(gifts): G1 — buy-10-get-1 bundles, Papic counted in packs, one price per gift, Event Ultra at list
+
+Owner rulings, DECISION_LOG 2026-11-14: "BUY 10, GET 1 FREE" · "COUNTED IN PACKS" · "CONFIRMED — THE ONLY GIFT
+DISCOUNT IS THE 10+1" · "GIFT DESIGN APPROVED — WITH FABLE'S EIGHT PICKS" · "EVENT ULTRA BECOMES A SUPPLIER GIFT
+OPTION". Approved drawing: artifact QSMD9BaefarMRNQAnMFiND §1–5. Extends the shipped gift system; supersedes #7652
+(its Event Ultra kind is merged in, priced at list only).
+
+- 📦 Three gift bundles are admin-managed catalogue rows (`GIFT_BUNDLE_PAPIC_150/1K/3000`, ₱990 / ₱4,990 / ₱9,990),
+  each saying which pack it holds and how many (`bundle_of_service_code`, `bundle_quantity`, migration
+  `20271346218077_gift_bundles_and_papic_packs`, re-allocated 17 Nov — see below). The app reads them (`fetchShopGiftBundles` → `shopGiftBundlesFrom`);
+  the free pack and Admin › Pricing's "10 at today's list price · 1 free" note are worked out from the catalogue.
+  Every shop may buy bundles (pick 4); each pack still goes on a quote one at a time at list price (pick 5).
+- 💸 `gift_price_php` is not a price anywhere (kept in the table, never dropped): every single gift — Papic packs, Event
+  Plus / Pro / Ultra — is at `retail_price_php`, from stock or on the booking fee. `giftUnitPrice`, `tierPaysGiftPrice`,
+  `fetchVendorPaysGiftPrice`, `giftChargeAtGiftPrice` are gone; SQL `vendor_pays_gift_price` answers FALSE, so the
+  Setnayan gift on the booking-fee bill is charged at list for every shop (TS mirror agrees).
+- 🔢 Papic gift stock is counted in PACKS: `shop_gift_stock_entries.pack_code/packs`, `shop_gift_pack_stock_status`,
+  and `shop_gift_deliver_for_booking` gives per pack (refuses when THAT pack is short). Badge-reward Papic rows become
+  Papic 150 packs (trigger + one backfill of the 5 prod rows).
+- 💎 Event Ultra gift (from #7652) at list price; an Ultra gift upgrades a Plus/Pro event (pick 1); Plus + Pro never
+  make Ultra (pick 2); at most one plan gift per recommended set (pick 3, `recommendGifts`).
+- Screens: Shop › Promote › Your gifts (one row per Papic pack, bundle purchases) + Buy gifts sheet (bundles first,
+  singles at one price, "Free in this bundle", no struck "Price couples pay") · Offer Maker gift line + recommended
+  sets (one total) · quote "Gifts from you" (packs, Ultra lines/messages) · couple's quote gift note ("1 × Papic 1000 ·
+  Event Ultra") · Admin › Pricing (gift bundles under Bundles) · Admin › Gifts ledger (packs) · /for-suppliers plan
+  table (gifts at list price on every plan).
+- Guards: `lib/the-only-gift-discount-is-the-bundle.test.ts` (no `gift_price_php` read as a price; bundle counts from
+  the catalogue; the SQL bill agrees). DB: `a-supplier-gift-lands-once` tests 7–8, `the-gift-reaches-the-couple` ②.
+
+SPEC IMPACT: None — implements the 2026-11-14 DECISION_LOG rows above; no new ruling. Owner action surfaced in the PR:
+App Store Connect price points for the (not yet sellable) supplier gift IAP products were set from the retired gift
+price and should equal the list price.
+
+## 2026-11-15 · test(gifts): the gift-for-services rulings, checked against G1
+
+The owner's 15 Nov picks on `setnayan_gift_services_2026-11-14_fable` (DECISION_LOG "GIFT FOR SERVICES DESIGN — DECISIONS"), checked against this PR:
+- A plan gift and Papic may be combined within the 40% limit — the judge already sums every bought line. **New guard** in `lib/shop-gifts.test.ts`: a plan + Papic 150 that goes over the limit is refused, and Papic 150 beside a plan is not the always-allowed gift (sabotage: count Papic 150 as always allowed whenever present → two blocks red).
+- Event Ultra is a supplier gift at its ₱9,990 list price. Already built.
+- Papic 150 is always allowed. Already built and guarded.
+- A stocked gift lands at the couple's first payment, as today, and stock bought ahead counts toward the limit. Already built.
+- Not in this PR, and named in its body: the design's own scope is the SETNAYAN gift added at booking ("Not touched: the supplier's own shop gifts"). That covers several pieces, a build of its own:
+  - the couple spends a peso gift on Papic or a plan, and it arrives when the supplier's bill (fee + gift) is paid;
+  - "N free Papic photos" retires;
+  - "Most credits for your limit" shows only when the gift is all Papic;
+  - Admin › Gifts gets a Setnayan gifts view.
+
+SPEC IMPACT: None — checks this PR against DECISION_LOG 2026-11-15 as written.
+
+## 2026-11-17 · feat(gifts): main merged in; one Ultra migration; 10 + 1 bundles for every gift; Event Ultra buyable
+
+Owner rulings 17 Nov (build-sessions/CLOUD-BRIEFS-2026-11-17.md § 4): everyone pays the regular (list) price; Event
+Ultra can be bought; 10 + 1 bundles for ALL gifts; every ₱ read from `platform_retail_catalog_v2`.
+
+- 🔀 `origin/main` merged in (21 file conflicts, both sides kept; `ugat/screens.generated.json`, the exposure baseline
+  and `template-score.baseline.json` regenerated by their writers, never hand-merged).
+- 🗄 ONE Ultra migration: this PR's unapplied `20271345709071_supplier_gifts_event_ultra.sql` is deleted — main's
+  `20271348181787_black_diamond_gives_event_ultra.sql` (applied in prod) is the truth. The seven functions and five
+  CHECKs it shares with the deleted copy were diffed: same behaviour, nothing carried over. Its changelog
+  `gift-event-ultra.md` is deleted with it.
+- 🗄 The bundles migration is re-allocated forward as `20271351048946_gift_bundles_for_every_gift_and_papic_packs.sql`
+  (old unapplied `20271346218077` deleted). Changed from the 14 Nov file:
+  - one 10 + 1 bundle row per gift — Papic 150 / 1000 / 3000 and Event Plus / Pro / Ultra — seeded at
+    **10 × the gift's own `retail_price_php`, read at apply time** (no ₱ typed; ON CONFLICT DO NOTHING, admin-owned after);
+  - a badge-reward Papic row takes the pack its credits name (`shop_gift_papic_pack_of_credits`), not always Papic 150
+    — main's reward ladder now pays Papic 1000 / 3000 too. `shop_gift_smallest_papic_pack` is not created.
+- 💎 Event Ultra is buyable: `SHOP_GIFT_EARNED_ONLY_CODE`, `SHOP_GIFT_EARNED_ONLY_CODES` and `SHOP_GIFT_PLAN_CODE` are
+  gone; `SHOP_GIFT_UNLOCK_CODE` holds all three plans and `shopGiftBuyable` is true for every giftable code.
+- 📦 Plan bundles work end to end: `shopGiftBundlesFrom` keeps a bundle of any gift on sale (Papic first, then the plans);
+  the buy action resolves a bundle before choosing the Papic or plan path; a plan bundle is not hidden by the Papic switch.
+- Guards: `the-only-gift-discount-is-the-bundle` 4 (six seeds, priced 10 × list, no typed ₱); `event-ultra-is-a-gift`
+  reads main's Ultra migration and expects Black Diamond to pay Ultra; DB `a-supplier-gift-lands-once` 7 (a Papic 1000
+  reward lands as Papic 1000) and 8 (six bundles at 10 × list).
+- Not built (on hold for the owner): "0 stock blocks booking"; the multi-item cart (a later branch on top of this one).
+
+SPEC IMPACT: None — implements the 17 Nov rulings as written in the brief; no new ruling.
+
+## 2026-11-18 · feat(gifts): one gift per service card on a quote
+
+Owner, 17 Nov: "should it be 1 gift per card used? so if they have 2 service cards, thos are 2 gifts?" → "Just counted".
+A quote may hold as many shop gifts as the service cards it is built from, never fewer than one; the 40% limit stays
+on the whole quote. `giftCapFor` + a `too_many` verdict in `judgeQuoteGifts`; the composer hides "＋ Add a gift" at the
+cap; `writeQuoteShopGifts` re-counts the shop's own ACTIVE `vendor_services` rows from the sent card ids, so a crafted
+list cannot raise the cap. Guard: `lib/a-quote-holds-one-gift.test.ts`.
+
+SPEC IMPACT: specs DECISION_LOG a74f265b (logged by the controller); its OPEN "tied or count" is answered "count only".
+
+### Opus review fixes (2026-11-18, wave 4)
+- 🚨 **No gift given twice.** The per-pack door counted "given" only from rows that name a pack. Papic gifts given before this file name none, so the next call would have given those events their gift again. The migration now backfills a 'given' row's pack when its quote held one pack. The door answers 'already' for any event that still has a credit-only 'given' row. New DB test: `a-supplier-gift-lands-once` test 9.
+- **ALTER before any DML.** The seed INSERT of the bundle rows now runs after every ALTER TABLE in the file. This is the 55006 deploy-blocker shape from 2026-11-01.
+- The migration moves to the forward prefix `20271351048946`. It was never applied.
+- The six `GIFT_BUNDLE_*` rows stay off `fetchV2CustomerCatalog`, so they never show on /pricing as couple products and never appear in the discount or free-window pickers.
+- A failed bundle read reaches the Buy sheet as "Couldn't load the Buy 10, get 1 free bundles". Before, it rendered as no bundles on sale.
+- 🏅 **Badge-reward Papic is kept per pack** (Gold = Papic 1000, Ruby = Papic 3000). There is a new read, `shop_gift_reward_pack_status`, in this migration: earned packs come from the badge-reward rows the trigger names, and used packs are the live or delivered `from_badge_reward` lines. `allocateRewardLines` lets a Papic line draw one pack from its OWN pack's reward stock, never the smallest pack's and never counted in credits. So a Gold shop's Papic 1000 line now sits outside the 40% limit, and a Papic 1000 reward no longer exempts six Papic 150s that delivery would then refuse as short. Each Papic row's 🏅 chip shows that pack's own reward count. A failed per-pack read is null, so no line is treated as a reward. Tests: `shop-gifts.test.ts`, `badge-rewards.test.ts`, and `a-supplier-gift-lands-once` test 10.
+
+Review fix (19 Nov): **an own-client gift leaves the stock per pack.** Main's `own_client_gift_give` wrote its Papic
+row with no pack, and the pack ledger reads only `SUM(packs)` — so a pack given to an own client stayed in "Your
+gifts" and could be given again on a quote. The door is re-created per pack in this PR's migration (a Papic line
+names its pack; the pack must be in bought stock as that pack; one `own_client` row per pack), earlier `own_client`
+rows are backfilled with their pack, and the app's gift step counts Papic per pack too. DB tests 11–13 added.

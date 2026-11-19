@@ -220,7 +220,7 @@ function theOneEventRead(admin: AdminClient, slug: string) {
  * viewer and the rev is read in the same request. Only the guest page itself
  * opens the rest of its reads to the cache (`openSharedEventReads`).
  */
-async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eventId: string; rev: number } | null> {
+async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eventId: string; rev: number } | 'none' | null> {
   try {
     const { data, error } = await admin.rpc('event_public_stamp', { p_slug: slug });
     if (error) {
@@ -228,6 +228,12 @@ async function eventStampBySlug(admin: AdminClient, slug: string): Promise<{ eve
       logQueryError('loadEventShell stamp', error, { slug }, 'graceful_degrade');
       return null;
     }
+    // ⚡ NO EVENT HAS THIS ADDRESS (wave 5 speed pass, 2026-11-15): the stamp ANSWERED with zero rows, and it asks
+    // exactly the question the direct read asks (`events.slug ILIKE p_slug`, `20271275959355`) — so the direct read
+    // could only come back empty too. Say so now instead of asking again: one round trip fewer on every shop address
+    // (a shop is reached only after this misses) and every 404. A refused or failed stamp is still `null` → the direct
+    // read, exactly as before; two matching rows still go to the direct read, which answers that case as it always did.
+    if (Array.isArray(data) && data.length === 0) return 'none';
     if (!Array.isArray(data) || data.length !== 1) return null;
     const row = data[0] as { event_id?: unknown; rev?: unknown };
     const rev = typeof row.rev === 'string' ? Number(row.rev) : row.rev;
@@ -244,6 +250,7 @@ async function readEventShellRow<R extends { data: unknown; error: { message: st
   direct: () => Promise<R>,
 ): Promise<Omit<R, 'held'>> {
   const stamp = await eventStampBySlug(admin, slug);
+  if (stamp === 'none') return { data: null, error: null } as unknown as Omit<R, 'held'>;
   let read: R;
   if (!stamp) read = await direct();
   else {

@@ -28,6 +28,9 @@ import { DesktopUpdaterListener } from './_components/desktop-updater-listener';
 /* ✕ The app-wide clear button loads after the page, never in anybody's first load (the Maker's first-load budget): it draws
    nothing until a box is focused with words in it. */
 const GlobalClearField = dynamic(() => import('./_components/global-clear-field').then((m) => m.GlobalClearField), { ssr: false });
+/* 🎞 The offline bar and Glide's one listener (MOTION_STANDARD § 4 #28 / #12) load the same way: after the page, in a
+   chunk of their own — they draw nothing until the connection drops or a rail is scrolled. */
+const MotionMounts = dynamic(() => import('./_components/motion-mounts').then((m) => m.MotionMounts), { ssr: false });
 
 export function Providers({
   children,
@@ -113,6 +116,7 @@ export function Providers({
         <GlobalHaptics />
         {/* ✕ in every type box while it is typed into (owner 2026-10-31) — `components/clear-field.tsx`. */}
         <GlobalClearField />
+        <MotionMounts />
         {/*
           App-wide "drag me" hint — one client effect adds a periodic left-right
           knob shake to opted-in line sliders (`.sn-range` / `[data-sn-hint]`)

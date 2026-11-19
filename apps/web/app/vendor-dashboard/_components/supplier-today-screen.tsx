@@ -51,6 +51,7 @@ export function SupplierTodayScreen({
   setup = null,
   hero = null,
   earned = null,
+  v2 = null,
 }: {
   view: SupplierTodayView;
   outcome: TodayOutcome | null;
@@ -80,6 +81,8 @@ export function SupplierTodayScreen({
    * 🔒 app/vendor-dashboard/_components/the-earned-line-sits-under-the-photo.test.ts
    */
   earned?: ReactNode;
+  /** 📋 Today v2 (owner 18 Nov, `Today, one task`): the cover's line, the Next badge card, the rows and the grow parts. */
+  v2?: { sub: ReactNode; nextBadge: ReactNode; needsRows: ReactNode; grow: ReactNode } | null;
 }) {
   /*
     📌 ONE PINNED ROW, AND IT IS "NEEDS YOU TODAY" (owner 10 Nov on the Supplier Menu Plan, Today scrolled: *"Needs you
@@ -102,6 +105,7 @@ export function SupplierTodayScreen({
       now={now}
       hero={hero}
       gear={setup ? null : <TodaySettings cover />}
+      {...(v2 ? { sub: v2.sub } : {})}
     />
   );
   const statsTop = <TodayStats stats={view.stats} />;
@@ -135,6 +139,9 @@ export function SupplierTodayScreen({
         }
         thumb={thumb}
         minis={<TodayShopMinis stats={view.stats} />}
+        needsRows={v2?.needsRows ?? null}
+        nextBadge={v2?.nextBadge ?? null}
+        grow={v2?.grow ?? null}
         // WHAT YOU OWE SETNAYAN — every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the
         // payment screen to pay us"), as rows of Needs you today, and the lock said once under them. Renders nothing
         // when there is no unpaid fee, and nothing when the read failed — an unread bill list is not "you owe nothing".

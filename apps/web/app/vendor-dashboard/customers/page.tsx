@@ -109,8 +109,8 @@ import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
+import { ClientsEmptyAdd, ClientsSearch } from './_components/clients-search';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { SearchBox } from '@/app/_components/search-box';
 import { ThumbRow } from '@/components/thumb-row';
 import { rosterView } from './roster-view';
 import { DatesFolds } from './_components/dates-folds';
@@ -1081,17 +1081,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         name="events"
         label="Customer tools"
         row={
+          <>
+          {/* ➕ SEARCH OR ADD (owner 18–19 Nov 2026): no ＋ Add beside the search — the search is the add
+              (`clients-search.tsx`); the sheet it opens is mounted here, without a button of its own. */}
+          <ClientsEmptyAdd />
           <ThumbRow
             name="customers"
             field={{
               node: (
-                <SearchBox
-                  placeholder="Search clients"
+                <ClientsSearch
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
-                  hash="#customers"
-                  data="customers"
-                  tour="customers-search"
+                  matches={narrowed.length > 0}
                 />
               ),
             }}
@@ -1112,21 +1113,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 ),
               },
             ]}
-            action={{
-              node: (
-                <OutsideClientAdd
-                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-                  action={importExternalClient}
-                  startOpen={search.add === 'outside'}
-                  today={todayIso}
-                  setupHref="/vendor-dashboard/customers?gear=1"
-                  tour="customers-add"
-                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
-                  seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
-                />
-              ),
-            }}
           />
+          <OutsideClientAdd
+            trigger={false}
+            pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+            action={importExternalClient}
+            startOpen={search.add === 'outside'}
+            today={todayIso}
+            setupHref="/vendor-dashboard/customers?gear=1"
+            halls={pools.length > 0 && pools.every((p) => p.isHall)}
+            seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
+          />
+          </>
         }
       />
     </>

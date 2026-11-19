@@ -39,8 +39,11 @@ import {
   eventAlbums,
   inspirationAlbums,
   serviceAlbums,
+  type EventFacts,
   type PortfolioGroups,
 } from '@/lib/portfolio-groups';
+import { readTagEventLinesOrUnread } from '@/lib/inspiration-tags.server';
+import type { AlbumStats } from '@/lib/portfolio-albums';
 
 /**
  * YOUR COLLECTIONS — one count per store, read where each already lives (simpler supplier dashboard step 5;
@@ -96,6 +99,18 @@ export type CollectionsData = {
   best: BestWorkPhoto[] | null;
   /** 🖼 The supplier's stored section order (`portfolio_section_order`); `null` = unread → the shipped order. */
   sectionOrder: string[] | null;
+  /**
+   * 🖼 ROW 1's numbers (Portfolio, simpler — owner 2026-11-19): couples' opens per service card and the page gallery's
+   * photo views summed — the two counters the app ALREADY has, never a third — and when the shop last opened each album
+   * (`vendor_album_opens`). Each part is `null` when its read was refused: said, never drawn as 0.
+   */
+  albumStats: AlbumStats;
+  /**
+   * 📍 SEARCH BY PLACE COULD NOT BE FED: the events' venues and booked cards (or the looks' tagged events) were refused.
+   * The albums still draw, found by name — and the screen SAYS the search is by name only, instead of a place search
+   * that silently misses its matches.
+   */
+  placesUnread: boolean;
 };
 
 /** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
@@ -333,6 +348,93 @@ export async function loadCollectionsData(
 
   // ⭐ Your best work — the per-photo views the public page already counts (one read, the hero's own reader).
   const viewsRead = readPortfolioPhotoViews(supabase, vendorId);
+  // 📍 WHERE AND WHAT (owner 2026-11-19, Search by place): each album event's venue and address, and which of the
+  // shop's cards were booked at it — the SAME pairs Their work reads (`card_portfolio_booked_events`, service role;
+  // the cards asked about are this shop's own, read above with its own client). Unread → null: albums as shipped.
+  const eventFactsRead: Promise<{ byEvent: Map<string, EventFacts>; byService: Map<string, string> } | null> = Promise.all([cardsRead, albumsRead])
+    .then(async ([c, a]) => {
+      // 🔑 The cards were not read: which cards were booked where is UNKNOWN — unread, never "no card was booked there".
+      if (c === null) return null;
+      const albumEvents = [...new Set((a?.shown ?? []).map((p) => p.eventId))];
+      const cardIds = (c?.perCard ?? []).map((x) => x.id);
+      const titleOf = new Map((c?.perCard ?? []).map((x) => [x.id, (x.title ?? '').trim()] as const));
+      const admin = createAdminClient();
+      const pairsRes = cardIds.length ? await admin.rpc('card_portfolio_booked_events', { p_service_ids: cardIds }) : { data: [], error: null };
+      if (pairsRes.error) {
+        logQueryError('VendorCollections.eventPairs', pairsRes.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const pairs = (pairsRes.data ?? []) as Array<{ vendor_service_id: string; event_id: string }>;
+      const eventIds = [...new Set([...albumEvents, ...pairs.map((p) => p.event_id)])];
+      if (eventIds.length === 0) return { byEvent: new Map<string, EventFacts>(), byService: new Map<string, string>() };
+      const evRes = await admin.from('events').select('event_id, venue_name, venue_address').in('event_id', eventIds);
+      if (evRes.error) {
+        logQueryError('VendorCollections.eventPlaces', evRes.error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const byEvent = new Map<string, EventFacts>();
+      for (const e of (evRes.data ?? []) as Array<{ event_id: string; venue_name: string | null; venue_address: string | null }>)
+        byEvent.set(e.event_id, { venue: e.venue_name?.trim() || null, address: e.venue_address?.trim() || null, services: [] });
+      const places = new Map<string, Set<string>>();
+      for (const p of pairs) {
+        const f = byEvent.get(p.event_id);
+        if (!f) continue;
+        const title = titleOf.get(p.vendor_service_id);
+        if (title && !f.services.includes(title)) f.services.push(title);
+        const set = places.get(p.vendor_service_id) ?? new Set<string>();
+        for (const w of [f.venue, f.address]) if (w) set.add(w);
+        places.set(p.vendor_service_id, set);
+      }
+      return { byEvent, byService: new Map([...places.entries()].map(([id, set]) => [id, [...set].join(' · ')] as const)) };
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.eventFacts', err, { vendorId }, 'graceful_degrade');
+      return null;
+    });
+  // 📍 An inspiration look tagged from an event's files says its event ("Wedding · Taal Vista Hotel · Sep 2026").
+  // `'unread'` = the read itself failed (said on screen); null = there are simply no looks to tag.
+  const lookLinesRead: Promise<Map<string, string> | null | 'unread'> = looksRead
+    .then(async (looks) => {
+      if (!Array.isArray(looks) || looks.length === 0) return null;
+      // 🔑 The RPC RESOLVES with `{ error }` — it does not throw — so the refusal is `null` here, never the `catch` below.
+      const lines = await readTagEventLinesOrUnread(supabase, looks.map((l) => l.id));
+      if (lines === null) return 'unread' as const;
+      return new Map([...lines.entries()].filter(([, v]) => v.line).map(([id, v]) => [id, v.line!] as const));
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.lookLines', err, { vendorId }, 'graceful_degrade');
+      return 'unread' as const;
+    });
+  // 🖼 Row 1 (Portfolio, simpler): couples' opens per service card — the SAME count Shop › Analytics draws
+  // (`service_card_opens`, 12 months) — and the albums this shop opened last. Each fails on its own into null.
+  const cardOpensRead: Promise<Record<string, number> | null> = Promise.resolve(supabase.rpc('service_card_opens', { p_vendor_profile_id: vendorId }))
+    .then(({ data, error }) => {
+      if (error) {
+        logQueryError('VendorCollections.cardOpens', error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as Array<{ vendor_service_id: string; opens_12m: number | string | null }>) out[r.vendor_service_id] = Number(r.opens_12m ?? 0);
+      return out;
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.cardOpens', err, { vendorId }, 'graceful_degrade');
+      return null;
+    });
+  const albumOpensRead: Promise<Record<string, string> | null> = Promise.resolve(
+    supabase.from('vendor_album_opens').select('album_kind, album_key, opened_at').eq('vendor_profile_id', vendorId).order('opened_at', { ascending: false }).limit(200),
+  )
+    .then(({ data, error }) => {
+      if (error) {
+        logQueryError('VendorCollections.albumOpens', error, { vendorId }, 'graceful_degrade');
+        return null;
+      }
+      return Object.fromEntries(((data ?? []) as Array<{ album_kind: string; album_key: string; opened_at: string }>).map((r) => [`${r.album_kind}:${r.album_key}`, r.opened_at]));
+    })
+    .catch((err) => {
+      logQueryError('VendorCollections.albumOpens', err, { vendorId }, 'graceful_degrade');
+      return null;
+    });
   // Started with the rest, read at the cap below (its own select — `readPortfolioAllowance`).
   const allowanceRead = readPortfolioAllowance(supabase, vendorId);
   // 💳 The shop wallet the portfolio spends past its free room (owner 2026-10-23). Unread → null, never 0.
@@ -386,7 +488,7 @@ export async function loadCollectionsData(
 
   const saved = pageSavedFrom(micrositeFromRow(own), (profile.services ?? []) as string[], portfolioRefs);
   // 🎁 The shop's own allowance (a personal invite's 100, kept after the gift) lifts the base — `portfolioPhotoCap`.
-  const [allowance, walletBalance, views] = await Promise.all([allowanceRead, walletRead, viewsRead]);
+  const [allowance, walletBalance, views, cardOpens, albumOpens, eventFacts, lookLines] = await Promise.all([allowanceRead, walletRead, viewsRead, cardOpensRead, albumOpensRead, eventFactsRead, lookLinesRead]);
   const portfolioCap = portfolioPhotoCap(
     (own?.tier_state as string | null | undefined) ?? null,
     allowanceForCap(allowance),
@@ -425,6 +527,13 @@ export async function loadCollectionsData(
     igUnavailable: ig.unavailable,
     libraryOpen: access.allowed,
     best: bestWorkOf(portfolioRefs, portfolioDisplayMap, views),
+    placesUnread: eventFacts === null || lookLines === 'unread',
+    albumStats: {
+      serviceOpens: cardOpens,
+      // Only the photos on the page right now count toward its album (a removed photo's views are not this album's).
+      pageViews: views === null ? null : portfolioRefs.reduce((sum, k) => sum + (views.get(k) ?? 0), 0),
+      opened: albumOpens,
+    },
     sectionOrder: own && Array.isArray(own.portfolio_section_order) ? (own.portfolio_section_order as string[]) : null,
     groups: {
       events:
@@ -435,9 +544,10 @@ export async function loadCollectionsData(
               // The album's own screen (Put on my page, import) opens only while the Papic flag is on.
               albumHref: papicOn ? (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` : null,
               unlisted: await unlistedRead,
+              facts: eventFacts?.byEvent ?? null,
             }),
-      services: cardAlbums === null ? null : serviceAlbums(cardAlbums),
-      inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks),
+      services: cardAlbums === null ? null : serviceAlbums(cardAlbums, eventFacts?.byService ?? null),
+      inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks, lookLines === 'unread' ? null : lookLines),
       stories:
         stories === null
           ? null

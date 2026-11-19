@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ChatHost } from '@/lib/chat-hosts';
 import { readCoupleChatStripPeople } from '@/lib/chat-strip-people.server';
+import { readWhisperCoHostIds } from '@/lib/chat-whisper.server';
 import { fetchCoupleThreads, fetchMessages, fetchMessagesMasked, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -558,6 +559,19 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       })
     : Promise.resolve(undefined);
 
+  // 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19): the OTHER hosts in this chat now — who a whisper would reach. NULL =
+  // this viewer is not a host in the chat (a coordinator, a host who left) or the read failed → no whisper is offered.
+  // Only what is drawn: the send core reads the list again at Send, and the database decides who can read the line.
+  const whisperCoHostsRead: Promise<string[] | null> = readWhisperCoHostIds(decisionAdmin, {
+    threadId,
+    eventId: thread.event_id,
+    vendorProfileId: thread.vendor_profile_id,
+    viewerId: user.id,
+  }).catch((e: unknown) => {
+    console.error('[couple thread] whisper co-hosts read failed', e);
+    return null;
+  });
+
   // 📌 THE PINS' OWN FACTS (Build 3 round 2), read as this host / coordinator: payment due · call time · access ask ·
   // coordinator Agree · quote expired · open decisions. Money is "₱ — hosts only" for a coordinator without Budget &
   // payments = View, stripped on the server (`readChatPinFacts`). A failure drops the pins, never the page.
@@ -623,6 +637,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // Owner 16 Nov: the Book confirm on the quote card tells the couple, never blocks (`AccordionLockButton`).
   if (quoteLockTarget) quoteLockTarget.notYetVerified = shopNotYetVerified;
   const chatPins = await chatPinsRead;
+  const whisperCoHostIds = await whisperCoHostsRead;
   const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
   // or a change the supplier asked for, within a week of the day (its key `adjustment:<id>` is the server's, so its
@@ -876,6 +891,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} booked={THREAD_STAGE_HAS_AGREEMENT[threadStage]} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
+                  // 🤫 Drag the box right to whisper to the co-hosts — a host in this chat only (19 Nov).
+                  whisper={whisperCoHostIds ? { supplierName: vendorLabel, coHosts: whisperCoHostIds.length } : null}
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (
@@ -969,6 +986,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             currentUserId={user.id}
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
+            whisperCoHostIds={whisperCoHostIds}
             counterpartyLabel={vendorLabel}
             shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}

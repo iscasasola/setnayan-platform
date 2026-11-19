@@ -59,7 +59,7 @@ export const SUPPLIER_2_TOPICS: HelpTopic[] = [
         // customers/_components/outside-client-add.tsx "Add a booking from outside", "Holds the day so nothing double-books it."
         slug: 'supplier-add-outside-booking',
         title: 'Suppliers: can I add a booking that didn’t come through Setnayan?',
-        body: 'Yes. In Clients tap ＋ Add › Add a booking from outside. It holds that day on one of your schedules so nothing double-books it, and it costs nothing. Make a schedule first if you have none.',
+        body: 'Yes. In Clients tap the search, then Add a booking from outside — or type their name and tap 🔍, which turns into ＋. It holds that day on one of your schedules so nothing double-books it, and it costs nothing. Make a schedule first if you have none.',
       },
       {
         // lib/vendor-thread-tools.ts key 'log-outcome' "Mark won or lost"

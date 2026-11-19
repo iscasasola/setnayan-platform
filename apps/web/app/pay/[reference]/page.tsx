@@ -6,6 +6,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { actionButtonClass } from '@/components/action-button-class';
 import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
+import { Celebrate } from '@/app/_components/celebrate';
 import { payPath } from '@/lib/pay-path';
 import { RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -339,6 +340,13 @@ export default async function PayPage({ params, searchParams }: Props) {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
         <section className="p-6 text-center">
+          {/* 🎉 Payment received: the ONE Celebrate burst (MOTION_STANDARD § 4 #23) — once on this device for this
+              order; afterwards the gold ✓ simply stands. A cancelled order gets none. */}
+          {payable.status === 'settled' ? (
+            <div className="mb-3 flex justify-center">
+              <Celebrate moment="payment" onceKey={reference} scope="ever" label="Payment received" />
+            </div>
+          ) : null}
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{payable.status === 'settled' ? 'Paid' : 'Closed'}</p>
           <h1 className="mt-2 text-xl font-semibold text-ink">{payable.title}</h1>
           <p className="mt-3 text-sm text-ink/70">

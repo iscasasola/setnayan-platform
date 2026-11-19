@@ -21,6 +21,7 @@ import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
 import Image from 'next/image';
 import { cookies } from 'next/headers';
 import { after } from 'next/server';
+import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store, CircleAlert } from 'lucide-react';
@@ -76,7 +77,7 @@ import {
   TRUSTED_BY_UNREADABLE,
   type TrustedByRelationship,
 } from '@/lib/vendor-trusted-by';
-import { PARTNERSHIP_PUBLIC_LABEL, PARTNERSHIP_PUBLIC_HINT } from '@/lib/vendor-partnership-kinds';
+import { ORIGIN_TAG, trustedByHint, trustedByLine } from '@/lib/supplier-invite';
 import {
   ServicesGallery,
   type ServiceCard,
@@ -416,6 +417,8 @@ export type PublicVendorRow = {
   find_locked_at?: string | null;
   fraud_suspended_at?: string | null;
   fraud_banned_at?: string | null;
+  /** ⏸ Shop status — a paused shop's page takes no new ask or booking (`isShopBookable`). */
+  paused_at?: string | null;
   fraud_tombstoned?: boolean | null;
 };
 
@@ -526,7 +529,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,paused_at,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -537,7 +540,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned|paused_at)/i.test(
       error.message,
     )
   ) {
@@ -582,7 +585,7 @@ export async function vendorMetadataBySlug(slug: string) {
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.
   if (!vendor || shopPageGate(vendor, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
-    return { title: 'Setnayan supplier', robots: { index: false, follow: false } };
+    return { title: 'Supplier', robots: { index: false, follow: false } };
   }
   // 🧪 A demo shop's page is PUBLIC now (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS") but it is NEVER
   // indexed: a search engine must not list a demo as a supplier (plan § 6(a) — "noindex stays"). The sitemap keeps
@@ -625,6 +628,10 @@ export async function vendorMetadataBySlug(slug: string) {
     is_verified: vendor.verification_state === 'verified',
   });
   const titleText = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Setnayan supplier${suffix}`;
+  // The DOCUMENT title goes through the root layout's `template: '%s · Setnayan'`, so it must not carry the brand
+  // itself ("NAME · Setnayan supplier · Setnayan" read it twice — W5-B5). The share cards (openGraph/twitter) do NOT
+  // go through the template, so they keep the full `titleText`.
+  const docTitle = `${displayLabel}${isDemoShop ? ` ${DEMO_ONLY_LABEL}` : ''} · Supplier${suffix}`;
   const descText = vendor.tagline ?? `${displayLabel} on Setnayan.`;
   // E1 (2026-09-11) — "a shop's link preview never breaks". This USED to
   // resolve `vendor.logo_url` straight into a presigned R2 URL
@@ -646,7 +653,7 @@ export async function vendorMetadataBySlug(slug: string) {
     alt: displayLabel,
   };
   return {
-    title: titleText,
+    title: docTitle,
     description: descText,
     // Two rules, two lines — each is its own ruling and its own guard (demo: 2026-11-06; not yet verified: 2026-11-07).
     ...(isDemoShop ? { robots: { index: false, follow: false } } : {}),
@@ -1061,6 +1068,11 @@ export async function renderVendorBySlug({
     boothTierCanBrand(effectiveTierState) &&
     vendor.verification_state === 'verified';
   const isComingSoon = visibility === 'coming_soon';
+  // ⏸ Paused (by the shop or by Setnayan) or closed: the page says so FIRST, in the owner's own words (16 Nov, "its
+  // website and QR show "This shop is paused"") — never the verification line, which would be false for a verified
+  // shop. One source: SHOP_PAUSED_LINE (lib/shop-status.ts). A closed shop's page normally opens for nobody
+  // (`shopPageGate`); the arm is here so a future gate change cannot make it read as "finishing verification".
+  const shopPaused = isShopPaused(vendor) || visibility === 'archived';
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
   // `image` below both consume it. See resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
@@ -1554,21 +1566,6 @@ export async function renderVendorBySlug({
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
   const showTrustedBy = isSectionVisible(pageSections, 'trusted_by');
-  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
-  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
-  const trustedByTiles: TrustedByTile[] = showTrustedBy
-    ? await Promise.all(
-        trustedBy.map(async (v) => ({
-          id: v.vendorProfileId,
-          name: v.displayName,
-          href: v.href,
-          kindLabel: PARTNERSHIP_PUBLIC_LABEL[v.relationshipType],
-          kindHint: PARTNERSHIP_PUBLIC_HINT[v.relationshipType],
-          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
-          initials: shopInitials(v.displayName, 2, 'SN'),
-        })),
-      )
-    : [];
   // 🧹 RW-267 (re-walk 14 Nov 2026): one chip per service — "Lights & Sound" was listed twice, the second the shop's
   // own service under an older key spelling. The key the category list knows wins (`distinctShopServices`, RW-167).
   const distinctServiceKeys = distinctShopServices(
@@ -1802,6 +1799,22 @@ export async function renderVendorBySlug({
     isPaidTier: isTrueNameTier(effectiveTierState),
     is_verified: vendor.verification_state === 'verified',
   });
+  // 🖼 Each partner's round shop photo — its logo signed the way this page signs its own (`resolveDisplayUrl`), or its
+  // initials. Words and order are `lib/vendor-partnership-kinds.ts`'s (strongest first, sorted by the read).
+  const trustedByTiles: TrustedByTile[] = showTrustedBy
+    ? await Promise.all(
+        trustedBy.map(async (v) => ({
+          id: v.vendorProfileId,
+          name: v.displayName,
+          href: v.href,
+          // 🤝 The ⓘ tag is where the tie came from (Invite a supplier v3, owner 16 Nov): Worked together · Added · Invited.
+          kindLabel: ORIGIN_TAG[v.origin],
+          kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
+          logoUrl: v.logoRef ? await resolveDisplayUrl(v.logoRef) : null,
+          initials: shopInitials(v.displayName, 2, 'SN'),
+        })),
+      )
+    : [];
 
   // The shop's OTHER locations, as a customer may see them (owner-ruled
   // 2026-08-28: yes, customers should see a supplier's branches — and a branch
@@ -2694,6 +2707,11 @@ export async function renderVendorBySlug({
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app —
             since 13 Nov a soft card at the top of the calm column (prototype `.notice`), its ⓘ carrying the words. */}
+        {shopPaused ? (
+          <div className={SHOP_CALM_COLUMN_CLASS}>
+            <ShopPausedNotice />
+          </div>
+        ) : null}
         {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
           <div className={SHOP_CALM_COLUMN_CLASS}>
             <NotYetVerifiedNotice />
@@ -3310,6 +3328,7 @@ export async function renderVendorBySlug({
                the Lock button off it — the same quiet "Not yet bookable" line, never a Lock that the
                `event_vendors_require_verified_before_lock` trigger would refuse a step later. */
             isComingSoon={isComingSoon || !bookable}
+            paused={shopPaused}
             bookingsOpen={bookingsOpen}
             hidePrices={hidePricesPublicly}
             paxCount={packageLivePax}
@@ -3773,6 +3792,16 @@ export default async function PublicVendorPage({ params, searchParams }: Props) 
   return renderVendorBySlug({ slug, searchParams });
 }
 
+/** ⏸ The paused shop's line — plain, at the top of the calm column, the owner's words from lib/shop-status.ts. */
+function ShopPausedNotice() {
+  return (
+    <div data-shop-paused role="status" className="mb-6 py-2">
+      <p className="text-base font-medium text-ink">{SHOP_PAUSED_LINE}</p>
+      <p className="mt-1 text-sm text-ink/70">{SHOP_PAUSED_DETAIL}</p>
+    </div>
+  );
+}
+
 function ComingSoonBanner({ vendorName }: { vendorName: string }) {
   return (
     <section
@@ -4201,9 +4230,7 @@ function TrustedBySection({
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
           Trusted by
         </h2>
-        <p className="text-sm text-ink/65">
-          Fellow suppliers who endorsed {businessName} — each one confirmed it.
-        </p>
+        <p className="text-sm text-ink/65">{trustedByLine(businessName)}</p>
       </header>
       <TrustedByCarousel tiles={vendors} label={`Suppliers who trust ${businessName}`} />
     </section>
@@ -4782,6 +4809,7 @@ function VendorPackagesSection({
   packages,
   coupleEventId,
   isComingSoon,
+  paused,
   bookingsOpen,
   hidePrices,
   paxCount,
@@ -4793,6 +4821,8 @@ function VendorPackagesSection({
   shopName: string | null;
   coupleEventId: string | null;
   isComingSoon: boolean;
+  /** ⏸ Paused or closed — the package says so, ahead of every other line (never "finishing verification"). */
+  paused: boolean;
   /** 🚪 FALSE while bookings are closed (owner 2026-11-02) — no Book button on any package. */
   bookingsOpen: boolean;
   /** Council #6: vendor opted to hide public prices → PackageCard shows no peso. */
@@ -4821,7 +4851,9 @@ function VendorPackagesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         {packages.map((pkg) => {
           let cta: React.ReactNode = null;
-          if (!bookingsOpen) {
+          if (paused) {
+            cta = <p className="text-xs text-ink/55">{SHOP_PAUSED_LINE}</p>;
+          } else if (!bookingsOpen) {
             cta = <p className="text-xs text-ink/55">{BOOKINGS_OPEN_SOON}</p>;
           } else if (isComingSoon) {
             cta = (

@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { CLIENT_INVITE_PARAM, clientInviteTokenOf } from '@/lib/own-clients';
 import { shopInvitePath } from '@/lib/shop-address';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -21,6 +22,7 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { formatEventDate } from '@/lib/events';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { isShopLive } from '@/lib/vendor-visibility';
+import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
@@ -32,13 +34,14 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ status?: string; et?: string; cat?: string }>;
+  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string }>;
 };
 
 const STATUS_COPY: Record<string, string> = {
   pick_event: 'Choose which event to add this supplier to.',
   not_your_event: 'That event isn’t one you host — pick one of yours.',
   not_found: 'This supplier link is no longer available.',
+  paused: SHOP_PAUSED_LINE,
   error: 'Something went wrong adding the supplier. Please try again.',
 };
 
@@ -63,7 +66,10 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 
 export default async function VendorInvitePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { status, et, cat } = await searchParams;
+  const { status, et, cat, ci: rawCi } = await searchParams;
+  // 🎁 An Add-a-client invite (Own clients v4): the client's token rides every round-trip, shape-checked only — the
+  // claim action decides whether it is this shop's own waiting invite.
+  const ci = clientInviteTokenOf(rawCi);
 
   const admin = createAdminClient();
   const { data: vendor } = await admin
@@ -74,7 +80,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
     // pair is NAMED, and `one-definition-of-live.test.ts` is what keeps a call
     // site from selecting only half of it.
     .select(
-      'vendor_profile_id, business_name, tagline, logo_url, services, location_city, public_visibility, verification_state',
+      'vendor_profile_id, business_name, tagline, logo_url, services, location_city, public_visibility, verification_state, paused_at',
     )
     .eq('business_slug', slug)
     .maybeSingle();
@@ -120,9 +126,13 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const scopeQs = new URLSearchParams();
   if (et) scopeQs.set('et', et);
   if (cat) scopeQs.set('cat', cat);
+  if (ci) scopeQs.set(CLIENT_INVITE_PARAM, ci);
   const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : '';
   const nextPath = `${shopInvitePath(slug)}${scopeSuffix}`;
-  const statusMessage = status ? STATUS_COPY[status] ?? null : null;
+  // ⏸ Owner 2026-11-16 (answer 4 to PR #7890): a paused shop's Shortlist QR adds nothing — the page says so in place
+  // of the add-to-plan form, and the action + its writer refuse it as well.
+  const paused = isShopPaused(vendor);
+  const statusMessage = paused ? null : status ? STATUS_COPY[status] ?? null : null;
 
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-8 sm:px-6">
@@ -163,7 +173,12 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
 
       {/* Action zone — depends on auth + event state. Rule 2: no card; the one next step is the main button. */}
       <div className="mt-4">
-        {!user ? (
+        {paused ? (
+          <div data-shop-paused role="status" className="px-1 py-2 text-center">
+            <p className="text-sm font-medium text-ink">{SHOP_PAUSED_LINE}</p>
+            <p className="mt-1 text-sm text-ink/70">{SHOP_PAUSED_DETAIL}</p>
+          </div>
+        ) : !user ? (
           // Signed out → sign up / sign in, returning to this page.
           <div className="space-y-3 text-center">
             <div className="flex justify-center text-[15px] font-semibold text-ink">
@@ -213,6 +228,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
               <input type="hidden" name="cat" value={pickedCategory} />
             ) : null}
             {et ? <input type="hidden" name="et" value={et} /> : null}
+            {ci ? <input type="hidden" name={CLIENT_INVITE_PARAM} value={ci} /> : null}
             <TemplateSection label="Add to which event?" first>
               <fieldset className="[&>label+label]:border-t [&>label+label]:border-[color:var(--m-line)]">
                 <legend className="sr-only">Add to which event?</legend>

@@ -40,3 +40,5 @@ session). Migration `20271352068061_a_booking_takes_its_pieces_all_or_nothing`. 
 
 SPEC IMPACT: None — builds the approved step 4 drawing as ruled. (The drawing says "chairs"; cards have no noun field,
 so the bar says "pieces" and names the card.)
+
+**Review fixes (19 Nov):** a failed or refused pieces write stops the supplier's yes instead of agreeing on the couple's number · a refused day count reads "Couldn't read", never "Free" · ONE number for pieces: the yes, the deposit gate (`acquire_schedule_pools`), `set_booked_quantity`, the bench mirror and the Day bar all hold pieces to the card's own "How many do you have" (`service_card_daily_limit`), never the schedule's "how many a day"; the schedule keeps its 1..500 (the >500 piece-schedule change is withdrawn) · a branch copy clamps to 500, not 50 · the couple's pieces popup no longer shows how many the supplier has · a full day reads "All 500 pieces out" / "5 of 5 orders in progress".

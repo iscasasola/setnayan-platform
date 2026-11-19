@@ -1744,7 +1744,11 @@ export async function renderVendorBySlug({
   // VERIFIED ONE …", which SUPERSEDES the 13 Nov "TWO LOOKS — unverified clean + simple" for the LOOK): an unverified
   // shop wears the same hero, calling card, columns and motion. What differs is CONTENT, gated by `isVerifiedShop`: no
   // blue check, no Check a date, no rating or reviews, no exact address, no web address — and the markings.
-  const isVerifiedShop = vendor.verification_state === 'verified';
+  // 🎭 A DEMO shop and a TEAM PREVIEW are not "a shop Setnayan has not checked yet" (review, 19 Nov): a demo shop is
+  // sample content and a team preview is the team's own look at the page, so both keep the full page — sample reviews
+  // included — and wear no "Not yet verified" marking. The same exclusion the band notice always made, now made ONCE,
+  // here, so no marking and no gate below can forget it. The blue check itself still reads `verification_state`.
+  const isVerifiedShop = vendor.verification_state === 'verified' || isDemoVendor || teamPreview !== null;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
   // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
@@ -2222,7 +2226,9 @@ export async function renderVendorBySlug({
   // ANTI-FRAUD (2026-07-05): the public aggregateRating is emitted from the
   // TRUSTED stat (receipt-backed, arm's-length) so a crawler never sees a
   // fake-inflated star average.
+  // v16 S6: and none for a shop Setnayan has not checked yet — a crawler reads no rating the page does not show.
   if (
+    isVerifiedShop &&
     viewerTierCaps.reviewStarsCounted &&
     trustedReviewStats.trusted_review_count > 0 &&
     trustedReviewStats.trusted_avg_rating > 0
@@ -2440,7 +2446,7 @@ export async function renderVendorBySlug({
        so the record block can never disagree with the top of the page,
        and costs no extra query. Vendor-level by nature: reviews carry
        no service dimension, which is why the badge says "shop rating". */
-    cardRecordRating: cardRecordRatingFromTrusted(trustedReviewStats),
+    cardRecordRating: isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null,
     /* The details sheet (flag-dark). OFF ⇒ every card renders as the
        static div it does today and no sheet is mounted. */
     detailsEnabled: detailsEnabled,
@@ -2523,7 +2529,7 @@ export async function renderVendorBySlug({
           shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
           is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-            {vendor.verification_state !== 'verified' ? (
+            {!isVerifiedShop ? (
               /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
                  (`ImageBadge` `on={false}`, the shipped not-yet face). */
               <li data-shop-not-verified-slot="">
@@ -2725,7 +2731,7 @@ export async function renderVendorBySlug({
           </div>
         ) : null}
         {/* v16 S6: the band under the name (`.nvband`) — the shipped notice, moved under the hero. */}
-        {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
+        {!isVerifiedShop ? (
           <div className="pt-6" data-shop-not-verified-band="">
             <NotYetVerifiedNotice />
           </div>
@@ -3070,7 +3076,8 @@ export async function renderVendorBySlug({
                 setnayan.com/<slug> would give away the name the page is still hiding. */}
             {isVerifiedShop ? <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} /> : null}
             {/* ⭐ Pro + Ultra — the pinned best review's first words, beside the facts. */}
-            {pinnedLead && pinnedLeadQuote ? (
+            {/* v16 S6: no review on a shop Setnayan has not checked yet — the pinned one included. */}
+            {isVerifiedShop && pinnedLead && pinnedLeadQuote ? (
               <PinnedReviewCard
                 quote={pinnedLeadQuote}
                 stars={viewerTierCaps.reviewStarsCounted ? pinnedLead.rating_overall : null}
@@ -3288,7 +3295,7 @@ export async function renderVendorBySlug({
                (the same values as in `servicesProps`, which photos by service reads). */
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             inquireMode={canMessage ? 'anchor' : 'none'}
-            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
+            cardRecordRating={isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null}
             quoteInSideCard
             notVerified={!isVerifiedShop}
           />
@@ -3753,7 +3760,7 @@ export async function renderVendorBySlug({
               Supplier ID · <span className="font-mono">{vendor.public_id}</span>
             </p>
             {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
-            {vendor.verification_state !== 'verified' ? (
+            {!isVerifiedShop ? (
               <p data-shop-footer-not-verified="">
                 <NotYetVerifiedTag />
               </p>

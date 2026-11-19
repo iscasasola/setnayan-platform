@@ -20,3 +20,9 @@
 - No new server action, migration or route.
 
 SPEC IMPACT: None. This builds the 15 Nov ruling and its approved drawing (`prototypes/shop_website_two_looks_2026-11-15/site.src.html` § NOT VERIFIED).
+
+Review fixes (19 Nov): an unverified shop now shows no review anywhere — the pinned review card, the services'
+record rating and the JSON-LD `aggregateRating` are behind `isVerifiedShop` too (ruled 10 + 15 Nov). And a demo
+shop or a team preview is no longer treated as "not yet verified": the exclusion the band notice made is now made
+once, in `isVerifiedShop`, so the hero tag, the stamps, "What Verified adds", the held-services line and the footer
+tag all follow it, and sample reviews stay visible. The blue check still reads the paper state.

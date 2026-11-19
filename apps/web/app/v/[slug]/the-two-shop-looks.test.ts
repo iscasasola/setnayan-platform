@@ -25,7 +25,7 @@ const PANEL = read('_components/shop-can-do-panel.tsx');
 // v16 S6 (owner 15 Nov, DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", which SUPERSEDES the
 // 13 Nov "two looks" for the LOOK): one look for every shop; only the CONTENT is gated, by `isVerifiedShop`.
 test('one look for every shop — the hero is never behind a plan or verification; content is gated by isVerifiedShop', () => {
-  assert.match(PAGE, /const isVerifiedShop = vendor\.verification_state === 'verified';/);
+  assert.match(PAGE, /const isVerifiedShop = vendor\.verification_state === 'verified' \|\| isDemoVendor \|\| teamPreview !== null;/);
   assert.doesNotMatch(PAGE, /cinematicHero|isEnterprise \? \(\s*<ShopHero/, 'the hero went back behind a gate');
   assert.equal((PAGE.match(/<ShopHero\b/g) ?? []).length, 1);
   assert.doesNotMatch(PAGE, /\{\w+ \? \(\s*<ShopHero|\{\w+ \? <ShopHero/, 'the hero is drawn for some shops only');

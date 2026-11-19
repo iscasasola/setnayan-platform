@@ -28,6 +28,11 @@ overrides:
   fflate@>=0.6.0 <0.6.11: ^0.6.11
   fflate@>=0.7.0 <0.7.5: ^0.7.5
 
+patchedDependencies:
+  '@supabase/postgrest-js@2.105.4':
+    hash: niywpimujgbcxgxmmgy3vrfxxm
+    path: patches/@supabase__postgrest-js@2.105.4.patch
+
 importers:
 
   .:
@@ -6123,7 +6128,7 @@ snapshots:
 
   '@supabase/phoenix@0.4.2': {}
 
-  '@supabase/postgrest-js@2.105.4':
+  '@supabase/postgrest-js@2.105.4(patch_hash=niywpimujgbcxgxmmgy3vrfxxm)':
     dependencies:
       tslib: 2.8.1
 
@@ -6147,7 +6152,7 @@ snapshots:
     dependencies:
       '@supabase/auth-js': 2.105.4
       '@supabase/functions-js': 2.105.4
-      '@supabase/postgrest-js': 2.105.4
+      '@supabase/postgrest-js': 2.105.4(patch_hash=niywpimujgbcxgxmmgy3vrfxxm)
       '@supabase/realtime-js': 2.105.4
       '@supabase/storage-js': 2.105.4
 

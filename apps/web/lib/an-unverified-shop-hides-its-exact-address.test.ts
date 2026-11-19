@@ -32,8 +32,8 @@ test('2 · verified: the map and directions stay', () => {
 
 test('3 · the page’s unverified Where section draws no map, no directions and no hq_address', () => {
   const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
-  assert.match(page, /const where = shopWhere\([\s\S]*?cinematicHero,\s*\);/, 'the page does not ask shopWhere with the verified look');
-  const at = page.indexOf('{cinematicHero || !hasWhere ? null : (');
+  assert.match(page, /const where = shopWhere\([\s\S]*?isVerifiedShop,\s*\);/, 'the page does not ask shopWhere whether the shop is verified');
+  const at = page.indexOf('{isVerifiedShop || !hasWhere ? null : (');
   assert.ok(at > 0, 'the unverified Where section moved');
   const section = page.slice(at, page.indexOf('</section>', at));
   assert.doesNotMatch(section, /<ShopReachMap|<DirectionsMenu|hq_address|hq_latitude/, 'the unverified Where section shows the street or its pin');
@@ -41,6 +41,6 @@ test('3 · the page’s unverified Where section draws no map, no directions and
   // Every other hq_address use on the page sits behind the verified look.
   for (const m of page.matchAll(/query=\{vendor\.hq_address/g)) {
     const before = page.slice(Math.max(0, (m.index ?? 0) - 400), m.index);
-    assert.match(before, /\{cinematicHero \? \(\s*<DirectionsMenu[^>]*$/, 'Get directions with the street is drawn outside the verified look');
+    assert.match(before, /\{isVerifiedShop \? \(\s*<DirectionsMenu[^>]*$/, 'Get directions with the street is drawn for an unverified shop');
   }
 });

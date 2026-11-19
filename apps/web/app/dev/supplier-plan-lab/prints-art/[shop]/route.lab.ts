@@ -3,13 +3,15 @@ import { renderPrint } from '@/lib/supplier-prints-svg';
 import { printMemberFrom, printQr, printShopFrom } from '@/lib/supplier-prints-shop';
 import { DEFAULT_PRINT_DESIGN, PRINT_ALL, PRINT_PIECES, printAllFilename, printDesign, printFilename, printHidden, printPiece, printQrMode } from '@/lib/supplier-prints';
 import { zipFiles } from '@/lib/supplier-prints-zip';
+import { printBadgesV84 } from '@/lib/print-badges-v84';
+import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * /dev/supplier-plan-lab/prints-art/<plain|long> — the lab's twin of `/api/vendor/prints`: the SAME renderer and the same facts
  * builder, on a fixture shop (no sign-in, no database). DEV-ONLY: production answers 404 before reading anything.
- *   long — the prototype's long-name sample with a seal, a rating and badges (the busiest a print gets)
+ *   long — the prototype's long-name sample with Verified, a Top 10 seal, a rating and v84 tiers (the busiest a print gets)
  */
 const LABEL: Record<string, string> = { catering: 'Catering', photo_video: 'Photo & video', host: 'Host', sound: 'Sound', lights: 'Lights' };
 
@@ -23,6 +25,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const long = (await params).shop === 'long';
   const slug = long ? 'casa-buenaventura' : 'setnaprod';
   const origin = 'https://www.setnayan.com';
+  // the fixture's v84 badges — the real route reads them (`readPrintBadges`); the art is the same resolver's
+  const badges = await resolvePrintBadgeArt(
+    long
+      ? printBadgesV84({
+          verified: true,
+          counts: { verified: true, completedEvents: 100, trustedReviews: 32, firstSourcedBooking: true, branchIds: [], serviceCards: 3, inspirationPhotos: 0, awards: [], completedBookings: 63, fiveStarReviews: 12, giftPoints: 0, trustedBy: 3 },
+          seals: [{ seal: 'top10', award_year: 2026 }],
+        })
+      : [],
+  );
   const shop = printShopFrom({
     name: long ? 'Casa Buenaventura Catering & Events Services' : 'Setnayan Productions',
     slug,
@@ -31,6 +43,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     facts: long
       ? { verified: true, completedEvents: 100, trusted: { trusted_avg_rating: 4.9, trusted_review_count: 32 }, inBusinessSinceYear: 2014, awards: [], nowYear: 2026 }
       : { verified: false, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+    badges,
     kindLabel: (k) => LABEL[k] ?? k,
     origin,
   });

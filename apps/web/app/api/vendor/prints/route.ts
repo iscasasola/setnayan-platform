@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
+import { readPrintBadges } from '@/lib/print-badges-v84.server';
+import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { siteOrigin } from '@/lib/site-origin';
 import { renderPrint } from '@/lib/supplier-prints-svg';
@@ -30,7 +32,7 @@ export const dynamic = 'force-dynamic';
  *                      AND back — saved through the shipped `SaveFileLink` (share sheet on a phone, a download on a
  *                      computer), the badge print's own pattern (`/api/vendor/badges`).
  *
- * Nothing is stored: every file is drawn on request from facts READ NOW (the shop's name, services and badges), so
+ * Nothing is stored: every file is drawn on request from facts READ NOW (the shop's name, services and its v84 badges — `readPrintBadges`), so
  * there is no export to sweep. Own shop only (`fetchOwnVendorProfile`); a shop with no address yet is refused in words —
  * every printed code is built from it.
  */
@@ -58,12 +60,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       cardKindLabeller(),
       Promise.all(PRINT_PIECES.map((p) => readPrintShopExtras(admin, own, { piece: p.id, mode: 'print' }))),
     ]);
+    const badges = await resolvePrintBadgeArt(await readPrintBadges(admin, profile.vendor_profile_id, facts));
     const base = printShopFrom({
       name: (profile as { business_name?: string | null }).business_name ?? '',
       slug,
       services: ((profile as { services?: string[] | null }).services ?? []) as string[],
       tagline: (profile as { tagline?: string | null }).tagline ?? null,
       facts,
+      badges,
       kindLabel,
       origin,
     });
@@ -99,6 +103,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Add your name to your account first — your own card prints it.' }, { status: 409 });
   }
   const origin = siteOrigin();
+  const badges = await resolvePrintBadgeArt(await readPrintBadges(admin, profile.vendor_profile_id, facts));
   const shop = {
     ...printShopFrom({
       name: (profile as { business_name?: string | null }).business_name ?? '',
@@ -106,6 +111,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       services: ((profile as { services?: string[] | null }).services ?? []) as string[],
       tagline: (profile as { tagline?: string | null }).tagline ?? null,
       facts,
+      badges,
       kindLabel,
       origin,
     }),

@@ -73,7 +73,7 @@ async function seedChapter(
 }
 
 /** How many of these chapters can `role` SELECT right now? */
-// Scoped to THIS TEST'S author's rows. Since 2026-11-17 (migrations 20271351771867 + 20271351926267) the
+// Scoped to THIS TEST'S author's rows. Since 2026-11-17 (migrations 20271353924909 + 20271354669097) the
 // replay also holds the Setnayan Journal (91 published articles, readable by anyone by ruling), and a
 // read of "every chapter" would count them. Scoping to the author keeps every assertion exactly as strict about
 // the three chapters this file seeds — a leak of the event-only one still fails.

@@ -11,6 +11,7 @@ import { SIDE_CARD_WORDS } from '@/lib/shop-side-card';
 import { shopQuoteSummary, subscribeShopQuote } from './shop-quote-store';
 import { NotYetVerifiedTag } from './not-yet-verified-tag';
 import { NOT_YET_VERIFIED_SIDE_LIST } from '@/lib/not-yet-verified-markings';
+import { RENEWING_COUPLE_MARK } from '@/lib/papers-renewal';
 
 /**
  * 🗂 THE VERIFIED SHOP'S SIDE CARD — its booking half, on a computer (v16 S4; prototype `<aside><div class="bk">`;
@@ -32,6 +33,7 @@ export function ShopSideCard({
   verifiedLine,
   month,
   datesHref,
+  renewing = false,
 }: {
   price: { from: string; offer: string | null } | null;
   /** null = not verified yet (v16 S6 `nvbk`): the tag + the drawing's three lines instead. */
@@ -40,6 +42,8 @@ export function ShopSideCard({
   month: SideCardMonth | null;
   /** Check a date over the shop (`?dates=1`), keeping where the visit came from. */
   datesHref: string;
+  /** 📄 Papers renewal ruling (2), DECISION_LOG 2026-11-16: a lapsed shop says it is renewing ALONE — no not-verified list. */
+  renewing?: boolean;
 }) {
   const router = useRouter();
   const quote = useSyncExternalStore(subscribeShopQuote, shopQuoteSummary, () => null);
@@ -56,6 +60,10 @@ export function ShopSideCard({
         <p className="flex items-center gap-1.5 text-sm text-ink/75" data-side-card-verified="">
           <BadgeCheck aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
           {verifiedLine}
+        </p>
+      ) : renewing ? (
+        <p className="text-sm text-ink/80" data-side-card-renewing="">
+          {RENEWING_COUPLE_MARK}
         </p>
       ) : (
         <div data-side-card-not-verified="">

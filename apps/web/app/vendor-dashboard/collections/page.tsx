@@ -103,6 +103,7 @@ export default async function YourCollectionsPage({
         // 📂 The ONE uploader's facts, from the reads this page already made — an empty On my page's Upload opens the
         // device's picker in place (owner 11 Nov "c. yes"), priced exactly as the uploader below would.
         albumStats={d.albumStats}
+        placesUnread={d.placesUnread}
         chats={{ targets: chatsAnswer.status === 'ok' ? chatsAnswer.targets : null, share: offerServiceInterest }}
         uploadFacts={{
           vendorProfileId: d.vendorId,

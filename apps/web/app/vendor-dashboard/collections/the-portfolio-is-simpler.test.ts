@@ -39,7 +39,7 @@ test('1 · no header: no photo band, no pinned row — and the ⚙ is at the rig
 });
 
 test('2 · Row 1 is the albums in the Sort’s order; an uncounted album wears no count, and the ⓘ says why', () => {
-  assert.match(LIST, /const rowAlbums = sortAlbums\(\s*everyAlbum\.filter\(\(a\) => showKeepsAlbum\(show, a\.kind\) && albumMatches\(a, words\)\),\s*sort,\s*\);/, 'Row 1 is not sorted and filtered by the one rule');
+  assert.match(LIST, /const rowAlbums = sortAlbums\(\s*everyAlbum\.filter\(\(a\) => showKeepsAlbum\(show, a\.kind\) && albumMatches\(a, words\)\),\s*sort,\s*albumStats,\s*\);/, 'Row 1 is not sorted and filtered by the one rule (with the stats, so a half-read count never sorts)');
   assert.match(LIST, /sub=\{albumViewsLabel\(a\.views\)\}/, 'a tile’s count is not the one label (null → no badge)');
   assert.match(LIST, /\{ALBUM_UNCOUNTED_NOTE\}/, 'Row 1 does not say why some albums have no count');
   assert.match(LIST, /data-portfolio-all-albums=""/, 'the “All N albums” tile is gone');
@@ -81,4 +81,13 @@ test('5 · the search field waits for the motion lane — the TODO stays until #
   assert.match(view, /TODO\(#7792/, 'the swap-to-the-growing-search-icon note was removed — it stays until that component is used here');
   assert.match(VIEW, /import \{ ThumbRow \} from '@\/components\/thumb-row';/, 'the search is not the shipped ThumbRow field');
   assert.doesNotMatch(VIEW + LIST, /@keyframes|\.animate\(/, 'a search-grow motion was built here — it belongs to the motion lane');
+});
+
+test('6 · a half-read count and unread places are SAID (the review hold on #7998)', () => {
+  assert.match(LIST, /\{albumRowHeading\(sort, albumStats\)\}/, 'the heading can claim "Most viewed" on half the counts');
+  assert.match(DATA, /placesUnread: eventFacts === null \|\| lookLines === 'unread',/, 'a refused places read is not carried to the screen');
+  assert.match(DATA, /return 'unread' as const;/, 'a failed look-lines read reads the same as "no looks"');
+  assert.match(VIEW, /placesUnread=\{placesUnread\}/);
+  assert.match(read('page.tsx'), /placesUnread=\{d\.placesUnread\}/, 'the page does not hand the unread state to the view');
+  assert.match(LIST, /\{placesUnread && needle \? \(\s*<p role="status"[^>]*data-portfolio-places-unread="">\s*\{PLACES_UNREAD_LINE\}/, 'a place search misses its matches without a word');
 });

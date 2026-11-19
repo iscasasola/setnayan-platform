@@ -35,6 +35,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import {
   ALBUM_STATS_UNREAD,
   ALBUM_UNCOUNTED_NOTE,
+  PLACES_UNREAD_LINE,
   albumMatches,
   albumRowHeading,
   albumRowLine,
@@ -111,6 +112,7 @@ export function CollectionsList({
   words = '',
   gear = null,
   editOpen = false,
+  placesUnread = false,
   onNothing,
   drawAll = false,
 }: {
@@ -142,6 +144,8 @@ export function CollectionsList({
   gear?: ReactNode;
   /** Open "All albums" on arrival (Instagram's OAuth callback lands on `#gallery-media`, which lives in it). */
   editOpen?: boolean;
+  /** 📍 The events' venues (or the looks' tagged events) could not be read — Search then says it is by name only. */
+  placesUnread?: boolean;
   /**
    * Draw every way in's body IN PLACE under the rows as well — for the guards' static render only (a risen screen is a
    * portal, which `renderToStaticMarkup` cannot see). Never passed by the page.
@@ -415,6 +419,7 @@ export function CollectionsList({
   const rowAlbums = sortAlbums(
     everyAlbum.filter((a) => showKeepsAlbum(show, a.kind) && albumMatches(a, words)),
     sort,
+    albumStats,
   );
   const openAlbum = (a: RowAlbum) => (origin: HTMLElement | null) => {
     void recordAlbumOpen(vendorId, a.kind, a.key);
@@ -489,11 +494,11 @@ export function CollectionsList({
   return (
     <div ref={rootRef} className="pb-2" data-collections-list="" data-tour="collections-list" data-portfolio-nothing={nothing ? '' : undefined}>
       {/* ROW 1 — the screen's top row: the albums' heading, its ⓘ, and the house ⚙ at the right end. Videos have no albums. */}
-      <section aria-label={albumRowHeading(sort)} className="pt-3" data-portfolio-albums-row={sort}>
+      <section aria-label={albumRowHeading(sort, albumStats)} className="pt-3" data-portfolio-albums-row={sort}>
         <div className="flex min-h-11 items-start gap-2 px-4 pb-2">
           <div className="min-w-0 flex-1">
             <h2 className="text-[20px] font-semibold leading-[1.15] tracking-[-0.01em] text-ink" data-portfolio-albums-heading="">
-              {albumRowHeading(sort)}
+              {albumRowHeading(sort, albumStats)}
             </h2>
             <InfoTip label={albumRowLine(sort, albumStats)} labelClassName="text-[12.5px] text-ink/60" align="start">
               {ALBUM_UNCOUNTED_NOTE}
@@ -501,6 +506,12 @@ export function CollectionsList({
           </div>
           {gear ? <span className="flex-none">{gear}</span> : null}
         </div>
+        {/* 📍 The places were not read: a search by place would miss its matches without a word — so it says so. */}
+        {placesUnread && needle ? (
+          <p role="status" className="px-4 pb-2 text-[13px] text-ink/65" data-portfolio-places-unread="">
+            {PLACES_UNREAD_LINE}
+          </p>
+        ) : null}
         {show === 'videos' ? null : everyAlbum.length === 0 ? (
           <EmptyRail id="page" line="Nothing yet · your photos show here and on your page" door={pageDoor} icon={ic(Images)} />
         ) : rowAlbums.length === 0 ? nothing ? null : (

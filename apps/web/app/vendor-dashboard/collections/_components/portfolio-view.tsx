@@ -76,6 +76,7 @@ export function PortfolioView({
   uploadFacts = null,
   chats = null,
   albumStats = ALBUM_STATS_UNREAD,
+  placesUnread = false,
 }: {
   vendorId: string;
   input: CollectionsInput;
@@ -108,6 +109,8 @@ export function PortfolioView({
   chats?: PhotoChatShare | null;
   /** 🖼 Row 1's numbers: the two shipped view counters and the shop's own opens. Absent = unread. */
   albumStats?: AlbumStats;
+  /** 📍 The places Search matches on could not be read (`collections-data.ts`) — said while searching. */
+  placesUnread?: boolean;
 }) {
   // One pick for Show ▶ (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
   // 💬 The page hands its chats in; a lab may provide them around the view instead (never both).
@@ -176,6 +179,7 @@ export function PortfolioView({
             words={words}
             gear={gear}
             editOpen={Boolean(igFlash)}
+            placesUnread={placesUnread}
             onNothing={setNothing}
           />
           {nothing ? (

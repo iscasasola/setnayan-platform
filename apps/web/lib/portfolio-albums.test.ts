@@ -10,6 +10,8 @@ import {
   showKeepsAlbum,
   showKeepsWay,
   sortAlbums,
+  sortIsUnread,
+  PLACES_UNREAD_LINE,
   type AlbumStats,
 } from './portfolio-albums';
 import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from './portfolio-groups';
@@ -111,4 +113,32 @@ test('9 · an event says its venue and the cards booked at it; Row 1’s heading
   assert.equal(albumRowHeading('most'), 'Most viewed albums');
   assert.equal(albumRowHeading('opened'), 'Albums you opened');
   assert.equal(albumRowHeading('newest'), 'Newest albums');
+});
+
+/* ── THE REVIEW HOLD ON #7998 (19 Nov) — a part that could not be READ is said, never sorted or searched around. ── */
+
+test('R1 · if EITHER view counter is refused, "Most viewed" does not sort on half the data — and says so', () => {
+  const half: AlbumStats = { serviceOpens: null, pageViews: 96, opened: {} };
+  const list = portfolioAlbums(groups, page, half);
+  assert.equal(sortIsUnread('most', half), true);
+  assert.equal(sortIsUnread('most', { serviceOpens: {}, pageViews: null, opened: {} }), true, 'the other half unread is unread too');
+  assert.equal(sortIsUnread('most', stats), false, 'anti-vacuity: both read is read');
+  assert.deepEqual(ids(sortAlbums(list, 'most', half)), ids(list), 'the albums were ordered by half the counts — the unread half sank to the bottom');
+  assert.notDeepEqual(ids(sortAlbums(all, 'most', stats)), ids(all), 'anti-vacuity: with both counters read, the sort does reorder');
+  assert.equal(albumRowHeading('most', half), 'Your albums', 'the heading still claims "Most viewed"');
+  assert.match(albumRowLine('most', half), /Couldn’t load the views/);
+  assert.equal(albumRowHeading('most', stats), 'Most viewed albums');
+});
+
+test('R2 · "Opened by you" unread is said too; Newest needs no counter', () => {
+  const noOpens: AlbumStats = { serviceOpens: {}, pageViews: 0, opened: null };
+  assert.equal(sortIsUnread('opened', noOpens), true);
+  assert.equal(albumRowHeading('opened', noOpens), 'Your albums');
+  assert.match(albumRowLine('opened', noOpens), /Couldn’t load what you opened/);
+  assert.equal(sortIsUnread('newest', { serviceOpens: null, pageViews: null, opened: null }), false);
+});
+
+test('R3 · unread places are SAID while searching — the words exist for the screen to draw', () => {
+  assert.match(PLACES_UNREAD_LINE, /Couldn’t load places/);
+  assert.match(PLACES_UNREAD_LINE, /names only/);
 });

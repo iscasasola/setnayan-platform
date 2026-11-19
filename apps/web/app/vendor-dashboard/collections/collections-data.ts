@@ -105,6 +105,12 @@ export type CollectionsData = {
    * (`vendor_album_opens`). Each part is `null` when its read was refused: said, never drawn as 0.
    */
   albumStats: AlbumStats;
+  /**
+   * 📍 SEARCH BY PLACE COULD NOT BE FED: the events' venues and booked cards (or the looks' tagged events) were refused.
+   * The albums still draw, found by name — and the screen SAYS the search is by name only, instead of a place search
+   * that silently misses its matches.
+   */
+  placesUnread: boolean;
 };
 
 /** How many photos an opened album shows before its "+N" tile (spec §10 #24: "first 9"). */
@@ -384,7 +390,8 @@ export async function loadCollectionsData(
       return null;
     });
   // 📍 An inspiration look tagged from an event's files says its event ("Wedding · Taal Vista Hotel · Sep 2026").
-  const lookLinesRead: Promise<Map<string, string> | null> = looksRead
+  // `'unread'` = the read itself failed (said on screen); null = there are simply no looks to tag.
+  const lookLinesRead: Promise<Map<string, string> | null | 'unread'> = looksRead
     .then(async (looks) => {
       if (!Array.isArray(looks) || looks.length === 0) return null;
       const lines = await readTagEventLines(supabase, looks.map((l) => l.id));
@@ -392,7 +399,7 @@ export async function loadCollectionsData(
     })
     .catch((err) => {
       logQueryError('VendorCollections.lookLines', err, { vendorId }, 'graceful_degrade');
-      return null;
+      return 'unread' as const;
     });
   // 🖼 Row 1 (Portfolio, simpler): couples' opens per service card — the SAME count Shop › Analytics draws
   // (`service_card_opens`, 12 months) — and the albums this shop opened last. Each fails on its own into null.
@@ -516,6 +523,7 @@ export async function loadCollectionsData(
     igUnavailable: ig.unavailable,
     libraryOpen: access.allowed,
     best: bestWorkOf(portfolioRefs, portfolioDisplayMap, views),
+    placesUnread: eventFacts === null || lookLines === 'unread',
     albumStats: {
       serviceOpens: cardOpens,
       // Only the photos on the page right now count toward its album (a removed photo's views are not this album's).
@@ -535,7 +543,7 @@ export async function loadCollectionsData(
               facts: eventFacts?.byEvent ?? null,
             }),
       services: cardAlbums === null ? null : serviceAlbums(cardAlbums, eventFacts?.byService ?? null),
-      inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks, lookLines),
+      inspiration: looks === 'off' ? 'off' : looks === null ? null : inspirationAlbums(looks, lookLines === 'unread' ? null : lookLines),
       stories:
         stories === null
           ? null

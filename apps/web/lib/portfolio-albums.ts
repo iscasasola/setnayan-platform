@@ -132,21 +132,36 @@ const desc = <T extends number | string>(of: (a: RowAlbum) => T | null) => (a: R
   return x < y ? 1 : x > y ? -1 : 0;
 };
 
-/** Row 1 in the Sort's order. Stable: ties (and every uncounted album) keep the order they were listed in. */
-export function sortAlbums(list: readonly RowAlbum[], sort: PortfolioSort): RowAlbum[] {
+/** Is the fact this Sort orders by only PARTLY read (or not at all)? Then the order would be built on half the data. */
+export function sortIsUnread(sort: PortfolioSort, stats: AlbumStats): boolean {
+  if (sort === 'most') return stats.serviceOpens === null || stats.pageViews === null;
+  if (sort === 'opened') return stats.opened === null;
+  return false;
+}
+
+/**
+ * Row 1 in the Sort's order. Stable: ties (and every uncounted album) keep the order they were listed in.
+ * 🔑 A SORT NEVER RUNS ON HALF THE DATA: when one of the counters it needs was refused (`sortIsUnread`), the albums stay
+ * AS LISTED and Row 1 says the views could not be loaded — an order where the unread half sinks to the bottom would
+ * read as "couples looked at these less".
+ */
+export function sortAlbums(list: readonly RowAlbum[], sort: PortfolioSort, stats?: AlbumStats): RowAlbum[] {
+  if (stats && sortIsUnread(sort, stats)) return [...list];
   const by = sort === 'most' ? desc((a) => a.views) : sort === 'opened' ? desc((a) => a.openedAt) : desc((a) => a.newestAt);
   return list.map((a, i) => [a, i] as const).sort((p, q) => by(p[0], q[0]) || p[1] - q[1]).map((p) => p[0]);
 }
 
-/** Row 1's heading follows the Sort. */
-export function albumRowHeading(sort: PortfolioSort): string {
+/** Row 1's heading follows the Sort — and never names an order it could not make ("Most viewed" on half the counts). */
+export function albumRowHeading(sort: PortfolioSort, stats?: AlbumStats): string {
+  if (stats && sortIsUnread(sort, stats)) return 'Your albums';
   return sort === 'most' ? 'Most viewed albums' : sort === 'opened' ? 'Albums you opened' : 'Newest albums';
 }
 
 /** The quiet line under the heading — who did the looking, or what the order is. */
 export function albumRowLine(sort: PortfolioSort, stats: AlbumStats): string {
-  if (sort === 'most') return stats.serviceOpens === null && stats.pageViews === null ? 'Couldn’t load the views just now' : 'by couples';
-  if (sort === 'opened') return stats.opened === null ? 'Couldn’t load what you opened just now' : 'the ones you opened last, first';
+  // EITHER counter refused = said. Half a count is not "by couples".
+  if (sort === 'most') return sortIsUnread(sort, stats) ? 'Couldn’t load the views just now · shown as listed' : 'by couples';
+  if (sort === 'opened') return sortIsUnread(sort, stats) ? 'Couldn’t load what you opened just now · shown as listed' : 'the ones you opened last, first';
   return 'newest first';
 }
 
@@ -158,6 +173,9 @@ export const ALBUM_UNCOUNTED_NOTE =
 export function albumViewsLabel(views: number | null): string | null {
   return views === null ? null : `${formatCount(views)} ${views === 1 ? 'view' : 'views'}`;
 }
+
+/** Said while searching when the places could not be read — a search by place would silently miss its matches. */
+export const PLACES_UNREAD_LINE = 'Couldn’t load places just now · searching names only';
 
 /** Does this album answer the search words? Its name or its line. Empty words keep everything. */
 export function albumMatches(a: { title: string; line: string; words?: string }, words: string): boolean {

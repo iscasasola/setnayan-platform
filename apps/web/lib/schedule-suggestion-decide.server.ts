@@ -8,6 +8,7 @@ import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
 import { directionOf, proposedPatch, sideMayDecide } from './schedule-ask';
 import { whereAskRefusalWords } from './supplier-where';
 import { changeTheSchedule } from './change-the-schedule.server';
+import { backstageAppliesAtOnce } from './venue-window';
 
 /**
  * ✅ THE ONE ACCEPT PATH for a supplier's schedule request (`event_schedule_suggestions`) — shared by the host's Approve,
@@ -360,9 +361,15 @@ async function tellTheAsker(eventId: string, s: SuggestionRow, decision: 'accept
  * once (admin client: the supplier may not write the schedule, the host's standing choice does). OFF (the default) or
  * unreadable: it WAITS for the host or coordinator. The decision itself is `settleSupplierRequest` (pure, guarded).
  */
-export async function settleAfterAsking(eventId: string, suggestionId: string): Promise<SettleOutcome> {
+export async function settleAfterAsking(
+  eventId: string,
+  suggestionId: string,
+  /** Set to say WHY it went in: `backstage` = the 20 Nov rule, not the host's Auto-agree (the caller words its notice). */
+  why?: { backstage: boolean },
+): Promise<SettleOutcome> {
   const admin = createAdminClient();
-  return settleSupplierRequest(
+  let backstage = false;
+  const outcome = await settleSupplierRequest(
     async () => {
       const { data, error } = await admin
         .from('events')
@@ -387,5 +394,66 @@ export async function settleAfterAsking(eventId: string, suggestionId: string): 
         return 'waits';
       }
     },
+    async () => {
+      backstage = await readBackstageInWindow(admin, eventId, suggestionId);
+      return backstage;
+    },
   );
+  // Auto-agree ON never asks the third reader, so `backstage` stays false there: the host's own choice put it in.
+  if (why) why.backstage = backstage && outcome === 'applied';
+  return outcome;
+}
+
+/**
+ * 🎭 Is this request the supplier's own BACKSTAGE moment inside the venue's window (owner 2026-11-20)? Read from the
+ * ROWS — the request as RLS let it be written (own item, or an add into a chapter they are linked to), the chapter it
+ * sits in, the moment it changes — never from what a screen posted. Any refused or missing read is `false`: it waits.
+ */
+async function readBackstageInWindow(admin: Db, eventId: string, suggestionId: string): Promise<boolean> {
+  const { data: row, error } = await admin
+    .from('event_schedule_suggestions')
+    .select('kind, direction, status, block_id, proposed_start_at, proposed_end_at, proposed_parent_block_id')
+    .eq('suggestion_id', suggestionId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('settleAfterAsking.backstageRequest', error, { event_id: eventId }, 'graceful_degrade');
+    return false;
+  }
+  const r = row as {
+    kind: string;
+    direction: string | null;
+    status: string;
+    block_id: string | null;
+    proposed_start_at: string | null;
+    proposed_end_at: string | null;
+    proposed_parent_block_id: string | null;
+  } | null;
+  if (!r || r.status !== 'open' || (r.kind !== 'new' && r.kind !== 'adjust')) return false;
+
+  const blockColumns = 'block_id, parent_block_id, start_at, end_at, time_tba, ingress_minutes_before, egress_minutes_after';
+  type BlockRow = {
+    block_id: string;
+    parent_block_id: string | null;
+    start_at: string | null;
+    end_at: string | null;
+    time_tba: boolean | null;
+    ingress_minutes_before: number | null;
+    egress_minutes_after: number | null;
+  };
+  const readBlock = async (id: string | null): Promise<BlockRow | null> => {
+    if (!id) return null;
+    const res = await admin.from('event_schedule_blocks').select(blockColumns).eq('block_id', id).eq('event_id', eventId).maybeSingle();
+    if (res.error) {
+      logQueryError('settleAfterAsking.backstageBlock', res.error, { event_id: eventId }, 'graceful_degrade');
+      return null;
+    }
+    return (res.data ?? null) as BlockRow | null;
+  };
+  const current = r.kind === 'adjust' ? await readBlock(r.block_id) : null;
+  if (r.kind === 'adjust' && !current) return false;
+  const chapter = await readBlock(r.kind === 'new' ? r.proposed_parent_block_id : (current?.parent_block_id ?? null));
+  // A chapter is a top-level block; a moment under a moment, or a request naming no chapter, has no window to be in.
+  if (!chapter || chapter.parent_block_id) return false;
+  return backstageAppliesAtOnce({ request: r, chapter, current });
 }

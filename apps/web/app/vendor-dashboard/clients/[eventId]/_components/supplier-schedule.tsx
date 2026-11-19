@@ -14,6 +14,7 @@ import { contactLine } from '@/lib/task-contact';
 import {
   MOMENT_MINUTES_DEFAULT,
   crewFromText,
+  momentStartIn,
   waitingWords,
   whereItGoesWords,
   type SupplierChapter,
@@ -24,6 +25,8 @@ import {
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
 import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 import { markDay } from '@/lib/supplier-schedule-marks';
+import { OUTSIDE_WORDS, VERDICT_WORDS, backstageVerdict, venueWindowOf, venueWindowWords } from '@/lib/venue-window';
+import { VenueWindowBar } from '@/app/_components/venue-window-bar';
 import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
 import { formatCount } from '@/lib/format-number';
@@ -52,6 +55,13 @@ import { CALL_TIME_ANCHOR, OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, 
  * waits (migration 20271308641275). The host can still set it directly, unless their times are locked.
  * 🔒 `Lock my times` (audit D7, owner: *"change lock (means the supplier cannot accept changes anymore)"*): while
  * locked, the database refuses the host's changes to their moments and crew (20271303409352); their own asks still go.
+ *
+ * 🏛 THE VENUE WINDOW (Unichat part F, owner 2026-11-20; drawing `build-sessions/UNICHAT-LIVE-2026-11-19.html`): each
+ * chapter with a clock draws its venue's ingress · event · egress as one bar (`VenueWindowBar`), with a tick per moment
+ * of theirs, and says the same in words. A moment of theirs outside those hours reads "Outside the venue's hours".
+ * 🎭 Their own BACKSTAGE moment inside the window goes straight in — no approval (20 Nov ruling; decided by the server's
+ * settle from the rows it reads, `backstageAppliesAtOnce`). The sheet says which of the two will happen before they
+ * press: "Set my moment" or "Ask the host".
  *
  * `lab` draws the same view with doors that write nothing (`/dev/supplier-lab?s=schedule`).
  */
@@ -291,6 +301,7 @@ export function SupplierSchedule({
                   {chapterWhen({ start_at: c.start_at ?? '', end_at: c.end_at, time_tba: c.time_tba })} · {c.where}
                 </span>
               </div>
+              <ChapterWindow c={c} />
               {/* 🏛 VENUE HOURS (2026-11-04): the venue booked to a chapter sets its hours; once approved, they are held. */}
               {c.setsHours ? (
                 <div data-venue-hours={c.block_id} className="mt-1 flex flex-wrap items-center justify-between gap-2 border-b border-ink/10 pb-2">
@@ -325,7 +336,7 @@ export function SupplierSchedule({
                         onClick={() => setSheet({ kind: 'moment', chapter: c, moment: m })}
                         className="sn-press flex min-h-14 w-full items-start gap-3 px-3 py-2 text-left"
                       >
-                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} />
+                        <MomentLine m={m} tasksRead={tasksRead} clashes={elsewhere?.[m.block_id] ?? []} outside={isOutside(c, m)} />
                         <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 flex-none self-center text-mulberry" strokeWidth={2.2} />
                       </button>
                     ) : (
@@ -343,6 +354,14 @@ export function SupplierSchedule({
           ))}
         </ol>
       )}
+
+      {/* 🎭 How their changes go, in the drawing's own words (20 Nov). */}
+      {linked.some((c) => venueWindowOf(c)) && !autoAgree ? (
+        <p data-backstage-at-once="" className="text-[13px] text-ink/70">
+          Your backstage moments inside the venue’s hours apply at once. Anything guests see, or outside the hours, waits
+          for the host. Greyed moments belong to others.
+        </p>
+      ) : null}
 
       {/* 🔒 CHANGE LOCK — one line under your times (v113): what is true now, the one verb, the rest in the ⓘ. */}
       {marks !== null ? (
@@ -428,7 +447,7 @@ export function SupplierSchedule({
                 <span className={r.status === 'accepted' || r.status === 'answered_by_host' ? 'font-semibold text-success-900' : 'text-ink/70'}>
                   {r.status === 'accepted'
                     ? r.auto_agreed
-                      ? 'In (Auto-agree)'
+                      ? 'In at once'
                       : 'Approved'
                     : r.status === 'withdrawn'
                       ? 'Taken back'
@@ -507,7 +526,28 @@ function clashCount(elsewhere: Record<string, CrewClash[]>): number {
   return Object.values(elsewhere).filter((l) => l.length > 0).length;
 }
 
-function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: boolean; clashes: readonly CrewClash[] }) {
+/** One of THEIR moments with a clock that sits outside the chapter's venue hours (backstage past the window). */
+function isOutside(c: SupplierChapter, m: SupplierMoment): boolean {
+  return m.mine && !m.rightAfter && Boolean(m.start_at) && backstageVerdict(c, m.start_at, m.end_at) === 'outside';
+}
+
+/**
+ * 🏛 The chapter's venue window: the bar, then the same in words. Nothing is drawn for a chapter with no clock (Time
+ * TBA) — and a chapter whose venue gave no setup or pack-up time still shows its event hours, never an invented window.
+ */
+function ChapterWindow({ c }: { c: SupplierChapter }) {
+  const w = venueWindowOf(c);
+  if (!w) return null;
+  const mine = c.moments.filter((m) => m.mine && !m.rightAfter && m.start_at).map((m) => ({ start: m.start_at as string, end: m.end_at }));
+  return (
+    <div data-venue-window={c.block_id} className="mt-2 grid gap-1">
+      <VenueWindowBar window={w} ticks={mine} />
+      <p className="text-[13px] font-semibold text-ink">{venueWindowWords(w)}</p>
+    </div>
+  );
+}
+
+function MomentLine({ m, tasksRead, clashes, outside = false }: { m: SupplierMoment; tasksRead: boolean; clashes: readonly CrewClash[]; outside?: boolean }) {
   return (
     <>
       <span className="w-16 flex-none pt-0.5 text-[13px] tabular-nums text-ink/70">{m.clock}</span>
@@ -519,6 +559,11 @@ function MomentLine({ m, tasksRead, clashes }: { m: SupplierMoment; tasksRead: b
         {m.section !== 'Event' ? (
           <span data-backstage-moment="" className="block text-xs font-medium text-gold-deep">
             {m.section} · {BACKSTAGE_WORDS}
+          </span>
+        ) : null}
+        {outside ? (
+          <span data-outside-venue-hours="" className="block text-xs font-semibold text-warn-900">
+            {OUTSIDE_WORDS}
           </span>
         ) : null}
         {m.mine && m.crew.length > 0 ? <span className="block text-xs text-ink/70">{m.crew.join(', ')}</span> : null}
@@ -824,6 +869,21 @@ function MyMomentSheet({
   const [stage, setStage] = useState<'details' | 'ask-delete' | 'sending'>('details');
   const [problem, setProblem] = useState<string | null>(null);
 
+  // 🏛 Where the typed time falls in the venue's window — the same start the server will compute (`momentStartIn`), so
+  // the sheet says before the press whether this goes straight in (backstage, inside the hours) or waits for the host.
+  const venueWin = venueWindowOf(chapter);
+  const startIso = time && !chapter.time_tba ? momentStartIn(chapter, time, section) : null;
+  const endIso = startIso && /^\d{1,3}$/.test(minutes) ? shiftWall(startIso, Number(minutes)) : null;
+  const verdict = backstageVerdict(chapter, startIso, endIso);
+  // An edit of a moment guests see never goes straight in, wherever it is moved to (it touches the programme).
+  const touchesProgramme = Boolean(moment && moment.section === 'Event');
+  const atOnce = !autoAgree && verdict === 'at_once' && !touchesProgramme;
+  const goesWords = autoAgree
+    ? whereItGoesWords(true)
+    : touchesProgramme
+      ? VERDICT_WORDS.guests_see
+      : VERDICT_WORDS[verdict];
+
   const go = async (fields: Fields) => {
     setStage('sending');
     setProblem(null);
@@ -869,7 +929,19 @@ function MyMomentSheet({
         <h3 id={headingId} className="sr-only">
           {moment ? moment.label : `New moment in ${chapter.label}`}
         </h3>
-        <p className="text-[13px] text-ink/70">{whereItGoesWords(autoAgree)}</p>
+        {venueWin ? (
+          <div data-moment-window={verdict} className="grid gap-1">
+            <VenueWindowBar window={venueWin} live={startIso} />
+            <p className="text-[13px] text-ink/70">{venueWindowWords(venueWin)}</p>
+          </div>
+        ) : null}
+        <p
+          role="status"
+          data-moment-goes={autoAgree ? 'auto' : verdict}
+          className={`text-[13px] ${verdict === 'outside' && !autoAgree ? 'font-semibold text-warn-900' : 'text-ink/70'}`}
+        >
+          {goesWords}
+        </p>
         {stage === 'ask-delete' ? (
           <>
             <p className="text-sm">
@@ -981,7 +1053,7 @@ function MyMomentSheet({
                 tone="brand"
                 main
                 icon={CalendarPlus}
-                label={stage === 'sending' ? 'Sending…' : autoAgree ? 'Save' : 'Send'}
+                label={stage === 'sending' ? (atOnce ? 'Saving…' : 'Sending…') : autoAgree ? 'Save' : atOnce ? 'Set my moment' : 'Ask the host'}
                 disabled={stage === 'sending'}
                 onClick={submit}
                 data-testid="supplier-moment-send"

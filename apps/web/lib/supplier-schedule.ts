@@ -36,6 +36,13 @@ export type SettleOutcome = 'waits' | 'applied' | 'words';
 export async function settleSupplierRequest(
   readAutoAgree: () => Promise<boolean | null>,
   apply: () => Promise<SettleOutcome>,
+  /**
+   * 🎭 THE ONE NARROWING (owner 2026-11-20, DECISION_LOG "A supplier sets its own BACKSTAGE moments without the host's
+   * OK"): with Auto-agree off, a request still goes straight in when this reads exactly `true` — the supplier's own
+   * backstage moment inside the venue's ingress → egress window (`backstageAppliesAtOnce`, lib/venue-window.ts).
+   * Unread, refused or thrown is NOT true: the request waits for a person. Held by `lib/venue-window.test.ts`.
+   */
+  readBackstageInWindow?: () => Promise<boolean | null>,
 ): Promise<SettleOutcome> {
   let on: boolean | null = null;
   try {
@@ -43,7 +50,15 @@ export async function settleSupplierRequest(
   } catch {
     on = null;
   }
-  if (on !== true) return 'waits';
+  if (on !== true) {
+    let atOnce: boolean | null = null;
+    try {
+      atOnce = readBackstageInWindow ? await readBackstageInWindow() : null;
+    } catch {
+      atOnce = null;
+    }
+    if (atOnce !== true) return 'waits';
+  }
   return apply();
 }
 

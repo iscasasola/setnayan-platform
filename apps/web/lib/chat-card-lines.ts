@@ -137,6 +137,35 @@ export function scheduleChangeFromLine(
 }
 
 /**
+ * 🗓 A TIME-CHANGE ASK, EITHER WAY (Unichat part F, 2026-11-20; written by `timeAskLine` in `lib/schedule-time-ask.ts`):
+ *   · "Time change asked · Sound check · 3:30 PM → 3:00 PM"      a supplier asks to move its moment
+ *   · "New moment asked · Crew call · 12:00 PM"                   a supplier asks to add one
+ *   · "Host asks a new time · Detail shots · 10:00 AM → 9:30 AM"  the host or coordinator asks the supplier
+ * Exact words, never guessed; anything else is null (the plain line it always was).
+ */
+export type TimeAskBy = 'supplier' | 'host';
+export type TimeAskLine = { by: TimeAskBy; add: boolean; label: string; from: string | null; to: string };
+
+export const TIME_ASK_HEADS = {
+  move: 'Time change asked',
+  add: 'New moment asked',
+  host: 'Host asks a new time',
+} as const;
+
+export function timeAskFromLine(body: string | null | undefined): TimeAskLine | null {
+  const text = (body ?? '').trim();
+  const m = /^(Time change asked|New moment asked|Host asks a new time) · (.+) · (?:([^·→]+?) → )?([^·→]+?)$/.exec(text);
+  if (!m) return null;
+  const clock = /^\d{1,2}:\d{2} (AM|PM)$/;
+  const from = m[3] ?? null;
+  const to = m[4]!;
+  if (!clock.test(to) || (from !== null && !clock.test(from))) return null;
+  const head = m[1]!;
+  if (head === TIME_ASK_HEADS.add && from !== null) return null;
+  return { by: head === TIME_ASK_HEADS.host ? 'host' : 'supplier', add: head === TIME_ASK_HEADS.add, label: m[2]!, from, to };
+}
+
+/**
  * ✉ The service an inquiry names — its own last line, as `startServiceInquiry` writes it (`inquiryServicesLine`):
  * "Service: Reception Lights & Sound" → that name; "Services: A · B" → "A · B"; no such line → null (the inquiry card
  * then says "Not given", never a guess).
@@ -156,5 +185,7 @@ export function streamLineKind(body: string | null | undefined): 'book' | 'ask' 
   if (quoteRiseFromLine(body)) return 'rise';
   if (quoteFallFromLine(body)) return 'fall';
   if (scheduleChangeFromLine(body)) return 'schedule';
+  // 🗓 A time-change ASK, either way (Unichat part F) — the same lazy card chunk draws it.
+  if (timeAskFromLine(body)) return 'schedule';
   return null;
 }

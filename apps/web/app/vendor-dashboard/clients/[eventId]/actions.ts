@@ -17,6 +17,7 @@ import { narrowEventDateAfterAgreement } from '@/lib/date-narrowing.server';
 import { formatCandidateDate } from '@/lib/candidate-dates';
 import { formatPhp } from '@/lib/php';
 import { postThreadSystemLine } from '@/lib/chat-system-line.server';
+import { backstageSetLine, timeAskLine } from '@/lib/schedule-time-ask';
 import { paymentAskedLine } from '@/lib/chat-gap-lines';
 import { LOCK_AGREE_FEE_HELD, lockAgreeHallsParam, lockAnswerReturnTo } from '@/lib/lock-answer-notice';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
@@ -650,8 +651,10 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew?: string[] | null;
     note: string;
     itemLabel: string | null;
+    /** The moment's time now (an adjust) — the time-change card's "from". Never written to the request. */
+    currentStartIso?: string | null;
   }): Promise<{ ok: true; outcome: 'waits' | 'applied' | 'words' } | { ok: false; code: string | null }> => {
-    const { itemLabel, ...fields } = row;
+    const { itemLabel, currentStartIso: _currentStartIso, ...fields } = row;
     // RLS enforces: booked on the event, own org, own user, status open — an edit or a delete only on the supplier's
     // own item, an add only into a chapter they are linked to.
     const { data, error } = await supabase
@@ -670,7 +673,34 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
       .select('suggestion_id')
       .maybeSingle();
     if (error || !data) return { ok: false, code: error?.code ?? null };
-    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id);
+    const why = { backstage: false };
+    const outcome = await settleAfterAsking(eventId, (data as { suggestion_id: string }).suggestion_id, why);
+    // 🎭 A backstage moment inside the venue's hours went straight in (owner 2026-11-20): the hosts and coordinator see
+    // it as ONE QUIET LINE in the conversation and an in-app notice — never the emailed "asks to change" notice.
+    if (why.backstage) {
+      try {
+        const body = backstageSetLine({ shop: supplierName, label: itemLabel, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+        await notifySupplierTimes({
+          eventId,
+          title: body ?? `${supplierName} changed a backstage moment`,
+          body: 'Backstage, inside the venue’s hours — it is on the schedule. Guests don’t see it.',
+        });
+      } catch (e) {
+        console.error('[suggestScheduleChange] backstage line failed:', e);
+      }
+      return { ok: true, outcome };
+    }
+    // 🗓 THE TIME-CHANGE CARD (Unichat part F): an ask that names a new time and WAITS is one line in the conversation —
+    // the stream draws it as the card both sides answer from (`lib/schedule-time-ask.ts`). Best-effort, like the notice.
+    if (outcome === 'waits' && (row.kind === 'new' || row.kind === 'adjust') && row.proposed_start_at) {
+      try {
+        const body = timeAskLine({ by: 'supplier', add: row.kind === 'new', label: itemLabel, fromIso: row.currentStartIso ?? null, toIso: row.proposed_start_at });
+        if (body) await postThreadSystemLine(createAdminClient(), { eventId, vendorProfileId: profile.vendor_profile_id, body });
+      } catch (e) {
+        console.error('[suggestScheduleChange] time-ask line failed:', e);
+      }
+    }
     // Tell everyone who can approve it — the couple AND a coordinator holding The Day = Edit (best-effort: the
     // request is already written; a failed notice must never undo it). Auto-agreed changes are told too: the
     // schedule moved and the host should know who moved it.
@@ -870,14 +900,16 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
   // The block's own label: the notice names it, and a 'remove' keeps it as `proposed_label` so the request still
   // says what it was about once the block is gone (the FK is ON DELETE SET NULL since 20271263061583).
   let blockLabel: string | null = null;
+  let blockStartIso: string | null = null;
   if (blockId) {
     const { data: block } = await supabase
       .from('event_schedule_blocks')
-      .select('label')
+      .select('label, start_at')
       .eq('block_id', blockId)
       .eq('event_id', eventId)
       .maybeSingle();
     blockLabel = (block as { label: string | null } | null)?.label ?? null;
+    blockStartIso = (block as { start_at: string | null } | null)?.start_at ?? null;
   }
 
   // + My moment / My moment (the Schedule view's sheet): a chapter, a clock, minutes and crew — not the old
@@ -929,6 +961,7 @@ export async function suggestScheduleChange(formData: FormData): Promise<Supplie
     proposed_crew: kind === 'remove' ? null : crew,
     note: typedNote || fallbackNote,
     itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+    currentStartIso: kind === 'adjust' ? blockStartIso : null,
   });
 
   if (quiet) {

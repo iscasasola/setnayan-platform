@@ -25,6 +25,8 @@
  * 🛑 A FAILED READ IS SAID, NEVER DRAWN AS NO CHAPTERS (`{ measured: false }`).
  * 🔒 app/dashboard/[eventId]/schedule/chapters-live-on-the-schedule.test.ts
  */
+import { VenueWindowBar } from '@/app/_components/venue-window-bar';
+import { venueWindowOf, venueWindowWords } from '@/lib/venue-window';
 import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -805,6 +807,7 @@ function ChapterPage({
   const [shut, setShut] = useState<ReadonlySet<ChapterSection>>(() => new Set());
   const ingress = ingressAt(c);
   const egress = egressAt(c);
+  const venueWin = venueWindowOf(c);
   const bySection = (k: ChapterSection) =>
     // ⏭ In the run's order — a moment "right after the one above" sits directly under it (lib/moment-order.ts).
     inRunOrder(moments.filter((m) => momentSection(m.start_at, c) === k));
@@ -897,6 +900,16 @@ function ChapterPage({
         )}
         <Tip>{about}</Tip>
       </p>
+
+      {/* 🏛 THE VENUE WINDOW (Unichat part F, owner 2026-11-20): ingress · event · egress as one bar, a tick per moment
+          (amber = outside the hours), then the same in words. Only once the chapter has a setup or a pack-up time —
+          without one the line above already says all there is. */}
+      {venueWin && (venueWin.hasIngress || venueWin.hasEgress) ? (
+        <div data-venue-window={c.block_id} className="mt-2 grid gap-1">
+          <VenueWindowBar window={venueWin} ticks={moments.filter((m) => m.start_at).map((m) => ({ start: m.start_at, end: m.end_at ?? null }))} />
+          <p className="text-[13px] font-semibold text-ink">{venueWindowWords(venueWin)}</p>
+        </div>
+      ) : null}
 
       {/* 🏛 VENUE HOURS (owner 2026-11-04, prototype frame 2): the venue booked to this chapter holds its hours — the
           host asks it to change (the shipped host ask, answered by the venue). With no venue holding them, nothing. */}

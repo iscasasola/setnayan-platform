@@ -73,5 +73,7 @@ test('5 · Shop › Badges: a locked badge keeps its colours too — no grey, no
   const src = stripComments(readFileSync(join(WEB, 'app/vendor-dashboard/shop/_components/shop-badge-row.tsx'), 'utf8'));
   assert.ok(!/grayscale/.test(src), 'the shelf never greys a badge');
   assert.ok(!/opacity: earned \? 1 : 0\.45/.test(src), 'the shelf never fades a locked badge');
-  assert.match(src, /bottom-0 right-0 grid h-5 w-5[^"]*" aria-hidden data-badge-lock=""/);
+  // The shelf's look is main's now (#7986, the same 18 Nov ruling): the lock sits on the ring at the lower right, by `lockAt`.
+  assert.match(src, /style=\{\{ left: lockAt, top: lockAt, width: LOCK_PX, height: LOCK_PX \}\}/);
+  assert.match(src, /data-badge-lock=""/);
 });

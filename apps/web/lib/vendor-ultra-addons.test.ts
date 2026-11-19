@@ -2,7 +2,7 @@
  * ULTRA ADD-ONS — owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES" (*"seat, branch + 990 / the rest is +199"*) and
  * "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE".
  *
- * Held here (pure — the database half is tests/db/bookings-per-date-is-a-plan-allowance.db.test.ts):
+ * Held here (pure — the database half is tests/db/bookings-per-date-are-the-shops-own-number.db.test.ts):
  *   · a purchase RAISES the effective cap, one per paid order, on exactly the allowance it names;
  *   · only Ultra may buy any of the six (the Custom plan was retired 2026-11-06);
  *   · the list is the catalogue's, in the owner's order — categories · service cards · team seat · branches · wait list
@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import { TIER_CAPS, VENDOR_TIERS, tierCaps } from './vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, TIER_CAPS, VENDOR_TIERS, WAITLIST_SETTING_MAX, tierCaps } from './vendor-tier-caps';
 import {
   COUNT_ADDONS,
   COUNT_ADDON_KINDS,
@@ -39,9 +39,11 @@ test('a purchase raises the effective cap — one per paid add-on, on the allowa
   const ultra = tierCaps('enterprise');
   const raised = applyAddOnExtras(ultra, { category: 2, service_card: 1, waitlist: 1, booking_per_date: 3 });
   assert.equal(raised.parentCategories, ultra.parentCategories + 2);
-  assert.equal(raised.servicesPerLeaf, ultra.servicesPerLeaf + 1);
-  assert.equal(raised.waitlistAcceptances, ultra.waitlistAcceptances + 1);
-  assert.equal(raised.bookingsPerDatePerService, ultra.bookingsPerDatePerService + 3);
+  assert.equal(raised.serviceCardsTotal, ultra.serviceCardsTotal + 1);
+  // The wait list is already at its column's ceiling on every plan (2026-11-18) — a past purchase cannot pass it.
+  assert.equal(raised.waitlistAcceptances, WAITLIST_SETTING_MAX);
+  // A "+1 booking per date" bought before 2026-11-18 raises nothing: there is no plan cap left (ruling 17).
+  assert.equal('bookingsPerDatePerService' in raised, false);
   // Nothing else moves.
   assert.equal(raised.agentAccounts, ultra.agentAccounts);
   assert.equal(raised.branchesIncluded, ultra.branchesIncluded);
@@ -56,8 +58,8 @@ test('an add-on raises a number, never a feature — and never an unlimited one'
   assert.equal(r.waitlistAcceptances, 0, 'a bought wait list conjured a wait list on a plan with none');
   assert.equal(r.parentCategories, Infinity);
   // Garbage counts floor at zero.
-  const g = applyAddOnExtras(tierCaps('enterprise'), { ...NO_EXTRAS, booking_per_date: -3 });
-  assert.equal(g.bookingsPerDatePerService, TIER_CAPS.enterprise.bookingsPerDatePerService);
+  const g = applyAddOnExtras(tierCaps('enterprise'), { ...NO_EXTRAS, service_card: -3 });
+  assert.equal(g.serviceCardsTotal, TIER_CAPS.enterprise.serviceCardsTotal);
 });
 
 test('only Ultra may buy a seat or a branch; the four "+1" add-ons are not sold on any plan (2026-11-14)', () => {
@@ -114,29 +116,14 @@ test('the service keys round-trip and join both registries', () => {
   assert.equal(parseCountAddOnServiceKey(null), null);
 });
 
-test('the card editor: a NEW number past the plan is refused on every plan; a grandfathered one is not', () => {
-  // Supplier Plus takes 1 a date.
-  assert.equal(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: 1, stored: null }), null);
-  assert.equal(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: null, stored: 3 }), null, 'blank must save');
-  assert.match(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: 2, stored: null }) ?? '', /up to 1 booking a day/);
-  // Grandfathered: re-saving the number it already holds.
-  assert.equal(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: 3, stored: 3 }), null);
-  assert.notEqual(bookingsPerDateRefusal({ tier: 'solo', effectiveCap: 1, requested: 4, stored: 3 }), null);
-  // Ultra with two bought before the fold (2026-11-14): 12 — they still count, and nothing more is offered.
-  assert.equal(bookingsPerDateRefusal({ tier: 'enterprise', effectiveCap: 12, requested: 12, stored: null }), null);
-  assert.match(bookingsPerDateHelp('enterprise', 12) ?? '', /up to 12 bookings a day for this service at this branch\.$/);
-  assert.doesNotMatch(bookingsPerDateHelp('enterprise', 12) ?? '', /Add more|Plan page/);
-  // Free / Verified: 1 each, like Supplier Plus (owner click 2026-11-06) — a NEW 2 is refused, 1 and blank save, a grandfathered
-  // number re-saves, and the editor names the cap and Ultra's number.
-  for (const t of ['free', 'verified'] as const) {
-    const cap = TIER_CAPS[t].bookingsPerDatePerService;
-    assert.equal(cap, 1, `${t} takes 1 a date`);
-    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 1, stored: null }), null);
-    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: null, stored: 3 }), null, `${t}: blank must save`);
-    assert.match(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 2, stored: null }) ?? '', /up to 1 booking a day/);
-    assert.equal(bookingsPerDateRefusal({ tier: t, effectiveCap: cap, requested: 3, stored: 3 }), null, `${t}: grandfathered`);
-    assert.match(bookingsPerDateHelp(t, cap), new RegExp(`up to 1 booking a day.*Ultra takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}`));
-  }
-  // Below Ultra, the words name Ultra's number from the table, never typed.
-  assert.match(bookingsPerDateHelp('pro', 3) ?? '', new RegExp(`Ultra takes ${TIER_CAPS.enterprise.bookingsPerDatePerService}`));
+test('the card editor: bookings a day are the shop\'s own number on every plan, up to 500 (owner 2026-11-18)', () => {
+  assert.equal(bookingsPerDateRefusal({ requested: 1, stored: null }), null);
+  assert.equal(bookingsPerDateRefusal({ requested: 30, stored: null }), null, 'a cake shop takes 30 a day on any plan');
+  assert.equal(bookingsPerDateRefusal({ requested: DAILY_CAPACITY_MAX, stored: null }), null);
+  assert.equal(bookingsPerDateRefusal({ requested: null, stored: 3 }), null, 'blank must save');
+  assert.match(bookingsPerDateRefusal({ requested: DAILY_CAPACITY_MAX + 1, stored: null }) ?? '', /up to 500 bookings a day/);
+  // A number held from before the ceiling re-saves as it is.
+  assert.equal(bookingsPerDateRefusal({ requested: 600, stored: 600 }), null);
+  assert.match(bookingsPerDateHelp(), /up to 500\. Every plan\.$/);
+  assert.doesNotMatch(bookingsPerDateHelp(), /Ultra|Max|Pro|Plus|upgrade/i, 'the help names a plan again');
 });

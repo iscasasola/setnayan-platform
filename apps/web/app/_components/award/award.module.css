@@ -1792,7 +1792,7 @@
   }
 }
 
-/* ───────────────────────── 🔒 the locked look (v86 .lkt): the art in its REAL colours, a small lock at the bottom-right (owner 18 Nov: "we still want to see how they look like"; replaces v86's grey), what it takes ───────────────────────── */
+/* ───────────────────────── 🔒 the locked look (v86 .lkt): the art in grey under a lock, what it takes ───────────────────────── */
 .lkt {
   position: relative;
   display: grid;
@@ -1808,6 +1808,9 @@
   height: 96px;
   display: grid;
   place-items: center;
+  /* 🔓 The REAL art, never grey (owner 18 Nov, "we still want to see how they look like"): the lock and the words say
+     "not yet". The same knob as the Shop row (`LOCKED_ART_OPACITY`, shop-badge-row.tsx). */
+  opacity: var(--sn-locked-art-opacity, 1);
 }
 .lktArt svg {
   max-width: 100%;
@@ -1820,18 +1823,21 @@
   max-width: none;
   height: auto;
 }
+/* The lock sits small at the art's lower right (owner 18 Nov), never over its face: the art's centre is 14 + 48 = 62px
+   down, and the lock's centre is 34px right of and below it. */
 .lktLock {
   position: absolute;
-  /* the art box is 96 px, centred, starting 14 px down: the lock sits on its bottom-right corner */
-  top: 80px;
+  top: 96px;
   left: calc(50% + 34px);
-  width: 24px;
-  height: 24px;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: Canvas;
   display: grid;
   place-items: center;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  opacity: 0.95;
 }
 .lktGroup {
   font: 700 10px/1 var(--font-sans, system-ui), sans-serif;

@@ -27,6 +27,7 @@ export function TodayCover({
   now,
   gear = null,
   hero = null,
+  sub,
 }: {
   shopName: string | null;
   /** The Needs-you list's length (null when the list could not be read). */
@@ -34,6 +35,8 @@ export function TodayCover({
   todayIso: string;
   now: number;
   gear?: ReactNode;
+  /** 📋 Today v2: "6 tasks today · 1 of 7 done" + the pips (`TodayV2Sub`) in place of the bare tasks chip. */
+  sub?: ReactNode;
   /**
    * 🖼 Lane E item 11: the shared hero's picture — the most-viewed portfolio photo ("Most viewed · N views"), else the
    * latest, else the category placeholder with its Upload door. Null (the lab, a guard) = the shipped placeholder file.
@@ -66,7 +69,7 @@ export function TodayCover({
             ) : null}
           </>
         }
-        sub={tasksChip ? <b className="font-semibold" data-today-tasks-chip="">{tasksChip}</b> : null}
+        sub={sub !== undefined ? sub : tasksChip ? <b className="font-semibold" data-today-tasks-chip="">{tasksChip}</b> : null}
         picture={hero?.picture ?? null}
         caption={hero?.caption ?? null}
         upload={hero?.upload ?? null}

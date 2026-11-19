@@ -14,6 +14,7 @@ import {
   cleanOptions,
   draftItemsOfTemplate,
   formsForBookedCards,
+  formsForThisClient,
   itemRow,
   normalizedVideoUrl,
   suggestionsForCategories,
@@ -126,5 +127,29 @@ test('answers are text, shaped by type', () => {
       new Set(['a', 'b']),
     ),
     { answered: 1, total: 2 },
+  );
+});
+
+test('a client sees only the forms of the cards they asked about, plus the chat forms (owner 18 Nov 2026)', () => {
+  const forms = [
+    { formId: 'buffet', serviceIds: ['card-buffet'] },
+    { formId: 'garden', serviceIds: ['card-garden', 'card-other'] },
+    { formId: 'other', serviceIds: ['card-other'] },
+    { formId: 'songs', serviceIds: [] },
+  ];
+  const seen = formsForThisClient(forms, ['card-buffet', 'card-garden']);
+  assert.deepEqual(
+    seen.map((f) => [f.formId, f.group]),
+    [
+      ['buffet', 'card'],
+      ['garden', 'card'],
+      ['songs', 'chat'],
+    ],
+    'another card’s form showed, or a chat form was hidden',
+  );
+  assert.deepEqual(
+    formsForThisClient(forms, []).map((f) => f.formId),
+    ['songs'],
+    'a client who asked about no card still gets the chat forms, and only those',
   );
 });

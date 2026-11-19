@@ -84,7 +84,10 @@ test('a partner row is the house row: name + Live, one quiet line, no buttons un
   const foldAt = rows.indexOf('<Fold');
   assert.ok(foldAt > 0, 'a partner row must open in place through the shared Fold');
   assert.match(rows, /data="partner-accepted"/);
-  assert.match(rows, /line=\{`\$\{kindLabel\} · \$\{iProposed \? 'You proposed' : 'They proposed'\}`\}/);
+  // 🤝 Invite a supplier v3 (owner 16 Nov): the one quiet line says where the tie came from — "Invited · joined through
+  // your link · 16 Nov", "Added by you", "Worked together · 2 events" — through the one wording, `partnerLine`.
+  assert.match(rows, /line=\{[\s\S]{0,400}partnerLine\(\{ origin: p\.origin, iProposed/);
+  assert.match(rows, /<PartnerRemoveRow key=\{p\.id\} id=\{p\.id\}/, 'either side removes a partner by swiping the row left');
   // Nothing pressable before the Fold opens — the dropdown and Re-propose live INSIDE it.
   const closed = rows.slice(0, foldAt);
   assert.doesNotMatch(closed, /<form|<select|SubmitButton/, 'a button sits on the closed partner row again');

@@ -220,7 +220,10 @@ test('4 · the way in: Today and Portfolio draw “Add to the inspiration librar
   /* ③0-b: the predicate is asked of the LIVE parts (`getInspirationParts()`), the snapshot the real upload gate reads. */
   assert.match(page, /const inspirationPartsRead = getInspirationParts\(\);/, 'the Today page does not read the live parts');
   assert.match(page, /const libraryOpen = moodboardLibraryAccessForProfile\(profile, await inspirationPartsRead\)\.allowed;/, 'the Today page does not ask the shared predicate of the live parts');
-  assert.match(page, /library=\{\s*libraryOpen\b/, 'the Today page does not pass the shared predicate');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-18 (Today v2, owner: "we want tasks on inspiration library"): the flag goes to the
+     v2 builder, which draws the library as a task row — the Shop group's door is no longer drawn twice. */
+  assert.match(page, /library: libraryOpen\b/, 'the Today page does not pass the shared predicate');
+  assert.match(code('app/vendor-dashboard/_components/today-v2-assemble.tsx'), /library: \{ open: i\.library,/, 'the v2 builder drops the flag');
   const screen = code('app/vendor-dashboard/_components/supplier-today-screen.tsx');
   assert.match(screen, /library=\{library\}/, 'the Today screen drops the flag');
 

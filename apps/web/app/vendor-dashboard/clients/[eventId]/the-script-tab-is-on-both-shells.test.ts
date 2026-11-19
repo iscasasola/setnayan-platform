@@ -46,7 +46,8 @@ test('the picked client (flag ON) folds the Script in at the end of Schedule', (
   assert.match(body, /\{showScript \? \(\s*<section id=\{SCRIPT_FOLD_ID\}/, 'shown on exactly the OFF card\u2019s condition');
   assert.match(body, /\{gated\(scriptNode\)\}/, 'same node, same fee gate as the OFF card');
   assert.ok(body.indexOf('gated(scheduleNode)') < body.indexOf('SCRIPT_FOLD_ID'), 'the Script fold sits AFTER the schedule');
-  assert.match(PAGE, /scrollToScript=\{wantsScriptFold\(rawTab\) && showScript\}/, '?tab=script must land on the fold');
+  // 18 Nov 2026 (seven tabs): one `landAt` carries the Script fold and the folded parts (payments, forms).
+  assert.match(PAGE, /landAt=\{wantsScriptFold\(rawTab\) \? \(showScript \? SCRIPT_FOLD_ID : null\) : pickedAnchorOf\(rawTab\)\}/, '?tab=script must land on the fold');
   assert.ok(
     (VENDOR_CLIENT_TABS as readonly string[]).includes('script'),
     'a landing that names ?tab=script must be a tab the ON shell knows',

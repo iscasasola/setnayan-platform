@@ -22,8 +22,27 @@ import {
 /** Orders stub: an ownership query "hits" when any queried service_key is owned. */
 function ordersOwning(owned: Set<string>, status = 'submitted', proKept = false): SupabaseClient {
   let keys: string[] | null = null;
+  // One query chain per `from()` (2026-11-19): the readers now ask Ultra and Pro in parallel, and one shared filter
+  // would hand one query the other's answer.
+  const chain = (): Record<string, unknown> => {
+    let own: string[] | null = null;
+    const q: Record<string, unknown> = {
+      select: () => q,
+      eq: () => q,
+      not: () => q,
+      in(col: string, vals: unknown) {
+        if (col === 'service_key' && Array.isArray(vals)) own = vals as string[];
+        return q;
+      },
+      then(resolve: (v: unknown) => unknown) {
+        const data = own && own.some((k) => owned.has(k)) ? [{ status }] : [];
+        return Promise.resolve({ data, error: null }).then(resolve);
+      },
+    };
+    return q;
+  };
   const b: Record<string, unknown> = {
-    from: () => b,
+    from: () => chain(),
     select: () => b,
     eq: () => b,
     not: () => b,

@@ -197,6 +197,13 @@ export function ProPartsBody({
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
       ) : null}
 
+      {/* A plan payment under review — the way to follow it (the old Everything card's link, kept). */}
+      {proState === 'review' || plans?.ultra === 'review' ? (
+        <Link href={`/dashboard/${eventId}/orders`} className="inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
+          Track your order
+        </Link>
+      ) : null}
+
       {/* ── THE APPLY SHEET'S PICK (`?buy=`) — one order, one payment. ── */}
       {partsOnSale && !active?.full && !owned?.full && buyParts.length > 0 && buyPricePhp !== null ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5 ring-2 ring-terracotta/50" data-pro-buy-pick={buyParts.join(',')}>

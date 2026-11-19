@@ -235,9 +235,13 @@ export function PickedShell<P extends string>({
     setSeen((was) => (was.has(page) ? was : new Set([...was, page])));
   }, [page]);
   // 🖥 On a computer the Chat tab is not in the menu, so its unread count is drawn on the Chat column's own heading.
-  const chatUnread = sideChat && !seen.has(sideChat.page) ? (badges[sideChat.page] ?? 0) : 0;
+  /* 🖥 Its own flag, not `seen`: `seen` is seeded with the landing page, and the landing page defaults to Chat — so on a
+     computer the column's count would read 0 on every plain visit while messages wait. Only opening the chat clears it. */
+  const [chatOpened, setChatOpened] = useState(false);
+  const chatUnread = sideChat && !chatOpened ? (badges[sideChat.page] ?? 0) : 0;
   const markChatSeen = useCallback(() => {
     if (!sideChatPage) return;
+    setChatOpened(true);
     setSeen((was) => (was.has(sideChatPage) ? was : new Set([...was, sideChatPage])));
   }, [sideChatPage]);
   const originRef = useRef<PickedOrigin | null>(null);
@@ -340,6 +344,7 @@ export function PickedShell<P extends string>({
       if (id === workPage) return;
       // 🖥 The chat is already open beside the work on a computer: a door to it leaves the work where it is.
       if (split && id === sideChatPage) return;
+      if (id === sideChatPage) setChatOpened(true);
       setPage(id);
       try {
         const url = new URL(window.location.href);

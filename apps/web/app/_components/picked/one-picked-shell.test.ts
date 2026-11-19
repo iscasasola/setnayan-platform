@@ -185,7 +185,7 @@ test('a hash lands on its part, and a computer still shows Chat’s unread count
   assert.match(shell, /function scrollToPart\(id: string\): boolean \{/);
   assert.equal((shell.match(/scrollIntoView\(/g) ?? []).length, 0);
   // 3 · the Chat tab is not in a computer's menu, so its count is on the Chat column's heading — and goes on touch.
-  assert.match(shell, /const chatUnread = sideChat && !seen\.has\(sideChat\.page\) \? \(badges\[sideChat\.page\] \?\? 0\) : 0;/);
+  assert.match(shell, /const chatUnread = sideChat && !chatOpened \? \(badges\[sideChat\.page\] \?\? 0\) : 0;/);
   assert.match(shell, /data-picked-chat-head=""[\s\S]{0,500}\{chatUnread > 0 \? \(\s*<small[^>]*data-picked-badge=\{sideChat!\.page\}/, 'the Chat column carries no unread count');
   assert.match(shell, /onPointerDownCapture=\{markChatSeen\}/);
 });

@@ -34,10 +34,10 @@ test('a body swipe turns the page only when it is clearly sideways', () => {
 });
 
 test('the shell centres on every change of page (and the first open, instantly) and swipes in menu order', () => {
-  assert.match(SHELL, /centreInStrip\(strip, strip\?\.querySelector<HTMLElement>\(`\[data-picked-page="\$\{page\}"\]`\) \?\? null, first\)/);
-  assert.match(SHELL, /\}, \[page, host\]\);/, 'a deep link / first open (the portal landing) is not centred');
+  assert.match(SHELL, /centreInStrip\(strip, strip\?\.querySelector<HTMLElement>\(`\[data-picked-page="\$\{workPage\}"\]`\) \?\? null, first\)/);
+  assert.match(SHELL, /\}, \[workPage, host\]\);/, 'a deep link / first open (the portal landing) is not centred');
   assert.doesNotMatch(SHELL, /strip\.scrollTo\(\{ left: Math\.max\(0, left - 12\)/, 'the old keep-in-view (not centred) is back');
   assert.match(SHELL, /const step = pageSwipeStep\(t\.clientX - sx, t\.clientY - sy\);/);
-  assert.match(SHELL, /const next = menu\[i \+ step\];\s*if \(i >= 0 && next\) select\(next\.id\);/);
+  assert.match(SHELL, /const next = shownMenu\[i \+ step\];\s*if \(i >= 0 && next\) select\(next\.id\);/);
   assert.match(SHELL, /PAGE_SWIPE_SKIP = '\[data-picked-menu\],\[data-calendar\],\[data-dates-week-strip\],input,textarea/, 'a swipe on the calendar would turn the page');
 });

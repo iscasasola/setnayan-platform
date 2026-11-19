@@ -84,7 +84,7 @@ describe('no tab that can only ever be blank', () => {
         'renders an empty page.',
     );
     assert.ok(
-      /hasQuotesToShow\s*$|hasQuotesToShow\n|hasQuotesToShow\s*\?/m.test(src),
+      /hasQuotesToShow\s*$|hasQuotesToShow\n|hasQuotesToShow\s*\?|\{hasQuotesToShow && !moneyHidden \? \(\s*<section id="quote"/m.test(src),
       'hasQuotesToShow is computed but never used to gate the tab.',
     );
   });

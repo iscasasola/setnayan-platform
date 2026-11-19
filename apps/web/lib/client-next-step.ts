@@ -75,6 +75,50 @@ export function clientNextStep(i: NextStepInputs): ClientNextStep | null {
   return null;
 }
 
+export type CoupleNextStepInputs = {
+  todayIso: string;
+  eventDate: string | null;
+  isBooked: boolean;
+  /** Not booked: the supplier sent a quote nobody has answered. null = the proposals read failed. */
+  quoteToDecide: boolean | null;
+  /** Booked: the next installment still to pay, in pay order — `undefined` when the plan or its payments were unread. */
+  nextDue: { amountPhp: number | null; dueDate: string | null } | null | undefined;
+  /** After the event: the supplier delivered a handover the host has not confirmed. undefined = unread. */
+  handoverWaiting: boolean | undefined;
+};
+
+/**
+ * 🪞 THE SAME ROW ON THE HOST'S SIDE (owner 19 Nov 2026: *"let us finish these"* — the Next step row on the couple's view
+ * of a supplier). One line naming the one thing that needs the HOST; tapping it opens that tab.
+ *
+ *   · not booked  → "Quote to decide"                → Book & Budget (the quote)
+ *   · booked      → "₱242,830 due Wed, Dec 9"        → Book & Budget (the payments)
+ *   · after it    → "Your handover is ready"         → Files
+ *
+ * There is no event-week stage here: the supplier's crew call is the supplier's read, not the host's, and this row is
+ * built only from reads the host's page already makes. Same rule as the supplier's: an unread stage says NOTHING.
+ */
+export function coupleNextStep(i: CoupleNextStepInputs): ClientNextStep | null {
+  const day = i.eventDate && /^\d{4}-\d{2}-\d{2}/.test(i.eventDate) ? i.eventDate.slice(0, 10) : null;
+  if (!i.isBooked) {
+    if (i.quoteToDecide === true) return { line: 'Quote to decide', page: 'quote', anchor: null };
+    return null;
+  }
+  if (day !== null && i.todayIso > day) {
+    if (i.handoverWaiting === true) return { line: 'Your handover is ready', page: 'files', anchor: null };
+    return null;
+  }
+  if (!i.nextDue) return null;
+  const dated = i.nextDue.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(i.nextDue.dueDate) ? dayHeading(i.nextDue.dueDate) : null;
+  const line =
+    i.nextDue.amountPhp === null
+      ? dated
+        ? `A payment is due ${dated}`
+        : 'A payment is due'
+      : `${formatPhp(i.nextDue.amountPhp)}${dated ? ` due ${dated}` : ' to pay'}`;
+  return { line, page: 'quote', anchor: 'payments' };
+}
+
 /**
  * What the work column opens on, on a computer, when no `?tab=` names a page (drawing §4): before booking Book &
  * Budget; once booked Details; in the event week Schedule.

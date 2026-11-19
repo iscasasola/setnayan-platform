@@ -140,12 +140,23 @@ const MENU_FADE = {
  * vertical only. Never `scrollIntoView`: it also moved the body sideways (§10 #26). One path for a `?tab=` landing and
  * for an in-page door (`nav.select`).
  */
-function scrollToPart(id: string) {
-  const part = document.getElementById(id);
+function scrollToPart(id: string): boolean {
+  const part = id ? document.getElementById(id) : null;
   const scroller = part?.closest<HTMLElement>('[data-picked-body]');
-  if (!part || !scroller) return;
+  if (!part || !scroller) return false;
   const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
   scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  return true;
+}
+
+/** `#deposit` → `deposit`; a malformed escape is simply not a part. */
+function hashId(hash: string): string {
+  const raw = hash.replace(/^#/, '');
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return '';
+  }
 }
 
 export function PickedShell<P extends string>({
@@ -223,6 +234,12 @@ export function PickedShell<P extends string>({
   useEffect(() => {
     setSeen((was) => (was.has(page) ? was : new Set([...was, page])));
   }, [page]);
+  // 🖥 On a computer the Chat tab is not in the menu, so its unread count is drawn on the Chat column's own heading.
+  const chatUnread = sideChat && !seen.has(sideChat.page) ? (badges[sideChat.page] ?? 0) : 0;
+  const markChatSeen = useCallback(() => {
+    if (!sideChatPage) return;
+    setSeen((was) => (was.has(sideChatPage) ? was : new Set([...was, sideChatPage])));
+  }, [sideChatPage]);
   const originRef = useRef<PickedOrigin | null>(null);
   const closingRef = useRef(false);
   const headingId = useId();
@@ -232,6 +249,11 @@ export function PickedShell<P extends string>({
   useEffect(() => {
     try {
       const found = pickedPageFromUrl<P>(window.location.search, window.location.hash, menu.map((m) => m.id), pageOf);
+      // 🔗 The part the URL's HASH names (review, 19 Nov 2026). An old `#forms` / `#inspiration` link with no `?tab=`
+      // lands on its part, not the top of Details (`anchorOf`); and with a `?tab=`, a hash is an element of that page
+      // (`?tab=payments#deposit` → the deposit card), which outranks the tab's own part.
+      const hash = hashId(window.location.hash);
+      if (hash) hashPartRef.current = found?.fromHash ? (anchorOf?.(hash) ?? null) : found || new URLSearchParams(window.location.search).get('tab') ? hash : null;
       if (!found) return;
       if (found.page !== page) setPage(found.page);
       // A hash becomes `?tab=`, written with `null` like `select` below (walk 13 Nov 2026, F-W1-67/73).
@@ -261,6 +283,7 @@ export function PickedShell<P extends string>({
   // open (instant then, so the menu does not glide on arrival); at either end the strip stays at its end. ONLY the strip
   // scrolls (§10 #26: `scrollIntoView` also moved the page body sideways), and the body is put back if it ever moved.
   const centredOnce = useRef(false);
+  const hashPartRef = useRef<string | null>(null);
   useEffect(() => {
     const strip = menuRef.current;
     const first = !centredOnce.current;
@@ -290,9 +313,13 @@ export function PickedShell<P extends string>({
   // It waits for the portal (`host`): the first frame is drawn in place and then moved onto <body>, and a scroll made
   // on the in-place frame is thrown away with it (measured 19 Nov 2026 — `?tab=forms` opened Details at its top).
   useEffect(() => {
-    if (!host || !scrollTo || workPage !== scrollTo.page) return;
+    if (!host) return;
+    const fromHash = hashPartRef.current;
+    const fromTab = scrollTo && workPage === scrollTo.page ? scrollTo.id : null;
+    if (!fromHash && !fromTab) return;
     const t = window.setTimeout(() => {
-      scrollToPart(scrollTo.id);
+      // The hash's own part first; if the page has no such element, the tab's part (never nothing).
+      if (!(fromHash && scrollToPart(fromHash)) && fromTab) scrollToPart(fromTab);
     }, prefersReducedMotion() ? 0 : PICKED_OPEN_MS);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -567,10 +594,26 @@ export function PickedShell<P extends string>({
           className="hidden min-h-0 w-[360px] flex-none flex-col overflow-hidden rounded-t-xl bg-[color:var(--m-paper)] lg:flex xl:w-[400px]"
           data-picked-chat-col=""
           data-picked-fill=""
+          onPointerDownCapture={markChatSeen}
+          onFocusCapture={markChatSeen}
         >
           <PickedHeadContext.Provider value={headSlot}>
             <PickedHeadLineContext.Provider value={headLineSlot}>
               <ThumbLayerContext.Provider value={thumbLayer}>
+                {/* The column's own name (drawing v12 §3 "Chat") — and the unread count the hidden Chat tab used to
+                    carry here. It goes the moment the reader touches the column, as a tab's does when it is opened. */}
+                <div className="flex shrink-0 items-center gap-2 px-4 pt-3" data-picked-chat-head="">
+                  <p className="home-k2">{menu.find((m) => m.id === sideChat!.page)?.label ?? 'Chat'}</p>
+                  {chatUnread > 0 ? (
+                    <small
+                      className="h-4 min-w-4 rounded-full bg-sn-accent px-1 text-center text-[10px] font-bold leading-4 text-sn-on-accent"
+                      data-picked-badge={sideChat!.page}
+                    >
+                      {chatUnread > 99 ? '99+' : formatCount(chatUnread)}
+                      <span className="sr-only"> unread</span>
+                    </small>
+                  ) : null}
+                </div>
                 {chatTopRow}
                 {bodies[sideChat!.page]}
               </ThumbLayerContext.Provider>

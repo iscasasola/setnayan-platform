@@ -167,11 +167,25 @@ test('a computer’s layout is said in CSS, so the first paint is already it —
   assert.doesNotMatch(shell, /split \? WIDE_FRAME/, 'the frame waits for the width read again');
   // A `?tab=` landing scrolls AFTER the portal lands — a scroll on the in-place first frame is thrown away with it
   // (measured in the lab, 19 Nov 2026: `?tab=forms` opened Details at its top).
-  assert.match(shell, /if \(!host \|\| !scrollTo \|\| workPage !== scrollTo\.page\) return;[\s\S]{0,400}\}, \[host\]\);/, 'the landing scroll no longer waits for the portal');
+  assert.match(shell, /if \(!host\) return;\s*const fromHash = hashPartRef\.current;[\s\S]{0,700}\}, \[host\]\);/, 'the landing scroll no longer waits for the portal');
   // The couple's Book & Budget and Details wrap sections that already carry their label: one id each, no nested section.
   const ws = read(WORKSPACE);
   assert.equal((ws.match(/id="payments"/g) ?? []).length, 1, '`payments` is said twice (or never) on the couple page');
   assert.match(ws, /<div id=\{moneyHidden \? 'payments' : undefined\}[^>]*data-picked-part="payments">/);
   assert.equal((ws.match(/id="inspiration"/g) ?? []).length, 1);
   assert.match(ws, /<div id="inspiration"[^>]*data-picked-part="inspiration">/, 'Inspiration is a section inside a section again');
+});
+
+// ── 19 Nov 2026 · the three review follow-ups on the seven-tab build ────────────────────────────────────────────────
+test('a hash lands on its part, and a computer still shows Chat’s unread count', () => {
+  const shell = read(SHELL);
+  // 1 · an old `#forms` / `#inspiration` link (no `?tab=`) lands on its part; 2 · `?tab=payments#deposit` on the card.
+  assert.match(shell, /hashPartRef\.current = found\?\.fromHash \? \(anchorOf\?\.\(hash\) \?\? null\) : found \|\| new URLSearchParams\(window\.location\.search\)\.get\('tab'\) \? hash : null;/);
+  assert.match(shell, /if \(!\(fromHash && scrollToPart\(fromHash\)\) && fromTab\) scrollToPart\(fromTab\);/, 'a hash with no such element lands nowhere');
+  assert.match(shell, /function scrollToPart\(id: string\): boolean \{/);
+  assert.equal((shell.match(/scrollIntoView\(/g) ?? []).length, 0);
+  // 3 · the Chat tab is not in a computer's menu, so its count is on the Chat column's heading — and goes on touch.
+  assert.match(shell, /const chatUnread = sideChat && !seen\.has\(sideChat\.page\) \? \(badges\[sideChat\.page\] \?\? 0\) : 0;/);
+  assert.match(shell, /data-picked-chat-head=""[\s\S]{0,500}\{chatUnread > 0 \? \(\s*<small[^>]*data-picked-badge=\{sideChat!\.page\}/, 'the Chat column carries no unread count');
+  assert.match(shell, /onPointerDownCapture=\{markChatSeen\}/);
 });

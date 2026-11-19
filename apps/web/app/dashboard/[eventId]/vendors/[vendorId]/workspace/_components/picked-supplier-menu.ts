@@ -13,6 +13,13 @@
  * shipped "Report a problem" (the Disputes flow, `disputes/_components/new-flag-form.tsx`) pinned to this supplier.
  * `the-picked-supplier-has-nine-pages.test.ts` reads the supplier's menu and holds the two in the same order.
  *
+ * 🗂 SIX TABS (owner 18 Nov 2026, DECISION_LOG "THE CLIENT PAGE GOES TO SEVEN TABS — BOTH SIDES": *"Yes, mirror it"*;
+ * *"inspirations will be in the details as well"*): **Chat · Details · Book & Budget · Schedule · Files · Report** — the
+ * supplier's seven less Hub. Book & Budget (id `quote`) is the Payment body then the quote; Details holds the Forms
+ * (`#forms`), then Inspiration (`#inspiration`). Supersedes the nine pages below; old doors still land
+ * (`?tab=payments` → Book & Budget at `#payments`, `?tab=forms` → Details at `#forms`, `?tab=inspiration` → Details at
+ * `#inspiration`). `the-picked-supplier-has-nine-pages.test.ts` holds the two menus in one order.
+ *
  * Every page is a body the workspace ALREADY drew (Rule 0) — relocated, never redrawn; Chat is the shipped thread page
  * itself (`CoupleThreadBody`).
  *
@@ -22,6 +29,9 @@
  * which is Chat when there is a conversation and Details otherwise (a Chat that can only be blank is not offered).
  */
 
+import { BOOK_AND_BUDGET_LABEL } from '@/lib/book-and-budget';
+
+/** Every id a door may name — the six tabs plus the three folded into them (18 Nov), kept so old links still type. */
 export const PICKED_SUPPLIER_PAGE_IDS = ['chat', 'details', 'quote', 'payments', 'forms', 'schedule', 'files', 'inspiration', 'report'] as const;
 export type PickedSupplierPage = (typeof PICKED_SUPPLIER_PAGE_IDS)[number];
 
@@ -30,20 +40,23 @@ export type PickedSupplierMenuEntry = { id: PickedSupplierPage; label: string };
 export const PICKED_SUPPLIER_PAGES: readonly PickedSupplierMenuEntry[] = [
   { id: 'chat', label: 'Chat' },
   { id: 'details', label: 'Details' },
-  { id: 'quote', label: 'Quotation' },
-  { id: 'payments', label: 'Payment' },
-  { id: 'forms', label: 'Forms' },
+  { id: 'quote', label: BOOK_AND_BUDGET_LABEL },
   { id: 'schedule', label: 'Schedule' },
   { id: 'files', label: 'Files' },
-  { id: 'inspiration', label: 'Inspiration' },
   { id: 'report', label: 'Report' },
 ] as const;
 
 const ALIASES: Readonly<Record<string, PickedSupplierPage>> = {
   call: 'chat',
   quotation: 'quote',
-  payment: 'payments',
-  form: 'forms',
+  payment: 'quote',
+  payments: 'quote',
+  book: 'quote',
+  budget: 'quote',
+  form: 'details',
+  forms: 'details',
+  inspiration: 'details',
+  inspirations: 'details',
   documents: 'files',
   overview: 'details',
   problem: 'report',
@@ -58,8 +71,18 @@ export const ALWAYS_PICKED_SUPPLIER_PAGE: PickedSupplierPage = 'details';
 export function pickedSupplierPageOf(rawTab: string | null | undefined): PickedSupplierPage | null {
   if (!rawTab) return null;
   const t = rawTab.trim().toLowerCase();
+  if (Object.hasOwn(ALIASES, t)) return ALIASES[t]!;
   if ((PICKED_SUPPLIER_PAGE_IDS as readonly string[]).includes(t)) return t as PickedSupplierPage;
-  return ALIASES[t] ?? null;
+  return null;
+}
+
+/** The part of its page a door id lands on (`payments` → `#payments`), or null for the page's top. */
+export function pickedSupplierAnchorOf(rawTab: string | null | undefined): string | null {
+  const t = (rawTab ?? '').trim().toLowerCase();
+  if (t === 'payments' || t === 'payment') return 'payments';
+  if (t === 'forms' || t === 'form') return 'forms';
+  if (t === 'inspiration' || t === 'inspirations') return 'inspiration';
+  return null;
 }
 
 /** The page a door that names none opens: the menu's first — Chat when there is a conversation, else Details. */
@@ -69,11 +92,12 @@ export function defaultPickedSupplierPage(menu: readonly PickedSupplierMenuEntry
 
 /**
  * The menu this supplier shows: a page whose body would only ever be blank is not offered (the workspace's rule since
- * 2026-09-20 — "A TAB THAT CAN ONLY EVER BE BLANK IS NOT OFFERED"): no Quotation for a supplier the host added
- * themselves (nobody to send one), no Chat without a conversation.
+ * 2026-09-20 — "A TAB THAT CAN ONLY EVER BE BLANK IS NOT OFFERED"): no Chat without a conversation. Book & Budget is
+ * always offered — its payments part is there for a supplier the host added themselves too (18 Nov: the quote part is
+ * simply not drawn when nobody can send one).
  */
-export function pickedSupplierMenuFor(has: { quote: boolean; chat: boolean }): PickedSupplierMenuEntry[] {
-  return PICKED_SUPPLIER_PAGES.filter((p) => (p.id === 'quote' ? has.quote : p.id === 'chat' ? has.chat : true));
+export function pickedSupplierMenuFor(has: { chat: boolean }): PickedSupplierMenuEntry[] {
+  return PICKED_SUPPLIER_PAGES.filter((p) => (p.id === 'chat' ? has.chat : true));
 }
 
 /** The page drawn: the asked page if this menu has it, else the menu's first (Chat, or Details without a chat). */

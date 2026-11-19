@@ -56,9 +56,6 @@ const BANNED = new Set([
  * Every entry must still be in use, or the guard fails (see the last test).
  */
 const ALLOWED: Record<string, Record<string, string>> = {
-  'app/vendor-dashboard/collections/_components/reorder-sections.tsx': {
-    ArrowUpDown: 'REORDER — the "Reorder" button that opens the move-sections sheet; it changes the saved order, it does not sort a view',
-  },
   'app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx': {
     ArrowUpDown: 'MOVE — "Shift everything after" pushes later moments up or down the timeline; it edits times, it does not sort a list',
   },

@@ -1,49 +1,55 @@
 'use client';
 
 import { useContext, useRef, useState, type ReactNode } from 'react';
-import { useHeroPin } from '../../_components/use-hero-pin';
-import { SlidersHorizontal, Plus } from 'lucide-react';
-import { PinWord } from '@/app/_components/pinned-row/pin-door';
+import { Plus, SlidersHorizontal } from 'lucide-react';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
-import { SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
-import { collectionRows, type CollectionKey, type CollectionsInput } from '@/lib/supplier-collections';
+import type { CollectionKey, CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
-import { portfolioCountLabel } from '@/lib/portfolio-count-label';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { CollectionsList } from './collections-list';
 import { PortfolioShow } from './portfolio-show';
 import { PortfolioSettings, type ShowChoice } from './portfolio-settings';
 import type { PortfolioGroups } from '@/lib/portfolio-groups';
-import type { BestWorkPhoto } from '@/lib/portfolio-best-work';
+import {
+  ALBUM_STATS_UNREAD,
+  PORTFOLIO_SHOW_CHOICES,
+  PORTFOLIO_SHOW_DEFAULT,
+  PORTFOLIO_SORT_CHOICES,
+  PORTFOLIO_SORT_DEFAULT,
+  portfolioSortIsOn,
+  type AlbumStats,
+  type PortfolioShow as ShowFilter,
+  type PortfolioSort,
+} from '@/lib/portfolio-albums';
+import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import { actionButtonClass } from '@/components/action-button';
 import { PhotoChatContext, type PhotoChatShare } from './send-photo-to-chat';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 
 /**
- * 🖼 THE PORTFOLIO TAB (THE ONE BUILD A3 W13–W15 Phase A, lane C4; v114 `?tab=portfolio`; spec §10 #24).
+ * 🖼 THE PORTFOLIO TAB — SIMPLER (owner 2026-11-19, verbatim: *"simple (no header) just the way to cleanly access his
+ * shop's photos … First row would be the most viewed albums and recently viewed albums"* · *"portfolio simpler
+ * approved"* · *"just one: show and sort"* · *"no word just icon"* · *"B · Sliders"*; drawing artifact
+ * 7SfMdJW9mryK59pm7bKa5A). The shipped parts, REPOSITIONED — no second Portfolio:
  *
- *   top band   — "PORTFOLIO · ALL YOUR MEDIA" · "64 photos · 12 video links" · "N of 50 free photos" (the uploader's own
- *                cap; no GB meter — storage is out of this build) · N collections · Upload · ⚙
- *   pinned row — "Portfolio · N of 50 free photos · Show · ⚙", fading in as the band leaves (CSS stand-in until L1's
- *                `CollapsingTop`)
- *   sections   — THE APPROVED PORTFOLIO (owner 9 Nov, Apple Photos › Collections; DECISION_LOG "PORTFOLIO PROTOTYPE
- *                APPROVED FOR BUILD 5"): every collection a titled section (› opens, ˅ folds) with a rail of large
- *                photo tiles (`CollectionsList`); an opened one is a full-bleed photo grid. Who sees each collection,
- *                the page switch and the album Show plays live in the Portfolio's OWN ⚙ (`PortfolioSettings`, owner
- *                11 Nov (d)) — never rows named after clients, never a ✓ per row.
- *   Show       — greyed until an album is picked (in the ⚙); full screen, swipe, no edit / price / caption (`PortfolioShow`)
- *   thumb row  — Search photos · ⇅ (Sort: As listed · By name, and Show ▶) · ＋ Add photos (the shipped uploader's fold,
- *                `#gallery-media`) — the shape of Shop's row (Lane E item 4, owner 9 Nov: "There should be a search bar
- *                there that could help them find on their photos"). Search narrows every album, story and collection IN
- *                PLACE by its words (the house move, no request).
+ *   NO HEADER  the photo band, its "Latest" pill, the counts and the pinned row are gone. The counts moved into each
+ *              way-in line; the free-photo line stays in the ⚙.
+ *   ROW 1      the shop's ALBUMS, in the Sort's order (`lib/portfolio-albums.ts`), "All N albums" last; the house ⚙
+ *              (`PortfolioSettings`, "a ⚙ per page") at the right end of its heading — the screen's top row.
+ *   WAYS IN    From events · From services · From inspiration · Video links — one row each; a tap rises the group full
+ *              screen (`CollectionsList`), ✕ comes back.
+ *   THUMB ROW  Search or add · ONE round (sliders) that opens ONE dropdown: Show (a FILTER — All · Events · Services ·
+ *              Inspiration · Videos) then Sort (Most viewed · Opened by you · Newest); a dot while anything is not the
+ *              default. ＋ shows only when the words match nothing — it opens the device's picker in place.
+ *   SEARCH     narrows albums and ways by name AND BY PLACE (owner: *"when i type a place, example tagaytay, i see all
+ *              event albums from tagaytay, services inspiration and videos taken there"*) — from what is already
+ *              linked: an event's venue and address, the cards booked at it, a look's tagged event; a video by its
+ *              title. Nothing is tagged by hand.
  *
- * Lane E (Build 3): the band is the ONE supplier hero (`SupplierHero`, item 10) wearing the LATEST photo (item 11) or
- * the category placeholder (item 12); its Upload pill is gone — the thumb row's ＋ is the one add (item 3), surfaced on
- * the hero only while it is a placeholder. Every section draws as a finished card, empty or not (item 1).
- *
- * Build 2 (lane B2-B, §10 #35/#40): the three groups the owner named — All your events · Your services · Inspiration
- * you curated — then Stories couples published, All photos and Video links, are REORGANIZED into the sections' rails
- * (approved Portfolio (3): same sections, same doors, none dropped). An album opens INTO THE BODY (the shared panel).
+ * ⏭ TODO(#7792 — the motion lane's growing search icon and shared Sort round): at rest the search is the shipped
+ * `ThumbRow` FIELD (a box), not yet the 48-px icon that grows on one tap and morphs 🔍→＋. When that component lands,
+ * this row swaps to it — do not build a second one here. 🔒 collections/the-portfolio-is-simpler.test.ts holds the note.
  * 🔒 collections/the-portfolio-is-all-media.test.ts
  */
 export type ShowAlbum = { title: string; urls: string[] };
@@ -55,7 +61,6 @@ export function PortfolioView({
   gallery,
   showAlbums,
   photos,
-  videoLinks,
   free,
   allowanceUnread,
   walletBalance,
@@ -65,14 +70,13 @@ export function PortfolioView({
   libraryOpen,
   videoLinkUrls,
   videoTitles = {},
-  hero = null,
   moodboard = null,
   songs = 'off',
   instagramPhotos = [],
   uploadFacts = null,
-  best = [],
-  sectionOrder = null,
   chats = null,
+  albumStats = ALBUM_STATS_UNREAD,
+  placesUnread = false,
 }: {
   vendorId: string;
   input: CollectionsInput;
@@ -81,10 +85,10 @@ export function PortfolioView({
   /** Every photo each pickable album can Show (already loaded — no new read). */
   showAlbums: Partial<Record<CollectionKey, ShowAlbum>>;
   photos: number;
-  videoLinks: number;
   free: number;
   allowanceUnread: boolean;
   walletBalance: number | null;
+  /** Instagram's OAuth answer — said at the top, and it opens "All albums" where the Instagram editor lives. */
   igFlash: ReactNode;
   /** The three groups + stories (`collections-data.ts`); absent in callers that draw only the collections. */
   groups?: PortfolioGroups;
@@ -95,150 +99,108 @@ export function PortfolioView({
   videoLinkUrls?: string[];
   /** Each link's title, keyed by the link; null = unread (no Title field then). Absent = none yet (the lab). */
   videoTitles?: Record<string, string> | null;
-  /** 🖼 The latest upload, or the category placeholder (`lib/supplier-hero.ts`). Null = the shipped placeholder file. */
-  hero?: SupplierHeroPicture | null;
   moodboard?: { looks: number; declined: number } | null;
   songs?: { count: number; withVideo: number } | null | 'off';
   /** The connected Instagram's posts (display URLs) — the Instagram section's tiles. */
   instagramPhotos?: string[];
-  /** The ONE uploader's facts — an empty On my page's Upload opens the device picker in place. Null = no door facts. */
+  /** The ONE uploader's facts — ＋ and an empty Row 1's Upload open the device picker in place. Null = no door facts. */
   uploadFacts?: PortfolioUploadFacts | null;
-  /** ⭐ Your best work (ruling 5940) — most viewed first; `null` = unread. */
-  best?: BestWorkPhoto[] | null;
-  /** 🖼 The supplier's stored section order (Reorder); `null` = the shipped order. */
-  sectionOrder?: readonly string[] | null;
   /** 💬 Send to a chat (ruling 5951): this shop's client chats + the shipped post. `null` = no such button (a lab). */
   chats?: PhotoChatShare | null;
+  /** 🖼 Row 1's numbers: the two shipped view counters and the shop's own opens. Absent = unread. */
+  albumStats?: AlbumStats;
+  /** 📍 The places Search matches on could not be read (`collections-data.ts`) — said while searching. */
+  placesUnread?: boolean;
 }) {
-  // One pick for Show (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
+  // One pick for Show ▶ (the ⚙'s "Show plays" dropdown): a collection's key, or a group album's "<group>:<key>".
   // 💬 The page hands its chats in; a lab may provide them around the view instead (never both).
   const inheritedChats = useContext(PhotoChatContext);
   const [picked, setPicked] = useState<string | null>(null);
   const [showing, setShowing] = useState(false);
-  const [order, setOrder] = useState<'listed' | 'name'>('listed');
+  const [show, setShow] = useState<ShowFilter>(PORTFOLIO_SHOW_DEFAULT);
+  const [sort, setSort] = useState<PortfolioSort>(PORTFOLIO_SORT_DEFAULT);
   const [words, setWords] = useState('');
-  // Every album that holds photos — the choices Show can play (no new read: the collections' and the groups' own URLs).
+  const [nothing, setNothing] = useState(false);
+  const pickerRef = useRef<HTMLSpanElement>(null);
+  // Every album that holds photos — the choices Show ▶ can play (no new read: the collections' and the groups' own URLs).
   const albums = new Map<string, ShowAlbum>();
   for (const [k, a] of Object.entries(showAlbums) as [CollectionKey, ShowAlbum | undefined][]) if (a && a.urls.length > 0) albums.set(k, a);
   for (const [g, list] of [['events', groups?.events], ['services', groups?.services], ['inspiration', groups?.inspiration]] as const) {
     if (Array.isArray(list)) for (const a of list) if (a.urls.length > 0) albums.set(`${g}:${a.key}`, { title: a.title, urls: a.urls });
   }
   const showChoices: ShowChoice[] = [...albums.entries()].map(([key, a]) => ({ key, title: a.title }));
-  const bandRef = useRef<HTMLDivElement>(null);
-  // 📌 The hero → pinned-row hand-off, shared with Today's ⚙ (`useHeroPin`, the same math as shipped here).
-  const pin = useHeroPin(() => bandRef.current);
-
-  const count = allowanceUnread ? 'Couldn’t read your photo allowance' : portfolioCountLabel(photos, free);
-  const n = (x: number, one: string, many: string) => `${x.toLocaleString('en-PH')} ${x === 1 ? one : many}`;
-  const collections = collectionRows(input).length;
   const album = picked ? albums.get(picked) : undefined;
   const canShow = Boolean(album && album.urls.length > 0);
-  const settings = (cover: boolean) => (
-    <PortfolioSettings
-      cover={cover}
-      photos={photos}
-      free={free}
-      allowanceUnread={allowanceUnread}
-      walletBalance={walletBalance}
-      vendorId={vendorId}
-      input={input}
-      saved={saved}
-      showChoices={showChoices}
-      picked={picked}
-      onPick={setPicked}
-    />
-  );
-  const showButton = (
-    <button
-      type="button"
-      onClick={() => canShow && setShowing(true)}
-      disabled={!canShow}
-      aria-label={canShow ? `Show ${album!.title}` : 'Show — pick an album first'}
-      className="inline-flex h-9 items-center rounded-full bg-ink px-3.5 text-[13px] font-semibold text-[color:var(--m-paper)] disabled:opacity-35"
-      data-portfolio-show-button=""
-    >
-      Show
-    </button>
+  // The list owns the matching and says whether the words match nothing (`onNothing`).
+  const typed = setWords;
+  // ＋ and Enter on words that match nothing: the device's own picker, in place (the shipped uploader's door).
+  const openPicker = () => pickerRef.current?.querySelector<HTMLInputElement>('input[type="file"]')?.click();
+  const on = portfolioSortIsOn(show, sort);
+  const gear = (
+    // 🔦 The tour's "Who sees what" stop: who sees each collection and what Show ▶ plays live in this ⚙.
+    <span className="inline-flex" data-tour="collections-gear">
+      <PortfolioSettings
+        photos={photos}
+        free={free}
+        allowanceUnread={allowanceUnread}
+        walletBalance={walletBalance}
+        vendorId={vendorId}
+        input={input}
+        saved={saved}
+        showChoices={showChoices}
+        picked={picked}
+        onPick={setPicked}
+        onPlay={canShow ? () => setShowing(true) : null}
+      />
+    </span>
   );
 
   return (
     <>
-      {/* 📌 Pinned row */}
-      {/* 🪤 The pinned row lies over the band's top 44 px while it is hidden — it lets taps through to the band's ⚙ then
-          (measured 2026-11-10: the hidden row swallowed every tap on the ⚙). */}
-      <div className="pointer-events-none sticky top-0 z-[6] -mb-11 h-11" data-pinned-row="" data-portfolio-pin="">
-        <div
-          className="flex h-11 items-center gap-2 px-4"
-          style={{ opacity: pin, pointerEvents: pin < 0.5 ? 'none' : 'auto', background: 'var(--sn-canvas)', boxShadow: pin > 0.5 ? '0 1px 0 color-mix(in srgb, var(--m-ink) 8%, transparent)' : undefined }}
-          aria-hidden={pin < 0.5 ? true : undefined}
-        >
-          <PinWord barAbove>Portfolio</PinWord>
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink/60">{count}</span>
-          {showButton}
-          {pin >= 0.5 ? settings(false) : null}
-        </div>
-      </div>
-
-      {/* 🖼 The band = THE ONE SUPPLIER HERO (Lane E item 10). The pinned row above fades in as it leaves. */}
-      <div ref={bandRef} data-portfolio-top="">
-        <SupplierHero
-          eyebrow="Portfolio · all your media"
-          gear={
-            pin < 0.5 ? (
-              // 🔦 The tour's "Who sees what" stop: who sees each collection and what Show plays live in this ⚙ now.
-              <span className="inline-flex" data-tour="collections-gear">
-                {settings(true)}
-              </span>
-            ) : null
-          }
-          title={
-            <>
-              {n(photos, 'photo', 'photos')} · {n(videoLinks, 'video link', 'video links')}
-            </>
-          }
-          sub={
-            <>
-              <b className="font-semibold">{count}</b>
-              <span className="text-white/75">{n(collections, 'collection', 'collections')}</span>
-            </>
-          }
-          picture={hero}
-          caption="Latest"
-          upload={{ href: '#gallery-media' }}
-          data={{ 'portfolio-hero': '' }}
-        />
-      </div>
-
       <PhotoChatContext.Provider value={chats ?? inheritedChats}>
-      <section className="pt-1" data-supplier-collections="">
-        {igFlash}
-        <p hidden className="px-4 py-3 text-[14px] text-ink/65" data-portfolio-search-none="">
-          Nothing here matches “{words.trim()}”.
-        </p>
-        <CollectionsList
-          input={input}
-          gallery={gallery}
-          groups={groups ?? { events: [], services: [], inspiration: 'off', stories: [] }}
-          allPhotos={allPhotos ?? []}
-          order={order}
-          instagramPhotos={instagramPhotos}
-          libraryOpen={libraryOpen ?? false}
-          videoLinks={videoLinkUrls ?? []}
-          videoTitles={videoTitles}
-          moodboard={moodboard}
-          songs={songs}
-          uploadFacts={uploadFacts}
-          best={best}
-          sectionOrder={sectionOrder}
-        />
-      </section>
+        <section className="pt-1" data-supplier-collections="">
+          {igFlash}
+          <CollectionsList
+            vendorId={vendorId}
+            input={input}
+            gallery={gallery}
+            groups={groups ?? { events: [], services: [], inspiration: 'off', stories: [] }}
+            allPhotos={allPhotos ?? []}
+            instagramPhotos={instagramPhotos}
+            libraryOpen={libraryOpen ?? false}
+            videoLinks={videoLinkUrls ?? []}
+            videoTitles={videoTitles}
+            moodboard={moodboard}
+            songs={songs}
+            uploadFacts={uploadFacts}
+            albumStats={albumStats}
+            show={show}
+            sort={sort}
+            words={words}
+            gear={gear}
+            editOpen={Boolean(igFlash)}
+            placesUnread={placesUnread}
+            onNothing={setNothing}
+          />
+          {nothing ? (
+            <div className="px-4 pt-3" data-portfolio-search-none="">
+              <p className="pb-2 text-[14px] text-ink/65">Nothing here matches “{words.trim()}”.</p>
+              {uploadFacts ? (
+                <PortfolioUploadDoor facts={uploadFacts} className={actionButtonClass('brand', { main: true })} data="portfolio-upload-search">
+                  <Plus aria-hidden strokeWidth={1.9} />
+                  <span className="lbl">Add photos</span>
+                </PortfolioUploadDoor>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
       </PhotoChatContext.Provider>
-      {/* The approved toast for Send to a chat and Reorder ("Posted in …’s chat" · "Your order is saved"). */}
+      {/* The approved toast for Send to a chat ("Posted in …’s chat"). */}
       <UndoToastHost />
 
       {showing && album ? <PortfolioShow title={album.title} urls={album.urls} onClose={() => setShowing(false)} /> : null}
 
-      {/* 👍 THE THUMB ROW — Shop's shape (Lane E item 4): Search photos · ⇅ Sort and Show · ＋ Add photos. */}
+      {/* 👍 THE THUMB ROW — Search or add · ONE Show-and-sort round. ＋ only when the words match nothing. */}
       <SupplierThumbRow
         name="collections"
         label="Portfolio"
@@ -246,74 +208,58 @@ export function PortfolioView({
           <ThumbRow
             name="collections"
             field={{
-              placeholder: 'Search photos',
+              placeholder: 'Search or add',
+              label: 'Search your albums by name or place, or add photos',
+              hints: ['Search an event', 'Search a place', 'Search a service'],
               input: {
-                onInput: (e) => {
-                  const v = e.currentTarget.value;
-                  setWords(v);
-                  findInPortfolio(v);
+                onInput: (e) => typed(e.currentTarget.value),
+                onKeyDown: (e) => {
+                  if (e.key === 'Enter' && nothing) openPicker();
                 },
                 'data-portfolio-search': '',
               },
-              onClear: () => {
-                setWords('');
-                findInPortfolio('');
-              },
+              onClear: () => typed(''),
             }}
             right={[
               {
                 menu: [
-                  { key: 'sort:listed', label: 'As listed', group: 'Sort' },
-                  { key: 'sort:name', label: 'By name', group: 'Sort' },
-                  { key: 'show', label: canShow ? `Show ▶ ${album!.title}` : 'Show ▶ · pick an album first', group: 'Show' },
+                  ...PORTFOLIO_SHOW_CHOICES.map((c) => ({ key: `show:${c.key}`, label: c.label, group: 'Show', trail: c.key === show ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined })),
+                  ...PORTFOLIO_SORT_CHOICES.map((c) => ({ key: `sort:${c.key}`, label: c.label, group: 'Sort', trail: c.key === sort ? { text: '✓', tone: 'ok' as const, label: 'sorted this way' } : undefined })),
                 ],
-                label: 'Sort and Show',
-                value: `sort:${order}`,
+                label: 'Sort',
+                value: null,
                 onPick: (k: string) => {
-                  if (k === 'show') {
-                    if (canShow) setShowing(true);
-                    return;
-                  }
-                  setOrder(k === 'sort:name' ? 'name' : 'listed');
+                  const [what, key] = k.split(':');
+                  if (what === 'show') setShow(key as ShowFilter);
+                  else setSort(key as PortfolioSort);
                 },
                 mark: 'data-portfolio-sort',
+                menuMinWidth: 200,
                 face: (
-                  <span aria-hidden className="inline-flex">
-                    <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
+                  <span aria-hidden className="relative inline-flex h-5 w-5" data-portfolio-sort-face={on ? 'on' : 'off'}>
+                    <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
+                    {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-terracotta" /> : null}
                   </span>
                 ),
               },
             ]}
-            action={{ icon: Plus, label: 'Add photos', href: '#gallery-media', tour: 'collections-add' }}
+            action={
+              nothing && uploadFacts
+                ? {
+                    node: (
+                      <span ref={pickerRef} className="inline-flex">
+                        <PortfolioUploadDoor facts={uploadFacts} className={actionButtonClass('brand', { filled: true, iconOnly: true })} data="portfolio-upload-thumb">
+                          <Plus aria-hidden strokeWidth={2} />
+                          <span className="sr-only">Add photos</span>
+                        </PortfolioUploadDoor>
+                      </span>
+                    ),
+                  }
+                : null
+            }
           />
         }
       />
     </>
   );
-}
-
-/**
- * 🔎 Search photos — narrows every rail IN PLACE by its words (the house move: Shop's Search services, no request). A
- * section whose own name matches keeps all its tiles; otherwise only its matching tiles stay, and a section left with
- * nothing steps aside. "Nothing here matches" says so.
- */
-function findInPortfolio(words: string) {
-  const needle = words.trim().toLowerCase();
-  const root = document.querySelector<HTMLElement>('[data-portfolio-tab],[data-portfolio-tab-lab]');
-  if (!root) return;
-  let shown = 0;
-  root.querySelectorAll<HTMLElement>('[data-portfolio-section]').forEach((sec) => {
-    const head = sec.querySelector('[data-portfolio-section-head]')?.textContent?.toLowerCase() ?? '';
-    const whole = !needle || head.includes(needle);
-    let any = false;
-    sec.querySelectorAll<HTMLElement>('[data-portfolio-tile],[data-portfolio-pill]').forEach((el) => {
-      const hit = whole || (el.getAttribute('aria-label') ?? el.textContent ?? '').toLowerCase().includes(needle);
-      el.style.display = hit ? '' : 'none';
-      if (hit) any = true;
-    });
-    sec.style.display = whole || any ? '' : 'none';
-    if (whole || any) shown += 1;
-  });
-  const none = root.querySelector<HTMLElement>('[data-portfolio-search-none]');
-  if (none) none.hidden = !needle || shown > 0;
 }

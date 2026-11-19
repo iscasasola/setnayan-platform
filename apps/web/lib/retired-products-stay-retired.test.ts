@@ -181,6 +181,9 @@ test('the site description and the homepage structured data never name a retired
   assert.deepEqual(jsonLdLines, [], 'a layout JSON-LD description names a retired product');
   const home = stripComments(read('app/page.tsx'));
   assert.ok(!NAME_RE.test(home), 'app/page.tsx (homepage JSON-LD) names a retired product');
+  const manifest = JSON.parse(read('public/manifest.json')) as { description?: string; name?: string };
+  assert.ok(manifest.description, 'public/manifest.json has no description — update this guard');
+  assert.ok(!NAME_RE.test(manifest.description), `the installed-app description names a retired product: ${manifest.description}`);
 });
 
 test('/help describes no retired product', () => {

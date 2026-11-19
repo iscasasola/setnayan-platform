@@ -34,7 +34,7 @@ import { hasNativeStore, iapAvailable, NATIVE_STORE_UA_MARKER } from './iap-gate
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, Live Watch, Music Maker, Patiktok; no supplier plan, no Setnayan AI', () => {
+test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, Live Watch; no supplier plan, no Setnayan AI, no Music Maker or Patiktok (retired 2026-11-20)', () => {
   const keys = IAP_PRODUCTS.map((p) => p.serviceKey).sort();
   assert.deepEqual(keys, [
     // 🗑 The eleven Event Pro PART products (2026-10-22) are retired, never sold (owner 2026-10-26, "just have the
@@ -49,13 +49,12 @@ test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, 
     // Board pack as Apple products before submitting build 6." This SUPERSEDES the first wave's "no Setnayan AI"
     // assertion that stood here (ruling 1, 2026-10-18: "Setnayan AI is a second wave").
     // 🗑 MOODBOARD_RENDER_PACK left with Mood Board renders (owner 2026-10-26, "can we delete that?").
-    'PAKANTA',
+    // 🗑 PAKANTA and PATIKTOK_COMPILER left 2026-11-20 — Music Maker and Patiktok are retired (lib/retired-products.ts).
     // 🗑 PAPIC_ADDON_THANK_YOU left — the Thank-You Video is free for every event (owner 2026-10-26).
     // 📸 The three Papic packs (owner 2026-11-03): 3,000 · 150 · 1,000. The five credit products are retired.
     'PAPIC_GUEST',
     'PAPIC_GUEST_150',
     'PAPIC_GUEST_1K',
-    'PATIKTOK_COMPILER',
     // 🗑 Setnayan AI's four tier products left sale 2026-11-04 — owner: "Setnayan ai no separate purchase will be part
     // of event plus and event pro". They still deliver an already-charged transaction (products-delivery.ts).
   ]);
@@ -75,8 +74,7 @@ test('ids are exactly the ruled ones (FOREVER), kinds and the owner’s display 
     ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 'papic-credits', 'Papic 1000', 1_000], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 'papic-credits', 'Papic 3000', 3_000], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.live_watch', 'LIVE_STUDIO', 'live-watch', 'Live Watch', null],
-    ['com.setnayan.app.music_maker', 'PAKANTA', 'event-unlock', 'Music Maker', null],
-    ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', 'event-unlock', 'Patiktok', null],
+    // 🗑 com.setnayan.app.music_maker and com.setnayan.app.patiktok are RETIRED (owner 2026-11-20) — held below.
     // 🗑 com.setnayan.app.papic_thank_you is RETIRED (owner 2026-10-26) — held by the test below.
   ];
   for (const [id, key, kind, name, credits] of want) {
@@ -208,8 +206,10 @@ test('Event Pro’s product sells THE Pro key (the client-safe spelling equals t
   assert.equal(iapProductForServiceKey(COUPLE_WEBSITE_PRO_SERVICE_KEY)?.productId, 'com.setnayan.app.event_pro');
 });
 
-test('🗑 2026-11-04 — event_hub_pro and the four Setnayan AI products are retired from sale but still DELIVER', () => {
+test('🗑 2026-11-04 — event_hub_pro and the four Setnayan AI products (and 2026-11-20 Music Maker + Patiktok) are retired from sale but still DELIVER', () => {
   const want: Array<[string, string, string | undefined]> = [
+    ['com.setnayan.app.music_maker', 'PAKANTA', undefined],
+    ['com.setnayan.app.patiktok', 'PATIKTOK_COMPILER', undefined],
     ['com.setnayan.app.event_hub_pro', 'COUPLE_WEBSITE_PRO', undefined],
     ['com.setnayan.app.setnayan_ai', 'SETNAYAN_AI', 'A'],
     ['com.setnayan.app.setnayan_ai_tier_b', 'SETNAYAN_AI', 'B'],
@@ -252,7 +252,7 @@ test('🗑 Setnayan AI is sold by no product (2026-11-04) — the tier lookup an
   for (const [id, tier] of [['com.setnayan.app.setnayan_ai', 'A'], ['com.setnayan.app.setnayan_ai_tier_d', 'D']] as const) {
     assert.equal(iapPriceRowFor(iapProductForDelivery(id)!), AI_TIER_SKU[tier]);
   }
-  assert.equal(iapPriceRowFor(iapProductForServiceKey('PAKANTA')!), 'PAKANTA', 'a product with no tier is checked against its own code');
+  assert.equal(iapPriceRowFor(iapProductForServiceKey('LIVE_STUDIO')!), 'LIVE_STUDIO', 'a product with no tier is checked against its own code');
 });
 
 test('💝 the eight supplier gift products exist, are unique, and are NOT sellable through the couple path', () => {

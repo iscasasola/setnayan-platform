@@ -75,11 +75,11 @@ export type IapProductKind =
   | 'event-hub-pro'
   /** 💰 Event Plus (owner 2026-11-04): one per event; never sold to an event that already has Pro. */
   | 'event-plus'
-  /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + Patiktok + canvas + 12-month originals. */
+  /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + canvas + 12-month originals (Patiktok left the copy 2026-11-20). */
   | 'event-ultra'
   | 'live-watch'
   | 'papic-credits'
-  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Music Maker · Patiktok; Setnayan AI and Thank You retired). */
+  /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice. None is on sale now: Setnayan AI and Thank You retired, Music Maker and Patiktok retired 2026-11-20. */
   | 'event-unlock';
 
 export type IapProduct = {
@@ -187,29 +187,15 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     }),
   ),
   /*
-   * 🍎 Music Maker and Patiktok (owner 2026-10-23, "five more Apple products"): CONSUMABLE, for the CURRENT event,
-   * activated by the web's own hook. The ids were named by the controller and are FOREVER.
+   * 🗑 NO ONE-PER-EVENT UNLOCKS ARE ON SALE ANY MORE. Music Maker (`music_maker`, PAKANTA) and Patiktok (`patiktok`,
+   * PATIKTOK_COMPILER) were the last (owner 2026-10-23, "five more Apple products") and were RETIRED 2026-11-20 (owner,
+   * *"Retire Patiktok and Music Maker ( we do not want to serve this anymore)"*) — delivery only, in
+   * lib/iap/products-delivery.ts `RETIRED_EVENT_PRODUCTS`. Never re-add them here, never reuse their ids.
    * 🗑 The four Setnayan AI products (`setnayan_ai`, `setnayan_ai_tier_b/c/d`) left sale 2026-11-04 — Setnayan AI comes
    * with Event Plus and Event Pro. They live in lib/iap/products-delivery.ts (delivery only); never re-add them here.
+   * 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
+   * 2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id.
    */
-  ...(
-    [
-      /* 🗑 `music_maker` (PAKANTA) and `patiktok` (PATIKTOK_COMPILER) are RETIRED (owner 2026-11-20, *"Retire Patiktok
-         and Music Maker ( we do not want to serve this anymore)"*) — delivery only, in lib/iap/products-delivery.ts
-         `RETIRED_EVENT_PRODUCTS`. Never re-add them here, never reuse their ids. */
-      /* 🗑 `papic_thank_you` (PAPIC_ADDON_THANK_YOU) is RETIRED — the Thank-You Video is free for every event (owner
-         2026-10-26). Kept in `RETIRED_IAP_PRODUCT_IDS`; never re-add it here, never reuse its id. */
-    ] as const
-  ).map(
-    ([id, serviceKey, name]): IapProduct => ({
-      productId: `${PREFIX}${id}`,
-      serviceKey,
-      kind: 'event-unlock',
-      appleType: 'consumable',
-      appStoreName: name,
-      credits: null,
-    }),
-  ),
   /* 🗑 `mood_board_renders_50` ("Mood Board · 50 renders") is RETIRED with Mood Board renders (owner 2026-10-26,
      "mood board render is no longer available. can we delete that?"). Never re-add it, and never reuse its id. */
 ]);

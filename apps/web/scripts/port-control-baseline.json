@@ -592,18 +592,11 @@
     },
     "/(shell)/pakanta": {
       "files": [
-        "(shell)/pakanta/loading.tsx",
         "(shell)/pakanta/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=pakanta",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/palogo": {
       "files": [
@@ -717,18 +710,11 @@
     },
     "/(shell)/patiktok": {
       "files": [
-        "(shell)/patiktok/loading.tsx",
         "(shell)/patiktok/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=patiktok",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/pawebsite": {
       "files": [

@@ -107,7 +107,7 @@ export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean }
               },
               mark: 'data-shop-services-show',
               // the dot while a Show or a Sort other than the default is on (owner 19 Nov)
-              face: <SortFace on={show !== 'all' || sort !== 'listed'} size={20} />,
+              face: <SortFace on={show !== 'all' || sort !== 'listed'} />,
             },
           ]}
           action={{

@@ -27,6 +27,7 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   private_words_only: 422, // a private message is words only — send the file to everyone instead
   fee_words_only: 403, // a booking-fee top-up is overdue — words only until it is settled
   private_recipient: 403, // the private recipient is not in this chat
+  whisper_refused: 403, // a whisper nobody can hear, or from a non-host — refused, never sent to everyone
   insert_failed: 500,
 };
 

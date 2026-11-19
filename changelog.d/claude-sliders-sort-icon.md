@@ -13,8 +13,9 @@ size change.
   sliders and the dot already; this change no longer touches it.)
 - **The dot (review, 19 Nov — "circle + dot on the thumb row"):** the Today and
   Shop services rounds now wear the same dot as the Guests and Portfolio rounds
-  while a choice other than the default is on (`components/sort-face.tsx`). One
-  dot colour everywhere: terracotta, the shipped one.
+  while a choice other than the default is on — the shared `SortFace` that #7792
+  shipped (`components/sort-face.tsx`). One dot colour everywhere: mulberry, the
+  shared face's (the Guests `FilterFace` and Portfolio dots moved from terracotta).
 - **Left on purpose:** `ArrowUpDown` on the Schedule "Shift everything after"
   button (it moves things, it does not sort a view), and
   the `/admin/menus` icon catalogue in `lib/nav-icons.ts`.

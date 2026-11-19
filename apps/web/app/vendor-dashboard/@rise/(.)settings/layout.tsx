@@ -11,7 +11,7 @@ import { avatarRowWords } from '../../_components/supplier-avatar-rows';
 export default function RisenSettingsLayout({ children }: { children: ReactNode }) {
   const { label, sub } = avatarRowWords('settings');
   return (
-    <RiseRoute title={label} line={sub} data="avatar-settings">
+    <RiseRoute title={label} line={sub} data="avatar-settings" kind="stack">
       {children}
     </RiseRoute>
   );

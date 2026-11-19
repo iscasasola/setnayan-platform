@@ -56,7 +56,7 @@ export type CanvasInitial = {
   lastMinuteSurchargePct: string;
 
   pricing: {
-    pricing_basis: 'fixed' | 'per_pax' | 'per_hour';
+    pricing_basis: 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
     starting_price_php: number | null;
     base_pax: number | null;
     added_pax_price_php: number | null;
@@ -65,6 +65,12 @@ export type CanvasInitial = {
     hour_base_php: number | null;
     min_hours: number | null;
     extra_hour_php: number | null;
+    /* 📦 Card Maker part 7 (migration 20271352223098). Optional: older fixtures carry none. */
+    unit_word?: string | null;
+    unit_base_php?: number | null;
+    initial_units?: number | null;
+    extra_unit_php?: number | null;
+    price_max?: number | null;
   };
   included: {
     crew_meal_included: boolean;

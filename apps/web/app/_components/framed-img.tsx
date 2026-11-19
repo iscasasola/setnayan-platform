@@ -1,3 +1,4 @@
+import { PHOTO_ARRIVES } from '@/lib/photo-arrives';
 import { framedImageStyle } from '@/lib/photo-frame-display';
 import type { FrameShape } from '@/lib/photo-frame-shape';
 
@@ -33,12 +34,12 @@ export function FramedImg({
   const style = framedImageStyle(frameRef ?? src, shape, aspect);
   if (!style) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} loading={loading} className={`h-full w-full object-cover ${className}`} />;
+    return <img {...PHOTO_ARRIVES} src={src} alt={alt} loading={loading} className={`h-full w-full object-cover ${className}`} />;
   }
   return (
     <span className="relative block h-full w-full overflow-hidden" data-framed="">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} loading={loading} className={className} style={style} />
+      <img {...PHOTO_ARRIVES} src={src} alt={alt} loading={loading} className={className} style={style} />
     </span>
   );
 }

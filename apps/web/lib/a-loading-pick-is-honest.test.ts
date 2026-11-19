@@ -423,7 +423,8 @@ test('(6) loaded first, applied second — a cancel has written nothing; one req
   // AN UPLOAD: `FileUpload`'s own printed figure, handed up — and its own stop.
   const upload = read('app/_components/file-upload.tsx');
   assert.match(upload, /const flyingPct = inFlight\.length > 0 \? inFlight\[0\]!\.progress : null;/, 'the upload’s figure is not the one the uploader prints');
-  assert.match(upload, /width: `\$\{item\.progress\}%`/, 'anti-vacuity: the uploader prints some other figure now');
+  // 19 Nov 2026: the figure is drawn by the one upload ring (was a width bar) — the same measured `item.progress`.
+  assert.match(upload, /<UploadRing pct=\{item\.progress\}/, 'anti-vacuity: the uploader prints some other figure now');
   assert.match(upload, /tellProgress\.current\?\.\(flyingPct\);/);
   assert.match(upload, /cancelRef\.current = \(\) => \{\s*for \(const item of inFlight\) cancelInFlight\(item\.id\);\s*\};/);
   assert.match(panel, /onProgress=\{setUploadPct\}\s*cancelRef=\{uploadStop\}/);

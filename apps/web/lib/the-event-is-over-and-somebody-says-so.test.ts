@@ -168,9 +168,10 @@ test('the desk posts what the shipped action actually reads', () => {
   // would have passed no matter what the component posted. Slice to the NEXT
   // top-level function instead, and FLOOR the length so a window that collapses
   // again fails loudly rather than passing vacuously.
+  // Today v2 (18 Nov) exports the bodies, so the next one may start `export function` — slice to either.
   const start = sections.indexOf('function MarkCompleteBody(');
   assert.ok(start > 0, 'MarkCompleteBody not found — this guard is pointed at nothing');
-  const next = sections.indexOf('\nfunction ', start + 1);
+  const next = sections.slice(start + 1).search(/\n(?:export )?function /) + start + 1;
   const body = sections.slice(start, next > 0 ? next : undefined);
   assert.ok(
     body.length > 400,

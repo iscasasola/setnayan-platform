@@ -1996,7 +1996,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'suppliers-add-own',
           title: 'Add your own',
-          body: '＋ adds a supplier you already know — they don’t need to be on Setnayan.',
+          body: 'Type their name in the search, then tap 🔍 — it turns into ＋ and adds a supplier you already know. They don’t need to be on Setnayan.',
         },
       ],
       finale: {

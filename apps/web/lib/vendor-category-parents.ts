@@ -4,7 +4,6 @@ import {
   VENDOR_CATEGORY_CANONICAL,
   tilesForVendorCategory,
 } from '@/lib/vendor-category-taxonomy';
-import { formatCount } from '@/lib/format-number';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { leafFamilies, type LeafIndex } from '@/lib/service-card-kind';
 import { TILE_PARENT } from '@/lib/taxonomy';
@@ -123,7 +122,7 @@ export type CategoryStanding =
   | { standing: 'covered' }
   /** New family, and the plan still has room for it. */
   | { standing: 'open' }
-  /** The plan has no room for another family, or the shop is at its service-card total. */
+  /** The plan has no room for another family. (A card total never locks a kind — cards are unlimited to make.) */
   | { standing: 'locked'; why: string };
 
 /**
@@ -145,8 +144,6 @@ export function standingForCategory(
     /** How many cards this shop already has in each kind. */
     cardsByCategory: Readonly<Record<string, number>>;
     parentCategories: number;
-    /** The plan's service cards IN TOTAL (owner 2026-11-18, rulings 23 · 39) — every kind counts toward it. */
-    serviceCardsTotal: number;
     /**
      * The live coverage leaves, so a card filed under the shop's OWN word is
      * capped by the same family as the legacy pill it replaces. Omitted → legacy
@@ -155,13 +152,8 @@ export function standingForCategory(
     leaves?: LeafIndex;
   },
 ): CategoryStanding {
-  const total = Object.values(ctx.cardsByCategory).reduce((a, n) => a + (Number.isFinite(n) ? n : 0), 0);
-  if (ctx.serviceCardsTotal !== Infinity && total >= ctx.serviceCardsTotal) {
-    return {
-      standing: 'locked',
-      why: `You already have ${formatCount(total)} service ${total === 1 ? 'card' : 'cards'} — your plan allows ${formatCount(ctx.serviceCardsTotal)}.`,
-    };
-  }
+  // 🔒 NO CARD TOTAL HERE (owner 19 Nov 2026 — cards are unlimited to make; the plan counts the LIVE ones, asked when
+  // a card is turned on: `lib/live-cards-cap.ts`). Only the family cap can lock a kind.
   const parents = ctx.leaves
     ? parentsOfKind(category, ctx.leaves)
     : parentsOfCategory(category as VendorCategory);

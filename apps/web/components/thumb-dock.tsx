@@ -45,7 +45,7 @@ export function ThumbDock({
   if (desk === null) return null;
   if (desk) return <div className={styles.deskLine}>{children}</div>;
   return createPortal(
-    <div className={noBar ? `${styles.dock} ${styles.dockNoBar}` : styles.dock} data-on={on ? 'true' : 'false'} data-thumb-dock="">
+    <div className={noBar ? `${styles.dock} ${styles.dockNoBar}` : styles.dock} data-on={on ? 'true' : 'false'} data-thumb-dock="" data-tuck-row={noBar ? undefined : ''}>
       {children}
     </div>,
     document.body,

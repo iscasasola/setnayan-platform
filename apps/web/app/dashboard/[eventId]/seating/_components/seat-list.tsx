@@ -8,9 +8,10 @@ import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.modul
 import { useRowState } from '@/app/dashboard/[eventId]/guests/_components/use-row-state';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
-import { readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
+import { SEAT_HOLD_MS, readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
 import { VipMark } from './vip-mark';
+import { dropGhost, ghostAt, liftGhost } from '@/lib/lift';
 
 /**
  * 🪑 GUESTS › SEATS › LIST IS THE GUESTS LIST, GROUPED BY TABLE (Seats S1c, owner 2026-11-01, DECISION_LOG "SEATS STAYS
@@ -44,7 +45,7 @@ export type SeatListGuest = {
 export type SeatListSeat = { tableId: string; seat: number; guest: SeatListGuest | null };
 export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[]; vip?: boolean };
 
-const HOLD_MS = 300;
+const HOLD_MS = SEAT_HOLD_MS;
 /** Where a held guest would land — lit while the finger is over it (set straight on the DOM, no re-render). */
 const OVER =
   'data-[seat-drop-over]:rounded-xl data-[seat-drop-over]:bg-terracotta/10 data-[seat-drop-over]:outline data-[seat-drop-over]:outline-2 data-[seat-drop-over]:outline-terracotta';
@@ -209,13 +210,14 @@ export function SeatList({
       pointerEvents: 'none',
       background: 'var(--gs-paper, rgb(var(--color-cream)))',
       borderRadius: 'var(--m-r-md)',
-      boxShadow: '0 18px 34px -14px rgb(var(--color-ink) / .55)',
-      transform: `translate(${r.left}px,${r.top}px) scale(1.02)`,
+      // THE ONE LIFT (MOTION_STANDARD § 4 #15): the translate only — the size and the shadow are `.sn-m-lift`'s.
+      transform: ghostAt(r.left, r.top),
       willChange: 'transform',
     });
+    liftGhost(ghost);
     (listRef.current?.closest('[data-guests-screen]') ?? document.body).appendChild(ghost);
     drag.current = { id: p.id, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller: dragScrollerOf(p.el) };
-    ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.02)`;
+    ghost.style.transform = ghostAt(x - drag.current.ox, y - drag.current.oy);
     setLifted(p.id);
     try {
       navigator.vibrate?.(10);
@@ -231,7 +233,7 @@ export function SeatList({
     const zone = over.current;
     mark(null);
     if (!d) return;
-    d.ghost.remove();
+    void dropGhost(d.ghost);
     setLifted(null);
     // The click a lift ends with is not a tap on the row under it.
     swallow.current = true;
@@ -256,7 +258,7 @@ export function SeatList({
     const d = drag.current;
     d.x = e.clientX;
     d.y = e.clientY;
-    d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.02)`;
+    d.ghost.style.transform = ghostAt(d.x - d.ox, d.y - d.oy);
     hit(d);
   };
   /* The window listeners are stable functions that call the latest handlers. */

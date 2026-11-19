@@ -35,9 +35,10 @@ import { guestOptimistic } from './guest-optimistic-store';
 import { pushUndo, guestToast } from './undo-store';
 import { hearAction } from './hear-action';
 import { plainRefusal } from './plain-refusal';
+import { LIFT_HOLD_MS, dropGhost, ghostAt, liftGhost } from '@/lib/lift';
 
-/** How long a press is held before the guest lifts (the Maker's scene and the RSVP line: 350 ms). */
-export const ROLE_HOLD_MS = 350;
+/** How long a press is held before the guest lifts — the motion standard's ONE hold (`HOLD_MS`, 350 ms; `lib/lift.ts`). */
+export const ROLE_HOLD_MS = LIFT_HOLD_MS;
 
 /** The list's band as the finger sees it: the scroller's own, less the pinned top row and the floating thumb row. */
 function seenBand(scroller: HTMLElement): { top: number; bottom: number } {
@@ -208,7 +209,7 @@ export function useGuestRoleDrag({
     const h = held.current;
     held.current = null;
     cancelAnimationFrame(raf.current);
-    h?.ghost.remove();
+    if (h) void dropGhost(h.ghost);
     h?.el.removeAttribute('data-role-lifted');
     over.current?.removeAttribute('data-role-drop');
     over.current = null;
@@ -252,12 +253,14 @@ export function useGuestRoleDrag({
         margin: '0',
         zIndex: '9999',
         pointerEvents: 'none',
-        transform: `translate(${r.left}px,${r.top}px) scale(1.02)`,
-        boxShadow: '0 18px 34px -14px rgba(44,42,41,.55)',
+        // THE ONE LIFT (MOTION_STANDARD § 4 #15): the copy's transform is the finger's translate only — its size and
+        // its shadow are `.sn-m-lift`'s (`liftGhost`), the same on every drag.
+        transform: ghostAt(r.left, r.top),
         background: 'var(--sn-surface)',
         borderRadius: 'var(--m-r-md)',
         willChange: 'transform',
       });
+      liftGhost(ghost);
       document.body.appendChild(ghost);
       p.el.setAttribute('data-role-lifted', '');
       document.documentElement.style.setProperty('user-select', 'none');
@@ -294,7 +297,7 @@ export function useGuestRoleDrag({
       h.x = e.clientX;
       h.y = e.clientY;
       if (!h.wandered && moved > (h.touch ? TAP_SLOP_TOUCH : TAP_SLOP_MOUSE)) h.wandered = true;
-      h.ghost.style.transform = `translate(${h.x - h.ox}px,${h.y - h.oy}px) scale(1.02)`;
+      h.ghost.style.transform = ghostAt(h.x - h.ox, h.y - h.oy);
       mark(sectionAt(h.x, h.y), h.id);
     };
     const onUp = (e: PointerEvent) => {

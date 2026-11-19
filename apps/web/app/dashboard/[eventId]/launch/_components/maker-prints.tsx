@@ -238,7 +238,7 @@ function AllInOneShipped({ f, children, primary = false, data }: { f: AllInOneFi
     );
   }
   return (
-    <Link href={f.href} data-print-all-in-one-pro="" className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink">
+    <Link href={f.href} data-print-all-in-one-pro="" className="inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink">
       {f.icon}
       {children}
     </Link>

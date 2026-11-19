@@ -83,6 +83,14 @@ test('3 · Discover draws no shell, bar or slide of its own while the layout dra
   assert.doesNotMatch(home, /<(AppRailShell|FrontDoorShell|AccountBarSlot)\b/);
 });
 
+test('3d · inside the hub, Discover keeps the side gutter `.fd-main` used to give it (16px, 24px from 1024)', () => {
+  // Measured 19 Nov at 390 px: without it every Discover heading sat flush on the screen edge — the hub's app-variant
+  // <main> pads nothing (front-door.css `.fd[data-chrome='app'] .fd-main { padding: 0 }`). Sabotage: drop `px-4 lg:px-6`.
+  const fd = code(join(APP, '_components', 'frontdoor', 'front-door.tsx'));
+  const page = fd.slice(fd.indexOf('data-fd-page=""'), fd.indexOf('{MarketplaceView ?'));
+  assert.match(page, /hubShell\s*\?\s*`px-4 lg:px-6/, 'Discover lost its side gutter inside the hub layout');
+});
+
 test('3b · ONE question decides who draws the shell, asked by both halves', () => {
   const lib = code(join(WEB, 'lib', 'hub-shell.ts'));
   assert.match(lib, /export async function hubDrawsTheShell\(\) \{\s*return getCurrentUser\(\)\.catch\(\(\) => null\);\s*\}/);

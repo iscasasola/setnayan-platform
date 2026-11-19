@@ -276,8 +276,11 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         data-fd-page=""
         className={
           hubShell
-            ? /* the slide's `.sn-vt-page` and the dock's room are the (hub) layout's <main> now — one of each */
-              undefined
+            ? /* the slide's `.sn-vt-page` and the dock's room are the (hub) layout's <main> now — one of each.
+                 ↔ THE GUTTER STAYS: signed in, `.fd-main` used to give Discover 16px below 1024 and 24px above
+                 (front-door.css); the hub's app-variant <main> pads nothing, so the page carries the same two values
+                 — measured flush to the screen edge at 390 px without it (catch-up 19 Nov). */
+              `px-4 lg:px-6${searchQuery || supplierView ? ' fl-gutter' : ''}`
             : searchQuery || supplierView
               ? 'fl-gutter'
               : undefined

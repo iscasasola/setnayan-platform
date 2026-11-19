@@ -147,6 +147,12 @@ plan's line and "Change plan".
 (`vendor_service_agents`); two agents on one service both see every inquiry and nobody owns it.
 
 Proposed:
+- **Card coverage (owner 19 Nov: *"an account manager can also handle a specific service card only"*)** — ALREADY
+  SHIPS: `vendor_service_agents` (per card) + `whole_branch_keys` (every card in a branch, and later ones), set in
+  Team › Who works what (`AgentServiceAssignment`). No new column. The split for an inquiry is worked out among only the
+  Account Managers who cover the card it came in on; e.g. a Debut card only Bea covers → Bea A–Z. Route rows are therefore
+  keyed by (card, event type), generated per branch and shown grouped by event type, with a card listed on its own only
+  when its people differ. **STILL OPEN:** a card no Account Manager covers (drawn: its inquiries go to the Branch Manager).
 - **Branch** = the branch the inquiry's service card is filed under (`vendor_services.branch_id`, NULL = main) — existing.
 - **Event type** = the inquiry's `event_type` (enum `public.event_type`) — existing. One row per type the shop sets,
   plus "Every other event".

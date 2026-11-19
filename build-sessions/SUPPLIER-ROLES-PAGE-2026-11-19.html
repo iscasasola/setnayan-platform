@@ -210,7 +210,7 @@
             </div>
             <div class="row" style="flex-wrap:wrap">
               <span class="ava">BS</span>
-              <div class="grow"><div class="t">Bea Santos</div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · Front desk</div></div>
+              <div class="grow"><div class="t">Bea Santos</div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · 2 cards · Front desk</div></div>
               <details class="i" open><summary>i</summary><div class="pop">Role: <b>Account Manager</b> — their own clients, from booking to event day. "Lead Stylist" is your shop's name for it.</div></details>
             </div>
             <div class="row">
@@ -268,9 +268,16 @@
               </select></label>
             <label class="f"><span>Branch <details class="i"><summary>i</summary><div class="pop">Asked only for Branch Manager, Account Manager, Event Crew and Helper, and only when your shop has two or more locations. Shop Manager and Marketing cover the whole shop.</div></details></span>
               <select><option>Main · Quezon City</option><option selected>Makati branch</option><option>Cebu branch</option></select></label>
+            <label class="f"><span>Covers <details class="i"><summary>i</summary><div class="pop">The same picker as today's "Who works what". "Every card" also gives them any card you add there later. Account Managers see only these cards, and those clients — and get new inquiries only from them.</div></details></span>
+              <select><option>Every card in Makati branch</option><option selected>Only the cards I pick</option></select></label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <label class="pick btn" style="gap:6px"><input type="checkbox" checked> Wedding Styling</label>
+              <label class="pick btn" style="gap:6px"><input type="checkbox" checked> Debut Styling</label>
+              <label class="pick btn" style="gap:6px"><input type="checkbox"> Corporate Stage Design</label>
+            </div>
             <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
             <span class="cta">Send invite</span>
-            <p class="note">One role per person. An Account Manager joins their branch's inquiry split straight away — see (e).</p>
+            <p class="note">One role per person. An Account Manager can cover the whole branch or only some cards; they join the inquiry split for those cards straight away — see (e).</p>
           </div>
         </div>
       </div>
@@ -334,6 +341,7 @@
           <div class="bar">‹ Back</div>
           <div class="scr">
             <div class="h1">Who works what</div>
+            <p class="sub" style="margin-top:-4px">Already ships: a team member gets the whole branch or only the cards you tick.</p>
             <div class="row"><div class="grow"><div class="t">Bea Santos</div><div class="l">Wedding Styling · Debut Styling</div></div></div>
             <div class="row"><div class="grow"><div class="t">Joy Tan</div><div class="l">Wedding Styling</div></div></div>
             <p class="note">A Team member sees every inquiry on the services they're given. Two people on Wedding Styling both see every wedding inquiry — nothing says whose it is.</p>
@@ -347,7 +355,7 @@
           <div class="bar">‹ Roles</div>
           <div class="scr">
             <div class="h1" style="font-size:20px">Who gets new inquiries</div>
-            <p class="sub">Each new inquiry goes to ONE Account Manager: first by branch, then by event type, then by last name.
+            <p class="sub">Each new inquiry goes to ONE Account Manager: first by branch, then by event type, then by last name — among only the Account Managers who cover the card it came in on.
               <details class="i"><summary>i</summary><div class="pop">The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a split you change stays until you reset it.</div></details></p>
             <label class="f"><span>Branch</span><select><option selected>Makati branch · 2 Account Managers</option><option>Cebu branch · 1</option><option>Main · Quezon City · 3</option></select></label>
 
@@ -357,13 +365,18 @@
               <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Lead Stylist · Joy Tan</div></div><span class="badge">N – Z</span></div>
             </div>
             <div class="role">
-              <div class="top"><div class="grow"><div class="t">Debut</div><div class="l">Adjusted by you · 1 person</div></div><span class="pick btn">Adjust</span></div>
+              <div class="top"><div class="grow"><div class="t">Debut</div><div class="l">Only Bea covers the Debut Styling card · 1 person</div></div><span class="pick btn">Adjust</span></div>
               <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Z</span></div>
             </div>
             <div class="role">
               <div class="top"><div class="grow"><div class="t">Every other event</div><div class="l">Split evenly · 2 people</div></div><span class="pick btn">Adjust</span></div>
               <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Bea Santos</div></div><span class="badge">A – M</span></div>
               <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Joy Tan</div></div><span class="badge">N – Z</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Corporate Stage Design card</div><div class="l">No Account Manager covers this card</div></div></div>
+              <div class="row" style="min-height:44px"><span class="ava">RG</span><div class="grow"><div class="rolename">Branch Head · Rico Garcia</div></div><span class="badge">A – Z</span></div>
+              <p class="note" style="margin-top:4px"><span class="confirm">STILL OPEN</span> drawn: a card nobody covers sends its inquiries to the Branch Manager, the same as the away rule.</p>
             </div>
 
             <div class="role">

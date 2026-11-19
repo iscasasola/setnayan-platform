@@ -44,6 +44,11 @@ const QUOTE: QuoteForCard = {
     { key: 'l1', label: 'Second shooter', detail: null, amountCentavos: C(9_000) },
     { key: 'l2', label: 'Guest portrait prints', detail: `150 × 40`, amountCentavos: C(6_000) },
   ],
+  items: [
+    { label: 'Full-day coverage', detail: null, amount_centavos: C(45_000) },
+    { label: 'Second shooter', detail: null, amount_centavos: C(9_000) },
+    { label: 'Guest portrait prints', detail: `150 × 40`, amount_centavos: C(6_000) },
+  ],
   validUntil: null,
   paymentMethodIds: [],
   gift: null,
@@ -110,7 +115,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             seed={
               empty
                 ? { quote: null }
-                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
+                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, target: step >= 3 ? C(62_000) : undefined }
             }
           />
         );

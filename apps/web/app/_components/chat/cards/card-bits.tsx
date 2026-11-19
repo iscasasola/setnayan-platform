@@ -10,6 +10,7 @@ import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { ledgerLine, type Ledger } from '@/lib/chat-cards';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
+import { ChatCardShell } from '../chat-step-card';
 
 /**
  * 🎨 THE ONE CARD LOOK (Unichat part A, 20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19 `.cd`). Every card in the stream
@@ -126,6 +127,41 @@ export function KindCard({
       </span>
       {children ? <div className="col-span-full min-w-0 text-[15px] text-ink">{children}</div> : null}
     </section>
+  );
+}
+
+/**
+ * 🧩 WHERE AN EDITOR SITS (Unichat part C, 20 Nov 2026). The quote, counter and plan editors are drawn the same in two
+ * places: as the (+) card in the stream (`frame="card"`, today's placement — the shell with its title and ✕), and
+ * INSIDE THE TEXT BOX on a phone (`frame="bare"` — the composer owns the title, the ✕ and the frame, so the editor
+ * brings only its fields and its own Cancel · Send row). One component, two hosts; nothing is built twice.
+ */
+export type EditorFrame = 'card' | 'bare';
+
+export function EditorShell({
+  frame = 'card',
+  topic,
+  title,
+  onClose,
+  children,
+}: {
+  frame?: EditorFrame;
+  topic: ChatTopic;
+  title: string;
+  onClose?: () => void;
+  children: ReactNode;
+}) {
+  if (frame === 'bare') {
+    return (
+      <div role="group" aria-label={title} data-chat-editor={topic} className="text-[15px] text-ink">
+        {children}
+      </div>
+    );
+  }
+  return (
+    <ChatCardShell topic={topic} kicker="You · not sent yet" title={title} onClose={onClose}>
+      {children}
+    </ChatCardShell>
   );
 }
 

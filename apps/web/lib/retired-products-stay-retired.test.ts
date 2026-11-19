@@ -198,7 +198,7 @@ test('llms.txt neither describes nor links a retired product', () => {
   const body = renderLlmsTxt(INPUT_FOR_GUARDS);
   const lines = body.split('\n').filter((l) => NAME_RE.test(l));
   assert.deepEqual(lines, [], `llms.txt lines naming a retired product:\n${lines.join('\n')}`);
-  for (const p of RETIRED_PUBLIC_PATHS) assert.ok(!LINKED_ROUTES.includes(p), `llms.txt links ${p}`);
+  for (const p of RETIRED_PUBLIC_PATHS) assert.ok(!(LINKED_ROUTES as readonly string[]).includes(p), `llms.txt links ${p}`);
   for (const s of RETIRED_FEATURE_SLUGS) assert.ok(!body.includes(`/features/${s}`), `llms.txt links /features/${s}`);
 });
 

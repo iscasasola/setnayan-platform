@@ -27,6 +27,8 @@ range of 0km."* · *"but the plan must depend on how many accounts are using it.
   A 20 km ring is not found at 500 km (test). Unverified stays out via `is_findable`.
 - Leftover reach-by-plan copy removed (home tier intro, Verification + Supplier plans feature pages, /features How it
   works, the features plan line, one December news post, the shop-reach comment): reach comes from getting Verified.
+- Second sweep: the Supplier plans page's answer and its "What do the paid plans add?" FAQ (both languages) and the
+  `llms.txt` supplier paragraph no longer say the paid plans buy reach or a service area; two stale comments fixed.
 
 SPEC IMPACT: None in this PR — the ruling is already logged in the corpus DECISION_LOG on 2026-11-19 (986d99be,
 504c4101).

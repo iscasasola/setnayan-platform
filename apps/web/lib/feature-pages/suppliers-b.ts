@@ -157,8 +157,8 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Libre ang bookings. Verified ang nagbubukas ng abot mo; may dagdag na live cards, seats at branches ang Plus, Pro at Ultra. Walang kusang nagre-renew.',
     },
     answer: {
-      en: 'Setnayan has five supplier plans: Free, Verified, Supplier Plus, Supplier Pro and Supplier Ultra. Free and Verified cost nothing, for good, and include the full dashboard. The paid plans buy reach — service area, categories, service cards, team seats and branches — never the right to take bookings. Paid plans are prepaid blocks of four weeks or a year, and nothing renews by itself.',
-      tl: 'Lima ang supplier plans ng Setnayan: Free, Verified, Supplier Plus, Supplier Pro at Supplier Ultra. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard. Abot ang binibili ng paid plans — service area, categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Prepaid ang paid plans, apat na linggo o isang taon, at walang kusang nagre-renew.',
+      en: 'Setnayan has five supplier plans: Free, Verified, Supplier Plus, Supplier Pro and Supplier Ultra. Free and Verified cost nothing, for good, and include the full dashboard. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are prepaid blocks of four weeks or a year, and nothing renews by itself.',
+      tl: 'Lima ang supplier plans ng Setnayan: Free, Verified, Supplier Plus, Supplier Pro at Supplier Ultra. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Prepaid ang paid plans, apat na linggo o isang taon, at walang kusang nagre-renew.',
     },
     forWho: {
       en: 'Suppliers deciding how far they want to be found, and how big a team they run.',
@@ -192,13 +192,13 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
         { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free and Verified cost nothing, for good, and include the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
         { q: 'Does Setnayan take a commission?', a: 'Setnayan never takes a cut of the deal. It bills a booking fee only on couples it brings you; your first booking from Setnayan is on us, and your own clients never carry a fee. The current rate is on the For Suppliers page.' },
         { q: 'Do paid plans renew automatically?', a: 'No. Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of four weeks or a year. Skip the next payment and you are on Free.' },
-        { q: 'What do the paid plans add?', a: 'Reach: a wider service area, more categories and service cards, team seats and branches, and your own web address.' },
+        { q: 'What do the paid plans add?', a: 'More categories and service cards, team seats and branches, and your own web address. Reach is not a plan: it comes from getting Verified, free.' },
       ],
       tl: [
         { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
         { q: 'Kumukuha ba ng commission ang Setnayan?', a: 'Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee lang sa couples na dinala nito sa iyo; libre ang una mong booking mula sa Setnayan, at walang fee ang sarili mong kliyente. Nasa For Suppliers page ang kasalukuyang rate.' },
         { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Supplier Plus, Supplier Pro at Supplier Ultra, apat na linggo o isang taon. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
-        { q: 'Ano ang idinadagdag ng paid plans?', a: 'Abot: mas malawak na service area, mas maraming categories at service cards, team seats at branches, at sariling web address.' },
+        { q: 'Ano ang idinadagdag ng paid plans?', a: 'Mas maraming categories at service cards, team seats at branches, at sariling web address. Hindi plan ang abot: sa pagpa-Verified ito nanggagaling, libre.' },
       ],
     },
     keywords: {

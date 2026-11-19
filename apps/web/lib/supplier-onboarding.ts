@@ -184,6 +184,16 @@ export function firstCardLanding(input: {
   return '/vendor-dashboard/services/new';
 }
 
+/* ───────────────────────── Door C — "Invite shops you trust" ───────────────────────── */
+
+/** The coordinator door's screen after the shop opens: their `/i/<slug>` QR, Share, and the line below. */
+export const INVITE_SHOPS_PATH = '/open-shop/invite';
+export const INVITE_SHOPS_HEAD = ['Invite shops you trust', 'Your own invite QR. A shop that scans it joins as your trusted partner.'] as const;
+/** The owner's line, verbatim. */
+export const INVITE_SHOPS_LINE = 'Only invite those you trust.';
+/** The word for the coordinator-to-shop tie and the shop-page section (renames "preferred supplier" / "Trusted by"). */
+export const TRUSTED_PARTNERS = 'Trusted partners';
+
 /** The welcome's three next steps, in the owner's order. No leads are promised. */
 export const TODAY_WELCOME_STEPS = [
   { key: 'clients', label: 'Add the clients you already have', href: '/vendor-dashboard/customers?add=outside' },

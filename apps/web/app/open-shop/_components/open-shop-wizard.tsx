@@ -81,6 +81,8 @@ import { PasswordField } from '@/app/_components/password-field';
 import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
@@ -314,6 +316,32 @@ export function OpenShopWizard({
   // 🧭 `?as=coordinator`: "Not a coordinator? Search all services" turns the coordinator view off for this visit.
   const [allServices, setAllServices] = useState(false);
   const coordinating = coordinator && !allServices;
+  /**
+   * 🚪 DOOR C (owner 19 Nov, "COORDINATOR ONBOARDING (Door C) APPROVED"): Coordination is PRE-PICKED, and the main
+   * service is ONE dropdown of the coordination services — the leaves whose key is in `COORDINATOR_TRADE_SERVICES`,
+   * read from the constant (never a word search), in the tree's own order and words.
+   */
+  const coordinationLeaves = useMemo(() => {
+    const set = new Set(COORDINATOR_TRADE_SERVICES);
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const p of serviceTree)
+      for (const b of p.branches)
+        for (const l of b.leaves)
+          if (set.has(l.canonicalService) && !seen.has(l.canonicalService)) {
+            seen.add(l.canonicalService);
+            out.push({ key: l.canonicalService, label: l.label });
+          }
+    return out;
+  }, [serviceTree]);
+  useEffect(() => {
+    // Pre-picked once: the first coordination service, unless one is already chosen (a re-run, a restored draft).
+    if (coordinator && !service && coordinationLeaves[0]) {
+      setService(coordinationLeaves[0].key);
+      setPickedLabel(coordinationLeaves[0].label);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the coordinator door opens
+  }, []);
   /**
    * THE ONE REFUSAL ON SCREEN — seeded from the SERVER and owned by the client thereafter.
    *
@@ -1175,6 +1203,8 @@ export function OpenShopWizard({
             {guest ? <TurnstileField action="signup" /> : null}
             {/* W1-B21 — the plan picked on /for-suppliers, offered once the shop opens (`planOfferPath`). */}
             {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+            {/* 🚪 Door C: the shop opens, then "Invite shops you trust" (`/open-shop/invite`). */}
+            {coordinating ? <input type="hidden" name="as" value="coordinator" /> : null}
             {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
 
             {/* ③ A fact sheet is open over the list — the dark behind it closes it (its boxes keep what was typed). */}
@@ -1278,7 +1308,29 @@ export function OpenShopWizard({
                 {serviceTree.length > 0 ? (
                   <>
                     <input type="hidden" name="primary_service" value={service} />
-                    {service ? (
+                    {coordinating && step === 1 && coordinationLeaves.length > 0 ? (
+                      // 🚪 Door C: Coordination pre-picked — ONE dropdown for the main service (owner 19 Nov).
+                      <span className="grid gap-2" data-onboarding-coordination="">
+                        <PickMenu
+                          label="Your main coordination service"
+                          value={service}
+                          options={coordinationLeaves}
+                          onPick={(key) => {
+                            setService(key);
+                            setPickedLabel(coordinationLeaves.find((l) => l.key === key)?.label ?? null);
+                            if (errorField === 'service') setBanner(null);
+                          }}
+                          dataAttr="data-onboarding-coordination-pick"
+                        />
+                        <span>
+                          <ActionButton tone="neutral" quiet icon={ArrowRight} label="Not a coordinator? Search all services" onClick={() => {
+                              setAllServices(true);
+                              setService('');
+                              setPickedLabel(null);
+                            }} />
+                        </span>
+                      </span>
+                    ) : service ? (
                       <ServiceCards
                         tree={serviceTree}
                         places={places}

@@ -77,6 +77,7 @@ import { createVendorService } from '@/app/vendor-dashboard/services/actions';
 import {
   FIRST_CARD_FIELD,
   FIRST_CARD_TITLE_MAX,
+  INVITE_SHOPS_PATH,
   firstCardLanding,
   parseCardPrice,
   parseFirstCardChoice,
@@ -827,6 +828,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
   // plan it came for is offered (the plan sheet, that row open).
   const plan = parseSupplierPlan(formData.get('plan'));
+  // 🚪 DOOR C (owner 19 Nov): a coordinator's shop opens on "Invite shops you trust" — their own QR — then Done goes on
+  // to where the first card's way lands (Today's welcome, or the Card Maker).
+  if (formData.get('as') === 'coordinator') {
+    const after = cardChoice === 'edit' ? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }) : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
+    redirect(`${INVITE_SHOPS_PATH}?next=${encodeURIComponent(after)}`);
+  }
   if (cardChoice === 'edit') redirect(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
   redirect(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
 }

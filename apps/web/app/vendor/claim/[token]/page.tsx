@@ -293,10 +293,9 @@ export default async function VendorClaimPage({ params }: Props) {
             What you get
           </p>
           <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
-            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>A free supplier page, found by your own link and QR</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
-            <Perk>Marketplace exposure to other PH couples</Perk>
             <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>

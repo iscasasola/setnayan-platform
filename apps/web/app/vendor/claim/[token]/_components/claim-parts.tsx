@@ -119,10 +119,9 @@ export function CoupleLinkDoor({
             What you get
           </p>
           <ul className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
-            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>A free supplier page, found by your own link and QR</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Calendar + payments + contracts tracking</Perk>
-            <Perk>Marketplace exposure to other PH couples</Perk>
             <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>
@@ -243,7 +242,7 @@ export function TeamInviteDoor({
         <section>
           <p className="text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">What you get</p>
           <ul className="mt-2 divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
-            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>A free supplier page, found by your own link and QR</Perk>
             <Perk>Chat with couples in-app</Perk>
             <Perk>Calendar + bookings dashboard</Perk>
             {/* A perk list is where half a promise hides best: short form, still BOTH halves. */}
@@ -299,7 +298,7 @@ export function SupplierInviteDoor({
       }
       sub={
         <>
-          Once you&rsquo;re in, you are each other&rsquo;s <strong className="text-ink">preferred supplier</strong>.
+          Once you&rsquo;re in, you are each other&rsquo;s <strong className="text-ink">trusted partners</strong>.
         </>
       }
     >
@@ -307,12 +306,11 @@ export function SupplierInviteDoor({
         <section>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">What you get</p>
           <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
-            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>A free supplier page, found by your own link and QR</Perk>
             <Perk>
-              {inviterName} shows on your page as a preferred supplier, and you on theirs
+              {inviterName} shows on your page as a trusted partner, and you on theirs
             </Perk>
             <Perk>Chat with them in-app</Perk>
-            <Perk>Marketplace exposure to other PH couples</Perk>
             <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>

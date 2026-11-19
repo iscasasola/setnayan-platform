@@ -10,6 +10,8 @@ import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim
 import { readInviter } from '@/lib/supplier-invite.server';
 import { cleanInviteSlug, supplierInvitePath } from '@/lib/supplier-invite';
 import { joinSupplierInvite } from './actions';
+// 🔵 The blue invite door (owner 19 Nov, Door C: "a shop that scans their QR gets the blue invite door").
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'You’re invited', robots: { index: false } };
@@ -71,7 +73,7 @@ export default async function SupplierInvitePage({
   );
 
   return (
-    <>
+    <div data-supplier-look="">
       {sp.error ? (
         <div className="mx-auto max-w-xl px-4 pt-6">
           <FormFlash tone="error">{decodeURIComponent(sp.error).slice(0, 200)}</FormFlash>
@@ -85,10 +87,10 @@ export default async function SupplierInvitePage({
           isSelf
             ? 'This is your own invite link — share it with the suppliers you work with.'
             : hasShop
-              ? `You join as each other’s preferred supplier. ${inviter.businessName} shows on your Trusted by, and you on theirs.`
+              ? `You join as each other’s trusted partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs.`
               : null
         }
       />
-    </>
+    </div>
   );
 }

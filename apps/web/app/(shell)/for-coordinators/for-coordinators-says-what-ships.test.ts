@@ -140,7 +140,10 @@ test('“How access works” says what COORDINATOR_AREAS and areaChoices actuall
 
 test('every call to action is the supplier door — a coordinator opens a supplier shop', () => {
   assert.ok(existsSync(join(APP, 'open-shop', 'page.tsx')) || existsSync(join(APP, '(shell)', 'open-shop', 'page.tsx')), '/open-shop is gone');
-  assert.equal((PAGE.match(/href="\/open-shop"/g) ?? []).length, 4, 'the hero, the plans, the close and the dock each open /open-shop');
+  // 🚪 Owner 19 Nov (COORDINATOR ONBOARDING, Door C): all four carry `?as=coordinator` — the door opens with
+  // Coordination pre-picked. A bare /open-shop here is the self-serve door, the wrong one.
+  assert.equal((PAGE.match(/href="\/open-shop\?as=coordinator"/g) ?? []).length, 4, 'the hero, the plans, the close and the dock each open /open-shop?as=coordinator');
+  assert.equal((PAGE.match(/href="\/open-shop"/g) ?? []).length, 0, 'a /for-coordinators button opens the self-serve door, not the coordinator one');
 });
 
 test('every anchor on the page lands on an id on it; the sample shop link is the shop page', () => {

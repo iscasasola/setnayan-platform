@@ -44,7 +44,7 @@ import { readJoinedThroughLink } from '@/lib/supplier-invite.server';
 import { PreferredSupplierCard, type AddableShop } from './_components/preferred-supplier-card';
 import { PartnerRemoveRow } from './_components/partner-remove-row';
 
-export const metadata = { title: 'Partnerships · Supplier' };
+export const metadata = { title: 'Trusted partners · Supplier' };
 
 type SearchParams = {
   proposed?: string;
@@ -229,7 +229,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
       <PageMasthead
-        title="Partnerships"
+        title="Trusted partners"
       />
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
@@ -251,16 +251,16 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       {sp.declined ? <FormFlash tone="success">Request declined.</FormFlash> : null}
       {sp.added ? (
         <FormFlash tone="success">
-          Added. They are on your Trusted by now; you show on theirs once they accept.
+          Added. They are on your Trusted partners now; you show on theirs once they accept.
         </FormFlash>
       ) : null}
       {sp.removed ? <FormFlash tone="success">Removed from both shop pages.</FormFlash> : null}
       {sp.joined ? (
-        <FormFlash tone="success">You joined — you are each other&rsquo;s preferred supplier now.</FormFlash>
+        <FormFlash tone="success">You joined — you are each other&rsquo;s trusted partners now.</FormFlash>
       ) : null}
       {sp.already ? <FormFlash tone="success">You two are partners already.</FormFlash> : null}
-      {sp.hidden ? <FormFlash tone="success">Hidden from your Trusted by. Your partnership is unchanged.</FormFlash> : null}
-      {sp.shown ? <FormFlash tone="success">Shown on your Trusted by again.</FormFlash> : null}
+      {sp.hidden ? <FormFlash tone="success">Hidden from your Trusted partners. Your partnership is unchanged.</FormFlash> : null}
+      {sp.shown ? <FormFlash tone="success">Shown on your Trusted partners again.</FormFlash> : null}
 
       {/* ── 🤝 ADD A PREFERRED SUPPLIER — at the top (Invite a supplier v3, owner 16 Nov) ─────────────────────── */}
       <PreferredSupplierCard
@@ -538,7 +538,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                       </p>
                     </div>
                   </StayForm>
-                  {/* Served together = automatic on your Trusted by (owner Q5) — hide it here if you'd rather not. */}
+                  {/* Served together = automatic on your Trusted partners (owner Q5) — hide it here if you'd rather not. */}
                   {v.isLive ? <TrustedByToggle otherId={v.vendorProfileId} hidden={hiddenSet} /> : null}
                 </Fold>
               </li>
@@ -566,7 +566,7 @@ function TrustedByToggle({ otherId, hidden }: { otherId: string; hidden: Set<str
           pendingLabel={isHidden ? 'Showing…' : 'Hiding…'}
           className="rounded-md border border-ink/20 px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:bg-ink/5"
         >
-          {isHidden ? 'Show on your Trusted by' : 'Hide from your Trusted by'}
+          {isHidden ? 'Show on your Trusted partners' : 'Hide from your Trusted partners'}
         </SubmitButton>
       </div>
       <p className="text-xs text-ink/45">

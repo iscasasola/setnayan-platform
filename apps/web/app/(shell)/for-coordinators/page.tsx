@@ -529,7 +529,7 @@ export default async function ForCoordinatorsPage() {
                 Your schedule, bookings, client chats, planning and the event day itself, all in one place. Free to start.
               </p>
               <div className="fc-actions">
-                <Link className="fc-btn" href="/open-shop">
+                <Link className="fc-btn" href="/open-shop?as=coordinator">
                   Open your shop free
                 </Link>
                 <a className="fc-tlink" href="#close">
@@ -1135,7 +1135,7 @@ export default async function ForCoordinatorsPage() {
               }}
             />
             <div className="fc-plans-cta">
-              <Link className="fc-btn" href="/open-shop">
+              <Link className="fc-btn" href="/open-shop?as=coordinator">
                 Open your shop free
               </Link>
               <InfoToggle id="fc-i13" label="About prices">
@@ -1156,7 +1156,7 @@ export default async function ForCoordinatorsPage() {
             <h2>Your business’s new home.</h2>
             <p className="fc-lede">{"Open your shop. It takes two steps, and it's free."}</p>
             <div>
-              <Link className="fc-btn fc-close-cta" href="/open-shop">
+              <Link className="fc-btn fc-close-cta" href="/open-shop?as=coordinator">
                 Open your shop free
               </Link>
             </div>
@@ -1181,7 +1181,7 @@ export default async function ForCoordinatorsPage() {
       </main>
 
       <div className="fc-dock" aria-hidden="true">
-        <Link className="fc-btn" href="/open-shop" tabIndex={-1}>
+        <Link className="fc-btn" href="/open-shop?as=coordinator" tabIndex={-1}>
           Open your shop free
         </Link>
       </div>

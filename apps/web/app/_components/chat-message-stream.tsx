@@ -2778,7 +2778,7 @@ export function ChatMessageStream({
       )}
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
-        <li key={p.tempId} className="flex flex-col items-end" data-chat-pending={p.state}>
+        <li key={p.tempId} className="sn-m-chat-send flex flex-col items-end" data-chat-pending={p.state}>
           <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.whisper ? 'overflow-hidden ' : ''}${p.privateTo || p.whisper ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
             <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}

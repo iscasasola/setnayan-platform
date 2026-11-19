@@ -297,3 +297,18 @@ test('7 · a line is a whisper only when its people are exactly the co-hosts; it
   const supplierPage = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
   assert.doesNotMatch(supplierPage, /whisper/i, 'the supplier’s thread page knows about whisper');
 });
+
+test('8 · Chat send (motion #26): the sent line rises from the box in Move on Spring, fades on Settle, tokens only', () => {
+  const css = stripComments(readFileSync(join(WEB, 'app/globals.css'), 'utf8'));
+  const from = css.indexOf('.sn-m-chat-send {');
+  assert.ok(from > 0, 'Chat send has no rule');
+  const block = css.slice(from, css.indexOf('.sn-m-row-wash', from));
+  assert.match(block, /transition: translate var\(--sn-m-move\) var\(--sn-m-spring\), scale var\(--sn-m-move\) var\(--sn-m-spring\), opacity var\(--sn-m-move\) var\(--sn-m-settle\);/, 'Chat send is not Move on Spring with a Settle fade');
+  assert.match(block, /@starting-style \{\s*\.sn-m-chat-send \{ translate: 0 40px; scale: 0\.9; opacity: 0; \}/, 'the line does not rise from the box');
+  assert.doesNotMatch(block, /\d+m?s\b|cubic-bezier|@keyframes/, 'a raw time, a raw curve or a keyframe in Chat send');
+  assert.match(block, /@media \(prefers-reduced-motion: reduce\) \{\s*@starting-style \{\s*\.sn-m-chat-send \{ translate: none; scale: none; \}/, 'reduced motion still travels');
+  // Only the line being SENT plays it — a stored message arriving (or the whole thread on open) never does.
+  const stream = read('app/_components/chat-message-stream.tsx');
+  assert.equal((stream.match(/sn-m-chat-send/g) ?? []).length, 1);
+  assert.match(stream, /className="sn-m-chat-send flex flex-col items-end" data-chat-pending=\{p\.state\}/);
+});

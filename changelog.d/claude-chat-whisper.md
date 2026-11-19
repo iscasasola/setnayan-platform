@@ -38,3 +38,8 @@ Owner, 19 Nov: *"message and whisper approved"* (drawing v16, specs `prototypes/
 SPEC IMPACT: None new — builds DECISION_LOG 2026-11-19 rows "MESSAGE ⇄ WHISPER APPROVED", "ONE BOX: ＋ AND SEND INSIDE
 IT", "SWIPE THE BOX, NOT SEND; SEND LIVES INSIDE THE BOX", "PLANE → WHISPER, IN ORDER", "WHISPER → PLANE, IN ORDER",
 "CHAT PLACEHOLDERS — FINAL", "MIS-SEND REMINDER + WHISPER TYPING" and "WHISPER UN-PARKED" as written.
+
+- **Chat send (motion #26, Phase 6 — `MOTION_STANDARD_2026-11-18.md` § 4):** the line you just sent rises 40 px from
+  the box and grows from 0.9 into its place — Move on Spring, the fade on Settle (`.sn-m-chat-send`, an
+  `@starting-style` entrance on the pending bubble; tokens only). It replaces the snap. Reduced motion: no travel.
+  Not built: the earlier messages moving up "as one piece" — the thread still pins to the bottom at once.

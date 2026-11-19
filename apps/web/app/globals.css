@@ -6128,6 +6128,24 @@ html.dark [data-art='candlelight'] {
   .sn-m-pop { scale: 0.92; opacity: 0; }
 }
 
+/* CHAT SEND (#26, Phase 6 — `MOTION_STANDARD_2026-11-18.md` § 4 row 26; drawing "Your message rises from the box to its
+   place") — the line you just sent (`[data-chat-pending]`, chat-message-stream.tsx) rises 40 px from the box and grows
+   from 0.9 at its own corner: Move on Spring; its fade is Move on Settle. An entrance, so `@starting-style` — no
+   keyframe, no class toggle. It replaces the snap. Reduced motion: no travel, no growth — it is simply there (the base
+   layer's freeze). Held by lib/a-whisper-never-reaches-the-supplier.test.ts (8). */
+.sn-m-chat-send {
+  transform-origin: 100% 100%;
+  transition: translate var(--sn-m-move) var(--sn-m-spring), scale var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-move) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-chat-send { translate: 0 40px; scale: 0.9; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .sn-m-chat-send { translate: none; scale: none; }
+  }
+}
+
 /* ENTER · A ROW ARRIVES (#13) — played by `lib/rows-move.ts` (`rowArrives`): Move on Settle, 8 px up; only the first
    6 of a batch cascade (60 ms apart), the rest are simply there; the wash below fades over Rise. */
 .sn-m-row-wash {

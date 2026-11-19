@@ -19,3 +19,18 @@ Stacked on part 1 (#8032).
   before part 2; it now asserts part 2 exists. New: `today-rows-drag-both-ways.test.ts`, `lib/today-put-off.test.ts`.
 
 SPEC IMPACT: None — builds the ruled drawing (DECISION_LOG 2026-11-19 "TODAY v3 RULED AS A WHOLE"); nothing re-decided.
+
+**Part 3 — the finished-event wrap-up card.**
+- A finished event with photos or reviews opens its row as ONE card with three steps: Photos (every filed photo ✓,
+  ★ = also Inspiration, none by default) · Reviews (this event's guest reviews, the shipped reply; the hosts' review
+  "Not yet") · Confirm ("Confirm and share" — one tap). An event with neither keeps v2's quick "I delivered".
+- Confirm is a new op `wrapup` on the shipped files dispatcher (no new route): photos to the couple's story, ★ to
+  Inspiration (the shipped tag path), the event recorded as wrapped up, then the shipped `vendorMarkServiceComplete`.
+- Every plan shares and the share is kept; only Supplier Ultra photos show in the story (re-read at render). Below
+  Ultra the card says the 🔒 Problem → Solution.
+- The couple's side: "<Shop> shared N photos · For your story" with Approve all · Hide some ▾ on the supplier's Files
+  tab. Hide leaves their story only. Op `storydecide` → `couple_decide_story_photos` (SECURITY DEFINER).
+- Silence = accepted after `platform_settings.story_photo_silence_days`, worked out at read time (no job). Not set →
+  nothing is accepted by silence.
+- Migration `20271353451673` (RLS at CREATE TABLE): `event_supplier_story_shares`, `supplier_event_wrap_ups`, the
+  silence column. New guards: `today-wrap-up-is-one-card.test.ts`, `lib/today-wrap-up.test.ts`.

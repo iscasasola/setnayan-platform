@@ -26,6 +26,7 @@ import type { TodayRowIcon } from '@/lib/supplier-today';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { TodayV2Reads } from '@/lib/supplier-today-v2.server';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
 
 /**
  * 📋 TODAY v2, ASSEMBLED — ONE builder, so the Today page (its reads) and the dev lab (`/dev/supplier-lab?easy=…`, its
@@ -60,6 +61,8 @@ export type TodayV2Input = {
   billsUnread: boolean;
   /** v3: the clock the deadlines are read against (a date change's `dueAt`) — the page's render clock. */
   now: number;
+  /** ✓ v3 part 3 — the finished events' wrap-up facts (`readWrapUpFacts`), keyed by desk card id. */
+  wrapUps?: Record<string, WrapUpFacts | null>;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -133,7 +136,7 @@ export function buildTodayV2(i: TodayV2Input): {
       needsRows: (
         <TodayV2Needs
           split={split}
-          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts }}
+          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts, wrapUps: i.wrapUps ?? {} }}
           todayIso={i.todayIso}
           onDesk={deskKeys}
           billCount={i.view.bills.length}

@@ -415,7 +415,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = null, library = false, rail = null, tomorrow = false, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** ⏭ `&tomorrow=1` — v3 part 2: the first task that is not red was put off with "Do it tomorrow". */ tomorrow?: boolean; /** 📋 `&v2=1` — Today v2, "one task" (owner 18 Nov 2026): the SAME `buildTodayV2` the Today page runs, on lab reads. */ v2?: boolean; /** ▦ `&cards=1-2` — the cards row's fixture: live and hidden cards on a plan of 3. */ cards?: { live: number; hidden: number } | null; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = null, library = false, rail = null, tomorrow = false, wrap = false, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** ✓ `&wrap=1` — v3 part 3: each finished event has photos and reviews, so its row is the wrap-up card. */ wrap?: boolean; /** ⏭ `&tomorrow=1` — v3 part 2: the first task that is not red was put off with "Do it tomorrow". */ tomorrow?: boolean; /** 📋 `&v2=1` — Today v2, "one task" (owner 18 Nov 2026): the SAME `buildTodayV2` the Today page runs, on lab reads. */ v2?: boolean; /** ▦ `&cards=1-2` — the cards row's fixture: live and hidden cards on a plan of 3. */ cards?: { live: number; hidden: number } | null; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   if (moment === 'answers') {
     // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
     const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
@@ -585,6 +585,29 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = 
           putOffs: tomorrow ? needsAnswer.filter((c) => c.kind !== 'date_change').slice(0, 1).map((c) => ({ task_key: c.id, until_day: '2099-12-31' })) : [],
         },
         aside: readTodayAside(null, TODAY),
+        // ✓ The wrap-up facts (a fixture): six photos (the app's own art), two guest reviews, Ultra, 7 days.
+        wrapUps: wrap
+          ? Object.fromEntries(
+              needsAnswer
+                .filter((c) => c.kind === 'mark_complete')
+                .map((c) => [
+                  c.id,
+                  {
+                    eventId: c.kind === 'mark_complete' ? c.eventId : '',
+                    eventName: c.kind === 'mark_complete' ? c.eventName : '',
+                    eventDate: c.kind === 'mark_complete' ? c.eventDate : null,
+                    photos: ['drape', 'fan', 'chandelier', 'corner-floral', 'wax-seal', 'rsvp-ornament'].map((n, k) => ({ fileId: `00000000-0000-4000-8000-00000000000${k}`, url: `/art-kits/vintage/${n}.webp`, serviceTitle: 'Full-day photo' })),
+                    reviews: [
+                      { reviewId: 'g1', name: 'Gabriel D.', rating: 5, line: 'The photographer was everywhere and never in the way.', replied: false },
+                      { reviewId: 'g2', name: 'T. B.', rating: 4, line: 'Lovely shots of the 18 roses.', replied: false },
+                    ],
+                    parts: [{ slotKey: 'debut_portraits', label: 'Debut portraits' }],
+                    ultra: true,
+                    silenceDays: 7,
+                  },
+                ]),
+            )
+          : {},
         feeForecasts: Object.fromEntries(
           needsAnswer.flatMap((c) =>
             c.kind === 'lock_request'

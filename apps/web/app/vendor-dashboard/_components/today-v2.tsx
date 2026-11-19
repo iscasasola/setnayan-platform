@@ -22,6 +22,8 @@ import {
 } from './overview-sections';
 import { TodayAsideButton, TodayQuickGroup, TodayQuickRow, TodayTomorrowLink } from './today-v2-client';
 import { PUT_OFF_WORDS } from '@/lib/today-put-off';
+import { wrapUpApplies, type WrapUpFacts } from '@/lib/today-wrap-up';
+import { TodayWrapUpBody } from './today-wrap-up';
 import { formatCount } from '@/lib/format-number';
 import { BILLS_UNREAD_LINE, DONE_UNREAD_LINE, type DoneTodayRow, type GrowStage, type TodayBadgeTag, type TodaySplit, type TodayTaskRow, type TrendLine } from '@/lib/supplier-today-v2';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
@@ -92,11 +94,12 @@ export type TodayV2Answers = {
   payoutReadiness: PayoutReadiness;
   /** What agreeing to each booking ask costs, keyed by `event_vendors.vendor_id` (`forecastForBooking`), read before Agree. */
   feeForecasts: Record<string, FeeDisclosure | null>;
+  /** ✓ v3 part 3 — each finished event's wrap-up facts, keyed by its desk card id; null/absent = unread → v2's quick row. */
+  wrapUps?: Record<string, WrapUpFacts | null>;
 };
 
 /** The shipped form for a QUICK kind — the same one the desk's row opened to before 8 Nov. */
 function QuickBody({ card, a }: { card: WhatsNewCard; a: TodayV2Answers }) {
-  void a;
   switch (card.kind) {
     case 'review':
       return <ReviewBody card={card} postReviewReply={postVendorReply} />;
@@ -104,8 +107,11 @@ function QuickBody({ card, a }: { card: WhatsNewCard; a: TodayV2Answers }) {
       return <LockBody card={card} confirmLock={vendorAcknowledgeDeposit} rejectLock={vendorRejectDeposit} />;
     case 'date_change':
       return <DateChangeBody card={card} answerDateChange={vendorAnswerDateChange} />;
-    case 'mark_complete':
-      return <MarkCompleteBody card={card} markServiceComplete={vendorMarkServiceComplete} />;
+    case 'mark_complete': {
+      // ✓ The wrap-up card when the event has photos or reviews to check; otherwise v2's quick "I delivered" row.
+      const w = a.wrapUps?.[card.id] ?? null;
+      return w && wrapUpApplies(w) ? <TodayWrapUpBody facts={w} /> : <MarkCompleteBody card={card} markServiceComplete={vendorMarkServiceComplete} />;
+    }
     case 'meeting':
       return <MeetingBody card={card} respondMeeting={respondAppointment} />;
     default:

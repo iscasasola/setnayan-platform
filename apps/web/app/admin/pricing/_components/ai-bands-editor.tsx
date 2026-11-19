@@ -49,6 +49,7 @@ export function AiBandsEditor({
   discountPct,
   setBandAction,
   savePriceAction,
+  locked = false,
 }: {
   bands: AiBandView[];
   unassigned: EventKindView[];
@@ -57,6 +58,8 @@ export function AiBandsEditor({
   setBandAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
   /** Sets ONE band's regular price. The sign-up price follows the one sign-up discount. */
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  /** 🛑 The page could not read every price — nothing here may save (Save and Move both off). */
+  locked?: boolean;
 }) {
   const [bandState, bandFormAction] = useActionState<RowActionState, FormData>(setBandAction, {
     ok: false,
@@ -123,7 +126,8 @@ export function AiBandsEditor({
             allKinds={allKinds}
             discountPct={discountPct}
             formAction={bandFormAction}
-              savePriceAction={savePriceAction}
+            savePriceAction={savePriceAction}
+            locked={locked}
           />
         ))}
       </div>
@@ -183,12 +187,14 @@ function BandCard({
   discountPct,
   formAction,
   savePriceAction,
+  locked,
 }: {
   band: AiBandView;
   allKinds: EventKindView[];
   discountPct: number;
   formAction: (fd: FormData) => void;
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  locked: boolean;
 }) {
   const notOffered = band.regularPhp == null;
   const computedSignup =
@@ -219,6 +225,7 @@ function BandCard({
               band={band.band}
               regularPhp={band.regularPhp!}
               action={savePriceAction}
+              locked={locked}
             />
             <div className="w-40">
               <span className={`mb-1 block ${TEMPLATE_SUBLINE}`}>At set-up</span>
@@ -300,7 +307,7 @@ function BandCard({
                 label: `${k.emoji} ${k.label}${k.band == null ? ' — no band yet' : ` — now in ${k.band}`}`,
               }))}
           />
-          <ActionButton tone="neutral" type="submit" icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label="Move" />
+          <ActionButton tone="neutral" type="submit" icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label="Move" disabled={locked} />
         </form>
       </div>
     </section>
@@ -330,10 +337,12 @@ function BandPriceField({
   band,
   regularPhp,
   action,
+  locked,
 }: {
   band: string;
   regularPhp: number;
   action: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
+  locked: boolean;
 }) {
   const [state, formAction] = useActionState<RowActionState, FormData>(action, {
     ok: false,
@@ -366,7 +375,7 @@ function BandPriceField({
             aria-label={`Regular price for band ${band}`}
           />
         </div>
-        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" />
+        <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save" disabled={locked} />
       </div>
       {state.message && (
         <span

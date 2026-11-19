@@ -1,5 +1,4 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { InfoTip } from '@/app/_components/info-tip';
 import { TemplateFail } from '@/app/_components/template-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -122,12 +121,13 @@ export async function AiPricesSurface(_props: Props) {
           the visible lede lives in the editor below, where the numbers are. */}
       <PageMasthead title="Setnayan AI prices" />
 
+      {/* 🛑 VISIBLE, NOT BEHIND AN ⓘ (controller review of #8018): saving over a half-read
+          price list is the one mistake this screen can make, so the warning is a line you
+          cannot miss AND every save on the editor below is switched off while it stands. */}
       {unreadable && (
-        <TemplateFail data="ai-prices">
-          <InfoTip label="Prices couldn't load" align="start">
-            This screen is showing what it could read, which may be incomplete. Refresh in a
-            moment — don&apos;t save from here until it loads cleanly.
-          </InfoTip>
+        <TemplateFail data="ai-prices" retryHref="/admin/pricing?tab=setnayan-ai">
+          Prices couldn&apos;t load. This screen is showing what it could read, which may be
+          incomplete. Refresh in a moment — don&apos;t save from here until it loads cleanly.
         </TemplateFail>
       )}
 
@@ -138,6 +138,7 @@ export async function AiPricesSurface(_props: Props) {
         discountPct={discountPct}
         setBandAction={setEventTypeBand}
         savePriceAction={saveAiBandPrice}
+        locked={unreadable}
       />
     </div>
   );

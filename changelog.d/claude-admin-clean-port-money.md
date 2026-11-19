@@ -8,3 +8,5 @@ The owner said "ok" (19 Nov) to the drawing "Money screens: now and proposed" (a
 - Baselines lowered by a fresh regeneration (template-score, no-card, field-template). `admin/booking-fees` drops from a stale 36 to 2. Every Money page now scores 0.
 
 SPEC IMPACT: DECISION_LOG.md row "2026-11-19 | 🧹 ADMIN CLEAN PORT — THE MONEY DRAWING IS APPROVED…" (already pushed to the specs repo, commit 3745f051). No other spec change.
+
+**Review fix (controller):** while the AI prices screen cannot read every price, its warning stays a visible line ("don't save from here until it loads cleanly"), not an ⓘ, and every Save and Move on that editor is switched off. This is pinned by `app/admin/pricing/ai-prices-cannot-save-while-unreadable.test.ts`, which is sabotage-checked three ways.

@@ -93,7 +93,11 @@ export async function fetchExtraAgentSeats(
     if (!holdsBoughtExtras(tier)) return seats;
     // The live Ultra Add-ons (a lapsed or refunded one is not counted). Unreadable → 0, never a granted seat.
     const live = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
-    const packs = live.error ? 0 : extraSeatsFromPaidCount(Number(live.data));
+    if (live.error) {
+      console.error('[supabase-error] vendor-seats: live Ultra Add-ons (counting none — the plan’s seats stand)', live.error);
+      return seats;
+    }
+    const packs = extraSeatsFromPaidCount(Number(live.data));
     return seats + packs * ULTRA_ADDON_GIVES.people;
   } catch {
     return 0;

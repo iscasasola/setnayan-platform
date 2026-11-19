@@ -1,9 +1,9 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { Screen } from '@/components/skeletons';
-import type { HomeCoverWords } from '@/lib/home-cover-words';
+import { useEventCoverWords } from './event-cover-words';
 import { HomeCoverBand } from './home-cover-band';
 
 /**
@@ -24,31 +24,12 @@ import { HomeCoverBand } from './home-cover-band';
  * own path draws it; every other route that inherits this loading screen keeps its skeleton.
  * 🔒 app/dashboard/[eventId]/opening-an-event-shows-its-name-at-once.test.ts
  */
-const CoverWords = createContext<{ eventId: string; words: HomeCoverWords } | null>(null);
-
-export function HomeCoverWordsProvider({
-  eventId,
-  words,
-  children,
-}: {
-  eventId: string;
-  words: HomeCoverWords;
-  children: ReactNode;
-}) {
-  return <CoverWords.Provider value={{ eventId, words }}>{children}</CoverWords.Provider>;
-}
-
-/**
- * 🕯 This event's names and short date, as the layout already read them — for a signature moment that names the couple
- * (The Tie, Go live) without a read of its own. Null outside an event.
- */
-export function useEventCoverWords(): { eventId: string; words: HomeCoverWords } | null {
-  return useContext(CoverWords);
-}
+// The context lives in its own module (`event-cover-words.tsx`) so a moment can read it without importing this screen.
+export { HomeCoverWordsProvider, useEventCoverWords } from './event-cover-words';
 
 /** The Home's loading screen: its real cover band on the Home's own path, else the plain skeleton. */
 export function HomeLoadingScreen({ label, hero, children }: { label: string; hero: ReactNode; children: ReactNode }) {
-  const cover = useContext(CoverWords);
+  const cover = useEventCoverWords();
   const path = usePathname();
   const onHome = Boolean(cover) && path === `/dashboard/${cover!.eventId}`;
   if (!onHome)

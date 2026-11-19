@@ -28,8 +28,16 @@ test('1 · Tailwind does not scan test files', () => {
   }
 });
 
-/** The hand-written stylesheet's ceiling, in bytes of source. Measured 605,109 B on 2026-11-18; ~5% headroom. */
-const GLOBALS_CSS_CEILING = 635_000;
+/**
+ * The hand-written stylesheet's ceiling, in bytes of source. Measured 605,109 B on 2026-11-18; ~5% headroom.
+ * RAISED 635,000 → 650,000 on 2026-11-19 (motion PR #7792, which carries Phase 6). Phase 6 of the motion standard
+ * (owner 19 Nov: "animations build the rest") added the app-wide motions — Celebrate, Long press, Lift, Upload, Offline
+ * bar, Glide and Chat send — about 13 KB with their comments; measured 641,762 B. They are SHARED parts on many screens
+ * (the offline bar on every one), not surface-only rules, and a plain `.css` beside a part breaks every unit test that
+ * renders it (no CSS loader under tsx). Moving them to another sheet the root layout loads would save no byte. Headroom
+ * is ~1.3% on purpose: the next growth has to argue for itself.
+ */
+const GLOBALS_CSS_CEILING = 650_000;
 
 test('2 · app/globals.css stays under its ceiling', () => {
   const size = statSync(join(WEB, 'app/globals.css')).size;

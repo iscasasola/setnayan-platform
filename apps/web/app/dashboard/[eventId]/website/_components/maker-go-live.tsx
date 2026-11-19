@@ -2,7 +2,8 @@
 
 import { createPortal } from 'react-dom';
 import { GoLive } from '@/app/_components/signature/go-live';
-import { useEventCoverWords } from '../../_components/home-loading-cover';
+import { useEventCoverWords } from '../../_components/event-cover-words';
+import { useHydrated } from '@/lib/use-hydrated';
 
 /**
  * 🕯 GO LIVE in the Maker (motion standard § 9 ③): Apply answered "live" — the Event Hub's preview lifts, glows and gets
@@ -11,7 +12,9 @@ import { useEventCoverWords } from '../../_components/home-loading-cover';
  */
 export function MakerGoLive({ eventId }: { eventId: string }) {
   const cover = useEventCoverWords();
-  if (typeof document === 'undefined') return null;
+  // The portal waits for hydration (🔒 lib/a-portal-waits-for-hydration.test.ts), so the first pass draws what the server drew.
+  const hydrated = useHydrated();
+  if (!hydrated) return null;
   return createPortal(
     <div className="sn-sig-over sn-toast-fades" data-maker-go-live="">
       <GoLive eventId={eventId} name={cover?.words.name ?? 'Your Event Hub'} line={cover?.words.shortDate ?? null} />

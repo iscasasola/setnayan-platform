@@ -1,7 +1,7 @@
 'use client';
 
 import { TheTieForList } from '@/app/_components/signature/the-tie';
-import { useEventCoverWords } from '../../_components/home-loading-cover';
+import { useEventCoverWords } from '../../_components/event-cover-words';
 
 /**
  * 🕯 THE TIE on the couple's Booked list (motion standard § 9 ①): the couple learns a supplier said yes when they next

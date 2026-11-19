@@ -6,8 +6,15 @@
  * shows ONE body at a time and switches with `history.replaceState(?tab=)` — no request per switch. Every body is
  * a component in its own `_pages/<page>.tsx` file, so a lane filling its page edits only that file.
  *
- * A body a client's menu does not show (Payment / Hub before booking) is not built at all — `null`, never an empty
- * page that reads as "nothing here".
+ * A body a client's menu does not show (Hub before booking) is not built at all — `null`, never an empty page that
+ * reads as "nothing here".
+ *
+ * 🗂 SEVEN TABS (owner 18 Nov 2026): Payment and Forms are no longer tabs — their bodies are PARTS of two tabs, moved
+ * whole, never redrawn:
+ *   · **Book & Budget** (`quote`) — booked: "Paid N of M" · the Payment body (`#payments`) · the Quotation body
+ *     (`#quote`, the locked quote); before booking: the Quotation body only (no payments exist yet).
+ *   · **Details** — their info · the Forms body (`#forms`, the two groups + Send again) · Decisions (`#decisions`).
+ * `payments` and `forms` stay `null` here: a door that names them lands on their part (`pickedAnchorOf`).
  */
 import type { ReactNode } from 'react';
 import type { SharedFileEntry } from '@/lib/chat-shared-files';
@@ -33,29 +40,70 @@ export type PickedPageInputs = {
   files: { files: SharedFileEntry[]; chatFilesMeasured: boolean };
   /** C1's Payment page inputs — all already read by the client page (integration, 8 Nov: `money` + `asks` handed in). */
   payment: { reservationAcknowledgedAt: string | null; money?: PaymentMoney; asks?: ReactNode; refunds?: PaymentPageProps['refunds'] };
+  /** 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" and "Who it counts" on top of Book & Budget (booked only). */
+  quoteTop?: ReactNode;
+  /** 📋 Decisions — the list in place, from the thread's one draw (`DetailsDecisions`); drawn after Forms on Details. */
+  decisions?: ReactNode;
 };
+
+/** A part of a tab a door can land on — `scroll-mt` keeps it clear of the pinned row. */
+function Part({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+  return (
+    <section id={id} aria-label={label} className="mt-6 scroll-mt-4 first:mt-0" data-picked-part={id}>
+      {children}
+    </section>
+  );
+}
 
 export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, ReactNode> {
   const { ctx, shipped } = i;
   const shown = new Set(pickedMenuFor(ctx.isBooked).map((e) => e.id));
   const only = (id: PickedClientPage, node: ReactNode): ReactNode => (shown.has(id) ? node : null);
+  const quotation = <QuotationPage ctx={ctx} shipped={shipped.quote} />;
   return {
-    details: only('details', <DetailsPage ctx={ctx} shipped={shipped.details} />),
+    details: only(
+      'details',
+      <>
+        <DetailsPage ctx={ctx} shipped={shipped.details} />
+        <Part id="forms" label="Forms">
+          <FormsPage ctx={ctx} shipped={shipped.forms} />
+        </Part>
+        {i.decisions ? (
+          <Part id="decisions" label="Decisions">
+            {i.decisions}
+          </Part>
+        ) : null}
+      </>,
+    ),
     chat: only('chat', <ChatPage ctx={ctx} shipped={shipped.chat} />),
     schedule: only('schedule', <SchedulePage ctx={ctx} shipped={shipped.schedule} />),
-    quote: only('quote', <QuotationPage ctx={ctx} shipped={shipped.quote} />),
-    payments: only(
-      'payments',
-      <PaymentPage
-        ctx={ctx}
-        shipped={shipped.payments}
-        reservationAcknowledgedAt={i.payment.reservationAcknowledgedAt}
-        money={i.payment.money}
-        asks={i.payment.asks}
-        refunds={i.payment.refunds}
-      />,
+    // 💰 BOOK & BUDGET — booked: what is paid, then the payments, then the locked quote; before booking the quote only.
+    quote: only(
+      'quote',
+      ctx.isBooked ? (
+        <>
+          {i.quoteTop}
+          <Part id="payments" label="Payments">
+            <PaymentPage
+              ctx={ctx}
+              shipped={shipped.payments}
+              reservationAcknowledgedAt={i.payment.reservationAcknowledgedAt}
+              money={i.payment.money}
+              asks={i.payment.asks}
+              refunds={i.payment.refunds}
+            />
+          </Part>
+          <Part id="quote" label="Quotation">
+            <p className="home-k2 mb-2">Quotation</p>
+            {quotation}
+          </Part>
+        </>
+      ) : (
+        quotation
+      ),
     ),
-    forms: only('forms', <FormsPage ctx={ctx} shipped={shipped.forms} />),
+    payments: null,
+    forms: null,
     // Fee-gated as before: while the fee withholds the event, `shipped.files` is the one lock panel.
     files: only(
       'files',

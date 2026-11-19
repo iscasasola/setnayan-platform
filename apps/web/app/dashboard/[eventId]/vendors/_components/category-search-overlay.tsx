@@ -64,7 +64,7 @@ const CSS = `
 .csov *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 .csov .head{flex:0 0 auto;padding:12px 18px 12px;border-bottom:1px solid var(--line);background:var(--paper)}
 /* The close: a 44-px target (the popup rule). */
-.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:var(--m-r-full);border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform var(--sn-dur-micro) var(--sn-ease),background var(--sn-dur-control) var(--sn-ease)}
+.csov .x{width:44px;height:44px;min-height:44px;margin-left:-6px;border-radius:var(--m-r-full);border:0;background:transparent;color:var(--ink);display:flex;align-items:center;justify-content:center;transition:transform var(--sn-m-tap) var(--sn-m-settle),background var(--sn-dur-control) var(--sn-ease)}
 .csov .x:active{transform:scale(.92);background:rgb(var(--color-ink) / .06)}
 .csov .title{font-size:20px;font-weight:600;line-height:1.15;color:var(--ink)}
 .csov .scope{font-size:12px;letter-spacing:.04em;color:var(--ink-soft);margin-top:6px}

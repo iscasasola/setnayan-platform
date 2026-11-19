@@ -11,6 +11,7 @@ import { AWARD_NEWS_HREF, awardNews, type AwardNews } from '@/lib/badge-earned-n
 import { BADGE_ART_H, BADGE_ART_W } from '@/lib/shop-badge-shelf';
 import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { GiftMoments } from '@/app/_components/gift-moment/gift-moments';
+import { Celebrate } from '@/app/_components/celebrate';
 
 /**
  * 🏅 "IMPROVES EVERY TIME" — ONE line on Today when a badge is NEWLY earned (owner 2026-10-28: *"we want to build it
@@ -134,6 +135,16 @@ export function BadgeEarnedLine({
 
 /** The v84 picture beside the line: the tier's own art, or Verified's blue check. */
 function EarnedMark({ n }: { n: AwardNews }) {
+  // 🎉 A badge earned: the ONE Celebrate burst behind its art (MOTION_STANDARD § 4 #23) — once on this device for this
+  // badge; afterwards the art simply stands there.
+  return (
+    <Celebrate moment="badge" onceKey={n.key} scope="ever" className="shrink-0">
+      <EarnedArt n={n} />
+    </Celebrate>
+  );
+}
+
+function EarnedArt({ n }: { n: AwardNews }) {
   if (n.art.kind === 'tier') {
     // eslint-disable-next-line @next/next/no-img-element -- a 28-px static picture; next/image adds JS for nothing
     return <img src={n.art.src} width={BADGE_ART_W} height={BADGE_ART_H} alt="" loading="lazy" decoding="async" className="h-auto w-7 shrink-0" data-badge-earned-art="" />;

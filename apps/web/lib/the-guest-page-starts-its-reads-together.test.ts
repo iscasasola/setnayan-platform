@@ -116,7 +116,9 @@ test('only these reads are started ahead — each one every path below awaits, n
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
     [
-      'eventPapicGuestActive', 'eventStdOpeningsActive', 'eventSetnayanMark', 'loadVenueBookings', 'websiteProActiveFor',
+      'eventPapicGuestActive', 'eventStdOpeningsActive', 'eventSetnayanMark', 'loadVenueBookings',
+      // 💎 The footer asks the Pro PLAN since 2026-11-19 (the Hub parts moved to Event Ultra).
+      'proPlanActiveFor',
       // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
       'hubOwnershipFor',
       'readPublicSchedule', 'readStoredBackdrop', 'readWatchLive', 'readGuestWallMirror', 'resolveAlbumDoor',
@@ -190,7 +192,7 @@ test('a read that is NOT `cache()`d keeps its promise: started once, awaited onc
   const LIVE = LOADERS.slice(LOADERS.indexOf('export const loadLiveLayer = cache('), LOADERS.indexOf('export const loadDoorwayFacts = cache('));
   assert.ok(MEDIA.length > 2000 && LIVE.length > 2000, 'the loaders moved — re-anchor this test');
   for (const [src, name, call] of [
-    [MEDIA, 'proWatermarkHiddenAhead', 'websiteProActiveFor(event.event_id)'],
+    [MEDIA, 'proWatermarkHiddenAhead', 'proPlanActiveFor(event.event_id)'],
     // (the bookings also take the Venue scene's stored config from the scene rows — one read fewer, 2026-10-12)
     [MEDIA, 'venueBookingsAhead', 'loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined, venueSceneConfig)'],
     [MEDIA, 'ownsStdRevealAhead', 'eventStdOpeningsActive(admin, event.event_id)'],

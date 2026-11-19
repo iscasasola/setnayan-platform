@@ -33,14 +33,15 @@
 
 BEGIN;
 
--- ── 3a · Event Pro's description: the one claim the re-cut made untrue (FIRST — see above) ──
+-- ── 3a · Event Pro's description: what the re-cut made untrue (FIRST — see above) ──
+-- 💎 Owner 2026-11-19 (DECISION_LOG "Event plans part 2 (#8004) — four calls", (4)): Event Pro is "Everything in Plus ·
+-- Setnayan AI · no Setnayan mark"; the Hub's parts (the reveal, music, video, your own photos, fonts, the animated logo,
+-- the logo on QR codes) moved to Event Ultra. No number in the text — the credits are the row's own column.
 UPDATE public.platform_retail_catalog_v2
 SET description =
-      'Every premium touch on your Event Hub in one unlock — the cinematic '
-      'Save-the-Date reveal, a Save-the-Date video, background music, photos '
-      'you add, your own photo or video behind any scene or the whole '
-      'page, the Pro themes for your Event Hub and your invite link, your own '
-      'fonts and animation, an animated logo, and your logo on every QR code — '
+      'Everything in Event Plus — the ready-made Pro themes for your Event Hub '
+      'and your invite link among it — with Setnayan AI, which tells you what is '
+      'next and flags what is at risk, more Papic credits and 1 GB of uploads, '
       'plus the Setnayan mark taken off everywhere your guests see it: the page, '
       'the printable version, your story and the recap.',
     updated_at = now()

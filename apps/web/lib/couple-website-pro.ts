@@ -149,9 +149,11 @@ export function eventHubOwnership(
     //    is the Pro PLAN and falls through to the parts, the plan gates and the cap below.
     const holds = (sku: string) => (mode === 'active' ? eventSkuActive(supabase, eventId, sku) : eventOwnsSku(supabase, eventId, sku));
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
-    if (await holds(EVERYTHING_SKU)) return everyHubPartHeld();
-    const proHeld = await holds(FULL_PRO_SKU);
-    if (proHeld && (await hubProKeptEverything(supabase, eventId, counts))) return everyHubPartHeld();
+    //    ⚡ Asked together (the guest page's read depth, `guest-page-reads.test.ts`): Ultra and Pro in one step, then the
+    //    kept-Pro answer beside the parts' reads below — never one more step in series.
+    const [ultraHeld, proHeld] = await Promise.all([holds(EVERYTHING_SKU), holds(FULL_PRO_SKU)]);
+    if (ultraHeld) return everyHubPartHeld();
+    const keptP = proHeld ? hubProKeptEverything(supabase, eventId, counts) : Promise.resolve(false);
     // 2. Each part on its own. A part is sold only by its own order (or gifted by
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
     //    and an internal/founder host already answered in step 1 — so the ONE batch
@@ -165,6 +167,7 @@ export function eventHubOwnership(
       //    their own orders and basket lines, read with their own status. A comp or a gift was not paid.
       eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU, FULL_PRO_SKU]),
     ]);
+    if (await keptP) return everyHubPartHeld();
     const plusPaid = planRows.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
     const proPaid = proHeld && planRows.some((r) => r.service_key === FULL_PRO_SKU && counts(r.status));
     // 🎟 THE PLAN GATES (owner 2026-11-18, PLAN_RULINGS rulings 34 · 36): Event Plus — held through ANY of the chain's
@@ -190,7 +193,9 @@ export function eventHubOwnership(
       .filter((r) => counts(r.status))
       .map((r) => hubPartOfPaidCode(r.service_key))
       .filter((p): p is HubPartId => p !== null);
-    const prices = paidParts.length === 0 && !plusPaid && !proPaid ? null : await hubPartPrices(supabase);
+    //    ⚡ A paid Pro ALONE cannot reach Ultra's price (it is the rung below), so it reads no catalogue — the guest page
+    //    pays no extra step for every Pro event (`guest-page-reads.test.ts`). With Plus or a part beside it, it counts.
+    const prices = paidParts.length === 0 && !plusPaid ? null : await hubPartPrices(supabase);
     const priceMap = prices ? withPlanPrices(prices) : new Map<string, number>();
     const own = hubOwnershipFrom({
       fullHeld: false,

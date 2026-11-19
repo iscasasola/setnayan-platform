@@ -53,19 +53,23 @@ const E = '00000000-0000-4000-8000-000000000000';
 
 /** 1 · The paid names — the catalogue labels of the one filter. */
 const PAID_NAMES: string[] = [
-  ...new Set(
-    EVERY_ADD_ON.filter((a) => STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)).flatMap((a) =>
+  ...new Set([
+    ...EVERY_ADD_ON.filter((a) => STORE_SHELL_HIDDEN_ADDON_KEYS.has(a.key)).flatMap((a) =>
       // "Event Pro" is also written "Event PRO" — both spellings, still from the label.
       [a.label, a.label.replace(/\bPRO\b/, 'Pro'), a.label.replace(/\bPro\b/, 'PRO')],
     ),
-  ),
+    // 💎 2026-11-19 (owner, "Event plans part 2 — four calls"): the Event Hub's parts moved from Event Pro to Event Ultra,
+    // so the Maker's ◆ marks and its Apply sheet name Event Ultra now. Ultra is a plan, not an add-on row, so it is not
+    // derived above — named here, or every Ultra name an app page draws would pass this net unseen.
+    'Event Ultra',
+  ]),
 ];
 // Case-sensitive on purpose: a product NAME is capitalised; `'papic'` is a key, not a word on screen.
 const PAID = new RegExp(`\\b(?:${PAID_NAMES.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`);
 const MORE_ADDRESS = `${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
 
 test('1 · the paid names come from the one filter (premise)', () => {
-  for (const must of ['Papic', 'Setnayan AI', 'Live Watch', 'Event Pro', 'Music Maker', 'Patiktok']) {
+  for (const must of ['Papic', 'Setnayan AI', 'Live Watch', 'Event Pro', 'Event Ultra', 'Music Maker', 'Patiktok']) {
     assert.ok(PAID.test(must), `"${must}" is not among the derived paid names (${PAID_NAMES.join(', ')}) — the anchor moved`);
   }
   assert.ok(!PAID.test('Event Hub'), 'the free Event Hub must not count as a paid name');

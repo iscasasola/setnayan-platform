@@ -670,11 +670,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* 💎 Renamed before parts shipped → that address is kept free (its `slug_change_log` row is the proof). */
   const addressRenamed = await renamedRead;
   const proLine: MakerProLine | null =
-    !proOwn || proOwn.full || !proPrices?.full || Object.keys(partPricePhp).length === 0
+    !proOwn || proOwn.full || !proPrices?.everything || Object.keys(partPricePhp).length === 0
       ? null
       : {
           fromPhp: Math.min(...Object.values(partPricePhp)),
-          fullPhp: proPrices.full,
+          // 💎 Everything is Event Ultra (owner 2026-11-19) — the parts' rest is measured against its row.
+          fullPhp: proPrices.everything,
           paidPhp: proOwn.paidPhp,
           owned: [...proOwn.parts],
           href: `/dashboard/${eventId}/studio/website-pro?from=maker`,

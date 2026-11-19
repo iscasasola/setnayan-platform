@@ -137,6 +137,13 @@ const summary = (v: View) => `${v.calls} requests, ${v.depth} deep\n  ${v.steps.
   (`readInvitationChapters`) BESIDE the public schedule — a second, fenced read of event_schedule_blocks, at the same
   depth. Remembered with the rest of the layer, so only a view that misses the cache pays it:
     first view 23 → 24 · the canvas 10 → 11 · after a write 11 → 12 · with orders 27 → 28 — every other view unchanged.
+
+  💎 EVERYTHING IS EVENT ULTRA (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls"): an event with
+  an Event Pro order is asked ONE more thing — was its Pro dated before 19 Nov (`event_hub_pro_kept_lines`, the
+  grandfather that keeps its 11 Hub parts)? The answer decides which parts guests see, so it cannot be skipped; it is
+  asked beside the parts' reads, after the facts that say Pro is held, never twice, and a Pro alone reads no catalogue.
+  Views with orders only: with orders 28 → 29 requests and 7 → 8 deep · a stranger 7 → 8, 6 → 7 · invited 19 → 20,
+  6 → 7 — every view without orders unchanged.
 */
 const PINNED: Record<(typeof VIEWS)[number], { calls: number; depth: number }> = {
   coldInvitedOnTheDay: { calls: 24, depth: 6 },
@@ -147,9 +154,9 @@ const PINNED: Record<(typeof VIEWS)[number], { calls: number; depth: number }> =
   hostCanvas: { calls: 11, depth: 3 },
   freshAfterAWrite: { calls: 12, depth: 4 },
   warmAgainAfterTheWrite: { calls: 3, depth: 3 },
-  coldWithOrders: { calls: 28, depth: 7 },
-  strangerWithOrders: { calls: 7, depth: 6 },
-  invitedWithOrders: { calls: 19, depth: 6 },
+  coldWithOrders: { calls: 29, depth: 8 },
+  strangerWithOrders: { calls: 8, depth: 7 },
+  invitedWithOrders: { calls: 20, depth: 7 },
 };
 
 const views = () => VIEWS.map((name) => [name, REPORT[name]] as const);

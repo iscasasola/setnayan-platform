@@ -193,7 +193,7 @@ export const EVERYTHING_LABEL = 'Download everything';
  */
 export function printSetTip(storeShell: boolean): string {
   const free = 'Free prints are plain white and print-ready — 3 mm bleed and crop marks, no watermark.';
-  return storeShell ? free : `${free} Your Event Hub look on paper is Event Pro.`;
+  return storeShell ? free : `${free} Your Event Hub look on paper is Event Ultra.`;
 }
 /** The Digital ticket's ⓘ — the pass panel's own shipped line. */
 export const DIGITAL_TICKET_TIP = 'One PNG per guest who is coming. Each guest’s own saves free.';

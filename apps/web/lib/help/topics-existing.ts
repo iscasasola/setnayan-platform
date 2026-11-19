@@ -87,7 +87,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras, the ready-made Pro themes, a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event instead of 3, and Patiktok. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras, the ready-made Pro themes, a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address; it adds Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event, and Patiktok. An Event Pro bought before 19 November 2026 keeps every part of the Event Hub. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -489,11 +489,12 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       },
       {
         // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
-        // whole is Event Pro (COUPLE_WEBSITE_PRO). The Apply sheet is apply-pro-sheet.tsx; free themes are FREE_THEMES.
+        // whole is Event Ultra since 2026-11-19 (EVENT_ULTRA; a Pro bought before then keeps it). The Apply sheet is
+        // apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
         title: 'How do Pro effects work on my Event Hub?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Classic, Modern and Cyber Neon are free themes; every other theme comes with Event Plus or Event Pro, and every effect marked ◆ with Event Pro. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each Pro effect and where it is: tap one to open it, or × to take it off. Unlock Pro and Apply puts everything live with Event Pro; Apply without the Pro effects puts the rest live and keeps the Pro ones in your draft. Event Pro comes whole, not part by part, and what you paid for Event Plus counts toward it; Event Ultra includes everything in Event Pro, and moving up to it you pay only the difference. Its price is on setnayan.com/pricing.',
+        body: 'Classic, Modern and Cyber Neon are free themes; every other ready-made theme comes with Event Plus, Event Pro or Event Ultra, and every effect marked ◆ with Event Ultra. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each ◆ effect and where it is: tap one to open it, or × to take it off. Unlock Ultra and Apply puts everything live with Event Ultra; Apply without the Ultra effects puts the rest live and keeps the ◆ ones in your draft. Event Ultra comes whole, not part by part, and what you paid for Event Plus or Event Pro counts toward it, so you pay only the difference. An Event Pro bought before 19 November 2026 keeps every ◆ effect. Its price is on setnayan.com/pricing.',
       },
       {
         // 🔒 The Maker Edit shell's locked tabs (owner-approved 2026-11-13, "maker shell approved").
@@ -513,7 +514,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR code.',
-        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Pro, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Ultra, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',

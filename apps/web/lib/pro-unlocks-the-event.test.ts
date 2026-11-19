@@ -42,7 +42,7 @@ import {
   resolveEventEntitlementClient,
 } from '@/lib/event-entitlement-client';
 import { eventSkuActive } from '@/lib/entitlements';
-import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { eventCoupleWebsiteProActive, eventProPlanActive } from '@/lib/couple-website-pro';
 import { eventHoldsHostedChannel } from '@/lib/live-studio-roam-provision';
 import { LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { stripComments } from '@/lib/strip-comments';
@@ -162,6 +162,7 @@ test('the defect, reproduced: through her OWN session, co-host B reads the event
   const tables = world();
   const own = sessionClientFor(COHOST_B, tables);
   assert.equal(await eventSkuActive(own, EVENT, LIVE_STUDIO_HOSTED_CHANNEL_SKU), false);
+  assert.equal(await eventProPlanActive(own, EVENT), false);
   assert.equal(await eventCoupleWebsiteProActive(own, EVENT), false);
   // …while the server gate, on the service client, says yes. This disagreement IS the bug.
   assert.equal(await eventHoldsHostedChannel(serviceClientFor(tables), EVENT), true);
@@ -170,7 +171,8 @@ test('the defect, reproduced: through her OWN session, co-host B reads the event
 test('⚖ co-host B sees Pro and the hosted channel for an event whose orders host A placed', async () => {
   const { attempt } = await resolveAs(COHOST_B);
   const ent = await attempt;
-  assert.equal(await eventCoupleWebsiteProActive(ent, EVENT), true, 'Event Pro belongs to the EVENT');
+  // 💎 2026-11-19: a Pro order (with no date before 19 Nov) is the Pro PLAN — the Hub parts are Event Ultra's.
+  assert.equal(await eventProPlanActive(ent, EVENT), true, 'Event Pro belongs to the EVENT');
   assert.equal(await eventSkuActive(ent, EVENT, LIVE_STUDIO_HOSTED_CHANNEL_SKU), true);
 });
 
@@ -257,6 +259,9 @@ const READERS = [
   'eventOwnsCustomQrGuest',
   'eventOwnsCoupleWebsitePro',
   'eventCoupleWebsiteProActive',
+  // 💎 The Pro PLAN (2026-11-19) — the plan's own perks.
+  'eventProPlanActive',
+  'eventOwnsProPlan',
   // 💎 Event Pro, part by part (2026-10-22) — the same question, asked of one part.
   'eventHubPartActive',
   'eventOwnsHubPart',

@@ -17,6 +17,7 @@ import {
   APP_STORE_PRICE_TOLERANCE_PHP,
   iapProductById,
   iapProductForServiceKey,
+  iapUpgradeProductForServiceKey,
   papicCreditsMatch,
   IAP_PRODUCT_IDS,
   RETIRED_HUB_PART_PRODUCT_IDS,
@@ -43,6 +44,8 @@ test('💰 2026-11-04 final sheet — Event Plus, Event Pro, three Papic packs, 
     'COUPLE_WEBSITE_PRO',
     'EVENT_PLUS',
     // 💎 Event Ultra (`event_ultra`) — owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT".
+    'EVENT_ULTRA',
+    // 💎 …and Ultra upgrading from a paid Pro (`event_ultra_upgrade_from_pro`) — owner 2026-11-19, "all your picks" (3).
     'EVENT_ULTRA',
     'LIVE_STUDIO',
     // 🍎 The second wave — owner 2026-10-23, verbatim: "Add Setnayan AI, Music Maker, Patiktok, Thank You and Mood
@@ -71,6 +74,7 @@ test('ids are exactly the ruled ones (FOREVER), kinds and the owner’s display 
     ['com.setnayan.app.event_plus', 'EVENT_PLUS', 'event-plus', 'Event Plus', null],
     ['com.setnayan.app.event_pro', 'COUPLE_WEBSITE_PRO', 'event-hub-pro', 'Event Pro', null],
     ['com.setnayan.app.event_ultra', 'EVENT_ULTRA', 'event-ultra', 'Event Ultra', null],
+    ['com.setnayan.app.event_ultra_upgrade_from_pro', 'EVENT_ULTRA', 'event-ultra-upgrade', 'Event Ultra · upgrade from Pro', null],
     ['com.setnayan.app.papic_pack_150', 'PAPIC_GUEST_150', 'papic-credits', 'Papic 150', 150], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.papic_pack_1000', 'PAPIC_GUEST_1K', 'papic-credits', 'Papic 1000', 1_000], // gitleaks:allow — catalog service_codes, not secrets
     ['com.setnayan.app.papic_pack_3000', 'PAPIC_GUEST', 'papic-credits', 'Papic 3000', 3_000], // gitleaks:allow — catalog service_codes, not secrets
@@ -142,6 +146,8 @@ test('product ids are unique, reverse-DNS under the app bundle, and resolve both
     assert.equal(iapProductById(p.productId), p);
     // One code, several products only for Setnayan AI's tiers — each found by its tier; the code itself finds Tier A.
     if (p.aiTier) assert.equal(iapSetnayanAiProductForTier(p.aiTier), p);
+    // 💎 The Ultra upgrade shares Ultra's code: the code finds the whole plan, the upgrade is found as the upgrade.
+    else if (p.priceLessRow) assert.equal(iapUpgradeProductForServiceKey(p.serviceKey), p);
     else assert.equal(iapProductForServiceKey(p.serviceKey), p);
   }
   assert.equal(iapProductById('com.setnayan.app.unknown'), null);
@@ -279,4 +285,19 @@ test('💝 the eight supplier gift products exist, are unique, and are NOT sella
     assert.equal(RETIRED_IAP_PRODUCT_IDS.includes(id), false, `${id} reuses a retired id`);
     assert.equal(iapProductForDelivery(id), null, `${id} delivers — no supplier gift delivery is built`);
   }
+});
+
+test('💎 the Ultra upgrade (owner 2026-11-19 (3)) is priced at Ultra less Pro, sold beside the whole plan, never instead of it', () => {
+  const upgrade = iapUpgradeProductForServiceKey('EVENT_ULTRA');
+  assert.ok(upgrade, 'the upgrade product is missing');
+  assert.equal(upgrade!.productId, 'com.setnayan.app.event_ultra_upgrade_from_pro');
+  assert.equal(upgrade!.priceLessRow, COUPLE_WEBSITE_PRO_SERVICE_KEY, 'the difference is taken off Pro’s row');
+  assert.equal(iapProductForServiceKey('EVENT_ULTRA')?.productId, 'com.setnayan.app.event_ultra', 'the code no longer finds the whole plan');
+  assert.equal(iapUpgradeProductForServiceKey('COUPLE_WEBSITE_PRO'), null);
+  // The delivery's one-price check reads the difference, and the server sells the upgrade only to a paid Pro.
+  const fulfil = stripComments(readFileSync(resolve(HERE, 'fulfil.server.ts'), 'utf8'));
+  assert.match(fulfil, /const lessCode = tx\.product\.priceLessRow \?\? null;/);
+  assert.match(fulfil, /lessCode \? \(less === null \? null : Math\.max\(0, base - less\)\) : base/);
+  const actions = stripComments(readFileSync(resolve(HERE, 'iap-actions.ts'), 'utf8'));
+  assert.match(actions, /product\.kind === 'event-ultra-upgrade'[\s\S]{0,600}orderStatusConfersOwnership\(r\.status\)[\s\S]{0,80}startRefusal\('not_on_sale'\)/);
 });

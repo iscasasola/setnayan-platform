@@ -765,8 +765,8 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Ultra" size="xs" />
-                {formatCount(summary.proCount)} waiting for Ultra
+                <PaidMark state="try" bare label="Event Pro" size="xs" />
+                {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">

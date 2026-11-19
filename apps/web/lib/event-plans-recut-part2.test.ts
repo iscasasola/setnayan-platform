@@ -194,7 +194,8 @@ test('(G) every theme and opening consumer asks ownsHubGate / the gate readers �
 
 test('(H) eventHubOwnership fills the gates from Event Plus and the openings’ unlock, read in the gate’s own mode', () => {
   const src = read('lib/couple-website-pro.ts');
-  assert.match(src, /plusPaid \? Promise\.resolve\(true\) : holds\(EVENT_PLUS_SKU\)/, 'Event Plus is not read for the gates');
+  // 💎 2026-11-19: a Pro PLAN (from 19 Nov) holds everything Plus holds, so it passes both gates too.
+  assert.match(src, /plusPaid \|\| proHeld \? Promise\.resolve\(true\) : holds\(EVENT_PLUS_SKU\)/, 'Event Plus is not read for the gates');
   assert.match(src, /holds\(STD_PREMIUM_OPENINGS_SKU\)/, 'the openings’ own unlock is not read for gate 1');
   assert.match(src, /if \(plusHeld \|\| openingsHeld\) gates\.push\('1'\);/);
   assert.match(src, /if \(plusHeld\) gates\.push\('13'\);/, 'Event Plus no longer passes the Pro theme');

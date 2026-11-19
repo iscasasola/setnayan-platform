@@ -352,7 +352,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/event-hub-0.jpg" y="28%" zoom={1.1} />}
               title="An Event Hub that looks like yours"
               line="One page your guests open — your look, your reveal."
-              tip={`A complete design is included with every event. Your own photos, music, themes and the cinematic reveal are Event Pro${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
+              tip={`A complete design is included with every event. The ready-made Pro themes come with Event Plus; your own photos, music and every other part of your Event Hub are Event Ultra${prices.hubParts.length > 0 ? ', or just the parts you need' : ''}.`}
             />
             <WhyPoint
               shot={<WhyShot src="/feature-shots/3d-plan-0.jpg" y="21%" zoom={1.25} />}
@@ -456,12 +456,14 @@ export default async function PricingPage() {
                         ◆
                       </i>
                       <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 1 GB of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
+                        {/* 💎 Owner 2026-11-19 ("Event plans part 2 — four calls" (4)): Pro is "Everything in Plus · Setnayan AI ·
+                            no Setnayan mark"; the Hub's parts — your own photos, music, reveal, logo, prints — moved to Event Ultra. */}
+                        {`${prices.plus != null ? `Everything in Event Plus — ${proThemes} ready-made Pro themes among it — plus ` : ''}Setnayan AI, 1 GB of media and no Setnayan watermark on your Event Hub. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
                     <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">
-                      Your own look on the Event Hub — the included design stays yours either way.
+                      Setnayan AI and no Setnayan mark — the included design stays yours either way.
                     </p>
                     {prices.pro.signup != null ? (
                       <p className="col-span-2 m-0 mt-1 text-[13px] text-ink/65" data-pro-setup="">
@@ -496,7 +498,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
+                      tip={`Everything in Event Pro, plus every part of your Event Hub — your own photos, video and music, the cinematic reveal, your logo animated and on every QR, prints in your look — Live Watch for one day, your full-size photos kept 12 months after the event, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                       action={<PlanBuyCta plan="ultra" />}

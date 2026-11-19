@@ -6,7 +6,7 @@ import { ROLE_LABELS, fetchGuestsByEventMeasured, guestDisplayName, readEventGro
 import { isOnEveryChapter } from './supplier-where';
 import { VENDOR_CATEGORY_LABEL, type VendorCategory } from './vendors';
 import { sanitizeRoleNames } from './role-names';
-import { eventCoupleWebsiteProActive } from './couple-website-pro';
+import { eventProPlanActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
 import { getIapGate } from './request-platform';
@@ -23,7 +23,7 @@ import type { ViewPerson, ViewSupplier } from './schedule-view-as';
  *   · the suppliers by shop name — only when the page has not already read them (the run-of-show switch off);
  *   · 💎 whether the event owns Pro — View as a guest, a role or a supplier is Pro (owner 2026-11-01, plan §3b:
  *     *"chapters Free · View as and Release Pro"*); Suppliers by time is FREE (owner 2026-11-02, "TEN OWNER YESES"
- *     item 3), so a Free event still gets the menu (`lensAllowed`). It is not an Event Hub part, so the question is the whole of Pro (`eventCoupleWebsiteProActive`,
+ *     item 3), so a Free event still gets the menu (`lensAllowed`). It is not an Event Hub part, so the question is the Pro PLAN (`eventProPlanActive`, owner 2026-11-19;
  *     listed in `every-pro-gate-names-its-part.test.ts`), as this viewer is shown it (`asViewed` — the owner's "view
  *     as a free couple" switch takes Pro away, never grants it). A refused read answers Free: at worst it offers the
  *     upgrade to an event that has it, never opens a paid view for free.
@@ -64,7 +64,7 @@ export async function readViewAsExtras(supabase: SupabaseClient, eventId: string
       ),
     // 🔌 A refused read is `null` (unknown), never `[]` (none) — the page then says so (audit #16).
     opts.readSuppliers ? readScheduleSuppliers(supabase, eventId).catch(() => null) : Promise.resolve(null),
-    asViewed((async () => eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId))().catch(() => false)),
+    asViewed((async () => eventProPlanActive(await eventEntitlementClient(eventId), eventId))().catch(() => false)),
     getIapGate().catch(() => ({ storeShell: false, iap: false })),
     // The couple's own word for a role (Bridesmaid → "Bride's Crew") — the word every screen shows.
     supabase

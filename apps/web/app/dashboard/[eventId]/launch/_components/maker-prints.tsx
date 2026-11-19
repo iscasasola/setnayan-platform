@@ -788,7 +788,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         {input.storeShell ? null : (
           <>
             <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} word="ULTRA" label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Ultra')} className="mr-1 align-middle" />
-            Your Event Hub look on paper is Event Pro.{' '}
+            Your Event Hub look on paper is Event Ultra.{' '}
           </>
         )}
         {!themed || freeTheme ? null : access.printReady ? (

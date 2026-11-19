@@ -20,7 +20,7 @@ import {
 } from '@/lib/animated-monogram';
 
 /** Orders stub: an ownership query "hits" when any queried service_key is owned. */
-function ordersOwning(owned: Set<string>, status = 'submitted'): SupabaseClient {
+function ordersOwning(owned: Set<string>, status = 'submitted', proKept = false): SupabaseClient {
   let keys: string[] | null = null;
   const b: Record<string, unknown> = {
     from: () => b,
@@ -36,7 +36,9 @@ function ordersOwning(owned: Set<string>, status = 'submitted'): SupabaseClient 
       keys = null;
       return Promise.resolve({ data, error: null }).then(resolve);
     },
-    rpc: () => Promise.resolve({ data: null, error: null }),
+    // 💎 `event_hub_pro_kept_lines` (2026-11-19): a Pro dated before 19 Nov answers with its line; anything else, nothing.
+    rpc: (fn: string) =>
+      Promise.resolve({ data: fn === 'event_hub_pro_kept_lines' && proKept ? { lines: [{ status }], granted: false } : null, error: null }),
   };
   return b as unknown as SupabaseClient;
 }
@@ -51,8 +53,15 @@ test('the owned note says "Included with Event Pro" only when owned AND Pro', ()
   assert.equal(animatedMonogramIncludedNote(false, true), null);
 });
 
-test('a Pro couple resolves as owning the animation, and as getting it from Pro', async () => {
+// 💎 2026-11-19 (owner, "Event plans part 2 — four calls"): the animation is the Logo & QR part's — a Pro bought BEFORE
+// 19 Nov keeps it (as everything), a Pro bought from 19 Nov does not (the parts are Event Ultra's).
+test('a Pro bought from 19 Nov does not own the animation — the Logo & QR part is Event Ultra’s', async () => {
   const pro = ordersOwning(new Set(['COUPLE_WEBSITE_PRO']));
+  assert.equal(await eventOwnsAnimatedMonogram(pro, 'evt_1'), false);
+});
+
+test('a Pro kept from before 19 Nov resolves as owning the animation, and as getting it from Pro', async () => {
+  const pro = ordersOwning(new Set(['COUPLE_WEBSITE_PRO']), 'submitted', true);
   const owned = await eventOwnsAnimatedMonogram(pro, 'evt_1');
   assert.equal(owned, true);
   const viaPro = await eventGetsAnimatedMonogramFromHubPro(pro, 'evt_1');

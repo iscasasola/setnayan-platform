@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7976
+# facts: 7978
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     648
-#   col       5741
+#   col       5743
 #   policy    1170
 #   view      10
 #   func      403
@@ -4142,6 +4142,8 @@ col	public.platform_settings.gift_limit_pct	anon=- authenticated=S
 col	public.platform_settings.google_drive_oauth_client_id	anon=- authenticated=S
 col	public.platform_settings.google_drive_oauth_redirect_uri	anon=- authenticated=S
 col	public.platform_settings.google_picker_api_key	anon=- authenticated=S
+col	public.platform_settings.grow_few_bookings_month	anon=- authenticated=S
+col	public.platform_settings.grow_few_inquiries_28d	anon=- authenticated=S
 col	public.platform_settings.id	anon=- authenticated=S
 col	public.platform_settings.ig_user_id	anon=- authenticated=S
 col	public.platform_settings.launch_offer_booking_cap	anon=- authenticated=S

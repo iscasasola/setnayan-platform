@@ -30,6 +30,7 @@ import { getInPlanningWedding } from './wedding-guard';
 import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
 import { NewEventHead } from './_components/new-event-head';
+import { FoilArm } from '@/app/_components/signature/foil-glint';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
    lands in DIY by default. */
@@ -404,6 +405,8 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8 [[data-create-event-in-panel]_&]:pt-4">
+      {/* 🕯 Foil glint (motion standard § 9 ②): this visit is creating an event — the one it lands on glints once. */}
+      <FoilArm />
       <NewEventHead nothingBehind={nothingBehind} samahan={samahan} />
 
       <EventTypePicker

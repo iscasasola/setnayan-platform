@@ -101,7 +101,7 @@ const COPY: Record<
       },
       {
         label: 'Supplier',
-        who: 'You sell to hosts. Your shop is free, and Verified is free too. Plus, Pro and Ultra add reach, a team and branches.',
+        who: 'You sell to hosts. Your shop is free, and Verified is free too — it is what puts you in search, as far as you choose to travel. Plus, Pro and Ultra add a team and branches.',
         where: [
           'Today · Clients · Shop · Portfolio — the next thing to answer, your people, dates and event days, your services and page, your photos and videos',
           'One chat per client — hosts who find you, and the clients you bring or import yourself — with quotes, payments and files',

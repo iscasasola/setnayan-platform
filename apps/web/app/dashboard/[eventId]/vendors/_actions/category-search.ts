@@ -35,7 +35,7 @@ import { demoScopeFor } from '@/lib/demo-scope';
 import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import { isVerifiedForReach, reachCeilingKm } from '@/lib/vendor-service-radius';
+import { effectiveOuterRadiusKm, isVerifiedForReach, reachAdmits } from '@/lib/vendor-service-radius';
 // The ladder's own vocabulary lives in the PURE module that enforces the
 // boundary, so "which rung is protected?" has one answer in the codebase.
 import type { LadderTier } from '@/lib/inline-more-order';
@@ -167,14 +167,15 @@ export type CategoryVendorResult = {
    * Used to float known vendors to the top and render a contextual badge.
    */
   relationshipDepth: 0 | 1 | 2 | 3;
-  /** Service-radius coverage (`reachCeilingKm` vs the reception anchor).
-   *  TRUE = in reach ("✓ Serves your area"); FALSE = out of range ("travel fee
-   *  likely"). Always TRUE when distance is unknown / the vendor is unscoped
-   *  (fail-open) — and since 2026-11-19 no plan sets a radius, so every shop is. */
+  /** Service-radius coverage (`reachAdmits`: the shop's own declared outer ring vs
+   *  the reception anchor). TRUE = in reach ("✓ Serves your area"); FALSE = out of
+   *  range. TRUE when distance is unknown / the shop declared no ring / it is
+   *  unverified (unscoped; kept out of search by `is_findable`). No plan sets a
+   *  radius since 2026-11-19 — "verified sets its own range". */
   withinRadius: boolean;
-  /** A finite service radius in km, or null = unscoped. Null for every shop
-   *  since 2026-11-19 (reach is not a plan allowance; the shop's own ring
-   *  speaks through the travel-fee verdict). */
+  /** A finite service radius in km — a verified shop's own declared outer
+   *  ring — or null = unscoped (no ring declared, or not verified). Never a
+   *  plan allowance since 2026-11-19. */
   serviceRadiusKm: number | null;
   /** Facet refinement (lib/vendor-facets · vendor_service_attributes ⋈ the
    *  couple's facet picks/seed). How many of the selected facet dimensions this
@@ -761,10 +762,10 @@ export async function searchCategoryVendors(input: {
     // onboarding-only (the dashboard stores just the coarse venue_setting).
     eventType: (ev.event_type as string | null) ?? null,
     pax: (ev.estimated_pax as number | null) ?? null,
-    // Phase C service-radius gate (`reachCeilingKm`, lib/vendor-service-radius.ts).
+    // Service-radius gate (`reachAdmits`, lib/vendor-service-radius.ts).
     // The dashboard Services surface is the ONLY caller that passes anchor coords.
-    // Since 2026-11-19 no plan sets a radius, so the gate admits every shop by
-    // distance; it stays as the one seam a future distance rule would use.
+    // Since 2026-11-19 no plan sets a radius; a verified shop's own declared
+    // outer ring still limits who finds it ("verified sets its own range").
     // Null coords (event has no venue lat/lng) → radius scope off (fail-open).
     anchorLat: lat,
     anchorLng: lng,
@@ -862,7 +863,7 @@ export async function searchCategoryVendors(input: {
 
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state')
+    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state, outer_radius_km')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
@@ -871,6 +872,7 @@ export async function searchCategoryVendors(input: {
       name_revealed_at: string | null;
       services: string[] | null;
       tier_state: string | null;
+      outer_radius_km: number | null;
     }
   >();
   for (const p of profRows ?? []) {
@@ -882,6 +884,7 @@ export async function searchCategoryVendors(input: {
       tier_state: string | null;
       tier_expires_at?: string | null;
       verification_state?: string | null;
+      outer_radius_km?: number | null;
     };
     profById.set(row.vendor_profile_id, {
       screen_name: row.screen_name,
@@ -889,6 +892,8 @@ export async function searchCategoryVendors(input: {
       services: row.services,
       // A plan whose paid days ended reads as the sweep will write it — never its old reach (`liveTierState`).
       tier_state: liveTierState(row, Date.now()),
+      // The shop's own declared outer ring — it limits who finds a verified shop (owner 2026-11-19).
+      outer_radius_km: row.outer_radius_km ?? null,
     });
   }
 
@@ -1211,13 +1216,14 @@ export async function searchCategoryVendors(input: {
       anchors.ceremony && vLat !== null && vLng !== null
         ? Math.round(distanceKm(anchors.ceremony.latitude, anchors.ceremony.longitude, vLat, vLng) * 10) / 10
         : null;
-    // Service-radius coverage — same fail-open as the recs radiusOk gate. Since
-    // 2026-11-19 reach is NOT a plan allowance (owner: "unlock the range. not plan
-    // dependend anymore"): `reachCeilingKm` is ∞ verified / 0 unverified, both
-    // unscoped → within. The shop's own declared ring is its only distance claim.
-    const radiusKm = reachCeilingKm(isVerifiedForReach((r.verification_state as string | null) ?? null));
-    const withinRadius =
-      dKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0 || dKm <= radiusKm;
+    // Service-radius coverage — the same rule as the recs radiusOk gate (`reachAdmits`). Since 2026-11-19 no PLAN sets
+    // a radius (owner: "unlock the range. not plan dependend anymore"), but "verified sets its own range": a verified
+    // shop is within only inside its own declared outer ring (∞ when it declared none); unverified reads 0 = unscoped.
+    const radiusKm = effectiveOuterRadiusKm(
+      profById.get(r.vendor_profile_id)?.outer_radius_km ?? null,
+      isVerifiedForReach((r.verification_state as string | null) ?? null),
+    );
+    const withinRadius = reachAdmits(dKm, radiusKm);
     const serviceRadiusKm =
       Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : null;
     const adRank = (r.ad_rank as number | null) ?? 0;

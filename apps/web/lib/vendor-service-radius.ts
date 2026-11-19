@@ -127,6 +127,23 @@ export function effectiveOuterRadiusKm(
 }
 
 /**
+ * 🔎 DOES A COUPLE'S SEARCH FIND THIS SHOP AT THIS DISTANCE? — owner 2026-11-19: "verified sets its own range".
+ *
+ * The plan no longer limits reach, but the shop's OWN declared outer ring still does: a verified shop with a 20 km ring
+ * is not found by a couple 500 km away. Pass the CLAMPED ring ({@link effectiveOuterRadiusKm}).
+ *
+ *   distance unknown          → found (fail-open: no anchor or no HQ pin)
+ *   ring ∞ (verified, blank)  → found (no distance limit of its own)
+ *   ring 0 (not verified)     → found HERE — not distance-scoped; `is_findable` keeps it out of search
+ *   ring finite               → found only within it (inclusive)
+ */
+export function reachAdmits(distanceKm: number | null | undefined, effectiveOuterKm: number): boolean {
+  if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) return true;
+  if (!Number.isFinite(effectiveOuterKm) || effectiveOuterKm <= 0) return true;
+  return distanceKm <= effectiveOuterKm;
+}
+
+/**
  * The inner ring, clamped the same way — a stale inner can never poke outside
  * the effective outer (an un-verified shop's outer reads 0, so its inner does too).
  *

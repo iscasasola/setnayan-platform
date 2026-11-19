@@ -21,6 +21,12 @@ range of 0km."* · *"but the plan must depend on how many accounts are using it.
   declared ring speaks through the travel-fee verdict. Branch auto radius is the column max on every plan.
 - No DB function returned a radius per tier (`vendor_tier_limit` has no reach key), so there is no migration.
 - New guard: `lib/reach-is-not-a-plan-allowance.test.ts`.
+- **"Verified sets its own range" in couple search (review fix):** a verified shop is found only inside its OWN declared
+  outer ring (`outer_radius_km`; no ring = no limit). Both search gates — `radiusOk` in `lib/wizard-recommendations.ts`
+  and `withinRadius` in the dashboard category search — go through one helper, `reachAdmits` (lib/vendor-service-radius.ts).
+  A 20 km ring is not found at 500 km (test). Unverified stays out via `is_findable`.
+- Leftover reach-by-plan copy removed (home tier intro, Verification + Supplier plans feature pages, /features How it
+  works, the features plan line, one December news post, the shop-reach comment): reach comes from getting Verified.
 
 SPEC IMPACT: None in this PR — the ruling is already logged in the corpus DECISION_LOG on 2026-11-19 (986d99be,
 504c4101).

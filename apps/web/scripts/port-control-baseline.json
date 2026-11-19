@@ -17238,7 +17238,6 @@
         "vendor-dashboard/shop/visibility-actions.ts"
       ],
       "destinations": [
-        "/open-shop",
         "/vendor-dashboard/activities",
         "/vendor-dashboard/attributes",
         "/vendor-dashboard/creators",
@@ -17250,6 +17249,7 @@
         "/vendor-dashboard/recommendations",
         "/vendor-dashboard/repertoire",
         "/vendor-dashboard/services",
+        "/vendor-dashboard/shop",
         "/vendor-dashboard/team",
         "/vendor-dashboard/theft-watch",
         "/vendor-dashboard/track-record"

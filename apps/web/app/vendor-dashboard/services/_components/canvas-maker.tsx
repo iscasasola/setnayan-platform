@@ -103,7 +103,6 @@ import {
   type CoverageServesResult,
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
-import { buildTierGrid, tierHasLine, type MakerTiers } from '@/lib/service-card-tiers';
 import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
@@ -201,8 +200,6 @@ export type MakerEditing = {
   poolId: string | null;
   /** The retired free-text promise, shown read-only when the card still carries one. */
   legacyPromise: string | null;
-  /** 🪜 The tiers linked to this card (read only — the tier grid). Absent = not read (the lab, an old caller). */
-  tiers?: MakerTiers;
 };
 
 type SheetKey = 'kind' | 'audience' | 'ask' | 'delete';
@@ -697,6 +694,9 @@ export function CanvasMaker({
     giftPickOf({ includes_setnayan_gift: initial?.includesSetnayanGift ?? false, gift_pack_code: initial?.giftPackCode ?? null }),
   );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+  /** What the Extras and Exact time slots pills say, read off the LIVE form — a new card has no saved rows to count. */
+  const [liveCounts, setLiveCounts] = useState<{ extras: number; slots: number }>({ extras: editing?.addons.length ?? 0, slots: editing?.slots.length ?? 0 });
+  const savedSlots = useRef(editing?.slots.length ?? 0);
   const [face, setFace] = useState<Snapshot | null>(null);
   /** 🃏 What the card checks read off the form — the same live read, its own key. */
   const [checkInput, setCheckInput] = useState<CardCheckInput>(EMPTY_CARD_CHECK_INPUT);
@@ -786,6 +786,10 @@ export function CanvasMaker({
           lastFace = fk;
           setFace(f);
         }
+        const named = (field: string) => fd.getAll(field).filter((v) => String(v).trim() !== '').length;
+        const extras = named('addon_label');
+        const slots = Math.max(0, savedSlots.current - fd.getAll('remove_slot_id').length) + named('new_slot_label');
+        setLiveCounts((cur) => (cur.extras === extras && cur.slots === slots ? cur : { extras, slots }));
         const c = readCardCheckInput(fd);
         const ck = cardCheckInputKey(c);
         if (ck !== lastChecks) {
@@ -1154,7 +1158,7 @@ export function CanvasMaker({
           {/* ═══ 🗂 CARD MAKER HYBRID — THE FIRST PAGE IN FRAMED WHITE GROUPS (owner-approved 17 Nov; specs
               `prototypes/service_card_maker_HYBRID_2026-11-17_fable.html` @ a2542b3, "Proposed · hybrid", and its map).
               A REPOSITION ONLY: every field keeps its shipped name, read and save. Services · Name → Photos → the status
-              line → Price → Tiers → What's included → How clients book; then More options opens in place, its folds
+              line → Price → What's included → How clients book; then More options opens in place, its folds
               now framed groups. Hairlines between rows give way to the frames (REMOVES 8). ═══ */}
           <div className="space-y-3 pt-3" data-maker-first="">
             {aboutOpen ? (
@@ -1173,6 +1177,12 @@ export function CanvasMaker({
                 ) : null}
               </div>
             ) : null}
+
+            {/* The page's own header, as shipped — the drawing's REMOVES 1–8 do not take it away. */}
+            <header data-maker-head="">
+              <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-ink">{shownTitle.trim() || activeCategoryLabel || 'Your service card'}</h2>
+              <p className="mt-0.5 text-[14px] text-ink/65">Your service card — price it and say what’s in it.</p>
+            </header>
 
             {/* ── SERVICES · NAME (REMOVES 2 · 3): the 52 px "What you offer" pill and "From your shop · change" become ONE
                 row — "Services", the live Group › Category under it, the service in its pill. Same sheet, same pick. ── */}
@@ -1379,18 +1389,6 @@ export function CanvasMaker({
               </FormRows>
             </MakerGroup>
 
-            {/* ── TIERS (REMOVES 6): the "What's included · details" fold becomes the tier grid. Starting is this card; each
-                tier above it is a package linked to it, with its own typed price; the lines carry no price. ── */}
-            <MakerGroup id="tiers" label="Tiers" aside="optional" tip="Starting is this card. Each tier above it has its own price; the lines carry no price.">
-              <TierGrid
-                tiers={editing?.tiers ?? null}
-                startingPrice={snap.hasPrice ? snap.priceLine.split(' · ')[0] ?? null : null}
-                startingLines={snap.inclusionLabels}
-                isEdit={isEdit}
-                customizationEnabled={customizationEnabled}
-              />
-            </MakerGroup>
-
             {/* ── What's included — at least one line; a line leaves by its swipe, with Undo. ── */}
             <MakerGroup
               id="included"
@@ -1430,7 +1428,7 @@ export function CanvasMaker({
                 More options", which supersedes 13 Nov "same-day row → more settings"): events on the same day, the
                 schedule, exact time slots, book ahead and last-minute — the shipped fields, on the first page. By the hour
                 / by the night are still being planned (Availability) and are not drawn. ── */}
-            <MakerGroup id="m-terms" label="How clients book">
+            <MakerGroup id="m-terms" label="How clients book" line={defaults.summary.terms}>
               <FormRows width="short" data="same-day-rows">
                 <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} />
                 <div data-maker-row="schedule">
@@ -1447,7 +1445,7 @@ export function CanvasMaker({
                 <div data-maker-row="slots">
                   <OpensRow
                     name="Exact time slots"
-                    answer={(editing?.slots.length ?? 0) > 0 ? `${formatCount(editing?.slots.length ?? 0)} slot${editing?.slots.length === 1 ? '' : 's'}` : ''}
+                    answer={liveCounts.slots > 0 ? `${formatCount(liveCounts.slots)} slot${liveCounts.slots === 1 ? '' : 's'}` : ''}
                     empty="None"
                     data="slots"
                   >
@@ -1524,7 +1522,7 @@ export function CanvasMaker({
                           <OpensRow
                             name="Extras"
                             about={{ title: 'Extras', words: 'Add-ons: priced extras · “from ₱” each · up to 12. A couple adds them to this card when they ask for a quote.' }}
-                            answer={(editing?.addons.length ?? 0) > 0 ? `${formatCount(editing?.addons.length ?? 0)} set` : ''}
+                            answer={liveCounts.extras > 0 ? `${formatCount(liveCounts.extras)} set` : ''}
                             empty="Add"
                             data="extras"
                           >
@@ -1542,7 +1540,7 @@ export function CanvasMaker({
                         <div data-maker-group-row="m-disc">
                           <OpensRow
                             name="Discounts"
-                            about={{ title: 'Starting offers', words: 'Starting offers. You can give a bigger discount in any quote.' }}
+                            about={{ title: 'Starting offers', words: 'Starting offers. You can give a bigger discount in any quote. Early booking · off-peak · promo.' }}
                             answer={snap.discountConditions.length ? 'Set' : ''}
                             empty="None yet"
                             data="discounts"
@@ -1552,11 +1550,29 @@ export function CanvasMaker({
                             </div>
                           </OpensRow>
                         </div>
+                        {/* What's included · details — as shipped. The drawing put a tier grid here (REMOVES 6), but there
+                            is no tier source in the app: `vendor_packages.vendor_service_id` is this card's OWN ★
+                            Customization package (migration 20271320001366), not a tier above it. So the shipped row
+                            stays until tiers have a schema. */}
+                        <div data-maker-group-row="m-inc">
+                          <OpensRow name="What’s included · details" answer="Every line is included" data="m-inc">
+                            <div className="pb-3 pt-1">
+                              {customizationEnabled ? (
+                                <p className="text-[14px] text-ink/65">
+                                  Choices couples make on this card (always · optional · they pick) are kept as they are.{' '}
+                                  <Link href="/vendor-dashboard/packages" className="font-semibold text-sn-accent underline-offset-2 hover:underline">Your packages ›</Link>
+                                </p>
+                              ) : (
+                                <p className="text-[14px] text-ink/65">Every line under What’s included is part of the price.</p>
+                              )}
+                            </div>
+                          </OpensRow>
+                        </div>
                       </FormRows>
                     </div>
                   </MakerGroup>
 
-                  <MakerGroup id="m-crew" label="Crew and transport">
+                  <MakerGroup id="m-crew" label="Crew and transport" line={defaults.summary.crew}>
                     <FormRows width="short">
                       {!defaults.crewApplies ? <p className="py-2 text-[13px] text-ink/60">Usually nothing to feed or move — fill it only if you bring a team.</p> : null}
                       <FormRow name="Crew size" data="crew-size">
@@ -1583,7 +1599,7 @@ export function CanvasMaker({
                     </FormRows>
                   </MakerGroup>
 
-                  <MakerGroup id="m-pay" label="Payment schedule" tip="How couples pay · the reservation fee first · no-show terms.">
+                  <MakerGroup id="m-pay" label="Payment schedule" line="How couples pay · first payment · no-show terms" tip="How couples pay · the reservation fee first · no-show terms.">
                     <div className="py-1">
                       <PaymentScheduleEditor serviceId={editing?.serviceId ?? ''} initial={editing?.schedule ?? []} bare pricePhp={basis === 'fixed' ? livePricePhp : null}
                         plans={library ? library.payPlans : undefined}
@@ -1593,7 +1609,7 @@ export function CanvasMaker({
                     </div>
                   </MakerGroup>
 
-                  <MakerGroup id="m-who" label="Who it is for">
+                  <MakerGroup id="m-who" label="Who it is for" line={coverageId ? audienceLabel : 'Which of your coverages · events · faiths'}>
                     <FormRows width="short">
                       {coverages.length > 0 ? (
                         <ChosenRow
@@ -1634,6 +1650,7 @@ export function CanvasMaker({
                     <FormRows width="short">
                       <OpensRow
                         name="Comes with"
+                        about={{ title: 'Comes with', words: 'Your other cards this one goes with. Up to 6.' }}
                         answer={otherCategoriesShown.length ? 'Your other cards' : ''}
                         empty="No other card yet"
                         data="comes-with"
@@ -1653,7 +1670,7 @@ export function CanvasMaker({
                         </div>
                       </OpensRow>
                       <div data-maker-group-row="m-record">
-                        <OpensRow name="Record · collected" answer={isEdit ? 'Read-only' : ''} empty="Nothing yet" data="record">
+                        <OpensRow name="Record · collected" about={{ title: 'Record · collected', words: isEdit ? 'Booked · delivered · reviews · read-only.' : 'Nothing yet · grows with each booking.' }} answer={isEdit ? 'Read-only' : ''} empty="Nothing yet" data="record">
                           <div className="pb-3 pt-1">
                             {recordSlot ?? (
                               <p className="text-[14px] text-ink/65">Booked, what was delivered, reviews — the card collects it; you type nothing. The first booking starts it.</p>
@@ -1662,7 +1679,7 @@ export function CanvasMaker({
                         </OpensRow>
                       </div>
                       <div data-maker-group-row="m-portfolio">
-                        <OpensRow name="Portfolio · collected" answer={portfolioLine ?? ''} empty="Read-only" data="portfolio">
+                        <OpensRow name="Portfolio · collected" about={{ title: 'Portfolio · collected', words: 'Albums from events this card was booked for · read-only.' }} answer={portfolioLine ?? ''} empty="Read-only" data="portfolio">
                           <div className="pb-3 pt-1">
                             {portfolioSlot ?? (
                               <p className="text-[14px] text-ink/65">
@@ -1678,7 +1695,7 @@ export function CanvasMaker({
 
                   {/* ── Live · delete · copy — framed. "Couples can see it" moves to the grown card with draft #7860; until it
                       lands it stays here, so nothing is lost in between. ── */}
-                  <MakerGroup id="m-live">
+                  <MakerGroup id="m-live" label="Live · delete · copy" line={isEdit ? (liveOn ? 'Couples can see it · hide · start another from this' : 'Not shown yet · show · start another from this') : 'Shown once it has a cover, a price and what’s included'}>
                     <div className="space-y-1 py-1">
                       {isEdit && editing ? (
                         <>
@@ -2107,7 +2124,7 @@ function RowIcon({ children }: { children: ReactNode }) {
  * 🗂 A FRAMED WHITE GROUP (Card Maker HYBRID, owner-approved 17 Nov — REMOVES 8 "Hairlines between rows → framed white
  * groups (clean look)"). The app's one frame (`.sn-frame`, every value a frame token), 14 px sides as drawn (corners are the frame token's); its rows lose their hairlines; an optional mono label with its small aside and its ⓘ on the right.
  */
-function MakerGroup({ id, label, aside, tip, children }: { id: string; label?: string; aside?: string; tip?: string; children: ReactNode }) {
+function MakerGroup({ id, label, aside, tip, line, children }: { id: string; label?: string; aside?: string; tip?: string; /** The group's one summary line, as its fold read on the shipped page. */ line?: string; children: ReactNode }) {
   return (
     <section
       data-maker-group={id}
@@ -2128,6 +2145,7 @@ function MakerGroup({ id, label, aside, tip, children }: { id: string; label?: s
           </span>
         </div>
       ) : null}
+      {line ? <p className="pb-1 text-[13px] leading-snug text-ink/60" data-maker-group-line="">{line}</p> : null}
       {children}
     </section>
   );
@@ -2141,100 +2159,6 @@ function byCategory(opts: readonly CategoryChoice[]): [string, CategoryChoice[]]
     out.set(k, [...(out.get(k) ?? []), o]);
   }
   return [...out];
-}
-
-/**
- * 🪜 THE TIER GRID (HYBRID screen 2; DECISION_LOG 16 Nov *"tier grid will show what is added to the higher tiers"*) — in
- * place of the "What's included · details" fold. Starting is this card; each tier above it is a package the shop linked
- * to it, with its own typed price. Read only: "＋ Add a tier" goes to the shipped package maker. A read that failed is
- * said, never drawn as "no tiers".
- */
-function TierGrid({
-  tiers,
-  startingPrice,
-  startingLines,
-  isEdit,
-  customizationEnabled,
-}: {
-  tiers: MakerTiers | null;
-  startingPrice: string | null;
-  startingLines: readonly string[];
-  isEdit: boolean;
-  customizationEnabled: boolean;
-}) {
-  if (tiers?.status === 'unread') {
-    return (
-      <p role="status" className="py-2 text-[13.5px] leading-snug" style={{ color: 'rgb(var(--color-warn))' }} data-maker-tiers="unread">
-        Couldn’t load this card’s tiers just now — they are unchanged. Reload to see them.
-      </p>
-    );
-  }
-  const linked = tiers?.status === 'ok' ? tiers.tiers : [];
-  const grid = buildTierGrid({ startingPricePhp: null, startingLines, tiers: linked });
-  return (
-    <div className="pb-2" data-maker-tiers={linked.length > 0 ? 'some' : 'none'}>
-      {linked.length > 0 ? (
-        <>
-          <div className="-mx-1 overflow-x-auto px-1">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr>
-                  <th className="sr-only">Line</th>
-                  {grid.columns.map((c) => (
-                    <th key={c.name} scope="col" className="px-1 py-1.5 text-center text-[12.5px] font-bold text-ink">{c.name}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row" className="py-1.5 pr-1 text-left font-medium text-ink">Price</th>
-                  {grid.columns.map((c, i) => (
-                    <td key={c.name} className="px-1 py-1.5 text-center font-bold tabular-nums" style={{ color: 'var(--m-orange-2, rgb(var(--color-accent)))' }}>
-                      {i === 0 ? (startingPrice ?? '—') : c.pricePhp != null ? `₱${c.pricePhp.toLocaleString('en-PH')}` : '—'}
-                    </td>
-                  ))}
-                </tr>
-                {grid.lines.map((line) => (
-                  <tr key={line}>
-                    <th scope="row" className="border-t border-ink/[0.06] py-1.5 pr-1 text-left font-normal text-ink">{line}</th>
-                    {grid.columns.map((c) => (
-                      <td key={c.name} className="border-t border-ink/[0.06] px-1 py-1.5 text-center">
-                        {tierHasLine(c, line) ? <span aria-label="included" style={{ color: 'rgb(var(--color-ok))' }}>✓</span> : <span aria-label="not included" className="text-ink/25">–</span>}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {grid.columns.some((c) => c.adds.length > 0) ? (
-            <p className="mt-2 rounded-xl bg-ink/[0.04] px-3 py-2.5 text-[13px] leading-snug text-ink/75" data-maker-tier-adds="">
-              {grid.columns
-                .filter((c) => c.adds.length > 0)
-                .map((c, i) => (
-                  <span key={c.name} className="block">
-                    <b className="text-ink">{c.name} adds</b> {c.adds.join(' · ')}
-                  </span>
-                ))}
-            </p>
-          ) : null}
-        </>
-      ) : (
-        <p className="py-1.5 text-[13.5px] leading-snug text-ink/65">Starting is this card. Add a tier above it with its own price.</p>
-      )}
-      {isEdit && customizationEnabled ? (
-        <Link
-          href="/vendor-dashboard/packages"
-          className="sn-press mt-2 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full bg-ink/[0.06] text-[15px] font-semibold text-ink"
-          data-maker-add-tier=""
-        >
-          ＋ Add a tier
-        </Link>
-      ) : (
-        <p className="pt-1 text-[12.5px] text-ink/55">{isEdit ? 'Tiers open once packages are switched on for your shop.' : 'Tiers open once the card is made.'}</p>
-      )}
-    </div>
-  );
 }
 
 /** The question, verbatim as ruled (6058): "How many a day" read as confusing. */

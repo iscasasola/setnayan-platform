@@ -1057,7 +1057,7 @@ function PiecesPickerModal({
               onConfirm();
             }
           }}
-          className="mt-1 block h-11 w-32 rounded-lg border border-ink/20 bg-white px-3 text-sm text-ink"
+          className="mt-1 block h-11 w-32 rounded-lg border border-ink/20 bg-white px-3 text-sm text-ink dark:bg-raised" // no-card-ok: the class of a number <input> (a field, not a box)
           data-lock-pieces=""
         />
       </label>

@@ -316,7 +316,7 @@ export function DaySheet({
       </div>
       </div>
       {picked ? (
-        <div className="hidden tab:block tab:rounded-2xl tab:border tab:border-ink/10 tab:p-3.5" data-dates-day-right={picked.poolId}>
+        <div className="hidden tab:block tab:rounded-2xl tab:bg-frame tab:shadow-sn-frame tab:p-3.5" data-dates-day-right={picked.poolId}>
           <h3 className="text-[17px] font-semibold text-ink">Who has it · {picked.label}</h3>
           {picked.rows.map((r) => (
             <DatesRow

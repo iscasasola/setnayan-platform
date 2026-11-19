@@ -145,6 +145,12 @@ export async function vendorMarkServiceComplete(formData: FormData) {
   }
 
   revalidatePath(`/vendor-dashboard/clients/${eventId}`);
+  // 📋 TODAY v2 (owner 18 Nov): marked ON a Today row → back to Today, ticked. The literal is compared exactly; the
+  // posted value is never used as a path.
+  if (formData.get('return_to') === '/vendor-dashboard') {
+    revalidatePath('/vendor-dashboard');
+    redirect('/vendor-dashboard?completed=1');
+  }
   redirect(
     vendorClientSurfaceHref(eventId, 'completion', {
       shellOn: isRelationshipWorkspaceEnabled(),

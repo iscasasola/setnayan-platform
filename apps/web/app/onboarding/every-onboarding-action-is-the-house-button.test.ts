@@ -33,7 +33,9 @@ const BARE: Readonly<Record<string, number>> = {
   'open-shop/_components/city-pin.tsx › CityPin': 2,
   // 19 Nov: the details slide's tick rows became the Check your shop list (a `button-ok:` row each) — 2 → 1.
   'open-shop/_components/claim-door.tsx › ClaimDoor': 1,
-  'open-shop/_components/plan-sheet.tsx › PlanBody': 2,
+  'open-shop/_components/plan-sheet.tsx › PlanBody': 1,
+  // 19 Nov: the plan's tick moved out of PlanBody into PlanAgree (PB5 draws it on its own) — the same one checkbox, moved.
+  'open-shop/_components/plan-sheet.tsx › PlanAgree': 1,
   'open-shop/_components/service-cards.tsx › ServiceCards': 1,
   'open-shop/_components/service-cards.tsx › Specialties': 1,
   '_components/service-picker.tsx › ServicePicker': 2,

@@ -73,7 +73,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
-import { welcomeFrom } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_SKIPPED, firstCardFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -223,6 +223,12 @@ export default async function VendorOverviewPage({
     claimed?: string;
     /** `1` — the shop was just opened (Doors B and C): draw Today's welcome. */
     opened?: string;
+    /** The door's first card when it is not made yet (`waiting` · `refused`) or was skipped — `lib/supplier-onboarding.ts`. */
+    card?: string;
+    card_title?: string;
+    card_price?: string;
+    card_category?: string;
+    card_why?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -789,7 +795,14 @@ export default async function VendorOverviewPage({
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
       {/* 🚪 The onboarding's last stop (owner 19 Nov): `?claimed=1` · `?opened=1` → the welcome and its three steps. */}
-      {welcome ? <TodayWelcome kind={welcome} shopName={profile.business_name ?? null} /> : null}
+      {welcome ? (
+        <TodayWelcome
+          kind={welcome}
+          shopName={profile.business_name ?? null}
+          card={firstCardFrom(search)}
+          skipped={search.card === FIRST_CARD_SKIPPED}
+        />
+      ) : null}
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />

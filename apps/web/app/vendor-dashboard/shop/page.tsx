@@ -53,6 +53,7 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
@@ -724,6 +725,7 @@ async function ShopHome({
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
+          templatesBody={shopTemplatesBody(sp)}
           formsSaved={data.formsSaved}
           categories={(data.serviceRows ?? []).map((r) => r.label)}
           services={data.services}

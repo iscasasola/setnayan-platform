@@ -11,6 +11,9 @@ import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-th
 import { draftItemOf, sentFormState, titleForCouple, usedWithLine, type FormDraft, type FormItemDraft } from '@/lib/vendor-forms';
 import type { EventFormsRead, ShopForm, SuggestionsRead } from '@/lib/vendor-forms.server';
 import { formsAction } from '../actions';
+import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
+import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
 import { FormMaker, type FormMakerCard, type FormMakerLocks } from './form-maker';
 import { FormViewSheet } from './form-view-sheet';
 
@@ -339,12 +342,16 @@ export function FormsLibraryList({
   onEdit,
   onUse,
   busy,
+  onRetire,
 }: {
   library: ShopForm[] | null;
   suggestions: Suggestions | null;
   onEdit: (f: ShopForm) => void;
   onUse: (templateKey: string) => void;
   busy: boolean;
+  /** 🗑 Swipe left deletes, with Undo (Shop › Makers and Templates — owner 2026-11-04 rows rule). Absent = no swipe
+   *  (the Load-a-form sheet on a client's page, where a tap only loads). */
+  onRetire?: (f: ShopForm) => void;
 }) {
   return (
     <>
@@ -355,22 +362,26 @@ export function FormsLibraryList({
         ) : library.length === 0 ? (
           <p className="text-sm text-ink/70">No forms yet.</p>
         ) : (
-          library.map((f) => (
-            <button
-              key={f.formId}
-              type="button"
-              className={ROW}
-              onClick={() => onEdit(f)}
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
-                <span className="block text-xs text-ink/70">
-                  {f.sizeLine} · {usedWithLine(f.usedWith)}
+          library.map((f) => {
+            const row = (
+              <button key={f.formId} type="button" className={ROW} onClick={() => onEdit(f)} data-form-library-row={f.formId}>
+                <span className="min-w-0">
+                  <span className="block truncate text-[15px] font-medium text-ink">{f.title}</span>
+                  <span className="block text-xs text-ink/70">
+                    {f.sizeLine} · {usedWithLine(f.usedWith)}
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
-            </button>
-          ))
+                <ChevronRight className="h-4 w-4 flex-none text-ink/70" aria-hidden />
+              </button>
+            );
+            return onRetire ? (
+              <SwipeToDelete key={f.formId} label={`Delete ${f.title}`} onDelete={() => onRetire(f)} surfaceClass="bg-cream">
+                {row}
+              </SwipeToDelete>
+            ) : (
+              row
+            );
+          })
         )}
       </div>
       <SuggestionList
@@ -417,6 +428,29 @@ export function ShopFormsMaker({
   const [maker, setMaker] = useState<{ open: boolean; draft: FormDraft | null }>({ open: false, draft: null });
   const [using, startUse] = useTransition();
   const [said, setSaid] = useState<string | null>(null);
+  // 🗑 A swiped form hides at once; it is retired only when the Undo window closes (`deleteWithUndo`). Sends and
+  // answers stay — a retired form only leaves the library (`formsAction` op `retire`).
+  const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set());
+  const retire = (f: ShopForm) =>
+    deleteWithUndo({
+      label: `${f.title} deleted`,
+      hide: () => setGone((g) => new Set(g).add(f.formId)),
+      restore: () =>
+        setGone((g) => {
+          const n = new Set(g);
+          n.delete(f.formId);
+          return n;
+        }),
+      commit: async () => {
+        const fd = new FormData();
+        fd.set('op', 'retire');
+        fd.set('form_id', f.formId);
+        fd.set('return_path', returnPath);
+        const r = await formsAction({ status: 'idle' }, fd);
+        return r.status === 'error' ? { ok: false, error: r.message } : { ok: true };
+      },
+      failed: 'Couldn’t delete that form. It’s back — try again.',
+    });
   const copySuggestion = (templateKey: string) =>
     startUse(async () => {
       const fd = new FormData();
@@ -429,12 +463,14 @@ export function ShopFormsMaker({
   return (
     <div className="space-y-5" data-shop-forms-maker="">
       <FormsLibraryList
-        library={library}
+        library={library ? library.filter((f) => !gone.has(f.formId)) : null}
         suggestions={suggestions}
         onEdit={(f) => setMaker({ open: true, draft: { formId: f.formId, title: f.title, items: f.items.map(draftItemOf), serviceIds: f.serviceIds } })}
         onUse={copySuggestion}
         busy={using}
+        onRetire={retire}
       />
+      <UndoToastHost />
       {said ? (
         <p role="status" className="text-sm text-ink/70">
           {said}

@@ -36,7 +36,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ChatBox } from '@/app/_components/chat/chat-box';
 import { ChatThreadHead } from '@/app/_components/chat/chat-thread-head';
 import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
-import { readThreadShopNotYetVerified } from '@/lib/not-yet-verified.server';
+import { readThreadShopVerifiedNote } from '@/lib/not-yet-verified.server';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BackButton } from '@/app/_components/back-button';
@@ -535,8 +535,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   // 💬 "This shop is not yet verified by Setnayan" — DECISION_LOG 2026-11-07 ruling (4), the chat half. In-app only,
   // never an email. The state and demo flag only (never the name), on the admin client; an unreadable row draws
-  // nothing (lib/not-yet-verified.server.ts).
-  const shopNotYetVerifiedRead = readThreadShopNotYetVerified(decisionAdmin, thread.vendor_profile_id);
+  // nothing (lib/not-yet-verified.server.ts). 📄 A shop whose papers lapsed reads "Renewing their papers with Setnayan"
+  // instead (owner 16 Nov "11.yes").
+  const shopVerifiedNoteRead = readThreadShopVerifiedNote(decisionAdmin, thread.vendor_profile_id);
 
   // 👥 WHO IS IN THIS CHAT — the picked supplier's Chat (Build 3 · Lane A) draws the SAME shipped `ChatHostStrip` the
   // supplier's picked client does, under the pinned row: one source (`event_chat_hosts`, service_role only, so the admin
@@ -611,7 +612,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBooked,
     shopPhone,
     hosts,
-    shopNotYetVerified,
+    shopVerifiedNote,
   ] = await Promise.all([
     eventDateRead,
     blockStateRead,
@@ -631,10 +632,15 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     shopBookedRead,
     shopPhoneRead,
     hostsRead,
-    shopNotYetVerifiedRead,
+    shopVerifiedNoteRead,
   ]);
+  const shopNotYetVerified = shopVerifiedNote !== null;
+  const shopPapersRenewing = shopVerifiedNote === 'renewing';
   // Owner 16 Nov: the Book confirm on the quote card tells the couple, never blocks (`AccordionLockButton`).
-  if (quoteLockTarget) quoteLockTarget.notYetVerified = shopNotYetVerified;
+  if (quoteLockTarget) {
+    quoteLockTarget.notYetVerified = shopNotYetVerified;
+    quoteLockTarget.papersRenewing = shopPapersRenewing;
+  }
   const chatPins = await chatPinsRead;
   const whisperCoHosts = await whisperCoHostsRead;
   // The stream labels whispers only from a list that was really read.
@@ -837,7 +843,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 </>
               }
               // 💬 DECISION_LOG 2026-11-07 (4): one quiet line, the details in its ⓘ — an unverified shop only.
-              below={shopNotYetVerified ? <NotYetVerifiedThreadLine /> : null}
+              below={shopNotYetVerified ? <NotYetVerifiedThreadLine renewing={shopPapersRenewing} /> : null}
               actions={
                 <>
                 <BookedCallButtons booked={shopBooked} phone={shopPhone} who={vendorLabel} />

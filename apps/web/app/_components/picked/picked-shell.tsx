@@ -122,7 +122,10 @@ export type PickedShellProps<P extends string> = {
 /** 🖥 The width from which the chat keeps its own column (`sideChat`). */
 const SIDE_CHAT_QUERY = '(min-width: 1024px)';
 /** The two columns' frame: 592 + 24 + 360 = 976 from 1024; 564 + 28 + 400 = 992 from 1280 (drawing v12 §4). */
-const WIDE_FRAME = 'mx-auto w-full max-w-[976px] xl:max-w-[992px]';
+// 🖥 The frame from 1024 px when Chat has its own column — said in CSS (`lg:`/`xl:`), so the server's first paint is
+// already the computer's layout and nothing moves when the page wakes (owner review, 19 Nov 2026).
+const NARROW_FRAME = 'mx-auto w-full max-w-3xl';
+const WIDE_FRAME = 'mx-auto w-full max-w-3xl lg:max-w-[976px] xl:max-w-[992px]';
 
 /** The menu's edge fade per side that has more pages past it — the pinned row's door-strip mask, both ways. */
 const MENU_FADE = {
@@ -131,6 +134,19 @@ const MENU_FADE = {
   left: '[-webkit-mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)]',
   both: '[-webkit-mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)]',
 } as const;
+
+/**
+ * Bring a part of the shown page (`#payments`, `#forms`, the Script fold) to the top of the page's OWN scroller —
+ * vertical only. Never `scrollIntoView`: it also moved the body sideways (§10 #26). One path for a `?tab=` landing and
+ * for an in-page door (`nav.select`).
+ */
+function scrollToPart(id: string) {
+  const part = document.getElementById(id);
+  const scroller = part?.closest<HTMLElement>('[data-picked-body]');
+  if (!part || !scroller) return;
+  const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
 
 export function PickedShell<P extends string>({
   pickedId,
@@ -270,17 +286,26 @@ export function PickedShell<P extends string>({
     };
   }, [host, warm]);
 
-  // `scrollTo` (the supplier's `?tab=script` → Schedule, scrolled to the Script fold).
+  // `scrollTo` (a `?tab=` that names a part: the Script fold, the payments, the Forms) — the SAME path as `nav.select`.
   useEffect(() => {
     if (!scrollTo || workPage !== scrollTo.page) return;
     const t = window.setTimeout(() => {
-      document.getElementById(scrollTo.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      scrollToPart(scrollTo.id);
     }, prefersReducedMotion() ? 0 : PICKED_OPEN_MS);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fills = fillPages.includes(workPage);
+  const frame = sideChat ? WIDE_FRAME : NARROW_FRAME;
+  // Before the page wakes on a computer, the server's frame has no second column yet: a Chat landing is drawn where the
+  // Chat column will be (right, 360/400), any other page where the work column will be — so nothing jumps on wake.
+  const chatAlone = sideChat !== null && !split && page === sideChat.page;
+  const workWidth = !sideChat
+    ? 'flex-1'
+    : chatAlone
+      ? 'flex-1 lg:ml-auto lg:w-[360px] lg:flex-none xl:w-[400px]'
+      : 'flex-1 lg:w-[592px] lg:flex-none xl:w-[564px]';
   const select = useCallback(
     (id: P) => {
       if (id === workPage) return;
@@ -404,12 +429,7 @@ export function PickedShell<P extends string>({
         if (anchor) {
           requestAnimationFrame(() =>
             requestAnimationFrame(() => {
-              // Vertical only, inside the page's own scroller (§10 #26: a whole-element scroll also moved the body sideways).
-              const part = document.getElementById(anchor);
-              const scroller = part?.closest<HTMLElement>('[data-picked-body]');
-              if (!part || !scroller) return;
-              const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
-              scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+              scrollToPart(anchor);
             }),
           );
         }
@@ -440,7 +460,7 @@ export function PickedShell<P extends string>({
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
-        <div ref={split ? undefined : setThumbColumn} className={`${split ? WIDE_FRAME : 'mx-auto w-full max-w-3xl'} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
+        <div ref={split ? undefined : setThumbColumn} className={`${frame} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
           <div className="min-w-0 flex-1">
             <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
               {title}
@@ -467,7 +487,7 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className={`${split ? WIDE_FRAME : 'mx-auto w-full max-w-3xl'} flex gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
+          className={`${frame} flex gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
           data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
@@ -488,7 +508,7 @@ export function PickedShell<P extends string>({
                 tabIndex={on ? 0 : -1}
                 onClick={() => select(m.id)}
                 onKeyDown={(e) => onKeyDown(e, m.id)}
-                className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-xl px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
+                className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-xl px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${sideChat && m.id === sideChat.page ? 'lg:hidden ' : ''}${
                   on
                     ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] text-ink'
                     : 'border border-transparent text-ink/70'
@@ -510,10 +530,10 @@ export function PickedShell<P extends string>({
           })}
         </div>
       </div>
-      <div className={split ? `${WIDE_FRAME} flex min-h-0 flex-1 gap-6 xl:gap-7` : 'contents'} data-picked-columns={split ? 'work-chat' : undefined}>
+      <div className={sideChat ? `contents ${WIDE_FRAME} lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 xl:gap-7` : 'contents'} data-picked-columns={split ? 'work-chat' : undefined}>
       <div
         ref={bodyRefCb}
-        className={`min-h-0 ${split ? 'w-[592px] flex-none xl:w-[564px]' : 'flex-1'} overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
+        className={`min-h-0 ${workWidth} overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
         data-picked-body=""
       >
         <div
@@ -542,7 +562,7 @@ export function PickedShell<P extends string>({
       {split ? (
         <aside
           aria-label={menu.find((m) => m.id === sideChat!.page)?.label ?? 'Chat'}
-          className="flex min-h-0 w-[360px] flex-none flex-col overflow-hidden rounded-t-xl bg-[color:var(--m-paper)] xl:w-[400px]"
+          className="hidden min-h-0 w-[360px] flex-none flex-col overflow-hidden rounded-t-xl bg-[color:var(--m-paper)] lg:flex xl:w-[400px]"
           data-picked-chat-col=""
           data-picked-fill=""
         >

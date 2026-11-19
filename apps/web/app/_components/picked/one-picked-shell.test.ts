@@ -156,3 +156,19 @@ test('6 · both picked Chats draw the SHIPPED host strip — no second presence 
     assert.doesNotMatch(src, /\bonline\b|last seen|<ChatHostStrip\b/i, `${rel} draws a second presence row`);
   }
 });
+
+// ── 19 Nov 2026 · review HOLD on the seven-tab build ────────────────────────────────────────────────────────────────
+test('a computer’s layout is said in CSS, so the first paint is already it — and a part’s id is said once', () => {
+  const shell = read(SHELL);
+  // The frame, the two columns' widths and the Chat tab's absence are `lg:` classes — not a width read after mount.
+  assert.match(shell, /const WIDE_FRAME = 'mx-auto w-full max-w-3xl lg:max-w-\[976px\] xl:max-w-\[992px\]';/);
+  assert.match(shell, /\? 'flex-1 lg:ml-auto lg:w-\[360px\] lg:flex-none xl:w-\[400px\]'\s*: 'flex-1 lg:w-\[592px\] lg:flex-none xl:w-\[564px\]'/, 'a Chat landing is not drawn where the Chat column will be');
+  assert.match(shell, /sideChat && m\.id === sideChat\.page \? 'lg:hidden ' : ''/, 'the Chat tab shows on a computer until the page wakes');
+  assert.doesNotMatch(shell, /split \? WIDE_FRAME/, 'the frame waits for the width read again');
+  // The couple's Book & Budget and Details wrap sections that already carry their label: one id each, no nested section.
+  const ws = read(WORKSPACE);
+  assert.equal((ws.match(/id="payments"/g) ?? []).length, 1, '`payments` is said twice (or never) on the couple page');
+  assert.match(ws, /<div id=\{moneyHidden \? 'payments' : undefined\}[^>]*data-picked-part="payments">/);
+  assert.equal((ws.match(/id="inspiration"/g) ?? []).length, 1);
+  assert.match(ws, /<div id="inspiration"[^>]*data-picked-part="inspiration">/, 'Inspiration is a section inside a section again');
+});

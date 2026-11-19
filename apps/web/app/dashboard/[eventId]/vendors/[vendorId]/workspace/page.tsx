@@ -3006,10 +3006,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           <p className="home-k2 mb-2">Forms</p>
           {formsBody}
         </section>
-        <section id="inspiration" aria-label="Inspiration" className="scroll-mt-4" data-picked-part="inspiration">
+        {/* A plain wrapper: `inspirationSection` is already the labelled <section> (never a section in a section). */}
+        <div id="inspiration" className="scroll-mt-4" data-picked-part="inspiration">
           <p className="home-k2 mb-2">Inspiration</p>
           {inspirationSection}
-        </section>
+        </div>
       </div>
     ),
     chat: chatThread ? (
@@ -3036,11 +3037,13 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     // the host added themselves sent no quote, so that part is simply not drawn (never a blank one).
     quote: (
       <div className="space-y-6" data-picked-supplier-page="quote">
-        <section id="payments" aria-label="Payments" className="space-y-6 scroll-mt-4" data-picked-part="payments">
+        {/* A plain wrapper: `statusSection` is already <section id="payments">, so the id is said ONCE — here only when
+            the money is hidden and that section is not drawn. */}
+        <div id={moneyHidden ? 'payments' : undefined} className="space-y-6 scroll-mt-4" data-picked-part="payments">
           {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
           {moneyHidden ? hostsOnlyPanel : statusSection}
           {moneyHidden ? null : paymentModeSection}
-        </section>
+        </div>
         {hasQuotesToShow && !moneyHidden ? (
           <section id="quote" aria-label="Quotation" className="scroll-mt-4" data-picked-part="quote">
             <p className="home-k2 mb-2">Quotation</p>

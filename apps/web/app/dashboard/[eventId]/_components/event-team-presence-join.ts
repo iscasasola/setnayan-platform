@@ -4,7 +4,7 @@
  *
  *   · 🔒 PRIVATE (`private: true`) with the user's token on the socket — the migration's
  *     `event_team_presence_can_access` admits the event's hosts and accepted moderators only.
- *   · Presence only — no `postgres_changes`.
+ *   · Presence, and ONE broadcast (a co-host typing a whisper, `lib/chat-whisper.ts`) — no `postgres_changes`.
  *   · Let go while the tab is hidden (`pauseWhileHidden`), joined again on return.
  *   · A refused or dropped channel calls `onFailed` ("Couldn't check") — never an empty list.
  */
@@ -12,6 +12,8 @@ import type { Dispatch, SetStateAction } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { pauseWhileHidden } from '@/lib/tab-return';
 import { eventTeamTopic, nextTeamPeers, type TeamMeta, type TeamPeer } from '@/lib/whos-here';
+import { WHISPER_TYPING_EVENT, WHISPER_TYPING_WINDOW_EVENT, whisperTypingFrom } from '@/lib/chat-whisper';
+import { registerWhisperTypingSender } from '@/app/_components/chat/whisper-mode';
 import type { EventTeamPresenceState } from './event-team-presence';
 
 /**
@@ -47,6 +49,16 @@ export function joinTeamPresence(
           : { peers: next, state: 'live', pulse: changed ? v.pulse + 1 : v.pulse },
       );
     });
+    // 🤫 "Maria is whispering…" (owner 2026-11-19) rides THIS channel as a broadcast — the one channel only the event's
+    // hosts and moderators can join (the migration's predicate), so a supplier is sent nothing. A received one is handed
+    // to the chat stream of that thread as a window event; this file draws nothing itself.
+    channel.on('broadcast', { event: WHISPER_TYPING_EVENT }, (msg: { payload?: unknown }) => {
+      if (!live) return;
+      const typing = whisperTypingFrom(msg?.payload);
+      if (!typing || typing.userId === me.id) return;
+      window.dispatchEvent(new CustomEvent(WHISPER_TYPING_WINDOW_EVENT, { detail: typing }));
+    });
+    let unregisterWhisper: (() => void) | null = null;
     // The socket must carry the user's token, or the private channel's predicate sees no one
     // (`lib/panood-webrtc.ts` primeRealtimeAuth — measured 2026-09-01).
     void supabase.auth
@@ -61,6 +73,10 @@ export function joinTeamPresence(
           if (!live) return;
           if (status === 'SUBSCRIBED') {
             void channel.track({ name: me.name, role: me.role, photo: me.photo } satisfies TeamMeta);
+            unregisterWhisper ??= registerWhisperTypingSender((payload) => {
+              if (!live) return;
+              void channel.send({ type: 'broadcast', event: WHISPER_TYPING_EVENT, payload: { ...payload, userId: me.id } });
+            });
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             setValue((v) => ({ ...v, state: 'failed' }));
           }
@@ -68,6 +84,7 @@ export function joinTeamPresence(
       });
     return () => {
       live = false;
+      unregisterWhisper?.();
       return supabase.removeChannel(channel);
     };
   });

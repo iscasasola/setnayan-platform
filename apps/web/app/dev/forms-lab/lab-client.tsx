@@ -183,6 +183,9 @@ export function FormsLabClient({ mode }: { mode: string }) {
       }}
       bookedUnread={false}
       suggestions={{ status: 'ok', serviceLabel: 'Photo & Video', groupLabel: 'Photo & Video', own: [], alsoUseful: [] }}
+      // 📋 Owner 18 Nov 2026: this client asked about the photo card only — Shot list (card form) and Delivery sign-off
+      // (a chat form) show; Booth details (another card's form) is hidden.
+      clientCardIds={['c-photo']}
       locks={{ media: 'Pro', video: null }}
       answersOpen
       shopId={SHOP}

@@ -20,6 +20,7 @@ import {
   fetchPlatformSettingsMeasured,
   fetchVendorValidateContacts,
   fetchDriveSpeed,
+  fetchGrowLines,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
 import { removeBrandIcon, saveBusinessIdentity } from '@/app/admin/settings/actions';
@@ -70,6 +71,7 @@ export async function SettingsSurface({ searchParams }: Props) {
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const validateContacts = await fetchVendorValidateContacts(admin);
   const driveSpeed = await fetchDriveSpeed(admin);
+  const growLines = await fetchGrowLines(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
   const loaderConfig = await getLoaderSettings();
@@ -255,6 +257,51 @@ export async function SettingsSurface({ searchParams }: Props) {
               step="0.5"
               disabled={!driveSpeed.read}
               defaultValue={driveSpeed.read && driveSpeed.kmh !== null ? driveSpeed.kmh : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          {/* 🌱 Today v2 (owner 2026-11-18, pick 1): the two grow lines are the owner's — blank means that stage is off. */}
+          <Field
+            label="Few inquiries — in 28 days"
+            htmlFor="grow_few_inquiries_28d"
+            help={
+              growLines.read
+                ? 'A supplier with fewer inquiries than this in the last 28 days sees “Get inquiries” on Today: share your page, print your QR. Leave blank to keep that stage off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="grow_few_inquiries_28d"
+              name="grow_few_inquiries_28d"
+              type="number"
+              min={1}
+              max={10000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.fewInquiries !== null ? growLines.fewInquiries : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Few bookings — this month"
+            htmlFor="grow_few_bookings_month"
+            help={
+              growLines.read
+                ? 'A supplier with fewer bookings than this dated this month sees “Win bookings” on Today: reply within 1 hour, send your quote, add where couples pay you. Leave blank to keep that stage off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="grow_few_bookings_month"
+              name="grow_few_bookings_month"
+              type="number"
+              min={1}
+              max={10000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.fewBookings !== null ? growLines.fewBookings : ''}
               placeholder="Not set"
               className="input-field"
             />

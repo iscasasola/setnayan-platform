@@ -11,7 +11,7 @@ import { avatarRowWords } from '../../_components/supplier-avatar-rows';
 export default function RisenYourPageLayout({ children }: { children: ReactNode }) {
   const { label, sub } = avatarRowWords('page');
   return (
-    <RiseRoute title={label} line={sub} data="avatar-page">
+    <RiseRoute title={label} line={sub} data="avatar-page" kind="zoom">
       {children}
     </RiseRoute>
   );

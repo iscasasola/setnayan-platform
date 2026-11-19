@@ -14,7 +14,7 @@ import { journalImportSql } from '../lib/journal-import-sql';
 
 export const JOURNAL_IMPORT_MIGRATION = path.resolve(
   __dirname,
-  '../../../supabase/migrations/20271350850404_the_journal_moves_into_articles.sql',
+  '../../../supabase/migrations/20271351926267_the_journal_moves_into_articles.sql',
 );
 
 const sql = journalImportSql(ALL_BLOG_ARTICLES);

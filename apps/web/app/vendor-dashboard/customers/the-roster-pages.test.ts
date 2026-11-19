@@ -216,7 +216,9 @@ test('the page hands the roster the SLICE and the WHOLE-LIST counts', () => {
   assert.match(pageSrc, /page: \(urlDoor \?\? 'all'\) === k \? search\.page : undefined/, 'the ?page= param no longer reaches the door it names');
   assert.match(pageSrc, /q: search\.q/, 'the ?q= search no longer reaches the roster');
   // The box itself lives in the thumb row now (kind 30) — the shared one, on `?q=`.
-  assert.match(pageSrc, /<SearchBox\b[\s\S]{0,200}defaultValue=\{search\.q \?\? ''\}/, 'the thumb row lost the customer search');
+  // 19 Nov 2026: through `ClientsSearch` (the search is the add), which hands the same `defaultValue` to the SearchBox.
+  assert.match(pageSrc, /<ClientsSearch\b[\s\S]{0,200}defaultValue=\{search\.q \?\? ''\}/, 'the thumb row lost the customer search');
+  assert.match(readFileSync(join(__dirname, '_components', 'clients-search.tsx'), 'utf8'), /<SearchBox\b[\s\S]{0,120}defaultValue=\{defaultValue\}/, 'the Clients search no longer reads ?q=');
 });
 
 test('the roster maps its rows once and mounts the shared pager on ?page=', () => {

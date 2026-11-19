@@ -4,8 +4,9 @@
  * 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026 · prototype v113, B1 step 5). OWNER: L2.
  *
  * One screen over the still-mounted Clients list (or the envelope's Chats, Supplier Build 3 ✉️): the pinned row (the
- * client's name · ⚙ · ✕), the nine-page menu (Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub ·
- * Report — Payment and Hub once booked) and ONE page body at a time. It replaces the flag-ON `RelationshipTabShell`
+ * client's name · ⚙ · ✕), the seven-tab menu (owner 18 Nov 2026: Chat · Details · Book & Budget · Schedule · Files · Hub ·
+ * Report — Hub once booked) and ONE page body at a time; on a computer (≥ 1024) Chat keeps its own right column with the
+ * Next step row on top, and the other tabs switch the work column beside it (`sideChat`). It replaces the flag-ON `RelationshipTabShell`
  * branch of `clients/[eventId]/page.tsx`; the flag-off card is untouched.
  *
  * 🪞 THE SCREEN ITSELF IS THE ONE PICKED SHELL (`app/_components/picked/picked-shell.tsx`, Supplier Build 3 · Lane A,
@@ -24,7 +25,7 @@ import { PickedShell } from '@/app/_components/picked/picked-shell';
 import { SUPPLIER_PICKED_LISTS } from '@/app/_components/picked/picked-motion';
 import { CLIENTS_LIST_HREF } from '@/lib/picked-client-close';
 import type { PickedClientPage } from './picked-client-menu';
-import { SCRIPT_FOLD_ID } from './picked-client-menu';
+import { pickedAnchorOf, pickedPageNamed } from './picked-client-menu';
 import { warmPickedPages } from '../_pages/lazy';
 import { warmThreadParts } from '../../../messages/[threadId]/_components/on-demand';
 import { warmHubParts } from '../../../on-the-day/_components/on-demand';
@@ -65,7 +66,9 @@ export function PickedClientShell({
   menu,
   initialPage,
   bodies,
-  scrollToScript = false,
+  landAt = null,
+  workDefault = 'details',
+  nextStep = null,
   settingsLine,
   settings,
   chatUnread = null,
@@ -78,8 +81,12 @@ export function PickedClientShell({
   /** The page the URL names, resolved on the server (`visiblePickedPage`) so the first paint is the right page. */
   initialPage: PickedClientPage;
   bodies: Record<PickedClientPage, ReactNode>;
-  /** `?tab=script` — land on Schedule scrolled to the Script fold. */
-  scrollToScript?: boolean;
+  /** The part of the first page to land on (`?tab=script` → `script`, `?tab=payments` → `payments`), or null. */
+  landAt?: string | null;
+  /** 🖥 What the work column opens on, on a computer, when no `?tab=` names a page (`workColumnDefault`). */
+  workDefault?: PickedClientPage;
+  /** ➡ The Next step row pinned on top of Chat (`ClientNextStepRow`), or null when nothing needs them / it is unread. */
+  nextStep?: ReactNode;
   /** The ⚙ sheet's one line. */
   settingsLine: { line: string; tip: string };
   /** The ⚙ sheet's rows (shipped facts only). */
@@ -105,7 +112,11 @@ export function PickedClientShell({
       originFrom={SUPPLIER_PICKED_LISTS}
       closeHref={closeHref}
       warm={warmEveryPage}
-      scrollTo={scrollToScript ? { page: 'schedule', id: SCRIPT_FOLD_ID } : null}
+      scrollTo={landAt ? { page: initialPage, id: landAt } : null}
+      pageOf={pickedPageNamed}
+      anchorOf={pickedAnchorOf}
+      sideChat={{ page: 'chat', workDefault }}
+      chatTop={nextStep}
       gear={{ menu: 'client', line: settingsLine, node: settings }}
       // ‹ Over the Clients month on a computer the event spans columns 2 + 3, and its way back is "‹ Calendar" (owner,
       // 17 Nov). Drawn always, SHOWN only there (`supplier-frame.css`); everywhere else it stays today's ✕.

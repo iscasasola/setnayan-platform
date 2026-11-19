@@ -2426,6 +2426,7 @@ export function ChatMessageStream({
                               vendorId={lockTarget.vendorId}
                               vendorName={counterpartyLabel}
                               isVerified={lockTarget.notYetVerified ? false : undefined}
+                              papersRenewing={lockTarget.papersRenewing === true}
                               label={
                                 isLockHandshakeEnabled()
                                   ? `Ask ${counterpartyLabel} to confirm your booking`

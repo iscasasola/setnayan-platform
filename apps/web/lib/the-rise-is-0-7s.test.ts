@@ -60,13 +60,12 @@ const tokenMs = (name: string) => {
   return Number(m[1]);
 };
 test('1 · the CSS rise reads the grow\'s shape from the one timing table — Move 320 ms', () => {
-  const shape = [...CSS.matchAll(/--sn-m-grow-shape:\s*([^;]+);/g)].map((m) => m[1]!.trim());
-  assert.deepEqual(shape, ['var(--sn-m-move)'], 'the grow\'s shape is not the standard\'s Move (or is defined twice)');
+  // Phase 6 (19 Nov 2026): the 13 Nov alias `--sn-m-grow-shape` is retired — the rise reads Move itself.
+  assert.doesNotMatch(CSS, /--sn-m-grow-shape|--sn-m-ease-emph/, 'a retired 13 Nov alias is back in the sheet');
   assert.equal(tokenMs('--sn-m-move'), 320, 'Move is no longer the standard\'s 320 ms');
   const decl = [...CSS.matchAll(/--sn-dur-rise:\s*([^;]+);/g)].map((m) => m[1]!.trim());
-  assert.deepEqual(decl, ['var(--sn-m-grow-shape)'], '--sn-dur-rise carries its own number again (or is defined twice)');
-  assert.match(CSS, /--sn-ease-rise:\s*var\(--sn-m-ease-emph\);/, 'the rise is not on the travel curve');
-  assert.match(CSS, /--sn-m-ease-emph:\s*var\(--sn-m-settle\);/, 'the travel curve is not Settle');
+  assert.deepEqual(decl, ['var(--sn-m-move)'], '--sn-dur-rise carries its own number again (or is defined twice)');
+  assert.match(CSS, /--sn-ease-rise:\s*var\(--sn-m-settle\);/, 'the rise is not on the travel curve (Settle)');
 });
 test('2 · RISE_MS is the table\'s shape and equals the token — CSS and JS agree; the close is 80 %', () => {
   assert.equal(RISE_MS, 320);

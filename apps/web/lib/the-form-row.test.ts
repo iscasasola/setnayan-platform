@@ -342,7 +342,7 @@ test('(9) the fold opens downward, its arrow turns, one is open at a time — an
   assert.match(src, /data-fold-inner=""/, 'the inside is not the one the timing table steps in');
   const css = read('app/globals.css');
   assert.match(css, /\[data-fold-open\] \[data-fold-chevron\] \{\s*transition-duration: var\(--sn-m-row-open\);\s*\}/, 'the chevron does not turn in 320 ms');
-  assert.match(css, /\[data-fold-chevron\] \{\s*transition-duration: var\(--sn-m-row-shut\);\s*transition-timing-function: var\(--sn-m-ease-emph\);\s*\}/, 'the chevron does not turn back in 260 ms on the emphasized curve');
+  assert.match(css, /\[data-fold-chevron\] \{\s*transition-duration: var\(--sn-m-row-shut\);\s*transition-timing-function: var\(--sn-m-settle\);\s*\}/, 'the chevron does not turn back in 260 ms on Settle (the travel curve)');
   assert.doesNotMatch(css, /\[data-fold-body\] \{[^}]*transition/, 'the fold’s height is animated on grid rows again');
   assert.doesNotMatch(src, /transition-\[grid-template-rows\]/, 'the fold’s height is animated on grid rows again');
   assert.match(css, /\[data-fold-open\] > \[data-fold-body\] > \[data-fold-inner\] \{\s*animation: sn-m-open-panel var\(--sn-m-move\) var\(--sn-m-settle\) backwards;\s*\}/, 'the panel does not settle in');

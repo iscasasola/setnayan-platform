@@ -64,13 +64,14 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   assert.doesNotMatch(src, /querySelectorAll\([^)]*\)\.forEach|\.addEventListener\('(?:click|touchstart)/, 'a listener per element, or a second trigger');
   // IN on touch-down — fast, ease-out, held — to 0.97 (a row 0.985); OUT on lift on the house spring; nothing held after.
   assert.match(src, /const to = el\.matches\(ROW_PRESS_TARGETS\) \? 0\.985 : 0\.97;/, 'a press does not go in to 0.97 (a row 0.985)');
-  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale: to \}\], \{ duration: token\('--sn-m-press-in', 100\), easing: PRESS_IN_EASE, fill: 'forwards' \}\)/);
+  assert.match(src, /el\.animate\(\[\{ scale: 1 \}, \{ scale: to \}\], \{ duration: token\('--sn-m-tap', 100\), easing: PRESS_IN_EASE, fill: 'forwards' \}\)/);
   assert.match(src, /el\.animate\(\[\{ scale: to \}, \{ scale: 1 \}\], \{ duration: token\('--sn-m-release', 280\), easing: SPRING \}\);\s*press\.cancel\(\);\s*back\.onfinish = \(\) => back\.cancel\(\);/, 'the release does not spring back, or leaves a transform held');
   assert.match(src, /const SPRING = 'cubic-bezier\(\.34,1\.56,\.64,1\)';/);
   assert.match(src, /const PRESS_IN_EASE = 'ease-out';/);
   // The numbers are the table's tokens, never numbers of its own — and the tokens are the approved table's.
-  // 18 Nov (motion standard): the press-in is the standard's Tap — an alias, the number lives once in --sn-m-tap.
-  assert.match(css, /--sn-m-press-in:\s*var\(--sn-m-tap\);/);
+  // 18 Nov (motion standard): the press-in is the standard's Tap. Phase 6 (19 Nov): the alias `--sn-m-press-in` is
+  // retired — the press reads `--sn-m-tap` itself, and the old name is gone from the sheet.
+  assert.doesNotMatch(css, /--sn-m-press-in/, 'the retired alias --sn-m-press-in is back');
   assert.match(css, /--sn-m-tap:\s*100ms;/);
   assert.match(css, /--sn-m-release:\s*280ms;/);
   assert.match(css, /--sn-m-ripple:\s*520ms;/);
@@ -149,12 +150,12 @@ test('(3) the ring is opt-in and drawn by the listener — a transient element o
 test('(4) the press family reads the ONE timing table — the switch 260 ms, the press 100 / 280; the pill keeps the family speed', () => {
   assert.equal((css.match(/--sn-pill-dur:/g) ?? []).length, 1, 'the family’s speed is declared more than once');
   // Each timing-table token is declared once.
-  for (const t of ['--sn-m-press-in', '--sn-m-release', '--sn-m-ripple', '--sn-m-toggle', '--sn-m-ease-emph']) {
+  for (const t of ['--sn-m-tap', '--sn-m-release', '--sn-m-ripple', '--sn-m-toggle', '--sn-m-settle']) {
     assert.equal((css.match(new RegExp(`${t}:`, 'g')) ?? []).length, 1, `${t} is declared more than once (or not at all)`);
   }
   assert.match(css, /--sn-m-toggle:\s*260ms;/, 'the toggle is not the approved 260 ms');
   // The switch's fill and knob read the table — none carries a number of its own.
-  assert.match(rule('.sn-switch'), /transition: background-color var\(--sn-m-toggle\) var\(--sn-m-ease-emph\);/, 'the switch’s fill keeps a speed of its own');
+  assert.match(rule('.sn-switch'), /transition: background-color var\(--sn-m-toggle\) var\(--sn-m-settle\);/, 'the switch’s fill keeps a speed of its own');
   assert.match(rule('.sn-switch > .sn-switch-knob'), /transition-duration: var\(--sn-m-toggle\);/, 'the knob keeps a speed of its own');
   // The pill selector's thumb is not in the table — it keeps the family speed it had.
   assert.match(rule('.sn-pill-thumb[data-pulse]'), /var\(--sn-pill-dur\)/, 'the pill thumb lost its speed');

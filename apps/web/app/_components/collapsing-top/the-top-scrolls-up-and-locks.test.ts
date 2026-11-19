@@ -12,7 +12,7 @@
  *   5. the event Home reads "stuck" through the same shared hook — its own markup and 52 px untouched;
  *   6. the rise — the one open/close motion (520 ms → 700 ms owner 2026-11-10 → the approved grow's 360 ms on the
  *      emphasized curve, owner 2026-11-13 "motion approved") — and its exact reverse (at 80 %);
- *   7. the tokens: `--sn-pin-h` 44 px, `--sn-dur-rise` reads the timing table's grow shape (`--sn-m-grow-shape`).
+ *   7. the tokens: `--sn-pin-h` 44 px, `--sn-dur-rise` reads the timing table's Move (`--sn-m-move`; the 13 Nov alias `--sn-m-grow-shape` retired 19 Nov).
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-08): the fade window 48 → 96 (red: test 1); a `useState` written on
  * scroll in collapsing-top.tsx (red: test 2); `usePinFold(` added to a new file (red: test 4); `direction: reverse ?
@@ -150,13 +150,13 @@ test('the rise: Move 320 ms on Settle (.2,.8,.2,1) (motion standard 18 Nov), the
   assert.equal((src.match(/direction: reverse \? 'reverse' : 'normal'/g) ?? []).length, 2, 'the close is not the same frames played backwards');
 });
 
-test('the tokens: the pinned row is 44 px, the rise reads the timing table\'s grow shape', () => {
+test('the tokens: the pinned row is 44 px, the rise reads the timing table\'s Move and Settle', () => {
   const css = read('app/globals.css');
   assert.match(css, /--sn-pin-h: {7}44px;/);
-  assert.match(css, /--sn-dur-rise: {4}var\(--sn-m-grow-shape\);/);
-  assert.match(css, /--sn-m-grow-shape: {4}var\(--sn-m-move\);/);
+  // Phase 6 (19 Nov 2026): the 13 Nov alias in between (`--sn-m-grow-shape`, `--sn-m-ease-emph`) is retired — the rise
+  // reads the standard's Move and Settle directly. Still no number of its own.
+  assert.match(css, /--sn-dur-rise: {4}var\(--sn-m-move\);/);
   assert.match(css, /--sn-m-move: {10}320ms;/);
-  assert.match(css, /--sn-ease-rise: {3}var\(--sn-m-ease-emph\);/);
-  assert.match(css, /--sn-m-ease-emph: {5}var\(--sn-m-settle\);/);
+  assert.match(css, /--sn-ease-rise: {3}var\(--sn-m-settle\);/);
   assert.match(css, /--sn-m-settle: {8}cubic-bezier\(\.2,\.8,\.2,1\);/);
 });

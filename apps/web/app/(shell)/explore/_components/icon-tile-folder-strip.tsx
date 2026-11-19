@@ -200,7 +200,7 @@ export function IconTileFolderStrip({
         // while keeping smooth horizontal scroll on mouse / trackpad. flex
         // gap-1 keeps the row tight. px keeps the first tile clear of the
         // edge so the leading icon doesn't get clipped on swipe.
-        className="flex snap-x snap-mandatory items-stretch gap-1 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8"
+        className="sn-glide-x flex snap-x snap-mandatory items-stretch gap-1 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8"
       >
         <li className="snap-start shrink-0">
           <TileLink

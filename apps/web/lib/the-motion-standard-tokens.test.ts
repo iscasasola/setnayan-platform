@@ -12,6 +12,8 @@
  *
  * Seen RED once each (2026-11-18), then restored: `--sn-m-quick: 200ms` → 220ms (1); `EASE_SETTLE`'s `.8` → `.7` (2);
  * the `@supports not` fallback block deleted (3); `--sn-m-ease-emph: var(--sn-m-settle)` → `cubic-bezier(.2,0,0,1)` (4).
+ * Phase 6 (19 Nov 2026): (4) now holds the aliases GONE; seen RED with `--sn-m-press-in: var(--sn-m-tap);` put back in
+ * globals.css, and again with `token('--sn-m-press-in', 100)` put back in press-feel.tsx.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,11 +21,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import {
-  EASE_EMPHASIZED,
-  EASE_EMPHASIZED_REVERSED,
   EASE_SETTLE,
   EASE_SETTLE_REVERSED,
-  EASE_SPRING,
   EASE_SPRING_FALLBACK,
   EASE_SPRING_LINEAR,
   MOVE_MS,
@@ -92,16 +91,27 @@ test('3 · Spring is a real spring in linear() — with its cubic fallback', () 
   assert.deepEqual(all.sort(), [norm(EASE_SPRING_FALLBACK), norm(EASE_SPRING_LINEAR)].sort(), '--sn-m-spring is declared somewhere else too');
 });
 
-test('4 · the 13 Nov names are aliases of the standard, not numbers of their own', () => {
-  assert.equal(EASE_EMPHASIZED, EASE_SETTLE);
-  assert.equal(EASE_EMPHASIZED_REVERSED, EASE_SETTLE_REVERSED);
-  assert.equal(EASE_SPRING, EASE_SPRING_FALLBACK);
-  const aliases: Array<[string, string]> = [
-    ['--sn-m-ease-emph', 'var(--sn-m-settle)'],
-    ['--sn-m-ease-emph-rev', 'var(--sn-m-settle-rev)'],
-    ['--sn-m-press-in', 'var(--sn-m-tap)'],
-    ['--sn-m-grow-press', 'var(--sn-m-tap)'],
-    ['--sn-m-grow-shape', 'var(--sn-m-move)'],
-  ];
-  for (const [name, to] of aliases) assert.equal(once(name), to, `${name} is not an alias of ${to}`);
+test('4 · the 13 Nov alias names are RETIRED (Phase 6, 19 Nov 2026) — nothing declares or reads them', async () => {
+  // Phase 1 kept them "as aliases → removed in Phase 6" (MOTION_STANDARD § 11). They are gone from the sheet, from the
+  // table, and from every source file — a name that came back would be a second word for one number.
+  const table = await import('@/lib/motion-table');
+  for (const gone of ['EASE_EMPHASIZED', 'EASE_EMPHASIZED_REVERSED', 'EASE_SPRING']) assert.ok(!(gone in table), `lib/motion-table.ts exports the retired alias ${gone} again`);
+  const RETIRED = ['--sn-m-ease-emph', '--sn-m-ease-emph-rev', '--sn-m-press-in', '--sn-m-grow-press', '--sn-m-grow-shape', '--sn-dur-micro'];
+  for (const name of RETIRED) assert.equal(decls(name).length, 0, `${name} is declared again`);
+  const { readdirSync, statSync } = await import('node:fs');
+  const files: string[] = [];
+  const walk = (dir: string) => {
+    for (const n of readdirSync(dir)) {
+      if (n === 'node_modules' || n.startsWith('.')) continue;
+      const p = join(dir, n);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(css|tsx?)$/.test(n) && !/\.test\.tsx?$/.test(n)) files.push(p);
+    }
+  };
+  for (const d of ['app', 'components', 'lib']) walk(join(WEB, d));
+  assert.ok(files.length > 3000, `anti-vacuity: only ${files.length} source files were read`);
+  const readers: string[] = [];
+  const use = new RegExp(`(?:${RETIRED.map((r) => r.replace(/-/g, '\\-')).join('|')})(?![\\w-])|\\bEASE_EMPHASIZED(?:_REVERSED)?\\b|\\bEASE_SPRING\\b`);
+  for (const f of files) if (use.test(stripComments(readFileSync(f, 'utf8')))) readers.push(f.slice(WEB.length + 1));
+  assert.deepEqual(readers, [], 'a retired motion alias is read again — say --sn-m-tap / --sn-m-move / --sn-m-settle, EASE_SETTLE …');
 });

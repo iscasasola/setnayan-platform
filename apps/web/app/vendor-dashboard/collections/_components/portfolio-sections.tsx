@@ -181,7 +181,7 @@ export function Rail({ children, data }: { children: ReactNode; data: string }) 
     );
   return (
     <div
-      className="flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-pl-4 pl-4 pr-0 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-pl-4 pl-4 pr-0 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sn-glide-x"
       data-portfolio-rail={data}
     >
       {children}

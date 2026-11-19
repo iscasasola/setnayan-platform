@@ -14,8 +14,16 @@
  *   (1) THE PIE — the uploading tile is a pie filled by the upload's own measured figure, in the accent token, with
  *       that figure on it; no spinner, no bar beside it.
  *   (2) EVERY ✕ — kept, uploading and failed tiles wear ONE round 44 px target carrying a 24 px disc.
- *   (3) NOBODY ELSE IS RESTYLED — the one-line row layout keeps its spinner and bar; `gallery` is worn by exactly the
- *       surfaces listed.
+ *   (3) NOBODY ELSE IS RESTYLED — `gallery` is worn by exactly the surfaces listed.
+ *
+ * ⭕ 19 Nov 2026 — THE PIE IS THE ONE UPLOAD RING. The motion standard (`MOTION_STANDARD_2026-11-18.md` § 4 #25,
+ * owner 18 Nov "Add all 10", 19 Nov "animations build the rest") replaces "per-screen progress chips and bars" with
+ * ONE part, `app/_components/upload-ring.tsx`: a ring that follows the upload's measured figure, with the figure on
+ * it, then ✓. What 8 Oct ruled is KEPT and still held here — a real 0–100 figure, filled by the measured progress, no
+ * spinner beside it, no bar — but the drawing is the shared ring (its colour is the part's own token, in
+ * globals.css), no longer a conic pie written on the tile; and the one-line row layout wears the same ring instead of
+ * its spinner and its width-animated bar. (1) and (3) were re-anchored to that, not loosened: each still names what
+ * must be there and what must not.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,16 +43,21 @@ function halves() {
   return { gallery: s.slice(g, r), rows: s.slice(r) };
 }
 
-test('(1) the uploading tile is the 0–100 pie: filled by the measured figure, in the accent, the figure on it — no spinner, no bar', () => {
+test('(1) the uploading tile is the 0–100 ring: filled by the measured figure, the figure on it — no spinner, no bar', () => {
   const { gallery } = halves();
   const tile = gallery.slice(gallery.indexOf('{inFlight.map((item) => ('), gallery.indexOf('{failed.map((item) => ('));
   assert.ok(tile.length > 300, 'anti-vacuity: the uploading tile was not found');
-  // The pie is filled by `item.progress` — the figure `sendToStorage` measures from the PUT — and by nothing else.
-  assert.match(tile, /data-upload-pie=\{item\.progress\}/);
-  assert.match(tile, /style=\{\{ background: `conic-gradient\(rgb\(var\(--sn-accent\)\) \$\{item\.progress\}%, [^`]+ 0\)` \}\}/, 'the pie is not filled by the measured figure, or not in the accent token');
-  // The figure is ON the pie, in the accent.
-  assert.match(tile, /<span className="[^"]*\brounded-full\b[^"]*\btext-sn-accent\b[^"]*">\s*\{item\.progress\}%\s*<\/span>/);
-  assert.equal((tile.match(/(?<!\$)\{item\.progress\}%/g) ?? []).length, 1, 'the figure is printed twice on the tile');
+  // The ring is filled by `item.progress` — the figure `sendToStorage` measures from the PUT — and by nothing else,
+  // and it is THE shared ring with its figure on it (`showPct`), drawn once.
+  assert.match(tile, /<UploadRing pct=\{item\.progress\}[^>]*\bshowPct\b[^>]*\/>/, 'the uploading tile is not the one upload ring filled by the measured figure, with the figure on it');
+  assert.equal((tile.match(/<UploadRing\b/g) ?? []).length, 1, 'the tile draws two rings');
+  assert.doesNotMatch(tile, /conic-gradient|data-upload-pie/, 'the tile still draws a pie of its own beside the shared ring');
+  assert.equal((tile.match(/(?<!\$)\{item\.progress\}%/g) ?? []).length, 0, 'the figure is printed a second time, beside the ring’s own');
+  // The shared ring prints the measured figure itself, and turns by it — never by a clock.
+  const ring = read('app/_components/upload-ring.tsx');
+  assert.match(ring, /\{shown\}%/, 'the ring no longer prints its figure');
+  assert.match(ring, /uploadRingTurns\(done \? 100 : pct, stepped\)/, 'the ring is not turned by the measured figure');
+  assert.doesNotMatch(ring, /animate-spin|setInterval|requestAnimationFrame/, 'the ring moves by something other than the upload');
   // No spinner beside a measured figure, no bar, and no colour of its own.
   assert.doesNotMatch(tile, /Loader2|animate-spin|animate-pulse/, 'a spinner sits beside the measured figure');
   assert.doesNotMatch(tile, /width: `\$\{item\.progress\}%`|h-1\.5/, 'the thin bar is still drawn');
@@ -90,13 +103,16 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-test('(3) nobody else is restyled: the row layout keeps its spinner and bar, and `gallery` is worn by exactly the surfaces listed', () => {
+test('(3) nobody else is restyled: the row layout wears the same ring (no spinner, no bar), and `gallery` is worn by exactly the surfaces listed', () => {
   const { rows } = halves();
   const flying = rows.slice(rows.indexOf('{inFlight.map((item) => ('));
-  assert.match(flying, /<Loader2 className="h-5 w-5 animate-spin"/, 'the row layout lost its spinner');
-  assert.match(flying, /style=\{\{ width: `\$\{item\.progress\}%` \}\}/, 'the row layout lost its bar');
+  // 19 Nov 2026: the row wears the ONE upload ring (no figure on it — the row prints "N% · size" in words beside it);
+  // its spinner and its width-animated bar are gone.
+  assert.match(flying, /<UploadRing pct=\{item\.progress\}(?![^>]*\bshowPct\b)[^>]*\/>/, 'the row layout lost the upload ring, or prints the figure twice');
+  assert.doesNotMatch(flying, /Loader2|animate-spin/, 'a spinner is back beside the measured figure');
+  assert.doesNotMatch(flying, /width: `\$\{item\.progress\}%`/, 'the width-animated bar is back');
   assert.match(flying, /\{item\.progress\}% · \{bytesToHuman\(item\.size\)\}/);
-  assert.doesNotMatch(rows, /data-upload-pie|TILE_X/, 'the row layout was given the gallery’s pie or its ✕');
+  assert.doesNotMatch(rows, /TILE_X/, 'the row layout was given the gallery’s ✕');
   // WHO WEARS `gallery` — and so shows the pie and the round ✕. A new wearer is added here on purpose.
   const wearers = walk('app').filter((f) => f !== 'app/_components/file-upload.tsx' && /<FileUpload\b[^>]*?\svariant="gallery"/s.test(read(f)));
   assert.deepEqual(wearers.sort(), [

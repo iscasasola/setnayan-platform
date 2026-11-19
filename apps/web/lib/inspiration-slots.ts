@@ -254,6 +254,20 @@ export function libraryPhotoParts(parts: InspirationPartsSnapshot): PhotoPart[] 
   return studioPhotoParts(parts, true, true);
 }
 
+/**
+ * ⚡ THE SNAPSHOT THE COUPLE'S STUDIO IS HANDED — only the parts it can draw (speed pass 2026-11-18, owner "all
+ * loading under 0.7 s"). The Studio reads the snapshot through `palettePhotoParts` and `libraryPhotoParts` and
+ * nothing else, and those two reach only the boards `studioPhotoParts` places (the main palette, the colour lanes,
+ * the attire boards) — ~30 of the ~300 parts the admin keeps. Handing it all 300, each with its services, put
+ * 111 KB into the Maker's page for a list nobody sees. Every part kept is kept WHOLE (no field is blanked), so
+ * this is a filter, never an edit: both lists drawn from it are identical to the full snapshot's
+ * (`the-studio-is-handed-only-its-parts.test.ts`).
+ */
+export function studioPartsSnapshot(parts: InspirationPartsSnapshot): InspirationPartsSnapshot {
+  const reached = new Set<string>(studioPhotoParts(parts, true, true).map((p) => p.key));
+  return { source: parts.source, parts: parts.parts.filter((p) => reached.has(p.slotKey)) };
+}
+
 /* ══ SEARCH IDEAS › — the shipped gallery picker's filters ══════════════════ */
 
 /**

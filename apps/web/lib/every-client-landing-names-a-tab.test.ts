@@ -165,20 +165,22 @@ test('the two tab vocabularies are the ones the shells really declare', () => {
     `customer-card-nav declares ${offKeys.join(' · ')}`,
   );
 
-  // 🗂 THE ONE BUILD (8 Nov 2026): the flag-ON shell is the picked client's nine-page menu. Its ids are read back
-  // from the menu file itself (not hand-copied here), plus the one legacy id that still lands — `script`, which
-  // the menu resolves to Schedule's Script fold. Every id must resolve to a page the menu can draw.
+  // 🗂 SEVEN TABS (owner 18 Nov 2026): the flag-ON shell is the picked client's seven-tab menu. Its ids are read back
+  // from the menu file itself (not hand-copied here), plus the ids that still land without being tabs — `script`
+  // (Schedule's Script fold), `payments` (Book & Budget's payments) and `forms` (Details' Forms).
   const menuSrc = stripComments(
     readFileSync(path.join(CLIENTS_DIR, '[eventId]', '_components', 'picked-client-menu.ts'), 'utf8'),
   );
   const menuBlock = menuSrc.slice(menuSrc.indexOf('export const PICKED_CLIENT_PAGES'), menuSrc.indexOf('] as const;'));
   const onIds = [...menuBlock.matchAll(/\{\s*id:\s*'([a-z]+)'/g)].map((m) => m[1]);
-  assert.equal(onIds.length, 9, `the picked client's menu declares ${onIds.length} pages: ${onIds.join(' · ')}`);
+  assert.equal(onIds.length, 7, `the picked client's menu declares ${onIds.length} pages: ${onIds.join(' · ')}`);
   assert.deepEqual(
-    [...onIds, 'script'].sort(),
+    [...onIds, 'script', 'payments', 'forms'].sort(),
     [...VENDOR_CLIENT_TABS].sort(),
-    `the picked client's menu declares ${onIds.join(' · ')} (+ script → Schedule)`,
+    `the picked client's menu declares ${onIds.join(' · ')} (+ script → Schedule, payments → Book & Budget, forms → Details)`,
   );
+  assert.match(menuSrc, /payments:\s*'quote'/, '`?tab=payments` must land on Book & Budget');
+  assert.match(menuSrc, /forms:\s*'details'/, '`?tab=forms` must land on Details');
   assert.match(menuSrc, /script:\s*'schedule'/, '`?tab=script` must land on Schedule');
   console.log(
     `[client-landing] OFF shell: ${offKeys.join(' · ')} | ON shell: ${onIds.join(' · ')}`,

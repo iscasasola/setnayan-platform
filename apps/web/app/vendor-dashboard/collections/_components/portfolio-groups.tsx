@@ -36,6 +36,8 @@ export type OpenedPhotos = {
   title: string;
   /** "48 photos" · "Sun 8 Nov · 180 photos". */
   sub: string;
+  /** A second quiet line — an event's service cards booked at it ("Full styling · Lights & sound"). */
+  note?: string | null;
   urls: string[];
   /** How many the collection holds (the "+N" tile counts the rest). */
   total: number;
@@ -172,6 +174,7 @@ export function AlbumGrids({ albums, data }: { albums: (OpenedPhotos & { key: st
           <h3 className="px-4 pb-2">
             <b className="line-clamp-2 block text-[16px] font-semibold leading-tight text-ink">{a.title}</b>
             {a.sub ? <small className="block truncate text-[12.5px] text-ink/60">{a.sub}</small> : null}
+            {a.note ? <small className="block truncate text-[12.5px] text-ink/60" data-album-services="">{a.note}</small> : null}
           </h3>
           <PhotoGrid photos={a} data={data} />
         </section>

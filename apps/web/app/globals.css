@@ -11510,8 +11510,8 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   transition: grid-template-rows calc(var(--sn-m-move) * 0.8) var(--sn-m-settle);
 }
 .sn-chat-toolwrap[data-chat-tool-wrap='open'] { grid-template-rows: 1fr; transition-duration: var(--sn-m-move); }
-.sn-chat-toolin { min-height: 0; overflow: hidden; visibility: hidden; transition: visibility 0s linear calc(var(--sn-m-move) * 0.8); }
-.sn-chat-toolwrap[data-chat-tool-wrap='open'] .sn-chat-toolin { visibility: visible; transition-delay: 0s; }
+.sn-chat-toolin { min-height: 0; overflow: hidden; visibility: hidden; transition: visibility calc(var(--sn-m-tap) * 0) linear calc(var(--sn-m-move) * 0.8); }
+.sn-chat-toolwrap[data-chat-tool-wrap='open'] .sn-chat-toolin { visibility: visible; transition-delay: calc(var(--sn-m-tap) * 0); }
 .sn-chat-tool {
   max-height: min(440px, 56vh);
   overflow-y: auto;
@@ -11556,13 +11556,13 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   background: linear-gradient(to top, rgb(var(--color-cream)) 62%, transparent);
   visibility: hidden;
   clip-path: circle(0px at calc(100% - 90px) calc(100% + 30px));
-  transition: clip-path calc(var(--sn-m-release) * 0.8) var(--sn-m-settle), visibility 0s linear calc(var(--sn-m-release) * 0.8);
+  transition: clip-path calc(var(--sn-m-release) * 0.8) var(--sn-m-settle), visibility calc(var(--sn-m-tap) * 0) linear calc(var(--sn-m-release) * 0.8);
 }
 .sn-chat-chips::-webkit-scrollbar { display: none; }
 .sn-chat-chips[data-chat-kind-chips='open'] {
   visibility: visible;
   clip-path: circle(150% at calc(100% - 90px) calc(100% + 30px));
-  transition: clip-path var(--sn-m-release) var(--sn-m-settle), visibility 0s;
+  transition: clip-path var(--sn-m-release) var(--sn-m-settle), visibility calc(var(--sn-m-tap) * 0);
 }
 @keyframes sn-chat-chip-in { from { opacity: 0; transform: translateY(8px); } }
 .sn-chat-chips[data-chat-kind-chips='open'] > button {

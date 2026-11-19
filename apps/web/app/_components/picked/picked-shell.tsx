@@ -77,14 +77,13 @@ const PAGE_SWIPE_SKIP = '[data-picked-menu],[data-calendar],[data-dates-week-str
  * page: the Song list, the Script), a place elsewhere in the app (`href`), or a file to keep (`file`). `heading` is the
  * small label drawn above the row ("For your trade").
  */
-export type PickedMoreRow<P extends string> =
-  | P
-  | ({ id: string; label: string; icon: LucideIcon; heading?: string } & (
-      | { page: P }
-      | { body: ReactNode }
-      | { href: string }
-      | { file: { href: string; filename: string } }
-    ));
+export type PickedMoreItem<P extends string> = { id: string; label: string; icon: LucideIcon; heading?: string } & (
+  | { page: P }
+  | { body: ReactNode }
+  | { href: string }
+  | { file: { href: string; filename: string } }
+);
+export type PickedMoreRow<P extends string> = P | PickedMoreItem<P>;
 
 /** 🖥 The page column beside the chat on a computer (drawing: the third column, 420 px; the chat narrows, never covered). */
 const PANE_OUT_MS = MOVE_MS * 0.8;
@@ -320,7 +319,7 @@ export function PickedShell<P extends string>({
   // A row that names a menu page shows only while the menu has that page; a row with no page behind it always shows.
   const moreMenu = useMemo(
     () =>
-      (chatHome?.more ?? []).flatMap((row): Exclude<PickedMoreRow<P>, P>[] => {
+      (chatHome?.more ?? []).flatMap((row): PickedMoreItem<P>[] => {
         if (typeof row === 'string') {
           const m = menu.find((x) => x.id === row);
           return m ? [{ id: m.id, label: m.label, icon: icons[m.id], page: m.id }] : [];

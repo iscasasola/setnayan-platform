@@ -183,6 +183,36 @@ export async function readGroupMembers(supabase: SupabaseClient, threadId: strin
   return (Array.isArray(data) ? data : []) as GroupMember[];
 }
 
+/** Someone who had a seat in this group and no longer does (`chat_group_former_members`, 20271353093349). */
+export type GroupFormerMember = { user_id: string; first_name: string | null; name: string | null };
+
+/** The word after a former member's name on their past lines. */
+export const GROUP_LEFT_MARK = 'left';
+
+/** A former member's name as their past lines carry it — "Rita · left". A person still in the group overrides this. */
+export function formerMemberNames(former: readonly GroupFormerMember[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const f of former) {
+    const name = f.first_name ?? f.name;
+    if (name) out[f.user_id] = `${name} · ${GROUP_LEFT_MARK}`;
+  }
+  return out;
+}
+
+/**
+ * The people who LEFT this group (by choice, or closed by a removal — a co-host removed from the event, owner 20 Nov),
+ * so their past lines still say who wrote them. `[]` on a refused read: the names are a nicety, and a line from them
+ * then falls back to the stream's own label exactly as before — it never hides or drops the line.
+ */
+export async function readGroupFormerMembers(supabase: SupabaseClient, threadId: string): Promise<GroupFormerMember[]> {
+  const { data, error } = await supabase.rpc('chat_group_former_members', { p_thread_id: threadId });
+  if (error) {
+    logQueryError('readGroupFormerMembers (chat_group_former_members)', error, { thread_id: threadId }, 'graceful_degrade');
+    return [];
+  }
+  return (Array.isArray(data) ? data : []) as GroupFormerMember[];
+}
+
 /** A person on the event a host or the coordinator may put in a group (`chat_group_people`). */
 export type GroupPerson = { user_id: string; first_name: string | null; name: string | null; kind: GroupPersonKind };
 

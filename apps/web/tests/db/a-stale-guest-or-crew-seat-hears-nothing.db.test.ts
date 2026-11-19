@@ -16,6 +16,9 @@
  *   · reactivating a crew member does not silently reopen a seat; a host re-adds them;
  *   · the people who stay (the host, the shop's owner, a crew member still on the team) are untouched;
  *   · a crew member deactivated in ONE shop but still the owner of another in the event keeps the seat (the one rule);
+ *   · OWNER RULING 20 NOV: a removed co-host ALSO leaves the host-made groups (made before or after the removal) — no
+ *     read, no write, no ping — while their past lines stay, attributed and listed as a former member; added back,
+ *     they regain every group a removal closed, but not one they left themselves;
  *   · a co-host removed and then ADDED BACK regains the supplier chat: nothing re-closes the seat once they are a host
  *     again, they can rejoin by themselves, and reads come back.
  *
@@ -376,4 +379,159 @@ test('a co-host added back can also be re-seated by the host who created the eve
   assert.equal(await membership(eventId, pal), 'couple', 'picked again → a host again');
   assert.equal(await add(), 'added', 'the host re-seats them');
   assert.ok((await myThreads(pal)).includes(threadId), 'and they read the chat again');
+});
+
+// ── OWNER RULING 20 NOV ("all your picks"): a removed co-host ALSO leaves the event's host-made group chats ────────
+type CohostWorld = { eventId: string; host: string; rita: string; seat: string; supplier: string; guest: string };
+
+/** An event with its creator, a supplier with a chat on it, a plain guest, and Rita: a co-host from the guest list. */
+async function cohostWorld(): Promise<CohostWorld> {
+  const host = await newUser('Ana');
+  const supplier = await newUser('Sol');
+  const shop = await newShop(supplier);
+  const e = await db.query<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)
+     VALUES ('A celebration', 'birthday', DATE '2027-06-06', 'day') RETURNING event_id`,
+  );
+  const eventId = e.rows[0]!.event_id;
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via) VALUES ($1, $2, 'couple', 'created_event')`,
+    [eventId, host],
+  );
+  await supplierChat(eventId, shop, host);
+  const link = async (first: string) => {
+    const uid = await newUser(first);
+    const row = await newGuest(eventId, first);
+    await db.query(
+      `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via, guest_id)
+       VALUES ($1, $2, 'guest', 'guest_signup', $3)`,
+      [eventId, uid, row],
+    );
+    await db.query(`UPDATE public.guests SET rsvp_status = 'attending' WHERE guest_id = $1`, [row]);
+    return { uid, row };
+  };
+  const guest = (await link('Gina')).uid;
+  const r = await link('Rita');
+  const s = await db.query<{ moderator_id: string }>(
+    `INSERT INTO public.event_moderators
+       (event_id, guest_id, role_subtype, permissions_json, invited_by_user_id, user_id, accepted_at)
+     VALUES ($1, $2, 'co_host', '{}'::jsonb, $3, NULL, NULL) RETURNING moderator_id`,
+    [eventId, r.row, host],
+  );
+  assert.equal(await membership(eventId, r.uid), 'couple', 'setup: Rita is a live co-host');
+  return { eventId, host, rita: r.uid, seat: s.rows[0]!.moderator_id, supplier, guest };
+}
+async function makeGroup(eventId: string, by: string, name: string, people: string[]): Promise<string> {
+  return as(by, async () =>
+    (await db.query<{ t: string }>(`SELECT public.chat_group_create($1, $2, $3::uuid[]) AS t`, [eventId, name, people])).rows[0]!.t);
+}
+async function groupLine(threadId: string, eventId: string, by: string, body: string): Promise<void> {
+  await as(by, () => db.query(`INSERT INTO public.chat_messages (thread_id, event_id, body) VALUES ($1,$2,$3)`, [threadId, eventId, body]));
+}
+async function linesAs(threadId: string, uid: string): Promise<Array<{ body: string; sender_user_id: string | null }>> {
+  return as(uid, async () =>
+    (await db.query<{ body: string; sender_user_id: string | null }>(
+      `SELECT body, sender_user_id FROM public.chat_messages
+        WHERE thread_id = $1 AND sender_role <> 'system' ORDER BY created_at, message_id`, [threadId])).rows);
+}
+async function groupPinged(threadId: string, eventId: string, sender: string): Promise<string[]> {
+  return (await db.query<{ x: string }>(`SELECT x FROM public.chat_message_reader_ids($1,$2,NULL,$3,NULL) AS x`,
+    [threadId, eventId, sender])).rows.map((r) => r.x);
+}
+const removeCohost = (seat: string) => db.query(`UPDATE public.event_moderators SET removed_at = now() WHERE moderator_id = $1`, [seat]);
+const addBack = (seat: string) => db.query(`UPDATE public.event_moderators SET removed_at = NULL WHERE moderator_id = $1`, [seat]);
+
+test('a removed co-host leaves the host-made groups: no read, no write, no ping — even still a guest', async () => {
+  const w = await cohostWorld();
+  const before = await makeGroup(w.eventId, w.host, 'Planning', [w.rita, w.supplier, w.guest]);
+  await groupLine(before, w.eventId, w.rita, 'I booked the lechon');
+  await groupLine(before, w.eventId, w.host, 'Thank you!');
+
+  await removeCohost(w.seat);
+  assert.equal(await membership(w.eventId, w.rita), 'guest', 'removal returns her to guest — still someone on the event');
+
+  // A group made AFTER the removal, with everyone else in it.
+  const after = await makeGroup(w.eventId, w.host, 'Day-of', [w.supplier, w.guest]);
+  await groupLine(before, w.eventId, w.host, 'New plan for Saturday');
+  await groupLine(after, w.eventId, w.host, 'Call time is 3');
+
+  for (const [label, g] of [['made before the removal', before], ['made after the removal', after]] as const) {
+    assert.ok(!(await myThreads(w.rita)).includes(g), `${label}: current_thread_ids() names it not`);
+    assert.deepEqual(await linesAs(g, w.rita), [], `${label}: she reads no line`);
+    assert.ok(!(await groupPinged(g, w.eventId, w.host)).includes(w.rita), `${label}: she is not pinged`);
+    assert.ok(!(await members(g)).includes(w.rita), `${label}: not in the member list`);
+  }
+  const write = await attempt(w.rita, () =>
+    db.query(`INSERT INTO public.chat_messages (thread_id, event_id, body) VALUES ($1,$2,'still here?')`, [before, w.eventId]));
+  assert.ok(write, 'she cannot post in the group');
+  assert.match((await attempt(w.host, () =>
+    db.query(`INSERT INTO public.chat_messages (thread_id, event_id, body, recipient_user_ids) VALUES ($1,$2,'psst',$3)`,
+      [before, w.eventId, [w.rita]]))) ?? '', /PRIVATE_NOT_A_MEMBER/, 'and cannot be picked for a private line');
+
+  const seat = await db.query<{ left_at: string | null; left_by_removal: boolean; left_note: string | null }>(
+    `SELECT left_at, left_by_removal, left_note FROM public.chat_thread_members WHERE thread_id = $1 AND user_id = $2`, [before, w.rita]);
+  assert.ok(seat.rows[0]!.left_at, 'her seat is closed');
+  assert.equal(seat.rows[0]!.left_by_removal, true, 'closed BY the removal — not a leave of her own');
+  assert.equal(seat.rows[0]!.left_note, null, 'left_note is never written for her');
+
+  // Her past lines stay — attributed — for everyone still in the group, and she is listed as having left.
+  const seen = await linesAs(before, w.host);
+  assert.deepEqual(seen.map((l) => l.body), ['I booked the lechon', 'Thank you!', 'New plan for Saturday']);
+  assert.equal(seen[0]!.sender_user_id, w.rita, 'her line still says it is hers');
+  assert.deepEqual((await linesAs(before, w.guest)).map((l) => l.body)[0], 'I booked the lechon', 'a guest in it reads it too');
+  const former = await as(w.host, async () =>
+    (await db.query<{ j: Array<{ user_id: string; first_name: string | null }> }>(
+      `SELECT public.chat_group_former_members($1) AS j`, [before])).rows[0]!.j);
+  assert.deepEqual(former.map((f) => [f.user_id, f.first_name]), [[w.rita, 'Rita']], 'she is named as a former member');
+  const formerToHer = await as(w.rita, async () =>
+    (await db.query<{ j: unknown[] }>(`SELECT public.chat_group_former_members($1) AS j`, [before])).rows[0]!.j);
+  assert.deepEqual(formerToHer, [], 'a non-member is told nothing about the group');
+
+  // Everyone else is untouched.
+  for (const [who, uid] of [['the host', w.host], ['the supplier', w.supplier], ['the guest', w.guest]] as const) {
+    assert.ok((await myThreads(uid)).includes(before), `${who} still reads the group`);
+  }
+});
+
+test('a co-host ADDED BACK regains the groups a removal closed — not one she left herself', async () => {
+  const w = await cohostWorld();
+  const kept = await makeGroup(w.eventId, w.host, 'Planning', [w.rita, w.guest]);
+  const quit = await makeGroup(w.eventId, w.host, 'Budget', [w.rita, w.guest]);
+  // She leaves "Budget" herself, while still a co-host.
+  assert.equal(await as(w.rita, async () =>
+    (await db.query<{ r: string }>(`SELECT public.chat_group_leave($1, NULL) AS r`, [quit])).rows[0]!.r), 'left');
+  assert.equal(await seatIsLive(quit, w.rita), false, 'setup: she left Budget herself');
+
+  await removeCohost(w.seat);
+  assert.equal(await seatIsLive(kept, w.rita), false, 'the removal closes Planning');
+  await groupLine(kept, w.eventId, w.host, 'While you were away');
+
+  await addBack(w.seat);
+  assert.equal(await membership(w.eventId, w.rita), 'couple', 'picked again → a host again');
+  assert.equal(await seatIsLive(kept, w.rita), true, 'Planning reopens by itself');
+  assert.ok((await myThreads(w.rita)).includes(kept), 'she reads it again');
+  assert.deepEqual((await linesAs(kept, w.rita)).map((l) => l.body), ['While you were away'], 'the whole group, the gap included');
+  assert.ok((await groupPinged(kept, w.eventId, w.host)).includes(w.rita), 'and is pinged again');
+  const flag = await db.query<{ f: boolean }>(
+    `SELECT left_by_removal AS f FROM public.chat_thread_members WHERE thread_id = $1 AND user_id = $2`, [kept, w.rita]);
+  assert.equal(flag.rows[0]!.f, false, 'a live seat never carries the removal flag');
+
+  assert.equal(await seatIsLive(quit, w.rita), false, 'Budget, which she left herself, stays closed — her choice');
+  assert.ok(!(await myThreads(w.rita)).includes(quit));
+});
+
+test('the removal flag is never left on a live seat, whichever door reopens it', async () => {
+  const w = await cohostWorld();
+  const g = await makeGroup(w.eventId, w.host, 'Planning', [w.rita, w.guest]);
+  await removeCohost(w.seat);
+  // A host puts her back in by hand while she is a guest (chat_group_add revives the row and knows no flag).
+  assert.equal(await as(w.host, async () =>
+    (await db.query<{ r: string }>(`SELECT public.chat_group_add($1, $2::uuid[]) AS r`, [g, [w.rita]])).rows[0]!.r), 'added');
+  const row = await db.query<{ left_at: string | null; f: boolean }>(
+    `SELECT left_at, left_by_removal AS f FROM public.chat_thread_members WHERE thread_id = $1 AND user_id = $2`, [g, w.rita]);
+  assert.equal(row.rows[0]!.left_at, null);
+  assert.equal(row.rows[0]!.f, false, 'reopened by hand → the flag is cleared');
+  const stale = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.chat_thread_members WHERE left_at IS NULL AND left_by_removal`);
+  assert.equal(stale.rows[0]!.n, 0, 'no live seat anywhere carries the removal flag');
 });

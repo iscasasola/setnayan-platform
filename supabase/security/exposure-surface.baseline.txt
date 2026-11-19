@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7978
+# facts: 7988
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     648
-#   col       5743
-#   policy    1170
+#   tpriv     649
+#   col       5748
+#   policy    1174
 #   view      10
 #   func      403
 #
@@ -473,6 +473,7 @@ tpriv	public.supplier_scan_counters|authenticated	S
 tpriv	public.supplier_scan_review_skips|authenticated	S
 tpriv	public.supplier_scan_sessions|authenticated	S
 tpriv	public.supplier_scan_settings|authenticated	SIUD
+tpriv	public.supplier_today_put_offs|authenticated	SIUD
 tpriv	public.taxonomy_category_requests|authenticated	SIUD
 tpriv	public.thread_calls|anon	SIUD
 tpriv	public.thread_calls|authenticated	SIUD
@@ -4729,6 +4730,11 @@ col	public.supplier_scan_settings.mode	anon=- authenticated=SIU
 col	public.supplier_scan_settings.updated_at	anon=- authenticated=SIU
 col	public.supplier_scan_settings.updated_by_user_id	anon=- authenticated=SIU
 col	public.supplier_scan_settings.vendor_profile_id	anon=- authenticated=SIU
+col	public.supplier_today_put_offs.put_off_at	anon=- authenticated=SIU
+col	public.supplier_today_put_offs.put_off_by	anon=- authenticated=SIU
+col	public.supplier_today_put_offs.task_key	anon=- authenticated=SIU
+col	public.supplier_today_put_offs.until_day	anon=- authenticated=SIU
+col	public.supplier_today_put_offs.vendor_profile_id	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.created_at	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.mapped_to_canonical	anon=- authenticated=SIU
 col	public.taxonomy_category_requests.proposed_by_vendor_id	anon=- authenticated=SIU
@@ -7246,6 +7252,10 @@ policy	public.supplier_scan_review_skips|supplier_scan_review_skips_admin_read	m
 policy	public.supplier_scan_sessions|supplier_scan_sessions_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = supplier_scan_sessions.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.supplier_scan_settings|supplier_scan_settings_vendor_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.supplier_today_put_offs|supplier_today_put_offs_shop_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.supplier_today_put_offs|supplier_today_put_offs_shop_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (put_off_by = ( SELECT auth.uid() AS uid)))
+policy	public.supplier_today_put_offs|supplier_today_put_offs_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.supplier_today_put_offs|supplier_today_put_offs_shop_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=(((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) AND (put_off_by = ( SELECT auth.uid() AS uid)))
 policy	public.taxonomy_category_request_drafts|taxonomy_category_request_drafts_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_delete	mode=PERMISSIVE cmd=DELETE roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.taxonomy_category_requests|taxonomy_category_requests_admin_write	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

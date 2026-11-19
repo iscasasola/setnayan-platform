@@ -44,7 +44,6 @@ const DONE_WORD: Readonly<Record<string, string>> = {
 };
 
 export function TodayQuickGroup({ rows, children }: { rows: ReadonlyArray<{ key: string; kind: string }>; children: ReactNode }) {
-  const router = useRouter();
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [toast, setToast] = useState<{ n: number; text: string } | null>(null);
   // ⏭ The drag's own toasts (v3 part 2): "Moved to tomorrow · Undo", "Urgent · can't go to tomorrow", a failure.
@@ -80,12 +79,11 @@ export function TodayQuickGroup({ rows, children }: { rows: ReadonlyArray<{ key:
           moving.current = null;
           return say(r.message, 'bad');
         }
+        // The action revalidated Today, so its answer already carries the re-drawn list — no second render.
         say(r.message, 'ok', op === 'put' ? key : null);
-        // one-render: keep (server-action) — the action revalidated Today; this pulls the re-drawn list in place
-        router.refresh();
       });
     },
-    [router, say],
+    [say],
   );
   const value = useMemo(
     () => ({ openKey, setOpen: setOpenKey, putOff: (key: string) => run('put', key), refuse: () => say(PUT_OFF_WORDS.refused, 'note') }),

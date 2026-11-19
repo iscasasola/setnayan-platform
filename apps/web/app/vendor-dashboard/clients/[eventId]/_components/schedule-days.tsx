@@ -9,13 +9,16 @@ import {
   addDays,
   addMonths,
   dayHeading,
+  emptyDayLine,
   monthGrid,
   monthHeading,
   otherClientDays,
   otherClientsOn,
+  unreadDaysLine,
   weekOf,
   type OtherBooking,
   type ScheduleDayItem,
+  type ScheduleDaysUnread,
 } from '@/lib/schedule-days';
 import { usePickedNav } from './picked-client-nav';
 
@@ -44,6 +47,7 @@ export function ScheduleDays({
   eventDate,
   todayIso,
   items,
+  unread = [],
   lab,
   children,
 }: {
@@ -52,6 +56,8 @@ export function ScheduleDays({
   eventDate: string | null;
   todayIso: string;
   items: ScheduleDayItem[];
+  /** The lists the page could not read (a refused read) — said as "couldn't load", never as an empty day. */
+  unread?: readonly ScheduleDaysUnread[];
   lab?: AllClientsMonth | null;
   children: ReactNode;
 }) {
@@ -152,6 +158,8 @@ export function ScheduleDays({
     );
   };
 
+  const unreadLine = unreadDaysLine(unread);
+  const emptyDay = emptyDayLine(eventName, unread);
   const heading = view === 'month' ? monthHeading(month) : monthHeading(weekAt.slice(0, 7));
   const step = (side: -1 | 1) => (view === 'month' ? setMonth((m) => addMonths(m, side)) : setWeekAt((d) => addDays(d, side * 7)));
 
@@ -205,6 +213,11 @@ export function ScheduleDays({
             ? weekOf(weekAt).map((d) => cell(d, !byDay.has(d) && !otherDays.has(d)))
             : monthGrid(month).map((d, i) => (d ? cell(d, !byDay.has(d) && !otherDays.has(d)) : <span key={`x${i}`} aria-hidden />))}
         </div>
+        {unreadLine ? (
+          <p role="status" className="px-3 pt-2 text-[13px] font-semibold text-danger-700" data-schedule-days-unread={unread.join(' ')}>
+            {unreadLine}
+          </p>
+        ) : null}
         {scope === 'all' && (allLoading || allRefused) ? (
           <p role="status" className={`px-3 pt-2 text-[13px] ${allRefused ? 'font-semibold text-danger-700' : 'text-ink/70'}`} data-schedule-days-all={allRefused ? 'unread' : 'loading'}>
             {allRefused ? 'Your other clients couldn’t load just now — only this client’s days are shown.' : 'Loading your other clients…'}
@@ -221,9 +234,16 @@ export function ScheduleDays({
           {isEventDay ? <span className="text-xs text-ink/60">The blow-by-blow</span> : null}
         </div>
         {dayItems.length === 0 && others0.length === 0 ? (
-          <p className="pt-1 text-sm text-ink/70" data-schedule-day-empty="">
-            Nothing with {eventName} this day.{eventDays.length && !eventDays.includes(picked) ? ' Tap a day with a dot.' : ''}
-          </p>
+          emptyDay.unread ? (
+            <p role="status" className="pt-1 text-sm font-semibold text-danger-700" data-schedule-day-empty="unread">
+              {emptyDay.line}
+            </p>
+          ) : (
+            <p className="pt-1 text-sm text-ink/70" data-schedule-day-empty="">
+              {emptyDay.line}
+              {eventDays.length && !eventDays.includes(picked) ? ' Tap a day with a dot.' : ''}
+            </p>
+          )
         ) : null}
         <ul>
           {dayItems

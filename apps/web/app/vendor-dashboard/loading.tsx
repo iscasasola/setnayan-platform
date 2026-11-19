@@ -3,12 +3,12 @@ import { Screen, Sk, RowSkeleton } from '@/components/skeletons';
 /**
  * Skeleton for /vendor-dashboard — mirrors the vendor home layout:
  * header (eyebrow + name + verification chip) → profile-completion nudge →
- * 6 stat tiles (2→3→6 cols) → upcoming events section (3 thread rows) →
+ * 6 stat tiles (2→3 cols, the reading column from 701) → upcoming events section (3 thread rows) →
  * recent activity section.
  */
 export default function VendorLoading() {
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <Screen label="Loading supplier dashboard">
         {/* Header — eyebrow + business name + verification chip */}
         <header className="space-y-2">
@@ -23,9 +23,9 @@ export default function VendorLoading() {
         {/* Profile completion nudge — amber strip */}
         <Sk className="h-14 w-full rounded-2xl" />
 
-        {/* 6 stat tiles — 2-col → 3-col → 6-col */}
+        {/* 6 stat tiles — 2-col → 3-col (the reading column holds three) */}
         <section aria-hidden>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="sn-row p-4">
                 <Sk className="h-6 w-8 rounded-md" />

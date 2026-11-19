@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { startAhead } from '@/lib/start-ahead';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -85,7 +86,6 @@ import {
   toCollectTileWords,
   unreadEvents,
   type ClientMeeting,
-  type CountRead,
 } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
@@ -280,6 +280,45 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     .is('event_id', null)
     .order('created_at', { ascending: false })
     .limit(50);
+  /*
+    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
+    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
+    the team couldn't load, and nobody is narrowed by a guess.
+    ⚡ Started NOW, beside the roster's reads (speed pass 2026-11-18) — it needs nothing from them; awaited where it was.
+  */
+  const teamReads = startAhead(
+    Promise.all([
+      fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
+      fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
+      fetchVendorServices(supabase, vendorProfileId).catch(() => null),
+    ]),
+  );
+  /*
+    ⚡ THE SHOP'S OWN `event_vendors` ROWS start now too (speed pass 2026-11-18): the read is scoped by this caller's
+    profile id alone, so it needs nothing from the reads beside it. Why it uses the admin client, and why it is paged,
+    is said where it is awaited.
+  */
+  const rosterAdmin = createAdminClient();
+  const rosterBookingsRead = startAhead(readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await rosterAdmin
+        .from('event_vendors')
+        .select(
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
+          { count: 'exact' },
+        )
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .is('archived_at', null)
+        // A covered cascade line carries no request of its own — only the anchor is
+        // asked — and folding one in would put the same event on the roster
+        // twice. Same filter the Answers Desk applies to the identical question.
+        .or('package_role.is.null,package_role.eq.anchor')
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  ));
   const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
@@ -310,19 +349,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
     readUnreadChatCountsByThread(supabase, user.id),
   ]);
-  /*
-    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
-    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
-    the team couldn't load, and nobody is narrowed by a guess.
-  */
-  const [teamRead, assignmentsRead, servicesRead] = await Promise.all([
-    fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
-    fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
-    fetchVendorServices(supabase, vendorProfileId).catch(() => null),
-  ]);
+  // 👥 Started beside the roster's reads (`teamReads`, above).
+  const [teamRead, assignmentsRead, servicesRead] = await teamReads;
 
   const threads = threadsRead.threads;
-  const monthPart = await customersMonth({
+  // ⚡ The month on top no longer holds the list back: started here, awaited just before the page is drawn.
+  const monthPartRead = startAhead(customersMonth({
     supabase,
     vendorProfileId,
     todayIso,
@@ -335,7 +367,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     services: servicesRead ?? [],
     teamRows: teamRead ?? [],
     reads: monthReads,
-  });
+  }));
   if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
   if (unreadRead.error) logQueryError('VendorCustomersPage.unread', { message: unreadRead.error }, { vendorProfileId }, 'graceful_degrade');
   const meetings: ClientMeeting[] = ((meetingsRead.data ?? []) as {
@@ -353,11 +385,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     status: a.status,
   }));
   const meetingsFailed = Boolean(meetingsRead.error);
-  const meetingsCount: CountRead = {
-    n: meetingsFailed ? meetings.length : (meetingsRead.count ?? meetings.length),
-    complete: !meetingsFailed && meetingsRead.count !== null,
-    failed: meetingsFailed,
-  };
 
   // ⚠ MONEY. A payday read that did not reach the server's count is NOT added
   // up: the status line says some payments couldn't load and every booked
@@ -407,32 +434,14 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     the retired Clients page asked "is it finished?" with the shared
     `rowReadsCompleted`; the roster now asks it too, through the derivation.
   */
-  const rosterAdmin = createAdminClient();
+  // `rosterAdmin` is made above, where the roster's first read starts (speed pass 2026-11-18).
   /*
     ⚠ PAGED TO THE SERVER'S EXACT COUNT. One un-ranged SELECT here was capped by
     PostgREST (Supabase default 1000 rows) with `error: null`, so past a
     thousand bookings the rest silently left the roster.
   */
-  const evRead = await readAllPages(
-    async (from, to) => {
-      const { data, error, count } = await rosterAdmin
-        .from('event_vendors')
-        .select(
-          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
-          { count: 'exact' },
-        )
-        .eq('marketplace_vendor_id', vendorProfileId)
-        .is('archived_at', null)
-        // A covered cascade line carries no request of its own — only the anchor is
-        // asked — and folding one in would put the same event on the roster
-        // twice. Same filter the Answers Desk applies to the identical question.
-        .or('package_role.is.null,package_role.eq.anchor')
-        .order('vendor_id', { ascending: true })
-        .range(from, to);
-      return { rows: data ?? null, error: error ? error.message : null, total: count };
-    },
-    { pageSize: 1000 },
-  );
+  // Started beside the page's first reads (`rosterBookingsRead`, above) — the same paged read, awaited here.
+  const evRead = await rosterBookingsRead;
   const evRows = evRead.rows;
   if (evRead.error || !evRead.complete) {
     logQueryError(
@@ -958,12 +967,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
-  // 📌 The pinned row's two figures (Build 2 #43b, v113 "6 booked · ₱48,000 to collect") — the SAME reads as the tiles.
-  const pinCounts = `${doorValue('booked') ?? '—'} booked${monthIds ? ' this month' : ''} · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
   const overdue = overdueRead(picture.totals);
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
@@ -1004,6 +1010,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const panels: Record<string, ReactNode> = { ...rosterPanels, ...tilePanels };
 
+  const monthPart = await monthPartRead;
   return (
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers" /> : null}
@@ -1018,13 +1025,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         <CustomersPin
           seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
-          title={{ counts: pinCounts }}
+          title={{}}
           month={monthPart.month}
           doors={doors}
           panels={panels}
           quick={quick}
           initial={initialDoor}
-          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
+          gear={
+            <CustomersSettings
+              body={
+                // 🧹 Not available · Waiting list · QR codes live in ⚙ › Teams and days now (owner "Yes, all three", 19 Nov, Q2).
+                search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} daysTools={monthPart.folds} /> : null
+              }
+            />
+          }
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
             <>
@@ -1054,7 +1068,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
               {keptNotesMeasured && keptNotes.length > 0 ? (
                 <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
               ) : null}
-              {monthPart.folds}
             </div>
           }
         />
@@ -1353,7 +1366,7 @@ async function customersMonth({
     /** The month's tools, at the foot of the screen — the same folds Dates drew under its month. */
     folds: (
       // The month's own anchor (`#calendar`) sits on the month itself, in `CustomersPin`.
-      <div className="mt-6" data-customers-month-tools="">
+      <div className="mt-2" data-customers-month-tools="">
         <DatesFolds
           today={todayIso}
           month={month}
@@ -1657,6 +1670,14 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
   // 🔀 The old `?seg=people` (the first view's address until 2026-10-30) lands on Events — every other param kept.
   const forward = oldPeopleAddressForward(sp);
   if (forward) redirect(forward);
+  // 🧹 Not available and Waiting list moved into ⚙ › Teams and days (owner "Yes, all three", 19 Nov, Q2): an old
+  // `?open=block|waitlist` address still lands on its fold — now inside the ⚙ sheet, so the sheet opens with it.
+  if ((sp.open === 'block' || sp.open === 'waitlist') && sp.gear !== '1') {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (typeof v === 'string') q.set(k, v);
+    q.set('gear', '1');
+    redirect(`/vendor-dashboard/customers?${q.toString()}`);
+  }
   const seg = customersSegmentOf(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
@@ -1674,7 +1695,11 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
         <div
           // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
+          // 🧹 NO EMPTY TOP on the one Clients screen (owner 19 Nov): no top padding on a phone, and no space-y — the sr-only
+          // <h1> is a sibling too, so `space-y-4` put 16px of nothing over "Clients". Money and one day keep theirs.
+          className={`mx-auto w-full max-w-3xl px-4 pb-6 sm:px-6 lg:px-8 ${
+            seg === 'money' || search.day ? 'space-y-4 pt-4' : 'pt-0 tab:pt-3'
+          } ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Clients</h1>

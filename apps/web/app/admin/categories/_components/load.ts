@@ -11,6 +11,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
 import { getTaxonomy } from '@/lib/taxonomy-db';
+import { availabilityOf } from '@/lib/taxonomy-snapshot';
 import type { TaxonomySnapshot } from '@/lib/taxonomy-db';
 import { displayUrlForCatalogueArt } from '@/lib/uploads';
 import { PROJECTABLE_LEAVES } from '@/lib/refinements-mutations';
@@ -218,6 +219,8 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
     admin.from('canonical_service_schemas').select('canonical_service, hint_en'),
   ]);
   if (tax.source === 'fallback') failed.push('the category tree');
+  // How a service books (plan step 2): an unread setting is said, never counted as Not set.
+  else if (!tax.serviceAvailability) failed.push('service Availability');
   noteFailure(failed, 'services', schemasRes.error);
   noteFailure(failed, 'service scopes', extraRes.error);
   noteFailure(failed, 'supplier requests', reqRes.error);
@@ -291,6 +294,7 @@ export async function loadCategories(admin: Admin, openTileId: string | null): P
       secondaryTiles: Array.isArray(meta?.secondary_tiles) ? [...meta.secondary_tiles] : [],
       eventTypes: extra.get(s.canonical_service)?.applicable_event_types ?? null,
       hint: serviceHints ? (serviceHints.get(s.canonical_service) ?? null) : undefined,
+      availability: availabilityOf(tax, s.canonical_service),
       schemaVersion: s.schema_version ?? 1,
       sharedGroups: Array.isArray(s.shared_attribute_groups) ? s.shared_attribute_groups : [],
       fields: Object.entries(attrs).map(([key, def]) => {

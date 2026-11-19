@@ -10,7 +10,9 @@
  *   • 💎 slice 2 (2026-11-05): Event Plus / Event Pro are counted from their OWN stock (sabotage: judge every kind against
  *     `free.papic` → red), and an event that already has Event Pro cannot take either (sabotage: drop the
  *     `eventHas === 'pro'` line → red);
- *   • a Free shop pays the list price; a gift price above the list never applies.
+ *   • 📦 2026-11-14: ONE price per gift (the list price — no gift price); BUY 10, GET 1 FREE bundles come from the
+ *     catalogue rows, never typed; Papic is COUNTED IN PACKS — each pack's lines against that pack's own free count
+ *     (sabotage: judge Papic against `free.papic` credits again → the per-pack cases go red).
  *
  * The packs below are TEST FIXTURES, not prices — the app reads them from `platform_retail_catalog_v2`.
  */
@@ -26,10 +28,15 @@ import {
   alwaysAllowedPack,
   coupleGiftHeadline,
   freeCredits,
-  giftLimitCentavos,
-  giftUnitPrice,
-  judgeQuoteGifts,
   allocateRewardLines,
+  bundleFreePacks,
+  bundleListNote,
+  freeOfPack,
+  giftItemsOf,
+  giftLimitCentavos,
+  isShopGiftBundleCode,
+  judgeQuoteGifts,
+  shopGiftBundlesFrom,
   shopGiftBuyable,
   shopGiftCodeOf,
   shopGiftKindOf,
@@ -39,19 +46,33 @@ import {
 } from './shop-gifts';
 
 const PACKS = shopGiftPacksFrom([
-  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
-  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-  { code: 'PAPIC_GUEST', title: 'Papic Unlimited', credits: 3000, pricePhp: 999, giftPricePhp: null },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+  { code: 'PAPIC_GUEST', title: 'Papic Unlimited', credits: 3000, pricePhp: 999 },
 ]);
 
-/** What is free to offer, per kind — Papic credits, then Event Plus and Event Pro counts. */
-const F = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
+/**
+ * What is free to offer — 🔢 `n` of EVERY Papic pack (counted in packs since 2026-11-14), then Event Plus / Pro / Ultra.
+ * `papic` (the credit total) is deliberately NOT what the judge reads; it is set to a number that would mislead.
+ */
+/** Catalogue codes, one per line (a code beside another code in one array reads as a key to the secret scan). */
+const P150 = 'PAPIC_GUEST_150';
+const P1K = 'PAPIC_GUEST_1K';
+const P3K = 'PAPIC_GUEST';
+const PAPIC_CODES = [P150, P1K, P3K];
+const F = (n: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({
+  papic: 999_999,
+  event_plus,
+  event_pro,
+  event_ultra,
+  packs: Object.fromEntries(PAPIC_CODES.map((c) => [c, n])),
+});
 
 const UNLOCKS = shopGiftPacksFrom([
   ...[
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   ],
 ]);
 
@@ -85,16 +106,98 @@ describe('packs', () => {
   });
 });
 
-describe('what a shop pays', () => {
-  const p150 = PACKS[0]!;
-  it('Verified-and-up pays the gift price; Free pays the list', () => {
-    assert.deepEqual(giftUnitPrice(p150, true), { centavos: 9000, basis: 'gift' });
-    assert.deepEqual(giftUnitPrice(p150, false), { centavos: 9900, basis: 'list' });
+describe('📦 one price per gift, and the bundles (2026-11-14)', () => {
+  it('a pack carries ONE price — the list price; there is no gift price on it', () => {
+    const p150 = PACKS[0]!;
+    assert.equal(p150.srpCentavos, 9900);
+    assert.deepEqual(Object.keys(p150).sort(), ['code', 'credits', 'kind', 'srpCentavos', 'title']);
   });
-  it('a pack with no gift price, or one not below the list, is the list price for everyone', () => {
-    assert.equal(giftUnitPrice(PACKS[2]!, true).basis, 'list');
-    const odd = { ...p150, giftPriceCentavos: 12_000 };
-    assert.deepEqual(giftUnitPrice(odd, true), { centavos: 9900, basis: 'list' });
+  const BUNDLE_ROWS = [
+    { code: 'GIFT_BUNDLE_PAPIC_1K', title: '11 × Papic 1000', pricePhp: 4990, bundleOf: 'PAPIC_GUEST_1K', bundleQuantity: 11 },
+    { code: 'GIFT_BUNDLE_PAPIC_150', title: '11 × Papic 150', pricePhp: 990, bundleOf: 'PAPIC_GUEST_150', bundleQuantity: 11 },
+    // 💎 kept (owner 2026-11-17, "10 + 1 bundles for ALL gifts"): an Event Plus bundle, priced as its row says
+    { code: 'GIFT_BUNDLE_EVENT_PLUS', title: '11 × Event Plus', pricePhp: 29_900, bundleOf: 'EVENT_PLUS', bundleQuantity: 11 },
+    // dropped: a pack that is not on sale · not a bundle code · a count of 1 · no price · a gift not on sale (Ultra here)
+    { code: 'GIFT_BUNDLE_X', title: 'x', pricePhp: 100, bundleOf: 'PAPIC_GUEST_9X', bundleQuantity: 11 },
+    { code: 'PAPIC_GUEST_1K', title: 'x', pricePhp: 100, bundleOf: 'PAPIC_GUEST_1K', bundleQuantity: 11 },
+    { code: 'GIFT_BUNDLE_ONE', title: 'x', pricePhp: 100, bundleOf: 'PAPIC_GUEST_1K', bundleQuantity: 1 },
+    { code: 'GIFT_BUNDLE_FREE', title: 'x', pricePhp: 0, bundleOf: 'PAPIC_GUEST_1K', bundleQuantity: 11 },
+    { code: 'GIFT_BUNDLE_ULTRA', title: 'x', pricePhp: 100, bundleOf: 'EVENT_ULTRA', bundleQuantity: 11 },
+  ];
+  it('bundles are read from the catalogue rows — which gift, how many, what price — Papic smallest first, then the plans', () => {
+    const b = shopGiftBundlesFrom(BUNDLE_ROWS, [...PACKS, ...UNLOCKS]);
+    assert.deepEqual(b.map((x) => [x.code, x.pack.code, x.quantity, x.priceCentavos]), [
+      ['GIFT_BUNDLE_PAPIC_150', P150, 11, 99_000],
+      ['GIFT_BUNDLE_PAPIC_1K', P1K, 11, 499_000],
+      ['GIFT_BUNDLE_EVENT_PLUS', 'EVENT_PLUS', 11, 2_990_000],
+    ]);
+  });
+  it('the free pack and the admin note are worked out from the catalogue, never typed', () => {
+    const [b150, b1k] = shopGiftBundlesFrom(BUNDLE_ROWS, PACKS);
+    assert.equal(bundleFreePacks(b1k!), 1);
+    assert.equal(bundleFreePacks(b150!), 1);
+    assert.equal(bundleListNote(b1k!).ok, true);
+    assert.match(bundleListNote(b1k!).text, /^10 at today’s list price · 1 free$/);
+    // The admin moved the pack's list price: the bundle no longer equals whole packs — the note warns.
+    const drifted = { ...b1k!, pack: { ...b1k!.pack, srpCentavos: 52_000 } };
+    assert.equal(bundleListNote(drifted).ok, false);
+    assert.equal(bundleFreePacks(drifted), 1);
+  });
+  it('a bundle order key round-trips; a bundle code is a namespace, not a list', () => {
+    assert.equal(isShopGiftBundleCode('GIFT_BUNDLE_PAPIC_3000'), true);
+    assert.equal(isShopGiftBundleCode('PAPIC_GUEST_1K'), false);
+    assert.equal(shopGiftCodeOf(shopGiftServiceKey('GIFT_BUNDLE_PAPIC_1K')), 'GIFT_BUNDLE_PAPIC_1K');
+    // a bundle is never a gift kind of its own — it only fills the stock with its pack
+    assert.equal(shopGiftKindOf('GIFT_BUNDLE_PAPIC_1K'), null);
+  });
+});
+
+describe('🔢 Papic counted in packs (2026-11-14)', () => {
+  const big = 100_000_00;
+  it('each pack is judged against ITS OWN free count, never the credit total', () => {
+    const free = { papic: 999_999, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_150: 3 } };
+    const v = judgeQuoteGifts(['PAPIC_GUEST_1K'], PACKS, big, BOOKING_FEE, LIMIT, free);
+    assert.equal(v.state, 'short');
+    assert.equal(v.shortKind, 'papic');
+    assert.equal(v.shortPack, 'PAPIC_GUEST_1K');
+    assert.equal(v.shortBy, 1);
+    assert.equal(judgeQuoteGifts([P150, P150], PACKS, big, BOOKING_FEE, LIMIT, free, 'none', null, 9).state, 'ok');
+    assert.equal(judgeQuoteGifts(Array(4).fill('PAPIC_GUEST_150'), PACKS, big, BOOKING_FEE, LIMIT, free, 'none', null, 9).shortBy, 1);
+  });
+  it('freeOfPack answers per pack for Papic and per kind for an unlock; null when unread', () => {
+    const free = F(2, 1);
+    assert.equal(freeOfPack(free, PACKS[1]!), 2);
+    assert.equal(freeOfPack(free, UNLOCKS.find((p) => p.kind === 'event_plus')!), 1);
+    assert.equal(freeOfPack(null, PACKS[0]!), null);
+    assert.equal(freeOfPack({ ...free, packs: {} }, PACKS[0]!), 0);
+  });
+  it('the couple reads whole packs: "2 × Papic 1000 · Event Ultra"', () => {
+    assert.deepEqual(
+      giftItemsOf([
+        { title: 'Papic 1000', kind: 'papic' },
+        { title: 'Event Ultra', kind: 'event_ultra' },
+        { title: 'Papic 1000', kind: 'papic' },
+      ]),
+      ['2 × Papic 1000', 'Event Ultra'],
+    );
+  });
+  it('🏅 a badge reward pays only lines of ITS OWN pack (Gold = Papic 1000, Ruby = Papic 3000)', () => {
+    const [p150, p1k, p3k] = [PACKS[0]!, PACKS[1]!, PACKS[2]!];
+    assert.equal(p150.code, 'PAPIC_GUEST_150');
+    assert.equal(p1k.code, 'PAPIC_GUEST_1K');
+    // A Gold reward (one Papic 1000) pays the Papic 1000 line, not the Papic 150 beside it.
+    const gold = { papic: 1000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_1K: 1 } };
+    assert.deepEqual(allocateRewardLines([p1k, p150], gold), [true, false]);
+    // …and is never six Papic 150s.
+    assert.deepEqual(allocateRewardLines([p150, p150, p150, p150, p150, p150], gold), [false, false, false, false, false, false]);
+    // A Ruby reward (one Papic 3000) pays one Papic 3000 line, once.
+    const ruby = { papic: 3000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST: 1 } };
+    assert.deepEqual(allocateRewardLines([p3k, p3k, p1k], ruby), [true, false, false]);
+    // Two Papic 150 rewards pay two Papic 150 lines; credits with no pack named pay nothing.
+    const two150 = { papic: 300, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_150: 2 } };
+    assert.deepEqual(allocateRewardLines([p150, p150, p150], two150), [true, true, false]);
+    const creditsOnly = { papic: 3000, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} };
+    assert.deepEqual(allocateRewardLines([p150, p1k], creditsOnly), [false, false]);
   });
 });
 
@@ -121,7 +224,7 @@ describe('judging a quote', () => {
     assert.equal(v.valueCentavos, 49_900);
   });
   it('refuses gifts over the limit', () => {
-    const v = judgeQuoteGifts(['PAPIC_GUEST', 'PAPIC_GUEST', 'PAPIC_GUEST'], PACKS, 10_000_00, BOOKING_FEE, LIMIT, F(99_999));
+    const v = judgeQuoteGifts(['PAPIC_GUEST', 'PAPIC_GUEST', 'PAPIC_GUEST'], PACKS, 10_000_00, BOOKING_FEE, LIMIT, F(99_999), 'none', null, 9);
     assert.ok(v.valueCentavos > v.limitCentavos);
     assert.equal(v.state, 'over_limit');
   });
@@ -131,12 +234,12 @@ describe('judging a quote', () => {
     assert.equal(v.alwaysAllowed, true);
     assert.equal(v.state, 'ok');
     // …but two of them are not the always-allowed gift any more
-    assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, 1_00, BOOKING_FEE, LIMIT, F(500)).state, 'over_limit');
+    assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150', 'PAPIC_GUEST_150'], PACKS, 1_00, BOOKING_FEE, LIMIT, F(500), 'none', null, 9).state, 'over_limit');
   });
   it('buy first: refuses what stock cannot cover, and an unread stock covers nothing', () => {
-    const short = judgeQuoteGifts(['PAPIC_GUEST_1K'], PACKS, big, BOOKING_FEE, LIMIT, F(400));
+    const short = judgeQuoteGifts(['PAPIC_GUEST_1K'], PACKS, big, BOOKING_FEE, LIMIT, F(0));
     assert.equal(short.state, 'short');
-    assert.equal(short.shortBy, 600);
+    assert.equal(short.shortBy, 1);
     assert.equal(judgeQuoteGifts(['PAPIC_GUEST_150'], PACKS, big, BOOKING_FEE, LIMIT, null).state, 'short');
   });
   it('a pack no longer on sale is refused', () => {
@@ -153,14 +256,33 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
   });
   it('are counted from their own stock, never from the Papic credits', () => {
     assert.equal(judgeQuoteGifts(['EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(99_999, 0)).state, 'short');
-    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(0, 1));
+    const v = judgeQuoteGifts(['EVENT_PLUS', 'EVENT_PLUS'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(0, 1), 'none', null, 9);
     assert.equal(v.state, 'short');
     assert.equal(v.shortKind, 'event_plus');
     assert.equal(v.shortBy, 1);
-    const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1));
+    const ok = judgeQuoteGifts(['EVENT_PLUS', 'PAPIC_GUEST_150'], UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
     assert.equal(ok.state, 'ok');
     assert.equal(ok.credits, 150, 'Papic credits only');
     assert.deepEqual(ok.unlocks, { event_plus: 1, event_pro: 0, event_ultra: 0 });
+  });
+  it('a plan gift and Papic combine — WITHIN the limit (owner 15 Nov, gift-for-services decisions)', () => {
+    // Both on one quote: together they must fit; Papic 150 beside a plan is not the always-allowed gift any more.
+    const pair = ['EVENT_PLUS', 'PAPIC_GUEST_150'];
+    const fits = judgeQuoteGifts(pair, UNLOCKS, big, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
+    assert.equal(fits.state, 'ok');
+    assert.equal(fits.valueCentavos, 299_000 + 9_900);
+    // A quote whose limit covers the plan alone (₱2,990) but not the plan + Papic 150 (₱3,089).
+    const at = (pesos: number) => judgeQuoteGifts(pair, UNLOCKS, pesos * 100, BOOKING_FEE, LIMIT, F(150, 1), 'none', null, 9);
+    let tight = 0;
+    for (let p = 1_000; p < 2_000_000; p += 1_000) {
+      const lim = giftLimitCentavos(p * 100, BOOKING_FEE, LIMIT);
+      if (lim >= 299_000 && lim < 308_900) { tight = p; break; }
+    }
+    assert.ok(tight > 0, 'a quote size between the two exists under the live schedule');
+    const over = at(tight);
+    assert.equal(over.alwaysAllowed, false);
+    assert.equal(over.state, 'over_limit');
+    assert.equal(judgeQuoteGifts(['EVENT_PLUS'], UNLOCKS, tight * 100, BOOKING_FEE, LIMIT, F(150, 1)).state, 'ok');
   });
   it('count toward the 40% limit at the price couples pay', () => {
     const v = judgeQuoteGifts(['COUPLE_WEBSITE_PRO'], UNLOCKS, 100_000_00, BOOKING_FEE, LIMIT, F(0, 0, 1));
@@ -177,27 +299,27 @@ describe('💎 Event Plus and Event Pro (slice 2)', () => {
   });
   it('the couple reads the unlock in the same line', () => {
     assert.equal(
-      coupleGiftHeadline(150, 'Saysay Studio', ['Event Plus']),
-      'Gift from Saysay Studio 🎁 · 150 Papic credits · Event Plus',
+      coupleGiftHeadline(['1 × Papic 150', 'Event Plus'], 'Saysay Studio'),
+      'Gift from Saysay Studio 🎁 · 1 × Papic 150 · Event Plus',
     );
-    assert.equal(coupleGiftHeadline(0, 'Saysay Studio', ['Event Pro']), 'Gift from Saysay Studio 🎁 · Event Pro');
+    assert.equal(coupleGiftHeadline(['Event Pro'], 'Saysay Studio'), 'Gift from Saysay Studio 🎁 · Event Pro');
   });
 });
 
-describe('💎 Event Ultra — Black Diamond\'s reward, earned never bought (owner 15 Nov)', () => {
+describe('💎 Event Ultra — Black Diamond\'s reward, and BOUGHT at its list price too (owner 17 Nov)', () => {
   // The Ultra row as the catalogue shapes it: one unlock, its list price read, and NO gift price (none is set).
   const WITH_ULTRA = shopGiftPacksFrom([
-    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-    { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990, giftPricePhp: null },
-    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690, giftPricePhp: 5190 },
-    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990, giftPricePhp: 2690 },
+    { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+    { code: 'EVENT_ULTRA', title: 'Event Ultra', credits: 1, pricePhp: 9990 },
+    { code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', credits: 1, pricePhp: 5690 },
+    { code: 'EVENT_PLUS', title: 'Event Plus', credits: 1, pricePhp: 2990 },
   ]);
   const big = 100_000_00;
-  it('is a giftable kind that can never be a gift ORDER', () => {
+  it('is a giftable kind a shop can BUY — a gift order like any other (owner 17 Nov: "Event Ultra can be bought")', () => {
     assert.equal(shopGiftKindOf('EVENT_ULTRA'), 'event_ultra');
-    assert.equal(shopGiftBuyable('EVENT_ULTRA'), false);
+    assert.equal(shopGiftBuyable('EVENT_ULTRA'), true);
     assert.equal(shopGiftBuyable('COUPLE_WEBSITE_PRO'), true);
-    assert.equal(shopGiftCodeOf('vendor_gift__EVENT_ULTRA'), null, 'an Ultra gift order would mint stock nobody priced');
+    assert.equal(shopGiftCodeOf('vendor_gift__EVENT_ULTRA'), 'EVENT_ULTRA');
     assert.deepEqual(WITH_ULTRA.map((p) => p.kind), ['papic', 'event_plus', 'event_pro', 'event_ultra']);
   });
   it('goes on a quote from its own (reward) stock, outside the limit', () => {
@@ -223,7 +345,7 @@ describe('💎 Event Ultra — Black Diamond\'s reward, earned never bought (own
 
 describe('the add menu', () => {
   it('says why each pack cannot go on now', () => {
-    const menu = addGiftMenu(['PAPIC_GUEST_1K'], PACKS, 100_000_00, BOOKING_FEE, LIMIT, F(1200));
+    const menu = addGiftMenu(['PAPIC_GUEST_1K'], PACKS, 100_000_00, BOOKING_FEE, LIMIT, F(1), 'none', null, 9);
     assert.equal(menu.find((o) => o.code === 'PAPIC_GUEST_150')?.ok, true);
     const k1 = menu.find((o) => o.code === 'PAPIC_GUEST_1K');
     assert.equal(k1?.ok, false);
@@ -242,7 +364,7 @@ describe('words', () => {
     assert.equal(stockSubline({ balance: 1150, held: 300 }), '850 free to offer · 300 on sent quotes');
   });
   it('the couple headline names the shop and is silent at zero', () => {
-    assert.equal(coupleGiftHeadline(1150, 'Saysay Studio'), 'Gift from Saysay Studio 🎁 · 1,150 Papic credits');
-    assert.equal(coupleGiftHeadline(0, 'Saysay Studio'), null);
+    assert.equal(coupleGiftHeadline(['1 × Papic 1000', '1 × Papic 150'], 'Saysay Studio'), 'Gift from Saysay Studio 🎁 · 1 × Papic 1000 · 1 × Papic 150');
+    assert.equal(coupleGiftHeadline([], 'Saysay Studio'), null);
   });
 });

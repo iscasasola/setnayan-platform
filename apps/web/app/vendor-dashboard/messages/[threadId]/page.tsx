@@ -12,9 +12,8 @@ import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
-import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { fetchShopGiftBundles, fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
 import { readQuoteDoors, type QuoteDoors } from '@/lib/quote-doors.server';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
@@ -443,9 +442,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   });
   const shopGiftsRead = (async () => {
     const giftAdmin = createAdminClient();
-    const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
+    const [basis, settings, papicOn, storeShell] = await Promise.all([
       fetchShopGiftQuoteBasis(giftAdmin, profile.vendor_profile_id, thread.event_id),
-      fetchVendorPaysGiftPrice(giftAdmin, profile.vendor_profile_id),
       fetchPlatformSettings(supabase),
       isVendorPapicCaptureEnabled(),
       isStoreShellRequest(),
@@ -454,7 +452,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     const packs = basis ? (papicOn ? basis.packs : basis.packs.filter((p) => p.kind !== 'papic')) : [];
     if (!basis || packs.length === 0) return { basis: null, buy: null };
     const openRails = openRailOptions(settings);
-    return { basis: { ...basis, packs }, buy: storeShell ? null : { paysGiftPrice, openRails } };
+    // 📦 The buy-10-get-1 bundles, read from the catalogue (2026-11-14) — a Papic one only while Papic is on (2026-11-17).
+    // null = the bundle read failed: the Buy sheet says so instead of showing no bundles.
+    const bundlesRead = storeShell ? [] : await fetchShopGiftBundles(giftAdmin, basis.packs);
+    const bundles = bundlesRead === null ? null : bundlesRead.filter((b) => papicOn || b.pack.kind !== 'papic');
+    return { basis: { ...basis, packs }, buy: storeShell ? null : { bundles, openRails } };
   })().catch((err) => {
     console.error('[supabase-error] messages thread · shop gifts', err);
     return { basis: null, buy: null };

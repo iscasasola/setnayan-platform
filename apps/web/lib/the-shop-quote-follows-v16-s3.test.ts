@@ -34,7 +34,8 @@ test('each card: "Add to quote" (pressed → "In your quote") and "Choose this s
   assert.match(GALLERY, /const quoteActionsFor = \(c: ServiceCard\) =>\s*quote \? \(\s*<CardQuoteActions card=\{c\} inQuote=\{picked\.includes\(c\.id\)\} onToggle=\{\(\) => setPicked\(\(p\) => toggleQuote\(p, c\.id\)\)\} \/>/);
   // Every card's footer carries the quote row — beside #7819's badge row when the card has badges, alone when not.
   const at = GALLERY.indexOf('footer={');
-  const footer = GALLERY.slice(at, GALLERY.indexOf('/>', GALLERY.indexOf('</>', at) + 3));
+  // From the footer to the card face's own closing `/>` (the line that ends the <ServiceCardView …> tag).
+  const footer = GALLERY.slice(at, GALLERY.indexOf('\n              />', at));
   assert.equal((footer.match(/\{?quoteActionsFor\(c\)\}?/g) ?? []).length, 2, 'a card without badges loses its quote row (or one with badges does)');
   assert.match(src('app/_components/service-card-view.tsx'), /<ServiceFace\s+footer=\{footer\}/);
   assert.match(GALLERY, /data-in-quote=\{picked\.includes\(c\.id\) \? '' : undefined\}/, 'a card in the quote is not marked');
@@ -69,7 +70,7 @@ test('the tray is v16’s `.dock .q` (count, names, Clear); the page’s ONE Inq
   assert.match(SHEET, /const quoted = shopQuote\(\);\s*const picks = svc \? \[svc\] : quoted\.length > 0 \? \[\.\.\.quoted\] : undefined;/, 'the one Inquire does not open with the quote');
   assert.match(QUOTE, /className=\{`\$\{phoneOnly \? 'md:hidden ' : ''\}fixed inset-x-0 bottom-0 z-20[^`]*max-md:pr-\[calc\(10rem\+var\(--sn-safe-r\)\)\]`\}/, 'the tray covers the floating Inquire on a phone');
   assert.doesNotMatch(QUOTE, /from '@\/app\/[^']*actions'|'use server'|startServiceInquiry/, 'the quote has its own send');
-  assert.match(GALLERY, /\{quote \? <QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} \/> : null\}/);
+  assert.match(GALLERY, /\{quote \? \(\s*<QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} notVerified=\{notVerified\} renewing=\{renewing\} \/>\s*\) : null\}/);
 });
 
 // Sabotage: offer the quote where the page has no Inquire pop-up / keep the old subtitle → red.

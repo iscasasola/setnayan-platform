@@ -8,7 +8,7 @@
  * keyframe's timing function · the tokens, never a raw time or curve · every motion has a reduced-motion still.
  *
  * WHERE EACH LIVES (the map — a new shared part is named here and in the Phase 6 block of globals.css):
- *   Celebrate   app/_components/celebrate.tsx + lib/moment-once.ts      Long press  app/_components/long-press.tsx
+ *   Celebrate   app/_components/celebrate.tsx + lib/moment-once.ts      Long press  the shared hold (HOLD_MS) + Lift
  *   Lift        lib/lift.ts                                             Upload      app/_components/upload-ring.tsx
  *   Coach marks app/_components/spotlight-tour.tsx                      Offline bar app/_components/offline-bar.tsx
  *   Glide       app/_components/glide-mount.tsx + lib/glide.ts          (mounted by app/_components/motion-mounts.tsx)
@@ -176,7 +176,7 @@ test('1 · Celebrate — twelve pieces, ~900 ms on Settle, the badge on Spring, 
   assert.doesNotMatch(tour, /sn-spot-fall|sn-spot-confetti|function Confetti/, 'the tour still throws confetti of its own');
 });
 
-test('2 · Long press — ONE hold (350 ms); the lift is Lift, the menu is Pop, the dim is the one scrim', async () => {
+test('2 · Long press — ONE hold (350 ms), read by every hold; the lift is Lift', () => {
   assert.equal(LIFT_HOLD_MS, HOLD_MS);
   // Every hold the app waits before a lift is the SAME number, read from the table.
   assert.equal(SEAT_HOLD_MS, HOLD_MS, 'the seat plan holds for a time of its own');
@@ -185,20 +185,10 @@ test('2 · Long press — ONE hold (350 ms); the lift is Lift, the menu is Pop, 
   assert.match(read('app/dashboard/[eventId]/guests/_components/guest-role-drag.tsx'), /export const ROLE_HOLD_MS = LIFT_HOLD_MS;/);
   assert.match(read('app/dashboard/[eventId]/launch/_components/rsvp-canvas-drag.ts'), /export const RSVP_HOLD_MS = HOLD_MS;/);
   assert.match(read('app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx'), /const LONG_PRESS_MS = HOLD_MS;/);
-  const src = read('app/_components/long-press.tsx');
-  assert.match(src, /holdMs = LIFT_HOLD_MS/, 'the hook’s default hold is not the standard’s');
-  assert.match(src, /Math\.hypot\(e\.clientX - p\.x, e\.clientY - p\.y\) > HOLD_SLOP_PX\) cancel\(\)/, 'a finger that moves must stay a scroll');
-  // It has no motion of its own: Lift's ghost, Pop's class, the house scrim.
-  assert.match(src, /liftGhost\(ghost\);/);
-  assert.match(src, /return \(\) => void dropGhost\(ghost\);/);
-  assert.match(src, /className="sn-m-pop sn-m-hold-menu"/);
-  assert.match(src, /<OverlayBackdrop onClose=\{close\}/);
-  assert.doesNotMatch(src, /\.animate\(|transition:|animation:|duration/, 'the long press grew a motion of its own');
-  assert.doesNotMatch(rule('.sn-m-hold-menu'), /transition|animation/, 'the menu’s motion is Pop’s, not its own');
-  // The menu stands under the row, and flips over it when there is no room.
-  const { holdMenuPlace } = await import('../app/_components/long-press');
-  assert.deepEqual(holdMenuPlace({ top: 100, bottom: 144, right: 378 }, 96, 390, 800), { top: 152, right: 16, side: 'below' });
-  assert.equal(holdMenuPlace({ top: 700, bottom: 744, right: 378 }, 96, 390, 800).side, 'above');
+  // The hold-menu part (`long-press.tsx`) was removed on 19 Nov: no screen mounted it (ugat both-ends). Until a screen
+  // opens a menu on a hold, the long press IS the one hold above plus Lift — and no stray menu rules ship.
+  // (If a menu part comes back, ugat-both-ends holds it to a real mount; this only keeps its rules from shipping alone.)
+  assert.doesNotMatch(BLOCK, /\.sn-m-hold-menu\b/, 'menu rules ship with no menu');
 });
 
 test('3 · Lift — scale and the shadow’s opacity, never the row’s transform; no drag keeps a lift of its own', () => {

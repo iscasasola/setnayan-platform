@@ -8,7 +8,7 @@ six signature moments are NOT in this change (other builders).
 | Motion (§ 4) | The shared part | Adopted by |
 |---|---|---|
 | Celebrate #23 | `app/_components/celebrate.tsx` + `lib/moment-once.ts` (`playsOnce` — the once-gate; `tie` and the other signature moments have their key in it) | the paid page `/pay/[reference]` (payment received) · `badge-earned-line.tsx` (badge earned) · the spotlight tour's end (its own 70-piece confetti is gone) |
-| Long press #24 | `app/_components/long-press.tsx` (`useLongPress`, `<LongPressMenu>` — Lift + Pop + the one scrim) | the ONE hold (`HOLD_MS` 350): guests' role drag, the seat list + tray (was 300), the shortlist rearrange (was 450), the RSVP line |
+| Long press #24 | the ONE shared hold (`--sn-m-hold` / `HOLD_MS`) + Lift. The hold-menu part (`long-press.tsx`) was built, then REMOVED on 19 Nov because no screen mounted it (ugat both-ends); it returns with the first screen that opens a menu on a hold | the ONE hold (`HOLD_MS` 350): guests' role drag, the seat list + tray (was 300), the shortlist rearrange (was 450), the RSVP line |
 | Lift #15 | `lib/lift.ts` + `.sn-m-lift` | guests' role drag · Seats › List · the seat tray (each lost its own `scale(1.02)` + shadow) |
 | Upload #25 | `app/_components/upload-ring.tsx` | `file-upload.tsx` (row circle, thumb, gallery tile, list row — the pie, the spinner and the width bar are gone) · Studio prints · the Papic chip's ✓ |
 | Coach marks #27 | `app/_components/spotlight-tour.tsx` | the ring, the hand and the progress line move by `translate` / `scaleX` in Move on Settle (was `transition: all .75s`, left / top / width) |
@@ -52,7 +52,7 @@ Sabotage — each seen RED once (19 Nov 2026), then restored:
 
 SPEC IMPACT: `MOTION_STANDARD_2026-11-18.md` § 11 Phase 6 — (a) Celebrate · Long press · Lift · Upload · Coach marks ·
 Offline bar · Glide and (c) cleanup are BUILT (Chat send and the six signature moments are separate builds); § 7's 🆕
-rows now have names (`celebrate.tsx`, `long-press.tsx`, `lib/lift.ts`, `upload-ring.tsx`, `offline-bar.tsx`,
+rows now have names (`celebrate.tsx`, `lib/lift.ts`, `upload-ring.tsx`, `offline-bar.tsx`,
 `glide-mount.tsx`). Not applied to the corpus by this change — for the controller. Owner calls surfaced: the upload
 ring is gold with the figure on it (8 Oct ruled an accent pie); the No. 1 plaque's confetti, the gift moment's and the
 supplier calendar's are NOT replaced by Celebrate; the long-press dim is the house scrim, not the drawing's lighter one.

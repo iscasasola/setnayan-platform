@@ -6228,7 +6228,7 @@ html.dark [data-art='candlelight'] {
 /* ═══ 🎞 THE MOTION STANDARD · PHASE 6 — MOMENTS (owner 19 Nov 2026: "animations build the rest"; specs
    `MOTION_STANDARD_2026-11-18.md` § 4 rows 12 · 15 · 23 · 24 · 25 · 27 · 28, drawing
    `motion_standard_2026-11-18_fable.html` Part B "Glide" / "Drag lift" and Part H). Each motion is ONE shared part:
-     Celebrate   app/_components/celebrate.tsx        Long press  app/_components/long-press.tsx
+     Celebrate   app/_components/celebrate.tsx        Long press  the shared hold (--sn-m-hold) + Lift
      Lift        lib/lift.ts                          Upload      app/_components/upload-ring.tsx
      Coach marks app/_components/spotlight-tour.tsx   Offline bar app/_components/offline-bar.tsx
      Glide       app/_components/glide-mount.tsx
@@ -6359,42 +6359,10 @@ html.dark [data-art='candlelight'] {
   transition: translate var(--sn-m-move) var(--sn-m-settle);
 }
 
-/* LONG PRESS (#24) — hold 350 ms (`--sn-m-hold`, a wait): the row lifts (Lift, above), the house scrim dims the rest
-   (`<OverlayBackdrop>`, Quick on Settle) and its menu opens beside it (Pop, `.sn-m-pop`: Quick, size on Spring, fade
-   on Settle). The lifted row is a carried copy that stands over the scrim (`long-press.tsx`). Reduced: no lift, the
-   menu fades in. */
-.sn-m-lift.sn-m-hold-row[data-lift-ghost] {
-  z-index: calc(var(--sn-z-scrim) + 1);
-}
-.sn-m-hold-menu {
-  position: fixed;
-  z-index: calc(var(--sn-z-scrim) + 2);
-  min-width: 168px;
-  max-width: calc(100vw - 32px);
-  padding: 4px 0;
-  border-radius: var(--m-r-md, 12px);
-  background: var(--m-paper, #fff);
-  color: var(--m-ink);
-  border: 1px solid var(--m-line);
-  box-shadow: var(--sn-sh-float);
-  transform-origin: top right;
-}
-.sn-m-hold-menu[data-pick-side='above'] { transform-origin: bottom right; }
-.sn-m-hold-menu > button {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  align-items: center;
-  gap: 10px;
-  padding: 0 14px;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-size: 14px;
-  text-align: start;
-  color: inherit;
-}
-.sn-m-hold-menu > button[data-danger] { color: rgb(var(--color-danger)); }
+/* LONG PRESS (#24) — the ONE hold is shared: `--sn-m-hold` / `HOLD_MS` (350 ms), read by every shipped hold (guests' role
+   drag, the seat list and tray, shortlist rearrange, the RSVP line), each lifting with Lift above. The shared hold-menu
+   part was built and then REMOVED (19 Nov 2026) because no screen mounted it (🔒 tests/db/ugat-both-ends.db.test.ts:
+   "mount it from a page, or delete it"); it is built again with the first screen that opens a menu on a hold. */
 
 /* UPLOAD (#25) — a ring that FOLLOWS the upload (no curve of its own: two half rings turned by `rotate`, set from the
    real progress), then ✓ pops in Quick on Spring (`.sn-m-done`). It never sits looking dead: a ring at 0 % still shows

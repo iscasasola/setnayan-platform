@@ -5,6 +5,9 @@ import { ClipboardPaste, CornerDownRight, X } from 'lucide-react';
 import { referencesAgree, scanPaymentProof } from '@/lib/payment-proof-scan';
 import { formatPhp } from '@/lib/orders';
 import { haystackCarriesAmount } from '@/lib/payment-amount-forms';
+import { Badge } from '@/app/_components/badge';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateEmpty, TemplateRow, TemplateRows } from '@/app/_components/template-rows';
 
 /**
  * InboxMatcher — paste-and-match reconciliation helper (Wave 7 · 2-step program).
@@ -136,19 +139,23 @@ export function InboxMatcher({ payments }: { payments: MatcherPayment[] }) {
   // Wallet and reference hits are both DECISIVE-strength; amount-only is not.
   const strongHits = matches.filter((m) => m.tier !== 'amount').length;
 
+  const hitsLine = `${
+    strongHits > 0
+      ? `${strongHits} reference match${strongHits > 1 ? 'es' : ''}`
+      : 'No reference match — possible amount-only match, verify it yourself'
+  }${matches.length > strongHits ? ` · ${matches.length - strongHits} amount-only` : ''}`;
+
   return (
-    <section className="mb-5 rounded-xl border border-mulberry/20 bg-mulberry/[0.03] p-4">
+    <section className="pb-2">
       <div className="flex items-start justify-between gap-2">
-        <div className="space-y-0.5">
-          <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <ClipboardPaste aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
-            Match a bank / GCash notification
-          </h2>
-          <p className="text-xs text-ink/60">
+        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <ClipboardPaste aria-hidden className="h-4 w-4 text-mulberry" strokeWidth={1.75} />
+          {/* 📐 Admin clean port (19 Nov 2026): the how-to line moved behind the ⓘ, words unchanged. */}
+          <InfoTip label="Match a bank / GCash notification" align="start">
             Paste the SMS or app alert below — we&rsquo;ll find the pending payment whose reference
             code (or amount) it mentions, so you don&rsquo;t have to scan the list.
-          </p>
-        </div>
+          </InfoTip>
+        </h2>
         {text ? (
           <button
             type="button"
@@ -175,64 +182,45 @@ export function InboxMatcher({ payments }: { payments: MatcherPayment[] }) {
         matches.length > 0 ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs font-medium text-ink/70">
-              {strongHits > 0
-                ? `${strongHits} reference match${strongHits > 1 ? 'es' : ''}`
-                : 'No reference match — possible amount-only match, verify it yourself'}
-              {matches.length > strongHits
-                ? ` · ${matches.length - strongHits} amount-only`
-                : ''}
+              {hitsLine}
             </p>
-            <ul className="space-y-1.5">
+            <TemplateRows label="Matching payments">
               {matches.map((m) => (
-                <li key={m.payment.payment_id}>
-                  <a
-                    href={m.payment.href}
-                    className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg border px-3 py-2 text-sm hover:bg-cream ${
-                      m.tier !== 'amount'
-                        ? 'border-success-300/70 bg-success-50'
-                        : 'border-warn-300/70 bg-warn-50'
-                    }`}
-                  >
-                    <CornerDownRight
-                      aria-hidden
-                      className="h-3.5 w-3.5 text-ink/45"
-                      strokeWidth={1.75}
-                    />
-                    <span className="font-medium text-ink">{m.payment.label}</span>
-                    {m.payment.reference_code ? (
-                      <span className="font-mono text-xs text-terracotta-700">
-                        ref {m.payment.reference_code}
-                      </span>
-                    ) : null}
-                    <span className="font-mono text-xs text-ink/70">
+                <TemplateRow
+                  key={m.payment.payment_id}
+                  data="payments-matcher-hit"
+                  href={m.payment.href}
+                  lead={<CornerDownRight aria-hidden className="h-3.5 w-3.5 text-ink/45" strokeWidth={1.75} />}
+                  title={m.payment.label}
+                  line={
+                    <span className="tabular-nums">
+                      {m.payment.reference_code ? <>ref {m.payment.reference_code} · </> : null}
                       {formatPhp(m.payment.amount_php)}
                     </span>
-                    <span
-                      className={`ml-auto rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                        m.tier !== 'amount'
-                          ? 'bg-success-100 text-success-800'
-                          : 'bg-warn-100 text-warn-900'
-                      }`}
-                    >
+                  }
+                  right={
+                    <Badge tone={m.tier !== 'amount' ? 'ok' : 'wait'}>
                       {m.tier === 'wallet'
                         ? 'Their ref matches'
                         : m.tier === 'reference'
                           ? 'Order code match'
                           : 'Amount only'}
-                    </span>
-                  </a>
-                </li>
+                    </Badge>
+                  }
+                />
               ))}
-            </ul>
+            </TemplateRows>
             <p className="text-[11px] text-ink/50">
               Tap a match to open it, confirm the transfer in your inbox, then approve there.
             </p>
           </div>
         ) : (
-          <p className="mt-3 rounded-lg border border-dashed border-ink/20 bg-cream px-3 py-2 text-xs text-ink/55">
-            No pending payment mentions that reference code or amount. Check the &ldquo;All
-            payments&rdquo; tab, or it may be a transfer with no matching order yet.
-          </p>
+          <TemplateEmpty data="payments-matcher">
+            <InfoTip label="No pending payment mentions that reference code or amount." align="start">
+              Check the &ldquo;All
+              payments&rdquo; tab, or it may be a transfer with no matching order yet.
+            </InfoTip>
+          </TemplateEmpty>
         )
       ) : null}
     </section>

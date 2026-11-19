@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 313 files · 741 boxes
+# 308 files · 720 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -64,18 +64,15 @@
 1 apps/web/app/admin/data-privacy/_components/control-actions.tsx
 2 apps/web/app/admin/data-privacy/_components/task-actions.tsx
 2 apps/web/app/admin/demo-vendors/inquiries/[threadId]/page.tsx
-1 apps/web/app/admin/discount-codes/_components/eligibility-section.tsx
-1 apps/web/app/admin/discount-codes/_components/voucher-form.tsx
 1 apps/web/app/admin/disputes/_components/deposit-disputes-section.tsx
 1 apps/web/app/admin/disputes/_components/payment-disputes-section.tsx
 1 apps/web/app/admin/disputes/page.tsx
 1 apps/web/app/admin/editorial-review/[editorialId]/page.tsx
 1 apps/web/app/admin/event-deletions/page.tsx
 1 apps/web/app/admin/force-majeure/[flagId]/page.tsx
-2 apps/web/app/admin/founder-seats/page.tsx
 2 apps/web/app/admin/fraud/_components/wipe-ban-dialog.tsx
 1 apps/web/app/admin/fraud/page.tsx
-13 apps/web/app/admin/gifts/page.tsx
+1 apps/web/app/admin/gifts/page.tsx
 2 apps/web/app/admin/hub-music/hub-music-manager.tsx
 1 apps/web/app/admin/integrations/_components/maya-card.tsx
 2 apps/web/app/admin/integrations/_components/oauth-card.tsx
@@ -88,7 +85,6 @@
 3 apps/web/app/admin/moodboard-library/_components/library-editor.tsx
 9 apps/web/app/admin/payments/_components/desk.tsx
 1 apps/web/app/admin/payments/_components/inbox-matcher.tsx
-4 apps/web/app/admin/payouts/page.tsx
 3 apps/web/app/admin/pricing/_components/catalog-editor.tsx
 6 apps/web/app/admin/pricing/_surfaces/free-windows-surface.tsx
 2 apps/web/app/admin/repost-watch/page.tsx
@@ -101,7 +97,6 @@
 16 apps/web/app/admin/studio/_surfaces/social-queue-surface.tsx
 2 apps/web/app/admin/studio/_surfaces/songs-danger-controls.tsx
 1 apps/web/app/admin/studio/_surfaces/spotlight-awards-surface.tsx
-1 apps/web/app/admin/subscriptions/page.tsx
 1 apps/web/app/admin/ugat/_components/ugat-console.tsx
 2 apps/web/app/admin/vendor-recommendations/_editor.tsx
 7 apps/web/app/admin/vendors/[vendorProfileId]/edit/page.tsx

@@ -6,6 +6,19 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
+import { InfoTip } from '@/app/_components/info-tip';
+import { FormRow, FormRows } from '@/app/_components/form-row';
+import {
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { PostedPickRow, PostedTypedRow } from './_components/posted-rows';
 import { issueCompGrant, revokeCompGrant } from '@/app/admin/users/actions';
 import { setVendorTier, issueVendorSkuComp } from '@/app/admin/vendors/actions';
 import {
@@ -59,6 +72,9 @@ import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 type VendorGiftRow =
   | ({ kind: 'vendor' } & CompedVendorRow)
   | ({ kind: 'window' } & VendorDealRow);
+
+/** The "Applies to" dropdown's every-event choice — posts an EMPTY `event_id`, as the select's `<option value="">` did. */
+const EVERY_EVENT = '__every_event__';
 
 const DEAL_WHO: Record<VendorDealRow['audience_type'], string> = {
   all_vendors: 'All verified suppliers',
@@ -290,164 +306,150 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // used to run is gone. One resolver, `describeReach`, renders it here and on
   // both per-user surfaces, which is how those two stopped disagreeing.)
 
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only). The pinned row ("Offers & gifts · Gifts & comps ▾")
+  // names the page, so the visible title and the lede went (the lede is the first section's ⓘ). Section labels are
+  // the template's; every explaining paragraph sits behind an ⓘ; each grant form is Form rows in ONE frame; the two
+  // selects and the radio sets are dropdowns that post the same names and values; the search results are rows with
+  // ONE action. The four comp tables stay `ConsoleTable` (the admin archetype). Same reads, same server actions.
+  const FIELD = 'input-field w-[200px] max-w-full flex-none rounded-full';
+  const FRAME = `${ADMIN_FRAME} px-4 py-2`;
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead titleNode="Gifts" />
-      <div className="mb-6 space-y-1">
-        <p className="text-2xl font-semibold tracking-tight">Gifts</p>
-        <p className="text-sm text-ink/60">
-          Every supplier tier comp, supplier cohort deal and user/event comp currently active, in one
-          place. Grants a single named supplier or user account, or opens a deal for all verified
-          suppliers or for every supplier who registers and gets verified inside a window.
-        </p>
-      </div>
 
       {sp.banner && (
-        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+        <div className="mb-3 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ {sp.banner}
         </div>
       )}
       {sp.created && (
-        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+        <div className="mb-3 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Deal created.
         </div>
       )}
       {sp.saved && (
-        <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
+        <div className="mb-3 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Deal updated.
         </div>
       )}
       {sp.createError && (
-        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the deal.'}
         </div>
       )}
       {sp.error && (
-        <div className="mb-6 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mb-3 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           Something went wrong. Please try again.
         </div>
       )}
 
       {/* ══════════════════ VENDOR SIDE ══════════════════ */}
-      <section className="mb-10">
-        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          Supplier tier comps
-        </h2>
-
-        <form className="mb-4 flex gap-2" action="/admin/gifts">
+      <TemplateSection
+        label="Supplier tier comps"
+        first
+        data="supplier-tier-comps"
+        tip={
+          <>
+            Every supplier tier comp, supplier cohort deal and user/event comp currently active, in one
+            place. Grants a single named supplier or user account, or opens a deal for all verified
+            suppliers or for every supplier who registers and gets verified inside a window.
+          </>
+        }
+      >
+        <form className="mb-2.5 flex gap-2" action="/admin/gifts">
           <input
-            type="text"
+            type="search"
             name="vendor_q"
             defaultValue={vendorQuery}
             placeholder="Search suppliers by business name…"
-            className="flex-1 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            className="input-field min-w-0 flex-1 rounded-full"
           />
-          <SubmitButton className="button-secondary h-10 px-4 text-sm" overlay={false}>
+          <SubmitButton className={actionButtonClass('neutral')} overlay={false}>
             Search
           </SubmitButton>
         </form>
 
         {vendorResults.length > 0 && !grantVendor && (
-          <ul className="mb-4 divide-y divide-ink/10 rounded-md border border-ink/10">
-            {vendorResults.map((v) => (
-              <li key={v.vendor_profile_id} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span>
-                  {v.business_name} <span className="font-mono text-xs text-ink/50">{v.public_id}</span>
-                </span>
-                <Link
-                  href={`/admin/gifts?grant_vendor=${v.vendor_profile_id}`}
-                  className="text-xs font-medium text-link hover:underline"
-                >
-                  Comp this supplier
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="mb-2.5">
+            <TemplateRows label="Matching suppliers">
+              {vendorResults.map((v) => (
+                <TemplateRow
+                  key={v.vendor_profile_id}
+                  data={v.vendor_profile_id}
+                  title={v.business_name}
+                  line={v.public_id}
+                  right={<ActionButton tone="brand" icon={<Store aria-hidden strokeWidth={1.9} />} label="Comp this supplier" href={`/admin/gifts?grant_vendor=${v.vendor_profile_id}`} />}
+                />
+              ))}
+            </TemplateRows>
+          </div>
         )}
         {vendorQuery.length >= 2 && vendorResults.length === 0 && !grantVendor && (
-          <p className="mb-4 text-xs text-ink/50">No suppliers match &ldquo;{vendorQuery}&rdquo;.</p>
+          <TemplateEmpty data="supplier-search">No suppliers match &ldquo;{vendorQuery}&rdquo;.</TemplateEmpty>
         )}
 
         {grantVendor && (
-          <div className="mb-4 rounded-md border border-ink/10 bg-paper p-4">
-            <p className="mb-3 text-sm">
+          <div className={`${FRAME} mb-2.5`}>
+            <p className="py-2 text-sm">
               Comping <strong>{grantVendor.business_name}</strong> — current tier:{' '}
               <span className="font-medium">{TIER_LABEL[asVendorTier(grantVendor.tier_state)]}</span>.{' '}
               <Link href="/admin/gifts" className="text-link hover:underline">
                 Cancel
               </Link>
             </p>
-            <form action={setVendorTier} className="space-y-3">
+            <form action={setVendorTier}>
               <input type="hidden" name="vendor_id" value={grantVendor.vendor_profile_id} />
               <input type="hidden" name="return_to" value="/admin/gifts" />
-              <div className="flex flex-wrap items-end gap-3">
-                <div>
-                  <label htmlFor="tier_state" className="block text-xs font-medium text-ink/70 mb-1">
-                    Tier
-                  </label>
-                  <select
-                    id="tier_state"
-                    name="tier_state"
-                    defaultValue={asVendorTier(grantVendor.tier_state)}
-                    className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-                  >
-                    {VENDOR_TIER_SETTABLE.map((t) => (
-                      <option key={t} value={t}>
-                        {TIER_LABEL[t]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="tier_expires_at" className="block text-xs font-medium text-ink/70 mb-1">
-                    Ends <span className="text-ink/50">(optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    id="tier_expires_at"
-                    name="tier_expires_at"
-                    className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="reason" className="block text-xs font-medium text-ink/70 mb-1">
-                  Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
-                </label>
-                <input
-                  type="text"
-                  id="reason"
-                  name="reason"
-                  placeholder="e.g. Founding cohort — verified before Oct 15"
-                  className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              <FormRows width="wide">
+                <PostedPickRow
+                  name="Tier"
+                  fieldName="tier_state"
+                  initial={asVendorTier(grantVendor.tier_state)}
+                  options={VENDOR_TIER_SETTABLE.map((t) => ({ key: t, label: TIER_LABEL[t] }))}
+                  data="tier_state"
                 />
+                <FormRow name="Ends (optional)">
+                  <input type="date" id="tier_expires_at" aria-label="Ends (optional)" name="tier_expires_at" className={FIELD} />
+                </FormRow>
+                <PostedTypedRow
+                  name="Reason (logged, min. 10 characters)"
+                  fieldName="reason"
+                  placeholder="e.g. Founding cohort — verified before Oct 15"
+                  data="tier-reason"
+                />
+              </FormRows>
+              <div className="flex justify-end pb-2 pt-1">
+                <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Saving…">
+                  Set tier
+                </SubmitButton>
               </div>
-              <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
-                Set tier
-              </SubmitButton>
             </form>
 
             {/* SKU-level, not the whole tier — comps ONE add-on
                 (comp_grants.vendor_profile_id, source='external_promo', never
                 'vendor_self_comp' — see issueVendorSkuComp's docblock for the
                 self-comp-quota trigger this deliberately never trips). */}
-            <form action={issueVendorSkuComp} className="mt-4 space-y-3 border-t border-ink/10 pt-4">
+            <form action={issueVendorSkuComp} className="border-t border-ink/10 pt-2">
               <input type="hidden" name="vendor_id" value={grantVendor.vendor_profile_id} />
               <input type="hidden" name="sku" value={VENDOR_PHOTO_CHALLENGE_SKU_CODE} />
               <input type="hidden" name="return_to" value="/admin/gifts" />
-              <p className="text-xs font-medium text-ink/70">
+              <p className={`py-1 ${TEMPLATE_SUBLINE}`}>
                 Or comp Papic Challenges only ({VENDOR_PHOTO_CHALLENGE_PERIOD_DAYS} days,
                 stacking) — no tier change.
               </p>
-              <input
-                type="text"
-                name="reason"
-                placeholder="Reason (logged, min. 10 characters)"
-                className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-              <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
-                Comp Papic Challenges
-              </SubmitButton>
+              <FormRows width="wide">
+                <PostedTypedRow
+                  name="Reason"
+                  fieldName="reason"
+                  placeholder="Reason (logged, min. 10 characters)"
+                  data="papic-comp-reason"
+                />
+              </FormRows>
+              <div className="flex justify-end pb-2 pt-1">
+                <SubmitButton className={actionButtonClass('brand')} pendingLabel="Saving…">
+                  Comp Papic Challenges
+                </SubmitButton>
+              </div>
             </form>
           </div>
         )}
@@ -528,10 +530,10 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             },
           ]}
         />
-        <p className="mt-2 text-xs text-ink/40">
+        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
           Every non-free tier here is a comp — self-serve supplier billing doesn&rsquo;t exist yet.
         </p>
-      </section>
+      </TemplateSection>
 
       {/* ══════════════════ VENDOR COHORT DEALS ══════════════════
           🚨 THIS FORM DID NOT EXIST until 2026-09-06, and everything behind it
@@ -542,186 +544,151 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           Deals section on Gifts". There was nothing to use. A post-merge audit
           found it: two of the feature's three shapes were uncreatable from any
           UI. This renders the writer that was already wired. */}
-      <section className="mb-10">
-        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          Supplier cohort deals
-        </h2>
-
+      <TemplateSection label="Supplier cohort deals" data="supplier-cohort-deals">
         {/* 🔑 THE KILL-SWITCH, SAID OUT LOUD. `dealsFlagOn` was computed on this
             page and never rendered, so a deal listed above as "currently
             active" was indistinguishable from one that grants nothing —
             `getPromotedVendorTierFor` returns null before any read while the
-            flag is off. The page's own docblock claimed it said which state the
-            switch was in; now it does. */}
+            flag is off. The state is the line; the full sentence is its ⓘ. */}
         {dealsFlagOn ? (
-          <p className="mb-4 flex items-start gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
-            <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
-            <span>
+          <div className="flex min-h-11 items-center gap-2 py-1" style={{ color: 'rgb(var(--color-success))' }} data-deals-flag="on">
+            <CheckCircle2 aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+            <InfoTip label="Supplier deals are live" labelClassName="text-[14px] font-semibold" align="start">
               Supplier deals are <strong>live</strong>. A deal below promotes every supplier it
               covers for as long as it runs.
-            </span>
-          </p>
+            </InfoTip>
+          </div>
         ) : (
-          <p className="mb-4 flex items-start gap-2 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
-            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
-            <span>
+          <div className="flex min-h-11 items-center gap-2 py-1" style={{ color: 'rgb(var(--color-warn))' }} data-deals-flag="off">
+            <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+            <InfoTip label="Supplier deals are switched off" labelClassName="text-[14px] font-semibold" align="start">
               Supplier deals are <strong>switched off</strong> — <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code>{' '}
               is not set in Vercel. Anything listed above or created below is recorded and
               dated, and promotes <strong>nobody</strong> until the owner flips it. Deals are
               not retroactive: a supplier who qualifies while it is off gets nothing for that time.
-            </span>
-          </p>
+            </InfoTip>
+          </div>
         )}
 
         {sp.created === 'window' && (
-          <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+          <p className="mb-2.5 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
             ✓ Deal created.
           </p>
         )}
         {sp.createError && (
-          <p className="mb-4 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+          <p className="mb-2.5 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
             {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the deal.'}
           </p>
         )}
 
-        <form action={createFreeWindow} className="rounded-md border border-ink/10 bg-paper p-4 space-y-4">
+        <form action={createFreeWindow} className={FRAME}>
           <input type="hidden" name="return_to" value="/admin/gifts" />
-
-          <div>
-            <span className="mb-1 block text-xs font-medium text-ink/70">Who qualifies</span>
-            <label className="mr-4 text-sm">
-              <input type="radio" name="audience_type" value="all_vendors" defaultChecked />{' '}
-              Every verified supplier
-            </label>
-            <label className="text-sm">
-              <input type="radio" name="audience_type" value="new_verified_vendors" />{' '}
-              Suppliers who register <em>and</em> get verified inside the window
-            </label>
-            <p className="mt-1 text-xs text-ink/50">
-              Both mean <strong>verified</strong> suppliers only — a pending or unverified shop
-              never qualifies.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div className="min-w-[220px] flex-1">
-              <label htmlFor="deal_title" className="block text-xs font-medium text-ink/70 mb-1">
-                Title
-              </label>
-              <input
-                type="text"
-                id="deal_title"
-                name="title"
-                required
-                maxLength={120}
-                placeholder="Founding shops — free Pro for the September intake"
-                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="min-w-[220px] flex-1">
-              <label htmlFor="deal_blurb" className="block text-xs font-medium text-ink/70 mb-1">
-                Banner blurb <span className="text-ink/50">(optional)</span>
-              </label>
-              <input
-                type="text"
-                id="deal_blurb"
-                name="blurb"
-                maxLength={240}
-                placeholder="Pro is on us while you set up your shop."
-                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div>
-              <label htmlFor="deal_starts" className="block text-xs font-medium text-ink/70 mb-1">
-                Window opens
-              </label>
-              <input
-                type="datetime-local"
-                id="deal_starts"
-                name="starts_at"
-                required
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="deal_ends" className="block text-xs font-medium text-ink/70 mb-1">
-                Window closes
-              </label>
-              <input
-                type="datetime-local"
-                id="deal_ends"
-                name="ends_at"
-                required
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="deal_length" className="block text-xs font-medium text-ink/70 mb-1">
-                Each supplier keeps it <span className="text-ink/50">(days, optional)</span>
-              </label>
+          <FormRows width="wide">
+            <PostedPickRow
+              name="Who qualifies"
+              fieldName="audience_type"
+              initial="all_vendors"
+              options={[
+                { key: 'all_vendors', label: 'Every verified supplier' },
+                { key: 'new_verified_vendors', label: 'Suppliers who register and get verified inside the window' },
+              ]}
+              about={{
+                words: (
+                  <>
+                    Both mean <strong>verified</strong> suppliers only — a pending or unverified shop
+                    never qualifies.
+                  </>
+                ),
+              }}
+              data="deal-audience"
+            />
+            <PostedTypedRow
+              name="Title"
+              fieldName="title"
+              required
+              maxLength={120}
+              placeholder="Founding shops — free Pro for the September intake"
+              data="deal-title"
+            />
+            <PostedTypedRow
+              name="Banner blurb (optional)"
+              fieldName="blurb"
+              maxLength={240}
+              placeholder="Pro is on us while you set up your shop."
+              data="deal-blurb"
+            />
+            <FormRow name="Window opens">
+              <input type="datetime-local" id="deal_starts" aria-label="Window opens" name="starts_at" required className={FIELD} />
+            </FormRow>
+            <FormRow name="Window closes">
+              <input type="datetime-local" id="deal_ends" aria-label="Window closes" name="ends_at" required className={FIELD} />
+            </FormRow>
+            <FormRow
+              name="Each supplier keeps it (days, optional)"
+              about={{
+                words: (
+                  <>
+                    The window decides <strong>who gets in</strong>; this decides{' '}
+                    <strong>how long each of them keeps it</strong>, counted from the moment they
+                    qualify. Leave it blank and the deal simply runs until the window closes.
+                  </>
+                ),
+              }}
+            >
               <input
                 type="number"
                 id="deal_length"
+                aria-label="Each supplier keeps it (days, optional)"
                 name="deal_length_days"
                 min={1}
                 max={365}
                 placeholder="28"
-                className="w-40 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                className="input-field w-[120px] flex-none rounded-full"
               />
-            </div>
-          </div>
-          <p className="-mt-1 text-xs text-ink/50">
-            The window decides <strong>who gets in</strong>; this decides{' '}
-            <strong>how long each of them keeps it</strong>, counted from the moment they
-            qualify. Leave it blank and the deal simply runs until the window closes.
-          </p>
-
-          <div>
-            <span className="mb-1 block text-xs font-medium text-ink/70">What&rsquo;s free</span>
-            <div className="flex flex-wrap gap-2">
-              {tierSkus.map((sku: V2VendorSku) => (
-                <label key={sku.sku_code} className="text-sm">
-                  <input type="checkbox" name="service_keys" value={sku.sku_code} />{' '}
-                  {sku.title} <span className="text-ink/50">₱{formatPeso(sku.price_php)}</span>
-                </label>
-              ))}
-            </div>
-            <p className="mt-1 text-xs text-ink/50">
-              Prices come from the live supplier catalogue, never from code. Only <strong>tier</strong>{' '}
-              plans can be given away: a supplier add-on can never be ₱0 (the catalogue CHECKs
-              <code className="font-mono text-[11px]"> price_php &gt; 0</code>) and each add-on has its
-              own gate, so freeing one is not a thing this deal can do. The highest tier you tick
-              is the one suppliers get; the rest are kept on the record so the deal shows what it
-              waived.
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="deal_reason" className="block text-xs font-medium text-ink/70 mb-1">
-              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
-            </label>
-            <input
-              type="text"
-              id="deal_reason"
-              name="reason"
-              placeholder="Founding-shop intake incentive, approved by ops"
-              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            </FormRow>
+            <FormRow
+              name="What’s free"
+              about={{
+                words: (
+                  <>
+                    Prices come from the live supplier catalogue, never from code. Only <strong>tier</strong>{' '}
+                    plans can be given away: a supplier add-on can never be ₱0 (the catalogue CHECKs
+                    <code className="font-mono text-[11px]"> price_php &gt; 0</code>) and each add-on has its
+                    own gate, so freeing one is not a thing this deal can do. The highest tier you tick
+                    is the one suppliers get; the rest are kept on the record so the deal shows what it
+                    waived.
+                  </>
+                ),
+              }}
+              below={
+                <div className="flex flex-wrap gap-x-4 gap-y-2 pb-3">
+                  {tierSkus.map((sku: V2VendorSku) => (
+                    <label key={sku.sku_code} className="text-sm">
+                      <input type="checkbox" name="service_keys" value={sku.sku_code} />{' '}
+                      {sku.title} <span className="text-ink/50">₱{formatPeso(sku.price_php)}</span>
+                    </label>
+                  ))}
+                </div>
+              }
             />
-          </div>
+            <PostedTypedRow
+              name="Reason (logged, min. 10 characters)"
+              fieldName="reason"
+              placeholder="Founding-shop intake incentive, approved by ops"
+              data="deal-reason"
+            />
+          </FormRows>
 
-          <div className="flex items-center gap-3">
-            <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Creating…">
-              Create deal
-            </SubmitButton>
+          <div className="flex flex-wrap items-center justify-end gap-3 pb-2 pt-1">
             <label className="text-xs text-ink/60">
               <input type="checkbox" name="show_banner" /> Show a banner to suppliers
             </label>
+            <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
+              Create deal
+            </SubmitButton>
           </div>
         </form>
-      </section>
+      </TemplateSection>
 
       {/* ══════════════════ COUPLE FREE WINDOWS (G5) ══════════════════
           Owner ask 2026-09-05, verbatim: "for an event for a specific date"
@@ -732,38 +699,34 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           Own ConsoleTable, not merged into the vendor list above — a couple
           window has no vendor/tier, and the vendor table's columns
           (Vendor/Tier/Ends/Manage) don't fit it. */}
-      <section className="mb-10">
-        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          Couple free windows
-        </h2>
-
+      <TemplateSection label="Couple free windows" data="couple-free-windows">
         {dealsFlagOn ? (
-          <p className="mb-4 flex items-start gap-2 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
-            <CheckCircle2 aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
-            <span>
+          <div className="flex min-h-11 items-center gap-2 py-1" style={{ color: 'rgb(var(--color-success))' }} data-couple-flag="on">
+            <CheckCircle2 aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+            <InfoTip label="Couple windows are live" labelClassName="text-[14px] font-semibold" align="start">
               Couple windows are <strong>live</strong>. A window below frees its services for
               every couple it covers, for as long as it runs.
-            </span>
-          </p>
+            </InfoTip>
+          </div>
         ) : (
-          <p className="mb-4 flex items-start gap-2 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
-            <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 flex-none" strokeWidth={2} />
-            <span>
+          <div className="flex min-h-11 items-center gap-2 py-1" style={{ color: 'rgb(var(--color-warn))' }} data-couple-flag="off">
+            <AlertTriangle aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
+            <InfoTip label="Couple windows are switched off" labelClassName="text-[14px] font-semibold" align="start">
               Couple windows are <strong>switched off</strong> —{' '}
               <code className="font-mono text-[11px]">PROMO_FREE_WINDOWS_ENABLED</code> is not set
               in Vercel. Anything listed below or created here is recorded and dated, and frees{' '}
               <strong>nothing</strong> until the owner flips it.
-            </span>
-          </p>
+            </InfoTip>
+          </div>
         )}
 
         {sp.created === 'window' && (
-          <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
+          <p className="mb-2.5 rounded-md border border-success-200 bg-success-50 px-3 py-2 text-xs text-success-900">
             ✓ Free window created.
           </p>
         )}
         {sp.createError && (
-          <p className="mb-4 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
+          <p className="mb-2.5 rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900">
             {FREE_WINDOW_CREATE_ERROR_COPY[sp.createError] ?? 'Could not create the free window.'}
           </p>
         )}
@@ -833,138 +796,81 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           ]}
         />
 
-        <form
-          action={createFreeWindow}
-          className="mt-4 rounded-md border border-ink/10 bg-paper p-4 space-y-4"
-        >
+        <form action={createFreeWindow} className={`${FRAME} mt-2.5`}>
           <input type="hidden" name="return_to" value="/admin/gifts" />
           <input type="hidden" name="audience_type" value="all_couples" />
-
-          <div className="flex flex-wrap gap-3">
-            <div className="min-w-[220px] flex-1">
-              <label htmlFor="couple_title" className="block text-xs font-medium text-ink/70 mb-1">
-                Title
-              </label>
-              <input
-                type="text"
-                id="couple_title"
-                name="title"
-                required
-                maxLength={120}
-                placeholder="Free Papic for December weddings"
-                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="min-w-[220px] flex-1">
-              <label htmlFor="couple_blurb" className="block text-xs font-medium text-ink/70 mb-1">
-                Banner blurb <span className="text-ink/50">(optional)</span>
-              </label>
-              <input
-                type="text"
-                id="couple_blurb"
-                name="blurb"
-                maxLength={240}
-                placeholder="Every Papic camera is on us this weekend."
-                className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div>
-              <label htmlFor="couple_starts" className="block text-xs font-medium text-ink/70 mb-1">
-                Starts <span className="text-ink/50">(PH time)</span>
-              </label>
-              <input
-                type="datetime-local"
-                id="couple_starts"
-                name="starts_at"
-                required
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="couple_ends" className="block text-xs font-medium text-ink/70 mb-1">
-                Ends <span className="text-ink/50">(PH time)</span>
-              </label>
-              <input
-                type="datetime-local"
-                id="couple_ends"
-                name="ends_at"
-                required
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <div>
-              <label htmlFor="couple_event_from" className="block text-xs font-medium text-ink/70 mb-1">
-                Only for events dated <span className="text-ink/50">(optional)</span>
-              </label>
-              <input
-                type="date"
-                id="couple_event_from"
-                name="event_date_from"
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="couple_event_to" className="block text-xs font-medium text-ink/70 mb-1">
-                through <span className="text-ink/50">(optional)</span>
-              </label>
-              <input
-                type="date"
-                id="couple_event_to"
-                name="event_date_to"
-                className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-              />
-            </div>
-          </div>
-          <p className="-mt-1 text-xs text-ink/50">
-            Leave both blank to free these services for <strong>any event</strong>. Set one or
-            both to restrict the freebie to couples whose event date falls in that range
-            (inclusive) — use the same date in both fields for one specific date. An event with
-            no locked date yet does not qualify for a date-restricted window.
-          </p>
-
-          <div>
-            <span className="mb-1 block text-xs font-medium text-ink/70">Services to make free</span>
-            <div className="flex flex-wrap gap-2">
-              {customerCatalog.map((s: V2CustomerSku) => (
-                <label key={s.service_code} className="text-sm">
-                  <input type="checkbox" name="service_keys" value={s.service_code} />{' '}
-                  {s.title} <span className="text-ink/50">₱{formatPeso(s.retail_price_php)}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="couple_reason" className="block text-xs font-medium text-ink/70 mb-1">
-              Reason <span className="text-ink/50">(logged, min. 10 characters)</span>
-            </label>
-            <input
-              type="text"
-              id="couple_reason"
-              name="reason"
+          <FormRows width="wide">
+            <PostedTypedRow
+              name="Title"
+              fieldName="title"
               required
-              minLength={10}
-              placeholder="Launch promo, approved by ops"
-              className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+              maxLength={120}
+              placeholder="Free Papic for December weddings"
+              data="couple-title"
             />
-          </div>
+            <PostedTypedRow
+              name="Banner blurb (optional)"
+              fieldName="blurb"
+              maxLength={240}
+              placeholder="Every Papic camera is on us this weekend."
+              data="couple-blurb"
+            />
+            <FormRow name="Starts (PH time)">
+              <input type="datetime-local" id="couple_starts" aria-label="Starts (PH time)" name="starts_at" required className={FIELD} />
+            </FormRow>
+            <FormRow name="Ends (PH time)">
+              <input type="datetime-local" id="couple_ends" aria-label="Ends (PH time)" name="ends_at" required className={FIELD} />
+            </FormRow>
+            <FormRow
+              name="Only for events dated (optional)"
+              about={{
+                words: (
+                  <>
+                    Leave both blank to free these services for <strong>any event</strong>. Set one or
+                    both to restrict the freebie to couples whose event date falls in that range
+                    (inclusive) — use the same date in both fields for one specific date. An event with
+                    no locked date yet does not qualify for a date-restricted window.
+                  </>
+                ),
+              }}
+            >
+              <input type="date" id="couple_event_from" aria-label="Only for events dated (optional)" name="event_date_from" className={FIELD} />
+            </FormRow>
+            <FormRow name="through (optional)">
+              <input type="date" id="couple_event_to" aria-label="through (optional)" name="event_date_to" className={FIELD} />
+            </FormRow>
+            <FormRow
+              name="Services to make free"
+              below={
+                <div className="flex flex-wrap gap-x-4 gap-y-2 pb-3">
+                  {customerCatalog.map((s: V2CustomerSku) => (
+                    <label key={s.service_code} className="text-sm">
+                      <input type="checkbox" name="service_keys" value={s.service_code} />{' '}
+                      {s.title} <span className="text-ink/50">₱{formatPeso(s.retail_price_php)}</span>
+                    </label>
+                  ))}
+                </div>
+              }
+            />
+            <PostedTypedRow
+              name="Reason (logged, min. 10 characters)"
+              fieldName="reason"
+              required
+              placeholder="Launch promo, approved by ops"
+              data="couple-reason"
+            />
+          </FormRows>
 
-          <div className="flex items-center gap-3">
-            <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Creating…">
-              Create free window
-            </SubmitButton>
+          <div className="flex flex-wrap items-center justify-end gap-3 pb-2 pt-1">
             <label className="text-xs text-ink/60">
               <input type="checkbox" name="show_banner" defaultChecked /> Show a banner to couples
             </label>
+            <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
+              Create free window
+            </SubmitButton>
           </div>
         </form>
-      </section>
+      </TemplateSection>
 
       {/* 🎁 SUPPLIER GIFTS (owner 2026-11-04) — shops buy gifts as stock, put them on quotes, and they leave the stock
           for the couple's event when that couple's first payment clears. Read-only here: the money moves through the
@@ -985,144 +891,123 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
       <BadgeUpgradesLedger rows={badgeUpgrades} readError={badgeUpgradesError} />
 
       {/* ══════════════════ USER SIDE ══════════════════ */}
-      <section>
-        <h2 className="mb-3 text-xs font-medium uppercase tracking-[0.15em] text-ink/60">
-          User &amp; event comps
-        </h2>
-
-        <form className="mb-4 flex gap-2" action="/admin/gifts">
+      <TemplateSection label="User & event comps" data="user-event-comps">
+        <form className="mb-2.5 flex gap-2" action="/admin/gifts">
           <input
-            type="text"
+            type="search"
             name="user_q"
             defaultValue={userQuery}
             placeholder="Search users by name or email…"
-            className="flex-1 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+            className="input-field min-w-0 flex-1 rounded-full"
           />
-          <SubmitButton className="button-secondary h-10 px-4 text-sm" overlay={false}>
+          <SubmitButton className={actionButtonClass('neutral')} overlay={false}>
             Search
           </SubmitButton>
         </form>
 
         {userResults.length > 0 && !grantUser && (
-          <ul className="mb-4 divide-y divide-ink/10 rounded-md border border-ink/10">
-            {userResults.map((u) => (
-              <li key={u.user_id} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span>{u.display_name ?? u.email ?? u.user_id}</span>
-                <Link
-                  href={`/admin/gifts?grant_user=${u.user_id}`}
-                  className="text-xs font-medium text-link hover:underline"
-                >
-                  Comp this user
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="mb-2.5">
+            <TemplateRows label="Matching users">
+              {userResults.map((u) => (
+                <TemplateRow
+                  key={u.user_id}
+                  data={u.user_id}
+                  title={u.display_name ?? u.email ?? u.user_id}
+                  right={<ActionButton tone="brand" icon={<Ticket aria-hidden strokeWidth={1.9} />} label="Comp this user" href={`/admin/gifts?grant_user=${u.user_id}`} />}
+                />
+              ))}
+            </TemplateRows>
+          </div>
         )}
         {userQuery.length >= 2 && userResults.length === 0 && !grantUser && (
-          <p className="mb-4 text-xs text-ink/50">No user matches &ldquo;{userQuery}&rdquo;.</p>
+          <TemplateEmpty data="user-search">No user matches &ldquo;{userQuery}&rdquo;.</TemplateEmpty>
         )}
 
         {grantUser && (
-          <div className="mb-4 rounded-md border border-ink/10 bg-paper p-4">
-            <p className="mb-3 text-sm">
+          <div className={`${FRAME} mb-2.5`}>
+            <p className="py-2 text-sm">
               Comping <strong>{grantUser.display_name ?? grantUser.email ?? grantUser.user_id}</strong>.{' '}
               <Link href="/admin/gifts" className="text-link hover:underline">
                 Cancel
               </Link>
             </p>
-            <form action={issueCompGrant} className="space-y-3">
+            <form action={issueCompGrant}>
               <input type="hidden" name="user_id" value={grantUser.user_id} />
               <input type="hidden" name="return_to" value="/admin/gifts" />
-              <div>
-                <label htmlFor="event_id" className="block text-xs font-medium text-ink/70 mb-1">
-                  Applies to
-                </label>
+              <FormRows width="wide">
                 {grantUserEvents.length === 0 ? (
-                  <p className="text-xs text-ink/50">
-                    This account hosts no events yet — the comp will apply account-wide, to whichever
-                    event they create next.
-                  </p>
-                ) : (
-                  <select
-                    id="event_id"
-                    name="event_id"
-                    defaultValue=""
-                    className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                  <FormRow
+                    name="Applies to"
+                    about={{
+                      words:
+                        'This account hosts no events yet — the comp will apply account-wide, to whichever event they create next.',
+                    }}
                   >
-                    <option value="">Every event this account hosts</option>
-                    {grantUserEvents.map((e) => (
-                      <option key={e.event_id} value={e.event_id}>
-                        {e.display_name} ({typeName(e.event_type)}
-                        {e.event_date
-                          ? `, ${new Date(e.event_date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' })}`
-                          : ''}
-                        )
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div>
-                <span className="mb-1 block text-xs font-medium text-ink/70">Scope</span>
-                <label className="mr-4 text-sm">
-                  <input type="radio" name="scope" value="all_services" defaultChecked /> All services
-                </label>
-                <label className="text-sm">
-                  <input type="radio" name="scope" value="specific_skus" /> Specific services (comma-separated SKUs below)
-                </label>
-              </div>
-              <div>
-                <label htmlFor="scoped_skus" className="block text-xs font-medium text-ink/70 mb-1">
-                  SKUs <span className="text-ink/50">(only used when scope is specific services)</span>
-                </label>
-                <input
-                  type="text"
-                  id="scoped_skus"
-                  name="scoped_skus"
-                  placeholder="e.g. PAPIC_ONE_50, SEATING_3D"
-                  className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
-                />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <div>
-                  <label htmlFor="expiry_at" className="block text-xs font-medium text-ink/70 mb-1">
-                    Expires <span className="text-ink/50">(optional, blank = lifetime)</span>
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="expiry_at"
-                    name="expiry_at"
-                    className="rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                    <span className={TEMPLATE_SUBLINE}>This account hosts no events yet</span>
+                  </FormRow>
+                ) : (
+                  <PostedPickRow
+                    name="Applies to"
+                    fieldName="event_id"
+                    initial={EVERY_EVENT}
+                    blankKey={EVERY_EVENT}
+                    options={[
+                      { key: EVERY_EVENT, label: 'Every event this account hosts' },
+                      ...grantUserEvents.map((e) => ({
+                        key: e.event_id,
+                        label: `${e.display_name} (${typeName(e.event_type)}${
+                          e.event_date
+                            ? `, ${new Date(e.event_date).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', year: 'numeric', month: 'short', day: 'numeric' })}`
+                            : ''
+                        })`,
+                      })),
+                    ]}
+                    data="event_id"
                   />
-                </div>
-                <div>
-                  <label htmlFor="retail_value_php" className="block text-xs font-medium text-ink/70 mb-1">
-                    Retail value, ₱ <span className="text-ink/50">(optional)</span>
-                  </label>
+                )}
+                <PostedPickRow
+                  name="Scope"
+                  fieldName="scope"
+                  initial="all_services"
+                  options={[
+                    { key: 'all_services', label: 'All services' },
+                    { key: 'specific_skus', label: 'Specific services (comma-separated SKUs below)' },
+                  ]}
+                  data="scope"
+                />
+                <PostedTypedRow
+                  name="SKUs"
+                  fieldName="scoped_skus"
+                  about={{ words: '(only used when scope is specific services)' }}
+                  placeholder="e.g. PAPIC_ONE_50, SEATING_3D"
+                  data="scoped_skus"
+                />
+                <FormRow name="Expires (optional, blank = lifetime)">
+                  <input type="datetime-local" id="expiry_at" aria-label="Expires (optional, blank = lifetime)" name="expiry_at" className={FIELD} />
+                </FormRow>
+                <FormRow name="Retail value, ₱ (optional)">
                   <input
                     type="number"
                     id="retail_value_php"
+                    aria-label="Retail value, ₱ (optional)"
                     name="retail_value_php"
                     min={0}
-                    className="w-32 rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                    className="input-field w-[120px] flex-none rounded-full"
                   />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="rationale" className="block text-xs font-medium text-ink/70 mb-1">
-                  Rationale <span className="text-ink/50">(logged, min. 20 characters)</span>
-                </label>
-                <textarea
-                  id="rationale"
-                  name="rationale"
-                  rows={2}
+                </FormRow>
+                <PostedTypedRow
+                  name="Rationale (logged, min. 20 characters)"
+                  fieldName="rationale"
+                  long
                   placeholder="Why this account, why this scope, who approved it."
-                  className="w-full rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
+                  data="rationale"
                 />
+              </FormRows>
+              <div className="flex justify-end pb-2 pt-1">
+                <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Saving…">
+                  Issue comp
+                </SubmitButton>
               </div>
-              <SubmitButton className="button-secondary h-10 px-4 text-sm" pendingLabel="Saving…">
-                Issue comp
-              </SubmitButton>
             </form>
           </div>
         )}
@@ -1204,7 +1089,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             },
           ]}
         />
-      </section>
+      </TemplateSection>
     </div>
   );
 }

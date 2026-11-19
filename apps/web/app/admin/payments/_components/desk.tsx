@@ -21,6 +21,7 @@ import { FormPick } from '../../work/_components/form-pick';
 import { FormDate } from './form-date';
 import { manilaTodayISO } from '@/lib/event-board';
 import { Fold } from '@/app/_components/fold';
+import { InfoTip } from '@/app/_components/info-tip';
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import {
   TEMPLATE_MONEY,
@@ -576,6 +577,12 @@ export function PaymentsList({
   const totalSameDay = decorated.filter((d) => d.sameDay && d.p.status === 'pending').length;
   const nowMs = Date.now();
 
+  // One line, either count (pulled out of the JSX so the sentence reads as the one line it is).
+  const sameDayLine =
+    totalSameDay === 1
+      ? '1 pending payment is for an event happening TODAY — confirm it first.'
+      : `${formatCount(totalSameDay)} pending payments are for events happening TODAY — confirm those first.`;
+
   return (
     <>
       {received ? (
@@ -609,9 +616,7 @@ export function PaymentsList({
           style={{ color: 'rgb(var(--color-warn))' }}
         >
           <Clock aria-hidden className="h-4 w-4 flex-none" strokeWidth={2} />
-          {totalSameDay === 1
-            ? '1 pending payment is for an event happening TODAY — confirm it first.'
-            : `${formatCount(totalSameDay)} pending payments are for events happening TODAY — confirm those first.`}
+          {sameDayLine}
         </p>
       ) : null}
       <div className="mt-3">
@@ -1094,10 +1099,13 @@ export function PendingDecision({
                 </span>
               </label>
             ) : dup?.kind === 'same_order' ? (
-              <p className="py-1 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
-                This reference is already counted on THIS order. Approving it again would count one transfer twice, so the
-                approval will be refused — there is no override for this case.
-              </p>
+              <div className="py-1 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
+                {/* 📐 Admin clean port (19 Nov 2026): the fact stays on the row, the why behind its ⓘ — words unchanged. */}
+                <InfoTip label="This reference is already counted on THIS order." align="start">
+                  Approving it again would count one transfer twice, so the
+                  approval will be refused — there is no override for this case.
+                </InfoTip>
+              </div>
             ) : dupFailed ? (
               /* The collision check could not run — the approval guard will
                  refuse with its own message, but the way out of that refusal
@@ -1205,6 +1213,18 @@ export function ServiceRemedyForms({
   const hint = `block ${TEMPLATE_SUBLINE}`;
   const reasonBox = (placeholder: string) => <RemedyReasonRow placeholder={placeholder} />;
   const button = 'ab ab-brand ab-main w-full';
+  // What the payment is worth in Papic credits — one of three short sentences.
+  const creditsLine =
+    row.credits !== null && row.credits > 0 ? (
+      <>
+        That is <span className="font-medium text-ink">{formatCount(row.credits)} Papic credits</span>
+        {row.pack ? ` at the best-value pack (${row.pack}).` : '.'}
+      </>
+    ) : row.credits === 0 ? (
+      'That is too little to make even one Papic credit.'
+    ) : (
+      'No Papic pack is on sale right now, so this can’t be converted.'
+    );
 
   return (
     <div className="space-y-1">
@@ -1239,16 +1259,7 @@ export function ServiceRemedyForms({
             <input type="hidden" name="expected_credits" value={String(row.credits ?? '')} />
             <p className={hint}>
               They paid {formatPhp(row.paidPhp)}.{' '}
-              {row.credits !== null && row.credits > 0 ? (
-                <>
-                  That is <span className="font-medium text-ink">{formatCount(row.credits)} Papic credits</span>
-                  {row.pack ? ` at the best-value pack (${row.pack}).` : '.'}
-                </>
-              ) : row.credits === 0 ? (
-                'That is too little to make even one Papic credit.'
-              ) : (
-                'No Papic pack is on sale right now, so this can’t be converted.'
-              )}
+              {creditsLine}
             </p>
             {reasonBox('E.g. The live video could not start on the day — our encoder failed.')}
             <SubmitButton className={button} pendingLabel="Converting…">
@@ -1492,12 +1503,20 @@ export function DeskMoneyBlock({
   const row = 'flex min-h-10 items-baseline justify-between gap-3 py-1.5';
   const num = `shrink-0 text-right ${TEMPLATE_MONEY}`;
   const verdictTone = money.verdict === 'exact' ? 'ok' : 'warn';
+  const verdictLine =
+    money.verdict === 'exact'
+      ? '✓ Covers the amount to send exactly.'
+      : money.verdict === 'short'
+        ? `${formatPhp(Math.abs(money.deltaPhp))} short of the amount to send.`
+        : `${formatPhp(money.deltaPhp)} more than the amount to send.`;
   return (
     <TemplateSection label="What this bill covers" data="payment-bill">
       {bill.kind === 'unreadable' ? (
         <p role="alert" className="py-2 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }}>
-          Could not read what&rsquo;s on this bill. Do not approve against a blank bill — reload, and if it stays blank,
-          this is a fault on our side.
+          {/* 📐 Admin clean port (19 Nov 2026): the warning stays in sight, what to do next behind its ⓘ. */}
+          <InfoTip label="Could not read what’s on this bill. Do not approve against a blank bill." align="start">
+            Reload, and if it stays blank, this is a fault on our side.
+          </InfoTip>
         </p>
       ) : null}
       <dl className="text-[15px] [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
@@ -1539,11 +1558,7 @@ export function DeskMoneyBlock({
         </div>
       </dl>
       <p className="py-1 text-[14px] font-semibold" style={{ color: `rgb(var(--color-${verdictTone}))` }}>
-        {money.verdict === 'exact'
-          ? '✓ Covers the amount to send exactly.'
-          : money.verdict === 'short'
-            ? `${formatPhp(Math.abs(money.deltaPhp))} short of the amount to send.`
-            : `${formatPhp(money.deltaPhp)} more than the amount to send.`}
+        {verdictLine}
       </p>
     </TemplateSection>
   );
@@ -1608,6 +1623,17 @@ export function ReceiptReadCard({
           : 'unknown';
 
   const toneVar = tone === 'agrees' ? 'ok' : tone === 'disagrees' ? 'danger' : null;
+  const seenLine =
+    read?.status === 'ok'
+      ? [
+          read.seen_references?.length ? `on it: ${read.seen_references.join(' · ')}` : null,
+          read.seen_amounts?.length
+            ? `amounts: ${read.seen_amounts.map((a) => `₱${Number(a).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`).join(' · ')}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join('  |  ')
+      : '';
 
   return (
     <TemplateSection
@@ -1655,14 +1681,7 @@ export function ReceiptReadCard({
         // What the parser actually found, so the sentence above can be checked
         // rather than believed.
         <p className={`mt-1 tabular-nums ${TEMPLATE_SUBLINE}`}>
-          {[
-            read.seen_references?.length ? `on it: ${read.seen_references.join(' · ')}` : null,
-            read.seen_amounts?.length
-              ? `amounts: ${read.seen_amounts.map((a) => `₱${Number(a).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`).join(' · ')}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join('  |  ')}
+          {seenLine}
         </p>
       ) : null}
     </TemplateSection>
@@ -1703,6 +1722,7 @@ export function RecordPaymentCard({ record, query }: { record: RecordTarget; que
     );
   }
   const field = 'block space-y-1 text-[14px] text-ink';
+  const orderTotalLine = record.totalPhp != null ? <> Order total {formatPhp(record.totalPhp)}.</> : null;
   return (
     <TemplateSection
       label="Record a payment received"
@@ -1711,7 +1731,7 @@ export function RecordPaymentCard({ record, query }: { record: RecordTarget; que
     >
       <p className={TEMPLATE_SUBLINE}>
         Money arrived for <b className="text-ink">{label}</b>? Record it here and it&rsquo;s confirmed.
-        {record.totalPhp != null ? <> Order total {formatPhp(record.totalPhp)}.</> : null}
+        {orderTotalLine}
       </p>
       <form id="record-payment-form" action={approvePayment} className="mt-2 grid gap-3 sm:grid-cols-2">
         <input type="hidden" name="intent" value="record" />

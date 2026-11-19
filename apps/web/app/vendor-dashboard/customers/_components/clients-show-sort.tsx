@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChosenRow } from '@/app/_components/form-row';
 import { ShowSortSheet, ShowSortTopic } from '@/app/_components/show-sort-sheet';
-import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
+import { SortFace, sortLabel } from '@/components/sort-face';
 import { formatCount } from '@/lib/format-number';
 import {
   CLIENTS_GROUP,
@@ -108,7 +108,7 @@ export function ClientsShowSort({
     <>
       <button
         type="button"
-        aria-label="Show and sort"
+        aria-label={sortLabel(on)}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen(true)}
@@ -116,7 +116,7 @@ export function ClientsShowSort({
         data-thumb-sort=""
         data-tour="customers-sort"
       >
-        <FilterFace on={on} />
+        <SortFace on={on} />
       </button>
       {open ? (
         <ShowSortSheet

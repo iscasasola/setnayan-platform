@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { PickedShell } from '@/app/_components/picked/picked-shell';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { pickedSupplierLists, pickedSupplierPageOf, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
+import { pickedSupplierAnchorOf, pickedSupplierLists, pickedSupplierPageOf, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
 
 const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
   details: Info,
@@ -50,6 +50,8 @@ export function PickedSupplierShell({
   initialPage,
   bodies,
   chatUnread = null,
+  workDefault = 'details',
+  landAt = null,
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -60,6 +62,10 @@ export function PickedSupplierShell({
   bodies: Record<PickedSupplierPage, ReactNode>;
   /** 🔴 The Chat tab's unread count (`readThreadUnreadCount`); null = unmeasured or no chat — no badge. */
   chatUnread?: number | null;
+  /** 🖥 What the work column opens on, on a computer, when no `?tab=` names a page (`workColumnDefault`). */
+  workDefault?: PickedSupplierPage;
+  /** The part of the first page a folded door lands on (`?tab=payments` → `payments`), or null. */
+  landAt?: string | null;
 }) {
   return (
     <PickedShell<PickedSupplierPage>
@@ -78,6 +84,11 @@ export function PickedSupplierShell({
       gear={null}
       // 🔗 A legacy `workspace#payments` notification opens on Payment, not Chat (`picked-url-page.ts`).
       pageOf={pickedSupplierPageOf}
+      anchorOf={pickedSupplierAnchorOf}
+      scrollTo={landAt ? { page: initialPage, id: landAt } : null}
+      // 🖥 The supplier's mirror (owner 18 Nov, "Yes, mirror it"): on a computer the chat keeps its own column. Only
+      // when there is a conversation — without one Chat is not in the menu and the page stays one column.
+      sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
     />
   );
 }

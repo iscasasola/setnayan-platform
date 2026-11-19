@@ -423,7 +423,7 @@ function PrintsSheet({
               tip="Real event photos. Your chosen design and QR are placed onto the printed surfaces by the app — change the design or the QR and these update with it. The people and furniture in front stay in front."
             />
             <p className="px-4 pb-1.5 pt-1 text-[13px] text-[color:var(--m-slate-2)]">Your design and QR, placed on the prints in each photo. Swipe.</p>
-            <div className="mt-1 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-prints-scenes="">
+            <div className="sn-glide-x mt-1 flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-prints-scenes="">
               {PRINT_SCENES.map((s) => (
                 <figure key={s.slug} className="m-0 flex-none snap-start" data-prints-scene={s.slug}>
                   <button type="button" onClick={() => setBig({ kind: 'scene', scene: s })} aria-label={`${s.cap} big`} className="sn-press block">

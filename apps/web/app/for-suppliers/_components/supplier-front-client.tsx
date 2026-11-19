@@ -72,7 +72,8 @@ export function SupplierFrontRoot({ children }: { children: ReactNode }) {
     );
     el.querySelectorAll<HTMLElement>('[data-rv]').forEach((b) => {
       const sib = b.parentElement ? Array.prototype.indexOf.call(b.parentElement.children, b) : 0;
-      b.style.transitionDelay = `${Math.min(sib, 5) * 90}ms`;
+      // Reveal's cascade: neighbours 60 ms apart, the first six only (motion standard § 6; `--sn-w-stagger`).
+      b.style.transitionDelay = `calc(var(--sn-w-stagger) * ${Math.min(sib, 5)})`;
       io.observe(b);
     });
     const plays = new IntersectionObserver(

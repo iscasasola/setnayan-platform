@@ -64,7 +64,6 @@ import {
 } from '@/lib/open-shop-account';
 import { createVendorAccountForShop } from '@/lib/open-shop-account.server';
 import { captchaTokenFromForm } from '@/lib/turnstile';
-import { OPEN_SHOP_LOGO_PATH } from '@/lib/open-shop-logo';
 import {
   TERMS_FIELD,
   TERMS_REQUIRED_MESSAGE,
@@ -72,6 +71,16 @@ import {
   hasAgreedToTerms,
 } from '@/lib/terms-agreement';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
+import { createVendorService } from '@/app/vendor-dashboard/services/actions';
+import {
+  FIRST_CARD_FIELD,
+  FIRST_CARD_TITLE_MAX,
+  firstCardLanding,
+  parseCardPrice,
+  parseFirstCardChoice,
+} from '@/lib/supplier-onboarding';
 
 /**
  * Vendor onboarding submit (owner 2026-07-03: "create a vendor onboarding. we
@@ -313,7 +322,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     }
   }
   if (!coarseService) {
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
+    redirect('/open-shop?step=1&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.service));
   }
   // The refusals run in the order of the screens (1 name · 2 what you do · 3 where · 4 you), so a vendor is sent to
   // the EARLIEST screen that needs them and walks forward from there.
@@ -329,7 +338,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     .map((v) => v.trim())
     .filter((v) => eventVocabKeys.has(v));
   if (submittedEventTypes.length === 0)
-    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.events));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.events));
   const eventTypes = Array.from(new Set(submittedEventTypes));
   // ── EACH SERVICE'S OWN EVENTS (owner 2026-11-06, prototype v16 ④ "Events you serve") ─────────────────────────
   // Under every ticked event the supplier sees each picked service as a chip — all on, untick per event, greyed where
@@ -343,7 +352,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   if (pickedLeaf) {
     const posted = parseEventListField(formData.get(MAIN_SERVICE_EVENTS_FIELD));
     const ev = eventsForAddedService(withinTicked(posted ?? eventTypes), eventVocabKeys, pickedLeafAllowed);
-    if (!ev) redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
+    if (!ev) redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
     mainEvents = ev;
   }
   // ── AND THE SERVICES ADDED UNDER THE MAIN (owner 2026-11-06, "SERVICES SIT TOGETHER, A METER NAMES THE PLAN";
@@ -364,7 +373,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       if (!leaf || seen.has(leaf.canonicalService)) continue;
       seen.add(leaf.canonicalService);
       const ev = eventsForAddedService(withinTicked(x.events ?? eventTypes), eventVocabKeys, leaf.allowedEventTypes);
-      if (!ev) redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
+      if (!ev) redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.extraEvents));
       addedServices.push({ leaf, events: ev });
     }
   }
@@ -390,16 +399,16 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // Needed even with the client gate, since the server rejects shapes the
   // client accepts (and any DB error redirects here too).
   if (!contactName)
-    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactName));
   if (!contactPhone)
-    redirect('/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
+    redirect('/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhone));
   if (!phone?.ok)
     redirect(
-      '/open-shop?step=4&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
+      '/open-shop?step=3&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactPhoneNotPh),
     );
   // ⑤ The email is the account step's (5 · Your account, prototype v16) — name and number are 4 · About you.
   if (!contactEmail)
-    redirect('/open-shop?step=5&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
+    redirect('/open-shop?step=2&error=' + encodeURIComponent(OPEN_SHOP_ERRORS.contactEmail));
 
   // ── THE ACCOUNT IS CREATED ONLY ONCE EVERY FIELD ABOVE HAS PASSED (2026-11-06) ──────────────────────────────
   // It used to be created FIRST. With email verification on (A1) that ordering is a trap: a refusal on step 1/2/4
@@ -488,7 +497,6 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     business_slug?: string | null;
   }>;
   const existing = owned[0] ?? null;
-  const existingHasLogo = Boolean((existing as { logo_url?: string | null } | null)?.logo_url);
   // 🤝 A NEW shop = one that had no name before this submit (none at all, or the sign-up trigger's bare row). Only a new
   // shop made through another supplier's link counts toward that supplier's Invites (owner 16 Nov, answer 2).
   const wasNewShop = !(existing as { business_name?: string | null } | null)?.business_name?.trim();
@@ -799,13 +807,66 @@ export async function becomeVendor(formData: FormData): Promise<void> {
     await parkSentTo(checkEmail);
     redirect(`/open-shop?check_inbox=${CHECK_INBOX_FLAG}`);
   }
-  // 🖼 A2 (owner 2026-11-06: logo "if it does not want to upload, then it has no use here") — the logo is asked
-  // RIGHT AFTER the shop opens, signed in, on its own screen. Skip → Today, where "Add your logo" stays a first step.
-  // A shop that already has a logo (a re-run) goes straight to Today, as before.
-  // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02) — through the logo screen, never past it.
+  // ── ④ THE FIRST SERVICE CARD (supplier onboarding, owner 19 Nov) — through the SHIPPED card maker's own action ──
+  // Approve (a price is required, re-checked here) and Edit-with-a-price make the card with `createVendorService`, the
+  // same way the claim door makes its cards: its redirect is READ, never followed, and its refusals (the plan's
+  // category cap, a phone number in the name) are the maker's own — a refused card is simply not made, and Today's
+  // first steps still ask for one. Skip makes none. ⚠ Best-effort, like the coverages: never costs the shop.
+  const cardChoice = parseFirstCardChoice(formData.get(FIRST_CARD_FIELD.choice));
+  const cardTitle = clean(formData.get(FIRST_CARD_FIELD.title), FIRST_CARD_TITLE_MAX) ?? '';
+  const cardPrice = parseCardPrice(formData.get(FIRST_CARD_FIELD.price));
+  const cardCategory = pickedLeaf ?? coarseService ?? null;
+  const cardId =
+    cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory
+      ? await makeFirstCard(admin, vendorProfileId as string, { title: cardTitle, price: cardPrice, category: cardCategory })
+      : null;
+
+  // 🚪 THE DOOR LANDS ON TODAY'S WELCOME (owner 19 Nov): Add the clients you already have · Add your logo · Get
+  // verified. The logo screen (`/open-shop/logo`, A2) is no longer forced between the door and Today — it is the
+  // welcome's second step. Edit lands in the shipped Card Maker instead (`firstCardLanding`).
   // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
-  // plan it came for is offered (the plan sheet, that row open), through the logo step when there is one.
+  // plan it came for is offered (the plan sheet, that row open).
   const plan = parseSupplierPlan(formData.get('plan'));
-  if (!logoUrl && !existingHasLogo) redirect(plan ? `${OPEN_SHOP_LOGO_PATH}?plan=${plan}` : OPEN_SHOP_LOGO_PATH);
-  redirect(planOfferPath(plan) ?? '/vendor-dashboard');
+  if (cardChoice === 'edit') redirect(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
+  redirect(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
+}
+
+/**
+ * ④ Make the onboarding's first card with the SHIPPED `createVendorService` (fixed price — the Card Maker holds every
+ * other way to price it) and return its id, or null when the maker refused it. The maker answers with a redirect,
+ * which is read, never followed — `?error=` (or no session yet) means no card.
+ */
+async function makeFirstCard(
+  admin: ReturnType<typeof createAdminClient>,
+  vendorProfileId: string,
+  card: { title: string; price: number; category: string },
+): Promise<string | null> {
+  const fd = new FormData();
+  fd.set('category', card.category);
+  fd.set('title', card.title);
+  fd.set('pricing_basis', 'fixed');
+  fd.set('starting_price_php', String(card.price));
+  try {
+    await createVendorService(fd);
+  } catch (e) {
+    if (!isRedirectError(e)) {
+      console.error('[open-shop] the first card failed:', e instanceof Error ? e.message : e);
+      return null;
+    }
+    const url = new URL(getURLFromRedirectError(e) ?? '', 'http://open-shop.local');
+    if (url.searchParams.get('error') || url.pathname === '/login') {
+      console.warn('[open-shop] the first card was refused by the maker:', url.searchParams.get('error') ?? url.pathname);
+      return null;
+    }
+  }
+  const { data, error } = await admin
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('title', card.title)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', error.message);
+  return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
 }

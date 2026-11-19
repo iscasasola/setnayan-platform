@@ -41,34 +41,34 @@ const OWNS: Record<string, number> = {
   logo: 1,
   slugShape: 1,
   slugTaken: 1,
-  service: 2,
-  // "Pick at least one event." (owner 2026-11-06) — the same screen as the tiles it is about.
-  events: 2,
-  // "Pick at least one event for each service." (owner 2026-11-06, v16 ④) — step 2's events page.
-  extraEvents: 2,
-  // 🔁 RE-ORDERED 2026-11-06 (owner, "SUPPLIER SIGN-UP REDESIGN — FOUR CALLS ANSWERED": the account step goes LAST).
-  // "Where you are" is step 3; prototype v16 ⑤ split "You": 4 · About you (name · number · role), 5 · Your account
-  // (email · password · Terms · Open my shop).
+  // 🚪 RE-ORDERED 2026-11-19 (owner, supplier onboarding "BOTH DOORS APPROVED"): 1 · Open your shop (the name AND the
+  // main service, one screen) · 2 · Create your account (SECOND) · 3 · Check your shop (a sheet per fact) · 4 · the
+  // first card · 5 · You're all set. A refusal lands on the screen whose list holds its box, and that box's sheet opens.
+  service: 1,
+  // "Pick at least one event." (owner 2026-11-06) — the Events you serve sheet on Check your shop.
+  events: 3,
+  // "Pick at least one event for each service." (owner 2026-11-06, v16 ④) — the same sheet.
+  extraEvents: 3,
   locationPin: 3,
   locationConfirm: 3,
   locationCity: 3,
-  contactName: 4,
-  contactPhone: 4,
+  contactName: 3,
+  contactPhone: 3,
   // Owner-locked 2026-08-10: the number must belong to where the shop is. Same
-  // step as the number itself — a refusal that sends someone to a different
+  // screen as the number itself — a refusal that sends someone to a different
   // screen than the box it is about is a refusal they cannot act on.
-  contactPhoneNotPh: 4,
-  contactEmail: 5,
-  // The account is created inside the LAST step: every refusal about the password
-  // or the email's account belongs to the screen that asked for them.
-  // lib/open-shop-account.ts owns these strings; the step is owned HERE.
-  password: 5,
-  passwordLeaked: 5,
-  blacklisted: 5,
-  emailTaken: 5,
+  contactPhoneNotPh: 3,
+  contactEmail: 2,
+  // The account screen is SECOND: every refusal about the password or the email's account belongs to the screen that
+  // asked for them. lib/open-shop-account.ts owns these strings; the step is owned HERE.
+  password: 2,
+  passwordLeaked: 2,
+  blacklisted: 2,
+  emailTaken: 2,
+  // No box owns it — drawn above the button that retries, which is on the last screen.
   accountFailed: 5,
-  // "Pick how you’ll sign in." — the browser's own (step 5's three buttons); the server never sends it.
-  way: 5,
+  // "Pick how you’ll sign in." — the browser's own (the account screen's three buttons); the server never sends it.
+  way: 2,
 };
 
 test('META: every error the action redirects with is accounted for here', () => {
@@ -125,13 +125,20 @@ test('the page accepts every step the action can send', () => {
   }
 });
 
-test('the wizard renders exactly five panels, and only the last one submits', () => {
-  for (const n of [1, 2, 3, 4, 5]) {
-    assert.ok(
-      WIZARD.includes(`step === ${n} ? 'space-y-4' : 'hidden'`),
-      `panel for step ${n} is missing`,
-    );
+test('the wizard renders exactly five screens, and only the last one submits', () => {
+  // 🚪 19 Nov: Open your shop · Create your account · Check your shop · the first card · You're all set.
+  for (const gate of [
+    "step === 1 ? 'space-y-4' : 'hidden'",
+    "step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'",
+    "step === CHECK_STEP ? 'grid' : 'hidden'",
+    "step === CARD_STEP ? 'space-y-4' : 'hidden'",
+    "step === TOTAL_STEPS ? 'space-y-4' : 'hidden'",
+  ]) {
+    assert.ok(WIZARD.includes(gate), `the screen gated by ${gate} is missing`);
   }
+  assert.match(WIZARD, /const ACCOUNT_STEP = 2;/);
+  assert.match(WIZARD, /const CHECK_STEP = 3;/);
+  assert.match(WIZARD, /const CARD_STEP = 4;/);
   assert.ok(!WIZARD.includes('step === 6'), 'a sixth panel appeared without updating TOTAL_STEPS');
   assert.match(WIZARD, /const TOTAL_STEPS = 5;/);
   // A SubmitButton on an earlier step would post a half-filled form. It must sit
@@ -249,7 +256,8 @@ test('🔴 Enter cannot submit the form', () => {
   // And it must NOT advance past the last step, or Enter becomes the submit
   // button again by another route.
   assert.ok(
-    /if \(step < TOTAL_STEPS\) (?:next|go)\(\)/.test(WIZARD),
+    // 🚪 19 Nov: Enter advances only BEFORE the first card (its three ways are buttons), never on the last screen.
+    /if \(step < CARD_STEP\) (?:next|go)\(\)/.test(WIZARD),
     'the Enter handler advances unconditionally — on the last step that is a submit',
   );
 });
@@ -284,7 +292,7 @@ test('a machine-guessed location must be confirmed before the step passes', () =
     'the wizard no longer delegates step 4 to the tested location rule',
   );
   assert.ok(
-    /hasPin: !!el\('hq_latitude'\)\?\.value/.test(WIZARD),
+    /hasPin: !!boxEl\('hq_latitude'\)\?\.value/.test(WIZARD),
     'the wizard must feed the real pin field into the rule',
   );
 });
@@ -360,13 +368,19 @@ test('the action forwards the pure module’s step, never a hard-coded one, for 
   );
 });
 
-test('signed out, the wizard asks for a password and the agreement on the last step — and only then', () => {
+test('signed out, the wizard asks for a password and the agreement on the account screen — and only then', () => {
   // Both live INSIDE the `guest` gate: a signed-in vendor is never asked to agree
   // again or to choose a password for an account they already have.
   const pw = WIZARD.indexOf('name="password"');
   assert.notEqual(pw, -1, 'no password field');
   assert.ok(/\{guest \? \(\s*<label[^]*?name="password"/.test(WIZARD), 'the password field is not gated on `guest`');
-  assert.ok(/\{guest && step === TOTAL_STEPS \? \([^]*?name=\{TERMS_FIELD\}/.test(WIZARD), 'the terms box is not gated on `guest` + the last step');
+  // 🚪 19 Nov: the account screen is SECOND, so the box sits in its panel (hidden, still MOUNTED, once they move on —
+  // the one submit is on the last screen and must still post it).
+  assert.ok(/\{guest \? \(\s*<div className="max-w-\[620px\] space-y-1">[^]*?name=\{TERMS_FIELD\}/.test(WIZARD), 'the terms box is not gated on `guest`');
+  const accountPanel = WIZARD.indexOf("step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'");
+  const terms = WIZARD.indexOf('name={TERMS_FIELD}');
+  const checkPanel = WIZARD.indexOf("step === CHECK_STEP ? 'grid' : 'hidden'");
+  assert.ok(accountPanel !== -1 && accountPanel < terms && terms < checkPanel, 'the terms box is not on the account screen');
   // and the box is UNTICKED — no defaultChecked anywhere near it (clickwrap, CTRL-B3)
   const termsBlock = WIZARD.slice(WIZARD.indexOf('name={TERMS_FIELD}'), WIZARD.indexOf('name={TERMS_FIELD}') + 200);
   assert.equal(termsBlock.includes('defaultChecked'), false, 'the agreement is pre-ticked');

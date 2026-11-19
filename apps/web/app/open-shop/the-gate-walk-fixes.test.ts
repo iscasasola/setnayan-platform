@@ -81,9 +81,12 @@ test('A1 · the account is created only after every field of the shop has passed
 
 /* ── A2 · logo off step 1, asked after the shop opens ────────────────────────────────────────────────────────── */
 
-test('A2 · the signed-out wizard has no upload; a new shop goes to "Add your logo"', () => {
+test('A2 · the signed-out wizard has no upload; a new shop reaches "Add your logo" from Today’s welcome', () => {
   assert.doesNotMatch(WIZARD, /<FileUpload\b/);
-  assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(plan \? `\$\{OPEN_SHOP_LOGO_PATH\}\?plan=\$\{plan\}` : OPEN_SHOP_LOGO_PATH\);/);
+  // 🚪 19 Nov (supplier onboarding): the door lands on Today's welcome, whose second step is the logo screen — it is
+  // no longer forced between the door and Today, and it stays reachable (owner: "Keep /open-shop/logo reachable").
+  assert.doesNotMatch(ACTIONS, /redirect\([^)]*OPEN_SHOP_LOGO_PATH/);
+  assert.match(read('lib/supplier-onboarding.ts'), /\{ key: 'logo', label: 'Add your logo', href: '\/open-shop\/logo' \}/);
 });
 
 test('A2 · the logo screen: round preview, the shared framer, Skip → Today, saved by My Shop’s own logo save', () => {

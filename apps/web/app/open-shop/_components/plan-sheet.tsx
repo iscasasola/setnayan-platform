@@ -35,7 +35,8 @@ function PlanBody({
   split,
   backLabel = 'Back to my services',
   inSheet = false,
-}: PlanProps & { headingId: string; inSheet?: boolean }) {
+  noButtons = false,
+}: PlanProps & { headingId: string; inSheet?: boolean; noButtons?: boolean }) {
   const tip = whatEachPlanHolds();
   return (
     <div className="grid gap-3" data-open-shop-plan-sheet="">
@@ -134,19 +135,24 @@ function PlanBody({
           <span>{error}</span>
         </span>
       ) : null}
-      <button
-        type="button"
-        onClick={onContinue}
-        className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
-        data-open-shop-plan-continue=""
-      >
-        Continue
-        <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-      </button>
-      {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
-      <span className="flex justify-center">
-        <ActionButton tone="neutral" icon={ArrowLeft} label={backLabel} onClick={onBack} />
-      </span>
+      {/* On the onboarding's last screen ("You're all set") the screen's own bar carries the action — no second pair. */}
+      {noButtons ? null : (
+        <>
+          <button
+            type="button"
+            onClick={onContinue}
+            className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
+            data-open-shop-plan-continue=""
+          >
+            Continue
+            <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </button>
+          {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
+          <span className="flex justify-center">
+            <ActionButton tone="neutral" icon={ArrowLeft} label={backLabel} onClick={onBack} />
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -201,6 +207,18 @@ export function PlanInline(p: PlanProps) {
   return (
     <div className="os-in-r max-w-[620px] py-1" data-claim-door-plan="">
       <PlanBody {...p} headingId="claim-door-plan-title" />
+    </div>
+  );
+}
+
+/**
+ * 🚪 "YOU'RE ALL SET" — THE PLAN SITS ON THE LAST SCREEN (owner 2026-11-19, supplier onboarding v3/v4). The same body
+ * as the sheet and the claim slide; the screen's own bar opens the shop, so it draws no Continue / Back of its own.
+ */
+export function PlanOnLastScreen(p: Omit<PlanProps, 'onContinue' | 'onBack'>) {
+  return (
+    <div className="max-w-[620px] py-1" data-onboarding-plan="">
+      <PlanBody {...p} onContinue={() => undefined} onBack={() => undefined} headingId="onboarding-plan-title" noButtons />
     </div>
   );
 }

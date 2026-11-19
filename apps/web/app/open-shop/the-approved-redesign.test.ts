@@ -80,26 +80,34 @@ test('the phone box says the approved sentence, whichever way the number was ref
 
 /* ── the order: 1 Name · 2 What you do · 3 Where you are · 4 About you · 5 Your account (prototype v16) ──────────── */
 
-test('five steps in the approved order, the account LAST', () => {
-  const at = (n: number) => WIZARD.indexOf(`step === ${n} ? 'space-y-4' : 'hidden'`);
-  const panel = (n: number) => WIZARD.slice(at(n), n < 5 ? at(n + 1) : WIZARD.indexOf('data-open-shop-bar'));
-  assert.match(panel(1), /name="shop_name"/);
-  assert.match(panel(2), /<ServicePicker\b/);
-  assert.match(panel(2), /<ServiceCards\b/);
-  assert.match(panel(2), /<EventTiles\b/);
-  assert.match(panel(2), /<ServicesAtEvents\b/);
-  assert.match(panel(3), /<CityPin\b/);
-  // ⑤ About you: name · number · role (free text → the shipped `contact_position`, optional).
-  assert.match(panel(4), /name="contact_name"/);
-  assert.match(panel(4), /<PhoneField\b/);
-  assert.match(panel(4), /name="contact_position"/);
-  assert.match(panel(4), /Your role at the shop/);
-  for (const name of ['contact_email', 'password']) assert.match(panel(5), new RegExp(`name="${name}"`));
-  assert.match(panel(5), /name=\{TERMS_FIELD\}/);
+test('five screens in the approved order, the account SECOND (supplier onboarding, owner 19 Nov)', () => {
+  // 🚪 SUPERSEDES "the account LAST" (2026-11-06): the owner's 19 Nov approval puts Create account second, and every
+  // box the five steps held moves onto Open your shop or into a sheet of Check your shop. Each box is pinned to ITS
+  // panel by the panel's own `data-onboarding-fact`.
+  const fact = (f: string) => {
+    const at = WIZARD.indexOf(`data-onboarding-fact="${f}"`);
+    assert.ok(at > 0, `no ${f} panel`);
+    const next = WIZARD.indexOf('data-onboarding-fact="', at + 10);
+    return WIZARD.slice(at, next > 0 ? next : WIZARD.indexOf('data-onboarding-check'));
+  };
+  assert.match(fact('name'), /name="shop_name"/);
+  assert.match(fact('categories'), /<ServicePicker\b/);
+  assert.match(fact('categories'), /<ServiceCards\b/);
+  assert.match(fact('events'), /<EventTiles\b/);
+  assert.match(fact('events'), /<ServicesAtEvents\b/);
+  assert.match(fact('where'), /<CityPin\b/);
+  // Contact person: name · role (free text → the shipped `contact_position`, optional); the number is its own sheet.
+  assert.match(fact('contact'), /name="contact_name"/);
+  assert.match(fact('contact'), /name="contact_position"/);
+  assert.match(fact('contact'), /Your role at the shop/);
+  assert.match(fact('number'), /<PhoneField\b/);
+  const account = WIZARD.slice(WIZARD.indexOf("step === ACCOUNT_STEP ? 'space-y-4'"), WIZARD.indexOf('data-onboarding-check'));
+  for (const name of ['contact_email', 'password']) assert.match(account, new RegExp(`name="${name}"`));
+  assert.match(account, /name=\{TERMS_FIELD\}/);
   // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
   assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
-  assert.match(WIZARD, /'About you', 'Who couples will talk to\.'/);
-  assert.match(WIZARD, /'Your account', guest \? 'Pick how you’ll sign in\. This creates your Setnayan account\.' : 'Your shop’s email, then open your shop\.'/);
+  assert.match(WIZARD, /contact: 'Who couples will talk to\.'/);
+  assert.match(WIZARD, /2: guest \? ONBOARDING_HEADS\.account : \['Your shop’s email', 'Where couples and Setnayan reach your shop\.'\]/);
   // Five segments in the step bar.
   assert.match(WIZARD, /\(\[1, 2, 3, 4, 5\] as Step\[\]\)\.map\(\(n\) => \(\s*<div key=\{n\} className="h-1 flex-1/);
 });
@@ -125,7 +133,7 @@ test('the server runs the same order, and refuses what the browser refuses', () 
   assert.match(ACTIONS, /confirmed: formData\.get\('location_confirmed'\) === 'yes'/);
   assert.match(ACTIONS, /if \(locationError\) redirect\('\/open-shop\?step=3&error=' \+ encodeURIComponent\(locationError\)\)/);
   // No events → refused; the silent ['wedding'] fallback is gone.
-  assert.match(ACTIONS, /if \(submittedEventTypes\.length === 0\)\s*redirect\('\/open-shop\?step=2&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.events\)\)/);
+  assert.match(ACTIONS, /if \(submittedEventTypes\.length === 0\)\s*redirect\('\/open-shop\?step=3&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.events\)\)/);
   assert.doesNotMatch(ACTIONS, /:\s*\['wedding'\]/, 'an empty event set is quietly turned into weddings again');
 });
 
@@ -138,7 +146,8 @@ test('?as=coordinator opens on COORDINATOR_TRADE_SERVICES — read from the cons
   assert.match(PICKER, /Coordination services/);
   assert.match(PICKER, /Not a coordinator\?/);
   assert.match(PICKER, /Search all services/);
-  assert.match(WIZARD, /\['What you coordinate', service \? 'Your services\. Add more if you do more\.' : 'Pick your main coordination service\.'\]/);
+  // 🚪 19 Nov: the coordinator door's first screen is Open your shop, Coordination pre-picked (`supplier-onboarding`).
+  assert.match(WIZARD, /1: coordinator \? OPEN_YOUR_COORDINATION_HEAD : OPEN_YOUR_SHOP_HEAD/);
   assert.match(WIZARD, /onSearchAll=\{\(\) => setAllServices\(true\)\}/);
 });
 
@@ -165,8 +174,10 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
   assert.match(CITY_PIN, /className="button-primary[^"]*w-full[^"]*"\s+data-open-shop-yes=""/);
   assert.match(CITY_PIN, /data-open-shop-map-busy=""/);
   assert.match(CITY_PIN, /createPortal\(confirmCard, sideSlot\)/);
-  assert.match(WIZARD, /sideSlot=\{wide \? sideSlot : null\}/);
-  assert.match(WIZARD, /'Where you are', 'Type your address; the pin follows\. Then confirm it\.'/);
+  // 🚪 19 Nov: the pin lives in the "Where you are" SHEET, so the card is drawn in place — never portalled behind the
+  // sheet's dark (the portal stays CityPin's for its other callers).
+  assert.match(WIZARD, /sideSlot=\{null\}/);
+  assert.match(WIZARD, /where: 'Type your address; the pin follows\. Then confirm it\.'/);
 });
 
 /* ── step 2, v14 → v16: one card per category, the plan explained on Continue, events per service ─────────────── */
@@ -197,18 +208,18 @@ test('owner 7 Nov · a category with ONE service adds it on the tap — no drill
   assert.doesNotMatch(tap, /setPicks|onPicksChange/, 'the tap picks a specialty for them');
 });
 
-test('v16 ② · Continue opens "Before you continue" only past Free and before the box is ticked; the box gates it', () => {
-  const next = WIZARD.slice(WIZARD.indexOf('const next = () => {'), WIZARD.indexOf('const back = () => {'));
-  assert.match(next, /if \(overFree && !planAgreed\) \{[\s\S]*?setPlanOpen\(true\);/);
-  const cont = WIZARD.slice(WIZARD.indexOf('const planContinue'), WIZARD.indexOf('const submitGate'));
-  assert.match(cont, /if \(!planAgreed\) \{\s*setPlanErr\(PLAN_AGREE_ERROR\);/);
+test('v16 ② → 19 Nov · "Before you continue" sits on the LAST screen, only past Free; its box gates Open my shop', () => {
+  // 🚪 SUPERSEDED placement (owner 19 Nov: "the plan sits on this last screen"): the same body, drawn on You're all set.
+  assert.match(WIZARD, /overFree \? <PlanOnLastScreen \{\.\.\.planProps\} \/> : null/);
+  const gate = WIZARD.slice(WIZARD.indexOf('const validateStep = '), WIZARD.indexOf('const focusField'));
+  assert.match(gate, /if \(overFree && !planAgreed\) return PLAN_AGREE_ERROR;/);
+  const submit = WIZARD.slice(WIZARD.indexOf('const submitGate'), WIZARD.indexOf('const saveDraft'));
+  assert.match(submit, /if \(err === PLAN_AGREE_ERROR\) \{\s*setPlanErr\(err\);/);
   assert.match(SHEET, /Before you continue/);
-  assert.match(SHEET, /Back to my services/);
   assert.match(SHEET, /tip\.ladder\.map\(/);
-  // A sheet on a phone (the shipped Sheet), the right pane when wide.
+  assert.match(SHEET, /export function PlanOnLastScreen/);
+  // The claim door still draws it as its own slide, and the shipped Sheet still holds it there.
   assert.match(SHEET, /<Sheet open=\{open\}/);
-  assert.match(WIZARD, /<PlanSheet open=\{planOpen && !wide && step === 2\}/);
-  assert.match(WIZARD, /planPane \? \(\s*<PlanPane \{\.\.\.planProps\} \/>/);
   // No number or peso typed on this screen — the ladder is TIER_CAPS'.
   assert.doesNotMatch(SHEET + CARDS, /₱|\b\d+ (categories|per category|km)\b/);
   assert.match(METER, /export function planLadder\(\)/);
@@ -239,11 +250,11 @@ test('v16 ④ → v19 · under each ticked event, ONLY the services it takes as 
   assert.match(AT_EVENTS, /<Count value=\{onCount\} id=\{`open-shop-ev-\$\{e\.key\}`\} \/> of \{formatOffered\(offered\.length\)\}/);
   assert.match(AT_EVENTS, /\.filter\(\(x\) => x\.offered\.length > 0\)/);
   assert.match(WIZARD, /if \(serviceOnNoEvent\) return OPEN_SHOP_ERRORS\.extraEvents;/);
-  // Events are step 2's second page.
-  assert.match(WIZARD, /\['Events you serve', 'Couples find you by event\.'\]/);
+  // Events are their own sheet on Check your shop (19 Nov), with the shipped line.
+  assert.match(WIZARD, /events: 'Couples find you by event\.'/);
   // The server keeps each service's own events and refuses one on no event.
   assert.match(ACTIONS, /parseEventListField\(formData\.get\(MAIN_SERVICE_EVENTS_FIELD\)\)/);
-  assert.match(ACTIONS, /if \(!ev\) redirect\('\/open-shop\?step=2&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.extraEvents\)\)/);
+  assert.match(ACTIONS, /if \(!ev\) redirect\('\/open-shop\?step=3&error=' \+ encodeURIComponent\(OPEN_SHOP_ERRORS\.extraEvents\)\)/);
   assert.equal(OPEN_SHOP_ERRORS.extraEvents, 'Pick at least one event for each service.');
 });
 

@@ -104,7 +104,7 @@ test('only these reads are started ahead — each one every path below awaits, n
     //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
     // + `readYourSchedule` (2026-11-02, Event Hub › Me › Your schedule): four reads, started once the guest's row is
     //   known to be theirs, awaited once where Me is drawn — no return lies between (held below).
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readYourSchedule', 'resolveVendorCapability'].sort(),
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readGuestSupplierPageNotices', 'readWhoMadeTheDay', 'readYourSchedule', 'resolveVendorCapability'].sort(),
   );
   {
     const started = PAGE.indexOf('const yourScheduleAhead =');
@@ -112,6 +112,18 @@ test('only these reads are started ahead — each one every path below awaits, n
     assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, 'Your schedule is started before the guest is known, or never awaited');
     assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, 'a path between starting Your schedule and awaiting it leaves without awaiting it');
     assert.equal(count(PAGE, 'readYourSchedule('), 1, 'Your schedule is asked twice');
+  }
+  // + `readGuestSupplierPageNotices` and `readWhoMadeTheDay` (speed pass 2026-11-18): started beside Your schedule, each
+  //   under the condition its await had, each awaited once — no return lies between.
+  for (const [name, startedAt, awaitedAt] of [
+    ['readGuestSupplierPageNotices(', 'const supplierPageNoticesAhead =', 'const supplierPageNotices = supplierPageNoticesAhead ? await supplierPageNoticesAhead : [];'],
+    ['readWhoMadeTheDay(', 'const whoMadeTheDayAhead =', 'const whoMadeTheDay = whoMadeTheDayAhead ? await whoMadeTheDayAhead : null;'],
+  ] as const) {
+    const started = PAGE.indexOf(startedAt);
+    const awaited = PAGE.indexOf(awaitedAt);
+    assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, `${name} is started before the guest is known, or never awaited`);
+    assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, `a path between starting ${name} and awaiting it leaves without awaiting it`);
+    assert.equal(count(PAGE, name), 1, `${name} is asked twice`);
   }
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),

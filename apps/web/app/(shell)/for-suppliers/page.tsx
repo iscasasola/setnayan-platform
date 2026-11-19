@@ -67,12 +67,12 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       images: BRAND_OG_IMAGES,
       title,
-      description: `Your clients, quotes and dates. One free place · ${supplierCommissionShort(fee)} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
+      description: `Your clients, quotes and dates. One free place · ${supplierCommissionShort(fee)} · free when you bring the event first.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',

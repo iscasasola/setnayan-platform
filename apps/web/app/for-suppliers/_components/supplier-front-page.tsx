@@ -27,6 +27,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
@@ -172,7 +173,8 @@ export function SupplierFrontPage({
   const cards = (t: VendorTier) => TIER_CAPS[t].serviceCardsTotal;
 
   const freeWhen: FreeWhen[] = [
-    { label: 'You brought them yourself', hint: 'Clients who found you outside Setnayan never carry a fee.' },
+    { label: 'You bring the event first', hint: FEE_FREE_CHIP },
+    { label: 'A couple you brought onto Setnayan', hint: FEE_FREE_RULE },
     { label: 'It is your first booking from Setnayan', hint: FIRST_BOOKING_ON_US },
     { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
@@ -337,7 +339,7 @@ export function SupplierFrontPage({
       {/* 6 · FEES */}
       <section className={s.part} id="fees" aria-labelledby="sf-h-fees" data-rv="">
         <SecHead id="sf-h-fees">Grow your business, not your fees</SecHead>
-        <Lede text="A booking fee applies only to a client Setnayan brings you.">
+        <Lede text={`A booking fee applies to a booking, ${FEE_SCOPE}.`}>
           <p>Setnayan never takes a cut of the deal.</p>
           {f && fee.schedule ? (
             <>
@@ -357,14 +359,14 @@ export function SupplierFrontPage({
             </p>
           )}
           <p>
+            <b>Who books you free.</b> {FEE_FREE_RULE}
+          </p>
+          <p>
             <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
           </p>
           <p>
             <b>Free booking fee tickets.</b> Some badge steps give you a ticket. It is applied automatically to your next
-            booking from a client Setnayan brings you, and that booking’s fee is free.
-          </p>
-          <p>
-            <b>Clients you bring book you free.</b> Clients who found you outside Setnayan never carry a fee.
+            booking that carries the fee, and that booking’s fee is free.
           </p>
           <p>
             <b>Your customers never see the fee.</b> We add nothing to your price.
@@ -372,7 +374,7 @@ export function SupplierFrontPage({
         </Lede>
         {f && fee.schedule ? (
           <div className={s.fee}>
-            <p className={s.feeK}>On a client Setnayan brings you</p>
+            <p className={s.feeK}>On a booking that carries the fee</p>
             <div className={s.feeRow}>
               <b className={s.feeN}>{f.head}</b>
               <p className={s.feeT}>
@@ -383,6 +385,9 @@ export function SupplierFrontPage({
             <FeeRuler schedule={fee.schedule} freeWhen={freeWhen} />
             {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
             <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>
+            <p className={s.feeWhen}>
+              <b>{FEE_FREE_CHIP}.</b> {FEE_FREE_RULE}
+            </p>
           </div>
         ) : null}
         <p className={s.fine}>Hosts never see the fee. They never pay it.</p>

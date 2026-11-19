@@ -23,17 +23,24 @@ test('every rule-B case gives the answer the owner ruled', () => {
   }
 });
 
-test('a row the supplier brought is never sourced, whatever was viewed or saved first', () => {
+// 🎟 Owner 2026-11-16 (DECISION_LOG d4899cd5 point 4) reversed "a row the supplier brought is never sourced": an
+// earlier Setnayan contact makes it a Setnayan booking. Whether an import with nothing earlier is FREE is decided in SQL
+// (one year / first import on the event — tests/db/imported-clients-free-one-year-or-first-import.db.test.ts).
+test('a row the supplier brought is sourced when Setnayan showed the couple the shop first (save or view)', () => {
   for (const rowSource of ['vendor_invite', 'vendor_locked_qr', 'reuse_accept']) {
-    const facts: BookingAttributionFacts = {
+    const base: BookingAttributionFacts = {
       threadSources: [],
       rowSource,
       rowIsManualRecord: false,
       recordTiedToShop: true,
-      savesBefore: ['host_marketplace_search'],
-      viewSourcesBefore: ['explore', 'search', 'favorites'],
+      savesBefore: [],
+      viewSourcesBefore: [],
     };
-    assert.equal(bookingFeeAttributionFromFacts(facts), 'import', rowSource);
+    assert.equal(bookingFeeAttributionFromFacts({ ...base, savesBefore: ['host_marketplace_search'] }), 'sourced', `${rowSource} after a save`);
+    assert.equal(bookingFeeAttributionFromFacts({ ...base, viewSourcesBefore: ['search'] }), 'sourced', `${rowSource} after a view`);
+    // A view through the supplier's own link is not Setnayan showing them anything.
+    assert.equal(bookingFeeAttributionFromFacts({ ...base, viewSourcesBefore: ['profile_direct'] }), 'import', `${rowSource} own link`);
+    assert.equal(bookingFeeAttributionFromFacts(base), 'import', `${rowSource} with nothing from Setnayan first`);
   }
 });
 

@@ -197,6 +197,20 @@ holder — or a Shop / Branch Manager — taps "Keep with X" / "Give to Y". The 
 even on a card they don't cover (a per-client read grant on top of card scoping); both people and the client are notified.
 **STILL OPEN:** who may hand over (drawn: the holder or a manager; the receiver need not accept).
 
+## 3e · When the plan ends (owner 19 Nov: *"the chat will temporarily be migrated to the nearest account that stays alive. since other accounts will be paused"*)
+
+⚠ **REVERSES A SHIPPED RULE — needs the owner's explicit confirm.** Today `downgradeFit` (`lib/downgrade-limits.ts`,
+ruling 5683) and `canSeat` (`lib/vendor-free-helper.ts`) keep every seat over a lower plan: *"Everyone stays; you can't add
+more."* The proposal pauses the seats over the new plan's count instead.
+
+Proposed: a `paused_at` on `vendor_team_members` (a paused seat signs in to nothing for that shop; RLS helpers skip paused
+rows); the Shop Manager picks who stays on the plan sheet (the owner and the free Helper always stay); a paused person's
+clients move to the nearest seat that stays — ① another Account Manager on the same card + branch (by the fair split) →
+② the branch's Branch Manager → ③ the Shop Manager — as a TEMPORARY assignment (`assigned_member_id` + `temporary_from`).
+Same chat, every message kept; the client is told. When a plan with room returns, the seat un-pauses and its clients go
+back unless a manager moved one meanwhile. **STILL OPEN:** who picks (drawn: Shop Manager; default newest seats pause
+first) · does this cover moving down a plan (drawn) or only a lapsed plan.
+
 ## 4 · Order of work (after the owner OKs the drawing)
 
 1. PR A — migration (`duty`, `branch_id`, `vendor_role_names`, rank trigger, backfill, two helpers, RLS at create) +

@@ -58,8 +58,9 @@ test('4 · a real layout: three named parts, no magic rows, the phone order unch
   assert.ok(CAL.slice(top, day).includes('{between}'), 'the month\'s own parts left the top wrapper');
 });
 
-test('5 · the quick row (Overdue · Unread) stays under the month on a computer; the phone still hides it', () => {
-  assert.doesNotMatch(PIN, /dayPicked && month \? null : quickRow/, 'the quick row is dropped while a day is picked');
-  assert.match(PIN, /<div hidden=\{Boolean\(dayPicked && month\)\} data-customers-quick-wrap="">\s*\{quickRow\}/);
-  assert.match(CSS, /\[data-customers-quick-wrap\]\[hidden\]\s*\{\s*display:\s*block;/, 'a computer does not show it');
+test('5 · Overdue · Unread are tiles over the month, so a computer keeps them while a day is picked (owner 19 Nov)', () => {
+  // Clients, cleaner: they left the quick row (hidden on a phone while a day is picked) for the tiles row, which heads
+  // the screen OUTSIDE the month block — so they stay on screen with a day picked, on a computer and a phone alike.
+  assert.match(PIN, /\{body\}\s*<div id="calendar"/, 'the tiles moved back under the month');
+  assert.match(PIN, /const body = title \? \(/, 'the one screen draws a quick row again');
 });

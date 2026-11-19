@@ -19,6 +19,7 @@ import {
   giftPackLine,
   giftCount,
   coupleGiftHeadline,
+  freeOfPack,
   type FreeByKind,
   type ShopGiftPack,
 } from './shop-gifts';
@@ -57,7 +58,7 @@ export const SETNAYAN_GIFT_BUNDLE_HINT =
 /** What the ⓘ beside "Gift" says — the card's words and the shop-gift rulings (DECISION_LOG 2026-11-04 / 05). */
 export const PACKAGE_GIFT_TIP: readonly string[] = [
   'Setnayan gift — couples who book this get free Papic photos, sized to the booking. It is added to your booking fee bill — never more than 40% of that fee. Your bundle shows either way.',
-  'Your own gifts — Papic credits, Event Plus or Event Pro from your stock (Shop › Promote › Your gifts · buy first). They leave your stock when the couple’s first payment clears and land on their event.',
+  'Your own gifts — Papic packs, Event Plus, Event Pro or Event Ultra from your stock (Shop › Promote › Your gifts · buy first). They leave your stock when the couple’s first payment clears and land on their event.',
   'On one booking your gifts are capped at 40% of its fee; the smallest Papic pack is always allowed.',
   'A second Event Plus on an event that already holds Plus unlocks Event Pro instead.',
 ];
@@ -81,8 +82,8 @@ export function packageGiftMenu(
     { key: PACKAGE_GIFT_SETNAYAN, label: 'Setnayan gift', hint: SETNAYAN_GIFT_BUNDLE_HINT },
   ];
   for (const p of packs ?? []) {
-    const have = free ? free[p.kind] : null;
-    const enough = have != null && have >= p.credits;
+    const have = freeOfPack(free, p);
+    const enough = have != null && have >= 1;
     const off =
       p.code === current
         ? undefined
@@ -103,7 +104,8 @@ export function packageGiftMenu(
 
 /** The line under a shop pack: "1,000 Papic credits · leaves your gift stock when their first payment clears · 850 free to offer". */
 export function packageGiftHint(pack: ShopGiftPack, free: FreeByKind | null): string {
-  const left = free ? `${giftCount(free[pack.kind])} free to offer` : 'couldn’t read your stock';
+  const n = freeOfPack(free, pack);
+  const left = n !== null ? `${giftCount(n)} free to offer` : 'couldn’t read your stock';
   return `${giftPackLine(pack)} · leaves your gift stock when their first payment clears · ${left}`;
 }
 
@@ -132,7 +134,7 @@ export function coupleBundleGift(
   const p = (packs ?? []).find((x) => x.code === gift);
   // A pack that is no longer on the catalogue cannot be given — say nothing rather than promise it.
   if (!p) return null;
-  const line =
-    p.kind === 'papic' ? coupleGiftHeadline(p.credits, shopName) : coupleGiftHeadline(0, shopName, [p.title]);
+  // 🔢 Papic is given in packs (2026-11-14): "1 × Papic 1000".
+  const line = coupleGiftHeadline([p.kind === 'papic' ? `1 × ${p.title}` : p.title], shopName);
   return line ? { setnayan: false, line } : null;
 }

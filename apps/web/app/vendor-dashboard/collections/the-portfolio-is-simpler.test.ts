@@ -53,7 +53,7 @@ test('3 · ONE round — sliders, named Sort — opens Show then Sort; ＋ only 
   assert.match(row, /label: 'Sort',/, 'the round’s name is not “Sort”');
   assert.match(row, /<SlidersHorizontal\b/, 'the round is not the sliders icon (owner: “B · Sliders”)');
   assert.doesNotMatch(row, /buttonText:/, 'the round carries a word — owner: “no word just icon”');
-  assert.match(row, /\{on \? <i className="[^"]*rounded-full bg-terracotta" \/> : null\}/, 'no dot when the choice is not the default');
+  assert.match(row, /\{on \? <i className="[^"]*rounded-full bg-mulberry" \/> : null\}/, 'no dot when the choice is not the default — and one dot colour app-wide (the shared SortFace\'s mulberry)');
   assert.match(row, /action=\{\s*nothing && uploadFacts\s*\?/, 'the ＋ shows at rest — it belongs to “nothing matches” only');
   assert.doesNotMatch(row, /\bleft=\{/, 'a second control was added before the field');
 });

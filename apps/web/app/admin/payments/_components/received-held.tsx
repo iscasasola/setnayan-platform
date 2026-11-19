@@ -12,6 +12,7 @@
 import { formatPhp } from '@/lib/orders';
 import { formatCount } from '@/lib/format-number';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
 import { TemplateFail, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { paysAtLabel, undoIsOpen } from '@/lib/admin/received-auto-match';
 import { shortReference } from '@/lib/admin/received-match';
@@ -37,7 +38,12 @@ export function ReceivedHeldList({ held, query, next, now = new Date() }: { held
       <p className="text-[15px] font-semibold text-ink">
         {held.length === 1 ? '1 matched by itself' : `${formatCount(held.length)} matched by themselves`}
       </p>
-      <p className={TEMPLATE_SUBLINE}>Same reference and same amount. Each confirms 30 minutes after it matched. Undo puts it back with the ones you match by hand.</p>
+      <div className={TEMPLATE_SUBLINE}>
+        Same reference and same amount. Each confirms 30 minutes after it matched.{' '}
+        <InfoTip label="" ariaLabel="About Undo" align="start">
+          Undo puts it back with the ones you match by hand.
+        </InfoTip>
+      </div>
       <ul className="mt-2">
         {held.map((h) => {
           const open = undoIsOpen(h.matched_at, now);

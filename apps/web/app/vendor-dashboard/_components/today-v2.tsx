@@ -22,6 +22,7 @@ import {
   ReviewBody,
 } from './overview-sections';
 import { TodayAsideButton, TodayQuickGroup, TodayQuickRow } from './today-v2-client';
+import { formatCount } from '@/lib/format-number';
 import { BILLS_UNREAD_LINE, DONE_UNREAD_LINE, type DoneTodayRow, type GrowStage, type TodayBadgeTag, type TodaySplit, type TodayTaskRow, type TrendLine } from '@/lib/supplier-today-v2';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
@@ -241,14 +242,14 @@ export function TodayV2Needs({
     <>
       {split.quick.length > 0 ? (
         <div data-today-quick="" id="today-quick">
-          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Quick · {split.quick.length}</p>
+          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Quick · {formatCount(split.quick.length)}</p>
           <QuickRows rows={split.quick} a={answers} />
         </div>
       ) : null}
       {split.screen.length > 0 || billCount > 0 ? (
         <div data-today-opens-a-screen="">
           <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">
-            Opens a screen · {split.screen.length + billCount}
+            Opens a screen · {formatCount(split.screen.length + billCount)}
           </p>
           <ScreenRows rows={split.screen} a={answers} todayIso={todayIso} onDesk={onDesk} />
           {billCount > 0 ? (

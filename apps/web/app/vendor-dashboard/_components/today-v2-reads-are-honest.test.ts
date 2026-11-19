@@ -62,6 +62,6 @@ test('4 · a refused cards read is unread — and so is a missing Today v2 read'
 test('5 · the heading and the cover count the fee bills the same way', () => {
   assert.match(BUILD, /const left = i\.deskIncomplete \? null : split\.quick\.length \+ split\.screen\.length \+ i\.view\.bills\.length;/);
   assert.match(BUILD, /billCount=\{i\.view\.bills\.length\}/);
-  assert.match(SCREEN, /Opens a screen · \{split\.screen\.length \+ billCount\}/, 'the heading counts all the bills as one while the cover counts each');
+  assert.match(SCREEN, /Opens a screen · \{formatCount\(split\.screen\.length \+ billCount\)\}/, 'the heading counts all the bills as one while the cover counts each');
   assert.doesNotMatch(SCREEN, /hasBills/, 'the one-for-all bill count is back');
 });

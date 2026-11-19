@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
-import { DAILY_CAPACITY_MAX, TIER_CAPS, VENDOR_TIERS, WAITLIST_SETTING_MAX, tierCaps } from './vendor-tier-caps';
+import { DAILY_CAPACITY_MAX, STORAGE_GB, TIER_CAPS, ULTRA_ADDON_GIVES, VENDOR_TIERS, WAITLIST_SETTING_MAX, tierCaps } from './vendor-tier-caps';
 import {
   COUNT_ADDONS,
   COUNT_ADDON_KINDS,
@@ -37,7 +37,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 test('a purchase raises the effective cap — one per paid add-on, on the allowance it names', () => {
   const ultra = tierCaps('enterprise');
-  const raised = applyAddOnExtras(ultra, { category: 2, service_card: 1, waitlist: 1, booking_per_date: 3 });
+  const raised = applyAddOnExtras(ultra, { ultra: 0, category: 2, service_card: 1, waitlist: 1, booking_per_date: 3 });
   assert.equal(raised.parentCategories, ultra.parentCategories + 2);
   assert.equal(raised.serviceCardsTotal, ultra.serviceCardsTotal + 1);
   // The wait list is already at its column's ceiling on every plan (2026-11-18) — a past purchase cannot pass it.
@@ -126,4 +126,30 @@ test('the card editor: bookings a day are the shop\'s own number on every plan, 
   assert.equal(bookingsPerDateRefusal({ requested: 600, stored: 600 }), null);
   assert.match(bookingsPerDateHelp(), /up to 500\. Every plan\.$/);
   assert.doesNotMatch(bookingsPerDateHelp(), /Ultra|Max|Pro|Plus|upgrade/i, 'the help names a plan again');
+});
+
+test('THE ULTRA ADD-ON (owner 2026-11-19): each one adds +1 branch · +15 live cards · +3 people · +50 GB, and it stacks', () => {
+  const ultra = tierCaps('enterprise');
+  for (const n of [1, 2, 3]) {
+    const r = applyAddOnExtras(ultra, { ...NO_EXTRAS, ultra: n });
+    assert.equal(r.branchesIncluded, ultra.branchesIncluded + n * ULTRA_ADDON_GIVES.branches, `${n}: branches`);
+    assert.equal(r.serviceCardsTotal, ultra.serviceCardsTotal + n * ULTRA_ADDON_GIVES.liveCards, `${n}: cards`);
+    assert.equal(r.agentAccounts, ultra.agentAccounts + n * ULTRA_ADDON_GIVES.people, `${n}: people`);
+    assert.equal(r.storageBytes, (ultra.storageBytes ?? 0) + n * ULTRA_ADDON_GIVES.storageGb * STORAGE_GB, `${n}: storage`);
+    // Nothing else moves.
+    assert.equal(r.parentCategories, ultra.parentCategories);
+  }
+  assert.deepEqual(ULTRA_ADDON_GIVES, { branches: 1, liveCards: 15, people: 3, storageGb: 50 });
+});
+
+test('only the Ultra Add-on is sold, and only on Ultra (owner 2026-11-19: "just 1 pack")', () => {
+  for (const t of VENDOR_TIERS) {
+    assert.equal(canBuyUltraAddOn('ultra', t), t === 'enterprise', `ultra · ${t}`);
+    for (const k of ULTRA_ADDON_ORDER.filter((x) => x !== 'ultra')) assert.equal(canBuyUltraAddOn(k, t), false, `${k} · ${t}`);
+  }
+  // Its paid orders are the shop's own Setnayan purchase, like every count add-on.
+  assert.equal(isVendorSurfaceServiceKey(countAddOnServiceKey('ultra', 'vp-1')), true);
+  assert.equal(parseCountAddOnServiceKey(countAddOnServiceKey('ultra', 'vp-1'))?.kind, 'ultra');
+  assert.equal(COUNT_ADDONS.ultra.sku, 'vendor_ultra_addon');
+  assert.equal(COUNT_ADDONS.ultra.column, 'extra_ultra_addons');
 });

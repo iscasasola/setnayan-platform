@@ -25,8 +25,8 @@ import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
   TIER_CAPS,
-  canBuyExtraBranches,
-  canBuyExtraSeats,
+  canBuyTheUltraAddOn,
+  ULTRA_ADDON_GIVES,
   TIER_LABEL,
   firstPlanWith,
   type TierCaps,
@@ -329,18 +329,18 @@ export function helperLine(): string | null {
   return `Every plan, Free included, comes with ${helpers} for the event day.`;
 }
 
-/** The plans that may buy an extra branch AND an extra seat (today only Ultra) — `canBuyExtra*` in vendor-tier-caps. */
-export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyExtraBranches(t) && canBuyExtraSeats(t));
+/** The plans that may buy the Ultra Add-on (only Ultra, owner 2026-11-19) — `canBuyTheUltraAddOn` in vendor-tier-caps. */
+export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyTheUltraAddOn(t));
 
 /**
  * The one line under the plan cards that replaced the add-ons box (drawing § 1): "Deep Search is ₱499 a search on any
- * plan. On Ultra, you can also add a seat or a branch." The price is the catalogue row the search CHARGES; unread → the
- * sentence names no figure. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
+ * plan. On Ultra, the Ultra Add-on adds …" The price is the catalogue row the search CHARGES; unread → the sentence
+ * names no figure. The plan that may buy the add-on is `ADDON_TIERS` (canBuyTheUltraAddOn).
  */
 export function buyMoreLine(deepSearchPrice: string | null): string {
   const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
   if (ADDON_TIERS.length === 0) return deep;
-  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, you can also add a seat or a branch.`;
+  return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, the Ultra Add-on adds ${ULTRA_ADDON_GIVES.branches} branch, ${ULTRA_ADDON_GIVES.liveCards} live cards, ${ULTRA_ADDON_GIVES.people} people and ${ULTRA_ADDON_GIVES.storageGb} GB.`;
 }
 
 /** The Free card's words (drawing § 1, desktop): what Free gives, and that Verified joins it. */

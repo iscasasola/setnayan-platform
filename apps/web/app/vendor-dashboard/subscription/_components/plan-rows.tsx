@@ -17,7 +17,7 @@ import type { PlanLine, PlanRowBadge } from '@/lib/vendor-plan-rows';
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
- *   Deep Search › (every plan) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
+ *   Deep Search › (every plan) · the Ultra Add-on (Ultra, 2026-11-19) · what was bought before the 2026-11-14 fold,
  *   while it runs · Papic credits › (Event Hub) · Featured by Setnayan ·
  *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
@@ -44,7 +44,7 @@ export function PlanRows({
   photosLine = null,
   storageLine = null,
   deepSearch = null,
-  extras = null,
+  ultraAddOn = null,
   bought = [],
   titled = true,
 }: {
@@ -75,8 +75,12 @@ export function PlanRows({
   storageLine?: string | null;
   /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
   deepSearch?: { line: string } | null;
-  /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
-  extras?: { line: string } | null;
+  /**
+   * 🛒 The Ultra Add-on (owner 2026-11-19, the ONE add-on): its line (what it adds · the live catalogue price · how many
+   * the shop holds) and its Add control, built by the page around the `buyUltraAddOn` form. null = not drawn (not
+   * Ultra, or not on sale). It replaces the "Extra seats and branches" row — single extras are not sold any more.
+   */
+  ultraAddOn?: { line: string; end: ReactNode } | null;
   /** 💳 Add-ons bought before they folded into the plans, while they still run (item 11). */
   bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
@@ -154,13 +158,13 @@ export function PlanRows({
         </div>
 
         {/* 💳 The "Add-ons" row became what is left to buy (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
-            drawing § 3): Deep Search on every plan; on Ultra, extra seats and branches. The chatbot, specialized tools,
+            drawing § 3): Deep Search on every plan; on Ultra, the Ultra Add-on (2026-11-19). The chatbot, specialized tools,
             3D booth and Papic Challenges are not bought any more — they are under "What <plan> gives you". */}
         {deepSearch ? (
           <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
         ) : null}
-        {extras ? (
-          <DatesRow data="plan-extras" lead={ic(Users)} title="Extra seats and branches" line={extras.line} href="/vendor-dashboard/team" />
+        {ultraAddOn ? (
+          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Ultra Add-on" line={ultraAddOn.line} end={ultraAddOn.end} />
         ) : null}
         {bought.map((b) => (
           <DatesRow key={b.key} data="plan-bought" lead={ic(Store)} title={b.title} line={b.line} />

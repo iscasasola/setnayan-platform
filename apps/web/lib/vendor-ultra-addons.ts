@@ -10,7 +10,10 @@ import {
   canBuyExtraSeats,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
+  canBuyTheUltraAddOn,
   holdsBoughtExtras,
+  STORAGE_GB,
+  ULTRA_ADDON_GIVES,
   WAITLIST_SETTING_MAX,
   type TierCaps,
 } from './vendor-tier-caps';
@@ -31,12 +34,22 @@ import {
  * plan's allowance wherever the allowance is read ({@link fetchCapsWithAddOns}).
  */
 
-/** Every Ultra add-on, in the order the owner listed them for the For Suppliers block (2026-11-06). */
-export const ULTRA_ADDON_ORDER = ['category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date'] as const;
+/*
+ * 🛒 THE ULTRA ADD-ON (owner 2026-11-19: *"just 1 pack"* · *"Ultra Addon"* · *"2490"* · *"they only buy the … pack"*):
+ * the ONE thing a shop buys on top of a plan — +1 branch · +15 live cards · +3 people · +50 GB per 28 days, Ultra only,
+ * and it may be bought more than once. It is a COUNT add-on like the four below (`extra_ultra_addons`, recomputed from
+ * paid `vendor_ultra_addon__<id>` orders by the same activation hook), but one count raises FOUR allowances
+ * ({@link ULTRA_ADDON_GIVES}). The database adds its branch and its storage in `enforce_included_branch_allowance` /
+ * `enforce_supplier_storage_allowance` (migration 20271351415438); the app adds all four here.
+ */
+export { ULTRA_ADDON_GIVES };
+
+/** Every Ultra add-on, in the order shown — the Ultra Add-on first (2026-11-19), then the six of 2026-11-06. */
+export const ULTRA_ADDON_ORDER = ['ultra', 'category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date'] as const;
 export type UltraAddOnKind = (typeof ULTRA_ADDON_ORDER)[number];
 
-/** The four add-ons that are a COUNT on `vendor_profiles`, bought through `buyUltraAddOn`. */
-export const COUNT_ADDON_KINDS = ['category', 'service_card', 'waitlist', 'booking_per_date'] as const;
+/** The add-ons that are a COUNT on `vendor_profiles`, bought through `buyUltraAddOn`. Only `ultra` is on sale (2026-11-19). */
+export const COUNT_ADDON_KINDS = ['ultra', 'category', 'service_card', 'waitlist', 'booking_per_date'] as const;
 export type CountAddOnKind = (typeof COUNT_ADDON_KINDS)[number];
 
 type CountAddOnDef = {
@@ -45,11 +58,17 @@ type CountAddOnDef = {
   /** Order service_key prefix; the suffix is the buying shop's vendor_profile_id. */
   servicePrefix: string;
   /** The paid count on `vendor_profiles` (recomputed by the activation hook, guarded against self-grant). */
-  column: 'extra_parent_categories' | 'extra_services_per_leaf' | 'extra_waitlist_acceptances' | 'extra_bookings_per_date';
+  column:
+    | 'extra_ultra_addons'
+    | 'extra_parent_categories'
+    | 'extra_services_per_leaf'
+    | 'extra_waitlist_acceptances'
+    | 'extra_bookings_per_date';
   /**
    * The plan allowance one purchase raises by one. `null` = it raises nothing any more: bookings per date stopped being
    * a plan limit on 2026-11-18 (ruling 17), so a "+1 booking per date" bought before then has no cap left to raise —
-   * the shop's own number governs, with no plan ceiling over it.
+   * the shop's own number governs, with no plan ceiling over it. The Ultra Add-on is `null` too: it raises FOUR
+   * allowances at once ({@link ULTRA_ADDON_GIVES}), applied in {@link applyAddOnExtras}.
    */
   capKey: 'parentCategories' | 'serviceCardsTotal' | 'waitlistAcceptances' | null;
   /** What the shop reads on the purchase row and the order. */
@@ -57,6 +76,13 @@ type CountAddOnDef = {
 };
 
 export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Object.freeze({
+  ultra: {
+    sku: 'vendor_ultra_addon',
+    servicePrefix: 'vendor_ultra_addon__',
+    column: 'extra_ultra_addons',
+    capKey: null,
+    label: 'Ultra Add-on: +1 branch · +15 live cards · +3 people · +50 GB',
+  },
   category: {
     sku: 'vendor_extra_category',
     servicePrefix: 'vendor_extra_category__',
@@ -112,9 +138,11 @@ export function isCountAddOnKind(raw: unknown): raw is CountAddOnKind {
   return typeof raw === 'string' && (COUNT_ADDON_KINDS as readonly string[]).includes(raw);
 }
 
-/** May this plan buy this add-on? Ultra only, for every one of the six. */
+/** May this plan buy this add-on? Only the Ultra Add-on is sold (Ultra only, 2026-11-19); every other one answers false. */
 export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | undefined): boolean {
   switch (kind) {
+    case 'ultra':
+      return canBuyTheUltraAddOn(tier);
     case 'category':
       return canBuyExtraCategories(tier);
     case 'service_card':
@@ -158,7 +186,7 @@ export function addOnCountFromPaid(count: number | null | undefined): number {
 
 /** What a shop has bought, per count add-on. */
 export type AddOnExtras = Readonly<Record<CountAddOnKind, number>>;
-export const NO_EXTRAS: AddOnExtras = Object.freeze({ category: 0, service_card: 0, waitlist: 0, booking_per_date: 0 });
+export const NO_EXTRAS: AddOnExtras = Object.freeze({ ultra: 0, category: 0, service_card: 0, waitlist: 0, booking_per_date: 0 });
 
 /**
  * THE PURCHASE RAISES THE CAP — the plan's allowance plus what the shop bought, per count add-on. Pure.
@@ -176,6 +204,16 @@ export function applyAddOnExtras(caps: TierCaps, extras: AddOnExtras | null | un
     if (extra === 0 || !Number.isFinite(base) || base <= 0) continue;
     // The wait list never goes past its column's own ceiling (the database's trigger holds the same LEAST(…, 10)).
     out[key] = key === 'waitlistAcceptances' ? Math.min(base + extra, WAITLIST_SETTING_MAX) : base + extra;
+  }
+  // 🛒 The Ultra Add-on raises four allowances per purchase (owner 2026-11-19). Unlike the "+1" add-ons it ADDS to a
+  // zero (Ultra's branches are never zero, but the rule is the owner's "+1 branch", not "more of what you have").
+  const ultra = addOnCountFromPaid(extras.ultra);
+  if (ultra > 0) {
+    const add = (n: number, by: number) => (Number.isFinite(n) ? n + by * ultra : n);
+    out.branchesIncluded = add(out.branchesIncluded, ULTRA_ADDON_GIVES.branches);
+    out.serviceCardsTotal = add(out.serviceCardsTotal, ULTRA_ADDON_GIVES.liveCards);
+    out.agentAccounts = add(out.agentAccounts, ULTRA_ADDON_GIVES.people);
+    out.storageBytes = out.storageBytes === null ? null : out.storageBytes + ULTRA_ADDON_GIVES.storageGb * STORAGE_GB * ultra;
   }
   return out;
 }
@@ -200,6 +238,7 @@ export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId
     if (!data) return NO_EXTRAS;
     const row = data as unknown as Record<string, number | null>;
     return {
+      ultra: addOnCountFromPaid(row.extra_ultra_addons),
       category: addOnCountFromPaid(row.extra_parent_categories),
       service_card: addOnCountFromPaid(row.extra_services_per_leaf),
       waitlist: addOnCountFromPaid(row.extra_waitlist_acceptances),
@@ -301,6 +340,9 @@ export function ultraAddOnsFromRows(rows: readonly CatalogRow[]): UltraAddOnRow[
     const pricePhp = Number(r.price_php);
     if (!Number.isFinite(pricePhp) || pricePhp <= 0) continue;
     const shipped = kind === 'seat' || kind === 'branch' ? SHIPPED_ADDONS[kind] : null;
+    // Only what is SOLD is listed (2026-11-19: only the Ultra Add-on). A retired row still priced for renewals —
+    // the single seat and branch — is not offered.
+    if (!canBuyUltraAddOn(kind, 'enterprise')) continue;
     out.push({
       kind,
       sku,

@@ -57,7 +57,7 @@ export async function checkSupplierStorage(
 ): Promise<StorageCheck> {
   const shop = await admin
     .from('vendor_profiles')
-    .select('tier_state')
+    .select('tier_state, extra_ultra_addons')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle()
     .then(
@@ -68,13 +68,16 @@ export async function checkSupplierStorage(
     console.error('[supplier-storage] plan unreadable', vendorProfileId, shop.error?.message ?? 'no row');
     return { kind: 'unavailable' };
   }
-  const plan = (shop.data as { tier_state: string | null }).tier_state;
-  if (storageAllowanceBytes(plan) === null) return { kind: 'fits' }; // no allowance on this plan
+  const row = shop.data as { tier_state: string | null; extra_ultra_addons?: number | null };
+  const plan = row.tier_state;
+  // 🛒 +50 GB per Ultra Add-on (owner 2026-11-19) — the same count the database gate adds.
+  const packs = Number(row.extra_ultra_addons ?? 0) || 0;
+  if (storageAllowanceBytes(plan, packs) === null) return { kind: 'fits' }; // no allowance on this plan
   const used = await readStoredBytes(admin, vendorProfileId);
   if (used.status !== 'ok') return { kind: 'unavailable' };
-  return storageFits(plan, used.bytes, incomingBytes)
+  return storageFits(plan, used.bytes, incomingBytes, packs)
     ? { kind: 'fits' }
-    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes) };
+    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes, packs) };
 }
 
 /**

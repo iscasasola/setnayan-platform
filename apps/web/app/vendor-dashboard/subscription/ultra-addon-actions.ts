@@ -22,8 +22,9 @@ import {
 } from '@/lib/vendor-ultra-addons';
 
 /**
- * BUY ONE ULTRA ADD-ON — owner 2026-11-06, DECISION_LOG "ULTRA ADD-ON PRICES" (*"seat, branch + 990 / the rest is
- * +199"*): +1 category · +1 service card · +1 wait list · +1 booking per date, per 4 weeks, Ultra only.
+ * BUY THE ULTRA ADD-ON — owner 2026-11-19 (*"just 1 pack"* · *"Ultra Addon"* · *"2490"*): +1 branch · +15 live cards ·
+ * +3 people · +50 GB per 4 weeks, Ultra only, and it may be bought more than once (each purchase is one more order and
+ * one more on the paid count). It is the ONLY add-on on sale; the four "+1" add-ons of 2026-11-06 refuse here.
  *
  * The shipped add-on purchase flow, exactly the extra seat's (`buyExtraSeat`, app/vendor-dashboard/team/actions.ts):
  * apply-then-pay — an `orders` row keyed `<prefix><vendor_profile_id>` + a pending `payments` row, so it lands in
@@ -81,8 +82,9 @@ export async function buyUltraAddOn(formData: FormData): Promise<void> {
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
 
   if (!canBuyUltraAddOn(kind, tier)) {
-    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): none of the four is sold any more — Ultra's higher limits are built in.
-    back(`${TIER_LABEL.enterprise}'s higher limits are built in now — there is nothing to add on.`);
+    if (kind === 'ultra') back(`The Ultra Add-on is for ${TIER_LABEL.enterprise} shops. Pick ${TIER_LABEL.enterprise} on this page first.`);
+    // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): none of the four "+1" add-ons is sold any more — the Ultra Add-on is the one.
+    back(`${TIER_LABEL.enterprise}'s higher limits are built in now — the Ultra Add-on is the one add-on.`);
   }
 
   // A wait list can hold at most the column's own ten places a date — a place past it could be paid for and never

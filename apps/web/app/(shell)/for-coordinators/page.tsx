@@ -56,7 +56,7 @@ import { siteOrigin } from '@/lib/site-origin';
 import { myPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 import { SPECIALIZATION_MIN_TIER } from '@/lib/vendor-specialization-gate';
-import { TIER_CAPS, TIER_PRICE_PHP, canBuyExtraBranches, firstPlanWith } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_PRICE_PHP, canBuyTheUltraAddOn, firstPlanWith } from '@/lib/vendor-tier-caps';
 
 import { BADGES, BADGE_DEFS } from './_badges.generated';
 import { countWord, shownWith, type ClaimSwitch } from './_claims';
@@ -447,7 +447,7 @@ export default async function ForCoordinatorsPage() {
   // ── the day-of desk: "Free" while the floor-command set is free; otherwise the plan that opens it ──
   const deskTag = on.dayOfFree ? <Pill kind="free">Free</Pill> : <Pill kind="plan">{planPill(SPECIALIZATION_MIN_TIER)}</Pill>;
   const seatsFrom = firstPlanWith((c) => c.agentAccounts > 0);
-  const addOnPlan = (['solo', 'pro', 'enterprise'] as const).find((t) => canBuyExtraBranches(t)) ?? 'enterprise';
+  const addOnPlan = (['solo', 'pro', 'enterprise'] as const).find((t) => canBuyTheUltraAddOn(t)) ?? 'enterprise';
 
   const caps: Gated<{ key: string; title: string; tag: ReactElement; body: ReactElement }>[] = [
     {

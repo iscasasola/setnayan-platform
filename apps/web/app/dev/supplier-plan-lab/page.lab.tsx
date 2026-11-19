@@ -227,7 +227,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
       deepSearch={{ line: 'Lab price a search · on every plan' }}
-      extras={shop.tier === 'enterprise' ? { line: '1 extra seat · lab price each, every 4 weeks' } : null}
+      ultraAddOn={shop.tier === 'enterprise' ? { line: '+1 branch · +15 live cards · +3 people · +50 GB · lab price every 4 weeks', end: null } : null}
     />
   );
 }

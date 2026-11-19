@@ -159,9 +159,18 @@ Proposed:
 - **Last name** = a letter range per Account Manager. New table `vendor_inquiry_routes(vendor_profile_id, branch_key,
   event_type NULL = every other, vendor_team_member_id, letter_from, letter_to, adjusted BOOLEAN)`, RLS at create
   (`current_vendor_ids('viewer')` read · Shop Manager / that branch's Branch Manager write).
-- **Even split, by itself:** when an Account Manager joins or leaves a branch, each route row for that branch that is NOT
-  `adjusted` re-splits A–Z evenly by letter, in join order (1 → A–Z · 2 → A–M / N–Z · 3 → A–H / I–Q / R–Z). An adjusted
-  split is left alone and the manager sees "X joined · Reset to even?". Inquiries already handed out never move.
+- **Fair split, by itself (owner 19 Nov — quantiles, not half the alphabet):** cut points come from a cumulative
+  frequency of the FIRST LETTERS of past clients' celebrant last names, per (card, event type): count → share → running
+  total A→Z → cut at k/n for n Account Managers. Cuts may fall inside a letter (two-letter prefixes, `Ma | Me`), so a route
+  row stores `prefix_from` / `prefix_to` (text, 1–2 letters) instead of single letters. Blocks stay alphabetical (no snake
+  draft): staff must be able to tell who holds "Santos", and a re-split must not scatter every letter. Runs when an
+  Account Manager joins/leaves; rows a manager `adjusted` are left alone ("Reset to fair split?"). Inquiries already given
+  out never move. General for n = 1 … 10 (owner 19 Nov: *"3,4,5,6,7,8,9 up to 10"*): cuts at k/n, k = 1 … n−1; whether 10 is
+  a cap per card per branch is STILL OPEN.
+  out never move. The pasted reference figures (a PH "A–L / M–Z" cut, US letter percentages) are NOT used — they are not
+  measured from our data. **STILL OPEN:** the fallback for a shop with too few past clients (drawn: Setnayan-wide counts
+  across all inquiries) and the threshold for "enough" · compound surnames (drawn: filed as written, Dela Cruz under D —
+  the counts move the cut inside D by themselves).
 - The inquiry gets an owner: a new `assigned_member_id` on the inquiry thread, set once when it arrives.
 - **DECIDED (owner 19 Nov):** whose last name counts — *"the main celebrant/groom/who sent it"*, read as: the main
   celebrant's last name (the groom for a wedding), falling back to the sender's when the inquiry has none · when that Account Manager is away

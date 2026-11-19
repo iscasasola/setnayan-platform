@@ -104,6 +104,18 @@ export const SECTION_CONTENT_EVENT_COLUMNS =
  * `is_public=true` filter without pulling the rows); every other signal comes
  * off the already-loaded event row.
  */
+/** The HEAD count of an event's public schedule blocks — the one read `computeSectionContentMap` makes. */
+export function startPublicScheduleCount(
+  supabase: SupabaseClient,
+  eventId: string,
+): PromiseLike<{ count: number | null; error: unknown }> {
+  return supabase
+    .from('event_schedule_blocks')
+    .select('*', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .eq('is_public', true);
+}
+
 export async function computeSectionContentMap(
   supabase: SupabaseClient,
   eventId: string,
@@ -119,12 +131,14 @@ export async function computeSectionContentMap(
    * is the safe side of that fence.
    */
   widgets?: readonly { widget_type: string; config_json: unknown }[],
+  /**
+   * ⚡ The schedule count, ALREADY STARTED by the caller (`startPublicScheduleCount`) — wave 5 speed pass, 2026-11-15.
+   * The Maker starts it with its other early reads instead of waiting here for one more round trip. Absent → read now,
+   * exactly as before. Same query, same "not measured" on a refusal.
+   */
+  scheduleCountRead?: PromiseLike<{ count: number | null; error: unknown }>,
 ): Promise<Partial<Record<WidgetType, boolean>>> {
-  const { count, error: scheduleCountError } = await supabase
-    .from('event_schedule_blocks')
-    .select('*', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('is_public', true);
+  const { count, error: scheduleCountError } = await (scheduleCountRead ?? startPublicScheduleCount(supabase, eventId));
   // 🔴 `?? 0` HERE DEFEATED THE FAIL-OPEN BUILT FOR EXACTLY THIS CASE.
   // `hasContent` fails OPEN — `known === undefined ? true : known` — but this map
   // always WRITES the `schedule` key, and `(count ?? 0) > 0` yields `false`, never
@@ -139,7 +153,7 @@ export async function computeSectionContentMap(
   // ALREADY HAVE. `count === null` means NOT MEASURED, never zero — the repo's own
   // rule, in the one place it was load-bearing.
   if (scheduleCountError) {
-    logQueryError('computeSectionContentMap.scheduleCount', scheduleCountError, { eventId }, 'graceful_degrade');
+    logQueryError('computeSectionContentMap.scheduleCount', scheduleCountError as Parameters<typeof logQueryError>[1], { eventId }, 'graceful_degrade');
   }
 
   const ourPhotosCount = Array.isArray(event.our_photos)

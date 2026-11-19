@@ -15643,6 +15643,7 @@
         "FormCounter",
         "FormRow",
         "FormRows",
+        "GearUp",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -17502,6 +17503,7 @@
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
+        "BadgeReads",
         "BadgesPiece",
         "Big",
         "BigPiece",
@@ -17546,8 +17548,6 @@
         "ShareYourWork",
         "ShareYourWorkData",
         "Sheet",
-        "ShopBadgeFacts",
-        "ShopBadgePill",
         "ShopGiftsSection",
         "ShopGiftsSectionData",
         "ShopPrintsSection",
@@ -17555,6 +17555,7 @@
         "StoryNoteForm",
         "SupplierSubmit",
         "SwitchTrack",
+        "T",
         "TemplateEmpty",
         "TypedRow"
       ]

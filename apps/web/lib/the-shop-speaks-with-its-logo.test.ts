@@ -3,8 +3,8 @@
  *
  * The couple's chat drew the shop's face as initials only — `chat-message-stream.tsx` filled the avatar from
  * `hostInitials` / `initialsOf(counterpartyLabel)` and nothing else. Now the couple's thread page presigns the logo it
- * ALREADY reads (`couple_thread_supplier_names` → `logoUrl`, sent only once the name is REVEALED — a logo is as
- * identifying as the name) and the stream draws it, round and 28px like the initials, on the shop side's messages; a
+ * ALREADY reads (`couple_thread_supplier_names` → `logoUrl`; every shop's logo since owner ruling 2026-11-16 (15),
+ * which shows the real shop name and face everywhere) and the stream draws it, round and 28px like the initials, on the shop side's messages; a
  * missing or broken picture falls back to the initials.
  *
  * SABOTAGE (done once, 12 Nov): the `m.sender_role === 'vendor'` gate removed → RED; the page's
@@ -34,7 +34,7 @@ test('the stream draws the shop logo on the shop side, round and the initials’
   assert.equal(/next\/image/.test(STREAM), false, 'the stream stays free of next/image (bundle budget)');
 });
 
-test('the couple page hands over ONLY the revealed logo, presigned', () => {
+test('the couple page hands over the shop logo it read, presigned', () => {
   assert.match(PAGE, /vendorRead\.then\(\(v\) => \(v\.logoUrl \? displayLogoUrl\(\{ logo_url: v\.logoUrl \}\)/);
   assert.match(PAGE, /shopLogoUrl=\{shopLogoUrl\}/);
 });

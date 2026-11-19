@@ -16,8 +16,6 @@ import {
   type SupplierSheetData,
 } from '@/lib/supplier-sheet';
 import { isFollowingVendor } from '@/lib/follow';
-import { isVendorNameRevealed } from '@/lib/vendors';
-import { isTrueNameTier } from '@/lib/vendor-tier-caps';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 
@@ -86,23 +84,16 @@ export async function readSupplierSheet(
     getTaxonomy(),
   ]);
 
-  // A shop whose name is still withheld is not named by its photos or its
-  // address either — the same gate the marketplace list uses.
-  const revealed =
-    profile != null &&
-    isVendorNameRevealed({
-      name_revealed_at: profile.name_revealed_at,
-      isPaidTier: isTrueNameTier(profile.tier_state),
-      is_verified: profile.verification_state === 'verified',
-      services: profile.services,
-    });
+  // 🏷 Owner ruling 2026-11-16 (15) — real shop name everywhere — and (18), the shop page is open to anyone with its
+  // link before verification: nothing about the shop is withheld any more, so its photos and its address show for
+  // every shop (was: only once `isVendorNameRevealed`).
 
   return {
     reviews,
     work: sheetWork(completed),
     workTotal: completed.length,
     photos:
-      profile && revealed
+      profile
         ? (profile.portfolio_r2_keys ?? []).map((k) => publicUrlForStoredAsset(k)).filter((u): u is string => Boolean(u))
         : null,
     others: services
@@ -118,6 +109,6 @@ export async function readSupplierSheet(
         )
       : null,
     following,
-    sharePath: profile && revealed && profile.business_slug ? `${shopPath(profile.business_slug)}` : null,
+    sharePath: profile && profile.business_slug ? `${shopPath(profile.business_slug)}` : null,
   };
 }

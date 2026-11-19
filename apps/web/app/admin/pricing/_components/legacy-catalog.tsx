@@ -1,7 +1,7 @@
 import { Archive } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { formatCentavosPhp } from '@/lib/sku-catalog';
+import { formatCentavosPhp } from '@/lib/php';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 

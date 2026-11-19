@@ -14,7 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
-import { FINDABLE_SHOP_GATE, threadShowsNotYetVerified } from '@/lib/findable-shop';
+import { FINDABLE_SHOP_GATE, shopVerifiedNote, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
@@ -314,6 +314,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // type a door that re-opened Home — the dead-tab shape the owner removed from the app's More
   // (#6725). So the page answers in its own place, in the words Find a supplier already uses, and still
   // renders NO bench and NO upsell.
+  // ⚡ Wave 5 speed pass (2026-11-15): who this viewer is does not depend on the event type's profile, so it is read
+  // BESIDE it instead of after it — one round trip fewer before anything is drawn. It is awaited at the same line as
+  // before, so a refused read still throws from there. (On the rare event type with no marketplace it is one read the
+  // early return below never uses.)
+  const supabaseRead = createClient();
+  const viewerRead = startRead(supabaseRead.then((sb) => fetchEventViewer(sb, eventId, user.id)));
   const profile = await resolveProfileByEvent(eventId);
   if (profile.marketplaceEnabled !== true) {
     return (
@@ -324,7 +330,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await supabaseRead;
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): the layout's chrome, the menu's
   // needs, the access window and the head count are each a few columns of it — one request for all.
   openDashboardEventRow(supabase, eventId);
@@ -332,7 +338,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
   // delegate the host set to Off reads no bookings (20271262573732 closed the
   // door) — say so, never draw an empty team.
-  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  const viewer = await viewerRead;
   if (isDelegateWithoutArea(viewer, 'vendors')) {
     return <NotSharedWithYou title="Suppliers" thing="supplier list" />;
   }
@@ -478,6 +484,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     taxonomyRead.then((t) => (someCategoryNeedsItsServicesNamed(t) ? readServiceLabels() : {})),
   );
   const planGroupScopeRead = startRead(fetchPlanGroupScope(supabase));
+  // ⚡ Wave 5 speed pass (2026-11-15): the saved plan was already started on every path, just late — it now
+  // leaves with the page's other early reads, and is awaited where it always was.
+  const savedPlanRead = startRead(fetchSavedAllocationPlan(supabase, eventId));
   const buildPicksRead = startRead(
     supabase.from('event_build_picks').select('plan_group_id, vendor_id').eq('event_id', eventId),
   );
@@ -672,7 +681,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // the unpinned suggestion from the couple's own typed budget, weddings
   // only — so one category can never read two amounts on two pages.
   const isWeddingPlan = (ev?.event_type ?? 'wedding') === 'wedding';
-  const savedPlanPromise = fetchSavedAllocationPlan(supabase, eventId);
+  const savedPlanPromise = savedPlanRead;
   let suggestedPlan = new Map<string, number | null>();
   // PRICE DECIDES REACH: the gate now also opens for a couple who chose a
   // budget FEEL and a guest count but never typed a figure — the resolver
@@ -740,7 +749,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       enrichmentAdmin
         .from('vendor_profiles')
         .select(
-          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo',
+          'vendor_profile_id, name_revealed_at, screen_name, tier_state, verification_state, next_renewal_due_at, is_demo, papers_current',
         )
         .in('vendor_profile_id', marketplaceIds),
       // Accept-gate state (#1c, CLAUDE.md 2026-06-02) — the chat thread per
@@ -857,6 +866,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       /** Q7 — the Verified badge's own deadline (lib/verified-badge.ts). */
       next_renewal_due_at: string | null;
       is_demo: boolean | null;
+      /** 📄 Generated `papers_lapsed_at IS NULL` — false once the papers lapsed after 30 March. */
+      papers_current: boolean | null;
     };
 
     if (statsRes.error) {
@@ -1044,6 +1055,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // 🛡 Owner 2026-11-16 (36d74d48): a couple is always told when a supplier is not yet verified — the same test as
         // the chat head's line (`threadShowsNotYetVerified`). Drawn from a READ state only; an unread row draws nothing.
         not_yet_verified: threadShowsNotYetVerified(a),
+        // 📄 …and the line reads "Renewing their papers with Setnayan" for a shop whose papers lapsed (owner 16 Nov).
+        papers_renewing: shopVerifiedNote(a) === 'renewing',
         distance_km: distanceKm,
         ceremony_distance_km: ceremonyDistanceKm,
         within_radius: withinRadius,
@@ -2327,6 +2340,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
         isVerified: where?.isVerified,
         notYetVerified: ext?.not_yet_verified === true,
+        papersRenewing: ext?.papers_renewing === true,
       };
     });
     return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });

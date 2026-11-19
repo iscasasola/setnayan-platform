@@ -4562,6 +4562,7 @@
         "HTMLInputElement",
         "HeldToast",
         "InboxMatcher",
+        "InfoTip",
         "Link",
         "LinkPickMenu",
         "OpenedPayment",

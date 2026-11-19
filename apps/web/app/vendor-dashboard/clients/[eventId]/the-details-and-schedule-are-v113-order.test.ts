@@ -8,9 +8,8 @@
  *   3 · Schedule: Appointments sit right after the supplier's part, before the handover (v113: Appointments before the
  *       paperwork), drawn once.
  *   4 · Decisions is the list in place, drawn from the thread's one draw (Build 2 #42; was Build 1's door to Chat).
- *   5 · Schedule's month is the CLIENTS calendar (`CustomersCalendar place="schedule"`), never a second grid: first on
- *       the page, the event's day picked, one request on first view, a refused read SAID; in schedule place it writes
- *       no URL, feeds no Clients figures, draws no day bar.
+ *   5 · Schedule opens on THIS client's days strip (owner 18 Nov 2026; replaced v113's shop month), first, over the
+ *       unchanged blow-by-blow; "All clients" asks the Clients month action (no second action), a refused read SAID.
  *   6 · The supplier's part in v113 order: how changes go · Where · the chapters (hours) · Lock my times · Asked of you.
  *
  * Sabotage log (2026-11-08, each reverted): Suppliers moved above the overview → 1 red · `supplierRows` returning [] for a
@@ -67,26 +66,24 @@ test('3 · Schedule: Appointments right after the supplier’s part, once', () =
   assert.ok(part > 0 && appts > part && handover > appts, 'Appointments are not between the supplier’s part and the handover');
 });
 
-test('5 · Schedule’s month is the Clients calendar — one part, its own place', () => {
-  const cal = stripComments(readFileSync(join(HERE, '_components/schedule-calendar.tsx'), 'utf8'));
-  assert.match(cal, /<CustomersCalendar\s+place="schedule"/, 'Schedule draws a calendar that is not the Clients one');
-  assert.doesNotMatch(cal, /CalendarGrid|calendar-grid/, 'a second month grid');
-  assert.match(cal, /initialDay=\{day\}/, 'the event’s day is not picked on arrival');
-  // One request on first view = the Clients month action with `whole` (no second server action, budget-lint rule 1),
-  // and a read that comes back without its `whole` part is a refused read (null), never an empty month.
-  assert.match(cal, /fetchCustomerCalendarMonth\(month, \{ whole: true \}\)/, 'Schedule does not ask the Clients month action');
-  assert.match(cal, /setInputs\(r\?\.whole \? \{ \.\.\.r\.whole, dayStates: r\.dayStates, waitlist: r\.waitlist \} : null\)/, 'a read missing its whole part is drawn as a month');
+// 📅 Owner 18 Nov 2026 (client-page rulings, drawing NL5NDoD6 v7): the shop month on Schedule became THIS client's days
+// strip — Week | Month, "This client ▾ / All clients" — over the shipped blow-by-blow, which it holds unchanged.
+test('5 · Schedule opens on the days strip — first, over the unchanged blow-by-blow; All clients asks the Clients month', () => {
+  const strip = stripComments(readFileSync(join(HERE, '_components/schedule-days.tsx'), 'utf8'));
+  // All clients = the Clients month action itself (no second server action), asked only once chosen; a read that comes
+  // back without its `whole` part is a refused read (null), SAID — never other clients drawn as absent.
+  assert.match(strip, /if \(scope !== 'all'\) return;/, 'the strip asks the server before All clients is chosen');
+  assert.match(strip, /fetchCustomerCalendarMonth\(m, \{ whole: true \}\)/, 'All clients does not ask the Clients month action');
+  assert.match(strip, /r\?\.whole \? \{/, 'a read missing its whole part is drawn as a month');
+  assert.match(strip, /couldn’t load just now/, 'a refused All clients read is not said');
+  assert.match(strip, /<PickMenu[\s\S]*?label="Whose days"/, 'This client / All clients is not the one dropdown');
   const acts = stripComments(readFileSync(join(HERE, '../../customers/actions.ts'), 'utf8'));
   assert.equal((acts.match(/^export async function /gm) ?? []).length, 1, 'the customers actions grew a second export (reuse fetchCustomerCalendarMonth)');
-  assert.match(cal, /Your calendar couldn’t load just now/, 'a refused month is not said');
   const body = PAGE.slice(PAGE.indexOf('      schedule: (\n'));
-  const at = body.indexOf('<ScheduleCalendar eventDate={brief.event.event_date}');
-  assert.ok(at >= 0 && at < body.indexOf('{gated(scheduleNode)}'), 'the month is not first on Schedule');
-  const cc = stripComments(readFileSync(join(HERE, '../../customers/_components/customers-calendar.tsx'), 'utf8'));
-  assert.match(cc, /if \(onClients\) syncUrl\(\);/, 'the Schedule month writes the Clients URL');
-  assert.match(cc, /if \(onClients\) window\.dispatchEvent\(new CustomEvent\(DATES_FIGURES_EVENT/, 'the Schedule month speaks for Clients’ pinned row');
-  assert.match(cc, /\{dayActions && onClients \? <DayBar/, 'the day bar is drawn on Schedule');
-  assert.match(cc, /\{!onClients \? null : picked \? \(/, 'Schedule draws the shop’s day rows under its month (v113 draws the schedule there)');
+  const at = body.indexOf('<ScheduleDays');
+  assert.ok(at >= 0 && at < body.indexOf('{gated(scheduleNode)}'), 'the strip is not first on Schedule');
+  assert.ok(body.indexOf('</ScheduleDays>') > body.indexOf('{gated(scheduleNode)}'), 'the blow-by-blow is not held by the strip');
+  assert.doesNotMatch(PAGE, /<ScheduleCalendar\b/, 'the shop month is drawn on Schedule as well as the strip');
 });
 
 test('6 · the supplier’s part in v113 order — Where · hours · Lock · Asked', () => {

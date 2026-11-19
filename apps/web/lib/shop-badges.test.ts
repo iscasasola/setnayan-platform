@@ -6,7 +6,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   badgeTracker,
-  badgesForPrint,
   earnedKeys,
   milestoneLadder,
   newlyEarned,
@@ -97,14 +96,13 @@ test('a refused read says so — never "0 of 10", never "No reviews yet"', () =>
   assert.doesNotMatch(by.milestone!.line, /0 of/);
 });
 
-test('print takes the badges as they are on the day — the same list the page draws', () => {
-  assert.deepEqual(badgesForPrint(base), shopBadges(base));
+test('the page’s pills, as they are on the day (prints do NOT wear these — lib/print-badges-v84.ts)', () => {
   assert.deepEqual(
-    badgesForPrint(base).map((b) => b.key),
+    shopBadges(base).map((b) => b.key),
     ['verified', 'milestone:50', 'rating', 'years'],
   );
-  assert.deepEqual(badgesForPrint({ ...base, verified: false, completedEvents: 1001 }).map((b) => b.key), ['milestone:1000', 'rating', 'years']);
-  const k = badgesForPrint({ ...base, completedEvents: 10000 }).find((b) => b.kind === 'milestone');
+  assert.deepEqual(shopBadges({ ...base, verified: false, completedEvents: 1001 }).map((b) => b.key), ['milestone:1000', 'rating', 'years']);
+  const k = shopBadges({ ...base, completedEvents: 10000 }).find((b) => b.kind === 'milestone');
   assert.equal(k?.glyph, '10K');
   assert.equal(k?.line1, '10,000 EVENTS');
   assert.equal(k?.line2, 'BLACK DIAMOND · ON SETNAYAN', 'the approved name sits under the number');

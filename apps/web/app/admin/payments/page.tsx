@@ -49,6 +49,12 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ReceivedPileRead } from './_components/received-pile';
 import { readReceivedDesk } from './received';
 import { readRemedyDesk } from '@/lib/admin/service-remedies.server';
+import RefundsPage from './supplier-refunds/page';
+import PayoutsPage from '../payouts/page';
+import FeesOwedPage from '../booking-fees/page';
+import PaymentOptionsPage from '../payment-options/page';
+import SubscriptionsPage from '../subscriptions/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
 export const metadata = { title: 'Payments · Admin' };
 
 type Props = {
@@ -68,7 +74,7 @@ function matchesQuery(q: string, fields: Array<string | null | undefined>): bool
   return fields.some((f) => (f ?? '').toLowerCase().includes(needle));
 }
 
-export default async function AdminPaymentsPage({ searchParams }: Props) {
+async function AdminPaymentsPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
   const filter: Filter =
@@ -725,4 +731,25 @@ async function fetchRecordTarget(
     status: o.status,
     accounts: receivingAccounts(settings),
   };
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Money › To approve · What ▾ — every money item that waits for an admin press.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'refunds': RefundsPage,
+  'payouts': PayoutsPage,
+  'fees': FeesOwedPage,
+  'payment-options': PaymentOptionsPage,
+  'subscriptions': SubscriptionsPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  return mountView(AdminPaymentsPage, sp);
 }

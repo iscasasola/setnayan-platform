@@ -4,18 +4,19 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { CHAPTER_FIELDS, TASK_COLUMNS, type TaskRow } from '@/lib/schedule-chapters';
 import { BOOKED_BY_PAYMENT_EMBED } from '@/lib/booked-by-payment';
 import { scheduleSuppliersFrom, type ScheduleSupplierRow } from '@/lib/schedule-suppliers';
-import { homeScheduleFrom, type HomeScheduleBlock, type HomeScheduleFacts } from '@/lib/home-schedule';
+import { homeScheduleFrom, latestTimesSet, type HomeScheduleBlock, type HomeScheduleFacts, type OwnTimesRow } from '@/lib/home-schedule';
 
 /**
  * lib/home-schedule.server.ts — THE READ BEHIND HOME'S SCHEDULE WIDGET (owner 2026-11-01; the pure half is
- * `lib/home-schedule.ts`). Four reads in ONE round (started together, awaited together — Home's one batched read):
+ * `lib/home-schedule.ts`). Five reads in ONE round (started together, awaited together — Home's one batched read):
  *
  *   · the event's blocks — chapters and their moments, `CHAPTER_FIELDS` (the chapters reader's own list) plus the
  *     suppliers tagged on each (`responsible_vendor_ids`);
  *   · the moments' tasks (`TASK_COLUMNS`) — who does what, where: the clash check;
  *   · the open supplier requests (`event_schedule_suggestions`, status open — the Schedule page's own queue filter);
  *   · the event's suppliers, so the booked ones the schedule names on nothing yet are counted (`scheduleSuppliersFrom`,
- *     the ONE booked-if-paid word).
+ *     the ONE booked-if-paid word);
+ *   · 🕕 the suppliers' own times (`supplier_own_times`, newest first) — "Lumière Studio set their times" (16 Nov).
  *
  * Every read runs on the CALLER's client: RLS decides. 🛑 ANY REFUSED READ IS `'unread'` — the widget says "Schedule
  * couldn't load" with ⟳ Reload, never "No chapters yet", never a door that reads 0 (`home-control-reads-honestly`).
@@ -40,7 +41,7 @@ export async function readHomeSchedule(
   opts: { show: boolean; tz: string | null; nowMs?: number; undated?: boolean },
 ): Promise<HomeScheduleFacts | 'unread' | null> {
   if (!opts.show) return null;
-  const [blocksRes, tasksRes, requestsRes, vendorsRes] = await Promise.all([
+  const [blocksRes, tasksRes, requestsRes, vendorsRes, ownRes] = await Promise.all([
     supabase
       .from('event_schedule_blocks')
       .select(HOME_SCHEDULE_FIELDS)
@@ -62,8 +63,14 @@ export async function readHomeSchedule(
       .select(`vendor_id, vendor_name, status, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}`)
       .eq('event_id', eventId)
       .is('archived_at', null),
+    // 🕕 The supplier who last set their own times (owner 16 Nov, "a line in Today's Schedule card") — the newest row.
+    supabase
+      .from('supplier_own_times')
+      .select('vendor_profile_id, call_clock, arrive_clock, done_clock, updated_at')
+      .eq('event_id', eventId)
+      .order('updated_at', { ascending: false }),
   ]);
-  const refused = blocksRes.error ?? tasksRes.error ?? requestsRes.error ?? vendorsRes.error;
+  const refused = blocksRes.error ?? tasksRes.error ?? requestsRes.error ?? vendorsRes.error ?? ownRes.error;
   if (refused || !blocksRes.data || !tasksRes.data || !vendorsRes.data || requestsRes.count === null) {
     if (refused) logQueryError('HomeSchedule', refused, { event_id: eventId }, 'graceful_degrade');
     return 'unread';
@@ -82,5 +89,9 @@ export async function readHomeSchedule(
     tz,
     today: venueToday(nowMs, tz),
     undated: opts.undated,
+    timesSet: latestTimesSet(
+      (ownRes.data ?? []) as OwnTimesRow[],
+      (vendorsRes.data ?? []) as unknown as { vendor_name: string | null; marketplace_vendor_id: string | null }[],
+    ),
   });
 }

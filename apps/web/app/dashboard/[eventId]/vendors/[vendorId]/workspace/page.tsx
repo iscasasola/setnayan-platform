@@ -52,6 +52,7 @@ import {
   paymentScheduleSource,
   paymentDoor,
   scheduleDueText,
+  quoteScheduleFrame,
   pesoFromCentavos,
   type AcceptedQuoteRow,
   type AcceptedQuoteTerms,
@@ -69,7 +70,6 @@ import {
   Info,
   MessageCircle,
   Package as PackageIcon,
-  PiggyBank,
   Sparkles,
   UserCheck,
   Upload,
@@ -83,10 +83,13 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
+import { workColumnDefault } from '@/lib/client-next-step';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
 import { PickedSupplierWho } from './_components/picked-supplier-who';
 import {
+  pickedSupplierAnchorOf,
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
   type PickedSupplierPage,
@@ -120,6 +123,15 @@ import {
   type SnapshotChargeLine,
 } from '@/lib/package-pricing-snapshot';
 import { DepositReservation } from './_components/deposit-reservation';
+import {
+  TEMPLATE_MONEY,
+  TEMPLATE_SUBLINE,
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
@@ -955,6 +967,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     policyAck = null;
   }
 
+  // ⛔ A refused contracts read used to become `[]`: the chip said the booking had no contract and the panel said
+  // "No contracts uploaded yet" — over a read that never answered (audit 2026-11-17). Measured now.
+  const contractsMeasured = !contractsRes.error;
+  if (!contractsMeasured) logQueryError('workspace.contracts', contractsRes.error, { event_id: eventId });
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
     public_id: string;
@@ -1832,285 +1848,211 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
       ) : null;
 
+  // 📐 THE PAYMENT PAGE THROUGH THE DESIGN TEMPLATE (owner-approved 2026-11-14,
+  // `design_template_sheet_2026-11-14_fable.html` › "Supplier Payment · now → after"; owner: "the pages do not present
+  // properly", "it looks dull and pale"). It opens on what the couple came to do — the amount, big, on the warm
+  // surface, with ONE terracotta Pay and "Record payment" as the second button (`DepositReservation`). Then the
+  // schedule as plain rows with bold, normal-font money; progress as one line; and each other part (refunds, terms,
+  // changes, handover, shot list, itemization) as its own section of plain rows, in the same order, when it exists.
+  // No card inside a card; no typewriter money; no 11 px words at half strength. Every fact and action is kept.
+  const scheduleTotalCentavos =
+    scheduleSource === 'quote' && acceptedQuote
+      ? acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0)
+      : null;
+  // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
+  // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
+  const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
+  // R12 · an unbooked quote's rows are terms, not debts — no "that day has already passed" on them.
+  const quoteBooked = stage !== null;
   const statusSection = (
-      <section aria-labelledby="status-heading" className="space-y-3">
-        <h2
-          id="status-heading"
-          className="font-mono text-xs uppercase tracking-[0.18em] text-ink/65"
-        >
-          Order &amp; payment status
-        </h2>
+      <section id="payments" aria-label="Payment" className="space-y-1">
+        <PaymentAsksCard
+          vendorName={displayName}
+          measured={paymentAsks.measured}
+          asks={paymentAsks.rows.map((a) => ({
+            askId: a.ask_id,
+            // PostgREST returns NUMERIC as a STRING, and `Number(null)` is 0 —
+            // which would print "₱0", a real-looking figure for a value we do
+            // not have. Unreadable becomes null and renders an em dash.
+            amountPhp:
+              a.amount_php == null || Number.isNaN(Number(a.amount_php))
+                ? null
+                : Number(a.amount_php),
+            note: a.note,
+            dueDate: a.due_date,
+            createdAt: a.created_at,
+          }))}
+        />
+        <DepositReservation
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          depositRecordedAt={ev.deposit_recorded_at}
+          depositAcknowledgedAt={ev.deposit_acknowledged_at}
+          depositProofUrl={depositProofUrl}
+          depositDeclinedAt={depositRefusal?.declinedAt ?? null}
+          depositDeclineReason={depositRefusal?.reason ?? null}
+          depositDisputeNote={depositRefusal?.settlementNote ?? null}
+          payMethods={directPayMethods}
+          payMethodsState={directPayState}
+          requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
+          requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
+          requestedTermsUnreadable={acceptedQuoteUnreadable}
+          step={bookedMoney.step}
+          history={bookedMoney.history}
+          logInSheet
+        />
 
-        <ol className="grid grid-cols-3 gap-1 sm:gap-2" role="list">
-          {STAGE_ORDER.map((s, idx) => {
-            const reached = stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
-            const isCurrent = stage === s;
-            const Icon = reached ? CheckCircle2 : Circle;
-            return (
-              <li
-                key={s}
-                className="flex flex-col items-center gap-1.5 text-center"
-                aria-current={isCurrent ? 'step' : undefined}
-              >
-                <div
-                  className={[
-                    'grid h-7 w-7 place-items-center rounded-full border transition-colors',
-                    reached
-                      ? 'border-success-400 bg-success-50 text-success-700'
-                      : 'border-ink/15 bg-cream text-ink/30',
-                    isCurrent ? 'ring-2 ring-success-300/60 ring-offset-2' : '',
-                  ].join(' ')}
-                >
-                  <Icon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                </div>
-                <span
-                  className={[
-                    'text-[11px] leading-tight sm:text-xs',
-                    reached ? 'text-ink/85' : 'text-ink/45',
-                    isCurrent ? 'font-semibold' : '',
-                  ].join(' ')}
-                >
-                  {STAGE_LABEL[s]}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-
-        {stage === null ? (
-          <p className="text-xs text-ink/55">
-            No payment progress recorded yet. Log a payment below as money moves.
-          </p>
+        {/*
+          THE ACCEPTED QUOTE'S SCHEDULE — what is owed and when, from the quote the couple accepted. Drawn only when
+          no real per-booking plan exists (`paymentScheduleSource`), so one booking never shows two schedules with two
+          different amounts.
+        */}
+        {scheduleSource === 'quote' && acceptedQuote ? (
+          <TemplateSection
+            label={quoteSchedule.label}
+            right={scheduleTotalCentavos !== null ? <b className={TEMPLATE_MONEY}>Total {pesoFromCentavos(scheduleTotalCentavos)}</b> : undefined}
+            tip={quoteSchedule.tip}
+            data="schedule"
+          >
+            {quoteSchedule.line ? (
+              <p className={`${TEMPLATE_SUBLINE} pb-2`} data-schedule-not-owed="">
+                {quoteSchedule.line}
+              </p>
+            ) : null}
+            <TemplateRows label="Payment schedule">
+              {acceptedQuote.schedule.map((row, i) => (
+                <TemplateRow
+                  key={`${i}-${row.label}`}
+                  title={row.label}
+                  line={`Due ${scheduleDueText(row, manilaToday(), quoteBooked)}`}
+                  right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
+                />
+              ))}
+              {acceptedQuote.publicId ? (
+                <TemplateRow href={`/proposals/${acceptedQuote.publicId}`} title="The quote you accepted" data="accepted-quote" />
+              ) : null}
+            </TemplateRows>
+          </TemplateSection>
         ) : null}
 
-        {/* Payments — embeds the same itemization card the budget page uses. */}
-        <div
-          id="payments"
-          className="space-y-3 rounded-xl border border-ink/10 bg-cream/60 p-5"
-        >
-          <header className="flex items-center justify-between gap-3">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <PiggyBank aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-              Payments
-            </h3>
-          </header>
+        {/*
+          Payment plan PROGRESS STEPPER (Phase 2 PR-D). When the booked service carried a payment schedule,
+          finalizeVendor froze it into a per-booking plan at lock; the stepper folds those installments with the
+          couple's logged payments into per-installment states (due → pending → paid) and crowns the list with a
+          "cleared" banner once the vendor settles the whole plan. A locked-but-no-schedule booking ([] steps) still
+          renders the banner once cleared.
+        */}
+        {scheduleSource !== 'quote' &&
+        planProgress.steps !== null &&
+        (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
+          <TemplateSection
+            label={`Payment plan${planProgress.isDefaultSeeded ? ' (estimated)' : ''}`}
+            tip={
+              planProgress.steps.length > 0
+                ? planProgress.isDefaultSeeded
+                  ? `${displayName} hasn’t set payment terms yet, so this is a typical 50/50 estimate. Confirm the amounts and dates with ${displayName} before paying.`
+                  : `${displayName} set up this plan. Pay each payment using the methods above; ${displayName} confirms each as received.`
+                : undefined
+            }
+            data="plan"
+          >
+            <PaymentPlanStepper steps={planProgress.steps} clearedAt={planProgress.clearedAt} />
+          </TemplateSection>
+        ) : null}
 
-          {/*
-            Payment plan PROGRESS STEPPER (Phase 2 PR-D — replaces the flat
-            PR-B installment list). When the booked service carried a payment
-            schedule, finalizeVendor froze it into a per-booking plan at lock.
-            The stepper folds those installments with the couple's logged
-            payments into per-installment states (due → pending → paid) and
-            crowns the list with a "cleared" banner once the vendor settles the
-            whole plan. When there's no plan yet (not locked / pre-PR-B) the
-            stepper is omitted and the existing direct-pay UI below carries the
-            "pay the vendor directly" guidance, unchanged. A locked-but-no-
-            schedule booking ([] steps) still renders the banner once cleared.
-          */}
-          {scheduleSource !== 'quote' &&
-          planProgress.steps !== null &&
-          (planProgress.steps.length > 0 || planProgress.clearedAt) ? (
-            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-              <p className="text-xs font-semibold text-ink">
-                Payment plan{planProgress.isDefaultSeeded ? ' (estimated)' : ''}
-              </p>
-              {planProgress.steps.length > 0 ? (
-                planProgress.isDefaultSeeded ? (
-                  <p className="text-[11px] text-ink/55">
-                    {displayName} hasn&apos;t set payment terms yet, so this is a
-                    typical 50/50 estimate. Confirm the amounts and dates with
-                    {' '}
-                    {displayName} before paying.
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-ink/55">
-                    {displayName} set up this plan. Pay each payment using the
-                    methods below; {displayName} confirms each as received.
-                  </p>
-                )
-              ) : null}
-              <PaymentPlanStepper
-                steps={planProgress.steps}
-                clearedAt={planProgress.clearedAt}
-              />
-            </div>
+        {/* Order & payment status — 3 truthful stages, as ONE line (the frame's "Progress"). */}
+        <TemplateSection label="Progress" data="progress">
+          <ol aria-label="Order and payment status" className="flex min-h-11 flex-wrap items-center gap-x-1.5 text-[14px]">
+            {STAGE_ORDER.map((st, idx) => {
+              const reached = stage !== null && STAGE_ORDER.indexOf(stage) >= idx;
+              return (
+                <li
+                  key={st}
+                  aria-current={stage === st ? 'step' : undefined}
+                  className={reached ? 'font-semibold text-ink' : 'text-[color:var(--m-slate-2)]'}
+                >
+                  {idx > 0 ? <span aria-hidden className="mr-1.5 text-[color:var(--m-slate-2)]">—</span> : null}
+                  {reached ? <CheckCircle2 aria-hidden className="mr-1 inline h-4 w-4 align-[-3px]" style={{ color: 'rgb(var(--color-ok))' }} strokeWidth={2} /> : null}
+                  {STAGE_LABEL[st]}
+                </li>
+              );
+            })}
+          </ol>
+          {stage === null ? (
+            <p className={TEMPLATE_SUBLINE}>No payment progress recorded yet. Log a payment above as money moves.</p>
           ) : null}
+        </TemplateSection>
 
-          {/* 💸 B2-E: refunds this supplier recorded giving you — beside your payments, in their words. */}
-          {!supplierRefunds.measured ? (
-            <p role="status" className="text-[12.5px] text-ink/60" data-workspace-refunds-unread="">
-              Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.
-            </p>
-          ) : supplierRefunds.rows.length > 0 ? (
-            <div className="space-y-1.5 border-t border-ink/10 pt-3" data-workspace-refunds={supplierRefunds.rows.length}>
-              <p className="text-xs font-semibold text-ink">
-                Refunds from {displayName} · ₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}
-              </p>
-              <ul className="divide-y divide-ink/10">
+        {/* 💸 B2-E: refunds this supplier recorded giving you — beside your payments, in their words. */}
+        {!supplierRefunds.measured ? (
+          <TemplateFail data="workspace-refunds-unread">
+            <span data-workspace-refunds-unread="">Refunds from {displayName} couldn&rsquo;t load just now. Refresh to try again.</span>
+          </TemplateFail>
+        ) : supplierRefunds.rows.length > 0 ? (
+          <TemplateSection
+            label={`Refunds from ${displayName}`}
+            right={<b className={TEMPLATE_MONEY}>₱{refundedTotalPhp(supplierRefunds.rows).toLocaleString('en-PH')}</b>}
+            tip={`${displayName} recorded giving this back to you. Paid amounts above are what you sent; this is what came back.`}
+            data="refunds"
+          >
+            <div data-workspace-refunds={supplierRefunds.rows.length}>
+              <TemplateRows label="Refunds">
                 {supplierRefunds.rows.map((r) => (
-                  <li key={r.refundId} className="py-1.5 text-[13px] text-ink" data-workspace-refund={r.refundId}>
-                    <span className="font-semibold tabular-nums">₱{r.amountPhp.toLocaleString('en-PH')}</span>
-                    <span className="text-ink/55"> · {refundDayWords(r.refundedOn)} · </span>
-                    {r.reason}
-                  </li>
+                  <TemplateRow
+                    key={r.refundId}
+                    data={`workspace-refund-${r.refundId}`}
+                    title={r.reason}
+                    line={refundDayWords(r.refundedOn)}
+                    right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>₱{r.amountPhp.toLocaleString('en-PH')}</b>}
+                  />
                 ))}
-              </ul>
-              <p className="text-[11px] text-ink/55">{displayName} recorded giving this back to you. Paid amounts above are what you sent; this is what came back.</p>
+              </TemplateRows>
             </div>
-          ) : null}
+          </TemplateSection>
+        ) : null}
 
-          {/*
-            No-Show Downpayment Protection — the frozen reservation terms the
-            couple acknowledged at lock, rendered read-only beside the plan. The
-            snapshot is immutable evidence (a later vendor policy edit can't
-            rewrite it). Only shows when the booking locked under a protected
-            downpayment policy.
-          */}
-          {/*
-            THE ACCEPTED QUOTE'S SCHEDULE — what is owed and when, from the
-            quote the couple accepted. Drawn only when no real per-booking plan
-            exists (`paymentScheduleSource`), so one booking never shows two
-            schedules with two different amounts.
-          */}
-          {scheduleSource === 'quote' && acceptedQuote ? (
-            <div className="space-y-2 rounded-lg border border-ink/10 bg-white/60 p-4">
-              <p className="text-xs font-semibold text-ink">Payment schedule</p>
-              <p className="text-[11px] text-ink/55">
-                From the quote you accepted
-                {acceptedQuote.publicId ? (
-                  <>
-                    {' '}
-                    (
-                    <Link
-                      href={`/proposals/${acceptedQuote.publicId}`}
-                      className="text-terracotta-700 underline-offset-2 hover:underline"
-                    >
-                      view it
-                    </Link>
-                    )
-                  </>
-                ) : null}
-                . Pay {displayName} directly; they confirm each payment as received.
-              </p>
-              <ol className="space-y-1.5">
-                {acceptedQuote.schedule.map((row, i) => (
-                  <li
-                    key={`${i}-${row.label}`}
-                    className="flex items-start justify-between gap-3 rounded-md bg-ink/[0.03] px-3 py-2 text-sm"
-                  >
-                    <span className="min-w-0">
-                      <span className="block font-medium text-ink">{row.label}</span>
-                      <span className="block text-xs text-ink/60">Due {scheduleDueText(row, manilaToday())}</span>
-                    </span>
-                    <span className="shrink-0 font-mono text-sm font-semibold text-ink">
-                      {pesoFromCentavos(row.amountCentavos)}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-              <p className="flex items-center justify-between border-t border-ink/10 pt-2 text-xs text-ink/70">
-                <span>Total</span>
-                <span className="font-mono font-semibold text-ink">
-                  {pesoFromCentavos(
-                    acceptedQuote.schedule.reduce((sum, r) => sum + r.amountCentavos, 0),
-                  )}
-                </span>
-              </p>
-            </div>
-          ) : null}
+        {/*
+          No-Show Downpayment Protection — the frozen reservation terms the couple acknowledged at lock, rendered
+          read-only beside the plan. Only shows when the booking locked under a protected downpayment policy.
+        */}
+        {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
 
-          {policyAck ? <ReservationTermsAck ack={policyAck} vendorName={displayName} /> : null}
+        <ChangeOrderTrail
+          eventId={eventId}
+          vendorId={ev.vendor_id}
+          vendorName={displayName}
+          changeOrders={changeOrders}
+          readFailed={Boolean(changeOrderRowsError)}
+        />
 
-          {/*
-            Deposit Reservation Lock-Free — record a deposit to HOLD the date
-            the instant it's logged, distinct from a cleared payment, with a
-            vendor-acknowledgement handshake. Setnayan never holds the money;
-            recording does not change the order status (orthogonal markers).
-          */}
-          {/*
-            ABOVE the deposit card on purpose: "they are waiting for ₱18,000" is
-            the reason a couple would reach for "Record deposit", so it has to
-            come first in the reading order.
-          */}
-          <PaymentAsksCard
-            vendorName={displayName}
-            measured={paymentAsks.measured}
-            asks={paymentAsks.rows.map((a) => ({
-              askId: a.ask_id,
-              // PostgREST returns NUMERIC as a STRING, and `Number(null)` is 0 —
-              // which would print "₱0", a real-looking figure for a value we do
-              // not have. Unreadable becomes null and renders an em dash.
-              amountPhp:
-                a.amount_php == null || Number.isNaN(Number(a.amount_php))
-                  ? null
-                  : Number(a.amount_php),
-              note: a.note,
-              dueDate: a.due_date,
-              createdAt: a.created_at,
-            }))}
-          />
+        {/* 📦 The Delivery Handover moved to Files (walk 13 Nov 2026, F-W1-71) — see `pickedBodies.files`. */}
 
-          <DepositReservation
+        {/*
+          DAY-10 · Shot list — the supplier's must-get shots from their day-of
+          console, read-only, with what has been captured so far.
+        */}
+        {shotList ? (
+          <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
+        ) : null}
+
+        {vendorBudgetSummary ? (
+          <VendorItemizationCard
+            summary={vendorBudgetSummary}
             eventId={eventId}
-            vendorId={ev.vendor_id}
+            variant="embed"
             vendorName={displayName}
-            depositRecordedAt={ev.deposit_recorded_at}
-            depositAcknowledgedAt={ev.deposit_acknowledged_at}
-            depositProofUrl={depositProofUrl}
-            depositDeclinedAt={depositRefusal?.declinedAt ?? null}
-            depositDeclineReason={depositRefusal?.reason ?? null}
-            depositDisputeNote={depositRefusal?.settlementNote ?? null}
-            payMethods={directPayMethods}
-            payMethodsState={directPayState}
-            requestedFirstPaymentCentavos={acceptedQuote?.firstPaymentCentavos ?? null}
-            requestedFirstPaymentSentence={firstPaymentSentence(acceptedQuote)}
-            requestedTermsUnreadable={acceptedQuoteUnreadable}
-            step={bookedMoney.step}
-            history={bookedMoney.history}
+            directPayMethods={directPayMethods}
+            installments={paymentPlan}
+            acceptedQuoteLines={acceptedQuote?.lines ?? null}
+            acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
+            paymentDoor={itemizationDoor}
           />
-
-          {/*
-            Change-Order Trail — the both-acknowledged add-on/removal log. The
-            couple raises a change order; the vendor accepts/declines on their
-            client page. On accept the delta settles into the budget ledger.
-            Setnayan never holds the money — the amount is the couple's record.
-          */}
-          <ChangeOrderTrail
-            eventId={eventId}
-            vendorId={ev.vendor_id}
-            vendorName={displayName}
-            changeOrders={changeOrders}
-            readFailed={Boolean(changeOrderRowsError)}
-          />
-
-          {/* 📦 The Delivery Handover moved to Files (walk 13 Nov 2026, F-W1-71) — see `pickedBodies.files`. */}
-
-          {/*
-            DAY-10 · Shot list — the supplier's must-get shots from their day-of
-            console, read-only, with what has been captured so far.
-          */}
-          {shotList ? (
-            <ShotListCard vendorName={displayName} category={ev.category} list={shotList} />
-          ) : null}
-
-          {vendorBudgetSummary ? (
-            <VendorItemizationCard
-              summary={vendorBudgetSummary}
-              eventId={eventId}
-              variant="embed"
-              directPayMethods={directPayMethods}
-              installments={paymentPlan}
-              acceptedQuoteLines={acceptedQuote?.lines ?? null}
-              acceptedQuoteTotalCentavos={acceptedQuote?.totalCentavos ?? null}
-              paymentDoor={itemizationDoor}
-            />
-          ) : (
-            <p className="text-xs text-ink/55">
-              No payment milestones added yet. Add a line item or log a payment
-              as money moves to {displayName}.
-            </p>
-          )}
-        </div>
+        ) : (
+          <TemplateEmpty data="milestones">
+            No payment milestones added yet. Add a line item or log a payment as money moves to {displayName}.
+          </TemplateEmpty>
+        )}
       </section>
   );
 
@@ -2250,6 +2192,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <div className="flex items-center gap-2">
               {/* Derived contract indicator (2026-06-22) — shows this booking's
                   contract status at a glance, linking to the contract. */}
+              {contractsMeasured ? (
               <span
                 className={[
                   'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
@@ -2262,9 +2205,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               >
                 {bookingContractStateLabel(contractState)}
               </span>
+              ) : null}
               <Link
                 href={`/dashboard/${eventId}/contracts`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+                className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
               >
                 <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Manage
@@ -2277,6 +2221,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
+          ) : !contractsMeasured ? (
+            <p role="status" className="text-xs text-warn-800">
+              Couldn&rsquo;t load contracts just now &mdash; that does not mean there are none.
+            </p>
           ) : contracts.length === 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-ink/55">
@@ -2288,7 +2236,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   in the thread. Deep-links straight to the conversation. */}
               <Link
                 href={conversationHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
               >
                 <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Ask {displayName} for a contract
@@ -2972,7 +2920,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Chat page without a conversation.
   // ------------------------------------------------------------------------
   const hasQuotesToShow = Boolean(ev.marketplace_vendor_id);
-  const pickedMenu = pickedSupplierMenuFor({ quote: hasQuotesToShow, chat: Boolean(chatThread) });
+  const pickedMenu = pickedSupplierMenuFor({ chat: Boolean(chatThread) });
 
   // 💗 INSPIRATION (the prototype's host tab) — the SHIPPED board's strip for this supplier's category
   // (`FindInspirationStrip`, Suppliers › Find), the looks the host saved there; "See all" opens the whole board. A
@@ -3036,6 +2984,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     </SupplierQuestionsCard>
   ) : null;
 
+  const formsBody = formsPage ?? (
+    <p className="py-6 text-sm text-ink/60">{displayName} is not on Setnayan, so there are no forms from them to answer.</p>
+  );
   const pickedBodies: Record<PickedSupplierPage, ReactNode> = {
     details: (
       <div className="space-y-6" data-picked-supplier-page="details">
@@ -3050,6 +3001,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {notesSection}
         {workingFolderSection}
         {claimSection}
+        {/* 🗂 SEVEN TABS, MIRRORED (owner 18 Nov 2026): Forms and Inspiration are parts of Details now — moved whole. */}
+        <section id="forms" aria-label="Forms" className="scroll-mt-4" data-picked-part="forms">
+          <p className="home-k2 mb-2">Forms</p>
+          {formsBody}
+        </section>
+        {/* A plain wrapper: `inspirationSection` is already the labelled <section> (never a section in a section). */}
+        <div id="inspiration" className="scroll-mt-4" data-picked-part="inspiration">
+          <p className="home-k2 mb-2">Inspiration</p>
+          {inspirationSection}
+        </div>
       </div>
     ),
     chat: chatThread ? (
@@ -3072,36 +3033,32 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         )}
       </div>
     ),
-    quote: hasQuotesToShow ? (
-      <div data-picked-supplier-page="quote">
-        {moneyHidden ? (
-          hostsOnlyPanel
-        ) : (
-          <VendorProposalsCard
-            eventId={eventId}
-            marketplaceVendorId={ev.marketplace_vendor_id}
-            displayName={displayName}
-            whenEmpty={quotationEmpty}
-          />
-        )}
-      </div>
-    ) : null,
-    payments: (
-      <div className="space-y-6" data-picked-supplier-page="payments">
-        {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
-        {moneyHidden ? hostsOnlyPanel : statusSection}
-        {moneyHidden ? null : paymentModeSection}
-      </div>
-    ),
-    forms: (
-      <div className="space-y-6" data-picked-supplier-page="forms">
-        {formsPage ?? (
-          <p className="py-6 text-sm text-ink/60">
-            {displayName} is not on Setnayan, so there are no forms from them to answer.
-          </p>
-        )}
+    // 💰 BOOK & BUDGET (owner 18 Nov 2026): the Payment body, then the quote — one money story per booking. A supplier
+    // the host added themselves sent no quote, so that part is simply not drawn (never a blank one).
+    quote: (
+      <div className="space-y-6" data-picked-supplier-page="quote">
+        {/* A plain wrapper: `statusSection` is already <section id="payments">, so the id is said ONCE — here only when
+            the money is hidden and that section is not drawn. */}
+        <div id={moneyHidden ? 'payments' : undefined} className="space-y-6 scroll-mt-4" data-picked-part="payments">
+          {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
+          {moneyHidden ? hostsOnlyPanel : statusSection}
+          {moneyHidden ? null : paymentModeSection}
+        </div>
+        {hasQuotesToShow && !moneyHidden ? (
+          <section id="quote" aria-label="Quotation" className="scroll-mt-4" data-picked-part="quote">
+            <p className="home-k2 mb-2">Quotation</p>
+            <VendorProposalsCard
+              eventId={eventId}
+              marketplaceVendorId={ev.marketplace_vendor_id}
+              displayName={displayName}
+              whenEmpty={quotationEmpty}
+            />
+          </section>
+        ) : null}
       </div>
     ),
+    payments: null,
+    forms: null,
     files: (
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
@@ -3124,7 +3081,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {documentsSection}
       </div>
     ),
-    inspiration: inspirationSection,
+    inspiration: null,
     // 🚩 Report (owner 11 Nov 2026, "There is also no report") — the host's shipped Report a problem, about this supplier.
     report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,
   };
@@ -3154,6 +3111,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none, and
       // opens on the menu's first page (Chat; Details when there is no conversation).
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
+      landAt={pickedSupplierAnchorOf(rawLanding)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
       bodies={pickedPages}
     />
   );

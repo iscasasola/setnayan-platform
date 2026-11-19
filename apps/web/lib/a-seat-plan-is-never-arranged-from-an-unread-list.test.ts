@@ -163,7 +163,8 @@ test('4 · the plan’s gate cannot reject, says the failure, and plain-state pr
   assert.ok(neverRejects(gate), 'runGated can reject again — every press in the plan throws into its transition');
   const src = stripComments(raw);
   const body = src.slice(src.indexOf('const runGated = '), src.indexOf('const place = '));
-  assert.match(body, /catch \(err\) \{\s*if \(!handleLockLost\(err\)\) setNotice\(failed\);\s*return null;\s*\}/, 'a failed press is not said in the notice strip');
+  /* 2026-11-16: the failure also takes back the move's "done" line (the-seat-plan-drags-on-a-phone.test.ts 4b holds it). */
+  assert.match(body, /catch \(err\) \{\s*if \(!handleLockLost\(err\)\) setNotice\(failed\);\s*(?:setMoveNote\(null\);\s*)?return null;\s*\}/, 'a failed press is not said in the notice strip');
   assert.match(src, /const SEAT_PLAN_NOT_SAVED = 'Couldn’t save that — please try again\.';/);
   // No caller is left that relies on the old rethrow.
   assert.doesNotMatch(src, /catch \(err\) \{\s*if \((handleLockLost|onLockLost)\(err\)\)[^}]*\}?\s*throw err;/, 'a catch still rethrows what is not a lost lock');

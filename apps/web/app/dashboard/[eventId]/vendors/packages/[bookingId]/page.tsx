@@ -235,7 +235,7 @@ export default async function PackageBookingPage({ params }: Props) {
       </div>
 
       {/* Totals */}
-      <section className="mt-5 rounded-2xl border border-ink/10 bg-cream p-5">
+      <section className="mt-5 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-5">
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <dt className="text-ink/70">Total booked</dt>
@@ -281,7 +281,7 @@ export default async function PackageBookingPage({ params }: Props) {
             {chargeLines.map((line) => (
               <li
                 key={line.key}
-                className="flex items-start justify-between gap-3 rounded-xl border border-ink/10 bg-cream px-4 py-3"
+                className="flex items-start justify-between gap-3 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-ink/85">{line.label}</p>

@@ -33,6 +33,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { Count } from '@/components/count';
+import { ReplyArrives } from '@/app/_components/signature/reply-arrives';
 import { formatCount } from '@/lib/format-number';
 
 /* ─── One ticker for the page ─────────────────────────────────────────────── */
@@ -173,7 +174,17 @@ export function HomeTileCountKey({ value, children }: { value: string; children:
 /** The face's figure — counted to its value (`Count`, owner H2) when it is a number, its words when it is not. */
 export function FaceFigure({ face }: { face: HomeFace }) {
   const key = useContext(TileCountKey);
-  return face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}${key}`} /> : <>{face.big}</>;
+  const figure = face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}${key}`} /> : <>{face.big}</>;
+  // 🕯 Reply arrives (motion standard § 9 ④) — the Guests tile's "coming" face: new replies since the last look, once
+  // per visit. Its own mark (`tile:`), so the hidden tablet card can never use the phone tile's moment up.
+  if (face.id === 'guests-coming' && face.count) {
+    return (
+      <ReplyArrives eventId={`tile:${face.href.split('/')[2] ?? ''}${key}`} coming={face.count.value}>
+        {figure}
+      </ReplyArrives>
+    );
+  }
+  return figure;
 }
 
 function FaceBody({ face }: { face: HomeFace }) {
@@ -482,7 +493,7 @@ export function HomeTile({
       ) : (
         <Link href={face.href} className={doorClass} aria-label={doorLabel} onClick={onDoorClick} draggable={false} onDragStart={(e) => e.preventDefault()} />
       )}
-      {model.doors && model.doors.length > 0 ? <ScheduleDoors doors={model.doors} /> : null}
+      {(model.doors && model.doors.length > 0) || model.timesLine ? <ScheduleDoors doors={model.doors ?? []} timesLine={model.timesLine ?? null} /> : null}
       {model.side ? (
         <span className="hc-side">
           {model.side.map((a) => (
@@ -503,9 +514,20 @@ export function HomeTile({
  * slide away under a finger (plan §5: "a button that can slide away under a finger risks approving the wrong change").
  * Each opens its page; Release wears ◆ PRO on Free and stays usable up to the sheet that names its part (plan §3b).
  */
-function ScheduleDoors({ doors }: { doors: HomeDoor[] }) {
+function ScheduleDoors({ doors, timesLine = null }: { doors: HomeDoor[]; timesLine?: HomeTileModel['timesLine'] }) {
   return (
     <span className="hc-sdoors" data-home-sched-doors="">
+      {/* 🕕 "Lumière Studio set their times" · their times · See › (owner 16 Nov "SCHEDULE MODEL", rule 3 — the line in
+          Today's Schedule card; the drawing's `nrow tdy`). Read from `supplier_own_times`, never a copy. */}
+      {timesLine ? (
+        <Link href={timesLine.href} className="flex w-full items-center gap-2 py-1 text-left" data-home-sched-times="" data-hc-act="">
+          <span className="min-w-0 flex-1">
+            <b className="block truncate text-[14px] font-semibold text-ink">{timesLine.title}</b>
+            {timesLine.sub ? <small className="block truncate text-[12.5px] text-ink/70">{timesLine.sub}</small> : null}
+          </span>
+          <span className="shrink-0 text-[13px] font-semibold text-sn-accent">See ›</span>
+        </Link>
+      ) : null}
       {doors.map((d) => (
         <Link
           key={d.id}

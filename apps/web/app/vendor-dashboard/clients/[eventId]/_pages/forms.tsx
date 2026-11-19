@@ -7,7 +7,9 @@
  *      you"). Their reads are unchanged except the `form_id IS NULL` filter that keeps the library out of them.
  *   2. "Forms sent to <couple>" — each library form sent into this event (by the supplier or on booking), answered
  *      N of M; tapping one shows the couple's answers.
- *   3. "Your forms · the library" — every live form, "N questions · used with N"; tap opens it in the Form Maker.
+ *   3. "Forms for <couple>" — ONLY the forms on the cards they asked about or booked + the shop's chat forms (owner
+ *      18 Nov 2026, `formsForThisClient`; replaces "Your forms · the library"); tap opens it. A sent card form offers
+ *      "Send again" — the same send, their last answers still ticked.
  *   4. "Added from the service cards they booked" — the library forms linked to a card this booking holds.
  *   Thumb row: Load a form (the Forms Maker sheet: your forms · Suggested for <service> · Also useful for <group>) ·
  *   ＋ New form.
@@ -29,6 +31,7 @@ import { QuestionsSendPanel } from '@/app/vendor-dashboard/messages/[threadId]/_
 import { CoupleAnswers } from '../_components/couple-answers';
 // ⚡ On-demand code (`./lazy`): the shipped `FormsPageBody`, loaded with this page rather than the route's first load.
 import { FormsPageBody } from './lazy';
+import { readClientNoun } from '@/lib/client-words.server';
 import type { PickedPageProps } from './context';
 
 export async function FormsPage({ ctx }: PickedPageProps) {
@@ -54,7 +57,7 @@ export async function FormsPage({ ctx }: PickedPageProps) {
   const bookedCategories = lib ? lib.cards.filter((c) => bookedIds.includes(c.id)).map((c) => c.category) : [];
   const ownCategories = bookedCategories.length ? bookedCategories : (lib?.cards.map((c) => c.category) ?? []);
 
-  const [event, suggestions, starters] = await Promise.all([
+  const [event, suggestions, starters, clientNoun] = await Promise.all([
     lib
       ? readEventForms(supabase, {
           eventId: ctx.eventId,
@@ -66,12 +69,16 @@ export async function FormsPage({ ctx }: PickedPageProps) {
       : Promise.resolve({ status: 'unread' as const }),
     readFormSuggestions(supabase, ownCategories),
     startersForShopServices(profile?.services ?? null),
+    // 🔤 This event kind's word for the client ("celebrant" on a debut) — never "couple" on every event.
+    readClientNoun(ctx.eventId),
   ]);
 
   return (
-    <div className="space-y-8" data-picked-page="forms">
-      <section className="space-y-4" aria-label="Questions for the couple">
-        <QuestionsSection supabase={supabase} vendorProfileId={ctx.vendorProfileId} starters={starters} />
+    // 👍 pb-24: the floating thumb row (folder · ＋) sits over the page's last lines without it (owner, 17 Nov) — the
+    // same room the Payment page leaves.
+    <div className="space-y-8 pb-24" data-picked-page="forms">
+      <section className="space-y-4" aria-label={`Questions for the ${clientNoun}`}>
+        <QuestionsSection supabase={supabase} vendorProfileId={ctx.vendorProfileId} starters={starters} clientNoun={clientNoun} />
         {ctx.threadId ? (
           <QuestionsSendPanel
             supabase={supabase}
@@ -79,11 +86,12 @@ export async function FormsPage({ ctx }: PickedPageProps) {
             eventId={ctx.eventId}
             vendorProfileId={ctx.vendorProfileId}
             coupleName={ctx.eventName}
+            quietWhenEmpty
           />
         ) : null}
         {/* The couple's own words open with the event, as on the shipped card (fee-gated). */}
         {ctx.feeUnlocked ? (
-          <CoupleAnswers supabase={supabase} eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} coupleName={ctx.eventName} />
+          <CoupleAnswers supabase={supabase} eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} coupleName={ctx.eventName} quietWhenEmpty />
         ) : null}
       </section>
       <FormsPageBody
@@ -100,6 +108,8 @@ export async function FormsPage({ ctx }: PickedPageProps) {
         locks={locks}
         answersOpen={ctx.feeUnlocked}
         shopId={ctx.vendorProfileId}
+        // 📋 Owner 18 Nov 2026: only the forms on the cards THIS client asked about or booked, plus the chat forms.
+        clientCardIds={booked.status === 'ok' ? booked.cardIds : null}
       />
     </div>
   );

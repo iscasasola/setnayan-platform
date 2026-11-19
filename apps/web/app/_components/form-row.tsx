@@ -1110,11 +1110,14 @@ export function ChosenRow({
   picked,
   doneNote,
   head,
+  opensUp,
 }: {
   /** ✓ A dropdown with checkmarks (`PickMenu`'s `picked` / `doneNote` / `head`) — the guests' Wear ▾ (2026-10-21). */
   picked?: readonly string[];
   doneNote?: string;
   head?: ReactNode;
+  /** ⬆ The list opens above the button when it fits (a dropdown in a phone sheet — admin reorg v10). */
+  opensUp?: boolean;
   name: string;
   about?: FormRowAbout | null;
   /** A small mark after the name (the Pro mark ◆). */
@@ -1139,7 +1142,7 @@ export function ChosenRow({
   const width = usePillWidth();
   return (
     <FormRow name={name} about={about} mark={mark} line={line} note={note} problem={problem} below={below} data={data} attrs={{ ...attrs, 'data-form-row-kind': 'chosen' }}>
-      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} picked={picked} doneNote={doneNote} head={head} />
+      <PickMenu label={label ?? name} value={value} options={options} onPick={onPick} buttonText={buttonText} dataAttr={dataAttr} className={`${FORM_PICK_CLASS} ${width}`} picked={picked} doneNote={doneNote} head={head} opensUp={opensUp} />
     </FormRow>
   );
 }
@@ -1335,10 +1338,10 @@ export function shakeIntoView(el: HTMLElement): void {
   const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   el.scrollIntoView({ block: 'center', behavior: still ? 'auto' : 'smooth' });
   if (still) return;
-  el.classList.remove('sn-row-shake');
+  el.classList.remove('sn-m-shake');
   void el.offsetWidth;
-  el.classList.add('sn-row-shake');
-  el.addEventListener('animationend', () => el.classList.remove('sn-row-shake'), { once: true });
+  el.classList.add('sn-m-shake');
+  el.addEventListener('animationend', () => el.classList.remove('sn-m-shake'), { once: true });
 }
 
 /**
@@ -1355,8 +1358,8 @@ export function nudgeFormRows(within: ParentNode = document): number {
 
 function shakeOnly(el: HTMLElement): void {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  el.classList.remove('sn-row-shake');
+  el.classList.remove('sn-m-shake');
   void el.offsetWidth;
-  el.classList.add('sn-row-shake');
-  el.addEventListener('animationend', () => el.classList.remove('sn-row-shake'), { once: true });
+  el.classList.add('sn-m-shake');
+  el.addEventListener('animationend', () => el.classList.remove('sn-m-shake'), { once: true });
 }

@@ -28,6 +28,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CalendarRange, Users } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { updateEventDate } from '@/app/dashboard/[eventId]/actions';
 import { useSaveLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
@@ -95,7 +96,7 @@ export function VendorsAvailabilityBanner({
   return (
     <div
       role="status"
-      className="mt-4 rounded-lg border border-ink/10 bg-cream px-4 py-3 text-sm"
+      className="mt-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3 text-sm"
     >
       <div className="flex items-start gap-2">
         <CalendarRange
@@ -167,16 +168,15 @@ function LockDayButton({ eventId, day }: { eventId: string; day: string }) {
 
   return (
     <>
-    <button
-      type="button"
+    <ActionButton
+      tone="neutral"
+      icon={CalendarRange}
+      label={isPending ? 'Saving…' : prettyDay(day)}
+      name={`Lock wedding date to ${prettyDay(day)}`}
       onClick={handleLock}
       disabled={isPending}
-      aria-label={`Lock wedding date to ${prettyDay(day)}`}
-      className="rounded-md border border-ink/15 bg-cream px-2 py-1 text-xs text-ink/80 hover:border-terracotta hover:text-terracotta-700 disabled:opacity-50"
       title={error ?? undefined}
-    >
-      {isPending ? 'Saving…' : prettyDay(day)}
-    </button>
+    />
     {error ? (
       <p role="alert" className="basis-full text-xs text-danger-700">
         {error}

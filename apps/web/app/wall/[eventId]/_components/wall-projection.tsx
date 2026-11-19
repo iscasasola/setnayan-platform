@@ -153,7 +153,7 @@ export function WallProjection({
   if (mode === 'coming_soon' || mode === 'pre_event') {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center bg-ink px-8 text-center text-cream">
-        <p className="font-mono text-xs uppercase tracking-[0.4em] text-terracotta">Setnayan · Papic</p>
+        <p className="text-terracotta text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">Setnayan · Papic</p>
         {/* The couple's mark — the branded standby before the collage goes live.
             `plate` backs the otherwise-bare lockup/framed marks so they read on
             the dark venue screen; the self-disc branches (bespoke/animated/legacy)
@@ -186,7 +186,7 @@ export function WallProjection({
   return (
     <main className="min-h-screen bg-ink text-cream">
       <header className="flex items-center justify-between px-6 py-4">
-        <p className="font-mono text-xs uppercase tracking-[0.35em] text-cream/70">
+        <p className="text-cream/70 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           {initial.displayName ?? 'Setnayan'} <span className="text-terracotta">· live</span>
         </p>
         <div className="flex items-center gap-4">
@@ -215,7 +215,7 @@ export function WallProjection({
             <p className="mt-1 text-sm text-terracotta">— {caption.author}</p>
           </div>
         ) : null}
-        <p className="text-center font-mono text-[11px] uppercase tracking-[0.3em] text-cream/50">
+        <p className="text-center text-cream/50 text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
           Powered by Setnayan · Papic
         </p>
       </footer>

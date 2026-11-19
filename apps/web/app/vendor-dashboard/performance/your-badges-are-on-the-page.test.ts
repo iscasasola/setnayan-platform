@@ -60,9 +60,10 @@ test('1 · ⛔ a refused read is said — never "none", never "0 to go"', () => 
 test('2 · the badges are the Shop tab’s one row, directly under the carousel — Analytics draws no second copy', () => {
   const shop = src('app/vendor-dashboard/shop/page.tsx');
   const render = shop.slice(shop.indexOf('<OneAnalyticsSection'));
-  assert.match(render, /^<OneAnalyticsSection \{\.\.\.data\.analytics\} \/>\s*<\/Suspense>\s*(?:\{\s*\}\s*)*<ShopBadgeRow tiles=\{data\.badges\} \/>/, 'the badge row is not directly under the carousel');
-  // Built on the shipped tracker, never beside it.
-  assert.match(shop, /const rows = facts \? \(rewards \? badgeRowsWithRewards\(badgeTracker\(facts\), rewards\) : badgeTracker\(facts\)\) : null;/);
+  assert.match(render, /^<OneAnalyticsSection \{\.\.\.data\.analytics\} \/>\s*<\/Suspense>\s*(?:\{\s*\}\s*)*<ShopBadgeRow tiles=\{data\.badges\}[^>]*\/>/, 'the badge row is not directly under the carousel');
+  // 🏅 Owner 15 Nov (the approved badges are the only badges) + 17 Nov ("old pop ups of badges"): the row is the v84
+  // shelf, built on the reward engine's own counts — the ones `readBadgeRewardTracker` already read — never beside it.
+  assert.match(shop, /shopBadgeShelf\(\{\s*counts: rewards\?\.facts \?\? null,/);
   for (const f of ['analytics-carousel.tsx', 'analytics-growing.tsx', 'one-analytics-section.tsx', 'graph-tile.tsx']) {
     const a = src(`app/vendor-dashboard/performance/_components/${f}`);
     assert.doesNotMatch(a, /<YourBadges\b|<ShopBadgePill\b|<ShopBadgeRow\b|badgeTracker\(|badgeShelf\(/, `${f} draws the badges a second time`);
@@ -83,9 +84,10 @@ test('4 · Today’s earned line stays', () => {
 
 test('5 · 📣🗺 the ONE tracker is the Shop tab’s badge row; Shop › Page keeps the pills only', () => {
   const view = src('app/vendor-dashboard/shop/_components/shop-badge-row.tsx');
-  // The tracker's row: each badge in its progress ring, rising to Now · the bar · the next goal · its reward.
+  // The row: each badge in its progress ring; a tap opens Now · the bar · the next goal · its reward — risen when locked,
+  // in the award full screen's caption (`shelfLines`) when earned (owner 17 Nov, the v84 pop-ups).
   // '<ShopDoorScreen' — the ONE RiseScreen on a phone, the 440 right panel from 701 (owner 2026-11-16).
-  for (const a of ['<ProgressRing', '<ShopDoorScreen', 'nextGoalLine(', 'nowLine(']) {
+  for (const a of ['<ProgressRing', '<ShopDoorScreen', '<BadgeFullscreen', 'shelfLines(', 'tile.now', 'tile.next']) {
     assert.ok(view.includes(a), `the badge row lost the tracker’s ${a}`);
   }
   // The rows are the shipped composer's, on the facts the page already read — a refused read draws no rows.

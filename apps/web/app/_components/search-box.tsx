@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Search, X } from 'lucide-react';
+import { SearchAddIcon, useSearchAdd } from '@/components/search-add';
 
 /**
  * SEARCH BOX — kind 30 of the control templates (`CONTROL_TEMPLATES_ROUND2_2026-10-12_fable.md`, gallery
@@ -48,6 +49,7 @@ export function SearchBox({
   wait = 320,
   data,
   tour,
+  add,
 }: {
   /** What is searched, in words — also its name for a screen reader. */
   placeholder: string;
@@ -65,6 +67,13 @@ export function SearchBox({
   data?: string;
   /** 🔦 A spotlight tour's anchor token (`data-tour`). */
   tour?: string;
+  /**
+   * ➕ SEARCH OR ADD (owner 18–19 Nov 2026: *"not all search bar converts to add. just only those that needs
+   * conversion"*) — ONLY a list whose search can add passes this: the magnifier is then the 🔍 → ＋ icon
+   * (`components/search-add.tsx`). `matches` is about the word the PAGE was drawn with (`defaultValue`); while a newer
+   * word is still on its way to the server nothing is known, so the icon stays 🔍. Absent → the plain search box.
+   */
+  add?: { matches: boolean; onAdd: (typed: string) => void };
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -88,6 +97,9 @@ export function SearchBox({
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
+  const answered = value.trim() === defaultValue.trim();
+  const searchAdd = useSearchAdd(add ? { onAdd: add.onAdd, query: value, matches: answered ? add.matches : true } : null);
+
   const go = (word: string) => {
     if (timer.current) clearTimeout(timer.current);
     const params = new URLSearchParams(keep);
@@ -109,6 +121,11 @@ export function SearchBox({
       data-pending={pending ? '' : undefined}
       onSubmit={(e) => {
         e.preventDefault();
+        // ⏎ As ＋, Enter adds what was typed (the keyboard stays for the sheet it opens).
+        if (add && searchAdd.mode === 'add' && value.trim()) {
+          add.onAdd(value.trim());
+          return;
+        }
         go(value);
         field.current?.blur();
       }}
@@ -119,7 +136,11 @@ export function SearchBox({
         .map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}
-      <Search aria-hidden className="h-[18px] w-[18px] flex-none text-ink/50" strokeWidth={2} />
+      {add ? (
+        <SearchAddIcon mode={searchAdd.mode} onPress={() => searchAdd.press(field.current)} place={placeholder.replace(/^Search\s+/i, '')} className="-ml-3.5 -mr-3" />
+      ) : (
+        <Search aria-hidden className="h-[18px] w-[18px] flex-none text-ink/50" strokeWidth={2} />
+      )}
       <input
         ref={field}
         type="search"

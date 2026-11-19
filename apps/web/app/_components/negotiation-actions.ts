@@ -19,6 +19,7 @@
 // behind NEXT_PUBLIC_CHAT_NEGOTIATION_V1 — a no-op when the flag is off.
 // ============================================================================
 
+import { agree } from '@/lib/client-words';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -936,8 +937,8 @@ export async function lockDeal(formData: FormData): Promise<void> {
           await emitNotification({
             userId: vendorUserId,
             type: 'lock_request_received',
-            title: `${who} wants to book you`,
-            body: `${who} has asked you to take their booking at the price you agreed. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
+            title: `${who} ${agree(who, 'wants', 'want')} to book you`,
+            body: `${who} ${agree(who, 'has', 'have')} asked you to take their booking at the price you agreed. You have 48 hours to agree or decline — if nobody answers, the request closes and they will look elsewhere.`,
             relatedUrl: '/vendor-dashboard',
             eventId: ctx.thread.event_id,
           });

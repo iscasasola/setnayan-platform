@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ArrowLeft } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { formatCount } from '@/lib/format-number';
@@ -47,14 +49,7 @@ export function PlanQuiz({ prices }: { prices: PlanPrices }) {
   return (
     <div className="flex min-h-[calc(100dvh-140px)] flex-col pb-6 lg:min-h-[calc(100dvh-120px)] lg:max-w-[640px]" data-plan-step={key}>
       <div className="flex min-h-[44px] items-center justify-between pt-3">
-        <button
-          type="button"
-          onClick={back}
-          disabled={i === 0}
-          className="min-h-[44px] bg-transparent p-0 text-[15px] text-ink/65 disabled:invisible"
-        >
-          ← Back
-        </button>
+        <ActionButton tone="neutral" quiet icon={ArrowLeft} label="Back" onClick={back} disabled={i === 0} className="disabled:invisible" />
         <Link href="/pricing" className="inline-flex min-h-[44px] items-center text-[15px] text-ink/65">
           Close
         </Link>

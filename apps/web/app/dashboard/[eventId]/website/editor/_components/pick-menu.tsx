@@ -27,6 +27,7 @@ export function PickMenu({
   head,
   trigger,
   menuMinWidth,
+  opensUp,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
   const oo = useOneOpen(open, setOpen);
@@ -43,7 +44,7 @@ export function PickMenu({
     const b = btnRef.current;
     if (!b) return;
     const next = placePickList({
-      button: b.getBoundingClientRect(), minWidth: menuMinWidth,
+      button: b.getBoundingClientRect(), minWidth: menuMinWidth, prefer: opensUp ? 'above' : undefined,
       listHeight: listRef.current?.scrollHeight ?? 0,
       viewport: pickViewport(b, listRef.current),
     });
@@ -181,7 +182,7 @@ export function PickMenu({
               style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
               data-pick-side={at.side}
               data-pick-grid={grid || undefined}
-              className="bg-surface z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
+              className="sn-m-pop bg-surface z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
             >
               {rows}
             </ul>,

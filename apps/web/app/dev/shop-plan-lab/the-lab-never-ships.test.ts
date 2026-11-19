@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
-import { shopAlsoInLine } from '@/lib/shop-page-plan';
+import { SHOP_ALSO_IN_NAMED, shopAlsoInLine } from '@/lib/shop-page-plan';
 import { tierCaps } from '@/lib/vendor-tier-caps';
 import {
   SAMPLE_BRANCH_CITIES,
@@ -66,7 +66,10 @@ test('🔑 the /for-suppliers Pro and Ultra previews draw their branches — own
     const line = shopAlsoInLine(cities, 'Tagaytay');
     if (plan === 'pro' || plan === 'ultra') {
       assert.ok(included > 0, `${plan} includes no branches any more — re-read the owner's ruling`);
-      assert.equal(line, `Also in ${cities.join(' · ')}`, `${plan}: the preview does not draw "Also in <city>"`);
+      // 15 Nov 2026 (DECISION_LOG "SHOP WEBSITE: A 10-BRANCH SHOP …"): three cities named, the rest counted.
+      const named = cities.slice(0, SHOP_ALSO_IN_NAMED).join(', ');
+      const rest = cities.length - SHOP_ALSO_IN_NAMED;
+      assert.equal(line, `Also in ${named}${rest > 0 ? ` and ${rest} more` : ''}`, `${plan}: the preview does not draw "Also in <city>"`);
     } else {
       assert.equal(line, null, `${plan}: a plan with no branches draws an "Also in" line`);
     }

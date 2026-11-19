@@ -177,20 +177,20 @@ export function BodyPanel({
       data-body-panel={data}
     >
       <div ref={innerRef} className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-[64px] flex-none items-center gap-3 border-b border-ink/10 px-4 py-2.5" data-body-panel-head="">
+        <div className="flex min-h-[64px] flex-none items-center gap-3 border-b border-[color:var(--m-line)] px-4 py-2.5" data-body-panel-head="">
           {lead ? <span className="flex flex-none items-center">{lead}</span> : null}
           <span className="min-w-0 flex-1">
             <b id={hid} className={`block text-[17px] font-semibold leading-tight text-ink ${titleLines === 2 ? 'line-clamp-2' : 'truncate'}`}>
               {title}
             </b>
-            {sub ? <small className="block truncate text-[13px] text-ink/60">{sub}</small> : null}
+            {sub ? <small className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{sub}</small> : null}
           </span>
           <button
             ref={closeRef}
             type="button"
             onClick={() => close()}
             aria-label={`Close ${title}`}
-            className="grid h-11 w-11 flex-none place-items-center rounded-full border border-ink/15 text-ink/70"
+            className="grid h-11 w-11 flex-none place-items-center rounded-full border border-[color:var(--m-line)] text-ink"
             data-body-panel-close=""
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />

@@ -25,7 +25,7 @@
 /* ── shared pieces ─────────────────────────────────────────────────────────────────────────────── */
 
 .fd .fl-hero,
-.fd .fl-landing .fl-sec:not(.fl-shelves),
+.fd .fl-landing .fl-sec,
 .fd .fl-close,
 .fd .fl-foot {
   font-family: var(--font-hanken), var(--fd-sys);
@@ -64,6 +64,11 @@
   border-color: rgb(var(--color-ink) / 0.6);
 }
 .fd .fl-more {
+  /* A text link that stands on its own presses 44 tall (W5 walk 2026-11-18: these measured 23). The box grows,
+     the words do not move; `inline-flex` keeps it inline inside a sentence. */
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: rgb(var(--color-link));
   font-weight: 600;
   font-size: 15px;
@@ -128,15 +133,8 @@
   display: block;
 }
 .fd .fl-slide-on img {
-  animation: fl-kb 6s ease-out forwards;
-}
-@keyframes fl-kb {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.025);
-  }
+  /* HERO SETTLE (motion standard § 6): the picture settles from 1.06 in Rise, once. From-only — it is never hidden. */
+  animation: sn-w-hero-img var(--sn-m-rise) var(--sn-m-settle) backwards;
 }
 .fd .fl-hero-photo::after {
   content: '';
@@ -342,14 +340,38 @@
   display: flex;
   gap: 12px;
   width: max-content;
-  animation: fl-et-scroll 60s linear infinite;
+  --sn-w-drift-x: calc(-50% - 6px);
 }
-.fd .fl-etrow-b .fl-ettrack {
-  animation-direction: reverse;
-  animation-duration: 54s;
+/* DRIFT (motion standard § 6, owner 18 Nov: "one moving background max") — this strip is the front page's ONE endless
+   loop. It stands still at 640 px and narrower and under reduced motion: there the row is swiped by hand and the
+   second copy (which only exists to close the loop) is not drawn. 🔒 lib/the-website-moves-by-the-standard.test.ts */
+.fd .fl-etrow {
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.fd .fl-etrow:hover .fl-ettrack {
-  animation-play-state: paused;
+.fd .fl-etrow::-webkit-scrollbar {
+  display: none;
+}
+.fd .fl-et-dup {
+  display: none;
+}
+@media (min-width: 641px) and (prefers-reduced-motion: no-preference) {
+  .fd .fl-etrow {
+    overflow-x: hidden;
+  }
+  .fd .fl-et-dup {
+    display: block;
+  }
+  .fd .fl-ettrack {
+    animation: sn-w-drift-x 60s linear infinite;
+  }
+  .fd .fl-etrow-b .fl-ettrack {
+    animation-direction: reverse;
+    animation-duration: 54s;
+  }
+  .fd .fl-etrow:hover .fl-ettrack {
+    animation-play-state: paused;
+  }
 }
 .fd .fl-et {
   position: relative;
@@ -383,11 +405,6 @@
   font-size: 14px;
   font-weight: 700;
   color: #fbfaf7;
-}
-@keyframes fl-et-scroll {
-  to {
-    transform: translateX(calc(-50% - 6px));
-  }
 }
 
 /* ── 2 · THE SAMPLE — one Event Hub, personal for every guest ─────────────────────────────────── */
@@ -533,12 +550,6 @@
   border-top: 1px solid var(--m-line-soft);
 }
 
-/* ── 2b · THE SHELVES — the shipped feed, inside the section's gutter ─────────────────────────── */
-
-.fd .fl-shelves > .fl-kicker {
-  margin-bottom: 4px;
-}
-
 /* ── 3 · WHAT IT SOLVES — feel the problem, then the turn ─────────────────────────────────────── */
 
 .fd .fl-solves-list {
@@ -568,7 +579,7 @@
   object-fit: cover;
   display: block;
   filter: saturate(0.72) contrast(1.06) brightness(0.92);
-  transition: transform 7s cubic-bezier(0.2, 0.6, 0.2, 1), filter 1.6s ease;
+  transition: transform var(--sn-m-rise) var(--sn-m-settle);
 }
 .fd .fl-scene::after {
   content: '';
@@ -618,7 +629,7 @@
   letter-spacing: -0.01em;
   text-shadow: 0 1px 14px rgb(0 0 0 / 0.55);
   text-wrap: balance;
-  transition: opacity 0.9s ease 0.25s, transform 0.9s ease 0.25s;
+  transition: opacity var(--sn-m-move) var(--sn-m-settle) var(--sn-w-stagger), transform var(--sn-m-move) var(--sn-m-settle) var(--sn-w-stagger);
 }
 .fd .fl-answer {
   padding: 20px 0 0;
@@ -778,20 +789,22 @@
   -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
 }
+.fd .fl-crew {
+  /* Not a loop since the motion standard (one Drift a page, and it is the event-type strip): swiped by hand. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fd .fl-crew::-webkit-scrollbar {
+  display: none;
+}
 .fd .fl-track {
   display: flex;
   gap: 10px;
   width: max-content;
-  animation: fl-crew 42s linear infinite;
 }
+/* The second copy only existed to close the loop. */
 .fd .fl-dup {
-  display: flex;
-  gap: 10px;
-}
-@keyframes fl-crew {
-  to {
-    transform: translateX(calc(-50% - 5px));
-  }
+  display: none;
 }
 .fd .fl-tile {
   position: relative;
@@ -1157,18 +1170,16 @@
 .fd .fl-foot nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  gap: 0 16px;
 }
+/* 44 tall by its own box (W5 walk 2026-11-18: 20). A wrapped row of links cannot share an invisible halo — the
+   halos of two rows 6px apart overlap — so each link is a 44px box and the row gap is 0 (the foot grows ~40px). */
 .fd .fl-foot a {
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   color: inherit;
   text-decoration: none;
-}
-/* A 44px press on a 13px line, without moving the line (the top bar's expander). */
-.fd .fl-foot a::after {
-  content: '';
-  position: absolute;
-  inset: -14px -6px;
 }
 .fd .fl-foot a:hover {
   color: rgb(var(--color-ink));
@@ -1178,24 +1189,50 @@
   margin: 0;
 }
 
-/* ── MOTION — revealed as it scrolls in, only once the script says it can ─────────────────────── */
+/* ── MOTION — REVEAL (motion standard § 6): a section rises 12 px and fades in as it enters, once ───────────────
+   Two paths, one look. Where the browser runs an animation on the scroll itself (`animation-timeline: view()`), the
+   section does exactly that — no script, and nothing is ever hidden by a class. Elsewhere `LandingMotion` marks the
+   landing `data-fl-motion` and its one IntersectionObserver adds `.fl-in`; only then is anything hidden to be shown. */
 
 .fd .fl-reveal {
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition: opacity var(--sn-m-move) var(--sn-m-settle), transform var(--sn-m-move) var(--sn-m-settle);
 }
-.fd .fl-landing[data-fl-motion] .fl-reveal:not(.fl-in) {
-  opacity: 0;
-  transform: translateY(14px);
+/* The waiting state lives only where the scroll cannot drive the motion: a browser that can is never told to hide. */
+@supports not (animation-timeline: view()) {
+  .fd .fl-landing[data-fl-motion] .fl-reveal:not(.fl-in) {
+    opacity: 0;
+    transform: translateY(var(--sn-w-rise));
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .fd .fl-landing .fl-reveal {
+      animation: sn-w-reveal linear backwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+      animation-range: entry 0% entry min(100%, var(--sn-w-reveal-span));
+    }
+    /* SCROLL-AWAY (§ 6): the hero's words fade to 40 % and lift 24 px as the hero leaves — tied to the scroll, no
+       clock. The hero clips its own overflow, so the timeline is named on the hero and read by its words. */
+    .fd .fl-hero {
+      view-timeline: --sn-w-hero block;
+    }
+    .fd .fl-hero-copy {
+      animation: sn-w-away linear backwards;
+      animation-timeline: --sn-w-hero;
+      animation-range: exit 0% exit 100%;
+    }
+  }
 }
 .fd .fl-landing[data-fl-motion] .fl-solve .fl-ph {
-  transform: scale(1.1);
+  transform: scale(var(--sn-w-hero-from));
 }
 .fd .fl-landing[data-fl-motion] .fl-solve.fl-in .fl-ph {
   transform: scale(1);
 }
 .fd .fl-landing[data-fl-motion] .fl-solve:not(.fl-in) .fl-pain {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(var(--sn-w-rise));
 }
 @media (hover: hover) {
   .fd .fl-btn:hover {
@@ -1396,7 +1433,6 @@
     mask-image: none;
   }
   .fd .fl-track {
-    animation: none;
     width: auto;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1503,16 +1539,10 @@
   .fd .fl-btn {
     transition: none;
   }
-  .fd .fl-slide img,
-  .fd .fl-ettrack,
-  .fd .fl-track {
+  .fd .fl-slide img {
     animation: none;
   }
-  .fd .fl-etrow,
-  .fd .fl-crew {
-    overflow-x: auto;
-  }
-  /* The second copy only exists to loop the drift; standing still, it is a repeat. */
+  /* (The strips stand still and are swiped by hand unless the Drift media query above says otherwise.) */
   .fd .fl-et-dup,
   .fd .fl-dup {
     display: none;

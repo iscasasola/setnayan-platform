@@ -119,6 +119,9 @@ export const VENDOR_PROFILE_EXPORT_SELECT =
   // papers_lapsed_at · papers_current (migration 20271348041863, PR #7624) — when the shop's papers lapsed after the
   // 30 March renewal, and whether they are current. The shop's own state, exported like find_lock_* above.
   'papers_current, papers_lapsed_at, ' +
+  // paused_at · paused_by (migration 20271350091032) — whether and by whom the shop is paused (Shop status). The
+  // shop's own state, exported like the papers stamp above.
+  'paused_at, paused_by, ' +
   'papic_challenge_expires_at, pending_tier, pending_tier_billing_cycle, ' +
   'pending_tier_period_days, ' +
   'pending_tier_purchase_id, pending_tier_scheduled_at, pending_tier_sku_code, ' +

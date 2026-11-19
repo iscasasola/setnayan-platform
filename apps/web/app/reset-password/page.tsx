@@ -27,6 +27,7 @@ import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-
 import { completePasswordReset } from './actions';
 import { PasswordField } from '@/app/_components/password-field';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata: Metadata = {
   title: 'Choose a new password',
@@ -64,7 +65,7 @@ export default async function ResetPasswordPage({
         {/* W1-B5: the new link is sent from HERE, by the sent page's own send — never back to an empty form. */}
         <ExpiredResend requestPasswordReset={requestPasswordReset} />
         <DoorActions>
-          <Link href="/login" className="button-secondary">
+          <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
             Back to sign in
           </Link>
         </DoorActions>

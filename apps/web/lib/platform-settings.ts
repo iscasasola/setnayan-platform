@@ -559,3 +559,31 @@ export async function fetchDriveSpeed(supabase: SupabaseClient): Promise<DriveSp
     return { read: false };
   }
 }
+
+// ---------------------------------------------------------------------------
+// 🌱 TODAY v2's GROW LINES (migration 20271350875090, owner 2026-11-18 pick 1) — "few inquiries in 28 days" and "few
+// bookings this month". NULL = not set = that grow stage is OFF on every supplier's Today: no default in code (rule 9).
+// `read: false` = it could not be read, which is NOT "not set": the admin fields are then locked, as drive speed is.
+// ---------------------------------------------------------------------------
+
+export type GrowLines = { read: true; fewInquiries: number | null; fewBookings: number | null } | { read: false };
+
+export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLines> {
+  try {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('grow_few_inquiries_28d, grow_few_bookings_month')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) {
+      logQueryError('platform-settings: fetchGrowLines', error);
+      return { read: false };
+    }
+    const row = (data ?? {}) as { grow_few_inquiries_28d?: number | string | null; grow_few_bookings_month?: number | string | null };
+    const n = (v: number | string | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Math.trunc(Number(v)));
+    return { read: true, fewInquiries: n(row.grow_few_inquiries_28d), fewBookings: n(row.grow_few_bookings_month) };
+  } catch (e) {
+    logQueryError('platform-settings: fetchGrowLines (threw)', e);
+    return { read: false };
+  }
+}

@@ -7,7 +7,6 @@
  *
  *   #events        every kind of event — read from `event_type_vocab`, never listed here
  *   #sample        Maria and Jose, seen as two guests — only while the sample opens (see below)
- *   #shelves       the SHIPPED Discover shelves (`FrontDoorFeed`), handed in exactly as they render
  *   #solves        twenty problems, and what happens instead
  *   #coordinators  a band that sends coordinators to /for-coordinators
  *   #suppliers     a band that sends suppliers to /for-suppliers
@@ -15,6 +14,10 @@
  *   the close, and the page's own footer (Privacy and Terms live here now — Google's homepage rule).
  *
  * Signed in, none of this renders: a member's `/` is Discover, unchanged (`front-door.tsx`).
+ *
+ * 🔒 NO DISCOVER SHELVES HERE ANY MORE (owner 16 Nov, 41057aae · 448fd3c1 — "Discover in six parts", approved):
+ * Discover lives inside the account. Signed out, `/` shows only Setnayan's own promotions; the shelves (#shelves until
+ * 16 Nov) left this page. Exact links — a shop's website or QR, an event page, a story — still open signed out.
  *
  * ─── MARIA AND JOSE, WITH NO BUTTON INTO THE SAMPLE ─────────────────────────────────────────────────────────
  * The owner ruled the marketing pages carry no demo or sample buttons — "just do not add buttons" (CLOUD_BOARD,
@@ -32,7 +35,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 
 import { marketingPhoto } from '@/lib/front-page-photos';
-import { eventTypePhotoSrc, type EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, eventTypeRepoPhotoSrc, eventTypeSmallPhotoSrc, type EventTypeRow } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { readSampleEvent, readSampleGuest, SAMPLE_EVENT_ID } from '@/lib/sample-event/snapshot';
 import { sampleDay, sampleGuestName, sampleMarchPlace } from '@/lib/sample-event/hub';
 import { marchOrdinal } from '@/lib/march-place';
@@ -183,7 +186,19 @@ function EventTypeStrip({ types, reverse }: { types: readonly EventTypeTile[]; r
   const tile = (t: EventTypeTile, dup: boolean) => (
     <figure className={dup ? 'fl-et fl-et-dup' : 'fl-et'} key={`${dup ? 'b' : 'a'}-${t.key}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={t.photo} alt="" loading="lazy" decoding="async" width={880} height={1100} />
+      {/* ⚡ The tile is 150 CSS px wide on a phone and 200 from 701 px (`.fl-et` in front-door-landing.css): a repo photo
+          offers its 330-px copy (~24 KB, not ~170 KB) and the browser takes the 880 only where the screen needs it. An
+          admin upload keeps its own URL. `sizes` names both widths, or a 2× desktop would draw the 330 at 400 px. */}
+      <img
+        src={t.photo}
+        srcSet={t.photo === eventTypeRepoPhotoSrc(t.key) ? `${eventTypeSmallPhotoSrc(t.key)} 330w, ${t.photo} 880w` : undefined}
+        sizes="(min-width: 701px) 200px, 150px"
+        alt=""
+        loading="lazy"
+        decoding="async"
+        width={880}
+        height={1100}
+      />
       <figcaption>{t.label}</figcaption>
     </figure>
   );
@@ -233,7 +248,6 @@ export function FrontDoorLanding({
   planFacts,
   floorKitFree = false,
   sample,
-  shelves,
 }: {
   /** The creatable event types, in the roster's order (`getCreatableEventTypes`). */
   eventTypes: readonly Pick<EventTypeRow, 'key' | 'label' | 'heroPhotoUrl'>[];
@@ -248,8 +262,6 @@ export function FrontDoorLanding({
   floorKitFree?: boolean;
   /** The sample's two guests, from its fixtures — null only if the fixtures cannot be read. */
   sample: FrontPageSample | null;
-  /** The shipped Discover shelves, rendered by the caller. */
-  shelves: ReactNode;
 }) {
   // The app's one photo rule (`eventTypePhotoSrc`, #7271): an admin upload first, else the repo's 4 Nov render.
   const tiles: EventTypeTile[] = eventTypes.map((t) => ({ key: t.key, label: t.label, photo: eventTypePhotoSrc(t) }));
@@ -341,12 +353,6 @@ export function FrontDoorLanding({
           </p>
         </section>
       ) : null}
-
-      {/* ════ THE SHELVES — the shipped Discover feed, exactly as it renders ════ */}
-      <section className="fl-sec fl-reveal fl-shelves" id="shelves" aria-label="On Setnayan">
-        <p className="fl-kicker">On Setnayan</p>
-        {shelves}
-      </section>
 
       {/* ════ WHAT IT SOLVES ════ */}
       <section className="fl-sec fl-reveal" id="solves" aria-labelledby="h-solves">

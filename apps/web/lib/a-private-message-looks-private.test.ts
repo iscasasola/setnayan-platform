@@ -87,9 +87,10 @@ test('2 · the stream draws the private look exactly when the message is private
   assert.deepEqual(privateOtherIds({ sender_user_id: 'a', recipient_user_id: 'b' }, 'b'), ['a'], 'an older read (one column) still works');
   assert.deepEqual(privateOtherIds({ sender_user_id: 'a', recipient_user_ids: null, recipient_user_id: null }, 'a'), []);
   assert.match(s, /privateWith !== null\s*\?\s*PRIVATE_BUBBLE_FILL/);
-  assert.match(s, /<PrivateMark privateWith=\{privateWith\} \/>/);
-  assert.match(s, /\{privateWith !== null \? <PrivateTime at=\{m\.created_at\} alignEnd=\{mine\} \/> : null\}/);
-  assert.match(s, /<PrivateMark privateWith=\{p\.privateTo \?\? null\} \/>/, 'a pending private message is drawn as a normal one');
+  // 🤫 19 Nov: the same two pieces also take `whisper` (a private line to every co-host — lib/chat-whisper.ts).
+  assert.match(s, /<PrivateMark privateWith=\{privateWith\} whisper=\{whisper\} \/>/);
+  assert.match(s, /\{privateWith !== null \? <PrivateTime at=\{m\.created_at\} alignEnd=\{mine\} whisper=\{whisper\} \/> : null\}/);
+  assert.match(s, /<PrivateMark privateWith=\{p\.privateTo \?\? null\} whisper=\{p\.whisper === true\} \/>/, 'a pending private message is drawn as a normal one');
   // No NORMAL bubble wears the private blue: the only place the stream names it is through PRIVATE_BUBBLE_FILL.
   assert.doesNotMatch(s, /--color-info|\b(?:bg|ring)-link\b|\bbg-info-/, 'a normal bubble uses the private blue');
   // The other person, as each side sees it.
@@ -262,9 +263,11 @@ test('7 · the ＋ is not rendered while a private recipient is set; the row is 
   // The box itself is the sky tint while private (v8.3), the house grey again after ×.
   const field = (m: string) => m.slice(m.lastIndexOf('<textarea', m.indexOf('name="body"')), m.indexOf('>', m.indexOf('name="body"')));
   assert.ok(field(priv).includes(PRIVATE_BOX_FILL), 'the private box is not the sky tint');
-  assert.ok(!field(back).includes(PRIVATE_BOX_FILL) && field(back).includes('bg-ink/[0.06]'), 'the tint outlived ×');
+  assert.ok(!field(back).includes(PRIVATE_BOX_FILL) && field(back).includes('bg-[color:var(--m-paper-2)]'), 'the tint outlived ×'); // the house fill — the template's warm surface token since 2026-11-14 (was ink at 6 %)
   assert.doesNotMatch(sendBtn(priv), /sn-accent|mulberry|terracotta/, 'Send keeps the brand colour while private');
-  assert.match(sendBtn(back), /text-sn-accent/, 'Send did not go back to the brand');
+  // 🖤 Send is INK at rest since 19 Nov (owner: "message is black" — DECISION_LOG "MESSAGE ⇄ WHISPER APPROVED"; it was the brand).
+  assert.match(sendBtn(back), /text-ink/, 'Send did not go back to ink');
+  assert.doesNotMatch(sendBtn(back), /color-private/, 'Send stayed sky blue after ×');
   // The private composer row draws no brand class anywhere.
   const row = priv.slice(priv.indexOf('data-chat-composer-row'), priv.lastIndexOf('</div>'));
   assert.doesNotMatch(row, /sn-accent|mulberry|terracotta|ab-brand/, 'a brand colour shows in the private composer row');

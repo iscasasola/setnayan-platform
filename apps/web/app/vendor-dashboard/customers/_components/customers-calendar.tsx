@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CalendarGrid, CalendarLegend } from '@/app/_components/calendar';
 import { DayBox, feelDay, glideScrollTo, scrollerOf, useCalendarSwipe } from '@/app/_components/calendar-day-box';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { InfoTip } from '@/app/_components/info-tip';
 import { useTabReselect } from '@/app/_components/nav/use-chrome-away';
 import { monthTitle, stepMonth, type CalendarDay, type CalendarDayState, type CalendarMonth } from '@/lib/calendar-grid';
 import type { SchedulePool, VendorCalendarDayState } from '@/lib/vendor-schedule';
@@ -160,6 +161,13 @@ export function CustomersCalendar({
   */
   const onClients = place === 'clients';
   const [picked, setPicked] = useState<CalendarDay | null>(initialDay);
+  /*
+    📅 THE WEEK AT REST (owner "Yes, all three", 19 Nov — DECISION_LOG "SUPPLIER CLIENTS, CLEANER", Q1): on a phone the
+    one Clients screen opens on the SHIPPED week strip, and "Whole month" opens the month in place — the month was ~300px
+    of the empty top. From 701 the month always shows (`tab:block`), so a computer is unchanged. Nothing new is read.
+  */
+  const [wholeMonth, setWholeMonth] = useState(false);
+  const restWeek = oneScreen && onClients && !wholeMonth;
   /* 🖥 Only a computer (the Clients 1280 line, `supplier-frame.css`) opens This day's events across columns 2 + 3; the
      phone keeps the day sheet exactly as before (audit 17 Nov — the drawing names the computer only). SSR-safe: false
      on the server and the first paint, so both draw the day sheet's link. */
@@ -541,6 +549,28 @@ export function CustomersCalendar({
   const base = { y: Number(todayIso.slice(0, 4)), m: Number(todayIso.slice(5, 7)) };
   const monthsOffered = Array.from({ length: 14 }, (_, i) => stepMonth(base, i - 1));
   const near = picked ? nearWord(todayIso, picked) : '';
+  /** The ONE month dropdown — the grid's title, and on a phone at rest the head row's (the grid is folded away then). */
+  const monthPick = (view: CalendarMonth, go: (m: CalendarMonth) => void) => (
+    <PickMenu
+      label="Month"
+      value={ym(view)}
+      options={[
+        ...(monthsOffered.some((m) => ym(m) === ym(view)) ? [] : [{ key: ym(view), label: monthTitle(view) }]),
+        ...monthsOffered.map((m) => ({ key: ym(m), label: monthTitle(m) })),
+      ]}
+      onPick={(k) => go({ y: Number(k.slice(0, 4)), m: Number(k.slice(5, 7)) })}
+      dataAttr="data-dates-month-pick"
+      className="!min-h-11"
+    />
+  );
+  // ⓘ THE LEGEND IN THE TIP (Clients, cleaner — owner 19 Nov): the same words and marks, one tap away instead of two
+  // lines under the month. Only the one Clients screen; every other month keeps its legend under it.
+  const legendDots = onClients || asksRead ? (['booked', 'outside', 'asking'] as const) : (['booked', 'outside'] as const);
+  const legendTip = (
+    <InfoTip label="What the marks mean" labelClassName="sr-only" align="start">
+      <CalendarLegend as="span" dots={legendDots} blocked full mark="box" />
+    </InfoTip>
+  );
   // 🔴 G7: a month whose held / approve-first days were refused is SAID unread — the grid alone would read it as free.
   const dayStatesUnread = monthInputs.get(month)?.dayStatesRead === false;
 
@@ -562,8 +592,27 @@ export function CustomersCalendar({
           This month&rsquo;s held days couldn&rsquo;t load, so a day you held may show as open here. Reload the page to try again.
         </p>
       ) : null}
+      {/* 📅 THE PHONE'S MONTH HEAD (one Clients screen): the month ▾ while only the week shows, the legend ⓘ, and "Whole
+          month" — which opens the shipped grid in place and folds it back. A computer always draws the grid (`tab:hidden`). */}
+      {oneScreen && onClients ? (
+        <div className="flex min-h-11 items-center gap-2 tab:hidden" data-dates-month-head="">
+          {wholeMonth ? null : monthPick({ y: Number(month.slice(0, 4)), m: Number(month.slice(5, 7)) }, (m) => goToMonth(m))}
+          {legendTip}
+          <span className="min-w-0 flex-1" aria-hidden />
+          <button
+            type="button"
+            className="sn-press inline-flex min-h-11 flex-none items-center gap-1 text-[14px] font-semibold text-sn-accent"
+            aria-expanded={wholeMonth}
+            onClick={() => setWholeMonth((was) => !was)}
+            data-dates-whole-month={wholeMonth ? 'open' : 'shut'}
+          >
+            Whole month
+            <ChevronDown aria-hidden className={`h-4 w-4 transition-transform duration-sn-micro motion-reduce:transition-none ${wholeMonth ? 'rotate-180' : ''}`} strokeWidth={2} />
+          </button>
+        </div>
+      ) : null}
       {/* The month itself. (`data-tour` was the retired Dates tour's first stop — W1-B14, 16 Nov 2026.) */}
-      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className="relative touch-pan-y overflow-x-clip transition-opacity" data-tour="dates-calendar">
+      <div ref={monthRef} style={{ opacity: pending ? 0.6 : 1 }} className={`relative touch-pan-y overflow-x-clip transition-opacity ${restWeek ? 'hidden tab:block' : ''}`} data-tour="dates-calendar">
         {/* Keyed by the month on show: the grid keeps its own month, so a step of the week strip across a month's edge
             (or the Schedule page's ‹ ›) must land it on the same month as the rows — not leave it on the old one. */}
         <CalendarGrid
@@ -575,19 +624,17 @@ export function CustomersCalendar({
           states={states}
           onPick={toggleDay}
           onMonth={goToMonth}
-          monthPicker={(view, go) => (
-            <PickMenu
-              label="Month"
-              value={ym(view)}
-              options={[
-                ...(monthsOffered.some((m) => ym(m) === ym(view)) ? [] : [{ key: ym(view), label: monthTitle(view) }]),
-                ...monthsOffered.map((m) => ({ key: ym(m), label: monthTitle(m) })),
-              ]}
-              onPick={(k) => go({ y: Number(k.slice(0, 4)), m: Number(k.slice(5, 7)) })}
-              dataAttr="data-dates-month-pick"
-              className="!min-h-11"
-            />
-          )}
+          monthPicker={(view, go) =>
+            oneScreen ? (
+              <span className="inline-flex items-center gap-1.5">
+                {monthPick(view, go)}
+                {/* A computer's ⓘ sits by the month's name (the phone's is in the head row above). */}
+                <span className="hidden tab:inline-flex">{legendTip}</span>
+              </span>
+            ) : (
+              monthPick(view, go)
+            )
+          }
           data="dates"
         />
       </div>
@@ -595,7 +642,7 @@ export function CustomersCalendar({
       {/* The legend under the month — on one-screen Clients too (drawing `supplier_clients_clean_2026-11-16`: "the green
           seat and colour legend on the calendar (14 Nov; shipped one-screen Clients hides the legend, so it now shows)").
           Its words stay the shipped plain words (2026-10-14); the drawing's own words are an owner question. */}
-      <CalendarLegend dots={onClients || asksRead ? ['booked', 'outside', 'asking'] : ['booked', 'outside']} blocked full mark="box" />
+      {oneScreen ? null : <CalendarLegend dots={legendDots} blocked full mark="box" />}
       {/* 📅 THE CHIP (prototype `.chipv`): one 44px pill under the month's legend saying which schedules it marks —
           "All schedules", or "Showing · Video team schedule" — and opening the SAME choices as Show & sort's row.
           A shop with one schedule has nothing to pick, so no chip. The ONE Clients screen draws no chip (owner
@@ -623,12 +670,17 @@ export function CustomersCalendar({
       <div
         ref={stripRef}
         className={`sticky z-[4] -mx-4 flex touch-pan-y items-center gap-1 overflow-hidden px-2 transition-[height,opacity] duration-300 motion-reduce:transition-none sm:-mx-6 sm:px-4 lg:-mx-8 lg:px-6 ${
-          folded ? 'h-[54px] sn-pin-hair opacity-100' : 'pointer-events-none h-0 opacity-0'
+          folded
+            ? 'h-[54px] sn-pin-hair opacity-100'
+            : restWeek
+              ? // At rest on a phone the week IS the calendar (owner 19 Nov); a computer draws the month instead.
+                'h-[54px] opacity-100 tab:pointer-events-none tab:invisible tab:h-0 tab:opacity-0'
+              : 'pointer-events-none h-0 opacity-0'
         }`}
         style={{ background: 'var(--sn-canvas)' }}
-        aria-hidden={!folded}
-        inert={!folded}
-        data-dates-week-strip={folded ? 'shown' : 'folded-away'}
+        aria-hidden={!folded && !restWeek}
+        inert={!folded && !restWeek}
+        data-dates-week-strip={folded ? 'shown' : restWeek ? 'rest' : 'folded-away'}
       >
         <button type="button" className="sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink" aria-label="A day earlier" onClick={() => stepDay(-1)} data-dates-step="-1">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />

@@ -66,11 +66,13 @@ test('3 · Today and Clients print that one function over the same read, for the
   assert.match(page, /search\.within === BOOKED_WITHIN_MONTH\s*\?\s*fetchVendorRoomEventsDetailed\(supabase, vendorProfileId\)/, 'Clients\' month filter reads something else');
   assert.match(page, /const todayIso = manilaTodayIso\(\);/);
   assert.match(page, /const monthCount = monthRead \? bookedThisMonthCount\(monthRead, todayIso\.slice\(0, 7\)\) : null;/);
-  // The tile, and the pinned "N booked" (both via `doorValue`), print `monthCount` in month scope — not the lanes.
+  // The tile (via `doorValue`) prints `monthCount` in month scope — not the lanes. (The pinned "N booked" beside "Clients"
+  // left on 19 Nov, "Clients, cleaner": the tile says it, and says "booked this month" in month scope.)
   assert.match(page, /if \(k === 'booked' && monthRead\) return monthCount === null \? null : formatCount\(monthCount\);/, 'the Booked tile does not print Today\'s number in month scope');
   assert.match(page, /k === 'booked' && monthIds \? \(monthCount \?\? 0\) : doorCount\(k\)/, 'the Booked list\'s own total counts the all-months lanes in month scope');
   assert.match(page, /\{ key: 'booked', value: doorValue\('booked'\)/);
-  assert.match(page, /const pinCounts = `\$\{doorValue\('booked'\)/);
+  assert.match(page, /\{ key: 'booked', value: doorValue\('booked'\), word: monthIds \? 'booked this month' : 'booked'/);
+  assert.doesNotMatch(page, /const pinCounts\b/, 'a second "N booked" is printed beside the tile again');
   // The list itself: the month's events, from every lane; "All months" beside it.
   assert.match(page, /if \(k === 'booked' && monthIds\) for \(const l of CUSTOMER_LANES\) subset\[l\] = lanes\[l\]\.filter\(\(r\) => monthIds\.has\(r\.eventId\)\);/);
   assert.match(page, /\{k === 'booked' \? <BookedMonthScope thisMonth=\{monthScoped\} \/> : null\}/, '"All months" is not offered over Booked');

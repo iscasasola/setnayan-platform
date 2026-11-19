@@ -51,6 +51,7 @@ import { SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
 import { ServiceInfo } from '@/app/_components/service-info';
 import { LevelIcon } from './map-rows';
 import { FormSuggestionsPane } from './form-suggestions-pane';
+import { QuickFormsPane } from './quick-forms-pane';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
 
@@ -640,6 +641,13 @@ export function ServicePanel({
       <PanelFold id="fields" title="What suppliers fill in" summary={plural(service.fields.filter((f) => !f.retired).length, 'field')}>
         <Quiet>The facts a shop fills in on its card under this service.</Quiet>
         <WhatSuppliersFillIn service={service} />
+      </PanelFold>
+
+      {/* 📋 QUICK FORMS (DECISION_LOG 2026-11-17, 4906a9a8 + 7596f63a): Setnayan's starting What's included for this
+          service. A shop's Load copies one onto its card; deleting one here never changes a card. */}
+      <PanelFold id="quick-forms" title="Quick Forms" summary="Starting What’s included">
+        <Quiet>What a shop’s card starts from under What’s included. Several per service; a shop picks one with Load.</Quiet>
+        <QuickFormsPane canonical={service.canonical} label={service.en} />
       </PanelFold>
 
       <PanelFold id="words" title="Search words" summary={`${formatCount(service.words.length)}${waiting ? ` · ${formatCount(waiting)} waiting` : ''}`}>

@@ -13,6 +13,8 @@ import { cardPortfolioAlbums } from '@/lib/card-portfolio-albums.server';
 import { readAlbumTags } from '@/lib/inspiration-tags.server';
 import { portfolioSummary, toAlbumViews, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
+import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
@@ -59,7 +61,7 @@ export default async function EditServiceCardPage({
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
   // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
   const recordOn = cardRecordEnabled();
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums] = await Promise.all([
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
@@ -86,6 +88,8 @@ export default async function EditServiceCardPage({
     recordOn
       ? cardPortfolioAlbums(createAdminClient(), { vendorProfileId: profile.vendor_profile_id, serviceId }).catch(() => null)
       : Promise.resolve(undefined),
+    // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
+    loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(card.category)),
   ]);
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
   const albumTags = albums
@@ -133,6 +137,7 @@ export default async function EditServiceCardPage({
         </Link>
       </div>
       <CanvasMaker
+        library={library}
         categoryValue={card.category}
         categoryLabel={kindName}
         categoryPath={ctx.kindPath(card.category)}

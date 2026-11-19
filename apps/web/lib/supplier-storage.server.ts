@@ -57,7 +57,7 @@ export async function checkSupplierStorage(
 ): Promise<StorageCheck> {
   const shop = await admin
     .from('vendor_profiles')
-    .select('tier_state, extra_ultra_addons')
+    .select('tier_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle()
     .then(
@@ -68,10 +68,11 @@ export async function checkSupplierStorage(
     console.error('[supplier-storage] plan unreadable', vendorProfileId, shop.error?.message ?? 'no row');
     return { kind: 'unavailable' };
   }
-  const row = shop.data as { tier_state: string | null; extra_ultra_addons?: number | null };
-  const plan = row.tier_state;
-  // 🛒 +50 GB per Ultra Add-on (owner 2026-11-19) — the same count the database gate adds.
-  const packs = Number(row.extra_ultra_addons ?? 0) || 0;
+  const plan = (shop.data as { tier_state: string | null }).tier_state;
+  // 🛒 +50 GB per Ultra Add-on held NOW (owner 2026-11-19; 28 days per payment) — the same live count the database
+  // gate adds. Unreadable → no packs (withholding, never granting): the gate still decides at the insert.
+  const live = await admin.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+  const packs = live.error ? 0 : Math.max(0, Math.floor(Number(live.data) || 0));
   if (storageAllowanceBytes(plan, packs) === null) return { kind: 'fits' }; // no allowance on this plan
   const used = await readStoredBytes(admin, vendorProfileId);
   if (used.status !== 'ok') return { kind: 'unavailable' };

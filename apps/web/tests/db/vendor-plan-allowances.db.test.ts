@@ -157,45 +157,65 @@ test('GRANDFATHERED: a shop over a lowered allowance keeps its branches, edits t
   assert.match(next.error ?? '', /included_branch_allowance/, 'an over-allowance shop added another included branch');
 });
 
-test('THE ULTRA ADD-ON (owner 2026-11-19): +1 included branch each, on Ultra only — the gate reads extra_ultra_addons', async () => {
-  const setAddOns = async (v: string, n: number) => {
-    // The paid activation path's write (service role) — never the shop's own (the entitlement guard refuses that).
-    await db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = $2 WHERE vendor_profile_id = $1`, [v, n]);
-  };
+/**
+ * One Ultra Add-on payment, as the activation hook leaves it: a PAID `vendor_ultra_addon__<id>` order with its own
+ * 28-day window (`expires_at`). `endsInDays` < 0 = a window that has already run out.
+ */
+async function ultraAddOnOrder(vendor: string, endsInDays: number, status = 'paid'): Promise<void> {
+  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [vendor]);
+  await db.query(
+    `INSERT INTO public.orders (user_id, vendor_profile_id, service_key, description, requested_total_php, status, reference_code, expires_at)
+     VALUES ($1, $2, $3, 'Ultra Add-on', 2490, $4, 'SN' || upper(substr(md5(random()::text), 1, 8)), now() + make_interval(days => $5))`,
+    [owner.rows[0]!.user_id, vendor, `vendor_ultra_addon__${vendor}`, status, endsInDays],
+  );
+}
+
+test('THE ULTRA ADD-ON (owner 2026-11-19): +1 included branch per LIVE add-on, on Ultra only', async () => {
   const ultra = await newVendor('ultra-addon', 'enterprise');
-  await setAddOns(ultra, 2);
+  await ultraAddOnOrder(ultra, 20); // live
+  await ultraAddOnOrder(ultra, 3); // live — it stacks
+  await ultraAddOnOrder(ultra, -1); // ⏳ its 28 days ran out — must NOT count (review 2026-11-19)
+  await ultraAddOnOrder(ultra, 20, 'refunded'); // refunded — must NOT count
+  const live = await db.query<{ n: number }>(`SELECT public.vendor_live_ultra_addons($1) AS n`, [ultra]);
+  assert.equal(live.rows[0]!.n, 2, 'the live count is not "paid AND in window"');
   const cap = TIER_CAPS.enterprise.branchesIncluded + 2;
   for (let i = 0; i < cap; i++) {
     const r = await addBranch(ultra, true);
-    assert.equal(r.error, null, `Ultra + 2 add-ons: included branch ${i + 1} of ${cap} refused: ${r.error}`);
+    assert.equal(r.error, null, `Ultra + 2 live add-ons: included branch ${i + 1} of ${cap} refused: ${r.error}`);
   }
-  assert.match((await addBranch(ultra, true)).error ?? '', /included_branch_allowance/, 'one past Ultra + its add-ons was let in');
+  assert.match((await addBranch(ultra, true)).error ?? '', /included_branch_allowance/, 'one past Ultra + its live add-ons was let in');
 
-  // A count on a plan that is not Ultra adds nothing (a lapsed Ultra keeps the column until its orders run out).
+  // A live add-on on a plan that is not Ultra adds nothing (a lapsed Ultra keeps its orders until they run out).
   const pro = await newVendor('pro-addon', 'pro');
-  await setAddOns(pro, 2);
+  await ultraAddOnOrder(pro, 20);
   for (let i = 0; i < TIER_CAPS.pro.branchesIncluded; i++) assert.equal((await addBranch(pro, true)).error, null);
   assert.match((await addBranch(pro, true)).error ?? '', /included_branch_allowance/, 'a Pro shop was given an Ultra Add-on branch');
 });
 
-test('the Ultra Add-on count cannot be written by the shop itself (entitlement guard)', async () => {
-  const v = await newVendor('ultra-selfgrant', 'enterprise');
-  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [v]);
-  // Impersonate the shop (uid + role claim + SET ROLE) — the vendor-addon-selfgrant-guard.db.test.ts pattern.
+test('ONE PAYMENT IS 28 DAYS, NOT FOREVER: an Ultra Add-on whose window ran out gives nothing', async () => {
+  const ultra = await newVendor('ultra-lapsed', 'enterprise');
+  await ultraAddOnOrder(ultra, -1);
+  assert.equal((await db.query<{ n: number }>(`SELECT public.vendor_live_ultra_addons($1) AS n`, [ultra])).rows[0]!.n, 0);
+  for (let i = 0; i < TIER_CAPS.enterprise.branchesIncluded; i++) assert.equal((await addBranch(ultra, true)).error, null);
+  assert.match((await addBranch(ultra, true)).error ?? '', /included_branch_allowance/, 'a lapsed add-on still gave a branch');
+});
+
+test('the app\'s read of the live count answers only for the caller\'s own shop', async () => {
+  const mine = await newVendor('ultra-read-mine', 'enterprise');
+  const theirs = await newVendor('ultra-read-theirs', 'enterprise');
+  await ultraAddOnOrder(mine, 10);
+  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [mine]);
   await setAuthUid(db, owner.rows[0]!.user_id);
   await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
   await db.exec(`SET ROLE authenticated`);
   try {
-    await assert.rejects(
-      () => db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = 5 WHERE vendor_profile_id = $1`, [v]),
-      /self-grant blocked/,
-      'a shop granted itself Ultra Add-ons',
-    );
+    const own = await db.query<{ n: number }>(`SELECT public.vendor_live_ultra_addons_for($1) AS n`, [mine]);
+    assert.equal(own.rows[0]!.n, 1);
+    await assert.rejects(() => db.query(`SELECT public.vendor_live_ultra_addons_for($1)`, [theirs]), /not your shop/);
+    await assert.rejects(() => db.query(`SELECT public.vendor_live_ultra_addons($1)`, [mine]), /permission denied/, 'the internal count is callable by a shop');
   } finally {
     await db.exec(`RESET ROLE`).catch(() => {});
     await setAuthUid(db, null);
     await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
   }
-  const after = await db.query<{ n: number }>(`SELECT extra_ultra_addons AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [v]);
-  assert.equal(after.rows[0]!.n, 0, 'the count moved');
 });

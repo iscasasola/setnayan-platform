@@ -21,6 +21,7 @@ import {
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
   type CountAddOnKind,
+  ultraAddOnWindowEnd,
 } from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
@@ -2016,6 +2017,7 @@ async function recomputeVendorAddOnCount(
     .eq('status', 'paid');
   const paid = addOnCountFromPaid(count);
   const column = COUNT_ADDONS[kind].column;
+  if (column === null) return 0; // the Ultra Add-on is counted live from its orders, never stored
   const { error } = await admin
     .from('vendor_profiles')
     .update({ [column]: paid })
@@ -2348,6 +2350,27 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const target = parseCountAddOnServiceKey(ctx.serviceKey);
       if (!target) return;
       await assertOrderOwnsVendorTarget(ctx, target.vendorProfileId);
+      // ⏳ THE ULTRA ADD-ON LASTS 28 DAYS PER PAYMENT (owner 2026-11-19; review: a count with no expiry kept one
+      // ₱2,490 payment forever). No stored count: THIS order gets its own window — `orders.expires_at` = approval +
+      // 28 days, the paid branch's pattern — and the live number is the database's `vendor_live_ultra_addons` (paid
+      // orders whose window covers now). Stamped once: a re-approval never moves a window already set.
+      if (target.kind === 'ultra') {
+        const expiresAt = ultraAddOnWindowEnd(Date.now());
+        const { error: stampErr } = await ctx.admin
+          .from('orders')
+          .update({ expires_at: expiresAt })
+          .eq('order_id', ctx.orderId)
+          .is('expires_at', null);
+        if (stampErr) throw new Error(`vendor_ultra_addon window stamp failed: ${stampErr.message}`);
+        await appendLedger(ctx.admin, {
+          order_id: ctx.orderId,
+          event_type: 'service_activated',
+          actor_user_id: ctx.actorUserId,
+          actor_role: 'admin',
+          metadata: { service_key: ctx.serviceKey, vendor_profile_id: target.vendorProfileId, expires_at: expiresAt },
+        });
+        return;
+      }
       const paid = await recomputeVendorAddOnCount(ctx.admin, target.kind, target.vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -2357,7 +2380,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
         metadata: {
           service_key: ctx.serviceKey,
           vendor_profile_id: target.vendorProfileId,
-          [COUNT_ADDONS[target.kind].column]: paid,
+          [COUNT_ADDONS[target.kind].column ?? 'count']: paid,
         },
       });
     },
@@ -2743,7 +2766,8 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // Ultra add-ons (owner 2026-11-06) — a refunded/cancelled add-on order LOWERS its paid count, symmetric to the
   // activation hook. Recompute, never decrement; non-fatal.
   const addOnTarget = parseCountAddOnServiceKey(ctx.serviceKey);
-  if (addOnTarget) {
+  // The Ultra Add-on has no stored count: a refunded order leaves 'paid' and drops out of the live count by itself.
+  if (addOnTarget && addOnTarget.kind !== 'ultra') {
     try {
       await recomputeVendorAddOnCount(ctx.admin, addOnTarget.kind, addOnTarget.vendorProfileId);
     } catch (e) {

@@ -27,19 +27,20 @@
 --     that rule changes with it in one place. A price row is the catalogue, never a subscription: no order, purchase or
 --     vendor_profiles row is written here.
 -- 3 · THE ULTRA ADD-ON — the ONE add-on: +1 branch · +15 live cards · +3 people · +50 GB, ₱2,490 per 28 days, Ultra
---     only, may be bought more than once. A new offering type 'ultra_addon', the SKU `vendor_ultra_addon`, and the
---     paid COUNT `vendor_profiles.extra_ultra_addons` — exactly the `extra_*` count pattern of 20271316466285: the
---     sku-activation hook RECOMPUTES it from the shop's paid `vendor_ultra_addon__<vendor_profile_id>` orders;
---     `guard_vendor_profiles_entitlement` refuses a self-grant; `vendor_profiles_self` projects it. The two database
---     gates add it on Ultra: `enforce_included_branch_allowance` (+1 branch each) and
---     `enforce_supplier_storage_allowance` (+50 GB each). Cards and people are app-side allowances (the app adds +15 /
---     +3 each — lib/vendor-ultra-addons.ts).
+--     only, may be bought more than once. A new offering type 'ultra_addon' and the SKU `vendor_ultra_addon`.
+--     🔑 IT LASTS 28 DAYS PER PAYMENT (review, 2026-11-19: a count with no expiry kept one ₱2,490 payment forever). So
+--     there is NO stored count: each paid `vendor_ultra_addon__<vendor_profile_id>` order carries its own window
+--     (`orders.expires_at`, stamped paid + 28 days by the activation hook — the paid-branch pattern), and the live
+--     number is `vendor_live_ultra_addons(vendor)` = paid orders whose window covers now(). A refund leaves 'paid' and
+--     drops out at once; a lapsed window drops out by itself — no cron, no recompute. The two database gates add it
+--     on Ultra: `enforce_included_branch_allowance` (+1 branch each) and `enforce_supplier_storage_allowance` (+50 GB
+--     each). The app reads the same function (`vendor_live_ultra_addons_for`, checked) for cards, people and the rest.
 -- 4 · SINGLE EXTRAS ARE NO LONGER OFFERED (owner: "they only buy the … pack"). The APP stops offering a NEW extra seat
 --     or extra branch. ⚠ Their catalogue rows are deliberately LEFT ACTIVE here: a shop that already pays for an extra
 --     seat or branch renews it at that row's price (`renewBranch` and the seat renewal read an ACTIVE row), and the
 --     owner ruled that no existing subscriber's price or limits move until §C. Switching them off is §C's call.
 --
--- RLS unchanged · no new table · no write to any shop's, order's or subscription's row.
+-- RLS unchanged · no new table or column · no write to any shop's, order's or subscription's row.
 -- 🛑 NEVER APPLIED BY HAND. The pipeline (`supabase db push --include-all`) applies it. Idempotent.
 -- ============================================================================
 
@@ -123,7 +124,7 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION public.vendor_tier_limit(text, text) IS
-  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_gb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). Bookings per date are NOT a plan limit since 2026-11-18 (ruling 17) — no key. Branch numbers of 2026-11-19 (Pro 1 · Ultra 3); the Ultra Add-on''s bought room is not here — the two gates that read vendor_profiles.extra_ultra_addons add it. An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
+  'Per-plan limits. Reads public.vendor_plan_contents first (admin-editable since 2026-11-13, two-admin approval), falling back to the code values when no row exists. Keys: whitelist_per_date · waitlist_acceptances · branches_included · storage_gb (the table also holds service_cards_total · parent_categories · agent_accounts, which the app reads). Bookings per date are NOT a plan limit since 2026-11-18 (ruling 17) — no key. Branch numbers of 2026-11-19 (Pro 1 · Ultra 3); the Ultra Add-on''s bought room is not here — the two gates add vendor_live_ultra_addons(). An unknown TIER reads as Free; an unknown KEY returns NULL on purpose. Fallback mirrors TIER_CAPS in apps/web/lib/vendor-tier-caps.ts.';
 
 -- ── 3 · the Ultra Add-on ─────────────────────────────────────────────────────
 -- 3a · its offering type (every prior value kept, from 20271316466285).
@@ -167,158 +168,50 @@ ON CONFLICT (sku_code) DO UPDATE
        is_active     = TRUE,
        updated_at    = NOW();
 
--- 3c · the paid count.
-ALTER TABLE public.vendor_profiles ADD COLUMN IF NOT EXISTS extra_ultra_addons INT NOT NULL DEFAULT 0;
-ALTER TABLE public.vendor_profiles DROP CONSTRAINT IF EXISTS vendor_profiles_extra_ultra_addons_check;
-ALTER TABLE public.vendor_profiles
-  ADD CONSTRAINT vendor_profiles_extra_ultra_addons_check CHECK (extra_ultra_addons >= 0);
-
-COMMENT ON COLUMN public.vendor_profiles.extra_ultra_addons IS
-  'Paid Ultra Add-ons (owner 2026-11-19: +1 branch · +15 live cards · +3 people · +50 GB each, Ultra only, may be bought more than once). Recomputed from paid vendor_ultra_addon__<id> orders by the activation hook. Added by enforce_included_branch_allowance and enforce_supplier_storage_allowance, and by the app to the cards and people allowances. Never vendor-writable (entitlement guard).';
-
-GRANT SELECT (extra_ultra_addons) ON public.vendor_profiles TO authenticated;
-REVOKE SELECT (extra_ultra_addons) ON public.vendor_profiles FROM anon;
-
--- 3d · a shop cannot grant itself the count — 20271316466285's guard with the one column added at INSERT and UPDATE.
-CREATE OR REPLACE FUNCTION public.guard_vendor_profiles_entitlement()
-RETURNS TRIGGER
-LANGUAGE plpgsql
+-- 3c · THE LIVE COUNT — paid orders whose 28-day window covers now. Internal: the gates call it; no grant.
+CREATE OR REPLACE FUNCTION public.vendor_live_ultra_addons(p_vendor_profile_id uuid)
+RETURNS int
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
 AS $$
-DECLARE
-  new_level TEXT := to_jsonb(NEW) ->> 'ai_addon_level';
-  old_level TEXT := CASE WHEN TG_OP = 'UPDATE' THEN to_jsonb(OLD) ->> 'ai_addon_level' END;
-BEGIN
-  IF current_user IN ('authenticated', 'anon') AND NOT public.is_admin() THEN
-    IF TG_OP = 'INSERT' THEN
-      IF NEW.tier_state IS DISTINCT FROM 'free'::public.vendor_tier_state
-         OR NEW.tier_expires_at IS NOT NULL
-         OR NEW.extra_agent_seats IS DISTINCT FROM 0
-         -- The four Ultra add-on counts, added 20271316466285. Bought, never self-granted.
-         OR NEW.extra_parent_categories IS DISTINCT FROM 0
-         OR NEW.extra_services_per_leaf IS DISTINCT FROM 0
-         OR NEW.extra_waitlist_acceptances IS DISTINCT FROM 0
-         OR NEW.extra_bookings_per_date IS DISTINCT FROM 0
-         -- The Ultra Add-on count, added 20271351415438. Bought, never self-granted.
-         OR NEW.extra_ultra_addons IS DISTINCT FROM 0
-         OR NEW.ai_addon_expires_at IS NOT NULL
-         OR NEW.ai_addon_trial_used_at IS NOT NULL
-         OR NEW.booth_addon_expires_at IS NOT NULL
-         OR NEW.booth_addon_trial_used_at IS NOT NULL
-         -- Papic Challenges, added 20271181420277. A shop cannot be born holding
-         -- a 28-day window it never paid for.
-         OR NEW.papic_challenge_expires_at IS NOT NULL
-         OR (new_level IS NOT NULL AND new_level <> 'basic')
-         -- Trust columns: a self-created profile may never arrive pre-verified
-         -- or pre-visible. Both are admin-granted only. The literals below are
-         -- the COLUMN DEFAULTS verbatim — 'unverified' (20260516050000:83-84)
-         -- and 'hidden' (20271013500000 step 2; WAS 'coming_soon' from
-         -- 20260515005000 until the owner retired that state on 2026-07-27) —
-         -- and both are ENUMs, so they are cast explicitly. Getting either wrong
-         -- would reject ordinary vendor registration.
-         OR NEW.verification_state
-              IS DISTINCT FROM 'unverified'::public.vendor_verification_state
-         OR NEW.public_visibility
-              IS DISTINCT FROM 'hidden'::public.vendor_public_visibility
-         -- Trust columns, added 20271134103060. A shop cannot be BORN carrying
-         -- the mark that says Setnayan checked it, any more than it can be born
-         -- verified. All three are stamped only by /admin/verify (service-role).
-         OR NEW.experience_verified_at IS NOT NULL
-         OR NEW.experience_verified_by IS NOT NULL
-         OR NEW.last_verified_at IS NOT NULL
-         -- The Verified badge's deadline, added 20271221359289. It decides
-         -- whether the badge shows; a shop cannot be born holding one.
-         OR NEW.next_renewal_due_at IS NOT NULL
-         -- A shop cannot be born holding money, or born with a plan queued up
-         -- behind the one it is on. With the applier live, an unguarded
-         -- `pending_tier` is a plan that switches itself on for free the moment
-         -- the current term runs out.
-         OR NEW.pending_tier IS NOT NULL
-         OR NEW.pending_tier_purchase_id IS NOT NULL
-         OR COALESCE(NEW.subscription_credit_php, 0) <> 0
-         -- tier_source, added with the column in 20271209332066. A shop cannot
-         -- be BORN claiming it paid its own way: the default is the only value a
-         -- vendor may arrive with, and self-serve checkout writes as service_role.
-         OR NEW.tier_source IS DISTINCT FROM 'admin_comp'
-      THEN
-        RAISE EXCEPTION
-          'vendor_profiles tier/seat/add-on/trust columns are not writable by the vendor (self-grant blocked)'
-          USING ERRCODE = 'insufficient_privilege',
-                HINT = 'Tier, paid seats, paid add-ons, scheduled plan changes, account credit, verification, public visibility and the experience check are granted by the admin console or the paid activation path (service_role).';
-      END IF;
-    ELSE  -- UPDATE
-      -- Enforce the year-change auto-unverify that the app performs as a
-      -- courtesy. Done BEFORE the refusal check so the forced NULLs are what
-      -- the check below sees — and so a vendor who PATCHes the year directly,
-      -- never naming the stamp columns, still loses the mark. The admin's
-      -- check was against a specific number; change the number and the check
-      -- no longer means anything.
-      IF NEW.in_business_since_year IS DISTINCT FROM OLD.in_business_since_year THEN
-        NEW.experience_verified_at := NULL;
-        NEW.experience_verified_by := NULL;
-      END IF;
+  SELECT count(*)::int
+    FROM public.orders o
+   WHERE o.service_key = 'vendor_ultra_addon__' || p_vendor_profile_id::text
+     AND o.status = 'paid'
+     AND o.expires_at IS NOT NULL
+     AND o.expires_at > now();
+$$;
 
-      IF NEW.tier_state IS DISTINCT FROM OLD.tier_state
-         OR NEW.tier_expires_at IS DISTINCT FROM OLD.tier_expires_at
-         OR NEW.extra_agent_seats IS DISTINCT FROM OLD.extra_agent_seats
-         -- The four Ultra add-on counts (20271316466285) — recomputed only by the paid activation path.
-         OR NEW.extra_parent_categories IS DISTINCT FROM OLD.extra_parent_categories
-         OR NEW.extra_services_per_leaf IS DISTINCT FROM OLD.extra_services_per_leaf
-         OR NEW.extra_waitlist_acceptances IS DISTINCT FROM OLD.extra_waitlist_acceptances
-         OR NEW.extra_bookings_per_date IS DISTINCT FROM OLD.extra_bookings_per_date
-         -- The Ultra Add-on count (20271351415438), recomputed only by the paid activation path.
-         OR NEW.extra_ultra_addons IS DISTINCT FROM OLD.extra_ultra_addons
-         OR NEW.ai_addon_expires_at IS DISTINCT FROM OLD.ai_addon_expires_at
-         OR NEW.ai_addon_trial_used_at IS DISTINCT FROM OLD.ai_addon_trial_used_at
-         OR NEW.booth_addon_expires_at IS DISTINCT FROM OLD.booth_addon_expires_at
-         OR NEW.booth_addon_trial_used_at IS DISTINCT FROM OLD.booth_addon_trial_used_at
-         -- Papic Challenges, added 20271181420277.
-         OR NEW.papic_challenge_expires_at IS DISTINCT FROM OLD.papic_challenge_expires_at
-         OR new_level IS DISTINCT FROM old_level
-         -- Trust columns: self-verification, and reversing an admin visibility
-         -- freeze on a suspended vendor.
-         OR NEW.verification_state IS DISTINCT FROM OLD.verification_state
-         OR NEW.public_visibility IS DISTINCT FROM OLD.public_visibility
-         -- When the shop was last verified is the admin's record, never the
-         -- vendor's — not even to clear it.
-         OR NEW.last_verified_at IS DISTINCT FROM OLD.last_verified_at
-         -- The Verified badge's deadline (20271221359289). Moving it LATER keeps
-         -- a badge past its papers; clearing it makes the badge permanent. Both
-         -- directions are the admin's alone.
-         OR NEW.next_renewal_due_at IS DISTINCT FROM OLD.next_renewal_due_at
-         -- The experience mark may be CLEARED by the vendor (that is the
-         -- year-change unverify, and giving up your own badge harms nobody) but
-         -- never SET or moved to another value. Written as "changed AND the new
-         -- value is not null" so the allowed direction stays one-way.
-         OR (NEW.experience_verified_at IS DISTINCT FROM OLD.experience_verified_at
-             AND NEW.experience_verified_at IS NOT NULL)
-         OR (NEW.experience_verified_by IS DISTINCT FROM OLD.experience_verified_by
-             AND NEW.experience_verified_by IS NOT NULL)
-         -- Every part of a scheduled plan change, and the money balance. All six
-         -- are named: the applier reads the cycle, the period and the purchase
-         -- id as well as the tier, so guarding only `pending_tier` would leave a
-         -- shop able to stretch a 28-day plan into 3,650 days.
-         OR NEW.pending_tier IS DISTINCT FROM OLD.pending_tier
-         OR NEW.pending_tier_period_days IS DISTINCT FROM OLD.pending_tier_period_days
-         OR NEW.pending_tier_purchase_id IS DISTINCT FROM OLD.pending_tier_purchase_id
-         OR NEW.pending_tier_billing_cycle IS DISTINCT FROM OLD.pending_tier_billing_cycle
-         OR NEW.pending_tier_sku_code IS DISTINCT FROM OLD.pending_tier_sku_code
-         OR NEW.subscription_credit_php IS DISTINCT FROM OLD.subscription_credit_php
-         -- tier_source is the record of WHO PAID, so it is exactly the kind of
-         -- claim its subject must not be able to make about itself. Flipping it to
-         -- 'self_serve' grants no tier — it makes a GIFT look purchased, which
-         -- hides the vendor from fetchCompedVendors and from /admin/gifts.
-         OR NEW.tier_source IS DISTINCT FROM OLD.tier_source
-      THEN
-        RAISE EXCEPTION
-          'vendor_profiles tier/seat/add-on/trust columns are not writable by the vendor (self-grant blocked)'
-          USING ERRCODE = 'insufficient_privilege',
-                HINT = 'Tier, paid seats, paid add-ons, scheduled plan changes, account credit, verification, public visibility and the experience check are granted by the admin console or the paid activation path (service_role).';
-      END IF;
-    END IF;
+REVOKE ALL ON FUNCTION public.vendor_live_ultra_addons(uuid) FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.vendor_live_ultra_addons(uuid) IS
+  'The Ultra Add-ons a shop holds NOW (owner 2026-11-19: +1 branch · +15 live cards · +3 people · +50 GB each, 28 days per payment): its paid vendor_ultra_addon__<id> orders whose expires_at (stamped paid + 28 days by the activation hook) is still ahead. No stored count — a refund or a lapsed window drops out by itself. Internal (the branch and storage gates); the app reads vendor_live_ultra_addons_for.';
+
+-- 3d · the app's read — the same number, for the caller's own shop (or Setnayan / the service role) only.
+CREATE OR REPLACE FUNCTION public.vendor_live_ultra_addons_for(p_vendor_profile_id uuid)
+RETURNS int
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL
+     AND NOT public.is_admin()
+     AND p_vendor_profile_id NOT IN (SELECT public.current_vendor_ids('viewer')) THEN
+    RAISE EXCEPTION 'vendor_live_ultra_addons_for: not your shop' USING ERRCODE = 'insufficient_privilege';
   END IF;
-  RETURN NEW;
+  RETURN public.vendor_live_ultra_addons(p_vendor_profile_id);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.vendor_live_ultra_addons_for(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.vendor_live_ultra_addons_for(uuid) TO authenticated, service_role;
+
+COMMENT ON FUNCTION public.vendor_live_ultra_addons_for(uuid) IS
+  'vendor_live_ultra_addons for the app: the caller''s own shop (owner or team member), Setnayan, or the service role. Anyone else is refused.';
 
 -- 3e · the included-branch gate adds +1 branch per Ultra Add-on (20271307996183's body, otherwise verbatim).
 CREATE OR REPLACE FUNCTION public.enforce_included_branch_allowance()
@@ -343,11 +236,12 @@ BEGIN
   END IF;
 
   -- Serialise per shop: two concurrent adds must not both see "one left".
-  SELECT vp.tier_state::text, COALESCE(vp.extra_ultra_addons, 0)
-    INTO v_tier, v_addons
+  SELECT vp.tier_state::text
+    INTO v_tier
     FROM public.vendor_profiles vp
    WHERE vp.vendor_profile_id = NEW.parent_vendor_profile_id
    FOR UPDATE;
+  v_addons := public.vendor_live_ultra_addons(NEW.parent_vendor_profile_id);
 
   v_cap := COALESCE(public.vendor_tier_limit(v_tier, 'branches_included'), 0)
            -- The Ultra Add-on (owner 2026-11-19): +1 branch each, on Ultra only.
@@ -374,8 +268,8 @@ REVOKE ALL ON FUNCTION public.enforce_included_branch_allowance() FROM PUBLIC, a
 COMMENT ON FUNCTION public.enforce_included_branch_allowance() IS
   'Refuses a vendor_branches row that BECOMES a live included branch (included_in_plan AND cancelled_at IS NULL) '
   'when the shop already holds vendor_tier_limit(tier, ''branches_included'') of them, plus one per paid Ultra Add-on '
-  'on Ultra (owner 2026-11-19). Rows already live are never touched (grandfathered). Serialised per shop by a row '
-  'lock on vendor_profiles.';
+  'live on Ultra (owner 2026-11-19; vendor_live_ultra_addons). Rows already live are never touched (grandfathered). '
+  'Serialised per shop by a row lock on vendor_profiles.';
 
 -- 3f · the storage gate adds +50 GB per Ultra Add-on (20271342883073's body, otherwise verbatim).
 CREATE OR REPLACE FUNCTION public.enforce_supplier_storage_allowance()
@@ -398,8 +292,9 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT vp.tier_state::text, COALESCE(vp.extra_ultra_addons, 0) INTO v_tier, v_addons
+  SELECT vp.tier_state::text INTO v_tier
     FROM public.vendor_profiles vp WHERE vp.vendor_profile_id = NEW.vendor_profile_id;
+  v_addons := public.vendor_live_ultra_addons(NEW.vendor_profile_id);
   v_gb := public.vendor_tier_limit(v_tier, 'storage_gb');
   IF v_gb IS NULL THEN
     RETURN NEW;                                   -- no allowance on this plan (Free · Verified)
@@ -437,53 +332,5 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.enforce_supplier_storage_allowance() FROM PUBLIC, anon, authenticated;
-
--- 3g · the shop's own view re-projected (its projection is frozen at CREATE) — the 20271350091032 block verbatim,
--- with the new count added to its anti-vacuity check.
-DROP VIEW IF EXISTS public.vendor_profiles_self;
-
-DO $$
-DECLARE
-  cols text;
-BEGIN
-  SELECT string_agg('vp.' || quote_ident(column_name), ', ' ORDER BY ordinal_position)
-    INTO cols
-    FROM information_schema.columns
-   WHERE table_schema = 'public' AND table_name = 'vendor_profiles';
-  IF cols IS NULL THEN
-    RAISE EXCEPTION 'refusing to apply: computed vendor_profiles_self projection is empty';
-  END IF;
-  IF position('find_locked_at' IN cols) = 0 OR position('is_findable' IN cols) = 0
-     OR position('gallery_video_titles' IN cols) = 0
-     OR position('papers_lapsed_at' IN cols) = 0 OR position('papers_current' IN cols) = 0
-     OR position('paused_at' IN cols) = 0 OR position('paused_by' IN cols) = 0
-     OR position('extra_ultra_addons' IN cols) = 0 THEN
-    RAISE EXCEPTION 'ANTI-VACUITY FAILED: vendor_profiles_self would not carry the find-lock, video-title, papers, pause or Ultra Add-on columns';
-  END IF;
-  EXECUTE format($v$
-    CREATE VIEW public.vendor_profiles_self
-      WITH (security_invoker = false) AS
-      SELECT %s
-        FROM public.vendor_profiles vp
-       WHERE vp.user_id = auth.uid()
-          OR vp.vendor_profile_id IN (SELECT public.current_vendor_ids('viewer'))
-  $v$, cols);
-END $$;
-
-ALTER VIEW public.vendor_profiles_self OWNER TO postgres;
-REVOKE ALL ON public.vendor_profiles_self FROM PUBLIC;
-REVOKE ALL ON public.vendor_profiles_self FROM anon;
-REVOKE ALL ON public.vendor_profiles_self FROM authenticated;
-GRANT SELECT ON public.vendor_profiles_self TO authenticated, service_role;
-
-COMMENT ON VIEW public.vendor_profiles_self IS
-  'Definer view: the caller''s OWN shops (owner via user_id = auth.uid(), or a '
-  'team member via current_vendor_ids(''viewer'')), projecting every '
-  'vendor_profiles column INCLUDING the eleven tax/registration/owner-identity '
-  'columns that 20271217955839 revoked from `authenticated` at table level. '
-  'Predicate mirrors policies vendor_profiles_owner + vendor_profiles_member_read '
-  'exactly -- it widens nothing. SELECT ONLY: an auto-updatable definer view '
-  'would let a teammate write past vendor_profiles_owner. Admin and public '
-  'surfaces do NOT use this -- they read the table on the service-role client.';
 
 COMMIT;

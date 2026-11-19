@@ -27,6 +27,8 @@ import {
   canBuyUltraAddOn,
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
+  ULTRA_ADDON_PERIOD_DAYS,
+  ultraAddOnWindowEnd,
   ultraAddOnsFromRows,
 } from './vendor-ultra-addons';
 import { isVendorSurfaceServiceKey } from './vendor-surface-service-keys';
@@ -133,5 +135,17 @@ test('only the Ultra Add-on is sold, and only on Ultra (owner 2026-11-19: "just 
   assert.equal(isVendorSurfaceServiceKey(countAddOnServiceKey('ultra', 'vp-1')), true);
   assert.equal(parseCountAddOnServiceKey(countAddOnServiceKey('ultra', 'vp-1'))?.kind, 'ultra');
   assert.equal(COUNT_ADDONS.ultra.sku, 'vendor_ultra_addon');
-  assert.equal(COUNT_ADDONS.ultra.column, 'extra_ultra_addons');
+  // ⏳ No stored count: it is counted LIVE from paid orders whose 28-day window covers now (review 2026-11-19).
+  assert.equal(COUNT_ADDONS.ultra.column, null);
+});
+
+test('ONE PAYMENT BUYS 28 DAYS, NOT FOREVER — the window the activation hook stamps', () => {
+  assert.equal(ULTRA_ADDON_PERIOD_DAYS, 28);
+  const approved = Date.parse('2026-11-19T08:00:00Z');
+  assert.equal(ultraAddOnWindowEnd(approved), '2026-12-17T08:00:00.000Z');
+  // The hook stamps that window on the order, and the live count reads only paid orders inside it.
+  const hook = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
+  assert.match(hook, /if \(target\.kind === 'ultra'\) \{[\s\S]*?ultraAddOnWindowEnd\(Date\.now\(\)\)[\s\S]*?\.update\(\{ expires_at: expiresAt \}\)/);
+  const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
+  assert.match(sql, /o\.status = 'paid'\s+AND o\.expires_at IS NOT NULL\s+AND o\.expires_at > now\(\)/, 'the live count is not "paid AND in window"');
 });

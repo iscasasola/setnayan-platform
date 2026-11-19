@@ -53,7 +53,7 @@ export function storageAllowanceBytes(plan: string | null | undefined, ultraAddO
   const base = tierCaps(plan).storageBytes;
   if (base === null) return null;
   // 🛒 +50 GB per Ultra Add-on (owner 2026-11-19), on a plan that holds bought extras (Ultra) — the same sum the
-  // database's `enforce_supplier_storage_allowance` makes from vendor_profiles.extra_ultra_addons.
+  // database's `enforce_supplier_storage_allowance` makes from vendor_live_ultra_addons() (paid orders whose 28-day window covers now).
   const packs = holdsBoughtExtras(plan) && Number.isFinite(ultraAddOns) && ultraAddOns > 0 ? Math.floor(ultraAddOns) : 0;
   return base + packs * ULTRA_ADDON_GIVES.storageGb * STORAGE_GB;
 }

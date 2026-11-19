@@ -73,8 +73,8 @@ export function effectiveSeatCap(baseCap: number, extraSeats: number): number {
 
 /**
  * Read a vendor's paid extra people: the single extra seats it bought (`extra_agent_seats`, no longer sold since
- * 2026-11-19 but kept while paid) PLUS +3 per Ultra Add-on (`extra_ultra_addons`, owner 2026-11-19), counted only on a
- * plan that holds bought extras (Ultra). Soft-probe: any read failure (column missing pre-migration, RLS) yields 0 so
+ * 2026-11-19 but kept while paid) PLUS +3 per Ultra Add-on held NOW (`vendor_live_ultra_addons_for` — paid orders whose
+ * 28-day window covers today, owner 2026-11-19), counted only on a plan that holds bought extras (Ultra). Soft-probe: any read failure (column missing pre-migration, RLS) yields 0 so
  * the seat cap degrades to the base tier allowance rather than throwing — withholding, never granting.
  */
 export async function fetchExtraAgentSeats(
@@ -85,13 +85,15 @@ export async function fetchExtraAgentSeats(
   try {
     const { data, error } = await supabase
       .from('vendor_profiles')
-      .select('extra_agent_seats, extra_ultra_addons')
+      .select('extra_agent_seats')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error || !data) return 0;
-    const row = data as { extra_agent_seats?: number | null; extra_ultra_addons?: number | null };
-    const seats = extraSeatsFromPaidCount(row.extra_agent_seats);
-    const packs = holdsBoughtExtras(tier) ? extraSeatsFromPaidCount(row.extra_ultra_addons) : 0;
+    const seats = extraSeatsFromPaidCount((data as { extra_agent_seats?: number | null }).extra_agent_seats);
+    if (!holdsBoughtExtras(tier)) return seats;
+    // The live Ultra Add-ons (a lapsed or refunded one is not counted). Unreadable → 0, never a granted seat.
+    const live = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+    const packs = live.error ? 0 : extraSeatsFromPaidCount(Number(live.data));
     return seats + packs * ULTRA_ADDON_GIVES.people;
   } catch {
     return 0;

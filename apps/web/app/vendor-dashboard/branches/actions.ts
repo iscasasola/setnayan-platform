@@ -262,7 +262,7 @@ export async function createBranch(
   if (includedErr) return err('We could not check your plan’s branches just now. Please try again in a moment.');
   // 🧮 The plan's branches as the admin last set them (vendor_plan_contents, owner 2026-11-13) — the same number the
   // database gate reads through vendor_tier_limit(); the code value when unread — PLUS +1 per Ultra Add-on (owner
-  // 2026-11-19; the gate adds the same from vendor_profiles.extra_ultra_addons).
+  // 2026-11-19; the gate adds the same live count, vendor_live_ultra_addons()).
   const planCaps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
   if (Math.max(0, planCaps.branchesIncluded - Math.max(0, includedInUse ?? 0)) > 0) {
     const { error: incErr } = await supabase.from('vendor_branches').insert({

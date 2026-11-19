@@ -36,7 +36,7 @@ here; its rule is mirrored in code (`canManageVendor` → full nav) and is kept 
 | 1 | **Shop Manager** `shop_manager` | `admin` | Everything: team, plan, branches, money, shop page, all clients, day-of console. | Same. "Sees everything including branches." Unchanged. |
 | 2 | **Branch Manager** `branch_manager` | none (`admin` is whole-shop; `agent`+`whole_branch_keys` gives the branch's services but no team/money) | — | Everything a Shop Manager has, **for one branch**: that branch's clients, bookings, payments, event days, its team (invite/assign at or below their level, within the branch), its branch settings. Not the plan, not other branches, not shop-wide money settings. |
 | 3 | **Account Manager** `account_manager` | `agent` | Today + Clients for their assigned services (`vendor_service_agents`). No payments screen, day-of only with a grant. | Bookings, chat, payments and event day **for their own clients**, on their branch. One role (owner: "this is one role"). Their clients' event days without a separate grant. |
-| 4 | **Marketing** `marketing` | none | — | Shop page, cards, photos, promos, ads. **No bookings, no clients, no money.** Whole shop (TO CONFIRM). |
+| 4 | **Marketing** `marketing` | none | — | Shop page, cards, photos, promos, ads. **No bookings, no clients, no money.** Whole shop (decided 19 Nov). |
 | 5 | **Event Crew** `event_crew` | `viewer` + `vendor_event_access_grants` | Today (read) + the day-of console for granted events. | Hub and photos **for the events they're given** only. Nothing else. |
 | 6 | **Helper** `helper` | `viewer` | Today + Clients, read-only. | Sees the schedule, changes nothing. Stays the free seat (`FREE_HELPER_ROLE`). |
 
@@ -134,8 +134,9 @@ Plus one free Helper on every plan (`FREE_HELPER_SEATS`). ⚠ The live DB was **
 re-measure with `select sku_code, max_sub_seats from vendor_billing_catalog where sku_code like '%vendor_%'`. That
 migration names the top plan "Max" while the app labels `enterprise` "Ultra" — the drawing uses the app's label.
 
-**No plan row says which ROLES a plan includes, or how many seats each role may take** → both are drawn as
-**TO CONFIRM** (drawn default: every plan may use every role inside its seat count). Delta: the Plan page gets a
+**DECIDED (owner 19 Nov):** how many people a plan allows is the table's seat number (*"this is on our table
+already"*); any mix of roles fills it, so there is no per-role seat count. **STILL OPEN:** whether any role is kept off a
+plan (drawn: none is). Delta: the Plan page gets a
 "Your team on <plan>" row and a "Roles and who covers what ›" row into Team › Roles; the Roles page opens with the
 plan's line and "Change plan".
 
@@ -156,8 +157,9 @@ Proposed:
   `adjusted` re-splits A–Z evenly by letter, in join order (1 → A–Z · 2 → A–M / N–Z · 3 → A–H / I–Q / R–Z). An adjusted
   split is left alone and the manager sees "X joined · Reset to even?". Inquiries already handed out never move.
 - The inquiry gets an owner: a new `assigned_member_id` on the inquiry thread, set once when it arrives.
-- **TO CONFIRM:** whose last name counts (drawn: the person who sent the inquiry) · when that Account Manager is away
-  (drawn: the next Account Manager in the branch, then the Branch Manager).
+- **DECIDED (owner 19 Nov):** whose last name counts — *"the main celebrant/groom/who sent it"*, read as: the main
+  celebrant's last name (the groom for a wedding), falling back to the sender's when the inquiry has none · when that Account Manager is away
+  — *"yes"*: the next Account Manager in the branch, then the Branch Manager.
 
 ## 4 · Order of work (after the owner OKs the drawing)
 

@@ -49,6 +49,7 @@ import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { freeWindowEndsLabel } from './booking-fee-free-window';
 import { TOP_UP_WORDS, topUpStage } from './booking-fee-top-up';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · WHERE A SUPPLIER STANDS WITH THE FEE, ON ONE BOOKING
@@ -268,8 +269,9 @@ export function bookingFeeForecast(
         detail:
           // 🧾 Owner 2026-11-16 ("yes change the wording"): a client who first came THROUGH Setnayan still pays on
           // every repeat, so the old line (every returning client is free) was untrue. Say who is free, by how they found you.
-          'This client did not come from Setnayan, so they are yours free. ' +
-          'Clients who found you outside Setnayan never carry a fee.',
+          // ⟲ 16 Nov (d4899cd5 · 9fe95ebe · answer 3): a free booking is now one of the three free cases, not "found
+          // outside Setnayan" — say the rule, from the one place the words live.
+          'This booking is one of your free ones. ' + FEE_FREE_RULE,
       };
 
     /*

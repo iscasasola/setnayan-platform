@@ -9,7 +9,6 @@
 import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS, canUse, type LockDef, type LockKey } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords, type PlanLimitKey } from '@/lib/plan-sheet';
-import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
@@ -52,7 +51,8 @@ function planName(t: VendorTier): string {
  *   · plan features → `TIER_CAPS` (lib/vendor-tier-caps.ts);
  *   · the tools unlock → `SPECIALIZED_TOOLS_INCLUDED_TIERS` (included from Plus since 2026-11-14 — no longer sold);
  *   · the chatbot → `PLAN_CHATBOT_LEVEL` (lib/vendor-ai-level.ts — the same table the inbox's gate reads);
- *   · gift price vs list price → `tierPaysGiftPrice` (lib/shop-gifts.ts, the one the purchase asks);
+ *   · gifts → the SAME list price on every plan (📦 2026-11-14 / 2026-11-17: one price per gift; the buy-10-get-1
+ *     bundles are open to every shop — lib/shop-gifts.ts), so no plan buys gifts for less;
  *   · Deep Search → the SKU each plan is CHARGED from (`vendorAddonSkuCode`), priced by the catalogue;
  *   · Ultra's extra seat and branch → `canBuyExtraSeats` / `canBuyExtraBranches` + the SKU each one charges;
  *   · the locks → `LOCKS` + `canUse` (lib/locks.ts). ⚠ ONLY a lock whose server gate exists (`server !== null`) is
@@ -202,7 +202,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
       cells: each((t) => words(per(vendorAddonSkuCode('deep_search_about_you', t), ' a search'))),
     },
     { key: 'buy:seatbranch', label: 'Extra seat · extra branch', cells: each(seatOrBranch) },
-    { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each((t) => words(tierPaysGiftPrice(t) ? 'Gift price' : 'List price')) },
+    { key: 'money:gift', label: 'Setnayan gifts you buy', cells: each(() => words('List price')) },
   ];
 
   const verify: TableRow[] = APPLIED_LOCKS.map((k) => {

@@ -294,6 +294,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: '', name: 'one_per_event', note: 'tier-2 switch: a couple books ONE of it per event (owner 2026-10-29) — drives event_vendors.hard_single_group' },
       { key: '', name: 'hint_en', note: 'service_categories: the ⓘ text of a group or category, written on /admin/categories (owner 2026-10-31) — Find\u2019s ⓘ reads it first, never hidden · canonical_service_schemas: a service\u2019s one-line ⓘ definition, same field (plan D4, 2026-11-07) — empty = no ⓘ, read by lib/service-definitions.server.ts' },
       { key: '', name: 'sort_order', note: 'a service\u2019s place among its category on /admin/categories (Order \u25be, ③b); other readers still list A\u2013Z' },
+      { key: '', name: 'availability_style', note: 'how a SERVICE books \u2014 one of seven (day \u00b7 order \u00b7 hour \u00b7 piece \u00b7 time \u00b7 night \u00b7 none, owner 2026-11-17; lib/availability-styles.ts), CHECK-held; NULL = Not set, never day. Set on /admin/categories (Availability plan step 2); read through getTaxonomy(), nothing outside admin reads it yet' },
       { key: '', name: 'merged_into', note: 'a folded SERVICE\u2019s forward (merge_canonical_service): the row stays hidden so an old key resolves \u2014 T1 folded 41 (16 Nov 2026)' },
       { key: '', name: 'merged_into_category_id', note: 'service_categories: a folded CATEGORY\u2019s forward \u2014 first written by T1 part 2 (20271350082350, 13 categories); the row stays hidden, never deleted. Code mirror: MERGED_TILES / forwardTile() in lib/taxonomy.ts' },
     ],
@@ -2349,6 +2350,22 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // 💎 Slice 2 (2026-11-05): Event Plus / Event Pro gifts are units in the same ledger; a given one names the
       // product the EVENT received (a second Plus becomes Pro) — read by event_comp_active_skus / event_has_comp_for_sku.
       { kind: 'column', table: 'shop_gift_stock_entries', column: 'unlocks_sku' },
+      // 🔢📦 G1 (owner 2026-11-14): Papic stock is COUNTED IN PACKS — a Papic row names its pack and how many
+      // (pack_code, packs; delta stays the credits), read per pack by shop_gift_pack_stock_status and given per pack by
+      // shop_gift_deliver_for_booking. A BUY 10, GET 1 FREE bundle is a catalogue row saying which pack and how many
+      // (bundle_of_service_code, bundle_quantity); its purchase records the count (packs_each) and its own code.
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'pack_code' },
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'packs' },
+      {
+        kind: 'check',
+        table: 'shop_gift_stock_entries',
+        name: 'shop_gift_stock_entries_packs_shape',
+        mentions: 'packs',
+      },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'packs_each' },
+      { kind: 'column', table: 'shop_gift_purchases', column: 'bundle_code' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_of_service_code' },
+      { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_quantity' },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },

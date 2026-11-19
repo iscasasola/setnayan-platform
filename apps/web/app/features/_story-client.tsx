@@ -83,6 +83,9 @@ export function PersonaScope({ children }: { children: ReactNode }) {
       moments.forEach(on);
       return;
     }
+    // Only now may a moment's parts wait to be shown: the stylesheet hides them under `data-motion`, never before
+    // (no script = every moment complete).
+    el.setAttribute('data-motion', '');
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {

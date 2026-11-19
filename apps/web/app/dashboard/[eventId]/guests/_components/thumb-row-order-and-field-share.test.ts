@@ -34,11 +34,14 @@ test('List: ⇕ · Search guests · ≡ (Show & sort) · ＋ Add ▾ — the ONE
   // screen hands each seat its control.
   const at = SCREEN.indexOf('<ThumbRow\n        name="guests"');
   assert.notEqual(at, -1, 'the List row moved — re-aim this guard');
-  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('action={addMenu}', at)) + 2);
-  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[{ node: filterSheet }]}', 'action={addMenu}'].map((m) => row.indexOf(m));
+  // 18–19 Nov 2026 (owner: "so we also do no need an add button because. our text box is search / add feature"): the
+  // ＋ Add ▾ seat is gone — the field is the add (`field.onAdd`, lib/a-search-that-adds-shows-add.test.ts).
+  const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[{ node: filterSheet }]}', at)) + 2);
+  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[{ node: filterSheet }]}'].map((m) => row.indexOf(m));
+  assert.doesNotMatch(row, /\baction=/, 'the List row seats a ＋ Add beside the field that adds');
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');
-  assert.match(SCREEN, /const addMenu: ThumbMenu \| null = writesOff\s*\?\s*null/, 'a viewer who may not write is offered ＋ Add');
+  assert.match(SCREEN, /onAdd: writesOff \|\| gview !== 'list' \? undefined : addTypedOrSheet,/, 'a viewer who may not write is offered the add');
   // ＋ R4 slice 1 (owner 2026-10-29, prototype v12): the Map's main verb — Add guest, the shipped add sheet — only for
   // someone who may write.
   assert.match(

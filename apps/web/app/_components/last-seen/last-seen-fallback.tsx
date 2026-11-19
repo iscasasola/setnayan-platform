@@ -92,7 +92,7 @@ export function LastSeenView({
       <LastSeenMark phase={phase} savedAt={savedAt} />
       <div
         inert
-        className={phase === 'failed' ? 'opacity-60 transition-opacity' : undefined}
+        className={phase === 'failed' ? 'opacity-60 [transition:opacity_var(--sn-m-quick)_var(--sn-m-settle)]' : undefined}
         dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>

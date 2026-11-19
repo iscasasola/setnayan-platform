@@ -13,6 +13,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { renderPrint, type PrintImage, type PrintShop } from '@/lib/supplier-prints-svg';
 import { printQr, printShopFrom } from '@/lib/supplier-prints-shop';
+import { printBadgesV84 } from '@/lib/print-badges-v84';
+import { resolvePrintBadgeArt } from '@/lib/print-badge-art';
 import { PRINT_DESIGNS, PRINT_PIECES, type PrintBlock } from '@/lib/supplier-prints';
 
 async function image(file: string | undefined, mime: 'image/png' | 'image/jpeg'): Promise<PrintImage | null> {
@@ -35,6 +37,8 @@ async function main() {
     services: [],
     tagline: 'Photo, video, live stream, lights and sound',
     facts: { verified: true, completedEvents: 0, trusted: { trusted_avg_rating: 4.7, trusted_review_count: 3 }, inBusinessSinceYear: 2016, awards: [], nowYear: 2026 },
+    // only the approved v84 badges print (lib/print-badges-v84.ts): this proof shop wears Setnayan Verified
+    badges: await resolvePrintBadgeArt(printBadgesV84({ verified: true, counts: null, seals: [] })),
     kindLabel: (k) => k,
     origin,
   });
@@ -58,7 +62,7 @@ async function main() {
   };
   const cases: Array<{ tag: string; shop: PrintShop; hide?: PrintBlock[] }> = [
     { tag: 'built', shop },
-    { tag: 'no-reviews-no-photo-one-service-no-logo', shop: { ...shop, rating: null, badges: shop.badges.filter((b) => b.kind !== 'rating'), photo: null, logo: null, services: shop.services!.slice(0, 1), about: null, ownDomain: null } },
+    { tag: 'no-reviews-no-photo-one-service-no-logo', shop: { ...shop, rating: null, photo: null, logo: null, services: shop.services!.slice(0, 1), about: null, ownDomain: null } },
     { tag: 'blocks-off', shop, hide: ['services', 'stars', 'photo'] },
   ];
   for (const k of cases) {

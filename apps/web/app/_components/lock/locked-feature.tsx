@@ -22,7 +22,7 @@
  * 🔒 app/_components/lock/every-lock-shows-problem-and-solution.test.ts
  */
 import { useState, type ReactNode } from 'react';
-import { BadgeCheck, Lock, Sparkles } from 'lucide-react';
+import { BadgeCheck, Copy, Lock, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
@@ -34,7 +34,16 @@ export const GET_VERIFIED_HREF = '/vendor-dashboard/profile#docs';
 
 export type LockNeed =
   | { kind: 'verify'; /** `papersProgress(...)` */ progress: string }
-  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / 28 days") — never typed by the caller. */ price: string | null; href: string };
+  | { kind: 'plan'; plan: string; /** The catalogue price, worded ("₱… / 28 days") — never typed by the caller. */ price: string | null; href: string }
+  /**
+   * 🔒 A lock lifted by the shop's OWN bookings finishing, not by papers or a plan — a card a booked client is using
+   * (`CARD_IN_USE_LOCK`, lib/service-open-bookings.ts). `progress` is what is still open (or that it could not be
+   * read); `way` is the one door that exists today (the maker's "Start another from this").
+   */
+  | { kind: 'bookings'; progress: string; way: { label: string; href: string } | null };
+
+/** The lines a lock outside the shop-gate registry brings with it (same shape as a `LOCKS` entry's words). */
+export type LockLines = { key: string; name: string; problem: string; solution: string };
 
 export function LockExplainer({
   lock,
@@ -43,25 +52,29 @@ export function LockExplainer({
   storeShell = false,
   onClose,
 }: {
-  lock: LockKey;
+  lock: LockKey | LockLines;
   need: LockNeed;
   /** The view-only preview — a sample quote, a sample poster. Absent: the solution line stands alone. */
   preview?: ReactNode;
   storeShell?: boolean;
   onClose: () => void;
 }) {
-  const def: LockDef = LOCKS[lock];
+  const def: Pick<LockDef, 'name' | 'problem' | 'solution'> = typeof lock === 'string' ? LOCKS[lock] : lock;
+  const lockKey = typeof lock === 'string' ? lock : lock.key;
   const isPlan = need.kind === 'plan';
-  const opensLine = isPlan ? `Comes with ${planWord(need.plan)}` : 'Opens once you are Verified';
+  const opensLine =
+    need.kind === 'bookings' ? 'Opens once every booking on it is finished' : isPlan ? `Comes with ${planWord(need.plan)}` : 'Opens once you are Verified';
   const button =
-    need.kind === 'verify' ? (
+    need.kind === 'bookings' ? (
+      need.way ? <ActionButton tone="brand" main icon={Copy} label={need.way.label} href={need.way.href} /> : null
+    ) : need.kind === 'verify' ? (
       <ActionButton tone="brand" main icon={BadgeCheck} label="Get verified" href={GET_VERIFIED_HREF} />
     ) : storeShell ? null : (
       <ActionButton tone="brand" main icon={Sparkles} label={`Upgrade to ${planWord(need.plan)}`} href={need.href} />
     );
   return (
-    <RiseScreen title={def.name} line={opensLine} onClose={onClose} data={`lock-${lock}`} thumb={button}>
-      <div className="px-4 pt-4" data-lock-explainer={lock}>
+    <RiseScreen title={def.name} line={opensLine} onClose={onClose} data={`lock-${lockKey}`} thumb={button}>
+      <div className="px-4 pt-4" data-lock-explainer={lockKey}>
         <p className="hc-k2" data-lock-k="problem">The problem</p>
         <p className="pt-2 text-[16px] leading-snug text-ink" data-lock-problem="">
           {def.problem}
@@ -87,7 +100,7 @@ export function LockExplainer({
             lead={<Lock aria-hidden className="h-[18px] w-[18px] flex-none text-ink/55" strokeWidth={1.75} />}
             title={opensLine}
             line={
-              need.kind === 'verify'
+              need.kind === 'verify' || need.kind === 'bookings'
                 ? need.progress
                 : storeShell
                   ? 'Plans are chosen on setnayan.com'
@@ -136,7 +149,7 @@ export function LockedFeature({
             </span>
           }
           line={line ?? def.solution}
-          badge={{ tone: 'quiet', word: need.kind === 'verify' ? 'Get verified' : planWord(need.plan) }}
+          badge={{ tone: 'quiet', word: need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? planWord(need.plan) : 'Booked' }}
           onOpen={() => setOpen(true)}
         />
       </span>
@@ -167,7 +180,7 @@ export function LockButton({
         <ActionButton
           tone="neutral"
           icon={Lock}
-          label={label ?? (need.kind === 'verify' ? 'Get verified' : `Upgrade to ${planWord(need.plan)}`)}
+          label={label ?? (need.kind === 'verify' ? 'Get verified' : need.kind === 'plan' ? `Upgrade to ${planWord(need.plan)}` : 'Why')}
           onClick={() => setOpen(true)}
         />
       </span>

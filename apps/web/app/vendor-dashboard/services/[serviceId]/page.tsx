@@ -15,7 +15,7 @@ import { portfolioSummary, toAlbumViews, workAlbumAnchor } from '@/lib/card-port
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { BOOKINGS_UNREAD, cardEditLockOf, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
 
 export const metadata = { title: 'Your service' };
@@ -177,6 +177,7 @@ export default async function EditServiceCardPage({
         editing={card.editing}
         bookedNow={bookedNow}
         deleteGate={deleteGate}
+        editLock={cardEditLockOf(thisCardBookings)}
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}

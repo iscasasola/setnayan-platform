@@ -18,6 +18,8 @@
  *   &photos=1..6                  🖼 an edited card holding this many photos (the cover + the showcase) — the one gallery
  *                                 (owner 2026-11-13), drawn with the repo's own sample pictures under /public/realstories
  *   &booked=1                     🔒 an edited card couples have booked — the price row says they keep their price (Build 5 Lane C)
+ *   &lock=booked|unread           🔒 an edited card a booked client is using (owner 19 Nov 2026): read-only under the 🔒 row,
+ *                                 Save is the lock (tap: Problem · Solution · the open booking) · …or the check could not be read
  *   &host=add                     ➕ the dashboard's New service as it opens now (ruling 5820): THE ONE Add-a-service picker
  *                                 on this lab's tree, the shop's own card kinds "On your shop", "Make N cards", the maker
  *                                 behind "Start a blank card"; each pick's "+ Specialties (optional)" and the plan meter
@@ -399,6 +401,13 @@ export default async function CardMakerLabPage({
         initial={fx && sp.gift === 'pack' ? { ...fx.initial, giftPackCode: 'PAPIC_GUEST' } : (fx?.initial ?? null)}
         editing={fx?.editing ?? null}
         bookedNow={sp.booked === '1' ? 3 : undefined}
+        editLock={
+          sp.lock === 'booked'
+            ? { state: 'locked', open: [{ eventName: 'Maria & Juan’s Wedding', eventDate: '2026-12-12' }] }
+            : sp.lock === 'unread'
+              ? { state: 'unread' }
+              : null
+        }
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
         checkRules={checkRules}

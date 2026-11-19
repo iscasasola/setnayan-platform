@@ -13,6 +13,7 @@ import {
   EyeOff,
   Info,
   List,
+  Lock,
   MessageSquare,
   Plus,
   Search,
@@ -85,6 +86,8 @@ import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import { ServiceCardFace } from './service-card-face';
+import { LockExplainer } from '@/app/_components/lock/locked-feature';
+import { CARD_EDIT_UNREAD, CARD_IN_USE_LOCK, openBookingLines, type CardEditLock } from '@/lib/card-edit-lock';
 import { commitVendorService, deleteVendorService } from '../actions';
 import { CopyToBranch } from './copy-to-branch';
 import { branchCopyTargets } from '@/lib/branch-copy';
@@ -251,6 +254,7 @@ export function CanvasMaker({
   editing = null,
   bookedNow,
   deleteGate = null,
+  editLock = null,
   errorLine = null,
   returnTo,
   quoteReturn = null,
@@ -340,6 +344,12 @@ export function CanvasMaker({
    * anything is deleted (`deleteWarningLines`). Absent (labs, the new-card maker) → the old one-line sheet.
    */
   deleteGate?: { refusal: string | null; lines: readonly string[] } | null;
+  /**
+   * 🔒 A BOOKED CLIENT IS USING THIS CARD (owner 19 Nov 2026) — `locked` / `unread` → the card is shown read-only under
+   * a 🔒 row (tap: the Problem, the Solution, the open bookings) and Save becomes the lock. `unread` is locked too, and
+   * says it could not check. Absent / `free` → editable. The save refuses on its own (`refuseEditOfBookedCard`).
+   */
+  editLock?: CardEditLock | null;
   /** A refusal carried back on the address (`?error=`), said on the card. */
   errorLine?: string | null;
   /** This screen's own address — the save returns here with a refusal. */
@@ -905,6 +915,9 @@ export function CanvasMaker({
     ask: photoCheck,
   });
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
+  /** 🔒 Read-only while a booked client is using the card — or while that could not be checked (fails closed). */
+  const editLocked = !!editLock && editLock.state !== 'free';
+  const [lockOpen, setLockOpen] = useState(false);
   const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
    * 🎞 THE FIRST OPEN OF "MORE SETTINGS" SHOWS WHAT IS INSIDE (owner 2026-11-04: "when i opened more settings. we want
@@ -938,6 +951,12 @@ export function CanvasMaker({
     markReturnAsNext(formRef.current);
   });
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // 🔒 A booked client is using the card: no submit at all — the tap explains (the server refuses it too).
+    if (editLocked) {
+      e.preventDefault();
+      setLockOpen(true);
+      return;
+    }
     if (saveBlocked) {
       e.preventDefault();
       return;
@@ -977,6 +996,8 @@ export function CanvasMaker({
     hint: o.hint,
   }));
   const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
+  /** "Start another from this" — the ONE copy doorway (the fold's row and the edit lock's way out both open it). */
+  const copyHref = editing ? `/vendor-dashboard/services/new/${category}?from=${editing.serviceId}` : null;
   /** What the couple reads for a shop pack on this card — never a count (lib/gift-pick.ts). */
   const packLine = giftPick && giftPick !== GIFT_SETNAYAN ? coupleCardPackLine(giftPick, shopName) : null;
   const faceName = shownTitle.trim() || activeCategoryLabel || 'Your service';
@@ -1013,6 +1034,33 @@ export function CanvasMaker({
         >
           {errorLine}
         </p>
+      ) : null}
+
+      {/* ── 🔒 A BOOKED CLIENT IS USING THIS CARD — the card stays readable; the row says why it cannot change. ── */}
+      {editLocked && editLock ? (
+        <MakerRow
+          icon={<Lock aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
+          title={`${CARD_IN_USE_LOCK.name} 🔒`}
+          line={editLock.state === 'unread' ? CARD_EDIT_UNREAD : CARD_IN_USE_LOCK.problem}
+          right={<ChevronRight aria-hidden className="h-4 w-4 text-sn-accent" strokeWidth={2} />}
+          onPress={() => setLockOpen(true)}
+          label={`${CARD_IN_USE_LOCK.name} — why, and what you can do`}
+          data="edit-lock"
+        />
+      ) : null}
+      {lockOpen && editLock && editLock.state !== 'free' ? (
+        <LockExplainer
+          lock={CARD_IN_USE_LOCK}
+          need={{
+            kind: 'bookings',
+            progress:
+              editLock.state === 'unread'
+                ? 'Couldn’t check this card’s bookings — open it again in a moment'
+                : `Still open · ${openBookingLines(editLock.open).join(' · ')}`,
+            way: copyHref ? { label: 'Start another from this', href: copyHref } : null,
+          }}
+          onClose={() => setLockOpen(false)}
+        />
       ) : null}
 
       {/* ── YOU LEFT A CARD HERE — offered, never restored behind their back. ── */}
@@ -1087,6 +1135,9 @@ export function CanvasMaker({
           noValidate
           className="min-w-0"
           data-card-form=""
+          // 🔒 Read-only while a booked client is using it: nothing in the card can be changed or focused.
+          inert={editLocked || undefined}
+          data-card-edit-lock={editLock?.state ?? 'free'}
         >
           <PendingWatch onChange={setPending} />
           <input type="hidden" name="category" value={category} />
@@ -1663,7 +1714,7 @@ export function CanvasMaker({
                             <p className="text-[13px] text-ink/60">Your old promise · {editing.legacyPromise} · it stays on the card</p>
                           ) : null}
                           <Link
-                            href={`/vendor-dashboard/services/new/${category}?from=${editing.serviceId}`}
+                            href={copyHref ?? '#'}
                             className="sn-press flex min-h-11 items-center justify-between gap-3 text-[15px] text-ink"
                             data-maker-copy=""
                           >
@@ -1731,15 +1782,20 @@ export function CanvasMaker({
       {/* ═══ THE THUMB ROW — Cancel (grey) · Create / Save card (the one main, terracotta). The shipped row + buttons. ═══ */}
       <SupplierThumbRow name="maker" label="Card actions">
         <ActionButton tone="neutral" icon={X} label="Cancel" href={cancelTo} />
-        <ActionButton
-          tone="brand"
-          main
-          type="submit"
-          form={CARD_FORM_ID}
-          icon={Check}
-          label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save card' : 'Create'}
-          waiting={pending || saveBlocked}
-        />
+        {editLocked ? (
+          // 🔒 Save IS the lock while a booked client uses the card — a tap explains, never a dead button.
+          <ActionButton tone="neutral" main icon={Lock} label="Locked" onClick={() => setLockOpen(true)} />
+        ) : (
+          <ActionButton
+            tone="brand"
+            main
+            type="submit"
+            form={CARD_FORM_ID}
+            icon={Check}
+            label={pending ? (isEdit ? 'Saving…' : 'Creating…') : isEdit ? 'Save card' : 'Create'}
+            waiting={pending || saveBlocked}
+          />
+        )}
       </SupplierThumbRow>
       <UndoToastHost />
 

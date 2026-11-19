@@ -77,6 +77,7 @@ const SHOW_LABEL: Record<string, string> = {
   parts: 'Inspiration parts',
   'nosvc-cat': 'Categories with no service',
   'nosvc-part': 'Parts with no service',
+  'no-availability': 'Services with no Availability',
 };
 
 /** Show ▾ choices the SHIPPED list still answers (its own rows + panel); every other one is the map. */
@@ -92,7 +93,10 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const state = readState(sp);
   const adding = first(sp.add) === '1';
-  const asking = Boolean(first(sp[ADMIN_ASK_PARAM]));
+  // The Catalogue tab's ＋ opens the one New category form empty (`?new=category`, 14 Nov 2026 build) — the same
+  // reader as the search box's ask, so it loads what an ask loads.
+  const newCategory = first(sp.new) === 'category';
+  const asking = Boolean(first(sp[ADMIN_ASK_PARAM])) || newCategory;
   const ok = first(sp.ok);
   const error = first(sp.error);
   const back = backRecord(state);

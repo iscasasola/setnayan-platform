@@ -37,7 +37,7 @@ export default async function VendorTrackRecordPage() {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Track record
         </h1>
@@ -62,7 +62,7 @@ export default async function VendorTrackRecordPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <PageMasthead
         title="Track record"
       />

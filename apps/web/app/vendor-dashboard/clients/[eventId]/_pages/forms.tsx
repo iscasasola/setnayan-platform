@@ -7,7 +7,9 @@
  *      you"). Their reads are unchanged except the `form_id IS NULL` filter that keeps the library out of them.
  *   2. "Forms sent to <couple>" — each library form sent into this event (by the supplier or on booking), answered
  *      N of M; tapping one shows the couple's answers.
- *   3. "Your forms · the library" — every live form, "N questions · used with N"; tap opens it in the Form Maker.
+ *   3. "Forms for <couple>" — ONLY the forms on the cards they asked about or booked + the shop's chat forms (owner
+ *      18 Nov 2026, `formsForThisClient`; replaces "Your forms · the library"); tap opens it. A sent card form offers
+ *      "Send again" — the same send, their last answers still ticked.
  *   4. "Added from the service cards they booked" — the library forms linked to a card this booking holds.
  *   Thumb row: Load a form (the Forms Maker sheet: your forms · Suggested for <service> · Also useful for <group>) ·
  *   ＋ New form.
@@ -106,6 +108,8 @@ export async function FormsPage({ ctx }: PickedPageProps) {
         locks={locks}
         answersOpen={ctx.feeUnlocked}
         shopId={ctx.vendorProfileId}
+        // 📋 Owner 18 Nov 2026: only the forms on the cards THIS client asked about or booked, plus the chat forms.
+        clientCardIds={booked.status === 'ok' ? booked.cardIds : null}
       />
     </div>
   );

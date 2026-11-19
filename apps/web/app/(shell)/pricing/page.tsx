@@ -14,6 +14,7 @@ import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
 import { TOURS } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
@@ -456,7 +457,7 @@ export default async function PricingPage() {
                         ◆
                       </i>
                       <InfoTip label="Event Pro" labelClassName="text-[16.5px] font-semibold tracking-[-0.005em]" align="start">
-                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, 1 GB of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
+                        {`${proThemes} Pro themes, your own photos, video and music, the cinematic reveal, your logo animated and on every QR, ${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of media, prints in your look, and Setnayan AI${prices.plus != null ? ' — and everything in Event Plus' : ''}. One unlock covers everyone on the event.`}
                       </InfoTip>
                     </span>
                     <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{peso(prices.pro.regular)}</span>
@@ -572,7 +573,7 @@ export default async function PricingPage() {
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras, 500 MB of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
+                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
                     what="Papic credits and more upload space, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}

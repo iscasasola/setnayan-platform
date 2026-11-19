@@ -32,6 +32,7 @@
 import type { FeatureSlug } from '@/lib/feature-pages/types';
 import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
@@ -362,11 +363,11 @@ export type PlanColumn = Readonly<{
 // the Hub parts' move to Ultra and the themes / Save the Date move to Plus are not built (see changelog.d).
 export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Plan and invite, complete.', price: { kind: 'free' }, lines: ['Guest list, Seat Plan, Budget, Schedule, Mood Board', 'Event Hub: Classic theme, your words, guests’ photos', 'The Post Event story, automatically', 'FaceBlock, always'] },
-  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', '500 MB of uploads', 'One small Setnayan mark, no watermark', 'One unlock covers everyone on the event'], credits: { index: 1, said: (n) => `${n} Papic credits included` } },
-  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI', '1 GB of uploads, no Setnayan mark'], credits: { index: 0, said: (n) => `Everything in Plus, ${n} Papic credits` } },
+  { name: 'Event Plus', tag: 'A nicer, bigger event.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_PLUS'] }, lines: ['Everything in Free', 'Papic credits included', `${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads`, 'One small Setnayan mark, no watermark', 'One unlock covers everyone on the event'], credits: { index: 1, said: (n) => `${n} Papic credits included` } },
+  { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads, no Setnayan mark`], credits: { index: 0, said: (n) => `Everything in Plus, ${n} Papic credits` } },
   // 💎 Event Ultra (owner 2026-11-13) — only what a paid Ultra order unlocks today; canvas prints join when the Our Day
   // poster ships (see ULTRA_PEEK in app/_components/frontdoor/front-door-landing-data.ts).
-  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', '2 GB of uploads', 'Patiktok'], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
+  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, 'Patiktok'], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [

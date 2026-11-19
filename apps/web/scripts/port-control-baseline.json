@@ -347,7 +347,7 @@
         "(shell)/for-coordinators/page.tsx"
       ],
       "destinations": [
-        "/open-shop",
+        "/open-shop?as=coordinator",
         "/v/[seg]"
       ],
       "actions": [],
@@ -13157,6 +13157,18 @@
         "TakenSignIn",
         "TurnstileField",
         "UndoToastHost"
+      ]
+    },
+    "/open-shop/invite": {
+      "files": [
+        "open-shop/invite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "FirstRunBrand",
+        "QrCard"
       ]
     },
     "/open-shop/logo": {

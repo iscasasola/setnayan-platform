@@ -230,19 +230,25 @@ export async function readCoupleApprovals(
  */
 export async function readChatCollected(
   supabase: SupabaseClient,
-  args: { threadId: string | null; filedMessageIds: ReadonlySet<string> },
+  /**
+   * ⚡ `filedMessageIds` may be a PROMISE (wave 5 speed pass, 2026-11-15): the ids only FILTER the rows after they
+   * arrive, so the chat query can start beside `readEventSupplierFiles` instead of after it, and wait for the ids only
+   * when it filters. A plain set still works exactly as before.
+   */
+  input: { threadId: string | null; filedMessageIds: ReadonlySet<string> | PromiseLike<ReadonlySet<string>> },
 ): Promise<{ status: 'ok'; files: EventFile[] } | { status: 'unread' }> {
-  if (!args.threadId) return { status: 'ok', files: [] };
+  if (!input.threadId) return { status: 'ok', files: [] };
   const { data, error } = await supabase
     .from('chat_messages')
     .select('message_id, body, attachment_name, attachment_mime, attachment_size_bytes, attachment_r2_key, attachment_url, created_at, sender_role')
-    .eq('thread_id', args.threadId)
+    .eq('thread_id', input.threadId)
     .order('created_at', { ascending: false })
     .limit(400);
   if (error) {
-    logQueryError('readChatCollected', error, { thread_id: args.threadId }, 'graceful_degrade');
+    logQueryError('readChatCollected', error, { thread_id: input.threadId }, 'graceful_degrade');
     return { status: 'unread' };
   }
+  const args = { threadId: input.threadId, filedMessageIds: await input.filedMessageIds };
   const files: EventFile[] = [];
   for (const m of (data ?? []) as {
     message_id: string;

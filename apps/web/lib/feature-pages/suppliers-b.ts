@@ -153,8 +153,8 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Free, Verified, then Supplier Plus, Pro and Ultra for a bigger shop.', tl: 'Free, Verified, tapos Supplier Plus, Pro at Ultra para sa mas malaking shop.' },
     title: { en: 'Supplier Plans: Free, Verified, Plus, Pro and Ultra', tl: 'Supplier Plans: Free, Verified, Plus, Pro at Ultra' },
     description: {
-      en: 'Run your bookings free. Getting Verified opens your reach; Supplier Plus, Supplier Pro and Supplier Ultra add live service cards, team seats and branches. Nothing renews by itself.',
-      tl: 'Libre ang pagpapatakbo ng bookings. Ang pagiging Verified ang nagbubukas ng abot mo; nagdadagdag ng live service cards, team seats at branches ang Supplier Plus, Pro at Ultra. Walang kusang nagre-renew.',
+      en: 'Run your bookings free. Verified opens your reach; Supplier Plus, Pro and Ultra add live cards, team seats and branches. Nothing renews by itself.',
+      tl: 'Libre ang bookings. Verified ang nagbubukas ng abot mo; may dagdag na live cards, seats at branches ang Plus, Pro at Ultra. Walang kusang nagre-renew.',
     },
     answer: {
       en: 'Setnayan has five supplier plans: Free, Verified, Supplier Plus, Supplier Pro and Supplier Ultra. Free and Verified cost nothing, for good, and include the full dashboard. The paid plans buy reach — service area, categories, service cards, team seats and branches — never the right to take bookings. Paid plans are prepaid blocks of four weeks or a year, and nothing renews by itself.',

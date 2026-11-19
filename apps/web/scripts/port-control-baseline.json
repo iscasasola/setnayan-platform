@@ -2484,6 +2484,7 @@
         "admin/_components/focus-card-sheet.tsx",
         "admin/_components/focus-home.tsx",
         "admin/_components/focus-received.tsx",
+        "admin/_components/focus-recents.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
@@ -2619,6 +2620,7 @@
         "FocusCardSheet",
         "FocusHome",
         "FocusReceived",
+        "FocusRecents",
         "Fold",
         "Fragment",
         "GuidedTour",
@@ -2635,6 +2637,7 @@
         "OverlayBackdrop",
         "P",
         "PageMasthead",
+        "PayoutsShowSort",
         "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
@@ -3703,9 +3706,18 @@
         "removeEligibleUser"
       ],
       "blocks": [
+        "ChosenRow",
         "DiscountType",
+        "FormRow",
+        "FormRows",
         "Link",
-        "SubmitButton"
+        "PostedFieldRow",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TypedRow"
       ]
     },
     "/admin/discount-codes/[id]/edit": {
@@ -3948,9 +3960,14 @@
       ],
       "blocks": [
         "FormFlash",
+        "FormRows",
         "PageMasthead",
+        "PostedFieldRow",
         "ReadFailed",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/fraud": {
@@ -3990,6 +4007,7 @@
         "admin/gifts/_components/badge-rewards-ledger.tsx",
         "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/gift-limit-form.tsx",
+        "admin/gifts/_components/posted-rows.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/_components/take-back-reason-field.tsx",
         "admin/gifts/badge-reward-actions.ts",
@@ -4019,18 +4037,27 @@
         "BadgeRewardsLedger",
         "BadgeUpgradeLedgerRow",
         "BadgeUpgradesLedger",
+        "ChosenRow",
         "CompGrantRow",
         "CoupleFreeWindowRow",
+        "FormRow",
+        "FormRows",
         "GiftLimitForm",
         "InfoTip",
         "Link",
         "PageMasthead",
+        "PostedPickRow",
+        "PostedTypedRow",
         "RowActionState",
         "ShopGiftHoldRow",
         "ShopGiftLedgerRow",
         "ShopGiftsLedger",
         "SubmitButton",
         "TakeBackReasonField",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
         "TypedRow",
         "VendorGiftRow"
       ]
@@ -4201,11 +4228,17 @@
       ],
       "blocks": [
         "ActionButton",
+        "FormRow",
+        "FormRows",
         "FreeFeeWindowForm",
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
         "PageMasthead",
-        "Result"
+        "Result",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/live-studio-channels": {
@@ -4493,15 +4526,18 @@
       "blocks": [
         "ActionRow",
         "AllowlistBadge",
+        "Badge",
         "DirectPayPreviewButton",
-        "FormFlash",
         "Image",
         "MethodDetail",
         "MethodTypeBadge",
         "ModerationBadge",
         "PageMasthead",
         "PaymentMethodCard",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/admin/payments": {
@@ -4534,6 +4570,7 @@
         "rereadPaymentReceipt"
       ],
       "blocks": [
+        "Badge",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -4552,6 +4589,7 @@
         "Fragment",
         "HTMLInputElement",
         "InboxMatcher",
+        "InfoTip",
         "Link",
         "LinkPickMenu",
         "OpenedPayment",
@@ -4613,7 +4651,10 @@
       "files": [
         "admin/payouts/actions.ts",
         "admin/payouts/loading.tsx",
-        "admin/payouts/page.tsx"
+        "admin/payouts/page.tsx",
+        "admin/payouts/payout-form-rows.tsx",
+        "admin/payouts/payouts-filters.ts",
+        "admin/payouts/payouts-show-sort.tsx"
       ],
       "destinations": [],
       "actions": [
@@ -4623,16 +4664,33 @@
       ],
       "blocks": [
         "AdminUser",
+        "Badge",
+        "ChosenRow",
         "ConfirmForm",
-        "Field",
-        "FilterBar",
+        "DateRow",
+        "FilterFace",
         "FlashBanner",
-        "FormFlash",
-        "Link",
-        "PageMasthead",
-        "PayoutCard",
-        "Stat",
-        "SubmitButton"
+        "FormRows",
+        "MarkPaidRows",
+        "OpenedPayout",
+        "PayoutFilters",
+        "PayoutNum",
+        "PayoutRowLine",
+        "ReasonRow",
+        "RecordBack",
+        "RecordFacts",
+        "RecordHead",
+        "RecordSection",
+        "ShowSortSheet",
+        "ShowSortTopic",
+        "StateBadge",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection",
+        "TypedRow"
       ]
     },
     "/admin/price-bands": {
@@ -4672,7 +4730,6 @@
       "destinations": [
         "/admin/addons/pricing-report",
         "/admin/gifts",
-        "/admin/pricing?tab=[seg]",
         "/admin/pricing?tab=papic-shots",
         "/admin/pricing?tab=plan-contents&plan=[seg]",
         "/admin/pricing?tab=pricing"
@@ -4700,11 +4757,13 @@
         "ActionButton",
         "AiBandsEditor",
         "AiPricesSurface",
+        "Badge",
         "BandCard",
         "BandPriceField",
         "BookingFeeForm",
         "CardBody",
         "CardFooter",
+        "ChosenRow",
         "ConsoleTable",
         "CreditLadderRow",
         "EmptyState",
@@ -4712,13 +4771,16 @@
         "Family",
         "Field",
         "FieldLabel",
+        "FieldPick",
+        "FormRows",
         "FreeWindowsSurface",
         "GridPageSkeleton",
         "HeldByPanel",
         "HistorySection",
-        "Icon",
+        "InfoTip",
         "LegacyCatalogDisclosure",
         "Link",
+        "LinkPickMenu",
         "MoneyField",
         "PageMasthead",
         "PapicLadderEditor",
@@ -4744,12 +4806,16 @@
         "ServiceCatalogRow",
         "Shelf",
         "SignupDiscountCard",
-        "Stat",
         "SubmitButton",
         "SupplierPlan",
         "Suspense",
         "TablePageSkeleton",
         "Tag",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection",
         "TypeRow",
         "UnassignedTray",
         "ViewState"
@@ -4823,9 +4889,11 @@
       "actions": [],
       "blocks": [
         "ConsoleTable",
-        "KpiStatCard",
+        "InsightsParamPick",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "TemplateNums",
+        "TemplateSection"
       ]
     },
     "/admin/referrals": {
@@ -5276,9 +5344,16 @@
         "rejectSubscription"
       ],
       "blocks": [
+        "Badge",
         "Link",
         "PageMasthead",
-        "SubmitButton"
+        "PostedFieldRow",
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/switches": {
@@ -5715,6 +5790,7 @@
       ],
       "destinations": [
         "/admin/vendors/[seg]",
+        "/admin/verify?status=[seg]",
         "/admin/verify?surface=[seg]",
         "/admin/verify?surface=applications&status=[seg]",
         "/admin/verify?surface=visibility&status=[seg]"

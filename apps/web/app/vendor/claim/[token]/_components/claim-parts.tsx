@@ -300,7 +300,7 @@ export function SupplierInviteDoor({
       sub={<>You&rsquo;ll show on their page as a trusted partner.</>}
     >
       <article className="space-y-6" data-claim-door="supplier-invite">
-        <section className="grid gap-1.5 rounded-2xl border border-ink/10 p-4" data-supplier-invite-card="">
+        <section className="grid gap-1.5 rounded-2xl border border-ink/10 p-4" data-supplier-invite-card="">{/* no-card-ok: the owner-approved PC7 shop card (drawing 36jmQMWrANcgd2HxihAUw5, 19 Nov) */}
           <b className="text-[15px] font-semibold text-ink [overflow-wrap:anywhere]">{inviterName}</b>
           <span className="text-sm text-ink/70">Joining makes you partners at once</span>
           <span className="text-sm text-ink/70">Free. Tools for your own clients.</span>

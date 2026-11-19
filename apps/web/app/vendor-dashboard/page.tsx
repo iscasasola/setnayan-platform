@@ -741,6 +741,7 @@ export default async function VendorOverviewPage({
     todayIso,
     // v3: an event today or tomorrow is a row in the one list (drawing V3 · 3).
     events: upcoming,
+    eventsUnread: data.bookingsComplete === false,
     library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
   });
   const { events: eventsYouRun } = await eventsYouRunP;

@@ -25,6 +25,7 @@ import { formatCount } from '@/lib/format-number';
 import {
   BILLS_UNREAD_LINE,
   DONE_UNREAD_LINE,
+  EVENTS_UNREAD_LINE,
   RECOMMENDED_TAG,
   eventRowWords,
   feeRowLine,
@@ -192,12 +193,8 @@ function TaskRow({ r, a, todayIso, onDesk }: { r: TodayTaskRow; a: TodayV2Answer
       lead={<RowIcon name={r.icon} />}
       urgency={r.urgency?.level ?? null}
       foot={<CardFoot href={nextHref(r.target)} />}
-      aside={
-        <>
-          {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
-          <TodayBadgeTagChip tag={r.tag} aside />
-        </>
-      }
+      aside={r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
+      below={r.tag ? <TodayBadgeTagChip tag={r.tag} /> : null}
     >
       <div data-today-task-kind={r.card.kind}>
         {r.mode === 'quick' ? <QuickBody card={r.card} a={a} /> : <ScreenBody card={r.card} a={a} todayIso={todayIso} onDesk={onDesk} />}
@@ -256,7 +253,8 @@ function PermitRow({ need, urgency }: { need: TodayNeed; urgency: TodayUrgency }
       urgency={urgency.level}
       attrs={{ 'data-today-permit': '' }}
       foot={<CardFoot href={href} />}
-      aside={<TodayBadgeTagChip tag={RECOMMENDED_TAG.renewal ?? null} aside />}
+      aside={null}
+      below={<TodayBadgeTagChip tag={RECOMMENDED_TAG.renewal ?? null} />}
     >
       <div data-today-task-kind="permit">
         <span className="block text-[14px] text-ink">{need.line}</span>
@@ -301,6 +299,7 @@ export function TodayV2Needs({
   todayIso,
   onDesk,
   billsUnread = false,
+  eventsUnread = false,
   doneUnread = false,
   done,
   allDone,
@@ -318,6 +317,8 @@ export function TodayV2Needs({
   onDesk: readonly string[];
   /** The fee bills could not be read: said on the list, and Today is never "done". */
   billsUnread?: boolean;
+  /** The booked events could not be read: said on the list (an event today may be missing), and Today is never "done". */
+  eventsUnread?: boolean;
   /** Today's finished count could not be read: said, never drawn as nothing done. */
   doneUnread?: boolean;
   done: readonly DoneTodayRow[];
@@ -348,6 +349,7 @@ export function TodayV2Needs({
       {split.unread ? (
         <TodayRow href={nextHref(split.unread.target)} label={split.unread.label} line={split.unread.line} lineTone="danger" rowIcon={split.unread.icon} marker="unread" />
       ) : null}
+      {eventsUnread ? <TodayNoteRow label={EVENTS_UNREAD_LINE} line="Nothing was lost · try again in a moment" rowIcon="help" marker="events-unread" /> : null}
       {billsUnread ? <TodayNoteRow label={BILLS_UNREAD_LINE} line="Nothing was lost · try again in a moment" rowIcon="help" marker="bills-unread" /> : null}
       {allDone ? (
         <div data-today-all-done="" role="status" className="py-6 text-center">

@@ -334,6 +334,7 @@ export function doneTodayTotal(done: DoneTodayCounts | null, gotIt: number): num
 /** The honest notes for a read that was refused — drawn in place of the thing they could not count. */
 export const DONE_UNREAD_LINE = 'Couldn’t load what you finished today';
 export const BILLS_UNREAD_LINE = 'Couldn’t load your booking fees just now';
+export const EVENTS_UNREAD_LINE = 'Couldn’t load your bookings just now';
 
 /**
  * The cover's words. `left` = real to-dos still listed (quick + screen + unpaid fee bills); null = the desk could not be

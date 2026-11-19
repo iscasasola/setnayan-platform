@@ -516,7 +516,7 @@ export function CustomersCalendar({
           Couldn&rsquo;t read the hours ·{' '}
           <button
             type="button"
-            className="sn-press min-h-0 font-semibold text-sn-accent underline-offset-2 hover:underline"
+            className="sn-press sn-hit min-h-0 font-semibold text-sn-accent underline-offset-2 hover:underline"
             disabled={rereading}
             onClick={() =>
               startReread(() => {

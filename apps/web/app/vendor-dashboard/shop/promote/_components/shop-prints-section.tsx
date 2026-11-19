@@ -105,6 +105,7 @@ export function ShopPrintsSection({
   badgeFactsUrl = BADGE_FACTS_API,
   member = null,
   facts = null,
+  backTo = 'Promote',
 }: {
   canShare: boolean;
   setupHref: string;
@@ -115,6 +116,8 @@ export function ShopPrintsSection({
   member?: PrintMember | null;
   /** YOUR FACTS — the shop's name and line (`printLine`, the renderer's own builder). */
   facts?: PrintFacts | null;
+  /** The sheet the prints open from — the back press names it ("Back to Prints" from Shop › Prints, never "Promote"). */
+  backTo?: 'Promote' | 'Prints';
 }) {
   const [open, setOpen] = useState(false);
   // 🔗 The code on every piece — the QR codes list's "Put it on…" sets it (Option B), the dock's QR ▾ changes it.
@@ -187,6 +190,7 @@ export function ShopPrintsSection({
             setQr={setQr}
             big={big}
             setBig={setBig}
+            backTo={backTo}
           />
         </ArtBase.Provider>
       ) : null}
@@ -215,6 +219,7 @@ function PrintsSheet({
   setQr,
   big,
   setBig,
+  backTo,
 }: {
   open: boolean;
   onClose: () => void;
@@ -225,6 +230,7 @@ function PrintsSheet({
   setQr: (q: PrintQrMode) => void;
   big: Big;
   setBig: (b: Big) => void;
+  backTo: 'Promote' | 'Prints';
 }) {
   const titleId = useId();
   const toast = useToast();
@@ -265,8 +271,8 @@ function PrintsSheet({
       <button
         type="button"
         onClick={big ? () => setBig(null) : onClose}
-        aria-label={big ? 'Back to Prints' : 'Back to Promote'}
-        className="sn-press grid h-9 w-9 flex-none place-items-center rounded-full bg-ink/[0.06] text-ink"
+        aria-label={big || backTo === 'Prints' ? 'Back to Prints' : 'Back to Promote'}
+        className="sn-press sn-hit-2d grid h-9 w-9 flex-none place-items-center rounded-full bg-ink/[0.06] text-ink"
         data-prints-back=""
       >
         <ChevronLeft aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />

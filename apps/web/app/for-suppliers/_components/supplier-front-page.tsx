@@ -207,6 +207,7 @@ export function SupplierFrontPage({
   codes,
   paywallOn,
   afterPlans,
+  realShopOpen = false,
 }: {
   prices: SupplierFrontPrices;
   fee: SupplierFrontFee;
@@ -216,6 +217,9 @@ export function SupplierFrontPage({
   codes: SupplierFrontCodes;
   /** Drawn at the foot of Plans — the page's door to the couple prices (`the-two-pricing-pages-point-at-each-other`). */
   afterPlans?: ReactNode;
+  /** The sample shop opens to a stranger (`shopOpensToStrangers`). False = the "See a real shop" card is not drawn — a
+   *  link to a shop that is a 404 is worse than no link (logged-out crawl #1). */
+  realShopOpen?: boolean;
 }) {
   const words = feeWords(fee);
   const qr: Record<QrKey, QrEntry> = {
@@ -991,6 +995,7 @@ export function SupplierFrontPage({
                 {CTA}
               </a>
             </div>
+            {realShopOpen ? (
             <div>
               <a className={s.realshop} href={codes.page.url}>
                 <Image src={`${A}/setnayan-productions-logo-round.svg`} alt="" width={44} height={44} unoptimized />
@@ -1001,6 +1006,7 @@ export function SupplierFrontPage({
                 </span>
               </a>
             </div>
+            ) : null}
             <p className={s.smallprint}>
               <span>Free to join</span>
               <span>Full dashboard free</span>

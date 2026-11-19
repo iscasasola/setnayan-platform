@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { countUnread } from '@/lib/notifications';
+import { readUnreadNotificationCount } from '@/lib/notifications';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import { isMusicToolCategory } from '@/lib/songs';
 import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access';
@@ -54,7 +54,8 @@ export default async function VendorSettingsPage() {
   const manager = !role || canManageVendor(role);
 
   const [unread, payout] = await Promise.all([
-    countUnread(supabase, user.id),
+    // The nullable read (G-1): a refused count is "unknown", never a quiet 0 that drops the "N new" badge.
+    readUnreadNotificationCount(supabase, user.id),
     manager && profile
       ? readSupplierPayoutReadiness({
           adminClient: createAdminClient(),

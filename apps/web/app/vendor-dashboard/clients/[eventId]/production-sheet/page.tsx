@@ -189,7 +189,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/vendor-dashboard/clients/${eventId}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
+          className="sn-hit inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief
         </Link>

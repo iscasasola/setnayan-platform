@@ -583,6 +583,9 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
   const vendor = await fetchVendor(slug);
+  // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
+  // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
+  if (!vendor) return { title: 'Page not found', robots: { index: false, follow: false } };
   // A page a stranger cannot open (lib/own-shop-preview.ts — not live, a demo shop, closed) gets the generic title
   // and is never indexed, even when its own team is the one rendering it: the team preview must not leak the name
   // to a crawler or a link preview, and must not be indexed if a crawler ever carries a team member's cookie.

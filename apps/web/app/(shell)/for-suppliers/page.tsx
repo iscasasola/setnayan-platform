@@ -13,7 +13,8 @@
  *
  * ⚠ THE SAMPLE SHOP (`SAMPLE_SHOP`, `setnayan-production`) does not exist under that address in production yet — the
  * demo shop is `setnaprod`, and it is a demo shop, which the public shop page opens to nobody. Until the owner renames
- * and opens it, every code and "See a real shop" lead to a closed page. Owner task, flagged in the PR.
+ * and opens it, the codes lead to a closed page. Owner task, flagged in the PR. The "See a real shop" card is drawn
+ * ONLY when `shopOpensToStrangers` says the shop opens (logged-out crawl #1, 2026-11-19 — it was a 404 link).
  *
  * 🧭 In the shell since 2026-11-04 (owner: *"the page is on the wrong shell"*): the front-door bar + rail come from
  * `app/(shell)/layout.tsx`, which also owns `force-dynamic` (`one-shell-mount.test.ts` forbids a page re-declaring
@@ -25,6 +26,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { SupplierFrontPage, type SupplierFrontCodes } from '@/app/for-suppliers/_components/supplier-front-page';
 import { SAMPLE_SHOP, growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
+import { shopOpensToStrangers } from '@/lib/shop-opens-to-strangers.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
@@ -214,7 +216,12 @@ async function sampleShopCodes(): Promise<SupplierFrontCodes> {
 }
 
 export default async function ForSuppliersPage() {
-  const [p, fee, codes] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule(), sampleShopCodes()]);
+  const [p, fee, codes, realShopOpen] = await Promise.all([
+    getVendorPrices(),
+    getLiveBookingFeeSchedule(),
+    sampleShopCodes(),
+    shopOpensToStrangers(SAMPLE_SHOP.slug),
+  ]);
   return (
     <>
       <script
@@ -240,6 +247,7 @@ export default async function ForSuppliersPage() {
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           codes={codes}
+          realShopOpen={realShopOpen}
           afterPlans={
             /*
               THE RETURN LEG (owner, 2026-09-22): /pricing points here, and this points back — named for WHOSE prices

@@ -36,6 +36,7 @@
  */
 
 import { shopPath } from '@/lib/shop-address';
+import { shopOpensToStrangers } from '@/lib/shop-opens-to-strangers.server';
 import type { ReactElement } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -379,10 +380,11 @@ function Pill({ kind, children }: { kind: 'free' | 'ver' | 'plan'; children: str
 
 export default async function ForCoordinatorsPage() {
   const origin = siteOrigin();
-  const [on, prices, fee] = await Promise.all([
+  const [on, prices, fee, realShopOpen] = await Promise.all([
     readClaimSwitches(),
     readCoordinatorPrices(),
     getLiveBookingFeeSchedule().catch(() => null),
+    shopOpensToStrangers(SAMPLE_SHOP.slug),
   ]);
 
   // ── the four real codes, drawn by the app's own QR renderer ──
@@ -1160,6 +1162,8 @@ export default async function ForCoordinatorsPage() {
                 Open your shop free
               </Link>
             </div>
+            {/* 🔗 Drawn only when the sample shop opens to a stranger (logged-out crawl #2: it linked to a 404). */}
+            {realShopOpen ? (
             <div>
               <Link className="fc-realshop" href={`${shopPath(SAMPLE_SHOP.slug)}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- a 44 px SVG mark; next/image adds nothing */}
@@ -1171,6 +1175,7 @@ export default async function ForCoordinatorsPage() {
                 </span>
               </Link>
             </div>
+            ) : null}
             <p className="fc-smallprint">
               <span>Free to join</span>
               {on.dayOfFree ? <span>Day-of desks free</span> : null}

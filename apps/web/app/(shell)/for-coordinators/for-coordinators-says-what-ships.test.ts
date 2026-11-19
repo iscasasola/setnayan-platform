@@ -226,7 +226,7 @@ test('the switches are read with the gates the features themselves use, and fail
     assert.ok(reader.includes(gate), `_claims.server.ts does not read ${gate}`);
   }
   assert.equal((reader.match(/\.catch\(\(\) => false\)/g) ?? []).length, 3, 'a DB-read switch is not failing closed');
-  assert.match(PAGE, /const \[on, prices, fee\] = await Promise\.all\(\[\s*readClaimSwitches\(\),/, 'the page does not read the live switches');
+  assert.match(PAGE, /const \[on, prices, fee, realShopOpen\] = await Promise\.all\(\[\s*readClaimSwitches\(\),/, 'the page does not read the live switches');
   for (const list of ['caps', 'deskParagraph', 'ctools', 'g.items']) {
     assert.ok(PAGE.includes(`shownWith(${list}, on)`), `${list} is rendered without its switches`);
   }

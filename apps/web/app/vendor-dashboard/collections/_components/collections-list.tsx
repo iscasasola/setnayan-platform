@@ -1,11 +1,12 @@
 'use client';
 
-import { Fragment, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AtSign,
   BookImage,
   BookOpen,
   Camera,
+  ChevronRight,
   Images,
   LayoutGrid,
   Link2,
@@ -16,7 +17,6 @@ import {
   Send,
   Share,
   Sparkles,
-  Star,
   Users,
 } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
@@ -27,12 +27,30 @@ import { videoRowName } from '@/lib/video-link-titles';
 import type { PortfolioAlbum, PortfolioGroups } from '@/lib/portfolio-groups';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
-import { AddTile, EmptyRail, MorePill, MorePills, PortfolioSection, Rail, Tile, type Door, type GroupRise } from './portfolio-sections';
+import { AddTile, EmptyRail, PortfolioSection, Rail, Tile, WayBody, type Door, type GroupRise } from './portfolio-sections';
 import { TOP_UP_WORDS } from '@/lib/booking-fee-top-up';
 import { AlbumGrids, OpenedCollection, PhotoGrid, SONG_BANK_HREF, VideoLinks, type OpenedPhotos } from './portfolio-groups';
-import { ReorderSections } from './reorder-sections';
-import { bestWorkLine, type BestWorkPhoto } from '@/lib/portfolio-best-work';
-import { orderPortfolioSections, type PortfolioSectionKey } from '@/lib/portfolio-section-order';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { InfoTip } from '@/app/_components/info-tip';
+import {
+  ALBUM_STATS_UNREAD,
+  ALBUM_UNCOUNTED_NOTE,
+  PLACES_UNREAD_LINE,
+  albumMatches,
+  albumRowHeading,
+  albumRowLine,
+  albumViewsLabel,
+  portfolioAlbums,
+  showKeepsAlbum,
+  showKeepsWay,
+  sortAlbums,
+  type AlbumStats,
+  type PortfolioShow,
+  type PortfolioSort,
+  type PortfolioWay,
+  type RowAlbum,
+} from '@/lib/portfolio-albums';
+import { recordAlbumOpen } from '@/lib/portfolio-album-opens';
 
 /**
  * 🖼 PORTFOLIO — THE COLLECTIONS, AS THE CONTENT ITSELF (owner 9 Nov: *"Shouldnt this be in settings?"* · *"we need to
@@ -63,29 +81,14 @@ import { orderPortfolioSections, type PortfolioSectionKey } from '@/lib/portfoli
  * "Couldn't load" and never wears an Example.
  *   BEST WORK  (ruling 5940) the FIRST section: the page photos couples opened most (`lib/portfolio-best-work.ts`, the
  *              shipped view counter). Empty = its title, the placeholder tile and the Upload door.
- *   REORDER    (ruling 5940) the closing row under More: ↑ ↓ per section, stored as `portfolio_section_order`
- *              (`reorder-sections.tsx`, `lib/portfolio-section-order.ts`). No stored order can hide a section.
+ *   REORDER    (removed 2026-11-19, Portfolio simpler — four fixed ways in leave nothing to reorder; `portfolio_section_order` stays stored, unused)
+ *              The ↑ ↓ sheet was removed with it; `lib/portfolio-section-order.ts` stays for the stored column.
  * 🔒 collections/the-portfolio-is-collections.test.ts
  */
 
 const SECTION_NAME = COLLECTION_SECTION_NAME;
 
-/** Every orderable section's title, as its head says it — the Reorder sheet's rows. */
-const SECTION_TITLE: Record<PortfolioSectionKey, string> = {
-  best: 'Your best work',
-  page: SECTION_NAME.page,
-  cards: SECTION_NAME.cards,
-  albums: SECTION_NAME.albums,
-  own: SECTION_NAME.own,
-  delivered: SECTION_NAME.delivered,
-  instagram: SECTION_NAME.instagram,
-  moodboard: SECTION_NAME.moodboard,
-  songs: 'Song bank',
-  stories: 'Stories couples published',
-  video: 'Video links',
-};
-
-type Open = { kind: 'photos'; key: string; photos: OpenedPhotos; origin: HTMLElement | null } | { kind: 'video'; origin: HTMLElement | null };
+type Open = { kind: 'photos'; key: string; photos: OpenedPhotos; origin: HTMLElement | null };
 
 const n = (x: number, one: string, many: string) => `${formatCount(x)} ${x === 1 ? one : many}`;
 const ic = (Icon: typeof Images) => <Icon aria-hidden strokeWidth={1.9} />;
@@ -102,9 +105,16 @@ export function CollectionsList({
   moodboard = null,
   songs = 'off',
   uploadFacts = null,
-  order = 'listed',
-  best = [],
-  sectionOrder = null,
+  vendorId,
+  albumStats = ALBUM_STATS_UNREAD,
+  show = 'all',
+  sort = 'most',
+  words = '',
+  gear = null,
+  editOpen = false,
+  placesUnread = false,
+  onNothing,
+  drawAll = false,
 }: {
   input: CollectionsInput;
   /** The shipped gallery editors (portfolio · videos · Instagram), mounted in the Add photos fold. */
@@ -122,33 +132,56 @@ export function CollectionsList({
   songs?: { count: number; withVideo: number } | null | 'off';
   /** The ONE uploader's facts (free room, wallet) — the empty On my page's Upload opens the picker in place. */
   uploadFacts?: PortfolioUploadFacts | null;
-  /** Sort (the thumb row's ⇅): each rail as listed, or its tiles by name. */
-  order?: 'listed' | 'name';
-  /** ⭐ Your best work — most viewed first; `null` = the count could not be read. */
-  best?: BestWorkPhoto[] | null;
-  /** 🖼 The supplier's stored section order; `null`/absent = the shipped order. */
-  sectionOrder?: readonly string[] | null;
+  /** The shop — whose album opens are recorded ("Opened by you"). A lab's "lab" records nothing. */
+  vendorId: string;
+  /** Row 1's numbers — the two shipped counters and the shop's own opens (`lib/portfolio-albums.ts`). */
+  albumStats?: AlbumStats;
+  /** The one Sort button's two picks, and the search words — the thumb row owns them (`PortfolioView`). */
+  show?: PortfolioShow;
+  sort?: PortfolioSort;
+  words?: string;
+  /** ⚙ The house settings button — at the right end of Row 1's heading (the screen's top row; there is no header). */
+  gear?: ReactNode;
+  /** Open "All albums" on arrival (Instagram's OAuth callback lands on `#gallery-media`, which lives in it). */
+  editOpen?: boolean;
+  /** 📍 The events' venues (or the looks' tagged events) could not be read — Search then says it is by name only. */
+  placesUnread?: boolean;
+  /**
+   * Draw every way in's body IN PLACE under the rows as well — for the guards' static render only (a risen screen is a
+   * portal, which `renderToStaticMarkup` cannot see). Never passed by the page.
+   */
+  drawAll?: boolean;
+  /** Told whenever "the search words match nothing here" changes — the thumb row then offers ＋ Add photos. */
+  onNothing?: (nothing: boolean) => void;
 }) {
   const [open, setOpen] = useState<Open | null>(null);
-  // The stored order, kept here so a Reorder save redraws at once (the server revalidates behind it).
-  const [sectionOrderNow, setSectionOrderNow] = useState<readonly string[] | null>(sectionOrder);
+  // 🚪 The way in that is risen full screen ('all' = every album), or none.
+  const [way, setWay] = useState<PortfolioWay | 'all' | null>(editOpen ? 'all' : null);
+  // `#gallery-media` (the page gallery's editor, Instagram's callback, every "Edit" and "Add photos" door) lives inside
+  // "All albums" now — an address ending in it rises that screen, and the shipped Fold opens itself on the same hash.
+  useEffect(() => {
+    const open = () => {
+      if (window.location.hash === '#gallery-media') setWay('all');
+    };
+    open();
+    window.addEventListener('hashchange', open);
+    return () => window.removeEventListener('hashchange', open);
+  }, []);
   const frame = useRef<HTMLElement | null>(null);
   const rootRef = (el: HTMLDivElement | null) => {
     if (el) frame.current = el.closest('[data-portfolio-tab],[data-portfolio-tab-lab]');
   };
-  const sorted = <T,>(list: T[] | null, name: (x: T) => string): T[] | null =>
-    list && order === 'name' ? [...list].sort((a, b) => name(a).localeCompare(name(b))) : list;
+  // (The old ⇅ "By name" left with the one Sort button; every group is drawn as listed.)
+  const sorted = <T,>(list: T[] | null, _name: (x: T) => string): T[] | null => list;
   const rows = Object.fromEntries(collectionRows(input).map((r) => [r.key, r]));
   const openPhotos = (key: string, photos: OpenedPhotos) => (origin: HTMLElement | null) => setOpen({ kind: 'photos', key, photos, origin });
-  const openVideo = (origin: HTMLElement | null) => setOpen({ kind: 'video', origin });
-  const albumPhotos = (a: PortfolioAlbum): OpenedPhotos => ({ title: a.title, sub: a.line, urls: a.urls, total: a.total, href: a.href, unlisted: a.unlisted ?? null });
+  const albumPhotos = (a: PortfolioAlbum): OpenedPhotos => ({ title: a.title, sub: a.line, note: a.services && a.services.length > 0 ? a.services.join(' · ') : null, urls: a.urls, total: a.total, href: a.href, unlisted: a.unlisted ?? null });
   /** ⤴ What a group's head rises into: its count, the grid (photos · albums), and its own page as one row. */
   const riseOf = (line: string | null | undefined, body: ReactNode, page: GroupRise['page'] = null): GroupRise => ({ line: line ?? '', body, page });
   const albumsRise = (id: string, albums: PortfolioAlbum[] | null) => {
     const shown = (albums ?? []).filter((a) => a.urls.length > 0);
     return shown.length > 0 ? <AlbumGrids data={id} albums={shown.map((a) => ({ key: a.key, ...albumPhotos(a) }))} /> : null;
   };
-  const headEl = (id: string) => document.querySelector<HTMLElement>(`[data-portfolio-open="${id}"]`);
 
   /* ── ON MY PAGE — the page gallery ─────────────────────────────────────────── */
   const pagePhotos: OpenedPhotos = { title: SECTION_NAME.page, sub: rows.page?.line ?? '', urls: allPhotos, total: allPhotos.length, href: null };
@@ -166,33 +199,6 @@ export function CollectionsList({
         <Rail data="page">
           {allPhotos.slice(0, 12).map((u, i) => (
             <Tile key={`${i}-${u}`} name={i === 0 ? 'Latest' : ''} sub={i === 0 ? rows.page?.line : null} photo={u} open={openPhotos('page', pagePhotos)} data="page" />
-          ))}
-        </Rail>
-      )}
-    </PortfolioSection>
-  );
-
-  /* ── ⭐ YOUR BEST WORK — the page photos couples opened most (ruling 5940) ──── */
-  const bestPhotos: OpenedPhotos = {
-    title: 'Your best work',
-    sub: 'Most viewed first',
-    urls: (best ?? []).map((p) => p.url),
-    total: best?.length ?? 0,
-    href: null,
-  };
-  const bestSection = (
-    <PortfolioSection
-      id="best"
-      title="Your best work"
-      countLabel={best && best.length > 0 ? 'most viewed first' : null}
-      rise={riseOf(best && best.length > 0 ? 'Most viewed first' : 'Nothing yet', best && best.length > 0 ? <PhotoGrid photos={bestPhotos} data="best" /> : null)}
-    >
-      {best === null || best.length === 0 ? (
-        <EmptyRail id="best" line="Nothing yet · your most-viewed photos gather here" door={pageDoor} icon={ic(Star)} unread={best === null} />
-      ) : (
-        <Rail data="best">
-          {best.map((p, i) => (
-            <Tile key={p.key} name="" sub={bestWorkLine(p.views, i === 0, formatCount)} photo={p.url} open={openPhotos('best', bestPhotos)} data="best" hero />
           ))}
         </Rail>
       )}
@@ -366,55 +372,7 @@ export function CollectionsList({
     </PortfolioSection>
   );
 
-  /* ── Video links — the tiles; the shipped editor opens in the collection ─── */
-  const videoSection = (
-    <PortfolioSection
-      id="video"
-      title="Video links"
-      pill={videoLinks.length > 0 ? { kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 } : null}
-      rise={riseOf(
-        videoLinks.length > 0 ? n(videoLinks.length, 'link', 'links') : 'No links yet',
-        <div className="px-4">
-          <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
-        </div>,
-      )}
-    >
-      {videoLinks.length === 0 ? (
-        <EmptyRail id="video" line="No links yet · YouTube, Vimeo or Facebook" door={{ kind: 'press', label: 'Add a link', onPress: () => openVideo(headEl('video')), icon: Link2 }} icon={ic(Play)} />
-      ) : (
-        <Rail data="video">
-          {videoLinks.map((l, i) => (
-            <Tile key={`${i}-${l}`} name={videoRowName(l, videoTitles)} sub={parseVideoLink(l)?.label ?? null} photo={null} icon={ic(Play)} open={(el) => openVideo(el)} data="video" />
-          ))}
-        </Rail>
-      )}
-    </PortfolioSection>
-  );
-
-  /* ── More — the utility collections as quiet pills ─────────────────────────── */
-  const allLooks = Array.isArray(looks) ? looks : [];
-  const lookUrls = allLooks.flatMap((a) => a.urls);
-  const more = (
-    <PortfolioSection id="more" title="More" rise={null}>
-      <MorePills>
-        <MorePill icon={ic(Images)} label="All photos" countLabel={formatCount(allPhotos.length)} open={(el) => openPhotos('all', { ...pagePhotos, title: 'All photos' })(el)} data="all" />
-        <MorePill icon={ic(Play)} label="Video links" countLabel={formatCount(videoLinks.length)} open={(el) => openVideo(el)} data="video" />
-        {looks !== 'off' && looks !== null ? (
-          <MorePill
-            icon={ic(Sparkles)}
-            label="Inspiration you curated"
-            countLabel={formatCount(allLooks.reduce((a, x) => a + x.total, 0))}
-            open={(el) => openPhotos('inspiration', { title: 'Inspiration you curated', sub: 'looks Setnayan approved for couples', urls: lookUrls, total: lookUrls.length, href: null })(el)}
-            data="inspiration"
-          />
-        ) : null}
-      </MorePills>
-    </PortfolioSection>
-  );
-
-  /* ── THE ORDER (ruling 5940): every section this shop draws, in the supplier's stored order, More last ──────── */
-  const sections: Partial<Record<PortfolioSectionKey, ReactNode>> = {
-    best: bestSection,
+  const sections = {
     page: onMyPage,
     cards: albumSection(
         'cards',
@@ -454,33 +412,204 @@ export function CollectionsList({
     moodboard: moodboardSection,
     songs: songsSection,
     stories: storiesSection,
-    video: videoSection,
   };
-  const present = (Object.keys(sections) as PortfolioSectionKey[]).filter((k) => sections[k] != null);
+
+  /* ── ROW 1 — the albums, in the Sort's order, kept by the Show filter and the search words ─────────────────── */
+  const everyAlbum = portfolioAlbums(groups, { title: SECTION_NAME.page, line: rows.page?.line ?? '', urls: allPhotos }, albumStats);
+  const rowAlbums = sortAlbums(
+    everyAlbum.filter((a) => showKeepsAlbum(show, a.kind) && albumMatches(a, words)),
+    sort,
+    albumStats,
+  );
+  const openAlbum = (a: RowAlbum) => (origin: HTMLElement | null) => {
+    void recordAlbumOpen(vendorId, a.kind, a.key);
+    setOpen({ kind: 'photos', key: `${a.kind}:${a.key}`, photos: a.album ? albumPhotos(a.album) : pagePhotos, origin });
+  };
+  const needle = words.trim().toLowerCase();
+  const hit = (...texts: (string | null | undefined)[]) => !needle || texts.some((t) => (t ?? '').toLowerCase().includes(needle));
+  const kindHit = (kind: RowAlbum['kind']) => everyAlbum.some((a) => a.kind === kind && albumMatches(a, words));
+
+  /* ── THE FOUR WAYS IN — one row each; a tap rises its group full screen ─────────────────────────────────────── */
+  const mosaic = (list: PortfolioAlbum[] | null | 'off') => (Array.isArray(list) ? list.flatMap((a) => a.urls.slice(0, 1)).concat(Array.isArray(list) ? list.flatMap((a) => a.urls.slice(1, 3)) : []).slice(0, 3) : []);
+  const unreadLine = 'Couldn’t load this just now';
+  const eventsLine =
+    groups.events === null
+      ? unreadLine
+      : [
+          n(groups.events.length, 'event', 'events'),
+          own && own.items > 0 ? `${n(own.items, 'shot', 'shots')} of your own` : null,
+          delivered && delivered.items > 0 ? `${formatCount(delivered.couples)} delivered` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+  const servicesLine = groups.services === null ? unreadLine : `${n(groups.services.length, 'service card', 'service cards')} · ${n(groups.services.reduce((a, x) => a + x.total, 0), 'photo', 'photos')}`;
+  const inspirationLine = looks === null ? unreadLine : looks === 'off' ? '' : looks.length === 0 ? 'No sets yet' : `${n(looks.length, 'set', 'sets')} in the moodboard library`;
+  const videoLine = [n(videoLinks.length, 'link', 'links'), songs !== 'off' && songs ? n(songs.count, 'song', 'songs') : null].filter(Boolean).join(' · ');
+  const ways: { key: PortfolioWay; title: string; line: string; photos: string[]; icon: ReactNode; found: boolean; body: ReactNode }[] = [
+    {
+      key: 'events',
+      title: 'From events',
+      line: eventsLine,
+      photos: mosaic(groups.events),
+      icon: ic(BookImage),
+      found: hit('From events', 'events') || kindHit('event') || (groups.stories ?? []).some((x) => hit(x.hostNames, x.line)),
+      body: (
+        <>
+          {sections.albums}
+          {sections.own}
+          {sections.delivered}
+          {sections.stories}
+        </>
+      ),
+    },
+    { key: 'services', title: 'From services', line: servicesLine, photos: mosaic(groups.services), icon: ic(LayoutGrid), found: hit('From services', 'services') || kindHit('service'), body: sections.cards },
+    ...(looks === 'off'
+      ? []
+      : [{ key: 'inspiration' as const, title: 'From inspiration', line: inspirationLine, photos: mosaic(looks), icon: ic(Palette), found: hit('From inspiration', 'inspiration') || kindHit('inspiration'), body: sections.moodboard }]),
+    {
+      key: 'videos',
+      title: 'Video links',
+      line: videoLine,
+      photos: [],
+      icon: ic(Play),
+      found: hit('Video links', 'videos', 'songs') || videoLinks.some((l) => hit(videoRowName(l, videoTitles), l)),
+      body: (
+        <>
+          <div className="px-4 pt-3">
+            <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
+          </div>
+          {sections.songs}
+        </>
+      ),
+    },
+  ];
+  const shownWays = ways.filter((w) => showKeepsWay(show, w.key) && w.found);
+  const risen = way && way !== 'all' ? ways.find((w) => w.key === way) : null;
+  const nothing = Boolean(needle) && rowAlbums.length === 0 && shownWays.length === 0;
+  useEffect(() => {
+    onNothing?.(nothing);
+  }, [nothing, onNothing]);
+  const allAlbums = everyAlbum.filter((a) => a.album).map((a) => ({ key: `${a.kind}:${a.key}`, ...albumPhotos(a.album!) }));
 
   return (
-    <div ref={rootRef} className="pb-2" data-collections-list="" data-tour="collections-list">
-      {orderPortfolioSections(sectionOrderNow, present).map((k) => (
-        <Fragment key={k}>{sections[k]}</Fragment>
-      ))}
-      {more}
-      <ReorderSections order={orderPortfolioSections(sectionOrderNow, present)} names={SECTION_TITLE} onSaved={setSectionOrderNow} />
-
-      <div className="mx-4 mt-6 border-t border-ink/10 pt-1">
-        <Fold anchor="gallery-media" data="collections-add" title="Add photos" line="Your page's photos · videos · Instagram">
-          <div className="pb-4">{gallery}</div>
-        </Fold>
-      </div>
-
-      {open ? (
-        open.kind === 'photos' ? (
-          <OpenedCollection origin={open.origin} frame={frame.current} data={open.key.split(':')[0]!} photos={open.photos} onClose={() => setOpen(null)} />
+    <div ref={rootRef} className="pb-2" data-collections-list="" data-tour="collections-list" data-portfolio-nothing={nothing ? '' : undefined}>
+      {/* ROW 1 — the screen's top row: the albums' heading, its ⓘ, and the house ⚙ at the right end. Videos have no albums. */}
+      <section aria-label={albumRowHeading(sort, albumStats)} className="pt-3" data-portfolio-albums-row={sort}>
+        <div className="flex min-h-11 items-start gap-2 px-4 pb-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[20px] font-semibold leading-[1.15] tracking-[-0.01em] text-ink" data-portfolio-albums-heading="">
+              {albumRowHeading(sort, albumStats)}
+            </h2>
+            <InfoTip label={albumRowLine(sort, albumStats)} labelClassName="text-[12.5px] text-ink/60" align="start">
+              {ALBUM_UNCOUNTED_NOTE}
+            </InfoTip>
+          </div>
+          {gear ? <span className="flex-none">{gear}</span> : null}
+        </div>
+        {/* 📍 The places were not read: a search by place would miss its matches without a word — so it says so. */}
+        {placesUnread && needle ? (
+          <p role="status" className="px-4 pb-2 text-[13px] text-ink/65" data-portfolio-places-unread="">
+            {PLACES_UNREAD_LINE}
+          </p>
+        ) : null}
+        {show === 'videos' ? null : everyAlbum.length === 0 ? (
+          <EmptyRail id="page" line="Nothing yet · your photos show here and on your page" door={pageDoor} icon={ic(Images)} />
+        ) : rowAlbums.length === 0 ? nothing ? null : (
+          <p className="px-4 pb-2 text-[14px] text-ink/65" data-portfolio-albums-none="">
+            {needle ? `No album matches “${words.trim()}”.` : 'No albums of this kind yet.'}
+          </p>
         ) : (
-          <OpenedCollection origin={open.origin} frame={frame.current} data="video" onClose={() => setOpen(null)}>
-            <VideoLinks initial={videoLinks} initialTitles={videoTitles} />
-          </OpenedCollection>
-        )
+          <Rail data="albums">
+            {rowAlbums.map((a) => (
+              <Tile key={`${a.kind}:${a.key}`} name={a.title} sub={albumViewsLabel(a.views)} photo={a.cover} icon={ic(Images)} open={openAlbum(a)} data="albums" />
+            ))}
+            <button
+              type="button"
+              onClick={() => setWay('all')}
+              className="sn-press flex h-[150px] w-[112px] flex-none snap-start items-center justify-center rounded-card bg-ink/[0.05] px-3 text-center text-[13.5px] font-semibold text-sn-accent"
+              aria-haspopup="dialog"
+              data-portfolio-all-albums=""
+            >
+              All {n(everyAlbum.length, 'album', 'albums')}
+            </button>
+          </Rail>
+        )}
+      </section>
+
+      {/* THE FOUR WAYS IN — tap opens, full screen. */}
+      <ul className="mx-4 mt-2 divide-y divide-ink/10" data-portfolio-ways="">
+        {shownWays.map((w) => (
+          <li key={w.key}>
+            <button
+              type="button"
+              onClick={() => setWay(w.key)}
+              className="sn-press grid min-h-[76px] w-full grid-cols-[64px_minmax(0,1fr)_20px] items-center gap-3 py-1.5 text-left"
+              aria-haspopup="dialog"
+              data-portfolio-way={w.key}
+            >
+              <span aria-hidden className="grid h-16 w-16 grid-cols-2 grid-rows-2 gap-[2px] overflow-hidden rounded-xl bg-ink/[0.06] text-ink/45">
+                {w.photos.length === 0 ? (
+                  <span className="col-span-2 row-span-2 grid place-items-center [&_svg]:h-6 [&_svg]:w-6">{w.icon}</span>
+                ) : (
+                  w.photos.map((u, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- presigned display URLs
+                    <img key={`${i}-${u}`} src={u} alt="" loading="lazy" className={`h-full w-full object-cover ${i === 0 ? (w.photos.length === 1 ? 'col-span-2 row-span-2' : 'row-span-2') : w.photos.length === 2 ? 'row-span-2' : ''}`} />
+                  ))
+                )}
+              </span>
+              <span className="min-w-0">
+                <b className="block truncate text-[16px] font-semibold text-ink">{w.title}</b>
+                <span className="block truncate text-[13px] text-ink/60">{w.line}</span>
+              </span>
+              <ChevronRight aria-hidden className="h-4 w-4 justify-self-end text-sn-accent" strokeWidth={2} />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {drawAll ? (
+        <div data-portfolio-drawn-all="">
+          <WayBody>
+            {sections.page}
+            {sections.instagram}
+            {ways.map((w) => (
+              <div key={w.key} data-portfolio-way-open={w.key}>
+                {/* The Video links editor needs the app's toast provider, which a static render has not got. */}
+                {w.key === 'videos' ? sections.songs : w.body}
+              </div>
+            ))}
+          </WayBody>
+        </div>
       ) : null}
+      {risen ? (
+        <RiseScreen title={risen.title} line={risen.line} onClose={() => setWay(null)} data={`portfolio-way-${risen.key}`}>
+          <div className="pb-6" data-portfolio-way-open={risen.key}>
+            <WayBody>{risen.body}</WayBody>
+          </div>
+        </RiseScreen>
+      ) : null}
+      {way === 'all' ? (
+        <RiseScreen title="All albums" line={n(everyAlbum.length, 'album', 'albums')} onClose={() => setWay(null)} data="portfolio-way-all">
+          <div className="pb-6" data-portfolio-way-open="all">
+            <WayBody>
+              {sections.page}
+              {sections.instagram}
+              {allAlbums.length > 0 ? (
+                <div className="pt-5">
+                  <AlbumGrids data="all" albums={allAlbums} />
+                </div>
+              ) : null}
+            </WayBody>
+            <div className="mx-4 mt-6 border-t border-ink/10 pt-1">
+              <Fold anchor="gallery-media" data="collections-add" title="Edit my page photos" line="Your page's photos · Instagram">
+                <div className="pb-4">{gallery}</div>
+              </Fold>
+            </div>
+          </div>
+        </RiseScreen>
+      ) : null}
+
+      {open ? <OpenedCollection origin={open.origin} frame={frame.current} data={open.key.split(':')[0]!} photos={open.photos} onClose={() => setOpen(null)} /> : null}
     </div>
   );
 }

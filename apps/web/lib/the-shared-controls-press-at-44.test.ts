@@ -254,3 +254,23 @@ test('admin Work list: the lane chips press at 44 without growing the chip', () 
   const p = press(cls);
   assert.ok(p.height >= 44, `a lane chip presses at ${p.height}px — under the 44-px floor (classes: ${cls})`);
 });
+
+/*
+ * 🗂 THE ADMIN TAB LANDINGS' CHIPS PRESS AT 44 (walk W4/W5 18 Nov 2026, #7900 follow-up): each group card's chips were
+ * one-off `rounded-full px-2.5 py-1 text-xs` links — 24 px drawn, 24 px pressed. They wear the app's ONE chip now
+ * (`CHIP_CLASS`, from the plain module a server file can import), never a one-off height.
+ */
+test('admin tab landing: every chip is the shared chip, and presses at 44', async () => {
+  const src = stripComments(read('app/admin/_components/tab-landing.tsx'));
+  const chips = [...src.matchAll(/<Link\b[^>]*data-admin-landing-chip=""[^>]*>/g)].map((m) => m[0]);
+  assert.equal(chips.length, 1, 'the landing\'s chip link is gone or drawn twice — the guard cannot see it');
+  assert.match(chips[0]!, /className=\{`\$\{CHIP_CLASS\} \$\{CHIP_OFF_CLASS\}`\}/, 'the landing chip is not the shared chip');
+  assert.match(src, /from '@\/app\/_components\/chip-classes'/, 'the chip classes must come from the plain module (a server file)');
+  const { CHIP_CLASS, CHIP_OFF_CLASS } = await import('../app/_components/chip-classes');
+  const p = press(`${CHIP_CLASS} ${CHIP_OFF_CLASS}`);
+  assert.ok(p.height >= 44, `the landing chip presses at ${p.height}px`);
+  assert.ok(!p.sideways, 'the landing chip’s press bleeds sideways');
+  // No other press on the landing is a one-off pill height.
+  assert.doesNotMatch(src, /rounded-full[^"`]*\bpy-1\b[^"`]*text-xs/, 'a one-off small pill is back on the admin landing');
+  assert.doesNotMatch(read('app/_components/chip-classes.ts'), /^'use client'/m, 'chip-classes.ts must stay a plain module');
+});

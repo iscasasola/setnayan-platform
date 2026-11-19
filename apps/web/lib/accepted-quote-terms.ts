@@ -234,9 +234,31 @@ export function acceptedQuoteTerms(
  * unpaid payment, in pay order, and flags dates that are out of order) — a passed Final balance is still paid LAST.
  * Controller audit 16 Nov: the two must not contradict each other.
  */
-export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>, today: string | null): string {
+export function scheduleDueText(
+  row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnISO'>,
+  today: string | null,
+  booked = true,
+): string {
+  // R12 (walk 18 Nov 2026) · an UNBOOKED quote's row is a term, not a debt: "that day has already passed" told the
+  // couple a payment was late on a quote nothing is owed on yet. Unbooked, the row reads as the quote wrote it.
+  if (!booked) return row.dueText;
   if (row.dueOnISO && today && row.dueOnISO < today) return `${row.dueText} — that day has already passed`;
   return row.dueText;
+}
+
+/**
+ * R12 (walk 18 Nov 2026) · the one visible sentence for an accepted quote that is NOT booked — the Budget's ₱0 owed,
+ * said where the couple reads the schedule. ≤ 12 words (owner: ≤12-word lines). "book", never "lock".
+ */
+export const NOTHING_OWED_YET_LINE = 'Nothing is owed yet. Payments start once the booking is confirmed.';
+
+/**
+ * R12 · the couple's "Amount to pay" card on a row that is not booked (`moneyStep` → `not_booked`) and has no payment
+ * logged: nothing is due, so the card shows the honest not-booked state — no amount, no Pay, no Record payment.
+ * A payment already logged keeps its own record ("You logged"), exactly as before. Booked rows never reach here.
+ */
+export function nothingOwedYet(step: MoneyStep | null | undefined, recorded: boolean): boolean {
+  return step?.kind === 'not_booked' && !recorded;
 }
 
 /**
@@ -249,15 +271,21 @@ export function scheduleDueText(row: Pick<QuoteScheduleRow, 'dueText' | 'dueOnIS
  * was the one place on the sheet that drew the quote's dues as if owed ("Final balance ₱6,750 · that day has already
  * passed") while the Budget said Agreed ₱0 · Owed ₱0 · Booked 0. Unbooked, it now says so in its label and tip.
  */
-export function quoteScheduleFrame(booked: boolean, supplierName: string): { label: string; tip: string } {
+export function quoteScheduleFrame(
+  booked: boolean,
+  supplierName: string,
+): { label: string; tip: string; line: string | null } {
   if (booked) {
     return {
       label: 'Schedule',
       tip: `From the quote you accepted. Pay ${supplierName} directly; they confirm each payment as received.`,
+      line: null,
     };
   }
   return {
     label: 'Schedule · not booked yet',
+    // R12 · said ON the page, not only inside the closed ⓘ. No name in it, so it stays ≤ 12 words for any supplier.
+    line: NOTHING_OWED_YET_LINE,
     tip: `The terms of the quote you accepted. Nothing is owed yet: ${supplierName} hasn’t booked you, so your Budget doesn’t count it. These payments start once ${supplierName} confirms the booking.`,
   };
 }

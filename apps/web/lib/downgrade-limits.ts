@@ -10,8 +10,8 @@
  *                  one "Which services stay on" applies, so the sheet and the picker cannot count two different things.
  *                  What does not fit GOES ON HOLD when the lower plan starts (owner 2026-11-06, "A DOWNGRADE PUTS EXTRA
  *                  SERVICES ON HOLD"), and the supplier picks which stay on.
- *   · bookings a day per card · team seats · branches · reach → `limitOf` (`lib/plan-sheet.ts`), i.e. `TIER_CAPS`
- *                  (branches 0/0/0/3/6 by plan — Free and Verified have none). Seats and included branches over a lower
+ *   · team seats · branches · reach → `limitOf` (`lib/plan-sheet.ts`), i.e. `TIER_CAPS` (no bookings-a-day row since
+ *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Seats and included branches over a lower
  *                  plan are KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN";
  *                  `canSeat` in lib/vendor-free-helper.ts: "a shop already over its seats after a downgrade … just
  *                  cannot grow"). Paid extra seats only count on a plan that may buy them (`canBuyExtraSeats`).
@@ -40,7 +40,6 @@ import type { TeamSeats } from './vendor-free-helper';
 /** Where each Fix lands — the page that fixes that limit (every one an existing supplier page). */
 export const FIX_HREF = {
   services: '/vendor-dashboard/services',
-  dailyBookings: '/vendor-dashboard/services',
   teamSeats: '/vendor-dashboard/team',
   branches: '/vendor-dashboard/profile#where',
   reach: '/vendor-dashboard/profile#where',
@@ -145,18 +144,8 @@ export function downgradeFit(
         fix: { label: 'Pick which stay on', href: FIX_HREF.services },
       });
     }
-    // ── Bookings a day per service ──
-    const perDay = limitOf(plan, 'bookingsPerDate', opts.paywallOn);
-    const overDaily = on.filter((c) => c.daily !== null && c.daily > perDay);
-    if (Number.isFinite(perDay) && overDaily.length > 0) {
-      rows.push({
-        key: 'dailyBookings',
-        title: 'Bookings a day per service',
-        line: `${plural(overDaily.length, 'service takes', 'services take')} more than ${name}’s ${limitWords('bookingsPerDate', perDay)} a day.`,
-        state: 'over',
-        fix: { label: 'Set bookings a day', href: FIX_HREF.dailyBookings },
-      });
-    }
+    // ⛔ No "bookings a day" row since 2026-11-18 (ruling 17): bookings per date are not a plan limit, so changing plan
+    // never puts a service over one.
   }
 
   // ── Team seats — kept over a lower plan; the team just cannot grow ──

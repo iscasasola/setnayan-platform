@@ -130,3 +130,23 @@ export function daysToGo(
   if (calendar === 1) return { kind: 'tomorrow' };
   return { kind: 'days', days: countdownReading(target, nowMs).days };
 }
+
+/**
+ * 🔢 THE NUMBER BEHIND "N days to go", FOR ANY SURFACE THAT PRINTS ONE (W4 B4, 18 Nov 2026): Home said "212 days to go"
+ * and Schedule "213" for the same 19 Jun 2027 — Schedule subtracted calendar days (`daysBetween`), Home used the rule
+ * above (whole days of REAL time left). Every surface now reads THIS, so the two cannot count one fact two ways.
+ * Tomorrow is 1, today 0, a past day negative; null when the date cannot be anchored.
+ * 🔒 lib/days-to-go-is-one-calculation.test.ts
+ */
+export function daysToGoCount(
+  eventDate: string | null | undefined,
+  tz: string | null | undefined,
+  nowMs: number,
+): number | null {
+  const r = daysToGo(eventDate, tz, nowMs);
+  if (r === null) return null;
+  if (r.kind === 'days') return r.days;
+  if (r.kind === 'tomorrow') return 1;
+  if (r.kind === 'today') return 0;
+  return -r.daysAgo;
+}

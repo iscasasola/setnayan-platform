@@ -40,6 +40,13 @@ test('the Free row says all your own clients, no limit', () => {
   assert.match(block, /EARN_FREE_ROWS\.map\(/, 'the block does not render its Free rows');
 });
 
+test('own clients follow the 16 Nov import-fee ruling — free for a year, never "free for life"', () => {
+  assert.doesNotMatch(block + words, /free for life/i, 'the retired "free for life" rule came back');
+  assert.match(words, /title: OWN_CLIENT_PROMISE,/, 'the own-client promise is not main\u2019s shipped line');
+  const own = EARN_FREE_ROWS.find((r) => r.title === 'Your own clients');
+  assert.match(own?.body ?? '', /free for a year/, 'anti-vacuity: the Free row no longer states the one-year rule');
+});
+
 test('(3) the badge reward is not repeated in this block', () => {
   assert.doesNotMatch(block + words, /1,000 events|free booking fee from/i, 'the badge reward is repeated outside the Badges ⓘ');
   assert.match(page, /a free booking fee from 1,000 events/, 'anti-vacuity: the Badges ⓘ no longer carries the reward');

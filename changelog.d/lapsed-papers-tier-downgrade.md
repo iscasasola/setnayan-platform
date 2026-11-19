@@ -1,0 +1,10 @@
+## 2026-11-20 · fix(verify): the 30 March papers lapse really drops the plan to Free
+
+`stampLapsedPapers` (`lib/papers-lapse.server.ts`) wrote `tier_state = 'free'` with a plain update. The `vendor_tier_no_silent_downgrade` trigger (20271115090000) refuses any update that lowers a shop still inside its plan unless `setnayan.allow_tier_downgrade` is on for the transaction, and a PostgREST update cannot set that. Both lapse writes were refused: the free "verified" drop (that plan has no end date, so it is always live) and the paid-plan hold (from #7979). The pass never throws, so on 31 March every lapsed shop would have stayed findable and on its plan, with only a console line to show for it.
+
+- New `public.stamp_papers_lapse(uuid, text, timestamptz)` (migration `20271354465843`): SECURITY DEFINER, `search_path = ''`, service role only. It sets the downgrade flag for its own transaction, writes the stamp, the Free plan and the stopped clock (`tier_expires_at = NULL`, the held days) in ONE update, and then clears the flag. It re-checks the lapse in SQL (verified, not yet stamped, renewal day passed), so the flag can't be used to lower any other shop. The guard trigger is unchanged.
+- `stampLapsedPapers` calls it with `planHoldAtLapse`'s `kind`. Notification, audit row (held tier and days) and home-shelf clear are unchanged.
+- New `tests/db/papers-lapse-drops-the-plan.db.test.ts`. It reproduces the refusal of the old plain write, checks both drops, idempotence and the re-check, and checks that the flag does not outlive the function in the same transaction. It also checks that a plain downgrade from anywhere else is still refused, and that only `service_role` can execute the function. Without the migration, tests 2–6 fail.
+- Source pins in `lib/papers-lapse.test.ts` and `lib/papers-renewal.test.ts` now follow the RPC, and the lapse test fails if a plain `vendor_profiles` update comes back.
+
+SPEC IMPACT: None. This puts the existing rulings into effect (DECISION_LOG 481b9b6b; 14 Nov ruling 2) and adds no new behaviour.

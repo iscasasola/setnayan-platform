@@ -154,7 +154,8 @@ test('ruling 2 · on renewal the held plan comes back with the same days, counte
 test('ruling 2 · wiring: the lapse writes the hold into its audit row; the approval reads it back', () => {
   const lapse = code('lib/papers-lapse.server.ts');
   assert.match(lapse, /const plan = planHoldAtLapse\(row, now\)/);
-  assert.match(lapse, /plan\.kind === 'hold' \? \{ tier_state: 'free', tier_expires_at: null \}/);
+  // The hold (free plan, clock stopped) is written in SQL by stamp_papers_lapse, handed plan.kind.
+  assert.match(lapse, /p_plan: plan\.kind/);
   assert.match(lapse, /held_tier: plan\.tier, held_ms: plan\.heldMs/);
   const engine = code('lib/verification-decision.server.ts');
   const approve = engine.slice(engine.indexOf("case 'approved':"), engine.indexOf("case 'rejected':"));

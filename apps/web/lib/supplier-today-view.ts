@@ -50,11 +50,9 @@ import {
   type TodayRowIcon,
   type TodayRowWords,
   doorNeed,
-  permitNeed,
   todayNeedOf,
   type TodayNeed,
 } from '@/lib/supplier-today';
-import { badgeDeadline } from '@/lib/verified-badge';
 
 /** The "How is business" line for a shop Setnayan has not verified yet — true before and after Verified's reach. */
 export const UNVERIFIED_BUSINESS_LINE = 'Couples can open your page by its link and message you';
@@ -105,11 +103,6 @@ export type SupplierTodayInput = {
   askDayHolds?: Record<string, string[]>;
   /** The event day's own facts (`readEventDayFacts`) — only when the first booking is today. */
   dayFacts: EventDayFacts | null;
-  /**
-   * 📄 The badge's papers deadline (`vendor_profiles.next_renewal_due_at`, off the one shop-row read) — undefined when
-   * the row was not read: no permit row then, never a guessed one.
-   */
-  renewalDueAt?: string | null;
   /** 🧰 The six steps are drawn on top of Today — the "Finish setting up" door would say it twice. */
   setupDrawn?: boolean;
   /** 📊 Booked events dated this Manila month (`fetchVendorOverviewData().bookedThisMonth`) — null = could not count. */
@@ -386,12 +379,9 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
     gift: input.gift ?? null,
     now,
   }).doors;
-  const permit =
-    input.renewalDueAt === undefined
-      ? null
-      : permitNeed(badgeDeadline({ verification_state: input.verified ? 'verified' : 'pending', next_renewal_due_at: input.renewalDueAt }, new Date(now)));
+  // 📄 The renewal is no longer a row here: it is the renewal notice at the top of Today (`PapersRenewalLine`, the
+  // approved "Papers renewal" design §1–§2) — one fact, said once, by the 30 March day and never the permit's date.
   needs.push(...doorWords.map(doorNeed));
-  if (permit) needs.push(permit);
   needs.push(...closed.map((card) => todayNeedOf(card, now)));
   const allBills = [...input.feeBills];
   // An unread desk has no honest count (the "couldn't load" row is not a task, and asks may be missing) — no number.

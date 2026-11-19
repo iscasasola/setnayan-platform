@@ -103,7 +103,7 @@ export default async function VendorCreatorsPage({
   );
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         title="Creators"
       />
@@ -218,22 +218,12 @@ export default async function VendorCreatorsPage({
             inquiries their chapters drove that a supplier unlocked). Discounts
             settle off-platform, so they&rsquo;re not shown here.
           </p>
-          <div className="overflow-x-auto rounded-tile border border-ink/10 bg-white">
-            <table className="w-full min-w-[34rem] text-left text-sm">
-              <thead className="border-b border-ink/10 bg-ink/[0.03] text-[11px] uppercase tracking-[0.12em] text-ink/55">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Creator</th>
-                  <th className="px-4 py-3 text-right font-medium">Inquiries driven</th>
-                  <th className="px-4 py-3 font-medium">Collab</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink/8">
-                {roi.map((r) => (
-                  <RoiRow key={r.creatorUserId} row={r} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* 📱 One row per creator — the phone's row (the offers' `sn-row` above), carried up; never a table. */}
+          <ul className="space-y-3" data-creator-roi="">
+            {roi.map((r) => (
+              <RoiRow key={r.creatorUserId} row={r} />
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -409,33 +399,31 @@ function roiStatusStyle(row: VendorCreatorRoiRow): string {
 
 function RoiRow({ row }: { row: VendorCreatorRoiRow }) {
   return (
-    <tr>
-      <td className="px-4 py-3 align-top">
-        <p className="text-sm font-medium text-ink">
-          {row.creatorSlug ? (
-            <Link href={`/u/${row.creatorSlug}`} className="hover:underline">
-              {row.creatorName}
-            </Link>
-          ) : (
-            row.creatorName
-          )}
-        </p>
-      </td>
-      <td className="px-4 py-3 text-right align-top">
-        <span className="inline-flex items-center justify-end gap-1.5 font-mono text-sm tabular-nums text-ink">
-          {formatAudienceCount(row.inquiriesDriven)}
-          {/* Same tier band as the browse card + /u — a rendering of the number
-              to its left; hides at 0. */}
-          <CreatorTierChip inquiriesDriven={row.inquiriesDriven} />
-        </span>
-      </td>
-      <td className="px-4 py-3 align-top">
+    <li className="sn-row p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="text-sm font-semibold text-ink">
+            {row.creatorSlug ? (
+              <Link href={`/u/${row.creatorSlug}`} className="hover:underline">
+                {row.creatorName}
+              </Link>
+            ) : (
+              row.creatorName
+            )}
+          </p>
+          <p className="inline-flex items-center gap-1.5 text-[12.5px] text-ink/70">
+            <span className="font-mono tabular-nums text-ink">{formatAudienceCount(row.inquiriesDriven)}</span>
+            {row.inquiriesDriven === 1 ? 'inquiry driven' : 'inquiries driven'}
+            {/* Same tier band as the browse card + /u — a rendering of the number to its left; hides at 0. */}
+            <CreatorTierChip inquiriesDriven={row.inquiriesDriven} />
+          </p>
+        </div>
         <span
-          className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${roiStatusStyle(row)}`}
+          className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.1em] ${roiStatusStyle(row)}`}
         >
           {roiStatusLabel(row)}
         </span>
-      </td>
-    </tr>
+      </div>
+    </li>
   );
 }

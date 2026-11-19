@@ -31,14 +31,13 @@ function data(empty: boolean): OfferMakerData {
     cards: CARDS,
     gifts: {
       packs: shopGiftPacksFrom([
-        { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99, giftPricePhp: 90 },
-        { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499, giftPricePhp: 449 },
-        { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999, giftPricePhp: 899 },
+        { code: 'PAPIC_GUEST_150', title: 'Papic 150', credits: 150, pricePhp: 99 },
+        { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', credits: 1000, pricePhp: 499 },
+        { code: 'PAPIC_GUEST', title: 'Papic 3000', credits: 3000, pricePhp: 999 },
       ]),
       schedule: { rate: 0.05, tailRate: 0.01, tier1LimitPhp: 100000, minPhp: 50 },
       limitPct: 40,
-      paysGiftPrice: true,
-      free: { papic: 7800, event_plus: 0, event_pro: 0, event_ultra: 0 },
+      free: { papic: 7800, event_plus: 0, event_pro: 0, event_ultra: 0, packs: { PAPIC_GUEST_150: 2, PAPIC_GUEST_1K: 6, PAPIC_GUEST: 2 } },
       addons: [
         { id: 1, cardId: 'c1', label: 'Extra hour', fromPhp: 8000 },
         { id: 2, cardId: 'c1', label: '50 more cocktails', fromPhp: 6500 },

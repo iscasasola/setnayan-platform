@@ -74,12 +74,15 @@ test('2 · the day bar — Accept bookings + Book a client, which is the shipped
   assert.match(BAR, /if \(day < today\) return null;/, 'a past day draws a bar');
 });
 
-test('3 · the tiles are Booked · Schedules · Asked · To collect, each a list in place', () => {
+test('3 · the tiles are Booked · Asked · To collect (then Overdue · Unread), each a list in place', () => {
   const doors = PAGE.slice(PAGE.indexOf('const doors: CustomersDoor[] = ['), PAGE.indexOf('const overdue = overdueRead'));
   const keys = [...doors.matchAll(/key: '([a-z]+)'/g)].map((m) => m[1]);
-  assert.deepEqual(keys, ['booked', 'schedules', 'asking', 'collect'], 'the tiles are not v113’s four, in order');
+  // Clients, cleaner (owner "Yes, all three", 19 Nov, Q3): the meetings tile left the row — its list stays (Show › Schedules).
+  assert.deepEqual(keys, ['booked', 'asking', 'collect'], 'the tiles are not Booked · Asked · To collect, in order');
   // Booked may read "booked this month" when Today's stat narrowed it (EB-219, `?within=month`) — that one ternary, nothing else.
-  assert.deepEqual([...doors.matchAll(/word: (?:monthIds \? 'booked this month' : )?'([a-z ]+)'/g)].map((m) => m[1]), ['booked', 'meetings', 'asked', 'to collect'], 'B29 (owner "Yes, all 8", 16 Nov 2026): the meetings tile reads "Meetings" — "schedule" is a pool elsewhere');
+  assert.deepEqual([...doors.matchAll(/word: (?:monthIds \? 'booked this month' : )?'([a-z ]+)'/g)].map((m) => m[1]), ['booked', 'asked', 'to collect']);
+  // The meetings list is still drawn and still reachable — Show & sort › Show › Schedules opens it in place.
+  assert.match(code('clients-show-sort.ts'), /\{ key: 'schedules', label: 'Schedules' \}/, 'the Schedules list has no door left');
   for (const k of ['schedules', 'collect', 'overdue', 'unread']) {
     assert.match(PAGE, new RegExp(`\\n\\s+${k}: \\(?\\s*<`), `the ${k} list is not drawn`);
   }
@@ -121,6 +124,29 @@ test('4 · Overdue (n) › · Unread (n) › — hidden at 0, said when unread, 
   const viewing = render([{ key: 'overdue', word: 'Overdue', value: '3', zero: false }], 'overdue');
   assert.match(viewing, /data-customers-viewing="overdue"[\s\S]*Viewing all overdue · 3/);
   assert.match(viewing, /<div id="customers-list-overdue" data-customers-list-for="overdue">/, 'the overdue list is not shown in place');
+  // 🧹 On the ONE Clients screen (title set) they are tiles in the tiles row (owner 19 Nov, Q3) — same rules: hidden at a
+  // real 0, a dash named "couldn't load" when unread, each one shows its list in place.
+  const tiles = (quick: unknown) =>
+    renderToStaticMarkup(
+      React.createElement(CustomersPin, {
+        seg: 'events',
+        hrefs: { events: '/x', dates: '/x?seg=dates', money: '/x?seg=money' },
+        doors: [{ key: 'booked', value: '1', word: 'booked' }],
+        panels: { all: 'all', booked: 'b', overdue: 'o', unread: 'u' },
+        quick,
+        title: {},
+        gear: null,
+      } as never),
+    );
+  const row = tiles([
+    { key: 'overdue', word: 'Overdue', value: '3', zero: false },
+    { key: 'unread', word: 'Unread', value: null, zero: false },
+  ]);
+  const inRow = /data-customers-tiles=""[\s\S]*?<\/div>/.exec(row)?.[0] ?? '';
+  assert.match(inRow, /aria-controls="customers-list-overdue"[^>]*data-customers-quick="overdue"[^>]*>[\s\S]*?Overdue[\s\S]*?>3</, 'Overdue is not a tile in the row');
+  assert.match(inRow, /aria-label="Unread couldn’t load" disabled=""[^>]*data-customers-quick="unread"/, 'an unread count is not said on its tile');
+  assert.equal(count(tiles([{ key: 'overdue', word: 'Overdue', value: '0', zero: true }]), /data-customers-quick=/g), 0, 'a real 0 still draws its tile');
+  assert.doesNotMatch(row, /data-customers-quick-row|data-customers-quick-wrap/, 'the one screen draws a quick row again');
 });
 
 test('5 · honest words — a refused count is null, a short one N+, a short payday null; never 0 or ₱0', async () => {

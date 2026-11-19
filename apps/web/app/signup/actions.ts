@@ -15,6 +15,7 @@ import { isPasswordLeaked } from '@/lib/leaked-password';
 import { TERMS_FIELD, TERMS_VERSION, hasAgreedToTerms } from '@/lib/terms-agreement';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
 import { isEventSignup, signupLanding } from '@/lib/signup-landing';
+import { siteOrigin } from '@/lib/site-origin';
 
 function parseAccountType(raw: FormDataEntryValue | null): 'customer' | 'vendor' {
   const value = raw ? String(raw) : '';
@@ -131,7 +132,7 @@ export async function signUp(formData: FormData) {
     return redirect(signupRetryPath('blacklisted', next, accountType));
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = siteOrigin();
   const supabase = await createClient();
 
   // ── Anon-draft convert-in-place (flag-gated · 2026-06-20) ────────────────

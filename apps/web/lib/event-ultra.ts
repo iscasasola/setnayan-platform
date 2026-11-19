@@ -112,6 +112,29 @@ export function fullResKeepDays(standardDays: number, extraKeepDays: readonly (n
  */
 
 /** Which plan the credit came from — the words on the screen follow it. */
+/**
+ * 💳 Is a Plus / Pro payment still open on this event, so Ultra must be refused (owner 2026-11-16, "Approved", #7841)?
+ * OPEN = 'submitted' (the couple logged it, the team has not confirmed it) OR 'awaiting_payment' (the team bounced it
+ * back for better proof — still owed, still cancellable). Both are unpaid and both can still clear, so selling Ultra at
+ * full price on top would bill the plan twice once it clears, and selling it at the difference would credit money never
+ * received. A PAID Pro wins (its difference is the right price); a Plus counts only when no plan is paid.
+ * `null` = nothing open, price as usual. Pure: `readUltraUpgradeCharge` hands it the order lines it already read.
+ */
+export const ULTRA_PLAN_OPEN_STATUSES: ReadonlySet<string> = new Set(['submitted', 'awaiting_payment']);
+export function ultraPlanPaymentOpen(input: {
+  lines: readonly { service_key: string | null; status: string | null }[];
+  proSku: string;
+  plusSku: string;
+  proPaid: boolean;
+  plusPaid: boolean;
+}): 'pro' | 'plus' | null {
+  const open = (sku: string) =>
+    input.lines.some((r) => r.service_key === sku && r.status !== null && ULTRA_PLAN_OPEN_STATUSES.has(r.status));
+  if (!input.proPaid && open(input.proSku)) return 'pro';
+  if (!input.proPaid && !input.plusPaid && open(input.plusSku)) return 'plus';
+  return null;
+}
+
 export type UltraUpgradeFrom = 'pro' | 'plus' | 'parts';
 
 export type UltraUpgradeCharge =

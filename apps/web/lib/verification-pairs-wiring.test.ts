@@ -70,7 +70,7 @@ test('every column the pairs type has a writer, and the number keeps its ONE wri
   assert.equal(
     (src.match(/registration_number_normalized/g) ?? []).length,
     2,
-    'the uniqueness claim has gained (or lost) a writer — it lives in saveRegistrationNumberInline only',
+    'the uniqueness claim has gained (or lost) a writer — it lives in claimRegistrationNumber only',
   );
   // …and that one writer is deliberately excluded from the generic field save.
   assert.match(src, /IDENTITY_FIELD_WRITABLE[\s\S]{0,160}registration_number_raw/);

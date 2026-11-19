@@ -1,3 +1,4 @@
+import { RenewalsList } from './renewals-list';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { VendorCardTitle } from './vendor-card-title';
@@ -97,7 +98,7 @@ export async function VendorsSurface({
   status: string;
 }) {
   const q = (qRaw ?? '').trim();
-  const status = (statusRaw ?? 'all') as 'all' | 'published' | 'draft';
+  const status = (statusRaw ?? 'all') as 'all' | 'published' | 'draft' | 'renewals';
 
   const admin = createAdminClient();
   let query = admin
@@ -557,6 +558,7 @@ export async function VendorsSurface({
           <option value="all">All</option>
           <option value="published">Published</option>
           <option value="draft">Draft</option>
+          <option value="renewals">Renewals</option>
         </select>
         <button type="submit" className="button-secondary">Apply</button>
       </form>
@@ -568,7 +570,10 @@ export async function VendorsSurface({
           what it means. This grid keeps its cards deliberately (the logo is how
           a shop is recognised), so it states the case itself instead of handing
           it to the table archetype. */}
-      {vendors === null ? (
+      {/* 📄 Papers renewal §5 — the Renewals filter draws its own list (state · why · papers), not the card grid. */}
+      {status === 'renewals' ? (
+        <RenewalsList />
+      ) : vendors === null ? (
         <p
           role="alert"
           className="rounded-xl border border-danger-300/60 bg-danger-50/60 px-4 py-4 text-sm text-danger-900"

@@ -49,7 +49,8 @@ export function backstageSetLine(args: { shop: string; label: string | null; toI
 
 /* ── The row behind a line ───────────────────────────────────────────────────────────────────────────────────────── */
 
-export const TIME_ASK_COLUMNS = 'suggestion_id, event_id, block_id, kind, direction, status, proposed_label, proposed_start_at, created_at';
+// The ask card's own narrow read — NOT the table's canonical column list (other reads of event_schedule_suggestions stay as they are).
+export const TIME_ASK_CARD_READ = 'suggestion_id, event_id, block_id, kind, direction, status, proposed_label, proposed_start_at, created_at';
 
 export type TimeAskRow = {
   suggestion_id: string;

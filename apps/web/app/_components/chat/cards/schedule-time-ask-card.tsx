@@ -23,7 +23,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, Undo2, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/client';
-import { TIME_ASK_COLUMNS, TIME_ASK_LINE_SLACK_MS, findTimeAsk, timeAskSettledWords, timeAskTurn, type TimeAskLine, type TimeAskRow } from '@/lib/schedule-time-ask';
+import { TIME_ASK_CARD_READ, TIME_ASK_LINE_SLACK_MS, findTimeAsk, timeAskSettledWords, timeAskTurn, type TimeAskLine, type TimeAskRow } from '@/lib/schedule-time-ask';
 import { resolveScheduleSuggestion } from '@/app/dashboard/[eventId]/schedule/actions';
 import { suggestScheduleChange } from '@/app/vendor-dashboard/clients/[eventId]/actions';
 import { ChatCardShell } from '../chat-step-card';
@@ -42,7 +42,7 @@ async function loadTimeAsk(threadId: string, line: TimeAskLine, lineAt: string):
   if (!Number.isFinite(at)) return { at: 'failed' };
   const { data, error } = await supabase
     .from('event_schedule_suggestions')
-    .select(TIME_ASK_COLUMNS)
+    .select(TIME_ASK_CARD_READ)
     .eq('event_id', thread.event_id)
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .gte('created_at', new Date(at - TIME_ASK_LINE_SLACK_MS - 5_000).toISOString())

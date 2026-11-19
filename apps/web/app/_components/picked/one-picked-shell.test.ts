@@ -165,6 +165,9 @@ test('a computer’s layout is said in CSS, so the first paint is already it —
   assert.match(shell, /\? 'flex-1 lg:ml-auto lg:w-\[360px\] lg:flex-none xl:w-\[400px\]'\s*: 'flex-1 lg:w-\[592px\] lg:flex-none xl:w-\[564px\]'/, 'a Chat landing is not drawn where the Chat column will be');
   assert.match(shell, /sideChat && m\.id === sideChat\.page \? 'lg:hidden ' : ''/, 'the Chat tab shows on a computer until the page wakes');
   assert.doesNotMatch(shell, /split \? WIDE_FRAME/, 'the frame waits for the width read again');
+  // A `?tab=` landing scrolls AFTER the portal lands — a scroll on the in-place first frame is thrown away with it
+  // (measured in the lab, 19 Nov 2026: `?tab=forms` opened Details at its top).
+  assert.match(shell, /if \(!host \|\| !scrollTo \|\| workPage !== scrollTo\.page\) return;[\s\S]{0,400}\}, \[host\]\);/, 'the landing scroll no longer waits for the portal');
   // The couple's Book & Budget and Details wrap sections that already carry their label: one id each, no nested section.
   const ws = read(WORKSPACE);
   assert.equal((ws.match(/id="payments"/g) ?? []).length, 1, '`payments` is said twice (or never) on the couple page');

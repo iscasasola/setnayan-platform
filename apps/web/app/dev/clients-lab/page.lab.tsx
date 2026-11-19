@@ -40,7 +40,7 @@ import { Plus, Settings } from 'lucide-react';
 import { SearchBox } from '@/app/_components/search-box';
 import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
-import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { pickedAnchorOf, pickedMenuFor, visiblePickedPage, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { clientLandingPage } from '@/lib/upcoming-schedule-door';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
 import { detailsNumbers } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers';
@@ -395,7 +395,9 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   }
 
   if (v === 'pick') {
-    const page = (one(sp.page) ?? 'details') as PickedClientPage;
+    // `?tab=` lands exactly as the real client page does (page + part); `?page=` is the lab's own plain pick.
+    const tab = one(sp.tab);
+    const page = tab ? visiblePickedPage(tab, true) : ((one(sp.page) ?? 'details') as PickedClientPage);
     return (
       <div className="min-h-screen bg-cream" data-clients-lab="pick">
         <PickedClientShell
@@ -403,6 +405,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           eventName="Reyes & Santos wedding"
           menu={pickedMenuFor(true)}
           initialPage={page}
+          landAt={pickedAnchorOf(tab)}
           bodies={pickedBodies(
             page,
             one(sp.cal) === 'fail' ? 'fail' : one(sp.cal) === 'two' ? 'two' : null,

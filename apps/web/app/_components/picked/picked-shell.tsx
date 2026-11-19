@@ -287,14 +287,16 @@ export function PickedShell<P extends string>({
   }, [host, warm]);
 
   // `scrollTo` (a `?tab=` that names a part: the Script fold, the payments, the Forms) — the SAME path as `nav.select`.
+  // It waits for the portal (`host`): the first frame is drawn in place and then moved onto <body>, and a scroll made
+  // on the in-place frame is thrown away with it (measured 19 Nov 2026 — `?tab=forms` opened Details at its top).
   useEffect(() => {
-    if (!scrollTo || workPage !== scrollTo.page) return;
+    if (!host || !scrollTo || workPage !== scrollTo.page) return;
     const t = window.setTimeout(() => {
       scrollToPart(scrollTo.id);
     }, prefersReducedMotion() ? 0 : PICKED_OPEN_MS);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [host]);
 
   const fills = fillPages.includes(workPage);
   const frame = sideChat ? WIDE_FRAME : NARROW_FRAME;

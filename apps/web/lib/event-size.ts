@@ -3,7 +3,7 @@
  * WHEN THE HOST HAS NO NUMBER: SMALL 30 · MEDIUM 50 · LARGE (WEDDING) 150 — SHOWN AS THEIR MINIMUM, CHANGEABLE").
  *
  * The SIZE lives on the event-type profile (`event_type_profiles.event_size`, admin-editable — migration
- * 20271350215206); these three numbers are the owner's own and live here once. A type with no size set gets NO start
+ * 20271351898146); these three numbers are the owner's own and live here once. A type with no size set gets NO start
  * number (null) — the guest step then starts where it always did. Never a guess.
  */
 import type { EventSize } from './event-type-profile';

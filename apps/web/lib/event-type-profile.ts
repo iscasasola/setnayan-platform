@@ -238,7 +238,7 @@ export type ProfileSetup = {
   /** Papic's starting posture. 'quiet' = no party challenges, no confetti (a wake). */
   cameraDefault: CameraDefault;
   /**
-   * 👥 small · medium · large (migration 20271350215206, owner 2026-11-17) — the guest step's starting number
+   * 👥 small · medium · large (migration 20271351898146, owner 2026-11-17) — the guest step's starting number
    * (`lib/event-size.ts`). Absent/null = not set (Admin has not chosen): no start number, never a guess.
    */
   eventSize?: EventSize | null;
@@ -356,7 +356,7 @@ export const WEDDING_PROFILE: EventTypeProfile = {
     teamFirst: ['venue', 'catering', 'photo_video', 'coordinator', 'florist', 'stylist_decorator', 'hmua', 'cake'],
     lookSet: ['velvet', 'vintage', 'regency', 'cinderella'],
     cameraDefault: 'on',
-    // The wedding is LARGE (migration 20271350215206 seeds it; owner 2026-11-17). Its core categories live ONLY in
+    // The wedding is LARGE (migration 20271351898146 seeds it; owner 2026-11-17). Its core categories live ONLY in
     // that row — no second copy here (lib/no-taxonomy-literals): a read error falls back to the shipped starter ring.
     eventSize: 'large',
   },
@@ -621,7 +621,7 @@ export type ProfileRow = {
   team_first?: string[] | null;
   look_set?: string[] | null;
   camera_default?: string | null;
-  /** Migration 20271350215206. Optional: absent before it applies. */
+  /** Migration 20271351898146. Optional: absent before it applies. */
   event_size?: string | null;
   core_categories?: string[] | null;
 };
@@ -639,7 +639,7 @@ function toSetup(row: ProfileRow, fb: ProfileSetup): ProfileSetup {
     Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length > 0) : null;
   const teamFirst = textArray(row.team_first);
   const lookSet = textArray(row.look_set);
-  // The two columns of 20271350215206: a row that does not carry them (undefined — read before the migration, or
+  // The two columns of 20271351898146: a row that does not carry them (undefined — read before the migration, or
   // through a narrower select) keeps the fallback's value; a row that carries NULL is "not set" and says so.
   const sizeRaw = row.event_size;
   const coreRaw = row.core_categories;
@@ -764,7 +764,7 @@ const PROFILE_BASE_COLUMNS =
   'event_type, terminology, enabled_surfaces, onboarding_flow_key, role_set_key, template_pack_key, monogram_set_key, reveal_pack_key, budget_taxonomy_key, schedule_seed_key, statutory_pack_key';
 const PROFILE_OPTIONAL_COLUMNS =
   'marketplace_enabled, event_class, layer_mode, multi_day, max_days, guest_word, gifts_mode, team_first, look_set, camera_default';
-/** Migration 20271350215206 — read in a tier of its own, so code that ships before it never costs the columns above. */
+/** Migration 20271351898146 — read in a tier of its own, so code that ships before it never costs the columns above. */
 const PROFILE_SIZE_COLUMNS = 'event_size, core_categories';
 
 /**

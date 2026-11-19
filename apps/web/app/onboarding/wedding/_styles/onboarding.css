@@ -415,7 +415,6 @@
 @keyframes mt-draw1{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes mt-fill{to{fill-opacity:1}}
 @keyframes mt-fade{from{opacity:0}to{opacity:1}}
-@keyframes mt-framein{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
 /* the filigree ring is 237 FILLED gold paths (not strokable), so it "draws" via an
    animated conic mask — a clockwise pen-sweep with a soft 12° leading edge. A
    registered <angle> custom property is what makes the conic interpolate; on

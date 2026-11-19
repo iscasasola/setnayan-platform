@@ -135,7 +135,7 @@ export async function EventTypePanel({
     .eq('event_type', eventType)
     .maybeSingle<ProfileRow>();
   const profileReadFailed = Boolean(profileError);
-  // 👥 · 🛒 Size and core categories (migration 20271350215206) — read on their own, so a prod that has not applied
+  // 👥 · 🛒 Size and core categories (migration 20271351898146) — read on their own, so a prod that has not applied
   // the migration hides ONLY this section (and never sends `size_shown`, so nothing can be cleared by omission).
   const { data: sizeData, error: sizeError } = await admin
     .from('event_type_profiles')

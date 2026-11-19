@@ -127,7 +127,7 @@ const LANDING_CSS =
   // motion, and each time the bar came back the block reached its place first —
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
-  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
+  '[data-suppliers-stick]{transition:top var(--sn-tuck-dur) var(--sn-tuck-ease),box-shadow .3s ease-out}';
 // 🛒 FIND · BUILD · BOOK — SEARCH · CART · ORDERS (owner 2026-11-17: *"technically this is like search, view cart and
 // ordered on a shopping app"* · *"the find build book"*; drawing v15 `shoprow`). Three plain steps, each an icon with
 // its read badge and its word, then the ⚙ — the same at rest and pinned. It OVERTURNS the 30 Oct one-selector rule for

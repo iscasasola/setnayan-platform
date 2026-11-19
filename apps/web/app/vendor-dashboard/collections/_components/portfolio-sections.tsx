@@ -38,6 +38,21 @@ import { DatesRow } from '../../customers/_components/dates-row';
 /** Inside a risen group the rail WRAPS into a grid on the 16-px gutters instead of scrolling sideways. */
 const InRise = createContext(false);
 
+/**
+ * 🚪 INSIDE A WAY IN (Portfolio, simpler — owner 2026-11-19): the section is already on a risen screen, so it draws as a
+ * plain heading over its group — no › (one level, never a second screen on top), no ˅ (one switch per screen).
+ */
+const InWay = createContext(false);
+
+/** The body of a risen way in: its sections draw plain and their rails wrap. */
+export function WayBody({ children }: { children: ReactNode }) {
+  return (
+    <InRise.Provider value>
+      <InWay.Provider value>{children}</InWay.Provider>
+    </InRise.Provider>
+  );
+}
+
 /** What a group's head rises into: its count line, the full-screen grid (absent → the section's own rail, wrapped) and
  *  the group's own page, as one row at the foot (a `#` anchor is never one — it lives under the risen screen). */
 export type GroupRise = { line: string; body?: ReactNode; page?: { title: string; line: string; href: string } | null };
@@ -93,6 +108,7 @@ export function PortfolioSection({
   const [folded, setFolded] = useState(false);
   const [risen, setRisen] = useState(false);
   const bodyId = useId();
+  const inWay = useContext(InWay);
   const sectionRef = useRef<HTMLElement>(null);
   // An unfolded section whose rail runs low glides its head to the pin line — the app-wide reveal-on-open, shared hook.
   const intend = useRevealOnOpen(!folded, () => ({ head: sectionRef.current }));
@@ -104,6 +120,29 @@ export function PortfolioSection({
   );
   // The title keeps its room (a long one wraps to two lines); the count gives way first; the ˅ holds the right end.
   const headClass = 'sn-press flex min-w-0 flex-[0_1_auto] items-center gap-1 text-left';
+  if (inWay)
+    return (
+      <section aria-label={title} className="pt-4" data-portfolio-section={id} data-portfolio-plain="">
+        <div className="flex min-h-11 items-center gap-2 px-4 pb-2" data-portfolio-section-head="">
+          <h3 className="line-clamp-2 min-w-0 flex-[0_1_auto] text-[16px] font-semibold leading-tight text-ink">{title}</h3>
+          {pill ? (
+            <span className="ml-auto flex min-w-0 max-w-[46%] flex-none">
+              <DoorButton door={pill} data={id} />
+            </span>
+          ) : countLabel ? (
+            <span className="ml-auto min-w-0 flex-[0_6_auto] truncate font-mono text-[12.5px] text-ink/55" data-portfolio-count="">
+              {countLabel}
+            </span>
+          ) : null}
+        </div>
+        {rise?.body ?? children}
+        {rise?.page && !rise.page.href.startsWith('#') ? (
+          <div className="px-4 pt-3">
+            <DatesRow data={`portfolio-page-${id}`} title={rise.page.title} line={rise.page.line} href={rise.page.href} />
+          </div>
+        ) : null}
+      </section>
+    );
   return (
     <section ref={sectionRef} aria-label={title} className="pt-5" data-portfolio-section={id} data-folded={folded ? '' : undefined}>
       <div className="flex min-h-11 items-center gap-2 px-4 pb-2.5" data-portfolio-section-head="">
@@ -181,7 +220,7 @@ export function Rail({ children, data }: { children: ReactNode; data: string }) 
     );
   return (
     <div
-      className="flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-pl-4 pl-4 pr-0 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex snap-x snap-mandatory items-start gap-2.5 overflow-x-auto scroll-pl-4 pl-4 pr-0 pb-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sn-glide-x"
       data-portfolio-rail={data}
     >
       {children}

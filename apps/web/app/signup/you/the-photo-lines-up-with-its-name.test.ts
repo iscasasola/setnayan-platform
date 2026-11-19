@@ -96,7 +96,9 @@ test('3 · each state says what is true, in the drawn words', () => {
   assert.match(rowSrc, /Tap the circle to try another file/, 'refused');
   assert.match(rowSrc, /Uploading · \{flying!\.progress\}% · \{bytesToHuman\(flying!\.size\)\}/, 'uploading');
   assert.match(rowSrc, /cancelInFlight\(flying!\.id\)[\s\S]{0,120}Cancel/, 'uploading has Cancel');
-  assert.match(rowSrc, /conic-gradient\(#C24E25 \$\{flying!\.progress\}%/, 'the circle is the progress ring');
+  // 19 Nov 2026: the circle is the ONE upload ring (MOTION_STANDARD § 4 #25, `upload-ring.tsx`), still filled by the
+  // upload's own measured figure — no longer a conic ring typed on the row.
+  assert.match(rowSrc, /<UploadRing pct=\{flying!\.progress\} size=\{72\}/, 'the circle is the progress ring');
   assert.match(rowSrc, /Not saved yet — \{unsavedTail\(unsavedHint\)\}/, 'chosen');
   assert.match(rowSrc, />Saved</, 'saved');
   assert.match(rowSrc, /removeItem\(first!\.id\)[\s\S]{0,120}Remove/, 'Remove');

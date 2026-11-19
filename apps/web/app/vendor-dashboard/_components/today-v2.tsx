@@ -22,7 +22,7 @@ import {
   ReviewBody,
 } from './overview-sections';
 import { TodayAsideButton, TodayQuickGroup, TodayQuickRow } from './today-v2-client';
-import type { DoneTodayRow, GrowStage, TodayBadgeTag, TodaySplit, TodayTaskRow, TrendLine } from '@/lib/supplier-today-v2';
+import { BILLS_UNREAD_LINE, DONE_UNREAD_LINE, type DoneTodayRow, type GrowStage, type TodayBadgeTag, type TodaySplit, type TodayTaskRow, type TrendLine } from '@/lib/supplier-today-v2';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -216,7 +216,9 @@ export function TodayV2Needs({
   todayIso,
   onDesk,
   bills,
-  hasBills,
+  billCount,
+  billsUnread = false,
+  doneUnread = false,
   done,
   allDone,
 }: {
@@ -226,7 +228,12 @@ export function TodayV2Needs({
   /** Every desk row key (for the "Got it" cookie to forget rows that left the desk). */
   onDesk: readonly string[];
   bills: ReactNode;
-  hasBills: boolean;
+  /** How many fee bills are listed — each is ONE task, the same count the cover's "N tasks today" uses. */
+  billCount: number;
+  /** The fee bills could not be read: said on the list, and Today is never "done". */
+  billsUnread?: boolean;
+  /** Today's finished count could not be read: said, never drawn as nothing done. */
+  doneUnread?: boolean;
   done: readonly DoneTodayRow[];
   allDone: boolean;
 }) {
@@ -238,13 +245,13 @@ export function TodayV2Needs({
           <QuickRows rows={split.quick} a={answers} />
         </div>
       ) : null}
-      {split.screen.length > 0 || hasBills ? (
+      {split.screen.length > 0 || billCount > 0 ? (
         <div data-today-opens-a-screen="">
           <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">
-            Opens a screen · {split.screen.length + (hasBills ? 1 : 0)}
+            Opens a screen · {split.screen.length + billCount}
           </p>
           <ScreenRows rows={split.screen} a={answers} todayIso={todayIso} onDesk={onDesk} />
-          {hasBills ? (
+          {billCount > 0 ? (
             <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
               {bills}
             </div>
@@ -254,6 +261,7 @@ export function TodayV2Needs({
       {split.unread ? (
         <TodayRow href={nextHref(split.unread.target)} label={split.unread.label} line={split.unread.line} lineTone="danger" rowIcon={split.unread.icon} marker="unread" />
       ) : null}
+      {billsUnread ? <TodayNoteRow label={BILLS_UNREAD_LINE} line="Nothing was lost · try again in a moment" rowIcon="help" marker="bills-unread" /> : null}
       {allDone ? (
         <div data-today-all-done="" role="status" className="py-6 text-center">
           <span aria-hidden className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full text-[30px] font-extrabold" style={{ background: 'color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent)', color: 'rgb(var(--color-ok))' }}>
@@ -263,9 +271,10 @@ export function TodayV2Needs({
           <span className="mt-1 block text-[14px] text-[color:var(--m-slate-2)]">Nothing waiting on you. New asks land here first.</span>
         </div>
       ) : null}
-      {done.length > 0 ? (
+      {done.length > 0 || doneUnread ? (
         <div data-today-done="">
           <TodayEyebrow>Done today</TodayEyebrow>
+          {doneUnread ? <TodayNoteRow label={DONE_UNREAD_LINE} line="Nothing was lost · your answers were saved" rowIcon="help" marker="done-unread" /> : null}
           {done.map((d) => (
             <TodayNoteRow key={d.key} label={d.label} line={d.line} rowIcon="check" marker={d.key} />
           ))}
@@ -422,9 +431,11 @@ export function TodayTrending({ lines }: { lines: readonly TrendLine[] }) {
 }
 
 /** The cover's line: "6 tasks today · 1 of 7 done", or "✓ You're done for today" — and the pips, done ones first. */
-export function TodayV2Sub({ tasks, progress, allDone, left, doneCount }: { tasks: string | null; progress: string | null; allDone: boolean; left: number | null; doneCount: number }) {
+export function TodayV2Sub({ tasks, progress, allDone, left, pips }: { tasks: string | null; progress: string | null; allDone: boolean; left: number | null; pips: { done: number; total: number } | null }) {
   if (left === null) return null;
-  const total = left + doneCount;
+  // No pips when a part was unread: a row of pips is a claim about how much is done.
+  const total = pips?.total ?? 0;
+  const doneCount = pips?.done ?? 0;
   return (
     <span className="block" data-today-v2-sub="">
       <b className="font-semibold" data-today-tasks-chip="">

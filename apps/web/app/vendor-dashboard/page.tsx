@@ -754,6 +754,7 @@ export default async function VendorOverviewPage({
     needsAnswer,
     closed: nothingToAnswer,
     deskIncomplete,
+    billsUnread: feeBillsRead === FEE_BILLS_UNREADABLE,
     reads: v2r,
     aside,
     feeForecasts,

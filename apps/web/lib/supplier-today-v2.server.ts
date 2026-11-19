@@ -24,6 +24,8 @@ import { fetchGrowLines } from '@/lib/platform-settings';
 export type TodayV2Reads = {
   done: DoneTodayCounts | null;
   noCover: { serviceId: string; title: string } | null;
+  /** The live service cards could not be read — `noCover: null` then means UNKNOWN, never "every card has a cover". */
+  coversUnread: boolean;
   trendingCard: { title: string } | null;
   completedBookings: number | null;
   radar: DemandRadar | null;
@@ -46,15 +48,26 @@ const count = (r: { count: number | null; error: unknown }) => (r.error || r.cou
 
 async function readDoneToday(admin: SupabaseClient, vendorProfileId: string, since: string): Promise<DoneTodayCounts | null> {
   const ev = () => admin.from('event_vendors').select('vendor_id', { count: 'exact', head: true }).eq('marketplace_vendor_id', vendorProfileId);
-  const [replies, payments, delivered, agreed, declined, dates] = await Promise.all([
+  const thread = () => admin.from('chat_threads').select('thread_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId);
+  // 🔑 EVERY ANSWER THAT LEAVES THE LIST IS COUNTED, so "N of M done" only grows as the supplier works (a row that left
+  // without being counted made M shrink instead). Each count reads the column that already stamps that answer.
+  // (A dispute is not here on purpose: nothing the supplier does today takes it off the list — it leaves when the
+  // couple accepts the re-sent work — so it never moves from "left" to "done" by the supplier's own answer.)
+  const [replies, payments, paymentsDeclined, delivered, agreed, declined, dates, inquiriesAccepted, inquiriesDeclined, meetings, cancels] = await Promise.all([
     admin.from('vendor_reviews').select('review_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).gte('vendor_reply_at', since),
     ev().gte('deposit_acknowledged_at', since),
+    ev().gte('deposit_declined_at', since),
     ev().gte('service_marked_complete_at', since),
     ev().gte('lock_agreed_at', since),
     ev().gte('lock_declined_at', since),
     admin.from('event_date_change_answers').select('event_vendor_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).gte('answered_at', since),
+    thread().gte('accepted_at', since),
+    thread().gte('declined_at', since),
+    // A couple's proposed meeting time that is no longer `proposed` and changed today = answered today.
+    admin.from('event_appointments').select('appointment_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).eq('initiated_by', 'couple').neq('status', 'proposed').gte('updated_at', since),
+    ev().gte('delete_answered_at', since),
   ]);
-  const all = [replies, payments, delivered, agreed, declined, dates];
+  const all = [replies, payments, paymentsDeclined, delivered, agreed, declined, dates, inquiriesAccepted, inquiriesDeclined, meetings, cancels];
   const bad = all.find((r) => r.error);
   if (bad) {
     logQueryError('supplier-today-v2: done today', bad.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
@@ -62,10 +75,13 @@ async function readDoneToday(admin: SupabaseClient, vendorProfileId: string, sin
   }
   return {
     replies: count(replies) ?? 0,
-    payments: count(payments) ?? 0,
+    payments: (count(payments) ?? 0) + (count(paymentsDeclined) ?? 0),
     delivered: count(delivered) ?? 0,
     bookings: (count(agreed) ?? 0) + (count(declined) ?? 0),
     dates: count(dates) ?? 0,
+    inquiries: (count(inquiriesAccepted) ?? 0) + (count(inquiriesDeclined) ?? 0),
+    meetings: count(meetings) ?? 0,
+    cancels: count(cancels) ?? 0,
   };
 }
 
@@ -82,6 +98,8 @@ async function readCards(supabase: SupabaseClient, admin: SupabaseClient, vendor
   const held = heldId ? rows.find((r) => r.vendor_service_id === heldId) : null;
   return {
     noCover: bare ? { serviceId: bare.vendor_service_id, title: bare.title?.trim() || 'A service card' } : null,
+    // 🔑 A refused cards read is UNREAD — never "no card is missing a cover" (that would skip grow stage 2).
+    coversUnread: Boolean(services.error),
     trendingCard: held ? { title: held.title?.trim() || 'service' } : null,
   };
 }
@@ -110,7 +128,7 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
   const { supabase, admin, vendorProfileId, todayIso } = args;
   const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom] = await Promise.all([
     readDoneToday(admin, vendorProfileId, manilaMidnightIso(todayIso)).catch(() => null),
-    readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, trendingCard: null })),
+    readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, coversUnread: true, trendingCard: null })),
     readCompletedBookingsCount(admin, vendorProfileId).catch(() => null),
     getVendorDemandRadar(supabase, vendorProfileId).catch(() => DEMAND_RADAR_UNREADABLE),
     readCutoffs(admin).catch(() => ({ fewInquiries: null, fewBookings: null })),
@@ -123,6 +141,7 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
   return {
     done,
     noCover: cards.noCover,
+    coversUnread: cards.coversUnread,
     trendingCard: cards.trendingCard,
     completedBookings,
     radar: radar === DEMAND_RADAR_UNREADABLE ? null : radar,

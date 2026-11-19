@@ -23,6 +23,9 @@ import {
   splitTodayNeeds,
   todayBadgeTag,
   todayProgress,
+  doneTodayTotal,
+  DONE_UNREAD_LINE,
+  BILLS_UNREAD_LINE,
   trendingLines,
   roomToGrowRows,
   CARDS_TASK_KEY,
@@ -59,6 +62,8 @@ test('2 · quick first, desk order kept, gaps out of the count, set-asides left 
   assert.equal(s.unread?.key, 'unread');
 });
 
+const NONE_DONE = { replies: 0, payments: 0, delivered: 0, bookings: 0, dates: 0, inquiries: 0, meetings: 0, cancels: 0 };
+
 const base: GrowInput = {
   setupDrawn: false,
   verified: true,
@@ -88,11 +93,11 @@ test('3 · a blank line is off; a set line decides; an unread count decides noth
 });
 
 test('4 · an unread desk is never done; Done today counts only what was read', () => {
-  assert.deepEqual(todayProgress(null, 3), { tasks: null, progress: null, allDone: false });
-  assert.deepEqual(todayProgress(6, 1), { tasks: '6 tasks today', progress: '1 of 7 done', allDone: false });
+  assert.deepEqual(todayProgress(null, 3), { tasks: null, progress: null, allDone: false, pips: null });
+  assert.deepEqual(todayProgress(6, 1), { tasks: '6 tasks today', progress: '1 of 7 done', allDone: false, pips: { done: 1, total: 7 } });
   assert.equal(todayProgress(0, 2).allDone, true);
   assert.deepEqual(doneTodayRows(null, 0), []);
-  assert.deepEqual(doneTodayRows({ replies: 2, payments: 0, delivered: 1, bookings: 0, dates: 0 }, 0).map((r) => r.line), ['2 replies posted', 'You delivered']);
+  assert.deepEqual(doneTodayRows({ ...NONE_DONE, replies: 2, delivered: 1 }, 0).map((r) => r.line), ['2 replies posted', 'You delivered']);
   assert.deepEqual(nextBadgeWords('Bronze at 5 bookings · 2 to go'), { title: 'Next badge: Bronze at 5 bookings', toGo: '2 to go' });
   assert.equal(nextBadgeWords(null), null);
 });
@@ -130,4 +135,47 @@ test('7 · the library and the unused cards are tasks; an unread number draws no
   assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: Infinity, made: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'no limit is not a count');
   assert.deepEqual(roomToGrowRows({ library: { ...lib, open: false }, cards: { allowed: null, made: null } }), [], 'the library row drawn for a shop it refuses');
   assert.equal(roomToGrowRows({ library: { ...lib, photos: null }, cards: { allowed: null, made: null } })[0]!.line, 'Your photos help couples find you');
+});
+
+/* ── THE REVIEW HOLD ON #7994 (19 Nov) — one test per failure path, in the style of `reads-are-honest.test.ts`: a part
+   that could not be READ may never be drawn as an absence. Each was seen RED against the old code path first. ──────── */
+
+test('R1 · unread fee bills never allow "You’re done for today" — the read tasks still count', () => {
+  assert.equal(todayProgress(0, 2).allDone, true, 'anti-vacuity: with everything read and nothing left, it IS done');
+  const p = todayProgress(0, 2, { billsUnread: true });
+  assert.equal(p.allDone, false, 'a supplier who may owe a fee we could not read was told they are done');
+  assert.equal(p.pips, null, 'pips claim how much is done while a part is unread');
+  assert.equal(todayProgress(3, 0, { billsUnread: true }).tasks, '3 tasks today', 'the tasks that WERE read went missing');
+});
+
+test('R2 · a refused Done-today read is "not read" — never 0 done, never a made-up "N of M"', () => {
+  assert.equal(doneTodayTotal(null, 4), null, 'a refused read became a number');
+  assert.equal(doneTodayTotal(NONE_DONE, 0), 0, 'anti-vacuity: a READ day with nothing done is a real 0');
+  const p = todayProgress(5, null);
+  assert.equal(p.progress, null, '"N of M done" was built on an unread count');
+  assert.equal(p.pips, null);
+  assert.equal(p.tasks, '5 tasks today');
+  assert.match(DONE_UNREAD_LINE, /Couldn’t load/);
+  assert.match(BILLS_UNREAD_LINE, /Couldn’t load/);
+});
+
+test('R3 · every answer that leaves the list is counted, so "N of M" only grows', () => {
+  // Five tasks; the supplier answers a meeting, an inquiry and a cancel request. M must stay 5 while done goes 0 → 3.
+  const before = todayProgress(5, doneTodayTotal(NONE_DONE, 0));
+  const after = todayProgress(2, doneTodayTotal({ ...NONE_DONE, meetings: 1, inquiries: 1, cancels: 1 }, 0));
+  assert.equal(before.pips?.total, 5);
+  assert.deepEqual(after.pips, { done: 3, total: 5 }, 'M shrank while the supplier worked');
+  assert.equal(after.progress, '3 of 5 done');
+  assert.deepEqual(
+    doneTodayRows({ ...NONE_DONE, meetings: 1, inquiries: 2, cancels: 1 }, 0).map((r) => r.key),
+    ['done-inquiries', 'done-meetings', 'done-cancels'],
+    'an answered meeting, inquiry or cancel request is not listed under Done today',
+  );
+});
+
+test('R4 · unread service cards never read as "every card has a cover" — the shop is not moved past stage 2', () => {
+  assert.equal(growStage(base)?.n, 5, 'anti-vacuity: with the cards read and none bare, the shop moves on');
+  assert.equal(growStage({ ...base, coversUnread: true }), null, 'a refused cards read skipped grow stage 2');
+  // What WAS read still shows: not findable is a stage-2 move on its own.
+  assert.equal(growStage({ ...base, coversUnread: true, findable: false, findableHref: '/x' })?.n, 2);
 });

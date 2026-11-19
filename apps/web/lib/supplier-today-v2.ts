@@ -160,10 +160,17 @@ export function splitTodayNeeds(args: {
  */
 export type DoneTodayCounts = {
   replies: number;
+  /** Payment asks answered — confirmed OR said "it never arrived" (both leave the list). */
   payments: number;
   delivered: number;
   bookings: number;
   dates: number;
+  /** Inquiries answered — accepted or declined (`chat_threads.accepted_at` / `declined_at`). */
+  inquiries: number;
+  /** A couple's meeting time answered (`event_appointments` left `proposed`). */
+  meetings: number;
+  /** Cancel requests answered (`event_vendors.delete_answered_at`). */
+  cancels: number;
 };
 
 export type DoneTodayRow = { key: string; label: string; line: string };
@@ -178,30 +185,52 @@ export function doneTodayRows(done: DoneTodayCounts | null, gotIt: number): Done
     if (done.dates) rows.push({ key: 'done-dates', label: 'Date change request', line: many(done.dates, 'You answered', 'date changes answered') });
     if (done.delivered) rows.push({ key: 'done-delivered', label: 'Mark it done', line: many(done.delivered, 'You delivered', 'events delivered') });
     if (done.bookings) rows.push({ key: 'done-bookings', label: 'Agree to this booking', line: many(done.bookings, 'You answered', 'booking asks answered') });
+    if (done.inquiries) rows.push({ key: 'done-inquiries', label: 'Answer an inquiry', line: many(done.inquiries, 'You answered', 'inquiries answered') });
+    if (done.meetings) rows.push({ key: 'done-meetings', label: 'Meeting time', line: many(done.meetings, 'You answered', 'meeting times answered') });
+    if (done.cancels) rows.push({ key: 'done-cancels', label: 'Cancel request', line: many(done.cancels, 'You answered', 'cancel requests answered') });
   }
   if (gotIt) rows.push({ key: 'done-gotit', label: 'Ask lapsed', line: many(gotIt, 'Got it', 'cleared') });
   return rows;
 }
 
-export function doneTodayTotal(done: DoneTodayCounts | null, gotIt: number): number {
-  return (done ? done.replies + done.payments + done.dates + done.delivered + done.bookings : 0) + gotIt;
+/**
+ * How many were finished today. `null` = the counts could NOT be read — never 0: "0 done" would be a claim that the
+ * supplier did nothing, and "N of M done" would then be built on a guess. The caller says so instead (`DONE_UNREAD_LINE`).
+ */
+export function doneTodayTotal(done: DoneTodayCounts | null, gotIt: number): number | null {
+  if (!done) return null;
+  return done.replies + done.payments + done.dates + done.delivered + done.bookings + done.inquiries + done.meetings + done.cancels + gotIt;
 }
+
+/** The honest notes for a read that was refused — drawn in place of the thing they could not count. */
+export const DONE_UNREAD_LINE = 'Couldn’t load what you finished today';
+export const BILLS_UNREAD_LINE = 'Couldn’t load your booking fees just now';
 
 /**
  * The cover's words. `left` = real to-dos still listed (quick + screen + unpaid fee bills); null = the desk could not be
  * read in full, and then NOTHING claims done (the shipped rule: an unread list is never "done").
+ *
+ * 🔑 "DONE" NEEDS EVERY PART READ. `billsUnread` = the booking-fee bills could not be read: a supplier may owe a fee we
+ * cannot see, so the list is never "done" — the tasks we DID read still count. `doneCount` null = today's finished
+ * count could not be read: no "N of M done" and no pips are drawn off a guess.
  */
-export function todayProgress(left: number | null, doneCount: number): {
+export function todayProgress(
+  left: number | null,
+  doneCount: number | null,
+  opts: { billsUnread?: boolean } = {},
+): {
   tasks: string | null;
   progress: string | null;
   allDone: boolean;
+  /** The pips under the words; null = not drawn (something was unread). */
+  pips: { done: number; total: number } | null;
 } {
-  if (left === null) return { tasks: null, progress: null, allDone: false };
-  const total = left + doneCount;
+  if (left === null) return { tasks: null, progress: null, allDone: false, pips: null };
   return {
     tasks: left > 0 ? `${formatCount(left)} task${left === 1 ? '' : 's'} today` : null,
-    progress: doneCount > 0 && left > 0 ? `${formatCount(doneCount)} of ${formatCount(total)} done` : null,
-    allDone: left === 0,
+    progress: doneCount !== null && doneCount > 0 && left > 0 ? `${formatCount(doneCount)} of ${formatCount(left + doneCount)} done` : null,
+    allDone: left === 0 && !opts.billsUnread,
+    pips: doneCount === null || opts.billsUnread ? null : { done: doneCount, total: left + doneCount },
   };
 }
 
@@ -231,6 +260,8 @@ export type GrowInput = {
   findableHref: string | null;
   /** The first service card with no cover photo (`coverIsSet` false), or null. */
   noCover: { serviceId: string; title: string } | null;
+  /** The service cards could not be read — "no card without a cover" is then UNKNOWN, never "every card has one". */
+  coversUnread?: boolean;
   views: number | null;
   inquiries28: number | null;
   bookedThisMonth: number | null;
@@ -269,6 +300,8 @@ export function growStage(i: GrowInput): GrowStage | null {
     if (i.noCover) moves.push(move({ key: 'g-cover', label: 'Add a cover photo', line: 'Couples see your initials, not a photo', tag: PAGE, href: `/vendor-dashboard/services/${i.noCover.serviceId}`, button: 'Add photo', icon: 'image' }));
     if (moves.length) return { n: 2, title: GROW_STAGE_TITLES[1], why: null, moves };
   }
+  // 🔑 Stage 2 could not be judged (the cards were unread): the shop is NOT moved on to stage 3+ on a guess.
+  if (i.coversUnread) return null;
   const looked = i.views != null && i.inquiries28 != null ? `${formatCount(i.views)} looked · ${formatCount(i.inquiries28)} asked in 28 days` : null;
   if (i.cutoffs.fewInquiries !== null && i.inquiries28 !== null && i.inquiries28 < i.cutoffs.fewInquiries) {
     return {

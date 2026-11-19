@@ -50,6 +50,11 @@ export type TodayV2Input = {
   inquiries28: number | null;
   bookedThisMonth: number | null;
   todayIso: string;
+  /**
+   * 💸 The booking-fee bills could NOT be read (`FEE_BILLS_UNREADABLE`). A supplier may owe a fee we cannot see, so
+   * Today is never "done" and says the fees could not be loaded — never an empty list that reads as "nothing owed".
+   */
+  billsUnread: boolean;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -76,13 +81,15 @@ export function buildTodayV2(i: TodayV2Input): {
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);
   const left = i.deskIncomplete ? null : split.quick.length + split.screen.length + i.view.bills.length;
-  const progress = todayProgress(left, doneCount);
+  const progress = todayProgress(left, doneCount, { billsUnread: i.billsUnread });
   const stage = growStage({
     setupDrawn: i.setupDrawn,
     verified: i.verified,
     findable: i.findable,
     findableHref: i.findableHref,
     noCover: r?.noCover ?? null,
+    // The cards were not read (or no Today v2 read came back at all): stage 2 cannot be judged.
+    coversUnread: r ? r.coversUnread : true,
     views: i.views,
     inquiries28: i.inquiries28,
     bookedThisMonth: i.bookedThisMonth,
@@ -114,7 +121,7 @@ export function buildTodayV2(i: TodayV2Input): {
   return {
     view: { ...i.view, needsCount: left },
     v2: {
-      sub: <TodayV2Sub tasks={progress.tasks} progress={progress.progress} allDone={progress.allDone} left={left} doneCount={doneCount} />,
+      sub: <TodayV2Sub tasks={progress.tasks} progress={progress.progress} allDone={progress.allDone} left={left} pips={progress.pips} />,
       nextBadge: nextBadge ? (
         <TodayNextBadge tile={{ src: tile?.src ?? null, title: nextBadge.title, toGo: nextBadge.toGo, locked: tile?.state === 'locked', how: tile?.how ?? '' }} />
       ) : null,
@@ -124,7 +131,9 @@ export function buildTodayV2(i: TodayV2Input): {
           answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts }}
           todayIso={i.todayIso}
           onDesk={deskKeys}
-          hasBills={i.view.bills.length > 0}
+          billCount={i.view.bills.length}
+          billsUnread={i.billsUnread}
+          doneUnread={doneCount === null}
           bills={<BookingFeeBills today bills={i.view.bills} copyFor={i.view.billCopy} />}
           done={doneTodayRows(r?.done ?? null, gotIt)}
           allDone={progress.allDone}

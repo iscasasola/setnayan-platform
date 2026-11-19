@@ -105,9 +105,9 @@ test('4 · a page switch costs no request', () => {
   assert.match(select, /translateX\(44px\)/);
   assert.match(select, /\{ opacity: 1, offset: 0\.45 \}/);
   assert.match(shell, /data-picked-body[^>]*|overflow-x-hidden[^"]*data-picked-body/);
-  // Glide (MOTION_STANDARD § 4 #12, 19 Nov 2026): an inner scroller CONTAINS its overscroll on both axes — never `none`
-  // (`none` is the page's own; `contain` keeps the phone's rubber band inside the box and still chains nothing out).
-  assert.match(shell, /overflow-x-hidden overscroll-contain bg-/);
-  assert.doesNotMatch(shell, /overscroll-behavior-x:none|overscroll-none/);
-  assert.equal((shell.match(/scrollIntoView\(/g) ?? []).length, 1, 'only the Script fold may scrollIntoView (vertical, on open)');
+  assert.match(shell, /overflow-x-hidden overscroll-contain \[overscroll-behavior-x:none\]/);
+  // 19 Nov 2026: not even the Script fold — a landing and an in-page door share ONE vertical scroll of the body's own scroller.
+  assert.equal((stripComments(shell).match(/scrollIntoView\(/g) ?? []).length, 0, 'scrollIntoView is back — it moves the body sideways (§10 #26)');
+  assert.equal((shell.match(/scrollToPart\(/g) ?? []).length, 3, 'a landing and nav.select no longer share the one scroll path');
+  assert.match(shell, /function scrollToPart\(id: string\) \{[\s\S]{0,400}scroller\.scrollTo\(\{ top,/);
 });

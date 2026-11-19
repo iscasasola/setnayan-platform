@@ -60,6 +60,7 @@ export function samplePlanShop(plan: SampleShopPlan, declaredOuterKm: number | n
     ownAddress: ownWebAddress({ planAllows: caps.customWebsiteName, domain: SAMPLE.domain, verifiedAt: '2026-10-01' }),
     quote: caps.premiumPage ? pinnedQuote(SAMPLE.review) : null,
     personalize: can.canPersonalize,
+    /** The plan's LIVE cards (owner 19 Nov 2026 — unlimited to make, the plan counts the live ones). Name kept for callers. */
     cardsPerCategory: caps.serviceCardsTotal,
   };
 }

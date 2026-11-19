@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Gift, Lock } from 'lucide-react';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
@@ -8,7 +8,7 @@ import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
 import { VerifiedFullscreen } from '@/app/_components/award/verified-fullscreen';
 import { LockedTile } from '@/app/_components/award/locked-tile';
-import { BADGE_ART_H, BADGE_ART_W, awardedOnWords, shelfLines, type ShelfTile } from '@/lib/shop-badge-shelf';
+import { BADGE_ART_H, BADGE_ART_W, awardedOnWords, badgeArtFit, shelfLines, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
 
@@ -23,8 +23,8 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  *     middle, lands with a burst and its tap show, floats and turns). Its caption carries what the old sheet said —
  *     Now · how far to the next tier · Next goal · the reward lines · what it counts (`shelfLines`);
  *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz`);
- *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the v84 LOCKED look (`LockedTile`:
- *     the art in grey under a lock, what it takes) and the same lines, the reward box and its door.
+ *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the LOCKED look (`LockedTile`:
+ *     the real art under a small lock at its edge, what it takes — owner 18 Nov) and the same lines, the reward box and its door.
  *
  * 🏅 EVERY BADGE SITS IN ITS PROGRESS RING (owner 8 Nov): the shipped `ProgressRing`, drawn in once when seen.
  * 🔒 lib/shop-badge-shelf.test.ts · shop/the-shop-tab-is-v113.test.ts · performance/your-badges-are-on-the-page.test.ts
@@ -72,35 +72,72 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
   );
 }
 
-/** The v84 picture: the tier reached, or Bronze in grey under a lock before it; Verified is the blue check. */
+/**
+ * 📐 A v84 picture placed by its MEASURED art box (`badgeArtFit`, owner 18 Nov: *"the badges are small and not centered
+ * properly"*): the drawn badge — not the 300 × 286 canvas around it — fills a `box` square, centred both ways. The
+ * canvas's empty margin and the soft shadow under the badge spill outside the square, unseen.
+ */
+function FittedArt({ src, box, style, ...rest }: { src: string; box: number; style?: CSSProperties; loading?: 'lazy'; 'data-badge-img'?: string }) {
+  const fit = badgeArtFit(src, box);
+  return (
+    <span className="relative block" style={{ width: box, height: box }} data-badge-art-box="">
+      {/* eslint-disable-next-line @next/next/no-img-element -- a fixed-size static picture; next/image adds JS for nothing here */}
+      <img
+        src={src}
+        width={BADGE_ART_W}
+        height={BADGE_ART_H}
+        decoding="async"
+        alt=""
+        style={
+          fit
+            ? { position: 'absolute', left: fit.left, top: fit.top, width: fit.width, maxWidth: 'none', height: 'auto', ...style }
+            : { width: box, height: 'auto', ...style }
+        }
+        {...rest}
+      />
+    </span>
+  );
+}
+
+/** The lock's own size (px): small enough to sit on the ring's edge, never on the badge. */
+const LOCK_PX = 22;
+
+/**
+ * 🔓 A LOCKED BADGE SHOWS ITS REAL ART (owner 18 Nov: *"we still want to see how they look like. or it will always
+ * stay a mystery until someone unlocks it?"*) — full colour, never grey, so the supplier sees what they are working
+ * toward. What says "not yet" is the small lock on the ring and the "5 to go" / "Not yet" line under it. ONE knob for
+ * the row and the risen look: `--sn-locked-art-opacity` (1 unless set; 0.85 is the softer option shown to the owner).
+ */
+export const LOCKED_ART_OPACITY = 'var(--sn-locked-art-opacity, 1)';
+
+/** The v84 picture: the tier reached, or Bronze in its own colours under a small lock before it; Verified is the blue check. */
 function BadgeArt({ tile, size }: { tile: ShelfTile; size: number }) {
   const earned = tile.state === 'earned';
-  const grey = earned ? undefined : 'grayscale(1) contrast(0.75) brightness(1.08)';
+  const look = earned ? undefined : { opacity: LOCKED_ART_OPACITY };
+  // ONE visual size for every badge: the Verified check's (0.9 of the slot), so no badge reads smaller than another.
+  const art = Math.round(size * 0.9);
+  // The lock sits ON THE RING at its lower right (45°), small, never over the badge's face.
+  const lockAt = Math.round(size / 2 + size * 0.45 - LOCK_PX / 2);
   return (
     <span className="relative inline-grid place-items-center" style={{ width: size, height: size }} data-badge-art="">
       {tile.src ? (
-        // eslint-disable-next-line @next/next/no-img-element -- a fixed-size static picture; next/image adds JS for nothing here
-        <img
-          src={tile.src}
-          width={BADGE_ART_W}
-          height={BADGE_ART_H}
-          loading="lazy"
-          decoding="async"
-          alt=""
-          style={{ width: size, height: 'auto', filter: grey, opacity: earned ? 1 : 0.45 }}
-          data-badge-img={tile.key}
-        />
+        <FittedArt src={tile.src} box={art} loading="lazy" style={look} data-badge-img={tile.key} />
       ) : (
         <span
           className="inline-grid"
-          style={{ width: size * 0.9, height: size * 0.9, filter: grey, opacity: earned ? 1 : 0.45 }}
+          style={{ width: art, height: art, ...look }}
           // trusted: the approved v84 art from a constant (lib/verified-v84-art.ts), never user text
-          dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: Math.round(size * 0.9), word: false }) }}
+          dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'row-vr', size: art, word: false }) }}
         />
       )}
       {earned ? null : (
-        <span className="absolute grid h-6 w-6 place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow" style={{ top: size * 0.62 }} aria-hidden>
-          <Lock className="h-3.5 w-3.5" strokeWidth={2} />
+        <span
+          className="absolute grid place-items-center rounded-full bg-[color:var(--m-paper)] text-ink/70 shadow"
+          style={{ left: lockAt, top: lockAt, width: LOCK_PX, height: LOCK_PX }}
+          aria-hidden
+          data-badge-lock=""
+        >
+          <Lock className="h-3 w-3" strokeWidth={2.25} />
         </span>
       )}
     </span>
@@ -175,7 +212,7 @@ function BadgeOpen({ tile, from, shopName, onClose }: { tile: ShelfTile; from: H
   return <BadgeSheet tile={tile} onClose={onClose} />;
 }
 
-/** Not earned yet (or not counted / unread): the v84 locked look, risen, with every line the old sheet carried. */
+/** Not earned yet (or not counted / unread): the locked look (real art, small lock), risen, with every line the old sheet carried. */
 function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void }) {
   const hid = useId();
   const reward = tile.reward;
@@ -230,11 +267,9 @@ function BadgeSheet({ tile, onClose }: { tile: ShelfTile; onClose: () => void })
   );
 }
 
+/** The risen locked look's picture: the same measured fit as the row, 84 px inside the tile's 96 px art slot (clear of the label under it). */
 function BadgeArtLarge({ tile }: { tile: ShelfTile }) {
-  if (tile.src) {
-    // eslint-disable-next-line @next/next/no-img-element -- the static v84 picture, greyed by the locked look
-    return <img src={tile.src} width={BADGE_ART_W} height={BADGE_ART_H} alt="" loading="lazy" decoding="async" />;
-  }
+  if (tile.src) return <FittedArt src={tile.src} box={84} loading="lazy" />;
   // trusted: the approved v84 art from a constant, never user text
   return <span dangerouslySetInnerHTML={{ __html: verifiedV84Svg({ uid: 'sheet-vr', size: 96, word: true }) }} />;
 }

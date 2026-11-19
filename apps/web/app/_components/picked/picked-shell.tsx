@@ -105,7 +105,27 @@ export type PickedShellProps<P extends string> = {
    * side never passes it.
    */
   closeAs?: { label: string; icon: LucideIcon } | null;
+  /**
+   * 🖥 CHAT STAYS OPEN ON A COMPUTER (owner 18 Nov 2026, DECISION_LOG "THE CLIENT PAGE GOES TO SEVEN TABS — BOTH SIDES":
+   * *"we want chat to stay active on desktop view and the other screens will cater other parts"*). From 1024 px `page`
+   * leaves the menu and is drawn in its own right column (work 592 · gap 24 · chat 360; from 1280 work 564 · gap 28 ·
+   * chat 400); the other tabs switch the work column beside it, which opens on `workDefault` unless a `?tab=` names
+   * another page. Under 1024 nothing changes: one column, Chat the first tab. Absent = one column everywhere.
+   */
+  sideChat?: { page: P; workDefault: P } | null;
+  /** ➡ A row pinned on top of the chat page (the supplier's Next step), wherever the chat is drawn. */
+  chatTop?: ReactNode;
+  /** The part of its page a door id lands on (`payments` → `#payments` on Book & Budget); absent = the page's top. */
+  anchorOf?: (raw: string) => string | null;
 };
+
+/** 🖥 The width from which the chat keeps its own column (`sideChat`). */
+const SIDE_CHAT_QUERY = '(min-width: 1024px)';
+/** The two columns' frame: 592 + 24 + 360 = 976 from 1024; 564 + 28 + 400 = 992 from 1280 (drawing v12 §4). */
+// 🖥 The frame from 1024 px when Chat has its own column — said in CSS (`lg:`/`xl:`), so the server's first paint is
+// already the computer's layout and nothing moves when the page wakes (owner review, 19 Nov 2026).
+const NARROW_FRAME = 'mx-auto w-full max-w-3xl';
+const WIDE_FRAME = 'mx-auto w-full max-w-3xl lg:max-w-[976px] xl:max-w-[992px]';
 
 /** The menu's edge fade per side that has more pages past it — the pinned row's door-strip mask, both ways. */
 const MENU_FADE = {
@@ -114,6 +134,19 @@ const MENU_FADE = {
   left: '[-webkit-mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_left,black_calc(100%-32px),transparent)]',
   both: '[-webkit-mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)] [mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)]',
 } as const;
+
+/**
+ * Bring a part of the shown page (`#payments`, `#forms`, the Script fold) to the top of the page's OWN scroller —
+ * vertical only. Never `scrollIntoView`: it also moved the body sideways (§10 #26). One path for a `?tab=` landing and
+ * for an in-page door (`nav.select`).
+ */
+function scrollToPart(id: string) {
+  const part = document.getElementById(id);
+  const scroller = part?.closest<HTMLElement>('[data-picked-body]');
+  if (!part || !scroller) return;
+  const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
+  scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
 
 export function PickedShell<P extends string>({
   pickedId,
@@ -133,6 +166,9 @@ export function PickedShell<P extends string>({
   tours = [],
   pageOf,
   closeAs = null,
+  sideChat = null,
+  chatTop = null,
+  anchorOf,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -164,6 +200,21 @@ export function PickedShell<P extends string>({
   const [thumbColumn, setThumbColumn] = useState<HTMLDivElement | null>(null);
   const thumbLayer = useMemo<ThumbLayer>(() => ({ host: thumbHost, column: thumbColumn }), [thumbHost, thumbColumn]);
   const [page, setPage] = useState<P>(initialPage);
+  // 🖥 On a computer the chat keeps its own column; read after mount (the server and the first paint draw the phone).
+  const [wide, setWide] = useState(false);
+  const sideChatPage = sideChat?.page ?? null;
+  useEffect(() => {
+    if (!sideChatPage || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia(SIDE_CHAT_QUERY);
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, [sideChatPage]);
+  const split = wide && sideChat !== null;
+  // The page the work column draws: on a computer the chat is never it (it has its own column).
+  const workPage: P = split && page === sideChat!.page ? sideChat!.workDefault : page;
+  const shownMenu = useMemo(() => (split ? menu.filter((m) => m.id !== sideChatPage) : menu), [split, menu, sideChatPage]);
   const [gearOpen, setGearOpen] = useState(false);
   const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
   const [headLineSlot, setHeadLineSlot] = useState<HTMLSpanElement | null>(null);
@@ -213,9 +264,9 @@ export function PickedShell<P extends string>({
   useEffect(() => {
     const strip = menuRef.current;
     const first = !centredOnce.current;
-    if (centreInStrip(strip, strip?.querySelector<HTMLElement>(`[data-picked-page="${page}"]`) ?? null, first) !== null) centredOnce.current = true;
+    if (centreInStrip(strip, strip?.querySelector<HTMLElement>(`[data-picked-page="${workPage}"]`) ?? null, first) !== null) centredOnce.current = true;
     if (bodyRef.current?.scrollLeft) bodyRef.current.scrollLeft = 0;
-  }, [page, host]);
+  }, [workPage, host]);
 
   // ⚡ The other pages' code loads on demand (`_pages/lazy.tsx`); once the open has settled, warm it at idle so a later
   // tap finds it already here. Code only — no data, no request to our server.
@@ -235,20 +286,33 @@ export function PickedShell<P extends string>({
     };
   }, [host, warm]);
 
-  // `scrollTo` (the supplier's `?tab=script` → Schedule, scrolled to the Script fold).
+  // `scrollTo` (a `?tab=` that names a part: the Script fold, the payments, the Forms) — the SAME path as `nav.select`.
+  // It waits for the portal (`host`): the first frame is drawn in place and then moved onto <body>, and a scroll made
+  // on the in-place frame is thrown away with it (measured 19 Nov 2026 — `?tab=forms` opened Details at its top).
   useEffect(() => {
-    if (!scrollTo || page !== scrollTo.page) return;
+    if (!host || !scrollTo || workPage !== scrollTo.page) return;
     const t = window.setTimeout(() => {
-      document.getElementById(scrollTo.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      scrollToPart(scrollTo.id);
     }, prefersReducedMotion() ? 0 : PICKED_OPEN_MS);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [host]);
 
-  const fills = fillPages.includes(page);
+  const fills = fillPages.includes(workPage);
+  const frame = sideChat ? WIDE_FRAME : NARROW_FRAME;
+  // Before the page wakes on a computer, the server's frame has no second column yet: a Chat landing is drawn where the
+  // Chat column will be (right, 360/400), any other page where the work column will be — so nothing jumps on wake.
+  const chatAlone = sideChat !== null && !split && page === sideChat.page;
+  const workWidth = !sideChat
+    ? 'flex-1'
+    : chatAlone
+      ? 'flex-1 lg:ml-auto lg:w-[360px] lg:flex-none xl:w-[400px]'
+      : 'flex-1 lg:w-[592px] lg:flex-none xl:w-[564px]';
   const select = useCallback(
     (id: P) => {
-      if (id === page) return;
+      if (id === workPage) return;
+      // 🖥 The chat is already open beside the work on a computer: a door to it leaves the work where it is.
+      if (split && id === sideChatPage) return;
       setPage(id);
       try {
         const url = new URL(window.location.href);
@@ -280,11 +344,11 @@ export function PickedShell<P extends string>({
         );
       }
     },
-    [page],
+    [workPage, split, sideChatPage],
   );
 
   // ⌨ Arrow keys step the menu one page by its id (the rule lives in `picked-nav.ts`); focus follows the pick.
-  const ids = useMemo(() => menu.map((m) => m.id), [menu]);
+  const ids = useMemo(() => shownMenu.map((m) => m.id), [shownMenu]);
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>, id: P) => {
     const nextId = nextPanelTabId(ids, id, e.key);
     if (nextId === null) return;
@@ -315,8 +379,8 @@ export function PickedShell<P extends string>({
       if (!t) return;
       const step = pageSwipeStep(t.clientX - sx, t.clientY - sy);
       if (!step) return;
-      const i = menu.findIndex((m) => m.id === page);
-      const next = menu[i + step];
+      const i = shownMenu.findIndex((m) => m.id === workPage);
+      const next = shownMenu[i + step];
       if (i >= 0 && next) select(next.id);
     };
     body.addEventListener('touchstart', start, { passive: true });
@@ -325,7 +389,7 @@ export function PickedShell<P extends string>({
       body.removeEventListener('touchstart', start);
       body.removeEventListener('touchend', end);
     };
-  }, [menu, page, select, host]);
+  }, [shownMenu, workPage, select, host]);
 
   // ✕ — the exact reverse of the open, then back to the list (or to it, on a hard load).
   const close = useCallback(() => {
@@ -353,16 +417,37 @@ export function PickedShell<P extends string>({
   useModalA11y({ open: Boolean(host), onClose: close, containerRef: rootRef, lockScroll: false });
 
   // A ⚙ row or a link inside a page switches pages the same way the menu does (and closes the ⚙ sheet first).
+  // A folded id (`payments`, `forms`) is read by the side's own `pageOf`, and lands on its part (`anchorOf`).
   const nav = useMemo<PickedShellNav>(
     () => ({
-      page,
+      page: workPage,
       select: (id: string) => {
         setGearOpen(false);
-        if (menu.some((m) => m.id === id)) select(id as P);
+        const target = menu.some((m) => m.id === id) ? (id as P) : (pageOf?.(id) ?? null);
+        if (!target || !menu.some((m) => m.id === target)) return;
+        select(target);
+        const anchor = anchorOf?.(id) ?? null;
+        // Two frames: the switched page is drawn before it is scrolled to its part (no timer, no new motion value).
+        if (anchor) {
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              scrollToPart(anchor);
+            }),
+          );
+        }
       },
     }),
-    [page, select, menu],
+    [workPage, select, menu, pageOf, anchorOf],
   );
+  // 🥞 On a computer the page rows span the work column, not the whole frame (the chat column has none).
+  const bodyRefCb = useCallback(
+    (el: HTMLDivElement | null) => {
+      bodyRef.current = el;
+      if (split) setThumbColumn(el);
+    },
+    [split],
+  );
+  const chatTopRow = chatTop ? <div className="shrink-0" data-picked-chat-top="">{chatTop}</div> : null;
 
   const screen = (
     <PickedNavContext.Provider value={nav}>
@@ -377,7 +462,7 @@ export function PickedShell<P extends string>({
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
-        <div ref={setThumbColumn} className="mx-auto flex w-full max-w-3xl items-center gap-2 px-4 pt-2" data-picked-pin="">
+        <div ref={split ? undefined : setThumbColumn} className={`${frame} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
           <div className="min-w-0 flex-1">
             <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
               {title}
@@ -404,13 +489,13 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className={`mx-auto flex w-full max-w-3xl gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
+          className={`${frame} flex gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
           data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
-          {menu.map((m) => {
+          {shownMenu.map((m) => {
             const Icon: LucideIcon = icons[m.id];
-            const on = m.id === page;
+            const on = m.id === workPage;
             const count = seen.has(m.id) ? 0 : (badges[m.id] ?? 0);
             return (
               <button
@@ -425,7 +510,7 @@ export function PickedShell<P extends string>({
                 tabIndex={on ? 0 : -1}
                 onClick={() => select(m.id)}
                 onKeyDown={(e) => onKeyDown(e, m.id)}
-                className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-xl px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${
+                className={`relative grid min-h-[48px] min-w-[66px] shrink-0 justify-items-center gap-[3px] rounded-xl px-1.5 pb-1.5 pt-[7px] text-[13px] font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry ${sideChat && m.id === sideChat.page ? 'lg:hidden ' : ''}${
                   on
                     ? 'border border-[rgb(var(--color-terracotta-700,154_98_52))] text-ink'
                     : 'border border-transparent text-ink/70'
@@ -447,29 +532,52 @@ export function PickedShell<P extends string>({
           })}
         </div>
       </div>
+      <div className={sideChat ? `contents ${WIDE_FRAME} lg:flex lg:min-h-0 lg:flex-1 lg:gap-6 xl:gap-7` : 'contents'} data-picked-columns={split ? 'work-chat' : undefined}>
       <div
-        ref={bodyRef}
-        className={`min-h-0 flex-1 overflow-x-hidden overscroll-contain bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
+        ref={bodyRefCb}
+        className={`min-h-0 ${workWidth} overflow-x-hidden overscroll-contain [overscroll-behavior-x:none] bg-[color:var(--m-paper)] ${fills ? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'}`}
         data-picked-body=""
       >
         <div
           id="picked-page"
           role="tabpanel"
-          aria-labelledby={`picked-tab-${page}`}
+          aria-labelledby={`picked-tab-${workPage}`}
           className={
             fills
               ? 'mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col'
               : 'mx-auto w-full max-w-3xl px-4 pb-[max(calc(env(safe-area-inset-bottom)+24px),var(--sn-thumb-room,0px))] pt-3'
           }
-          data-picked-page-body={page}
+          data-picked-page-body={workPage}
           {...(fills ? { 'data-picked-fill': '' } : {})}
         >
           <PickedHeadContext.Provider value={headSlot}>
             <PickedHeadLineContext.Provider value={headLineSlot}>
-              <ThumbLayerContext.Provider value={thumbLayer}>{bodies[page]}</ThumbLayerContext.Provider>
+              <ThumbLayerContext.Provider value={thumbLayer}>
+                {sideChat && workPage === sideChat.page ? chatTopRow : null}
+                {bodies[workPage]}
+              </ThumbLayerContext.Provider>
             </PickedHeadLineContext.Provider>
           </PickedHeadContext.Provider>
         </div>
+      </div>
+      {/* 🖥 The chat's own column on a computer — the same body, never a second copy (the phone draws it as a tab). */}
+      {split ? (
+        <aside
+          aria-label={menu.find((m) => m.id === sideChat!.page)?.label ?? 'Chat'}
+          className="hidden min-h-0 w-[360px] flex-none flex-col overflow-hidden rounded-t-xl bg-[color:var(--m-paper)] lg:flex xl:w-[400px]"
+          data-picked-chat-col=""
+          data-picked-fill=""
+        >
+          <PickedHeadContext.Provider value={headSlot}>
+            <PickedHeadLineContext.Provider value={headLineSlot}>
+              <ThumbLayerContext.Provider value={thumbLayer}>
+                {chatTopRow}
+                {bodies[sideChat!.page]}
+              </ThumbLayerContext.Provider>
+            </PickedHeadLineContext.Provider>
+          </PickedHeadContext.Provider>
+        </aside>
+      ) : null}
       </div>
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
       <div ref={setThumbHost} data-picked-thumb-layer="" />

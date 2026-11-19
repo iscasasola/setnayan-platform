@@ -30,7 +30,7 @@
  *   HOLD_MS` → `300` · 3 `transform: ghostAt(r.left, r.top)` → `… + ' scale(1.02)'` in guest-role-drag.tsx · 4 a
  *   `transition: rotate 1s` on `.sn-m-upring-half > i` · 5 the ring's `transition:translate` → `transition:all` ·
  *   6 `useState<Phase>('hidden')` → `(navigator.onLine ? 'hidden' : 'off')` · 7 `overscroll-contain` →
- *   `overscroll-none` on the picked shell's scroller.
+ *   `overscroll-none` on the picked shell's scroller (its one exception is the x axis only).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -325,10 +325,14 @@ test('7 · Glide — an inner scroller contains its overscroll, one shared edge 
   const offenders: string[] = [];
   const SCROLLS = /\boverflow(?:-[xy])?-(?:auto|scroll)\b/;
   const NONE = /\boverscroll(?:-[xy])?-none\b|\[overscroll-behavior(?:-[xy])?:none\]/;
+  const PICKED_SHELL = 'app/_components/picked/picked-shell.tsx';
   for (const f of [...walk('app'), ...walk('components')].filter((p) => p.endsWith('.tsx'))) {
     for (const m of read(f).matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\})/g)) {
       const cls = m[1] ?? m[2] ?? '';
-      if (NONE.test(cls) && (SCROLLS.test(cls) || /\boverscroll-contain\b/.test(cls))) offenders.push(`${f}: "${cls.slice(0, 90)}"`);
+      // ONE named exception, x axis only: the picked shell's body turns pages with a sideways swipe (#36) and must never
+      // move sideways itself (§10 #26), so main keeps `[overscroll-behavior-x:none]` there; its vertical stays `contain`.
+      const exempt = f === PICKED_SHELL && !/\boverscroll-none\b|\[overscroll-behavior(?:-y)?:none\]|overscroll-y-none/.test(cls) && /\boverscroll-contain\b/.test(cls);
+      if (!exempt && NONE.test(cls) && (SCROLLS.test(cls) || /\boverscroll-contain\b/.test(cls))) offenders.push(`${f}: "${cls.slice(0, 90)}"`);
     }
   }
   for (const m of CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

@@ -67,7 +67,7 @@ function unwrappedCarriedReads(src: string): string[] {
     const before = src.slice(Math.max(0, (m.index ?? 0) - 700), m.index);
     const opener = before.lastIndexOf('eventRowOnce(');
     if (opener >= 0 && before.slice(opener).includes('=>')) continue;
-    const cols = m[2].split(',').map((c) => c.trim()).filter(Boolean);
+    const cols = (m[2] ?? '').split(',').map((c) => c.trim()).filter(Boolean);
     if (cols.length > 0 && cols.every((c) => carried.has(c))) out.push(cols.join(', '));
   }
   return out;

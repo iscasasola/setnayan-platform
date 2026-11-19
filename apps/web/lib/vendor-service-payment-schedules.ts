@@ -548,6 +548,11 @@ export type PlanProgress = {
    * vendor". Optional/undefined on reads that don't select it.
    */
   isDefaultSeeded?: boolean;
+  /**
+   * False when the plan or its payments could not be read (the couple-side fetch sets it). Absent on reads that do
+   * not measure it. A caller that names an amount as DUE must not do so on `false`.
+   */
+  readComplete?: boolean;
 };
 
 /** Map a stored row to the human-unit draft shape the editor renders. */

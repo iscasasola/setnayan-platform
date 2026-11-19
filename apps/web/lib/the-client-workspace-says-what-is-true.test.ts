@@ -168,7 +168,7 @@ test('+ · the client tabs speak in sentence case', () => {
   for (const f of [
     `${CLIENT}/_components/supplier-locks-section.tsx`,
     `${CLIENT}/_components/hosts-list.tsx`,
-    `${CLIENT}/_components/client-next-step-row.tsx`,
+    'app/_components/picked/next-step-row.tsx',
     `${CLIENT}/_components/details-decisions.tsx`,
     `${CLIENT}/_components/details-decisions-list.tsx`,
     `${CLIENT}/_components/suppliers-list.tsx`,

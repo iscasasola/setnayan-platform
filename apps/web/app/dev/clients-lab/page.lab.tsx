@@ -50,7 +50,7 @@ import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_compone
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
 import { LabDetailsDecisions } from './lab-decisions';
 import { LabAskingPick } from './lab-asking';
-import { ClientNextStepRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/client-next-step-row';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { ScheduleDays, type AllClientsMonth } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-days';
 import { clientScheduleDays, type ScheduleDayInputs } from '@/lib/schedule-days';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -415,7 +415,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
           workDefault="details"
-          nextStep={<ClientNextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
+          nextStep={<NextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
         />
       </div>
     );

@@ -38,6 +38,14 @@ export function HomeCoverWordsProvider({
   return <CoverWords.Provider value={{ eventId, words }}>{children}</CoverWords.Provider>;
 }
 
+/**
+ * 🕯 This event's names and short date, as the layout already read them — for a signature moment that names the couple
+ * (The Tie, Go live) without a read of its own. Null outside an event.
+ */
+export function useEventCoverWords(): { eventId: string; words: HomeCoverWords } | null {
+  return useContext(CoverWords);
+}
+
 /** The Home's loading screen: its real cover band on the Home's own path, else the plain skeleton. */
 export function HomeLoadingScreen({ label, hero, children }: { label: string; hero: ReactNode; children: ReactNode }) {
   const cover = useContext(CoverWords);

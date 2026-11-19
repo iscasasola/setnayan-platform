@@ -7,6 +7,7 @@ import { HomeSettingsGear, type HomeSettingsLanded } from './home-settings-gear'
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Count } from '@/components/count';
+import { DayTurns } from '@/app/_components/signature/day-turns';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -57,6 +58,8 @@ export type HomeCardCountdown = {
   /** "Saturday, December 12, 2026" · the place — null when there is no firm day. */
   line: string | null;
   href: string;
+  /** 🕯 The event whose days are COUNTING DOWN (a day still ahead) — Day turns plays for it; absent = it never does. */
+  turnFor?: string;
 };
 
 export function HomeCoverBand({
@@ -123,7 +126,14 @@ export function HomeCoverBand({
           {countdown ? (
             <Link href={countdown.href} className="hc-ecard-cd" data-home-card-countdown="" aria-label={`${countdown.value}${countdown.label ? ` ${countdown.label}` : ''}${countdown.line ? ` — ${countdown.line}` : ''}`}>
               <span className={`hc-ecard-n${countdown.days !== null ? '' : ' hc-ecard-word'}`} aria-hidden>
-                {countdown.days !== null ? <Count value={countdown.days} id="home-count" /> : countdown.value}
+                {countdown.days !== null ? (
+                  countdown.turnFor ? (
+                    /* 🕯 Day turns (motion standard § 9 ⑤) — the first open on a new day; once a day. */
+                    <DayTurns eventId={countdown.turnFor} days={countdown.days}><Count value={countdown.days} id="home-count" /></DayTurns>
+                  ) : (
+                    <Count value={countdown.days} id="home-count" />
+                  )
+                ) : countdown.value}
               </span>
               <span aria-hidden className="hc-ecard-w">
                 {countdown.label}

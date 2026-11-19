@@ -3057,6 +3057,18 @@
         "TypedRow"
       ]
     },
+    "/admin/catalogue": {
+      "files": [
+        "admin/catalogue/loading.tsx",
+        "admin/catalogue/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ListPageSkeleton",
+        "TabLanding"
+      ]
+    },
     "/admin/categories": {
       "files": [
         "admin/categories/_components/add-rows.tsx",
@@ -3232,6 +3244,7 @@
         "MoveGroupPick",
         "MovePartHomePick",
         "NavPick",
+        "NewCategoryForm",
         "NewCategoryPrefill",
         "OnboardingContent",
         "OnboardingEditor",

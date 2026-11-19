@@ -1,0 +1,16 @@
+## 2026-11-20 · feat(front-door): the 20 Nov front page — photo opening, one picker row, guest view, plan, keep, plans
+
+The signed-out `/` is rebuilt to the approved drawing `prototypes/front_page_home_2026-11-19/` v5 (owner 20 Nov
+"APPROVED. you can build this", specs ef5df0b5; brief `FRONT_PAGES_BUILD_BRIEF_2026-11-20.md`), in Discover's parts
+(`fd-sechead`, `fd-chips`, `fd-btn-terra`, Discover tokens). Photo opening with the brand line, "What are you
+planning?" swipe row → each type's own onboarding, guest-view screenshots, one Papic album, free planning tools,
+"kept for life" thread, three doors (hosting · supplier · coordinator), plans folded behind one link, close and a
+sticky "Start your event — free" bar. 10,867 px → 3,591 px at 390 (3.3 swipes).
+
+- Removed: `front-door-hero.tsx` (4 Nov turning-word hero) and `front-door-landing-client.tsx` (the page needs no script).
+- Plans read the live catalog (`planPricesFrom`) and the live plan peeks; the 20 Nov plan re-cut (#7978/#8004) is not
+  live, so each plan row shows today's product, never "Coming".
+- Guards moved, not loosened: house words (two brand lines named), says-event, tells-the-truth, coordinator door,
+  closed ⓘ, hero photo first, w5 walk, service cover.
+
+SPEC IMPACT: None — builds an approved drawing; no decision changed.

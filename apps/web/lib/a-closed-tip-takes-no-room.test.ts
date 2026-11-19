@@ -58,12 +58,16 @@ test('the open bubble is nudged inside a 16-px gutter', () => {
   assert.ok(/vw - 16/.test(TIP) && /16 - left/.test(TIP), '<InfoTip> must keep both edges 16 px inside the screen');
 });
 
-test('the front-door hero ⓘ opens upward, inside the clipped hero', () => {
-  // The hero is `overflow: hidden` (its photo) and the Papic line sits on its bottom edge: a bubble hanging below it
-  // was cut after one line at every phone width (measured 320 px: bubble bottom 895, hero bottom 798).
+test('the front page ⓘ takes no room closed and opens in place', () => {
+  // 🔁 MOVED (20 Nov): the 4 Nov hero carried an <InfoTip> on its clipped bottom edge, held here to open upward. The
+  // 20 Nov front page (prototypes/front_page_home_2026-11-19 v5) has no hero ⓘ; its ⓘ are <details> whose text flows
+  // in place under the line (`.fl-what-tip`), so a closed one takes no room and an open one can never be clipped.
   const css = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'frontdoor', 'front-door-landing.css'), 'utf8'));
-  const m = css.match(/\.fd \.fl-truths-papic \.sn-tip\s*\{([^}]*)\}/);
-  assert.ok(m, 'the hero Papic ⓘ has no `.fd .fl-truths-papic .sn-tip` rule — it hangs below and the hero clips it');
-  assert.match(m[1] ?? '', /bottom:\s*100%/, 'the hero Papic ⓘ must open upward (bottom: 100%)');
-  assert.match(m[1] ?? '', /top:\s*auto/, 'the hero Papic ⓘ must release `top`');
+  const tsx = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'frontdoor', 'front-door-landing.tsx'), 'utf8'));
+  assert.match(tsx, /<details className="fl-what-tip">/, 'the front page ⓘ is no longer a <details>');
+  const sum = css.match(/\.fd \.fl-what-tip summary\s*\{([^}]*)\}/);
+  assert.ok(sum, 'the front page ⓘ has no `.fd .fl-what-tip summary` rule');
+  assert.match(sum[1] ?? '', /width:\s*44px/, 'the ⓘ press must be 44 px wide');
+  assert.match(sum[1] ?? '', /height:\s*44px/, 'the ⓘ press must be 44 px tall');
+  assert.doesNotMatch(css, /\.fl-what-tip[^{]*\{[^}]*position:\s*(absolute|fixed)[^}]*\}\s*\.fd \.fl-what-tip p/, 'the open text must flow in place');
 });

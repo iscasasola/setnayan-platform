@@ -38,9 +38,9 @@ test('one website: every shop wears the hero, the two columns and the side card'
 
 // Sabotage: show the blue check, a month, the rating chip, the map/directions/web address or the reviews unverified → red.
 test('the content an unverified shop leaves out: blue check, Check a date, rating + reviews, exact address, web address', () => {
-  assert.match(PAGE, /verified=\{vendor\.verification_state === 'verified'\}/, 'the top bar check is not verified-only');
+  assert.match(PAGE, /verified=\{vendor\.verification_state === 'verified' && !renewing\}/, 'the top bar check is not verified-only');
   assert.match(PAGE, /month=\{isVerifiedShop \? thisMonth : null\}/);
-  assert.match(PAGE, /verifiedLine=\{vendor\.verification_state === 'verified' \? sideCardVerifiedLine\(/);
+  assert.match(PAGE, /verifiedLine=\{vendor\.verification_state === 'verified' && !renewing \? sideCardVerifiedLine\(/);
   assert.match(PAGE, /\{isVerifiedShop &&\s*viewerTierCaps\.reviewStarsCounted &&/, 'the rating chip shows for an unverified shop');
   assert.match(PAGE, /\{isVerifiedShop \? \(\s*<ReviewsSection\b/, 'the reviews show for an unverified shop');
   assert.match(PAGE, /data-shop-reviews-held=""[\s\S]{0,500}\{REVIEWS_HELD\.title\}[\s\S]{0,40}\{REVIEWS_HELD\.body\}/);
@@ -68,15 +68,15 @@ test('ONE tag, ONE sheet: every marking is `NotYetVerifiedTag`, which opens the 
 
 // Sabotage: drop any one marking (hero, band, slot, services note, card stamp, photos note, About, side card, dock, footer) → red.
 test('the markings, where the drawing puts them', () => {
-  assert.match(PAGE, /marker=\{isVerifiedShop \? undefined : <NotYetVerifiedTag \/>\}/, 'the hero’s stamp');
-  assert.match(PAGE, /data-shop-not-verified-band="">\s*<NotYetVerifiedNotice \/>/, 'the band under the name');
+  assert.match(PAGE, /marker=\{isVerifiedShop \|\| renewing \? undefined : <NotYetVerifiedTag \/>\}/, 'the hero’s stamp');
+  assert.match(PAGE, /data-shop-not-verified-band="">\s*<NotYetVerifiedNotice renewing=\{renewing\} \/>/, 'the band under the name');
   assert.match(PAGE, /data-shop-not-verified-slot="">\s*<NotYetVerifiedTag pill=\{false\}/, 'the Awards slot opens the sheet');
-  assert.match(PAGE, /notVerified=\{!isVerifiedShop\}/, 'the services are not told');
+  assert.match(PAGE, /notVerified=\{!isVerifiedShop && !renewing\}/, 'the services are not told');
   assert.match(PAGE, /\{notVerified \? \(\s*<NotYetVerifiedTag className="-mt-2">\{NOT_YET_VERIFIED_SERVICES_NOTE\}<\/NotYetVerifiedTag>/, 'the services note');
   assert.match(GALLERY, /\{notVerified \? <NotYetVerifiedTag label=\{NOT_VERIFIED_STAMP\} \/> : null\}/, 'every service card’s stamp');
-  assert.match(PAGE, /notVerified=\{!isVerifiedShop\}\s*\/>\s*\{featuredVideos/, 'the photos are not stamped');
+  assert.match(PAGE, /notVerified=\{!isVerifiedShop && !renewing\}\s*\/>\s*\{featuredVideos/, 'the photos are not stamped');
   assert.match(PHOTOS, /\{notVerified \? \(\s*<em[^>]*data-photo-not-verified="">\s*\{NOT_VERIFIED_STAMP\}/, 'every photo’s stamp');
-  assert.match(PAGE, /\{isVerifiedShop \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}<\/NotYetVerifiedTag>/, 'the photos note');
+  assert.match(PAGE, /\{isVerifiedShop \|\| renewing \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}<\/NotYetVerifiedTag>/, 'the photos note');
   assert.match(PAGE, /data-shop-what-verified-adds=""/, 'What Verified adds');
   assert.match(SIDE, /data-side-card-not-verified="">\s*<NotYetVerifiedTag \/>[\s\S]{0,200}NOT_YET_VERIFIED_SIDE_LIST\.map/, 'the side card');
   assert.match(QUOTE, /data-quote-tray-not-verified="">\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_SIDE_LIST\[0\]\}<\/NotYetVerifiedTag>/, 'the dock line');

@@ -39,7 +39,11 @@
  * floating at the foot — no glass there (it sits on the bar), the field a pill, the rounds 40 px. Below 701, or on a tree
  * without the box, nothing changes. On a phone the floating row gains a soft fade behind it so the rows under it show
  * through instead of being cut by its edge (v13 "soft fade behind the floating thumb row").
- * 🔒 the-supplier-frame-holds.test.ts
+ *
+ * 🫳 TUCK (motion standard 18 Nov 2026, § 5 #37): the floating row wears `data-tuck-row`. When the page scrolls down and
+ * the bottom nav shrinks to its pill, the row STAYS — it comes down onto the pill's row, beside it — and goes back up
+ * with the bar on a scroll up (globals.css, `html[data-tuck]`). Inside a sheet or a pop-up's own layer nothing tucks.
+ * 🔒 the-supplier-frame-holds.test.ts · app/_components/nav/tuck-keeps-the-rows.test.ts
  */
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -145,7 +149,7 @@ export function SupplierThumbRow({
   }
   if (row) {
     const band = (
-      <div ref={rowRef} className={styles.lower} data-supplier-thumb={name} data-on={on ? 'true' : 'false'}>
+      <div ref={rowRef} className={styles.lower} data-supplier-thumb={name} data-tuck-row="" data-on={on ? 'true' : 'false'}>
         {row}
       </div>
     );
@@ -160,6 +164,7 @@ export function SupplierThumbRow({
       className={`${styles.lower} sn-glass-row`}
       data-glass-row="supplier-thumb"
       data-supplier-thumb={name}
+      data-tuck-row=""
       data-on={on ? 'true' : 'false'}
       role="toolbar"
       aria-label={label}

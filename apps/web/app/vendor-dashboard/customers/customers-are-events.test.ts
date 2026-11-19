@@ -162,7 +162,9 @@ test('4 · the list is headed EVENTS, and a search counts events', async () => {
   const found = await render([row({})], { query: 'indalecio', counts: { waiting: 0, holding: 0, talking: 0, booked: 3, finished: 0 } });
   assert.match(found, /1 of 3 events/, 'the found line counts customers, not events');
   // v113 `thumb()` (Build 2 #43d): the one Clients screen searches CLIENTS — the rows are still one per event.
-  assert.match(PAGE, /placeholder="Search clients"/, 'the search box does not say what it searches');
+  // The box lives in its own part since Search or add (19 Nov); the page draws it.
+  assert.match(PAGE, /<ClientsSearch\b/, 'the Clients screen lost its search');
+  assert.match(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '_components', 'clients-search.tsx'), 'utf8'), /placeholder="Search clients"/, 'the search box does not say what it searches');
 });
 
 test('5 · a booked row’s money is price · paid · next — the frozen plan’s, the next one the earliest still to come', () => {

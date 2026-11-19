@@ -134,6 +134,7 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -179,7 +180,7 @@ import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
 import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { ClientNextStepRow } from './_components/client-next-step-row';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
@@ -1974,6 +1975,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (
@@ -2808,7 +2820,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
-      nextStep={nextStep ? <ClientNextStepRow step={nextStep} /> : null}
+      nextStep={nextStep ? <NextStepRow step={nextStep} /> : null}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

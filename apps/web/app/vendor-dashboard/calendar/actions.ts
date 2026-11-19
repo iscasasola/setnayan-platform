@@ -71,12 +71,15 @@ async function poolRentsPieces(
     .eq('vendor_profile_id', vendorProfileId)
     .eq('pool_id', poolId);
   const ids = ((members ?? []) as { vendor_service_id: string }[]).map((m) => m.vendor_service_id);
+  // A refused read keeps the 500 ceiling (the safe side) — and says so.
+  if (error) console.error('[poolRentsPieces] schedule cards read failed', error.message);
   if (error || ids.length === 0) return false;
   const { data: cards, error: cardErr } = await supabase
     .from('vendor_services')
     .select('availability_style')
     .eq('vendor_profile_id', vendorProfileId)
     .in('vendor_service_id', ids);
+  if (cardErr) console.error('[poolRentsPieces] card styles read failed', cardErr.message);
   if (cardErr || !cards) return false;
   const counted = (cards as { availability_style: string | null }[]).filter((c) => c.availability_style !== 'none');
   return counted.length > 0 && counted.every((c) => c.availability_style === 'piece');

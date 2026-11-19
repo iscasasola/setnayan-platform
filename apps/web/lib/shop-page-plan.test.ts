@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { ownWebAddress, pinnedQuote, shopHasWhere, shopReach, shopReachLine } from '@/lib/shop-page-plan';
 import { TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { micrositeCan } from '@/lib/vendor-microsite';
 
 /** Supplier website by plan (owner-approved 2026-10-30) — the card column's plan pieces, read off the shipped caps. */
 
@@ -61,4 +62,11 @@ test('a shop with no pin, no address and no city has no "Where" (re-walk 2026-11
   assert.equal(shopHasWhere({ ...none, latitude: 14.1, longitude: 120.9 }), true, 'a pin draws the map');
   assert.equal(shopHasWhere({ ...none, address: '12 Rizal St' }), true, 'an address gets the search');
   assert.equal(shopHasWhere({ ...none, city: 'Tagaytay' }), true, 'a city gets the reach line and the search');
+});
+
+test('ONE SHOP PAGE FOR EVERY PLAN — personalising, the Pro parts and the Films layer (owner ruled 2026-11-19)', () => {
+  // "shop page also is 1 for all already" + §C item 5, "Films layer opens to every plan".
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise', null] as const) {
+    assert.deepEqual(micrositeCan(t), { canPersonalize: true, canPremium: true, isEnterprise: true }, String(t));
+  }
 });

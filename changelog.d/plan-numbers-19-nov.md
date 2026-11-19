@@ -10,8 +10,9 @@ also is 1 for all already"* · the final table: *"this is good"*. Specs: SUPPLIE
 - **Price:** Pro ₱3,990 per 4 weeks (was ₱4,990). Pro's yearly row is DERIVED in SQL as 10× (₱39,900, was ₱49,900),
   following the guarded 2026-11-04 rule "a year = 10× the 4-week price" (`a-year-is-ten-four-week-cycles.db.test.ts`);
   the yearly price itself is still an open owner call. The yearly plan rows carry the same seat caps as the monthly.
-- **The same on every plan:** morning + afternoon slots (`slotsTimeBounded`), the shop page with its own web address
-  and the Pro page parts (`website`, `customWebsiteName`, `premiumPage`).
+- **The same on every plan:** morning + afternoon slots (`slotsTimeBounded`), the shop page with its own web address,
+  the Pro page parts and the "Films" video layer (`website`, `customWebsiteName`, `premiumPage`; `micrositeCan` reads
+  them — the Films layer by the owner's §C ruling, item 5).
 - **The Ultra Add-on — the ONE add-on:** +1 branch · +15 live cards · +3 people · +50 GB, ₱2,490 per 28 days, Ultra
   only, may be bought more than once. SKU `vendor_ultra_addon`. ⏳ **28 days per payment, never forever:** there is no
   stored count — the activation hook stamps each paid order's own window (`orders.expires_at` = approval + 28 days,
@@ -23,6 +24,10 @@ also is 1 for all already"* · the final table: *"this is good"*. Specs: SUPPLIE
   already bought is kept and renews (`holdsExtraSeats` / `canRenewExtraBranches`); their catalogue rows stay active
   for that reason. The invite "at cap" seat-fee hint is gone — Ultra is pointed at the Ultra Add-on.
 
-SPEC IMPACT: None in this PR — the rulings are in the corpus DECISION_LOG 2026-11-19 and the change plan (ac15265b).
-Owner calls still open (PR status comment): existing subscribers over a lowered limit, the retired single extras'
-renewals, and when the new Pro price applies to a current subscriber (change plan §C).
+- **Existing subscribers (owner ruled change plan §C, "Yes, all five"):** the lowered limits apply — a shop over one keeps
+  what it has and cannot add; Pro's year stays ₱39,900 (10×); a single seat or branch already paid for renews until it
+  lapses and is never sold new; a current Pro subscriber moves to ₱3,990 at the next renewal (the catalogue price);
+  the Films layer opens to every plan.
+
+SPEC IMPACT: None in this PR — the rulings are in the corpus DECISION_LOG 2026-11-19 (incl. the §C "Yes, all five")
+and the change plan (ac15265b).

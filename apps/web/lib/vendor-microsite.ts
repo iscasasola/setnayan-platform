@@ -8,7 +8,8 @@ import { asVendorTier, tierCaps } from './vendor-tier-caps';
  *   - canPersonalize (`website === 'custom'` — every plan since 2026-11-19): About · accent · featured services · sections
  *   - canPremium (`premiumPage` — every plan since 2026-11-19): custom slug · hero photo · pinned review · editorials
  *     + the 2-column public layout
- *   - isEnterprise: the cinematic flagship layer (Ultra; open owner call whether it joins the one page)
+ *   - isEnterprise: the flagship "Films" layer (the video portfolio) — EVERY plan since 2026-11-19 (owner ruled §C,
+ *     "Yes, all five": item 5, *"Films layer opens to every plan"*). The key keeps its old name so no reader moves.)
  */
 export function micrositeCan(tierState: string | null | undefined): {
   canPersonalize: boolean;
@@ -17,11 +18,10 @@ export function micrositeCan(tierState: string | null | undefined): {
 } {
   // 🌐 READ FROM THE PLAN TABLE (owner 2026-11-19: *"shop page also is 1 for all already"* — the same shop page on
   // every plan, the best one): personalising is `website === 'custom'`, the Pro page parts are `premiumPage`, both
-  // TRUE on every plan now. ⚠ The Ultra "Films" flagship layer (`isEnterprise`) is left on Ultra — whether it is part of
-  // "the same shop page" is an open owner call (PR #8019), so it is not widened by guess.
-  const t = asVendorTier(tierState ?? null);
-  const c = tierCaps(t);
-  return { canPersonalize: c.website === 'custom', canPremium: c.premiumPage, isEnterprise: t === 'enterprise' };
+  // TRUE on every plan now — and the flagship "Films" layer too (owner ruled 2026-11-19, §C item 5: *"Films layer
+  // opens to every plan"*). It reads `premiumPage`, the same "one page for all" flag, so the three move together.
+  const c = tierCaps(asVendorTier(tierState ?? null));
+  return { canPersonalize: c.website === 'custom', canPremium: c.premiumPage, isEnterprise: c.premiumPage };
 }
 
 /**

@@ -1059,15 +1059,15 @@ function websiteFieldPatch(
     return { ok: false, error: 'This is part of Supplier Pro. Pick Supplier Pro on the Plans page to save it.' };
   }
 
-  // ENTERPRISE gate — the video portfolio is a Flagship differentiator. UI hides
-  // it below Enterprise; server-side backstop.
+  // The video portfolio ("Films") — opened to EVERY plan 2026-11-19 (owner ruled §C item 5); `isEnterprise` reads the
+  // one-page-for-all flag now, so this backstop no longer refuses any plan. Kept as the one place a future plan rule lands.
   if (
     ENTERPRISE_WEBSITE_FIELDS.has(field) &&
     vendorPaywallApplies(micrositeCan(rowTyped?.tier_state).isEnterprise)
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is part of Supplier Ultra. Pick Supplier Ultra on the Plans page to add films.',
+      error: 'Video portfolio is not on your plan. Pick a plan on the Plans page to add films.',
     };
   }
 

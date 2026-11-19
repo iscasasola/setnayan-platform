@@ -143,7 +143,9 @@ test('3 · the March’s feel by its own numbers: imported, never copied — the
   assert.match(DRAG, /duration: SETTLE_MS/);
   assert.match(DRAG, /const v = dragEdgeStep\(h\.y, dragBandOf\(page\)\);/);
   /* The hold: 350 ms, the prototype's own, used for the lift. */
-  assert.match(DRAG, /export const RSVP_HOLD_MS = 350;/);
+  // 19 Nov 2026: the hold is the motion standard's ONE hold (`HOLD_MS`, 350 ms), read — not typed a second time.
+  assert.match(DRAG, /export const RSVP_HOLD_MS = HOLD_MS;/);
+  assert.match(raw('lib/motion-table.ts'), /export const HOLD_MS = 350;/);
   assert.match(DRAG, /timer: win\.setTimeout\(\(\) => lift\(x, y\), RSVP_HOLD_MS\)/);
   /* The March's bare numbers, named where they are used. */
   for (const named of [/const GHOST_SCALE = 1\.03;/, /const LIFTED_DIM = 0\.3;/, /const LAND_MS = 220;/, /const MOUSE_LIFT_PX = 4;/]) assert.match(DRAG, named);

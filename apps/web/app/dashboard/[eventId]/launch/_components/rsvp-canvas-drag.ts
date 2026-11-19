@@ -27,6 +27,7 @@
  * that very line is the picked one (the prototype's rule). Where it may LAND: among what stands beside it.
  */
 import { rsvpDropBefore, rsvpDropSlot } from '@/lib/rsvp-layout-edit';
+import { HOLD_MS } from '@/lib/motion-table';
 import { dragBandOf, dragEdgeStep, dragScrollBy } from '@/lib/drag-edge-scroll';
 import { SETTLE_MS } from './details-march';
 
@@ -35,7 +36,7 @@ import { SETTLE_MS } from './details-march';
  * prototype's own number (`HOLD_MS = 350`) — a reply page is read and scrolled with the same thumb that would lift a
  * line, so the hold is a little longer than on a list that only exists to be rearranged.
  */
-export const RSVP_HOLD_MS = 350;
+export const RSVP_HOLD_MS = HOLD_MS;
 /** The room that opens where the held line would land, and how it is drawn — the prototype's `.gap.on`. */
 const OPENING_PX = 20;
 /** These are bare numbers inside the march's own code (not constants there): kept equal to it by eye, named here. */

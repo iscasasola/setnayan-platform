@@ -130,7 +130,7 @@ const LANDING_CSS =
   // motion, and each time the bar came back the block reached its place first —
   // leaving a strip between the bar and the date line where the rows behind
   // showed through (controller's walk at 375, 2026-10-08).
-  '[data-suppliers-stick]{transition:top .3s ease-out,box-shadow .3s ease-out}';
+  '[data-suppliers-stick]{transition:top var(--sn-tuck-dur) var(--sn-tuck-ease),box-shadow .3s ease-out}';
 // 📌 ONE ROW, THE SAME AT REST AND PINNED (owner 2026-10-30 "all yes" — DECISION_LOG "ONE SELECTOR FOR EVERY PAGE";
 // owner 2026-10-31, live iPhone: *"Suppliers. needs to have that drop down effect to be able to safely integrate
 // all"*). The segmented Find | Build | Booked row and the face that lay over it while pinned are GONE: the row is one

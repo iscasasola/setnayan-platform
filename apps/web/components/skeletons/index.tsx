@@ -12,10 +12,19 @@
  * wrong shape. These templates fix that: each route gets a loader that
  * mirrors its own layout.
  *
- * The animated sheen comes from the `.skeleton` class in globals.css (a
- * GPU-only background-position sweep). It is automatically frozen to a static
- * block under `prefers-reduced-motion: reduce` by the global a11y block, so
- * these templates need no motion guards of their own.
+ * 👻 THE SKELETON STYLE IS "D · GHOST" (owner 18 Nov 2026, motion standard § 9): whatever is ALREADY KNOWN shows at
+ * once, as itself — the page title, section names, names from the last visit. Only the UNKNOWN parts are grey
+ * blocks under the Sheen. When nothing is known it falls back to the Sheen alone ("A · Sheen").
+ *   · `Ghost` is the one part that decides: `known` text → the text; nothing known → a grey `Sk` block.
+ *   · Every template takes `title` as `true` (a title is drawn but not known here → grey) or as the title's own
+ *     words (known → shown at once); a list takes `names`; `SkSection` takes a section's `name`.
+ *   · Names from the LAST VISIT come from the one shipped cache — `LastSeenFallback`
+ *     (`app/_components/last-seen/*`, five host pages, never money) wraps the template and paints the kept copy;
+ *     nothing kept → the Ghost template; nothing known → the Sheen. There is no second cache.
+ *
+ * The motion is the `.skeleton` class in globals.css: the block waits 150 ms before it shows (load rule 1 — a fast
+ * page shows no skeleton at all), then one light strip crosses it by transform every 1.4 s (the Sheen, the ONE
+ * allowed loop). Reduced motion: still grey blocks. Known parts never wait and never move.
  *
  * Every block is decorative (`aria-hidden`); the wrapping <Screen> carries
  * `aria-busy` + an sr-only "Loading…" so assistive tech announces the state
@@ -38,6 +47,69 @@ export function Sk({
   style?: CSSProperties;
 }) {
   return <div aria-hidden className={`skeleton ${className}`} style={style} />;
+}
+
+/**
+ * 👻 GHOST — the one part that decides between "known" and "unknown".
+ *
+ * `known` (non-empty text) → the text itself, at once: no wait, no grey, no motion. Nothing known → `fallback`
+ * (default: a grey `Sk` block sized by `className`), which waits and carries the Sheen.
+ *
+ * `textClassName` styles the known text. Give it the SAME height as the block it replaces (`leading-*` /
+ * `min-h-*`), so a page with a known title and one without it reserve the same space and nothing jumps.
+ *
+ * 🔒 lib/the-ghost-falls-back-to-sheen.test.ts
+ */
+export function Ghost({
+  known,
+  className = '',
+  textClassName = '',
+  fallback,
+}: {
+  known?: string | null | false;
+  className?: string;
+  textClassName?: string;
+  fallback?: ReactNode;
+}) {
+  const text = typeof known === 'string' ? known.trim() : '';
+  if (text) {
+    // Decorative like every other part of a loading screen: the wrapping <Screen> announces "Loading…" once,
+    // and the real page announces its own heading when it lands.
+    return (
+      <span aria-hidden data-ghost="known" className={`block truncate ${textClassName}`}>
+        {text}
+      </span>
+    );
+  }
+  return <>{fallback ?? <Sk className={className} />}</>;
+}
+
+/** What a template's `title` may be: nothing drawn · drawn but unknown here (grey) · the title's own words. */
+export type GhostTitle = boolean | string;
+
+/**
+ * A named section of a loading screen: the section's NAME is known copy, so it shows at once; its content is not,
+ * so `children` are the grey blocks. No name → a grey line where the name will be (the Sheen fallback).
+ */
+export function SkSection({
+  name,
+  children,
+  className = 'space-y-3',
+}: {
+  name?: string | null;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <Ghost
+        known={name}
+        className="h-3 w-40 rounded"
+        textClassName="min-h-3 text-xs font-semibold uppercase leading-3 tracking-wide text-ink/55"
+      />
+      {children}
+    </div>
+  );
 }
 
 /** One text line. `w` is any Tailwind width class (default 100%). */
@@ -114,7 +186,8 @@ export function HeaderSkeleton({
   actions = 0,
   actionsAt = 'always',
 }: {
-  title?: boolean;
+  /** `true` = a title is drawn but its words are not known here (grey). A string = the title itself, shown at once. */
+  title?: GhostTitle;
   actions?: number;
   /**
    * WHERE the page's buttons are actually visible.
@@ -136,7 +209,13 @@ export function HeaderSkeleton({
   // place from the one the skeleton reserved for it.
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      {title ? <Sk className="h-8 w-56 max-w-full rounded-md" /> : null}
+      {title ? (
+        <Ghost
+          known={title === true ? null : title}
+          className="h-8 w-56 max-w-full rounded-md"
+          textClassName="min-h-8 max-w-full text-2xl font-semibold leading-8 tracking-tight text-ink"
+        />
+      ) : null}
       {actions > 0 ? (
         <div
           className={`${
@@ -176,13 +255,18 @@ export function StatStripSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
-/** A single list row: avatar + two lines + trailing pill. */
-export function RowSkeleton() {
+/** A single list row: avatar + two lines + trailing pill. `name` = the row's name, when it is already known. */
+export function RowSkeleton({ name }: { name?: string | null } = {}) {
   return (
     <div className="flex items-center gap-3 rounded-xl border border-ink/10 bg-cream p-3">
       <SkCircle />
       <div className="min-w-0 flex-1 space-y-2">
-        <Sk className="h-3.5 w-2/5 rounded" />
+        {/* 👻 A name already known (the last visit's) shows at once; an unknown one is the grey line. */}
+        <Ghost
+          known={name}
+          className="h-3.5 w-2/5 rounded"
+          textClassName="min-h-3.5 text-sm font-medium leading-[0.875rem] text-ink/80"
+        />
         <Sk className="h-3 w-1/4 rounded" />
       </div>
       <Sk className="h-6 w-16 rounded-full" />
@@ -204,13 +288,16 @@ export function ListPageSkeleton({
   actions = 0,
   actionsAt = 'always' as const,
   title = false,
+  names,
 }: {
   rows?: number;
+  /** 👻 Names already known for the first rows (the last visit's). Rows past the list stay grey. */
+  names?: readonly string[];
   toolbar?: boolean;
   stats?: number;
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 }) {
   return (
     <Screen>
@@ -218,8 +305,8 @@ export function ListPageSkeleton({
       {stats > 0 ? <StatStripSkeleton count={stats} /> : null}
       {toolbar ? <ToolbarSkeleton /> : null}
       <div className="space-y-2.5">
-        {Array.from({ length: rows }).map((_, i) => (
-          <RowSkeleton key={i} />
+        {Array.from({ length: Math.max(rows, names?.length ?? 0) }).map((_, i) => (
+          <RowSkeleton key={i} name={names?.[i]} />
         ))}
       </div>
     </Screen>
@@ -240,7 +327,7 @@ export function GridPageSkeleton({
   tileClass?: string;
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 }) {
   return (
     <Screen>
@@ -271,7 +358,7 @@ export function FormPageSkeleton({
   fields?: number;
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 }) {
   return (
     <Screen className="mx-auto max-w-2xl space-y-6">
@@ -297,7 +384,7 @@ export function DetailPageSkeleton({
 }: {
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 } = {}) {
   return (
     <Screen>
@@ -332,7 +419,7 @@ export function TablePageSkeleton({
   cols?: number;
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 }) {
   return (
     <Screen>
@@ -366,7 +453,7 @@ export function FeedPageSkeleton({
   items?: number;
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 }) {
   return (
     <Screen>
@@ -395,7 +482,7 @@ export function BoardPageSkeleton({
 }: {
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 } = {}) {
   return (
     <Screen>
@@ -420,7 +507,7 @@ export function PageSkeleton({
 }: {
   actions?: number;
   actionsAt?: 'always' | 'lg';
-  title?: boolean;
+  title?: GhostTitle;
 } = {}) {
   return (
     <Screen>

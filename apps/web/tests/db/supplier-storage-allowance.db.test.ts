@@ -132,13 +132,28 @@ test('Solo: files up to exactly 5 GB, and the next new byte is refused with stor
   assert.equal(await used(s.shop), 5 * GB, 'the refused file was counted');
 });
 
-test('Pro holds 10 GB and Max (enterprise) 20 GB — owner 2026-11-18', async () => {
+test('Pro holds 10 GB and Ultra (enterprise) 20 GB — owner 2026-11-19', async () => {
   const pro = await newShop('pro');
   assert.equal((await file(pro, await store(pro, 10 * GB))).error, null);
   assert.match((await file(pro, await store(pro, 1))).error ?? '', /storage_allowance/);
   const ultra = await newShop('enterprise');
   assert.equal((await file(ultra, await store(ultra, 20 * GB))).error, null);
   assert.match((await file(ultra, await store(ultra, 1))).error ?? '', /storage_allowance/);
+});
+
+test('THE ULTRA ADD-ON (owner 2026-11-19): +50 GB each on Ultra — the storage gate reads extra_ultra_addons', async () => {
+  const ultra = await newShop('enterprise');
+  await asOwner();
+  // The paid activation path's write (service role / owner), never the shop's own — the entitlement guard refuses that.
+  await db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = 2 WHERE vendor_profile_id = $1`, [ultra.shop]);
+  assert.equal((await file(ultra, await store(ultra, 120 * GB))).error, null, 'Ultra 20 GB + 2 × 50 GB must fit 120 GB');
+  assert.match((await file(ultra, await store(ultra, 1))).error ?? '', /storage_allowance/, 'a byte past 120 GB was let in');
+  // A count on a plan that is not Ultra adds nothing.
+  const pro = await newShop('pro');
+  await asOwner();
+  await db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = 2 WHERE vendor_profile_id = $1`, [pro.shop]);
+  assert.equal((await file(pro, await store(pro, 10 * GB))).error, null);
+  assert.match((await file(pro, await store(pro, 1))).error ?? '', /storage_allowance/, 'a Pro shop was given Ultra Add-on storage');
 });
 
 test('Free and Verified keep what they had: no allowance, never refused', async () => {

@@ -18,11 +18,14 @@
 --
 -- 1 · THE NUMBERS. `vendor_plan_contents` (admin-editable; its trigger records each change) and `vendor_tier_limit()`'s
 --     code fallback: agent_accounts (people − 1) Pro 4 · Ultra 15; service_cards_total Pro 27 · Ultra 68;
---     branches_included Pro 1 · Ultra 3. The MONTHLY plan rows' max_sub_seats follow. TIER_CAPS moves in the same PR;
---     the db tests that derive from it hold the two equal.
+--     branches_included Pro 1 · Ultra 3. Every plan row's max_sub_seats follows (held by
+--     deep-search-one-price-and-plan-caps.db.test.ts). TIER_CAPS moves in the same PR; the db tests hold the two equal.
 -- 2 · THE PRICE. Pro's 4-week row ₱4,990 → ₱3,990 (the owner's figure). Plus ₱1,490 and Ultra ₱9,990 are unchanged.
---     🔑 MONTHLY ONLY: the yearly price is an open owner call, so NO annual row is touched (not its price, not its caps).
---     A price row is the catalogue, never a subscription: no order, purchase or vendor_profiles row is written here.
+--     The yearly row follows the STANDING rule — owner 2026-11-04, "EVERY 4-WEEK PURCHASE HAS A YEARLY PRICE = 10× THE
+--     4-WEEK PRICE" (held by a-year-is-ten-four-week-cycles.db.test.ts) — so pro_vendor_annual is DERIVED in SQL as 10×
+--     (₱39,900), never typed. ⚠ The owner has an open call on the yearly price ("10 payments for 13?"); if it changes,
+--     that rule changes with it in one place. A price row is the catalogue, never a subscription: no order, purchase or
+--     vendor_profiles row is written here.
 -- 3 · THE ULTRA ADD-ON — the ONE add-on: +1 branch · +15 live cards · +3 people · +50 GB, ₱2,490 per 28 days, Ultra
 --     only, may be bought more than once. A new offering type 'ultra_addon', the SKU `vendor_ultra_addon`, and the
 --     paid COUNT `vendor_profiles.extra_ultra_addons` — exactly the `extra_*` count pattern of 20271316466285: the
@@ -54,18 +57,26 @@ UPDATE public.vendor_plan_contents c
    AND c.key = v.key
    AND c.value IS DISTINCT FROM v.value;
 
--- The plan rows' seat count — MONTHLY rows only (the annual rows wait for the yearly ruling).
+-- The plan rows' seat count — a year buys the same plan, so its row carries the same caps.
 UPDATE public.vendor_billing_catalog
    SET max_sub_seats = v.seats, updated_at = NOW()
-  FROM (VALUES ('pro_vendor_monthly', 4), ('enterprise_vendor_monthly', 15)) AS v(sku_code, seats)
+  FROM (VALUES ('pro_vendor_monthly', 4), ('pro_vendor_annual', 4),
+               ('enterprise_vendor_monthly', 15), ('enterprise_vendor_annual', 15)) AS v(sku_code, seats)
  WHERE vendor_billing_catalog.sku_code = v.sku_code
    AND vendor_billing_catalog.max_sub_seats IS DISTINCT FROM v.seats;
 
--- ── 2 · the price: Pro ₱3,990 per 4 weeks (monthly only) ────────────────────
+-- ── 2 · the price: Pro ₱3,990 per 4 weeks; its year derived 10× (the standing rule) ──
 UPDATE public.vendor_billing_catalog
    SET price_php = 3990.00, updated_at = NOW()
  WHERE sku_code = 'pro_vendor_monthly'
    AND price_php IS DISTINCT FROM 3990.00;
+
+UPDATE public.vendor_billing_catalog y
+   SET price_php = m.price_php * 10, updated_at = NOW()
+  FROM public.vendor_billing_catalog m
+ WHERE y.sku_code = 'pro_vendor_annual'
+   AND m.sku_code = 'pro_vendor_monthly'
+   AND y.price_php IS DISTINCT FROM m.price_php * 10;
 
 -- The code fallback — the body of 20271350427190 with the 19 Nov branch numbers (Pro 1 · Ultra 3).
 CREATE OR REPLACE FUNCTION public.vendor_tier_limit(p_tier text, p_key text)

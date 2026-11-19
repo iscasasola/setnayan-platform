@@ -20,7 +20,7 @@ import {
   TIER_CAPS,
   type VendorTier,
 } from '../../lib/vendor-tier-caps';
-import { createReplayedDb, type ReplayResult } from './replay-migrations';
+import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];
@@ -135,7 +135,9 @@ test('cancelling an included branch frees its place; un-cancelling past the allo
 test('GRANDFATHERED: a shop over a lowered allowance keeps its branches, edits them, and is refused only the next', async () => {
   const ent = await newVendor('ultra-down', 'enterprise');
   const ids: string[] = [];
-  for (let i = 0; i < 5; i++) ids.push((await addBranch(ent, true)).id!);
+  const held = TIER_CAPS.enterprise.branchesIncluded; // Ultra 3 (owner 2026-11-19) — more than Pro's 1
+  assert.ok(held > TIER_CAPS.pro.branchesIncluded + 1, 'the scenario needs Ultra to hold more than Pro + 1');
+  for (let i = 0; i < held; i++) ids.push((await addBranch(ent, true)).id!);
   // Drop the plan underneath them (admin path — the downgrade guard is a separate concern, so write tier directly).
   await db.query(`ALTER TABLE public.vendor_profiles DISABLE TRIGGER USER`);
   try {
@@ -148,9 +150,52 @@ test('GRANDFATHERED: a shop over a lowered allowance keeps its branches, edits t
       WHERE parent_vendor_profile_id = $1 AND included_in_plan AND cancelled_at IS NULL`,
     [ent],
   );
-  assert.equal(live.rows[0]!.n, 5, 'a lowered allowance removed a branch the shop already had');
+  assert.equal(live.rows[0]!.n, held, 'a lowered allowance removed a branch the shop already had');
   await db.query(`UPDATE public.vendor_branches SET branch_label = 'Renamed' WHERE branch_id = $1`, [ids[1]]);
   await db.query(`UPDATE public.vendor_branches SET cancelled_at = NOW() WHERE branch_id = $1`, [ids[2]]);
   const next = await addBranch(ent, true);
   assert.match(next.error ?? '', /included_branch_allowance/, 'an over-allowance shop added another included branch');
+});
+
+test('THE ULTRA ADD-ON (owner 2026-11-19): +1 included branch each, on Ultra only — the gate reads extra_ultra_addons', async () => {
+  const setAddOns = async (v: string, n: number) => {
+    // The paid activation path's write (service role) — never the shop's own (the entitlement guard refuses that).
+    await db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = $2 WHERE vendor_profile_id = $1`, [v, n]);
+  };
+  const ultra = await newVendor('ultra-addon', 'enterprise');
+  await setAddOns(ultra, 2);
+  const cap = TIER_CAPS.enterprise.branchesIncluded + 2;
+  for (let i = 0; i < cap; i++) {
+    const r = await addBranch(ultra, true);
+    assert.equal(r.error, null, `Ultra + 2 add-ons: included branch ${i + 1} of ${cap} refused: ${r.error}`);
+  }
+  assert.match((await addBranch(ultra, true)).error ?? '', /included_branch_allowance/, 'one past Ultra + its add-ons was let in');
+
+  // A count on a plan that is not Ultra adds nothing (a lapsed Ultra keeps the column until its orders run out).
+  const pro = await newVendor('pro-addon', 'pro');
+  await setAddOns(pro, 2);
+  for (let i = 0; i < TIER_CAPS.pro.branchesIncluded; i++) assert.equal((await addBranch(pro, true)).error, null);
+  assert.match((await addBranch(pro, true)).error ?? '', /included_branch_allowance/, 'a Pro shop was given an Ultra Add-on branch');
+});
+
+test('the Ultra Add-on count cannot be written by the shop itself (entitlement guard)', async () => {
+  const v = await newVendor('ultra-selfgrant', 'enterprise');
+  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [v]);
+  // Impersonate the shop (uid + role claim + SET ROLE) — the vendor-addon-selfgrant-guard.db.test.ts pattern.
+  await setAuthUid(db, owner.rows[0]!.user_id);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    await assert.rejects(
+      () => db.query(`UPDATE public.vendor_profiles SET extra_ultra_addons = 5 WHERE vendor_profile_id = $1`, [v]),
+      /self-grant blocked/,
+      'a shop granted itself Ultra Add-ons',
+    );
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null);
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+  }
+  const after = await db.query<{ n: number }>(`SELECT extra_ultra_addons AS n FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [v]);
+  assert.equal(after.rows[0]!.n, 0, 'the count moved');
 });

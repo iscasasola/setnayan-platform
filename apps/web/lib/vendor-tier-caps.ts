@@ -722,8 +722,8 @@ export const TIER_PRICE_PHP: Record<VendorTier, { monthly: number; annual: numbe
   // 💰 SIMPLER SUPPLIER PLANS (owner 2026-11-14): Plus ₱1,490 · Pro ₱4,990 · Ultra ₱9,990 per 4 weeks; a year = 10×.
   // A fallback that lags the catalogue is how an unreadable read shows a superseded price — it moves with the rows.
   solo: { monthly: 1490, annual: 14900 },
-  // 💰 Owner 2026-11-19: Pro ₱3,990 per 4 weeks. The YEAR is an open owner call — the annual fallback is left as it was.
-  pro: { monthly: 3990, annual: 49900 },
+  // 💰 Owner 2026-11-19: Pro ₱3,990 per 4 weeks; a year = 10× (the standing 2026-11-04 rule, derived in the migration).
+  pro: { monthly: 3990, annual: 39900 },
   enterprise: { monthly: 9990, annual: 99900 },
 };
 

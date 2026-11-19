@@ -91,7 +91,7 @@ const SHOPS: Record<Who, { tier: string; cycle: 'monthly' | 'annual'; expires: s
 /** Lab-only stand-in prices — the page reads `vendor_billing_catalog`; these never reach a supplier. */
 const LAB_PRICES: Record<string, { monthly: number; annual: number }> = {
   solo: { monthly: 1490, annual: 14900 },
-  pro: { monthly: 4990, annual: 49900 },
+  pro: { monthly: 3990, annual: 39900 },
   enterprise: { monthly: 9990, annual: 99900 },
 };
 

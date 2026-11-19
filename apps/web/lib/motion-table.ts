@@ -146,6 +146,8 @@ export const MOTION_TABLE = {
   lateFadeMs: 160,
   /** Every reduced-motion fallback that is a fade. */
   reducedFadeMs: 120,
+  /** Signature moments (§ 9): Capiz light's panes light this far apart (`--sn-m-sig-step`). */
+  sigPaneStepMs: 70,
   /** Content steps: how many. */
   steps: 3,
 } as const;

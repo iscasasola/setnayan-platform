@@ -3996,6 +3996,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
      lib/load-rules.ts — 🔒 lib/the-load-rules-are-one.test.ts. */
   --sn-m-load-wait:     150ms;
   --sn-m-load-stay:     400ms;
+  /* 🕯 The signature moments' ONE stagger (§ 9, prototype Part I — Capiz light: "Panes 70 ms apart"). A wait, not a
+     speed. Mirror of MOTION_TABLE.sigPaneStepMs — 🔒 lib/the-six-signature-moments.test.ts. */
+  --sn-m-sig-step:      70ms;
   --sn-m-settle:        cubic-bezier(.2,.8,.2,1);
   --sn-m-settle-rev:    cubic-bezier(.8,0,.8,.2);
   --sn-m-spring:        linear(0, 0.062, 0.204, 0.379, 0.551, 0.704, 0.827, 0.919, 0.983, 1.022, 1.042, 1.05, 1.048, 1.042, 1.034, 1.025, 1.017, 1.01, 1.005, 1.002, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 1);

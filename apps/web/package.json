@@ -54,7 +54,7 @@
     "root-map": "tsx scripts/root-map.ts",
     "ugat:screens:check": "node scripts/check-ugat-screens.mjs",
     "schema:snapshot": "tsx scripts/gen-schema-snapshot.ts",
-    "typecheck": "NODE_OPTIONS=--max-old-space-size=10240 tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=13312 tsc --noEmit",
     "test:e2e": "playwright test",
     "lint:server-only": "node scripts/lint-server-only-boundary.mjs",
     "lint:migrations-dir": "node scripts/lint-migrations-dir.mjs",
@@ -111,6 +111,7 @@
     "resend": "^6.12.3",
     "satori": "^0.26.0",
     "sharp": "^0.35.5",
+    "tesseract.js": "7.0.0",
     "three": "^0.184.0",
     "tz-lookup": "^6.1.25",
     "web-push": "^3.6.7"

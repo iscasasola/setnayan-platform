@@ -43,3 +43,8 @@ Guards updated on purpose (each with a note): `each-group-heading-rises-full-scr
 
 SPEC IMPACT: DECISION_LOG row 2026-11-19 "PORTFOLIO, SIMPLER — APPROVED" (albums row · four ways in · one Show-and-sort
 round · search by place · no second view counter).
+
+Review hold, 19 Nov — a part that could not be read is said, never sorted or searched around: if EITHER view counter is
+refused, Row 1 stays as listed under "Your albums" with "Couldn't load the views just now · shown as listed" (no sort on
+half the data); "Opened by you" the same; if the places are refused, a search says "Couldn't load places just now ·
+searching names only". Tests: `lib/portfolio-albums.test.ts` R1–R3 and guard test 6.

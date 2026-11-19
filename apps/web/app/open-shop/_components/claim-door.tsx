@@ -567,7 +567,7 @@ export function ClaimDoor({
     // this door's record (the couple's event type is ticked on the shop by the finish) — Today asks for the pin.
     const has = (k: ClaimDetailKey) => detailKeys.includes(k);
     const keptPay = (d.payWays ?? []).filter((w) => w.keep);
-    const checkRows: { fact: CheckFact; sheet: Screen; value: React.ReactNode }[] = [
+    const claimFactRows: { fact: CheckFact; sheet: Screen; value: React.ReactNode }[] = [
       ...(has('name') ? [{ fact: 'name' as const, sheet: 'ed:name' as Screen, value: d.name.trim() ? value('name') : null }] : []),
       { fact: 'contact', sheet: 'ed:who', value: d.who.trim() ? [d.who.trim(), d.role.trim()].filter(Boolean).join(' · ') : null },
       ...(has('service') ? [{ fact: 'categories' as const, sheet: 'ed:service' as Screen, value: d.services.length ? value('service') : null }] : []),
@@ -587,7 +587,7 @@ export function ClaimDoor({
     ];
     body = (
       <ul className="sn-tile grid max-w-[620px] divide-y" style={{ borderColor: 'var(--m-line)' }} data-claim-door-check="">
-        {checkRows.map((r) => (
+        {claimFactRows.map((r) => (
           <li key={r.fact}>
             <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet */
               type="button"

@@ -16,6 +16,7 @@ import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
+import { FIRST_CARD_NOT_LIVE, putFirstCardLive } from '@/lib/first-card-live.server';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import {
   clipBusinessSlug,
@@ -82,6 +83,7 @@ import {
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
   firstCardCarryPath,
+  firstCardLivePath,
   firstCardFrom,
   firstCardLanding,
   parseCardPrice,
@@ -851,16 +853,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
         category: cardCategory as string,
       })
     : null;
-  if (made && made.ok === false) {
-    redirect(
-      firstCardCarryPath(WELCOME_OPENED_PATH, {
-        state: 'refused',
-        title: cardTitle,
-        price: cardPrice as number,
-        category: cardCategory as string,
-        why: made.why,
-      }),
-    );
+  // Made or not, live or not — the welcome is told the truth (`firstCardOutcomePath`). Edit opens the Card Maker on it.
+  if (made && (made.ok === false || cardChoice !== 'edit')) {
+    const landing = firstCardOutcomePath(WELCOME_OPENED_PATH, { title: cardTitle, price: cardPrice as number, category: cardCategory as string }, made);
+    redirect(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing);
   }
   const cardId = made && made.ok ? made.id : null;
 
@@ -897,9 +893,23 @@ export async function approveFirstCard(formData: FormData): Promise<void> {
   const shop = await resolveOwnedActiveShop(supabase, user.id);
   if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: shop.error }));
   const made = await makeFirstCard(createAdminClient(), shop.vendorProfileId, card);
-  if (made.ok === false) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why }));
   revalidatePath('/vendor-dashboard');
-  redirect(welcome);
+  redirect(firstCardOutcomePath(welcome, card, made));
+}
+
+/**
+ * Where Today's welcome lands after the first card was asked for — and what it may claim. `live` only when the shipped
+ * switch said yes; made-but-refused is a `draft` with the switch's own sentence and the card's id (the Card Maker opens
+ * on it); not made is `refused` with the maker's sentence. Never a bare welcome that reads as "card done".
+ */
+function firstCardOutcomePath(
+  welcome: string,
+  card: { title: string; price: number; category: string },
+  made: FirstCardMade,
+): string {
+  if (made.ok === false) return firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why });
+  if (made.live) return firstCardLivePath(welcome);
+  return firstCardCarryPath(welcome, { ...card, state: 'draft', why: made.why, id: made.id });
 }
 
 /**
@@ -907,41 +917,60 @@ export async function approveFirstCard(formData: FormData): Promise<void> {
  * other way to price it). The maker answers with a redirect, which is read, never followed: `?error=` is ITS sentence,
  * returned as `why` so the screen can say it; no session yet is said too. Never "nothing happened".
  */
+type FirstCardMade = { ok: true; id: string | null; live: true } | { ok: true; id: string | null; live: false; why: string } | { ok: false; why: string };
+
 async function makeFirstCard(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
   card: { title: string; price: number; category: string },
-): Promise<{ ok: true; id: string | null } | { ok: false; why: string }> {
-  const fd = new FormData();
-  fd.set('category', card.category);
-  fd.set('title', card.title);
-  fd.set('pricing_basis', 'fixed');
-  fd.set('starting_price_php', String(card.price));
-  try {
-    await createVendorService(fd);
-  } catch (e) {
-    if (!isRedirectError(e)) {
-      console.error('[open-shop] the first card failed:', e instanceof Error ? e.message : e);
-      return { ok: false, why: FIRST_CARD_NOT_MADE };
-    }
-    const url = new URL(getURLFromRedirectError(e) ?? '', 'http://open-shop.local');
-    const refused = url.searchParams.get('error');
-    if (refused || url.pathname === '/login') {
-      console.warn('[open-shop] the first card was refused by the maker:', refused ?? url.pathname);
-      return { ok: false, why: refused ?? FIRST_CARD_NOT_MADE };
-    }
+): Promise<FirstCardMade> {
+  // 🔁 IDEMPOTENT (review 20 Nov): the confirm link can be opened twice and "Approve card" pressed twice — a card this
+  // shop already has under this name is the one we mean, so a second press makes no duplicate; it only asks the switch
+  // again. A refused read is not "no card": it is said, and nothing is made on no evidence.
+  const findMade = () =>
+    admin
+      .from('vendor_services')
+      .select('vendor_service_id')
+      .eq('vendor_profile_id', vendorProfileId)
+      .eq('title', card.title)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+  const before = await findMade();
+  if (before.error) {
+    console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select (before)', before.error.message);
+    return { ok: false, why: FIRST_CARD_NOT_MADE };
   }
-  const { data, error } = await admin
-    .from('vendor_services')
-    .select('vendor_service_id')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('title', card.title)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  // The card was made (the maker said so); only its id could not be read back — Edit then opens the maker on its kind.
-  if (error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', error.message);
-  return { ok: true, id: (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null };
+  let id = (before.data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
+  if (!id) {
+    const fd = new FormData();
+    fd.set('category', card.category);
+    fd.set('title', card.title);
+    fd.set('pricing_basis', 'fixed');
+    fd.set('starting_price_php', String(card.price));
+    try {
+      await createVendorService(fd);
+    } catch (e) {
+      if (!isRedirectError(e)) {
+        console.error('[open-shop] the first card failed:', e instanceof Error ? e.message : e);
+        return { ok: false, why: FIRST_CARD_NOT_MADE };
+      }
+      const url = new URL(getURLFromRedirectError(e) ?? '', 'http://open-shop.local');
+      const refused = url.searchParams.get('error');
+      if (refused || url.pathname === '/login') {
+        console.warn('[open-shop] the first card was refused by the maker:', refused ?? url.pathname);
+        return { ok: false, why: refused ?? FIRST_CARD_NOT_MADE };
+      }
+    }
+    const after = await findMade();
+    if (after.error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', after.error.message);
+    id = (after.data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
+  }
+  // 🃏 The maker makes every card as a DRAFT. "On your page" is true only when the SHIPPED switch says so (review
+  // 20 Nov): its publish gate and the plan's live-cards cap answer, and a no is carried with its own sentence.
+  if (!id) return { ok: true, id: null, live: false, why: FIRST_CARD_NOT_LIVE };
+  const live = await putFirstCardLive(id);
+  return live.live ? { ok: true, id, live: true } : { ok: true, id, live: false, why: live.why };
 }
 
 /** Said when the maker failed without a sentence of its own. */

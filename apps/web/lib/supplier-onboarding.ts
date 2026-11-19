@@ -216,18 +216,34 @@ export function firstCardLanding(input: {
   return '/vendor-dashboard/services/new';
 }
 
-/* ── the first card, when it could not be made at the door ──
- * Two honest cases, both carried to Today's welcome on its own address (a service's name and price — never a person's
- * details), so the welcome can say it and offer the one press that finishes it:
- *   · `waiting` — the Email way: with email confirmation on, nobody is signed in when the shop opens, and the shipped
- *     card maker needs a session. The confirm link lands on the welcome, which holds the drafted card and "Approve card".
- *   · `refused` — the shipped maker said no (its plan cap, a phone number in the name …). The welcome SAYS so, with the
- *     maker's own sentence, instead of opening on Today as if the card existed.
+/* ── the first card, as it truly stands after the door ──
+ * The shipped maker makes EVERY card as a draft (`is_active: false`, `createVendorService`); the door then asks the
+ * SHIPPED switch (`toggleVendorServiceActive` — the publish gate and the plan's live-cards cap) to put it on the page
+ * (`lib/first-card-live.server.ts`). Today's welcome is told which of these is true, on its own address (a service's
+ * name and price — never a person's details), so it never claims a card that is not on the page:
+ *   · `live`    — made AND on the page. Only then does the ticked row say "Your shop and first card".
+ *   · `draft`   — made, but the switch said no; `why` is ITS sentence (a cover, what's included, the plan's cap …), and
+ *                 the Card Maker opens on that card to finish it.
+ *   · `waiting` — the Email way: nobody was signed in when the shop opened, so nothing is made yet; "Approve card" on
+ *                 the welcome makes it.
+ *   · `refused` — the maker said no; its own sentence.
+ *   · `skipped` — the door's card screen was skipped; no card.
+ * A bare `?opened=1` / `?claimed=1` says nothing about a card, so the row says "Your shop".
  */
-export type FirstCardState = 'waiting' | 'refused';
+export type FirstCardState = 'waiting' | 'refused' | 'draft';
 /** `?card=skipped` — the door's card screen was skipped; nothing to approve, and no card is claimed. */
 export const FIRST_CARD_SKIPPED = 'skipped';
-export type FirstCardCarry = { state: FirstCardState; title: string; price: number; category: string; why: string | null };
+/** `?card=live` — the first card is made and on the page. */
+export const FIRST_CARD_LIVE = 'live';
+export type FirstCardCarry = {
+  state: FirstCardState;
+  title: string;
+  price: number;
+  category: string;
+  why: string | null;
+  /** The made card's id (`draft` only) — the Card Maker opens on it. */
+  id?: string | null;
+};
 
 export const FIRST_CARD_PARAM = {
   state: 'card',
@@ -235,9 +251,12 @@ export const FIRST_CARD_PARAM = {
   price: 'card_price',
   category: 'card_category',
   why: 'card_why',
+  id: 'card_id',
 } as const;
 
-/** The welcome's address carrying a card that is not made yet. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The welcome's address carrying a card that is not on the page yet. */
 export function firstCardCarryPath(welcome: string, card: Omit<FirstCardCarry, 'why'> & { why?: string | null }): string {
   const q = new URLSearchParams();
   q.set(FIRST_CARD_PARAM.state, card.state);
@@ -245,8 +264,12 @@ export function firstCardCarryPath(welcome: string, card: Omit<FirstCardCarry, '
   q.set(FIRST_CARD_PARAM.price, String(Math.round(card.price)));
   q.set(FIRST_CARD_PARAM.category, card.category);
   if (card.why) q.set(FIRST_CARD_PARAM.why, card.why.slice(0, 200));
+  if (card.id && UUID.test(card.id)) q.set(FIRST_CARD_PARAM.id, card.id);
   return `${welcome}${welcome.includes('?') ? '&' : '?'}${q.toString()}`;
 }
+
+/** The welcome's address for a card that IS on the page. */
+export const firstCardLivePath = (welcome: string) => `${welcome}${welcome.includes('?') ? '&' : '?'}${FIRST_CARD_PARAM.state}=${FIRST_CARD_LIVE}`;
 
 /** Read it back — every part re-checked (it arrives on an address anyone can type). Null when anything is off. */
 export function firstCardFrom(search: Record<string, string | string[] | undefined>): FirstCardCarry | null {
@@ -255,20 +278,49 @@ export function firstCardFrom(search: Record<string, string | string[] | undefin
     return typeof v === 'string' ? v : null;
   };
   const state = one(FIRST_CARD_PARAM.state);
-  if (state !== 'waiting' && state !== 'refused') return null;
+  if (state !== 'waiting' && state !== 'refused' && state !== 'draft') return null;
   const title = (one(FIRST_CARD_PARAM.title) ?? '').trim().slice(0, FIRST_CARD_TITLE_MAX);
   const price = parseCardPrice(one(FIRST_CARD_PARAM.price));
   const category = (one(FIRST_CARD_PARAM.category) ?? '').trim();
   if (!title || !price || !/^[a-z0-9_]{1,64}$/.test(category)) return null;
   const why = (one(FIRST_CARD_PARAM.why) ?? '').trim().slice(0, 200) || null;
-  return { state, title, price, category, why };
+  const rawId = one(FIRST_CARD_PARAM.id);
+  const id = state === 'draft' && rawId && UUID.test(rawId) ? rawId : null;
+  return { state, title, price, category, why, id };
 }
 
-/** What the welcome says about a card that is not made yet. */
+/** What `?card=` says on its own — `live` / `skipped` / `draft` with no carried card (the claim door's other cards). */
+export function firstCardStateFrom(search: Record<string, string | string[] | undefined>): 'live' | 'skipped' | 'draft' | null {
+  const v = search[FIRST_CARD_PARAM.state];
+  return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' ? v : null;
+}
+
+/** What the welcome says about a first card that is not on the page. */
 export const FIRST_CARD_CARRY_LINE: Readonly<Record<FirstCardState, string>> = {
-  waiting: 'Your first card is drafted. Approve it to put it on your page.',
+  waiting: 'Your first card is drafted. Approve it to make it.',
   refused: 'Your first card wasn’t made.',
+  draft: 'Your first card is made, but it isn’t on your page yet.',
 };
+
+/** Said when the shipped switch failed with no sentence of its own. */
+export const FIRST_CARD_NOT_LIVE = 'We couldn’t put it on your page just now. Open it in the Card Maker to try again.';
+
+/**
+ * Reads the shipped switch's answer (`toggleVendorServiceActive` redirects, never returns): `?error=` is ITS sentence —
+ * the publish gate or the live-cards cap — `?saved=1` is live, anything else is NOT a yes. Pure, so it is tested.
+ */
+export function firstCardLiveFrom(redirectUrl: string | null | undefined): { live: true } | { live: false; why: string } {
+  const url = new URL(redirectUrl ?? '', 'http://first-card.local');
+  const refused = (url.searchParams.get('error') ?? '').trim();
+  if (refused) return { live: false, why: refused.slice(0, 200) };
+  if (url.searchParams.get('saved') === '1') return { live: true };
+  return { live: false, why: FIRST_CARD_NOT_LIVE };
+}
+
+/** The draft card's button on the welcome — asks the shipped switch again (idempotent: no second card is made). */
+export const FIRST_CARD_RETRY = 'Put it on my page';
+/** A door that made cards as drafts with no single card to carry (the claim door's picks). */
+export const FIRST_CARD_DRAFTS_LINE = 'Your cards are made as drafts — put each on your page from the Card Maker.';
 
 /** The welcome's three next steps, in the owner's order (PB6). No leads are promised. */
 export const TODAY_WELCOME_STEPS = [
@@ -282,6 +334,9 @@ export const TODAY_WELCOME_LINE = 'Your shop is open on Free.';
 
 /** PB6's first, already-ticked row: what the door made. */
 export const TODAY_WELCOME_DONE = { withCard: 'Your shop and first card', shopOnly: 'Your shop' } as const;
+/** The ticked row claims the card ONLY when the address says it is live — a bare `?opened=1` names the shop alone. */
+export const welcomeDoneRow = (cardState: ReturnType<typeof firstCardStateFrom>) =>
+  cardState === FIRST_CARD_LIVE ? TODAY_WELCOME_DONE.withCard : TODAY_WELCOME_DONE.shopOnly;
 
 /** PB5 — the Free row and its line. Unverified Free is 0 km: nobody finds the shop in search yet. */
 export const DONE_FREE_ROW = { name: 'Free', line: 'Tools for the clients you have' } as const;

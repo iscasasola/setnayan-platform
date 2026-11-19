@@ -87,7 +87,6 @@ import {
   toCollectTileWords,
   unreadEvents,
   type ClientMeeting,
-  type CountRead,
 } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
@@ -385,11 +384,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     status: a.status,
   }));
   const meetingsFailed = Boolean(meetingsRead.error);
-  const meetingsCount: CountRead = {
-    n: meetingsFailed ? meetings.length : (meetingsRead.count ?? meetings.length),
-    complete: !meetingsFailed && meetingsRead.count !== null,
-    failed: meetingsFailed,
-  };
 
   // ⚠ MONEY. A payday read that did not reach the server's count is NOT added
   // up: the status line says some payments couldn't load and every booked
@@ -972,12 +966,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
-  // 📌 The pinned row's two figures (Build 2 #43b, v113 "6 booked · ₱48,000 to collect") — the SAME reads as the tiles.
-  const pinCounts = `${doorValue('booked') ?? '—'} booked${monthIds ? ' this month' : ''} · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
   const overdue = overdueRead(picture.totals);
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
@@ -1033,13 +1024,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         <CustomersPin
           seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
-          title={{ counts: pinCounts }}
+          title={{}}
           month={monthPart.month}
           doors={doors}
           panels={panels}
           quick={quick}
           initial={initialDoor}
-          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
+          gear={
+            <CustomersSettings
+              body={
+                // 🧹 Not available · Waiting list · QR codes live in ⚙ › Teams and days now (owner "Yes, all three", 19 Nov, Q2).
+                search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} daysTools={monthPart.folds} /> : null
+              }
+            />
+          }
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
             <>
@@ -1069,7 +1067,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
               {keptNotesMeasured && keptNotes.length > 0 ? (
                 <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
               ) : null}
-              {monthPart.folds}
             </div>
           }
         />
@@ -1368,7 +1365,7 @@ async function customersMonth({
     /** The month's tools, at the foot of the screen — the same folds Dates drew under its month. */
     folds: (
       // The month's own anchor (`#calendar`) sits on the month itself, in `CustomersPin`.
-      <div className="mt-6" data-customers-month-tools="">
+      <div className="mt-2" data-customers-month-tools="">
         <DatesFolds
           today={todayIso}
           month={month}
@@ -1670,6 +1667,14 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
   // 🔀 The old `?seg=people` (the first view's address until 2026-10-30) lands on Events — every other param kept.
   const forward = oldPeopleAddressForward(sp);
   if (forward) redirect(forward);
+  // 🧹 Not available and Waiting list moved into ⚙ › Teams and days (owner "Yes, all three", 19 Nov, Q2): an old
+  // `?open=block|waitlist` address still lands on its fold — now inside the ⚙ sheet, so the sheet opens with it.
+  if ((sp.open === 'block' || sp.open === 'waitlist') && sp.gear !== '1') {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (typeof v === 'string') q.set(k, v);
+    q.set('gear', '1');
+    redirect(`/vendor-dashboard/customers?${q.toString()}`);
+  }
   const seg = customersSegmentOf(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
@@ -1687,7 +1692,11 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
         <div
           // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
+          // 🧹 NO EMPTY TOP on the one Clients screen (owner 19 Nov): no top padding on a phone, and no space-y — the sr-only
+          // <h1> is a sibling too, so `space-y-4` put 16px of nothing over "Clients". Money and one day keep theirs.
+          className={`mx-auto w-full max-w-3xl px-4 pb-6 sm:px-6 lg:px-8 ${
+            seg === 'money' || search.day ? 'space-y-4 pt-4' : 'pt-0 tab:pt-3'
+          } ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Clients</h1>

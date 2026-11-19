@@ -18,6 +18,7 @@ import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { DAILY_CAPACITY_MAX, planHasBranches } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { bookingsPerDateHelp } from '@/lib/card-bookings-per-date';
+import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import { parentsOfKind, standingForCategory } from '@/lib/vendor-category-parents';
 import { buildLeafIndex, cardKindLabel, humanizeKind, type LeafIndex } from '@/lib/service-card-kind';
 import type { TradeMatch } from '@/lib/kind-search-trades';
@@ -94,6 +95,11 @@ export type MakerContext = {
    * the type stays nullable for the editor's existing blank-field path.
    */
   bookingsPerDate: { cap: number | null; help: string | null };
+  /**
+   * 🗓 The recommended Availability style per service (step 3): every `canonical_service_taxonomy` row an admin set
+   * (step 2). `null` = the read was REFUSED — the maker then draws no recommendation, never "Not set".
+   */
+  availabilityOf: Record<string, AvailabilityStyle> | null;
   kindLabel: (kind: string) => string;
   /**
    * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
@@ -117,7 +123,7 @@ export async function loadMakerContext(
 ): Promise<MakerContext> {
   const withKindList = opts.withKindList ?? true;
 
-  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock, checkRules] = await Promise.all([
+  const [ownRowsRes, tierRes, tree, vendorCoverages, eventTypes, poolsRes, poolCatsRes, giftPacks, giftStock, checkRules, availabilityRes] = await Promise.all([
     supabase.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state, is_founder, services').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     getCoverageTaxonomy().catch(() => [] as CoverageParent[]),
@@ -138,7 +144,23 @@ export async function loadMakerContext(
     fetchShopGiftStock(supabase, vendorProfileId).catch(() => null),
     // 🃏 the card checks — fails soft per half (never to an empty list, which would read as "nothing to fix").
     loadCardCheckRules(vendorProfileId).catch((): CardCheckRules => ({ claimWords: null, trades: null })),
+    // 🗓 the Availability row's "Recommended for …" (step 3) — only the services an admin has set; same batch.
+    supabase
+      .from('canonical_service_taxonomy')
+      .select('canonical_service, availability_style')
+      .not('availability_style', 'is', null)
+      .then(
+        (r) => r,
+        () => ({ data: null, error: { message: 'availability read threw' } }),
+      ),
   ]);
+  if (availabilityRes.error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:canonical_service_taxonomy.select (availability)', availabilityRes.error);
+  const availabilityOf: Record<string, AvailabilityStyle> | null = availabilityRes.error ? null : {};
+  if (availabilityOf) {
+    for (const r of (availabilityRes.data ?? []) as { canonical_service: string; availability_style: unknown }[]) {
+      if (isAvailabilityStyle(r.availability_style)) availabilityOf[r.canonical_service] = r.availability_style;
+    }
+  }
   const coverageLabels = await resolveCoverageLabels().catch(() => null);
 
   if (ownRowsRes.error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:vendor_services.select (own kinds)', ownRowsRes.error);
@@ -357,6 +379,7 @@ export async function loadMakerContext(
     onlyKind: coveredChoices.length === 1 ? (coveredChoices[0]?.value ?? null) : null,
     ownKinds: ownRowsRes.error ? null : Array.from(new Set(ownCategories)),
     bookingsPerDate,
+    availabilityOf,
     kindLabel,
     giftPacks,
     giftFree: freeByKind(giftStock),
@@ -419,7 +442,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,availability_style,order_lead_days,branch_id,exclusive_perk_text',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -546,6 +569,8 @@ export async function loadCardForEdit(
     coverUrl: c.primary_photo_r2_key ? (mediaDisplayUrls[c.primary_photo_r2_key] ?? null) : null,
     coverKey: c.primary_photo_r2_key ?? null,
     dailyCapacity: str(c.daily_capacity),
+    availabilityStyle: isAvailabilityStyle(c.availability_style) ? c.availability_style : null,
+    orderLeadDays: str(c.order_lead_days),
     branchId: str(c.branch_id),
     schedule: ((sched.data ?? []) as PaymentScheduleItemRow[]).map(rowToDraft),
     addons: ((addons.data ?? []) as { label: string; from_price_php: number | null }[]).map((a) => ({

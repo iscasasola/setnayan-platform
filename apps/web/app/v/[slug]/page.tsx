@@ -24,7 +24,7 @@ import { after } from 'next/server';
 import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
-import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store, CircleAlert } from 'lucide-react';
+import { MapPin, Star, Sparkles, Heart, BadgeCheck, CalendarCheck, ArrowRight, Send, Play, MessageCircle, Store } from 'lucide-react';
 import { DemoOnlyMarker, DEMO_ONLY_LABEL, SampleMarker } from '@/app/_components/sample-marker';
 import { fetchDiscountsWithOffers } from '@/lib/offers.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -132,7 +132,6 @@ import { BackButton } from '@/app/_components/back-button';
 import {
   SHOP_ARTICLE_WIDTH,
   SHOP_CALLING_CARD_CLASS,
-  SHOP_CALM_COLUMN_CLASS,
   SHOP_CARD_COLUMN_CLASS,
   SHOP_CARD_SECTION_CLASS,
   SHOP_COLUMNS_CLASS,
@@ -254,6 +253,8 @@ import { ShopInspirationSection, type InspirationTile } from './_components/shop
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { TeamPreviewBanner } from './_components/team-preview-banner';
 import { NotYetVerifiedNotice } from './_components/not-yet-verified-notice';
+import { NotYetVerifiedTag } from './_components/not-yet-verified-tag';
+import { NOT_YET_VERIFIED_PHOTOS_NOTE, NOT_YET_VERIFIED_SERVICES_NOTE, REVIEWS_HELD, WHAT_VERIFIED_ADDS } from '@/lib/not-yet-verified-markings';
 import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
@@ -1740,10 +1741,16 @@ export async function renderVendorBySlug({
   // Reuses micrositeCan's website-ladder rank (isEnterprise = rank ≥ 3).
   // 🌄 THE VERIFIED LOOK (owner 2026-11-13, DECISION_LOG "THE SHOP WEBSITE HAS TWO LOOKS" + "THREE PUBLIC PAGES
   // APPROVED"): EVERY verified shop — Verified · Solo · Pro · Ultra alike — wears the full-bleed hero with its name on
-  // the photo, the overlapping calling card and the motion. Was: Ultra (Enterprise) with a chosen hero photo only. The
-  // name stays `cinematicHero` because every guard that keeps the name, the badges and Inquire from doubling reads it.
-  // An unverified shop is the calm sibling: no hero, one column. Reach, branches and the own address stay per plan.
-  const cinematicHero = vendor.verification_state === 'verified';
+  // the photo, the overlapping calling card and the motion. Was: Ultra (Enterprise) with a chosen hero photo only.
+  // 🌐 ONE WEBSITE FOR EVERY SHOP (v16 S6 — owner 15 Nov, DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A
+  // VERIFIED ONE …", which SUPERSEDES the 13 Nov "TWO LOOKS — unverified clean + simple" for the LOOK): an unverified
+  // shop wears the same hero, calling card, columns and motion. What differs is CONTENT, gated by `isVerifiedShop`: no
+  // blue check, no Check a date, no rating or reviews, no exact address, no web address — and the markings.
+  // 🎭 A DEMO shop and a TEAM PREVIEW are not "a shop Setnayan has not checked yet" (review, 19 Nov): a demo shop is
+  // sample content and a team preview is the team's own look at the page, so both keep the full page — sample reviews
+  // included — and wear no "Not yet verified" marking. The same exclusion the band notice always made, now made ONCE,
+  // here, so no marking and no gate below can forget it. The blue check itself still reads `verification_state`.
+  const isVerifiedShop = vendor.verification_state === 'verified' || isDemoVendor || teamPreview !== null;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
   // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
@@ -2219,7 +2226,12 @@ export async function renderVendorBySlug({
   // ANTI-FRAUD (2026-07-05): the public aggregateRating is emitted from the
   // TRUSTED stat (receipt-backed, arm's-length) so a crawler never sees a
   // fake-inflated star average.
+  // v16 S6: and none for a shop Setnayan has not checked yet — a crawler reads no rating the page does not show.
+  // It reads the PAPER state, and never a demo shop: sample reviews are for people looking at the page, not for a
+  // crawler to index as a real shop's rating.
   if (
+    vendor.verification_state === 'verified' &&
+    !isDemoVendor &&
     viewerTierCaps.reviewStarsCounted &&
     trustedReviewStats.trusted_review_count > 0 &&
     trustedReviewStats.trusted_avg_rating > 0
@@ -2387,7 +2399,7 @@ export async function renderVendorBySlug({
   // 🧺 THE UNVERIFIED SHOP'S "N MORE" (prototype `.more`): services on plan hold, counted — never drawn. A refused read
   // is `null` and the line is not drawn (never "0 more" from a failure). Unverified only.
   let heldServiceCount: number | null = null;
-  if (!cinematicHero) {
+  if (!isVerifiedShop) {
     const { count, error: heldError } = await admin
       .from('vendor_services')
       .select('vendor_service_id', { count: 'exact', head: true })
@@ -2437,7 +2449,7 @@ export async function renderVendorBySlug({
        so the record block can never disagree with the top of the page,
        and costs no extra query. Vendor-level by nature: reviews carry
        no service dimension, which is why the badge says "shop rating". */
-    cardRecordRating: cardRecordRatingFromTrusted(trustedReviewStats),
+    cardRecordRating: isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null,
     /* The details sheet (flag-dark). OFF ⇒ every card renders as the
        static div it does today and no sheet is mounted. */
     detailsEnabled: detailsEnabled,
@@ -2465,10 +2477,10 @@ export async function renderVendorBySlug({
       address: vendor.hq_address,
       city: vendor.location_city,
     },
-    cinematicHero,
+    isVerifiedShop,
   );
   const hasWhere = where.has;
-  const shopSectionTabs: ShopSectionTab[] = cinematicHero
+  const shopSectionTabs: ShopSectionTab[] = isVerifiedShop
     ? [
         { id: 'shop-about', label: 'About' },
         { id: 'shop-services', label: 'Services' },
@@ -2476,7 +2488,11 @@ export async function renderVendorBySlug({
         { id: 'shop-reviews', label: 'Reviews' },
       ]
     : [
+        // v16 S6 (the drawing's unverified `snav`): Services · Photos · About · Reviews · Where — the same page, so the
+        // same sections; Where is the unverified shop's own (city only), the verified card carries its map instead.
         { id: 'shop-services', label: 'Services' },
+        ...(hasPortfolioSection ? [{ id: 'shop-portfolio', label: 'Portfolio' }] : []),
+        { id: 'shop-about', label: 'About' },
         { id: 'shop-reviews', label: 'Reviews' },
         ...(hasWhere ? [{ id: 'shop-where', label: 'Where' }] : []),
       ];
@@ -2516,15 +2532,17 @@ export async function renderVendorBySlug({
           shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
           is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-            {vendor.verification_state !== 'verified' ? (
+            {!isVerifiedShop ? (
               /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
                  (`ImageBadge` `on={false}`, the shipped not-yet face). */
-              <li className="flex min-h-11 items-center gap-2" data-shop-not-verified-slot="">
+              <li data-shop-not-verified-slot="">
+                <NotYetVerifiedTag pill={false} className="gap-2">
                 <ImageBadge {...badgeImageOf(verifiedBadge())} uid="shop-verified-not-yet" size={48} on={false} label="Setnayan Verified — not yet" />
                 <span className="grid text-sm leading-snug">
                   <b className="font-semibold">{awardFact(verifiedBadge())}</b>
                   <small className="text-xs opacity-75">Not yet — papers not checked</small>
                 </span>
+                </NotYetVerifiedTag>
               </li>
             ) : null}
             {awardsRow.map((item) => (
@@ -2573,7 +2591,9 @@ export async function renderVendorBySlug({
           reviews yet — an honest empty state, never a fake 0.0. */}
       {/* ANTI-FRAUD (2026-07-05): headline stars + count read the TRUSTED
           (receipt-backed, arm's-length) stat, not the raw review totals. */}
-      {viewerTierCaps.reviewStarsCounted &&
+      {/* v16 S6: no rating on a shop Setnayan has not checked yet (reviews are collected, shown once verified). */}
+      {isVerifiedShop &&
+      viewerTierCaps.reviewStarsCounted &&
       trustedReviewStats.trusted_review_count > 0 &&
       trustedReviewStats.trusted_avg_rating > 0 ? (
         <HeroBadge
@@ -2604,7 +2624,7 @@ export async function renderVendorBySlug({
     <main
       id="shop-top"
       style={{ ['--shop-bar-h' as string]: '3.5rem' }}
-      className={`min-h-dvh bg-page ${canMessage ? 'pb-24 md:pb-0' : ''} ${cinematicHero ? shopMotion.verified : ''}`}
+      className={`min-h-dvh bg-page ${canMessage ? 'pb-24 md:pb-0' : ''} ${shopMotion.verified}`}
     >
       {countViewInBrowser ? <ShopViewBeacon vendorProfileId={vendor.vendor_profile_id} /> : null}
       <script
@@ -2663,8 +2683,8 @@ export async function renderVendorBySlug({
       {teamPreview ? <TeamPreviewBanner reason={teamPreview} /> : null}
       {/* 🌄 THE VERIFIED SHOP'S HERO — full-bleed, the name on the photo, the seal and badge circles on it; no buttons on
           the photo (the calling card below carries Inquire). Every verified plan alike (owner-approved 13 Nov 2026). */}
-      {cinematicHero ? (
-        <ShopHero
+      {/* v16 S6: every shop wears the hero; an unverified one's carries the "Not yet verified" tag beside its name. */}
+      <ShopHero
           name={displayLabel}
           kicker={heroKicker}
           tagline={vendor.tagline ?? null}
@@ -2683,11 +2703,11 @@ export async function renderVendorBySlug({
             ) : undefined
           }
           bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
+          marker={isVerifiedShop ? undefined : <NotYetVerifiedTag />}
         />
-      ) : null}
 
       <article
-        className={`mx-auto w-full px-4 sm:px-6 lg:px-8 ${cinematicHero ? 'pb-12 sm:pb-16' : `py-8 sm:py-12 ${shopMotion.calm}`} ${
+        className={`mx-auto w-full px-4 sm:px-6 lg:px-8 pb-12 sm:pb-16 ${
           /* 🖥 EVERY PLAN MAXIMIZES THE SCREEN (supplier website by plan, owner-approved 2026-10-30; owner
              2026-10-29 "always maximize the screen"). Was: Pro+ only (2026-07-03), Free/Solo at max-w-3xl. */
           SHOP_ARTICLE_WIDTH
@@ -2707,13 +2727,15 @@ export async function renderVendorBySlug({
         {isComingSoon ? <ComingSoonBanner vendorName={displayLabel} /> : null}
         {/* 🔎 DECISION_LOG 2026-11-07 ruling (4): a couple opening a shop Setnayan has not verified yet is told so, in-app —
             since 13 Nov a soft card at the top of the calm column (prototype `.notice`), its ⓘ carrying the words. */}
+        {/* Merge from main: the paused notice rides the same band as the not-verified one (v16 S6 retired the calm column). */}
         {shopPaused ? (
-          <div className={SHOP_CALM_COLUMN_CLASS}>
+          <div className="pt-6" data-shop-paused-band="">
             <ShopPausedNotice />
           </div>
         ) : null}
-        {teamPreview === null && !isDemoVendor && vendor.verification_state !== 'verified' ? (
-          <div className={SHOP_CALM_COLUMN_CLASS}>
+        {/* v16 S6: the band under the name (`.nvband`) — the shipped notice, moved under the hero. */}
+        {!isVerifiedShop ? (
+          <div className="pt-6" data-shop-not-verified-band="">
             <NotYetVerifiedNotice />
           </div>
         ) : null}
@@ -2727,11 +2749,11 @@ export async function renderVendorBySlug({
             calm column, the profile-like sibling (owner 13 Nov: "a free unverified looks like a user profile page"). */}
         <div
           data-shop-columns=""
-          className={cinematicHero ? SHOP_COLUMNS_CLASS : SHOP_CALM_COLUMN_CLASS}
+          className={SHOP_COLUMNS_CLASS}
         >
           <div
             data-shop-card-column=""
-            className={cinematicHero ? `${SHOP_CARD_COLUMN_CLASS} ${SHOP_CALLING_CARD_CLASS} ${shopMotion.card}` : 'min-w-0'}
+            className={`${SHOP_CARD_COLUMN_CLASS} ${SHOP_CALLING_CARD_CLASS} ${shopMotion.card}`}
           >
         <section className={SHOP_CARD_SECTION_CLASS}>
           <Logo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />
@@ -2762,18 +2784,8 @@ export async function renderVendorBySlug({
                 and the real business_name once revealed. */}
             {/* Name + tagline live on the cinematic hero for Enterprise — avoid
                 duplicating them here in that case. */}
-            {/* On the verified look the <h1> is on the hero photo; the card names the shop again quietly, as a label. */}
-            {cinematicHero ? <p className="text-[1.02rem] font-semibold leading-snug text-ink">{displayLabel}</p> : null}
-            {cinematicHero ? null : (
-              <>
-                <h1 className="font-serif text-4xl font-normal italic tracking-[-0.02em] text-ink sm:text-5xl md:text-4xl lg:text-5xl">
-                  {displayLabel}
-                </h1>
-                {vendor.tagline ? (
-                  <p className="text-base text-ink/70">{vendor.tagline}</p>
-                ) : null}
-              </>
-            )}
+            {/* The <h1> is on the hero photo (every shop, v16 S6); the card names the shop again quietly, as a label. */}
+            <p className="text-[1.02rem] font-semibold leading-snug text-ink">{displayLabel}</p>
             {/* 🧪 (DEMO ONLY) — owner, DECISION_LOG 2026-11-06 "DEMO SHOPS + DEMO EVENTS": a demo shop shows with the
                 rest *"but has a marking of (DEMO ONLY)"*. The one marker (app/_components/sample-marker.tsx). Outside the
                 cinematic branch, so a flagship's page says it too. */}
@@ -2812,7 +2824,6 @@ export async function renderVendorBySlug({
                 spacing"*, on a screenshot where the long pills touched the (DEMO ONLY) ⓘ and each other). The same
                 drawing as Discover's shop card (`badgeImageOf` → `ImageBadge`, #7493). The row's gap is what keeps them
                 apart — before, they were inline in a block, so React's collapsed whitespace left 0 px between them. */}
-            {cinematicHero ? null : shopBadgesRow}
             {/*
               🗓 THE "SINCE" FACT LINE (supplier website by plan, owner-approved 2026-10-30) — "In business since 2019 ✓ ·
               120+ events › · On Setnayan since Oct 2026". Replaces the "N yrs in business · N+ weddings" pill and the
@@ -2868,7 +2879,7 @@ export async function renderVendorBySlug({
               {/* 📍 The city line carries the plan's reach (2026-10-23 · 2026-10-29): "Serves up to 20 km around
                   Tagaytay", or "… · distance search opens once verified" before Setnayan has verified the shop. */}
               {/* The calm (unverified) page says its reach under Where, beside its pin. */}
-              {cinematicHero ? <ShopReachLine reach={reach} city={vendor.location_city ?? null} /> : null}
+              <ShopReachLine reach={reach} city={vendor.location_city ?? null} />
               {/*
                 🚪 NO DOOR OUT OF THE APP (owner 2026-09-10, verbatim: "our goal is
                 to let them integrate their event with the vendor they find. not
@@ -2940,14 +2951,15 @@ export async function renderVendorBySlug({
             {/* 🗂 v16 S4 — THE SIDE CARD'S BOOKING HALF (prototype `<aside><div class="bk">`): from ₱ + offer · the
                 Verified line · this month's Check a date · the quote, above the card's own Inquire · Add · Share row.
                 A computer only (`md:block`); verified only — the unverified side card (`nvbk`) is S6. */}
-            {cinematicHero ? (
-              <ShopSideCard
-                price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
-                verifiedLine={sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats)}
-                month={thisMonth}
-                datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
-              />
-            ) : null}
+            {/* v16 S6: every shop has the side card; an unverified one's (`nvbk`) carries the tag + the three lines in
+                place of the Verified line, and no month (Check a date is verified only). */}
+            <ShopSideCard
+              price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
+              /* a CLAIM: reads the paper state, never the content gate */
+              verifiedLine={vendor.verification_state === 'verified' ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
+              month={isVerifiedShop ? thisMonth : null}
+              datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
+            />
             {canMessage ? (
               <div
                 className="flex flex-wrap items-center gap-2 pt-4"
@@ -2993,7 +3005,7 @@ export async function renderVendorBySlug({
                 {dateCheckable ? (
                   <CheckADateLink
                     href={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
-                    className={`button-secondary inline-flex items-center gap-2${cinematicHero ? ' md:hidden' : ''}`}
+                    className={`button-secondary inline-flex items-center gap-2${isVerifiedShop ? ' md:hidden' : ''}`}
                   />
                 ) : null}
                 <ShareButton title={displayLabel} className="button-secondary inline-flex items-center gap-2" />
@@ -3011,7 +3023,7 @@ export async function renderVendorBySlug({
                 Directions dropdown — OSM embed with a marker pin, key-free.
                 Renders only when coordinates exist; label uses location_city
                 so a hidden vendor's business name never leaks. */}
-            {cinematicHero ? (
+            {isVerifiedShop ? (
               <ShopReachMap
                 reach={reach}
                 latitude={vendor.hq_latitude}
@@ -3025,7 +3037,7 @@ export async function renderVendorBySlug({
                 chips before; "any set of choices is a dropdown"). Falls back
                 to a single Google Maps text-search when only the address is
                 set. Hidden entirely when neither exists. */}
-            {cinematicHero ? (
+            {isVerifiedShop ? (
               <DirectionsMenu
                 latitude={vendor.hq_latitude}
                 longitude={vendor.hq_longitude}
@@ -3066,9 +3078,10 @@ export async function renderVendorBySlug({
             {/* 🌐 The page's addresses — Setnayan's on every plan; Solo, Pro + Ultra also their own domain → this page. */}
             {/* 🌐 The web address is the verified look's (owner 13 Nov): the unverified page prints none — its
                 setnayan.com/<slug> would give away the name the page is still hiding. */}
-            {cinematicHero ? <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} /> : null}
+            {isVerifiedShop ? <ShopAddresses setnayanAddress={setnayanAddress} ownAddress={ownAddress} /> : null}
             {/* ⭐ Pro + Ultra — the pinned best review's first words, beside the facts. */}
-            {pinnedLead && pinnedLeadQuote ? (
+            {/* v16 S6: no review on a shop Setnayan has not checked yet — the pinned one included. */}
+            {isVerifiedShop && pinnedLead && pinnedLeadQuote ? (
               <PinnedReviewCard
                 quote={pinnedLeadQuote}
                 stars={viewerTierCaps.reviewStarsCounted ? pinnedLead.rating_overall : null}
@@ -3082,7 +3095,7 @@ export async function renderVendorBySlug({
           <div data-shop-body-column="" className="min-w-0">
         {/* 🧭 THE SECTION BAR (owner 2026-11-13, "simpler to view around the website") — sticky, one tap per section,
             the current one underlined, ↑ Top at its right edge. The tabs are the sections that render (shopSectionTabs). */}
-        <ShopSectionBar tabs={shopSectionTabs} motionRootId={cinematicHero ? 'shop-top' : undefined} />
+        <ShopSectionBar tabs={shopSectionTabs} motionRootId="shop-top" />
         {/* ── ABOUT: their words, what their own website can't do, the details, trusted by. */}
         <div id="shop-about" data-shop-section="" className="scroll-mt-14">
         {/* About — the vendor's own intro (My Shop → Website editor). Optional
@@ -3094,22 +3107,29 @@ export async function renderVendorBySlug({
               About
             </h2>
             <p
-              className={
-                cinematicHero
-                  ? 'max-w-3xl whitespace-pre-line font-serif text-[1.75rem] italic leading-[1.18] tracking-[-0.005em] text-ink lg:text-[2.3rem]'
-                  : 'max-w-2xl whitespace-pre-line text-base leading-relaxed text-ink/75'
-              }
+              className="max-w-3xl whitespace-pre-line font-serif text-[1.75rem] italic leading-[1.18] tracking-[-0.005em] text-ink lg:text-[2.3rem]"
             >
               {microsite.about}
             </p>
           </section>
         ) : null}
 
-        {cinematicHero && bookable ? (
+        {isVerifiedShop && bookable ? (
           <ShopCanDoPanel
             hasPackages={vendorPackages.length > 0}
           />
         ) : null}
+        {/* ⚠ v16 S6 `.cando.nvopen` — "What Verified adds", in the About of a shop Setnayan has not checked yet. */}
+        {isVerifiedShop ? null : (
+          <section className="space-y-2 border-b border-ink/10 py-8" data-shop-what-verified-adds="">
+            <h2 className="text-base font-semibold text-ink">{WHAT_VERIFIED_ADDS.title}</h2>
+            {WHAT_VERIFIED_ADDS.points.map((p) => (
+              <p key={p.head} className="text-sm text-ink/75">
+                <b className="font-semibold text-ink">{p.head}</b> — {p.body}
+              </p>
+            ))}
+          </section>
+        )}
 
         {/*
           SONGS THEY PLAY — the band's set list, and a link to them playing it.
@@ -3279,15 +3299,16 @@ export async function renderVendorBySlug({
                (the same values as in `servicesProps`, which photos by service reads). */
             ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
             inquireMode={canMessage ? 'anchor' : 'none'}
-            cardRecordRating={cardRecordRatingFromTrusted(trustedReviewStats)}
-            quoteInSideCard={cinematicHero}
+            cardRecordRating={isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null}
+            quoteInSideCard
+            notVerified={!isVerifiedShop}
           />
         ) : null}
 
         {/* 🧺 THE ONE LIVE CARD, THEN WHAT WAITS (prototype `.more`). The count is a READ — services on plan hold
             (`vendor_services.plan_hold = 'held'`, lib/service-plan-hold.ts) — never a number drawn here; a refused read
             says nothing at all rather than "0 more". Unverified only: a verified shop's cards are its plan's. */}
-        {!cinematicHero && heldServiceCount !== null && heldServiceCount > 0 ? (
+        {!isVerifiedShop && heldServiceCount !== null && heldServiceCount > 0 ? (
           <p
             data-shop-held-services=""
             className="mb-8 flex items-center gap-2.5 rounded-3xl border border-dashed border-ink/15 px-4 py-3.5 text-sm text-ink/75"
@@ -3360,6 +3381,10 @@ export async function renderVendorBySlug({
             <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
               Portfolio
             </h2>
+            {/* ⚠ v16 S6: the photos' sub-line on a shop Setnayan has not checked yet. */}
+            {isVerifiedShop ? null : (
+              <NotYetVerifiedTag>{NOT_YET_VERIFIED_PHOTOS_NOTE}</NotYetVerifiedTag>
+            )}
             {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
                 opening that service's photos from every card — the same photos, by reference. */}
             {hasPhotosByService ? (
@@ -3373,6 +3398,7 @@ export async function renderVendorBySlug({
                 photos={portfolioPhotos}
                 label={displayLabel}
                 count={!isDemoVendor && teamPreview === null}
+                notVerified={!isVerifiedShop}
               />
               {featuredVideos.map((v, idx) =>
                 v.embedUrl ? (
@@ -3530,6 +3556,7 @@ export async function renderVendorBySlug({
             the reviews section heading + per-review attribution
             ("review of {vendor}") render the placeholder while
             hidden, and the real business_name once revealed. */}
+        {isVerifiedShop ? (
         <ReviewsSection
           slug={slug}
           businessName={displayLabel}
@@ -3555,12 +3582,23 @@ export async function renderVendorBySlug({
           hasVenueMatch={venueMatchCount > 0}
           sampleShop={isDemoVendor}
         />
+        ) : (
+          /* ⚠ v16 S6 — reviews are collected now and shown, with a rating, once Setnayan verifies the shop (owner
+             10 Nov, kept 15 Nov: "reviews collected but hidden with no rating"). The drawing's words. */
+          <section className="space-y-2 border-b border-ink/10 py-8" data-shop-reviews-held="">
+            <h2 className="text-base font-semibold text-ink">Reviews</h2>
+            <p className="text-sm text-ink/75">
+              <b className="block font-semibold text-ink">{REVIEWS_HELD.title}</b>
+              {REVIEWS_HELD.body}
+            </p>
+          </section>
+        )}
         </div>
 
         {/* 📍 WHERE — the unverified shop's own section (prototype: Services · Reviews · Where · Inquire): its CITY only.
             No pinned map, no Get directions, no street — "no exact address" until verified (`shopWhere`, DECISION_LOG
             2026-11-15). */}
-        {cinematicHero || !hasWhere ? null : (
+        {isVerifiedShop || !hasWhere ? null : (
           <div id="shop-where" data-shop-section="" className="scroll-mt-14">
             <section className="space-y-3 border-b border-ink/10 py-8">
               <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Where</h2>
@@ -3726,10 +3764,9 @@ export async function renderVendorBySlug({
               Supplier ID · <span className="font-mono">{vendor.public_id}</span>
             </p>
             {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
-            {vendor.verification_state !== 'verified' ? (
-              <p className="inline-flex items-center gap-1 font-semibold text-warn-800" data-shop-footer-not-verified="">
-                <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.2} />
-                Not yet verified
+            {!isVerifiedShop ? (
+              <p data-shop-footer-not-verified="">
+                <NotYetVerifiedTag />
               </p>
             ) : null}
           </div>
@@ -3910,6 +3947,8 @@ function TopBarLogo({ logoUrl, name, frame }: { logoUrl: string | null; name: st
 type ServicesPricingProps = {
   /** 🗂 v16 S4: the verified page shows the quote in the desktop side card, so its tray is for phones. */
   quoteInSideCard?: boolean;
+  /** ⚠ v16 S6: the shop is not verified yet — each card wears the "Not verified" stamp and the section its note. */
+  notVerified?: boolean;
   /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
@@ -4141,6 +4180,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
           inSideCard: props.quoteInSideCard === true,
         }
       : null;
+  const notVerified = props.notVerified === true;
   return (
     <section className="space-y-6 border-b border-ink/10 py-8">
       <header className="space-y-1">
@@ -4161,9 +4201,14 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         countOpensFor={countOpensFor}
         ownerCheckFor={ownerCheckFor}
         quote={quote}
+        notVerified={notVerified}
         cardBadges={cardBadges}
         badgesNow={badgesNow}
       />
+      {/* ⚠ v16 S6 `.nvnote`: under the services of a shop Setnayan has not checked yet. */}
+      {notVerified ? (
+        <NotYetVerifiedTag className="-mt-2">{NOT_YET_VERIFIED_SERVICES_NOTE}</NotYetVerifiedTag>
+      ) : null}
     </section>
   );
 }

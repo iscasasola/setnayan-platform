@@ -199,3 +199,28 @@ test('6 · the questionnaire asks only what it can price, and claims only what i
   assert.match(quiz, /What Setnayan does for you/);
   assert.match(quiz, /min=\{10\}\s+max=\{500\}/, 'the guest slider is 10–500');
 });
+
+test('6b · "Want a nicer look?" offers Event Plus (owner 19 Nov, call 9) — and Pro, which includes Plus, is never billed twice', () => {
+  const withPlus: PlanPrices = { ...PRICES, plus: 4 };
+  const qs = questionsFor(state({}), withPlus, fmt);
+  const plus = qs.find((q) => q.k === 'plus');
+  assert.ok(plus, 'Event Plus is not offered in the quiz');
+  assert.equal(plus.q, 'Want a nicer look?');
+  assert.equal(plus.item, 'Event Plus');
+  assert.equal(plus.php, 4);
+  assert.match(plus.tip, /with or without suppliers/);
+  assert.doesNotMatch(plus.tip, /Setnayan AI/, 'Event Plus no longer carries Setnayan AI (18 Nov re-cut)');
+  assert.ok(stepsFor(state({}), qs).includes('plus'));
+  assert.ok(qs.findIndex((q) => q.k === 'plus') < qs.findIndex((q) => q.k === 'pro'), 'Plus is asked before Pro');
+  // Its price unread → not asked.
+  assert.ok(!questionsFor(state({}), PRICES, fmt).some((q) => q.k === 'plus'));
+  // A yes to Plus alone is Plus; a yes to both is Pro once (Pro includes everything in Plus).
+  const plusOnly = state({ plus: true }, { setup: false });
+  let r = resultFor(plusOnly, questionsFor(plusOnly, withPlus, fmt), withPlus);
+  assert.deepEqual(r.paid.map((q) => q.k), ['plus']);
+  assert.equal(r.total, 4);
+  const both = state({ plus: true, pro: true }, { setup: false });
+  r = resultFor(both, questionsFor(both, withPlus, fmt), withPlus);
+  assert.deepEqual(r.paid.map((q) => q.k), ['pro']);
+  assert.equal(r.total, 5);
+});

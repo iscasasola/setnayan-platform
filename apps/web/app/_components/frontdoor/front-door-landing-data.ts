@@ -14,6 +14,7 @@
  */
 
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { FREE_THEMES } from '@/lib/invite-themes';
 
 /* ─── HERO ───────────────────────────────────────────────────────────────────────────────────── */
@@ -400,7 +401,7 @@ export function plusPeek(f: PlanFacts): readonly string[] {
     'Ready-made Pro themes',
     'A cinematic opening for your Save the Date',
     'One small “Made with Setnayan” mark instead of the watermark',
-    '500 MB of uploads',
+    `${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads`,
     ...creditsLine(f.plusCredits),
   ];
 }
@@ -418,7 +419,7 @@ export const PRO_PEEK: readonly string[] = ['Everything in Event Plus', 'Setnaya
  */
 export function proMore(f: PlanFacts): readonly string[] {
   // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut (now in `PRO_PEEK`); 1 GB of uploads (`eventCoupleMediaPlan`).
-  return ['No Setnayan watermark on your Event Hub', '1 GB of uploads', ...creditsLine(f.proCredits)];
+  return ['No Setnayan watermark on your Event Hub', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads`, ...creditsLine(f.proCredits)];
 }
 
 /** 💎 What the Event Hub's "Everything" opens — Event Ultra's since 2026-11-19 (was Event Pro's `PRO_PEEK`). */
@@ -441,7 +442,7 @@ export const ULTRA_PEEK: readonly string[] = [
   'Your full-size photos kept 12 months after the event',
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
-  return ['Patiktok — save and share your reels', '2 GB of uploads', ...creditsLine(f.ultraCredits ?? null)];
+  return ['Patiktok — save and share your reels', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
 }
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */

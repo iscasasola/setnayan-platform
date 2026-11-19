@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7981
+# facts: 7983
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     648
-#   col       5746
+#   col       5748
 #   policy    1170
 #   view      10
 #   func      403
@@ -711,6 +711,7 @@ col	public.admin_data_access_log.context	anon=- authenticated=SIU
 col	public.admin_data_access_log.created_at	anon=- authenticated=SIU
 col	public.admin_data_access_log.surface	anon=- authenticated=SIU
 col	public.admin_received_transactions.amount_php	anon=- authenticated=S
+col	public.admin_received_transactions.auto_undone_at	anon=- authenticated=S
 col	public.admin_received_transactions.channel	anon=- authenticated=S
 col	public.admin_received_transactions.created_at	anon=- authenticated=S
 col	public.admin_received_transactions.created_by	anon=- authenticated=S
@@ -724,6 +725,7 @@ col	public.admin_received_transactions.received_at	anon=- authenticated=S
 col	public.admin_received_transactions.received_id	anon=- authenticated=S
 col	public.admin_received_transactions.reference	anon=- authenticated=S
 col	public.admin_received_transactions.reference_norm	anon=- authenticated=S
+col	public.admin_received_transactions.released_at	anon=- authenticated=S
 col	public.anniversary_email_log.anniversary_year	anon=- authenticated=SIU
 col	public.anniversary_email_log.event_id	anon=- authenticated=SIU
 col	public.anniversary_email_log.resend_id	anon=- authenticated=SIU

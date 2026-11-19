@@ -22,7 +22,7 @@ then pays"; leftovers are matched by hand; all payments go to BDO via QR Ph.
 - **Notice** — on-screen toast + the "N matched by themselves" list only; no email.
 - `an-ai-may-not-approve-money.test.ts` amended citing the ruling: both new files
   join `MONEY_GATES`.
-- **Migration** `20271351549033_received_auto_match_hold` — two columns
+- **Migration** `20271352394900_received_auto_match_hold` — two columns
   (`released_at`, `auto_undone_at`) + a CHECK + an index. Needs the owner's OK.
 
 SPEC IMPACT: None new — implements the 2026-11-17 DECISION_LOG rows above. Open

@@ -8,11 +8,13 @@
  *       second time before the first frame. It now reads <body> in the tap's own render (null only while hydrating).
  *   2 · The rise animates `clip-path`; unpromoted, that repaints the whole screen every frame. Both rises (the ONE
  *       RiseScreen and the picked client) go on their own layer for the motion — open AND close — and come off after.
- *   3 · RiseScreen paints its shell on the tap's frame and renders the body right after, in a transition — only behind a
- *       tap; a deep link or the server's HTML still has the body at once.
+ *   3 · (Merge with main, 2026-11-19) The branch also rendered RiseScreen's body a beat after the shell, in a transition.
+ *       Main's motion standard (Phase 6) now steps the body's first blocks in AT the open (`playGrowParts(riseParts(el))`),
+ *       which needs the body in the DOM on that frame — so the deferral was dropped and main's grow kept. Test 3 now holds
+ *       the body in the first render instead.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-17): `usePortalHost` back to useState+useEffect → 1 red (test 1); the picked
- * close's `onItsOwnLayer(` removed → 1 red (test 2); `{bodyIn ? children : null}` → `{children}` → 1 red (test 3); `off` never called on
+ * close's `onItsOwnLayer(` removed → 1 red (test 2); `off` never called on
  * a cancelled motion (`a.finished.then(off)`) → 1 red (test 4).
  */
 import test from 'node:test';
@@ -43,11 +45,10 @@ test('2 · both rises move on their own layer, open and close', () => {
   assert.equal((picked.match(/onItsOwnLayer\(el, el\.animate\(m\.frames/g) ?? []).length, 2, 'picked client: open or close repaints every frame');
 });
 
-test('3 · RiseScreen: shell first behind a tap, the body in a transition; at once without one', () => {
+test('3 · RiseScreen: the body is in the open’s own render, so main’s grow can step its blocks in', () => {
   const screen = code('app/_components/rise/rise-screen.tsx');
-  assert.match(screen, /useState\(\(\) => typeof window === 'undefined' \|\| riseOriginNow\(\) === null\)/, 'a deep link would wait for its body');
-  assert.match(screen, /if \(!bodyIn\) startTransition\(\(\) => \{\s*setBodyIn\(true\);\s*\}\);/, 'the body is not rendered after the shell');
-  assert.match(screen, /\{bodyIn \? children : null\}/, 'the body renders in the tap’s own frame again');
+  assert.match(screen, /<RiseCloseContext\.Provider value=\{close\}>\{children\}<\/RiseCloseContext\.Provider>/, 'the body is held back — playGrowParts finds no blocks');
+  assert.doesNotMatch(screen, /bodyIn/, 'the body waits for a transition again');
 });
 
 test('4 · the layer comes off when the motion ends — finished or cancelled — and never lingers', async () => {

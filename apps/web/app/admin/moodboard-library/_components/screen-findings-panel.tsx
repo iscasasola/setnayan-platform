@@ -29,6 +29,7 @@ import {
   HIT_SEVERITY,
   type ScreenFindings,
 } from '@/lib/moodboard-screen-findings';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 export type ScreenFindingsPanelProps = {
   /** Null when the screen was clean, or when the row predates MB21. */
@@ -51,7 +52,7 @@ export function ScreenFindingsPanel({ findings }: ScreenFindingsPanelProps) {
       <section
         data-testid="screen-findings"
         data-outcome="none"
-        className="rounded-lg border border-ink/15 bg-cream p-3"
+        className={`${ADMIN_FRAME} p-3`}
       >
         <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
           Content screen

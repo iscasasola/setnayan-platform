@@ -29,9 +29,9 @@ import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/po
 import { LabPortfolioChats } from './portfolio-chats-lab';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
-import { badgeTracker, nextBadgeShort, shopBadges, type TrackerFacts } from '@/lib/shop-badges';
-import { badgeRowsWithRewards, FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
-import { shopBadgeRow } from '@/lib/shop-badge-row';
+import { shopBadges, type TrackerFacts } from '@/lib/shop-badges';
+import { FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
+import { shelfNextBadgeLine, shopBadgeShelf } from '@/lib/shop-badge-shelf';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from '@/lib/portfolio-groups';
@@ -67,17 +67,10 @@ function shopLab(fail: boolean, none: boolean) {
   const counts: BadgeRewardFacts | null = fail
     ? null
     : none
-      ? { verified: true, completedEvents: 0, trustedReviews: 0, firstSourcedBooking: false, branchIds: ['hq'], serviceCards: 1, inspirationPhotos: 0, awards: [], bookedLoops: 0 }
-      : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3 };
-  const rows = facts && counts ? badgeRowsWithRewards(badgeTracker(facts), { facts: counts, granted: [], names: FALLBACK_REWARD_NAMES, awardTypeByTitle: {}, periodMonth: '2026-11-01' }) : null;
-  const tiles = shopBadgeRow({
-    rows,
-    counts,
-    completedEvents: facts?.completedEvents ?? null,
-    trusted: facts?.trusted ?? null,
-    inBusinessSinceYear: facts?.inBusinessSinceYear ?? null,
-    founding: fail || none ? null : { isFounder: true, joinedYear: 2026 },
-  });
+      ? { verified: true, completedEvents: 0, trustedReviews: 0, firstSourcedBooking: false, branchIds: ['hq'], serviceCards: 1, inspirationPhotos: 0, awards: [], bookedLoops: 0, completedBookings: 0, fiveStarReviews: 0, giftPoints: 0, trustedBy: 0 }
+      : { verified: true, completedEvents: 120, trustedReviews: 38, firstSourcedBooking: true, branchIds: ['hq'], serviceCards: 4, inspirationPhotos: 18, awards: [], bookedLoops: 3, completedBookings: 63, fiveStarReviews: 38, giftPoints: 820, trustedBy: 3 };
+  // 🏅 The approved shelf on lab counts — one Gold, one Silver, one Bronze, two not yet (or all unread on ?fail).
+  const tiles = fail ? null : shopBadgeShelf({ counts, verified: facts?.verified ?? null, granted: [], names: FALLBACK_REWARD_NAMES });
 
   const cover: CoverData = {
     name: 'SetnaProd',
@@ -94,7 +87,7 @@ function shopLab(fail: boolean, none: boolean) {
     reviews: fail || none ? null : '38 reviews',
     events: fail ? null : none ? '0 events' : '120 events',
     earned: facts ? shopBadges({ ...facts, verified: false }).filter((b) => b.kind === 'milestone' || b.kind === 'award') : null,
-    nextBadge: nextBadgeShort(facts?.completedEvents ?? null),
+    nextBadge: shelfNextBadgeLine(tiles),
     planLabel: 'Pro',
     publicPath: '/setnaprod',
     websiteLive: true,
@@ -149,7 +142,7 @@ function shopLab(fail: boolean, none: boolean) {
         </div>
         {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
         <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} />
+        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
@@ -239,10 +232,18 @@ function portfolioLab(fail: boolean, none: boolean) {
             { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-10-18' },
             { eventId: 'ev-reyes', eventName: 'Reyes christening', bookedDate: '2026-09-27' },
           ],
-          { thisYear: 2026, albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio` },
+          {
+            thisYear: 2026,
+            albumHref: (id) => `/vendor-dashboard/on-the-day/live/${id}/papic#portfolio`,
+            // 📍 Sample venues (fixtures) — so Search by place can be tried here: type "tagaytay".
+            facts: new Map([
+              ['ev-santos', { venue: 'Taal Vista Hotel', address: 'Tagaytay City, Cavite', services: ['Wedding photo & video', 'Photo booth'] }],
+              ['ev-cruz', { venue: 'Club Punta Fuego', address: 'Nasugbu, Batangas', services: ['Photo booth'] }],
+            ]),
+          },
         ),
-        services: serviceAlbums(serviceCards),
-        inspiration: inspirationAlbums(looks),
+        services: serviceAlbums(serviceCards, new Map([['svc-photo', 'Taal Vista Hotel · Tagaytay City, Cavite'], ['svc-booth', 'Taal Vista Hotel · Tagaytay City, Cavite · Club Punta Fuego · Nasugbu, Batangas']])),
+        inspiration: inspirationAlbums(looks, new Map([['l0', 'Wedding · Taal Vista Hotel · Nov 2026']])),
         stories: [
           { eventId: 'ev-santos', slug: 'santos-delacruz', hostNames: 'Ana & Miguel', line: 'Tagaytay · Nov 2026' },
           { eventId: 'ev-cruz', slug: 'bea-cruz-18', hostNames: 'Bea Cruz', line: 'Batangas · Oct 2026' },
@@ -258,8 +259,6 @@ function portfolioLab(fail: boolean, none: boolean) {
           saved={saved}
           showAlbums={none ? {} : { page: { title: 'Photos on my page', urls: PHOTOS }, cards: { title: 'Service card photos', urls: PHOTOS.slice(3, 9) } }}
           photos={none ? 0 : 38}
-          videoLinks={none ? 0 : 12}
-          hero={none ? { url: '/placeholders/vendor.webp', kind: 'placeholder' } : { url: PHOTOS[9]!, kind: 'photo' }}
           moodboard={fail || none ? null : { looks: looks.length, declined: 0 }}
           songs={fail ? null : { count: none ? 0 : 24, withVideo: none ? 0 : 9 }}
           free={50}
@@ -272,9 +271,8 @@ function portfolioLab(fail: boolean, none: boolean) {
           videoLinkUrls={fail || none ? [] : ['https://www.youtube.com/watch?v=aqz-KE-bpKQ', 'https://vimeo.com/76979871', 'https://www.facebook.com/watch/?v=10153231379946729']}
           uploadFacts={{ vendorProfileId: 'lab', storedRefs: [], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 128 }}
           gallery={<p className="py-3 text-[13px] text-ink/60">The shipped uploader (GalleryMedia) mounts here on the real page.</p>}
-          // ⭐ Your best work — sample views (fixtures, never a measured figure); `&unread=1` = the count refused.
-          best={fail ? null : none ? [] : [PHOTOS[4]!, PHOTOS[1]!, PHOTOS[7]!, PHOTOS[2]!].map((url, i) => ({ key: `lab-${i}`, url, views: [212, 96, 41, 12][i]! }))}
-          sectionOrder={null}
+          // 🖼 Row 1's numbers — sample figures (fixtures, never measured); `&unread=1` = every count refused.
+          albumStats={fail ? { serviceOpens: null, pageViews: null, opened: null } : { serviceOpens: Object.fromEntries((groups.services ?? []).map((a, i) => [a.key, [212, 41, 12][i] ?? 0])), pageViews: none ? 0 : 96, opened: {} }}
         />
         </LabPortfolioChats>
       </div>

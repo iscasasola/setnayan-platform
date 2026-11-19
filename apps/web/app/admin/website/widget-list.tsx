@@ -6,6 +6,7 @@ import { GripVertical } from 'lucide-react';
 import { widgetLabel, type SiteWidgetRow } from '@/lib/site-widgets';
 import { useSaveLoader } from '@/components/sd-loader';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
 /**
  * Drag-drop widget list for the admin Website editor (/admin/website).
@@ -153,7 +154,7 @@ export function WidgetList({ widgets, page }: Props) {
 
       <ol
         aria-label="Widgets"
-        className="divide-y divide-ink/8 rounded-2xl border border-ink/10 bg-cream"
+        className={`${ADMIN_FRAME} divide-y divide-ink/8`}
       >
         {items.map((widget, idx) => (
           <li

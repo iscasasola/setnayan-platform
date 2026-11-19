@@ -18,6 +18,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { mintKeyFor } from '@/lib/category-proposal-draft';
 import { mapCategoryRequest, promoteCategoryRequest, resolveCategoryRequest } from '../actions';
 import type { Choice } from './pickers';
+import { ActionButton } from '@/components/action-button';
+import { X } from 'lucide-react';
 
 /**
  * APPROVE AS NEW — the shipped mint, with the draft's name and category filled
@@ -164,9 +166,7 @@ export function DeclinePick({ requestId, back }: { requestId: string; back: Reco
             aria-label="Reject note"
             className="w-48 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm"
           />
-          <button type="submit" className="rounded-full border border-danger-300 px-3 py-1.5 text-xs font-semibold text-danger-700">
-            Reject
-          </button>
+          <ActionButton tone="danger" icon={X} type="submit" label="Reject" />
         </form>
       ) : null}
     </span>

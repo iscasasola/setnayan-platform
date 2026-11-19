@@ -34,6 +34,8 @@ export async function completeTour(tourKey: TourKey) {
     .maybeSingle();
 
   const seen = (row?.tour_seen_keys ?? []) as string[];
+  // 🔦 W1-B14: the supplier's journey is the ONE tour. The seven page tours it used to end with it (`toursEndedWith`)
+  // were deleted on 16 Nov 2026, so a finish records only the tour that finished.
   if (seen.includes(tourKey)) return;
 
   const update: Record<string, unknown> = {

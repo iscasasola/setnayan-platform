@@ -153,7 +153,7 @@ export function ShopMakers({
             onClick={() => (t.k === 'offers' && offers && !offers.verified ? setLockOpen(true) : go(t.k))}
             aria-expanded={open === t.k}
             aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
-            className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 rounded-2xl border border-ink/10 bg-raised px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
+            className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
             data-maker={t.k}
           >
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
@@ -194,7 +194,7 @@ export function ShopMakers({
           {cur.k === 'tools' ? (
             <div data-specialized-tools="">
               {/* 🎠 THE CAROUSEL — swipe · tap one. Scanner first, then suggested, then the rest; all open. */}
-              <ul className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
+              <ul className="sn-glide-x -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
                 {tools.map(({ tool: t, suggested }) => {
                   const Icon = toolIcon(t.key);
                   const on = t.key === picked.key;
@@ -204,7 +204,7 @@ export function ShopMakers({
                         type="button"
                         onClick={() => setTool(t.key)}
                         aria-pressed={on}
-                        className={`sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 rounded-2xl border px-3 py-3 text-left ${on ? 'border-[color:var(--m-orange)] bg-raised' : 'border-ink/10 bg-raised'}`} // no-card-ok: a carousel tile is a <button>
+                        className={`sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left ${on ? 'ring-1 ring-[color:var(--m-orange)]' : ''}`} // no-card-ok: a carousel tile is a <button>
                         data-tool-tile={t.key}
                         data-tool-suggested={suggested ? '' : undefined}
                       >

@@ -7,6 +7,7 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { appleWasJustUsed } from '@/lib/apple-sign-in';
 import { holdAppleRefreshToken } from '@/lib/apple-sign-in-store';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
+import { deadLinkLanding, isDeadLinkError, landingForAccount } from '@/lib/auth-confirm-link';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 import {
   RSVP_TERMS_COOKIE,
@@ -104,6 +105,11 @@ export async function GET(request: NextRequest) {
       // No fresh native sign-in behind `?native=1` — nothing is written; the
       // person goes on to where they were headed (a gated page asks again).
       return spend(NextResponse.redirect(new URL(fallbackNext, url.origin)));
+    }
+    if (error && isDeadLinkError(error.message)) {
+      // W1-B24: a confirmation link opened away from the browser that signed up (no PKCE verifier there), or one
+      // already spent — plain words and "Send a new link" (a link that works on any device), never the SDK's text.
+      return NextResponse.redirect(new URL(deadLinkLanding(fallbackNext), url.origin));
     }
     if (error) {
       return NextResponse.redirect(
@@ -211,6 +217,8 @@ export async function GET(request: NextRequest) {
       // A guest signing in from an invitation (magic link, Google / Apple) goes
       // straight back to it: every such door returns through the event-connect
       // route, and that address — not a 120-second clock — decides it.
+      // W1-B25: a sign-in that named no destination (`/`) lands a supplier on the shop, never the Events board.
+      if (rawNext === '/' && accountType === 'vendor') landing = landingForAccount(rawNext, accountType);
       if (
         accountType === 'customer' &&
         !isEventConnectNext(fallbackNext) &&
@@ -264,6 +272,10 @@ export async function GET(request: NextRequest) {
   */
   const oauthError =
     url.searchParams.get('error_description') ?? url.searchParams.get('error');
+  // W1-B24: GoTrue sends a spent/expired email link back here as `?error_code=otp_expired` — the dead-link landing.
+  if (oauthError && (url.searchParams.get('error_code') === 'otp_expired' || isDeadLinkError(oauthError))) {
+    return spend(NextResponse.redirect(new URL(deadLinkLanding(fallbackNext), url.origin)));
+  }
   if (oauthError) {
     const back = new URL('/login', url.origin);
     back.searchParams.set('error', oauthError);

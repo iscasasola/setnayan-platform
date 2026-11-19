@@ -41,10 +41,13 @@ function clientYielding(
     const result = results[Math.min(i, results.length - 1)] ?? { count: null };
     i += 1;
     const self: Record<string, unknown> = {};
-    for (const key of ['eq', 'gte', 'in']) self[key] = () => self;
+    for (const key of ['eq', 'gte', 'in', 'order', 'range']) self[key] = () => self;
+    // The VIEWS stage reads rows (distinct visitors, `readCouplesWhoOpened` — W1-B15), the others a head count: a
+    // counted stage hands back as many distinct rows as its count, a refused one none.
+    const data = result.count === null ? null : Array.from({ length: result.count }, (_, n) => ({ view_id: `r${n}`, viewer_hash: `h${n}` }));
     // Awaiting the chain resolves it, exactly as the real builder does.
     self.then = (resolve: (v: unknown) => unknown) =>
-      Promise.resolve({ count: result.count, error: result.error ?? null }).then(resolve);
+      Promise.resolve({ count: result.count, data, error: result.error ?? null }).then(resolve);
     return self;
   };
   return { from: () => ({ select: () => chain() }) };

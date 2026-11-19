@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { loadOtFont, type OtFont } from '@/lib/glyph-path';
 import { setnayanMarkSvg } from '@/lib/qr-style-svg';
 import { badgePill } from '@/lib/shop-badge-print';
+import { verifiedV84PrintG } from '@/lib/verified-v84-art';
 import { formatCount } from '@/lib/format-number';
 import type { ShopBadge } from '@/lib/shop-badges';
 import {
@@ -391,6 +392,7 @@ function lnBox(c: Ctx, s: string, fs: number, maxW: number, align: 'start' | 'mi
   return textBox(s, { face: c.d.subFace, size: fs, ls: 0.2, lh: 1.3, upper: true, color, align, maxW, balance: true }, c.defs);
 }
 
+/** ✅ The Verified line's mark is the APPROVED v84 blue check (`lib/verified-v84-art.ts`), never the Setnayan mark. */
 function sealLn(c: Ctx, fs: number, maxW: number): Box {
   if (!c.shop.verified) return EMPTY;
   const col = c.d.sealC ?? c.d.acc;
@@ -398,7 +400,7 @@ function sealLn(c: Ctx, fs: number, maxW: number): Box {
   const gap = 0.55 * fs;
   const t = lnBox(c, 'Setnayan Verified', fs, maxW - icon - gap, 'start', col);
   const h = Math.max(icon, t.h);
-  return { w: icon + gap + t.w, h, draw: (x, y) => setnayanMarkSvg(x + icon / 2, y + h / 2, icon, col) + t.draw(x + icon + gap, y + (h - t.h) / 2) };
+  return { w: icon + gap + t.w, h, draw: (x, y) => verifiedV84PrintG(x + icon / 2, y + h / 2, icon, 'vrseal') + t.draw(x + icon + gap, y + (h - t.h) / 2) };
 }
 
 function rateLn(c: Ctx, fs: number, maxW: number, align: 'start' | 'middle'): Box {

@@ -142,6 +142,9 @@ const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string 
   'app/dashboard/[eventId]/_components/set-date-nudge.tsx': { n: 2, why: HOME },
   'app/dashboard/[eventId]/_components/papic-ready-nudge.tsx': { n: 2, why: HOME },
   'app/[slug]/_components/copy-my-link.tsx': { n: 1, why: FLOW },
+  // Today v2 (owner 18 Nov, "one task"): "Not now" on a Recommended task row puts THAT task aside for today — a choice on
+  // a row of the list the supplier is working through, never the close of a notice.
+  'app/vendor-dashboard/_components/today-v2.tsx': { n: 2, why: FLOW },
   'app/[slug]/_components/selfie-capture.tsx': { n: 2, why: FLOW },
   'app/[slug]/_components/use-on-profile.tsx': { n: 1, why: FLOW },
   'app/[slug]/pabuya/_components/gift-record-sheet.tsx': { n: 1, why: SHEET },
@@ -188,7 +191,7 @@ const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string 
   'app/v/[slug]/_components/service-details-sheet.tsx': { n: 2, why: SHEET },
   'app/vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx': { n: 1, why: FLOW },
-  'app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx': { n: 2, why: FLOW },
+  'app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx': { n: 6, why: FLOW },
   'app/vendor-dashboard/on-the-day/live/[eventId]/_components/stage-notes-card.tsx': { n: 1, why: FLOW },
   'app/vendor-dashboard/services/_components/canvas-maker.tsx': { n: 1, why: FLOW },

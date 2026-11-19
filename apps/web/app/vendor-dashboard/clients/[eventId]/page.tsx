@@ -59,13 +59,18 @@ import {
 } from '@/lib/chat';
 import {
   fetchPlanProgressForVendor,
+  readPlanProgressForVendor,
   fetchPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
+import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
 import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-count.server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
+import { QuoteTopLines } from './_components/quote-top-lines';
+import { quotePlanLine } from '@/lib/quote-top-lines';
+import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -129,6 +134,7 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -140,6 +146,8 @@ import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-wor
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
+import { clientPaymentView } from '@/lib/client-payment-view';
+import { readClientNoun } from '@/lib/client-words.server';
 import { CustomerMoneyFold } from './_components/customer-money-fold';
 import type { ClientRefundView } from './_components/client-refunds';
 import { CLIENT_REFUND_SELECT, clientRefundOf, type ClientRefundDbRow } from '@/lib/client-refunds';
@@ -163,14 +171,17 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { pipelineCurrentLabel, supplierNextMove } from '@/lib/supplier-next-move';
 import { ClientDayAnswers } from '../../_components/client-day-answers';
 import { detailsNumbers } from './_components/details-numbers';
+import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
-import { ScheduleCalendar } from './_components/schedule-calendar';
+import { ScheduleDays } from './_components/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { DetailsFormsDoor } from './_components/details-forms-door';
+import { ClientNextStepRow } from './_components/client-next-step-row';
+import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
@@ -178,6 +189,7 @@ import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
+  pickedAnchorOf,
   pickedMenuFor,
   visiblePickedPage,
   wantsScriptFold,
@@ -260,6 +272,7 @@ import { readCrewElsewhere } from '@/lib/crew-elsewhere.server';
 import { askedOfYou, directionOf } from '@/lib/schedule-ask';
 import type { ComponentProps } from 'react';
 import { StayForm } from '@/app/_components/stay-form';
+import { eventTypeWord } from '@/lib/event-vocabulary';
 
 export const metadata = { title: 'Customer Card · Supplier' };
 
@@ -1037,7 +1050,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       .limit(1)
       .maybeSingle()) : null;
   const plansP = isBooked ? startRead(Promise.all([
-      fetchPlanProgressForVendor({
+      readPlanProgressForVendor({
         adminClient: admin,
         eventId,
         vendorProfileId: profile.vendor_profile_id,
@@ -1358,9 +1371,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // this used to render "No payments to confirm yet" over a real deposit. Now
   // the Quote and Payments tabs say the payments couldn't load.
   let ledgerUnreadable = false;
+  // ⚖ The plan read was whole (bookings, plans AND payments) — else Details says "couldn't load", never "₱0 paid".
+  let planReadComplete = true;
   if (isBooked) {
-    const [plans, pending, payday] = (await plansP)!;
+    const [planRead, pending, payday] = (await plansP)!;
+    const plans = planRead.plans;
     planRowsAll = plans;
+    planReadComplete = planRead.complete;
     if (!payday.complete) {
       logQueryError(
         'VendorClientPage.paydayInstallments',
@@ -1867,9 +1884,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // event, both under the vendor's own RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  // 🔎 A refused appointments read is KEPT (19 Nov 2026 review): the days strip says "couldn't load", never an empty day.
+  let appointmentsReadFailed = false;
   if (isBooked) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
-    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: catalogRows }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
         .from('appointment_type_catalog')
         .select('category, type, label, default_mode, default_duration_min, sort_order')
@@ -1884,6 +1903,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false }),
     ]);
+    if (apptError) {
+      appointmentsReadFailed = true;
+      console.error('[client-page] appointments read failed', apptError);
+    }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
       type: string;
@@ -1905,6 +1928,21 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ...a,
       label: resolveAppointmentLabel(a, typeLabels),
     }));
+  }
+  // 🗓 W1-B29: a client not booked yet still has meetings (an ocular visit set from the chat) — its Schedules cell
+  // counts them with the Clients tile's own rule (`openMeetingsWindow`), never a hard-coded "none yet" over a real one.
+  // A refused read is `null` ("couldn't load").
+  let openMeetings: number | null = 0;
+  if (!isBooked) {
+    const { count, error } = await supabase
+      .from('event_appointments')
+      .select('appointment_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .eq('vendor_profile_id', profile.vendor_profile_id)
+      .in('status', [...OPEN_MEETING_STATUSES])
+      .or(openMeetingsWindow(manilaTodayIso()));
+    if (error) logQueryError('vendorClientCard.openMeetings', error, { eventId }, 'graceful_degrade');
+    openMeetings = error ? null : (count ?? 0);
   }
 
   clientTimer.flush();
@@ -1937,6 +1975,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (
@@ -2025,7 +2074,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           key={c}
           className="inline-flex items-center rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-ink/70"
         >
-          {isBooked ? 'Booked · ' : ''}
+          {/* "Booked" is said ONCE — by the stage pill (owner screenshot 17 Nov: "Booked · In-house · Booked · …"). */}
           {displayServiceLabel(c)}
         </span>
       ))}
@@ -2222,6 +2271,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     be a door that always refuses.
   */
   const askNotice = typeof search.ask === 'string' ? search.ask : null;
+  // 💸 The ask form's suggestion — the plan's next unpaid payment, from the SAME fold the Payment page draws
+  // (`clientPaymentView`), so the panel never types a figure of its own and never says "nothing outstanding" over it.
+  const askNext = isBooked
+    ? clientPaymentView({ steps: planStepRows?.steps ?? null, clearedAt: planStepRows?.clearedAt ?? null, ledgerMoney, ledgerUnreadable }).next
+    : null;
+  const askSuggestion = askNext && !askNext.check ? askNext : null;
   // Rendered when the shop CAN ask, or when it just tried and needs to be told
   // why it could not — never nothing in the second case.
   const askPanel = isBooked || askNotice ? (
@@ -2244,6 +2299,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       measured={asksMeasured}
       notice={askNotice}
       canAsk={isBooked}
+      suggest={askSuggestion}
+      // CHAT-32: the SAME accepted-quote row Details reads (`firstPaymentStatus`), so the two pages cannot disagree.
+      quoteAskLine={firstPaymentStatus?.line ?? null}
     />
   ) : null;
 
@@ -2388,6 +2446,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // One node, both layouts (the flag-on shell and the flag-off card render the
   // same `activityNode`), so the notice cannot appear on one and not the other.
+  // 🔤 The event kind's word for this client ("celebrant" on a debut — owner, 17 Nov: "about this couple" on a debut).
+  const clientNoun = await readClientNoun(eventId);
   const activityNode = (
     <>
       {!notesMeasured ? (
@@ -2398,7 +2458,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           deleted.
         </p>
       ) : null}
-      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} />
+      <ActivityFeed eventId={eventId} events={activityEvents} notes={notes} noteFailed={search.note === 'error'} clientNoun={clientNoun} />
     </>
   );
 
@@ -2544,9 +2604,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     todayIso: manilaTodayIso(),
     eventDate: brief.event.event_date,
     ledger: ledgerUnreadable ? null : { receivedPhp: ledgerMoney.receivedPhp, expectedPhp: ledgerMoney.expectedPhp },
-    onPlan: planRowsAll.length > 0,
+    plan: !planReadComplete
+      ? 'unread'
+      : planRowsAll.length > 0
+        ? {
+            rollup: computePlanRollup(planRowsAll.flatMap((p) => p.steps ?? [])),
+            cleared: planRowsAll.every((p) => p.clearedAt != null),
+          }
+        : null,
     sentQuotePhp: proposalRowsError ? null : sentQuote ? sentQuote.total_centavos / 100 : undefined,
     perGuest: shopPerGuest,
+    meetings: openMeetings,
     peso: (php) => fmtPeso(php),
   });
 
@@ -2641,22 +2709,52 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           notice={completedNotice}
         />
       ) : null}
-      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor />
     </div>
   );
 
+  // ➡ THE NEXT STEP ROW (owner 18 Nov 2026) — from reads above; an unread stage gives no row (`lib/client-next-step.ts`).
+  const nextStepSteps = planRowsAll.flatMap((p) => p.steps ?? []);
+  const nextDueRollup = computePlanRollup(nextStepSteps).next;
+  const crewCalls = myTasksRes.error
+    ? undefined
+    : crewHere.map((c) => c.startIso).filter((at) => at.slice(0, 10) === (brief.event.event_date ?? '').slice(0, 10)).sort();
+  const nextStep = clientNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date ?? null,
+    isBooked,
+    quoteWaiting: proposalRowsError ? null : isQuoted && !isAccepted && !lockRequest,
+    nextDue: !planReadComplete ? undefined : nextDueRollup ? { amountPhp: nextDueRollup.amountPhp, dueDate: nextDueRollup.dueDate } : null,
+    crewCallAt: crewCalls === undefined ? undefined : (crewCalls[0] ?? null),
+    handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
+  });
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
+    // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
+    decisions: <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />,
     shipped: {
       details: detailsShipped,
       schedule: (
         <>
-          {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
-              on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
-          {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
-          {gated(scheduleNode)}
+          {/* 📅 THE DAYS STRIP (owner 18 Nov 2026, drawing NL5NDoD6 v7 — replaces v113's shop month here): this client's
+              days on top — the event day(s), Meeting-card days, payment due days, all from reads above — with "All
+              clients" asking the Clients month (one request, only when chosen). The blow-by-blow below is unchanged. A
+              chapter's day is operating detail, so it joins only once the fee unlocks the event. */}
+          <ScheduleDays
+            eventId={eventId}
+            eventName={eventName}
+            eventDate={brief.event.event_date ?? null}
+            todayIso={manilaTodayIso()}
+            items={clientScheduleDays({
+              eventDate: brief.event.event_date ?? null,
+              chapters: feeUnlocked ? allBlocks : [],
+              meetings: appointmentViews,
+              payments: planRowsAll.flatMap((p) => p.steps ?? []),
+            })}
+            unread={scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })}
+          >
+            {gated(scheduleNode)}
+          </ScheduleDays>
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (
             <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">
@@ -2684,6 +2782,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             ledgerMoney,
             ledgerUnreadable,
             unreadableNote: <LedgerUnreadableNote />,
+            todayIso: manilaTodayIso(),
           }
         : undefined,
       asks: askPanel,
@@ -2692,6 +2791,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
           : undefined,
     },
+    // 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" → Payment and "Who it counts · rule · N", above the quote. Both
+    // from reads above (the plan, `get_vendor_headcount_rule`) — booked only, as Payment is.
+    quoteTop: isBooked ? (
+      <QuoteTopLines
+        eventId={eventId}
+        plan={(() => {
+          const steps = planRowsAll.flatMap((p) => p.steps ?? []);
+          return quotePlanLine(planReadComplete, steps, computePlanRollup(steps).next?.dueDate ?? null);
+        })()}
+        count={
+          headcountRule
+            ? { rule: ruleWords(headcountRule.mode, [...ruleRoleLabels(headcountRule.roles, headcountNames), ...headcountRule.groups]), counted: headcountRule.counted }
+            : null
+        }
+      />
+    ) : null,
   });
 
   return (
@@ -2703,9 +2818,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
-      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
+      nextStep={nextStep ? <ClientNextStepRow step={nextStep} /> : null}
       settingsLine={{
-        line: 'Who looks after this client, and what reaches you.',
+        // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
+        // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.
+        // The line names what the sheet holds. A handler picker is an owner call, not built here.
+        line: 'The host’s setting for you, and your team’s notes.',
         tip: 'Settings for this client only. Your shop-wide settings stay in Clients ⚙.',
       }}
       settings={
@@ -2727,7 +2847,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 // Details-tab node share one source of truth (reuses vendorMarkServiceComplete —
 // no handshake logic reimplemented).
 // ===========================================================================
-function VendorCompletionCard({
+async function VendorCompletionCard({
   eventId,
   isCompleteConfirmed,
   isDisputed,
@@ -2750,6 +2870,20 @@ function VendorCompletionCard({
    */
   notice?: string | null;
 }) {
+  // CHAT-30 (walk 16 Nov 2026): a birthday client was asked about "this wedding". The event's own type word, read
+  // only here (the brief RPC carries no type), through the ONE badge map (`eventTypeBadge`: "birthday", "debut",
+  // "get-together"). The page already proved this shop may see the event (`get_vendor_event_brief`), and only the
+  // type leaves the read. A refused read says "event" — never a guessed "wedding".
+  const typeRead = await createAdminClient()
+    .from('events')
+    .select('event_type')
+    .eq('event_id', eventId)
+    .maybeSingle()
+    .then(
+      (r) => (r.error ? null : ((r.data as { event_type: string | null } | null)?.event_type ?? null)),
+      () => null,
+    );
+  const eventWord = eventTypeWord(typeRead);
   return (
     <Card>
       {notice === '1' ? (
@@ -2793,7 +2927,7 @@ function VendorCompletionCard({
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm text-ink/70">
-            <span className="font-medium text-ink">Wrapped up this wedding?</span> Mark your
+            <span className="font-medium text-ink">Wrapped up this {eventWord}?</span> Mark your
             service complete — the couple confirms they got everything, then their review opens.
           </div>
           <form action={vendorMarkServiceComplete}>

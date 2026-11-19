@@ -16,6 +16,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCount } from '@/lib/format-number';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 export const metadata = { title: 'Budget planner · Admin' };
 
 /**
@@ -280,7 +281,7 @@ export default async function AdminBudgetPlannerPage() {
             'use server';
             await updateAllocationConfig(fd);
           }}
-          className="rounded-2xl border border-ink/10 bg-paper p-5"
+          className={`${ADMIN_FRAME} p-5`}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <label className="block">

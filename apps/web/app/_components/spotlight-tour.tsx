@@ -6,6 +6,7 @@ import type { SpotlightStep, SpotlightFinale, TourKey } from '@/lib/tours';
 import { formatCount } from '@/lib/format-number';
 import { missingGroups, nextKept, spotlightCount } from '@/lib/spotlight-drops';
 import { Wordmark } from './brand-marks';
+import { Celebrate } from './celebrate';
 import { freeBandFrom, ringFor, tipFor, type Bar, type Box, type Rect } from '@/lib/spotlight-geometry';
 import { markSpotlightLaterThisVisit } from '@/lib/spotlight-later';
 
@@ -14,12 +15,14 @@ import { markSpotlightLaterThisVisit } from '@/lib/spotlight-later';
  * `prototypes/spotlight_tour_sample_2026-10-02.html` (owner, 2026-10-02: "Yes. That is good.";
  * DECISION_LOG "THE SPOTLIGHT TOUR LOOK IS APPROVED").
  *
- * The screen dims, a white pulsing ring GLIDES (~0.75 s ease) from button to button — across
+ * The screen dims, a white pulsing ring GLIDES (Move on Settle, by `translate` — MOTION_STANDARD § 4 #27 Coach
+ * marks; its size changes at once, nothing is laid out again to move it) from button to button — across
  * pages too, because the mount sits in the role layout, which survives a client navigation — a
  * hand shows where to tap, and a tip card pops in with "Step N of M", a progress bar, Skip and
  * Next. The person may tap the lit button themselves: it is the REAL button (the four blockers
  * around the hole leave it uncovered), so the real thing happens and the tour moves on. At the
- * end: confetti and "You're set". Reduced motion turns the motion off.
+ * end: the one Celebrate burst (`celebrate.tsx`, once per visit) and "You're set". Reduced motion: the ring jumps,
+ * the card simply appears, a still gold ring instead of the burst.
  *
  * NEVER the old centred step card (`GuidedTourCard`) — those stay off (`lib/tip-popups.ts`).
  *
@@ -202,14 +205,19 @@ const HAND =
   'M9 11V5.5a1.5 1.5 0 0 1 3 0V10l.5-.1a1.5 1.5 0 0 1 2 1.2l.1.4a1.5 1.5 0 0 1 2.4.9V13a1.4 1.4 0 0 1 2.5.9v2.6c0 3-2.4 5.5-5.4 5.5h-1.4a5.5 5.5 0 0 1-4.6-2.5L5.4 15a1.4 1.4 0 0 1 2.2-1.8L9 14.6';
 
 /* The sample's own CSS, scoped to `.sn-spot-*`. Colours come from the --m-* family so the tip
-   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both. */
+   card turns dark with the page (`html.dark`); the dim and the white ring are the same in both.
+   🧱 THE CARD IS SOLID (walker W1-B14, 16 Nov 2026: "the tour card is see-through over text"): its fill is ONE
+   token, `--sn-spot-card` = the opaque paper (#FFFFFF light · #232019 dark), never a glass or scrim token, and it
+   takes no backdrop blur — the words under it never show through. 🔒 lib/the-supplier-tour-plays-once.test.ts */
 const CSS_TEXT = `
-.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px var(--sn-scrim);outline:3px solid #fff;outline-offset:4px;transition:all .75s cubic-bezier(.65,0,.35,1);pointer-events:none}
-.sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse 1.6s ease-out infinite}
+[data-sn-spot]{--sn-spot-card:var(--m-paper,#fff)}
+.sn-spot-ring{position:fixed;z-index:2147483001;border-radius:var(--m-r-full,999px);box-shadow:0 0 0 9999px var(--sn-scrim);outline:3px solid #fff;outline-offset:4px;left:0;top:0;transition:translate var(--sn-m-move) var(--sn-m-settle);pointer-events:none}
+.sn-spot-ring::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:2px solid rgba(255,255,255,.6);animation:sn-spot-pulse calc(var(--sn-m-rise) * 2) var(--sn-m-settle) infinite}
 @keyframes sn-spot-pulse{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.2)}}
 .sn-spot-block{position:fixed;z-index:2147483000;touch-action:none}
-.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--m-paper,#fff);color:var(--m-ink);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:top .5s cubic-bezier(.2,.8,.2,1),left .5s cubic-bezier(.2,.8,.2,1),opacity .2s}
-.sn-spot-tip.pop{animation:sn-spot-pop .45s cubic-bezier(.2,1.4,.4,1)}
+.sn-spot-tip{position:fixed;z-index:2147483003;box-sizing:border-box;left:16px;width:min(420px,calc(100% - 32px));background:var(--sn-spot-card);-webkit-backdrop-filter:none;backdrop-filter:none;isolation:isolate;color:var(--m-ink);border-radius:var(--m-r-lg,22px);padding:14px 16px;box-shadow:0 14px 36px rgba(0,0,0,.28);transition:opacity var(--sn-m-quick) var(--sn-m-settle),translate var(--sn-m-move) var(--sn-m-settle)}
+.sn-spot-tip[data-off]{translate:0 6px}
+.sn-spot-tip.pop{animation:sn-spot-pop var(--sn-m-move) var(--sn-m-settle) backwards}
 @keyframes sn-spot-pop{from{opacity:0;transform:translateY(10px) scale(.94)}}
 .sn-spot-brand{margin-bottom:8px}
 .sn-spot-step{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m-orange);margin-bottom:2px}
@@ -218,23 +226,19 @@ const CSS_TEXT = `
 .sn-spot-hint{font-size:13px;color:var(--m-mulberry);font-weight:600;margin:-6px 0 10px}
 .sn-spot-row{display:flex;justify-content:space-between;align-items:center}
 .sn-spot-prog{height:4px;border-radius:var(--m-r-xs,4px);background:var(--m-line);flex:1;margin:0 12px;overflow:hidden}
-.sn-spot-prog i{display:block;height:100%;background:var(--m-mulberry);transition:width .5s}
+.sn-spot-prog i{display:block;width:100%;height:100%;background:var(--m-mulberry);transform-origin:0 50%;transition:transform var(--sn-m-move) var(--sn-m-settle)}
 .sn-spot-skip{background:none;border:0;color:var(--m-slate-2);font:inherit;font-size:14px;min-height:44px;padding:0 4px;cursor:pointer}
 .sn-spot-go{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:var(--m-r-full,999px);font:inherit;font-weight:600;font-size:14px;border:0;background:var(--m-ink);color:var(--m-paper,#fff);cursor:pointer}
-.sn-spot-finger{position:fixed;z-index:2147483002;width:34px;height:34px;pointer-events:none;opacity:0;transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),opacity .3s}
-.sn-spot-finger.tap{animation:sn-spot-tap .9s ease-in-out infinite}
+.sn-spot-finger{position:fixed;z-index:2147483002;width:34px;height:34px;pointer-events:none;opacity:0;left:0;top:0;transition:translate var(--sn-m-rise) var(--sn-m-settle),opacity var(--sn-m-quick) var(--sn-m-settle)}
+.sn-spot-finger.tap{animation:sn-spot-tap var(--sn-m-rise) var(--sn-m-settle) infinite}
 @keyframes sn-spot-tap{50%{transform:scale(.8)}}
 .sn-spot-done{position:fixed;inset:0;z-index:2147483004;display:flex;align-items:center;justify-content:center;background:var(--sn-scrim);-webkit-backdrop-filter:blur(var(--sn-scrim-blur));backdrop-filter:blur(var(--sn-scrim-blur));padding:16px}
 .sn-spot-done .sn-spot-tip{position:static;text-align:center;width:100%;max-width:420px}
 .sn-spot-tick{display:flex;align-items:center;justify-content:center;gap:10px;min-height:44px;margin:4px 0 12px;font-size:14px;line-height:1.35;text-align:left;cursor:pointer}
 .sn-spot-tick input{width:20px;height:20px;flex:none;accent-color:currentColor}
-.sn-spot-confetti{position:fixed;inset:0;z-index:2147483005;pointer-events:none;overflow:hidden}
-.sn-spot-confetti i{position:absolute;top:-12px;width:8px;height:12px;border-radius:var(--m-r-xs,4px);animation:sn-spot-fall 1.8s ease-in forwards}
-@keyframes sn-spot-fall{to{transform:translateY(110vh) rotate(540deg);opacity:.2}}
-@media (prefers-reduced-motion:reduce){.sn-spot-ring,.sn-spot-ring::after,.sn-spot-tip,.sn-spot-finger,.sn-spot-prog i,.sn-spot-confetti i{animation:none!important;transition:none!important}.sn-spot-confetti{display:none}}
+.sn-spot-cele{display:flex;justify-content:center;margin:6px 0 10px}
+@media (prefers-reduced-motion:reduce){.sn-spot-ring,.sn-spot-ring::after,.sn-spot-tip,.sn-spot-finger,.sn-spot-prog i{animation:none!important;transition:none!important}}
 `;
-
-const CONFETTI = ['#b8934a', '#6e2a3a', '#fff', '#e8c88a', '#c97b8d'];
 
 export function SpotlightTour({
   tourKey,
@@ -568,6 +572,10 @@ export function SpotlightTour({
         {style}
         <div className="sn-spot-done" role="dialog" aria-labelledby="sn-spot-done-title">
           <div className="sn-spot-tip pop">
+            {/* Celebrate (#23): the one gold burst, once per visit — it replaced this tour's own 70-piece fall. */}
+            <div className="sn-spot-cele">
+              <Celebrate moment="tour" onceKey={tourKey} />
+            </div>
             <div className="sn-spot-step">Done</div>
             <h4 id="sn-spot-done-title">{finale.title}</h4>
             <p>{finale.body}</p>
@@ -582,7 +590,6 @@ export function SpotlightTour({
             </button>
           </div>
         </div>
-        <Confetti />
       </div>,
     );
   }
@@ -605,13 +612,14 @@ export function SpotlightTour({
       <div
         className="sn-spot-ring"
         aria-hidden
-        style={{ left: box.x, top: box.y, width: box.w, height: box.h, borderRadius: box.r }}
+        data-coach-ring=""
+        style={{ translate: `${box.x}px ${box.y}px`, width: box.w, height: box.h, borderRadius: box.r }}
       />
       <svg
         className={`sn-spot-finger${finger.tap ? ' tap' : ''}`}
         viewBox="0 0 24 24"
         aria-hidden
-        style={{ left: finger.x, top: finger.y, opacity: finger.on && !busy && litFor === i ? 1 : 0 }}
+        style={{ translate: `${finger.x}px ${finger.y}px`, opacity: finger.on && !busy && litFor === i ? 1 : 0 }}
       >
         <path fill="#fff" stroke="#1e2229" strokeWidth="1.2" d={HAND} />
       </svg>
@@ -621,6 +629,7 @@ export function SpotlightTour({
         role="dialog"
         aria-live="polite"
         aria-labelledby="sn-spot-title"
+        data-off={busy || litFor !== i ? '' : undefined}
         style={{ top: tipAt.top, left: tipAt.left, width: tipAt.width || undefined, opacity: busy || litFor !== i ? 0 : 1 }}
       >
         {step.welcome ? (
@@ -640,7 +649,7 @@ export function SpotlightTour({
             Skip
           </button>
           <div className="sn-spot-prog" aria-hidden>
-            <i style={{ width: `${(Math.max(1, shownN) / Math.max(1, counted)) * 100}%` }} />
+            <i style={{ transform: `scaleX(${Math.max(1, shownN) / Math.max(1, counted)})` }} />
           </div>
           <button ref={goRef} type="button" className="sn-spot-go" onClick={onNext} disabled={busy}>
             {last ? 'Finish' : 'Next'}
@@ -670,22 +679,4 @@ function isFixedInside(el: HTMLElement): boolean {
     if (cs.position === 'fixed' || cs.position === 'sticky') return true;
   }
   return false;
-}
-
-function Confetti() {
-  const [bits] = useState(() =>
-    Array.from({ length: 70 }, (_, n) => ({
-      left: `${Math.random() * 100}%`,
-      background: CONFETTI[n % CONFETTI.length],
-      animationDelay: `${Math.random() * 0.6}s`,
-      animationDuration: `${1.4 + Math.random()}s`,
-    })),
-  );
-  return (
-    <div className="sn-spot-confetti" aria-hidden>
-      {bits.map((s, n) => (
-        <i key={n} style={s} />
-      ))}
-    </div>
-  );
 }

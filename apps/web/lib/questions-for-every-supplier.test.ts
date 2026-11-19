@@ -90,7 +90,8 @@ test('the couple’s answering card asks no host question', () => {
   // supplier is not on Setnayan (`?? (…)`) rather than drawing an empty page.
   assert.equal((page.match(/\{supplierQuestionsSection\}/g) ?? []).length, 1, 'the long page (flag off) lost the questions');
   assert.match(page, /const formsPage = ev\.marketplace_vendor_id \? \(\s*<SupplierQuestionsCard\b/, 'the Forms page does not draw the questions card');
-  assert.match(page, /\{formsPage \?\? \(/, 'the Forms page is blank for a supplier not on Setnayan');
+  assert.match(page, /const formsBody = formsPage \?\? \(/, 'the Forms page is blank for a supplier not on Setnayan');
+  assert.match(page, /id="forms"[^>]*>[\s\S]{0,200}\{formsBody\}/, 'Details does not draw the Forms body (18 Nov 2026: Forms lives in Details)');
 });
 
 test('the answer action writes only THIS supplier’s questions, and asks the helper gate', () => {

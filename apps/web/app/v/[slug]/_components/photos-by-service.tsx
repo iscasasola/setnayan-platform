@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { couplePhotoShare } from '@/app/_actions/couple-photo-share-actions';
 import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_components/put-on-my-page-button';
@@ -104,18 +105,14 @@ export function PhotosByServiceSheet({
       head={
         // The prototype's own top row: ‹ (back to where you tapped) · the service over its line · ✕.
         <div className="flex min-h-14 items-center gap-1 border-b border-ink/10 px-2" data-photos-by-service-head="">
-          <button type="button" onClick={onClose} aria-label="Back" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-ink/5">
-            <ChevronLeft aria-hidden className="h-[22px] w-[22px]" strokeWidth={1.75} />
-          </button>
+          <ActionButton tone="neutral" icon={ChevronLeft} label="Back" iconOnly onClick={onClose} className="shrink-0" />
           <div className="min-w-0 flex-1 py-2">
             <h2 id={headingId} className="truncate text-[16px] font-semibold leading-tight text-ink">
               {view.label}
             </h2>
             <p className="truncate text-[13px] text-ink/60">{line}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/55 hover:bg-ink/5 hover:text-ink">
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
+          <ActionButton tone="neutral" icon={X} label="Close" iconOnly onClick={onClose} className="shrink-0" />
         </div>
       }
     >
@@ -198,9 +195,7 @@ export function PhotosByServiceSheet({
               <div className="space-y-1">
                 <p className="text-[14px] font-medium text-ink">{picked.caption} · only you</p>
                 <PutOnMyPageButton photoId={picked.photoId} notice={picked.notice ?? null} {...(putAction ? { action: putAction } : {})} />
-                <button type="button" onClick={() => setPicked(null)} className="sn-press min-h-11 text-[13.5px] text-ink/70">
-                  Leave it in your album
-                </button>
+                <ActionButton tone="neutral" quiet icon={X} label="Leave it in your album" onClick={() => setPicked(null)} />
               </div>
             ) : (
               <p className="min-h-11 text-[14px] text-ink/70">
@@ -272,9 +267,7 @@ function Failed({ words, onRetry }: { words: string; onRetry: () => void }) {
     >
       <AlertTriangle aria-hidden className="h-4 w-4 shrink-0" style={{ color: 'rgb(var(--color-warn))' }} strokeWidth={1.9} />
       <span className="flex-1">{words}</span>
-      <button type="button" onClick={onRetry} className="sn-press min-h-11 font-medium text-link">
-        Try again
-      </button>
+      <ActionButton tone="info" icon={RotateCcw} label="Try again" onClick={onRetry} />
     </p>
   );
 }

@@ -6,12 +6,15 @@
  * at 390 and 1280 without a database. Nothing in here reads or decides: the decisive-match verdict, the duplicate
  * verdict and the bill come from the same pure helpers the server re-checks on approve.
  */
+import { Fragment } from 'react';
+import { receiptMatchLines } from '@/lib/admin/receipt-match-lines';
 import Link from 'next/link';
 import { NOTHING_SENT_WORDS, paymentWasLogged } from '@/lib/payment-logged';
 import { ProofImage } from '@/app/_components/proof-image';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './inbox-matcher';
+import { ReceivedPile, type ReceivedPileRead } from './received-pile';
 import { BatchApproveBar, BatchApproveCheckbox } from './batch-approve-controls';
 import { RemedyReasonRow } from './remedy-reason-row';
 import { FormPick } from '../../work/_components/form-pick';
@@ -119,6 +122,8 @@ export type PaymentJoined = {
     // Originating platform — web | ios | android (migration 20270103040000).
     // Null on pre-migration rows / pre-stamp orders → shown as "web".
     platform: string | null;
+    /** When the order was placed — received money older than this is flagged. */
+    created_at?: string | null;
   } | null;
   user: { email: string | null; public_id: string } | null;
 };
@@ -501,7 +506,13 @@ export function PaymentsList({
   channelSettings,
   readFailed,
   query,
+  received,
+  receivedLastDrop = null,
 }: {
+  /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
+  received?: ReceivedPileRead;
+  /** The newest drop: how many rows one press read, and when. */
+  receivedLastDrop?: { count: number; at: string } | null;
   /** 🏷 F-A-15: an event type's admin-managed name (the opened payment uses it). */
   typeName: EventTypeName;
   /** Where the desk is — each row opens its payment on top of it. */
@@ -567,6 +578,22 @@ export function PaymentsList({
 
   return (
     <>
+      {received ? (
+        <ReceivedPile
+          read={received}
+          lastDrop={receivedLastDrop}
+          query={query}
+          waiting={payments
+            .filter((p) => p.status === 'pending')
+            .map((p) => ({
+              payment_id: p.payment_id,
+              amount_php: Number(p.amount_php),
+              reference_number: p.reference_number,
+              order_created_at: p.order?.created_at ?? null,
+              label: p.user?.email ?? p.order?.public_id ?? '—',
+            }))}
+        />
+      ) : null}
       <div className="mt-3">
         <Fold title="Match a notification" line="Paste the SMS or app alert" data="payments-matcher">
           <InboxMatcher payments={matcherRows} />
@@ -1605,6 +1632,24 @@ export function ReceiptReadCard({
           ? (read.summary ?? read.error ?? 'Nothing came back.')
           : 'Nobody has read this picture yet.'}
       </p>
+
+      {/* ➕ ADMIN REORG v7 (owner 17 Nov 2026): one line per field read off the photo — "Matches ✓" or
+          "Doesn't match: <field> · <diff>". A help line beside each field; the admin always presses Confirm themself. */}
+      {receiptMatchLines(read).length > 0 ? (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]" data-receipt-match-lines="">
+          {receiptMatchLines(read).map((l) => (
+            <Fragment key={l.field}>
+              <dt className="text-ink/70">{l.field}</dt>
+              <dd
+                data-match-tone={l.tone}
+                style={l.tone === 'match' ? { color: 'rgb(var(--color-ok))' } : l.tone === 'mismatch' ? { color: 'rgb(var(--color-danger))' } : undefined}
+              >
+                {l.text}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      ) : null}
 
       {read?.status === 'ok' && (read.seen_references?.length || read.seen_amounts?.length) ? (
         // What the parser actually found, so the sentence above can be checked

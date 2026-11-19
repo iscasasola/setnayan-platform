@@ -4,6 +4,9 @@ import { useActionState, useState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import { bookingFeePhp, bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { formatPhp } from '@/lib/php';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ActionButton } from '@/components/action-button';
+import { Save } from 'lucide-react';
 
 /**
  * THE VENDOR BOOKING FEE — the owner's three numbers.
@@ -74,7 +77,7 @@ export function BookingFeeForm({
   const examples = [60_000, 300_000, 1_000_000, 10_000_000];
 
   return (
-    <form action={formAction} className="rounded-2xl border border-ink/10 p-4">
+    <form action={formAction} className={`${ADMIN_FRAME} p-4`}>
       <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
         Supplier booking fee
       </h4>
@@ -187,12 +190,7 @@ export function BookingFeeForm({
       </p>
 
       <div className="mt-3 flex items-center gap-2">
-        <button
-          type="submit"
-          className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-        >
-          Save booking fee
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save booking fee" />
         {state.message && (
           <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
             {state.message}

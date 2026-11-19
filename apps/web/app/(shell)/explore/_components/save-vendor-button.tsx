@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Bookmark, Check, AlertCircle, ChevronDown } from 'lucide-react';
+import { Bookmark, Check, AlertCircle, ChevronDown, Heart } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickArrowClass, pickButtonClass } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-place';
@@ -44,7 +44,21 @@ type Props = {
   label?: string;
   /** Replaces the variant's look (the shop page's ghost pill); state colours still apply. */
   className?: string;
+  /**
+   * ♥ THE HEART IS "ADD TO EVENT" on a shop page (owner 15 Nov 2026, DECISION_LOG "SHOP WEBSITE: A 10-BRANCH SHOP …":
+   * *"the heart here can replace the Add to Event"*): every Add to event button carries the heart, filled once added.
+   * Default: the bookmark Discover has always shown.
+   */
+  icon?: 'bookmark' | 'heart';
+  /** Only the icon on screen (the shop page's top bar); the label stays as the button's name for a screen reader. */
+  iconOnly?: boolean;
 };
+
+/**
+ * 🔗 EVERY COPY STAYS IN STEP — one save is announced to every other button for the same supplier on the page (the
+ * shop page draws Add to event in its body AND in its top bar), so a second copy never offers what is already done.
+ */
+const SAVED_EVENT = 'setnayan:supplier-saved';
 
 /** The one row that starts a new event instead of saving. */
 const START_NEW = '__start_new_event';
@@ -63,6 +77,8 @@ export function SaveVendorButton({
   events = [],
   label = 'Save',
   className,
+  icon = 'bookmark',
+  iconOnly = false,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,6 +86,15 @@ export function SaveVendorButton({
   const [state, setState] = useState<LocalState>(
     initiallySaved ? { kind: 'saved' } : { kind: 'idle' },
   );
+
+  useEffect(() => {
+    const onSaved = (e: Event) => {
+      const d = (e as CustomEvent<{ vendorProfileId: string; eventName: string | null }>).detail;
+      if (d?.vendorProfileId === vendorProfileId) setState({ kind: 'saved', eventName: d.eventName });
+    };
+    window.addEventListener(SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(SAVED_EVENT, onSaved);
+  }, [vendorProfileId]);
 
   /*
     A FUNCTION DECLARATION, NOT A useCallback — it has to name ITSELF (the
@@ -85,6 +110,7 @@ export function SaveVendorButton({
       const result: SaveVendorResult = await saveVendorToPicks(fd);
       if (result.status === 'ok' || result.status === 'already_saved') {
         setState({ kind: 'saved', eventName: result.eventName });
+        window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: { vendorProfileId, eventName: result.eventName ?? null } }));
         return;
       }
       if (result.status === 'not_signed_in') {
@@ -126,6 +152,11 @@ export function SaveVendorButton({
     });
   }
 
+  const Icon = icon === 'heart' ? Heart : Bookmark;
+  const iconSize = variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+  /** The words beside the icon — read aloud only, when the button is icon-only. */
+  const words = (t: string) => (iconOnly ? <span className="sr-only">{t}</span> : t);
+
   const isSaved = state.kind === 'saved';
   const savedEventName = state.kind === 'saved' ? (state.eventName ?? null) : null;
   const isError = state.kind === 'error';
@@ -160,12 +191,8 @@ export function SaveVendorButton({
           className={`${baseClasses} border-terracotta/40 bg-cream text-terracotta hover:border-terracotta`}
           title="Start an event, then save suppliers to it"
         >
-          <Bookmark
-            aria-hidden
-            className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-            strokeWidth={1.75}
-          />
-          Start an event to save
+          <Icon aria-hidden className={iconSize} strokeWidth={1.75} />
+          {words('Start an event to save')}
         </Link>
         {signInPanel}
       </>
@@ -184,9 +211,11 @@ export function SaveVendorButton({
           className={pickButtonClass(variant === 'card')}
           trigger={
             <>
-              <Bookmark aria-hidden className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'} strokeWidth={1.75} />
-              <span className="truncate">{pending ? 'Saving…' : label === 'Save' ? 'Save to…' : `${label}…`}</span>
-              <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />
+              <Icon aria-hidden className={iconSize} strokeWidth={1.75} />
+              <span className={iconOnly ? 'sr-only' : 'truncate'}>
+                {pending ? 'Saving…' : label === 'Save' ? 'Save to…' : `${label}…`}
+              </span>
+              {iconOnly ? null : <ChevronDown aria-hidden className={pickArrowClass(false)} strokeWidth={2} />}
             </>
           }
           head={
@@ -239,11 +268,11 @@ export function SaveVendorButton({
       >
         {isSaved ? (
           <>
-            <Check
-              aria-hidden
-              className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-              strokeWidth={2}
-            />
+            {icon === 'heart' ? (
+              <Heart aria-hidden className={`${iconSize} fill-current`} strokeWidth={2} />
+            ) : (
+              <Check aria-hidden className={iconSize} strokeWidth={2} />
+            )}
             {/* Names the EVENT it saved into. Save is event-scoped and this
                 screen is not — the action resolves the couple's PRIMARY host
                 event and writes there (owner 2026-09-08: *"Save adds to a
@@ -254,25 +283,17 @@ export function SaveVendorButton({
                 Falls back to the bare word when the name could not be read:
                 the save still happened, and claiming an event we cannot name
                 would be worse than not naming one. */}
-            {savedEventName ? `Saved to ${savedEventName}` : 'Saved'}
+            {words(savedEventName ? `Saved to ${savedEventName}` : 'Saved')}
           </>
         ) : isError ? (
           <>
-            <AlertCircle
-              aria-hidden
-              className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-              strokeWidth={2}
-            />
-            Try again
+            <AlertCircle aria-hidden className={iconSize} strokeWidth={2} />
+            {words('Try again')}
           </>
         ) : (
           <>
-            <Bookmark
-              aria-hidden
-              className={variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5'}
-              strokeWidth={1.75}
-            />
-            {pending ? 'Saving…' : label}
+            <Icon aria-hidden className={iconSize} strokeWidth={1.75} />
+            {words(pending ? 'Saving…' : label)}
           </>
         )}
       </button>

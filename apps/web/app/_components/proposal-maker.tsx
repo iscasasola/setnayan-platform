@@ -63,7 +63,7 @@ import {
 } from '@/lib/saved-quote';
 import { applyCardSeedToDraft, type QuoteSeedWarning } from '@/lib/quote-from-service-card';
 import type { QuoteEventBrief } from '@/lib/quote-event-brief';
-import type { QuoteRevisionSeed } from '@/lib/quote-revision-seed';
+import { SITE_CHECK_TRANSPORT_DETAIL, type QuoteRevisionSeed } from '@/lib/quote-revision-seed';
 import { formatCount } from '@/lib/format-number';
 import { QuoteShopGifts, type QuoteShopGiftsBuy } from '@/app/_components/quote-shop-gifts';
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Package, Plus, Tag } from 'lucide-react';
@@ -274,9 +274,9 @@ function QuoteSection({
   children: React.ReactNode;
 }) {
   return (
-    <section data-quote-section={id} aria-label={title} className="border-b border-ink/10">
+    <section data-quote-section={id} aria-label={title} className="pb-2">
       <div
-        className={`flex min-h-9 items-center justify-between gap-3 px-4 pt-3 font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45${pin ? ' sticky top-0 z-[2] bg-cream pb-1' : ''}`}
+        className={`flex min-h-9 items-center justify-between gap-3 px-4 pt-3 text-[13px] font-semibold text-ink/70${pin ? ' sticky top-0 z-[2] bg-cream pb-1' : ''}`}
         data-quote-section-head={pin ? 'pinned' : ''}
       >
         {info ? (
@@ -287,7 +287,7 @@ function QuoteSection({
           <span>{title}</span>
         )}
         <span className="flex items-center gap-2">
-          {hint ? <span className="normal-case tracking-normal text-ink/40">{hint}</span> : null}
+          {hint ? <span className="text-[12px] font-normal text-ink/55">{hint}</span> : null}
           {action}
         </span>
       </div>
@@ -357,6 +357,7 @@ export function ProposalMaker({
   threadId,
   requestedPax,
   livePax = null,
+  paxKnown = true,
   requestedHours = 8,
   coupleName,
   packages = [],
@@ -479,6 +480,12 @@ export function ProposalMaker({
    * either one is how a supplier quotes against a number nobody agreed to.
    */
   livePax?: number | null;
+  /**
+   * 👥 The couple gave a count at all (owner screenshot 17 Nov, "Debut 18": "On their list 100" while their event has
+   * no estimate, no final count and no guests — the 100 is the page's stand-in seed). False → the row says
+   * "No count yet", the same words Details' Agreed now says; the seed still prices the draft (unchanged).
+   */
+  paxKnown?: boolean;
   requestedHours?: number;
   coupleName?: string | null;
   packages?: { id: string; name: string }[];
@@ -551,12 +558,17 @@ export function ProposalMaker({
       ? revision.lines.map((s) => ({ ...s, key: nextKey() }))
       : [newLine(false)],
   );
+  // CHAT-31 (walk 16 Nov 2026): "Update this quote" showed ₱10,500 for an ₱8,750 quote — the stored "Crew meal ₱1,750"
+  // seeds as a line (lib/quote-revision-seed.ts) AND this default emitted it again. A revision already carries its crew
+  // charge (or its "couple provides" credit) in its lines, so its crew mode starts 'included', as that seed promises.
   const [crew, setCrew] = useState<Crew>({
-    mode: coupleCrewProvider ? 'offset' : 'charge',
+    mode: revision ? 'included' : coupleCrewProvider ? 'offset' : 'charge',
     size: 5,
     perHeadPhp: 350,
   });
-  const [transport, setTransport] = useState<Transport>({ mode: 'included', flatPhp: 2000 });
+  // 🚚 A revision of a quote whose transport was "Quoted after site check" reopens in distance mode, so the line is
+  // written again on send — never seeded as a free line (lib/quote-revision-seed.ts).
+  const [transport, setTransport] = useState<Transport>({ mode: revision?.transportAfterSiteCheck ? 'distance' : 'included', flatPhp: 2000 });
   // A revision's negative lines (discount, credit) arrive folded into this one
   // field — see lib/quote-revision-seed.ts for why they cannot seed as lines.
   const [discountPhp, setDiscountPhp] = useState(revision?.discountPhp ?? 0);
@@ -761,7 +773,7 @@ export function ProposalMaker({
     if (transport.mode === 'flat' && trans > 0) {
       li.push({ label: 'Transportation', detail: 'Flat fee', amount_centavos: trans });
     } else if (transport.mode === 'distance') {
-      li.push({ label: 'Transportation', detail: 'Quoted after site check', amount_centavos: null });
+      li.push({ label: 'Transportation', detail: SITE_CHECK_TRANSPORT_DETAIL, amount_centavos: null });
     }
     // 🏷 An applied offer is ITS OWN NAMED LINE on their quote — never folded into a price (prototype frame 6) — and it
     // comes BEFORE the typed discount (owner 12 Nov: "offer first then typed discount").
@@ -1509,7 +1521,7 @@ export function ProposalMaker({
   const numField = `${field} text-right tabular-nums`;
   // A native select ignores min-height on WebKit (the Safari engine measured 26px) — it gets a real height.
   const selectField = `${field} h-11`;
-  const lbl = 'font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta';
+  const lbl = 'text-[12px] font-medium text-ink/55';
 
   if (!open) {
     return (
@@ -1661,8 +1673,8 @@ export function ProposalMaker({
                 {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
-              {formatCount(seedPax)}
+            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={paxKnown ? '' : 'none'}>
+              {paxKnown ? formatCount(seedPax) : 'No count yet'}
             </strong>
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">
@@ -1703,7 +1715,11 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">Billed</span>
               <span className="block text-xs text-ink/55">
-                {pax > seedPax ? 'your minimum · above their list' : 'their list · at or above your minimum'}
+                {!paxKnown
+                  ? 'no count from them yet'
+                  : pax > seedPax
+                    ? 'your minimum · above their list'
+                    : 'their list · at or above your minimum'}
               </span>
             </span>
             <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
@@ -1867,7 +1883,7 @@ export function ProposalMaker({
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
             {brief.rows.map((r) => (
               <div key={r.label} className="contents">
-                <dt className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45 pt-0.5">{r.label}</dt>
+                <dt className="text-[12px] font-medium text-ink/55 pt-0.5">{r.label}</dt>
                 <dd className={`text-right ${r.unknown ? 'text-ink/45' : 'text-ink'}`}>
                   {r.value}
                   {r.note ? <span className="text-ink/45"> · {r.note}</span> : null}
@@ -1934,14 +1950,15 @@ export function ProposalMaker({
                   value={l.label}
                   onChange={(e) => patchLine(l.key, { label: e.target.value })}
                   aria-label="Line item name"
-                  className={`min-h-11 min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
+                  data-quote-line-title=""
+                  className={`min-h-11 min-w-0 flex-1 truncate border-none bg-transparent text-sm text-ink focus:outline-none ${l.dropped ? 'line-through' : ''}`}
                 />
                 {l.free ? (
-                  <span className="whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
+                  <span className="shrink-0 whitespace-nowrap rounded-full border border-success-300/70 bg-white px-2 py-0.5 text-[10.5px] font-medium text-success-700">
                     Complimentary
                   </span>
                 ) : (
-                  <span className="whitespace-nowrap font-serif text-base text-ink tabular-nums">
+                  <span className="shrink-0 whitespace-nowrap font-serif text-base text-ink tabular-nums" data-quote-line-price="">
                     {formatCentavos(cents)}
                   </span>
                 )}
@@ -2262,6 +2279,9 @@ export function ProposalMaker({
             codes={shopGiftCodes}
             onChange={setShopGiftCodes}
             buy={shopGiftsBuy}
+            // CHAT-31: the fee line above reads the SAME standing — a client who did not come from Setnayan carries
+            // no fee, so the limit must not call the sized figure "its booking fee".
+            feeNotCharged={feeStanding?.kind === 'not_sourced'}
           />
         ) : null}
       </div>

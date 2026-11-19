@@ -417,9 +417,9 @@ export default async function AdminRepostWatchPage({
                         maxLength={500}
                         className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                       />
-                      <ActionButton tone="danger" type="submit" name="action" value="confirm_theft" icon={<ShieldAlert aria-hidden />} label="Confirm theft" />
-                      <ActionButton tone="warn" type="submit" name="action" value="escalate" icon={<ArrowUpRight aria-hidden />} label="Escalate" />
-                      <ActionButton tone="neutral" type="submit" name="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
+                      <ActionButton tone="danger" type="submit" formName="action" value="confirm_theft" icon={<ShieldAlert aria-hidden />} label="Confirm theft" />
+                      <ActionButton tone="warn" type="submit" formName="action" value="escalate" icon={<ArrowUpRight aria-hidden />} label="Escalate" />
+                      <ActionButton tone="neutral" type="submit" formName="action" value="dismiss" icon={<X aria-hidden />} label="Dismiss" />
                     </form>
                     <a
                       // The supplier's own admin page (2026-10-01). /edit bounced
@@ -572,8 +572,8 @@ export default async function AdminRepostWatchPage({
                           maxLength={500}
                           className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white/70 px-2.5 py-1.5 text-xs text-ink/80 placeholder:text-ink/40 sm:w-48 sm:flex-none"
                         />
-                        <ActionButton tone="danger" type="submit" name="action" value="mark_removed" icon={<ShieldAlert aria-hidden />} label="Media removed" />
-                        <ActionButton tone="neutral" type="submit" name="action" value="clear" icon={<X aria-hidden />} label="Clear" />
+                        <ActionButton tone="danger" type="submit" formName="action" value="mark_removed" icon={<ShieldAlert aria-hidden />} label="Media removed" />
+                        <ActionButton tone="neutral" type="submit" formName="action" value="clear" icon={<X aria-hidden />} label="Clear" />
                       </form>
                       <a
                         // The supplier's own admin page, as above.

@@ -93,8 +93,8 @@ export function PinDoor({
         <span data-pin-w="">
           {short ? (
             <>
-              <span className="[[data-folded]_&]:hidden">{word}</span>
-              <span className="hidden [[data-folded]_&]:inline">{short}</span>
+              <span className="[[data-folded]_&]:hidden [[data-short]_&]:hidden">{word}</span>
+              <span className="hidden [[data-folded]_&]:inline [[data-short]_&]:inline">{short}</span>
             </>
           ) : (
             word

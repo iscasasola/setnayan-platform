@@ -33,7 +33,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readPublishedMethodsForCouple } from '@/lib/vendor-payment-methods.server';
 import { fetchPlanProgressForCouple } from '@/lib/vendor-service-payment-schedules.server';
-import { firstPaymentSentence, paymentScheduleSource } from '@/lib/accepted-quote-terms';
+import { firstPaymentSentence, paymentScheduleSource, scheduleDueText } from '@/lib/accepted-quote-terms';
+import { manilaToday } from '@/lib/std-views';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import type { LoadPaySheetResult } from '@/lib/pay-sheet';
 
@@ -125,7 +126,7 @@ export async function loadPaySheet(input: {
       scheduleSource,
       quoteSchedule:
         scheduleSource === 'quote' && money.terms
-          ? money.terms.schedule.map((r) => ({ label: r.label, dueText: r.dueText, amountCentavos: r.amountCentavos }))
+          ? money.terms.schedule.map((r) => ({ label: r.label, dueText: scheduleDueText(r, manilaToday()), amountCentavos: r.amountCentavos }))
           : null,
       depositRecordedAt: money.deposit.recordedAt,
       depositAcknowledgedAt: money.deposit.acknowledgedAt,

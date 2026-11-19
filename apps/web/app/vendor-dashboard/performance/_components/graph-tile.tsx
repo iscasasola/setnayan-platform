@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import type { GrowthRec } from '@/lib/vendor-growth-recs';
-import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { impactChipStyle } from './growth-recs-card';
 import { Reanimate, useReanimate } from './reanimate';
 
@@ -136,7 +136,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
         </div>
       </Reanimate>
       {open ? (
-        <RiseScreen
+        <ShopDoorScreen
           title={g.title}
           line={g.state === 'empty' ? 'Example' : undefined}
           actions={control}
@@ -167,7 +167,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
             {g.details ? <div className="ag-body">{g.details}</div> : null}
             <p className="ag-cap">{g.state === 'empty' ? 'The picture is a sample, faded — it goes with your first real row.' : 'One recommendation per graph · never advice on a number we do not have.'}</p>
           </div>
-        </RiseScreen>
+        </ShopDoorScreen>
       ) : null}
     </>
   );

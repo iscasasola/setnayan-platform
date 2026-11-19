@@ -19,13 +19,15 @@ import {
   removeAward,
 } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ActionButton } from '@/components/action-button';
 
 export function SpotlightRecomputeButton() {
   const [pending, start] = useTransition();
   const save = useSaveLoader();
   return (
-    <button
-      type="button"
+    <ActionButton
+      tone="brand"
+      main
       disabled={pending}
       onClick={() =>
         start(() =>
@@ -35,15 +37,9 @@ export function SpotlightRecomputeButton() {
           }),
         )
       }
-      className="inline-flex items-center justify-center gap-2 rounded-lg bg-terracotta-700 px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800 disabled:opacity-60"
-    >
-      {pending ? (
-        <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
-      ) : (
-        <RefreshCw className="h-4 w-4" strokeWidth={2} aria-hidden />
-      )}
-      {pending ? 'Recomputing…' : 'Run now'}
-    </button>
+      icon={pending ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : RefreshCw}
+      label={pending ? 'Recomputing…' : 'Run now'}
+    />
   );
 }
 
@@ -59,8 +55,7 @@ export function SpotlightAwardRowActions({
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        type="button"
+      <ActionButton
         disabled={pending}
         onClick={() =>
           start(async () => {
@@ -73,25 +68,25 @@ export function SpotlightAwardRowActions({
             });
           })
         }
-        className={
-          isFeatured
-            ? 'inline-flex items-center gap-1.5 rounded-lg border border-success-300 bg-success-50 px-3 py-2 text-sm font-medium text-success-700 transition-colors hover:bg-success-100 disabled:opacity-60'
-            : 'inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm font-medium text-ink/80 transition-colors hover:bg-ink/[0.04] disabled:opacity-60'
-        }
+        tone={isFeatured ? 'ok' : 'neutral'}
         aria-pressed={isFeatured}
-      >
-        {pending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden />
-        ) : isFeatured ? (
-          <Star className="h-3.5 w-3.5 fill-current" strokeWidth={2} aria-hidden />
-        ) : (
-          <StarOff className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-        )}
-        {isFeatured ? 'Featured' : 'Feature'}
-      </button>
+        icon={
+          pending ? (
+            <Loader2 className="animate-spin" strokeWidth={1.9} aria-hidden />
+          ) : isFeatured ? (
+            <Star className="fill-current" strokeWidth={1.9} aria-hidden />
+          ) : (
+            StarOff
+          )
+        }
+        label={isFeatured ? 'Featured' : 'Feature'}
+      />
 
-      <button
-        type="button"
+      <ActionButton
+        tone="danger"
+        iconOnly
+        icon={Trash2}
+        label="Remove award"
         disabled={pending}
         onClick={() => {
           if (!window.confirm('Remove this award?')) return;
@@ -104,12 +99,7 @@ export function SpotlightAwardRowActions({
             });
           });
         }}
-        className="inline-flex items-center justify-center rounded-lg border border-ink/15 bg-white p-2 text-ink/55 transition-colors hover:border-terracotta/40 hover:text-mulberry disabled:opacity-60"
-        aria-label="Remove award"
-        title="Remove award"
-      >
-        <Trash2 className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-      </button>
+      />
     </div>
   );
 }

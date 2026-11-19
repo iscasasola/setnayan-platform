@@ -119,7 +119,7 @@ test('4 · inside a picked page the chat is in flow under the shell’s head and
     'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
   ]) assert.match(read(f), /fillPages=\{\['chat'\]\}/, `${f}: Chat does not fill the picked body`);
   const shell = read('app/_components/picked/picked-shell.tsx');
-  assert.match(shell, /const fills = fillPages\.includes\(page\);/);
+  assert.match(shell, /const fills = fillPages\.includes\(workPage\);/);
   assert.match(shell, /fills \? 'flex flex-col overflow-y-hidden' : 'overflow-y-auto'/, 'a filled page can still scroll the body (and the pinned stack with it)');
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   const at = css.indexOf('[data-picked-fill] [data-chat-takeover] {');

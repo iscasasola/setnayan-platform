@@ -137,7 +137,9 @@ test('4 · the drag is THE shared one (edge scroll), "tap · move" stays beside 
   const drop = ED.slice(ED.indexOf('const dropSeat = '), ED.indexOf('const unitOfKey = '));
   assert.match(drop, /planSeatDrop\(/);
   assert.match(drop, /return unseat\(guestId\)/);
-  assert.match(drop, /askBefore\(guestId, plan\.tableId, plan\.seat, plan\.otherId\)\) return;\s*return tradeSeats\(guestId, plan\.otherId\)/, 'a trade skips "before a seat changes hands"');
+  /* ↩ 2026-11-16 (batch 2 "Seat plan (drag-first)": *"every guest drop shows one Undo line (trades have none today)"*):
+     the trade, once asked, also says what it did with its Undo — the-seat-plan-drags-on-a-phone.test.ts 4. */
+  assert.match(drop, /askBefore\(guestId, plan\.tableId, plan\.seat, plan\.otherId\)\) return;\s*tradeSeats\(guestId, plan\.otherId\);\s*return noteDrop\(/, 'a trade skips "before a seat changes hands"');
   assert.match(drop, /askBefore\(guestId, plan\.tableId, plan\.seat, null\)\) return;[\s\S]*?seatGuestHere\(t, guestId, plan\.seat\)/);
 });
 

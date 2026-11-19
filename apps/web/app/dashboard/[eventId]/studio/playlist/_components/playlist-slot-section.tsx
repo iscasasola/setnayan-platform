@@ -156,7 +156,7 @@ export function PlaylistSlotSection({
       ) : (
         <form
           onSubmit={handleSubmit}
-          className="space-y-2 rounded-lg border border-ink/15 bg-white p-3"
+          className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-3"
         >
           <div className="grid gap-2 sm:grid-cols-2">
             <div>

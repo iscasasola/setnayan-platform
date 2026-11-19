@@ -11,7 +11,8 @@
  * Change quote | No change. A LOCKED quote is never recounted: "<supplier>'s price is final".
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Minus, PencilLine } from 'lucide-react';
+import { Check, FilePlus2, Minus, PencilLine } from 'lucide-react';
+import { supplierChangeOrderHref } from '@/lib/chat-plus';
 import { ActionButton } from '@/components/action-button';
 import { DateRow } from '@/app/_components/form-row-date';
 import { sendCustomProposalFromChat } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
@@ -176,6 +177,8 @@ export function GuestRecountCard({
                     <p className="text-[13px] text-ink/60">Booked — a new total goes through a change order, not a new quote.</p>
                     <EqualRow>
                       <ActionButton tone="ok" icon={Minus} label="Keep price" onClick={() => void keep()} waiting={busy} />
+                      {/* 🔒 CHAT-19: the change order it names, one tap away (the shipped Change orders). */}
+                      <ActionButton tone="neutral" icon={FilePlus2} label="Change order" href={supplierChangeOrderHref(q.eventId)} />
                     </EqualRow>
                   </>
                 )}

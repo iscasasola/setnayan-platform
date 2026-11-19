@@ -413,19 +413,8 @@ export async function VendorCard({
               <span className="text-ink/55">by {vendor.business_name}</span>
             </p>
           ) : null}
-          {/* E10 — why this shop has no name yet. The condition is the exact
-            *  INVERSE of the line above: that one renders when the real name is
-            *  showing, this when it is withheld. Reusing the same expression is
-            *  deliberate — a second, independently-derived signal could
-            *  disagree with the name actually on screen.
-            *
-            *  Gated on `anonymity_resolved`, so a failed read says nothing
-            *  rather than explaining a hidden name on every vendor. */}
-          {vendor.anonymity_resolved && displayLabel !== vendor.business_name ? (
-            <p className="mt-0.5 text-xs text-ink/50">
-              New shops stay unnamed until they reply to their first couple.
-            </p>
-          ) : null}
+          {/* E10's "New shops stay unnamed until they reply to their first couple." line is gone (ruling 2026-11-16
+            *  (15)): an unverified shop is named by its real business name, so nothing is withheld to explain. */}
           {/* Badge row — placed below the name so it's visible at
               first glance even when the card is dense. Hidden when
               the vendor has no badges (renders as empty <ul>). The

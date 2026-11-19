@@ -23,6 +23,9 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { TablePageSkeleton } from '@/components/skeletons';
 import { TransactionsLedger } from './_components/transactions-ledger';
 import { RevenueSummary } from './_components/revenue-summary';
+import ReceiptsPage from '../receipts/page';
+import { mountView, type SearchParamsRecord } from '@/app/admin/_components/merged-view';
+import { TabLanding } from '@/app/admin/_components/tab-landing';
 
 export const metadata = { title: 'Money · Admin' };
 
@@ -50,7 +53,7 @@ export const metadata = { title: 'Money · Admin' };
  * are rows in the Money ⚙, and Pricing · Price bands · Supplier recommendations live under Catalogue
  * (`lib/admin/admin-tabs.ts`; `admin-routes-all-have-a-tab.test.ts` fails if any of them loses its home).
  */
-export default async function AdminMoneyHub() {
+async function AdminMoneyHub() {
   await requireAdmin();
 
   return (
@@ -67,4 +70,22 @@ export default async function AdminMoneyHub() {
       </Suspense>
     </div>
   );
+}
+
+/**
+ * ➕ ADMIN REORG v7 (owner 17 Nov 2026) — Money: /admin/money is the Money dashboard; Records · Show ▾ is ?view=everything|receipts.
+ * Each extra view MOUNTS its old page's body unchanged (`merged-view.ts`); the old address forwards here with
+ * `?view=` preselected (`lib/admin/admin-pages.ts`). Every other `?view=` is this page's own, as before.
+ */
+const MERGED_VIEWS = {
+  'receipts': ReceiptsPage,
+} as const;
+
+export default async function AdminMergedHost(props: { searchParams?: Promise<SearchParamsRecord> }) {
+  const sp: SearchParamsRecord = (await props.searchParams) ?? {};
+  const raw = sp.view;
+  const key = Array.isArray(raw) ? raw[0] : raw;
+  if (key && key in MERGED_VIEWS) return mountView(MERGED_VIEWS[key as keyof typeof MERGED_VIEWS], sp);
+  if (key === undefined && Object.keys(sp).length === 0) return <TabLanding tab="money" />;
+  return mountView(AdminMoneyHub, sp);
 }

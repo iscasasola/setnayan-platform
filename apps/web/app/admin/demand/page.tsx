@@ -13,6 +13,7 @@ import {
 import { DemandRadarCard } from '@/app/vendor-dashboard/demand/_components/demand-radar-card';
 import { One, UNREAD } from '@/app/admin/app-performance/_components/insights-parts';
 import { runDemandRadarRefresh } from './actions';
+import { ActionButton } from '@/components/action-button';
 
 export const metadata = { title: 'Demand radar · Admin' };
 
@@ -139,13 +140,7 @@ export default async function AdminDemandPage({
       </div>
 
       <form action={runDemandRadarRefresh} className="my-3">
-        <button
-          type="submit"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-ink/15 px-4 text-sm font-semibold text-ink transition hover:bg-ink/[0.03] focus-visible:outline-2 focus-visible:outline-[var(--sn-accent)]"
-        >
-          <RefreshCw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Run now
-        </button>
+        <ActionButton tone="neutral" type="submit" icon={<RefreshCw aria-hidden strokeWidth={1.9} />} label="Run now" />
       </form>
 
       <DemandRadarCard radar={radar} marketLabel={null} scope="admin" unreadable={radarUnreadable} />

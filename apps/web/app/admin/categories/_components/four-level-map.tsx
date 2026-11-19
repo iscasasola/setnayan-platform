@@ -89,8 +89,9 @@ import {
 } from './map-rows';
 import { MapToast } from './map-toast';
 import { DrawerSayProvider, useSay } from './drawer-kit';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Plus, Search } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ActionButton } from '@/components/action-button';
 
 type WriteResult = { ok: true; message: string; id?: string; previous?: string } | { ok: false; error: string };
 
@@ -772,9 +773,7 @@ function AddRow({
             below={
               name.trim().length > 0 ? (
                 <div className="flex justify-end pb-2">
-                  <button type="submit" disabled={pending} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50">
-                    {pending ? 'Adding…' : 'Add'}
-                  </button>
+                  <ActionButton tone="brand" main icon={Plus} type="submit" disabled={pending} label={pending ? 'Adding…' : 'Add'} />
                 </div>
               ) : null
             }
@@ -793,9 +792,7 @@ function AddRow({
               <input type="hidden" name="_show" value="" />
               <input type="hidden" name="canonical_service" value={top.key} />
               <input type="hidden" name="phrase" value={name.trim()} />
-              <button type="submit" className="inline-flex min-h-11 items-center rounded-full border border-ink/20 px-3 text-xs font-semibold text-ink">
-                Add “{name.trim()}” as a search word on {top.label} instead
-              </button>
+              <ActionButton tone="neutral" icon={Search} type="submit" label={`Add “${name.trim()}” as a search word on ${top.label} instead`} />
             </form>
           ) : null}
         </div>
@@ -1495,9 +1492,7 @@ function PartPicker({
           className="min-h-10 min-w-0 flex-1 bg-transparent text-[13.5px] text-ink outline-none placeholder:text-ink/70"
         />
         {name.trim() ? (
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 shrink-0 items-center rounded-full bg-ink px-3 text-xs font-semibold text-cream disabled:opacity-50">
-            Create
-          </button>
+          <ActionButton tone="brand" main icon={Plus} type="submit" disabled={pending} label="Create" />
         ) : null}
       </form>
       <p className="mt-1.5 text-xs text-ink/70">

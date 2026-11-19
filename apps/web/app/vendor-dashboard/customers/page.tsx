@@ -77,7 +77,16 @@ import {
 } from './_components/people-more';
 import { CustomersPin, type CustomersDoor, type CustomersQuick } from './_components/customers-pin';
 import { MeetingsList, PaymentsList, UnreadList } from './_components/clients-tile-lists';
-import { countWords, overdueRead, toCollectTileWords, unreadEvents, type ClientMeeting, type CountRead } from './clients-tiles';
+import {
+  OPEN_MEETING_STATUSES,
+  countWords,
+  openMeetingsWindow,
+  overdueRead,
+  toCollectTileWords,
+  unreadEvents,
+  type ClientMeeting,
+  type CountRead,
+} from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
 import { clientsChoiceOf, groupKeyOf, narrowClients, orderClients, scheduleScopeOptions, type ClientsContext } from './clients-show-sort';
@@ -98,8 +107,8 @@ import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
+import { ClientsEmptyAdd, ClientsSearch } from './_components/clients-search';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { SearchBox } from '@/app/_components/search-box';
 import { ThumbRow } from '@/components/thumb-row';
 import { rosterView } from './roster-view';
 import { DatesFolds } from './_components/dates-folds';
@@ -294,8 +303,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       .from('event_appointments')
       .select('appointment_id, event_id, type, custom_label, scheduled_at, status', { count: 'exact' })
       .eq('vendor_profile_id', vendorProfileId)
-      .in('status', ['proposed', 'confirmed'])
-      .or(`scheduled_at.gte.${new Date(`${todayIso}T00:00:00+08:00`).toISOString()},scheduled_at.is.null`)
+      .in('status', [...OPEN_MEETING_STATUSES])
+      .or(openMeetingsWindow(todayIso))
       .order('scheduled_at', { ascending: true, nullsFirst: false })
       .limit(200),
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
@@ -949,7 +958,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'schedules' },
+    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
@@ -1057,17 +1066,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         name="events"
         label="Customer tools"
         row={
+          <>
+          {/* ➕ SEARCH OR ADD (owner 18–19 Nov 2026): no ＋ Add beside the search — the search is the add
+              (`clients-search.tsx`); the sheet it opens is mounted here, without a button of its own. */}
+          <ClientsEmptyAdd />
           <ThumbRow
             name="customers"
             field={{
               node: (
-                <SearchBox
-                  placeholder="Search clients"
+                <ClientsSearch
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
-                  hash="#customers"
-                  data="customers"
-                  tour="customers-search"
+                  matches={narrowed.length > 0}
                 />
               ),
             }}
@@ -1088,21 +1098,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 ),
               },
             ]}
-            action={{
-              node: (
-                <OutsideClientAdd
-                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-                  action={importExternalClient}
-                  startOpen={search.add === 'outside'}
-                  today={todayIso}
-                  setupHref="/vendor-dashboard/customers?gear=1"
-                  tour="customers-add"
-                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
-                  seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
-                />
-              ),
-            }}
           />
+          <OutsideClientAdd
+            trigger={false}
+            pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+            action={importExternalClient}
+            startOpen={search.add === 'outside'}
+            today={todayIso}
+            setupHref="/vendor-dashboard/customers?gear=1"
+            halls={pools.length > 0 && pools.every((p) => p.isHall)}
+            seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
+          />
+          </>
         }
       />
     </>

@@ -71,16 +71,28 @@ function normalise(raw: string): string {
 // Bounded on both sides so a run of prose cannot be swallowed whole.
 const REF_BODY = '([A-Z0-9][A-Z0-9\\s\\-]{4,40}?)';
 
+// Where a reference ENDS. GCash prints the reference and the date on ONE line
+// ("Ref No. 4012345678901 Nov 16, 2026 8:10 PM"), so "end of line" alone found
+// nothing on every GCash-layout receipt (live fault, 2026-11-17). The body is
+// lazy, so it stops at the FIRST of:
+//   • end of line, a newline, or a run of 2+ spaces (the original rules);
+//   • a space then a word of letters only — "Nov", "PHP", "Sent" — which no
+//     reference group is (grouped references are "0043 457 367694");
+//   • a space then a time or numeric date — "8:10", "16/11/2026", "2026-11-16";
+//   • any character a reference cannot contain — ",", "₱", "(", "|".
+const REF_END =
+  '(?=\\s*$|\\s{2,}|\\n|\\s+[A-Z]{2,}(?![A-Z0-9])|\\s+\\d{1,4}[/:.]\\d|\\s+\\d{4}-\\d{2}-\\d{2}|\\s*[^A-Z0-9\\s\\-])';
+
 const PATTERNS: { re: RegExp; kind: ProofReferenceKind; label: string }[] = [
   // Most specific first — "InstaPay Invoice No." would otherwise be eaten by
   // the generic reference matcher and mis-tagged.
   {
-    re: new RegExp(`instapay\\s*invoice\\s*(?:no\\.?|number|#)?\\s*[:.]?\\s*${REF_BODY}(?=\\s*$|\\s{2,}|\\n)`, 'gim'),
+    re: new RegExp(`instapay\\s*invoice\\s*(?:no\\.?|number|#)?\\s*[:.]?\\s*${REF_BODY}${REF_END}`, 'gim'),
     kind: 'instapay_invoice',
     label: 'InstaPay Invoice No.',
   },
   {
-    re: new RegExp(`\\bref(?:erence)?\\.?\\s*(?:no\\.?|number|#)?\\s*[:.]?\\s*${REF_BODY}(?=\\s*$|\\s{2,}|\\n)`, 'gim'),
+    re: new RegExp(`\\bref(?:erence)?\\.?\\s*(?:no\\.?|number|#)?\\s*[:.]?\\s*${REF_BODY}${REF_END}`, 'gim'),
     kind: 'reference',
     label: 'Reference number',
   },

@@ -3,6 +3,9 @@
 import { useActionState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import { formatCount } from '@/lib/format-number';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ActionButton } from '@/components/action-button';
+import { RefreshCw, Save } from 'lucide-react';
 
 export type PapicTypeSizingRow = {
   eventType: string;
@@ -88,13 +91,7 @@ export function PapicTypeSizingEditor({
             </p>
           </div>
           <form action={recompute}>
-            <button
-              type="submit"
-              disabled={recomputing}
-              className="shrink-0 rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/75 hover:bg-ink/10 hover:text-ink disabled:opacity-60"
-            >
-              {recomputing ? 'Recomputing…' : 'Recompute from finished events'}
-            </button>
+            <ActionButton tone="neutral" type="submit" disabled={recomputing} className="shrink-0" icon={<RefreshCw aria-hidden strokeWidth={1.9} />} label={recomputing ? 'Recomputing…' : 'Recompute from finished events'} />
           </form>
         </div>
         {recomputeState.message ? (
@@ -106,7 +103,7 @@ export function PapicTypeSizingEditor({
         ) : null}
       </div>
 
-      <div className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-surface">
+      <div className={`${ADMIN_FRAME} divide-y divide-ink/10 overflow-hidden`}>
         {rows.map((row) => (
           <TypeRow key={row.eventType} row={row} saveAction={saveAction} />
         ))}
@@ -149,13 +146,7 @@ function TypeRow({
         />
         <Field name="floor_points" label="At least" defaultValue={row.floorPoints} />
         <Field name="ceiling_points" label="At most" defaultValue={row.ceilingPoints} />
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-md bg-ink/5 px-3 py-2 text-xs font-medium text-ink/75 hover:bg-ink/10 hover:text-ink disabled:opacity-60"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        <ActionButton tone="neutral" type="submit" disabled={saving} icon={<Save aria-hidden strokeWidth={1.9} />} label={saving ? 'Saving…' : 'Save'} />
       </div>
 
       <p className="text-[12.5px] leading-relaxed text-ink/55">

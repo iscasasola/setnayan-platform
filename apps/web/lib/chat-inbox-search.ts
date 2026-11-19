@@ -10,14 +10,23 @@
  * matching it would look like message search while silently missing every older message).
  */
 
-export type InboxSearchRow = { threadId: string; name: string };
+export type InboxSearchRow = {
+  threadId: string;
+  name: string;
+  /**
+   * 👥 The other side's OTHER names — on a supplier's row, the event's own name as the couple wrote it ("Wanda & Indigo"),
+   * which the chat title shortens to one first name ("Wanda's Wedding"). CHAT-16 (W1 walk 16 Nov 2026): "Indigo", the
+   * second host, found nothing. Names, never a message line.
+   */
+  names?: string | null;
+};
 
-/** Case- and accent-insensitive, every word must appear in the name. Empty query → every row. */
+/** Case- and accent-insensitive, every word must appear in the name (or the row's other names). Empty query → every row. */
 export function searchInboxRows<R extends InboxSearchRow>(rows: readonly R[], query: string): R[] {
   const words = fold(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return [...rows];
   return rows.filter((r) => {
-    const name = fold(r.name);
+    const name = fold(`${r.name} ${r.names ?? ''}`);
     return words.every((w) => name.includes(w));
   });
 }

@@ -68,10 +68,10 @@ export async function updateVenueMatching(
     formData.getAll('compatible_venue_settings'),
     ALLOWED_VENUE_SETTINGS,
   );
-  const ceremonyTypes = parseCompatibility(
-    formData.getAll('compatible_ceremony_types'),
-    ALLOWED_CEREMONY_TYPES,
-  );
+  // Ruling 16 (16 Nov 2026): no ceremony ticked is BLANK (`[]`, matches nobody in Find) — never NULL, which the
+  // readers take as "serves every ceremony". Venues keep NULL = "any venue".
+  const ceremonyTypes =
+    parseCompatibility(formData.getAll('compatible_ceremony_types'), ALLOWED_CEREMONY_TYPES) ?? [];
 
   const { error } = await supabase
     .from('vendor_profiles')

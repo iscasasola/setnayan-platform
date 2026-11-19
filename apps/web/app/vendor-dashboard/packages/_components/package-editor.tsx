@@ -430,6 +430,7 @@ export function PackageEditor({
       thumb={thumb}
       onClose={() => router.push(closeHref)}
       data="bundle-maker"
+      kind="stack"
     >
       <UndoToastHost />
       <div

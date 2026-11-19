@@ -51,10 +51,11 @@ test('A1 · flag on → nobody is signed in, the shop opens, the page says "We s
   assert.match(ACCOUNT, /mustConfirm \? confirmNext : '\/open-shop'/);
   assert.doesNotMatch(ACTIONS, /confirmNext/, 'the wizard no longer lands its link on the dashboard');
   assert.match(ACTIONS, /checkEmail = created\.user\.email;/);
-  assert.match(ACTIONS, /if \(checkEmail\) redirect\(`\/open-shop\?check_inbox=\$\{encodeURIComponent\(checkEmail\)\}`\);/);
+  // W1-B4 (walk 16 Nov 2026): the address is parked in a cookie; the URL carries only the flag.
+  assert.match(ACTIONS, /if \(checkEmail\) \{\s*await parkSentTo\(checkEmail\);\s*redirect\(`\/open-shop\?check_inbox=\$\{CHECK_INBOX_FLAG\}`\);/);
   // The shop is written for that account first: the check-email redirect is after the shop's own update.
-  assert.ok(ACTIONS.indexOf('if (checkEmail) redirect') > ACTIONS.indexOf('.update(patch)'));
-  assert.match(PAGE, /sentTo=\{guest && checkInbox \?/);
+  assert.ok(ACTIONS.indexOf('if (checkEmail) {') > ACTIONS.indexOf('.update(patch)'));
+  assert.match(PAGE, /sentTo=\{guest \? sentTo : null\}/);
   // `sent` is a global toast word (toast-from-params) — the landing must never use it.
   assert.doesNotMatch(ACTIONS, /open-shop\?sent=/);
   assert.match(WIZARD, /We sent a link to \{sentTo\} — tap it to finish/);
@@ -82,14 +83,16 @@ test('A1 · the account is created only after every field of the shop has passed
 
 test('A2 · the signed-out wizard has no upload; a new shop goes to "Add your logo"', () => {
   assert.doesNotMatch(WIZARD, /<FileUpload\b/);
-  assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(OPEN_SHOP_LOGO_PATH\);/);
+  assert.match(ACTIONS, /if \(!logoUrl && !existingHasLogo\) redirect\(plan \? `\$\{OPEN_SHOP_LOGO_PATH\}\?plan=\$\{plan\}` : OPEN_SHOP_LOGO_PATH\);/);
 });
 
 test('A2 · the logo screen: round preview, the shared framer, Skip → Today, saved by My Shop’s own logo save', () => {
   assert.match(LOGO_SCREEN, /Add your logo/);
   assert.match(LOGO_SCREEN, /roundPreview/);
   assert.match(LOGO_SCREEN, /<PictureFrameControl\b/);
-  assert.match(LOGO_SCREEN, /label="Skip for now" href="\/vendor-dashboard"/);
+  // W1-B21: Skip goes to `doneHref` — Today by default, the plan offer when one was picked.
+  assert.match(LOGO_SCREEN, /label="Skip for now" href=\{doneHref\}/);
+  assert.match(LOGO_SCREEN, /doneHref = '\/vendor-dashboard',/);
   assert.match(LOGO_SCREEN, /saveAction = updateVendorProfileField/);
   assert.match(LOGO_SCREEN, /useActionState<[^>]*>\(saveAction, null\)/);
   assert.match(LOGO_SCREEN, /form\.set\('field', 'logo'\)/);

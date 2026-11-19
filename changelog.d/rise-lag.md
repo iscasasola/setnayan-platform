@@ -1,4 +1,4 @@
-## 2026-11-17 · perf(rise): a sheet mounts once on a tap; the rise moves on its own layer; shell first
+## 2026-11-17 · perf(rise): a sheet mounts once on a tap; the rise moves on its own layer
 
 Owner, 17 Nov: *"we need a fix on how pages grow full screen. since it shows, it feels like it is lagging."*
 
@@ -8,8 +8,9 @@ Owner, 17 Nov: *"we need a fix on how pages grow full screen. since it shows, it
   render; the server snapshot keeps hydration drawing in place exactly as before. The ⚙'s private `OnBody` uses it too.
 - `lib/rise-layer.ts` (`onItsOwnLayer`) — both clip-path rises (RiseScreen, picked client) get `will-change` for the
   length of the motion, open and close, and drop it on finish or cancel. Same frames, timing and easing.
-- `RiseScreen` paints its shell on the tap's frame and renders the body right after in a transition — only behind a
-  tap; a deep link or server HTML has the body at once.
+- ~~`RiseScreen` renders the body a beat after the shell~~ — DROPPED on the 2026-11-19 catch-up with main: main's
+  motion standard now steps the body's first blocks in at the open (`playGrowParts`), which needs the body on that frame.
+  Main's grow is kept; the guard's test 3 now holds the body in the first render.
 - 🔒 `lib/a-sheet-mounts-once-on-a-tap.test.ts` (4 tests, each sabotaged red once). The picked-client guard's open
   regex accepts the wrapper.
 

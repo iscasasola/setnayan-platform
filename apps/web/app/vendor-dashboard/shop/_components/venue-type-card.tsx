@@ -19,8 +19,9 @@ import { updateVenueType } from '../venue-type-actions';
  * (the sibling "what am I a fit for" declaration), but this is a single pick,
  * not a multi-select: a venue is one kind of venue.
  *
- * Rendered for every shop, same as `VenueMatchCard` — a non-venue vendor
- * simply leaves it unset, identical to "no venue-type constraint".
+ * Rendered for a VENUE only (W1-B26, supplier walk 16 Nov 2026 — a cake shop
+ * was asked it): Your details mounts it behind `asksVenueType` in
+ * `lib/vendor-venue-type.ts`. Unset = "no venue-type constraint".
  */
 /** Rule 2's section label — small grey capitals, no box. */
 const SECTION_LABEL = 'text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]';

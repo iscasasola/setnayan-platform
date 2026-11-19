@@ -311,7 +311,14 @@ export function CustomersPin({
   const body = (
     <>
       {tilesRow}
-      {dayPicked && month ? null : quickRow}
+      {/* The quick row waits hidden while a day is picked on the phone (the month draws that day); a computer keeps it
+          under the month in column 2, as drawn (audit 17 Nov, `supplier_clients_clean_2026-11-16`: "the month with the
+          tiles, Overdue/Unread and the Events list still under it") — `supplier-frame.css` shows it from 1280. */}
+      {quickRow ? (
+        <div hidden={Boolean(dayPicked && month)} data-customers-quick-wrap="">
+          {quickRow}
+        </div>
+      ) : null}
     </>
   );
   const rest = (

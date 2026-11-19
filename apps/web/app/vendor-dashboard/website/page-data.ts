@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { readCouplesWhoOpened } from '@/lib/vendor-funnel';
 import type { VendorProfileRow } from '@/lib/vendor-profile';
 import { MICROSITE_COLUMNS, micrositeFromRow } from '@/lib/vendor-microsite';
 import { isShopLive } from '@/lib/vendor-visibility';
@@ -233,11 +234,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   const badgesRead = readShopBadgeFacts(createAdminClient(), vendorId);
   // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
   const views30Read = (async (): Promise<number | null> => {
-    const { count, error } = await supabase
-      .from('vendor_profile_views')
-      .select('view_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendorId)
-      .gte('viewed_at', new Date(Date.now() - 30 * 86_400_000).toISOString());
+    // 👁 Distinct visitors, never rows (W1-B15) — the reader Analytics' funnel counts with.
+    const { count, error } = await readCouplesWhoOpened(supabase, vendorId, new Date(Date.now() - 30 * 86_400_000).toISOString());
     if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
     return error || count === null ? null : count;
   })().catch((err) => {

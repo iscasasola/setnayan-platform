@@ -15,8 +15,9 @@
  *
  * 🧭 THE (+) FOLLOWS THE MENU (owner 11 Nov 2026, DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE
  * ORDER" — *"Rearrange it as well as we rearrange the menu. Align them both."*). Every row belongs to ONE page of the
- * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — Chat · Details · Quotation · Payment ·
- * Forms · Schedule · Files · Report — so the sheet reads as the menu's mirror, each row under its tab's word.
+ * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — since the seven tabs (owner 18 Nov 2026)
+ * Chat · Details · Book & Budget · Schedule · Files · Report — so the sheet reads as the menu's mirror, each row under its
+ * tab's word. Form went under Details (Forms is a part of Details now) and Payment under Book & Budget.
  * `lib/chat-plus.test.ts` derives the expected order from `PICKED_CLIENT_PAGES` itself, so the two can never drift.
  *
  * 📷 The composer's Camera (and, for the host, Photo) are rows HERE, under Files, since the same ruling — before it the
@@ -98,9 +99,9 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   decision: 'chat',
   poll: 'chat',
   access: 'details',
-  payment: 'payments',
-  logpay: 'payments',
-  form: 'forms',
+  form: 'details',
+  payment: 'quote',
+  logpay: 'quote',
   meeting: 'schedule',
   camera: 'files',
   photo: 'files',
@@ -145,16 +146,30 @@ export const SEND_A_QUOTE_LABEL = 'Send a quote';
  */
 export const MAKE_A_QUOTE_LABEL = 'Make a quote';
 
+/**
+ * 🔒 WHERE A CHANGE AFTER BOOKING GOES (CHAT-19, walk 16 Nov 2026) — the supplier's SHIPPED change orders: the Change
+ * orders card on the picked client's Schedule (`vendorRaiseChangeOrder`, "Propose a change"). The same href the (+)'s
+ * other Schedule door uses (`linkHref` 'client-schedule'), so a locked quote card names a door that exists.
+ */
+export function supplierChangeOrderHref(eventId: string): string {
+  return `/vendor-dashboard/clients/${eventId}?tab=schedule`;
+}
+
 /** See every version — both sides, last in Negotiate. */
 const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
 
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
 const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
 
+/** 🔒 CHAT-19: a booked quote is not re-quoted — the problem and the way forward, on the shut row. */
+export const BOOKED_CHANGE_QUOTE_REASON = 'Booked at this quote · propose a change order on their Schedule';
+export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change order in Details';
+
 /**
  * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
- * Propose a payment plan · See every version; then the menu's order (owner 11 Nov): Decision (Chat) · Ask for access
- * (Details) · Payment · Form (Forms) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a problem (LAST).
+ * Propose a payment plan · See every version; then the menu's order (seven tabs, 18 Nov): Decision · Poll (Chat) · Ask
+ * for access · Form (Details) · Payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a
+ * problem (LAST).
  */
 export function supplierPlusRows(opts: {
   paid: boolean;
@@ -166,21 +181,33 @@ export function supplierPlusRows(opts: {
    * yet" with no way forward, and pinned an empty "Running topic". Omitted = a quote exists (the earlier behaviour).
    */
   hasQuote?: boolean;
+  /**
+   * 🔒 CHAT-19 (walk 16 Nov 2026): they booked you at the accepted quote (`THREAD_STAGE_HAS_AGREEMENT`, the same fact
+   * that opens Payment · Form · Ask for access). The shipped S5 gate (`vendor_may_requote` → 'deal_locked') refuses a
+   * new version then, so "Change quote" is drawn SHUT with its reason (owner lock rule, controller audit 16 Nov: locked
+   * with the problem and its way forward, never hidden). A change after booking is a change order
+   * (`supplierChangeOrderHref`).
+   */
+  booked?: boolean;
 }): PlusRow[] {
   const noQuoteYet = opts.hasQuote === false;
+  const lockedAtBooking = !noQuoteYet && opts.booked === true;
   return [
     // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
     // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
-    noQuoteYet
-      ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
-        { key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' }
-      : {
-          key: 'quote',
-          label: 'Change quote',
-          line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
-          card: 'quote',
-          door: 'build-quote',
-        },
+    ...[
+          noQuoteYet
+            ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
+              ({ key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' } as PlusRow)
+            : ({
+                key: 'quote',
+                label: 'Change quote',
+                line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
+                card: 'quote',
+                door: 'build-quote',
+                ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
+              } as PlusRow),
+        ],
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     ...(noQuoteYet ? [] : [VERSIONS_ROW]),
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
@@ -196,19 +223,19 @@ export function supplierPlusRows(opts: {
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     {
-      key: 'payment',
-      label: 'Payment',
-      line: 'Ask for the next one now',
-      card: 'payment',
-      door: 'ask-payment',
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    {
       key: 'form',
       label: 'Form',
       line: 'A saved question set, answered one at a time',
       card: 'form',
       door: 'questions-for-couple',
+      shutUntilAgreement: { reason: 'Opens once they book you' },
+    },
+    {
+      key: 'payment',
+      label: 'Payment',
+      line: 'Ask for the next one now',
+      card: 'payment',
+      door: 'ask-payment',
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
@@ -223,7 +250,7 @@ export function supplierPlusRows(opts: {
 /**
  * Host · and a coordinator with another supplier (who drops Log a payment — it is the hosts' money). The same relative
  * order as the supplier's (+) AND the host's own picked-supplier menu (`picked-supplier-menu.ts`, re-ordered 11 Nov to
- * mirror the supplier's): Decision (Chat) · Log a payment (Payment) · Meeting (Schedule) · Camera · Photos & files (Files) ·
+ * mirror the supplier's; seven tabs 18 Nov): Decision (Chat) · Log a payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) ·
  * Report a problem (Report — last).
  *
  * 📷 ONE phone picker, as on the supplier's (+) (owner 11 Nov, *"The (+) has dupes?"*, built for the supplier in #7483,
@@ -232,14 +259,30 @@ export function supplierPlusRows(opts: {
  * video or a document"**, whose card opens the composer's own picker (`CHAT_ATTACHMENT_ACCEPT`: photos, videos, PDFs
  * and documents — nothing the two old rows took is lost). Camera (take one NOW) stays: a different act.
  */
-export function hostPlusRows(opts: { canLogPayment: boolean; pollOpen?: boolean }): PlusRow[] {
+export function hostPlusRows(opts: {
+  canLogPayment: boolean;
+  pollOpen?: boolean;
+  /**
+   * 🔒 CHAT-19 (walk 16 Nov 2026): the supplier is booked at the accepted quote. A counter would ask for a new version
+   * the supplier's own gate refuses ('deal_locked'), so "Counter with a price" is drawn SHUT with its reason (never
+   * hidden); a change after booking is a change order (Details' Change orders on the picked supplier).
+   */
+  booked?: boolean;
+}): PlusRow[] {
   const rows: PlusRow[] = [
     // 🤝 NEGOTIATE FIRST (12 Nov): the hosts never edit a price — they counter or propose a plan; the supplier
     // accepts, counters or declines.
     // ✋ NO GENERIC "Ask for a change" ROW (owner, ruling 6076): an ask STARTS FROM THE PART being changed and carries
     // it — the "Ask for a change" action sits on the quote's lines, its payment plan and a sent form, in the chat
     // (`AskChangeDoor`, `ask-change-card.tsx`). A blank ask from the (+) had to be told afterwards what it was about.
-    { key: 'counter', label: 'Counter with a price', line: 'The total or one line · good until a date', card: 'counter', door: null },
+    {
+      key: 'counter',
+      label: 'Counter with a price',
+      line: 'The total or one line · good until a date',
+      card: 'counter',
+      door: null,
+      ...(opts.booked ? { shutNow: { reason: BOOKED_COUNTER_REASON } } : {}),
+    },
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     VERSIONS_ROW,
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },

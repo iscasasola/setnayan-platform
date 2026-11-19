@@ -10,8 +10,9 @@ import type { QuoteChanges } from '@/lib/quote-versions';
  * THIS component from THAT function — never a second comparison. Held by
  * `lib/quote-versions.test.ts`.
  */
-function money(c: number | null): string {
-  return typeof c === 'number' ? formatCentavos(c) : 'Complimentary';
+/** A side's price: its amount, else the words `quoteChanges` carried for it (`quoteLinePriceWords` — one rule). */
+function money(c: number | null, words: string | undefined): string {
+  return typeof c === 'number' ? formatCentavos(c) : (words ?? '—');
 }
 
 export function QuoteWhatChanged({
@@ -45,13 +46,13 @@ export function QuoteWhatChanged({
             <span className="whitespace-nowrap tabular-nums">
               {c.kind === 'changed' ? (
                 <>
-                  <span className="mr-1 text-ink/55 line-through">{money(c.from)}</span>
-                  {money(c.to)}
+                  <span className="mr-1 text-ink/55 line-through">{money(c.from, c.fromWords)}</span>
+                  {money(c.to, c.toWords)}
                 </>
               ) : c.kind === 'added' ? (
-                money(c.to)
+                money(c.to, c.toWords)
               ) : (
-                <span className="text-ink/55 line-through">{money(c.from)}</span>
+                <span className="text-ink/55 line-through">{money(c.from, c.fromWords)}</span>
               )}
             </span>
           </li>

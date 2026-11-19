@@ -69,6 +69,7 @@ export default async function LoginPage({
         readyEmail={view.readyEmail}
         prefilledEmail={view.prefilledEmail}
         forGuest={view.forGuest}
+        linkExpired={view.linkExpired}
       />
     </main>
   );

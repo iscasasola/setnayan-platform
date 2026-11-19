@@ -3,6 +3,8 @@
 import { useActionState, useState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ActionButton } from '@/components/action-button';
+import { Save } from 'lucide-react';
 
 /**
  * 🎁 GIFT LIMIT · % OF THE BOOKING FEE (owner v112 answer, 8 Nov 2026; THE ONE BUILD).
@@ -48,12 +50,7 @@ export function GiftLimitForm({
             %
           </span>
         </label>
-        <button
-          type="submit"
-          className="min-h-[44px] rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-        >
-          Save gift limit
-        </button>
+        <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save gift limit" />
         {state.message && (
           <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`} role="status">
             {state.message}

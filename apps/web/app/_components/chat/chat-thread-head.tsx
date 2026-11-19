@@ -49,7 +49,7 @@ export function ChatThreadHead({
       {back}
       <span
         aria-hidden
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/[0.1] text-[13px] font-semibold text-ink/75"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper-2)] text-[13px] font-semibold text-ink"
         data-chat-head-avatar=""
       >
         {initials}
@@ -67,7 +67,7 @@ export function ChatThreadHead({
         {line ? (
           /* Every piece wears its own "·" in a 12px lead, and the row is pulled 12px left inside a clipping box: a
              piece that WRAPS to the start of a row has its dot clipped away, so no row ever opens on a stray "·". */
-          <p className="min-w-0 overflow-hidden text-[12px] leading-tight text-ink/55">
+          <p className="min-w-0 overflow-hidden text-[13px] leading-tight text-[color:var(--m-slate-2)]">
             <span
               className="-ml-3 flex flex-wrap items-center [&>*]:whitespace-nowrap [&>*]:before:inline-block [&>*]:before:w-3 [&>*]:before:text-center [&>*]:before:content-['·']"
               data-chat-head-line=""

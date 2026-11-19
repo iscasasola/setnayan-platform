@@ -67,7 +67,7 @@ const PAGE_TITLE = 'Mood Board — Your Colors, Everywhere · Setnayan';
  *  WITH the brand, which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('mood-board');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

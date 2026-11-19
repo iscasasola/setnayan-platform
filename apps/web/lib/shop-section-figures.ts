@@ -3,7 +3,7 @@
  * `tiles(...)` per section). Pure: every number is read by the page that draws it, from a store that already exists;
  * this only words them.
  *
- *   Details    verified · documents in · details done                 (`profile/details-data.ts`)
+ *   Details    verified · documents in · steps done (Today's six)    (`profile/details-data.ts`, `shopSetupView`)
  *   Page       opened your page · 30 d · reviews · rating             (`website/page-data.ts`)
  *   Gallery    photos · videos · credits left                         (`collections/collections-data.ts`, the shop wallet)
  *   Promote    gift credits                                           (`shop_gift_stock_status`, the Your gifts section's own read)
@@ -20,12 +20,22 @@ import type { PinFigure } from '@/lib/pin-figure';
 const n = (v: number) => formatCount(v);
 const plural = (v: number | null, one: string, many: string) => (v === 1 ? one : many);
 
-export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal: number; done: number; of: number }): PinFigure[] {
-  return [
+/**
+ * 🔢 `done` / `of` are the ONE "N of 6" — Today's "Get your shop live" steps (`shopSetupView`, walk W1-B10), so this
+ * row and Today can never count two different sixes. `done: null` = that count could not be read ("—"). `steps:
+ * false` = a verified shop, which Today no longer counts either — the figure is left off rather than kept as a second
+ * count. 📏 The two long words carry a `short` one: at 375 px the row uses them before it would slide (W1-B11).
+ */
+export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal: number; done: number | null; of: number | null; steps?: boolean }): PinFigure[] {
+  const out: PinFigure[] = [
     { key: 'verified', value: f.verified ? '✓' : 'Not yet', word: 'verified', hot: !f.verified, href: '/vendor-dashboard/profile#docs' },
     { key: 'docs', value: `${n(f.docsIn)}/${n(f.docsTotal)}`, word: 'documents in', short: 'papers', hot: f.docsIn < f.docsTotal, href: '/vendor-dashboard/profile#docs' },
-    { key: 'done', value: `${n(f.done)}/${n(f.of)}`, word: 'details done', short: 'done', hot: f.done < f.of, href: '/vendor-dashboard/profile' },
   ];
+  if (f.steps === false) return out;
+  // The six is the READ's (`shopSetupView`), never a typed 6 — an unread checklist shows "—" (audit of #7898).
+  const counted = f.done !== null && f.of !== null;
+  out.push({ key: 'done', value: counted ? `${n(f.done!)}/${n(f.of!)}` : null, word: 'steps done', short: 'done', hot: counted && f.done! < f.of!, href: '/vendor-dashboard/profile' });
+  return out;
 }
 
 export function pageFigures(f: { views30: number | null; reviewCount: number | null; rating: number | null }): PinFigure[] {

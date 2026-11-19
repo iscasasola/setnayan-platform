@@ -44,7 +44,7 @@ import type { BookingMoney } from '@/lib/vendor-cashflow';
 import { PendingPaymentAnswer } from '../../../messages/[threadId]/_components/vendor-payment-live';
 import { BookingMoneySummary } from './booking-money-summary';
 
-const H = 'text-xs uppercase tracking-[0.08em] text-ink/70';
+const H = 'text-[13px] font-semibold text-ink/70';
 const V = 'mt-0.5 text-[22px] font-medium leading-tight tabular-nums';
 
 /** "Oct 3" — the Manila day the couple logged it. */
@@ -140,7 +140,7 @@ export function CustomerMoneyFold({
 
       {pending.length > 0 ? (
         <div data-customer-money-waiting={pending.length}>
-          <p className={`${H} mt-2`}>Waiting for you</p>
+          <p className="home-k2 !mb-0 !mt-2">Waiting for you</p>
           <ul role="list">
             {pending.map((p) => (
               <li key={p.paymentId} className="border-t border-ink/10 py-3 first:border-t-0" data-customer-money-pending={p.paymentId}>

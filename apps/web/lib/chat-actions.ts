@@ -11,7 +11,12 @@ import { resolveCounterpartyUserIds } from './chat-block';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
+import { returningClientLine } from '@/lib/client-words';
+import { readClientNoun } from '@/lib/client-words.server';
 import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
+import { readCoupleWorkspaceRowId } from '@/lib/couple-chat-door.server';
+import { coupleChatHref } from '@/lib/couple-chat-door';
+import { markThreadNoticesRead } from '@/lib/thread-notices-read.server';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
 import { notifyChapterDroveInquiry } from '@/lib/inquiry-attribution';
@@ -24,6 +29,7 @@ import {
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
+import { CHAT_WHISPER_FIELD, whisperFromForm } from '@/lib/chat-whisper';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
 
 /**
@@ -65,6 +71,10 @@ export async function markThreadRead(threadId: string): Promise<void> {
         { thread_id: threadId, missing_relation: isMissingRelationError(error) },
         'graceful_degrade',
       );
+    } else {
+      // 🔔 …and this conversation's chat notices with it (CHAT-06): the bell agrees with the read marker. Only once
+      // the marker was written — RLS let THIS user mark THIS thread — so a refused thread clears nothing.
+      after(() => markThreadNoticesRead(user.id, threadId));
     }
   } catch (caught) {
     logQueryError(
@@ -112,7 +122,10 @@ export async function sendChatMessage(formData: FormData) {
   const asSide = sentAsFromForm(formData.get(CHAT_SENT_AS_FIELD));
 
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, asSide });
+  // 🤫 A whisper (the host's box, dragged right): the core decides who hears it — the posted list is not read for it.
+  const whisper = whisperFromForm(formData.get(CHAT_WHISPER_FIELD));
+
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -167,6 +180,8 @@ export async function notifyOtherParty(args: {
   isFirstMessage?: boolean;
   /** 🔒 A private message: ONLY these people are told (marked private); nobody else is notified or sees a placeholder. */
   privateTo?: string | readonly string[] | null;
+  /** 🤫 The private line is a WHISPER to the co-hosts — its notice says so, with no lock (it is a whisper, not a vault). */
+  whisper?: boolean;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -187,6 +202,11 @@ export async function notifyOtherParty(args: {
   const eventName = eventRes.data?.display_name ?? 'your event';
   const vendorName = vendorRes.data?.business_name?.trim() || 'a supplier';
   const preview = args.body.slice(0, 140);
+  // 🚪 A host's notice opens where their Messages list opens — the picked supplier on Chat (CHAT-07). Read once, and
+  // only when a host is told.
+  let coupleRowRead: Promise<string | null> | null = null;
+  const coupleRow = () =>
+    (coupleRowRead ??= readCoupleWorkspaceRowId(admin, { eventId: args.eventId, vendorProfileId: args.vendorProfileId, threadId: args.threadId }));
 
   if (args.privateTo) {
     // 👥 One or several (owner, 12 Nov) — each recipient told once, at their own door; nobody else.
@@ -199,9 +219,12 @@ export async function notifyOtherParty(args: {
       await emitNotification({
         userId: to,
         type: 'chat_message',
-        title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
+        title: args.whisper
+          ? `Whisper from a co-host · ${eventName}`
+          : `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,
-        relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : `/dashboard/${args.eventId}/messages/${args.threadId}`,
+        eventId: args.eventId,
+        relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : coupleChatHref(args.eventId, await coupleRow(), args.threadId),
       });
     }
     return;
@@ -274,7 +297,8 @@ export async function notifyOtherParty(args: {
       const body = founderSeat
         ? `${FOUNDER_INQUIRY_NOTIFICATION_PREFIX}${args.body.slice(0, 200)}`
         : priorLocked
-          ? `This couple previously booked you for ${priorLocked}. ${args.body.slice(0, 200)}`
+          ? // 🔤 The event kind's own word (a debut is not "This couple" — owner, 17 Nov), via `returningClientLine`.
+            `${returningClientLine(await readClientNoun(args.eventId, admin), priorLocked)} ${args.body.slice(0, 200)}`
           : args.body.slice(0, 200);
       tellShop = (userId) =>
         emitNotification({
@@ -319,7 +343,8 @@ export async function notifyOtherParty(args: {
           type: 'chat_message_in_app',
           title: `${first} wrote to ${vendorName}`,
           body: preview,
-          relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+          eventId: args.eventId,
+          relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
         });
       }
     }
@@ -334,7 +359,8 @@ export async function notifyOtherParty(args: {
       type: 'chat_message',
       title: `New message from ${vendorName}`,
       body: preview,
-      relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+      eventId: args.eventId,
+      relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
     });
   }
   for (const userId of told.hostsInApp) {
@@ -343,7 +369,8 @@ export async function notifyOtherParty(args: {
       type: 'chat_message_in_app',
       title: `New message from ${vendorName}`,
       body: preview,
-      relatedUrl: `/dashboard/${args.eventId}/messages/${args.threadId}`,
+      eventId: args.eventId,
+      relatedUrl: coupleChatHref(args.eventId, await coupleRow(), args.threadId),
     });
   }
 }

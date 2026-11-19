@@ -52,7 +52,8 @@ test('the vendor tree still bounces people who own nothing — to shop set-up, a
   // of the vendor tree (Today by default; executed in lib/shop-console-path.test.ts). Same edge, same condition.
   assert.match(OPEN, /const landing = shopConsolePath\(next\);/, '/open-shop forwards to something other than a console page');
   const back = OPEN.split('\n').filter(
-    (l) => (l.includes("redirect('/vendor-dashboard')") || l.includes('redirect(landing)')) && !l.trim().startsWith('//'),
+    // W1-B21 (16 Nov 2026): `redirect(planOfferPath(plan) ?? landing)` — the plan offer is a vendor-tree page too.
+    (l) => (l.includes("redirect('/vendor-dashboard')") || /redirect\((?:planOfferPath\(plan\) \?\? )?landing\)/.test(l)) && !l.trim().startsWith('//'),
   );
   assert.ok(back.length > 0, '/open-shop no longer sends a shop owner on to their dashboard');
   for (const b of back) {

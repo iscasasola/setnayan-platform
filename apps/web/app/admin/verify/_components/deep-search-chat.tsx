@@ -6,6 +6,8 @@ import {
   getVendorStudyPromptAction,
   saveManualDossierAction,
 } from '../actions';
+import { ActionButton } from '@/components/action-button';
+import { Save } from 'lucide-react';
 
 /**
  * Free "run it in your own AI chat" deep-search tier. The admin copies a ready
@@ -101,12 +103,7 @@ export function DeepSearchChat({
             placeholder="Paste the AI chat's full reply here — including the ```json { … } ``` block at the end."
             className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-xs text-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink/40"
           />
-          <button
-            type="submit"
-            className="inline-flex h-9 items-center rounded-md border border-ink/20 bg-ink/5 px-3 text-xs text-ink/80 hover:bg-ink/10"
-          >
-            Save pasted result
-          </button>
+          <ActionButton tone="neutral" type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save pasted result" />
         </form>
       ) : null}
     </div>

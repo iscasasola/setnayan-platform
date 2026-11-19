@@ -82,9 +82,9 @@ export async function readPublishedMethodsForCouple(opts: {
   // 1b. ⚖ NO HANDSHAKE, NO RECORD (owner 2026-10-07; audit F2, build item 13).
   // A supplier's account numbers are shown once the booking is booked and
   // settled as the couple sees it — not on a mere ask.
-  if (await coupleMoneyNotYet(adminClient, eventVendorId, isLockHandshakeEnabled())) {
-    return { state: 'not_yet', methods: [] };
-  }
+  // ⚠ The account numbers are still withheld; only WHETHER any exist is kept (CHAT-24), so "not confirmed yet" is
+  // never the whole story when the supplier has no way to be paid at all.
+  const notYet = Boolean(await coupleMoneyNotYet(adminClient, eventVendorId, isLockHandshakeEnabled()));
 
   // 2. Resolve the vendor's auth user (for the pro-tier check).
   const { data: vp, error: vpError } = await adminClient
@@ -116,6 +116,8 @@ export async function readPublishedMethodsForCouple(opts: {
   const list = ((rows ?? []) as VendorPaymentMethodRow[]).filter((m) =>
     isCoupleVisible(m, proActive),
   );
+  // Not confirmed yet → no destination leaves this function; only whether there is one to show later.
+  if (notYet) return { state: list.length > 0 ? 'not_yet' : 'not_yet_no_methods', methods: [] };
 
   const out: CoupleFacingMethod[] = [];
   for (const m of list) {

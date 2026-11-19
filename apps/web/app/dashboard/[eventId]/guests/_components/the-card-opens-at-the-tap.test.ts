@@ -113,7 +113,8 @@ test('3 · in place, InspectorLayout opens and closes without a server render �
   assert.match(inPlace[1]!, /return;/, 'the in-place branch falls through to push(id) — the full-page render');
   assert.doesNotMatch(inPlace[1]!, /\bpush\(/, 'the in-place branch navigates');
   assert.match(COLUMN, /const shallow = useCallback\(\s*\(id: string \| null\) => \{\s*window\.history\.pushState\(null, '', buildUrl\(id\)\);/, 'shallow must be a native pushState (Next follows it, the server is not asked)');
-  const ci = COLUMN.indexOf('const close = useCallback(');
+  // 👤 18 Nov 2026 (Side peek): `close` slides the sheet out first, then runs this — the in-place close itself.
+  const ci = COLUMN.indexOf('const closeNow = useCallback(');
   const close = COLUMN.slice(ci, COLUMN.indexOf('\n  }, [', ci));
   assert.match(close, /if \(inPlace\) \{[\s\S]*shallow\(null\);\s*return;/, 'closing an in-place card asks the server for the whole list again');
   // While the body is being read, the sheet shows the head — never nothing, never a navigation's wait.

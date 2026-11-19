@@ -122,6 +122,18 @@ test('the couple is told in a sentence — and "could not load" never reads as "
   assert.match(noPayMethodsSentence('unreadable', 3, 'Saysay') ?? '', /couldn’t load/);
 });
 
+test('CHAT-24 · not confirmed AND no way to pay says BOTH — never only "hasn’t finished confirming"', () => {
+  const notYet = noPayMethodsSentence('not_yet', 0, 'Saysay') ?? '';
+  const both = noPayMethodsSentence('not_yet_no_methods', 0, 'Saysay') ?? '';
+  assert.match(notYet, /hasn’t finished confirming/);
+  assert.match(both, /hasn’t added a way to pay them/, 'the missing payment method is the real gap');
+  assert.match(both, /hasn’t finished confirming/);
+  assert.doesNotMatch(both, /fee/i, 'never a word about the fee (R12)');
+  // The server read keeps the account numbers back but says whether any exist.
+  const server = read('vendor-payment-methods.server.ts');
+  assert.match(server, /if \(notYet\) return \{ state: list\.length > 0 \? 'not_yet' : 'not_yet_no_methods', methods: \[\] \}/);
+});
+
 // ─── Part 2 · where it is mounted ──────────────────────────────────────────
 
 test('the deposit card shows the supplier’s methods FIRST, then "Record payment"', () => {
@@ -145,7 +157,9 @@ test('the deposit card shows the supplier’s methods FIRST, then "Record paymen
   assert.ok(pay < record && sentence < record, 'paying no longer comes before recording');
   // The pay step renders only while a deposit is owed, and the owed rule is the
   // record/refusal/ack one — not a second invention.
-  assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked;/);
+  /* ✏️ EVOLVED 2026-11-18 (R12, walk W4): an unbooked row with nothing logged owes nothing (`nothingOwedYet`,
+     the `moneyStep` → `not_booked` answer). Booked rows read `notBookedYet === false`: the rule is unchanged. */
+  assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked && !notBookedYet;/);
   /* ✏️ EVOLVED 2026-09-20: the one pay sheet also serves the NEXT installment
      (Amount to pay), so its gate is `payDue` — built from `owed`, not a second
      invention. ✏️ EVOLVED again the same day ("nothing due now" is its own

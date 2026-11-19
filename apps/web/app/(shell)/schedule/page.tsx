@@ -44,7 +44,7 @@ const PAGE_TITLE = 'Schedule — The Day, Minute by Minute · Setnayan';
 /** The document title ONLY — see the sibling doorways. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION = studioDescription('schedule');
-const OG_IMAGE = `${SITE_URL}/brand/og-card.webp`;
+const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 export const metadata = {
   title: DOC_TITLE,

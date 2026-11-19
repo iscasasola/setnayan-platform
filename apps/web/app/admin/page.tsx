@@ -50,5 +50,5 @@ export default async function AdminHome(props: {
   if (mode === 'full') return AdminWorkLanding(props);
   const sp = (await props.searchParams) ?? {};
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  return <FocusHome viewerUserId={userId} cardKey={one(sp.card)} settle={one(sp.settle)} why={one(sp.why)} />;
+  return <FocusHome viewerUserId={userId} cardKey={one(sp.card)} settle={one(sp.settle)} why={one(sp.why)} ask={one(sp.ask)} />;
 }

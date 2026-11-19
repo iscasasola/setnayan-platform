@@ -10,3 +10,5 @@ Owner, 18 Nov ("plan it and set to build"), on the client-page drawing NL5NDoD6 
 Not built (named in the PR): "each chat-form answer is saved as a decision"; Payment-card dates in the chat; grouping quote lines by date (quote lines carry no date); seats, rooms, the plan and the Seats card (Card Maker build).
 
 SPEC IMPACT: None. The rulings are already in DECISION_LOG and the drawing; this PR builds them.
+
+- **The strip says what it could not read (review, 19 Nov).** A refused appointments read or an incomplete payment-plan read left the strip's list empty, and the day then said "Nothing with <client> this day" — the same words as a truly empty day. The page now keeps the appointments error and hands both read results to the strip (`scheduleDaysUnread`), which draws "Meetings couldn't load just now — some days may be missing." and, on an empty day, "Couldn't load this day's meetings just now." Guard: `lib/the-days-strip-says-what-it-could-not-read.test.ts` (sabotaged three ways).

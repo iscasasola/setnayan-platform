@@ -177,7 +177,7 @@ import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
-import { clientScheduleDays } from '@/lib/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
 import { DetailsFormsDoor } from './_components/details-forms-door';
 import { hostRows } from './_components/hosts-rows';
@@ -1881,9 +1881,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // event, both under the vendor's own RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  // 🔎 A refused appointments read is KEPT (19 Nov 2026 review): the days strip says "couldn't load", never an empty day.
+  let appointmentsReadFailed = false;
   if (isBooked) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
-    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: catalogRows }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
         .from('appointment_type_catalog')
         .select('category, type, label, default_mode, default_duration_min, sort_order')
@@ -1898,6 +1900,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false }),
     ]);
+    if (apptError) {
+      appointmentsReadFailed = true;
+      console.error('[client-page] appointments read failed', apptError);
+    }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
       type: string;
@@ -2716,6 +2722,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
               meetings: appointmentViews,
               payments: planRowsAll.flatMap((p) => p.steps ?? []),
             })}
+            unread={scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })}
           >
             {gated(scheduleNode)}
           </ScheduleDays>

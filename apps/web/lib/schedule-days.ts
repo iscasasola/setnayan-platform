@@ -162,3 +162,35 @@ export function monthHeading(month: string): string {
   const [y, m] = month.split('-').map(Number);
   return `${MONTH[m! - 1]} ${y}`;
 }
+
+/**
+ * 🔎 WHAT THE STRIP COULD NOT READ (review HOLD, 19 Nov 2026). The strip's days come from two reads the client page
+ * already makes: the appointments (meetings) and the payment plan. A refused read leaves that list EMPTY, and an empty
+ * list drew "Nothing with <client> this day" — byte-identical to a day that truly has nothing. So the page says which
+ * read failed, and the strip says "couldn't load" instead (the same shape as `quote-top-lines`' `'unread'`).
+ */
+export type ScheduleDaysUnread = 'meetings' | 'payments';
+
+export function scheduleDaysUnread(read: { meetingsRead: boolean; paymentsRead: boolean }): ScheduleDaysUnread[] {
+  const out: ScheduleDaysUnread[] = [];
+  if (!read.meetingsRead) out.push('meetings');
+  if (!read.paymentsRead) out.push('payments');
+  return out;
+}
+
+/** The strip's line for an unread list — null when everything was read. */
+export function unreadDaysLine(unread: readonly ScheduleDaysUnread[]): string | null {
+  if (unread.length === 0) return null;
+  const what = unread.length === 2 ? 'Meetings and payment days' : unread[0] === 'meetings' ? 'Meetings' : 'Payment days';
+  return `${what} couldn’t load just now — some days may be missing.`;
+}
+
+/**
+ * What an EMPTY day says. With everything read it is the plain "Nothing with <client> this day."; with a list unread it
+ * must not claim that — the day may hold exactly what failed to load.
+ */
+export function emptyDayLine(eventName: string, unread: readonly ScheduleDaysUnread[]): { line: string; unread: boolean } {
+  if (unread.length === 0) return { line: `Nothing with ${eventName} this day.`, unread: false };
+  const what = unread.length === 2 ? 'meetings and payments' : unread[0] === 'meetings' ? 'meetings' : 'payments';
+  return { line: `Couldn’t load this day’s ${what} just now. Reload to try again.`, unread: true };
+}

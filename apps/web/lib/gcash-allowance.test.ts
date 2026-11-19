@@ -12,6 +12,7 @@ import {
   GCASH_MAX_PHP_RULED,
   gcashNumberOrNull,
   gcashUsedFromRows,
+  isGcashRail,
   pickPayerRail,
   type GcashGate,
 } from './gcash-allowance';
@@ -107,4 +108,16 @@ test('the server refuses a GCash proof the rule would not have chosen — /pay a
   const page = read('app/pay/[reference]/page.tsx');
   assert.match(page, /payerAccountsFor\(settings, railPick\)/);
   assert.doesNotMatch(page, /openAccounts\(settings\)/);
+});
+
+test('the month total is narrowed to GCash IN SQL — BDO rows never fill the 1,000-row page', () => {
+  // Review of #7940 (19 Nov): with no channel filter, every BDO payment of the
+  // month counted toward PostgREST's row cap and the GCash total came back short.
+  const src = read('lib/gcash-allowance.server.ts');
+  assert.match(src, /\.ilike\('channel', '%gcash%'\)/, 'the GCash month read is not filtered by channel in SQL');
+  assert.match(src, /paymentsRes\.data\.length >= GCASH_MONTH_ROW_CAP\) \{[\s\S]{0,300}?return null;/, 'a full page must fail to BDO, not read as a smaller total');
+  // `%gcash%` must stay a superset of what isGcashRail counts.
+  for (const ch of ['gcash', 'GCash', 'GCash Business', 'gcash-2']) {
+    assert.equal(isGcashRail({ id: ch, label: ch }) ? ch.toLowerCase().includes('gcash') : true, true, ch);
+  }
 });

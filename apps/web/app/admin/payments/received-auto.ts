@@ -33,7 +33,8 @@ import type { ApproveCore } from './received';
  * press reaches here through `approvePayment`'s `intent`, like phase 1.
  */
 
-type Admin = ReturnType<typeof createAdminClient>;
+/** Handed in by tests only (a fake client); every caller in the app uses the default. */
+export type Admin = ReturnType<typeof createAdminClient>;
 
 async function audit(admin: Admin, row: { action: string; target_id: string; actor_user_id: string | null; metadata: Record<string, unknown> }) {
   const { error } = await admin.from('admin_audit_log').insert({ ...row, target_table: 'admin_received_transactions' });
@@ -188,11 +189,12 @@ export async function undoAutoMatch(userId: string, formData: FormData): Promise
 /**
  * The hold is over: claim each due row (released_at), then run the normal
  * approve. A duplicate refusal happens BEFORE the payment flips, so that row
- * goes back to the hand pile. Any other answer means the payment is matched,
- * exactly as after a human press. Returns how many were paid.
+ * goes back to the hand pile. A shortfall / not-promotable answer means the
+ * payment is matched but the order is NOT paid — audited as that, not counted.
+ * A THROWN approve puts the claim back (if the payment is still pending) and
+ * writes 'payment_auto_match_release_failed'. Returns how many orders were paid.
  */
-export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
-  const admin = createAdminClient();
+export async function releaseDueHolds(approve: ApproveCore, admin: Admin = createAdminClient()): Promise<number> {
   const now = new Date();
   const { data, error } = await admin
     .from('admin_received_transactions')
@@ -207,6 +209,7 @@ export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
   if (error) throw new Error(`received auto release read: ${error.message}`);
   type Due = { received_id: number; reference: string | null; amount_php: number | null; matched_payment_id: string; matched_at: string; matched_by: string | null; created_by: string | null };
   let paid = 0;
+  let failed = 0;
   for (const d of (data ?? []) as Due[]) {
     const nowIso = new Date().toISOString();
     const { data: claimed, error: claimErr } = await admin
@@ -243,17 +246,69 @@ export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
       continue;
     }
 
-    const outcome = await approve({
-      admin,
-      userId: approver,
-      paymentId: d.matched_payment_id,
-      adminNotes: `Matched by itself to BDO received${d.reference ? ` ${d.reference}` : ''} (held 30 minutes, not undone).`,
-      promoteOrder: true,
-    });
+    // 🔑 A THROWN APPROVE MUST NOT STRAND THE CLAIM. `approvePaymentCore`
+    // throws on a DB error. The claim (released_at) is already set, so without
+    // this the payment would stay pending, never be retried, drop off the held
+    // list, make a hand Match say "Undo it first" and Undo say "confirmed" —
+    // with no audit row. So: re-read the payment; still pending → put the
+    // claim back (the next run tries again), record why, and go on.
+    let outcome: Awaited<ReturnType<ApproveCore>>;
+    try {
+      outcome = await approve({
+        admin,
+        userId: approver,
+        paymentId: d.matched_payment_id,
+        adminNotes: `Matched by itself to BDO received${d.reference ? ` ${d.reference}` : ''} (held 30 minutes, not undone).`,
+        promoteOrder: true,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const { data: after, error: afterErr } = await admin.from('payments').select('status').eq('payment_id', d.matched_payment_id).maybeSingle();
+      const afterStatus = afterErr ? null : ((after as { status: string } | null)?.status ?? null);
+      // Unreadable is treated as still pending: an open claim is retried, a
+      // stranded one is never seen again. The approve path refuses a payment
+      // that is no longer pending, so a retry cannot pay twice.
+      const unclaimed = afterErr != null || afterStatus === 'pending';
+      if (unclaimed) {
+        const { error: unclaimErr } = await admin
+          .from('admin_received_transactions')
+          .update({ released_at: null })
+          .eq('received_id', d.received_id)
+          .eq('released_at', nowIso);
+        if (unclaimErr) console.error('[received-auto] unclaim after a failed release failed', unclaimErr.message);
+      }
+      await audit(admin, {
+        action: 'payment_auto_match_release_failed',
+        target_id: String(d.received_id),
+        actor_user_id: null,
+        metadata: {
+          payment_id: d.matched_payment_id,
+          approver_user_id: approver,
+          amount_php: d.amount_php,
+          held_since: d.matched_at,
+          message,
+          payment_status_after: afterStatus,
+          retried_next_run: unclaimed,
+        },
+      });
+      failed += 1;
+      continue;
+    }
+
+    // Three honest answers, never one "paid":
+    //   ok                        → matched, and the order is paid
+    //   duplicate                 → refused before the flip; back to the hand pile
+    //   shortfall / notPromotable → the payment IS matched, the order is NOT
+    //                               paid — recorded as that, not counted as paid
+    const orderNotPaid = !outcome.ok && !outcome.duplicate;
     if (!outcome.ok && outcome.duplicate) await reopen(admin, d.received_id, nowIso);
-    else paid += 1;
+    else if (outcome.ok) paid += 1;
     await audit(admin, {
-      action: outcome.ok ? 'payment_auto_match_released' : 'payment_auto_match_release_refused',
+      action: outcome.ok
+        ? 'payment_auto_match_released'
+        : orderNotPaid
+          ? 'payment_auto_match_released_order_not_paid'
+          : 'payment_auto_match_release_refused',
       target_id: String(d.received_id),
       actor_user_id: null,
       metadata: {
@@ -261,10 +316,19 @@ export async function releaseDueHolds(approve: ApproveCore): Promise<number> {
         approver_user_id: approver,
         amount_php: d.amount_php,
         held_since: d.matched_at,
-        ...(outcome.ok ? {} : { message: outcome.message, reopened: !!outcome.duplicate }),
+        ...(outcome.ok
+          ? {}
+          : {
+              message: outcome.message,
+              reopened: !!outcome.duplicate,
+              ...(orderNotPaid ? { reason: outcome.shortfall ? 'shortfall' : outcome.notPromotable ? 'not_promotable' : 'refused' } : {}),
+            }),
       },
     });
   }
+  // A failed release is not "nothing was due": the job run records ok=false,
+  // after every other due hold has had its turn.
+  if (failed > 0) throw new Error(`received auto release: ${failed} release(s) failed; claim put back, see admin_audit_log payment_auto_match_release_failed`);
   return paid;
 }
 
@@ -285,8 +349,8 @@ export async function maybeReleaseReceivedHolds(approve: ApproveCore): Promise<v
 export type HeldRow = { received_id: number; reference: string | null; amount_php: number | null; matched_at: string; matched_payment_id: string; label: string };
 
 /** The open holds, for the Focus list and Admin › Payments. A refused read is said, never drawn as none. */
-export async function readHeld(): Promise<HeldRow[] | null> {
-  const { data, error } = await createAdminClient()
+export async function readHeld(admin: Admin = createAdminClient()): Promise<HeldRow[] | null> {
+  const { data, error } = await admin
     .from('admin_received_transactions')
     .select('received_id, reference, amount_php, matched_at, matched_payment_id, payment:payments!admin_received_transactions_matched_payment_id_fkey(order:orders(public_id), user:users!payments_user_id_fkey(email))')
     .eq('match_kind', 'auto')

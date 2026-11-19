@@ -4,6 +4,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { monthStartISO } from '@/lib/payment-channels';
 import { gcashNumberOrNull, gcashUsedFromRows, type GcashGate } from '@/lib/gcash-allowance';
 
+/** One page of this month's GCash rows — PostgREST's default max-rows. */
+const GCASH_MONTH_ROW_CAP = 1000;
+
 /**
  * 💳 THE LIVE GCASH GATE — the line, the monthly allowance, and how much of it
  * this Manila month has used (owner 2026-11-18; rule in lib/gcash-allowance.ts).
@@ -29,7 +32,14 @@ export async function getGcashGate(opts?: { excludeOrderId?: string | null; now?
         .from('payments')
         .select('channel, amount_php, status, order_id')
         .in('status', ['pending', 'matched'])
-        .gte('paid_at', monthStart),
+        .gte('paid_at', monthStart)
+        // 🔑 NARROWED IN SQL. Unfiltered, every BDO payment of the month counted
+        // toward PostgREST's 1,000-row cap, so at volume the GCash total came
+        // back short — an allowance that overshoots. `%gcash%` is a SUPERSET of
+        // `isGcashRail` (id 'gcash', or a label starting with GCash);
+        // `gcashUsedFromRows` still decides exactly which rows count.
+        .ilike('channel', '%gcash%')
+        .limit(GCASH_MONTH_ROW_CAP),
     ]);
     if (settingsRes.error || !settingsRes.data) {
       if (settingsRes.error) logQueryError('gcash-allowance: settings', settingsRes.error, {}, 'graceful_degrade');
@@ -37,6 +47,12 @@ export async function getGcashGate(opts?: { excludeOrderId?: string | null; now?
     }
     if (paymentsRes.error || !paymentsRes.data) {
       if (paymentsRes.error) logQueryError('gcash-allowance: month total', paymentsRes.error, {}, 'graceful_degrade');
+      return null;
+    }
+    // A full page may be a cut-off page: a total we cannot know is not a
+    // smaller total. Null → BDO, the side that never overshoots.
+    if (paymentsRes.data.length >= GCASH_MONTH_ROW_CAP) {
+      logQueryError('gcash-allowance: month total', { message: `at least ${GCASH_MONTH_ROW_CAP} GCash rows this month — total not readable in one page` }, {}, 'graceful_degrade');
       return null;
     }
     const s = settingsRes.data as { gcash_max_php?: unknown; gcash_allowance_php?: unknown };

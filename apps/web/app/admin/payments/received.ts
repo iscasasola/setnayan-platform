@@ -67,7 +67,15 @@ export type ApproveCore = (args: {
   paymentId: string;
   adminNotes: string | null;
   promoteOrder: boolean;
-}) => Promise<{ ok: true } | { ok: false; message: string; duplicate?: true }>;
+}) => Promise<
+  | { ok: true }
+  /**
+   * `duplicate` → refused BEFORE the payment flips (nothing matched).
+   * `shortfall` / `notPromotable` → the payment IS matched, but the order was
+   * NOT marked paid (short transfer, or an order that cannot be promoted).
+   */
+  | { ok: false; message: string; duplicate?: true; shortfall?: true; notPromotable?: true }
+>;
 
 /**
  * Match one received row to one waiting payment, on the admin's press.

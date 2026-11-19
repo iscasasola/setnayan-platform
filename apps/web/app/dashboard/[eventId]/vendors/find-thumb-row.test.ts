@@ -53,7 +53,7 @@ test('T1 · the row owns nothing and writes nothing', () => {
   const imports = [...ROW.matchAll(/from '([^']+)'/g)].map((m) => m[1]);
   // `@/lib/suppliers-shell` lends only the `?find=1` door's name (a string); the controls are the ONE shared row
   // (`components/thumb-row.tsx`, owner 2026-10-22) — still nothing that writes.
-  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/thumb-row', '@/lib/suppliers-shell', './suppliers-mode']);
+  assert.deepEqual(imports, ['react', 'react-dom', 'lucide-react', '@/components/thumb-row', '@/components/clear-field', '@/lib/suppliers-shell', './suppliers-mode']);
   assert.doesNotMatch(ROW, /'use server'|-actions'|_actions\/|\.from\(|fetch\(|router\./);
   // The bench hands it its own three controls — once.
   assert.equal((BENCH.match(/<FindThumbRow\b/g) ?? []).length, 1);
@@ -61,11 +61,14 @@ test('T1 · the row owns nothing and writes nothing', () => {
     BENCH,
     // + Find v4 (2026-10-29): "Go to a category" from the empty box, and the ⇅ (Sort · Price · Rating) — both the
     //   bench's own state, handed in.
-    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+preset=\{thumbPreset\}\s+onAdd=\{addYourOwn\}\s+emptyPanel=\{findPanel\}\s+onGoToCategory=\{goToCategory\}\s+sortMenu=\{findSortMenu\(\{/,
+    /<FindThumbRow\s+allOpen=\{openAll\}\s+onToggleAll=\{toggleOpenAll\}\s+scope=\{scopeRow \? scopeRow\.t\.label : 'all suppliers'\}\s+onSearch=\{setQuery\}\s+preset=\{thumbPreset\}\s+onAdd=\{addYourOwn\}\s+matches=\{!shortlistMissed\}\s+emptyPanel=\{findPanel\}\s+onGoToCategory=\{goToCategory\}\s+sortMenu=\{findSortMenu\(\{/,
   );
   // Every control is the shared row's; nothing hand-made, no › in a control.
   assert.equal((ROW.match(/<ThumbRow\b/g) ?? []).length, 1);
-  assert.doesNotMatch(ROW, /<button\b|<ActionButton\b|›/);
+  // 19 Nov 2026: ONE hand-made press, and it is not a row control — the empty box's panel row "Add your own", the door
+  // the removed ＋ round was (the field is the add once words are typed).
+  assert.doesNotMatch(ROW, /<ActionButton\b|›/);
+  assert.deepEqual(ROW.match(/<button\b[^>]*?data-find-add-own=""|<button\b/g), ['<button\n            type="button"\n            data-find-add-own=""'], 'the Find row draws a button of its own');
 });
 
 /* ── T2 · rule 4 ─────────────────────────────────────────────────────────── */
@@ -125,11 +128,13 @@ test('T3 · the body swaps only AFTER the row has slid down — and only when a 
 test('T4 · the controls are the ONE shared row — icon rounds, the field the widest seat (2026-10-22)', () => {
   // The 2026-10-07 fit pass (icon + word → word → icon) retires here: every round is icon-only at 44 px, so there is
   // no word to fit; the field takes the rest (`components/thumb-row.module.css` `.field { flex: 1 1 auto }`).
-  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('/>', ROW.indexOf('action={{')));
+  const call = ROW.slice(ROW.indexOf('<ThumbRow'), ROW.indexOf('\n      />', ROW.indexOf('<ThumbRow')));
   assert.match(call, /name="suppliers-find"/);
   assert.match(call, /left=\{\[/);
   assert.match(call, /field=\{\{/);
-  assert.match(call, /action=\{\{\s*icon: Plus,/);
+  // 18–19 Nov 2026 (owner: "our text box is search / add feature"): no ＋ round — the field is the add.
+  assert.doesNotMatch(call, /\baction=/);
+  assert.match(call, /onAdd: addTyped,/);
   assert.doesNotMatch(ROW, /useFitRow|ThumbControls/, 'a second drawing of the row is back');
 });
 
@@ -138,7 +143,7 @@ test('T4 · glass: the row has no background; the field is frosted; Add keeps it
   assert.ok(outer, 'the row lost its anchor');
   assert.doesNotMatch(outer, /(^| )(bg-|shadow|backdrop-blur|sn-glass-row)/, 'the row has a fill, a shadow or a blur of its own');
   // The glass and the terracotta are the shared row's (`every-thumb-row-is-the-one-row.test.ts` renders them).
-  assert.match(ROW, /label: text\.trim\(\) \? 'Add' : 'Add your own',/);
+  assert.match(ROW, /data-find-add-own=""[\s\S]{0,400}Add your own/, 'the empty box lost “Add your own”');
   assert.doesNotMatch(ROW, /!bg-/);
 });
 

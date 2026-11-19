@@ -54,7 +54,7 @@ test('1 · the pinned row is title · [the page actions] · ⚙ · ✕, and the 
   const gear = at(/<MenuSettingsButton\b/, '⚙');
   const close = at(/data-testid="picked-close"/, '✕');
   assert.ok(title < slot && slot < gear && gear < close, 'the head row is not title · actions · ⚙ · ✕ (v8.3)');
-  assert.match(SHELL, /<PickedHeadContext\.Provider value=\{headSlot\}>[\s\S]*\{bodies\[page\]\}[\s\S]*<\/PickedHeadContext\.Provider>/, 'the page body is not handed the head slot');
+  assert.match(SHELL, /<PickedHeadContext\.Provider value=\{headSlot\}>[\s\S]*\{bodies\[workPage\]\}[\s\S]*<\/PickedHeadContext\.Provider>/, 'the page body is not handed the head slot');
   assert.match(SHELL, /text-\[20px\] font-bold/, 'the title is not v8.3’s 20 px bold');
 });
 

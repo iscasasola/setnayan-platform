@@ -214,7 +214,7 @@ const config: Config = {
         'sn-panel': 'var(--sn-z-panel)',
       },
       transitionDuration: {
-        'sn-micro': 'var(--sn-dur-micro)',
+        'sn-micro': 'var(--sn-m-tap)', // Phase 6 (19 Nov 2026): the 120 ms micro token is retired — Tap
         'sn-control': 'var(--sn-dur-control)',
         // The brief's "duration-300" — the house element duration (320ms).
         'sn-elem': 'var(--sn-dur-elem)',

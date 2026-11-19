@@ -1,11 +1,10 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 88,
+  "total": 87,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
     "app/_components/facebook-dual-stream-card.tsx · ink on white": 1,
-    "app/_components/file-upload.tsx · sn-accent on white": 1,
     "app/_components/home/home-reskin.css · .home-reskin-ov .hr-vb-legend": 1,
     "app/_components/proposal-maker.tsx · success-700 on white": 1,
     "app/admin/_components/mobile-landing-grid.tsx · #fff on m-mulberry": 1,

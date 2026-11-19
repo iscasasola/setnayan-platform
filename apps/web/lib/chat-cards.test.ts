@@ -140,6 +140,11 @@ test('📝 form · one at a time; the form and guest-count lines are read exactl
   assert.deepEqual(formProgress(['a', 'b']), { at: 1, answered: 2, done: true });
   assert.equal(formLineTitle('I sent you a form — “Shot list”. Answer it in your event.'), 'Shot list');
   assert.equal(formLineTitle('I sent you a form'), null);
+  // "Send again" (owner 18 Nov 2026): the same form, so the host's face still mounts under the line.
+  assert.equal(
+    formLineTitle('I sent you a form again — “Shot list”. Your last answers are still ticked; change any you like in your event.'),
+    'Shot list',
+  );
   assert.deepEqual(guestCountFromLine('Guest count changed · 150 → 170 guests'), { from: 150, to: 170 });
   assert.equal(guestCountFromLine('Guest count set · 150 guests'), null);
 });

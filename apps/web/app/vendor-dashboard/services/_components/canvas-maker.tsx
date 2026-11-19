@@ -96,6 +96,9 @@ import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import { ServiceCardFace } from './service-card-face';
+import { MakerGrownCardSheet } from './maker-grown-card';
+import { ServiceFaceDoorButton } from '@/app/_components/service-face-door';
+import type { MakerGrownCard } from '@/lib/service-card-for-maker';
 import { commitVendorService, deleteVendorService } from '../actions';
 import { CopyToBranch } from './copy-to-branch';
 import { branchCopyTargets } from '@/lib/branch-copy';
@@ -273,6 +276,7 @@ export function CanvasMaker({
   bookingsPerDate = null,
   checkRules = null,
   photoCheck,
+  grownCard,
 }: {
   categoryValue: string;
   categoryLabel: string;
@@ -388,6 +392,13 @@ export function CanvasMaker({
   checkRules?: MakerCheckRules | null;
   /** The photo ask — omit it (the app's server action). Only `/dev/card-maker-lab` hands in a fixture one. */
   photoCheck?: PhotoCheckAsk;
+  /**
+   * 🃏 THE GROWN CARD (ruling c160a2aa, 2026-11-16): the SAVED card as couples see it, built on the server
+   * (`loadMakerGrownCard`). A tap on the pinned card rises into it, with the typed name · price · included laid over it,
+   * and it is the ONE place the shop hides items per card. Absent = no grown card: a NEW card has nothing saved to
+   * show or hide (the tap does nothing), and the grown card is off while `serviceDetailsEnabled()` is.
+   */
+  grownCard?: MakerGrownCard;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const isEdit = editing !== null;
@@ -932,8 +943,9 @@ export function CanvasMaker({
 
   // ── The one page of fields (makers prototype 7 Nov 2026 § 3) ──────────────
   const [aboutOpen, setAboutOpen] = useState(false);
-  /** 🧰 The phone's "See it as couples do" — shut by default, so the short form has the screen (cut 3). */
-  const [peekOpen, setPeekOpen] = useState(false);
+  /** 🃏 The grown card is up, and the face it rose from (it falls back into it on ✕). */
+  const [grownOpen, setGrownOpen] = useState(false);
+  const grownFrom = useRef<HTMLElement | null>(null);
   const [incMissing, setIncMissing] = useState(false);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
   const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
@@ -955,6 +967,40 @@ export function CanvasMaker({
   ) : (
     <div aria-hidden className="h-[138px] rounded-2xl border" style={{ borderColor: line }} />
   );
+  // 🃏 THE PINNED CARD (ruling c160a2aa): the same live face, and — for a saved card — the shipped face door over it, so
+  // a tap rises into the grown card from this very box. A new card has nothing saved to grow into: no door.
+  const grown = grownCard?.status === 'ok' ? grownCard : null;
+  const pinnedCard = (
+    <div className="relative" data-maker-card-tap={grown ? 'grows' : 'still'}>
+      {cardFace}
+      {grown ? (
+        <ServiceFaceDoorButton
+          label={`Open ${faceName} as couples see it`}
+          hasPopup
+          onOpen={(from) => {
+            grownFrom.current = from;
+            setGrownOpen(true);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+  /** Under the card: how to grow it, or — said, never drawn as empty — what could not be read. */
+  const pinnedLine = grown ? (
+    <div className="space-y-0.5 pt-1.5" data-maker-card-line="">
+      <p className="text-[12px] text-ink/55">Tap the card · it opens as couples see it</p>
+      {grown.unread.length > 0 ? (
+        <p role="status" className="text-[12px] leading-snug" style={{ color: 'rgb(var(--color-warn))' }} data-maker-grown-unread="">
+          Couldn’t load this card’s {grown.unread.join(' · ')} — left out when it opens.
+        </p>
+      ) : null}
+    </div>
+  ) : grownCard?.status === 'unread' ? (
+    <p role="status" className="pt-1.5 text-[12px] leading-snug" style={{ color: 'rgb(var(--color-warn))' }} data-maker-grown-unread="">
+      Couldn’t load your saved card, so it can’t open as couples see it just now.{' '}
+      <a href={returnTo ?? ''} className="sn-press font-semibold underline underline-offset-2">Retry</a>
+    </p>
+  ) : null;
 
   return (
     <div className="sn-canvas space-y-4 pb-28" data-card-maker={isEdit ? 'edit' : 'new'}>
@@ -1052,20 +1098,16 @@ export function CanvasMaker({
           goes; the card preview is always pinned at the top"). On a phone the card sits under the pinned row and stays
           on screen while the fields scroll under it, redrawing as you type. It IS the card a host sees in Suppliers ›
           Find — `ServiceCardFace`, the one face `supplier-sheet.tsx` renders; never a second drawing. ═══ */}
-      {/* 🧰 BEHIND ONE TAP ON A PHONE (owner-approved 2026-11-14, cut 3 — it supersedes the 9 Nov "always pinned"): pinned,
-          the card left a ~60 px window for the fields at 390. "See it as couples do" opens the same face, live, in place. */}
-      <div className="-mx-4 border-b px-4 pb-2 pt-1 md:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
-        <button
-          type="button"
-          aria-expanded={peekOpen}
-          onClick={() => setPeekOpen((o) => !o)}
-          className="sn-press flex min-h-11 w-full items-center justify-between gap-2 text-left"
-          data-maker-see-as-couples=""
-        >
-          <span className="text-[14px] font-semibold text-ink">See it as couples do</span>
-          <span className="text-[12px] text-ink/50">{peekOpen ? 'Hide' : 'updates as you type'}</span>
-        </button>
-        {peekOpen ? <div className="pb-1">{cardFace}</div> : null}
+      {/* 🔁 PINNED AGAIN (ruling c160a2aa, 2026-11-16 — it restores the 9/10 Nov design and supersedes cut 3's "See it
+          as couples do" tap of 14 Nov): the card is always drawn, never behind a toggle, and the short form scrolls
+          under it. A tap on it rises into the grown card. */}
+      <div className="sticky top-0 z-[3] -mx-4 border-b px-4 pb-3 pt-1 md:hidden" style={{ borderColor: line, background: 'var(--sn-canvas)' }} data-maker-card-pinned="">
+        <div className="flex items-baseline justify-between gap-2 pb-1.5">
+          <span className="sn-eye">As couples see it</span>
+          <span className="text-[11.5px] text-ink/50">updates as you type</span>
+        </div>
+        {pinnedCard}
+        {pinnedLine}
       </div>
 
       {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the card is pinned above ═══ */}
@@ -1629,7 +1671,11 @@ export function CanvasMaker({
               <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/45">Live</span>
             </div>
-            {cardFace}
+            {/* The same pinned card: a tap rises into the grown card here too (ruling c160a2aa). */}
+            <div>
+              {pinnedCard}
+              {pinnedLine}
+            </div>
             <p
               data-maker-status={status.tone}
               className="flex items-start gap-2.5 text-[14px] leading-snug"
@@ -1649,6 +1695,19 @@ export function CanvasMaker({
           </div>
         </aside>
       </div>
+
+      {/* 🃏 THE GROWN CARD — outside the card's form (its keys and buttons are not the form's), mounted while the card is
+          saved so what was hidden here survives closing it; it draws only while up. */}
+      {grown ? (
+        <MakerGrownCardSheet
+          open={grownOpen}
+          grown={grown}
+          typed={{ name: faceName, priceText: face?.priceText ?? '', hasPrice: snap.hasPrice, inclusionLabels: snap.inclusionLabels }}
+          shopName={shopName || null}
+          from={grownFrom.current}
+          onClose={() => setGrownOpen(false)}
+        />
+      ) : null}
 
       {/* ═══ THE THUMB ROW — Cancel (grey) · Create / Save card (the one main, terracotta). The shipped row + buttons. ═══ */}
       <SupplierThumbRow name="maker" label="Card actions">

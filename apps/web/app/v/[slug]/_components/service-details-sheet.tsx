@@ -140,7 +140,8 @@ export function ServiceDetailsSheet({
   shopName?: string | null;
   /** The tapped card's box — the rise starts there and ✕ falls back into it. Null: it simply appears. */
   from?: HTMLElement | null;
-  /** 🃏 Set only when the viewer runs this shop — hide per card, 👁 Couple view, the card's opens. */
+  /** 🃏 Set only by the Card Maker's grown card (ruling c160a2aa — hiding lives there alone): hide per card, 👁 Couple
+   *  view, the card's opens. The shop page never sets it. */
   owner?: GrownCardOwner | null;
   /**
    * 🏅 The badges this card and its shop hold, ONLY as `lib/public-badges.ts` builds them (badge build J6). Null — the

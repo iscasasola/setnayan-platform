@@ -25,12 +25,7 @@ import type { ServiceCard } from '@/lib/service-card-view-model';
 // type's home is the view-model lib, which both sides of the app read.
 export type { ServiceCard };
 import type { CompiledCardRecord } from '@/lib/service-card-record';
-import { cardHideSaveError } from '@/lib/service-card-hides';
-import {
-  ServiceDetailsSheet,
-  type GrownCardOwner,
-  type ServiceInquireMode,
-} from './service-details-sheet';
+import { ServiceDetailsSheet, type ServiceInquireMode } from './service-details-sheet';
 import { formatCount } from '@/lib/format-number';
 import { servicesFromCards } from '@/lib/photos-by-service';
 import { PhotosByServiceSheet } from './photos-by-service';
@@ -71,7 +66,7 @@ export function ServicesGallery({
   viewerSignedIn = false,
   shopName = null,
   countOpensFor = null,
-  ownerCheckFor = null,
+  privatePhotosFor = null,
   quote = null,
   cardBadges = null,
   badgesNow = 0,
@@ -85,11 +80,11 @@ export function ServicesGallery({
   /** The server's clock for the medals' "time held", so server and client draw the same words. */
   badgesNow?: number;
   /**
-   * 🃏 THE SHOP'S OWN CARD (ruling 5970) — the shop to ask about, once, after the page: does this signed-in viewer run
-   * it? Then the grown card carries hide per card, 👁 Couple view and the card's opens. The database decides
-   * (`current_vendor_profile_ids()`); null = never ask (signed out, demo, lab).
+   * 📸 The shop's id when the viewer runs it (checked on the server) — photos by service adds its private "Only you"
+   * photos. 🃏 NOT a hide: since ruling c160a2aa (2026-11-16) this page's grown card is the card couples see, for every
+   * viewer including the shop; hiding per card lives ONLY in the Card Maker's grown card. null = signed out, demo, lab.
    */
-  ownerCheckFor?: string | null;
+  privatePhotosFor?: string | null;
   groups: ServiceGroup[];
   /** The shop's name — the grown card's face says "by {shop}" under the card's name. */
   shopName?: string | null;
@@ -145,68 +140,6 @@ export function ServicesGallery({
   // The card whose details sheet is open, by `ServiceCard.id`. Seeded ONCE from
   // the deep link (lazy initial state, so a later re-render can't re-open a
   // sheet the couple already dismissed).
-  // 🃏 Asked once: is this viewer the shop? Hides start from what the server drew and change in place on a tap.
-  const [ownerOpens, setOwnerOpens] = useState<{ opens: Record<string, number> | null } | null>(null);
-  const [hides, setHides] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(groups.flatMap((g) => g.cards.map((c) => [c.id, c.hiddenOnCard ?? []]))),
-  );
-  useEffect(() => {
-    if (!ownerCheckFor || !detailsEnabled) return;
-    let live = true;
-    couplePhotoShare({ op: 'card_owner', vendorProfileId: ownerCheckFor })
-      .then((reply) => {
-        if (live && reply.op === 'card_owner' && reply.result.status === 'owner') setOwnerOpens({ opens: reply.result.opens });
-      })
-      .catch(() => {
-        /* Not known to be the shop → the card a couple sees. */
-      });
-    return () => {
-      live = false;
-    };
-  }, [ownerCheckFor, detailsEnabled]);
-  // 🃏 A toggle is drawn only once the save SUCCEEDED — never flipped first and put back, which would look like it
-  // worked. While it saves the item is marked busy; a failed or refused save leaves it as it was and says so.
-  const [pendingHide, setPendingHide] = useState<Record<string, string[]>>({});
-  const [hideError, setHideError] = useState<Record<string, string | null>>({});
-  const toggleHide = (cardId: string, key: string, hide: boolean) => {
-    if ((pendingHide[cardId] ?? []).includes(key)) return;
-    const busy = (on: boolean) =>
-      setPendingHide((p) => {
-        const cur = new Set(p[cardId] ?? []);
-        if (on) cur.add(key);
-        else cur.delete(key);
-        return { ...p, [cardId]: [...cur] };
-      });
-    busy(true);
-    setHideError((e) => ({ ...e, [cardId]: null }));
-    const settle = (error: string | null) => {
-      busy(false);
-      if (error) {
-        setHideError((e) => ({ ...e, [cardId]: error }));
-        return;
-      }
-      setHides((h) => {
-        const cur = new Set(h[cardId] ?? []);
-        if (hide) cur.add(key);
-        else cur.delete(key);
-        return { ...h, [cardId]: [...cur] };
-      });
-    };
-    couplePhotoShare({ op: 'card_hide', vendorServiceId: cardId, key, hidden: hide })
-      .then((reply) => settle(cardHideSaveError(reply.op === 'card_hide' ? reply.result : null, hide)))
-      .catch(() => settle(cardHideSaveError(null, hide)));
-  };
-  const ownerFor = (cardId: string): GrownCardOwner | null =>
-    ownerOpens
-      ? {
-          hidden: new Set(hides[cardId] ?? []),
-          saving: new Set(pendingHide[cardId] ?? []),
-          saveError: hideError[cardId] ?? null,
-          onToggle: (key, hide) => toggleHide(cardId, key, hide),
-          opens: ownerOpens.opens === null ? null : (ownerOpens.opens[cardId] ?? 0),
-        }
-      : null;
-
   // 🧾 The quote — on the device only, in the order picked (prototype `ST.svc`); the tray's Inquire sends it.
   const [picked, setPicked] = useState<string[]>([]);
   // 🧾 v16 S3: "Add to quote" + "Choose this service" under a card's face (`ServiceFace` `footer`, v16 `.sc .ft`).
@@ -334,7 +267,7 @@ export function ServicesGallery({
         view={photoServices.find((v) => v.key === openService) ?? null}
         open={openService !== null}
         onClose={() => setOpenService(null)}
-        ownerShopId={ownerCheckFor}
+        ownerShopId={privatePhotosFor}
       />
 
       {/* ONE sheet for the whole gallery, not one per card — mounting a dialog
@@ -347,7 +280,6 @@ export function ServicesGallery({
           inquireMode={inquireMode}
           shopName={shopName}
           from={originRef.current}
-          owner={ownerFor(openCard.id)}
           // 🏅 The same J3 row the card's face draws, on the full card too (layout D on every card).
           cardBadgeRow={
             cardBadges?.kind === 'ok' && (cardBadges.byCard[openCard.id]?.length ?? 0) > 0 ? (

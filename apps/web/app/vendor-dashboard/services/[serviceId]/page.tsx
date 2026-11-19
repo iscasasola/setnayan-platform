@@ -17,6 +17,9 @@ import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
+import { serviceDetailsEnabled } from '@/lib/service-details-flag';
+import { loadMakerGrownCard } from '@/lib/service-card-for-maker.server';
+import type { MakerGrownCard } from '@/lib/service-card-for-maker';
 
 export const metadata = { title: 'Your service' };
 
@@ -88,13 +91,27 @@ export default async function EditServiceCardPage({
       : Promise.resolve(undefined),
   ]);
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
-  const albumTags = albums
-    ? await readAlbumTags(
-        createAdminClient(),
-        profile.vendor_profile_id,
-        albums.flatMap((a) => a.photos.filter((ph) => ph.from === 'files').map((ph) => ph.key.slice('files:'.length))),
-      )
-    : null;
+  // 🃏 THE GROWN CARD (ruling c160a2aa): the saved card as couples see it — the pinned card's tap rises into it, and it
+  // is the one place the shop hides items per card. Built with the shop page's own lib calls; only while couples have a
+  // grown card at all (`serviceDetailsEnabled()`), else the pinned card simply does not grow. Read beside the tags.
+  const [albumTags, grownCard] = await Promise.all([
+    albums
+      ? readAlbumTags(
+          createAdminClient(),
+          profile.vendor_profile_id,
+          albums.flatMap((a) => a.photos.filter((ph) => ph.from === 'files').map((ph) => ph.key.slice('files:'.length))),
+        )
+      : Promise.resolve(null),
+    serviceDetailsEnabled()
+      ? loadMakerGrownCard(supabase, createAdminClient(), {
+          vendorProfileId: profile.vendor_profile_id,
+          serviceId,
+          initial: card.initial,
+          records,
+          albums,
+        }).catch((): MakerGrownCard => ({ status: 'unread' }))
+      : Promise.resolve(undefined),
+  ]);
   const thisCardBookings = cardBookings?.get(serviceId) ?? null;
   const deleteGate = {
     refusal: thisCardBookings ? openBookingsRefusal(thisCardBookings.open) : BOOKINGS_UNREAD,
@@ -179,6 +196,7 @@ export default async function EditServiceCardPage({
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}
+        grownCard={grownCard}
       />
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
       {venueHalls.length > 0 ? (

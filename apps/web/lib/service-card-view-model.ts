@@ -37,7 +37,7 @@ import type { VendorServiceRow, VendorServiceDiscount } from '@/lib/vendor-servi
 import { formatCount } from '@/lib/format-number';
 
 /** Max inclusions listed before we collapse the rest into "+N more included". */
-const SERVICE_CARD_INCLUSION_LIMIT = 3;
+export const SERVICE_CARD_INCLUSION_LIMIT = 3;
 
 /** Resolved showcase display URLs for one card (photos ≤5 + optional clip). */
 export type ServiceShowcaseMedia = {

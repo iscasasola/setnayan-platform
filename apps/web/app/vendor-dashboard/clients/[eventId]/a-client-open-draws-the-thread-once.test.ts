@@ -249,7 +249,10 @@ test('2 · only the Chat view marks the conversation read — and only once it i
   assert.match(chatNode, /<MarkReadWhenShown threadId=\{threadId\} \/>/, 'the Chat node does not mount the marker');
   // The shell mounts only the page on screen — the reason a mount means "Chat is shown".
   const shell = readFileSync(join(__dirname, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx'), 'utf8') /* the ONE picked shell */;
-  assert.match(shell, /\{bodies\[page\]\}/, 'the shell no longer mounts only the shown page — a mount would not mean "shown"');
+  // (18 Nov 2026: on a computer the Chat body also sits in its own always-shown column — still "mounted = shown".)
+  assert.match(shell, /\{bodies\[workPage\]\}/, 'the shell no longer mounts only the shown page — a mount would not mean "shown"');
+  assert.equal((shell.match(/\{bodies\[/g) ?? []).length, 2, 'a body is mounted somewhere other than the shown page and the side Chat column');
+  assert.match(shell, /\{split \? \(\s*<aside[\s\S]{0,2400}\{bodies\[sideChat!\.page\]\}/, 'the side Chat column is mounted when it is not shown');
   const marker = readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8');
   assert.match(marker, /useEffect\(\(\) => \{\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount');
 });

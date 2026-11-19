@@ -22,13 +22,21 @@
  * Mounted once in app/providers.tsx so it wraps every surface (avoids the
  * contended root layout.tsx). Accessible: container is role="status"
  * aria-live="polite"; each toast is dismissible; auto-clears after 5s.
+ *
+ * 🎞 ONE PILL, FROM THE BOTTOM (owner 18 Nov 2026, the motion standard § 4 #5): this is the SAME pill as
+ * `peek-toast.tsx` — its shape, its three tones, its words — in the same place (above the thumb row or the bottom
+ * nav, `.sn-m-toast-place` → `--sn-thumb-clear`) with the same motion (`.sn-m-toast`: in Move on Spring from below,
+ * out Quick on Settle). It was a bordered row at `bottom-4` rising on `sn-rise 320ms`.
+ * 🔒 lib/the-toast-rises-from-the-bottom.test.ts
  */
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
+import { Check, Info, TriangleAlert, X } from 'lucide-react';
+import { QUICK_MS } from '@/lib/motion-table';
+import { PEEK_TOAST_MOTION, PEEK_TOAST_PILL, PEEK_TOAST_TONE, PEEK_TOAST_WORDS, type PeekToastTone } from './peek-toast';
 
 type ToastVariant = 'success' | 'error' | 'info';
-type ToastItem = { id: number; variant: ToastVariant; message: string };
+type ToastItem = { id: number; variant: ToastVariant; message: string; leaving?: boolean };
 
 export type ToastApi = {
   success: (message: string) => void;
@@ -46,20 +54,22 @@ export function useToast(): ToastApi {
   return ctx;
 }
 
-// Warm Atelier semantics (Glass PR-1, 2026-07-15): icon + border carry the
-// status colour from the kit `--sn-*` tokens; the panel is a flat `.sn-row`.
-const VARIANT = {
-  success: { Icon: CheckCircle2, color: 'var(--sn-success)' },
-  error: { Icon: AlertCircle, color: 'var(--sn-danger)' },
-  info: { Icon: Info, color: 'var(--sn-info)' },
-} as const;
+// The pill's three tones (peek-toast.tsx): a good result is the accent with a ✓, a failure the darkened danger token
+// with a warning mark (never only a colour), a note the quiet card with an ⓘ.
+const VARIANT: Record<ToastVariant, { Icon: typeof Check; tone: PeekToastTone }> = {
+  success: { Icon: Check, tone: 'ok' },
+  error: { Icon: TriangleAlert, tone: 'bad' },
+  info: { Icon: Info, tone: 'note' },
+};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const seq = useRef(0);
 
+  // Leaving is two steps: it sinks back (Quick on Settle, `data-leaving`), then it is taken off the page.
   const dismiss = useCallback((id: number) => {
-    setToasts((list) => list.filter((t) => t.id !== id));
+    setToasts((list) => list.map((t) => (t.id === id ? { ...t, leaving: true } : t)));
+    setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), QUICK_MS + 40);
   }, []);
 
   const push = useCallback(
@@ -91,25 +101,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         role="status"
         aria-live="polite"
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-[100] flex flex-col items-center gap-2 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))]"
+        data-toasts=""
+        className="sn-m-toast-place pointer-events-none fixed inset-x-0 z-[100] flex flex-col items-center gap-2 pl-[max(0.75rem,var(--sn-safe-l))] pr-[max(0.75rem,var(--sn-safe-r))]"
       >
-        {toasts.map(({ id, variant, message }) => {
-          const { Icon, color } = VARIANT[variant];
+        {toasts.map(({ id, variant, message, leaving }) => {
+          const { Icon, tone } = VARIANT[variant];
           return (
             <div
               key={id}
-              className="sn-row pointer-events-auto flex w-full max-w-sm items-start gap-2.5 px-3.5 py-2.5 text-sm text-ink shadow-md"
-              style={{ borderColor: color, animation: 'sn-rise 320ms both var(--sn-ease-out)' }}
+              data-toast={variant}
+              data-leaving={leaving ? '' : undefined}
+              className={`${PEEK_TOAST_MOTION} ${PEEK_TOAST_PILL} ${PEEK_TOAST_TONE[tone]} pointer-events-auto !pl-[18px] !pr-1`}
             >
-              <Icon aria-hidden className="mt-0.5 h-4 w-4 shrink-0" style={{ color }} strokeWidth={2} />
-              <span className="flex-1 leading-snug">{message}</span>
+              <Icon aria-hidden className="h-[18px] w-[18px] flex-none" strokeWidth={2.4} />
+              <span className={PEEK_TOAST_WORDS}>{message}</span>
               <button
                 type="button"
                 onClick={() => dismiss(id)}
                 aria-label="Dismiss"
-                className="-mr-1 -mt-0.5 rounded-md p-1 text-ink/40 hover:bg-ink/5 hover:text-ink/70"
+                className="inline-flex h-11 w-11 flex-none items-center justify-center rounded-full opacity-70 hover:opacity-100"
               >
-                <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+                <X aria-hidden className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
           );

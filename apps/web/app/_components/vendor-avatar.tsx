@@ -12,6 +12,7 @@
  * server-side) — a raw `r2://` ref will not render, so pass the resolved URL or
  * null. Decorative (`aria-hidden`): the business name is always adjacent text.
  */
+import { PHOTO_ARRIVES } from '@/lib/photo-arrives';
 import { logoFrameStyle, type LogoFrame } from '@/lib/open-shop-logo';
 
 export function VendorAvatar({
@@ -39,7 +40,7 @@ export function VendorAvatar({
         {/* Presigned R2 URL — next/image can't optimize short-lived signed
             URLs, so this follows the FileUpload thumbnail pattern. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoUrl} alt="" className="h-full w-full object-cover" style={logoFrameStyle(frame)} />
+        <img {...PHOTO_ARRIVES} src={logoUrl} alt="" className="h-full w-full object-cover" style={logoFrameStyle(frame)} />
       </span>
     );
   }

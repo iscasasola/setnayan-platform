@@ -42,10 +42,10 @@ import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Propose a payment plan · See every version) · Decision · Poll · Ask for access · Payment · Form · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Negotiate (Change quote · Propose a payment plan · See every version) · Decision · Poll · Ask for access · Form · Payment · Meeting · Camera · Photos & files · Report a problem', () => {
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Ask for access', 'Payment', 'Form', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Ask for access', 'Form', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
   assert.equal(supplierPlusRows({ paid: true }).find((r) => r.key === 'quote')!.line, 'A new version · the paid one is the floor');
   const photos = supplierPlusRows({ paid: false }).find((r) => r.key === 'photos')!;
@@ -88,7 +88,7 @@ test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting
 test('1c · a row that cannot open yet is shut with its reason — never hidden', () => {
   const shut = supplierPlusRows({ paid: false }).filter((r) => r.shutUntilAgreement);
   // Ask for access is the shipped ask, which is for a supplier booked on the event (chat gaps, 8 Nov).
-  assert.deepEqual(shut.map((r) => r.key), ['access', 'payment', 'form']);
+  assert.deepEqual(shut.map((r) => r.key), ['access', 'form', 'payment']);
   for (const r of shut) assert.ok(r.shutUntilAgreement!.reason.length > 0);
 });
 
@@ -127,10 +127,11 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
   const rank = (r: PlusRow) => MENU_ORDER.indexOf(PLUS_ROW_PAGE[r.key] as PickedClientPage);
   const derived = [...rows].sort((a, b) => rank(a) - rank(b));
   assert.deepEqual(rows.map((r) => r.key), derived.map((r) => r.key));
-  // The words the sheet draws over the groups are the tabs' own (Chat · Details · Payment · Forms · Schedule · Files ·
-  // Report) — Quotation's one row, Change quote, moved up into Negotiate on 12 Nov.
+  // The words the sheet draws over the groups are the tabs' own (seven tabs, owner 18 Nov 2026: Chat · Details · Book &
+  // Budget · Schedule · Files · Report) — Form sits under Details, Payment under Book & Budget; Change quote moved up into
+  // Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
-  assert.deepEqual(groups, ['Chat', 'Details', 'Payment', 'Forms', 'Schedule', 'Files', 'Report']);
+  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
 });
 
 test('1e · ONE phone picker on the supplier’s (+): Photos & files takes the phone’s photos and videos; Camera is the other act', () => {
@@ -222,7 +223,7 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
   }
   // The words the ruling names (M14 + /meeting /decision /poll), Negotiate's first (12 Nov: /quote · /plan; the hosts' /ask · /counter).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
-    '/quote', '/plan', '/decision', '/poll', '/access', '/payment', '/form', '/meeting', '/file',
+    '/quote', '/plan', '/decision', '/poll', '/access', '/form', '/payment', '/meeting', '/file',
   ]);
   assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 2).map((r) => `/${r.word}`), ['/counter', '/plan']); // no /ask — ruling 6076
   // "/p" → Propose a payment plan (its word /plan) · Poll · Payment · Photos & files.

@@ -17,8 +17,8 @@
  * SEQUENCE: on the first paint of a route transition only the (SSR) skeleton
  * shows — instant page-shaped structure. Once this client island hydrates, the
  * branded overlay fades in (`.sd-overlay`, reused from the blocking loader) and
- * <SDLoader> narrates the section-specific work. On fast (<~200ms) navigations
- * the fade barely starts, so quick loads never flash a heavy loader.
+ * <SDLoader> narrates the section-specific work. It waits 150 ms first (the load
+ * rule, `lib/load-rules.ts`), so quick loads never flash a heavy loader.
  *
  * REPLACES: the prior interactive "play while you wait" overlay (Tap Burst /
  * Wedding Wisdom / Quick Pick), retired 2026-07-05 in favour of the unified
@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react';
 import { SDLoader } from '@/components/sd-loader/sd-loader';
 import { ROUTE_STEPS } from '@/components/sd-loader/loader-steps';
+import { createLoadGate } from '@/lib/load-rules';
 
 /**
  * Resolve the current URL to a ROUTE_STEPS key. Order matters — more specific
@@ -59,8 +60,18 @@ export function LoadingActivity() {
   const [ctx, setCtx] = useState<{ steps: readonly string[]; hint: string } | null>(null);
 
   useEffect(() => {
-    const key = detectRouteKey(window.location.pathname);
-    setCtx(ROUTE_STEPS[key] ?? ROUTE_STEPS.route);
+    // ⏱ LOAD RULE 1 (motion standard 18 Nov 2026, `lib/load-rules.ts`): the veil waits 150 ms before it shows, so
+    // a route that answers sooner never flashes it. It is never held up afterwards — React takes this whole
+    // loading screen away the moment the page is ready, and nothing here delays that.
+    const gate = createLoadGate({
+      show: () => {
+        const key = detectRouteKey(window.location.pathname);
+        setCtx(ROUTE_STEPS[key] ?? ROUTE_STEPS.route);
+      },
+      hide: () => setCtx(null),
+    });
+    gate.start();
+    return () => gate.cancel();
   }, []);
 
   if (!ctx) return null;

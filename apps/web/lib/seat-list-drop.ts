@@ -15,10 +15,12 @@
  * Pure (no DOM): the drop rows carry their seat as data attributes (`seatDropAttrs`), read back by `readSeatDrop`.
  * 🔒 lib/seats-list-is-the-guests-list.test.ts
  */
+import { HOLD_MS } from './motion-table';
 
 /** How long a finger holds a guest still before they lift — Seats › List's row (`seat-list.tsx` › `HOLD_MS`) and the
  *  tray under the floor (`seat-face-tray.tsx`) alike; 🔒 the-seat-plan-drags-on-a-phone.test.ts holds them equal. */
-export const SEAT_HOLD_MS = 300;
+/** Since 19 Nov 2026 it IS the motion standard's one hold (`HOLD_MS`, 350 ms — MOTION_STANDARD § 2 "long-press hold"). */
+export const SEAT_HOLD_MS = HOLD_MS;
 
 export type SeatDropTarget =
   | { kind: 'seat'; tableId: string; seat: number; occupantId: string | null }

@@ -33,6 +33,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { Count } from '@/components/count';
+import { ReplyArrives } from '@/app/_components/signature/reply-arrives';
 import { formatCount } from '@/lib/format-number';
 
 /* ─── One ticker for the page ─────────────────────────────────────────────── */
@@ -173,7 +174,17 @@ export function HomeTileCountKey({ value, children }: { value: string; children:
 /** The face's figure — counted to its value (`Count`, owner H2) when it is a number, its words when it is not. */
 export function FaceFigure({ face }: { face: HomeFace }) {
   const key = useContext(TileCountKey);
-  return face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}${key}`} /> : <>{face.big}</>;
+  const figure = face.count ? <Count value={face.count.value} format={face.count.format} id={`home-${face.id}${key}`} /> : <>{face.big}</>;
+  // 🕯 Reply arrives (motion standard § 9 ④) — the Guests tile's "coming" face: new replies since the last look, once
+  // per visit. Its own mark (`tile:`), so the hidden tablet card can never use the phone tile's moment up.
+  if (face.id === 'guests-coming' && face.count) {
+    return (
+      <ReplyArrives eventId={`tile:${face.href.split('/')[2] ?? ''}${key}`} coming={face.count.value}>
+        {figure}
+      </ReplyArrives>
+    );
+  }
+  return figure;
 }
 
 function FaceBody({ face }: { face: HomeFace }) {

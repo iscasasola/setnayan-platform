@@ -59,15 +59,15 @@ export default async function SupplierInvitePage({
         <input type="hidden" name="slug" value={slug} />
         <SubmitButton pendingLabel="Joining…" className="button-secondary inline-flex items-center gap-2">
           <Handshake aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-          I already have a Setnayan shop
+          I already have a shop
         </SubmitButton>
       </form>
     )
   ) : (
     <ActionButton
-      tone="brand"
+      tone="neutral"
       icon={<LogIn aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
-      label="I already have a Setnayan shop"
+      label="I already have a shop"
       href={`/login?next=${encodeURIComponent(here)}&as=vendor`}
     />
   );

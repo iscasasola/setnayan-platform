@@ -49,7 +49,15 @@ export const FIRST_CARD_PRICED_LINE = 'Approve it, edit it, or skip.';
 export const ONBOARDING_STEP_NAMES = {
   open: ['Start', 'Account', 'Your shop', 'Your card', 'Done'],
   claim: ['Accept', 'Account', 'Your shop', 'Your card', 'Done'],
+  /** Door C: step 4 is their page (PC4). "Invite" is the screen right after Open my shop (`/open-shop/invite`). */
+  coordinator: ['Start', 'Account', 'Shop', 'Page', 'Done'],
 } as const;
+
+/** PC4 — Door C's step 4 is their PAGE, drafted with the first card on it (owner: "we will also create their first page"). */
+export const YOUR_PAGE_HEAD = 'Your page';
+export const APPROVE_PAGE = 'Approve page';
+/** PC4 — the page's Trusted partners section before any shop joins. */
+export const PAGE_PARTNERS_EMPTY = 'Shops you invite show here.'
 
 /** Door B's first screen (PB1): the name, what you do and the main service, on one screen. */
 export const OPEN_YOUR_SHOP_HEAD = ['Open your shop', 'Three answers. Free.'] as const;

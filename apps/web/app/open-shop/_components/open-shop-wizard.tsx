@@ -46,6 +46,10 @@ import {
   OPEN_YOUR_COORDINATION_HEAD,
   OPEN_YOUR_SHOP_FREE_LINE,
   OPEN_YOUR_SHOP_HEAD,
+  APPROVE_PAGE,
+  PAGE_PARTNERS_EMPTY,
+  TRUSTED_PARTNERS,
+  YOUR_PAGE_HEAD,
   SELF_SERVE_CHECK_NOTE,
   SELF_SERVE_FACTS,
   SELF_SERVE_LATER,
@@ -973,7 +977,8 @@ export function OpenShopWizard({
     2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
     3: ONBOARDING_HEADS.check,
     // PB4 → PB4·b: the line turns once a price is typed.
-    4: [ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
+    // PC4: on Door C the step is their PAGE, drafted with the first card on it — the same lines.
+    4: [coordinating ? YOUR_PAGE_HEAD : ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
     5: ONBOARDING_HEADS.done,
   };
   const [title, line] = heads[step];
@@ -1178,7 +1183,7 @@ export function OpenShopWizard({
             </div>
             {/* The step names under the bars (the drawing's dots row): Start · Account · Your shop · Your card · Done. */}
             <ol className="grid grid-cols-5 gap-1.5 text-[11px] md:hidden" aria-hidden data-onboarding-step-names="">
-              {ONBOARDING_STEP_NAMES.open.map((name, i) => (
+              {(coordinating ? ONBOARDING_STEP_NAMES.coordinator : ONBOARDING_STEP_NAMES.open).map((name, i) => (
                 <li key={name} className="truncate" style={{ color: i + 1 <= step ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
                   {name}
                 </li>
@@ -1859,6 +1864,18 @@ export function OpenShopWizard({
               <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
               {/* The card's name is drafted from the main service (PB4); the Card Maker renames it. */}
               <input type="hidden" name={FIRST_CARD_FIELD.title} value={cardTitle} />
+              {/* PC4 (Door C) — their page, drafted: the shop's name and main service, the first card ON it, and its
+                  Trusted partners section, empty until shops join. */}
+              {coordinating ? (
+                <div className="grid gap-0.5" data-onboarding-page="">
+                  <b className="text-[17px] font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                    {shopName.trim() || 'Your shop'}
+                  </b>
+                  <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                    {[serviceLabel, confirmedCity].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+              ) : null}
               {/* PB4 — the drafted card, as couples will see it: its category, its name, its price or "No price yet". */}
               <div className="grid gap-1.5 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
                 <span className="text-xs font-medium" style={{ color: 'var(--m-mulberry)' }}>
@@ -1874,6 +1891,14 @@ export function OpenShopWizard({
                   Add what&rsquo;s included in the Card Maker.
                 </span>
               </div>
+              {coordinating ? (
+                <div className="grid gap-0.5 text-[13.5px]" data-onboarding-page-partners="">
+                  <b style={{ color: 'var(--m-ink)' }}>{TRUSTED_PARTNERS}</b>
+                  <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                    {PAGE_PARTNERS_EMPTY}
+                  </span>
+                </div>
+              ) : null}
               {/* "Built from what you typed" — where each part of the draft came from. */}
               <div className="grid gap-1.5 text-[13.5px]" data-onboarding-card-source="">
                 <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -1922,6 +1947,11 @@ export function OpenShopWizard({
               ) : null}
               {/* PB4·b — no client is booked on it, so it is never locked. Edit opens the shipped Card Maker the moment
                   the shop is open (it needs the shop); until then the price above is the whole draft. */}
+              {coordinating && slug ? (
+                <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-page-link="">
+                  setnayan.com/{slug} · goes live when you open
+                </p>
+              ) : null}
               <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">
                 {cardPriceNumber
                   ? 'Edit any time. No client is booked on it yet.'
@@ -1930,7 +1960,7 @@ export function OpenShopWizard({
               <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
                 <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
                 <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
-                <ActionButton tone="brand" main icon={Check} label="Approve card" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
+                <ActionButton tone="brand" main icon={Check} label={coordinating ? APPROVE_PAGE : 'Approve card'} onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
               </div>
             </div>
 
@@ -1951,7 +1981,9 @@ export function OpenShopWizard({
                           : 'None yet — add one from Today',
                       cardChoice === 'approve',
                     ],
-                    ['Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                    // PC6 (Door C): "Page" names the address; the invite link comes on the screen right after Open my shop.
+                    [coordinating ? 'Page' : 'Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                    ['Invite link', coordinating ? 'Next — then in Shop › Partnerships' : null, false],
                   ] as const
                 )
                   .filter(([, v]) => v)

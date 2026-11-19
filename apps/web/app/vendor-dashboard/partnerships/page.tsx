@@ -44,7 +44,9 @@ import { readJoinedThroughLink } from '@/lib/supplier-invite.server';
 import { PreferredSupplierCard, type AddableShop } from './_components/preferred-supplier-card';
 import { PartnerRemoveRow } from './_components/partner-remove-row';
 
-export const metadata = { title: 'Trusted partners · Supplier' };
+// The TAB keeps its shipped word (review 19 Nov: the owner ruled "Trusted partners" for the tie and the page section,
+// not the tab — renaming the tab is an open owner question).
+export const metadata = { title: 'Partnerships · Supplier' };
 
 type SearchParams = {
   proposed?: string;
@@ -229,7 +231,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6">
       <PageMasthead
-        title="Trusted partners"
+        title="Partnerships"
       />
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}

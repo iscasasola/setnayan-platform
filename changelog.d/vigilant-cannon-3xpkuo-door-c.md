@@ -19,3 +19,11 @@ Part 3 of 3 of the approved supplier onboarding (DECISION_LOG 2026-11-19 "COORDI
 
 SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG row as written. New route `/open-shop/invite` needs a
 FEATURE_REGISTER row in the corpus (flagged).
+
+### Review fixes (19–20 Nov, drawing `36jmQMWrANcgd2HxihAUw5`)
+- **Email-way coordinator reaches the invite:** `becomeVendor` wraps EVERY landing in `viaInvite` — the session path, a refused first card, and the Email way's confirm link (`afterConfirm`) — so a coordinator always passes through "Invite shops you trust".
+- **PC4 Your page:** on Door C step 4 is their page — the shop's name and main service · city, the first card on it, the empty Trusted partners section ("Shops you invite show here."), "setnayan.com/<slug> · goes live when you open", and Approve page.
+- **PC6:** Done names the Page and the Invite link (next, then in Shop › Partnerships); step names Start · Account · Shop · Page · Done.
+- **PC7 the /i door:** "<shop> invited you" · "You'll show on their page as a trusted partner." · the shop card · "Joining makes you partners at once" · "Free. Tools for your own clients." · I already have a shop · Create my free shop → Door B.
+- **Reverted:** the Shop › "Partnerships" tab keeps its shipped word (title, masthead, Shop tile). "Trusted partners" stays for the tie and the page section, as ruled.
+SPEC IMPACT: None — builds the approved 19 Nov drawing.

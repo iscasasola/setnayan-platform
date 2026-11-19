@@ -194,7 +194,7 @@ test('8 · a first card the door could not make is SAID on Today, never dropped 
   assert.equal(firstCardFrom({ card: 'waiting', card_title: 'x', card_price: '10', card_category: '../x' }), null);
   // The action: the link lands on that welcome; a refused card lands there SAYING so — never a silent Today.
   assert.match(ACTION, /confirmNext: afterConfirm,/);
-  assert.match(ACTION, /if \(made && made\.ok === false\) \{\s*redirect\(\s*firstCardCarryPath\(WELCOME_OPENED_PATH, \{\s*state: 'refused'/);
+  assert.match(ACTION, /if \(made && made\.ok === false\) \{\s*redirect\(\s*viaInvite\(\s*firstCardCarryPath\(WELCOME_OPENED_PATH, \{\s*state: 'refused'/);
   assert.match(ACTION, /return \{ ok: false, why: refused \?\? FIRST_CARD_NOT_MADE \}/);
   assert.match(ACTION, /export async function approveFirstCard\(/);
   // The welcome draws it, with Approve card (the shipped maker, through `approveFirstCard`) and the Card Maker.
@@ -214,7 +214,18 @@ test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite sho
   assert.match(WIZARD, /<PickMenu\s+label="Your main coordination service"/);
   // The shop opens on the coordinator's own invite QR, then Done → the first card's landing.
   assert.match(WIZARD, /\{coordinating \? <input type="hidden" name="as" value="coordinator" \/> : null\}/);
-  assert.match(ACTION, /if \(formData\.get\('as'\) === 'coordinator'\) \{[\s\S]{0,400}redirect\(`\$\{INVITE_SHOPS_PATH\}\?next=/);
+  // EVERY way out goes through the invite — the session path, a refused card and the Email way's confirm link
+  // (review 19 Nov: an Email-way coordinator never reached it).
+  assert.match(ACTION, /const coordinating = formData\.get\('as'\) === 'coordinator';/);
+  assert.match(ACTION, /const viaInvite = \(path: string\) => \(coordinating \? `\$\{INVITE_SHOPS_PATH\}\?next=\$\{encodeURIComponent\(path\)\}` : path\);/);
+  assert.match(ACTION, /const afterConfirm = viaInvite\(/);
+  assert.equal((ACTION.match(/redirect\(viaInvite\(/g) ?? []).length, 2, 'both session-path landings');
+  // PC4 · PC6 · PC7, and the tab keeps its shipped word (the rename was the tie and the page section only).
+  assert.match(WIZARD, /coordinating \? YOUR_PAGE_HEAD : ONBOARDING_HEADS\.card\[0\]/);
+  assert.match(WIZARD, /label=\{coordinating \? APPROVE_PAGE : 'Approve card'\}/);
+  assert.match(WIZARD, /\[coordinating \? 'Page' : 'Link',/);
+  assert.match(read('app/vendor/claim/[token]/_components/claim-parts.tsx'), /You&rsquo;ll show on their page as a trusted partner\./);
+  assert.match(read('app/vendor-dashboard/partnerships/page.tsx'), /title="Partnerships"/);
   const invite = read('app/open-shop/invite/page.tsx');
   assert.equal(INVITE_SHOPS_PATH, '/open-shop/invite');
   assert.equal(INVITE_SHOPS_LINE, 'Only invite those you trust.', 'the owner’s line, verbatim');

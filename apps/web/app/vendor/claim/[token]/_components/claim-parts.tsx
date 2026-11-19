@@ -293,29 +293,22 @@ export function SupplierInviteDoor({
       eyebrow="Invited by a supplier"
       title={
         <>
-          <strong className="font-semibold">{inviterName}</strong> invited you to join Setnayan.
+          {/* PC7 (owner 19 Nov): "<shop> invited you" · "You'll show on their page as a trusted partner." */}
+          <strong className="font-semibold">{inviterName}</strong> invited you
         </>
       }
-      sub={
-        <>
-          Once you&rsquo;re in, you are each other&rsquo;s <strong className="text-ink">trusted partners</strong>.
-        </>
-      }
+      sub={<>You&rsquo;ll show on their page as a trusted partner.</>}
     >
       <article className="space-y-6" data-claim-door="supplier-invite">
-        <section>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55">What you get</p>
-          <ul className="mt-2 divide-y divide-ink/10 border-y border-ink/10 text-sm text-ink/70">
-            <Perk>A free supplier page, found by your own link and QR</Perk>
-            <Perk>
-              {inviterName} shows on your page as a trusted partner, and you on theirs
-            </Perk>
-            <Perk>Chat with them in-app</Perk>
-            <Perk>No upfront cost · no credit card required</Perk>
-          </ul>
+        <section className="grid gap-1.5 rounded-2xl border border-ink/10 p-4" data-supplier-invite-card="">
+          <b className="text-[15px] font-semibold text-ink [overflow-wrap:anywhere]">{inviterName}</b>
+          <span className="text-sm text-ink/70">Joining makes you partners at once</span>
+          <span className="text-sm text-ink/70">Free. Tools for your own clients.</span>
         </section>
 
-        <div className="flex flex-wrap gap-3">
+        {/* PC7: I already have a shop · Create my free shop — then Door B (the self-serve door, PB1 → PB6). */}
+        <div className="flex flex-wrap items-center gap-3">
+          {existing}
           {createHref ? (
             <ActionButton
               tone="brand"
@@ -323,9 +316,9 @@ export function SupplierInviteDoor({
               icon={<UserPlus aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
               label="Create my free shop"
               href={createHref}
+              className="ml-auto"
             />
           ) : null}
-          {existing}
         </div>
         {note ? <p className="text-xs text-ink/55">{note}</p> : null}
       </article>

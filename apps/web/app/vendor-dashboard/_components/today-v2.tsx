@@ -4,7 +4,6 @@ import { ChevronRight } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
-import { SupplierOpenRow } from './supplier-open-row';
 import { RowIcon, TodayEyebrow, TodayNoteRow, TodayRow, nextHref } from './supplier-today-first-screen';
 import {
   ContractDraftBody,
@@ -152,58 +151,50 @@ function ScreenBody({ card, a, todayIso, onDesk }: { card: WhatsNewCard; a: Toda
   }
 }
 
-function QuickRows({ rows, a }: { rows: readonly TodayTaskRow[]; a: TodayV2Answers }) {
+/** The open card's one small link: the task's own page (drawing V3 · 0 — "Open in page ›", the same on every card). */
+function CardFoot({ href }: { href: string }) {
   return (
-    <TodayQuickGroup rows={rows.map((r) => ({ key: r.key, kind: r.card?.kind ?? 'other' }))}>
-      {rows.map((r) => (
-        <TodayQuickRow
-          key={r.key}
-          rowKey={r.key}
-          title={r.label}
-          line={r.line}
-          lead={<RowIcon name={r.icon} />}
-          aside={
-            <>
-              {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
-              <TodayBadgeTagChip tag={r.tag} aside />
-            </>
-          }
-        >
-          {r.card ? <QuickBody card={r.card} a={a} /> : null}
-        </TodayQuickRow>
-      ))}
-    </TodayQuickGroup>
+    <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
+      Open in page ›
+    </a>
   );
 }
 
-function ScreenRows({ rows, a, todayIso, onDesk }: { rows: readonly TodayTaskRow[]; a: TodayV2Answers; todayIso: string; onDesk: readonly string[] }) {
+/**
+ * 📋 ONE LIST (Today v3 part 1, owner 19 Nov "all recommended"): every task is the SAME row — a tap opens it in place as
+ * a card and it is answered there with the shipped form (`QuickBody` for the short kinds, `ScreenBody` for the rest —
+ * no row rises as a second screen any more). A row with no desk card behind it stays a link to its page.
+ */
+function TaskRows({ rows, a, todayIso, onDesk }: { rows: readonly TodayTaskRow[]; a: TodayV2Answers; todayIso: string; onDesk: readonly string[] }) {
   return (
     <>
-      {rows.map((r) => (
-        <div key={r.key} data-today-screen-row={r.card?.kind ?? 'other'} className="border-t border-ink/10 first:border-t-0">
-          {r.card ? (
-            <SupplierOpenRow
-              id={`task-${r.key}`}
-              data="today-task"
-              title={r.label}
-              line={r.line}
-              lead={<RowIcon name={r.icon} />}
-              aside={
-                <>
-                  {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
-                  <TodayBadgeTagChip tag={r.tag} aside />
-                </>
-              }
-              rise
-              paneTitle={r.label}
-            >
-              <ScreenBody card={r.card} a={a} todayIso={todayIso} onDesk={onDesk} />
-            </SupplierOpenRow>
-          ) : (
+      {rows.map((r) =>
+        r.card ? (
+          <TodayQuickRow
+            key={r.key}
+            rowKey={r.key}
+            title={r.label}
+            line={r.urgency ? `${r.urgency.word} · ${r.line}` : r.line}
+            lead={<RowIcon name={r.icon} />}
+            urgency={r.urgency?.level ?? null}
+            foot={<CardFoot href={nextHref(r.target)} />}
+            aside={
+              <>
+                {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
+                <TodayBadgeTagChip tag={r.tag} aside />
+              </>
+            }
+          >
+            <div data-today-task-kind={r.card.kind}>
+              {r.mode === 'quick' ? <QuickBody card={r.card} a={a} /> : <ScreenBody card={r.card} a={a} todayIso={todayIso} onDesk={onDesk} />}
+            </div>
+          </TodayQuickRow>
+        ) : (
+          <div key={r.key} className="border-t border-ink/10 first:border-t-0">
             <TodayRow href={nextHref(r.target)} label={r.label} line={r.line} rowIcon={r.icon} marker={r.key} />
-          )}
-        </div>
-      ))}
+          </div>
+        ),
+      )}
     </>
   );
 }
@@ -222,6 +213,7 @@ export function TodayV2Needs({
   doneUnread = false,
   done,
   allDone,
+  billsLevel = null,
 }: {
   split: TodaySplit;
   answers: TodayV2Answers;
@@ -237,26 +229,32 @@ export function TodayV2Needs({
   doneUnread?: boolean;
   done: readonly DoneTodayRow[];
   allDone: boolean;
+  /** v3: the fee bills' level in the one list (`billsUrgency`) — where the block sits, and its tint. */
+  billsLevel?: 'red' | 'amber' | null;
 }) {
+  const billsBlock = (
+    <div
+      data-today-need-bills=""
+      data-today-need-kind="payments"
+      data-today-urgency={billsLevel ?? undefined}
+      className="[&>div]:border-t [&>div]:border-ink/10"
+    >
+      {bills}
+    </div>
+  );
   return (
     <>
-      {split.quick.length > 0 ? (
-        <div data-today-quick="" id="today-quick">
-          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Quick · {formatCount(split.quick.length)}</p>
-          <QuickRows rows={split.quick} a={answers} />
-        </div>
-      ) : null}
-      {split.screen.length > 0 || billCount > 0 ? (
-        <div data-today-opens-a-screen="">
-          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">
-            Opens a screen · {formatCount(split.screen.length + billCount)}
-          </p>
-          <ScreenRows rows={split.screen} a={answers} todayIso={todayIso} onDesk={onDesk} />
-          {billCount > 0 ? (
-            <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
-              {bills}
-            </div>
-          ) : null}
+      {/* ONE LIST, MOST URGENT FIRST — red, then amber, then the rest; no Quick / Longer groups, one count (the pinned
+          heading's). The fee bills sit with their own level: overdue or due today with the reds, otherwise the ambers. */}
+      {split.list.length > 0 || billCount > 0 ? (
+        <div data-today-one-list="" id="today-quick">
+          <TodayQuickGroup rows={split.list.map((r) => ({ key: r.key, kind: r.card?.kind ?? 'other' }))}>
+            <TaskRows rows={split.list.filter((r) => r.urgency?.level === 'red')} a={answers} todayIso={todayIso} onDesk={onDesk} />
+            {billCount > 0 && billsLevel === 'red' ? billsBlock : null}
+            <TaskRows rows={split.list.filter((r) => r.urgency?.level === 'amber')} a={answers} todayIso={todayIso} onDesk={onDesk} />
+            {billCount > 0 && billsLevel !== 'red' ? billsBlock : null}
+            <TaskRows rows={split.list.filter((r) => !r.urgency)} a={answers} todayIso={todayIso} onDesk={onDesk} />
+          </TodayQuickGroup>
         </div>
       ) : null}
       {split.unread ? (
@@ -446,7 +444,7 @@ export function TodayV2Sub({ tasks, progress, allDone, left, pips }: { tasks: st
       {total > 0 && total <= 24 ? (
         <span aria-hidden className="mt-2 flex gap-1" data-today-pips="">
           {Array.from({ length: total }, (_, i) => (
-            <i key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < doneCount ? 'rgb(var(--color-ok))' : 'rgb(255 255 255 / 0.55)' }} />
+            <i key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < doneCount ? 'rgb(var(--color-ok))' : 'color-mix(in srgb, currentColor 16%, transparent)' }} />
           ))}
         </span>
       ) : null}

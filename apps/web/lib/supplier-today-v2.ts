@@ -26,6 +26,7 @@ import { PERMIT_PAPERS_HREF, type TodayNeed, type TodayRowIcon } from '@/lib/sup
 import type { DemandRadar } from '@/lib/demand-radar';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
+import { feeDueStage } from '@/lib/booking-fee-disclosure';
 
 /* ─── MODES ───────────────────────────────────────────────────────────────────────────────────────────────────── */
 
@@ -106,8 +107,52 @@ export function isRecommendedKey(key: string): boolean {
   return key === 'renewal' || key.startsWith('door-');
 }
 
+/* ─── URGENCY (Today v3 part 1 — owner 19 Nov, "Yes, all your picks"; drawing V3 · 3) ────────────────────────────────
+ *
+ * ONE LIST, MOST URGENT FIRST: red, then amber, then the rest. A level always wears a WORD — colour is never the only
+ * sign. Only deadlines the code ALREADY has decide a level (the drawing's table): a date change's `dueAt`, a booking
+ * fee's `dueOn`. Everything else is normal. The windows that need a number nobody has set yet ("soon" for an inquiry or
+ * a booking ask · an event beyond tomorrow) are admin settings of a later part — nothing here guesses them.
+ * A dispute keeps its red line but wears no level (the drawing's small call).
+ */
+export type TodayUrgency = { level: 'red' | 'amber'; word: 'Overdue' | 'Today' | 'Soon' };
+
+/** A desk card's level, from its own deadline. `null` = normal. */
+export function taskUrgency(card: WhatsNewCard | null, now: number): TodayUrgency | null {
+  if (!card || card.kind !== 'date_change') return null;
+  const ms = new Date(card.dueAt).getTime() - now;
+  if (!Number.isFinite(ms)) return null;
+  if (ms <= 0) return { level: 'red', word: 'Overdue' };
+  if (ms < 24 * 3_600_000) return { level: 'red', word: 'Today' };
+  return { level: 'amber', word: 'Soon' };
+}
+
+/** The fee bills' level — their most pressing one (`feeDueStage`): overdue · last day · not yet due. No bill → null. */
+export function billsUrgency(bills: ReadonlyArray<{ dueOn: string | null }>, todayIso: string): TodayUrgency | null {
+  if (bills.length === 0) return null;
+  const stages = bills.map((b) => feeDueStage(b.dueOn, todayIso));
+  if (stages.includes('overdue')) return { level: 'red', word: 'Overdue' };
+  if (stages.includes('last_day')) return { level: 'red', word: 'Today' };
+  return { level: 'amber', word: 'Soon' };
+}
+
+const URGENCY_RANK = { red: 0, amber: 1 } as const;
+const rankOf = (u: TodayUrgency | null) => (u ? URGENCY_RANK[u.level] : 2);
+
+/** Red, then amber, then the rest — each level keeping the order its rows arrived in (stable). */
+export function orderByUrgency<T extends { urgency: TodayUrgency | null }>(rows: readonly T[]): T[] {
+  return rows.map((r, i) => [r, i] as const).sort((a, b) => rankOf(a[0].urgency) - rankOf(b[0].urgency) || a[1] - b[1]).map((x) => x[0]);
+}
+
+/** Where the fee bills sit in the one list: with the reds, with the ambers — never under the normal rows. */
+export function billsSlot(u: TodayUrgency | null): 'red' | 'amber' | null {
+  return u ? u.level : null;
+}
+
 export type TodayTaskRow = TodayNeed & {
   mode: TodayTaskMode;
+  /** v3: the row's level in the one list (null = normal). */
+  urgency: TodayUrgency | null;
   tag: TodayBadgeTag | null;
   /** The desk card behind the row (null for the "couldn't load" row). */
   card: WhatsNewCard | null;
@@ -116,6 +161,8 @@ export type TodayTaskRow = TodayNeed & {
 export type TodaySplit = {
   quick: TodayTaskRow[];
   screen: TodayTaskRow[];
+  /** v3: EVERY task in ONE list, most urgent first (no Quick / Longer groups). `quick` + `screen` are the same rows. */
+  list: TodayTaskRow[];
   /** "Some answers couldn’t load" — never a task, never counted. */
   unread: TodayNeed | null;
   recommended: Array<TodayNeed & { tag: TodayBadgeTag | null }>;
@@ -130,9 +177,12 @@ export function splitTodayNeeds(args: {
   cards: readonly WhatsNewCard[];
   completedToGo: string | null;
   aside: ReadonlySet<string>;
+  /** v3: the clock the deadlines are read against. Absent → no row wears a level (the list keeps the desk's order). */
+  now?: number;
 }): TodaySplit {
   const byId = new Map(args.cards.map((c) => [c.id, c] as const));
-  const out: TodaySplit = { quick: [], screen: [], unread: null, recommended: [] };
+  const out: TodaySplit = { quick: [], screen: [], list: [], unread: null, recommended: [] };
+  const arrived: TodayTaskRow[] = [];
   for (const n of args.needs) {
     if (args.aside.has(n.key)) continue;
     if (n.key === 'unread') {
@@ -145,9 +195,11 @@ export function splitTodayNeeds(args: {
     }
     const card = byId.get(n.key) ?? null;
     const mode = card ? TODAY_TASK_MODE[card.kind] : 'screen';
-    const row: TodayTaskRow = { ...n, mode, tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
     (mode === 'quick' ? out.quick : out.screen).push(row);
+    arrived.push(row);
   }
+  out.list = orderByUrgency(arrived);
   return out;
 }
 

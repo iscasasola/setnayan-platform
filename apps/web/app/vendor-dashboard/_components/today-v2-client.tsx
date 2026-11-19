@@ -63,6 +63,8 @@ export function TodayQuickRow({
   line,
   lead,
   aside,
+  urgency = null,
+  foot = null,
   children,
 }: {
   rowKey: string;
@@ -70,12 +72,30 @@ export function TodayQuickRow({
   line: string;
   lead: ReactNode;
   aside: ReactNode;
+  /** v3: the row's level — a tint and an edge while closed, the edge on the card's frame while open. */
+  urgency?: 'red' | 'amber' | null;
+  /** v3: the open card's small links under the answer ("Open in page ›"). */
+  foot?: ReactNode;
   children: ReactNode;
 }) {
   const g = useContext(QuickGroup);
   const open = g ? g.openKey === rowKey : undefined;
+  const edge = urgency === 'red' ? 'rgb(var(--color-danger))' : urgency === 'amber' ? 'rgb(var(--color-warn))' : null;
+  const tint = urgency === 'red' ? 'var(--sn-danger-soft)' : urgency === 'amber' ? 'var(--sn-warning-soft)' : undefined;
   return (
-    <div data-today-quick-row={rowKey} className="border-t border-ink/10 first:border-t-0">
+    <div
+      data-today-quick-row={rowKey}
+      data-today-urgency={urgency ?? undefined}
+      data-today-card={open ? 'open' : undefined}
+      // 🃏 TAPPED, THE ROW BECOMES A CARD IN PLACE (owner 19 Nov: "just expand it and it becomes a card" · "no pop up"):
+      // the shared frame fades in around the SAME row; a closed row stays a flat list row with its divider and its tint.
+      className={
+        open
+          ? '-mx-2.5 my-2 rounded-[var(--sn-frame-radius)] bg-frame px-2.5 shadow-sn-frame'
+          : `border-t border-ink/10 first:border-t-0${urgency ? ' -mx-2.5 rounded-r-xl px-2.5' : ''}`
+      }
+      style={{ ...(edge ? { borderLeft: `4px solid ${edge}` } : {}), ...(!open && tint ? { background: tint } : {}) }}
+    >
       <Fold
         title={title}
         line={line}
@@ -86,7 +106,10 @@ export function TodayQuickRow({
         open={open}
         onOpenChange={g ? (next) => g.setOpen(next ? rowKey : null) : undefined}
       >
-        <div className="pb-3 pl-[48px] max-[380px]:pl-0">{children}</div>
+        <div className="pb-3 pl-[48px] max-[380px]:pl-0">
+          {children}
+          {foot ? <div className="mt-1 flex flex-wrap gap-x-5" data-today-card-foot="">{foot}</div> : null}
+        </div>
       </Fold>
     </div>
   );

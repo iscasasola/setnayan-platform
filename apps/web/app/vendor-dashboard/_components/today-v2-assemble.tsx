@@ -8,6 +8,8 @@ import {
   growStage,
   nextBadgeWords,
   roomToGrowRows,
+  billsSlot,
+  billsUrgency,
   splitTodayNeeds,
   todayProgress,
   trendingLines,
@@ -55,6 +57,8 @@ export type TodayV2Input = {
    * Today is never "done" and says the fees could not be loaded — never an empty list that reads as "nothing owed".
    */
   billsUnread: boolean;
+  /** v3: the clock the deadlines are read against (a date change's `dueAt`) — the page's render clock. */
+  now: number;
   /** 🌱🖼 The shop's trades supply a part (`moodboardLibraryAccessForProfile`) — the library row is a task. */
   library: boolean;
 };
@@ -76,7 +80,7 @@ export function buildTodayV2(i: TodayV2Input): {
   const deskCards = [...i.needsAnswer, ...i.closed];
   const tile = r && r.completedBookings !== null ? shelfBadge('completed_bookings', { counts: { completedBookings: r.completedBookings } as BadgeRewardFacts, verified: null, granted: null }) : null;
   const nextBadge = nextBadgeWords(tile?.nextShort ?? null);
-  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside) });
+  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now });
   const deskKeys = deskCards.map((c) => c.id);
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);
@@ -133,6 +137,7 @@ export function buildTodayV2(i: TodayV2Input): {
           onDesk={deskKeys}
           billCount={i.view.bills.length}
           billsUnread={i.billsUnread}
+          billsLevel={billsSlot(billsUrgency(i.view.bills, i.todayIso))}
           doneUnread={doneCount === null}
           bills={<BookingFeeBills today bills={i.view.bills} copyFor={i.view.billCopy} />}
           done={doneTodayRows(r?.done ?? null, gotIt)}

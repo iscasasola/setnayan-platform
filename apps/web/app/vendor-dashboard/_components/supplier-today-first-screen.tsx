@@ -323,16 +323,6 @@ export function SupplierTodayFirstScreen({
       {/* 🧰 A NEW SHOP: the six steps, done in place — the top of Today (owner 2026-10-28; no cover row, as shipped). */}
       {setup}
       {setup ? null : cover}
-      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
-          draws nothing of its own. */}
-      {setup ? null : (
-        <div data-today-top-only="">
-          {nextBadge}
-          {nextEvents}
-          {stats}
-        </div>
-      )}
-
       {/* THE ANSWER'S STATUS LINE — the whole sentence of an answer that redirected here, with the door it asks for. */}
       {outcome ? (
         <div
@@ -413,6 +403,20 @@ export function SupplierTodayFirstScreen({
           Nothing waiting matches that search
         </p>
       </div>
+
+      {/* 📋 THE LIST COMES FIRST (Today v3 part 1, owner 19 Nov: "it was suppose to look like focus" — the mast, then the
+          list): the Next badge card, Next events and the five numbers now sit UNDER Needs you today, each still its own
+          block (they are not removed — where they finally live is the owner's open call). */}
+      {/* 🖥 From 1280 these two move into the side pane (the drawing's `.ne-top` → `.ne-side`); below it this wrapper
+          draws nothing of its own. */}
+      {setup ? null : (
+        <div data-today-top-only="">
+          {nextBadge}
+          {nextEvents}
+          {stats}
+        </div>
+      )}
+
 
       {grow}
 

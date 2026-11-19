@@ -40,8 +40,6 @@ import type { SpotlightScript } from '@/lib/tours';
 import { labPaperPayload, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
-import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
-import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { buildTodayV2 } from '@/app/vendor-dashboard/_components/today-v2-assemble';
@@ -49,7 +47,6 @@ import { readTodayAside } from '@/lib/today-aside';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
-const LAB_UPLOAD_FACTS: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: [], free: 50, allowanceUnread: false, walletBalance: 0 };
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
@@ -571,6 +568,7 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = 
         closed,
         deskIncomplete: moment === 'unread',
         billsUnread: false,
+        now: NOW,
         reads: moment === 'unread' ? null : {
           done: { replies: 2, payments: 0, delivered: 0, bookings: 0, dates: 0, inquiries: 0, meetings: 0, cancels: 0 },
           noCover: null,
@@ -620,18 +618,6 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = 
         now={NOW}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
-        hero={
-          heroPhoto
-            ? { picture: { url: '/realstories/jack-jill-g1.jpg', kind: 'photo' }, caption: 'Most viewed · 412 views', upload: null }
-            : { picture: { url: '/placeholders/vendor.webp', kind: 'placeholder' }, caption: null, upload: {
-                door: (
-                  <PortfolioUploadDoor facts={LAB_UPLOAD_FACTS} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                    <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                    Upload
-                  </PortfolioUploadDoor>
-                ),
-              } }
-        }
         eventsYouRun={eventsYouRun}
         library={!built && library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={

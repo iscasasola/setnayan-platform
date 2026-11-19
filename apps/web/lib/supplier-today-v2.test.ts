@@ -25,6 +25,10 @@ import {
   splitTodayNeeds,
   todayBadgeTag,
   todayProgress,
+  billsSlot,
+  billsUrgency,
+  orderByUrgency,
+  taskUrgency,
   CARDS_LOCK_KEY,
   CARDS_TURN_ON_HREF,
   PLANS_HREF,
@@ -222,4 +226,49 @@ test('R4 · unread service cards never read as "every card has a cover" — the 
   assert.equal(growStage({ ...base, coversUnread: true }), null, 'a refused cards read skipped grow stage 2');
   // What WAS read still shows: not findable is a stage-2 move on its own.
   assert.equal(growStage({ ...base, coversUnread: true, findable: false, findableHref: '/x' })?.n, 2);
+});
+
+/* ── TODAY v3 PART 1 (owner 19 Nov, "Yes, all your picks" · "all recommended"): ONE list, most urgent first. ── */
+
+const NOW = Date.parse('2026-11-19T04:00:00Z');
+const dated = (id: string, dueAt: string) => ({ id, kind: 'date_change', dueAt }) as unknown as WhatsNewCard;
+
+test('V1 · a level comes only from a deadline the code already has — and always wears a word', () => {
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-18T04:00:00Z'), NOW), { level: 'red', word: 'Overdue' });
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-19T20:00:00Z'), NOW), { level: 'red', word: 'Today' }, 'under 24 hours left is today');
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-22T04:00:00Z'), NOW), { level: 'amber', word: 'Soon' });
+  // No deadline on the card → normal. A review, a message, an inquiry, a booking ask and a dispute wear no level.
+  for (const k of ['review', 'message', 'inquiry', 'lock_request', 'lock', 'dispute', 'mark_complete'] as const) assert.equal(taskUrgency(card('x', k), NOW), null, `${k} was given a level nobody set`);
+  assert.equal(taskUrgency(null, NOW), null);
+  assert.equal(taskUrgency(dated('d', 'not a date'), NOW), null, 'an unreadable deadline guessed a level');
+});
+
+test('V2 · one list: red, then amber, then the rest — each level in the order it arrived', () => {
+  const s = splitTodayNeeds({
+    needs: [need('r1'), need('soon'), need('m1'), need('late'), need('r2'), need('today')],
+    cards: [card('r1', 'review'), dated('soon', '2026-11-25T04:00:00Z'), card('m1', 'message'), dated('late', '2026-11-18T00:00:00Z'), card('r2', 'review'), dated('today', '2026-11-19T10:00:00Z')],
+    completedToGo: null,
+    aside: new Set(),
+    now: NOW,
+  });
+  assert.deepEqual(s.list.map((r) => r.key), ['late', 'today', 'soon', 'r1', 'm1', 'r2'], 'the list is not most urgent first');
+  assert.deepEqual(s.list.map((r) => r.urgency?.word ?? '—'), ['Overdue', 'Today', 'Soon', '—', '—', '—']);
+  // Nothing is lost or doubled: the one list is exactly the quick rows plus the others.
+  assert.equal(s.list.length, s.quick.length + s.screen.length);
+  // Without a clock no row wears a level, and the desk's own order stands.
+  const plain = splitTodayNeeds({ needs: [need('r1'), need('late')], cards: [card('r1', 'review'), dated('late', '2026-11-18T00:00:00Z')], completedToGo: null, aside: new Set() });
+  assert.deepEqual(plain.list.map((r) => r.key), ['r1', 'late']);
+  assert.deepEqual(orderByUrgency([]), []);
+});
+
+test('V3 · the fee bills take their most pressing level, and never sit under the normal rows', () => {
+  const today = '2026-11-19';
+  assert.equal(billsUrgency([], today), null, 'no bill is not a level');
+  assert.deepEqual(billsUrgency([{ dueOn: '2026-11-30' }, { dueOn: '2026-11-14' }], today), { level: 'red', word: 'Overdue' });
+  assert.deepEqual(billsUrgency([{ dueOn: '2026-11-19' }], today), { level: 'red', word: 'Today' });
+  assert.deepEqual(billsUrgency([{ dueOn: '2026-11-30' }], today), { level: 'amber', word: 'Soon' });
+  assert.deepEqual(billsUrgency([{ dueOn: null }], today), { level: 'amber', word: 'Soon' }, 'an unknown due date is still owed');
+  assert.equal(billsSlot(billsUrgency([{ dueOn: '2026-11-14' }], today)), 'red');
+  assert.equal(billsSlot(billsUrgency([{ dueOn: '2026-11-30' }], today)), 'amber');
+  assert.equal(billsSlot(null), null);
 });

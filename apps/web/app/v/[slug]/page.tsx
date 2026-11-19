@@ -1188,13 +1188,17 @@ export async function renderVendorBySlug({
   );
   // 🗂 v16 S4: this month's Not-bookable days for the desktop side card — Check a date's own reads over one month
   // (`readThisMonthNotBookable`). Verified and date-checkable only, as the door; a failure is `unreadable`, never green.
+  // 📄 Papers renewal (#7875, DECISION_LOG 2026-11-16): a shop that WAS verified and whose papers lapsed. Read ONCE, here,
+  // before the first badge read — every Verified badge below asks `&& !renewing` (ruling 1 + §4: no badge on a lapsed
+  // shop), and every "not yet verified" marking asks it too (ruling 2: the renewing line shows ALONE).
+  const renewing = coupleShopRenewing(vendor);
   const thisMonthP =
     dateCheckable && vendor.verification_state === 'verified'
       ? startRead(readThisMonthNotBookable(vendor.vendor_profile_id).catch(() => ({ kind: 'unreadable' }) as const))
       : null;
   // 🏆 The seals the shop holds (the seals engine, #7825 — `readShopSeals`). null = the read failed: no seal is drawn.
   const sealsP = startRead(
-    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
+    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified' && !renewing).catch(() => null),
   );
   // 🪜 The tiered badges' counters (J0, #7753 — `readShopTierCounts`); each null when its read was refused, never 0.
   const tierCountsP = startRead(
@@ -1209,7 +1213,7 @@ export async function renderVendorBySlug({
      blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
   const cardBadgesP = startRead(
     (async (): Promise<CardBadgesRead> => {
-      const shopVerified = vendor.verification_state === 'verified';
+      const shopVerified = vendor.verification_state === 'verified' && !renewing;
       /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
          medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
          never a quiet "not a partner". */
@@ -1300,7 +1304,7 @@ export async function renderVendorBySlug({
     trusted_by: tierCounts.trustedBy,
   };
   const awardsView = publicBadgeView({
-    verified: vendor.verification_state === 'verified',
+    verified: vendor.verification_state === 'verified' && !renewing,
     seals: sealsFromEngine(shopSeals?.seals),
     tiers: tiersFromCounts(countsForRow),
   });
@@ -1758,7 +1762,10 @@ export async function renderVendorBySlug({
   // look (hero, card, columns) but reads as a shop whose papers are not checked — the content gate is shut, it wears
   // no Verified award and no Verified line, and the band under the name says it is renewing (ruling 4). Was, before
   // S6 retired the calm column: "the calm page — one column, no badge, no hero".
-  const renewing = coupleShopRenewing(vendor);
+  // 📄 Ruling (2) of the same row: its page says "Renewing their papers with Setnayan" ALONE — so every "not yet
+  // verified" MARKING below (hero stamp, Awards slot, footer tag, card + photo stamps, the notes, "What Verified adds",
+  // the side card + quote list) is gated on `!isVerifiedShop && !renewing`. The CONTENT gates stay on `isVerifiedShop`.
+  // (`renewing` is read above, before the first badge read.)
   const isVerifiedShop = (vendor.verification_state === 'verified' && !renewing) || isDemoVendor || teamPreview !== null;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
@@ -2545,7 +2552,7 @@ export async function renderVendorBySlug({
           shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
           is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-            {!isVerifiedShop ? (
+            {!isVerifiedShop && !renewing ? (
               /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
                  (`ImageBadge` `on={false}`, the shipped not-yet face). */
               <li data-shop-not-verified-slot="">
@@ -2658,7 +2665,7 @@ export async function renderVendorBySlug({
         backCompact={<BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />}
         shopName={displayLabel}
         logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
-        verified={vendor.verification_state === 'verified'}
+        verified={vendor.verification_state === 'verified' && !renewing}
         verifiedArt={verifiedFullArt}
         acts={
           canMessage ? (
@@ -2716,7 +2723,7 @@ export async function renderVendorBySlug({
             ) : undefined
           }
           bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
-          marker={isVerifiedShop ? undefined : <NotYetVerifiedTag />}
+          marker={isVerifiedShop || renewing ? undefined : <NotYetVerifiedTag />}
         />
 
       <article
@@ -2973,6 +2980,8 @@ export async function renderVendorBySlug({
               verifiedLine={vendor.verification_state === 'verified' && !renewing ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
               month={isVerifiedShop ? thisMonth : null}
               datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
+              /* 📄 ruling (2): a lapsed shop's side card says it is renewing, never the not-verified list */
+              renewing={renewing}
             />
             {canMessage ? (
               <div
@@ -3134,7 +3143,7 @@ export async function renderVendorBySlug({
           />
         ) : null}
         {/* ⚠ v16 S6 `.cando.nvopen` — "What Verified adds", in the About of a shop Setnayan has not checked yet. */}
-        {isVerifiedShop ? null : (
+        {isVerifiedShop || renewing ? null : (
           <section className="space-y-2 border-b border-ink/10 py-8" data-shop-what-verified-adds="">
             <h2 className="text-base font-semibold text-ink">{WHAT_VERIFIED_ADDS.title}</h2>
             {WHAT_VERIFIED_ADDS.points.map((p) => (
@@ -3315,7 +3324,8 @@ export async function renderVendorBySlug({
             inquireMode={canMessage ? 'anchor' : 'none'}
             cardRecordRating={isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null}
             quoteInSideCard
-            notVerified={!isVerifiedShop}
+            notVerified={!isVerifiedShop && !renewing}
+            renewing={renewing}
           />
         ) : null}
 
@@ -3396,7 +3406,7 @@ export async function renderVendorBySlug({
               Portfolio
             </h2>
             {/* ⚠ v16 S6: the photos' sub-line on a shop Setnayan has not checked yet. */}
-            {isVerifiedShop ? null : (
+            {isVerifiedShop || renewing ? null : (
               <NotYetVerifiedTag>{NOT_YET_VERIFIED_PHOTOS_NOTE}</NotYetVerifiedTag>
             )}
             {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
@@ -3412,7 +3422,7 @@ export async function renderVendorBySlug({
                 photos={portfolioPhotos}
                 label={displayLabel}
                 count={!isDemoVendor && teamPreview === null}
-                notVerified={!isVerifiedShop}
+                notVerified={!isVerifiedShop && !renewing}
               />
               {featuredVideos.map((v, idx) =>
                 v.embedUrl ? (
@@ -3778,7 +3788,7 @@ export async function renderVendorBySlug({
               Supplier ID · <span className="font-mono">{vendor.public_id}</span>
             </p>
             {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
-            {!isVerifiedShop ? (
+            {!isVerifiedShop && !renewing ? (
               <p data-shop-footer-not-verified="">
                 <NotYetVerifiedTag />
               </p>
@@ -3963,6 +3973,8 @@ type ServicesPricingProps = {
   quoteInSideCard?: boolean;
   /** ⚠ v16 S6: the shop is not verified yet — each card wears the "Not verified" stamp and the section its note. */
   notVerified?: boolean;
+  /** 📄 Papers renewal ruling (2): the shop is renewing its papers — the quote says so, in place of the not-verified line. */
+  renewing?: boolean;
   /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
@@ -4216,6 +4228,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         ownerCheckFor={ownerCheckFor}
         quote={quote}
         notVerified={notVerified}
+        renewing={props.renewing === true}
         cardBadges={cardBadges}
         badgesNow={badgesNow}
       />

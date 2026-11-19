@@ -70,7 +70,7 @@ test('the tray is v16’s `.dock .q` (count, names, Clear); the page’s ONE Inq
   assert.match(SHEET, /const quoted = shopQuote\(\);\s*const picks = svc \? \[svc\] : quoted\.length > 0 \? \[\.\.\.quoted\] : undefined;/, 'the one Inquire does not open with the quote');
   assert.match(QUOTE, /className=\{`\$\{phoneOnly \? 'md:hidden ' : ''\}fixed inset-x-0 bottom-0 z-20[^`]*max-md:pr-\[calc\(10rem\+var\(--sn-safe-r\)\)\]`\}/, 'the tray covers the floating Inquire on a phone');
   assert.doesNotMatch(QUOTE, /from '@\/app\/[^']*actions'|'use server'|startServiceInquiry/, 'the quote has its own send');
-  assert.match(GALLERY, /\{quote \? \(\s*<QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} notVerified=\{notVerified\} \/>\s*\) : null\}/);
+  assert.match(GALLERY, /\{quote \? \(\s*<QuoteTray picked=\{picked\} cards=\{quote\.cards\} onClear=\{\(\) => setPicked\(\[\]\)\} phoneOnly=\{quote\.inSideCard === true\} notVerified=\{notVerified\} renewing=\{renewing\} \/>\s*\) : null\}/);
 });
 
 // Sabotage: offer the quote where the page has no Inquire pop-up / keep the old subtitle → red.

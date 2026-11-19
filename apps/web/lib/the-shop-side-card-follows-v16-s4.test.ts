@@ -81,6 +81,6 @@ test('the quote: in the side card on a computer, the S3 tray on a phone', () => 
   assert.match(CARD, /useSyncExternalStore\(subscribeShopQuote, shopQuoteSummary, \(\) => null\)/);
   assert.match(TRAY, /className=\{`\$\{phoneOnly \? 'md:hidden ' : ''\}fixed inset-x-0 bottom-0/);
   assert.match(src('app/v/[slug]/_components/services-gallery.tsx'), /setShopQuote\(picked, quote \? quoteSummary\(picked, quote\.cards\) : null\)/);
-  assert.match(PAGE, /quoteInSideCard\s+notVerified=\{!isVerifiedShop\}/);
+  assert.match(PAGE, /quoteInSideCard\s+notVerified=\{!isVerifiedShop && !renewing\}/);
   assert.match(PAGE, /inSideCard: props\.quoteInSideCard === true,/);
 });

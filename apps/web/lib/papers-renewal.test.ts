@@ -192,6 +192,75 @@ test('ruling 4 · a lapsed shop that WAS verified reads the renewing words; a ne
   assert.match(page, /papers_current,/, 'the page must select papers_current');
 });
 
+/* ── Ruling (2) + (1) on the shop page · DECISION_LOG 2026-11-16 "PAPERS RENEWAL (#7875)" ─────────────────────────
+   (2) a lapsed shop’s page says "Renewing their papers with Setnayan" ALONE — no extra "not yet verified" line.
+   (1) + §4: and it wears no Verified badge anywhere. The CONTENT gate (`isVerifiedShop`) is shut for it, so a marking
+   gated on `!isVerifiedShop` alone would stamp a renewing shop "Not yet verified". */
+
+test('ruling 2 · no "not yet verified" marking on the shop page is gated on !isVerifiedShop alone', () => {
+  const page = code('app/v/[slug]/page.tsx');
+  // The gate a marking sits behind: the nearest `{` before it with no brace in between.
+  const gateOf = (at: number): string => /\{([^{}]*)$/.exec(page.slice(Math.max(0, at - 400), at))?.[1] ?? '';
+  const spared = (gate: string): boolean =>
+    /\bnotVerified \?/.test(gate) || (/\bisVerifiedShop\b/.test(gate) && /\brenewing\b/.test(gate));
+  // Every tag drawn on the page (each opens the "Setnayan has not checked it yet" sheet) …
+  const tags = [...page.matchAll(/<NotYetVerifiedTag\b/g)].map((m) => m.index!);
+  assert.ok(tags.length >= 5, `the page draws ${tags.length} tags — the scan lost them`);
+  for (const at of tags) {
+    assert.ok(spared(gateOf(at)), `a NotYetVerifiedTag is drawn for a renewing shop, behind: {${gateOf(at).trim().slice(0, 80)}`);
+  }
+  // … and every marking that is not a tag of its own.
+  for (const mark of ['data-shop-not-verified-slot=""', 'data-shop-footer-not-verified=""', 'data-shop-what-verified-adds=""']) {
+    const at = page.indexOf(mark);
+    assert.ok(at > 0, `${mark} left the page`);
+    assert.ok(spared(gateOf(at)), `${mark} is drawn for a renewing shop`);
+  }
+  // The stamps on the cards and photos, the notes and the quote line ride the `notVerified` prop.
+  const props = [...page.matchAll(/\bnotVerified=\{([^{}]*)\}/g)].map((m) => m[1]!);
+  assert.ok(props.length >= 3, `the page hands notVerified down ${props.length} times — the scan lost them`);
+  for (const value of props) {
+    assert.ok(
+      value === 'notVerified' || (/!isVerifiedShop\b/.test(value) && /&& !renewing\b/.test(value)),
+      `notVerified={${value}} stamps a renewing shop`,
+    );
+  }
+  assert.doesNotMatch(page, /notVerified=\{!isVerifiedShop\}/);
+  // The band is the ONE line a renewing shop keeps, and it says the renewing words.
+  assert.match(page, /\{!isVerifiedShop \? \(\s*<div className="pt-6" data-shop-not-verified-band="">\s*<NotYetVerifiedNotice renewing=\{renewing\} \/>/);
+  // The side card and the quote: the renewing mark INSTEAD of the "Papers not checked by Setnayan" list.
+  assert.match(page, /<ShopSideCard[\s\S]{0,700}renewing=\{renewing\}\s*\/>/);
+  assert.match(page, /notVerified=\{!isVerifiedShop && !renewing\}\s*renewing=\{renewing\}/);
+  const side = code('app/v/[slug]/_components/shop-side-card.tsx');
+  assert.match(side, /\) : renewing \? \(\s*<p[^>]*data-side-card-renewing="">\s*\{RENEWING_COUPLE_MARK\}\s*<\/p>\s*\) : \(\s*<div data-side-card-not-verified="">/);
+  const quote = code('app/v/[slug]/_components/shop-quote.tsx');
+  assert.match(quote, /\{renewing \? \(\s*<p[^>]*data-quote-tray-renewing="">\s*\{RENEWING_COUPLE_MARK\}\s*<\/p>\s*\) : notVerified \? \(/);
+  assert.match(code('app/v/[slug]/_components/services-gallery.tsx'), /<QuoteTray [\s\S]{0,200}notVerified=\{notVerified\} renewing=\{renewing\} \/>/);
+});
+
+test('ruling 1 · no Verified badge on the shop page reads raw verification_state without !renewing', () => {
+  const page = code('app/v/[slug]/page.tsx');
+  // `renewing` is read before the first badge read, so no badge can be computed without it.
+  const decl = page.indexOf('const renewing = coupleShopRenewing(vendor);');
+  assert.ok(decl > 0 && decl < page.indexOf('readShopSeals('), 'renewing is read after the seals');
+  assert.equal(page.split('const renewing = ').length - 1, 1, 'renewing is declared twice');
+  // The top bar’s blue check · the card medals · the Awards row · the seals engine.
+  assert.match(page, /<ShopTopBar[\s\S]{0,900}\bverified=\{vendor\.verification_state === 'verified' && !renewing\}/);
+  assert.match(page, /const shopVerified = vendor\.verification_state === 'verified' && !renewing;/);
+  assert.match(page, /const awardsView = publicBadgeView\(\{\s*verified: vendor\.verification_state === 'verified' && !renewing,/);
+  const sealReads = page.match(/readShopSeals\([^()]*\)/g) ?? [];
+  assert.equal(sealReads.length, 2, `the page reads the seals ${sealReads.length} times`);
+  for (const read of sealReads) {
+    assert.match(read, /, (shopVerified|vendor\.verification_state === 'verified' && !renewing)\)$/, `${read} hands the seals a raw verified`);
+  }
+  // None of them is left on the raw paper state.
+  assert.doesNotMatch(page, /\bverified=\{vendor\.verification_state === 'verified'\}/, 'a verified= prop reads raw verification_state');
+  assert.doesNotMatch(page, /shopVerified = vendor\.verification_state === 'verified';/);
+  assert.doesNotMatch(page, /publicBadgeView\(\{\s*verified: vendor\.verification_state === 'verified',/);
+  // The Awards row’s Verified award and the side card’s Verified line (already §4).
+  assert.match(page, /\{vendor\.verification_state === 'verified' && !renewing \? \(/);
+  assert.match(page, /verifiedLine=\{vendor\.verification_state === 'verified' && !renewing \? /);
+});
+
 /* ── §3 · the renewal draft keeps what is still good ──────────────────────── */
 
 const read = (registry: string, expirationDate: string | null, registrationNumber = 'X1') => ({

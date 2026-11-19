@@ -49,9 +49,9 @@ test('a demo shop and a team preview keep the full page: the exclusion is made o
     assert.match(before, /\{!?isVerifiedShop\b[^{}]*$/, `${mark} is not behind isVerifiedShop`);
     assert.doesNotMatch(before.slice(before.lastIndexOf('{')), /verification_state/, `${mark} asks verification_state itself`);
   }
-  assert.match(PAGE, /marker=\{isVerifiedShop \? undefined : <NotYetVerifiedTag \/>\}/);
-  assert.match(PAGE, /notVerified=\{!isVerifiedShop\}/);
-  assert.match(PAGE, /\{isVerifiedShop \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}/);
+  assert.match(PAGE, /marker=\{isVerifiedShop \|\| renewing \? undefined : <NotYetVerifiedTag \/>\}/);
+  assert.match(PAGE, /notVerified=\{!isVerifiedShop && !renewing\}/);
+  assert.match(PAGE, /\{isVerifiedShop \|\| renewing \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}/);
   // The held-services READ is behind it too: a demo shop asks for no count.
   assert.match(PAGE, /if \(!isVerifiedShop\) \{\s*const \{ count, error: heldError \}/);
   // The blue check is NOT lifted by the exclusion: Verified is still read from the paper state.

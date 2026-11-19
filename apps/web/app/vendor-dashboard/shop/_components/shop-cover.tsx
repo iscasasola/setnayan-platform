@@ -422,13 +422,13 @@ export function ShopCover({
 
 /** One of the five equal doors (drawing `.q5`): centred, the frame's white with its lift, no line. */
 const QUICK_TILE =
-  'sn-press relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-[14px] bg-[rgb(var(--sn-frame-bg))] px-0.5 py-2 text-center shadow-[var(--sn-frame-shadow-tile)]';
+  'sn-press relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-0.5 py-2 text-center shadow-[var(--sn-frame-shadow-tile)]';
 const QUICK_WORD = 'whitespace-nowrap text-[12px] font-semibold leading-tight text-ink';
 
 /** The tile's 32 px icon square on the wash, the icon in the link colour. */
 function QuickIcon({ icon: I }: { icon: LucideIcon }) {
   return (
-    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-[10px] bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
+    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
       <I className="h-[17px] w-[17px]" strokeWidth={1.8} />
     </i>
   );

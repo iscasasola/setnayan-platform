@@ -122,7 +122,7 @@ test('the in-app pages of a retired product send a non-owner away', () => {
 test('the public pages /patiktok and /pakanta redirect, and the sitemap does not list them', () => {
   for (const p of RETIRED_PUBLIC_PATHS) {
     const src = stripComments(read(`app/(shell)${p}/page.tsx`));
-    assert.match(src, /permanentRedirect\('\/features'\)/, `${p} renders instead of redirecting`);
+    assert.match(src, /redirect\('\/features'\)/, `${p} renders instead of redirecting`);
     assert.ok(!NAME_RE.test(src), `${p} still names the product`);
   }
   const sitemap = stripComments(read('app/sitemap-static.xml/route.ts'));
@@ -167,7 +167,7 @@ test('the Event Ultra plan copy never lists Patiktok (front door, plan offer, /p
 
 test('the front door add-on tiles never name or link a retired product', () => {
   for (const t of FRONT_DOOR_ADD_ONS) {
-    assert.ok(!NAME_RE.test(t.title) && !NAME_RE.test(t.line), `front door tile "${t.title}"`);
+    assert.ok(!NAME_RE.test(t.label) && !NAME_RE.test(t.line), `front door tile "${t.title}"`);
     assert.ok(![...RETIRED_FEATURE_SLUGS].some((s) => t.href === `/features/${s}`), `front door tile → ${t.href}`);
   }
 });
@@ -187,9 +187,10 @@ test('the site description and the homepage structured data never name a retired
 });
 
 test('/help describes no retired product', () => {
+  assert.ok(ALL_HELP_ARTICLES.length > 50 && ALL_HELP_ARTICLES[0]!.article.body.length > 0, 'premise: the help list is read');
   const hits = ALL_HELP_ARTICLES.filter(
-    (a) => NAME_RE.test(a.title) || NAME_RE.test(a.body),
-  ).map((a) => a.slug);
+    ({ article: a, topic: t }) => NAME_RE.test(a.title) || NAME_RE.test(a.body) || NAME_RE.test(t.label),
+  ).map(({ article: a }) => a.slug);
   assert.deepEqual(hits, [], `help articles naming a retired product: ${hits.join(', ')}`);
 });
 

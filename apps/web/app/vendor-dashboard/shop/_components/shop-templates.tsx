@@ -5,6 +5,7 @@ import { ArrowUpRight, ChevronRight, Lock } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow } from '@/app/_components/form-row';
 import { Sheet } from '@/app/_components/sheet';
+import { formatCount } from '@/lib/format-number';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -118,7 +119,7 @@ function OffersDoor({
       ? 'Your offers could not be counted just now.'
       : offers.total === 0
         ? 'No offers yet.'
-        : `${offers.running} of ${offers.total} running.`;
+        : `${formatCount(offers.running)} of ${formatCount(offers.total)} running.`;
   return (
     <div className="space-y-3" data-templates-offers="ok">
       <p className="text-[13.5px] text-ink/70">{line} Tap to open, swipe left to delete, ＋ New makes one.</p>

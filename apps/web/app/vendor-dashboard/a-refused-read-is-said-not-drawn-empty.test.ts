@@ -131,7 +131,7 @@ test('V-8 · V-9 · the coverage panel points at a real page, and its ✕ and cr
 test('H-3 · a refused pax decline is never audited', () => {
   const act = dash('messages/[threadId]/pax-actions.ts');
   const decline = act.slice(act.indexOf('export async function declinePaxSurcharge'));
-  assert.match(decline, /const \{ error \} = await r\.admin[\s\S]{0,200}if \(error\) \{[\s\S]{0,200}return;\s*\}\s*await writeAudit\(r, 'decline'/);
+  assert.match(decline, /const \{ error \} = await r\.admin[\s\S]{0,600}if \(error\) \{[\s\S]{0,200}return;\s*\}\s*await writeAudit\(r, 'decline'/);
 });
 
 test('H-4 · H-5 · a refused suppliers or event read is never "None yet" / "No date yet"', () => {

@@ -16,7 +16,7 @@
  */
 import { papicPointCurrencyTerms } from '@/lib/papic-tier-copy';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
-import { FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/seo/ai-answers';
 import { mobileAppAnswer, mobileAppAnswerInApp } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { DAY_OF_ENDS_PLAIN, DAY_OF_STARTS_PLAIN } from '@/lib/day-of-window-words';
@@ -79,7 +79,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
         appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
-        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (all three include Setnayan AI), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         // NEW 2026-11-13 — the paid plans had no article (Event Ultra added the same day, #7601). Words from what an order unlocks today:
@@ -166,7 +166,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Real stories publish 30 days after the event only with explicit couple consent. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',
@@ -377,8 +377,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays.`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE}`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE} Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

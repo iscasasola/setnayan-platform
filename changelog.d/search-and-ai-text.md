@@ -36,3 +36,31 @@ SPEC IMPACT: None beyond the source document, which is already in the corpus.
 - `lib/seo/ai-answers.ts`: "What is Setnayan?" is `WHAT_IS_SETNAYAN_ANSWER`, saying "celebration".
 - `lib/help/topics-existing.ts`: /help's "What is Setnayan?" gives the meaning as "let's get that set"; the
   retired-words guard now reads /help for it.
+
+### 2026-11-20 · update — /help, the own-clients claim and rival claims (owner: yes; review FIX-FIRST)
+
+- The own-clients claim is gone in every wording (DECISION_LOG 2026-11-19 "PROMOTION PAGES", item 4):
+  `lib/llms-txt.ts` drops "A couple the supplier brings through their own invite, their own booking QR or their own link
+  never carries the fee." and the "Clients a supplier brings are free:" lead-in; `lib/seo/ai-answers.ts` and /help drop
+  the lead-in too. The free booking is said only as `SUPPLIER_FREE_BOOKING_LINE`. What the code bills
+  (`SUPPLIER_BROUGHT_SOURCES`) is unchanged.
+- `lib/llms-txt.test.ts`: the test that REQUIRED the "never carries the fee" clause is INVERTED — it now requires the
+  clause absent and the 19 Nov line present (sabotage: clause back → RED).
+- /help (`lib/help/topics-existing.ts`, `lib/help/supplier-1.ts`, `lib/help/user-2.ts`):
+  - privacy article: no Real Stories promise; Story Maker: no "Sharing it on Real Stories";
+  - "What does Setnayan charge suppliers?" (web + in-app): `FIRST_BOOKING_ON_US` and "own clients are always free" →
+    `SUPPLIER_FREE_BOOKING_LINE`;
+  - "Suppliers: is my first booking free?" (slug kept): body is `SUPPLIER_FREE_BOOKING_LINE`, not `FIRST_BOOKING_ON_US`;
+  - "Suppliers: does a couple who comes from my own QR count as Setnayan's?": keeps the attribution answer, drops
+    "your own clients never carry a booking fee";
+  - "Is Setnayan free for couples?": Setnayan AI comes inside Event Pro and Event Ultra (was "all three include").
+- `lib/seo/the-retired-words-stay-gone.test.ts`: every served /help article (all help topics, supplier ones included)
+  is checked for EVERY retired line, article by article, with a population floor and "found the article" preconditions;
+  new rows `/never carr(?:y|ies) (?:a |the |any )?(?:booking )?fee/i` and a broadened own-clients pattern (paraphrases);
+  a new test: no rival named or described in llms.txt or the saved answers. Sabotage-tested.
+- No claim about rivals: "Against the market" now says only what Setnayan does for each job (no rival kind's features,
+  no "no one else"); "structurally different" drops the foreign/international/family-album claims; the AI questions no
+  longer name PhotoShare, The Knot or Zola.
+- `lib/the-app-says-event-in-plain-words.test.ts`: the `lib/llms-txt.ts` exemption's stale reason is replaced (the file
+  renders /llms.txt and opens with the brand line; one template, so no named declaration to narrow to).
+- `FIRST_BOOKING_ON_US` stays: `lib/personal-invite-offer.ts` and two guards still import it.

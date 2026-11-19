@@ -7,9 +7,13 @@
  *   · the rendered `/llms.txt` (lib/llms-txt.ts), fee on and fee off;
  *   · every saved AI answer and its question (lib/seo/ai-answers.ts) — what /llms.txt and the /features FAQPage print;
  *   · `app/layout.tsx` — the site title, description and Organization JSON-LD on every page — COMMENT-STRIPPED with
- *     the shared lexer (lib/strip-comments.ts), because the comments there quote the old words on purpose.
+ *     the shared lexer (lib/strip-comments.ts), because the comments there quote the old words on purpose;
+ *   · every served /help article (`ALL_HELP_ARTICLES` — title, web body and in-app body), checked ARTICLE BY ARTICLE so a
+ *     hold can name the one article it covers and nothing else.
  *
  * SABOTAGE (run once, 20 Nov): put "Pabuya" back into the `what-is` answer in lib/seo/ai-answers.ts → RED; restore → green.
+ * SABOTAGE (run once, 20 Nov, /help widened): put "A supplier's own clients are always free" back into the
+ * `what-do-suppliers-pay-setnayan` article in lib/help/topics-existing.ts → RED naming that slug; restore → green.
  *
  * Run: cd apps/web && npx tsx --test lib/seo/the-retired-words-stay-gone.test.ts
  */
@@ -29,12 +33,10 @@ import { ALL_HELP_ARTICLES } from '../help';
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 type Surface = 'llms.txt' | 'ai-answers' | 'layout.tsx' | 'help';
-/** The three this PR rewrote. /help is read only for the rows that name it in `alsoOn` (its other retired lines are a
- *  follow-up, listed on PR #8041). */
-const PRIMARY: readonly Surface[] = ['llms.txt', 'ai-answers', 'layout.tsx'];
 
-/** §11 "Remove from every page now", one row per line, each with why. */
-const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?: Surface; alsoOn?: readonly Surface[] }[] = [
+/** §11 "Remove from every page now", one row per line, each with why. Every row is checked on every surface;
+ *  `heldOn` lifts one surface — each hold is pinned below so it cannot rot. */
+const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?: Surface }[] = [
   {
     what: 'Real Stories',
     pattern: /Real Stories|\/features\/real-stories|\/realstories\b/i,
@@ -56,9 +58,15 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
     why: 'not a rule (DECISION_LOG 2026-11-19 "WEBSITE CONTENT", item 5) — the only free booking is the 19 Nov one',
   },
   {
-    what: '"a supplier\'s own clients are always free"',
-    pattern: /own clients are always free/i,
-    why: `replaced by the 19 Nov wording: "${SUPPLIER_FREE_BOOKING_LINE}"`,
+    what: 'the own-clients claim, in any wording ("own clients are always free", "clients a supplier brings are free")',
+    pattern:
+      /own clients (?:are |stay |remain )?(?:always )?free|own clients (?:never|don['’]t|do not) (?:carry|pay)|clients (?:a|the) supplier brings (?:are|stay) free|clients you bring (?:are|stay) free/i,
+    why: `retired everywhere (DECISION_LOG 2026-11-19 "PROMOTION PAGES", item 4); the free booking is said only as "${SUPPLIER_FREE_BOOKING_LINE}"`,
+  },
+  {
+    what: '"… never carries the fee" (the own-clients claim as a fee rule)',
+    pattern: /never carr(?:y|ies) (?:a |the |any )?(?:booking )?fee/i,
+    why: 'the same retired own-clients claim (DECISION_LOG 2026-11-19 "PROMOTION PAGES", item 4)',
   },
   {
     what: '"no booking commission" on the For Suppliers line',
@@ -74,8 +82,6 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
     what: '"that\'s all set" as the meaning',
     pattern: /that['’]s all set/i,
     why: 'the meaning of Set na \'yan is "let\'s get that set" (north star, 19 Nov)',
-    // /help's "What is Setnayan?" article said it too (lib/help/topics-existing.ts), fixed 20 Nov.
-    alsoOn: ['help'],
   },
   {
     what: 'Setnayan AI "in Event Plus"',
@@ -97,8 +103,16 @@ function withFee<T>(value: string | undefined, fn: () => T): T {
   }
 }
 
+/** /help as it is served: each public article's title and bodies (the web body and the in-app one), by slug. */
+function helpArticles(): { slug: string; text: string }[] {
+  return ALL_HELP_ARTICLES.map(({ article }) => ({
+    slug: article.slug,
+    text: Object.values(article).filter((v) => typeof v === 'string').join('\n'),
+  }));
+}
+
 /** Every reading of each surface — fee on (rate read and unread, launch offer open) and fee off. */
-function surfaces(): Record<Surface, string> {
+function surfaces(): Record<Exclude<Surface, 'help'>, string> {
   const llms = [
     withFee('true', () => renderLlmsTxt({ ...INPUT_FOR_GUARDS, bookingFee: BOOKING_FEE, launchOfferCap: 1000 })),
     withFee('true', () => renderLlmsTxt(INPUT_FOR_GUARDS)),
@@ -113,21 +127,33 @@ function surfaces(): Record<Surface, string> {
     .concat(withFee('true', () => featuresFaqAnswers()).map((f) => `${f.q}\n${f.a}`))
     .join('\n');
   const layout = stripComments(readFileSync(join(WEB, 'app/layout.tsx'), 'utf8'));
-  // /help as it is served: every public article's title and bodies (the web body and the in-app one).
-  const help = ALL_HELP_ARTICLES.map(({ article }) => Object.values(article).filter((v) => typeof v === 'string').join('\n')).join('\n');
-  return { 'llms.txt': llms, 'ai-answers': answers, 'layout.tsx': layout, help };
+  return { 'llms.txt': llms, 'ai-answers': answers, 'layout.tsx': layout };
 }
 
-test('no "Remove now" line of the source reaches llms.txt, the saved AI answers or the site-wide metadata', () => {
+test('no "Remove now" line of the source reaches llms.txt, the saved AI answers, the site-wide metadata or /help', () => {
   const found: string[] = [];
-  const all = surfaces();
-  assert.match(all.help, /let's get that set/, 'precondition: the /help reader found the "What is Setnayan?" article');
-  for (const [where, text] of Object.entries(all) as [Surface, string][]) {
+  for (const [where, text] of Object.entries(surfaces()) as [Surface, string][]) {
     for (const r of REMOVE_NOW) {
-      if (!PRIMARY.includes(where) && !r.alsoOn?.includes(where)) continue;
       if (r.heldOn === where) continue;
       const m = r.pattern.exec(text);
       if (m) found.push(`${where}: ${r.what} — matched ${JSON.stringify(m[0])} — ${r.why}`);
+    }
+  }
+  const help = helpArticles();
+  assert.ok(help.length > 100, `precondition: the /help reader found only ${help.length} articles — the reader is broken`);
+  assert.ok(
+    help.some((a) => /let's get that set/.test(a.text)),
+    'precondition: the /help reader found the "What is Setnayan?" article',
+  );
+  // …and the supplier topics (lib/help/supplier-1.ts), where the retired money lines also lived.
+  for (const slug of ['what-do-suppliers-pay-setnayan', 'supplier-first-booking-free', 'supplier-your-own-link']) {
+    assert.ok(help.some((a) => a.slug === slug), `precondition: the /help reader did not find the ${slug} article`);
+  }
+  for (const a of help) {
+    for (const r of REMOVE_NOW) {
+      if (r.heldOn === 'help') continue;
+      const m = r.pattern.exec(a.text);
+      if (m) found.push(`help ${a.slug}: ${r.what} — matched ${JSON.stringify(m[0])} — ${r.why}`);
     }
   }
   assert.deepEqual(found, [], 'a retired line is back:\n  ' + found.join('\n  '));
@@ -135,9 +161,9 @@ test('no "Remove now" line of the source reaches llms.txt, the saved AI answers 
 
 test('a held line is still held for its reason — delete the hold the day the owner rules', () => {
   const s = surfaces();
-  for (const r of REMOVE_NOW.filter((x) => x.heldOn)) {
+  for (const r of REMOVE_NOW.filter((x) => x.heldOn && x.heldOn !== 'help')) {
     assert.match(
-      s[r.heldOn!],
+      s[r.heldOn as Exclude<Surface, 'help'>],
       r.pattern,
       `${r.what} is gone from ${r.heldOn} — the hold is no longer needed: delete its heldOn so the guard covers it there too`,
     );
@@ -150,6 +176,7 @@ test('the patterns are live — each one catches the words it was written for', 
     '50 credits free on your first event',
     "a supplier's first booking from Setnayan is on us",
     "a supplier's own clients are always free",
+    'A couple the supplier brings through their own link never carries the fee.',
     'no listing fee, no booking commission',
     'give through Pabuya',
     'Set na \'yan — "that\'s all set"',
@@ -176,4 +203,17 @@ test('the internal "where rivals are ahead" list and rival prices never ship', (
   const llms = withFee('true', () => renderLlmsTxt({ ...INPUT_FOR_GUARDS, bookingFee: BOOKING_FEE }));
   assert.doesNotMatch(llms, /where rivals are ahead|Eventchy|Bridalpod|PhotoShare\.ph|\bKuha\b/i, 'llms.txt prints the internal rivals list');
   assert.doesNotMatch(llms, /₱1,495|₱14,193|₱63,500/, 'llms.txt quotes a typed market figure');
+});
+
+// Coordinator review, 20 Nov: no claim about a rival — no rival is named, and "Against the market" says only what
+// Setnayan does. The saved answers print into /llms.txt and the /features FAQPage, so both are read.
+test('no rival product is named or described in llms.txt or the saved AI answers', () => {
+  const RIVAL = /The Knot|\bZola\b|PhotoShare|no one else|international platforms|foreign platform|Family-album products|Most cap guests|Albums expire/i;
+  const llms = withFee('true', () => renderLlmsTxt({ ...INPUT_FOR_GUARDS, bookingFee: BOOKING_FEE }));
+  assert.doesNotMatch(llms, RIVAL, 'llms.txt names or describes a rival');
+  const answers = withFee('true', () => aiAnswers({ bookingFee: BOOKING_FEE }))
+    .map((a) => `${a.question}\n${a.answer}`)
+    .join('\n');
+  assert.doesNotMatch(answers, RIVAL, 'a saved AI answer names or describes a rival');
+  assert.ok(RIVAL.test('Is Setnayan like The Knot, Zola or a wedding website builder?'), 'the rival pattern catches nothing');
 });

@@ -73,7 +73,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
   return (
     `Couples pay no commission: they pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
     `Suppliers pay Setnayan ${feeClause(ctx)}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. ` +
-    `Clients a supplier brings are free: "${SUPPLIER_FREE_BOOKING_LINE}"` +
+    SUPPLIER_FREE_BOOKING_LINE +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
     (ctx.bookingFee ? '' : ' The current rate is on the For Suppliers page.')
   );
@@ -163,7 +163,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
     },
     {
       id: 'separate-photo-app',
-      question: 'Do I need a separate app like PhotoShare for guest photos?',
+      question: 'Do I need a separate app for guest photos?',
       answer:
         'No. Papic is built into your Event Hub, linked to your guest list, so each photo finds the guests in it and each guest keeps their own. The photos stay in your Memories for life.',
       corrects: 'AI pairs Setnayan with a separate guest-photo app',
@@ -211,9 +211,10 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
     },
     {
       id: 'whole-event',
-      question: 'Is Setnayan like The Knot, Zola or a wedding website builder?',
+      // No rival is named or described (coordinator, 20 Nov review): the answer says only what Setnayan does.
+      question: 'Is Setnayan just an event website?',
       answer:
-        "A wedding website stops at the invitation and the reply. Setnayan runs the whole event in one account: one guest list that feeds the invitation, the seat plan, the door and each guest's photos; suppliers booked and paid inside the event; a livestream on the same page; and every photo kept for life.",
+        "No. Setnayan runs the whole event in one account: one guest list that feeds the invitation, the seat plan, the door and each guest's photos; suppliers booked and paid inside the event; a livestream on the same page; and every photo kept for life.",
       corrects: 'listed beside wedding-website and photo-sharing tools with none of these parts mentioned',
       route: '/features',
       evidence:

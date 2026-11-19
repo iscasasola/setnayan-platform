@@ -77,7 +77,12 @@ const NOUN_ALLOWED_PATHS: Record<string, string> = {
   'app/dashboard/(account)/create-event/_components/event-types.ts': 'the event TYPE named Celebration',
   'lib/checklist.ts': 'the event TYPE named Celebration',
   'lib/event-type-profile.ts': 'terminology DATA (occasionNoun) — translated at output by watchLiveOccasion',
-  'lib/llms-txt.ts': 'machine-readable list of event types',
+  // Rewritten 20 Nov (PR #8041) from specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md: the whole file renders /llms.txt,
+  // a document for search engines and AI assistants — never an app screen — and it opens with the brand line "the home
+  // of every Filipino celebration" (owner 19 Nov / "Yes, brand lines" 20 Nov). The prose is one template inside
+  // `renderLlmsTxt`, so no single named declaration can be allowed; its retired lines are held by
+  // lib/seo/the-retired-words-stay-gone.test.ts instead.
+  'lib/llms-txt.ts': '/llms.txt for search and AI, opening with the brand line — not an app screen (see the note above)',
   'app/llms.txt/': 'machine-readable summary for crawlers',
   'lib/celebration-poster-words.ts': 'poster artwork word list',
   'lib/watermark-server.ts': 'seal artwork drawn on photos',

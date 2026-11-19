@@ -266,7 +266,7 @@ export const USER_2_TOPICS: HelpTopic[] = [
         // story/page.tsx title 'Story Maker'; story/_components/editorial-editor.tsx railSteps
         slug: 'story-maker',
         title: 'What is the Story Maker?',
-        body: 'Your after-event story, made in steps: the desk, the story, the look, the cover, what is next, and publish. You choose who reads it — keep it a draft, show it to your guests only, or publish it. Sharing it on Real Stories is up to you.',
+        body: 'Your after-event story, made in steps: the desk, the story, the look, the cover, what is next, and publish. You choose who reads it — keep it a draft, show it to your guests only, or publish it.',
       },
     ],
   },

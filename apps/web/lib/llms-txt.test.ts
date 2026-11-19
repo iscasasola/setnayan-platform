@@ -28,6 +28,7 @@ import {
   llmsFeatureRoutes,
 } from './llms-txt';
 import { KNOWN_PUBLIC_ROUTES } from './seo/health-checks';
+import { SUPPLIER_FREE_BOOKING_LINE } from './seo/ai-answers';
 import { BOOKING_FEE, bookingFeeScheduleSummary } from './booking-fee';
 
 import { RETAIL, VENDOR, INPUT_FOR_GUARDS as INPUT } from './llms-txt-guard-input';
@@ -354,11 +355,15 @@ test('the launch offer is named from the passed cap only, and absent when the of
   assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
 });
 
-// The supplier's own clients — brought through their own invite, booking QR or link — never carry the fee
-// (`SUPPLIER_BROUGHT_SOURCES` in lib/booking-fee-gate.ts). SABOTAGE: drop the clause → RED.
-test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
+// ⚖ INVERTED 20 Nov (PR #8041). This test used to REQUIRE "…their own invite, their own booking QR or their own link
+// never carries the fee". The owner's 19 Nov ruling (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4)
+// retires the own-clients claim everywhere; the free booking is said only in his words, SUPPLIER_FREE_BOOKING_LINE.
+// What the code bills (`SUPPLIER_BROUGHT_SOURCES`, lib/booking-fee-gate.ts) is unchanged — only the public promise is.
+// SABOTAGE: put the old clause back → RED (here and in lib/seo/the-retired-words-stay-gone.test.ts).
+test('llms.txt makes no own-clients fee promise, and says the 19 Nov free-booking line instead', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+  assert.doesNotMatch(body, /never carr(?:y|ies) (?:a |the |any )?(?:booking )?fee/i);
+  assert.ok(supplierSection(body).includes(SUPPLIER_FREE_BOOKING_LINE), 'the supplier section lost the 19 Nov free-booking line');
 });
 
 // W1-B20 (2026-11-16): the bare /v/ directory is a 404 — shops live at setnayan.com/{shop}. SABOTAGE: put

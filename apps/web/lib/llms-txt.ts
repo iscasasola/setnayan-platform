@@ -593,11 +593,11 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
   // 🔑 THE FREE BOOKING IS THE OWNER'S 19 NOV SENTENCE (SUPPLIER_FREE_BOOKING_LINE), not the retired "first booking
-  // from Setnayan is on us" (not a rule, DECISION_LOG 2026-11-19) nor "own clients are always free". The last sentence
-  // is what the code does today: a couple who arrives through the supplier's own invite, QR or link is never billed
-  // (`SUPPLIER_BROUGHT_SOURCES`, lib/booking-fee-gate.ts).
+  // from Setnayan is on us" (not a rule, DECISION_LOG 2026-11-19) nor the own-clients claim in any wording — 19 Nov
+  // "PROMOTION PAGES" item 4 retires it everywhere, so no "clients a supplier brings are free" lead-in and no "never
+  // carries the fee" sentence (held by lib/seo/the-retired-words-stay-gone.test.ts).
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. Clients a supplier brings are free: "${SUPPLIER_FREE_BOOKING_LINE}" A couple the supplier brings through their own invite, their own booking QR or their own link never carries the fee.${launchOfferSentence(input.launchOfferCap ?? null)}`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. ${SUPPLIER_FREE_BOOKING_LINE}${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
 
   // 📄 THE PROSE BELOW IS THE ONE SOURCE'S WORDS (owner 20 Nov 2026: "Yes, send it") — specs
@@ -714,18 +714,17 @@ ${pillarPages('For suppliers')}
 
 ## Against the market
 
-Our real competitor is habit: Facebook groups, Messenger, Canva, a Google Drive link half the guests never upload to, and an Excel seat plan. It's free and good enough. Setnayan wins with one moment that is clearly better and that everyone in the room sees. Compared by what each kind of tool does today:
+Setnayan is compared here by the job a host needs done — what Setnayan itself does for each. It makes no claim about any other product.
 
-| What people use today | What it does | What it leaves out | Setnayan's edge |
-|---|---|---|---|
-| Foreign wedding-website builders | Free website, RSVP, a planning suite | Built for American or UK weddings: no ninang, no entourage, no faith paperwork, no pesos. | Filipino customs built in; one guest list runs the invitation, seat, door, camera and album. |
-| Philippine invitation and RSVP apps | A digital invitation, RSVP, sometimes a seat plan | Most cap guests on the free tier or charge per event. They stop at the reply: no camera, no livestream, no suppliers, no memories. | No guest limit; the same link carries on to the day and the album. |
-| Guest photo-sharing apps | A QR album and a photo wall | Albums expire. Not tied to a guest list, a plan or the invitation. | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
-| Livestream tools and hired crews | A stream link | Most need an app on every camera phone, or one camera, or a crew. | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
-| Supplier directories and expos | Listings, leads, fairs | Listings only: no planning, no written booking, no day. | Verified suppliers booked in writing inside the event; 0% commission for hosts; suppliers pay only on clients Setnayan brings. |
-| Habit (Facebook groups, Messenger and Viber, Canva, Google Drive, Excel) | Free and familiar | Replies are lost in chats, half the guests never upload, nothing connects, nothing is kept. | One link that everyone in the room sees, and every photo in one album. |
+| The job | What Setnayan does |
+|---|---|
+| An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
+| Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
+| A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts; suppliers pay only on clients Setnayan brings. |
+| Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
 
-What no one else puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.
+What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.
 
 ## Words
 
@@ -851,8 +850,8 @@ ${aiAnswers({ bookingFee: input.bookingFee ?? null })
 
 ## What makes Setnayan structurally different
 
-- Built and operated in the Philippines for Filipino celebrations — not a foreign platform with PH localization. 200+ supplier sub-categories include entries international platforms structurally lack (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
-- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy. Family-album products cover one household's timeline and monetize prints — none of them carry events, suppliers, or a marketplace.
+- Built and operated in the Philippines for Filipino celebrations. 200+ supplier sub-categories include Filipino entries (Lechonero, Filipiniana attire, Barong Tagalog, Pre-Cana / CFO seminars, Pamamanhikan, Sponsor Coordinators, Kulintang, Maranao Okir motifs).
+- The memory belongs to the whole group, not one camera. Guests are the photographers; every attendee goes home with their own tagged copy.
 - Couples pay suppliers directly. Setnayan never holds the money between a couple and a supplier.
 - Multi-faith ceremony support — Catholic, Civil, INC, Christian, Muslim, Cultural, and Mixed have first-class planning branches.
 - Setnayan AI is assisted matchmaking, not a static checklist — date, budget, venue, guest count, religion, and reviews cross-referenced per category, with religion-adaptive guidance and hard-floor deadlines.

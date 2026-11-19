@@ -20,17 +20,20 @@ export async function piecesAskOf(supabase: SupabaseClient, eventVendorId: strin
       .maybeSingle();
     const row = ev as { service_id: string | null; booked_quantity: number | null } | null;
     const serviceId = row?.service_id ?? null;
+    if (error) console.error('[piecesAskOf] booking read failed', error.message);
     if (error || !serviceId) return null;
     const { data: card, error: cardErr } = await supabase
       .from('vendor_services')
       .select('title, availability_style, daily_capacity')
       .eq('vendor_service_id', serviceId)
       .maybeSingle();
+    if (cardErr) console.error('[piecesAskOf] card read failed', cardErr.message);
     if (cardErr || !card) return null;
     const c = card as { title: string | null; availability_style: string | null; daily_capacity: number | null };
     if (c.availability_style !== 'piece' || !c.daily_capacity || c.daily_capacity < 1) return null;
     return { cardName: c.title?.trim() || 'this card', have: c.daily_capacity, asked: row?.booked_quantity ?? null };
-  } catch {
+  } catch (e) {
+    console.error('[piecesAskOf] read threw', e);
     return null;
   }
 }

@@ -4,7 +4,8 @@ The Clients day (Clients › Dates › a day) reads each schedule by its cards' 
 pick on `prototypes/availability_steps_3_4_2026-11-19.html`, DECISION_LOG 2026-11-19 "AVAILABILITY STEPS 3 AND 4
 APPROVED"):
 
-- **An AV tag on each group heading** ("AV-ORDER · made to order", "AV-PIECE · by the piece").
+- **Each group heading names its style in plain words** ("Made to order", "By the piece") — no AV codes (owner, final
+  drawing `spaces_final_screens_2026-11-19.html`, DECISION_LOG ba647712).
 - **The day bar** (`lib/day-count-bar.ts`, `count-bar.tsx`): Made to order counts orders IN PROGRESS across each
   order's preparation window, not on its due date (owner 19 Nov, DECISION_LOG "AVAILABILITY FINALIZED", "Wrong, fix")
   — "3 of 5 in progress · 2 free", one piece per order up to ten. The count is the database's
@@ -32,7 +33,8 @@ APPROVED"):
   `event_vendors.prep_days` is THIS order's own time (NULL = the card's) — no writer yet: 2b's accept sheet adds it.
   The hard refusal (`acquire_schedule_pools`) still counts the due date only until 2b brings the soft warning.
 
-New columns `event_vendors.booked_quantity` (NULL = one), written only by `set_booked_quantity`, and
+New columns `event_vendors.booked_quantity` (NULL = one; browser-readable like every non-amount column, so the
+couple's ask and the supplier's Agree can show it), written only by `set_booked_quantity`, and
 `event_vendors.prep_days`, not browser-readable and written only by a definer (the same triggers refuse a browser
 session). Migration `20271352068061_a_booking_takes_its_pieces_all_or_nothing`. Motions: none.
 

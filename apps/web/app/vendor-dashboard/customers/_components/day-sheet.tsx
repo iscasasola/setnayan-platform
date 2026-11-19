@@ -10,7 +10,7 @@ import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
 import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 import { Badge } from '@/app/_components/badge';
-import { availabilityLabel, availabilityName, type AvailabilityStyle } from '@/lib/availability-styles';
+import { availabilityName, type AvailabilityStyle } from '@/lib/availability-styles';
 import { CountBarView } from './count-bar';
 
 /**
@@ -335,14 +335,16 @@ export function DaySheet({
   );
 }
 
-/** A style's tag words on the phone ("AV-ORDER · made to order"); a computer shows the label alone (drawing). */
+/**
+ * A style's tag on the heading, in plain words only ("Made to order", "By the piece") — never an AV code (owner, final
+ * drawing spaces_final_screens_2026-11-19.html, DECISION_LOG ba647712).
+ */
 function tagWords(style: AvailabilityStyle): string {
-  const short = style === 'piece' ? 'by the piece' : availabilityName(style).toLowerCase();
-  return `${availabilityLabel(style)} · ${short}`;
+  return style === 'piece' ? 'By the piece' : availabilityName(style);
 }
 
 /**
- * One group's heading: its name, its AV label tag (step 4), and — for a group with no Day bar — today's right-hand word.
+ * One group's heading: its name, its style in plain words (step 4), and — for a group with no Day bar — today's right-hand word.
  * On a computer it is the link that picks the group for the right column.
  */
 function GroupHeading({ g, href, picked }: { g: DayGroup; href: string | null; picked: boolean }) {
@@ -352,12 +354,12 @@ function GroupHeading({ g, href, picked }: { g: DayGroup; href: string | null; p
     </span>
   );
   const cls = 'flex items-center gap-2 border-t border-ink/10 pb-0.5 pt-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55';
-  const name = (short: boolean) => (
+  const name = (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <span className="truncate">{g.label}</span>
       {g.style ? (
         <Badge tone="quiet" data="dates-group-style">
-          {short ? availabilityLabel(g.style) : tagWords(g.style)}
+          {tagWords(g.style)}
         </Badge>
       ) : null}
     </span>
@@ -365,7 +367,7 @@ function GroupHeading({ g, href, picked }: { g: DayGroup; href: string | null; p
   return (
     <>
       <p className={`${cls} ${href ? 'tab:hidden' : ''}`} data-dates-day-group-head="">
-        {name(false)}
+        {name}
         {right}
       </p>
       {href ? (
@@ -376,7 +378,7 @@ function GroupHeading({ g, href, picked }: { g: DayGroup; href: string | null; p
           className={`${cls} sn-press hidden min-h-11 tab:flex ${picked ? 'text-ink' : ''}`}
           data-dates-day-group-pick={g.poolId}
         >
-          {name(true)}
+          {name}
           {right}
         </Link>
       ) : null}

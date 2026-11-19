@@ -98,6 +98,11 @@ COMMENT ON COLUMN public.event_vendors.prep_days IS
   'Made to order: THIS order''s preparation time in days (2b, confirmed at accept). NULL = the card''s usual_prep_days. '
   'Not browser-readable; written only by a definer (trg_booked_quantity_only_by_the_definer covers it).';
 
+-- booked_quantity is READ in the browser (the couple's own ask, the supplier's Agree prefill — under the row
+-- policies), so it is granted like every other non-amount column since 20271343340931. prep_days is NOT granted: a
+-- browser never reads it directly (owner/controller 19 Nov: couples neither read nor write it).
+GRANT SELECT (booked_quantity) ON public.event_vendors TO anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.booked_quantity_only_by_the_definer()
 RETURNS trigger
 LANGUAGE plpgsql

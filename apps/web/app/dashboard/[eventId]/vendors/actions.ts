@@ -3043,6 +3043,7 @@ export async function lockPiecesAsk(
     .eq('event_id', eventId)
     .maybeSingle();
   const row = ev as { service_id: string | null; booked_quantity: number | null } | null;
+  if (error) console.error('[lockPiecesAsk] booking read failed', error.message);
   if (error || !row?.service_id) return null;
   const { data: card, error: cardErr } = await supabase
     .from('vendor_services')
@@ -3050,6 +3051,7 @@ export async function lockPiecesAsk(
     .eq('vendor_service_id', row.service_id)
     .maybeSingle();
   const c = card as { title: string | null; availability_style: string | null; daily_capacity: number | null } | null;
+  if (cardErr) console.error('[lockPiecesAsk] card read failed', cardErr.message);
   if (cardErr || !c || c.availability_style !== 'piece' || !c.daily_capacity) return null;
   return { cardName: c.title?.trim() || 'pieces', have: c.daily_capacity, asked: row.booked_quantity };
 }

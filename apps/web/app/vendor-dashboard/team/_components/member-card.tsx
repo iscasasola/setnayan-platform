@@ -31,6 +31,7 @@ export function TeamMemberCard({
   teamLabel,
   isSelf,
   end,
+  aside,
   memberId,
 }: {
   name: string;
@@ -41,6 +42,8 @@ export function TeamMemberCard({
   teamLabel?: string | null;
   isSelf?: boolean;
   end?: ReactNode;
+  /** A short mark beside the name (Owner). */
+  aside?: ReactNode;
   memberId: string;
 }) {
   const roleName = roleNameOf(names, duty);
@@ -68,7 +71,13 @@ export function TeamMemberCard({
           {where}
         </span>
       </span>
-      {end ?? null}
+      {aside ?? null}
+      {/* The controls take their own line under the card, so a name is never squeezed to "Jo…" at 390 px. */}
+      {end ? (
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1 pl-[52px]" data-team-member-controls="">
+          {end}
+        </div>
+      ) : null}
     </div>
   );
 }

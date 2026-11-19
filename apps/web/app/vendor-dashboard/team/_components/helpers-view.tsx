@@ -217,7 +217,7 @@ export function HelpersView({
                 isSelf={isSelf}
                 end={
                   canChange ? (
-                    <span className="flex flex-none items-center gap-1">
+                    <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                       <RolePick
                         memberId={m.vendor_team_member_id}
                         name={who}
@@ -239,7 +239,10 @@ export function HelpersView({
                         />
                       </StayForm>
                     </span>
-                  ) : m.user_id === founderUserId ? (
+                  ) : null
+                }
+                aside={
+                  m.user_id === founderUserId ? (
                     <Badge tone="ok" data="helpers-role">
                       Owner
                     </Badge>

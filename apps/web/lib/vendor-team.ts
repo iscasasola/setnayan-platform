@@ -304,7 +304,12 @@ export async function fetchTeamManagerContext(
     .is('deactivated_at', null)
     .limit(1)
     .maybeSingle();
-  if (error || !seat) return null;
+  if (error) {
+    // Management is gated on this read: a refusal blocks (null), and the reason is logged, never dropped.
+    console.error('[supabase-error] lib/vendor-team.ts · fetchTeamManagerContext', error.message);
+    return null;
+  }
+  if (!seat) return null;
   const vpRaw = (seat as {
     vendor_profiles:
       | { user_id: string; tier_state: string | null }

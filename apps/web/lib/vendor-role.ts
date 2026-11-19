@@ -148,7 +148,11 @@ export async function resolveVendorStandingForProfile(
     .select('role,duty,branch_id')
     .eq('user_id', userId)
     .eq('vendor_profile_id', vendorProfileId);
-  if (error) return null;
+  if (error) {
+    // A refused read denies (null) — and says why in the log, never silently.
+    console.error('[supabase-error] lib/vendor-role.ts · resolveVendorStandingForProfile', error.message);
+    return null;
+  }
   const rows = (data ?? []) as { role: VendorTeamRole; duty: string | null; branch_id: string | null }[];
   const best = rows
     .filter((r) => r.role in ROLE_RANK)

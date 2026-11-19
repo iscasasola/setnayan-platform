@@ -23,7 +23,7 @@
 --   6. vendor_team_members_branch_manager_manage · vendor_service_agents_branch_manager_manage
 --                                                                                — a Branch Manager runs their branch's team
 --   7. vendor_branches_member_read                                               — the team can read branch names (cards)
---   8. vendor_services_marketing_update                                          — Marketing edits the shop's cards
+--   8. vendor_services_marketing_read · vendor_services_marketing_update           — Marketing edits the shop's cards
 --   9. current_vendor_dayof_grant_event_ids()                                    — event day: a client's Account / Branch
 --                                                                                   Manager without a separate grant
 
@@ -344,7 +344,14 @@ CREATE POLICY vendor_branches_member_read
   USING (parent_vendor_profile_id IN (SELECT public.current_vendor_ids('viewer')));
 
 -- ── 8 · Marketing edits the shop's cards (owner 19 Nov: "shop page, cards, photos, promos, ads") ───────────────────
--- UPDATE only: Marketing neither opens nor deletes a card.
+-- READ + UPDATE only: Marketing neither opens nor deletes a card. (A row must be readable to be updated — there is no
+-- member-read policy on vendor_services, so Marketing gets its own.)
+DROP POLICY IF EXISTS vendor_services_marketing_read ON public.vendor_services;
+CREATE POLICY vendor_services_marketing_read
+  ON public.vendor_services FOR SELECT
+  TO authenticated
+  USING (vendor_profile_id IN (SELECT public.current_vendor_duty_ids('marketing')));
+
 DROP POLICY IF EXISTS vendor_services_marketing_update ON public.vendor_services;
 CREATE POLICY vendor_services_marketing_update
   ON public.vendor_services FOR UPDATE

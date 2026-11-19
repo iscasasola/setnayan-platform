@@ -72,7 +72,7 @@ export function RolePick({
   const showBranch = locations.length >= 2 && BRANCH_ROLES.has(picked);
   const submit = () => mark.current?.closest('form')?.requestSubmit();
   return (
-    <StayForm door="supTeam.updateVendorTeamMember" action={action} className="flex flex-none flex-wrap items-center justify-end gap-1" data-helpers-role={memberId}>
+    <StayForm door="supTeam.updateVendorTeamMember" action={action} className="flex min-w-0 max-w-full flex-wrap items-center gap-1" data-helpers-role={memberId}>
       <span ref={mark} hidden />
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <input type="hidden" name="team_label" value={teamLabel ?? ''} />

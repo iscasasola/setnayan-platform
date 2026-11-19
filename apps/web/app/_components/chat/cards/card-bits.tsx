@@ -8,6 +8,7 @@ import type { ReactNode } from 'react';
 import { Check, ChevronDown, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import { ledgerLine, type Ledger } from '@/lib/chat-cards';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
 
@@ -138,13 +139,13 @@ export function KindTag({ kind, children }: { kind: CardKind; children: ReactNod
 export function ProgressRing({ kind, done, of }: { kind: CardKind; done: number; of: number }) {
   const C = 2 * Math.PI * 15;
   return (
-    <span className={`relative grid h-9 w-9 flex-none place-items-center ${KIND[kind].ink}`} role="img" aria-label={`${done} of ${of} answered`}>
+    <span className={`relative grid h-9 w-9 flex-none place-items-center ${KIND[kind].ink}`} role="img" aria-label={`${formatCount(done)} of ${formatCount(of)} answered`}>
       <svg aria-hidden viewBox="0 0 36 36" className="absolute inset-0 h-9 w-9 -rotate-90 fill-none" strokeWidth={3}>
         <circle cx="18" cy="18" r="15" stroke="currentColor" opacity={0.2} />
         <circle cx="18" cy="18" r="15" stroke="currentColor" strokeLinecap="round" strokeDasharray={`${of > 0 ? (Math.min(done, of) / of) * C : 0} ${C}`} />
       </svg>
       <b className="relative text-[11px] font-bold tabular-nums">
-        {done}/{of}
+        {formatCount(done)}/{formatCount(of)}
       </b>
     </span>
   );

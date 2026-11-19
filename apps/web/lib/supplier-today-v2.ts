@@ -163,6 +163,11 @@ export type TodaySplit = {
   screen: TodayTaskRow[];
   /** v3: EVERY task in ONE list, most urgent first (no Quick / Longer groups). `quick` + `screen` are the same rows. */
   list: TodayTaskRow[];
+  /**
+   * ⏭ v3 part 2 — the tasks put off with "Do it tomorrow" (`lib/today-put-off.ts`): listed under "Tomorrow", NOT in
+   * `list`, not counted today. A red row is never here — an urgent task ignores its record and stays on Today.
+   */
+  tomorrow: TodayTaskRow[];
   /** "Some answers couldn’t load" — never a task, never counted. */
   unread: TodayNeed | null;
   recommended: Array<TodayNeed & { tag: TodayBadgeTag | null }>;
@@ -179,9 +184,11 @@ export function splitTodayNeeds(args: {
   aside: ReadonlySet<string>;
   /** v3: the clock the deadlines are read against. Absent → no row wears a level (the list keeps the desk's order). */
   now?: number;
+  /** v3 part 2: the keys put off until a later day ("Do it tomorrow"). Absent/unread → nothing is held off. */
+  putOff?: ReadonlySet<string>;
 }): TodaySplit {
   const byId = new Map(args.cards.map((c) => [c.id, c] as const));
-  const out: TodaySplit = { quick: [], screen: [], list: [], unread: null, recommended: [] };
+  const out: TodaySplit = { quick: [], screen: [], list: [], tomorrow: [], unread: null, recommended: [] };
   const arrived: TodayTaskRow[] = [];
   for (const n of args.needs) {
     if (args.aside.has(n.key)) continue;
@@ -196,6 +203,11 @@ export function splitTodayNeeds(args: {
     const card = byId.get(n.key) ?? null;
     const mode = card ? TODAY_TASK_MODE[card.kind] : 'screen';
     const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    // ⏭ Put off to tomorrow — unless it is red now: an urgent task is never hidden (ruled 19 Nov "yes. except urgent").
+    if (args.putOff?.has(n.key) && row.urgency?.level !== 'red') {
+      out.tomorrow.push(row);
+      continue;
+    }
     (mode === 'quick' ? out.quick : out.screen).push(row);
     arrived.push(row);
   }

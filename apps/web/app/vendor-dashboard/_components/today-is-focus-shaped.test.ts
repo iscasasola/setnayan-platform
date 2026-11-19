@@ -11,11 +11,14 @@
  *       rest, with the fee bills beside their own level.
  *   4 · A TAP OPENS THE ROW IN PLACE AS A CARD: no row rises as a second screen; the open row wears the shared frame
  *       and ends with "Open in page ›".
- *   5 · ⏭ NOT IN THIS PART (each its own PR): drag right / drag left, "Do it tomorrow", the wrap-up card, admin Focus
- *       in place, and the three unset urgency windows. Nothing here may pretend to do them.
+ *   5 · ⏭ PART 2 IS HERE (re-aimed on purpose, Today v3 part 2 — this test used to fail if "Do it tomorrow" or a drag
+ *       appeared before part 2): every task row drags both ways, the open card ends with "Do it tomorrow" beside
+ *       "Open in page ›", and neither is ever offered on a red row. The drag rules themselves are held by
+ *       `today-rows-drag-both-ways.test.ts` and `lib/today-put-off.test.ts`.
  * 🛡 SABOTAGE (each seen RED, then restored — 2026-11-19): `<SupplierHero` put back in the cover (red: 1) · the
  *   top-only block moved back above the list (red: 2) · a "Quick ·" heading added (red: 3) · `<SupplierOpenRow rise`
- *   used for a task (red: 4) · a "Do it tomorrow" button added (red: 5).
+ *   used for a task (red: 4) · part 2: the drag's `href` dropped from the task row, and the `canPutOff` gate taken off
+ *   the link (red: 5).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,13 +75,17 @@ test('3 · one list, most urgent first — no Quick or "Opens a screen" groups',
 test('4 · a tap opens the row in place as a card; no task rises as a second screen', () => {
   assert.doesNotMatch(V2, /<SupplierOpenRow\b|\brise\b/, 'a task rises as a screen again');
   assert.match(V2, /r\.mode === 'quick' \? <QuickBody card=\{r\.card\} a=\{a\} \/> : <ScreenBody card=\{r\.card\}/, 'a kind lost its shipped answer inside the card');
-  assert.match(V2, /foot=\{<CardFoot href=\{nextHref\(r\.target\)\} \/>\}/, 'the open card has no "Open in page ›"');
+  assert.match(V2, /foot=\{<CardFoot href=\{nextHref\(r\.target\)\}/, 'the open card has no "Open in page ›"');
   assert.match(V2, /Open in page ›/);
   assert.match(ROW, /open\s*\?\s*'[^']*bg-frame[^']*shadow-sn-frame'/, 'the open row does not wear the shared frame');
   assert.match(ROW, /data-today-urgency=\{urgency \?\? undefined\}/);
   assert.match(V2, /line=\{r\.urgency \? `\$\{r\.urgency\.word\} · \$\{r\.line\}` : r\.line\}/, 'a level is shown by colour alone — it must wear its word');
 });
 
-test('5 · the later parts are not pretended: no drag, no "Do it tomorrow", no wrap-up here', () => {
-  assert.doesNotMatch(V2 + ROW + FIRST, /Do it tomorrow|data-today-swipe|onPointerMove|Tomorrow\b/, 'a later part was half-built into part 1');
+test('5 · part 2 is here: every task row drags both ways and its card ends with "Do it tomorrow" — never on a red row', () => {
+  assert.match(V2, /href=\{nextHref\(r\.target\)\}\s*foot=\{<CardFoot href=\{nextHref\(r\.target\)\} rowKey=\{r\.key\} level=\{r\.urgency\?\.level \?\? null\} \/>\}/, 'a task row lost its drag (its page) or its card lost "Do it tomorrow"');
+  assert.match(V2, /<TodayTomorrowLink rowKey=\{rowKey\} level=\{level\} \/>/);
+  assert.match(ROW, /if \(!g \|\| !canPutOff\(level\)\) return null;/, '"Do it tomorrow" is offered on a red card');
+  assert.match(ROW, /data-today-swipe=\{href && !open \? \(red \? 'right-only' : 'both'\) : undefined\}/);
+  assert.doesNotMatch(V2 + ROW, /Trash2|SwipeToDelete\b|data-swipe-delete/, 'a Today task can be deleted — "you cannot delete a task until its complete"');
 });

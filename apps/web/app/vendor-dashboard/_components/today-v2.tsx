@@ -20,7 +20,8 @@ import {
   QuoteDraftBody,
   ReviewBody,
 } from './overview-sections';
-import { TodayAsideButton, TodayQuickGroup, TodayQuickRow } from './today-v2-client';
+import { TodayAsideButton, TodayQuickGroup, TodayQuickRow, TodayTomorrowLink } from './today-v2-client';
+import { PUT_OFF_WORDS } from '@/lib/today-put-off';
 import { formatCount } from '@/lib/format-number';
 import { BILLS_UNREAD_LINE, DONE_UNREAD_LINE, type DoneTodayRow, type GrowStage, type TodayBadgeTag, type TodaySplit, type TodayTaskRow, type TrendLine } from '@/lib/supplier-today-v2';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
@@ -151,12 +152,19 @@ function ScreenBody({ card, a, todayIso, onDesk }: { card: WhatsNewCard; a: Toda
   }
 }
 
-/** The open card's one small link: the task's own page (drawing V3 · 0 — "Open in page ›", the same on every card). */
-function CardFoot({ href }: { href: string }) {
+/**
+ * The open card's small links (drawing V3 · 0): "Open in page ›" — the same place as a drag right — and, beside it,
+ * "Do it tomorrow" — the same as a drag left — except on a red card (ruled 19 Nov: the links stay, for people who do
+ * not swipe).
+ */
+function CardFoot({ href, rowKey, level }: { href: string; rowKey: string; level: 'red' | 'amber' | null }) {
   return (
-    <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
-      Open in page ›
-    </a>
+    <>
+      <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
+        Open in page ›
+      </a>
+      <TodayTomorrowLink rowKey={rowKey} level={level} />
+    </>
   );
 }
 
@@ -177,7 +185,8 @@ function TaskRows({ rows, a, todayIso, onDesk }: { rows: readonly TodayTaskRow[]
             line={r.urgency ? `${r.urgency.word} · ${r.line}` : r.line}
             lead={<RowIcon name={r.icon} />}
             urgency={r.urgency?.level ?? null}
-            foot={<CardFoot href={nextHref(r.target)} />}
+            href={nextHref(r.target)}
+            foot={<CardFoot href={nextHref(r.target)} rowKey={r.key} level={r.urgency?.level ?? null} />}
             aside={
               <>
                 {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
@@ -255,6 +264,17 @@ export function TodayV2Needs({
             {billCount > 0 && billsLevel !== 'red' ? billsBlock : null}
             <TaskRows rows={split.list.filter((r) => !r.urgency)} a={answers} todayIso={todayIso} onDesk={onDesk} />
           </TodayQuickGroup>
+        </div>
+      ) : null}
+      {/* ⏭ TOMORROW (v3 part 2, drawing V3 · 2 frame D): what was put off — not counted today, back by itself tomorrow. */}
+      {split.tomorrow.length > 0 ? (
+        <div data-today-tomorrow="">
+          <TodayEyebrow>
+            {PUT_OFF_WORDS.heading} {formatCount(split.tomorrow.length)}
+          </TodayEyebrow>
+          {split.tomorrow.map((r) => (
+            <TodayNoteRow key={r.key} label={r.label} line={PUT_OFF_WORDS.back} rowIcon={r.icon} marker={`tomorrow-${r.key}`} />
+          ))}
         </div>
       ) : null}
       {split.unread ? (
@@ -385,7 +405,9 @@ export function TodayRecommended({
           tag={r.tag}
           button={r.button}
           href={r.href}
-          end={r.notNow ? <TodayAsideButton rowKey={r.key} how="notNow" label="Not now" onDesk={onDesk} todayIso={todayIso} /> : null}
+          // ⏭ v3: a credit or gift row is a task — its "Not now" is "Do it tomorrow" (it lapses at Manila midnight, so it IS
+          // back tomorrow). The shop's own room-to-grow rows are not tasks and keep "Not now".
+          end={r.notNow ? <TodayAsideButton rowKey={r.key} how="notNow" label={r.key === 'door-credit' || r.key === 'door-gift' ? PUT_OFF_WORDS.link : 'Not now'} onDesk={onDesk} todayIso={todayIso} /> : null}
         />
       ))}
       <p className="py-1 text-[13px]">

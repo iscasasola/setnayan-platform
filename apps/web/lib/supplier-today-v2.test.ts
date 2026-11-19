@@ -272,3 +272,19 @@ test('V3 · the fee bills take their most pressing level, and never sit under th
   assert.equal(billsSlot(billsUrgency([{ dueOn: '2026-11-30' }], today)), 'amber');
   assert.equal(billsSlot(null), null);
 });
+
+test('T1 · v3 part 2: a task put off sits under Tomorrow, out of the count — a red one never leaves Today', () => {
+  const s = splitTodayNeeds({
+    needs: [need('r1'), need('late'), need('m1'), need('soon')],
+    cards: [card('r1', 'review'), dated('late', '2026-11-18T00:00:00Z'), card('m1', 'message'), dated('soon', '2026-11-25T04:00:00Z')],
+    completedToGo: null,
+    aside: new Set(),
+    now: NOW,
+    putOff: new Set(['r1', 'late', 'soon']),
+  });
+  assert.deepEqual(s.tomorrow.map((r) => r.key), ['r1', 'soon'], 'a put-off task is not under Tomorrow');
+  assert.deepEqual(s.list.map((r) => r.key), ['late', 'm1'], 'a red task was hidden by a put-off record, or a put-off task stayed listed');
+  assert.equal(s.quick.length + s.screen.length, 2, 'a put-off task is still counted today');
+  // No record (or an unread one) holds nothing off.
+  assert.equal(splitTodayNeeds({ needs: [need('r1')], cards: [card('r1', 'review')], completedToGo: null, aside: new Set(), now: NOW }).tomorrow.length, 0);
+});

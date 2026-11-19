@@ -7,6 +7,7 @@ import { getVendorDemandRadar, DEMAND_RADAR_UNREADABLE, type DemandRadar } from 
 import type { DoneTodayCounts } from '@/lib/supplier-today-v2';
 import { fetchGrowLines } from '@/lib/platform-settings';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import type { PutOffRecord } from '@/lib/today-put-off';
 
 /**
  * lib/supplier-today-v2.server.ts — THE READS TODAY v2 ADDS (owner 18 Nov, `Today, one task` v2, "all picks").
@@ -39,6 +40,11 @@ export type TodayV2Reads = {
    * branch copies left out). Null = unread, or no limit applies — no row is drawn.
    */
   cardRoom: { allowed: number; live: number; hidden: number } | null;
+  /**
+   * ⏭ v3 part 2 — the shop's "Do it tomorrow" records still in force (`supplier_today_put_offs`, until_day after today).
+   * Null = unread: then NO task is held off (every task stays listed — an unread record never hides work).
+   */
+  putOffs: PutOffRecord[] | null;
 };
 
 /** Manila midnight of `todayIso`, as an instant. */
@@ -149,9 +155,19 @@ async function readCutoffs(admin: SupabaseClient): Promise<TodayV2Reads['cutoffs
   return g.read ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings } : { fewInquiries: null, fewBookings: null };
 }
 
+async function readPutOffs(supabase: SupabaseClient, vendorProfileId: string, todayIso: string): Promise<PutOffRecord[] | null> {
+  // The caller's own session: RLS (migration 20271352477387) is the shop's own rows.
+  const r = await supabase.from('supplier_today_put_offs').select('task_key, until_day').eq('vendor_profile_id', vendorProfileId).gt('until_day', todayIso).limit(200);
+  if (r.error) {
+    logQueryError('supplier-today-v2: put-offs', r.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  return (r.data ?? []) as PutOffRecord[];
+}
+
 export async function readTodayV2(args: { supabase: SupabaseClient; admin: SupabaseClient; vendorProfileId: string; todayIso: string }): Promise<TodayV2Reads> {
   const { supabase, admin, vendorProfileId, todayIso } = args;
-  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom] = await Promise.all([
+  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom, putOffs] = await Promise.all([
     readDoneToday(admin, vendorProfileId, manilaMidnightIso(todayIso)).catch(() => null),
     readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, coversUnread: true, trendingCard: null })),
     readCompletedBookingsCount(admin, vendorProfileId).catch(() => null),
@@ -159,6 +175,7 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
     readCutoffs(admin).catch(() => ({ fewInquiries: null, fewBookings: null })),
     readInspirationPhotos(admin, vendorProfileId).catch(() => null),
     readCardRoom(supabase, vendorProfileId).catch(() => null),
+    readPutOffs(supabase, vendorProfileId, todayIso).catch(() => null),
   ]);
   return {
     done,
@@ -170,5 +187,6 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
     cutoffs,
     inspirationPhotos,
     cardRoom,
+    putOffs,
   };
 }

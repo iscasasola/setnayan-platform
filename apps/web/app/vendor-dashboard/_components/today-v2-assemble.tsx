@@ -16,6 +16,7 @@ import {
   type TodayBadgeTag,
 } from '@/lib/supplier-today-v2';
 import { asideKeys, gotItToday, type TodayAside } from '@/lib/today-aside';
+import { activePutOffs } from '@/lib/today-put-off';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { shelfBadge } from '@/lib/shop-badge-shelf';
 import type { BadgeRewardFacts } from '@/lib/badge-rewards';
@@ -80,7 +81,7 @@ export function buildTodayV2(i: TodayV2Input): {
   const deskCards = [...i.needsAnswer, ...i.closed];
   const tile = r && r.completedBookings !== null ? shelfBadge('completed_bookings', { counts: { completedBookings: r.completedBookings } as BadgeRewardFacts, verified: null, granted: null }) : null;
   const nextBadge = nextBadgeWords(tile?.nextShort ?? null);
-  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now });
+  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now, putOff: activePutOffs(r?.putOffs ?? null, i.todayIso) });
   const deskKeys = deskCards.map((c) => c.id);
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);

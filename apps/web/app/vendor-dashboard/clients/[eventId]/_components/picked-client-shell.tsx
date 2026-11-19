@@ -85,7 +85,7 @@ export function PickedClientShell({
   landAt?: string | null;
   /** 🖥 What the work column opens on, on a computer, when no `?tab=` names a page (`workColumnDefault`). */
   workDefault?: PickedClientPage;
-  /** ➡ The Next step row pinned on top of Chat (`ClientNextStepRow`), or null when nothing needs them / it is unread. */
+  /** ➡ The Next step row pinned on top of Chat (`NextStepRow`), or null when nothing needs them / it is unread. */
   nextStep?: ReactNode;
   /** The ⚙ sheet's one line. */
   settingsLine: { line: string; tip: string };

@@ -52,6 +52,7 @@ export function PickedSupplierShell({
   chatUnread = null,
   workDefault = 'details',
   landAt = null,
+  nextStep = null,
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -66,6 +67,8 @@ export function PickedSupplierShell({
   workDefault?: PickedSupplierPage;
   /** The part of the first page a folded door lands on (`?tab=payments` → `payments`), or null. */
   landAt?: string | null;
+  /** ➡ The Next step row pinned on top of Chat (`NextStepRow`), or null when nothing needs the host. */
+  nextStep?: ReactNode;
 }) {
   return (
     <PickedShell<PickedSupplierPage>
@@ -89,6 +92,7 @@ export function PickedSupplierShell({
       // 🖥 The supplier's mirror (owner 18 Nov, "Yes, mirror it"): on a computer the chat keeps its own column. Only
       // when there is a conversation — without one Chat is not in the menu and the page stays one column.
       sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
+      chatTop={nextStep}
     />
   );
 }

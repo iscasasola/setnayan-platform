@@ -261,6 +261,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
+import { dealAskOf, quoteLinesOf, theirAskTotalCentavos, theirOpenAsk, type DealAskDbRow } from '@/lib/chat-deal';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
@@ -2759,12 +2760,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       })
     : null;
   const stripAsksRes = stripAsksP ? await stripAsksP : null;
-  const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as { status: string; kind?: string | null; raised_by?: string | null; amount_centavos?: number | string | null; scope_label?: string | null; good_until?: string | null; money_hidden?: boolean | null }[]) : null;
+  const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
   if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
-  // Their ask = the hosts' newest OPEN counter on the TOTAL that has not expired (a counter on one line is not a total).
-  const theirOpenAsk = stripAsks?.find(
-    (a) => a.status === 'open' && (a.raised_by ?? 'host') === 'host' && a.amount_centavos != null && !a.scope_label && !(a.good_until && a.good_until < stripToday),
-  );
+  // Their ask: ONE rule with Every version (`lib/chat-deal.ts`) — picked by `theirOpenAsk`, a one-line counter made a total.
+  const theirOpenAskRow = stripAsks ? theirOpenAsk(stripAsks, stripToday) : null;
+  const theirAskTotal =
+    theirOpenAskRow && sentQuote
+      ? theirAskTotalCentavos(theirOpenAskRow, { totalCentavos: sentQuote.total_centavos, lines: quoteLinesOf(sentQuote.line_items) })
+      : null;
   const stripForms = stripFormsP ? await stripFormsP : null;
   const stripMeetings = isBooked
     ? appointmentsReadFailed
@@ -2782,7 +2785,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ? { paidPhp: stripPay.paidPhp, agreedPhp: stripPay.agreedPhp, next: stripPay.next }
       : null,
     quote: proposalRowsError ? null : sentQuote ? { totalPhp: sentQuote.total_centavos / 100, sentAt: sentQuote.sent_at ?? sentQuote.created_at ?? null, validUntil: sentQuote.valid_until ?? null } : undefined,
-    theirAsk: !threadId ? undefined : stripAsks === null ? null : theirOpenAsk ? Number(theirOpenAsk.amount_centavos) / 100 : undefined,
+    theirAsk: !threadId ? undefined : stripAsks === null ? null : theirAskTotal != null ? theirAskTotal / 100 : undefined,
     next: stripNext,
     forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
     step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,

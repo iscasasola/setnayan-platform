@@ -83,3 +83,23 @@ test('4 · the lowest is private by the DATABASE: shop team only, no host policy
   assert.doesNotMatch(sql, /lowest_centavos[^,\n]*DEFAULT/, 'the lowest gained a default — it is the supplier’s own number, never guessed');
   assert.match(sql, /updated_by\s+UUID REFERENCES auth\.users\(id\) ON DELETE SET NULL/);
 });
+
+test('5 · ONE rule for their ask, both places (review F6): a one-line counter is shown as the TOTAL it makes', async () => {
+  const { theirAskTotalCentavos, dealAskOf } = await import('./chat-deal');
+  const quote = { totalCentavos: 4_500_000, lines: [
+    { key: 'l0', label: 'Grazing table', detail: null, amountCentavos: 3_800_000 },
+    { key: 'l1', label: 'Dessert bar', detail: null, amountCentavos: 700_000 },
+  ] };
+  const total = ask({ askedAt: '2026-11-20T00:00:00Z', amountCentavos: 4_000_000 });
+  assert.equal(theirAskTotalCentavos(total, quote), 4_000_000);
+  const line = ask({ askedAt: '2026-11-20T00:00:00Z', amountCentavos: 500_000, scopeLabel: 'dessert bar' });
+  assert.equal(theirAskTotalCentavos(line, quote), 4_300_000, 'a counter on one line is not the total');
+  assert.equal(theirAskTotalCentavos({ ...line, scopeLabel: 'Lights' }, quote), null, 'a line no longer on the quote makes no total');
+  const row = dealAskOf({ asked_at: 'x', status: 'open', amount_centavos: '4000000', scope_label: null, good_until: null, raised_by: null, proposed_plan: null });
+  assert.equal(row.kind, 'counter');
+  assert.equal(row.raisedBy, 'host');
+  // The client page picks with the shared rule — no second, inline picker.
+  const PAGE = stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/clients/[eventId]/page.tsx'), 'utf8'));
+  assert.match(PAGE, /theirOpenAsk\(stripAsks, stripToday\)/);
+  assert.doesNotMatch(PAGE, /stripAsks\?\.find\(/, 'a second picker for their ask is back on the client page');
+});

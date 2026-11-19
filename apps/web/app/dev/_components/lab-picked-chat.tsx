@@ -99,7 +99,7 @@ function oneChatMessages(threadId: string, stage: 'booked' | 'asking' | 'failed'
     hello,
     row(3, 'system', 'Booked ✓', at(14, 1, 0)),
     row(4, 'system', 'Pia was added to this chat by Maria', at(15, 2, 0)),
-    row(5, 'couple', 'We sent the deposit through GCash!', at(18, 3, 0)),
+    row(5, 'couple', 'We sent the first payment through GCash!', at(18, 3, 0)),
     row(6, 'system', 'Payment logged · ₱9,000 · GCash · ref 0921 · proof attached · waiting for the supplier to confirm', at(18, 3, 1)),
     row(7, 'vendor', 'Thank you, checking now.', at(18, 3, 5)),
     row(8, 'system', 'Payment confirmed · ₱9,000', at(18, 3, 20)),

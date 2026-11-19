@@ -145,7 +145,7 @@ test('6 · only the supplier’s client page: the routed thread and the host’s
 test('7 · the tour’s two stops inside a client stand on things a phone still has', () => {
   const anchors = new Set(Object.values(TOURS).flatMap((t) => JSON.stringify(t).match(/"anchor":"([^"]+)"/g) ?? []).map((a) => a.slice(10, -1)));
   for (const a of ['client-chat', 'client-quote']) assert.ok(anchors.has(a), `the tour lost its '${a}' stop`);
-  assert.match(CLIENT_SHELL, /const TITLE_TOUR = 'client-chat';/);
+  assert.match(CLIENT_SHELL, /titleTour: 'client-chat'/);
   assert.match(SHELL, /data-tour=\{chatHome\.titleTour\}/, 'the chat’s stop is not on the client’s name');
   assert.match(STRIP, /data-tour=\{b\.key === 'money' \? 'client-quote' : undefined\}/, 'the quotation’s stop is not on the strip’s money box');
   assert.doesNotMatch(CLIENT_SHELL, /tours=\{/, 'the stops are still on the tab row a phone no longer draws');

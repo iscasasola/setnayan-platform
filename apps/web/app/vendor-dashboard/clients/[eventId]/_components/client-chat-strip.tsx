@@ -97,6 +97,7 @@ export function ClientChatStrip({
               {...(b.failed ? { 'data-failed': '', 'aria-busy': retrying } : {})}
               onClick={() => {
                 // A failed read is retried where it failed — the page reads again; nothing is guessed meanwhile.
+                // one-render: keep (retry) — nothing was written here; a refused read is asked again.
                 if (b.failed) return retry(() => router.refresh());
                 if (door === 'deal') {
                   if (threadId) raiseDeal(threadId);

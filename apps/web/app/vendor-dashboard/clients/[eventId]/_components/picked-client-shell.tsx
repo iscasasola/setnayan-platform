@@ -61,10 +61,9 @@ const CLOSE_TO_CALENDAR = { label: 'Calendar', icon: ChevronLeft } as const;
 
 /**
  * 🔦 The supplier tour's two stops inside a client (owner 12 Nov 2026): where the chat is, and where the quotation is.
- * With the chat as the page they left the tab row: the chat's stop is the client's name in the head (`TITLE_TOUR`), and
+ * With the chat as the page they left the tab row: the chat's stop is the client's name in the head (`titleTour: 'client-chat'`, written literally so the spotlight guard can see it), and
  * the quotation's is the strip's money box (`ClientChatStrip` wears `client-quote`).
  */
-const TITLE_TOUR = 'client-chat';
 
 /** 💬 What sits behind the head's ⋯ — the pages with no box in the strip, in the old menu's order (Hub once booked). */
 const MORE_PAGES: readonly PickedClientPage[] = ['files', 'hub', 'report'];
@@ -113,7 +112,7 @@ export function PickedClientShell({
 }) {
   const home = useMemo<ChatHome>(() => ({ top: strip, suggest, inquiry }), [strip, suggest, inquiry]);
   const chatHome = useMemo(
-    () => ({ page: 'chat' as const, line: `${eventName} · back to chat`, titleOpens: 'details' as const, more: MORE_PAGES, titleTour: TITLE_TOUR }),
+    () => ({ page: 'chat' as const, line: `${eventName} · back to chat`, titleOpens: 'details' as const, more: MORE_PAGES, titleTour: 'client-chat' }),
     [eventName],
   );
   return (

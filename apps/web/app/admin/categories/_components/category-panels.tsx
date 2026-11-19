@@ -51,6 +51,9 @@ import { SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
 import { ServiceInfo } from '@/app/_components/service-info';
 import { LevelIcon } from './map-rows';
 import { FormSuggestionsPane } from './form-suggestions-pane';
+import { CategoryAvailabilityPick, ServiceAvailabilityPick } from './availability-picks';
+import { AVAILABILITY_CHOICES } from './availability-choices';
+import { AVAILABILITY_STYLES, availabilityName, mostCommonAvailability } from '@/lib/availability-styles';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
 
@@ -203,6 +206,37 @@ function ServiceInfoTextField({ canonical, label, written }: { canonical: string
         </div>
       ) : null}
     </>
+  );
+}
+
+// ── Availability (plan step 2) ──────────────────────────────────────────────
+
+/** "4 of 6 set · 2 not set" — or "Couldn’t read" when any service's Availability was not read. */
+function categoryAvailabilitySummary(services: readonly Service[]): string {
+  if (services.length === 0) return 'No services';
+  if (services.some((s) => s.availability === undefined)) return 'Couldn’t read';
+  const unset = services.filter((s) => s.availability === null).length;
+  if (unset === services.length) return 'Not set';
+  const styles = new Set(services.map((s) => s.availability).filter(Boolean));
+  const set = services.length - unset;
+  return `${styles.size === 1 && unset === 0 ? availabilityName([...styles][0]!) : `${formatCount(set)} of ${formatCount(services.length)} set`}${unset ? ` · ${formatCount(unset)} not set` : ''}`;
+}
+
+function CategoryAvailability({ categoryId, services }: { categoryId: string; services: readonly Service[] }) {
+  if (services.length === 0) return <Says>No services yet — add one first.</Says>;
+  if (services.some((s) => s.availability === undefined)) {
+    return <Says>Couldn’t read Availability just now — reload to set it.</Says>;
+  }
+  const byStyle = AVAILABILITY_STYLES.map((st) => ({ name: st.name, n: services.filter((s) => s.availability === st.value).length })).filter((x) => x.n > 0);
+  const unset = services.filter((s) => s.availability === null).length;
+  return (
+    <div className="flex flex-col gap-2" data-category-availability-fold="">
+      <Quiet>How each service here books. One pick sets them all; any service can then be changed on its own.</Quiet>
+      <Says>
+        {[...byStyle.map((x) => `${x.name} · ${formatCount(x.n)}`), unset ? `Not set · ${formatCount(unset)}` : null].filter(Boolean).join(' — ')}
+      </Says>
+      <CategoryAvailabilityPick categoryId={categoryId} count={services.length} />
+    </div>
   );
 }
 
@@ -395,7 +429,21 @@ export function CategoryPanel({
             </li>
           ))}
         </ul>
-        <DrawerAddRow text={`Add a service to ${category.label}`} placeholder="New service name" door={{ op: 'addService', categoryId: category.id }} what="Service" />
+        <DrawerAddRow
+          text={`Add a service to ${category.label}`}
+          placeholder="New service name"
+          door={{
+            op: 'addService',
+            categoryId: category.id,
+            // Pre-filled from the category's most common Availability; Not set when there is none (or it could not be read).
+            availability: { prefill: mostCommonAvailability(services.map((s) => s.availability)) ?? '', choices: AVAILABILITY_CHOICES },
+          }}
+          what="Service"
+        />
+      </PanelFold>
+
+      <PanelFold id="availability" title="Availability" summary={categoryAvailabilitySummary(services)}>
+        <CategoryAvailability categoryId={category.id} services={services} />
       </PanelFold>
 
       {map ? (
@@ -621,6 +669,24 @@ export function ServicePanel({
             <OrderPick id={service.canonical} siblings={serviceOrder} save={mapReorder.bind(null, 'services', service.tileId)} />
           </Row>
         ) : null}
+      </PanelFold>
+
+      <PanelFold id="availability" title="Availability" summary={service.availability === undefined ? 'Couldn’t read' : availabilityName(service.availability)}>
+        <Row
+          label="Availability"
+          tip={
+            <InfoTip label="" ariaLabel="About Availability" align="start">
+              How this service books — set once here by Setnayan. Nothing suppliers or couples see reads it yet; the
+              service card maker will.
+            </InfoTip>
+          }
+        >
+          {service.availability === undefined ? (
+            <Says>Couldn’t read this service’s Availability just now — reload to set it.</Says>
+          ) : (
+            <ServiceAvailabilityPick canonical={service.canonical} value={service.availability} />
+          )}
+        </Row>
       </PanelFold>
 
       {map ? (

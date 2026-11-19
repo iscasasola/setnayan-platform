@@ -8,7 +8,7 @@
  *   2 · a refused Done-today read stays `null` all the way to a note on the list;
  *   3 · Done today counts every answer that leaves the list (payment declined · inquiry · meeting · cancel);
  *   4 · a refused cards read is `coversUnread`, and no Today v2 read at all is unread too;
- *   5 · the heading and the cover count the fee bills the same way — each bill is one task.
+ *   5 · there is ONE count (the group headings left with v3 part 1) and each fee bill is one task in it.
  * 🛡 SABOTAGE (each seen RED, then restored — 2026-11-19): `billsUnread:` dropped from the page (red: 1) ·
  *   `doneUnread={doneCount === null}` → `false` (red: 2) · the `delete_answered_at` count removed (red: 3) ·
  *   `coversUnread: Boolean(services.error)` → `false` (red: 4) · `+ billCount` → `+ (billCount > 0 ? 1 : 0)` (red: 5).
@@ -59,9 +59,13 @@ test('4 · a refused cards read is unread — and so is a missing Today v2 read'
   assert.match(BUILD, /coversUnread: r \? r\.coversUnread : true,/, 'no Today v2 read at all is treated as every card having a cover');
 });
 
-test('5 · the heading and the cover count the fee bills the same way', () => {
+// RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): the "Opens a screen · N" heading is gone with the
+// two groups, so there is ONE count left — the mast's and the pinned heading's, both `left`. The rule this holds is
+// unchanged: every fee bill is one task, and no second count can disagree with it.
+test('5 · there is one count, and every fee bill is one task in it', () => {
   assert.match(BUILD, /const left = i\.deskIncomplete \? null : split\.quick\.length \+ split\.screen\.length \+ i\.view\.bills\.length;/);
+  assert.match(BUILD, /view: \{ \.\.\.i\.view, needsCount: left \}/, 'the pinned heading counts something other than the mast does');
   assert.match(BUILD, /billCount=\{i\.view\.bills\.length\}/);
-  assert.match(SCREEN, /Opens a screen · \{formatCount\(split\.screen\.length \+ billCount\)\}/, 'the heading counts all the bills as one while the cover counts each');
+  assert.doesNotMatch(SCREEN, /Opens a screen ·|Quick ·/, 'a second count is back beside the one');
   assert.doesNotMatch(SCREEN, /hasBills/, 'the one-for-all bill count is back');
 });

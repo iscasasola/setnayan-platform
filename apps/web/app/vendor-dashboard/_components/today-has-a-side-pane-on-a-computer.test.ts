@@ -68,7 +68,9 @@ test('3 · below 1280 the pane is contents and its own parts hidden; from 1280 i
   assert.match(rule[1] ?? '', /grid-column:\s*2/);
   assert.match(rule[1] ?? '', /position:\s*sticky/);
   assert.match(rule[1] ?? '', /top:\s*0/);
-  assert.match(wide, /\[data-today-first-screen\] > \[data-today-top-only\]\s*\{\s*display:\s*none;/, 'the top copy must step aside from 1280');
+  // RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): the phone's copy moved UNDER the list, so it is
+  // no longer a direct child of the first screen — the rule that steps it aside from 1280 matches it wherever it sits.
+  assert.match(wide, /\[data-today-first-screen\] \[data-today-top-only\]\s*\{\s*display:\s*none;/, 'the top copy must step aside from 1280');
 });
 
 test('4 · Verified only once checked, and it opens the one paper place', () => {

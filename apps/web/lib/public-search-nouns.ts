@@ -21,7 +21,7 @@
 // server-only module cannot cross into a client component, and a value
 // exported from a 'use client' module arrives at a Server Component as a
 // client-reference proxy rather than the real value (the RSC value-export
-// gotcha `stories-search-config.ts` already documents). This module is
+// gotcha). This module is
 // importable from both, which is why the shared constant lives here and not
 // beside either consumer.
 

@@ -219,3 +219,65 @@ test('the app\'s read of the live count answers only for the caller\'s own shop'
     await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
   }
 });
+
+/**
+ * ⏳ THE "+1" ADD-ONS LAST 28 DAYS PER PAYMENT TOO (review 2026-11-19: "counts every paid add-on order with no 28-day
+ * expiry"). A paid `vendor_extra_category__<id>` order with its window; `endsInDays` < 0 = already ran out; null = an
+ * order with no window at all.
+ */
+async function plusOneOrder(vendor: string, prefix: string, endsInDays: number | null, status = 'paid'): Promise<void> {
+  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [vendor]);
+  await db.query(
+    `INSERT INTO public.orders (user_id, vendor_profile_id, service_key, description, requested_total_php, status, reference_code, expires_at)
+     VALUES ($1, $2, $3, '+1 add-on', 1, $4, 'SN' || upper(substr(md5(random()::text), 1, 8)),
+             CASE WHEN $5::int IS NULL THEN NULL ELSE now() + make_interval(days => $5::int) END)`,
+    [owner.rows[0]!.user_id, vendor, `${prefix}${vendor}`, status, endsInDays],
+  );
+}
+
+test('A "+1" ADD-ON COUNTS ONLY THE PAID PERIODS THAT STILL COVER TODAY — the recount lowers a lapsed one', async () => {
+  const ultra = await newVendor('plus-one-recount', 'enterprise');
+  await plusOneOrder(ultra, 'vendor_extra_category__', 20); // live
+  await plusOneOrder(ultra, 'vendor_extra_category__', 2); // live — it stacks
+  await plusOneOrder(ultra, 'vendor_extra_category__', -1); // ⏳ ran out — must not count
+  await plusOneOrder(ultra, 'vendor_extra_category__', 20, 'refunded'); // refunded — must not count
+  await plusOneOrder(ultra, 'vendor_extra_category__', null); // no window — grants nothing
+  await plusOneOrder(ultra, 'vendor_extra_waitlist__', -3); // the only wait-list one ran out
+  // The counts the old recompute would have stored: every paid order, forever.
+  await db.query(`ALTER TABLE public.vendor_profiles DISABLE TRIGGER USER`);
+  try {
+    await db.query(
+      `UPDATE public.vendor_profiles SET extra_parent_categories = 4, extra_waitlist_acceptances = 1 WHERE vendor_profile_id = $1`,
+      [ultra],
+    );
+  } finally {
+    await db.query(`ALTER TABLE public.vendor_profiles ENABLE TRIGGER USER`);
+  }
+  const changed = await db.query<{ n: number }>(`SELECT public.recount_vendor_count_addons() AS n`);
+  assert.ok(changed.rows[0]!.n >= 1, 'the recount changed no shop');
+  const after1 = await db.query<{ c: number; w: number }>(
+    `SELECT extra_parent_categories AS c, extra_waitlist_acceptances AS w FROM public.vendor_profiles WHERE vendor_profile_id = $1`,
+    [ultra],
+  );
+  assert.equal(after1.rows[0]!.c, 2, 'a lapsed, refunded or window-less "+1" category still counted');
+  assert.equal(after1.rows[0]!.w, 0, 'a lapsed "+1" wait list place still counted');
+  // Idempotent: a second run changes nothing for this shop.
+  await db.query(`SELECT public.recount_vendor_count_addons()`);
+  const after2 = await db.query<{ c: number }>(`SELECT extra_parent_categories AS c FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [ultra]);
+  assert.equal(after2.rows[0]!.c, 2);
+});
+
+test('the "+1" recount is the service role\'s alone — a signed-in shop cannot raise or reset its own count', async () => {
+  const shop = await newVendor('plus-one-recount-auth', 'enterprise');
+  const owner = await db.query<{ user_id: string }>(`SELECT user_id FROM public.vendor_profiles WHERE vendor_profile_id = $1`, [shop]);
+  await setAuthUid(db, owner.rows[0]!.user_id);
+  await db.query(`SELECT set_config('request.jwt.claim.role', 'authenticated', false)`);
+  await db.exec(`SET ROLE authenticated`);
+  try {
+    await assert.rejects(() => db.query(`SELECT public.recount_vendor_count_addons()`), /permission denied/);
+  } finally {
+    await db.exec(`RESET ROLE`).catch(() => {});
+    await setAuthUid(db, null);
+    await db.query(`SELECT set_config('request.jwt.claim.role', '', false)`);
+  }
+});

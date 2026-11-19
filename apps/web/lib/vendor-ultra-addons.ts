@@ -271,12 +271,26 @@ export async function fetchLiveUltraAddOns(supabase: SupabaseClient, vendorProfi
   }
 }
 
-/** The window one Ultra Add-on payment buys, in days (owner 2026-11-19: "2490 / 4 weeks"). */
+/** The window one add-on payment buys, in days (owner 2026-11-19: "2490 / 4 weeks"; 2026-11-06: "per 4 weeks"). */
 export const ULTRA_ADDON_PERIOD_DAYS = 28;
 
-/** When one Ultra Add-on payment approved at `approvedAtMs` stops counting — approval + 28 days, ISO. Pure. */
-export function ultraAddOnWindowEnd(approvedAtMs: number): string {
+/** When one add-on payment approved at `approvedAtMs` stops counting — approval + 28 days, ISO. Pure. */
+export function addOnWindowEnd(approvedAtMs: number): string {
   return new Date(approvedAtMs + ULTRA_ADDON_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** The Ultra Add-on's window — the same 28 days as every add-on ({@link addOnWindowEnd}). */
+export const ultraAddOnWindowEnd = addOnWindowEnd;
+
+/**
+ * ⏳ DOES THIS PAID PERIOD STILL COVER NOW? — the rule `recomputeVendorAddOnCount` and the database's
+ * `recount_vendor_count_addons()` / `vendor_live_ultra_addons()` all apply: a window that ends AFTER now counts; one
+ * that has ended, or an order with no window at all, does not (withholding, never granting). Pure.
+ */
+export function addOnPeriodCoversNow(expiresAt: string | null | undefined, nowMs: number): boolean {
+  if (typeof expiresAt !== 'string' || expiresAt.length === 0) return false;
+  const end = Date.parse(expiresAt);
+  return Number.isFinite(end) && end > nowMs;
 }
 
 /**

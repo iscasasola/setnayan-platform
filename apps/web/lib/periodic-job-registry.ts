@@ -121,6 +121,12 @@ export const VENUE_PROBE_SWEEP_GAP_MS = 60 * 60 * 1000;
 export const SUPPLIER_PAGE_PUBLISH_GAP_MS = 60 * 60 * 1000;
 
 /**
+ * The "+1" add-on recount (review 2026-11-19): a paid 28-day window that lapses fires no order event, so this run is
+ * what lowers the stored count. Hourly — a lapsed add-on grants its room for at most about an hour.
+ */
+export const COUNT_ADDON_RECOUNT_GAP_MS = 60 * 60 * 1000;
+
+/**
  * 🏅 The badge-reward backstop (owner 2026-11-15, DECISION_LOG "SUPPLIER BADGES, SEALS AND REWARDS": *"plus a
  * claim_periodic_job backstop sweep"*). A reward is paid from `after()` the moment a count moves; this daily sweep
  * pays any whose after() was lost (shops whose counts moved in the last four days, `lib/badge-earned.server.ts`).
@@ -503,6 +509,18 @@ export const PERIODIC_JOBS: readonly PeriodicJob[] = [
     gapMs: DAILY_GAP_MS,
     what: 'Re-reading the public star ratings so a review from an event with an overdue booking-fee top-up stops counting',
     reportsCount: false,
+  },
+  {
+    /*
+      ⏳ A "+1" ADD-ON LASTS 28 DAYS PER PAYMENT (review 2026-11-19). Its count is stored on vendor_profiles and the
+      activation hook recomputes it from the paid windows — but a window that simply runs out fires no hook. This
+      re-counts every shop holding one, so a lapsed add-on stops raising the plan's allowance.
+    */
+    key: 'count-addon-recount',
+    kind: 'operational',
+    gapMs: COUNT_ADDON_RECOUNT_GAP_MS,
+    what: 'Lowering a supplier’s "+1" add-on counts when a paid 28-day window lapses',
+    reportsCount: true,
   },
   {
     /*

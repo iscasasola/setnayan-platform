@@ -28,6 +28,8 @@ import {
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
   ULTRA_ADDON_PERIOD_DAYS,
+  addOnPeriodCoversNow,
+  addOnWindowEnd,
   ultraAddOnWindowEnd,
   ultraAddOnsFromRows,
 } from './vendor-ultra-addons';
@@ -145,7 +147,34 @@ test('ONE PAYMENT BUYS 28 DAYS, NOT FOREVER — the window the activation hook s
   assert.equal(ultraAddOnWindowEnd(approved), '2026-12-17T08:00:00.000Z');
   // The hook stamps that window on the order, and the live count reads only paid orders inside it.
   const hook = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
-  assert.match(hook, /if \(target\.kind === 'ultra'\) \{[\s\S]*?ultraAddOnWindowEnd\(Date\.now\(\)\)[\s\S]*?\.update\(\{ expires_at: expiresAt \}\)/);
+  // Every count add-on — the Ultra Add-on AND the "+1"s — gets that window, before the Ultra early return.
+  assert.match(hook, /const expiresAt = addOnWindowEnd\(Date\.now\(\)\);[\s\S]{0,200}?\.update\(\{ expires_at: expiresAt \}\)[\s\S]{0,200}?\.is\('expires_at', null\)[\s\S]*?if \(target\.kind === 'ultra'\) \{/);
   const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
   assert.match(sql, /o\.status = 'paid'\s+AND o\.expires_at IS NOT NULL\s+AND o\.expires_at > now\(\)/, 'the live count is not "paid AND in window"');
+});
+
+test('A "+1" ADD-ON COUNTS ONLY THE PAID PERIODS THAT STILL COVER TODAY — never every paid order ever (review 2026-11-19)', () => {
+  const now = Date.parse('2026-11-19T08:00:00Z');
+  const day = 24 * 60 * 60 * 1000;
+  // Three paid orders: approved 3 days ago (live), 27 days ago (live, one day left), 29 days ago (lapsed).
+  const windows = [now - 3 * day, now - 27 * day, now - 29 * day].map((approved) => addOnWindowEnd(approved));
+  assert.deepEqual(windows.map((w) => addOnPeriodCoversNow(w, now)), [true, true, false]);
+  assert.equal(windows.filter((w) => addOnPeriodCoversNow(w, now)).length, 2, 'a lapsed payment still counted');
+  // The window's last instant has ended; an order with no window or an unreadable one grants nothing.
+  assert.equal(addOnPeriodCoversNow(new Date(now).toISOString(), now), false);
+  assert.equal(addOnPeriodCoversNow(null, now), false);
+  assert.equal(addOnPeriodCoversNow('not a date', now), false);
+
+  // The recompute reads exactly that set: paid AND the window ends after now — and an unread count never writes.
+  const src = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
+  const fn = src.slice(src.indexOf('async function recomputeVendorAddOnCount('), src.indexOf('async function assertOrderOwnsVendorTarget('));
+  assert.match(fn, /\.eq\('status', 'paid'\)\s*\.gt\('expires_at', new Date\(\)\.toISOString\(\)\)/, 'the recompute counts every paid order again, with no 28-day window');
+  assert.match(fn, /if \(readErr\) throw/, 'an unread count would write 0 or a stale number over a paid one');
+
+  // When a window lapses with no order event, the database recount lowers the stored count — and a job runs it.
+  const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.recount_vendor_count_addons\(\)/);
+  assert.match(sql, /o\.status = 'paid' AND o\.expires_at > now\(\)/);
+  const job = stripComments(readFileSync(join(HERE, 'vendor-addon-recount.server.ts'), 'utf8'));
+  assert.match(job, /runClaimedJob\('count-addon-recount'[\s\S]*?rpc\('recount_vendor_count_addons'\)/);
 });

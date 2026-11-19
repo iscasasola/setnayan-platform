@@ -23,8 +23,7 @@
 -- 2 · THE PRICE. Pro's 4-week row ₱4,990 → ₱3,990 (the owner's figure). Plus ₱1,490 and Ultra ₱9,990 are unchanged.
 --     The yearly row follows the STANDING rule — owner 2026-11-04, "EVERY 4-WEEK PURCHASE HAS A YEARLY PRICE = 10× THE
 --     4-WEEK PRICE" (held by a-year-is-ten-four-week-cycles.db.test.ts) — so pro_vendor_annual is DERIVED in SQL as 10×
---     (₱39,900), never typed. ⚠ The owner has an open call on the yearly price ("10 payments for 13?"); if it changes,
---     that rule changes with it in one place. A price row is the catalogue, never a subscription: no order, purchase or
+--     (₱39,900), never typed. The owner ruled it (change plan §C item 2, 2026-11-19): ₱39,900 stays, by the 10× rule. A price row is the catalogue, never a subscription: no order, purchase or
 --     vendor_profiles row is written here.
 -- 3 · THE ULTRA ADD-ON — the ONE add-on: +1 branch · +15 live cards · +3 people · +50 GB, ₱2,490 per 28 days, Ultra
 --     only, may be bought more than once. A new offering type 'ultra_addon' and the SKU `vendor_ultra_addon`.
@@ -38,9 +37,11 @@
 -- 4 · SINGLE EXTRAS ARE NO LONGER OFFERED (owner: "they only buy the … pack"). The APP stops offering a NEW extra seat
 --     or extra branch. ⚠ Their catalogue rows are deliberately LEFT ACTIVE here: a shop that already pays for an extra
 --     seat or branch renews it at that row's price (`renewBranch` and the seat renewal read an ACTIVE row), and the
---     owner ruled that no existing subscriber's price or limits move until §C. Switching them off is §C's call.
+--     owner ruled (§C item 3, 2026-11-19) they renew until they lapse and are never sold new — the app hides them from
+--     purchase; the rows stay active for renewals only.
 --
--- RLS unchanged · no new table or column · no write to any shop's, order's or subscription's row.
+-- RLS unchanged · no new table or column · no subscription row is written. Section 5 writes only `orders.expires_at` on
+-- paid "+1" add-on orders that had none, and re-counts those add-ons' stored counts from the live windows.
 -- 🛑 NEVER APPLIED BY HAND. The pipeline (`supabase db push --include-all`) applies it. Idempotent.
 -- ============================================================================
 
@@ -332,5 +333,85 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.enforce_supplier_storage_allowance() FROM PUBLIC, anon, authenticated;
+
+-- ── 5 · the "+1" add-ons last 28 days per payment too ───────────────────────
+-- Review 2026-11-19: `recomputeVendorAddOnCount` counted EVERY paid "+1" add-on order (category · service card · wait
+-- list · booking per date — ₱ per 4 weeks, owner 2026-11-06), with no expiry, so one payment raised the allowance
+-- forever. Now each order carries its window like the Ultra Add-on (the activation hook stamps approval + 28 days) and
+-- the count is the paid orders whose window covers now().
+--
+-- 5a · every paid "+1" order approved before this shipped gets its window: its first `service_activated` ledger row
+--      (the approval) + 28 days, or — with no such row — the order's own created_at + 28 days (earlier than any
+--      approval, so it withholds rather than grants). An order that already has a window is never moved.
+UPDATE public.orders o
+   SET expires_at = COALESCE(
+         (SELECT min(l.created_at)
+            FROM public.order_ledger l
+           WHERE l.order_id = o.order_id
+             AND l.event_type = 'service_activated'),
+         o.created_at
+       ) + interval '28 days'
+ WHERE o.status = 'paid'
+   AND o.expires_at IS NULL
+   AND (o.service_key LIKE 'vendor\_extra\_category\_\_%'
+        OR o.service_key LIKE 'vendor\_extra\_service\_card\_\_%'
+        OR o.service_key LIKE 'vendor\_extra\_waitlist\_\_%'
+        OR o.service_key LIKE 'vendor\_extra\_booking\_per\_date\_\_%');
+
+-- 5b · THE RECOUNT — a window that lapses fires no order event, so the stored counts are re-counted from the live
+--      windows. Service role only (the `count-addon-recount` job, hourly); it only touches shops holding a count, and
+--      writes only a count that changed. Returns the number of shops changed.
+CREATE OR REPLACE FUNCTION public.recount_vendor_count_addons()
+RETURNS int
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_rows int;
+BEGIN
+  WITH live AS (
+    SELECT vp.vendor_profile_id,
+           (SELECT count(*) FROM public.orders o
+             WHERE o.service_key = 'vendor_extra_category__' || vp.vendor_profile_id::text
+               AND o.status = 'paid' AND o.expires_at > now())::int AS cat,
+           (SELECT count(*) FROM public.orders o
+             WHERE o.service_key = 'vendor_extra_service_card__' || vp.vendor_profile_id::text
+               AND o.status = 'paid' AND o.expires_at > now())::int AS card,
+           (SELECT count(*) FROM public.orders o
+             WHERE o.service_key = 'vendor_extra_waitlist__' || vp.vendor_profile_id::text
+               AND o.status = 'paid' AND o.expires_at > now())::int AS wait,
+           (SELECT count(*) FROM public.orders o
+             WHERE o.service_key = 'vendor_extra_booking_per_date__' || vp.vendor_profile_id::text
+               AND o.status = 'paid' AND o.expires_at > now())::int AS bpd
+      FROM public.vendor_profiles vp
+     WHERE COALESCE(vp.extra_parent_categories, 0) > 0
+        OR COALESCE(vp.extra_services_per_leaf, 0) > 0
+        OR COALESCE(vp.extra_waitlist_acceptances, 0) > 0
+        OR COALESCE(vp.extra_bookings_per_date, 0) > 0
+  )
+  UPDATE public.vendor_profiles vp
+     SET extra_parent_categories    = live.cat,
+         extra_services_per_leaf    = live.card,
+         extra_waitlist_acceptances = live.wait,
+         extra_bookings_per_date    = live.bpd
+    FROM live
+   WHERE vp.vendor_profile_id = live.vendor_profile_id
+     AND (COALESCE(vp.extra_parent_categories, 0), COALESCE(vp.extra_services_per_leaf, 0),
+          COALESCE(vp.extra_waitlist_acceptances, 0), COALESCE(vp.extra_bookings_per_date, 0))
+         IS DISTINCT FROM (live.cat, live.card, live.wait, live.bpd);
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  RETURN v_rows;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.recount_vendor_count_addons() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.recount_vendor_count_addons() TO service_role;
+
+COMMENT ON FUNCTION public.recount_vendor_count_addons() IS
+  'Re-counts the four "+1" add-on counts on vendor_profiles (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the paid orders whose 28-day window (orders.expires_at) still covers now — a payment buys 28 days, never forever (review 2026-11-19). Run hourly by the count-addon-recount job (service role); returns the shops whose count changed.';
+
+-- 5c · the same once now, so a lapsed window from before this shipped stops counting at once.
+SELECT public.recount_vendor_count_addons();
 
 COMMIT;

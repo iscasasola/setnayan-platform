@@ -21,7 +21,7 @@ import {
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
   type CountAddOnKind,
-  ultraAddOnWindowEnd,
+  addOnWindowEnd,
 } from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive } from '@/lib/entitlements';
@@ -2001,23 +2001,29 @@ async function recomputeVendorExtraSeats(
 /**
  * ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES") — recompute ONE paid count on vendor_profiles
  * (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the
- * shop's PAID `<prefix><vendor_profile_id>` orders, exactly as {@link recomputeVendorExtraSeats} does for seats: on
- * activation the just-paid order is counted in, on reversal the refunded one has already left 'paid', so the same
- * recompute lowers it. Idempotent and self-healing. Throws on the write so the caller reports it.
+ * shop's PAID `<prefix><vendor_profile_id>` orders WHOSE 28-DAY WINDOW STILL COVERS NOW (`orders.expires_at > now`,
+ * stamped approval + 28 days by the activation hook). A payment buys 28 days, never forever (review 2026-11-19): a
+ * lapsed window is not counted, an order with no window is not counted (the migration gave every paid one its
+ * window), and on reversal the refunded order has already left 'paid'. Idempotent and self-healing; the database's
+ * `recount_vendor_count_addons()` (the `count-addon-recount` job) runs the same count when a window lapses with no
+ * order event. Throws on the write so the caller reports it.
  */
 async function recomputeVendorAddOnCount(
   admin: SupabaseClient,
   kind: CountAddOnKind,
   vendorProfileId: string,
 ): Promise<number> {
-  const { count } = await admin
+  const column = COUNT_ADDONS[kind].column;
+  if (column === null) return 0; // the Ultra Add-on is counted live from its orders, never stored
+  const { count, error: readErr } = await admin
     .from('orders')
     .select('order_id', { count: 'exact', head: true })
     .eq('service_key', countAddOnServiceKey(kind, vendorProfileId))
-    .eq('status', 'paid');
+    .eq('status', 'paid')
+    .gt('expires_at', new Date().toISOString());
+  // An unread count must never write a 0 over a paid one, nor a stale number: throw, the caller reports it.
+  if (readErr) throw new Error(`${COUNT_ADDONS[kind].sku} live count read failed: ${readErr.message}`);
   const paid = addOnCountFromPaid(count);
-  const column = COUNT_ADDONS[kind].column;
-  if (column === null) return 0; // the Ultra Add-on is counted live from its orders, never stored
   const { error } = await admin
     .from('vendor_profiles')
     .update({ [column]: paid })
@@ -2350,18 +2356,20 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const target = parseCountAddOnServiceKey(ctx.serviceKey);
       if (!target) return;
       await assertOrderOwnsVendorTarget(ctx, target.vendorProfileId);
-      // ⏳ THE ULTRA ADD-ON LASTS 28 DAYS PER PAYMENT (owner 2026-11-19; review: a count with no expiry kept one
-      // ₱2,490 payment forever). No stored count: THIS order gets its own window — `orders.expires_at` = approval +
-      // 28 days, the paid branch's pattern — and the live number is the database's `vendor_live_ultra_addons` (paid
-      // orders whose window covers now). Stamped once: a re-approval never moves a window already set.
+      // ⏳ EVERY ADD-ON PAYMENT BUYS 28 DAYS, NEVER FOREVER (owner 2026-11-19 "2490 / 4 weeks"; 2026-11-06 "per 4
+      // weeks"; review: a count with no expiry kept one payment forever). THIS order gets its own window —
+      // `orders.expires_at` = approval + 28 days, the paid branch's pattern. Stamped once: a re-approval never moves a
+      // window already set. The Ultra Add-on has no stored count (the database's `vendor_live_ultra_addons` reads the
+      // windows live); the "+1" counts are recomputed from the windows that still cover now
+      // ({@link recomputeVendorAddOnCount}), and `recount_vendor_count_addons()` lowers them when a window lapses.
+      const expiresAt = addOnWindowEnd(Date.now());
+      const { error: stampErr } = await ctx.admin
+        .from('orders')
+        .update({ expires_at: expiresAt })
+        .eq('order_id', ctx.orderId)
+        .is('expires_at', null);
+      if (stampErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} window stamp failed: ${stampErr.message}`);
       if (target.kind === 'ultra') {
-        const expiresAt = ultraAddOnWindowEnd(Date.now());
-        const { error: stampErr } = await ctx.admin
-          .from('orders')
-          .update({ expires_at: expiresAt })
-          .eq('order_id', ctx.orderId)
-          .is('expires_at', null);
-        if (stampErr) throw new Error(`vendor_ultra_addon window stamp failed: ${stampErr.message}`);
         await appendLedger(ctx.admin, {
           order_id: ctx.orderId,
           event_type: 'service_activated',

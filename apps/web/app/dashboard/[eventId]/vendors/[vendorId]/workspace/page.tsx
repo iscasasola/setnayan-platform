@@ -83,7 +83,8 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
-import { workColumnDefault } from '@/lib/client-next-step';
+import { coupleNextStep, workColumnDefault } from '@/lib/client-next-step';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
@@ -925,6 +926,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // STEPPER that replaces the flat PR-B installment list. Couple-RLS read (both
   // tables are the couple's own). Best-effort.
   let planProgress: PlanProgress = { steps: null, clearedAt: null };
+  // 🔎 The Next step row names an amount as DUE — so a plan it could not read is kept apart from "no plan".
+  let planProgressUnread = false;
   try {
     planProgress = await fetchPlanProgressForCouple({
       authedClient: supabase,
@@ -933,7 +936,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     });
   } catch {
     planProgress = { steps: null, clearedAt: null };
+    planProgressUnread = true;
   }
+  if (planProgress.readComplete === false) planProgressUnread = true;
 
   // 💸 B2-E · REFUNDS THIS SUPPLIER GAVE YOU (`event_vendor_refunds`, the couple's own RLS arm). The supplier records
   // them; nothing moves on Setnayan. ONE request. Refused → said in words, never "no refunds".
@@ -1326,6 +1331,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // never cross RLS). Mirrors VendorProposalsCard's query so we only ever offer
   // a "Log as service price" action for a proposal already visible to them.
   let proposalCandidates: QuoteCandidate[] = [];
+  // ➡ Next step: a sent quote nobody answered. null = the read was refused (the row then says nothing).
+  let quoteToDecide: boolean | null = false;
   if (ev.marketplace_vendor_id) {
     try {
       const { data: propRows, error: propRowsError } = await supabase
@@ -1340,6 +1347,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // ⚠ couple's answer is invisible to them.
       if (propRowsError) {
         logQueryError('VendorWorkspacePage.propRows', propRowsError, { eventId }, 'graceful_degrade');
+        quoteToDecide = null;
+      } else {
+        const statuses = ((propRows ?? []) as Array<{ status: string | null }>).map((p) => p.status);
+        quoteToDecide = !statuses.includes('accepted') && statuses.some((st) => st === 'sent' || st === 'viewed');
       }
       proposalCandidates = ((propRows ?? []) as Array<{
         proposal_id: string;
@@ -1364,6 +1375,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         );
     } catch {
       proposalCandidates = [];
+      quoteToDecide = null;
     }
   }
 
@@ -3101,6 +3113,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ]),
   ) as Record<PickedSupplierPage, ReactNode>;
 
+  // ➡ THE NEXT STEP ROW ON TOP OF CHAT (owner 19 Nov 2026 — the host's mirror of the supplier's row). Every input is a
+  // read this page already made; a stage it could not read gives no row (`coupleNextStep`).
+  // 🔒 A coordinator without Budget & payments sees no peso figure and no quote on this page (`moneyHidden`) — so the
+  // row never names either for them. A plan the supplier marked cleared has nothing due.
+  const nextDueStep = planProgress.clearedAt ? null : (planProgress.steps?.find((st) => st.state === 'due') ?? null);
+  const hostNextStep = coupleNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: deliverEventDate,
+    isBooked: stage !== null,
+    quoteToDecide: moneyHidden ? false : quoteToDecide,
+    nextDue: moneyHidden ? null : planProgressUnread ? undefined : nextDueStep ? { amountPhp: nextDueStep.amount_php, dueDate: nextDueStep.due_date } : null,
+    handoverWaiting: handoverRowsError ? undefined : handovers.some((h) => h.status === 'delivered' && !h.couple_acknowledged_at),
+  });
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3113,6 +3139,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
       landAt={pickedSupplierAnchorOf(rawLanding)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
+      nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
     />
   );

@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier Roles</title>
+<!--
+  SUPPLIER ROLES — the drawing for the owner's OK (2026-11-19). SCRIPT-FREE: no <script>, the ⓘ details are <details>.
+  Now = what /vendor-dashboard/team (HelpersView, helpers-controls.tsx) draws today, copied from the shipped copy.
+  Proposed = the delta only: a Roles page under Team, the card with the shop's own role name + branch, the invite with
+  role + branch. Tokens are the app's (globals.css: --m-paper, --m-ink, --m-slate-2, --m-line, --m-orange, mulberry CTA).
+  Map: build-sessions/SUPPLIER-ROLES-MAP-2026-11-19.md
+-->
+<style>
+  :root{
+    --paper:#FFFFFF; --paper-2:#F4F2EC; --ivory:#EDEAE0; --line:#E1DCD1; --line-soft:#EDE8DE;
+    --ink:#2C2A29; --slate-2:#6E6A62; --slate-3:#8A857B;
+    --gold:#A9834B; --gold-2:#8A6B39; --gold-4:#F3ECDF;
+    --cta:#C24E25; --ok:#2B744A; --ok-tint:#E6F1EA; --warn:#965A00; --warn-tint:#FBF1E0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper-2);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+  h1.doc{font-size:22px;margin:0 0 4px}
+  p.doc{color:var(--slate-2);margin:0 0 20px;font-size:14px}
+  .pair{margin:28px 0 8px}
+  .pair > h2{font-size:16px;margin:0 0 10px}
+  .cols{display:flex;gap:20px;flex-wrap:wrap}
+  .col{flex:0 0 390px;max-width:100%}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-bottom:6px}
+  .tag.now{background:var(--ivory);color:var(--slate-2)}
+  .tag.new{background:var(--gold-4);color:var(--gold-2)}
+  .phone{width:390px;max-width:100%;background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:8px;padding:14px 16px 6px;color:var(--slate-2);font-size:13px}
+  .scr{padding:8px 16px 18px}
+  .h1{font-size:24px;font-weight:650;margin:2px 0 4px}
+  .sub{font-size:14px;color:var(--slate-2);margin:0 0 10px}
+  .row{display:flex;align-items:center;gap:10px;min-height:60px;padding:10px 0;border-top:1px solid var(--line-soft)}
+  .row:first-child{border-top:0}
+  .grow{flex:1;min-width:0}
+  .t{font-size:15px;font-weight:600}
+  .l{font-size:13px;color:var(--slate-2)}
+  .badge{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--ivory);color:var(--slate-2);white-space:nowrap}
+  .badge.ok{background:var(--ok-tint);color:var(--ok)}
+  .pick{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:14px;white-space:nowrap}
+  .pick::after{content:"▾";color:var(--slate-3)}
+  select,input[type=text],input[type=email]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font:inherit;color:var(--ink)}
+  label.f{display:block;margin:10px 0 0}
+  label.f > span{display:block;font-size:13px;color:var(--slate-2);margin-bottom:4px}
+  .x{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;color:#B3261E}
+  .cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:14px;border-radius:14px;background:var(--cta);color:#fff;font-weight:600;font-size:15px}
+  .menu{border:1px solid var(--line);border-radius:12px;margin-top:6px;overflow:hidden}
+  .menu div{padding:10px 12px;border-top:1px solid var(--line-soft);font-size:14px}
+  .menu div:first-child{border-top:0}
+  .menu .on{background:var(--gold-4)}
+  .grow .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ava{flex:none;width:40px;height:40px;border-radius:50%;background:var(--gold-4);color:var(--gold-2);display:grid;place-items:center;font-weight:700;font-size:14px}
+  .rolename{font-size:14px;font-weight:600;color:var(--gold-2)}
+  details.i{display:inline}
+  details.i > summary{list-style:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);color:var(--slate-2);font-size:12px;cursor:pointer;vertical-align:middle}
+  details.i > summary::-webkit-details-marker{display:none}
+  details.i[open] > .pop{display:block}
+  .pop{display:none;margin:8px 0 2px;padding:10px 12px;background:var(--paper-2);border-radius:12px;font-size:13px;color:var(--slate-2)}
+  .pop b{color:var(--ink)}
+  .confirm{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;background:var(--warn-tint);color:var(--warn);vertical-align:middle}
+  .role{padding:12px 0;border-top:1px solid var(--line-soft)}
+  .role:first-of-type{border-top:0}
+  .role .top,.row{flex-wrap:wrap}
+  .role .top{display:flex;align-items:center;gap:8px}
+  .top > details.i[open], .row > details.i[open]{display:contents}
+  .top > details.i[open] > .pop, .row > details.i[open] > .pop{flex-basis:100%}
+  .role input{margin-top:8px}
+  .note{font-size:12.5px;color:var(--slate-3);margin-top:8px}
+  .legend{font-size:13px;color:var(--slate-2);background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .legend li{margin:3px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="doc">Supplier Roles — for your OK</h1>
+  <p class="doc">Now (what the Team screen draws today) beside Proposed (only what changes). 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
+
+  <div class="legend">
+    <b>The six roles (your rulings, 19 Nov)</b>
+    <ul style="margin:6px 0 0;padding-left:18px">
+      <li><b>Shop Manager</b> — sees everything, including branches.</li>
+      <li><b>Branch Manager</b> — the same, for one branch.</li>
+      <li><b>Account Manager</b> — their own clients on a branch: bookings, chat, payments, event day.</li>
+      <li><b>Marketing</b> — shop page, cards, photos, promos, ads. No bookings, no money.</li>
+      <li><b>Event Crew</b> — Hub and photos for the events they're given.</li>
+      <li><b>Helper</b> — sees the schedule, changes nothing.</li>
+    </ul>
+    <p style="margin:8px 0 0"><span class="confirm">TO CONFIRM</span> Marketing covers the whole shop (not per branch) · one person can hold two roles.</p>
+  </div>
+
+  <!-- ═════════════ (a) THE ROLES PAGE ═════════════ -->
+  <section class="pair" id="a">
+    <h2>(a) A Roles page under Team</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Helpers</div>
+            <p class="sub">Helpers and team members see Today and Clients only. Admins run the shop with you.</p>
+            <p class="l" style="margin:14px 0 4px">There is no Roles page. The only place a role is named is each person's dropdown:</p>
+            <div class="menu">
+              <div>Admin · runs the shop</div>
+              <div class="on">Team member · own work</div>
+              <div>Helper · sees the schedule</div>
+            </div>
+            <p class="note">Three fixed names, the same in every shop. No branch. A shop cannot rename them.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Team</div>
+          <div class="scr">
+            <div class="h1">Roles</div>
+            <p class="sub">What each role can do. Give it your shop's own name — it shows on every card of that role.</p>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Shop Manager</div><div class="l">Sees everything, including branches</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> the team, the plan, branches, money settings, every client and every event day.</div></details></div>
+              <input type="text" value="COO" aria-label="Your name for Shop Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Branch Manager</div><div class="l">Runs one branch, like a Shop Manager</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> that branch's clients, bookings, payments, event days and team.<br><b>Can't:</b> the plan, other branches, shop-wide money settings.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Branch Head" aria-label="Your name for Branch Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Account Manager</div><div class="l">Their own clients, from booking to event day</div></div>
+                <details class="i" open><summary>i</summary><div class="pop"><b>Can:</b> take bookings, chat, log payments and run event day — for their own clients, on their branch.<br><b>Can't:</b> other people's clients, the shop page, the plan.</div></details></div>
+              <input type="text" value="Lead Stylist" aria-label="Your name for Account Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Marketing <span class="confirm">TO CONFIRM · whole shop</span></div><div class="l">Shop page, cards, photos, promos and ads</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> edit the shop page, cards, photos, promos, ads.<br><b>Can't:</b> bookings, clients, money.</div></details></div>
+              <input type="text" value="CMO" aria-label="Your name for Marketing">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Event Crew</div><div class="l">Hub and photos for the events they're given</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> on the events you give them — the Hub and its photos.<br><b>Can't:</b> any other event, clients, money.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Coordinator" aria-label="Your name for Event Crew">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Helper <span class="badge">1 free</span></div><div class="l">Sees the schedule, changes nothing</div></div>
+                <details class="i"><summary>i</summary><div class="pop">One Helper is free on every plan.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Runner" aria-label="Your name for Helper">
+            </div>
+
+            <p class="note">A blank box keeps the fixed name. Renaming changes only the words — what the role can do stays the same.</p>
+            <span class="cta">Save names</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (b) THE TEAM MEMBER CARD ═════════════ -->
+  <section class="pair" id="b">
+    <h2>(b) A team member's card</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Helpers</div>
+            <div class="row">
+              <div class="grow"><div class="t">Ana Reyes</div><div class="l">You</div></div>
+              <span class="badge ok">Owner</span>
+            </div>
+            <div class="row">
+              <div class="grow"><div class="t">Bea Santos</div><div class="l">Front desk · bea@example.com</div></div>
+              <span class="pick">Team member · own work</span>
+              <span class="x" aria-label="Remove">✕</span>
+            </div>
+            <div class="row">
+              <div class="grow"><div class="t">Carlo Cruz</div><div class="l">carlo@example.com</div></div>
+              <span class="pick">Helper · sees…</span>
+              <span class="x" aria-label="Remove">✕</span>
+            </div>
+            <p class="note">No branch on the card. The line under the name is a free-text "What they do".</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Team</div>
+            <div class="row">
+              <span class="ava">AR</span>
+              <div class="grow"><div class="t">Ana Reyes</div><div class="rolename">COO</div><div class="l">Whole shop · You</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <div class="row" style="flex-wrap:wrap">
+              <span class="ava">BS</span>
+              <div class="grow"><div class="t">Bea Santos</div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · Front desk</div></div>
+              <details class="i" open><summary>i</summary><div class="pop">Role: <b>Account Manager</b> — their own clients, from booking to event day. "Lead Stylist" is your shop's name for it.</div></details>
+            </div>
+            <div class="row">
+              <span class="ava">DL</span>
+              <div class="grow"><div class="t">Dina Lim</div><div class="rolename">CMO</div><div class="l">Whole shop</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <div class="row">
+              <span class="ava">CC</span>
+              <div class="grow"><div class="t">Carlo Cruz</div><div class="rolename">Helper</div><div class="l">Cebu branch</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <p class="note">Your name for the role (gold) · the branch · the fixed role behind ⓘ. The same card shows wherever the person appears — Clients, a booking, event day. Tapping a card opens the same Role ▾ · Branch ▾ as the invite (c), and ✕ Remove.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (c) INVITING A PERSON ═════════════ -->
+  <section class="pair" id="c">
+    <h2>(c) Inviting a person — role(s) + branch</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="scr" style="padding-top:18px">
+            <div class="t" style="font-size:17px">Invite a helper</div>
+            <p class="l" style="margin:4px 0 0">They sign in on their own phone with their Setnayan account. 1 of 3 used · 1 Helper free on every plan.</p>
+            <label class="f"><span>Email</span><input type="email" placeholder="name@example.com"></label>
+            <label class="f"><span>They can</span>
+              <select><option>Helper · sees the schedule</option><option>Team member · own work</option><option>Admin · runs the shop</option></select></label>
+            <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
+            <span class="cta">Send invite</span>
+            <p class="note">No branch. One role.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="scr" style="padding-top:18px">
+            <div class="t" style="font-size:17px">Invite to your team</div>
+            <p class="l" style="margin:4px 0 0">They sign in on their own phone with their Setnayan account. 1 of 3 used · 1 Helper free on every plan.</p>
+            <label class="f"><span>Email</span><input type="email" placeholder="name@example.com"></label>
+            <label class="f"><span>Role <details class="i"><summary>i</summary><div class="pop">Shows your shop's name for each role, with the fixed role beside it. Rename them on Team › Roles.</div></details></span>
+              <select>
+                <option>COO · Shop Manager</option>
+                <option>Branch Manager</option>
+                <option selected>Lead Stylist · Account Manager</option>
+                <option>CMO · Marketing</option>
+                <option>Event Crew</option>
+                <option>Helper · sees the schedule</option>
+              </select></label>
+            <label class="f"><span>Also <span class="confirm">TO CONFIRM · two roles</span></span>
+              <select><option>No second role</option><option>CMO · Marketing</option><option>Event Crew</option></select></label>
+            <label class="f"><span>Branch <details class="i"><summary>i</summary><div class="pop">Asked only for Branch Manager, Account Manager, Event Crew and Helper, and only when your shop has two or more locations. Shop Manager and Marketing cover the whole shop.</div></details></span>
+              <select><option>Main · Quezon City</option><option selected>Makati branch</option><option>Cebu branch</option></select></label>
+            <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
+            <span class="cta">Send invite</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

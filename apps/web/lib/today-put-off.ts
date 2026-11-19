@@ -17,6 +17,8 @@
 
 /** A Today row key the record may hold — the same shape the table's CHECK allows. */
 export const PUT_OFF_KEY = /^[A-Za-z0-9_-]{1,120}$/;
+/** An admin Focus row key (`<queue>:<item id>` · `<queue>:queue`) — the same shape `admin_focus_put_offs` allows. */
+export const FOCUS_PUT_OFF_KEY = /^[A-Za-z0-9_:.-]{1,160}$/;
 
 /** The words the drawing uses (V3 · 2 · 2b), in one place. */
 export const PUT_OFF_WORDS = {
@@ -46,10 +48,10 @@ export type PutOffRecord = { task_key: string; until_day: string };
  * The records that still hold a task off Today. `null` = the records could NOT be read — then no task is held off
  * (every task stays listed, which is the honest side: an unread record never hides work).
  */
-export function activePutOffs(rows: readonly PutOffRecord[] | null, todayIso: string): Set<string> {
+export function activePutOffs(rows: readonly PutOffRecord[] | null, todayIso: string, keyShape: RegExp = PUT_OFF_KEY): Set<string> {
   const out = new Set<string>();
   for (const r of rows ?? []) {
-    if (typeof r?.task_key !== 'string' || !PUT_OFF_KEY.test(r.task_key)) continue;
+    if (typeof r?.task_key !== 'string' || !keyShape.test(r.task_key)) continue;
     if (typeof r.until_day !== 'string' || !ISO_DAY.test(r.until_day.slice(0, 10))) continue;
     if (r.until_day.slice(0, 10) > todayIso) out.add(r.task_key);
   }

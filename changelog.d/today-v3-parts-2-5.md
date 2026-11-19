@@ -34,3 +34,14 @@ SPEC IMPACT: None — builds the ruled drawing (DECISION_LOG 2026-11-19 "TODAY v
   nothing is accepted by silence.
 - Migration `20271353451673` (RLS at CREATE TABLE): `event_supplier_story_shares`, `supplier_event_wrap_ups`, the
   silence column. New guards: `today-wrap-up-is-one-card.test.ts`, `lib/today-wrap-up.test.ts`.
+
+**Part 4 — admin Focus, same rules.**
+- One list by urgency from the queue's own clock (`computeDueState`): red · Overdue, amber · Soon (newly shown), then
+  the rest. The Reply · N / Fix · N headings go; each row keeps its ↩ or ! mark and wears its word.
+- A tap opens the item's card in place, where it sits (the shipped `RequestCardView`; still `?card=`). The sheet over the
+  list (`FocusCardSheet`) is no longer used by Focus's list. A list worked on its own page opens to its count and one
+  sentence, with "Open in page ›" as its action.
+- Drag right = the item's page; drag left = "Do it tomorrow" for THAT admin only, with Undo; a red item springs back.
+  The gesture is now shared (`app/_components/two-way-drag.tsx`) by Today and Focus.
+- Migration `20271354133662_admin_focus_put_offs.sql` (RLS: own rows, admins only). `todayPutOff` gains `scope: 'admin'`
+  — still ONE route. New guards: `app/admin/focus-opens-in-place.test.ts`, `lib/admin/focus-urgency.test.ts`.

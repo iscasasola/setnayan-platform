@@ -24,19 +24,21 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 const ROW = read('today-v2-client.tsx');
+const DRAG = read('../../_components/two-way-drag.tsx');
 const V2 = read('today-v2.tsx');
 const ACTION = read('../../_actions/today-put-off-actions.ts');
 const READS = read('../../../lib/supplier-today-v2.server.ts');
 const ASSEMBLE = read('today-v2-assemble.tsx');
 
 test('1 · the shipped gesture, in both directions', () => {
-  assert.match(ROW, /import \{ SWIPE_REVEAL_PX, swipeBegin, swipeMove, type SwipeDrag \} from '@\/app\/_components\/swipe-to-delete';/, 'the row grew a second gesture instead of the shipped one');
+  assert.match(DRAG, /import \{ SWIPE_REVEAL_PX, swipeBegin, swipeMove, type SwipeDrag \} from '@\/app\/_components\/swipe-to-delete';/, 'the drag grew a second gesture instead of the shipped one');
+  assert.match(ROW, /import \{ TwoWayPanes, useTodayDrag \} from '@\/app\/_components\/two-way-drag';/, 'Today’s row grew its own drag');
   assert.match(ROW, /transition: dragging \? 'none' : 'transform var\(--sn-m-swipe-snap\) var\(--sn-m-settle\)'/, 'the snap-back is not the shipped Release');
-  assert.match(ROW, /setTx\(dragOffset\(t\.clientX - next\.x, red, SWIPE_REVEAL_PX\)\)/);
+  assert.match(DRAG, /setTx\(dragOffset\(t\.clientX - next\.x, red, SWIPE_REVEAL_PX\)\)/);
 });
 
 test('2 · right opens, left is tomorrow, red is refused out loud — and only a closed row drags', () => {
-  assert.match(ROW, /if \(outcome === 'open'\) onOpen\(\);\s*else if \(outcome === 'tomorrow'\) onTomorrow\(\);\s*else if \(outcome === 'refused'\) onRefuse\(\);/);
+  assert.match(DRAG, /if \(outcome === 'open'\) onOpen\(\);\s*else if \(outcome === 'tomorrow'\) onTomorrow\(\);\s*else if \(outcome === 'refused'\) onRefuse\(\);/);
   assert.match(ROW, /onOpen: \(\) => \(href \? router\.push\(href\) : undefined\)/, 'a drag right does not open the task’s page');
   assert.match(ROW, /onTomorrow: \(\) => g\?\.putOff\(rowKey\)/);
   assert.match(ROW, /refuse: \(\) => say\(PUT_OFF_WORDS\.refused, 'note'\)/, 'a refused drag is silent');

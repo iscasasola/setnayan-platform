@@ -130,7 +130,8 @@ test('the wizard renders exactly five screens, and only the last one submits', (
   for (const gate of [
     "step === 1 ? 'space-y-4' : 'hidden'",
     "step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'",
-    "step === CHECK_STEP ? 'grid' : 'hidden'",
+    // Check your shop: its lines are drawn only on its screen, each fact opening in place under its line.
+    'step === CHECK_STEP\n              ? rows.map((r) => {',
     "step === CARD_STEP ? 'space-y-4' : 'hidden'",
     "step === TOTAL_STEPS ? 'space-y-4' : 'hidden'",
   ]) {
@@ -379,7 +380,7 @@ test('signed out, the wizard asks for a password and the agreement on the accoun
   assert.ok(/\{guest \? \(\s*<div className="max-w-\[620px\] space-y-1">[^]*?name=\{TERMS_FIELD\}/.test(WIZARD), 'the terms box is not gated on `guest`');
   const accountPanel = WIZARD.indexOf("step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'");
   const terms = WIZARD.indexOf('name={TERMS_FIELD}');
-  const checkPanel = WIZARD.indexOf("step === CHECK_STEP ? 'grid' : 'hidden'");
+  const checkPanel = WIZARD.indexOf('data-onboarding-check=""');
   assert.ok(accountPanel !== -1 && accountPanel < terms && terms < checkPanel, 'the terms box is not on the account screen');
   // and the box is UNTICKED — no defaultChecked anywhere near it (clickwrap, CTRL-B3)
   const termsBlock = WIZARD.slice(WIZARD.indexOf('name={TERMS_FIELD}'), WIZARD.indexOf('name={TERMS_FIELD}') + 200);

@@ -320,6 +320,7 @@ export async function buildPersonalDataExport(
     ownMoodBoardChangesRes,
     ownFeeDisputesRes,
     ownPollVotesRes,
+    ownFocusPutOffsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -887,6 +888,13 @@ export async function buildPersonalDataExport(
       .select('poll_id, choice_id, thread_id, voted_at')
       .eq('voter_user_id', user.id)
       .order('voted_at', { ascending: true }),
+    // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271354133662).
+    // Owner-scoped on user_id: which Focus item, until which day. Nobody else's record is in it.
+    supabase
+      .from('admin_focus_put_offs')
+      .select('item_key, until_day, put_off_at')
+      .eq('user_id', user.id)
+      .order('put_off_at', { ascending: true }),
   ]);
 
   /*
@@ -1208,6 +1216,7 @@ export async function buildPersonalDataExport(
   const ownMoodBoardChanges = listOutcome('mood_board_changes_made', ownMoodBoardChangesRes);
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
+  const ownFocusPutOffs = listOutcome('admin_focus_put_offs', ownFocusPutOffsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1365,6 +1374,7 @@ export async function buildPersonalDataExport(
     ownMoodBoardChanges,
     ownFeeDisputes,
     ownPollVotes,
+    ownFocusPutOffs,
     // ⚠ These ten were read and shipped but missing from this list until
     // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
     // the silent empty this file exists to prevent. Now pinned by
@@ -1537,6 +1547,8 @@ export async function buildPersonalDataExport(
     booking_fee_disputes_raised: ownFeeDisputes.rows,
     // 🗳 The votes the subject cast on chat polls (which choice, when). Author-scoped.
     chat_poll_votes: ownPollVotes.rows,
+    // ⏭ An admin's own Focus items put off with "Do it tomorrow". Owner-scoped.
+    admin_focus_put_offs: ownFocusPutOffs.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

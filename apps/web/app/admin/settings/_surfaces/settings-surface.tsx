@@ -306,6 +306,73 @@ export async function SettingsSurface({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          {/* ⚙ Today v3 part 5 (owner 19 Nov, “Yes, all your picks”): Today’s three other numbers — blank means that rule is off. */}
+          <Field
+            label="Shared photos — days of silence"
+            htmlFor="story_photo_silence_days"
+            help={
+              growLines.read
+                ? 'After a supplier wraps up an event, the photos they share to the couple’s story count as accepted after this many days with no answer. Nothing is ever removed. Leave blank to keep photos waiting until the couple answers.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="story_photo_silence_days"
+              name="story_photo_silence_days"
+              type="number"
+              min={1}
+              max={90}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.silenceDays !== null ? growLines.silenceDays : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="“Soon” — booking ask, in hours"
+            htmlFor="today_soon_ask_hours"
+            help={
+              growLines.read
+                ? 'A supplier’s Today shows a booking ask in amber, with the word “Soon”, when its window closes within this many hours. Leave blank to keep that colour off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="today_soon_ask_hours"
+              name="today_soon_ask_hours"
+              type="number"
+              min={1}
+              max={720}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.soonAskHours !== null ? growLines.soonAskHours : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="“Soon” — an event beyond tomorrow, in days"
+            htmlFor="today_soon_event_days"
+            help={
+              growLines.read
+                ? 'A booked event this many days away or fewer counts as “Soon” on a supplier’s Today. Leave blank to keep it off.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="today_soon_event_days"
+              name="today_soon_event_days"
+              type="number"
+              min={1}
+              max={60}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.soonEventDays !== null ? growLines.soonEventDays : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">

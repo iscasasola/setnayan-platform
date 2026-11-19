@@ -31,7 +31,7 @@ export type TodayV2Reads = {
   trendingCard: { title: string } | null;
   completedBookings: number | null;
   radar: DemandRadar | null;
-  cutoffs: { fewInquiries: number | null; fewBookings: number | null };
+  cutoffs: { fewInquiries: number | null; fewBookings: number | null; soonAskHours?: number | null };
   /** Approved, live inspiration photos — the Inspiration box's own predicates (`badge-rewards.server.ts`); null unread. */
   inspirationPhotos: number | null;
   /**
@@ -152,7 +152,7 @@ async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: str
 async function readCutoffs(admin: SupabaseClient): Promise<TodayV2Reads['cutoffs']> {
   // The admin page's own reader — one rule for "set", "not set" and "could not be read" (unread decides nothing: off).
   const g = await fetchGrowLines(admin);
-  return g.read ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings } : { fewInquiries: null, fewBookings: null };
+  return g.read ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings, soonAskHours: g.soonAskHours } : { fewInquiries: null, fewBookings: null, soonAskHours: null };
 }
 
 async function readPutOffs(supabase: SupabaseClient, vendorProfileId: string, todayIso: string): Promise<PutOffRecord[] | null> {

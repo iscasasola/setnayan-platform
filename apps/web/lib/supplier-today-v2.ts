@@ -117,8 +117,17 @@ export function isRecommendedKey(key: string): boolean {
  */
 export type TodayUrgency = { level: 'red' | 'amber'; word: 'Overdue' | 'Today' | 'Soon' };
 
-/** A desk card's level, from its own deadline. `null` = normal. */
-export function taskUrgency(card: WhatsNewCard | null, now: number): TodayUrgency | null {
+/**
+ * A desk card's level, from its own deadline. `null` = normal.
+ * v3 part 5: a booking ask (`lock_request`) wears amber "Soon" when its window (`expiresAt`, enforced by the guard
+ * trigger) closes within the owner's `soonAskHours` (Admin › Settings). Not set → never coloured.
+ */
+export function taskUrgency(card: WhatsNewCard | null, now: number, soonAskHours: number | null = null): TodayUrgency | null {
+  if (card?.kind === 'lock_request') {
+    if (soonAskHours === null || !card.expiresAt) return null;
+    const left = new Date(card.expiresAt).getTime() - now;
+    return Number.isFinite(left) && left > 0 && left <= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
   if (!card || card.kind !== 'date_change') return null;
   const ms = new Date(card.dueAt).getTime() - now;
   if (!Number.isFinite(ms)) return null;
@@ -186,6 +195,8 @@ export function splitTodayNeeds(args: {
   now?: number;
   /** v3 part 2: the keys put off until a later day ("Do it tomorrow"). Absent/unread → nothing is held off. */
   putOff?: ReadonlySet<string>;
+  /** v3 part 5: the owner's "Soon" window for a booking ask, in hours (null = not set). */
+  soonAskHours?: number | null;
 }): TodaySplit {
   const byId = new Map(args.cards.map((c) => [c.id, c] as const));
   const out: TodaySplit = { quick: [], screen: [], list: [], tomorrow: [], unread: null, recommended: [] };
@@ -202,7 +213,7 @@ export function splitTodayNeeds(args: {
     }
     const card = byId.get(n.key) ?? null;
     const mode = card ? TODAY_TASK_MODE[card.kind] : 'screen';
-    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now, args.soonAskHours ?? null), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
     // ⏭ Put off to tomorrow — unless it is red now: an urgent task is never hidden (ruled 19 Nov "yes. except urgent").
     if (args.putOff?.has(n.key) && row.urgency?.level !== 'red') {
       out.tomorrow.push(row);

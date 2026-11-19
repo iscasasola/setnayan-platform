@@ -288,3 +288,11 @@ test('T1 · v3 part 2: a task put off sits under Tomorrow, out of the count — 
   // No record (or an unread one) holds nothing off.
   assert.equal(splitTodayNeeds({ needs: [need('r1')], cards: [card('r1', 'review')], completedToGo: null, aside: new Set(), now: NOW }).tomorrow.length, 0);
 });
+
+test('S1 · v3 part 5: a booking ask is amber only inside the owner’s window — not set, never coloured', () => {
+  const ask = (h: number) => ({ ...card('a', 'lock_request'), expiresAt: new Date(NOW + h * 3_600_000).toISOString() }) as WhatsNewCard;
+  assert.deepEqual(taskUrgency(ask(10), NOW, 24), { level: 'amber', word: 'Soon' });
+  assert.equal(taskUrgency(ask(30), NOW, 24), null, 'an ask outside the window was coloured');
+  assert.equal(taskUrgency(ask(10), NOW, null), null, 'a window nobody set coloured a row');
+  assert.equal(taskUrgency(ask(-1), NOW, 24), null, 'a lapsed ask wears Soon');
+});

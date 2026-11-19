@@ -45,3 +45,12 @@ SPEC IMPACT: None — builds the ruled drawing (DECISION_LOG 2026-11-19 "TODAY v
   The gesture is now shared (`app/_components/two-way-drag.tsx`) by Today and Focus.
 - Migration `20271354133662_admin_focus_put_offs.sql` (RLS: own rows, admins only). `todayPutOff` gains `scope: 'admin'`
   — still ONE route. New guards: `app/admin/focus-opens-in-place.test.ts`, `lib/admin/focus-urgency.test.ts`.
+
+**Part 5 — Today's admin settings.**
+- Admin › Settings gains three fields beside the two grow lines: days of silence before shared photos count as
+  accepted · "Soon" for a booking ask, in hours · "Soon" for an event beyond tomorrow, in days. Blank = off; a refused
+  read locks the fields. Saved by the shipped settings action, each with its own range.
+- Migration `20271354346521_today_admin_windows.sql` adds the two "Soon" columns and fills the five ruled numbers
+  (3 · 1 · 7 · 24 · 7) ONLY WHERE STILL BLANK — an admin's number is never overwritten. ⚠ flagged for owner sign-off.
+- A booking ask now wears amber "Soon" when its window closes within the set hours.
+- New guard: `app/admin/settings/today-numbers-are-the-owners.test.ts`.

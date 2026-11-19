@@ -23,6 +23,10 @@ New per-card column `vendor_services.availability_style` (same seven-value CHECK
 by `availability-styles.test.ts`). A new card pre-fills it from the service; empty means the card behaves as today.
 Saved as one more owner-scoped part after `save_vendor_service`.
 
+The dropdown and its button show the style in plain words only ("Made to order"), never an AV code — owner, final
+drawing `spaces_final_screens_2026-11-19.html` (DECISION_LOG ba647712: "availability opens preset in plain words, no
+AV codes shown"). AV-* names stay in code and tests.
+
 Migration `20271351451190_a_card_books_by_its_own_availability_style`. Motions: none.
 
 SPEC IMPACT: None — builds the approved step 3 drawing as ruled. (Drawing copy "couples pick no date" for Always

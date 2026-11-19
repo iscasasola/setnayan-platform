@@ -2151,8 +2151,8 @@ function AvailabilityBlock({
   const options = [
     ...AVAILABILITY_STYLES.map((st) =>
       CARD_STYLES_COMING_SOON.has(st.value)
-        ? { key: st.value, label: `${st.name} · Coming soon`, disabledNote: `${st.label} — coming soon. It can't be picked yet.` }
-        : { key: st.value, label: st.name, hint: st.label },
+        ? { key: st.value, label: `${st.name} · Coming soon`, disabledNote: `${st.name} — coming soon. It can't be picked yet.` }
+        : { key: st.value, label: st.name },
     ),
     { key: 'unset', label: AVAILABILITY_NOT_SET, hint: 'Books as it does today' },
   ];
@@ -2186,7 +2186,7 @@ function AvailabilityBlock({
         <PickMenu
           label="How this card books"
           value={style ?? 'unset'}
-          buttonText={current ? `${current.name} · ${current.label}` : AVAILABILITY_NOT_SET}
+          buttonText={current ? current.name : AVAILABILITY_NOT_SET}
           options={options}
           onPick={(k) => onPick(k === 'unset' ? null : isCardPickableStyle(k) ? k : null)}
           dataAttr="data-maker-availability-style"

@@ -24,6 +24,7 @@ import {
   MAX_DECLARABLE_RADIUS_KM,
   REACH_NEEDS_VERIFIED,
   effectiveOuterRadiusKm,
+  reachAdmits,
   reachCeilingKm,
   validateServiceRadiusPair,
 } from '@/lib/vendor-service-radius';
@@ -96,4 +97,28 @@ test('the Coverage reach card has no "next plan reaches" upsell and locks an unv
   const s = code('app/vendor-dashboard/shop/_components/service-radius-fields.tsx');
   assert.doesNotMatch(s, /nextReach|ladder|reaches \$\{/, 'the next-plan upsell or its ⓘ ladder came back');
   assert.match(s, /<GetVerifiedLine title=\{COVERAGE_REACH_TITLE\} line=\{COVERAGE_REACH_LOCKED_LINE\}/);
+});
+
+test('"VERIFIED SETS ITS OWN RANGE" — a verified shop with a 20 km ring is not found by a couple 500 km away', () => {
+  const ring = effectiveOuterRadiusKm(20, true);
+  assert.equal(reachAdmits(500, ring), false, 'the shop’s own ring stopped limiting search');
+  assert.equal(reachAdmits(20, ring), true, 'standing exactly on the ring is in range');
+  assert.equal(reachAdmits(5, ring), true);
+  // No ring declared → no distance limit of its own; distance unknown → fail-open.
+  assert.equal(reachAdmits(500, effectiveOuterRadiusKm(null, true)), true);
+  assert.equal(reachAdmits(null, ring), true);
+  // Unverified reads 0 = unscoped here; `is_findable` is what keeps it out of search.
+  assert.equal(reachAdmits(500, effectiveOuterRadiusKm(200, false)), true);
+});
+
+test('both couple-search gates read the shop’s own ring, not a verification-only ceiling', () => {
+  const recs = code('lib/wizard-recommendations.ts');
+  assert.match(recs, /outer_radius_km/, 'the recs probe no longer reads the shop’s ring');
+  assert.match(recs, /reachAdmits\([\s\S]{0,200}effectiveOuterRadiusKm\(a\.outerKm, a\.verified\)/);
+  const cs = code('app/dashboard/[eventId]/vendors/_actions/category-search.ts');
+  assert.match(cs, /outer_radius_km/, 'category search no longer reads the shop’s ring');
+  assert.match(cs, /const withinRadius = reachAdmits\(dKm, radiusKm\)/);
+  for (const [name, s] of [['wizard-recommendations', recs], ['category-search', cs]] as const) {
+    assert.doesNotMatch(s, /reachCeilingKm\(/, `${name} gates on the verification ceiling alone again (∞ for every verified shop)`);
+  }
 });

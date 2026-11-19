@@ -14,7 +14,8 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createContext, useCallback, useContext, useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { PeekToast, type PeekToastTone } from '@/app/_components/toast/peek-toast';
@@ -83,6 +84,10 @@ export function FocusRow({
 }) {
   const router = useRouter();
   const list = useContext(FocusListCtx);
+  // 🎞 The shared reveal-on-open: the card opened in place is scrolled into view, as every Fold is.
+  const head = useRef<HTMLAnchorElement | null>(null);
+  const body = useRef<HTMLDivElement | null>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: head.current, end: body.current }), { cause: 'press', intentMs: 4000 });
   const red = level === 'red';
   const run = (op: 'put' | 'undo') => list?.run(op, itemKey);
   const { tx, dragging, handlers, armed } = useTodayDrag({
@@ -117,8 +122,10 @@ export function FocusRow({
         }}
       >
         <Link
+          ref={head}
           href={open ? '/admin' : openHref}
           scroll={false}
+          onClick={intend}
           aria-expanded={open}
           className="flex min-h-16 items-center gap-3 px-4 py-2.5"
           data-focus-row=""
@@ -140,7 +147,7 @@ export function FocusRow({
         </Link>
       </div>
       {open ? (
-        <div className="flex flex-col gap-2 px-4 pb-3" data-focus-card-body="">
+        <div ref={body} className="flex flex-col gap-2 px-4 pb-3" data-focus-card-body="">
           {children}
           <div className="flex flex-wrap gap-x-5" data-focus-card-foot="">
             <a href={pageHref} className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent" data-focus-open-in-page="">

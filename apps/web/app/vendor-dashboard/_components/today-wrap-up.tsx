@@ -18,6 +18,7 @@ import { useActionState, useState } from 'react';
 import { ChevronRight, Send } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow, nudgeFormRows } from '@/app/_components/form-row';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { eventFilesAction, type EventFilesState } from '@/app/_actions/event-files-actions';
 import { postVendorReply } from '../reviews/actions';
 import { WRAP_UP_STEPS, wrapUpCountLine, wrapUpSelection, type WrapUpFacts } from '@/lib/today-wrap-up';
@@ -160,16 +161,17 @@ export function TodayWrapUpBody({ facts }: { facts: WrapUpFacts }) {
             <p className="mt-2 text-[13.5px] text-[color:var(--m-slate-2)]">No photos filed for this event.</p>
           )}
           {stars.length && facts.parts.length > 1 ? (
-            <label className="mt-2 block text-[12.5px] text-[color:var(--m-slate-2)]">
+            <div className="mt-2 block text-[12.5px] text-[color:var(--m-slate-2)]">
               ★ goes to this inspiration
-              <select value={slot} onChange={(e) => setSlot(e.target.value)} className="input-field mt-1 min-h-11 w-full">
-                {facts.parts.map((p) => (
-                  <option key={p.slotKey} value={p.slotKey}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <PickMenu
+                label="★ goes to this inspiration"
+                value={slot}
+                options={facts.parts.map((p) => ({ key: p.slotKey, label: p.label }))}
+                onPick={setSlot}
+                dataAttr="data-today-wrap-part"
+                className="mt-1 w-full !min-h-11"
+              />
+            </div>
           ) : null}
           <div className="mt-2.5 flex items-center justify-between gap-3">
             <span className="text-[13px] font-semibold text-ink" data-today-wrap-count="">

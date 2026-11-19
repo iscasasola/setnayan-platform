@@ -4,4 +4,4 @@
 
 SPEC IMPACT: None.
 
-Main's own-client gift step (`own-client-gift.tsx`, `lib/own-clients.ts`) still read the retired gift price (`giftUnitPrice`, `paysGiftPrice`), which #7678 removed. It now shows each gift at its catalogue list price (`srpCentavos`), as #7678 rules. It counts its stock in a per-kind `KindCounts`, because it never reads #7678's per-pack counts. The full typecheck is clean.
+The own-client gift step is #7678's port (`377fa3d6`), taken unchanged.

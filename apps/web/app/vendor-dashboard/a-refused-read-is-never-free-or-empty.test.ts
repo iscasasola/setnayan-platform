@@ -17,10 +17,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..');
-const code = (src: string): string => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments;
 const dash = (rel: string) => code(readFileSync(join(HERE, rel), 'utf8'));
 const web = (rel: string) => code(readFileSync(join(WEB, rel), 'utf8'));
 
@@ -86,8 +87,10 @@ test('T-2 · a refused threads, meetings or quotes read makes Today’s desk say
     assert.ok(new RegExp(`const deskIncomplete =[\\s\\S]{0,200}${part.replace(/[.!]/g, (c) => `\\${c}`)}`).test(lib), `deskIncomplete must include ${part}`);
   }
   assert.match(lib, /const inquiries28 = threadsRead\.complete\s*\?/, 'a short threads read must not count fewer inquiries');
-  const refusedAsNull = [...lib.matchAll(/return null; \/\/ T-2: refused ≠ none/g)].length;
-  assert.equal(refusedAsNull, 2, `meetings and unsent quotes must return null on a refusal — found ${refusedAsNull}`);
+  for (const fn of ['fetchCoupleMeetingProposals', 'fetchUnsentQuotes']) {
+    const re = new RegExp(`vendor-overview:${fn}', error, \\{[\\s\\S]{0,80}\\}\\);\\s*return null;`);
+    assert.match(lib, re, `${fn} must return null on a refusal, never []`);
+  }
 });
 
 test('T-3 · a refused bookings read never says "No bookings yet · Add the ones you already have"', () => {

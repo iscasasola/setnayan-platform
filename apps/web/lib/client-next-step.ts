@@ -91,9 +91,9 @@ export type CoupleNextStepInputs = {
  * 🪞 THE SAME ROW ON THE HOST'S SIDE (owner 19 Nov 2026: *"let us finish these"* — the Next step row on the couple's view
  * of a supplier). One line naming the one thing that needs the HOST; tapping it opens that tab.
  *
- *   · not booked  → "Quote to decide"                → Book & Budget (the quote)
- *   · booked      → "₱242,830 due Wed, Dec 9"        → Book & Budget (the payments)
- *   · after it    → "Your handover is ready"         → Files
+ *   · not booked  → "A quote is waiting for you"     → Book & Budget (the quote)
+ *   · booked      → "Next payment ₱242,830 · due Wed, Dec 9" → Book & Budget (the payments)
+ *   · after it    → "Your files are ready"           → Files
  *
  * There is no event-week stage here: the supplier's crew call is the supplier's read, not the host's, and this row is
  * built only from reads the host's page already makes. Same rule as the supplier's: an unread stage says NOTHING.
@@ -101,11 +101,11 @@ export type CoupleNextStepInputs = {
 export function coupleNextStep(i: CoupleNextStepInputs): ClientNextStep | null {
   const day = i.eventDate && /^\d{4}-\d{2}-\d{2}/.test(i.eventDate) ? i.eventDate.slice(0, 10) : null;
   if (!i.isBooked) {
-    if (i.quoteToDecide === true) return { line: 'Quote to decide', page: 'quote', anchor: null };
+    if (i.quoteToDecide === true) return { line: 'A quote is waiting for you', page: 'quote', anchor: null };
     return null;
   }
   if (day !== null && i.todayIso > day) {
-    if (i.handoverWaiting === true) return { line: 'Your handover is ready', page: 'files', anchor: null };
+    if (i.handoverWaiting === true) return { line: 'Your files are ready', page: 'files', anchor: null };
     return null;
   }
   if (!i.nextDue) return null;
@@ -113,9 +113,9 @@ export function coupleNextStep(i: CoupleNextStepInputs): ClientNextStep | null {
   const line =
     i.nextDue.amountPhp === null
       ? dated
-        ? `A payment is due ${dated}`
-        : 'A payment is due'
-      : `${formatPhp(i.nextDue.amountPhp)}${dated ? ` due ${dated}` : ' to pay'}`;
+        ? `Next payment · due ${dated}`
+        : 'Next payment'
+      : `Next payment ${formatPhp(i.nextDue.amountPhp)}${dated ? ` · due ${dated}` : ''}`;
   return { line, page: 'quote', anchor: 'payments' };
 }
 

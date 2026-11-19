@@ -69,7 +69,7 @@ const host: CoupleNextStepInputs = {
 };
 
 test('7 · host · not booked: a quote to decide → Book & Budget; an unread proposals list says nothing', () => {
-  assert.deepEqual(coupleNextStep({ ...host, isBooked: false, quoteToDecide: true }), { line: 'Quote to decide', page: 'quote', anchor: null });
+  assert.deepEqual(coupleNextStep({ ...host, isBooked: false, quoteToDecide: true }), { line: 'A quote is waiting for you', page: 'quote', anchor: null });
   assert.equal(coupleNextStep({ ...host, isBooked: false, quoteToDecide: false }), null);
   assert.equal(coupleNextStep({ ...host, isBooked: false, quoteToDecide: null }), null);
 });
@@ -78,10 +78,10 @@ test('8 · host · booked: the next payment opens Book & Budget at the payments 
   const s = coupleNextStep({ ...host, nextDue: { amountPhp: 242830, dueDate: '2026-12-09' } });
   assert.equal(s?.page, 'quote');
   assert.equal(s?.anchor, 'payments');
-  assert.match(s!.line, /242,830 due Wed, Dec 9$/);
-  assert.match(coupleNextStep({ ...host, nextDue: { amountPhp: 5000, dueDate: null } })!.line, /5,000 to pay$/);
-  assert.equal(coupleNextStep({ ...host, nextDue: { amountPhp: null, dueDate: '2026-12-09' } })!.line, 'A payment is due Wed, Dec 9');
-  assert.equal(coupleNextStep({ ...host, nextDue: { amountPhp: null, dueDate: null } })!.line, 'A payment is due');
+  assert.match(s!.line, /^Next payment ₱242,830 · due Wed, Dec 9$/);
+  assert.match(coupleNextStep({ ...host, nextDue: { amountPhp: 5000, dueDate: null } })!.line, /^Next payment ₱5,000$/);
+  assert.equal(coupleNextStep({ ...host, nextDue: { amountPhp: null, dueDate: '2026-12-09' } })!.line, 'Next payment · due Wed, Dec 9');
+  assert.equal(coupleNextStep({ ...host, nextDue: { amountPhp: null, dueDate: null } })!.line, 'Next payment');
   assert.equal(coupleNextStep(host), null, 'nothing due: no row');
 });
 
@@ -92,7 +92,7 @@ test('9 · host · THE FAILING PATH: an unread plan is not "nothing due" and nev
 
 test('10 · host · after the event: a delivered handover not yet confirmed → Files', () => {
   const after = { ...host, todayIso: '2026-12-13' };
-  assert.deepEqual(coupleNextStep({ ...after, handoverWaiting: true }), { line: 'Your handover is ready', page: 'files', anchor: null });
+  assert.deepEqual(coupleNextStep({ ...after, handoverWaiting: true }), { line: 'Your files are ready', page: 'files', anchor: null });
   assert.equal(coupleNextStep(after), null);
   // A due is not chased from this row once the day has passed (the supplier's mirror does the same).
   assert.equal(coupleNextStep({ ...after, nextDue: { amountPhp: 1000, dueDate: '2026-12-09' } }), null);

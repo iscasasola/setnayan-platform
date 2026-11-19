@@ -22,9 +22,8 @@ import { ChosenRow } from '@/app/_components/form-row';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { pushUndo, guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { offerMaker, type OfferReply } from '@/app/vendor-dashboard/offers/actions';
-import { papersProgress } from '@/lib/locks';
 import { offerStatus, priceWords, type Offer } from '@/lib/offers';
-import { SHOP_OFFERS_UNREAD, newOfferHref, offerTitle, offersOffCard, offersOnCard, otherCardsLine, withCard, withoutCard } from '@/lib/card-shop-offers';
+import { PAPERS_ARE_IN_GET_VERIFIED, SHOP_OFFERS_UNREAD, newOfferHref, offerTitle, offersOffCard, offersOnCard, otherCardsLine, withCard, withoutCard } from '@/lib/card-shop-offers';
 
 export type CardShopOffersState =
   | { k: 'idle' }
@@ -111,7 +110,9 @@ export function CardShopOffers({
           Reading your offers…
         </p>
       ) : state.k === 'locked' ? (
-        <LockedFeature lock="offerMaker" need={{ kind: 'verify', progress: papersProgress(null) }} data="card-shop-offers-lock" />
+        // No paper count is read on this row, so none is claimed: `papersProgress(null)` would say "Couldn't read your
+        // papers" when no read was tried. The line only says where the papers are.
+        <LockedFeature lock="offerMaker" need={{ kind: 'verify', progress: PAPERS_ARE_IN_GET_VERIFIED }} data="card-shop-offers-lock" />
       ) : state.k === 'unread' ? (
         <div className="flex items-center gap-3 py-1" data-card-shop-offers-state="unread">
           <p className="min-w-0 flex-1 text-[13px] text-ink/70" role="status">

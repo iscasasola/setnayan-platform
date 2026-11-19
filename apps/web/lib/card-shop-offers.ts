@@ -58,3 +58,5 @@ export function newOfferHref(cardId: string): string {
 
 /** What the fold says when the shop's offers could not be read — never "none". A plain module, so server files may import it. */
 export const SHOP_OFFERS_UNREAD = 'Your offers could not be read just now.';
+/** The verify lock's line on the card's Shop offers row. This row reads no paper count, so it claims none. */
+export const PAPERS_ARE_IN_GET_VERIFIED = 'Send your papers in Get verified';

@@ -7,6 +7,7 @@ import { HomeSettingsGear, type HomeSettingsLanded } from './home-settings-gear'
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Count } from '@/components/count';
+import { DayTurns } from '@/app/_components/signature/day-turns';
 
 /**
  * home-cover-band.tsx — THE EVENT HOME'S COVER BAND (the name and the date line),
@@ -57,6 +58,8 @@ export type HomeCardCountdown = {
   /** "Saturday, December 12, 2026" · the place — null when there is no firm day. */
   line: string | null;
   href: string;
+  /** 🕯 The event whose days are COUNTING DOWN (a day still ahead) — Day turns plays for it; absent = it never does. */
+  turnFor?: string;
 };
 
 export function HomeCoverBand({
@@ -100,7 +103,7 @@ export function HomeCoverBand({
         /* 🖥 FROM 1280 IT IS THE FIRST COLUMN'S CARD (owner-approved 16 Nov 2026, event dashboard drawing v13 — the
            three-column board): no bleed, all four corners round, and it scrolls with its column (`xl:static`) —
            a third-width card pinned over two other columns would cover them. */
-        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_0.3s_ease-out] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 xl:static xl:mx-0 xl:mt-0 xl:rounded-3xl xl:px-6 ${card ? 'rounded-b-3xl pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_var(--sn-tuck-dur)_var(--sn-tuck-ease)] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 xl:static xl:mx-0 xl:mt-0 xl:rounded-3xl xl:px-6 ${card ? 'rounded-b-3xl pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (
@@ -123,7 +126,14 @@ export function HomeCoverBand({
           {countdown ? (
             <Link href={countdown.href} className="hc-ecard-cd" data-home-card-countdown="" aria-label={`${countdown.value}${countdown.label ? ` ${countdown.label}` : ''}${countdown.line ? ` — ${countdown.line}` : ''}`}>
               <span className={`hc-ecard-n${countdown.days !== null ? '' : ' hc-ecard-word'}`} aria-hidden>
-                {countdown.days !== null ? <Count value={countdown.days} id="home-count" /> : countdown.value}
+                {countdown.days !== null ? (
+                  countdown.turnFor ? (
+                    /* 🕯 Day turns (motion standard § 9 ⑤) — the first open on a new day; once a day. */
+                    <DayTurns eventId={countdown.turnFor} days={countdown.days}><Count value={countdown.days} id="home-count" /></DayTurns>
+                  ) : (
+                    <Count value={countdown.days} id="home-count" />
+                  )
+                ) : countdown.value}
               </span>
               <span aria-hidden className="hc-ecard-w">
                 {countdown.label}

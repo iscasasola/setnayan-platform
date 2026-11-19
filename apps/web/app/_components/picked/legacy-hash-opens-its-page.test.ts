@@ -32,24 +32,25 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(APP, rel), 'utf8'));
 
-const MENU = pickedSupplierMenuFor({ quote: true, chat: true });
+const MENU = pickedSupplierMenuFor({ chat: true });
 const IDS = MENU.map((m) => m.id);
 
-test('1 · a `#payments` link with no `?tab=` lands on Payment, not Chat', () => {
+test('1 · a `#payments` link with no `?tab=` lands on Book & Budget (Payment is a part of it since 18 Nov), not Chat', () => {
   // The server's first paint — no hash visible — is Chat; the mount read must move it.
   assert.equal(visiblePickedSupplierPage(null, MENU), 'chat');
-  assert.deepEqual(pickedPageFromUrl('', '#payments', IDS, pickedSupplierPageOf), { page: 'payments', fromHash: true });
+  assert.deepEqual(pickedPageFromUrl('', '#payments', IDS, pickedSupplierPageOf), { page: 'quote', fromHash: true });
   for (const [hash, page] of [
     ['#quotation', 'quote'],
     ['#quote', 'quote'],
-    ['#payment', 'payments'],
-    ['#forms', 'forms'],
+    ['#payment', 'quote'],
+    ['#forms', 'details'],
+    ['#inspiration', 'details'],
     ['#schedule', 'schedule'],
     ['#files', 'files'],
     ['#documents', 'files'],
     ['#details', 'details'],
     ['#chat', 'chat'],
-    ['#Payments', 'payments'],
+    ['#Payments', 'quote'],
   ] as const) {
     assert.deepEqual(pickedPageFromUrl('', hash, IDS, pickedSupplierPageOf), { page, fromHash: true }, hash);
   }
@@ -57,12 +58,12 @@ test('1 · a `#payments` link with no `?tab=` lands on Payment, not Chat', () =>
 
 test('2 · `?tab=` wins; an anchor that names no page is left alone', () => {
   assert.deepEqual(pickedPageFromUrl('?tab=chat', '#payments', IDS, pickedSupplierPageOf), { page: 'chat', fromHash: false });
-  assert.deepEqual(pickedPageFromUrl('?tab=payments', '#deposit', IDS, pickedSupplierPageOf), { page: 'payments', fromHash: false });
+  assert.deepEqual(pickedPageFromUrl('?tab=payments', '#deposit', IDS, pickedSupplierPageOf), { page: 'quote', fromHash: false });
   assert.equal(pickedPageFromUrl('', '#promote-coordinator', IDS, pickedSupplierPageOf), null);
   assert.equal(pickedPageFromUrl('', '', IDS, pickedSupplierPageOf), null);
-  // A page this menu does not offer (no Quotation for a supplier the host added) is not opened from a hash either.
-  const noQuote = pickedSupplierMenuFor({ quote: false, chat: true }).map((m) => m.id);
-  assert.equal(pickedPageFromUrl('', '#quote', noQuote, pickedSupplierPageOf), null);
+  // A page this menu does not offer (no Chat without a conversation) is not opened from a hash either.
+  const noChat = pickedSupplierMenuFor({ chat: false }).map((m) => m.id);
+  assert.equal(pickedPageFromUrl('', '#chat', noChat, pickedSupplierPageOf), null);
   // Without a side's alias table, only the page ids themselves are read.
   assert.deepEqual(pickedPageFromUrl('', '#files', IDS), { page: 'files', fromHash: true });
   assert.equal(pickedPageFromUrl('', '#quotation', IDS), null);

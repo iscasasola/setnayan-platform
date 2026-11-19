@@ -109,18 +109,19 @@ test('a view-only helper (owner 2026-09-28 · 2026-10-26) is offered no add — 
   assert.ok(count(host, 'data-typed-ways=""') + count(host, 'data-search-add=""') > 0, 'the host lost the add');
 });
 
-test('the same ways — ONE list, the imported openers — in the List’s ＋ Add ▾ AND the Map’s ≡', () => {
+test('the same ways — ONE list, the imported openers — at the List’s empty field AND in the Map’s ≡', () => {
   for (const w of WAYS) assert.ok(SHEET.includes(`label: '${w}'`), `ADD_WAYS lost "${w}"`);
   assert.match(SCREEN, /ADD_WAYS\.map\(\(w\) =>/, 'the ways are not read from the one list');
   // 3 Nov (owner, "so fix their locations" — the filter only filters): the List's ways left the ≡ for ＋ Add ▾ beside the
   // field, where hosts type new guests: Type a name · From your people · Import a file.
-  const add = SCREEN.slice(SCREEN.indexOf('const addMenu: ThumbMenu | null'), SCREEN.indexOf('const arrangeMenu: ThumbMenu'));
   const map = SCREEN.slice(SCREEN.indexOf('const arrangeMenu: ThumbMenu'), SCREEN.indexOf('const [picks, setPicks]'));
-  assert.ok(add.length > 0, 'the List’s ＋ Add ▾ moved — re-aim this guard');
-  assert.match(add, /\.\.\.addWays\.map\(/, '＋ Add ▾ does not list the ways to add');
-  assert.match(add, /pickedAddWay\(k\);/, '＋ Add ▾ does not open a picked way');
-  assert.match(add, /fieldRef\.current\?\.focus\(\)/, '“Type a name” does not put the cursor in the field (the field is still the add)');
-  assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}\s*action=\{addMenu\}/, 'the List’s thumb row does not seat ＋ Add ▾');
+  // 18–19 Nov 2026 (owner: "so we also do no need an add button because. our text box is search / add feature"): the
+  // List's ＋ Add ▾ is gone. Type a name = the field (🔍 → ＋, `field.onAdd`); the other ways stand above the EMPTY field
+  // while it has the cursor (`data-empty-ways`, the same `TypedWays` → `AddDoors`) and in the typed results.
+  assert.match(SCREEN, /right=\{\[\{ node: filterSheet \}\]\}\s*\/>/, 'the List’s thumb row seats something after Show & sort');
+  assert.match(SCREEN, /onAdd: writesOff \|\| gview !== 'list' \? undefined : addTypedOrSheet,/, 'the field is not the add');
+  assert.match(SCREEN, /\{fieldOn && !q && gview === 'list' && !selectMode && !writesOff \? \(\s*<div className=\{styles\.emptyWays\} data-empty-ways="" onPointerDown=\{holdFocus\} onMouseDown=\{holdFocus\}>\s*<TypedWays eventId=\{eventId\}/, 'the empty field does not offer the other ways');
+  assert.match(SCREEN, /<AddDoors eventId=\{eventId\} rows \/>/, 'the ways are not the shipped doors');
   assert.match(map, /extras: addWays,/, 'Arrange ≡ does not list the ways to add');
   assert.match(map, /onExtra: \(k\) => void pickedAddWay\(k\),/, 'Arrange ≡ does not open a picked way');
   assert.match(SCREEN, /openAddWay\(k\.slice\(4\) as AddWayKey, eventId,/, 'a picked way is not opened by the shared opener');

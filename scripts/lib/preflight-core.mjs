@@ -156,6 +156,9 @@ export function classifyStep(s) {
   // These two read THIS CI RUN's own results (the jobs' outcomes, a shard's
   // log). There is nothing for them to read on a builder's machine.
   if (/\bscripts\/(ci-gate|ci-test-summary)\.mjs\b/.test(run)) return { tier: 'infra', why: "reads this CI run's own results" };
+  // Posts the required checks of THIS CI run to GitHub by name. Running it on a
+  // builder's machine would post to the PR — never.
+  if (/\bscripts\/ci-report-checks\.mjs\b/.test(run)) return { tier: 'infra', why: 'posts this CI run\'s required checks by name' };
 
   if (BUILD_JOBS.has(s.job)) {
     return { tier: 'heavy', why: 'needs a production build (`next build` does not fit on the dev machine)' };
@@ -467,6 +470,7 @@ export const REGENERATE = [
   [/lint-guest-legibility/, 'after a legitimate change: pnpm -C apps/web lint:legibility -- --update-baseline'],
   [/lint-migrations-never-deleted/, 'a NEW migration → pnpm -C apps/web migrations:manifest (a missing one is a real fault)'],
   [/lint-scene-fills-its-frame/, 'node apps/web/scripts/lint-scene-fills-its-frame.mjs --write'],
+  [/lint-motion-raw/, 'a count FELL → node scripts/lint-motion-raw.mjs --write (a count that ROSE is the fault: read a --sn-m-* token / lib/motion-table.ts instead)'],
   [/lint:dup-rule/, 'use the canonical *_SELECT / shared helper; never add a baseline line (pnpm -C apps/web dup-rule:baseline only ever narrows)'],
   [/lint-exposure-baseline|exposure-freeze/, 'pnpm -C apps/web exposure:baseline (then READ the diff — every added line is new reach for anon/authenticated)'],
   [/user-fk-behaviour/, 'cd apps/web && UPDATE_FK_BEHAVIOUR=1 npx tsx --test tests/db/user-fk-behaviour.db.test.ts'],

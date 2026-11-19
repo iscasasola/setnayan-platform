@@ -21,3 +21,18 @@ Stacked on #8016.
   llms.txt (owner question), and the guard fails the day the hold is no longer needed.
 
 SPEC IMPACT: None beyond the source document, which is already in the corpus.
+
+### 2026-11-20 · update — brand lines say "celebration" (owner: "Yes, brand lines")
+
+- `lib/the-app-says-event-in-plain-words.test.ts`: "celebration" is allowed only in a NAMED list of brand-line
+  declarations (`SITE_TITLE`, `SITE_DESCRIPTION`, `organizationJsonLd.description`, the share card's
+  `baseMetadata.openGraph.images.alt`, `WHAT_IS_SETNAYAN_ANSWER`, `EMAIL_TAGLINE`) — matched by the declaration that
+  owns the string, never a pattern. Every other string in those files still fails; each named declaration must exist.
+  Sabotage-tested both ways.
+- `app/layout.tsx`: `SITE_TITLE` = "Setnayan · The home of every Filipino celebration"; `SITE_DESCRIPTION` = the
+  ruled line ending "Hosts pay 0% commission."; the Organization description says "celebration".
+  `lib/public-copy-is-not-wedding-only.test.ts` pins both exactly — the description's old "names suppliers and six
+  services" requirement became the exact pin.
+- `lib/seo/ai-answers.ts`: "What is Setnayan?" is `WHAT_IS_SETNAYAN_ANSWER`, saying "celebration".
+- `lib/help/topics-existing.ts`: /help's "What is Setnayan?" gives the meaning as "let's get that set"; the
+  retired-words guard now reads /help for it.

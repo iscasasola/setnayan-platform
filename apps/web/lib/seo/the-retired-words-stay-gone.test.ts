@@ -24,13 +24,17 @@ import { INPUT_FOR_GUARDS } from '../llms-txt-guard-input';
 import { BOOKING_FEE } from '../booking-fee';
 import { stripComments } from '../strip-comments';
 import { aiAnswers, featuresFaqAnswers, SUPPLIER_FREE_BOOKING_LINE } from './ai-answers';
+import { ALL_HELP_ARTICLES } from '../help';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
-type Surface = 'llms.txt' | 'ai-answers' | 'layout.tsx';
+type Surface = 'llms.txt' | 'ai-answers' | 'layout.tsx' | 'help';
+/** The three this PR rewrote. /help is read only for the rows that name it in `alsoOn` (its other retired lines are a
+ *  follow-up, listed on PR #8041). */
+const PRIMARY: readonly Surface[] = ['llms.txt', 'ai-answers', 'layout.tsx'];
 
 /** §11 "Remove from every page now", one row per line, each with why. */
-const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?: Surface }[] = [
+const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?: Surface; alsoOn?: readonly Surface[] }[] = [
   {
     what: 'Real Stories',
     pattern: /Real Stories|\/features\/real-stories|\/realstories\b/i,
@@ -70,6 +74,8 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
     what: '"that\'s all set" as the meaning',
     pattern: /that['’]s all set/i,
     why: 'the meaning of Set na \'yan is "let\'s get that set" (north star, 19 Nov)',
+    // /help's "What is Setnayan?" article said it too (lib/help/topics-existing.ts), fixed 20 Nov.
+    alsoOn: ['help'],
   },
   {
     what: 'Setnayan AI "in Event Plus"',
@@ -107,13 +113,18 @@ function surfaces(): Record<Surface, string> {
     .concat(withFee('true', () => featuresFaqAnswers()).map((f) => `${f.q}\n${f.a}`))
     .join('\n');
   const layout = stripComments(readFileSync(join(WEB, 'app/layout.tsx'), 'utf8'));
-  return { 'llms.txt': llms, 'ai-answers': answers, 'layout.tsx': layout };
+  // /help as it is served: every public article's title and bodies (the web body and the in-app one).
+  const help = ALL_HELP_ARTICLES.map(({ article }) => Object.values(article).filter((v) => typeof v === 'string').join('\n')).join('\n');
+  return { 'llms.txt': llms, 'ai-answers': answers, 'layout.tsx': layout, help };
 }
 
 test('no "Remove now" line of the source reaches llms.txt, the saved AI answers or the site-wide metadata', () => {
   const found: string[] = [];
-  for (const [where, text] of Object.entries(surfaces()) as [Surface, string][]) {
+  const all = surfaces();
+  assert.match(all.help, /let's get that set/, 'precondition: the /help reader found the "What is Setnayan?" article');
+  for (const [where, text] of Object.entries(all) as [Surface, string][]) {
     for (const r of REMOVE_NOW) {
+      if (!PRIMARY.includes(where) && !r.alsoOn?.includes(where)) continue;
       if (r.heldOn === where) continue;
       const m = r.pattern.exec(text);
       if (m) found.push(`${where}: ${r.what} — matched ${JSON.stringify(m[0])} — ${r.why}`);

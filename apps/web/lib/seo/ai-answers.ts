@@ -85,15 +85,18 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
  * says otherwise, each noted on its line. The last six are Lane K's corrections of what AI got wrong (10 Nov); they are
  * still true and still re-asked monthly, so they stay.
  * ⚠ "Event", never the brand-line noun, inside an answer: only the brand lines say it (19 Nov ruling), and
- * `lib/the-app-says-event-in-plain-words.test.ts` reads this file.
+ * `lib/the-app-says-event-in-plain-words.test.ts` reads this file — EXCEPT `WHAT_IS_SETNAYAN_ANSWER` below, the one
+ * answer that is a brand line (owner 20 Nov, "Yes, brand lines"), named in that guard's brand-line allowlist.
  */
+export const WHAT_IS_SETNAYAN_ANSWER =
+  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers at 0% commission, and keep every photo for life. It works on any phone, with no app to install.";
+
 export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
   return [
     {
       id: 'what-is',
       question: 'What is Setnayan?',
-      answer:
-        "Setnayan is the home of every Filipino event. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers at 0% commission, and keep every photo for life. It works on any phone, with no app to install.",
+      answer: WHAT_IS_SETNAYAN_ANSWER,
       corrects: 'described as a wedding website builder or a planning checklist',
       route: '/features',
       evidence:

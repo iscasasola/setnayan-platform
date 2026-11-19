@@ -117,6 +117,29 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'app/_components/app-store/studio-card-demo.tsx': ['Joyful celebration'],
 };
 
+/**
+ * 🏷 THE BRAND LINES — the ONLY places "celebration" is the right word (owner 19 Nov ruling: brand lines say
+ * celebration, everything else says event; confirmed for these lines 20 Nov, "Yes, brand lines", on PR #8041).
+ *
+ * 🔑 NAMED DECLARATIONS, NEVER A PATTERN. Each entry is the dotted name of the declaration that owns the string —
+ * `CONST` for `const CONST = '…'`, `obj.prop` for a property of `const obj = { prop: '…' }` (array steps are skipped).
+ * A string anywhere else in the same file — a button, a plan name, a pricing row, another AI answer — still fails.
+ * Some entries do not say "celebration" today (they are cleared to); the rot check below requires each named
+ * declaration to EXIST, so a rename cannot leave a permission pointing at nothing.
+ * ⚠ The front-page hero is drawn inline in `app/_components/frontdoor/front-door-anchor.tsx` (no named constant) and
+ * has its own guard, `the-front-door-says-event.test.ts`; it joins this list when its line moves into a constant.
+ */
+const NOUN_ALLOWED_BRAND_LINES: Record<string, string[]> = {
+  'app/layout.tsx': [
+    'SITE_TITLE', // the title of every page that sets none, and the share title
+    'SITE_DESCRIPTION', // the default description and the share card's description
+    'organizationJsonLd.description', // the Organization JSON-LD on every page
+    'baseMetadata.openGraph.images.alt', // the share card
+  ],
+  'lib/seo/ai-answers.ts': ['WHAT_IS_SETNAYAN_ANSWER'], // "What is Setnayan?" — the one answer that is a brand line
+  'lib/email-template.ts': ['EMAIL_TAGLINE'], // the tagline under every branded email
+};
+
 const T_OFFSET_ALLOWED_PATHS: Record<string, string> = {
   'app/(shell)/privacy/': 'legal text — the retention schedule; changes go through the owner',
   'app/admin/': 'owner console — not customer-facing',
@@ -139,11 +162,32 @@ function sourceFiles(): string[] {
   return out;
 }
 
+/**
+ * The dotted name of the declaration that owns a string: `SITE_TITLE`, `organizationJsonLd.description`. Walks up
+ * through property assignments (array elements are skipped) to the variable declaration; `undefined` when the string
+ * sits anywhere else — a function body, a return, a JSX child — so no brand-line permission can reach it.
+ */
+function ownerOf(n: ts.Node): string | undefined {
+  const props: string[] = [];
+  for (let p: ts.Node | undefined = n.parent; p; p = p.parent) {
+    if (ts.isPropertyAssignment(p)) {
+      if (!(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) return undefined;
+      props.unshift(p.name.text);
+    } else if (ts.isVariableDeclaration(p)) {
+      return ts.isIdentifier(p.name) ? [p.name.text, ...props].join('.') : undefined;
+    } else if (!(ts.isObjectLiteralExpression(p) || ts.isArrayLiteralExpression(p) || ts.isParenthesizedExpression(p) || ts.isAsExpression(p) || ts.isSatisfiesExpression(p))) {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
 /** Every piece of text in a file that could reach the screen, with its line. Comments and import paths are not copy. */
-function copyIn(path: string, source = readFileSync(path, 'utf8')): { text: string; line: number }[] {
+function copyIn(path: string, source = readFileSync(path, 'utf8')): { text: string; line: number; owner?: string }[] {
   const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const out: { text: string; line: number }[] = [];
-  const push = (n: ts.Node, text: string) => out.push({ text, line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1 });
+  const out: { text: string; line: number; owner?: string }[] = [];
+  const push = (n: ts.Node, text: string) =>
+    out.push({ text, line: sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1, owner: ownerOf(n) });
   const walk = (n: ts.Node) => {
     if (n.kind === ts.SyntaxKind.JsxText) push(n, n.getText(sf));
     else if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
@@ -192,12 +236,31 @@ test('no customer-facing string names the thing a "celebration"', () => {
   for (const [rel, copy] of COPY) {
     if (allowedBy(rel, NOUN_ALLOWED_PATHS)) continue;
     const keys = NOUN_ALLOWED_STRINGS[rel] ?? [];
-    for (const { text, line } of copy) {
+    const brand = NOUN_ALLOWED_BRAND_LINES[rel] ?? [];
+    for (const { text, line, owner } of copy) {
       if (!NOUN.test(text) || keys.includes(text.trim())) continue;
+      if (owner && brand.includes(owner)) continue;
       hits.push(`${rel}:${line} — ${JSON.stringify(text.replace(/\s+/g, ' ').trim().slice(0, 100))}`);
     }
   }
   assert.deepEqual(hits, [], 'House word: say "event", never "celebration" (or allow-list it here, with the reason):\n' + hits.join('\n'));
+});
+
+// The brand-line permission is a NAME, not a file: it reaches exactly the named declaration and nothing beside it.
+test('a brand-line permission covers only its named declaration', () => {
+  const src = [
+    "const SITE_TITLE = 'Setnayan · The home of every Filipino celebration';",
+    "const organizationJsonLd = { name: 'x', description: 'every Filipino celebration', other: 'a celebration' };",
+    "const BUTTON = 'Start your celebration';",
+    "export function aiAnswers() { return [{ id: 'free', answer: 'every celebration is free' }]; }",
+    "const WHAT_IS_SETNAYAN_ANSWER = 'Setnayan is the home of every Filipino celebration.';",
+  ].join('\n');
+  const owners = copyIn('x.ts', src).filter((c) => NOUN.test(c.text)).map((c) => c.owner ?? '(none)');
+  assert.deepEqual(owners, ['SITE_TITLE', 'organizationJsonLd.description', 'organizationJsonLd.other', 'BUTTON', '(none)', 'WHAT_IS_SETNAYAN_ANSWER']);
+  const allowed = ['SITE_TITLE', 'organizationJsonLd.description', 'WHAT_IS_SETNAYAN_ANSWER'];
+  const red = owners.filter((o) => !allowed.includes(o));
+  // a sibling property, a button and a non-brand AI answer all still fail
+  assert.deepEqual(red, ['organizationJsonLd.other', 'BUTTON', '(none)']);
 });
 
 test('the install manifest (name, description) never names the thing a "celebration"', () => {
@@ -218,6 +281,10 @@ test('every allow-list entry still matches something — the list cannot rot int
   for (const [rel, keys] of Object.entries(NOUN_ALLOWED_STRINGS)) {
     const copy = COPY.get(rel) ?? [];
     for (const k of keys) if (!copy.some((c) => c.text.trim() === k)) stale.push(`${rel} → ${JSON.stringify(k)}`);
+  }
+  for (const [rel, names] of Object.entries(NOUN_ALLOWED_BRAND_LINES)) {
+    const copy = COPY.get(rel) ?? [];
+    for (const name of names) if (!copy.some((c) => c.owner === name)) stale.push(`brand line ${rel} → ${name}`);
   }
   for (const p of Object.keys(T_OFFSET_ALLOWED_PATHS)) {
     if (![...COPY].some(([rel, copy]) => rel.startsWith(p) && copy.some((c) => T_OFFSET.test(c.text)))) stale.push(`T-offset path ${p}`);

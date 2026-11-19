@@ -67,7 +67,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-is-setnayan',
         title: 'What is Setnayan?',
-        body: "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan\" — \"that's all set\") is a Philippines-first platform for life's events: one free account to plan each one, run the day and keep it for life. It runs weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit, you book verified Filipino suppliers at 0% commission and pay them directly, and everything you make gathers into your Memories.",
+        body: "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is a Philippines-first platform for life's events: one free account to plan each one, run the day and keep it for life. It runs weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free with no guest limit, you book verified Filipino suppliers at 0% commission and pay them directly, and everything you make gathers into your Memories.",
       },
       {
         slug: 'how-much-does-setnayan-cost',

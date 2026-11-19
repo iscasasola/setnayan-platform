@@ -60,7 +60,7 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
   {
     what: 'the own-clients claim, in any wording ("own clients are always free", "clients a supplier brings are free")',
     pattern:
-      /own clients (?:are |stay |remain )?(?:always )?free|own clients (?:never|don['’]t|do not) (?:carry|pay)|clients (?:a|the) supplier brings (?:are|stay) free|clients you bring (?:are|stay) free/i,
+      /own clients (?:are |stay |remain )?(?:always )?(?:stay |remain )?free|own clients (?:never|don['’]t|do not) (?:carry|pay)|clients (?:a|the) supplier brings (?:are|stay) free|clients you bring(?: yourself)? (?:are |stay |remain )?(?:always )?(?:stay |remain )?free|(?:clients|couples)[^.]{0,80}\bkeep them free/i,
     why: `retired everywhere (DECISION_LOG 2026-11-19 "PROMOTION PAGES", item 4); the free booking is said only as "${SUPPLIER_FREE_BOOKING_LINE}"`,
   },
   {
@@ -86,7 +86,7 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
   {
     what: 'Setnayan AI "in Event Plus"',
     pattern:
-      /all three (?:carry|include) Setnayan AI|Setnayan AI comes inside all three|Setnayan AI (?:is )?(?:in|inside|with) Event Plus\b|Event Plus (?:adds|includes|carries|comes with) Setnayan AI/i,
+      /all three (?:carry|include) Setnayan AI|Event Plus[^.]{0,60}\ball with (?:the )?Setnayan AI|Setnayan AI comes inside all three|Setnayan AI (?:is )?(?:in|inside|with) Event Plus\b|Event Plus (?:adds|includes|carries|comes with) Setnayan AI/i,
     why: 'Setnayan AI comes with Event Pro and Event Ultra (event plans re-cut, 18 Nov)',
   },
 ];
@@ -182,6 +182,30 @@ test('the patterns are live — each one catches the words it was written for', 
     'Set na \'yan — "that\'s all set"',
     'Event Plus, Event Pro or Event Ultra — all three carry Setnayan AI',
   ];
+  // Paraphrases each row must also catch (review of 20 Nov) — the row named first must trip on every line after it.
+  const paraphrases: [string, string[]][] = [
+    [
+      'Setnayan AI "in Event Plus"',
+      ['Optional paid plans — Event Plus, Event Pro and Event Ultra, all with the Setnayan AI planner — are priced on the site'],
+    ],
+    [
+      'the own-clients claim',
+      [
+        'Your own clients always stay free.',
+        'Clients you bring yourself are always free.',
+        'Couples you bring through your own QR or link — we keep them free.',
+      ],
+    ],
+  ];
+  for (const [what, lines] of paraphrases) {
+    const row = REMOVE_NOW.find((r) => r.what.startsWith(what));
+    assert.ok(row, `no REMOVE_NOW row starts with ${what}`);
+    for (const t of lines) assert.match(t, row.pattern, `${what} misses the paraphrase: ${t}`);
+  }
+  // …and the replacement lines are not convicted.
+  for (const t of [SUPPLIER_FREE_BOOKING_LINE, 'Setnayan AI comes inside Event Pro and Event Ultra']) {
+    assert.ok(!REMOVE_NOW.some((r) => r.pattern.test(t)), `a retired pattern convicts the replacement line: ${t}`);
+  }
   for (const r of REMOVE_NOW) {
     assert.ok(samples.some((t) => r.pattern.test(t)), `no sample trips ${r.pattern} — a pattern that catches nothing is decoration`);
   }

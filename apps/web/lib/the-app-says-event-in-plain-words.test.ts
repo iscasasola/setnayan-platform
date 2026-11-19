@@ -78,11 +78,14 @@ const NOUN_ALLOWED_PATHS: Record<string, string> = {
   'lib/checklist.ts': 'the event TYPE named Celebration',
   'lib/event-type-profile.ts': 'terminology DATA (occasionNoun) — translated at output by watchLiveOccasion',
   // Rewritten 20 Nov (PR #8041) from specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md: the whole file renders /llms.txt,
-  // a document for search engines and AI assistants — never an app screen — and it opens with the brand line "the home
-  // of every Filipino celebration" (owner 19 Nov / "Yes, brand lines" 20 Nov). The prose is one template inside
-  // `renderLlmsTxt`, so no single named declaration can be allowed; its retired lines are held by
-  // lib/seo/the-retired-words-stay-gone.test.ts instead.
-  'lib/llms-txt.ts': '/llms.txt for search and AI, opening with the brand line — not an app screen (see the note above)',
+  // a document for search engines and AI assistants — never an app screen. "celebration" appears in it about a dozen
+  // times, NOT only in the brand line: the brand line ("the home of every Filipino celebration", owner 19 Nov / "Yes,
+  // brand lines" 20 Nov) and its repeats in the entity card and About; the source's own prose ("Every celebration, all
+  // in one place, for life", "the place a Filipino celebration lives", "Not every event type is a celebration", the
+  // Debut definition, the "Filipino celebrations specifically?" FAQ, "structurally different"); and the event-type list. The prose is one template inside `renderLlmsTxt`,
+  // so no named declaration can be allowed instead; a whole-file pass is the only shape that fits. Its retired lines
+  // are held by lib/seo/the-retired-words-stay-gone.test.ts.
+  'lib/llms-txt.ts': '/llms.txt for search and AI, not an app screen — "celebration" ~a dozen times, brand line and prose (see the note above)',
   'app/llms.txt/': 'machine-readable summary for crawlers',
   'lib/celebration-poster-words.ts': 'poster artwork word list',
   'lib/watermark-server.ts': 'seal artwork drawn on photos',

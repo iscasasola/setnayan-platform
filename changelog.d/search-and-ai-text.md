@@ -64,3 +64,16 @@ SPEC IMPACT: None beyond the source document, which is already in the corpus.
 - `lib/the-app-says-event-in-plain-words.test.ts`: the `lib/llms-txt.ts` exemption's stale reason is replaced (the file
   renders /llms.txt and opens with the brand line; one template, so no named declaration to narrow to).
 - `FIRST_BOOKING_ON_US` stays: `lib/personal-invite-offer.ts` and two guards still import it.
+
+### 2026-11-20 · update — re-review at 5e763f1005 (FIX-FIRST)
+
+- `lib/help/topics-existing.ts` `best-free-filipino-wedding-planner-app`: "Event Plus, Event Pro and Event Ultra, all
+  with the Setnayan AI planner" → "(Setnayan AI comes inside Event Pro and Event Ultra)" — `AI_PLAN_SKUS` is Pro and
+  Ultra only. A sweep of every served /help sentence and every AI answer pairing Event Plus with AI found no other.
+- `the-retired-words-stay-gone.test.ts`: the Setnayan-AI-in-Plus row also catches "all with (the) Setnayan AI"; the
+  own-clients row also catches "own clients always stay free", "Clients you bring yourself are always free" and
+  "… keep them free" — each with a sample line, and the replacement lines are checked NOT to trip. Scope unchanged:
+  llms.txt, the AI answers, layout and /help only (for-suppliers and the commission promise are a later build).
+  Sabotage: the old AI line back in /help → RED naming the article; restore → green.
+- `the-app-says-event-in-plain-words.test.ts`: the `lib/llms-txt.ts` exemption reason now says what is true —
+  "celebration" appears about a dozen times there, brand line and prose, not only the brand line.

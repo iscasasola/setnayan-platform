@@ -31,7 +31,8 @@ const BARE: Readonly<Record<string, number>> = {
   'onboarding/wedding/_components/onboarding-shell.tsx › OnboardingShell': 1,
   'onboarding/wedding/_components/song-preview-list.tsx › SongPreviewList': 1,
   'open-shop/_components/city-pin.tsx › CityPin': 2,
-  'open-shop/_components/claim-door.tsx › ClaimDoor': 2,
+  // 19 Nov: the details slide's tick rows became the Check your shop list (a `button-ok:` row each) — 2 → 1.
+  'open-shop/_components/claim-door.tsx › ClaimDoor': 1,
   'open-shop/_components/plan-sheet.tsx › PlanBody': 2,
   'open-shop/_components/service-cards.tsx › ServiceCards': 1,
   'open-shop/_components/service-cards.tsx › Specialties': 1,

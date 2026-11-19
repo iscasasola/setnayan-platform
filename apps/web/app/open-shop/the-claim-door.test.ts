@@ -132,22 +132,27 @@ test('2 · every field the couple recorded pre-fills the door', () => {
   assert.deepEqual(claimDetailKeysOf({ ...REC, contactPerson: null, plan: [] }), ['name', 'phone', 'service', 'price', 'incl']);
 });
 
-test('2 · v21’s order: invited by → tick what is wrong → one detail per slide → one slide per card → (the couple’s pay details, 2026-11-13) → bundle → plan → account', () => {
-  assert.match(
-    DOOR,
-    /const order: Screen\[\] = \[\s*'invite',\s*'details',\s*\.\.\.editKeys\.map\(\(k\) => `ed:\$\{k\}` as Screen\),\s*\.\.\.d\.cards\.map\(\(_, i\) => `card:\$\{i\}` as Screen\),[\s\S]{0,240}?\.\.\.\(!team && \(record\.payWays\?\.length \?\? 0\) > 0 \? \(\['pay'\] as Screen\[\]\) : \[\]\),\s*\.\.\.\(team \? \[\] : \(\['bundle'\] as Screen\[\]\)\),\s*'plan',\s*'account',\s*\];/,
-  );
-  // Slide 1 wears the door's frame: one terracotta main verb — "Claim it" (owner 10 Nov; it was "Confirm — continue"),
-  // the grey pills for Sign in & claim and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).
-  assert.match(DOOR, /primary = \{\s*label: 'Claim it',/);
-  assert.match(DOOR, /<ActionButton tone="neutral" icon=\{LogIn\} label="Sign in & claim" href=\{signInHref\} \/>/);
+test('2 · 🚪 19 Nov order: Accept → Create account (SECOND) → Check your shop (a sheet per fact) → the first card → You’re all set', () => {
+  // SUPERSEDES v21's slide order (DECISION_LOG 2026-11-19 "SUPPLIER CLAIM ONBOARDING (couple QR) APPROVED"): the old
+  // slides are the list's sheets — every one is still drawn, from the same branch, over "Check your shop".
+  assert.match(DOOR, /const order: Screen\[\] = \['invite', 'account', 'details', \.\.\.\(d\.cards\.length \? \(\['card:0'\] as Screen\[\]\) : \[\]\), 'plan'\];/);
+  for (const sheet of ["'ed:name'", "'ed:who'", "'ed:service'", "'ed:phone'", "'package'", "'pay'"]) {
+    assert.ok(DOOR.includes(`sheet: ${sheet}`), `"Check your shop" lost its ${sheet} sheet`);
+  }
+  assert.match(DOOR, /const sheetView = sheet \? slide\(sheet\) : null;/);
+  // The package sheet holds what the price / inclusions / payment plan slides and the bundle slide asked.
+  assert.match(DOOR, /\(\['price', 'incl', 'plan'\] as const\)\.filter\(\(k\) => detailKeys\.includes\(k\)\)\.map\(\(k\) => slide\(`ed:\$\{k\}`\)\.body\)/);
+  // Slide 1 wears the door's frame: the main verb is "Accept" (owner 19 Nov; it was "Claim it"),
+  // the grey pills for Sign in & accept and I'm not this supplier (one equal-width row: the-claim-it-fills-owner.test.ts).
+  assert.match(DOOR, /primary = \{\s*label: ACCEPT_LABEL,/);
+  assert.match(DOOR, /<ActionButton tone="neutral" icon=\{LogIn\} label="Sign in & accept" href=\{signInHref\} \/>/);
   assert.match(DOOR, /label="I’m not this supplier"/);
   // Specialties are optional — never in a Continue gate.
   assert.match(DOOR, /Specialties[\s\S]{0,400}optional/);
 });
 
 // The account slide's branch — the ONE place an email box may be (owner 7 Nov: "Yes" to Continue with Email).
-const ACCOUNT = DOOR.slice(DOOR.indexOf("title = 'Your account';"), DOOR.indexOf('primary = null;', DOOR.indexOf("title = 'Your account';")));
+const ACCOUNT = DOOR.slice(DOOR.indexOf('[title] = ONBOARDING_HEADS.account;'), DOOR.indexOf('signedInAs || (emailWay && !taken && !sentTo)', DOOR.indexOf('[title] = ONBOARDING_HEADS.account;')));
 const BEFORE_ACCOUNT = DOOR.replace(ACCOUNT, '');
 
 test('3 · NO EMAIL FIELD on the slides before the account — the record’s details never include an email', () => {
@@ -192,9 +197,9 @@ test('3 · the account slide: Google · Apple · Email — Email chosen hides th
 test('3 · the email way IS the shipped /open-shop path, after the invite is known to be usable', () => {
   // The boxes post with the finish form, which carries the bot check (lib/captcha-is-wired.test.ts pairs them).
   const form = DOOR.slice(DOOR.indexOf('<form action={finishClaimDoor}'), DOOR.indexOf('</form>', DOOR.indexOf('<form action={finishClaimDoor}')));
-  assert.match(form, /\{emailForm \? <TurnstileField action="signup" \/> : null\}/);
-  assert.match(form, /\{emailForm \? \([\s\S]{0,120}\{body\}/, 'the email boxes are drawn outside the form that posts them');
-  assert.match(DOOR, /const emailForm = d\.screen === 'account' && !signedInAs && !sentTo && emailWay && !taken;/);
+  assert.match(form, /\{emailMounted && last \? <TurnstileField action="signup" \/> : null\}/);
+  assert.match(form, /\{emailMounted \? \([\s\S]{0,160}\{emailBody\}/, 'the email boxes are drawn outside the form that posts them');
+  assert.match(DOOR, /const emailMounted = !signedInAs && !sentTo && emailWay && !taken;/);
   // Server: the shipped decision + account maker, never a second signUp.
   assert.match(ACT, /decideOpenShopAccount\(\{/);
   assert.match(ACT, /createVendorAccountForShop\(\{/);
@@ -231,13 +236,14 @@ test('1 · 🎁 Setnayan’s invite: pre-filled from the staged shop, the offer 
 
 test('4 · only the screens changed — the consent is the shipped finalize', () => {
   assert.doesNotMatch(ACT, /applyClaimAutoLink\(|seatClaimedCoupleAsCustomer\(|claim_ask_for_access/, 'the door grew its own consent');
-  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize`\);\s*\}\s*$/, 'the finish no longer ends on the shipped finalize');
+  // 🚪 19 Nov: Edit on the first card rides through finalize as `?edit=` — the consent still comes first.
+  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize\$\{editId \? `\?edit=\$\{encodeURIComponent\(editId\)\}` : ''\}`\);\s*\}/, 'the finish no longer ends on the shipped finalize');
   assert.match(ACT, /await createVendorService\(fd\)/, 'the cards are no longer made by the shipped card maker');
   assert.match(ACT, /await savePackage\(\{/, 'the bundle is no longer made by the shipped package maker');
 });
 
-const BUNDLE_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen === 'bundle') {"), DOOR.indexOf("} else if (d.screen === 'plan') {"));
-const CARD_SLIDE = DOOR.slice(DOOR.indexOf("} else if (d.screen.startsWith('card:')) {"), DOOR.indexOf("} else if (d.screen === 'bundle') {"));
+const BUNDLE_SLIDE = DOOR.slice(DOOR.indexOf("} else if (view === 'bundle') {"), DOOR.indexOf("} else if (view === 'package') {"));
+const CARD_SLIDE = DOOR.slice(DOOR.indexOf("} else if (view.startsWith('card:')) {"), DOOR.indexOf("} else if (view === 'bundle') {"));
 
 test('5a · the bundle slide lists ONLY the services the couple recorded — an added one is named as the supplier’s own', () => {
   assert.ok(BUNDLE_SLIDE.length > 200, 'the bundle slide could not be found');

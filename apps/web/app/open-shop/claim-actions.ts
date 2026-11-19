@@ -222,8 +222,17 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // maker's own, and a card it refused is simply not made — the Today checklist still asks for it.
   // The couple's cards, then the supplier's own — each added service is its own card on the shop, priced on its own.
   const made: string[] = [];
+  // 🚪 THE FIRST CARD'S WAY (supplier onboarding, owner 19 Nov) — the door's card 0. Skip = that card is not made (the
+  // booking stays in Clients); Edit = it is made, then the shipped Card Maker opens on it once the claim is consented.
+  // Card 0 is the door's first service's card — found among the split cards by that service, never by re-reading the post.
+  const firstService = answers.services[0] ?? null;
+  const firstCard = firstService
+    ? [...theirs, ...added].find((c) => c.category === firstService.category && c.leaf === firstService.leaf) ?? null
+    : null;
+  const firstCardName = firstCard?.name ?? null;
   for (const card of [...theirs, ...added]) {
     if (card.bundled) continue;
+    if (answers.firstCard === 'skip' && card === firstCard) continue;
     // 🧾 v2: the Card Maker's own pricing fields as the supplier confirmed them (One price · Per guest · Per hour,
     // and the extras as the maker's add-on rows) — or no card, as before, when it carries no price.
     const priceFields = claimCardServiceFields(card);
@@ -369,5 +378,24 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   // Your details (prototype frame B4). Finalize would only see "claimed by you" and send them to the dashboard.
   if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
-  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize`);
+  // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
+  const editId =
+    answers.firstCard === 'edit' && firstCardName && made.includes(firstCardName)
+      ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
+      : null;
+  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editId ? `?edit=${encodeURIComponent(editId)}` : ''}`);
+}
+
+/** The id of the card the door just made under `title` on this shop (the newest), or null. */
+async function firstCardIdOf(admin: ReturnType<typeof createAdminClient>, vendorProfileId: string, title: string): Promise<string | null> {
+  const { data, error } = await admin
+    .from('vendor_services')
+    .select('vendor_service_id')
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('title', title)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+  return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
 }

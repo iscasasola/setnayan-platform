@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { WELCOME_CLAIMED_PATH, firstCardLanding } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -37,8 +38,10 @@ type Props = { params: Promise<{ token: string }> };
  *      to the shop only on Approve), and insert vendor_follows for the couple.
  *   3. Redirect to /vendor-dashboard.
  */
-export default async function FinalizeClaimPage({ params }: Props) {
+export default async function FinalizeClaimPage({ params, searchParams }: Props & { searchParams?: Promise<{ edit?: string }> }) {
   const { token } = await params;
+  // 🚪 Edit on the door's first card (supplier onboarding, owner 19 Nov): after the consent, the shipped Card Maker.
+  const editCard = firstCardToEdit((await searchParams)?.edit);
 
   const supabase = await createClient();
   const {
@@ -277,7 +280,14 @@ export default async function FinalizeClaimPage({ params }: Props) {
   // Default — land them in the vendor dashboard with the new client visible in
   // their Clients pipeline (couple-source) or just the fresh dashboard
   // (already-has-services).
-  redirect('/vendor-dashboard?claimed=1');
+  // 🚪 …and Today reads `?claimed=1` for its welcome (supplier onboarding, owner 19 Nov) — or, Edit picked on the
+  // door's first card, the shipped Card Maker on that card.
+  redirect(editCard ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null }) : WELCOME_CLAIMED_PATH);
+}
+
+/** A card id the door handed over (`?edit=`) — a uuid, or nothing. The Card Maker re-checks it is this shop's. */
+function firstCardToEdit(v: string | undefined): string | null {
+  return typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
 }
 
 /**

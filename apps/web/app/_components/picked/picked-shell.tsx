@@ -690,7 +690,7 @@ export function PickedShell<P extends string>({
       aria-modal="true"
       aria-labelledby={headingId}
       data-picked-client={pickedId}
-      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink outline-none transition-[padding] duration-[var(--sn-m-move)] ease-[var(--sn-m-settle)] motion-reduce:transition-none lg:data-[picked-pane-open]:pr-[420px]"
+      className="fixed inset-0 flex h-[100dvh] flex-col bg-cream text-ink outline-none transition-[padding] duration-sn-elem ease-sn motion-reduce:transition-none lg:data-[picked-pane-open]:pr-[420px]"
       style={{ zIndex: 'var(--sn-z-pop)' }}
       {...(paneKey !== null ? { 'data-picked-pane-open': '' } : {})}
     >

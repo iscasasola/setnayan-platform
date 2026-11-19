@@ -1,0 +1,72 @@
+diff --git a/dist/index.d.cts b/dist/index.d.cts
+index 5fa68ca..c029b88 100644
+--- a/dist/index.d.cts
++++ b/dist/index.d.cts
+@@ -921,7 +921,30 @@ type SpreadOnManyEnabled<PostgrestVersion extends string | undefined> = IsPostgr
+  * @param Relationships - Relationships of the current table.
+  * @param Query - The select query string literal to parse.
+  */
+-type GetResult<Schema extends GenericSchema, Row extends Record<string, unknown>, RelationName, Relationships, Query extends string, ClientOptions extends ClientServerOptions> = IsAny$1<Schema> extends true ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? ProcessNodesWithoutSchema<ParsedQuery> : any : ParsedQuery : any : Relationships extends null ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RPCCallNodes<ParsedQuery, RelationName extends string ? RelationName : 'rpc_call', Row> : ParsedQuery : Row : ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? Relationships extends GenericRelationship[] ? ProcessNodes<ClientOptions, Schema, Row, RelationName, Relationships, ParsedQuery> : SelectQueryError<'Invalid Relationships cannot infer result type'> : SelectQueryError<'Invalid RelationName cannot infer result type'> : ParsedQuery : never;
++/**
++ * SETNAYAN PATCH (patches/@supabase__postgrest-js@2.105.4.patch) — a fast path for a plain
++ * column list on an UNTYPED (any-schema) client, which is every client in apps/web.
++ *
++ * WHY: with no Database type, the original parser still reads every `.select('…')` literal
++ * character by character and returns `{ col: any, … }`. Measured on GitHub ubuntu-latest,
++ * 2026-11-19: that parser was 20.8M of the typecheck's 24.9M type instantiations and ~3.5 GB
++ * of its ~11.4 GB heap, which is what pushed `tsc --noEmit` out of memory at random.
++ *
++ * WHAT: `'a, b, c'` (names of [0-9a-zA-Z_] only, commas, whitespace; not `count`) resolves to
++ * Prettify<{ a: any; b: any; c: any }> — the SAME type ProcessNodesWithoutSchema<ParseQuery<Q>>
++ * gives (proved equal for every distinct select literal in the repo, see the PR). Anything else
++ * — embeds, aliases, casts, `*`, quotes, `count`, unions, `string` — falls through to the
++ * original parser untouched. Typed (non-any) schemas never reach this branch.
++ */
++type SnIsIdent<S extends string> = S extends `${infer C}${infer R}` ? C extends Token.Letter ? R extends '' ? true : SnIsIdent<R> : false : false;
++type SnTrimL<S extends string> = S extends `${Token.Whitespace}${infer R}` ? SnTrimL<R> : S;
++type SnTrimR<S extends string> = S extends `${infer R}${Token.Whitespace}` ? SnTrimR<R> : S;
++type SnPlainCol<S extends string> = SnTrimR<SnTrimL<S>> extends infer K extends string ? [K] extends ['count'] ? false : SnIsIdent<K> extends true ? [K] : false : false;
++type SnPlainCols<S extends string, Acc extends string = never> = S extends `${infer H},${infer T}` ? SnPlainCol<H> extends [infer K extends string] ? SnPlainCols<T, Acc | K> : never : SnPlainCol<S> extends [infer K extends string] ? Acc | K : never;
++type SnIsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
++type SnPlainColumns<Q extends string> = string extends Q ? never : true extends SnIsUnion<Q> ? never : SnPlainCols<Q>;
++
++type GetResult<Schema extends GenericSchema, Row extends Record<string, unknown>, RelationName, Relationships, Query extends string, ClientOptions extends ClientServerOptions> = IsAny$1<Schema> extends true ? SnPlainColumns<Query> extends infer SnCols ? [SnCols] extends [never] ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? ProcessNodesWithoutSchema<ParsedQuery> : any : ParsedQuery : any : RelationName extends string ? Prettify<{ [SnK in SnCols & string]: any }> : any : never : Relationships extends null ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RPCCallNodes<ParsedQuery, RelationName extends string ? RelationName : 'rpc_call', Row> : ParsedQuery : Row : ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? Relationships extends GenericRelationship[] ? ProcessNodes<ClientOptions, Schema, Row, RelationName, Relationships, ParsedQuery> : SelectQueryError<'Invalid Relationships cannot infer result type'> : SelectQueryError<'Invalid RelationName cannot infer result type'> : ParsedQuery : never;
+ type ProcessSimpleFieldWithoutSchema<Field$1 extends Ast.FieldNode> = Field$1['aggregateFunction'] extends AggregateFunctions ? { [K in GetFieldNodeResultName<Field$1>]: Field$1['castType'] extends PostgreSQLTypes ? TypeScriptTypes<Field$1['castType']> : number } : { [K in GetFieldNodeResultName<Field$1>]: Field$1['castType'] extends PostgreSQLTypes ? TypeScriptTypes<Field$1['castType']> : any };
+ type ProcessFieldNodeWithoutSchema<Node$1 extends Ast.FieldNode> = IsNonEmptyArray<Node$1['children']> extends true ? { [K in GetFieldNodeResultName<Node$1>]: Node$1['children'] extends Ast.Node[] ? ProcessNodesWithoutSchema<Node$1['children']>[] : ProcessSimpleFieldWithoutSchema<Node$1> } : ProcessSimpleFieldWithoutSchema<Node$1>;
+ /**
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index 8718573..8a82095 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -921,7 +921,30 @@ type SpreadOnManyEnabled<PostgrestVersion extends string | undefined> = IsPostgr
+  * @param Relationships - Relationships of the current table.
+  * @param Query - The select query string literal to parse.
+  */
+-type GetResult<Schema extends GenericSchema, Row extends Record<string, unknown>, RelationName, Relationships, Query extends string, ClientOptions extends ClientServerOptions> = IsAny$1<Schema> extends true ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? ProcessNodesWithoutSchema<ParsedQuery> : any : ParsedQuery : any : Relationships extends null ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RPCCallNodes<ParsedQuery, RelationName extends string ? RelationName : 'rpc_call', Row> : ParsedQuery : Row : ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? Relationships extends GenericRelationship[] ? ProcessNodes<ClientOptions, Schema, Row, RelationName, Relationships, ParsedQuery> : SelectQueryError<'Invalid Relationships cannot infer result type'> : SelectQueryError<'Invalid RelationName cannot infer result type'> : ParsedQuery : never;
++/**
++ * SETNAYAN PATCH (patches/@supabase__postgrest-js@2.105.4.patch) — a fast path for a plain
++ * column list on an UNTYPED (any-schema) client, which is every client in apps/web.
++ *
++ * WHY: with no Database type, the original parser still reads every `.select('…')` literal
++ * character by character and returns `{ col: any, … }`. Measured on GitHub ubuntu-latest,
++ * 2026-11-19: that parser was 20.8M of the typecheck's 24.9M type instantiations and ~3.5 GB
++ * of its ~11.4 GB heap, which is what pushed `tsc --noEmit` out of memory at random.
++ *
++ * WHAT: `'a, b, c'` (names of [0-9a-zA-Z_] only, commas, whitespace; not `count`) resolves to
++ * Prettify<{ a: any; b: any; c: any }> — the SAME type ProcessNodesWithoutSchema<ParseQuery<Q>>
++ * gives (proved equal for every distinct select literal in the repo, see the PR). Anything else
++ * — embeds, aliases, casts, `*`, quotes, `count`, unions, `string` — falls through to the
++ * original parser untouched. Typed (non-any) schemas never reach this branch.
++ */
++type SnIsIdent<S extends string> = S extends `${infer C}${infer R}` ? C extends Token.Letter ? R extends '' ? true : SnIsIdent<R> : false : false;
++type SnTrimL<S extends string> = S extends `${Token.Whitespace}${infer R}` ? SnTrimL<R> : S;
++type SnTrimR<S extends string> = S extends `${infer R}${Token.Whitespace}` ? SnTrimR<R> : S;
++type SnPlainCol<S extends string> = SnTrimR<SnTrimL<S>> extends infer K extends string ? [K] extends ['count'] ? false : SnIsIdent<K> extends true ? [K] : false : false;
++type SnPlainCols<S extends string, Acc extends string = never> = S extends `${infer H},${infer T}` ? SnPlainCol<H> extends [infer K extends string] ? SnPlainCols<T, Acc | K> : never : SnPlainCol<S> extends [infer K extends string] ? Acc | K : never;
++type SnIsUnion<T, U = T> = T extends unknown ? ([U] extends [T] ? false : true) : never;
++type SnPlainColumns<Q extends string> = string extends Q ? never : true extends SnIsUnion<Q> ? never : SnPlainCols<Q>;
++
++type GetResult<Schema extends GenericSchema, Row extends Record<string, unknown>, RelationName, Relationships, Query extends string, ClientOptions extends ClientServerOptions> = IsAny$1<Schema> extends true ? SnPlainColumns<Query> extends infer SnCols ? [SnCols] extends [never] ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? ProcessNodesWithoutSchema<ParsedQuery> : any : ParsedQuery : any : RelationName extends string ? Prettify<{ [SnK in SnCols & string]: any }> : any : never : Relationships extends null ? ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RPCCallNodes<ParsedQuery, RelationName extends string ? RelationName : 'rpc_call', Row> : ParsedQuery : Row : ParseQuery<Query> extends infer ParsedQuery ? ParsedQuery extends Ast.Node[] ? RelationName extends string ? Relationships extends GenericRelationship[] ? ProcessNodes<ClientOptions, Schema, Row, RelationName, Relationships, ParsedQuery> : SelectQueryError<'Invalid Relationships cannot infer result type'> : SelectQueryError<'Invalid RelationName cannot infer result type'> : ParsedQuery : never;
+ type ProcessSimpleFieldWithoutSchema<Field$1 extends Ast.FieldNode> = Field$1['aggregateFunction'] extends AggregateFunctions ? { [K in GetFieldNodeResultName<Field$1>]: Field$1['castType'] extends PostgreSQLTypes ? TypeScriptTypes<Field$1['castType']> : number } : { [K in GetFieldNodeResultName<Field$1>]: Field$1['castType'] extends PostgreSQLTypes ? TypeScriptTypes<Field$1['castType']> : any };
+ type ProcessFieldNodeWithoutSchema<Node$1 extends Ast.FieldNode> = IsNonEmptyArray<Node$1['children']> extends true ? { [K in GetFieldNodeResultName<Node$1>]: Node$1['children'] extends Ast.Node[] ? ProcessNodesWithoutSchema<Node$1['children']>[] : ProcessSimpleFieldWithoutSchema<Node$1> } : ProcessSimpleFieldWithoutSchema<Node$1>;
+ /**

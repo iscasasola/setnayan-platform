@@ -151,7 +151,11 @@ test('wiring: both send-back doors pass the named papers, and the decision refus
   assert.match(code('app/vendor-dashboard/shop/_components/paper-upload-place.tsx'), /sentBackReason: sentBackOf\(payload\.docMap\[r\.slot\] as DocUpload\)\?\.reason \?\? null/);
   {
     assert.equal(paperState({ attempts: 0 }, null, { sentBackReason: 'Blurry' }).text, 'Needs a new copy · Blurry');
-    assert.equal(paperState({ r2_key: 'r2://new', attempts: 0, evidence: { model: {} } }, null, { sentBackReason: 'Blurry' }).text, 'Recognised', 'the reason outlived the new copy');
+    // W1-B34: an empty read is no longer "Recognised" (it is kept for a person) — what this pins is that the new copy
+    // is IN and the send-back reason is gone, whichever of those two states it lands in.
+    const fresh = paperState({ r2_key: 'r2://new', attempts: 0, evidence: { model: {} } }, null, { sentBackReason: 'Blurry' });
+    assert.equal(fresh.isIn, true, 'the new copy is not in');
+    assert.doesNotMatch(fresh.text, /Needs a new copy|Blurry/, 'the reason outlived the new copy');
   }
   // Today's step 5 is the same place (15 Nov 2026); its one line is only for an old send-back that named no paper.
   const today = code('app/vendor-dashboard/_components/setup-paper-place.tsx');

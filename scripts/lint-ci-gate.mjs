@@ -8,8 +8,11 @@
  *
  *   · a job is in nobody's `needs:` and is not itself a required name — it goes
  *     red on the PR page and the PR merges anyway;
- *   · a required name is no longer the name of exactly one job — branch
+ *   · a required name is no longer reported by exactly one place (the name of
+ *     one job, or one line of a "report the required checks" step) — branch
  *     protection would wait on a check that never reports, or on an ambiguous one;
+ *   · a report step could be skipped, posts to the merge commit instead of the
+ *     PR head, lacks `checks: write`, or reads a step id its job does not have;
  *   · the gate lost `if: always()` (a skipped required check counts as passed),
  *     or stopped reading the whole `needs` list;
  *   · something the gate used to run as a step is run by no job it needs;
@@ -24,7 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeProblems, parseJobs, GATE_NAME, REQUIRED_CONTEXTS } from './lib/ci-shape.mjs';
+import { shapeProblems, parseJobs, parseReportedChecks, GATE_NAME, REQUIRED_CONTEXTS } from './lib/ci-shape.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WF = path.join(ROOT, '.github', 'workflows');
@@ -44,4 +47,5 @@ if (problems.length) {
   process.exit(1);
 }
 const gate = parseJobs(ci).find((j) => j.name === GATE_NAME);
-console.log(`✓ lint-ci-gate: "${GATE_NAME}" stands for ${gate.needs.length} jobs (${gate.needs.join(', ')}); all ${REQUIRED_CONTEXTS.length} required names are each the name of exactly one job.`);
+const reported = parseReportedChecks(ci);
+console.log(`✓ lint-ci-gate: "${GATE_NAME}" stands for ${gate.needs.length} jobs (${gate.needs.join(', ')}); all ${REQUIRED_CONTEXTS.length} required names are each reported exactly once (${REQUIRED_CONTEXTS.length - reported.length} as job names, ${reported.length} posted by name from the ${[...new Set(reported.map((r) => r.job))].join(', ') || '—'} job).`);

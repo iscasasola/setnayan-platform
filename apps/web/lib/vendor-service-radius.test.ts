@@ -30,20 +30,20 @@ import {
 import { tierCaps } from './vendor-tier-caps';
 
 /* ── The tier ladder this whole feature is capped by ────────────────────────
- * free 0 · verified 20 · solo 30 · pro 100 · enterprise ∞ (owner 2026-11-04, DECISION_LOG
- * "SUPPLIER PLAN ALLOWANCES": "pro reach 100, ultra nationwide"; was pro 50 · enterprise 100).
+ * free 5 · verified 10 · solo 50 · pro 100 · enterprise ∞ (owner 2026-11-18, ruling 30 in
+ * PLAN_RULINGS_2026-11-18.md; was free 0 · verified 20 · solo 30).
  * Asserted against the real cap table so a tier reprice can't silently rot the
  * expectations below. */
 test('tierOuterRadiusCapKm mirrors the published Service reach ladder', () => {
-  assert.equal(tierOuterRadiusCapKm('free'), 0);
-  assert.equal(tierOuterRadiusCapKm('verified'), 20);
-  assert.equal(tierOuterRadiusCapKm('solo'), 30); // owner 2026-10-23 (was 20)
+  assert.equal(tierOuterRadiusCapKm('free'), 5); // owner 2026-11-18 (was 0)
+  assert.equal(tierOuterRadiusCapKm('verified'), 10); // owner 2026-11-18 (was 20)
+  assert.equal(tierOuterRadiusCapKm('solo'), 50); // owner 2026-11-18 (was 30)
   assert.equal(tierOuterRadiusCapKm('pro'), 100); // owner 2026-11-04 (was 50)
   assert.equal(tierOuterRadiusCapKm('enterprise'), Infinity); // nationwide (was 100)
   // Unknown / null tier degrades to `free` via asVendorTier — never to a
   // generous default. A garbage tier_state must not hand out 100 km.
   assert.equal(tierOuterRadiusCapKm(null), tierCaps('free').serviceRadiusKm);
-  assert.equal(tierOuterRadiusCapKm('platinum-deluxe'), 0);
+  assert.equal(tierOuterRadiusCapKm('platinum-deluxe'), 5);
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -81,7 +81,7 @@ test('normalizeRadiusKm accepts a numeric string (the form submits strings)', ()
 
 test('clamp · declared ABOVE the cap reads as the cap', () => {
   assert.equal(effectiveOuterRadiusKm(180, 'pro'), 100);
-  assert.equal(effectiveOuterRadiusKm(500, 'verified'), 20);
+  assert.equal(effectiveOuterRadiusKm(500, 'verified'), 10);
 });
 
 test('clamp · declared AT OR BELOW the cap is honoured verbatim', () => {
@@ -94,23 +94,23 @@ test('clamp · declared AT OR BELOW the cap is honoured verbatim', () => {
 test('clamp · a BLANK declaration reads as the tier cap (today’s behaviour)', () => {
   assert.equal(effectiveOuterRadiusKm(null, 'pro'), 100);
   assert.equal(effectiveOuterRadiusKm(undefined, 'enterprise'), Infinity); // nationwide
-  assert.equal(effectiveOuterRadiusKm(null, 'verified'), 20);
-  // …and a blank on FREE stays 0, exactly as the tier-derived read does today.
-  assert.equal(effectiveOuterRadiusKm(null, 'free'), 0);
+  assert.equal(effectiveOuterRadiusKm(null, 'verified'), 10);
+  // …and a blank on FREE reads Free's own 5 km (owner 2026-11-18; was 0).
+  assert.equal(effectiveOuterRadiusKm(null, 'free'), 5);
 });
 
-test('clamp · THE DOWNGRADE: 50 km declared on Pro reads 20 km on Verified', () => {
+test('clamp · THE DOWNGRADE: 80 km declared on Pro reads 10 km on Verified', () => {
   // The whole point of clamping at READ time. The column still says 50 — nobody
   // backfilled it, no downgrade hook ran — but a lapsed subscription must stop
   // buying reach the moment the tier changes.
-  const declaredOnPro = 50;
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'pro'), 50);
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'verified'), 20);
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'solo'), 30); // Supplier Plus reaches 30 km (owner 2026-10-23)
-  // …all the way down to Free, where the ring collapses to nothing.
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'free'), 0);
+  const declaredOnPro = 80;
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'pro'), 80);
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'verified'), 10);
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'solo'), 50); // Supplier Plus reaches 50 km (owner 2026-11-18)
+  // …all the way down to Free, where the ring is Free's 5 km.
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, 'free'), 5);
   // …and an UNKNOWN tier_state degrades to free, not to the declared value.
-  assert.equal(effectiveOuterRadiusKm(declaredOnPro, null), 0);
+  assert.equal(effectiveOuterRadiusKm(declaredOnPro, null), 5);
 });
 
 test('clamp · an UPGRADE does not inflate a narrower declaration', () => {
@@ -135,13 +135,13 @@ test('inner clamp · undeclared inner stays null (the badge needs BOTH rings)', 
 });
 
 test('inner clamp · a stale inner can never poke outside the effective outer', () => {
-  // Declared 30 free / 50 furthest on Pro, then lapsed to Verified (cap 20).
-  // Without this clamp every venue 20–30 km out would read "free travel" while
+  // Declared 30 free / 50 furthest on Pro, then lapsed to Verified (cap 10).
+  // Without this clamp every venue 10–30 km out would read "free travel" while
   // simultaneously being out of range.
   assert.equal(effectiveInnerRadiusKm(30, 50, 'pro'), 30);
-  assert.equal(effectiveInnerRadiusKm(30, 50, 'verified'), 20);
+  assert.equal(effectiveInnerRadiusKm(30, 50, 'verified'), 10);
   // A coherent pair is untouched by the same downgrade.
-  assert.equal(effectiveInnerRadiusKm(15, 50, 'verified'), 15);
+  assert.equal(effectiveInnerRadiusKm(8, 50, 'verified'), 8);
 });
 
 test('inner clamp · inner 0 survives the clamp', () => {
@@ -231,7 +231,7 @@ test('badge · a raw inner > outer is resolved by believing the OUTER', () => {
 test('composed · the downgrade CHANGES the badge a couple sees', () => {
   // Venue 35 km out. On Pro (declared 15/50) it's a travel fee. The same vendor,
   // same declaration, after lapsing to Verified is OUT OF RANGE — which is the
-  // honest answer, because Verified only buys 20 km of reach.
+  // honest answer, because Verified only buys 10 km of reach.
   const decl = { declaredInnerKm: 15, declaredOuterKm: 50, distanceKm: 35 };
   assert.equal(travelFeeVerdictForVendor({ ...decl, tier: 'pro' }), 'travel_fee');
   assert.equal(travelFeeVerdictForVendor({ ...decl, tier: 'verified' }), 'outside_range');
@@ -252,16 +252,13 @@ test('composed · an undeclared vendor gets null on EVERY tier', () => {
   }
 });
 
-test('composed · a FREE-tier vendor’s declaration is inert (cap 0)', () => {
-  assert.equal(
-    travelFeeVerdictForVendor({
-      distanceKm: 2,
-      declaredInnerKm: 5,
-      declaredOuterKm: 20,
-      tier: 'free',
-    }),
-    null,
-  );
+test('composed · a FREE-tier vendor’s declaration is clamped to Free’s 5 km', () => {
+  // owner 2026-11-18 (ruling 30): Free reaches 5 km (was 0, which made a free declaration inert).
+  const free = (distanceKm: number) =>
+    travelFeeVerdictForVendor({ distanceKm, declaredInnerKm: 3, declaredOuterKm: 20, tier: 'free' });
+  assert.equal(free(2), 'free_travel');
+  assert.equal(free(4), 'travel_fee');
+  assert.equal(free(6), 'outside_range');
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -473,8 +470,8 @@ test('validate · the TIER CAP is enforced at write time, per tier', () => {
     /up to 100 km/,
   );
   assert.match(
-    err(validateServiceRadiusPair({ inner: '10', outer: '50', tier: 'verified' })),
-    /up to 20 km/,
+    err(validateServiceRadiusPair({ inner: '5', outer: '50', tier: 'verified' })),
+    /up to 10 km/,
   );
   // Exactly the cap is allowed.
   assert.equal(validateServiceRadiusPair({ inner: '10', outer: '100', tier: 'pro' }).ok, true);
@@ -491,9 +488,9 @@ test('validate · an INNER above the cap is rejected even with a blank outer', (
   );
 });
 
-test('validate · FREE tier has no reach to declare, and is told so in plain words', () => {
-  const v = validateServiceRadiusPair({ inner: '5', outer: '10', tier: 'free' });
-  assert.match(err(v), /doesn’t include a service reach/i);
+test('validate · FREE tier declares up to its own 5 km (owner 2026-11-18)', () => {
+  assert.equal(validateServiceRadiusPair({ inner: '2', outer: '5', tier: 'free' }).ok, true);
+  assert.match(err(validateServiceRadiusPair({ inner: '5', outer: '10', tier: 'free' })), /up to 5 km/);
   // …but a free vendor clearing the fields is still a valid save.
   assert.equal(validateServiceRadiusPair({ inner: '', outer: '', tier: 'free' }).ok, true);
 });
@@ -501,7 +498,7 @@ test('validate · FREE tier has no reach to declare, and is told so in plain wor
 test('validate · an unknown tier_state is treated as free, never as generous', () => {
   assert.match(
     err(validateServiceRadiusPair({ inner: '5', outer: '10', tier: 'mystery-tier' })),
-    /doesn’t include a service reach/i,
+    /up to 5 km/,
   );
 });
 
@@ -541,8 +538,9 @@ test('validate → clamp → badge round-trips a real Pro declaration', () => {
   assert.equal(read(10, 'pro'), 'free_travel');
   assert.equal(read(30, 'pro'), 'travel_fee');
   assert.equal(read(60, 'pro'), 'outside_range');
-  // Same stored row, after a lapse to Supplier Plus (cap 30, owner 2026-10-23).
-  assert.equal(read(10, 'solo'), 'free_travel');
-  assert.equal(read(28, 'solo'), 'travel_fee');
-  assert.equal(read(35, 'solo'), 'outside_range');
+  // Same stored row, after a lapse to Verified (cap 10, owner 2026-11-18).
+  assert.equal(read(8, 'verified'), 'free_travel');
+  assert.equal(read(12, 'verified'), 'outside_range');
+  // On Supplier Plus (cap 50) the 45 km declaration stands whole.
+  assert.equal(read(40, 'solo'), 'travel_fee');
 });

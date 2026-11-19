@@ -1293,7 +1293,7 @@ export function OpenShopWizard({
                 {sheetHead('categories')}
                 {/* "Your services" once the main is picked — the main and every added one are one set of cards. */}
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  {service ? 'Your services' : 'Main service'}
+                  {service && !(coordinating && step === 1) ? 'Your services' : 'Main service'}
                 </span>
                 {/* ── DRILL, DON'T SCROLL (owner 2026-08-09). The flat select survives as the FALLBACK for an empty
                     tree (a failed taxonomy read) — deleting it would turn a read hiccup into "you cannot open a

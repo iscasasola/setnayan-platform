@@ -304,7 +304,7 @@ function OpenedPayout({ row, back }: { row: PayoutRow; back: string }) {
         badges={
           <>
             <StateBadge row={row} />
-            <Badge tone="quiet">{PAYOUT_STAGE_LABEL[stageOf(row)]}</Badge>
+            {PAYOUT_STAGE_LABEL[stageOf(row)] ? <Badge tone="quiet">{PAYOUT_STAGE_LABEL[stageOf(row)]}</Badge> : null}
             <Badge tone="quiet">Stage {row.stage_pct}% of net</Badge>
             {row.vendor?.public_visibility ? <Badge tone="quiet">{row.vendor.public_visibility}</Badge> : null}
           </>

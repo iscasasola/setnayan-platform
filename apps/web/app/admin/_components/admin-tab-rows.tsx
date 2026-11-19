@@ -236,7 +236,7 @@ export function AdminThumbRow({ at }: { /** Lab only. */ at?: string } = {}) {
             tab.key === 'people' && place.kind === 'landing'
               ? { node: <PeopleShowSort show={params?.get('show') ?? 'everyone'} /> }
               : // 📐 Admin clean port (owner 19 Nov 2026): Payouts' four filters sit behind this round, as People's do.
-                place.kind === 'tab' && place.view.key === 'payouts'
+                place.kind === 'tab' && place.view.key === 'to-approve.payouts'
                 ? { node: <PayoutsShowSort params={params} /> }
                 : tab.create
                 ? { icon: Plus, label: tab.create.label, href: tab.create.href }

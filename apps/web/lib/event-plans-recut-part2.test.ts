@@ -121,7 +121,7 @@ const heldColumns = (o: HubOwnership) =>
 
 test('(C) anti-vacuity: a free couple holds all four at Apply', () => {
   const free = heldColumns(NO_HUB_PARTS);
-  for (const c of ['invite_theme', 'std_reveal_template', 'site_art_direction']) assert.ok(free.has(c), `${c} was not Pro for a free couple — the fixture proves nothing`);
+  for (const c of ['invite_theme', 'std_reveal_template', 'site_art_direction'] as const) assert.ok(free.has(c), `${c} was not Pro for a free couple — the fixture proves nothing`);
 });
 
 test('(C) an Event Plus event applies the theme and the opening — and still holds Candlelight and the Reveal effects', () => {

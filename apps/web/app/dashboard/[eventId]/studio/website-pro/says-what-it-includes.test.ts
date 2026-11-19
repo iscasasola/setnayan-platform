@@ -217,15 +217,17 @@ test('the copy does not promise RSVP or the on-the-day page', () => {
   }
 });
 
-test('the reveal — the one real exclusive — is still aliased to this SKU', () => {
+test('the reveal is still aliased to this SKU (and, since 2026-11-19, to Event Plus too)', () => {
   const src = read(join(WEB, 'lib/entitlements.ts'));
   const aliases = /SKU_OWNERSHIP_ALIASES[\s\S]*?\}\);/.exec(src);
   assert.ok(aliases, 'SKU_OWNERSHIP_ALIASES not found — the scan is blind');
   assert.match(
     aliases[0]!,
     // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
-    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?\\]\\)`),
-    'the cinematic reveal is no longer granted by Event Pro — the copy claims it is the only way to get it',
+    // 💎 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too, so the description no
+    //    longer calls it Pro's exclusive (migration 20271350979842 drops "comes only with this").
+    new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?\\]\\)`),
+    'the cinematic reveal is no longer granted by Event Pro',
   );
 });
 

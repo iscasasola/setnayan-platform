@@ -193,6 +193,10 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   // live with this month's GCash total. NULL = could not be read (customers are
   // then sent to BDO), said on screen rather than shown as ₱0.
   const gcashGate = await getGcashGate();
+  const gcashUsedLine =
+    gcashGate?.usedThisMonthPhp != null
+      ? `Used this month: ${formatPhp(gcashGate.usedThisMonthPhp)}`
+      : 'Couldn’t read this month’s GCash total — payers are sent to BDO.';
   const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400) : '';
 
   return (
@@ -317,14 +321,14 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           ))}
           {cappedRails.includes('gcash') && (
             <div data-gcash-allowance="" className="space-y-3 border-t border-ink/10 pt-4">
-              <p className="text-sm font-semibold text-ink">
+              <div className="text-sm font-semibold text-ink">
                 <InfoTip label="One QR: GCash for small payments" ariaLabel="How the one QR is picked" align="start">
                   A payment below the line shows the GCash QR while this month&rsquo;s GCash total
                   stays within the allowance; everything else shows BDO. Payers never choose.
                   This allowance is not the wallet&rsquo;s own limit above. If a number cannot be
                   read, everyone is sent to BDO.
                 </InfoTip>
-              </p>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="GCash below (₱)" htmlFor="gcash_max_php">
                   <input
@@ -354,9 +358,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                 </Field>
               </div>
               <p className="text-[12px] text-ink/60">
-                {gcashGate?.usedThisMonthPhp != null
-                  ? `Used this month: ${formatPhp(gcashGate.usedThisMonthPhp)}`
-                  : 'Couldn’t read this month’s GCash total — payers are sent to BDO.'}
+                {gcashUsedLine}
               </p>
             </div>
           )}

@@ -66,7 +66,10 @@ test('below the line nothing is lifted (the phone sheet rises from the bottom, u
 test('the Sheet still wears the hook the lift reads, on its one root', () => {
   const sheet = read('app/_components/sheet.tsx');
   assert.match(sheet, /aria-modal="true"[\s\S]{0,120}data-sheet=""\s*className=\{at\.root\}/, 'the Sheet root lost `data-sheet` — the page is never lifted');
-  assert.match(sheet, /if \(!open\) return null;/, 'a closed Sheet now stays in the tree — the page would stay lifted');
+  // 🎞 Since the Sheet grow (13 Nov system, ported from #7686 on 18 Nov) a closed Sheet stays only while its mirrored close
+  // plays (`present`), then leaves.
+  assert.match(sheet, /if \(!open && !present\) return null;/, 'a closed Sheet now stays in the tree — the page would stay lifted');
+  assert.match(sheet, /if \(live\) setPresent\(false\);/, 'a closed Sheet never leaves the tree after its close');
 });
 
 /* ══ 🔝 EVERY FULL-SCREEN POP-UP IS DRAWN ON <body> (owner, live phone 2026-10-29) ══════════════════════════════════════
@@ -123,7 +126,7 @@ test('the shared Sheet draws itself on <body> — no caller can leave it inside 
   assert.match(sheet, /const host = usePortalHost\(\);/, 'the Sheet no longer finds <body> through the shared host hook');
   const inspector = read('app/_components/inspector/inspector-column.tsx');
   assert.match(inspector, /return createPortal\(layer \? <div className=\{layer\}>\{sheet\}<\/div> : sheet, portal\)/, 'the guest card sheet is drawn in place');
-  assert.match(inspector, /const onClose = useBackCloses\(true, onClosed\)/, "a guest card opened with no list behind it does not close on the phone's Back");
+  assert.match(inspector, /const onClose = useBackCloses\(true, \(\) => playPeekOut\(onClosed\)\)/, "a guest card opened with no list behind it does not close on the phone's Back");
   const admin = read('app/admin/categories/_components/four-level-map.tsx');
   assert.match(admin, /<Sheet\s+open=\{open\}[^>]*back=\{back\}/, 'Admin › Categories’ drawer is not the shared Sheet with its ‹');
 });

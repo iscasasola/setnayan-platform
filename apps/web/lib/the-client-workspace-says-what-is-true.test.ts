@@ -168,7 +168,7 @@ test('+ · the client tabs speak in sentence case', () => {
   for (const f of [
     `${CLIENT}/_components/supplier-locks-section.tsx`,
     `${CLIENT}/_components/hosts-list.tsx`,
-    `${CLIENT}/_components/details-forms-door.tsx`,
+    `${CLIENT}/_components/client-next-step-row.tsx`,
     `${CLIENT}/_components/details-decisions.tsx`,
     `${CLIENT}/_components/details-decisions-list.tsx`,
     `${CLIENT}/_components/suppliers-list.tsx`,
@@ -207,7 +207,6 @@ test('+b · every client-workspace section label draws through the one house lab
     [`${CLIENT}/_pages/payment.tsx`, /const H = 'home-k2\b/],
     [`${CLIENT}/_components/client-refunds.tsx`, /const H = 'home-k2\b/],
     [`${CLIENT}/_components/customer-money-fold.tsx`, /className="home-k2[^"]*">Waiting for you</],
-    [`${CLIENT}/_components/details-forms-door.tsx`, /className="home-k2">Forms · sent to/],
     [`${CLIENT}/_components/hosts-list.tsx`, /className="home-k2">Hosts/],
     [`${CLIENT}/_components/suppliers-list.tsx`, /className="home-k2">Suppliers on this event/],
     [`${CLIENT}/_components/supplier-schedule.tsx`, /className="home-k2">Your times/],
@@ -258,9 +257,9 @@ test('3b · the Payment page says Overdue the same way Details and Chat do (rend
   assert.match(page, /unreadableNote: <LedgerUnreadableNote \/>,\s*todayIso: manilaTodayIso\(\),/, 'the page does not hand the Payment page today');
 });
 
-test('4b · the Forms door on Details names the event, never "this couple"', () => {
-  const door = read(`${CLIENT}/_components/details-forms-door.tsx`);
-  assert.doesNotMatch(door, /this couple/);
-  assert.match(door, />Forms · sent to \{who\}</);
-  assert.match(read(`${CLIENT}/page.tsx`), /<DetailsFormsDoor eventName=\{eventName\} \/>/);
-});
+test('4b · Forms lives ON Details now (seven tabs, 18 Nov) — no door to a Forms page that no longer exists', () => {
+  const sw = read(`${CLIENT}/_pages/switch.tsx`);
+  const details = sw.slice(sw.indexOf('    details: only('), sw.indexOf('    chat: only('));
+  assert.match(details, /id="forms"[\s\S]*<FormsPage\b/, 'the Forms body is not a part of Details');
+  assert.doesNotMatch(read(`${CLIENT}/page.tsx`), /DetailsFormsDoor/, 'the old "Open Forms" door is back');
+})

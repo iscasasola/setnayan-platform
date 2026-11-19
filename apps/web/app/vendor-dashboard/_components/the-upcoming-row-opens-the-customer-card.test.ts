@@ -210,7 +210,10 @@ test('6 · no supplier-side door onto a customer card is left bare', () => {
   // Build 2 row #38: the roster's one door is the one open path — never a bare client link, never a hand-built one.
   assert.equal(count(customersRoster, /const href = openClientHref\(r\.eventId, rosterLandingFacts\(r, today\)\);/g), 1);
   // Each fixed door names the section its own words promise.
-  assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 1, 'the deposit card lost its money section');
+  /* 🔁 UPDATED ON PURPOSE 2026-11-18 (Today v2 "one task", owner "all picks"): the logged-payment row is answered ON
+     the row with one main button (Confirm), so its second door "View the payment" is gone — no bare door is left
+     behind it either. */
+  assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=quote/g), 0, 'the logged-payment row grew a second door again');
   assert.equal(count(sections, /clients\/\$\{card\.eventId\}\?tab=schedule/g), 2, 'the meeting / handover doors lost their calendar');
   // The retired Clients page had two "Customer card" links of its own; on People every row's door is the roster's
   // `hrefFor` (held just above), and the page itself writes none.

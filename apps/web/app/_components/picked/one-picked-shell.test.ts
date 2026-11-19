@@ -107,16 +107,16 @@ test('3 · a Chats row opens the picked page ON CHAT; the host’s lists open on
   // day ("Clients side is not fixed also") — and on Details when there is no conversation (no Chat page to open).
   assert.equal(visiblePickedPage('chat', true), 'chat');
   assert.equal(visiblePickedPage(null, true), 'chat');
-  const full = pickedSupplierMenuFor({ quote: true, chat: true });
+  const full = pickedSupplierMenuFor({ chat: true });
   assert.equal(visiblePickedSupplierPage('chat', full), 'chat');
   assert.equal(visiblePickedSupplierPage(undefined, full), 'chat');
   assert.equal(pickedSupplierPageOf('call'), 'chat');
   // A page that could only be blank is not offered.
-  assert.equal(visiblePickedSupplierPage('chat', pickedSupplierMenuFor({ quote: false, chat: false })), 'details');
+  assert.equal(visiblePickedSupplierPage('chat', pickedSupplierMenuFor({ chat: false })), 'details');
   assert.deepEqual(
-    PICKED_SUPPLIER_PAGES.map((p) => p.label).slice(0, 6),
-    ['Chat', 'Details', 'Quotation', 'Payment', 'Forms', 'Schedule'],
-    'the owner-ruled tab order (11 Nov, the supplier’s order mirrored)',
+    PICKED_SUPPLIER_PAGES.map((p) => p.label),
+    ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report'],
+    'the owner-ruled tab order (seven tabs 18 Nov, the supplier’s order mirrored less Hub)',
   );
 });
 
@@ -155,4 +155,23 @@ test('6 · both picked Chats draw the SHIPPED host strip — no second presence 
     const src = read(rel);
     assert.doesNotMatch(src, /\bonline\b|last seen|<ChatHostStrip\b/i, `${rel} draws a second presence row`);
   }
+});
+
+// ── 19 Nov 2026 · review HOLD on the seven-tab build ────────────────────────────────────────────────────────────────
+test('a computer’s layout is said in CSS, so the first paint is already it — and a part’s id is said once', () => {
+  const shell = read(SHELL);
+  // The frame, the two columns' widths and the Chat tab's absence are `lg:` classes — not a width read after mount.
+  assert.match(shell, /const WIDE_FRAME = 'mx-auto w-full max-w-3xl lg:max-w-\[976px\] xl:max-w-\[992px\]';/);
+  assert.match(shell, /\? 'flex-1 lg:ml-auto lg:w-\[360px\] lg:flex-none xl:w-\[400px\]'\s*: 'flex-1 lg:w-\[592px\] lg:flex-none xl:w-\[564px\]'/, 'a Chat landing is not drawn where the Chat column will be');
+  assert.match(shell, /sideChat && m\.id === sideChat\.page \? 'lg:hidden ' : ''/, 'the Chat tab shows on a computer until the page wakes');
+  assert.doesNotMatch(shell, /split \? WIDE_FRAME/, 'the frame waits for the width read again');
+  // A `?tab=` landing scrolls AFTER the portal lands — a scroll on the in-place first frame is thrown away with it
+  // (measured in the lab, 19 Nov 2026: `?tab=forms` opened Details at its top).
+  assert.match(shell, /if \(!host \|\| !scrollTo \|\| workPage !== scrollTo\.page\) return;[\s\S]{0,400}\}, \[host\]\);/, 'the landing scroll no longer waits for the portal');
+  // The couple's Book & Budget and Details wrap sections that already carry their label: one id each, no nested section.
+  const ws = read(WORKSPACE);
+  assert.equal((ws.match(/id="payments"/g) ?? []).length, 1, '`payments` is said twice (or never) on the couple page');
+  assert.match(ws, /<div id=\{moneyHidden \? 'payments' : undefined\}[^>]*data-picked-part="payments">/);
+  assert.equal((ws.match(/id="inspiration"/g) ?? []).length, 1);
+  assert.match(ws, /<div id="inspiration"[^>]*data-picked-part="inspiration">/, 'Inspiration is a section inside a section again');
 });

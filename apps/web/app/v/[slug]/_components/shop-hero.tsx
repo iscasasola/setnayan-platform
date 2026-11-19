@@ -70,7 +70,7 @@ export function ShopHero({
       }`}
     >
       {gallery ?? (
-        <div className={`absolute inset-x-0 -bottom-[6%] -top-[6%] -z-20 ${m.heroDrift}`}>
+        <div className={`absolute inset-x-0 -bottom-[6%] -top-[6%] -z-20`}>
           <div className={`absolute inset-0 ${m.heroPhoto}`}>
             {photoIsMarked ? (
               <MarkedPhoto src={photoUrl} alt="" frame="square" displayAspect={16 / 9} priority={!sample} sizes={sample ? '430px' : '100vw'} />

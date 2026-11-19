@@ -27,7 +27,7 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 // anymore)") — it has no /features entry to price at all. The rule that it stays gone is
 // lib/retired-products-stay-retired.test.ts; this slot now only proves the entry did not come back.
 test('Patiktok has no /features entry — retired, so it is neither free nor paid there', () => {
-  assert.equal(DAY_MEMORIES_FEATURES.find((f) => f.slug === 'patiktok'), undefined, 'the retired Patiktok feature entry is back');
+  assert.equal(DAY_MEMORIES_FEATURES.find((f) => (f.slug as string) === 'patiktok'), undefined, 'the retired Patiktok feature entry is back');
 });
 
 test('Patiktok on /pricing reads its per-day price from the row', () => {

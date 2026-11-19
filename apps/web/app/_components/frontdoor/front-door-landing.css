@@ -454,7 +454,7 @@
   top: 40px;
   bottom: 40px;
   width: 2px;
-  border-radius: 2px;
+  border-radius: var(--m-r-full);
   background: var(--fd-line);
   transform-origin: 50% 0;
 }

@@ -448,16 +448,8 @@ export function findSku(skuCode: string): SkuRecord | undefined {
   return SKU_CATALOG.find((s) => s.skuCode === skuCode && s.isActive);
 }
 
-/**
- * RE-EXPORTED from `lib/php.ts` (2026-09-20). This module's own copy did
- * `Math.round(centavos / 100)` — a catalogue price is what a customer is
- * CHARGED (`platform_retail_catalog_v2` is admin-managed and is the only price
- * a customer pays), and the owner's own 2026-08-27 sheet shows he edits these
- * figures by hand, so a `.50` rung is one keystroke away. Rounding it on the
- * admin pricing table and in the pricing report is how a mis-priced SKU stays
- * invisible to the person who set it.
- */
-export { formatCentavosPhp } from './php';
+/* `formatCentavosPhp` lives in `lib/php.ts` (the app's one money spelling) — import it from there.
+   This module's old copy rounded centavos away, which hid a `.50` rung on the admin pricing table. */
 
 // ---------------------------------------------------------------------------
 // Retired SKUs — kept here so a stale UI reference doesn't break type checks.

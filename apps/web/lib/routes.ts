@@ -5,17 +5,23 @@ import { papicCardHref } from '@/lib/papic-home-href';
 /**
  * routes.ts — THE single source of truth for every URL in the Setnayan web app.
  *
- * Generated from the live route tree (327 routes). Every <Link href>, router.push,
- * redirect(), fetch() and email/QR URL should resolve through a builder here — never a
- * hardcoded string. Renaming a route = edit the one builder below (+ move the folder);
- * every caller follows automatically, and the route-integrity guard
- * (scripts/lint-routes.mjs) fails the build if a builder points at a folder that does
- * not exist (dead link) or a route folder lacks a builder (orphan).
+ * Every <Link href>, router.push, redirect(), fetch() and email/QR URL should resolve
+ * through a builder here — never a hardcoded string. Renaming a route = edit the one
+ * builder below (+ move the folder); every caller follows automatically.
+ *
+ * ✅ CHECKED BY `lib/every-route-builder-reaches-a-page.test.ts`: every builder below
+ * is called and its path must resolve to a `page`/`route` file under `app/`. A segment
+ * a builder writes LITERALLY must match a literal folder — only the builder's own
+ * arguments may fill a `[dynamic]` folder — so `/venues` cannot pass by landing in the
+ * event page `app/[slug]`. A builder whose folder is deleted fails the build.
+ *
+ * ⚠ NOBODY IS CHECKING THE REVERSE. Not every route folder has a builder here — well
+ * over 200 pages do not (re-measure by walking `app/` against the builders) — so a new
+ * page without a builder fails nothing, and hardcoded href strings are not banned.
+ * Add a builder when you link to a page; do not read this file as the route list.
  *
  * Paths here are the CURRENT, behavior-preserving URLs — renames land as a separate,
  * reviewed step. Builders take their dynamic segments as ordered string params.
- *
- * AUTO-GENERATED skeleton — safe to hand-edit; keep one builder per live route.
  */
 export const routes = {
   index: () => `/`,
@@ -321,7 +327,6 @@ export const routes = {
       playlist: (eventId: string) => `/dashboard/${eventId}/studio/playlist`,
       saveTheDate: (eventId: string) => `/dashboard/${eventId}/studio/save-the-date`,
       setnayanAi: (eventId: string) => `/dashboard/${eventId}/studio/setnayan-ai`,
-      suppliesMarketplace: (eventId: string) => `/dashboard/${eventId}/studio/supplies-marketplace`,
     },
     apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
@@ -407,7 +412,6 @@ export const routes = {
   },
   download: () => `/download`,
   explore: {
-    index: () => `/explore`,
     compare: () => `/explore/compare`,
   },
   faviconIco: () => `/favicon.ico`,
@@ -475,7 +479,6 @@ export const routes = {
   sitemapHelpXml: () => `/sitemap-help.xml`,
   sitemapStaticXml: () => `/sitemap-static.xml`,
   sitemapVendorsXml: () => `/sitemap-vendors.xml`,
-  sitemapVenuesXml: () => `/sitemap-venues.xml`,
   sitemapWeddingsXml: () => `/sitemap-weddings.xml`,
   sitemapXml: () => `/sitemap.xml`,
   terms: () => `/terms`,
@@ -533,13 +536,6 @@ export const routes = {
     team: () => `/vendor-dashboard/team`,
     verify: () => `/vendor-dashboard/verify`,
     website: () => `/vendor-dashboard/website`,
-  },
-  venue: {
-    detail: (slug: string) => `/venue/${slug}`,
-  },
-  venues: {
-    index: () => `/venues`,
-    detail: (city: string) => `/venues/${city}`,
   },
   waitlist: () => `/waitlist`,
   wall: {

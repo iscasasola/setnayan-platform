@@ -34,7 +34,6 @@ const ALLOWED_SHARE2: Record<string, string> = {
   'app/admin/_components/admin-nav-groups.tsx': 'the admin sidebar SECTION icon for "Social queue" — navigation, not a share action',
   'app/admin/studio/page.tsx': 'the admin Studio TAB icon for "Social queue" — navigation, not a share action',
   'lib/nav-icons.ts': 'the name→component registry the nav editor resolves lucideName "Share2" through (admin Social queue)',
-  'lib/route-meta.ts': 'route metadata icon for the admin Social queue page — a page identity, not a share action',
   'app/dashboard/[eventId]/_components/supplier-connect-panel.tsx':
     '"Create their link" / "Try again" MAKE a supplier link (no share sheet opens); its share buttons already wear Share',
 };

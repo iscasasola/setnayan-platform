@@ -138,13 +138,14 @@ export async function fetchPlanProgressForCouple(opts: {
 }): Promise<PlanProgress> {
   const { authedClient, eventId, eventVendorId } = opts;
 
-  const { data: planRow } = await authedClient
+  const { data: planRow, error: planError } = await authedClient
     .from('event_vendor_payment_plan')
     .select('instances_json, cleared_at, is_default_seeded')
     .eq('event_id', eventId)
     .eq('event_vendor_id', eventVendorId)
     .maybeSingle();
-  if (!planRow) return { steps: null, clearedAt: null };
+  // 🔎 A refused read is not "no plan": `readComplete: false` lets a caller that NAMES a due amount stay silent.
+  if (!planRow) return { steps: null, clearedAt: null, readComplete: !planError };
 
   const raw = (planRow as { instances_json: unknown }).instances_json;
   const instances: PlanInstance[] = Array.isArray(raw) ? (raw as PlanInstance[]) : [];
@@ -154,7 +155,7 @@ export async function fetchPlanProgressForCouple(opts: {
 
   // The couple's logged payments on this booking (couple-RLS) — only the seq +
   // confirmation flag matter for the stepper.
-  const { data: payRows } = await authedClient
+  const { data: payRows, error: payError } = await authedClient
     .from('event_vendor_payments')
     .select('schedule_instance_seq, vendor_confirmed_at, payment_refused_at')
     .eq('event_id', eventId)
@@ -169,7 +170,8 @@ export async function fetchPlanProgressForCouple(opts: {
     refused: p.payment_refused_at != null,
   }));
 
-  return { steps: computeStepper(instances, payments), clearedAt, isDefaultSeeded };
+  // A refused payments read folds as "nothing paid" — every installment would read 'due'. Said, not hidden.
+  return { steps: computeStepper(instances, payments), clearedAt, isDefaultSeeded, readComplete: !payError };
 }
 
 /**

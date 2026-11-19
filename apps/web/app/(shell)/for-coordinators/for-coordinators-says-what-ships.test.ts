@@ -82,7 +82,6 @@ const FALSE_CLAIMS: readonly { claim: RegExp; why: string }[] = [
   { claim: /Trusted partner/i, why: 'the rename is ruled, not built — the app says "preferred supplier" and "Trusted by"' },
   { claim: /first paid booking/i, why: 'an invite counts after the supplier’s first COMPLETED booking (INVITE_INFO)' },
   { claim: /Refer a supplier/i, why: 'the app calls it "Invite a supplier" (INVITE_SHEET_TITLE)' },
-  { claim: /first to bring/i, why: 'the free-booking rule for the first to bring an event is ruled, not built' },
   { claim: /Patiktok|Music Maker/i, why: 'never on this page (brief, 20 Nov)' },
   { claim: /Event Hub Pro/i, why: 'the name is gone (owner 8 Nov)' },
   { claim: /website/i, why: 'it is an Event Hub, not a website (owner 2026-09-24)' },
@@ -121,7 +120,9 @@ test('the fee is named only from the live schedule; unreadable → no rate is na
     assert.ok(PAGE.includes(f), `the fee does not read ${f}`);
   }
   assert.doesNotMatch(WORDS, /\b\d+(\.\d+)?%/, 'a percent is typed');
-  assert.match(PAGE, /Clients who found you outside Setnayan never carry a fee\./);
+  // The free-booking rule is LIVE (16 Nov) and has ONE wording — the page quotes it, never its own sentence.
+  for (const w of ['FEE_FREE_RULE', 'FEE_FREE_CHIP', 'FEE_SCOPE']) assert.ok(PAGE.includes(`{${w}}`), `the page does not quote ${w}`);
+  assert.match(PAGE, /from '@\/lib\/booking-fee-who-words'/);
 });
 
 test('reach and plans come from lib/vendor-tier-caps.ts', () => {

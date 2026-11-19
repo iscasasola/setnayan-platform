@@ -8,7 +8,7 @@
  * source". The facts are unchanged; the sentence now reads
  *
  *   **Your first booking through Setnayan is free.** After that: 5% up to
- *   ₱100,000, 1% above — only on couples who found you here. ⓘ
+ *   ₱100,000, 1% above — unless you are the first to bring the event. ⓘ
  *
  * and the ⓘ holds "Minimum fee ₱50 per booking. Bookings you bring in yourself
  * are never charged."
@@ -25,11 +25,12 @@ import {
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /** Who the fee applies to — the visible label the ⓘ sits beside. */
-export const FEE_LINE_WHO = 'only on couples who found you here.';
+export const FEE_LINE_WHO = `${FEE_SCOPE}.`;
 /** The second sentence behind the ⓘ. */
-export const FEE_LINE_OWN_CLIENTS = 'No fee on clients you bring in yourself.';
+export const FEE_LINE_OWN_CLIENTS = FEE_FREE_RULE;
 
 export function BookingFeeLine({
   fee,

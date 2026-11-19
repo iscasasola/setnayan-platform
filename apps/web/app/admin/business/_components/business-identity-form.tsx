@@ -5,7 +5,8 @@
  * its answer in the pill) over the SAME one save the Settings tab had (`saveBusinessIdentity`). Every field the old
  * form posted is posted here under the same name, so nothing the action reads went missing:
  *   business_name · business_tin · business_address · business_email · default_vat_rate_pct ·
- *   repost_watch_hamming_threshold · vendor_validate_email · vendor_validate_phone · drive_speed_kmh
+ *   repost_watch_hamming_threshold · drive_speed_kmh
+ * (The two VALIDATE contact fields went with the VALIDATE step itself — PR #7793; nothing reads them.)
  *
  * ⚖ MEASURED, NOT FALLBACK (2026-09-30): when the saved settings could not be read, Save is OFF — a save from fallback
  * blanks would write them over the real values printed on every receipt. The drive speed has its own read: unread, its
@@ -25,8 +26,6 @@ export type BusinessIdentityValues = {
   business_email: string;
   default_vat_rate_pct: string;
   repost_watch_hamming_threshold: string;
-  vendor_validate_email: string;
-  vendor_validate_phone: string;
   /** `null` = the speed could not be read; its row is locked and not posted. */
   drive_speed_kmh: string | null;
 };
@@ -77,24 +76,6 @@ export function BusinessIdentityForm({ values, readFailed }: { values: BusinessI
           inputMode="numeric"
           required
           check={range(0, 64, 'The sensitivity')}
-          onKeep={keep}
-        />
-        <TypedRow
-          name="Supplier VALIDATE email"
-          about={{ words: 'The Setnayan-owned inbox suppliers email “VALIDATE <shop name>” to during verification. Admins mark each received message on the verification queue.' }}
-          value={values.vendor_validate_email}
-          fieldName="vendor_validate_email"
-          inputMode="email"
-          required
-          onKeep={keep}
-        />
-        <TypedRow
-          name="Supplier VALIDATE mobile number"
-          about={{ words: 'The Setnayan-owned number suppliers text “VALIDATE <shop name>” to. Leave blank to show “number coming soon” to suppliers until one exists.' }}
-          value={values.vendor_validate_phone}
-          empty="09XX XXX XXXX"
-          fieldName="vendor_validate_phone"
-          inputMode="tel"
           onKeep={keep}
         />
         {values.drive_speed_kmh === null ? (

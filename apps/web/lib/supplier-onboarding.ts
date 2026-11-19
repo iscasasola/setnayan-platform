@@ -56,6 +56,9 @@ export const ONBOARDING_STEP_NAMES = {
 /** PC4 — Door C's step 4 is their PAGE, drafted with the first card on it (owner: "we will also create their first page"). */
 export const YOUR_PAGE_HEAD = 'Your page';
 export const APPROVE_PAGE = 'Approve page';
+/** PC4 — under the page's address. Never "goes live when you open": the card shows only once the shipped switch puts it
+ *  on the page (publish gate + live-cards cap), which Today's welcome then says (review 20 Nov). */
+export const PAGE_LINK_LINE = 'your card shows here once it’s live';
 /** PC4 — the page's Trusted partners section before any shop joins. */
 export const PAGE_PARTNERS_EMPTY = 'Shops you invite show here.'
 

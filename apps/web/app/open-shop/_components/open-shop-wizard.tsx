@@ -47,6 +47,7 @@ import {
   OPEN_YOUR_SHOP_FREE_LINE,
   OPEN_YOUR_SHOP_HEAD,
   APPROVE_PAGE,
+  PAGE_LINK_LINE,
   PAGE_PARTNERS_EMPTY,
   TRUSTED_PARTNERS,
   YOUR_PAGE_HEAD,
@@ -1372,6 +1373,19 @@ export function OpenShopWizard({
                     {coordinating && step === 1 && coordinationLeaves.length > 0 ? (
                       // 🚪 Door C: Coordination pre-picked — ONE dropdown for the main service (owner 19 Nov).
                       <span className="grid gap-2" data-onboarding-coordination="">
+                        {/* PC1: what you do is already picked — Coordination — and the dropdown names which kind. */}
+                        <span className="flex min-h-11 items-center gap-3 text-[14px]" data-onboarding-coordination-picked="">
+                          <span className="w-[88px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                            What you do
+                          </span>
+                          <b className="min-w-0 flex-1 font-medium" style={{ color: 'var(--m-ink)' }}>
+                            Coordination
+                          </b>
+                          <span className="inline-flex items-center gap-1 text-[13px] font-medium" style={{ color: 'rgb(var(--color-ok))' }}>
+                            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            Picked
+                          </span>
+                        </span>
                         <PickMenu
                           label="Your main coordination service"
                           value={service}
@@ -1949,7 +1963,7 @@ export function OpenShopWizard({
                   the shop is open (it needs the shop); until then the price above is the whole draft. */}
               {coordinating && slug ? (
                 <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-page-link="">
-                  setnayan.com/{slug} · goes live when you open
+                  setnayan.com/{slug} · {PAGE_LINK_LINE}
                 </p>
               ) : null}
               <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">

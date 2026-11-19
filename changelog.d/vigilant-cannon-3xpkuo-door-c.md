@@ -27,3 +27,13 @@ FEATURE_REGISTER row in the corpus (flagged).
 - **PC7 the /i door:** "<shop> invited you" · "You'll show on their page as a trusted partner." · the shop card · "Joining makes you partners at once" · "Free. Tools for your own clients." · I already have a shop · Create my free shop → Door B.
 - **Reverted:** the Shop › "Partnerships" tab keeps its shipped word (title, masthead, Shop tile). "Trusted partners" stays for the tie and the page section, as ruled.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
+
+## 2026-11-20 · fix(onboarding): Door C takes Door B's first-card truth; PC1 Picked row; Later on the invite
+
+- Door B's fix is merged in. The coordinator's first card goes through the shipped switch. Every landing (live, draft, refused, Edit) still passes through `/open-shop/invite`.
+- PC4: the page link no longer says "goes live when you open". It now says "your card shows here once it's live".
+- PC1: a "What you do · Coordination · ✓ Picked" row above the coordination dropdown.
+- PC7: "Later" beside Done on the invite screen. Both go where the first card lands.
+- Tests: `lib/supplier-onboarding.test.ts` 13, and test 10's landing count is now 3.
+
+SPEC IMPACT: None.

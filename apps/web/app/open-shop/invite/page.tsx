@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { Check } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
@@ -80,7 +80,9 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
       <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }} data-onboarding-invite-line="">
         {INVITE_SHOPS_LINE}
       </p>
-      <span className="flex">
+      {/* PC7: "Later" — share another time (the QR stays in Shop › Partnerships); both go where the first card lands. */}
+      <span className="flex items-center gap-2">
+        <ActionButton tone="neutral" quiet icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Later" href={done} data-onboarding-invite-later="" />
         <ActionButton tone="brand" main icon={<Check aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label="Done" href={done} className="ml-auto" />
       </span>
     </main>

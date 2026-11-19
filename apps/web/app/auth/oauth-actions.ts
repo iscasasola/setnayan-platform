@@ -58,6 +58,7 @@ import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { parseOAuthAccountType, buildOAuthCallbackUrl } from '@/lib/oauth-signup';
 import { googleLoginHint } from '@/lib/google-address';
+import { siteOrigin } from '@/lib/site-origin';
 
 type SupabaseOAuthProvider = 'google' | 'apple' | 'facebook';
 
@@ -71,7 +72,7 @@ async function signInWithProvider(
   // round-trip the intent as ?as=vendor and the callback reconciles it.
   const accountType = parseOAuthAccountType(formData.get('account_type'));
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = siteOrigin();
   const { next, url: redirectTo } = buildOAuthCallbackUrl({ appUrl, rawNext, accountType });
 
   // Supabase returns { url } on success; the user's browser needs to

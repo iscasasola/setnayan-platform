@@ -121,12 +121,20 @@ export function EventTypeShelf({ tiles }: { tiles: readonly EventTypeTile[] }) {
 
 const SHOT = (key: string) => `/marketing/2026-11-20/${key}.webp`;
 
-/** ⓘ — one short line shows; the detail opens in place, with no script. */
+/**
+ * ⓘ — one short line shows; the detail opens in place, with no script. The circle wears InfoTip's own classes token
+ * for token (`there-is-one-info-dot.test.ts`): 16 px, ink at rest, terracotta while hovered or open, the 46-px halo.
+ */
 function What({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <details className="fl-what-tip">
+    <details className="fl-what-tip group">
       <summary aria-label={label}>
-        <i aria-hidden="true">i</i>
+        <span
+          aria-hidden="true"
+          className="sn-dot-btn inline-flex h-4 w-4 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 group-hover:border-terracotta group-hover:text-terracotta group-open:border-terracotta group-open:text-terracotta"
+        >
+          i
+        </span>
       </summary>
       <p>{children}</p>
     </details>

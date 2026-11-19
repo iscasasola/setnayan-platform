@@ -64,7 +64,7 @@ test('the front page ⓘ takes no room closed and opens in place', () => {
   // in place under the line (`.fl-what-tip`), so a closed one takes no room and an open one can never be clipped.
   const css = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'frontdoor', 'front-door-landing.css'), 'utf8'));
   const tsx = stripComments(readFileSync(join(__dirname, '..', 'app', '_components', 'frontdoor', 'front-door-landing.tsx'), 'utf8'));
-  assert.match(tsx, /<details className="fl-what-tip">/, 'the front page ⓘ is no longer a <details>');
+  assert.match(tsx, /<details className="fl-what-tip group">/, 'the front page ⓘ is no longer a <details>');
   const sum = css.match(/\.fd \.fl-what-tip summary\s*\{([^}]*)\}/);
   assert.ok(sum, 'the front page ⓘ has no `.fd .fl-what-tip summary` rule');
   assert.match(sum[1] ?? '', /width:\s*44px/, 'the ⓘ press must be 44 px wide');

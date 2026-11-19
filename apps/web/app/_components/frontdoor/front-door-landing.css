@@ -180,19 +180,6 @@
 .fd .fl-what-tip summary::-webkit-details-marker {
   display: none;
 }
-.fd .fl-what-tip summary i {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1.5px solid currentColor;
-  font: 700 11px/1 var(--fd-mono);
-  font-style: normal;
-}
-.fd .fl-what-tip[open] summary {
-  color: var(--m-mulberry);
-}
 .fd .fl-what-tip p {
   margin: 8px -40px 0 0;
   padding: 12px 14px;

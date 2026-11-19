@@ -2,7 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventCoupleWebsiteProActive, eventHubOwnership } from '@/lib/couple-website-pro';
+import { eventCoupleWebsiteProActive, eventHubOwnership, eventProPlanActive } from '@/lib/couple-website-pro';
 import { asViewed, asViewedOwnership } from '@/lib/view-as-free.server';
 import { ownsHubGate, type HubOwnership, type HubPartId, type HubPlanGate } from '@/lib/hub-parts';
 import {
@@ -99,6 +99,15 @@ export const websiteProActiveFor = cache(
     // canvas is this page, so "view as a free couple" must reach it. Render
     // only — this reader gates no write.
     asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId)),
+);
+
+/**
+ * 💎 The Event Pro PLAN (owner 2026-11-19) — Pro, Ultra, a Pro kept from before 19 Nov, or the cap. The plan's own perks
+ * ask THIS: the footer and the watermark off, a guest's own schedule. Everything else (the parts) asks
+ * `websiteProActiveFor` / `hubPartActiveFor`. Cached per event, as the viewer is shown it, like its siblings.
+ */
+export const proPlanActiveFor = cache(
+  async (eventId: string): Promise<boolean> => asViewed(eventProPlanActive(createAdminClient(), eventId)),
 );
 
 /**

@@ -65,7 +65,7 @@ import { compositeOver } from '@/lib/hub-legibility';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { siteFontLook } from '@/lib/site-role-look';
 import { pageWordBase, pinPlateInk, pinWordInks, proSiteVarsFor } from './pro-site-vars';
-import { hubOwnershipFor, hubPartActiveFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
+import { hubOwnershipFor, hubPartActiveFor, proPlanActiveFor, resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { HUB_PART_IDS, type HubPartId } from '@/lib/hub-parts';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
@@ -662,7 +662,7 @@ export const loadMedia = cache(
     /* ⏩ STARTED TOGETHER, AWAITED WHERE THEY ALWAYS WERE (`lib/start-ahead.ts`).
        None of these needs another's answer; in single file each waited for the
        one above it. Same reads, same count, the same lines receive them. */
-    const proWatermarkHiddenAhead = startAhead(websiteProActiveFor(event.event_id));
+    const proWatermarkHiddenAhead = startAhead(proPlanActiveFor(event.event_id)); // 💎 the Pro PLAN's perk (2026-11-19)
     /* 🏷 The plan's Setnayan mark (Build 6 Lane L — `eventSetnayanMark`, the shipped Pro + Plus readers). */
     const setnayanMarkAhead = startAhead(eventSetnayanMark(admin, event.event_id));
     /* 💎 …and what the event holds PART BY PART (owner 2026-10-22) — the page's per-part gates (Decorations → Style,

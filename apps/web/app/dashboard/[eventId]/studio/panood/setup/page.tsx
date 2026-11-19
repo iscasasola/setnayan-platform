@@ -39,6 +39,7 @@ import {
 import { eventSkuActive } from '@/lib/entitlements';
 import { liveStudioControllerHref, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 import { hubPartPrices } from '@/lib/couple-website-pro';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { hubPart } from '@/lib/hub-parts';
 import { readEventWatchUrls } from '@/lib/watch-live-links';
 import {
@@ -198,7 +199,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const ent = await eventEntitlementClient(eventId);
   const [baseOwned, customMonogramOwned, ownsHostedChannel] = await Promise.all([
     eventSkuActive(ent, eventId, 'PANOOD_SYSTEM'),
-    eventSkuActive(ent, eventId, 'ANIMATED_MONOGRAM'),
+    // 💎 The animation, or the Logo & QR part that carries it (a Pro kept from before 19 Nov, Ultra, the cap).
+    eventAnimatedMonogramActive(ent, eventId),
     // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
     // 2026-09-02)? Decides which pool-only connect notice renders below —
     // NOT multicam entitlement, which stays keyed on PANOOD_SYSTEM/LIVE_STUDIO
@@ -260,8 +262,9 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const monogramPriceLabel =
     monogramPartPhp != null
       ? formatPhp(monogramPartPhp)
-      : monogramPrices?.full != null
-        ? `In Event Pro · ${formatPhp(monogramPrices.full)}`
+      : monogramPrices?.everything != null
+        ? // 💎 Since 2026-11-19 the part is Event Ultra's (the plan page's "Everything" card) — its name and price, read.
+          `In ${monogramPrices.everythingTitle ?? 'Event Ultra'} · ${formatPhp(monogramPrices.everything)}`
         : null;
 
   // The venue connection check's last result — the couple's and the coordinator's to see.

@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getIapGate } from '@/lib/request-platform';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
-import { eventHubOwnership } from '@/lib/couple-website-pro';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY, eventHubOwnership } from '@/lib/couple-website-pro';
+import { eventSkuLinesFor, orderStatusConfersOwnership } from '@/lib/entitlements';
 import { AppleProScreen } from '@/app/_components/iap/apple-pro-screen';
 
 /**
@@ -27,9 +28,14 @@ export default async function AppleProPage({ params, searchParams }: Props) {
   /* What the event holds — Full Pro, any part, the cap (an order under review counts, so nothing is sold twice). */
   const own = ent ? await eventHubOwnership(ent, eventId, 'owned').catch(() => null) : null;
   if (own?.full) redirect(`${back}?apply=1`);
-  /* ⛔ Event Pro is sold WHOLE (owner 2026-10-26, "just have the upgrade Event Pro") — never a part, here or on
-     the web. "Everything" is not sold in the app once any part is owned — it would charge Apple's full price for less
-     on the web, and the app may not say so (owner 2026-10-22, Q1); such an event finishes on the web. */
+  /* 💎 Everything is Event Ultra (owner 2026-11-19 (2) + (3)). An event that PAID for Event Pro is sold the upgrade
+     product, at the difference (`event_ultra_upgrade_from_pro`); `startAppStorePurchase` re-checks the same fact. */
+  const proLines = ent ? await eventSkuLinesFor(ent, eventId, [COUPLE_WEBSITE_PRO_SERVICE_KEY]).catch(() => []) : [];
+  const proPaid = proLines.some((r) => r.service_key === COUPLE_WEBSITE_PRO_SERVICE_KEY && orderStatusConfersOwnership(r.status));
+  if (proPaid) return <AppleProScreen eventId={eventId} back={back} upgrade />;
+  /* ⛔ Sold WHOLE (owner 2026-10-26, "just have the upgrade Event Pro") — never a part, here or on the web. "Everything"
+     is not sold in the app once anything else is paid toward it (a part, Event Plus) — it would charge Apple's full price
+     for less on the web, and the app may not say so (owner 2026-10-22, Q1); such an event finishes on the web. */
   if (own && (own.parts.size > 0 || own.paidPhp > 0)) redirect(back);
   return <AppleProScreen eventId={eventId} back={back} />;
 }

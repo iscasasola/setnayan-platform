@@ -213,7 +213,7 @@ export function allInOneFile(
   const mark = makerProMark({ owns: input.ownsPro, storeShell: input.storeShell });
   if (mark === null) return null;
   if (mark === 'unlocked') return { kind: 'save', ...save, icon: <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Pro')} /> };
-  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} />, note };
+  return { kind: 'door', href: `/dashboard/${input.eventId}/studio/website-pro`, label: save.label, icon: <PaidMark state={mark} word="ULTRA" label={paidMarkLabel(mark, 'Event Ultra')} />, note };
 }
 /**
  * 🎟 A FREE ALL-GUESTS FILE (owner 2026-10-22, DECISION_LOG "FREE IS READY, PRO IS PERSONAL — ALL TICKETS AND THE QR SHEET ARE FREE";
@@ -787,7 +787,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
         — 3 mm bleed and crop marks, no watermark.{' '}
         {input.storeShell ? null : (
           <>
-            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Pro')} className="mr-1 align-middle" />
+            <PaidMark state={input.ownsPro ? 'unlocked' : 'try'} word="ULTRA" label={paidMarkLabel(input.ownsPro ? 'unlocked' : 'try', 'Event Ultra')} className="mr-1 align-middle" />
             Your Event Hub look on paper is Event Pro.{' '}
           </>
         )}
@@ -809,7 +809,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       </p>
       {!freeTheme && access.offerPro ? (
         <p data-prints-go-pro="" className="text-sm font-medium text-mulberry">
-          <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
+          <PaidMark state="try" word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} className="mr-1 align-middle" />
           Go Pro to print in {t.name}.
         </p>
       ) : null}

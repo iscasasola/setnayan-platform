@@ -7,11 +7,11 @@ import { getIapGate } from '@/lib/request-platform';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { eventIsOver } from '@/lib/event-is-over.server';
-import { eventOwnsSku } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuLinesFor, orderStatusConfersOwnership } from '@/lib/entitlements';
 import { papicPassPointsForSku } from '@/lib/papic-pass-tiers';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { iapProductById, iapProductIsRepeatable, papicCreditsMatch } from './products';
-import { eventHubOwnership } from '@/lib/couple-website-pro';
+import { COUPLE_WEBSITE_PRO_SERVICE_KEY, eventHubOwnership } from '@/lib/couple-website-pro';
 import { verifyAppleTransaction } from './apple-transaction';
 import { createPurchaseIntent, fulfilAppleTransaction, type FulfilOutcome } from './fulfil.server';
 import { startRefusal, type IapStartResult, type IapConfirmResult, type IapRestoreResult } from './iap-outcome';
@@ -106,7 +106,8 @@ export async function startAppStorePurchase(input: {
   // part-owner rule above). Such an event upgrades on the web until an upgrade product exists.
   if (product.kind === 'event-hub-pro') {
     const own = await eventHubOwnership(admin, eventId, 'owned');
-    if (own.full) return startRefusal('owned');
+    // 💎 …and a Pro PLAN already held (a Pro bought from 19 Nov holds the plan, not everything) is never sold twice.
+    if (own.full || own.proPlan) return startRefusal('owned');
     if (own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
     if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
   } else if (product.kind === 'event-ultra') {
@@ -117,6 +118,15 @@ export async function startAppStorePurchase(input: {
     const own = await eventHubOwnership(admin, eventId, 'owned');
     if (own.full || own.parts.size > 0 || own.paidPhp > 0) return startRefusal('not_on_sale');
     if (await eventOwnsSku(admin, eventId, 'EVENT_PLUS')) return startRefusal('not_on_sale');
+  } else if (product.kind === 'event-ultra-upgrade') {
+    // 💎 Ultra for an event that PAID for Event Pro (owner 2026-11-19 (3)): priced at the difference, so it is sold ONLY
+    // to such an event — a Pro order (or basket line) that counts, never a comp or a gift, which were not paid. Owned
+    // Ultra is never sold twice.
+    if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');
+    const lines = await eventSkuLinesFor(admin, eventId, [COUPLE_WEBSITE_PRO_SERVICE_KEY]);
+    if (!lines.some((r) => r.service_key === COUPLE_WEBSITE_PRO_SERVICE_KEY && orderStatusConfersOwnership(r.status))) {
+      return startRefusal('not_on_sale');
+    }
   } else if (product.kind === 'event-plus') {
     if ((await eventHubOwnership(admin, eventId, 'owned')).full) return startRefusal('owned');
     if (await eventOwnsSku(admin, eventId, product.serviceKey)) return startRefusal('owned');

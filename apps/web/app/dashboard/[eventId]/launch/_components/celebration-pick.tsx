@@ -77,7 +77,7 @@ export function CelebrationPick({
       attrs={{ 'data-rsvp-setting': 'celebration' }}
       name={RSVP_CELEBRATION_LABEL}
       /* ◆ PRO while tried, the diamond once owned — information, never a lock. */
-      mark={mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
+      mark={mark ? <PaidMark state={mark} word="ULTRA" label={paidMarkLabel(mark, 'Event Ultra')} size="xs" /> : null}
       dataAttr="data-rsvp-celebration-pick"
       value={value}
       buttonText={shown}

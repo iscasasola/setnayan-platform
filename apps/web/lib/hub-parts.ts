@@ -56,6 +56,15 @@ export const FULL_PRO_SKU = 'COUPLE_WEBSITE_PRO';
  */
 export const EVENT_PLUS_SKU = 'EVENT_PLUS';
 
+/**
+ * 💎 EVERYTHING IS EVENT ULTRA (owner 18–19 Nov 2026, specs PLAN_RULINGS 34 + DECISION_LOG 2026-11-19 "Event plans part 2
+ * (#8004), four calls"): the 11 Hub parts and Editorial moved from Event Pro to Event Ultra for new buyers. An Event Pro
+ * held before 19 Nov keeps everything (`event_hub_pro_kept_lines`); a newer Pro is the Pro PLAN (`HubOwnership.proPlan`):
+ * no Setnayan mark, the plan gates, Setnayan AI and its credits, but not the parts. Spelled here (client-safe), held equal
+ * to `EVENT_ULTRA_SKU` (lib/event-ultra.ts) by `event-plans-recut-part2.test.ts`.
+ */
+export const EVERYTHING_SKU = 'EVENT_ULTRA';
+
 export type HubPart = {
   id: HubPartId;
   /** Its catalogue row — the price is read from there, never from here. */
@@ -296,12 +305,24 @@ export type HubOwnership = {
   fullPricePhp: number | null;
   /** 🎟 The plan gates the event passes outside their part (Event Plus — `HUB_PLAN_GATES`). Absent = none. */
   gates?: ReadonlySet<HubPlanGate>;
+  /**
+   * 💎 The event holds the Event Pro PLAN (owner 2026-11-19): no Setnayan mark, the footer off, the schedule for one
+   * person — without the 11 parts, which are Event Ultra's for a Pro bought from 19 Nov. Always true when `full`.
+   * Absent = false.
+   */
+  proPlan?: boolean;
 };
 
 export const NO_HUB_PARTS: HubOwnership = Object.freeze({ full: false, parts: new Set<HubPartId>(), paidPhp: 0, fullPricePhp: null });
 
 export function everyHubPart(fullPricePhp: number | null = null, paidPhp = 0): HubOwnership {
-  return { full: true, parts: new Set(HUB_PART_IDS), paidPhp, fullPricePhp };
+  return { full: true, parts: new Set(HUB_PART_IDS), paidPhp, fullPricePhp, proPlan: true };
+}
+
+/** 💎 Does the event hold the Event Pro PLAN — Pro, Ultra, a Pro kept from before 19 Nov, or the cap (`proPlan`)? */
+export function holdsProPlan(o: HubOwnershipLike | HubOwnershipView): boolean {
+  if (typeof o === 'boolean') return o;
+  return o.full || Boolean(o.proPlan);
 }
 
 /**
@@ -367,6 +388,14 @@ export function hubOwnershipFrom(input: {
    * counts toward today's Full Pro price, so the upgrade charges only the difference. Unread price → counts 0.
    */
   plusPaid?: boolean;
+  /**
+   * 💎 Event Pro was PAID for on this event (an order or a basket line — never a comp): its catalogue price
+   * (`prices.get(FULL_PRO_SKU)`) counts toward everything's price (Event Ultra's, owner 2026-11-19 — "what you paid
+   * counts toward a bigger plan"). Unread price → counts 0.
+   */
+  proPaid?: boolean;
+  /** 💎 The Event Pro PLAN is held (any path) — carried as measured (`HubOwnership.proPlan`). */
+  proPlan?: boolean;
   /** 🎟 The plan gates held outside their part (Event Plus, owner 2026-11-18) — carried as measured. */
   gates?: Iterable<HubPlanGate>;
 }): HubOwnership {
@@ -378,9 +407,11 @@ export function hubOwnershipFrom(input: {
     }
     return sum;
   };
-  const plusPhp = input.plusPaid ? input.prices.get(EVENT_PLUS_SKU) : undefined;
+  const priced = (php: number | undefined) => (typeof php === 'number' && Number.isFinite(php) && php > 0 ? php : 0);
   const paid =
-    sumOf(input.paidParts) + (typeof plusPhp === 'number' && Number.isFinite(plusPhp) && plusPhp > 0 ? plusPhp : 0);
+    sumOf(input.paidParts) +
+    priced(input.plusPaid ? input.prices.get(EVENT_PLUS_SKU) : undefined) +
+    priced(input.proPaid ? input.prices.get(FULL_PRO_SKU) : undefined);
   const fullPrice = typeof input.fullPrice === 'number' && Number.isFinite(input.fullPrice) && input.fullPrice > 0 ? input.fullPrice : null;
   if (input.fullHeld || (fullPrice !== null && paid >= fullPrice)) return everyHubPart(fullPrice, paid);
   const legacyCap = input.legacy?.capPhp;
@@ -396,7 +427,14 @@ export function hubOwnershipFrom(input: {
   const parts = new Set<HubPartId>();
   for (const id of HUB_PART_IDS) if (input.partHeld(id)) parts.add(id);
   const gates = new Set<HubPlanGate>([...(input.gates ?? [])].filter((g) => HUB_PLAN_GATES.includes(g)));
-  return { full: false, parts, paidPhp: paid, fullPricePhp: fullPrice, ...(gates.size > 0 ? { gates } : {}) };
+  return {
+    full: false,
+    parts,
+    paidPhp: paid,
+    fullPricePhp: fullPrice,
+    ...(gates.size > 0 ? { gates } : {}),
+    ...(input.proPlan ? { proPlan: true } : {}),
+  };
 }
 
 /**
@@ -457,10 +495,24 @@ export function hubApplyOffer(
 /* ── ON THE CLIENT ────────────────────────────────────────────────────────── */
 
 /** `HubOwnership`, as a client prop (a Set does not cross the wire). */
-export type HubOwnershipView = { full: boolean; parts: HubPartId[]; paidPhp: number; fullPricePhp: number | null; gates?: HubPlanGate[] };
+export type HubOwnershipView = {
+  full: boolean;
+  parts: HubPartId[];
+  paidPhp: number;
+  fullPricePhp: number | null;
+  gates?: HubPlanGate[];
+  proPlan?: boolean;
+};
 
 export function hubOwnershipView(o: HubOwnership): HubOwnershipView {
-  return { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp, ...(o.gates && o.gates.size > 0 ? { gates: [...o.gates] } : {}) };
+  return {
+    full: o.full,
+    parts: [...o.parts],
+    paidPhp: o.paidPhp,
+    fullPricePhp: o.fullPricePhp,
+    ...(o.gates && o.gates.size > 0 ? { gates: [...o.gates] } : {}),
+    ...(o.proPlan ? { proPlan: true } : {}),
+  };
 }
 
 export function hubOwnershipOfView(v: HubOwnershipView): HubOwnership {
@@ -470,6 +522,7 @@ export function hubOwnershipOfView(v: HubOwnershipView): HubOwnership {
     paidPhp: v.paidPhp,
     fullPricePhp: v.fullPricePhp,
     ...(v.gates && v.gates.length > 0 ? { gates: new Set(v.gates.filter((g) => HUB_PLAN_GATES.includes(g))) } : {}),
+    ...(v.proPlan ? { proPlan: true } : {}),
   };
 }
 
@@ -536,6 +589,8 @@ export function hubPartsCharge(input: {
   fullPrice: number | null;
 }): HubPartsCharge {
   if (input.owned.full) return { ok: false, why: 'already_owned' };
+  // 💎 The Event Pro plan is held (a Pro bought from 19 Nov): Pro is not sold twice. Everything is Event Ultra now.
+  if (input.parts === 'full' && input.owned.proPlan) return { ok: false, why: 'already_owned' };
   const rest = input.fullPrice === null ? null : Math.max(0, input.fullPrice - input.owned.paidPhp);
   if (rest === null) return { ok: false, why: 'unpriced' };
   if (input.parts === 'full') return { ok: true, php: rest, capped: false };

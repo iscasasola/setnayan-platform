@@ -765,18 +765,18 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Pro" size="xs" />
-                {formatCount(summary.proCount)} waiting for Pro
+                <PaidMark state="try" bare label="Event Ultra" size="xs" />
+                {formatCount(summary.proCount)} waiting for Ultra
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
-                Apply needs Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} className="mr-1 align-middle" />
+                Apply needs Event Ultra{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Pro
+                      Get Event Ultra
                     </Link>
                   </>
                 )}

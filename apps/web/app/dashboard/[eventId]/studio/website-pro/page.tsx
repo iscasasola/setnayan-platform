@@ -136,16 +136,17 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     ultraPhp: planPrices.ultra,
     ultra: ultraActive ? 'yours' : ultraOwned ? 'review' : 'buy',
     // Paid toward Plus or Pro → Ultra asks only the difference (the drawer's server quote gives the figure).
-    paidTowardAPlan: plusOwned || Boolean(owned?.full) || (owned?.paidPhp ?? 0) > 0,
+    paidTowardAPlan: plusOwned || Boolean(owned?.full || owned?.proPlan) || (owned?.paidPhp ?? 0) > 0,
   };
-  const view = (o: typeof active) => (o ? { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp } : null);
+  const view = (o: typeof active) =>
+    o ? { full: o.full, parts: [...o.parts], paidPhp: o.paidPhp, fullPricePhp: o.fullPricePhp, ...(o.proPlan ? { proPlan: true } : {}) } : null;
   const partPricePhp: Partial<Record<HubPartId, number>> = {};
   for (const p of HUB_PARTS) {
     const php = prices?.onSale.has(p.sku) ? prices.parts.get(p.sku) : undefined;
     if (php !== undefined) partPricePhp[p.id] = php;
   }
   // 🕯 Capiz light (motion standard § 9 ⑥): the highest plan now ON for this event — once, when this device first sees it.
-  const planOn: PlanKey | null = ultraActive ? 'ultra' : active?.full ? 'pro' : plusActive ? 'plus' : null;
+  const planOn: PlanKey | null = ultraActive ? 'ultra' : active?.full || active?.proPlan ? 'pro' : plusActive ? 'plus' : null;
   return (
     <>
     <CapizLight subject={`event:${eventId}`} plan={planOn} word={`${planOn === 'pro' ? (prices?.fullTitle ?? PLAN_NAME.pro) : planOn ? PLAN_NAME[planOn] : ''} unlocked`} />
@@ -154,6 +155,9 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
       title={HERO.label}
       // 🏷 The plan's name from its catalogue row (RW-306) — the same read as the prices; unread → the plan list's name.
       planName={prices?.fullTitle ?? PLAN_NAME.pro}
+      // 💎 Everything is Event Ultra (owner 2026-11-19) — its name and price from its own row.
+      everythingName={prices?.everythingTitle ?? PLAN_NAME.ultra}
+      everythingPhp={prices?.everything ?? null}
       back={back}
       fromMaker={fromMaker}
       hubHref={WEBSITE_HUB_HREF(eventId)}

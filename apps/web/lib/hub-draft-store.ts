@@ -11,6 +11,8 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { readUltraUpgradeCharge } from '@/lib/order-charge-authority';
 import { eventHubOwnership, hubPartPrices } from '@/lib/couple-website-pro';
 import { asViewedOwnership } from '@/lib/view-as-free.server';
 import { HUB_PARTS, NO_HUB_PARTS, hubOwnershipView, type HubOwnership, type HubOwnershipView, type HubPartId } from '@/lib/hub-parts';
@@ -630,12 +632,27 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       const php = read?.onSale.has(p.sku) ? read.parts.get(p.sku) : undefined;
       if (php !== undefined) partPricePhp[p.id] = php;
     }
-    fullPricePhp = read?.full ?? null;
+    // 💎 Everything is Event Ultra (owner 2026-11-19) — the rest the Apply sheet measures is against Ultra's row.
+    fullPricePhp = read?.everything ?? null;
   }
   let priceLabel: string | null = null;
   if (!storeShell && summary.proCount > 0) {
-    const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
-    priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
+    /* 💎 "Unlock Ultra and Apply · ₱X" (owner 2026-11-19, the drawing's Apply sheet): X is what THIS event pays — the
+       difference from a Plus or Pro it paid for (`readUltraUpgradeCharge`, the reader the charge and the checkout quote
+       use), else Ultra's row. Read from the server, never typed; an unread figure shows no price. */
+    const [sku, upgrade] = await Promise.all([
+      formatV2Sku(EVENT_ULTRA_SKU).catch(() => null),
+      readUltraUpgradeCharge(createAdminClient(), eventId).catch(() => null),
+    ]);
+    const charge = upgrade?.status === 'ok' ? upgrade.charge : null;
+    priceLabel =
+      upgrade?.status === 'error' || (charge && !charge.ok)
+        ? null
+        : charge?.ok
+          ? formatPhp(charge.php)
+          : sku?.price_php != null
+            ? formatPhp(sku.price_php)
+            : null;
   }
   return {
     eventId,

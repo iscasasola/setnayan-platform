@@ -406,31 +406,39 @@ export function plusPeek(f: PlanFacts): readonly string[] {
 }
 export const PLUS_MORE: readonly string[] = ['What you pay counts toward Event Pro — upgrade for the difference'];
 
-/** Event Pro: what the card shows first, then what it adds beyond Plus. */
-export const PRO_PEEK: readonly string[] = [
-  'Design every part of your Event Hub — the reveal, background, photos, style, motion, logo & QR, music, prints, the after-the-event page and your address',
-  'Your own scenes, your own reveal',
-];
+/**
+ * Event Pro: what the card shows first, then what it adds beyond Plus.
+ * 💎 Owner 2026-11-19 (DECISION_LOG "Event plans part 2 (#8004) — four calls", (4)): the Pro card is "Everything in Plus ·
+ * Setnayan AI · no Setnayan mark · N credits" — the 11 Hub parts moved to Event Ultra (`ULTRA_PEEK`) for new buyers.
+ */
+export const PRO_PEEK: readonly string[] = ['Everything in Event Plus', 'Setnayan AI — tells you what’s next and flags what’s at risk'];
 /**
  * ⚠ Was "No Setnayan marks — fully yours": today Event Pro takes the watermark off the Event Hub page, while the seat
  * and find-my-table pages still print "Powered by Setnayan" (Lane L builds the marks by plan). Says what is true now.
  */
 export function proMore(f: PlanFacts): readonly string[] {
-  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut; 1 GB of uploads (`eventCoupleMediaPlan`).
-  return ['Setnayan AI — tells you what’s next and flags what’s at risk', 'No Setnayan watermark on your Event Hub', '1 GB of uploads', ...creditsLine(f.proCredits)];
+  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut (now in `PRO_PEEK`); 1 GB of uploads (`eventCoupleMediaPlan`).
+  return ['No Setnayan watermark on your Event Hub', '1 GB of uploads', ...creditsLine(f.proCredits)];
 }
+
+/** 💎 What the Event Hub's "Everything" opens — Event Ultra's since 2026-11-19 (was Event Pro's `PRO_PEEK`). */
+export const EVERYTHING_PEEK: readonly string[] = [
+  'Design every part of your Event Hub — the reveal, background, photos, style, motion, logo & QR, music, prints, the after-the-event page and your address',
+  'Your own scenes, your own reveal',
+];
 
 /**
  * 💎 Event Ultra (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): what the card shows first, then what it adds
- * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch and Patiktok (read off the Ultra order,
- * `SKU_OWNERSHIP_ALIASES`), the 12-month originals (`papic_events_past_fullres_clock` reads the row) and the included
- * credits (`activateEventPlan`). ⚠ Canvas prints are part of Ultra but are NOT said here yet: the Our Day poster that
- * prints on canvas is approved, not built (`eventCanvasPrintsActive` is ready for it). They join the card the day the
- * poster ships — the Lane J rule above.
+ * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: every Hub part (`EVERYTHING_PEEK`, moved from Pro on
+ * 2026-11-19 — `eventHubOwnership`), Live Watch and Patiktok (read off the Ultra order, `SKU_OWNERSHIP_ALIASES`), the
+ * 12-month originals (`papic_events_past_fullres_clock` reads the row) and the included credits (`activateEventPlan`).
+ * ⚠ Canvas prints are part of Ultra but are NOT said here yet: the Our Day poster that prints on canvas is approved, not
+ * built (`eventCanvasPrintsActive` is ready for it). They join the card the day the poster ships — the Lane J rule above.
  */
 export const ULTRA_PEEK: readonly string[] = [
+  ...EVERYTHING_PEEK,
   'Live Watch for one day — your event streamed on your Event Hub',
-  'Your full-size photos kept 12 months after the event, not 3',
+  'Your full-size photos kept 12 months after the event',
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
   return ['Patiktok — save and share your reels', '2 GB of uploads', ...creditsLine(f.ultraCredits ?? null)];

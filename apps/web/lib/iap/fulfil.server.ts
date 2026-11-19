@@ -131,15 +131,25 @@ async function orderAmountPhp(
   admin: SupabaseClient,
   tx: AppleTransaction,
 ): Promise<{ ok: true; amount: number; note: string | null; catalogPhp: number | null } | { ok: false }> {
+  const rowCode = iapPriceRowFor(tx.product);
+  const lessCode = tx.product.priceLessRow ?? null;
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
-    .select('retail_price_php')
+    .select('service_code, retail_price_php')
     // ✦ A Setnayan AI tier product is priced from its tier's row, not the flat SETNAYAN_AI one (`iapPriceRowFor`).
-    .eq('service_code', iapPriceRowFor(tx.product))
-    .maybeSingle();
+    // 💎 …and the Ultra upgrade product from Ultra's row less Pro's (`priceLessRow`, owner 2026-11-19).
+    .in('service_code', lessCode ? [rowCode, lessCode] : [rowCode]);
   if (error) console.error('[iap] could not read the catalogue price (Apple’s PHP figure is used when present):', error.message);
-  const raw = (data as { retail_price_php?: number | string | null } | null)?.retail_price_php;
-  const catalogPhp = raw === null || raw === undefined || error ? null : Number(raw);
+  const rows = (data as Array<{ service_code?: string; retail_price_php?: number | string | null }> | null) ?? [];
+  const rowPhp = (code: string): number | null => {
+    const raw = rows.find((r) => r.service_code === code)?.retail_price_php;
+    const n = raw === null || raw === undefined ? NaN : Number(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+  const base = error ? null : rowPhp(rowCode);
+  const less = lessCode && !error ? rowPhp(lessCode) : null;
+  // 🔒 An upgrade whose Pro row was not read has no catalogue figure (never the whole Ultra price).
+  const catalogPhp = base === null ? null : lessCode ? (less === null ? null : Math.max(0, base - less)) : base;
   const php = chargedPhp(tx);
   if (php !== null) return { ok: true, amount: php, note: null, catalogPhp };
   // Not charged in pesos (another storefront): we do not invent an exchange

@@ -104,7 +104,7 @@ export function SceneSlotsPanel({
               <div key={i} className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex w-16 items-center gap-1 text-[12px] text-ink/75">
                   {t.clip ? 'Clip' : t.media > 1 ? `Photo ${i + 1}` : 'Photo'}
-                  {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null}
+                  {mark ? <PaidMark state={mark} word="ULTRA" label={paidMarkLabel(mark, 'Event Ultra')} size="xs" /> : null}
                 </span>
                 {slot.media ? (
                   <SafeForm action={saveAction}>

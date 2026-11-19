@@ -346,7 +346,9 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // `event-ultra-grants.test.ts` fails if one is missed. One-directional: a Pro order never confers Ultra.
     COUPLE_WEBSITE_PRO: Object.freeze([EVENT_ULTRA_SKU]),
     PATIKTOK_COMPILER: Object.freeze([EVENT_ULTRA_SKU]),
-    EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
+    // 💎 Editorial moved to Event Ultra (owner 2026-11-19): a Pro order no longer confers it read side. A Pro kept from
+    // before 19 Nov still does, through `isEditorialProActive`'s everything arm (`eventCoupleWebsiteProActive`).
+    EDITORIAL_PRO: Object.freeze([EVENT_ULTRA_SKU]),
     // 🎟 …and EVENT_PLUS (owner 2026-11-18, PLAN_RULINGS ruling 34: "premium Save the Date" is Event Plus's) — gate 1, the
     // Cinematic Reveal openings, ONLY. The Reveal part's effects (2) and own film (3) stay the part's. Read side, so it
     // also opens the openings for an Event Plus bought earlier — a grant only ever widens; nobody loses one.
@@ -358,7 +360,10 @@ export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string
     // siblings: buying the animation does NOT confer Event Pro. Read side
     // only, so it covers past AND pending Pro orders (a pending one suppresses
     // the monogram buy CTA; the animation plays once the payment is approved).
-    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU]),
+    // 💎 …and since 2026-11-19 the animation is the Logo & QR part's, which is Event Ultra's for a Pro bought from 19 Nov:
+    // the Pro alias is gone, and a Pro kept from before then reaches it through the part (`eventHubPartActive`,
+    // lib/animated-monogram.ts) — an undated alias could not tell the two Pros apart.
+    ANIMATED_MONOGRAM: Object.freeze(['COUPLE_HUB_PART_LOGO_QR', EVENT_ULTRA_SKU]),
     // 💎 COUPLE_HUB_PART_LOGO_QR ← ANIMATED_MONOGRAM (owner 2026-10-22, "Event Pro, part by part", Q2 "yes"): the
     // standalone animation is retired from sale (migration 20271283592608) and its owners read as owning the whole
     // Logo & QR part — the QR logo, shape and colour too — so nobody who paid ₱500 is asked for ₱500 again. And the

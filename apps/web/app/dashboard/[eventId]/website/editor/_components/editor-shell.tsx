@@ -3822,7 +3822,7 @@ function MoreExtras({
       {showProCta ? (
         <section className="rounded-md bg-ink px-4 py-3.5 text-cream">
           <p className="text-[13px] font-semibold text-cream">
-            <PaidMark state="try" label={paidMarkLabel('try', 'Event Pro')} text="Event Pro" size="md" tone="current" />
+            <PaidMark state="try" word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} text="Event Pro" size="md" tone="current" />
           </p>
           <p className="mt-0.5 text-[12px] leading-relaxed text-cream/80">
             One unlock for every stage — the look, the reveal, your own photos and film, music and the

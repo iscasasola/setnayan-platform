@@ -1,5 +1,6 @@
 import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
@@ -87,6 +88,9 @@ import {
   type CustomerCardTab,
 } from './_components/customer-card-nav';
 import { ScriptTab } from './_components/script-tab';
+import { SongDesk } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk';
+import { agreedFacts } from '@/lib/agreed-facts';
+import { hubHref } from '@/lib/hub-events';
 import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
@@ -101,7 +105,7 @@ import { ProposeChange } from './_components/propose-change';
 import { ChangeRequestsQueue } from '@/app/_components/change-requests/change-requests-queue';
 import { readMyChangeRequests, readOpenChangeRequests, readProposeTargets } from '@/lib/change-requests.server';
 import { proposableOps } from '@/lib/change-requests';
-import { isBookedCoordinator } from '@/lib/coordinator-trade';
+import { COORDINATOR_TRADE_SERVICES, isBookedCoordinator } from '@/lib/coordinator-trade';
 import type { DelegateArea } from '@/lib/delegate-areas';
 import { holdsSpecialization } from '@/lib/vendor-specialization-gate';
 import { resolveEventFeeGate, resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
@@ -2357,6 +2361,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     eventVendorId,
     eventDate: brief.event.event_date,
     threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
+    // 🧾 Details › Agreed now, as drawn (part G, 20 Nov): Venue · Hosts · Coordinator · Supplier · Stage — every one a
+    // fact this page already read; the Event row is the card's own (it reads the event's type). No new read here.
+    agreedFacts: agreedFacts({
+      venue: brief.event.venue_name || brief.event.region || null,
+      hosts: hostRows(brief.hosts)?.map((h) => h.name),
+      roster: isBooked ? (brief as { vendor_roster?: unknown }).vendor_roster : undefined,
+      coordinatorTrade: COORDINATOR_TRADE_SERVICES,
+      supplier: profile.business_name,
+      stage: isBooked ? 'Booked' : lockRequest ? 'Asked to book' : isAccepted ? 'Quote accepted' : proposalRowsError ? null : isQuoted ? 'Quoted' : 'Inquiry',
+    }),
   };
 
   // Files: the ONE shared builder, read once; the page body (`_pages/files.tsx`, C1) draws the rows.
@@ -2446,6 +2460,23 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       vendorProfileId={profile.vendor_profile_id}
       coupleName={eventName}
     />
+  ) : null;
+
+  // 🎵 SONG LIST — the music act's page behind ⋯ (Unichat part G, owner 20 Nov 2026). The SAME entitlement the day-of
+  // Song Desk mounts on (`song_desk`, narrowed to what this shop was booked for above) — no new flag. The body is the
+  // shipped desk itself (their sets in running order, the hosts' picks by moment, the requests), not a second copy.
+  // Booked and fee-unlocked only: the desk's own reads assume a booked act, and the fee still withholds the event.
+  const showSongs = isBooked && feeUnlocked && holdsSpecialization(scriptAccess, 'song_desk');
+  const songsNode = showSongs ? (
+    <Suspense
+      fallback={
+        <p className="py-6 text-sm text-ink/70" role="status">
+          Loading the song list…
+        </p>
+      }
+    >
+      <SongDesk eventId={eventId} vendorProfileId={profile.vendor_profile_id} coupleName={eventName} />
+    </Suspense>
   ) : null;
 
   // ❓ WHAT THEY TOLD YOU — EVERY SUPPLIER (owner 2026-11-04, verbatim "Yes, every supplier"). The host reads the
@@ -2918,6 +2949,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           autoAgree={factsEvent.error ? null : factsRow?.supplier_requests_auto_agree === true}
         />
       }
+      // ⋯ The rows that depend on this shop and this event (`clientMoreRows`): a trade page only when the shop holds
+      // that desk, Crew once booked (the shipped Hub › Crew), the timeline file once the day has a timed moment.
+      more={{
+        songs: songsNode,
+        script: showScript ? gated(scriptNode) : null,
+        crewHref: isBooked ? hubHref(eventId, 'crew') : null,
+        calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
+      }}
     />
   );
 }

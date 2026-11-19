@@ -333,7 +333,7 @@ export async function upsertEventTypeProfile(formData: FormData) {
   if (formData.get('marketplace_enabled_shown') === '1') {
     row.marketplace_enabled = formData.get('marketplace_enabled') === 'on';
   }
-  // 👥 · 🛒 SIZE AND CORE CATEGORIES (migration 20271351898146, owner 2026-11-17 — "editable in Admin"). Written only
+  // 👥 · 🛒 SIZE AND CORE CATEGORIES (migration 20271354402139, owner 2026-11-17 — "editable in Admin"). Written only
   // when the form shows them (`size_shown`), so a form without the fields can never clear them by omission. An
   // unrecognised size or tile is DROPPED, never stored: an empty choice is "not set", which every reader handles.
   if (formData.get('size_shown') === '1') {

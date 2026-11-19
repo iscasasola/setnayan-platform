@@ -26,7 +26,7 @@ export const MAX_OPTIONS = 4;
  */
 export const MAX_WINDOW_DAYS = 92;
 
-/* ── 🗓 "SOME MONTHS" (owner 2026-11-17; migration 20271352215743 — `date_mode = 'months'` + `date_months`) ─────── */
+/* ── 🗓 "SOME MONTHS" (owner 2026-11-17; migration 20271355001072 — `date_mode = 'months'` + `date_months`) ─────── */
 
 /** Up to three months, apart ("Some months · up to 3, apart"). */
 export const MAX_DATE_MONTHS = 3;

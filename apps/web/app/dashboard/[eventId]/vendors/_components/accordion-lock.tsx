@@ -181,6 +181,7 @@ export function AccordionLockButton({
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
   isVerified,
+  papersRenewing = false,
 }: {
   eventId: string;
   groupId: PlanGroupId;
@@ -204,6 +205,9 @@ export function AccordionLockButton({
    * or not read, so no line is drawn from an absence.
    */
   isVerified?: boolean;
+  /** 📄 With `isVerified === false`: the shop was verified and its papers lapsed, so the line reads "Renewing their
+   *  papers with Setnayan" instead (owner 16 Nov "11.yes"). */
+  papersRenewing?: boolean;
 }) {
   const [state, setState] = useState<LockState>({ kind: 'idle' });
   const [toast, setToast] = useState<ToastState>({ kind: 'hidden' });
@@ -518,7 +522,7 @@ export function AccordionLockButton({
           const body = notYetVerified ? (
             <>
               {copy.body}
-              <NotYetVerifiedThreadLine />
+              <NotYetVerifiedThreadLine renewing={papersRenewing} />
             </>
           ) : (
             copy.body

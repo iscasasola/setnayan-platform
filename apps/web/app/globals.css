@@ -4123,6 +4123,40 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
     --sn-m-spring: cubic-bezier(.34,1.56,.64,1);
   }
 }
+/* 🌐 THE WEBSITE'S SIX MOTIONS — Reveal · Timeline · Hero settle · Scroll-away · Emphasis · Drift (MOTION_STANDARD
+   § 6, Phase 5; owner 18 Nov 2026). The public pages (`/`, /for-suppliers, /for-coordinators, /features, /pricing, a
+   shop at /v/…) wear THESE keyframes and nothing of their own. A CSS module cannot read a global keyframe, so the three
+   module sheets carry a copy under the same name — 🔒 lib/the-website-moves-by-the-standard.test.ts holds every copy equal to
+   this block.
+   THE RULES THEY KEEP (🔒 lib/the-website-moves-by-the-standard.test.ts):
+     · transform and opacity only — never a filter, never a layout property;
+     · `from`-only (or `to`-only for Scroll-away): THE RESTING STATE IS THE BASE STYLE, so a page with no script and no
+       animation support is simply complete. Fill is `backwards`, never `both`;
+     · the speed and the easing sit on the element's `animation`, never inside the keyframe (§ 3.7);
+     · where `animation-timeline: view()` is understood, Reveal / Timeline / Scroll-away run on the scroll itself (no
+       script); elsewhere each page keeps its one IntersectionObserver, retimed to these numbers;
+     · Drift — at most ONE endless loop a public page, never at 640 px or narrower, never under reduced motion. */
+:root {
+  --sn-w-rise:        12px;   /* Reveal: how far a part travels */
+  --sn-w-stagger:     60ms;   /* Reveal: neighbours apart — the first six only */
+  --sn-w-reveal-span: 64px;   /* Reveal on the scroll: the scroll it takes (a 64-px peek under a hero is whole) */
+  --sn-w-hero-gap:    80ms;   /* Hero settle: headline lines apart */
+  --sn-w-hero-from:   1.06;   /* Hero settle: where the picture starts */
+  --sn-w-away-fade:   0.4;    /* Scroll-away: the hero fades to this … */
+  --sn-w-away-lift:   -24px;  /* … and lifts this far */
+}
+@keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
+@keyframes sn-w-fade { from { opacity: 0; } }
+@keyframes sn-w-hero-img { from { transform: scale(var(--sn-w-hero-from)); } }
+@keyframes sn-w-hero-line { from { transform: translateY(108%); } }
+@keyframes sn-w-away { to { opacity: var(--sn-w-away-fade); transform: translateY(var(--sn-w-away-lift)); } }
+@keyframes sn-w-underline { from { transform: scaleX(0); } }
+@keyframes sn-w-stamp { from { opacity: 0; transform: scale(1.6); } }
+@keyframes sn-w-tl-line { from { transform: scaleY(0); } }
+@keyframes sn-w-tl-line-x { from { transform: scaleX(0); } }
+@keyframes sn-w-tl-dot { from { opacity: 0; transform: scale(0.4); } }
+@keyframes sn-w-drift { to { transform: scale(1.1) translate(-1.5%, -1%); } }
+@keyframes sn-w-drift-x { to { transform: translateX(var(--sn-w-drift-x, -50%)); } }
 html.dark {
   /* 🌙 The scrim in dark mode: `--color-ink` turns LIGHT under html.dark, so the ink-based dark would LIGHTEN the
      page behind a pop-up. A fixed black instead, a little deeper (the ground is already dark). */
@@ -7822,7 +7856,6 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 @keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
 @keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
 @keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
-@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
 .sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
 .sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
 .sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
@@ -7876,10 +7909,10 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
 
 /* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+/* No blur since the motion standard (§ 3.2 / § 8: a filter is paint on every frame) — the tile rises and fades. */
 @keyframes sn-bloom {
-  0%   { opacity:0; transform:translateY(22px) scale(.96); filter:blur(12px); }
-  62%  { filter:blur(0); }
-  100% { opacity:1; transform:none; filter:blur(0); }
+  0%   { opacity:0; transform:translateY(22px) scale(.96); }
+  100% { opacity:1; transform:none; }
 }
 .sn-bloom { animation: sn-bloom 1s 1.05s both var(--sn-ease-out); }
 
@@ -7892,7 +7925,7 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 
 /* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
  * React key remount per switch). */
-@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); filter:blur(4px); } }
+@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); } }
 .sn-lens-swap > * { animation: sn-lens-in .42s backwards var(--sn-ease-out); }
 .sn-lens-swap > :nth-child(2) { animation-delay:.06s; }
 .sn-lens-swap > :nth-child(3) { animation-delay:.12s; }

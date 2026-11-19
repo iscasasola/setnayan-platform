@@ -221,7 +221,7 @@ const PLAN_TOOLS = [
   { shot: 'scr-budget-0', alt: 'The budget page: target, agreed, paid and owed', b: 'Budget planner', s: 'Planned, agreed, paid and owed, in pesos.' },
   { shot: 'scr-suppliers-0', alt: 'Suppliers, Find: search the marketplace from your date and venue', b: 'Find suppliers', s: 'Search by your date and city.' },
   { shot: 'scr-suppliers-1', alt: 'Suppliers, Build: your picks side by side against your budget', b: 'Compare suppliers', s: 'Side by side, against your budget.' },
-  { shot: 'scr-papic-0', alt: 'The event’s photo gallery', b: 'Memories', s: 'Every photo, every guest’s, in one place.' },
+  { shot: 'scr-papic-0', alt: 'The event’s Memories, every photo in one place', b: 'Memories', s: 'Every photo, every guest’s, in one place.' },
 ] as const;
 
 export function FrontDoorLanding({

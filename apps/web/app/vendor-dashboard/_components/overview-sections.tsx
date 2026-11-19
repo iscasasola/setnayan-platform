@@ -12,7 +12,6 @@ import {
   Reply,
   Send,
   Trash2,
-  Wallet,
   X,
 } from 'lucide-react';
 import { customerLandingHref } from '../customers/anchors';
@@ -608,7 +607,7 @@ function AgeLine({ since }: { since: string }) {
   );
 }
 
-function MarkCompleteBody({
+export function MarkCompleteBody({
   card,
   markServiceComplete,
 }: {
@@ -638,13 +637,15 @@ function MarkCompleteBody({
           — passing one would look like it scoped the write when it did not. */}
       <form action={markServiceComplete}>
         <input type="hidden" name="event_id" value={card.eventId} />
+        {/* 📋 Today v2: answered on the row → back to Today, ticked (the action compares this literal exactly). */}
+        <input type="hidden" name="return_to" value="/vendor-dashboard" />
         <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="I delivered this service" pendingLabel="Saving…" />
       </form>
     </div>
   );
 }
 
-function InquiryBody({
+export function InquiryBody({
   card,
   acceptInquiry,
   declineInquiry,
@@ -942,7 +943,7 @@ export function DeleteRequestBody({
  * answer the couple needs and must not be one mis-tap from the "yes" — the same
  * restraint the booking-ask and deletion cards keep.
  */
-function LockBody({
+export function LockBody({
   card,
   confirmLock,
   rejectLock,
@@ -1011,17 +1012,11 @@ function LockBody({
         <form action={confirmLock} className="contents">
           <input type="hidden" name="event_id" value={card.eventId} />
           <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          {/* 📋 Today v2: confirmed on the row → back to Today (`depositAnswerReturnTo`'s one exact literal). */}
+          <input type="hidden" name="return_to" value="/vendor-dashboard" />
           <SupplierSubmit tone="brand" main icon={<Check {...ico} />} label="Yes, it arrived" pendingLabel="Confirming…" />
         </form>
-        {/* Money → the Quote & Payments section, the one money tab BOTH
-            shells render. A bare client route lands on the chat (#5614). */}
-        <ActionButton
-          tone="neutral"
-          icon={<Wallet {...ico} />}
-          label="View the payment"
-          href={`/vendor-dashboard/clients/${card.eventId}?tab=quote`}
-          className={TAP}
-        />
+        {/* 📋 Today v2 (drawing part 5, "What v2 removes"): one main button — "View the payment" left the row. */}
       </div>
       <Fold data="answer-no" title="It hasn’t reached you?" className="mt-1">
         <form action={rejectLock} className="mb-1 flex flex-wrap items-center gap-2">
@@ -1068,7 +1063,7 @@ function LockBody({
  * line states the rating instead of thanking anybody, and the placeholder does
  * not tell a shop how to feel about what was said.
  */
-function ReviewBody({
+export function ReviewBody({
   card,
   postReviewReply,
 }: {
@@ -1112,13 +1107,6 @@ function ReviewBody({
             One public reply, and it&rsquo;s final once posted.
           </p>
           <div className="flex items-center gap-2">
-            <ActionButton
-              tone="neutral"
-              icon={<ArrowRight {...ico} />}
-              label="Open the review"
-              href={`/vendor-dashboard/website#reply_${card.reviewId}`}
-              className={TAP}
-            />
             <SupplierSubmit tone="brand" main icon={<Reply {...ico} />} label="Post reply" pendingLabel="Posting…" />
           </div>
         </div>
@@ -1135,7 +1123,7 @@ function ReviewBody({
  * card gets the one thing it was missing: a sentence telling the supplier what
  * the flag means and what happens next.
  */
-function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }> }) {
+export function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }> }) {
   return (
     <>
       <p className="text-sm font-semibold text-ink">
@@ -1184,7 +1172,7 @@ function DisputeBody({ card }: { card: Extract<WhatsNewCard, { kind: 'dispute' }
  * this product is lazy — telling a supplier it was their "Last day to answer"
  * long after it stopped being any day at all.)
  */
-function LockRequestLapsedBody({
+export function LockRequestLapsedBody({
   card,
 }: {
   card: Extract<WhatsNewCard, { kind: 'lock_request_lapsed' }>;
@@ -1232,7 +1220,7 @@ function LockRequestLapsedBody({
  * fast it replies; a list called "every answer you owe" that omitted the replies
  * was not that list.
  */
-function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }> }) {
+export function MessageBody({ card }: { card: Extract<WhatsNewCard, { kind: 'message' }> }) {
   return (
     <>
       <p className="text-sm font-semibold text-ink">{card.coupleName}</p>
@@ -1287,7 +1275,7 @@ function meetingWhen(iso: string | null): string | null {
  * closed-line treatment as the lapsed booking ask, out of the waited-longest
  * order so a tasting that already happened cannot claim the top of the list.
  */
-function MeetingBody({
+export function MeetingBody({
   card,
   respondMeeting,
 }: {
@@ -1366,7 +1354,7 @@ function MeetingBody({
  * a list you are skimming. The card opens the quote where the consequence is
  * visible.
  */
-function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_draft' }> }) {
+export function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_draft' }> }) {
   // Centavo-exact. A draft is not yet an ask, but it becomes one on Send
   // without being re-entered, so the supplier must read the figure they will
   // actually put in front of the couple.
@@ -1401,7 +1389,7 @@ function QuoteDraftBody({ card }: { card: Extract<WhatsNewCard, { kind: 'quote_d
 }
 
 /** A contract drafted and never sent. Same shape, same restraint — open it, never send it from here. */
-function ContractDraftBody({
+export function ContractDraftBody({
   card,
 }: {
   card: Extract<WhatsNewCard, { kind: 'contract_draft' }>;

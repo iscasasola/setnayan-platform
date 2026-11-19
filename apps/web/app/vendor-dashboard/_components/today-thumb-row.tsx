@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
+import { SortFace } from '@/components/sort-face';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from './supplier-thumb-row';
 import { TODAY_SHOW_OPTIONS } from '@/lib/supplier-today';
@@ -49,12 +49,9 @@ export function TodayThumbRow() {
               menu: TODAY_SHOW_OPTIONS.map((o) => ({ key: o.key, label: o.label })),
               label: 'Show',
               value: show,
-              // The menu's face: one funnel (v113's Show round) — its options carry no icons of their own.
-              face: (
-                <span aria-hidden className="grid place-items-center">
-                  <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
-                </span>
-              ),
+              // The menu's face: the sliders, with the dot while Show narrows the list (owner 19 Nov) — its options
+              // carry no icons of their own.
+              face: <SortFace on={show !== 'all'} />,
               mark: 'data-today-show',
               tour: 'today-show',
               onPick: (k) => {

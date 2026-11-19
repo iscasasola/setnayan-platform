@@ -151,3 +151,21 @@ test('every allowlist line is still true and says why', () => {
     }
   }
 });
+
+test('the thumb row rounds wear ONE dot, in ONE colour (owner 19 Nov: "circle + dot on the thumb row")', () => {
+  const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
+  // Today and Shop services draw the shared face, and say when it is on.
+  assert.match(read('app/vendor-dashboard/_components/today-thumb-row.tsx'), /face: <SortFace on=\{show !== 'all'\} \/>/);
+  assert.match(read('app/vendor-dashboard/shop/_components/shop-services-thumb.tsx'), /face: <SortFace on=\{show !== 'all' \|\| sort !== 'listed'\} size=\{20\} \/>/);
+  // The four faces' dot is the same dot: 8 px, top right, terracotta — never a second colour.
+  const DOT = /\{on \? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full ([a-z-]+)" \/> : null\}/;
+  for (const rel of [
+    'components/sort-face.tsx',
+    'app/dashboard/[eventId]/guests/_components/guests-filter-menu.tsx',
+    'app/vendor-dashboard/collections/_components/portfolio-view.tsx',
+  ]) {
+    const m = read(rel).match(DOT);
+    assert.ok(m, `${rel} draws no dot`);
+    assert.equal(m![1], 'bg-terracotta', `${rel}: the dot is ${m![1]}`);
+  }
+});

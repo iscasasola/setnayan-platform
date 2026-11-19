@@ -308,7 +308,6 @@ test('13 · Door C makes no "goes live" promise; PC1 says Coordination is picked
   assert.match(read('app/i/[slug]/page.tsx'), /serviceLabelOf\(await readServiceLabels\(\), inviter\.mainService\)/);
   assert.match(read('app/vendor/claim/[token]/_components/claim-parts.tsx'), /data-supplier-invite-category="">  · \{category\}|data-supplier-invite-category=""> · \{category\}/);
 });
-||||||| f363e366c7
 
 test('14 · a row’s sheet holds text boxes, so its foot rides the keyboard (the one reading)', () => {
   // Its exemption in every-bottom-input-rides-the-keyboard.test.ts says so; this holds the claim.

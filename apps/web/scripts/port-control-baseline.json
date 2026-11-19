@@ -6757,6 +6757,7 @@
         "dashboard/[eventId]/_components/day-of-mode/your-table-card.tsx",
         "dashboard/[eventId]/_components/details-guide-home-card.tsx",
         "dashboard/[eventId]/_components/device-frame.tsx",
+        "dashboard/[eventId]/_components/event-cover-words.tsx",
         "dashboard/[eventId]/_components/event-dashboard.tsx",
         "dashboard/[eventId]/_components/event-pin-places.ts",
         "dashboard/[eventId]/_components/event-pinned-row.tsx",

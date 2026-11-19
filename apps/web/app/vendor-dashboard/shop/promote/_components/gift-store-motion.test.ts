@@ -4,7 +4,7 @@
  * Measured on #7923 (OPUS REVIEW, 18 Nov): the store shipped two ad-hoc motions — a 1.4 s box-shadow animation (paint
  * every frame) and a 2.4 s toast — and its reduced-motion block set the toast to `opacity: 0`, so a supplier with
  * "reduce motion" on never saw that anything went into the order. This pins: transform + opacity only in the keyframes,
- * the standard's speeds, no `var()` in an animation's timing, the toast visible under reduced motion, and the section
+ * the standard's speed and curve tokens, no `var()` inside a keyframe, the toast visible under reduced motion, and the section
  * taking the toast off the screen on a timer (so with no fade it still leaves).
  */
 import { test } from 'node:test';
@@ -26,15 +26,27 @@ test('keyframes move only transform and opacity', () => {
   }
 });
 
-test('every duration is a named speed (Tap 100/120 · Quick 200 · Release 280 · Move 320 · Rise 700)', () => {
-  const durations = [...css.matchAll(/animation:\s*([^;]+);/g)].flatMap((m) => [...m[1]!.matchAll(/(\d+(?:\.\d+)?)(ms|s)\b/g)]);
-  const allowedSpeeds = new Set([100, 120, 200, 280, 320, 700]);
-  for (const d of durations) {
-    const ms = d[2] === 's' ? Number(d[1]) * 1000 : Number(d[1]);
-    // The toast's 2000 ms is a DELAY (how long it is read), not a speed — the only number allowed off the list.
-    assert.ok(allowedSpeeds.has(ms) || ms === 2000, `off-standard time ${d[0]}`);
+test('every speed and curve is a Motion Standard token, never a typed number', () => {
+  const anims = [...css.matchAll(/animation:\s*([^;]+);/g)].map((m) => m[1]!).filter((v) => v.trim() !== 'none');
+  assert.ok(anims.length >= 2, 'expected the highlight and the toast animations');
+  for (const a of anims) {
+    for (const part of a.split(',')) {
+      // name · speed token · curve token · [the toast's read wait] · fill
+      assert.match(
+        part.trim(),
+        /^[\w-]+ var\(--sn-m-(?:tap|quick|release|move|rise)\) var\(--sn-m-(?:settle|spring)\)(?: var\(--gift-toast-read\))? (?:backwards|forwards|both)$/,
+        `off-standard animation "${part.trim()}"`,
+      );
+    }
   }
-  assert.doesNotMatch(css, /animation[^;]*var\(/, 'never var() in an animation timing');
+  assert.doesNotMatch(css, /cubic-bezier\(/, 'a curve is a token, never typed');
+  // The toast's read time is a DELAY (a wait), not a speed — the only number allowed, and it is named.
+  assert.match(css, /--gift-toast-read:\s*2000ms;/);
+});
+
+test('never var() inside a @keyframes block (Chrome runs it linear — § 3.7)', () => {
+  const frames = [...css.matchAll(/@keyframes\s+[\w-]+\s*\{([\s\S]*?\})\s*\}/g)].map((m) => m[1]!);
+  for (const f of frames) assert.doesNotMatch(f, /var\(/);
 });
 
 test('under reduced motion the toast is still seen', () => {

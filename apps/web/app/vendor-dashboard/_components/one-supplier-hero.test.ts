@@ -20,8 +20,11 @@ const SUPPLIER = join(process.cwd(), 'app/vendor-dashboard');
 const read = (rel: string) => stripComments(readFileSync(join(SUPPLIER, rel), 'utf8'));
 const HERO = read('_components/supplier-hero.tsx');
 
-test('1 · Today, Shop and Portfolio all mount the one hero', () => {
-  for (const f of ['_components/today-cover.tsx', 'shop/_components/shop-cover.tsx', 'collections/_components/portfolio-view.tsx']) {
+// UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): Portfolio has NO header any more, so it
+// mounts no hero. Today and Shop still mount the one hero, exactly once each.
+test('1 · Today and Shop mount the one hero; Portfolio has no header', () => {
+  assert.doesNotMatch(read('collections/_components/portfolio-view.tsx'), /<SupplierHero\b/, 'Portfolio has a header again');
+  for (const f of ['_components/today-cover.tsx', 'shop/_components/shop-cover.tsx']) {
     const src = read(f);
     assert.match(src, /from '(?:\.\.\/)+_components\/supplier-hero'|from '\.\/supplier-hero'/, `${f} does not import the one hero`);
     assert.equal((src.match(/<SupplierHero\b/g) ?? []).length, 1, `${f} does not mount the one hero exactly once`);
@@ -54,18 +57,21 @@ test('2b · it renders: a photo wears its caption; a placeholder says it is a sa
   assert.match(sample, /data-supplier-hero-upload=""/);
 });
 
-test('3 · Portfolio has one add door: no Upload pill on the band', () => {
+// UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): there is no band, so no Upload on it. The
+// ONE add is the device's picker in place (＋ when the search matches nothing, and an empty Row 1's Upload).
+test('3 · Portfolio has one add door: the device picker in place — no band, no link to a page', () => {
   const view = read('collections/_components/portfolio-view.tsx');
-  assert.doesNotMatch(view, /data-portfolio-upload=""/, 'the hero’s Upload pill is back beside the thumb row’s ＋');
-  // The hero's Upload is drawn ONLY while it is a placeholder (asserted in 2b); the thumb row's ＋ is the standing add.
-  assert.match(view, /upload=\{\{ href: '#gallery-media' \}\}/);
-  assert.equal((view.match(/'#gallery-media'/g) ?? []).length, 2, 'a third add door to the uploader appeared');
+  assert.doesNotMatch(view, /data-portfolio-upload=""/, 'a hero Upload pill is back');
+  assert.doesNotMatch(view, /'#gallery-media'/, 'the add went back to a link');
+  assert.match(view, /<PortfolioUploadDoor facts=\{uploadFacts\}/, 'the add is not the shipped device-picker door');
 });
 
-test('4 · Portfolio’s thumb row: Search photos · ⇅ (Sort, Show ▶) · ＋ Add photos', () => {
+// UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved") · "just one: show and sort": the row is
+// Search or add · ONE Show-and-sort round (held in full by `collections/the-portfolio-is-simpler.test.ts`).
+test('4 · Portfolio’s thumb row: Search or add · one Show-and-sort round', () => {
   const view = read('collections/_components/portfolio-view.tsx');
   assert.match(view, /<ThumbRow\b/);
-  assert.match(view, /placeholder: 'Search photos'/);
-  assert.match(view, /label: 'Add photos', href: '#gallery-media'/);
+  assert.match(view, /placeholder: 'Search or add'/);
+  assert.match(view, /label: 'Sort',/);
   assert.doesNotMatch(view, /Search portfolio/);
 });

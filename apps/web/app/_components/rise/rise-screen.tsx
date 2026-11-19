@@ -37,6 +37,7 @@ import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
 import { closeWindow, growPlan, playBehind, playGrowParts, playPicture, riseOriginNow, riseScreenMotion, watchRiseOrigins, type GrowParts, type RiseKind, type RiseRect } from '@/lib/rise-screen';
+import { onItsOwnLayer } from '@/lib/rise-layer';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
@@ -148,7 +149,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     originRef.current = riseOriginNow();
     const reduced = prefersReducedMotion();
     const m = riseScreenMotion(rectOf(originRef.current), viewport(), reduced, radiusOf(originRef.current), kindRef.current);
-    if (m && typeof el.animate === 'function') el.animate(m.frames, m.timing);
+    if (m && typeof el.animate === 'function') onItsOwnLayer(el, el.animate(m.frames, m.timing));
     if (m && kindRef.current === 'picture') void playPicture(el, originRef.current, false, reduced);
     // 🎞 The grow's parts — only when it grows from a press (a deep link simply appears, as before).
     const plan = m && !reduced ? growPlan(reduced, true) : null;
@@ -179,7 +180,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
       playBehind(el, plan, true);
     }
     const shapeDelay = plan ? closeWindow(plan.shape, plan).delay : 0;
-    const shape = el.animate(m.frames, { ...m.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' }).finished;
+    const shape = onItsOwnLayer(el, el.animate(m.frames, { ...m.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' })).finished;
     (photoHome ? Promise.all([shape, photoHome]) : shape).then(done, done);
   }, []);
 

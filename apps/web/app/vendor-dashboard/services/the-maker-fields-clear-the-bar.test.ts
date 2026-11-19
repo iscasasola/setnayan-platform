@@ -67,6 +67,6 @@ test('3 · the phone’s card is pinned at the top, never behind a tap (ruling c
   const open = MAKER.lastIndexOf('<div', at);
   const tag = MAKER.slice(open, MAKER.indexOf('>', at) + 1);
   assert.match(tag, /\bsticky\b/, 'the phone card is no longer pinned at the top');
-  assert.match(tag, /\bmd:hidden\b/, 'the pinned card is drawn on a computer too (the right-hand card is the same one there)');
+  assert.match(tag, /\btab:hidden\b/, 'the pinned card is drawn on a computer too (the right-hand card is the same one there)');
   assert.ok(at < MAKER.indexOf('data-maker-split='), 'the pinned card no longer sits above the fields');
 });

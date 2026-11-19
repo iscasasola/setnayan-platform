@@ -806,7 +806,7 @@
   }
 }
 .sn-bounce {
-  animation: sn-pick-bounce 0.42s cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: sn-pick-bounce var(--sn-m-move) var(--sn-m-settle);
   /* Promote to its own layer so the pop never reflows neighbours. */
   will-change: scale;
 }
@@ -826,7 +826,7 @@
   100% { transform: scaleX(1); }
 }
 .nav-pill-stretch {
-  animation: nav-pill-travel var(--bn-dur, 500ms) cubic-bezier(0.34, 1.4, 0.5, 1);
+  animation: nav-pill-travel var(--bn-dur, var(--sn-m-rise)) var(--sn-m-spring);
 }
 
 /*
@@ -843,7 +843,7 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scaleX(1); }
 }
 .nav-press-flash {
-  animation: nav-press-flash var(--bn-dur, 500ms) ease-out;
+  animation: nav-press-flash var(--bn-dur, var(--sn-m-rise)) var(--sn-m-settle);
 }
 
 /*
@@ -1344,17 +1344,20 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   }
 
   /*
-   * .skeleton — animated loading placeholder (owner directive 2026-06-03,
-   * app-wide "we want an animation loading so they do not feel they are
-   * waiting too long"). A GPU-only background-position sweep over an ink/6%
-   * base that matches the existing animate-pulse loaders. Size + radius come
-   * from Tailwind utilities ON the element; this class owns colour + motion,
-   * so don't add `bg-*` utilities to a `.skeleton` block.
+   * .skeleton — THE loading placeholder (owner 2026-06-03; motion standard 18 Nov 2026 § 4 #7 Sheen + #17 Load,
+   * § 9 "D · Ghost"). Size + radius come from Tailwind utilities ON the element; this class owns colour + motion,
+   * so don't add `bg-*` utilities to a `.skeleton` block. Consumed by `@/components/skeletons`.
    *
-   * The global `prefers-reduced-motion: reduce` block above freezes the sweep
-   * to a static block (still reads as structure) for motion-sensitive
-   * visitors — no per-element guard needed. Consumed by
-   * `@/components/skeletons`.
+   *  · A grey block is only ever an UNKNOWN part. What is already known (the title, section names, last visit's
+   *    names) is drawn as itself, at once — `Ghost` in `@/components/skeletons`.
+   *  · LOAD RULE 1 — the block waits `--sn-m-load-wait` (150 ms) before it shows, by CSS alone (a loading screen
+   *    is drawn before any script runs), then fades in Quick · Settle. A page that answers sooner never shows it.
+   *  · SHEEN — the ONE allowed loop: a light strip on `::after`, moved by TRANSFORM, `--sn-m-sheen` (1.4 s)
+   *    linear. The block itself never repaints. (Until 18 Nov two shimmers swept `background-position` — paint on
+   *    every frame: `sk-shimmer` 1.5 s here and the kit's `.sn-skeleton`.) `.sn-skeleton` is the same part.
+   *  · Reduced motion: a still grey block, no strip, no wait (the rule under this one + the global freeze).
+   *
+   * 🔒 lib/the-sheen-is-one.test.ts · lib/the-load-rules-are-one.test.ts
    */
   /* ⏳ A loading screen's placeholders give up (owner, live phone test
    * 2026-10-02: grey cards still showing on the guest view). If the content
@@ -1376,18 +1379,30 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
     }
   }
 
-  .skeleton {
+  .skeleton,
+  .sn-skeleton {
+    position: relative;
+    overflow: hidden;
     background-color: rgb(30 34 41 / 0.06);
-    background-image: linear-gradient(
-      90deg,
-      rgb(30 34 41 / 0) 0%,
-      rgb(255 255 255 / 0.6) 50%,
-      rgb(30 34 41 / 0) 100%
-    );
-    background-size: 200% 100%;
-    background-position: -150% 0;
-    background-repeat: no-repeat;
-    animation: sk-shimmer 1.5s ease-in-out infinite;
+    animation: sn-load-wait var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-load-wait) backwards;
+  }
+  .skeleton::after,
+  .sn-skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 30%;
+    pointer-events: none;
+    background-image: linear-gradient(90deg, rgb(255 255 255 / 0), rgb(255 255 255 / 0.6), rgb(255 255 255 / 0));
+    animation: sn-sheen var(--sn-m-sheen) linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after,
+    .sn-skeleton::after {
+      content: none;
+    }
   }
 
   /*
@@ -1404,9 +1419,20 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   }
 }
 
-@keyframes sk-shimmer {
+/* Sheen — the one loop. The strip is 30% wide, so -120% → 340% of ITSELF carries it from just off the left edge
+   to just off the right one. Transform only. */
+@keyframes sn-sheen {
+  from {
+    transform: translateX(-120%);
+  }
   to {
-    background-position: 150% 0;
+    transform: translateX(340%);
+  }
+}
+/* Load rule 1 — held at 0 through the wait (fill backwards), then a Quick fade to the block's own opacity. */
+@keyframes sn-load-wait {
+  from {
+    opacity: 0;
   }
 }
 
@@ -2538,7 +2564,7 @@ html {
   }
   .sd-orbit-a {
     inset: -6%;
-    animation: sd-spin 1.9s linear infinite;
+    animation: sn-spin 1.9s linear infinite;
   }
   .sd-orbit-a::before {
     width: 14px;
@@ -2547,7 +2573,7 @@ html {
   }
   .sd-orbit-b {
     inset: 16%;
-    animation: sd-spin 1.5s linear infinite reverse;
+    animation: sn-spin 1.5s linear infinite reverse;
   }
   .sd-orbit-b::before {
     width: 10px;
@@ -2797,11 +2823,6 @@ html {
   }
   50% {
     transform: scale(1.02);
-  }
-}
-@keyframes sd-spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 @keyframes sd-blob {
@@ -3315,23 +3336,78 @@ html:not([data-sn-nav-dir]) .sn-vt-page:has([data-guests-thumb]) {
   animation: none;
   mix-blend-mode: normal;
 }
+/* ↔ SLIDE (motion standard 18 Nov 2026, § 5 #29): Move on Settle; the OLD page travels 30 % and dims, the NEW one comes
+   the full width over it (the new snapshot paints above the old). The tokens sit on the rule, never inside a keyframe
+   (a `var()` in a keyframe's timing function runs linear in Chrome). Reduced motion: the listener starts no slide.
+   🔒 app/_components/nav/the-screens-move-by-the-standard.test.ts */
 ::view-transition-old(sn-page),
 ::view-transition-new(sn-page) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-duration: var(--sn-m-move);
+  animation-timing-function: var(--sn-m-settle);
   animation-fill-mode: both;
 }
 html[data-sn-nav-dir='fwd']::view-transition-old(sn-page) {
-  animation-name: sn-vt-out-left;
+  animation-name: sn-vt-page-out-left;
 }
 html[data-sn-nav-dir='fwd']::view-transition-new(sn-page) {
   animation-name: sn-vt-in-right;
 }
 html[data-sn-nav-dir='back']::view-transition-old(sn-page) {
-  animation-name: sn-vt-out-right;
+  animation-name: sn-vt-page-out-right;
 }
 html[data-sn-nav-dir='back']::view-transition-new(sn-page) {
   animation-name: sn-vt-in-left;
+}
+/* 🖼 PICTURE LEADS, card → its page (motion standard § 5 #33): the tapped photo and the next page's picture share ONE
+   name while the transition runs (`NavSlideController` puts it on the tapped photo; the page's picture wears
+   `data-picture-hero`), so the browser flies the one into the other — Rise on Settle. The page itself is the "card":
+   it rises 40 px, a beat (80 ms = 0.4 × Quick) after the photo has left. Reduced motion: the listener starts nothing.
+   🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts */
+html[data-sn-nav-dir='picture'] [data-picture-hero] {
+  view-transition-name: sn-picture;
+}
+::view-transition-group(sn-picture) {
+  animation-duration: var(--sn-m-rise);
+  animation-timing-function: var(--sn-m-settle);
+}
+::view-transition-old(sn-picture),
+::view-transition-new(sn-picture) {
+  /* The same photo at two sizes: fill the flying box, no cross-fade wash. */
+  height: 100%;
+  object-fit: cover;
+  mix-blend-mode: normal;
+}
+html[data-sn-nav-dir='picture']::view-transition-old(sn-page) {
+  animation-name: sn-picture-old;
+  animation-duration: var(--sn-m-quick);
+}
+html[data-sn-nav-dir='picture']::view-transition-new(sn-page) {
+  animation-name: sn-picture-card;
+  animation-delay: calc(var(--sn-m-quick) * 0.4);
+}
+@keyframes sn-picture-old {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes sn-picture-card {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+/* The page that leaves on a tab press: 30 % of the way, dimming (the bar-set slide below keeps the full-width pair). */
+@keyframes sn-vt-page-out-left {
+  to {
+    transform: translateX(-30%);
+    opacity: 0.4;
+  }
+}
+@keyframes sn-vt-page-out-right {
+  to {
+    transform: translateX(30%);
+    opacity: 0.4;
+  }
 }
 @keyframes sn-vt-out-left {
   to {
@@ -3589,7 +3665,7 @@ html[data-sn-fab] [data-bottom-dock] > nav[aria-label='Primary navigation'] {
 .perf-bar-grow-y { transform: scaleY(0); transform-origin: bottom center; }
 /* Play state — `.perf-play` is added by <Reanimate> the moment the section
    enters the viewport (and re-added after a toggle remount). */
-.perf-reanim.perf-play { animation: perf-fade-rise 0.4s ease-out both; }
+.perf-reanim.perf-play { animation: perf-fade-rise var(--sn-m-move) var(--sn-m-settle) both; }
 .perf-play .perf-bar-grow { animation: perf-bar-grow 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 .perf-play .perf-bar-grow-y { animation: perf-bar-grow-y 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
 
@@ -3606,15 +3682,6 @@ html[data-sn-fab] [data-bottom-dock] > nav[aria-label='Primary navigation'] {
  * prefers-reduced-motion is handled for free by the universal freeze block
  * above (animation-iteration-count:1 !important) AND by GlobalSliderHint,
  * which never adds the class under reduced motion. */
-@keyframes sn-slider-shake {
-  0%, 26%, 100% { transform: translateX(0); }
-  4%  { transform: translateX(-5px); }
-  8%  { transform: translateX(5px); }
-  12% { transform: translateX(-4px); }
-  16% { transform: translateX(4px); }
-  20% { transform: translateX(-2px); }
-  23% { transform: translateX(2px); }
-}
 input[type='range'].sn-range {
   -webkit-appearance: none;
   appearance: none;
@@ -3663,8 +3730,10 @@ input[type='range'].sn-range::-moz-range-thumb {
 }
 /* The shake itself — layered onto any custom thumb carrying `.sn-shake`; sets
  * only `animation`, so a slider's own thumb size/colour rules still win. */
-input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
-input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s ease-in-out infinite; }
+/* 🎞 18 Nov 2026 (MOTION_STANDARD § 4 #10): the ONE shake (`sn-m-shake`, Move, once) — the 2.9 s loop is retired
+ * (Sheen is the only loop). */
+input[type='range'].sn-shake::-webkit-slider-thumb { animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1; }
+input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1; }
 
 /*
  * ─────────────────────────────────────────────────────────────────────
@@ -3792,7 +3861,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
 /* Quick-view / invite drawer — bottom sheet by default, right rail at ≥sm
  * (640px, Tailwind's `sm`), mirroring the primitive's responsive positioning. */
 .gl-drawer {
-  animation: gl-sheetup 0.3s ease;
+  animation: gl-sheetup var(--sn-m-move) var(--sn-m-settle);
 }
 @media (min-width: 640px) {
   .gl-drawer {
@@ -3806,18 +3875,6 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
  * (prototype `.adding`, :163). The universal `prefers-reduced-motion: reduce`
  * block above freezes it to a steady 0.7 opacity — no per-rule opt-out needed.
  */
-@keyframes gl-adding {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 0.9;
-  }
-}
-.gl-adding {
-  animation: gl-adding 0.9s ease-in-out infinite;
-}
 
 /* ============================================================
    SETNAYAN DESIGN TOKENS · Atelier + macOS glass
@@ -3960,7 +4017,6 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   /* motion */
   --sn-ease:     cubic-bezier(.2,.7,.2,1);
   --sn-ease-out: cubic-bezier(.16,1,.3,1);
-  --sn-dur-micro:   120ms;
   --sn-dur-control: 200ms;
   --sn-dur-elem:    320ms;
   --sn-dur-enter:   640ms;
@@ -3972,12 +4028,55 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-pill-spring: cubic-bezier(.34,1.56,.64,1);
   /* ⤴ THE RISE — the ONE open/close motion of a sheet or a picked row (THE ONE BUILD spec §0.6, 8 Nov 2026: the close
      the EXACT reverse, no jump over 40 px, no pause over 90 ms). Its LENGTH is the family speed — owner 2026-11-10
-     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*): Rise full screen runs 0.7 s, so it reads `--sn-pill-dur` and has no
-     number of its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it
-     is a 120 ms cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts */
-  --sn-dur-rise:    var(--sn-pill-dur);
-  --sn-ease-rise:   cubic-bezier(.2,.8,.2,1);
+     (DECISION_LOG "SIX ANSWERS" (2), *"0.7s"*) was REPLACED 13 Nov 2026 ("motion approved"): the rise is the grow's
+     SHAPE, 360 ms on the emphasized curve, after a 120 ms press — it reads the timing table below and has no number of
+     its own. `lib/rise-motion.ts` (`RISE_MS`) mirrors it for the Web Animations API; under reduced motion it is a 120 ms
+     cross-fade. 🔒 lib/the-rise-is-0-7s.test.ts (kept by name; it now holds the grow's numbers) */
+  --sn-dur-rise:    var(--sn-m-move);
+  --sn-ease-rise:   var(--sn-m-settle);
   --sn-dur-rise-reduced: 120ms;
+  /* 🎞 THE ONE TIMING TABLE — 18 Nov 2026 standard + 13 Nov details, COMBINED (owner 18 Nov, *"Combine them"*; specs
+     MOTION_STANDARD_2026-11-18.md § 0 / § 2). FIVE SPEEDS + ONE LOOP, TWO EASINGS: Settle for anything that travels,
+     opens or fades; Spring (a real spring as `linear()`, a cubic fallback below) for what moves and lets go. Mirrored
+     for the Web Animations API by `lib/motion-table.ts`; 🔒 lib/the-motion-table-is-one.test.ts and
+     lib/the-motion-standard-tokens.test.ts keep the two equal.
+     ⚠ HOUSE RULE (§ 3.7): never write `var()` inside a `@keyframes` block's `animation-timing-function` — Chrome then
+     runs it LINEAR. Put the token on the element's `animation` / `transition` instead (🔒 lib/no-var-in-keyframe-timing.test.ts). */
+  --sn-m-tap:           100ms;
+  --sn-m-quick:         200ms;
+  --sn-m-release:       280ms;
+  --sn-m-move:          320ms;
+  --sn-m-rise:          700ms;
+  --sn-m-sheen:         1400ms;
+  /* Waits, not speeds (§ 2): a loader shows after the first and, once shown, stays the second. Mirror of
+     lib/load-rules.ts — 🔒 lib/the-load-rules-are-one.test.ts. */
+  --sn-m-load-wait:     150ms;
+  --sn-m-load-stay:     400ms;
+  /* Phase 6: the long-press hold (a wait) and Celebrate's one burst ("about 900 ms"). Mirror of HOLD_MS / CELEBRATE_MS
+     in lib/motion-table.ts — 🔒 lib/the-moments-move-by-the-standard.test.ts. */
+  --sn-m-hold:          350ms;
+  --sn-m-celebrate:     900ms;
+  /* 🕯 The signature moments' ONE stagger (§ 9, prototype Part I — Capiz light: "Panes 70 ms apart"). A wait, not a
+     speed. Mirror of MOTION_TABLE.sigPaneStepMs — 🔒 lib/the-six-signature-moments.test.ts. */
+  --sn-m-sig-step:      70ms;
+  --sn-m-settle:        cubic-bezier(.2,.8,.2,1);
+  --sn-m-settle-rev:    cubic-bezier(.8,0,.8,.2);
+  --sn-m-spring:        linear(0, 0.062, 0.204, 0.379, 0.551, 0.704, 0.827, 0.919, 0.983, 1.022, 1.042, 1.05, 1.048, 1.042, 1.034, 1.025, 1.017, 1.01, 1.005, 1.002, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 1);
+  /* The 13 Nov alias names (the `--sn-m-` family's ease-emph, ease-emph-rev, press-in, grow-press and grow-shape)
+     and the old 120 ms "micro" duration were RETIRED in Phase 6 (19 Nov 2026) once nothing read them: the
+     travel curve is `--sn-m-settle`, the press and the grow's press are `--sn-m-tap`, the grow's shape is
+     `--sn-m-move`. 🔒 lib/the-motion-standard-tokens.test.ts keeps them gone. The touch feel's own 13 Nov numbers: */
+  --sn-m-ripple:        520ms;
+  --sn-m-toggle:        260ms;
+  --sn-m-toggle-tick:   140ms;
+  --sn-m-chip-in:       220ms;
+  --sn-m-chip-out:      180ms;
+  --sn-m-field-grow:    280ms;
+  --sn-m-field-label:   200ms;
+  --sn-m-field-line:    260ms;
+  --sn-m-row-open:      320ms;
+  --sn-m-row-shut:      260ms;
+  --sn-m-swipe-snap:    220ms;
   /* 📌 THE PINNED ROW'S HEIGHT — the one 44-px line a collapsing top leaves on screen (v108/v110). A sticky day heading
      under it stands at `top: var(--sn-pin-h)`. 🔒 app/_components/collapsing-top/the-top-scrolls-up-and-locks.test.ts */
   --sn-pin-h:       44px;
@@ -4077,6 +4176,47 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-slider-shake 2.9s
   --sn-glass-row-alpha: 62%;
   --sn-glass-row-blur: blur(16px) saturate(1.3);
 }
+/* 🎞 Spring's fallback (MOTION_STANDARD § 2 / § 3.9): where `linear()` is not understood, the house cubic spring.
+   🔒 lib/the-motion-standard-tokens.test.ts */
+@supports not (transition-timing-function: linear(0, 1)) {
+  :root {
+    --sn-m-spring: cubic-bezier(.34,1.56,.64,1);
+  }
+}
+/* 🌐 THE WEBSITE'S SIX MOTIONS — Reveal · Timeline · Hero settle · Scroll-away · Emphasis · Drift (MOTION_STANDARD
+   § 6, Phase 5; owner 18 Nov 2026). The public pages (`/`, /for-suppliers, /for-coordinators, /features, /pricing, a
+   shop at /v/…) wear THESE keyframes and nothing of their own. A CSS module cannot read a global keyframe, so the three
+   module sheets carry a copy under the same name — 🔒 lib/the-website-moves-by-the-standard.test.ts holds every copy equal to
+   this block.
+   THE RULES THEY KEEP (🔒 lib/the-website-moves-by-the-standard.test.ts):
+     · transform and opacity only — never a filter, never a layout property;
+     · `from`-only (or `to`-only for Scroll-away): THE RESTING STATE IS THE BASE STYLE, so a page with no script and no
+       animation support is simply complete. Fill is `backwards`, never `both`;
+     · the speed and the easing sit on the element's `animation`, never inside the keyframe (§ 3.7);
+     · where `animation-timeline: view()` is understood, Reveal / Timeline / Scroll-away run on the scroll itself (no
+       script); elsewhere each page keeps its one IntersectionObserver, retimed to these numbers;
+     · Drift — at most ONE endless loop a public page, never at 640 px or narrower, never under reduced motion. */
+:root {
+  --sn-w-rise:        12px;   /* Reveal: how far a part travels */
+  --sn-w-stagger:     60ms;   /* Reveal: neighbours apart — the first six only */
+  --sn-w-reveal-span: 64px;   /* Reveal on the scroll: the scroll it takes (a 64-px peek under a hero is whole) */
+  --sn-w-hero-gap:    80ms;   /* Hero settle: headline lines apart */
+  --sn-w-hero-from:   1.06;   /* Hero settle: where the picture starts */
+  --sn-w-away-fade:   0.4;    /* Scroll-away: the hero fades to this … */
+  --sn-w-away-lift:   -24px;  /* … and lifts this far */
+}
+@keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
+@keyframes sn-w-fade { from { opacity: 0; } }
+@keyframes sn-w-hero-img { from { transform: scale(var(--sn-w-hero-from)); } }
+@keyframes sn-w-hero-line { from { transform: translateY(108%); } }
+@keyframes sn-w-away { to { opacity: var(--sn-w-away-fade); transform: translateY(var(--sn-w-away-lift)); } }
+@keyframes sn-w-underline { from { transform: scaleX(0); } }
+@keyframes sn-w-stamp { from { opacity: 0; transform: scale(1.6); } }
+@keyframes sn-w-tl-line { from { transform: scaleY(0); } }
+@keyframes sn-w-tl-line-x { from { transform: scaleX(0); } }
+@keyframes sn-w-tl-dot { from { opacity: 0; transform: scale(0.4); } }
+@keyframes sn-w-drift { to { transform: scale(1.1) translate(-1.5%, -1%); } }
+@keyframes sn-w-drift-x { to { transform: translateX(var(--sn-w-drift-x, -50%)); } }
 html.dark {
   /* 🌙 The scrim in dark mode: `--color-ink` turns LIGHT under html.dark, so the ink-based dark would LIGHTEN the
      page behind a pop-up. A fixed black instead, a little deeper (the ground is already dark). */
@@ -5864,7 +6004,9 @@ html.dark [data-art='candlelight'] {
    (A press rings the track: the track also wears `sn-press-ring`, drawn by `app/_components/press-feel.tsx`.) */
 .sn-switch {
   background-color: rgb(var(--color-ink) / 0.2);
-  transition: background-color var(--sn-pill-dur) var(--sn-ease);
+  /* 🎞 13 Nov 2026 (motion approved, timing table "Toggle"): the fill and the knob take 260 ms; the knob lands with the
+     house spring's overshoot. Reduced: jumps (below). */
+  transition: background-color var(--sn-m-toggle) var(--sn-m-settle);
 }
 /* Dark (PR 4, 2026-10-13): "off" is the approved template's dark line (`--line2`, the page's ink at 28 %) — at 20 % the
    track sank into the card. `:where()` keeps it at the base rule's weight, so "on" (the accent, below) still wins. */
@@ -5877,7 +6019,7 @@ html.dark [data-art='candlelight'] {
 }
 .sn-switch::after,
 .sn-switch > .sn-switch-knob {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-m-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -5887,6 +6029,38 @@ html.dark [data-art='candlelight'] {
     transition: none !important;
   }
 }
+/* 🎞 ROWS THAT OPEN — OPEN (owner 18 Nov 2026, MOTION_STANDARD § 4 #9 + § 0: "Rows via transform (NOT grid-template-rows
+   — 13 Nov's Fold uses grid rows; re-do in Phase 2)"). The fold's height is no longer animated: the body takes its place
+   at once, the panel fades in and settles 8 px down (Move on Settle), and everything below slides as ONE piece by
+   transform (`lib/rows-move.ts`, played from `app/_components/fold.tsx`). The chevron turns with it; the inside still
+   arrives in three small steps, 40 ms apart (13 Nov). Reduced motion: opens at once.
+   🔒 lib/the-motion-core-moves-by-transform.test.ts · lib/the-motion-table-is-one.test.ts */
+@keyframes sn-m-open-panel {
+  from { opacity: 0; transform: translateY(-8px); }
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] {
+  animation: sn-m-open-panel var(--sn-m-move) var(--sn-m-settle) backwards;
+}
+[data-fold-chevron] {
+  transition-duration: var(--sn-m-row-shut);
+  transition-timing-function: var(--sn-m-settle);
+}
+[data-fold-open] [data-fold-chevron] {
+  transition-duration: var(--sn-m-row-open);
+}
+@keyframes sn-row-step {
+  from { opacity: 0; transform: translateY(6px); }
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(-n + 3) {
+  animation: sn-row-step var(--sn-m-quick) var(--sn-m-settle) backwards;
+}
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(2) { animation-delay: 40ms; }
+[data-fold-open] > [data-fold-body] > [data-fold-inner] > :nth-child(3) { animation-delay: 80ms; }
+@media (prefers-reduced-motion: reduce) {
+  [data-fold-open] > [data-fold-body] > [data-fold-inner],
+  [data-fold-open] > [data-fold-body] > [data-fold-inner] > * { animation: none !important; }
+}
+
 /* 🟢 The WORDED switch (owner 2026-11-10: "online green and greyed out to offline") — `SWITCH_TRACK_WORDED` in
    `app/_components/switch-track.tsx`. Declared AFTER the shared rules so, at the same weight, green/grey win here only. */
 .sn-switch--worded {
@@ -5933,31 +6107,19 @@ html.dark [data-art='candlelight'] {
 @keyframes sn-row-pill-back {
   from { opacity: 0; transform: translateX(14px); }
 }
-@keyframes sn-row-shake {
-  0%, 100% { translate: 0; }
-  15% { translate: -7px; }
-  30% { translate: 6px; }
-  45% { translate: -5px; }
-  60% { translate: 4px; }
-  75% { translate: -2px; }
-  90% { translate: 1px; }
-}
 .sn-row-field {
   transform-origin: right center;
-  animation: sn-row-field-in calc(var(--sn-pill-dur) * 0.87) var(--sn-pill-spring);
+  animation: sn-row-field-in var(--sn-m-move) var(--sn-m-spring);
 }
 .sn-row-field[data-leaving] {
   opacity: 0;
-  animation: sn-row-field-out calc(var(--sn-pill-dur) * 0.39) var(--sn-ease);
+  animation: sn-row-field-out var(--sn-m-quick) var(--sn-m-settle);
 }
 [data-form-row-back] > .sn-row-name {
-  animation: sn-row-name-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
+  animation: sn-row-name-back var(--sn-m-move) var(--sn-m-spring);
 }
 [data-form-row-back] > .sn-row-pill {
-  animation: sn-row-pill-back calc(var(--sn-pill-dur) * 0.65) var(--sn-pill-spring);
-}
-.sn-row-shake {
-  animation: sn-row-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  animation: sn-row-pill-back var(--sn-m-move) var(--sn-m-spring);
 }
 /* ── THE ⓘ EXPLANATION'S POPUP (`app/_components/explain.tsx`, gallery § 7): it lands in the centre with the
    family's small bounce. `scale`, not `transform` — the popup is centred with a transform of its own. */
@@ -5965,24 +6127,458 @@ html.dark [data-art='candlelight'] {
   from { opacity: 0; scale: 0.94; }
 }
 .sn-explain-pop {
-  animation: sn-explain-in calc(var(--sn-pill-dur) * 0.4) var(--sn-pill-spring);
+  animation: sn-explain-in var(--sn-m-quick) var(--sn-m-spring);
 }
 @keyframes sn-explain-note-in {
   from { opacity: 0; translate: 0 6px; }
 }
 .sn-explain-note {
-  animation: sn-explain-note-in calc(var(--sn-pill-dur) * 0.4) var(--sn-ease);
+  animation: sn-explain-note-in var(--sn-m-quick) var(--sn-m-settle);
 }
 @media (prefers-reduced-motion: reduce) {
   .sn-row-field,
   .sn-row-field[data-leaving],
   [data-form-row-back] > .sn-row-name,
   [data-form-row-back] > .sn-row-pill,
-  .sn-row-shake,
   .sn-explain-pop,
   .sn-explain-note {
     animation: none !important;
   }
+}
+
+/* ═══ 🎞 THE MOTION STANDARD · PHASE 2 — APP CORE (owner 18 Nov 2026: "build it now. align it to all our designs and
+   upcoming designs"; specs `MOTION_STANDARD_2026-11-18.md` §§ 3–4, drawing `motion_standard_2026-11-18_fable.html`).
+   Each motion lives in the SHARED part, so every screen — today's and the next — inherits it. The rules, held by
+   lib/the-motion-core-moves-by-transform.test.ts:
+     · transform / translate / scale / opacity only — never width, height, top, left, max-height, grid rows,
+       background-position or filter;
+     · entrances are `@starting-style` (no remount, no class toggle); a keyframe fills `backwards`, never `both`;
+     · no `var()` inside a keyframe's timing function — the curve is on the element;
+     · movement springs (`--sn-m-spring`), effects settle (`--sn-m-settle`); a transition turns around from where it is;
+     · reduced motion: at once (the base layer's freeze), and each motion says so below. ═══ */
+
+/* SCRIM (#3) — Quick in, on Settle; out is `--sn-scrim-fade` (the same 200 ms, `OverlayBackdrop`). */
+.sn-popup-dark:is(.sn-fade) {
+  animation-duration: var(--sn-m-quick);
+  animation-timing-function: var(--sn-m-settle);
+}
+
+/* STACK (#2) — the sheet's panel when it stands at the foot of a phone: 40 px of its own ground hangs under it, so the
+   spring's small overshoot (a sheet rising, or growing to its max) never shows the page through a gap at the foot.
+   The motion itself is played by `app/_components/sheet.tsx` (transform only — the max-height snap is gone). */
+[data-sheet-panel][data-sheet-under]::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 40px;
+  background: inherit;
+  pointer-events: none;
+}
+
+/* TOAST (#5) — ONE pill, from the BOTTOM (owner 18 Nov: "Bottom"), above the thumb row or the bottom nav
+   (`--sn-thumb-clear`). In: Move on Spring, rising. Out (`data-leaving`): Quick on Settle, sinking back.
+   `translate`, not `transform` — nothing is left holding a transform when it rests. Reduced: at once. */
+.sn-m-toast-place {
+  bottom: var(--sn-thumb-clear);
+}
+@media (min-width: 1024px) {
+  .sn-m-toast-place { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+}
+.sn-m-toast {
+  transition: translate var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-toast { translate: 0 calc(100% + 24px); opacity: 0; }
+}
+.sn-m-toast[data-leaving] {
+  translate: 0 calc(100% + 24px);
+  opacity: 0;
+  transition: translate var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+
+/* SHAKE (#10) — the ONE shake: three short swings, once, in Move; the curve is on the element (Settle). It replaces
+   `sn-row-shake` (450 ms, ±7 px) and `sn-slider-shake` (a 2.9 s loop). `translate`, so a centred or transformed box
+   keeps its own transform. Reduced: no shake — the red line and the words still show. */
+@keyframes sn-m-shake {
+  0%, 100% { translate: 0; }
+  25% { translate: -6px; }
+  50% { translate: 5px; }
+  75% { translate: -3px; }
+}
+.sn-m-shake {
+  animation: sn-m-shake var(--sn-m-move) var(--sn-m-settle) 1;
+}
+
+/* POP (#19) — a menu grows out of the thing that was tapped: Quick, the size on Spring, the fade on Settle.
+   `scale` (never `transform`: the list is placed with `position: fixed` and may hold fixed children), from the edge
+   that faces its button (`data-pick-side`). Reduced: at once, no scale. */
+.sn-m-pop {
+  transform-origin: top center;
+  transition: scale var(--sn-m-quick) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+.sn-m-pop[data-pick-side='above'] { transform-origin: bottom center; }
+@starting-style {
+  .sn-m-pop { scale: 0.92; opacity: 0; }
+}
+
+/* CHAT SEND (#26, Phase 6 — `MOTION_STANDARD_2026-11-18.md` § 4 row 26; drawing "Your message rises from the box to its
+   place") — the line you just sent (`[data-chat-pending]`, chat-message-stream.tsx) rises 40 px from the box and grows
+   from 0.9 at its own corner: Move on Spring; its fade is Move on Settle. An entrance, so `@starting-style` — no
+   keyframe, no class toggle. It replaces the snap. Reduced motion: no travel, no growth — it is simply there (the base
+   layer's freeze). Held by lib/a-whisper-never-reaches-the-supplier.test.ts (8). */
+.sn-m-chat-send {
+  transform-origin: 100% 100%;
+  transition: translate var(--sn-m-move) var(--sn-m-spring), scale var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-move) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-chat-send { translate: 0 40px; scale: 0.9; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .sn-m-chat-send { translate: none; scale: none; }
+  }
+}
+
+/* ENTER · A ROW ARRIVES (#13) — played by `lib/rows-move.ts` (`rowArrives`): Move on Settle, 8 px up; only the first
+   6 of a batch cascade (60 ms apart), the rest are simply there; the wash below fades over Rise. */
+.sn-m-row-wash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(var(--sn-accent) / 0.14);
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* LEAVE · A ROW GOES (#6) — the copy of a removed row that slides out (Quick on Settle) while the rows under it close
+   the gap by transform (Move on Settle); `lib/rows-move.ts` (`rowLeaves`). It takes no tap and sits over nothing. */
+.sn-m-row-ghost {
+  position: fixed;
+  margin: 0;
+  pointer-events: none;
+  z-index: 5;
+  overflow: hidden;
+}
+
+/* BUSY (#35) — the button's label gives way to the spinner in Tap, on Settle; the button keeps its size
+   (`submit-button.tsx` holds its width). DONE (#14) — "✓" pops in Quick on Spring. Reduced: at once. */
+.sn-m-busy {
+  transition: opacity var(--sn-m-tap) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-busy { opacity: 0; }
+}
+.sn-m-done {
+  transition: scale var(--sn-m-quick) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-done { scale: 0.6; opacity: 0; }
+}
+
+/* STATUS CHANGE (#22) — a status chip changes colour softly: Quick on Settle (the colour never overshoots).
+   Reduced: at once. */
+.sn-m-status {
+  transition: color var(--sn-m-quick) var(--sn-m-settle), background-color var(--sn-m-quick) var(--sn-m-settle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-m-toast,
+  .sn-m-toast[data-leaving],
+  .sn-m-pop,
+  .sn-m-busy,
+  .sn-m-done,
+  .sn-m-status { transition: none !important; }
+  .sn-m-shake,
+  input[type='range'].sn-shake::-webkit-slider-thumb,
+  input[type='range'].sn-shake::-moz-range-thumb { animation: none !important; }
+}
+
+/* ═══ 🎞 THE MOTION STANDARD · PHASE 6 — MOMENTS (owner 19 Nov 2026: "animations build the rest"; specs
+   `MOTION_STANDARD_2026-11-18.md` § 4 rows 12 · 15 · 23 · 24 · 25 · 27 · 28, drawing
+   `motion_standard_2026-11-18_fable.html` Part B "Glide" / "Drag lift" and Part H). Each motion is ONE shared part:
+     Celebrate   app/_components/celebrate.tsx        Long press  the shared hold (--sn-m-hold) + Lift
+     Lift        lib/lift.ts                          Upload      app/_components/upload-ring.tsx
+     Coach marks app/_components/spotlight-tour.tsx   Offline bar app/_components/offline-bar.tsx
+     Glide       app/_components/glide-mount.tsx
+   The same house rules as Phase 2: transform / translate / scale / rotate / opacity only; a keyframe fills
+   `backwards`; no `var()` in a keyframe's timing function; the tokens only; every motion has a still.
+   🔒 lib/the-moments-move-by-the-standard.test.ts ═══ */
+
+/* CELEBRATE (#23) — one short gold burst, once per visit: about 12 foil pieces fly out and fade over
+   `--sn-m-celebrate` on Settle; the badge in the middle pops in Quick on Spring (`.sn-m-done`). The pieces rest at
+   opacity 0, so nothing is left on the page. Reduced: a still gold ring, no pieces. */
+.sn-m-cele {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.sn-m-cele-mid {
+  position: relative;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+}
+.sn-m-cele-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.sn-m-cele-piece {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 11px;
+  margin: -6px 0 0 -4px;
+  border-radius: 2px;
+  background: var(--sn-gold-500);
+  opacity: 0;
+  animation: sn-m-burst var(--sn-m-celebrate) var(--sn-m-settle) backwards;
+}
+.sn-m-cele-piece[data-alt] {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sn-gold-800);
+}
+@keyframes sn-m-burst {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.4); }
+  7% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--bx), var(--by)) rotate(var(--br)) scale(1); }
+}
+/* The still ring stands a quarter of the badge out from it (84 px round the drawing's 56-px badge). */
+.sn-m-cele-ring {
+  position: absolute;
+  inset: -25%;
+  border-radius: 50%;
+  border: 2px solid var(--sn-gold-500);
+  opacity: 0;
+  pointer-events: none;
+}
+/* The badge pops: the size on Spring, the fade on Settle — two keyframes, each with its curve on the element. */
+.sn-m-cele-pop {
+  animation: sn-m-cele-pop var(--sn-m-quick) var(--sn-m-spring) backwards, sn-m-cele-in var(--sn-m-quick) var(--sn-m-settle) backwards;
+}
+@keyframes sn-m-cele-pop {
+  from { transform: scale(0.6); }
+}
+@keyframes sn-m-cele-in {
+  from { opacity: 0; }
+}
+.sn-m-cele-badge {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  /* The deeper gold: white on --sn-gold-500 reads 3.48:1 (lint:label-on-fill). */
+  background: var(--sn-gold-700);
+  color: rgb(var(--color-cream));
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* LIFT (#15) — a held row lifts off the list: it grows to 1.03 in Quick on Spring (`scale`, so the row's own
+   `transform` — the drag's translate — is left alone) under a shadow that fades in on Settle (`::after`, opacity
+   only: a box-shadow is never animated). `@starting-style` plays it for a drag's ghost the moment it is added; a row
+   that stays in the list wears `data-lifted`. The others make room and the row drops in Move on Settle
+   (`.sn-m-lift-room`, `lib/lift.ts` `dropGhost`). Reduced: no scale — the shadow only, rows change place at once. */
+.sn-m-lift {
+  position: relative;
+  transition: scale var(--sn-m-quick) var(--sn-m-spring);
+}
+.sn-m-lift::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 14px 26px -10px rgb(var(--color-ink) / 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+.sn-m-lift[data-lifted],
+.sn-m-lift[data-lift-ghost] {
+  scale: 1.03;
+  z-index: 3;
+}
+.sn-m-lift[data-lifted]::after,
+.sn-m-lift[data-lift-ghost]::after {
+  opacity: 1;
+}
+@starting-style {
+  .sn-m-lift[data-lift-ghost] { scale: 1; }
+  .sn-m-lift[data-lift-ghost]::after { opacity: 0; }
+}
+.sn-m-lift[data-lift-ghost] {
+  position: fixed;
+}
+.sn-m-lift[data-lift-dropping] {
+  scale: 1;
+  transition: scale var(--sn-m-move) var(--sn-m-settle);
+}
+.sn-m-lift[data-lift-dropping]::after {
+  opacity: 0;
+  transition: opacity var(--sn-m-move) var(--sn-m-settle);
+}
+.sn-m-lift-room {
+  transition: translate var(--sn-m-move) var(--sn-m-settle);
+}
+
+/* LONG PRESS (#24) — the ONE hold is shared: `--sn-m-hold` / `HOLD_MS` (350 ms), read by every shipped hold (guests' role
+   drag, the seat list and tray, shortlist rearrange, the RSVP line), each lifting with Lift above. The shared hold-menu
+   part was built and then REMOVED (19 Nov 2026) because no screen mounted it (🔒 tests/db/ugat-both-ends.db.test.ts:
+   "mount it from a page, or delete it"); it is built again with the first screen that opens a menu on a hold. */
+
+/* UPLOAD (#25) — a ring that FOLLOWS the upload (no curve of its own: two half rings turned by `rotate`, set from the
+   real progress), then ✓ pops in Quick on Spring (`.sn-m-done`). It never sits looking dead: a ring at 0 % still shows
+   its track. Reduced: the ring fills in quarter steps (the part rounds the progress); ✓ appears at once. */
+.sn-m-upring {
+  position: relative;
+  flex: none;
+  display: inline-block;
+  width: var(--ur, 36px);
+  height: var(--ur, 36px);
+}
+.sn-m-upring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: var(--ur-w, 4px) solid rgb(var(--color-ink) / 0.12);
+}
+.sn-m-upring-half {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+}
+.sn-m-upring-half > i {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border: var(--ur-w, 4px) solid var(--sn-gold-500);
+}
+.sn-m-upring-half[data-half='r'] { left: 50%; }
+.sn-m-upring-half[data-half='r'] > i {
+  left: -100%;
+  border-right: 0;
+  border-radius: 999px 0 0 999px;
+  transform-origin: 100% 50%;
+  rotate: var(--ur-a, 0deg);
+}
+.sn-m-upring-half[data-half='l'] { left: 0; }
+.sn-m-upring-half[data-half='l'] > i {
+  left: 100%;
+  border-left: 0;
+  border-radius: 0 999px 999px 0;
+  transform-origin: 0 50%;
+  rotate: var(--ur-b, 0deg);
+}
+.sn-m-upring-done {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sn-success-deep);
+  color: rgb(var(--color-cream));
+  font-weight: 700;
+}
+.sn-m-upring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* OFFLINE BAR (#28) — a slim bar at the top of every screen when the connection drops: in and out in Quick on Settle
+   (`translate`); when it returns the words cross-fade to "Back online ✓" (Quick, Settle) and the bar leaves. It takes
+   no tap. Reduced: appears and leaves at once. */
+.sn-m-offline {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: var(--sn-z-toast);
+  min-height: calc(34px + env(safe-area-inset-top, 0px));
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  transition: translate var(--sn-m-quick) var(--sn-m-settle);
+}
+@starting-style {
+  .sn-m-offline { translate: 0 -100%; }
+}
+.sn-m-offline[data-leaving] { translate: 0 -100%; }
+.sn-m-offline > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: env(safe-area-inset-top, 0px) 12px 0;
+  text-align: center;
+  transition: opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+.sn-m-offline > [data-offline-words='off'] {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-cream));
+}
+.sn-m-offline > [data-offline-words='back'] {
+  background: var(--sn-success-deep);
+  color: rgb(var(--color-cream));
+  opacity: 0;
+}
+.sn-m-offline[data-back] > [data-offline-words='off'] { opacity: 0; }
+.sn-m-offline[data-back] > [data-offline-words='back'] { opacity: 1; }
+
+/* GLIDE (#12) — every rail and inner list: the slow-down is the phone's own; `overscroll-behavior: contain` keeps
+   iOS's rubber band INSIDE the box (the page itself stays `none`: no page bounce, no pull-to-refresh); ONE shared
+   edge fade, still, on the side that has more to show (`data-glide-at`, kept by `glide-mount.tsx`); and where the
+   phone has no rubber band the end is met with a 12 px nudge that comes back in Quick on Spring (the same mount, by
+   `translate`). Reduced: no nudge; the edge fade is kept. */
+.sn-glide-x,
+.sn-glide-y {
+  --gl-a: 0px;
+  --gl-b: 0px;
+  -webkit-overflow-scrolling: touch;
+}
+.sn-glide-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gl-a), #000 calc(100% - var(--gl-b)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--gl-a), #000 calc(100% - var(--gl-b)), transparent);
+}
+.sn-glide-y {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 var(--gl-a), #000 calc(100% - var(--gl-b)), transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 var(--gl-a), #000 calc(100% - var(--gl-b)), transparent);
+}
+.sn-glide-x:is([data-glide-at='mid'], [data-glide-at='end']) { --gl-a: 24px; }
+.sn-glide-x:is([data-glide-at='mid'], [data-glide-at='start']) { --gl-b: 24px; }
+.sn-glide-y:is([data-glide-at='mid'], [data-glide-at='end']) { --gl-a: 20px; }
+.sn-glide-y:is([data-glide-at='mid'], [data-glide-at='start']) { --gl-b: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sn-m-cele-piece { display: none; }
+  .sn-m-cele-pop { animation: none !important; }
+  .sn-m-cele-ring { opacity: 1; }
+  .sn-m-lift,
+  .sn-m-lift::after,
+  .sn-m-lift-room,
+  .sn-m-offline,
+  .sn-m-offline > span { transition: none !important; }
+  .sn-m-lift[data-lifted],
+  .sn-m-lift[data-lift-ghost] { scale: 1; }
 }
 
 /* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
@@ -7302,7 +7898,7 @@ div:has(> [data-apply-pro-sheet]),
   /* The house popup dark (owner 2026-10-25): the same dark and blur as `.sn-popup-dark`; a drag on it moves nothing. */
   touch-action: none;
   overscroll-behavior: none;
-  animation: sn-peek-in 0.28s var(--sn-ease) both;
+  animation: sn-peek-in var(--sn-m-quick) var(--sn-m-settle) both;
 }
 .sn-inspector-sheet {
   position: fixed;
@@ -7318,15 +7914,39 @@ div:has(> [data-apply-pro-sheet]),
   border-left: 1px solid var(--sn-hairline);
   border-radius: 24px 0 0 24px;
   background: var(--sn-paper, #fffdf8);
-  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
+  /* The second shadow is the panel's own paper running on past its right edge: the Side peek lands on the Spring, so
+   * for a few frames it stands a little LEFT of its place, and the list must not show through at the screen's edge. */
+  box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45), 3rem 0 0 0 var(--sn-paper, #fffdf8);
   padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, var(--sn-safe-r)) max(1.25rem, env(safe-area-inset-bottom)) 1.25rem;
   /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
    * animation ends, and a held transform — even the identity — makes this
    * element the containing block for every `position: fixed` descendant, which
    * silently unpins anything fixed inside the card. See
    * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
-  animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
+  /* 👤 SIDE PEEK (motion standard 18 Nov 2026, § 5 #31 — a person's card: guest, client): the whole panel slides in from
+   * the right — Move on the Spring — and the strip of list beside it stays tappable (`.sn-inspector-peek`, the way
+   * back). The close is the open mirrored at 80 % on Settle reversed, played by `playPeekOut` before the card unmounts.
+   * Reduced motion: the global freeze — it is simply there, and simply gone.
+   * 🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts */
+  animation: sn-side-peek-in var(--sn-m-move) var(--sn-m-spring) backwards;
 }
+/* No fill on the way out: a held transform would make the leaving card the containing block of its fixed children.
+ * `playPeekOut` marks it `data-closed` in the same frame the slide ends, so it never shows again before it unmounts. */
+.sn-inspector-sheet[data-closing] {
+  animation: sn-side-peek-out calc(var(--sn-m-move) * 0.8) var(--sn-m-settle-rev);
+  pointer-events: none;
+}
+.sn-inspector-sheet[data-closed],
+.sn-inspector-peek[data-closed] {
+  visibility: hidden;
+}
+.sn-inspector-peek[data-closing] {
+  animation: sn-peek-out var(--sn-m-quick) var(--sn-m-settle) forwards;
+  pointer-events: none;
+}
+@keyframes sn-side-peek-in { from { transform: translateX(100%); } }
+@keyframes sn-side-peek-out { to { transform: translateX(100%); } }
+@keyframes sn-peek-out { to { opacity: 0; } }
 /* ⚖ THE CARD'S HEADER STAYS IN VIEW (owner 2026-10-02: *"maybe we can leave
  * this part persistent?"*). Eyebrow · name · reply · × in one slim bar, sticky
  * to the top of whichever box scrolls the card (the phone/tablet sheet, or the
@@ -7593,15 +8213,13 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
    Prefer transform+opacity only.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
-  .sn-reveal, .sn-skeleton, .sn-bar > i, .sn-scrim, .sn-modal { animation: none !important; }
+  .sn-reveal, .sn-skeleton, .sn-scrim { animation: none !important; }
   .sn-acc, .sn-btn, .sn-card, .sn-chip, .sn-input { transition: none !important; }
 }
 
 /* ---------- entrances ---------- */
 @keyframes sn-rise     { from { opacity:0; transform:translateY(22px); } to { opacity:1; transform:none; } }
 @keyframes sn-fade     { from { opacity:0; } to { opacity:1; } }
-@keyframes sn-scale-in { from { opacity:0; transform:scale(.94); } to { opacity:1; transform:none; } }
-@keyframes sn-blur-in  { from { opacity:0; filter:blur(10px); } to { opacity:1; filter:blur(0); } }
 .sn-reveal { animation: sn-rise var(--sn-dur-enter) both var(--sn-ease-out); }
 .sn-reveal:nth-child(2) { animation-delay:.08s } .sn-reveal:nth-child(3) { animation-delay:.16s }
 .sn-reveal:nth-child(4) { animation-delay:.24s } .sn-reveal:nth-child(5) { animation-delay:.32s }
@@ -7609,27 +8227,31 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 [data-reveal] .sn-reveal { animation-play-state: paused; }
 
 /* ---------- loaders ---------- */
+/* Motion standard 18 Nov 2026, Phase 4: the kit's loaders are folded into the standard.
+   · `.sn-skeleton` IS `.skeleton` (one rule, in the components layer above) under the one Sheen — `sn-sheen`, by
+     transform. Its own background-position sweep is gone.
+   · `sn-indet` (animated `left`) is gone: the busy bar is `.sn-busy-bar` below, the same Sheen.
+   · `sn-dots` is gone (owner 18 Nov: "shimmer ok, bounce off"). `sn-spin` is THE spinner turn — the veil's orbits
+     (`.sd-orbit-*`) use it too; `sd-spin` is gone. */
 @keyframes sn-spin  { to { transform:rotate(360deg); } }
-@keyframes sn-dots  { 0%,80%,100% { transform:none; opacity:.45; } 40% { transform:translateY(-7px); opacity:1; } }
-@keyframes sn-sheen { from { background-position:-200% 0; } to { background-position:200% 0; } }
-@keyframes sn-indet { from { left:-35%; } to { left:105%; } }
-.sn-skeleton { background:linear-gradient(90deg,#EDE8DE 25%,#F5F0E6 50%,#EDE8DE 75%); background-size:200% 100%; animation:sn-sheen 1.4s linear infinite; }
+.sn-busy-bar { position:relative; overflow:hidden; height:3px; border-radius:var(--sn-r-pill); background:rgb(30 34 41 / 0.06); }
+.sn-busy-bar::after { content:''; position:absolute; top:0; bottom:0; left:0; width:30%; border-radius:inherit; background:var(--sn-gold-500); animation:sn-sheen var(--sn-m-sheen) linear infinite; }
+@media (prefers-reduced-motion: reduce) { .sn-busy-bar::after { width:100%; opacity:.45; animation:none; } }
 
 /* ---------- data viz ---------- */
-@keyframes sn-grow    { from { width:0; } }                 /* horizontal bars */
-@keyframes sn-grow-y  { from { transform:scaleY(0); } }     /* bar charts: transform-origin:bottom */
+                 /* horizontal bars */
+     /* bar charts: transform-origin:bottom */
 @keyframes sn-donut   { from { stroke-dashoffset:251.2; } } /* r=40 circle; dasharray = pct * 2.512 */
-@keyframes sn-shimmer { from { transform:translateX(-120%); } to { transform:translateX(340%); } }
-.sn-bar > i { display:block; height:100%; border-radius:inherit; animation: sn-grow var(--sn-dur-enter) var(--sn-ease-out) both; }
 
 /* ---------- live signatures (pulse ONLY on genuinely live states) ---------- */
 @keyframes sn-pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(.7); } }
 @keyframes sn-ring  { 0% { box-shadow:0 0 0 0 rgba(169,131,75,.45); } 100% { box-shadow:0 0 0 14px rgba(169,131,75,0); } }
-@keyframes sn-marquee { from { transform:translateX(0); } to { transform:translateX(-50%); } } /* duplicate run once */
+ /* duplicate run once */
 
 /* ---------- expand / collapse (no height measuring) ---------- */
-.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); transition:grid-template-rows var(--sn-dur-elem) var(--sn-ease); }
+.sn-acc { display:grid; grid-template-rows:0fr; grid-template-columns:minmax(0,1fr); } /* 🎞 18 Nov: the rows are the STATE, never animated — the panel arrives by transform (below) */
 .sn-acc.open { grid-template-rows:1fr; }
+.sn-acc.open > * { animation: sn-m-open-panel var(--sn-m-move) var(--sn-m-settle) backwards; }
 .sn-acc > * { overflow:hidden; min-height:0; min-width:0; }
 /* HORIZONTAL CONTAINMENT (the twin of min-height:0, which only frees the vertical axis).
  * Without an explicit column track the implicit column is `auto`, so it sizes to the
@@ -7642,7 +8264,6 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
 
 /* ---------- overlays ---------- */
 .sn-scrim { background:var(--sn-scrim); backdrop-filter:blur(var(--sn-scrim-blur)); -webkit-backdrop-filter:blur(var(--sn-scrim-blur)); animation:sn-fade var(--sn-scrim-fade) both; }
-.sn-modal { animation:sn-scale-in .4s both var(--sn-ease-out); }
 /* route change: main { animation:sn-fade .32s both; } */
 
 /* ---------- home-launcher fidelity motion (2026-07-15 pixel pass) ----------
@@ -7650,30 +8271,23 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * (0.001ms + iteration-count 1) snaps every one to its safe end state. */
 
 /* Obsidian Alaala tile entrance — materializes LAST, after the glass cascade. */
+/* No blur since the motion standard (§ 3.2 / § 8: a filter is paint on every frame) — the tile rises and fades. */
 @keyframes sn-bloom {
-  0%   { opacity:0; transform:translateY(22px) scale(.96); filter:blur(12px); }
-  62%  { filter:blur(0); }
-  100% { opacity:1; transform:none; filter:blur(0); }
+  0%   { opacity:0; transform:translateY(22px) scale(.96); }
+  100% { opacity:1; transform:none; }
 }
-.sn-bloom { animation: sn-bloom 1s 1.05s both var(--sn-ease-out); }
+.sn-bloom { animation: sn-bloom var(--sn-m-rise) calc(var(--sn-m-rise) * 1.5) both var(--sn-m-settle); }
 
 /* Command-palette panel pop-in (proto popIn). */
-@keyframes sn-pop-in {
-  from { opacity:0; transform:scale(.94) translateY(8px); }
-  to   { opacity:1; transform:none; }
-}
-.sn-pop-in { animation: sn-pop-in .38s both var(--sn-ease-out); }
 
 /* Alaala lens-body cross-fade on lens switch (proto lensIn; re-triggered by a
  * React key remount per switch). */
-@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); filter:blur(4px); } }
-.sn-lens-swap > * { animation: sn-lens-in .42s backwards var(--sn-ease-out); }
-.sn-lens-swap > :nth-child(2) { animation-delay:.06s; }
-.sn-lens-swap > :nth-child(3) { animation-delay:.12s; }
+@keyframes sn-lens-in { from { opacity:0; transform:translateY(9px); } }
+.sn-lens-swap > * { animation: sn-lens-in var(--sn-m-move) backwards var(--sn-m-settle); }
+.sn-lens-swap > :nth-child(2) { animation-delay: calc(var(--sn-m-quick) * 0.3); }
+.sn-lens-swap > :nth-child(3) { animation-delay: calc(var(--sn-m-quick) * 0.6); }
 
 /* Lens chip pop on select (proto chipPop — gentler than .sn-pick-bounce). */
-@keyframes sn-chip-pop { 0% { transform:scale(1); } 45% { transform:scale(1.09); } 100% { transform:scale(1); } }
-.sn-chip-pop { animation: sn-chip-pop .34s var(--sn-ease-out); }
 
 /* Progress-ring entrance sweep — generalizes sn-donut: the circle sets its own
  * circumference via --sn-ring-circ (keyframes may read custom properties). */
@@ -7698,7 +8312,19 @@ html.dark :is(.m-btn-primary, .m-btn-orange, .sn-btn-primary) { color: rgb(var(-
  * element to its own styles afterwards — visually identical, structurally
  * inert. The keyframe declares only `from`, so nothing is lost by not holding
  * an end state. */
-.sn-page-enter { animation: sn-rise-soft 400ms backwards var(--sn-ease-out); }
+.sn-page-enter { animation: sn-rise-soft var(--sn-m-move) backwards var(--sn-m-settle); }
+
+/* → PUSH (motion standard 18 Nov 2026, § 5 #30): a page DEEPER in its section arrives from the right; its Back arrives
+ * from the left — the reverse way. `NavSlideController` writes `html[data-sn-push]` on the tap (or the phone's Back) and
+ * clears it once the page has landed; a first load, a tab press and a sideways link carry no mark and keep Enter above.
+ * Only the NAME changes here: Move, Settle and `backwards` stay the template's own (never `both` — a held transform
+ * unpins every fixed child). `:where()` keeps these below the two `animation: none` rules that follow (a tab's own
+ * slide, an open chat thread), so those still win. Reduced motion: no travel (the rule below, and the global freeze).
+ * 🔒 app/_components/nav/the-screens-move-by-the-standard.test.ts */
+@keyframes sn-push-fwd { from { opacity: 0; transform: translateX(clamp(24px, 30%, 96px)); } }
+@keyframes sn-push-back { from { opacity: 0; transform: translateX(calc(-1 * clamp(24px, 30%, 96px))); } }
+:where(html[data-sn-push='fwd']) .sn-page-enter { animation-name: sn-push-fwd; }
+:where(html[data-sn-push='back']) .sn-page-enter { animation-name: sn-push-back; }
 
 /* R8 — mobile bottom-nav View-Transition interplay (rollout plan § 2a + § 6):
  * during the directional VT slide the incoming pane is a LIVE capture, so the
@@ -7775,7 +8401,7 @@ html:active-view-transition .sn-page-enter { animation: none; }
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: none; }
 }
-.sn-canvas-sheet { animation: sn-canvas-sheet-up 280ms ease both; }
+.sn-canvas-sheet { animation: sn-canvas-sheet-up var(--sn-m-move) var(--sn-m-settle) both; }
 .sn-canvas-rise  { animation: sn-canvas-rise 250ms ease both; }
 /* The meter is a width transition, not a keyframe — it animates from wherever
  * it already was, so an edit that lifts the score reads as a climb. */
@@ -7806,8 +8432,8 @@ html:active-view-transition .sn-page-enter { animation: none; }
 @keyframes sn-addman-sheet-sm {
   from { opacity: 0; transform: translateY(10px) scale(.985); }
 }
-.sn-addman-veil  { animation: sn-addman-veil 180ms ease backwards; }
-.sn-addman-sheet { animation: sn-addman-sheet 280ms cubic-bezier(.2,.7,.2,1) backwards; }
+.sn-addman-veil  { animation: sn-addman-veil var(--sn-m-quick) var(--sn-m-settle) backwards; } /* 🎞 Scrim = Quick on Settle (18 Nov; was 180 ms ease) */
+.sn-addman-sheet { animation: sn-addman-sheet var(--sn-m-move) var(--sn-m-settle) backwards; }
 @media (min-width: 640px) {
   .sn-addman-sheet { animation-name: sn-addman-sheet-sm; }
 }
@@ -8591,7 +9217,7 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 .home-sec.open > .home-fold { grid-template-rows: 1fr; transition-delay: 120ms; }
 .home-sec.open .home-chev { transform: rotate(180deg); }
 @keyframes home-catpop { 0% { transform: scale(1); } 30% { transform: scale(1.28) rotate(-6deg); } 60% { transform: scale(0.92) rotate(4deg); } 100% { transform: scale(1) rotate(0); } }
-.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop 420ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+.home-sec.open > .home-bar .home-bar-ico { animation: home-catpop var(--sn-m-move) var(--sn-m-settle); }
 .home-svc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .home-svc .home-t { font-weight: 600; display: flex; align-items: center; gap: 6px; }
 .home-svc .home-t svg { width: 16px; height: 16px; flex: none; }
@@ -8657,6 +9283,73 @@ html.dark .home-card-bad { background: color-mix(in srgb, rgb(var(--color-danger
 /* `visibility: hidden` once it has slid (after its 200 ms): out of the Tab order and the screen reader while away. */
 html[data-keyboard='open'] [data-bottom-dock] { transform: translateY(100%); opacity: 0; pointer-events: none; visibility: hidden; transition: transform 200ms ease-out, opacity 200ms ease-out, visibility 0s linear 200ms; }
 @media (prefers-reduced-motion: reduce) { [data-bottom-dock] { transition: none; } }
+
+/* 🫳 TUCK — THE BARS HIDE ON SCROLL, THE ROWS STAY (motion standard 18 Nov 2026, § 5 #37; owner: *"yes. thumb row and
+ * compressed row stays."* · *"but when bottom and top nav appears, the thumb row and compressed pin rows adjust as
+ * well"*). `use-hide-on-scroll.ts` writes ONE mark, `html[data-tuck]`, while the page scrolls down; everything here
+ * answers it, on a phone (below 701 — from 701 the bar and the rows stand where they are):
+ *   · the bottom nav SHRINKS to the left (scaleX to `--sn-tuck-k`, the pill's share of its width) and fades, and the
+ *     small floating pill (`[data-tuck-pill]`, bottom-nav.tsx) grows in its place — one tap on it opens the bar;
+ *   · the floating thumb row STAYS: it comes down onto the pill's row (`translate`, one bar-height) and starts to the
+ *     pill's right; scroll up and it goes back up with the bar — the same two speeds, as one move;
+ *   · the top bar tucks away (front-door.css) and the pinned 44-px row rides up with it (collapsing-top.tsx).
+ * Away: Move on the Spring. Back: Quick on Settle (the resting rules carry the way back). Transform, translate and
+ * opacity only — the row's left room is set once, never animated. Not while the keyboard is up or the chrome has
+ * stepped away (those own the dock then). Reduced motion: everything swaps at once.
+ * 🔒 app/_components/nav/tuck-keeps-the-rows.test.ts */
+:root {
+  /* The bars' two speeds, as ONE pair every part that moves with the top bar reads (the bar itself, the pinned heads
+     that follow it): back in Quick on Settle at rest, away in Move on the Spring while tucked. */
+  --sn-tuck-dur: var(--sn-m-quick);
+  --sn-tuck-ease: var(--sn-m-settle);
+}
+html[data-tuck] {
+  --sn-tuck-dur: var(--sn-m-move);
+  --sn-tuck-ease: var(--sn-m-spring);
+}
+[data-tuck-pill] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.5);
+  transition: transform var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick);
+}
+[data-bottom-dock] > nav[aria-label='Primary navigation'] {
+  transform-origin: left center;
+  transition: transform var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear 0s;
+}
+:root :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+  transition: transform var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-quick) var(--sn-m-settle);
+}
+@media (max-width: 700.98px) {
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]) [data-bottom-dock] > nav[aria-label='Primary navigation'] {
+    transform: scaleX(var(--sn-tuck-k, 0.18));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick);
+  }
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]) [data-tuck-pill] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: none;
+    transition: transform var(--sn-m-move) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear 0s;
+  }
+  /* The rows that float on the dock — only where a dock is on the page to shrink. */
+  html[data-tuck]:not([data-keyboard='open'], [data-chrome-away]):has([data-bottom-dock]) :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+    translate: 0 var(--sn-bottomnav-h, 64px);
+    padding-left: calc(var(--sn-safe-l) + 14px + var(--sn-bottomnav-h, 64px) + 8px);
+    transition: transform var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-move) var(--sn-m-spring);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tuck-pill],
+  [data-bottom-dock] > nav[aria-label='Primary navigation'],
+  :root :is([data-tuck-row], [data-guests-thumb], [data-budget-thumb]) {
+    transition: none;
+  }
+}
 /* ⌨ A riding row that is not a ThumbRow (`useRidingRow`, typing-band.tsx) folds what is not its field while it rides:
  * each such piece wears `data-ride-fold` (Filters on the marketplace bar, its chips). */
 [data-ride-row][data-riding] [data-ride-fold] { display: none !important; }
@@ -8676,9 +9369,9 @@ html.dark [data-typing-band='app'] { --tb-plate: rgb(var(--color-raised)); --sp-
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
  * would unpin every fixed child — `an-identity-transform-unpins-every-fixed-child.test.ts`). */
-[data-home-column] > * { animation: home-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-[data-home-column] > :nth-child(2) { animation-delay: 40ms; }
-[data-home-column] > :nth-child(n + 3) { animation-delay: 80ms; }
+[data-home-column] > * { animation: home-up var(--sn-m-move) var(--sn-m-settle) backwards; }
+[data-home-column] > :nth-child(2) { animation-delay: calc(var(--sn-m-quick) * 0.2); }
+[data-home-column] > :nth-child(n + 3) { animation-delay: calc(var(--sn-m-quick) * 0.4); }
 @media (prefers-reduced-motion: reduce) {
   [data-home-column] > *, .home-sec.open > .home-bar .home-bar-ico { animation: none; }
   .home-fold, .home-chev, .home-tile { transition: none; }
@@ -10661,7 +11354,7 @@ input.sn-switch:focus-visible {
    weigh more than one utility; it says the same two things that rule says. WHAT moves (`left`, `transform`) stays
    each drawing's own — this never names a transition-property, or a knob moved by the other one would stop moving. */
 .sn-switch.sn-switch::after {
-  transition-duration: var(--sn-pill-dur);
+  transition-duration: var(--sn-m-toggle);
   transition-timing-function: var(--sn-pill-spring);
 }
 
@@ -10834,6 +11527,35 @@ html.dark :is(button, a).ab.ab-main[data-waiting] {
   .sn-composer-tools,
   .sn-composer-tools > *,
   .sn-composer-box { transition: none; }
+}
+
+/* 🤫 ONE BOX · MESSAGE ⇄ WHISPER (owner 2026-11-19, "MESSAGE ⇄ WHISPER APPROVED"; drawing
+ * `prototypes/chat_send_to_private_2026-11-19.html`; app/_components/chat-send-form.tsx). The ＋ and Send live INSIDE
+ * the one message box. On a host's composer the BOX is dragged right (never Send) to whisper to the co-hosts: it rides
+ * under the thumb and snaps back (`--sn-m-swipe-snap`), its outline and its Send turn sky blue (`--color-private`), and
+ * the ＋ folds away at Quick. Every speed is a motion token; the Send icon's own morph is `whisper-send-icon.tsx`.
+ * `pan-y` leaves the page's up/down scroll to the page and gives the sideways drag to the box.
+ * Reduced motion: the same end states, nothing travels. Held by lib/a-whisper-never-reaches-the-supplier.test.ts. */
+.sn-chat-onebox {
+  transition: box-shadow var(--sn-m-move) var(--sn-m-settle), translate var(--sn-m-swipe-snap) var(--sn-m-settle);
+}
+.sn-chat-onebox[data-chat-whisper] { touch-action: pan-y; }
+.sn-chat-onebox[data-chat-dragging] { transition: box-shadow var(--sn-m-move) var(--sn-m-settle); }
+.sn-chat-onebox[data-chat-whisper='on'] { box-shadow: inset 0 0 0 1.5px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on']:focus-within { box-shadow: inset 0 0 0 2px rgb(var(--color-private)); }
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools,
+.sn-chat-onebox[data-chat-whisper='on'] .sn-composer-tools > * {
+  transition-duration: var(--sn-m-quick);
+  transition-timing-function: var(--sn-m-settle);
+}
+.sn-whisper-send,
+.sn-chat-onebox-field { transition: color var(--sn-m-move) var(--sn-m-settle); }
+/* Back to Message: the blue leaves with the line that completes the plane, a Move after the dots have gone. */
+.sn-chat-onebox[data-chat-whisper='off'] .sn-whisper-send { transition-delay: var(--sn-m-move); }
+@media (prefers-reduced-motion: reduce) {
+  .sn-chat-onebox,
+  .sn-whisper-send,
+  .sn-chat-onebox-field { transition: none; }
 }
 
 /* Fill — the meter rule's bar (components/count.tsx). Width is set inline by

@@ -65,7 +65,8 @@
   z-index: 15;
   background: var(--gs-paper);
   padding: 8px 0 10px;
-  transition: top 300ms ease-out;
+  /* With the top bar, at the bar's own two speeds (globals.css `--sn-tuck-*`). */
+  transition: top var(--sn-tuck-dur) var(--sn-tuck-ease);
 }
 /* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
    (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
@@ -1334,6 +1335,21 @@ button.ico {
     padding-left: max(0px, var(--sn-safe-l));
     padding-right: max(0px, var(--sn-safe-r));
   }
+}
+/* ➕ The ways to add, above the EMPTY search while it has the cursor (guests-screen.tsx `emptyWays`) — a small menu
+   floating over the list, so it has an edge (the Find row's empty panel is the same surface). */
+.emptyWays {
+  position: absolute;
+  left: max(16px, var(--sn-safe-l));
+  right: max(16px, var(--sn-safe-r));
+  bottom: 100%;
+  padding: 10px 12px 8px;
+  border-radius: var(--m-r-lg);
+  background: var(--m-paper);
+  box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.14), 0 0 0 1px rgb(var(--color-ink) / 0.1);
+}
+.emptyWays .ways {
+  margin-top: 0;
 }
 .thumb {
   flex: 1;

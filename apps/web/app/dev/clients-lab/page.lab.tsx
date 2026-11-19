@@ -13,10 +13,12 @@
  *                             the brief · Suppliers on this event · Decisions (Build 2 #42: the list, v118's five rows) ·
  *                             Forms sent.
  *     &decisions=none|partial   Decisions empty · a refused card read said in one line.
- *   ?v=pick&page=schedule     its Schedule page: the Clients month itself (`ScheduleCalendar` → `CustomersCalendar`
- *                             place="schedule", lab inputs, no request), then the supplier's part in v113 order.
- *     &cal=fail                 the month's one read refused — said, never an empty month.
- *     &cal=two                  a shop with two schedules — the month's Schedule chip shows (2026-11-12).
+ *   ?v=pick&page=schedule     its Schedule page: the days strip (owner 18 Nov 2026 — `ScheduleDays`: the event day
+ *                             8 Nov, a meeting on the 5th, payments due 20 Oct (paid) and 20 Nov; "All clients" adds
+ *                             the lab month's other bookings, Villanueva clashing in Main team on the 8th), then the
+ *                             supplier's part in v113 order. Add `&day=2026-11-05` to land on the meeting day.
+ *     &cal=fail                 "All clients" refused — said, and only this client's days are drawn.
+ *     &cal=two                  a shop with two schedules (2026-11-12).
  *
  * 📅 Build 2 #43 (B2-A): `?v=events` is the ONE Clients screen — "Clients · 4 booked · ₱18,000 to collect · ⚙", the
  * month (the shipped `CustomersCalendar`, lab inputs, no request), the tiles as their own row, Overdue / Unread, then
@@ -38,7 +40,7 @@ import { Plus, Settings } from 'lucide-react';
 import { SearchBox } from '@/app/_components/search-box';
 import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
-import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { pickedAnchorOf, pickedMenuFor, visiblePickedPage, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { clientLandingPage } from '@/lib/upcoming-schedule-door';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
 import { detailsNumbers } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers';
@@ -48,8 +50,9 @@ import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_compone
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
 import { LabDetailsDecisions } from './lab-decisions';
 import { LabAskingPick } from './lab-asking';
-import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
-import { ScheduleCalendar } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-calendar';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
+import { ScheduleDays, type AllClientsMonth } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-days';
+import { clientScheduleDays, type ScheduleDayInputs } from '@/lib/schedule-days';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
 import { buildSupplierDay, type SupplierBlockRow } from '@/lib/supplier-schedule';
 import { supplierOwnWhere, whereChaptersFrom } from '@/lib/supplier-where';
@@ -180,14 +183,27 @@ function pickedBodies(
             { vendor_name: 'Kusina ni Lola', category: 'caterer' },
           ])}
         />
-        <LabDetailsDecisions mode={decisions} />
-        <DetailsFormsDoor />
+        {/* 🗂 Seven tabs (18 Nov): Forms, then Decisions, are parts of Details — the forms body is proven in /dev/forms-lab. */}
+        <section id="forms" aria-label="Forms" className="scroll-mt-4" data-picked-part="forms">
+          <p className="home-k2 pb-1">Forms</p>
+          {later('The Forms body')}
+        </section>
+        <section id="decisions" aria-label="Decisions" className="scroll-mt-4" data-picked-part="decisions">
+          <LabDetailsDecisions mode={decisions} />
+        </section>
       </div>
     ),
     schedule: (
       <>
-        <ScheduleCalendar eventDate="2026-11-08" todayIso={LAB_TODAY} lab={cal === 'fail' ? null : cal === 'two' ? LAB_CALENDAR_TWO : LAB_CALENDAR} />
-        <div className="mt-4">
+        <ScheduleDays
+          eventId="lab"
+          eventName="Reyes & Santos"
+          eventDate="2026-11-08"
+          todayIso={LAB_TODAY}
+          items={clientScheduleDays(LAB_DAYS)}
+          lab={cal === 'fail' ? null : labAllClients(cal === 'two' ? LAB_CALENDAR_TWO : LAB_CALENDAR)}
+        >
+        <div>
           <SupplierSchedule
             eventId="lab"
             lab
@@ -203,13 +219,23 @@ function pickedBodies(
             where={where}
           />
         </div>
+        </ScheduleDays>
       </>
     ),
-    chat: later('Chat'),
-    quote: later('Quotation'),
-    // 💸 B2-E: the Payment page with two refunds recorded (?v=pick&page=payments; &refunds=fail = the refused read). Lab
-    // rows; the "Record a refund" sheet opens, but its save is never pressed here (it would call the server action).
-    payments: (
+    chat: (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3" data-lab-chat="">
+        {Array.from({ length: 14 }, (_, i) => (
+          <p key={i} className={`my-1 max-w-[80%] rounded-2xl px-3 py-2 text-[14px] ${i % 2 ? 'self-end bg-sn-accent text-sn-on-accent' : 'self-start bg-frame text-ink'}`}>
+            {i % 2 ? 'Yes, until Dec 8. I sent the form again.' : 'Hi! Can we still change the dessert table?'}
+          </p>
+        ))}
+      </div>
+    ),
+    // 💰 Book & Budget (seven tabs, 18 Nov): the Payment page (?v=pick&page=quote; &refunds=fail = the refused read), then
+    // the quote. Lab rows; the "Record a refund" sheet opens, but its save is never pressed here (it calls the server).
+    quote: (
+      <>
+      <section id="payments" aria-label="Payments" className="scroll-mt-4" data-picked-part="payments">
       <PaymentPage
         ctx={{
           eventId: 'ev-reyes',
@@ -227,8 +253,15 @@ function pickedBodies(
         money={LAB_PAYMENT_MONEY}
         refunds={{ eventVendorId: ME, clientName: 'Reyes & Santos', measured: !refundsFail, rows: refundsFail ? [] : LAB_REFUNDS }}
       />
+      </section>
+      <section id="quote" aria-label="Quotation" className="mt-6 scroll-mt-4" data-picked-part="quote">
+        <p className="home-k2 mb-2">Quotation</p>
+        {later('The quote body')}
+      </section>
+      </>
     ),
-    forms: later('Forms'),
+    payments: null,
+    forms: null,
     files: later('Files'),
     hub: later('Hub'),
     report: later('Report'),
@@ -297,6 +330,25 @@ async function labDayRefused(): Promise<void> {
   throw new Error('clients-lab: refused on purpose');
 }
 
+/** 📅 The lab client's days (owner 18 Nov 2026 strip): the event, a Meeting card, a paid and an open installment. */
+const LAB_DAYS: ScheduleDayInputs = {
+  eventDate: '2026-11-08',
+  chapters: [],
+  meetings: [{ appointment_id: 'lab-ap1', label: 'Ocular visit', scheduled_at: '2026-11-05T06:00:00.000Z', status: 'confirmed' }],
+  payments: [
+    { label: 'First payment', due_date: '2026-10-20', state: 'paid' },
+    { label: 'Second payment', due_date: '2026-11-20', state: 'due' },
+  ],
+};
+
+/** "All clients" on the lab month: Reyes & Santos is this client (`lab`); the rest are the shop's other bookings. */
+function labAllClients(c: typeof LAB_CALENDAR): AllClientsMonth {
+  return {
+    bookings: c.bookings.map((b) => (b.eventName.startsWith('Reyes') ? { ...b, eventId: 'lab' } : b)),
+    pools: c.pools.map((p) => ({ poolId: p.poolId, name: p.calendarName ?? p.label })),
+  };
+}
+
 export default async function ClientsLabPage({ searchParams }: Props) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
@@ -343,7 +395,9 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   }
 
   if (v === 'pick') {
-    const page = (one(sp.page) ?? 'details') as PickedClientPage;
+    // `?tab=` lands exactly as the real client page does (page + part); `?page=` is the lab's own plain pick.
+    const tab = one(sp.tab);
+    const page = tab ? visiblePickedPage(tab, true) : ((one(sp.page) ?? 'details') as PickedClientPage);
     return (
       <div className="min-h-screen bg-cream" data-clients-lab="pick">
         <PickedClientShell
@@ -351,6 +405,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           eventName="Reyes & Santos wedding"
           menu={pickedMenuFor(true)}
           initialPage={page}
+          landAt={pickedAnchorOf(tab)}
           bodies={pickedBodies(
             page,
             one(sp.cal) === 'fail' ? 'fail' : one(sp.cal) === 'two' ? 'two' : null,
@@ -359,6 +414,8 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           )}
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
+          workDefault="details"
+          nextStep={<NextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
         />
       </div>
     );
@@ -393,13 +450,13 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   };
   return (
     <div className="min-h-screen bg-cream" data-clients-lab="events">
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-none">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-6 pt-0 sm:px-6 tab:pt-3 lg:px-8 tab:max-w-none">
         <div className="pb-24">
           <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
             <CustomersPin
               seg="events"
               hrefs={{ events: '/dev/clients-lab', dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
-              title={{ counts: `4 booked · ${peso(18000)} to collect` }}
+              title={{}}
               month={{
                 initialDayStates: LAB_CALENDAR.dayStates,
                 initialWaitlist: LAB_CALENDAR.waitlist,

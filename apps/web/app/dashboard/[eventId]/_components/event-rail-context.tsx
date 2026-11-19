@@ -68,6 +68,7 @@ import type { NavItem } from '@/app/_components/nav/types';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import type { EventMenuChild, EventStudioRow } from '@/lib/customer-menu';
 import { EventMonogram } from '@/app/_components/event-monogram';
+import { FoilGlint } from '@/app/_components/signature/foil-glint';
 import { eventSettingsHref } from '@/lib/people-with-access-href';
 import { SETTINGS_ENTRY } from '@/lib/menu-settings';
 import { buildCustomerNavGroups } from './customer-nav-config';
@@ -79,6 +80,7 @@ export function EventRailContext({
   eventName,
   eventMonogram,
   eventMonogramPlays,
+  eventDate,
   navSlots,
   hideKeys,
   websiteEnabled,
@@ -127,6 +129,8 @@ export function EventRailContext({
   /** Whether the mark plays, when `eventMonogram` is an object shared with the switcher
    *  (one copy of the SVG on the page) and so cannot carry it. Wins over `eventMonogram.plays`. */
   eventMonogramPlays?: boolean;
+  /** 🕯 The event's day (`events.event_date`) — the Foil glint plays on its morning. Absent = no day picked. */
+  eventDate?: string | null;
   navSlots?: Record<string, NavSlotLite>;
   hideKeys?: string[];
   websiteEnabled?: boolean;
@@ -245,7 +249,10 @@ export function EventRailContext({
       {eventMonogram ? (
         <div className="fd-rctx-mark">
           <Link href={eventSettingsHref(eventId)} className="fd-rctx-door" aria-label={SETTINGS_ENTRY.home.sheet} data-rail-event-settings="">
-            <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
+            {/* 🕯 Foil glint (motion standard § 9 ②) — one line of light, when the event is created and on its morning. */}
+            <FoilGlint eventId={eventId} eventDate={eventDate ?? null} shape="square">
+              <EventMonogram event={eventMonogram} size="sm" shape="square" plays={eventMonogramPlays ?? eventMonogram.plays} place="event-rail" />
+            </FoilGlint>
           </Link>
         </div>
       ) : null}

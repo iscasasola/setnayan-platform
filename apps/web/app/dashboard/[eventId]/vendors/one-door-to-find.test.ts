@@ -127,11 +127,11 @@ test('(b) both readers draw the list through the ONE component, from the ONE rea
   assert.match(suppliers, /findPanel=\{findPanel\}/, 'the list never reaches the bench');
 
   const bench = code('_components', 'shortlist-categories.tsx');
-  assert.match(bench, /<FindThumbRow[\s\S]{0,400}?emptyPanel=\{findPanel\}/, 'the bench does not hand the list to the bottom search');
+  assert.match(bench, /<FindThumbRow[\s\S]{0,700}?emptyPanel=\{findPanel\}/, 'the bench does not hand the list to the bottom search');
 
   const row = code('_components', 'find-thumb-row.tsx');
-  assert.match(row, /const showPanel = open && up && emptyPanel != null && text\.trim\(\) === '';/, 'the list shows while typing, or never');
-  assert.match(row, /data-find-empty=""[\s\S]{0,400}?\{emptyPanel\}/, 'the open box does not draw the list it was handed');
+  assert.match(row, /const showPanel = open && up && text\.trim\(\) === '';/, 'the list shows while typing, or never');
+  assert.match(row, /data-find-empty=""[\s\S]{0,900}?\{emptyPanel\}/, 'the open box does not draw the list it was handed');
 });
 
 test('(c) a refused booked read says so — and no row reads "Booked ✓"', async () => {

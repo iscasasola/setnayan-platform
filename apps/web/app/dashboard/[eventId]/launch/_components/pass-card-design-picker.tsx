@@ -116,7 +116,7 @@ export function PassCardDesignPicker({
           role="radiogroup"
           aria-label={PASS_CARD_WORDS.style}
           data-style-carousel=""
-          className="-mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="sn-glide-x -mx-[2px] flex shrink-0 snap-x snap-mandatory gap-2 overflow-x-auto overflow-y-hidden px-[2px] pb-1 pt-[2px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {PASS_CARD_DESIGNS.map((d) => {
             const on = d === shown;

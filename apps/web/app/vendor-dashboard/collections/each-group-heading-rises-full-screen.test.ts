@@ -57,11 +57,16 @@ const INPUT: CollectionsInput = {
 const album = (key: string, title: string) => ({ key, title, line: '12 photos', urls: ['/a.jpg', '/b.jpg'], total: 12, href: null });
 const PHOTOS = Array.from({ length: 14 }, (_, i) => `/p${i}.jpg`);
 
-test('1 · every titled head (but More) is one button that opens a screen — nothing risen before a press', async () => {
+// UPDATED ON PURPOSE (owner 2026-11-19, "portfolio simpler approved"): the twelve stacked sections became FOUR WAYS IN.
+// What rises full screen now is each way in (and "All N albums"); inside a risen way the groups are plain headings —
+// one level, never a second screen on top. The rule this test holds is unchanged: every block that opens is ONE button
+// that says it opens a screen, and nothing is risen before a press.
+test('1 · every way in is one button that opens a screen — nothing risen before a press', async () => {
   const { CollectionsList } = await import('./_components/collections-list');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const html = renderToStaticMarkup(
     React.createElement(CollectionsList, {
+      vendorId: 'lab',
       input: INPUT,
       gallery: null,
       groups: { events: [album('e1', 'Santos wedding')], services: [album('s1', 'Photo booth')], inspiration: [album('i1', 'Reception styling')], stories: [{ eventId: 'e1', slug: 'santos', hostNames: 'Ana & Ben', line: '' }] },
@@ -72,19 +77,15 @@ test('1 · every titled head (but More) is one button that opens a screen — no
       moodboard: { looks: 1, declined: 0 },
     } as never),
   );
-  const ids = [...html.matchAll(/data-portfolio-section="([^"]+)"/g)].map((m) => m[1]!);
-  assert.ok(ids.length >= 10, `anti-vacuity: only ${ids.length} sections drawn`);
-  for (const id of ids) {
-    const heads = [...html.matchAll(new RegExp(`<(\\w+)[^>]*data-portfolio-open="${id}"[^>]*>`, 'g'))];
-    if (id === 'more') {
-      assert.equal(heads.length, 0, 'More is a plain heading — it has nothing of its own to rise');
-      continue;
-    }
-    assert.equal(heads.length, 1, `${id}: the group heading is not one opener`);
-    assert.equal(heads[0]![1], 'button', `${id}: the group heading is a link that jumps to a page — it must rise full screen`);
-    assert.match(heads[0]![0], /aria-haspopup="dialog"/, `${id}: the heading does not say it opens a screen`);
+  const ways = [...html.matchAll(/<(\w+)[^>]*data-portfolio-way="([^"]+)"[^>]*>/g)];
+  assert.deepEqual(ways.map((m) => m[2]), ['events', 'services', 'inspiration', 'videos'], 'the four ways in are not drawn, in the drawing’s order');
+  for (const m of ways) {
+    assert.equal(m[1], 'button', `${m[2]}: the way in is a link that jumps to a page — it must rise full screen`);
+    assert.match(m[0], /aria-haspopup="dialog"/, `${m[2]}: the way in does not say it opens a screen`);
   }
-  assert.doesNotMatch(html, /data-rise-screen=/, 'a group is risen before anybody pressed its heading');
+  assert.match(html, /<button[^>]*aria-haspopup="dialog"[^>]*data-portfolio-all-albums=""/, '“All N albums” is not one button that opens a screen');
+  assert.doesNotMatch(html, /data-rise-screen=/, 'a way in is risen before anybody pressed it');
+  assert.doesNotMatch(html, /data-portfolio-section=/, 'a group is drawn on the main screen — the twelve stacked sections are back');
 });
 
 test('2 · the press mounts THE one RiseScreen — titled by the group, its line the count, ✕ puts it back', () => {
@@ -99,14 +100,14 @@ test('2 · the press mounts THE one RiseScreen — titled by the group, its line
   assert.doesNotMatch(SECTIONS, /<BodyPanel\b|createPortal|\.animate\(|position:\s*['"]?fixed/, 'the section draws a rise of its own');
 });
 
-test('3 · every group in the list has a rise; More alone has none', () => {
+test('3 · every group in the list says what it rises into; More is gone', () => {
   // Each section's source, from its tag to the next (the album and count groups are one template each).
   const tags = LIST.split(/(?=<PortfolioSection\b)/).slice(1).map((t) => t.slice(0, 900));
-  assert.ok(tags.length >= 9, `anti-vacuity: ${tags.length} sections in the list`);
-  for (const t of tags) {
-    if (/id="more"/.test(t)) assert.match(t, /rise=\{null\}/, 'More rises');
-    else assert.match(t, /rise=\{riseOf\(/, `a group heading does not rise: ${t.slice(0, 80)}`);
-  }
+  // UPDATED ON PURPOSE (owner 2026-11-19): "More", "Your best work" and the Video links section left with the
+  // simpler Portfolio — seven section templates remain, and each still says what it rises into (its grid, its own page).
+  assert.ok(tags.length >= 7, `anti-vacuity: ${tags.length} sections in the list`);
+  for (const t of tags) assert.match(t, /rise=\{riseOf\(/, `a group does not say what it rises into: ${t.slice(0, 80)}`);
+  assert.doesNotMatch(LIST, /id="more"/, 'the More block is back');
   assert.doesNotMatch(LIST, /\bonOpen=\{/, 'a group heading still opens the old way (a link or the body panel)');
 });
 

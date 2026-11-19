@@ -85,7 +85,9 @@ test('3 · every Shop screen hands its row its own section and its own figures',
     n += 1;
   }
   assert.equal(n, SHOP_SEGMENT_ORDER.length - 3, 'a section has no screen in this check');
-  assert.match(read('collections/_components/portfolio-view.tsx'), /<PinWord barAbove>Portfolio<\/PinWord>/, 'the Portfolio tab lost its pinned row');
+  // UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): the Portfolio tab has no header and so no
+  // pinned row; its ⚙ sits at the right of Row 1's heading (`collections/the-portfolio-is-simpler.test.ts`).
+  assert.doesNotMatch(read('collections/_components/portfolio-view.tsx'), /<PinWord\b/, 'the Portfolio tab has a pinned row again');
   assert.doesNotMatch(read('shop/page.tsx'), /<ShopSegments\b/, 'the Shop tab draws the retired ▾ row again (v113)');
   assert.match(read('shop/_components/shop-cover.tsx'), /data-shop-pin="shop"/, 'the Shop tab lost its pinned row');
   // Analytics' three numbers are the funnel's own counts — the window's funnel stages, never a second count.

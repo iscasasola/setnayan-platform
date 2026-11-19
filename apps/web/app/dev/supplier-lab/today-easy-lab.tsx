@@ -581,7 +581,7 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
           cutoffs: { fewInquiries: 20, fewBookings: 2 },
           inspirationPhotos: 4,
           // The plans rebuild's Verified total (#7975: 1 · 3 · 10 · 20 · 80 · 200) — a lab number; the page reads it.
-          cardRoom: null, // ⏸ off until the live-cards limit lands (see supplier-today-v2.server.ts)
+          cardRoom: { allowed: 3, live: 1, hidden: 2 },
         },
         aside: readTodayAside(null, TODAY),
         feeForecasts: Object.fromEntries(

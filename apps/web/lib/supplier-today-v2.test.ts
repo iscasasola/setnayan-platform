@@ -15,6 +15,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   TODAY_TASK_MODE,
   doneTodayRows,
@@ -23,6 +25,9 @@ import {
   splitTodayNeeds,
   todayBadgeTag,
   todayProgress,
+  CARDS_LOCK_KEY,
+  CARDS_TURN_ON_HREF,
+  PLANS_HREF,
   doneTodayTotal,
   DONE_UNREAD_LINE,
   BILLS_UNREAD_LINE,
@@ -122,19 +127,58 @@ test('6 · Not now lapses at midnight; Got it stays and counts on its day', () =
   assert.deepEqual([...asideKeys(readTodayAside('%%%not-json', '2026-11-18'))], []);
 });
 
-test('7 · the library and the unused cards are tasks; an unread number draws no cards row', () => {
+// REWRITTEN ON PURPOSE (owner 19 Nov: "we already agreed they can add as many … so we can motivate them to upgrade"):
+// making a card is unlimited, the plan counts the LIVE ones — so the row is "turn on", never "make N more".
+test('7 · the library is a task; the cards row is "You can turn on N more", a lock at zero, and nothing on an unread number', () => {
   const lib = { open: true, photos: 0, href: '/l', label: 'Add to the inspiration library' };
-  const rows = roomToGrowRows({ library: lib, cards: { allowed: 3, made: 1 } });
+  const none = { allowed: null, live: null, hidden: null };
+  // Room, and a card waiting hidden: turn it on.
+  const rows = roomToGrowRows({ library: lib, cards: { allowed: 3, live: 1, hidden: 2 } });
   assert.deepEqual(rows.map((r) => r.key), [CARDS_TASK_KEY, LIBRARY_TASK_KEY]);
-  assert.equal(rows[0]!.label, 'You can make 2 more service cards');
-  assert.equal(rows[0]!.line, 'Your plan holds 3 · you have 1');
+  assert.equal(rows[0]!.label, 'You can turn on 2 more service cards');
+  assert.equal(rows[0]!.line, '2 hidden · your plan shows 3 live');
+  assert.equal(rows[0]!.button, 'Turn on');
+  assert.equal(rows[0]!.href, CARDS_TURN_ON_HREF);
   assert.equal(rows[1]!.line, 'None yet · couples find you through them');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: null, made: 1 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread allowance guessed room');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, made: null } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread count guessed room');
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, made: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY]);
-  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: Infinity, made: 3 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'no limit is not a count');
-  assert.deepEqual(roomToGrowRows({ library: { ...lib, open: false }, cards: { allowed: null, made: null } }), [], 'the library row drawn for a shop it refuses');
-  assert.equal(roomToGrowRows({ library: { ...lib, photos: null }, cards: { allowed: null, made: null } })[0]!.line, 'Your photos help couples find you');
+  // Room, but nothing hidden: the way to turn one on is to make one.
+  const make = roomToGrowRows({ library: lib, cards: { allowed: 3, live: 2, hidden: 0 } })[0]!;
+  assert.equal(make.label, 'You can turn on 1 more service card');
+  assert.equal(make.line, 'Your plan shows 3 live · 2 on now');
+  assert.equal(make.button, 'Make a card');
+  // The row never says "make N more" — making is unlimited.
+  assert.doesNotMatch(rows[0]!.label + make.label, /You can make/);
+  // Every live spot used and a card waiting hidden: 🔒 the Problem, then the Solution, and the door to the plans.
+  const lock = roomToGrowRows({ library: lib, cards: { allowed: 3, live: 3, hidden: 4 } })[0]!;
+  assert.equal(lock.key, CARDS_LOCK_KEY);
+  assert.equal(lock.label, '🔒 Your plan shows 3 service cards live');
+  assert.equal(lock.line, '4 hidden · hide one, or upgrade to show more');
+  assert.equal(lock.href, PLANS_HREF);
+  assert.equal(lock.button, 'See plans');
+  // Full and nothing hidden: nothing is blocked, so nothing is said (a lock with no problem is an advert).
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, live: 3, hidden: 0 } }).map((r) => r.key), [LIBRARY_TASK_KEY]);
+  // A shop already past its total (kept its cards from before): the same lock, never a negative "turn on -2".
+  assert.equal(roomToGrowRows({ library: lib, cards: { allowed: 3, live: 5, hidden: 1 } })[0]!.key, CARDS_LOCK_KEY);
+  // An unread number decides nothing.
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: null, live: 1, hidden: 2 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread plan total guessed room');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, live: null, hidden: 2 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread live count guessed room');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: 3, live: 1, hidden: null } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'an unread hidden count guessed room');
+  assert.deepEqual(roomToGrowRows({ library: lib, cards: { allowed: Infinity, live: 3, hidden: 2 } }).map((r) => r.key), [LIBRARY_TASK_KEY], 'no limit is not a count');
+  assert.deepEqual(roomToGrowRows({ library: { ...lib, open: false }, cards: none }), [], 'the library row drawn for a shop it refuses');
+  assert.equal(roomToGrowRows({ library: { ...lib, photos: null }, cards: none })[0]!.line, 'Your photos help couples find you');
+});
+
+test('7b · the plan numbers are READ, never typed: the row reads the live gate\'s own total and counts as it counts', () => {
+  const server = readFileSync(join(process.cwd(), 'lib/supplier-today-v2.server.ts'), 'utf8');
+  assert.match(server, /const caps = await fetchCapsWithAddOns\(supabase, vendorProfileId, t\.tier_state\);/, 'the live total is not the plan\'s own (caps + bought add-ons)');
+  assert.match(server, /allowed: caps\.serviceCardsTotal, live: live\.count, hidden: hidden\.count/);
+  assert.match(server, /\.is\('branch_copy_of', null\)/, 'branch copies are counted — the live gate leaves them out');
+  assert.match(server, /if \(t\.is_founder === true\) return null;/, 'a founder (no live limit) is counted down');
+  assert.match(server, /readCardRoom\(supabase, vendorProfileId\)\.catch\(\(\) => null\)/, 'the cards row is not read');
+  const body = server.slice(server.indexOf('async function readCardRoom'), server.indexOf('async function readInspirationPhotos'));
+  assert.doesNotMatch(body, /\b(1|3|10|20|27|68|80|200)\b/, 'a plan number is typed into the read');
+  const rule = readFileSync(join(process.cwd(), 'lib/supplier-today-v2.ts'), 'utf8');
+  const fn = rule.slice(rule.indexOf('export function roomToGrowRows'), rule.indexOf('if (i.library.open)'));
+  assert.doesNotMatch(fn, /\b(3|10|20|27|68|80|200)\b/, 'a plan number is typed into the rule');
 });
 
 /* ── THE REVIEW HOLD ON #7994 (19 Nov) — one test per failure path, in the style of `reads-are-honest.test.ts`: a part

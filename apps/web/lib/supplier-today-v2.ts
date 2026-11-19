@@ -375,8 +375,12 @@ export function nextBadgeWords(nextShort: string | null): { title: string; toGo:
  * Two rows in the "Also for your page" list — never counted toward done (pick 2), each clearable with "Not now":
  *   · the inspiration library, for a shop whose trades supply a part (the shipped `moodboardLibraryAccessForProfile`
  *     gate) — the shipped door's row (`INSPIRATION_LIBRARY_ROW`), now with the count of approved photos;
- *   · the cards the plan still lets the shop MAKE — "You can make 2 more service cards" — counted exactly as the
- *     create gate counts them (#7975: `serviceCardsTotal` vs every card but a branch copy), and only when BOTH were read. An unread number decides nothing: no row (never a guessed "you have room").
+ *   · the cards the plan still lets the shop TURN ON — "You can turn on 2 more service cards" (owner 19 Nov: *"we
+ *     already agreed they can add as many … so we can motivate them to upgrade"* — making a card is unlimited, the plan
+ *     counts the LIVE ones, `lib/live-cards-cap.ts`). Counted exactly as the live gate counts them (`liveCardsCapRefusal`:
+ *     `serviceCardsTotal` vs the live cards, branch copies left out), and only when every number was read — an unread
+ *     number decides nothing: no row (never a guessed "you have room"). With every live spot used AND a card waiting
+ *     hidden, the row is the 🔒 Problem → Solution: the plan's own sentence, and the door to the plans.
  */
 export const LIBRARY_TASK_KEY = 'grow-library';
 export const CARDS_TASK_KEY = 'grow-cards';
@@ -384,22 +388,42 @@ export const NEW_CARD_HREF = '/vendor-dashboard/services/new';
 
 export type RoomRow = { key: string; label: string; line: string; href: string; button: string; icon: TodayRowIcon };
 
+/** Where a hidden card is turned on (Shop › Services) and where the plans are. */
+export const CARDS_TURN_ON_HREF = '/vendor-dashboard/shop#services';
+export const PLANS_HREF = '/vendor-dashboard/subscription';
+export const CARDS_LOCK_KEY = 'grow-cards-lock';
+
 export function roomToGrowRows(i: {
   library: { open: boolean; photos: number | null; href: string; label: string };
-  cards: { allowed: number | null; made: number | null };
+  /** `allowed` = the plan's live total (Infinity = no limit) · `live` / `hidden` = this shop's cards, branch copies out. */
+  cards: { allowed: number | null; live: number | null; hidden: number | null };
 }): RoomRow[] {
   const out: RoomRow[] = [];
-  const { allowed, made } = i.cards;
-  if (allowed !== null && made !== null && Number.isFinite(allowed) && allowed > made) {
-    const left = allowed - made;
-    out.push({
-      key: CARDS_TASK_KEY,
-      label: `You can make ${left} more service ${left === 1 ? 'card' : 'cards'}`,
-      line: `Your plan holds ${allowed} · you have ${made}`,
-      href: NEW_CARD_HREF,
-      button: 'Make a card',
-      icon: 'shop',
-    });
+  const { allowed, live, hidden } = i.cards;
+  const cards = (n: number) => `${formatCount(n)} more service ${n === 1 ? 'card' : 'cards'}`;
+  if (allowed !== null && live !== null && hidden !== null && Number.isFinite(allowed)) {
+    const left = allowed - live;
+    if (left > 0) {
+      // Room to turn one on: a hidden card first (one tap away); with none hidden, the way is to make one.
+      out.push({
+        key: CARDS_TASK_KEY,
+        label: `You can turn on ${cards(left)}`,
+        line: hidden > 0 ? `${formatCount(hidden)} hidden · your plan shows ${formatCount(allowed)} live` : `Your plan shows ${formatCount(allowed)} live · ${formatCount(live)} on now`,
+        href: hidden > 0 ? CARDS_TURN_ON_HREF : NEW_CARD_HREF,
+        button: hidden > 0 ? 'Turn on' : 'Make a card',
+        icon: 'shop',
+      });
+    } else if (hidden > 0) {
+      // 🔒 Every live spot is used and a card waits hidden: the Problem, then the Solution — never a dead row.
+      out.push({
+        key: CARDS_LOCK_KEY,
+        label: `🔒 Your plan shows ${formatCount(allowed)} service ${allowed === 1 ? 'card' : 'cards'} live`,
+        line: `${formatCount(hidden)} hidden · hide one, or upgrade to show more`,
+        href: PLANS_HREF,
+        button: 'See plans',
+        icon: 'shop',
+      });
+    }
   }
   if (i.library.open) {
     const p = i.library.photos;

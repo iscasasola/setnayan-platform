@@ -190,7 +190,12 @@ card (`seatsOf` → "Bea Santos · Joy Tan") — so today one client already sit
 Delta: "Handled by" reads the client's one `assigned_member_id` (from 3c); `CLIENTS_GROUP` gains Branch and Card; each
 client row gets a "Handled by ▾" (Shop / Branch Manager only) whose choice sticks — a re-split never moves a client.
 The roles page (e) groups the routing the same way: Branch ▾ → card → event type → A–Z.
-**STILL OPEN:** a client with bookings on two cards — one person for all (drawn) or one per booking.
+**DECIDED (owner 19 Nov: *"only 1 can handle. someone must give the account to the other"*):** one client = one
+Account Manager, across cards. A second booking on a card held by a different Account Manager does NOT re-route the client:
+it stays with whoever has it and is flagged **Hand over** (a `handover_pending` state on the client's assignment) until the
+holder — or a Shop / Branch Manager — taps "Keep with X" / "Give to Y". The new holder handles every booking of that client,
+even on a card they don't cover (a per-client read grant on top of card scoping); both people and the client are notified.
+**STILL OPEN:** who may hand over (drawn: the holder or a manager; the receiver need not accept).
 
 ## 4 · Order of work (after the owner OKs the drawing)
 

@@ -154,7 +154,7 @@ test('the Prints sheet and the badges route use the honest list, not the bare on
 
 test('No. 1 stays OFF paper (owner 18 Nov 2026, "keep it off"): never in the list, and no print art to draw it with', async () => {
   const all = printBadgesV84({ verified: true, counts: null, seals: STORED_SEALS.map((seal) => ({ seal, award_year: 2026 })) });
-  assert.ok(!keys(all).includes('no1'), 'No. 1 is on the print list');
+  assert.ok(!(keys(all) as string[]).includes('no1'), 'No. 1 is on the print list');
   assert.deepEqual(keys(all), ['top10', 'clients_choice', 'most_in_demand', 'verified_partner']);
   assert.equal(sealPrintSvg('no1', 2026, 'n'), null);
   const src = (await import('node:fs')).readFileSync(new URL('./print-seal-art.ts', import.meta.url), 'utf8');

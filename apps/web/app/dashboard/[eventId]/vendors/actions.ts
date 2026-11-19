@@ -55,6 +55,8 @@ import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
+import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -1876,6 +1878,20 @@ export async function finalizeVendor(
           })) === 'closed'
         ) {
           return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
+        }
+        // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
+        // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
+        // is Made to order with a rule). Day-precise events only, like the closed day. A refused read degrades OPEN,
+        // like every capacity read here — never silently.
+        if (d?.event_date_precision === 'day' && d.event_date) {
+          const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
+            p_service_id: targetVendor.service_id,
+          });
+          if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
+          const lead = typeof leadRaw === 'number' ? leadRaw : null;
+          if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
+            return { status: 'error', message: orderTooSoonMessage(lead) };
+          }
         }
       }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN

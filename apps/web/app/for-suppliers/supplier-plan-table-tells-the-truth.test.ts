@@ -23,7 +23,6 @@ import { PLAN_LIMITS, limitOf, limitWords } from '@/lib/plan-sheet';
 import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, WAITLIST_SETTING_MAX, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
-import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku } from '@/lib/vendor-ultra-addons';
@@ -129,7 +128,8 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   yes('tool:chatbot', (t) => (PLAN_CHATBOT_LEVEL[t] ?? 'none') !== 'none');
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
   const gift = row(g, 'money:gift');
-  for (const t of TABLE_TIERS) assert.equal(gift.cells[t].text, tierPaysGiftPrice(t) ? 'Gift price' : 'List price', `gift · ${t}`);
+  // 📦 One price per gift on every plan (owner 2026-11-14) — no plan buys gifts for less; bundles are open to all.
+  for (const t of TABLE_TIERS) assert.equal(gift.cells[t].text, 'List price', `gift · ${t}`);
 });
 
 test('every price cell is the price the page read — or "—" when it read nothing', () => {

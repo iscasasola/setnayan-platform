@@ -126,6 +126,7 @@ test('the facts are the shop’s own: name, services in its words, today’s bad
     services: ['host'],
     tagline: null,
     facts: { verified: false, completedEvents: 0, trusted: null, inBusinessSinceYear: null, awards: [], nowYear: 2026 },
+    badges: [],
     kindLabel: label,
     origin: 'https://www.setnayan.com',
   });
@@ -137,7 +138,7 @@ test('the facts are the shop’s own: name, services in its words, today’s bad
 
 test('every face a look names ships in public/print-fonts and is traced into the print route', () => {
   for (const f of PRINT_FACE_FILES) assert.ok(existsSync(path.join(WEB, f)), `${f} is missing`);
-  assert.match(read('next.config.ts'), /'\/api\/vendor\/prints': \['\.\/public\/print-fonts\/\*\.ttf'\]/);
+  assert.match(read('next.config.ts'), /'\/api\/vendor\/prints': \['\.\/public\/print-fonts\/\*\.ttf'[,\]]/);
 });
 
 test('See it in use: every surface lands on its quad, and every photo, shade and mask file exists', () => {

@@ -8,6 +8,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
+import { SUPPLIER_INVITE_COOKIE } from '@/lib/supplier-invite';
+import { recordNewShopInvite } from '@/lib/supplier-invite.server';
 import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
@@ -468,7 +471,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // the UNIQUE constraint is dropped. See lib/shop-limits.ts.
   const { data: ownedRows, error: ownedError } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, services, business_slug, in_business_since_year, logo_url')
+    .select('vendor_profile_id, services, business_slug, in_business_since_year, logo_url, business_name')
     .eq('user_id', user.id);
   // 🔒 A REFUSED READ IS NOT "NO SHOP". Read as empty, the insert below runs
   // over the shop that already exists, and the supplier is shown Postgres's
@@ -486,6 +489,9 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   }>;
   const existing = owned[0] ?? null;
   const existingHasLogo = Boolean((existing as { logo_url?: string | null } | null)?.logo_url);
+  // 🤝 A NEW shop = one that had no name before this submit (none at all, or the sign-up trigger's bare row). Only a new
+  // shop made through another supplier's link counts toward that supplier's Invites (owner 16 Nov, answer 2).
+  const wasNewShop = !(existing as { business_name?: string | null } | null)?.business_name?.trim();
 
   // ── A HELD NAME HOLDS ITS CORE (owner 2026-11-06) ──────────────────────────
   // "Bulgogi 1" is refused while "Bulgogi Catering" is held — closed (its address still held), banned or suspended.
@@ -748,6 +754,20 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       vendorProfileId,
       shopName,
     });
+  }
+
+  // ── 🤝 INVITED BY A SUPPLIER (Invite a supplier v3, owner 16 Nov) ─────────────────────────────────────────────
+  // The door's "Create my free shop" left a cookie naming the inviting shop's link (`app/i/[slug]/join`). Joining IS
+  // the accept: one accepted `invited` partnership, and — the shop being new — the inviter's Invites record. Read once,
+  // cleared either way. ⚠ Best-effort, like the record write: a refusal is logged and never costs the vendor their shop.
+  {
+    const jar = await cookies();
+    const invitedVia = jar.get(SUPPLIER_INVITE_COOKIE)?.value ?? null;
+    if (invitedVia) {
+      if (wasNewShop) await recordNewShopInvite(admin, invitedVia, vendorProfileId as string);
+      jar.delete(SUPPLIER_INVITE_COOKIE);
+      revalidatePath('/vendor-dashboard/partnerships');
+    }
   }
 
   // ── ③ THE SPECIALTIES PICKED AT SIGN-UP — through THE ONE refinement merge ──────────────────────────────────────

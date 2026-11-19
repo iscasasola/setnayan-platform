@@ -24,12 +24,14 @@
  *     only the click asked it: Back between two tabs of one page (`?tab=`)
  *     started a line nothing could finish, and it crawled for the full ten
  *     seconds over a page that was already drawn.
- *   - DEBOUNCED ~120ms: the bar only appears if the navigation actually takes a
- *     moment. With the staleTimes Router-Cache window, many revisits resolve
- *     in <120ms — those show NOTHING (no flash), which is the point.
- *   - COMPLETE when usePathname() changes (the new route has rendered): the bar
- *     snaps to 100% and fades out. A 10s safety timer force-completes in case a
- *     navigation is aborted so the bar can never get stuck.
+ *   - THE LOAD RULES (motion standard 18 Nov 2026, § 4 #17 — `lib/load-rules.ts`, the one helper): the line
+ *     WAITS 150 ms before it shows, so a navigation that resolves sooner shows NOTHING (no flash); once shown it
+ *     STAYS at least 400 ms, so it never blinks. Neither rule holds the page back — the line is an overlay.
+ *   - COMPLETE when usePathname() changes (the new route has rendered): a quick fill, then a quick fade (Quick
+ *     200 ms · Settle). A 10s safety timer force-completes in case a navigation is aborted so the line can never
+ *     get stuck.
+ *   - TRANSFORM AND OPACITY ONLY: the line is a full-width strip scaled on X from its left edge. (Until 18 Nov it
+ *     animated `width` — layout on every step.) Reduced motion: the global freeze makes each step a jump.
  *
  * Renders null on the server + first client paint (no hydration mismatch); all
  * listeners attach in useEffect. Colour follows the brand accent token
@@ -39,67 +41,79 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { navStartsTheLine } from '@/lib/nav-progress-rule';
+import { createLoadGate, type LoadGate } from '@/lib/load-rules';
+import { QUICK_MS } from '@/lib/motion-table';
+
+/** Where the line starts, and where it crawls to while the page is still on its way (parts of the full width). */
+const LINE_START = 0.08;
+const LINE_CRAWL_TO = 0.9;
 
 export function NavProgress() {
   const pathname = usePathname();
-  // null = hidden; a number 0-100 = visible at that width %.
-  const [width, setWidth] = useState<number | null>(null);
+  // null = hidden; a number 0–1 = visible, scaled to that part of the width.
+  const [scale, setScale] = useState<number | null>(null);
   // The pathname the page is showing — what a Back / Forward is measured from.
   const last = useRef(pathname);
 
-  // Mutable timer/handles + a "did the bar actually show" flag, kept in a ref
-  // so the start/finish helpers don't need to live in React state.
+  // Mutable timer/handles, kept in a ref so the start/finish helpers don't need to live in React state.
   const t = useRef<{
-    delay?: ReturnType<typeof setTimeout>;
+    gate?: LoadGate;
     trickle?: ReturnType<typeof setInterval>;
     fade?: ReturnType<typeof setTimeout>;
     max?: ReturnType<typeof setTimeout>;
-    shown: boolean;
-  }>({ shown: false });
+  }>({});
 
   function clearAll() {
     const r = t.current;
-    if (r.delay) clearTimeout(r.delay);
+    r.gate?.cancel();
     if (r.trickle) clearInterval(r.trickle);
     if (r.fade) clearTimeout(r.fade);
     if (r.max) clearTimeout(r.max);
-    r.delay = r.trickle = r.fade = r.max = undefined;
+    r.trickle = r.fade = r.max = undefined;
+  }
+
+  /** The one gate: it alone decides WHEN the line shows and hides (wait 150 · stay 400). */
+  function gate(): LoadGate {
+    const r = t.current;
+    if (r.gate) return r.gate;
+    r.gate = createLoadGate({
+      show() {
+        if (r.fade) clearTimeout(r.fade);
+        r.fade = undefined;
+        let w = LINE_START;
+        setScale(w);
+        // Crawl toward 90% — fast at first, easing as it approaches. One step per Quick, so each step's own
+        // transition has landed before the next begins.
+        r.trickle = setInterval(() => {
+          w = Math.min(LINE_CRAWL_TO, w + Math.max(0.005, (LINE_CRAWL_TO - w) * 0.1));
+          setScale(w);
+        }, QUICK_MS);
+      },
+      hide() {
+        if (r.trickle) clearInterval(r.trickle);
+        r.trickle = undefined;
+        // A quick fill, then a quick fade — then the line is gone.
+        setScale(1);
+        r.fade = setTimeout(() => setScale(null), QUICK_MS * 2);
+      },
+    });
+    return r.gate;
   }
 
   function begin() {
-    clearAll();
-    t.current.shown = false;
-    // Debounce: only reveal the bar if the nav is still in flight after 120ms.
-    t.current.delay = setTimeout(() => {
-      t.current.shown = true;
-      let w = 8;
-      setWidth(w);
-      // Trickle toward 90% — fast at first, easing as it approaches.
-      t.current.trickle = setInterval(() => {
-        w = Math.min(90, w + Math.max(0.5, (90 - w) * 0.1));
-        setWidth(w);
-      }, 180);
-      // Safety: never let the bar hang if a navigation is aborted.
-      t.current.max = setTimeout(finish, 10_000);
-    }, 120);
+    const r = t.current;
+    if (r.max) clearTimeout(r.max);
+    gate().start();
+    // Safety: never let the line hang if a navigation is aborted.
+    r.max = setTimeout(finish, 10_000);
   }
 
   function finish() {
     const r = t.current;
-    if (r.delay) clearTimeout(r.delay);
-    if (r.trickle) clearInterval(r.trickle);
     if (r.max) clearTimeout(r.max);
-    r.delay = r.trickle = r.max = undefined;
-    if (!r.shown) {
-      // Navigation resolved before the bar ever appeared — show nothing.
-      setWidth(null);
-      return;
-    }
-    setWidth(100);
-    r.fade = setTimeout(() => {
-      setWidth(null);
-      t.current.shown = false;
-    }, 280);
+    r.max = undefined;
+    // Resolved before the line ever appeared → nothing shows. Shown → it stays out its 400 ms, then fills and fades.
+    gate().finish();
   }
 
   // START triggers: link clicks + back/forward.
@@ -139,7 +153,7 @@ export function NavProgress() {
       window.removeEventListener('popstate', onPopState);
       clearAll();
     };
-    // begin/clearAll only touch refs + setWidth (all stable) — mount-once is
+    // begin/clearAll only touch refs + setScale (all stable) — mount-once is
     // correct; the listeners must attach exactly once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -153,25 +167,27 @@ export function NavProgress() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  if (width === null) return null;
-  const done = width >= 100;
+  if (scale === null) return null;
+  const done = scale >= 1;
   return (
     <div
       aria-hidden
+      data-nav-progress=""
       style={{
         position: 'fixed',
         top: 0,
         left: 0,
+        right: 0,
         zIndex: 2000,
         height: '2.5px',
-        width: `${width}%`,
         background: 'var(--m-orange)',
         boxShadow: '0 0 8px 0 var(--m-orange)',
-        borderRadius: '0 2px 2px 0',
+        transformOrigin: '0 50%',
+        transform: `scaleX(${scale})`,
         opacity: done ? 0 : 1,
         transition: done
-          ? 'width 180ms ease, opacity 260ms ease 100ms'
-          : 'width 180ms ease',
+          ? 'transform var(--sn-m-quick) var(--sn-m-settle), opacity var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick)'
+          : 'transform var(--sn-m-quick) var(--sn-m-settle)',
         pointerEvents: 'none',
       }}
     />

@@ -16,6 +16,7 @@
  * PURE — no I/O, no clock.
  */
 import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, shopBadgeTier, tierName, type ShopBadgeKey, type TierKey } from './badge-sources';
+import { invitesCountLine } from '@/lib/supplier-invite';
 
 /** The page's words for one badge — the prototype's, verbatim. */
 export const BADGE_WORDS: Readonly<Record<ShopBadgeKey, { name: string; unit: (n: number) => string; counts: string; locked: string }>> = {
@@ -100,7 +101,23 @@ export function badgeCard(badge: ShopBadgeKey, count: number | null): BadgePageC
   };
 }
 
-/** The five cards, in the page's order; `counts` missing a key = that count was not read. */
-export function badgePage(counts: Partial<Record<ShopBadgeKey, number | null>>): BadgePageCard[] {
-  return SHOP_BADGE_KEYS.map((k) => badgeCard(k, counts[k] ?? null));
+/**
+ * The five cards, in the page's order; `counts` missing a key = that count was not read.
+ *
+ * 🤝 INVITES' COUNT LINE (Invite a supplier v3, specs cb1affde frame 5 — "the count line only"): pass the shop's
+ * `readInvitesCount` result as `invites` and the Invites card's count is its COUNTED number, with the drawing's line
+ * "N counted · M joined, waiting for their first completed booking" as `note`. null = the read failed → the card is
+ * "Couldn't read", never "0 counted".
+ */
+export function badgePage(
+  counts: Partial<Record<ShopBadgeKey, number | null>>,
+  invites?: { counted: number; joined: number } | null,
+): Array<BadgePageCard & { note?: string }> {
+  return SHOP_BADGE_KEYS.map((k) => {
+    if (k === 'invites' && invites !== undefined) {
+      const card = badgeCard('invites', invites === null ? null : invites.counted);
+      return invites === null ? card : { ...card, note: invitesCountLine(invites) };
+    }
+    return badgeCard(k, counts[k] ?? null);
+  });
 }

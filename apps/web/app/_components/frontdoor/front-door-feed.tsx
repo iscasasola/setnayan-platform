@@ -24,6 +24,7 @@ import { SampleMarker } from '@/app/_components/sample-marker';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
 import { EmptyShelf } from './empty-shelf';
+import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /**
  * The card's terminal blurb when a story has no excerpt of its own.
@@ -376,7 +377,7 @@ export function FrontDoorFeed({
                     ) : (
                       'a booking fee'
                     )}{' '}
-                    — only on couples who found you here. Your own clients stay free.{' '}
+                    — {FEE_SCOPE}. {FEE_FREE_RULE}{' '}
                   </>
                 ) : (
                   <>No booking fee while we&rsquo;re new.{' '}</>

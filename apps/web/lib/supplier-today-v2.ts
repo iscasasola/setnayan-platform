@@ -22,7 +22,8 @@
  *
  * 🔒 apps/web/lib/supplier-today-v2.test.ts
  */
-import { PERMIT_PAPERS_HREF, type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { type TodayNeed, type TodayRowIcon } from '@/lib/supplier-today';
+import { RENEW_PAPERS_HREF } from '@/lib/papers-renewal';
 import type { DemandRadar } from '@/lib/demand-radar';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
@@ -289,7 +290,7 @@ export function growStage(i: GrowInput): GrowStage | null {
       title: GROW_STAGE_TITLES[0],
       why: 'While Setnayan checks your shop',
       moves: [
-        move({ key: 'g-docs', label: 'Send your documents', line: 'Setnayan checks them', tag: badge('Setnayan Verified'), href: PERMIT_PAPERS_HREF, button: 'Send', icon: 'file' }),
+        move({ key: 'g-docs', label: 'Send your documents', line: 'Setnayan checks them', tag: badge('Setnayan Verified'), href: RENEW_PAPERS_HREF, button: 'Send', icon: 'file' }),
         move({ key: 'g-qr', label: 'Download your QR', line: 'Put it on your photos, posts and cards', tag: PAGE, href: PAGE_QR_HREF, button: 'Open QR', icon: 'scan' }),
       ],
     };
@@ -325,7 +326,7 @@ export function growStage(i: GrowInput): GrowStage | null {
   const moves: GrowMove[] = [];
   if (i.hasMarkComplete) moves.push(move({ key: 'g-done', label: 'I delivered this service', line: 'After each event', tag: badge(i.completedToGo ? `Completed bookings · ${i.completedToGo}` : 'Completed bookings'), href: '#today-quick', button: 'Open', icon: 'check' }));
   moves.push(move({ key: 'g-review-qr', label: 'Show the review QR on the day', line: 'Guests scan and rate what they saw', tag: PAGE, href: REVIEW_QR_HREF, button: 'Open QR', icon: 'star' }));
-  if (i.permitDue) moves.push(move({ key: 'g-permit', label: 'Renew your permit', line: 'Keep your Verified badge', tag: badge('Setnayan Verified'), href: PERMIT_PAPERS_HREF, button: 'Upload', icon: 'file' }));
+  if (i.permitDue) moves.push(move({ key: 'g-permit', label: 'Renew your permit', line: 'Keep your Verified badge', tag: badge('Setnayan Verified'), href: RENEW_PAPERS_HREF, button: 'Upload', icon: 'file' }));
   return { n: 5, title: GROW_STAGE_TITLES[4], why: null, moves: moves.slice(0, 3) };
 }
 

@@ -166,8 +166,10 @@ describe('placeholders name the place, short', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
       // Build 2 #43d (v113 `thumb()`): the one Clients screen says "Search clients"; the shell's Events search is untouched.
       // 🏠 "Search events" twice: the dock row (`EventsThumbRow`, kept for the thumb-row lab) and Home › Events' first row.
-      ['Search clients', 'Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // 19 Nov 2026: "Search clients" left this page for `ClientsSearch` (the search is the add) — pinned just below.
+      ['Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
+    assert.match(read('app/vendor-dashboard/customers/_components/clients-search.tsx'), /<SearchBox\s+placeholder="Search clients"/, 'the Clients search lost its two-word name');
   });
   it('≤ 3 words unless the field is alone in its row', () => {
     for (const p of found) {

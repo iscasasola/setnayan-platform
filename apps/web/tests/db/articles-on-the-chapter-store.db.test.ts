@@ -1,6 +1,6 @@
 /**
  * 📰 ARTICLES LIVE ON THE CHAPTER STORE — asserted against the DATABASE, through real sessions
- * (migrations 20271350349649 + 20271350850404; owner rulings 2026-11-17, drawing v15, PR #7919).
+ * (migrations 20271351771867 + 20271351926267; owner rulings 2026-11-17, drawing v15, PR #7919).
  *
  * The browser can reach these tables directly (PostgREST + a public key), so the boundary is the POLICY and the
  * TRIGGER, never the screen. Each claim below is a thing a person could otherwise do:
@@ -256,7 +256,7 @@ test('7 · a reply can be reported, with no event', async () => {
 
 test('8 · the Journal import: nothing without an internal account; with one, every post once, as Journal', async () => {
   await asOwner();
-  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, '20271350850404_the_journal_moves_into_articles.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, '20271351926267_the_journal_moves_into_articles.sql'), 'utf8');
   const journalCount = async () =>
     (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.creator_chapters WHERE is_journal`)).rows[0]!.n;
 

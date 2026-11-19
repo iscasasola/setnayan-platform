@@ -475,7 +475,7 @@ AS $function$
       -- prod (a builder session reads no production data) — owner check:
       -- select count(*) from vendor_profiles where lower(business_slug)='for-coordinators';
       'for-coordinators',
-      -- ⬇ ADDED 2026-11-17 (Build 2, 20271350349649). Discover's articles live at /articles/{slug}; a shop
+      -- ⬇ ADDED 2026-11-17 (Build 2, 20271351771867). Discover's articles live at /articles/{slug}; a shop
       -- called "Articles" would hold this word forever. NOT verified in prod (a builder reads no production
       -- data) — owner check: select count(*) from vendor_profiles where lower(business_slug)='articles';
       'articles',

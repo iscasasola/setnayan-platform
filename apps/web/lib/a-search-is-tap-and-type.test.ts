@@ -123,3 +123,36 @@ test('6 · search on the left: the seat after a resting search takes the free ro
   assert.match(CSS, new RegExp(`${REST.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\+ \\[data-thumb-seat\\],`), 'nothing pushes the other seats to the right');
   assert.match(CSS, /\+ \[data-thumb-seat\] \{ margin-left: auto; \}/);
 });
+
+/**
+ * 7 · EVERY SUPPLIER/FIND THUMB-ROW SEARCH RIDES THE ONE SEAT (owner 19 Nov 2026, verbatim: *"you asked if we can make it
+ * an icon and when we tap we can search instantly. so we can save space"*). Rules 1–6 hold for the seat; this pins that
+ * each named screen's search IS that seat — a search drawn beside the row with its own <input> would never rest as the
+ * 44 round and would need a second tap. Each must be a `type="search"` with a placeholder (`:placeholder-shown` is what
+ * makes it rest). Proved in WebKit + Chromium at iPhone 13 on 19 Nov: Today, Find suppliers and Clients each 44×44 at
+ * rest, and ONE touch tap leaves `document.activeElement` on that row's search input.
+ * Sabotage (each proved red, 19 Nov 2026): Today's field placeholder changed off 'Search today' ·
+ * Clients' `field` node no longer `<ClientsSearch` · SearchBox's `type="search"` changed to `type="text"`.
+ */
+test('7 · Today, Find suppliers and Clients each put their search in the ONE field seat — a search with a placeholder', () => {
+  // the seat's own input: a search (never a date here) carrying its placeholder
+  assert.match(ROW, /type=\{field\.kind === 'date' \? 'date' : 'search'\}/);
+  assert.match(ROW, /placeholder=\{field\.placeholder\}/);
+
+  const seat = (rel: string, inField: RegExp) => {
+    const src = read(rel);
+    assert.match(src, /<ThumbRow\b/, `${rel} draws the shared ThumbRow`);
+    assert.match(src, inField, `${rel}: its search sits in ThumbRow's field seat`);
+    assert.doesNotMatch(src, /type="search"/, `${rel}: no search <input> of its own beside the row`);
+    assert.doesNotMatch(src, /kind:\s*'date'/, `${rel}: the field is a search, not a date`);
+  };
+  seat('app/vendor-dashboard/_components/today-thumb-row.tsx', /field=\{\{\s*placeholder: 'Search today'/);
+  seat('app/dashboard/[eventId]/vendors/_components/find-thumb-row.tsx', /field=\{\{\s*placeholder: findPlaceholder\(scope\)/);
+  seat('app/vendor-dashboard/customers/page.tsx', /field=\{\{\s*node:\s*\(?\s*<ClientsSearch\b/);
+
+  // Clients' node is the SearchBox — a real search input with a placeholder, so the seat rests as the icon
+  assert.match(read('app/vendor-dashboard/customers/_components/clients-search.tsx'), /<SearchBox\s+placeholder="Search clients"/);
+  const BOX = read('app/_components/search-box.tsx');
+  assert.match(BOX, /type="search"/, 'SearchBox draws a search input');
+  assert.match(BOX, /placeholder=\{placeholder\}/, 'SearchBox carries its placeholder');
+});

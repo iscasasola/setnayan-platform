@@ -19,7 +19,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ChevronsUpDown, ListFilter, Plus, SquareCheck } from 'lucide-react';
+import { ChevronsUpDown, SlidersHorizontal, Plus, SquareCheck } from 'lucide-react';
 import type * as RowMod from '@/components/thumb-row';
 import type * as FindMod from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
 import type * as ShellMod from '@/app/_components/frontdoor/shell-thumb-rows';
@@ -89,7 +89,7 @@ describe('the row draws one order', () => {
         name: 'probe',
         // given out of order on purpose: the component owns the order, not the caller
         action: { icon: Plus, label: 'Add' },
-        right: [{ menu: [{ key: 'a', label: 'A', icon: createElement(ListFilter) }], label: 'Sort', value: 'a', onPick: () => {} }],
+        right: [{ menu: [{ key: 'a', label: 'A', icon: createElement(SlidersHorizontal) }], label: 'Sort', value: 'a', onPick: () => {} }],
         field: { placeholder: 'Search guests' },
         left: [
           { icon: ChevronsUpDown, label: 'Expand all' },

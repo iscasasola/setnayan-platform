@@ -44,8 +44,9 @@ Event day (owner: *"event can also be handled by agent and branch admin and admi
 Branch Manager (their branch's events) · the client's Account Manager (their clients' events) · Event Crew (granted
 events). Extends `shopsThisAccountMayActFor` from two ways in to four.
 
-**TO CONFIRM (controller picks, owner not yet asked):** (a) Marketing covers the whole shop, not per branch;
-(b) one person can hold two roles (e.g. Account Manager + Marketing).
+**DECIDED (owner, 19 Nov, relayed):** Marketing covers the whole shop — *"yes"* · ONE role per person — *"no"* to two
+roles · money changes need no second Shop Manager's yes (no two-person approval; the existing two-admins-agree motions for
+demote/remove are untouched).
 
 ## 2 · How the new roles map onto the existing enum — recommendation
 
@@ -55,18 +56,18 @@ events). Extends `shopsThisAccountMayActFor` from two ways in to four.
   rank through `current_vendor_ids(min_role)`. New enum values would each need a rank, and **Branch Manager has no
   honest rank**: rank it as `admin` and all 34 `current_vendor_ids('admin')` policies open the whole shop to them; rank
   it `agent` and it loses team/money. A rank is one-dimensional; a branch is a second dimension.
-- So: **role (rank) stays · a new `duties` column says which of the six · `branch_id` says where**.
+- So: **role (rank) stays · a new `duty` column says which of the six · `branch_id` says where**.
 
 ### Proposed columns (one migration, `pnpm migration:new`, RLS at create)
 
 ```
 vendor_team_members
-  + duties     TEXT[] NOT NULL DEFAULT '{}'   CHECK (duties <@ ARRAY['shop_manager','branch_manager',
-                                               'account_manager','marketing','event_crew','helper'])
-                                               CHECK (cardinality(duties) BETWEEN 0 AND 2)   -- "two roles" TO CONFIRM
+  + duty       TEXT NULL  CHECK (duty IN ('shop_manager','branch_manager','account_manager',
+                                               'marketing','event_crew','helper'))   -- ONE role per person (owner)
   + branch_id  UUID NULL REFERENCES vendor_branches(branch_id) ON DELETE SET NULL
                                                -- NULL = main location / whole shop
-  (role stays: the rank RLS already reads, DERIVED from duties by a trigger — never typed by hand)
+  (role stays: the rank RLS already reads, DERIVED from duty by a trigger — never typed by hand)
+                                               CHECK: branch_id IS NULL when duty IN ('shop_manager','marketing')
 
 vendor_role_names            -- NEW · the shop's own name for each fixed role
   vendor_profile_id UUID  REFERENCES vendor_profiles ON DELETE CASCADE
@@ -78,12 +79,12 @@ vendor_role_names            -- NEW · the shop's own name for each fixed role
   RLS: SELECT current_vendor_ids('viewer') · write current_vendor_ids('admin') · is_admin()
 ```
 
-Derived rank (trigger `vendor_team_members_rank_from_duties`, so every existing policy keeps working unchanged):
+Derived rank (trigger `vendor_team_members_rank_from_duty`, so every existing policy keeps working unchanged):
 `shop_manager → admin` · `branch_manager → agent` · `account_manager → agent` · `marketing → agent` ·
-`event_crew → viewer` · `helper → viewer`. A person with two duties takes the higher rank.
+`event_crew → viewer` · `helper → viewer`.
 
-Backfill (same migration, data-only): `admin|owner → {shop_manager}` · `agent → {account_manager}` with `branch_id`
-from a single `whole_branch_keys` entry when there is exactly one · `viewer → {helper}`. Nothing loses access on day one.
+Backfill (same migration, data-only): `admin|owner → shop_manager` · `agent → account_manager` with `branch_id`
+from a single `whole_branch_keys` entry when there is exactly one · `viewer → helper`. Nothing loses access on day one.
 
 ### Why a separate names table, not `team_label`
 
@@ -115,15 +116,53 @@ patterns"), flagged in the PR.
 | `lib/who-may-act-for-a-shop.ts` | Four ways in (Shop Manager · Branch Manager of the event's branch · the client's Account Manager · Event Crew grant). |
 | `lib/vendor-free-helper.ts` | Free seat = `helper` duty (same rule, new key). |
 | `team/_components/helpers-view.tsx` | Member row shows the shop's role name + branch; a new **Roles** fold/page. |
-| `team/_components/helpers-controls.tsx` | `RolePick` and `InviteHelperSheet`: Role ▾ (+ second role, TO CONFIRM) and Branch ▾ (only for Branch/Account Manager, only when the shop has ≥ 2 locations). |
+| `team/_components/helpers-controls.tsx` | `RolePick` and `InviteHelperSheet`: Role ▾ (one) and Branch ▾ (only for Branch/Account Manager, only when the shop has ≥ 2 locations). |
 | `team/roles/page.tsx` **new** + `@rise/(.)team/roles` | The Roles page: six fixed roles, one line each, ⓘ for detail, a box for the shop's own name. |
-| `team/actions.ts` | `setVendorRoleName`; invite/update carry `duties` + `branch_id`; Branch Manager may manage their branch's team. |
+| `team/actions.ts` | `setVendorRoleName`; invite/update carry `duty` + `branch_id`; Branch Manager may manage their branch's team. |
 | `vendor-dashboard/page.tsx` `AgentHome` | Superseded by the Today scoping PR (each role sees its own tasks) — **separate later PR**. |
 | Everywhere a member card renders (`customers/page.tsx`, `admin/vendors/[vendorProfileId]/team`, prints) | Read the role name through one helper `memberRoleLine`. |
 
+## 3b · The plan sets the team (owner 19 Nov: *"Plan Page will pick the plan. Then we will identify the roles and their coverage."*)
+
+The seat and branch numbers ALREADY EXIST — read, not invented:
+
+| Plan (`TIER_LABEL`) | Seats with the owner | Branches beside main | Source |
+|---|---|---|---|
+| Free · Verified · Plus · Pro · Ultra | 1 · 1 · 2 · 6 · 12 | 0 · 0 · 0 · 2 · 5 | `TIER_CAPS[*].agentAccounts` (seats BEYOND the owner 0·0·1·5·11) in `lib/vendor-tier-caps.ts`; `vendor_billing_catalog.max_sub_seats` for the paid SKUs, written by `20271350427190_supplier_plans_rebuilt_2026_11_18.sql` (owner "SUPPLIER PLANS REBUILT", 2026-11-18). |
+
+Plus one free Helper on every plan (`FREE_HELPER_SEATS`). ⚠ The live DB was **not** read from this session (no credentials);
+re-measure with `select sku_code, max_sub_seats from vendor_billing_catalog where sku_code like '%vendor_%'`. That
+migration names the top plan "Max" while the app labels `enterprise` "Ultra" — the drawing uses the app's label.
+
+**No plan row says which ROLES a plan includes, or how many seats each role may take** → both are drawn as
+**TO CONFIRM** (drawn default: every plan may use every role inside its seat count). Delta: the Plan page gets a
+"Your team on <plan>" row and a "Roles and who covers what ›" row into Team › Roles; the Roles page opens with the
+plan's line and "Change plan".
+
+## 3c · Who gets new inquiries (owner 19 Nov: *"(Branch-Type of Event-Last Name)"*, *"2 account managers — A-M … N-Z"*)
+
+**Nothing ships for this today** (searched `assigned_agent|auto_assign|round_robin|assignee_member` across migrations,
+`lib/` and `vendor-dashboard/` — no hits). Today an agent sees every inquiry on the services they are given
+(`vendor_service_agents`); two agents on one service both see every inquiry and nobody owns it.
+
+Proposed:
+- **Branch** = the branch the inquiry's service card is filed under (`vendor_services.branch_id`, NULL = main) — existing.
+- **Event type** = the inquiry's `event_type` (enum `public.event_type`) — existing. One row per type the shop sets,
+  plus "Every other event".
+- **Last name** = a letter range per Account Manager. New table `vendor_inquiry_routes(vendor_profile_id, branch_key,
+  event_type NULL = every other, vendor_team_member_id, letter_from, letter_to, adjusted BOOLEAN)`, RLS at create
+  (`current_vendor_ids('viewer')` read · Shop Manager / that branch's Branch Manager write).
+- **Even split, by itself:** when an Account Manager joins or leaves a branch, each route row for that branch that is NOT
+  `adjusted` re-splits A–Z evenly by letter, in join order (1 → A–Z · 2 → A–M / N–Z · 3 → A–H / I–Q / R–Z). An adjusted
+  split is left alone and the manager sees "X joined · Reset to even?". Inquiries already handed out never move.
+- The inquiry gets an owner: a new `assigned_member_id` on the inquiry thread, set once when it arrives.
+- **TO CONFIRM:** whose last name counts (drawn: the person who sent the inquiry) · when that Account Manager is away
+  (drawn: the next Account Manager in the branch, then the Branch Manager).
+
 ## 4 · Order of work (after the owner OKs the drawing)
 
-1. PR A — migration (`duties`, `branch_id`, `vendor_role_names`, rank trigger, backfill, two helpers, RLS at create) +
+1. PR A — migration (`duty`, `branch_id`, `vendor_role_names`, rank trigger, backfill, two helpers, RLS at create) +
    Ugat map node + the lib changes + the Roles page + card + invite. Guards: a duty-derives-rank test, a "the card
    shows the shop's name" render test, a fail-closed branch test.
-2. PR B (later) — Today/nav scoping per duty, `AgentHome` retired.
+2. PR B — inquiry routing (`vendor_inquiry_routes`, auto re-split, assignment on arrival) + the "Who gets new inquiries" card.
+3. PR C (later) — Today/nav scoping per duty, `AgentHome` retired.

@@ -44,6 +44,7 @@
   .badge.ok{background:var(--ok-tint);color:var(--ok)}
   .pick{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:14px;white-space:nowrap}
   .pick::after{content:"▾";color:var(--slate-3)}
+  .pick.btn::after{content:none}
   select,input[type=text],input[type=email]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font:inherit;color:var(--ink)}
   label.f{display:block;margin:10px 0 0}
   label.f > span{display:block;font-size:13px;color:var(--slate-2);margin-bottom:4px}
@@ -78,7 +79,7 @@
 <body>
 <div class="wrap">
   <h1 class="doc">Supplier Roles — for your OK</h1>
-  <p class="doc">Now (what the Team screen draws today) beside Proposed (only what changes). 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
+  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
 
   <div class="legend">
     <b>The six roles (your rulings, 19 Nov)</b>
@@ -90,7 +91,7 @@
       <li><b>Event Crew</b> — Hub and photos for the events they're given.</li>
       <li><b>Helper</b> — sees the schedule, changes nothing.</li>
     </ul>
-    <p style="margin:8px 0 0"><span class="confirm">TO CONFIRM</span> Marketing covers the whole shop (not per branch) · one person can hold two roles.</p>
+    <p style="margin:8px 0 0"><span class="badge ok">Decided 19 Nov</span> Marketing covers the whole shop · ONE role per person · money changes need no second Shop Manager's yes.</p>
   </div>
 
   <!-- ═════════════ (a) THE ROLES PAGE ═════════════ -->
@@ -142,7 +143,7 @@
             </div>
 
             <div class="role">
-              <div class="top"><div class="grow"><div class="t">Marketing <span class="confirm">TO CONFIRM · whole shop</span></div><div class="l">Shop page, cards, photos, promos and ads</div></div>
+              <div class="top"><div class="grow"><div class="t">Marketing <span class="badge">Whole shop</span></div><div class="l">Shop page, cards, photos, promos and ads</div></div>
                 <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> edit the shop page, cards, photos, promos, ads.<br><b>Can't:</b> bookings, clients, money.</div></details></div>
               <input type="text" value="CMO" aria-label="Your name for Marketing">
             </div>
@@ -231,7 +232,7 @@
 
   <!-- ═════════════ (c) INVITING A PERSON ═════════════ -->
   <section class="pair" id="c">
-    <h2>(c) Inviting a person — role(s) + branch</h2>
+    <h2>(c) Inviting a person — one role + branch</h2>
     <div class="cols">
       <div class="col">
         <span class="tag now">Now</span>
@@ -265,17 +266,152 @@
                 <option>Event Crew</option>
                 <option>Helper · sees the schedule</option>
               </select></label>
-            <label class="f"><span>Also <span class="confirm">TO CONFIRM · two roles</span></span>
-              <select><option>No second role</option><option>CMO · Marketing</option><option>Event Crew</option></select></label>
             <label class="f"><span>Branch <details class="i"><summary>i</summary><div class="pop">Asked only for Branch Manager, Account Manager, Event Crew and Helper, and only when your shop has two or more locations. Shop Manager and Marketing cover the whole shop.</div></details></span>
               <select><option>Main · Quezon City</option><option selected>Makati branch</option><option>Cebu branch</option></select></label>
             <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
             <span class="cta">Send invite</span>
+            <p class="note">One role per person. An Account Manager joins their branch's inquiry split straight away — see (e).</p>
           </div>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- ═════════════ (d) PLAN → ROLES ═════════════ -->
+  <section class="pair" id="d">
+    <h2>(d) The plan sets the team — Plan page → Roles</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Your plan</div>
+            <div class="row"><div class="grow"><div class="t">Booking fee</div><div class="l">Your fee per booking</div></div></div>
+            <div class="row"><div class="grow"><div class="t">What Pro gives you</div><div class="l">Read from your plan</div></div><span style="color:var(--slate-3)">›</span></div>
+            <div class="row"><div class="grow"><div class="t">Storage</div><div class="l">10 GB on Pro</div></div></div>
+            <p class="note">The plan counts seats, but says nothing about roles. Team is a separate page; the only road between them is the "Extra seats and branches" row, which shows on Ultra only.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Your plan</div>
+            <p class="sub">① Pick the plan · ② it sets your seats and branches · ③ give each seat a role and where it works.</p>
+            <div class="row" style="flex-wrap:wrap">
+              <div class="grow"><div class="t">Your team on Pro</div><div class="l">6 seats with you · main + 2 branches · 1 Helper free</div></div>
+              <details class="i" open><summary>i</summary><div class="pop">
+                Seats and branches are read from the plan rows (<b>max_sub_seats</b> + branches), counting you:<br>
+                Free 1 · Verified 1 · Plus 2 · Pro 6 · Ultra 12 seats.<br>
+                Branches besides the main shop: 0 · 0 · 0 · 2 · 5.<br>
+                One Helper rides free on every plan.
+              </div></details>
+            </div>
+            <div class="row"><div class="grow"><div class="t">Roles and who covers what</div><div class="l">4 of 6 seats given · Makati, Cebu</div></div><span style="color:var(--slate-3)">›</span></div>
+            <p class="note"><span class="confirm">TO CONFIRM: which roles each plan includes</span> (e.g. is Branch Manager only on plans with branches?) and <span class="confirm">TO CONFIRM: seats per role</span> — no plan row says either today. Drawn: every plan may use every role, inside its seat count.</p>
+
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+              <div class="l" style="margin-bottom:6px">→ Roles page, top line</div>
+              <div class="row"><div class="grow"><div class="t">Pro · 6 seats, 4 used</div><div class="l">Main + Makati + Cebu · 1 Helper free</div></div><span class="pick btn">Change plan</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (e) WHO GETS NEW INQUIRIES ═════════════ -->
+  <section class="pair" id="e">
+    <h2>(e) Who gets new inquiries — Branch → Event type → Last name</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Who works what</div>
+            <div class="row"><div class="grow"><div class="t">Bea Santos</div><div class="l">Wedding Styling · Debut Styling</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Joy Tan</div><div class="l">Wedding Styling</div></div></div>
+            <p class="note">A Team member sees every inquiry on the services they're given. Two people on Wedding Styling both see every wedding inquiry — nothing says whose it is.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Roles</div>
+          <div class="scr">
+            <div class="h1" style="font-size:20px">Who gets new inquiries</div>
+            <p class="sub">Each new inquiry goes to ONE Account Manager: first by branch, then by event type, then by last name.
+              <details class="i"><summary>i</summary><div class="pop">The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a split you change stays until you reset it.</div></details></p>
+            <label class="f"><span>Branch</span><select><option selected>Makati branch · 2 Account Managers</option><option>Cebu branch · 1</option><option>Main · Quezon City · 3</option></select></label>
+
+            <div class="role" style="margin-top:8px">
+              <div class="top"><div class="grow"><div class="t">Wedding</div><div class="l">Split evenly · 2 people</div></div><span class="pick btn">Adjust</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – M</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Lead Stylist · Joy Tan</div></div><span class="badge">N – Z</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Debut</div><div class="l">Adjusted by you · 1 person</div></div><span class="pick btn">Adjust</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Z</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Every other event</div><div class="l">Split evenly · 2 people</div></div><span class="pick btn">Adjust</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Bea Santos</div></div><span class="badge">A – M</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Joy Tan</div></div><span class="badge">N – Z</span></div>
+            </div>
+
+            <div class="role">
+              <div class="t" style="font-size:14px">Adjust · Wedding</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="grow l">Bea Santos takes</span><select style="width:auto"><option>A</option></select><span>–</span><select style="width:auto"><option>K</option><option selected>M</option><option>P</option></select></div>
+              <div class="l" style="margin-top:6px">Joy Tan takes the rest: N – Z</div>
+              <span class="pick btn" style="margin-top:8px">Reset to even</span>
+            </div>
+
+            <p class="note">
+              <span class="confirm">TO CONFIRM: whose last name counts</span> — drawn: the person who sent the inquiry.<br>
+              <span class="confirm">TO CONFIRM: when that Account Manager is away</span> — drawn: it goes to the next Account Manager in the branch, then the Branch Manager.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols" style="margin-top:20px">
+      <div class="col" style="flex-basis:100%">
+        <span class="tag new">Proposed · when the branch grows</span>
+        <div class="phone" style="width:100%;max-width:820px">
+          <div class="scr" style="padding-top:14px">
+            <div class="t">Makati branch · Wedding — the split re-sets itself when an Account Manager joins or leaves</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">1 Account Manager</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – Z</span></div>
+              </div>
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">+ Joy joins → 2</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – M</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Joy</div><span class="badge">N – Z</span></div>
+              </div>
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">+ Mark joins → 3</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – H</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Joy</div><span class="badge">I – Q</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Mark</div><span class="badge">R – Z</span></div>
+              </div>
+            </div>
+            <p class="note">Even means by letters, in the order people joined. Someone leaving re-splits the same way (3 → 2 goes back to A–M / N–Z). Inquiries already given out stay with the person who has them. A split a Shop or Branch Manager adjusted is not re-set — they get a note "Joy joined · Reset to even?" instead.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 </body>
 </html>

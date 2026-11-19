@@ -76,6 +76,7 @@ export function ServicesGallery({
   ownerCheckFor = null,
   quote = null,
   notVerified = false,
+  renewing = false,
   cardBadges = null,
   badgesNow = 0,
 }: {
@@ -111,6 +112,8 @@ export function ServicesGallery({
   quote?: { cards: QuoteCard[]; inSideCard?: boolean } | null;
   /** ⚠ v16 S6: the shop is not verified yet — every card wears the drawing's "Not verified" stamp (`.nvp`). */
   notVerified?: boolean;
+  /** 📄 Papers renewal ruling (2): the quote tray says the shop is renewing, in place of the not-verified line. */
+  renewing?: boolean;
   openServicePublicId?: string | null;
   /**
    * 📈 The shop whose card OPENS count (Build 6 Lane I, Shop › Analytics "Which card sells") — null = count nothing
@@ -338,7 +341,7 @@ export function ServicesGallery({
       </ul>
 
       {quote ? (
-        <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} notVerified={notVerified} />
+        <QuoteTray picked={picked} cards={quote.cards} onClear={() => setPicked([])} phoneOnly={quote.inSideCard === true} notVerified={notVerified} renewing={renewing} />
       ) : null}
 
       <PhotosByServiceSheet

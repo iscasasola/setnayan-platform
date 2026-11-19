@@ -26,6 +26,9 @@ test('the two columns are drawn for every shop — never a plan gate, never a ve
   const tag = PAGE.slice(at, PAGE.indexOf('>', at));
   assert.match(tag, /className=\{SHOP_COLUMNS_CLASS\}/);
   assert.doesNotMatch(PAGE, /SHOP_CALM_COLUMN_CLASS|cinematicHero/, 'the unverified page went back to the calm column');
+  // Papers renewal §4, laid into v16 S6: a lapsed shop keeps the two columns too — its papers shut the CONTENT gate
+  // (`isVerifiedShop`), never the layout, and never a plan.
+  assert.match(PAGE, /const isVerifiedShop = \(vendor\.verification_state === 'verified' && !renewing\) \|\| isDemoVendor \|\| teamPreview !== null;/);
   // v16 S4 (owner-approved 15 Nov 2026): the card is the side card on the RIGHT — 300 px on a tablet, 360 on a computer.
   assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[minmax\(0,1fr\)_300px\]/);
   assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[minmax\(0,1fr\)_360px\]/);

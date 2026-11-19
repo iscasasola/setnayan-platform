@@ -20,7 +20,7 @@ import { PLUS_CARD_TITLE, plusGate } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { dayMonth } from '@/lib/format-date';
 import { inquiryServiceOf } from '@/lib/chat-card-lines';
-import { ChatCardShell } from '../chat-step-card';
+import { KindCard } from './card-bits';
 import type { InquiryFacts } from '../chat-home';
 
 export const NOT_GIVEN = 'Not given';
@@ -70,7 +70,15 @@ export function InquiryCard({
     window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
   };
   return (
-    <ChatCardShell topic="chat" kicker={`Inquiry · from ${from} · ${at}`} title={service ?? 'An inquiry'} tone="theirs">
+    <KindCard
+      kind="plain"
+      topic="chat"
+      kicker={`Inquiry · from ${from} · ${at}`}
+      title={service ?? 'An inquiry'}
+      tone="theirs"
+      turn={facts.hasQuote ? 'done' : 'me'}
+      settled={facts.hasQuote ? `${service ?? 'An inquiry'} · You replied with a quote` : undefined}
+    >
       <div className="grid gap-0.5" data-inquiry="">
         {service ? null : <Fact name="Service" value={null} />}
         <Fact name="Date" value={date} />
@@ -92,6 +100,6 @@ export function InquiryCard({
           </div>
         )}
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }

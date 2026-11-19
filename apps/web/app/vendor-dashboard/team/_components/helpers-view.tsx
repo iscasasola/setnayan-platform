@@ -152,15 +152,15 @@ export function HelpersView({
     }))
     .filter((s) => isShopManager || s.key === myBranchKey);
 
+  const introLine = isShopManager
+    ? 'Each person has one role. Give each role your shop’s own name on Roles.'
+    : `You run ${labelOfKey.get(myBranchKey) ?? 'your branch'}’s team — Account Managers, Event Crew and Helpers.`;
+
   return (
     <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
       <header className="space-y-1">
         {embedded ? null : <h1 className="sn-h1">Team</h1>}
-        <p className="text-[14px] text-ink/65">
-          {isShopManager
-            ? 'Each person has one role. Give each role your shop’s own name on Roles.'
-            : `You run ${labelOfKey.get(myBranchKey) ?? 'your branch'}’s team — Account Managers, Event Crew and Helpers.`}
-        </p>
+        <p className="text-[14px] text-ink/65">{introLine}</p>
       </header>
 
       <div className="mt-3 space-y-2">

@@ -27,13 +27,13 @@ import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { ArrowDown, Paperclip, X } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronUp, Paperclip, Search, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
 import { PickedHeadContext, PickedNavContext } from '@/app/_components/picked/picked-nav';
 import { ChatHomeTop, useChatHome } from './chat/chat-home';
-import { chatKindOf, countKinds, filterLine, memberLineOf, paymentLineOf, KIND_LABEL } from '@/lib/chat-kinds';
+import { chatKindOf, countKinds, filterLine, isTalkRow, memberLineOf, paymentLineOf, talkLine, KIND_LABEL } from '@/lib/chat-kinds';
 import { patchKinds, useKinds } from '@/lib/chat-kind-store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
@@ -99,7 +99,9 @@ import { HOSTS_ONLY } from '@/lib/money-mask';
 import { PLUS_CARD_TITLE, RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { legacyThreadView, parseThreadView, withThreadView, type ThreadKind, type ThreadView } from '@/lib/thread-view';
+import { isTalkView, legacyThreadView, parseThreadView, withThreadView, type TalkView, type ThreadKind, type ThreadView } from '@/lib/thread-view';
+import { CHAT_SEARCH_HIT, clearChatSearch, findInChat, paintChatSearch, searchCountLine, seenLine, stepHit } from '@/lib/chat-search';
+import { flushSync } from 'react-dom';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
@@ -555,6 +557,9 @@ export function ChatMessageStream({
    * stream's own presence channel moves it while you look. It only ever moves forward.
    */
   const [theirRead, setTheirRead] = useState<string | null>(theirLastReadAt);
+  /** 👀 WHO has seen it (Unichat part D, 20 Nov 2026) — each reader's own latest read, as said on this chat's channel
+   *  while you look. The stored marker has no names, so a "Seen" that came with the page stays plain "Seen". */
+  const [seenBy, setSeenBy] = useState<ReadonlyMap<string, string>>(() => new Map());
   useEffect(() => {
     setTheirRead((prev) => latestRead(prev, theirLastReadAt));
   }, [theirLastReadAt]);
@@ -1109,7 +1114,18 @@ export function ChatMessageStream({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const kindNow: ThreadView = kindSeeded ? kinds.view : initialView;
-  const kindView: ThreadKind | null = oneChat && kindNow !== 'all' ? (kindNow as ThreadKind) : null;
+  // 💬 Chat · Private (Unichat part D, 20 Nov 2026) are not a kind of card: they show only what people typed.
+  const talkView: TalkView | null = oneChat && isTalkView(kindNow) ? kindNow : null;
+  const kindView: ThreadKind | null = oneChat && kindNow !== 'all' && !talkView ? (kindNow as ThreadKind) : null;
+  // 💬 Back to All — typing, sending or opening a tool does it — lands at the newest line (Unichat part D).
+  const lastKindRef = useRef<ThreadView>(kindNow);
+  useEffect(() => {
+    const was = lastKindRef.current;
+    lastKindRef.current = kindNow;
+    if (!oneChat || was === 'all' || kindNow !== 'all') return;
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+  }, [kindNow, oneChat]);
   const chatHome = useChatHome();
   const pickedNav = useContext(PickedNavContext);
   const privateNow = usePrivateTo(threadId);
@@ -1244,9 +1260,20 @@ export function ChatMessageStream({
     for (const p of pinFacts) if (p.kind === 'decision' && p.answerer === 'you') keys.add(p.key);
     return keys.size;
   }, [decisions, pinFacts]);
+  // 💬 The two chips that are not a kind: what people typed (Chat), and the private lines among them (Private).
+  const talkCounts = useMemo(() => {
+    let chat = 0;
+    let priv = 0;
+    for (const m of messages) {
+      if (!isTalkRow(m)) continue;
+      chat += 1;
+      if (privateOtherIds(m, currentUserId).length > 0) priv += 1;
+    }
+    return { chat, private: priv };
+  }, [messages, currentUserId]);
   useEffect(() => {
-    if (oneChat) patchKinds(threadId, { counts: kindCounts, waiting: cardsDegraded ? null : waitingOnYou });
-  }, [oneChat, threadId, kindCounts, waitingOnYou, cardsDegraded]);
+    if (oneChat) patchKinds(threadId, { counts: kindCounts, waiting: cardsDegraded ? null : waitingOnYou, talk: talkCounts });
+  }, [oneChat, threadId, kindCounts, waitingOnYou, cardsDegraded, talkCounts]);
   // 🤝 The strip's Deal box raises Every version here (a tick in the store — the strip is another subtree).
   const [dealOpen, setDealOpen] = useState(false);
   const dealTick = useRef(kinds.deal);
@@ -1319,7 +1346,100 @@ export function ChatMessageStream({
         anchorId: PLUS_DRAFT_ANCHOR,
       }
     : sentTopic;
+  // 🧰 THE TOOL LIVES IN THE TEXT BOX (Unichat part B, 20 Nov 2026): what a (+) card needs is published for the composer
+  // that draws it. Where a composer holds it (`inBox`) the draft is not pinned as a Running topic — the box IS it.
+  const plusEventId = plus?.eventId ?? null;
+  const plusReturnPath = plus?.returnPath ?? null;
+  useEffect(() => {
+    patchPlus(threadId, { host: plusEventId && plusReturnPath ? { side: viewerRole, eventId: plusEventId, eventDate, returnPath: plusReturnPath } : null });
+    return () => patchPlus(threadId, { host: null });
+  }, [threadId, plusEventId, plusReturnPath, viewerRole, eventDate]);
+  const pinnedRunning: RunningTopic | null = plusState.draft && plusState.inBox ? sentTopic : running;
   const [blockerOpen, setBlockerOpen] = useState(true);
+
+  /* 🔎 SEARCH INSIDE THIS CHAT (Unichat part D, 20 Nov 2026 — `lib/chat-search.ts`). An icon until tapped (owner rule
+     19 Nov: "search is an icon until tapped"); one tap puts the box where the who's-here row was and the keyboard up
+     (the box is focused INSIDE the tap — a phone raises its keyboard only from a gesture). It looks through the lines
+     this chat is showing, under whichever chip is picked. */
+  const [search, setSearch] = useState<{ q: string; i: number } | null>(null);
+  const [searchHits, setSearchHits] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const openSearch = () => {
+    flushSync(() => setSearch({ q: '', i: 0 }));
+    searchInputRef.current?.focus();
+  };
+  const searchQ = search?.q ?? null;
+  const searchI = search?.i ?? 0;
+  useEffect(() => {
+    const list = listRef.current;
+    const clear = () => {
+      clearChatSearch();
+      list?.querySelectorAll(`[${CHAT_SEARCH_HIT}]`).forEach((el) => el.removeAttribute(CHAT_SEARCH_HIT));
+    };
+    if (!list || searchQ === null || !searchQ.trim()) {
+      setSearchHits(0);
+      return clear;
+    }
+    const hits = findInChat(list, searchQ);
+    setSearchHits(hits.length);
+    const at = stepHit(searchI, hits.length);
+    const cur = hits[at];
+    const tinted = paintChatSearch(hits, at);
+    if (cur) {
+      const line = cur.startContainer.parentElement?.closest('li') ?? null;
+      // No highlight in this browser: the line holding the match is outlined instead.
+      if (!tinted) line?.setAttribute(CHAT_SEARCH_HIT, 'cur');
+      const box = cur.getBoundingClientRect();
+      const frame = list.getBoundingClientRect();
+      list.scrollTo({ top: Math.max(0, list.scrollTop + (box.top - frame.top) - list.clientHeight / 2 + box.height / 2), behavior: 'auto' });
+    }
+    return clear;
+    // `messages` and the picked chip change what is on the page, so the matches are found again.
+  }, [searchQ, searchI, messages, kindNow]);
+  const stepSearch = (by: 1 | -1) => setSearch((was) => (was ? { ...was, i: stepHit(was.i + by, Math.max(searchHits, 1)) } : was));
+  const SEARCH_ICON_BUTTON = 'sn-press grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink hover:bg-ink/[0.05] disabled:text-[color:var(--m-slate-3)]';
+  const searchDoor = (
+    <button type="button" onClick={openSearch} aria-label="Search in this chat" className={SEARCH_ICON_BUTTON} data-chat-search-open="">
+      <Search aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+    </button>
+  );
+  const searchBar = search ? (
+    <div role="search" className="flex h-12 items-center gap-0.5 border-b border-ink/10 pl-1 pr-1" data-chat-search="">
+      <button type="button" onClick={() => setSearch(null)} aria-label="Close search" className={SEARCH_ICON_BUTTON} data-chat-search-close="">
+        <X aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+      <input
+        ref={searchInputRef}
+        type="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        aria-label="Search in this chat"
+        placeholder="Search this chat"
+        value={search.q}
+        onChange={(e) => setSearch({ q: e.target.value, i: 0 })}
+        onKeyDown={(e) => {
+          // Enter steps to the next match, Shift+Enter to the one before; Escape puts the search away.
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            stepSearch(e.shiftKey ? -1 : 1);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setSearch(null);
+          }
+        }}
+        className="h-11 min-w-0 flex-1 border-0 bg-transparent px-1 text-[16px] text-ink outline-none placeholder:text-[color:var(--m-slate-3)]"
+      />
+      <span aria-live="polite" className="shrink-0 px-1 text-[12.5px] tabular-nums text-[color:var(--m-slate-2)]" data-chat-search-count="">
+        {searchCountLine(search.q, search.i, searchHits)}
+      </span>
+      <button type="button" onClick={() => stepSearch(-1)} disabled={searchHits === 0} aria-label="Previous match" className={SEARCH_ICON_BUTTON}>
+        <ChevronUp aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+      <button type="button" onClick={() => stepSearch(1)} disabled={searchHits === 0} aria-label="Next match" className={SEARCH_ICON_BUTTON}>
+        <ChevronDown aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+      </button>
+    </div>
+  ) : null;
 
   // In-app path back to THIS thread page — the return target for negotiation
   // server actions (appointment create / respond redirect + revalidate here).
@@ -1661,7 +1781,7 @@ export function ChatMessageStream({
     let joined = false;
     const sayRead = (at: string) => {
       if (!joined) return;
-      void channel.send({ type: 'broadcast', event: CHAT_READ_BROADCAST, payload: { side: viewerRole, at } });
+      void channel.send({ type: 'broadcast', event: CHAT_READ_BROADCAST, payload: { side: viewerRole, at, by: currentUserId } });
     };
     sayReadRef.current = sayRead;
 
@@ -1669,12 +1789,20 @@ export function ChatMessageStream({
       .on('presence', { event: 'sync' }, recompute)
       .on('presence', { event: 'join' }, recompute)
       .on('presence', { event: 'leave' }, recompute)
-      .on('broadcast', { event: CHAT_READ_BROADCAST }, (msg: { payload?: { side?: unknown; at?: unknown } }) => {
+      .on('broadcast', { event: CHAT_READ_BROADCAST }, (msg: { payload?: { side?: unknown; at?: unknown; by?: unknown } }) => {
         const side = msg?.payload?.side;
         const at = msg?.payload?.at;
+        const by = msg?.payload?.by;
         // Only the OTHER side's read is "Seen" — a co-host reading is not the supplier reading.
         if (side === viewerRole || typeof at !== 'string' || Number.isNaN(Date.parse(at))) return;
         setTheirRead((prev) => latestRead(prev, at));
+        if (typeof by === 'string' && by && by !== currentUserId) {
+          setSeenBy((prev) => {
+            const was = prev.get(by);
+            if (was && Date.parse(was) >= Date.parse(at)) return prev;
+            return new Map(prev).set(by, at);
+          });
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -1919,7 +2047,9 @@ export function ChatMessageStream({
           <>
             {/* 💬 The page's summary strip — FIRST in the one pinned stack, above the who's-here strip and the pins. */}
             {oneChat ? <ChatHomeTop /> : null}
-            {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {hosts !== undefined ? <ChatHostStrip tail={searchDoor} away={search !== null} hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
+            {/* 🔎 The search box takes the who's-here row's place while it is open (the strip stays mounted, out of sight). */}
+            {searchBar}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
               open decisions fold into the PINS (they stay pinned, outside the scroller, however deep the chat is),
@@ -1928,6 +2058,8 @@ export function ChatMessageStream({
             */}
             {inPicked ? null : (
             <div className="flex items-center justify-end px-1" data-chat-head-tools="">
+              {/* 🔎 With no who's-here row to carry it, the magnifier stands beside the paperclip. */}
+              {hosts === undefined && !search ? searchDoor : null}
               <button
                 type="button"
                 onClick={() => setView(view === 'files' ? 'all' : 'files')}
@@ -1969,7 +2101,7 @@ export function ChatMessageStream({
         facts={pinFacts}
         bodies={allPinBodies}
         onBlocker={() => setBlockerOpen(true)}
-        running={running}
+        running={pinnedRunning}
         talking={plusState.talking}
         onCloseTalking={() => patchPlus(threadId, { talking: null })}
         eventDate={eventDate}
@@ -2080,6 +2212,12 @@ export function ChatMessageStream({
           {kindCounts[kindView] > 0 ? filterLine(kindView, kindCounts[kindView]) : `Nothing under ${KIND_LABEL[kindView]} yet`}
         </li>
       ) : null}
+      {talkView ? (
+        // 💬 Chat or Private picked: only what people typed; the cards are hidden, and the line says so.
+        <li className="pb-1 pt-1 text-center text-[13px] text-[color:var(--m-slate-2)]" role="status" data-chat-filter-line={talkView}>
+          {talkLine(talkView, talkCounts[talkView])}
+        </li>
+      ) : null}
       {messages.length === 0 ? (
         // Rule 6 · empty is one plain line, no dashed box.
         <li className="px-1 py-6 text-center text-[14px] text-[color:var(--m-slate-2)]">
@@ -2088,7 +2226,8 @@ export function ChatMessageStream({
       ) : (
         messages.map((m, i) => {
           // 💬 The chips (`oneChat`): a row of another kind is not drawn; a step line follows the Money chip.
-          const preLines = (stepLines.before.get(m.message_id) ?? []).filter(() => !kindView || kindView === 'money');
+          if (talkView && !(isTalkRow(m) && (talkView === 'chat' || privateOtherIds(m, currentUserId).length > 0))) return null;
+          const preLines = (stepLines.before.get(m.message_id) ?? []).filter(() => !talkView && (!kindView || kindView === 'money'));
           const preNodes = preLines.map((l) => (
             <li key={l.key} className={STEP_LINE} data-step-line="accepted">
               {l.text}
@@ -2965,7 +3104,7 @@ export function ChatMessageStream({
           );
         })
       )}
-      {(!kindView || kindView === 'money' ? stepLines.end : []).map((l) => (
+      {(!talkView && (!kindView || kindView === 'money') ? stepLines.end : []).map((l) => (
         <li key={l.key} className={STEP_LINE} data-step-line="accepted">
           {l.text}
         </li>
@@ -3007,7 +3146,9 @@ export function ChatMessageStream({
         }
         return (
           <li className="pr-1 text-right text-[12px] text-[color:var(--m-slate-2)]" data-chat-last-line={line.kind}>
-            {LAST_LINE_WORDS[line.kind]}
+            {line.kind === 'seen' && ownLast
+              ? seenLine(LAST_LINE_WORDS.seen, [...seenBy].filter(([, at]) => Date.parse(at) >= Date.parse(ownLast.created_at)).map(([id]) => personName(id)))
+              : LAST_LINE_WORDS[line.kind]}
           </li>
         );
       })()}
@@ -3046,6 +3187,7 @@ export function ChatMessageStream({
             eventId={plus.eventId}
             eventDate={eventDate}
             returnPath={plus.returnPath}
+            part={plusState.inBox ? 'toast' : 'all'}
           />
         </li>
       ) : null}

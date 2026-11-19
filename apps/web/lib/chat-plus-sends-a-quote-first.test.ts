@@ -28,11 +28,12 @@ test('no quote yet → "Make a quote", the short card (its door still the builde
   assert.doesNotMatch(card, /No quote in this chat yet/);
 });
 
-test('a quote out → "Change quote" and "See every version", as before (also when the rung is not handed in)', () => {
+test('a quote out → "Change quote", as before (also when the rung is not handed in); "See every version" is no (+) row since 20 Nov 2026', () => {
   for (const rows of [supplierPlusRows({ paid: false, hasQuote: true }), supplierPlusRows({ paid: false })]) {
     assert.equal(rows.find((r) => r.key === 'quote')?.label, 'Change quote');
     assert.equal(rows.find((r) => r.key === 'quote')?.card, 'quote');
-    assert.ok(rows.some((r) => r.key === 'versions'));
+    // The (+) holds only things you send: every version is the strip's Deal box and the quote card's own row.
+    assert.ok(!rows.some((r) => /every version/i.test(r.label)));
   }
 });
 

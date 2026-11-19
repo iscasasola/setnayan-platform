@@ -144,7 +144,8 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
       .map((r) => order.indexOf(PLUS_ROW_PAGE[r.key] as string));
     assert.ok(ranks.every((r) => r >= 0), 'a host (+) row sits under a page the picked supplier does not have');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, 'the host’s (+) runs against its menu’s order');
-    assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'report');
+    // 20 Nov 2026 (Unichat part B): the (+) holds only things you send — it ends on Files; Report is the menu's page.
+    assert.equal(PLUS_ROW_PAGE[hostPlusRows({ canLogPayment }).at(-1)!.key], 'files');
   }
 });
 

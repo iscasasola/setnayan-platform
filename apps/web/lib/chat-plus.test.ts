@@ -1,17 +1,24 @@
 /**
- * ＋ ONE (+) AT A TIME, AND ITS ROWS ARE THE APPROVED ONES — IN THE MENU'S ORDER (Supplier Build 3 · lane B;
- * DECISION_LOG 📌 2026-11-08 · the 9 Nov "Report a problem back into the (+)" ruling · 2026-11-11 "THE PICKED-CLIENT
- * MENU AND THE CHAT (+) FOLLOW ONE ORDER").
+ * ＋ THE (+)'S ROWS ARE THE APPROVED ONES — IN THE MENU'S ORDER (Supplier Build 3 · lane B; DECISION_LOG 📌 2026-11-08 ·
+ * 2026-11-11 "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE ORDER").
+ *
+ * 🧰 20 NOV 2026 — UNICHAT PART B (owner, approving the live drawing `UNICHAT-LIVE-2026-11-19.html`: "build it now, I am
+ * happy with the design"; the approval settles the build plan's conflicts 1 and 2 and supersedes the rulings named):
+ *   · SEVERAL (+) CARDS MAY BE OPEN AT ONCE — supersedes 8 Nov "one (+) at a time": the gate never shuts (test 3);
+ *   · THE (+) HOLDS ONLY THINGS YOU SEND — supersedes 9 Nov "Report a problem back into the (+)": Report a problem
+ *     lives in the ⋯, and See every version is the strip's Deal box and the quote card's own row (tests 1 · 1b · 9);
+ *   · A TYPED PRICE OR DAY OFFERS ITS TOOL (test 10).
  *
  * What would silently undo it:
- *   1. a row the prototype names drops out, changes order, or Report a problem stops being LAST on both sides;
+ *   1. a row the prototype names drops out or changes order — or a place to go (Report a problem, See every version)
+ *      creeps back into the (+);
  *   1d. the (+) and the picked client's menu drift apart — a row sits under a page that comes LATER in the menu than the
  *       page of the row above it (the order is DERIVED here from `PICKED_CLIENT_PAGES`, never hand-copied), or a row
  *       names a page the menu does not have;
  *   1e. the dupe comes back — two rows on the supplier's (+) that both pick from the phone's gallery (owner 11 Nov:
  *       *"The (+) has dupes?"*), or the one Photos & files row stops saying it takes the phone's photos;
  *   2. what the app pins by itself (booking ask, confirm a payment, call time, guest count) creeps back in as a row;
- *   3. the (+) stays open while the reader's own card is open — or SHUTS on the other side's card;
+ *   3. the (+) SHUTS again while a card waits for its answer (the 8 Nov rule the 20 Nov approval superseded);
  *   4. a card wears a glyph of its own instead of its topic's.
  *
  * SABOTAGE (11 Nov): swapping Quote above Ask for access in `supplierPlusRows` → 1 and 1d RED; mapping `decision` to
@@ -33,6 +40,7 @@ import {
   filterSlash,
   hostPlusRows,
   plusGate,
+  typedOffer,
   slashPick,
   slashQuery,
   sheetSlashRows,
@@ -45,16 +53,17 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIND_CHIPS } from './chat-kinds';
+import { stripComments } from './strip-comments';
 import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files', () => {
   // 19 Nov 2026 (drawing S9ScH2Ps v3, screen 6): Drop an offer joins Negotiate (PR-4's card, now reachable), and Form
   // comes before Ask for access under "Ask & decide".
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   // An offer changes a quote: not drawn before one exists, shut (with Change quote's own reason) once they booked at it.
   assert.ok(!supplierPlusRows({ paid: false, hasQuote: false }).some((r) => r.key === 'offer'), 'Drop an offer is drawn with no quote to apply it to');
@@ -74,7 +83,7 @@ test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a 
 });
 
 // ✋ Ruling 6076: no generic "Ask for a change" row — an ask starts from the part it changes (the quote's lines · plan · form).
-const HOST_NEGOTIATE = ['Counter with a price', 'Propose a payment plan', 'See every version'];
+const HOST_NEGOTIATE = ['Counter with a price', 'Propose a payment plan'];
 
 test('1a · the host’s (+) has no generic Ask for a change — and the slash list has no /ask (ruling 6076)', () => {
   for (const rows of [hostPlusRows({ canLogPayment: true }), hostPlusRows({ canLogPayment: false })]) {
@@ -83,14 +92,14 @@ test('1a · the host’s (+) has no generic Ask for a change — and the slash l
   }
 });
 
-test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
+test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files'],
   );
   // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
@@ -119,7 +128,7 @@ function pagesOf(rows: PlusRow[]): PickedClientPage[] {
   return menuRows(rows).map((r) => PLUS_ROW_PAGE[r.key] as PickedClientPage);
 }
 
-test('1d · the (+) follows the menu: every row’s page is in the menu, in the menu’s order, Report last — both sides', () => {
+test('1d · the (+) follows the menu: every row’s page is in the menu, in the menu’s order — both sides', () => {
   for (const [side, rows] of [
     ['supplier', supplierPlusRows({ paid: false })],
     ['supplier · paid', supplierPlusRows({ paid: true })],
@@ -136,8 +145,8 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
         `${side}: '${under[i]!.label}' (${pages[i]}) is drawn above the menu's order — after '${under[i - 1]!.label}' (${pages[i - 1]})`,
       );
     }
-    assert.equal(rows.at(-1)!.key, 'report', `${side}: Report a problem is not last`);
-    assert.equal(PLUS_ROW_PAGE.report, 'report');
+    // 20 Nov 2026: the (+) ends on what you send — Files. Report a problem is in the ⋯ (test 9).
+    assert.equal(PLUS_ROW_PAGE[rows.at(-1)!.key], 'files', `${side}: the (+) no longer ends on Files`);
   }
   // The expected order, DERIVED: stable-sort the rows under the mirror by the menu and they must already be in that order.
   const rows = menuRows(supplierPlusRows({ paid: false }));
@@ -148,10 +157,10 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
   // Budget · Schedule · Files · Report) — Form sits under Details, Payment under Book & Budget; Change quote moved up into
   // Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
-  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
+  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files']);
 });
 
-test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files, Report a problem last under a bare line (19 Nov)', () => {
+test('1f · the SUPPLIER’s (+) is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files (19 Nov; Report a problem left on 20 Nov)', () => {
   // The supplier's client page is one chat: no tab row, so a heading named after a tab names nothing. The order of the
   // sections is DERIVED from `PLUS_SECTIONS`, never hand-copied; every row has a section; no section is split in two.
   for (const opts of [{ paid: false }, { paid: true }, { paid: false, hasQuote: false }, { paid: false, booked: true }]) {
@@ -160,11 +169,10 @@ test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negot
     const ranks = secs.map((x) => PLUS_SECTIONS.indexOf(x));
     assert.ok(ranks.every((r) => r >= 0), 'a row has no section');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, `'${rows[i]!.label}' is drawn above its section's place`);
-    assert.equal(secs.at(-1), 'report');
-    assert.equal(secs.filter((x) => x === 'report').length, 1, 'Report a problem shares its line with another row');
+    assert.equal(secs.at(-1), 'files');
   }
   const words = [...new Set(supplierPlusRows({ paid: false }).map((r) => PLUS_ROW_SECTION[r.key]))].map((k) => PLUS_SECTION_WORD[k]);
-  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files', null]);
+  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files']);
   // The group words match the chips in the text box (one vocabulary on the screen).
   for (const w of ['Money', 'Dates', 'Files']) assert.ok(KIND_CHIPS.some((c) => c.label === w), `the chips have no '${w}'`);
   // The sheet draws THESE for the supplier, and still the tabs' words for the host.
@@ -189,12 +197,20 @@ test('2 · what pins by itself is NOT a (+) row', () => {
   }
 });
 
-test('3 · the gate shuts the (+) for the card\'s opener only, with the words the tap shows', () => {
+test('3 · SEVERAL (+) CARDS MAY BE OPEN AT ONCE — the gate never shuts (owner 20 Nov 2026, approving the live drawing; it supersedes 8 Nov "one (+) at a time")', () => {
   const mine: RunningTopic = { key: 'k', card: 'meeting', title: 'Meeting', by: 'you', status: 'draft', anchorId: 'a' };
   assert.deepEqual(plusGate(null), { shut: false });
-  assert.deepEqual(plusGate(mine), { shut: true, message: 'Finish or close: Meeting' });
-  assert.deepEqual(plusGate({ ...mine, status: 'sent' }), { shut: true, message: 'Finish or close: Meeting' });
+  // A card you sent that still waits for its answer does not stop the next one — nor does a draft, nor theirs.
+  assert.deepEqual(plusGate({ ...mine, status: 'sent' }), { shut: false });
+  assert.deepEqual(plusGate(mine), { shut: false });
   assert.deepEqual(plusGate({ ...mine, by: 'them' }), { shut: false });
+  // The (+) button and the composer no longer ask the gate at all — a tool in the box turns the ＋ into ← instead.
+  const here = dirname(fileURLToPath(import.meta.url));
+  const sheet = stripComments(readFileSync(join(here, '..', 'app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx'), 'utf8'));
+  const composer = stripComments(readFileSync(join(here, '..', 'app/_components/chat-send-form.tsx'), 'utf8'));
+  assert.ok(!/plusGate|Finish or close/.test(sheet), 'the (+) is gated on an open card again');
+  assert.ok(!/plusGate|Finish or close/.test(composer), 'the composer gates "/" or the suggested step on an open card again');
+  assert.match(sheet, /aria-label=\{back \? 'Back to message' : 'Add to the chat'\}/, 'the ＋ does not turn into ← while a tool is open');
 });
 
 test('4 · every card wears a known topic (its icon is TOPIC_ICON[topic])', () => {
@@ -288,8 +304,8 @@ test('7 · Enter never picks a greyed row', () => {
 // mapping `counter` to 'payments' in PLUS_ROW_PAGE → 8 RED.
 test('8 · Negotiate is FIRST on both (+) menus, holding exactly the design’s rows', () => {
   for (const [side, rows, want] of [
-    ['supplier', supplierPlusRows({ paid: false }), ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version']],
-    ['supplier · paid', supplierPlusRows({ paid: true }), ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version']],
+    ['supplier', supplierPlusRows({ paid: false }), ['Change quote', 'Drop an offer', 'Propose a payment plan']],
+    ['supplier · paid', supplierPlusRows({ paid: true }), ['Change quote', 'Drop an offer', 'Propose a payment plan']],
     ['host', hostPlusRows({ canLogPayment: true }), HOST_NEGOTIATE],
     ['host · coordinator', hostPlusRows({ canLogPayment: false }), HOST_NEGOTIATE],
   ] as const) {
@@ -300,8 +316,42 @@ test('8 · Negotiate is FIRST on both (+) menus, holding exactly the design’s 
     assert.ok(!groups.slice(n).includes(NEGOTIATE_GROUP), `${side}: a Negotiate row sits below a page group`);
     assert.deepEqual(rows.slice(0, n).map((r) => r.label), [...want], `${side}: the Negotiate rows differ from the design`);
   }
-  // Every Negotiate card row drops a card; See every version presses the shipped versions sheet.
-  const v = hostPlusRows({ canLogPayment: true }).find((r) => r.key === 'versions')!;
-  assert.equal(v.card, null);
-  assert.equal(v.act, 'versions');
+  // Every Negotiate row drops a card (See every version, which pressed a control, left on 20 Nov 2026 — test 9).
+  for (const r of hostPlusRows({ canLogPayment: true }).filter((x) => PLUS_ROW_PAGE[x.key] === NEGOTIATE_GROUP)) assert.ok(r.card, `${r.label} drops no card`);
+});
+
+test('9 · THE (+) HOLDS ONLY THINGS YOU SEND — no row lives in both the (+) and the ⋯ or the pinned strip (owner 20 Nov 2026)', () => {
+  const every = [
+    ...supplierPlusRows({ paid: false }),
+    ...supplierPlusRows({ paid: true, booked: true }),
+    ...supplierPlusRows({ paid: false, hasQuote: false }),
+    ...hostPlusRows({ canLogPayment: true }),
+    ...hostPlusRows({ canLogPayment: false, booked: true }),
+  ];
+  for (const r of every) {
+    // A thing you send is a card dropped into the chat, or a picture taken now. Nothing else is a row.
+    assert.ok(r.card !== null || r.attach !== undefined, `'${r.label}' sends nothing — it is a place to go`);
+    assert.ok(!/report|every version/i.test(r.label), `'${r.label}' is back in the (+)`);
+  }
+  // The ⋯ is where Report lives on the supplier's client page (Files · Hub · Report) — so it is not lost, only moved.
+  const shell = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx'), 'utf8');
+  assert.match(shell, /const MORE_PAGES: readonly PickedClientPage\[\] = \[[^\]]*'report'[^\]]*\];/, 'Report left the (+) and is not in the ⋯ either');
+});
+
+test('10 · a typed price or day offers its tool — the row the (+) has open for this reader, never a shut or absent one', () => {
+  const host = slashRows(hostPlusRows({ canLogPayment: true }), true);
+  const supplier = slashRows(supplierPlusRows({ paid: false }), true);
+  assert.deepEqual(typedOffer('Can you do ₱38,000?', host), { card: 'counter', lead: 'Make this a counter,', figure: '₱38,000', button: 'Counter with a price' });
+  assert.deepEqual(typedOffer('we can do ₱ 42000 all in', supplier), { card: 'quote', lead: 'Make this a new quote,', figure: '₱42,000', button: 'Change quote' });
+  assert.deepEqual(typedOffer('See you Fri 27 Nov at the venue', host), { card: 'meeting', lead: 'Set a meeting,', figure: 'Fri 27 Nov', button: 'Meeting' });
+  assert.equal(typedOffer('27 November works', supplier)?.figure, '27 November');
+  // A price wins over a day; small change and plain talk offer nothing.
+  assert.equal(typedOffer('₱38,000 by 27 Nov?', host)?.card, 'counter');
+  assert.equal(typedOffer('₱50 for parking', host), null);
+  assert.equal(typedOffer('thank you so much', host), null);
+  // Booked at the quote: Counter and Change quote are shut — never offered (the day still is).
+  assert.equal(typedOffer('Can you do ₱38,000?', slashRows(hostPlusRows({ canLogPayment: true, booked: true }), true)), null);
+  assert.equal(typedOffer('₱38,000', slashRows(supplierPlusRows({ paid: false, booked: true }), true)), null);
+  // Nothing published yet (no (+) on this chat) → nothing offered.
+  assert.equal(typedOffer('₱38,000 on 27 Nov', []), null);
 });

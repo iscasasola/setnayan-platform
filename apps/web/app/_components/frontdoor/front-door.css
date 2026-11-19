@@ -775,8 +775,11 @@ html.dark .fd {
      paragraph broke "Acceptable use" into "Acceptable / use". A 32 px line is the drawing's tap target. */
   display: block;
   white-space: nowrap;
-  min-height: 32px;
-  line-height: 32px;
+  /* 44, the locked press floor (W5 walk 2026-11-18: every Company / Legal link measured 32 at 390). A stacked row
+     cannot borrow its neighbour's room with an invisible halo — the next link sits on top of it — so the ROW itself
+     is 44 tall. Only the spacing changes; the words, columns and order are the approved drawing's. */
+  min-height: 44px;
+  line-height: 44px;
   font-size: 12.5px;
 }
 /* The two labelled columns — Company · Legal (owner 2026-11-11, drawn in
@@ -2098,7 +2101,10 @@ button.fd-ask.quiet {
   top: 0;
   /* Under the account panel's portalled sheet, over the page and the rail. */
   z-index: 20;
-  transition: transform 0.3s ease-out;
+  /* 🫳 TUCK (motion standard 18 Nov 2026, § 5 #37): the bar leaves in Move on the Spring and comes BACK in Quick on
+     Settle — faster than it left. The pair is `--sn-tuck-dur` / `--sn-tuck-ease` (globals.css; `html[data-tuck]` flips
+     it), the SAME pair every pinned head that follows the bar reads, so they still move as one. */
+  transition: transform var(--sn-tuck-dur) var(--sn-tuck-ease);
   /* Frosted, not solid — the shipped idiom on all three bars this replaces
      (`HomeRail`'s backdrop-blur, `AdminStickyTopBar`'s blur+saturate). A
      transparent strip over scrolling content is unreadable; a solid one is the
@@ -2660,6 +2666,16 @@ button.fd-ask.quiet {
      until 2026-08-29, which was true only while this variant had no
      hamburger.) */
   .fd[data-chrome='app'] .fd-topwrap[data-hidden='true'] {
+    transform: translateY(-100%);
+  }
+
+  /* 🫳 THE PUBLIC BAR TUCKS TOO (owner 19 Nov 2026, "Yes, tuck it" — reverses the "stays put" ruling). It has no
+     wrapper (sticky needs a parent with room to travel), so the `.fd` root wears `data-bar-hidden` and the <header> moves at the
+     same pair as the app bar. Reduced motion: `.fd *` already drops every transition. */
+  .fd:not([data-chrome='app']) > .fd-topbar {
+    transition: transform var(--sn-tuck-dur) var(--sn-tuck-ease);
+  }
+  .fd[data-bar-hidden]:not([data-chrome='app']) > .fd-topbar {
     transform: translateY(-100%);
   }
 

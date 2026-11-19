@@ -138,14 +138,24 @@ export type TagEventLine = { line: string | null; alsoIn: { slotKey: string; lab
  * A refused read is an empty map: the tile then simply carries no line — it never guesses one.
  */
 export async function readTagEventLines(client: SupabaseClient, assetIds: readonly string[]): Promise<Map<string, TagEventLine>> {
+  return (await readTagEventLinesOrUnread(client, assetIds)) ?? new Map<string, TagEventLine>();
+}
+
+/**
+ * The same read, for a caller that must TELL A REFUSED READ FROM "NO LINES" (the supplier's Portfolio: Search by place
+ * says "Couldn't load places" instead of silently missing its matches). `null` = the RPC answered with an error —
+ * Supabase resolves with `{ error }`, it does not throw, so a `catch` alone never sees this. An empty Map = read, none.
+ */
+export async function readTagEventLinesOrUnread(client: SupabaseClient, assetIds: readonly string[]): Promise<Map<string, TagEventLine> | null> {
   const out = new Map<string, TagEventLine>();
   const ids = [...new Set(assetIds)].slice(0, 500);
   if (ids.length === 0) return out;
-  const [{ data, error }, parts] = await Promise.all([client.rpc('inspiration_tag_event_lines', { p_asset_ids: ids }), getInspirationParts()]);
+  const { data, error } = await client.rpc('inspiration_tag_event_lines', { p_asset_ids: ids });
   if (error) {
     logQueryError('readTagEventLines', error, { assets: ids.length }, 'graceful_degrade');
-    return out;
+    return null;
   }
+  const parts = await getInspirationParts();
   for (const r of (data ?? []) as { asset_id: string; event_type: string | null; venue_name: string | null; event_month: string | null; also_in: string[] | null }[]) {
     out.set(r.asset_id, {
       line: eventLineWords({ typeLabel: r.event_type ? eventTypeLabel(r.event_type) : null, venue: r.venue_name, month: r.event_month }),

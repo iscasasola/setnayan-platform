@@ -235,6 +235,7 @@ export function HomeFirstScreen({
           label: c.hasDate ? c.label : 'No date yet',
           line: [c.long, c.placeLine].filter(Boolean).join(' · ') || null,
           href: c.door ?? countdownDoor(eventId),
+          turnFor: c.hasDate && /to go$/.test(c.label) ? eventId : undefined,
         }}
         now={<HomeToday target={today.target} words={today.words} tail={today.tail} calm={today.calm} action={nowAction} eventId={eventId} />}
       />

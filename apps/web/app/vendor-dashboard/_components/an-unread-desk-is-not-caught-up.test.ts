@@ -17,6 +17,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { stripComments } from '@/lib/strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -113,4 +117,13 @@ test('a desk that read in full and is empty draws nothing — the Next card says
   assert.doesNotMatch(`${unread.title} ${unread.body}`, CAUGHT_UP);
   assert.doesNotMatch(`${unread.title} ${unread.body}`, /nothing waiting/i, 'an unread desk says "nothing waiting"');
   assert.match(unread.title, /couldn’t load/);
+});
+
+/**
+ * An unreadable fee-bill list is an unread desk too (supplier dashboard audit, 2026-11-17). Today turned
+ * `FEE_BILLS_UNREADABLE` into `[]` and drew "Nothing waiting on you" while a booking fee could be unpaid.
+ */
+test('an unreadable fee-bill list makes the desk incomplete', () => {
+  const page = stripComments(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'page.tsx'), 'utf8'));
+  assert.match(page, /deskIncomplete: deskIncomplete \|\| feeBillsRead === FEE_BILLS_UNREADABLE,/);
 });

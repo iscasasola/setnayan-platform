@@ -23,7 +23,8 @@ import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
-import { readShopChatPeople } from './chat-shop-people.server';
+import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
+import { WHISPER_HOSTS_ONLY_MESSAGE, WHISPER_NO_COHOSTS_MESSAGE, WHISPER_WORDS_ONLY_MESSAGE, whisperRecipients } from './chat-whisper';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 import type { ChatSentAs } from './chat-sent-as';
 
@@ -90,6 +91,7 @@ export type SendMessageError =
   | 'private_words_only'
   | 'fee_words_only'
   | 'private_recipient'
+  | 'whisper_refused'
   | 'insert_failed';
 
 export type SendMessageResult =
@@ -128,6 +130,13 @@ export async function sendChatMessageCore(
      * auto-reply is never woken by one. Who can READ it is the database's rule (RLS), not this function's.
      */
     privateTo?: string | readonly string[] | null;
+    /**
+     * 🤫 A WHISPER (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): a host's line for the co-hosts in this chat
+     * only. WHO hears it is decided HERE, from the thread's own rows (`whisperRecipients`) — `privateTo` is ignored, so
+     * the browser can never name the shop. No co-host to hear it, or a sender who is not a host → REFUSED, never sent
+     * to everyone.
+     */
+    whisper?: boolean;
     /**
      * 🏪 THE SCREEN'S SIDE (owner, 11 Nov — `lib/chat-sent-as.ts`). `'vendor'` = typed in the supplier's chat: the
      * message speaks for the SHOP even when the sender is also a host of this event. Absent = the old derivation
@@ -257,8 +266,32 @@ export async function sendChatMessageCore(
   // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.
   // everything else is public."); the recipient must be one of this thread's parties: a host of the event or the shop.
   // 👥 SEVERAL PEOPLE (owner, 12 Nov — "PRIVATE MESSAGES — TWO DOORS, SEVERAL PEOPLE"): one id or a list, yourself left out.
+  // 🤫 A WHISPER names nobody itself: the list is the hosts in this chat now, the sender and every shop login left out.
+  // It runs BEFORE the private list is read, and replaces it — so no posted `private_to` can widen a whisper.
+  let whisperTo: string[] | null = null;
+  if (input.whisper) {
+    if (senderRole !== 'couple' || !coupleCheck.data) {
+      return { ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE };
+    }
+    if (hasAttachment || storedRef) {
+      return { ok: false, code: 'whisper_refused', message: WHISPER_WORDS_ONLY_MESSAGE };
+    }
+    const [hostPeople, shop] = await Promise.all([
+      readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
+      shopPeopleRead(),
+    ]);
+    whisperTo = whisperRecipients({
+      hostMemberIds: hostPeople.members,
+      shopUserIds: [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])],
+      senderUserId: user.id,
+    });
+    // 🛑 Nobody to hear it is a REFUSAL. Falling through would send a whisper to everyone, the supplier included.
+    if (whisperTo.length === 0) {
+      return { ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE };
+    }
+  }
   const privateList = (
-    input.privateTo == null ? [] : typeof input.privateTo === 'string' ? [input.privateTo] : [...input.privateTo]
+    whisperTo ?? (input.privateTo == null ? [] : typeof input.privateTo === 'string' ? [input.privateTo] : [...input.privateTo])
   ).filter((id, i, all) => Boolean(id) && id !== user.id && all.indexOf(id) === i);
   const privateTo = privateList.length > 0 ? privateList : null;
   if (privateTo) {
@@ -597,6 +630,7 @@ export async function sendChatMessageCore(
     // already passed the contact filter, so trimmed is safe to preview.)
     body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage: isFirstMessage && !privateTo,
+    whisper: whisperTo !== null,
     privateTo,
   });
 

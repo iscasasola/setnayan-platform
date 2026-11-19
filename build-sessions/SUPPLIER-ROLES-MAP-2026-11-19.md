@@ -147,6 +147,10 @@ plan's line and "Change plan".
 (`vendor_service_agents`); two agents on one service both see every inquiry and nobody owns it.
 
 Proposed:
+- **Account Managers are set to SERVICE CARDS (owner 19 Nov: *"to make it easier, we set them to a service card"*)** —
+  the unit is the card (`vendor_services` row ↔ `vendor_service_agents`). Nothing finer exists (no per-package scope inside a
+  card), and the shipped "Whole branch" shortcut (`whole_branch_keys`) is not offered for an Account Manager; it stays for
+  Branch Manager scoping. A new card filed later is NOT added to anyone's list automatically — a manager ticks it.
 - **Card coverage (owner 19 Nov: *"an account manager can also handle a specific service card only"*)** — ALREADY
   SHIPS: `vendor_service_agents` (per card) + `whole_branch_keys` (every card in a branch, and later ones), set in
   Team › Who works what (`AgentServiceAssignment`). No new column. The split for an inquiry is worked out among only the

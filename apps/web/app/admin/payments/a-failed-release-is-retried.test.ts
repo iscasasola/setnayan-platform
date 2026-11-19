@@ -50,7 +50,7 @@ before(async () => {
 // ── An in-memory client: the call shapes received-auto.ts uses, nothing more ──
 
 type Row = Record<string, unknown>;
-type Db = Record<string, Row[]>;
+type Db = { admin_received_transactions: Row[]; payments: Row[]; admin_audit_log: Row[] };
 type Filter = (r: Row) => boolean;
 
 function fakeAdmin(db: Db) {
@@ -76,7 +76,8 @@ function fakeAdmin(db: Db) {
       return Promise.resolve(this.run()).then(ok, no);
     }
     private run(): { data: unknown; error: null } {
-      const rows = (db[this.table] ??= []);
+      const rows = db[this.table as keyof Db];
+      assert.ok(rows, `unexpected table ${this.table}`);
       if (this.op === 'insert') {
         rows.push({ ...this.patch });
         return { data: null, error: null };

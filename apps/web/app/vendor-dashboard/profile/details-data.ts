@@ -1,4 +1,5 @@
 import 'server-only';
+import { readRenewalView } from '@/lib/papers-renewal.server';
 
 import { readLogoFrame } from '@/lib/open-shop-logo';
 import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
@@ -211,6 +212,8 @@ export async function loadDetailsData(
   const startDateRead = fetchVendorBusinessStartDate(supabase, vendorId);
 
   let verifyMeasured = true;
+  // 📄 Papers renewal — the shop's renewal day, lapse and last approval, off its own self view (`readRenewalView`).
+  const renewalRead = readRenewalView(supabase, vendorId);
   const appRead = fetchLatestApplication(supabase, vendorId).catch((err) => {
     logQueryError('VendorDetails.latestApplication', err, { vendorId });
     verifyMeasured = false;
@@ -323,6 +326,7 @@ export async function loadDetailsData(
     // A send-back that named its papers says its reason on those papers only (owner 2026-11-14, "Only the named one").
     decisionReason: sentBackSlotKeys(uploads).length > 0 ? null : ((app?.decision_reason as string | null) ?? null),
     submitMissing: verificationSubmitMissing({ uploads }),
+    renewal: await renewalRead,
   };
   const requiredIn = verify.requiredIn;
   const isVerified = profile.public_visibility === 'verified';

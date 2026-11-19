@@ -21,17 +21,22 @@
 --     NOTHING, under the same FOR UPDATE locks: occupancy = the SUM of the other live bookings' quantities + outside
 --     clients, and the booking is refused when occupancy + N exceeds the pool's number. N = booked_quantity (NULL = 1),
 --     so every booking that is not by the piece is refused exactly as before (used + 1 > cap ⇔ used >= cap).
+--     🔢 ONE NUMBER FOR PIECES (review 2026-11-19; owner 2a "one field, vendor_services.daily_capacity, labelled by
+--     style" and 2c "pieces take only pieces"): a by-the-piece booking is checked against its CARD's own "How many do
+--     you have" (service_card_daily_limit — the same number the yes reads), never against the schedule's
+--     daily_booking_capacity. It still takes its seat on the schedule (the Day bar lists it), but the schedule's
+--     number does not hold pieces.
 --     An Always available card (availability_style 'none', owner ruling 4) is never counted: it takes no seat and is
 --     never on the calendar ('status' 'ok', 'counted' false). Body otherwise identical to 20271269411264.
 --
 -- 4 · set_booked_quantity(booking, n) — the supplier's yes for a piece booking. Same callers as acquire (the shop on
 --     its own booking, or an admin). Locks the card row (one piece yes at a time per card) and every pool the
---     booking already holds; refuses when the card's own "How many do you have" or any pool would go past its number;
---     else writes n everywhere at once.
+--     booking already holds; refuses when the card's own "How many do you have" would go past its number (the ONE
+--     number for pieces — see 3); else writes n.
 --
--- 5 · vendor_schedule_pools.daily_booking_capacity — no upper bound in SQL any more (was 1..500, 20271350427190). A
---     schedule that rents chairs holds as many as the shop has (owner ruling 3: no cap above 500 for pieces). The app
---     keeps 500 for every schedule that is not by the piece (calendar/actions.ts). >= 1 still.
+-- 5 · (withdrawn in review, 2026-11-19) the schedule's daily_booking_capacity keeps its 1..500 (20271350427190). The
+--     "no cap above 500 for pieces" (owner ruling 3) lives on the card's own number, which is the only one pieces are
+--     counted against (see 3).
 --
 -- 10 · MADE TO ORDER IS COUNTED WHILE IT IS BEING MADE (owner, DECISION_LOG 2026-11-19 "AVAILABILITY FINALIZED",
 --     "Wrong, fix"): an order is "in progress" on every day of its preparation window [due − prep, due], not only on
@@ -299,6 +304,8 @@ DECLARE
   v_whitelist BOOLEAN;
   v_qty       INT;
   v_style     TEXT;
+  v_service   UUID;
+  v_have      INT;
 BEGIN
   -- ── Authorization (WIDENED 2026-08-04 · PR-I) ──────────────────────────
   -- Three principals, each proving ownership of a DIFFERENT side of the same
@@ -327,8 +334,8 @@ BEGIN
   -- 🗓 STEP 4 (2026-11-19): this booking's size. A by-the-piece booking takes its booked_quantity (the supplier's
   -- yes, set_booked_quantity); every other booking takes 1, exactly as before. An Always available card is never
   -- counted (owner ruling 4): it takes no seat and is never on the calendar.
-  SELECT COALESCE(ev.booked_quantity, 1), vs.availability_style
-    INTO v_qty, v_style
+  SELECT COALESCE(ev.booked_quantity, 1), vs.availability_style, ev.service_id
+    INTO v_qty, v_style, v_service
     FROM public.event_vendors ev
     LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = ev.service_id
    WHERE ev.vendor_id = p_event_vendor_id;
@@ -336,6 +343,17 @@ BEGIN
     RETURN jsonb_build_object('status', 'ok', 'pool_ids', '[]'::jsonb, 'booked_date', v_date, 'counted', false);
   END IF;
   v_qty := COALESCE(v_qty, 1);
+
+  -- 🔢 Pieces are counted against the CARD's own number only (header 3) — under the shop's one lock, the same count
+  -- and the same number the yes reads (service_card_bookings_on · service_card_daily_limit).
+  IF v_style = 'piece' THEN
+    PERFORM public.lock_shop_day_counts(v_service);
+    v_have := public.service_card_daily_limit(v_service);
+    IF v_have IS NOT NULL
+       AND public.service_card_bookings_on(v_service, v_date, p_event_vendor_id) + v_qty > v_have THEN
+      RETURN jsonb_build_object('status', 'full', 'pool_id', NULL, 'pool_label', NULL);
+    END IF;
+  END IF;
 
   -- Lock every pool row, DETERMINISTIC ORDER (pool_id) so two concurrent
   -- bundles spanning overlapping pool sets can never deadlock.
@@ -387,8 +405,9 @@ BEGIN
     --     all-day by CHECK, asked through the same rule).
     v_used := public.schedule_pool_taken_on(v_pool.pool_id, v_date, p_event_vendor_id);
 
-    -- All or nothing, by quantity: every booking that takes 1 is refused exactly as before (used + 1 > cap ⇔ used >= cap).
-    IF v_used + v_qty > v_pool.daily_booking_capacity THEN
+    -- All or nothing: every booking that takes 1 is refused exactly as before (used + 1 > cap ⇔ used >= cap). A piece
+    -- booking was checked against its card above — the schedule's number does not hold pieces.
+    IF v_style IS DISTINCT FROM 'piece' AND v_used + 1 > v_pool.daily_booking_capacity THEN
       RETURN jsonb_build_object(
         'status', 'full',
         'pool_id', v_pool.pool_id,
@@ -442,8 +461,6 @@ DECLARE
   v_cap        int;
   v_date       date;
   v_precision  text;
-  v_pool       record;
-  v_used       int;
   v_card_used  int;
 BEGIN
   IF p_event_vendor_id NOT IN (SELECT public.current_vendor_event_vendor_ids()) AND NOT public.is_admin() THEN
@@ -481,23 +498,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- (b) every pool this booking already holds a seat on — the same count acquire_schedule_pools makes, all or nothing.
-  FOR v_pool IN
-    SELECT sp.pool_id, sp.pool_label, sp.daily_booking_capacity, pb.booked_date
-      FROM public.vendor_schedule_pool_bookings pb
-      JOIN public.vendor_schedule_pools sp ON sp.pool_id = pb.pool_id
-     WHERE pb.event_vendor_id = p_event_vendor_id
-       AND pb.released_at IS NULL
-       AND sp.is_active
-     ORDER BY sp.pool_id
-       FOR UPDATE OF sp
-  LOOP
-    v_used := public.schedule_pool_taken_on(v_pool.pool_id, v_pool.booked_date, p_event_vendor_id);
-    IF v_used + p_quantity > v_pool.daily_booking_capacity THEN
-      RETURN jsonb_build_object('status', 'full', 'pool_id', v_pool.pool_id, 'pool_label', v_pool.pool_label,
-        'have', v_pool.daily_booking_capacity, 'out', v_used, 'free', GREATEST(v_pool.daily_booking_capacity - v_used, 0));
-    END IF;
-  END LOOP;
+  -- (b) withdrawn in review (2026-11-19): the schedule's number does not hold pieces — the card's is the ONE number
+  -- (header 3), checked in (a) above.
 
   UPDATE public.event_vendors SET booked_quantity = p_quantity WHERE vendor_id = p_event_vendor_id;
   RETURN jsonb_build_object('status', 'ok', 'quantity', p_quantity);
@@ -506,18 +508,13 @@ $function$;
 
 COMMENT ON FUNCTION public.set_booked_quantity(uuid, int) IS
   'Rented by the piece: the supplier''s yes says how many pieces (owner 2026-11-19, ruling 2). Refused when the card''s '
-  'own number or any pool the booking holds would go past its number; else written all at once. The only writer of '
+  'own "How many do you have" (the one number for pieces) would go past its number; else written. The only writer of '
   'event_vendors.booked_quantity.';
 
 REVOKE ALL ON FUNCTION public.set_booked_quantity(uuid, int) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.set_booked_quantity(uuid, int) TO authenticated, service_role;
 
--- ── 5 · a schedule that rents pieces holds as many as the shop has ───────────
-ALTER TABLE public.vendor_schedule_pools
-  DROP CONSTRAINT IF EXISTS vendor_schedule_pools_daily_booking_capacity_check;
-ALTER TABLE public.vendor_schedule_pools
-  ADD CONSTRAINT vendor_schedule_pools_daily_booking_capacity_check
-  CHECK (daily_booking_capacity >= 1);
+-- ── 5 · (withdrawn in review) the schedule's 1..500 stands — see the header ──
 
 
 -- ── 6 · the COUPLE picks how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN step 3 AV-PIECE "the
@@ -1062,9 +1059,11 @@ BEGIN
         WHERE pc.vendor_profile_id = wc.vpid AND pc.category_key = wc.category_key)
   ),
   active_pool AS (
-    SELECT rp.sid, p.pool_id, p.vendor_profile_id AS vpid, p.daily_booking_capacity AS cap
+    SELECT rp.sid, p.pool_id, p.vendor_profile_id AS vpid, p.daily_booking_capacity AS cap,
+           (vs.availability_style = 'piece') AS by_piece
       FROM real_pool rp
       JOIN public.vendor_schedule_pools p ON p.pool_id = rp.pool_id
+      LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = rp.sid
      WHERE p.is_active
   ),
 
@@ -1106,8 +1105,9 @@ BEGIN
                 AND ds.state_date = d.day
                 AND (ds.pool_id = ap.pool_id OR ds.pool_id IS NULL)
                 AND ds.day_state = 'locked')
-        -- 🗓 STEP 4: the SAME count acquire_schedule_pools refuses by (pieces, NULL = 1, + outside clients).
-        OR public.schedule_pool_taken_on(ap.pool_id, d.day, NULL) >= ap.cap
+        -- 🗓 STEP 4: the SAME count acquire_schedule_pools refuses by (+ outside clients). A by-the-piece card is NOT
+        -- refused by its schedule's number — its card's own number is the one (capacity_refused, below), as in acquire.
+        OR (ap.by_piece IS NOT TRUE AND public.schedule_pool_taken_on(ap.pool_id, d.day, NULL) >= ap.cap)
     UNION
     SELECT vp.sid, sc.day
       FROM virtual_pool_card vp
@@ -1286,7 +1286,7 @@ BEGIN
     s.vendor_profile_id,
     left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
     left(COALESCE(NULLIF(btrim(s.title), ''), s.category) || ' · ' || v_label, 80),
-    LEAST(GREATEST(COALESCE(v_capacity, 1), 1), 50),
+    LEAST(GREATEST(COALESCE(v_capacity, 1), 1), 500),  -- the schedule's own CHECK 1..500 (20271350427190); was 50, pre-lift
     TRUE
   )
   RETURNING pool_id INTO v_pool_id;

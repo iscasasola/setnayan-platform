@@ -80,3 +80,18 @@ export function freeWords(bars: readonly (CountBar | null)[]): string | null {
   const joined = parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   return `${joined} free`;
 }
+
+/**
+ * The answer line when the day is FULL, in the bars' own words (review 2026-11-19: a full chair day read "500 bookings
+ * already"). "All 500 pieces out" · "5 of 5 orders in progress", joined like freeWords. Null when no bar can say it.
+ */
+export function fullWords(bars: readonly (CountBar | null)[]): string | null {
+  if (bars.length === 0 || bars.some((b) => b === null || b.unread)) return null;
+  const parts = (bars as Exclude<CountBar, { unread: true }>[]).map((b) =>
+    b.kind === 'orders'
+      ? `${n(b.taken)} of ${n(b.total)} ${b.total === 1 ? 'order' : 'orders'} in progress`
+      : `all ${n(b.total)} ${b.total === 1 ? 'piece' : 'pieces'} out`,
+  );
+  const joined = parts.length <= 2 ? parts.join(' and ') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}

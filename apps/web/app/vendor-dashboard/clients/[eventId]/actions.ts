@@ -1523,9 +1523,18 @@ export async function vendorAgreeToLock(formData: FormData) {
         p_quantity: qty,
       });
       const set = (setRaw ?? {}) as { status?: string };
-      if (setErr) console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
+      // 🔒 ANY answer but `ok` STOPS the yes — a failed or refused write must never fall through to
+      // `vendor_agree_to_lock`, which would agree the booking on the couple's number instead of the supplier's.
+      if (setErr) {
+        console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
+        redirect(`${backTo}?lock_agree=error`);
+      }
       if (set.status === 'bad_quantity') redirect(`${backTo}?lock_agree=pieces_needed`);
       if (set.status === 'full') redirect(`${backTo}?lock_agree=pieces_full`);
+      if (set.status !== 'ok') {
+        console.error(`[vendorAgreeToLock] pieces write refused for vendor_id=${eventVendorId}: ${set.status ?? 'no status'}`);
+        redirect(`${backTo}?lock_agree=error`);
+      }
     }
   }
 

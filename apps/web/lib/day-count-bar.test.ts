@@ -61,3 +61,31 @@ test('dayGroupsOf counts a by-the-piece schedule by the SUM of quantities (NULL 
   const [u] = dayGroupsOf(day, { ...base, pools, bookings: [row('a', 200), row('b', null)] });
   assert.equal(u!.bar?.unread, true);
 });
+
+test('a REFUSED count never reads "Free" — the group, the empty row and the day all say it could not be read (review 2026-11-19)', () => {
+  const day = '2027-03-06';
+  const base = { today: '2027-03-01', blocks: [], holds: [], bookings: [] };
+  // The database count was refused (`vendor_day_pool_taken` errored → dbTaken null) and no booking rows came back.
+  const [g] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p1', label: 'Cakes', capacity: 5, style: 'order' as const, dbTaken: null }] });
+  assert.equal(g!.unread, true);
+  assert.notEqual(g!.right.word, 'Free all day', 'a refused count was drawn as a free day');
+  assert.equal(g!.rows.some((r) => r.badge?.word === 'Free'), false, 'the empty row said Free on a refused count');
+  const answer = dayAnswerOfGroups([g!], 0);
+  assert.equal(answer?.word, 'Couldn’t read');
+  assert.equal(answer?.tone, 'warn');
+  // Read fine → the same day is Free, so the test above is about the refusal, not the day.
+  const [ok] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p1', label: 'Cakes', capacity: 5, style: 'order' as const, dbTaken: 0 }] });
+  assert.equal(ok!.unread, false);
+  assert.equal(dayAnswerOfGroups([ok!], 0)?.word, 'Free');
+});
+
+test('a FULL day of pieces or orders says it in their words — never "500 bookings already" (review 2026-11-19)', () => {
+  const day = '2027-03-06';
+  const base = { today: '2027-03-01', blocks: [], holds: [], bookings: [] };
+  const [chairs] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p1', label: 'Chairs', capacity: 500, style: 'piece' as const, dbTaken: 500 }] });
+  const a = dayAnswerOfGroups([chairs!], 0);
+  assert.equal(a?.word, 'Full');
+  assert.equal(a?.line, 'All 500 pieces out');
+  const [cakes] = dayGroupsOf(day, { ...base, pools: [{ poolId: 'p2', label: 'Cakes', capacity: 5, style: 'order' as const, dbTaken: 5 }] });
+  assert.equal(dayAnswerOfGroups([cakes!], 0)?.line, '5 of 5 orders in progress');
+});

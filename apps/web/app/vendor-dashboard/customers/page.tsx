@@ -1413,7 +1413,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
-    supabase.from('vendor_services').select('vendor_service_id, title, availability_style').eq('vendor_profile_id', vendorProfileId),
+    supabase.from('vendor_services').select('vendor_service_id, title, availability_style, daily_capacity').eq('vendor_profile_id', vendorProfileId),
     // 🔒 Step 4: the day's taken count per schedule FROM THE GUARD's own function (`schedule_pool_taken_on`) — one call.
     supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
@@ -1427,9 +1427,9 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const dbTakenOf = (poolId: string, style: string | null | undefined): number | null =>
     poolTaken.error ? null : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
   const cardById = new Map(
-    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
+    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null; daily_capacity: number | null }[]).map((c) => [
       c.vendor_service_id,
-      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null },
+      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null, have: typeof c.daily_capacity === 'number' && c.daily_capacity > 0 ? c.daily_capacity : null },
     ]),
   );
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
@@ -1464,17 +1464,22 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   };
   // 🗓 A schedule's style: the ONE style every card on it books by (Made to order · by the piece). Mixed, Not set or
   // unread → null, and the group keeps today's look. An Always available card is never on the calendar (ruling 4).
-  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string } => {
+  // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a): a by-the-piece group's total is its cards' own "How many do
+  // you have" (`vendor_services.daily_capacity`) — the number the yes and the deposit gate hold to — never the
+  // schedule's "how many a day". A piece card with no number leaves the group without a bar (nothing to count against).
+  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string; have?: number } => {
     if (cardStyles.error) return { style: null };
     const cards = [...new Set([...p.serviceIds, ...bookedToday.filter((b) => b.poolId === p.poolId).map((b) => rowById.get(b.eventVendorId ?? '')?.service_id ?? '')])]
       .filter(Boolean)
       .map((sid) => cardById.get(sid))
-      .filter((c): c is { title: string | null; style: AvailabilityStyle | null } => Boolean(c) && c!.style !== 'none');
+      .filter((c): c is { title: string | null; style: AvailabilityStyle | null; have: number | null } => Boolean(c) && c!.style !== 'none');
     const styles = new Set(cards.map((c) => c.style));
     if (cards.length === 0 || styles.size !== 1) return { style: null };
     const style = [...styles][0] ?? null;
     if (style !== 'order' && style !== 'piece') return { style };
-    return { style, barName: style === 'piece' && cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined };
+    if (style === 'order') return { style };
+    if (cards.some((c) => c.have === null)) return { style: null };
+    return { style, barName: cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined, have: cards.reduce((n, c) => n + (c.have ?? 0), 0) };
   };
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(
@@ -1515,8 +1520,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const groups = dayGroupsOf(day, {
     today: todayIso,
     pools: pools.map((p) => {
-      const st = poolStyle(p);
-      return { poolId: p.poolId, label: p.label, capacity: p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
+      const { have, ...st } = poolStyle(p);
+      return { poolId: p.poolId, label: p.label, capacity: st.style === 'piece' && have !== undefined ? have : p.capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
     }),
     bookings: bookedToday
       // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.

@@ -56,35 +56,6 @@ function clampDailyCapacity(raw: number): number {
   return Math.min(raw, DAILY_CAPACITY_MAX);
 }
 
-/**
- * True when the schedule's cards (its named-calendar members) are all Rented by the piece, Always available ones aside.
- * False on any refused read, or when no card says so — the 500 ceiling stands.
- */
-async function poolRentsPieces(
-  supabase: Awaited<ReturnType<typeof requireVendor>>['supabase'],
-  vendorProfileId: string,
-  poolId: string,
-): Promise<boolean> {
-  const { data: members, error } = await supabase
-    .from('vendor_schedule_calendar_services')
-    .select('vendor_service_id')
-    .eq('vendor_profile_id', vendorProfileId)
-    .eq('pool_id', poolId);
-  const ids = ((members ?? []) as { vendor_service_id: string }[]).map((m) => m.vendor_service_id);
-  // A refused read keeps the 500 ceiling (the safe side) — and says so.
-  if (error) console.error('[poolRentsPieces] schedule cards read failed', error.message);
-  if (error || ids.length === 0) return false;
-  const { data: cards, error: cardErr } = await supabase
-    .from('vendor_services')
-    .select('availability_style')
-    .eq('vendor_profile_id', vendorProfileId)
-    .in('vendor_service_id', ids);
-  if (cardErr) console.error('[poolRentsPieces] card styles read failed', cardErr.message);
-  if (cardErr || !cards) return false;
-  const counted = (cards as { availability_style: string | null }[]).filter((c) => c.availability_style !== 'none');
-  return counted.length > 0 && counted.every((c) => c.availability_style === 'piece');
-}
-
 /** Filter host-supplied service ids down to the ones this vendor actually owns
  *  (Named Calendars service-picker is form data — drop forged/stale ids). */
 async function ownedServiceIds(
@@ -743,12 +714,7 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
     backToCalendar(formData, 'bad_capacity');
   }
 
-  // 🪑 A schedule that rents pieces holds as many as the shop has (Availability step 4, owner ruling 3: no cap above
-  // 500 for pieces). Above 500 only when every counted card on this schedule is Rented by the piece; a refused read
-  // clamps as before.
-  const capacity = raw > DAILY_CAPACITY_MAX && (await poolRentsPieces(supabase, profile.vendor_profile_id, poolId))
-    ? raw
-    : clampDailyCapacity(raw);
+  const capacity = clampDailyCapacity(raw);
 
   const { error } = await supabase
     .from('vendor_schedule_pools')

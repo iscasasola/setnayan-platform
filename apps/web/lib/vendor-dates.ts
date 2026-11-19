@@ -26,7 +26,7 @@
  * prototype draws — Free · Still has room · Full · Not available (`dayAnswerOf`) — because then it is true.
  */
 import type { AvailabilityStyle } from './availability-styles';
-import { countBarKind, countBarOf, freeWords, type CountBar } from './day-count-bar';
+import { countBarKind, countBarOf, freeWords, fullWords, type CountBar } from './day-count-bar';
 import type { CalendarDayState, CalendarDot } from './calendar-grid';
 import type { CustomerCalendarDay } from './vendor-customers';
 import { BOOKED_DATE_HELD_LINE } from './booking-ask-words';
@@ -385,7 +385,10 @@ export function capacityLine(pools: readonly { capacity: number; label?: string 
 
 /* ── THE DAY'S ANSWER (prototype SCREENS.day: "Free · nothing on this day") ─────────────────────────────────── */
 
-export type DayAnswer = { tone: 'ok' | 'warn' | 'bad'; word: 'Free' | 'Still has room' | 'Full' | 'Not available'; line: string };
+export type DayAnswer = { tone: 'ok' | 'warn' | 'bad'; word: 'Free' | 'Still has room' | 'Full' | 'Not available' | 'Couldn\u2019t read'; line: string };
+
+/** 🔒 A refused count is never "Free" (review 2026-11-19): the day's answer when an open schedule's count could not be read. */
+export const DAY_UNREAD_ANSWER: DayAnswer = { tone: 'warn', word: 'Couldn\u2019t read', line: 'how much is booked on this day \u2014 open it again' };
 
 /**
  * The one line under the day's title — what a church helper needs first. Null when the shop has no schedule (then
@@ -440,6 +443,8 @@ export type DayGroup = {
   /** Seats taken (Setnayan + outside) and the schedule's "how many a day". */
   taken: number;
   capacity: number;
+  /** 🔒 Its count was REFUSED (`vendor_day_pool_taken` or a pieces read) — `taken` is then not a number to trust. */
+  unread: boolean;
   /** An all-day closure (or the shop's hold) covers it. */
   closed: boolean;
   /** Its words when closed. */
@@ -523,13 +528,18 @@ export function dayGroupsOf(
         badge: { tone: 'quiet', word: 'Outside' },
       }),
     );
+    if (rows.length === 0 && unreadQty) {
+      rows.push({ key: 'nothing', kind: 'nothing', title: 'Couldn\u2019t read this day', line: 'Open it again to try once more', badge: { tone: 'wait', word: 'Not read' } });
+    }
     if (rows.length === 0) {
       rows.push({ key: 'nothing', kind: 'nothing', title: 'Nothing yet', line: `${plural(p.capacity, 'event fits', 'events fit')}`, badge: { tone: 'ok', word: 'Free' } });
     }
     const left = p.capacity - taken;
     const right: DayGroup['right'] = closed
       ? { tone: 'warn', word: 'Not available' }
-      : left <= 0
+      : unreadQty
+        ? { tone: 'warn', word: 'Couldn\u2019t read' }
+        : left <= 0
         ? { tone: 'bad', word: 'Full' }
         : taken > 0
           ? { tone: 'ok', word: `room for ${left} more` }
@@ -547,6 +557,7 @@ export function dayGroupsOf(
       rows,
       taken,
       capacity: p.capacity,
+      unread: unreadQty,
       closed,
       closedWhy: closed ? (why && why !== 'Unavailable' ? why : held && allDay.length === 0 ? 'held by you' : '') : null,
       parts,
@@ -558,6 +569,8 @@ export function dayGroupsOf(
 export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): DayAnswer | null {
   const open = groups.filter((g) => !g.closed);
   const everyClosed = groups.length > 0 && open.length === 0;
+  // 🔒 One open schedule whose count was refused makes the whole day unknown — never "Free", never "Still has room".
+  if (open.some((g) => g.unread)) return DAY_UNREAD_ANSWER;
   const answer = dayAnswerOf({
     schedules: groups.length,
     capacity: open.reduce((n, g) => n + g.capacity, 0),
@@ -570,6 +583,11 @@ export function dayAnswerOfGroups(groups: readonly DayGroup[], asking: number): 
   if (answer && answer.word === 'Still has room') {
     const free = freeWords(open.map((g) => g.bar ?? null));
     if (free) return { ...answer, line: free };
+  }
+  // A full day of pieces or orders says so in their words, never "500 bookings already".
+  if (answer && answer.word === 'Full') {
+    const full = fullWords(open.map((g) => g.bar ?? null));
+    if (full) return { ...answer, line: full };
   }
   return answer;
 }

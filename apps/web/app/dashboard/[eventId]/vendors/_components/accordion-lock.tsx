@@ -91,7 +91,6 @@ type LockState =
   | {
       kind: 'pieces_select';
       cardName: string;
-      have: number;
       value: string;
       slots: VendorServiceTimeSlot[];
     }
@@ -263,7 +262,7 @@ export function AccordionLockButton({
         slots = [];
       }
       if (pieces) {
-        setState({ kind: 'pieces_select', cardName: pieces.cardName, have: pieces.have, value: pieces.asked ? String(pieces.asked) : '', slots });
+        setState({ kind: 'pieces_select', cardName: pieces.cardName, value: pieces.asked ? String(pieces.asked) : '', slots });
         return;
       }
       afterPieces(slots);
@@ -581,7 +580,6 @@ export function AccordionLockButton({
         <PiecesPickerModal
           vendorName={vendorName}
           cardName={state.cardName}
-          have={state.have}
           value={state.value}
           isPending={isPending}
           onChange={(value) => setState({ ...state, value })}
@@ -1011,11 +1009,11 @@ function ExceptionModal({
 }
 
 /** 🪑 How many pieces the couple needs (owner Q2, 19 Nov) — asked before the lock when the card rents by the piece.
- *  The supplier may change it at their yes; only the yes takes the pieces. */
+ *  The supplier may change it at their yes; only the yes takes the pieces. 🔒 Never says how many the supplier has —
+ *  couples only ever see "available"; the server says whether the number fits. */
 function PiecesPickerModal({
   vendorName,
   cardName,
-  have,
   value,
   isPending,
   onChange,
@@ -1024,7 +1022,6 @@ function PiecesPickerModal({
 }: {
   vendorName: string;
   cardName: string;
-  have: number;
   value: string;
   isPending: boolean;
   onChange: (value: string) => void;
@@ -1032,13 +1029,13 @@ function PiecesPickerModal({
   onDismiss: () => void;
 }) {
   const n = Number(value);
-  const ok = Number.isInteger(n) && n >= 1 && n <= have;
+  const ok = Number.isInteger(n) && n >= 1;
   return (
     <LockPopup label={`How many ${cardName} do you need`} onClose={onDismiss}>
       <div className="space-y-1 pr-8">
         <h3 className="text-sm font-semibold text-ink">How many {cardName} do you need?</h3>
         <p className="text-xs leading-snug text-ink/65">
-          {vendorName} rents these by the piece. They have {have.toLocaleString('en-US')}.
+          {vendorName} rents these by the piece. Say how many you need — you’ll be told at once if that many are available.
         </p>
       </div>
       <label className="mt-4 block text-xs font-medium text-ink/70">
@@ -1047,7 +1044,6 @@ function PiecesPickerModal({
           type="number"
           inputMode="numeric"
           min={1}
-          max={have}
           step={1}
           value={value}
           onChange={(e) => onChange(e.target.value)}

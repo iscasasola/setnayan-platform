@@ -3024,12 +3024,13 @@ export async function finalizeVendor(
 /**
  * 🪑 The pieces ask before the lock (owner Q2, 19 Nov): when the booked card is Rented by the piece, the lock asks
  * "How many do you need". Null = not by the piece, or the read failed (the server still refuses a piece ask with no
- * number — `set_asked_quantity` in finalizeVendor).
+ * number — `set_asked_quantity` in finalizeVendor). 🔒 It never carries how many the supplier HAS: couples only ever see
+ * "available" (the card maker's own promise) — the server answers whether their number fits.
  */
 export async function lockPiecesAsk(
   eventId: string,
   vendorId: string,
-): Promise<{ cardName: string; have: number; asked: number | null } | null> {
+): Promise<{ cardName: string; asked: number | null } | null> {
   if (!eventId || !vendorId) return null;
   const supabase = await createClient();
   const {
@@ -3047,13 +3048,13 @@ export async function lockPiecesAsk(
   if (error || !row?.service_id) return null;
   const { data: card, error: cardErr } = await supabase
     .from('vendor_services')
-    .select('title, availability_style, daily_capacity')
+    .select('title, availability_style')
     .eq('vendor_service_id', row.service_id)
     .maybeSingle();
-  const c = card as { title: string | null; availability_style: string | null; daily_capacity: number | null } | null;
+  const c = card as { title: string | null; availability_style: string | null } | null;
   if (cardErr) console.error('[lockPiecesAsk] card read failed', cardErr.message);
-  if (cardErr || !c || c.availability_style !== 'piece' || !c.daily_capacity) return null;
-  return { cardName: c.title?.trim() || 'pieces', have: c.daily_capacity, asked: row.booked_quantity };
+  if (cardErr || !c || c.availability_style !== 'piece') return null;
+  return { cardName: c.title?.trim() || 'pieces', asked: row.booked_quantity };
 }
 
 export async function listLockTimeSlots(

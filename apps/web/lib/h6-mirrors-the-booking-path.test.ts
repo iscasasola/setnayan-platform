@@ -259,12 +259,23 @@ const PREDICATES: Predicate[] = [
   {
     name: 'full at daily_booking_capacity',
     side: 'pools',
-    // A booking takes its N pieces (N = 1 unless by the piece): used + N > cap. The mirror asks "is there room for
-    // one more" — used >= cap, the same rule at N = 1.
-    booking: /v_used := public\.schedule_pool_taken_on\(v_pool\.pool_id, v_date, p_event_vendor_id\); .*IF v_used \+ v_qty > v_pool\.daily_booking_capacity/,
+    // Every booking that is not by the piece takes one seat: used + 1 > cap. The mirror asks "is there room for one
+    // more" — used >= cap, the same rule.
+    booking: /v_used := public\.schedule_pool_taken_on\(v_pool\.pool_id, v_date, p_event_vendor_id\); .*IF v_style IS DISTINCT FROM 'piece' AND v_used \+ 1 > v_pool\.daily_booking_capacity/,
     mirror: [
       ['active_pool', /p\.daily_booking_capacity AS cap/],
-      ['pool_refused', /schedule_pool_taken_on\(ap\.pool_id, d\.day, NULL\) >= ap\.cap/],
+      ['pool_refused', /ap\.by_piece IS NOT TRUE AND public\.schedule_pool_taken_on\(ap\.pool_id, d\.day, NULL\) >= ap\.cap/],
+    ],
+  },
+  {
+    // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a/2c): a by-the-piece card is held by its CARD's own number,
+    // never its schedule's — on the booking path AND in the mirror, so Discover never hides a card the yes would take.
+    name: "a piece card is held by its card's number, not its schedule's",
+    side: 'pools',
+    booking: /IF v_style = 'piece' THEN .*v_have := public\.service_card_daily_limit\(v_service\); .*public\.service_card_bookings_on\(v_service, v_date, p_event_vendor_id\) \+ v_qty > v_have/,
+    mirror: [
+      ['active_pool', /\(vs\.availability_style = 'piece'\) AS by_piece/],
+      ['capacity_refused', /public\.service_card_bookings_on\(svc\.sid, d\.day\) >= svc\.dcap/],
     ],
   },
   {

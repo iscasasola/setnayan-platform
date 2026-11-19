@@ -239,16 +239,18 @@ async function seats(row: string): Promise<number> {
   return (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.vendor_schedule_pool_bookings WHERE event_vendor_id = $1 AND released_at IS NULL`, [row])).rows[0]!.n;
 }
 
-test('4 · acquire_schedule_pools carries quantity, all or nothing — and an Always available card takes no seat', async () => {
+test('4 · acquire_schedule_pools carries quantity against the CARD\'s number, all or nothing — and an Always available card takes no seat', async () => {
   const shop = await mkShop('Pool Rentals', 'pro');
-  const chairs = await pieceCard(shop.vpid, 900);
-  const pool = await mkPool(shop.vpid, 500);
+  // 🔢 One number for pieces (review 2026-11-19): 500 chairs on the card, on a schedule left at its default "1 a day".
+  // The schedule's 1 never holds pieces — the card's 500 does.
+  const chairs = await pieceCard(shop.vpid, 500);
+  const pool = await mkPool(shop.vpid, 1);
   const first = await booked(shop.vpid, chairs);
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [first]);
   assert.equal((await acquire(first, pool)).status, 'ok');
   const big = await booked(shop.vpid, chairs);
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 200 WHERE vendor_id = $1`, [big]);
-  assert.equal((await acquire(big, pool)).status, 'full', '320 + 200 on a 500 pool was taken');
+  assert.equal((await acquire(big, pool)).status, 'full', '320 + 200 on a 500-chair card was taken');
   assert.equal(await seats(big), 0, 'a refused booking kept a seat');
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 180 WHERE vendor_id = $1`, [big]);
   assert.equal((await acquire(big, pool)).status, 'ok');
@@ -265,9 +267,32 @@ test('4 · acquire_schedule_pools carries quantity, all or nothing — and an Al
   assert.equal(await seats(a) + (await seats(b)), 0);
 });
 
-test('5 · a schedule that rents pieces may hold more than 500', async () => {
+test('5 · ONE number for pieces: a 2,000-chair card on a 1-a-day schedule takes 1,200 at the yes, the deposit gate and the bench alike', async () => {
   const shop = await mkShop('Big Rentals', 'pro');
-  await mkPool(shop.vpid, 2000);
+  const chairs = await pieceCard(shop.vpid, 2000);
+  const pool = await mkPool(shop.vpid, 1);
+  await db.query(
+    `INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`,
+    [chairs, pool, shop.vpid],
+  );
+  const first = await booked(shop.vpid, chairs);
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 800 WHERE vendor_id = $1`, [first]);
+  assert.equal((await acquire(first, pool)).status, 'ok');
+  const row = await ask(couple, shop.vpid, chairs);
+  // The supplier's number: the card's 2,000 holds, not the schedule's 1.
+  assert.equal((await setQty(shop.uid, row, 1200)).status, 'ok', 'the schedule\'s "1 a day" refused pieces the card has');
+  assert.equal((await acquire(row, pool)).status, 'ok', 'the deposit gate held pieces to the schedule\'s number');
+  // The bench mirror agrees: the card is still offered on the day while chairs are left, and hidden once all are out.
+  const hidden = async () =>
+    asService(async () => (await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM public.service_cards_unbookable_on($1::uuid[], $2::date[])`, [[chairs], [DAY]],
+    )).rows[0]!.n);
+  assert.equal(await outOn(chairs), 800, 'only the booked row counts before the yes');
+  assert.equal(await hidden(), 0, 'the bench hid a card with chairs left because its schedule said 1');
+  await db.query(`UPDATE public.event_vendors SET booked_quantity = 2000 WHERE vendor_id = $1`, [first]);
+  assert.equal(await hidden(), 1, 'the bench offered a card with every chair out');
+  // The schedule itself keeps its 1..500 (the cap lift lives on the card's number).
+  await assert.rejects(mkPool(shop.vpid, 2000), /daily_booking_capacity/);
 });
 
 async function askQty(uid: string, row: string, n: number | null): Promise<{ status: string; free?: number }> {

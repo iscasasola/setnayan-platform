@@ -61,6 +61,7 @@
 /dev/offer-maker-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — the Offer Maker on fixture data (Build 6 Lane D), 404 in production
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/open-shop-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/papers-renewal-lab	# 2026-11-16 · internal (dev, prototypes) · a dev-only lab for the papers renewal shots; 404 in production
 /dev/papic-camera-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/personal-invite-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

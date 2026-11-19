@@ -65,6 +65,9 @@ export function FcEffects({ rootId }: { rootId: string }) {
 
     // Reveal on scroll.
     if (!reduce && 'IntersectionObserver' in window) {
+      // Only now may a part wait to be shown: the stylesheet hides a waiting step under `data-fc-motion`, never before.
+      root.setAttribute('data-fc-motion', '');
+      cleanups.push(() => root.removeAttribute('data-fc-motion'));
       const io = new IntersectionObserver(
         (es) =>
           es.forEach((e) => {
@@ -81,7 +84,8 @@ export function FcEffects({ rootId }: { rootId: string }) {
         if (r.top < window.innerHeight && r.bottom > 0) return; // already on screen: never hide it
         el.classList.add('fc-rv');
         const sib = el.parentElement ? Array.prototype.indexOf.call(el.parentElement.children, el) : 0;
-        el.style.transitionDelay = `${Math.min(sib, 5) * 90}ms`;
+        // Reveal's cascade: neighbours 60 ms apart, the first six only (motion standard § 6; `--sn-w-stagger`).
+        el.style.transitionDelay = `calc(var(--sn-w-stagger) * ${Math.min(sib, 5)})`;
         io.observe(el);
       });
       cleanups.push(() => io.disconnect());

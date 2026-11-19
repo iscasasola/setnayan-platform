@@ -45,7 +45,7 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
           Couldn&rsquo;t load your badges just now.
         </p>
       ) : (
-        <ul className="flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-badge-row="">
+        <ul className="sn-glide-x flex snap-x gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-badge-row="">
           {tiles.map((t, i) => (
             <li key={t.key} className="flex-none snap-start">
               <button

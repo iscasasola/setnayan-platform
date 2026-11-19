@@ -1,3 +1,4 @@
+import { PHOTO_ARRIVES } from '@/lib/photo-arrives';
 import Image from 'next/image';
 import { displayAspectAllowed, type FrameShape } from '@/lib/photo-mark-geometry';
 import { framedImageStyle } from '@/lib/photo-frame-display';
@@ -41,10 +42,10 @@ export function MarkedPhoto({
   // aspect — no blurred fill needed.
   const framed = framedImageStyle(src, frame, displayAspect);
   if (framed) {
-    return <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} style={framed} data-framed="" />;
+    return <Image {...PHOTO_ARRIVES} src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} style={framed} data-framed="" />;
   }
   if (displayAspectAllowed(frame, displayAspect)) {
-    return <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
+    return <Image {...PHOTO_ARRIVES} src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} />;
   }
   return (
     <>
@@ -57,7 +58,7 @@ export function MarkedPhoto({
         priority={priority}
         className="scale-110 object-cover blur-xl brightness-75"
       />
-      <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-contain ${className}`} data-marked-whole="" />
+      <Image {...PHOTO_ARRIVES} src={src} alt={alt} fill sizes={sizes} priority={priority} className={`object-contain ${className}`} data-marked-whole="" />
     </>
   );
 }

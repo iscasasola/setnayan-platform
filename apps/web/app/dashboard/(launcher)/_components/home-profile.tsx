@@ -94,12 +94,17 @@ export function HomeProfile({
   };
   // People's number is the people waiting on you — the picker's dot, read as "N asking".
   const hot: Partial<Record<HomeSeg, string>> = asking ? { people: 'asking' } : {};
+  // A number Home asked for and could not read (#7909 follow-up): the picker says "couldn’t count", never a blank.
+  const unread: Partial<Record<HomeSeg, true>> = {
+    ...(eventCount === null ? { events: true as const } : {}),
+    ...(segs.includes('shop') && cardCount === null ? { shop: true as const } : {}),
+  };
   const host = publicHost();
   return (
     <>
       <style>{PROFILE_HEADER_CSS}</style>
       <HomeSegMemory />
-      <HomeSegCountsProvider counts={counts} hot={hot}>
+      <HomeSegCountsProvider counts={counts} hot={hot} unread={unread}>
       <CollapsingTop
         rowHeight={TOP_ROW_H}
         rowAtRest

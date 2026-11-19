@@ -34,6 +34,7 @@ import { formatCount } from '@/lib/format-number';
 import { RequestCardView } from '../queues/_components/request-card-view';
 import { SETTLE_NOTICES } from '../queues/_components/queues-triage-feed';
 import { AdminAskPill } from './admin-ask-pill';
+import { FocusRecents } from './focus-recents';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readBadgeShopList, badgeTraceHref } from '../offers/_surfaces/badges-view';
 
@@ -44,6 +45,7 @@ export const FOCUS_ASK_ANSWERS: Record<string, { question: string; queue?: strin
   papers: { question: 'papers to verify', queue: 'verify', openHref: '/admin/verify', openLabel: 'Papers' },
 };
 import { FocusCardSheet } from './focus-card-sheet';
+import { FocusReceived } from './focus-received';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 type FocusRow = {
@@ -227,6 +229,10 @@ export async function FocusHome({
         </section>
       ) : null}
 
+      {/* From your BDO (owner 2026-11-17, v5 drawing): its own block and cards, in its own file.
+          Hidden while an Ask answer is showing — the answer filters Focus to one list. */}
+      {!answer ? <FocusReceived cardKey={cardKey} /> : null}
+
       {!answer && groups.map((g) => (
         <section key={g.kind} aria-label={FOCUS_KIND_LABEL[g.kind]}>
           <p className="sn-eye mx-4 mb-1 mt-4">
@@ -265,6 +271,9 @@ export async function FocusHome({
           </ul>
         </section>
       ))}
+
+      {/* 🔦 Recent — the last things opened from Focus, under your needs list (Focus at Spotlight level, 18 Nov 2026). */}
+      {!answer ? <FocusRecents /> : null}
 
       {/* The phone's ask box — in the thumb zone, above the home indicator. */}
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+14px)] left-[calc(var(--sn-safe-l)+0.75rem)] right-[calc(var(--sn-safe-r)+0.75rem)] z-30 lg:hidden">

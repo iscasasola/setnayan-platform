@@ -184,6 +184,8 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  admin_received_transactions:
+    'Setnayan\'s own bank record (a transfer that arrived in our BDO, read from an admin screenshot). created_by / matched_by are the STAFF who dropped or matched it — actor stamps; the buyer\'s side of the money is their payments row, which is exported.',
   // ── added 2026-11-08 (service card checks, migration 20271328838140) ──
   card_claim_words:
     'Admin configuration (a claim-word list). The only user column is created_by — the ADMIN who added the word, an actor stamp, not the subject of the row; nothing here was typed by or is about the exporting person.',

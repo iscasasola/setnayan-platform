@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7928
+# facts: 7933
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     644
-#   col       5704
+#   col       5709
 #   policy    1164
 #   view      10
 #   func      402
@@ -6117,9 +6117,11 @@ col	public.vendor_services.demo_batch_id	anon=S authenticated=SIU
 col	public.vendor_services.description	anon=S authenticated=SIU
 col	public.vendor_services.exclusive_perk_text	anon=S authenticated=SIU
 col	public.vendor_services.extra_hour_php	anon=S authenticated=SIU
+col	public.vendor_services.extra_unit_php	anon=S authenticated=SIU
 col	public.vendor_services.gift_pack_code	anon=S authenticated=SIU
 col	public.vendor_services.hour_base_php	anon=S authenticated=SIU
 col	public.vendor_services.includes_setnayan_gift	anon=S authenticated=SIU
+col	public.vendor_services.initial_units	anon=S authenticated=SIU
 col	public.vendor_services.is_active	anon=S authenticated=SIU
 col	public.vendor_services.is_demo	anon=S authenticated=SIU
 col	public.vendor_services.is_linked_only	anon=S authenticated=SIU
@@ -6135,6 +6137,7 @@ col	public.vendor_services.plan_hold	anon=S authenticated=SIU
 col	public.vendor_services.plan_hold_returns_on	anon=S authenticated=SIU
 col	public.vendor_services.plan_hold_starts_on	anon=S authenticated=SIU
 col	public.vendor_services.plan_hold_was_live	anon=S authenticated=SIU
+col	public.vendor_services.price_max	anon=S authenticated=SIU
 col	public.vendor_services.pricing_basis	anon=S authenticated=SIU
 col	public.vendor_services.primary_photo_r2_key	anon=S authenticated=SIU
 col	public.vendor_services.public_id	anon=S authenticated=SIU
@@ -6148,6 +6151,8 @@ col	public.vendor_services.taken_down_reason	anon=S authenticated=SIU
 col	public.vendor_services.title	anon=S authenticated=SIU
 col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
 col	public.vendor_services.transport_included	anon=S authenticated=SIU
+col	public.vendor_services.unit_base_php	anon=S authenticated=SIU
+col	public.vendor_services.unit_word	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU

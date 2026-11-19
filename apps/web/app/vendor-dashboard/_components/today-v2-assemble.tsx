@@ -113,7 +113,7 @@ export function buildTodayV2(i: TodayV2Input): {
     // each set aside for the day with "Not now" like the other gaps.
     ...roomToGrowRows({
       library: { open: i.library, photos: r?.inspirationPhotos ?? null, href: INSPIRATION_LIBRARY_HREF, label: INSPIRATION_LIBRARY_ROW.label },
-      cards: { allowed: r?.cardRoom?.allowed ?? null, made: r?.cardRoom?.made ?? null },
+      cards: { allowed: r?.cardRoom?.allowed ?? null, live: r?.cardRoom?.live ?? null, hidden: r?.cardRoom?.hidden ?? null },
     })
       .filter((g) => !asideKeys(i.aside).has(g.key))
       .map((g) => ({ ...g, tag: { word: 'Your page', page: true }, notNow: true })),

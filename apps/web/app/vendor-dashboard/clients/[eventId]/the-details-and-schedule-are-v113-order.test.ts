@@ -3,7 +3,7 @@
  * `strip+three+hosts+det+acc+sups+dec+forms`; B1 step 6).
  *
  *   1 · Details: strip · numbers · Hosts · the brief + what the couple told you · access request · Suppliers on this
- *       event · Decisions · Forms sent;
+ *       event — then (seven tabs, owner 18 Nov 2026) the Forms body, then Decisions, as parts of the Details tab;
  *   2 · Suppliers come from the brief's `vendor_roster` only — absent (not booked yet) draws nothing, never "none";
  *   3 · Schedule: Appointments sit right after the supplier's part, before the handover (v113: Appointments before the
  *       paperwork), drawn once.
@@ -28,12 +28,18 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 
-test('1 · Details in v113 order', () => {
+test('1 · Details in v113 order — then Forms, then Decisions (seven tabs, 18 Nov)', () => {
   const d = PAGE.slice(PAGE.indexOf('const detailsShipped = ('), PAGE.indexOf('const bodies = pickedPageBodies({'));
-  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', '{coupleAnswersNode}', 'askBlock', '<SuppliersList', '<DetailsDecisions ', '<DetailsFormsDoor'];
+  const order = ['{pipelineBlock}', '<DetailsNumbersRow', '<HostsList', '{overviewNode}', '{coupleAnswersNode}', 'askBlock', '<SuppliersList'];
   const at = order.map((m) => d.indexOf(m));
   at.forEach((i, k) => assert.ok(i >= 0, `Details lost ${order[k]}`));
   for (let k = 1; k < at.length; k++) assert.ok(at[k - 1]! < at[k]!, `${order[k - 1]} is not before ${order[k]}`);
+  assert.equal(d.indexOf('<DetailsDecisions'), -1, 'Decisions is drawn inside the info block again — it goes after Forms');
+  const sw = stripComments(readFileSync(join(HERE, '_pages/switch.tsx'), 'utf8'));
+  const details = sw.slice(sw.indexOf('    details: only('), sw.indexOf('    chat: only('));
+  const parts = ['<DetailsPage', '<FormsPage', '{i.decisions}'].map((m) => details.indexOf(m));
+  parts.forEach((i, k) => assert.ok(i >= 0, `the Details tab lost part ${k}`));
+  assert.ok(parts[0]! < parts[1]! && parts[1]! < parts[2]!, 'Details: their info, then Forms, then Decisions');
 });
 
 test('2 · Suppliers come from the brief’s roster; absent draws nothing', async () => {
@@ -51,7 +57,7 @@ test('2 · Suppliers come from the brief’s roster; absent draws nothing', asyn
 // drawn from the thread's one draw. The no-own-read half of this test moved to `a-client-open-draws-the-thread-once`
 // (which measures it: Details adds 0 requests); here, only that Details mounts it with the thread it already holds.
 test('4 · Decisions is the list in place, mounted with the thread Details already holds (Build 2 #42)', () => {
-  assert.match(PAGE, /<DetailsDecisions threadId=\{threadId\} eventId=\{eventId\} threadSearch=\{pickedCtx\.threadSearch\} \/>/);
+  assert.match(PAGE, /decisions: <DetailsDecisions threadId=\{threadId\} eventId=\{eventId\} threadSearch=\{pickedCtx\.threadSearch\} \/>/);
   const comp = stripComments(readFileSync(join(HERE, '_components/details-decisions.tsx'), 'utf8'));
   assert.match(comp, /<SupplierThreadBody threadId=\{threadId\} view="decisions" search=\{threadSearch\} \/>/, 'the list is not the thread page\u2019s draw');
   assert.doesNotMatch(comp, /\.from\(|fetch\(|supabase/, 'the Decisions body reads on its own');

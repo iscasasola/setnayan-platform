@@ -696,7 +696,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       ) : null}
       <div
         ref={boxRef}
-        className={`sn-chat-onebox flex items-end gap-0.5 rounded-[22px] ${privateTo ? '' : 'bg-[color:var(--m-paper-2)]'} ${wordsMode ? '' : 'focus-within:ring-2 focus-within:ring-sn-accent/30'}`}
+        className={`sn-chat-onebox flex items-end gap-0.5 rounded-3xl ${privateTo ? '' : 'bg-[color:var(--m-paper-2)]'} ${wordsMode ? '' : 'focus-within:ring-2 focus-within:ring-sn-accent/30'}`}
         data-chat-composer-row=""
         data-chat-one-box=""
         {...(wordsMode || feeWordsOnly ? { 'data-chat-words-only': '' } : {})}

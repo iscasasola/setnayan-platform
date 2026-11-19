@@ -1,5 +1,4 @@
 import 'server-only';
-import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { bookingFeePhp } from '@/lib/booking-fee';
@@ -45,35 +44,12 @@ import {
  * proved the viewer may see the quote (the proposal page's own RLS read does).
  */
 
-/**
- * 💝 Does this shop pay the GIFT price (owner 2026-11-04)? Verified-and-up (`tier_state` <> 'free') does; Free pays
- * the list price. The same rule as SQL `vendor_pays_gift_price`, which prices the bill. A failed read answers
- * `false` — the list price, the larger figure — so a preview can never promise a discount the bill withholds.
- */
-export async function fetchVendorPaysGiftPrice(
-  admin: SupabaseClient,
-  vendorProfileId: string | null | undefined,
-): Promise<boolean> {
-  if (!vendorProfileId) return false;
-  const { data, error } = await admin
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  if (error) {
-    console.error('[supabase-error] setnayan-gift: vendor tier for the gift price', error);
-    return false;
-  }
-  const tier = (data as { tier_state?: string | null } | null)?.tier_state;
-  return tierPaysGiftPrice(tier);
-}
-
 /** The live gift ladder, or null when either table could not be read. */
 export async function fetchGiftLadder(admin: SupabaseClient): Promise<GiftRung[] | null> {
   const [catalog, tiers] = await Promise.all([
     admin
       .from('platform_retail_catalog_v2')
-      .select('service_code, retail_price_php, gift_price_php, is_active, retired_at')
+      .select('service_code, retail_price_php, is_active, retired_at')
       .like('service_code', 'PAPIC_GUEST%'),
     admin
       .from('papic_pass_tiers')
@@ -165,10 +141,9 @@ export async function quoteSetnayanGift(
   */
   if (arm !== 'applies' && arm !== 'card_says_no') return null;
 
-  const [schedule, ladder, giftPrice, limitPct] = await Promise.all([
+  const [schedule, ladder, limitPct] = await Promise.all([
     getBookingFeeSchedule(admin),
     fetchGiftLadder(admin),
-    fetchVendorPaysGiftPrice(admin, args.vendorProfileId),
     getGiftLimitPct(admin),
   ]);
   if (!ladder || !giftLadderIsPriceable(ladder)) return null;
@@ -183,7 +158,7 @@ export async function quoteSetnayanGift(
   if (!giftBasisFrom(standing)) return null;
 
   const feeCentavos = Math.round(bookingFeePhp(args.amountCentavos / 100, schedule) * 100);
-  const gift = setnayanGiftForFee(feeCentavos, ladder, { giftPrice, limitPct });
+  const gift = setnayanGiftForFee(feeCentavos, ladder, { limitPct });
   return gift.credits > 0 ? (freeWithBadge ? { ...gift, freeWithBadge: true } : gift) : null;
 }
 

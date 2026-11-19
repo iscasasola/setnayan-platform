@@ -177,11 +177,20 @@ export function tabOfClientPath(raw: unknown, eventId: string): VendorClientTab 
  * `raw` is the form's `return_to`. Honoured only for the two shapes above; the
  * notice query is rebuilt here either way, so a caller can never smuggle one.
  */
+/** Today — the only bare path a deposit answer may return to (Today v2's in-place rows). */
+const TODAY_PATH = '/vendor-dashboard';
+
 export function depositAnswerReturnTo(
   raw: unknown,
   eventId: string,
   notice: Record<string, string> = {},
 ): string {
+  // 📋 TODAY v2 (owner 18 Nov, "keep focus on one task"): a payment confirmed ON a Today row comes back to Today — the
+  // one literal, compared exactly, never a path taken from the form.
+  if (raw === TODAY_PATH) {
+    const q = new URLSearchParams(notice).toString();
+    return q ? `${TODAY_PATH}?${q}` : TODAY_PATH;
+  }
   if (typeof raw === 'string' && THREAD.test(raw)) {
     const params = new URLSearchParams(notice);
     const q = params.toString();

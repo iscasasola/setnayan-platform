@@ -329,7 +329,7 @@ export function StickyMarketplaceHeader({
             <div
               role="group"
               aria-label={`Narrow by ${contextualPill.label.toLowerCase()}`}
-              className="flex min-w-0 flex-1 snap-x snap-mandatory items-center gap-1.5 overflow-x-auto"
+              className="sn-glide-x flex min-w-0 flex-1 snap-x snap-mandatory items-center gap-1.5 overflow-x-auto"
             >
               {contextualPill.options.map((option) => (
                 <Link

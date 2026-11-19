@@ -55,9 +55,13 @@ test('Sort and "＋ Add a category" reach 44 tall', () => {
 test('Expand all and ＋ Add your own are 44 wide on their own face — the shared row draws them (2026-10-22)', () => {
   // ONE THUMB ROW (owner 2026-10-22): the rounds are drawn by `components/thumb-row.tsx` at 44 × 44 — the press IS the
   // face, so no reach past a 40 px face is needed (the old wrapper's job), and the glass ring is drawn INSIDE the round.
-  const call = THUMB.slice(THUMB.indexOf('<ThumbRow'), THUMB.indexOf('/>', THUMB.indexOf('action={{')));
+  const call = THUMB.slice(THUMB.indexOf('<ThumbRow'), THUMB.indexOf('\n      />', THUMB.indexOf('<ThumbRow')));
   assert.match(call, /left=\{\[\s*\{\s*icon: allOpen \? ChevronsDownUp : ChevronsUpDown,/, 'Expand all is not a round of the shared row');
-  assert.match(call, /action=\{\{\s*icon: Plus,/, '＋ Add your own is not the shared row’s main round');
+  // 18–19 Nov 2026: ＋ Add your own is the field's own 🔍 → ＋ icon (a 44 press, `components/search-add.module.css`) and the
+  // empty box's first row (min-h-11).
+  assert.match(call, /onAdd: addTyped,/, 'the field is not the add');
+  assert.match(readFileSync(join(HERE, '..', '..', '..', '..', 'components', 'search-add.module.css'), 'utf8'), /\.icon \{\s*flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px;/, 'the 🔍 → ＋ press is under 44');
+  assert.match(THUMB, /data-find-add-own=""[\s\S]{0,300}min-h-11/, '“Add your own” in the empty box is under 44');
   const css = readFileSync(join(HERE, '..', '..', '..', '..', 'components', 'thumb-row.module.css'), 'utf8');
   assert.match(css, /\.btn:global\(\.ab\) \{ width: 44px; height: 44px; min-width: 44px;/, 'the shared rounds are not 44 × 44');
   assert.match(css, /\.round:global\(\.sn-glass-row\) \{ border-width: 0; box-shadow: inset 0 0 0 1px var\(--sn-glass-line\); \}/, 'the glass edge adds width outside the 44');

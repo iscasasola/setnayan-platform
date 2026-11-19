@@ -100,6 +100,12 @@ import { siteOrigin } from '@/lib/site-origin';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
 import { TOURS } from '@/lib/tours';
 import { readTourSeen } from '@/lib/tour-seen.server';
+import { cookies } from 'next/headers';
+import { readTodayV2 } from '@/lib/supplier-today-v2.server';
+import { forecastForBooking } from '@/lib/booking-fee-disclosure.server';
+import { TODAY_ASIDE_COOKIE, readTodayAside } from '@/lib/today-aside';
+import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { buildTodayV2 } from './_components/today-v2-assemble';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -212,6 +218,8 @@ export default async function VendorOverviewPage({
     date_answer?: string;
     /** `{serviceId}.{badge}` — the card-badge Today line's link (`cardBadgeCongratsHref`): open its congratulations. */
     card_badge?: string;
+    /** `1` — "I delivered this service" answered on a Today row (`vendorMarkServiceComplete`, Today v2). */
+    completed?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -319,6 +327,10 @@ export default async function VendorOverviewPage({
     .catch(() => ({ ok: false }) as const);
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
   // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
+  // 📋 TODAY v2's reads (done today · covers · the Trending hold · Completed bookings · the radar · the grow lines) —
+  // started now, beside wave 1, never a wave of their own (`lib/supplier-today-v2.server.ts`).
+  const v2ReadsP = readTodayV2({ supabase, admin: createAdminClient(), vendorProfileId, todayIso }).catch(() => null);
+  const asideP = cookies().then((c) => readTodayAside(c.get(TODAY_ASIDE_COOKIE)?.value ?? null, todayIso)).catch(() => readTodayAside(null, todayIso));
   const cardBadgeLink = parseCardBadgeCongratsParam(search.card_badge);
   const cardBadgeCongratsP = cardBadgeLink
     ? readCardBadgeCongrats(createAdminClient(), vendorProfileId, cardBadgeLink).catch(() => null)
@@ -720,6 +732,8 @@ export default async function VendorOverviewPage({
                 ? 'note'
                 : 'bad',
         }
+      : search.completed === '1'
+        ? { text: 'Marked as delivered. The couple can now confirm they received it — that opens your review.', tone: 'ok' as const }
       : depositAnswer
         ? {
             text: depositAnswer,
@@ -732,8 +746,44 @@ export default async function VendorOverviewPage({
           }
         : null;
 
+  /*
+    📋 TODAY v2 — "ONE TASK" (owner 18 Nov 2026, `Today, one task` v2, "all picks"). The shipped `view.needs`, split:
+    quick rows answered on the row · rows that open ONE focused screen · the shop's own gaps (recommended, never
+    counted) — plus Done today, the Next badge card, the grow stage and What's trending. 🔒 today-is-one-task.test.ts
+  */
+  const [v2r, aside, feeForecasts] = await Promise.all([
+    v2ReadsP,
+    asideP,
+    Promise.all(
+      needsAnswer
+        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
+        .slice(0, 5)
+        .map(async (c) => [c.eventVendorId, await forecastForBooking(createAdminClient(), { vendorProfileId, eventVendorId: c.eventVendorId }).catch(() => null)] as const),
+    ).then((pairs) => Object.fromEntries(pairs) as Record<string, FeeDisclosure | null>),
+  ]);
+
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
+  const { view: viewV2, v2 } = buildTodayV2({
+    view,
+    needsAnswer,
+    closed: nothingToAnswer,
+    deskIncomplete,
+    billsUnread: feeBillsRead === FEE_BILLS_UNREADABLE,
+    reads: v2r,
+    aside,
+    feeForecasts,
+    payoutReadiness,
+    setupDrawn: setup !== null,
+    verified: shopRow ? shopRow.verified : firstSteps == null,
+    findable: findability.findable,
+    findableHref: findabilityBanner?.cta?.href ?? null,
+    views,
+    inquiries28: data.inquiries28 ?? null,
+    bookedThisMonth: data.bookedThisMonth ?? null,
+    todayIso,
+    library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
+  });
   const { events: eventsYouRun } = await eventsYouRunP;
 
   return (
@@ -748,7 +798,8 @@ export default async function VendorOverviewPage({
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
-        view={view}
+        view={viewV2}
+        v2={v2}
         outcome={outcome}
         shopName={profile.business_name ?? null}
         todayIso={todayIso}
@@ -761,10 +812,8 @@ export default async function VendorOverviewPage({
         setup={setup}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
         // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
-        library={
-          libraryOpen &&
-          !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
-        }
+        // 📋 Today v2 draws it as a task in "Also for your page" (owner 18 Nov), so the Shop group's door is not drawn twice.
+        library={false}
       />
       {/* 🔦 No page tour of its own: the supplier's journey (`supplier_spotlight_v1`, in the supplier frame) is the one
           tour (W1-B14 — the per-page tours were retired 16 Nov 2026). */}

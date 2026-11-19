@@ -37,6 +37,11 @@ test('2 · each service card asks its own daily limit, on its own column', () =>
      Booking terms) instead of a bare number box. The claim is unchanged: each card asks its OWN daily limit, in these
      words, on its own column. */
   assert.match(maker, /export const SAME_DAY_QUESTION = 'How many events a day can this service take\?';/);
-  assert.match(maker, /<FormRow name=\{SAME_DAY_QUESTION\}/);
+  /* 🔁 RE-AIMED 2026-11-19 (Availability plan step 3, owner "ok"): the row's words now come from the card's style —
+     Made to order asks "Orders for one day", Rented by the piece "How many do you have" — and every other card (and a
+     card Not set) still asks SAME_DAY_QUESTION (`cardCountQuestion`, held by lib/availability-styles.test.ts). Same
+     column, same claim. */
+  assert.match(maker, /const ask = cardCountQuestion\(style, SAME_DAY_QUESTION\);/);
+  assert.match(maker, /<FormRow name=\{ask\.name\}/);
   assert.match(maker, /name="daily_capacity"/);
 });

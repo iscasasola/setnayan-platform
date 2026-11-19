@@ -104,7 +104,7 @@ test('5 · the short form: name · price · included · photos first; extras and
   const src = read(MAKER);
   // The JSX attribute (` data-maker-row="…"`), never the save's `[data-maker-row="included"]` selector.
   /* 🔁 RE-AIMED 2026-11-17 (Card Maker HYBRID, owner-approved; drawing `service_card_maker_HYBRID_2026-11-17_fable.html`
-     @ a2542b3 "Proposed"): the first page is Services · Name, then Photos, then Price, the tiers, What's included and
+     @ a2542b3 "Proposed"): the first page is Services · Name, then Photos, then Price, What's included and
      How clients book; More options still holds specialties · extras · the gift. Same claim: one place each, in the order drawn. */
   const first = ['kind', 'name', 'photos', 'price', 'included', 'schedule', 'slots'];
   const order = first.map((k) => src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`)));

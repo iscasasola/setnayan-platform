@@ -9,7 +9,7 @@
  *       with Group › Category under the name;
  *   2 · REMOVES 5 · 7 — How clients book (same day · schedule · slots · book ahead · last-minute) is on the first page,
  *       before More options, with the same field names;
- *   3 · REMOVES 6 — the "What's included · details" fold is the tier grid;
+ *   3 · REMOVES 6 is NOT built — the tier grid has no source in the app, so "What's included · details" stays;
  *   4 · REMOVES 8 — the first page and More options are framed white groups, never hairline topics;
  *   5 · the reservation fee is ONE box, parsed into the first payment's shipped kind + value.
  * REMOVES 1 and 4 (the pinned card; "Couples can see it" into the full card) belong to draft #7860 and are NOT held here.
@@ -39,7 +39,7 @@ test('1 · Services, not "What you offer": one row with Group › Category; the 
 });
 
 test('2 · How clients book is on the first page, before More options, with the shipped fields', () => {
-  const at = MAKER.indexOf('<MakerGroup id="m-terms" label="How clients book">');
+  const at = MAKER.indexOf('<MakerGroup id="m-terms" label="How clients book"');
   assert.ok(at > 0 && at < more, 'How clients book is not on the first page');
   const group = MAKER.slice(at, more);
   for (const piece of ['<SameDayRow', 'data-maker-schedule', '<SlotRows', 'name="recommended_lead_time_months"', 'name="last_minute_end_months"', 'name="last_minute_surcharge_pct"']) {
@@ -49,16 +49,32 @@ test('2 · How clients book is on the first page, before More options, with the 
   assert.ok(!/title="Schedule"/.test(MAKER.slice(more)), 'Schedule is back under More options');
 });
 
-test('3 · the tier grid replaces "What’s included · details"', () => {
-  assert.ok(!/What’s included · details/.test(MAKER), 'the fold is back');
-  const at = MAKER.indexOf('<MakerGroup id="tiers" label="Tiers"');
-  assert.ok(at > 0 && at < MAKER.indexOf('<MakerGroup\n              id="included"'), 'the tiers do not sit between Price and What’s included');
-  assert.match(MAKER, /<TierGrid\s+tiers=\{editing\?\.tiers \?\? null\}/);
+test('3 · no tier grid: "What’s included · details" stays, as shipped, until tiers have a source', () => {
+  // The drawing's REMOVES 6 put a tier grid here, read from `vendor_packages.vendor_service_id`. That column is the
+  // card's OWN ★ Customization package (migration 20271320001366), not a tier above it — so a card's own options were
+  // drawn as "Gold". No tier source exists in the app; the grid waits for its schema.
+  assert.ok(!/TierGrid|service-card-tiers|data-maker-tiers/.test(MAKER), 'the tier grid is back without a tier source');
+  const server = stripComments(readFileSync(join(__dirname, '../../../lib/service-card-maker.server.ts'), 'utf8'));
+  assert.ok(!/from\('vendor_packages'\)/.test(server), 'the maker reads a card’s own package as its tiers again');
+  const at = MAKER.indexOf('<OpensRow name="What’s included · details"');
+  assert.ok(at > more, '"What’s included · details" is not under More options');
+});
+
+test('6 · the shipped words the drawing does not remove are still drawn', () => {
+  assert.match(MAKER, /<header data-maker-head="">/, 'the page header is gone');
+  assert.match(MAKER, /Your service card — price it and say what’s in it\./);
+  for (const group of ['m-terms', 'm-crew', 'm-pay', 'm-who', 'm-live']) {
+    assert.match(MAKER, new RegExp(`<MakerGroup id="${group}" label="[^"]+" line=`), `the "${group}" group lost its summary line`);
+  }
+  // The two pills count what is on the form now — a new card has no saved rows, and said "Add" / "None" with rows typed.
+  assert.match(MAKER, /answer=\{liveCounts\.extras > 0 \?/, 'the Extras pill reads saved rows again');
+  assert.match(MAKER, /answer=\{liveCounts\.slots > 0 \?/, 'the slots pill reads saved rows again');
 });
 
 test('4 · framed white groups, not hairline topics', () => {
   const first = MAKER.slice(MAKER.indexOf('data-maker-first=""'), more);
-  assert.ok((first.match(/<MakerGroup\b/g) ?? []).length >= 6, 'the first page is not framed groups');
+  // Five, not six: the drawing's Tiers group is not built (test 3). Services·Name · Photos · Price · What's included · How clients book.
+  assert.ok((first.match(/<MakerGroup\b/g) ?? []).length >= 5, 'the first page is not framed groups');
   const inMore = MAKER.slice(more, MAKER.indexOf('</Fold>', more));
   assert.ok((inMore.match(/<MakerGroup\b/g) ?? []).length >= 6, 'More options is not framed groups');
   const fn = MAKER.slice(MAKER.indexOf('function MakerGroup('), MAKER.indexOf('function byCategory('));

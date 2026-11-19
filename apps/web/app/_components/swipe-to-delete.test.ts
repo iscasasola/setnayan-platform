@@ -66,7 +66,8 @@ test('4 · a drag’s click is swallowed, an open row’s tap closes it, scroll 
   assert.match(SRC, /touchAction: 'pan-y'/);
   assert.match(SRC, /transform: tx === 0 && !dragging \? undefined/);
   // Closed and still, the red is not drawn at all — no hairline at a rounded row's corners.
-  assert.match(SRC, /\$\{tx === 0 && !dragging \? 'invisible \[transition:visibility_0s_0\.2s\]' : ''\}/);
+  // 🎞 The action hides once the snap back has played — the same token (18 Nov; was a hand-typed 0.2s).
+  assert.match(SRC, /\$\{tx === 0 && !dragging \? 'invisible \[transition:visibility_0s_var\(--sn-m-swipe-snap\)\]' : ''\}/);
   // Named for whom, and reachable by keyboard on a computer.
   const row = SRC.slice(SRC.indexOf('export function SwipeToDelete'), SRC.indexOf('export function useSwipeReveal'));
   assert.equal((row.match(/aria-label=\{label\}/g) ?? []).length, 2, 'the revealed and the hover Delete are both named');

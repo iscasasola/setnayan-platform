@@ -11,6 +11,9 @@
  *   3. Crew or the calendar file is offered where it leads nowhere (before booking · a day with no timed moment);
  *   4. on a computer the page covers the chat again (a full-screen rise), the tab row comes back, or the column loses
  *      its own ←;
+ *   6. the HOST loses Report a problem under ⋯ (it left the (+) on both sides), or gains it by becoming a one-chat page
+ *      before its own build;
+ *   7. the head's search door is turned on while nothing listens (a dead magnifier), or stops firing inside the tap.
  *   5. Details stops drawing the six agreed facts as drawn, or draws an unread one as empty.
  *
  * SABOTAGE (20 Nov 2026, each seen RED then restored): `rows.push({ id: 'report'…` moved above `'details'` (1) ·
@@ -36,6 +39,8 @@ const SHELL = read('app/_components/picked/picked-shell.tsx');
 const CLIENT_SHELL = read('app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx');
 const PAGE = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
 const AGREED = read('app/_components/chat/agreed-now.tsx');
+const HOST_SHELL = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-shell.tsx');
+const NAV = read('app/_components/picked/picked-nav.ts');
 
 const idOf = (r: ReturnType<typeof clientMoreRows>[number]) => (typeof r === 'string' ? r : r.id);
 const BODY = 'a page body';
@@ -98,7 +103,7 @@ test('4 · on a computer a page opens in its own 420 px column beside the chat �
   assert.match(SHELL, /if \(homePage !== null && page !== homePage\) landHome\(\);\s*setExtraId\(id\);/);
   // No tab row at any width, and ⋯ shows on a computer too.
   assert.match(SHELL, /\$\{chatHome \? \(panes \? 'hidden' : 'hidden lg:flex'\) : 'flex'\}/);
-  assert.match(SHELL, /className=\{panes \? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'\} data-picked-more=""/);
+  assert.match(SHELL, /className=\{panes \|\| !chatHome \? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'\} data-picked-more=""/);
   // The house motion: in at Move on the settle curve, out at 80 % of it; reduced motion moves nothing.
   assert.match(SHELL, /const PANE_OUT_MS = MOVE_MS \* 0\.8;/);
   assert.match(SHELL, /\{ duration: MOVE_MS, easing: EASE_SETTLE \}/);
@@ -134,4 +139,25 @@ test('5 · Details › Agreed now draws the six facts as drawn — and never an 
   assert.match(PAGE, /proposalRowsError \? null : isQuoted \? 'Quoted' : 'Inquiry'/, 'a refused quotes read is worded "Inquiry"');
   assert.match(AGREED, /facts=\{facts \? \[agreedEventFact\(event\.event_type, event\.event_date\), \.\.\.facts\] : undefined\}/);
   assert.match(AGREED, /const EVENT_COLS = 'event_date, estimated_pax, final_pax\b[^']*\bevent_type';/);
+});
+
+test('6 · the host has Report a problem under ⋯ too — without becoming a one-chat page before its own build', () => {
+  assert.match(HOST_SHELL, /const HOST_MORE: readonly PickedMoreRow<PickedSupplierPage>\[\] = \[\{ id: 'report', label: 'Report a problem', icon: TOPIC_ICON\.report, page: 'report' \}\];/);
+  assert.match(HOST_SHELL, /more=\{HOST_MORE\}/);
+  assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
+  // The shell draws ⋯ from either list, hides a row whose page the menu lacks, and never offers a page of its own
+  // (`body`) where there is no chat-as-home for it to open over.
+  assert.match(SHELL, /\(chatHome \? chatHome\.more : more\)\.flatMap\(/);
+  assert.match(SHELL, /if \('body' in row && !chatHome\) return \[\];/);
+  assert.match(SHELL, /\{moreMenu\.length > 0 \? \(\s*<Sheet open=\{moreOpen\}/, 'the ⋯ sheet is drawn only for a one-chat side');
+});
+
+test('7 · the head’s search door is a marked slot: it asks the chat inside the tap, and is off until the chat listens', () => {
+  assert.match(NAV, /export const PICKED_CHAT_SEARCH_EVENT = 'sn:picked-chat-search';/);
+  assert.match(SHELL, /\{headSearch && \(workPage === headSearch\.page \|\| split\) \? \(/, 'the magnifier shows while the chat is not on show');
+  assert.match(SHELL, /onClick=\{\(\) => window\.dispatchEvent\(new CustomEvent\(PICKED_CHAT_SEARCH_EVENT, \{ detail: \{ pickedId \} \}\)\)\}/, 'the ask leaves the tap (a phone would not raise its keyboard)');
+  assert.match(SHELL, /headSearch = null,/);
+  // 🔌 Turn it on (and delete these two lines) in the SAME change that makes the chat listen for the event.
+  const listens = read('app/_components/chat-message-stream.tsx').includes('PICKED_CHAT_SEARCH_EVENT');
+  for (const [name, src] of [['supplier', CLIENT_SHELL], ['host', HOST_SHELL]] as const) assert.ok(listens || !/headSearch=/.test(src), `the ${name} side draws a magnifier nothing answers`);
 });

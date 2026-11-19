@@ -59,7 +59,7 @@ test('1 · the chat is the page: no tab row on a phone, and the chat is the one 
   assert.match(SHELL, /on = !\(homePage !== null && !split\) && !!t && !t\.closest\(PAGE_SWIPE_SKIP\)/);
   // The name is the door to Details; ⋯ holds the rest — a phone, and a computer whose pages open beside the chat.
   assert.match(SHELL, /onClick=\{\(\) => nav\.select\(chatHome\.titleOpens\)\}/);
-  assert.match(SHELL, /className=\{panes \? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'\} data-picked-more=""/);
+  assert.match(SHELL, /className=\{panes \|\| !chatHome \? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'\} data-picked-more=""/);
 });
 
 test('2 · every other page RISES over the chat through the one full screen, and closing it lands on the chat', () => {

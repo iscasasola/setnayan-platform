@@ -40,7 +40,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, MoreHorizontal, X, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Search, X, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
@@ -51,7 +51,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { EASE_SETTLE, MOVE_MS, QUICK_MS } from '@/lib/motion-table';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
-import { nextPanelTabId, PickedCoveredContext, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PICKED_CHAT_SEARCH_EVENT, PickedCoveredContext, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -147,6 +147,18 @@ export type PickedShellProps<P extends string> = {
   sideChat?: { page: P; workDefault: P } | null;
   /** ➡ A row pinned on top of the chat page (the supplier's Next step), wherever the chat is drawn. */
   chatTop?: ReactNode;
+  /**
+   * ⋯ Rows behind the head's More for a side WITHOUT `chatHome` (the host's picked supplier, which keeps its tabs until
+   * its own build): shown at every width. Only `page` · `href` · `file` rows — a page of its own (`body`) needs the chat
+   * as home to open over. With `chatHome`, its own `more` is the list and this is ignored.
+   */
+  more?: readonly PickedMoreRow<P>[];
+  /**
+   * 🔎 The magnifier in the head, while the chat page is on show (drawing UNICHAT-LIVE: search sits in the chat header,
+   * which is this shell). It only ASKS the chat to open its own search (`PICKED_CHAT_SEARCH_EVENT`, `picked-nav.ts`).
+   * Off unless a side passes its chat page — and no side should until the chat listens (part D's file).
+   */
+  headSearch?: { page: P } | null;
   /** The part of its page a door id lands on (`payments` → `#payments` on Book & Budget); absent = the page's top. */
   anchorOf?: (raw: string) => string | null;
   /**
@@ -228,6 +240,8 @@ function hashId(hash: string): string {
   }
 }
 
+const NO_MORE_ROWS: readonly never[] = [];
+
 export function PickedShell<P extends string>({
   pickedId,
   title,
@@ -248,6 +262,8 @@ export function PickedShell<P extends string>({
   closeAs = null,
   sideChat = null,
   chatTop = null,
+  more = NO_MORE_ROWS,
+  headSearch = null,
   anchorOf,
   chatHome = null,
 }: PickedShellProps<P>) {
@@ -319,14 +335,16 @@ export function PickedShell<P extends string>({
   // A row that names a menu page shows only while the menu has that page; a row with no page behind it always shows.
   const moreMenu = useMemo(
     () =>
-      (chatHome?.more ?? []).flatMap((row): PickedMoreItem<P>[] => {
+      (chatHome ? chatHome.more : more).flatMap((row): PickedMoreItem<P>[] => {
         if (typeof row === 'string') {
           const m = menu.find((x) => x.id === row);
           return m ? [{ id: m.id, label: m.label, icon: icons[m.id], page: m.id }] : [];
         }
+        // A page of its own opens over the chat as home — without `chatHome` there is nowhere for it to open.
+        if ('body' in row && !chatHome) return [];
         return 'page' in row && !menu.some((m) => m.id === row.page) ? [] : [row];
       }),
-    [chatHome, menu, icons],
+    [chatHome, more, menu, icons],
   );
   const extra = useMemo(() => {
     const row = extraId === null ? undefined : moreMenu.find((r) => r.id === extraId);
@@ -705,8 +723,21 @@ export function PickedShell<P extends string>({
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
           {/* ⋯ The places the strip does not open (drawing v3; part G, 20 Nov: trade pages · Files · Hub · Crew · calendar ·
               Report). On a phone always; on a computer too once pages open beside the chat (`pane` — no tab row there). */}
-          {chatHome && moreMenu.length > 0 ? (
-            <span className={panes ? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'} data-picked-more="">
+          {/* 🔎 The chat's search, asked for from the head (the slot — see `PICKED_CHAT_SEARCH_EVENT`). Only while the
+              chat is on show; the event goes out inside the tap so the chat can focus its box in the same gesture. */}
+          {headSearch && (workPage === headSearch.page || split) ? (
+            <ActionButton
+              tone="neutral"
+              iconOnly
+              icon={Search}
+              label="Search in this chat"
+              onClick={() => window.dispatchEvent(new CustomEvent(PICKED_CHAT_SEARCH_EVENT, { detail: { pickedId } }))}
+              data-testid="picked-head-search"
+              data-picked-head-search=""
+            />
+          ) : null}
+          {moreMenu.length > 0 ? (
+            <span className={panes || !chatHome ? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'} data-picked-more="">
               <ActionButton tone="neutral" iconOnly icon={MoreHorizontal} label="More" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)} data-testid="picked-more" />
             </span>
           ) : null}
@@ -836,7 +867,7 @@ export function PickedShell<P extends string>({
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
       <div ref={setThumbHost} data-picked-thumb-layer="" />
       {/* ⋯ The pages behind the head's More — rows, the row itself is the press. */}
-      {chatHome ? (
+      {moreMenu.length > 0 ? (
         <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} labelledById={moreHeadingId} rise>
           <div className="px-5 pb-5 pt-5" data-picked-more-sheet="">
             <h2 id={moreHeadingId} className="pr-12 text-[17px] font-semibold text-ink">

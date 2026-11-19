@@ -13,6 +13,19 @@ export type PickedShellNav = { select: (page: string) => void; page: string };
 export const PickedNavContext = createContext<PickedShellNav | null>(null);
 
 /**
+ * 🔎 THE HEAD'S SEARCH DOOR → THE CHAT'S OWN SEARCH (Unichat part G for part D, 20 Nov 2026; drawing UNICHAT-LIVE: "the
+ * magnifier in the header"). The search itself lives in the chat (`lib/chat-search.ts`, part D — the box, the count, the
+ * steps); the header is the shell. The shell's magnifier (`headSearch`) says so with this event on `window`, fired
+ * INSIDE the tap, so the chat can open its box and focus it in the same gesture (a phone raises its keyboard only
+ * from one). `detail.pickedId` is the shell's `pickedId` — a chat under another picked screen ignores it.
+ *
+ * 🔌 THE SLOT: nothing listens yet on this branch. The chat's side is one effect in `chat-message-stream.tsx` (part D's
+ * file): `window.addEventListener(PICKED_CHAT_SEARCH_EVENT, () => openSearch())`. Until that lands no side turns
+ * `headSearch` on — a magnifier that opens nothing would be a dead control.
+ */
+export const PICKED_CHAT_SEARCH_EVENT = 'sn:picked-chat-search';
+
+/**
  * ⌨ The page menu's arrow keys (WAI-ARIA tabs): → / ← step ONE page by its own id, wrapping round; Home / End jump to
  * the first / last. Carried over from the retired two-sided workspace strip (controller, 2026-10-08: the handler was
  * once handed the tab's PLACE and skipped a page) — the rule is given an id, never an index. Any other key: null, left

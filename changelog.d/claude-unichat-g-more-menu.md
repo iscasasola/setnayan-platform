@@ -13,6 +13,10 @@ Owner 20 Nov 2026: *"build it now, I am happy with the design"* (drawing `build-
 
 **Details › Agreed now, as drawn.** Six plain rows above the shipped "Changed N×" rows: Event · Venue · Hosts · Coordinator · Supplier · Stage. Every one is a fact the page already read (the Event row adds one column, `event_type`, to the card's existing event read). An unread fact draws no row — no hosts key, no roster before booking, a refused quotes read — never "None" or a guessed "Inquiry".
 
+**The host's side gets the same row.** *Report a problem* left the (+) on both sides, so the host's picked supplier now has a ⋯ with that one row (the shipped Report page). The host keeps its tab row until its own one-chat build — the shell takes ⋯ rows from a side without `chatHome` (`more`).
+
+**The head's search door is a marked slot, off.** The drawing puts the magnifier in the chat header, which is the shell; the search itself is the chat's (part D, `lib/chat-search.ts`). The shell can now draw the magnifier (`headSearch`) and ask the chat to open its box inside the tap (`PICKED_CHAT_SEARCH_EVENT`, `picked-nav.ts`). Nothing listens on this branch — the listener is one effect in part D's `chat-message-stream.tsx` — so no side turns it on yet (guarded: a side may pass `headSearch` only once the stream names the event).
+
 **Not built — needs a data change:** *Mute this chat*. Nothing stores a per-person, per-chat mute today, so no row is drawn (a row with nothing behind it would be a dead control). *Call · Viber* and the drawn *Crew for the day* picker (who is going + call time) are part H.
 
 Files: `app/_components/picked/picked-shell.tsx` (`PickedMoreRow`, `chatHome.pane`, the column) · `clients/[eventId]/_components/picked-client-more.ts` (new, pure) · `picked-client-shell.tsx` · `clients/[eventId]/page.tsx` · `_pages/context.ts` · `_pages/details.tsx` · `app/_components/chat/agreed-now.tsx` · `lib/agreed-facts.ts` (new).

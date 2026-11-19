@@ -66,21 +66,40 @@ export async function saveLowest(threadId: string, centavos: number | null): Pro
   if (!key) return { ok: false, message: 'Couldn’t save that. Try again.' };
   const supabase = createClient();
   if (centavos === null || centavos <= 0) {
-    const { error } = await supabase.from('vendor_proposal_lowest').delete().eq('event_id', key.event_id).eq('vendor_profile_id', key.vendor_profile_id);
+    const { error, count } = await supabase
+      .from('vendor_proposal_lowest')
+      .delete({ count: 'exact' })
+      .eq('event_id', key.event_id)
+      .eq('vendor_profile_id', key.vendor_profile_id);
     if (error) return { ok: false, message: 'Couldn’t clear that. Try again.' };
+    /* 🔒 A ZERO-ROW DELETE IS NOT SUCCESS (house rule, "a zero row update is success shaped"). RLS refuses a delete by
+       matching nothing — no error. If this chat held a lowest and nothing was removed, the clear did not happen: say so
+       and read the real value back, never show an empty row the database still disagrees with. */
+    const had = states.get(threadId);
+    if ((count ?? 0) === 0 && had?.at === 'ok' && had.centavos != null) {
+      console.warn('[lowest] clear: 0 rows');
+      void loadLowest(threadId, true);
+      return { ok: false, message: 'Couldn’t clear that — your role may not change it.' };
+    }
     set(threadId, { at: 'ok', centavos: null });
     return { ok: true };
   }
   const { data: who } = await supabase.auth.getUser();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('vendor_proposal_lowest')
     .upsert(
       { event_id: key.event_id, vendor_profile_id: key.vendor_profile_id, lowest_centavos: Math.round(centavos), updated_by: who.user?.id ?? null, updated_at: new Date().toISOString() },
       { onConflict: 'vendor_profile_id,event_id' },
-    );
+    )
+    .select('lowest_centavos');
   if (error) {
     console.warn('[lowest] save:', error.code || error.message);
     return { ok: false, message: 'Couldn’t save that. Try again.' };
+  }
+  // 🔒 The write must hand its row back; a write that touched nothing is not a save.
+  if (!data || data.length === 0) {
+    console.warn('[lowest] save: 0 rows');
+    return { ok: false, message: 'Couldn’t save that — your role may not change it.' };
   }
   set(threadId, { at: 'ok', centavos: Math.round(centavos) });
   return { ok: true };

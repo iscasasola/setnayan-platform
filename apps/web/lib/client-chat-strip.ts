@@ -171,7 +171,7 @@ export function decisionsBox(waiting: number | null | undefined): StripBox {
   if (waiting === null) return failed('decisions', 'Decisions', 'decisions');
   if (waiting === undefined) return { key: 'decisions', label: 'Decisions', value: 'Checking…', tone: 'quiet', door: 'decisions', failed: false };
   if (waiting > 0) return { key: 'decisions', label: 'Decisions', value: `${waiting.toLocaleString('en-PH')} waiting on you`, tone: 'needs', door: 'decisions', failed: false };
-  return { key: 'decisions', label: 'Decisions', value: 'None waiting on you', tone: 'quiet', door: 'decisions', failed: false };
+  return { key: 'decisions', label: 'Decisions', value: 'None open', tone: 'quiet', door: 'decisions', failed: false };
 }
 
 /**

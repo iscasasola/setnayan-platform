@@ -27,7 +27,7 @@ export function UnderLowestLine({ threadId, totalCentavos }: { threadId: string;
   return (
     <div className="text-[13px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }} role="status" data-under-lowest="">
       <InfoTip label={`Under your lowest, ${lowest}`} align="start">
-        Your lowest: {lowest}. Only you see this. Change it in Every version.
+        Your lowest: {lowest}. Only you see this. Change it in your quote.
       </InfoTip>
     </div>
   );

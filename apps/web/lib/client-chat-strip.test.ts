@@ -3,7 +3,7 @@
  * CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING"; drawing S9ScH2Ps v3, screens 2 · 7 · 11).
  *
  * What would silently undo it:
- *   1. a refused read drawn as a figure — "₱0 of ₱45,000", "0 open", "None waiting on you", "Nothing set yet";
+ *   1. a refused read drawn as a figure — "₱0 of ₱45,000", "0 open", "None open", "Nothing set yet";
  *   2. "all paid" (or a full bar) with no amount ever agreed;
  *   3. before booking: the quote's box not turning into the Deal when the hosts counter — or showing a counter that
  *      could not be read as "nobody countered";
@@ -75,7 +75,7 @@ test('1 · a refused read says so in the danger colour, and the box retries — 
   assert.deepEqual([d.value, d.failed, d.tone], [STRIP_FAILED_WORDS, true, 'danger']);
   assert.equal(decisionsBox(undefined).value, 'Checking…', 'not counted yet is not "none"');
   assert.deepEqual([decisionsBox(1).value, decisionsBox(1).tone], ['1 waiting on you', 'needs']);
-  assert.equal(decisionsBox(0).value, 'None waiting on you');
+  assert.equal(decisionsBox(0).value, 'None open');
 });
 
 test('2 · never a bar, "of ₱0" or "All paid" when no amount was agreed', () => {

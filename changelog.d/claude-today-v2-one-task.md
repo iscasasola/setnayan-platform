@@ -1,0 +1,44 @@
+## 2026-11-18 · feat(supplier-today): Today v2 — one task at a time, the app does the thinking
+
+Owner, 18 Nov, on the supplier Today: *"so many text. so confusing. i just wanted to reply to a review … keep focus on
+one task … when i log in, ill just finish all that is here and i am good for the day"* — then *"all picks"* on the
+drawing `Today, one task` v2 (artifact F4vQbaCwFtu2iawYd2r6q2).
+
+- **Quick kinds answer on the row** (review · logged payment · date change · event finished · meeting time), with the
+  shipped forms in `overview-sections.tsx`, one row open at a time; after a review reply the next waiting review opens
+  with "✓ Reply posted". Reverses the 8 Nov "every Today row jumps" rule for these five kinds only.
+- **Bigger kinds open ONE focused screen** (the shipped `SupplierOpenRow` rise) — inquiry, message, booking ask (fee
+  read before Agree via `forecastForBooking`), cancel request, quote/contract draft, lapsed ask ("Got it"), dispute.
+  ✕ returns to Today with the task still listed.
+- Cover says "N tasks today · N of M done" with pips, or "✓ You're done for today"; a **Done today** list read off the
+  columns that already stamp each answer (no new table). An unread desk still never says done.
+- Every row names the badge it moves, or "Your page"; a **Next badge** card (Completed bookings, one RPC); **Grow your
+  business** (five stages); **Also for your badges and your page** (permit, payout, findable, credit/gift with "Not
+  now", a card with no cover) — not counted; **What's trending** from the demand radar + Trending Now holds.
+- Confirm-payment and I-delivered answered on Today now come back to Today (one exact `return_to` literal each).
+- **The shop's room to grow, as tasks** (owner 18 Nov, same day: *"we want tasks on inspiration library · or if you
+  have a plan and there is more service cards to do … deplete their cards"*): "Add to the inspiration library" moves
+  from a door under the Shop row into the Today list (with the count of approved photos), and "You can make N more service cards · Your plan holds X · you have Y" opens the card maker — counted exactly as
+  the create gate counts them (#7975's `serviceCardsTotal`, a founder unlimited, every card but a branch copy), so the
+  row never offers a card the maker would refuse. Neither row counts toward done; both take "Not now". An unread
+  allowance or count draws no cards row.
+- Admin › Settings: two new owner lines, "Few inquiries — in 28 days" and "Few bookings — this month". Blank = off.
+
+Migration `20271350875090_grow_lines_on_today_are_the_owners.sql`: two nullable INTEGER columns on `platform_settings`
+(the `drive_speed_kmh` pattern) — no new table, no new RLS.
+
+SPEC IMPACT: DECISION_LOG row "TODAY v2 BUILT" — the 8 Nov "every Today row jumps" rule no longer holds for the five
+quick kinds; the two grow cut-offs live on Admin › Settings, blank = off.
+
+- **Cards row: OFF for now (owner 2026-11-19).** "we already agreed they can add as many … so we can motivate them to
+  upgrade" — making cards is unlimited; the plan limits LIVE cards. The row returns as "You can turn on N more" once the
+  plans fix moves the limit to live cards. Until then nothing is read and no cards row is drawn.
+- **Review hold, 19 Nov — a part that could not be read is never drawn as an absence.** (1) Unreadable fee bills block
+  "You're done for today" and say "Couldn't load your booking fees just now"; the tasks that were read still count.
+  (2) A refused Done-today read is "not read": no "N of M done", no pips, and a note on the list — never 0 done.
+  (3) Done today counts every answer that leaves the list — payment declined, inquiry accepted or declined, a meeting
+  time answered, a cancel request answered — so "N of M" only grows. (A dispute is not counted on purpose: it leaves
+  the list when the couple accepts the re-sent work, not by the supplier's answer.) (4) A refused service-cards read is
+  unread, so the grow plan is not moved past stage 2 on a guess. (5) The heading and the cover count fee bills the same
+  way: each bill is one task. Tests: `lib/supplier-today-v2.test.ts` R1–R4 and
+  `_components/today-v2-reads-are-honest.test.ts`, each seen red against its fix being broken.

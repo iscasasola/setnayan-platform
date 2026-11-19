@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1917
-# tables: 515
-# columns: 6201
-# notnull: 3744
+# ledger: 1919
+# tables: 516
+# columns: 6207
+# notnull: 3748
 [ledger]
 20260512000000
 20260513000000
@@ -1928,7 +1928,9 @@
 20271350427190
 20271350444634
 20271350575211
+20271350875090
 20271350937606
+20271351728222
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -5798,6 +5800,8 @@ platform_settings.gift_limit_pct
 platform_settings.google_drive_oauth_client_id
 platform_settings.google_drive_oauth_redirect_uri
 platform_settings.google_picker_api_key
+platform_settings.grow_few_bookings_month
+platform_settings.grow_few_inquiries_28d
 platform_settings.id
 platform_settings.ig_user_id
 platform_settings.launch_offer_booking_cap
@@ -6657,6 +6661,10 @@ vendor_admin_motions.status
 vendor_admin_motions.target_member_id
 vendor_admin_motions.target_user_id
 vendor_admin_motions.vendor_profile_id
+vendor_album_opens.album_key
+vendor_album_opens.album_kind
+vendor_album_opens.opened_at
+vendor_album_opens.vendor_profile_id
 vendor_availability_freed.blocked_at
 vendor_availability_freed.blocked_until
 vendor_availability_freed.day_part
@@ -10971,6 +10979,10 @@ vendor_admin_motions.status
 vendor_admin_motions.target_member_id
 vendor_admin_motions.target_user_id
 vendor_admin_motions.vendor_profile_id
+vendor_album_opens.album_key
+vendor_album_opens.album_kind
+vendor_album_opens.opened_at
+vendor_album_opens.vendor_profile_id
 vendor_availability_freed.day_part
 vendor_availability_freed.freed_at
 vendor_availability_freed.id

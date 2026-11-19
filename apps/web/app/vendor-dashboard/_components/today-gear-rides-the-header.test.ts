@@ -92,7 +92,9 @@ test('3 · Today hands the header its ⚙, and the first screen none — no ride
 
 test('4 · one mount: the header and the new shop’s setup only', () => {
   const portfolio = read('collections/_components/portfolio-view.tsx');
-  assert.match(portfolio, /useHeroPin\(/, 'Portfolio left the shared pin');
+  // UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): Portfolio has no header, so nothing of
+  // its hands off to a pinned row — it no longer uses the pin at all.
+  assert.doesNotMatch(portfolio, /useHeroPin\(/, 'Portfolio has a header (and its pin) again');
   const seats: string[] = [];
   const walk = (dir: string) => {
     for (const name of readdirSync(dir)) {

@@ -35,7 +35,7 @@ const packs: ShopGiftPack[] = [
   { code: 'PAPIC_GUEST_1000', title: 'Papic 1000', kind: 'papic', credits: 1000, srpCentavos: 49900 },
   { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900 },
 ];
-const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra });
+const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra, packs: {} });
 
 test('a badge reward never counts toward the gift, per kind (v4 answer 3)', () => {
   assert.deepEqual(boughtFreeByKind(stock(1200, 2), stock(300, 1)), stock(900, 1));
@@ -132,7 +132,7 @@ test('the gift step reads the same stock read as Your gifts', () => {
     packs,
     canBuy: true,
     openRails: [{ id: 'gcash', label: 'GCash' }],
-    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0 } },
+    rewards: { left: { papic: 150, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} } },
   });
   assert.equal(d.free?.papic, 1050);
   assert.equal(d.rewardLeft.papic, 150);

@@ -27,7 +27,9 @@ import { fileURLToPath } from 'node:url';
 
 import { stripComments } from './strip-comments';
 import {
+  DAILY_CAPACITY_MAX,
   PORTFOLIO_FREE_BASE,
+  WAITLIST_SETTING_MAX,
   PORTFOLIO_OVER_BASE_MESSAGE,
   portfolioOverCapMessage,
   TIER_CAPS,
@@ -68,19 +70,19 @@ function readersOf(key: string): string[] {
     .sort();
 }
 
-// ── 1 · service cards per category, by plan (owner 2026-11-04) ─────────────────
+// ── 1 · service cards IN TOTAL, by plan (owner 2026-11-18) ─────────────────────
 
-test('1 · every plan can put up a card in each category it covers; the rungs are the owner\'s', () => {
-  // Owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES", verbatim: "service cards free 1, solo 3, pro 10, ultra
-  // unlimited" — supersedes the 2026-10-23 "at least 3 per category" for Free·Verified.
+test('1 · every plan can put up a card; the totals are the owner\'s', () => {
+  // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" + "SUPPLIER CARDS: MAX 80, ULTRA 200", verbatim: "max 80
+  // cards / ultra 200 cards". Cards are counted IN TOTAL across categories (supersedes the per-category allowance).
   for (const t of VENDOR_TIERS) {
-    assert.ok(TIER_CAPS[t].servicesPerLeaf >= 1, `${t} allows ${TIER_CAPS[t].servicesPerLeaf} per category — a shop could not be booked at all`);
+    assert.ok(TIER_CAPS[t].serviceCardsTotal >= 1, `${t} allows ${TIER_CAPS[t].serviceCardsTotal} cards — a shop could not be booked at all`);
   }
-  assert.equal(TIER_CAPS.free.servicesPerLeaf, 1);
-  assert.equal(TIER_CAPS.verified.servicesPerLeaf, 1);
-  assert.equal(TIER_CAPS.solo.servicesPerLeaf, 3);
-  assert.equal(TIER_CAPS.pro.servicesPerLeaf, 10);
-  assert.equal(TIER_CAPS.enterprise.servicesPerLeaf, 30); // Ultra raised 2026-11-14 "SIMPLER SUPPLIER PLANS" (25 since 2026-11-04)
+  assert.equal(TIER_CAPS.free.serviceCardsTotal, 1);
+  assert.equal(TIER_CAPS.verified.serviceCardsTotal, 3);
+  assert.equal(TIER_CAPS.solo.serviceCardsTotal, 10);
+  assert.equal(TIER_CAPS.pro.serviceCardsTotal, 20);
+  assert.equal(TIER_CAPS.enterprise.serviceCardsTotal, 80); // Max (today's top plan, renamed by the owner 2026-11-18)
 });
 
 // ── 2 · no per-day booking cap, no weekly answering cap ────────────────────────
@@ -117,26 +119,15 @@ test('2b · no shipped code reads the per-day or weekly cap to refuse anything',
   assert.ok(readers.includes('lib/vendor-tier-caps.ts'), 'the reader scan found nothing — it is not scanning');
 });
 
-test('2c · ONE CARD’S bookings per date is a plan allowance (owner 2026-11-06) — the shop’s day is still not', () => {
-  // Owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A PLAN ALLOWANCE", verbatim: "Supplier Plus has 1 per
-  // date/service, pro has 3 per date/service, ultra has 5 per date/service". It caps ONE card's day; 2a above (no limit
-  // on a SHOP's bookings a day, `slotsPerDay`) stands, and every plan can still take a booking on every card.
-  assert.equal(TIER_CAPS.solo.bookingsPerDatePerService, 1);
-  assert.equal(TIER_CAPS.pro.bookingsPerDatePerService, 3);
-  assert.equal(TIER_CAPS.enterprise.bookingsPerDatePerService, 10); // Ultra raised 2026-11-14 "SIMPLER SUPPLIER PLANS" (was 5)
+test('2c · bookings per date are NOT a plan limit on any plan (owner 2026-11-18, ruling 17)', () => {
+  // Owner, verbatim: "a cake business can handle 30 cakes in a day. So they need to purchase unlimited from us. I think
+  // that is wrong pricing." Reverses 2026-11-06. The shop's own number governs, up to the setting's ceiling (500).
   for (const t of VENDOR_TIERS) {
-    assert.ok(TIER_CAPS[t].bookingsPerDatePerService >= 1, `${t}: a card could take no booking at all`);
+    assert.equal('bookingsPerDatePerService' in TIER_CAPS[t], false, `${t} carries a plan cap on bookings per date again`);
   }
-  // Owner click 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE — FREE AND VERIFIED": "1 each, like Supplier Plus.
-  // Completes the allowance: Free 1 · Verified 1 · Supplier Plus 1 · Pro 3 · Ultra 5."
-  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, 1);
-  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, 1);
-  assert.equal(TIER_CAPS.free.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Free is "like Supplier Plus"');
-  assert.equal(TIER_CAPS.verified.bookingsPerDatePerService, TIER_CAPS.solo.bookingsPerDatePerService, 'Verified is "like Supplier Plus"');
-  // The allowance is complete: no plan may fall back to an "unruled" ceiling any more.
-  for (const t of VENDOR_TIERS) {
-    assert.ok(TIER_CAPS[t].bookingsPerDatePerService <= 10, `${t}: no plan takes more than Ultra's 10 (2026-11-14; nothing to add on)`);
-  }
+  assert.equal(DAILY_CAPACITY_MAX, 500, 'owner ruling 18: "Yes, 500"');
+  // The waiting list is a lead too (ruling 32): every plan's allowance is the setting's own ceiling.
+  for (const t of VENDOR_TIERS) assert.equal(TIER_CAPS[t].waitlistAcceptances, WAITLIST_SETTING_MAX, `${t} limits the waitlist by plan`);
 });
 
 // ── 3 · the portfolio free base, grandfathered ─────────────────────────────────

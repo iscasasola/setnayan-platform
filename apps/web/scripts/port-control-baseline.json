@@ -17282,6 +17282,7 @@
         "FieldControl",
         "FieldSaveResult",
         "FileUpload",
+        "FittedArt",
         "Fold",
         "GalleryForm",
         "GetVerifiedLine",

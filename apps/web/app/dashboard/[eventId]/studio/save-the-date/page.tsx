@@ -530,7 +530,7 @@ export default async function SaveTheDatePage({ params }: Props) {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
-              One unlock for your whole website
+              One unlock for your whole Event Hub
               {websiteProPricePhp != null ? (
                 <>
                   {' '}

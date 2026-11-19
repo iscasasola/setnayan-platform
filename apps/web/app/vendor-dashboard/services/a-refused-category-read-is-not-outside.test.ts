@@ -37,3 +37,13 @@ test('the coverage panel says it could not load, before "Nothing yet"', () => {
 test('the error banner never double-decodes', () => {
   assert.doesNotMatch(MANAGER, /\{decodeURIComponent\(search\.error\)\}/);
 });
+
+test('an unread list draws no parent count and no picker (review, 19 Nov)', () => {
+  // "Parents 0 of N" came from `[]`, and the browse drew every category as not picked.
+  const count = PANEL.match(/\{coveragesUnread \? null : \(\s*<span[^>]*data-coverage-parent-count=""/);
+  assert.ok(count, 'the parent count is drawn from an unread list');
+  assert.equal((PANEL.match(/formatCount\(parentUsage\.used\)/g) ?? []).length, 1, 'a second, ungated count');
+  const browse = PANEL.match(/<CoverageBrowse\b/g) ?? [];
+  assert.equal(browse.length, 1);
+  assert.match(PANEL, /\{coveragesUnread \? null : \(\s*<CoverageBrowse\b/, 'the picker is drawn from an unread list');
+});

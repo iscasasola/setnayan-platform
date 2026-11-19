@@ -6,3 +6,6 @@ From the supplier dashboard audit (Services and card maker):
 - Guarded by `services/a-refused-category-read-is-not-outside.test.ts`.
 
 SPEC IMPACT: None.
+
+Review fix (19 Nov): on a refused category read the panel no longer draws "Parents 0 of N" or the category
+picker (an empty covered set drew every category as not picked). Only "Couldn't load your categories" shows.

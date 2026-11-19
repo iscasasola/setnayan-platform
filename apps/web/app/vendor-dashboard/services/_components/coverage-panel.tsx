@@ -84,22 +84,28 @@ export function CoveragePanel({
         <span className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
           Add what you serve
         </span>
-        <span className="text-[13px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-2)' }}>
-          Parents{' '}
-          <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-ink)' }}>
-            {formatCount(parentUsage.used)} of {capLabel}
-          </b>
-          {overCap ? ' · upgrade to add more' : ''}
-        </span>
+        {/* An unread list has no count: "0 of N" beside "Couldn't load" would be a number nobody measured. */}
+        {coveragesUnread ? null : (
+          <span className="text-[13px]" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-slate-2)' }} data-coverage-parent-count="">
+            Parents{' '}
+            <b className="font-medium" style={{ color: overCap ? 'var(--m-blush-deep)' : 'var(--m-ink)' }}>
+              {formatCount(parentUsage.used)} of {capLabel}
+            </b>
+            {overCap ? ' · upgrade to add more' : ''}
+          </span>
+        )}
       </div>
 
-      {/* The browse IS the surface (v20) — search + 3-per-row drill, always on. */}
-      <CoverageBrowse
-        tree={tree}
-        covered={covered}
-        eventTypeOptions={eventTypeOptions}
-        faithOptions={faithOptions}
-      />
+      {/* The browse IS the surface (v20) — search + 3-per-row drill, always on. EXCEPT on an unread list: an empty
+          `covered` set would draw every category as not picked, so the picker waits for the read. */}
+      {coveragesUnread ? null : (
+        <CoverageBrowse
+          tree={tree}
+          covered={covered}
+          eventTypeOptions={eventTypeOptions}
+          faithOptions={faithOptions}
+        />
+      )}
 
       <div className="border-t" style={{ borderColor: line }} />
 

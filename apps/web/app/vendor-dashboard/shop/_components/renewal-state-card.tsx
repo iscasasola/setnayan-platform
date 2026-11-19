@@ -42,6 +42,8 @@ export function RenewalStateCard({ card, facts }: { card: 'free_unverified' | 'w
   }
   if (card === 'waiting') {
     const n = facts.bookings;
+    const carryOn =
+      n === null || n === 0 ? 'your bookings carry on.' : `your ${formatCount(n)} ${n === 1 ? 'booking carries' : 'bookings carry'} on.`;
     return (
       <div
         className="space-y-2 rounded-2xl p-5"
@@ -56,8 +58,7 @@ export function RenewalStateCard({ card, facts }: { card: 'free_unverified' | 'w
           {RENEWAL_WAITING.sub}
         </p>
         <p className="text-xs" style={{ color: 'var(--m-ink)' }}>
-          {renewalWaitingBody(facts.handTyped ?? null)} You stay out of Find until then;{' '}
-          {n === null || n === 0 ? 'your bookings carry on.' : `your ${formatCount(n)} ${n === 1 ? 'booking carries' : 'bookings carry'} on.`}
+          {renewalWaitingBody(facts.handTyped ?? null)} You stay out of Find until then; {carryOn}
         </p>
       </div>
     );

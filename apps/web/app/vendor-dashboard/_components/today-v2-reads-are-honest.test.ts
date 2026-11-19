@@ -63,9 +63,11 @@ test('4 · a refused cards read is unread — and so is a missing Today v2 read'
 // two groups, so there is ONE count left — the mast's and the pinned heading's, both `left`. The rule this holds is
 // unchanged: every fee bill is one task, and no second count can disagree with it.
 test('5 · there is one count, and every fee bill is one task in it', () => {
-  assert.match(BUILD, /const left = i\.deskIncomplete \? null : split\.quick\.length \+ split\.screen\.length \+ i\.view\.bills\.length;/);
+  // Re-aimed 19 Nov (#8032 fix): the count is the ONE list (`todayOneList`), and every fee bill is an entry in it —
+  // lib/supplier-today-v2.test.ts V6 holds that each bill is its own entry.
+  assert.match(BUILD, /const list = todayOneList\(\{ split, bills: i\.view\.bills,/, 'a fee bill is not a task in the one list');
+  assert.match(BUILD, /const left = i\.deskIncomplete \? null : list\.length;/);
   assert.match(BUILD, /view: \{ \.\.\.i\.view, needsCount: left \}/, 'the pinned heading counts something other than the mast does');
-  assert.match(BUILD, /billCount=\{i\.view\.bills\.length\}/);
   assert.doesNotMatch(SCREEN, /Opens a screen ·|Quick ·/, 'a second count is back beside the one');
   assert.doesNotMatch(SCREEN, /hasBills/, 'the one-for-all bill count is back');
 });

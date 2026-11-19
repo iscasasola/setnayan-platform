@@ -759,6 +759,8 @@ export default async function VendorOverviewPage({
     inquiries28: data.inquiries28 ?? null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     todayIso,
+    // v3: an event today or tomorrow is a row in the one list (drawing V3 · 3).
+    events: upcoming,
     library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
   });
   const { events: eventsYouRun } = await eventsYouRunP;

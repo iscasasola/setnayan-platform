@@ -60,6 +60,7 @@ test('4 · an unread record never hides work', () => {
 });
 
 test('5 · what was put off is shown, under Tomorrow', () => {
-  assert.match(V2, /split\.tomorrow\.length > 0 \? \(\s*<div data-today-tomorrow="">/);
+  assert.match(V2, /split\.tomorrow\.length \+ tomorrowMore\.length > 0 \? \(\s*<div data-today-tomorrow="">/);
+  assert.match(ASSEMBLE, /tomorrowMore=\{later\}/, 'a held-off bill, permit or event is dropped, not listed under Tomorrow');
   assert.match(V2, /line=\{PUT_OFF_WORDS\.back\}/);
 });

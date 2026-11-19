@@ -17,8 +17,17 @@ Drawing: artifact F4vQbaCwFtu2iawYd2r6q2 (v3.5). This is PART 1 of five — the 
   business stay below as drawn (owner: "Keep them below").
 - **One list, most urgent first** — red, then amber, then the rest; the Quick and "Opens a screen" groups and their
   counts are gone, so there is one count. A level always wears its word (Overdue · Today · Soon) and comes ONLY from a
-  deadline the code already has: a date change's `dueAt`, a booking fee's `dueOn` (`taskUrgency`, `billsUrgency`). The
-  fee bills sit beside their own level.
+  deadline the code already has (drawing V3 · 3, the whole table): a date change's `dueAt` (`taskUrgency`), EACH
+  booking fee's `dueOn` (`feeUrgency` — overdue · last day · not yet due), the business permit's own rule
+  (`permitUrgency` — expired red, 7 days or fewer amber, from `permitNeed`'s line tone), and a booked event today (red)
+  or tomorrow (amber) (`eventUrgency`, from the page's `upcoming`). `todayOneList` puts every one of them in one order.
+- **Each fee bill is its own row** (fix after the 19 Nov Fable review): its own tint, edge and level word ("Overdue ·
+  since Sat 14 Nov"), its own place in the list, and it opens as a card with the amount, the introduced line, the lock
+  sentence and Pay, ending in "Open in page ›" (the bill's page). It is still a `data-fee-bill-today` row inside
+  `data-today-need-bills`, so Today's search finds it as a payment.
+- **The permit and today's events join the list when they wear a level**, and are counted, as drawn ("Needs you today
+  6"). A permit further out stays under "Also for your badges and your page"; an urgent one is not said again as a
+  grow move. An event row's card holds the day's line — nothing to answer — and "Open in page ›" (the client).
 - **Every row opens in place as a card.** The bigger kinds (inquiry, message, booking ask, cancel request, quote and
   contract drafts, dispute, a lapsed ask) no longer rise as a second screen: each opens in its own row with the SAME
   shipped body, in the shared frame, and ends with "Open in page ›".
@@ -33,6 +42,7 @@ Guards re-aimed on purpose, each with a note: `one-supplier-hero` (Shop alone mo
 (the top block is found wherever it sits) · `today-is-one-task` (a bigger kind opens in its row, not a risen screen) ·
 `today-v2-reads-are-honest` (one count) · `the-today-pin-never-bleeds-past-its-gutter` (the mast does not bleed at
 all) · `every-supplier-top-row-is-one-selector` (the mast's words). New: `today-is-focus-shaped.test.ts` and
-`lib/supplier-today-v2.test.ts` V1–V3.
+`lib/supplier-today-v2.test.ts` V1–V6. `today-is-focus-shaped` test 3 re-aimed: the bills no longer move as one
+block — each of bill, permit and event is its own card row with its level, word and "Open in page ›".
 
 SPEC IMPACT: None new — builds rulings already in DECISION_LOG (the controller logs "Keep them below").

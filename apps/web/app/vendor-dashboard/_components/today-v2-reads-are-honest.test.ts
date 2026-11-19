@@ -47,9 +47,9 @@ test('3 · Done today counts every answer that leaves the list', () => {
     assert.match(SERVER, new RegExp(`\\.gte\\('${col}', since\\)`), `an answer stamped by ${col} is not counted — M would shrink instead of done growing`);
   assert.match(SERVER, /\.from\('event_appointments'\)[\s\S]{0,260}\.neq\('status', 'proposed'\)\.gte\('updated_at', since\)/, 'an answered meeting time is not counted');
   // One refused count refuses the whole answer: `all` must hold every read made.
-  const reads = SERVER.match(/const \[([^\]]+)\] = await Promise\.all\(\[\s*admin\.from\('vendor_reviews'\)/)?.[1].split(',').map((x) => x.trim()) ?? [];
+  const reads = SERVER.match(/const \[([^\]]+)\] = await Promise\.all\(\[\s*admin\.from\('vendor_reviews'\)/)?.[1]?.split(',').map((x) => x.trim()) ?? [];
   assert.ok(reads.length >= 11, `anti-vacuity: only ${reads.length} Done-today reads found`);
-  const all = SERVER.match(/const all = \[([^\]]+)\];/)?.[1].split(',').map((x) => x.trim()) ?? [];
+  const all = SERVER.match(/const all = \[([^\]]+)\];/)?.[1]?.split(',').map((x) => x.trim()) ?? [];
   assert.deepEqual(all, reads, 'a Done-today read is left out of the refusal check — its error would count as 0');
 });
 

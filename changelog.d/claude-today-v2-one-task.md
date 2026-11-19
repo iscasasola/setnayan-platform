@@ -33,3 +33,12 @@ quick kinds; the two grow cut-offs live on Admin › Settings, blank = off.
 - **Cards row: OFF for now (owner 2026-11-19).** "we already agreed they can add as many … so we can motivate them to
   upgrade" — making cards is unlimited; the plan limits LIVE cards. The row returns as "You can turn on N more" once the
   plans fix moves the limit to live cards. Until then nothing is read and no cards row is drawn.
+- **Review hold, 19 Nov — a part that could not be read is never drawn as an absence.** (1) Unreadable fee bills block
+  "You're done for today" and say "Couldn't load your booking fees just now"; the tasks that were read still count.
+  (2) A refused Done-today read is "not read": no "N of M done", no pips, and a note on the list — never 0 done.
+  (3) Done today counts every answer that leaves the list — payment declined, inquiry accepted or declined, a meeting
+  time answered, a cancel request answered — so "N of M" only grows. (A dispute is not counted on purpose: it leaves
+  the list when the couple accepts the re-sent work, not by the supplier's answer.) (4) A refused service-cards read is
+  unread, so the grow plan is not moved past stage 2 on a guess. (5) The heading and the cover count fee bills the same
+  way: each bill is one task. Tests: `lib/supplier-today-v2.test.ts` R1–R4 and
+  `_components/today-v2-reads-are-honest.test.ts`, each seen red against its fix being broken.

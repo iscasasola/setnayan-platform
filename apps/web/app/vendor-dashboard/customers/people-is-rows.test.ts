@@ -240,15 +240,17 @@ test('3b · the one Clients screen reads each thing ONCE (owner: "the fewest req
   assert.doesNotMatch(PAGE, /function CustomersDates\b/, 'a second Dates view is back — Clients is ONE screen');
 });
 
-test('3c · one pinned row per screen: Clients · N booked · ₱X to collect · ⚙ over the month; Money with its own figures', () => {
+test('3c · one pinned row per screen: Clients · ⚙ over the tiles and the month; Money with its own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(
     people,
-    /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{ counts: pinCounts \}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
+    /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{\}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
     'the one screen does not draw its title row, month, tiles and lists',
   );
-  // "booked this month" when Today's stat narrowed the list (EB-219) — that one ternary, nothing else.
-  assert.match(people, /const pinCounts = `\$\{doorValue\('booked'\) \?\? '—'\} booked(?:\$\{monthIds \? ' this month' : ''\})? · \$\{[^`]*\} to collect`/, 'the row does not read "N booked · ₱X to collect"');
+  // "Clients, cleaner" (19 Nov): the row no longer repeats "N booked · ₱X to collect" — the Booked and To collect tiles
+  // under it say both ("booked this month" when Today's stat narrowed the list, EB-219 — that one ternary, nothing else).
+  assert.doesNotMatch(people, /const pinCounts\b/, 'the row repeats the tiles\u2019 figures again');
+  assert.match(people, /word: monthIds \? 'booked this month' : 'booked'/, 'the Booked tile lost "booked this month"');
   assert.match(code('_components', 'money-segment.tsx'), /<CustomersPin\s+seg="money"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Money lost its pinned row');
   assert.doesNotMatch(body(PAGE, 'VendorCustomersHub'), /<CustomersPin\b/, 'the hub draws a second pinned row over a view’s own');
 });

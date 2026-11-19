@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Plus } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { endedPlanReadsFree, tierHasLapsed } from '@/lib/vendor-tier-lapse';
 import { createClient } from '@/lib/supabase/server';
 import { payPath } from '@/lib/pay-path';
@@ -39,7 +39,7 @@ import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
 import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
 import { buyUltraAddOn } from '../ultra-addon-actions';
-import { ActionButton } from '@/components/action-button';
+import { UltraAddOnButton } from './ultra-addon-button';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -527,12 +527,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             .filter(Boolean)
             .join(' · '),
           end:
-            ultraAddOnPricePhp !== null ? (
-              <form action={buyUltraAddOn}>
-                <input type="hidden" name="addon" value="ultra" />
-                <ActionButton tone="brand" quiet icon={Plus} label="Add one" type="submit" />
-              </form>
-            ) : null,
+            ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} /> : null,
         }
       : null;
   // A single extra seat already paid for is kept and renews (2026-11-19: no existing subscriber's limits move until the

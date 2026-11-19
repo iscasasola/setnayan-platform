@@ -5,7 +5,7 @@
  * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing` and the Help rows — so what it shows
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
- *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
+ *   ?s=plan            the Plan (who=parish · caterer · studio · agency = Ultra, with the Ultra Add-on row)       &unverified=1 · &fail=1 (receipts + fee unread)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
@@ -77,15 +77,19 @@ import { BadgeUpgradesSection } from '@/app/vendor-dashboard/subscription/_compo
 import { BadgeUpgradesLedger } from '@/app/admin/gifts/_components/badge-upgrades-ledger';
 import { startableChoices, type BadgeUpgradeChoice, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
+import { UltraAddOnButton } from '@/app/vendor-dashboard/subscription/_components/ultra-addon-button';
+import { buyUltraAddOn } from '@/app/vendor-dashboard/subscription/ultra-addon-actions';
 import { formatCentavos } from '@/lib/vendor-proposals';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 
-type Who = 'parish' | 'caterer' | 'studio';
+type Who = 'parish' | 'caterer' | 'studio' | 'agency';
 
 const SHOPS: Record<Who, { tier: string; cycle: 'monthly' | 'annual'; expires: string | null; used: number; feeKind: 'free' | 'billable' }> = {
   parish: { tier: 'free', cycle: 'monthly', expires: null, used: 1, feeKind: 'free' },
   caterer: { tier: 'solo', cycle: 'monthly', expires: '31 October 2026', used: 2, feeKind: 'free' },
   studio: { tier: 'pro', cycle: 'annual', expires: '3 October 2027', used: 5, feeKind: 'billable' },
+  // 🛒 An Ultra shop (2026-11-19) — the one plan that sees the Ultra Add-on row.
+  agency: { tier: 'enterprise', cycle: 'monthly', expires: '12 December 2026', used: 5, feeKind: 'billable' },
 };
 
 /** Lab-only stand-in prices — the page reads `vendor_billing_catalog`; these never reach a supplier. */
@@ -227,7 +231,15 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
       deepSearch={{ line: 'Lab price a search · on every plan' }}
-      ultraAddOn={shop.tier === 'enterprise' ? { line: '+1 branch · +15 live cards · +3 people · +50 GB · lab price every 4 weeks', end: null } : null}
+      ultraAddOn={
+        shop.tier === 'enterprise'
+          ? {
+              line: '+1 branch · +15 live cards · +3 people · +50 GB · lab price every 4 weeks · you have 1',
+              // The SHIPPED buy action — with no session it refuses; nothing is written.
+              end: <UltraAddOnButton action={buyUltraAddOn} />,
+            }
+          : null
+      }
     />
   );
 }
@@ -426,7 +438,7 @@ export default async function SupplierPlanLabPage({
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const s = sp.s ?? 'plan';
-  const who: Who = sp.who === 'parish' || sp.who === 'studio' ? sp.who : 'caterer';
+  const who: Who = sp.who === 'parish' || sp.who === 'studio' || sp.who === 'agency' ? sp.who : 'caterer';
 
   let body: React.ReactNode = null;
   if (s === 'plan') {

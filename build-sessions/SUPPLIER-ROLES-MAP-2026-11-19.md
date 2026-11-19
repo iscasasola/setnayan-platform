@@ -211,6 +211,14 @@ Same chat, every message kept; the client is told. When a plan with room returns
 back unless a manager moved one meanwhile. **STILL OPEN:** who picks (drawn: Shop Manager; default newest seats pause
 first) · does this cover moving down a plan (drawn) or only a lapsed plan.
 
+## 3f · In the chat (owner 19 Nov: *"they are update that their chat is now being handled by XXX"*)
+
+EXTENDS the shipped Setnayan system line: `chat_messages.sender_role = 'system'` (enum value from
+`20270101010000_build_requote_nudge.sql`), drawn centred and labelled "Setnayan · time" in
+`app/_components/chat-message-stream.tsx` — no new message type. Every change of handler posts one system line written by
+the same action that changes `assigned_member_id`: handover · manager "Handled by ▾" · paused seat (temporary, 3e) · its
+return. Copy: "Your chat is now being handled by <name>, <shop's role name>." The supplier side sees the same line.
+
 ## 4 · Order of work (after the owner OKs the drawing)
 
 1. PR A — migration (`duty`, `branch_id`, `vendor_role_names`, rank trigger, backfill, two helpers, RLS at create) +

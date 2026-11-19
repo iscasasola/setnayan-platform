@@ -74,12 +74,17 @@
   .note{font-size:12.5px;color:var(--slate-3);margin-top:8px}
   .legend{font-size:13px;color:var(--slate-2);background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
   .legend li{margin:3px 0}
+  .sys{margin:10px auto;max-width:90%;border:1px solid rgba(194,78,37,.2);background:rgba(194,78,37,.06);border-radius:12px;padding:8px 12px;text-align:center;font-size:14px}
+  .sys small{display:block;margin-top:4px;font-size:12px;color:var(--slate-2)}
+  .bub{max-width:78%;padding:8px 12px;border-radius:16px;font-size:14px;margin:6px 0}
+  .bub.them{background:var(--paper-2)}
+  .bub.me{background:var(--gold);color:#fff;margin-left:auto}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1 class="doc">Supplier Roles — for your OK</h1>
-  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries · (f) clients — who handles who · (g) when the plan ends. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
+  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries · (f) clients — who handles who · (g) when the plan ends · (h) in the chat. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
 
   <div class="legend">
     <b>The six roles (your rulings, 19 Nov)</b>
@@ -532,6 +537,41 @@
             <p class="note">The client keeps the same chat, with every message; they're told who is helping them for now. When a plan with room comes back, Joy un-pauses and her clients go back to her — unless a manager moved one meanwhile.<br>
               <span class="confirm">STILL OPEN</span> who picks who stays — drawn: the Shop Manager, on this sheet; if nobody picks, the newest seats pause first.<br>
               <span class="confirm">STILL OPEN</span> does "plan ends" also mean moving down a plan, as drawn, or only a plan that lapses unpaid?</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (h) IN THE CHAT ═════════════ -->
+  <section class="pair" id="h">
+    <h2>(h) In the chat — the client is told who is handling them</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Blooms &amp; Co. Styling</div>
+          <div class="scr">
+            <div class="bub them">Hi! Sending you our wedding styling moodboard.</div>
+            <div class="bub me">Thank you!</div>
+            <p class="note">There is no "handled by" today, so no line in the chat tells the client which person at the shop is theirs, or that it changed.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag new">Proposed · the client's chat</span>
+        <div class="phone">
+          <div class="bar">‹ Blooms &amp; Co. Styling</div>
+          <div class="scr">
+            <div class="sys">Your chat is being handled by <b>Joy Tan</b>, Lead Stylist.<small>Setnayan · Mon 2:14 PM</small></div>
+            <div class="bub them">Hi! I'm Joy — sending you our wedding styling moodboard.</div>
+            <div class="bub me">Thank you!</div>
+            <div class="sys">Your chat is now being handled by <b>Bea Santos</b>, Lead Stylist.<small>Setnayan · Thu 9:02 AM</small></div>
+            <div class="bub them">Hi, Bea here — I'll take it from here. Everything you sent Joy is right above.</div>
+            <div class="sys">Joy is away for now — <b>Bea Santos</b>, Lead Stylist, is handling your chat.<small>Setnayan · drawn for (g), a paused seat</small></div>
+            <div class="sys"><b>Joy Tan</b>, Lead Stylist, is handling your chat again.<small>Setnayan · drawn for (g), the seat is back</small></div>
+            <p class="note"><span class="badge ok">Decided 19 Nov</span> Every change posts one Setnayan line in the chat: a handover, a manager's "Handled by ▾", a paused seat (g) and its return. Same chat, every message kept. The name is the person's name plus the shop's own name for their role (a).<br>
+              The supplier side gets the same line, plus the shop's internal note ("Moved by Ana Reyes").</p>
           </div>
         </div>
       </div>

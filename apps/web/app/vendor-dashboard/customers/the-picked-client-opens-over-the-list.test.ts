@@ -105,6 +105,9 @@ test('4 · a page switch costs no request', () => {
   assert.match(select, /translateX\(44px\)/);
   assert.match(select, /\{ opacity: 1, offset: 0\.45 \}/);
   assert.match(shell, /data-picked-body[^>]*|overflow-x-hidden[^"]*data-picked-body/);
-  assert.match(shell, /overflow-x-hidden overscroll-contain \[overscroll-behavior-x:none\]/);
+  // Glide (MOTION_STANDARD § 4 #12, 19 Nov 2026): an inner scroller CONTAINS its overscroll on both axes — never `none`
+  // (`none` is the page's own; `contain` keeps the phone's rubber band inside the box and still chains nothing out).
+  assert.match(shell, /overflow-x-hidden overscroll-contain bg-/);
+  assert.doesNotMatch(shell, /overscroll-behavior-x:none|overscroll-none/);
   assert.equal((shell.match(/scrollIntoView\(/g) ?? []).length, 1, 'only the Script fold may scrollIntoView (vertical, on open)');
 });

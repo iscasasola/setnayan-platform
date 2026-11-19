@@ -363,7 +363,6 @@ html.dark .fc{
   .fc .fc-dock{display:none}
   .fc footer{padding-block:28px}
   .fc .fc-close{padding-block:160px 96px}}
-@keyframes fc-bump{50%{transform:scale(1.08)}}
 .fc .fc-dayof .fc-screen{display:grid;gap:10px;padding-bottom:20px}
 .fc .fc-saved{display:flex;align-items:center;gap:8px;font:600 .78rem var(--f-mono);color:var(--sage-fg);background:var(--relief);border-radius:var(--m-r-sm);padding:8px 10px;margin:0 4px}
 .fc .fc-saved i{width:8px;height:8px;border-radius:50%;background:var(--fc-ok);flex:none}

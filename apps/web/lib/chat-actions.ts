@@ -29,6 +29,7 @@ import {
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
+import { CHAT_WHISPER_FIELD, whisperFromForm } from '@/lib/chat-whisper';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
 
 /**
@@ -121,7 +122,10 @@ export async function sendChatMessage(formData: FormData) {
   const asSide = sentAsFromForm(formData.get(CHAT_SENT_AS_FIELD));
 
   const supabase = await createClient();
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, asSide });
+  // 🤫 A whisper (the host's box, dragged right): the core decides who hears it — the posted list is not read for it.
+  const whisper = whisperFromForm(formData.get(CHAT_WHISPER_FIELD));
+
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -176,6 +180,8 @@ export async function notifyOtherParty(args: {
   isFirstMessage?: boolean;
   /** 🔒 A private message: ONLY these people are told (marked private); nobody else is notified or sees a placeholder. */
   privateTo?: string | readonly string[] | null;
+  /** 🤫 The private line is a WHISPER to the co-hosts — its notice says so, with no lock (it is a whisper, not a vault). */
+  whisper?: boolean;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -213,7 +219,9 @@ export async function notifyOtherParty(args: {
       await emitNotification({
         userId: to,
         type: 'chat_message',
-        title: `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
+        title: args.whisper
+          ? `Whisper from a co-host · ${eventName}`
+          : `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,
         eventId: args.eventId,
         relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : coupleChatHref(args.eventId, await coupleRow(), args.threadId),

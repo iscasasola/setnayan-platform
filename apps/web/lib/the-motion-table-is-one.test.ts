@@ -17,7 +17,8 @@
  *   5. the Sheet grows out of its button on THAT player (ported from #7686, 18 Nov): it imports `playGrowParts`, closes
  *      at 80 % back into the button, keeps showing what it showed while closing, and simply appears with no press.
  *
- * Aliases are resolved: `--sn-m-ease-emph: var(--sn-m-settle)` reads as Settle's value.
+ * The 13 Nov alias names were retired in Phase 6 (19 Nov 2026): the table is read by the standard's own names
+ * (`--sn-m-tap`, `--sn-m-move`, `--sn-m-settle`; `EASE_SETTLE`, `EASE_SETTLE_REVERSED`, `EASE_SPRING_FALLBACK`).
  *
  * Seen RED once each (13 Nov): `growShapeMs: 360` → 700 (1: the token disagrees); `steps` delay `+ i * t.growStepMs` →
  * `+ i * 80` (2); `Math.min(radius, …)` → `radius` (3); `fill: out ? 'forwards' : 'backwards'` → `'both'` (4).
@@ -29,7 +30,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { EASE_EMPHASIZED, EASE_EMPHASIZED_REVERSED, EASE_SPRING, GROW_TOTAL_MS, MOTION_TABLE, REDUCED_MOTION } from '@/lib/motion-table';
+import { EASE_SETTLE, EASE_SETTLE_REVERSED, EASE_SPRING_FALLBACK, GROW_TOTAL_MS, MOTION_TABLE, REDUCED_MOTION } from '@/lib/motion-table';
 import { closeWindow, growPlan, riseClip, riseScreenMotion, sheetGrowFrames } from '@/lib/rise-screen';
 
 const WEB = join(__dirname, '..');
@@ -66,7 +67,7 @@ test('1 · the numbers are the approved table — and JS and CSS say the same', 
   assert.equal(t.growChromeStartMs - t.growPressMs, Math.round((t.growShapeMs * (440 - 120)) / 360), 'the chrome no longer starts at 13 Nov’s share of the shape');
   // CSS mirrors.
   const pairs: Array<[string, number]> = [
-    ['--sn-m-press-in', MOTION_TABLE.pressInMs],
+    ['--sn-m-tap', MOTION_TABLE.pressInMs],
     ['--sn-m-release', MOTION_TABLE.releaseMs],
     ['--sn-m-ripple', MOTION_TABLE.rippleMs],
     ['--sn-m-toggle', MOTION_TABLE.toggleMs],
@@ -78,16 +79,17 @@ test('1 · the numbers are the approved table — and JS and CSS say the same', 
     ['--sn-m-field-line', MOTION_TABLE.fieldLineMs],
     ['--sn-m-row-open', MOTION_TABLE.rowOpenMs],
     ['--sn-m-row-shut', MOTION_TABLE.rowShutMs],
-    ['--sn-m-grow-press', MOTION_TABLE.growPressMs],
-    ['--sn-m-grow-shape', MOTION_TABLE.growShapeMs],
+    // Phase 6 (19 Nov 2026): the grow's aliases are retired — its press IS Tap and its shape IS Move.
+    ['--sn-m-tap', MOTION_TABLE.growPressMs],
+    ['--sn-m-move', MOTION_TABLE.growShapeMs],
     ['--sn-m-swipe-snap', MOTION_TABLE.swipeSnapMs],
   ];
   for (const [name, v] of pairs) assert.equal(ms(name), v, `${name} disagrees with lib/motion-table.ts`);
-  assert.equal(resolve('--sn-m-ease-emph'), EASE_EMPHASIZED);
-  assert.equal(EASE_EMPHASIZED, 'cubic-bezier(.2,.8,.2,1)', 'the travel curve is not Settle');
-  assert.equal(resolve('--sn-m-ease-emph-rev'), EASE_EMPHASIZED_REVERSED);
-  assert.equal(EASE_EMPHASIZED_REVERSED, 'cubic-bezier(.8,0,.8,.2)', 'the close curve is not Settle reversed');
-  assert.equal(token('--sn-pill-spring'), EASE_SPRING, 'the house spring is two curves');
+  assert.equal(resolve('--sn-m-settle'), EASE_SETTLE);
+  assert.equal(EASE_SETTLE, 'cubic-bezier(.2,.8,.2,1)', 'the travel curve is not Settle');
+  assert.equal(resolve('--sn-m-settle-rev'), EASE_SETTLE_REVERSED);
+  assert.equal(EASE_SETTLE_REVERSED, 'cubic-bezier(.8,0,.8,.2)', 'the close curve is not Settle reversed');
+  assert.equal(token('--sn-pill-spring'), EASE_SPRING_FALLBACK, 'the house spring is two curves');
   // Every motion names its reduced-motion fallback.
   for (const k of ['press', 'release', 'ripple', 'toggle', 'chip', 'rowPress', 'rowExpand', 'grow'] as const) assert.ok(REDUCED_MOTION[k]);
 });
@@ -113,7 +115,7 @@ test('2 · the grow, part by part — and the close mirrored at 80 %', () => {
   const m = riseScreenMotion({ top: 500, left: 16, width: 120, height: 44 }, { width: 390, height: 844 }, false, 22)!;
   assert.equal(m.timing.duration, 320);
   assert.equal(m.closeTiming.duration, 256);
-  assert.equal(m.timing.easing, EASE_EMPHASIZED);
+  assert.equal(m.timing.easing, EASE_SETTLE);
   assert.deepEqual(Object.keys(m.frames[0]!), ['clipPath'], 'the shape animates more than its clip');
   assert.equal(riseScreenMotion(null, { width: 390, height: 844 }, false), null, 'a deep link grows from nowhere');
 });

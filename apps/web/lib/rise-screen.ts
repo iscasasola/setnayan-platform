@@ -24,7 +24,7 @@
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts
  */
 import { RISE_CLOSE_MS, RISE_EASE, RISE_MS, RISE_REDUCED_MS } from '@/lib/rise-motion';
-import { EASE_EMPHASIZED, EASE_SETTLE, MOTION_TABLE, MOVE_MS, RISE_MS_STANDARD, springEase } from '@/lib/motion-table';
+import { EASE_SETTLE, MOTION_TABLE, MOVE_MS, RISE_MS_STANDARD, springEase } from '@/lib/motion-table';
 
 /** How long a press stays "the thing you just tapped". A state change, an address write and a stream all land within it. */
 export const RISE_ORIGIN_FRESH_MS = 1500;
@@ -228,7 +228,7 @@ export function playGrowParts(parts: GrowParts, plan: GrowPlan, out: boolean): A
       (el as HTMLElement).animate(frames, {
         duration: at.duration,
         delay: at.delay,
-        easing: EASE_EMPHASIZED,
+        easing: EASE_SETTLE,
         direction: out ? 'reverse' : 'normal',
         // Open: hidden until its step (backwards), then nothing held. Close: stays gone until the layer leaves.
         fill: out ? 'forwards' : 'backwards',
@@ -268,7 +268,7 @@ export function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): A
     const a = el.animate([{ transform: 'none' }, { transform: `scale(${plan.behind.scale})` }], {
       duration: at.duration,
       delay: at.delay,
-      easing: EASE_EMPHASIZED,
+      easing: EASE_SETTLE,
       direction: out ? 'reverse' : 'normal',
     });
     a.finished.then(() => (el.style.transformOrigin = ''), () => (el.style.transformOrigin = ''));
@@ -291,7 +291,7 @@ export function playBehind(screen: HTMLElement, plan: GrowPlan, out: boolean): A
   const d = dim.animate([{ opacity: 0 }, { opacity: plan.behind.dim }], {
     duration: at.duration,
     delay: at.delay,
-    easing: EASE_EMPHASIZED,
+    easing: EASE_SETTLE,
     direction: out ? 'reverse' : 'normal',
   });
   d.finished.then(() => dim.remove(), () => dim.remove());

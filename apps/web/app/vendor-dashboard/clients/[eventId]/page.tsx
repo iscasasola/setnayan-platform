@@ -131,6 +131,7 @@ import {
 import { readDayCheck } from '@/lib/day-check.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -1962,6 +1963,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (

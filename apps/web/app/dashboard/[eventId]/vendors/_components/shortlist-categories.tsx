@@ -80,6 +80,7 @@ import {
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { FORM_ROW_RULE, FORM_ROW_SUBLINE } from '@/lib/form-row';
+import { HOLD_MS } from '@/lib/motion-table';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -1193,7 +1194,8 @@ function CardDateBlock({
  * A press that travels more than a few pixels is a scroll, and a scroll must
  * stay a scroll.
  */
-const LONG_PRESS_MS = 450;
+/* The motion standard's ONE hold (350 ms, MOTION_STANDARD § 2 / § 4 #24 Long press) — was a 450 of its own. */
+const LONG_PRESS_MS = HOLD_MS;
 const LONG_PRESS_SLOP_PX = 8;
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let longPressOrigin: { x: number; y: number } | null = null;

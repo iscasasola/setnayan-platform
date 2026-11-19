@@ -17,7 +17,7 @@ import { SCRIM_SELECTOR } from '@/lib/scrim';
  * timing table; it REPLACES the 8 Oct 0.7 s dip): the press goes IN on touch-down — fast, 100 ms ease-out to 0.97 (a
  * row 0.985) and held, so it looks pushed in — and springs back on LIFT, 280 ms on the house spring. The row's MAIN
  * button also sends a soft ripple from the real touch point (520 ms). The numbers are the table's tokens
- * (`--sn-m-press-in`, `--sn-m-release`, `--sn-m-ripple`), read when pressed. Still ONE delegated set of listeners on
+ * (`--sn-m-tap`, `--sn-m-release`, `--sn-m-ripple`), read when pressed. Still ONE delegated set of listeners on
  * the document (down · up · cancel) — never one per element. An animation COMPOSES with whatever CSS transition the
  * control carries, so nothing snaps. A control that wears `sn-press-ring` (or holds an element that does — a card's
  * picture, a switch's track, the ⓘ's dot) also gets one soft terracotta ring that widens and fades: a transient fixed
@@ -66,7 +66,7 @@ export function PressFeel() {
       if (!el || !pressable(el) || !el.animate) return;
       const to = el.matches(ROW_PRESS_TARGETS) ? 0.985 : 0.97;
       // IN — fast, and held while the finger is down.
-      held = { el, to, press: el.animate([{ scale: 1 }, { scale: to }], { duration: token('--sn-m-press-in', 100), easing: PRESS_IN_EASE, fill: 'forwards' }) };
+      held = { el, to, press: el.animate([{ scale: 1 }, { scale: to }], { duration: token('--sn-m-tap', 100), easing: PRESS_IN_EASE, fill: 'forwards' }) };
       const r = el.getBoundingClientRect();
       if (!(r.width > 0)) return;
       // 💧 The row's MAIN button: a soft ripple from the real touch point, clipped to the button's own shape.

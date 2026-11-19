@@ -11,8 +11,8 @@
  *     three content steps 40 ms apart, chrome last, close = the open mirrored at 80 %) keep their numbers below — only
  *     the grow's own speeds are retimed onto the standard (press 120 → Tap 100, shape 360 → Move 320).
  *
- * The old names (`EASE_EMPHASIZED`, `EASE_EMPHASIZED_REVERSED`, `EASE_SPRING`) are kept as ALIASES so no caller breaks:
- * the emphasized `(.2,0,0,1)` of 13 Nov is REPLACED by Settle as the travel / open curve.
+ * The 13 Nov names (`EASE_EMPHASIZED`, `EASE_EMPHASIZED_REVERSED`, `EASE_SPRING`) are GONE (Phase 6, 19 Nov): the
+ * emphasized `(.2,0,0,1)` of 13 Nov was REPLACED by Settle as the travel / open curve, and every caller now says so.
  *
  * ONLY transform and opacity move — with two stated exceptions: a row's or a field's own height (grid rows, one small
  * box) and the full-screen shape's clip (one layer).
@@ -39,6 +39,10 @@ export const MOVE_MS = 320;
 export const RISE_MS_STANDARD = 700;
 /** Sheen — the ONE allowed loop, linear. */
 export const SHEEN_MS = 1400;
+/** Hold — a WAIT, not a speed (§ 2): how long a finger rests before a row lifts (Long press #24, Lift #15). */
+export const HOLD_MS = 350;
+/** Celebrate (#23) — the one gold burst, "about 900 ms", once per visit. */
+export const CELEBRATE_MS = 900;
 
 /** Settle — anything that travels, opens or fades. */
 export const EASE_SETTLE = 'cubic-bezier(.2,.8,.2,1)';
@@ -60,13 +64,8 @@ export function springEase(): string {
   return ok ? EASE_SPRING_LINEAR : EASE_SPRING_FALLBACK;
 }
 
-// ── ALIASES (13 Nov names, kept so callers do not break) ────────────────────────────────────────────────────────────
-/** Anything that travels or opens — since 18 Nov this IS Settle. */
-export const EASE_EMPHASIZED = EASE_SETTLE;
-/** Anything that lets go (the house spring) — the cubic form, `--sn-pill-spring`. */
-export const EASE_SPRING = EASE_SPRING_FALLBACK;
-/** The close of a grow: the travel curve, reversed — since 18 Nov Settle's reverse. */
-export const EASE_EMPHASIZED_REVERSED = EASE_SETTLE_REVERSED;
+// The 13 Nov alias names (`EASE_EMPHASIZED`, `EASE_EMPHASIZED_REVERSED`, `EASE_SPRING`) were RETIRED in Phase 6
+// (19 Nov 2026) once nothing read them: say `EASE_SETTLE`, `EASE_SETTLE_REVERSED`, `EASE_SPRING_FALLBACK`.
 
 /*
  * ⏱ THE GROW, RETIMED (18 Nov): the press 120 → Tap 100, the shape 360 → Move 320. The content and the chrome keep the
@@ -142,10 +141,31 @@ export const MOTION_TABLE = {
   /** Tuck: the bars shrink away in Move on the Spring and come back in Quick on Settle (the rows ride with them). */
   tuckAwayMs: MOVE_MS,
   tuckBackMs: QUICK_MS,
+  /** Lift (#15) / Long press (#24): the held row grows to this in Quick on the Spring, under a shadow that fades in on
+   *  Settle; the others make room and it drops in Move on Settle. Reduced: no scale — the shadow only. */
+  liftScale: 1.03,
+  liftMs: QUICK_MS,
+  liftDropMs: MOVE_MS,
+  holdMs: HOLD_MS,
+  /** Celebrate (#23): about 12 foil pieces fly out and fade over this, on Settle; the badge pops in Quick on Spring.
+   *  Reduced: a still gold ring, no pieces. */
+  celebrateMs: CELEBRATE_MS,
+  celebratePieces: 12,
+  /** Glide (#12): at the end of a rail the content goes this far over (in Tap, Settle) and comes back in Quick on the
+   *  Spring. Reduced: no nudge. (iOS plays its own rubber band inside the box — `overscroll-behavior: contain`.) */
+  glideNudgePx: 12,
+  glideNudgeMs: QUICK_MS,
+  /** Coach marks (#27): the ring glides to the next tip in Move on Settle. Reduced: it jumps; the tip fades. */
+  coachMs: MOVE_MS,
+  /** Offline bar (#28): in and out in Quick on Settle; "Back online ✓" stays this long before it leaves. */
+  offlineMs: QUICK_MS,
+  offlineBackStayMs: 1400,
   /** Late data fades in when it lands. */
   lateFadeMs: 160,
   /** Every reduced-motion fallback that is a fade. */
   reducedFadeMs: 120,
+  /** Signature moments (§ 9): Capiz light's panes light this far apart (`--sn-m-sig-step`). */
+  sigPaneStepMs: 70,
   /** Content steps: how many. */
   steps: 3,
 } as const;
@@ -169,4 +189,11 @@ export const REDUCED_MOTION = {
   swipe: 'fades, no slide',
   rowExpand: 'opens at once, 120 ms fade',
   grow: '120 ms cross-fade',
+  celebrate: 'a still gold ring, no pieces',
+  longPress: 'no lift, the menu fades in',
+  lift: 'the shadow only; rows change place at once',
+  upload: 'the ring fills in steps; ✓ appears at once',
+  coach: 'the ring jumps; the tip fades',
+  offline: 'appears and leaves at once',
+  glide: 'no nudge; the edge fade is kept',
 } as const;

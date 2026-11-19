@@ -15,7 +15,7 @@
  * 🔒 lib/the-rise-is-0-7s.test.ts (kept by name: one number — Move 320 since 18 Nov — and nobody keeps their own)
  */
 
-import { EASE_EMPHASIZED, MOTION_TABLE } from '@/lib/motion-table';
+import { EASE_SETTLE, MOTION_TABLE } from '@/lib/motion-table';
 
 /**
  * ⏱ 13 Nov 2026 — the 0.7 s rise is REPLACED by the approved grow (owner "motion approved", grow-full-screen-fable.html
@@ -26,7 +26,7 @@ import { EASE_EMPHASIZED, MOTION_TABLE } from '@/lib/motion-table';
  * keeps reading the one rise.
  */
 export const RISE_MS = MOTION_TABLE.growShapeMs;
-export const RISE_EASE = EASE_EMPHASIZED;
+export const RISE_EASE = EASE_SETTLE;
 /** The close: every window mirrored, at 80 % of the open. */
 export const RISE_CLOSE_MS = Math.round(MOTION_TABLE.growShapeMs * MOTION_TABLE.growCloseFactor);
 export const RISE_REDUCED_MS = MOTION_TABLE.reducedFadeMs;

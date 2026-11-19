@@ -167,7 +167,7 @@ test('the Event Ultra plan copy never lists Patiktok (front door, plan offer, /p
 
 test('the front door add-on tiles never name or link a retired product', () => {
   for (const t of FRONT_DOOR_ADD_ONS) {
-    assert.ok(!NAME_RE.test(t.label) && !NAME_RE.test(t.line), `front door tile "${t.title}"`);
+    assert.ok(!NAME_RE.test(t.title) && !NAME_RE.test(t.line), `front door tile "${t.title}"`);
     assert.ok(![...RETIRED_FEATURE_SLUGS].some((s) => t.href === `/features/${s}`), `front door tile → ${t.href}`);
   }
 });

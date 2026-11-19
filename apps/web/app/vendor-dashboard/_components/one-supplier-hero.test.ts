@@ -36,7 +36,9 @@ test('2 · one height, the gutters, the scrim and the sample caption live in the
   // 208 px whenever its lines fit; in flow, so a long sub row grows it instead of drawing over the eyebrow (W1 F3).
   assert.match(HERO, /className="relative isolate flex min-h-\[208px\] flex-none flex-col overflow-hidden rounded-b-3xl px-4 pb-4 pt-3\.5/, 'the hero lost its one height or its 16 px gutters');
   assert.doesNotMatch(HERO, /\babsolute (?:inset-x-4|left-4|right-4|bottom-4|top-16)\b/, 'a hero line is absolutely placed again — it can draw over another');
-  assert.match(HERO, /className="mt-auto pt-2" data-supplier-hero-foot=""/, 'the title block is not pinned to the bottom');
+  // 🔁 RE-AIMED 2026-11-19: the rows take an extra class only when the photo is a door (Shop — owner, "the actual cover
+  // photo tap that"); the title block is still in flow and still pinned to the bottom.
+  assert.match(HERO, /className=\{`mt-auto pt-2 \$\{over\}`\} data-supplier-hero-foot=""/, 'the title block is not pinned to the bottom');
   assert.match(HERO, /linear-gradient\(to top/, 'the legibility scrim is gone');
   assert.match(HERO, /Sample photo · Upload yours/, 'a placeholder could pass as the supplier’s own work');
 });

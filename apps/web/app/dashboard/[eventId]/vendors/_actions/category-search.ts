@@ -35,7 +35,7 @@ import { demoScopeFor } from '@/lib/demo-scope';
 import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
-import { reachCeilingKm } from '@/lib/vendor-service-radius';
+import { isVerifiedForReach, reachCeilingKm } from '@/lib/vendor-service-radius';
 // The ladder's own vocabulary lives in the PURE module that enforces the
 // boundary, so "which rung is protected?" has one answer in the codebase.
 import type { LadderTier } from '@/lib/inline-more-order';
@@ -1215,7 +1215,7 @@ export async function searchCategoryVendors(input: {
     // 2026-11-19 reach is NOT a plan allowance (owner: "unlock the range. not plan
     // dependend anymore"): `reachCeilingKm` is ∞ verified / 0 unverified, both
     // unscoped → within. The shop's own declared ring is its only distance claim.
-    const radiusKm = reachCeilingKm(r.verification_state === 'verified');
+    const radiusKm = reachCeilingKm(isVerifiedForReach((r.verification_state as string | null) ?? null));
     const withinRadius =
       dKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0 || dKm <= radiusKm;
     const serviceRadiusKm =

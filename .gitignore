@@ -52,6 +52,11 @@
 # `git add -f` because this folder had no allowlist line — the FOURTH time this swallowing pattern bit (lane C2 caught it).
 !/build-notes/
 
+# Added 2026-11-19 with patches/@supabase__postgrest-js@2.105.4.patch (pnpm patchedDependencies, the
+# typecheck-memory fix). Without this line the patch file is swallowed while package.json points at it,
+# and every `pnpm install` fails on a missing patch.
+!/patches/
+
 # --- build + tooling config at the root ---
 !/package.json
 !/pnpm-lock.yaml

@@ -265,6 +265,16 @@ export type SupplierTodayFirstScreenProps = {
   thumb?: ReactNode;
   /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
   minis?: ReactNode;
+  /**
+   * 📋 TODAY v2 (owner 18 Nov, `Today, one task` v2): the Needs-you rows drawn by `TodayV2Needs` — quick rows answered
+   * in place, bigger ones opening ONE focused screen. Given → it replaces the jumping rows below; the pinned heading
+   * and its count stay. 🔒 today-is-one-task.test.ts
+   */
+  needsRows?: ReactNode;
+  /** 🏅 v2's Next badge card — under the cover, above the five stats. */
+  nextBadge?: ReactNode;
+  /** 🌱 v2's Grow your business · Also for your badges and your page · What's trending — under Needs you today. */
+  grow?: ReactNode;
 };
 
 const PILL_TONE: Record<ShopPill, BadgeTone> = { 'Not sent': 'quiet', Checking: 'wait', Live: 'ok', 'Not yet': 'wait' };
@@ -303,6 +313,9 @@ export function SupplierTodayFirstScreen({
   setup = null,
   thumb = null,
   minis = null,
+  needsRows = null,
+  nextBadge = null,
+  grow = null,
 }: SupplierTodayFirstScreenProps) {
   const nothing = needs.length === 0 && !hasBills;
   return (
@@ -314,6 +327,7 @@ export function SupplierTodayFirstScreen({
           draws nothing of its own. */}
       {setup ? null : (
         <div data-today-top-only="">
+          {nextBadge}
           {nextEvents}
           {stats}
         </div>
@@ -370,7 +384,8 @@ export function SupplierTodayFirstScreen({
           {needsCount ? <em data-today-needs-count="">{formatCount(needsCount)}</em> : null}
         </div>
         <div className="[&>*:first-child]:border-t-0" data-today-needs-rows="">
-          {needs.map((n) => (
+          {needsRows}
+          {needsRows ? null : needs.map((n) => (
             <TodayRow
               key={n.key}
               href={nextHref(n.target)}
@@ -383,14 +398,14 @@ export function SupplierTodayFirstScreen({
               pill={n.pill ? <Badge tone={n.pill.tone} data="today-need">{n.pill.word}</Badge> : undefined}
             />
           ))}
-          {hasBills ? (
+          {hasBills && !needsRows ? (
             /* 💸 Every unpaid booking fee, each with its own Pay (owner 2026-09-20: "i never saw the payment screen to
                pay us") — the shipped rows, kind "Payments" for Show. */
             <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
               {bills}
             </div>
           ) : null}
-          {nothing ? (
+          {nothing && !needsRows ? (
             <TodayNoteRow label="Nothing waiting on you" line="New asks land here first" rowIcon="check" marker="waiting-empty" />
           ) : null}
         </div>
@@ -398,6 +413,8 @@ export function SupplierTodayFirstScreen({
           Nothing waiting matches that search
         </p>
       </div>
+
+      {grow}
 
       {/* 🌑 ALSO TODAY — on an event day, the day's own rows (Schedule · the Event Hub's tools). */}
       {alsoToday.length > 0 ? (

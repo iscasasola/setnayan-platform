@@ -46,6 +46,7 @@ export function PortfolioSettings({
   showChoices,
   picked,
   onPick,
+  onPlay = null,
 }: {
   /** Drawn on the Portfolio band: the cover's ink (`MenuSettingsButton`'s own `cover` look). */
   cover?: boolean;
@@ -60,6 +61,8 @@ export function PortfolioSettings({
   showChoices: readonly ShowChoice[];
   picked: string | null;
   onPick: (key: string | null) => void;
+  /** ▶ Play the picked album full screen. `null` = nothing picked yet (the button waits, greyed). */
+  onPlay?: (() => void) | null;
 }) {
   const [open, setOpen] = useState(false);
   const toast = useToast();
@@ -131,7 +134,19 @@ export function PortfolioSettings({
             dataAttr="data-portfolio-show-pick"
             className="min-h-11 w-full"
           />
-          <p className="text-[13px] text-[color:var(--m-slate-2)]">The ▶ in the thumb row’s menu plays this album full screen.</p>
+          <button
+            type="button"
+            disabled={!onPlay}
+            onClick={() => {
+              setOpen(false);
+              onPlay?.();
+            }}
+            className="inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[14px] font-semibold text-[color:var(--m-paper)] disabled:opacity-35"
+            data-portfolio-show-button=""
+          >
+            Show ▶
+          </button>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">{onPlay ? 'Plays this album full screen.' : 'Pick an album first.'}</p>
         </div>
 
         <p className="sn-eye pt-5">Your photos</p>

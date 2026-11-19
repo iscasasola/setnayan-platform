@@ -60,7 +60,8 @@ test('OnBody is a real portal into <body>, not a pass-through', () => {
   for (const src of [GALLERY, MENU_DOOR]) {
     const fn = /function OnBody\([\s\S]*?\n\}/.exec(src)?.[0] ?? '';
     assert.ok(fn, 'OnBody is gone — the sheets are back inside the page');
-    assert.match(fn, /setHost\(document\.body\)/, 'OnBody no longer targets document.body');
+    // Its own `setHost(document.body)`, or the shared hook that reads <body> (held by lib/a-sheet-mounts-once-on-a-tap.test.ts).
+    assert.match(fn, /setHost\(document\.body\)|const host = usePortalHost\(\);/, 'OnBody no longer targets document.body');
     assert.match(fn, /createPortal\(children, host\)/, 'OnBody no longer portals its children');
   }
 });

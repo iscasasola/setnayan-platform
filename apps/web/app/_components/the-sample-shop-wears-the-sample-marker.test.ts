@@ -60,10 +60,11 @@ test('the shop page shows it only for a shop marked is_demo, outside the flagshi
   const uses = [...page.matchAll(/<DemoOnlyMarker\b[^>]*\/>/g)];
   assert.equal(uses.length, 1, 'the shop page draws "(DEMO ONLY)" exactly once');
   assert.match(page, /\{isDemoVendor \? <DemoOnlyMarker \/> : null\}/);
-  // After the name block's `cinematicHero ? null : (…)` closes, so the flagship's card says it too.
+  // v16 S6: every shop's card names it as a label (the <h1> is on the hero) — the marker sits right after that label,
+  // in no branch at all, so every shop's card says it.
   const at = page.indexOf('{isDemoVendor ? <DemoOnlyMarker /> : null}');
-  const cinematic = page.lastIndexOf('{cinematicHero ? null : (', at);
-  assert.ok(cinematic > 0 && page.slice(cinematic, at).includes(')}'), 'the marker moved inside the cinematic-only branch');
+  const label = page.lastIndexOf('<p className="text-[1.02rem] font-semibold leading-snug text-ink">{displayLabel}</p>', at);
+  assert.ok(label > 0 && !/\? \(|\? null : \(/.test(page.slice(label, at)), 'the marker moved inside a branch'); 
 });
 
 test('the marketplace card shows it only for a demo shop, and its own amber Demo pill is gone', () => {

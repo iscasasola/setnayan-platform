@@ -28,6 +28,8 @@ import { maybeRunAnonDraftSweep } from '@/lib/anon-draft-sweep';
 import { maybeRunPhotoDeliveryDrain } from '@/lib/photo-delivery-drain';
 import { maybeRunEmailDeliveryCheck } from '@/lib/email-delivery.server';
 import { maybeRunBadgeRewardSweep } from '@/lib/badge-earned.server';
+import { maybeReleaseReceivedHolds } from '@/app/admin/payments/received-auto';
+import { approvePaymentCore } from '@/app/admin/payments/actions';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { countUnread } from '@/lib/notifications';
@@ -49,7 +51,7 @@ import { AdminModeToggle } from './_components/admin-mode-toggle';
 import { ADMIN_MODE_COOKIE, readAdminMode } from '@/lib/admin/admin-mode';
 import { cookies } from 'next/headers';
 import { AdminPinnedRow, AdminThumbRow } from './_components/admin-tab-rows';
-import { ADMIN_AVATAR_ROWS } from '@/lib/admin/admin-tabs';
+import { ADMIN_SETUP_PAGES } from '@/lib/admin/admin-pages';
 import Link from 'next/link';
 import { TriangleAlert, Clock } from 'lucide-react';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -297,9 +299,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // A supplier's event photo goes on its page once the guests' 7-day notice has passed (owner 2026-10-03) —
   // CRON-FREE, dual-mounted with the supplier layout; hourly claim; never throws.
   after(() => maybeRunSupplierPagePublish().catch(() => {}));
+  // 💳 BDO matches that happened by themselves (owner 2026-11-17, "Hold 30 min, then pay"): once a hold's
+  // 30-minute Undo window is over, the SAME approvePaymentCore a Match press runs. CRON-FREE, 5-min claim.
+  after(() => maybeReleaseReceivedHolds(approvePaymentCore).catch(() => {}));
 
-  // Admin-of-admin under the avatar; a row another slice is still building has no address yet and is not drawn.
-  const avatarRows = ADMIN_AVATAR_ROWS.flatMap((r) => (r.href ? [{ key: r.key, href: r.href, label: r.label }] : []));
+  // Setup — admin-of-admin under the avatar (admin reorg v7: Team · Switches & delivery · Business, keys & privacy ·
+  // Help). A page another PR is still building (Team, #7585) has no address yet and is not drawn.
+  const avatarRows = ADMIN_SETUP_PAGES.flatMap((p) => (p.href ? [{ key: p.key, href: p.href, label: p.label }] : []));
 
   // Role badge — warm info-slate for the Internal marker (Glass PR-1,
   // 2026-07-15: violet retired; admin's identity is the ShieldCheck + "HQ"
@@ -433,8 +439,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         console otherwise looking perfectly fine.
         `admin-rail-context.test.ts` fails if the class comes back.
       */}
-      {/* Admin-of-admin lives here, under the avatar (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`
-          ADMIN_AVATAR_ROWS). A row whose page another slice is still building has no address and is not drawn. */}
+      {/* Admin-of-admin lives here, under the avatar (owner 13 Nov 2026; Setup since the 17 Nov reorg —
+          `lib/admin/admin-pages.ts` ADMIN_SETUP_PAGES). A row whose page another slice is still building has no address and is not drawn. */}
       <AccountSwitcher data={switcherData} here="admin" adminRows={avatarRows} />
     </div>
   );

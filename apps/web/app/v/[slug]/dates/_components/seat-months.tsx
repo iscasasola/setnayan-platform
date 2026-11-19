@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { dayShines } from '@/lib/hot-date';
-import { CHECK_DATE_WORDS } from '@/lib/check-a-date';
+import { CHECK_DATE_POPULAR, CHECK_DATE_WORDS } from '@/lib/check-a-date';
 import s from './seat-months.module.css';
 
 /**
@@ -168,7 +168,7 @@ export function SeatMonths({
           <span className={`${s.sw} ${s.swPop}`} aria-hidden>
             ✦
           </span>
-          Popular
+          {CHECK_DATE_POPULAR}
         </li>
         <li>
           <span className={`${s.sw} ${s.swOff}`} aria-hidden />

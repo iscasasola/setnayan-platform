@@ -22,8 +22,11 @@ const SUPPLIER_COPY = [
 ];
 
 test('1 · an unverified shop’s words say what Verified adds, not that it is hidden', () => {
-  const pill = shopPillOf({ verified: false, findable: false });
+  const pill = shopPillOf({ verified: false, findable: false, docsWithSetnayan: false });
   assert.equal(shopStateWords({ pill, docsWithSetnayan: false }), 'send your documents to get Verified');
+  // W1-B36: nothing sent → the pill never says "Checking".
+  assert.equal(pill, 'Not sent');
+  assert.equal(shopPillOf({ verified: false, findable: false, docsWithSetnayan: true }), 'Checking');
   assert.equal(UNVERIFIED_BUSINESS_LINE, 'Couples can open your page by its link and message you');
 });
 

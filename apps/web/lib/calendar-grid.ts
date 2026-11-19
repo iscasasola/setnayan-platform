@@ -179,6 +179,13 @@ export const CALENDAR_DOT_WORD: Readonly<Record<CalendarDot, string>> = {
 /** The legend's word for a blocked day (plain words, 2026-10-14: block days → "Not available"). */
 export const CALENDAR_BLOCKED_WORD = 'Not available';
 
+/**
+ * 📅 The word for a box grid's seat-green day — a day that can still take a booking (the day screen's own "Free",
+ * `dayAnswerOf`). The box grid fills every such day (owner 2026-11-14 colour coding); without this word in the legend
+ * the only green the legend named was "Booked here", so an open month read as booked solid (owner, 17 Nov).
+ */
+export const CALENDAR_OPEN_WORD = 'Free';
+
 /** One day's state (kind 31). Left out, a day is drawn exactly as kind 8 draws it. */
 export type CalendarDayState = {
   /** A dot per thing on the day, in this order; at most three are drawn. */

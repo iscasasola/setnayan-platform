@@ -55,6 +55,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
  */
 const NO_EVENT_WRITE: Record<string, string> = {
   'delete-actions.ts#getEventDeletionImpact': 'read: counts what a delete would remove',
+  'checkout/actions.ts#payerRailForAmount': 'read: which ONE QR (GCash or BDO) an amount pays to — writes nothing',
   'actions.ts#previewPersonalizationConflicts': 'read: a preview, writes nothing',
   'studio/patiktok/actions.ts#matchPatiktokFace': 'read: face lookup, returns a guest',
   'studio/mood-board/actions.ts#readMoodboardThemeDescription': 'read: parses text',

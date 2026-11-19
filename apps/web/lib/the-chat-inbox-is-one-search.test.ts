@@ -31,6 +31,18 @@ test('it matches the NAME — any case, any accent, every word — and never the
   assert.deepEqual(searchInboxRows(ROWS, 'casa').map((r) => r.threadId), ['2'], 'the search matched a preview line');
 });
 
+test('CHAT-16 · a supplier row is found by EITHER host’s name, never by its message line', () => {
+  const rows = [
+    { threadId: 'w', name: "Wanda's Wedding (Dec 12)", names: 'Wanda & Indigo', preview: 'couple reply' },
+    { threadId: 'x', name: "TEST's Birthday (date not set)", names: null, preview: 'Indigo said hi' },
+  ];
+  assert.deepEqual(searchInboxRows(rows, 'indigo').map((r) => r.threadId), ['w'], 'the second host’s name finds nothing again');
+  assert.deepEqual(searchInboxRows(rows, 'wanda indigo').map((r) => r.threadId), ['w']);
+  assert.deepEqual(searchInboxRows(rows, 'couple reply').map((r) => r.threadId), [], 'a preview line is being searched');
+  const page = readFileSync(join(__dirname, '..', 'app', 'vendor-dashboard', 'messages', 'page.tsx'), 'utf8');
+  assert.match(page, /names: inputs\.customers\.get\(r\.eventId\)\?\.displayName \?\? null,/, 'the supplier rows no longer carry the couple’s names');
+});
+
 test('the field is the shipped ThumbRow field, in the thumb dock, and calls the one function — once', () => {
   const s = read(INBOX);
   assert.equal((s.match(/<ThumbRow\b/g) ?? []).length, 1, 'the inbox draws its own row instead of the one ThumbRow');

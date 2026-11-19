@@ -35,11 +35,12 @@ import {
 import type { PaperRead } from '@/lib/verification-pairs';
 import { formatLongDate } from '@/lib/format-date';
 import { foldBusinessName, nameSimilarity } from '@/lib/auto-verify';
+import { notRecognisedBecause } from '@/lib/paper-recognised';
 
 /** Below this similarity (0..1, folded names) a paper is "from a different shop name". */
 export const DIFFERENT_NAME_BELOW = 0.6;
 
-import { MAX_TRIES } from '@/lib/paper-intake-shared';
+import { MAX_TRIES, NOT_RECOGNISED_PREFIX } from '@/lib/paper-intake-shared';
 export { MAX_TRIES };
 
 export type DetectedKind = 'dti' | 'sec' | 'bir' | 'lgu' | 'other' | 'unknown';
@@ -146,8 +147,8 @@ const PAPER_WORD: Record<ReadableSlotKey, string> = {
 
 export const INTAKE_MESSAGE = {
   unclear: 'This copy isn’t clear enough — please upload a cleaner one.',
-  keptTyped: 'We still can’t read this copy, so we kept it — a person at Setnayan is checking this paper. Typing what it says helps them.',
-  triesUsed: 'A person at Setnayan is already checking this paper — this copy wasn’t clearer, so we kept the one you sent.',
+  keptTyped: 'We still can’t read this copy, so we kept it for a person at Setnayan to check.',
+  triesUsed: 'This copy wasn’t clearer, so we kept the one you sent before for a person at Setnayan to check.',
   unknown: 'We couldn’t tell which paper this is. Upload your DTI or SEC certificate, BIR 2303, or Mayor’s Permit.',
   other: 'This isn’t one of the three papers we need.',
   differentName: 'This paper is for a different shop name than your other papers — upload the one for your shop. Not counted as a try.',
@@ -222,9 +223,29 @@ function hasCleanFile(slot: IntakeSlot | null): boolean {
 // The seal
 // ---------------------------------------------------------------------------
 
+/**
+ * JSON with every object's keys SORTED, at every depth. `doc_uploads` is a Postgres `jsonb` column, and jsonb
+ * stores keys shortest-first, not in the order they were written — so a plain `JSON.stringify` of a slot read back
+ * from the database differs from the one that was sealed, and the seal "breaks" on every paper with a read
+ * (W1-B37, live 18 Nov 2026: the typed form refused with "Type the details only after three tries." on a paper
+ * at try 3, and auto-verify saw every paper as unconfirmed). Sorting makes the payload the same before and after
+ * a save. Payloads with no nested objects are unchanged byte for byte.
+ */
+function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map((x) => (x === undefined ? 'null' : canonicalJson(x))).join(',')}]`;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`).join(',')}}`;
+  }
+  return JSON.stringify(v) ?? 'null';
+}
+
 /** Exactly what the final decision relies on, in a fixed order. */
 function sealPayload(slotKey: string, s: IntakeSlot): string {
-  return JSON.stringify([
+  return canonicalJson([
     'setnayan-paper-seal:v1',
     slotKey,
     s.r2_key ?? null,
@@ -413,14 +434,19 @@ export function mergeIntake(
     keep.add(p.r2Key);
     if (prior && prior !== p.r2Key) keep.delete(prior);
     const crossKind = replacing && cur.kind && cur.kind !== kind && slot === 'dti_certificate';
+    // 🛂 W1-B34: filed is not Recognised. A paper with a TEST stamp, a missing line or an issuer that is not the
+    // government body is kept (the machine never refuses) and told plainly that a person checks it — never "Read as".
+    const held = notRecognisedBecause(p.model);
     say({
       outcome: replacing ? (crossKind ? 'only_one_needed' : 'replaced') : 'read_ok',
       slot,
-      message: replacing
-        ? crossKind
-          ? 'Only one of DTI or SEC is needed — this one was clearer, so it replaced the other.'
-          : `This replaced the ${PAPER_WORD[slot]} you sent before.`
-        : `Read as your ${PAPER_WORD[slot]}.`,
+      message: held
+        ? `${NOT_RECOGNISED_PREFIX}${held.charAt(0).toUpperCase()}${held.slice(1)}. A person at Setnayan will check it.`
+        : replacing
+          ? crossKind
+            ? 'Only one of DTI or SEC is needed — this one was clearer, so it replaced the other.'
+            : `This replaced the ${PAPER_WORD[slot]} you sent before.`
+          : `Read as your ${PAPER_WORD[slot]}.`,
       fields: fieldsFor(slot, p.model),
       attempts: cur.attempts,
     });

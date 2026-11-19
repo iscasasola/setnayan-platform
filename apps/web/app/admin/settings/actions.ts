@@ -88,6 +88,15 @@ function nullIfBlankNumber(raw: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** A posted peso figure ≥ 0, or null when blank / not a number (then it is not written). */
+function nonNegativeNumberOrNull(raw: FormDataEntryValue | null): number | null {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim().replace(/,/g, '');
+  if (t.length === 0) return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
@@ -190,6 +199,32 @@ export async function saveBusinessIdentity(formData: FormData) {
       return redirect(
         `/admin/settings?tab=settings&error=${encodeURIComponent(
           `Business identity saved, but the driving speed couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (drive speed)', speedErr)}`,
+        )}`,
+      );
+    }
+  }
+
+  // 🌱 Today v2's grow lines (migration 20271350875090) — the same shape as drive speed: absent = leave as it is, blank =
+  // not set (that stage is off on every supplier's Today), else a whole number 1–10,000.
+  for (const [field, word] of [
+    ['grow_few_inquiries_28d', 'few inquiries'],
+    ['grow_few_bookings_month', 'few bookings'],
+  ] as const) {
+    if (!formData.has(field)) continue;
+    const raw = formData.get(field);
+    const blank = typeof raw !== 'string' || raw.trim() === '';
+    const n = nullIfBlankNumber(raw);
+    if (!blank && (n === null || !Number.isInteger(n) || n < 1 || n > 10000)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(`Business identity saved, but the ${word} line must be a whole number 1–10,000, or blank.`)}`);
+    }
+    const { error: lineErr } = await admin
+      .from('platform_settings')
+      .update({ [field]: n, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (lineErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(
+          `Business identity saved, but the ${word} line couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (grow lines)', lineErr)}`,
         )}`,
       );
     }
@@ -524,6 +559,15 @@ export async function savePaymentInstruments(formData: FormData) {
     bdo_monthly_cap_php: nullIfBlankNumber(formData.get('bdo_monthly_cap_php')),
     updated_at: new Date().toISOString(),
   };
+
+  // ⚖ ONE QR (owner 2026-11-18): the GCash line and the monthly GCash allowance.
+  // Both columns are NOT NULL, so a blank or unreadable field is LEFT AS IS —
+  // never written as null or zero. The line must be > 0; the allowance may be 0
+  // (= every payment to BDO).
+  const gcashLine = nonNegativeNumberOrNull(formData.get('gcash_max_php'));
+  if (gcashLine != null && gcashLine > 0) payload.gcash_max_php = gcashLine;
+  const gcashAllowance = nonNegativeNumberOrNull(formData.get('gcash_allowance_php'));
+  if (gcashAllowance != null) payload.gcash_allowance_php = gcashAllowance;
 
   const admin = createAdminClient();
 

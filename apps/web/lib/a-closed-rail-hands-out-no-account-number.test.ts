@@ -224,7 +224,8 @@ test('/pay asks the one rule, and hands out nothing when every rail is closed', 
   assert.doesNotMatch(page, /_enabled\s*!==\s*false/, '/pay reads the flag alone again');
   // ✏️ RE-ANCHORED 2026-10-01: /pay renders every account in the LIST, so it
   // asks the one rule for the open accounts instead of two fixed ids.
-  assert.match(page, /openAccounts\(settings\)/, '/pay stopped asking the one rule which accounts are open');
+  // ⚖ 2026-11-18: one QR — `payerAccountsFor` narrows `openAccounts` to the ONE account the rule picked.
+  assert.match(page, /payerAccountsFor\(settings, railPick\)/, '/pay stopped asking the one rule which accounts are open');
 
   const panel = readFileSync(join(WEB, 'app/pay/[reference]/_components/pay-panel.tsx'), 'utf8');
   /**

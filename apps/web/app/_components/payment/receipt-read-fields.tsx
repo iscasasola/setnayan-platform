@@ -8,6 +8,10 @@
  * ai to run?"* → *"Yes, swap it in"*; and *"the don't have to type. we detect
  * after they sent it and log the data for the admin"*.
  *
+ * 🚦 That ruling covered the admin's own BDO screenshots (#7924). For BUYER
+ * receipts a 17 Nov ruling keeps the existing reader, so this ships DARK behind
+ * `BUYER_RECEIPTS_READ_ON_PHONE` (lib/receipt-fields.ts, OFF) until the owner rules.
+ *
  * Mounted inside the proof form on /pay (gift store orders land there too) and
  * in the couple checkout drawer. Every value rides the surrounding `<form>`
  * under `RECEIPT_FIELDS`, so neither caller posts anything by hand.

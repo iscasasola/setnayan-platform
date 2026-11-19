@@ -29,6 +29,8 @@ import {
   allAdminClaims,
   claimScore,
 } from '@/lib/admin/admin-tabs';
+// 17 Nov 2026 reorg: a page may be homed in the reorganised map (`admin-pages.ts`) until admin-tabs.ts is folded into it.
+import { adminShellPlaceFor } from '@/lib/admin/admin-pages';
 import { ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 
 const APP = join(process.cwd(), 'app');
@@ -82,7 +84,7 @@ test('ANCHOR — the walk found the admin tree', () => {
 });
 
 test('every page and route under app/admin has a tab (or the avatar)', () => {
-  const homeless = ROUTES.filter((r) => adminPlaceFor(r.url, null) === null).map(
+  const homeless = ROUTES.filter((r) => adminPlaceFor(r.url, null) === null && adminShellPlaceFor(r.url, null) === null).map(
     (r) => `${r.url}   (${r.file})`,
   );
   assert.deepEqual(

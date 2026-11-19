@@ -31,6 +31,8 @@
  * never the list directly and never the old columns.
  */
 
+import { isGcashRail } from './gcash-allowance';
+
 /** A rail is one of Setnayan's receiving accounts, named by its id. */
 export type PayChannel = string;
 
@@ -226,6 +228,25 @@ export function openAccounts(s: ChannelSettings): ReceivingAccount[] {
  */
 export function isPayerRail(a: Pick<ReceivingAccount, 'id' | 'label'>): boolean {
   return a.id === 'bdo' || /^bdo\b/i.test(a.label.trim());
+}
+
+/**
+ * ⚖ THE ONE QR A PAYER SEES (owner 2026-11-18: "we only offer 1 QR Code. The
+ * rule is use GCash for the first 100,000 transactions under 1,000 every month.
+ * and the rest goes to BDO."). `pick` comes from `pickPayerRail`
+ * (lib/gcash-allowance.ts) — this only turns it into an account.
+ *
+ * 'gcash' ⇒ the first OPEN GCash account (switch on, something to pay to); if
+ * GCash is switched off or empty, BDO as always. 'bdo' ⇒ the first open BDO
+ * account. Never more than ONE account — there is no choice on screen. A
+ * surface that does not know the amount keeps calling `openAccounts` (BDO).
+ */
+export function payerAccountsFor(s: ChannelSettings, pick: 'gcash' | 'bdo'): ReceivingAccount[] {
+  if (pick === 'gcash') {
+    const g = receivingAccounts(s).find((a) => a.enabled && payableAccount(a) && isGcashRail(a));
+    if (g) return [g];
+  }
+  return openAccounts(s).slice(0, 1);
 }
 
 /**

@@ -14,6 +14,7 @@ import {
 import { updateNikahDetails } from '../nikah-actions';
 import { formatCount } from '@/lib/format-number';
 import { guestsWithRole } from '@/lib/nikah-essentials';
+import { ActionButton } from '@/components/action-button';
 
 // The Five Essentials of your Nikah — the signature couple-facing surface of the
 // Muslim wedding track. It turns the five validity pillars of an Islamic
@@ -236,12 +237,7 @@ export function NikahEssentialsCard({
             </p>
           </div>
 
-          <button
-            type="submit"
-            className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg bg-mulberry px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-mulberry-700 focus:outline-none focus:ring-2 focus:ring-mulberry focus:ring-offset-2 focus:ring-offset-cream"
-          >
-            Save Nikah details
-          </button>
+          <ActionButton tone="brand" main type="submit" icon={<CheckCircle2 aria-hidden strokeWidth={1.9} />} label="Save Nikah details" />
         </form>
 
         <Link

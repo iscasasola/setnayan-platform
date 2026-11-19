@@ -13,6 +13,7 @@ import { StayForm } from '@/app/_components/stay-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { proposeCategory } from '@/app/vendor-dashboard/services/actions';
 import { serviceNameProblem } from '@/lib/service-requests';
+import { actionButtonClass } from '@/components/action-button';
 
 export function RequestNameForm({
   tileId,
@@ -65,7 +66,7 @@ export function RequestNameForm({
       />
     </FormRows>
       {after}
-      <SubmitButton className="button-primary min-h-11 w-full sm:w-auto" pendingLabel="Sending…">
+      <SubmitButton className={`${actionButtonClass('brand', { main: true })} w-full sm:w-auto`} pendingLabel="Sending…">
         Send request
       </SubmitButton>
     </StayForm>

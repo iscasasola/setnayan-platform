@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
+import { InfoTip } from '@/app/_components/info-tip';
 import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
+import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
@@ -226,7 +228,7 @@ export function PayPanel({
                     <p key={c.id} className="text-sm text-ink/70">
                       <span className="block text-xs text-ink/55">{c.label}</span>
                       {c.number && (
-                        <span className="font-mono text-[15px] font-semibold text-ink">
+                        <span className="text-[15px] font-semibold tabular-nums tracking-wide text-ink">
                           {c.number}
                         </span>
                       )}
@@ -235,7 +237,7 @@ export function PayPanel({
                   ))}
                 <p className="text-sm text-ink/70">
                   Amount to send:{' '}
-                  <span className="font-mono font-semibold text-ink">{payAmount(amountPhp)}</span>
+                  <span className="font-semibold tabular-nums text-ink">{payAmount(amountPhp)}</span>
                 </p>
               </>
             )}
@@ -245,7 +247,7 @@ export function PayPanel({
 
       {/* ── STAGE 2 ──────────────────────────────────────────────────────── */}
       <div hidden={stage !== 2}>
-        <section id="payCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+        <section id="payCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
           <StepHead n={2} title="Pay this exact amount" />
           {/*
             🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
@@ -300,9 +302,11 @@ export function PayPanel({
             </>
           )}
 
-          <p className="mt-4 text-[11px] leading-relaxed text-ink/55">
-            Paying on the same phone? Tap Share and save the code to your photos &mdash; your bank
-            app&rsquo;s scanner can open it from your photos.
+          <p className="mt-4 text-xs leading-relaxed text-ink/70">
+            Paying on the same phone? Tap Share and save the code to your photos.{' '}
+            <InfoTip label="" ariaLabel="About paying on the same phone" align="start">
+              Your bank app&rsquo;s scanner can open it from your photos.
+            </InfoTip>
           </p>
 
           <div className="mt-5 flex flex-col gap-2">
@@ -333,7 +337,7 @@ export function PayPanel({
           unmounted afterwards. See `shouldMountProof`. */}
       {proofMounted && (
         <div hidden={stage !== PROOF_STAGE}>
-          <section id="proofCard" className="sn-tile mt-5 scroll-mt-4 p-6">
+          <section id="proofCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
             <StepHead n={3} title="Send your proof" />
             {resubmitNotice && (
               <p className="mb-4 rounded-lg border border-mulberry/40 bg-mulberry/[0.06] p-3 text-sm text-ink">
@@ -341,7 +345,7 @@ export function PayPanel({
               </p>
             )}
             {proofSent ? (
-              <div className="rounded-xl border border-mulberry bg-white p-5 text-center">
+              <div className="rounded-xl bg-white p-5 text-center">
                 <h2 className="text-lg font-semibold text-ink">We&rsquo;re checking your payment</h2>
                 <p className="mt-2 text-sm text-ink/65">
                   You&rsquo;ll get an email once it&rsquo;s confirmed &mdash; usually within 24 hours.
@@ -564,7 +568,7 @@ function ProofForm({
       </p>
 
       {preview && (
-        <div className="rounded-xl border border-mulberry bg-white p-3 text-center">
+        <div className="rounded-xl bg-white p-3 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview}
@@ -607,18 +611,22 @@ function ProofForm({
         }}
       />
 
-      {/* 🔒 READ ON THIS PHONE (owner 17 Nov 2026, "Yes, swap it in"): the
-          amount, date, time and reference are filled from the picture by the
-          in-app reader, and the payer can fix any of them. No outside AI. */}
-      <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
+      {/* 🚦 READ ON THIS PHONE — ONLY WITH `BUYER_RECEIPTS_READ_ON_PHONE` ON. It
+          is OFF: the 17 Nov ruling keeps the existing reader (the server reads
+          the picture after it is sent). ON, the amount, date, time and reference
+          are filled from the picture by the in-app reader and the payer can fix
+          any of them. The owner has not ruled on the swap. */}
+      {BUYER_RECEIPTS_READ_ON_PHONE && (
+        <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
+      )}
 
       {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
           *"the don't have to type. we detect after they sent it and log the
           data for the admin to send his counterpart screenshot"*). The action
           reads the reference, the amount, the date and the time off this
-          picture ON THIS PHONE (ReceiptReadFields, above) and stores them on
-          the payment for the admin to match. Advisory only — nothing read here
-          approves money. */}
+          picture with the receipt reader and stores them on the payment for
+          the admin to match. Advisory only — nothing read here approves money. */}
+
       <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
         I&rsquo;ve sent the payment
       </SubmitButton>
@@ -681,7 +689,7 @@ function StickyBar({
   return (
     <div data-glass-row="pay-bar" className="sn-glass-row fixed inset-x-0 bottom-0 z-40 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))]">
       <div className="mx-auto flex max-w-[560px] items-center gap-3">
-        <span className="whitespace-nowrap font-mono text-[17px] font-bold text-ink">
+        <span className="whitespace-nowrap text-[17px] font-bold tabular-nums text-ink">
           <span className="block font-sans text-[11px] font-normal text-ink/55">
             {proofSent ? 'Checking' : 'To pay'}
           </span>

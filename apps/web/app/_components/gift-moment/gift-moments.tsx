@@ -15,6 +15,7 @@ import {
   queueCounter,
 } from '@/lib/gift-moment-queue';
 import type { GiftMomentView } from '@/lib/gift-moment';
+import { stageFor } from './gift-moment-rules';
 
 /**
  * 🎁 THE GIFT MOMENTS ON A PAGE — what plays by itself, and what waits (owner 2026-11-14; drawing
@@ -27,9 +28,12 @@ import type { GiftMomentView } from '@/lib/gift-moment';
  *   · WAITS: every unclaimed gift is ONE notice line — "🎁 A gift from <giver> is waiting · Open" — at the page's top
  *     (the `earned` slot on Today, the event pages' top on Home) and in the bell, with NO close word: nothing closes
  *     it but claiming. Open brings the popup back (open, if it was opened before; wrapped, if not).
- *   · The popup itself (`gift-moment.tsx`) is loaded only when one is about to show.
+ *   · The popup itself (`gift-moment.tsx`, through `gift-moment-shown.tsx`, which adds the gift's reward ticket) is
+ *     loaded only when one is about to show. This page hands it the badge background (`stageFor`: Verified's navy, a
+ *     tier's gold, none for a supplier's gift) and the drop-in (`arrive`: a badge's gift arrives after its award, as
+ *     drawn in gift-box_APPROVED — never for one re-opened from its waiting line, which was already open).
  */
-const GiftMoment = dynamic(() => import('./gift-moment'), { ssr: false });
+const GiftMoment = dynamic(() => import('./gift-moment-shown'), { ssr: false });
 
 const openedKey = (v: Pick<GiftMomentView, 'key'>) => `gift-moment-opened:${v.key}`;
 
@@ -143,16 +147,21 @@ export function GiftMoments({ url }: { url: string }) {
           view={showing.view}
           counter={showing.counter}
           startOpen={showing.startOpen}
+          stage={stageFor(showing.view)}
+          arrive={showing.view.source === 'badge_reward' && !showing.startOpen}
           onOpened={() => {
             const v = showing.view;
             setOpened((prev) => new Set([...prev, v.key]));
             void saveClose(openedKey(v), null);
           }}
-          onClaimed={() => {
+          onClaimed={(choiceId) => {
             const v = showing.view;
             const at = new Date().toISOString();
             // The waiting line goes at once; the page catches up on its next read.
             setViews((prev) => (prev ? prev.map((x) => (x.key === v.key ? { ...x, claimedAt: x.claimedAt ?? at } : x)) : prev));
+            // A badge or seal reward is claimed by itself when it shows (owner 15 Nov): the moment plays on, and a tap
+            // closes it as usual — nothing navigates, and the next gift still follows.
+            if (choiceId === 'auto') return;
             setQueue([]);
             setShowing(null);
             router.push(v.redeemHref);

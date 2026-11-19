@@ -35,6 +35,7 @@
 import { formatCount } from './format-number';
 import type { PushLevel } from './push-levels';
 import { ACCOUNT_NAME, HQ_NAME, HQ_STANCE, SHOP_STANCE } from './notification-place';
+import { RETURNING_CLIENT_LEAD } from './client-words';
 
 /** What a lock screen shows before it cuts. */
 export const PUSH_TITLE_MAX = 40;
@@ -247,7 +248,8 @@ export function noticeSentence(n: {
         ? null
         : (n.body ?? '')
             .replace(/^This inquiry comes from a founder of Setnayan\.\s*/, '')
-            .replace(/^This couple previously booked you for [^.]*\.\s*/, '');
+            // Any noun: "This couple…" rows stored before 17 Nov, and "This celebrant…" / "This host…" after.
+            .replace(RETURNING_CLIENT_LEAD, '');
       return { sentence: inquirySentence({ preview, returning, founder }), collapseKey: `inquiry:${url}` };
     }
     case 'inquiry_accepted': {

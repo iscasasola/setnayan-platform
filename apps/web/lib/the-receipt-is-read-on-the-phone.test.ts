@@ -3,6 +3,10 @@
  * 2026: *"can we create our own in app reader so we do not need ai to run?"* →
  * *"Yes, swap it in"*).
  *
+ * 🚦 That ruling covered the admin's own BDO screenshots (#7924). For BUYER
+ * receipts a 17 Nov ruling keeps the existing reader, so this ships DARK behind
+ * `BUYER_RECEIPTS_READ_ON_PHONE` (lib/receipt-fields.ts, OFF) until the owner rules.
+ *
  * The fixtures below are the REAL OUTPUT of the pinned on-phone reader
  * (tesseract.js 7.0.0, eng 4.0.0_best_int — lib/on-phone-reader.ts) on six
  * DRAWN receipt screens: two BDO app, two InstaPay into BDO, two QR Ph — each
@@ -309,28 +313,48 @@ test('malformed fields are dropped, never coerced', () => {
   );
 });
 
-/* ── The outside AI call is GONE, and stays gone ───────────────────────────── */
+/* ── ONE switch decides who reads a buyer receipt, and it is OFF ───────────── */
+// A 17 Nov 2026 ruling keeps the EXISTING reader for buyer receipts; the owner
+// has not ruled on the swap. So the phone read ships DARK behind
+// `BUYER_RECEIPTS_READ_ON_PHONE`, and OFF must be exactly the existing reader.
 
-const RECEIPT_SEAM = [
-  'lib/payment-receipt-read.ts',
-  'lib/payment-receipt-read.server.ts',
+test('the switch is OFF until the owner rules', () => {
+  assert.match(
+    code('lib/receipt-fields.ts'),
+    /export const BUYER_RECEIPTS_READ_ON_PHONE = false;/,
+    'the phone read was switched on — the owner has not ruled on swapping the buyer receipt reader',
+  );
+});
+
+test('OFF is the existing reader on every buyer path', () => {
+  for (const [f, seam] of [
+    ['app/pay/[reference]/actions.ts', /readPaymentReceiptFromR2\(/],
+    ['app/dashboard/[eventId]/checkout/actions.ts', /readPaymentReceiptFromR2\(/],
+    ['app/admin/payments/actions.ts', /runPaymentReceiptRead\(/],
+  ] as const) {
+    const src = code(f);
+    assert.match(src, /BUYER_RECEIPTS_READ_ON_PHONE/, `${f} no longer asks the switch`);
+    assert.match(src, seam, `${f} lost the existing reader (the OFF path)`);
+  }
+  // The existing reader itself is intact.
+  const server = code('lib/payment-receipt-read.server.ts');
+  assert.match(server, /export async function readPaymentReceiptFromR2\(/);
+  assert.match(server, /export async function runPaymentReceiptRead\(/);
+});
+
+const PHONE_ONLY = [
   'lib/receipt-read-on-phone.ts',
   'lib/on-phone-reader.ts',
-  'app/pay/[reference]/actions.ts',
-  'app/dashboard/[eventId]/checkout/actions.ts',
-  'app/admin/payments/actions.ts',
   'app/_components/payment/receipt-read-fields.tsx',
   'app/admin/payments/_components/reread-on-this-phone.tsx',
 ] as const;
 
-test('no receipt path talks to an outside model', () => {
-  for (const f of RECEIPT_SEAM) {
+test('the phone path never talks to an outside model', () => {
+  for (const f of PHONE_ONLY) {
     const src = code(f);
-    assert.doesNotMatch(src, /@anthropic-ai\/sdk|new Anthropic\(|messages\.create\(/, `${f} calls an outside model again`);
-    assert.doesNotMatch(src, /readPaymentReceiptFromR2|runPaymentReceiptRead/, `${f} brought back the model seam`);
+    assert.doesNotMatch(src, /@anthropic-ai\/sdk|new Anthropic\(|messages\.create\(/, `${f} calls an outside model`);
+    assert.doesNotMatch(src, /readPaymentReceiptFromR2|runPaymentReceiptRead/, `${f} reaches the server reader`);
   }
-  // The server no longer fetches the picture to read it.
-  assert.doesNotMatch(code('lib/payment-receipt-read.server.ts'), /r2GetBytes|sharp/);
 });
 
 test('the reader is the shared one, and it is lazy everywhere', () => {
@@ -350,7 +374,9 @@ test('the reader is the shared one, and it is lazy everywhere', () => {
   assert.doesNotMatch(code('app/_components/payment/receipt-read-fields.tsx'), /^import[^;]*from ['"]@\/lib\/on-phone-reader['"]/m);
 });
 
-test('both buyer forms mount the read-and-correct fields', () => {
-  assert.match(code('app/pay/[reference]/_components/pay-panel.tsx'), /<ReceiptReadFields file=\{picked\} expectedPhp=\{amountPhp\} channel=\{channel\} \/>/);
-  assert.match(code('app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx'), /<ReceiptReadFields file=\{receiptFile\} expectedPhp=\{finalGrossPhp\} channel=\{channel\} \/>/);
+test('both buyer forms mount the read-and-correct fields — behind the switch', () => {
+  // …and ONLY behind the switch, so OFF draws exactly the existing form.
+  assert.match(code('app/pay/[reference]/_components/pay-panel.tsx'), /\{BUYER_RECEIPTS_READ_ON_PHONE && \(\s*<ReceiptReadFields file=\{picked\} expectedPhp=\{amountPhp\} channel=\{channel\} \/>/);
+  assert.match(code('app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx'), /\{BUYER_RECEIPTS_READ_ON_PHONE && \(\s*<ReceiptReadFields file=\{receiptFile\} expectedPhp=\{finalGrossPhp\} channel=\{channel\} \/>/);
+  assert.match(code('app/admin/payments/_components/desk.tsx'), /BUYER_RECEIPTS_READ_ON_PHONE \? \(\s*<RereadOnThisPhone/);
 });

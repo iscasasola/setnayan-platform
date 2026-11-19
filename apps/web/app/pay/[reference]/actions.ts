@@ -14,8 +14,13 @@ import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
+import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
+import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
+import type { ReceiptReadRecord } from '@/lib/payment-receipt-read.server';
 
 /**
  * The one proof submission, for every purchase.
@@ -77,6 +82,10 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   if (!payable) {
     // Same answer as "no such reference" — never confirm a stranger's code.
     redirect('/dashboard');
+  }
+  if (payable.status === 'unchecked') {
+    // A plan whose row could not be read may already be confirmed — never log a payment against it blind.
+    back(reference, 'error', "We couldn't check this payment just now. Nothing was logged — please try again in a moment.");
   }
   if (payable.status !== 'awaiting_payment') {
     back(reference, 'error', 'This one is already settled — nothing more to send.');
@@ -177,6 +186,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     ? channelRaw
     : 'bank_transfer';
 
+  // ⚖ ONE QR, AND THE SERVER ASKS THE SAME QUESTION (owner 2026-11-18). A GCash
+  // receipt is taken only when `pickPayerRail` — the rule the page drew its one
+  // code from — would have chosen GCash for this amount: under the line, with
+  // room left in this month's allowance. Otherwise (₱1,000 and up, allowance
+  // spent, anything unreadable) the page showed BDO, so a GCash proof is
+  // refused rather than filed against the wrong account.
+  if (isGcashRail({ id: channel, label: channel })) {
+    const pick = pickPayerRail(payable.amountPhp, await getGcashGate({ excludeOrderId: payable.orderId }));
+    if (pick !== 'gcash') back(reference, 'error', GCASH_PROOF_REFUSED_MESSAGE);
+  }
+
   const idempotencyRaw = formData.get('client_idempotency_key');
   const idempotencyKey =
     typeof idempotencyRaw === 'string' && idempotencyRaw.trim().length > 0
@@ -188,27 +208,54 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // exist on the photo?"* and then *"if the reference code did not match, please
   // type again or upload a cleaner photo."*
   //
-  // 🔁 READ ON THEIR PHONE NOW, NOT BY AN OUTSIDE AI (owner 17 Nov 2026: "can
-  // we create our own in app reader so we do not need ai to run?" → "Yes, swap
-  // it in"). The in-app reader (lib/on-phone-reader.ts, Tesseract) read the
-  // picture on the payer's phone and posted only the TEXT and the four fields
-  // they confirmed; the same pure parser decides what that text says here.
-  // Nothing is fetched from R2 and nothing is sent anywhere to be read.
+  // So the read happens HERE, in the request, rather than after the response:
+  // the only moment a mistyped reference can still be fixed cheaply is while the
+  // person who typed it is looking at the screen. Once this row lands it becomes
+  // an admin's job and a round trip by email.
   //
-  // ⚠ IT MUST NEVER COST SOMEBODY A PAYMENT THEY HAVE ALREADY SENT. A reader
-  // that never ran (no JavaScript, or sent before it finished) is NULL, and a
-  // reader that failed is a 'failed' read — both fall through and accept. Only
-  // a DEFINITE no on a reference typed on an old tab sends them back, ONCE.
-  const { phoneReceiptRead, loggedFromPhone } = await import('@/lib/payment-receipt-read');
-  const receiptRead = screenshotUrl
-    ? phoneReceiptRead({
-        form: formData,
-        typed: bankReference,
-        expectedPhp: payable.amountPhp,
-        channel,
-      })
-    : null;
-  const logged = loggedFromPhone(formData, receiptRead);
+  // ⚠ IT MUST NEVER COST SOMEBODY A PAYMENT THEY HAVE ALREADY SENT. The reader
+  // is bounded (20s) and every failure — no key, timeout, unreadable picture —
+  // comes back as "we do not know", which falls through and accepts. Only a
+  // DEFINITE no sends them back, and only ONCE: see `askedAlready`.
+  //
+  // 🚦 WHO READS IT IS ONE SWITCH (`BUYER_RECEIPTS_READ_ON_PHONE`, OFF). The
+  // 17 Nov ruling keeps the EXISTING reader for buyer receipts, so OFF is the
+  // server read below. ON, the buyer's phone read the picture (Tesseract, no
+  // outside AI) and posted only the text; the same pure parser reads it here.
+  // The owner has not ruled on the swap — do not turn it on without him.
+  const receiptRead: ReceiptReadRecord | null = !screenshotUrl
+    ? null
+    : BUYER_RECEIPTS_READ_ON_PHONE
+      ? await (async () => {
+          const { phoneReceiptRead } = await import('@/lib/payment-receipt-read');
+          const read = phoneReceiptRead({
+            form: formData,
+            typed: bankReference,
+            expectedPhp: payable.amountPhp,
+            channel,
+          });
+          return read ? { ...read, model: ON_PHONE_READER_NAME } : null;
+        })()
+      : await (async () => {
+          const { readPaymentReceiptFromR2 } = await import('@/lib/payment-receipt-read.server');
+          return readPaymentReceiptFromR2({
+            screenshotRef: screenshotUrl,
+            // The same folder the ref was just admitted under, above.
+            proofPolicy: orderPaymentProofPolicy(payable.orderId),
+            typedReference: bankReference,
+            expectedPhp: payable.amountPhp,
+            channel,
+          });
+        })();
+  // What the payment row logs. OFF: what the server read. ON: a field the buyer
+  // corrected wins over what their phone read. Either way it passes the same
+  // two filters below (`readReferenceToLog`, `receiptPaidOnToLog`).
+  const logged = BUYER_RECEIPTS_READ_ON_PHONE
+    ? await (async () => {
+        const { loggedFromPhone } = await import('@/lib/payment-receipt-read');
+        return loggedFromPhone(formData, receiptRead);
+      })()
+    : { reference: receiptRead?.readReference ?? null, paidOn: receiptRead?.seenPaidOn ?? null };
 
   // 🔑 WE ASK ONCE, THEN WE GET OUT OF THE WAY. The second submit is accepted
   // whatever the picture says, and the disagreement travels to the admin's queue
@@ -220,7 +267,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // sure", which is exactly the answer we are willing to take.
   const askedAlready = formData.get('rechecked') === '1';
   if (!askedAlready) {
-    const { shouldAskBuyerToFix } = await import('@/lib/payment-receipt-read');
+    const { shouldAskBuyerToFix } = await import('@/lib/payment-receipt-read.server');
     if (shouldAskBuyerToFix(receiptRead)) {
       // ⚠ THE SENTENCE HAS TO SAY "ATTACH IT AGAIN", AND THAT IS NOT PADDING.
       // This redirect re-renders an empty form: the picture they picked lives in
@@ -261,11 +308,16 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
           // ⚠ ADVISORY: these are lookup keys beside the admin's own bank
           // record. Nothing here sets a status — `isDecisivePaymentMatch` and
           // the admin's approval stay the only way money is let through.
-          // A field the payer corrected wins over what the reader read.
-          reference_number: bankReference ?? logged.reference ?? null,
+          // 🚨 `readReferenceToLog` drops a read that carries THIS order's own
+          // code — it would make the row a one-click "clean match" from a
+          // picture of our own page (see its docblock).
+          reference_number:
+            bankReference ?? readReferenceToLog(logged.reference, payable.reference),
           screenshot_url: screenshotUrl,
-          // The date on the receipt (as read, or as the payer corrected it), else today.
-          paid_at: logged.paidOn ?? new Date().toISOString().slice(0, 10),
+          // The date printed on the receipt when one was read AND plausible
+          // (not in the future, not stale — `receiptPaidOnToLog`), else today.
+          paid_at:
+            receiptPaidOnToLog(logged.paidOn) ?? new Date().toISOString().slice(0, 10),
           client_idempotency_key: idempotencyKey,
         },
       ),
@@ -327,7 +379,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   if (!error && newPaymentId && receiptRead) {
     after(async () => {
       const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-      await recordPaymentReceiptRead(moneyWriter, newPaymentId, { ...receiptRead, model: ON_PHONE_READER_NAME });
+      await recordPaymentReceiptRead(moneyWriter, newPaymentId, receiptRead);
     });
   }
 

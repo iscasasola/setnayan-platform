@@ -5,7 +5,7 @@
  * evening; corpus `SUPPLIERS_BUILD_PLAN_2026-10-07_fable.md` § PR2 "UPDATED
  * 2026-10-07 EVENING / LATE"; acceptance pictures 19–22):
  *
- *     ⇕ Expand all / Collapse all  ·  Search suppliers  ·  ⇅ Sort & filter  ·  ＋ Add your own
+ *     ⇕ Expand all / Collapse all  ·  Search suppliers (🔍 → ＋, it is the add)  ·  ⇅ Sort & filter
  *
  * Since 2026-10-22 ("One thumb row") the controls are drawn by the shared
  * `components/thumb-row.tsx`; this file keeps the slide, the portal and the
@@ -40,6 +40,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronsDownUp, ChevronsUpDown, Plus } from 'lucide-react';
 import { ThumbRow, type ThumbMenu } from '@/components/thumb-row';
+import { holdFocus } from '@/components/clear-field';
 import { FIND_DOOR_PARAM } from '@/lib/suppliers-shell';
 import { THUMB_SLIDE_MS, useSuppliersMode } from './suppliers-mode';
 
@@ -63,6 +64,7 @@ export function FindThumbRow({
   scope,
   onSearch,
   onAdd,
+  matches = true,
   emptyPanel = null,
   sortMenu = null,
   onGoToCategory,
@@ -78,6 +80,8 @@ export function FindThumbRow({
   /** Opens "add your own" — for the open category, or asking which first —
    *  with the name already typed in the box, if any. */
   onAdd: (typed: string) => void;
+  /** ➕ Does anything on the page match the words the list was last searched with? False → the 🔍 is ＋ by itself. */
+  matches?: boolean;
   /** What the box shows while it is open with nothing typed — the Find page's
    *  category list. Null → nothing (the box is only a search box). */
   emptyPanel?: ReactNode;
@@ -153,7 +157,18 @@ export function FindThumbRow({
   const [open, setOpen] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
-  const showPanel = open && up && emptyPanel != null && text.trim() === '';
+  const showPanel = open && up && text.trim() === '';
+  /* ➕ SEARCH OR ADD (owner 18–19 Nov 2026: *"so we also do no need an add button because. our text box is search / add
+     feature"*): the row's ＋ Add your own is gone. The typed name goes INTO the walk; the box is then the search box
+     again, empty (the prototype's `add()`), and the list hears it now. With nothing typed, the same door is the first
+     row of the empty box's panel ("Add your own"). 🔒 find-thumb-row.test.ts · lib/a-search-that-adds-shows-add.test.ts */
+  const addTyped = (typed: string) => {
+    setOpen(false);
+    said.current = '';
+    setText('');
+    onSearch('');
+    onAdd(typed);
+  };
   // `?find=1` — a door that used to open the Find page's browse lands here.
   useEffect(() => {
     try {
@@ -220,11 +235,21 @@ export function FindThumbRow({
           onClick={goFromPanel}
           className="pointer-events-auto mb-2 max-h-[min(62vh,560px)] overflow-y-auto overscroll-contain rounded-2xl bg-paper px-4 pb-4 shadow-[0_-6px_28px_rgba(0,0,0,0.14)] ring-1 ring-ink/10 [--pgh-bg:rgb(var(--color-cream))] [--pgh-top:0px]"
         >
+          <button
+            type="button"
+            data-find-add-own=""
+            onMouseDown={holdFocus}
+            onClick={() => addTyped('')}
+            className="flex min-h-11 w-full items-center gap-3 border-b border-ink/10 py-2 text-left text-[15px] font-semibold text-sn-accent"
+          >
+            <Plus aria-hidden className="h-5 w-5" strokeWidth={2} />
+            Add your own
+          </button>
           {emptyPanel}
         </div>
       ) : null}
       {/* ONE THUMB ROW (owner 2026-10-22): this row is the template, drawn through the shared component —
-          ⇕ · "Search suppliers" · ＋ Add your own, each its own glass at 44 px. */}
+          ⇕ · "Search suppliers" (the 🔍 → ＋ field is the add) · ⇅, each its own glass at 44 px. */}
       <ThumbRow
         name="suppliers-find"
         left={[
@@ -245,9 +270,9 @@ export function FindThumbRow({
           input: {
             value: text,
             onChange: (e) => setText(e.target.value),
-            onFocus: emptyPanel != null ? () => setOpen(true) : undefined,
-            onClick: emptyPanel != null ? () => setOpen(true) : undefined,
-            'aria-expanded': emptyPanel != null ? showPanel : undefined,
+            onFocus: () => setOpen(true),
+            onClick: () => setOpen(true),
+            'aria-expanded': showPanel,
             'aria-controls': showPanel ? panelId : undefined,
           },
           // ✕ — the list hears the empty box AT ONCE (walk 13 Nov 2026: "Nothing in your shortlist matches “SetnaProd”"
@@ -257,23 +282,14 @@ export function FindThumbRow({
             setText('');
             onSearch('');
           },
+          /* ➕ The field is the add: 🔍 → ＋ by itself when nothing matches, on a tap while something does; ＋ or Enter
+             opens "add your own" with the typed name (`components/search-add.tsx`). */
+          onAdd: addTyped,
+          query: text,
+          matches,
+          addTour: 'suppliers-add-own',
         }}
         right={sortMenu ? [sortMenu] : []}
-        action={{
-          icon: Plus,
-          label: text.trim() ? 'Add' : 'Add your own',
-          tour: 'suppliers-add-own',
-          onClick: () => {
-            // The typed name goes INTO the walk; the box is then the search box
-            // again, empty (the prototype's `add()`), and the list hears it now.
-            const typed = text;
-            setOpen(false);
-            said.current = '';
-            setText('');
-            onSearch('');
-            onAdd(typed);
-          },
-        }}
       />
     </div>,
     host,

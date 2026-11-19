@@ -6,6 +6,8 @@
  * at 390 and 1280 without a database. Nothing in here reads or decides: the decisive-match verdict, the duplicate
  * verdict and the bill come from the same pure helpers the server re-checks on approve.
  */
+import { Fragment } from 'react';
+import { receiptMatchLines } from '@/lib/admin/receipt-match-lines';
 import Link from 'next/link';
 import { NOTHING_SENT_WORDS, paymentWasLogged } from '@/lib/payment-logged';
 import { ProofImage } from '@/app/_components/proof-image';
@@ -53,8 +55,10 @@ import {
   refundOrder,
   rejectPayment,
   requestPaymentResubmit,
+  rereadPaymentReceipt,
 } from '../actions';
 import { RereadOnThisPhone } from './reread-on-this-phone';
+import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
 import {
   channelLabel,
   type ChannelSettings,
@@ -506,7 +510,10 @@ export function PaymentsList({
   query,
   received,
   receivedLastDrop = null,
+  receivedHeld,
 }: {
+  /** Phase 2: BDO payments that matched by themselves, Undo open. */
+  receivedHeld?: import('../received-auto').HeldRow[] | null;
   /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
   received?: ReceivedPileRead;
   /** The newest drop: how many rows one press read, and when. */
@@ -581,8 +588,9 @@ export function PaymentsList({
           read={received}
           lastDrop={receivedLastDrop}
           query={query}
+          held={receivedHeld}
           waiting={payments
-            .filter((p) => p.status === 'pending')
+            .filter((p) => p.status === 'pending' && !(receivedHeld ?? []).some((h) => h.matched_payment_id === p.payment_id))
             .map((p) => ({
               payment_id: p.payment_id,
               amount_php: Number(p.amount_php),
@@ -1591,13 +1599,13 @@ export function ReceiptReadCard({
   read,
   paymentId,
   hasScreenshot,
-  imageUrl,
+  imageUrl = null,
 }: {
   read: ReceiptReadRow | undefined;
   paymentId: string;
   hasScreenshot: boolean;
-  /** The signed link this screen already shows — the admin's phone reads it (no outside AI). */
-  imageUrl: string | null;
+  /** The signed link this screen already shows — read on the admin's phone only with `BUYER_RECEIPTS_READ_ON_PHONE` on. */
+  imageUrl?: string | null;
 }) {
   // No picture ⇒ nothing to read, and no card. A buyer may send a reference
   // number alone (the form allows it), and an empty "we could not read it" card
@@ -1618,9 +1626,20 @@ export function ReceiptReadCard({
   return (
     <TemplateSection
       label="Reading their screenshot"
-      tip="Advisory only — it gates nothing. The in-app reader prepares; you press."
+      tip="Advisory only — it gates nothing. The AI prepares; you press."
       right={
-        <RereadOnThisPhone paymentId={paymentId} imageUrl={imageUrl} label={read ? 'Read it again' : 'Read it'} />
+        // 🚦 OFF (default, 17 Nov "keep the existing reader"): the server reads it.
+        // ON: the admin's phone reads the picture this screen already shows.
+        BUYER_RECEIPTS_READ_ON_PHONE ? (
+          <RereadOnThisPhone paymentId={paymentId} imageUrl={imageUrl} label={read ? 'Read it again' : 'Read it'} />
+        ) : (
+          <form action={rereadPaymentReceipt}>
+            <input type="hidden" name="payment_id" value={paymentId} />
+            <SubmitButton className="ab ab-neutral" pendingLabel="Reading…">
+              {read ? 'Read it again' : 'Read it'}
+            </SubmitButton>
+          </form>
+        )
       }
       data="payment-ai-read"
     >
@@ -1633,6 +1652,24 @@ export function ReceiptReadCard({
           ? (read.summary ?? read.error ?? 'Nothing came back.')
           : 'Nobody has read this picture yet.'}
       </p>
+
+      {/* ➕ ADMIN REORG v7 (owner 17 Nov 2026): one line per field read off the photo — "Matches ✓" or
+          "Doesn't match: <field> · <diff>". A help line beside each field; the admin always presses Confirm themself. */}
+      {receiptMatchLines(read).length > 0 ? (
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[14px]" data-receipt-match-lines="">
+          {receiptMatchLines(read).map((l) => (
+            <Fragment key={l.field}>
+              <dt className="text-ink/70">{l.field}</dt>
+              <dd
+                data-match-tone={l.tone}
+                style={l.tone === 'match' ? { color: 'rgb(var(--color-ok))' } : l.tone === 'mismatch' ? { color: 'rgb(var(--color-danger))' } : undefined}
+              >
+                {l.text}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      ) : null}
 
       {read?.status === 'ok' && (read.seen_references?.length || read.seen_amounts?.length) ? (
         // What the parser actually found, so the sentence above can be checked

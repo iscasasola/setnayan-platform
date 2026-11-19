@@ -49,12 +49,15 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { channelLabel, payerAccountsFor, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
+import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
+import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
-import { loggedFromPhone, phoneReceiptRead } from '@/lib/payment-receipt-read';
-import { ON_PHONE_READER_NAME } from '@/lib/on-phone-reader';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
@@ -378,13 +381,21 @@ export async function submitOrderAction(
   // does. See lib/payment-channels.ts + migration 20271028100000.
   const channelSettings = await fetchPlatformSettings(supabase);
   const openChannel = resolveChannel(channel, channelSettings);
-  if (!openChannel) {
+  // ⚖ ONE QR (owner 2026-11-18): GCash is not in the BDO-only open list, but the
+  // drawer DOES draw it for an amount under the GCash line with allowance left.
+  // A posted GCash is therefore let past this switch check only when a GCash
+  // account is really open, and is judged below — once the amount is known — by
+  // `pickPayerRail`, the same rule the drawer and /pay draw their one code from.
+  const postedGcash =
+    typeof channel === 'string' &&
+    payerAccountsFor(channelSettings, 'gcash').some((a) => a.id === channel && isGcashRail(a));
+  if (!openChannel && !postedGcash) {
     return {
       ok: false,
       reason: PAYMENTS_PAUSED_MESSAGE,
     };
   }
-  if (openChannel !== channel) {
+  if (openChannel !== channel && !postedGcash) {
     // The posted rail is closed. Refuse rather than silently rebooking onto a
     // different account: the couple is looking at the QR and details for the
     // rail they picked, and quietly moving them would mean paying the wrong
@@ -829,6 +840,14 @@ export async function submitOrderAction(
     return { ok: false, reason: paymentOverCeilingMessage(maxPaymentPhp) };
   }
 
+  // ⚖ A GCASH PAYMENT ONLY WHERE THE RULE CHOSE GCASH (owner 2026-11-18): under
+  // the GCash line AND within this month's GCash allowance. ₱1,000 and up, an
+  // allowance already spent, or anything unreadable ⇒ BDO, and a GCash proof is
+  // refused here — before the order exists — rather than filed.
+  if (postedGcash && pickPayerRail(finalAmountForPayment, await getGcashGate()) !== 'gcash') {
+    return { ok: false, reason: GCASH_PROOF_REFUSED_MESSAGE };
+  }
+
   // Existing schema uses NUMERIC(12,2) requested_total_php · we land
   // the ORIGINAL price in that field (consistent with the legacy createOrder
   // flow where requested_total_php is the quote · admin confirms to
@@ -951,22 +970,29 @@ export async function submitOrderAction(
     }
   }
 
-  // ── THE RECEIPT IS READ ON THEIR PHONE, NOT TYPED (owner 2026-11-17) ───────
-  // *"the don't have to type. we detect after they sent it and log the data for
-  // the admin"* — and *"can we create our own in app reader so we do not need
-  // ai to run?"* → *"Yes, swap it in"*. The drawer read the screenshot on the
-  // couple's phone (lib/on-phone-reader.ts) and posted only the text and the
-  // four fields they confirmed; the same pure parser reads it here. No picture
-  // is fetched or sent anywhere to be read.
-  // ⚠ ADVISORY: it fills the lookup keys of THIS pending payment and nothing
-  // else — never a status, never an order. Approval stays the admin's.
-  const receiptRead = phoneReceiptRead({
-    form: formData,
-    typed: referenceNumberClean,
-    expectedPhp: finalAmountForPayment,
-    channel: typeof channel === 'string' ? channel : null,
-  });
-  const receiptLogged = loggedFromPhone(formData, receiptRead);
+  // 🚦 READ ON THEIR PHONE — ONLY WITH `BUYER_RECEIPTS_READ_ON_PHONE` ON (it is
+  // OFF: the 17 Nov ruling keeps the existing reader, which runs after the
+  // response, below). ON, the drawer read the screenshot on the couple's phone
+  // (lib/on-phone-reader.ts) and posted only the text and the four fields they
+  // confirmed; the same pure parser reads it here. ⚠ ADVISORY either way: it
+  // fills lookup keys of THIS pending payment, never a status or an order.
+  const phoneRead = BUYER_RECEIPTS_READ_ON_PHONE
+    ? await (async () => {
+        const { phoneReceiptRead } = await import('@/lib/payment-receipt-read');
+        return phoneReceiptRead({
+          form: formData,
+          typed: referenceNumberClean,
+          expectedPhp: finalAmountForPayment,
+          channel: typeof channel === 'string' ? channel : null,
+        });
+      })()
+    : null;
+  const phoneLogged = phoneRead
+    ? await (async () => {
+        const { loggedFromPhone } = await import('@/lib/payment-receipt-read');
+        return loggedFromPhone(formData, phoneRead);
+      })()
+    : null;
 
   // payments row · this carries the screenshot. The drawer always includes
   // a screenshot at submit-time so we never have an orphan "no payment yet"
@@ -983,9 +1009,12 @@ export async function submitOrderAction(
     {
       amount_php: finalAmountForPayment,
       channel,
-      reference_number: referenceNumberClean ?? receiptLogged.reference,
+      // 🚨 Gated like /pay (`readReferenceToLog`, `receiptPaidOnToLog`). With the
+      // switch OFF `phoneLogged` is null and these are exactly as before.
+      reference_number:
+        referenceNumberClean ?? readReferenceToLog(phoneLogged?.reference, referenceCode),
       screenshot_url: screenshotUrl,
-      paid_at: receiptLogged.paidOn ?? new Date().toISOString().slice(0, 10),
+      paid_at: receiptPaidOnToLog(phoneLogged?.paidOn) ?? new Date().toISOString().slice(0, 10),
     },
   );
   if (idempotencyKey) {
@@ -1016,12 +1045,50 @@ export async function submitOrderAction(
   }
   const paymentId = paymentRow.payment_id as string;
 
-  // File what the phone read for the admin's card — AFTER the response, so the
-  // couple never waits on a note about their payment.
-  if (receiptRead) {
+  // ── THE RECEIPT IS READ, NOT TYPED (owner 2026-11-17) ─────────────────────
+  // *"the don't have to type. we detect after they sent it and log the data for
+  // the admin"*. The drawer no longer asks for a reference, so the receipt
+  // reader takes the reference, amount, date and time off the screenshot and
+  // files them for the admin — AFTER the response, so the couple never waits on
+  // it (this lane has no "check your digits" ask to make; nothing was typed).
+  // ⚠ ADVISORY: it fills the empty lookup keys of THIS pending payment and
+  // nothing else — never a status, never an order. Approval stays the admin's.
+  if (BUYER_RECEIPTS_READ_ON_PHONE) {
+    // File what the phone read for the admin's card — AFTER the response.
+    if (phoneRead) {
+      after(async () => {
+        const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
+        await recordPaymentReceiptRead(moneyWriter, paymentId, { ...phoneRead, model: ON_PHONE_READER_NAME });
+      });
+    }
+  } else {
     after(async () => {
-      const { recordPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-      await recordPaymentReceiptRead(moneyWriter, paymentId, { ...receiptRead, model: ON_PHONE_READER_NAME });
+      const { readPaymentReceiptFromR2, recordPaymentReceiptRead } = await import(
+        '@/lib/payment-receipt-read.server'
+      );
+      const read = await readPaymentReceiptFromR2({
+        screenshotRef: screenshotUrl,
+        proofPolicy: inlineCheckoutProofPolicy(eventIdClean, user.id),
+        typedReference: referenceNumberClean,
+        expectedPhp: finalAmountForPayment,
+        channel: typeof channel === 'string' ? channel : null,
+      });
+      if (!read) return;
+      await recordPaymentReceiptRead(moneyWriter, paymentId, read);
+      const fill: Record<string, string> = {};
+      // 🚨 Gated like /pay: never a read carrying this order's own code (it would
+      // make the row a one-click clean match), never an implausible date.
+      const readRef = readReferenceToLog(read.readReference, referenceCode);
+      if (!referenceNumberClean && readRef) fill.reference_number = readRef;
+      const readPaidOn = receiptPaidOnToLog(read.seenPaidOn);
+      if (readPaidOn) fill.paid_at = readPaidOn;
+      if (Object.keys(fill).length === 0) return;
+      const { error: fillErr } = await moneyWriter
+        .from('payments')
+        .update(fill)
+        .eq('payment_id', paymentId)
+        .eq('status', 'pending');
+      if (fillErr) console.error('[checkout] receipt read was not logged on the payment', paymentId, fillErr.message);
     });
   }
 
@@ -1321,4 +1388,14 @@ async function quoteWelcomeForLine(input: {
   } catch {
     return null;
   }
+}
+
+/**
+ * ⚖ WHICH ONE QR THE CHECKOUT DRAWER DRAWS (owner 2026-11-18) — GCash or BDO for
+ * this amount, by `pickPayerRail`. Display only: `submitOrderAction` asks the
+ * same rule again with the amount it computes itself. Anything unreadable ⇒ BDO.
+ */
+export async function payerRailForAmount(amountPhp: number): Promise<'gcash' | 'bdo'> {
+  if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp)) return 'bdo';
+  return pickPayerRail(amountPhp, await getGcashGate());
 }

@@ -56,11 +56,16 @@ const STEPS = [step(1, 'First payment', 1750, '2026-11-15', 'due'), step(2, 'Fin
 
 test('1a · the folded row says the plan in one line, and a new logged payment opens it once', () => {
   assert.equal(planShortDate('2026-11-15'), 'Nov 15');
-  assert.equal(planFoldLine(computePlanRollup(STEPS), false, true), '₱0 of ₱8,750 · next ₱1,750 Nov 15');
+  assert.equal(planFoldLine(computePlanRollup(STEPS), false, true, '2026-11-01'), '₱0 of ₱8,750 · next ₱1,750 Nov 15');
   const pending = [step(1, 'First payment', 1750, '2026-11-15', 'pending'), STEPS[1]!];
-  assert.equal(planFoldLine(computePlanRollup(pending), false, true), '₱0 of ₱8,750 · ₱1,750 to confirm');
-  assert.equal(planFoldLine(computePlanRollup(STEPS), true, true), 'cleared · nothing outstanding');
-  assert.equal(planFoldLine(computePlanRollup([]), false, false), 'no payment schedule');
+  assert.equal(planFoldLine(computePlanRollup(pending), false, true, '2026-11-01'), '₱0 of ₱8,750 · ₱1,750 to confirm');
+  assert.equal(planFoldLine(computePlanRollup(STEPS), true, true, '2026-11-01'), 'cleared · nothing outstanding');
+  assert.equal(planFoldLine(computePlanRollup([]), false, false, '2026-11-01'), 'no payment schedule');
+  // ⏰ A past due date is overdue, not "next" (owner screenshot 17 Nov); the due day itself is still "next"; unknown today
+  // keeps "next" (never a guessed overdue).
+  assert.equal(planFoldLine(computePlanRollup(STEPS), false, true, '2026-11-17'), '₱0 of ₱8,750 · ₱1,750 overdue since Nov 15');
+  assert.equal(planFoldLine(computePlanRollup(STEPS), false, true, '2026-11-15'), '₱0 of ₱8,750 · next ₱1,750 Nov 15');
+  assert.equal(planFoldLine(computePlanRollup(STEPS), false, true, null), '₱0 of ₱8,750 · next ₱1,750 Nov 15');
   // Opens for a payment this device has not shown; not again once seen; nothing pending → stays as the person left it.
   assert.equal(planFoldOpensFor(['p1'], null), true);
   assert.equal(planFoldOpensFor(['p1'], 'p1'), false);
@@ -74,6 +79,7 @@ test('1b · the chat mounts the plan FOLDED; the Payment tab mounts it whole', a
   const mounts = THREAD.match(/<VendorPaymentLive\b[\s\S]*?\/>/g) ?? [];
   assert.equal(mounts.length, 1, `the thread page mounts the plan ${mounts.length} times`);
   assert.match(mounts[0]!, /fold=\{\{ paymentHref: customerCardHref\(thread\.event_id, 'payments'\) \}\}/, 'the chat does not fold the plan');
+  assert.match(mounts[0]!, /todayIso=\{todayIso\}/, 'the chat plan row is not told today, so a past due date reads "next"');
   // Inside the picked client it sits under the strip (the stream's pinned stack); full screen, in the band.
   assert.match(THREAD, /\{embedded \? null : paymentLive\}/);
   assert.match(THREAD, /\{\.\.\.\(embedded \? \{ planRow: paymentLive \} : \{\}\)\}/);
@@ -93,6 +99,8 @@ test('1b · the chat mounts the plan FOLDED; the Payment tab mounts it whole', a
   assert.match(folded, /data-chat-plan-fold="closed"/);
   assert.equal((folded.match(/data-chat-plan-row=""/g) ?? []).length, 1);
   assert.match(folded, /<b class="font-semibold text-ink">Plan<\/b> · ₱0 of ₱8,750 · next ₱1,750 Nov 15/);
+  const late = renderToStaticMarkup(h(VendorPaymentLive, { ...base, todayIso: '2026-11-17', fold: { paymentHref: '/x' } }));
+  assert.match(late, /<b class="font-semibold text-ink">Plan<\/b> · ₱0 of ₱8,750 · ₱1,750 overdue since Nov 15/);
   assert.match(folded, /class="sn-press flex h-11 w-full/, 'the row is not 44 px');
   assert.doesNotMatch(folded, /Mark payment cleared|Payment plan —|First payment/, 'the folded row draws the open card');
   const whole = renderToStaticMarkup(h(VendorPaymentLive, base));
@@ -111,7 +119,7 @@ test('2 · the date and the day’s word sit under the title; the separate row i
   const shell = read('app/_components/picked/picked-shell.tsx');
   const pin = shell.slice(shell.indexOf('data-picked-pin=""'), shell.indexOf('data-picked-head-actions=""'));
   assert.ok(pin.indexOf('<h1') >= 0 && pin.indexOf('<h1') < pin.indexOf('data-picked-head-line=""'), 'no line under the title');
-  assert.match(shell, /<PickedHeadLineContext\.Provider value=\{headLineSlot\}>[\s\S]*\{bodies\[page\]\}/);
+  assert.match(shell, /<PickedHeadLineContext\.Provider value=\{headLineSlot\}>[\s\S]*\{bodies\[workPage\]\}/);
   // The page puts the compact answer in the head (picked) or on the head's own line (full screen) — never a row.
   assert.match(THREAD, /\{embedded \? <PickedHeadLine>\{answerInHead\(true\)\}<\/PickedHeadLine> : null\}/);
   assert.match(THREAD, /\{answerInHead\(false\)\}/);

@@ -118,7 +118,7 @@ function PinRow({
         <Icon className="h-[15px] w-[15px]" strokeWidth={1.9} />
       </span>
       <span className="grid min-w-0">
-        <span className="text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-ink/55">{kicker}</span>
+        <span className="text-[12px] font-medium leading-tight text-ink/55">{kicker}</span>
         <span className="truncate text-[14px] font-semibold leading-snug text-ink">{line}</span>
       </span>
       <span className={`whitespace-nowrap text-[13px] font-semibold ${tone === 'waiting' ? 'font-medium text-ink/55' : 'text-sn-accent'}`}>
@@ -197,7 +197,7 @@ export function ChatPins({
     const kicker =
       tone === 'blocker' ? 'Needs you first' : tone === 'due' ? (f.dueMs != null ? countdownLabel(f.dueMs, now) : 'Due now') : 'Waiting';
     return (
-      <li key={f.key} className="border-t border-ink/[0.07] first:border-t-0">
+      <li key={f.key}>
         <PinRow
           pinKey={f.key}
           topic={PIN_TOPIC[f.kind]}
@@ -236,7 +236,7 @@ export function ChatPins({
     const body = bodies?.[f.key];
     const open = openKey === f.key;
     return (
-      <li key={f.key} className="border-t border-ink/[0.07] first:border-t-0">
+      <li key={f.key}>
         <PinRow
           pinKey={f.key}
           topic="decision"
@@ -261,12 +261,12 @@ export function ChatPins({
   return (
     <div
       data-chat-pins=""
-      className="shrink-0 border-b border-ink/10 bg-cream px-3 shadow-[0_6px_14px_-12px_rgb(0_0_0/0.4)] sm:px-4"
+      className="shrink-0 bg-cream px-3 shadow-[0_6px_14px_-12px_rgb(0_0_0/0.4)] sm:px-4"
     >
       <ul>
         {stack.blockers.map((f) => row(f, 'blocker'))}
         {stack.due.length > 0 ? (
-          <li className="border-t border-ink/[0.07] first:border-t-0" data-chat-pins-due="">
+          <li data-chat-pins-due="">
             {collapsed && topDue ? (
               <PinRow
                 pinKey="due-collapsed"
@@ -299,7 +299,7 @@ export function ChatPins({
         {/* Decisions sit right under what is due, as drawn (approved page, 11 Nov) — above the Waiting line. */}
         {decisions.map(decisionRow)}
         {wLine && !(collapsed && stack.due.length > 0) ? (
-          <li className="border-t border-ink/[0.07] first:border-t-0" data-chat-pins-waiting="">
+          <li data-chat-pins-waiting="">
             <button
               type="button"
               onClick={() => setShowWaiting((v) => !v)}
@@ -315,7 +315,7 @@ export function ChatPins({
           </li>
         ) : null}
         {running ? (
-          <li className="border-t border-ink/[0.07] first:border-t-0">
+          <li>
             <PinRow
               pinKey={running.key}
               topic={PLUS_CARD_TOPIC[running.card]}
@@ -328,7 +328,7 @@ export function ChatPins({
           </li>
         ) : null}
         {talking ? (
-          <li className="flex min-h-[48px] items-center gap-2.5 border-t border-ink/[0.07] first:border-t-0" data-chat-pin="talk">
+          <li className="flex min-h-[48px] items-center gap-2.5" data-chat-pin="talk">
             <span aria-hidden className="grid h-7 w-7 place-items-center rounded-full bg-ink/[0.05] text-ink/60">
               {(() => {
                 const I = TOPIC_ICON.decision;
@@ -336,7 +336,7 @@ export function ChatPins({
               })()}
             </span>
             <span className="grid min-w-0 flex-1">
-              <span className="text-[11px] font-semibold uppercase leading-tight tracking-[0.08em] text-ink/55">Talking about</span>
+              <span className="text-[12px] font-medium leading-tight text-ink/55">Talking about</span>
               <span className="truncate text-[14px] font-semibold text-ink">{talking.title}</span>
             </span>
             {onCloseTalking ? (

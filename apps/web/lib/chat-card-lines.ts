@@ -24,6 +24,32 @@ export function bookRequestFromLine(body: string | null | undefined): { state: B
   return null;
 }
 
+/**
+ * 📮 AN ANSWERED ASK NEVER READS "WAITING" (owner screenshot 17 Nov, "Debut 18": the ask still said "Waiting for your
+ * answer" under "Booked ✓"). The ask line is history the database wrote once; what answered it is a LATER book-request
+ * line in the same chat. Each still-open ask → the state of the first later answer (booked · not available · withdrawn ·
+ * closed · expired). An ask with no later answer is not in the map: it IS still waiting. Rows in stream order; only
+ * the database's own lines count (`role` 'system' — a person typing the same words answers nothing).
+ */
+export function answeredBookAsks(
+  rows: ReadonlyArray<{ id: string; body: string | null | undefined; role?: string | null }>,
+): Map<string, BookRequestState> {
+  const answered = new Map<string, BookRequestState>();
+  let open: string[] = [];
+  for (const r of rows) {
+    if (r.role != null && r.role !== 'system') continue;
+    const b = bookRequestFromLine(r.body);
+    if (!b) continue;
+    if (b.state === 'asked') {
+      open.push(r.id);
+      continue;
+    }
+    for (const id of open) answered.set(id, b.state);
+    open = [];
+  }
+  return answered;
+}
+
 /** An Ask-for-a-change system line (this lane's migration) → its subject, or null. */
 export function changeAskFromLine(body: string | null | undefined): { subject: AskSubject; answered: 'revised' | 'declined' | null } | null {
   const b = (body ?? '').trim();
@@ -41,9 +67,16 @@ export function changeAskFromLine(body: string | null | undefined): { subject: A
   return null;
 }
 
-/** The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null. */
+/**
+ * The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null.
+ * "Send again" (owner 18 Nov 2026) words it "I sent you a form again — “<title>”. Your last answers are still ticked; …"
+ * — the same form, so the host's face mounts under it too, with their answers already in it.
+ */
 export function formLineTitle(body: string | null | undefined): string | null {
-  const m = /^I sent you a form — “(.+)”\. Answer it in your event\.$/.exec((body ?? '').trim());
+  const m =
+    /^I sent you a form(?: again)? — “(.+)”\. (?:Answer it in your event|Your last answers are still ticked; change any you like in your event)\.$/.exec(
+      (body ?? '').trim(),
+    );
   return m ? m[1]! : null;
 }
 

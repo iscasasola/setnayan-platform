@@ -19,7 +19,7 @@ import {
 import { paperToModelBlock, readPaperQr } from './verification-paper-file';
 import { PDFDocument } from 'pdf-lib';
 import QRCode from 'qrcode';
-import { classifyPaperQr, hostIsUnder } from './verification-paper-read';
+import { GOV_OTHER_LABEL, classifyPaperQr, hostIsUnder } from './verification-paper-read';
 
 /**
  * THE PAPER READER (owner 2026-11-14) — guards.
@@ -274,10 +274,15 @@ test('the host check is strict — official hosts and their subdomains only, ove
   assert.equal(verdict('https://DTI.GOV.PH./x').kind, 'official');
   assert.equal((verdict('https://www.sec.gov.ph/x') as { label: string }).label, 'Official SEC site');
   assert.equal((verdict('https://orus.bir.gov.ph/x') as { label: string }).label, 'Official BIR site');
+  // A look-alike UNDER gov.ph is still never "Official DTI site" — it reads as
+  // another .gov.ph site, in the warning colour, for a person to check.
+  for (const other of ['https://evil-dti.gov.ph/x', 'https://xdti.gov.ph/x']) {
+    const v = verdict(other);
+    assert.equal(v.kind, 'gov_other', other);
+    assert.notEqual(v.kind, 'official', other);
+  }
   for (const bad of [
     'https://dti.gov.ph.evil.com/x', // the look-alike
-    'https://evil-dti.gov.ph/x', // not a label boundary
-    'https://xdti.gov.ph/x',
     'https://dti.gov.ph@evil.com/x', // credentials trick — the host is evil.com
     'https://evil.com/dti.gov.ph',
     'https://evil.com/?u=https://dti.gov.ph',
@@ -291,6 +296,18 @@ test('the host check is strict — official hosts and their subdomains only, ove
   }
   assert.equal(hostIsUnder('dti.gov.ph.evil.com', 'dti.gov.ph'), false);
   assert.equal(hostIsUnder('a.dti.gov.ph', 'dti.gov.ph'), true);
+});
+
+test('a city permit QR on a .gov.ph portal is a government site, not "Not a government site" — and never official', () => {
+  for (const city of ['https://makati.gov.ph/bpls/verify?id=1', 'https://eboss.quezoncity.gov.ph/p/2', 'https://PASIG.GOV.PH./x']) {
+    const v = verdict(city);
+    assert.equal(v.kind, 'gov_other', city);
+    assert.equal((v as { label: string }).label, GOV_OTHER_LABEL);
+  }
+  // Still https only, no credentials, never the bare zone, never a look-alike zone.
+  for (const bad of ['http://makati.gov.ph/x', 'https://u:p@makati.gov.ph/x', 'https://gov.ph/x', 'https://makati.gov.ph.evil.com/x', 'https://makatigov.ph/x']) {
+    assert.equal(verdict(bad).kind, 'not_government', bad);
+  }
 });
 
 test('a QR that is not a link reads as text, and is never offered as one', () => {

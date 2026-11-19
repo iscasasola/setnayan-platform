@@ -9,6 +9,10 @@
  * shared in-app reader (lib/on-phone-reader.ts) reads it here and only the TEXT
  * goes to `rereadPaymentReceipt`. No outside AI. ⛔ It writes one advisory row
  * and moves nothing.
+ *
+ * 🚦 That ruling covered the admin's own BDO screenshots (#7924). For BUYER
+ * receipts a 17 Nov ruling keeps the existing reader, so this ships DARK behind
+ * `BUYER_RECEIPTS_READ_ON_PHONE` (lib/receipt-fields.ts, OFF) until the owner rules.
  */
 import { useEffect, useRef, useState } from 'react';
 import { rereadPaymentReceipt } from '../actions';

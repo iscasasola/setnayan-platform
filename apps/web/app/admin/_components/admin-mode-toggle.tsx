@@ -62,7 +62,14 @@ export function AdminModeToggle({ mode }: { mode: AdminMode }) {
             title={label}
             onClick={(e) => {
               e.preventDefault();
-              if (!on) choose(m);
+              // Pressing the half you are already in goes back to that mode's home, at the top (owner 18 Nov:
+              // "double tapping focus … should have brought me back to the focus' main page").
+              if (on) {
+                router.push('/admin');
+                try { window.scrollTo({ top: 0 }); } catch { /* no window: the push still lands */ }
+                return;
+              }
+              choose(m);
             }}
             className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold"
             style={

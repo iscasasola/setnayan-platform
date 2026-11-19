@@ -47,7 +47,7 @@ test('the /pay action refuses an over-ceiling payment on the server', () => {
 test('the /pay page shows no code for an over-ceiling bill', () => {
   const page = read('app/pay/[reference]/page.tsx');
   assert.match(page, /const overCeiling = !paymentWithinCeiling\(payable\.amountPhp, maxPaymentPhp\);/);
-  assert.match(page, /const open = overCeiling \? \[\] : openAccounts\(settings\);/, 'a code is still minted above the ceiling');
+  assert.match(page, /const open = overCeiling \? \[\] : payerAccountsFor\(settings, railPick\);/, 'a code is still minted above the ceiling');
   assert.match(page, /\{!waiting && !overCeiling && \(\s*<PayPanel/);
 });
 
@@ -61,7 +61,7 @@ test('the couple checkout refuses an over-ceiling basket before it mints an orde
 test('the booking fee is capped in BOTH mirrors (TS and SQL)', () => {
   assert.match(read('lib/booking-fee.ts'), /Math\.min\(floored, maxPaymentPhpOrDefault\(schedule\.maxPhp\)\)/);
   assert.match(read('lib/booking-fee-settings.server.ts'), /maxPhp: maxPaymentPhpOrDefault\(row\.max_payment_php\)/);
-  const sql = read('../../supabase/migrations/20271350390157_bdo_only_pay_flow_and_the_payment_max.sql');
+  const sql = read('../../supabase/migrations/20271352263623_bdo_only_pay_flow_and_the_payment_max.sql');
   assert.match(sql, /round\(s\.max_php \* 100\)::BIGINT/);
   assert.match(sql, /ADD COLUMN IF NOT EXISTS max_payment_php NUMERIC\(12,2\) NOT NULL DEFAULT 100000/);
 });

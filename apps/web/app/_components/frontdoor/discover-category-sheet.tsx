@@ -18,6 +18,7 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
@@ -70,14 +71,7 @@ export function DiscoverCategorySheet({ current, onClose }: { current: string | 
       >
         <header className="flex items-center justify-between border-b border-ink/10 px-5 py-3">
           <h2 className="text-base font-semibold text-ink">Category</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close categories"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
-          >
-            <X className="h-4 w-4" strokeWidth={2} aria-hidden />
-          </button>
+          <ActionButton tone="neutral" icon={X} label="Close categories" iconOnly onClick={onClose} />
         </header>
         <div className="border-b border-ink/10 px-4 py-3">
           <input

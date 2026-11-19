@@ -78,11 +78,12 @@ import {
 } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
+import { BUYER_RECEIPTS_READ_ON_PHONE } from '@/lib/receipt-fields';
 import { CopyButton } from '@/app/_components/copy-button';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
-  openRailsFromSettings,
+  payerRailsFromSettings,
 } from '@/app/_components/payment/payment-rails';
 import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
 import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
@@ -92,6 +93,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import {
   applyVoucherAction,
+  payerRailForAmount,
   submitOrderAction,
   type ApplyVoucherResult,
   type SubmitOrderResult,
@@ -99,6 +101,7 @@ import {
 import { computeVatFromBase } from '@/lib/receipts';
 import { ultraUpgradeLine, type UltraUpgradeFrom } from '@/lib/event-ultra';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { ActionButton } from '@/components/action-button';
 
 /** 📵 The voucher check never answered. The action's own words for "could not check" — nothing is redeemed by a check. */
 const VOUCHER_NOT_CHECKED = 'We couldn’t check that code. Please try again.';
@@ -298,7 +301,13 @@ export function InlineCheckoutDrawer({
   //
   // The rails are Setnayan's receiving-accounts LIST (owner 2026-10-01), the
   // open ones only, in the admin's order — asked of the ONE rule.
-  const railInfos = useMemo(() => openRailsFromSettings(settings), [settings]);
+  //
+  // ⚖ ONE QR (owner 2026-11-18): GCash under the GCash line while this month's
+  // GCash allowance has room, else BDO. Starts on BDO (the safe answer) and
+  // takes the server's pick for this amount once it arrives (effect below the
+  // gross); `submitOrderAction` re-asks the same rule on submit.
+  const [railPick, setRailPick] = useState<'gcash' | 'bdo'>('bdo');
+  const railInfos = useMemo(() => payerRailsFromSettings(settings, railPick), [settings, railPick]);
   const openRails = useMemo(() => railInfos.map((r) => r.id), [railInfos]);
   const [channel, setChannel] = useState<string>(() => openRails[0] ?? 'gcash');
   const shownRail = railInfos.find((r) => r.id === channel) ?? railInfos[0] ?? null;
@@ -317,7 +326,8 @@ export function InlineCheckoutDrawer({
   const [submitResult, setSubmitResult] = useState<SubmitOrderResult | null>(null);
   const [submitPending, startSubmitTransition] = useTransition();
   const [screenshotRef, setScreenshotRef] = useState<string | null>(null);
-  // The picked receipt, read on this phone by ReceiptReadFields (owner 17 Nov 2026).
+  // The picked receipt, read on this phone by ReceiptReadFields — only with
+  // `BUYER_RECEIPTS_READ_ON_PHONE` on (it is off).
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   // Lets the brand loader's "Ready ✓" completion breathe before we swap the
   // drawer body to the success card. See the reveal effect below.
@@ -403,6 +413,22 @@ export function InlineCheckoutDrawer({
     vatRatePct,
   ).gross;
   const hasVoucher = voucherApplied;
+
+  // Ask which ONE rail this amount pays to (see `railPick`). A failed ask stays
+  // on BDO — never a wider GCash.
+  useEffect(() => {
+    let live = true;
+    payerRailForAmount(finalGrossPhp)
+      .then((pick) => {
+        if (live) setRailPick(pick === 'gcash' ? 'gcash' : 'bdo');
+      })
+      .catch(() => {
+        if (live) setRailPick('bdo');
+      });
+    return () => {
+      live = false;
+    };
+  }, [finalGrossPhp]);
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
   // then reveal the confirmation card. Gives the completion beat room to play.
@@ -750,10 +776,9 @@ export function InlineCheckoutDrawer({
                 >
                   {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
                       *"the don't have to type. we detect after they sent it and
-                      log the data for the admin"*). The in-app reader takes the
-                      reference, amount, date and time off the screenshot below,
-                      ON THIS PHONE, and the couple can fix any of them; the
-                      action files them on the payment (checkout/actions.ts). */}
+                      log the data for the admin"*). The receipt reader takes
+                      the reference, amount, date and time off the screenshot
+                      below and files them on the payment (checkout/actions.ts). */}
                   <div>
                     {/* label passed to FileUpload so the field name renders with
                         the dropzone (whose own input is htmlFor-associated),
@@ -779,8 +804,12 @@ export function InlineCheckoutDrawer({
                     />
                   </div>
 
-                  {/* 🔒 Read on this phone, filled for them to check — no outside AI. */}
-                  <ReceiptReadFields file={receiptFile} expectedPhp={finalGrossPhp} channel={channel} />
+                  {/* 🚦 Read on this phone, filled for them to check — ONLY with
+                      `BUYER_RECEIPTS_READ_ON_PHONE` on. OFF (default, 17 Nov
+                      "keep the existing reader"): the server reads it after send. */}
+                  {BUYER_RECEIPTS_READ_ON_PHONE && (
+                    <ReceiptReadFields file={receiptFile} expectedPhp={finalGrossPhp} channel={channel} />
+                  )}
 
                   {/* Submit result rejection (NOT a redirect · render inline). */}
                   {submitResult && submitResult.ok === false ? (
@@ -871,7 +900,7 @@ function VoucherBlock({
   // Collapsed state · "Have a code?" link.
   if (!showField && !applied) {
     return (
-      <div className="rounded-lg border border-ink/10 bg-cream px-4 py-2.5">
+      <div className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-2.5">
         <button
           type="button"
           onClick={onShowField}
@@ -914,7 +943,7 @@ function VoucherBlock({
 
   // Input state — type / apply / rejection.
   return (
-    <div className="space-y-2 rounded-lg border border-ink/10 bg-cream px-4 py-3">
+    <div className="space-y-2 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-4 py-3">
       <label className="block text-xs font-medium text-ink/70">
         Enter your code
       </label>
@@ -1040,13 +1069,7 @@ function SubmitSuccess({
           Track this order
           <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
         </Link>
-        <button
-          type="button"
-          onClick={onDone}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-xs font-semibold text-cream hover:bg-mulberry-600"
-        >
-          Done
-        </button>
+        <ActionButton tone="brand" main icon={CheckCircle2} label="Done" onClick={onDone} />
       </div>
     </div>
   );

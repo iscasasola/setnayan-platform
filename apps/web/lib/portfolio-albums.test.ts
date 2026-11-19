@@ -124,6 +124,12 @@ test('R1 · if EITHER view counter is refused, "Most viewed" does not sort on ha
   assert.equal(sortIsUnread('most', { serviceOpens: {}, pageViews: null, opened: {} }), true, 'the other half unread is unread too');
   assert.equal(sortIsUnread('most', stats), false, 'anti-vacuity: both read is read');
   assert.deepEqual(ids(sortAlbums(list, 'most', half)), ids(list), 'the albums were ordered by half the counts — the unread half sank to the bottom');
+  // The other half: the card opens were read, the page's views were not. Sorting anyway would lift the busy card above
+  // the page — an order built on one counter only.
+  const otherHalf: AlbumStats = { serviceOpens: { 's-busy': 212, 's-quiet': 3 }, pageViews: null, opened: {} };
+  const list2 = portfolioAlbums(groups, page, otherHalf);
+  assert.notDeepEqual(ids(sortAlbums(list2, 'most')), ids(list2), 'anti-vacuity: sorted WITHOUT the stats, this sample does reorder');
+  assert.deepEqual(ids(sortAlbums(list2, 'most', otherHalf)), ids(list2), 'the albums were ordered by half the counts');
   assert.notDeepEqual(ids(sortAlbums(all, 'most', stats)), ids(all), 'anti-vacuity: with both counters read, the sort does reorder');
   assert.equal(albumRowHeading('most', half), 'Your albums', 'the heading still claims "Most viewed"');
   assert.match(albumRowLine('most', half), /Couldn’t load the views/);

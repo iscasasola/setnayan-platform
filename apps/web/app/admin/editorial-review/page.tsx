@@ -1,5 +1,4 @@
 import { InfoTip } from '@/app/_components/info-tip';
-import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ScanFlag } from '@/lib/editorial-scan';
@@ -8,6 +7,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../_components/read-failed';
 import { formatCalendarDate } from '@/lib/events';
+import { TemplateEmpty, TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
 export const metadata = { title: 'Editorial review · Admin' };
 
 export default async function EditorialReviewPage() {
@@ -34,59 +34,37 @@ export default async function EditorialReviewPage() {
     r.scan_status === 'pending' || r.scan_status === 'scanning',
   );
 
+  // 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): each status is a template section with its
+  // count at the right, each editorial ONE hairline row that opens the record. Same read, same three groups.
+  const groups = [
+    { key: 'review', label: 'Needs review', rows: flagged },
+    { key: 'pending', label: 'Queued / scanning', rows: pending },
+    { key: 'cleared', label: 'Cleared', rows: cleared },
+  ];
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content.
           ⚖ The sentence survives: it says the draft is held back from the
           couple until somebody here unlocks it. Without that, an operator does
           not know that leaving this queue alone leaves a couple waiting. */}
-      <div>
-        <PageMasthead title="Editorial review" />
-        <div>
-          <InfoTip label="How the review works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-            Editorials are scanned for vulgarity (OpenAI Moderation) before the
-          couple sees their draft. Resolve red flags here, then unlock.
-          </InfoTip>
-        </div>
+      <PageMasthead title="Editorial review" />
+      <div className="mb-1">
+        <InfoTip label="How the review works" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+          Editorials are scanned for vulgarity (OpenAI Moderation) before the
+        couple sees their draft. Resolve red flags here, then unlock.
+        </InfoTip>
       </div>
 
-      {flagged.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-[--m-ink-tertiary] mb-3">
-            Needs review ({flagged.length})
-          </h2>
-          <div className="divide-y divide-[--m-ink-border] rounded-lg border border-[--m-ink-border] overflow-hidden">
-            {flagged.map(row => (
-              <EditorialRow key={row.editorial_id} row={row} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {pending.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-[--m-ink-tertiary] mb-3">
-            Queued / scanning ({pending.length})
-          </h2>
-          <div className="divide-y divide-[--m-ink-border] rounded-lg border border-[--m-ink-border] overflow-hidden">
-            {pending.map(row => (
-              <EditorialRow key={row.editorial_id} row={row} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {cleared.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-[--m-ink-tertiary] mb-3">
-            Cleared ({cleared.length})
-          </h2>
-          <div className="divide-y divide-[--m-ink-border] rounded-lg border border-[--m-ink-border] overflow-hidden">
-            {cleared.map(row => (
-              <EditorialRow key={row.editorial_id} row={row} />
-            ))}
-          </div>
-        </section>
+      {groups.map((g) =>
+        g.rows.length > 0 ? (
+          <TemplateSection key={g.key} label={g.label} right={String(g.rows.length)} data={g.key}>
+            <TemplateRows label={g.label}>
+              {g.rows.map(row => (
+                <EditorialRow key={row.editorial_id} row={row} />
+              ))}
+            </TemplateRows>
+          </TemplateSection>
+        ) : null,
       )}
 
       {rowsError ? (
@@ -94,9 +72,9 @@ export default async function EditorialReviewPage() {
       ) : null}
 
       {!rowsError && (rows ?? []).length === 0 && (
-        <div className="rounded-lg border border-[--m-ink-border] px-4 py-12 text-center text-sm text-[--m-ink-tertiary]">
+        <TemplateEmpty data="editorials">
           No editorials yet. They appear here once a wedding&apos;s content collection window closes.
-        </div>
+        </TemplateEmpty>
       )}
     </div>
   );
@@ -131,47 +109,30 @@ function EditorialRow({ row }: { row: RowData }) {
   };
   const s = statusMap[row.scan_status] ?? { label: row.scan_status, class: '' };
 
+  const scanned = row.scan_completed_at
+    ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
+        month: 'short', day: 'numeric',
+      })
+    : 'not yet';
   return (
-    <Link
+    <TemplateRow
+      data={row.editorial_id}
       href={`/admin/editorial-review/${row.editorial_id}`}
-      className="flex items-center gap-4 px-4 py-3 bg-white hover:bg-[--m-surface-raised] transition-colors"
-    >
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm truncate">
-          {ev?.display_name ?? 'Unnamed couple'}
-        </p>
-        <p className="text-xs text-[--m-ink-tertiary] mt-0.5">
+      edge={redPending.length > 0 ? 'late' : undefined}
+      title={ev?.display_name ?? 'Unnamed couple'}
+      line={
+        <>
           {ev?.event_date
             ? formatCalendarDate(ev.event_date, {
                 month: 'short', day: 'numeric', year: 'numeric',
               })
             : 'No date'}{' '}
-          · Scanned{' '}
-          {row.scan_completed_at
-            ? new Date(row.scan_completed_at).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila',
-                month: 'short', day: 'numeric',
-              })
-            : 'not yet'}
-        </p>
-      </div>
-
-      {/* Flag counts */}
-      <div className="flex items-center gap-2 shrink-0">
-        {red.length > 0 && (
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-            redPending.length > 0 ? 'bg-[var(--sn-danger-soft)] text-[color:var(--sn-danger)]' : 'bg-gray-100 text-gray-500 line-through'
-          }`}>
-            {red.length} red
-          </span>
-        )}
-        {yellow.length > 0 && (
-          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-            {yellow.length} grammar
-          </span>
-        )}
-        <span className={`text-xs font-medium ${s.class}`}>{s.label}</span>
-        <span className="text-[--m-ink-tertiary]">→</span>
-      </div>
-    </Link>
+          · Scanned {scanned}
+          {red.length > 0 ? ` · ${red.length} red` : ''}
+          {yellow.length > 0 ? ` · ${yellow.length} grammar` : ''}
+        </>
+      }
+      right={<span className={`text-xs font-medium ${s.class}`}>{s.label}</span>}
+    />
   );
 }

@@ -48,3 +48,8 @@ Review hold, 19 Nov — a part that could not be read is said, never sorted or s
 refused, Row 1 stays as listed under "Your albums" with "Couldn't load the views just now · shown as listed" (no sort on
 half the data); "Opened by you" the same; if the places are refused, a search says "Couldn't load places just now ·
 searching names only". Tests: `lib/portfolio-albums.test.ts` R1–R3 and guard test 6.
+
+Re-review hold, 19 Nov: Supabase resolves with `{ error }` instead of throwing, so the tag-lines read turned a refused
+RPC into an empty Map and "Couldn't load places" never fired. New `readTagEventLinesOrUnread` answers `null` on an RPC
+error (the shared `readTagEventLines` keeps returning a Map for its other callers); the loader maps it to unread, and an
+unread cards read makes the event facts unread too. Test: `lib/portfolio-places-are-read-or-said.test.ts`.

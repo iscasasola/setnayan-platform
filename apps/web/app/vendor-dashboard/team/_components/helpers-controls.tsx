@@ -34,44 +34,79 @@ function usePortal(): boolean {
   return mounted;
 }
 
+/** 🧑‍🤝‍🧑 The roles that work at one location — Branch ▾ is asked only for these (drawing (c)). */
+const BRANCH_ROLES: ReadonlySet<string> = new Set(['branch_manager', 'account_manager', 'event_crew', 'helper']);
+
+/**
+ * A member's Role ▾ and, when the shop has two or more locations and the role works at one, Branch ▾ (owner 19 Nov
+ * 2026, drawing (b)/(c)). Picking either posts the SHIPPED `updateVendorTeamMember` with both.
+ */
 export function RolePick({
   memberId,
   name,
   role,
+  branchKey,
   teamLabel,
   options,
+  locations = [],
   action,
 }: {
   memberId: string;
   name: string;
+  /** The member's role (`duty`). */
   role: string;
+  /** Where they work — a branch id or 'main'. */
+  branchKey?: string;
   teamLabel: string | null;
   options: readonly RoleOption[];
+  /** The shop's locations; Branch ▾ shows only with two or more. */
+  locations?: readonly RoleOption[];
   /** The shipped `updateVendorTeamMember`. */
   action: Action;
 }) {
   /* `StayForm` takes no ref — the form is the one this mark sits in. */
   const mark = useRef<HTMLSpanElement>(null);
   const target = useRef<HTMLInputElement>(null);
+  const branch = useRef<HTMLInputElement>(null);
+  const [picked, setPicked] = useState(role);
+  const showBranch = locations.length >= 2 && BRANCH_ROLES.has(picked);
+  const submit = () => mark.current?.closest('form')?.requestSubmit();
   return (
-    <StayForm door="supTeam.updateVendorTeamMember" action={action} className="flex-none" data-helpers-role={memberId}>
+    <StayForm door="supTeam.updateVendorTeamMember" action={action} className="flex flex-none flex-wrap items-center justify-end gap-1" data-helpers-role={memberId}>
       <span ref={mark} hidden />
       <input type="hidden" name="vendor_team_member_id" value={memberId} />
       <input type="hidden" name="team_label" value={teamLabel ?? ''} />
-      <input ref={target} type="hidden" name="role" defaultValue={role} />
+      <input ref={target} type="hidden" name="duty" defaultValue={role} />
+      <input ref={branch} type="hidden" name="branch_id" defaultValue={branchKey ?? 'main'} />
       <PickMenu
-        label={`What ${name} can do`}
-        value={role}
+        label={`${name}’s role`}
+        value={picked}
         options={options}
         onPick={(k) => {
-          if (k === role || !target.current) return;
+          if (k === picked || !target.current) return;
           target.current.value = k;
-          mark.current?.closest('form')?.requestSubmit();
+          setPicked(k);
+          submit();
         }}
         dataAttr="data-helpers-role-pick"
         compact
         className="!min-h-11"
       />
+      {showBranch ? (
+        <PickMenu
+          label={`Where ${name} works`}
+          value={branchKey ?? 'main'}
+          options={locations}
+          onPick={(k) => {
+            if (!branch.current || k === branch.current.value) return;
+            branch.current.value = k;
+            submit();
+          }}
+          dataAttr="data-helpers-branch-pick"
+          compact
+          className="!min-h-11"
+        />
+      ) : null}
     </StayForm>
   );
 }
@@ -79,11 +114,17 @@ export function RolePick({
 export function InviteHelperSheet({
   options,
   defaultRole,
+  locations = [],
+  defaultBranch = 'main',
   action,
   seatLine,
 }: {
   options: readonly RoleOption[];
   defaultRole: string;
+  /** The shop's locations (Main + branches); Branch ▾ is asked only with two or more, and only for a branch role. */
+  locations?: readonly RoleOption[];
+  /** A Branch Manager's own branch — the only one they may pick. */
+  defaultBranch?: string;
   /** The shipped `inviteVendorTeamMember`. */
   action: Action;
   /** "1 of 3 used · 1 Helper free on every plan" — said under the heading, so the plan is known before Send. */
@@ -93,6 +134,8 @@ export function InviteHelperSheet({
   const [email, setEmail] = useState('');
   const [label, setLabel] = useState('');
   const [role, setRole] = useState(defaultRole);
+  const [branchKey, setBranchKey] = useState(defaultBranch);
+  const askBranch = locations.length >= 2 && BRANCH_ROLES.has(role);
   const mounted = usePortal();
   const headingId = useId();
   const form = useRef<HTMLFormElement>(null);
@@ -101,13 +144,14 @@ export function InviteHelperSheet({
     setEmail('');
     setLabel('');
     setRole(defaultRole);
+    setBranchKey(defaultBranch);
   });
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
       <div className="px-5 pb-4 pt-5" data-helpers-invite-sheet="">
         <h2 id={headingId} className="pr-12 text-[17px] font-semibold text-ink">
-          Invite a helper
+          Invite to your team
         </h2>
         <p className="mt-1 text-[13.5px] text-[color:var(--m-slate-2)]">They sign in on their own phone with their Setnayan account. {seatLine}.</p>
         <form
@@ -127,7 +171,8 @@ export function InviteHelperSheet({
             stay.onSubmit(e);
           }}
         >
-          <input type="hidden" name="role" value={role} />
+          <input type="hidden" name="duty" value={role} />
+          {askBranch ? <input type="hidden" name="branch_id" value={branchKey} /> : null}
           <FormRows width="wide">
             <TypedRow
               name="Their email"
@@ -140,7 +185,24 @@ export function InviteHelperSheet({
               onKeep={(t) => setEmail(t.trim())}
               note="The email of their Setnayan account"
             />
-            <ChosenRow name="They can" value={role} options={options} onPick={(k) => setRole(k)} dataAttr="data-helpers-invite-role" />
+            <ChosenRow
+              name="Role"
+              value={role}
+              options={options}
+              onPick={(k) => setRole(k)}
+              dataAttr="data-helpers-invite-role"
+              note="Your shop’s name for each role, with the fixed role beside it · rename them on Team › Roles"
+            />
+            {askBranch ? (
+              <ChosenRow
+                name="Branch"
+                value={branchKey}
+                options={locations}
+                onPick={(k) => setBranchKey(k)}
+                dataAttr="data-helpers-invite-branch"
+                note="Shop Manager and Marketing cover the whole shop"
+              />
+            ) : null}
             <TypedRow
               name="What they do"
               value={label}
@@ -174,7 +236,7 @@ export function InviteHelperSheet({
           tone="brand"
           main
           icon={UserPlus}
-          label="Invite a helper"
+          label="Invite to your team"
           aria-haspopup="dialog"
           onClick={() => setOpen(true)}
           data-testid="helpers-invite"

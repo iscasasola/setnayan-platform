@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NavGroup } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import type { ActiveShop } from '@/lib/active-shop';
+import { dutyOfRank, isVendorDuty, type VendorDuty } from '@/lib/vendor-duties';
 
 /**
  * Vendor role helpers — the UI side of the multi-user vendor workspace.
@@ -114,6 +115,82 @@ export async function resolveVendorRoleForProfile(
 }
 
 /**
+ * 🧑‍🤝‍🧑 THE PERSON'S ROLE AND WHERE THEY WORK, in the shop they are standing in (owner 19 Nov 2026 — six roles,
+ * lib/vendor-duties.ts). The same active shop as {@link resolveVendorRole}; the founder with no seat row is the
+ * Shop Manager (the same legacy fallback). Null = no shop, or a refused read — which denies, never grants.
+ */
+export type VendorStanding = { role: VendorTeamRole; duty: VendorDuty; branchId: string | null };
+
+export const resolveVendorStanding = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<VendorStanding | null> => {
+  let active: ActiveShop | null;
+  try {
+    const { resolveActiveShop } = await import('@/lib/active-shop');
+    active = await resolveActiveShop(supabase, userId);
+  } catch {
+    return null;
+  }
+  if (!active) return null;
+  return resolveVendorStandingForProfile(supabase, userId, active.vendorProfileId, { ownsIt: active.owned });
+});
+
+/** {@link resolveVendorStanding} for ONE named shop — the action-side companion, like {@link resolveVendorRoleForProfile}. */
+export async function resolveVendorStandingForProfile(
+  supabase: SupabaseClient,
+  userId: string,
+  vendorProfileId: string,
+  known?: { ownsIt: boolean },
+): Promise<VendorStanding | null> {
+  const { data, error } = await supabase
+    .from('vendor_team_members')
+    .select('role,duty,branch_id')
+    .eq('user_id', userId)
+    .eq('vendor_profile_id', vendorProfileId);
+  if (error) return null;
+  const rows = (data ?? []) as { role: VendorTeamRole; duty: string | null; branch_id: string | null }[];
+  const best = rows
+    .filter((r) => r.role in ROLE_RANK)
+    .sort((a, b) => ROLE_RANK[b.role] - ROLE_RANK[a.role])[0];
+  if (best) {
+    const duty = isVendorDuty(best.duty) ? best.duty : dutyOfRank(best.role);
+    return { role: best.role, duty, branchId: best.branch_id ?? null };
+  }
+  const role = await resolveVendorRoleForProfile(supabase, userId, vendorProfileId, known);
+  return role ? { role, duty: dutyOfRank(role), branchId: null } : null;
+}
+
+/**
+ * 🧭 WHAT EACH ROLE SEES IN THE BAR AND THE RAIL (owner 19 Nov 2026). The Shop Manager sees everything; the rest see
+ * the destinations their work lives in. `overview` is Today — every role has a schedule. Keys are the sidebar's
+ * spelling; the phone bar maps `profile` → `overview` through {@link canonicalVendorNavKey}.
+ */
+export const VENDOR_DUTY_NAV_KEYS: Record<VendorDuty, ReadonlySet<string> | 'all'> = {
+  shop_manager: 'all',
+  branch_manager: new Set(['overview', 'customers']),
+  account_manager: new Set(['overview', 'customers']),
+  marketing: new Set(['overview', 'shop', 'portfolio']),
+  event_crew: new Set(['overview']),
+  helper: new Set(['overview', 'customers']),
+};
+
+/** May this person see this nav key? With no role read, the shipped rank rule (fail closed for non-managers). */
+export function navKeyVisibleTo(
+  key: string,
+  role: VendorTeamRole | null | undefined,
+  duty?: VendorDuty | null,
+): boolean {
+  const canonical = canonicalVendorNavKey(key);
+  if (duty && isVendorDuty(duty)) {
+    const keys = VENDOR_DUTY_NAV_KEYS[duty];
+    return keys === 'all' ? true : keys.has(canonical);
+  }
+  if (canManageVendor(role)) return true;
+  return VENDOR_SCOPED_NAV_ITEM_KEYS.has(canonical);
+}
+
+/**
  * Nav item keys an agent/viewer may see. Owner/admin always see the full nav.
  * Phase 2b opened the agent's operational surfaces (Bookings / Messages) now
  * that per-customer RLS scoping is live. NOTE (2026-07-02): 'services' was
@@ -174,13 +251,14 @@ export function canonicalVendorNavKey(key: string): string {
 export function filterVendorNavGroups(
   groups: NavGroup[],
   role: VendorTeamRole | null | undefined,
+  /** The person's supplier role (six roles, owner 19 Nov 2026). Omitted = the rank rule alone. */
+  duty?: VendorDuty | null,
 ): NavGroup[] {
-  if (canManageVendor(role)) return groups;
-  const keys = VENDOR_SCOPED_NAV_ITEM_KEYS;
+  if (!duty && canManageVendor(role)) return groups;
   return groups
     .map((g) => ({
       ...g,
-      items: g.items.filter((it) => keys.has(it.key)),
+      items: g.items.filter((it) => navKeyVisibleTo(it.key, role, duty)),
     }))
     .filter((g) => g.items.length > 0);
 }

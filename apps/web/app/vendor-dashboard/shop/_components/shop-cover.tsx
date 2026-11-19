@@ -64,14 +64,16 @@ export type CoverData = {
   coverUrl: string | null;
   city: string | null;
   /** `papersIn` of `papersOf` required papers (2026-11-14: verification is the papers and one Submit — no other steps). */
-  verified: { isVerified: boolean; inReview: boolean; papersIn: number; papersOf: number };
+  /** `unread` = the application read was REFUSED (supplier audit S-3): say so, never "Get verified · 0 of 3 papers". */
+  verified: { isVerified: boolean; inReview: boolean; papersIn: number; papersOf: number; unread?: boolean };
   /** "★ 4.8 · 120 events" pieces — null = the read was refused: the events piece says `EVENTS_UNREAD`, never "—" or 0. */
   rating: string | null;
   /** "38 reviews" — the trusted-review count beside the ★ (null = unread or none); with `rating` it is the link into
    *  Your page › Reviews and stories (Build 2 §10 #31). */
   reviews?: string | null;
   events: string | null;
-  planLabel: string;
+  /** null = the shop's own row was REFUSED (audit S-2) — drawn as PLAN_UNREAD, never as "Free plan". */
+  planLabel: string | null;
   /** The public page — opened in a new tab; null before the shop has an address. */
   publicPath: string | null;
   /** Couples can see the page (admin-approved). Before that, View shop opens the team preview. */
@@ -104,6 +106,8 @@ export type CoverData = {
 /** The events count when its read was refused (house honest-read rule, `reads-are-honest.test.ts`): said, never "—" or 0
     — a "—" beside "Verified — Pro plan" read as part of that line (owner 2026-11-10). */
 const EVENTS_UNREAD = 'Couldn’t load events';
+const PLAN_UNREAD = 'Couldn’t load your plan';
+const VERIFY_UNREAD = 'Couldn’t load your papers';
 export function replaceAddressParam(key: string, value: string | null) {
   try {
     const url = new URL(window.location.href);
@@ -269,6 +273,8 @@ export function ShopCover({
                   </span>
                   Setnayan Verified
                 </a>
+              ) : d.verified.unread ? (
+                <a href="#docs" className="sn-hit inline-flex items-center" data-shop-cover-verify="unread">{VERIFY_UNREAD}</a>
               ) : d.verified.inReview ? (
                 <a href="#docs" className="sn-hit inline-flex items-center">Verification in review</a>
               ) : (
@@ -297,7 +303,7 @@ export function ShopCover({
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
               <a href="#plan" className="sn-hit inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
-                {d.planLabel} plan
+                {d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}
                 <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
               </a>
             </>
@@ -387,7 +393,7 @@ export function ShopCover({
           <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
             <QuickIcon icon={Gem} />
             <b className="text-[15px] font-semibold leading-tight text-ink">Plan</b>
-            <small className="text-[12px] leading-tight text-ink/60">{d.planLabel} plan</small>
+            <small className="text-[12px] leading-tight text-ink/60">{d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}</small>
           </a>
         </div>
       </div>

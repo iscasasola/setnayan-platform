@@ -125,6 +125,7 @@ export function SupplierTodayScreen({
         outcome={outcome}
         alsoToday={view.alsoToday}
         comingUp={view.comingUp}
+        comingUpUnread={view.comingUpUnread}
         eventsYouRun={eventsYouRun}
         shop={view.shop}
         business={view.business}

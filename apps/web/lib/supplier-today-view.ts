@@ -69,6 +69,8 @@ export type SupplierTodayInput = {
   deskIncomplete: boolean;
   /** The next booked events (Setnayan), soonest first — the room read, capped at five. */
   upcoming: readonly UpcomingEventRow[];
+  /** T-3: false when the room read was refused or short (`fetchVendorOverviewData`'s `bookingsComplete`). */
+  bookingsComplete?: boolean;
   /** The schedules, the bookings from outside and the days off ahead (`readTodaySchedules`). */
   schedules: Pick<TodaySchedules, 'pools' | 'outside' | 'complete'>;
   /** The first-steps rail — non-null only on a shop not yet approved. */
@@ -161,6 +163,11 @@ export type SupplierTodayView = {
   };
   alsoToday: Array<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   comingUp: Array<{ id: string; href: string; label: string; line: string | null; outside?: boolean }>;
+  /**
+   * T-3 (supplier audit 2026-11-17): the bookings or schedules read was refused or short. An empty `comingUp` is then
+   * "Couldn't load your bookings" — never "No bookings yet · Add the ones you already have" to a shop that has some.
+   */
+  comingUpUnread: boolean;
   /**
    * 🔢 THE PINNED COUNTS' LISTS (owner 2026-10-28: "the counts … are the pinned row and they FILTER the list in place").
    * `week` — every booking in the next seven days (Setnayan and outside), the rows the "this week" number counts;
@@ -440,6 +447,7 @@ export function assembleSupplierToday(input: SupplierTodayInput): SupplierTodayV
           ]
         : [],
     comingUp: ahead.slice(0, 3).map((a) => a.row),
+    comingUpUnread: input.bookingsComplete === false || !input.schedules.complete,
     week: [...todayRow, ...week],
     money:
       // Not read (an event day reads no payday) or not cut per booking → unknown, said so — never an empty list.

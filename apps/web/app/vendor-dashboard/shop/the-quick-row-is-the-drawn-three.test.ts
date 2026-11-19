@@ -40,7 +40,7 @@ test('2 · each tile opens a shipped place, with no new read', () => {
   assert.match(read('page.tsx'), /printsBody=\{\s*<Suspense[\s\S]{0,80}?<PromoteBody search=\{qrSearch\} part="prints" \/>/);
   assert.match(ROW, /openPromoteAt\('gifts'\)[^>]*data-shop-quick="gifts"/);
   assert.match(ROW, /<a href="#plan"[^>]*data-shop-quick="plan"/);
-  assert.match(ROW, /\{d\.planLabel\} plan/);
+  assert.match(ROW, /`\$\{d\.planLabel\} plan`/);
   // "Buy gifts" sells, so the iPhone app never shows it (App Store #5/#14 — `lib/store-shell.test.ts`).
   assert.match(ROW, /data-web-only="">Buy gifts</, 'the selling words show in the iPhone app');
   assert.match(read('promote/_components/shop-prints-section.tsx'), /<section id="prints"/);

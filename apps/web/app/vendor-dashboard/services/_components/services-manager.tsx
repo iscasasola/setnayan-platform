@@ -43,6 +43,7 @@ import {
   fetchInclusionsByService,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { tierCaps, planHasBranches } from '@/lib/vendor-tier-caps';
 import {
   VENDOR_CATEGORIES,
@@ -340,7 +341,14 @@ export async function VendorServicesManager({
     .select('tier_state, verification_state, name_revealed_at, screen_name')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle()
-    .then((r) => r, () => ({ data: null }));
+    .then(
+      (r) => r,
+      (err: unknown) => ({ data: null, error: err }),
+    );
+  // V-3 (supplier audit 2026-11-17): the error was never read, so a REFUSED plan read hid every branch and relabelled
+  // each card "assigned to You" — the "silent lie" the branch comment below forbids. Bound, logged, and honoured.
+  const tierUnread = Boolean(tierProbeRes.error);
+  if (tierUnread) logQueryError('ServicesManager.tierProbe', tierProbeRes.error, { vendorProfileId: profile.vendor_profile_id }, 'graceful_degrade');
 
   // #1 multi-service-per-leaf: a category can now hold several listings, so we
   // track a COUNT per category (not just presence) to show on the picker.
@@ -382,7 +390,8 @@ export async function VendorServicesManager({
     // cannot see the order its owner paid, so without it every branch would
     // read as unpaid to them and the gate below would refuse a live branch.
     // Branches on Pro (included) and Ultra (included + bought) — owner 2026-11-04, "branches 0,0,3,10".
-    planHasBranches(tier)
+    // An unread plan still reads the branches: their LABELS must survive, or every card says "assigned to You".
+    planHasBranches(tier) || tierUnread
       ? (
           await fetchVendorBranches(
             supabase,

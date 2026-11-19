@@ -246,6 +246,7 @@
 
 /* the full plan comparison (Build 6 Lane J): five columns, pinned plan column, sideways scroll INSIDE the card only */
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+/* The card carries the page's tokens itself (the same aliases `.root` sets) so /for-coordinators can draw the SAME
    table on its own stylesheet — the owner's "one plans widget for both pages" (DECISION_LOG 2026-11-05). */
 .cmpCard {
   --sf-paper: var(--m-paper); --sf-line: var(--m-line); --sf-ink: var(--m-ink); --sf-text: var(--m-slate);

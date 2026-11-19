@@ -1,7 +1,7 @@
 /**
  * 🖨 THE SEALS ON PAPER — the v84 seal art (`lib/print-seal-art.generated.ts`, baked from the owner-approved
- * `badge-milestones_v84.html` by `scripts/gen-print-seal-art.mjs`) with the AWARD's own year on its ribbon, and No. 1
- * from the award kit's shipped No. 1 art (fetched through its door `loadNo1Seal`, made still — no animation).
+ * `badge-milestones_v84.html` by `scripts/gen-print-seal-art.mjs`) with the AWARD's own year on its ribbon.
+ * 🚫 No. 1 has no print art here: it stays off paper (owner 18 Nov 2026, "keep it off").
  *
  * Every letter is an outline (Cinzel Bold), so a print shop's machine draws it without the font.
  * ⚠ SERVER ONLY — the art is ~270 KB. Never imported by a client file (🔒 lib/prints-wear-only-v84-badges.test.ts).
@@ -19,7 +19,7 @@ export const SEAL_ART_OF: Readonly<Record<Exclude<StoredSeal, 'no1'>, ArtKey>> =
   verified_partner: 'partner',
 };
 
-/** Every seal's drawing box: the prototype's `viewBox="-10 -14 320 304"` (No. 1: its own, same size). */
+/** Every seal's drawing box: the prototype's `viewBox="-10 -14 320 304"`. */
 export const SEAL_ART_W = 320;
 export const SEAL_ART_H = 304;
 
@@ -77,20 +77,13 @@ export function sealYearOutlines(key: ArtKey, year: number): string {
 
 /**
  * One seal as a standalone <svg> document (`size` px wide), still, ids prefixed with `uid`, carrying its award year.
- * Async because No. 1's art is loaded on demand (it is never imported statically — award-kit test).
+ * NULL when there is nothing to draw — a seal with no print art (No. 1, or a key this file does not know) or a year
+ * that is not a year. The caller prints WITHOUT that badge; it never throws a whole print away for one picture.
  */
-export async function sealPrintSvg(seal: StoredSeal, year: number, uid: string, size = SEAL_ART_W): Promise<string> {
+export function sealPrintSvg(seal: string, year: number, uid: string, size = SEAL_ART_W): string | null {
   const u = uid.replace(/[^A-Za-z0-9_-]/g, '') || 'sl';
-  if (seal === 'no1') {
-    // through the award kit's own door (the art is only ever fetched by import()); made still for paper
-    const { loadNo1Seal } = await import('@/app/_components/award/no1-seal');
-    const art = await loadNo1Seal(year, 'card', `${u}_`);
-    return art
-      .replace(/<(animate|animateTransform|animateMotion|set)\b[^>]*\/>/g, '')
-      .replace(/ class="[^"]*"/g, '')
-      .replace('width="200" height="190"', `width="${r3(size)}" height="${r3((size * SEAL_ART_H) / SEAL_ART_W)}"`);
-  }
-  const key = SEAL_ART_OF[seal];
+  const key = Object.hasOwn(SEAL_ART_OF, seal) ? SEAL_ART_OF[seal as keyof typeof SEAL_ART_OF] : undefined;
+  if (!key || !Number.isInteger(year) || year < 1000 || year > 9999) return null;
   return PRINT_SEAL_SVG[key]
     .replace(/§/g, `${u}_`)
     .replace('{{YEAR}}', sealYearOutlines(key, year))

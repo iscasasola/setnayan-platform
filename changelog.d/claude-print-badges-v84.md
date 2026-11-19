@@ -26,3 +26,9 @@ Stacked on #7925, which changed only the Verified mark on prints. DECISION_LOG 1
 - **Guard:** `lib/prints-wear-only-v84-badges.test.ts`. No print surface may import `ShopBadgePill`, `ImageBadge`, `badgeImageOf`, the retired `lib/shop-badges` list or the pill's `TIERS`. This covers the named surfaces plus every shipped file that imports a print renderer.
 
 SPEC IMPACT: None. This applies the 15 Nov ruling to paper and adds no new decision. The No. 1 kit comment says "nothing outside the kit may offer it until he rules". The print shows No. 1 only when `shop_seals` holds a No. 1 row, which only the seal engine writes (ruling 6373). This is flagged in the PR.
+
+Review fixes (19 Nov): **No. 1 stays off paper** (owner 18 Nov, "keep it off") — `printBadgesV84` never lists it and
+the print seal art no longer loads the No. 1 art; that year's Top 10 seal prints as any Top 10 does. And one badge
+whose picture cannot be made (missing tier file, unknown seal, bad year) is left off the print and logged — it no
+longer fails the whole print with a 500.
+SPEC IMPACT: None (applies DECISION_LOG 2026-11-18 "No. 1 seal stays OFF printed papers for now").

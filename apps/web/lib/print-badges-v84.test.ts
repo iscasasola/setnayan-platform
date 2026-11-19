@@ -70,7 +70,8 @@ test('the seals print in the flow order; Verified Partner replaces Setnayan Veri
   });
   assert.deepEqual(keys(worn), ['top10', 'most_in_demand', 'verified_partner']);
   assert.equal((worn[0] as Extract<PrintBadge, { kind: 'seal' }>).year, 2027, 'the newest year');
-  assert.deepEqual(keys(printBadgesV84({ verified: true, counts: null, seals: [{ seal: 'no1', award_year: 2026 }, { seal: 'top10', award_year: 2026 }] })), ['no1', 'verified'], 'No. 1 IS that year’s Top 10');
+  assert.deepEqual(keys(printBadgesV84({ verified: true, counts: null, seals: [{ seal: 'no1', award_year: 2026 }, { seal: 'top10', award_year: 2026 }] })), ['top10', 'verified'], 'No. 1 stays off paper (owner 18 Nov); that year’s Top 10 still prints');
+  assert.deepEqual(keys(printBadgesV84({ verified: false, counts: null, seals: [{ seal: 'no1', award_year: 2026 }] })), [], 'a No. 1 alone prints nothing');
   assert.equal(printBadgeWords(worn[0]!), 'Top 10 Supplier 2027');
 });
 
@@ -92,8 +93,8 @@ test('a tier prints the APPROVED v84 picture itself — the same pixels as publi
 });
 
 test('every seal prints still and font-free: no <text>, no animation, its own ids, its award year — and it renders', async () => {
-  for (const seal of STORED_SEALS) {
-    const svg = await sealPrintSvg(seal, 2027, `t_${seal}`);
+  for (const seal of STORED_SEALS.filter((k) => k !== 'no1')) {
+    const svg = sealPrintSvg(seal, 2027, `t_${seal}`)!;
     assert.doesNotMatch(svg, /<text\b|<textPath\b/, `${seal}: a letter a print shop could lack the font for`);
     assert.doesNotMatch(svg, /<animate|<set\b|\{\{YEAR\}\}|§/, `${seal}: not still, or a slot left open`);
     assert.doesNotMatch(svg, / class="/, `${seal}: a screen-only class`);
@@ -102,8 +103,8 @@ test('every seal prints still and font-free: no <text>, no animation, its own id
     assert.ok(png.length > 2000, `${seal}: did not render`);
   }
   // the year rides the ribbon: a different year draws different outlines there, and nothing else changes
-  const a = await sealPrintSvg('top10', 2026, 'y');
-  const b = await sealPrintSvg('top10', 2031, 'y');
+  const a = sealPrintSvg('top10', 2026, 'y')!;
+  const b = sealPrintSvg('top10', 2031, 'y')!;
   assert.notEqual(a, b);
   assert.equal(a.replace(/\{\{YEAR\}\}/, ''), a);
   assert.deepEqual(Object.keys(SEAL_ART_OF).sort(), ['clients_choice', 'most_in_demand', 'top10', 'verified_partner']);
@@ -149,4 +150,44 @@ test('the Prints sheet and the badges route use the honest list, not the bare on
   assert.match(route, /readPrintBadgeList\(/);
   assert.match(route, /badges: all\.map\(printBadgeListItem\), allRead/, 'view=print must carry allRead');
   assert.match(route, /picked\.length === 0 && !allRead/, 'a refused read must not answer "no badges to print yet"');
+});
+
+test('No. 1 stays OFF paper (owner 18 Nov 2026, "keep it off"): never in the list, and no print art to draw it with', async () => {
+  const all = printBadgesV84({ verified: true, counts: null, seals: STORED_SEALS.map((seal) => ({ seal, award_year: 2026 })) });
+  assert.ok(!keys(all).includes('no1'), 'No. 1 is on the print list');
+  assert.deepEqual(keys(all), ['top10', 'clients_choice', 'most_in_demand', 'verified_partner']);
+  assert.equal(sealPrintSvg('no1', 2026, 'n'), null);
+  const src = (await import('node:fs')).readFileSync(new URL('./print-seal-art.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, ''), /no1-seal|loadNo1Seal/, 'the print seal art still loads the No. 1 art');
+});
+
+test('an unknown seal key or a year that is not a year is skipped, never thrown', () => {
+  assert.equal(sealPrintSvg('not_a_seal', 2026, 'u'), null);
+  assert.equal(sealPrintSvg('toString', 2026, 'u'), null, 'an inherited key is not a seal');
+  for (const year of [Number.NaN, 0, 26, 2026.5, 20260]) assert.equal(sealPrintSvg('top10', year, 'u'), null, `year ${year}`);
+  assert.ok(sealPrintSvg('top10', 2026, 'u'));
+});
+
+test('one badge whose picture cannot be made is left off — the rest of the print is still made (was: a 500)', async () => {
+  const good = { kind: 'tier', key: 'gifts_given', label: 'Gifts given (Bronze)', family: 'giftbox', tier: 1 } as const;
+  const quiet = console.error;
+  const said: string[] = [];
+  console.error = (...a: unknown[]) => void said.push(a.map(String).join(' '));
+  try {
+    // a tier whose file is not there
+    const missingTier = await resolvePrintBadgeArt([{ ...good, family: 'no-such-family' as never }, good, { kind: 'verified', key: 'verified', label: 'Setnayan Verified' }]);
+    assert.deepEqual(missingTier.map((a) => a.badge.kind), ['tier', 'verified']);
+    assert.equal((missingTier[0]!.badge as Extract<PrintBadge, { kind: 'tier' }>).family, 'giftbox');
+    // a seal with no year, and a seal key with no art (an older row / a future seal)
+    const badSeals = await resolvePrintBadgeArt([
+      { kind: 'seal', key: 'top10', label: 'Top 10 Supplier', year: Number.NaN },
+      { kind: 'seal', key: 'no1' as never, label: 'No. 1', year: 2026 },
+      { kind: 'seal', key: 'clients_choice', label: "Clients' Choice", year: 2026 },
+      good,
+    ]);
+    assert.deepEqual(badSeals.map((a) => a.badge.key), ['clients_choice', 'gifts_given']);
+    assert.equal(said.length, 3, 'each badge left off is logged, once');
+  } finally {
+    console.error = quiet;
+  }
 });

@@ -15,8 +15,9 @@
  *   Years in business     REMOVED — no v84 badge; "In business since" stays a text line where a piece has one
  *   Monthly awards        REMOVED — retired by the 15 Nov ruling; the yearly SEALS replace them (below)
  *   —                     Gifts given · Trusted by · Invites at their tier, when earned (the same shelf)
- *   —                     The seals a shop holds: No. 1 · Top 10 · Clients' Choice · Most In-Demand ·
- *                         Verified Partner (the v84 seal art, `lib/print-seal-art.ts`)
+ *   —                     The seals a shop holds: Top 10 · Clients' Choice · Most In-Demand · Verified Partner
+ *                         (the v84 seal art, `lib/print-seal-art.ts`).
+ *                         🚫 No. 1 stays OFF paper (owner 18 Nov 2026, verbatim: "keep it off") — `PrintSeal`.
  *
  * 🔑 NO SECOND RULE. A tier is the Shop › Badges shelf's own tile (`shelfBadge`, `lib/shop-badge-shelf.ts`) from the
  * reward engine's counts, and only an EARNED tile prints — a locked, unread or not-counted badge never does. The seals
@@ -32,7 +33,11 @@ import { SEAL_LABEL, displayedSeals, type StoredSeal } from '@/lib/shop-seals';
 export type PrintBadge =
   | { kind: 'verified'; key: 'verified'; label: string }
   | { kind: 'tier'; key: ShopBadgeKey; label: string; family: ShelfFamily; tier: number }
-  | { kind: 'seal'; key: StoredSeal; label: string; year: number };
+  | { kind: 'seal'; key: PrintSeal; label: string; year: number };
+
+/** The seals a print may wear: every stored seal EXCEPT No. 1 (owner 18 Nov 2026: "keep it off"). */
+export type PrintSeal = Exclude<StoredSeal, 'no1'>;
+export const isPrintSeal = (k: string): k is PrintSeal => k !== 'no1' && k !== 'verified';
 
 export type PrintBadgeInput = {
   /** `hasVerifiedBadge(...)` as read now. */
@@ -46,19 +51,20 @@ export type PrintBadgeInput = {
 export const VERIFIED_PRINT_LABEL = 'Setnayan Verified';
 
 /**
- * Every badge a print wears today, in the order they print: the seals (`SEAL_ORDER`: No. 1 → Top 10 → Clients' Choice
+ * Every badge a print wears today, in the order they print: the seals (`SEAL_ORDER`, less No. 1: Top 10 → Clients' Choice
  * → Most In-Demand → Verified Partner → Setnayan Verified), then the earned tiers in the shelf's own order.
- * A yearly seal won more than once prints once, with its newest year; Top 10 of a year the shop was No. 1 is No. 1.
+ * A yearly seal won more than once prints once, with its newest year. No. 1 never prints; that year's Top 10 seal —
+ * which the No. 1 shop also holds — prints as any Top 10 does.
  */
 export function printBadgesV84(i: PrintBadgeInput): PrintBadge[] {
   const rows = i.seals ?? [];
   const newest = new Map<StoredSeal, number>();
   for (const r of rows) newest.set(r.seal, Math.max(newest.get(r.seal) ?? 0, r.award_year));
-  if (newest.has('no1') && newest.get('no1') === newest.get('top10')) newest.delete('top10');
+  newest.delete('no1'); // 🚫 off paper (owner 18 Nov 2026)
   const out: PrintBadge[] = [];
   for (const k of displayedSeals([...newest.keys()], i.verified)) {
     if (k === 'verified') out.push({ kind: 'verified', key: 'verified', label: VERIFIED_PRINT_LABEL });
-    else out.push({ kind: 'seal', key: k, label: SEAL_LABEL[k], year: newest.get(k)! });
+    else if (isPrintSeal(k)) out.push({ kind: 'seal', key: k, label: SEAL_LABEL[k], year: newest.get(k)! });
   }
   for (const key of SHOP_BADGE_KEYS) {
     const t = shelfBadge(key, { counts: i.counts, verified: i.verified, granted: null });

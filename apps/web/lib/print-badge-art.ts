@@ -32,26 +32,44 @@ function tierPicture(src: string): Promise<Uint8Array> {
 
 const b64 = (u: Uint8Array) => Buffer.from(u).toString('base64');
 
-/** Each badge's v84 art, ready to place. `uid` keeps each copy's def ids apart on one print. */
+/**
+ * Each badge's v84 art, ready to place. `uid` keeps each copy's def ids apart on one print.
+ * 🛟 ONE MISSING PICTURE NEVER COSTS THE PRINT: a badge whose art cannot be made (a tier file that is not there, a seal
+ * with no print art, a year that is not a year, a picture that will not decode) is LEFT OUT and logged — the print is
+ * made without it. Was: one rejection failed the whole `Promise.all`, and the route answered 500.
+ */
 export async function resolvePrintBadgeArt(badges: readonly PrintBadge[], uid = 'pb'): Promise<PrintBadgeArt[]> {
-  return Promise.all(
-    badges.map(async (badge, i): Promise<PrintBadgeArt> => {
-      const id = `${uid}${i}`;
-      if (badge.kind === 'verified') {
-        const S = VERIFIED_V84_SIDE;
-        return { badge, w: S, h: S, svg: verifiedV84Svg({ uid: id, size: S, word: false }), png: null };
+  const made = await Promise.all(
+    badges.map(async (badge, i): Promise<PrintBadgeArt | null> => {
+      try {
+        return await onePrintBadgeArt(badge, `${uid}${i}`);
+      } catch (e) {
+        console.error(`[print-badge-art] ${badge.kind}:${badge.key} left off the print —`, e);
+        return null;
       }
-      if (badge.kind === 'tier') {
-        const png = await tierPicture(badgeArtSrc(badge.family, badge.tier));
-        const svg =
-          `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_ART_W}" height="${BADGE_ART_H}" viewBox="0 0 ${BADGE_ART_W} ${BADGE_ART_H}" role="img" aria-label="${badge.label}">` +
-          `<image href="data:image/png;base64,${b64(png)}" width="${BADGE_ART_W}" height="${BADGE_ART_H}"/></svg>`;
-        return { badge, w: BADGE_ART_W, h: BADGE_ART_H, svg, png };
-      }
-      const svg = await sealPrintSvg(badge.key, badge.year, id);
-      // the PDF backend draws pictures only: the seal rasterised at 4× its box (1280 px wide) for that file
-      const png = new Uint8Array(await sharp(Buffer.from(svg), { density: 288 }).png().toBuffer());
-      return { badge, w: SEAL_ART_W, h: SEAL_ART_H, svg, png };
     }),
   );
+  return made.filter((a): a is PrintBadgeArt => a !== null);
+}
+
+async function onePrintBadgeArt(badge: PrintBadge, id: string): Promise<PrintBadgeArt | null> {
+  if (badge.kind === 'verified') {
+    const S = VERIFIED_V84_SIDE;
+    return { badge, w: S, h: S, svg: verifiedV84Svg({ uid: id, size: S, word: false }), png: null };
+  }
+  if (badge.kind === 'tier') {
+    const png = await tierPicture(badgeArtSrc(badge.family, badge.tier));
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_ART_W}" height="${BADGE_ART_H}" viewBox="0 0 ${BADGE_ART_W} ${BADGE_ART_H}" role="img" aria-label="${badge.label}">` +
+      `<image href="data:image/png;base64,${b64(png)}" width="${BADGE_ART_W}" height="${BADGE_ART_H}"/></svg>`;
+    return { badge, w: BADGE_ART_W, h: BADGE_ART_H, svg, png };
+  }
+  const svg = sealPrintSvg(badge.key, badge.year, id);
+  if (svg === null) {
+    console.error(`[print-badge-art] seal:${badge.key} ${badge.year} has no print art — left off the print`);
+    return null;
+  }
+  // the PDF backend draws pictures only: the seal rasterised at 4× its box (1280 px wide) for that file
+  const png = new Uint8Array(await sharp(Buffer.from(svg), { density: 288 }).png().toBuffer());
+  return { badge, w: SEAL_ART_W, h: SEAL_ART_H, svg, png };
 }

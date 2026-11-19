@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8005
+# facts: 8013
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     650
-#   col       5765
-#   policy    1173
+#   tpriv     651
+#   col       5769
+#   policy    1176
 #   view      10
 #   func      403
 #
@@ -501,6 +501,7 @@ tpriv	public.vendor_admin_motion_votes|anon	SIUD
 tpriv	public.vendor_admin_motion_votes|authenticated	SIUD
 tpriv	public.vendor_admin_motions|anon	SIUD
 tpriv	public.vendor_admin_motions|authenticated	SIUD
+tpriv	public.vendor_album_opens|authenticated	SIU
 tpriv	public.vendor_availability_freed|anon	SIUD
 tpriv	public.vendor_availability_freed|authenticated	SIUD
 tpriv	public.vendor_billing_catalog|anon	SIUD
@@ -4970,6 +4971,10 @@ col	public.vendor_admin_motions.status	anon=SIU authenticated=SIU
 col	public.vendor_admin_motions.target_member_id	anon=SIU authenticated=SIU
 col	public.vendor_admin_motions.target_user_id	anon=SIU authenticated=SIU
 col	public.vendor_admin_motions.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_album_opens.album_key	anon=- authenticated=SIU
+col	public.vendor_album_opens.album_kind	anon=- authenticated=SIU
+col	public.vendor_album_opens.opened_at	anon=- authenticated=SIU
+col	public.vendor_album_opens.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_availability_freed.blocked_at	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.blocked_until	anon=SIU authenticated=SIU
 col	public.vendor_availability_freed.day_part	anon=SIU authenticated=SIU
@@ -7312,6 +7317,9 @@ policy	public.vendor_ad_subscriptions|vendor_ad_subscriptions_self_read	mode=PER
 policy	public.vendor_ad_subscriptions|vendor_ad_subscriptions_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_admin_motion_votes|vendor_admin_motion_votes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(motion_id IN ( SELECT vendor_admin_motions.motion_id FROM vendor_admin_motions WHERE (vendor_admin_motions.vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)))) check=NULL
 policy	public.vendor_admin_motions|vendor_admin_motions_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('admin'::text) AS current_vendor_ids)) check=NULL
+policy	public.vendor_album_opens|vendor_album_opens_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_album_opens|vendor_album_opens_vendor_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_album_opens|vendor_album_opens_vendor_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_availability_freed|vaf_owner_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_billing_catalog|vendor_billing_catalog_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.vendor_block_scripts|vendor_block_scripts_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin))

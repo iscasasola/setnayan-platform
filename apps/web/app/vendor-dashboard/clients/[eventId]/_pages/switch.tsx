@@ -33,6 +33,8 @@ export type PickedPageInputs = {
   files: { files: SharedFileEntry[]; chatFilesMeasured: boolean };
   /** C1's Payment page inputs — all already read by the client page (integration, 8 Nov: `money` + `asks` handed in). */
   payment: { reservationAcknowledgedAt: string | null; money?: PaymentMoney; asks?: ReactNode; refunds?: PaymentPageProps['refunds'] };
+  /** 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" and "Who it counts" above the quote (booked only). */
+  quoteTop?: ReactNode;
 };
 
 export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, ReactNode> {
@@ -43,7 +45,7 @@ export function pickedPageBodies(i: PickedPageInputs): Record<PickedClientPage, 
     details: only('details', <DetailsPage ctx={ctx} shipped={shipped.details} />),
     chat: only('chat', <ChatPage ctx={ctx} shipped={shipped.chat} />),
     schedule: only('schedule', <SchedulePage ctx={ctx} shipped={shipped.schedule} />),
-    quote: only('quote', <QuotationPage ctx={ctx} shipped={shipped.quote} />),
+    quote: only('quote', <QuotationPage ctx={ctx} shipped={shipped.quote} top={i.quoteTop} />),
     payments: only(
       'payments',
       <PaymentPage

@@ -14,7 +14,8 @@ import sharp from 'sharp';
 import jsQR from 'jsqr';
 import { PDFDocument } from 'pdf-lib';
 import { ownDatesUrl, ownPageUrl, SUPPLIER_QR_MODES, SUPPLIER_QR_MODE_LABEL } from './supplier-qr-codes';
-import { badgesForPrint, type ShopBadgeFacts } from './shop-badges';
+import { printBadgesV84, type PrintBadgeArt } from './print-badges-v84';
+import { resolvePrintBadgeArt } from './print-badge-art';
 import { stripComments } from './strip-comments';
 import {
   DOOR_STICKER_CODES,
@@ -26,14 +27,17 @@ import {
 } from './door-sticker';
 import { doorStickerPdf, doorStickerSidePt, doorStickerSvg, layoutDoorSticker } from './door-sticker-print';
 
-const FACTS: ShopBadgeFacts = {
+// What the shop wears today, through the SAME rule and art resolver the route uses: Verified, Completed bookings at its
+// tier, Five-star reviews at its tier — the real v84 pictures (`public/badges/v84`).
+const WORN = printBadgesV84({
   verified: true,
-  completedEvents: 57,
-  trusted: { trusted_avg_rating: 4.8, trusted_review_count: 12 },
-  inBusinessSinceYear: 2015,
-  awards: [],
-  nowYear: 2026,
-};
+  counts: { verified: true, completedEvents: 57, trustedReviews: 12, firstSourcedBooking: true, branchIds: [], serviceCards: 2, inspirationPhotos: 0, awards: [], completedBookings: 57, fiveStarReviews: 60, giftPoints: 0, trustedBy: 0, invites: null },
+  seals: [],
+});
+let ARTS: PrintBadgeArt[] = [];
+test.before(async () => {
+  ARTS = await resolvePrintBadgeArt(WORN, 'dt');
+});
 const ORIGIN = 'https://www.setnayan.com';
 const SLUG = 'tita-nenas-catering';
 // 💳 The door sticker is the supplier's own code: ?src=own (owner 2026-11-13, F-W1-58).
@@ -47,7 +51,7 @@ async function scan(svg: string): Promise<string | null> {
 test('every code × size scans back to the SAME address the QR card shows', async () => {
   for (const code of DOOR_STICKER_CODES) {
     for (const size of DOOR_STICKER_SIZES) {
-      const svg = doorStickerSvg({ shopName: 'Tita Nena’s Catering', url: URLS[code], code, size, badges: badgesForPrint(FACTS) });
+      const svg = doorStickerSvg({ shopName: 'Tita Nena’s Catering', url: URLS[code], code, size, badges: ARTS });
       assert.equal(await scan(svg), URLS[code], `${code} · ${size} did not scan to ${URLS[code]}`);
     }
   }
@@ -69,26 +73,31 @@ test('the code is one of the shop’s own — My page or Check a date — named 
   assert.equal(fs.existsSync(path.join(__dirname, '../app/v/[slug]/sticker')), false, 'a sticker must not get its own public page');
 });
 
-test('the badges are READ AT PRINT TIME — the route reads the facts now and passes them through badgesForPrint', () => {
+test('the badges are READ AT PRINT TIME — the route reads them now, only the v84 badges, art resolved', () => {
   const route = stripComments(fs.readFileSync(path.join(__dirname, '../app/api/vendor/door-sticker/route.ts'), 'utf8'));
-  assert.match(route, /readShopBadgeFacts\(createAdminClient\(\), /);
-  assert.match(route, /badges: badgesForPrint\(facts\)/);
+  assert.match(route, /readShopBadgeFacts\(admin, /);
+  assert.match(route, /badges: await resolvePrintBadgeArt\(await readPrintBadges\(admin, vendorProfileId, facts\)/);
   assert.match(route, /fetchOwnVendorProfile\(supabase, user\.id\)/, 'own shop only');
-  // A shop with no badges prints without the row; one with badges prints one pill per badge.
+  // A shop with no badges prints without the row; one with badges prints each one's v84 art.
+  assert.deepEqual(WORN.map((b) => b.kind), ['verified', 'tier', 'tier'], 'the fixture lost a badge');
   const bare = layoutDoorSticker({ shopName: 'Bago', url: URLS.page, code: 'page', size: 'door', badges: [] });
-  const worn = layoutDoorSticker({ shopName: 'Bago', url: URLS.page, code: 'page', size: 'door', badges: badgesForPrint(FACTS) });
-  const pills = (d: typeof bare) => d.ops.filter((o) => o.t === 'circle').length;
-  assert.equal(pills(bare), 0);
-  assert.equal(pills(worn), badgesForPrint(FACTS).length, 'one pill (one circle) per badge worn today');
+  const worn = layoutDoorSticker({ shopName: 'Bago', url: URLS.page, code: 'page', size: 'door', badges: ARTS });
+  const pictures = (d: typeof bare) => d.ops.filter((o) => o.t === 'image').map((o) => (o as { ref: string }).ref);
+  assert.deepEqual(pictures(bare), []);
+  assert.deepEqual(pictures(worn), ['badge:completed_bookings', 'badge:five_star_reviews'], 'one v84 picture per tier worn today');
+  assert.ok(worn.ops.some((o) => o.t === 'path' && o.fill === '#1F4CBA'), 'Setnayan Verified is the v84 blue check');
+  assert.equal(worn.ops.filter((o) => o.t === 'circle').length, 0, 'no retired pill circle');
 });
 
 test('every word is outlined, the sizes are real millimetres, and the window is the door twice as large', () => {
-  const input = { shopName: 'Tita Nena’s Catering', url: URLS.dates, code: 'dates' as const, badges: badgesForPrint(FACTS) };
+  const input = { shopName: 'Tita Nena’s Catering', url: URLS.dates, code: 'dates' as const, badges: ARTS };
   const door = doorStickerSvg({ ...input, size: 'door' });
   const window = doorStickerSvg({ ...input, size: 'window' });
   for (const svg of [door, window]) {
     assert.doesNotMatch(svg, /<text\b/, 'no <text> a print shop could lack the font for');
-    assert.doesNotMatch(svg, /<image\b/, 'the code and the mark are shapes, not pictures');
+    // the code and the mark are shapes; the only pictures are the v84 tier badges, embedded (a printer has no web)
+    assert.equal((svg.match(/<image\b/g) ?? []).length, 2, 'the two tier badges, and nothing else, are pictures');
+    for (const m of svg.matchAll(/<image href="([^"]{0,30})/g)) assert.match(m[1]!, /^data:image\/png;base64,/);
     assert.match(svg, /^<\?xml/);
   }
   assert.match(door, /width="200mm" height="200mm"/);
@@ -109,7 +118,7 @@ test('a long shop name is shrunk to fit inside the frame, never cut', () => {
 });
 
 test('the PDF is print-ready through the house pipeline: 20 cm trim, 3 mm bleed, crop marks', async () => {
-  const pdf = Buffer.from(await doorStickerPdf({ shopName: 'Tita Nena’s Catering', url: URLS.page, code: 'page', size: 'door', badges: badgesForPrint(FACTS) }));
+  const pdf = Buffer.from(await doorStickerPdf({ shopName: 'Tita Nena’s Catering', url: URLS.page, code: 'page', size: 'door', badges: ARTS }));
   const head = pdf.subarray(0, 5).toString('latin1');
   assert.equal(head, '%PDF-');
   const page = (await PDFDocument.load(pdf)).getPage(0);

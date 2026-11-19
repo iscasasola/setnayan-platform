@@ -32,6 +32,7 @@ import { isEmailBlacklisted } from '@/lib/blacklist';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { isEmailVerificationRequired } from '@/lib/email-verification';
 import { OPEN_SHOP_ACCOUNT_ERRORS, signUpSaysEmailTaken } from './open-shop-account';
+import { siteOrigin } from '@/lib/site-origin';
 
 export type CreateVendorAccountResult =
   /** Signed in; `becomeVendor` continues as this user. */
@@ -83,7 +84,7 @@ export async function createVendorAccountForShop(input: {
     return { ok: false, step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.blacklisted };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+  const appUrl = siteOrigin();
   const mustConfirm = isEmailVerificationRequired();
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({

@@ -1035,7 +1035,7 @@ export function OpenShopWizard({
   const inSheet = (fact: CheckFact) => step === CHECK_STEP && sheet === fact;
   const orderOf = (fact: CheckFact) => 10 + 2 * Math.max(0, SELF_SERVE_FACTS.indexOf(fact));
   const sheetClass =
-    'fixed inset-x-0 bottom-0 z-[var(--sn-z-panel)] mx-auto max-h-[88dvh] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
+    'fixed inset-x-0 bottom-0 z-[var(--sn-z-panel)] mx-auto max-h-[88dvh] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
   const sheetStyle = (fact: CheckFact): React.CSSProperties | undefined =>
     inSheet(fact) ? { background: 'var(--m-paper)' } : undefined;
   /** What the open fact's panel carries to be the sheet: its ref, and the dialog's name. */

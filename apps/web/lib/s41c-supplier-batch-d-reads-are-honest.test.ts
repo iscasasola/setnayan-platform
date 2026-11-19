@@ -163,24 +163,22 @@ test('a MISSING row (no error) leaves NO record — the log is for refusals, not
 /** A client whose `vendor_partnerships` read succeeds with one endorsement,
  *  but whose SECOND call (`vendor_profiles`) can be made to refuse. */
 function trustedByClient(profilesResult: { data: unknown; error: unknown }): SupabaseClient {
-  let call = 0;
-  const builder: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'neq', 'in', 'order']) builder[m] = () => builder;
-  builder.then = (resolve: (v: unknown) => unknown) => {
-    // First `.from()` call is vendor_partnerships (one accepted row); the
-    // second is vendor_profiles — resolved by call ORDER, matching the real
-    // query sequence in fetchTrustedByVendors.
-    const result =
-      call === 1
-        ? { data: [{ recommending_vendor_id: 'v-2', relationship_type: 'accredited' }], error: null }
-        : profilesResult;
-    return Promise.resolve(result).then(resolve);
+  // Answered by TABLE, not call order: fetchTrustedByVendors reads vendor_partnerships (one accepted row) and
+  // vendor_trusted_by_hidden (none) together, then vendor_profiles — which can be made to refuse.
+  const answers: Record<string, { data: unknown; error: unknown }> = {
+    vendor_partnerships: { data: [{ recommending_vendor_id: 'v-2', relationship_type: 'accredited' }], error: null },
+    vendor_trusted_by_hidden: { data: [], error: null },
+    vendor_profiles: profilesResult,
   };
   return {
-    from: () => {
-      call += 1;
+    from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
+      builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(answers[table]).then(resolve);
       return builder;
     },
+    // 🤝 the automatic "Worked together" half (shop_worked_with_counts) — none here.
+    rpc: () => Promise.resolve({ data: [], error: null }),
   } as unknown as SupabaseClient;
 }
 
@@ -193,12 +191,65 @@ test('fetchTrustedByVendors: a refused vendor_profiles read returns the UNREADAB
   assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · from:vendor_profiles\.select/);
 });
 
+test('fetchTrustedByVendors: a refused worked-together read returns UNREADABLE, never [] (Invite a supplier v3)', async () => {
+  // No partnerships at all — the case where a refused automatic half used to fall through to "nobody".
+  const builder: Record<string, unknown> = {};
+  for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
+  builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve);
+  const client = {
+    from: () => builder,
+    rpc: () => Promise.resolve({ data: null, error: ERR }),
+  } as unknown as SupabaseClient;
+
+  const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
+  assert.equal(value, trustedBy.TRUSTED_BY_UNREADABLE, 'a refused worked-together read must not draw an empty list');
+  assert.equal(logs.length, 1);
+  assert.match(String(logs[0]![0]), /^\[supabase-error\] lib\/vendor-trusted-by\.ts · rpc:shop_worked_with_counts/);
+});
+
+test('fetchTrustedByVendors: a refused hidden-rows read returns UNREADABLE — never a row the shop hid (owner Q5)', async () => {
+  const ok = { data: [], error: null };
+  const client = {
+    from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
+      builder.then = (resolve: (v: unknown) => unknown) =>
+        Promise.resolve(table === 'vendor_trusted_by_hidden' ? { data: null, error: ERR } : ok).then(resolve);
+      return builder;
+    },
+    rpc: () => Promise.resolve(ok),
+  } as unknown as SupabaseClient;
+  const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
+  assert.equal(value, trustedBy.TRUSTED_BY_UNREADABLE);
+  assert.equal(logs.length, 1);
+  assert.match(String(logs[0]![0]), /from:vendor_trusted_by_hidden\.select/);
+});
+
+test('fetchTrustedByVendors: a row the shop hid is not on its Trusted by (owner Q5)', async () => {
+  const answers: Record<string, { data: unknown; error: unknown }> = {
+    vendor_partnerships: { data: [{ recommending_vendor_id: 'v-2', relationship_type: 'general' }], error: null },
+    vendor_trusted_by_hidden: { data: [{ hidden_vendor_profile_id: 'v-2' }], error: null },
+    vendor_profiles: { data: [], error: null },
+  };
+  const client = {
+    from: (table: string) => {
+      const builder: Record<string, unknown> = {};
+      for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
+      builder.then = (resolve: (v: unknown) => unknown) => Promise.resolve(answers[table]).then(resolve);
+      return builder;
+    },
+    rpc: () => Promise.resolve({ data: [{ other_vendor_profile_id: 'v-2', events: 2 }], error: null }),
+  } as unknown as SupabaseClient;
+  const { value } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
+  assert.deepEqual(value, [], 'the hidden partner (tied AND worked-with) is gone from this page');
+});
+
 test('fetchTrustedByVendors: a genuine read (no partnerships) returns [] with NO record', async () => {
   const builder: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'neq', 'in', 'order']) builder[m] = () => builder;
+  for (const m of ['select', 'eq', 'neq', 'in', 'or', 'order']) builder[m] = () => builder;
   builder.then = (resolve: (v: unknown) => unknown) =>
     Promise.resolve({ data: [], error: null }).then(resolve);
-  const client = { from: () => builder } as unknown as SupabaseClient;
+  const client = { from: () => builder, rpc: () => Promise.resolve({ data: [], error: null }) } as unknown as SupabaseClient;
 
   const { value, logs } = await recorded(() => trustedBy.fetchTrustedByVendors(client, 'vp-1'));
   assert.deepEqual(value, [], 'no accepted partnerships is a genuine empty, distinct from unreadable');

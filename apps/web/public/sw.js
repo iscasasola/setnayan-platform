@@ -292,6 +292,7 @@ const RESERVED = new Set([
   'health',
   'help',
   'host',
+  'i',
   'join',
   'live',
   'llms.txt',

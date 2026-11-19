@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
 import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body';
 import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
@@ -16,7 +16,7 @@ import type { PickedPageProps } from './context';
  * No conversation with this client (an outside client added by hand, or nobody has written yet) → there is nothing to
  * send a quote INTO: say so and point at the chats, never an empty builder that cannot send.
  */
-export function QuotationPage({ ctx }: PickedPageProps) {
+export function QuotationPage({ ctx, top = null }: PickedPageProps & { top?: ReactNode }) {
   const { threadId } = ctx;
   if (!threadId) {
     return (
@@ -29,6 +29,9 @@ export function QuotationPage({ ctx }: PickedPageProps) {
     );
   }
   return (
+    <>
+    {/* 🧾 Owner 18 Nov 2026: what is paid and who it counts, above the quote — read by the page, no request here. */}
+    {top}
     <Suspense
       fallback={
         <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-client-page="quotation">
@@ -38,6 +41,7 @@ export function QuotationPage({ ctx }: PickedPageProps) {
     >
       <SupplierThreadBody threadId={threadId} view="quotation" search={ctx.threadSearch} />
     </Suspense>
+    </>
   );
 }
 

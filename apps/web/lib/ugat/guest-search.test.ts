@@ -252,7 +252,8 @@ test('a guest hit is built through the resolver and joins the results', () => {
   );
   assert.match(
     src,
-    /groups\.push\(\{ category: 'Guests'/,
+    // `pushGroup(groups, 'Guests', …)` since Focus at Spotlight level — it also pushes a FAILED guest read.
+    /groups\.push\(\{ category: 'Guests'|pushGroup\(groups, 'Guests'/,
     'guest hits are built but never pushed into the results — found and unreachable',
   );
 });

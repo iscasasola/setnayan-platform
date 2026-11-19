@@ -157,7 +157,9 @@ test('the deposit card shows the supplier’s methods FIRST, then "Record paymen
   assert.ok(pay < record && sentence < record, 'paying no longer comes before recording');
   // The pay step renders only while a deposit is owed, and the owed rule is the
   // record/refusal/ack one — not a second invention.
-  assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked;/);
+  /* ✏️ EVOLVED 2026-11-18 (R12, walk W4): an unbooked row with nothing logged owes nothing (`nothingOwedYet`,
+     the `moneyStep` → `not_booked` answer). Booked rows read `notBookedYet === false`: the rule is unchanged. */
+  assert.match(card, /const owed = \(!recorded \|\| declined\) && !acked && !notBookedYet;/);
   /* ✏️ EVOLVED 2026-09-20: the one pay sheet also serves the NEXT installment
      (Amount to pay), so its gate is `payDue` — built from `owed`, not a second
      invention. ✏️ EVOLVED again the same day ("nothing due now" is its own

@@ -113,6 +113,7 @@ import {
   type ScheduleMeeting,
 } from './_components/vendor-meetings-section';
 import { venueNowMs } from '@/lib/schedule';
+import { daysToGoCount } from '@/lib/countdown-target';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { DETAILS_SCHEDULE_ANNOUNCE_SLOT, DETAILS_SCHEDULE_INSPECTOR_SLOT } from '@/lib/maker-details-items';
 import { InSlot } from '../launch/_components/details-piece';
@@ -144,7 +145,6 @@ import {
 } from '@/lib/coordinator-broadcasts-server';
 import type { CoordinatorBroadcastItem } from '@/lib/coordinator-broadcasts';
 import { eventClockNow } from '@/lib/event-clock.server';
-import { daysBetween, wallDateKey } from '@/lib/schedule-rail';
 import { findBookedHost } from '@/lib/booked-host';
 import { fetchEmceeRecipients } from '@/lib/stage-notes-recipients';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -626,8 +626,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   // strip on the day"); before it the page is for planning.
   const isEventDay = clock.theDayOpen;
   const eventDateKey = eventDate ? eventDate.slice(0, 10) : null;
-  const venueTodayKey = wallDateKey(new Date(venueNowMs()).toISOString());
-  const daysToGo = eventDateKey ? daysBetween(venueTodayKey, eventDateKey) : null;
+  // 🔢 W4 B4: the ONE days-to-go calculation (`daysToGoCount`) — the same number Home prints.
+  const daysLeft = eventDateKey ? daysToGoCount(eventDate, eventRow?.timezone, Date.now()) : null;
   const dateLabel = eventDateKey
     ? new Date(`${eventDateKey}T00:00:00Z`).toLocaleDateString('en-GB', {
         timeZone: 'UTC',
@@ -1115,7 +1115,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
                 : []
             }
             isEventDay={isEventDay}
-            daysToGo={daysToGo}
+            daysToGo={daysLeft}
             emcee={
               <EmceeScriptButton
                 eventId={eventId}
@@ -1160,7 +1160,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           year: 'numeric',
         }).replace(',', '')
       : 'No date yet',
-    isEventDay ? 'today' : daysToGo !== null && daysToGo > 0 ? `${formatCount(daysToGo)} day${daysToGo === 1 ? '' : 's'} to go` : null,
+    isEventDay ? 'today' : daysLeft !== null && daysLeft > 0 ? `${formatCount(daysLeft)} day${daysLeft === 1 ? '' : 's'} to go` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -1242,10 +1242,10 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
               ) : null}
               {eventRow?.display_name?.trim() && dateLabel ? ' · ' : null}
               {dateLabel}
-              {daysToGo !== null && daysToGo > 0 && !isEventDay ? (
+              {daysLeft !== null && daysLeft > 0 && !isEventDay ? (
                 <>
                   {' · '}
-                  <b className="font-semibold text-ink/85">{daysToGo}</b> day{daysToGo === 1 ? '' : 's'} to go
+                  <b className="font-semibold text-ink/85">{daysLeft}</b> day{daysLeft === 1 ? '' : 's'} to go
                 </>
               ) : null}
             </p>

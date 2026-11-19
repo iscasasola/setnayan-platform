@@ -204,6 +204,32 @@ export async function saveBusinessIdentity(formData: FormData) {
     }
   }
 
+  // 🌱 Today v2's grow lines (migration 20271350875090) — the same shape as drive speed: absent = leave as it is, blank =
+  // not set (that stage is off on every supplier's Today), else a whole number 1–10,000.
+  for (const [field, word] of [
+    ['grow_few_inquiries_28d', 'few inquiries'],
+    ['grow_few_bookings_month', 'few bookings'],
+  ] as const) {
+    if (!formData.has(field)) continue;
+    const raw = formData.get(field);
+    const blank = typeof raw !== 'string' || raw.trim() === '';
+    const n = nullIfBlankNumber(raw);
+    if (!blank && (n === null || !Number.isInteger(n) || n < 1 || n > 10000)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(`Business identity saved, but the ${word} line must be a whole number 1–10,000, or blank.`)}`);
+    }
+    const { error: lineErr } = await admin
+      .from('platform_settings')
+      .update({ [field]: n, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (lineErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(
+          `Business identity saved, but the ${word} line couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (grow lines)', lineErr)}`,
+        )}`,
+      );
+    }
+  }
+
   revalidatePath('/admin/settings');
   revalidatePath('/receipts', 'layout');
   redirect('/admin/settings?tab=settings&saved=1');

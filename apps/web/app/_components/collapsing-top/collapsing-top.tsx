@@ -16,6 +16,7 @@
  *   · ONE passive capture scroll listener per stack, read once per frame, writes attributes and CSS variables only —
  *     never React state, so the list under it never re-renders for a scroll;
  *   · reduced motion: no fade — the row simply shows once stuck.
+ *   · 🫳 TUCK: when the shell bar tucks away or comes back, a locked top RIDES with it — one move, both ways (`ride`).
  * With no script the variables are unset, the `top` is invalid and the block simply scrolls.
  *
  * ⚠ A sticky element sticks only inside its PARENT — so a stack is a React context with NO element of its own; put each
@@ -31,6 +32,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { shellBarShows } from '@/app/dashboard/[eventId]/guests/_components/use-shell-bar-offset';
 import { COLLAPSE_PINNED_AT, COLLAPSE_ROW_H, collapseProgress, stackBefore } from './collapse-progress';
+import { EASE_SETTLE, MOTION_TABLE, springEase } from '@/lib/motion-table';
 
 type Entry = { el: HTMLElement; row: number; atRest: boolean };
 
@@ -44,6 +46,7 @@ class CollapseStack {
   private lastQ = new WeakMap<HTMLElement, number>();
   private lastH = new WeakMap<HTMLElement, number>();
   private reduce: MediaQueryList | null = null;
+  private lastBar: string | null = null;
 
   add(el: HTMLElement, row: number, atRest = false): () => void {
     this.entries.push({ el, row, atRest });
@@ -68,6 +71,11 @@ class CollapseStack {
   private layout = () => {
     const befores = stackBefore(this.entries.map((e) => e.row));
     const barVal = shellBarShows(this.bar) ? `${this.bar.getBoundingClientRect().height}px` : 'env(safe-area-inset-top, 0px)';
+    // 🫳 TUCK — the bar is coming or going: note where each top stands BEFORE its `top` changes, so it can ride.
+    const riding = this.lastBar !== null && this.lastBar !== barVal;
+    const before = riding ? this.entries.map((e) => e.el.getBoundingClientRect().top) : null;
+    const away = barVal.startsWith('env(');
+    this.lastBar = barVal;
     this.entries.forEach((e, i) => {
       const h = e.el.offsetHeight;
       if (this.lastH.get(e.el) !== h) {
@@ -78,8 +86,30 @@ class CollapseStack {
       e.el.style.setProperty('--ct-row', `${e.row}px`);
       e.el.style.setProperty('--ct-bar', barVal);
     });
+    if (before) this.entries.forEach((e, i) => this.ride(e.el, before[i]!, away));
     this.soon();
   };
+
+  /**
+   * 🫳 TUCK (motion standard 18 Nov 2026, § 5 #37 — owner: *"when bottom and top nav appears, the thumb row and compressed
+   * pin rows adjust as well"*). A locked top stands under the shell bar; when the bar tucks away (or comes back) its
+   * `top` changes at once, and this carries it there with the bar AS ONE MOVE: from where it stood (`was`) to its new
+   * place, by transform only — away in Move on the Spring, back in Quick on Settle, the bar's own two speeds. A top that
+   * is not locked did not move, so nothing plays. Nothing is held when it ends (no fill); a ride cut short by the next
+   * one starts from where it is. Reduced motion: it is simply there.
+   */
+  private rides = new WeakMap<HTMLElement, Animation>();
+  private ride(el: HTMLElement, was: number, away: boolean) {
+    if (this.reduce?.matches || typeof el.animate !== 'function') return;
+    this.rides.get(el)?.cancel();
+    const delta = was - el.getBoundingClientRect().top;
+    if (Math.abs(delta) < 1) return;
+    const a = el.animate([{ transform: `translateY(${Math.round(delta * 10) / 10}px)` }, { transform: 'none' }], {
+      duration: away ? MOTION_TABLE.tuckAwayMs : MOTION_TABLE.tuckBackMs,
+      easing: away ? springEase() : EASE_SETTLE,
+    });
+    this.rides.set(el, a);
+  }
 
   /** One frame: read every block, then write — never a read after a write. */
   private frame = () => {

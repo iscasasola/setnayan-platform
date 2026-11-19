@@ -15,11 +15,24 @@
 import { Lock } from 'lucide-react';
 import { formatChatTimestamp } from '@/lib/chat';
 import { PRIVATE_BUBBLE_FILL, PRIVATE_MARK, PRIVATE_STRIP_TEXT, privateStripLabel } from '@/lib/chat-private';
+import { WHISPER_STRIP } from '@/lib/chat-whisper';
 
 export { PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT };
 
 /** `privateWith` — the OTHER people's names as this reader sees them (one, or several since 12 Nov); null/[] = shared. */
-export function PrivateMark({ privateWith }: { privateWith: string | readonly string[] | null }) {
+export function PrivateMark({ privateWith, whisper = false }: { privateWith: string | readonly string[] | null; whisper?: boolean }) {
+  // 🤫 A WHISPER (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the strip across the bubble's top, sky blue,
+  // "Whisper · co-hosts only" — no lock and no names (it is a whisper, not a vault; every co-host hears it).
+  if (whisper) {
+    return (
+      <p
+        className="-mx-3 -mt-2 mb-1.5 bg-[rgb(var(--color-private-text))] px-3 py-[3px] text-[11px] font-bold text-[rgb(var(--color-private-tint))]"
+        data-chat-whisper-strip=""
+      >
+        {WHISPER_STRIP}
+      </p>
+    );
+  }
   if (privateWith === null || privateWith.length === 0) return null;
   return (
     <p className={`mb-1 flex items-center gap-1 text-[11.5px] font-semibold ${PRIVATE_STRIP_TEXT}`} data-chat-private-strip="">
@@ -29,10 +42,10 @@ export function PrivateMark({ privateWith }: { privateWith: string | readonly st
   );
 }
 
-export function PrivateTime({ at, alignEnd }: { at: string; alignEnd: boolean }) {
+export function PrivateTime({ at, alignEnd, whisper = false }: { at: string; alignEnd: boolean; whisper?: boolean }) {
   return (
     <p className={`mt-0.5 flex items-center gap-1 text-[11px] text-ink/55 ${alignEnd ? 'self-end pr-1' : 'self-start pl-[38px]'}`} data-chat-private-time="">
-      <Lock aria-hidden className={`h-3 w-3 ${PRIVATE_MARK}`} strokeWidth={2.2} />
+      {whisper ? null : <Lock aria-hidden className={`h-3 w-3 ${PRIVATE_MARK}`} strokeWidth={2.2} />}
       <span>{formatChatTimestamp(at)}</span>
     </p>
   );

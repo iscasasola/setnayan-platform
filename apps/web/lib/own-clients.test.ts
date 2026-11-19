@@ -35,38 +35,51 @@ const packs: ShopGiftPack[] = [
   { code: 'PAPIC_GUEST_1000', title: 'Papic 1000', kind: 'papic', credits: 1000, srpCentavos: 49900 },
   { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 99900 },
 ];
-const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0) => ({ papic, event_plus, event_pro, event_ultra, packs: {} });
+/** A stock: the kinds in units (Papic: credits), and Papic PER PACK in packs — what it is counted in (owner 14 Nov). */
+const stock = (papic: number, event_plus = 0, event_pro = 0, event_ultra = 0, packs: Record<string, number> = {}) => ({ papic, event_plus, event_pro, event_ultra, packs });
 
 test('a badge reward never counts toward the gift, per kind (v4 answer 3)', () => {
   assert.deepEqual(boughtFreeByKind(stock(1200, 2), stock(300, 1)), stock(900, 1));
   assert.deepEqual(boughtFreeByKind(stock(100), stock(300)), stock(0));
+  // …and per pack: a pack's own reward stock comes off that pack, never off another.
+  assert.deepEqual(
+    boughtFreeByKind(stock(1200, 2, 0, 0, { PAPIC_GUEST: 8, PAPIC_GUEST_1000: 1 }), stock(300, 1, 0, 0, { PAPIC_GUEST: 2 })),
+    stock(900, 1, 0, 0, { PAPIC_GUEST: 6, PAPIC_GUEST_1000: 1 }),
+  );
   assert.equal(boughtFreeByKind(null, null), null, 'an unread stock is null, never 0');
 });
 
 test('the ▾ lists your stock only — every kind — greys a badge reward, and offers Buy more', () => {
-  const m = ownGiftMenu(packs, stock(1050, 2), stock(150), true);
+  const m = ownGiftMenu(packs, stock(2050, 2, 0, 0, { PAPIC_GUEST: 7, PAPIC_GUEST_1000: 1 }), stock(150), true);
   assert.deepEqual(m.map((o) => o.key), ['PAPIC_GUEST', 'PAPIC_GUEST_1000', 'EVENT_PLUS', '__reward_papic', OWN_GIFT_BUY_KEY]);
   assert.equal(m[0]!.hint, '7 left');
   assert.equal(m[1]!.hint, '1 left');
   assert.equal(m[2]!.hint, '2 left', 'Event Plus counts its own units, never Papic credits');
   assert.equal(m[3]!.disabledNote, REWARD_DOES_NOT_COUNT);
   // A pack its kind's stock cannot cover is not listed at all: stock only.
-  assert.deepEqual(ownGiftMenu(packs, stock(300), stock(0), false).map((o) => o.key), ['PAPIC_GUEST']);
+  assert.deepEqual(ownGiftMenu(packs, stock(300, 0, 0, 0, { PAPIC_GUEST: 2 }), stock(0), false).map((o) => o.key), ['PAPIC_GUEST']);
+  // 📦 Counted in packs: 3,000 credits of Papic 150 are twenty Papic 150s — never a Papic 1000.
+  assert.deepEqual(ownGiftMenu(packs, stock(3000, 0, 0, 0, { PAPIC_GUEST: 20 }), stock(0), false).map((o) => o.key), ['PAPIC_GUEST']);
 });
 
 test('two lines never promise the same unit twice; kinds never pool', () => {
-  const free = stock(300, 1);
-  assert.deepEqual(roomForLine(free, packs, ['PAPIC_GUEST', 'EVENT_PLUS'], 1), stock(150, 1));
+  const free = stock(300, 1, 0, 0, { PAPIC_GUEST: 2 });
+  assert.deepEqual(roomForLine(free, packs, ['PAPIC_GUEST', 'EVENT_PLUS'], 1), stock(150, 1, 0, 0, { PAPIC_GUEST: 1 }));
   assert.ok(fitsStock(needByKind(['PAPIC_GUEST', 'PAPIC_GUEST', 'EVENT_PLUS'], packs), free));
   assert.ok(!fitsStock(needByKind(['EVENT_PLUS', 'EVENT_PLUS'], packs), free));
   assert.ok(!fitsStock(needByKind(['PAPIC_GUEST'], packs), null), 'an unread stock never fits');
+  // 📦 Per pack, as the door counts: a third Papic 150 does not fit two; another pack's credits never cover a pack.
+  assert.ok(!fitsStock(needByKind(['PAPIC_GUEST', 'PAPIC_GUEST', 'PAPIC_GUEST'], packs), free));
+  assert.ok(!fitsStock(needByKind(['PAPIC_GUEST_1000'], packs), stock(3000, 0, 0, 0, { PAPIC_GUEST: 20 })), 'a Papic 1000 fitted Papic 150 stock');
+  assert.deepEqual(needByKind(['PAPIC_GUEST', 'PAPIC_GUEST', 'EVENT_PLUS'], packs), stock(300, 1, 0, 0, { PAPIC_GUEST: 2 }));
 });
 
 test('with no stock nothing is pickable, so the step lists what to buy', () => {
   assert.equal(anyPackPickable(packs, stock(0)), false);
   assert.equal(anyPackPickable(packs, null), false);
   assert.equal(defaultOwnGift(packs, stock(0)), null);
-  assert.equal(defaultOwnGift(packs, stock(150)), 'PAPIC_GUEST');
+  assert.equal(defaultOwnGift(packs, stock(150, 0, 0, 0, { PAPIC_GUEST: 1 })), 'PAPIC_GUEST');
+  assert.equal(defaultOwnGift(packs, stock(150)), null, 'credits with no pack behind them are not a gift to give');
   assert.equal(defaultOwnGift(packs, stock(0, 1)), 'EVENT_PLUS');
   assert.equal(packsLeft(149, packs[0]!), 0);
 });

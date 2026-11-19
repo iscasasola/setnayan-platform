@@ -127,27 +127,45 @@ export function packsLeft(units: number | null | undefined, pack: Pick<ShopGiftP
   return Math.max(0, Math.floor(units / pack.credits));
 }
 
+/**
+ * 📦 How many of ONE gift a stock holds. Papic is COUNTED IN PACKS (owner 2026-11-14): a Papic pack's own count
+ * (`packs[code]`) — never the kind's credits divided up, which would offer a Papic 1000 out of Papic 150 stock, and
+ * which the door (`own_client_gift_give`, per pack) refuses. An unlock is its kind's units.
+ */
+export function ownPackLeft(stock: FreeByKind | null, pack: Pick<ShopGiftPack, 'code' | 'kind' | 'credits'>): number | null {
+  if (!stock) return null;
+  return pack.kind === 'papic' ? Math.max(0, stock.packs?.[pack.code] ?? 0) : packsLeft(stock[pack.kind], pack);
+}
+
 /** The packs on sale that can be an own-client gift — every kind, Papic first (the catalogue's order). */
 export function ownGiftPacks(packs: readonly ShopGiftPack[] | null): ShopGiftPack[] {
   return [...(packs ?? [])];
 }
 
-/** What the picked codes need, per kind, read from the catalogue; null when any code is not a pack on sale. */
+/**
+ * What the picked codes need, read from the catalogue; null when any code is not a pack on sale. Per kind in units
+ * (Papic: credits), and — for Papic — per pack in packs (`packs[code]`), which is what the stock is counted in.
+ */
 export function needByKind(codes: readonly string[], packs: readonly ShopGiftPack[] | null): FreeByKind | null {
   const on = ownGiftPacks(packs);
-  const out = { ...ZERO };
+  const out: Record<ShopGiftKind, number> = { ...ZERO };
+  const byPack: Record<string, number> = {};
   for (const c of codes) {
     const p = on.find((x) => x.code === c);
     if (!p) return null;
     out[p.kind] += p.credits;
+    if (p.kind === 'papic') byPack[p.code] = (byPack[p.code] ?? 0) + 1;
   }
-  return out;
+  return { ...out, packs: byPack };
 }
 
-/** Do the needs fit the stock, every kind? */
+/** Do the needs fit the stock? The plans per kind; Papic PER PACK — each pack in stock as that pack (the door's test). */
 export function fitsStock(need: FreeByKind | null, free: FreeByKind | null): boolean {
   if (!need || !free) return false;
-  return SHOP_GIFT_KINDS.every((k) => need[k] <= free[k]);
+  return (
+    SHOP_GIFT_KINDS.every((k) => k === 'papic' || need[k] <= free[k]) &&
+    Object.entries(need.packs ?? {}).every(([code, n]) => n <= (free.packs?.[code] ?? 0))
+  );
 }
 
 /** The stock left for ONE line once every OTHER line is counted — two lines never promise the same unit twice. */
@@ -159,9 +177,11 @@ export function roomForLine(
 ): FreeByKind | null {
   if (!free) return null;
   const others = needByKind(picks.filter((_, j) => j !== index), packs) ?? ZERO;
-  const out = { ...ZERO };
+  const out: Record<ShopGiftKind, number> = { ...ZERO };
   for (const k of SHOP_GIFT_KINDS) out[k] = Math.max(0, free[k] - others[k]);
-  return out;
+  const byPack: Record<string, number> = {};
+  for (const [code, n] of Object.entries(free.packs ?? {})) byPack[code] = Math.max(0, n - (others.packs?.[code] ?? 0));
+  return { ...out, packs: byPack };
 }
 
 /** One choice in the gift ▾ (the `PickMenu` shape: `disabledNote` = listed, not pickable, and why). */
@@ -179,7 +199,7 @@ export function ownGiftMenu(
 ): OwnGiftOption[] {
   const out: OwnGiftOption[] = [];
   for (const p of ownGiftPacks(packs)) {
-    const left = room ? packsLeft(room[p.kind], p) : null;
+    const left = ownPackLeft(room, p);
     if (left === null) {
       out.push({ key: p.code, label: p.title, disabledNote: 'Couldn’t read your gift stock right now' });
     } else if (left > 0) {
@@ -199,13 +219,13 @@ export function ownGiftMenu(
 /** Is any pack pickable at all? False ⇒ the step shows the buy list instead of the ▾. */
 export function anyPackPickable(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): boolean {
   if (!free) return false;
-  return ownGiftPacks(packs).some((p) => (packsLeft(free[p.kind], p) ?? 0) > 0);
+  return ownGiftPacks(packs).some((p) => (ownPackLeft(free, p) ?? 0) > 0);
 }
 
 /** The first pack the stock covers — "one is picked for you from your stock". Null when none is. */
 export function defaultOwnGift(packs: readonly ShopGiftPack[] | null, free: FreeByKind | null): string | null {
   if (!free) return null;
-  return ownGiftPacks(packs).find((p) => (packsLeft(free[p.kind], p) ?? 0) > 0)?.code ?? null;
+  return ownGiftPacks(packs).find((p) => (ownPackLeft(free, p) ?? 0) > 0)?.code ?? null;
 }
 
 /**

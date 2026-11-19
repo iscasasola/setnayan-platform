@@ -56,6 +56,12 @@ export function TodayQuickGroup({ rows, children }: { rows: ReadonlyArray<{ key:
   );
 }
 
+/** The level's colour on the row's round icon (drawing V3 · 3 `.u.red .ico` · `.u.amb .ico`). */
+const URGENT_ICON = {
+  red: '[&_[data-row-icon]]:!bg-[rgb(var(--color-danger))] [&_[data-row-icon]]:!text-white',
+  amber: '[&_[data-row-icon]]:!bg-[rgb(var(--color-warn))] [&_[data-row-icon]]:!text-white',
+} as const;
+
 /** One quick row: the shared fold, controlled by its group so only one is ever open. */
 export function TodayQuickRow({
   rowKey,
@@ -96,7 +102,11 @@ export function TodayQuickRow({
       className={
         open
           ? '-mx-2.5 my-2 rounded-[var(--sn-frame-radius)] bg-frame px-2.5 shadow-sn-frame'
-          : `border-t border-ink/10 first:border-t-0${urgency ? ' -mx-2.5 rounded-r-xl px-2.5' : ''}`
+          : urgency
+            ? // Drawing V3 · 3 `.u`: no divider, 4 px apart, the edge on the left and the round on the right; the row's
+              // icon wears the level's colour (`.u.red .ico` / `.u.amb .ico`).
+              `-mx-2.5 mt-1 rounded-r-xl px-2.5 ${urgency === 'red' ? URGENT_ICON.red : URGENT_ICON.amber}`
+            : 'border-t border-ink/10 first:border-t-0'
       }
       style={{ ...(edge ? { borderLeft: `4px solid ${edge}` } : {}), ...(!open && tint ? { background: tint } : {}) }}
     >

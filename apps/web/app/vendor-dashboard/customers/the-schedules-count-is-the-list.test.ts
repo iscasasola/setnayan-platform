@@ -36,12 +36,14 @@ test('one rule: proposed or confirmed, from the start of Manila today or undated
   assert.equal(openMeetingsWindow('2026-11-16'), 'scheduled_at.gte.2026-11-15T16:00:00.000Z,scheduled_at.is.null');
 });
 
-test('the Clients tile and the picked client both read with that rule', () => {
+test('the Clients Schedules list and the picked client both read with that rule', () => {
   const list = readFileSync('app/vendor-dashboard/customers/page.tsx', 'utf8');
   const q = list.slice(list.indexOf(".from('event_appointments')"), list.indexOf(".from('event_appointments')") + 400);
   assert.match(q, /\.in\('status', \[\.\.\.OPEN_MEETING_STATUSES\]\)\s*\.or\(openMeetingsWindow\(todayIso\)\)/);
-  assert.match(list, /\{ key: 'schedules', value: countWords\(meetingsCount\)/, 'the tile no longer counts the list’s own read');
-  assert.match(list, /schedules: <MeetingsList meetings=\{meetings\}/, 'the tile opens a different list');
+  // Clients, cleaner (owner "Yes, all three", 19 Nov, Q3): the Schedules TILE left the row for Overdue + Unread; its list
+  // stays, under Show & sort › Show › Schedules, over this same read.
+  assert.doesNotMatch(list, /\{ key: 'schedules', value:/, 'the Schedules tile is back on the tiles row');
+  assert.match(list, /schedules: <MeetingsList meetings=\{meetings\}/, 'Show › Schedules opens a different list');
   const card = readFileSync('app/vendor-dashboard/clients/[eventId]/page.tsx', 'utf8');
   assert.match(card, /\.in\('status', \[\.\.\.OPEN_MEETING_STATUSES\]\)\s*\.or\(openMeetingsWindow\(manilaTodayIso\(\)\)\)/);
   assert.match(card, /meetings: openMeetings,/, 'the cell is not handed the count');

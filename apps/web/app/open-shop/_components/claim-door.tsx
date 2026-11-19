@@ -586,14 +586,15 @@ export function ClaimDoor({
         : []),
     ];
     body = (
-      <ul className="sn-tile grid max-w-[620px] divide-y" style={{ borderColor: 'var(--m-line)' }} data-claim-door-check="">
+      // Rows on white, like the self-serve door's list — space and lines, not a box.
+      <ul className="grid max-w-[620px] divide-y border-y" style={{ borderColor: 'var(--m-line)' }} data-claim-door-check="">
         {claimFactRows.map((r) => (
           <li key={r.fact}>
             <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet */
               type="button"
               onClick={() => setSheet(r.sheet)}
               aria-haspopup="dialog"
-              className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left"
+              className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
               data-claim-door-row={r.fact}
             >
               <span
@@ -1056,14 +1057,17 @@ export function ClaimDoor({
     // 🚪 YOU'RE ALL SET (19 Nov) — the plan sits on this last screen, then Open my shop.
     [title] = ONBOARDING_HEADS.done;
     line = `${words(cats, 'category', 'categories')} · ${words(d.services.length, 'service', 'services')} from ${team ? 'your invite' : `${record.inviterName}’s record`}.`;
+    // One short line, whichever way the first card went.
+    const firstCardLine =
+      d.firstCard === 'skip'
+        ? `No first card — ${team ? 'add one from Today' : 'the booking stays in Clients'}.`
+        : d.firstCard === 'edit'
+          ? `First card: ${d.cards[0]?.name ?? ''} — opens in the Card Maker next.`
+          : `First card: ${d.cards[0]?.name ?? ''}${d.cards[0]?.price ? ` · from ${peso(d.cards[0].price)}` : ''}`;
     body = (
       <div className="grid max-w-[620px] gap-3" data-claim-door-done="">
         <p className="text-[13.5px]" style={{ color: 'var(--m-ink)' }} data-claim-door-done-card="">
-          {d.firstCard === 'skip'
-            ? `No first card — ${team ? 'add one from Today' : 'the booking stays in Clients'}.`
-            : d.firstCard === 'edit'
-              ? `First card: ${d.cards[0]?.name ?? ''} — opens in the Card Maker next.`
-              : `First card: ${d.cards[0]?.name ?? ''}${d.cards[0]?.price ? ` · from ${peso(d.cards[0].price)}` : ''}`}
+          {firstCardLine}
         </p>
         {holdsMoreThanFree(meter) ? (
           <PlanOnLastScreen

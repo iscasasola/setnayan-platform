@@ -79,7 +79,7 @@
 <body>
 <div class="wrap">
   <h1 class="doc">Supplier Roles — for your OK</h1>
-  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
+  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries · (f) clients — who handles who. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
 
   <div class="legend">
     <b>The six roles (your rulings, 19 Nov)</b>
@@ -333,7 +333,7 @@
 
   <!-- ═════════════ (e) WHO GETS NEW INQUIRIES ═════════════ -->
   <section class="pair" id="e">
-    <h2>(e) Who gets new inquiries — Branch → Event type → Last name</h2>
+    <h2>(e) Who gets new inquiries — Branch → Card → Event type → Last name</h2>
     <div class="cols">
       <div class="col">
         <span class="tag now">Now</span>
@@ -355,23 +355,25 @@
           <div class="bar">‹ Roles</div>
           <div class="scr">
             <div class="h1" style="font-size:20px">Who gets new inquiries</div>
-            <p class="sub">Each new inquiry goes to ONE Account Manager: first by branch, then by event type, then by last name — among only the Account Managers who cover the card it came in on.
+            <p class="sub">Each new inquiry goes to ONE Account Manager: by branch, then the card it came in on (only the people who cover it), then event type, then last name.
               <details class="i"><summary>i</summary><div class="pop">The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a split you change stays until you reset it.</div></details></p>
             <label class="f"><span>Branch</span><select><option selected>Makati branch · 2 Account Managers</option><option>Cebu branch · 1</option><option>Main · Quezon City · 3</option></select></label>
 
+            <label class="f"><span>Show by</span><select><option selected>Card, then event type</option><option>Account Manager</option></select></label>
+
             <div class="role" style="margin-top:8px">
-              <div class="top"><div class="grow"><div class="t">Wedding</div><div class="l">Split evenly · 2 people</div></div><span class="pick btn">Adjust</span></div>
+              <div class="top"><div class="grow"><div class="t">Wedding Styling card</div><div class="l">Covered by Bea, Joy</div></div></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Wedding · split evenly</div>
               <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – M</span></div>
-              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Lead Stylist · Joy Tan</div></div><span class="badge">N – Z</span></div>
-            </div>
-            <div class="role">
-              <div class="top"><div class="grow"><div class="t">Debut</div><div class="l">Only Bea covers the Debut Styling card · 1 person</div></div><span class="pick btn">Adjust</span></div>
-              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Z</span></div>
-            </div>
-            <div class="role">
-              <div class="top"><div class="grow"><div class="t">Every other event</div><div class="l">Split evenly · 2 people</div></div><span class="pick btn">Adjust</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Lead Stylist · Joy Tan</div></div><span class="badge">N – Z</span><span class="pick btn">Adjust</span></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Every other event · split evenly</div>
               <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Bea Santos</div></div><span class="badge">A – M</span></div>
-              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Joy Tan</div></div><span class="badge">N – Z</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Joy Tan</div></div><span class="badge">N – Z</span><span class="pick btn">Adjust</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Debut Styling card</div><div class="l">Covered by Bea only</div></div></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Every event</div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Z</span></div>
             </div>
             <div class="role">
               <div class="top"><div class="grow"><div class="t">Corporate Stage Design card</div><div class="l">No Account Manager covers this card</div></div></div>
@@ -425,6 +427,46 @@
     </div>
   </section>
 
+
+  <!-- ═════════════ (f) CLIENTS · WHO HANDLES WHO ═════════════ -->
+  <section class="pair" id="f">
+    <h2>(f) Clients — see and set who handles who</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">Clients</div>
+          <div class="scr">
+            <label class="f" style="margin-top:0"><span>Group by</span><select><option>Status</option><option>Day</option><option selected>Handled by</option></select></label>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Bea Santos · Joy Tan</div>
+            <div class="row"><div class="grow"><div class="t">Dela Cruz wedding</div><div class="l">Wedding Styling · Sat 12 Dec</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Tan &amp; Lim wedding</div><div class="l">Wedding Styling · Sun 17 Jan</div></div></div>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Bea Santos</div>
+            <div class="row"><div class="grow"><div class="t">Ramos debut</div><div class="l">Debut Styling · Sat 5 Dec</div></div></div>
+            <p class="note">"Handled by" is everyone on the card, so both people sit on every wedding client. Nobody can be set as THE person for one client.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">Clients</div>
+          <div class="scr">
+            <label class="f" style="margin-top:0"><span>Group by</span><select><option>Status</option><option>Day</option><option selected>Handled by</option><option>Branch</option><option>Card</option></select></label>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Lead Stylist · Bea Santos · Makati</div>
+            <div class="row"><div class="grow"><div class="t">Dela Cruz wedding</div><div class="l">Wedding Styling · Sat 12 Dec · by last name D</div></div><span class="pick">Bea</span></div>
+            <div class="row"><div class="grow"><div class="t">Ramos debut</div><div class="l">Debut Styling · Sat 5 Dec · only Bea covers it</div></div><span class="pick">Bea</span></div>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Lead Stylist · Joy Tan · Makati</div>
+            <div class="row"><div class="grow"><div class="t">Tan &amp; Lim wedding</div><div class="l">Wedding Styling · Sun 17 Jan · by last name T</div></div><span class="pick">Joy</span></div>
+            <div class="row" style="flex-wrap:wrap"><div class="grow"><div class="t">Santiago</div><div class="l">2 bookings · Wedding Styling + Corporate Stage Design</div></div><span class="pick">Joy</span>
+              <details class="i" open><summary>i</summary><div class="pop">The routing picks the first person. "Handled by ▾" on any client moves them to someone else in the branch, and the move sticks — new splits never take a client away.<br><span class="confirm">STILL OPEN</span> a client with bookings on two cards: one person for all of them (drawn), or one per booking?</div></details></div>
+            <p class="note">Each client has ONE person. A Shop Manager or Branch Manager changes it with "Handled by ▾"; an Account Manager sees only their own group.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 </body>
 </html>

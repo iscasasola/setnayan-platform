@@ -167,6 +167,16 @@ Proposed:
   celebrant's last name (the groom for a wedding), falling back to the sender's when the inquiry has none · when that Account Manager is away
   — *"yes"*: the next Account Manager in the branch, then the Branch Manager.
 
+## 3d · Clients — see and set who handles who (owner 19 Nov: *"categorize them … so we can set who handles who"*)
+
+EXTENDS the shipped Clients page (`app/vendor-dashboard/customers/clients-show-sort.ts`): `CLIENTS_GROUP` already has
+Status · Day · **Handled by** (`group=seat`), and `groupKeyOf('seat')` today heads each client with EVERY seat on its
+card (`seatsOf` → "Bea Santos · Joy Tan") — so today one client already sits under two people and nobody is THE person.
+Delta: "Handled by" reads the client's one `assigned_member_id` (from 3c); `CLIENTS_GROUP` gains Branch and Card; each
+client row gets a "Handled by ▾" (Shop / Branch Manager only) whose choice sticks — a re-split never moves a client.
+The roles page (e) groups the routing the same way: Branch ▾ → card → event type → A–Z.
+**STILL OPEN:** a client with bookings on two cards — one person for all (drawn) or one per booking.
+
 ## 4 · Order of work (after the owner OKs the drawing)
 
 1. PR A — migration (`duty`, `branch_id`, `vendor_role_names`, rank trigger, backfill, two helpers, RLS at create) +

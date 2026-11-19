@@ -114,7 +114,23 @@ function show(n: number | null | undefined): string {
   return typeof n === 'number' ? formatCount(n) : '—';
 }
 
-export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /** Lab only — fixture counts. */ digest?: AdminQueueDigest }) {
+/**
+ * 🗂 CATALOGUE's own head numbers (#7693, the Catalogue Home): how big the taxonomy is, read by the Categories page's
+ * own loader (`loadCategories`) on `/admin/catalogue`. `null` = that list could not be read → "—", never 0.
+ */
+export type CatalogueHeadFacts = { categories: number | null; services: number | null };
+
+export async function TabLanding({
+  tab,
+  digest: given,
+  catalogue,
+}: {
+  tab: AdminBarKey;
+  /** Lab only — fixture counts. */
+  digest?: AdminQueueDigest;
+  /** Catalogue only — the taxonomy counts its page read (absent = the head shows the requests alone). */
+  catalogue?: CatalogueHeadFacts;
+}) {
   const digest = given ?? (await getAdminQueueDigest());
   const nowMs = Date.now();
   const pages = pagesIn(tab);
@@ -154,7 +170,27 @@ export async function TabLanding({ tab, digest: given }: { tab: AdminBarKey; /**
     head = [{ label: 'Problems, last 24 h', value: show(q('problems')), sub: 'app errors' }];
     hello = HELLO_WHEN_EMPTY.insights;
   } else {
-    hello = HELLO_WHEN_EMPTY.catalogue;
+    // 🗂 #7693: what waits here is shops asking for a service we lack (the Work queue `service-requests`, same read).
+    const asking = q('requests');
+    head = [
+      ...(catalogue
+        ? [
+            { label: 'Categories', value: show(catalogue.categories), sub: catalogue.categories === null ? 'couldn’t read' : 'in the taxonomy' },
+            { label: 'Services', value: show(catalogue.services), sub: catalogue.services === null ? 'couldn’t read' : 'under them' },
+          ]
+        : []),
+      { label: 'Asking', value: show(asking), sub: asking === null ? 'couldn’t read' : 'shops asking for a service' },
+    ];
+    const o = oldest(allViews, digest, nowMs);
+    if (o) head.push(o);
+    hello =
+      typeof asking === 'number' && asking > 0
+        ? asking === 1
+          ? '1 shop is asking for a service'
+          : `${formatCount(asking)} shops are asking for a service`
+        : asking === null || catalogue?.categories === null || catalogue?.services === null
+          ? 'Some counts could not be read'
+          : HELLO_WHEN_EMPTY.catalogue;
   }
 
   return (

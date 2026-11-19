@@ -25,7 +25,7 @@
  */
 
 import Link from 'next/link';
-import { Clock, Filter, LayoutTemplate, UserCheck } from 'lucide-react';
+import { Clock, LayoutTemplate, SlidersHorizontal, UserCheck } from 'lucide-react';
 import {
   formatBlockTime,
   formatBlockTimeRange,
@@ -95,7 +95,7 @@ export function RosLensBar({
   return (
     <div className="sn-row flex flex-wrap items-center gap-2 px-4 py-3">
       <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-[0.06em] text-ink/70">
-        <Filter aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
         View as
       </span>
       <LensChip href={base} active={lens.kind === 'all'} label="Master" />

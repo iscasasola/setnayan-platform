@@ -34,6 +34,7 @@ SPEC IMPACT: None — builds the approved 19 Nov drawing.
 - PC4: the page link no longer says "goes live when you open". It now says "your card shows here once it's live".
 - PC1: a "What you do · Coordination · ✓ Picked" row above the coordination dropdown.
 - PC7: "Later" beside Done on the invite screen. Both go where the first card lands.
+- PC7 (owner 20 Nov): the `/i/<slug>` card names the inviter's main service ("Lia Events · Coordination"). `readInviter` now reads `services` and `serviceLabelOf` gives the admin-managed name.
 - Tests: `lib/supplier-onboarding.test.ts` 13, and test 10's landing count is now 3.
 
 SPEC IMPACT: None.

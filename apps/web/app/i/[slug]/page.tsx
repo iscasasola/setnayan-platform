@@ -8,6 +8,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SupplierInviteDoor } from '@/app/vendor/claim/[token]/_components/claim-parts';
 import { readInviter } from '@/lib/supplier-invite.server';
+import { readServiceLabels, serviceLabelOf } from '@/lib/service-labels';
 import { cleanInviteSlug, supplierInvitePath } from '@/lib/supplier-invite';
 import { joinSupplierInvite } from './actions';
 // 🔵 The blue invite door (owner 19 Nov, Door C: "a shop that scans their QR gets the blue invite door").
@@ -52,6 +53,8 @@ export default async function SupplierInvitePage({
   const hasShop = Boolean((own as { business_name?: string | null } | null)?.business_name?.trim());
   const isSelf = own?.vendor_profile_id === inviter.vendorProfileId;
   const here = supplierInvitePath(slug);
+  // PC7: the inviter's main service, by its admin-managed name (`canonical_service_schemas`); none read → no chip.
+  const category = inviter.mainService ? serviceLabelOf(await readServiceLabels(), inviter.mainService) : null;
 
   const existing = hasShop ? (
     isSelf ? null : (
@@ -81,6 +84,7 @@ export default async function SupplierInvitePage({
       ) : null}
       <SupplierInviteDoor
         inviterName={inviter.businessName}
+        category={category}
         createHref={hasShop ? null : `${here}/join`}
         existing={existing}
         note={

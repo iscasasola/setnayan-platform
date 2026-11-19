@@ -40,6 +40,8 @@ import {
   setInfoTextCore,
   setPartServicesCore,
   setServiceInfoTextCore,
+  setAvailabilityStyleCore,
+  setCategoryAvailabilityCore,
   type WriteResult,
 } from './_components/taxonomy-writes';
 import {
@@ -70,7 +72,7 @@ import { addTradeAlias, approveTradeAlias, rejectTradeAlias, unteachTradeAlias }
 export type MapOp =
   | { op: 'addGroup'; label: string }
   | { op: 'addCategory'; groupId: string; label: string }
-  | { op: 'addService'; categoryId: string; label: string }
+  | { op: 'addService'; categoryId: string; label: string; availability?: string }
   | { op: 'addPart'; categoryId: string; label: string; services: string[] }
   | { op: 'link'; slotKey: string; services: string[]; on: boolean }
   | { op: 'movePart'; slotKey: string; categoryId: string }
@@ -114,7 +116,7 @@ export async function mapWrite(op: MapOp): Promise<WriteResult> {
     case 'addCategory':
       return asAdmin((a) => addCategoryCore(admin, a, str(op.groupId), str(op.label)));
     case 'addService':
-      return asAdmin((a) => addServiceCore(admin, a, { tileId: str(op.categoryId), label: str(op.label) }));
+      return asAdmin((a) => addServiceCore(admin, a, { tileId: str(op.categoryId), label: str(op.label), availability: str(op.availability) }));
     case 'addPart':
       return asAdmin((a) => addPartCore(admin, a, { homeCategoryId: str(op.categoryId), label: str(op.label), services: list(op.services) }));
     case 'link':
@@ -206,7 +208,19 @@ async function answerOf(run: () => Promise<unknown>): Promise<WriteResult> {
  * "Files shops as ▾" on a category (a `SavePick` posting `category_id` + `coarse_category`), and every shipped
  * redirect-back form of the drawer, answered in place (`SHIPPED_FORMS` above).
  */
-export async function mapWriteForm(kind: 'part-services' | 'coarse' | 'rename-part' | 'info-text' | ShippedFormKind, formData: FormData): Promise<WriteResult> {
+export async function mapWriteForm(
+  kind: 'part-services' | 'coarse' | 'rename-part' | 'info-text' | 'availability' | 'category-availability' | ShippedFormKind,
+  formData: FormData,
+): Promise<WriteResult> {
+  if (kind === 'availability') {
+    // Availability ▾ on a service (plan step 2) — +0 exported actions: one more kind on this door.
+    const admin = createAdminClient();
+    return asAdmin((a) => setAvailabilityStyleCore(admin, a, str(formData.get('canonical_service')), str(formData.get('availability_style'))));
+  }
+  if (kind === 'category-availability') {
+    const admin = createAdminClient();
+    return asAdmin((a) => setCategoryAvailabilityCore(admin, a, str(formData.get('category_id')), str(formData.get('availability_style'))));
+  }
   if (kind === 'info-text') {
     const admin = createAdminClient();
     // ONE door for every ⓘ text (+0 exported actions): a SERVICE row posts `canonical_service` (plan D4,

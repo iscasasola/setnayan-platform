@@ -315,6 +315,16 @@ export const PRICE_SHAPE_EXAMPLES = {
 /** The fee slider's travel — an example booking price the visitor drags, not a price. */
 export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 } as const;
 
+/**
+ * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
+ * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
+ * `bookingFeePhp` in the client — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ */
+export const FEE_STOPS = [
+  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000,
+] as const;
+export const FEE_STOP_START = 6;
+
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 
 /** "More seats from Solo" — the first plan whose caps carry a team seat. Null if no plan does. */

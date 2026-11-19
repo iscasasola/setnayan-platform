@@ -24,9 +24,11 @@ import type { ReactNode } from 'react';
  */
 export type BadgeTone = 'ok' | 'wait' | 'no' | 'quiet';
 
-/** The shape — the same for every tone. */
+/** The shape — the same for every tone. `sn-m-status` (globals.css): 🎞 STATUS CHANGE, the motion standard § 4 #22
+ *  (owner 18 Nov 2026) — when a row's state changes in place, the chip's colour cross-fades in Quick on Settle (the
+ *  colour never overshoots). CSS only: the badge still runs nothing in the browser. Reduced motion: at once. */
 export const BADGE_CLASS =
-  'inline-flex h-6 flex-none items-center whitespace-nowrap rounded-full px-2.5 text-[12px] font-bold leading-none';
+  'sn-m-status inline-flex h-6 flex-none items-center whitespace-nowrap rounded-full px-2.5 text-[12px] font-bold leading-none';
 
 const BADGE_TOKEN: Readonly<Record<BadgeTone, string>> = {
   ok: '--color-ok',

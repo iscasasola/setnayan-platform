@@ -2,11 +2,17 @@
  * Ported from the owner-approved prototype service-icons.html (Nov 2026).
  * Rest = a plain line icon. A press colours it, the short play runs in colour,
  * then the colour fades back. Only transform + opacity animate.
- * The player (app/_components/service-icon-player.tsx) adds .go to every
- * svg.si inside the pressed control for 1.3s. */
-svg.si{--md:.85s;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;overflow:visible;transition:color .7s ease}
-@media (prefers-reduced-motion:reduce){svg.si{--md:.5s}}
-svg.si.go{color:rgb(var(--color-mulberry));transition:color .06s}
+ * The player (app/_components/service-icon-play.tsx) adds .go to every
+ * svg.si inside the pressed control for the play plus a beat (Rise + Quick).
+ *
+ * 🎞 18 Nov 2026 — ON THE MOTION STANDARD'S TOKENS (MOTION_STANDARD_2026-11-18.md § 2): the play is Rise (was .85s),
+ * the colour comes on in Tap (was .06s) and fades back over Rise (was .7s) on Settle; under "reduce motion" the play
+ * is Move (was .5s). A part's own curve is Settle, or Spring where the drawing overshoots — no raw curve is left.
+ * A pressed icon whose tile leaves the page (the tap opened another screen) is CARRIED: `.si-carry`, at the end of
+ * this file. 🔒 lib/a-tapped-service-icon-is-seen.test.ts */
+svg.si{--md:var(--sn-m-rise);fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;overflow:visible;transition:color var(--sn-m-rise) var(--sn-m-settle)}
+@media (prefers-reduced-motion:reduce){svg.si{--md:var(--sn-m-move)}}
+svg.si.go{color:rgb(var(--color-mulberry));transition:color var(--sn-m-tap) var(--sn-m-settle)}
 svg.si *{transform-box:fill-box;transform-origin:center}
 svg.si [transform]{transform-box:view-box;transform-origin:0 0}
 svg.si .ghost{opacity:0}
@@ -25,7 +31,7 @@ svg.si.go .bd-door{animation:si-bdDoor var(--md) ease-in-out both!important;tran
 @keyframes si-bdDoor{0%,100%{transform:none}30%{transform:scaleY(.8)}55%{transform:scaleY(1.08)}}
 /* 2 planners — ClipboardList: clip lifts, bullets become ticks, lines write in */
 svg.si.go .cl-all{animation:si-clTilt var(--md) ease-in-out both!important;transform-origin:50% 100%}
-svg.si.go .cl-clip{animation:si-clClip var(--md) cubic-bezier(.3,1.4,.5,1) both!important}
+svg.si.go .cl-clip{animation:si-clClip var(--md) var(--sn-m-spring) both!important}
 svg.si.go .cl-ln{animation:si-clLine var(--md) ease-out both!important;transform-origin:0 50%}
 svg.si.go .cl-dot{animation:si-clDot var(--md) linear both!important}
 svg.si.go .cl-tk{animation:si-clTick var(--md) ease-in-out both!important}
@@ -42,7 +48,7 @@ svg.si.go .ut-s{animation:si-utSpark var(--md) ease-out both!important;transform
 @keyframes si-utKnife{0%,100%{transform:none}26%{transform:rotate(-17deg)}46%{transform:rotate(7deg)}60%{transform:rotate(-4deg)}76%{transform:rotate(2deg)}}
 @keyframes si-utSpark{0%,40%{opacity:0;transform:scale(.3)}50%{opacity:1;transform:scale(1.25)}68%{opacity:1;transform:scale(1) translateY(-.6px)}86%,100%{opacity:0;transform:scale(.8) translateY(-1.6px)}}
 /* 4 styling — Flower2: the bloom opens, leaves sway, one petal drifts down */
-svg.si.go .fw-head{animation:si-fwBloom var(--md) cubic-bezier(.3,1.3,.5,1) both!important}
+svg.si.go .fw-head{animation:si-fwBloom var(--md) var(--sn-m-spring) both!important}
 svg.si.go .fw-lr{animation:si-fwLeafR var(--md) ease-in-out both!important;transform-origin:0 100%}
 svg.si.go .fw-ll{animation:si-fwLeafL var(--md) ease-in-out both!important;transform-origin:100% 100%}
 svg.si.go .fw-p{animation:si-fwPetal var(--md) ease-in both!important}
@@ -82,7 +88,7 @@ svg.si.go .tn-flag{animation:si-tnFlag var(--md) ease-in-out both!important;tran
 @keyframes si-tnFlag{0%,100%{opacity:0;transform:scaleX(.2)}20%{opacity:1;transform:scaleX(1.15) skewY(-12deg)}40%{opacity:1;transform:scaleX(.8) skewY(12deg)}60%{opacity:1;transform:scaleX(1.1) skewY(-7deg)}80%{opacity:1;transform:scaleX(1)}}
 /* 9 invites — Mail: the flap opens, a heart comes out */
 svg.si.go .ml-env{animation:si-mlEnv var(--md) ease-in-out both!important}
-svg.si.go .ml-flap{animation:si-mlFlap var(--md) cubic-bezier(.4,0,.2,1) both!important;transform-origin:50% 0}
+svg.si.go .ml-flap{animation:si-mlFlap var(--md) var(--sn-m-settle) both!important;transform-origin:50% 0}
 svg.si.go .ml-heart{animation:si-mlHeart var(--md) ease-in-out both!important}
 @keyframes si-mlEnv{0%,100%{transform:none}24%,68%{transform:translateY(1.4px)}86%{transform:translateY(-.4px)}}
 @keyframes si-mlFlap{0%,100%{transform:none}26%,66%{transform:translateY(-3px) scaleY(-.62)}84%{transform:scaleY(1.1)}}
@@ -98,13 +104,13 @@ svg.si.go .cr-ln{animation:si-crLine var(--md) ease-out both!important;transform
 @keyframes si-crLine{0%,24%{opacity:0;transform:scaleX(.2)}42%{opacity:1;transform:scaleX(1)}62%{opacity:.8;transform:translateX(-1px) scaleX(.7)}80%,100%{opacity:0;transform:translateX(-1.6px) scaleX(.3)}}
 /* 11 guest experiences — compass: the needle spins and settles */
 svg.si.go .gx-ring{animation:si-gxRing var(--md) ease-in-out both!important}
-svg.si.go .gx-nd{animation:si-gxNeedle var(--md) cubic-bezier(.4,0,.3,1) both!important}
+svg.si.go .gx-nd{animation:si-gxNeedle var(--md) var(--sn-m-settle) both!important}
 svg.si.go .gx-tk{animation:si-gxTick var(--md) ease-in-out both!important}
 @keyframes si-gxRing{0%,100%{transform:none}22%{transform:scale(1.07)}46%{transform:scale(.98)}64%{transform:none}}
 @keyframes si-gxNeedle{0%{transform:none}32%{transform:rotate(210deg)}56%{transform:rotate(388deg)}72%{transform:rotate(348deg)}86%{transform:rotate(365deg)}100%{transform:rotate(360deg)}}
 @keyframes si-gxTick{0%,100%{opacity:0}26%,74%{opacity:1}}
 /* 12 dining extras — cloche: the lid lifts, steam rises */
-svg.si.go .dn-lid{animation:si-dnLid var(--md) cubic-bezier(.3,1.3,.5,1) both!important;transform-origin:100% 100%}
+svg.si.go .dn-lid{animation:si-dnLid var(--md) var(--sn-m-spring) both!important;transform-origin:100% 100%}
 svg.si.go .dn-base{animation:si-dnBase var(--md) ease-in-out both!important;transform-origin:50% 100%}
 svg.si.go .dn-st{animation:si-dnSteam var(--md) ease-out both!important}
 @keyframes si-dnLid{0%,100%{transform:none}26%,58%{transform:translateY(-2.4px) rotate(14deg)}76%{transform:translateY(.6px)}}
@@ -119,7 +125,7 @@ svg.si.go .sf-ray{animation:si-sfRay var(--md) ease-out both!important}
 @keyframes si-sfBeat{0%,100%{transform:none}18%{transform:scale(1.55)}34%{transform:scale(.95)}50%{transform:scale(1.4)}68%{transform:scale(1)}}
 @keyframes si-sfRay{0%,100%{opacity:0;transform:scale(.4)}18%{opacity:1;transform:scale(1.15)}34%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}74%{opacity:0;transform:scale(1.2)}}
 /* 14 insurance — shield: braces, a tick lands, a glint */
-svg.si.go .in-all{animation:si-inGuard var(--md) cubic-bezier(.3,1.3,.5,1) both!important}
+svg.si.go .in-all{animation:si-inGuard var(--md) var(--sn-m-spring) both!important}
 svg.si.go .in-ck{animation:si-inCheck var(--md) ease-in-out both!important}
 svg.si.go .in-star{animation:si-svGlint var(--md) ease-in-out both!important}
 @keyframes si-inGuard{0%,100%{transform:none}18%{transform:scale(.9)}40%{transform:scale(1.1)}58%{transform:scale(.98)}74%{transform:none}}
@@ -127,7 +133,7 @@ svg.si.go .in-star{animation:si-svGlint var(--md) ease-in-out both!important}
 /* 15 specialty — reveal balloon: swells, wobbles, confetti flies out */
 svg.si.go .rv-bl{animation:si-rvSwell var(--md) ease-in-out both!important;transform-origin:50% 100%}
 svg.si.go .rv-str{animation:si-rvString var(--md) ease-in-out both!important;transform-origin:50% 0}
-svg.si.go .rv-c{animation:si-rvConf var(--md) cubic-bezier(.15,.7,.3,1) both!important}
+svg.si.go .rv-c{animation:si-rvConf var(--md) var(--sn-m-settle) both!important}
 @keyframes si-rvSwell{0%,100%{transform:none}20%{transform:scale(.9,1.06)}42%{transform:scale(1.2)}54%{transform:scale(1.05) rotate(-6deg)}68%{transform:scale(1.12) rotate(5deg)}84%{transform:scale(.98)}}
 @keyframes si-rvString{0%,100%{transform:none}24%{transform:rotate(18deg)}46%{transform:rotate(-16deg)}66%{transform:rotate(10deg)}84%{transform:rotate(-4deg)}}
 @keyframes si-rvConf{0%,34%{opacity:0;transform:translate(calc(var(--x)*-1.2),calc(var(--y)*-1.2)) scale(.2)}46%{opacity:1;transform:scale(1.25)}70%{opacity:1;transform:translate(var(--x),var(--y)) rotate(40deg)}90%,100%{opacity:0;transform:translate(calc(var(--x)*1.5),calc(var(--y)*1.5)) rotate(60deg)}}
@@ -140,7 +146,7 @@ svg.si.go .fn-halo{animation:si-fnHalo var(--md) ease-in-out both!important}
 @keyframes si-fnHalo{0%,100%{opacity:0;transform:scale(.85)}50%{opacity:.45;transform:scale(1.06)}}
 /* 17 gifts — Gift: the lid lifts off the box, the bow bounces, a glint (drawn 2026-11-17) */
 svg.si.go .gf-box{animation:si-svSquash var(--md) ease-in-out both!important;transform-origin:50% 100%}
-svg.si.go .gf-lid{animation:si-gfLid var(--md) cubic-bezier(.3,1.3,.5,1) both!important;transform-origin:50% 100%}
+svg.si.go .gf-lid{animation:si-gfLid var(--md) var(--sn-m-spring) both!important;transform-origin:50% 100%}
 svg.si.go .gf-bow{animation:si-gfBow var(--md) ease-in-out both!important;transform-origin:50% 100%}
 svg.si.go .gf-star{animation:si-svGlint var(--md) ease-in-out both!important}
 @keyframes si-gfLid{0%,100%{transform:none}26%,56%{transform:translateY(-2px) rotate(-7deg)}76%{transform:translateY(.5px)}}
@@ -157,10 +163,10 @@ svg.si.go .x-in{animation:si-xIn var(--md) ease-in-out both!important}@keyframes
 svg.si.go .x-rise{animation:si-xRise var(--md) ease-out both!important}@keyframes si-xRise{0%,14%{opacity:0;transform:translateY(3px) scale(.6)}38%{opacity:1;transform:rotate(-10deg)}64%{opacity:1;transform:translateY(-2.4px) rotate(9deg)}88%,100%{opacity:0;transform:translateY(-4.6px)}}
 svg.si.go .x-fall{animation:si-xFall var(--md) ease-in both!important}@keyframes si-xFall{0%,30%{opacity:0;transform:none}44%{opacity:1;transform:none}72%{opacity:1;transform:translate(.8px,4px) rotate(40deg)}92%,100%{opacity:0;transform:translate(.4px,7px) rotate(20deg)}}
 svg.si.go .x-glint{animation:si-xGlint var(--md) ease-in-out both!important}@keyframes si-xGlint{0%,18%,100%{opacity:0;transform:scale(.2) rotate(0)}40%{opacity:1;transform:scale(1.25) rotate(45deg)}56%{opacity:.5;transform:scale(.7) rotate(70deg)}70%{opacity:1;transform:scale(1.1) rotate(90deg)}90%{opacity:0;transform:scale(.2) rotate(120deg)}}
-svg.si.go .x-spin{animation:si-xSpin var(--md) cubic-bezier(.4,0,.3,1) both!important}@keyframes si-xSpin{0%{transform:none}60%{transform:rotate(380deg)}78%{transform:rotate(352deg)}100%{transform:rotate(360deg)}}
+svg.si.go .x-spin{animation:si-xSpin var(--md) var(--sn-m-settle) both!important}@keyframes si-xSpin{0%{transform:none}60%{transform:rotate(380deg)}78%{transform:rotate(352deg)}100%{transform:rotate(360deg)}}
 svg.si.go .x-flap{animation:si-xFlap var(--md) ease-in-out both!important}@keyframes si-xFlap{0%,100%{transform:none}20%{transform:scaleX(1.12) skewY(-9deg)}40%{transform:scaleX(.8) skewY(9deg)}60%{transform:scaleX(1.08) skewY(-5deg)}80%{transform:scaleX(.96) skewY(2deg)}}
 svg.si.go .x-wr{animation:si-xWr var(--md) ease-out both!important}@keyframes si-xWr{0%,100%{transform:none}12%{transform:scaleX(.05)}50%{transform:scaleX(1.12)}66%{transform:none}}
-svg.si.go .x-lift{animation:si-xLift var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xLift{0%,100%{transform:none}26%,58%{transform:translateY(-2.6px)}76%{transform:translateY(.5px)}}
+svg.si.go .x-lift{animation:si-xLift var(--md) var(--sn-m-spring) both!important}@keyframes si-xLift{0%,100%{transform:none}26%,58%{transform:translateY(-2.6px)}76%{transform:translateY(.5px)}}
 svg.si.go .x-dn{animation:si-xDn var(--md) ease-in-out both!important}@keyframes si-xDn{0%,100%{transform:none}28%,56%{transform:translateY(2.2px)}76%{transform:translateY(-.4px)}}
 svg.si.go .x-press{animation:si-xPress var(--md) ease-in-out both!important}@keyframes si-xPress{0%,100%{transform:none}25%{transform:translateY(1.2px)}45%{transform:none}60%{transform:translateY(1px)}78%{transform:none}}
 svg.si.go .x-go{animation:si-xGo var(--md) ease-in-out both!important}@keyframes si-xGo{0%,100%{transform:none}16%{transform:translateX(-1.4px)}40%{transform:translateX(2.4px)}62%{transform:translateX(1.8px)}84%{transform:translateX(-.4px)}}
@@ -169,9 +175,9 @@ svg.si.go .x-flash{animation:si-xFlash var(--md) linear both!important}@keyframe
 svg.si.go .x-steam{animation:si-xSteam var(--md) ease-in-out both!important}@keyframes si-xSteam{0%,100%{opacity:1;transform:none}38%{opacity:0;transform:translateY(-2.6px)}40%{opacity:0;transform:translateY(1.6px)}72%{opacity:1;transform:none}}
 svg.si.go .x-cll{animation:si-xCll var(--md) ease-in-out both!important}@keyframes si-xCll{0%,100%{transform:none}30%{transform:rotate(-8deg)}50%{transform:rotate(9deg)}64%{transform:rotate(5deg)}78%{transform:rotate(9deg)}}
 svg.si.go .x-clr{animation:si-xClr var(--md) ease-in-out both!important}@keyframes si-xClr{0%,100%{transform:none}30%{transform:rotate(8deg)}50%{transform:rotate(-9deg)}64%{transform:rotate(-5deg)}78%{transform:rotate(-9deg)}}
-svg.si.go .x-tilt{animation:si-xTilt var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xTilt{0%,100%{transform:none}30%{transform:rotate(17deg)}46%{transform:rotate(12deg)}60%{transform:rotate(17deg)}82%{transform:rotate(-2deg)}}
-svg.si.go .x-tiltn{animation:si-xTiltn var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xTiltn{0%,100%{transform:none}30%{transform:rotate(-17deg)}46%{transform:rotate(-12deg)}60%{transform:rotate(-17deg)}82%{transform:rotate(2deg)}}
-svg.si.go .x-burst{animation:si-xBurst var(--md) cubic-bezier(.15,.7,.3,1) both!important}@keyframes si-xBurst{0%,30%{opacity:0;transform:scale(.2)}44%{opacity:1;transform:scale(1.25)}70%{opacity:1;transform:translate(var(--x),var(--y))}90%,100%{opacity:0;transform:translate(calc(var(--x)*1.5),calc(var(--y)*1.5))}}
+svg.si.go .x-tilt{animation:si-xTilt var(--md) var(--sn-m-spring) both!important}@keyframes si-xTilt{0%,100%{transform:none}30%{transform:rotate(17deg)}46%{transform:rotate(12deg)}60%{transform:rotate(17deg)}82%{transform:rotate(-2deg)}}
+svg.si.go .x-tiltn{animation:si-xTiltn var(--md) var(--sn-m-spring) both!important}@keyframes si-xTiltn{0%,100%{transform:none}30%{transform:rotate(-17deg)}46%{transform:rotate(-12deg)}60%{transform:rotate(-17deg)}82%{transform:rotate(2deg)}}
+svg.si.go .x-burst{animation:si-xBurst var(--md) var(--sn-m-settle) both!important}@keyframes si-xBurst{0%,30%{opacity:0;transform:scale(.2)}44%{opacity:1;transform:scale(1.25)}70%{opacity:1;transform:translate(var(--x),var(--y))}90%,100%{opacity:0;transform:translate(calc(var(--x)*1.5),calc(var(--y)*1.5))}}
 svg.si.go .x-stamp{animation:si-xStamp var(--md) ease-in both!important}@keyframes si-xStamp{0%,30%{opacity:0;transform:scale(2.2)}46%{opacity:1;transform:scale(.85)}58%,84%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1)}}
 svg.si.go .x-fly{animation:si-xFly var(--md) ease-in-out both!important}@keyframes si-xFly{0%,100%{transform:none}18%{transform:translate(-1.4px,1.4px)}50%{transform:translate(2.6px,-2.6px)}78%{transform:translate(-.3px,.3px)}}
 svg.si.go .x-poke{animation:si-xPoke var(--md) ease-in-out both!important}@keyframes si-xPoke{0%,100%{transform:none}25%{transform:translate(-2px,2px)}45%{transform:translate(.6px,-.6px)}65%{transform:translate(-1.4px,1.4px)}85%{transform:none}}
@@ -188,7 +194,7 @@ svg.si.go .x-snipb{animation:si-xSnipb var(--md) ease-in-out both!important}@key
 svg.si.go .x-slr{animation:si-xSlr var(--md) ease-in-out both!important}@keyframes si-xSlr{0%,100%{transform:none}25%{transform:translateX(-1.5px)}50%{transform:translateX(.9px)}72%{transform:none}}
 svg.si.go .x-sll{animation:si-xSll var(--md) ease-in-out both!important}@keyframes si-xSll{0%,100%{transform:none}25%{transform:translateX(1.5px)}50%{transform:translateX(-.9px)}72%{transform:none}}
 svg.si.go .x-tap{animation:si-xTap var(--md) ease-in-out both!important}@keyframes si-xTap{0%,100%{transform:none}22%{transform:rotate(9deg)}38%{transform:none}56%{transform:rotate(6deg)}72%{transform:none}}
-svg.si.go .x-boom{animation:si-xBoom var(--md) cubic-bezier(.3,1.3,.5,1) both!important}@keyframes si-xBoom{0%,100%{opacity:1;transform:none}20%{opacity:.25;transform:scale(.3)}48%{opacity:1;transform:scale(1.2)}66%{transform:scale(.95)}84%{transform:none}}
+svg.si.go .x-boom{animation:si-xBoom var(--md) var(--sn-m-spring) both!important}@keyframes si-xBoom{0%,100%{opacity:1;transform:none}20%{opacity:.25;transform:scale(.3)}48%{opacity:1;transform:scale(1.2)}66%{transform:scale(.95)}84%{transform:none}}
 svg.si.go .x-roll{animation:si-xRoll var(--md) ease-out both!important}@keyframes si-xRoll{0%,100%{transform:none}18%{transform:scaleY(.2)}56%{transform:scaleY(1.1)}72%{transform:none}}
 svg.si.go .x-soft{animation:si-xSoft var(--md) ease-in-out both!important}@keyframes si-xSoft{0%,100%{transform:none}50%{transform:scale(1.05)}}
 svg.si.go .x-glow{animation:si-xGlow var(--md) ease-in-out both!important}@keyframes si-xGlow{0%,100%{opacity:0}50%{opacity:.4}}
@@ -201,3 +207,15 @@ svg.si.go .q3{animation-duration:calc(var(--md)*.7)!important;animation-delay:ca
 svg.si.go .q4{animation-duration:calc(var(--md)*.7)!important;animation-delay:calc(var(--md)*.18)!important}
 svg.si.go .q5{animation-duration:calc(var(--md)*.7)!important;animation-delay:calc(var(--md)*.3)!important}
 /* ================= end of paste-ready block ================= */
+/* ================= CARRIED — a pressed icon whose tile left the page (18 Nov 2026) =================
+ * The tap opened another screen, so the tile is gone before its icon has played. The player lays a still-playing
+ * copy where the icon was (position: fixed, over the loading state, taking no tap) and lets it finish: `--si-skip`
+ * is how much of the play had already run, so the copy goes on from there rather than starting again. The
+ * navigation itself is never held back. Transform + opacity only, like every play above. */
+.si-carry{position:fixed;z-index:calc(var(--sn-z-panel) + 1);display:grid;place-items:center;pointer-events:none;margin:0}
+.si-carry.si-carry svg.si.go *{animation-delay:var(--si-skip,0s)!important}
+.si-carry.si-carry svg.si.go .q1{animation-delay:calc(var(--si-skip,0s) + var(--md)*.12)!important}
+.si-carry.si-carry svg.si.go .q2{animation-delay:calc(var(--si-skip,0s) + var(--md)*.24)!important}
+.si-carry.si-carry svg.si.go .q3{animation-delay:calc(var(--si-skip,0s) + var(--md)*.06)!important}
+.si-carry.si-carry svg.si.go .q4{animation-delay:calc(var(--si-skip,0s) + var(--md)*.18)!important}
+.si-carry.si-carry svg.si.go .q5{animation-delay:calc(var(--si-skip,0s) + var(--md)*.3)!important}

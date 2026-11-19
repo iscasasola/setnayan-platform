@@ -34,10 +34,20 @@
 //      (`whisper` given) dragging the BOX right — never Send — turns Whisper on: the next lines reach the co-hosts
 //      only, the supplier never. It stays on until the box is dragged again, and the switch never sends. The 🔒 button
 //      is gone there (a face in the strip is still private to one person). The rules are `lib/chat-whisper.ts`.
+//   7. (2026-11-19 · "THE CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING", drawing S9ScH2Ps v3, screens 5 · 11) On the
+//      supplier's client chat (`kinds`): a SLIDERS button inside the box, before Send, raises the chips above it —
+//      All · Decisions · Forms · Money · Dates · Files, each with its count — and one picked chip filters the stream
+//      (`lib/chat-kind-store.ts`; it replaces the Chat · Decisions · Files switch that sat under the head). And ONE
+//      suggested step sits inside the box, left of "Message" (`ChatHome.suggest`): it opens the same card its (+) row
+//      opens, and it steps away the moment a word is typed.
 
 import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { Camera, ImageIcon, Lock, Paperclip, X } from 'lucide-react';
+import { Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X } from 'lucide-react';
+import { useChatHome } from '@/app/_components/chat/chat-home';
+import { KIND_CHIPS } from '@/lib/chat-kinds';
+import { pickKind, useKinds } from '@/lib/chat-kind-store';
+import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
 import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, joinNames, privateBoxPlaceholder } from '@/lib/chat-private';
 import { setPrivateTo, useChatPeople, usePrivateReply, usePrivateTo } from '@/app/_components/chat/private-to';
@@ -130,6 +140,11 @@ type Props = {
    * Send). Absent → no drag, no whisper (the supplier's composer, a group chat): the box is exactly as before.
    */
   whisper?: { supplierName: string; coHosts: number } | null;
+  /**
+   * 💬 THE CHIPS (owner 19 Nov 2026) — passed ONLY by the supplier's thread page inside the picked client: the sliders
+   * button in the box, the kind chips above it, and the one suggested step. Absent → the box exactly as before.
+   */
+  kinds?: boolean;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -138,7 +153,16 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null, whisper = null }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null, whisper = null, kinds = false }: Props) {
+  /* 💬 The chips (19 Nov 2026). The picked kind is the chat's own (`chat-kind-store`): the stream filters by it and
+     publishes each kind's count; this box only shows and picks. The sliders button opens the chips; pressed again — or
+     All — it shows everything. */
+  const kindState = useKinds(threadId);
+  const [chipsUp, setChipsUp] = useState(false);
+  const filtering = kinds && kindState.view !== 'all';
+  const chipsShown = kinds && (chipsUp || filtering);
+  const home = useChatHome();
+
   const feeWordsOnly = Boolean(wordsOnly);
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
@@ -165,6 +189,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const canWhisper = Boolean(whisper) && !feeWordsOnly && !privateTo;
   const whisperOn = useWhisper(threadId) && canWhisper;
   const wordsMode = Boolean(privateTo) || whisperOn;
+  // 💬 The one suggested step shows only in an empty, ordinary box — gone once a word is typed, never in a words-only box.
+  const suggestOn = kinds && Boolean(home?.suggest) && !hasDraft && !wordsMode && !feeWordsOnly;
   const toolsAway = toolsOut || whisperOn;
   const reduceMotion = usePrefersReducedMotion();
   const [toolsMounted, setToolsMounted] = useState(!wordsMode && !feeWordsOnly);
@@ -211,6 +237,16 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
     : plus.sent;
   const slashGate = plusGate(slashRunning ?? null);
+  /* 💬 The one suggested step (drawing screen 11): the same card its (+) row drops, one at a time like any other. */
+  const takeSuggested = (card: SlashRow['card']) => {
+    if (slashGate.shut) {
+      patchPlus(threadId, { toast: { text: slashGate.message, at: Date.now() } });
+      if (slashRunning) jumpTo(slashRunning.anchorId);
+      return;
+    }
+    patchPlus(threadId, { draft: { kind: card, startedAt: Date.now() } });
+    if (!RISING_DRAFTS.has(card)) window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+  };
   const pickSlash = (row: SlashRow) => {
     if (row.shut) return;
     if (slashGate.shut) {
@@ -694,6 +730,33 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           Whisper to co-hosts only
         </button>
       ) : null}
+      {/* 💬 THE CHIPS — raised above the box, in the thumb zone; ONE switch (the picked chip is the filled one). */}
+      {chipsShown ? (
+        <div role="group" aria-label="Show" className="-mx-1 mb-1.5 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-chat-kind-chips="" data-no-page-swipe="">
+          {KIND_CHIPS.map((c) => {
+            const on = kindState.view === c.key;
+            const n = c.key === 'all' ? null : (kindState.counts?.[c.key] ?? null);
+            return (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => {
+                  pickKind(threadId, c.key);
+                  if (c.key === 'all') setChipsUp(false);
+                }}
+                className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${
+                  on ? 'border-sn-accent bg-sn-accent text-white' : 'border-[color:var(--m-line)] bg-[color:var(--m-paper)] text-ink'
+                }`}
+                data-chat-kind-chip={c.key}
+              >
+                {c.label}
+                {n != null ? <span className={`font-mono text-[12px] font-normal ${on ? 'text-white/85' : 'text-[color:var(--m-slate-2)]'}`}>{formatCount(n)}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <div
         ref={boxRef}
         className={`sn-chat-onebox flex items-end gap-0.5 rounded-3xl ${privateTo ? '' : 'bg-[color:var(--m-paper-2)]'} ${wordsMode ? '' : 'focus-within:ring-2 focus-within:ring-sn-accent/30'}`}
@@ -792,12 +855,25 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {privateTo ? (
             <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />
           ) : null}
+          {/* 💬 ONE SUGGESTED STEP, inside the box, left of "Message" — gone once a word is typed (words only: none). */}
+          {suggestOn && home?.suggest ? (
+            <button
+              type="button"
+              onClick={() => takeSuggested(home.suggest!.card)}
+              className="sn-press my-auto ml-1 inline-flex min-h-11 shrink-0 items-center"
+              data-chat-suggested={home.suggest.card}
+            >
+              <span className="inline-flex h-[30px] items-center whitespace-nowrap rounded-full bg-sn-accent px-3 text-[13px] font-semibold text-white">{home.suggest.label}</span>
+            </button>
+          ) : null}
         <textarea
           ref={textareaRef}
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder={privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}
+          // 💬 While the suggested step shows it is the box's invitation: at 390 px "Message" cannot sit beside it with
+          // ＋ · 🔒 · sliders · Send, and wrapped under it — the name stays for a screen reader (`aria-label`).
+          placeholder={suggestOn ? '' : privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}
           aria-label={privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}
           className={`sn-chat-onebox-field max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : `bg-[color:var(--m-paper-2)] px-3.5 ${whisperOn ? 'placeholder:text-[rgb(var(--color-private-text))]' : 'placeholder:text-[color:var(--m-slate-3)]'}`} py-[9px] text-[15px] leading-5 ${whisperOn ? 'text-[rgb(var(--color-private-text))]' : 'text-ink'} outline-none ${privateTo ? PRIVATE_FOCUS_RING : ''}`}
           data-rides=""
@@ -900,6 +976,27 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             />
           ) : null}
         </div>
+        {/* 💬 The sliders — the app's one show/sort icon — inside the box, before Send. Filled while a chip is picked. */}
+        {kinds ? (
+          <button
+            type="button"
+            aria-label={filtering ? 'Show everything' : 'Show one kind'}
+            aria-pressed={chipsShown}
+            aria-expanded={chipsShown}
+            onClick={() => {
+              if (chipsShown) {
+                if (filtering) pickKind(threadId, 'all');
+                setChipsUp(false);
+              } else setChipsUp(true);
+            }}
+            className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            data-chat-kind-open=""
+          >
+            <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-full ${filtering ? 'bg-ink text-cream' : 'text-ink'}`}>
+              <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
+            </span>
+          </button>
+        ) : null}
         <SubmitButton
           aria-label="Send"
           pendingLabel=""

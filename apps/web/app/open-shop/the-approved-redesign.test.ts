@@ -98,8 +98,11 @@ test('five screens in the approved order, the account SECOND (supplier onboardin
   assert.match(fact('where'), /<CityPin\b/);
   // Contact person: name · role (free text → the shipped `contact_position`, optional); the number is its own sheet.
   assert.match(fact('contact'), /name="contact_name"/);
-  assert.match(fact('contact'), /name="contact_position"/);
-  assert.match(fact('contact'), /Your role at the shop/);
+  // 🚪 PB2 (19 Nov fix): the role sits on the account screen ("Your role · Owner"); signed in — no account screen — it
+  // stays in the Contact sheet. ONE box (`roleBox`), mounted in one place or the other.
+  assert.match(WIZARD, /const roleBox = \([\s\S]{0,600}name="contact_position"/);
+  assert.match(fact('contact'), /\{guest \? null : roleBox\}/);
+  assert.match(WIZARD, /\{guest \? roleBox : null\}/);
   assert.match(fact('number'), /<PhoneField\b/);
   const account = WIZARD.slice(WIZARD.indexOf("step === ACCOUNT_STEP ? 'space-y-4'"), WIZARD.indexOf('data-onboarding-check'));
   for (const name of ['contact_email', 'password']) assert.match(account, new RegExp(`name="${name}"`));
@@ -180,7 +183,7 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
   // 🚪 19 Nov: the pin lives in the "Where you are" SHEET, so the card is drawn in place — never portalled behind the
   // sheet's dark (the portal stays CityPin's for its other callers).
   assert.match(WIZARD, /sideSlot=\{null\}/);
-  assert.match(WIZARD, /where: 'Type your address; the pin follows\. Then confirm it\.'/);
+  assert.match(WIZARD, /where: 'Type your address; the pin follows\.'/); // PB3·a's own words
 });
 
 /* ── step 2, v14 → v16: one card per category, the plan explained on Continue, events per service ─────────────── */
@@ -213,9 +216,12 @@ test('owner 7 Nov · a category with ONE service adds it on the tap — no drill
 
 test('v16 ② → 19 Nov · "Before you continue" sits on the LAST screen, only past Free; its box gates Open my shop', () => {
   // 🚪 SUPERSEDED placement (owner 19 Nov: "the plan sits on this last screen"): the same body, drawn on You're all set.
-  assert.match(WIZARD, /overFree \? <PlanOnLastScreen \{\.\.\.planProps\} \/> : null/);
+  // 19 Nov fix (PB5): "I understand how this works." is on the last screen for EVERY new shop — inside the plan when the
+  // picks are past Free, on its own (`PlanAgree`) when they are not — and it gates Open my shop either way.
+  assert.match(WIZARD, /overFree \? <PlanOnLastScreen \{\.\.\.planProps\} \/> : <PlanAgree /);
   const gate = WIZARD.slice(WIZARD.indexOf('const validateStep = '), WIZARD.indexOf('const focusField'));
-  assert.match(gate, /if \(overFree && !planAgreed\) return PLAN_AGREE_ERROR;/);
+  assert.match(gate, /if \(!planAgreed\) return PLAN_AGREE_ERROR;/);
+  assert.match(SHEET, /export function PlanAgree\(/);
   const submit = WIZARD.slice(WIZARD.indexOf('const submitGate'), WIZARD.indexOf('const saveDraft'));
   assert.match(submit, /if \(err === PLAN_AGREE_ERROR\) \{\s*setPlanErr\(err\);/);
   assert.match(SHEET, /Before you continue/);
@@ -262,12 +268,15 @@ test('v16 ④ → v19 · under each ticked event, ONLY the services it takes as 
 });
 
 test('v16 ⑤ · three equal buttons; Email opens email + password in place with ONE hint; the leak check speaks on submit', () => {
-  assert.match(WIZARD, /className=\{OAUTH_BUTTON_CLASS\}[\s\S]{0,900}\{OAUTH_VERB\} Email/);
+  // 🚪 SUPERSEDED (owner "approve!" on P2/PB2, 19 Nov — "Email boxes show at once"): Google · Apple, "or", then the
+  // email and password boxes, all drawn together — no "Continue with Email" button to open them.
+  assert.match(WIZARD, /<OAuthButtonRow next="\/open-shop"[\s\S]{0,400}data-open-shop-or=""/);
+  assert.doesNotMatch(WIZARD, /\{OAUTH_VERB\} Email/);
   assert.match(WIZARD, /<PasswordField\s+id="open-shop-password"\s+mode="new"\s+quiet\b/);
   // v19 — the ONE rule line is the field's own (`QuietRule`), drawn only once the box holds something.
   assert.doesNotMatch(WIZARD, /open-shop-password-hint/, 'a second, static hint came back');
   assert.doesNotMatch(WIZARD, /or with email/, 'the "or with email" divider is back');
-  assert.match(WIZARD, /Open my shop — free/);
+  assert.match(WIZARD, />\s*Open my shop\s*<\/SubmitButton>/); // PB5's button word
 });
 
 test('the door never refuses a service for the plan, and writes each one’s events to vendor_coverages', () => {

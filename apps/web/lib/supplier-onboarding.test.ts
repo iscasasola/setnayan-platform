@@ -20,7 +20,14 @@ import { join } from 'node:path';
 
 import {
   ACCEPT_LABEL,
+  CHECK_FACT_LABEL,
   CHECK_FACTS,
+  FIRST_CARD_CARRY_LINE,
+  ONBOARDING_HEADS,
+  SELF_SERVE_LATER,
+  checkFactEmpty,
+  firstCardCarryPath,
+  firstCardFrom,
   FIELD_FACT,
   FIRST_CARD_ERRORS,
   INVITE_SHOPS_LINE,
@@ -58,12 +65,27 @@ test('1 · five screens, the account SECOND, the plan on the LAST', () => {
   assert.equal(OPEN_SHOP_FIELD_STEP.shop_name, 1);
   assert.equal(OPEN_SHOP_FIELD_STEP.service, 1);
   // The plan is drawn on the last screen, never as a gate on the first.
-  assert.match(WIZARD, /overFree \? <PlanOnLastScreen \{\.\.\.planProps\} \/> : null/);
+  // …and its tick is there for every shop (PB5): inside the plan past Free, on its own otherwise.
+  assert.match(WIZARD, /overFree \? <PlanOnLastScreen \{\.\.\.planProps\} \/> : <PlanAgree /);
   assert.doesNotMatch(WIZARD, /<PlanSheet\b/);
 });
 
 test('2 · Check your shop is ONE list, a sheet per fact, in the drawing’s order', () => {
-  assert.deepEqual([...CHECK_FACTS], ['name', 'contact', 'categories', 'events', 'where', 'number', 'package', 'pay']);
+  assert.deepEqual([...CHECK_FACTS], ['name', 'categories', 'events', 'where', 'contact', 'number', 'package', 'pay']);
+  // PB3's own order and short words (19 Nov fix: "copy, rows and steps drift from PB1–PB6").
+  assert.deepEqual([...SELF_SERVE_FACTS], ['name', 'categories', 'events', 'where', 'contact', 'number', 'pay']);
+  assert.deepEqual(
+    SELF_SERVE_FACTS.map((f) => CHECK_FACT_LABEL[f]),
+    ['Shop name', 'Services', 'Events', 'Where', 'Contact', 'Number', 'They pay you'],
+  );
+  assert.equal(checkFactEmpty('events'), 'Add the events you serve');
+  assert.equal(checkFactEmpty('where'), 'Add your address');
+  assert.equal(checkFactEmpty('number'), 'Add a number');
+  assert.deepEqual([...ONBOARDING_HEADS.check], ['Your shop', 'Tap a row to fill it.']);
+  // Q3 — a row opens a SHEET (PB3·a): the house backdrop + the house modal hook, the panel kept inside the one form.
+  assert.match(WIZARD, /<OverlayBackdrop onClose=\{\(\) => setSheet\(null\)\}/);
+  assert.match(WIZARD, /useModalA11y\(\{ open: step === CHECK_STEP && sheet !== null/);
+  assert.match(WIZARD, /role: 'dialog', 'aria-modal': true/);
   // Every box the 5-step wizard collected after the first screen lives in a sheet on the list.
   for (const f of ['events', 'extras', 'location', 'contact_name', 'contact_phone'] as const) {
     assert.equal(OPEN_SHOP_FIELD_STEP[f], 3, `${f} refuses onto Check your shop`);
@@ -73,12 +95,12 @@ test('2 · Check your shop is ONE list, a sheet per fact, in the drawing’s ord
   // The map pin stays — "Where you are" is still the shipped CityPin, now inside its sheet.
   assert.match(WIZARD, /data-onboarding-fact="where"[\s\S]{0,1200}<CityPin/);
   // A missing fact holds Continue and is the one it opens.
-  const rows = checkRows(SELF_SERVE_FACTS, { name: 'Banawe Florals', contact: 'Ana', categories: 'Florist', events: '3 of 5', where: 'Quezon City' });
+  const rows = checkRows(SELF_SERVE_FACTS, { name: 'Banawe Florals', contact: 'Ana', categories: 'Florist', events: 'Wedding', where: 'Quezon City' }, SELF_SERVE_LATER);
   assert.equal(firstMissing(rows), 'number');
   assert.equal(rows.find((r) => r.fact === 'number')?.missing, true);
-  assert.equal(firstMissing(checkRows(SELF_SERVE_FACTS, { name: 'a', contact: 'b', categories: 'c', events: 'd', where: 'e', number: 'f' })), null);
-  // The self-serve door draws no package / pay rows — it has nothing to show in them.
-  assert.ok(!SELF_SERVE_FACTS.includes('package') && !SELF_SERVE_FACTS.includes('pay'));
+  // "They pay you" is Later: it never holds Continue.
+  assert.equal(firstMissing(checkRows(SELF_SERVE_FACTS, { name: 'a', contact: 'b', categories: 'c', events: 'd', where: 'e', number: 'f' }, SELF_SERVE_LATER)), null);
+  assert.ok(!SELF_SERVE_FACTS.includes('package'), 'the self-serve door has no booking to show');
 });
 
 test('3 · the first card: Approve needs a price · Edit opens the shipped Card Maker · Skip makes no card', () => {
@@ -95,7 +117,8 @@ test('3 · the first card: Approve needs a price · Edit opens the shipped Card 
   assert.equal(parseCardPrice(''), null);
   // Where each way lands.
   assert.equal(firstCardLanding({ choice: 'approve', cardId: 'x', category: 'florist' }), WELCOME_OPENED_PATH);
-  assert.equal(firstCardLanding({ choice: 'skip', cardId: null, category: 'florist' }), WELCOME_OPENED_PATH);
+  // Skip says so to the welcome, whose ticked row then names the shop alone (never "Your shop and first card").
+  assert.equal(firstCardLanding({ choice: 'skip', cardId: null, category: 'florist' }), `${WELCOME_OPENED_PATH}&card=skipped`);
   assert.equal(firstCardLanding({ choice: 'edit', cardId: 'abc', category: 'florist' }), '/vendor-dashboard/services/abc');
   assert.equal(firstCardLanding({ choice: 'edit', cardId: null, category: 'florist' }), '/vendor-dashboard/services/new/florist');
   assert.equal(firstCardLanding({ choice: 'approve', cardId: 'x', category: 'f', welcome: WELCOME_CLAIMED_PATH }), WELCOME_CLAIMED_PATH);
@@ -112,12 +135,12 @@ test('4 · Today’s welcome reads ?claimed=1 and ?opened=1 — three steps, no 
   assert.equal(welcomeFrom({ claimed: 'yes' }), null);
   assert.deepEqual(
     TODAY_WELCOME_STEPS.map((s) => s.label),
-    ['Add the clients you already have', 'Add your logo', 'Get verified'],
+    ['Add the clients you already have', 'Add your logo', 'Get verified to be found'],
   );
   assert.ok(TODAY_WELCOME_STEPS.some((s) => s.href === '/open-shop/logo'), 'the logo screen stays reachable');
   assert.doesNotMatch(TODAY_WELCOME_LINE, /lead|inquir|booking/i, 'no leads are promised');
   assert.match(TODAY, /const welcome = welcomeFrom\(search\)/);
-  assert.match(TODAY, /<TodayWelcome kind=\{welcome\}/);
+  assert.match(TODAY, /<TodayWelcome\s+kind=\{welcome\}/);
   assert.match(WELCOME, /TODAY_WELCOME_STEPS\.map/);
 });
 
@@ -156,7 +179,35 @@ test('7 · the invite door says "Accept"; the onboarding wears the supplier blue
   assert.match(WIZARD, /data-open-shop-wizard="" data-supplier-look=""/);
 });
 
-test('8 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {
+test('8 · a first card the door could not make is SAID on Today, never dropped (19 Nov review)', () => {
+  // The Email way: nobody is signed in when the shop opens, so the confirm link carries the drafted card to the welcome.
+  const waiting = firstCardCarryPath(WELCOME_OPENED_PATH, { state: 'waiting', title: 'Bridal bouquet', price: 8500, category: 'florist' });
+  const q = Object.fromEntries(new URL(waiting, 'https://x.invalid').searchParams);
+  assert.equal(q.opened, '1');
+  assert.deepEqual(firstCardFrom(q), { state: 'waiting', title: 'Bridal bouquet', price: 8500, category: 'florist', why: null });
+  // A refusal carries the maker's own sentence.
+  const refused = firstCardCarryPath(WELCOME_OPENED_PATH, { state: 'refused', title: 'Bridal bouquet', price: 8500, category: 'florist', why: 'Remove the phone number.' });
+  assert.equal(firstCardFrom(Object.fromEntries(new URL(refused, 'https://x.invalid').searchParams))?.why, 'Remove the phone number.');
+  // Anything off on the address draws nothing (it is typed by anyone).
+  assert.equal(firstCardFrom({ card: 'waiting', card_title: 'x', card_price: '0', card_category: 'florist' }), null);
+  assert.equal(firstCardFrom({ card: 'made', card_title: 'x', card_price: '10', card_category: 'florist' }), null);
+  assert.equal(firstCardFrom({ card: 'waiting', card_title: 'x', card_price: '10', card_category: '../x' }), null);
+  // The action: the link lands on that welcome; a refused card lands there SAYING so — never a silent Today.
+  assert.match(ACTION, /confirmNext: afterConfirm,/);
+  assert.match(ACTION, /if \(made && made\.ok === false\) \{\s*redirect\(\s*firstCardCarryPath\(WELCOME_OPENED_PATH, \{\s*state: 'refused'/);
+  assert.match(ACTION, /return \{ ok: false, why: refused \?\? FIRST_CARD_NOT_MADE \}/);
+  assert.match(ACTION, /export async function approveFirstCard\(/);
+  // The welcome draws it, with Approve card (the shipped maker, through `approveFirstCard`) and the Card Maker.
+  assert.match(TODAY, /card=\{firstCardFrom\(search\)\}/);
+  assert.match(WELCOME, /<form\s+action=\{approveFirstCard\}/);
+  assert.match(WELCOME, /FIRST_CARD_CARRY_LINE\[card\.state\]/);
+  assert.match(WELCOME, /role=\{card\.state === 'refused' \? 'alert' : undefined\}/);
+  assert.ok(FIRST_CARD_CARRY_LINE.refused.includes('wasn’t made'));
+  // The ticked row never claims a card that does not exist.
+  assert.match(WELCOME, /\{card \|\| skipped \? TODAY_WELCOME_DONE\.shopOnly : TODAY_WELCOME_DONE\.withCard\}/);
+});
+
+test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {
   // Coordination pre-picked: the first coordination service, ONE dropdown of COORDINATOR_TRADE_SERVICES' leaves.
   assert.match(WIZARD, /import \{ COORDINATOR_TRADE_SERVICES \} from '@\/lib\/coordinator-trade'/);
   assert.match(WIZARD, /if \(coordinator && !service && coordinationLeaves\[0\]\) \{\s*setService\(coordinationLeaves\[0\]\.key\);/);

@@ -30,18 +30,33 @@ export const ONBOARDING_STEP: Readonly<Record<OnboardingScreen, 1 | 2 | 3 | 4 | 
   done: 5,
 };
 
-/** The words at the top of each shared screen — title, then one line. */
+/**
+ * The words at the top of each shared screen — title, then one line. The drawing's own words (PB2 · PB3 · PB4 · PB5),
+ * not paraphrases: "Your changes save as you go." is TRUE on this device — the wizard parks every answer in this
+ * browser on each step and each sheet's Save (`saveDraft`), and Google / Apple bring them back.
+ */
 export const ONBOARDING_HEADS: Readonly<Record<Exclude<OnboardingScreen, 'open'>, readonly [string, string]>> = {
-  account: ['Create your account', 'Pick how you’ll sign in. Everything you typed stays.'],
-  check: ['Check your shop', 'Tap a line to fix it. Every line needs a tick before you go on.'],
-  card: ['Your first service card', 'We drafted it from what you do. Add a price and approve it, edit it, or skip.'],
-  done: ['You’re all set', 'One look at your plan, then open your shop.'],
+  account: ['Create your account', 'Your changes save as you go.'],
+  check: ['Your shop', 'Tap a row to fill it.'],
+  card: ['Your first service card', 'We drafted it. Add your price to approve.'],
+  done: ['You’re all set', 'Your shop opens on Free.'],
 };
 
+/** The card screen's line once a price is typed (PB4·b). Before it, `ONBOARDING_HEADS.card` (PB4). */
+export const FIRST_CARD_PRICED_LINE = 'Approve it, edit it, or skip.';
+
+/** The names under the step dots (the drawing's `psteps`), per door. Door B starts at "Start"; Door A at "Accept". */
+export const ONBOARDING_STEP_NAMES = {
+  open: ['Start', 'Account', 'Your shop', 'Your card', 'Done'],
+  claim: ['Accept', 'Account', 'Your shop', 'Your card', 'Done'],
+} as const;
+
 /** Door B's first screen (PB1): the name, what you do and the main service, on one screen. */
-export const OPEN_YOUR_SHOP_HEAD = ['Open your shop', 'Your shop’s name, and the main service you’re known for.'] as const;
-/** Door C's first screen: the same screen, Coordination pre-picked (`?as=coordinator`). */
-export const OPEN_YOUR_COORDINATION_HEAD = ['Open your shop', 'Your shop’s name, and the coordination you do.'] as const;
+export const OPEN_YOUR_SHOP_HEAD = ['Open your shop', 'Three answers. Free.'] as const;
+/** Door C's first screen (PC1): the same screen, Coordination pre-picked (`?as=coordinator`). */
+export const OPEN_YOUR_COORDINATION_HEAD = ['Open your coordination shop', 'Two answers. Free.'] as const;
+/** PB1's line under the answers — what Free is, and who couples find. No lead is promised. */
+export const OPEN_YOUR_SHOP_FREE_LINE = 'Free gives you the tools. Couples find verified shops.';
 
 /** The main button on an invite door. Owner: the button says "Accept", never "Claim it". */
 export const ACCEPT_LABEL = 'Accept';
@@ -49,27 +64,42 @@ export const ACCEPT_LABEL = 'Accept';
 /* ───────────────────────── ② Check your shop — one list, a sheet per fact ───────────────────────── */
 
 /**
- * The facts on "Check your shop", in the drawing's order: name, contact, categories, events served, where (the map pin
- * stays), number, then the package and pay rows. `package` and `pay` are drawn only by a door that HAS them (a couple's
- * booking records what was agreed and how it is paid); the self-serve door has neither yet, so it draws no row for
- * them rather than an empty promise.
+ * Every fact a "Your shop" list can draw. Each door draws its own subset in the drawing's order: Door B/C
+ * (`SELF_SERVE_FACTS`, PB3) and Door A (P3 — the couple's record, with what was booked and how they pay).
  */
-export const CHECK_FACTS = ['name', 'contact', 'categories', 'events', 'where', 'number', 'package', 'pay'] as const;
+export const CHECK_FACTS = ['name', 'categories', 'events', 'where', 'contact', 'number', 'package', 'pay'] as const;
 export type CheckFact = (typeof CHECK_FACTS)[number];
 
+/** The row labels — the drawing's short words (PB3 / P3), not the old step titles. */
 export const CHECK_FACT_LABEL: Readonly<Record<CheckFact, string>> = {
   name: 'Shop name',
-  contact: 'Contact person',
-  categories: 'What you do',
-  events: 'Events you serve',
-  where: 'Where you are',
-  number: 'Contact number',
-  package: 'Package',
-  pay: 'How you get paid',
+  categories: 'Services',
+  events: 'Events',
+  where: 'Where',
+  contact: 'Contact',
+  number: 'Number',
+  package: 'Booked',
+  pay: 'They pay you',
 };
 
-/** The facts the self-serve sign-up (Door B, and Door C after it) draws — no package, no pay yet. */
-export const SELF_SERVE_FACTS: readonly CheckFact[] = ['name', 'contact', 'categories', 'events', 'where', 'number'];
+/** What an empty row says (PB3), in place of a value — each names what to add. */
+export const CHECK_FACT_EMPTY: Readonly<Partial<Record<CheckFact, string>>> = {
+  events: 'Add the events you serve',
+  where: 'Add your address',
+  number: 'Add a number',
+  pay: 'GCash, bank or cash',
+};
+export const checkFactEmpty = (fact: CheckFact) => CHECK_FACT_EMPTY[fact] ?? 'Add';
+
+/**
+ * PB3's rows, in its order: Shop name · Services · Events · Where · Contact · Number · They pay you. "They pay you" is
+ * marked Later — the self-serve door asks for no pay details (they are added in the shop), so it never holds Continue.
+ */
+export const SELF_SERVE_FACTS: readonly CheckFact[] = ['name', 'categories', 'events', 'where', 'contact', 'number', 'pay'];
+/** The self-serve rows that never hold Continue. */
+export const SELF_SERVE_LATER: readonly CheckFact[] = ['pay'];
+/** PB3's line under the list. */
+export const SELF_SERVE_CHECK_NOTE = 'Contact is from your account. Change it any time.';
 
 /** One row of the list: its fact, what it says now, and whether it still needs an answer. */
 export type CheckRow = { fact: CheckFact; label: string; value: string | null; missing: boolean };
@@ -178,6 +208,8 @@ export function firstCardLanding(input: {
   welcome?: string;
 }): string {
   const welcome = input.welcome ?? WELCOME_OPENED_PATH;
+  // Skip made no card: the welcome is told, so its ticked row says "Your shop", never "Your shop and first card".
+  if (input.choice === 'skip' || !input.choice) return `${welcome}&${FIRST_CARD_PARAM.state}=${FIRST_CARD_SKIPPED}`;
   if (input.choice !== 'edit') return welcome;
   if (input.cardId) return `/vendor-dashboard/services/${encodeURIComponent(input.cardId)}`;
   if (input.category) return `/vendor-dashboard/services/new/${encodeURIComponent(input.category)}`;
@@ -194,16 +226,76 @@ export const INVITE_SHOPS_LINE = 'Only invite those you trust.';
 /** The word for the coordinator-to-shop tie and the shop-page section (renames "preferred supplier" / "Trusted by"). */
 export const TRUSTED_PARTNERS = 'Trusted partners';
 
-/** The welcome's three next steps, in the owner's order. No leads are promised. */
+/* ── the first card, when it could not be made at the door ──
+ * Two honest cases, both carried to Today's welcome on its own address (a service's name and price — never a person's
+ * details), so the welcome can say it and offer the one press that finishes it:
+ *   · `waiting` — the Email way: with email confirmation on, nobody is signed in when the shop opens, and the shipped
+ *     card maker needs a session. The confirm link lands on the welcome, which holds the drafted card and "Approve card".
+ *   · `refused` — the shipped maker said no (its plan cap, a phone number in the name …). The welcome SAYS so, with the
+ *     maker's own sentence, instead of opening on Today as if the card existed.
+ */
+export type FirstCardState = 'waiting' | 'refused';
+/** `?card=skipped` — the door's card screen was skipped; nothing to approve, and no card is claimed. */
+export const FIRST_CARD_SKIPPED = 'skipped';
+export type FirstCardCarry = { state: FirstCardState; title: string; price: number; category: string; why: string | null };
+
+export const FIRST_CARD_PARAM = {
+  state: 'card',
+  title: 'card_title',
+  price: 'card_price',
+  category: 'card_category',
+  why: 'card_why',
+} as const;
+
+/** The welcome's address carrying a card that is not made yet. */
+export function firstCardCarryPath(welcome: string, card: Omit<FirstCardCarry, 'why'> & { why?: string | null }): string {
+  const q = new URLSearchParams();
+  q.set(FIRST_CARD_PARAM.state, card.state);
+  q.set(FIRST_CARD_PARAM.title, card.title.slice(0, FIRST_CARD_TITLE_MAX));
+  q.set(FIRST_CARD_PARAM.price, String(Math.round(card.price)));
+  q.set(FIRST_CARD_PARAM.category, card.category);
+  if (card.why) q.set(FIRST_CARD_PARAM.why, card.why.slice(0, 200));
+  return `${welcome}${welcome.includes('?') ? '&' : '?'}${q.toString()}`;
+}
+
+/** Read it back — every part re-checked (it arrives on an address anyone can type). Null when anything is off. */
+export function firstCardFrom(search: Record<string, string | string[] | undefined>): FirstCardCarry | null {
+  const one = (k: string) => {
+    const v = search[k];
+    return typeof v === 'string' ? v : null;
+  };
+  const state = one(FIRST_CARD_PARAM.state);
+  if (state !== 'waiting' && state !== 'refused') return null;
+  const title = (one(FIRST_CARD_PARAM.title) ?? '').trim().slice(0, FIRST_CARD_TITLE_MAX);
+  const price = parseCardPrice(one(FIRST_CARD_PARAM.price));
+  const category = (one(FIRST_CARD_PARAM.category) ?? '').trim();
+  if (!title || !price || !/^[a-z0-9_]{1,64}$/.test(category)) return null;
+  const why = (one(FIRST_CARD_PARAM.why) ?? '').trim().slice(0, 200) || null;
+  return { state, title, price, category, why };
+}
+
+/** What the welcome says about a card that is not made yet. */
+export const FIRST_CARD_CARRY_LINE: Readonly<Record<FirstCardState, string>> = {
+  waiting: 'Your first card is drafted. Approve it to put it on your page.',
+  refused: 'Your first card wasn’t made.',
+};
+
+/** The welcome's three next steps, in the owner's order (PB6). No leads are promised. */
 export const TODAY_WELCOME_STEPS = [
   { key: 'clients', label: 'Add the clients you already have', href: '/vendor-dashboard/customers?add=outside' },
   { key: 'logo', label: 'Add your logo', href: '/open-shop/logo' },
-  { key: 'verify', label: 'Get verified', href: '/vendor-dashboard/profile#docs' },
+  { key: 'verify', label: 'Get verified to be found', href: '/vendor-dashboard/profile#docs' },
 ] as const;
 
-/** The welcome's own line. Says what is true without a verified seal (unverified Free reaches 0 km) — never a lead. */
-export const TODAY_WELCOME_LINE =
-  'Couples don’t find an unverified shop in search yet — start with the clients you already have, and get verified.';
+/** The welcome's own line (PB6). Says what is true — the shop is open on Free — never a lead. */
+export const TODAY_WELCOME_LINE = 'Your shop is open on Free.';
+
+/** PB6's first, already-ticked row: what the door made. */
+export const TODAY_WELCOME_DONE = { withCard: 'Your shop and first card', shopOnly: 'Your shop' } as const;
+
+/** PB5 — the Free row and its line. Unverified Free is 0 km: nobody finds the shop in search yet. */
+export const DONE_FREE_ROW = { name: 'Free', line: 'Tools for the clients you have' } as const;
+export const DONE_FREE_LINE = 'Couples can’t find you yet. Get verified later.';
 
 /**
  * Which welcome Today draws — read off its own address. `?claimed=1` (Door A: the couple's invite was accepted) and
@@ -215,9 +307,8 @@ export function welcomeFrom(search: { claimed?: string | null; opened?: string |
   return null;
 }
 
-/** The welcome's title, by door. */
-export function welcomeTitle(kind: 'claimed' | 'opened', shopName: string | null): string {
+/** The welcome's title (PB6 / P6): "Welcome, <shop>". */
+export function welcomeTitle(_kind: 'claimed' | 'opened', shopName: string | null): string {
   const name = shopName?.trim();
-  if (kind === 'claimed') return name ? `Welcome, ${name} — your shop is yours` : 'Welcome — your shop is yours';
-  return name ? `Welcome, ${name} — your shop is open` : 'Welcome — your shop is open';
+  return name ? `Welcome, ${name}` : 'Welcome';
 }

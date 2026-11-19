@@ -165,8 +165,10 @@ Proposed:
   row stores `prefix_from` / `prefix_to` (text, 1–2 letters) instead of single letters. Blocks stay alphabetical (no snake
   draft): staff must be able to tell who holds "Santos", and a re-split must not scatter every letter. Runs when an
   Account Manager joins/leaves; rows a manager `adjusted` are left alone ("Reset to fair split?"). Inquiries already given
-  out never move. General for n = 1 … 10 (owner 19 Nov: *"3,4,5,6,7,8,9 up to 10"*): cuts at k/n, k = 1 … n−1; whether 10 is
-  a cap per card per branch is STILL OPEN.
+  out never move. General for n = 1 … 5: cuts at k/n, k = 1 … n−1. **CAP (owner 19 Nov: *"cap at 5 per service"*): at most 5
+  Account Managers per service card, per branch** — enforced in the database (a trigger on `vendor_service_agents` that
+  counts Account Managers on the card in that branch) and in the invite / Who works what (a full card shows "5 of 5" and
+  cannot be ticked).
   out never move. The pasted reference figures (a PH "A–L / M–Z" cut, US letter percentages) are NOT used — they are not
   measured from our data. **STILL OPEN:** the fallback for a shop with too few past clients (drawn: Setnayan-wide counts
   across all inquiries) and the threshold for "enough" · compound surnames (drawn: filed as written, Dela Cruz under D —

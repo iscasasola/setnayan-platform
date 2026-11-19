@@ -746,7 +746,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
                   if (c.key === 'all') setChipsUp(false);
                 }}
                 className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${
-                  on ? 'border-sn-accent bg-sn-accent text-white' : 'border-[color:var(--m-line)] bg-[color:var(--m-paper)] text-ink'
+                  on ? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-[color:var(--m-line)] bg-[color:var(--m-paper)] text-ink'
                 }`}
                 data-chat-kind-chip={c.key}
               >
@@ -863,7 +863,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
               className="sn-press my-auto ml-1 inline-flex min-h-11 shrink-0 items-center"
               data-chat-suggested={home.suggest.card}
             >
-              <span className="inline-flex h-[30px] items-center whitespace-nowrap rounded-full bg-sn-accent px-3 text-[13px] font-semibold text-white">{home.suggest.label}</span>
+              <span className="inline-flex h-[30px] items-center whitespace-nowrap rounded-full bg-sn-accent px-3 text-[13px] font-semibold text-sn-on-accent">{home.suggest.label}</span>
             </button>
           ) : null}
         <textarea

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronRight, Eraser, Info, Loader2, Mail, MailCheck, PenLine, RotateCw, SkipForward, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronRight, Eraser, Info, Loader2, LogIn, MailCheck, PenLine, RotateCw, SkipForward } from 'lucide-react';
 
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -31,15 +31,25 @@ import { CityPin } from './city-pin';
 import { EventTiles, supplierEventWords, type EventTileOption } from './event-tiles';
 import { ServiceCards, placeIndex, type PickedService, type SpecialtyField, type SpecialtyPicks } from './service-cards';
 import { ServicesAtEvents, eventsTheyCanServe } from './services-at-events';
-import { PLAN_AGREE_ERROR, PlanOnLastScreen } from './plan-sheet';
+import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useModalA11y } from '@/lib/use-modal-a11y';
 import {
   FIELD_FACT,
   FIRST_CARD_FIELD,
   FIRST_CARD_TITLE_MAX,
+  DONE_FREE_LINE,
+  DONE_FREE_ROW,
+  FIRST_CARD_PRICED_LINE,
   ONBOARDING_HEADS,
+  ONBOARDING_STEP_NAMES,
   OPEN_YOUR_COORDINATION_HEAD,
+  OPEN_YOUR_SHOP_FREE_LINE,
   OPEN_YOUR_SHOP_HEAD,
+  SELF_SERVE_CHECK_NOTE,
   SELF_SERVE_FACTS,
+  SELF_SERVE_LATER,
+  checkFactEmpty,
   checkRows,
   draftFirstCard,
   firstCardRefusal,
@@ -64,8 +74,6 @@ import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
-import { OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
-import { OAUTH_VERB } from '@/lib/oauth-words';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -136,6 +144,16 @@ const CHECK_STEP = 3;
 /** The first service card. */
 const CARD_STEP = 4;
 
+/** A row's sheet title (PB3·a / P3·a): the fact said in full, where the row says it short. */
+const SHEET_TITLE: Partial<Record<CheckFact, string>> = {
+  name: 'Shop name',
+  categories: 'Your services',
+  events: 'Events you serve',
+  where: 'Where you are',
+  contact: 'Contact person',
+  number: 'Contact number',
+};
+
 export function OpenShopWizard({
   mode,
   accountName = null,
@@ -160,6 +178,7 @@ export function OpenShopWizard({
   specialties = {},
   emailTaken = false,
   sentTo = null,
+  sentToNext = null,
   accountKey = 'guest',
   prefilledAccountEmail = null,
   invitedBy = null,
@@ -194,6 +213,8 @@ export function OpenShopWizard({
   emailTaken?: boolean;
   /** `?check_inbox=`: the shop is open, the account waits for its email link — say so, with the address. */
   sentTo?: string | null;
+  /** Where that screen's "sign in" lands — the welcome the email link opens (it may carry the drafted card). */
+  sentToNext?: string | null;
   /**
    * "Free to join, and here is when you DO pay" — composed on the server by
    * `bookingFeeJoinDisclosure(await readBookingFeeJoinSchedule())`, so the rate
@@ -352,6 +373,7 @@ export function OpenShopWizard({
    * about a box that lives in a sheet opens that sheet (`FIELD_FACT`), so the sentence is never behind a closed one.
    */
   const sheetOf = (field: OpenShopField | null): CheckFact | null => (field ? (FIELD_FACT[field] ?? null) : null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const [sheet, setSheet] = useState<CheckFact | null>(
     refusalStep(errorField, initialStep) === CHECK_STEP ? sheetOf(errorField) : null,
   );
@@ -366,9 +388,8 @@ export function OpenShopWizard({
   const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
   // "Continue with Email" was chosen — the email + password open in place. A server refusal about either (or the
   // taken-email sign-in) opens them; with no Google / Apple on this shell, Email is the only way and starts open.
-  const [acctEmail, setAcctEmail] = useState(
-    !waysShown || ['contact_email', 'password'].includes(errorField ?? '') || (guest && emailTaken),
-  );
+  // 🚪 PB2 / P2 (owner "approve!", 19 Nov — "Email boxes show at once"): Google · Apple · "or" · Email · Password, all
+  // drawn together. SUPERSEDES the 7 Nov "when email is picked, Google and Apple hide" for this screen.
 
   /** The web address that would be submitted — printed in "Your shop at a glance". */
   const [slug, setSlug] = useState(existingSlug ?? '');
@@ -533,7 +554,6 @@ export function OpenShopWizard({
     if (n === 1) return validateFact('name') ?? validateFact('categories');
     if (n === ACCOUNT_STEP) {
       // Signed out, a way to sign in must be picked first (Google / Apple leave the page on the tap).
-      if (guest && !acctEmail) return OPEN_SHOP_ACCOUNT_ERRORS.way;
       if (!isValidOpenShopEmail(readBox('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
       // Same floor as /signup, same sentence — see lib/open-shop-account.ts.
       if (guest && readBox('password').length < OPEN_SHOP_PASSWORD_MIN) return OPEN_SHOP_ACCOUNT_ERRORS.password;
@@ -550,7 +570,8 @@ export function OpenShopWizard({
     }
     if (n === CARD_STEP) return null; // the card's own three buttons carry its gate (`chooseCard`)
     // 5 · You're all set — more than Free holds: the plan's box is ticked here, on the last screen.
-    if (overFree && !planAgreed) return PLAN_AGREE_ERROR;
+    // PB5 draws "I understand how this works." for EVERY new shop, not only one over Free's limit.
+    if (!planAgreed) return PLAN_AGREE_ERROR;
     return null;
   };
 
@@ -615,6 +636,7 @@ export function OpenShopWizard({
     }
     setBanner(null);
     setSheet(null);
+    saveDraft({ reload: true });
   };
 
   /** ③ Open one fact's sheet over the list. */
@@ -637,6 +659,9 @@ export function OpenShopWizard({
     }
     // ④ Drafted once, as the card screen comes up: the main service's name (unless they already typed one).
     if (step === CHECK_STEP && !cardTitleTouched) setCardTitle(draftFirstCard({ serviceLabel }).title);
+    // "Your changes save as you go." (PB2) — every step parks what was typed in this browser tab, so a reload or a trip
+    // to Google / Apple brings it all back. Never the password.
+    saveDraft({ reload: true });
     window.scrollTo({ top: 0 });
   };
 
@@ -860,7 +885,6 @@ export function OpenShopWizard({
     const at = refusalStep(field, initialStep);
     setStep(at);
     setSheet(at === CHECK_STEP ? sheetOf(field) : null);
-    if (field === 'contact_email' || field === 'password') setAcctEmail(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new server refusal is the only trigger
   }, [error, refusalStamp]);
 
@@ -879,6 +903,10 @@ export function OpenShopWizard({
   }, [hardLoading]);
 
   // ✉ A1 — the shop is open on the new account, and the account waits for its email link (verification on).
+  // ③ The open fact's sheet holds focus, closes on Escape, and makes the page behind it inert — the house modal hook,
+  // on a sheet that lives INSIDE the one form (see `sheetClass`).
+  useModalA11y({ open: step === CHECK_STEP && sheet !== null, onClose: () => setSheet(null), containerRef: sheetRef });
+
   if (sentTo && !hardLoading) {
     return (
       <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
@@ -898,7 +926,7 @@ export function OpenShopWizard({
           <p className="mt-4 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Not there? Check your spam folder, or{' '}
             <a
-              href={sentTo.includes('@') ? `/login?check_email=${encodeURIComponent(sentTo)}&next=%2Fvendor-dashboard` : '/login?next=%2Fvendor-dashboard'}
+              href={`/login?${sentTo.includes('@') ? `check_email=${encodeURIComponent(sentTo)}&` : ''}next=${encodeURIComponent(sentToNext ?? '/vendor-dashboard')}`}
               className="text-terracotta"
             >
               sign in
@@ -916,7 +944,8 @@ export function OpenShopWizard({
     // Signed in there is no account to create — the screen holds only the shop's email.
     2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
     3: ONBOARDING_HEADS.check,
-    4: ONBOARDING_HEADS.card,
+    // PB4 → PB4·b: the line turns once a price is typed.
+    4: [ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
     5: ONBOARDING_HEADS.done,
   };
   const [title, line] = heads[step];
@@ -943,42 +972,59 @@ export function OpenShopWizard({
     ) : null;
   const logoSrc = logoUrl ? (logoDisplayMap?.[logoUrl] ?? null) : null;
 
-  // ③ The list "Check your shop" draws — each fact with what it says now (`checkRows`); a missing one holds Continue.
-  const rows = checkRows(SELF_SERVE_FACTS, {
-    name: shopName.trim() ? `${shopName.trim()}${slug ? ` · setnayan.com/${slug}` : ''}` : null,
-    contact: who.trim() || null,
-    categories: serviceLabel ? `${serviceLabel}${added.length ? ` +${formatCount(added.length)}` : ''}` : null,
-    events: activeEvents.length ? `${formatCount(activeEvents.length)} of ${formatCount(shownEvents.length)}` : null,
-    where: confirmedCity,
-    number: phoneOk ? `+63 ${formatPhoneDigits(phoneDigits)}` : null,
-  });
+  // ③ "Your shop" (PB3): each row with what it says now (`checkRows`), in the drawing's order and words. A missing row
+  // names what to add and holds Continue; "They pay you" is Later — the self-serve door asks for no pay details.
+  const categoryLabels = Array.from(
+    new Set(picked.map((p) => places.get(p.key)?.categoryLabel ?? p.label).filter(Boolean)),
+  );
+  const eventLabels = eventTypeOptions.filter((e) => activeEvents.includes(e.key)).map((e) => e.label);
+  const rows = checkRows(
+    SELF_SERVE_FACTS,
+    {
+      name: shopName.trim() || null,
+      categories: categoryLabels.length ? categoryLabels.join(' · ') : null,
+      events: eventLabels.length ? eventLabels.join(' · ') : null,
+      where: confirmedCity,
+      contact: who.trim() || null,
+      number: phoneOk ? `+63 ${formatPhoneDigits(phoneDigits)}` : null,
+      pay: null,
+    },
+    SELF_SERVE_LATER,
+  );
   /**
-   * ③ A FACT'S SHEET OPENS IN PLACE, UNDER ITS LINE — one at a time. Every box must stay INSIDE the one form (a single
-   * submit posts them all), and the house `Sheet` portals to <body>, out of the form; a hand-made overlay would be a
-   * second backdrop / scrim / modal. So the list's lines and the open fact are children of the form's own column, set in
-   * place by CSS `order`: line i at `10 + 2i`, its open fact right under it. The panels never move in the DOM, so nothing
-   * typed is lost when a sheet closes.
+   * ③ A ROW'S SHEET (PB3·a, owner's Q3 "one list, a sheet per fact"). It rises from the bottom over the list, on the house
+   * backdrop (`OverlayBackdrop`) with the house modal hook (`useModalA11y`); Save closes it and the list is back, the row
+   * ticked. 🔑 It is NOT the portalled house `Sheet`: every box must stay INSIDE the one form (a single submit posts them
+   * all) and stay MOUNTED when the sheet closes (what was typed must survive). So each fact's panel is a child of the
+   * form, hidden while closed, and the open one is drawn as the sheet — fixed to the bottom of the screen.
    */
   const inSheet = (fact: CheckFact) => step === CHECK_STEP && sheet === fact;
   const orderOf = (fact: CheckFact) => 10 + 2 * Math.max(0, SELF_SERVE_FACTS.indexOf(fact));
-  // Space and type, not a box (rows on white): the open fact sits a step in from its line, under it.
-  const sheetClass = 'max-w-[620px] space-y-4 border-b pb-5 pl-9';
-  const sheetStyle = (fact: CheckFact) => (inSheet(fact) ? { order: orderOf(fact) + 1 } : undefined);
+  const sheetClass =
+    'fixed inset-x-0 bottom-0 z-[var(--sn-z-panel)] mx-auto max-h-[88dvh] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] px-4 pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
+  const sheetStyle = (fact: CheckFact): React.CSSProperties | undefined =>
+    inSheet(fact) ? { background: 'var(--m-paper)' } : undefined;
+  /** What the open fact's panel carries to be the sheet: its ref, and the dialog's name. */
+  const sheetProps = (fact: CheckFact) =>
+    inSheet(fact)
+      ? ({ ref: sheetRef, role: 'dialog', 'aria-modal': true, 'aria-labelledby': `onboarding-sheet-${fact}` } as const)
+      : {};
   /** Each sheet's one line — the shipped steps' own words, carried into the sheet that now holds their boxes. */
   const factLine: Partial<Record<CheckFact, string>> = {
     name: 'This becomes your page address.',
     categories: 'Your services. Add more if you do more.',
     events: 'Couples find you by event.',
-    where: 'Type your address; the pin follows. Then confirm it.',
+    where: 'Type your address; the pin follows.',
     contact: 'Who couples will talk to.',
   };
-  /** The head every fact sheet wears: its name and line, then Done (its own check runs first). */
+  /** The head every fact sheet wears: the grab bar, its name and line. Save is at its foot (`sheetFoot`). */
   const sheetHead = (fact: CheckFact) =>
     inSheet(fact) ? (
-      <div className="flex items-start gap-2 pb-1" data-onboarding-sheet-head={fact}>
-        <span className="grid flex-1 gap-0.5">
-          <h2 className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {rows.find((r) => r.fact === fact)?.label}
+      <div className="grid gap-2 pb-1" data-onboarding-sheet-head={fact}>
+        <span aria-hidden className="mx-auto h-1 w-9 rounded-full" style={{ background: 'var(--m-line)' }} />
+        <span className="grid gap-0.5">
+          <h2 id={`onboarding-sheet-${fact}`} className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+            {SHEET_TITLE[fact] ?? rows.find((r) => r.fact === fact)?.label}
           </h2>
           {factLine[fact] ? (
             <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
@@ -986,7 +1032,13 @@ export function OpenShopWizard({
             </span>
           ) : null}
         </span>
-        <ActionButton tone="brand" icon={Check} label="Done" onClick={doneSheet} data-testid="onboarding-sheet-done" />
+      </div>
+    ) : null;
+  /** The sheet's one button — Save (its own check runs first), full width at its foot. */
+  const sheetFoot = (fact: CheckFact) =>
+    inSheet(fact) ? (
+      <div className="grid pt-1 [&>.ab]:w-full [&>.ab]:justify-center">
+        <ActionButton tone="brand" main icon={Check} label="Save" onClick={doneSheet} data-testid="onboarding-sheet-done" />
       </div>
     ) : null;
 
@@ -1006,6 +1058,31 @@ export function OpenShopWizard({
     split: planSplit(picked.map((p) => ({ categoryId: places.get(p.key)?.categoryId ?? p.key, categoryLabel: '' }))),
   };
   const cardPriceNumber = parseCardPrice(cardPrice);
+  /**
+   * "Your role at the shop" — FREE TEXT, optional, the shipped `contact_position` → `business_owner_position`. PB2 draws it
+   * on the account screen ("Your role · Owner"); signed in there is no account screen, so it stays in the Contact sheet.
+   * ONE box either way (`guest` never changes on a page), so the form posts it once.
+   */
+  const roleBox = (
+    <label className="block max-w-[620px] space-y-1">
+      <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+        Your role{' '}
+        <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
+          optional
+        </small>
+      </span>
+      <input
+        // field-ok: the door's own plain box, like "Your name" beside it — prototype v16 draws all three alike
+        id="open-shop-contact_position"
+        name="contact_position"
+        defaultValue={defaults.contactPosition}
+        maxLength={64}
+        placeholder="e.g. Owner"
+        autoComplete="organization-title"
+        className="input-field"
+      />
+    </label>
+  );
 
   return (
     // `overflow-x-clip`: a step sliding in from 40px right never widens the page (clip, not hidden — the bar stays sticky).
@@ -1071,6 +1148,14 @@ export function OpenShopWizard({
                 </div>
               ))}
             </div>
+            {/* The step names under the bars (the drawing's dots row): Start · Account · Your shop · Your card · Done. */}
+            <ol className="grid grid-cols-5 gap-1.5 text-[11px] md:hidden" aria-hidden data-onboarding-step-names="">
+              {ONBOARDING_STEP_NAMES.open.map((name, i) => (
+                <li key={name} className="truncate" style={{ color: i + 1 <= step ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
+                  {name}
+                </li>
+              ))}
+            </ol>
           </div>
 
           {/* Keyed by the screen, so the words slide in with the step (v19) — a re-render keeps the node, no replay. */}
@@ -1112,18 +1197,8 @@ export function OpenShopWizard({
             <div className="grid max-w-[620px] gap-2" onSubmitCapture={() => saveDraft()} data-open-shop-ways="">
               {/* ⑥ v19 (owner 7 Nov: "when email is picked, continue with google and apple hides"): Email chosen → the
                   three go; ONE grey "✕ Use another way" brings them back. */}
-              {waysShown && !taken && acctEmail ? (
-                <span className="flex">
-                  <ActionButton
-                    tone="neutral"
-                    icon={X}
-                    label="Use another way"
-                    onClick={() => setAcctEmail(false)}
-                    data-testid="open-shop-another-way"
-                  />
-                </span>
-              ) : null}
-              {waysShown && !taken && !acctEmail ? (
+              {/* PB2: Google · Apple, then "or", then the email boxes (in the form below), all at once. */}
+              {waysShown && !taken ? (
                 <>
                   {oauth.desktop ? (
                     <DesktopOAuthButtons next="/open-shop" />
@@ -1132,24 +1207,11 @@ export function OpenShopWizard({
                   ) : (
                     <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
                   )}
-                  <button /* button-ok: the Email way is one of the three equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
-                    type="button"
-                    className={OAUTH_BUTTON_CLASS}
-                    aria-pressed={false}
-                    aria-describedby={describedBy('way')}
-                    onClick={() => {
-                      setAcctEmail(true);
-                      if (errorField === 'way') setBanner(null);
-                      window.requestAnimationFrame(() =>
-                        document.getElementById('open-shop-contact_email')?.focus({ preventScroll: true }),
-                      );
-                    }}
-                    data-open-shop-email-way=""
-                  >
-                    <Mail aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                    {OAUTH_VERB} Email
-                  </button>
-                  {fieldError('way')}
+                  <span className="flex items-center gap-3 text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-or="">
+                    <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                    or
+                    <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                  </span>
                 </>
               ) : null}
               {taken ? (
@@ -1189,7 +1251,7 @@ export function OpenShopWizard({
             <div
               className={inSheet('name') ? sheetClass : `${step === 1 ? 'space-y-4' : 'hidden'} ${slide}`}
               style={sheetStyle('name')}
-              data-onboarding-fact="name"
+              data-onboarding-fact="name" {...sheetProps('name')}
             >
               {sheetHead('name')}
               <label className="block max-w-[620px] space-y-1">
@@ -1242,6 +1304,7 @@ export function OpenShopWizard({
                 }}
                 onHeldChange={setNameHeld}
               />
+              {sheetFoot('name')}
             </div>
 
             {/* 1 · Open your shop — what you do (PB1, second half: the main service, more if they do more). On "Check
@@ -1258,7 +1321,7 @@ export function OpenShopWizard({
                 }
                 style={sheetStyle('categories')}
                 data-open-shop-page="services"
-                data-onboarding-fact="categories"
+                data-onboarding-fact="categories" {...sheetProps('categories')}
               >
                 {sheetHead('categories')}
                 {/* "Your services" once the main is picked — the main and every added one are one set of cards. */}
@@ -1376,13 +1439,14 @@ export function OpenShopWizard({
                     <input type="hidden" name={SPECIALTIES_FIELD} value={JSON.stringify(picks)} />
                   </>
                 ) : null}
+                {sheetFoot('categories')}
               </div>
 
               <div
                 className={inSheet('events') ? sheetClass : 'hidden'}
                 style={sheetStyle('events')}
                 data-open-shop-page="events"
-                data-onboarding-fact="events"
+                data-onboarding-fact="events" {...sheetProps('events')}
               >
                 {sheetHead('events')}
                 <div className="block space-y-2">
@@ -1466,14 +1530,22 @@ export function OpenShopWizard({
                 </Fold>
                 {/* A refusal for a list this page no longer holds — drawn only when the block above cannot name one. */}
                 {errorField === 'extras' && !serviceOnNoEvent ? fieldError('extras') : null}
+                {sheetFoot('events')}
               </div>
             </div>
+
+            {/* PB1's line under the three answers: what Free is, and who couples find. No lead promised. */}
+            {step === 1 ? (
+              <p className={`max-w-[620px] text-xs ${slide}`} style={{ color: 'var(--m-slate-3)' }} data-onboarding-free-line="">
+                {OPEN_YOUR_SHOP_FREE_LINE}
+              </p>
+            ) : null}
 
             {/* ③ Where you are — its own sheet; the map pin stays (owner 19 Nov: "keep the map pin"). */}
             <div
               className={inSheet('where') ? sheetClass : 'hidden'}
               style={sheetStyle('where')}
-              data-onboarding-fact="where"
+              data-onboarding-fact="where" {...sheetProps('where')}
             >
               {sheetHead('where')}
               <div className="block space-y-1">
@@ -1500,13 +1572,14 @@ export function OpenShopWizard({
                   onAddressChange={setAddress}
                 />
               </div>
+              {sheetFoot('where')}
             </div>
 
             {/* ③ Contact person — your name, and your role at the shop (optional). */}
             <div
               className={inSheet('contact') ? sheetClass : 'hidden'}
               style={sheetStyle('contact')}
-              data-onboarding-fact="contact"
+              data-onboarding-fact="contact" {...sheetProps('contact')}
             >
               {sheetHead('contact')}
               <label className="block max-w-[620px] space-y-1">
@@ -1535,33 +1608,15 @@ export function OpenShopWizard({
                 {fieldError('contact_name')}
               </label>
 
-              {/* The role is FREE TEXT, optional — the shipped `contact_position` → `business_owner_position`. There is
-                  no role list to reuse, so none is invented (prototype v16 `lvS4A`). */}
-              <label className="block max-w-[620px] space-y-1">
-                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  Your role at the shop{' '}
-                  <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    optional
-                  </small>
-                </span>
-                <input
-                  // field-ok: the door's own plain box, like "Your name" beside it — prototype v16 draws all three alike
-                  id="open-shop-contact_position"
-                  name="contact_position"
-                  defaultValue={defaults.contactPosition}
-                  maxLength={64}
-                  placeholder="e.g. Owner"
-                  autoComplete="organization-title"
-                  className="input-field"
-                />
-              </label>
+              {guest ? null : roleBox}
+              {sheetFoot('contact')}
             </div>
 
             {/* ③ Contact number — its own sheet. */}
             <div
               className={inSheet('number') ? sheetClass : 'hidden'}
               style={sheetStyle('number')}
-              data-onboarding-fact="number"
+              data-onboarding-fact="number" {...sheetProps('number')}
             >
               {sheetHead('number')}
               <div className="block max-w-[620px] space-y-1">
@@ -1572,6 +1627,7 @@ export function OpenShopWizard({
                     right. Posts E.164 as `contact_phone`. Its refusal is drawn under it, by the box itself. */}
                 <PhoneField digits={phoneDigits} onDigits={setPhoneDigits} error={errorFor('contact_phone')} />
               </div>
+              {sheetFoot('number')}
             </div>
 
             {/* 2 · Create your account (SECOND) — signed out, the email + password open in place once "Continue with
@@ -1579,7 +1635,7 @@ export function OpenShopWizard({
                 shop's email. */}
             <div className={`${step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'} ${slide}`}>
               {/* When `taken`, this box has turned into the sign-in above — kept mounted (hidden) so its value posts. */}
-              <label className={taken || (guest && !acctEmail) ? 'hidden' : 'block max-w-[620px] space-y-1'}>
+              <label className={taken ? 'hidden' : 'block max-w-[620px] space-y-1'}>
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   {guest ? (
                     <>
@@ -1616,7 +1672,7 @@ export function OpenShopWizard({
               </label>
 
               {guest ? (
-                <label className={taken || !acctEmail ? 'hidden' : 'block max-w-[620px] space-y-1'}>
+                <label className={taken ? 'hidden' : 'block max-w-[620px] space-y-1'}>
                   <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                     Password
                   </span>
@@ -1640,6 +1696,8 @@ export function OpenShopWizard({
                   {fieldError('password')}
                 </label>
               ) : null}
+
+              {guest ? roleBox : null}
 
               {/* THE AGREEMENT, where the account is made — the account screen, UNTICKED (clickwrap, CTRL-B3). The
                   server refuses without it (`hasAgreedToTerms`). */}
@@ -1679,152 +1737,198 @@ export function OpenShopWizard({
             {/* 3 · Check your shop — ONE list, a sheet per fact (owner 19 Nov; SUPERSEDES "let it flow step by step"
                 for onboarding). A line with no answer reads "Add" and holds Continue; a tap opens its sheet. */}
             {step === CHECK_STEP ? <span hidden data-onboarding-check="" /> : null}
+            {/* The house backdrop under an open row's sheet — tap it (or Escape) and the sheet goes; what was typed stays. */}
+            {step === CHECK_STEP && sheet ? <OverlayBackdrop onClose={() => setSheet(null)} className="z-[var(--sn-z-scrim)]" /> : null}
             {step === CHECK_STEP
               ? rows.map((r) => {
                   const refused = errorField ? sheetOf(errorField) === r.fact : false;
-                  const open = sheet === r.fact;
+                  const later = SELF_SERVE_LATER.includes(r.fact);
+                  const body = (
+                    <>
+                      <span className="w-[92px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                        {r.label}
+                      </span>
+                      <span
+                        className="min-w-0 flex-1 truncate text-[14.5px] font-medium"
+                        style={{ color: r.value ? 'var(--m-ink)' : refused ? 'var(--m-mulberry-deep)' : 'var(--m-slate)' }}
+                      >
+                        {r.value ?? checkFactEmpty(r.fact)}
+                      </span>
+                      {r.value ? (
+                        <span
+                          aria-label="Done"
+                          className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full px-1.5"
+                          style={{ background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }}
+                        >
+                          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                      ) : later ? (
+                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11.5px]" style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}>
+                          Later
+                        </span>
+                      ) : null}
+                    </>
+                  );
                   return (
                     <div key={r.fact} className={`max-w-[620px] border-b ${slide}`} style={{ order: orderOf(r.fact), borderColor: 'var(--m-line)' }}>
-                      <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet, in place */
-                        type="button"
-                        onClick={() => (open ? doneSheet() : openSheet(r.fact))}
-                        className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
-                        aria-expanded={open}
-                        data-onboarding-row={r.fact}
-                        data-missing={r.missing ? '' : undefined}
-                      >
-                        <span
-                          aria-hidden
-                          className="grid h-6 w-6 shrink-0 place-items-center rounded-full border"
-                          style={
-                            r.missing
-                              ? { borderColor: refused ? 'var(--m-mulberry-deep)' : 'var(--m-line)', color: 'var(--m-slate-3)' }
-                              : { borderColor: 'rgb(var(--color-ok))', background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }
-                          }
+                      {later ? (
+                        /* "They pay you" — added in the shop once it is open, so a quiet line, not a door. */
+                        <div className="flex min-h-14 w-full items-center gap-3 py-3" data-onboarding-row={r.fact} data-later="">
+                          {body}
+                        </div>
+                      ) : (
+                        <button /* button-ok: a row of the "Your shop" list — the whole row opens its fact's sheet */
+                          type="button"
+                          onClick={() => openSheet(r.fact)}
+                          className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
+                          aria-haspopup="dialog"
+                          data-onboarding-row={r.fact}
+                          data-missing={r.missing ? '' : undefined}
                         >
-                          {r.missing ? null : <Check className="h-3.5 w-3.5" strokeWidth={3} />}
-                        </span>
-                        <span className="grid min-w-0 flex-1">
-                          <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                            {r.label}
-                          </span>
-                          <span
-                            className="truncate text-[14.5px] font-medium"
-                            style={{ color: r.value ? 'var(--m-ink)' : refused ? 'var(--m-mulberry-deep)' : 'var(--m-slate)' }}
-                          >
-                            {r.value ?? 'Add'}
-                          </span>
-                        </span>
-                        <ChevronRight
-                          aria-hidden
-                          className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
-                          strokeWidth={1.75}
-                          style={{ color: 'var(--m-slate-3)' }}
-                        />
-                      </button>
+                          {body}
+                          <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+                        </button>
+                      )}
                     </div>
                   );
                 })
               : null}
+            {step === CHECK_STEP ? (
+              <p className="flex max-w-[620px] items-start gap-1.5 text-xs" style={{ order: 40, color: 'var(--m-slate-3)' }} data-onboarding-check-note="">
+                <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                {SELF_SERVE_CHECK_NOTE}
+              </p>
+            ) : null}
 
             {/* 4 · Your first service card — drafted from the category + the main service; the supplier types the price
                 (no number is guessed). Approve needs the price · Edit opens the shipped Card Maker once the shop is
                 open · Skip makes no card. Posted with the shop; nothing is written before Open my shop. */}
             <div className={`${step === CARD_STEP ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-card="">
               <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
-              <div className="grid gap-3 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  {serviceLabel ?? 'Your service'} · {shopName.trim() || 'Your shop'}
+              {/* The card's name is drafted from the main service (PB4); the Card Maker renames it. */}
+              <input type="hidden" name={FIRST_CARD_FIELD.title} value={cardTitle} />
+              {/* PB4 — the drafted card, as couples will see it: its category, its name, its price or "No price yet". */}
+              <div className="grid gap-1.5 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
+                <span className="text-xs font-medium" style={{ color: 'var(--m-mulberry)' }}>
+                  {categoryLabels[0] ?? serviceLabel ?? 'Your service'}
                 </span>
-                <label className="block space-y-1">
-                  <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                    Card name
-                  </span>
-                  <input
-                    // field-ok: the onboarding's first card is the sign-up door's own plain box, like Shop name
-                    id="open-shop-first_card_title"
-                    name={FIRST_CARD_FIELD.title}
-                    value={cardTitle}
-                    onChange={(e) => {
-                      setCardTitle(e.target.value);
-                      setCardTitleTouched(true);
-                      setCardErr(null);
-                    }}
-                    maxLength={FIRST_CARD_TITLE_MAX}
-                    placeholder="e.g. Wedding photo and video"
-                    className="input-field"
-                  />
-                </label>
-                <label className="block space-y-1">
-                  <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                    Starting price{' '}
-                    <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                      needed to approve
-                    </small>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span aria-hidden className="text-sm font-medium" style={{ color: 'var(--m-slate)' }}>
-                      ₱
-                    </span>
-                    <input
-                      // field-ok: one plain box for the card's price, digits only — the Card Maker holds the full pricing
-                      id="open-shop-first_card_price"
-                      name={FIRST_CARD_FIELD.price}
-                      value={cardPrice}
-                      onChange={(e) => {
-                        setCardPrice(e.target.value.replace(/[^\d]/g, '').slice(0, 9));
-                        setCardErr(null);
-                      }}
-                      inputMode="numeric"
-                      placeholder="Your starting price"
-                      className="input-field"
-                      aria-describedby={cardErr ? 'open-shop-err-card' : undefined}
-                    />
-                  </span>
-                  {cardPriceNumber ? (
-                    <span className="block text-xs tabular-nums" style={{ color: 'var(--m-slate-3)' }}>
-                      Starts at ₱{formatCount(cardPriceNumber)}
-                    </span>
-                  ) : null}
-                </label>
+                <b className="text-[17px] font-semibold" style={{ color: 'var(--m-ink)' }}>
+                  {cardTitle.trim() || serviceLabel || 'Your service'}
+                </b>
+                <span className="text-sm tabular-nums" style={{ color: cardPriceNumber ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
+                  {cardPriceNumber ? `From ₱${formatCount(cardPriceNumber)}` : 'No price yet'}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  Add what&rsquo;s included in the Card Maker.
+                </span>
               </div>
+              {/* "Built from what you typed" — where each part of the draft came from. */}
+              <div className="grid gap-1.5 text-[13.5px]" data-onboarding-card-source="">
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  Built from what you typed
+                </span>
+                {[
+                  ['Category', categoryLabels[0] ?? '—', 'you picked it'],
+                  ['Service', serviceLabel ?? '—', 'you named it'],
+                  ['Price', cardPriceNumber ? `₱${formatCount(cardPriceNumber)}` : 'Not set', cardPriceNumber ? 'you typed it' : 'type yours'],
+                ].map(([k, v, why]) => (
+                  <span key={k} className="flex items-baseline gap-2">
+                    <span className="w-[72px] shrink-0" style={{ color: 'var(--m-slate-3)' }}>
+                      {k}
+                    </span>
+                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                      {v}
+                    </span>
+                    <small style={{ color: 'var(--m-slate-3)' }}>{why}</small>
+                  </span>
+                ))}
+              </div>
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  From (PHP)
+                </span>
+                <input
+                  // field-ok: one plain box for the card's price, digits only — the Card Maker holds the full pricing
+                  id="open-shop-first_card_price"
+                  name={FIRST_CARD_FIELD.price}
+                  value={cardPrice}
+                  onChange={(e) => {
+                    setCardPrice(e.target.value.replace(/[^\d]/g, '').slice(0, 9));
+                    setCardErr(null);
+                  }}
+                  inputMode="numeric"
+                  placeholder="e.g. 8,500"
+                  className="input-field"
+                  aria-describedby={cardErr ? 'open-shop-err-card' : undefined}
+                />
+              </label>
               {cardErr ? (
                 <span id="open-shop-err-card" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-mulberry-deep)' }} role="alert">
                   <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
                   <span>{cardErr}</span>
                 </span>
               ) : null}
-              <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
-                <ActionButton tone="neutral" icon={SkipForward} label="Skip" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
-                <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
-                <ActionButton tone="brand" main icon={Check} label="Approve" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
-              </div>
-              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                Edit opens the Card Maker as soon as your shop is open. Skip makes no card — add one from Today.
+              {/* PB4·b — no client is booked on it, so it is never locked. Edit opens the shipped Card Maker the moment
+                  the shop is open (it needs the shop); until then the price above is the whole draft. */}
+              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">
+                {cardPriceNumber
+                  ? 'Edit any time. No client is booked on it yet.'
+                  : 'Edit opens the Card Maker once your shop is open.'}
               </p>
+              <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+                <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
+                <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
+                <ActionButton tone="brand" main icon={Check} label="Approve card" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
+              </div>
             </div>
 
             {/* 5 · You're all set — what opens, the plan (when the picks are more than Free holds), what "free" means,
                 then Open my shop. */}
             <div className={`${step === TOTAL_STEPS ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-done="">
-              <ul className="grid gap-1.5 text-[13.5px]" style={{ color: 'var(--m-ink)' }}>
-                <li>
-                  <b>{shopName.trim() || 'Your shop'}</b>
-                  {slug ? <span style={{ color: 'var(--m-slate)' }}> · setnayan.com/{slug}</span> : null}
-                </li>
-                <li style={{ color: 'var(--m-slate)' }}>
-                  {serviceLabel ?? ''}
-                  {confirmedCity ? ` · ${confirmedCity}` : ''}
-                </li>
-                <li data-onboarding-done-card="">
-                  {cardChoice === 'approve'
-                    ? `First card: ${cardTitle.trim()}${cardPriceNumber ? ` · from ₱${formatCount(cardPriceNumber)}` : ''}`
-                    : cardChoice === 'edit'
-                      ? `First card: ${cardTitle.trim() || 'drafted'} — opens in the Card Maker next`
-                      : 'No service card yet — add one from Today.'}
-                </li>
+              {/* PB5 — what opens, each row ticked: Shop · Cards · Link. A card not made says so (no tick). */}
+              <ul className="grid divide-y border-y text-[14px]" style={{ borderColor: 'var(--m-line)' }} data-onboarding-done-rows="">
+                {(
+                  [
+                    ['Shop', shopName.trim() || 'Your shop', true],
+                    [
+                      'Cards',
+                      cardChoice === 'approve'
+                        ? `${cardTitle.trim()} · on your page`
+                        : cardChoice === 'edit'
+                          ? `${cardTitle.trim() || 'Your first card'} · opens in the Card Maker`
+                          : 'None yet — add one from Today',
+                      cardChoice === 'approve',
+                    ],
+                    ['Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                  ] as const
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v, ok]) => (
+                    <li key={k} className="flex min-h-12 items-center gap-3 py-2.5" style={{ borderColor: 'var(--m-line)' }} data-onboarding-done-card={k === 'Cards' ? '' : undefined}>
+                      <span className="w-[72px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                        {k}
+                      </span>
+                      <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                        {v}
+                      </span>
+                      {ok ? (
+                        <span aria-label="Done" className="grid h-6 w-6 shrink-0 place-items-center rounded-full" style={{ background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }}>
+                          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
               </ul>
-              {overFree ? <PlanOnLastScreen {...planProps} /> : null}
+              {/* PB5's Free row: what Free is, then the honest line — unverified Free is 0 km, nobody finds it in search. */}
+              <div className="grid gap-1" data-onboarding-done-free="">
+                <span className="flex items-baseline gap-2 text-[14px]">
+                  <b style={{ color: 'var(--m-ink)' }}>{DONE_FREE_ROW.name}</b>
+                  <span style={{ color: 'var(--m-slate)' }}>{DONE_FREE_ROW.line}</span>
+                </span>
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  {DONE_FREE_LINE}
+                </span>
+              </div>
               {/* WHAT "FREE" MEANS, SAID ON THE SCREEN WHERE THEY COMMIT (You're all set, 19 Nov). 🔴 Owner 2026-09-20, as a supplier who had
                   just been billed: "as a vendor i do not know i have to pay." ⓘ A10 / 2026-11-06: one line, the
                   numbers inside the ⓘ — `feeNotice` is composed by `bookingFeeJoinDisclosure` from the LIVE
@@ -1843,6 +1947,8 @@ export function OpenShopWizard({
                   </InfoTip>
                 </p>
               ) : null}
+              {/* The plan, when their picks are more than Free holds (its tick inside); else PB5's tick on its own. */}
+              {overFree ? <PlanOnLastScreen {...planProps} /> : <PlanAgree agreed={planAgreed} onAgree={planProps.onAgree} error={planErr} />}
             </div>
 
             {/* A refusal no box owns (the account could not be created just now) — above the button that retries. */}
@@ -1863,6 +1969,9 @@ export function OpenShopWizard({
                   carries the form's pending word and the no-touch veil. */}
               {step > 1 ? (
                 <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="open-shop-back" />
+              ) : guest ? (
+                /* PB1's quiet "I have an account" — the same sign-in the top line offers; what was typed stays. */
+                <ActionButton tone="neutral" icon={LogIn} label="I have an account" href={signInHref} data-testid="open-shop-have-account" />
               ) : null}
               {stale ? (
                 <ActionButton
@@ -1900,7 +2009,7 @@ export function OpenShopWizard({
                 )
               ) : (
                 <SubmitButton className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
-                  Open my shop — free
+                  Open my shop
                 </SubmitButton>
               )}
             </div>

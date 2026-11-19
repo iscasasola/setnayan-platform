@@ -15,6 +15,7 @@ import { ensureBusinessAlaga } from '@/lib/business-alaga-ensure';
 import { VENDOR_CATEGORIES } from '@/lib/vendors';
 import { getVendorServableEventTypes } from '@/lib/event-types-db';
 import { canOpenAnotherShop } from '@/lib/shop-limits';
+import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { getOpenShopServiceTree, resolvePickedLeaf, type PickerLeaf } from '@/lib/open-shop-service-tree';
 import {
   clipBusinessSlug,
@@ -76,7 +77,12 @@ import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 import { createVendorService } from '@/app/vendor-dashboard/services/actions';
 import {
   FIRST_CARD_FIELD,
+  FIRST_CARD_PARAM,
   FIRST_CARD_TITLE_MAX,
+  WELCOME_CLAIMED_PATH,
+  WELCOME_OPENED_PATH,
+  firstCardCarryPath,
+  firstCardFrom,
   firstCardLanding,
   parseCardPrice,
   parseFirstCardChoice,
@@ -414,10 +420,34 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // It used to be created FIRST. With email verification on (A1) that ordering is a trap: a refusal on step 1/2/4
   // after the account exists sends the person back, the resubmit's signUp says "already has an account", and the
   // sign-in it offers is refused until the email link is tapped. So the shop's own checks run first.
+  // ── ④ THE FIRST CARD, READ BEFORE THE ACCOUNT IS MADE (19 Nov review: "on the Email way the approved card and the
+  // welcome are dropped") ─────────────────────────────────────────────────────────────────────────────────────────
+  // With email confirmation on, nobody is signed in when the shop opens, and the SHIPPED card maker needs a session —
+  // so the card cannot be made here on that way. It is not dropped: the confirm link lands on Today's welcome carrying
+  // the drafted card (`firstCardCarryPath`, a service's name and price — no personal detail), and the welcome's
+  // "Approve card" makes it with the same maker (`approveFirstCard`). Read here because the link is written at signUp.
+  const cardChoice = parseFirstCardChoice(formData.get(FIRST_CARD_FIELD.choice));
+  const cardTitle = clean(formData.get(FIRST_CARD_FIELD.title), FIRST_CARD_TITLE_MAX) ?? '';
+  const cardPrice = parseCardPrice(formData.get(FIRST_CARD_FIELD.price));
+  const cardCategory = pickedLeaf ?? coarseService ?? null;
+  const cardDrafted = cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory ? true : false;
+  const plan = parseSupplierPlan(formData.get('plan'));
+  const afterConfirm =
+    cardDrafted
+      ? firstCardCarryPath(WELCOME_OPENED_PATH, {
+          state: 'waiting',
+          title: cardTitle,
+          price: cardPrice as number,
+          category: cardCategory as string,
+        })
+      : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId: null, category: cardCategory }));
+
   let user: { id: string; email?: string | null } | null = sessionUser;
   let checkEmail: string | null = null;
   if (decision.kind === 'create') {
     const created = await createVendorAccountForShop({
+      // The confirm link lands where the door would have: Today's welcome (with the card, when one was drafted).
+      confirmNext: afterConfirm,
       email: decision.email,
       password: decision.password,
       // The name typed on step 4 ("You") becomes the account's name — the same rule the
@@ -805,42 +835,83 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // W1-B4 (walk 16 Nov 2026): the address is parked in this browser's cookie, never in the URL (history, logs).
   if (checkEmail) {
     await parkSentTo(checkEmail);
-    redirect(`/open-shop?check_inbox=${CHECK_INBOX_FLAG}`);
+    // `after`: where "sign in" on the check-your-inbox screen lands — the same welcome the link opens.
+    redirect(`/open-shop?check_inbox=${CHECK_INBOX_FLAG}&after=${encodeURIComponent(afterConfirm)}`);
   }
   // ── ④ THE FIRST SERVICE CARD (supplier onboarding, owner 19 Nov) — through the SHIPPED card maker's own action ──
   // Approve (a price is required, re-checked here) and Edit-with-a-price make the card with `createVendorService`, the
-  // same way the claim door makes its cards: its redirect is READ, never followed, and its refusals (the plan's
-  // category cap, a phone number in the name) are the maker's own — a refused card is simply not made, and Today's
-  // first steps still ask for one. Skip makes none. ⚠ Best-effort, like the coverages: never costs the shop.
-  const cardChoice = parseFirstCardChoice(formData.get(FIRST_CARD_FIELD.choice));
-  const cardTitle = clean(formData.get(FIRST_CARD_FIELD.title), FIRST_CARD_TITLE_MAX) ?? '';
-  const cardPrice = parseCardPrice(formData.get(FIRST_CARD_FIELD.price));
-  const cardCategory = pickedLeaf ?? coarseService ?? null;
-  const cardId =
-    cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory
-      ? await makeFirstCard(admin, vendorProfileId as string, { title: cardTitle, price: cardPrice, category: cardCategory })
-      : null;
+  // same way the claim door makes its cards: its redirect is READ, never followed. 🔴 A REFUSED CARD IS SAID, NEVER
+  // SWALLOWED (19 Nov review): the maker's own sentence (its plan cap, a phone number in the name …) is carried to
+  // Today's welcome, which says "Your first card wasn't made", why, and offers Approve again and the Card Maker — it
+  // used to land on Today as if the card existed. Skip makes none. The shop is open either way.
+  const made = cardDrafted
+    ? await makeFirstCard(admin, vendorProfileId as string, {
+        title: cardTitle,
+        price: cardPrice as number,
+        category: cardCategory as string,
+      })
+    : null;
+  if (made && made.ok === false) {
+    redirect(
+      firstCardCarryPath(WELCOME_OPENED_PATH, {
+        state: 'refused',
+        title: cardTitle,
+        price: cardPrice as number,
+        category: cardCategory as string,
+        why: made.why,
+      }),
+    );
+  }
+  const cardId = made && made.ok ? made.id : null;
 
   // 🚪 THE DOOR LANDS ON TODAY'S WELCOME (owner 19 Nov): Add the clients you already have · Add your logo · Get
   // verified. The logo screen (`/open-shop/logo`, A2) is no longer forced between the door and Today — it is the
   // welcome's second step. Edit lands in the shipped Card Maker instead (`firstCardLanding`).
   // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
   // plan it came for is offered (the plan sheet, that row open).
-  const plan = parseSupplierPlan(formData.get('plan'));
   if (cardChoice === 'edit') redirect(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
   redirect(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
 }
 
 /**
+ * ④ THE WELCOME'S "Approve card" — the first card that could not be made at the door (the Email way: nobody was signed
+ * in yet; or the maker refused it and the supplier tries again). Signed in now, so the SHIPPED maker makes it. Every
+ * field is re-read and re-checked (it came back on an address); a refusal lands on the welcome again, saying why.
+ */
+export async function approveFirstCard(formData: FormData): Promise<void> {
+  const welcome = formData.get('welcome') === WELCOME_CLAIMED_PATH ? WELCOME_CLAIMED_PATH : WELCOME_OPENED_PATH;
+  const card = firstCardFrom({
+    [FIRST_CARD_PARAM.state]: 'waiting',
+    [FIRST_CARD_PARAM.title]: String(formData.get(FIRST_CARD_FIELD.title) ?? ''),
+    [FIRST_CARD_PARAM.price]: String(formData.get(FIRST_CARD_FIELD.price) ?? ''),
+    [FIRST_CARD_PARAM.category]: String(formData.get('first_card_category') ?? ''),
+  });
+  if (!card) redirect(welcome);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login?next=' + encodeURIComponent(firstCardCarryPath(welcome, card)) + '&as=vendor');
+  // The shop on screen, through the ONE resolver (lib/active-shop.ts) — and only when this login OWNS it: the card is
+  // made with the admin client, so a helper standing in somebody else's shop is told why, never given a write.
+  const shop = await resolveOwnedActiveShop(supabase, user.id);
+  if (!shop.ok) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: shop.error }));
+  const made = await makeFirstCard(createAdminClient(), shop.vendorProfileId, card);
+  if (made.ok === false) redirect(firstCardCarryPath(welcome, { ...card, state: 'refused', why: made.why }));
+  revalidatePath('/vendor-dashboard');
+  redirect(welcome);
+}
+
+/**
  * ④ Make the onboarding's first card with the SHIPPED `createVendorService` (fixed price — the Card Maker holds every
- * other way to price it) and return its id, or null when the maker refused it. The maker answers with a redirect,
- * which is read, never followed — `?error=` (or no session yet) means no card.
+ * other way to price it). The maker answers with a redirect, which is read, never followed: `?error=` is ITS sentence,
+ * returned as `why` so the screen can say it; no session yet is said too. Never "nothing happened".
  */
 async function makeFirstCard(
   admin: ReturnType<typeof createAdminClient>,
   vendorProfileId: string,
   card: { title: string; price: number; category: string },
-): Promise<string | null> {
+): Promise<{ ok: true; id: string | null } | { ok: false; why: string }> {
   const fd = new FormData();
   fd.set('category', card.category);
   fd.set('title', card.title);
@@ -851,12 +922,13 @@ async function makeFirstCard(
   } catch (e) {
     if (!isRedirectError(e)) {
       console.error('[open-shop] the first card failed:', e instanceof Error ? e.message : e);
-      return null;
+      return { ok: false, why: FIRST_CARD_NOT_MADE };
     }
     const url = new URL(getURLFromRedirectError(e) ?? '', 'http://open-shop.local');
-    if (url.searchParams.get('error') || url.pathname === '/login') {
-      console.warn('[open-shop] the first card was refused by the maker:', url.searchParams.get('error') ?? url.pathname);
-      return null;
+    const refused = url.searchParams.get('error');
+    if (refused || url.pathname === '/login') {
+      console.warn('[open-shop] the first card was refused by the maker:', refused ?? url.pathname);
+      return { ok: false, why: refused ?? FIRST_CARD_NOT_MADE };
     }
   }
   const { data, error } = await admin
@@ -867,6 +939,10 @@ async function makeFirstCard(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
+  // The card was made (the maker said so); only its id could not be read back — Edit then opens the maker on its kind.
   if (error) console.error('[supabase-error] app/open-shop/actions.ts · from:vendor_services.select', error.message);
-  return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
+  return { ok: true, id: (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null };
 }
+
+/** Said when the maker failed without a sentence of its own. */
+const FIRST_CARD_NOT_MADE = 'Something went wrong making it. Please try again.';

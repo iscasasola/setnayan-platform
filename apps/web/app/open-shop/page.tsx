@@ -1,6 +1,7 @@
 import { readSentTo } from '@/lib/open-shop-sent-to';
 import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { redirect } from 'next/navigation';
+import { safeNext } from '@/lib/safe-next';
 
 import { createClient } from '@/lib/supabase/server';
 import { shopConsolePath } from '@/lib/shop-console-path';
@@ -50,9 +51,9 @@ export const metadata = { title: 'Open your shop' };
 export default async function OpenShopPage({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; as?: string; claim?: string; way?: string }>;
+  searchParams: Promise<{ plan?: string; error?: string; step?: string; next?: string; taken?: string; check_inbox?: string; after?: string; as?: string; claim?: string; way?: string }>;
 }) {
-  const { plan, error, step, next, taken, check_inbox: checkInbox, as: arrivedAs, claim, way } = await searchParams;
+  const { plan, error, step, next, taken, check_inbox: checkInbox, after, as: arrivedAs, claim, way } = await searchParams;
   const claimToken = typeof claim === 'string' && claim.trim() ? claim.trim().slice(0, 200) : null;
   // Where a person who ALREADY has a shop is sent (e.g. "Get your invite link"
   // on /for-suppliers → `?next=/vendor-dashboard/shop/promote`). Same-origin by
@@ -288,6 +289,8 @@ export default async function OpenShopPage({
       emailTaken={taken === '1'}
       // A1: the shop is open (`?check_inbox=`, never `?sent=` — that word is a global "Sent." toast) and the account waits for its link (verification on). Only ever the signed-out page.
       sentTo={guest ? sentTo : null}
+      // Where "sign in" on that screen lands — the same welcome the email link opens (safe, same-origin only).
+      sentToNext={guest && sentTo ? safeNext(after, '/vendor-dashboard') : null}
       initialStep={(['1', '2', '3', '4', '5'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4 | 5}
     />
   );

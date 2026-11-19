@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7978
+# facts: 7981
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     648
-#   col       5743
+#   col       5746
 #   policy    1170
 #   view      10
 #   func      403
@@ -4131,9 +4131,11 @@ col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.gcash_account_name	anon=- authenticated=S
+col	public.platform_settings.gcash_allowance_php	anon=- authenticated=S
 col	public.platform_settings.gcash_available_as_of	anon=- authenticated=S
 col	public.platform_settings.gcash_available_php	anon=- authenticated=S
 col	public.platform_settings.gcash_enabled	anon=- authenticated=S
+col	public.platform_settings.gcash_max_php	anon=- authenticated=S
 col	public.platform_settings.gcash_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.gcash_number	anon=- authenticated=S
 col	public.platform_settings.gcash_qr_payload	anon=- authenticated=S
@@ -4159,6 +4161,7 @@ col	public.platform_settings.loader_pop_enabled	anon=- authenticated=S
 col	public.platform_settings.loader_step_interval_ms	anon=- authenticated=S
 col	public.platform_settings.loader_variant	anon=- authenticated=S
 col	public.platform_settings.loader_veil_opacity	anon=- authenticated=S
+col	public.platform_settings.max_payment_php	anon=- authenticated=S
 col	public.platform_settings.maya_checkout_endpoint	anon=- authenticated=S
 col	public.platform_settings.meta_page_id	anon=- authenticated=S
 col	public.platform_settings.onboarding_bg_music_enabled	anon=- authenticated=S

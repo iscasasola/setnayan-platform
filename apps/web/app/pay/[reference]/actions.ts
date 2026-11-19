@@ -13,6 +13,11 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
+import { readReferenceToLog, receiptPaidOnToLog } from '@/lib/payment-receipt-read';
+import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
 
 /**
  * The one proof submission, for every purchase.
@@ -83,6 +88,16 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     back(reference, 'error', 'This one is already settled — nothing more to send.');
   }
 
+  // ── THE MOST ONE PAYMENT TO SETNAYAN MAY BE (owner 2026-11-17) ────────────
+  // No single payment made TO SETNAYAN may exceed `platform_settings.max_payment_php`
+  // (₱100,000; exactly ₱100,000 is allowed). The page already shows no code for
+  // such a bill — this is the server half, so a stale tab or a hand-made post is
+  // refused too. Read the admin setting, never a typed number.
+  const maxPaymentPhp = await getMaxPaymentPhp(supabase);
+  if (!paymentWithinCeiling(payable.amountPhp, maxPaymentPhp)) {
+    back(reference, 'error', paymentOverCeilingMessage(maxPaymentPhp));
+  }
+
   // ── The couple's coordinator consent gate, which this page must not be a way
   // round ─────────────────────────────────────────────────────────────────────
   // `orders_owner_read` admits ANY member of the event (migration 20270129279924
@@ -126,6 +141,9 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
     screenshotUrl = refRaw.trim();
   }
 
+  // ⛔ NOTHING IS TYPED ANY MORE (owner 2026-11-17: "the don't have to type").
+  // The field is gone from the page; a value still posted by a tab opened before
+  // it went is kept, because a reference somebody gave us is more to match on.
   const bankReference = normaliseReference(formData.get('reference_last6'));
 
   // ── A CLAIM WITH NOTHING IN IT IS WORSE THAN NO CLAIM ──────────────────────
@@ -134,25 +152,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   // which is unreconcilable — and, because the page hides the form once
   // anything is logged, it also took away the only way to send the real proof.
   // Refuse instead, and say which half is missing.
-  if (!screenshotUrl && !bankReference) {
+  //
+  // ⚖ THE PICTURE IS THE CLAIM NOW (owner 2026-11-17). With nothing typed, the
+  // receipt screenshot is what the admin matches — so it is required on EVERY
+  // lane, booking fees included. That supersedes the 2026-08-06 "a booking fee
+  // must carry a typed reference": the reference is READ off the picture below
+  // and stored on the payment, which is what that ruling wanted to have.
+  if (!screenshotUrl) {
     back(
       reference,
       'error',
-      'Add your payment screenshot and the last 6 digits of your reference number — we need at least one of them to find your payment.',
-    );
-  }
-
-  // ⚖ AND A BOOKING FEE MUST CARRY ONE (owner 2026-08-06). On that lane the
-  // reference is REQUIRED, not merely useful: it is money a shop owes Setnayan
-  // and the admin reconciles it against a bank message rather than guessing.
-  // Note the owner's rule is that a reference is PRESENT — `requireBookingFeeReference`
-  // sets no minimum length and no format, and says so — so the last-six field
-  // satisfies it without either rule bending.
-  if (payable.requiresReference && !bankReference) {
-    back(
-      reference,
-      'error',
-      'Add the reference number from your bank or e-wallet confirmation — we need it to match your payment.',
+      'Upload the screenshot of your payment receipt — we read the reference, amount, date and time off it to find your payment.',
     );
   }
 
@@ -172,6 +182,17 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
   )
     ? channelRaw
     : 'bank_transfer';
+
+  // ⚖ ONE QR, AND THE SERVER ASKS THE SAME QUESTION (owner 2026-11-18). A GCash
+  // receipt is taken only when `pickPayerRail` — the rule the page drew its one
+  // code from — would have chosen GCash for this amount: under the line, with
+  // room left in this month's allowance. Otherwise (₱1,000 and up, allowance
+  // spent, anything unreadable) the page showed BDO, so a GCash proof is
+  // refused rather than filed against the wrong account.
+  if (isGcashRail({ id: channel, label: channel })) {
+    const pick = pickPayerRail(payable.amountPhp, await getGcashGate({ excludeOrderId: payable.orderId }));
+    if (pick !== 'gcash') back(reference, 'error', GCASH_PROOF_REFUSED_MESSAGE);
+  }
 
   const idempotencyRaw = formData.get('client_idempotency_key');
   const idempotencyKey =
@@ -202,6 +223,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
           proofPolicy: orderPaymentProofPolicy(payable.orderId),
           typedReference: bankReference,
           expectedPhp: payable.amountPhp,
+          channel,
         });
       })()
     : null;
@@ -251,9 +273,22 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
           // The ORDER's amount, never the form's — see the header.
           amount_php: payable.amountPhp,
           channel,
-          reference_number: bankReference,
+          // 🔑 WHAT WE READ IS LOGGED FOR THE ADMIN TO MATCH (owner 2026-11-17:
+          // "we detect after they sent it and log the data"). A typed value (an
+          // old tab) wins; else the reference read off the receipt; else nothing.
+          // ⚠ ADVISORY: these are lookup keys beside the admin's own bank
+          // record. Nothing here sets a status — `isDecisivePaymentMatch` and
+          // the admin's approval stay the only way money is let through.
+          // 🚨 `readReferenceToLog` drops a read that carries THIS order's own
+          // code — it would make the row a one-click "clean match" from a
+          // picture of our own page (see its docblock).
+          reference_number:
+            bankReference ?? readReferenceToLog(receiptRead?.readReference, payable.reference),
           screenshot_url: screenshotUrl,
-          paid_at: new Date().toISOString().slice(0, 10),
+          // The date printed on the receipt when one was read AND plausible
+          // (not in the future, not stale — `receiptPaidOnToLog`), else today.
+          paid_at:
+            receiptPaidOnToLog(receiptRead?.seenPaidOn) ?? new Date().toISOString().slice(0, 10),
           client_idempotency_key: idempotencyKey,
         },
       ),

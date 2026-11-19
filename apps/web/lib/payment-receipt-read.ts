@@ -34,7 +34,7 @@
  * a database or a key.
  */
 
-import { scanPaymentProof } from '@/lib/payment-proof-scan';
+import { scanPaymentProof, extractReceiptPaidAt, preferredReference } from '@/lib/payment-proof-scan';
 import {
   compareReferences,
   normalizeReference,
@@ -87,6 +87,18 @@ export type PaymentReceiptRead = {
   amountMatches: boolean | null;
   seenReferences: string[];
   seenAmounts: number[];
+  /**
+   * The ONE reference to log on the payment when the payer typed none (owner
+   * 2026-11-17: "the don't have to type") — the rail's own matching key, so on
+   * BDO the InstaPay invoice number before the decoy "Ref No." (see
+   * `preferredReference`). NULL when none was read. Advisory: it is a lookup
+   * key for the admin, never a verdict.
+   */
+  readReference: string | null;
+  /** The transfer date on the receipt, `YYYY-MM-DD`, or NULL. */
+  seenPaidOn: string | null;
+  /** The transfer clock time on the receipt, `HH:MM[:SS]` 24-hour, or NULL. */
+  seenPaidTime: string | null;
   /** One plain sentence for the admin. */
   summary: string;
   error: string | null;
@@ -181,7 +193,8 @@ export function summariseReceiptRead(args: {
 }
 
 /**
- * Read a transcribed receipt.
+ * Read a transcribed receipt — the references, the amounts, and (owner
+ * 2026-11-17) the date and time of the transfer, so the payer types nothing.
  *
  * @param transcript  whatever the model typed out (or a sentinel)
  * @param typed       the reference the buyer entered on the pay page
@@ -191,6 +204,8 @@ export function readPaymentReceipt(args: {
   transcript: string;
   typed: string | null | undefined;
   expectedPhp: number | null;
+  /** The rail it was paid to — picks which reference is the matching key. Default BDO. */
+  channel?: string | null;
 }): PaymentReceiptRead {
   const text = args.transcript.trim();
 
@@ -201,6 +216,9 @@ export function readPaymentReceipt(args: {
       amountMatches: null,
       seenReferences: [],
       seenAmounts: [],
+      readReference: null,
+      seenPaidOn: null,
+      seenPaidTime: null,
       summary: 'The picture could not be read. Open it yourself.',
       error: null,
     };
@@ -213,6 +231,9 @@ export function readPaymentReceipt(args: {
       amountMatches: null,
       seenReferences: [],
       seenAmounts: [],
+      readReference: null,
+      seenPaidOn: null,
+      seenPaidTime: null,
       summary: 'That picture does not look like a payment receipt. Open it yourself.',
       error: null,
     };
@@ -221,6 +242,7 @@ export function readPaymentReceipt(args: {
   const scan = scanPaymentProof(text, args.expectedPhp ?? undefined);
   const seenReferences = scan.references.map((r) => r.value);
   const { matches, reason } = referenceVerdict(args.typed, seenReferences);
+  const paidAt = extractReceiptPaidAt(text);
 
   return {
     status: 'ok',
@@ -228,6 +250,10 @@ export function readPaymentReceipt(args: {
     amountMatches: scan.matchesExpected,
     seenReferences,
     seenAmounts: scan.amounts,
+    // Every payment enters BDO (owner 2026-11-17), so BDO's key leads.
+    readReference: preferredReference(scan, args.channel === 'gcash' ? 'gcash' : 'bdo')?.value ?? null,
+    seenPaidOn: paidAt.date,
+    seenPaidTime: paidAt.time,
     summary: summariseReceiptRead({
       referenceMatches: matches,
       referenceReason: reason,
@@ -283,4 +309,62 @@ export function shouldAskBuyerToFix(
   read: { status: ReceiptReadStatus; referenceMatches: boolean | null } | null | undefined,
 ): boolean {
   return read?.status === 'ok' && read.referenceMatches === false;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * WHAT A READ MAY WRITE ONTO THE PAYMENT ROW ITSELF (review of #7926, 2026-11-18)
+ *
+ * The reader's findings live in `payment_receipt_reads`, advisory. Two of them
+ * are also copied onto `payments` so the payer types nothing (owner 2026-11-17)
+ * — and THAT row is read by money code, so each copy is gated here.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const alnumUpper = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+
+/**
+ * The read reference to store on `payments.reference_number`, or NULL.
+ *
+ * 🚨 NEVER ONE THAT CARRIES THE ORDER'S OWN CODE. `isDecisivePaymentMatch`
+ * (lib/orders.ts) — the predicate that turns a row GREEN for one-click and batch
+ * approval — is "reference_number contains the order's reference code" plus an
+ * amount that, on /pay, is always the order's own. A scanned-QR transfer cannot
+ * carry our code, so a READ reference containing it means the picture shows OUR
+ * text: a screenshot of the pay page or of the shared QR card instead of a bank
+ * receipt, or a forged one. Storing it would let an AI read of a payer-supplied
+ * picture make an unpaid order a clean match. Dropped; the admin still sees
+ * every reference in the receipt-read card.
+ */
+export function readReferenceToLog(
+  readReference: string | null | undefined,
+  orderReferenceCode: string | null | undefined,
+): string | null {
+  const ref = readReference ? alnumUpper(readReference) : '';
+  if (ref.length === 0) return null;
+  const code = orderReferenceCode ? alnumUpper(orderReferenceCode) : '';
+  if (code.length > 0 && ref.includes(code)) return null;
+  return ref.slice(0, 64);
+}
+
+/** How far back a receipt's printed date is still believed (days). */
+export const RECEIPT_DATE_MAX_AGE_DAYS = 60;
+
+/**
+ * The receipt's printed date to store on `payments.paid_at`, or NULL (caller
+ * keeps today). A date in the FUTURE, or older than
+ * `RECEIPT_DATE_MAX_AGE_DAYS`, is a misread (an expiry, a birthday, a 2-digit
+ * year) — `paid_at` is printed on the payer's receipt page and history, so a
+ * wrong one is worse than today's. One day of slack covers Manila vs UTC.
+ */
+export function receiptPaidOnToLog(
+  seenPaidOn: string | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  if (!seenPaidOn || !/^\d{4}-\d{2}-\d{2}$/.test(seenPaidOn)) return null;
+  const t = Date.parse(`${seenPaidOn}T00:00:00Z`);
+  if (!Number.isFinite(t)) return null;
+  const day = 86_400_000;
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (t > today + day) return null;
+  if (t < today - RECEIPT_DATE_MAX_AGE_DAYS * day) return null;
+  return seenPaidOn;
 }

@@ -100,6 +100,9 @@ const failed = (summary: string, error: string): ReceiptReadRecord => ({
   amountMatches: null,
   seenReferences: [],
   seenAmounts: [],
+  readReference: null,
+  seenPaidOn: null,
+  seenPaidTime: null,
   summary,
   error,
   model: null,
@@ -143,6 +146,8 @@ export async function readPaymentReceiptFromR2(args: {
   proofPolicy: ClientRefPolicy;
   typedReference: string | null;
   expectedPhp: number | null;
+  /** The rail it was paid to — picks the matching key (`readReference`). */
+  channel?: string | null;
 }): Promise<ReceiptReadRecord | null> {
   if (!receiptReaderConfigured()) return null;
 
@@ -200,6 +205,7 @@ export async function readPaymentReceiptFromR2(args: {
     transcript,
     typed: args.typedReference,
     expectedPhp: args.expectedPhp,
+    channel: args.channel,
   });
   return { ...read, model: RECEIPT_READ_MODEL };
 }
@@ -223,6 +229,10 @@ export async function recordPaymentReceiptRead(
     amount_matches: read.amountMatches,
     seen_references: read.seenReferences,
     seen_amounts: read.seenAmounts,
+    // The date and time on the receipt (owner 2026-11-17) — for the admin to
+    // match against the bank's own record. Advisory, like every column here.
+    seen_paid_on: read.seenPaidOn,
+    seen_paid_time: read.seenPaidTime,
     summary: read.summary,
     error: read.error,
     model: read.model,

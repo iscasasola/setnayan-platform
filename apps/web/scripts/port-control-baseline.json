@@ -5103,6 +5103,7 @@
         "ConsoleTable",
         "Field",
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "QrUploadForm",
         "SubmitButton"
@@ -13592,6 +13593,7 @@
     "/pay/[reference]": {
       "files": [
         "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/page.tsx"
       ],
@@ -13617,6 +13619,7 @@
         "PayStage",
         "PaymentDetailsBlock",
         "ProofForm",
+        "SentScreen",
         "StageLink",
         "StageRail",
         "Step",

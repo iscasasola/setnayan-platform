@@ -75,7 +75,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) {
       return (
-        <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
           <h1 className="text-2xl font-semibold tracking-tight">No supplier profile yet</h1>
           <p className="mt-2 text-sm text-ink/65">
             Set up your basic supplier profile first, then return here to fill in
@@ -128,7 +128,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
 
   if (!loaderState.ok) {
     return (
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="flex items-start gap-3">
           <AlertTriangle aria-hidden className="mt-0.5 h-6 w-6 shrink-0 text-terracotta" strokeWidth={1.75} />
           <div className="space-y-1">
@@ -173,7 +173,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
   const addableCatalog = catalog.filter((c) => !existingKeys.has(c.canonical_service));
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           Service attributes

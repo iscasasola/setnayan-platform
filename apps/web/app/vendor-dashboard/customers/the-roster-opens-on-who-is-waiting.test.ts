@@ -109,7 +109,7 @@ test('the page ASKS the handshake flag rather than assuming an answer', () => {
 
 // ── 2 · IT OPENS ON WHO IS WAITING ────────────────────────────────────────
 
-test('the one Clients screen: the month, then the tiles and quick buttons, then the list (Build 2 #43a, v113)', () => {
+test('the one Clients screen: the tiles, then the week / month, then the list (Build 2 #43a, v113; Clients, cleaner 19 Nov)', () => {
   /*
     🔁 REVERSED BY THE CONTROLLER'S #43 (8 Nov, measured against v113): this test held "the roster ABOVE the month"
     ("Customers opens on who is waiting"). v113 — the contract — draws ONE screen: calendar → tiles → Overdue/Unread → the
@@ -118,9 +118,11 @@ test('the one Clients screen: the month, then the tiles and quick buttons, then 
   const PIN = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '_components', 'customers-pin.tsx'), 'utf8');
   assert.ok(pageSrc.indexOf('<CustomersRoster') > 0, 'the roster is not rendered at all');
   assert.match(pageSrc, /month=\{monthPart\.month\}/, 'the calendar stopped rendering — nothing was meant to be removed');
-  assert.match(PIN, /<CustomersCalendar \{\.\.\.month\} oneScreen between=\{body\} onPicked=\{onPicked\} after=\{rest\} \/>/, 'the month is not on top of the screen');
-  const body = PIN.slice(PIN.indexOf('const body = ('), PIN.indexOf('const rest = ('));
-  assert.ok(body.indexOf('{tilesRow}') > -1 && body.indexOf('{tilesRow}') < body.indexOf('quickRow'), 'the tiles are not right under the month, over Overdue/Unread');
+  // Clients, cleaner (owner "Yes, all three", 19 Nov): ONE tiles row (Overdue / Unread folded in) heads the screen, then
+  // the week at rest (the month on "Whole month"), then the list.
+  assert.match(PIN, /\{body\}\s*<div id="calendar" className="scroll-mt-24">\s*<CustomersCalendar \{\.\.\.month\} oneScreen onPicked=\{onPicked\} after=\{rest\} \/>/, 'the tiles are not over the month');
+  const body = PIN.slice(PIN.indexOf('const body = title ?'), PIN.indexOf('const rest = ('));
+  assert.ok(body.indexOf('tilesRow') > -1, 'the one screen lost its tiles row');
   assert.match(PIN.slice(PIN.indexOf('const rest = ('), PIN.indexOf('const content =')), /\{lists\}/, 'the list is not under the month');
 });
 

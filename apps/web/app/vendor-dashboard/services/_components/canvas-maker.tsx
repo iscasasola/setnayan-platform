@@ -109,6 +109,19 @@ import {
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
 import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
+import {
+  AVAILABILITY_NOT_SET,
+  AVAILABILITY_STYLES,
+  CARD_STYLES_COMING_SOON,
+  availabilityName,
+  availabilityReads,
+  bookingTermsLine,
+  cardCountHasNoCap,
+  cardCountQuestion,
+  cardIsNeverCounted,
+  isCardPickableStyle,
+  type AvailabilityStyle,
+} from '@/lib/availability-styles';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { markReturnAsNext, returnMovesOn } from '@/lib/return-moves-on';
 import { revealFold } from '@/lib/reveal-sweep';
@@ -195,6 +208,10 @@ export type MakerEditing = {
   coverUrl: string | null;
   coverKey: string | null;
   dailyCapacity: string;
+  /** 🗓 The card's own Availability style (`vendor_services.availability_style`, step 3); null = Not set, as before. */
+  availabilityStyle: AvailabilityStyle | null;
+  /** 🗓 Made to order: "Order at least N days" (`vendor_services.order_lead_days`); '' = no rule. */
+  orderLeadDays: string;
   branchId: string;
   schedule: ScheduleItemDraft[];
   addons: AddonDraft[];
@@ -271,6 +288,7 @@ export function CanvasMaker({
   giftFree = null,
   cancelHref,
   bookingsPerDate = null,
+  availabilityOf = null,
   checkRules = null,
   photoCheck,
 }: {
@@ -380,6 +398,12 @@ export function CanvasMaker({
    * cap (Free · Verified, not ruled yet).
    */
   bookingsPerDate?: { cap: number | null; help: string | null } | null;
+  /**
+   * 🗓 THE RECOMMENDED STYLE PER SERVICE (Availability plan step 3): `canonical_service_taxonomy.availability_style` for
+   * every service an admin has set (Admin › Categories, step 2). A service not in it has no recommendation. `null` =
+   * the read was refused — the Recommended row is then left out, never drawn as "Not set".
+   */
+  availabilityOf?: Record<string, AvailabilityStyle> | null;
   /**
    * 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26): the claim words this shop may not use and the live
    * trades with their reviewed aliases (`loadMakerContext` → `lib/service-card-checks.server.ts`). Each problem shows on
@@ -594,6 +618,17 @@ export function CanvasMaker({
       .flatMap((g) => g.options)
       .find((o) => o.value === category)?.label ??
     (category === categoryValue ? categoryLabel : category);
+
+  /* 🗓 THE CARD'S AVAILABILITY STYLE (plan step 3, owner "ok" 2026-11-19). A saved card keeps its own (null = Not set,
+     behaves as today). A new card follows the service's recommended style until the supplier picks one. */
+  const recommendedStyle: AvailabilityStyle | null = availabilityOf?.[category] ?? null;
+  const [pickedStyle, setPickedStyle] = useState<AvailabilityStyle | null | undefined>(editing ? editing.availabilityStyle : undefined);
+  const cardStyle: AvailabilityStyle | null =
+    pickedStyle !== undefined ? pickedStyle : recommendedStyle && isCardPickableStyle(recommendedStyle) ? recommendedStyle : null;
+  const storedPerDay = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
+  const storedLead = editing && editing.orderLeadDays.trim() !== '' ? Number(editing.orderLeadDays) : null;
+  const [perDay, setPerDay] = useState<number | null>(storedPerDay ?? (editing ? null : 1));
+  const [leadDays, setLeadDays] = useState<number | null>(storedLead);
 
   /** ✍ THE NAME IS WRITTEN FOR THEM — only on a maker they have not typed into, never over an existing name. */
   useEffect(() => {
@@ -1054,7 +1089,7 @@ export function CanvasMaker({
           Find — `ServiceCardFace`, the one face `supplier-sheet.tsx` renders; never a second drawing. ═══ */}
       {/* 🧰 BEHIND ONE TAP ON A PHONE (owner-approved 2026-11-14, cut 3 — it supersedes the 9 Nov "always pinned"): pinned,
           the card left a ~60 px window for the fields at 390. "See it as couples do" opens the same face, live, in place. */}
-      <div className="-mx-4 border-b px-4 pb-2 pt-1 md:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
+      <div className="-mx-4 border-b px-4 pb-2 pt-1 tab:hidden" style={{ borderColor: line }} data-maker-card-peek={peekOpen ? 'open' : 'shut'}>
         <button
           type="button"
           aria-expanded={peekOpen}
@@ -1068,8 +1103,8 @@ export function CanvasMaker({
         {peekOpen ? <div className="pb-1">{cardFace}</div> : null}
       </div>
 
-      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 820 up; on a phone the card is pinned above ═══ */}
-      <div className="md:grid md:grid-cols-2 md:items-start md:gap-8" data-maker-split="">
+      {/* ═══ THE SURFACE | AS COUPLES SEE IT — split evenly from 701 up; on a phone the card is pinned above ═══ */}
+      <div className="tab:grid tab:grid-cols-2 tab:items-start tab:gap-8" data-maker-split="">
         {/* noValidate: some fields sit in SHUT folds (inert). A browser that refuses a submit over a field it cannot
             show focuses nothing and says nothing — the press just does nothing. commitVendorService re-validates
             every field and says why (carried from the live card-fields fix, #6534). */}
@@ -1299,8 +1334,8 @@ export function CanvasMaker({
               <PhotoCheckNotes checks={checks} serviceId={editing?.serviceId ?? null} showcaseRefs={checkInput.showcaseRefs} />
             </div>
 
-            {/* The status line — on a phone it closes the surface; from 820 up the preview beside it says it. */}
-            <div className="md:hidden">
+            {/* The status line — on a phone it closes the surface; from 701 up the preview beside it says it. */}
+            <div className="tab:hidden">
               <p
                 data-maker-status={status.tone}
                 className="flex items-start gap-2.5 text-[14px] leading-snug"
@@ -1441,8 +1476,15 @@ export function CanvasMaker({
                     </div>
                   </Fold>
 
-                  <Fold data="m-terms" title="Booking terms" line={defaults.summary.terms} lead={<SubIcon><Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
+                  <Fold data="m-terms" title="Booking terms" line={bookingTermsLine(cardStyle, perDay, leadDays) ?? defaults.summary.terms} lead={<SubIcon><Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} /></SubIcon>}>
                     <div className="space-y-3 pb-4 pt-1">
+                      <AvailabilityBlock
+                        serviceLabel={activeCategoryLabel}
+                        recommended={availabilityOf === null ? null : recommendedStyle}
+                        style={cardStyle}
+                        onPick={setPickedStyle}
+                        reads={availabilityReads(cardStyle, perDay, leadDays)}
+                      />
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <Field label="Book ahead (months)" htmlFor="recommended_lead_time_months">
                           <input
@@ -1470,10 +1512,17 @@ export function CanvasMaker({
                           shut (inert), so it still posts. Time slots set it instead when the card has some. The question is the per-service
                           one (owner 13 Nov 2026, DECISION_LOG d8ec0922), and a shared schedule's own number is the one
                           said (RW-67) — both from main, merged into this row. */}
-                      <FormRows data="same-day-rows">
-                        <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} />
-                      </FormRows>
-                      <SlotRows existing={editing?.slots ?? []} />
+                      {cardIsNeverCounted(cardStyle) ? (
+                        /* Always available: the number is hidden and never counted — the stored one is kept as it is. */
+                        <input type="hidden" name="daily_capacity" value={editing?.dailyCapacity ?? ''} />
+                      ) : (
+                        <FormRows data="same-day-rows">
+                          <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} style={cardStyle} onCount={setPerDay} />
+                          {cardStyle === 'order' ? <OrderLeadRow stored={storedLead} onCount={setLeadDays} /> : null}
+                        </FormRows>
+                      )}
+                      {cardStyle !== 'order' ? <input type="hidden" name="order_lead_days" value={editing?.orderLeadDays ?? ''} /> : null}
+                      {cardIsNeverCounted(cardStyle) ? null : <SlotRows existing={editing?.slots ?? []} />}
                     </div>
                   </Fold>
 
@@ -1622,8 +1671,8 @@ export function CanvasMaker({
           ) : null}
         </form>
 
-        {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 820 up ═══ */}
-        <aside className="hidden md:sticky md:top-24 md:block" data-maker-card="">
+        {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 701 up ═══ */}
+        <aside className="hidden tab:sticky tab:top-24 tab:block" data-maker-card="">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-[16px] font-semibold text-ink">As couples see it</h3>
@@ -2017,15 +2066,23 @@ function SameDayRow({
   editing,
   bookingsPerDate,
   sharedSchedule = null,
+  style = null,
+  onCount,
 }: {
   editing: MakerEditing | null;
   bookingsPerDate: { cap: number | null; help: string | null } | null;
   /** RW-67: a shared schedule's own number is what holds — said in the row's ⓘ, never three numbers side by side. */
   sharedSchedule?: { name: string; perDay?: number | null } | null;
+  /** 🗓 The card's style (step 3): Made to order asks "Orders for one day", Rented by the piece "How many do you have"
+   *  — the SAME `daily_capacity`, renamed. Every other style (and Not set) asks today's question, unchanged. */
+  style?: AvailabilityStyle | null;
+  onCount?: (n: number) => void;
 }) {
   const stored = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
   const cap = bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? bookingsPerDate.cap : null;
-  const max = Math.max(cap ?? DAILY_CAPACITY_MAX, stored ?? 0, 1);
+  // Rented by the piece has NO cap above 500 (owner ruling 3, 2026-11-19).
+  const max = cardCountHasNoCap(style) ? Number.MAX_SAFE_INTEGER : Math.max(cap ?? DAILY_CAPACITY_MAX, stored ?? 0, 1);
+  const ask = cardCountQuestion(style, SAME_DAY_QUESTION);
   const slots = (editing?.slots.length ?? 0) > 0;
   const blankStored = editing !== null && stored === null;
   const shown = stored ?? (blankStored && cap !== null ? cap : 1);
@@ -2033,12 +2090,16 @@ function SameDayRow({
     ? 'Time slots set how many at once instead — change them under More settings · Booking terms.'
     : sharedSchedule?.perDay
       ? `It shares the ${sharedSchedule.name} schedule, which takes ${formatCount(sharedSchedule.perDay)} ${sharedSchedule.perDay === 1 ? 'event' : 'events'} a day — that is the number that holds.`
-      : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
-        .filter(Boolean)
-        .join(' ');
+      : style === 'order'
+        ? 'A couple can order this card for a date while fewer than this many orders are due on it. Couples only ever see “available”.'
+        : style === 'piece'
+          ? 'Couples ask for how many they need. A date closes when all of them are out. Couples only ever see “available”.'
+          : [`A couple can book this card for an event on a date while fewer than this many events are booked on it.`, bookingsPerDate?.help ?? null]
+              .filter(Boolean)
+              .join(' ');
   return (
-    <div data-maker-row="same-day">
-      <FormRow name={SAME_DAY_QUESTION} about={{ title: 'Events on the same day', words: about }} data="same-day">
+    <div data-maker-row="same-day" data-maker-count-style={style ?? ''}>
+      <FormRow name={ask.name} line={ask.about || undefined} about={{ title: ask.counts, words: about }} data="same-day">
         {slots ? (
           <>
             <input type="hidden" name="daily_capacity" value={editing?.dailyCapacity ?? ''} />
@@ -2048,9 +2109,111 @@ function SameDayRow({
           </>
         ) : (
           <span className="flex flex-none" data-maker-same-day="">
-            <FormCounter name="daily_capacity" value={shown} min={1} max={max} label="Events on the same day" data="same-day" blankUntilTouched={blankStored} />
+            <FormCounter name="daily_capacity" value={shown} min={1} max={max} label={ask.counts} data="same-day" blankUntilTouched={blankStored} onCount={onCount} typeable={cardCountHasNoCap(style)} />
           </span>
         )}
+      </FormRow>
+    </div>
+  );
+}
+
+/**
+ * 🗓 AVAILABILITY — THE TOP OF BOOKING TERMS (Availability plan step 3, owner "ok" 2026-11-19, drawing
+ * `prototypes/availability_steps_3_4_2026-11-19.html`). Three things, in this order:
+ *   · "Recommended for <service>: <style>" + Use it (→ "Using it ✓"), read from the service's step-2 style. Left out
+ *     when the service has no style set, or when that read was refused — a recommendation is never guessed;
+ *   · the style, as ONE PickMenu dropdown (owner 2026-09-28). By the hour · Set times · Rooms by the night are listed
+ *     as Coming soon and can't be picked (step 5). "Not set" keeps the card exactly as it books today;
+ *   · one sentence: how Setnayan reads the card.
+ * Posts `availability_present=1` + `availability_style` ('' = Not set). Motions: none.
+ */
+function AvailabilityBlock({
+  serviceLabel,
+  recommended,
+  style,
+  onPick,
+  reads,
+}: {
+  serviceLabel: string;
+  recommended: AvailabilityStyle | null;
+  style: AvailabilityStyle | null;
+  onPick: (s: AvailabilityStyle | null) => void;
+  reads: string | null;
+}) {
+  const recName = recommended ? availabilityName(recommended) : null;
+  const recPickable = recommended !== null && isCardPickableStyle(recommended);
+  const using = recommended !== null && style === recommended;
+  const options = [
+    ...AVAILABILITY_STYLES.map((st) =>
+      CARD_STYLES_COMING_SOON.has(st.value)
+        ? { key: st.value, label: `${st.name} · Coming soon`, disabledNote: `${st.name} — coming soon. It can't be picked yet.` }
+        : { key: st.value, label: st.name },
+    ),
+    { key: 'unset', label: AVAILABILITY_NOT_SET, hint: 'Books as it does today' },
+  ];
+  const current = style ? AVAILABILITY_STYLES.find((st) => st.value === style) : null;
+  return (
+    <div className="space-y-2" data-maker-availability="">
+      <input type="hidden" name="availability_present" value="1" />
+      <input type="hidden" name="availability_style" value={style ?? ''} />
+      <p className={LAB}>Availability</p>
+      {recName ? (
+        <div className="flex min-h-11 items-center justify-between gap-3" data-maker-availability-recommended={recommended ?? ''}>
+          <span className="min-w-0 text-[14px] text-ink/75">
+            Recommended for <b className="font-semibold text-ink">{serviceLabel}</b>: {recName}
+          </span>
+          {recPickable ? (
+            <ActionButton
+              tone={using ? 'neutral' : 'brand'}
+              quiet={using}
+              icon={Check}
+              label={using ? 'Using it ✓' : 'Use it'}
+              disabled={using}
+              onClick={() => onPick(recommended)}
+              data-maker-availability-use=""
+            />
+          ) : (
+            <span className="flex-none text-[13px] text-ink/55" data-coming-soon="">Coming soon</span>
+          )}
+        </div>
+      ) : null}
+      <div className="flex min-h-11 items-center">
+        <PickMenu
+          label="How this card books"
+          value={style ?? 'unset'}
+          buttonText={current ? current.name : AVAILABILITY_NOT_SET}
+          options={options}
+          onPick={(k) => onPick(k === 'unset' ? null : isCardPickableStyle(k) ? k : null)}
+          dataAttr="data-maker-availability-style"
+          className="w-full"
+        />
+      </div>
+      {reads ? (
+        <p className={HINT} data-maker-availability-reads="">
+          {reads}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (step 3, owner ruling 1: kept BESIDE "Book
+ * ahead (months)", which stays advice; this one is a hard rule, checked when a couple asks). Posts `order_lead_days`;
+ * 0 = no rule. A stored blank shows 0 and posts blank until a tap — opening and saving never writes a number.
+ */
+function OrderLeadRow({ stored, onCount }: { stored: number | null; onCount: (n: number) => void }) {
+  return (
+    <div data-maker-row="order-lead">
+      <FormRow
+        name="Order at least"
+        line="days before the date they need it"
+        about={{ title: 'Order at least', words: 'A couple can’t order this card for a date sooner than this many days away. 0 = no rule.' }}
+        data="order-lead"
+      >
+        <span className="flex flex-none" data-maker-order-lead="">
+          <FormCounter name="order_lead_days" value={stored ?? 0} min={0} max={365} label="Days to order ahead" data="order-lead" blankUntilTouched={stored === null} onCount={onCount} />
+        </span>
       </FormRow>
     </div>
   );

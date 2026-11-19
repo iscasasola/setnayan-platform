@@ -86,7 +86,9 @@ import { jobPrefillIsRead } from './prefill-consumers';
 // merged tree — re-measure with the test, never trust this number).
 // 153 since 2026-11-14: one more PAGE, Admin › What can I ask? (`/admin/ask`, Focus | Full — owner approved 14 Nov) —
 // every page must still reach the model, so the rule above, raised by one.
-export const MODEL_CHOICE_CAP = 157; // +1 for /admin/offers, +3 for the Focus ask answers (admin reorg v7/v10). On a merge with #7693/#7585: take the higher value, +4.
+// 158 since #7693 (2026-11-19): one more PAGE, Admin › Catalogue's Home (`/admin/catalogue`, the tab's landing) —
+// raised by one on top of main's 157. (Its A3 hubs were dropped: v7 puts their rows in Studio.)
+export const MODEL_CHOICE_CAP = 158; // +1 for /admin/offers, +3 for the Focus ask answers (admin reorg v7/v10), +1 Catalogue Home (#7693).
 // 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
 // "Categories & event types" folded six admin pages into one (88 pages now)
 // and the -y/-ies match let the owner's word "category" reach every job on

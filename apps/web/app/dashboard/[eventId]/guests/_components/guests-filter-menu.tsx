@@ -1,6 +1,6 @@
 'use client';
 
-import { ListFilter } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import type { ThumbMenu } from '@/components/thumb-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
 import { applyGuestsFilterPick, guestsFilterIsOn, guestsFilterOptions, type GuestsFilter } from '@/lib/guests-filter';
@@ -15,13 +15,13 @@ import { SortFace, sortLabel } from '@/components/sort-face';
  * File · Add ways; the Map's Add ways; Seats' people), so nothing a view's ≡ held before is lost. The current choice of
  * each section wears a ✓; the round wears a dot while anything narrows or re-orders the list.
  *
- * The face is the List's shipped ≡ icon (`ListFilter`) on every view — the same round the owner already knows.
+ * The face is the List's shipped ≡ icon (`SlidersHorizontal`) on every view — the same round the owner already knows.
  */
 export function FilterFace({ on }: { on: boolean }) {
   return (
     <span aria-hidden className="relative inline-flex h-[18px] w-[18px]" data-filter-face={on ? 'on' : 'off'}>
-      <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} />
-      {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-terracotta" /> : null}
+      <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
+      {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-mulberry" /> : null}
     </span>
   );
 }

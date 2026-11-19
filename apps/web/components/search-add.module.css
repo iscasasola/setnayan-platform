@@ -1,0 +1,78 @@
+/* 🔍 → ＋ SEARCH OR ADD — THE MORPH (owner 18–19 Nov 2026, "tap the magnifying glass to convert it to add" · "search to
+   add OK"; the drawing `prototypes/search-to-add-morph`, ported stroke for stroke). ONE svg, three strokes, switched by
+   `data-mode`:
+     ① the circle grows into the button outline        Quick
+     ② the handle grows through the centre and a second line crosses it — an X   Quick
+     ③ the X turns 45° into ＋                          Move
+   all on Settle; back is the exact reverse (③ ② ①). Played with TRANSITIONS, so it never plays on the first drawing
+   and turns around from where it is when the mode flips mid-move. Transform (the individual `translate` · `rotate` ·
+   `scale` properties, so each step has its own delay), opacity, and the stroke's dash on this one small svg.
+   COLOUR (owner 19 Nov: "if we are adding the text goes red as well / search is black"): search = ink; add = the app's
+   CTA red (`--color-mulberry`), the icon AND the typed words. 🔒 lib/a-search-that-adds-shows-add.test.ts */
+.icon {
+  flex: 0 0 auto; display: grid; place-items: center; width: 44px; height: 44px; min-width: 44px; min-height: 44px; margin: 0; padding: 0;
+  border: 0; border-radius: var(--m-r-full); background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  color: rgb(var(--color-ink));
+  transition: color var(--sn-m-move) var(--sn-m-settle);
+}
+.icon[data-mode='add'] { color: rgb(var(--color-mulberry)); transition: color var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-quick) * 2); }
+/* The typed words follow the icon — red while it adds, ink while it searches. */
+.icon ~ input { transition: color var(--sn-m-move) var(--sn-m-settle); }
+.icon[data-mode='add'] ~ input { color: rgb(var(--color-mulberry)); caret-color: rgb(var(--color-mulberry)); transition: color var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-quick) * 2); }
+.icon[data-mode='search'] ~ input { color: rgb(var(--color-ink)); }
+
+.mg { display: block; width: 22px; height: 22px; overflow: visible; }
+.mg * { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; transform-box: view-box; }
+
+/* ring: the glass (centre 10.5, r 6.5) grows into the button outline (centre 12, r 10.5). Back, it is the LAST step. */
+.ring {
+  transform-origin: 12px 12px; translate: -1.5px -1.5px; scale: 1;
+  transition:
+    translate var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-quick)),
+    scale var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-quick)),
+    stroke-width var(--sn-m-quick) var(--sn-m-settle) calc(var(--sn-m-move) + var(--sn-m-quick));
+}
+.icon[data-mode='add'] .ring {
+  translate: 0px 0px; scale: 1.615; stroke-width: 1.24;
+  transition: translate var(--sn-m-quick) var(--sn-m-settle), scale var(--sn-m-quick) var(--sn-m-settle), stroke-width var(--sn-m-quick) var(--sn-m-settle);
+}
+/* bar1: the handle (10 long about 0,0; the dash shortens it to 6.9) → through the centre → one arm of the X → the
+   upright of the ＋. */
+.bar1 {
+  transform-origin: 0 0; translate: 17.55px 17.55px; rotate: -45deg; stroke-dasharray: 6.9 20; stroke-dashoffset: -1.55;
+  transition:
+    rotate var(--sn-m-move) var(--sn-m-settle),
+    translate var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move),
+    stroke-dasharray var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move),
+    stroke-dashoffset var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move);
+}
+.icon[data-mode='add'] .bar1 {
+  translate: 12px 12px; rotate: 0deg; stroke-dasharray: 10 20; stroke-dashoffset: 0;
+  transition:
+    rotate var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-quick) * 2),
+    translate var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick),
+    stroke-dasharray var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick),
+    stroke-dashoffset var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick);
+}
+/* bar2: draws in across it to make the X, then turns with it into the cross bar. */
+.bar2 {
+  transform-origin: 0 0; opacity: 0; translate: 12px 12px; rotate: 45deg; stroke-dasharray: 0 20; stroke-dashoffset: -5;
+  transition:
+    rotate var(--sn-m-move) var(--sn-m-settle),
+    opacity var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move),
+    stroke-dasharray var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move),
+    stroke-dashoffset var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-move);
+}
+.icon[data-mode='add'] .bar2 {
+  opacity: 1; rotate: 90deg; stroke-dasharray: 10 20; stroke-dashoffset: 0;
+  transition:
+    rotate var(--sn-m-move) var(--sn-m-settle) calc(var(--sn-m-quick) * 2),
+    opacity var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick),
+    stroke-dasharray var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick),
+    stroke-dashoffset var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-quick);
+}
+/* Reduced motion: it swaps at once. */
+@media (prefers-reduced-motion: reduce) {
+  .icon, .icon ~ input, .icon .ring, .icon .bar1, .icon .bar2,
+  .icon[data-mode='add'], .icon[data-mode='add'] ~ input, .icon[data-mode='add'] .ring, .icon[data-mode='add'] .bar1, .icon[data-mode='add'] .bar2 { transition: none; }
+}

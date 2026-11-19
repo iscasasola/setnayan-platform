@@ -87,7 +87,7 @@ export default async function VendorDisputesPage({ searchParams }: Props) {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Disputes</h1>
         <p className="mt-4 text-base text-ink/65">
           Set up your supplier profile first. If a couple ever raises a concern
@@ -113,7 +113,7 @@ export default async function VendorDisputesPage({ searchParams }: Props) {
   const disputesPage = paginate(rows, search.dpage);
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-6 space-y-3">
         <div className="flex items-center gap-2">
           <Scale className="h-6 w-6 text-terracotta" strokeWidth={1.75} />

@@ -5,10 +5,15 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchShopGiftBought, fetchShopGiftPacks, fetchShopGiftRewardStock, fetchShopGiftStock } from '@/lib/shop-gifts.server';
+import {
+  fetchShopGiftBought,
+  fetchShopGiftBundles,
+  fetchShopGiftPacks,
+  fetchShopGiftRewardStock,
+  fetchShopGiftStock,
+} from '@/lib/shop-gifts.server';
 import { freeByKind, rewardFreeByKind } from '@/lib/shop-gifts';
 import { readGrantedRewards, readRewardNames } from '@/lib/badge-rewards.server';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import type { ShopGiftsSectionData } from './shop-gifts-section';
 
 /**
@@ -25,12 +30,11 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
   const giftsAdmin = createAdminClient();
   // 🏅 …and the badge rewards kept in it (owner 2026-11-05): what is left of the reward stock, every reward given and
   // the free booking fee's history — read with the service role, keyed on the shop's own id.
-  const [stock, bought, packs, paysGiftPrice, papicOn, storeShell, settings, rewardStock, rewardsGranted, rewardNames] =
+  const [stock, bought, packs, papicOn, storeShell, settings, rewardStock, rewardsGranted, rewardNames] =
     await Promise.all([
       fetchShopGiftStock(supabase, vendorProfileId, null),
       fetchShopGiftBought(supabase, vendorProfileId),
       fetchShopGiftPacks(giftsAdmin),
-      fetchVendorPaysGiftPrice(giftsAdmin, vendorProfileId),
       isVendorPapicCaptureEnabled(),
       isStoreShellRequest(),
       fetchPlatformSettings(supabase),
@@ -38,11 +42,15 @@ export async function loadShopGiftsSection(supabase: SupabaseClient, vendorProfi
       readGrantedRewards(giftsAdmin, vendorProfileId),
       readRewardNames(giftsAdmin),
     ]);
+  // 📦 A Papic bundle rides the Papic switch with its pack; an Event Plus / Pro / Ultra bundle does not (2026-11-17).
+  // null = the bundle read failed — carried to the Buy sheet, which says so (never shown as "no bundles on sale").
+  const bundlesRead = packs ? await fetchShopGiftBundles(giftsAdmin, packs) : [];
+  const bundles = bundlesRead === null ? null : bundlesRead.filter((b) => papicOn || b.pack.kind !== 'papic');
   return {
     stock,
     // 💎 Event Plus / Pro are not Papic — with the Papic switch off only they stay on sale (#7297, slice 2).
     packs: papicOn ? packs : (packs?.filter((p) => p.kind !== 'papic') ?? null),
-    paysGiftPrice,
+    bundles,
     bought,
     openRails: openRailOptions(settings),
     canBuy: !storeShell,

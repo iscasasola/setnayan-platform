@@ -127,14 +127,14 @@ export function RoomBuilding({ tables, floor, guests }: Pick<Props, 'tables' | '
   if (plan.room.widthM === null || plan.room.depthM === null) plan.room = { widthM: DEFAULT_ROOM_M.w, depthM: DEFAULT_ROOM_M.d };
   const seated = guests.filter((g) => g.seatedTableId).length;
   return (
-    <div data-room-building="" role="status" aria-live="polite" className="absolute inset-0 z-40 flex items-center justify-center bg-[#13151c] p-6 text-white">
+    <div data-room-building="" role="status" aria-live="polite" className="absolute inset-0 z-40 flex items-center justify-center bg-black p-6 text-white">
       <PlanPoster plan={plan} className="max-h-full max-w-full opacity-40" />
-      <div className="absolute left-1/2 top-1/2 w-[min(18rem,80%)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/15 bg-black/60 p-4 backdrop-blur-md">
+      <div className="sn-frame absolute left-1/2 top-1/2 w-[min(18rem,80%)] -translate-x-1/2 -translate-y-1/2 p-4 text-ink">
         <p className="text-[15px] font-semibold">Building your room…</p>
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/20" aria-hidden>
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-ink/10" aria-hidden>
           <div className="h-full w-1/2 animate-pulse rounded-full bg-champagne" />
         </div>
-        <p className="mt-2 text-[13px] text-white/75">
+        <p className="mt-2 text-[13px] text-ink/70">
           {formatCount(tables.length)} {tables.length === 1 ? 'table' : 'tables'}, {formatCount(seated)} of {formatCount(guests.length)} guests seated. Your floor plan shows meanwhile.
         </p>
       </div>

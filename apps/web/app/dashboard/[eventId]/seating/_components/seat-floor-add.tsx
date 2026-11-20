@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Counter } from '@/app/_components/counter';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { TABLE_TYPE_CATALOG, type TableType } from '@/lib/seating';
 
 /**
@@ -18,6 +18,10 @@ import { TABLE_TYPE_CATALOG, type TableType } from '@/lib/seating';
  *
  * "Round ▾" lists Round 8 · Round 10 · Round 12, then "More shapes…", which opens the same menu on all 13. Picking a
  * shape sets its seats.
+ *
+ * ▾ "Table ▾" AT THE BOX'S RIGHT END (drawing § 9: *"Orange ＋ menu → 'Table ▾' at the Add box's right end"*): what else
+ * the plan can add — New table · Entrance · Service door · Dance floor · Cocktail area · Sign · Supplier booth. The list
+ * and its handler are the editor's own (`seatAddOptions` · `onSeatAdd`, the thumb row's ＋ menu) — never a copy.
  *
  * Presentational: `onAdd` is the editor's (`createTable`, the row it joins). 🔒 a-table-is-added-without-a-sheet.test.ts
  */
@@ -38,6 +42,7 @@ export function AddTableBar({
   onDraft,
   onAdd,
   onCancel,
+  kinds,
 }: {
   /** The next free name — "Table 3". */
   defaultLabel: string;
@@ -46,6 +51,8 @@ export function AddTableBar({
   onDraft: (d: { type: TableType; capacity: number }) => void;
   onAdd: (d: TableDraft) => void;
   onCancel: () => void;
+  /** "Table ▾" — the editor's add list (its "table" row is this box) and the handler that adds the others. */
+  kinds?: { options: readonly PickOption[]; onPick: (key: string) => void } | null;
 }) {
   const [type, setType] = useState<TableType>(DEFAULT_TABLE_TYPE);
   const [capacity, setCapacity] = useState(seatsOf(DEFAULT_TABLE_TYPE));
@@ -120,7 +127,7 @@ export function AddTableBar({
         >
           <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
         </button>
-        <input
+        <input // field-ok: the Add box itself — the thumb row's terracotta add pill (drawing § 9), not a form row
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           maxLength={64}
@@ -130,6 +137,18 @@ export function AddTableBar({
           data-floor-add-name=""
           className="min-h-11 min-w-0 flex-1 bg-transparent text-[15px] font-medium text-ink outline-none placeholder:text-ink/50"
         />
+        {kinds ? (
+          <PickMenu
+            label="What to add"
+            value="table"
+            buttonText="Table"
+            options={kinds.options}
+            onPick={kinds.onPick}
+            dataAttr="data-floor-add-kind"
+            opensUp
+            className="shrink-0"
+          />
+        ) : null}
         <button type="button" onClick={onCancel} aria-label="Cancel adding a table" data-floor-add-cancel="" className="sn-press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70">
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>

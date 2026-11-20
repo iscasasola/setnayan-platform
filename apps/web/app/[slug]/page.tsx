@@ -2582,7 +2582,7 @@ async function invitationBody({
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (
-      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
+      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} unreadable={guestHubData.seatUnreadable} className="mb-3" />
     ) : null}
     {/* 🎟 The same "Your number" card Live carries, on Me (supplier scan prototype frame E). */}
     <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} className="mb-6" />

@@ -730,7 +730,7 @@ export async function SiteBody({
     if (identity.kind === 'guest') {
       identity = {
         ...identity,
-        ...(partsOff.has('seat') ? { seatMap: null, seatPassActive: false, guestHubData: { ...identity.guestHubData, tableLabel: null, seatsOpen: false } } : {}),
+        ...(partsOff.has('seat') ? { seatMap: null, seatPassActive: false, guestHubData: { ...identity.guestHubData, tableLabel: null, seatUnreadable: false, seatsOpen: false } } : {}),
         ...(partsOff.has('camera') ? { papicGuest: null } : {}),
       };
     } else if (partsOff.has('camera') || partsOff.has('live')) {
@@ -4094,7 +4094,7 @@ export async function SiteBody({
                   (`page.tsx` `meSlotFor`), so where the seat is Me's and Me is drawn by the page, that ONE
                   line is it — never the same line twice on one page. */}
               {seatOnMe && typeof meSection === 'function' ? null : group(seatTab, <>{seatPassActive && !isMakerCanvas && !seatMap ? (
-                <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
+                <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} unreadable={guestHubData.seatUnreadable} />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
                   children unless a section scrubs AND the event owns Event

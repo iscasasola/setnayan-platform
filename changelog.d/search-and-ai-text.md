@@ -77,3 +77,8 @@ SPEC IMPACT: None beyond the source document, which is already in the corpus.
   Sabotage: the old AI line back in /help → RED naming the article; restore → green.
 - `the-app-says-event-in-plain-words.test.ts`: the `lib/llms-txt.ts` exemption reason now says what is true —
   "celebration" appears about a dozen times there, brand line and prose, not only the brand line.
+- Caught up with main on 20 Nov (merge only). Main's retirement of Patiktok and Music Maker stands: `llmsFeaturePages`
+  keeps main's `RETIRED_PRODUCT_NAMES` filter beside `RETIRED_FROM_LLMS`, and the description pin also holds both
+  names out. `retired-products-stay-retired.test.ts` read `SITE_DESCRIPTION` in single quotes only; the ruled line has
+  an apostrophe and is double-quoted, so the guard now reads either quote (sabotage: "Patiktok" in the description →
+  red). The screens map is regenerated (llms.txt's links moved).

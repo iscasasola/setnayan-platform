@@ -14,6 +14,7 @@
  * entry · photo · look) stay the engine's; only the wedding's own questions
  * (names · kind · area · estimate · budget · colours) are listed here.
  */
+import { EVENT_SIZE_START_GUESTS } from '../event-size';
 import type { FaithKey } from '@/lib/faith-registry';
 import type { BudgetBand } from '@/lib/budget-bands-shared';
 import { DISPLAY_NAME_MAX, joinCoupleNames } from '@/lib/typed-names';
@@ -181,8 +182,11 @@ export function ceremonyChoiceOf(s: {
 export const ESTIMATE_MIN = 10;
 export const ESTIMATE_MAX = 500;
 export const ESTIMATE_STEP = 10;
-/** Where − / + starts: the drawn value ("About how many guests? − [150] +"). */
-export const ESTIMATE_START = 150;
+/**
+ * Where − / + starts: a wedding is LARGE — the owner's 150 (2026-11-17, "for wedding, let's start with 150"), read from
+ * the one size table (`lib/event-size.ts`) so the number lives once.
+ */
+export const ESTIMATE_START = EVENT_SIZE_START_GUESTS.large;
 
 /** The estimate nearest to `n` on the 10–500 ladder (a resumed draft may carry any number). */
 export function snapEstimate(n: number | null | undefined): number {

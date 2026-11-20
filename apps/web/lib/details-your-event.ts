@@ -188,6 +188,8 @@ export function yourEventDateDisplay(
     date_window_start: string | null;
     date_window_end: string | null;
     event_days: number | null;
+    /** 🗓 "Some months" (owner 2026-11-17) — `events.date_months`, said while the mode is 'months'. */
+    date_months?: string[] | null;
   },
   precision: string | null,
 ): string | null {
@@ -203,6 +205,7 @@ export function yourEventDateDisplay(
     windowStart: row.date_window_start,
     windowEnd: row.date_window_end,
     days: row.event_days,
+    months: row.date_months,
   });
   return open ? `Not settled · ${open}` : null;
 }

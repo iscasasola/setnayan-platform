@@ -39,7 +39,11 @@ const code = (...p: string[]) => stripComments(readFileSync(join(DIR, ...p), 'ut
 
 const PROBES = ['team', 'bench', 'picks', 'payments', 'plans'] as const;
 
-async function paint(initialTab?: BudgetBuildTab, tally = { filled: 2, total: 5, knownPhp: 1_056_000, unpriced: 0 }): Promise<string> {
+async function paint(
+  initialTab?: BudgetBuildTab,
+  tally = { filled: 2, total: 5, knownPhp: 1_056_000, unpriced: 0 },
+  badges: { cartCount?: number; ordersCount?: number } = {},
+): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { ServicesTakeover } = await import('./_components/services-takeover');
   return renderToStaticMarkup(
@@ -48,6 +52,7 @@ async function paint(initialTab?: BudgetBuildTab, tally = { filled: 2, total: 5,
       ...(initialTab ? { initialTab } : {}),
       tally,
       bookedCount: 2,
+      ...badges,
       factsSlot: React.createElement('b', { 'data-facts-probe': '' }, 'Fri, Dec 18, 2026'),
       teamSlot: React.createElement('b', { 'data-team-probe': '' }, 'Kuya Mike Events'),
       shortlistSlot: React.createElement('i', { 'data-bench-probe': '' }),
@@ -69,24 +74,25 @@ test('(1) the first paint is ONE body — Find — under the pinned line and con
   // The pinned block: the page's date · place line, then the three segments, in order.
   const stick = html.slice(html.indexOf('data-suppliers-stick'), html.indexOf('data-suppliers-body='));
   assert.match(stick, /data-facts-probe=""/, 'the date · place line is missing from the pinned block');
-  // ONE dropdown names the view (owner 2026-10-31 — the segmented Find · Build · Booked row became `Page · View ▾`).
+  // 🛒 Three plain steps name the view (owner 2026-11-17, "the find build book") — the one on screen is `aria-current`.
   assert.doesNotMatch(stick, /data-seg=/, 'a segmented row is back in the pinned block');
-  const pickOf = (h: string) => {
+  const rowOf = (h: string) => {
     const s = h.slice(h.indexOf('data-suppliers-stick'), h.indexOf('data-suppliers-body='));
-    const m = /<button[^>]*data-sup-row-pick[^>]*>([\s\S]*?)<\/button>/.exec(s);
-    return { face: (m?.[1] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), row: s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ') };
+    const m = /<button[^>]*data-sup-step="(\w+)"[^>]*aria-current="page"[^>]*>([\s\S]*?)<\/button>/.exec(s);
+    return { on: m?.[1] ?? null, face: (m?.[2] ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), row: s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ') };
   };
-  assert.equal(pickOf(html).face, 'Find', 'the row’s one dropdown does not say where you are');
+  assert.equal(rowOf(html).on, 'find', 'the row does not say where you are');
+  assert.equal(rowOf(html).face, 'Find');
   // The landing rule reaches the paint as CSS, not as escaped text.
   assert.ok(html.includes('[id^="slfold-"]'), 'the landing CSS was escaped on its way out — the selector would match nothing');
-  // The counts — "Build · 2/5", "Booked · Team · 2 booked" — read from the markup of the view that holds them.
-  const build = pickOf(await paint('build'));
-  assert.equal(build.face, 'Build');
-  assert.match(build.row, /Build 2 \/ 5/);
-  const booked = pickOf(await paint('budget'));
-  assert.match(booked.face, /^Booked( · Team)?$/);
-  assert.match(booked.row, /2 booked/);
-  assert.doesNotMatch(pickOf(html).row, /vendor|Picks|Shortlist/i);
+  // Every step on every view, in order; the badges are the read counts (cart · orders), on whichever view.
+  const build = rowOf(await paint('build', undefined, { cartCount: 3, ordersCount: 1 }));
+  assert.equal(build.on, 'build');
+  assert.match(build.row, /Find\s+3\s+Build\s+1\s+Book/, 'the steps or their badges are out of order');
+  const booked = rowOf(await paint('budget'));
+  assert.equal(booked.on, 'booked');
+  assert.equal(booked.face, 'Book');
+  assert.doesNotMatch(rowOf(html).row, /vendor|Picks|Shortlist/i);
 });
 
 test('(1) a count of nothing is not drawn — never "Build 0/0" or "0 booked"', async () => {

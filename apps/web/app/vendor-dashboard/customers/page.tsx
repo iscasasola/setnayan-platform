@@ -507,7 +507,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       (part) =>
         rosterAdmin
           .from('events')
-          .select('event_id, display_name, event_date, venue_name, event_type, date_candidates, date_window_start, date_window_end')
+          .select('event_id, display_name, event_date, venue_name, event_type, date_candidates, date_window_start, date_window_end, date_mode, date_months')
           .in('event_id', part),
     );
     // ⚠ THE EVENT DATE, VENUE AND TYPE for every customer. Refused, all three
@@ -527,6 +527,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       date_candidates?: unknown;
       date_window_start?: string | null;
       date_window_end?: string | null;
+      date_mode?: string | null;
+      date_months?: string[] | null;
     }[]) {
       venueByEvent.set(e.event_id, e.venue_name);
       eventTypeByEvent.set(e.event_id, e.event_type);
@@ -542,6 +544,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             candidates: e.date_candidates,
             windowStart: e.date_window_start ?? null,
             windowEnd: e.date_window_end ?? null,
+            months: e.date_mode === 'months' ? e.date_months : null, // 🗓 "Some months"
           }),
         );
       }

@@ -5,6 +5,11 @@
  * Every Book press in the app goes through `AccordionLockButton` (the Find card, the build's booked tab, the chat
  * card, the proposal page). It now asks once, with the shipped `useConfirm` box (`app/_components/confirm-dialog.tsx`),
  * the same box the card's Remove uses. No new dialog is drawn.
+ *
+ * ⚠ NARROWED 2026-11-17 (owner, Q11: "Ask to book stays one tap", relayed on PR #7920 — it supersedes EB-175 for an
+ * ask). A press on a supplier we read as verified (or did not read) now asks at once and its answer carries Undo; the
+ * confirm stays ONLY for a shop we read as not yet verified, because that is the one place the 16 Nov "always told"
+ * line reaches the couple before the ask (test 3 below, unchanged).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,7 +31,7 @@ test('the confirm names the supplier, says it sends a request, and never says bo
   assert.ok(c.cancelLabel, 'the confirm has no way out');
 });
 
-test('the Book press waits for that confirm before anything is sent', () => {
+test('the press asks once ONLY for a shop not yet verified — otherwise it is one tap, with Undo on the answer', () => {
   const src = read(LOCK);
   assert.match(src, /import \{ useConfirm \} from '@\/app\/_components\/confirm-dialog';/, 'not the shipped confirm box');
   assert.match(src, /const \{ confirm, dialog: confirmDialog \} = useConfirm\(\);/);
@@ -39,7 +44,9 @@ test('the Book press waits for that confirm before anything is sent', () => {
   const sent = body.indexOf('requestLock()');
   assert.ok(asked >= 0, 'the Book press sends without asking');
   assert.ok(sent > asked, 'the Book press sends before the confirm answers');
-  assert.match(body, /if \(!\(await confirm\(\{ \.\.\.copy, body \}\)\)\) return;/, '"Not yet" still sends');
+  assert.match(body, /if \(notYetVerified && !\(await confirm\(\{ \.\.\.copy, body \}\)\)\) return;/, 'the confirm is back on every ask (Q11: one tap), or "Not yet" still sends');
+  // ↩ The answer to an ask carries Undo through the shipped withdraw — never a second action.
+  assert.match(src, /<WithdrawAskButton vendorId=\{vendorId\} vendorName=\{state\.vendorName\} label="Undo"/, 'an ask has no Undo');
 });
 
 test('owner 16 Nov: the confirm TELLS the couple a shop is not yet verified — with the shipped line, never blocking', () => {

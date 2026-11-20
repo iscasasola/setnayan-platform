@@ -71,7 +71,7 @@ export async function PapicCameraSettings({
   const { data: ev, error } = await supabase
     .from('events')
     .select(
-      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, event_days',
+      'event_type, event_date, papic_window_start, papic_window_end, papic_style, papic_on, date_mode, date_candidates, date_window_start, date_window_end, date_months, event_days',
     )
     .eq('event_id', eventId)
     .maybeSingle();

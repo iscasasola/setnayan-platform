@@ -232,6 +232,7 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
       dailyCapacity: '',
       availabilityStyle: null,
       orderLeadDays: '',
+      usualPrepDays: '',
       branchId: '',
       schedule: [
         {

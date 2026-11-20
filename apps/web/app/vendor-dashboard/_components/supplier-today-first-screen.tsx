@@ -249,6 +249,8 @@ export type SupplierTodayFirstScreenProps = {
   alsoToday?: ReadonlyArray<{ id: string; label: string; line: string | null; href: string; icon: TodayRowIcon }>;
   /** The next three booked events, Setnayan and outside, already worded. */
   comingUp: readonly TodayComingUpRow[];
+  /** T-3: the bookings read was refused or short — an empty list is "Couldn't load", never "No bookings yet". */
+  comingUpUnread?: boolean;
   /** 🗂 "Events you run" — empty for everyone but a coordinator. */
   eventsYouRun?: readonly EventYouRun[];
   /** 💸 The unpaid booking fees (`<BookingFeeBills today>`), drawn by the page; counted in `needsCount`. */
@@ -305,6 +307,7 @@ export function SupplierTodayFirstScreen({
   outcome = null,
   alsoToday = [],
   comingUp,
+  comingUpUnread = false,
   eventsYouRun = [],
   bills = null,
   hasBills = false,
@@ -446,7 +449,11 @@ export function SupplierTodayFirstScreen({
       {/* ③ COMING UP — the next three booked events (Setnayan and outside), each opening its day. */}
       <div data-today-coming-up data-tour="today-coming-up">
         <TodayEyebrow door={{ label: 'All dates', href: '/vendor-dashboard/customers?seg=dates' }}>Coming up</TodayEyebrow>
-        {comingUp.length === 0 ? (
+        {comingUp.length === 0 && comingUpUnread ? (
+          <div className="[&>a:first-child]:border-t-0">
+            <TodayRow href="/vendor-dashboard" label="Couldn’t load your bookings" line="Refresh in a moment to try again" rowIcon="calendar" marker="coming-up-unread" />
+          </div>
+        ) : comingUp.length === 0 ? (
           <div className="[&>a:first-child]:border-t-0">
             <TodayRow href="/vendor-dashboard/customers?add=outside" label="No bookings yet" line="Add the ones you already have" rowIcon="calendar" marker="coming-up-empty" />
           </div>

@@ -164,6 +164,7 @@ import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 import { bookingCostWrite } from '@/lib/booking-cost-write';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import {
   AGREED_COUNT_FIELD,
   PRICE_BASIS_FIELD,
@@ -728,6 +729,10 @@ export type FinalizeVendorResult =
       vendorName: string;
       /** ISO. Mirrors the deadline the trigger materialized on the row. */
       expiresAt: string;
+      /** 🪑 The card rents by the piece (owner Q2, 20 Nov: no couple picker) — the ask went with no number and the
+       *  supplier says how many they can give. FALSE when not, or when the read was refused (logged; the plain
+       *  "sent" line is still true). */
+      byThePiece?: boolean;
     }
   // Locking this vendor narrows the couple's remaining candidate dates to a
   // single day — so confirming the lock also finalizes the wedding date. The
@@ -1724,6 +1729,10 @@ export async function finalizeVendor(
       .eq('vendor_service_id', targetVendor.service_id)
       .eq('is_active', true);
 
+    // 🪑 RENTED BY THE PIECE (owner Q2, 20 Nov: NO): the couple's ask carries no number — the supplier says how many
+    // they can give at the yes (`vendor_agree_to_lock` refuses a piece yes with no number: `pieces_needed`). A couple
+    // never sees, and never states against, the stock.
+
     let useSlotPath = false;
     if ((slotCount ?? 0) > 0) {
       // Only enforce/assign a slot on a day-precise event (verifier C4).
@@ -2244,12 +2253,16 @@ export async function finalizeVendor(
       );
     }
 
+    const piece = await pieceBookingIdsOf(supabase, [vendorId]);
+    if (piece.error) console.error('[finalizeVendor] piece-card read failed', piece.error.message);
+
     revalidatePath(`/dashboard/${eventId}/vendors`);
     return {
       status: 'lock_requested',
       vendorId,
       vendorName: targetVendor.vendor_name as string,
       expiresAt,
+      byThePiece: piece.ids?.has(vendorId) ?? false,
     };
   }
 

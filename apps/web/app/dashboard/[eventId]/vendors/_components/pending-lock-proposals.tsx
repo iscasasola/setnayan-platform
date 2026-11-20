@@ -1,5 +1,6 @@
 'use client';
 
+import { piecesAskSentLine } from '@/lib/pieces-ask-words';
 import { useState, useTransition } from 'react';
 import { UserCheck, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -48,6 +49,11 @@ export function PendingLockProposals({
       setBusyId(null);
       if (res.status === 'ok' || res.status === 'already_locked') {
         setItems((prev) => prev.filter((x) => x.id !== p.id));
+      } else if (res.status === 'lock_requested') {
+        // The press was an ask (not "needs a few details"): it is sent. 🪑 By the piece (owner Q2, 20 Nov) the ask
+        // carries no number — the supplier says how many they can give; a couple never sees the stock.
+        setItems((prev) => prev.filter((x) => x.id !== p.id));
+        setNote(res.byThePiece ? piecesAskSentLine(p.vendorName) : `Ask sent. Waiting for ${p.vendorName} to agree.`);
       } else if (res.status === 'bookings_closed') {
         setNote(BOOKINGS_CLOSED_COUPLE_MESSAGE);
       } else if (res.status === 'vendor_not_verified') {

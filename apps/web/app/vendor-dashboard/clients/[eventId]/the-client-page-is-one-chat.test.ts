@@ -94,7 +94,7 @@ test('4 · the summary strip is FIRST in the chat’s one pinned stack, fed only
   assert.match(fixed, /\{oneChat \? <ChatHomeTop \/> : null\}\s*\{hosts !== undefined \? <ChatHostStrip/, 'the strip is not first in the pinned stack (above the who’s-here strip and the pins)');
   assert.equal((STREAM.match(/<ChatHomeTop \/>/g) ?? []).length, 1);
   assert.equal((STREAM.match(/<ChatPinnedStack\b/g) ?? []).length, 1, 'a second pinned stack — the 4/9 cap no longer holds everything pinned');
-  assert.match(PAGE, /strip=\{<ClientChatStrip boxes=\{stripBoxes\} threadId=\{threadId\} \/>\}/);
+  assert.match(PAGE, /strip=\{<ClientChatStrip boxes=\{stripBoxes\} threadId=\{threadId\} agenda=\{stripAgenda\} \/>\}/);
   assert.match(PAGE, /const stripBoxes = chatStrip\(\{/);
   // Its two own reads are said when refused (null → "Couldn't load"), never drawn as none.
   assert.match(PAGE, /theirAsk: !threadId \? undefined : stripAsks === null \? null : /, 'a refused asks read reads as "nobody countered"');

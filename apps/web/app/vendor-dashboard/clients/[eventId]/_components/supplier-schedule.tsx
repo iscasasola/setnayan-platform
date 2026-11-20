@@ -69,6 +69,11 @@ import { CALL_TIME_ANCHOR, OWN_TIMES_ROWS, OWN_TIMES_WAITING, ownTimesSlotInto, 
 type Fields = Record<string, string | string[]>;
 type Send = (fields: Fields) => Promise<SupplierScheduleAnswer>;
 
+/** The moment sheet's send — the real server action, or the lab's pretend one (also used by the dated list's rise). */
+export function momentSend(eventId: string, lab: boolean): Send {
+  return lab ? labSend : realSend(eventId);
+}
+
 function realSend(eventId: string): Send {
   return (fields) => {
     const fd = new FormData();
@@ -129,7 +134,7 @@ export function SupplierSchedule({
   eventDate?: string | null;
   lab?: boolean;
 }) {
-  const send = useMemo(() => (lab ? labSend : realSend(eventId)), [lab, eventId]);
+  const send = useMemo(() => momentSend(eventId, lab), [lab, eventId]);
   const linked = useMemo(() => (day ? day.chapters.filter((c) => c.linked) : []), [day]);
   const [view, setView] = useState<'mine' | 'all'>(linked.length > 0 ? 'mine' : 'all');
   const [sheet, setSheet] = useState<
@@ -840,7 +845,7 @@ function ScheduleThumbRow({
 
 const SECTIONS: ChapterSection[] = ['Ingress', 'Event', 'Egress'];
 
-function MyMomentSheet({
+export function MyMomentSheet({
   chapters,
   chapter: chapter0,
   moment,

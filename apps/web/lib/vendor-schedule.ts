@@ -14,6 +14,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { lastDayOf } from '@/lib/event-date-floor';
 import { readAllPages, readInChunks } from '@/lib/read-all-pages';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { NOT_AVAILABLE_COLUMNS, notAvailableFieldsOf, type DayPart, type RepeatRule } from '@/lib/not-available';
 
 export type SchedulePool = {
@@ -58,6 +59,8 @@ export type PoolBookingEntry = {
   threadId: string | null;
   /** 🗓 The booking row (`event_vendors.vendor_id`) this seat holds — the chapters and times are tagged with it. */
   eventVendorId?: string | null;
+  /** 🔢 false = a by-the-piece booking: listed on its day, never counted as a seat (`lib/piece-seats.ts`). */
+  seat?: boolean;
 };
 
 export type CalendarBlockEntry = {
@@ -433,7 +436,7 @@ export async function fetchVendorPoolBookings(
   const admin = createAdminClient();
   // Chunked: an `in.()` of ~700 UUIDs is refused 400 by the gateway, which
   // blanked every booking's name at once (`IN_LIST_CHUNK`).
-  const [{ rows: events }, { rows: threads }] = await Promise.all([
+  const [{ rows: events }, { rows: threads }, pieceRows] = await Promise.all([
     readInChunks<{ event_id: string; display_name: string }>(eventIds, (part) =>
       admin.from('events').select('event_id, display_name').in('event_id', part),
     ),
@@ -444,7 +447,11 @@ export async function fetchVendorPoolBookings(
         .eq('vendor_profile_id', vendorProfileId)
         .in('event_id', part),
     ),
+    pieceBookingIdsOf(admin, bookings.map((b) => b.event_vendor_id)),
   ]);
+  // A refused read counts every row as a seat (the fuller side) — and says so.
+  if (pieceRows.error) logQueryError('fetchVendorPoolBookings.pieceSeats', pieceRows.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+  const pieceIds = pieceRows.ids ?? new Set<string>();
   const nameByEvent = new Map(
     ((events ?? []) as { event_id: string; display_name: string }[]).map((e) => [
       e.event_id,
@@ -466,6 +473,7 @@ export async function fetchVendorPoolBookings(
     eventName: nameByEvent.get(b.event_id) ?? 'A Setnayan event',
     threadId: threadByEvent.get(b.event_id) ?? null,
     eventVendorId: b.event_vendor_id ?? null,
+    ...(b.event_vendor_id && pieceIds.has(b.event_vendor_id) ? { seat: false } : {}),
   }));
 }
 

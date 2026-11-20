@@ -24,7 +24,7 @@ test('a day closed by someone else still reads Not available', () => {
 
 test('the read checks the hold against THIS event, and the thread page passes it', () => {
   const server = readFileSync(join(process.cwd(), 'lib/thread-day-answer.server.ts'), 'utf8');
-  assert.match(server, /select\('pool_id, event_id'\)/);
+  assert.match(server, /select\('pool_id, event_id, event_vendor_id'\)/);
   assert.match(server, /heldByThisEvent/);
   const page = readFileSync(join(process.cwd(), 'app/vendor-dashboard/messages/[threadId]/page.tsx'), 'utf8');
   assert.match(page, /readThreadDayAnswer\(supabase, \{[\s\S]{0,200}eventId: thread\.event_id/);

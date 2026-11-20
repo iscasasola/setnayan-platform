@@ -543,7 +543,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
               ? [{ key: 'unread', line: 'We couldn’t read your add-ons just now. Refresh to renew one.', end: null }]
               : liveUltraAddOns.map((a, i) => ({
                   key: a.orderId,
-                  line: `Add-on ${NUMBER.format(i + 1)} · runs until ${fmtDate(a.expiresAt)}`,
+                  // The number goes in the title so the END DATE — the fact this row is for — is never cut off at 375 px.
+                  title: `Ultra Add-on ${NUMBER.format(i + 1)}`,
+                  line: `Until ${fmtDate(a.expiresAt)}`,
                   end:
                     ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} renewOrderId={a.orderId} /> : null,
                 })),

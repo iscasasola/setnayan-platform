@@ -241,8 +241,8 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
               end: <UltraAddOnButton action={buyUltraAddOn} />,
               // 🔁 Each held add-on with its own Renew (PR #8019, option A) — the shipped rows, two sample add-ons.
               held: [
-                { key: 'lab-a1', line: 'Add-on 1 · runs until Thu 3 Dec 2026', end: <UltraAddOnButton action={buyUltraAddOn} renewOrderId="00000000-0000-4000-8000-0000000000a1" /> },
-                { key: 'lab-a2', line: 'Add-on 2 · runs until Thu 17 Dec 2026', end: <UltraAddOnButton action={buyUltraAddOn} renewOrderId="00000000-0000-4000-8000-0000000000a2" /> },
+                { key: 'lab-a1', title: 'Ultra Add-on 1', line: 'Until Thu 3 Dec 2026', end: <UltraAddOnButton action={buyUltraAddOn} renewOrderId="00000000-0000-4000-8000-0000000000a1" /> },
+                { key: 'lab-a2', title: 'Ultra Add-on 2', line: 'Until Thu 17 Dec 2026', end: <UltraAddOnButton action={buyUltraAddOn} renewOrderId="00000000-0000-4000-8000-0000000000a2" /> },
               ],
             }
           : null

@@ -22,8 +22,20 @@ export async function readClaimedWelcome(
     .order('claimed_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !invite?.vendor_id) return null;
-  const { data: row } = await admin.from('event_vendors').select('event_id').eq('vendor_id', invite.vendor_id as string).maybeSingle();
+  if (error) {
+    console.error('[supabase-error] lib/claimed-welcome.server.ts · from:vendor_invites.select', error);
+    return null;
+  }
+  if (!invite?.vendor_id) return null;
+  const { data: row, error: rowError } = await admin
+    .from('event_vendors')
+    .select('event_id')
+    .eq('vendor_id', invite.vendor_id as string)
+    .maybeSingle();
+  if (rowError) {
+    console.error('[supabase-error] lib/claimed-welcome.server.ts · from:event_vendors.select', rowError);
+    return null;
+  }
   const eventId = (row?.event_id as string | null) ?? null;
   if (!eventId) return null;
   const [{ data: ev }, words] = await Promise.all([

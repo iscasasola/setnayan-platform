@@ -2672,10 +2672,14 @@
       "blocks": [
         "ConfirmForm",
         "ConsoleTable",
-        "EmptyState",
         "ErrorState",
+        "InfoTip",
         "PageMasthead",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/accounts": {
@@ -3387,10 +3391,11 @@
       "blocks": [
         "FormFlash",
         "InfoTip",
+        "LinkPickMenu",
         "PageMasthead",
-        "PillLink",
-        "PillTrack",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/admin/colours": {
@@ -3515,7 +3520,9 @@
         "SignalsTable",
         "SimilarityBar",
         "StrikePill",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateRows"
       ]
     },
     "/admin/connection-logs": {
@@ -3561,12 +3568,15 @@
       "blocks": [
         "ConfirmForm",
         "FormFlash",
-        "Link",
+        "InfoTip",
+        "LinkPickMenu",
         "PageMasthead",
         "ReadFailed",
         "RequestCard",
         "ShopAddressCorrection",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateSection",
         "VendorCorrectionRequestRow"
       ]
     },
@@ -3672,7 +3682,8 @@
         "ConsoleTable",
         "DemoThread",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "TemplateFail"
       ]
     },
     "/admin/demo-vendors/inquiries/[threadId]": {
@@ -3689,8 +3700,8 @@
         "adminReplyAsVendor"
       ],
       "blocks": [
-        "Link",
         "ReadFailed",
+        "RecordBack",
         "SubmitButton"
       ]
     },
@@ -3825,9 +3836,12 @@
       "blocks": [
         "EditorialRow",
         "InfoTip",
-        "Link",
         "PageMasthead",
-        "ReadFailed"
+        "ReadFailed",
+        "TemplateEmpty",
+        "TemplateRow",
+        "TemplateRows",
+        "TemplateSection"
       ]
     },
     "/admin/editorial-review/[editorialId]": {
@@ -3841,6 +3855,7 @@
         "EditForm",
         "FlagCard",
         "PageMasthead",
+        "RecordEmpty",
         "StatusBadge",
         "SubmitButton"
       ]
@@ -3958,10 +3973,12 @@
       "blocks": [
         "Field",
         "Image",
-        "Link",
         "PageMasthead",
         "ProofImage",
         "ReadFailed",
+        "RecordBack",
+        "RecordEmpty",
+        "RecordSection",
         "SubmitButton"
       ]
     },
@@ -3995,6 +4012,7 @@
         "unsuspendVendor"
       ],
       "blocks": [
+        "ActionButton",
         "ConsoleTable",
         "ErrorState",
         "EvidenceChips",
@@ -4003,6 +4021,11 @@
         "PageMasthead",
         "StateBadge",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateNums",
+        "TemplateRows",
+        "TemplateSection",
         "WipeBanDialog"
       ]
     },
@@ -4094,8 +4117,11 @@
         "HelpMessageRow",
         "HelpMessenger",
         "Link",
+        "LinkPickMenu",
         "PageMasthead",
-        "SearchParamsRecord"
+        "SearchParamsRecord",
+        "TemplateFail",
+        "TemplateSection"
       ]
     },
     "/admin/hub-music": {
@@ -4195,10 +4221,13 @@
         "FormFlash",
         "InfoTip",
         "Link",
+        "LinkPickMenu",
         "PageMasthead",
         "PillLink",
         "PillTrack",
-        "SubmitButton"
+        "SubmitButton",
+        "TemplateEmpty",
+        "TemplateSection"
       ]
     },
     "/admin/intelligence": {
@@ -4464,7 +4493,9 @@
         "InfoTip",
         "PageMasthead",
         "PakantaDeliver",
-        "Result"
+        "Result",
+        "TemplateEmpty",
+        "TemplateFail"
       ]
     },
     "/admin/papic-storage": {
@@ -4504,7 +4535,9 @@
       "actions": [],
       "blocks": [
         "ConsoleTable",
-        "PageMasthead"
+        "InfoTip",
+        "PageMasthead",
+        "TemplateFail"
       ]
     },
     "/admin/payment-options": {
@@ -4889,14 +4922,16 @@
         "CardChecksAdmin",
         "FormFlash",
         "InfoTip",
+        "LinkPickMenu",
         "PageMasthead",
         "PickMenu",
-        "PillLink",
-        "PillTrack",
         "PostedPick",
         "PostedText",
         "SubmitButton",
         "SupplierPhotoReports",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection",
         "TypedRow"
       ]
     },
@@ -4945,15 +4980,16 @@
       "blocks": [
         "AppealCard",
         "Cell",
-        "FilterChip",
         "GuestReviewAdminRow",
         "GuestReviewsQueue",
         "InfoTip",
+        "LinkPickMenu",
         "PageMasthead",
-        "PillLink",
-        "PillTrack",
         "ReadFailed",
         "SubmitButton",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection",
         "VendorFakeFlagCard"
       ]
     },
@@ -5879,6 +5915,7 @@
         "Icon",
         "InfoTip",
         "Link",
+        "LinkPickMenu",
         "MsgsBody",
         "NamesBody",
         "NoticeSlot",
@@ -5891,6 +5928,9 @@
         "SupplierInbox",
         "Suspense",
         "TabLanding",
+        "TemplateEmpty",
+        "TemplateFail",
+        "TemplateSection",
         "TypedRow",
         "TypesBody",
         "WorkRowHead"
@@ -9455,7 +9495,8 @@
         "SubmitButton",
         "Suspense",
         "ThreadInterestChips",
-        "ThreadToolPanel"
+        "ThreadToolPanel",
+        "WhisperCoHosts"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -17363,7 +17404,6 @@
         "CouplePhotoShareReply",
         "CouplePhotosList",
         "CouplePhotosToAnswer",
-        "CoverIcon",
         "CoverPhotoMenu",
         "CoverSheet",
         "DatesRow",
@@ -17430,6 +17470,8 @@
         "PhotoPickLabel",
         "PhotoViewer",
         "PickMenu",
+        "PickedIcon",
+        "PickedLogoFiles.Provider",
         "PictureFrameControl",
         "Pin",
         "PinFigures",

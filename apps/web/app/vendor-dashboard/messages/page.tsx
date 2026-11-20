@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { supplierThreadPaneHref } from '@/lib/upcoming-schedule-door';
 import { redirect } from 'next/navigation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -39,9 +40,7 @@ export default async function SupplierChatsPage({
 }) {
   const besideThread = (await searchParams)?.__in === 'thread';
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

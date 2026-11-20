@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
@@ -159,9 +160,7 @@ type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rej
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
@@ -710,18 +709,8 @@ async function ShopHome({
             (`display: contents`) — the phone is unchanged. The grid lives in `_components/supplier-frame.css`. */}
         <div data-shop-desk="">
         <div data-shop-desk-side="">
-        {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
-            "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
-            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
-            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
-        <Suspense fallback={<AnalyticsPlaceholder />}>
-          <OneAnalyticsSection {...data.analytics} />
-        </Suspense>
-
-        {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
-        <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
-
-        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Specialized tools, Lane E item 13), each opening into the body. */}
+        {/* 📋🧰 TEMPLATES, THEN SPECIALIZED TOOLS — ABOVE the numbers (owner 19 Nov 2026, "Yes, all three": what you set up comes
+            before what you read). Templates = Forms Maker · Offer Maker; Specialized tools = its own open row. */}
         <ShopMakers
           scanners={scanners}
           formsBody={shopFormsBody(sp)}
@@ -732,6 +721,17 @@ async function ShopHome({
           booked={data.booked}
           offers={data.offerTile}
         />
+
+        {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
+            "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
+            months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
+            first, the carousel arrives in place of a same-height placeholder; the badge row stays directly under it. */}
+        <Suspense fallback={<AnalyticsPlaceholder />}>
+          <OneAnalyticsSection {...data.analytics} />
+        </Suspense>
+
+        {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
+        <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
         </div>
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped

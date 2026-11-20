@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8025
+# facts: 8026
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       5780
 #   policy    1174
 #   view      10
-#   func      407
+#   func      408
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -7698,6 +7698,7 @@ func	public.chat_decision_set_closed(p_topic_id uuid, p_closed boolean)	secdef=y
 func	public.chat_file_removal_options(p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_add(p_thread_id uuid, p_people uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_create(p_event_id uuid, p_name text, p_people uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.chat_group_former_members(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_head(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_i_am_in(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_leave(p_thread_id uuid, p_note text)	secdef=yes exec=authenticated search_path=public

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -25,9 +26,7 @@ const BUCKET = 'moodboard-library';
 
 export default async function StylistMoodboardLibraryPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // 🔑 ONE PREDICATE, SHARED WITH actions.ts. The page used to ask "do you own

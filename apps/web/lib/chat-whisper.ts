@@ -37,15 +37,16 @@ export function everyoneWillSeeLine(supplierName: string): string {
 /** …and the ONE ask on the first Send after that. */
 export const LEFT_WHISPER_ASK = 'You left Whisper. Send to everyone?';
 export function leftWhisperAskBody(supplierName: string): string {
-  return `${supplierName} will see it.`;
+  // The team's box names the other side in lower case ("the hosts") — a sentence still starts with a capital.
+  return `${supplierName.charAt(0).toUpperCase()}${supplierName.slice(1)} will see it.`;
 }
 
 /** A whisper is words only, like every private line (owner, 9 Nov) — the composer's line and the server's say the same. */
 export const WHISPER_WORDS_ONLY_MESSAGE = 'A whisper is words only — send the file to everyone instead.';
 /** Nobody to whisper to. Said in words; the line is NOT sent (never to everyone). */
 export const WHISPER_NO_COHOSTS_MESSAGE = 'No co-host is in this chat to whisper to — your whisper was not sent.';
-/** Only a host whispers. */
-export const WHISPER_HOSTS_ONLY_MESSAGE = 'Only a host of the event can whisper — your whisper was not sent.';
+/** Only a host in this chat, or the event's coordinator, whispers on the hosts' side. */
+export const WHISPER_HOSTS_ONLY_MESSAGE = 'Only a host in this chat or the event’s coordinator can whisper — your whisper was not sent.';
 /** The box's own line when a drag finds nobody to whisper to. */
 export const WHISPER_NOBODY_LINE = 'No co-host is in this chat yet. Add one to whisper.';
 
@@ -59,9 +60,9 @@ export const WHISPER_UNREAD_MESSAGE = "Couldn't check who is in this chat — yo
 export const WHISPER_UNREAD_LINE = "Couldn't load the co-hosts in this chat. Try again in a moment.";
 
 /** What the box says when a drag cannot turn whisper on — `null` when it can. The failed read wins over the count. */
-export function whisperBlockedLine(w: { coHosts: number; unread?: boolean }): string | null {
-  if (w.unread) return WHISPER_UNREAD_LINE;
-  if (w.coHosts <= 0) return WHISPER_NOBODY_LINE;
+export function whisperBlockedLine(w: { coHosts: number; unread?: boolean; side?: 'hosts' | 'team' }): string | null {
+  if (w.unread) return w.side === 'team' ? WHISPER_TEAM_UNREAD_LINE : WHISPER_UNREAD_LINE;
+  if (w.coHosts <= 0) return w.side === 'team' ? WHISPER_NO_TEAM_LINE : WHISPER_NOBODY_LINE;
   return null;
 }
 
@@ -77,22 +78,107 @@ export function whisperFromForm(raw: FormDataEntryValue | null): boolean {
 
 /**
  * 🔒 WHO HEARS A WHISPER — decided on the server from the thread's own rows, never from the browser:
- * the hosts in this chat now (`chat_thread_members`, `left_at IS NULL`), the sender left out, and ANYONE ON THE SHOP'S
+ * the hosts in this chat now (`chat_thread_members`, `left_at IS NULL`) AND the event's coordinators (owner, 20 Nov:
+ * *"host and coordinator can whisper to each other"* — `coordinatorIds`), the sender left out, and ANYONE ON THE SHOP'S
  * SIDE left out (one login can be a host AND the shop's owner or team member — that login is the supplier here).
  * `[]` = nobody to hear it → the caller refuses the send.
  */
 export function whisperRecipients(input: {
   hostMemberIds: readonly string[];
+  coordinatorIds?: readonly string[];
   shopUserIds: readonly string[];
   senderUserId: string;
 }): string[] {
   const shop = new Set(input.shopUserIds);
   const out: string[] = [];
-  for (const id of input.hostMemberIds) {
+  for (const id of [...input.hostMemberIds, ...(input.coordinatorIds ?? [])]) {
     if (!id || id === input.senderUserId || shop.has(id) || out.includes(id)) continue;
     out.push(id);
   }
   return out;
+}
+
+// ── TWO SIDES (Unichat part E, owner 19–20 Nov) ─────────────────────────────────────────────────────────────────────
+/**
+ * Which side a whisper is on — STORED with the line (`chat_messages.whisper_side`, migration 20271354185201), so its
+ * label never drops off (safety review, 19 Nov). The database re-judges the sender and every recipient against it and
+ * reads the line only to someone on that side NOW (a removed co-host, coordinator or team member reads nothing).
+ *   hosts  the hosts in the chat + the event's coordinators — never the shop.
+ *   team   the shop's own people (owner + live team members) — never a host or a coordinator.
+ */
+export type WhisperSide = 'hosts' | 'team';
+export const CHAT_WHISPER_SIDE_COLUMN = 'whisper_side' as const;
+
+/** The stored side, read safely: anything else is "not a whisper". */
+export function whisperSideOf(raw: unknown): WhisperSide | null {
+  return raw === 'hosts' || raw === 'team' ? raw : null;
+}
+
+/**
+ * 🔒 WHO HEARS A TEAM WHISPER — the shop's people who may chat here (`readShopChatPeople`: the owner, owner/admin
+ * members, a member below admin on an event their service serves; a deactivated member never), the sender left out.
+ * A login that is ALSO a host is still on the shop's side here, so it stays on the list. `[]` → refused.
+ */
+export function teamWhisperRecipients(input: { teamUserIds: readonly string[]; senderUserId: string }): string[] {
+  const out: string[] = [];
+  for (const id of input.teamUserIds) {
+    if (!id || id === input.senderUserId || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+/** Only the people on the shop's side whisper to the team. */
+export const WHISPER_TEAM_ONLY_MESSAGE = 'Only the shop’s own team can whisper here — your whisper was not sent.';
+/** Nobody else on the team is in this chat. Refused, never sent to everyone. */
+export const WHISPER_NO_TEAM_MESSAGE = 'No one else on your team is in this chat — your whisper was not sent.';
+export const WHISPER_NO_TEAM_LINE = 'No one else on your team is in this chat yet.';
+export const WHISPER_TEAM_UNREAD_LINE = "Couldn't load your team for this chat. Try again in a moment.";
+
+/** The team whisper reaches — the composer's line (the prototype's words). */
+export const WHISPER_TEAM_REACH = 'Only your team';
+/**
+ * 🛡 What the ⓘ beside the line says (safety review F7, 19 Nov): staff can read a private line inside an open dispute,
+ * so "only" must say so — the database's own arm (`chat_private_in_dispute`).
+ */
+export const WHISPER_DISPUTE_NOTE = 'Setnayan staff can read it only while a dispute about this booking is open.';
+
+/**
+ * "Only you, Ana and your coordinator" — who a hosts' whisper reaches, said to the person about to whisper. `names` =
+ * the OTHER hosts in this chat by first name; `coordinators` = how many coordinators (other than the viewer) hear it.
+ * A coordinator whispering sees the hosts by name. Nobody → `null` (the box says so in its own words).
+ */
+export function hostsWhisperReach(input: {
+  names: readonly string[];
+  coordinators: number;
+  /** The writer IS a coordinator: the others are "the other coordinator", never "your coordinator". */
+  viewerIsCoordinator?: boolean;
+}): string | null {
+  const parts = input.names.filter((n) => n.trim().length > 0);
+  const who = input.viewerIsCoordinator ? 'the other coordinator' : 'your coordinator';
+  if (input.coordinators === 1) parts.push(who);
+  else if (input.coordinators > 1) parts.push(`${who}s`);
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? `Only you and ${parts[0]}` : `Only you, ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** The strip across a whispered bubble, by side. The hosts' names the supplier who cannot see it. */
+export function whisperStrip(side: WhisperSide, supplierName: string): string {
+  return side === 'team' ? 'Whisper · your team only' : `Whisper · ${supplierName} can’t see`;
+}
+
+/**
+ * Is this line a whisper, as THIS viewer reads it? The stored side decides (`whisper_side`); a line written before the
+ * column falls back to the 19 Nov inference (`isWhisperLine` — the hosts' side only, exactly the co-hosts).
+ */
+export function whisperSideOfLine(
+  m: Parameters<typeof privateRecipientIds>[0] & { sender_role?: string | null; whisper_side?: string | null },
+  legacy: { viewerRole: 'couple' | 'vendor'; coHostIds: readonly string[] | null | undefined; viewerUserId: string },
+): WhisperSide | null {
+  const stored = whisperSideOf(m.whisper_side);
+  if (stored) return stored;
+  if (legacy.viewerRole === 'couple' && isWhisperLine(m, legacy.coHostIds, legacy.viewerUserId)) return 'hosts';
+  return null;
 }
 
 /**

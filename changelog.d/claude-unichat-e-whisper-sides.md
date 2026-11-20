@@ -1,0 +1,13 @@
+## 2026-11-20 · feat(chat): Unichat part E — whisper sides (hosts + coordinator · supplier team)
+
+Owner, 19 Nov: *"supplier whispers to co suppliers on the chat. and coordinators and hosts do not see it."* ("Own shop team".) Owner, 20 Nov: *"host and coordinator can whisper to each other."* Extends the 19 Nov Message ⇄ Whisper build; nothing redrawn.
+
+- **Two sides, enforced in the database** (migration `20271354185201_a_whisper_stays_on_its_side`): `chat_messages.whisper_side` ('hosts' | 'team') is stored with the line, so its label never drops off (safety review, 19 Nov). A BEFORE INSERT trigger refuses a whisper whose sender or any recipient is not on its side now, or that has nobody to hear it; a RESTRICTIVE read policy shows a whisper only to someone on its side NOW (plus the private line's existing admin-in-an-open-dispute arm). Side = `chat_whisper_side_of()`: the shop (owner or a live, non-deactivated team member) wins; else a HELD host seat or a coordinator of the event.
+- **Hosts' whisper includes the coordinator**: the send core's list is the hosts in the chat + the event's coordinators, never a shop login; a coordinator can whisper too (the send core now admits a coordinator for a whisper only).
+- **Supplier team whisper**: the supplier's composer drags to Whisper for the shop's own people who may chat here (`readShopChatPeople`); hosts and coordinators never see it and are told nothing.
+- **Composer**: while whispering, a sky **Private** chip with who it reaches ("Only you, Ana and your coordinator" · "Only your team") and an ⓘ saying staff read it only inside an open dispute. A failed read of who it reaches says it could not load on both sides — never "no one" (`readShopChatPeople` now reports `measured`).
+- **F1 stays closed**: a removed co-host, a removed coordinator and a deactivated team member read neither whisper (DB-tested). The team-side policy is narrower than the shop's permissive read, which still admits a deactivated admin on SHARED lines — pre-existing, flagged in the PR.
+
+Tests: new `apps/web/tests/db/a-whisper-stays-on-its-side.db.test.ts` (with a policy-drop sabotage), new `apps/web/lib/a-whisper-has-two-sides.test.ts`; `a-whisper-never-reaches-the-supplier.test.ts`, `a-failed-whisper-read-is-not-nobody.test.ts` and `a-private-message-looks-private.test.ts` updated to the widened 20 Nov rulings (every fence kept).
+
+SPEC IMPACT: None to the corpus — builds the DECISION_LOG rows of 2026-11-19 ("Unichat: a supplier whispers to their own team") and 2026-11-20 ("the hosts' whisper includes their coordinator") as ruled. Open owner questions are in the PR body.

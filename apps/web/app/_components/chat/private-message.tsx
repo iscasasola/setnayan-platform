@@ -20,7 +20,16 @@ import { WHISPER_STRIP } from '@/lib/chat-whisper';
 export { PRIVATE_BUBBLE_FILL, PRIVATE_STRIP_TEXT };
 
 /** `privateWith` — the OTHER people's names as this reader sees them (one, or several since 12 Nov); null/[] = shared. */
-export function PrivateMark({ privateWith, whisper = false }: { privateWith: string | readonly string[] | null; whisper?: boolean }) {
+export function PrivateMark({
+  privateWith,
+  whisper = false,
+  label,
+}: {
+  privateWith: string | readonly string[] | null;
+  whisper?: boolean;
+  /** 🤫 The whisper's own strip by its side (Unichat part E, `whisperStrip`); absent → the 19 Nov words. */
+  label?: string;
+}) {
   // 🤫 A WHISPER (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the strip across the bubble's top, sky blue,
   // "Whisper · co-hosts only" — no lock and no names (it is a whisper, not a vault; every co-host hears it).
   if (whisper) {
@@ -29,7 +38,7 @@ export function PrivateMark({ privateWith, whisper = false }: { privateWith: str
         className="-mx-3 -mt-2 mb-1.5 bg-[rgb(var(--color-private-text))] px-3 py-[3px] text-[11px] font-bold text-[rgb(var(--color-private-tint))]"
         data-chat-whisper-strip=""
       >
-        {WHISPER_STRIP}
+        {label ?? WHISPER_STRIP}
       </p>
     );
   }

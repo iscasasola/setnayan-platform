@@ -149,19 +149,28 @@ test('4 · the send core refuses a whisper on a failed read with its own words �
   const core = read('lib/chat-send.ts');
   const at = core.indexOf('if (input.whisper) {');
   const block = core.slice(at, core.indexOf('const privateList = (', at));
-  const unread = block.indexOf("if (!hostPeople.measured) {\n      return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };");
+  const unread = block.search(/if \(!hostPeople\.measured \|\| !shop\.measured\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE \};/);
   assert.ok(unread > 0, 'a failed read is not refused with its own words');
   assert.ok(unread < block.indexOf('whisperTo = whisperRecipients('), 'the failed read is checked before the list is built');
+  // 🏪 The team's whisper too (Unichat part E): a failed read of the shop's people is refused in the failure's words.
+  const teamUnread = block.search(/if \(!shop\.measured\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE \};/);
+  assert.ok(teamUnread > 0, 'a failed team read is not refused with its own words');
+  assert.ok(teamUnread < block.indexOf('whisperTo = teamWhisperRecipients('), 'the failed team read is not checked before the list is built');
 });
 
 test('5 · the page hands `unread` to the box and labels whispers only from a list it read', () => {
   const page = read('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
-  assert.match(page, /\.catch\(\(e: unknown\) => \{\s*console\.error\('\[couple thread\] whisper co-hosts read failed', e\);\s*return WHISPER_CO_HOSTS_UNREAD;/,
+  assert.match(page, /\.catch\(\(e: unknown\) => \{\s*console\.error\('\[couple thread\] whisper co-hosts read failed', e\);\s*return WHISPER_AUDIENCE_UNREAD\('hosts'\);/,
     'a thrown read is dropped as "no whisper" instead of said as a failure');
-  assert.match(page, /const whisperCoHostIds = whisperCoHosts && !whisperCoHosts\.unread \? whisperCoHosts\.ids : null;/);
-  assert.match(page, /whisper=\{whisperCoHosts \? \{ supplierName: vendorLabel, coHosts: whisperCoHosts\.ids\.length, unread: whisperCoHosts\.unread \} : null\}/);
+  assert.match(page, /const whisperCoHostIds = whisperCoHosts && !whisperCoHosts\.unread \? whisperCoHosts\.legacyCoHostIds : null;/);
+  assert.match(page, /whisper=\{whisperCoHosts \? \{ supplierName: vendorLabel, coHosts: whisperCoHosts\.ids\.length, unread: whisperCoHosts\.unread, side: 'hosts', reach: whisperCoHosts\.reach \} : null\}/);
   const server = read('lib/chat-whisper.server.ts');
-  assert.match(server, /if \(!hostPeople\.measured\) return WHISPER_CO_HOSTS_UNREAD;/);
+  assert.match(server, /if \(!hostPeople\.measured \|\| !shop\.measured\) return WHISPER_AUDIENCE_UNREAD\('hosts'\);/);
+  assert.match(server, /if \(!shop\.measured\) return WHISPER_AUDIENCE_UNREAD\('team'\);/);
+  const supplierPage = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
+  assert.match(supplierPage, /\.catch\(\(e: unknown\) => \{\s*console\.error\('\[supplier thread\] team whisper read failed', e\);\s*return WHISPER_AUDIENCE_UNREAD\('team'\);/,
+    'a thrown team read is dropped as "no whisper" instead of said as a failure');
   const people = read('lib/chat-shop-people.server.ts');
   assert.match(people, /measured: !membersRes\.error && !peopleRes\.error/);
+  assert.match(people, /let measured = !ownerRes\.error && !teamRes\.error;/);
 });

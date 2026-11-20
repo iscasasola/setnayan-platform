@@ -26,7 +26,7 @@ import { shopChatPeopleFrom, threadHostPeopleFrom, type ShopMemberRow } from '@/
 export async function readShopChatPeople(
   admin: SupabaseClient,
   args: { vendorProfileId: string; eventId: string },
-): Promise<{ ownerUserId: string | null; userIds: string[] }> {
+): Promise<{ ownerUserId: string | null; userIds: string[]; measured: boolean }> {
   const [ownerRes, teamRes] = await Promise.all([
     admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', args.vendorProfileId).maybeSingle(),
     admin
@@ -42,12 +42,15 @@ export async function readShopChatPeople(
   // Below admin: which of them hold an assigned service THIS event booked. Asked only when there is somebody to ask.
   const below = team.filter((m) => m.role !== 'owner' && m.role !== 'admin' && !m.deactivated_at);
   let servingMemberIds: Set<string> = new Set();
+  // ⚠ A FAILED READ IS NOT AN EMPTY TEAM (the whisper box says "couldn't load", never "no one" — Unichat part E).
+  let measured = !ownerRes.error && !teamRes.error;
   if (below.length > 0) {
     const assigned = await admin
       .from('vendor_service_agents')
       .select('vendor_team_member_id, vendor_service_id')
       .in('vendor_team_member_id', below.map((m) => m.vendor_team_member_id));
     if (assigned.error) logQueryError('readShopChatPeople.assigned', assigned.error, { event_id: args.eventId }, 'graceful_degrade');
+    if (assigned.error) measured = false;
     const rows = (assigned.data ?? []) as Array<{ vendor_team_member_id: string; vendor_service_id: string }>;
     if (rows.length > 0) {
       const booked = await admin
@@ -56,11 +59,12 @@ export async function readShopChatPeople(
         .eq('event_id', args.eventId)
         .in('service_id', [...new Set(rows.map((r) => r.vendor_service_id))]);
       if (booked.error) logQueryError('readShopChatPeople.booked', booked.error, { event_id: args.eventId }, 'graceful_degrade');
+      if (booked.error) measured = false;
       const bookedIds = new Set(((booked.data ?? []) as Array<{ service_id: string | null }>).map((b) => b.service_id));
       servingMemberIds = new Set(rows.filter((r) => bookedIds.has(r.vendor_service_id)).map((r) => r.vendor_team_member_id));
     }
   }
-  return { ownerUserId, userIds: shopChatPeopleFrom({ ownerUserId, team, servingMemberIds }) };
+  return { ownerUserId, userIds: shopChatPeopleFrom({ ownerUserId, team, servingMemberIds }), measured };
 }
 
 export async function readThreadHostPeople(

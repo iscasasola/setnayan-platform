@@ -128,7 +128,7 @@ import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, typ
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
-import { WHISPER_TYPING_WINDOW_EVENT, isWhisperLine, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
+import { WHISPER_TYPING_WINDOW_EVENT, whisperSideOfLine, whisperStrip, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
 import { readWhisper, sendWhisperTyping, subscribeWhisper } from '@/app/_components/chat/whisper-mode';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
@@ -225,8 +225,8 @@ type Props = {
   shopLogoUrl?: string | null;
   /**
    * 🤫 The host's side only (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the OTHER hosts in this chat now
-   * (`chat_thread_members`, the viewer and any shop login left out — the list a whisper is written to). A private line
-   * whose people are exactly them wears "Whisper · co-hosts only"; absent or empty → no line is ever drawn as a whisper.
+   * (`chat_thread_members`, the viewer and any shop login left out). Since Unichat part E a whisper carries its side
+   * (`whisper_side`) and needs no list; this labels only a whisper written BEFORE that column (exactly the co-hosts).
    */
   whisperCoHostIds?: readonly string[] | null;
   /**
@@ -2646,7 +2646,11 @@ export function ChatMessageStream({
           const privateWithIds = privateOtherIds(m, currentUserId);
           const privateWith = privateWithIds.length === 0 ? null : privateWithIds.map((id) => personName(id));
           // 🤫 …and a private line to exactly the co-hosts in this chat is a WHISPER: its strip says so, with no lock.
-          const whisper = privateWith !== null && viewerRole === 'couple' && isWhisperLine(m, whisperCoHostIds, currentUserId);
+          // 🏪 Unichat part E: the side is STORED with the line (`whisper_side`) — the hosts' (with their coordinator) or the
+          // shop's own team — so the label never drops off; a line from before the column falls back to the 19 Nov rule.
+          const whisperSide =
+            privateWith !== null ? whisperSideOfLine(m, { viewerRole, coHostIds: whisperCoHostIds, viewerUserId: currentUserId }) : null;
+          const whisper = whisperSide !== null;
           // 👈 A file its sender removed (2026-11-13): for everyone, both sides draw who and when; for me, only this viewer
           // stops seeing it. The words, if any, stay. A file that left with no line to say who (a refused read) still says
           // a file was removed — never an empty bubble.
@@ -2760,7 +2764,7 @@ export function ChatMessageStream({
                 }`}
                 {...(privateWith !== null ? { 'data-chat-private': '' } : {})}
               >
-                <PrivateMark privateWith={privateWith} whisper={whisper} />
+                <PrivateMark privateWith={privateWith} whisper={whisper} label={whisperSide ? whisperStrip(whisperSide, counterpartyLabel) : undefined} />
                 {m.body ? (
                   <p className="whitespace-pre-wrap break-words">{m.body}</p>
                 ) : null}
@@ -2975,7 +2979,7 @@ export function ChatMessageStream({
       {pendings.map((p) => (
         <li key={p.tempId} className="sn-m-chat-send flex flex-col items-end" data-chat-pending={p.state}>
           <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.whisper ? 'overflow-hidden ' : ''}${p.privateTo || p.whisper ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
-            <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} />
+            <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} label={whisperStrip(viewerRole === 'vendor' ? 'team' : 'hosts', counterpartyLabel)} />
             {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>

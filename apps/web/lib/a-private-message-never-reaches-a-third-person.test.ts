@@ -202,6 +202,8 @@ test('notices: the fan-out notifies every host, and a private line leaves before
       '...(attachment ?? {})',
       // 👥 one person → the shipped column; several → the list (12 Nov)
       '...(privateTo ? (privateTo.length === 1 ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo[0] } : { [CHAT_PRIVATE_RECIPIENTS_COLUMN]: privateTo }) : {})',
+      // 🤫 Part E (20 Nov): the whisper's SIDE label rides only a private line — a label, never a recipient.
+      '...(whisperSide && privateTo ? { [CHAT_WHISPER_SIDE_COLUMN]: whisperSide } : {})',
       // 🏪 The screen's side (owner, 11 Nov) — `sent_as` only, never a recipient.
       '...sidePayload',
     ],

@@ -186,23 +186,27 @@ export function BookingFeeForm({
         </p>
       )}
 
+      {/* The lock and the every-Nth count (owner 2026-11-20) — set in platform settings, shown here so the owner reads
+          what bills. Null = unread: said, never a default. */}
+      <ul className="mt-2 space-y-0.5 text-[11px] leading-relaxed text-ink/55">
+        <li>
+          {capPhp != null ? (
+            <>A fee is locked at <strong>{formatPhp(capPhp)}</strong>, verified or not.</>
+          ) : (
+            'The fee’s lock could not be read just now.'
+          )}
+        </li>
+        <li>
+          {freeEveryNth != null ? (
+            <>Every <strong>{freeEveryNth.toLocaleString('en-PH')}th</strong> booking fee on Setnayan is free.</>
+          ) : (
+            'The every-Nth free booking fee count could not be read just now.'
+          )}
+        </li>
+        <li>Unverified shops pay the first rate on the whole booking.</li>
+      </ul>
       <p className="mt-2 text-[11px] leading-relaxed text-ink/45">
         The <strong>{formatPhp(minPhp)}</strong> minimum is fixed.{' '}
-        {capPhp != null ? (
-          <>
-            A fee is locked at <strong>{formatPhp(capPhp)}</strong> — it never goes above that, verified or not.{' '}
-          </>
-        ) : (
-          'The fee’s lock could not be read just now. '
-        )}
-        {freeEveryNth != null ? (
-          <>
-            Every <strong>{freeEveryNth.toLocaleString('en-PH')}th</strong> booking fee across Setnayan is free.{' '}
-          </>
-        ) : (
-          'The every-Nth free booking fee count could not be read just now. '
-        )}
-        Unverified shops pay the first rate on the whole booking, locked the same way.{' '}
         {isFromDb ? 'Set in platform settings.' : 'Falling back to the built-in schedule — save once to store it.'}{' '}
         {enabled
           ? 'The booking fee is switched ON — changes bill real suppliers.'

@@ -157,7 +157,7 @@ export default async function VendorBookingFeesPage() {
             {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
             {/* Owner 2026-11-10: "messages that needs to be reworded" — plainer words. */}
             <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> A free booking fee ticket
-            pays your next booking with a fee by itself, and a waived booking still shows what its fee would have been.
+            pays your next fee by itself.
           </p>
         </div>
       ) : (

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Upload } from 'lucide-react';
@@ -23,9 +24,7 @@ export default async function QuickAddGuestsPage({ params, searchParams }: Props
   const { eventId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const errorKey = search.error ?? null;

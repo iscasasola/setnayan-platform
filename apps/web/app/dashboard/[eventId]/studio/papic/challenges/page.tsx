@@ -27,6 +27,7 @@
  * Migration 20271155952591 lifts the ceiling; this screen is what makes it
  * legible.
  */
+import { getCurrentUser } from '@/lib/auth';
 import { papicCardHref } from '@/lib/papic-home-href';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -65,9 +66,7 @@ export default async function ChallengesPage({ params, searchParams }: Props) {
   // URL sees nothing regardless of what happens here. This check exists to send
   // them somewhere useful rather than to an empty page.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/dashboard/${eventId}/studio/papic/challenges`);
 
   return (

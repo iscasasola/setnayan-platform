@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import Link from 'next/link';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -40,9 +41,7 @@ export default async function VendorPapicCapturePage({
   if (!(await isVendorPapicCaptureEnabled())) redirect(back);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect(`/login?next=${encodeURIComponent(`${back}/papic`)}`);
   }

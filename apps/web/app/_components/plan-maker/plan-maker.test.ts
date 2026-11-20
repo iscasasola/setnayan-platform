@@ -110,3 +110,17 @@ test("'move' tools: Line up on the Floor plan, and nothing that adds, edits or d
   assert.doesNotMatch(grid, /data-plan-tools|data-plan-line-up/);
   assert.match(grid, /<button type="button" disabled=""/);
 });
+
+test('dark mode: no surface is painted white — tiles and empty chairs wear the card token, so ink stays readable on them', async () => {
+  // 🌗 Found in the 375 dark proof (20 Nov): Grid tiles were `bg-white` and empty chairs `fill-white`, so in dark the
+  // ink words (light) vanished on a white tile. A white that never turns dark is a colour, not a token.
+  for (const view of ['grid', 'floor'] as const) {
+    const html = await render({ views: ['grid', 'floor'], view });
+    // A shared control may pair `bg-white` with its own `dark:bg-…`; a white with no dark partner is the fault.
+    const unpaired = [...html.matchAll(/class="([^"]*)"/g)].map((m) => m[1]).filter((c) => /(^|\s)bg-white(\s|$)/.test(c) && !/dark:bg-/.test(c));
+    assert.deepEqual(unpaired, [], `${view}: a bg-white surface with no dark partner`);
+    const whites = html.match(/\bfill-white\b/g) ?? [];
+    // The one allowed white is the word on the terracotta "marked" pill, which is terracotta in both themes.
+    assert.ok(whites.length <= 1, `${view}: ${whites.length} fill-white marks`);
+  }
+});

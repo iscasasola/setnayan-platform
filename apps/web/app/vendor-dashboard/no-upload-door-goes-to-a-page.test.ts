@@ -64,8 +64,11 @@ test('2 · the door is a native picker into the shipped PortfolioForm — the up
   assert.match(fu, /void handleFiles\(\[\.\.\.pickedFiles\]\)/, 'picked files skip the one intake door (checks · room · watermark · QR guard)');
 });
 
-test('3 · Today and Shop mount the door; the Cover and Logo sheets are the one menu', () => {
-  assert.match(read('app/vendor-dashboard/page.tsx'), /<PortfolioUploadDoor\b/, 'Today’s hero Upload is not the picker');
+test('3 · Shop mounts the door (Today has none since v3); the Cover and Logo sheets are the one menu', () => {
+  // RE-AIMED ON PURPOSE (Today v3 part 1, owner 19 Nov "remove the photo of that header"): Today has no hero photo,
+  // so it has no hero Upload any more. The rule this file holds — no Upload door goes to a page — now means Today
+  // mounts NO upload door at all (test 1 still walks every door that is left); Shop and Portfolio keep the picker.
+  assert.doesNotMatch(read('app/vendor-dashboard/page.tsx'), /PortfolioUploadDoor|collections\/upload/, 'Today grew an Upload door again — it has no hero photo to upload to');
   assert.match(read('app/vendor-dashboard/shop/_components/shop-cover.tsx'), /<PortfolioUploadDoor\b/, 'Shop’s hero Upload is not the picker');
   const page = read('app/vendor-dashboard/shop/page.tsx');
   assert.match(page, /<CoverPhotoMenu\b/);

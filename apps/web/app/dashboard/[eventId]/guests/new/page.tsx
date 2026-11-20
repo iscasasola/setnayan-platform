@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import {
   fetchGuestsByEvent,
@@ -75,11 +76,12 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   // the two screens edit the same columns, so a field offered on one and hidden
   // on the other is its own bug. Reads BOTH ceremony columns: the common Tsinoy
   // case is a church wedding with the tea ceremony as the overlay rite.
-  const { data: ceremonyRow, error: ceremonyRowError } = await supabase
+  const { data: ceremonyRow, error: ceremonyRowError } = await eventRowOnce(supabase, eventId, 'ceremony_type, secondary_ceremony_type', () =>
+      supabase
     .from('events')
     .select('ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // ⚠ BIND THE ERROR. This read decides whether a field EXISTS, so a refusal
   // that degrades to null states an absence ("not a Chinese wedding") that was
   // never measured. Logged rather than thrown — the form must still render —

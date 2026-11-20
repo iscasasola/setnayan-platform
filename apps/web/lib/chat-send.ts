@@ -24,7 +24,7 @@ import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filte
 import { fetchThreadById, countCoupleMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
-import { WHISPER_HOSTS_ONLY_MESSAGE, WHISPER_NO_COHOSTS_MESSAGE, WHISPER_WORDS_ONLY_MESSAGE, whisperRecipients } from './chat-whisper';
+import { WHISPER_HOSTS_ONLY_MESSAGE, WHISPER_NO_COHOSTS_MESSAGE, WHISPER_UNREAD_MESSAGE, WHISPER_WORDS_ONLY_MESSAGE, whisperRecipients } from './chat-whisper';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 import type { ChatSentAs } from './chat-sent-as';
 import { voiceLength } from './chat-message-extras';
@@ -287,6 +287,10 @@ export async function sendChatMessageCore(
       readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
       shopPeopleRead(),
     ]);
+    // ⚠ The read of who is here FAILED: say so. Never "no co-host is in this chat" — that is a failure shown as emptiness.
+    if (!hostPeople.measured) {
+      return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
+    }
     whisperTo = whisperRecipients({
       hostMemberIds: hostPeople.members,
       shopUserIds: [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])],

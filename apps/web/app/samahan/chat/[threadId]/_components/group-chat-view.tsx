@@ -24,7 +24,7 @@ import type { ChatHost } from '@/lib/chat-hosts';
 import type { ChatMessageRow } from '@/lib/chat';
 import type { DealEntry } from '@/lib/deal-entry';
 import type { AddableHost } from '@/app/_components/chat/chat-host-strip';
-import { groupHeadLine, type GroupHead, type GroupMember, type GroupPersonKind } from '@/lib/chat-groups';
+import { formerMemberNames, groupHeadLine, type GroupFormerMember, type GroupHead, type GroupMember, type GroupPersonKind } from '@/lib/chat-groups';
 import type { SwitcherGroup } from './group-switcher';
 
 const GroupSwitcher = dynamic(() => import('./group-switcher'));
@@ -58,9 +58,13 @@ export function groupStripPeople(members: readonly GroupMember[]): ChatHost[] {
   }));
 }
 
-/** Every member's first name (a supplier: their shop), so each run in the stream says who wrote it. */
-export function groupSenderNames(members: readonly GroupMember[]): Record<string, string> {
-  const out: Record<string, string> = {};
+/** Every member's first name (a supplier: their shop), so each run in the stream says who wrote it — and anyone who
+ *  LEFT (a co-host removed from the event included, owner 20 Nov) keeps their name on their past lines, marked "· left". */
+export function groupSenderNames(
+  members: readonly GroupMember[],
+  former: readonly GroupFormerMember[] = [],
+): Record<string, string> {
+  const out: Record<string, string> = formerMemberNames(former);
   for (const m of members) {
     const name = m.kind === 'supplier' && m.shop ? `${m.first_name ?? m.shop} · ${m.shop}` : (m.first_name ?? m.name);
     if (name) out[m.user_id] = name;
@@ -71,6 +75,7 @@ export function groupSenderNames(members: readonly GroupMember[]): Record<string
 export function GroupChatView({
   head,
   members,
+  former = [],
   messages,
   youId,
   backHref,
@@ -83,6 +88,8 @@ export function GroupChatView({
   head: GroupHead;
   /** NULL = the members read was refused: the strip says so, never "nobody". */
   members: readonly GroupMember[] | null;
+  /** People who left the group — only to keep their name on their past lines. */
+  former?: readonly GroupFormerMember[];
   messages: ChatMessageRow[];
   youId: string;
   backHref: string;
@@ -132,7 +139,7 @@ export function GroupChatView({
         {...(add ? { memberAdd: add } : {})}
         {...(leave ? { memberLeave: leave } : {})}
         counterpartyLabel={head.group_name}
-        senderNames={members === null ? {} : groupSenderNames(members)}
+        senderNames={members === null ? {} : groupSenderNames(members, former)}
       />
     </ChatBox>
   );

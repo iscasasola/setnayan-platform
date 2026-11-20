@@ -52,7 +52,7 @@ export function PakantaDeliver({
 
   return (
     <div className="mt-4 py-4 border-t border-ink/10">
-      <p className="mb-2 inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+      <p className="mb-2 inline-flex items-center gap-1.5 text-[13px] leading-snug text-[color:var(--m-slate-2)]">
         <Music aria-hidden className="h-3.5 w-3.5 text-terracotta" /> Deliver finished song
       </p>
 

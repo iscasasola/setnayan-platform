@@ -46,3 +46,82 @@ export function planCreditsFrom(
   };
   return { plusCredits: n(PLAN_PRICE_CODES.plus), proCredits: n(PLAN_PRICE_CODES.pro), ultraCredits: n(PLAN_PRICE_CODES.ultra) };
 }
+
+/* ── 🎟 THE 18 NOV RE-CUT (owner 2026-11-18, PLAN_RULINGS_2026-11-18 rulings 15 · 16 · 20 · 21 · 34 · 36 · 38) ──────────
+ * Free · Event Plus · Event Pro · Event Ultra keep their SKU codes and names; what each carries moved. Event Plus works for
+ * an event with NO suppliers, so it no longer carries Setnayan AI — the AI moved up to Event Pro (and Ultra). Moved grants
+ * apply to NEW purchases only: an Event Plus order placed before the line below keeps the AI it was sold with.
+ */
+
+/**
+ * The moment the 18 Nov re-cut applies to new purchases — or `null` while it has not gone live yet.
+ *
+ * ⏱ WHY NULL, NOT A DATE. The line must never come BEFORE the deploy that changes the words: a Plus order placed between
+ * the line and the deploy was sold on the old /pricing page, which said Event Plus carries Setnayan AI — dating the line
+ * earlier would take that AI away from a buyer who paid for it. The ship moment cannot be known when this is committed
+ * (merging and publishing are separate events; `deploy-prod.yml` publishes on a schedule), so it is not guessed here:
+ *
+ *   · `null` (as committed) → NO cut yet. Every Event Plus order keeps Setnayan AI, exactly as before this PR.
+ *     A bad state may only ever be GENEROUS: the worst case is a new Plus buyer getting the AI for a few hours.
+ *   · 🚢 SET AT SHIP TIME, by the session that publishes: once the deploy carrying this change is SERVED (confirmed with
+ *     `wait-served.sh` / the Vercel production deployment's ready time), a one-line follow-up sets this to that moment,
+ *     written as Manila time, e.g. `'2026-11-20T09:41:00+08:00'`. Never earlier than the served moment; LATER only
+ *     grandfathers more orders. The floor below fails CI for any value before this file's own commit.
+ *
+ * A date, not a price.
+ */
+export const EVENT_PLANS_RECUT_AT: string | null = null;
+
+/** No ship moment can come before this — the moment this change was committed (2026-11-19 17:00 UTC). A guard, not a cut. */
+export const EVENT_PLANS_RECUT_FLOOR = '2026-11-19T17:00:00Z';
+
+/**
+ * Was this order placed before the 18 Nov re-cut? An order with no readable date counts as BEFORE — a bad read may only
+ * ever keep a paid unlock, never take one away (the same rule as `canvasPrintsUnlockedFrom`, lib/event-ultra.ts). With no
+ * cut set (`null`), or a cut set before the floor, every order counts as before.
+ */
+export function placedBeforeRecut(
+  createdAt: string | null | undefined,
+  cutoverIso: string | null = EVENT_PLANS_RECUT_AT,
+): boolean {
+  const since = cutoverIso ? Date.parse(cutoverIso) : NaN;
+  if (!Number.isFinite(since) || since < Date.parse(EVENT_PLANS_RECUT_FLOOR)) return true;
+  const placed = createdAt ? Date.parse(createdAt) : NaN;
+  return !Number.isFinite(placed) || placed < since;
+}
+
+/** The plans that carry Setnayan AI for every buyer (owner 2026-11-18: Event Pro and Event Ultra). */
+export const AI_PLAN_SKUS: readonly string[] = Object.freeze([PLAN_PRICE_CODES.pro, PLAN_PRICE_CODES.ultra]);
+
+/** The plan that carried Setnayan AI only for orders placed before the re-cut (Event Plus, 4 → 18 Nov 2026). */
+export const AI_PLAN_SKUS_BEFORE_RECUT: readonly string[] = Object.freeze([PLAN_PRICE_CODES.plus]);
+
+/**
+ * Does an order of `serviceKey`, placed at `createdAt`, carry Setnayan AI? Event Pro and Ultra always; Event Plus only when
+ * placed before the re-cut; anything else never (the AI is not sold on its own since 4 Nov).
+ */
+export function planOrderCarriesSetnayanAi(
+  serviceKey: string | null | undefined,
+  createdAt: string | null | undefined,
+  cutoverIso: string | null = EVENT_PLANS_RECUT_AT,
+): boolean {
+  if (!serviceKey) return false;
+  if (AI_PLAN_SKUS.includes(serviceKey)) return true;
+  if (AI_PLAN_SKUS_BEFORE_RECUT.includes(serviceKey)) return placedBeforeRecut(createdAt, cutoverIso);
+  return false;
+}
+
+/**
+ * 📦 THE COUPLE'S UPLOAD ALLOWANCE PER EVENT, BY PLAN (owner 2026-11-18, rulings 34 + 36): Free 10 MB · Event Plus 500 MB ·
+ * Event Pro 1 GB · Event Ultra 2 GB. The bytes themselves live in `MAKER_EVENT_MEDIA_BYTES_CAP` (lib/maker-media-limits.ts);
+ * this only names the plan. The Background part alone (or the parts' cap) stays at 500 MB, as sold on 22 Oct.
+ */
+export type EventMediaPlan = 'free' | 'plus' | 'pro' | 'ultra';
+
+/** The largest allowance any held plan gives — a higher plan can only widen it. */
+export function eventMediaPlanFrom(held: { ultra: boolean; pro: boolean; plus: boolean; backgroundPart: boolean }): EventMediaPlan {
+  if (held.ultra) return 'ultra';
+  if (held.pro) return 'pro';
+  if (held.plus || held.backgroundPart) return 'plus';
+  return 'free';
+}

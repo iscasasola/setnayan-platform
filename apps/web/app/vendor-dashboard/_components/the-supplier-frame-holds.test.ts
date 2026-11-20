@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { supplierPageMenuOf } from './supplier-page-menu';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL } from '../customers/segments';
-import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL } from '../shop/_components/shop-sections';
+import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER } from '../shop/_components/shop-sections';
 
 const WEB = join(__dirname, '..', '..', '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -73,7 +73,9 @@ test('3 · the page menu reads each tab from its own source and invents nothing'
   const shop = supplierPageMenuOf(SHOP_SEGMENT_HREF.page, null);
   assert.equal(shop!.tab, 'Shop');
   assert.equal(shop!.section, SHOP_SEGMENT_LABEL.page);
-  assert.deepEqual(new Set(shop!.sections!.map((s) => s.href)), new Set(Object.values(SHOP_SEGMENT_HREF)));
+  // 🔁 RE-AIMED 2026-11-19 (owner, "Yes, all three"): the menu lists the sections in the page's order — Page and Promote
+  // left it (their buttons on the cover are their doors) though their own screens still name their section, as above.
+  assert.deepEqual(shop!.sections!.map((s) => s.href), SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_HREF[s]));
   // The photos are the Portfolio TAB (THE ONE BUILD, 2026-11-08): their page names Portfolio, not Shop.
   assert.equal(supplierPageMenuOf('/vendor-dashboard/collections', null)!.tab, 'Portfolio', 'the Portfolio page does not name its tab');
   // The Hub room has no tab of its own — it names Clients, where it is opened from.

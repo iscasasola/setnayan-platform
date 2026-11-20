@@ -196,6 +196,9 @@ export default async function ForCoordinatorsPage() {
     (a) => !(areaChoices(a) ?? []).includes('edit') && COORDINATOR_AREAS[a] !== 'edit',
   );
 
+  // The drawing's third access row — true only while the coordinator's default budget grant is OFF.
+  const budgetStaysWithHosts = COORDINATOR_AREAS.budget == null;
+
   return (
     <div className="fc" id="fc-root">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PAGE_LD) }} />
@@ -305,6 +308,9 @@ export default async function ForCoordinatorsPage() {
             rows={[
               { term: 'Each part', line: 'Edit, view or off. The hosts decide.' },
               { term: 'The chats', line: 'You are in the supplier chats.' },
+              ...(budgetStaysWithHosts
+                ? [{ term: 'The budget', line: 'It stays with the hosts until they share it.' }]
+                : []),
             ]}
           />
         </section>
@@ -507,7 +513,7 @@ export default async function ForCoordinatorsPage() {
           <p className="fc-kick2">Your preferred suppliers</p>
           <h2 id="h-close">Invite the suppliers you trust.</h2>
           <div className="fc-lede fc-big fc-hasi">
-            Every one who books earns you a reward. Free.
+            Each Invites tier you reach pays a reward. Free.
             <FcInfo label="How rewards work">
               <p>{INVITE_INFO}</p>
               <p>

@@ -256,3 +256,13 @@ test('dayOfFree asks the same two questions the floor-command paywall asks', () 
   assert.match(gate, /export const FREE_SPECIALIZATION_SETS\b/);
   assert.match(gate, /export function specializationFreeWindowActive\b/);
 });
+
+test('the budget row shows only while the coordinator’s default budget grant is off', () => {
+  assert.match(PAGE, /const budgetStaysWithHosts = COORDINATOR_AREAS\.budget == null;/);
+  assert.match(PAGE, /budgetStaysWithHosts\s*\?\s*\[\{ term: 'The budget', line: 'It stays with the hosts until they share it\.' \}\]/);
+});
+
+test('the Invites line names the per-tier rule — no "every one who books", no count, no peso', () => {
+  assert.doesNotMatch(PAGE, /Every one who books earns you a reward/);
+  assert.match(PAGE, /Each Invites tier you reach pays a reward\. Free\./);
+});

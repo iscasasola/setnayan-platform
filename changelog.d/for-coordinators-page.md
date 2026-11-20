@@ -37,3 +37,5 @@ the close with the sample shop "Setnayan Weddings". Every call to action opens `
 
 SPEC IMPACT: None — this ports `prototypes/for_coordinators_2026-11-06/` (corpus) as approved; the
 differences are listed in the PR.
+
+- fix: the Invites line says the per-tier rule ("Each Invites tier you reach pays a reward. Free.") instead of "Every one who books earns you a reward"; the drawing's third access row ("The budget — it stays with the hosts until they share it.") is restored, drawn only while `COORDINATOR_AREAS.budget` defaults to off. Both guarded in `for-coordinators-says-what-ships.test.ts`.

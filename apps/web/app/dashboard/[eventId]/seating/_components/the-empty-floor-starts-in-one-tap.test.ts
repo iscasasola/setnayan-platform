@@ -85,7 +85,8 @@ test('3 · the buttons are not on the floor in Guests; elsewhere they sit at its
   // in Guests: over the thumb row (the Guests screen's own seat — outside the floor)
   const thumb = ed.slice(ed.indexOf('const seatThumb ='), ed.indexOf('const askMoveSheet'));
   assert.match(thumb, /createPortal\(/);
-  assert.match(thumb, /\{seatPop \?\? addBar \?\? tableBar \?\? startCard \?\? seatTray\}/);
+  assert.match(thumb, /\{overThumb\}/);
+  assert.match(ed, /const overThumb = seatPop \?\? \(addBar \? <>\{seatTray\}\{addBar\}<\/> : tableBar \?\? startCard \?\? seatTray\);/, 'the first step is not what shows over the thumb row');
   assert.match(ed, /onSeatEveryone: buildDraft,\s*onAddTable: \(\) => addTable\(\),/, 'the two buttons are not the shipped actions');
 });
 

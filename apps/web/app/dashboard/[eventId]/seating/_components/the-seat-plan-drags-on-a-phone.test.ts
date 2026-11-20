@@ -144,7 +144,8 @@ test('5 · the gesture: the List hold, the house slop, the one edge rule — and
 test('6 · reachable: Guests › Seats › 2D on a phone, over the thumb row, under the Undo line', () => {
   const ed = code('seating-editor.tsx');
   assert.match(ed, /const seatTray =\s*roomOnly && isPhone && comingUnseated\.length > 0 \? \(\s*<SeatFaceTray/);
-  assert.match(ed, /\{seatToast \? <SeatToast toast=\{seatToast\} \/> : null\}\s*\{seatLegend\}\s*\{seatPop \?\? addBar \?\? tableBar \?\? startCard \?\? seatTray\}/);
+  assert.match(ed, /\{seatToast \? <SeatToast toast=\{seatToast\} \/> : null\}\s*\{seatLegend\}\s*\{overThumb\}/);
+  assert.match(ed, /const overThumb = seatPop \?\? \(addBar \? <>\{seatTray\}\{addBar\}<\/> : tableBar \?\? startCard \?\? seatTray\);/);
   assert.match(ed, /const roomOnly = inGuests && !in3d && view === 'plan';/);
   assert.match(ed, /onTapFace=\{openMove\}/, 'a tap is no longer the shipped "Move … to…"');
 });

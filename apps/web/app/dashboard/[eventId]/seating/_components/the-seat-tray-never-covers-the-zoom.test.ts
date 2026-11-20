@@ -50,7 +50,7 @@ test('2 · the empty floor’s first step is over the thumb row, never on the fl
   assert.match(branch, /inGuests \? null : \(/, 'in Guests a card is drawn on the floor again');
   assert.match(ed, /<OverThumbRow mark="start">\s*<FloorStartCard \{\.\.\.startProps\} \/>\s*<\/OverThumbRow>/, 'the card does not reserve its height');
   assert.match(ed, /<OverThumbRow mark="add">/, 'the Add box does not reserve its height');
-  assert.match(ed, /foot=\{floorEmpty \? <FloorStartButtons \{\.\.\.startProps\} \/> : undefined\}/, 'on a phone the buttons are not in the tray (which reserves its own height)');
+  assert.match(ed, /foot=\{floorEmpty && !addingTable \? <FloorStartButtons \{\.\.\.startProps\} \/> : undefined\}/, 'on a phone the buttons are not in the tray (which reserves its own height)');
   const start = code('seat-floor-start.tsx');
   const box = start.slice(start.indexOf('export function OverThumbRow'));
   assert.match(box, /useThumbRoom\(ref\);/, 'OverThumbRow does not publish its height — the zoom stack sits under the card');

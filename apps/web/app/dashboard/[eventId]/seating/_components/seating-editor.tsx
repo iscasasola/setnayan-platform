@@ -7214,8 +7214,8 @@ export function SeatingEditor({
         groups={trayGroups}
         canEdit={canEdit}
         hasTables={tables.length > 0}
-        title={floorEmpty ? <FloorStartTitle toSeat={comingUnseated.length} hall={venueHall} /> : undefined}
-        foot={floorEmpty ? <FloorStartButtons {...startProps} /> : undefined}
+        title={floorEmpty && !addingTable ? <FloorStartTitle toSeat={comingUnseated.length} hall={venueHall} /> : undefined}
+        foot={floorEmpty && !addingTable ? <FloorStartButtons {...startProps} /> : undefined}
         onTapFace={openMove}
         onMore={() => {
           setFaceOpen((c) => (c.has(SEAT_LIST_UNSEATED) ? c : new Set([...c, SEAT_LIST_UNSEATED])));
@@ -7752,13 +7752,15 @@ export function SeatingEditor({
     ) : null;
   /* ✋ Over the thumb row: the picked seat's or table's bar — or, with neither picked, the people still to seat (the tray
      under the floor, `seatTray`, Guests › Seats › 2D on a phone). */
+  /* While the Add box is open the people still to seat stay in sight above it (drawing § 9 frame 2). */
+  const overThumb = seatPop ?? (addBar ? <>{seatTray}{addBar}</> : tableBar ?? startCard ?? seatTray);
   const seatThumb =
     lens && lens.slot
       ? createPortal(
           <>
             {seatToast ? <SeatToast toast={seatToast} /> : null}
             {seatLegend}
-            {seatPop ?? addBar ?? tableBar ?? startCard ?? seatTray}
+            {overThumb}
             <lens.ThumbRow
               name="guests-seats"
               left={

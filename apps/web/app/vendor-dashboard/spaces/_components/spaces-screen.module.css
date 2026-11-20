@@ -28,7 +28,7 @@
   align-items: flex-start;
   gap: 2px;
   border: 1px solid rgb(var(--color-ink) / 0.15);
-  border-radius: 14px;
+  border-radius: var(--m-r-md);
   background: rgb(var(--color-raised));
   padding: 10px 12px;
   text-align: left;
@@ -48,7 +48,7 @@
   content: '';
   width: 7px;
   height: 7px;
-  border-radius: 9999px;
+  border-radius: var(--m-r-full);
   background: currentColor;
 }
 .state[data-tone='free'] {

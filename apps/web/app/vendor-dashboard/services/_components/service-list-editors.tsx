@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { ChevronDown, Gift, Layers, Plus, Tag, X } from 'lucide-react';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
-import { FormRows } from '@/app/_components/form-row';
+import { ChosenRow, FormRows } from '@/app/_components/form-row';
+import { linesToAdd, templateLines, type IncludedTemplate } from '@/lib/included-templates';
 import { AddLineRow, LineRow } from '@/app/_components/form-row-line';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
@@ -92,8 +93,16 @@ type InclusionRow = InclusionDraft & { key: number };
 export function InclusionsEditor({
   initial,
   bare = false,
+  templates,
 }: {
   initial: InclusionDraft[];
+  /**
+   * 📋 Setnayan's starting lists for this service ("Quick Forms", DECISION_LOG 2026-11-17 4906a9a8 + 7596f63a) — the
+   * maker's "Load ▾ From Setnayan". Picking one ADDS its lines under what is typed (a line already there is not added
+   * twice); nothing is replaced and nothing is written until the card's save. `undefined` = not offered here ·
+   * `null` = the read was refused (said, never shown as "none") · `[]` = this service has none.
+   */
+  templates?: IncludedTemplate[] | null;
   /**
    * The rows only, open, with ONE line ready to type when there is none (the simpler maker's "What's included ·
    * One line is enough", 2026-10-14) — no second fold inside the maker's own. Same field names.
@@ -167,6 +176,31 @@ export function InclusionsEditor({
           <div data-inclusion-add="">
             <AddLineRow label="Add a line" onAdd={add} data="inclusion-add" />
           </div>
+          {templates === null ? (
+            <p className="px-1 py-2 text-[13px] text-ink/60" role="status" data-inclusion-templates-unread="">
+              Setnayan’s starting lists could not be read just now.
+            </p>
+          ) : templates && templates.length > 0 ? (
+            <div data-inclusion-load="">
+              <ChosenRow
+                name="From Setnayan"
+                about={{ title: 'From Setnayan', words: 'Setnayan’s starting list for this service. It adds lines under yours; change or swipe away any of them.' }}
+                value={null}
+                buttonText="Pick…"
+                options={templates.map((t) => ({ key: t.id, label: t.name }))}
+                onPick={(id) => {
+                  const t = templates.find((x) => x.id === id);
+                  if (!t) return;
+                  setRows((cur) => {
+                    const kept = cur.filter((r) => r.label.trim() !== '');
+                    const add = linesToAdd(kept.map((r) => r.label), templateLines(t.rows));
+                    return [...kept, ...add.map((label) => ({ key: nextKey.current++, label }))];
+                  });
+                }}
+                data="inclusion-load"
+              />
+            </div>
+          ) : null}
         </FormRows>
       </div>
     );

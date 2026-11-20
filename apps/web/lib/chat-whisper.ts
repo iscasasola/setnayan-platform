@@ -16,6 +16,27 @@
  */
 import { privateRecipientIds } from './chat-private';
 import { formatCount } from './format-number';
+// 🏪 Every team-side word lives in ONE file the host guard allow-lists (lib/the-host-says-suppliers.test.ts),
+// re-exported here so callers keep one import. The host lines left in THIS file stay guarded.
+import {
+  TEAM_FILTER_WHO,
+  TEAM_WHISPER_STRIP,
+  WHISPER_SIDE_REFUSED_TEAM,
+} from './chat-whisper-team';
+export {
+  TEAM_FILTER_WHO,
+  TEAM_WHISPER_STRIP,
+  WHISPER_NO_TEAM_LINE,
+  WHISPER_NO_TEAM_MESSAGE,
+  WHISPER_SIDE_REFUSED_TEAM,
+  WHISPER_TEAM_ONLY_MESSAGE,
+  WHISPER_TEAM_REACH,
+  WHISPER_TEAM_SWITCH,
+  WHISPER_TEAM_UNREAD_LINE,
+  teamWhisperTitle,
+} from './chat-whisper-team';
+import { WHISPER_NO_TEAM_LINE, WHISPER_TEAM_UNREAD_LINE } from './chat-whisper-team';
+
 import { MOVE_MS, QUICK_MS, RISE_MS_STANDARD, TAP_MS } from './motion-table';
 
 /** The form field the host's composer posts while whisper is on. Its VALUE is never read as a list of people. */
@@ -167,7 +188,6 @@ export function isOnHostsSide(input: {
  * `tg_chat_messages_whisper_stays_on_its_side`) — plain words, never the raw code.
  */
 export const WHISPER_SIDE_REFUSED_HOSTS = 'Only the hosts can see this whisper';
-export const WHISPER_SIDE_REFUSED_TEAM = 'Only your team can see this whisper';
 /** Which plain words a refused insert gets — `null` when the refusal is not about a whisper's side. */
 export function whisperSideRefusal(errorMessage: string, side: WhisperSide | null): string | null {
   if (!side) return null;
@@ -178,10 +198,10 @@ export function whisperSideRefusal(errorMessage: string, side: WhisperSide | nul
 /**
  * 🔎 WHO SEES THE PRIVATE FILTER'S WHISPERS — the drawing's words ("the hosts and Liza only"), built by the SAME read
  * as the who-it-reaches line (`readHostsWhisper` · `readTeamWhisper`, the ONE team rule): the hosts' side names its
- * coordinators (a coordinator reading it: "you and the hosts only"); the team's side is "your team only".
+ * coordinators (a coordinator reading it: "you and the hosts only"); the team's side is `TEAM_FILTER_WHO` (lib/chat-whisper-team.ts).
  */
 export function whisperFilterWho(input: { side: WhisperSide; coordinatorNames?: readonly string[]; viewerIsCoordinator?: boolean }): string {
-  if (input.side === 'team') return 'your team only';
+  if (input.side === 'team') return TEAM_FILTER_WHO;
   // A coordinator reading it: the drawing's own coordinator words, "You and the hosts".
   if (input.viewerIsCoordinator) return 'you and the hosts only';
   const names = (input.coordinatorNames ?? []).filter((n) => n.trim().length > 0);
@@ -207,21 +227,6 @@ export function privateFilterLine(n: number, audience: PrivateFilterWho): string
   return head;
 }
 
-/** Only the people on the shop's side whisper to the team. */
-export const WHISPER_TEAM_ONLY_MESSAGE = 'Only the shop’s own team can whisper here — your whisper was not sent.';
-/** Nobody else on the team is in this chat. Refused, never sent to everyone. */
-export const WHISPER_NO_TEAM_MESSAGE = 'No one else on your team is in this chat — your whisper was not sent.';
-export const WHISPER_NO_TEAM_LINE = 'No one else on your team is in this chat yet.';
-export const WHISPER_TEAM_UNREAD_LINE = "Couldn't load your team for this chat. Try again in a moment.";
-
-/** The team whisper reaches — the composer's line (the prototype's words). */
-export const WHISPER_TEAM_REACH = 'Only your team';
-/** The switch in the box on the shop's side (only the shop's own staff ever see it). */
-export const WHISPER_TEAM_SWITCH = 'Whisper to your team only';
-/** The notification title a shop's teammate gets for a team whisper. */
-export function teamWhisperTitle(vendorName: string): string {
-  return `Whisper from your team · ${vendorName}`;
-}
 /**
  * 🛡 What the ⓘ beside the line says (safety review F7, 19 Nov): staff can read a private line inside an open dispute,
  * so "only" must say so — the database's own arm (`chat_private_in_dispute`).
@@ -253,7 +258,7 @@ export function hostsWhisperReach(input: {
 
 /** The strip across a whispered bubble, by side. The hosts' names the supplier who cannot see it. */
 export function whisperStrip(side: WhisperSide, supplierName: string): string {
-  return side === 'team' ? 'Whisper · your team only' : `Whisper · ${supplierName} can’t see`;
+  return side === 'team' ? TEAM_WHISPER_STRIP : `Whisper · ${supplierName} can’t see`;
 }
 
 /**

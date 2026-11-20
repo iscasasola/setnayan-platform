@@ -48,7 +48,8 @@ const NOT_THE_HOSTS_SUPPLIERS = [
   /^lib\/onboarding\/specialty-recommendations\.ts$/,
   /^lib\/blog-batches\//,
   // Unichat E (20 Nov): the shop's own team whisper — every "your team" here is said only to the supplier's staff.
-  /^lib\/chat-whisper\.ts$/,
+  // Narrowed on the #8071 review: ONLY the team-words file; the host lines in lib/chat-whisper.ts stay guarded.
+  /^lib\/chat-whisper-team\.ts$/,
   // The /dev lab page draws the supplier's side with fixture words; never shipped to a host.
   /^app\/dev\/_components\/lab-picked-chat\.tsx$/,
 ];

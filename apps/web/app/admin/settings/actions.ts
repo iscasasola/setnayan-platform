@@ -172,16 +172,20 @@ export async function saveBusinessIdentity(formData: FormData) {
 
   // 🌱 Today v2's grow lines (migration 20271350875090) — the same shape as drive speed: absent = leave as it is, blank =
   // not set (that stage is off on every supplier's Today), else a whole number 1–10,000.
-  for (const [field, word] of [
-    ['grow_few_inquiries_28d', 'few inquiries'],
-    ['grow_few_bookings_month', 'few bookings'],
+  // ⚙ Today v3 part 5 — the same shape for Today's three other owner numbers, each with its own range.
+  for (const [field, word, max] of [
+    ['grow_few_inquiries_28d', 'few inquiries', 10000],
+    ['grow_few_bookings_month', 'few bookings', 10000],
+    ['story_photo_silence_days', 'days of silence', 90],
+    ['today_soon_ask_hours', '“Soon” hours', 720],
+    ['today_soon_event_days', '“Soon” days', 60],
   ] as const) {
     if (!formData.has(field)) continue;
     const raw = formData.get(field);
     const blank = typeof raw !== 'string' || raw.trim() === '';
     const n = nullIfBlankNumber(raw);
-    if (!blank && (n === null || !Number.isInteger(n) || n < 1 || n > 10000)) {
-      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(`Business identity saved, but the ${word} line must be a whole number 1–10,000, or blank.`)}`);
+    if (!blank && (n === null || !Number.isInteger(n) || n < 1 || n > max)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(`Business identity saved, but the ${word} line must be a whole number 1–${max.toLocaleString('en-US')}, or blank.`)}`);
     }
     const { error: lineErr } = await admin
       .from('platform_settings')

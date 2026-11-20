@@ -36,8 +36,8 @@ test('1 · the View shop address carries Shop, and Back reads it as Shop', () =>
 
 test('2 · only our marked frame counts', () => {
   const frameEl = (marked: boolean) => ({ hasAttribute: (a: string) => marked && a === VIEW_SHOP_FRAME_ATTR }) as unknown as Element;
-  const win = (top: boolean, el: Element | null) => {
-    const w = { frameElement: el } as unknown as Window & { self: unknown; top: unknown };
+  const win = (top: boolean, el: Element | null): Window => {
+    const w: { frameElement: Element | null; self?: unknown; top?: unknown } = { frameElement: el };
     w.self = w;
     w.top = top ? w : {};
     return w as unknown as Window;

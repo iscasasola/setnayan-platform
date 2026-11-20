@@ -18,8 +18,14 @@ server action or migration changed; every word, button and behaviour is the ship
   unchanged.
 - Cards moved onto it: booking ask, inquiry, ask for a change, guest count changed, quote rose, quote fell, counter,
   payment-plan counter, dropped offer, poll, form to answer, schedule changed.
+- **Drawing parity pass (20 Nov, drawing-vs-build shots in `build-sessions/shots-unichat-a/`)** — the dark kind fills
+  are now the drawing's own tints (`#383123 … #383633`, "its colour at 16% over that side's card"); a settled line
+  fills its tint whole in dark (55% in light, as drawn), sits 8 px from its left edge, drops the chevron the drawing
+  does not draw, strikes through a line settled without a yes, and can no longer push past the chat's right gutter
+  (`min-w-0`). New lab `/dev/unichat-a-lab` (`?side=vendor|couple&scene=open|settled|failed`) draws part A's cards in
+  one stream; dev-only, 404 in production.
 - 🔒 `apps/web/app/_components/chat/cards/the-card-kinds-are-readable.test.ts` — the contrast arithmetic for all 36
-  ink/fill pairs (the contrast lint cannot see a class map), the one-look rule, and the width cap.
+  ink/fill pairs plus the 72 dark ink × DARK_MODE_STANDARD §2 surface pairs (events and supplier navy) (the contrast lint cannot see a class map), the one-look rule, and the width cap.
 
 NOT built here (each needs data or a file outside `chat/cards/`): the photo album grid and the documents list card
 (attachments are drawn by the stream, one per message), the meeting card's date tile and the sent quote / payment

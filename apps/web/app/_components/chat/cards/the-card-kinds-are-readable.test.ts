@@ -63,7 +63,7 @@ test('2 · the one map names every kind in whole class names Tailwind knows', ()
   const bits = stripComments(read(`${CARDS}/card-bits.tsx`));
   const tw = read('tailwind.config.ts');
   for (const k of KINDS) {
-    for (const cls of [`border-kind-${k}`, `bg-kind-${k}-bg text-kind-${k}`, `bg-kind-${k}-bg/55`]) assert.ok(bits.includes(`'${cls}'`), `card-bits has no '${cls}'`);
+    for (const cls of [`border-kind-${k}`, `bg-kind-${k}-bg text-kind-${k}`, `bg-kind-${k}-bg/55 dark:bg-kind-${k}-bg`]) assert.ok(bits.includes(`'${cls}'`), `card-bits has no '${cls}'`);
     assert.ok(tw.includes(`${k}: 'rgb(var(--sn-kind-${k}) / <alpha-value>)'`), `tailwind has no kind.${k}`);
     assert.ok(tw.includes(`'${k}-bg': 'rgb(var(--sn-kind-${k}-bg) / <alpha-value>)'`), `tailwind has no kind.${k}-bg`);
   }
@@ -84,6 +84,25 @@ test('3 · a card in the stream wears the one look; the old frame is only a draf
   assert.match(bits, /const Icon = TOPIC_ICON\[topic\]/, 'the kind colours the topic\'s icon; it never picks one');
   assert.match(bits, /turn === 'me' \? 'shadow-sn-frame' : 'shadow-sn-hair'/, 'only a card that waits on the reader lifts');
   assert.match(bits, /<details[\s\S]{0,400}<summary/, 'a settled card folds to one line whose press opens it');
+});
+
+test('5 · every dark kind ink reads at 4.5:1 on every surface DARK_MODE_STANDARD_2026-11-20 §2 names', () => {
+  // The standard's surfaces by job, both families (events terracotta + supplier navy). Its token PRs (#7993/#7997)
+  // are not on main yet, so the card may land on any of these once they are: page, card, tile, wash.
+  const surfaces: Record<string, number[]> = {
+    'events page': [18, 17, 16], 'events card': [28, 26, 22], 'events tile': [38, 35, 30], 'events wash': [48, 44, 38],
+    'navy page': [13, 22, 38], 'navy card': [23, 35, 56], 'navy tile': [31, 47, 74], 'navy wash': [40, 58, 88],
+  };
+  let judged = 0;
+  for (const k of KINDS) {
+    const dark = triples(`--sn-kind-${k}`)[1]!;
+    for (const [name, bg] of Object.entries(surfaces)) {
+      const c = contrast(dark, bg);
+      assert.ok(c >= 4.5, `${k} · dark · on ${name}: ${c.toFixed(2)}:1`);
+      judged++;
+    }
+  }
+  assert.equal(judged, 72);
 });
 
 test('4 · the frame keeps a phone\'s width on a computer', () => {

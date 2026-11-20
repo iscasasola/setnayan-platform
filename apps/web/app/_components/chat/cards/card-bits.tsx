@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, RotateCcw } from 'lucide-react';
+import { Check, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -27,15 +27,15 @@ export type CardTurn = 'me' | 'wait' | 'done' | 'old';
 
 /** Whole class names, never built from parts — Tailwind (and the contrast lint) must be able to read each one. */
 const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: string; soft: string; wash: string }> = {
-  quote: { edge: 'border-kind-quote', chip: 'bg-kind-quote-bg text-kind-quote', ink: 'text-kind-quote', fill: 'bg-kind-quote', soft: 'bg-kind-quote-bg', wash: 'bg-kind-quote-bg/55' },
-  counter: { edge: 'border-kind-counter', chip: 'bg-kind-counter-bg text-kind-counter', ink: 'text-kind-counter', fill: 'bg-kind-counter', soft: 'bg-kind-counter-bg', wash: 'bg-kind-counter-bg/55' },
-  offer: { edge: 'border-kind-offer', chip: 'bg-kind-offer-bg text-kind-offer', ink: 'text-kind-offer', fill: 'bg-kind-offer', soft: 'bg-kind-offer-bg', wash: 'bg-kind-offer-bg/55' },
-  meeting: { edge: 'border-kind-meeting', chip: 'bg-kind-meeting-bg text-kind-meeting', ink: 'text-kind-meeting', fill: 'bg-kind-meeting', soft: 'bg-kind-meeting-bg', wash: 'bg-kind-meeting-bg/55' },
-  decision: { edge: 'border-kind-decision', chip: 'bg-kind-decision-bg text-kind-decision', ink: 'text-kind-decision', fill: 'bg-kind-decision', soft: 'bg-kind-decision-bg', wash: 'bg-kind-decision-bg/55' },
-  payment: { edge: 'border-kind-payment', chip: 'bg-kind-payment-bg text-kind-payment', ink: 'text-kind-payment', fill: 'bg-kind-payment', soft: 'bg-kind-payment-bg', wash: 'bg-kind-payment-bg/55' },
-  form: { edge: 'border-kind-form', chip: 'bg-kind-form-bg text-kind-form', ink: 'text-kind-form', fill: 'bg-kind-form', soft: 'bg-kind-form-bg', wash: 'bg-kind-form-bg/55' },
-  file: { edge: 'border-kind-file', chip: 'bg-kind-file-bg text-kind-file', ink: 'text-kind-file', fill: 'bg-kind-file', soft: 'bg-kind-file-bg', wash: 'bg-kind-file-bg/55' },
-  plain: { edge: 'border-kind-plain', chip: 'bg-kind-plain-bg text-kind-plain', ink: 'text-kind-plain', fill: 'bg-kind-plain', soft: 'bg-kind-plain-bg', wash: 'bg-kind-plain-bg/55' },
+  quote: { edge: 'border-kind-quote', chip: 'bg-kind-quote-bg text-kind-quote', ink: 'text-kind-quote', fill: 'bg-kind-quote', soft: 'bg-kind-quote-bg', wash: 'bg-kind-quote-bg/55 dark:bg-kind-quote-bg' },
+  counter: { edge: 'border-kind-counter', chip: 'bg-kind-counter-bg text-kind-counter', ink: 'text-kind-counter', fill: 'bg-kind-counter', soft: 'bg-kind-counter-bg', wash: 'bg-kind-counter-bg/55 dark:bg-kind-counter-bg' },
+  offer: { edge: 'border-kind-offer', chip: 'bg-kind-offer-bg text-kind-offer', ink: 'text-kind-offer', fill: 'bg-kind-offer', soft: 'bg-kind-offer-bg', wash: 'bg-kind-offer-bg/55 dark:bg-kind-offer-bg' },
+  meeting: { edge: 'border-kind-meeting', chip: 'bg-kind-meeting-bg text-kind-meeting', ink: 'text-kind-meeting', fill: 'bg-kind-meeting', soft: 'bg-kind-meeting-bg', wash: 'bg-kind-meeting-bg/55 dark:bg-kind-meeting-bg' },
+  decision: { edge: 'border-kind-decision', chip: 'bg-kind-decision-bg text-kind-decision', ink: 'text-kind-decision', fill: 'bg-kind-decision', soft: 'bg-kind-decision-bg', wash: 'bg-kind-decision-bg/55 dark:bg-kind-decision-bg' },
+  payment: { edge: 'border-kind-payment', chip: 'bg-kind-payment-bg text-kind-payment', ink: 'text-kind-payment', fill: 'bg-kind-payment', soft: 'bg-kind-payment-bg', wash: 'bg-kind-payment-bg/55 dark:bg-kind-payment-bg' },
+  form: { edge: 'border-kind-form', chip: 'bg-kind-form-bg text-kind-form', ink: 'text-kind-form', fill: 'bg-kind-form', soft: 'bg-kind-form-bg', wash: 'bg-kind-form-bg/55 dark:bg-kind-form-bg' },
+  file: { edge: 'border-kind-file', chip: 'bg-kind-file-bg text-kind-file', ink: 'text-kind-file', fill: 'bg-kind-file', soft: 'bg-kind-file-bg', wash: 'bg-kind-file-bg/55 dark:bg-kind-file-bg' },
+  plain: { edge: 'border-kind-plain', chip: 'bg-kind-plain-bg text-kind-plain', ink: 'text-kind-plain', fill: 'bg-kind-plain', soft: 'bg-kind-plain-bg', wash: 'bg-kind-plain-bg/55 dark:bg-kind-plain-bg' },
 };
 
 const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
@@ -78,22 +78,21 @@ export function KindCard({
       <>
         <Icon aria-hidden className={`h-3.5 w-3.5 flex-none ${k.ink}`} strokeWidth={1.9} />
         {turn === 'done' ? <Check aria-hidden className={`h-3.5 w-3.5 flex-none ${k.ink}`} strokeWidth={2.6} /> : null}
-        <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${turn === 'old' ? 'text-ink/70' : 'text-ink/80'}`}>{settled}</span>
+        <span className={`min-w-0 flex-1 truncate text-[13px] font-medium ${turn === 'old' ? 'text-ink/70 line-through decoration-ink/50' : 'text-ink/80'}`}>{settled}</span>
       </>
     );
     if (!children) {
       return (
-        <div id={anchorId} data-chat-card={topic} data-card-kind={kind} data-card-turn={turn} role="group" aria-label={label} className={`my-2 flex min-h-[32px] scroll-mt-3 items-center gap-2 rounded-md px-3 py-1 ${k.wash} ${HOT} ${place(tone)}`}>
+        <div id={anchorId} data-chat-card={topic} data-card-kind={kind} data-card-turn={turn} role="group" aria-label={label} className={`my-2 flex min-h-[32px] min-w-0 scroll-mt-3 items-center gap-2 rounded-md py-1 pl-2 pr-3 ${k.wash} ${HOT} ${place(tone)}`}>
           {line}
         </div>
       );
     }
     return (
-      <details id={anchorId} data-chat-card={topic} data-card-kind={kind} data-card-turn={turn} aria-label={label} className={`group my-2 scroll-mt-3 rounded-md ${k.wash} ${HOT} ${place(tone)}`}>
+      <details id={anchorId} data-chat-card={topic} data-card-kind={kind} data-card-turn={turn} aria-label={label} className={`group my-2 min-w-0 scroll-mt-3 rounded-md ${k.wash} ${HOT} ${place(tone)}`}>
         {/* The whole line is the press (its reach is 44 px tall through the ::after); open, it shows what the card held. */}
-        <summary className="sn-press relative flex min-h-[32px] cursor-pointer list-none items-center gap-2 rounded-md px-3 py-1 after:absolute after:inset-x-0 after:-inset-y-1.5 [&::-webkit-details-marker]:hidden">
+        <summary className="sn-press relative flex min-h-[32px] cursor-pointer list-none items-center gap-2 rounded-md py-1 pl-2 pr-3 after:absolute after:inset-x-0 after:-inset-y-1.5 [&::-webkit-details-marker]:hidden">
           {line}
-          <ChevronDown aria-hidden className="h-4 w-4 flex-none text-ink/70 transition-transform group-open:rotate-180" strokeWidth={2} />
         </summary>
         <div className="px-3 pb-3 pt-1 text-[15px] text-ink">{children}</div>
       </details>

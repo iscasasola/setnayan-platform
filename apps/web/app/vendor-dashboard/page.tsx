@@ -6,7 +6,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -18,7 +18,6 @@ import {
   readEventDayFacts,
   readNextEventFacts,
   readTodaySchedules,
-  readTodayRenewal,
   readTodayShopRow,
   readTodayViews,
   type EventDayFacts,
@@ -48,6 +47,7 @@ import { readCardBadgeCongrats } from '@/lib/card-badges.server';
 import { parseCardBadgeCongratsParam } from '@/lib/card-badges';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { PapersRenewalLine } from './_components/papers-renewal-line';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
 import { manilaToday } from '@/lib/std-views';
 
@@ -78,12 +78,6 @@ import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
-import { heroPicture, readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
-import { mostViewedPhotoKey, viewsOf } from '@/lib/supplier-hero';
-import { HERO_UPLOAD_PILL } from './_components/supplier-hero';
-import { PortfolioUploadDoor } from './_components/portfolio-upload';
-import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
-import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
@@ -332,38 +326,10 @@ export default async function VendorOverviewPage({
     (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
-  // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
-  const renewalP = readTodayRenewal(supabase, vendorProfileId);
-  // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
+  // 🖼 The Portfolio stat's count — C4's one read, started beside the shop row (not after the page's other reads).
   const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
-  // 🖼 Lane E item 11: Today's hero = the most-viewed portfolio photo (ties → latest; no views → latest; no photo →
-  // the category placeholder). Started now, awaited once at the render — never another wait in this run.
-  const heroP = (async () => {
-    const keys = (profile.portfolio_r2_keys ?? []) as string[];
-    const views = keys.length > 0 ? await readPortfolioPhotoViews(supabase, vendorProfileId) : null;
-    const key = mostViewedPhotoKey(keys, views);
-    const n = viewsOf(key, views);
-    const picture = await heroPicture(key, profile.services as string[] | null);
-    // 📂 Upload opens the device's picker HERE (owner 9 Nov) — its facts read only while the hero is a placeholder.
-    const uploadFacts =
-      picture.kind === 'placeholder'
-        ? await readPortfolioUploadFacts(supabase, vendorProfileId, keys, shopRowP.then((row) => row?.tierState ?? null).catch(() => null))
-        : null;
-    return {
-      picture,
-      caption: picture.kind === 'photo' ? (n > 0 ? `Most viewed · ${formatCount(n)} ${n === 1 ? 'view' : 'views'}` : 'Latest photo') : null,
-      upload: uploadFacts
-        ? {
-            door: (
-              <PortfolioUploadDoor facts={uploadFacts} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Upload
-              </PortfolioUploadDoor>
-            ),
-          }
-        : null,
-    };
-  })().catch(() => null);
+  // 🖼 NO HERO PHOTO (owner 19 Nov, looking at live Today: "remove the photo of that header" — supersedes the 9 Nov
+  // "Today shows the most-viewed"). Nothing is read for a picture any more; uploading stays on Portfolio.
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -665,7 +631,6 @@ export default async function VendorOverviewPage({
     askDayHolds: data.askDayHolds,
     dayFacts,
     // 📄 The badge's papers deadline (A9), read off the self view beside the shop row — undefined when refused.
-    renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     portfolio: await portfolioP,
@@ -758,6 +723,7 @@ export default async function VendorOverviewPage({
     closed: nothingToAnswer,
     deskIncomplete,
     billsUnread: feeBillsRead === FEE_BILLS_UNREADABLE,
+    now: renderNow,
     reads: v2r,
     aside,
     feeForecasts,
@@ -770,6 +736,9 @@ export default async function VendorOverviewPage({
     inquiries28: data.inquiries28 ?? null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     todayIso,
+    // v3: an event today or tomorrow is a row in the one list (drawing V3 · 3).
+    events: upcoming,
+    eventsUnread: data.bookingsComplete === false,
     library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
   });
   const { events: eventsYouRun } = await eventsYouRunP;
@@ -783,6 +752,7 @@ export default async function VendorOverviewPage({
 
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
+      <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
         view={viewV2}
@@ -793,7 +763,6 @@ export default async function VendorOverviewPage({
         now={renderNow}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
-        hero={await heroP}
         earned={<BadgeEarnedLine />}
         eventsYouRun={eventsYouRun}
         setup={setup}

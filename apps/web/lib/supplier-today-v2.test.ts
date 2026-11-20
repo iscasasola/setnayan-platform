@@ -25,6 +25,14 @@ import {
   splitTodayNeeds,
   todayBadgeTag,
   todayProgress,
+  feeUrgency,
+  feeRowLine,
+  permitUrgency,
+  eventUrgency,
+  eventRowWords,
+  todayOneList,
+  orderByUrgency,
+  taskUrgency,
   CARDS_LOCK_KEY,
   CARDS_TURN_ON_HREF,
   PLANS_HREF,
@@ -222,4 +230,96 @@ test('R4 · unread service cards never read as "every card has a cover" — the 
   assert.equal(growStage({ ...base, coversUnread: true }), null, 'a refused cards read skipped grow stage 2');
   // What WAS read still shows: not findable is a stage-2 move on its own.
   assert.equal(growStage({ ...base, coversUnread: true, findable: false, findableHref: '/x' })?.n, 2);
+});
+
+/* ── TODAY v3 PART 1 (owner 19 Nov, "Yes, all your picks" · "all recommended"): ONE list, most urgent first. ── */
+
+const NOW = Date.parse('2026-11-19T04:00:00Z');
+const dated = (id: string, dueAt: string) => ({ id, kind: 'date_change', dueAt }) as unknown as WhatsNewCard;
+
+test('V1 · a level comes only from a deadline the code already has — and always wears a word', () => {
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-18T04:00:00Z'), NOW), { level: 'red', word: 'Overdue' });
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-19T20:00:00Z'), NOW), { level: 'red', word: 'Today' }, 'under 24 hours left is today');
+  assert.deepEqual(taskUrgency(dated('d', '2026-11-22T04:00:00Z'), NOW), { level: 'amber', word: 'Soon' });
+  // No deadline on the card → normal. A review, a message, an inquiry, a booking ask and a dispute wear no level.
+  for (const k of ['review', 'message', 'inquiry', 'lock_request', 'lock', 'dispute', 'mark_complete'] as const) assert.equal(taskUrgency(card('x', k), NOW), null, `${k} was given a level nobody set`);
+  assert.equal(taskUrgency(null, NOW), null);
+  assert.equal(taskUrgency(dated('d', 'not a date'), NOW), null, 'an unreadable deadline guessed a level');
+});
+
+test('V2 · one list: red, then amber, then the rest — each level in the order it arrived', () => {
+  const s = splitTodayNeeds({
+    needs: [need('r1'), need('soon'), need('m1'), need('late'), need('r2'), need('today')],
+    cards: [card('r1', 'review'), dated('soon', '2026-11-25T04:00:00Z'), card('m1', 'message'), dated('late', '2026-11-18T00:00:00Z'), card('r2', 'review'), dated('today', '2026-11-19T10:00:00Z')],
+    completedToGo: null,
+    aside: new Set(),
+    now: NOW,
+  });
+  assert.deepEqual(s.list.map((r) => r.key), ['late', 'today', 'soon', 'r1', 'm1', 'r2'], 'the list is not most urgent first');
+  assert.deepEqual(s.list.map((r) => r.urgency?.word ?? '—'), ['Overdue', 'Today', 'Soon', '—', '—', '—']);
+  // Nothing is lost or doubled: the one list is exactly the quick rows plus the others.
+  assert.equal(s.list.length, s.quick.length + s.screen.length);
+  // Without a clock no row wears a level, and the desk's own order stands.
+  const plain = splitTodayNeeds({ needs: [need('r1'), need('late')], cards: [card('r1', 'review'), dated('late', '2026-11-18T00:00:00Z')], completedToGo: null, aside: new Set() });
+  assert.deepEqual(plain.list.map((r) => r.key), ['r1', 'late']);
+  assert.deepEqual(orderByUrgency([]), []);
+});
+
+test('V3 · EACH fee bill wears its own level and word (drawing V3 · 3) — never one block at the most pressing level', () => {
+  const today = '2026-11-19';
+  assert.deepEqual(feeUrgency('2026-11-14', today), { level: 'red', word: 'Overdue' });
+  assert.deepEqual(feeUrgency('2026-11-19', today), { level: 'red', word: 'Today' }, 'its last day is today');
+  assert.deepEqual(feeUrgency('2026-11-21', today), { level: 'amber', word: 'Soon' });
+  assert.deepEqual(feeUrgency('2026-11-30', today), { level: 'amber', word: 'Soon' });
+  assert.deepEqual(feeUrgency(null, today), { level: 'amber', word: 'Soon' }, 'an unknown due date is still owed');
+  // The closed row says the level once ("Overdue · since Sat 14 Nov"), never "overdue" twice.
+  assert.equal(feeRowLine({ dueOn: '2026-11-14' }, today, '₱4,250.00 · overdue since Sat 14 Nov'), 'since Sat 14 Nov');
+  assert.equal(feeRowLine({ dueOn: '2026-11-19' }, today, '₱4,250.00 · due today'), '₱4,250.00');
+  assert.equal(feeRowLine({ dueOn: '2026-11-30' }, today, '₱4,250.00 · due Mon 30 Nov'), 'due Mon 30 Nov');
+});
+
+test('V4 · the permit wears a level only from the rule that already tints it: expired red, 7 days or fewer amber', () => {
+  assert.deepEqual(permitUrgency({ key: 'renewal', lineTone: 'danger' }), { level: 'red', word: 'Overdue' });
+  assert.deepEqual(permitUrgency({ key: 'renewal', lineTone: 'warn' }), { level: 'amber', word: 'Soon' });
+  assert.equal(permitUrgency({ key: 'renewal', lineTone: null }), null, 'a permit 8+ days out was given a level');
+  assert.equal(permitUrgency({ key: 'door-payout', lineTone: 'danger' }), null, 'a door was read as the permit');
+  const base = { kind: 'documents' as const, icon: 'file' as const, target: { to: 'today' as const } };
+  const s = (lineTone: 'warn' | 'danger' | null) =>
+    splitTodayNeeds({ needs: [{ ...base, key: 'renewal', label: 'Business permit', line: 'x', lineTone }], cards: [], completedToGo: null, aside: new Set(), now: NOW });
+  assert.equal(s('warn').permit?.urgency.word, 'Soon');
+  assert.equal(s('warn').recommended.length, 0, 'an urgent permit is said twice — on the list and under recommended');
+  assert.equal(s(null).permit, null);
+  assert.equal(s(null).recommended[0]?.key, 'renewal', 'a permit further out left "Also for your badges"');
+  // Without a clock nothing wears a level — the permit stays recommended.
+  assert.equal(splitTodayNeeds({ needs: [{ ...base, key: 'renewal', label: 'p', line: 'x', lineTone: 'danger' }], cards: [], completedToGo: null, aside: new Set() }).permit, null);
+});
+
+test('V5 · a booked event today is red "Today", tomorrow amber "Soon"; later has no level', () => {
+  assert.deepEqual(eventUrgency(0), { level: 'red', word: 'Today' });
+  assert.deepEqual(eventUrgency(1), { level: 'amber', word: 'Soon' });
+  assert.equal(eventUrgency(2), null);
+  assert.equal(eventUrgency(Number.NaN), null);
+  const e = { id: 'e', eventName: 'Santos wedding', date: '2026-12-12', inDays: 1, place: 'Hall A', href: '/x' };
+  assert.equal(eventRowWords(e).label, 'Santos wedding is tomorrow');
+  assert.match(eventRowWords(e).line, /see the day$/);
+  assert.equal(eventRowWords({ ...e, inDays: 0 }).label, 'Santos wedding is today');
+});
+
+test('V6 · the one list: every bill, the permit and the events each sit at their own level, interleaved', () => {
+  const today = '2026-11-19';
+  const split = splitTodayNeeds({
+    needs: [need('r1'), need('dc'), { key: 'renewal', kind: 'documents', label: 'Business permit expires in 5 days', line: 'x', icon: 'file', lineTone: 'warn', target: { to: 'today' } }],
+    cards: [card('r1', 'review'), dated('dc', '2026-11-19T10:00:00Z')],
+    completedToGo: null,
+    aside: new Set(),
+    now: NOW,
+  });
+  const list = todayOneList({
+    split,
+    bills: [{ orderId: 'soon', dueOn: '2026-11-30' }, { orderId: 'late', dueOn: '2026-11-14' }],
+    events: [{ id: 'tmr', eventName: 'Santos', date: '2026-11-20', inDays: 1, place: null, href: '/x' }, { id: 'far', eventName: 'Lim', date: '2026-12-20', inDays: 31, place: null, href: '/y' }],
+    todayIso: today,
+  });
+  assert.deepEqual(list.map((e) => e.key), ['dc', 'fee-late', 'fee-soon', 'renewal', 'event-tmr', 'r1'], 'not red, then amber, then the rest — or a bill moved as one block');
+  assert.deepEqual(list.map((e) => e.urgency?.word ?? '—'), ['Today', 'Overdue', 'Soon', 'Soon', 'Soon', '—']);
 });

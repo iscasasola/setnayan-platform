@@ -7,7 +7,7 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1923
+# ledger: 1922
 # tables: 516
 # columns: 6216
 # notnull: 3748

@@ -11,7 +11,7 @@ import { stripComments } from './strip-comments';
 import { dayCrewFromLine, handoverFromLine, receiptFromLine, reviewAskFromLine, streamLineKind, HANDOVER_KIND_WORD } from './chat-card-lines';
 import { chatKindOf } from './chat-kinds';
 import { paymentLineOf } from './chat-kinds';
-import { dayCrew, handoverLink, quoteTermsFromCards, receiptFor, starWords, termsAtAccept, type PaymentRow } from './deal-end';
+import { dayCrew, handoverLink, quoteTermsFromCards, receiptFor, reviewInfoLine, starWords, termsAtAccept, type PaymentRow } from './deal-end';
 
 const WEB = join(__dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -181,4 +181,17 @@ test('7 · the words the database writes are the words the app reads', () => {
   assert.ok(sql.includes("'Crew named for the day'"));
   assert.ok(sql.includes("'Handover received · '"));
   assert.doesNotMatch(sql, /CREATE TABLE|ADD COLUMN|CREATE POLICY|GRANT /, 'lines only: no table, column, policy or grant');
+});
+
+test('⭐ the review ⓘ says what happens to a review in ≤ 12 words, from each side; the receipt has no dead press', () => {
+  for (const v of ['couple', 'vendor'] as const) {
+    const line = reviewInfoLine(v);
+    assert.ok(line.split(/\s+/).length <= 12, `${v}: over 12 words`);
+    assert.match(line, /Public/, 'a review is public — say so');
+    assert.match(line, /reply once/, 'the supplier replies once — say so');
+  }
+  const card = src('app/_components/chat/cards/receipt-card.tsx');
+  assert.doesNotMatch(card, /PDF|S89R/, 'no PDF press or receipt number until a supplier-payment receipt document exists');
+  const handover = src('app/_components/chat/cards/handover-card.tsx');
+  assert.match(handover, /action=\{link \?/, 'Open beside the title only when there is a real link');
 });

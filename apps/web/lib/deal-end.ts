@@ -46,6 +46,15 @@ export function termsAtAccept(input: { terms: string | null | undefined; supplie
   return { agreed, words: agreed ? `You agreed to ${input.supplierName}’s terms` : `You agree to ${input.supplierName}’s terms` };
 }
 
+/**
+ * ⭐ The review card's ⓘ — how reviews work, in one line (≤ 12 words). The review page's own rule
+ * (`dashboard/[eventId]/vendors/[vendorId]/review`): public on the marketplace and the supplier's page; the supplier can
+ * reply once.
+ */
+export function reviewInfoLine(viewer: 'vendor' | 'couple'): string {
+  return viewer === 'couple' ? 'Public on their shop page and Setnayan. They can reply once.' : 'Public on your shop page and Setnayan. You can reply once.';
+}
+
 // ── The receipt ─────────────────────────────────────────────────────────────
 
 /** One `event_vendor_payments` row, as the hosts read it. */

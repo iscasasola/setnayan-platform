@@ -32,9 +32,12 @@ chat face of a record that already ships — **no new table, no new column, no n
   else their moment's start; "Time not set" when neither). It reads the schedule live, with the schedule's own column
   list (`TASK_COLUMNS`). No crew, a refused read: a card that says so.
 - **Handover, then the review.** A delivery posted through the shipped `vendorPostHandover` lands in the chat as a
-  card (`cards/handover-card.tsx`; the drawing's "Handover" + what was delivered): Open (http/https links only), and the hosts' **I received it** — the shipped
+  card (`cards/handover-card.tsx`; the drawing's "Handover" + what was delivered): **Open** beside the title (the house ActionButton through `KindCard`'s new `action` slot — only when the delivery
+  has a real http/https link), and the hosts' **I received it** — the shipped
   single-winner `acknowledge_handover`, the same press as the workspace's Handover inbox. Confirmed, it folds to one
-  ✓ line. Then the review ask: "How was <shop>?" → **Write review** opens the shipped review page (which holds every
+  ✓ line. Then the review ask: "How was <shop>?" with the drawing's ⓘ (C's `KindCard` `info` slot) holding one line on how
+  reviews work — "Public on their shop page and Setnayan. They can reply once." (the supplier's copy says "your" /
+  "You") — and → **Write review** opens the shipped review page (which holds every
   rule about who may review); once posted, both sides see the stars and the line.
 - **Migration `20271354150744_the_deals_end_is_said_in_the_chat`** — lines only, written the way every payment and
   booking line already is (`chat_record_post_line`, never raises): "Handover · <kind>[ · label]" · "Handover received
@@ -56,13 +59,14 @@ NOT built here:
   all-or-nothing count in the database. It was still open while this was built, and a second count here would have
   been a competing answer to the same question. The chat step is the next small build on top of it (`bookItCap` in
   `lib/chat-deal.ts` is ready).
-- **The receipt's PDF** (the drawing's "PDF" press): no receipt document exists for a supplier payment — Setnayan
-  does not hold that money, the hosts' proof is the record.
+- **The receipt's PDF press and S89R number** (the drawing's "PDF"): later build — a supplier-payment receipt
+  document. Until it exists the card has no PDF press and no receipt number (no dead buttons; held by
+  `lib/deal-end.test.ts`).
 - **The drawn crew picker** (pick from the shop's team + one call time under ⋯ → Crew): ⋯ is part G (#8048) and the
   self-set backstage "Crew call" is part F (#8046). The card here reads whatever those write.
 - **A Terms row in the quote editor**: terms are the service card's; the editor does not retype them.
 
-SPEC IMPACT: `DECISION_LOG.md` — a 20 Nov row is needed: "Unichat H2 as built — terms are the service card's
-reservation terms frozen on the quote at send; the receipt, crew, handover and review cards read shipped records;
-Book it waits for Availability step 4 (#8012)". Not edited from this builder's worktree — for the controller to
-apply with the rest of the Unichat rulings.
+SPEC IMPACT: `DECISION_LOG.md` 20 Nov row, specs commit 1675080f ("decision: Unichat H2 — terms, Book it, receipt (no PDF until a
+document exists), crew, handover")
+(terms are the service card's reservation terms frozen on the quote at send; the receipt, crew, handover and review
+cards read shipped records; Book it waits for Availability step 4, #8012).

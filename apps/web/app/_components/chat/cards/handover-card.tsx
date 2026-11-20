@@ -15,8 +15,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Check, ExternalLink, PenLine } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { HANDOVER_KIND_WORD, type HandoverKind } from '@/lib/chat-card-lines';
-import { handoverLink, starWords, type HandoverRow } from '@/lib/deal-end';
+import { handoverLink, reviewInfoLine, starWords, type HandoverRow } from '@/lib/deal-end';
 import { markDay } from '@/lib/supplier-schedule-marks';
+import { Sheet } from '@/app/_components/sheet';
 import { confirmHandoverFromChat, loadHandover, loadReview } from './deal-end-calls';
 import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type Read } from './card-bits';
 
@@ -72,6 +73,8 @@ export function HandoverCard({
       // The drawing's handover: "Handover" as the title, what was delivered as the one line under it.
       kicker={h?.label?.trim() || word}
       title="Handover"
+      // The drawing's "Open" sits beside the title — only when there is a real link to open (http/https).
+      action={link ? { label: 'Open', href: link, icon: ExternalLink, external: true } : undefined}
       turn={received ? 'done' : !mine && h?.status === 'delivered' ? 'me' : 'wait'}
       settled={received ? `Handover · ${h?.label?.trim() || word} · received${h?.couple_acknowledged_at ? ` ${markDay(h.couple_acknowledged_at)}` : ''}` : undefined}
     >
@@ -88,12 +91,9 @@ export function HandoverCard({
           {/* A note's own words; a link is opened by the button, never printed as a second, raw door. */}
           {h.payload && !link ? <p className="whitespace-pre-wrap break-words text-[14px] text-ink/80">{h.payload}</p> : null}
           {h.status === 'disputed' ? <p className="text-[14px] font-medium text-warn-800">Reported as a problem · Setnayan is looking at it</p> : null}
-          {link || (!mine && h.status === 'delivered') ? (
+          {!mine && h.status === 'delivered' ? (
             <EqualRow>
-              {link ? <ActionButton tone="neutral" icon={ExternalLink} label="Open" href={link} target="_blank" /> : null}
-              {!mine && h.status === 'delivered' ? (
-                <ActionButton tone="ok" main icon={Check} label="I received it" onClick={confirm} disabled={busy} data-testid="handover-confirm" />
-              ) : null}
+              <ActionButton tone="ok" main icon={Check} label="I received it" onClick={confirm} disabled={busy} data-testid="handover-confirm" />
             </EqualRow>
           ) : null}
           {mine && h.status === 'delivered' ? <p className="text-[13px] text-ink/60">Waiting for the hosts to confirm they received it</p> : null}
@@ -130,11 +130,16 @@ export function ReviewAskCard({
   const mine = viewer === 'couple';
   const got = read.at === 'ok' ? read.data : null;
   const stars = got?.review ? starWords(got.review.rating) : null;
+  const [info, setInfo] = useState(false);
+  const sheetTitle = `review-sheet-${threadId}`;
   return (
-    // The drawing's review card wears the quote kind's colour (`KCLS.review = 'k-quote'`); the icon stays the topic's own.
+    <>
+    {/* The drawing's review card wears the quote kind's colour (`KCLS.review = 'k-quote'`); the icon stays the topic's own. */}
     <KindCard
       kind="quote"
       topic="decision"
+      // The drawing's ⓘ: how reviews work, one line — the review page's own rule (public, the supplier replies once).
+      info={{ onOpen: () => setInfo(true), data: { 'data-review-info': '' } }}
       kicker={stars ? (got!.review!.body ? `“${got!.review!.body}”` : 'Review posted') : mine ? 'Stars and one line' : 'The hosts review'}
       title={
         stars ? (
@@ -160,5 +165,14 @@ export function ReviewAskCard({
         </EqualRow>
       ) : null}
     </KindCard>
+    <Sheet open={info} onClose={() => setInfo(false)} labelledById={sheetTitle} rise>
+      <div className="grid gap-1 px-4 pb-5 pt-1" data-review-sheet="">
+        <p id={sheetTitle} className="text-base font-semibold text-ink">
+          Reviews
+        </p>
+        <p className="text-[15px] text-ink/80">{reviewInfoLine(viewer)}</p>
+      </div>
+    </Sheet>
+    </>
   );
 }

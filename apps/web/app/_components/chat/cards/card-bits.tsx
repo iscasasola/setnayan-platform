@@ -5,6 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Check, ChevronDown, Info, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
@@ -55,6 +56,7 @@ export function KindCard({
   tone = 'auto',
   anchorId,
   info,
+  action,
   warn = false,
   children,
 }: {
@@ -76,6 +78,11 @@ export function KindCard({
    * HERE, in the shared part, so a card file never hand-draws it (`lane-c-cards.test.ts` 🔘). `data` rides on the button.
    */
   info?: { onOpen: () => void; data?: Record<`data-${string}`, string | undefined> };
+  /**
+   * The drawing's action beside the title (the handover's "Open", Unichat part H2) — the house ActionButton, drawn HERE
+   * so a card file never hand-draws it. Only for a press with a real destination: a card with nowhere to go gets none.
+   */
+  action?: { label: string; href: string; icon: LucideIcon; external?: boolean };
   /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
   warn?: boolean;
   children?: ReactNode;
@@ -116,7 +123,7 @@ export function KindCard({
       data-card-kind={kind}
       data-card-turn={turn}
       aria-label={label}
-      className={`my-2 grid scroll-mt-3 ${info ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
+      className={`my-2 grid scroll-mt-3 ${info && action ? 'grid-cols-[36px_minmax(0,1fr)_auto_auto]' : info || action ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
     >
       {chip ?? (
         <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-md ${k.chip}`}>
@@ -137,6 +144,9 @@ export function KindCard({
           </span>
         </span>
       </span>
+      {action ? (
+        <ActionButton tone="neutral" icon={action.icon} label={action.label} href={action.href} target={action.external ? '_blank' : undefined} data-card-action="" />
+      ) : null}
       {info ? (
         <button
           type="button"

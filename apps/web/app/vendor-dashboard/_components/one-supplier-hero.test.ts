@@ -22,9 +22,12 @@ const HERO = read('_components/supplier-hero.tsx');
 
 // UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): Portfolio has NO header any more, so it
 // mounts no hero. Today and Shop still mount the one hero, exactly once each.
-test('1 · Today and Shop mount the one hero; Portfolio has no header', () => {
+// RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): Today has no photo header either —
+// its top is a two-line mast (`today-is-focus-shaped.test.ts`). The hero is now Shop's alone, mounted exactly once.
+test('1 · Shop mounts the one hero; Today and Portfolio have no photo header', () => {
   assert.doesNotMatch(read('collections/_components/portfolio-view.tsx'), /<SupplierHero\b/, 'Portfolio has a header again');
-  for (const f of ['_components/today-cover.tsx', 'shop/_components/shop-cover.tsx']) {
+  assert.doesNotMatch(read('_components/today-cover.tsx'), /<SupplierHero\b|supplier-hero'/, 'Today has a photo header again');
+  for (const f of ['shop/_components/shop-cover.tsx']) {
     const src = read(f);
     assert.match(src, /from '(?:\.\.\/)+_components\/supplier-hero'|from '\.\/supplier-hero'/, `${f} does not import the one hero`);
     assert.equal((src.match(/<SupplierHero\b/g) ?? []).length, 1, `${f} does not mount the one hero exactly once`);

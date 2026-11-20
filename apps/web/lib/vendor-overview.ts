@@ -361,8 +361,9 @@ export type VendorOverviewData = {
    */
   deskIncomplete: boolean;
   /**
-   * T-3 (supplier audit 2026-11-17): false when the room/schedule read was refused or short. Today then says
-   * "Couldn't load your bookings" — never "No bookings yet · Add the ones you already have" to a shop with bookings.
+   * The booked-events read (`roomRead`, the source of `upcoming` / `nextDay`) reached its end. False = refused or
+   * short: an event today or tomorrow may be missing from Today's list, so Today shows no count and never "done"
+   * (Today v3 part 1). Absent = an older fixture that predates it.
    */
   bookingsComplete?: boolean;
   /**

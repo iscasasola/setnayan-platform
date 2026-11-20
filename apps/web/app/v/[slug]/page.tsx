@@ -258,6 +258,7 @@ import { NOT_YET_VERIFIED_PHOTOS_NOTE, NOT_YET_VERIFIED_SERVICES_NOTE, REVIEWS_H
 import { shopTakesMessages } from '@/lib/findable-shop';
 import { ImageBadge } from '@/app/_components/image-badge';
 import { badgeImageOf } from '@/lib/shop-badge-row';
+import { coupleShopRenewing } from '@/lib/papers-renewal';
 import { shopBadges, verifiedBadge, type ShopBadge } from '@/lib/shop-badges';
 import { readCardBadges } from '@/lib/card-badges.server';
 import type { CardBadgesRead } from '@/lib/card-badges';
@@ -405,6 +406,11 @@ export type PublicVendorRow = {
   // badge.ts) wherever this row's badge is decided; never the public-
   // visibility gate above, which Q5 keeps on the raw state on purpose.
   next_renewal_due_at?: string | null;
+  /**
+   * 📄 False once the shop's papers lapsed after 30 March (`papers_lapsed_at IS NULL`, generated). A lapsed shop that
+   * WAS verified reads the renewing words (papers renewal ruling 4) and the calm page with no badge (§4 of the design).
+   */
+  papers_current?: boolean | null;
   // PR-B self-preview. `user_id` is the owning vendor account. When the
   // logged-in viewer's id matches, an unverified page is shown to its owner
   // so they can preview before verification lands. Optional/nullable.
@@ -530,7 +536,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
   // screen_name silently null (resolver falls back to computed
   // placeholder).
   const fullSelect =
-    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,paused_at,outer_radius_km,self_published_at,created_at';
+    'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,logo_focal_x,logo_focal_y,logo_zoom,portfolio_r2_keys,gallery_video_links,gallery_video_titles,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,name_revealed_at,screen_name,tier_state,tier_expires_at,verification_state,next_renewal_due_at,user_id,find_locked_at,fraud_suspended_at,fraud_banned_at,fraud_tombstoned,paused_at,papers_current,outer_radius_km,self_published_at,created_at';
   const legacySelect =
     'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,portfolio_r2_keys,services,location_city,hq_address,hq_latitude,hq_longitude,website,public_visibility,compatible_ceremony_types,compatible_venue_settings,created_at';
 
@@ -541,7 +547,7 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
     .maybeSingle();
   if (
     error &&
-    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned|paused_at)/i.test(
+    /(gallery_video_links|gallery_video_titles|is_demo|name_revealed_at|screen_name|tier_state|tier_expires_at|verification_state|next_renewal_due_at|user_id|outer_radius_km|self_published_at|find_locked_at|fraud_suspended_at|fraud_banned_at|fraud_tombstoned|paused_at|papers_current)/i.test(
       error.message,
     )
   ) {
@@ -1184,13 +1190,17 @@ export async function renderVendorBySlug({
   );
   // 🗂 v16 S4: this month's Not-bookable days for the desktop side card — Check a date's own reads over one month
   // (`readThisMonthNotBookable`). Verified and date-checkable only, as the door; a failure is `unreadable`, never green.
+  // 📄 Papers renewal (#7875, DECISION_LOG 2026-11-16): a shop that WAS verified and whose papers lapsed. Read ONCE, here,
+  // before the first badge read — every Verified badge below asks `&& !renewing` (ruling 1 + §4: no badge on a lapsed
+  // shop), and every "not yet verified" marking asks it too (ruling 2: the renewing line shows ALONE).
+  const renewing = coupleShopRenewing(vendor);
   const thisMonthP =
     dateCheckable && vendor.verification_state === 'verified'
       ? startRead(readThisMonthNotBookable(vendor.vendor_profile_id).catch(() => ({ kind: 'unreadable' }) as const))
       : null;
   // 🏆 The seals the shop holds (the seals engine, #7825 — `readShopSeals`). null = the read failed: no seal is drawn.
   const sealsP = startRead(
-    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified').catch(() => null),
+    readShopSeals(vendor.vendor_profile_id, vendor.verification_state === 'verified' && !renewing).catch(() => null),
   );
   // 🪜 The tiered badges' counters (J0, #7753 — `readShopTierCounts`); each null when its read was refused, never 0.
   const tierCountsP = startRead(
@@ -1205,7 +1215,7 @@ export async function renderVendorBySlug({
      blue check by the name (`verification_state`), so the two can never disagree. A failed read says so on the page. */
   const cardBadgesP = startRead(
     (async (): Promise<CardBadgesRead> => {
-      const shopVerified = vendor.verification_state === 'verified';
+      const shopVerified = vendor.verification_state === 'verified' && !renewing;
       /* The Verified Partner seal is J2's (`readShopSeals`, lib/shop-seals.server.ts — the ONE seals read). Its
          medal takes Verified's slot ("Verified Partner · for life"). A failed seals read is a failed badge read —
          never a quiet "not a partner". */
@@ -1296,7 +1306,7 @@ export async function renderVendorBySlug({
     trusted_by: tierCounts.trustedBy,
   };
   const awardsView = publicBadgeView({
-    verified: vendor.verification_state === 'verified',
+    verified: vendor.verification_state === 'verified' && !renewing,
     seals: sealsFromEngine(shopSeals?.seals),
     tiers: tiersFromCounts(countsForRow),
   });
@@ -1750,7 +1760,15 @@ export async function renderVendorBySlug({
   // sample content and a team preview is the team's own look at the page, so both keep the full page — sample reviews
   // included — and wear no "Not yet verified" marking. The same exclusion the band notice always made, now made ONCE,
   // here, so no marking and no gate below can forget it. The blue check itself still reads `verification_state`.
-  const isVerifiedShop = vendor.verification_state === 'verified' || isDemoVendor || teamPreview !== null;
+  // 📄 Papers renewal §4 (#7875), laid into v16 S6: a shop that WAS verified and whose papers lapsed keeps the one
+  // look (hero, card, columns) but reads as a shop whose papers are not checked — the content gate is shut, it wears
+  // no Verified award and no Verified line, and the band under the name says it is renewing (ruling 4). Was, before
+  // S6 retired the calm column: "the calm page — one column, no badge, no hero".
+  // 📄 Ruling (2) of the same row: its page says "Renewing their papers with Setnayan" ALONE — so every "not yet
+  // verified" MARKING below (hero stamp, Awards slot, footer tag, card + photo stamps, the notes, "What Verified adds",
+  // the side card + quote list) is gated on `!isVerifiedShop && !renewing`. The CONTENT gates stay on `isVerifiedShop`.
+  // (`renewing` is read above, before the first badge read.)
+  const isVerifiedShop = (vendor.verification_state === 'verified' && !renewing) || isDemoVendor || teamPreview !== null;
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (showPortfolio ? (portfolioUrls[0] ?? null) : null);
   // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
@@ -2231,6 +2249,7 @@ export async function renderVendorBySlug({
   // crawler to index as a real shop's rating.
   if (
     vendor.verification_state === 'verified' &&
+    !renewing &&
     !isDemoVendor &&
     viewerTierCaps.reviewStarsCounted &&
     trustedReviewStats.trusted_review_count > 0 &&
@@ -2506,11 +2525,12 @@ export async function renderVendorBySlug({
           heading is just "Awards" — never instruction wording ("tap one", "Earned on Setnayan") — and each award is
           its badge + ONE plain fact (`awardFact`, lib/shop-award-fact.ts). The tier name and the award date belong to
           the full-screen view, never to this row. */}
-      {vendor.verification_state === 'verified' || awardsRow.length > 0 || awardsUnread ? (
+      {/* 📄 Papers renewal §4: a shop whose papers lapsed wears no Verified award. */}
+      {(vendor.verification_state === 'verified' && !renewing) || awardsRow.length > 0 || awardsUnread ? (
         <div data-shop-awards="" className="grid gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.1em] opacity-75">Awards</p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            {vendor.verification_state === 'verified' ? (
+            {vendor.verification_state === 'verified' && !renewing ? (
               /* The strict gate stays first (identity-chips guard); a Verified Partner shows its own seal instead. */
               showsVerifiedSeal ? (
               <li id="shop-verified-award">
@@ -2532,7 +2552,7 @@ export async function renderVendorBySlug({
           shop holds (seals engine, #7825), then the tiered badges at the step each counter reached (J0, #7753). Each
           is a button that opens its full screen (the award kit). The QR on a supplier's card/tarp lands here, so a
           scan always shows today's badges. */}
-            {!isVerifiedShop ? (
+            {!isVerifiedShop && !renewing ? (
               /* v16 unverified look: the Verified slot stays, empty — "Setnayan Verified · Not yet — papers not checked"
                  (`ImageBadge` `on={false}`, the shipped not-yet face). */
               <li data-shop-not-verified-slot="">
@@ -2645,7 +2665,7 @@ export async function renderVendorBySlug({
         backCompact={<BackButton href={shopTop.href} label={shopTop.label} variant="chat" inPlace />}
         shopName={displayLabel}
         logo={<TopBarLogo logoUrl={logoDisplayUrl} name={displayLabel} frame={readLogoFrame(vendor)} />}
-        verified={vendor.verification_state === 'verified'}
+        verified={vendor.verification_state === 'verified' && !renewing}
         verifiedArt={verifiedFullArt}
         acts={
           canMessage ? (
@@ -2703,7 +2723,7 @@ export async function renderVendorBySlug({
             ) : undefined
           }
           bento={heroGalleryPhotos.length >= HERO_PHOTO_COUNT}
-          marker={isVerifiedShop ? undefined : <NotYetVerifiedTag />}
+          marker={isVerifiedShop || renewing ? undefined : <NotYetVerifiedTag />}
         />
 
       <article
@@ -2734,9 +2754,10 @@ export async function renderVendorBySlug({
           </div>
         ) : null}
         {/* v16 S6: the band under the name (`.nvband`) — the shipped notice, moved under the hero. */}
+        {/* 📄 Papers renewal ruling (4): on a shop whose papers lapsed the same band says it is renewing its papers. */}
         {!isVerifiedShop ? (
           <div className="pt-6" data-shop-not-verified-band="">
-            <NotYetVerifiedNotice />
+            <NotYetVerifiedNotice renewing={renewing} />
           </div>
         ) : null}
         {/* 🃏 THE CARD COLUMN BESIDE THE PAGE — every plan, tablet and up (supplier website by plan, owner-approved
@@ -2956,9 +2977,11 @@ export async function renderVendorBySlug({
             <ShopSideCard
               price={sideCardPrice(activeServices, hidePricesPublicly, discountsByService, { eventDate: coupleEventDate })}
               /* a CLAIM: reads the paper state, never the content gate */
-              verifiedLine={vendor.verification_state === 'verified' ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
+              verifiedLine={vendor.verification_state === 'verified' && !renewing ? sideCardVerifiedLine(viewerTierCaps.reviewStarsCounted, trustedReviewStats) : null}
               month={isVerifiedShop ? thisMonth : null}
               datesHref={withShopArrival(`${shopPath(vendor.business_slug ?? slug)}`, shopArrival, { dates: '1' })}
+              /* 📄 ruling (2): a lapsed shop's side card says it is renewing, never the not-verified list */
+              renewing={renewing}
             />
             {canMessage ? (
               <div
@@ -3120,7 +3143,7 @@ export async function renderVendorBySlug({
           />
         ) : null}
         {/* ⚠ v16 S6 `.cando.nvopen` — "What Verified adds", in the About of a shop Setnayan has not checked yet. */}
-        {isVerifiedShop ? null : (
+        {isVerifiedShop || renewing ? null : (
           <section className="space-y-2 border-b border-ink/10 py-8" data-shop-what-verified-adds="">
             <h2 className="text-base font-semibold text-ink">{WHAT_VERIFIED_ADDS.title}</h2>
             {WHAT_VERIFIED_ADDS.points.map((p) => (
@@ -3301,7 +3324,8 @@ export async function renderVendorBySlug({
             inquireMode={canMessage ? 'anchor' : 'none'}
             cardRecordRating={isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null}
             quoteInSideCard
-            notVerified={!isVerifiedShop}
+            notVerified={!isVerifiedShop && !renewing}
+            renewing={renewing}
           />
         ) : null}
 
@@ -3382,7 +3406,7 @@ export async function renderVendorBySlug({
               Portfolio
             </h2>
             {/* ⚠ v16 S6: the photos' sub-line on a shop Setnayan has not checked yet. */}
-            {isVerifiedShop ? null : (
+            {isVerifiedShop || renewing ? null : (
               <NotYetVerifiedTag>{NOT_YET_VERIFIED_PHOTOS_NOTE}</NotYetVerifiedTag>
             )}
             {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
@@ -3398,7 +3422,7 @@ export async function renderVendorBySlug({
                 photos={portfolioPhotos}
                 label={displayLabel}
                 count={!isDemoVendor && teamPreview === null}
-                notVerified={!isVerifiedShop}
+                notVerified={!isVerifiedShop && !renewing}
               />
               {featuredVideos.map((v, idx) =>
                 v.embedUrl ? (
@@ -3764,7 +3788,7 @@ export async function renderVendorBySlug({
               Supplier ID · <span className="font-mono">{vendor.public_id}</span>
             </p>
             {/* v16 unverified footer: the "Not yet verified" tag after the Supplier ID. */}
-            {!isVerifiedShop ? (
+            {!isVerifiedShop && !renewing ? (
               <p data-shop-footer-not-verified="">
                 <NotYetVerifiedTag />
               </p>
@@ -3949,6 +3973,8 @@ type ServicesPricingProps = {
   quoteInSideCard?: boolean;
   /** ⚠ v16 S6: the shop is not verified yet — each card wears the "Not verified" stamp and the section its note. */
   notVerified?: boolean;
+  /** 📄 Papers renewal ruling (2): the shop is renewing its papers — the quote says so, in place of the not-verified line. */
+  renewing?: boolean;
   /** 🏅 Each card's badge row (badge build J3), or `unreadable` — said once above the cards, never as "no badges". */
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
@@ -4202,6 +4228,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         ownerCheckFor={ownerCheckFor}
         quote={quote}
         notVerified={notVerified}
+        renewing={props.renewing === true}
         cardBadges={cardBadges}
         badgesNow={badgesNow}
       />

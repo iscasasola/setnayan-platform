@@ -29,7 +29,7 @@ import {
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings, refuseEditOfBookedCard, CARD_EDIT_UNREAD } from '@/lib/service-open-bookings';
 import { cardCountHasNoCap, isCardPickableStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import {
   deriveBranchStatus,
@@ -67,6 +67,9 @@ import {
   writeSchedulePolicy,
   type ParsedScheduleRow,
 } from '@/lib/service-card-save-parts';
+import { readCardAbout } from '@/lib/card-about';
+import { readPlanIntent } from '@/lib/vendor-pay-plans';
+import { writeCardPayPlan } from '@/lib/vendor-pay-plans.server';
 import { mergeServiceRefinements } from '@/lib/vendor-service-refinements-write';
 import { registerClaimedServiceToCouple } from '@/lib/vendor-invite-actions';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
@@ -388,7 +391,7 @@ function parsePosNumOrNull(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
-type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
+type PricingBasis = 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
 
 /**
  * Parse the pricing-basis fields (service-card redesign · Phase 3a). Only the
@@ -398,6 +401,10 @@ type PricingBasis = 'fixed' | 'per_pax' | 'per_hour';
  *   • fixed    → the entered flat price (+ adaptive-pax base/surcharge).
  *   • per_pax  → anchor = per-guest rate × minimum pax.
  *   • per_hour → anchor = the base (which covers the minimum block).
+ *   • per_unit → anchor = the base (which covers the initial units) — Card Maker part 7. Custom = per_unit + a word.
+ *     Each extra left blank fills in as base ÷ initial units (owner 17 Nov: "fills in by itself · you can change it").
+ *   Max (per_pax · per_hour · per_unit): a whole number MORE than the starting number, or blank = no limit. The
+ *   database refuses anything else (`vendor_services_price_max_above_the_start`); this says it in words first.
  */
 function parsePricingFields(formData: FormData): {
   pricing_basis: PricingBasis;
@@ -409,10 +416,15 @@ function parsePricingFields(formData: FormData): {
   hour_base_php: number | null;
   min_hours: number | null;
   extra_hour_php: number | null;
+  unit_word: string | null;
+  unit_base_php: number | null;
+  initial_units: number | null;
+  extra_unit_php: number | null;
+  price_max: number | null;
 } {
   const rawBasis = String(formData.get('pricing_basis') ?? 'fixed');
   const pricing_basis: PricingBasis =
-    rawBasis === 'per_pax' || rawBasis === 'per_hour' ? rawBasis : 'fixed';
+    rawBasis === 'per_pax' || rawBasis === 'per_hour' || rawBasis === 'per_unit' ? rawBasis : 'fixed';
 
   const out = {
     pricing_basis,
@@ -424,6 +436,11 @@ function parsePricingFields(formData: FormData): {
     hour_base_php: null as number | null,
     min_hours: null as number | null,
     extra_hour_php: null as number | null,
+    unit_word: null as string | null,
+    unit_base_php: null as number | null,
+    initial_units: null as number | null,
+    extra_unit_php: null as number | null,
+    price_max: null as number | null,
   };
 
   if (pricing_basis === 'fixed') {
@@ -437,11 +454,38 @@ function parsePricingFields(formData: FormData): {
     out.min_pax = mp && mp > 0 ? mp : null;
     out.starting_price_php =
       out.per_pax_price_php != null ? out.per_pax_price_php * (out.min_pax ?? 1) : null;
-  } else {
+  } else if (pricing_basis === 'per_hour') {
     out.hour_base_php = parseInt0OrNull(formData.get('hour_base_php'));
     out.min_hours = parsePosNumOrNull(formData.get('min_hours'));
     out.extra_hour_php = parseInt0OrNull(formData.get('extra_hour_php'));
     out.starting_price_php = out.hour_base_php;
+  } else {
+    const rawWord = formData.get('unit_word');
+    if (typeof rawWord === 'string' && rawWord.trim() !== '') {
+      const w = rawWord.trim();
+      if (w.length > 24 || /[0-9<>]/.test(w)) throw new Error('What you charge per: up to 24 letters, no numbers.');
+      out.unit_word = w;
+    }
+    const base = parseInt0OrNull(formData.get('unit_base_php'));
+    const initial = parseInt0OrNull(formData.get('initial_units'));
+    if (base == null || base <= 0) throw new Error('Type the base price.');
+    if (initial == null || initial <= 0) throw new Error('Type how many the base price covers.');
+    out.unit_base_php = base;
+    out.initial_units = initial;
+    const extra = parseInt0OrNull(formData.get('extra_unit_php'));
+    out.extra_unit_php = extra ?? Math.round(base / initial);
+    out.starting_price_php = base;
+  }
+  if (pricing_basis !== 'fixed') {
+    const rawMax = formData.get('price_max');
+    if (typeof rawMax === 'string' && rawMax.trim() !== '') {
+      const t = rawMax.trim().replace(/,/g, '');
+      const max = /^\d+$/.test(t) ? Number(t) : Number.NaN;
+      if (!Number.isFinite(max) || max <= 0) throw new Error('Max must be a whole number, or empty for no limit.');
+      const startN = pricing_basis === 'per_pax' ? out.min_pax : pricing_basis === 'per_hour' ? out.min_hours : out.initial_units;
+      if (max <= (startN ?? 0)) throw new Error('Max must be more than the starting number.');
+      out.price_max = max;
+    }
   }
   return out;
 }
@@ -969,6 +1013,11 @@ export async function createVendorService(formData: FormData) {
       hour_base_php: pricing.hour_base_php,
       min_hours: pricing.min_hours,
       extra_hour_php: pricing.extra_hour_php,
+      unit_word: pricing.unit_word,
+      unit_base_php: pricing.unit_base_php,
+      initial_units: pricing.initial_units,
+      extra_unit_php: pricing.extra_unit_php,
+      price_max: pricing.price_max,
       coverage_id,
       crew_size,
       crew_meal_required,
@@ -1140,6 +1189,9 @@ export async function updateVendorService(formData: FormData) {
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
+  // 🔒 A booked client is using this card → refused before anything is parsed or written (owner 19 Nov 2026).
+  const lockedUpdate = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, idRaw);
+  if (lockedUpdate) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedUpdate)}`);
 
   let pricing: ReturnType<typeof parsePricingFields>;
   let transport_flat_fee_php: number | null = null;
@@ -1317,6 +1369,11 @@ export async function updateVendorService(formData: FormData) {
       hour_base_php: pricing.hour_base_php,
       min_hours: pricing.min_hours,
       extra_hour_php: pricing.extra_hour_php,
+      unit_word: pricing.unit_word,
+      unit_base_php: pricing.unit_base_php,
+      initial_units: pricing.initial_units,
+      extra_unit_php: pricing.extra_unit_php,
+      price_max: pricing.price_max,
       coverage_id,
       crew_size,
       crew_meal_required,
@@ -1409,6 +1466,9 @@ export async function setServiceLinks(formData: FormData) {
   if (!anchor) {
     return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
+  // 🔒 A booked client is using this card → its "comes with" links stay as booked (owner 19 Nov 2026).
+  const lockedLinks = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, anchorId);
+  if (lockedLinks) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedLinks)}`);
   const offeredCategories = new Set(
     own.map((r) => r.category).filter((c) => c !== anchor.category),
   );
@@ -1493,6 +1553,9 @@ export async function setServicePaymentSchedule(formData: FormData) {
   if (!svc) {
     return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
+  // 🔒 A booked client is using this card → its payment schedule stays as booked (owner 19 Nov 2026).
+  const lockedSchedule = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId);
+  if (lockedSchedule) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedSchedule)}`);
 
   // Parse the parallel arrays — the SAME parser the maker's one save uses (`parsePaymentScheduleForm`, 2026-10-14),
   // no-show terms on the first payment included. Any malformed row aborts the whole save.
@@ -1808,6 +1871,13 @@ export async function commitVendorService(formData: FormData) {
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // 🔒 A BOOKED CLIENT IS USING THIS CARD → IT IS NOT EDITED (owner 19 Nov 2026). Asked before ANY write — the gift
+  // clear and the `save_vendor_service` RPC below are both reachable only past this line. Fails closed on a refused read.
+  if (!isCreate) {
+    const locked = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId as string);
+    if (locked) return back(locked);
   }
 
   // ---- 🎁 THE GIFT ROW'S SHOP PACK (makers prototype 7 Nov 2026 § 3) ------
@@ -2155,6 +2225,14 @@ export async function commitVendorService(formData: FormData) {
       display_order: i,
     }));
 
+  // ---- 📝 Description + video link, 💳 the pay plan (Card Maker HYBRID part 2) — read BEFORE the RPC, so a bad
+  // value bounces while a bounce is still free; written AFTER it, like the gift pack (save_vendor_service is not
+  // re-defined). A screen that does not draw them posts neither marker and leaves the card's values alone.
+  const about = readCardAbout(formData);
+  if (about.present && !about.ok) return back(about.error);
+  const planIntent = readPlanIntent(formData);
+  if (planIntent?.kind === 'error') return back(planIntent.message);
+
   // ---- Payment schedule rows — the SAME parser as setServicePaymentSchedule (2026-10-14) ----
   // The RPC replace-alls the schedule WITHOUT the no-show terms, so they are written onto the first payment after
   // it (`writeSchedulePolicy`, below) — never dropped.
@@ -2266,6 +2344,18 @@ export async function commitVendorService(formData: FormData) {
     }
     const policyErr = await writeSchedulePolicy(supabase, cardId, profile.vendor_profile_id, scheduleRows);
     if (policyErr) partProblems.push('the no-show terms on the first payment');
+    if (about.present && about.ok) {
+      const { error: aboutErr } = await supabase
+        .from('vendor_services')
+        .update(about.about)
+        .eq('vendor_service_id', cardId)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (aboutErr) partProblems.push('its description and video link');
+    }
+    if (planIntent) {
+      const planErr = await writeCardPayPlan(supabase, profile.vendor_profile_id, cardId, planIntent, scheduleRows);
+      if (planErr) partProblems.push(planErr);
+    }
     if (formData.get('addons_present') === '1') {
       const addonErr = await replaceServiceAddons(supabase, cardId, profile.vendor_profile_id, parseAddonRows(formData));
       if (addonErr) partProblems.push('the add-ons');
@@ -2679,6 +2769,9 @@ export async function addServiceTimeSlot(formData: FormData) {
     if (!svc) {
       throw new Error('Service not found.');
     }
+    // 🔒 A booked client is using this card → no new time slot on it (owner 19 Nov 2026).
+    const lockedSlot = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId);
+    if (lockedSlot) throw new Error(lockedSlot);
 
     const { error } = await supabase.from('vendor_service_time_slots').insert({
       vendor_profile_id: profile.vendor_profile_id, // stamped server-side
@@ -2705,6 +2798,21 @@ export async function deleteServiceTimeSlot(formData: FormData) {
   const slotId = String(formData.get('slot_id') ?? '');
   if (!slotId) {
     return redirect(`${await servicesReturnBase()}?error=Missing+slot+id`);
+  }
+
+  // 🔒 A booked client is using the slot's card → the slot stays (owner 19 Nov 2026). The slot names its card; a slot
+  // that cannot be read refuses (nothing is changed on no evidence).
+  const { data: slotRow, error: slotReadErr } = await supabase
+    .from('vendor_service_time_slots')
+    .select('vendor_service_id')
+    .eq('slot_id', slotId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (slotReadErr) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(CARD_EDIT_UNREAD)}`);
+  const slotCard = (slotRow as { vendor_service_id?: string | null } | null)?.vendor_service_id ?? null;
+  if (slotCard) {
+    const lockedSlot = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, slotCard);
+    if (lockedSlot) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedSlot)}`);
   }
 
   const { error } = await supabase

@@ -38,6 +38,8 @@ export type PickedPageContext = {
    * the chat box (owner 17 Nov). Empty on a plain open.
    */
   threadSearch?: Record<string, string>;
+  /** 🧾 Details › Agreed now's plain rows (Venue · Hosts · Coordinator · Supplier · Stage) — `agreedFacts`, part G. */
+  agreedFacts?: readonly { label: string; value: string }[];
 };
 
 export type PickedPageProps = {

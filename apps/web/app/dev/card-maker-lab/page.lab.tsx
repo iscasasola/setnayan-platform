@@ -28,6 +28,8 @@
  *   &portfolio=albums|none|unread 🃏📸 the edit sheet's Portfolio fold as it reads with the card-record flag ON (frames 72 · 74 · 75):
  *                                 this card's event albums + own uploads last · own uploads only · Couldn't load · Retry
  *   ?view=quick-forms&library=1   📋 Admin › Categories › a service's Quick Forms editor on the seed's Catering template
+ *   ?view=shop-offers&offers=ok|none|unread|locked  🏷 Card Maker part 3: More settings › Shop offers on an edited card,
+ *                                 on sample offers (no database): on all cards · also on 1 other · only this card · one to put on
  *   &library=1|unread             📚 Card Maker part 2: a saved pay plan (&plan=on: this card follows it), the shop's other cards,
  *                                 Setnayan's starting list for the service — or every read refused · &about=1 a description + video link
  *   &record=unread                🃏 the Record fold when the record read is refused (frame 75)
@@ -38,6 +40,9 @@
  *
  * Names are the prototype's samples: nobody real.
  */
+import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
+import { CardShopOffers, type CardShopOffersState } from '@/app/vendor-dashboard/services/_components/card-shop-offers';
+import { SHOP_OFFERS_UNREAD } from '@/lib/card-shop-offers';
 import { LAB_FAIR_WORDS } from '../lab-fair-words';
 import { CardPortfolioSection } from '@/app/_components/card-portfolio-section';
 import { TheirWorkList } from '@/app/vendor-dashboard/services/their-work/their-work-list';
@@ -395,6 +400,26 @@ export default async function CardMakerLabPage({
       <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4" data-lab="quick-forms">
         <h1 className="mb-3 text-[20px] font-semibold text-ink">Catering · Quick Forms</h1>
         <QuickFormsEditor canonical="catering" label="Catering" templates={library?.includedTemplates ?? []} />
+      </div>
+    );
+  }
+  // 🏷 `?view=shop-offers` — Card Maker part 3, the Shop offers row on sample offers. Its writes are refused here (no shop).
+  if (sp.view === 'shop-offers') {
+    const mode = sp.offers === 'none' || sp.offers === 'unread' || sp.offers === 'locked' ? sp.offers : 'ok';
+    const base = { reachesAll: false, cards: [] as string[], pctOff: null, phpOff: null, firstPayment: null, firstPaymentUnit: 'php' as const, giftMode: 'same' as const, gifts: [], who: 'everyone' as const, minLeadMonths: null, firstNCap: null, firstNTaken: 0, seasonFrom: null, seasonTo: null, untilDate: null, isOn: true, sortOrder: 0 };
+    const sample = [
+      { ...base, id: 'lab-o1', name: 'Rainy season 10% off', reachesAll: true, pctOff: 10, sortOrder: 0 },
+      { ...base, id: 'lab-o2', name: 'Early bird', phpOff: 5000, who: 'early_bird' as const, minLeadMonths: 12, cards: ['lab-card', 'lab-other'], sortOrder: 1 },
+      { ...base, id: 'lab-o3', name: 'Free tasting week', pctOff: 5, cards: ['lab-card'], sortOrder: 2 },
+      { ...base, id: 'lab-o4', name: 'Returning couples', phpOff: 3000, who: 'returning' as const, cards: ['lab-other'], sortOrder: 3 },
+    ];
+    const initialState: CardShopOffersState =
+      mode === 'unread' ? { k: 'unread', message: SHOP_OFFERS_UNREAD } : mode === 'locked' ? { k: 'locked' } : { k: 'ok', offers: mode === 'none' ? [sample[3]!] : sample, cardIds: ['lab-card', 'lab-other'], today: '2026-11-19' };
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4" data-lab="shop-offers">
+        <h1 className="mb-3 text-[20px] font-semibold text-ink">Wedding buffet · Shop offers</h1>
+        <CardShopOffers cardId="lab-card" initial={initialState} />
+        <UndoToastHost />
       </div>
     );
   }

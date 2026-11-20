@@ -198,6 +198,14 @@ export type ChatMessageRow = {
    */
   offered_service_id?: string | null;
   /**
+   * 🏷 Set when this message DROPS one of the supplier's own offers into the chat (migration 20271339379038) — it
+   * renders as the offer card the hosts apply with one tap (`DroppedOfferCard`), not a plain bubble. NULL on every
+   * other message, and NULL again once the offer itself was deleted (the card then says so).
+   */
+  vendor_offer_id?: number | null;
+  /** The drop's own last day (`chat_messages.offer_good_until`); only on a message that drops an offer. */
+  offer_good_until?: string | null;
+  /**
    * Optional file attachment (chat file sharing, PR 2). All four are NULL on
    * text-only messages. `attachment_url` is the public R2 URL; the renderer
    * shows an <img> thumbnail for image MIMEs and a file chip otherwise.
@@ -720,7 +728,7 @@ export async function fetchMessages(
   const withSeveral = await supabase
     .from('chat_messages')
     .select(
-      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN},file_removed_at`,
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN},file_removed_at,vendor_offer_id,offer_good_until`,
     )
     .eq('thread_id', threadId)
     .order('created_at', { ascending: true });

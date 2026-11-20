@@ -714,7 +714,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'Only my mother knew. For nine days. She has never been prouder.',
     witnessQuote: 'I held that envelope for nine days and I did not look. Not once. Ask anyone.',
     witnessAttribution: 'Lola Remy, keeper of the envelope',
-    services: ['Papic', 'Patiktok'],
+    services: ['Papic'],
     editionNumber: 12,
     story: [
       {
@@ -838,7 +838,7 @@ export const REAL_WEDDINGS: ReadonlyArray<RealWedding> = [
     heroQuote: 'Mama said she would only come if we all came. So we all came.',
     witnessQuote: 'Seventy-three years old and she went in the water first.',
     witnessAttribution: 'Tito Erwin, middle child',
-    services: ['Papic', 'Patiktok'],
+    services: ['Papic'],
     editionNumber: 14,
     story: [
       {

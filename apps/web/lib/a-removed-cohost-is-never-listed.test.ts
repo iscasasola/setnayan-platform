@@ -63,6 +63,6 @@ test('readThreadHostPeople reads the event\'s hosts and hands both reads to the 
   const body = src.slice(at);
   assert.match(body, /from\('event_members'\)[\s\S]*?\.in\('member_type', \['couple', 'coordinator'\]\)/,
     'it reads the event\'s couple rows, not only its coordinators');
-  assert.match(body, /return threadHostPeopleFrom\(\{/, 'the list comes from the one rule');
+  assert.match(body, /const people = threadHostPeopleFrom\(\{[\s\S]*?return \{ \.\.\.people, measured: /, 'the list comes from the one rule');
   assert.doesNotMatch(body, /members\.add\(/, 'no second, wider rule inline');
 });

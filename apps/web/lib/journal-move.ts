@@ -147,6 +147,18 @@ export function journalArticleSlug(oldSlug: string): string | null {
   return JOURNAL_SLUGS.has(oldSlug) ? oldSlug : null;
 }
 
+/**
+ * The Journal posts that import as DRAFTS (staged, `publishedAt` ≥ JOURNAL_STAGED_DATE) — no public article
+ * exists for them, so an old `/blog/{slug}` link to one goes to the articles list, never to an address that
+ * 404s (PR #7919 re-review). Literal on purpose, like JOURNAL_SLUGS; `journal-move.test.ts` pins it to the
+ * staged posts in `lib/blog.ts`.
+ */
+export const JOURNAL_DRAFT_SLUGS: ReadonlySet<string> = new Set([
+  'choosing-your-ceremony-by-faith-philippines',
+  'questions-to-ask-every-wedding-supplier',
+  'how-to-budget-a-philippine-wedding-step-by-step',
+]);
+
 /** The public address of an article. One builder, so nothing hand-writes `/articles/` + a slug. */
 export function articleHref(slug: string): string {
   return "/articles/" + slug;

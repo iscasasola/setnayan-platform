@@ -62,7 +62,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     admin
       .from('events')
       .select(
-        'event_id, slug, display_name, event_type, event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date',
+        `event_id, slug, display_name, event_type, event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date`,
       )
       .ilike('slug', slug)
       .maybeSingle(),

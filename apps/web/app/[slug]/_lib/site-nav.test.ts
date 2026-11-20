@@ -85,13 +85,17 @@ test('nav · the bar never exceeds five slots, for anyone, in any phase', () => 
           }
 });
 
-test('nav · RULING: the couple always have their Papic — no switch, no phase removes it', () => {
-  for (const phase of ['before', 'day', 'after'] as const)
+test('nav · RULING: the couple always have their Papic — no switch removes it before the day or on it', () => {
+  for (const phase of ['before', 'day'] as const)
     for (const hostAllowsCamera of [true, false]) {
       const c = cam(at({ viewer: { kind: 'couple' }, phase, hostAllowsCamera }));
       assert.ok(c, `couple lost their camera at ${phase}, hostAllows=${hostAllowsCamera}`);
       assert.equal(c.state, 'live', 'the couple’s own camera must never be locked');
     }
+  // 🧭 C1 (20 Nov 2026, one bar per stage): after the day the Camera TAB leaves for everyone, the couple included —
+  // their camera itself stays where it is linked (the Papic studio); only Post Event's bar no longer carries it.
+  for (const hostAllowsCamera of [true, false])
+    assert.equal(cam(at({ viewer: { kind: 'couple' }, phase: 'after', hostAllowsCamera })), undefined, `the couple has a Camera tab after the day, hostAllows=${hostAllowsCamera}`);
 });
 
 test('nav · RULING: for a GUEST the HOST’S SWITCH is the gate — and a closed camera is LOCKED, never absent', () => {

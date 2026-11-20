@@ -5,8 +5,12 @@
  *
  *   E1 · after the day the bar is Recap · Film · Suppliers · Gallery · Me, and
  *        a slot with nothing behind it is ABSENT — not locked, not greyed.
- *   E2 · after the day a guest and a stranger have no Camera slot; the couple
- *        keeps theirs. Before the day and on the day, nothing changed.
+ *   E2 · after the day a guest and a stranger have no Camera slot; ~~the couple
+ *        keeps theirs~~. Before the day and on the day, nothing changed.
+ *   C1 · 🧭 20 Nov 2026 (controller under owner delegation — DECISION_LOG "EVENT HUB
+ *        MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"): Post Event is Recap · Film ·
+ *        Suppliers · Memories · Me for EVERYONE — Camera leaves the bar after the
+ *        day for the couple and a Papic-on guest too, and Suppliers keeps its slot.
  *
  * Build brief §5 tests 5 and 6 (`POST_EVENT_SCENES_BUILD_BRIEF_2026-09-26.md`).
  */
@@ -30,7 +34,7 @@ const AFTER = navPhaseFor({ dayOfPhase: 'post', isRecapBody: true });
 const base: NavInput = {
   viewer: { kind: 'guest' },
   phase: AFTER,
-  // 📷 Papic OFF here, so E1's doors read as ruled; Papic ON adds the guest's Camera (owner 2026-10-30, below).
+  // 📷 Papic OFF here; since C1 (20 Nov 2026) Papic ON reads the same after the day (below).
   hostAllowsCamera: false,
   anyChapterPublic: true,
   liveBroadcast: false,
@@ -49,9 +53,9 @@ const labels = (o: Partial<NavInput> = {}) => bar(o).map((s) => s.label);
 
 test('E1 · after the day a guest reads Recap · Film · Suppliers · Memories · Me — in that order', () => {
   assert.deepEqual(labels(), ['Recap', 'Film', 'Suppliers', 'Memories', 'Me']);
-  // 📷 Papic ON (owner 2026-10-30, "no matter what event hub stage it is"): the Camera joins, and — the five-slot
-  // shape holding — Suppliers, a scroll within the Recap, yields first (the same rule as the couple's six doors).
-  assert.deepEqual(labels({ hostAllowsCamera: true }), ['Recap', 'Film', 'Camera', 'Memories', 'Me']);
+  // 📷 C1 (20 Nov 2026): Papic ON changes nothing after the day — Camera leaves the bar, so Suppliers keeps the slot
+  // the five-tab cap used to take from it (it superseded 2026-10-30's Post Event arm of "no matter what stage").
+  assert.deepEqual(labels({ hostAllowsCamera: true }), ['Recap', 'Film', 'Suppliers', 'Memories', 'Me']);
   for (const slot of bar()) assert.equal(slot.state, 'live', `${slot.key} is drawn but not pressable — a door with something behind it is live`);
   const film = bar().find((s) => s.key === 'film')!;
   assert.equal(film.href, '#open-film', 'Film opens the film’s open-up through its hash, so Back closes it');
@@ -73,23 +77,23 @@ test('E1 · the stranger: Recap · Film · Suppliers · Memories — no fifth sl
   assert.deepEqual(labels({ viewer: { kind: 'public' } }), ['Recap', 'Film', 'Suppliers', 'Memories']);
 });
 
-test('E2 · after the day a stranger has NO camera, a guest none while Papic is off; the couple keeps theirs', () => {
+test('E2 + C1 · after the day NOBODY has a Camera tab — stranger, guest (Papic on or off) and couple', () => {
   for (const hostAllowsCamera of [true, false]) {
     const keys = bar({ viewer: { kind: 'public' }, hostAllowsCamera }).map((s) => s.key);
     assert.ok(!keys.includes('camera'), `a stranger has a camera after the day (host switch ${hostAllowsCamera})`);
   }
   assert.ok(!bar({ hostAllowsCamera: false }).some((s) => s.key === 'camera'), 'a guest has a camera after the day with Papic off');
-  // 📷 …and with Papic ON (owner 2026-10-30) the guest's Camera is LIVE — never a locked stand-in after the day.
-  const on = bar({ hostAllowsCamera: true }).find((s) => s.key === 'camera');
-  assert.equal(on?.state, 'live', 'Papic on: the guest lost the Camera on Post Event');
-  assert.ok(!bar({ hostAllowsCamera: true, destinations: { ...base.destinations, camera: null } }).some((s) => s.key === 'camera'), 'no address → no camera, never a locked one');
-  const couple = bar({ viewer: { kind: 'couple' } });
-  const cam = couple.find((s) => s.key === 'camera');
-  assert.ok(cam, 'the couple lost their camera after the day');
-  assert.equal(cam.state, 'live');
-  assert.ok(couple.length <= 5, 'the couple’s bar broke the five-slot shape');
-  assert.equal(couple.at(-1)?.label, 'Manage');
-  assert.equal(couple[0]?.label, 'Recap');
+  // 📷 C1 (20 Nov 2026): …and with Papic ON too — the camera's address is untouched, only its TAB leaves Post Event.
+  assert.ok(!bar({ hostAllowsCamera: true }).some((s) => s.key === 'camera'), 'Papic on: a guest still has a Camera tab after the day');
+  // The couple: their camera stays theirs (the Papic studio), but not as a Post Event tab — and Suppliers keeps its slot.
+  for (const hostAllowsCamera of [true, false]) {
+    const couple = bar({ viewer: { kind: 'couple' }, hostAllowsCamera });
+    assert.ok(!couple.some((s) => s.key === 'camera'), `the couple has a Camera tab after the day (host switch ${hostAllowsCamera})`);
+    assert.deepEqual(couple.map((s) => s.label), ['Recap', 'Film', 'Suppliers', 'Memories', 'Manage']);
+  }
+  // The stage's own list says so too: Post Event lists no camera at all.
+  assert.ok(!STAGE_BAR.editorial.slots.includes('camera'), 'Post Event lists a camera slot again');
+  assert.equal(STAGE_BAR.editorial.slots.at(-1), 'me', 'Me is always last');
 });
 
 test('E2 · before the day and on the day NOTHING changed — a guest’s closed camera is still drawn locked', () => {

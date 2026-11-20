@@ -209,15 +209,15 @@ export function photoChallengeEventReady(
 
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const PHOTO_CHALLENGE_DENY_MESSAGE: Record<PhotoChallengeDenyReason, string> = {
-  tier_too_low:
-    'Papic Challenges comes with a paid plan. Move up to Supplier Plus or above to turn it on.',
+  // Owner 20 Nov: the photo challenge comes with Pro and up (DECISION_LOG "… INCLUDED IN PRO AND UP").
+  tier_too_low: 'Papic Challenges comes with Pro and Ultra.',
   unverified: 'Get your shop verified first — Papic Challenges unlocks once you’re verified.',
   already_subscribed: 'Papic Challenges is already on for your shop.',
   not_booked: 'You can only run Papic Challenges at an event you’re booked for.',
   papic_inactive:
     'Papic Challenges runs on Papic — it’s available once the couple has Papic active for this event.',
   not_subscribed:
-    'Turn Papic Challenges on for your shop and you can run it here and at every other event you’re booked for.',
+    'Papic Challenges comes with Pro and Ultra — here and at every other event you’re booked for.',
 };
 
 // ── DB readers (client passed in — no server-only import) ────────────────────

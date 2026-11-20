@@ -19,7 +19,8 @@
 import { ActionButton } from '@/components/action-button';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
-import Link from 'next/link';
+import { LockedFeature } from '@/app/_components/lock/locked-feature';
+import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
 import { Trophy, ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -148,21 +149,19 @@ export async function VendorChallengeSection({
             />
           </div>
         </>
+      ) : ready.reason === 'not_subscribed' ? (
+        // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up — the shared 🔒 (Problem → Solution → Upgrade),
+        // never a buy link: it is not sold on its own any more. The RPC re-checks (vendor_pro_tools_included).
+        <div className="mt-4" data-challenge-locked="">
+          <LockedFeature
+            lock="photoChallenge"
+            need={{ kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' }}
+          />
+        </div>
       ) : (
-        // Not ready → the honest reason. "not_subscribed" is the only one the
-        // shop can act on, so it is the only one that carries a way forward —
-        // and that way forward leaves this page, because the subscription is
-        // bought by the shop and not for this celebration.
+        // Not ready for a reason the shop cannot buy its way past (not booked, Papic off) → the honest reason.
         <div className="mt-4 rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/70">
           <p>{PHOTO_CHALLENGE_DENY_MESSAGE[ready.reason]}</p>
-          {ready.reason === 'not_subscribed' ? (
-            <Link
-              href="/vendor-dashboard/subscription"
-              className="mt-2 inline-flex min-h-11 items-center gap-1.5 font-semibold text-link underline"
-            >
-              Turn on Papic Challenges
-            </Link>
-          ) : null}
         </div>
       )}
     </ShopCard>

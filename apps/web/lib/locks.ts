@@ -140,6 +140,27 @@ export const LOCKS = {
     server: 'app/vendor-dashboard/subscription/actions.ts',
     draft: true,
   },
+  // 🎁 Owner 20 Nov: the photo challenge and the 3D booth come with Pro and up (DECISION_LOG "… INCLUDED IN PRO AND UP";
+  // Free · Verified · Plus may not have them — controller under owner delegation, same day). The database is the gate
+  // (`vendor_pro_tools_included`, migration 20271356215288); a shop that held them when it shipped keeps them to the end.
+  photoChallenge: {
+    name: 'Photo challenge',
+    problem: 'Guests forget which supplier made the event special.',
+    solution: 'Guests snap your service on a photo mission at the event.',
+    opens: 'pro',
+    // The authoring RPC papic_create_vendor_challenge asks vendor_papic_challenge_entitled → vendor_pro_tools_included.
+    server: 'app/vendor-dashboard/clients/[eventId]/actions.ts',
+    draft: true,
+  },
+  boothBranding: {
+    name: '3D booth',
+    problem: 'In the couple’s 3D plan, your booth looks like anyone’s.',
+    solution: 'Your logo and poster on your booth in their 3D plan.',
+    opens: 'pro',
+    // fetchBooths reads event_branded_booth_vendor_ids → vendor_pro_tools_included (service role).
+    server: 'lib/seating.ts',
+    draft: true,
+  },
 } as const satisfies Record<string, LockDef>;
 
 export type LockKey = keyof typeof LOCKS;

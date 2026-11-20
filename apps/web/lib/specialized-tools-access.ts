@@ -92,7 +92,8 @@ export const FREE_SPECIALIZED_TOOLS = [
 export type FreeSpecializedTool = (typeof FREE_SPECIALIZED_TOOLS)[number];
 
 /**
- * 🔓 THE PAID TOOLS — what the unlock opens today. Every future Setnayan tool and the shop's own
+ * 🔓 THE PAID TOOLS — what the unlock opened. Since owner 20 Nov the photo challenge (`papic_challenge`) and the 3D booth
+ * (`3d_plan`) come with Pro and up instead ({@link PRO_INCLUDED_TOOLS}); the unlock keeps opening the rest. Every future Setnayan tool and the shop's own
  * tools (Tools Maker, Thu 12 Nov) join this side. Forms Maker is NOT a tool here: it is free on
  * every plan (owner 2026-11-09, *"Form make it free"*).
  */
@@ -174,6 +175,55 @@ export function specializedToolsUnlockFrom(
     return { unlocked: true, source: 'trial' };
   }
   return { unlocked: false, source: null };
+}
+
+// ── THE PHOTO CHALLENGE AND THE 3D BOOTH: PRO AND UP (owner 20 Nov) ──────────
+
+/**
+ * ⚖ DECISION_LOG 2026-11-20 "SUPPLIER AI CHATBOT, 3D BOOTH AND PHOTO CHALLENGE ARE INCLUDED IN PRO AND UP" — owner,
+ * verbatim: *"the AI chatbot / the 3D booth / the photo challenge this is part of Pro and Up"*; Free · Verified · Plus
+ * may not have them (controller, under owner delegation, same day), with GRANDFATHERING: what a shop already held
+ * when it shipped runs to its end. The two tools below therefore leave the Specialized tools unlock, which keeps
+ * opening every OTHER paid tool ({@link specializedToolsUnlockFrom} is unchanged).
+ *
+ * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288), held in step by
+ * `tests/db/pro-tools-come-with-pro.db.test.ts`.
+ */
+export const PRO_INCLUDED_TOOLS = ['papic_challenge', '3d_plan'] as const satisfies readonly PaidSpecializedTool[];
+export const PRO_TOOLS_MIN_TIER: VendorTier = 'pro';
+
+/** Does this paid tool come with Pro and up only (not with the Specialized tools unlock)? */
+export function isProIncludedTool(tool: string): boolean {
+  return (PRO_INCLUDED_TOOLS as readonly string[]).includes(tool);
+}
+
+/** The one snapshot row (`vendor_pro_tools_grandfather`), or null when the shop held nothing at ship time. */
+export type ProToolsGrandfather = {
+  plus_term_ends_at: string | null;
+  plus_open_ended: boolean;
+  unlock_expires_at: string | null;
+  trial_event_id: string | null;
+  trial_ends_at: string | null;
+};
+
+export function proToolsIncludedFrom(
+  facts: Pick<SpecializedToolsFacts, 'tier_state' | 'tier_expires_at' | 'verification_state'> | null | undefined,
+  grandfather: ProToolsGrandfather | null | undefined,
+  eventId: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!facts) return false;
+  const tier = facts.tier_state;
+  const planLiveNow = !facts.tier_expires_at || liveAt(facts.tier_expires_at, nowMs);
+  if ((tier === 'pro' || tier === 'enterprise') && planLiveNow) return true;
+  const g = grandfather;
+  if (!g) return false;
+  if (liveAt(g.plus_term_ends_at, nowMs)) return true;
+  if (g.plus_open_ended && tier === 'solo' && !facts.tier_expires_at) return true;
+  if (facts.verification_state !== 'verified') return false;
+  if (!isTierAtLeast(tier, SPECIALIZED_TOOLS_MIN_TIER)) return false;
+  if (liveAt(g.unlock_expires_at, nowMs)) return true;
+  return !!eventId && g.trial_event_id === eventId && liveAt(g.trial_ends_at, nowMs);
 }
 
 // ── MAY THIS SHOP BUY IT? ────────────────────────────────────────────────────

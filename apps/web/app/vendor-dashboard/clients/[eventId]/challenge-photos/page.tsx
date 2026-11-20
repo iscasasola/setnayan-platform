@@ -61,7 +61,9 @@ export default async function VendorChallengePhotosPage({
   });
   if (briefErr || !brief) redirect('/vendor-dashboard/clients');
 
-  const photos = await fetchVendorChallengePhotos(supabase, eventId).catch(() => []);
+  // C-4: null = REFUSED (or thrown) — said, never "No shared photos yet".
+  const photosRead = await fetchVendorChallengePhotos(supabase, eventId).catch(() => null);
+  const photos = photosRead ?? [];
 
   // Group by challenge (mission), presigning each tile + open ref server-side.
   const groups = new Map<string, { prompt: string; tiles: Tile[] }>();
@@ -99,7 +101,11 @@ export default async function VendorChallengePhotosPage({
         tip="Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you. Yours to use."
         right={total > 0 ? `${formatCount(total)} shared` : undefined}
       >
-        {total === 0 ? (
+        {photosRead === null ? (
+          <TemplateEmpty data="challenge-photos-unread">
+            Couldn&rsquo;t load the shared photos. Refresh in a moment to try again.
+          </TemplateEmpty>
+        ) : total === 0 ? (
           <TemplateEmpty data="challenge-photos">
             No shared photos yet — they arrive as guests finish your challenges and tap “share”.
           </TemplateEmpty>

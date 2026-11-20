@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 292 single-column FKs onto auth.users / public.users
-# CASCADE=78  RESTRICT=1  SET NULL=213
+# 294 single-column FKs onto auth.users / public.users
+# CASCADE=79  RESTRICT=1  SET NULL=214
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -129,6 +129,7 @@ event_schedule_tasks.created_by                           SET NULL     nullable 
 event_sponsors.created_by_user_id                         SET NULL     nullable  -> auth.users
 event_stage_notes.author_user_id                          SET NULL     nullable  -> auth.users
 event_supplier_story_shares.shared_by                     SET NULL     nullable  -> auth.users
+event_today_put_offs.user_id                              CASCADE      NOT NULL  -> auth.users
 event_type_requests.user_id                               CASCADE      NOT NULL  -> users
 event_vendor_booth_posters.updated_by                     SET NULL     nullable  -> auth.users
 event_vendors.deposit_declined_by_user_id                 SET NULL     nullable  -> auth.users
@@ -228,6 +229,7 @@ samahan_stories.user_id                                   CASCADE      NOT NULL 
 scan_events.scanner_user_id                               SET NULL     nullable  -> auth.users
 seating_editor_locks.holder_user_id                       CASCADE      NOT NULL  -> auth.users
 seo_suggestions.reviewed_by                               SET NULL     nullable  -> auth.users
+service_included_templates.updated_by                     SET NULL     nullable  -> users
 setnayan_pay_methods.updated_by_user_id                   SET NULL     nullable  -> users
 site_widgets.updated_by_admin_id                          SET NULL     nullable  -> users
 slug_change_log.changed_by                                SET NULL     nullable  -> auth.users

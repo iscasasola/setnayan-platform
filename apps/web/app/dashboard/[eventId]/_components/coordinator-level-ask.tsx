@@ -20,6 +20,79 @@ import {
 } from '@/lib/coordinator-access-level';
 import { HomeTodayItem } from './home-parts';
 
+/**
+ * 📐 THE TWO ANSWERS (design template 14 Nov 2026, rules 2 · 3 · 13): plain hairline rows — bold word, one grey line, a
+ * terracotta › — and the whole row answers; the primary (Full access) wears the main-button colour on its word. ONE
+ * part, held by the house Sheet and by the open card of the ask's row on Home's Today list.
+ */
+function LevelChoices({ busy, onPick }: { busy: boolean; onPick: (level: CoordinatorAccessLevel) => void }) {
+  return (
+    <ul className="mt-4 divide-y divide-ink/10 border-y border-ink/10" role="group" aria-label="Their access">
+      {CHOICES.map(({ level, Icon, primary }) => (
+        <li key={level}>
+          <button
+            type="button"
+            onClick={() => onPick(level)}
+            disabled={busy}
+            data-testid={`coordinator-level-${level}`}
+            className="sn-press flex min-h-14 w-full items-center gap-3 py-3 text-left text-ink disabled:opacity-60"
+          >
+            <Icon aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.9} />
+            <span className="min-w-0 flex-1">
+              <span className={`block text-[15px] font-semibold ${primary ? 'text-mulberry' : ''}`}>{LEVEL_WORD[level]}</span>
+              <span className="block text-[13px] text-ink/75">{LEVEL_LINE[level]}</span>
+            </span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * 🔑 THE SAME ANSWER, IN THE OPEN CARD OF ITS ROW (Event Today, Focus shape — owner 20 Nov 2026; the 19 Nov rule: the
+ * tapped row opens as a card where it sits, the answer inside — no sheet over the list). The write is the Sheet's own
+ * (`setDelegateArea`, area `access_level`), saved in place: the toast says what was given, with Undo; a refusal is said
+ * and the choices stay. The action re-draws Home, so an answered ask's row leaves the list by itself.
+ */
+export function CoordinatorLevelAnswer({ eventId, ask }: { eventId: string; ask: LevelAsk }) {
+  const [said, setSaid] = useState<Said | null>(null);
+  const [done, setDone] = useState(false);
+  const [busy, startTransition] = useTransition();
+  const write = (level: CoordinatorAccessLevel | typeof ACCESS_LEVEL_UNDO) =>
+    startTransition(async () => {
+      const res = await setDelegateArea(eventId, ask.moderatorId, ACCESS_LEVEL_AREA, level);
+      if (!res.ok) return setSaid({ key: Date.now(), tone: 'bad', words: res.error });
+      if (level === ACCESS_LEVEL_UNDO) {
+        setDone(false);
+        return setSaid(null);
+      }
+      setDone(true);
+      setSaid({ key: Date.now(), tone: 'ok', words: `${LEVEL_WORD[level]} given. You can change it in Event details › Access.`, undo: ask });
+    });
+  return (
+    <div data-coordinator-level-answer="">
+      <p className="text-[14px] text-ink/75">Joined as your coordinator. What can they do?</p>
+      {done ? <p className="mt-2 text-[14px] font-semibold text-ink" role="status">Saved.</p> : <LevelChoices busy={busy} onPick={write} />}
+      {said && typeof document !== 'undefined'
+        ? createPortal(
+            <PeekToast
+              key={said.key}
+              tone={said.tone}
+              data="coordinator-level"
+              action={said.undo ? { label: 'Undo', onPress: () => write(ACCESS_LEVEL_UNDO) } : undefined}
+              onGone={() => setSaid(null)}
+            >
+              {said.words}
+            </PeekToast>,
+            document.body,
+          )
+        : null}
+    </div>
+  );
+}
+
 /** One connected coordinator the hosts have not answered for: the seat, and the SHOP that joined (name + logo). */
 export type LevelAsk = { moderatorId: string; shop: string | null; logoUrl: string | null };
 type Said = { key: number; tone: 'ok' | 'bad'; words: string; undo?: LevelAsk };
@@ -161,29 +234,7 @@ export function CoordinatorLevelAsk({
                 <p className="text-sm text-ink/75">Joined as your coordinator. What can they do?</p>
               </div>
             </div>
-            {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 3 · 13): the two answers are plain hairline rows — bold word, one
-                grey line, a terracotta › — and the whole row answers; the primary (Full access) wears the main-button colour on
-                its word. No hand-painted filled box, no pale ink. */}
-            <ul className="mt-4 divide-y divide-ink/10 border-y border-ink/10" role="group" aria-label="Their access">
-              {CHOICES.map(({ level, Icon, primary }) => (
-                <li key={level}>
-                  <button
-                    type="button"
-                    onClick={() => answer(openFor, level)}
-                    disabled={busy}
-                    data-testid={`coordinator-level-${level}`}
-                    className="sn-press flex min-h-14 w-full items-center gap-3 py-3 text-left text-ink disabled:opacity-60"
-                  >
-                    <Icon aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.9} />
-                    <span className="min-w-0 flex-1">
-                      <span className={`block text-[15px] font-semibold ${primary ? 'text-mulberry' : ''}`}>{LEVEL_WORD[level]}</span>
-                      <span className="block text-[13px] text-ink/75">{LEVEL_LINE[level]}</span>
-                    </span>
-                    <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={2} />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <LevelChoices busy={busy} onPick={(level) => answer(openFor, level)} />
           </div>
         ) : null}
       </Sheet>

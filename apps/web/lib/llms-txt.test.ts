@@ -351,11 +351,13 @@ test('the launch offer is named from the passed cap only, and absent when the of
   assert.doesNotMatch(feeOff, /Launch offer/, 'no fee is billed while it is switched off, so no waiver is promised');
 });
 
-// The supplier's own clients — brought through their own invite, booking QR or link — never carry the fee
-// (`SUPPLIER_BROUGHT_SOURCES` in lib/booking-fee-gate.ts). SABOTAGE: drop the clause → RED.
-test('llms.txt says a supplier-brought couple (own QR, invite or link) carries no fee', () => {
+// ⟲ Owner 2026-11-16 (d4899cd5 · 9fe95ebe · answer 3): a supplier-brought couple is free only when the supplier is the
+// FIRST to bring the event (or the import brought the couple onto Setnayan: a year). SABOTAGE: drop the clause → RED.
+test('llms.txt says when a supplier-brought couple (own QR, invite or link) carries no fee — and that the rest pay', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
-  assert.match(body, /their own invite, their own booking QR or their own link never carries the fee/);
+  assert.match(body, /the first supplier to bring an event onto Setnayan/);
+  assert.match(body, /their own invite, their own booking QR or their own link; every other booking carries the fee/);
+  assert.doesNotMatch(body, /never carries the fee/, 'the retired "own clients never pay" promise is back');
 });
 
 // W1-B20 (2026-11-16): the bare /v/ directory is a 404 — shops live at setnayan.com/{shop}. SABOTAGE: put

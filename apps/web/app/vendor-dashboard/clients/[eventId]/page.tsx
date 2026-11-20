@@ -1,7 +1,7 @@
 import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { weekdayDateWithYear } from '@/lib/format-date';
+import { dayMonth, weekdayDateWithYear } from '@/lib/format-date';
 import { bookingFeeAttribution, SETNAYAN_SAVE_SOURCES, SUPPLIER_BROUGHT_SOURCES } from '@/lib/booking-fee-gate';
 import { customerLandingHref } from '../../customers/anchors';
 import { CoupleLogo } from '@/app/_components/couple-logo';
@@ -2975,6 +2975,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         songs: songsNode,
         script: showScript ? gated(scriptNode) : null,
         crewHref: isBooked ? hubHref(eventId, 'crew') : null,
+        crewDay: dayMonth(brief.event.event_date),
         calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
       }}
     />

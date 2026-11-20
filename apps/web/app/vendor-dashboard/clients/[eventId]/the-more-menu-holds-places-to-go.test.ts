@@ -15,6 +15,7 @@
  *      before its own build;
  *   7. the head's search door is turned on while nothing listens (a dead magnifier), or stops firing inside the tap.
  *   5. Details stops drawing the six agreed facts as drawn, or draws an unread one as empty.
+ *   8. (parity pass, 20 Nov) ⋯ turns back into a bottom sheet, regains a Details row, or Crew loses its day.
  *
  * SABOTAGE (20 Nov 2026, each seen RED then restored): `rows.push({ id: 'report'…` moved above `'details'` (1) ·
  * `if (songs)` → `if (true)` (2) · `'song_desk'` → `'stage_script'` in the page's `showSongs` (2) · `isBooked ?` dropped
@@ -46,9 +47,13 @@ const idOf = (r: ReturnType<typeof clientMoreRows>[number]) => (typeof r === 'st
 const BODY = 'a page body';
 
 test('1 · the rows, in the drawn order — Report a problem last, nothing the strip already opens, no Mute', () => {
-  assert.deepEqual(clientMoreRows({}).map(idOf), ['details', 'files', 'hub', 'report']);
-  const all = clientMoreRows({ songs: BODY, crewHref: '/hub', calendar: { href: '/c.ics', filename: 'c.ics' } });
-  assert.deepEqual(all.map(idOf), ['songs', 'details', 'files', 'hub', 'crew', 'calendar', 'report']);
+  assert.deepEqual(clientMoreRows({}).map(idOf), ['files', 'hub', 'report']);
+  const all = clientMoreRows({ songs: BODY, crewHref: '/hub', crewDay: '18 Dec', calendar: { href: '/c.ics', filename: 'c.ics' } });
+  assert.deepEqual(all.map(idOf), ['songs', 'files', 'hub', 'crew', 'calendar', 'report']);
+  // Details is the name in the head's door, never a second way in from ⋯ (the drawing draws none).
+  assert.ok(!all.some((r) => (typeof r === 'string' ? r : 'page' in r ? r.page : null) === 'details'), '⋯ repeats the head’s name: Details');
+  const crew = all.find((r) => idOf(r) === 'crew')!;
+  assert.ok(typeof crew !== 'string' && crew.label === 'Crew for 18 Dec', 'the Crew row lost the event’s day');
   const last = all[all.length - 1]!;
   assert.ok(typeof last !== 'string' && last.label === 'Report a problem' && 'page' in last && last.page === 'report', 'Report a problem is not the last row, on the Report page');
   // The strip's four boxes open Book & Budget · Schedule · Forms · Decisions — never a second way in from ⋯.
@@ -78,11 +83,11 @@ test('2 · a trade page shows only when the shop’s service has it — the ship
 });
 
 test('3 · Crew and the calendar file are offered only where they lead somewhere', () => {
-  assert.match(PAGE, /crewHref: isBooked \? hubHref\(eventId, 'crew'\) : null,/, 'Crew is offered before booking (the Hub has no such event yet)');
+  assert.match(PAGE, /crewHref: isBooked \? hubHref\(eventId, 'crew'\) : null,\s*crewDay: dayMonth\(brief\.event\.event_date\),/, 'Crew is offered before booking (the Hub has no such event yet)');
   assert.match(PAGE, /calendar: feeUnlocked && allBlocks\.length > 0 \? \{ href: `\/vendor-dashboard\/clients\/\$\{eventId\}\/calendar\.ics`/, 'the calendar file is offered while it would be a 404');
   assert.ok(!clientMoreRows({ crewHref: null, calendar: null }).some((r) => ['crew', 'calendar'].includes(idOf(r))));
   // A place is a link, a file is the app's one save — never a button that does nothing.
-  assert.match(SHELL, /<Link href=\{m\.href\} className=\{row\} data-picked-more-row=\{m\.id\}>/);
+  assert.match(SHELL, /<Link href=\{m\.href\} role="menuitem" onClick=\{\(\) => setMoreOpen\(false\)\} className=\{row\} data-picked-more-row=\{m\.id\}>/);
   assert.match(SHELL, /<SaveFileLink href=\{m\.file\.href\} filename=\{m\.file\.filename\}/);
 });
 
@@ -149,7 +154,11 @@ test('6 · the host has Report a problem under ⋯ too — without becoming a on
   // (`body`) where there is no chat-as-home for it to open over.
   assert.match(SHELL, /\(chatHome \? chatHome\.more : more\)\.flatMap\(/);
   assert.match(SHELL, /if \('body' in row && !chatHome\) return \[\];/);
-  assert.match(SHELL, /\{moreMenu\.length > 0 \? \(\s*<Sheet open=\{moreOpen\}/, 'the ⋯ sheet is drawn only for a one-chat side');
+  // ⋯ is a menu under its own button, as drawn (`.menu.top`, 232 px, top right) — not a sheet from the bottom.
+  assert.match(SHELL, /\{moreOpen \? \([\s\S]{0,400}role="menu"[\s\S]{0,200}className="absolute right-2 top-full z-\[var\(--sn-z-nav\)\] mt-1 w-\[232px\]/, 'the ⋯ menu is no longer the drawn top-right menu');
+  assert.doesNotMatch(SHELL, /<Sheet open=\{moreOpen\}/, 'the ⋯ menu went back to a bottom sheet');
+  // Esc peels one layer: the menu, not the whole client under it.
+  assert.match(SHELL, /const escClose = useCallback\(\(\) => \(moreOpen \? closeMore\(\) : close\(\)\)/);
 });
 
 test('7 · the head’s search door is a marked slot: it asks the chat inside the tap, and is off until the chat listens', () => {

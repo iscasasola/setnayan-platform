@@ -15,8 +15,9 @@ import type { PickedClientPage } from './picked-client-menu';
  *   For your trade — **Song list** (a music act) or **Script** (an emcee / host), ONLY when the shop's service has the
  *     page: the page hands the body in when it holds that desk (`holdsSpecialization`), and no body means no row —
  *     never a greyed one (drawing: "The greyed Script row. Trade pages show only when the shop's service has them.").
- *   **Details · Files · Event Hub** — the pages with no box in the strip (Hub once booked).
- *   **Crew** — the shipped Hub › Crew for this event (booked only).
+ *   **Files · Event Hub** — the pages with no box in the strip (Hub once booked). Not Details: the client's name in the
+ *     head opens it, and the drawing has no second way in.
+ *   **Crew for 18 Dec** — the shipped Hub › Crew for this event (booked only), named with the event's day when it has one.
  *   **Add to my calendar** — the shipped `calendar.ics`, only once the day has a timed moment (the file is a 404 before).
  *   **Report a problem** — LAST. Owner 20 Nov: the approved design moves it into ⋯, superseding 9 Nov "last row of (+)".
  *
@@ -30,16 +31,18 @@ export type ClientMoreFacts = {
   script?: ReactNode;
   /** Hub › Crew for this event, or null before booking. */
   crewHref?: string | null;
+  /** The event's day as the drawing words it ("18 Dec", `dayMonth`) — the Crew row's tail; null = no date yet. */
+  crewDay?: string | null;
   /** The event's timeline file, or null while it has no timed moment. */
   calendar?: { href: string; filename: string } | null;
 };
 
-export function clientMoreRows({ songs, script, crewHref, calendar }: ClientMoreFacts): PickedMoreRow<PickedClientPage>[] {
+export function clientMoreRows({ songs, script, crewHref, crewDay, calendar }: ClientMoreFacts): PickedMoreRow<PickedClientPage>[] {
   const rows: PickedMoreRow<PickedClientPage>[] = [];
   if (songs) rows.push({ id: 'songs', label: 'Song list', icon: ListMusic, heading: 'For your trade', body: songs });
   if (script) rows.push({ id: 'script', label: 'Script', icon: ScrollText, heading: songs ? undefined : 'For your trade', body: script });
-  rows.push('details', 'files', { id: 'hub', label: 'Event Hub', icon: TOPIC_ICON.hub, page: 'hub' });
-  if (crewHref) rows.push({ id: 'crew', label: 'Crew', icon: Users, href: crewHref });
+  rows.push('files', { id: 'hub', label: 'Event Hub', icon: TOPIC_ICON.hub, page: 'hub' });
+  if (crewHref) rows.push({ id: 'crew', label: crewDay ? `Crew for ${crewDay}` : 'Crew', icon: Users, href: crewHref });
   if (calendar) rows.push({ id: 'calendar', label: 'Add to my calendar', icon: CalendarPlus, file: calendar });
   rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });
   return rows;

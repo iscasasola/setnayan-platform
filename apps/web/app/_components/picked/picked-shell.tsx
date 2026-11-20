@@ -46,7 +46,8 @@ import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { keepLayerMark } from '@/lib/use-back-closes';
-import { Sheet } from '@/app/_components/sheet';
+import { useOneOpen } from '@/lib/one-open';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { RiseScreen, useRiseClose } from '@/app/_components/rise/rise-screen';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { EASE_SETTLE, MOVE_MS, QUICK_MS } from '@/lib/motion-table';
@@ -322,7 +323,34 @@ export function PickedShell<P extends string>({
   const risenPage: P | null = rises && page !== homePage ? page : null;
   const riseCloseRef = useRef<(() => void) | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreHeadingId = useId();
+  useOneOpen(moreOpen, setMoreOpen); // one open at a time — lib/one-open.ts
+  const moreMenuId = useId();
+  const moreButtonRef = useRef<HTMLButtonElement | HTMLAnchorElement | null>(null);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const closeMore = useCallback(() => {
+    setMoreOpen(false);
+    moreButtonRef.current?.focus();
+  }, []);
+  // ⌨ The menu's keys (WAI-ARIA menu): it opens with its first row focused; ↓ / ↑ step, Home / End jump, Esc closes
+  // back onto ⋯ (`escClose` below — the screen's own Esc must not close the whole client too).
+  useEffect(() => {
+    if (moreOpen) moreMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, [moreOpen]);
+  const onMoreKey = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      const items = Array.from(moreMenuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+      const at = items.indexOf(document.activeElement as HTMLElement);
+      const go = (i: number) => items[(i + items.length) % items.length]?.focus();
+      if (e.key === 'Tab') return setMoreOpen(false);
+      if (e.key === 'ArrowDown') go(at + 1);
+      else if (e.key === 'ArrowUp') go(at - 1);
+      else if (e.key === 'Home') go(0);
+      else if (e.key === 'End') go(items.length - 1);
+      else return;
+      e.preventDefault();
+    },
+    [],
+  );
   // ⋯ A page of its own (a trade page — not a tab, so not a `?tab=`): the one that is open, by its row id.
   const [extraId, setExtraId] = useState<string | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
@@ -628,7 +656,9 @@ export function PickedShell<P extends string>({
   // answers Esc, so with the ⚙ sheet (or any sheet a page opens) on top, Esc peels that layer, not the client. Armed once
   // the screen is on <body> (`host`): the first frame is drawn in place, then remounted into the portal. Page scroll is
   // left alone (`lockScroll: false`) — the screen is fixed full-height with its own scroller, as before.
-  useModalA11y({ open: Boolean(host), onClose: close, containerRef: rootRef, lockScroll: false });
+  // ⋯ Esc peels ONE layer: with the More menu open it closes the menu (back onto ⋯), never the whole client under it.
+  const escClose = useCallback(() => (moreOpen ? closeMore() : close()), [moreOpen, closeMore, close]);
+  useModalA11y({ open: Boolean(host), onClose: escClose, containerRef: rootRef, lockScroll: false });
 
   // A ⚙ row or a link inside a page switches pages the same way the menu does (and closes the ⚙ sheet first).
   // A folded id (`payments`, `forms`) is read by the side's own `pageOf`, and lands on its part (`anchorOf`).
@@ -696,7 +726,7 @@ export function PickedShell<P extends string>({
     >
       {/* 📌 The pinned row: the client · ⚙ · ✕ (v113). No hard line under it — the menu's ground carries on. */}
       <div className="shrink-0 bg-[rgb(var(--color-cream))] pt-[env(safe-area-inset-top)]">
-        <div ref={split ? undefined : setThumbColumn} className={`${frame} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
+        <div ref={split ? undefined : setThumbColumn} className={`${frame} relative flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
           <div className="min-w-0 flex-1">
             <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
               {chatHome ? (
@@ -739,7 +769,72 @@ export function PickedShell<P extends string>({
           ) : null}
           {moreMenu.length > 0 ? (
             <span className={panes || !chatHome ? 'inline-flex shrink-0' : 'inline-flex shrink-0 lg:hidden'} data-picked-more="">
-              <ActionButton tone="neutral" iconOnly icon={MoreHorizontal} label="More" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)} data-testid="picked-more" />
+              <ActionButton
+                ref={moreButtonRef}
+                tone="neutral"
+                iconOnly
+                icon={MoreHorizontal}
+                label="More"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen((v) => !v)}
+                data-testid="picked-more"
+              />
+              {/* ⋯ A MENU UNDER THE HEAD, AT ITS RIGHT (drawing UNICHAT-LIVE, `.menu.top`: 232 px, 8 px in from the right — the
+                  pinned row is its anchor, so it sits at the corner even with ⚙ · ✕ after ⋯; plain rows, the
+                  "For your trade" label) — places to go, the row itself is the press. Esc, a tap outside or a row closes it. */}
+              {moreOpen ? (
+                <>
+                  <OverlayBackdrop onClose={closeMore} tabIndex={-1} className="z-[var(--sn-z-sticky)]" data-picked-more-scrim="" />
+                  <div
+                    ref={moreMenuRef}
+                    id={moreMenuId}
+                    role="menu"
+                    aria-label={`More for ${title}`}
+                    onKeyDown={onMoreKey}
+                    className="absolute right-2 top-full z-[var(--sn-z-nav)] mt-1 w-[232px] origin-top-right sn-frame sn-frame-flush py-1 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards]"
+                    data-picked-more-menu=""
+                  >
+                    {moreMenu.map((m) => {
+                      const Icon: LucideIcon = m.icon;
+                      // One look for a page, a page of its own, a place and a file (drawing `.li`: 18 px ink-2 icon, words).
+                      const row = 'flex min-h-11 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold text-ink hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:outline-none';
+                      const inner = (
+                        <>
+                          <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
+                          <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                        </>
+                      );
+                      return (
+                        <div key={m.id} role="none">
+                          {m.heading ? (
+                            <p role="presentation" className="px-4 pt-2 text-[11.5px] font-bold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]" data-picked-more-heading="">
+                              {m.heading}
+                            </p>
+                          ) : null}
+                          {'page' in m ? (
+                            <button type="button" role="menuitem" onClick={() => { closeMore(); nav.select(m.page); }} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </button>
+                          ) : 'body' in m ? (
+                            <button type="button" role="menuitem" onClick={() => openExtra(m.id)} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </button>
+                          ) : 'href' in m ? (
+                            <Link href={m.href} role="menuitem" onClick={() => setMoreOpen(false)} className={row} data-picked-more-row={m.id}>
+                              {inner}
+                            </Link>
+                          ) : (
+                            <SaveFileLink href={m.file.href} filename={m.file.filename} role="menuitem" className={row} onSaved={() => setMoreOpen(false)} data-picked-more-row={m.id}>
+                              {inner}
+                            </SaveFileLink>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
             </span>
           ) : null}
           {gear ? (
@@ -867,53 +962,6 @@ export function PickedShell<P extends string>({
       </div>
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
       <div ref={setThumbHost} data-picked-thumb-layer="" />
-      {/* ⋯ The pages behind the head's More — rows, the row itself is the press. */}
-      {moreMenu.length > 0 ? (
-        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} labelledById={moreHeadingId} rise>
-          <div className="px-5 pb-5 pt-5" data-picked-more-sheet="">
-            <h2 id={moreHeadingId} className="pr-12 text-[17px] font-semibold text-ink">
-              {title}
-            </h2>
-            <ul className="mt-2">
-              {moreMenu.map((m) => {
-                const Icon: LucideIcon = m.icon;
-                // The row itself is the press — one look for a page, a page of its own, a place and a file.
-                const row = 'sn-press flex min-h-[48px] w-full items-center gap-3 py-1 text-left';
-                const inner = (
-                  <>
-                    <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper-2)] text-sn-accent">
-                      <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{m.label}</span>
-                  </>
-                );
-                return (
-                  <li key={m.id}>
-                    {m.heading ? <p className="home-k2 !mb-0 !mt-2" data-picked-more-heading="">{m.heading}</p> : null}
-                    {'page' in m ? (
-                      <button type="button" onClick={() => nav.select(m.page)} className={row} data-picked-more-row={m.id}>
-                        {inner}
-                      </button>
-                    ) : 'body' in m ? (
-                      <button type="button" onClick={() => openExtra(m.id)} className={row} data-picked-more-row={m.id}>
-                        {inner}
-                      </button>
-                    ) : 'href' in m ? (
-                      <Link href={m.href} className={row} data-picked-more-row={m.id}>
-                        {inner}
-                      </Link>
-                    ) : (
-                      <SaveFileLink href={m.file.href} filename={m.file.filename} className={row} onSaved={() => setMoreOpen(false)} data-picked-more-row={m.id}>
-                        {inner}
-                      </SaveFileLink>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </Sheet>
-      ) : null}
       {/* ⤴ A PAGE RISEN OVER THE CHAT — the shipped body, unchanged; only the way in changed. ✕, Esc and the phone's
           Back close it (the one `RiseScreen`), and the chat under it is where it was left. */}
       {risenPage !== null && chatHome && !paneOn ? (

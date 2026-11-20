@@ -84,7 +84,7 @@ test('4 · the chips float (they push nothing up), hold Chat and Private, and ty
 
 test('5 · Private = the private lines only, and Whisper where this box can whisper — membership is never touched here', () => {
   const pick = COMPOSER.slice(COMPOSER.indexOf('const pickChip = '), COMPOSER.indexOf('const wasWhisperRef'));
-  assert.match(pick, /pickKind\(threadId, 'private'\);\s*if \(canWhisper && !whisperOn\) \{\s*if \(tool\) closeTool\(\);\s*switchWhisper\(\);/);
+  assert.match(pick, /pickKind\(threadId, 'private'\);\s*if \(canWhisper && !whisperOn && whisper && !whisperBlockedLine\(whisper\)\) \{\s*if \(tool\) closeTool\(\);\s*switchWhisper\(\);/);
   assert.match(pick, /if \(kindState\.view === 'private' && whisperOn\) switchWhisper\(\);/);
   assert.match(STREAM, /talkView === 'chat' \|\| privateOtherIds\(m, currentUserId\)\.length > 0/);
   assert.ok(!/chat_thread_members|current_thread_ids|thread_members/.test(pick), 'the chip reaches into who is in the chat');

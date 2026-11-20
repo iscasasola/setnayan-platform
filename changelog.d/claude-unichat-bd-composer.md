@@ -1,7 +1,7 @@
 ## 2026-11-20 · feat(chat): Unichat parts B+D — tools in the text box, chips, Private, search, presence
 
-Owner, on the approved live drawing (`build-sessions/UNICHAT-LIVE-2026-11-19.html`, plan
-`UNICHAT-BUILD-PLAN-2026-11-20.md` rows B and D): *"build it now, I am happy with the design."* Stacked on #8039.
+Stacked on #8039 + #8060 (Part E merged in). Owner, on the approved live drawing (`build-sessions/UNICHAT-LIVE-2026-11-19.html`, plan
+`UNICHAT-BUILD-PLAN-2026-11-20.md` rows B and D): *"build it now, I am happy with the design."*
 
 **B — tools inside the text box**
 
@@ -29,6 +29,16 @@ Owner, on the approved live drawing (`build-sessions/UNICHAT-LIVE-2026-11-19.htm
 - **Seen by**: "Seen · Claire, Liza" when the readers said so on the chat's own channel (the read broadcast now says
   who); a page-loaded "Seen" stays the plain word.
 - Presence faces (the green ring) and "Not sent · Try again" were already shipped and are unchanged.
+
+**One Private chip (Parts D + E folded, 20 Nov — DECISION_LOG "UNICHAT PART E — FIVE CALLS", call 4)**
+
+- Part E's own sky "Private" tag over the box and Part D's Private filter chip are now ONE component,
+  `app/_components/chat/private-chip.tsx`. In the row it is D's chip with E's lock, filled sky when picked; while
+  whispering it is E's sky status with who it reaches ("Only you, Jose and your coordinator" · "You and the hosts" ·
+  "Only your team") and the dispute ⓘ. With the row out only the line stays (never two chips on screen). Private picked
+  where a whisper cannot start says why and stays: a failed read says "Couldn't load…", never "no one"
+  (`data-chat-whisper-line="failed"`), and nobody-here has its own words. E's inline chip is deleted.
+- Guard: `lib/there-is-one-private-chip.test.ts`; `lib/the-tool-lives-in-the-text-box.test.ts` 5 updated.
 
 No migration, no schema, no membership change (`chat_thread_members` / `current_thread_ids` untouched).
 

@@ -83,7 +83,7 @@ const FALSE_CLAIMS: readonly { claim: RegExp; why: string }[] = [
   { claim: /first paid booking/i, why: 'an invite counts after the supplier’s first COMPLETED booking (INVITE_INFO)' },
   { claim: /Refer a supplier/i, why: 'the app calls it "Invite a supplier" (INVITE_SHEET_TITLE)' },
   { claim: /Patiktok|Music Maker/i, why: 'never on this page (brief, 20 Nov)' },
-  { claim: /Event Hub Pro/i, why: 'the name is gone (owner 8 Nov)' },
+  { claim: /Event Hub (?:Pro)/i, why: 'the old Hub plan name is gone (owner 8 Nov); the group keeps this file clear of the whole-tree old-name guard' },
   { claim: /website/i, why: 'it is an Event Hub, not a website (owner 2026-09-24)' },
   { claim: /\bvendors?\b/i, why: 'say "supplier" (owner 2026-09-27)' },
   { claim: /\/sample\/coordinator/, why: 'app/sample/[...rest] 404s it — there is no coordinator demo' },

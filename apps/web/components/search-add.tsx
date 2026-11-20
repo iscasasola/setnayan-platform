@@ -66,15 +66,46 @@ export function searchAddHeld(held: boolean, { words }: { words: boolean }): boo
  * `asked` — it is ＋ while something DOES match (they tapped 🔍 — the only way that happens): Enter is then
  * the add outright, never the host's own Enter over the matches.
  */
-export function useSearchAdd(add: SearchAdd | null | undefined): { mode: SearchAddMode; asked: boolean; press: (input: HTMLInputElement | null) => void } {
+/**
+ * 👉 DRAG THE BOX RIGHT TO ADD (owner 20 Nov 2026, Guests redesign pick 1: *"Switch the thumb-row box to Add by
+ * dragging it right; the shipped tap 🔍 → ＋ stays as a second way"*). How far a finger must carry the box sideways
+ * before it switches — and how far the box follows it (a short rubber band, then it stops).
+ */
+export const SEARCH_ADD_DRAG_PX = 48;
+export const SEARCH_ADD_DRAG_FOLLOW_PX = 28;
+
+/** What a sideways drag of the box means, from how far it went: right → add, left → back to search, else nothing. */
+export function searchAddDrag(dx: number, dy: number): 'add' | 'search' | null {
+  if (Math.abs(dy) > Math.abs(dx)) return null; // a scroll, not a drag
+  if (dx >= SEARCH_ADD_DRAG_PX) return 'add';
+  if (dx <= -SEARCH_ADD_DRAG_PX) return 'search';
+  return null;
+}
+
+export function useSearchAdd(add: SearchAdd | null | undefined): {
+  mode: SearchAddMode;
+  asked: boolean;
+  press: (input: HTMLInputElement | null) => void;
+  /** 👉 Dragged right (true) or back left (false). A box dragged right adds even while empty, until it is dragged
+      back or cleared with ✕ (`forget`). */
+  drag: (toAdd: boolean) => void;
+  forget: () => void;
+} {
   const [held, setHeld] = useState(false);
+  /* 👉 What the last drag asked for — 'add' (dragged right) or 'search' (dragged back); null = no drag, the rules above
+     decide. Dragged back holds 🔍 only while the box has words: an emptied box forgets it. */
+  const [dragged, setDragged] = useState<SearchAddMode | null>(null);
   const query = add?.query ?? '';
   const words = query.trim().length > 0;
   const matches = add?.matches ?? true;
   useEffect(() => {
     setHeld((h) => searchAddHeld(h, { words }));
   }, [words]);
-  const mode: SearchAddMode = add ? searchAddMode({ words, matches, asked: held }) : 'search';
+  useEffect(() => {
+    if (!words) setDragged((d) => (d === 'search' ? null : d));
+  }, [words]);
+  const ruled: SearchAddMode = add ? searchAddMode({ words, matches, asked: held }) : 'search';
+  const mode: SearchAddMode = add && dragged ? dragged : ruled;
   const press = (input: HTMLInputElement | null) => {
     if (!add || !input) return;
     const typed = input.value.trim();
@@ -85,7 +116,10 @@ export function useSearchAdd(add: SearchAdd | null | undefined): { mode: SearchA
     else if (act === 'ask') setHeld(true);
     else add.onAdd(typed);
   };
-  return { mode, asked: mode === 'add' && matches, press };
+  const drag = (toAdd: boolean) => setDragged(toAdd ? 'add' : 'search');
+  /** ✕ cleared the box: a drag's choice goes with the words. */
+  const forget = () => setDragged(null);
+  return { mode, asked: mode === 'add' && (matches || dragged === 'add'), press, drag, forget };
 }
 
 /**

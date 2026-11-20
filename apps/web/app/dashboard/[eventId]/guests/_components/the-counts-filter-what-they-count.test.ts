@@ -98,7 +98,9 @@ test('1b · the screen draws each count as a door holding its number; "to invite
   const r = roster(3);
   const stats = rosterStats(r);
   const html = await renderGuestsScreen({ guests: r });
-  for (const [f, n, word] of [['attending', stats.yes, 'Attending'], ['declined', stats.no, 'Not coming'], ['none', stats.none, 'No reply']] as const) {
+  // 👥 20 Nov (Guests redesign §1): the summary says the list's own words — "5 coming · 1 can’t come · 2 no reply"
+  // (`RSVP_LIST_WORDS`, lowercase in the line).
+  for (const [f, n, word] of [['attending', stats.yes, 'coming'], ['declined', stats.no, 'can’t come'], ['none', stats.none, 'no reply']] as const) {
     const m = new RegExp(`<button[^>]*data-reply-filter="${f}"[^>]*>([\\s\\S]*?)</button>`).exec(html);
     assert.ok(m, `the "${word}" count is not a door`);
     assert.equal(m![1]!.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(), `${n} ${word}`);
@@ -319,7 +321,8 @@ test('4 · "Marked by you" — the predicate, the row, the card and Excel; NULL 
     assert.ok(at2 > 0, `row ${id} not drawn (vacuous)`);
     return html.slice(at2, html.indexOf('data-guest-row=""', at2 + 10) >>> 0 || undefined);
   };
-  assert.match(rowOf('m1'), /data-reply-marked=""[^>]*> · marked</, 'a host-set reply does not say "marked"');
+  // (👥 20 Nov: "marked" is one part of the plain second line, after its " · ".)
+  assert.match(rowOf('m1'), /(?: · |class="meta">)<span data-reply-marked="">marked</, 'a host-set reply does not say "marked"');
   assert.doesNotMatch(rowOf('m2'), /data-reply-marked/, 'the guest’s own reply says "marked"');
   assert.doesNotMatch(rowOf('m3'), /data-reply-marked/, 'an old row was guessed as marked');
 });

@@ -14,6 +14,7 @@ import type { CalendarDay } from '@/lib/calendar-grid';
 import { DAY_PARTS, DAY_PART_WORDS, repeatOptions, type DayPart, type RepeatRule } from '@/lib/not-available';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { StayForm, useStaySubmit } from '@/app/_components/stay-form';
+import { AT_LEAST_DAY_PICKS, AT_MOST_MONTH_PICKS, atLeastWords, atMostWords } from '@/lib/booking-window';
 
 /**
  * CUSTOMERS › DATES — the sheets its rows and thumb row open (S-PR3; plan § 2 "Block days · Waitlist · Capacity";
@@ -294,6 +295,95 @@ export function CalendarSheet({
       )}
       {mounted ? createPortal(sheet, document.body) : null}
     </>
+  );
+}
+
+/* ── HOW FAR AWAY YOU TAKE BOOKINGS (owner 2026-11-19, drawing §5) ── */
+
+/**
+ * 📅 "How far away you take bookings" — the first rows of Teams and days (approved drawing
+ * `schedule_questions_placement_2026-11-19.html` §5 "Finalized": a title row "every card · empty At most = 3 years",
+ * then At least "before the event" and At most "ahead", each ONE dropdown). A pick shows at once and saves in place
+ * through the shipped Teams and days action (`updatePoolCapacity`, `op=booking_window`); both picks post together, so
+ * one never resets the other. Motion: none (the drawing's own "Motions: none").
+ */
+export function BookingWindowRows({
+  minDays,
+  maxMonths,
+  saveAction,
+  month,
+  returnSeg,
+}: {
+  /** The shop's At least, in days (0 = the same day). */
+  minDays: number;
+  /** The shop's At most, in months (36 when unset). */
+  maxMonths: number;
+  /** The shipped `updatePoolCapacity`. */
+  saveAction: Action;
+  month: string;
+  returnSeg?: string;
+}) {
+  const [min, setMin] = useState(minDays);
+  const [max, setMax] = useState(maxMonths);
+  const mark = useRef<HTMLSpanElement>(null);
+  const minInput = useRef<HTMLInputElement>(null);
+  const maxInput = useRef<HTMLInputElement>(null);
+  const send = () => mark.current?.closest('form')?.requestSubmit();
+  return (
+    <StayForm
+      door="supCalendar.updatePoolCapacity"
+      action={saveAction}
+      onRefused={() => {
+        setMin(minDays);
+        setMax(maxMonths);
+      }}
+      data-booking-window=""
+    >
+      <span ref={mark} hidden />
+      <input type="hidden" name="op" value="booking_window" />
+      <input type="hidden" name="return_to" value="dates" />
+      <input type="hidden" name="return_fold" value="capacity" />
+      <input type="hidden" name="return_month" value={month} />
+      {returnSeg ? <input type="hidden" name="return_seg" value={returnSeg} /> : null}
+      <input ref={minInput} type="hidden" name="booking_min_days" value={String(min)} readOnly />
+      <input ref={maxInput} type="hidden" name="booking_max_months" value={String(max)} readOnly />
+      <div className="flex min-h-14 items-center py-2" data-booking-window-title="">
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-medium text-ink">How far away you take bookings</span>
+          <span className="block text-[13px] text-[color:var(--m-slate-2)]">every card · empty At most = 3 years</span>
+        </span>
+      </div>
+      <FormRows width="short">
+        <ChosenRow
+          name="At least"
+          line="before the event"
+          value={String(min)}
+          options={AT_LEAST_DAY_PICKS.map((d) => ({ key: String(d), label: atLeastWords(d) }))}
+          onPick={(k) => {
+            const n = Number(k);
+            if (n === min || !minInput.current) return;
+            setMin(n);
+            minInput.current.value = k;
+            send();
+          }}
+          dataAttr="data-booking-window-min"
+        />
+        <ChosenRow
+          name="At most"
+          line="ahead"
+          value={String(max)}
+          options={AT_MOST_MONTH_PICKS.map((m) => ({ key: String(m), label: atMostWords(m) }))}
+          onPick={(k) => {
+            const n = Number(k);
+            if (n === max || !maxInput.current) return;
+            setMax(n);
+            maxInput.current.value = k;
+            send();
+          }}
+          dataAttr="data-booking-window-max"
+        />
+      </FormRows>
+    </StayForm>
   );
 }
 

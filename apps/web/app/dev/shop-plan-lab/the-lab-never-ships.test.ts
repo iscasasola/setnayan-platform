@@ -53,7 +53,12 @@ test('the drawing mounts the real plan pieces and the real rules', () => {
 test('🔑 the /for-suppliers Pro and Ultra previews draw their branches — owner 13 Nov 2026, "Show the branches as needed"', () => {
   const front = stripComments(readFileSync(join(HERE, '../../for-suppliers/_components/supplier-front-page.tsx'), 'utf8'));
   // The plan card hands the drawing that plan's own branches — never a typed list, never none.
-  assert.match(front, /<SampleShopPage plan=\{plan\} branchCities=\{samplePlanBranchCities\(plan\)\} \/>/);
+  // 2026-11-20: the approved drawing (`prototypes/for_suppliers_2026-11-20/`) draws plan ROWS, with no shop-page
+  // miniature, so /for-suppliers mounts no `SampleShopPage` today. The rule is unchanged for wherever it is mounted:
+  // if the front page mounts it again, it hands each plan its branches.
+  if (/<SampleShopPage\b/.test(front)) {
+    assert.match(front, /<SampleShopPage plan=\{plan\} branchCities=\{samplePlanBranchCities\(plan\)\} \/>/);
+  }
   assert.doesNotMatch(front, /<SampleShopPage plan=\{plan\} \/>/, 'a plan card mounts the drawing without its branches');
   // The drawing draws them with the shipped line, the same one /v/[slug] renders.
   assert.match(DRAWING, /\{branchCities\.length > 0 \? <ShopBranchesLine cities=\{branchCities\} hqCity=\{SAMPLE\.city\} \/> : null\}/);

@@ -82,6 +82,7 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_crew_passes: eqUid('crew_user_id'),
   chat_message_hearts: eqUid('user_id'),
   chat_poll_votes: eqUid('voter_user_id'),
+  admin_focus_put_offs: eqUid('user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),
   coordinator_broadcasts: eqUid('sender_user_id'),
   event_day_requests: eqUid('author_user_id'),
@@ -115,6 +116,8 @@ const ANCHORS: Record<string, RegExp> = {
   couple_event_type_notify_signups: eqUid('user_id'),
   couple_wedding_type_notify_signups: eqUid('user_id'),
   creator_chapters: eqUid('user_id'),
+  // 📰 Build 2 (2026-11-17): the replies a person wrote under articles — their own words.
+  creator_chapter_replies: eqUid('user_id'),
   discount_code_eligible_users: eqUid('user_id'),
   event_moderators: eqUid('user_id'), // the role holder — never the inviter
   founder_seats: eqUid('user_id'),

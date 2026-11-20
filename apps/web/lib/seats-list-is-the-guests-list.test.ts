@@ -65,22 +65,26 @@ test('2 · the rows and headers are the Guest list’s own — its stylesheet im
   assert.ok(LIST.includes("import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';"), 'Seats › List no longer reads the Guest list’s stylesheet');
   assert.ok(LIST.includes("import { ActionButton } from '@/components/action-button';"), 'the rows lost the shared button');
   for (const cls of ['gs.g', 'gs.ava', 'gs.who', 'gs.nm', 'gs.nmt', 'gs.meta', 'gs.acts', 'gs.dot']) assert.ok(LIST.includes(cls), `a seat row no longer wears the Guest row’s ${cls}`);
-  for (const cls of ['gs.sec', 'gs.accSec', 'gs.open', 'gs.barWrap', 'gs.bar', 'gs.ico', 'gs.lab', 'gs.n', 'gs.chev', 'gs.fold']) assert.ok(LIST.includes(cls), `a table header no longer wears the Guest header’s ${cls}`);
-  assert.match(LIST, /`\$\{gs\.barWrap\} sn-acc-head`/, 'a table header is not the house foldable header');
+  // 👥 Guests redesign pick 5 (owner 20 Nov 2026): a TABLE is a card now — the shared frame (`sn-frame`), never a hand-made
+  // box — and its people rise full screen on the shared full-screen part. The ROWS stay the Guest list's own.
+  assert.match(LIST, /className=\{`sn-frame sn-press [^`]*`\}/, 'a table card is not the shared frame');
+  assert.match(LIST, /<RiseScreen\s+kind="stack"/, 'a tapped table does not rise on the shared full screen');
   // ⇔ one state for every row's buttons — the Guest list's own fit.
   assert.match(LIST, /useRowState\(listRef, /);
   // No stylesheet of its own re-draws a row (a copy is how two lists drift).
   assert.deepEqual(LIST.match(/[\w-]+\.module\.css/g), ['guests-screen.module.css'], 'Seats › List brought a stylesheet of its own');
 });
 
-test('3 · drawn: "TABLE 5 · 8 of 10 seats", a row per seat, ✎ and Type ▾ · − N + only on the picked table', async () => {
+test('3 · drawn: every table a card — "Table 5 · 8 of 10", its faces, dotted empty chairs; To seat first; counts in words', async () => {
+  // 👥 Guests redesign pick 5 (owner 20 Nov 2026, drawing §4): the table's tools (✎ · Type ▾ · − N +) and its rows live on
+  // the table once it rises — at rest the list is cards only.
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SeatList } = await import('../app/dashboard/[eventId]/seating/_components/seat-list');
   const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, side: 'bride' as const, placed: 'placed by you' });
   const seats = (key: string, n: number, filled: string[]) => Array.from({ length: n }, (_, i) => ({ tableId: key, seat: i, guest: filled[i] ? g(filled[i]!) : null }));
   const units = [
     { key: 't5', label: 'Table 5', seated: 8, capacity: 10, seats: seats('t5', 10, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) },
-    { key: 't6', label: 'Table 6', seated: 1, capacity: 8, seats: seats('t6', 8, ['i']) },
+    { key: 't6', label: 'Table 6', seated: 1, capacity: 14, seats: seats('t6', 14, ['i']) },
   ];
   const draw = (canEdit: boolean) =>
     renderToStaticMarkup(
@@ -103,26 +107,42 @@ test('3 · drawn: "TABLE 5 · 8 of 10 seats", a row per seat, ✎ and Type ▾ �
       }),
     );
   const html = draw(true);
-  assert.match(html, />Table 5<\/span><span[^>]*data-seat-tally="">· 8 of 10 seats</, 'the header does not read "Table 5 · 8 of 10 seats"');
-  assert.match(html, />Table 6<\/span><span[^>]*data-seat-tally="">· 1 of 8 seats</);
-  // ✎ and the table's tools: the picked (open) table only.
-  assert.deepEqual([...html.matchAll(/data-test-pencil="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'a ✎ is drawn on a header that is not picked');
-  assert.deepEqual([...html.matchAll(/data-test-tools="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'Type ▾ / seats are drawn on a table that is not picked');
-  // A row per seat on the open table: 8 guests and 2 empty seats, each empty seat with its Add.
-  const t5 = html.slice(html.indexOf('data-seat-section="t5"'), html.indexOf('data-seat-section="t6"'));
-  assert.equal((t5.match(/data-seat-guest="/g) ?? []).length, 8);
-  assert.equal((t5.match(/data-seat-empty=""/g) ?? []).length, 2, '"8 of 10" does not draw two empty seats');
-  assert.equal((t5.match(/data-test-add="/g) ?? []).length, 2, 'an empty seat has no Add');
-  assert.match(t5, /data-seat-guest="a"[^>]*data-seat-drag="a"[^>]*data-seat-drop="seat" data-seat-drop-table="t5" data-seat-drop-seat="0" data-seat-drop-guest="a"/, 'a seat row is no drag source / drop seat');
-  assert.match(t5, /Seat 1 · placed by you/);
-  assert.match(t5, /aria-label="Swap Guest a"[\s\S]*?aria-label="Remove Guest a from the seat"/, 'a row lost Swap · Remove');
+  const cardOf = (key: string) => {
+    const at = html.indexOf(`data-seat-card="${key}"`);
+    assert.ok(at > -1, `no card for ${key}`);
+    return html.slice(at, html.indexOf('</button>', at));
+  };
+  const t5 = cardOf('t5');
+  assert.match(t5, />Table 5<\/span>/, 'the card does not name its table');
+  assert.match(t5, /data-seat-tally=""><span>8 of 10<\/span>/, 'the card does not read "8 of 10"');
+  assert.equal((t5.match(/data-seat-card-face=""/g) ?? []).length, 8, 'the card does not draw its eight faces');
+  assert.equal((t5.match(/data-seat-card-empty=""/g) ?? []).length, 2, '"8 of 10" does not draw two dotted chairs');
+  // More than ten chairs: ten drawn, the rest said ("+4 empty" — the drawing's Table 3).
+  const t6 = cardOf('t6');
+  assert.equal((t6.match(/data-seat-card-face=""|data-seat-card-empty=""/g) ?? []).length, 10, 'a big table draws more than ten chairs');
+  assert.match(t6, /\+4 empty/);
+  // A card is where a dragged guest lands: its next free seat.
+  assert.match(t5, /data-seat-drop="seat" data-seat-drop-table="t5" data-seat-drop-seat="8"/, 'a card is no drop for its next free seat');
+  // At rest: no ✎, no tools, no rows — they are on the risen table.
+  assert.doesNotMatch(html, /data-test-pencil=|data-test-tools=|data-seat-guest=/, 'a table’s tools or rows are drawn on the cards');
   // To seat leads, and is itself where a guest is let go to lose their seat.
-  assert.ok(html.indexOf('data-seat-section="unseated"') < html.indexOf('data-seat-section="t5"'), 'To seat does not lead');
-  assert.match(html, /data-seat-section="unseated"[^>]*data-seat-drop="unseated"/);
+  assert.ok(html.indexOf('data-seat-card="unseated"') < html.indexOf('data-seat-card="t5"'), 'To seat does not lead');
+  assert.match(html, /data-seat-card="unseated"[^>]*data-seat-drop="unseated"/);
+  // The counts, in words: "9 seated · 1 to seat · 2 tables · 15 empty chairs".
+  assert.match(html, /data-seat-count-words="seated">9<\/b>/);
+  assert.match(html, /data-seat-count-words="unseated">1<\/b> to seat/);
+  assert.match(html, /data-seat-count-words="tables">2<\/b> tables/);
+  assert.match(html, /data-seat-count-words="empty">15<\/b> empty chairs/);
+  // Rows on the risen table: still a drag source and drop seat, with Move and the swipe off the seat.
+  assert.match(LIST, /data-seat-drag=\{canEdit \? g\.id : undefined\}/);
+  assert.match(LIST, /label=\{where \? 'Move' : 'Seat'\}/, 'a row lost Move');
+  assert.match(LIST, /label=\{`Remove \$\{g\.name\} from the seat`\}/, 'a row lost the swipe off its seat');
+  // ➕ "Add a guest" keeps its names listed — each tap seats one at the next free chair (round two, pick 5).
+  assert.match(LIST, /onDrop\(g\.id, \{ kind: 'seat', tableId: free\.tableId, seat: free\.seat, occupantId: null \}\)/, '"Add a guest" does not seat through the plan’s own drop');
+  assert.doesNotMatch(LIST.slice(LIST.indexOf('data-seat-sheet-pick')), /setAdding\(false\)[\s\S]{0,40}data-seat-sheet-pick/, 'the names close after one tap');
   // Without Edit held: the list reads, and nothing on it moves anyone.
   const ro = draw(false);
   assert.doesNotMatch(ro, /data-seat-drag=/, 'a guest can be dragged without Edit');
-  assert.doesNotMatch(ro, /data-row-acts=""/, 'Swap / Remove / Add are offered without Edit');
 });
 
 test('4 · the drag is THE shared one (edge scroll), "tap · move" stays beside it, and the plan’s own moves do the moving', () => {
@@ -132,7 +152,7 @@ test('4 · the drag is THE shared one (edge scroll), "tap · move" stays beside 
   assert.match(LIST, /box\?\.addEventListener\('touchmove', block, \{ passive: false \}\)/, 'a held guest lets the list scroll under the finger');
   assert.match(LIST, /if \(target\) onDropRef\.current\(d\.id, target\);/);
   // tap · move: Swap / Seat picks them up; an empty seat or another guest tapped is where they go.
-  assert.match(LIST, /onClick=\{\(\) => onPick\(g\.id\)\}/);
+  assert.match(LIST, /onPick\(g\.id\);\s*close\(\);/, 'Move does not pick them up and bring back the cards');
   assert.match(ED, /<SeatList[\s\S]{0,900}?onOpenGuest=\{tapFace\}[\s\S]{0,400}?onRemove=\{unseat\}\s*onSeatHere=\{tapBlank\}[\s\S]{0,300}?onDrop=\{dropSeat\}/, 'the list is not wired to the plan’s own moves');
   const drop = ED.slice(ED.indexOf('const dropSeat = '), ED.indexOf('const unitOfKey = '));
   assert.match(drop, /planSeatDrop\(/);
@@ -154,4 +174,14 @@ test('5 · Type ▾ is the shared dropdown over the plan’s shapes, seats − N
   assert.match(ED, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/);
   // The old row of faces is gone — one list, not two.
   assert.doesNotMatch(ED, /SeatFacesList|seat-faces-list/);
+});
+
+test('6 · the editor\'s open set is a doorbell: ONE key raises a table, more never do; closing lets the same table ring again', () => {
+  // Ship review on #8064 (20 Nov): ⇕ "Expand all" added every key at once and raised one table; and a table already in
+  // the set could never ring again, so a second Enter on the same search did nothing.
+  assert.match(LIST, /const added = \[\.\.\.open\]\.filter\(\(k\) => !before\.has\(k\)\);\s*if \(added\.length === 1\) setSheet\(added\[0\]!\);/, 'more than one key added at once raises a table');
+  assert.match(LIST, /const close = \(\) => \{\s*if \(sheet && seenOpen\.current\.has\(sheet\)\) onToggleRef\.current\(sheet\);/, 'closing the risen table leaves its key in the editor\'s set — it can never ring again');
+  assert.match(LIST, /for \(const k of seenOpen\.current\) onToggleRef\.current\(k\);/, 'the arrival key is never let go');
+  // And the ⇕ that expanded every header is gone from the Seats row — there are no headers on Seats › List.
+  assert.doesNotMatch(ED, /testId: 'seats-expand'/, '⇕ Expand all is back on the Seats row');
 });

@@ -775,18 +775,17 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
   assert.deepEqual(Object.keys(SKU_OWNERSHIP_ALIASES).sort(), [
     'ANIMATED_MONOGRAM',
     'COUPLE_HUB_PART_LOGO_QR',
-    // 💎 Event Ultra (owner 2026-11-13): an Ultra order confers Event Pro and Patiktok (and Live Watch, below).
+    // 💎 Event Ultra (owner 2026-11-13): an Ultra order confers Event Pro (and Live Watch, below). Patiktok left 2026-11-20 (retired).
     'COUPLE_WEBSITE_PRO',
     'EDITORIAL_PRO',
     'LIVE_STUDIO',
-    'PATIKTOK_COMPILER',
     'STD_PREMIUM_OPENINGS',
   ]);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', 'EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_WEBSITE_PRO, ['EVENT_ULTRA']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER, ['EVENT_ULTRA']);
+  assert.equal(SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER, undefined, 'Patiktok is retired — Ultra no longer confers it');
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR, ['ANIMATED_MONOGRAM']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.LIVE_STUDIO, [
     'PANOOD_SYSTEM',

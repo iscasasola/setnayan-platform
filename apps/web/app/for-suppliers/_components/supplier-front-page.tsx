@@ -1,76 +1,48 @@
 /**
- * /for-suppliers — the owner-approved page of 6 Nov 2026 (`prototypes/for_suppliers_2026-11-06/index.html` in the
- * spec corpus; DECISION_LOG "SUPPLIER FRONT PAGE (/for-suppliers): ONE STORY FOR EVERYONE — APPROVED"). Section by
- * section, the prototype's words; the layout and motion are its own, on the app's tokens
- * (`supplier-front.module.css`).
+ * /for-suppliers — the owner-approved page of 20 Nov 2026 (`prototypes/for_suppliers_2026-11-20/` in the spec corpus:
+ * `site/index.html` is the drawing, `notes.html` its rulings). "Run the business you already have." It REPLACES the
+ * 6 Nov page (`prototypes/for_suppliers_2026-11-06/`) section for section; the drawing's words, on the app's tokens
+ * (`supplier-front.module.css`) and Discover's own section heads, chips and button (`front-door.css`).
  *
- * WHERE EVERY NUMBER COMES FROM (the prototype README's table):
- *   · plan prices, year prices, the branch + seat add-ons → `prices`, read by the page from the catalog
- *     (`getVendorPrices`); a price that could not be read shows "—" / "Price unavailable", never a typed figure;
- *   · the booking fee → `fee.schedule`, the LIVE schedule (`getLiveBookingFeeSchedule`), placed by
- *     `bookingFeeFigures` and computed by `bookingFeePhp`; with no schedule, or the fee switched off, no rate is said;
- *   · reach, categories, cards, seats, branches, waiting list, the plan a line sits under → `supplier-front-data.ts`
- *     (TIER_CAPS, the Plans page's own rows, `boothTierCanBrand`);
- *   · the QR codes → `codes`, drawn by the page from the real addresses of the sample shop.
- * The only typed pesos are the four price-shape ILLUSTRATIONS (`PRICE_SHAPE_EXAMPLES`), and the section says so.
+ * 🚦 A LINE SHIPS ONLY WHEN ITS BUILD IS LIVE (owner, 20 Nov 2026). Where the drawing names something the app does
+ * not do yet, this page says what the app does TODAY, and never "Coming":
+ *   · the fee: the drawing's rates, its ceiling ("locks there") and "every 100,000th fee is on us" are NOT built — the
+ *     page places the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) and draws no ceiling and no such switch;
+ *   · who books free: the drawing's "first supplier brought onto the event" is not built — the switches are the free
+ *     bookings that are live (a client you bring; your first booking from Setnayan; a badge's free booking fee ticket);
+ *   · the fee is charged when the client agrees to book (`BOOKING_FEE_CHARGED_WHEN`), not with the first payment;
+ *   · the gift with every booking (drawn "Coming") is not built, so its section is not drawn at all;
+ *   · Plans: the Ultra Add-on and storage are not live, so the ⓘ names only the live caps (`TIER_CAPS`), and the fine
+ *     line claims only what is true on every plan (inquiries are never limited).
  *
- * The shell (`app/(shell)/layout.tsx`) draws the top bar and the footer: the prototype's own header and footer are
- * not drawn here (`for-suppliers-wears-the-shell.test.ts`).
+ * WHERE EVERY NUMBER COMES FROM: plan prices → `prices` (`getVendorPrices`, the catalog; "—" when unread) · the fee
+ * → `fee.schedule` (the LIVE schedule) · caps → `TIER_CAPS` · the papers → `VERIFIED_PAPERS` · the sample cards'
+ * prices are formatted from numbers, and the section says they are samples.
+ *
+ * The shell (`app/(shell)/layout.tsx`) draws the top bar and the footer: the drawing's header and footer are not drawn
+ * here (`for-suppliers-wears-the-shell.test.ts`).
  */
 import Image from 'next/image';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { bookingFeeFigures, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
-import {
-  BADGE_FIRST,
-  BADGE_LAST,
-  BADGE_STEPS,
-  FREE_PHOTOS,
-  GROW_TIERS,
-  MORE_SEATS_FROM,
-  PRICE_SHAPE_EXAMPLES,
-  SAMPLE_SHOP,
-  FREE_CARD_LINE,
-  buyMoreLine,
-  foldGroups,
-  growLines,
-  growName,
-  growPlus,
-  growSpec,
-  helperLine,
-  reachSentence,
-  type GrowTier,
-} from './supplier-front-data';
-import { SupplierPlanTable } from './supplier-plan-table';
+import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
+import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
+import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
+import { countNoun, formatCount } from '@/lib/format-number';
+import { formatPeso } from '@/lib/v2-catalog-pure';
+import { CARD_MEDALS } from '@/lib/public-badges';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
-import {
-  CheckADateDemo,
-  CtaDock,
-  DayStatus,
-  FeeStory,
-  HeroStage,
-  PlanPicker,
-  PriceShapeCalc,
-  QrChip,
-  QrSheetProvider,
-  SupplierFrontRoot,
-  type HeroSlide,
-  type PlanCard,
-  type QrEntry,
-  type QrKey,
-} from './supplier-front-client';
+import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import type { CardBadgeView } from '@/lib/card-badges';
+import { FREE_FINDABLE } from './plan-table-data';
+import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
+import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
-import { SupplierBadgeShelf } from './supplier-badge-shelf';
-import { PlanPagePreview } from './plan-page-preview';
-import {
-  SampleShopPage,
-  samplePlanBranchCities,
-  samplePlanCaption,
-  type SampleShopPlan,
-} from '@/app/v/[slug]/_components/sample-shop-page';
+import { SupplierHowWeEarn } from './supplier-how-we-earn';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
-import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 export type SupplierFrontPrices = {
   soloMonthly: string | null;
@@ -85,8 +57,7 @@ export type SupplierFrontPrices = {
   enterpriseAnnualSave: string | null;
   branch: string | null;
   seat: string | null;
-  /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`) — the plan table and
-   *  Ultra's add-ons name a price by the SKU its purchase charges. */
+  /** Every active `vendor_billing_catalog` row by sku_code, formatted (`getVendorPrices().bySku`). */
   bySku: Readonly<Record<string, string | null>>;
 };
 /** The booking fee as the page read it: the live schedule (null when unreadable) and whether the fee is switched on. */
@@ -95,922 +66,400 @@ export type SupplierFrontFee = { schedule: BookingFeeSchedule | null; enabled: b
 export type SupplierFrontCodes = Record<'shortlist' | 'dates' | 'page' | 'review', { url: string; svg: string }>;
 
 const OPEN_SHOP = '/open-shop';
-const CTA = 'Create your shop free';
-const A = '/marketing/for-suppliers-2026-11-06';
+const CTA = 'Open your shop free';
+const FREE_LINE = 'Free to start. Free to stay. No card needed.';
+const A = '/marketing/2026-11-20/for-suppliers';
 
-const HERO: HeroSlide[] = [
-  { src: `${A}/supplier-florist-hero.webp`, alt: 'A florist arranging flowers in her shop', dot: 'The dreamer', line: "You've always wanted your own business." },
-  { src: `${A}/supplier-photographer-hero.webp`, alt: 'A photographer at work', dot: 'The starter', line: 'You just opened one.' },
-  { src: `${A}/supplier-makeup-hero.webp`, alt: 'A make-up artist with her kit', dot: 'Still fighting', line: "You're still fighting to make it stick." },
-  { src: `${A}/supplier-caterer-hero.webp`, alt: "A caterer's team plating dinner", dot: 'The established', line: "You've built something that works." },
-  { src: `${A}/supplier-team-hero.webp`, alt: "A parent and grown child in the family's shop", dot: 'The family legacy', line: 'Your family has run it for generations.' },
+/** "Free 1 · Verified 3 · Plus 10 · …" — one cap across every plan, read from `TIER_CAPS`. */
+const ALL_TIERS: readonly VendorTier[] = ['free', 'verified', ...GROW_TIERS];
+const tierName = (t: VendorTier) => (t === 'free' ? 'Free' : t === 'verified' ? 'Verified' : growName(t));
+function capLine(read: (t: VendorTier) => number, from: readonly VendorTier[] = ALL_TIERS): string {
+  return from
+    .filter((t) => read(t) > 0)
+    .map((t) => `${tierName(t)} ${formatCount(read(t))}`)
+    .join(' · ');
+}
+
+/** The sample cards' prices — formatted from numbers, never typed as figures. */
+const peso = (n: number) => `₱${formatPeso(n)}`;
+const SAMPLE_CARDS: ReadonlyArray<{
+  name: string;
+  path: string;
+  cover: string;
+  shop: string;
+  price: number;
+  includes: readonly string[];
+  notIncluded: readonly string[];
+  badges: readonly CardBadgeView[];
+}> = [
+  {
+    name: 'Full-day photo & video',
+    path: 'Photographers · Photo & video',
+    cover: `${A}/c-photo.webp`,
+    shop: 'Lumen Studio',
+    price: 45999,
+    includes: ['2 shooters', 'Online album', 'Same-day edit'],
+    notIncluded: ['crew meal'],
+    badges: [
+      { key: 'trending_now', since: null },
+      { key: 'verified', since: null },
+    ],
+  },
+  {
+    name: 'Bridal make-up and hair',
+    path: 'Hair & make-up · Bridal',
+    cover: `${A}/c-makeup.webp`,
+    shop: 'Blush by Ria',
+    price: 18999,
+    includes: ['Trial session', 'Airbrush', 'Touch-ups'],
+    notIncluded: [],
+    badges: [
+      { key: 'quick_responder', since: null },
+      { key: 'rave_reviews', since: null },
+      { key: 'verified', since: null },
+    ],
+  },
+  {
+    name: 'Event highlights film',
+    path: 'Videographers · Highlights',
+    cover: `${A}/c-video.webp`,
+    shop: 'Reel Day Films',
+    price: 35999,
+    includes: ['4-minute film', 'Drone shots', 'Raw files'],
+    notIncluded: [],
+    badges: [{ key: 'hot_booking', since: null }],
+  },
 ];
 
-const PROBLEMS = [
-  { img: 'supplier-01-no-website', alt: 'A Facebook page with no visitors', h: 'Nobody finds you.', p: 'A Facebook page that Google never shows.' },
-  { img: 'supplier-02-inquiries', alt: 'A phone full of unread messages', h: 'Inquiries get lost.', p: "Messenger, Viber, SMS. Half aren't serious." },
-  { img: 'supplier-03-quotes', alt: 'A quote typed into a chat', h: 'Quotes typed into chats.', p: 'Changed three times. Nobody knows which one was agreed.' },
-  { img: 'supplier-04-double-booked', alt: 'A notebook calendar with two bookings on one day', h: 'Two couples, one Saturday.', p: 'The calendar is in a notebook, a chat and your head.' },
-  { img: 'supplier-05-payments', alt: 'A supplier chasing a payment by chat', h: 'Chasing payments.', p: 'Reservation, progress, balance. By chat, every time.' },
-  { img: 'supplier-11-cut-of-everything', alt: 'A receipt with a cut taken off the top', h: 'Someone takes a cut of every sale.', p: 'Even the clients you brought yourself.' },
-] as const;
-
-const FOLD_ICONS: Record<string, ReactNode> = {
-  'Get found': (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-4-4" />
-    </svg>
-  ),
-  'Get booked': (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
-      <path d="M3.5 10h17M8 3v4M16 3v4M9 14l2 2 4-4" />
-    </svg>
-  ),
-  'Work together': (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="9" cy="8" r="3.5" />
-      <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-5-6.3" />
-    </svg>
-  ),
-  'Run the day': (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  ),
-  Grow: (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M3 17l6-6 4 4 8-8M15 7h6v6" />
-    </svg>
-  ),
-};
-
-function Pill({ kind, children }: { kind: 'free' | 'ver' | 'plan'; children: ReactNode }) {
-  return <span className={`${s.pill} ${s[kind]}`}>{children}</span>;
-}
-
-/** The pill beside a fold line: Free / Verified / a plan. */
-function FoldPill({ pill }: { pill: string }) {
-  return <Pill kind={pill === 'Free' ? 'free' : pill === 'Verified' ? 'ver' : 'plan'}>{pill}</Pill>;
-}
-
-function Photo({ src, alt, ratio, bleed, sizes = '(min-width: 960px) 50vw, 100vw' }: { src: string; alt: string; ratio?: 'r43' | 'r54'; bleed?: boolean; sizes?: string }) {
+function SecHead({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <div className={`${s.ph} ${ratio ? s[ratio] : ''} ${bleed ? s.bleed : ''}`} data-rv="">
-      <Image src={src} alt={alt} fill sizes={sizes} />
+    <h2 className={`fd-sechead ${s.sechead}`} id={id}>
+      <span>{children}</span>
+    </h2>
+  );
+}
+
+/** The lede with its ⓘ — the line visible, the rest inside (owner 2026-10-23, details-go-inside-the-info-tip). */
+function Lede({ text, children }: { text: string; children: ReactNode }) {
+  return (
+    <div className={s.lede}>
+      <Info label={text}>{children}</Info>
     </div>
   );
 }
 
-/** What the fee sentences say, from the schedule the page read — or no rate at all. */
-function feeWords(fee: SupplierFrontFee) {
-  const f = fee.enabled && fee.schedule ? bookingFeeFigures(fee.schedule) : null;
-  return {
-    figures: f,
-    /** The hero ⓘ's middle sentence. */
-    heroFee: f
-      ? `You pay a booking fee of ${f.head} on the first ${f.band} of a booking and ${f.tail} after.`
-      : fee.enabled
-        ? `You pay a booking fee on a booking, ${FEE_SCOPE}; the rate is shown in full before you agree to any booking.`
-        : 'There is no booking fee while it is switched off.',
-    /** The Grow beat's fee sentence. */
-    growFee: f
-      ? `Setnayan never takes a cut of the deal. You pay a booking fee: ${f.head} on the first ${f.band} of a booking, ${f.tail} after.`
-      : fee.enabled
-        ? `Setnayan never takes a cut of the deal. You pay a booking fee on a booking, ${FEE_SCOPE}.`
-        : 'Setnayan never takes a cut of the deal, and charges no booking fee while it is switched off.',
-  };
-}
-
-/** The Grow tab's tier → the sample shop page's plan (Ultra is the `enterprise` tier). */
-const GROW_PLAN: Record<GrowTier, SampleShopPlan> = { solo: 'solo', pro: 'pro', enterprise: 'ultra' };
-
-/**
- * Ruling 5735 (owner-approved 13 Nov 2026, corpus `prototypes/plan_previews_2026-11-13/`): the row at the foot of a plan
- * card — that plan's shop page in miniature, opening full screen. The page is `SampleShopPage` (the same drawing
- * /dev/shop-plan-lab shows), server-rendered here once and scaled by the row; never a separate picture. Pro and Ultra
- * draw their branches ("Also in …", owner 13 Nov 2026 "Show the branches as needed") — the plan's own included count.
- */
-function PlanPreview({ plan, label }: { plan: SampleShopPlan; label: string }) {
-  return (
-    <PlanPagePreview plan={plan} label={label} caption={samplePlanCaption(plan)}>
-      <SampleShopPage plan={plan} branchCities={samplePlanBranchCities(plan)} />
-    </PlanPagePreview>
-  );
-}
+const TOOLS: ReadonlyArray<{ img?: string; alt?: string; b: string; t: string; chat?: true }> = [
+  { img: 't-clients', alt: 'A supplier showing a couple their plan on a tablet', b: 'Your clients', t: 'Add the ones you already have.' },
+  { chat: true, b: 'Your chat', t: 'Quote and payments, agreed in one place.' },
+  { img: 't-cal', alt: 'The Check a date calendar on a phone', b: 'Your calendar', t: 'Clients see your free dates, never who booked.' },
+  { img: 't-qr', alt: 'A guest scanning a supplier’s QR card', b: 'Your QR and links', t: 'One for every moment.' },
+  { img: 't-price', alt: 'A caterer plating a dish', b: 'Your prices', t: 'Per guest, per hour, by size or one price.' },
+];
 
 export function SupplierFrontPage({
   prices,
   fee,
-  codes,
-  paywallOn,
   afterPlans,
+  giftFrom = null,
 }: {
   prices: SupplierFrontPrices;
+  /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
+  giftFrom?: string | null;
   fee: SupplierFrontFee;
-  /** `isVendorFeatureGateEnabled()`, read by the page: while the plan paywall is off, the table prints the seats and
-   *  waiting list the actions actually allow (Build 5 Lane B's `allowance`), not a cap nobody enforces. */
+  /** The sample shop's codes — the 6 Nov page drew them; the 20 Nov drawing does not. Optional so the lab still type-checks. */
+  codes?: SupplierFrontCodes;
+  /** The supplier feature paywall's state (`isVendorFeatureGateEnabled`). Kept for the callers; the 20 Nov page draws no paywall line. */
   paywallOn: boolean;
-  codes: SupplierFrontCodes;
-  /** Drawn at the foot of Plans — the page's door to the couple prices (`the-two-pricing-pages-point-at-each-other`). */
+  /** Drawn under the plans — the page passes the "Couple pricing" return leg (`/pricing` ↔ `/for-suppliers`). */
   afterPlans?: ReactNode;
 }) {
-  const words = feeWords(fee);
-  const qr: Record<QrKey, QrEntry> = {
-    shortlist: { title: 'Shortlist', body: 'They scan, sign up free, and their event starts with you on it.', ...codes.shortlist, go: 'Open it' },
-    dates: { title: 'Check a date', body: 'They see your free and taken days, then ask about one in your chat.', ...codes.dates, go: 'Check a date' },
-    page: { title: 'My page', body: 'Your whole shop: services, prices, portfolio and reviews.', ...codes.page, go: 'Open the page' },
-    review: { title: 'Review', body: 'Guests scan it at the table and leave you a review on the spot.', ...codes.review, go: 'See the reviews' },
-    booked: {
-      title: 'Booked · one-use',
-      body: 'You make this one in your QR codes screen, for one client only. They scan it, and their event is created with you already booked. It works once.',
-    },
-    crew: {
-      title: 'Crew',
-      body: 'One code per event, made in Hub › Crew. Your team scans it and joins once you tap Allow. It ends when the event ends.',
-    },
-  };
-  const price: Record<GrowTier, { mo: string | null; yr: string | null; save: string | null }> = {
-    solo: { mo: prices.soloMonthly, yr: prices.soloAnnual, save: prices.soloAnnualSave },
-    pro: { mo: prices.proMonthly, yr: prices.proAnnual, save: prices.proAnnualSave },
-    enterprise: { mo: prices.enterpriseMonthly, yr: prices.enterpriseAnnual, save: prices.enterpriseAnnualSave },
-  };
-  const planCards: PlanCard[] = [
-    {
-      key: 'free',
-      name: 'Free',
-      price: '₱0',
-      year: null,
-      save: null,
-      spec: FREE_CARD_LINE,
-      plus: null,
-      lines: [],
-      cta: 'Start free',
-      preview: <PlanPreview plan="free" label="Free" />,
-    },
-    ...GROW_TIERS.map(
-      (t): PlanCard => ({
-        key: t,
-        name: growName(t),
-        price: price[t].mo,
-        year: price[t].yr,
-        save: price[t].save,
-        spec: growSpec(t),
-        plus: growPlus(t),
-        lines: growLines(t),
-        cta: `Start on ${growName(t)}`,
-        // W1-B21: the plan the supplier tapped travels with them (`?plan=plus|pro|ultra`), never a bare /open-shop.
-        href: openShopWithPlanHref(t),
-        preview: <PlanPreview plan={GROW_PLAN[t]} label={growName(t)} />,
-      }),
-    ),
+  const f = fee.enabled && fee.schedule ? bookingFeeFigures(fee.schedule) : null;
+  /** What "How Setnayan earns" is handed: the same live figures the fee card prints. */
+  const words = { figures: f };
+  const tapers = fee.schedule ? fee.schedule.tailRate < fee.schedule.rate : false;
+  const cards = (t: VendorTier) => TIER_CAPS[t].serviceCardsTotal;
+
+  const freeWhen: FreeWhen[] = [
+    { label: 'You bring the event first', hint: FEE_FREE_CHIP },
+    { label: 'A couple you brought onto Setnayan', hint: SUPPLIER_FREE_BOOKING_LINE },
+    { label: 'It is your first booking from Setnayan', hint: FIRST_BOOKING_ON_US },
+    { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
-  const fold = foldGroups();
-  const helper = helperLine();
-  const pageUrlShown = codes.page.url.replace(/^https?:\/\/(www\.)?/, '');
-  const ex = PRICE_SHAPE_EXAMPLES;
+
+  const planRows: PlanRow[] = [
+    { name: 'Free', line: 'Run the business you already have.', price: '₱0', per: 'always', cta: CTA },
+    { name: 'Verified', line: 'Be found on Discover and Find.', price: '₱0', per: 'always', cta: CTA },
+    ...GROW_TIERS.map((t) => ({
+      name: growName(t),
+      line: { solo: 'Something to test on, with a small team.', pro: 'The complete business package.', enterprise: 'Expand: more people, cards and branches.' }[t],
+      price: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly }[t],
+      per: 'per 4 weeks',
+      cta: `Start on ${growName(t)}`,
+      href: openShopWithPlanHref(t),
+    })),
+  ];
 
   return (
-    <SupplierFrontRoot>
-      <QrSheetProvider entries={qr} kicker={`Sample · ${SAMPLE_SHOP.name}`}>
-        {/* 1 · HERO */}
-        <section aria-label="For suppliers">
-          <HeroStage slides={HERO} />
-          <div className={`${s.wrap} ${s.heroLanding}`}>
-            <div className={s.hlA} data-rv="">
-              <p className={s.kicker}>For Suppliers</p>
-              <h1>Not just a place to sell. A place to stay.</h1>
-            </div>
-            <div className={s.hlB} data-rv="">
-              <p className={s.lede}>Your shop, your calendar, your clients and your event day, in one place. Free to start.</p>
-              <div className={s.actions}>
-                <a className={s.btn} href={OPEN_SHOP} data-sf-cta="">
-                  {CTA}
-                </a>
-                <a className={s.tlink} href="#close">
-                  See a real shop
-                </a>
-              </div>
-              <div className={s.facts}>
-                <span>Free to join</span>
-                <span>Couples pay you directly</span>
-                <span>Verified shops are always shown</span>
-              </div>
-              <Info label="How the fee works">
-                <p>
-                  Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
-                  takes a cut of the deal. {words.heroFee} {FEE_FREE_RULE}
-                </p>
-              </Info>
-            </div>
-          </div>
-        </section>
-
-        {/* 2 · WHY */}
-        <section className={s.beat}>
-          <div className={`${s.wrap} ${s.split}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>We know building a business is hard.</h2>
-              <p className={s.lede}>We built the place we wished existed. Not a stall in a marketplace. A home for your business.</p>
-              <Info label="What stays yours">
-                <p>
-                  Everything you build here is yours: your page, your reviews, your client list, your badges. Nothing here is
-                  rented. Nothing resets when you grow.
-                </p>
-              </Info>
-            </div>
-            <Photo src={`${A}/supplier-videographer-hero.webp`} alt="A videographer on a step ladder filming dancers rehearsing in a ballroom" ratio="r54" bleed />
-          </div>
-        </section>
-
-        {/* 3 · HARD TRUTH */}
-        <section className={`${s.beat} ${s.dark}`}>
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>This is what running a business looks like today.</h2>
-              <p className={s.lede}>Say it plainly. We&apos;ve all been there.</p>
-            </div>
-            <div className={s.probs}>
-              {PROBLEMS.map((p) => (
-                <div key={p.img} className={s.prob} data-rv="">
-                  <div className={s.ph}>
-                    <Image src={`${A}/${p.img}.webp`} alt={p.alt} fill sizes="(min-width: 960px) 33vw, 104px" />
-                  </div>
-                  <div>
-                    <h3>{p.h}</h3>
-                    <p>{p.p}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <Info label="Six more we hear">
-              <p>
-                Six more we hear every week: forms the couple never finishes · contracts that are screenshots · stolen photos
-                outranking you · a crew sharing one password · couples in another city who never see you · program changes
-                nobody told you about.
-              </p>
-              <p>Every one of these has a tool in the dashboard below.</p>
-            </Info>
-          </div>
-        </section>
-
-        {/* 4 · ONE PLACE */}
-        <section className={`${s.beat} ${s.relief}`}>
-          <div className={`${s.wrap} ${s.split}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>One place. Every tool.</h2>
-              <p className={s.lede}>Whether you&apos;re starting, growing or already established, the same shop grows with you.</p>
-              <Info label="What Free includes">
-                <p>
-                  Free gives you the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts, your
-                  public page and {FREE_PHOTOS} portfolio photos.
-                </p>
-                <p>
-                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search, and you set how far
-                  you go. Paid plans add categories, team seats and branches. See Plans below.
-                </p>
-              </Info>
-            </div>
-            <div className={s.rows} data-play-once="">
-              <div className={s.row}>
-                <h3>Starting?</h3>
-                <p>Open a shop in two steps. Your page builds itself from what you add.</p>
-                <div className={s.meta}>
-                  <Pill kind="free">Free</Pill>
-                </div>
-              </div>
-              <div className={s.row}>
-                <h3>Growing?</h3>
-                <p>Get Verified free. Couples and search engines can find you.</p>
-                <div className={s.meta}>
-                  <Pill kind="ver">Verified ✓</Pill>
-                  <Pill kind="free">Free</Pill>
-                </div>
-              </div>
-              <div className={s.row}>
-                <h3>Established?</h3>
-                <p>Bring your clients in free and keep them free. Your team, each on their own login.</p>
-                <div className={s.meta}>
-                  <Pill kind="free">Free</Pill>
-                  {MORE_SEATS_FROM ? <Pill kind="plan">{MORE_SEATS_FROM}</Pill> : null}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 5 · GET FOUND */}
-        <section className={s.beat}>
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.split}>
-              <div className={s.beatHead} data-rv="">
-                <h2>Couples check your free dates themselves.</h2>
-                <p className={s.lede}>
-                  From your QR, your page or your shop. They see only two things: available, or not bookable. Never who booked.
-                </p>
-                <p className={`${s.muted} ${s.small}`}>
-                  Tap a day. The ask lands in your chat with the date and the services attached. <Pill kind="free">Free</Pill>
-                </p>
-                <div className={s.pagebit}>
-                  <h3>
-                    Your page is your marketing tool. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>Verified seal, photos, service cards, reviews and badges in one link. Put it on your posts, your booth, your table.</p>
-                </div>
-              </div>
-              <div className={s.media}>
-                <div className={s.phone} data-rv="">
-                  <div className={s.screen}>
-                    <div className={s.abar}>
-                      <span className={s.mark}>
-                        SET<b>NA</b>YAN
-                      </span>
-                    </div>
-                    <CheckADateDemo />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={s.sub}>
-              <h3 data-rv="">
-                One QR for every moment <Pill kind="free">Free</Pill>
-              </h3>
-              <p data-rv="">You don&apos;t pick &quot;a QR code&quot;. You pick the moment.</p>
-              <div className={s.moments}>
-                <div className={s.moment} data-rv="">
-                  <Photo src={`${A}/07-expo-booth.webp`} alt="A backdrop with a QR code at an expo booth" ratio="r43" sizes="(min-width: 720px) 33vw, 100vw" />
-                  <p className={s.step}>At a bazaar, an expo, your studio</p>
-                  <h3>They find you</h3>
-                  <div className={s.codes}>
-                    <QrChip k="shortlist" />
-                    <QrChip k="dates" />
-                    <QrChip k="page" />
-                  </div>
-                  <p>Shortlist is made by you for one kind of event and one service. They scan, sign up free, and their event starts with you on it.</p>
-                  <p className={s.fine}>Printed on your card, standee, backdrop, tarp, table-front and door print.</p>
-                </div>
-                <div className={s.moment} data-rv="">
-                  <Photo src={`${A}/08-card-and-phone-scan.webp`} alt="A couple scans the back of a calling card at the counter" ratio="r43" sizes="(min-width: 720px) 33vw, 100vw" />
-                  <p className={s.step}>The deal is closed</p>
-                  <h3>They book you</h3>
-                  <div className={s.codes}>
-                    <QrChip k="booked" />
-                  </div>
-                  <p>You fill in the deal once. One code, for that client only. They scan, and their event is created with you booked on it.</p>
-                  <p className={s.fine}>On the back of your card, or shown on your phone.</p>
-                </div>
-                <div className={s.moment} data-rv="">
-                  <Photo src={`${A}/02-guest-scans-table-tent.webp`} alt="A guest scans a table tent at the welcome table" ratio="r43" sizes="(min-width: 720px) 33vw, 100vw" />
-                  <p className={s.step}>For your team and the guests</p>
-                  <h3>You&apos;re at their event</h3>
-                  <div className={s.codes}>
-                    <QrChip k="crew" />
-                    <QrChip k="review" />
-                  </div>
-                  <p>Your team scans Crew and joins once you tap Allow. Guests scan Review on a table sign and leave you a review on the spot.</p>
-                  <p className={s.fine}>On a crew card, and a table tent at the welcome table.</p>
-                </div>
-              </div>
-              <Info label="Codes and search reach">
-                <p>
-                  Every code downloads, shares or copies as a link from your QR codes screen. Only a Verified shop is shown in
-                  search: {reachSentence()}. Your page is ready for Google the moment you set an address.
-                </p>
-                <p>NFC tags, the door sticker and ready-made printed pieces.</p>
-              </Info>
-            </div>
-          </div>
-        </section>
-
-        {/* 6 · CUSTOMERS */}
-        <section className={`${s.beat} ${s.soft}`}>
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.split}>
-              <div className={s.beatHead} data-rv="">
-                <h2>Talking is easy. The personal touch is yours.</h2>
-                <p className={s.lede}>One chat per client, with the quote, the files and the schedule attached. The rest is you.</p>
-                <Info label="Returning couples and discounts">
-                  <p>
-                    A returning couple reads &quot;— a returning client&quot; on the inquiry. Discounts you set (early booking,
-                    off-peak, bundle, promo, returning couple) show on your card as one pill, like &quot;10% off · early
-                    booking&quot;. A perk you keep off the public card is revealed in the chat once you say yes.
-                  </p>
-                  <p>Meetings: in person, or a call on your own phone or Viber, booked inside the chat.</p>
-                </Info>
-              </div>
-              <Photo src={`${A}/15-consultation.webp`} alt="A supplier and a couple in a consultation" ratio="r54" />
-            </div>
-            <div className={s.notices}>
-              <div className={s.notice} data-rv="">
-                <span className={s.noticeIc}>1</span>
-                <div>
-                  <h3>
-                    &quot;New booking inquiry.&quot; <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>With their date, place and headcount attached. Nothing is booked yet.</p>
-                </div>
-              </div>
-              <div className={s.notice} data-rv="">
-                <span className={s.noticeIc}>2</span>
-                <div>
-                  <h3>
-                    Send the quote from the chat. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>Package, per guest or per hour. They accept or counter.</p>
-                </div>
-              </div>
-              <div className={s.notice} data-rv="">
-                <span className={s.noticeIc}>3</span>
-                <div>
-                  <h3>
-                    &quot;First payment submitted — please confirm.&quot; <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>The receipt is attached. Confirm, and the date is held.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 7 · PRICE SHAPES */}
-        <section className={s.beat}>
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>Your price, your way.</h2>
-              <p className={s.lede}>
-                A caterer charges per guest. A band per hour. A tent by size. A photographer one price. All four fit, side by
-                side.
-              </p>
-            </div>
-            <div className={s.pshapes}>
-              <div className={s.pcard}>
-                <div className={s.pcTop}>
-                  <span className={s.pcIc}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="9" cy="8" r="3.2" />
-                      <path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5" />
-                      <circle cx="17" cy="9" r="2.4" />
-                      <path d="M15.8 14.2c2.3.2 4 1.8 4.6 4.8" />
-                    </svg>
-                  </span>
-                  <h3>Per guest</h3>
-                </div>
-                <p>The headcount quotes itself from the couple&apos;s RSVPs.</p>
-                <PriceShapeCalc shape={{ kind: 'n', ...ex.perGuest, unit: 'guests', group: 'Guests' }} />
-              </div>
-              <div className={s.pcard}>
-                <div className={s.pcTop}>
-                  <span className={s.pcIc}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="8.5" />
-                      <path d="M12 7.5V12l3 2" />
-                    </svg>
-                  </span>
-                  <h3>Per hour</h3>
-                </div>
-                <p>Set the hour and the minimum.</p>
-                <PriceShapeCalc shape={{ kind: 'n', ...ex.perHour, unit: 'hours', group: 'Hours' }} />
-              </div>
-              <div className={s.pcard}>
-                <div className={s.pcTop}>
-                  <span className={s.pcIc}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M3 19 12 5l9 14" />
-                      <path d="M8 19l4-6 4 6" />
-                      <path d="M2.5 19h19" />
-                    </svg>
-                  </span>
-                  <h3>By size</h3>
-                </div>
-                <p>Small, medium, large; one card each.</p>
-                <PriceShapeCalc shape={{ kind: 'list', ...ex.bySize, group: 'Size' }} />
-              </div>
-              <div className={s.pcard}>
-                <div className={s.pcTop}>
-                  <span className={s.pcIc}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M3.5 12.2V4.5h7.7l9.3 9.3-7.7 7.7z" />
-                      <circle cx="8" cy="9" r="1.4" />
-                    </svg>
-                  </span>
-                  <h3>One price</h3>
-                </div>
-                <p>The package, with inclusions and add-ons.</p>
-                <PriceShapeCalc shape={{ kind: 'list', ...ex.onePrice, group: 'Add-ons' }} />
-              </div>
-            </div>
-            <Info label="The quote builder">
-              <p>
-                The quote builder in the chat offers Flat, Per pax and Per hour, with line items, crew meal and transport, a
-                discount with a &quot;why&quot;, and the payment schedule (first payment on booking, then the balance). Sizes are
-                separate service cards.
-              </p>
-              <p>Examples above are illustrations, not prices from the app.</p>
-            </Info>
-          </div>
-        </section>
-
-        {/* 8 · WORKING TOGETHER + THE DAY */}
-        <section className={`${s.beat} ${s.soft}`}>
-          <div className={`${s.wrap} ${s.split} ${s.flip}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>You, the couple and the coordinator. One plan.</h2>
-              <p className={s.lede}>Once you&apos;re booked, their event opens to you. On the day, tap your status and the coordinator sees it.</p>
-              <div className={s.caps}>
-                <div className={s.cap}>
-                  <h3>
-                    Your moment on their schedule. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <div className={s.flow}>
-                    <span className={s.chip}>Reception reveal · 5:30 PM · 15 min</span>
-                    <span className={s.arr}>→</span>
-                    <span>coordinator taps Accept</span>
-                    <span className={s.arr}>→</span>
-                    <span>on every guest&apos;s schedule</span>
-                  </div>
-                </div>
-                <div className={s.cap}>
-                  <h3>
-                    The headcount updates itself. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>A guest RSVPs, your production sheet changes. Counts only; names never cross.</p>
-                </div>
-                <div className={s.cap}>
-                  <h3>
-                    Works with no signal. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>Your event-day screen and schedule are saved on your phone.</p>
-                </div>
-                <div className={s.cap}>
-                  <h3>
-                    Your crew, one code per event. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>They scan, you tap Allow. Each phone sees only the tools for the day.</p>
-                </div>
-              </div>
-              <Info label="What opens to you, and the day">
-                <p>
-                  Your customer card opens the event: snapshot, headcount, meals, style, budget, seat plan, run of show, and the
-                  doors for your service (mood board, seat plan, production sheet). Suggest · My times · My moment, then
-                  &quot;Lock my times&quot; once you&apos;re set.
-                </p>
-                <p>
-                  Status buttons: On site · Setup done · Ready to start · Packed up · Running late · Need help. The countdown
-                  follows the couple&apos;s program.
-                </p>
-                <p>
-                  Tools switch on by your type: production sheet, headcount, shot list, song desk, script and cues, seat plan,
-                  mood board, check-in desk. The saved copy reads &quot;Saved for offline · updated 2:10 PM&quot; and turns amber
-                  when it&apos;s old on the event day.
-                </p>
-                <p>
-                  Guest QR scanner for the day: live for check-in and finding a seat (coordinator tools), and a supplier-side
-                  scanner.
-                </p>
-              </Info>
-            </div>
-            <div className={s.media}>
-              <div className={s.phone} data-rv="" aria-label="The event-day screen: tap your status and the coordinator sees it">
-                <div className={`${s.screen} ${s.dayof}`}>
-                  <div className={s.abar}>
-                    <span className={s.mark}>
-                      SET<b>NA</b>YAN
-                    </span>
-                  </div>
-                  <p className={s.saved}>
-                    <i />
-                    Saved for offline · updated 2:10 PM
-                  </p>
-                  <p className={s.dK}>Your status</p>
-                  <DayStatus />
-                  <p className={s.dK}>Your moment</p>
-                  <div className={s.momentRow}>
-                    <span className={s.chip}>Reception reveal · 5:30 PM · 15 min</span>
-                  </div>
-                  <p className={s.dK}>Live reviews</p>
-                  <div className={s.rev}>
-                    <span className={s.stars} aria-hidden="true">
-                      ★★★★★
-                    </span>
-                    <span className={s.vb}>✓ Verified booking</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 10 · PORTFOLIO */}
-        <section className={s.beat}>
-          <div className={s.wrap}>
-            <div className={s.beatHead} data-rv="">
-              <h2>Your portfolio builds itself.</h2>
-              <p className={s.lede}>
-                Every event you run here adds to your page: photos, reviews, badges. Couples see it. Search engines see it.
-              </p>
-              <div className={`${s.caps} ${s.pfCaps}`}>
-                <div className={s.cap}>
-                  <h3>
-                    Photos from couples. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>A couple shares, you approve, it lands on your card with the Verified booking mark.</p>
-                  <div className={s.sgal} aria-label="Sample photos from couples">
-                    <span className={s.stag}>Sample</span>
-                    <div className={s.sgrid}>
-                      <figure>
-                        <Image src={`${A}/supplier-photographer-hero.webp`} alt="A photographer shooting a wedding party" fill sizes="160px" />
-                        <span className={s.appr}>
-                          <small>Shared by the couple</small>
-                          <b>Approve</b>
-                        </span>
-                      </figure>
-                      {[
-                        ['04-floor-standee', 'Guests at a garden wedding'],
-                        ['09-tablet-at-booth', 'A couple at a reception table'],
-                        ['supplier-videographer-hero', 'A videographer filming a rehearsal'],
-                        ['03-nfc-dessert-table', 'Champagne glasses at a reception table'],
-                        ['supplier-makeup-hero', 'A bride being made up'],
-                      ].map(([img, alt]) => (
-                        <figure key={img}>
-                          <Image src={`${A}/${img}.webp`} alt={alt!} fill sizes="160px" />
-                          <span className={s.vbm}>✓ Verified booking</span>
-                        </figure>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className={s.cap}>
-                  <h3>
-                    Reviews with proof. <Pill kind="free">Free</Pill>
-                  </h3>
-                  <p>Each one carries &quot;Verified booking&quot;. You can reply. Self-reviews are blocked.</p>
-                  <p className={s.trust}>No fake reviews. No paid stars. Ever.</p>
-                  <div className={s.srev} aria-label="Sample review">
-                    <span className={s.stag}>Sample</span>
-                    <div className={s.urev}>
-                      <p className={s.urH}>
-                        <b>Verified couple</b>
-                        <span className={s.vb}>✓ Verified booking</span>
-                      </p>
-                      <p className={s.stars} aria-hidden="true">
-                        ★★★★★
-                      </p>
-                      <p>
-                        The same-day edit played at dinner and nobody could believe it was shot that morning. Juan’s team was calm
-                        the whole day.
-                      </p>
-                      <div className={s.sreply}>
-                        <p className={s.urH}>
-                          <b>{SAMPLE_SHOP.name}</b>
-                          <span className={s.rk}>Reply from the shop</span>
-                        </p>
-                        <p>
-                          Thank you for trusting us with your day. Watching your guests see the film at dinner was the best part
-                          for our whole team.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <Info label="Your page and Google">
-                <p>Your page is auto-built and ready for Google the moment you set an address. {FREE_PHOTOS} portfolio photos free.</p>
-                <p>Event photos placed on your card by themselves.</p>
-              </Info>
-            </div>
-          </div>
-        </section>
-
-        {/* 11 · GROW — `#model` is where the old page's fee model sat; a link to it lands on the fee here. */}
-        <section className={s.beat} id="model">
-          <div className={s.wrap}>
-            <div className={s.split}>
-              <div className={s.beatHead} data-rv="">
-                <h2>Grow your business, not your fees.</h2>
-                <p className={s.lede}>
-                  Couples pay you directly, to your GCash or bank. It never passes through us. That&apos;s your money, and it&apos;s
-                  yours to keep.
-                </p>
-                <p>{words.growFee}</p>
-              </div>
-              {fee.enabled && fee.schedule && words.figures ? (
-                <FeeStory
-                  schedule={fee.schedule}
-                  payoff="The bigger you grow, the smaller our share."
-                  steps={
-                    <>
-                      <li data-rv="">
-                        <div>
-                          <b>Start as a photobooth.</b> One small booking. The fee is {words.figures.head}.
-                        </div>
-                      </li>
-                      <li data-rv="">
-                        <div>
-                          <b>Add video, coordination, souvenirs.</b> Same shop. More categories as you grow.
-                        </div>
-                      </li>
-                    </>
-                  }
-                />
-              ) : (
-                <ol className={s.feeSteps}>
-                  <li data-rv="">
-                    <div>
-                      <b>Start as a photobooth.</b> One small booking.
-                    </div>
-                  </li>
-                  <li data-rv="">
-                    <div>
-                      <b>Add video, coordination, souvenirs.</b> Same shop. More categories as you grow.
-                    </div>
-                  </li>
-                </ol>
-              )}
-            </div>
-
-            <div className={s.sub}>
-              <h3 data-rv="">
-                Gifts in your package <Pill kind="free">Free to give</Pill> <Pill kind="plan">You buy the gifts</Pill>
-              </h3>
-              <p className={s.lede} data-rv="">
-                Put Setnayan in your package. Buy Setnayan services as gifts, like Papic 150, Event Plus or Event Pro, and add
-                them to your quote. Your client gets more from your package than they would buying alone, and it arrives with
-                their first payment.
-              </p>
-            </div>
-
-            <div className={`${s.sub} ${s.shelf} ${s.dark}`}>
-              <h3 data-rv="">
-                Badges <Pill kind="free">Free</Pill>
-              </h3>
-              <p data-rv="">
-                Every event you run here earns a badge couples see on your page. From {BADGE_FIRST} events to {BADGE_LAST}.
-              </p>
-              <SupplierBadgeShelf className={s.ibgrid} />
-              <p>Climb a badge, and we reward you, free.</p>
-              <Info label="Fees, badges and rewards">
-                <p>
-                  {FEE_FREE_RULE} Every other booking carries the fee.{' '}
-                  {FIRST_BOOKING_FREE}
-                </p>
-                <p>
-                  Badges climb at {BADGE_STEPS} finished events; stars come from trusted reviews; years count from the year you
-                  started; Top Pick and Most Booked are monthly. Save to print gives you the badge file.
-                </p>
-                <p>Rewards per badge: Papic photo credits for your client&apos;s guests, an event upgrade, a free booking fee from 1,000 events.</p>
-              </Info>
-            </div>
-          </div>
-        </section>
-
-        {/* 12 · WORTH IT */}
-        <section className={`${s.beat} ${s.ivory}`}>
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.beatHead} data-rv="">
-              <h2>Three honest questions.</h2>
-              <Info label="Returning couples">
-                <p>
-                  A couple who booked you keeps you in their Setnayan. When their next event comes, you&apos;re already there,
-                  marked &quot;Returning client · you&apos;ve worked together before&quot;, with your Returning Couple discount ready.
-                </p>
-              </Info>
-            </div>
-            <div className={s.qs} data-play-once="">
-              <div className={s.q}>
-                <h3>Is it worth learning?</h3>
-                <p>It&apos;s free, and Free is built to be very easy. Your page builds itself from what you add.</p>
-              </div>
-              <div className={s.q}>
-                <h3>What&apos;s in it for me?</h3>
-                <p>Found. Booked. Paid directly. One chat per client. A calm event day.</p>
-              </div>
-              <div className={s.q}>
-                <h3>Will I still be here in 10 years?</h3>
-                <p>What you build here stays: your reviews, your portfolio, your returning clients, your badges. It adds up.</p>
-              </div>
-            </div>
-            <p className={s.promise}>We don&apos;t promise you our future. We promise that what you build here is yours.</p>
-          </div>
-        </section>
-
-        {/* 12b · EVERYTHING */}
-        <section className={s.beat}>
-          <div className={s.wrap}>
-            <details className={s.fold} data-rv="">
-              <summary>
-                <h2>Everything you get</h2>
-                <span className={s.see}>See the full list</span>
-                <span className={s.foldSum}>
-                  {fold.map((g) => (
-                    <span key={g.title} className={s.fchip}>
-                      {FOLD_ICONS[g.title]}
-                      {g.title}
-                      <b>{g.lines.length}</b>
-                    </span>
-                  ))}
-                </span>
-              </summary>
-              <div className={s.foldBody}>
-                {fold.map((g) => (
-                  <div key={g.title} className={s.foldGroup}>
-                    <h3>
-                      {FOLD_ICONS[g.title]}
-                      {g.title}
-                    </h3>
-                    <ul>
-                      {g.lines.map((l) => (
-                        <li key={l.text}>
-                          <span>{l.text}</span>
-                          <span className={s.tags}>
-                            <FoldPill pill={l.pill} />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </details>
-          </div>
-        </section>
-
-        {/* 13 · PLANS — the simpler plans (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS", drawing §§ 1–2):
-            four plans, one card each, a year switch per plan, one line for what is left to buy, then the comparison. */}
-        <section className={`${s.beat} ${s.soft}`} id="plans">
-          <div className={`${s.wrap} ${s.stack}`}>
-            <div className={s.beatHead} data-rv="">
-              <p className={s.kicker}>Plans</p>
-              <h2>Start free. Grow when you&apos;re ready.</h2>
-              <p className={s.lede}>
-                Every tool to run your bookings is free. Paid plans add a bigger team, the specialized tools and the AI
-                chatbot.
-              </p>
-            </div>
-            <div className={s.pickMore} data-rv="">
-              <PlanPicker cards={planCards} start="pro" href={OPEN_SHOP} />
-              <a href="#plan-table">See what each plan includes ↓</a>
-              <p className={s.fine}>{buyMoreLine(prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null)}</p>
-            </div>
-            {helper ? <p className={`${s.fine} ${s.helper}`}>{helper}</p> : null}
-            <SupplierPlanTable
-              paywallOn={paywallOn}
-              prices={{
-                monthly: { solo: prices.soloMonthly, pro: prices.proMonthly, enterprise: prices.enterpriseMonthly },
-                annual: { solo: prices.soloAnnual, pro: prices.proAnnual, enterprise: prices.enterpriseAnnual },
-                annualSave: { solo: prices.soloAnnualSave, pro: prices.proAnnualSave, enterprise: prices.enterpriseAnnualSave },
-                bySku: prices.bySku,
-              }}
-            />
-            <div className={s.plansCta} data-rv="">
-              <a className={s.btn} href={OPEN_SHOP} data-sf-cta="">
-                {CTA}
+    <div className={s.root}>
+      {/* 1 · HERO */}
+      <section className={s.hero} aria-labelledby="sf-h-top">
+        <figure className={s.hp}>
+          <Image src={`${A}/hero.webp`} alt="A florist setting a long table before a reception" fill priority sizes="(min-width: 760px) 720px, 100vw" />
+          <figcaption>
+            <p className={s.kick}>For suppliers</p>
+            <h1 id="sf-h-top">Run the business you already have.</h1>
+            <p className={s.sub}>Your clients, quotes and dates. One free place.</p>
+          </figcaption>
+        </figure>
+        <Link className={`fd-btn-terra ${s.btn}`} href={OPEN_SHOP} data-sf-cta="">
+          {CTA} →
+        </Link>
+        <p className={`${s.fine} ${s.c}`}>{FREE_LINE}</p>
+        <div className={s.heroInfo}>
+          <Info label="How the fee works">
+            <p>
+              Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
+              takes a cut of the deal. {SUPPLIER_FREE_BOOKING_LINE}
+            </p>
+            <p>
+              <a className={s.tlink} href="#earn">
+                How Setnayan earns
               </a>
-              <Info label="About prices">
-                <p>
-                  Prices are per 4 weeks, or a year at the price of ten blocks. Verified shops are shown in search. A shop
-                  still waiting for its papers is found only through its own link or QR, where couples can still book it.
-                  Couples pay you directly; Setnayan never holds a peso.
-                </p>
-              </Info>
-            </div>
-            {afterPlans}
-          </div>
-        </section>
+            </p>
+          </Info>
+        </div>
+        <nav className={`fd-chips ${s.chips}`} aria-label="On this page">
+          <a className="fd-chip" href="#tools">Free tools</a>
+          <a className="fd-chip" href="#verified">Get Verified free</a>
+          <a className="fd-chip" href="#model">Fees</a>
+          <a className="fd-chip" href="#plans">Plans</a>
+        </nav>
+      </section>
 
-        {/* 14 · CLOSE */}
-        <section className={s.close} id="close">
-          <div className={s.wrap}>
-            <p className={s.kicker}>Set na &apos;yan</p>
-            <h2>Not just a place to sell. A place to stay.</h2>
-            <p className={s.lede}>Open your shop. It takes two steps, and it&apos;s free.</p>
+      {/* 2 · YOUR TOOLS */}
+      <section className={s.part} id="tools" aria-labelledby="sf-h-tools" data-rv="">
+        <SecHead id="sf-h-tools">Your tools</SecHead>
+        <Lede text="Free on every plan. Bring your clients with you.">
+          <p>
+            Every shop gets the chat with quotes and pay plans, the calendar, QR codes and links, service cards, a shop
+            page and Today. Add the clients you already have, one by one or by your QR.
+          </p>
+        </Lede>
+        <div className={s.row}>
+          {TOOLS.map((t) => (
+            <figure key={t.b} className={s.item}>
+              <div className={s.thumb}>
+                {t.chat ? (
+                  <div className={s.chat} role="img" aria-label="A sample chat: a date is asked, a quote is sent, then accepted">
+                    <p className={s.them}>Free on 14 March?</p>
+                    <p className={s.q}>
+                      <b>Quote</b>
+                      <span>Full-day photo &amp; video</span>
+                      <em>{peso(45999)}</em>
+                    </p>
+                    <p className={s.ok}>Accepted</p>
+                  </div>
+                ) : (
+                  <Image src={`${A}/${t.img}.webp`} alt={t.alt ?? ''} width={360} height={450} sizes="180px" />
+                )}
+              </div>
+              <figcaption>
+                <b>{t.b}</b>
+                <span>{t.t}</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      {/* 3 · YOUR SHOP PAGE */}
+      <section className={s.part} id="shop" aria-labelledby="sf-h-shop" data-rv="">
+        <SecHead id="sf-h-shop">Your shop page</SecHead>
+        <Lede text="One address, on every plan.">
+          <p>Your photos, service cards and reviews live at one address. The address is yours for good.</p>
+        </Lede>
+        <figure className={s.wide}>
+          <Image src={`${A}/shop.webp`} alt="A couple opening a supplier’s shop page on a tablet" width={760} height={475} sizes="(min-width: 760px) 720px, 100vw" />
+          <figcaption className={s.addr}>
+            setnayan.com/<b>yourshop</b>
+          </figcaption>
+        </figure>
+      </section>
+
+      {/* 4 · START FREE. GET VERIFIED FREE. */}
+      <section className={s.part} id="verified" aria-labelledby="sf-h-ver" data-rv="">
+        <SecHead id="sf-h-ver">Start free. Get Verified free.</SecHead>
+        <p className={s.ledeText}>Both cost ₱0. One runs your business. One gets you found.</p>
+        <ol className={s.steps}>
+          <li>
+            <span className={s.n}>1</span>
             <div>
-              <a className={`${s.btn} ${s.closeCta}`} href={OPEN_SHOP} data-sf-cta="">
-                {CTA}
-              </a>
+              <b>
+                Free <em>₱0</em>
+              </b>
+              <span>Run the business you already have.</span>
+              <Info label="About Free">
+                <p>
+                  Our tools, your clients, {countNoun(cards('free'), 'live service card', 'live service cards')} and a full shop
+                  page, {FREE_FINDABLE}.
+                </p>
+              </Info>
             </div>
+          </li>
+          <li>
+            <span className={s.n}>2</span>
             <div>
-              <a className={s.realshop} href={codes.page.url}>
-                <Image src={`${A}/setnayan-productions-logo-round.svg`} alt="" width={44} height={44} unoptimized />
-                <span className={s.realshopT}>
-                  <small>SEE A REAL SHOP</small>
-                  <b>{SAMPLE_SHOP.name}</b>
-                  <span className={s.mono}>{pageUrlShown}</span>
-                </span>
-              </a>
+              <b>
+                Verified <em>₱0</em>
+              </b>
+              <span>Be found on Discover and Find.</span>
+              <Info label="About Verified">
+                <p>
+                  Send {formatCount(VERIFIED_PAPERS.length)} business papers once: {VERIFIED_PAPERS.join(', ')}. A person checks
+                  them.
+                </p>
+                <p>
+                  Then: {verifiedSpec()}, and {countNoun(cards('verified'), 'live service card', 'live service cards')}.
+                </p>
+              </Info>
             </div>
-            <p className={s.smallprint}>
-              <span>Free to join</span>
-              <span>Full dashboard free</span>
-              <span>{FEE_FREE_CHIP}</span>
+          </li>
+        </ol>
+        <p className={s.say}>No fakes on Setnayan. Reviews come only from completed bookings.</p>
+      </section>
+
+      {/* 5 · YOUR SERVICE CARDS */}
+      <section className={s.part} id="cards" aria-labelledby="sf-h-cards" data-rv="">
+        <SecHead id="sf-h-cards">Your service cards</SecHead>
+        <Lede text="Medals are earned from real bookings. Never bought.">
+          <p>
+            {CARD_MEDALS.length === 6 ? 'Six' : formatCount(CARD_MEDALS.length)} medals can sit on a card:{' '}
+            {CARD_MEDALS.map((m) => m.name).join(', ')}. Your shop also earns badges and seals. None can be paid for.
+          </p>
+        </Lede>
+        <ul className={`${s.row} ${s.cards}`}>
+          {SAMPLE_CARDS.map((c) => (
+            <li key={c.name} className={s.card}>
+              <ServiceFace
+                name={c.name}
+                coverUrl={c.cover}
+                path={c.path}
+                shop={{ name: c.shop, href: null, logoUrl: null, verified: c.badges.some((b) => b.key === 'verified') }}
+                price={peso(c.price)}
+                includes={includesLineOf(c.includes)}
+                notIncluded={c.notIncluded}
+                footer={<CardBadgeRow badges={c.badges} cardName={c.name} shopName={c.shop} now={0} />}
+              />
+            </li>
+          ))}
+        </ul>
+        <p className={s.fine}>Sample cards. The same card shows in Find, on your shop page and in chats.</p>
+      </section>
+
+      {/* 6 · FEES */}
+      <section className={s.part} id="model" aria-labelledby="sf-h-fees" data-rv="">
+        <SecHead id="sf-h-fees">Grow your business, not your fees</SecHead>
+        <Lede text={`A booking fee applies to a booking, ${FEE_SCOPE}.`}>
+          <p>Setnayan never takes a cut of the deal.</p>
+          {f && fee.schedule ? (
+            <>
+              <p>
+                <b>When it is charged.</b> {BOOKING_FEE_CHARGED_WHEN} The smallest fee is{' '}
+                {bookingFeeMinimumAmount(fee.schedule)}.
+              </p>
+              <p>
+                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest.
+              </p>
+            </>
+          ) : (
+            <p>
+              {fee.enabled
+                ? 'The booking fee is shown in full before you agree to any booking.'
+                : 'There is no booking fee while it is switched off.'}
+            </p>
+          )}
+          <p>
+            <b>Who books you free.</b> {SUPPLIER_FREE_BOOKING_LINE}
+          </p>
+          <p>
+            <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
+          </p>
+          <p>
+            <b>Free booking fee tickets.</b> A ticket you already hold is applied automatically to your next booking that
+            carries the fee, and that booking’s fee is free.
+          </p>
+          <p>
+            <b>Your customers never see the fee.</b> We add nothing to your price.
+          </p>
+        </Lede>
+        {f && fee.schedule ? (
+          <div className={s.fee}>
+            <p className={s.feeK}>On a booking that carries the fee</p>
+            <div className={s.feeRow}>
+              <b className={s.feeN}>{f.head}</b>
+              <p className={s.feeT}>
+                <span>of the first {f.band}</span>
+                <span className={s.feeCap}>{f.tail} after that</span>
+              </p>
+            </div>
+            <FeeRuler schedule={fee.schedule} freeWhen={freeWhen} />
+            {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
+            <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>
+            <p className={s.feeWhen}>
+              <b>{FEE_FREE_CHIP}.</b> {SUPPLIER_FREE_BOOKING_LINE}
             </p>
           </div>
-        </section>
+        ) : null}
+        <p className={s.fine}>Hosts never see the fee. They never pay it.</p>
+        <SupplierHowWeEarn
+          feeEnabled={fee.enabled}
+          figures={words.figures}
+          plans={{ plus: prices.soloMonthly, pro: prices.proMonthly, ultra: prices.enterpriseMonthly }}
+          deepSearch={prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null}
+          giftFrom={giftFrom}
+        />
+      </section>
 
-        <CtaDock href={OPEN_SHOP} label={CTA} />
-      </QrSheetProvider>
-    </SupplierFrontRoot>
+      {/* 7 · PLANS */}
+      <section className={s.part} id="plans" aria-labelledby="sf-h-plans" data-rv="">
+        {/* The drawing's "Compare →" is not drawn: no public page compares the supplier plans yet (/pricing is the
+            couples' page, and the return leg to it is `afterPlans`). */}
+        <SecHead id="sf-h-plans">Plans</SecHead>
+        <Lede text="Upgrade only to manage more.">
+          <p>
+            <b>Live cards.</b> {capLine(cards)}.
+          </p>
+          <p>
+            <b>People.</b> {capLine((t) => TIER_CAPS[t].agentAccounts + 1)}.
+          </p>
+          <p>
+            <b>Branches.</b> {capLine((t) => TIER_CAPS[t].branchesIncluded)}.
+          </p>
+        </Lede>
+        <PlanRows rows={planRows} href={OPEN_SHOP} />
+        <p className={s.fine}>No plan limits your inquiries.</p>
+        {afterPlans ? <div className={s.after}>{afterPlans}</div> : null}
+      </section>
+
+      {/* 8 · CLOSE */}
+      <section className={s.close} id="start" aria-labelledby="sf-h-close" data-rv="">
+        <figure className={s.wide}>
+          <Image src={`${A}/close.webp`} alt="A supplier team planning around a tablet" width={760} height={427} sizes="(min-width: 760px) 720px, 100vw" />
+        </figure>
+        <h2 id="sf-h-close">Open your shop. Then make your first service card.</h2>
+        <ol className={s.two}>
+          <li>
+            <span className={s.n}>1</span>Name your shop. It becomes your address.
+          </li>
+          <li>
+            <span className={s.n}>2</span>Make your first service card, right in setup.
+          </li>
+        </ol>
+        <Link className={`fd-btn-terra ${s.btn}`} href={OPEN_SHOP}>
+          {CTA} →
+        </Link>
+        <p className={`${s.fine} ${s.c}`}>{FREE_LINE}</p>
+      </section>
+    </div>
   );
 }

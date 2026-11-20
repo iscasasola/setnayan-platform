@@ -2,8 +2,8 @@
  * supplier-cuts-first-steps.test.ts — 🧰 THE SUPPLIER'S FIRST STEPS, CUTS 1 AND 4 (owner-approved 2026-11-14 —
  * DECISION_LOG "THE SEVEN SUPPLIER CUTS ARE APPROVED"; prototype `prototypes/supplier_eleven_jobs_cuts_2026-11-14_fable.html`).
  *
- *   (1) /for-suppliers: the stage is short and still — no scroll-driven track — so the first "Create your shop free" is
- *       on the first screen; the five people play on a timer.
+ *   (1) /for-suppliers: the stage is short and still — no scroll-driven track — so the first button is on the first
+ *       screen (since 2026-11-20 the hero is one still photo card, "Open your shop free").
  *   (2) the supplier's tour shows ONCE: no tick box, no "plays again each time you sign in".
  *   (3) "In business since" never holds the inspiration pages; every other missing step still holds them, and it still
  *       holds the rest of the supplier tree.
@@ -27,21 +27,26 @@ const WEB = join(__dirname, '..');
 const tileServices = (t: string) => canonicalServicesForTile(t as Parameters<typeof canonicalServicesForTile>[0]);
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('(1) the /for-suppliers stage is short and still — no scroll track; the people play on a timer', () => {
+test('(1) the /for-suppliers stage is short and still — no scroll track; the first button is on the first screen', () => {
   const css = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front.module.css'), 'utf8');
   assert.doesNotMatch(css, /\.heroTrack\s*\{\s*height:\s*calc\(100svh \+ 250svh\)/, 'the 3.5-screen scroll track is back');
   assert.doesNotMatch(css, /\.heroSticky\s*\{[^}]*position:\s*sticky/, 'the stage sticks and scrolls again');
-  const sticky = css.match(/\.heroSticky\s*\{[^}]*height:\s*min\((\d+)svh/);
-  assert.ok(sticky && Number(sticky[1]) <= 40, `the phone stage is taller than a first screen allows (${sticky?.[1]}svh)`);
+  /*
+   * 2026-11-20 — MOVED, NOT LOOSENED. The approved drawing (`prototypes/for_suppliers_2026-11-20/`) replaced the five
+   * people on a timer with ONE still photo card, so there is no stage and no timer left to pin. What cut (1) protects
+   * — the first button on the first screen — is pinned on the new hero: the photo is capped (it was the stage's
+   * ≤ 40svh), nothing in the page changes on scroll, and the heading and the first button sit in the hero.
+   */
+  const hp = css.match(/\.hp\s*\{[^}]*max-height:\s*(\d+)px/);
+  assert.ok(hp && Number(hp[1]) <= 480, `the hero photo is taller than a first screen allows (${hp?.[1]}px)`);
   const stage = read('app/for-suppliers/_components/supplier-front-client.tsx');
-  const hero = stage.slice(stage.indexOf('export function HeroStage'), stage.indexOf('export function CheckADateDemo'));
-  assert.ok(hero.length > 200 && stage.indexOf('export function CheckADateDemo') > stage.indexOf('export function HeroStage'), 'anti-vacuity: HeroStage not found');
-  assert.doesNotMatch(hero, /addEventListener\('scroll'/, 'the people change on scroll again');
-  assert.match(hero, /window\.setInterval\(/, 'the people no longer play by themselves');
-  /* The heading and the first button are in the hero section, straight after the stage. */
+  assert.doesNotMatch(stage, /addEventListener\('scroll'/, 'the hero changes on scroll again');
   const page = read('app/for-suppliers/_components/supplier-front-page.tsx');
-  const heroSection = page.slice(page.indexOf('<HeroStage'), page.indexOf('2 · WHY') > 0 ? page.indexOf('<section className={s.beat}>') : undefined);
-  assert.match(heroSection, /<h1>Not just a place to sell\. A place to stay\.<\/h1>/);
+  const start = page.indexOf('className={s.hero}');
+  const end = page.indexOf('id="tools"');
+  assert.ok(start > 0 && end > start, 'anti-vacuity: the hero section is not found');
+  const heroSection = page.slice(start, end);
+  assert.match(heroSection, /<h1 id="sf-h-top">Run the business you already have\.<\/h1>/);
   assert.match(heroSection, /data-sf-cta=""/, 'the first button left the hero');
 });
 

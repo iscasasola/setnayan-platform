@@ -1,3 +1,4 @@
+import { redirectUnlessEventKeepsRetired } from '@/lib/retired-products.server';
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -135,6 +136,8 @@ export default async function PatiktokGallery({
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 🪦 RETIRED (owner 2026-11-20) — an event that does not already have it goes to its dashboard.
+  await redirectUnlessEventKeepsRetired(eventId, 'PATIKTOK_COMPILER');
 
   const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'display_name, event_date', () =>
       supabase

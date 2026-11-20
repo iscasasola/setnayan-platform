@@ -99,7 +99,7 @@ export const INAPP_TO_SERVICE_CODE: Record<string, string> = {
   // ₱3,000/10,000 rungs exist too and are bought from the studio). It is no
   // longer the pax-priced "from ₱2,999 for up to N guests" pack.
   papic_guest: 'PAPIC_GUEST',
-  pakanta: 'PAKANTA',
+  // pakanta (Music Maker → PAKANTA) RETIRED 2026-11-20 — no onboarding row (lib/retired-products.ts).
   // indoor_blueprint RETIRED (owner 2026-06-08) — dropped from the catalog + the offered set.
   // live_background RETIRED as an onboarding pick (owner 2026-07-22): Live
   // Background is bundle-only, folded into Monogram PRO (animated_monogram).
@@ -144,7 +144,6 @@ export const OUT_ANCHORS: Record<string, number> = {
   guest_stories: 8000,
   animated_monogram: 15500,
   thank_you: 60000,
-  pakanta: 12500,
   panood: 17500,
   live_background: 20000,
   live_photowall: 18000,

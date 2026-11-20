@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Image from 'next/image';
 import { ShieldAlert, ShieldCheck } from 'lucide-react';
@@ -48,9 +49,7 @@ function formatDate(iso: string): string {
 
 export default async function VendorTheftWatchPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

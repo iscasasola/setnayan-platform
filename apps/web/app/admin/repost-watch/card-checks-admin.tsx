@@ -1,10 +1,11 @@
-import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { Plus, Trash2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { formatCount } from '@/lib/format-number';
 import { saveCardClaimWords } from './actions';
 import { PostedPick, PostedText } from './card-checks-fields';
@@ -34,8 +35,7 @@ type ReportRow = {
   supplier_report_note: string | null;
 };
 
-const BTN =
-  'inline-flex min-h-9 items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]';
+const BTN = actionButtonClass('neutral');
 
 async function shopNames(ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -73,23 +73,26 @@ export async function SupplierPhotoReports() {
   );
 
   return (
-    <section className="mb-6" id="supplier-photo-reports" data-admin-photo-reports={rows.length}>
-      <h2 className="text-base font-semibold text-ink">
-        Suppliers who say a photo is theirs{rows.length > 0 ? ` · ${formatCount(rows.length)}` : ''}
-      </h2>
-      <div className="mt-1">
-        <InfoTip label="About card checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-          A supplier was told a photo is already on another shop’s service card and pressed “It’s mine — report it”.
-        Their card stays blocked until they replace the photo; the same pair is in the list below if you want to
-        record a verdict.
-        </InfoTip>
-      </div>
+    <div id="supplier-photo-reports" data-admin-photo-reports={rows.length}>
+      <TemplateSection
+        label="Suppliers who say a photo is theirs"
+        first
+        data="photo-reports"
+        right={rows.length > 0 ? formatCount(rows.length) : undefined}
+        tip={
+          <>
+            A supplier was told a photo is already on another shop’s service card and pressed “It’s mine — report it”.
+            Their card stays blocked until they replace the photo; the same pair is in the list below if you want to
+            record a verdict.
+          </>
+        }
+      >
       {error ? (
-        <p className="mt-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
+        <TemplateFail retryHref="/admin/repost-watch" data="photo-reports">
           Reports couldn’t load right now — refresh in a moment.
-        </p>
+        </TemplateFail>
       ) : rows.length === 0 ? (
-        <p className="mt-2 text-sm text-ink/55">No reports.</p>
+        <TemplateEmpty data="photo-reports">No reports.</TemplateEmpty>
       ) : (
         <ul className="mt-3 divide-y divide-ink/10">
           {rows.map((r) => {
@@ -122,7 +125,8 @@ export async function SupplierPhotoReports() {
           })}
         </ul>
       )}
-    </section>
+      </TemplateSection>
+    </div>
   );
 }
 
@@ -145,19 +149,21 @@ export async function CardChecksAdmin() {
   const names = await shopNames(Array.from(new Set(allowances.map((a) => a.vendor_profile_id))));
 
   return (
-    <section className="mt-10 border-t border-ink/10 pt-6" id="card-claim-words" data-admin-claim-words={words.length}>
-      <h2 className="text-base font-semibold text-ink">Claim words on service cards</h2>
-      <div className="mt-1">
-        <InfoTip label="About the card maker's checks" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-          The card maker keeps Create shut while a card’s name, a what’s-included line or an extra carries one of these
-        (whole word, any case), and shows the supplier the note as the reason. Allow a word for one shop below.
-        </InfoTip>
-      </div>
-
+    <div id="card-claim-words" data-admin-claim-words={words.length}>
+      <TemplateSection
+        label="Claim words on service cards"
+        data="claim-words"
+        tip={
+          <>
+            The card maker keeps Create shut while a card’s name, a what’s-included line or an extra carries one of these
+            (whole word, any case), and shows the supplier the note as the reason. Allow a word for one shop below.
+          </>
+        }
+      >
       {wordsRes.error ? (
-        <p className="mt-2 text-sm" style={{ color: 'rgb(var(--color-danger))' }}>
+        <TemplateFail retryHref="/admin/repost-watch" data="claim-words">
           The word list couldn’t load right now — refresh in a moment.
-        </p>
+        </TemplateFail>
       ) : (
         <ul className="mt-3 divide-y divide-ink/10">
           {words.map((w) => (
@@ -185,11 +191,14 @@ export async function CardChecksAdmin() {
         </SubmitButton>
       </form>
 
-      <h3 className="mt-6 text-sm font-semibold text-ink">
-        Allowed for one shop{allowances.length > 0 ? ` · ${formatCount(allowances.length)}` : ''}
-      </h3>
+      </TemplateSection>
+      <TemplateSection
+        label="Allowed for one shop"
+        data="claim-allowances"
+        right={allowances.length > 0 ? formatCount(allowances.length) : undefined}
+      >
       {allowances.length === 0 ? (
-        <p className="mt-1 text-sm text-ink/55">No shop holds an allowance.</p>
+        <TemplateEmpty data="claim-allowances">No shop holds an allowance.</TemplateEmpty>
       ) : (
         <ul className="mt-2 divide-y divide-ink/10">
           {allowances.map((a) => (
@@ -223,6 +232,7 @@ export async function CardChecksAdmin() {
           </SubmitButton>
         </form>
       ) : null}
-    </section>
+      </TemplateSection>
+    </div>
   );
 }

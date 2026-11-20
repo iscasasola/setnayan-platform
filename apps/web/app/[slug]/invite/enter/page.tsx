@@ -8,7 +8,6 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventRowOnceBySlug } from '@/lib/event-row-once';
-import { createClient } from '@/lib/supabase/server';
 import { arrivalDestinationFor, arrivalDestinationWords, replyIsAsked } from '@/lib/invite-destination';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { fetchPublicScheduleBlocks } from '@/lib/schedule';
@@ -413,7 +412,8 @@ async function inviteEnterPage({ params, searchParams }: Props) {
   const seatsAhead = canvas ? null : startAhead(plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string));
   const passCardAhead = startAhead(passCardEligibilityFor(admin, guest.guest_id as string));
   const plusOneTicketIdsAhead = startAhead(plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string));
-  const viewerAhead = startAhead(createClient().then((supabase) => supabase.auth.getUser()));
+  // The request's one account read (`lib/auth.ts`), shared with everything else in this render.
+  const viewerAhead = startAhead(getCurrentUser());
   const seatHolderAhead = canvas ? null : startAhead(readSeatHolder(event.event_id as string, guest.guest_id as string));
   const ticketSeatsAhead = canvas || !seatDay ? null : startAhead(readTicketSeats(admin, event.event_id as string));
   const cookieStore = await cookies();
@@ -521,9 +521,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
     .map((s) => `${PASS_CARD_ROUTE}?guest=${encodeURIComponent(s.guest_id)}`);
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
-  const {
-    data: { user },
-  } = await viewerAhead;
+  const user = await viewerAhead;
   const account = guestAccountState({
     viewerUserId: user?.id ?? null,
     viewerEmail: user?.email ?? null,

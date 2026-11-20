@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
@@ -44,11 +45,12 @@ export default async function ClearancePage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'cleared_at, event_type', () =>
+      supabase
     .from('events')
     .select('cleared_at, event_type')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (eventError) {
     logQueryError(
       'ClearancePage.event',

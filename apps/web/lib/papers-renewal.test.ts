@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
 import { papersDueIn } from './papers-due';
+import { PAPERS_LAPSED_AUDIT_ACTION } from './papers-lapse';
 import { BADGE_REMINDER_STAGES, hasVerifiedBadge } from './verified-badge';
 import { MAX_TRIES } from './paper-intake-shared';
 import * as R from './papers-renewal';
@@ -154,8 +155,15 @@ test('ruling 2 · on renewal the held plan comes back with the same days, counte
 test('ruling 2 · wiring: the lapse writes the hold into its audit row; the approval reads it back', () => {
   const lapse = code('lib/papers-lapse.server.ts');
   assert.match(lapse, /const plan = planHoldAtLapse\(row, now\)/);
-  assert.match(lapse, /plan\.kind === 'hold' \? \{ tier_state: 'free', tier_expires_at: null \}/);
-  assert.match(lapse, /held_tier: plan\.tier, held_ms: plan\.heldMs/);
+  // The hold (free plan, clock stopped) is written in SQL by stamp_papers_lapse, handed plan.kind.
+  assert.match(lapse, /p_plan: plan\.kind/);
+  // 💸 The hold is written INSIDE stamp_papers_lapse, in the drop's own transaction — never by a second call that
+  // could fail after the drop committed (tests/db/papers-lapse-drops-the-plan.db.test.ts proves the row lands).
+  assert.ok(!/admin_audit_log/.test(lapse), 'the lapse writes its audit row in a separate call again');
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271354465843_papers_lapse_drops_the_plan_deliberately.sql'), 'utf8');
+  assert.ok(sql.includes(`'${PAPERS_LAPSED_AUDIT_ACTION}'`), 'the SQL hold row is written under a different action than renewal reads');
+  assert.match(sql, /'held_tier', v_row\.tier_state/);
+  assert.match(sql, /'held_ms', v_held_ms/);
   const engine = code('lib/verification-decision.server.ts');
   const approve = engine.slice(engine.indexOf("case 'approved':"), engine.indexOf("case 'rejected':"));
   assert.match(approve, /await heldPlanBack\(admin, vendor\.vendor_profile_id, new Date\(now\)\)/);

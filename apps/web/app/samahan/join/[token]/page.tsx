@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { CheckCircle2, HeartHandshake, ShieldAlert } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -80,9 +81,7 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
 
   const invite = resolution.invite;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // Signed-out → show the community card + sign-in/sign-up round trip
   // (acceptHostInvite ?next= pattern).

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/server';
@@ -27,9 +28,7 @@ export default async function OpenShopLogoPage({
   // W1-B21: the plan a supplier picked on /for-suppliers rides through to its offer.
   const offer = planOfferPath((await searchParams).plan);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=%2Fopen-shop%2Flogo&as=vendor');
 
   // 🔀 THE SHOP THIS SCREEN SAVES TO is the one `updateVendorProfileField` writes: the ACTIVE shop, owner-only

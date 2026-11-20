@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BadgeCheck } from 'lucide-react';
@@ -57,9 +58,7 @@ export default async function AdminVendorPlanPage({
 
   // Admin-only gate — bounce non-admins before any DB read.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

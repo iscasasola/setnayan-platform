@@ -40,13 +40,14 @@ function headers(html: string) {
   });
 }
 
-test('1 · at rest: only the open header wears a pencil — the folded ones, renamable or not, wear none', async () => {
-  const hs = headers(await renderGuestsScreen({ guests: ROSTER }));
+test('1 · at rest: every header is open on arrival and none wears a pencil — nothing is picked yet', async () => {
+  // 👥 Guests redesign (owner 20 Nov 2026): sections start open, and the drawing shows no pencil at rest. "Picked" is a
+  // heading the person opened themselves (or a search opened) — never the arrival default.
+  const hs = await renderGuestsScreen({ guests: ROSTER }).then(headers);
   console.log(`  ${hs.map((h) => `${h.key}${h.open ? ' (open)' : ''} ✎${h.pencils.length}`).join(' · ')}`);
-  const folded = hs.filter((h) => !h.open);
-  assert.ok(folded.some((h) => h.key === 'role:groomsmen'), 'Groomsmen is not drawn folded — the fixture no longer tests a renamable header at rest');
-  for (const h of folded) assert.equal(h.pencils.length, 0, `${h.key} is folded and still shows a pencil`);
-  assert.ok(hs.filter((h) => h.open).length >= 1, 'no header is open on arrival');
+  assert.ok(hs.some((h) => h.key === 'role:groomsmen'), 'Groomsmen is not drawn — the fixture no longer tests a renamable header at rest');
+  assert.ok(hs.every((h) => h.open), 'a header starts folded');
+  for (const h of hs) assert.equal(h.pencils.length, 0, `${h.key} wears a pencil at rest — nobody picked it`);
 });
 
 test('2 · a picked (open) renamable header wears ONE pencil — a real, named button', async () => {

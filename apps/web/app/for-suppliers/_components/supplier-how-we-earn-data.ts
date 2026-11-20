@@ -3,10 +3,15 @@
  * can read them without loading a CSS module. No price lives here.
  * 🔒 ../the-earn-block-says-what-was-ruled.test.ts
  *
- * Own-client words follow the 16 Nov import-fee ruling ("A NEW ACCOUNT IS FREE FOR ONE YEAR"), which retired
- * "free for life"; the promise title is main's shipped OWN_CLIENT_PROMISE so the two never drift.
+ * Own-client words follow the 19 Nov ruling (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4), which
+ * RETIRED the 16 Nov "free for a year" line: the free booking is said only as SUPPLIER_FREE_BOOKING_LINE, and no number
+ * of months is named. The promise title is main's shipped OWN_CLIENT_PROMISE so the two never drift.
  */
 import { OWN_CLIENT_PROMISE } from '@/lib/own-clients';
+import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
+
+/** The free booking in the owner's 19 Nov words — one home, `lib/booking-fee-who-words.ts`; re-exported for the guard. */
+export { SUPPLIER_FREE_BOOKING_LINE };
 /** Ruling e5d166cd (1), verbatim. */
 export const PAID_SPOT_PROMISE = {
   title: 'No one can pay to rank above you.',
@@ -16,7 +21,7 @@ export const PAID_SPOT_PROMISE = {
 export const EARN_PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: OWN_CLIENT_PROMISE,
-    body: 'A client new to Setnayan books you with no booking fee for 12 months. A client already on Setnayan books free for an event you are the first supplier to add them to. Each one comes with a Setnayan gift from you.',
+    body: `${SUPPLIER_FREE_BOOKING_LINE} Each one comes with a Setnayan gift from you.`,
   },
   {
     title: 'You see every fee before you agree.',
@@ -36,7 +41,7 @@ export const EARN_PROMISES: ReadonlyArray<{ title: string; body: string }> = [
 export const EARN_FREE_ROWS: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: 'Your own clients',
-    body: 'All your own clients, no limit. Bring them with Add a client or your codes. Clients new to Setnayan book you free for a year.',
+    body: `Bring them with Add a client or your codes. ${SUPPLIER_FREE_BOOKING_LINE}`,
   },
   { title: 'Your shop page', body: 'Your page, your calendar, your chat, your portfolio and your badges.' },
   {
@@ -50,7 +55,7 @@ export const SAMPLE_FOUND_LINE = 'Found you on Setnayan · from Search, 3 Nov';
 
 type Wedding = { name: string; role: string; story: string; fee: boolean; why: string };
 export const ONE_WEDDING: ReadonlyArray<Wedding> = [
-  { name: 'Liwanag Events', role: 'Coordinator', story: 'Brought Ana & Paolo onto Setnayan first.', fee: false, why: 'Their client, new to Setnayan: free for a year' },
+  { name: 'Liwanag Events', role: 'Coordinator', story: 'Brought Ana & Paolo onto Setnayan first.', fee: false, why: 'Their client, new to Setnayan: free' },
   {
     name: 'Lola Nena’s Kitchen',
     role: 'Catering',

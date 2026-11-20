@@ -32,6 +32,7 @@
 import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
 import type { LucideIcon } from 'lucide-react';
 import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
+import { isRetiredAddOn } from './retired-products';
 import type { EventMenuChild, EventMenuIconName } from './customer-menu';
 
 export type OurServiceState =
@@ -257,6 +258,10 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
   if (isPending) {
     return { ...base, href: open, inertReason: null, state: 'pending', stateText: 'Waiting for payment', pro: false };
   }
+  // 🪦 RETIRED (owner 2026-11-20, Patiktok and Music Maker): no card at all for
+  // an event that does not already have it — never a "buy" and never a dimmed
+  // card for a thing we no longer offer.
+  if (isRetiredAddOn(entry)) return null;
   if (entry.status === 'coming_soon') {
     return { ...base, href: null, inertReason: 'Not ready yet — coming soon.', state: 'soon', stateText: 'Coming soon', pro: false };
   }

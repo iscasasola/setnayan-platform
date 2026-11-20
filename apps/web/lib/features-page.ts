@@ -113,8 +113,6 @@ export const FEATURE_ROWS = {
   a56: F({ icon: 'grid', name: 'Smart Photo Sorting', line: 'Each photo finds the guests in it.', price: 'free', status: 'live', reg: ['A56'], problem: 'A shared pile nobody can search.', solution: 'AI and QR route each photo to the people in it.', why: 'Everyone finds themselves.' }),
   a61: F({ icon: 'live', name: 'Live Watch', line: 'Livestream on the Event Hub, up to 12 cameras.', price: 'paid', status: 'live', reg: ['A61'], page: 'live-watch', problem: 'Relatives abroad hunt for a stream link.', solution: 'Stream on the event’s own page with multicam switching; guest phones are cameras.', why: 'Lolos and OFWs are part of the day.' }),
   a68: F({ icon: 'wall', name: 'Live Photo Wall (Salamisim)', line: 'Guests’ photos land on the venue screen as they shoot.', price: 'paid', status: 'live', reg: ['A68'], problem: 'Guests’ photos stay on their phones during the party.', solution: 'The wall shows the room to itself, live, from Papic.', why: 'More joy, more photos.' }),
-  a62: F({ icon: 'reel', name: 'Patiktok (Reel Booth)', line: 'Short vertical reels, optional TikTok post.', price: 'per-day', status: 'live', reg: ['A62'], page: 'patiktok', problem: 'The best moments stay on phones; a highlight reel arrives weeks later.', solution: 'Pick the moments and a reel composes itself with music, in the browser.', why: 'The party sees itself the same night.' }),
-  a63: F({ icon: 'music', name: 'Music Maker', line: 'An original song from your own story.', price: 'paid', status: 'live', reg: ['A63'], page: 'music-maker', problem: 'Every video is set to someone else’s song.', solution: 'An owned song made to order; the soundtrack of every video.', why: 'Yours to keep.' }),
   a64: F({ icon: 'music', name: 'Playlist', line: 'The day’s music, in order.', price: 'free', status: 'live', reg: ['A64'], problem: 'The DJ gets a screenshot of a Spotify list.', solution: 'One playlist on the event, shared with the people who play it.', why: 'The right song at the right moment.' }),
   a65: F({ icon: 'mem', name: 'Photo Delivery', line: 'The photographer delivers into your Memories.', price: 'paid', status: 'live', reg: ['A65'], problem: 'Final photos arrive on a USB months later.', solution: 'Delivery lands in your Memories, beside the guests’ photos.', why: 'One album, finished.' }),
   a57: F({ icon: 'mem', name: 'Memories', line: 'Everything from the day, download all, say thank you.', price: 'free', status: 'live', reg: ['A57'], page: 'alaala', problem: 'Photos scatter across 150 phones, get deleted, or cost money to keep.', solution: 'Guests’ photos, the broadcast and the page, in one place you can return to.', why: 'The memory outlives the day.' }),
@@ -265,7 +263,7 @@ export const PERSONAS: readonly Persona[] = [
       { eye: 'Suppliers', title: 'Find them, compare them, agree in writing.', line: 'Verified shops by city, side by side. The quote, the payment plan and every change land as cards in one chat, so what was agreed is never a screenshot.', moment: 'chat', photo: P.caterer,
         groups: [['Find and book', ['a31', 'a32', 'a33', 'a34', 'a35']], ['Keep it straight', ['a36', 'a37', 'a29', 'a30', 'a26', 'a38']]] },
       { eye: 'The day', title: 'The Hub turns live. Your guests become the crew.', line: 'From the morning of, the Event Hub switches to the day: the schedule, the tables, the stream for family abroad, and every phone shooting into one album.', moment: 'hub', photo: P.wall,
-        groups: [['The door', ['a18']], ['Papic', ['a52', 'a53', 'a54', 'a55', 'a56']], ['The show', ['a61', 'a68', 'a62', 'a63', 'a64', 'a65']]] },
+        groups: [['The door', ['a18']], ['Papic', ['a52', 'a53', 'a54', 'a55', 'a56']], ['The show', ['a61', 'a68', 'a64', 'a65']]] },
       { eye: 'After', title: 'The day ends. The page doesn’t.', line: 'The same link becomes the story of the day: your guests’ photos sorted by face, the family’s words, the thank-yous, and gifts that went straight to you.', moment: 'memories',
         groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a46', 'a47', 'a74']]] },
       { eye: 'Every event after this one', title: 'A wedding is the way in. The family is why you stay.', line: 'Your people are saved once. The christening, the debut, the 60th and the golden anniversary each start pre-filled, and every memory stays in one library.', moment: 'family', photo: P.christening,
@@ -327,6 +325,8 @@ export const EXCLUDED: readonly (readonly [row: string, why: string])[] = [
   ['A67', 'Camera Bridge — shelved 2026-07-17, no catalogue row'],
   ['A69', 'Pailaw — retired 2026-08-11'],
   ['A70', 'Pabati — retired (migration retire_pabati)'],
+  ['A62', 'Patiktok — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
+  ['A63', 'Music Maker — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
   ['C36', 'Storage packs, 3D booth, photo challenge, tokens — off sale in the catalogue (read 10 Nov)'],
 ];
 
@@ -368,7 +368,7 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Event Pro', tag: 'The full show.', price: { kind: 'paid', catalogue: 'retail', codes: ['COUPLE_WEBSITE_PRO'] }, lines: ['Everything in Plus, more Papic credits', 'Nine themes, every reveal and scene animation', 'Your own photos, videos and music; custom scenes', 'Print-ready invitations, tickets, posters', 'Setnayan AI', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads, no Setnayan mark`], credits: { index: 0, said: (n) => `Everything in Plus, ${n} Papic credits` } },
   // 💎 Event Ultra (owner 2026-11-13) — only what a paid Ultra order unlocks today; canvas prints join when the Our Day
   // poster ships (see ULTRA_PEEK in app/_components/frontdoor/front-door-landing-data.ts).
-  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, 'Patiktok'], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
+  { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [

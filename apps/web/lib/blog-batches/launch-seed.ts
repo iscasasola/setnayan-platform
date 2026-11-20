@@ -98,7 +98,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
     ],
   },
   {
-    slug: 'questions-to-ask-every-wedding-vendor',
+    slug: 'questions-to-ask-every-wedding-supplier',
     cover: '/blog/photo.webp',
     coverAlt:
       'A wedding photographer reviewing shots on the back of a camera at a softly lit reception',
@@ -257,7 +257,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
 export const HOOKS_LAUNCH_SEED: Record<string, string> = {
   'how-to-budget-a-philippine-wedding-step-by-step':
     "The midnight question every engaged couple Googles: how much will this actually cost? Here’s how to build your number from zero — and keep it. 💍",
-  'questions-to-ask-every-wedding-vendor':
+  'questions-to-ask-every-wedding-supplier':
     "Two suppliers, the same price, two completely different deals. The 10 questions that reveal the difference — before you book, not on the day. 📋",
   'choosing-your-ceremony-by-faith-philippines':
     "Catholic, civil, INC, Muslim, or mixed-faith? The path you choose quietly shapes your timeline, your paperwork, and the feel of the day. Here’s how to choose. ⛪🕊️",

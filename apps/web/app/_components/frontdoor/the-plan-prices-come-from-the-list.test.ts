@@ -4,8 +4,8 @@
  *
  * Owner rule: every price comes from `platform_retail_catalog_v2`, which Admin edits — never typed into a page.
  * Event Pro is `COUPLE_WEBSITE_PRO` (`COUPLE_WEBSITE_PRO`, on sale today); Event Plus is `EVENT_PLUS`, put on sale by the
- * final price-sheet PR. Until a row is on sale its card says "per event" and names no figure, so Plus appears on
- * its own the day its row goes live.
+ * final price-sheet PR. Until a row is on sale — or when the read fails — that plan's row is NOT DRAWN: never a
+ * figureless "per event" line (controller, 20 Nov). Plus appears on its own the day its row goes live.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -55,4 +55,27 @@ test('the front page reads the catalogue and types no plan price', () => {
   );
   assert.match(landing, /<PlanPrice php=\{planPrices\.plus\}/);
   assert.match(landing, /<PlanPrice php=\{planPrices\.pro\}/);
+});
+
+test('a plan whose price could not be read is not drawn — never a figureless price line', async () => {
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { FrontDoorLanding } = await import('./front-door-landing');
+  const html = (plus: number | null, pro: number | null) =>
+    renderToStaticMarkup(
+      React.createElement(FrontDoorLanding, {
+        planPrices: { plus, pro, ultra: null },
+        planFacts: { plusCredits: null, proCredits: null, freePapic: null },
+      }),
+    );
+  const failed = html(null, null);
+  const rows = (h: string) => [...h.matchAll(/<span class="fl-pn">([^<]+)/g)].map((m) => m[1]);
+  assert.deepEqual(rows(failed), ['Free'], 'a plan with no price read is still drawn');
+  assert.doesNotMatch(failed, /class="fl-pp">per event</, 'a figureless "per event" price line is drawn');
+  assert.match(failed, /See the Free plan/, 'the plan count does not match the rows drawn');
+  const live = html(null, 5690);
+  assert.deepEqual(rows(live), ['Free', 'Event Pro']);
+  assert.match(live, /See the two plans/);
+  assert.match(live, /₱5,690/);
 });

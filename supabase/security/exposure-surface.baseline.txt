@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7978
+# facts: 7994
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     648
-#   col       5743
+#   col       5755
 #   policy    1170
 #   view      10
-#   func      403
+#   func      407
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -950,6 +950,7 @@ col	public.canonical_service_schemas.schema_version	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.shared_attribute_groups	anon=SIU authenticated=SIU
 col	public.canonical_service_schemas.updated_at	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.applicable_event_types	anon=SIU authenticated=SIU
+col	public.canonical_service_taxonomy.availability_style	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.canonical_service	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.created_at	anon=SIU authenticated=SIU
 col	public.canonical_service_taxonomy.dietary	anon=SIU authenticated=SIU
@@ -2370,6 +2371,7 @@ col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
 col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
+col	public.event_vendors.booked_quantity	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
 col	public.event_vendors.category_key	anon=SIU authenticated=SIU
 col	public.event_vendors.completion_disputed_at	anon=SIU authenticated=SIU
@@ -2433,6 +2435,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
+col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -4064,6 +4067,8 @@ col	public.platform_package_catalog.title	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_at	anon=SIU authenticated=SIU
 col	public.platform_package_catalog.updated_by_admin_id	anon=SIU authenticated=SIU
 col	public.platform_retail_catalog_v2.billing_period	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.bundle_of_service_code	anon=S authenticated=S
+col	public.platform_retail_catalog_v2.bundle_quantity	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.created_at	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.description	anon=S authenticated=S
 col	public.platform_retail_catalog_v2.is_active	anon=S authenticated=S
@@ -4516,11 +4521,13 @@ col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
 col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
 col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
 col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
+col	public.shop_gift_purchases.bundle_code	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
 col	public.shop_gift_purchases.credits_each	anon=- authenticated=S
 col	public.shop_gift_purchases.gift_kind	anon=- authenticated=S
 col	public.shop_gift_purchases.order_id	anon=- authenticated=S
+col	public.shop_gift_purchases.packs_each	anon=- authenticated=S
 col	public.shop_gift_purchases.price_basis	anon=- authenticated=S
 col	public.shop_gift_purchases.quantity	anon=- authenticated=S
 col	public.shop_gift_purchases.service_code	anon=- authenticated=S
@@ -4537,6 +4544,8 @@ col	public.shop_gift_stock_entries.kind	anon=- authenticated=S
 col	public.shop_gift_stock_entries.note	anon=- authenticated=S
 col	public.shop_gift_stock_entries.order_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.own_client_gift_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.pack_code	anon=- authenticated=S
+col	public.shop_gift_stock_entries.packs	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
@@ -6144,6 +6153,7 @@ col	public.vendor_service_time_slots.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_service_time_slots.vendor_service_id	anon=- authenticated=SIU
 col	public.vendor_services.added_pax_block	anon=S authenticated=SIU
 col	public.vendor_services.added_pax_price_php	anon=S authenticated=SIU
+col	public.vendor_services.availability_style	anon=S authenticated=SIU
 col	public.vendor_services.base_pax	anon=S authenticated=SIU
 col	public.vendor_services.branch_copy_of	anon=S authenticated=SIU
 col	public.vendor_services.branch_id	anon=S authenticated=SIU
@@ -6169,6 +6179,7 @@ col	public.vendor_services.last_minute_end_months	anon=S authenticated=SIU
 col	public.vendor_services.last_minute_surcharge_pct	anon=S authenticated=SIU
 col	public.vendor_services.min_hours	anon=S authenticated=SIU
 col	public.vendor_services.min_pax	anon=S authenticated=SIU
+col	public.vendor_services.order_lead_days	anon=S authenticated=SIU
 col	public.vendor_services.package_inclusions	anon=S authenticated=SIU
 col	public.vendor_services.per_pax_price_php	anon=S authenticated=SIU
 col	public.vendor_services.plan_held_at	anon=S authenticated=SIU
@@ -6190,6 +6201,7 @@ col	public.vendor_services.title	anon=S authenticated=SIU
 col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
 col	public.vendor_services.transport_included	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
+col	public.vendor_services.usual_prep_days	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
@@ -7654,6 +7666,7 @@ func	public.chat_decision_set_closed(p_topic_id uuid, p_closed boolean)	secdef=y
 func	public.chat_file_removal_options(p_message_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_add(p_thread_id uuid, p_people uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_create(p_event_id uuid, p_name text, p_people uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.chat_group_former_members(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_head(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_i_am_in(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_group_leave(p_thread_id uuid, p_note text)	secdef=yes exec=authenticated search_path=public
@@ -7799,7 +7812,6 @@ func	public.join_supplier_invite(p_inviter_slug text)	secdef=yes exec=authentica
 func	public.link_creator_offer_deliverable(p_offer_id uuid, p_chapter_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.live_studio_guest_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.mark_samahan_read(p_community_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.mark_vendor_contact_confirmed(p_application_id uuid, p_channel text)	secdef=yes exec=authenticated search_path=public
 func	public.may_answer_schedule_ask(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.min_n_ok(p_count integer, p_floor integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.moderator_area_level(p_event_id uuid, p_area text)	secdef=yes exec=anon,authenticated search_path=public
@@ -7885,6 +7897,7 @@ func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authentic
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_booked_quantity(p_event_vendor_id uuid, p_quantity integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
@@ -7898,6 +7911,8 @@ func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authen
 func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
+func	public.shop_gift_pack_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.shop_gift_reward_pack_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_reward_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_gift_stock_status(p_vendor_profile_id uuid, p_except_event_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.shop_papic_wallet_balance(p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public, pg_temp
@@ -7945,6 +7960,7 @@ func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exe
 func	public.vendor_couple_photo_shares()	secdef=yes exec=authenticated search_path=public
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_day_check(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_day_pool_taken(p_day date)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public

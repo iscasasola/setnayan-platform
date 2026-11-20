@@ -28,7 +28,7 @@ import { SupplierFrontPage, type SupplierFrontCodes } from '@/app/for-suppliers/
 import { SAMPLE_SHOP, growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { shopOpensToStrangers } from '@/lib/shop-opens-to-strangers.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { getVendorPrices } from '@/lib/v2-catalog';
+import { getCustomerSkuPrice, getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -42,6 +42,9 @@ import { myPageUrl } from '@/lib/supplier-qr-codes';
 import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
+
+/** The gift the "How Setnayan earns" row prices from — the smallest single gift a supplier can give (owner, 16 Nov). */
+const GIFT_FROM_SKU = 'PAPIC_GUEST_150';
 
 const HEADLINE = 'Not just a place to sell. A place to stay.';
 
@@ -78,12 +81,12 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Your shop, your calendar, your clients and your event day, in one place. Free to start. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Your shop, your calendar, your clients and your event day, in one place. Free to start. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       images: BRAND_OG_IMAGES,
       title,
-      description: `Your shop, your calendar, your clients and your event day, in one place · ${supplierCommissionShort(fee)} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
+      description: `Your shop, your calendar, your clients and your event day, in one place · ${supplierCommissionShort(fee)} · free when you bring the event first.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',
@@ -216,10 +219,13 @@ async function sampleShopCodes(): Promise<SupplierFrontCodes> {
 }
 
 export default async function ForSuppliersPage() {
-  const [p, fee, codes, realShopOpen] = await Promise.all([
+  // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
+  // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
+  const [p, fee, codes, papic150, realShopOpen] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     sampleShopCodes(),
+    getCustomerSkuPrice(GIFT_FROM_SKU),
     shopOpensToStrangers(SAMPLE_SHOP.slug),
   ]);
   return (
@@ -244,6 +250,7 @@ export default async function ForSuppliersPage() {
             seat: p.seat,
             bySku: p.bySku,
           }}
+          giftFrom={papic150 ? `₱${papic150}` : null}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           codes={codes}

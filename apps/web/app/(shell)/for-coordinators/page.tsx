@@ -94,7 +94,6 @@ import {
   planName,
   planPill,
   reachLadderSentence,
-  reachWords,
   verifiedSpec,
   type FoldGroup,
 } from './_facts';
@@ -110,6 +109,7 @@ import {
 } from '@/app/v/[slug]/_components/sample-shop-page';
 
 import './_for-coordinators.css';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
@@ -550,7 +550,7 @@ export default async function ForCoordinatorsPage() {
                   {feeRates
                     ? `You pay a booking fee of ${feeRates.head} on the first ${feeRates.band} of a booking and ${feeRates.tail} after.`
                     : 'You pay a booking fee on the couples Setnayan brings you; its rate is shown in full before you agree to any booking.'}{' '}
-                  Your own clients, the ones you bring or import, never carry a fee.
+                  {FEE_FREE_RULE}
                 </p>
               </InfoToggle>
             </div>
@@ -623,9 +623,8 @@ export default async function ForCoordinatorsPage() {
                   {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
-                  {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
-                  and branches. See Plans below.
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search, and you set how
+                  far you go. Paid plans add categories, team seats and branches. See Plans below.
                 </p>
               </InfoToggle>
             </div>
@@ -939,7 +938,7 @@ export default async function ForCoordinatorsPage() {
                   Setnayan never takes a cut of the deal.{' '}
                   {feeRates
                     ? `You pay a booking fee: ${feeRates.head} on the first ${feeRates.band} of a booking, ${feeRates.tail} after.`
-                    : 'You pay a booking fee only on the couples Setnayan brings you.'}
+                    : `You pay a booking fee on a booking, ${FEE_SCOPE}.`}
                 </p>
               </div>
               {fee && feeRates ? (
@@ -981,8 +980,8 @@ export default async function ForCoordinatorsPage() {
               <p>Climb a badge, and we reward you, free.</p>
               <InfoToggle id="fc-i11" label="Fees, badges and rewards">
                 <p>
-                  The fee counts only on couples Setnayan brings you. Clients who found you outside Setnayan never carry a
-                  fee. Your first bookings through Setnayan are free.
+                  {FEE_FREE_RULE} Every other booking carries the fee. Your first bookings through Setnayan are
+                  free.
                 </p>
                 <p>
                   Badges climb at {badgeRungs()} finished events; stars come from trusted reviews; years count from the year
@@ -1072,7 +1071,7 @@ export default async function ForCoordinatorsPage() {
             <div className="fc-beat-head">
               <h2>{"Free to join. Verified free. Grow when you're ready."}</h2>
               <p className="fc-lede">
-                Every tool to run your bookings is free. Paid plans add reach, a bigger team and more branches. Prices are per
+                Every tool to run your bookings is free. Paid plans add a bigger team and more branches. Prices are per
                 4 weeks.
               </p>
             </div>
@@ -1179,7 +1178,7 @@ export default async function ForCoordinatorsPage() {
             <p className="fc-smallprint">
               <span>Free to join</span>
               {on.dayOfFree ? <span>Day-of desks free</span> : null}
-              <span>Your own clients never carry a fee</span>
+              <span>{FEE_FREE_CHIP}</span>
             </p>
           </div>
         </section>

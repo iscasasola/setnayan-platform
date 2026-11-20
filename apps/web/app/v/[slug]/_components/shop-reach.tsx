@@ -6,9 +6,10 @@ import { openStreetMapUrl } from '@/lib/scene-map-tiles';
 import { shopReachLine, type ShopReach } from '@/lib/shop-page-plan';
 
 /**
- * The shop page's reach, by plan (supplier website by plan, owner-approved 2026-10-30; numbers 2026-10-23 / 10-29):
- * the city fact line now carries the plan's reach — "Serves up to 20 km around Tagaytay", or for a shop Setnayan has
- * not verified yet "Tagaytay · distance search opens once verified" — and the map draws that ring.
+ * The shop page's reach — never the plan's since 2026-11-19 (owner: "unlock the range. not plan dependend anymore";
+ * "verified sets its own range"): the city fact line carries the shop's OWN declared outer ring once it is verified —
+ * "Serves up to 20 km around Tagaytay" — or for a shop Setnayan has not verified yet "Tagaytay · distance search opens
+ * once verified"; the map draws that ring.
  *
  * The ring is the SHIPPED `ReachMap` (the supplier's own Where you work map — one drawing of one number), with a
  * couple-voiced label; a shop with no ring keeps the shipped pin map (`VendorLocationMap`) exactly as before.

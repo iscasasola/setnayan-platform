@@ -198,6 +198,8 @@ const MAKER_ONLY_FIELDS = [
   'gift_pack_present', 'gift_pack_code', // Gift (2026-11-07) — commitVendorService → vendor_services.gift_pack_code
   'quote_return', // ＋ Made from a quote (11 Nov 2026) — commitVendorService returns a new card there (lib/quote-card-return.ts)
   'card_queue', // ➕ Make N cards (ruling 5820) — commitVendorService opens the next service's maker (lib/card-queue.ts)
+  'availability_present', 'availability_style', 'order_lead_days', // 🗓 Availability (step 3, 2026-11-19) — commitVendorService → vendor_services.availability_style · order_lead_days
+  'usual_prep_days', // 🗓 Usual preparation time (step 4, 2026-11-19) — commitVendorService → vendor_services.usual_prep_days (Made to order only)
   'card_specialties', // 🏷 the queued services' own specialties, carried to each one's card (lib/card-queue.ts)
   'op', 'branch', 'price_php', 'Price there', // 🏢 Copy to another branch (owner 2026-11-14, item 10) — its OWN sheet form (copy-to-branch.tsx) → supplierPlanExtra, never the card form
 ] as const;

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { BackButton } from '@/app/_components/back-button';
 import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
@@ -41,9 +42,7 @@ export const metadata = { title: 'Settings · Supplier' };
  */
 export default async function VendorSettingsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const [role, profile, storeShell] = await Promise.all([

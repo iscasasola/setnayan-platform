@@ -1029,6 +1029,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'admin_focus_put_offs',
+    column: 'user_id',
+    why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
+  },
+  {
     table: 'chat_poll_votes',
     column: 'voter_user_id',
     why: '🗳 CASCADE + NOT NULL — a vote is this person\u2019s own pick on a chat poll (migration 20271338412990). It goes with them; the poll and the other side\u2019s votes stay.',
@@ -1064,6 +1069,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'creator_chapters',
     column: 'user_id',
     why: 'CASCADE + NOT NULL. A creator chapter is the subject’s own body of work on the platform.',
+  },
+  {
+    table: 'creator_chapter_replies',
+    column: 'user_id',
+    why: 'CASCADE + NOT NULL. A reply under an article (Build 2, 2026-11-17) is the subject’s own words; it goes with the account. The article it answered stays, its other replies stay.',
   },
   {
     table: 'lead_token_holds',

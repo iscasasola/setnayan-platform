@@ -88,12 +88,14 @@ async function recorded<T>(fn: () => Promise<T>): Promise<{ value: T; logs: unkn
   }
 }
 
-const READERS: { name: string; run: (c: SupabaseClient) => Promise<unknown>; fallback: () => unknown }[] = [
+// `empty` — what a GENUINE empty answer returns, when it differs from the refusal's fallback. The booth order state
+// says `unread` on a refusal (it was `none`, which re-offered a paid supplier the buy form — supplier audit C-1).
+const READERS: { name: string; run: (c: SupabaseClient) => Promise<unknown>; fallback: () => unknown; empty?: () => unknown }[] = [
   { name: 'eventHasCompGrant', run: (c) => entitlements.eventHasCompGrant(c, 'ev_1', 'PAPIC'), fallback: () => false },
   { name: 'eventCompActiveSkus', run: (c) => entitlements.eventCompActiveSkus(c, 'ev_1'), fallback: () => [] },
   { name: 'papicCameraOrderPaid', run: (c) => cameras.papicCameraOrderPaid(c, 'ord_1'), fallback: () => false },
   { name: 'fetchSelfPurchaseRoles', run: (c) => selfPurchase.fetchSelfPurchaseRoles(c, 'u_1'), fallback: () => [] },
-  { name: 'fetchVendorBoothEventOrderState', run: (c) => booth.fetchVendorBoothEventOrderState(c, 'vp_1', 'ev_1'), fallback: () => 'none' },
+  { name: 'fetchVendorBoothEventOrderState', run: (c) => booth.fetchVendorBoothEventOrderState(c, 'vp_1', 'ev_1'), fallback: () => 'unread', empty: () => 'none' },
   { name: 'fetchInviteToken', run: (c) => communities.fetchInviteToken(c, 'cm_1'), fallback: () => null },
 ];
 
@@ -108,7 +110,7 @@ for (const r of READERS) {
 
   test(`${r.name}: a genuine empty answer leaves NO record`, async () => {
     const { value, logs } = await recorded(() => r.run(stubClient(MISSING)));
-    assert.deepEqual(value, r.fallback());
+    assert.deepEqual(value, (r.empty ?? r.fallback)());
     assert.equal(logs.length, 0);
   });
 }

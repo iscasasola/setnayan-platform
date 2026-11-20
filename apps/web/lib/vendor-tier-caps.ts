@@ -109,7 +109,10 @@ export type VendorSeoLevel = 'basic' | 'enhanced' | 'aeo' | 'priority';
  *   · portfolio photos    — {@link PORTFOLIO_FREE_BASE} free on every plan; more is
  *                           paid with Papic credits (Phase 2 — until then, blocked
  *                           with {@link PORTFOLIO_OVER_BASE_MESSAGE}).
- * What a plan still buys is REACH: service area, categories, team seats, SEO
+ *   · distance reach      — NOT a plan allowance since 2026-11-19 (owner: *"unlock the range. not
+ *                           plan dependend anymore"*). Unverified = 0 km; verified = the shop's own
+ *                           range on every plan (`reachCeilingKm`, lib/vendor-service-radius.ts).
+ * What a plan still buys is REACH: categories, team seats, SEO
  * level, own web address, and the business tools / insights.
  * Held by `plans-price-reach-not-income.test.ts`.
  * ════════════════════════════════════════════════════════════════════════════
@@ -206,8 +209,13 @@ export function capPortfolioRefs(
 }
 
 export interface TierCaps {
-  /** Service/distance coverage radius. Infinity = unlimited, 0 = ✗. */
-  serviceRadiusKm: number;
+  /*
+   * ⛔ NO `serviceRadiusKm`. Reach is not a plan allowance since 2026-11-19 (owner, verbatim: *"ok unlock the range.
+   * not plan dependend anymore."* · *"Free Unverified account will have a range of 0km."*). An unverified shop reaches
+   * 0 km; a verified shop on ANY plan sets its own range. The rule lives in ONE place — `reachCeilingKm` in
+   * lib/vendor-service-radius.ts — and reads the shop's verification, never its tier. Held by
+   * `reach-is-not-a-plan-allowance.test.ts`; do not add a reach number back to a plan.
+   */
   /**
    * SERVICE CARDS IN TOTAL, across every category the shop covers (owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS
    * REBUILT" + ruling 39 "MAX 80, ULTRA 200": *"max 80 cards / ultra 200 cards"*) — Free 1 · Verified 3 · Plus 10 · Pro
@@ -471,7 +479,6 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     storageBytes: null, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 1)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceRadiusKm: 5, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": reach 5 km · 10 km · 50 km · 100 km · nationwide · nationwide
     serviceCardsTotal: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
     chat: 'chat', // 2026-10-23 — every plan answers couples (the inbox was ungated 2026-07-24)
     parentCategories: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
@@ -523,7 +530,6 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     // waitlist is also 1), which the ladder test asserts.
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 — same on every plan (was 2)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceRadiusKm: 10, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": reach 5 km · 10 km · 50 km · 100 km · nationwide · nationwide
     serviceCardsTotal: 3, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
     chat: 'chat',
     parentCategories: 1, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": main categories 1 · 1 · 2 · 8 · all 12 · all 12
@@ -572,7 +578,6 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     storageBytes: 5 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 3)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceRadiusKm: 50, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": reach 5 km · 10 km · 50 km · 100 km · nationwide · nationwide
     serviceCardsTotal: 10, // owner 2026-11-18 "SUPPLIER PLANS REBUILT" + ruling 39: cards IN TOTAL 1 · 3 · 10 · 20 · 80 · 200 (was per category)
     marketIntel: false,
     theftWatch: false,
@@ -613,7 +618,6 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     storageBytes: 10 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS,
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceRadiusKm: 100, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": reach 5 km · 10 km · 50 km · 100 km · nationwide · nationwide
     // Market intel (cross-business Demand Radar + Price-Position) is PRO-AND-UP
     // (owner 2026-07-11 — supersedes the 2026-07-01 "Enterprise-only" call, which
     // the marketing copy had already been advertising as a Pro benefit). Pro also
@@ -664,7 +668,6 @@ export const TIER_CAPS: Record<VendorTier, TierCaps> = {
     storageBytes: 20 * STORAGE_GB, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": storage — · — · 5 · 10 · 20 · 50 GB (Free · Verified: no allowance)
     whitelistPerDate: WHITELIST_PER_DATE_ALL_PLANS, // 2026-10-23 (was 10)
     waitlistAcceptances: WAITLIST_SETTING_MAX, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": the waitlist is a lead — no plan limit; the shop sets its own number, up to 10
-    serviceRadiusKm: Infinity, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": reach 5 km · 10 km · 50 km · 100 km · nationwide · nationwide
     marketIntel: true,
     theftWatch: true,
     performanceTrends: true, // owner 2026-11-18 "SUPPLIER PLANS REBUILT": basic graphs from Verified; unverified Free sees none
@@ -792,7 +795,7 @@ export function canBuyExtraCategories(_tier: string | null | undefined): boolean
   return false;
 }
 
-/** May this tier buy +1 service card per category? No plan, since 2026-11-14 (Ultra includes 30). */
+/** May this tier buy +1 service card? No plan, since 2026-11-14 (the ₱990-per-10 pack, ruling 39, is not built yet). */
 export function canBuyExtraServiceCards(_tier: string | null | undefined): boolean {
   return false;
 }
@@ -988,31 +991,8 @@ export function isSeoLevelAtLeast(
   return SEO_LEVEL_RANK[vendorSeoLevel(tier)] >= SEO_LEVEL_RANK[min];
 }
 
-/**
- * 📍 THE REACH LADDER, IN WORDS — read from `TIER_CAPS.serviceRadiusKm`, never typed (owner 2026-10-29, Supplier
- * dashboard v13 note 3: *"＋ past the cap says the next plan's reach"*). The plans a shop can move to, in order:
- * Verified (free, once approved) · Supplier Plus · Pro · Ultra. Free is 0 until verified — said by the caller, not listed.
- */
-const REACH_LADDER: readonly VendorTier[] = ['verified', 'solo', 'pro', 'enterprise'];
+/** A plan's name in a ladder: the legacy `verified` tier reads "Verified"; the rest read their marketed label. */
 const reachName = (t: VendorTier) => (t === 'verified' ? 'Verified' : TIER_LABEL[t]);
-
-/** "Verified 20 km · Supplier Plus 30 · Pro 100 · Ultra nationwide" — Ultra is `Infinity` since 2026-11-04. */
-export function reachLadderWords(): string {
-  return REACH_LADDER.map((t, i) => {
-    const km = TIER_CAPS[t].serviceRadiusKm;
-    return `${reachName(t)} ${Number.isFinite(km) ? `${km}${i === 0 ? ' km' : ''}` : 'nationwide'}`;
-  }).join(' · ');
-}
-
-/** The first plan above `tier` that reaches farther — what ＋ at the plan's farthest says. Null at the top. */
-export function nextPlanReach(tier: string | null | undefined): { plan: string; km: number } | null {
-  const here = TIER_CAPS[asVendorTier(tier)].serviceRadiusKm;
-  const rank = tierRank(tier);
-  for (const t of REACH_LADDER) {
-    if (TIER_RANK[t] > rank && TIER_CAPS[t].serviceRadiusKm > here) return { plan: reachName(t), km: TIER_CAPS[t].serviceRadiusKm };
-  }
-  return null;
-}
 
 /**
  * 🗂 HOW MANY CATEGORIES EACH PLAN RUNS, IN WORDS — read from `TIER_CAPS.parentCategories`, never typed (owner, the

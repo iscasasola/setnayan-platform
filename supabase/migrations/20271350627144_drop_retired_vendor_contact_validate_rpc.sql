@@ -1,0 +1,23 @@
+-- drop_retired_vendor_contact_validate_rpc
+--
+-- The VALIDATE contact check is retired. Owner 2026-11-14 (specs DECISION_LOG 93ed7cd0, cut 2): "no email the
+-- supplier must send from outside the app". The supplier half went in #7627; the admin's "Mark email received
+-- / Mark text received" stamp and its server action `markVendorContactConfirmed` went in the same PR as this
+-- file. That action was the function's ONLY caller, so `tests/db/ugat-both-ends.db.test.ts` (rpc-no-caller)
+-- asks for it to be dropped. The owner approved dropping it (2026-11-15) rather than baselining it.
+--
+-- WHAT IS DROPPED: the one admin-only SECURITY DEFINER function created by 20270503417266. Nothing else names
+-- it: no other function body, policy, trigger, view, default or CHECK (measured by grep over
+-- supabase/migrations; the root map's both-ends scan agrees).
+--
+-- WHAT IS KEPT (no data is touched): the four stamp columns on vendor_verification_applications
+-- (contact_{email,phone}_confirmed_{at,by}) and the stamps already on old applications. The app still reads
+-- them softly (fetchContactConfirmations). The platform_settings VALIDATE inbox/number rows are untouched too.
+-- The column COMMENTs that name this function stay as history.
+--
+-- IF EXISTS with the exact signature, so a re-apply is a no-op.
+--
+-- ⚠ DO NOT APPLY THIS DIRECTLY TO PRODUCTION. `deploy-prod.yml` runs `supabase db push --include-all --yes`
+-- after merge.
+
+DROP FUNCTION IF EXISTS public.mark_vendor_contact_confirmed(uuid, text);

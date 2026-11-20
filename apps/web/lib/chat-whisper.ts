@@ -49,6 +49,22 @@ export const WHISPER_HOSTS_ONLY_MESSAGE = 'Only a host of the event can whisper 
 /** The box's own line when a drag finds nobody to whisper to. */
 export const WHISPER_NOBODY_LINE = 'No co-host is in this chat yet. Add one to whisper.';
 
+/**
+ * ⚠ THE READ FAILED — said as a failure, never as "nobody is here". A failed read of who is in the chat used to come
+ * back as an empty list, and the box and the send core then told a host with co-hosts that there were none: a failure
+ * rendered identically to emptiness. These words are distinct from the two above, so the two cases can never be
+ * mistaken for each other. 🔒 lib/a-failed-whisper-read-is-not-nobody.test.ts
+ */
+export const WHISPER_UNREAD_MESSAGE = "Couldn't check who is in this chat — your whisper was not sent. Try again.";
+export const WHISPER_UNREAD_LINE = "Couldn't load the co-hosts in this chat. Try again in a moment.";
+
+/** What the box says when a drag cannot turn whisper on — `null` when it can. The failed read wins over the count. */
+export function whisperBlockedLine(w: { coHosts: number; unread?: boolean }): string | null {
+  if (w.unread) return WHISPER_UNREAD_LINE;
+  if (w.coHosts <= 0) return WHISPER_NOBODY_LINE;
+  return null;
+}
+
 /** "Maria is whispering…" — to the co-hosts only; the supplier is sent nothing at all. */
 export function whisperingLine(name: string): string {
   return `${name} is whispering`;

@@ -52,7 +52,7 @@ export function samplePlanShop(plan: SampleShopPlan, declaredOuterKm: number | n
   const verified = plan !== 'free';
   const caps = tierCaps(tier);
   const can = micrositeCan(tier);
-  const reach: ShopReach = shopReach({ verified, tier, declaredOuterKm });
+  const reach: ShopReach = shopReach({ verified, declaredOuterKm });
   return {
     tier,
     verified,

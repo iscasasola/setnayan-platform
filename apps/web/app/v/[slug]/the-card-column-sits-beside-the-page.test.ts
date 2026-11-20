@@ -18,14 +18,17 @@ import {
   SHOP_COLUMNS_CLASS,
 } from './_components/shop-columns';
 
-// 13 Nov 2026 (owner-approved "two looks"): the two columns are the VERIFIED look — every verified plan alike, never a
-// plan gate; the unverified shop is the calm one-column sibling (SHOP_CALM_COLUMN_CLASS).
-test('the two columns are drawn for every verified plan — the look is the gate, never the plan', () => {
+// v16 S6 (owner 15 Nov, DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", superseding the
+// 13 Nov "two looks"): the two columns are EVERY shop's — never a plan gate, never a verification gate.
+test('the two columns are drawn for every shop — never a plan gate, never a verification gate', () => {
   const at = PAGE.indexOf('data-shop-columns=""');
   assert.ok(at > 0, 'the column grid is gone');
   const tag = PAGE.slice(at, PAGE.indexOf('>', at));
-  assert.match(tag, /className=\{cinematicHero \? SHOP_COLUMNS_CLASS : SHOP_CALM_COLUMN_CLASS\}/);
-  assert.match(PAGE, /const cinematicHero = vendor\.verification_state === 'verified';/);
+  assert.match(tag, /className=\{SHOP_COLUMNS_CLASS\}/);
+  assert.doesNotMatch(PAGE, /SHOP_CALM_COLUMN_CLASS|cinematicHero/, 'the unverified page went back to the calm column');
+  // Papers renewal §4, laid into v16 S6: a lapsed shop keeps the two columns too — its papers shut the CONTENT gate
+  // (`isVerifiedShop`), never the layout, and never a plan.
+  assert.match(PAGE, /const isVerifiedShop = \(vendor\.verification_state === 'verified' && !renewing\) \|\| isDemoVendor \|\| teamPreview !== null;/);
   // v16 S4 (owner-approved 15 Nov 2026): the card is the side card on the RIGHT — 300 px on a tablet, 360 on a computer.
   assert.match(SHOP_COLUMNS_CLASS, /md:grid md:grid-cols-\[minmax\(0,1fr\)_300px\]/);
   assert.match(SHOP_COLUMNS_CLASS, /lg:grid-cols-\[minmax\(0,1fr\)_360px\]/);
@@ -36,7 +39,7 @@ test('the card column is sticky and holds the identity section; the page body si
   const card = PAGE.indexOf('data-shop-card-column=""');
   const body = PAGE.indexOf('data-shop-body-column=""');
   assert.ok(card > 0 && body > card);
-  assert.match(PAGE.slice(card, card + 200), /className=\{cinematicHero \? `\$\{SHOP_CARD_COLUMN_CLASS\} \$\{SHOP_CALLING_CARD_CLASS\}/);
+  assert.match(PAGE.slice(card, card + 200), /className=\{`\$\{SHOP_CARD_COLUMN_CLASS\} \$\{SHOP_CALLING_CARD_CLASS\}/);
   assert.match(SHOP_CARD_COLUMN_CLASS, /md:sticky/);
   assert.ok(PAGE.slice(card, body).includes('<ShareButton'), 'the action row left the card column');
 });

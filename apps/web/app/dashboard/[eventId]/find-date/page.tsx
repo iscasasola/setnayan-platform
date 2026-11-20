@@ -18,6 +18,7 @@
  * chrome + outer <main> + the couple-membership guard (same as the sibling
  * Vendors page — this page only re-checks auth).
  */
+import { eventRowOnce } from '@/lib/event-row-once';
 import { redirect } from 'next/navigation';
 
 import { getCurrentUser } from '@/lib/auth';
@@ -73,7 +74,9 @@ export default async function FindDatePage({ params }: Props) {
 
   const [vendors, eventRes] = await Promise.all([
     fetchEventVendors(supabase, eventId),
-    supabase
+    // From the dashboard's one read of the row, when this render opened it (lib/event-row-once.ts).
+    eventRowOnce(supabase, eventId, 'event_date, event_date_precision', () =>
+      supabase
       .from('events')
       .select('event_date, event_date_precision')
       // `event_id`, NOT `id` — same defect the sibling Vendors page carried.
@@ -83,6 +86,7 @@ export default async function FindDatePage({ params }: Props) {
       // date. Guarded by lib/security/query-column-scan.ts.
       .eq('event_id', eventId)
       .maybeSingle(),
+    ),
   ]);
 
   // A failed read is not "no date" — `?? null` cannot tell them apart, which is

@@ -264,15 +264,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     // agree. See the `surface` doc above.
     surface: 'livestream',
   },
-  {
-    key: 'patiktok',
-    railIcon: 'patiktok',
-    name: 'Patiktok',
-    href: '/patiktok',
-    description:
-      'Patiktok turns your wedding moments into short, vertical highlight reels — set to music, ready to share, no editing required. The first dance, the entrance, the toast: the moments that travel, made the moment they happen.',
-    addOnKey: 'patiktok',
-  },
+  // 🪦 'patiktok' retired 2026-11-20 (lib/retired-products.ts) — no row, no page; /patiktok redirects to /features.
   {
     key: 'pa3d',
     railIcon: 'plan3d',
@@ -345,37 +337,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
       'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
     addOnKey: 'mood-board',
   },
-  {
-    /*
-      ─── THE EIGHTH, ADDED 2026-08-21 ──────────────────────────────────────
-      Owner: *"pakanta is paid. so add this to the studio."*
-
-      It has been SOLD since 2026-05-14 and had no public page until today, so
-      `front-door-invariants.test.ts` deliberately kept it out of the rail: a
-      row for it would have been a fake door. `/pakanta` lands in the same
-      commit, and that guard is inverted rather than deleted — it now fails if
-      the page disappears while the row stays.
-
-      🔑 NO `demo`. Nothing renders a Pakanta overlay — see the `demo` note
-      above; a "try it" marker on a page with no demo button is the fake door
-      this file forbids.
-
-      🔄 UPDATED 2026-09-01 (S1). Pakanta IS still not wedding-only — a debut or
-      an anniversary can buy a song, same as before — but it is no longer
-      offered on EVERY event type either: owner ruling hides it on
-      date · hangout · travel · simple_event, the same four the seeded rows
-      exclude via migration 20271188752170. `surface: 'song'` below carries
-      that, matching the `add-ons-catalog.ts` entry it opens.
-    */
-    key: 'pakanta',
-    railIcon: 'pakanta',
-    name: 'Music Maker',
-    href: '/pakanta',
-    description:
-      'Music Maker writes your wedding its own song — an original track composed from the love story you already told us, in the kind of music the two of you actually listen to. Yours to keep, cleared to share, and it becomes the music behind every video from your day, so the whole wedding sounds like you.',
-    addOnKey: 'pakanta',
-    surface: 'song',
-  },
+  // 🪦 'pakanta' retired 2026-11-20 (lib/retired-products.ts) — no row, no page; /pakanta redirects to /features.
   {
     /*
       ─── THE TENTH TO TWELFTH, ADDED 2026-09-05 — THE OTHER FREE TOOLS ────

@@ -19,7 +19,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { safeNext } from '@/lib/auth';
+import { safeNext, getCurrentUser } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { youCardOnward } from '@/lib/signup-landing';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -43,9 +43,7 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/signup?next=${encodeURIComponent(next)}`);
 
   // Own row (RLS). Read exactly the columns the card shows; nothing else.

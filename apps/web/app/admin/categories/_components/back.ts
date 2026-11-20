@@ -30,7 +30,7 @@ export const CATEGORIES_PATH = '/admin/categories';
 export const LISTS = ['categories', 'event-types', 'religions', 'hub-tools'] as const;
 export type CategoriesList = (typeof LISTS)[number];
 
-export const SHOWS = ['requests', 'unfiled', 'religion', 'scoped', 'hidden', 'words', 'needs', 'parts', 'nosvc-cat', 'nosvc-part'] as const;
+export const SHOWS = ['requests', 'unfiled', 'religion', 'scoped', 'hidden', 'words', 'needs', 'parts', 'nosvc-cat', 'nosvc-part', 'no-availability'] as const;
 export type CategoriesShow = (typeof SHOWS)[number];
 
 export type BackState = {

@@ -318,13 +318,16 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
     }),
   );
   // ⇅ A guest the shared Show / the search leaves out is drawn faint — never hidden (their seat is still taken).
-  assert.match(list, /data-seat-guest="b"[^>]*data-seat-dim=""[^>]*opacity:0\.3/, 'a left-out guest is not drawn faint');
-  assert.doesNotMatch(list, /data-seat-guest="a"[^>]*data-seat-dim/, 'a shown guest is dimmed');
-  assert.match(list, /class="[^"]*sn-acc-head[ "]/, 'the list is not the house foldable header');
-  assert.match(list, />Table 1<[\s\S]*?· 2 of 4 seats</);
-  assert.equal((list.match(/data-seat-guest="/g) ?? []).length, 3, 'a guest row is missing');
-  assert.equal((list.match(/data-seat-empty=""/g) ?? []).length, 2, '"2 of 4" does not draw two empty seats');
-  assert.match(list, /aria-label="Guest a, Table 1, seat 1"/, 'a guest is not named for a screen reader');
+  // (👥 20 Nov, Guests redesign pick 5: at rest a table is a card of faces — the face is the one drawn faint.)
+  assert.match(list, /data-seat-face="b"[^>]*data-seat-dim=""[^>]*opacity:0\.3/, 'a left-out guest is not drawn faint');
+  assert.doesNotMatch(list, /data-seat-face="a"[^>]*data-seat-dim/, 'a shown guest is dimmed');
+  // 👥 Guests redesign pick 5 (owner 20 Nov 2026): a card per table — its name, "2 of 4", its faces and dotted chairs;
+  // "To seat" first. The rows (with each guest's name for a screen reader) are on the table once it rises.
+  assert.match(list, /aria-label="Table 1, 2 of 4 seats — open"[^>]*data-seat-card="t1"/, 'a table card does not say what it is');
+  assert.match(list, />Table 1<[\s\S]*?2 of 4</);
+  assert.equal((list.match(/data-seat-card-face=""/g) ?? []).length, 3, 'a face is missing (two seated, one to seat)');
+  assert.equal((list.match(/data-seat-card-empty=""/g) ?? []).length, 2, '"2 of 4" does not draw two dotted chairs');
+  assert.ok(list.indexOf('data-seat-card="unseated"') < list.indexOf('data-seat-card="t1"'), 'To seat does not lead');
   // A face — on the plan AND in the list — opens the ONE guest card (the shipped sheet), with Remove · Swap.
   assert.match(ed, /else if \(inGuests\) tapFace\(occupant\.guest_id\);/, 'a face on the 2D plan does not open the card');
   assert.match(ed, /<SeatList\s+units=\{faceUnits\}[^>]*onOpenGuest=\{tapFace\}/, 'a guest in the list does not open the card');

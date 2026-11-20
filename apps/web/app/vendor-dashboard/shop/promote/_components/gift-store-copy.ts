@@ -91,10 +91,13 @@ export function giftStoreCapLine(most: number, b: Parameters<typeof bundleShape>
 export const GIFT_PAYMENT_SENT = { lead: 'Payment sent.', rest: ' We’re checking it. Your new tickets land here once it’s approved.' };
 
 /**
- * 🎟 THE HOLD RULE under "You have N available" (owner 17 Nov, DECISION_LOG row "1 gift held per booking", drawing
- * tap-through v4: "1 is held for each booking. At 0, clients can’t request to book."). ⚠ OPEN with the owner: whether 0
- * stock blocks the WHOLE booking request or only that gift. Built as ONLY THAT GIFT — the gift comes off the shop page and
- * a quote refuses it, the booking itself can still be requested — so the line says that, never the drawing's stronger
- * claim, which would be false on this build.
+ * 🎟 THE HOLD RULE under "You have N available". Owner 18 Nov (DECISION_LOG "Gifts held per quote = one per service
+ * card", count only) and 20–21 Nov ("every booking carries at least one Setnayan gift — no exceptions"; "even if they run
+ * out of gifts, they can still purchase"). Running out never takes a gift off a booking and never blocks one: at the
+ * Agree step a 0-stock gift reads GIFT_ZERO_LEFT and jumps here to buy it, then returns (#7823 enforces the ≥1 rule).
  */
-export const GIFT_HOLD_RULE = '1 is held for each booking. At 0, this gift comes off your bookings; clients can still request to book.';
+export const GIFT_HOLD_RULE = '1 is held for each service card on a quote.';
+/** Behind the hold rule's ⓘ (controller, 21 Nov). */
+export const GIFT_AT_LEAST_ONE = 'Every booking needs at least 1 gift.';
+/** A gift with none left, where it is picked for a booking: the tap opens this store (owner 21 Nov). */
+export const GIFT_ZERO_LEFT = '0 left · Buy more ›';

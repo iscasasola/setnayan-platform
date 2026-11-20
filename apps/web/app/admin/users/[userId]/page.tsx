@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
@@ -209,9 +210,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   // exact pattern the /admin/users list already uses.
   after(async () => {
     const supabase = await createClient();
-    const {
-      data: { user: actingAdmin },
-    } = await supabase.auth.getUser();
+    const actingAdmin = await getCurrentUser();
     await logAdminDataAccess(admin, {
       adminUserId: actingAdmin?.id ?? null,
       accessedUserId: userId,

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useId, useRef, useState, type ReactNode } fr
 import Link from 'next/link';
 import { ChevronLeft, ShoppingBag } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
 import { Counter } from '@/app/_components/counter';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -30,7 +31,7 @@ import {
 } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { GiftTicketArt, GiftTicketPile } from './gift-ticket-art';
-import { GIFT_HOLD_RULE, bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
+import { GIFT_AT_LEAST_ONE, GIFT_HOLD_RULE, bundleShape, giftSheetGrow, giftSheetWords, giftStoreCapLine } from './gift-store-copy';
 import s from './gift-store.module.css';
 
 /**
@@ -111,11 +112,13 @@ export function GiftTicketSheet({
           </p>
         </div>
         <small className="mt-3 block text-[13px] text-ink/60" data-gift-ticket-available="">
-          {available === null ? 'Couldn’t read your gifts right now' : `You have ${formatCount(available)} available`}
+          {available === null ? 'Couldn’t read your gifts right now' : available === 0 ? '0 left' : `You have ${formatCount(available)} available`}
         </small>
-        <small className="mt-0.5 block text-[12.5px] text-ink/55" data-gift-hold-rule="">
-          {GIFT_HOLD_RULE}
-        </small>
+        <div className="mt-0.5 flex justify-center text-[12.5px] text-ink/55" data-gift-hold-rule="">
+          <InfoTip label={GIFT_HOLD_RULE} labelClassName="text-[12.5px] text-ink/55">
+            {GIFT_AT_LEAST_ONE}
+          </InfoTip>
+        </div>
         {canBuy ? (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <AddButton

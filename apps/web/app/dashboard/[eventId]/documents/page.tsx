@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -94,11 +95,12 @@ export default async function EventDocumentsPage({ params }: Props) {
   // RLS scopes every read to the host's events; orders + receipts
   // additionally filter by event_id on the SELECT side.
   const [eventRes, paperworkRows, contracts, allOrders] = await Promise.all([
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id, display_name, event_date, ceremony_type, event_type', () =>
+      supabase
       .from('events')
       .select('event_id, display_name, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
     fetchEventPaperwork(supabase, eventId).catch(() => []),
     fetchEventContracts(supabase, eventId).catch(() => []),
     fetchOrdersForEvent(supabase, eventId).catch(() => []),

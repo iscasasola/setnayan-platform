@@ -49,6 +49,10 @@ function input(over: Partial<OurServicesInput> = {}): OurServicesInput {
   };
 }
 
+/** Live Watch's card entry — the unified tile when it is appended, else Cast (the card's own `addOnKeys` order). The
+ *  paid, day-of example these tests used to take from Patiktok, retired 2026-11-20 (lib/retired-products.ts). */
+const LIVE = (ADD_ONS.find((a) => a.key === 'live-studio-roam') ?? ADD_ONS.find((a) => a.key === 'panood'))!;
+
 const byKey = (i: OurServicesInput, key: string) => {
   const c = buildOurServices(i).find((s) => s.key === key);
   assert.ok(c, `no "${key}" card`);
@@ -59,12 +63,13 @@ test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Planner', 'Papic', 'Live stream', 'Music', 'Video booth'],
+    // Music (Music Maker) and Video booth (Patiktok) left 2026-11-20 — retired (lib/retired-products.ts).
+    ['Planner', 'Papic', 'Live stream'],
   );
   // Owner d17 (2026-10-02): the plain name first, the Setnayan name small under it.
   assert.deepEqual(
     cards.map((c) => c.brand),
-    ['Setnayan AI', 'Guest photos', 'Live Watch', 'Music Maker', 'Patiktok'],
+    ['Setnayan AI', 'Guest photos', 'Live Watch'],
   );
 });
 
@@ -72,8 +77,9 @@ test('each card opens the page its menu row opens; Papic carries the Memories', 
   const cards = buildOurServices(input());
   const hrefs = Object.fromEntries(cards.map((c) => [c.key, c.href]));
   assert.equal(hrefs.papic, addOnHref('papic', EVENT));
-  assert.equal(hrefs.patiktok, addOnHref('patiktok', EVENT));
-  assert.equal(hrefs['music-maker'], addOnHref('pakanta', EVENT));
+  assert.equal(hrefs['live-studio'], addOnHref(LIVE.key, EVENT));
+  assert.equal(hrefs.patiktok, undefined, 'Patiktok is retired');
+  assert.equal(hrefs['music-maker'], undefined, 'Music Maker is retired');
   assert.equal(hrefs['setnayan-ai'], addOnHref('setnayan-ai', EVENT));
   // Owner 2026-09-30: "gallery inside Papic" · "Editorial inside Post Event".
   const papic = cards.find((c) => c.key === 'papic')!;
@@ -97,13 +103,13 @@ test('each card opens the page its menu row opens; Papic carries the Memories', 
 test('the Memories is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
   const noPapic = buildOurServices(input({ offered: (a) => a.key !== 'papic' }));
   assert.equal(noPapic.some((c) => c.key === 'gallery'), false, 'the Gallery stands as a card again');
-  assert.deepEqual(noPapic.map((c) => c.key), ['setnayan-ai', 'live-studio', 'music-maker', 'patiktok']);
+  assert.deepEqual(noPapic.map((c) => c.key), ['setnayan-ai', 'live-studio']);
   // The rail row and the phone More sheet draw exactly these cards.
   const kids = ourServicesMenuChildren(noPapic, '/dashboard/E/suite');
   assert.equal(kids.some((k) => k.key === 'gallery' || k.icon === 'galleries'), false);
-  // On a full event it is five items, none of them Gallery.
+  // On a full event it is three items (five until Music Maker and Patiktok retired 2026-11-20), none of them Gallery.
   const five = ourServicesMenuChildren(buildOurServices(input()), '/dashboard/E/suite');
-  assert.equal(five.length, 5);
+  assert.equal(five.length, 3);
   assert.equal(five.some((k) => /gallery/i.test(k.label) || /\/galleries/.test(k.href)), false);
 });
 
@@ -120,13 +126,15 @@ test('Live Watch is whichever livestream tile the event is offered — never bot
 });
 
 test('a price comes only from the catalogue read — and a missing one is not free', () => {
-  const patiktok = ADD_ONS.find((a) => a.key === 'patiktok')!;
-  const priced = byKey(input({ prices: new Map([[patiktok.serviceKey!, '₱1,234']]) }), 'patiktok');
+  // Live Watch's tile is free to start; a paid tile is the same card with no free tier (Patiktok, the old example, is
+  // retired), so the price rule is exercised on exactly the builder's own code path.
+  const paidCatalogue = ADD_ONS.map((a) => (a.key === LIVE.key ? { ...a, tier: undefined, freeTrial: undefined } : a));
+  const priced = byKey(input({ catalogue: paidCatalogue, prices: new Map([[LIVE.serviceKey!, '₱1,234']]) }), 'live-studio');
   assert.equal(priced.state, 'price');
   assert.equal(priced.stateText, 'Add for ₱1,234');
   assert.equal(priced.pro, true, 'a paid service not yet added carries the ◆');
 
-  const unknown = byKey(input(), 'patiktok');
+  const unknown = byKey(input({ catalogue: paidCatalogue }), 'live-studio');
   assert.equal(unknown.state, 'unpriced');
   assert.equal(unknown.stateText, 'See the price');
   assert.doesNotMatch(unknown.stateText, /free|₱\s*0/i);
@@ -137,19 +145,18 @@ test('a price comes only from the catalogue read — and a missing one is not fr
 });
 
 test('owned beats every other state; pending says so', () => {
-  const patiktok = ADD_ONS.find((a) => a.key === 'patiktok')!;
   const owned = input({
-    owned: { active: new Set([patiktok.serviceKey!]), pending: new Set() },
+    owned: { active: new Set([LIVE.serviceKey!]), pending: new Set() },
     sellableNow: () => false, // the day has passed — a paid service stays open
   });
-  const c = byKey(owned, 'patiktok');
+  const c = byKey(owned, 'live-studio');
   assert.equal(c.state, 'added');
-  assert.equal(c.href, addOnHref('patiktok', EVENT));
+  assert.equal(c.href, addOnHref(LIVE.key, EVENT));
   assert.equal(c.pro, false);
 
   const pending = byKey(
-    input({ owned: { active: new Set(), pending: new Set([patiktok.serviceKey!]) } }),
-    'patiktok',
+    input({ owned: { active: new Set(), pending: new Set([LIVE.serviceKey!]) } }),
+    'live-studio',
   );
   assert.equal(pending.state, 'pending');
 
@@ -161,7 +168,7 @@ test('owned beats every other state; pending says so', () => {
 });
 
 test('a day-of service not owned closes after the day, inert with a reason', () => {
-  const c = byKey(input({ sellableNow: (a: AddOnEntry) => !a.dayOfOnly }), 'patiktok');
+  const c = byKey(input({ sellableNow: (a: AddOnEntry) => !a.dayOfOnly }), 'live-studio');
   assert.equal(c.state, 'closed');
   assert.equal(c.href, null);
   assert.ok(c.inertReason && c.inertReason.length > 0);
@@ -180,8 +187,8 @@ test('Setnayan AI with no price for this event type is not offered (unless owned
 });
 
 test('a service the event type is not offered drops its card', () => {
-  const noSong = input({ offered: (a) => a.key !== 'pakanta' });
-  assert.equal(buildOurServices(noSong).some((c) => c.key === 'music-maker'), false);
+  const noAi = input({ offered: (a) => a.key !== 'setnayan-ai' });
+  assert.equal(buildOurServices(noAi).some((c) => c.key === 'setnayan-ai'), false);
 });
 
 test('the store shell drops what it refuses', () => {
@@ -295,19 +302,17 @@ test('Event Pro is not a card — it is unlocked at the Maker’s Apply', () => 
   assert.ok(OUR_SERVICE_ADD_ON_KEYS.has('website-pro'), 'the lists below would bring it back');
 });
 
-test('Thank-You Video lives under Papic, Playlist under Music Maker', () => {
+test('Thank-You Video lives under Papic; Playlist falls to the lists below now Music Maker is retired', () => {
   const cards = buildOurServices(input());
   const papic = cards.find((c) => c.key === 'papic')!;
-  const music = cards.find((c) => c.key === 'music-maker')!;
   assert.deepEqual(papic.parts[0] && [papic.parts[0].name, papic.parts[0].href], [
     'Thank-You Video',
     appStoreDetailHref('thank-you', EVENT),
   ]);
-  assert.deepEqual(music.parts.map((p) => [p.name, p.href]), [
-    ['Playlist', appStoreDetailHref('playlist', EVENT)],
-  ]);
+  assert.equal(cards.some((c) => c.key === 'music-maker'), false, 'Music Maker is retired (2026-11-20)');
   const shown = shownAddOnKeys(cards);
-  assert.ok(shown.has('thank-you') && shown.has('playlist'), 'the lists below would repeat them');
+  assert.ok(shown.has('thank-you'), 'the lists below would repeat it');
+  assert.equal(shown.has('playlist'), false, 'Playlist (free) must stay reachable in the lists below');
 });
 
 test('never unreachable: a part whose card is absent stays in the lists below', () => {

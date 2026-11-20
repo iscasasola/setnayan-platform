@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ListFilter, UserPlus } from 'lucide-react';
+import { SlidersHorizontal, UserPlus } from 'lucide-react';
 import { INVITE_SOMEONE_KEY } from './find-or-invite';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { pickedPeopleHref, type PeopleView, type PeopleViewGates } from '@/lib/people-views';
@@ -42,7 +42,7 @@ export function PeopleViewPicker({
       label="People view, or invite"
       value={view}
       options={[
-        ...options.map((o) => ({ ...o, icon: <ListFilter className="h-5 w-5" strokeWidth={1.9} /> })),
+        ...options.map((o) => ({ ...o, icon: <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} /> })),
         ...(onInvite
           ? [{ key: INVITE_SOMEONE_KEY, label: 'Invite someone', group: 'Add', icon: <UserPlus className="h-5 w-5" strokeWidth={1.9} /> }]
           : []),

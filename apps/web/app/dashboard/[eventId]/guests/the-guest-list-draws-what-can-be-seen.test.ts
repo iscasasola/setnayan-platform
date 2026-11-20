@@ -50,19 +50,24 @@ function drawnSections(html: string) {
   return out;
 }
 
-test('folded sections draw their true count and no rows; the open one draws its rows, at most ROW_WINDOW', async () => {
+test('every section opens on arrival, with its true count; the first draw still holds at most ROW_WINDOW rows in all', async () => {
+  // 👥 Guests redesign (owner 20 Nov 2026, §1: "Sections start open. The page opens on names"): nothing is folded on
+  // arrival any more, so the window is what keeps the first draw small — at most ROW_WINDOW rows across ALL sections,
+  // the rest at the first idle moment. Every "· N" is still the data's number.
   const want = rosterSections(guests, 'role', facts);
   const drawn = drawnSections(await renderGuestsScreen({ guests }));
   assert.equal(drawn.length, want.length, 'every section still has its header');
-  assert.ok(drawn.some((d) => !d.open), 'the fixture has no folded section — it proves nothing');
+  assert.ok(drawn.every((d) => d.open), 'a section starts folded — the page must open on names');
   for (const sec of want) {
     const d = drawn.find((x) => x.key === sec.key)!;
     assert.equal(d.n, sec.guests.length, `${sec.key}: its "· N" is not the data's number`);
-    if (d.open) assert.equal(d.rows, Math.min(sec.guests.length, ROW_WINDOW), `${sec.key}: open, but drew ${d.rows}`);
-    else assert.equal(d.rows, 0, `${sec.key}: folded, yet built ${d.rows} rows nobody can see`);
   }
-  const big = drawn.find((d) => d.open && d.n > ROW_WINDOW);
-  assert.ok(big, 'the open section must exceed the window for the window to be tested');
+  const total = want.reduce((s, x) => s + x.guests.length, 0);
+  assert.ok(total > ROW_WINDOW, 'the fixture must exceed the window for the window to be tested');
+  assert.equal(drawn.reduce((s, d) => s + d.rows, 0), ROW_WINDOW, 'the first draw built more (or fewer) rows than the window');
+  // In the list's own order: the sections past the window draw nothing yet.
+  const last = drawn[drawn.length - 1]!;
+  assert.equal(last.rows, 0, `${last.key}: past the window, yet built ${last.rows} rows on the first draw`);
 });
 
 // 🎚 2026-10-29 the count rode the Guests ▾ segment (the old "List N"); 2026-10-30 the segment is gone (ONE top row,

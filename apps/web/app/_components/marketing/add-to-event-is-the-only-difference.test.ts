@@ -132,9 +132,13 @@ test('every doorway that sells an addable service passes its key', () => {
     product still carries its key, which is what the assertion below protects.
   */
   const expected = [
-    'panood', 'pawebsite', 'palogo', 'setnayan-ai', 'patiktok',
-    // The song — public page added 2026-08-21 so it could join the Studio rail.
-    'pakanta',
+    'panood', 'pawebsite', 'palogo', 'setnayan-ai',
+    /*
+      'patiktok' and 'pakanta' (the song) LEFT on 2026-11-20 — owner: *"Retire
+      Patiktok and Music Maker ( we do not want to serve this anymore)"*. Their
+      public pages are now redirect stubs and pass no key; the retired list is
+      `lib/retired-products.ts`. Do not put the keys back.
+    */
     /*
       The mood board — public page added 2026-09-03 so it could join the Studio
       rail (owner: *"i do not see it"*).

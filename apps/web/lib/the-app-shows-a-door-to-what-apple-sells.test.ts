@@ -28,7 +28,7 @@ const E = '00000000-0000-4000-8000-000000000000';
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-/** The catalogue keys of every one-per-event Apple product (Setnayan AI · Music Maker · Patiktok). */
+/** The catalogue keys of every one-per-event Apple product — NONE since 2026-11-20 (Music Maker and Patiktok retired). */
 const APPLE_UNLOCK_KEYS = [...new Set(IAP_PRODUCTS.filter((p) => p.kind === 'event-unlock').map((p) => p.serviceKey))].map((sk) => {
   const entry = EVERY_ADD_ON.find((a) => a.serviceKey === sk);
   assert.ok(entry, `Apple sells ${sk}, but no catalogue entry carries it — it can have no door`);
@@ -52,8 +52,8 @@ const APP_INCLUDED_KEYS: ReadonlyArray<readonly [key: string, soldInside: readon
 ];
 const APP_DOOR_KEYS = [...APPLE_UNLOCK_KEYS, ...APP_OPENED_FREE_KEYS, ...APP_INCLUDED_KEYS.map(([k]) => k)];
 
-test('premise · the one-per-event Apple products are Music Maker and Patiktok — Setnayan AI comes inside Plus/Pro, Thank You is free', () => {
-  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), ['pakanta', 'patiktok']);
+test('premise · no one-per-event Apple product is on sale (Music Maker and Patiktok retired 2026-11-20) — Setnayan AI comes inside Plus/Pro, Thank You is free', () => {
+  assert.deepEqual([...APPLE_UNLOCK_KEYS].sort(), []);
   assert.ok(!APPLE_UNLOCK_KEYS.includes('thank-you'), 'Thank You is sold by Apple again — it is free for every event');
   for (const [key, inside] of APP_INCLUDED_KEYS) {
     assert.ok(
@@ -104,19 +104,19 @@ function homeRows(storeShell: boolean, iap: boolean, active: ReadonlySet<string>
   return homeServices({ next: 'plan', storeShell, iap, papic: 'x', ai: 'y', paid, eventId: E });
 }
 
-test('2 · Home › Your services: the app draws Setnayan AI · Music Maker · Patiktok where Apple sells — none with the gate off', () => {
+test('2 · Home › Your services: the app draws Setnayan AI where Apple sells — none with the gate off (Music Maker and Patiktok retired 2026-11-20)', () => {
   const on = homeRows(true, true);
-  assert.deepEqual(on.map((s) => s.key).sort(), ['ai', 'booth', 'music'], 'the Apple-sold rows are missing from the app Home');
+  assert.deepEqual(on.map((s) => s.key).sort(), ['ai'], 'the Apple-sold rows are missing from the app Home');
   for (const s of on) {
     assert.ok(s.paid, `${s.key}: no row facts`);
-    assert.match(s.paid.href, new RegExp(`^/dashboard/${E}/studio/(setnayan-ai|pakanta|patiktok)$`), `${s.key}: its row opens ${s.paid.href}`);
+    assert.match(s.paid.href, new RegExp(`^/dashboard/${E}/studio/setnayan-ai$`), `${s.key}: its row opens ${s.paid.href}`);
     assert.equal(isStoreShellWebOnlyPath(s.paid.href, true), false, `${s.key}: its row opens a page the app refuses`);
     assert.doesNotMatch(`${s.status} ${s.paid.price ?? ''}`, /₱|PHP|GCash|BDO/i, `${s.key}: a web price or rail in the app`);
   }
   // Owned → the normal "open" row (On); not owned → the row that opens the page with Apple's buy step.
-  const owned = homeRows(true, true, new Set(['PAKANTA']));
-  assert.equal(owned.find((s) => s.key === 'music')?.paid?.state, 'owned');
-  assert.equal(on.find((s) => s.key === 'music')?.paid?.state, 'add');
+  const owned = homeRows(true, true, new Set(['SETNAYAN_AI']));
+  assert.equal(owned.find((s) => s.key === 'ai')?.paid?.state, 'owned');
+  assert.equal(on.find((s) => s.key === 'ai')?.paid?.state, 'add');
   // Never Papic / Live Watch (their Apple rows draw them) nor the Event Hub (the control row's tile).
   assert.equal(on.some((s) => s.key === 'papic' || s.key === 'live' || s.key === 'hub'), false);
   // 🔒 THE OTHER HALF — the gate off, or no facts: nothing.

@@ -56,6 +56,8 @@ import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/event
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
+import { readBookingWindow } from '@/lib/check-a-date.server';
+import { bookingWindowMessage, outsideBookingWindow, windowToday } from '@/lib/booking-window';
 import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
@@ -1721,6 +1723,24 @@ export async function finalizeVendor(
   //      CAPACITY) because the couple's own session cannot see other couples'
   //      bookings. Day-precise events only.
   // Both degrade OPEN on missing data so a lock is never wrongly blocked.
+  // 📅 HOW FAR AWAY THE SHOP TAKES BOOKINGS (owner 2026-11-19, "AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS"):
+  // every card of the shop — the slot path AND the daily-capacity path — the same window Check a date and Find showed
+  // the couple. It sits ABOVE the slot/#2 split on purpose (ship review of #8058: a card with time slots was asked with
+  // no window check). A card's own "Order at least N days" (#2 below) can only be stricter. Day-precise events only;
+  // a refused read degrades OPEN, logged, like every capacity read here.
+  if (targetVendor.marketplace_vendor_id) {
+    const { data: windowDay } = await supabase
+      .from('events')
+      .select('event_date, event_date_precision')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const wd = windowDay as { event_date?: string | null; event_date_precision?: string | null } | null;
+    if (wd?.event_date_precision === 'day' && wd.event_date) {
+      const shopWindow = await readBookingWindow(createAdminClient(), targetVendor.marketplace_vendor_id);
+      const outside = shopWindow ? outsideBookingWindow(wd.event_date, windowToday(), shopWindow) : null;
+      if (shopWindow && outside) return { status: 'error', message: bookingWindowMessage(outside, shopWindow) };
+    }
+  }
   let slotPathLocked = false;
   if (targetVendor.marketplace_vendor_id && targetVendor.service_id) {
     const { count: slotCount } = await supabase

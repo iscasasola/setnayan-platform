@@ -720,6 +720,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
   },
   {
+    table: 'service_included_templates',
+    column: 'updated_by',
+    why: 'Which admin last saved one of Setnayan’s starting "What’s included" lists (Quick Forms, migration 20271351904391). Platform content; the list stays, the clerk goes.',
+  },
+  {
     table: 'form_templates',
     column: 'updated_by',
     why: 'Which admin last saved a "Suggested for your service" form template. Platform content; the template stays, the clerk goes.',

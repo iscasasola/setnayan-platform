@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readCardBadges } from '@/lib/card-badges.server';
 import { readShopSeals } from '@/lib/shop-seals.server';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-medals';
 import type { CardBadgesRead } from '@/lib/card-badges';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -882,6 +883,12 @@ export async function VendorServicesManager({
                       <div data-card-medals="">
                         <CardBadgeRow badges={cardBadges.byCard[svc.vendor_service_id]!} cardName={cardName} shopName={null} now={badgesNow} />
                       </div>
+                    ) : null}
+                    {/* 🔒 The medals this card can still earn, in their real art with a small lock (owner 18 Nov, v36).
+                        The supplier's own list only — never a couple's card. Only on an honest read: an unread badge
+                        set draws nothing, never "everything locked". */}
+                    {cardBadges.kind === 'ok' ? (
+                      <CardLockedMedals held={cardBadges.byCard[svc.vendor_service_id] ?? []} />
                     ) : null}
                     {/* ONE meta line (owner 17 Nov, "i see so many spaces"): the price basis · the branch · the
                         coverage · the reach this card's price is earning — on the card itself, every time the shop

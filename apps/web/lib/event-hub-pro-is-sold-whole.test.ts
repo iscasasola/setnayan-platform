@@ -126,7 +126,7 @@ test('the charge authority refuses every part order: off sale with an event, out
   assert.match(a, /if \(partKey && !eventId\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
   assert.match(a, /if \(eventId && \(serviceKey === FULL_PRO_SKU \|\| partKey\)\) \{\s*const hub = await resolveHubProCharge/);
   // …and resolveHubProCharge answers for every part key (null only for Full Pro with nothing paid), refusing one off sale.
-  assert.match(a, /if \(serviceKey === FULL_PRO_SKU && !owned\.full && owned\.paidPhp === 0\) return null;/);
+  assert.match(a, /if \(serviceKey === FULL_PRO_SKU && !owned\.proPlan && owned\.paidPhp === 0\) return null;/);
   assert.match(a, /parts\.some\(\(p\) => !prices\.onSale\.has\(hubPart\(p\)\.sku\)\)\) \{\s*return \{ ok: false, refusal: 'no_price_source'/);
   assert.match(a, /if \(!charge\.ok\) \{/);
 });

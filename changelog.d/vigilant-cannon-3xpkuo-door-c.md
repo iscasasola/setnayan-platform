@@ -38,3 +38,5 @@ SPEC IMPACT: None — builds the approved 19 Nov drawing.
 - Tests: `lib/supplier-onboarding.test.ts` 13, and test 10's landing count is now 3.
 
 SPEC IMPACT: None.
+
+- PC7 shop card → rows on white (owner 20 Nov, option a): a frame only on what you press; clears the template ratchet for vendor/claim/[token].

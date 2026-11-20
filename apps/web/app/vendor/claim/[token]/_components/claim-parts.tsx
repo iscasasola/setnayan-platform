@@ -303,7 +303,7 @@ export function SupplierInviteDoor({
       sub={<>You&rsquo;ll show on their page as a trusted partner.</>}
     >
       <article className="space-y-6" data-claim-door="supplier-invite">
-        <section className="grid gap-1.5 rounded-2xl border border-ink/10 p-4" data-supplier-invite-card="">{/* no-card-ok: the owner-approved PC7 shop card (drawing 36jmQMWrANcgd2HxihAUw5, 19 Nov) */}
+        <section className="grid gap-1.5 border-y border-ink/10 py-3" data-supplier-invite-card="">{/* PC7 shop: rows on white — a frame only on what you press (owner 20 Nov, template ratchet) */}
           <b className="text-[15px] font-semibold text-ink [overflow-wrap:anywhere]">
             {inviterName}
             {category ? <span className="font-normal text-ink/60" data-supplier-invite-category=""> · {category}</span> : null}

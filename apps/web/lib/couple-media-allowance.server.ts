@@ -1,13 +1,17 @@
 import 'server-only';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { R2_BUCKETS, isR2Configured, r2List } from '@/lib/r2';
 import { coupleMediaCapBytes, readCoupleMediaBytes } from '@/lib/maker-media-limits';
 import { eventHubPartActive } from '@/lib/couple-website-pro';
+import { eventSkuActive } from '@/lib/entitlements';
+import { EVENT_ULTRA_SKU } from '@/lib/event-ultra';
+import { PLAN_PRICE_CODES, eventMediaPlanFrom, type EventMediaPlan } from '@/lib/event-plans';
 import { measureCoupleMediaBytes } from '@/lib/couple-media-allowance';
 
 /**
- * The I/O half of the plan's media allowance — Free 10 MB · Event Pro 500 MB
- * (`lib/couple-media-allowance.ts` holds the
+ * The I/O half of the plan's media allowance — Free 10 MB · Event Plus 500 MB · Event Pro 1 GB · Event Ultra 2 GB
+ * (owner 2026-11-18; `lib/couple-media-allowance.ts` holds the
  * rule and its reasoning). Service-role only: both functions it calls are
  * granted to `service_role` alone, so a couple can never move their own number.
  */
@@ -16,8 +20,8 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 export type CoupleMediaReservation =
   | { kind: 'reserved'; usedBytes: number }
-  /** `isPro` is the plan the refusal was decided under — the sentence names ITS number. */
-  | { kind: 'full'; usedBytes: number; isPro: boolean }
+  /** `plan` is the plan the refusal was decided under — the sentence names ITS number. */
+  | { kind: 'full'; usedBytes: number; plan: EventMediaPlan }
   | { kind: 'unavailable' };
 
 /**
@@ -39,8 +43,9 @@ export async function reserveCoupleMediaBytes(
   // not place the order would otherwise read "Free" for an event that paid. A
   // read that fails reads Free (the smaller number) — a cap never widens by error.
   // 💎 500 MB instead of 10 MB is the Background part's (owner 2026-10-22, gate 12) — Full Pro and the cap included.
-  const isPro = await eventHubPartActive(admin, eventId, 'background').catch(() => false);
-  const capBytes = coupleMediaCapBytes(isPro);
+  // 🎟 …and, since the 18 Nov re-cut, the plan's: Event Plus 500 MB · Event Pro 1 GB · Event Ultra 2 GB.
+  const plan = await eventCoupleMediaPlan(admin, eventId);
+  const capBytes = coupleMediaCapBytes(plan);
 
   const ask = async (): Promise<number | null | 'error'> => {
     const { data, error } = await admin.rpc('reserve_couple_media_bytes', {
@@ -57,7 +62,7 @@ export async function reserveCoupleMediaBytes(
 
   // One file larger than the whole allowance can never fit — no settle can help.
   if (bytes > capBytes) {
-    return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), isPro };
+    return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), plan };
   }
 
   const first = await ask();
@@ -72,7 +77,25 @@ export async function reserveCoupleMediaBytes(
     if (second === 'error') return { kind: 'unavailable' };
     if (second !== null && Number.isFinite(second)) return { kind: 'reserved', usedBytes: second };
   }
-  return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), isPro };
+  return { kind: 'full', usedBytes: await readCoupleMediaBytes(admin, eventId), plan };
+}
+
+/**
+ * 🎟 THE EVENT'S UPLOAD PLAN (owner 2026-11-18) — the largest allowance any plan it holds gives, each read with the real
+ * FEATURE gate (admin-approved; an internal host holds every plan by that same rule). Event Pro is the
+ * `COUPLE_WEBSITE_PRO` SKU itself (an Ultra order answers yes there too, `SKU_OWNERSHIP_ALIASES`), not the parts' cap. A
+ * read that fails reads as not held — a cap never widens by error. Callers that draw a meter use THIS, so the number on
+ * the screen is the number the reservation enforces.
+ */
+export async function eventCoupleMediaPlan(supabase: SupabaseClient, eventId: string): Promise<EventMediaPlan> {
+  const no = () => false;
+  const [ultra, pro, plus, backgroundPart] = await Promise.all([
+    eventSkuActive(supabase, eventId, EVENT_ULTRA_SKU).catch(no),
+    eventSkuActive(supabase, eventId, PLAN_PRICE_CODES.pro).catch(no),
+    eventSkuActive(supabase, eventId, PLAN_PRICE_CODES.plus).catch(no),
+    eventHubPartActive(supabase, eventId, 'background').catch(no),
+  ]);
+  return eventMediaPlanFrom({ ultra, pro, plus, backgroundPart });
 }
 
 /**

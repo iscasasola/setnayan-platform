@@ -9,9 +9,15 @@ import { InlineNotice } from '@/app/_components/notices/inline-notice';
 export const VERIFY_DOCS_ANCHOR = 'docs';
 export const VERIFY_DOCS_HREF = `/vendor-dashboard/profile#${VERIFY_DOCS_ANCHOR}`;
 
-/** The owner's own words for the reach case (2026-10-29, v13 note 4). */
-export const UNVERIFIED_REACH_TITLE = 'Couples can’t find you by distance yet';
 export const UNVERIFIED_LINE = 'You show up once you’re verified';
+
+/**
+ * 🔒 The ONE locked row an unverified shop sees in Where you work, in place of the map, rings and steppers (owner
+ * 2026-11-19: *"Free Unverified account will have a range of 0km."* — reach is no longer a plan allowance, so the only
+ * thing between a shop and its own range is being verified). Reads "Coverage reach · Get verified to be found".
+ */
+export const COVERAGE_REACH_TITLE = 'Coverage reach';
+export const COVERAGE_REACH_LOCKED_LINE = 'Get verified to be found';
 
 /**
  * 🛡 "GET VERIFIED" — THE ONE LINE FOR EVERYTHING BEING UNVERIFIED HOLDS BACK (owner 2026-10-29, Supplier dashboard v13

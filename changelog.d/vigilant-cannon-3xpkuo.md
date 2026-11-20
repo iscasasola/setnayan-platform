@@ -58,3 +58,5 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG rows as written
 
 SPEC IMPACT: None.
 
+
+- The Today welcome is rows on white (no `sn-tile`): main lowered the vendor-dashboard template baseline to 30 and the tile made it 31 — the owner's option (a), frames only on what you press.

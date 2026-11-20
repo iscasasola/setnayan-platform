@@ -58,4 +58,3 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG rows as written
 
 SPEC IMPACT: None.
 
-- fix: a row's sheet in Check your shop now rides the keyboard through `useKeyboardRide` (the one reading), so its boxes are never typed blind; listed in the keyboard guard's EXEMPT with that reason and pinned by supplier-onboarding test 14.

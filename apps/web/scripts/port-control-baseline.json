@@ -16954,50 +16954,6 @@
       "actions": [],
       "blocks": []
     },
-    "/vendor-dashboard/rooms-seating": {
-      "files": [
-        "vendor-dashboard/rooms-seating/_components/rooms-seating-screen.tsx",
-        "vendor-dashboard/rooms-seating/actions.ts",
-        "vendor-dashboard/rooms-seating/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "ActionButton",
-        "AddUnits",
-        "Along",
-        "AreaPlan",
-        "BackButton",
-        "ChosenRow",
-        "Counter",
-        "DoorKind",
-        "DoorList",
-        "Fold",
-        "FormRows",
-        "GroupBlock",
-        "HallSection",
-        "HallSize",
-        "PickMenu",
-        "Plan",
-        "PlanMaker",
-        "RoomsSeating",
-        "RoomsSeatingResult",
-        "RoomsSeatingScreen",
-        "RoomsSection",
-        "Section",
-        "ShopNotice",
-        "SizeRows",
-        "SwipeToDelete",
-        "SwitchRow",
-        "TableGlyph",
-        "TableRows",
-        "TableShape",
-        "TablesSection",
-        "TypedRow",
-        "UnitEdit",
-        "Wall"
-      ]
-    },
     "/vendor-dashboard/services": {
       "files": [
         "vendor-dashboard/services/_components/addons-editor.tsx",
@@ -17724,6 +17680,58 @@
         "T",
         "TemplateEmpty",
         "TypedRow"
+      ]
+    },
+    "/vendor-dashboard/spaces": {
+      "files": [
+        "vendor-dashboard/spaces/_components/base-layout.tsx",
+        "vendor-dashboard/spaces/_components/space-sheet.tsx",
+        "vendor-dashboard/spaces/_components/spaces-screen.tsx",
+        "vendor-dashboard/spaces/actions.ts",
+        "vendor-dashboard/spaces/page.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "AddTables",
+        "Along",
+        "BackButton",
+        "BaseLayout",
+        "ChosenRow",
+        "CountRow",
+        "Counter",
+        "DoorKind",
+        "DoorList",
+        "Fold",
+        "FormRows",
+        "KindChoice",
+        "LockedFeature",
+        "PickMenu",
+        "Plan",
+        "PlanMaker",
+        "RoomNaming",
+        "Sheet",
+        "SheetMode",
+        "ShopNotice",
+        "SpacePlan",
+        "SpaceSheet",
+        "SpacesRead",
+        "SpacesResult",
+        "SpacesScreen",
+        "SupplierThumbRow",
+        "SwipeToDelete",
+        "SwitchRow",
+        "TableEdit",
+        "TableGlyph",
+        "TableRows",
+        "TableShape",
+        "ThumbRow",
+        "Tile",
+        "TypedRow",
+        "Wall"
       ]
     },
     "/vendor-dashboard/subscription": {

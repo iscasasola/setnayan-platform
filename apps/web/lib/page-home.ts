@@ -277,7 +277,7 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/on-the-day': { home: '/vendor-dashboard/customers' },
   '/vendor-dashboard/moodboard-library': { home: '/vendor-dashboard/collections' },
   // 🛏 Rooms & seating opens from Shop › Makers › Specialized tools (owner 2026-11-18), so ‹ goes back to the Shop.
-  '/vendor-dashboard/rooms-seating': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/spaces': { home: '/vendor-dashboard/shop' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).

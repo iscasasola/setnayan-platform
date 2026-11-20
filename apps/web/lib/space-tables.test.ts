@@ -1,5 +1,5 @@
 /**
- * 🔒 ROOMS & SEATING (lib/rooms-seating.ts — piece A of the units map, owner 2026-11-18).
+ * 🔒 THE TABLES AND DOORS IN A HALL OR ROOM (lib/space-tables.ts — #7968's piece A, hung on a space, owner 2026-11-19).
  *   · names and ranges are parsed whole or refused whole (never half-made);
  *   · Line up is name order a person expects (T9 before T10);
  *   · a Long table's one number counts EVERY chair, ends included; ≤ 4 with no ends draws square;
@@ -7,7 +7,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chairPoints, lineUp, moveStep, parseRoomSize, parseUnitNames, shapeDrawn, tableWords, type Unit } from './rooms-seating';
+import { chairPoints, lineUp, moveStep, parseRoomSize, parseUnitNames, shapeDrawn, tableWords, type Unit } from './space-tables';
 
 test('names: commas, new lines and runs; a typo is refused whole', () => {
   assert.deepEqual(parseUnitNames('301-303, Penthouse'), { ok: true, names: ['301', '302', '303', 'Penthouse'] });
@@ -16,11 +16,11 @@ test('names: commas, new lines and runs; a typo is refused whole', () => {
   assert.deepEqual(parseUnitNames('01-03'), { ok: true, names: ['01', '02', '03'] });
   assert.equal(parseUnitNames('').ok, false);
   assert.equal(parseUnitNames('10-1').ok, false, 'a run counting down was made');
-  assert.equal(parseUnitNames('1-10000').ok, false, 'ten thousand rooms were made from a typo');
+  assert.equal(parseUnitNames('1-10000').ok, false, 'ten thousand tables were made from a typo');
   assert.equal(parseUnitNames('301, 301').ok, false, 'one name typed twice was made twice');
 });
 
-test('Line up: T9 before T10, per floor or area', () => {
+test('Line up: T9 before T10, per hall or room', () => {
   const u = (id: string, groupId: string, name: string): Unit => ({ id, groupId, kind: 'table', name, shape: 'round', chairs: 8, chairsAtEnds: false, sortOrder: 0 });
   const order = lineUp([u('a', 'g', 'T10'), u('b', 'g', 'T9'), u('c', 'h', 'B2'), u('d', 'h', 'B1')]);
   assert.deepEqual(order.get('g'), ['b', 'a']);
@@ -46,4 +46,25 @@ test('room size: both or neither, up to 500 m', () => {
   assert.equal(parseRoomSize('20', '').ok, false);
   assert.equal(parseRoomSize('501', '10').ok, false);
   assert.equal(parseRoomSize('0', '10').ok, false);
+});
+
+test('a hall’s plan: its own size, tables and doors — never another hall’s', async () => {
+  const { shopPlanOf } = await import('./space-tables');
+  const data = {
+    groups: [
+      { id: 'h1', kind: 'hall' as const, name: 'Hall001', widthM: 20, lengthM: 30, sortOrder: 0 },
+      { id: 'h2', kind: 'hall' as const, name: 'Hall002', widthM: null, lengthM: null, sortOrder: 1 },
+    ],
+    units: [
+      { id: 't1', groupId: 'h1', kind: 'table' as const, name: 'T1', shape: 'round' as const, chairs: 8, chairsAtEnds: false, sortOrder: 0 },
+      { id: 't2', groupId: 'h2', kind: 'table' as const, name: 'T1', shape: 'long' as const, chairs: 10, chairsAtEnds: true, sortOrder: 0 },
+    ],
+    doors: [{ id: 'd1', groupId: 'h1', kind: 'main' as const, wall: 'front' as const, along: 'middle' as const }],
+  };
+  const p = shopPlanOf(data, 'h1')!;
+  assert.deepEqual(p.room, { widthM: 20, lengthM: 30 });
+  assert.deepEqual(p.tables.map((t) => t.id), ['t1']);
+  assert.deepEqual(p.doors.map((d) => d.id), ['d1']);
+  assert.equal(shopPlanOf(data, 'h2')!.room, null, 'an unsized hall borrowed a size');
+  assert.equal(shopPlanOf(data, 'nope'), null);
 });

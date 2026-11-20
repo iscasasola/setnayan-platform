@@ -1,4 +1,4 @@
-import { BedDouble, ClipboardList, Eye, Gamepad2, ListMusic, Megaphone, Music, ScanLine, Shapes, Timer, Users, type LucideIcon } from 'lucide-react';
+import { ClipboardList, LayoutGrid, Eye, Gamepad2, ListMusic, Megaphone, Music, ScanLine, Shapes, Timer, Users, type LucideIcon } from 'lucide-react';
 import type { SpecializedToolKey } from '@/lib/specialized-tools';
 
 /** Each Specialized tools tile's icon (kept out of `lib/specialized-tools.ts`, which stays free of UI imports). */
@@ -13,7 +13,7 @@ const ICONS: Readonly<Record<SpecializedToolKey, LucideIcon>> = {
   live_watch: Eye,
   papic_challenge: Gamepad2,
   plan_3d: Shapes,
-  rooms_seating: BedDouble,
+  spaces: LayoutGrid,
 };
 
 export function toolIcon(k: SpecializedToolKey): LucideIcon {

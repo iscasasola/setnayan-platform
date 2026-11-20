@@ -1,3 +1,7 @@
+> **Done, then superseded (20 Nov).** #7968 was switched onto this engine, then reworked into Spaces (owner 19 Nov):
+> its page and storage became `app/vendor-dashboard/spaces/` and `lib/space-tables.ts`, and its tables and doors hang on a
+> hall or room (migration 20271356372536). The paths below are the 18 Nov names, kept as the record of the switch.
+
 # Switching PR #7968 (Rooms & seating, piece A) onto the shared seat-plan engine
 
 Written 20 Nov 2026 for the session that owns

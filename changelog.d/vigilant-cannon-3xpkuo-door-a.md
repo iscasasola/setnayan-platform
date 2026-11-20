@@ -30,3 +30,9 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG row as written.
 - **P6:** Today's claimed welcome says "<couple>'s <event> is in Clients." (`lib/claimed-welcome.server.ts`, read only on `?claimed=1`; any refused read names nobody).
 - Step names under the bars: Accept · Account · Your shop · Your card · Done.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
+
+## 2026-11-21 · fix(onboarding): Door A P4 fits 375 px, as drawn
+
+Caught up with #8028 + `main` (merge only). P4: Approve card full width, Edit · Skip for now under it (the team door: Approve over Skip). Shot: `build-sessions/shots-onboarding-375/a1-accept-375.jpg`.
+
+SPEC IMPACT: None.

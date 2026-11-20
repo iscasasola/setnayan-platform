@@ -2021,7 +2021,7 @@ export async function SiteBody({
           // send an unrecognised visitor BACK TO THIS INVITATION instead
           // of to Setnayan's homepage — which was the only way off it.
           camera: hostCameraOpen ? `/papic/guest?from=${event.slug}` : null,
-          watch: `/${event.slug}/hub`,
+          watch: `/${event.slug}?tab=live`,
           join: `/${event.slug}/invite`,
         },
         stageSlots: STAGE_BAR[pageStage].slots,
@@ -2354,8 +2354,7 @@ export async function SiteBody({
                 `z-30`, so wherever both render this one covers the menu whole.
                 Its two bottom controls (camera · photos) are slots the menu
                 resolves for every viewer, so they go. Its day-of "Live hub"
-                chip is NOT — the resolver has no hub slot — and that chip is
-                top-left chrome that never touches the bar, so it stays. */}
+                chip went on 20 Nov 2026: `/hub` is this page's Live now. */}
             {isEditorCanvas ? null : (
             <PublicEventDayBar
               /* 🔒 Inside content — the camera, the photos, the day-of hub — is
@@ -2363,13 +2362,8 @@ export async function SiteBody({
                  three withheld the bar draws nothing at all. */
               candidCameraActive={insideAllowed && publicCandidCameraActive}
               photosHref={insideAllowed ? publicAlbumHref : null}
-              hubHref={
-                /* 📱 A page whose tabs ARE the day (Live · Welcome · Camera ·
-                   Gallery · Me) needs no door to a second hub. */
-                !tabs.on && insideAllowed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-                  ? `/${event.slug}/hub`
-                  : null
-              }
+              /* 🧭 No "Live hub" chip (20 Nov 2026, one bar per stage): `/hub` is no longer a second
+                 screen — it sends a visitor here, to Live. */
               menuOn={menuOn}
             />
             )}
@@ -3119,7 +3113,7 @@ export async function SiteBody({
         // Same reason as the anonymous tree: the address carries the event so a
         // refusal can hand them back their invitation (`guestCameraHref`).
         camera: guestCameraHref,
-        watch: `/${event.slug}/hub`,
+        watch: `/${event.slug}?tab=live`,
         join: `/${event.slug}/invite`,
       },
     });

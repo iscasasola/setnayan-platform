@@ -18,9 +18,15 @@
  * slot missing from a stage's list is never drawn on that stage.
  *
  * 📖 POST EVENT (owner 2026-09-25, answer 1 = yes — "POST EVENT — OWNER ANSWERS
- * TO FABLE'S FIVE"): Recap · Film · Suppliers · Gallery · Me. The camera stays
- * on the list only for the COUPLE — `resolveSiteNav` draws no guest or stranger
- * camera after the day (answer 2, "no more camera since that event is done").
+ * TO FABLE'S FIVE"): Recap · Film · Suppliers · Memories · Me.
+ *
+ * 🧭 ONE BAR PER STAGE (controller under owner delegation, 20 Nov 2026 —
+ * DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED", its last
+ * sentence): The Day keeps ONE bar, Live · Home · Camera · Memories · Me — the
+ * `/hub` second bar is gone and Watch lives inside Live. Post Event drops Camera
+ * for EVERYONE, the couple and a Papic-on guest included, so Suppliers gets the
+ * slot the five-tab cap used to take from it. The camera's own address is
+ * untouched and stays reachable wherever it is linked. Me is always last.
  */
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DayOfPhase } from '@/lib/day-of-mode';
@@ -63,7 +69,8 @@ export const STAGE_BAR: Readonly<Record<LifecyclePhase, StageBar>> = {
   },
   editorial: {
     label: PUBLIC_STAGE_LABELS.editorial,
-    slots: ['home', 'film', 'suppliers', 'camera', 'gallery', 'me'],
+    // Recap · Film · Suppliers · Memories · Me — no Camera after the day (20 Nov).
+    slots: ['home', 'film', 'suppliers', 'gallery', 'me'],
   },
 };
 

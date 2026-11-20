@@ -58,9 +58,10 @@ async function newBooking(vpid: string, sourced: boolean, status = 'contracted')
   const eventId = e.rows[0]!.event_id;
   const ev = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php)
-     VALUES ($1,'photographer','Five Studio',$2::vendor_status,$3,50000) RETURNING vendor_id`,
-    [eventId, status, vpid],
+       (event_id, category, vendor_name, status, marketplace_vendor_id, total_cost_php, source)
+     VALUES ($1,'photographer','Five Studio',$2::vendor_status,$3,50000,$4) RETURNING vendor_id`,
+    // ⟲ Owner 2026-11-16 (answer 3): an import is recorded as one (the Locked QR), since nothing-imported now pays.
+    [eventId, status, vpid, sourced ? null : 'vendor_locked_qr'],
   );
   if (sourced) {
     await db.query(

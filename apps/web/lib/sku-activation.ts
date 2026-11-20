@@ -2861,8 +2861,9 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     }
   }
 
-  // 🔁 A refunded/cancelled Ultra Add-on RENEWAL takes its 28 days back off the add-on it extended (only while that
-  // add-on still ends where it put it). Non-fatal, like the rest of this path.
+  // 🔁 A refunded/cancelled Ultra Add-on RENEWAL takes its 28 days back off the add-on it extended (while that add-on
+  // ends at or after this renewal's mark — refunds may come out of order; later renewals' marks shift down with it).
+  // Non-fatal, like the rest of this path.
   if (parseUltraAddOnRenewalServiceKey(ctx.serviceKey)) {
     try {
       const { error } = await ctx.admin.rpc('ultra_addon_reverse_renewal', { p_renewal_order_id: ctx.orderId });

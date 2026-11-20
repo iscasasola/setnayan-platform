@@ -49,6 +49,9 @@
 -- ============================================================================
 
 BEGIN;
+-- Fail fast instead of queueing behind a long reader: this migration ALTERs vendor_billing_catalog and UPDATEs orders
+-- (a busy table). 5 s, then the pipeline's run fails cleanly and is retried — never a stalled deploy.
+SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · the numbers ─────────────────────────────────────────────────────────
 UPDATE public.vendor_plan_contents c
@@ -515,12 +518,15 @@ BEGIN
   v_end := GREATEST(COALESCE(t.expires_at, now()), now()) + interval '28 days';
   UPDATE public.orders SET expires_at = v_end, updated_at = now() WHERE order_id = t.order_id;
   UPDATE public.orders SET expires_at = v_end, updated_at = now() WHERE order_id = r.order_id;
+  -- Its reminder lock belongs to the OLD end: clear it so the add-on is reminded again before the new one (review,
+  -- 20 Nov). Only THIS add-on's rows; every other order keeps its once-per-window lock.
+  DELETE FROM public.renewal_reminder_log WHERE order_id = t.order_id;
   RETURN v_end;
 END;
 $$;
 
 COMMENT ON FUNCTION public.ultra_addon_apply_renewal(uuid) IS
-  'Apply one paid Ultra Add-on renewal (key vendor_ultra_addon_renew__<add-on order_id>): move THAT add-on''s orders.expires_at to GREATEST(its end, now()) + 28 days and stamp the same end on the renewal order (the once-only marker). Other add-ons are untouched; the renewal order is never counted as an add-on. Controller ruling on PR #8019, 20 Nov (option A). Called by the activation hook (lib/sku-activation.ts). service_role only.';
+  'Apply one paid Ultra Add-on renewal (key vendor_ultra_addon_renew__<add-on order_id>): move THAT add-on''s orders.expires_at to GREATEST(its end, now()) + 28 days, stamp the same end on the renewal order (the once-only marker) and clear THAT add-on''s renewal_reminder_log rows so it is reminded again. Other add-ons are untouched; the renewal order is never counted as an add-on. Controller ruling on PR #8019, 20 Nov (option A). Called by the activation hook (lib/sku-activation.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.ultra_addon_apply_renewal(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ultra_addon_apply_renewal(uuid) TO service_role;
@@ -539,19 +545,31 @@ BEGIN
   IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix OR r.expires_at IS NULL THEN
     RETURN; -- not a renewal, or never applied: nothing to undo
   END IF;
-  -- Take back exactly the 28 days it added, and only while the add-on still ends where this renewal put it (a later
-  -- renewal has since moved it on → leave that one's days alone; withholding a refund's days is the admin's call).
+  -- Take back exactly the 28 days it added, while the add-on still ends at or after this renewal's mark. Refunds can
+  -- come out of order (review, 20 Nov): with R1 then R2 applied, A ends at R2's mark, past R1's — refunding R1 still
+  -- takes R1's 28 days, and every LATER renewal of the same add-on (mark > R1's) moves its mark down by 28 days so it
+  -- can still be undone exactly. An add-on that already ends BEFORE the mark (shortened since) is left alone.
   UPDATE public.orders t
      SET expires_at = t.expires_at - interval '28 days', updated_at = now()
    WHERE t.order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
      AND t.vendor_profile_id = r.vendor_profile_id
-     AND t.expires_at = r.expires_at;
+     AND t.expires_at >= r.expires_at;
+  IF FOUND THEN
+    UPDATE public.orders l
+       SET expires_at = l.expires_at - interval '28 days', updated_at = now()
+     WHERE l.service_key = r.service_key
+       AND l.order_id <> r.order_id
+       AND l.expires_at IS NOT NULL
+       AND l.expires_at > r.expires_at;
+    -- The add-on's end moved back: a reminder already sent for the later end no longer holds.
+    DELETE FROM public.renewal_reminder_log WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid;
+  END IF;
   UPDATE public.orders SET expires_at = NULL, updated_at = now() WHERE order_id = r.order_id;
 END;
 $$;
 
 COMMENT ON FUNCTION public.ultra_addon_reverse_renewal(uuid) IS
-  'Undo a refunded or cancelled Ultra Add-on renewal: take its 28 days back off the add-on it extended, only while that add-on still ends where this renewal put it, and clear the renewal''s marker. Called by the deactivation hook (lib/sku-activation.ts). service_role only.';
+  'Undo a refunded or cancelled Ultra Add-on renewal: take its 28 days back off the add-on it extended while that add-on ends at or after this renewal''s mark, move every later renewal''s mark of the same add-on down by 28 days, clear the add-on''s reminder lock, and clear the renewal''s marker. Called by the deactivation hook (lib/sku-activation.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.ultra_addon_reverse_renewal(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ultra_addon_reverse_renewal(uuid) TO service_role;

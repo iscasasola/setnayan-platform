@@ -59,3 +59,10 @@ and the change plan (ac15265b).
 - Renewal orders are a supplier paying Setnayan (`vendor-pays-setnayan`) and are not sent their own renewal reminder.
 - DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts` (two live add-ons; 6/6). No new server action — folded into `buyUltraAddOn`.
 SPEC IMPACT: None beyond the ruling already in the PR's STATUS (Decisions).
+
+### Review fixes on the renewal (21 Nov, money builder)
+- A renewal now clears THAT add-on's `renewal_reminder_log` rows, so it is reminded again before its new end (it was reminded once and then never again). Other orders keep their once-per-window lock.
+- Refunds out of order: refunding the first of two renewals now takes its 28 days back (the add-on ends at or after that renewal's mark) and moves every later renewal's mark of the same add-on down by 28 days, so each can still be undone exactly. An add-on that already ends before the mark is left alone. The add-on's reminder lock is cleared when its end moves back.
+- The migration sets `SET LOCAL lock_timeout = '5s'` after `BEGIN` (it ALTERs `vendor_billing_catalog` and UPDATEs `orders`).
+- DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts`: 9/9 (3 new; the two defect tests were shown red first).
+SPEC IMPACT: None.

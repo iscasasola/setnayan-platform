@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { CLIENT_INVITE_PARAM, clientInviteTokenOf } from '@/lib/own-clients';
 import { shopInvitePath } from '@/lib/shop-address';
 import { notFound } from 'next/navigation';
@@ -117,9 +118,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
     : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const hostEvents = user ? await listHostEvents(admin, user.id) : [];
   // Preserve the QR's event/service scope across the sign-up + create-event

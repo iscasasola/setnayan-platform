@@ -785,14 +785,15 @@ export function PickedShell<P extends string>({
                   "For your trade" label) — places to go, the row itself is the press. Esc, a tap outside or a row closes it. */}
               {moreOpen ? (
                 <>
-                  <OverlayBackdrop onClose={closeMore} tabIndex={-1} className="z-[var(--sn-z-sticky)]" data-picked-more-scrim="" />
+                  {/* The scrim sits above the thumb row (`--sn-z-thumb`), so the composer dims under it as drawn; the menu one up. */}
+                  <OverlayBackdrop onClose={closeMore} tabIndex={-1} className="z-[var(--sn-z-nav)]" data-picked-more-scrim="" />
                   <div
                     ref={moreMenuRef}
                     id={moreMenuId}
                     role="menu"
                     aria-label={`More for ${title}`}
                     onKeyDown={onMoreKey}
-                    className="absolute right-2 top-full z-[var(--sn-z-nav)] mt-1 w-[232px] origin-top-right sn-frame sn-frame-flush py-1 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards]"
+                    className="absolute right-2 top-full z-[var(--sn-z-pop)] mt-1 w-[232px] origin-top-right sn-frame sn-frame-flush py-1 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards]"
                     data-picked-more-menu=""
                   >
                     {moreMenu.map((m) => {

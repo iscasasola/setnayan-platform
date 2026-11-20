@@ -155,8 +155,10 @@ test('6 · the host has Report a problem under ⋯ too — without becoming a on
   assert.match(SHELL, /\(chatHome \? chatHome\.more : more\)\.flatMap\(/);
   assert.match(SHELL, /if \('body' in row && !chatHome\) return \[\];/);
   // ⋯ is a menu under its own button, as drawn (`.menu.top`, 232 px, top right) — not a sheet from the bottom.
-  assert.match(SHELL, /\{moreOpen \? \([\s\S]{0,400}role="menu"[\s\S]{0,200}className="absolute right-2 top-full z-\[var\(--sn-z-nav\)\] mt-1 w-\[232px\]/, 'the ⋯ menu is no longer the drawn top-right menu');
+  assert.match(SHELL, /\{moreOpen \? \([\s\S]{0,600}role="menu"[\s\S]{0,200}className="absolute right-2 top-full z-\[var\(--sn-z-pop\)\] mt-1 w-\[232px\]/, 'the ⋯ menu is no longer the drawn top-right menu');
   assert.doesNotMatch(SHELL, /<Sheet open=\{moreOpen\}/, 'the ⋯ menu went back to a bottom sheet');
+  // The scrim covers the thumb row (the composer dims under it, as drawn): above `--sn-z-thumb`, the menu above it.
+  assert.match(SHELL, /<OverlayBackdrop onClose=\{closeMore\} tabIndex=\{-1\} className="z-\[var\(--sn-z-nav\)\]" data-picked-more-scrim="" \/>/, 'the composer floats over the ⋯ scrim again');
   // Esc peels one layer: the menu, not the whole client under it.
   assert.match(SHELL, /const escClose = useCallback\(\(\) => \(moreOpen \? closeMore\(\) : close\(\)\)/);
 });

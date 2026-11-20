@@ -500,7 +500,7 @@ export function AccordionLockButton({
           {/* 🪑 By the piece (owner Q2, 20 Nov): the ask carries no number — never the stock, only who says how many. */}
           {state.byThePiece
             ? piecesAskSentLine(state.vendorName)
-            : `Booking requested — waiting for ${state.vendorName} to agree.`}
+            : <>Booking requested — waiting for {state.vendorName} to agree.</>}
         </p>
       </div>
     );

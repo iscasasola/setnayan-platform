@@ -13,6 +13,14 @@ import type { BenchServiceCard } from '@/lib/bench-service-card';
 import { formatPhpRounded } from '@/lib/php';
 import { nearestKm, pinOf } from '@/lib/mall-card';
 import type { DateFit } from '@/lib/calendar-truth';
+import { TAXONOMY_MAP, type WeddingTile } from '@/lib/taxonomy';
+import { categoryForTile } from '@/lib/shortlist-taxonomy';
+
+/** A prod card's taxonomy id → the event_vendors row's own `category` + `category_key` (its Find tile). */
+function placeOf(service: string): { category: EventVendorRowInput['category']; category_key: string } {
+  const tile = (TAXONOMY_MAP[service]?.tile ?? service) as WeddingTile;
+  return { category: categoryForTile(tile), category_key: tile };
+}
 
 /** One real event's venue pin and estimated guests (events.venue_latitude/longitude, estimated_pax). */
 export const MALL_REAL_VENUE = pinOf('14.6624933', '121.0456594')!;
@@ -45,7 +53,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
   const rows: EventVendorRowInput[] = REAL.map((r) => ({
     vendor_id: r.id,
     vendor_name: r.shop,
-    category: r.category,
+    ...placeOf(r.category),
     status: 'considering',
     marketplace_vendor_id: `p-${r.id}`,
   }));
@@ -71,7 +79,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
     ]),
   );
   if (opts.perGuest) {
-    rows.push({ vendor_id: 'r-lab-pax', vendor_name: 'Lab sample caterer', category: 'catering', status: 'considering', marketplace_vendor_id: 'p-lab-pax' });
+    rows.push({ vendor_id: 'r-lab-pax', vendor_name: 'Lab sample caterer', ...placeOf('catering'), status: 'considering', marketplace_vendor_id: 'p-lab-pax' });
     enrichment.set('r-lab-pax', { rating: null, review_count: 0, booked_count: 0, is_verified: true, distance_km: nearestKm(venue, [pinOf('14.5605166', '121.0764343')]) });
     cards['r-lab-pax'] = {
       name: 'LAB ONLY · plated dinner (₱850 / guest, min 50)',
@@ -83,7 +91,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
       coverUrl: null,
       perGuest: { pricePhp: 850, minPax: 50 },
     };
-    rows.push({ vendor_id: 'r-lab-pax-2', vendor_name: 'Lab sample buffet', category: 'catering', status: 'considering', marketplace_vendor_id: 'p-lab-pax-2' });
+    rows.push({ vendor_id: 'r-lab-pax-2', vendor_name: 'Lab sample buffet', ...placeOf('catering'), status: 'considering', marketplace_vendor_id: 'p-lab-pax-2' });
     enrichment.set('r-lab-pax-2', { rating: null, review_count: 0, booked_count: 0, is_verified: false, distance_km: nearestKm(venue, [pinOf('14.6341654', '121.0352121')]) });
     cards['r-lab-pax-2'] = {
       name: 'LAB ONLY · buffet (₱650 / guest, min 250)',
@@ -101,7 +109,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
     dateFit.set('r-setnaprod', 'free');
     enrichment.set('r-setnaprod', { ...enrichment.get('r-setnaprod')!, within_radius: true });
     const star = (id: string, name: string, title: string, within: boolean, fit: DateFit | null) => {
-      rows.push({ vendor_id: id, vendor_name: name, category: 'photo_booth', status: 'considering', marketplace_vendor_id: `p-${id}` });
+      rows.push({ vendor_id: id, vendor_name: name, ...placeOf('photo_booth'), status: 'considering', marketplace_vendor_id: `p-${id}` });
       enrichment.set(id, { rating: 5, review_count: 48, booked_count: 12, is_verified: true, within_radius: within, distance_km: within ? 6 : 64 });
       if (fit) dateFit.set(id, fit);
       cards[id] = { name: title, priceText: `from ${formatPhpRounded(12_000)}`, discountBadge: null, includesLine: null, notIncluded: [], givesSetnayanGift: false, coverUrl: null, perGuest: null };

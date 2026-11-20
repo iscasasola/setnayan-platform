@@ -204,7 +204,7 @@ export function ServiceFace({
         data-service-face-layout="mall"
         className={
           framed
-            ? 'sn-frame relative flex h-full w-full min-w-0 flex-col overflow-hidden transition-shadow hover:shadow-m-lg'
+            ? 'sn-frame sn-frame-flush relative flex h-full w-full min-w-0 flex-col overflow-hidden transition-shadow hover:shadow-m-lg'
             : 'relative flex h-full min-w-0 flex-col'
         }
       >

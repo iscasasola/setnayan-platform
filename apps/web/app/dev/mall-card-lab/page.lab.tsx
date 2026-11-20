@@ -8,7 +8,8 @@
  *   &nopin=1      one shop has no place (no HQ, no branch) → no distance line, never "0 km"
  *   &guests=none  no guest count → a per-guest card shows its plain per-guest price
  *   &perguest=1   adds two LAB-ONLY per-guest cards (₱850 min 50 → a total; ₱650 min 250 → per guest)
- *   &saved=1      the first card reads as already saved (the filled bookmark)
+ *   &bookmarked=1 the first card reads as already saved (the filled bookmark). Not `saved` — that word is the app's
+ *                 global "Saved." toast parameter.
  *
  * Dev only (`page.lab.tsx`). Pressing Save here calls the real action, which needs a signed-in session.
  */
@@ -143,7 +144,7 @@ export default async function MallCardLabPage({
                   save: (
                     <SaveVendorButton
                       vendorProfileId={`p-${c.id}`}
-                      initiallySaved={one('saved') === '1' && i === 0}
+                      initiallySaved={one('bookmarked') === '1' && i === 0}
                       label="Save"
                       iconOnly
                       onPhoto={MALL_SAVE_ON_PHOTO}

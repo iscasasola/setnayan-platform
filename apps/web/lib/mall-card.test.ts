@@ -94,6 +94,10 @@ test('card 14 is drawn by the one face on Find (bench + to compare) and on Disco
   assert.match(more, /layout="mall"/, 'the "to compare" card stopped wearing the mall face');
   assert.match(find, /\.slcat \.fold\.flat \.rail\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'Find is not two across');
   assert.match(find, /@container \(min-width:900px\)\{\.slcat \.fold\.flat \.rail\{grid-template-columns:repeat\(4,/, 'Find desktop is not four across');
+  // A container query reads an ANCESTOR, never the element itself: the column (.fold.flat) is the container, the rail
+  // only answers it. With container-type on .rail its own queries never matched and Find stayed two across on desktop.
+  assert.match(find, /\.slcat \.fold\.flat\{container-type:inline-size\}/, 'the Find column is not the container the rail queries');
+  assert.doesNotMatch(find, /\.fold\.flat \.rail\{[^}]*container-type/, 'the rail queries itself — its columns never change');
 
   const faces = src('lib/marketplace-service-card-faces.ts');
   assert.match(faces, /mall: \{/, 'Discover faces no longer carry the mall card');

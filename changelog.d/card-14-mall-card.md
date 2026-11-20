@@ -28,11 +28,22 @@ drawing https://claude.ai/artifact/752FUN4BTE16bEWmpjP6r7).
   search, a supplier saved to the event leads — only when the venue is in their reach AND they are free on the date
   (the shipped reach read and date fit; unknown is not true). Otherwise the normal order. The couple's own pins still
   apply after it.
-- Lab: `/dev/suppliers-lab?mall=real` draws the real production cards against a real venue (`&venue=none`,
-  `&perguest=1`, `&savedfirst=1`).
+- **The price reads in dark ink** on the browse face (controller ruling), and the photo runs edge to edge in its frame
+  (`sn-frame-flush`), so the Save bookmark sits on the photo's own corner.
+- **The opened card follows round 1 option 3's order** (`service-details-sheet.tsx`): name · shop · price and its note ·
+  Included · Not included · the medal row. The medal row used to sit ABOVE the name; it now closes the last fact section
+  (or the face, when the card has no facts). Same row, same guard, moved.
+- Labs: `/dev/suppliers-lab?mall=real` draws the real production cards against a real venue (`&venue=none`,
+  `&perguest=1`, `&savedfirst=1`, `&nopin=1`, `&guests=none`); `/dev/mall-card-lab` draws Discover's grid with Save on
+  the photo (`&venue=none`, `&nopin=1`, `&guests=none`, `&perguest=1`, `&bookmarked=1`).
 
 Not matched (said in the PR): the medal row is not drawn on Find or Discover — the badge read is per shop
 (`readCardBadges`, 2 RPCs + a seals read each), so a batched read needs a new RPC (a migration). The front door's
-shelf has no event context, so it shows no distance and no total.
+shelf has no event context, so it shows no distance, no total and no Save (it is shared and cached, with no viewer
+state); its "See all" (`/?browse=1`) draws the full grid, which has Save. The opened card has no "Your date" line (the
+sheet has no date-fit read) and keeps its shipped warm price colour. No production card is priced per guest yet, so the
+guest-count total shows only on lab data. The search's calendar check fails open on a read error, so there a saved
+supplier can lead on an unread calendar. Explore and Find are not in `DARK_READY` on main, so dark mode is not
+reachable on these routes until the dark rollouts land; the tokens' dark values were checked in the lab.
 
 SPEC IMPACT: None — builds the approved DECISION_LOG rows of 20 Nov (card 14) as drawn; no ruling changed.

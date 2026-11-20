@@ -1114,7 +1114,8 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
    about X km" · "Do it"; drawing https://claude.ai/artifact/752FUN4BTE16bEWmpjP6r7, section "14 in Find, with its
    buttons"). The one-screen column (.fold.flat) runs the cards two across on a phone, three on a tablet and four on a
    desktop; each snap unit is the card with its buttons under it. Sunk-tier dividers span the row. */
-.slcat .fold.flat .rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px;align-items:stretch;padding:4px 0 16px;container-type:inline-size}
+.slcat .fold.flat .rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px;align-items:stretch;padding:4px 0 16px}
+.slcat .fold.flat{container-type:inline-size}
 @container (min-width:600px){.slcat .fold.flat .rail{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}}
 @container (min-width:900px){.slcat .fold.flat .rail{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 20px}}
 .slcat .fold.flat .rail>.raildiv,.slcat .fold.flat .rail>:not(.vcw):not(.vc){grid-column:1/-1}

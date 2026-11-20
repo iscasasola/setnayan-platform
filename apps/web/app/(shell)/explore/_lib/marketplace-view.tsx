@@ -1475,7 +1475,7 @@ export async function MarketplaceView({
   // client), so the cookies()-ordering constraint that pins runSocialFlush
   // below doesn't apply. Throttled + single-claim + OFF by default internally.
   //
-  // 2026-11-12 — ON DISCOVER (`surface === 'discover'`) BOTH ARE SKIPPED HERE: `app/page.tsx` already schedules
+  // 2026-11-12 — ON DISCOVER (`surface === 'discover'`) BOTH ARE SKIPPED HERE: `app/(hub)/page.tsx` already schedules
   // `runAdminDigestFlush` and `runDailyEmailJobs` on every `/` request, the supplier view included. Scheduling them
   // twice per request would only spend a second claim read each.
   if (surface === 'explore') {
@@ -3366,7 +3366,7 @@ export async function MarketplaceView({
       · [All categories ▾] [Sort ▾] [Filters] — Sort is ONE dropdown (the chip row is `/explore`'s); Off-season is a
         switch inside Filters (the band is `/explore`'s); the faith strip's job is done by the ONE summary line.
       · The compare line sits in the head, once two are saved (the shipped `CompareShortlistBanner`).
-      · No ItemList JSON-LD: `/` describes the whole site (`app/page.tsx`), and every `/?…` address canonicalises to
+      · No ItemList JSON-LD: `/` describes the whole site (`app/(hub)/page.tsx`), and every `/?…` address canonicalises to
         `/` — the marketplace's structured data stays with `/explore`'s metadata.
     `<div>`, not `<main>`: Discover's shell already draws the page's one <main>.
   */

@@ -1,0 +1,21 @@
+## 2026-11-18 · fix(shell): Home and Discover share one layout — the bars stop remounting between them
+
+Owner, 18 Nov ("yes, unify home and discover on fable"), against the 17 Nov "bars never reload" ruling. Signed in, Home (`/dashboard`) and Discover (`/`) sat under no shared layout below the root, so the tap between them mounted a new top bar, Menu button and rail (measured on live f8f278f at 390 px), and the two bars looked different (gold mark + plain avatar on Home, text-only SETNAYAN on Discover).
+
+- New route group `app/(hub)/` holds both pages: `app/page.tsx` → `app/(hub)/page.tsx`, `app/dashboard/(launcher)/page.tsx` → `app/(hub)/dashboard/page.tsx` (with its `loading`, `default` and `@modal` create-event slot). No URL changes and no redirects. A route group adds no segment.
+- `app/(hub)/layout.tsx` is the launcher layout, moved. It draws the app-variant shell (the drawing's one bar), the bell, the switcher, the account bar and the one `<main class="sn-vt-page">`, signed in only. Signed out it draws nothing, so `/` is still the public front door drawn by `FrontDoor`.
+- `app/(hub)/dashboard/layout.tsx` re-uses `app/dashboard/layout.tsx` (sign-in gate, deleted account, Terms, tours) by importing it, not copying it, and renders the `@modal` slot.
+- `FrontDoor`: signed in, it now draws only Discover's content and its `<h1>`. Its own shell, `SignedInCluster` and `FrontDoorAccountBar` (deleted) left the signed-in path, so the bell, switcher and account-bar reads run once in the layout instead of twice.
+- `lib/hub-shell.ts`: one question (`hubDrawsTheShell`, the cached `getCurrentUser`) decides for both the layout and the page who draws the shell, so neither both nor none draw it.
+- Guard `app/(hub)/home-and-discover-share-one-layout.test.ts` is red on main. About 90 guard tests and baselines that cited the old file paths now point at the new ones.
+- Walker items folded in (one area, one builder):
+  - D2a · Discover gets its own pinned row (`app/_components/frontdoor/discover-pin.tsx`, the shared `PinnedRow`): "Discover ▾" jumps to each Discover part · "N upcoming" counted from the shelves already read (`lib/discover-pin.ts`), and a refused shelf says "Couldn’t count upcoming", never 0 · "Following" filters to the people you follow (`/?following=1`) · ⚙. "N new" is not drawn: "New uploads" was retired 16 Nov, so there is no source to count.
+  - D2b · Suppliers says "See all →" to the browse list whenever it shows a shop. Event stories and Service cards already had theirs; People to follow has no list page (none invented); Articles is in open PR #7935.
+  - D2c · Suppliers carries "verified only" (findable shops are verified with current papers, `vendor_profiles.is_findable`).
+  - D4 · every `PinnedRow` press (picker, action, icon-only action) is 44 px tall.
+  - D7 · `RevealWhatIsSeen` finishes the `sn-rise` reveal (motion #4 Enter, unchanged) for what is off screen and on a jump-scroll, so a jump never lands on a blank. No new motion values.
+  - D6 · resolved by data (owner, 18 Nov): test shops are marked `is_demo` through Admin › Suppliers › "Sample shop".
+- Review fixes (#7988 HOLD): mounted inside the hub `<main>`, the dashboard gate (`app/dashboard/layout.tsx`) no longer adds `min-h-dvh` or paints `bg-page`, so a short Home stops scrolling and the ambient wash shows. A layout's default export can take no extra prop (Next's generated type check), so the mount is told apart by `[main.sn-vt-page>&]`. Guard: `app/(hub)/the-gate-does-not-stretch-home.test.ts`. The template-score baseline follows Home to `(hub)/dashboard`, and its components that stayed in `dashboard/(launcher)/_components` still count, so Home holds at 16 rather than "falling" to 1.
+- Catch-up 19 Nov: inside the hub `<main>`, signed-in Discover had lost the 16 / 24 px side gutter that `.fd-main` used to give it, and sat flush on the screen edge at 390 px. `front-door.tsx` now gives its page `px-4 lg:px-6`, and guard `3d` holds it. Shots: `build-sessions/shots-catchup-misc/`.
+
+SPEC IMPACT: None. This builds the 2026-11-17 DECISION_LOG rows "USER DASHBOARD (Home + Discover)" and "navigation bars should not load with the screen" as ruled. The bar look is the approved drawing `prototypes/user_dashboard_clean_2026-11-17/user_dashboard_clean_2026-11-17_fable.html`.

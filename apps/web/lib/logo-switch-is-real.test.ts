@@ -148,7 +148,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/api/social/card/[postId]/route.ts': ['carries', 'the shareable social card'],
   'app/dashboard/(account)/library/_components/memories-chapters.tsx': ['host', "the host's own library — each event chapter's empty tile"],
   'app/dashboard/(account)/library/_components/photos-tab.tsx': ['host', "the host's own library"],
-  'app/dashboard/(launcher)/page.tsx': ['host', "the host's launcher"],
+  'app/(hub)/dashboard/page.tsx': ['host', "the host's launcher"],
   'app/dashboard/[eventId]/_components/event-rail-context.tsx': ['host', "the host's rail"],
   'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': ['host', "the Maker's poster (reads the drafted switch when the draft carries it)"],
   'app/dashboard/[eventId]/layout.tsx': ['host', "the host's rail (select *: it follows the switch too)"],

@@ -189,7 +189,7 @@ test('every public route the audit knows is listed in a sitemap', () => {
 
 // SABOTAGE: put "Event Pro’s Logo & QR part" back in the homepage featureList → RED.
 test('the homepage structured data names no retired product', () => {
-  const src = code('app/page.tsx');
+  const src = code('app/(hub)/page.tsx');
   const start = src.indexOf('const softwareAppJsonLd');
   const end = src.indexOf('export default');
   assert.ok(start >= 0 && end > start, 'the homepage JSON-LD moved — re-point this guard');

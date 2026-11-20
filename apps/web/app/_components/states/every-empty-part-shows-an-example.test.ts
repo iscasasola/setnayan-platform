@@ -104,28 +104,28 @@ const PARTS: Part[] = [
   {
     name: 'User · Planning',
     render: async () => React.createElement((await import('@/app/dashboard/(launcher)/_components/board-examples')).PlanningExample),
-    file: 'app/dashboard/(launcher)/page.tsx',
+    file: 'app/(hub)/dashboard/page.tsx',
     mount: /<PlanningExample \/>/,
     gate: /boardReadAnswered \? <PlanningExample \/>/,
   },
   {
     name: 'User · Now happening',
     render: async () => React.createElement((await import('@/app/dashboard/(launcher)/_components/board-examples')).ShelfExample, { shelf: 'now' }),
-    file: 'app/dashboard/(launcher)/page.tsx',
+    file: 'app/(hub)/dashboard/page.tsx',
     mount: /<ShelfExample shelf="now" \/>/,
     gate: /happeningNow\.length === 0 && boardReadAnswered \? <ShelfExample shelf="now"/,
   },
   {
     name: 'User · Ended / Untold',
     render: async () => React.createElement((await import('@/app/dashboard/(launcher)/_components/board-examples')).ShelfExample, { shelf: 'ended' }),
-    file: 'app/dashboard/(launcher)/page.tsx',
+    file: 'app/(hub)/dashboard/page.tsx',
     mount: /<ShelfExample shelf="ended" \/>/,
     gate: /unwritten\.length === 0 && boardReadAnswered \? <ShelfExample shelf="ended"/,
   },
   {
     name: 'User · Told',
     render: async () => React.createElement((await import('@/app/dashboard/(launcher)/_components/board-examples')).ShelfExample, { shelf: 'told' }),
-    file: 'app/dashboard/(launcher)/page.tsx',
+    file: 'app/(hub)/dashboard/page.tsx',
     mount: /<ShelfExample shelf="told" \/>/,
     // Only when the stories were MEASURED — an unmeasured Told shelf is empty because the read never came back.
     gate: /written\.length === 0 && storiesMeasured && boardReadAnswered \? <ShelfExample shelf="told"/,

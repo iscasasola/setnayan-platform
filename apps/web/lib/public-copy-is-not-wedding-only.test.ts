@@ -6,7 +6,7 @@
  * Measured on the live database on 2026-08-31: `event_type_vocab` carries
  * SEVENTEEN rows and every one is `status = 'active'` AND `enabled = TRUE`.
  * Meanwhile:
- *   · `app/page.tsx` — `HOME_TITLE` read "Plan your Filipino wedding free" and
+ *   · `app/(hub)/page.tsx` — `HOME_TITLE` read "Plan your Filipino wedding free" and
  *     the SoftwareApplication JSON-LD called Setnayan "The Philippines-first
  *     wedding platform". That page is the one URL an answer engine grounds the
  *     entire brand on.
@@ -51,7 +51,7 @@ import {
 import { INPUT_FOR_GUARDS } from './llms-txt-guard-input';
 import { stripComments } from './strip-comments';
 
-const HOME_PAGE = path.join(import.meta.dirname, '..', 'app', 'page.tsx');
+const HOME_PAGE = path.join(import.meta.dirname, '..', 'app', '(hub)', 'page.tsx');
 
 // 🪤 THIS FILE ROLLED ITS OWN REGEX STRIPPER FOR ONE COMMIT, and it was the
 // exact broken shape `lib/strip-comments.ts` was written to retire: a pair of

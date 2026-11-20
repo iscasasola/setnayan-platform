@@ -1,7 +1,6 @@
-import { redirect } from 'next/navigation';
 import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
-import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { hubDrawsTheShell } from '@/lib/hub-shell';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import {
   getSwitcherData,
@@ -11,12 +10,42 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
-import { AccountBarSlot } from './_components/account-bar-slot';
+import { RevealWhatIsSeen } from '@/app/_components/reveal-what-is-seen';
+import { AccountBarSlot } from '@/app/dashboard/(launcher)/_components/account-bar-slot';
 import { accountBarTabs } from '@/lib/account-bar';
 import { discoverOpensHere } from '@/lib/request-platform';
 
 /**
- * Full-screen LAUNCHER chrome — route group `(launcher)`, covering only the
+ * ONE LAYOUT FOR HOME AND DISCOVER — route group `(hub)`, covering `/` and `/dashboard` (owner 18 Nov 2026, verbatim:
+ * *"yes, unify home and discover on fable"*; DECISION_LOG 2026-11-17 "navigation bars should not load with the
+ * screen … Top bar, tab bar and rail live in the shared layout and never remount or redraw on a tab or page change").
+ *
+ * 🔴 THE FAULT THIS CLOSES. Signed in, Home (`/dashboard`, then under `app/(hub)/layout.tsx`) and
+ * Discover (`/`, `app/(hub)/page.tsx`) shared no layout below the root, so the tap between them mounted a NEW top bar and a
+ * NEW rail — measured on live f8f278f at 390 px: `header.fd-topbar` and the Menu button were new DOM nodes after the
+ * tap; the view-transition slide only hid the swap. The two bars did not even look alike: Home drew the gold mark and
+ * a plain avatar (this layout's app variant), Discover drew text-only SETNAYAN and its own copy of the cluster.
+ *
+ * 🔑 THE FIX IS WHERE THE FILES SIT, NOT WHAT THEY DRAW. Next keeps a layout mounted across a navigation only when
+ * both pages are below it. So both pages now live under this group, and this file draws the chrome the launcher
+ * layout already drew — the same `AppRailShell` (app variant, the drawing's look:
+ * `prototypes/user_dashboard_clean_2026-11-17/…_fable.html` draws ONE bar for both), the same bell + switcher, the
+ * same account bar. No URL moved: a route group adds no segment.
+ *
+ * 🔒 SIGNED OUT, THIS FILE DRAWS NOTHING. `/` stays the public front door exactly as it was (#7840: "signed out sees
+ * the front door only") — `FrontDoor` still renders its own front-door shell for a stranger, and `/dashboard`'s own
+ * gate (`dashboard/layout.tsx`, re-used by `(hub)/dashboard/layout.tsx`) still sends a stranger to sign in. The one
+ * question "is the shell drawn here" is asked in ONE place (`lib/hub-shell.ts`) by both this layout and `FrontDoor`,
+ * so they can never both draw a bar, or neither.
+ *
+ * 💸 FEWER READS, NOT MORE: Discover used to read the bell + switcher a second time through `SignedInCluster` and the
+ * account bar's own auth check (`FrontDoorAccountBar`); both are this layout's now, read once.
+ *
+ * The history below is the launcher layout's, moved here with it — every rule in it still holds.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * (was) Full-screen LAUNCHER chrome — route group `(launcher)`, covering only the
  * account splash at `/dashboard`.
  *
  * ── THE HEADER MOVED INTO THE PAGE (owner, 2026-07-30) ──────────────────────
@@ -72,23 +101,10 @@ import { discoverOpensHere } from '@/lib/request-platform';
  * so it is the layout's. Both reads fail soft: a switcher fetch that throws
  * degrades to a minimal panel rather than costing the user their only sign-out.
  */
-export default async function LauncherLayout({
-  children,
-  modal,
-}: {
-  children: React.ReactNode;
-  /**
-   * THE ADD FLOW'S SLOT (collection template, owner-approved 2026-09-24).
-   * `@modal/(.)create-event` intercepts a navigation from the board to
-   * `/dashboard/create-event` and renders the real create-event page in a
-   * panel over the board; `@modal/default.tsx` renders nothing otherwise. A
-   * cold load of `/dashboard/create-event` is not intercepted — it gets the
-   * full page, as before.
-   */
-  modal: React.ReactNode;
-}) {
-  const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath('/dashboard'));
+export default async function HubLayout({ children }: { children: React.ReactNode }) {
+  const user = await hubDrawsTheShell();
+  // Signed out: nothing of ours. `/` draws the public front door itself; `/dashboard`'s gate redirects to sign in.
+  if (!user) return <>{children}</>;
 
   const minimalSwitcherFallback: SwitcherData = {
     userId: user.id,
@@ -149,6 +165,8 @@ export default async function LauncherLayout({
           data-sn-slide="while-sliding"
         >
           {children}
+          {/* 👁 A reveal plays only for what is on screen; a jump never lands on a blank (walker D7, 18 Nov). */}
+          <RevealWhatIsSeen />
         </main>
         {/* The account bar — rendered by the LAYOUT, not by a page, so it
             survives the tap that uses it. Its tabs are the 2026-10-21 ruling
@@ -166,7 +184,6 @@ export default async function LauncherLayout({
         <AppPreload
           {...appPreloadPlan({ hostEventId: hostedEventOf(switcherData.events), hasShop: switcherData.context.hasVendor })}
         />
-        {modal}
       </AppRailShell>
     </div>
   );

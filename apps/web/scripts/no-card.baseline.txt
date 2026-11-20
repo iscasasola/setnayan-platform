@@ -4,7 +4,7 @@
 # GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 442 files · 1014 lines
+# 442 files · 1013 lines
 2 apps/web/app/_components/account-switcher/account-switcher.tsx
 4 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -73,6 +73,7 @@
 1 apps/web/app/_components/verification/doc-slot-card.tsx
 1 apps/web/app/_components/verification/verification-status-card.tsx
 1 apps/web/app/_components/wayfinding-map.tsx
+1 apps/web/app/(hub)/dashboard/page.tsx
 1 apps/web/app/(shell)/alaala/page.tsx
 2 apps/web/app/(shell)/explore/_components/category-tile.tsx
 3 apps/web/app/(shell)/explore/_components/filter-drawer.tsx
@@ -193,7 +194,6 @@
 1 apps/web/app/dashboard/(account)/create-event/_components/create-location-picker.tsx
 2 apps/web/app/dashboard/(account)/profile/page.tsx
 4 apps/web/app/dashboard/(launcher)/_components/event-card-menu.tsx
-1 apps/web/app/dashboard/(launcher)/page.tsx
 3 apps/web/app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
 2 apps/web/app/dashboard/[eventId]/_components/new-manual-vendor-modal.tsx
 2 apps/web/app/dashboard/[eventId]/_components/nikah-essentials-card.tsx
@@ -404,7 +404,7 @@
 23 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx
 3 apps/web/app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx
-2 apps/web/app/vendor-dashboard/creators/page.tsx
+1 apps/web/app/vendor-dashboard/creators/page.tsx
 2 apps/web/app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx
 3 apps/web/app/vendor-dashboard/disputes/page.tsx
 1 apps/web/app/vendor-dashboard/forms/_components/form-maker.tsx

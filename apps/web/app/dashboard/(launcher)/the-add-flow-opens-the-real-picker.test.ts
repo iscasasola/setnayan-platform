@@ -29,7 +29,8 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
-const INTERCEPT = '@modal/(.)create-event/page.tsx';
+const HOME = '../../(hub)/dashboard/';
+const INTERCEPT = `${HOME}@modal/(.)create-event/page.tsx`;
 
 test('the panel renders the REAL create-event page — imported whole, never re-built', () => {
   assert.ok(existsSync(join(HERE, INTERCEPT)), 'the interceptor is gone');
@@ -47,11 +48,12 @@ test('the panel renders the REAL create-event page — imported whole, never re-
   );
 });
 
-test('the slot is rendered by the launcher layout, and is empty by default', () => {
-  const layout = read('layout.tsx');
+test('the slot is rendered by Home\'s layout, and is empty by default', () => {
+  // 18 Nov 2026: Home moved into `(hub)` (one layout with Discover); the slot moved with it, into Home's own layout.
+  const layout = read(`${HOME}layout.tsx`);
   assert.match(layout, /modal: React\.ReactNode;/);
-  assert.match(layout, /\{modal\}\s*<\/AppRailShell>/, 'the layout no longer renders the @modal slot');
-  const def = read('@modal/default.tsx');
+  assert.match(layout, /\{modal\}\s*<\/DashboardLayout>/, 'the layout no longer renders the @modal slot');
+  const def = read(`${HOME}@modal/default.tsx`);
   assert.match(def, /export default function \w+\(\) \{\s*return null;\s*\}/);
 });
 
@@ -66,7 +68,7 @@ test('the panel is a SidePanel that rises as a sheet on a phone and goes BACK on
 });
 
 test('all three doors on Planning point at the intercepted address', () => {
-  const page = read('page.tsx');
+  const page = read(`${HOME}page.tsx`);
   // 17 Nov 2026 (owner "Yes, all 3"): the three doors are the pinned row's "＋ Event" · NewEventCard's tile · the empty
   // state's button. The Planning head's (+) (`NewEventButton`) went with the big "＋ Create an event".
   const pin = page.match(/<HomePinnedRow\s+seg="events"[\s\S]*?\/>\s*\}/)?.[0] ?? '';

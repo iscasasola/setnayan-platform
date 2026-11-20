@@ -10,11 +10,11 @@ import { homeSegments, resolveHomeSeg } from '@/lib/home-segments';
 import { readHomeCardCounts, readHomeEventCounts, readHomeHandle } from '@/lib/home-profile.server';
 import { resolveRailAccount } from '@/app/_components/frontdoor/rail-data';
 import { waitingRequestCount } from '@/lib/people-roster';
-import { HomeProfile } from './_components/home-profile';
-import { HomeFindRow, HomePinnedRow } from './_components/home-pin';
-import { HomeShopSegment } from './_components/home-shop-segment';
-import { PeopleSegment } from '../(account)/people/_components/people-segment';
-import { MemoriesSegment } from '../(account)/library/_components/memories-segment';
+import { HomeProfile } from '@/app/dashboard/(launcher)/_components/home-profile';
+import { HomeFindRow, HomePinnedRow } from '@/app/dashboard/(launcher)/_components/home-pin';
+import { HomeShopSegment } from '@/app/dashboard/(launcher)/_components/home-shop-segment';
+import { PeopleSegment } from '@/app/dashboard/(account)/people/_components/people-segment';
+import { MemoriesSegment } from '@/app/dashboard/(account)/library/_components/memories-segment';
 
 import { ActionButton } from '@/components/action-button';
 import { SwitchTrack } from '@/app/_components/switch-track';
@@ -33,9 +33,9 @@ import {
   CalendarClock,
   Plus,
 } from 'lucide-react';
-import { YearMomentsStrip } from './_components/year-moments-strip';
+import { YearMomentsStrip } from '@/app/dashboard/(launcher)/_components/year-moments-strip';
 import { Spotlight } from '@/app/_components/spotlight';
-import { IncomingRequests } from './_components/incoming-requests';
+import { IncomingRequests } from '@/app/dashboard/(launcher)/_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
 import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
 import { guestMePath } from '@/lib/offline-copy-addresses';
@@ -44,7 +44,7 @@ import { QUIET_MAX_COPIES, type QuietCopy } from '@/lib/quiet-schedule-refresh';
 import { publicEventPath } from '@/lib/public-event-url';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, userEventsReadRefused, type EventWithRole } from '@/lib/events';
-import { PlanningExample, ShelfExample } from './_components/board-examples';
+import { PlanningExample, ShelfExample } from '@/app/dashboard/(launcher)/_components/board-examples';
 import { rethrowIfSchemaBlip } from '@/lib/read-retry';
 import {
   canWriteStoryFor,
@@ -100,9 +100,9 @@ import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { accountAutosurfaceEnabled } from '@/lib/account-autosurface-flag';
-import { AutoSurfacedEvents } from '../(account)/_components/autosurfaced-events';
+import { AutoSurfacedEvents } from '@/app/dashboard/(account)/_components/autosurfaced-events';
 import { lifeStoryEnabled } from '@/lib/life-story-flag';
-import { EventCardMenu } from './_components/event-card-menu';
+import { EventCardMenu } from '@/app/dashboard/(launcher)/_components/event-card-menu';
 /*
   ⚠ THE BADGE AND THE TWO LABEL HELPERS NOW COME FROM THE SHARED INDEX, and
   that direction is deliberate. The palette and this board must badge one event
@@ -117,9 +117,9 @@ import {
   shortDate,
 } from '@/app/_components/frontdoor/command-data';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { EventScene } from './_components/event-scene';
+import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
 import { getEventTypeVocab } from '@/lib/event-types-db';
-import { eventTypePhotoSrc, eventTypeRepoPhotoSrc } from '../(account)/create-event/_components/event-types';
+import { eventTypePhotoSrc, eventTypeRepoPhotoSrc } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveHero } from '@/lib/event-hero';
@@ -130,7 +130,7 @@ import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { formatCount } from '@/lib/format-number';
 import { readForTags } from '@/lib/event-for-tag.server';
 import { cardShowsForTag, type ForTag } from '@/lib/for-tag';
-import { StanceChip } from './_components/stance-chip';
+import { StanceChip } from '@/app/dashboard/(launcher)/_components/stance-chip';
 import { PEOPLE_GROUPS_HREF } from '@/lib/people-views';
 
 export const metadata = {
@@ -769,7 +769,7 @@ async function EventsBoard({
         .select('event_id, status')
         .eq('user_id', user.id)
         .eq('is_journal', false); // 📰 the Journal is Setnayan's, not this person's chapters
-      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:creator_chapters.select', error);
+      if (error) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · from:creator_chapters.select', error);
       if (!error) {
         chapterCount = ((data ?? []) as unknown[]).length;
       } else {
@@ -821,7 +821,7 @@ async function EventsBoard({
         .from('event_editorial')
         .select('event_id, status')
         .eq('status', 'published');
-      if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:event_editorial.select', error);
+      if (error) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · from:event_editorial.select', error);
       if (!error) {
         storyEventIds = new Set(
           ((data ?? []) as Array<{ event_id: string | null }>)
@@ -857,8 +857,8 @@ async function EventsBoard({
           supabase.from('dependents').select('owner_user_id, handed_over_by_user_id, shared_with_spouse, handed_over_at'),
           supabase.rpc('current_spouse_user_ids'),
         ]);
-        if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:dependents.select', error);
-        if (spouseError) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · rpc:current_spouse_user_ids', spouseError);
+        if (error) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · from:dependents.select', error);
+        if (spouseError) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · rpc:current_spouse_user_ids', spouseError);
         if (!error) alagaCount = myLovedOnes((data ?? []) as DependentOwnership[], user.id, spouseIdSet(spouseIds)).length;
       } catch {
         alagaCount = null;
@@ -879,7 +879,7 @@ async function EventsBoard({
           .select('connection_id', { count: 'exact', head: true })
           .eq('status', 'confirmed')
           .is('deleted_at', null);
-        if (error) console.error('[supabase-error] app/dashboard/(launcher)/page.tsx · from:person_connections.select', error);
+        if (error) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · from:person_connections.select', error);
         if (!error) connectionCount = count ?? 0;
       } catch {
         connectionCount = null;

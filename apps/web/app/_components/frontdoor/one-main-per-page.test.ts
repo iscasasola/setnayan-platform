@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
  * the app it is wrong, because every surface the rail wraps already renders
  * its own:
  *
- *   dashboard/(launcher)/layout.tsx   <main>{children}</main>
+ *   (hub)/layout.tsx   <main>{children}</main>
  *   dashboard/(account)/layout.tsx    <main>{children}</main>
  *   dashboard/[eventId]/layout.tsx    <main className="sn-vt-page">
  *
@@ -43,7 +43,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SHELL = join(HERE, 'front-door-shell.tsx');
 const APP = join(HERE, '..', '..');
 const HOSTS = [
-  join(APP, 'dashboard', '(launcher)', 'layout.tsx'),
+  join(APP, '(hub)', 'layout.tsx'),
   join(APP, 'dashboard', '(account)', 'layout.tsx'),
   join(APP, 'dashboard', '[eventId]', 'layout.tsx'),
 ];

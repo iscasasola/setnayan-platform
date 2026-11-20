@@ -41,11 +41,11 @@
  */
 
 import { after } from 'next/server';
-import './_components/frontdoor/front-door.css';
-import './_components/frontdoor/front-door-landing.css';
-import { FrontDoor } from './_components/frontdoor/front-door';
-import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
-import { ChatOriginMark } from './_components/chat/chat-back';
+import '@/app/_components/frontdoor/front-door.css';
+import '@/app/_components/frontdoor/front-door-landing.css';
+import { FrontDoor } from '@/app/_components/frontdoor/front-door';
+import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
+import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';

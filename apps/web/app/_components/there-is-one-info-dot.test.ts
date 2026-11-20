@@ -85,7 +85,7 @@ const SITES: Record<string, Site> = {
   'app/dashboard/[eventId]/schedule/_components/day-ui.tsx': {
     why: 'InfoTip PRINTS its label; every ⓘ on the day rail sits beside a label its caller already prints',
   },
-  'app/dashboard/(launcher)/page.tsx': {
+  'app/(hub)/dashboard/page.tsx': {
     why: 'the My Events shelf ⓘ is a server-rendered <details> so it opens with JavaScript off, on a venue’s bad signal',
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },

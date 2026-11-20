@@ -136,7 +136,7 @@ export function PapicHomeCard({
     <div ref={root} id={PAPIC_CARD_ANCHOR} className="flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
       <PapicHeadContext.Provider value={say}>
-        <div className="sn-frame flex min-w-0 cursor-pointer flex-col gap-2.5 px-3.5 pt-3 text-ink" onClick={onBody} {...marker}>
+        <div className="sn-frame flex min-w-0 cursor-pointer flex-col gap-2.5 px-3.5 pb-0 pt-3 text-ink" onClick={onBody} {...marker}>
           <div className="flex min-w-0 items-center gap-2.5">
             {/* THE HEAD — a press of its own (keyboard and reader): it rises the settings, never another page. */}
             <button

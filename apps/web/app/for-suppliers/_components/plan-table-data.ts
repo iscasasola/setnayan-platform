@@ -244,7 +244,7 @@ export function addonLines(bySku: Readonly<Record<string, string | null>>): { ki
 const ULTRA_ADDON_LABEL: Record<UltraAddOnKind, string> = {
   ultra: 'Ultra Add-on: +1 branch · +15 live cards · +3 people · +50 GB',
   category: '+1 category',
-  service_card: '+1 service card per category',
+  service_card: '+1 service card',
   seat: '+1 team seat',
   branch: '+1 branch',
   waitlist: '+1 waiting-list place per date',

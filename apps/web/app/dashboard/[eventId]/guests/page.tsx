@@ -75,7 +75,7 @@ import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
 import { ROLE_SECTION_ORDER } from './_components/role-section-order';
-import { GuestsScreen, type RowInvite } from './_components/guests-screen';
+import { GuestsScreen } from './_components/guests-screen';
 import { GuestsMarch } from './_components/guests-march';
 import RequestsPage from './claims/page';
 import SeatingPage from '../seating/page';
@@ -1115,24 +1115,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // membership read blipped is never shown a read-only list (owner 2026-09-28 · live report 2026-10-25).
   const guestsViewOnly =
     !viewer.isCouple && viewer.delegatePermissions !== null && viewerAreaLevel(viewer, 'guest_list') !== 'edit';
-  /* 📤 EACH ROW'S SHARE (owner 2026-10-27, "GUEST ROW = SHARE + DELETE") — the event's address and words, read ONCE above
-     (the same `invitationBase` + `inviteSetup` the open card uses), and the token of every guest the send run would hold
-     (`mayBeInvited` — never the couple, a declined guest, a passed-away one, or a +1 riding their guest's invitation).
-     Only the token travels, never the rest of the row (the-list-sends-only-what-it-draws.test.ts), and only to a viewer
-     who may send — a look-only helper gets no Share, the same seam as Select and Delete. */
-  const rowInvite: RowInvite | null =
-    !guestsViewOnly && invitationBase
-      ? {
-          base: invitationBase,
-          tokens: Object.fromEntries(
-            guests
-              .filter((g) => !selfJoinIds.includes(g.guest_id) && mayBeInvited(g) && Boolean(g.qr_token))
-              .map((g) => [g.guest_id, g.qr_token as string] as const),
-          ),
-          facts: inviteSetup.facts,
-          template: inviteSetup.template,
-        }
-      : null;
+  /* 📤 NO SHARE ON A ROW (Guests redesign pick 3, owner 20 Nov 2026: "No share button on guest rows" — "Send invite" on
+     the guest card, "Send N invites" in the list's summary). The list no longer carries every guest's token. */
   const guestsScreen = (
     <GuestsScreen
       eventId={eventId}
@@ -1175,7 +1159,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       }
       initialAsking={search.gshow === 'requests'}
       oneQr={guestsOneQr}
-      invite={rowInvite}
       titlesWaiting={titlesWaiting}
       papic={viewer.isCouple && !storeShell ? eventPapic : null}
       rootLabel={mapRoot}

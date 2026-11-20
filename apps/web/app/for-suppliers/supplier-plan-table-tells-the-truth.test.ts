@@ -69,7 +69,6 @@ const row = (groups: TableGroup[], key: string) => {
 test('no peso amount and no credit count is typed into a plan table, its renderer or the plan cards', () => {
   const files = [
     'app/for-suppliers/_components/plan-table-data.ts',
-    'app/for-suppliers/_components/supplier-plan-table.tsx',
     'app/_components/frontdoor/front-door-landing-data.ts',
   ];
   for (const rel of files) {

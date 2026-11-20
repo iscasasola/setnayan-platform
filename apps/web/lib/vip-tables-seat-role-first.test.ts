@@ -237,7 +237,10 @@ test('7 · wired: the VIP column + the +1 pick are read, marked in List / 2D / 3
   assert.match(ed, /setTableVip\(st, k === 'vip-on'\)/, 'the 2D table ⋯ cannot mark VIP');
   assert.match(ed, /\{vipPick\(m, 'data-seat-list-vip'\)\}/, 'the List table tools cannot mark VIP');
   assert.equal((ed.match(/options=\{VIP_PLUS_ONE_OPTIONS\}/g) ?? []).length, 1, 'the +1 pick is not ONE dropdown');
-  assert.match(read('app/dashboard/[eventId]/seating/_components/seat-list.tsx'), /\{vip \? <VipMark \/> : null\}/, 'the List does not mark VIP');
+  // 👥 Guests redesign pick 5 (20 Nov): a table is a CARD — its VIP mark sits beside its name, on the card and on the risen table.
+  const seatList = read('app/dashboard/[eventId]/seating/_components/seat-list.tsx');
+  assert.match(seatList, /\{u\.vip \? \(\s*<span[^>]*>\s*<VipMark \/>/, 'the List’s table card does not mark VIP');
+  assert.match(seatList, /\$\{unit\.vip \? 'VIP table · ' : ''\}/, 'the risen table does not say it is a VIP table');
   assert.match(read('app/dashboard/[eventId]/seating/lab/page.tsx'), /vip: t\.is_vip === true/, 'the 3D room is not told which tables are VIP');
   assert.match(read('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx'), /\{table\.vip \? <VipTableMark \/> : null\}/, 'the 3D room does not mark VIP');
 });

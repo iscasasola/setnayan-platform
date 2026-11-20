@@ -3,10 +3,11 @@ import { createAdminClient } from './supabase/admin';
 import { logQueryError } from './supabase/error-detect';
 import { countSuppliersByArea, type AreaPoint, type AreaShop } from './area-supplier-counts';
 import { isShopLive, SHOP_LIVE_COLUMNS } from '@/lib/vendor-visibility';
+import { isVerifiedForReach } from './vendor-service-radius';
 
 /**
- * 📍 THE ONE GROUPED READ behind "Areas that fit" (owner 2026-11-17): every live shop's pin (verified + publicly visible), tier and
- * declared rings, counted against the areas the Where step offers (`countSuppliersByArea`). The rows are public facts
+ * 📍 THE ONE GROUPED READ behind "Areas that fit" (owner 2026-11-17): every live shop's pin (verified + publicly visible), verification
+ * and declared rings, counted against the areas the Where step offers (`countSuppliersByArea`). The rows are public facts
  * of public shops; the admin client is used because `vendor_profiles` rings are not all on the public projection.
  *
  * 🔴 A REFUSED READ IS NULL, NEVER AN EMPTY MAP — the step then says it could not count, instead of ranking every area
@@ -15,7 +16,7 @@ import { isShopLive, SHOP_LIVE_COLUMNS } from '@/lib/vendor-visibility';
 export async function readAreaSupplierCounts(areas: readonly AreaPoint[]): Promise<Record<string, number> | null> {
   const { data, error } = await createAdminClient()
     .from('vendor_profiles')
-    .select(`hq_latitude, hq_longitude, tier_state, inner_radius_km, outer_radius_km, ${SHOP_LIVE_COLUMNS}`)
+    .select(`hq_latitude, hq_longitude, verification_state, inner_radius_km, outer_radius_km, ${SHOP_LIVE_COLUMNS}`)
     // Narrows the read; the decision is `isShopLive` below.
     .eq('verification_state', 'verified');
   if (error || !data) {
@@ -27,7 +28,7 @@ export async function readAreaSupplierCounts(areas: readonly AreaPoint[]): Promi
   const shops: AreaShop[] = (data as Array<Record<string, unknown>>).filter((r) => isShopLive(r)).map((r) => ({
     lat: num(r.hq_latitude),
     lon: num(r.hq_longitude),
-    tier: typeof r.tier_state === 'string' ? r.tier_state : null,
+    verified: isVerifiedForReach(typeof r.verification_state === 'string' ? r.verification_state : null),
     innerKm: num(r.inner_radius_km),
     outerKm: num(r.outer_radius_km),
   }));

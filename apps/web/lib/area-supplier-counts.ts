@@ -2,33 +2,32 @@
  * area-supplier-counts.ts — 📍 "AREAS THAT FIT · BY SUPPLIERS WE HAVE THERE" (owner 2026-11-17, drawing v15 Where ·
  * "Not sure yet"; the controller accepted the definition on PR #7920).
  *
- * A supplier is "here" when it is a LIVE shop (verified + publicly visible — the one definition) whose OWN reach covers the area's centre: its declared
- * outer ring, tier-clamped (`resolveDeclaredRings` — the same clamp the bench's badge uses), or — when it declared none —
- * its tier's radius (`tierCaps().serviceRadiusKm`, the card's own fallback). An unpinned shop, or a tier with no reach,
- * is counted nowhere: it cannot be said to serve an area. Real counts only — never "most popular on Setnayan".
+ * A supplier is "here" when it is a LIVE shop (verified + publicly visible — the one definition) whose OWN reach covers
+ * the area's centre. Reach is the shop's verification, never its plan (owner 2026-11-19, #8014): the one clamp
+ * `effectiveOuterRadiusKm` — not verified → 0 (counted nowhere), verified with a ring → that ring, verified and blank →
+ * no limit of its own. An unpinned shop is counted nowhere: it cannot be said to serve an area. Real counts only — never
+ * "most popular on Setnayan".
  *
  * PURE: the read lives in `area-supplier-counts.server.ts`, which hands the rows here.
  */
 import { haversineKm } from './geo';
-import { tierCaps } from './vendor-tier-caps';
-import { resolveDeclaredRings } from './vendor-service-radius';
+import { effectiveOuterRadiusKm } from './vendor-service-radius';
 
 export type AreaShop = {
   lat: number | null;
   lon: number | null;
-  tier: string | null;
+  /** `isVerifiedForReach(verification_state)` — the shop's verification, never its plan. */
+  verified: boolean;
   innerKm: number | null;
   outerKm: number | null;
 };
 
 export type AreaPoint = { key: string; lat: number; lon: number };
 
-/** How far this shop reaches, in km — Infinity for an unbounded tier, null when it cannot be said. */
+/** How far this shop reaches, in km — Infinity when verified with no ring of its own, null when it reaches nowhere. */
 export function shopReachKm(s: AreaShop): number | null {
-  const { outerKm } = resolveDeclaredRings({ declaredInnerKm: s.innerKm, declaredOuterKm: s.outerKm, tier: s.tier });
-  if (outerKm != null && outerKm > 0) return outerKm;
-  const tierKm = tierCaps(s.tier).serviceRadiusKm;
-  return tierKm > 0 ? tierKm : null;
+  const km = effectiveOuterRadiusKm(s.outerKm, s.verified);
+  return km > 0 ? km : null;
 }
 
 /** area key → how many shops reach it. Every area is present (0 is a measured zero, not a missing read). */

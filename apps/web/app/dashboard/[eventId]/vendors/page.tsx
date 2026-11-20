@@ -64,8 +64,8 @@ import { FindCategoryList } from './_components/find-category-list';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
-import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { isVerifiedForReach, reachCeilingKm, resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
 import { fetchPlanGroupScope } from '@/lib/plan-groups-by-event-type';
 import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
@@ -999,12 +999,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const distanceKm = kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
       const ceremonyDistanceKm = kmFrom(anchors.ceremony, s.hq_latitude, s.hq_longitude);
 
-      // Fit-badge · service-radius reach (2026-07-09). Same tier-cap + fail-open
-      // rule the category-search overlay uses (vendor-tier-caps · serviceRadiusKm):
-      // Verified 20km · Pro 50km reach iff distance ≤ radius; Free (0 = unscoped)
-      // + Enterprise (∞) + unknown distance are admitted (within). Null distance /
-      // no finite radius → within=null (badge hidden, never a false "out of range").
-      const radiusKm = tierCaps(asVendorTier(a?.tier_state ?? null)).serviceRadiusKm;
+      // Fit-badge · service-radius reach (2026-07-09). Same ceiling + fail-open
+      // rule the category-search overlay uses (`reachCeilingKm`): since 2026-11-19
+      // reach is NOT a plan allowance (owner: "unlock the range. not plan dependend
+      // anymore"), so the ceiling is ∞ for a verified shop and 0 for an unverified
+      // one — both unscoped, so within=null and the shop's OWN declared rings below
+      // (`resolveDeclaredRings`) are the only distance claim. Never a false "out of range".
+      const radiusKm = reachCeilingKm(isVerifiedForReach(a?.verification_state ?? null));
       const hasFiniteRadius = Number.isFinite(radiusKm) && radiusKm > 0;
       const withinRadius =
         distanceKm == null || !hasFiniteRadius
@@ -1012,9 +1013,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           : distanceKm <= radiusKm;
 
       // INNER / OUTER SERVICE RADIUS (owner 2026-07-27 · §17). The vendor's own
-      // declaration, TIER-CLAMPED HERE so a lapsed subscription can never keep
-      // buying reach through a stale column: a vendor who declared 50 km on Pro
-      // and dropped to Verified reads 20 km, with no backfill job. Either ring
+      // declaration, CLAMPED HERE to the verification ceiling (never the plan, owner
+      // 2026-11-19) so an un-verified shop's stale column reads 0. Either ring
       // resolving null → the bench keeps the tier-derived `within_radius` badge
       // above, unchanged — a blank is never a penalty and never a claim.
       //
@@ -1029,7 +1029,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       const { innerKm: effectiveInnerKm, outerKm: declaredOuterKm } = resolveDeclaredRings({
         declaredInnerKm: declaredRings?.inner_radius_km ?? null,
         declaredOuterKm: declaredRings?.outer_radius_km ?? null,
-        tier: a?.tier_state ?? null,
+        verified: isVerifiedForReach(a?.verification_state ?? null),
       });
 
       // Positive faith match only (true) — a non-match / serves-all / non-wedding

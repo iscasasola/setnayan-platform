@@ -96,3 +96,22 @@ test('5 · 🛡 the new pieces load only when opened', () => {
   // Nothing outside the group page and its lab imports the group-only client pieces.
   assert.doesNotMatch(read('app/dashboard/[eventId]/messages/page.tsx'), /group-plus-sheet|group-switcher|group-chat-view/);
 });
+
+test('6 · a person who LEFT a group keeps their name on their past lines, marked "· left" (owner 20 Nov)', async () => {
+  const { formerMemberNames, GROUP_LEFT_MARK } = await import('./chat-groups');
+  assert.deepEqual(
+    formerMemberNames([
+      { user_id: 'rita', first_name: 'Rita', name: 'Rita Cruz' },
+      { user_id: 'pia', first_name: null, name: 'Pia' },
+      { user_id: 'nobody', first_name: null, name: null },
+    ]),
+    { rita: `Rita · ${GROUP_LEFT_MARK}`, pia: `Pia · ${GROUP_LEFT_MARK}` },
+  );
+  const view = readFileSync(join(__dirname, '..', 'app/samahan/chat/[threadId]/_components/group-chat-view.tsx'), 'utf8');
+  // Former members first, then the people in the group — someone back in the group is never marked "left".
+  assert.match(view, /const out: Record<string, string> = formerMemberNames\(former\);\s*for \(const m of members\) \{/);
+  assert.match(view, /senderNames=\{members === null \? \{\} : groupSenderNames\(members, former\)\}/);
+  const page = readFileSync(join(__dirname, '..', 'app/samahan/chat/[threadId]/page.tsx'), 'utf8');
+  assert.match(page, /readGroupFormerMembers\(supabase, threadId\)/);
+  assert.match(page, /former=\{former\}/);
+});

@@ -152,7 +152,7 @@ const unreadRow = (key: string, title: string, href: string, page: string): Even
   key,
   kind: 'unread',
   title,
-  line: 'not empty — unread · tap to try again',
+  line: 'Couldn’t load · tap to try again',
   urgency: null,
   icon: 'warn',
   href,

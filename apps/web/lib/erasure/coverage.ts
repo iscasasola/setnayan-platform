@@ -1031,7 +1031,7 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   {
     table: 'event_today_put_offs',
     column: 'user_id',
-    why: '⏭ CASCADE + NOT NULL — one person\u2019s own "Do it tomorrow" on an event\u2019s Today (Event Today, Focus shape, migration 20271354816762). It is about that person\u2019s day and nobody else reads it; it goes with them, and the task stays on every other host\u2019s Today.',
+    why: '⏭ CASCADE + NOT NULL — one person\u2019s own "Do it tomorrow" on an event\u2019s Today (Event Today, Focus shape, migration 20271356173915). It is about that person\u2019s day and nobody else reads it; it goes with them, and the task stays on every other host\u2019s Today.',
   },
   {
     table: 'chat_poll_votes',

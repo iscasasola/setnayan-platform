@@ -181,7 +181,7 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
         <div className="flex min-h-16 items-center gap-3 py-2.5">
           {/* A plan task keeps the shipped tick circle: tap it and the task is done, saved in place. */}
           {tick && g ? (
-            <span className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick="">
+            <span className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick={red ? 'red' : ''}>
               <PlanningTick eventId={g.eventId} kind={tick.kind} id={tick.id} done={false} title={row.title} />
             </span>
           ) : (

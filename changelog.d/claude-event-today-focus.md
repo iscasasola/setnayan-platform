@@ -16,7 +16,7 @@ there is vital or maybe you can make it look better"* · *"Yes, build it"*. Stac
   tomorrow". Drag right opens the page; drag left is "Do it tomorrow"; a red row moves a third and springs back with
   "Urgent · can't go to tomorrow". No delete.
 - **"Do it tomorrow" is per host.** Owner: *"one host may choose to do it tomorrow but the other host hasn't so there
-  is a change that can be done today"*. New record `event_today_put_offs` (migration `20271354816762`, RLS on at
+  is a change that can be done today"*. New record `event_today_put_offs` (migration `20271356173915`, RLS on at
   CREATE TABLE: own rows, on an event the person belongs to), written by the same `todayPutOff` action with
   `scope: 'event'` — still ONE export. Put-off rows sit under "Tomorrow N", out of the count; a red row ignores any
   record and an unread record list holds nothing off.
@@ -29,6 +29,10 @@ there is vital or maybe you can make it look better"* · *"Yes, build it"*. Stac
 - The tablet and 1280 Budget CARDS obey the same rule (`home-control-row.tsx` listed every payment; only the tile
   filtered) — held by `home-now-never-repeats-below.test.ts` test 1. In dark, the plain event card now wears the dark
   theme's ink (it kept the light band's espresso on its dark ground — unreadable, also on main).
+- Ship review (FIX-FIRST) answered: the list heading is the drawing's wash band with no ⓘ; a plan task's tick is the
+  drawing's 24 px ring, red-ringed on the card fill on a red row (the shipped `PlanningTick`, restyled only inside the
+  list); the unread row says "Couldn’t load · tap to try again"; the migration is re-allocated forward
+  (`pnpm migration:new`).
 - After the plan's three tasks, ONE row "N more plan tasks this week ›" (the plan's own figure less what is on
   screen), then the kept line "N% of the plan done · All N this week ›".
 - The open "Send the invitations" card names who has not been sent theirs (`toInviteNames` in

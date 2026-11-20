@@ -4,14 +4,9 @@ import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { SAMPLE_TODO } from '@/lib/empty-look-samples';
 import { ChevronRight, List } from 'lucide-react';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
-import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { EVENT_TODAY_TASK_ROWS, type EventToday } from '@/lib/event-today';
 import { EventTodayGroup, EventTodayRowItem, EventTodayTomorrow, EventTodayUnreadRow } from './event-today-list';
-
-/** What the list's ⓘ says. */
-export const HOME_TODO_INFO =
-  'What needs you, most urgent first. Tap a row to answer it here. Drag right to open its page, drag left to do it tomorrow. Your whole plan is in Schedule.';
 
 /** How many plan tasks the list shows (round 3: "the three soonest tasks with their tick"). */
 export const HOME_TODO_ROWS = EVENT_TODAY_TASK_ROWS;
@@ -45,10 +40,9 @@ export function HomeTodayList({
   const nothing = today.list.length === 0 && !today.more;
   return (
     <div role="group" aria-label="Needs you today" data-home-todo={planUnread ? 'unread' : ''} data-event-today="" className="flex flex-col">
-      <p className="hc-k2 min-h-11" data-home-todo-head="" data-event-today-head="">
-        <InfoTip label="Needs you today" labelClassName="hc-k2-name" align="start">
-          {HOME_TODO_INFO}
-        </InfoTip>
+      <p className="hc-k2 et-pin min-h-11" data-home-todo-head="" data-event-today-head="">
+        {/* No ⓘ: the drawing's heading is the label and its count, nothing else (v3, part A). */}
+        <span className="hc-k2-name">Needs you today</span>
         {/* Only a real count: nothing waiting draws no "0" (the line under it says so). */}
         {today.listCount > 0 ? <em data-event-today-count="">{formatCount(today.listCount)}</em> : null}
       </p>

@@ -896,7 +896,7 @@ export async function buildPersonalDataExport(
       .select('item_key, until_day, put_off_at')
       .eq('user_id', user.id)
       .order('put_off_at', { ascending: true }),
-    // RA 10173 (2026-11-20) — the subject's OWN "Do it tomorrow" on an event's Today (migration 20271354816762).
+    // RA 10173 (2026-11-20) — the subject's OWN "Do it tomorrow" on an event's Today (migration 20271356173915).
     // Owner-scoped on user_id: which event, which Today row, until which day. No other host's record is in it.
     supabase
       .from('event_today_put_offs')

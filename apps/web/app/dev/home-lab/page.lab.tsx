@@ -134,7 +134,10 @@ import { labPlanningList } from '../schedule-lab/lab-planning';
 /** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
 function labTodoFacts() {
   const p = planningProgress(labPlanningList().items);
-  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+  // Real plan tasks carry the Planning Stage tick (`HomeChecklistFacts.next[].tick`); the lab's do too, so Home's list
+  // draws the shipped tick circle as the app does (Event Today drawing v3: "Plan tasks keep the shipped tick circle").
+  const next = p.next.map((t) => ({ ...t, tick: { kind: 'task' as const, id: t.id } }));
+  return { done: p.done, total: p.total, open: p.open, next, dueThisWeek: p.dueThisWeek };
 }
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';

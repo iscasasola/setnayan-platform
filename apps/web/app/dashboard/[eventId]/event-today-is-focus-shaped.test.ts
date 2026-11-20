@@ -142,7 +142,7 @@ test('4 · the put-off is written in scope event, per person', () => {
   const read = src('app', 'dashboard', '[eventId]', '_components', 'event-today-asks.tsx');
   assert.match(read, /\.from\('event_today_put_offs'\)\.select\('task_key, until_day'\)\.eq\('event_id', eventId\)\.eq\('user_id', userId\)\.gt\('until_day', todayIso\)/);
   // …and the database says the same: one row per event, person and task; own rows only, on an event they belong to.
-  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271354816762_event_today_put_offs.sql'), 'utf8');
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271356173915_event_today_put_offs.sql'), 'utf8');
   assert.match(sql, /PRIMARY KEY \(event_id, user_id, task_key\)/);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
   assert.equal(count(sql, 'user_id = (SELECT auth.uid()) AND event_id IN (SELECT public.current_event_ids())'), 2, 'the policy is not own-rows-on-my-events for both USING and WITH CHECK');

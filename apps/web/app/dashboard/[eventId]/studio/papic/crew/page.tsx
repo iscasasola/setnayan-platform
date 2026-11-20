@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { papicCrewPosterHref, papicCardHref } from '@/lib/papic-home-href';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -40,9 +42,7 @@ export default async function PapicCrewPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: membership, error: membershipError } = await supabase
@@ -61,11 +61,12 @@ export default async function PapicCrewPage({ params }: Props) {
 
   const backLink = papicCardHref(eventId);
 
-  const { data: eventRow, error: eventRowError } = await supabase
+  const { data: eventRow, error: eventRowError } = await eventRowOnce(supabase, eventId, 'slug, landing_page_visibility, scheduled_launch_at, std_launched_at', () =>
+      supabase
     .from('events')
     .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // ⚠ the event record. Degrades rather than claiming.
   if (eventRowError) {
     logQueryError('PapicCrewPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');

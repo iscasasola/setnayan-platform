@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -45,9 +46,7 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     (bridge === 'demo' || envFlagEnabled(process.env.NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED));
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/papic/claim/${token}`);
 
   // RLS only returns the row if this user is the claimer — so this read is

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { ShopLink } from '@/app/_components/shop-link';
@@ -84,9 +85,7 @@ type Props = {
 export default async function CreatorChaptersPage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: profile, error: profileError } = await supabase

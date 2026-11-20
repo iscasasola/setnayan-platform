@@ -22,6 +22,7 @@
  * to the shared bundle; the Filter ▾ and Save are one small client file.
  */
 
+import { eventRowOnce } from '@/lib/event-row-once';
 import { shopHrefForEvent } from '@/lib/shop-back';
 import { Suspense } from 'react';
 import { redirect, notFound } from 'next/navigation';
@@ -62,11 +63,12 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   const supabase = await createClient();
 
   // Membership gate — events RLS restricts the read to members.
-  const { data: ev, error: evError } = await supabase
+  const { data: ev, error: evError } = await eventRowOnce(supabase, eventId, 'event_id, event_type, ceremony_type, secondary_ceremony_type', () =>
+      supabase
     .from('events')
     .select('event_id, event_type, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // A refused read is not "no such event": it must not render a wedding's list
   // for a birthday (the type defaults to wedding below) — fail to the boundary.
   if (evError) {

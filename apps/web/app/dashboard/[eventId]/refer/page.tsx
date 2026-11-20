@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Gift, Check, Hourglass, UserPlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -32,9 +33,7 @@ const STATUS_COPY: Record<
 export default async function ReferACouplePage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Master toggle: the Refer surface is only reachable while the program is on.

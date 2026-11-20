@@ -987,10 +987,12 @@ export function ClaimDoor({
         {i === 0 ? (
           // P4 (19 Nov): Edit · Skip for now · Approve card. 🎁 The Setnayan team's door has NO Edit: its finish lands
           // on Shop › Your details (`finishClaimDoor`), never the Card Maker hand-off — so it must not promise it.
-          <div className={`grid max-w-[620px] gap-2 [&>.ab]:w-full [&>.ab]:justify-center ${team ? 'grid-cols-2' : 'grid-cols-3'}`} data-claim-door-card-ways="">
+          // As drawn (P4 · PB4): Approve full width on top, the quieter ways under it — three in one row ran past the
+          // right gutter at 375 px.
+          <div className={`grid max-w-[620px] gap-2 [&>.ab]:w-full [&>.ab]:justify-center ${team ? 'grid-cols-1' : 'grid-cols-2'}`} data-claim-door-card-ways="">
+            <ActionButton tone="brand" main icon={Check} label="Approve card" className={team ? undefined : 'col-span-2'} onClick={() => choose('approve')} data-testid="claim-door-card-approve" />
             {team ? null : <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => choose('edit')} data-testid="claim-door-card-edit" />}
             <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => choose('skip')} data-testid="claim-door-card-skip" />
-            <ActionButton tone="brand" main icon={Check} label="Approve card" onClick={() => choose('approve')} data-testid="claim-door-card-approve" />
           </div>
         ) : null}
         {i === 0 ? (

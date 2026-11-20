@@ -59,8 +59,12 @@ const HOSTS = [
   },
 ];
 
-test('Today’s cover bleeds at all (or this guard is aimed at nothing)', () => {
-  assert.ok(bleed[0]! > 0, `expected a negative margin on the cover, got "${pin}"`);
+// RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): the top is a two-line mast that sits INSIDE the
+// gutter — it no longer pulls out to the page edge at all. So the property is now the stronger one: no bleed, at any
+// width. The host checks below stay (0 ≤ every pad), and fail again the day a negative margin comes back unpadded.
+test('Today’s mast does not bleed past its gutter at any width', () => {
+  assert.deepEqual(bleed, [0, 0, 0], `the mast pulls out of its gutter again: "${pin}"`);
+  assert.match(pin, /\bflex\b/, 'anti-vacuity: the class read is not the mast’s');
 });
 
 for (const host of HOSTS) {

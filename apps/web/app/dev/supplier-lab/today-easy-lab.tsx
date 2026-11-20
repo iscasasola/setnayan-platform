@@ -576,7 +576,7 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = 
           trendingCard: { title: sup.categoryWord },
           completedBookings: 3,
           radar: null,
-          cutoffs: { fewInquiries: 20, fewBookings: 2 },
+          cutoffs: { fewInquiries: 20, fewBookings: 2, soonAskHours: 24, soonEventDays: 7 },
           inspirationPhotos: 4,
           // The plans rebuild's Verified total (#7975: 1 · 3 · 10 · 20 · 80 · 200) — a lab number; the page reads it.
           // ▦ `&cards=<live>-<hidden>` sets the cards row's state on a plan of 3 (a fixture): 1-2 room · 3-4 the lock · 3-0 no row.

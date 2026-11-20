@@ -6,9 +6,12 @@
  *
  * SABOTAGE: put any one fault back (a `min-h-0` "Try again" with no halo, `if (!shop) return []`, a plain "Sent" over a
  * chat line that failed, "· 0" above "couldn't load", a thrown form call with no catch, "Back to Promote" from Prints,
- * `countUnread` on the Settings row, a "See the sample shop" link drawn with no check, "every cell read from the code",
- * "priced in the live catalogue", `Allow: /supplies`, "Supplier" on a 404, a static /sample title, a document title
- * that ends in "· Setnayan") → RED, and the message names the finding.
+ * `countUnread` on the Settings row, "every cell read from the code", "priced in the live catalogue", `Allow: /supplies`,
+ * "Supplier" on a 404, a static /sample title, a document title that ends in "· Setnayan") → RED, and the message
+ * names the finding.
+ *
+ * Crawl #1 / #2 (a "See the sample shop" card that linked to a 404) have no test here: the 20 Nov /for-suppliers and
+ * /for-coordinators pages (batch A, #8050 / #8051) no longer draw that card, so there is nothing left to gate.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -83,38 +86,13 @@ test('G-1 · the Settings Notifications row reads the nullable count and says an
 
 // ── logged-out crawl (r7660) ───────────────────────────────────────────────────────────────────────────────────
 
-test('#1 #2 · a "See the sample shop" card is drawn only when that shop opens to a stranger', () => {
-  const check = read('lib/shop-opens-to-strangers.server.ts');
-  assert.match(check, /if \(error\) \{[\s\S]*?return false;\s*\}\s*if \(!data\) return false;/, '#1/#2: a refused or empty shop read draws the card');
-  assert.match(
-    check,
-    /return shopPageGate\(data, \{ isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen\(\) \}\)\.open === 'public';/,
-    '#1/#2: the sample-shop check no longer asks the shop page\'s own gate',
-  );
-  // The columns the gate reads must be the ones the shop page's own read hands it (else the card and the page disagree).
-  const page = read('app/v/[slug]/page.tsx');
-  const full = page.match(/const fullSelect =\s*'([^']+)'/)?.[1] ?? '';
-  const cols = (check.match(/const GATE_COLUMNS =\s*'([^']+)'/)?.[1] ?? '').split(',').map((c) => c.trim());
-  assert.ok(cols.length >= 8, '#1/#2: GATE_COLUMNS moved — re-anchor this guard');
-  for (const c of cols) assert.ok(full.split(',').includes(c), `#1/#2: the shop page's read no longer selects ${c} — the check reads a column the page does not`);
-  const sup = read('app/(shell)/for-suppliers/page.tsx');
-  assert.match(sup, /shopOpensToStrangers\(SAMPLE_SHOP\.slug\)/, '#1: /for-suppliers no longer checks the sample shop opens');
-  assert.match(sup, /realShopOpen=\{realShopOpen\}/, '#1: /for-suppliers no longer hands the check to the page');
-  const front = read('app/for-suppliers/_components/supplier-front-page.tsx');
-  assert.match(front, /realShopOpen = false,/, '#1: the front page draws the card unless told it opens');
-  assert.match(front, /\{realShopOpen \? \(\s*<div>\s*<a className=\{s\.realshop\}/, '#1: "See a real shop" is drawn without the check (it was a 404 link)');
-  const coord = read('app/(shell)/for-coordinators/page.tsx');
-  assert.match(coord, /shopOpensToStrangers\(SAMPLE_SHOP\.slug\)/, '#2: /for-coordinators no longer checks the sample shop opens');
-  assert.match(coord, /\{realShopOpen \? \(\s*<div>\s*<Link className="fc-realshop"/, '#2: "See the sample shop" is drawn without the check (it was a 404 link)');
-});
-
 test('#9 · the features register speaks to visitors, not about the code', () => {
   const src = read('lib/features-page.ts');
   assert.doesNotMatch(src, /read from the code|read from the limits|Every cell (is )?read/, '#9: developer copy ("every cell read from the code") is shown on /features again');
 });
 
 test('#11 · the feature-page FAQs never say "priced in the live catalogue"', () => {
-  for (const rel of ['lib/feature-pages/invite.ts', 'lib/feature-pages/day-memories.ts']) {
+  for (const rel of ['lib/feature-pages/invite.ts', 'lib/feature-pages/day-memories.ts', 'lib/feature-pages/plan-b.ts']) {
     const src = read(rel);
     assert.doesNotMatch(src, /live catalogue/, `#11: ${rel} tells a visitor about "the live catalogue" again`);
     assert.doesNotMatch(src, /₱\d/, `#11: ${rel} types a peso figure`);

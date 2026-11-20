@@ -13,14 +13,15 @@ From the supplier dashboard audit (2026-11-17, L rows):
 
 From the logged-out crawl (2026-11-14):
 
-- **#1 / #2** · `/for-suppliers` "See a real shop" and `/for-coordinators` "See the sample shop" are drawn only when the sample shop opens to a stranger — `shopOpensToStrangers` (new `lib/shop-opens-to-strangers.server.ts`, a lean read of the columns the shop page's `fetchVendor` hands it) asks the shop page's own `shopPageGate`. Both linked to a 404. No new slug was invented; the QR demo codes are unchanged.
 - **#9** · `/features` register rows A76 and C40 no longer say "every cell read from the code" / "read from the limits".
-- **#11** · Event Hub, Logo Maker, Papic and Patiktok FAQs no longer say "priced in the live catalogue"; they point at the Pricing page. No peso typed. (The Setnayan AI FAQ in `plan-b.ts` is left to open PR #8016, which rewrites that line.)
+- **#11** · Event Hub, Logo Maker, Papic and Setnayan AI FAQs no longer say "priced in the live catalogue"; they point at the Pricing page. No peso typed. (The Setnayan AI line was waiting on #8016, which went live in batch A still reading "live catalogue".)
 - **#12** · robots.txt no longer `Allow`s `/supplies` (a 404); an address with no shop behind it is titled "Page not found", not "Supplier · Setnayan".
 - **#13** · a closed `/sample` is titled "Page not found" (the static title was applied to its 404).
 - **#20** · `/u/<slug>` and `/v/<slug>/booth` hand the title template no "· Setnayan" of their own (was "… · Setnayan · Setnayan"); share cards keep the brand.
 - **#14** (part) · help article foot links "All help topics" / "Still stuck? Contact support →" wear `sn-hit`.
 
-Guard: `apps/web/app/the-low-audit-findings-stay-fixed.test.ts` — 15 tests, each red with its source change reverted (sabotage-checked). `for-coordinators-says-what-ships.test.ts` now pins the page's four-way read (`[on, prices, fee, realShopOpen]`).
+Guard: `apps/web/app/the-low-audit-findings-stay-fixed.test.ts` — 14 tests, each red with its source change reverted (sabotage-checked).
+
+**Redone 2026-11-20 on the 20 Nov pages (batch A, #8050 · #8051 · #8052).** Dropped, because the page no longer draws what they fixed: crawl **#1 / #2** (the 20 Nov `/for-suppliers` and `/for-coordinators` draw no "See a real shop" / "See the sample shop" card, so `lib/shop-opens-to-strangers.server.ts` and the four-way read in `for-coordinators-says-what-ships.test.ts` went with them) and the **Patiktok** half of #11 (Patiktok is retired; its feature entry is gone). Main's text won every conflict hunk in `for-suppliers/page.tsx`, `for-coordinators/page.tsx`, `supplier-front-page.tsx`, `for-coordinators-says-what-ships.test.ts` and `day-memories.ts`.
 
 SPEC IMPACT: None.

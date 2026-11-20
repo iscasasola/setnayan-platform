@@ -58,7 +58,6 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     },
     worksWith: [
       { slug: 'guest-list', how: { en: 'Guests and tables from your list sort the photos.', tl: 'Ang bisita at table mula sa listahan mo ang nag-aayos ng mga litrato.' } },
-      { slug: 'patiktok', how: { en: 'Moments captured become short reels.', tl: 'Ang mga nakuhang sandali ay nagiging maiikling reel.' } },
       { slug: 'live-watch', how: { en: 'Guest phones can also be the cameras for your live stream.', tl: 'Puwede ring camera ng live stream mo ang telepono ng bisita.' } },
       { slug: 'alaala', how: { en: 'Your photos are part of your event’s Memories.', tl: 'Bahagi ng Memories ng event mo ang mga litrato.' } },
     ],
@@ -155,58 +154,7 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
     moreHref: '/panood',
     evidence: ['app/(shell)/panood/page.tsx', 'lib/panood-broadcast.ts', 'lib/panood-youtube.ts'],
   },
-  {
-    slug: 'patiktok',
-    group: 'day',
-    icon: 'patiktok',
-    name: { en: 'Patiktok', tl: 'Patiktok' },
-    line: { en: 'Turns your moments into short, vertical highlight reels.', tl: 'Ginagawang maiikling vertical na highlight reel ang mga sandali mo.' },
-    title: { en: 'Patiktok: Short Highlight Reels', tl: 'Patiktok: Maikling Highlight Reels' },
-    description: {
-      en: 'Pick the moments you love and a short, vertical reel composes itself with music, right in your browser. Paid per day of your event.',
-      tl: 'Piliin ang mga sandaling gusto mo at bubuo ang maikli at vertical na reel na may musika, sa browser mo mismo. May bayad kada araw ng event mo.',
-    },
-    answer: {
-      en: 'Patiktok turns the moments from your event into a short, vertical highlight reel, set to music. You pick the moments, the length and a song, and the reel renders right in your browser with no editing app. Patiktok is paid per day of your event.',
-      tl: 'Ginagawang maikli at vertical na highlight reel ng Patiktok ang mga sandali ng event mo, may musika. Pipiliin mo ang mga sandali, haba at kanta, at mabubuo ang reel sa browser mo nang walang editing app. May bayad ang Patiktok kada araw ng event mo.',
-    },
-    forWho: {
-      en: 'Hosts who want something shareable the same night while the big film takes its time.',
-      tl: 'Para sa mga host na gustong may maibabahagi sa parehong gabi habang matagal pa ang malaking film.',
-    },
-    steps: {
-      en: ['Photos and short clips from your event gather inside Setnayan.', 'Choose your moments, a length and a song.', 'Unlock Patiktok for your event day to save and share the reel.'],
-      tl: ['Naiipon sa Setnayan ang mga litrato at maiikling clip ng event mo.', 'Pumili ng mga sandali, haba at kanta.', 'I-unlock ang Patiktok para sa araw ng event mo para i-save at ibahagi ang reel.'],
-    },
-    different: {
-      en: ['The reel renders in your browser — no editing app and no waiting overnight.', 'Every reel uses music Setnayan owns.', 'It does not replace your event film; it is the fast, shareable version.'],
-      tl: ['Nabubuo ang reel sa browser mo — walang editing app at walang paghihintay magdamag.', 'Musikang pag-aari ng Setnayan ang gamit ng bawat reel.', 'Hindi nito pinapalitan ang event film mo; ito ang mabilis at maibabahaging bersyon.'],
-    },
-    worksWith: [
-      { slug: 'papic', how: { en: 'Moments your guests captured feed your reels.', tl: 'Ang mga sandaling nakuha ng bisita ang pinagkukunan ng reels mo.' } },
-      { slug: 'music-maker', how: { en: 'Your own song, once delivered, backs your reels.', tl: 'Ang sarili mong kanta, kapag naihatid na, ang musika ng reels mo.' } },
-    ],
-    faq: {
-      en: [
-        { q: 'What is a Patiktok reel?', a: 'A short, vertical highlight video of your event, set to music.' },
-        { q: 'Do I need to edit anything?', a: 'No. Pick the moments, length and song, and the reel renders in your browser.' },
-        { q: 'How is it priced?', a: 'Per day of your event. Today’s price is on our Pricing page.' },
-      ],
-      tl: [
-        { q: 'Ano ang Patiktok reel?', a: 'Maikli at vertical na highlight video ng event mo, may musika.' },
-        { q: 'Kailangan ko bang mag-edit?', a: 'Hindi. Piliin ang mga sandali, haba at kanta, at mabubuo ang reel sa browser mo.' },
-        { q: 'Magkano?', a: 'Kada araw ng event mo. Nasa Pricing page namin ang presyo ngayon.' },
-      ],
-    },
-    keywords: {
-      en: ['wedding highlight reel', 'vertical event video', 'short video from event photos'],
-      tl: ['highlight reel ng kasal', 'vertical na video'],
-    },
-    shots: [],
-    price: { kind: 'paid', catalogue: 'retail', codes: ['PATIKTOK_COMPILER'] },
-    moreHref: '/patiktok',
-    evidence: ['app/(shell)/patiktok/page.tsx', 'lib/patiktok.ts', 'app/dashboard/[eventId]/studio/patiktok/page.tsx'],
-  },
+  // 🪦 'patiktok' retired 2026-11-20 (lib/retired-products.ts) — its page left with it.
   {
     slug: 'alaala',
     group: 'memories',

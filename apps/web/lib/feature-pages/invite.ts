@@ -507,59 +507,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     moreHref: '/palogo',
     evidence: ['app/(shell)/palogo/page.tsx', 'lib/monogram.ts', 'lib/logo-layers.ts', 'app/dashboard/[eventId]/monogram/page.tsx'],
   },
-  {
-    slug: 'music-maker',
-    group: 'invite',
-    icon: 'pakanta',
-    name: { en: 'Music Maker', tl: 'Music Maker' },
-    line: { en: 'An original song written from your own story.', tl: 'Orihinal na kantang isinulat mula sa sarili mong kuwento.' },
-    title: { en: 'Custom Wedding Song from Your Love Story', tl: 'Custom na Kanta mula sa Love Story Mo' },
-    description: {
-      en: 'An original song made to order, with words drawn from your own love story. Delivered inside Setnayan, yours to keep.',
-      tl: 'Orihinal na kantang ginawa para sa inyo, na ang mga salita ay galing sa sarili mong love story. Ihahatid sa loob ng Setnayan, sa inyo habambuhay.',
-    },
-    answer: {
-      en: 'Setnayan Music Maker makes an original song for your event, with words drawn from the love story you already told us. It is made to order, delivered inside Setnayan, and yours to keep.',
-      tl: 'Gumagawa ang Setnayan Music Maker ng orihinal na kanta para sa event mo, na ang mga salita ay galing sa love story na naikuwento mo na. Ginagawa ito para sa inyo, inihahatid sa loob ng Setnayan, at sa inyo habambuhay.',
-    },
-    forWho: {
-      en: 'Couples who want music that sounds like them, without writing anything.',
-      tl: 'Para sa mga magkasintahang gusto ng musikang kamukha nila, nang hindi nagsusulat.',
-    },
-    steps: {
-      en: ['Your love story is already there. We ask a few short things it does not carry.', 'It becomes lyrics and a finished, original track in music you both like.', 'It is delivered inside Setnayan, and your Music Maker page shows where it is until then.'],
-      tl: ['Nandiyan na ang love story mo. Magtatanong kami ng ilang maikling bagay na wala roon.', 'Nagiging lyrics at tapos na orihinal na track sa musikang gusto n’yong dalawa.', 'Ihahatid ito sa loob ng Setnayan, at ipinapakita ng Music Maker page mo kung nasaan na ito hanggang doon.'],
-    },
-    different: {
-      en: ['Written from your story, not a template with names dropped in.', 'Made to order for you, not picked from a library.', 'It is yours to keep, with nothing to renew.'],
-      tl: ['Isinulat mula sa kuwento mo, hindi template na nilagyan lang ng pangalan.', 'Ginawa para sa inyo, hindi pinili mula sa isang library.', 'Sa iyo ito habambuhay, walang ire-renew.'],
-    },
-    worksWith: [
-      { slug: 'event-hub', how: { en: 'Your love story on the Event Hub is where the song begins.', tl: 'Sa love story mo sa Event Hub nagsisimula ang kanta.' } },
-      { slug: 'patiktok', how: { en: 'Once delivered, your song backs the reels made at your event.', tl: 'Kapag naihatid na, ang kanta mo ang musika ng mga reel na ginawa sa event mo.' } },
-      { slug: 'papic', how: { en: 'Guests making their own photo reels see your song first.', tl: 'Unang makikita ng mga bisitang gumagawa ng sariling photo reel ang kanta mo.' } },
-    ],
-    faq: {
-      en: [
-        { q: 'Do I have to write anything?', a: 'No. The song is built from the love story you already told us, plus a few short questions.' },
-        { q: 'Is the song really ours?', a: 'Yes. It is made for you and yours to keep, with nothing to renew.' },
-        { q: 'When do we get it?', a: 'After you order, it is written and produced, then delivered inside Setnayan. Your Music Maker page shows its status.' },
-      ],
-      tl: [
-        { q: 'Kailangan ba akong magsulat?', a: 'Hindi. Binubuo ang kanta mula sa love story na naikuwento mo na, kasama ang ilang maikling tanong.' },
-        { q: 'Totoo bang atin ang kanta?', a: 'Oo. Ginawa ito para sa inyo at sa inyo habambuhay, walang ire-renew.' },
-        { q: 'Kailan namin ito makukuha?', a: 'Pagkatapos ng order, isusulat at ipo-produce ito, tapos ihahatid sa loob ng Setnayan. Makikita mo ang status sa Music Maker page mo.' },
-      ],
-    },
-    keywords: {
-      en: ['custom wedding song Philippines', 'original song from love story', 'personalized song'],
-      tl: ['custom na kanta sa kasal', 'orihinal na kanta'],
-    },
-    shots: [],
-    price: { kind: 'paid', catalogue: 'retail', codes: ['PAKANTA'] },
-    moreHref: '/pakanta',
-    evidence: ['app/(shell)/pakanta/page.tsx', 'lib/pakanta-brief.ts', 'app/dashboard/[eventId]/pakanta-actions.ts', 'lib/guest-stories.ts'],
-  },
+  // 🪦 'music-maker' retired 2026-11-20 (lib/retired-products.ts) — its page left with it.
   {
     slug: 'groups',
     group: 'invite',

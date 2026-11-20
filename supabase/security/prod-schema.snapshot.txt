@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1930
-# tables: 517
-# columns: 6221
-# notnull: 3753
+# ledger: 1940
+# tables: 523
+# columns: 6270
+# notnull: 3783
 [ledger]
 20260512000000
 20260513000000
@@ -1935,13 +1935,23 @@
 20271351048946
 20271351451190
 20271351728222
+20271351728770
+20271352068061
 20271352180500
 20271352461498
 20271352882666
 20271352968519
 20271353093349
 20271353556136
+20271354345662
 20271354465843
+20271354471519
+20271354681750
+20271354727518
+20271355036188
+20271355258231
+20271355746081
+20271355899662
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1982,6 +1992,10 @@ admin_data_access_log.admin_user_id
 admin_data_access_log.context
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.amount_php
 admin_received_transactions.channel
 admin_received_transactions.created_at
@@ -2654,6 +2668,15 @@ couple_wedding_type_notify_signups.notified_at
 couple_wedding_type_notify_signups.region
 couple_wedding_type_notify_signups.signup_id
 couple_wedding_type_notify_signups.user_id
+creator_chapter_replies.body
+creator_chapter_replies.chapter_id
+creator_chapter_replies.created_at
+creator_chapter_replies.id
+creator_chapter_replies.posted_as_vendor_id
+creator_chapter_replies.removed_at
+creator_chapter_replies.reply_id
+creator_chapter_replies.updated_at
+creator_chapter_replies.user_id
 creator_chapters.body
 creator_chapters.chapter_id
 creator_chapters.created_at
@@ -2663,13 +2686,18 @@ creator_chapters.event_id
 creator_chapters.happened_on
 creator_chapters.host_included_at
 creator_chapters.id
+creator_chapters.is_journal
 creator_chapters.kind
+creator_chapters.posted_as_vendor_id
 creator_chapters.public_id
 creator_chapters.published_at
+creator_chapters.removed_at
 creator_chapters.showcase_feature_rank
 creator_chapters.showcase_featured_at
+creator_chapters.slug
 creator_chapters.status
 creator_chapters.substrate
+creator_chapters.tags
 creator_chapters.teaser_r2_key
 creator_chapters.title
 creator_chapters.updated_at
@@ -3580,6 +3608,13 @@ event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.locked_at
 event_supplier_schedule_marks.seen_at
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.decided_at
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.shared_by
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -3789,6 +3824,7 @@ event_vendor_working_notes.visibility
 event_vendors.agreed_hours
 event_vendors.archived_at
 event_vendors.archived_by_lock_of
+event_vendors.booked_quantity
 event_vendors.category
 event_vendors.category_key
 event_vendors.completion_disputed_at
@@ -3852,6 +3888,7 @@ event_vendors.package_role
 event_vendors.papic_captures_hidden
 event_vendors.pax_quote_base
 event_vendors.pax_surcharge_php
+event_vendors.prep_days
 event_vendors.pricing_basis
 event_vendors.public_id
 event_vendors.requested_service_ids
@@ -5856,8 +5893,11 @@ platform_settings.setnayan_ai_paywall_enabled
 platform_settings.setnayan_ai_per_event_pricing_enabled
 platform_settings.setnayan_pay_fee_pct
 platform_settings.spotlight_homepage_enabled
+platform_settings.story_photo_silence_days
 platform_settings.tiktok_client_key
 platform_settings.tiktok_oauth_redirect_uri
+platform_settings.today_soon_ask_hours
+platform_settings.today_soon_event_days
 platform_settings.updated_at
 platform_settings.vendor_addon_tiered_pricing_enabled
 platform_settings.vendor_credit_warning_sweep_last_run_at
@@ -6353,6 +6393,11 @@ stewardship_transfers.to_user_id
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
 stewardship_transfers.verification_ref
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
+supplier_event_wrap_ups.wrapped_by
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -6431,6 +6476,11 @@ supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.updated_by_user_id
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.put_off_by
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.closest_existing
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
@@ -6578,6 +6628,7 @@ users.name_search
 users.name_suffix
 users.phone
 users.planner_mode
+users.posting_name
 users.profile_focal_x
 users.profile_focal_y
 users.profile_photo_url
@@ -7428,6 +7479,8 @@ vendor_profiles.ai_addon_expires_at
 vendor_profiles.ai_addon_level
 vendor_profiles.ai_addon_trial_used_at
 vendor_profiles.bir_service_category
+vendor_profiles.booking_max_months
+vendor_profiles.booking_min_days
 vendor_profiles.booth_addon_expires_at
 vendor_profiles.booth_addon_trial_used_at
 vendor_profiles.business_name
@@ -7549,6 +7602,11 @@ vendor_profiles.verification_state
 vendor_profiles.waitlist_enabled
 vendor_profiles.website
 vendor_profiles.weddings_done_approx
+vendor_proposal_lowest.event_id
+vendor_proposal_lowest.lowest_centavos
+vendor_proposal_lowest.updated_at
+vendor_proposal_lowest.updated_by
+vendor_proposal_lowest.vendor_profile_id
 vendor_proposal_shop_gifts.created_at
 vendor_proposal_shop_gifts.credits
 vendor_proposal_shop_gifts.from_badge_reward
@@ -7925,6 +7983,7 @@ vendor_services.title
 vendor_services.transport_flat_fee_php
 vendor_services.transport_included
 vendor_services.updated_at
+vendor_services.usual_prep_days
 vendor_services.vendor_profile_id
 vendor_services.vendor_service_id
 vendor_songs.created_at
@@ -8185,6 +8244,10 @@ admin_audit_log.metadata
 admin_data_access_log.access_log_id
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.channel
 admin_received_transactions.created_at
 admin_received_transactions.read_status
@@ -8598,13 +8661,22 @@ couple_wedding_type_notify_signups.ceremony_type_interested
 couple_wedding_type_notify_signups.created_at
 couple_wedding_type_notify_signups.email
 couple_wedding_type_notify_signups.signup_id
+creator_chapter_replies.body
+creator_chapter_replies.chapter_id
+creator_chapter_replies.created_at
+creator_chapter_replies.id
+creator_chapter_replies.reply_id
+creator_chapter_replies.updated_at
+creator_chapter_replies.user_id
 creator_chapters.chapter_id
 creator_chapters.created_at
 creator_chapters.id
+creator_chapters.is_journal
 creator_chapters.kind
 creator_chapters.public_id
 creator_chapters.status
 creator_chapters.substrate
+creator_chapters.tags
 creator_chapters.title
 creator_chapters.updated_at
 creator_chapters.user_id
@@ -9182,6 +9254,11 @@ event_supplier_files.updated_at
 event_supplier_files.vendor_profile_id
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -10808,6 +10885,10 @@ stewardship_transfers.initiated_at
 stewardship_transfers.status
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -10866,6 +10947,10 @@ supplier_scan_settings.enabled
 supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches
@@ -11527,6 +11612,10 @@ vendor_profiles.updated_at
 vendor_profiles.vendor_profile_id
 vendor_profiles.verification_state
 vendor_profiles.waitlist_enabled
+vendor_proposal_lowest.event_id
+vendor_proposal_lowest.lowest_centavos
+vendor_proposal_lowest.updated_at
+vendor_proposal_lowest.vendor_profile_id
 vendor_proposal_shop_gifts.created_at
 vendor_proposal_shop_gifts.credits
 vendor_proposal_shop_gifts.from_badge_reward

@@ -415,7 +415,7 @@ export function proMore(f: PlanFacts): readonly string[] {
 
 /**
  * 💎 Event Ultra (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): what the card shows first, then what it adds
- * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch and Patiktok (read off the Ultra order,
+ * beyond Pro — ONLY what a paid Ultra order unlocks in the app today: Live Watch (read off the Ultra order,
  * `SKU_OWNERSHIP_ALIASES`), the 12-month originals (`papic_events_past_fullres_clock` reads the row) and the included
  * credits (`activateEventPlan`). ⚠ Canvas prints are part of Ultra but are NOT said here yet: the Our Day poster that
  * prints on canvas is approved, not built (`eventCanvasPrintsActive` is ready for it). They join the card the day the
@@ -426,7 +426,8 @@ export const ULTRA_PEEK: readonly string[] = [
   'Your full-size photos kept 12 months after the event, not 3',
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
-  return ['Patiktok — save and share your reels', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
+  // Patiktok left this line 2026-11-20 — retired; owner *"Keep ₱9,990"* (Ultra loses it, keeps its price).
+  return [`${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
 }
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */
@@ -443,6 +444,6 @@ export const ADD_ONS: readonly { photo: string; title: string; line: string; hre
     line: 'Stream the day on your Event Hub, for family who can’t be there.',
     href: '/features/live-watch',
   },
-  { photo: 'addon-music', title: 'Music Maker', line: 'A song of your own, made for your event.', href: '/features/music-maker' },
-  { photo: 'addon-patiktok', title: 'Patiktok', line: 'Short reels made from your day.', href: '/features/patiktok' },
+  // 🪦 Music Maker and Patiktok left 2026-11-20 (owner: *"Retire Patiktok and Music Maker ( we do not want to serve
+  // this anymore)"* — lib/retired-products.ts).
 ];

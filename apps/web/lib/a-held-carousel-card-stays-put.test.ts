@@ -63,12 +63,14 @@ test('2 · the tick moves only as `carouselMove` says, with the held card from `
   assert.match(SRC, /track\.children\[looping \? heldIndex \+ CAROUSEL_COPIES : heldIndex\]/);
 });
 
-test('3 · Guests holds the card whose filter is on — Replies, or the +1s', () => {
+test('3 · Guests has no carousel to hold now — the word whose filter is on stays pressed in the summary', () => {
+  // 👥 Guests redesign (owner 20 Nov 2026, drawing §1: "One summary, in words … No carousel, no half cards"): the
+  // summary is a line of words, all in view, so there is nothing to rotate away from the filter that is on. The word
+  // that is on says so itself (`aria-pressed`), and pressing it again shows everyone.
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /<SnapCarousel\s+cards=\{summaryCards\}[^>]*holdKey=\{replyFilter \? 'replies' : plusFilter \? 'plus' : null\}/, 'the Guests carousel does not hold the filtering card');
-  // The keys it names are the cards' own.
-  assert.match(screen, /key: 'replies',\s*label: 'Replies and who is still to invite'/);
-  assert.match(screen, /key: 'plus',\s*label: '\+1s'/);
+  assert.doesNotMatch(screen, /<SnapCarousel\b/, 'the Guests summary is a carousel again');
+  assert.match(screen, /className=\{`\$\{styles\.sumDoor\}[^`]*`\}\s*aria-pressed=\{replyFilter === f\}\s*onClick=\{\(\) => pickReply\(f\)\}/, 'the reply word does not show it is on');
+  assert.match(screen, /aria-pressed=\{plusFilter === k\} onClick=\{\(\) => pickPlus\(k\)\}/, 'the +1 word does not show it is on');
 });
 
 test('4 · no other carousel holds anything', () => {

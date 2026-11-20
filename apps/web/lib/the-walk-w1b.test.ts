@@ -54,7 +54,11 @@ test('F-W1-67/73 · a tab switch on the picked screen is written so the router k
   const shell = code('app/_components/picked/picked-shell.tsx');
   const writes = [...shell.matchAll(/window\.history\.replaceState\(([^,]+),/g)].map((m) => m[1]!.trim());
   assert.ok(writes.length >= 2, `the picked shell writes its page into the address (${writes.length} writes)`);
-  for (const w of writes) assert.equal(w, 'null', 'a write with window.history.state is ignored by Next’s router, which then writes the old ?tab= back');
+  // `keepLayerMark(window.history.state)` (19 Nov 2026, one-chat client page) builds a FRESH object holding only the
+  // risen layer's mark — never Next's `__NA` — so the router adopts the write exactly as it adopts `null`.
+  for (const w of writes) assert.ok(w === 'null' || w === 'keepLayerMark(window.history.state)', `a write with window.history.state is ignored by Next’s router, which then writes the old ?tab= back (${w})`);
+  const keep = code('lib/use-back-closes.ts');
+  assert.match(keep, /export function keepLayerMark\(state: unknown\)[^{]*\{[^}]*return held \? \{ \[MARK\]: held \} : null;/, 'keepLayerMark must return a fresh object or null, never the state it was given');
 });
 
 test('F-W1-69 · "Send link" sends once per press and says it was sent', () => {

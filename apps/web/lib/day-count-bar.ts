@@ -78,6 +78,8 @@ export function countBarOf(input: {
 export function singularOf(noun: string): string {
   if (/[^aeiou]ies$/.test(noun)) return noun.slice(0, -3) + 'y';
   if (/(ss|sh|ch|x|z)es$/.test(noun)) return noun.slice(0, -2);
+  // Words that end in one -s take -es too ("buses" → "bus", not "buse"); "vases"/"cases" keep their -e.
+  if (/(bus|gas|lens|canvas|atlas|iris)es$/i.test(noun)) return noun.slice(0, -2);
   if (/[^s]s$/.test(noun)) return noun.slice(0, -1);
   return noun;
 }

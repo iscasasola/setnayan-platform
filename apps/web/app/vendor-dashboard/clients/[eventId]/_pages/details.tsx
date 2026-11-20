@@ -26,6 +26,7 @@ export function DetailsPage({ ctx, shipped }: PickedPageProps) {
           viewerUserId={ctx.viewerUserId}
           threadId={ctx.threadId}
           isBooked={ctx.isBooked}
+          facts={ctx.agreedFacts}
         />
       </div>
       <SupplierLocksSection eventId={ctx.eventId} vendorProfileId={ctx.vendorProfileId} />

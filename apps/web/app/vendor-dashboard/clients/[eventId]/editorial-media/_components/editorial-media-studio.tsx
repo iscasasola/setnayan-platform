@@ -103,11 +103,14 @@ export function EditorialMediaStudio({
   eventId,
   vendorProfileId,
   existing,
+  existingUnread = false,
 }: {
   eventId: string;
   /** SEC-1 lane #3 — the tenant segment of the upload prefix. */
   vendorProfileId: string;
   existing: ExistingMedia[];
+  /** C-5: the shop's own submissions were NOT read — the room left is unknown, so nothing new is offered. */
+  existingUnread?: boolean;
 }) {
   // Must match `editorialVendorMediaPolicy(vendorProfileId, eventId)` exactly —
   // the server refuses anything outside it, so a drift here is a broken upload,
@@ -124,8 +127,9 @@ export function EditorialMediaStudio({
   const existingClips = existing.filter((m) => m.type === 'clip').length;
   const stagedPhotos = staged.filter((s) => s.type === 'photo').length;
   const stagedClips = staged.filter((s) => s.type === 'clip').length;
-  const photoRoom = MAX_PER_TYPE - existingPhotos - stagedPhotos;
-  const clipRoom = MAX_PER_TYPE - existingClips - stagedClips;
+  // C-5: an unread list is not an empty one — room is unknown, so none is offered (never the full allowance).
+  const photoRoom = existingUnread ? 0 : MAX_PER_TYPE - existingPhotos - stagedPhotos;
+  const clipRoom = existingUnread ? 0 : MAX_PER_TYPE - existingClips - stagedClips;
 
   const supported = typeof window !== 'undefined' ? boomerangSupported() : true;
 
@@ -229,15 +233,29 @@ export function EditorialMediaStudio({
     setSaving(false);
   };
 
+  // C-7 (supplier audit 2026-11-17): a THROWN call left "Removing…" spinning with every button disabled, and an
+  // `{ ok: false }` was dropped silently. try/finally always frees the buttons; a refusal is said.
   const onDeleteExisting = async (mediaId: string) => {
     setBusy('Removing…');
-    await deleteVendorEditorialMedia(eventId, mediaId);
-    setBusy(null);
+    setError(null);
+    try {
+      const r = await deleteVendorEditorialMedia(eventId, mediaId);
+      if (r && r.ok === false) setError(r.error || 'Could not remove that one. Try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove that one. Try again.');
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
     <div className="space-y-2">
       {/* Existing submissions — rule 2: a section on the page, not a card. */}
+      {existingUnread ? (
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-editorial-existing-unread="">
+          Couldn&rsquo;t load what you already added. Refresh in a moment to try again.
+        </p>
+      ) : null}
       {existing.length > 0 ? (
         <TemplateSection label="Already on their editorial" first>
           <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-3">

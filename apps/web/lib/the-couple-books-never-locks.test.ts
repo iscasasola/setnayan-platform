@@ -31,6 +31,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/dashboard/[eventId]/launch/_components/stage-panel/tool-lock.tsx', why: "the Maker's locked TAB (🔒 Problem → Solution, Maker Edit shell approved 2026-11-13) — a tool with nothing to set, not a booking" },
   { prefix: 'lib/help/', text: /Why does a tab in the Maker show a lock\?|A tab with a 🔒 has nothing to set on that part/, why: "the Maker's locked TAB's help answer (Maker Edit shell approved 2026-11-13) — not a booking" },
   { prefix: 'app/_components/award/locked-tile.tsx', why: "a LOCKED BADGE or seal on the shop's own badge page (owner 15 Nov: \"i do not see the locked badge for all\", v86 .lkt) — never shown to couples, not a booking" },
+  { prefix: 'app/_components/card-badges/card-locked-medals.tsx', text: /· Locked/, why: "a MEDAL a card has not earned yet, on the supplier's own Services list (owner 18 Nov: \"we still want to see how they look like\") — only app/vendor-dashboard may import it (lib/card-locked-medals.test.ts), never shown to couples, not a booking" },
   { prefix: 'app/_components/lock/locked-feature.tsx', why: "supplier plan-feature lock, not a couple booking — owner 10 Nov 'Every lock shows Problem → Solution'" },
   { prefix: 'app/_components/proposal-maker.tsx', why: "the supplier's quote builder — supplier side" },
   { prefix: 'app/_components/chat-amendment-card.tsx', text: /Waiting for the couple to lock/, why: 'the supplier’s view of the same card; the couple’s button reads "Book this deal"' },

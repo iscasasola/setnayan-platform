@@ -16,7 +16,8 @@ export type VendorServiceRow = {
   // ── Pricing basis (service-card redesign · migration 20270502342558) ────
   /** How the "from ₱X" anchor is computed. starting_price_php stays the synced
    *  anchor for ALL bases (Explore/budget read it). */
-  pricing_basis: 'fixed' | 'per_pax' | 'per_hour';
+  /** 'per_unit' — Card Maker part 7: unit_base_php covers initial_units; starting_price_php stays the synced anchor. */
+  pricing_basis: 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
   /** Per-pax basis: rate per guest + the minimum pax floor (anchor = rate×min). */
   per_pax_price_php: number | null;
   min_pax: number | null;
@@ -24,6 +25,13 @@ export type VendorServiceRow = {
   hour_base_php: number | null;
   min_hours: number | null;
   extra_hour_php: number | null;
+  /* 📦 Card Maker part 7 (migration 20271352223098). Optional: the fallback read and older fixtures carry none. */
+  unit_word?: string | null;
+  unit_base_php?: number | null;
+  initial_units?: number | null;
+  extra_unit_php?: number | null;
+  /** The most one booking takes — guests, hours or units by basis. NULL = no limit. */
+  price_max?: number | null;
   crew_size: number | null;
   /** Legacy: TRUE = couple provides the crew meal. Kept in sync as the inverse of
    *  crew_meal_included so the 0007 budget's Crew-Meal line still triggers. */
@@ -40,6 +48,9 @@ export type VendorServiceRow = {
   showcase_video_r2_key: string | null;
   /** Showcase gallery r2 refs (DB CHECK cardinality ≤5). */
   showcase_photo_r2_keys: string[];
+  /** 📝 The card's description and video link (migration 20271351531329). Optional: absent on the fallback read. */
+  description?: string | null;
+  video_url?: string | null;
   is_active: boolean;
   /** Branch this service belongs to (Branches V1.x); null = main/unassigned. */
   branch_id: string | null;
@@ -87,8 +98,8 @@ export type VendorServiceRow = {
 const BASE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,starting_price_php,added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at';
 const PRICING_COLS =
-  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
-const FULL_SELECT = `${BASE_COLS},title,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
+  'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,unit_word,unit_base_php,initial_units,extra_unit_php,price_max,crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,showcase_photo_r2_keys';
+const FULL_SELECT = `${BASE_COLS},title,description,video_url,branch_id,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,includes_setnayan_gift,base_pax,coverage_id,primary_photo_r2_key,${PRICING_COLS}`;
 
 export async function fetchVendorServices(
   supabase: SupabaseClient,
@@ -205,8 +216,16 @@ export async function fetchDiscountsByService(
   supabase: SupabaseClient,
   serviceIds: string[],
 ): Promise<Map<string, VendorServiceDiscount[]>> {
+  return (await fetchDiscountsByServiceRead(supabase, serviceIds)).byService;
+}
+
+/** The same read with its outcome kept — `ok: false` = REFUSED, not "no discounts" (V-4, supplier audit 2026-11-17). */
+export async function fetchDiscountsByServiceRead(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<{ byService: Map<string, VendorServiceDiscount[]>; ok: boolean }> {
   const out = new Map<string, VendorServiceDiscount[]>();
-  if (serviceIds.length === 0) return out;
+  if (serviceIds.length === 0) return { byService: out, ok: true };
   const { data, error } = await supabase
     .from('vendor_service_discounts')
     .select(
@@ -216,14 +235,14 @@ export async function fetchDiscountsByService(
     .order('sort_order', { ascending: true });
   if (error) {
     console.error('[supabase-error] vendor-services: vendor_service_discounts', error);
-    return out;
+    return { byService: out, ok: false };
   }
   for (const row of (data ?? []) as VendorServiceDiscount[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
     out.set(row.vendor_service_id, list);
   }
-  return out;
+  return { byService: out, ok: true };
 }
 
 // ── Inclusions (vendor_service_inclusions · migration 20270502342558) ───────
@@ -246,8 +265,16 @@ export async function fetchInclusionsByService(
   supabase: SupabaseClient,
   serviceIds: string[],
 ): Promise<Map<string, VendorServiceInclusion[]>> {
+  return (await fetchInclusionsByServiceRead(supabase, serviceIds)).byService;
+}
+
+/** The same read with its outcome kept — `ok: false` = REFUSED, not "nothing included" (V-4, supplier audit 2026-11-17). */
+export async function fetchInclusionsByServiceRead(
+  supabase: SupabaseClient,
+  serviceIds: string[],
+): Promise<{ byService: Map<string, VendorServiceInclusion[]>; ok: boolean }> {
   const out = new Map<string, VendorServiceInclusion[]>();
-  if (serviceIds.length === 0) return out;
+  if (serviceIds.length === 0) return { byService: out, ok: true };
   const { data, error } = await supabase
     .from('vendor_service_inclusions')
     .select('vendor_service_id,label,sort_order')
@@ -255,14 +282,14 @@ export async function fetchInclusionsByService(
     .order('sort_order', { ascending: true });
   if (error) {
     console.error('[supabase-error] lib/vendor-services.ts · from:vendor_service_inclusions.select', error);
-    return out;
+    return { byService: out, ok: false };
   }
   for (const row of (data ?? []) as VendorServiceInclusion[]) {
     const list = out.get(row.vendor_service_id) ?? [];
     list.push(row);
     out.set(row.vendor_service_id, list);
   }
-  return out;
+  return { byService: out, ok: true };
 }
 
 // ── Price brackets (vendor_service_price_brackets · migration 20270502342558) ─

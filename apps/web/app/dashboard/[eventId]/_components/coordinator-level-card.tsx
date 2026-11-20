@@ -4,7 +4,7 @@ import { eventMemberTypeOnce } from '@/lib/event-membership-once';
 import { COORDINATOR_ROLE, seatAsksForLevel, type LevelSeat } from '@/lib/coordinator-access-level';
 import { peopleWithAccessHref } from '@/lib/people-with-access-href';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { CoordinatorLevelAsk } from './coordinator-level-ask';
+import { CoordinatorLevelAsk, type LevelAsk } from './coordinator-level-ask';
 
 /**
  * 🔑 "<shop> JOINED AS YOUR COORDINATOR" — a line in Home's TODAY list, under the cover (owner 2026-10-29, *"The popup
@@ -20,7 +20,20 @@ import { CoordinatorLevelAsk } from './coordinator-level-ask';
  * ⛔ A REFUSED READ IS SAID: the card then says it could not check, with the one door to where access is set — never
  * a quiet nothing that reads as "no coordinator to answer".
  */
-export async function CoordinatorLevelCard({ eventId, userId }: { eventId: string; userId: string }) {
+export async function CoordinatorLevelCard({ eventId, userId, read }: { eventId: string; userId: string; read?: CoordinatorLevelRead }) {
+  const got = read === undefined ? await readCoordinatorLevelAsks(eventId, userId) : read;
+  if (!got) return null;
+  return <CoordinatorLevelAsk eventId={eventId} asks={got.asks} unread={got.unread} accessHref={peopleWithAccessHref(eventId)} />;
+}
+
+/** What the coordinator's-access ask read: null = nothing to draw (not an owner, or no seat waits); `unread` = said. */
+export type CoordinatorLevelRead = { unread: boolean; asks: LevelAsk[] } | null;
+
+/**
+ * The ONE read behind the ask — Home's first screen reads it once and hands it to its Today list (each waiting seat is
+ * a row there, owner 20 Nov 2026) and to this card (the day-of and after-the-day screens).
+ */
+export async function readCoordinatorLevelAsks(eventId: string, userId: string): Promise<CoordinatorLevelRead> {
   const supabase = await createClient();
   const { data: me, error: meError } = await eventMemberTypeOnce(supabase, eventId, userId);
   // Who is looking could not be read — the card is for owners only, so it is not drawn for an unknown viewer (the
@@ -40,7 +53,7 @@ export async function CoordinatorLevelCard({ eventId, userId }: { eventId: strin
     .not('user_id', 'is', null);
   if (error) {
     logQueryError('CoordinatorLevelCard.seats', error, { event_id: eventId }, 'graceful_degrade');
-    return <CoordinatorLevelAsk eventId={eventId} asks={[]} unread accessHref={peopleWithAccessHref(eventId)} />;
+    return { unread: true, asks: [] };
   }
   const seats = ((data ?? []) as Array<LevelSeat & { moderator_id: string; display_label: string | null }>).filter(
     (s) => seatAsksForLevel(s) && s.user_id !== userId,
@@ -102,5 +115,5 @@ export async function CoordinatorLevelCard({ eventId, userId }: { eventId: strin
       };
     }),
   );
-  return <CoordinatorLevelAsk eventId={eventId} asks={asks} unread={false} accessHref={peopleWithAccessHref(eventId)} />;
+  return { unread: false, asks };
 }

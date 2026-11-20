@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
@@ -47,16 +49,15 @@ type Props = { params: Promise<{ eventId: string }> };
 export default async function PanoodCamerasPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event } = await eventRowOnce(supabase, eventId, 'event_id, display_name', () =>
+      supabase
     .from('events')
     .select('event_id, display_name')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (!event) notFound();
 
   // Same authorization boundary as the control room — operators are handed links from here, so

@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import { notFound, redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
@@ -34,11 +35,12 @@ export default async function NikahEssentialsPage({ params }: { params: Promise<
   if (!user) redirect(loginRedirectPath(`/dashboard/${eventId}/nikah`));
   const supabase = await createClient();
 
-  const { data: event, error } = await supabase
+  const { data: event, error } = await eventRowOnce(supabase, eventId, 'event_id, event_date, ceremony_type, secondary_ceremony_type, mahr_description, gender_separation', () =>
+      supabase
     .from('events')
     .select('event_id, event_date, ceremony_type, secondary_ceremony_type, mahr_description, gender_separation')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (error) {
     logQueryError('NikahEssentialsPage.event', error, { event_id: eventId, user_id: user.id }, 'graceful_degrade');
     throw new Error(error.message);

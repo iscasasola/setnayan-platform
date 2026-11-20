@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown, Minimize2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { BackButton } from '@/app/_components/back-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -53,6 +54,16 @@ function stageOf(pick: string | undefined): MakerStageKey | null {
 
 export function stagePillLabel(name: string | null): string {
   return name ? `Stage: ${name} — choose a stage` : 'Stages — choose a stage';
+}
+
+/**
+ * ‹ THE FULL-SCREEN MAKER'S WAY OUT (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)): the
+ * app's bars step away while the Maker is open, so the bar leads out itself — the house back (`BackButton`, its chat
+ * ‹), to where the page map sends the Hub tab now (`FULL_SCREEN_TABS`, lib/page-home.ts: the event's Today). Lazy with
+ * the rest of the bar's chrome — never the Maker's first load.
+ */
+export function MakerLeave({ eventId }: { eventId: string }) {
+  return <BackButton route="/dashboard/[eventId]/launch" params={{ eventId }} variant="chat" />;
 }
 
 export function StageSwitch({

@@ -105,7 +105,13 @@ async function paint(opts: { hasWork?: boolean; firstVisit?: boolean; selection?
     );
   }
   const hasWork = opts.hasWork ?? true;
+  /* ‹ (20 Nov) is the house BackButton, whose return-in-place reads the router — the app always mounts one. */
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
   return renderToStaticMarkup(
+    React.createElement(
+      AppRouterContext.Provider,
+      { value: ROUTER as never },
     React.createElement(
       MakerShell as unknown as React.ComponentType<Record<string, unknown>>,
       {
@@ -125,6 +131,7 @@ async function paint(opts: { hasWork?: boolean; firstVisit?: boolean; selection?
         details: { page: React.createElement('div', { 'data-stub': 'details-page' }), controls: null },
       },
       React.createElement('div', { 'data-stub': 'work' }),
+    ),
     ),
   );
 }

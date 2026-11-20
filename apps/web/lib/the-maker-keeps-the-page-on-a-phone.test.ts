@@ -392,7 +392,6 @@ test('🔘 every button on the bar is a ≥ 44 px target with its name — ‹ �
   const html = await shell(null);
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
   const want: Record<string, RegExp> = {
-    Leave: /aria-label="Close the Maker"/,
     Preview: /aria-label="Preview"/,
     Apply: /aria-label="Apply \d+ changes?"/,
   };
@@ -405,6 +404,8 @@ test('🔘 every button on the bar is a ≥ 44 px target with its name — ‹ �
     assert.match(cls, /(?:^|\s)w-11(?:\s|$)/, `${item} is under 44 px wide`);
     assert.doesNotMatch(cls, /(?:^|\s)(?:md|lg):(?:h|w)-(?:[0-9]|10)(?:\s|$)/, `${item} shrinks under 44 px on a wider screen`);
   }
+  // ‹ (20 Nov) holds a 44 × 44 place on the bar; the house BackButton draws itself in it (lazy).
+  assert.match(header, /<span data-maker-tool="leave" data-bar-item="Leave" class="inline-flex h-11 w-11 shrink-0 /, '‹ does not hold a 44 px place on the bar');
   assert.doesNotMatch(header, /aria-label="More"/, 'the ⋯ is back on the bar — it became 👁 Preview');
   // ✕ Exit is gone (2026-10-30); ⚙ is the house 44 px icon-only button, named (`ab icon-only`, every-menu-has-one-settings-button).
   assert.doesNotMatch(header, /aria-label="Exit"|data-bar-item="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');

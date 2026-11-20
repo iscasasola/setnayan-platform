@@ -128,8 +128,11 @@ test('(2) Love Story and RSVP move exactly when their Details item exists — ne
 async function paintShell(initialSelection: unknown) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerShell } = await import(`../${L}/maker-shell`);
+  /* ‹ (20 Nov) is the house BackButton, whose return-in-place reads the router — the app always mounts one. */
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
   return renderToStaticMarkup(
-    React.createElement(
+    React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, React.createElement(
       MakerShell,
       {
         eventId: 'ev-1',
@@ -147,7 +150,7 @@ async function paintShell(initialSelection: unknown) {
         details: { page: React.createElement('div', { 'data-stub': 'details-page' }), controls: null },
       },
       React.createElement('div', { 'data-stub': 'work' }),
-    ),
+    )),
   );
 }
 

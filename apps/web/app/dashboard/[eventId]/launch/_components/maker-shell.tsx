@@ -6,9 +6,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, ChevronLeft, Eye } from 'lucide-react';
+import { Check, Eye } from 'lucide-react';
 import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
-import Link from 'next/link';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -98,7 +97,7 @@ import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-c
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { EditorFieldFocus, HubSettingsGear, LowerThirdGrab, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageSwitch, StageTools, StudioTool } from './details-lazy';
+import { EditorFieldFocus, HubSettingsGear, LowerThirdGrab, MakerLeave, MakerSheet, MakerTour, MakerUpdating, PrintsPageDesk, StageSwitch, StageTools, StudioTool } from './details-lazy';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { LookSection } from '@/lib/maker-look-sections';
@@ -1129,16 +1128,9 @@ export function MakerShell({
           {/* ‹ THE WAY OUT (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)): the app's
               bars step away while the Maker is open, so the bar leads out itself — to the event's Home, the door the
               bottom nav's Home tab opened. The draft stays as it is (every edit is already saved to it). */}
-          <Link
-            href={`/dashboard/${eventId}`}
-            aria-label="Close the Maker"
-            data-maker-tool="leave"
-            data-bar-item="Leave"
-            data-maker-leave=""
-            className={`${MAKER_BAR_ICON} ${MAKER_BAR_PHONE.leave}`}
-          >
-            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
-          </Link>
+          <span data-maker-tool="leave" data-bar-item="Leave" className={`inline-flex h-11 w-11 shrink-0 ${MAKER_BAR_PHONE.leave}`}>
+            <MakerLeave eventId={eventId} />
+          </span>
           {printsPage ? (
             /* 🖨 The Prints page names itself where the stage pill stands — it has no stage to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>

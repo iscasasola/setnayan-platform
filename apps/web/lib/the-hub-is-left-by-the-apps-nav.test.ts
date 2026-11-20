@@ -28,6 +28,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_TOOL } from './maker-phone-room';
 import { buildCustomerMenuTree } from './customer-menu';
+import { pageBackLink } from './page-home';
 
 const WEB = join(__dirname, '..');
 const LAUNCH = 'app/dashboard/[eventId]/launch/_components';
@@ -42,13 +43,15 @@ function bar(): string {
   return SHELL.slice(at, end);
 }
 
-test('1 · one way out — ‹ to the event’s Home; no ✕ Exit pill', () => {
+test('1 · one way out — ‹ (the house BackButton) to the event’s Today; no ✕ Exit pill', () => {
   const row = bar();
   assert.doesNotMatch(row, /<IconPill tone="exit">|data-maker-tool="exit"|aria-label="Exit"|ICON_PILL_EXIT/, 'the ✕ Exit pill is back on the Hub’s pinned row');
-  const outs = [...row.matchAll(/href=\{`\/dashboard\/\$\{eventId\}`\}/g)].length;
-  assert.equal(outs, 1, `the bar leads out ${outs} ways — expected exactly one, ‹`);
-  assert.match(row, /<Link\s+href=\{`\/dashboard\/\$\{eventId\}`\}\s+aria-label="Close the Maker"\s+data-maker-tool="leave"[\s\S]{0,300}<ChevronLeft/, 'the ‹ is not the bar’s first item, or no longer leads to the event’s Home');
+  assert.doesNotMatch(row, /<Link\b|href=\{`\/dashboard/, 'the bar draws a way out by hand — it is the house BackButton (`MakerLeave`)');
+  assert.match(row, /<span data-maker-tool="leave" data-bar-item="Leave"[^>]*>\s*<MakerLeave eventId=\{eventId\} \/>\s*<\/span>/, '‹ is not on the bar');
   assert.ok(row.indexOf('data-maker-tool="leave"') < row.indexOf('data-maker-tool="side"'), '‹ is not before the Stage pill');
+  // ‹ is the house back, and the page map answers where the Hub tab goes now that it hides its bar (20 Nov).
+  assert.match(src(`${LAUNCH}/stages-studio-parts.tsx`), /export function MakerLeave\(\{ eventId \}: \{ eventId: string \}\) \{\s*return <BackButton route="\/dashboard\/\[eventId\]\/launch" params=\{\{ eventId \}\} variant="chat" \/>;/);
+  assert.deepEqual(pageBackLink('/dashboard/[eventId]/launch', { eventId: 'e1' }), { href: '/dashboard/e1', label: 'Today' }, '‹ does not go to the event’s Today');
 });
 
 test('2 · the app’s chrome steps away (useChromeAway) — the shell fills the room it leaves; Home is the event’s dashboard', () => {

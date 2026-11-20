@@ -126,7 +126,7 @@ test('2a · ✕ Exit stays gone; ‹ leads the row since the Maker is full scree
      the ✕ and then the Home tab opened). The red ✕ pill stays gone. Row: ‹ · Stage ▾ · ✓ · ⚙ (a desktop adds 👁). */
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
   assert.doesNotMatch(header, /data-icon-pill="exit"|data-maker-tool="exit"|aria-label="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');
-  assert.match(header, /<a\b(?=[^>]*href="\/dashboard\/e1")[^>]*data-maker-tool="leave"[^>]*>[\s\S]*?lucide-chevron-left/, 'the ‹ that leads out of the full-screen Maker is not first on the row');
+  assert.match(header, /<span data-maker-tool="leave" data-bar-item="Leave"[^>]*>/, 'the ‹ that leads out of the full-screen Maker is not first on the row');
   assert.ok(header.indexOf('data-maker-tool="leave"') < header.indexOf('data-maker-tool="side"'), '‹ is not before the Stage pill');
   /* (The ⚙ itself — `MenuSettingsButton menu="hub"` — loads with the Maker's lazy chunk: its place is what renders here.) */
   assert.match(header, /data-maker-tool="settings"/, 'the row does not end with the Event Hub ⚙');

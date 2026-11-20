@@ -8730,7 +8730,6 @@
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
-        "dashboard/[eventId]/launch/_components/view-summary-lazy.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/page.tsx",

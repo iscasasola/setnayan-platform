@@ -45,7 +45,8 @@ export function openGuestCardRow(from: Element, handle: string, field: string | 
   const fold = card.querySelector<HTMLElement>(`[data-fold="card-${handle}"]`);
   if (!fold) return;
   const head = fold.querySelector<HTMLElement>(':scope > [data-fold-pinbox] [data-fold-head]');
-  if (head?.getAttribute('aria-expanded') === 'false') head.click();
+  // The shared Fold says it is open with `data-fold-open` on its root; a closed one opens by its own head's press.
+  if (!fold.hasAttribute('data-fold-open')) head?.click();
   // Two frames: the fold takes its place (and stops being `inert`) on the first, then the field can open.
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {

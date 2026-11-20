@@ -1052,7 +1052,7 @@ function MarchMakerBody({
            stays the one terracotta button, now in the Guests TOP ROW (a portal into `lens.toolsSlot`, the seat left of
            the ⚙); while it plays it reads Stop. 🔒 guests/the-march-is-a-numbered-line.test.ts */
         <>
-        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 px-1 text-[13.5px] text-ink/70" data-march-count-line="">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 px-1 text-[13.5px] text-ink/70" data-march-count-line="">
           <span>
             <b className="font-semibold text-ink">{formatCount(walks)}</b> {walks === 1 ? 'walk' : 'walks'}
           </span>
@@ -1069,7 +1069,7 @@ function MarchMakerBody({
           >
             <b className="font-semibold text-ink">{outUnread ? '—' : formatCount(shownOut.length)}</b> not walking
           </button>
-        </p>
+        </div>
         {lens?.toolsSlot
           ? createPortal(
               <span data-march-preview="" className="inline-flex shrink-0">

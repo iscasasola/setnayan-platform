@@ -9,6 +9,7 @@ The rest of the approved Event › Guests drawing (`prototypes/guests_redesign_2
 
 - **The card's styles are its own stylesheet**, `guests/_components/guest-card.css`, loaded by the event dashboard's layout (every page the card opens from) and the guests lab — not `globals.css`, which they had pushed past its 645,000-byte ceiling (`lib/the-stylesheet-stays-in-budget.test.ts` was red at 645,585 B; it is back to main's 641,044 B). The selectors are unchanged.
 - `/dev/guests-lab?part=loading` draws Guests' loading screen.
+- After merging main, five guards caught real faults, all fixed: the card stylesheet's `999px` corners now use `var(--m-r-full)` (radius lint) · `show-and-sort-is-one-button` now allows Guests' § 8 look round before the one Show-and-sort button (the drawing: *"This amends the approved row in section 2"*) · the card's quick actions open a group by the shared Fold's own `data-fold-open`, not by reading `aria-expanded` (`every-fold-reveals-on-open`) · March's count line is a `<div>`, not a paragraph (`template-score-ratchet`) · `launch/_components/view-summary-lazy.tsx` is deleted: its only user was March's three count tiles, which § 7 replaced (`ugat-both-ends`).
 
 No new server actions, no new reads, no migration.
 

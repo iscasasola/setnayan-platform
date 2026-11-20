@@ -136,7 +136,9 @@ export function RoomViewTools(p: RoomViewToolsProps) {
         </div>
       ) : null}
       {viewOpen ? (
-        <div data-room-view-card="" className="sn-frame pointer-events-auto flex flex-col gap-2 p-3 text-sm text-ink">
+        // A floating card over the room (a popover), not a section that opens in place: the press says so with
+        // aria-haspopup, so it is not a hand-rolled fold (every-fold-reveals-on-open.test.ts).
+        <div data-room-view-card="" role="dialog" aria-label="View only" className="sn-frame pointer-events-auto flex flex-col gap-2 p-3 text-sm text-ink">
           {lock ? (
             <RoomLockLine
               lock={lock}
@@ -216,6 +218,7 @@ export function RoomViewTools(p: RoomViewToolsProps) {
             setTried(false);
           }}
           aria-expanded={viewOpen}
+          aria-haspopup="dialog"
           className={MAIN}
           data-room-view-only=""
         >

@@ -96,7 +96,7 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — the guest list, seat plan, budget, schedule and mood board live here',
           'The Event Hub Maker: five stages, drafted until you press Apply',
-          'Event Plus or Event Pro (Setnayan AI comes inside both), and add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
+          'Event Plus, Event Pro or Event Ultra (Setnayan AI comes inside Pro and Ultra), and add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {
@@ -200,7 +200,7 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — nandito ang guest list, seat plan, budget, schedule at mood board',
           'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
-          'Event Plus o Event Pro (kasama na sa dalawa ang Setnayan AI), at add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
+          'Event Plus, Event Pro o Event Ultra (kasama ang Setnayan AI sa Pro at Ultra), at add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {

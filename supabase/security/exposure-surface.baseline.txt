@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8032
+# facts: 8034
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     652
-#   col       5779
+#   col       5781
 #   policy    1179
 #   view      10
 #   func      408
@@ -5742,6 +5742,8 @@ col	public.vendor_profiles.ai_addon_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.ai_addon_level	anon=- authenticated=SIU
 col	public.vendor_profiles.ai_addon_trial_used_at	anon=- authenticated=SIU
 col	public.vendor_profiles.bir_service_category	anon=- authenticated=IU
+col	public.vendor_profiles.booking_max_months	anon=- authenticated=SIU
+col	public.vendor_profiles.booking_min_days	anon=- authenticated=SIU
 col	public.vendor_profiles.booth_addon_expires_at	anon=- authenticated=SIU
 col	public.vendor_profiles.booth_addon_trial_used_at	anon=- authenticated=SIU
 col	public.vendor_profiles.business_name	anon=S authenticated=SIU

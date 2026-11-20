@@ -38,3 +38,13 @@ Guards: `lib/plan-grid.test.ts` · `the-empty-floor-starts-in-one-tap` · `a-tab
 
 SPEC IMPACT: None — implements the 2026-11-20 DECISION_LOG rows ("THE COUPLE'S SEAT PLAN USES THE SAME FLOOR PLAN AS A
 SUPPLIER'S SPACES", "ONE SEAT-PLAN ENGINE", "GUESTS › SEATS, ROUND TWO", "GUESTS REDESIGN: BUILD IT") as written.
+
+## 2026-11-21 · refactor(seat-plan): the grid lives in the one engine (`lib/seat-plan-engine/rows.ts`)
+
+Caught up with #7968 + `main` (merge only). Per `ADAPTER.md` §7: the grid section (`GRID_GAP` … `seatingGridLayout`)
+moved unchanged from `lib/plan-maker.ts` to `lib/seat-plan-engine/rows.ts`, its spacing reads the engine's names
+(`GRID_GAP = SLOT_GAP_PCT` · `GRID_ROW_GAP = ROW_GAP_PCT` · `GRID_LO/HI = TABLE_BAND_PCT`, the same 3 · 4 · 10 · 90),
+`lib/plan-grid.test.ts` → `lib/seat-plan-engine/rows.test.ts`, and every `@/lib/plan-maker` import reads the engine.
+The engine's gap guard now pins Line up's `centredRun(…, GRID_GAP)`.
+
+SPEC IMPACT: None.

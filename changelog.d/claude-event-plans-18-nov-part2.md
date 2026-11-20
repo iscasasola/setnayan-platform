@@ -21,7 +21,7 @@ CREDITS + THE WHOLE EVENT HUB" (specs DECISION_LOG 2026-11-20, `Pricing.md` §1.
 - **iPhone**: the Apple screen sells `event_plus` (the existing product); no new App Store product. The `event-hub-pro`
   start refuses "owned" on the Pro plan, not on the Hub alone.
 - Migration `20271355365735_event_plans_recut_part2_plus_holds_the_hub.sql` (data): Event Pro ₱5,690 → **₱5,490**, guarded
-  on the old figure; Event Pro `included_papic_credits` 3,000 and `fullres_extra_keep_days` 92 (≈ 6 months); Event Ultra
+  on the old figure, and its 10 + 1 gift bundle follows as 10 × the new row (the bundle rule; guarded on 10 × ₱5,690); Event Pro `included_papic_credits` 3,000 and `fullres_extra_keep_days` 92 (≈ 6 months); Event Ultra
   6,000. Descriptions: Plus says the whole Event Hub; Pro is Plus + Setnayan AI; Ultra loses Patiktok (and its typed
   "3,500"). Each UPDATE matches only the exact stale text, so an admin-written description is left alone.
 - Copy: /pricing, the front door, llms.txt (Setnayan AI is in Pro and Ultra, not "all three"), help and the add-ons blurb

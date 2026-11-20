@@ -19,7 +19,8 @@
 --     reads every paid/fulfilled order's row and a supplier gift's row (20271348181787), so it can
 --     only ever KEEP originals longer — nobody loses a day.
 -- 0 · Event Pro's price ₱5,690 → ₱5,490 (Pricing.md §1.1, owner 20 Nov). Guarded: it moves only a row still at
---     ₱5,690, so an admin who has since set another price keeps it. Nothing else's price moves.
+--     ₱5,690, so an admin who has since set another price keeps it. Its 10 + 1 gift bundle follows, as 10 × the new
+--     row (the bundle rule). Nothing else's price moves.
 -- 3 · Description text only — sentences the re-cut made untrue:
 --       · COUPLE_WEBSITE_PRO sold "every premium touch on your Event Hub … comes only with this" — the
 --         whole Event Hub is Event Plus's since 20 Nov, and Pro is Plus + Setnayan AI.
@@ -32,7 +33,7 @@
 --         (part 1, lib/event-plans.ts `EVENT_PLANS_RECUT_AT`), and Plus now holds the whole Event Hub.
 --     Each UPDATE matches only the exact stale sentence, so an admin-written description is left alone.
 --
--- ⛔ ONE PRICE IS WRITTEN HERE (step 0), guarded on the old figure. Idempotent: every UPDATE skips a row already holding
+-- ⛔ ONE PRICE IS MOVED HERE (step 0) and its bundle follows it, both guarded on the old figure. Idempotent: every UPDATE skips a row already holding
 --    its value.
 -- 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md).
 
@@ -43,8 +44,9 @@ BEGIN;
 -- whole Event Hub. No number in the text — the credits are the row's own column.
 UPDATE public.platform_retail_catalog_v2
 SET description =
-      'Everything in Event Plus — the whole Event Hub, every part to design and '
-      'every theme, the Pro themes for your invite link among them — with '
+      'Everything in Event Plus — the whole Event Hub: your own photo or video '
+      'behind any scene or the whole page, every part to design and every theme, '
+      'the Pro themes for your invite link among them — with '
       'Setnayan AI, which tells you what is '
       'next and flags what is at risk, more Papic credits and 1 GB of uploads, '
       'plus the Setnayan mark taken off everywhere your guests see it: the page, '
@@ -67,6 +69,18 @@ UPDATE public.platform_retail_catalog_v2
        updated_at       = now()
  WHERE service_code = 'COUPLE_WEBSITE_PRO'
    AND retail_price_php = 5690;
+
+-- …and its 10 + 1 gift bundle follows (owner 2026-11-17: "10 + 1 price = 10 × catalogue unit price", migration
+-- 20271351048946). Computed from Pro's own row, never typed, and only from the old 10 × ₱5,690 — an admin-set bundle
+-- price is left alone.
+UPDATE public.platform_retail_catalog_v2 AS b
+   SET retail_price_php = 10 * pro.retail_price_php,
+       updated_at       = now()
+  FROM public.platform_retail_catalog_v2 AS pro
+ WHERE pro.service_code = 'COUPLE_WEBSITE_PRO'
+   AND b.bundle_of_service_code = 'COUPLE_WEBSITE_PRO'
+   AND b.retail_price_php = 10 * 5690
+   AND pro.retail_price_php = 5490;
 
 -- ── 1 · the included Papic credits (rulings 36 · 38) ─────────────────────────
 UPDATE public.platform_retail_catalog_v2

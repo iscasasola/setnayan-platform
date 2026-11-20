@@ -9490,7 +9490,8 @@
         "SubmitButton",
         "Suspense",
         "ThreadInterestChips",
-        "ThreadToolPanel"
+        "ThreadToolPanel",
+        "WhisperCoHosts"
       ]
     },
     "/dashboard/[eventId]/monogram": {

@@ -48,7 +48,7 @@ export function TodayWelcome({
 }) {
   const welcome = kind === 'claimed' ? WELCOME_CLAIMED_PATH : WELCOME_OPENED_PATH;
   return (
-    <section className="sn-tile mb-4 grid gap-3 p-4 sm:p-5" aria-labelledby="today-welcome-title" data-today-welcome={kind}>
+    <section className="mb-4 grid gap-3 border-y border-ink/10 py-4 sm:py-5" aria-labelledby="today-welcome-title" data-today-welcome={kind}>
       <div className="grid gap-1">
         <h2 id="today-welcome-title" className="text-lg font-semibold text-ink">
           {welcomeTitle(kind, shopName)}

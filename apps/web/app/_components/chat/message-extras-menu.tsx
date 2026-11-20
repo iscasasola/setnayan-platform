@@ -16,13 +16,15 @@
  * is said in words under the rows. A reminder that could not be READ says so — it never looks like "no reminder".
  */
 import { useEffect, useRef, useState } from 'react';
-import { Bell, BellOff, CalendarDays, ChevronLeft, Clock, Pencil, Sunrise, Undo2 } from 'lucide-react';
+import { Bell, BellOff, ChevronLeft, Clock, Pencil, Sunrise, Undo2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { formatChatTimestamp } from '@/lib/chat';
 import { clearChatReminder, setChatReminder, unsendChatMessage } from '@/lib/chat-message-actions';
+import { DateRow } from '@/app/_components/form-row-date';
 import {
   CHAT_REMINDERS_NOT_LOADED,
+  CHAT_REMINDER_NOT_SET,
   REMINDER_LATER_HOURS,
   manilaDayKey,
   reminderDateBounds,
@@ -61,8 +63,6 @@ export function MessageExtrasMenu({
   const [refused, setRefused] = useState<string | null>(null);
   // undefined = still reading · null = the read was refused · { at } = what is set (at null = none).
   const [reminder, setReminder] = useState<{ at: string | null } | null | undefined>(undefined);
-  const [picking, setPicking] = useState(false);
-  const [date, setDate] = useState('');
   const [now] = useState(() => Date.now());
   const boxRef = useRef<HTMLDivElement | null>(null);
 
@@ -108,17 +108,19 @@ export function MessageExtrasMenu({
     onClose();
   };
 
-  const remind = async (choice: ReminderChoice) => {
+  /** Set (or move) the reminder. `true` = set, and the menu has closed. */
+  const remind = async (choice: ReminderChoice, date: string | null = null): Promise<boolean> => {
     setBusy(true);
     setRefused(null);
-    const out = await setChatReminder({ messageId, choice, date: choice === 'date' ? date : null, side });
+    const out = await setChatReminder({ messageId, choice, date, side });
     setBusy(false);
     if (!out.ok) {
       setRefused(out.message);
-      return;
+      return false;
     }
     onLine(`Reminder set · ${formatChatTimestamp(out.remindAt)}`);
     onClose();
+    return true;
   };
 
   const removeReminder = async () => {
@@ -148,7 +150,7 @@ export function MessageExtrasMenu({
       ref={boxRef}
       role="dialog"
       aria-label={view === 'remind' ? 'Remind me' : 'Message options'}
-      className={`relative z-10 mt-1 w-[min(300px,calc(100vw-32px))] rounded-2xl bg-[color:var(--m-paper)] p-1.5 shadow-lg ring-1 ring-ink/10 ${alignEnd ? 'self-end' : 'self-start'}`}
+      className={`relative z-10 mt-1 w-[min(300px,calc(100vw-32px))] rounded-2xl bg-frame p-1.5 shadow-sn-frame ${alignEnd ? 'self-end' : 'self-start'}`}
       data-chat-extras-menu={view}
       data-no-heart=""
     >
@@ -262,39 +264,20 @@ export function MessageExtrasMenu({
               </span>
             </button>
           </li>
-          <li>
-            {picking ? (
-              <div className="flex items-center gap-2 px-2.5 py-1.5">
-                <label className="grid min-w-0 flex-1 gap-0.5 text-[12px] text-ink/60">
-                  On a date · 9:00 AM
-                  <input
-                    type="date"
-                    value={date}
-                    min={bounds.min}
-                    max={bounds.max}
-                    onChange={(e) => setDate(e.target.value)}
-                    className="h-11 w-full min-w-0 rounded-xl border border-ink/15 bg-[color:var(--m-paper)] px-2.5 text-[15px] text-ink"
-                    data-chat-remind-date=""
-                  />
-                </label>
-                <button
-                  type="button"
-                  disabled={busy || !date}
-                  onClick={() => void remind('date')}
-                  className="sn-press min-h-11 shrink-0 self-end px-2 text-[14px] font-semibold text-sn-accent disabled:opacity-50"
-                  data-chat-remind="date"
-                >
-                  Set
-                </button>
-              </div>
-            ) : (
-              <button type="button" disabled={busy} onClick={() => setPicking(true)} className={rowCls} data-chat-remind="pick">
-                <span aria-hidden className={dot}>
-                  <CalendarDays className="h-3.5 w-3.5" strokeWidth={2} />
-                </span>
-                <b className="truncate text-[15px] font-semibold text-ink">Pick a date</b>
-              </button>
-            )}
+          <li className="px-2.5 py-1" data-chat-remind="date">
+            {/* The app's one date row: a tap on a day IS the answer — the reminder is set for 9:00 AM that day. */}
+            <DateRow
+              name="On a date"
+              value={null}
+              empty="Pick a date"
+              today={manilaDayKey(now)}
+              min={bounds.min}
+              max={bounds.max}
+              onKeep={async (day) => {
+                const out = await remind('date', day);
+                return out ? undefined : { ok: false as const, error: CHAT_REMINDER_NOT_SET };
+              }}
+            />
           </li>
           {reminder?.at ? (
             <>

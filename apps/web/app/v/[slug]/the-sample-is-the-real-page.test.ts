@@ -3,7 +3,7 @@
  * FOLLOW": *"also adapt the frontpages that shows a sample page and where the websites are presented"*).
  *
  * `SampleShopPage` is the shop page every front page shows without a real shop behind it — the /for-suppliers plan
- * miniatures and their full-screen view, /dev/shop-plan-lab, and /for-coordinators "Your page is your marketing tool".
+ * miniatures and their full-screen view, and /dev/shop-plan-lab (/for-coordinators showed one until its 20 Nov redraw).
  * It must be drawn from the pieces `/v/[slug]` ships (#7574), so a change to the shop page reaches the samples, and the
  * samples can never quietly become a second, older drawing again (which is what this guard replaces: a plan-ladder
  * copy with an Ultra-only hero, a Pro-only cover band and a second Inquire on the photo).
@@ -69,11 +69,10 @@ test('one Inquire, and a drawing has no door to a shop that does not exist', () 
   assert.match(SAMPLE, /<ShopSectionBar tabs=\{tabs\} topId=\{id\('top'\)\} \/>/);
 });
 
-test('/for-coordinators presents the page itself, through the same miniature row as /for-suppliers', () => {
-  const fc = read('app/(shell)/for-coordinators/page.tsx');
-  assert.match(fc, /<PlanPagePreview plan="verified"[^>]*ownTokens>\s*<SampleShopPage plan="verified"/);
-  assert.match(fc, /from '@\/app\/for-suppliers\/_components\/plan-page-preview';/);
-});
+// /for-coordinators no longer shows a sample shop page: the approved drawing of 20 Nov 2026
+// (`prototypes/for_coordinators_2026-11-20/`) replaced "Your page is your marketing tool" with one short "Your shop"
+// part — a sample service card and the Check a date calendar — and sends the full pitch to /for-suppliers, whose
+// plan miniatures this guard still holds. The rule (a sample is the real page, never a second drawing) is unchanged.
 
 test('the section bar scrolls the sheet it sits in, and the shop page keeps the window', () => {
   const bar = read('app/v/[slug]/_components/shop-section-bar.tsx');

@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { SupplierThreadBody } from '@/app/vendor-dashboard/messages/[threadId]/_components/supplier-thread-body';
 import { SUPPLIER_CHATS_HREF } from '@/app/vendor-dashboard/customers/anchors';
+import { ChatHomeTop } from '@/app/_components/chat/chat-home';
 import type { PickedPageProps } from './context';
 
 /**
@@ -21,20 +22,27 @@ export function ChatPage({ ctx }: PickedPageProps) {
   const { threadId } = ctx;
   if (!threadId) {
     return (
-      <div className="px-4 py-6 text-sm text-ink/70" data-picked-client-page="chat" data-empty="no-thread">
+      <div data-picked-client-page="chat" data-empty="no-thread">
+        {/* 💬 The summary strip still stands with no conversation yet (the chat that would draw it is not here). */}
+        <ChatHomeTop />
+        <div className="px-4 py-6 text-sm text-ink/70">
         <p>No conversation with this client yet.</p>
         <Link href={SUPPLIER_CHATS_HREF} className="mt-2 inline-flex min-h-11 items-center text-terracotta-700 underline">
           Your chats ›
         </Link>
+        </div>
       </div>
     );
   }
   return (
     <Suspense
       fallback={
-        <p className="px-4 py-6 text-sm text-ink/70" role="status" data-picked-client-page="chat">
-          Loading the chat…
-        </p>
+        <div data-picked-client-page="chat">
+          <ChatHomeTop />
+          <p className="px-4 py-6 text-sm text-ink/70" role="status">
+            Loading the chat…
+          </p>
+        </div>
       }
     >
       <SupplierThreadBody threadId={threadId} view="chat" search={ctx.threadSearch} />

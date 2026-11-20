@@ -242,13 +242,7 @@ export const USER_2_TOPICS: HelpTopic[] = [
         body: 'Yes. Pick your challenges gives guests shots to hunt for, and each camera has filters such as Retro alongside the original.',
         appBody: HELP_NOT_IN_THE_APP,
       },
-      {
-        // studio/pakanta/_components/pakanta-music-form.tsx; use-song-button.tsx "Use on my Event Hub"
-        slug: 'what-music-maker-asks',
-        title: 'What does Music Maker ask me?',
-        body: 'What you call each other, each of your favourite singers, the kind of music, a moment you would love in the song, and anything else. Your story comes from your Love Story. When your song is ready, Use on my Event Hub plays it there.',
-        appBody: HELP_NOT_IN_THE_APP,
-      },
+      // 🪦 'what-music-maker-asks' left 2026-11-20 — Music Maker is retired (lib/retired-products.ts).
       {
         // memories/page.tsx; lib/memories-keepsakes.ts ("Photo Notes Magazine", "This day, as a flash")
         slug: 'whats-in-event-memories',

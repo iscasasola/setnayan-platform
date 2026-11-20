@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { cache } from 'react';
 import { entourageWithProxies } from '@/lib/guest-proxy';
 import { entourageProxyNames } from '@/lib/guest-proxy.server';
@@ -93,9 +94,7 @@ async function eventRecognisesViewer(eventId: string): Promise<boolean> {
   if (session?.event_id === eventId) return true;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return false;
   const { data } = await supabase
     .from('event_members')

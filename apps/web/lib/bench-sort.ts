@@ -12,7 +12,7 @@
  * so a category had only four possible scores — most cards tied and the
  * tie-breaks decided, i.e. "Best fit" quietly degenerated into "sort by rating".
  * Worse, it scored `reachesVenue === true ? 1 : 0`, so an UNKNOWN reach LOST a
- * point — and FREE-tier vendors carry `serviceRadiusKm: 0`, which makes reach
+ * point — and FREE-tier vendors carried `serviceRadiusKm: 0`, which made reach
  * permanently unknown for them. Every free-tier vendor, and every vendor without
  * geocoded coordinates, was ranked down on every bench forever, however close
  * they were. The badge deliberately fails OPEN ("never a false out-of-range");

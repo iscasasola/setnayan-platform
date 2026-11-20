@@ -35,7 +35,6 @@ const base: DowngradeFacts = {
   includedBranches: 0,
   seats: { people: 0, freeHelpers: 0, counted: 0 },
   extraSeats: 0,
-  reachKm: null,
   storedBytes: 0,
   badge: null,
 };
@@ -93,12 +92,11 @@ test('Free and Verified have no branches — read from the plan table', () => {
   assert.equal(limitOf('verified', 'branches', true), 0);
 });
 
-test('reach over the lower plan is named with both numbers in words', () => {
-  const soloKm = TIER_CAPS.solo.serviceRadiusKm;
-  const f = downgradeFit({ ...base, reachKm: soloKm + 10 }, 'pro', 'solo', opts);
-  const row = f.rows.find((r) => r.key === 'reach');
-  assert.ok(row);
-  assert.match(row.line, new RegExp(`${soloKm + 10} km`));
+test('reach is NEVER a downgrade row — moving plans does not change how far a shop goes (owner 2026-11-19)', () => {
+  for (const [from, to] of [['enterprise', 'free'], ['pro', 'solo'], ['solo', 'verified']] as const) {
+    const f = downgradeFit(base, from, to, opts);
+    assert.ok(!f.rows.some((r) => (r.key as string) === 'reach'), `${from} → ${to} drew a reach row`);
+  }
 });
 
 test('THE STORAGE FLOOR: below what the shop stores blocks the switch until some is removed', () => {

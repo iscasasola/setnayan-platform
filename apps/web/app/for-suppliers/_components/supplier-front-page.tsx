@@ -21,6 +21,7 @@ import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { bookingFeeFigures, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   BADGE_FIRST,
   BADGE_LAST,
@@ -60,6 +61,7 @@ import {
   type QrKey,
 } from './supplier-front-client';
 import { Info } from './supplier-front-info';
+import { SupplierHowWeEarn } from './supplier-how-we-earn';
 import { SupplierBadgeShelf } from './supplier-badge-shelf';
 import { PlanPagePreview } from './plan-page-preview';
 import {
@@ -68,7 +70,6 @@ import {
   samplePlanCaption,
   type SampleShopPlan,
 } from '@/app/v/[slug]/_components/sample-shop-page';
-import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
@@ -207,8 +208,11 @@ export function SupplierFrontPage({
   codes,
   paywallOn,
   afterPlans,
+  giftFrom = null,
 }: {
   prices: SupplierFrontPrices;
+  /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
+  giftFrom?: string | null;
   fee: SupplierFrontFee;
   /** `isVendorFeatureGateEnabled()`, read by the page: while the plan paywall is off, the table prints the seats and
    *  waiting list the actions actually allow (Build 5 Lane B's `allowance`), not a cap nobody enforces. */
@@ -302,6 +306,11 @@ export function SupplierFrontPage({
                 <p>
                   Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
                   takes a cut of the deal. {words.heroFee} {FEE_FREE_RULE}
+                </p>
+                <p>
+                  <a className={s.tlink} href="#earn">
+                    How Setnayan earns
+                  </a>
                 </p>
               </Info>
             </div>
@@ -840,6 +849,16 @@ export function SupplierFrontPage({
                 them to your quote. Your client gets more from your package than they would buying alone, and it arrives with
                 their first payment.
               </p>
+            </div>
+
+            <div className={s.sub}>
+              <SupplierHowWeEarn
+                feeEnabled={fee.enabled}
+                figures={words.figures}
+                plans={{ plus: prices.soloMonthly, pro: prices.proMonthly, ultra: prices.enterpriseMonthly }}
+                deepSearch={prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null}
+                giftFrom={giftFrom}
+              />
             </div>
 
             <div className={`${s.sub} ${s.shelf} ${s.dark}`}>

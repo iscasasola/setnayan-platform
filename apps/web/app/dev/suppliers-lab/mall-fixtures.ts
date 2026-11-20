@@ -82,7 +82,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
     rows.push({ vendor_id: 'r-lab-pax', vendor_name: 'Lab sample caterer', ...placeOf('catering'), status: 'considering', marketplace_vendor_id: 'p-lab-pax' });
     enrichment.set('r-lab-pax', { rating: null, review_count: 0, booked_count: 0, is_verified: true, distance_km: nearestKm(venue, [pinOf('14.5605166', '121.0764343')]) });
     cards['r-lab-pax'] = {
-      name: 'LAB ONLY · plated dinner (₱850 / guest, min 50)',
+      name: 'LAB ONLY · plated dinner',
       priceText: `from ${formatPhpRounded(850 * 50)}`,
       discountBadge: null,
       includesLine: null,
@@ -94,7 +94,7 @@ export function mallRealFixtures(opts: { venue: boolean; perGuest: boolean; save
     rows.push({ vendor_id: 'r-lab-pax-2', vendor_name: 'Lab sample buffet', ...placeOf('catering'), status: 'considering', marketplace_vendor_id: 'p-lab-pax-2' });
     enrichment.set('r-lab-pax-2', { rating: null, review_count: 0, booked_count: 0, is_verified: false, distance_km: nearestKm(venue, [pinOf('14.6341654', '121.0352121')]) });
     cards['r-lab-pax-2'] = {
-      name: 'LAB ONLY · buffet (₱650 / guest, min 250)',
+      name: 'LAB ONLY · buffet',
       priceText: `from ${formatPhpRounded(650 * 250)}`,
       discountBadge: null,
       includesLine: null,

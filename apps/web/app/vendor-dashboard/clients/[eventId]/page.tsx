@@ -136,6 +136,7 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { TheTie } from '@/app/_components/signature/the-tie';
@@ -1029,6 +1030,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         }),
         readDayCheck(supabase, lockRequest.event_vendor_id),
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
+        piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
@@ -1120,9 +1122,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
   // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
   // to "Pick which stay on" and the card says why, naming the service.
-  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
+  const [feeForecast, dayCheck, heldService, askPieces]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null, PiecesAsk | null] = lockRequest?.event_vendor_id
     ? await askReadsP!
-    : [null, null, null];
+    : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
@@ -2024,6 +2026,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          askPieces={askPieces}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />

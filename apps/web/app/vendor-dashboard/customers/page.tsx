@@ -66,6 +66,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
+import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import { CustomersRoster, EventsHeading, type RosterRow } from './_components/customers-roster';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { stageOfLane } from '@/lib/supplier-event-lines';
@@ -199,6 +200,8 @@ type Props = {
     tab?: string;
     /** Dates › one day (frame 35). */
     day?: string;
+    /** 🖥 Dates › one day, on a computer: the group whose bookings the right column lists (step 4). */
+    grp?: string;
     /** Events' door (`asking · talking · booked · done`) a pager link keeps. */
     door?: string;
     /** `?within=month` — Booked narrowed to this month (Today's "Booked · events this month", owner 75a46e3c item 9). */
@@ -1409,7 +1412,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const todayIso = manilaTodayIso();
   const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
 
-  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe] = await Promise.all([
+  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe, cardStyles, poolTaken] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
     // and an event with a seat is booked — the holders are the open conversations without one.
@@ -1419,14 +1422,40 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     fetchVendorWaitlist(supabase, vendorProfileId, day),
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
+    supabase.from('vendor_services').select('vendor_service_id, title, availability_style').eq('vendor_profile_id', vendorProfileId),
+    // 🔒 Step 4: the day's counts per schedule FROM THE GUARDS' own functions — one call: seats (`schedule_pool_taken_on`,
+    // what acquire refuses by) and, for by-the-piece cards, pieces out of the card's own number, each stock once
+    // (`service_card_bookings_on` · `service_card_daily_limit`, what the yes refuses by).
+    supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
+  if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
+  if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
+  const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number; pieces_out: number | null; pieces_have: number | null }[];
+  const takenByPool = new Map(takenRows.map((r) => [r.pool_id, r.taken]));
+  // 🛠 Made to order is counted IN PROGRESS across each order's preparation window (owner 19 Nov, AVAILABILITY FINALIZED).
+  const inProgressByPool = new Map(takenRows.map((r) => [r.pool_id, r.in_progress]));
+  const piecesByPool = new Map(takenRows.map((r) => [r.pool_id, { out: r.pieces_out, have: r.pieces_have }]));
+  /** The database's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
+  const dbTakenOf = (poolId: string, style: string | null | undefined): number | null =>
+    poolTaken.error
+      ? null
+      : style === 'piece'
+        ? (piecesByPool.get(poolId)?.out ?? 0)
+        : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
+  const cardById = new Map(
+    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
+      c.vendor_service_id,
+      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null },
+    ]),
+  );
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
   const namePools = pools.length > 1;
   const bookedToday = bookings.filter((b) => b.bookedDate === day);
 
   // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const [{ asks, measured: asksMeasured }, eventsRead, caps] = await Promise.all([
+  const [{ asks, measured: asksMeasured }, eventsRead, caps, piecesRead] = await Promise.all([
     readOpenAsks(threadsRead.threads, bookedEventIds, vendorProfileId),
     bookedToday.length > 0
       ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
@@ -1435,7 +1464,35 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
       : Promise.resolve({ rows: [], error: null }),
     // "Holding this date · N of M" — the plan's ceiling.
     tierCaps((tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null),
+    // 📊 Step 4: the pieces each booking on the day takes, and its card — the shop's own seats (proven by the pool read).
+    bookedToday.some((b) => b.eventVendorId)
+      ? readInChunks([...new Set(bookedToday.map((b) => b.eventVendorId).filter((v): v is string => Boolean(v)))], (part) =>
+          createAdminClient().from('event_vendors').select('vendor_id, service_id, booked_quantity').in('vendor_id', part),
+        )
+      : Promise.resolve({ rows: [], error: null }),
   ]);
+  if (piecesRead.error) logQueryError('VendorCustomersPage.dayPieces', piecesRead.error, {}, 'graceful_degrade');
+  const rowById = new Map(
+    ((piecesRead.rows ?? []) as { vendor_id: string; service_id: string | null; booked_quantity: number | null }[]).map((r) => [r.vendor_id, r]),
+  );
+  const cardOfBooking = (eventVendorId: string | null | undefined) => {
+    const sid = eventVendorId ? rowById.get(eventVendorId)?.service_id : null;
+    return sid ? cardById.get(sid) ?? null : null;
+  };
+  // 🗓 A schedule's style: the ONE style every card on it books by (Made to order · by the piece). Mixed, Not set or
+  // unread → null, and the group keeps today's look. An Always available card is never on the calendar (ruling 4).
+  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string } => {
+    if (cardStyles.error) return { style: null };
+    const cards = [...new Set([...p.serviceIds, ...bookedToday.filter((b) => b.poolId === p.poolId).map((b) => rowById.get(b.eventVendorId ?? '')?.service_id ?? '')])]
+      .filter(Boolean)
+      .map((sid) => cardById.get(sid))
+      .filter((c): c is { title: string | null; style: AvailabilityStyle | null } => Boolean(c) && c!.style !== 'none');
+    const styles = new Set(cards.map((c) => c.style));
+    if (cards.length === 0 || styles.size !== 1) return { style: null };
+    const style = [...styles][0] ?? null;
+    if (style !== 'order' && style !== 'piece') return { style };
+    return { style, barName: style === 'piece' && cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined };
+  };
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(
     ((eventsRead.rows ?? []) as { event_id: string; venue_name: string | null; event_type: string | null }[]).map((e) => [e.event_id, e]),
@@ -1474,14 +1531,38 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   // The day, schedule by schedule — every block through the ONE rule (`lib/not-available.ts`, repeats + hours).
   const groups = dayGroupsOf(day, {
     today: todayIso,
-    pools: pools.map((p) => ({ poolId: p.poolId, label: p.label, capacity: p.capacity })),
-    bookings: bookedToday.map((b) => ({
-      key: b.poolBookingId,
-      poolId: b.poolId,
-      title: b.eventName,
-      line: [...eventWords(eventById.get(b.eventId)), 'Booked here'].filter(Boolean).join(' · '),
-      href: `/vendor-dashboard/clients/${b.eventId}`,
-    })),
+    pools: pools.map((p) => {
+      const st = poolStyle(p);
+      // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a): a by-the-piece group counts against its cards' own
+      // "How many do you have", each stock once — the yes's number — never the schedule's "how many a day". A piece
+      // card with no number has nothing to count against, so the group keeps the plain look.
+      const have = piecesByPool.get(p.poolId)?.have ?? null;
+      if (st.style === 'piece' && !poolTaken.error && have === null) return { poolId: p.poolId, label: p.label, capacity: p.capacity, style: null };
+      const capacity = st.style === 'piece' && have !== null ? have : p.capacity;
+      return { poolId: p.poolId, label: p.label, capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
+    }),
+    bookings: bookedToday
+      // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.
+      .filter((b) => cardOfBooking(b.eventVendorId)?.style !== 'none')
+      .map((b) => {
+        const row = b.eventVendorId ? rowById.get(b.eventVendorId) : undefined;
+        const piece = cardOfBooking(b.eventVendorId)?.style === 'piece';
+        // A refused pieces read is said on the bar, never "0 out" (null); a row the read did not return is 1.
+        const quantity = piecesRead.error ? null : (row?.booked_quantity ?? 1);
+        return {
+          key: b.poolBookingId,
+          poolId: b.poolId,
+          title: b.eventName,
+          line: [piece && quantity !== null ? `${formatCount(quantity)} ${quantity === 1 ? 'piece' : 'pieces'}` : '', ...eventWords(eventById.get(b.eventId)), 'Booked here']
+            .filter(Boolean)
+            .join(' · '),
+          href: `/vendor-dashboard/clients/${b.eventId}`,
+          quantity,
+          // 🔢 Pieces never take a seat (owner 2c): a chair booking is LISTED on its schedule's day but never counted
+          // against the schedule's seats — the same rule as `schedule_pool_taken_on`.
+          seat: !piece,
+        };
+      }),
     blocks: blocksRead.blocks,
     holds: holds.map((h) => ({ poolId: h.poolId, stateDate: h.stateDate, dayState: h.dayState })),
   });
@@ -1571,6 +1652,9 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     })),
     whoWorks,
     qrHref: `/vendor-dashboard/invite?mode=locked&date=${day}`,
+    // 🖥 Step 4: on a computer the right column lists the tapped group's bookings (`?grp=`); the first group by default.
+    pickedGroup: groups.find((g) => g.poolId === search.grp)?.poolId ?? groups[0]?.poolId ?? null,
+    groupHrefBase: `/vendor-dashboard/customers?seg=dates&day=${day}&grp=`,
     venue: venueDay,
   };
 

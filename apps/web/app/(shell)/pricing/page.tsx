@@ -17,6 +17,7 @@ import { formatCount } from '@/lib/format-number';
 import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
+import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 /**
  * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
@@ -41,13 +42,13 @@ import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_p
 export const metadata = {
   title: 'Pricing',
   description:
-    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee only on couples we introduce.`,
+    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee, ${FEE_SCOPE_THIRD}.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
-      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee only on couples we introduce.`,
+      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -56,7 +57,7 @@ export const metadata = {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee only on couples we introduce.`,
+    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
   },
 };
 

@@ -25,7 +25,11 @@ const PANEL = read('_components/shop-can-do-panel.tsx');
 // v16 S6 (owner 15 Nov, DECISION_LOG "AN UNVERIFIED SHOP HAS THE SAME WEBSITE AS A VERIFIED ONE", which SUPERSEDES the
 // 13 Nov "two looks" for the LOOK): one look for every shop; only the CONTENT is gated, by `isVerifiedShop`.
 test('one look for every shop — the hero is never behind a plan or verification; content is gated by isVerifiedShop', () => {
-  assert.match(PAGE, /const isVerifiedShop = vendor\.verification_state === 'verified' \|\| isDemoVendor \|\| teamPreview !== null;/);
+  // 📄 Papers renewal §4 (approved 14 Nov), laid into S6: a verified shop whose papers lapsed after 30 March reads as
+  // a shop whose papers are not checked — the ONE exception inside the content gate, and it is a papers fact, never a
+  // plan (`coupleShopRenewing`, held in lib/papers-renewal.test.ts). It keeps the hero like every other shop.
+  assert.match(PAGE, /const renewing = coupleShopRenewing\(vendor\);/);
+  assert.match(PAGE, /const isVerifiedShop = \(vendor\.verification_state === 'verified' && !renewing\) \|\| isDemoVendor \|\| teamPreview !== null;/);
   assert.doesNotMatch(PAGE, /cinematicHero|isEnterprise \? \(\s*<ShopHero/, 'the hero went back behind a gate');
   assert.equal((PAGE.match(/<ShopHero\b/g) ?? []).length, 1);
   assert.doesNotMatch(PAGE, /\{\w+ \? \(\s*<ShopHero|\{\w+ \? <ShopHero/, 'the hero is drawn for some shops only');

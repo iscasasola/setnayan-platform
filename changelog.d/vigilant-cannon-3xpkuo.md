@@ -58,3 +58,9 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG rows as written
 
 SPEC IMPACT: None.
 
+
+## 2026-11-21 · fix(onboarding): PB4 and PB1 fit 375 px, as drawn
+
+Caught up with `main` (merge only). PB4: Approve card full width, Edit · Skip for now under it (three in a row ran past the right gutter at 375 px). PB1's not-yet button says Continue, as drawn ("Pick a service to continue" ran past the gutter). Shots: `build-sessions/shots-onboarding-375/`.
+
+SPEC IMPACT: None.

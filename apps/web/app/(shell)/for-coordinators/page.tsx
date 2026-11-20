@@ -43,6 +43,10 @@ import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import { ServiceFace, includesLineOf } from '@/app/_components/service-face';
+import type { CardBadgeView } from '@/lib/card-badges';
+
 import { TIERS } from '@/lib/badge-tiers';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
@@ -63,6 +67,13 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 /** The drawing's pictures: crops of the app's marketing photos, its feature captures, and the Invites badge art. */
 const SHOT = '/marketing/2026-11-20/coordinators';
+
+/** The sample card's badges — the live medals, drawn by the live badge row. */
+const SAMPLE_BADGES: readonly CardBadgeView[] = [
+  { key: 'rave_reviews', since: null },
+  { key: 'quick_responder', since: null },
+  { key: 'verified', since: null },
+];
 
 /** Every "Start as a coordinator free" — the supplier door, opened on the coordination services. */
 const START = '/open-shop?as=coordinator';
@@ -418,53 +429,25 @@ export default async function ForCoordinatorsPage() {
             }
           />
           <div className="fc-row fc-cards">
-            <article className="fc-sf" aria-label="A sample service card">
-              <div className="fc-sf-g">
-                <span className="fc-sf-cv">
-                  <Image src={`${SHOT}/c-coord.webp`} alt="" width={160} height={224} sizes="80px" />
-                </span>
-                <span className="fc-sf-t">
-                  <b>On-the-day coordination</b>
-                  <span className="fc-sf-p">
-                    <i>Coordinators</i> · Planning
-                  </span>
-                  <span className="fc-sf-s">
-                    <i className="fc-lg" aria-hidden="true">
-                      AE
-                    </i>
-                    <span>Amihan Events</span>
-                    <em>
-                      <svg className="fc-ic" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                        <path d="m9 12 2 2 4-4" />
-                      </svg>{' '}
-                      Verified
-                    </em>
-                  </span>
-                  <span className="fc-sf-in">
-                    <svg className="fc-ic" viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                    <span>Includes: 2 coordinators · 12 hours</span>
-                  </span>
-                  <span className="fc-sf-no">
-                    <svg className="fc-ic" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v4M12 16h.01" />
-                    </svg>
-                    <span>Not included: crew meal</span>
-                  </span>
-                </span>
-              </div>
-              <div className="fc-sf-b" role="img" aria-label="Badges: Rave Reviews, Quick Responder, Setnayan Verified">
-                <span className="fc-md">
-                  <Image className="fc-on" src={`${SHOT}/medal-rave-reviews.png`} alt="" width={20} height={20} />
-                  <Image src={`${SHOT}/medal-quick-responder.png`} alt="" width={20} height={20} />
-                  <Image src={`${SHOT}/medal-verified.png`} alt="" width={20} height={20} />
-                </span>
-                <span className="fc-lb">Rave Reviews</span>
-              </div>
-            </article>
+            {/* The LIVE service card, exactly as main draws it (ServiceFace + CardBadgeRow) — never a hand copy. */}
+            <div className="fc-sf">
+              <ServiceFace
+                name="On-the-day coordination"
+                coverUrl={`${SHOT}/c-coord.webp`}
+                path="Coordinators · Planning"
+                shop={{ name: 'Amihan Events', href: null, logoUrl: null, verified: true }}
+                includes={includesLineOf(['2 coordinators', '12 hours'])}
+                notIncluded={['crew meal']}
+                footer={
+                  <CardBadgeRow
+                    badges={SAMPLE_BADGES}
+                    cardName="On-the-day coordination"
+                    shopName="Amihan Events"
+                    now={0}
+                  />
+                }
+              />
+            </div>
             <figure
               className="fc-seatm"
               role="img"

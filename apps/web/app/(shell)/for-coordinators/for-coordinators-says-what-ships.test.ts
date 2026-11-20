@@ -178,7 +178,8 @@ test('every anchor on the page lands on an id on it; every page link exists', ()
 
 test('every picture the page shows is in public/', () => {
   const files = [...PAGE.matchAll(/\$\{SHOT\}\/([a-z0-9-]+\.(?:webp|png))/g)].map((m) => m[1] ?? '');
-  assert.ok(files.length >= 10, `anti-vacuity: only ${files.length} pictures were read`);
+  // 9 pictures since 20 Nov: the sample card's three medals are drawn by the live CardBadgeRow, not by the page.
+  assert.ok(files.length >= 8, `anti-vacuity: only ${files.length} pictures were read`);
   const missing = files.filter((f) => !existsSync(join(WEB, 'public', 'marketing', '2026-11-20', 'coordinators', f)));
   assert.deepEqual(missing, [], 'a picture the page shows is not in public/: ' + missing.join(', '));
   assert.match(PAGE, /const SHOT = '\/marketing\/2026-11-20\/coordinators';/);
@@ -265,4 +266,10 @@ test('the budget row shows only while the coordinator’s default budget grant i
 test('the Invites line names the per-tier rule — no "every one who books", no count, no peso', () => {
   assert.doesNotMatch(PAGE, /Every one who books earns you a reward/);
   assert.match(PAGE, /Each Invites tier you reach pays a reward\. Free\./);
+});
+
+test('the sample service card is the LIVE card (ServiceFace + CardBadgeRow), never a hand copy', () => {
+  assert.match(PAGE, /<ServiceFace\b/);
+  assert.match(PAGE, /<CardBadgeRow\b/);
+  assert.doesNotMatch(PAGE, /fc-sf-(g|cv|t|p|s|in|no|b)\b/, 'a hand-drawn service card is back');
 });

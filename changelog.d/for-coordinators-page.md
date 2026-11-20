@@ -39,3 +39,5 @@ SPEC IMPACT: None — this ports `prototypes/for_coordinators_2026-11-06/` (corp
 differences are listed in the PR.
 
 - fix: the Invites line says the per-tier rule ("Each Invites tier you reach pays a reward. Free.") instead of "Every one who books earns you a reward"; the drawing's third access row ("The budget — it stays with the hosts until they share it.") is restored, drawn only while `COORDINATOR_AREAS.budget` defaults to off. Both guarded in `for-coordinators-says-what-ships.test.ts`.
+
+- fix: the sample service card is the live `ServiceFace` + `CardBadgeRow`, exactly as main draws it, instead of a hand-drawn copy (controller, 20 Nov: use the live card; card 14 is held by the scope freeze). The hand card's CSS and its three medal images are removed; guarded in `for-coordinators-says-what-ships.test.ts`.

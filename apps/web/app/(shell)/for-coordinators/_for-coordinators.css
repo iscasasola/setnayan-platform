@@ -83,7 +83,7 @@
 .fc .fc-wide{margin:0 var(--fc-gr) 0 var(--fc-gl);border-radius:var(--m-r-md);overflow:hidden;background:var(--fd-wash)}
 .fc .fc-wide img{display:block;width:100%;height:auto}
 /* one warm family: every photograph wears the same grade (never the app capture or the medals) — a still filter, not a motion */
-.fc .fc-hp img,.fc .fc-wide img,.fc .fc-sf-cv img{filter:saturate(.88) sepia(.1) contrast(1.03) brightness(1.01)}
+.fc .fc-hp img,.fc .fc-wide img{filter:saturate(.88) sepia(.1) contrast(1.03) brightness(1.01)}
 .fc .fc-facts{margin:6px var(--fc-gr) 0 var(--fc-gl);display:grid}
 .fc .fc-facts div{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--fd-line);align-items:baseline}
 .fc .fc-facts div:first-child{border-top:0}
@@ -93,29 +93,10 @@
 
 /* THE SAMPLE SERVICE CARD — the shipped face (service-face.tsx + card-badge-row.tsx), on the card's own tokens */
 .fc .fc-cards{gap:12px;padding-block:6px 26px;margin-bottom:-16px}
-.fc .fc-sf{width:300px;display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:var(--m-r-md);background:var(--m-paper);box-shadow:var(--m-shadow-md)}
-.fc .fc-sf-g{display:grid;grid-template-columns:80px minmax(0,1fr);gap:4px 12px;align-items:start}
-.fc .fc-sf-cv{width:80px;height:112px;border-radius:var(--m-r-md);clip-path:inset(0 round var(--m-r-md));background:var(--fd-wash);display:block}
-.fc .fc-sf-cv img{width:100%;height:100%;object-fit:cover}
-.fc .fc-sf-t{display:flex;flex-direction:column;gap:3px;min-width:0}
-.fc .fc-sf-t>b{font-size:14px;font-weight:600;line-height:1.25;color:var(--fd-ink);overflow-wrap:anywhere}
-.fc .fc-sf-p{font-size:11px;line-height:1.375;color:var(--fd-m1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fc .fc-sf-p i{font-style:normal;font-weight:500;color:var(--fd-link)}
-.fc .fc-sf-s{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;font-weight:500;color:var(--fd-m1)}
-.fc .fc-sf-s>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fc .fc-lg{flex:none;width:20px;height:20px;border-radius:var(--m-r-full);display:grid;place-items:center;background:var(--m-orange-4);color:var(--m-orange-deep);font:700 8px/1 var(--fd-sys);font-style:normal}
-.fc .fc-sf-s em{flex:none;display:inline-flex;align-items:center;gap:2px;padding:2px 6px;border-radius:var(--m-r-full);background:color-mix(in srgb,rgb(var(--color-ok)) 12%,transparent);color:rgb(var(--color-ok));font-size:9px;font-style:normal;font-weight:400;letter-spacing:.025em;text-transform:uppercase}
+.fc .fc-sf{width:300px;flex:none}
+/* The live card clips its cover with overflow:hidden; inside the swipe row that stops the sideways-scroll check, so clip by shape instead (as /for-suppliers does). */
+.fc .fc-sf span.overflow-hidden.rounded-lg{overflow:visible;clip-path:inset(0 round var(--m-r-md))}
 .fc .fc-ic{flex:none;width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
-.fc .fc-sf-s em .fc-ic{width:10px;height:10px;stroke-width:2}
-.fc .fc-sf-in{display:flex;align-items:flex-start;gap:4px;font-size:11.5px;font-weight:500;line-height:1.375;color:rgb(var(--color-ok))}
-.fc .fc-sf-no{display:flex;align-items:flex-start;gap:4px;padding:2px 8px;border-radius:var(--m-r-sm);background:var(--m-orange-4);font-size:11px;line-height:1.375;color:var(--m-orange-deep)}
-.fc .fc-sf-in .fc-ic,.fc .fc-sf-no .fc-ic{margin-top:2px}
-.fc .fc-sf-b{display:flex;align-items:center;gap:6px;min-height:44px;padding:0 4px}
-.fc .fc-md{display:flex;align-items:center;flex:none}
-.fc .fc-md img{width:20px;height:20px;border-radius:var(--m-r-full);box-shadow:0 0 0 1.5px var(--m-paper)}
-.fc .fc-md img+img{margin-left:-4px}
-.fc .fc-md img.fc-on{position:relative;z-index:1;transform:translateY(-3px) scale(1.1);box-shadow:0 0 0 1.6px #e2be6e,0 0 0 2.4px #6b4a10,0 3px 5px rgba(0,0,0,.3)}
-.fc .fc-lb{min-width:0;font-size:12px;font-weight:700;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--sn-cb-rave-reviews-ink)}
 
 /* Check a date — the seat plan's calendar, a still, on the seat tokens */
 .fc .fc-seatm{width:300px;padding:12px 14px 10px;border-radius:var(--m-r-md);background:var(--fd-wash);align-self:stretch;display:flex;flex-direction:column;justify-content:center}

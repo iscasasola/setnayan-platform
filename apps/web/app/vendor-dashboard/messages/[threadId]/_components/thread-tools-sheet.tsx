@@ -31,7 +31,7 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow } from '@/lib/chat-plus';
+import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, PLUS_ROW_SECTION, PLUS_SECTION_WORD, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow, type PlusSection } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
@@ -123,6 +123,12 @@ export type SheetRow = {
   page?: PlusGroup;
   /** Presses a shipped control in the chat instead of a card or a door (See every version). */
   act?: PlusRow['act'];
+  /**
+   * 💬 The supplier's plain group (19 Nov 2026 — the client page is one chat, so no tab names a group): Negotiate ·
+   * Ask & decide · Money · Dates · Files, and Report a problem under a bare line. Where set, it heads the row instead
+   * of `page`'s tab word.
+   */
+  section?: PlusSection;
 };
 
 /**
@@ -142,16 +148,22 @@ const SHORTCUT_ROWS: readonly SheetRow[] = [
 ];
 
 /** The tab's word over a topic's rows, on a hairline — `pb` tight so the row under it still reads as the label's own. */
-function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
+function PageLabel({ page, word, first }: { page: string; word: string | null; first: boolean }) {
   return (
     <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
-      {/* The template's section label (rule 2 · 13): small grey capitals at the dark grey, never ink at part strength. */}
-      <span className="text-[11.5px] font-bold uppercase leading-none tracking-[0.1em] text-[color:var(--m-slate-2)]">
-        {page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(page)}
-      </span>
+      {/* The template's section label (rule 2 · 13): small grey capitals at the dark grey, never ink at part strength.
+          A group with no word (the supplier's Report a problem) is the hairline alone. */}
+      {word ? <span className="text-[11.5px] font-bold uppercase leading-none tracking-[0.1em] text-[color:var(--m-slate-2)]">{word}</span> : null}
       <span className="h-px flex-1 bg-[color:var(--m-line)]" />
     </li>
   );
+}
+
+/** The heading a row sits under: the supplier's plain group, else the tab its page mirrors (the host's sheet). */
+function headOf(row: SheetRow): { key: string; word: string | null } | null {
+  if (row.section) return { key: row.section, word: PLUS_SECTION_WORD[row.section] };
+  if (row.page) return { key: row.page, word: row.page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(row.page) };
+  return null;
 }
 
 /** "See every version" with one version in the chat — the same words the row's toast used to say after the fact. */
@@ -214,12 +226,13 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
   }, [threadId, slashSig]);
 
   let lastGroup: ThreadToolGroup | undefined;
-  let lastPage: PlusGroup | undefined;
+  let lastPage: string | undefined;
   const items: ReactNode[] = [];
   for (const row of rows) {
-    if (row.page && row.page !== lastPage) {
-      items.push(<PageLabel key={`page-${row.page}`} page={row.page} first={items.length === 0} />);
-      lastPage = row.page;
+    const head = headOf(row);
+    if (head && head.key !== lastPage) {
+      items.push(<PageLabel key={`page-${head.key}`} page={head.key} word={head.word} first={items.length === 0} />);
+      lastPage = head.key;
     }
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
@@ -355,8 +368,9 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
       <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
         {/* ⓘ beside the title (house rule: title + one line visible, the rest in the ⓘ); `pr-12` keeps clear of the ✕. */}
         <InfoTip label="Add to the chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
-          A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to —
-          the same order as the menu above.
+          {sheetMark === 'vendor'
+            ? 'A card lands in the chat. They fill their part there. One at a time.'
+            : 'A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to — the same order as the menu above.'}
         </InfoTip>
         <ul className="mt-2">{items}</ul>
       </div>
@@ -452,6 +466,8 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       // The row's own composer input (Camera · Photo) beats a door's paperclip.
       attach: r.attach ?? d?.attach,
       page: PLUS_ROW_PAGE[r.key],
+      // 💬 The supplier's sheet is grouped by plain words (19 Nov 2026); the host's still mirrors its tabs.
+      ...(side === 'vendor' ? { section: PLUS_ROW_SECTION[r.key] } : {}),
       act: r.act,
       // 🤝 Negotiate's rows wear the brand round (the design's `pri`) — the money moves of this chat.
       primary: PLUS_ROW_PAGE[r.key] === NEGOTIATE_GROUP,

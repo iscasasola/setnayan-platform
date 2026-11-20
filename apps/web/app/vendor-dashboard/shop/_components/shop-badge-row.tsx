@@ -8,6 +8,9 @@ import { ProgressRing } from '@/app/_components/progress-ring';
 import { BadgeFullscreen } from '@/app/_components/award/badge-fullscreen';
 import { VerifiedFullscreen } from '@/app/_components/award/verified-fullscreen';
 import { LockedTile } from '@/app/_components/award/locked-tile';
+import { toneForTier } from '@/app/_components/award/shared';
+import { StoryVideo, type StoryInput } from '@/app/_components/award/story-video';
+import { pictureStorySvg } from '@/app/_components/award/picture-story-svg';
 import { BADGE_ART_H, BADGE_ART_W, awardedOnWords, badgeArtFit, shelfLines, type ShelfTile } from '@/lib/shop-badge-shelf';
 import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
@@ -22,7 +25,13 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  *   · EARNED tiered badge → the award kit's `BadgeFullscreen` (v84 `bzOpen`: it lifts out of the row, flies to the
  *     middle, lands with a burst and its tap show, floats and turns). Its caption carries what the old sheet said —
  *     Now · how far to the next tier · Next goal · the reward lines · what it counts (`shelfLines`);
- *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz`);
+ *     ↗ SHARE TO STORY (owner 21 Nov: *"i thought we also have share icons for the different badges you achieved"*):
+ *     the earned badge's full screen carries the kit's plain-glass "↗ Share to story" (v84 `bz-share`), wired as
+ *     `app/dev/award-lab` does — it opens the lazy `StoryVideo` (the 10-second story, made on the phone, nothing
+ *     uploaded). The v84 picture is a `.webp`, so it is carried into the story inside an SVG (`pictureStorySvg`).
+ *     A LOCKED badge never shares: only the earned branch passes `onShare`;
+ *   · Setnayan Verified, earned → the kit's `VerifiedFullscreen` (v86 `.vfz` — the approved drawing gives it no
+ *     share button, so it has none);
  *   · not earned yet / not counted / unread → it RISES (the one `ShopDoorScreen` — a right panel from 701px) with the LOCKED look (`LockedTile`:
  *     the real art under a small lock at its edge, what it takes — owner 18 Nov) and the same lines, the reward box and its door.
  *
@@ -31,6 +40,7 @@ import { RING_COLOUR, RING_EASE, RING_MS, ringDelay } from '@/lib/badge-ring';
  */
 export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTile[] | null; shopName?: string }) {
   const [open, setOpen] = useState<{ tile: ShelfTile; from: HTMLElement | null } | null>(null);
+  const [story, setStory] = useState<{ input: StoryInput; label: string } | null>(null);
   const close = () => setOpen(null);
   return (
     <section aria-labelledby="shop-badges-h" data-shop-badges="" data-tour="shop-badges" className="scroll-mt-24" id="badges">
@@ -67,7 +77,8 @@ export function ShopBadgeRow({ tiles, shopName = 'Your shop' }: { tiles: ShelfTi
           ))}
         </ul>
       )}
-      {open ? <BadgeOpen tile={open.tile} from={open.from} shopName={shopName} onClose={close} /> : null}
+      {open ? <BadgeOpen tile={open.tile} from={open.from} shopName={shopName} onClose={close} onStory={setStory} /> : null}
+      {story ? <StoryVideo input={story.input} label={story.label} onClose={() => setStory(null)} /> : null}
     </section>
   );
 }
@@ -186,12 +197,38 @@ function BadgeRing({ tile, i, children }: { tile: ShelfTile; i: number; children
 }
 
 /** What a tap opens: the award full screen when earned, the locked look risen otherwise. */
-function BadgeOpen({ tile, from, shopName, onClose }: { tile: ShelfTile; from: HTMLElement | null; shopName: string; onClose: () => void }) {
+function BadgeOpen({
+  tile,
+  from,
+  shopName,
+  onClose,
+  onStory,
+}: {
+  tile: ShelfTile;
+  from: HTMLElement | null;
+  shopName: string;
+  onClose: () => void;
+  onStory: (s: { input: StoryInput; label: string }) => void;
+}) {
   const awardedOn = awardedOnWords(tile.awardedAt) ?? undefined;
   if (tile.state === 'earned' && tile.key === 'verified') {
     return <VerifiedFullscreen art={verifiedV84Svg({ uid: 'vfz-vr', size: 150, word: true })} shopName={shopName} awardedOn={awardedOn} onClose={onClose} />;
   }
   if (tile.state === 'earned' && tile.family && tile.tier && tile.tierName && tile.src) {
+    const { tier, tierName, src, title } = tile;
+    // ↗ Share to story — EARNED tiered badges only (a locked badge rises as `BadgeSheet`, which has no share).
+    const share = (kitSvg: string) => {
+      const make = (svg: string) =>
+        onStory({
+          input: { svg, word: 'BADGE', tone: toneForTier(tier), shopName, line1: `${tierName} · ${title}`, line2: awardedOn ? `Awarded on ${awardedOn}` : undefined },
+          label: `${tierName} ${title} badge awarded to ${shopName}`,
+        });
+      pictureStorySvg(src, BADGE_ART_W, BADGE_ART_H).then(make, (err: unknown) => {
+        // the picture is the one already drawn on screen, so this is rare; fall back to whatever SVG the kit read
+        console.error('[shop-badge-row] badge picture for the story', err);
+        if (kitSvg) make(kitSvg);
+      });
+    };
     return (
       <BadgeFullscreen
         art={
@@ -205,6 +242,7 @@ function BadgeOpen({ tile, from, shopName, onClose }: { tile: ShelfTile; from: H
         shopName={shopName}
         awardedOn={awardedOn}
         origin={from}
+        onShare={share}
         onClose={onClose}
       />
     );

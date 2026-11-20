@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Check, Info, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Check, Info, List, PhilippinePeso, RotateCcw, Star, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -42,7 +42,7 @@ const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: st
 
 /** 🔣 The drawing's own marks for the deal cards (`.k-counter` ⇄ · plan ≡ · `.k-quote` ₱) — ruled 20 Nov: "match the
  * drawing". A counter and a quote wear theirs by KIND; a payment plan says `mark="plan"` (a plan is a payment kind). */
-const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso };
+const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon; review: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso, review: Star };
 
 const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
 /** Phone: the chat's own width. Computer: a bubble's width — mine to the right, the rest to the left. */
@@ -90,11 +90,12 @@ export function KindCard({
   action?: { label: string; href: string; icon: LucideIcon; external?: boolean };
   /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
   warn?: boolean;
-  /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph. */
-  mark?: 'plan';
+  /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph; the review ask wears the
+   *  drawing's ☆ (it borrows the quote's colour, never the quote's ₱). */
+  mark?: 'plan' | 'review';
   children?: ReactNode;
 }) {
-  const Icon = mark === 'plan' ? DEAL_MARK.plan : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
+  const Icon = mark === 'plan' ? DEAL_MARK.plan : mark === 'review' ? DEAL_MARK.review : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
   const k = KIND[kind];
   const label = typeof title === 'string' ? title : kicker;
   if (settled != null && (turn === 'done' || turn === 'old')) {

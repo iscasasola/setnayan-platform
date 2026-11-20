@@ -134,9 +134,10 @@ export function ReviewAskCard({
   const sheetTitle = `review-sheet-${threadId}`;
   return (
     <>
-    {/* The drawing's review card wears the quote kind's colour (`KCLS.review = 'k-quote'`); the icon stays the topic's own. */}
+    {/* The drawing's review card wears the quote kind's colour (`KCLS.review = 'k-quote'`) and the drawing's ☆, never the quote's ₱. */}
     <KindCard
       kind="quote"
+      mark="review"
       topic="decision"
       // The drawing's ⓘ: how reviews work, one line — the review page's own rule (public, the supplier replies once).
       info={{ onOpen: () => setInfo(true), data: { 'data-review-info': '' } }}

@@ -691,8 +691,8 @@ export default async function HomeLab({
     countdown: labDate
       ? labDate.countdown
       : weekOut
-      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
-      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', short: 'Sat 12 Dec', placeLine: 'Tagaytay' }
+      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', short: days.value !== '—' ? 'Sat 12 Dec' : null, placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
     /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=

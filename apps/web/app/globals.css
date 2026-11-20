@@ -9349,7 +9349,7 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 /* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
    the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
 .hc-ecard-plain { background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%); color: rgb(var(--sn-on-band)); } /* ✨ the header band (16 Nov) — was a dark gradient */
-html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); }
+html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); color: rgb(var(--color-ink)); } /* 🌙 the dark ground wears the dark theme's light ink — it kept the light band's espresso, unreadable (Event Today drawing: "dark in both themes", light words) */
 .hc-ecard-plain .hc-ecard-name { color: inherit; }
 .hc-ecard-plain .hc-now-k:not(.hc-now-lv) { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }

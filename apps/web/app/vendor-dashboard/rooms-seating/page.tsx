@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
 import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { readRoomsSeating } from '@/lib/rooms-seating.server';
 import { isSection } from '@/lib/rooms-seating';
@@ -25,9 +26,8 @@ export const metadata = { title: 'Rooms & seating' };
 export default async function RoomsSeatingPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
   const sp = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // One Auth round trip per render (lib/pages-ask-the-account-once.test.ts).
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

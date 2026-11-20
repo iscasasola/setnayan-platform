@@ -81,7 +81,10 @@ test('3 · a card in the stream wears the one look; the old frame is only a draf
   }
   assert.ok(worn >= 12, `only ${worn} cards wear KindCard`);
   const bits = stripComments(read(`${CARDS}/card-bits.tsx`));
-  assert.match(bits, /const Icon = TOPIC_ICON\[topic\]/, 'the kind colours the topic\'s icon; it never picks one');
+  // Ruled 20 Nov ("match the drawing"): ⇄ counter · ≡ plan · ₱ quote; every other kind keeps its topic's glyph.
+  assert.match(bits, /DEAL_MARK[^=]*= \{ counter: ArrowLeftRight, plan: List, quote: PhilippinePeso \}/, 'the drawing\'s three deal marks');
+  assert.match(bits, /: TOPIC_ICON\[topic\];/, 'every other card keeps its topic\'s icon');
+  assert.match(stripComments(read(`${CARDS}/negotiate-cards.tsx`)), /mark=\{kind === 'plan' \? 'plan' : undefined\}/, 'a payment plan wears the plan mark');
   assert.match(bits, /turn === 'me' \? 'shadow-sn-frame' : 'shadow-sn-hair'/, 'only a card that waits on the reader lifts');
   assert.match(bits, /<details[\s\S]{0,400}<summary/, 'a settled card folds to one line whose press opens it');
 });

@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { Check, RotateCcw } from 'lucide-react';
+import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -17,7 +17,8 @@ import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
  * wears this and nothing else: a white frame, ONE kind colour (the 3 px left edge + the icon chip), the title as the
  * hero, the kicker under it, and ONE signature detail per kind (the bits below). A card that waits on the reader says
  * "Your turn" (a dot + the word) and is the only one that lifts; a settled card folds to one ✓ line whose press opens
- * what it held. The icon is still the topic's own (`TOPIC_ICON` — one icon per topic); the KIND only colours it.
+ * what it held. The icon is the topic's own (`TOPIC_ICON` — one icon per topic), except the drawing's three deal marks
+ * (ruled 20 Nov, "match the drawing"): ⇄ a counter · ≡ a payment plan · ₱ a quote (`DEAL_MARK`).
  * The frame never stretches past a phone's width (owner 20 Nov: "card don't need to stretch") — on a computer it sits
  * like a message bubble, so its buttons keep their phone proportions.
  */
@@ -38,6 +39,10 @@ const KIND: Record<CardKind, { edge: string; chip: string; ink: string; fill: st
   plain: { edge: 'border-kind-plain', chip: 'bg-kind-plain-bg text-kind-plain', ink: 'text-kind-plain', fill: 'bg-kind-plain', soft: 'bg-kind-plain-bg', wash: 'bg-kind-plain-bg/55 dark:bg-kind-plain-bg' },
 };
 
+/** 🔣 The drawing's own marks for the deal cards (`.k-counter` ⇄ · plan ≡ · `.k-quote` ₱) — ruled 20 Nov: "match the
+ * drawing". A counter and a quote wear theirs by KIND; a payment plan says `mark="plan"` (a plan is a payment kind). */
+const DEAL_MARK: { counter: LucideIcon; plan: LucideIcon; quote: LucideIcon } = { counter: ArrowLeftRight, plan: List, quote: PhilippinePeso };
+
 const HOT = 'transition-shadow duration-sn-pill data-[hot]:shadow-[0_0_0_3px_color-mix(in_srgb,var(--sn-accent)_35%,transparent)]';
 /** Phone: the chat's own width. Computer: a bubble's width — mine to the right, the rest to the left. */
 const place = (tone: 'mine' | 'theirs' | 'auto') => `w-full max-w-[30rem] ${tone === 'mine' ? 'ml-auto' : ''}`;
@@ -53,6 +58,7 @@ export function KindCard({
   chip,
   tone = 'auto',
   anchorId,
+  mark,
   children,
 }: {
   kind: CardKind;
@@ -68,9 +74,11 @@ export function KindCard({
   chip?: ReactNode;
   tone?: 'mine' | 'theirs' | 'auto';
   anchorId?: string;
+  /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph. */
+  mark?: 'plan';
   children?: ReactNode;
 }) {
-  const Icon = TOPIC_ICON[topic];
+  const Icon = mark === 'plan' ? DEAL_MARK.plan : kind === 'counter' ? DEAL_MARK.counter : kind === 'quote' ? DEAL_MARK.quote : TOPIC_ICON[topic];
   const k = KIND[kind];
   const label = typeof title === 'string' ? title : kicker;
   if (settled != null && (turn === 'done' || turn === 'old')) {

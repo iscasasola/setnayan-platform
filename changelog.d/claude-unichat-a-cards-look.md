@@ -24,6 +24,11 @@ server action or migration changed; every word, button and behaviour is the ship
   does not draw, strikes through a line settled without a yes, and can no longer push past the chat's right gutter
   (`min-w-0`). New lab `/dev/unichat-a-lab` (`?side=vendor|couple&scene=open|settled|failed`) draws part A's cards in
   one stream; dev-only, 404 in production.
+- **Ship review fixes (20 Nov)** — a booking ask a later line answered "booked" now settles as a yes (✓, not struck;
+  `a-booked-ask-settles-as-a-yes.test.ts`, red first) · the drawing's deal marks: ⇄ counter, ≡ payment plan, ₱ quote
+  (`DEAL_MARK` in `card-bits.tsx`; every other card keeps its topic's glyph) · the inquiry card's `hasQuote` is null
+  when the quotes read failed and says "Couldn't check for a quote" instead of offering a reply as if none existed ·
+  a counter whose amount did not load reads "₱ — amount not loaded", never ₱0 (`an-unknown-is-never-drawn-as-none.test.ts`).
 - 🔒 `apps/web/app/_components/chat/cards/the-card-kinds-are-readable.test.ts` — the contrast arithmetic for all 36
   ink/fill pairs plus the 72 dark ink × DARK_MODE_STANDARD §2 surface pairs (events and supplier navy) (the contrast lint cannot see a class map), the one-look rule, and the width cap.
 

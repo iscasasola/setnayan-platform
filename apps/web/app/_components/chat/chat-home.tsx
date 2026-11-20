@@ -30,8 +30,9 @@ export type InquiryFacts = {
   guests: string | null;
   venue: string | null;
   budget: string | null;
-  /** A quote is already in this chat: the card stops offering "Reply with an offer". */
-  hasQuote: boolean;
+  /** A quote is already in this chat: the card stops offering "Reply with an offer". null = the quotes read failed —
+   *  unknown, never said as "no quote" (the same rule as the strip's `suggestedStep`). */
+  hasQuote: boolean | null;
 };
 
 export type ChatHome = {

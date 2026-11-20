@@ -2827,7 +2827,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,
         venue: brief.event.venue_name || brief.event.region || null,
         budget: brief.budget_band ? `${fmtPesoCentavos(brief.budget_band.lo_centavos)} – ${fmtPesoCentavos(brief.budget_band.hi_centavos)}` : null,
-        hasQuote: Boolean(sentQuote),
+        hasQuote: proposalRowsError ? null : Boolean(sentQuote),
       }
     : null;
 

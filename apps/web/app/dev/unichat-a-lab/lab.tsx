@@ -4,7 +4,8 @@
  * DEV-ONLY: production builds 404 this route. Names and amounts are samples — nobody real (the drawing's own).
  *
  *   ?side=vendor|couple       whose chat (vendor wears the supplier look, as /vendor-dashboard does)
- *   ?scene=open|settled|failed   open cards (one is "Your turn") · every card settled to its ✓ line · reads that failed
+ *   ?scene=open|settled|failed   counter ⇄ · plan ≡ · offer · schedule · booking ask · quote ask ₱ —
+ *                             open cards (one is "Your turn") · every card settled to its ✓ line · reads that failed
  */
 import { notFound } from 'next/navigation';
 // The supplier side wears the supplier look, as every /vendor-dashboard page does (its layout imports this sheet).
@@ -16,6 +17,7 @@ import type { DroppedOffer } from '@/app/_components/chat/cards/offer-calls';
 import { ScheduleChangeCard } from '@/app/_components/chat/cards/schedule-change-card';
 import { FormAnswerCard } from '@/app/_components/chat/cards/form-step-card';
 import { BookRequestCard } from '@/app/_components/chat/cards/book-request-card';
+import { ChangeAskCard } from '@/app/_components/chat/cards/ask-change-card';
 import { blankOffer, type Offer } from '@/lib/offers';
 import { resolveSchedule } from '@/lib/proposal-payment-schedule';
 
@@ -126,6 +128,14 @@ export default async function UnichatALab({ searchParams }: { searchParams: Prom
           seed={{ eventId: 'lab-event', seenAt: settled ? `${TODAY}T03:00:00Z` : null }}
         />
         <BookRequestCard state={settled ? 'booked' : 'asked'} reason={null} supplierName={supplierName} at="Today 10:42" />
+        <ChangeAskCard
+          threadId={THREAD}
+          subject="quote"
+          askedAt={posted}
+          viewer={side}
+          returnPath={BACK}
+          seed={{ askId: 'a1', subject: 'quote', note: 'Can we add two more moving heads?', askedAt: posted, status: settled ? 'revised' : 'open', proposalId: QUOTE.proposalId }}
+        />
       </>
     );
 

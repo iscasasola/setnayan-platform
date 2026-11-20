@@ -21,6 +21,9 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { TypedRow } from '@/app/_components/form-row';
 import { formatCentavosPhp } from '@/lib/php';
 import { HOSTS_ONLY } from '@/lib/money-mask';
+
+/** A counter's amount that did not come back: unknown, said as unknown (never ₱0). */
+const AMOUNT_UNKNOWN = '₱ — amount not loaded';
 import {
   ASK_SUBJECT_WORD,
   counterOutcome,
@@ -462,6 +465,7 @@ export function NegotiationCard({
     <KindCard
       kind={kind === 'counter' ? 'counter' : 'payment'}
       topic="payment"
+      mark={kind === 'plan' ? 'plan' : undefined}
       kicker={`${ask ? who : '…'}${until.words && ask?.status === 'open' ? '' : ''}`}
       title={title}
       tone={mine ? 'mine' : 'theirs'}
@@ -478,7 +482,7 @@ export function NegotiationCard({
       }
       settled={
         ask && (ask.status === 'accepted' || ask.status === 'declined' || ask.status === 'countered')
-          ? `${title}${kind === 'counter' && !ask.moneyHidden ? ` · ${pesos(ask.amountCentavos ?? 0)}` : ''} · ${ask.status === 'accepted' ? 'Accepted' : ask.status === 'declined' ? 'Declined' : 'Countered'}`
+          ? `${title}${kind === 'counter' && !ask.moneyHidden && ask.amountCentavos != null ? ` · ${pesos(ask.amountCentavos)}` : ''} · ${ask.status === 'accepted' ? 'Accepted' : ask.status === 'declined' ? 'Declined' : 'Countered'}`
           : undefined
       }
     >
@@ -490,7 +494,14 @@ export function NegotiationCard({
         <div className="grid gap-2" data-negotiation={kind} data-negotiation-status={until.expired && ask!.status === 'open' ? 'expired' : ask!.status}>
           {kind === 'counter' ? (
             <p className="text-[20px] font-semibold tabular-nums text-ink">
-              {ask!.moneyHidden ? HOSTS_ONLY : pesos(ask!.amountCentavos ?? 0)}{' '}
+              {ask!.moneyHidden ? (
+                HOSTS_ONLY
+              ) : ask!.amountCentavos == null ? (
+                // A counter whose amount did not come back is unknown — never drawn as ₱0.
+                <span className="text-ink/60" data-counter-amount-unknown="">{AMOUNT_UNKNOWN}</span>
+              ) : (
+                pesos(ask!.amountCentavos)
+              )}{' '}
               {outcome ? (
                 <span className="text-[14px] font-normal text-ink/60">
                   {ask!.scopeLabel ? `for ${ask!.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}

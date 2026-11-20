@@ -29,6 +29,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/vendor-dashboard/', why: 'the supplier app — the supplier side keeps its own word (owner d19)' },
   { prefix: 'app/vendor/', why: 'supplier claim / lock-by-token pages — read by the supplier, not the couple' },
   { prefix: 'app/for-suppliers/', why: 'supplier-facing marketing — the supplier side keeps its own word' },
+  { prefix: 'app/dev/fee-rulings-lab/page.lab.tsx', text: /the lock and the every-Nth free/, why: "dev lab of Admin › Pricing's supplier booking fee (the fee's ₱100,000 lock, owner 20 Nov) — an admin screen, never a couple's" },
   { prefix: 'app/dashboard/[eventId]/launch/_components/stage-panel/tool-lock.tsx', why: "the Maker's locked TAB (🔒 Problem → Solution, Maker Edit shell approved 2026-11-13) — a tool with nothing to set, not a booking" },
   { prefix: 'lib/help/', text: /Why does a tab in the Maker show a lock\?|A tab with a 🔒 has nothing to set on that part/, why: "the Maker's locked TAB's help answer (Maker Edit shell approved 2026-11-13) — not a booking" },
   { prefix: 'app/_components/award/locked-tile.tsx', why: "a LOCKED BADGE or seal on the shop's own badge page (owner 15 Nov: \"i do not see the locked badge for all\", v86 .lkt) — never shown to couples, not a booking" },

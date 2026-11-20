@@ -71,8 +71,8 @@ export default async function FeeRulingsLabPage({
           <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
           <p className="mb-3 max-w-prose text-sm text-ink/60">
             What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set: the rate below the
-            threshold, the threshold itself, and the rate above it. The minimum is fixed; the lock, the every-Nth free
-            booking fee and the new-client free window are shown under the form.
+            threshold, the threshold itself, and the rate above it. The minimum is fixed; the lock and the every-Nth free
+            booking fee are shown under the form.
           </p>
           <BookingFeeForm
             action={saveBookingFeeSchedule}

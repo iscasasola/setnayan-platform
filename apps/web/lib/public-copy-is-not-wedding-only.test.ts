@@ -313,12 +313,13 @@ test('repricing a row moves the copy with it — no figure is hard-coded', () =>
   const repriced: LlmsTxtInput = {
     ...INPUT_FOR_GUARDS,
     retail: INPUT_FOR_GUARDS.retail.map((r) =>
-      r.service_code === 'PAKANTA' ? { ...r, retail_price_php: 7321 } : r,
+      // Was PAKANTA (Music Maker) until 2026-11-20, when it was retired — anchored to Live Watch now.
+      r.service_code === 'LIVE_STUDIO' ? { ...r, retail_price_php: 7321 } : r,
     ),
   };
   const moved = renderLlmsTxt(repriced);
   const was = peso(
-    Number(INPUT_FOR_GUARDS.retail.find((r) => r.service_code === 'PAKANTA')!.retail_price_php),
+    Number(INPUT_FOR_GUARDS.retail.find((r) => r.service_code === 'LIVE_STUDIO')!.retail_price_php),
   );
   /*
     🪤 THE FIRST CUT ASSERTED `!moved.includes(was)` AND FAILED HONESTLY — the
@@ -327,10 +328,10 @@ test('repricing a row moves the copy with it — no figure is hard-coded', () =>
     the exact shape this module's docblock was written to kill: a price attached
     to the WRONG PRODUCT passes it. So the assertion is ANCHORED TO THE PRODUCT.
   */
-  assert.ok(moved.includes(`**Music Maker** — ₱7,321.`), 'a catalog reprice did not reach the Music Maker line');
+  assert.ok(moved.includes(`**Live Watch** — ₱7,321 `), 'a catalog reprice did not reach the Live Watch line');
   assert.ok(
-    !moved.includes(`**Music Maker** — ${was}`),
-    `the Pakanta line still quotes ${was} after a reprice — that figure is typed into the prose`,
+    !moved.includes(`**Live Watch** — ${was} `),
+    `the Live Watch line still quotes ${was} after a reprice — that figure is typed into the prose`,
   );
 });
 
@@ -387,7 +388,8 @@ test('the default description names the services, not one event type, and says "
   assert.ok(!/\bwedding/i.test(desc), `the default description narrows the product to weddings: ${JSON.stringify(desc)}`);
   assert.ok(!/\bvendors?\b/i.test(desc), 'the default description says "vendor" — the customer-facing word is "supplier"');
   assert.ok(/\bsuppliers?\b/i.test(desc), 'the default description no longer mentions suppliers');
-  for (const service of ['Event Hub', 'Papic', 'Live Watch', 'Patiktok', 'Music Maker', 'Setnayan AI']) {
+  // Patiktok and Music Maker left 2026-11-20 (retired — lib/retired-products-stay-retired.test.ts holds them OUT).
+  for (const service of ['Event Hub', 'Papic', 'Live Watch', 'Setnayan AI']) {
     assert.ok(desc.includes(service), `the default description no longer names ${service}`);
   }
 });

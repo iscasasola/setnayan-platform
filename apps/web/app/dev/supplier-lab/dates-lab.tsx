@@ -469,6 +469,7 @@ export async function DatesLab({
                       icsHref="/dev/supplier-lab?s=dates"
                       approveFirst
                       venue={venue}
+                      bookingWindow={{ minDays: 7, maxMonths: 24 }}
                       actions={{ updatePoolCapacity: ACTIONS.updatePoolCapacity, createCalendar: ACTIONS.createCalendar, editCalendar: ACTIONS.editCalendar, reassignCategoryPool: ACTIONS.reassignCategoryPool }}
                     />
                   </div>

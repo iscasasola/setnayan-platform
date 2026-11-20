@@ -16777,8 +16777,7 @@
         "Value",
         "VendorTierGate",
         "VendorTierTeaser",
-        "VerifiedMedianCard",
-        "WhenSeen"
+        "VerifiedMedianCard"
       ]
     },
     "/vendor-dashboard/profile": {

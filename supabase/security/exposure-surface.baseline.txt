@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7996
+# facts: 7994
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     649
-#   col       5757
-#   policy    1171
+#   tpriv     648
+#   col       5755
+#   policy    1170
 #   view      10
-#   func      405
+#   func      407
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -588,7 +588,6 @@ tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
 tpriv	public.vendor_profile_views|authenticated	SIUD
 tpriv	public.vendor_profiles|authenticated	IUD
-tpriv	public.vendor_proposal_lowest|authenticated	SIUD
 tpriv	public.vendor_proposal_shop_gifts|authenticated	S
 tpriv	public.vendor_proposal_templates|anon	SIUD
 tpriv	public.vendor_proposal_templates|authenticated	SIUD
@@ -2372,6 +2371,7 @@ col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
 col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
+col	public.event_vendors.booked_quantity	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
 col	public.event_vendors.category_key	anon=SIU authenticated=SIU
 col	public.event_vendors.completion_disputed_at	anon=SIU authenticated=SIU
@@ -2435,6 +2435,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
+col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -5834,11 +5835,6 @@ col	public.vendor_profiles.verification_state	anon=S authenticated=SIU
 col	public.vendor_profiles.waitlist_enabled	anon=- authenticated=SIU
 col	public.vendor_profiles.website	anon=- authenticated=SIU
 col	public.vendor_profiles.weddings_done_approx	anon=- authenticated=SIU
-col	public.vendor_proposal_lowest.event_id	anon=- authenticated=SIU
-col	public.vendor_proposal_lowest.lowest_centavos	anon=- authenticated=SIU
-col	public.vendor_proposal_lowest.updated_at	anon=- authenticated=SIU
-col	public.vendor_proposal_lowest.updated_by	anon=- authenticated=SIU
-col	public.vendor_proposal_lowest.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_proposal_shop_gifts.created_at	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.credits	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.from_badge_reward	anon=- authenticated=S
@@ -6205,6 +6201,7 @@ col	public.vendor_services.title	anon=S authenticated=SIU
 col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
 col	public.vendor_services.transport_included	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
+col	public.vendor_services.usual_prep_days	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
@@ -7473,7 +7470,6 @@ policy	public.vendor_profiles|vendor_profiles_admin_unclaimed_write	mode=PERMISS
 policy	public.vendor_profiles|vendor_profiles_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_profiles|vendor_profiles_owner	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.vendor_profiles|vendor_profiles_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((public_visibility = 'verified'::vendor_public_visibility) AND (verification_state = 'verified'::vendor_verification_state)) check=NULL
-policy	public.vendor_proposal_lowest|vendor_proposal_lowest_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_proposal_shop_gifts|vendor_proposal_shop_gifts_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (proposal_id IN ( SELECT p.proposal_id FROM vendor_proposals p)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_proposal_templates|vendor_proposal_templates_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_proposals|vendor_proposals_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((status <> 'draft'::text) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)))) check=NULL
@@ -7901,6 +7897,7 @@ func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authentic
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_booked_quantity(p_event_vendor_id uuid, p_quantity integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
@@ -7963,6 +7960,7 @@ func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exe
 func	public.vendor_couple_photo_shares()	secdef=yes exec=authenticated search_path=public
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_day_check(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_day_pool_taken(p_day date)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public

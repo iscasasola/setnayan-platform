@@ -1539,6 +1539,38 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
+  // 📊 RENTED BY THE PIECE (Availability plan step 4; owner Q2, 19 Nov: the COUPLE picks how many when they ask, and
+  // the supplier may change it here). A number typed at the yes replaces the couple's — written FIRST, all or nothing,
+  // by the one definer (`set_booked_quantity`), which refuses when the card's own "How many do you have" or a schedule
+  // would go past its number that day. Left blank, the couple's number stands. The yes itself (`vendor_agree_to_lock`)
+  // then counts the booking's own pieces under one lock per shop, and refuses a piece booking with no number
+  // (`pieces_needed`) — never one piece by default.
+  {
+    const raw = String(formData.get('booked_quantity') ?? '').trim();
+    if (raw !== '') {
+      const qty = Number(raw);
+      const backTo = lockAnswerReturnTo(formData.get('return_to'));
+      if (!Number.isInteger(qty) || qty < 1) redirect(`${backTo}?lock_agree=pieces_needed`);
+      const { data: setRaw, error: setErr } = await supabase.rpc('set_booked_quantity', {
+        p_event_vendor_id: eventVendorId,
+        p_quantity: qty,
+      });
+      const set = (setRaw ?? {}) as { status?: string };
+      // 🔒 ANY answer but `ok` STOPS the yes — a failed or refused write must never fall through to
+      // `vendor_agree_to_lock`, which would agree the booking on the couple's number instead of the supplier's.
+      if (setErr) {
+        console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
+        redirect(`${backTo}?lock_agree=error`);
+      }
+      if (set.status === 'bad_quantity') redirect(`${backTo}?lock_agree=pieces_needed`);
+      if (set.status === 'full') redirect(`${backTo}?lock_agree=pieces_full`);
+      if (set.status !== 'ok') {
+        console.error(`[vendorAgreeToLock] pieces write refused for vendor_id=${eventVendorId}: ${set.status ?? 'no status'}`);
+        redirect(`${backTo}?lock_agree=error`);
+      }
+    }
+  }
+
   const { data, error } = await supabase.rpc('vendor_agree_to_lock', {
     p_event_vendor_id: eventVendorId,
   });

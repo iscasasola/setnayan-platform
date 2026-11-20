@@ -10,10 +10,14 @@ import { useRouter } from 'next/navigation';
  */
 export function SeatReloadButton() {
   const router = useRouter();
+  const reload = () => {
+    // one-render: keep (retry) — the guest’s Reload on a seat that could not be read; no write came before it.
+    router.refresh();
+  };
   return (
     <button
       type="button"
-      onClick={() => router.refresh()}
+      onClick={reload}
       className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink/80 underline decoration-ink/30 underline-offset-4 hover:text-ink"
     >
       Reload

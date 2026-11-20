@@ -46,6 +46,7 @@
  *   site-body: drop `seatUnreadable: false` from the hidden-seat override ...... § 2 red
  *   page.tsx: Me's door line without `unreadable=` ............................. § 3 red
  *   seat-door-line: move the unreadable branch below the label ................. § 4 red
+ *   seat-reload-button: drop `router.refresh()` from the handler ............... § 4 red
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -71,7 +72,7 @@ test('1 · the loader’s seat reads bind their error, and every failure raises 
   assert.deepEqual(tables, ['event_seat_assignments', 'event_tables'], `anti-vacuity: the seat block reads ${tables.join(', ') || 'nothing'}`);
   assert.equal((seatBlock.match(/\.from\('/g) ?? []).length, reads.length, 'a read in the seat block is not a `const { … } = await admin.from(…)` the walker can see');
   for (const [, pattern, table] of reads) {
-    const bound = /\berror:\s*(\w+)/.exec(pattern)?.[1];
+    const bound = /\berror:\s*(\w+)/.exec(pattern ?? '')?.[1];
     assert.ok(bound, `the \`${table}\` seat read throws its error away — a refused read would draw as "not seated yet"`);
     assert.match(
       seatBlock,
@@ -140,5 +141,7 @@ test('4 · the door line says "couldn’t load" before it can say "Find your sea
   assert.match(answer, /Couldn&rsquo;t load your seat/, 'the unreadable line does not say the seat could not be loaded');
   assert.match(answer, /<SeatReloadButton \/>/, 'the unreadable line offers no way to try again');
   // Reload re-runs the server reads and keeps the guest on their tab.
-  assert.match(src('_components/seat-reload-button.tsx'), /onClick=\{\(\) => router\.refresh\(\)\}/, 'Reload does not re-run the page’s reads');
+  const reload = src('_components/seat-reload-button.tsx');
+  assert.match(reload, /const reload = \(\) => \{\s*router\.refresh\(\);\s*\};/, 'Reload does not re-run the page’s reads');
+  assert.match(reload, /onClick=\{reload\}/, 'the Reload button is not wired to the re-read');
 });

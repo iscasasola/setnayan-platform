@@ -1965,7 +1965,9 @@ export const loadGuestContext = cache(
         }
       }
     } catch {
-      // A throw is a failed read too — never "not seated yet".
+      // Graceful degrade — seating tables may not exist yet on all installs.
+      // (Never a throw: the invitation still draws. But a throw is a failed
+      // read too, so it says "couldn't load" — never "not seated yet".)
       guestTableLabel = null;
       guestTableId = null;
       guestSeatUnreadable = true;

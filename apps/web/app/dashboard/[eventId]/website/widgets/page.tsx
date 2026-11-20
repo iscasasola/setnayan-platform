@@ -472,7 +472,7 @@ function WidgetRow({
             </span>
           ) : null}
           {row.tier === 'pro' && proMark ? (
-            <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Pro')} text="Pro" size="xs" />
+            <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} text="Pro" size="xs" />
           ) : null}
         </div>
         {/* ⚠ THE HOST'S OWN WORD, NOT ALWAYS "wedding". Five of the sixteen

@@ -381,7 +381,9 @@ async function resolveHubProCharge(
   } catch (e) {
     return { ok: false, refusal: 'read_error', detail: e instanceof Error ? e.message : String(e) };
   }
-  if (serviceKey === FULL_PRO_SKU && !owned.full && owned.paidPhp === 0) return null;
+  // Nothing paid toward Pro and no Pro plan held → the catalogue row, as before (and its onboarding price). A whole Hub
+  // held without payment (a comped or gifted Plus) also lands here: it earned no credit (owner 20 Nov: Plus ⊂ Pro).
+  if (serviceKey === FULL_PRO_SKU && !owned.proPlan && owned.paidPhp === 0) return null;
   const single = hubPartOfSku(serviceKey);
   const parts: readonly HubPartId[] | 'full' = serviceKey === FULL_PRO_SKU ? 'full' : single ? [single] : asked;
   if (parts !== 'full' && parts.some((p) => !prices.onSale.has(hubPart(p).sku))) {

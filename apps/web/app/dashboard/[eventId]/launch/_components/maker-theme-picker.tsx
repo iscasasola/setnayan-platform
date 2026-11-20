@@ -189,7 +189,7 @@ export function ThemePickProvider({
 function ProMark({ tier, ownsPro, storeShell }: { tier: ThemeTile['tier']; ownsPro: boolean; storeShell: boolean }) {
   if (tier !== 'pro') return null;
   const mark = makerProMark({ owns: ownsPro, storeShell });
-  return mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" /> : null;
+  return mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'Event Plus')} size="xs" /> : null;
 }
 
 /**

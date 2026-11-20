@@ -799,7 +799,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         )}
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
           Your QR code
-          {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Pro')} text="Event Pro" size="xs" /> : null}
+          {qrMark ? <PaidMark state={qrMark} word="PLUS" label={paidMarkLabel(qrMark, 'Event Plus')} text="Event Pro" size="xs" /> : null}
         </p>
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>

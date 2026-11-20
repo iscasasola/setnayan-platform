@@ -817,7 +817,7 @@ function SceneBackgroundRows({
                     INFORMATION, never a lock (owner 2026-09-28) — the chip is
                     open to every couple; Apply asks for Pro. */}
                 {c === 'media' && mediaMark ? (
-                  <PaidMark state={mediaMark} label={paidMarkLabel(mediaMark, 'Event Pro')} size="xs" tone="current" />
+                  <PaidMark state={mediaMark} word="PLUS" label={paidMarkLabel(mediaMark, 'Event Plus')} size="xs" tone="current" />
                 ) : null}
               </span>
             </button>

@@ -206,8 +206,9 @@ test('the mint bills COUPLE_WEBSITE_PRO from three server-side measurements', ()
 
   // The two helpers, and the direction each fails in.
   const owned = minter.slice(minter.indexOf('async function eventAlreadyHasHubPro'));
-  assert.match(owned.slice(0, 500), /eventOwnsCoupleWebsitePro\(admin, eventId\)/);
-  assert.match(owned.slice(0, 500), /eventCoupleWebsiteProActive\(admin, eventId\)/);
+  // 💎 2026-11-19: onboarding sells the Pro PLAN — a Pro bought from 19 Nov holds the plan, not everything.
+  assert.match(owned.slice(0, 500), /eventOwnsProPlan\(admin, eventId\)/);
+  assert.match(owned.slice(0, 500), /eventProPlanActive\(admin, eventId\)/);
   assert.match(owned.slice(0, 500), /catch \{\s*return true;/, 'an unread ownership is "owned"');
   const hub = minter.slice(minter.indexOf('async function eventHasEventHub'));
   assert.match(hub.slice(0, 700), /surfaceEnabled\(await resolveProfile\(type\), 'website'\)/);

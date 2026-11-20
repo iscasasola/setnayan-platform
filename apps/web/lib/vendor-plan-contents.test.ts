@@ -25,18 +25,18 @@ test('no rows → exactly the code values (TIER_CAPS is the fallback)', () => {
 
 test('a stored number replaces the code value for that plan only; "no limit" only where allowed', () => {
   const caps = applyPlanContents('pro', [
-    { plan: 'pro', key: 'agent_accounts', value: 4 },
+    { plan: 'pro', key: 'agent_accounts', value: 7 },
     { plan: 'solo', key: 'agent_accounts', value: 99 }, // another plan's row is ignored
     { plan: 'pro', key: 'service_cards_total', value: null }, // no limit — allowed here
     { plan: 'pro', key: 'branches_included', value: null }, // no limit — NOT allowed: the code value stands
     { plan: 'pro', key: 'nonsense', value: 1 },
     { plan: 'pro', key: 'parent_categories', value: -3 }, // malformed: ignored
   ]);
-  assert.equal(caps.agentAccounts, 4);
+  assert.equal(caps.agentAccounts, 7);
   assert.equal(caps.serviceCardsTotal, Infinity);
   assert.equal(caps.branchesIncluded, TIER_CAPS.pro.branchesIncluded);
   assert.equal(caps.parentCategories, TIER_CAPS.pro.parentCategories);
-  assert.equal(TIER_CAPS.pro.agentAccounts !== 4, true, 'TIER_CAPS itself was mutated');
+  assert.equal(TIER_CAPS.pro.agentAccounts !== 7, true, 'TIER_CAPS itself was mutated');
 });
 
 test('an unknown tier reads as Free — like vendor_tier_limit()', () => {
@@ -53,6 +53,7 @@ test('every editable key names a real TierCaps number, and the seed in the migra
     '20271344452857_vendor_plan_contents.sql',
     '20271346711828_simpler_supplier_plans.sql',
     '20271350427190_supplier_plans_rebuilt_2026_11_18.sql', // owner 2026-11-18 "SUPPLIER PLANS REBUILT"
+    '20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql', // owner 2026-11-19 approved table
   ]
     .map((f) => readFileSync(join(__dirname, '../../../supabase/migrations', f), 'utf8'))
     .join('\n');

@@ -78,8 +78,8 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
 
   // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
   // always-free founding admin. Effective cap = the tier's base agentAccounts +
-  // any paid extra seats (Ultra ₱250/28d add-on). Only Enterprise +
-  // Custom can buy extra seats, so the "Add a seat" card is gated on that.
+  // seats already bought + 3 per Ultra Add-on (`fetchExtraAgentSeats`). No plan
+  // buys a single seat since 2026-11-19, so the "Add a seat" card is not drawn.
   const canBuySeats = canBuyExtraSeats(ctx.tierState);
   // A plan with 0 seats is a paywall → asked through the one flag-aware
   // allowance (lib/vendor-feature-gate.ts), the same number the invite action
@@ -89,7 +89,7 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
     entryTierAllowance('agentAccounts'),
   );
   const [extraSeats, seatFeePhp] = await Promise.all([
-    fetchExtraAgentSeats(supabase, vendorProfileId),
+    fetchExtraAgentSeats(supabase, vendorProfileId, ctx.tierState),
     canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(null),
   ]);
   const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);

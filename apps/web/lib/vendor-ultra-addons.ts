@@ -10,7 +10,10 @@ import {
   canBuyExtraSeats,
   canBuyExtraServiceCards,
   canBuyExtraWaitlist,
+  canBuyTheUltraAddOn,
   holdsBoughtExtras,
+  STORAGE_GB,
+  ULTRA_ADDON_GIVES,
   WAITLIST_SETTING_MAX,
   type TierCaps,
 } from './vendor-tier-caps';
@@ -31,12 +34,26 @@ import {
  * plan's allowance wherever the allowance is read ({@link fetchCapsWithAddOns}).
  */
 
-/** Every Ultra add-on, in the order the owner listed them for the For Suppliers block (2026-11-06). */
-export const ULTRA_ADDON_ORDER = ['category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date'] as const;
+/*
+ * 🛒 THE ULTRA ADD-ON (owner 2026-11-19: *"just 1 pack"* · *"Ultra Addon"* · *"2490"* · *"they only buy the … pack"*):
+ * the ONE thing a shop buys on top of a plan — +1 branch · +15 live cards · +3 people · +50 GB per 28 days, Ultra only,
+ * and it may be bought more than once. One count raises FOUR allowances ({@link ULTRA_ADDON_GIVES}).
+ *
+ * ⏳ IT LASTS 28 DAYS PER PAYMENT (review 2026-11-19: "one ₱2,490 payment keeps the Ultra Add-on forever"). Unlike the
+ * four "+1" add-ons below there is NO stored count: each paid `vendor_ultra_addon__<id>` order carries its own window
+ * (`orders.expires_at`, stamped paid + 28 days by the activation hook — the paid branch's pattern), and the live number
+ * is the database's `vendor_live_ultra_addons` — paid orders whose window covers now. The two database gates add it;
+ * the app reads it through `vendor_live_ultra_addons_for` ({@link fetchLiveUltraAddOns}). A refund or a lapsed window
+ * drops out by itself.
+ */
+export { ULTRA_ADDON_GIVES };
+
+/** Every Ultra add-on, in the order shown — the Ultra Add-on first (2026-11-19), then the six of 2026-11-06. */
+export const ULTRA_ADDON_ORDER = ['ultra', 'category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date'] as const;
 export type UltraAddOnKind = (typeof ULTRA_ADDON_ORDER)[number];
 
-/** The four add-ons that are a COUNT on `vendor_profiles`, bought through `buyUltraAddOn`. */
-export const COUNT_ADDON_KINDS = ['category', 'service_card', 'waitlist', 'booking_per_date'] as const;
+/** The add-ons that are a COUNT on `vendor_profiles`, bought through `buyUltraAddOn`. Only `ultra` is on sale (2026-11-19). */
+export const COUNT_ADDON_KINDS = ['ultra', 'category', 'service_card', 'waitlist', 'booking_per_date'] as const;
 export type CountAddOnKind = (typeof COUNT_ADDON_KINDS)[number];
 
 type CountAddOnDef = {
@@ -45,11 +62,18 @@ type CountAddOnDef = {
   /** Order service_key prefix; the suffix is the buying shop's vendor_profile_id. */
   servicePrefix: string;
   /** The paid count on `vendor_profiles` (recomputed by the activation hook, guarded against self-grant). */
-  column: 'extra_parent_categories' | 'extra_services_per_leaf' | 'extra_waitlist_acceptances' | 'extra_bookings_per_date';
+  /** The stored count, or null for the Ultra Add-on (counted live from its paid, in-window orders). */
+  column:
+    | null
+    | 'extra_parent_categories'
+    | 'extra_services_per_leaf'
+    | 'extra_waitlist_acceptances'
+    | 'extra_bookings_per_date';
   /**
    * The plan allowance one purchase raises by one. `null` = it raises nothing any more: bookings per date stopped being
    * a plan limit on 2026-11-18 (ruling 17), so a "+1 booking per date" bought before then has no cap left to raise —
-   * the shop's own number governs, with no plan ceiling over it.
+   * the shop's own number governs, with no plan ceiling over it. The Ultra Add-on is `null` too: it raises FOUR
+   * allowances at once ({@link ULTRA_ADDON_GIVES}), applied in {@link applyAddOnExtras}.
    */
   capKey: 'parentCategories' | 'serviceCardsTotal' | 'waitlistAcceptances' | null;
   /** What the shop reads on the purchase row and the order. */
@@ -57,6 +81,13 @@ type CountAddOnDef = {
 };
 
 export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Object.freeze({
+  ultra: {
+    sku: 'vendor_ultra_addon',
+    servicePrefix: 'vendor_ultra_addon__',
+    column: null,
+    capKey: null,
+    label: 'Ultra Add-on: +1 branch · +15 live cards · +3 people · +50 GB',
+  },
   category: {
     sku: 'vendor_extra_category',
     servicePrefix: 'vendor_extra_category__',
@@ -112,9 +143,11 @@ export function isCountAddOnKind(raw: unknown): raw is CountAddOnKind {
   return typeof raw === 'string' && (COUNT_ADDON_KINDS as readonly string[]).includes(raw);
 }
 
-/** May this plan buy this add-on? Ultra only, for every one of the six. */
+/** May this plan buy this add-on? Only the Ultra Add-on is sold (Ultra only, 2026-11-19); every other one answers false. */
 export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | undefined): boolean {
   switch (kind) {
+    case 'ultra':
+      return canBuyTheUltraAddOn(tier);
     case 'category':
       return canBuyExtraCategories(tier);
     case 'service_card':
@@ -127,6 +160,58 @@ export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | und
       return canBuyExtraWaitlist(tier);
     case 'booking_per_date':
       return canBuyExtraBookingsPerDate(tier);
+  }
+}
+
+/**
+ * 🔁 RENEWING ONE ULTRA ADD-ON (controller ruling on PR #8019, 20 Nov, option A). A renewal is its own order keyed
+ * `vendor_ultra_addon_renew__<the add-on's order_id>`; on approval the database's `ultra_addon_apply_renewal` moves THAT
+ * add-on's window to its own live end + 28 days, and nothing else. The key deliberately does NOT start with the add-on's
+ * prefix (`vendor_ultra_addon__`), so the live count never counts a renewal as a second add-on.
+ */
+export const ULTRA_ADDON_RENEW_PREFIX = 'vendor_ultra_addon_renew__';
+
+export function ultraAddOnRenewalServiceKey(addOnOrderId: string): string {
+  return `${ULTRA_ADDON_RENEW_PREFIX}${addOnOrderId}`;
+}
+
+/** The add-on order a renewal key names; null for any other key. Pure. */
+export function parseUltraAddOnRenewalServiceKey(serviceKey: string | null | undefined): string | null {
+  if (typeof serviceKey !== 'string' || !serviceKey.startsWith(ULTRA_ADDON_RENEW_PREFIX)) return null;
+  const id = serviceKey.slice(ULTRA_ADDON_RENEW_PREFIX.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id.toLowerCase() : null;
+}
+
+/** One Ultra Add-on the shop holds now: its order and when its 28 days end. */
+export type LiveUltraAddOn = { orderId: string; expiresAt: string };
+
+/**
+ * The shop's live Ultra Add-on ORDERS — each one the Plan page can renew. Read with the caller's own client (a shop
+ * reads its own orders). `null` = UNREAD, said as such; never an empty list that would hide a Renew button.
+ */
+export async function fetchLiveUltraAddOnOrders(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  nowMs: number = Date.now(),
+): Promise<LiveUltraAddOn[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_id, expires_at')
+      .eq('service_key', countAddOnServiceKey('ultra', vendorProfileId))
+      .eq('status', 'paid')
+      .gt('expires_at', new Date(nowMs).toISOString())
+      .order('expires_at', { ascending: true });
+    if (error) {
+      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-on orders', error);
+      return null;
+    }
+    return ((data ?? []) as { order_id: string; expires_at: string | null }[])
+      .filter((r) => typeof r.expires_at === 'string')
+      .map((r) => ({ orderId: r.order_id, expiresAt: r.expires_at as string }));
+  } catch (e) {
+    console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-on orders', e);
+    return null;
   }
 }
 
@@ -158,7 +243,7 @@ export function addOnCountFromPaid(count: number | null | undefined): number {
 
 /** What a shop has bought, per count add-on. */
 export type AddOnExtras = Readonly<Record<CountAddOnKind, number>>;
-export const NO_EXTRAS: AddOnExtras = Object.freeze({ category: 0, service_card: 0, waitlist: 0, booking_per_date: 0 });
+export const NO_EXTRAS: AddOnExtras = Object.freeze({ ultra: 0, category: 0, service_card: 0, waitlist: 0, booking_per_date: 0 });
 
 /**
  * THE PURCHASE RAISES THE CAP — the plan's allowance plus what the shop bought, per count add-on. Pure.
@@ -177,6 +262,16 @@ export function applyAddOnExtras(caps: TierCaps, extras: AddOnExtras | null | un
     // The wait list never goes past its column's own ceiling (the database's trigger holds the same LEAST(…, 10)).
     out[key] = key === 'waitlistAcceptances' ? Math.min(base + extra, WAITLIST_SETTING_MAX) : base + extra;
   }
+  // 🛒 The Ultra Add-on raises four allowances per purchase (owner 2026-11-19). Unlike the "+1" add-ons it ADDS to a
+  // zero (Ultra's branches are never zero, but the rule is the owner's "+1 branch", not "more of what you have").
+  const ultra = addOnCountFromPaid(extras.ultra);
+  if (ultra > 0) {
+    const add = (n: number, by: number) => (Number.isFinite(n) ? n + by * ultra : n);
+    out.branchesIncluded = add(out.branchesIncluded, ULTRA_ADDON_GIVES.branches);
+    out.serviceCardsTotal = add(out.serviceCardsTotal, ULTRA_ADDON_GIVES.liveCards);
+    out.agentAccounts = add(out.agentAccounts, ULTRA_ADDON_GIVES.people);
+    out.storageBytes = out.storageBytes === null ? null : out.storageBytes + ULTRA_ADDON_GIVES.storageGb * STORAGE_GB * ultra;
+  }
   return out;
 }
 
@@ -186,12 +281,11 @@ export function applyAddOnExtras(caps: TierCaps, extras: AddOnExtras | null | un
  */
 export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId: string): Promise<AddOnExtras> {
   try {
-    const cols = COUNT_ADDON_KINDS.map((k) => COUNT_ADDONS[k].column).join(',');
-    const { data, error } = await supabase
-      .from('vendor_profiles')
-      .select(cols)
-      .eq('vendor_profile_id', vendorProfileId)
-      .maybeSingle();
+    const cols = COUNT_ADDON_KINDS.map((k) => COUNT_ADDONS[k].column).filter((c): c is NonNullable<typeof c> => c !== null).join(',');
+    const [{ data, error }, ultra] = await Promise.all([
+      supabase.from('vendor_profiles').select(cols).eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+      fetchLiveUltraAddOns(supabase, vendorProfileId),
+    ]);
     if (error) {
       // Withholding, never granting: the plan's own number stands while the bought count is unreadable.
       console.error('[supabase-error] vendor-ultra-addons: add-on counts (using the plan’s number)', error);
@@ -200,6 +294,7 @@ export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId
     if (!data) return NO_EXTRAS;
     const row = data as unknown as Record<string, number | null>;
     return {
+      ultra,
       category: addOnCountFromPaid(row.extra_parent_categories),
       service_card: addOnCountFromPaid(row.extra_services_per_leaf),
       waitlist: addOnCountFromPaid(row.extra_waitlist_acceptances),
@@ -208,6 +303,46 @@ export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId
   } catch {
     return NO_EXTRAS;
   }
+}
+
+/**
+ * ⏳ THE ULTRA ADD-ONS A SHOP HOLDS NOW — paid `vendor_ultra_addon__<id>` orders whose 28-day window covers today, from
+ * the database's own count (`vendor_live_ultra_addons_for`: the caller's own shop, Setnayan or the service role). Soft:
+ * any failure answers 0 — withholding the bought room, never granting room nobody paid for.
+ */
+export async function fetchLiveUltraAddOns(supabase: SupabaseClient, vendorProfileId: string): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+    if (error) {
+      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-ons (using the plan’s number)', error);
+      return 0;
+    }
+    return addOnCountFromPaid(typeof data === 'number' ? data : Number(data));
+  } catch {
+    return 0;
+  }
+}
+
+/** The window one add-on payment buys, in days (owner 2026-11-19: "2490 / 4 weeks"; 2026-11-06: "per 4 weeks"). */
+export const ULTRA_ADDON_PERIOD_DAYS = 28;
+
+/** When one add-on payment approved at `approvedAtMs` stops counting — approval + 28 days, ISO. Pure. */
+export function addOnWindowEnd(approvedAtMs: number): string {
+  return new Date(approvedAtMs + ULTRA_ADDON_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** The Ultra Add-on's window — the same 28 days as every add-on ({@link addOnWindowEnd}). */
+export const ultraAddOnWindowEnd = addOnWindowEnd;
+
+/**
+ * ⏳ DOES THIS PAID PERIOD STILL COVER NOW? — the rule `recomputeVendorAddOnCount` and the database's
+ * `recount_vendor_count_addons()` / `vendor_live_ultra_addons()` all apply: a window that ends AFTER now counts; one
+ * that has ended, or an order with no window at all, does not (withholding, never granting). Pure.
+ */
+export function addOnPeriodCoversNow(expiresAt: string | null | undefined, nowMs: number): boolean {
+  if (typeof expiresAt !== 'string' || expiresAt.length === 0) return false;
+  const end = Date.parse(expiresAt);
+  return Number.isFinite(end) && end > nowMs;
 }
 
 /**
@@ -301,6 +436,9 @@ export function ultraAddOnsFromRows(rows: readonly CatalogRow[]): UltraAddOnRow[
     const pricePhp = Number(r.price_php);
     if (!Number.isFinite(pricePhp) || pricePhp <= 0) continue;
     const shipped = kind === 'seat' || kind === 'branch' ? SHIPPED_ADDONS[kind] : null;
+    // Only what is SOLD is listed (2026-11-19: only the Ultra Add-on). A retired row still priced for renewals —
+    // the single seat and branch — is not offered.
+    if (!canBuyUltraAddOn(kind, 'enterprise')) continue;
     out.push({
       kind,
       sku,

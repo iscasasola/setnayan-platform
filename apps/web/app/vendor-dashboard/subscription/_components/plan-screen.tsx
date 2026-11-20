@@ -17,8 +17,8 @@ import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import {
   TIER_CAPS,
   asVendorTier,
-  canBuyExtraSeats,
   holdsBoughtExtras,
+  holdsExtraSeats,
   portfolioPhotoCap,
   PORTFOLIO_FREE_BASE,
   PORTFOLIO_ALLOWANCE_UNREAD,
@@ -26,8 +26,6 @@ import {
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
 import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
-import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
-import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
 import { supplierPlanTier } from '@/lib/supplier-plan-offer';
 import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
@@ -39,7 +37,9 @@ import { startSubscriptionPurchase } from '../actions';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
-import { COUNT_ADDON_KINDS, COUNT_ADDONS, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
+import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, fetchAddOnExtras, fetchLiveUltraAddOnOrders } from '@/lib/vendor-ultra-addons';
+import { buyUltraAddOn } from '../ultra-addon-actions';
+import { UltraAddOnButton } from './ultra-addon-button';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
 import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -221,16 +221,19 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // ── 💳 WHAT IS LEFT TO BUY, AND WHAT A SHOP ALREADY BOUGHT (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
   // drawing § 3). The AI chatbot, specialized tools and Ultra's four "+1" add-ons are folded into the plans, so their
   // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row with its
-  // price (every plan) and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
+  // price (every plan) and, on Ultra, the Ultra Add-on (2026-11-19 — it replaced the extra seats and branches row). A shop that bought a chatbot window or an Ultra
   // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
   const ultraHoldsExtras = holdsBoughtExtras(currentTier);
-  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead] = await Promise.all([
+  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead, liveUltraAddOns] = await Promise.all([
     ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
-    canBuyExtraSeats(currentTier)
+    holdsExtraSeats(currentTier)
       ? supabase.from('vendor_profiles').select('extra_agent_seats').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
       : Promise.resolve(null),
+    // 🔁 Each live Ultra Add-on, so each can be RENEWED from its own end (PR #8019, option A). Admin client: a co-admin
+    // must see the add-on the owner paid for; the filter is this shop's own key. null = unread, said as such.
+    canBuyUltraAddOn('ultra', currentTier) ? fetchLiveUltraAddOnOrders(createAdminClient(), profile.vendor_profile_id) : Promise.resolve([]),
   ]);
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
   const extraSeats =
@@ -242,9 +245,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // L-2: the read's outcome is kept — a REFUSED catalogue is not "nothing on sale".
   const { rows: vendorCatalog, ok: catalogRead } = await fetchV2VendorCatalogRead();
   const catalogUnread = !catalogRead;
-  // The extra seat and the extra branch (Ultra only) — the rows their purchases CHARGE; unread → no figure.
-  const seatPricePhp = vendorCatalog.find((r) => r.sku_code === SEAT_SKU_CODE)?.price_php ?? null;
-  const branchPricePhp = vendorCatalog.find((r) => r.sku_code === BRANCH_SKU_CODE)?.price_php ?? null;
+  // The Ultra Add-on (Ultra only) — the row its purchase CHARGES; unread → no figure, no Add control.
+  const ultraAddOnPricePhp = vendorCatalog.find((r) => r.sku_code === COUNT_ADDONS.ultra.sku)?.price_php ?? null;
   const priceBySku = new Map<string, number>();
   for (const r of vendorCatalog) {
     if (
@@ -492,7 +494,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       })
     : PORTFOLIO_ALLOWANCE_UNREAD;
 
-  // 💾 STORAGE (owner 2026-11-13 "plan storage": Solo 5 GB · Pro 10 GB · Ultra 15 GB) — "1.2 GB of 5 GB used", from the
+  // 💾 STORAGE (owner 2026-11-19: Plus 5 GB · Pro 10 GB · Ultra 20 GB, +50 GB per Ultra Add-on) — "1.2 GB of 5 GB used", from the
   // SAME read the limits sheet and the upload refusal use. A read that failed says so, never "0 MB". No allowance (Free ·
   // Verified) = no row. The limits sheet above already read it for every paid plan; read again only if it did not.
   const storageLine =
@@ -505,6 +507,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
               ? { status: 'unread' }
               : { status: 'ok', bytes: downgradeFacts.storedBytes }
             : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
+          // 🛒 +50 GB per Ultra Add-on held (owner 2026-11-19).
+          ultraExtras?.ultra ?? 0,
         );
 
   // 💳 The rows that replaced the add-on cards (drawing § 3). Deep Search's own route is web-only (lib/store-shell.ts),
@@ -517,29 +521,49 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             ? `${formatPhp(deepSearchPricePhp)} a search · on every plan`
             : 'One search at a time · on every plan',
       };
-  const seatPrice = seatPricePhp !== null ? formatPhp(seatPricePhp) : null;
-  const branchPrice = branchPricePhp !== null ? formatPhp(branchPricePhp) : null;
-  const extrasRow = canBuyExtraSeats(currentTier)
-    ? {
-        line: [
-          extraSeats === null ? null : `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}`,
-          seatPrice && branchPrice
-            ? seatPrice === branchPrice
-              ? `${seatPrice} each, every 4 weeks`
-              : `seat ${seatPrice} · branch ${branchPrice}, every 4 weeks`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(' · ') || 'Add a seat on Team, a branch under Where',
-      }
+  // 🛒 THE ULTRA ADD-ON (owner 2026-11-19, the ONE add-on): +1 branch · +15 live cards · +3 people · +50 GB per 4 weeks,
+  // Ultra only, may be bought more than once. The price is the live catalogue row (`fetchCountAddOnPricePhp`) — no
+  // readable price, no Add control (never a fallback figure). The form posts only the kind; the action reads the rest.
+  const ultraAddOnRow =
+    canBuyUltraAddOn('ultra', currentTier) && !storeShell
+      ? {
+          line: [
+            '+1 branch · +15 live cards · +3 people · +50 GB',
+            ultraAddOnPricePhp !== null ? `${formatPhp(ultraAddOnPricePhp)} every 4 weeks` : null,
+            ultraExtras && ultraExtras.ultra > 0 ? `you have ${NUMBER.format(ultraExtras.ultra)}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          end:
+            ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} /> : null,
+          // 🔁 One row per add-on held, each with its own Renew (4 more weeks from ITS end — no paid day lost). "Add one"
+          // above still buys another. Unread → one honest line, never an empty list that hides the Renew buttons.
+          held:
+            liveUltraAddOns === null
+              ? [{ key: 'unread', line: 'We couldn’t read your add-ons just now. Refresh to renew one.', end: null }]
+              : liveUltraAddOns.map((a, i) => ({
+                  key: a.orderId,
+                  // The number goes in the title so the END DATE — the fact this row is for — is never cut off at 375 px.
+                  title: `Ultra Add-on ${NUMBER.format(i + 1)}`,
+                  line: `Until ${fmtDate(a.expiresAt)}`,
+                  end:
+                    ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} renewOrderId={a.orderId} /> : null,
+                })),
+        }
+      : null;
+  // A single extra seat already paid for is kept and renews (2026-11-19: no existing subscriber's limits move until the
+  // owner rules on existing subscribers) — said as a held row, never offered as a new buy.
+  const heldSeatsRow = extraSeats !== null && extraSeats > 0
+    ? { key: 'held-seats', title: `${NUMBER.format(extraSeats)} extra ${extraSeats === 1 ? 'seat' : 'seats'}, bought`, line: 'Kept on top of your plan · no new single seats are sold' }
     : null;
   // Item 11 — what this shop bought before the fold, while it still runs.
-  const bought: { key: string; title: string; line: string }[] = [];
+  const bought: { key: string; title: string; line: string }[] = heldSeatsRow ? [heldSeatsRow] : [];
   if (aiAddonActive && aiAddonState.expiresAt) {
     bought.push({ key: 'ai', title: 'AI chatbot, bought', line: `Runs until ${fmtDate(aiAddonState.expiresAt)}, then your plan covers it` });
   }
   if (ultraExtras) {
     for (const k of COUNT_ADDON_KINDS) {
+      if (k === 'ultra') continue; // the Ultra Add-on says its own count on its row
       const n = ultraExtras[k];
       if (n > 0) bought.push({ key: k, title: `${COUNT_ADDONS[k].label} × ${NUMBER.format(n)}, bought`, line: 'Counts on top of your plan until it runs out' });
     }
@@ -631,7 +655,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         photosLine={photosLine}
         storageLine={storageLine}
         deepSearch={deepSearchRow}
-        extras={extrasRow}
+        ultraAddOn={ultraAddOnRow}
         bought={bought}
       />
 

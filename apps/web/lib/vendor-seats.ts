@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { holdsBoughtExtras, ULTRA_ADDON_GIVES } from './vendor-tier-caps';
 
 /**
  * Vendor extra team seats — the Enterprise-only paid add-on beyond the base 10
@@ -71,13 +72,15 @@ export function effectiveSeatCap(baseCap: number, extraSeats: number): number {
 }
 
 /**
- * Read a vendor's paid extra-seat count. Soft-probe: any read failure (column
- * missing pre-migration, RLS) yields 0 so the seat cap degrades to the base
- * tier allowance rather than throwing.
+ * Read a vendor's paid extra people: the single extra seats it bought (`extra_agent_seats`, no longer sold since
+ * 2026-11-19 but kept while paid) PLUS +3 per Ultra Add-on held NOW (`vendor_live_ultra_addons_for` — paid orders whose
+ * 28-day window covers today, owner 2026-11-19), counted only on a plan that holds bought extras (Ultra). Soft-probe: any read failure (column missing pre-migration, RLS) yields 0 so
+ * the seat cap degrades to the base tier allowance rather than throwing — withholding, never granting.
  */
 export async function fetchExtraAgentSeats(
   supabase: SupabaseClient,
   vendorProfileId: string,
+  tier?: string | null,
 ): Promise<number> {
   try {
     const { data, error } = await supabase
@@ -86,8 +89,16 @@ export async function fetchExtraAgentSeats(
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
     if (error || !data) return 0;
-    const n = Number((data as { extra_agent_seats?: number | null }).extra_agent_seats);
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+    const seats = extraSeatsFromPaidCount((data as { extra_agent_seats?: number | null }).extra_agent_seats);
+    if (!holdsBoughtExtras(tier)) return seats;
+    // The live Ultra Add-ons (a lapsed or refunded one is not counted). Unreadable → 0, never a granted seat.
+    const live = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+    if (live.error) {
+      console.error('[supabase-error] vendor-seats: live Ultra Add-ons (counting none — the plan’s seats stand)', live.error);
+      return seats;
+    }
+    const packs = extraSeatsFromPaidCount(Number(live.data));
+    return seats + packs * ULTRA_ADDON_GIVES.people;
   } catch {
     return 0;
   }

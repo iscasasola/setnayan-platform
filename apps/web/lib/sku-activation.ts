@@ -20,7 +20,9 @@ import {
   addOnCountFromPaid,
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
+  parseUltraAddOnRenewalServiceKey,
   type CountAddOnKind,
+  addOnWindowEnd,
 } from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive, orderStatusConfersAccess } from '@/lib/entitlements';
@@ -2039,22 +2041,29 @@ async function recomputeVendorExtraSeats(
 /**
  * ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES") — recompute ONE paid count on vendor_profiles
  * (extra_parent_categories · extra_services_per_leaf · extra_waitlist_acceptances · extra_bookings_per_date) from the
- * shop's PAID `<prefix><vendor_profile_id>` orders, exactly as {@link recomputeVendorExtraSeats} does for seats: on
- * activation the just-paid order is counted in, on reversal the refunded one has already left 'paid', so the same
- * recompute lowers it. Idempotent and self-healing. Throws on the write so the caller reports it.
+ * shop's PAID `<prefix><vendor_profile_id>` orders WHOSE 28-DAY WINDOW STILL COVERS NOW (`orders.expires_at > now`,
+ * stamped approval + 28 days by the activation hook). A payment buys 28 days, never forever (review 2026-11-19): a
+ * lapsed window is not counted, an order with no window is not counted (the migration gave every paid one its
+ * window), and on reversal the refunded order has already left 'paid'. Idempotent and self-healing; the database's
+ * `recount_vendor_count_addons()` (the `count-addon-recount` job) runs the same count when a window lapses with no
+ * order event. Throws on the write so the caller reports it.
  */
 async function recomputeVendorAddOnCount(
   admin: SupabaseClient,
   kind: CountAddOnKind,
   vendorProfileId: string,
 ): Promise<number> {
-  const { count } = await admin
+  const column = COUNT_ADDONS[kind].column;
+  if (column === null) return 0; // the Ultra Add-on is counted live from its orders, never stored
+  const { count, error: readErr } = await admin
     .from('orders')
     .select('order_id', { count: 'exact', head: true })
     .eq('service_key', countAddOnServiceKey(kind, vendorProfileId))
-    .eq('status', 'paid');
+    .eq('status', 'paid')
+    .gt('expires_at', new Date().toISOString());
+  // An unread count must never write a 0 over a paid one, nor a stale number: throw, the caller reports it.
+  if (readErr) throw new Error(`${COUNT_ADDONS[kind].sku} live count read failed: ${readErr.message}`);
   const paid = addOnCountFromPaid(count);
-  const column = COUNT_ADDONS[kind].column;
   const { error } = await admin
     .from('vendor_profiles')
     .update({ [column]: paid })
@@ -2379,6 +2388,26 @@ const PREFIX_HOOKS: ReadonlyArray<{
     },
   },
   {
+    // 🔁 RENEWING ONE ULTRA ADD-ON (controller ruling on PR #8019, 20 Nov, option A) — 'vendor_ultra_addon_renew__<the
+    // add-on's order_id>' → the database moves THAT add-on's window to its own live end + 28 days, and nothing else
+    // (`ultra_addon_apply_renewal`: checks the add-on is the same shop's and paid; once only — a re-approval changes
+    // nothing). The renewal is never counted as a second add-on.
+    match: (serviceKey) => parseUltraAddOnRenewalServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const addOnOrderId = parseUltraAddOnRenewalServiceKey(ctx.serviceKey);
+      if (!addOnOrderId) return;
+      const { data: newEnd, error } = await ctx.admin.rpc('ultra_addon_apply_renewal', { p_renewal_order_id: ctx.orderId });
+      if (error) throw new Error(`Ultra Add-on renewal failed: ${error.message}`);
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, renewed_order_id: addOnOrderId, expires_at: newEnd ?? null },
+      });
+    },
+  },
+  {
     // ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES": +1 category · +1 service card · +1 wait list · +1
     // booking per date, ₱199 per 4 weeks each, Ultra only) — '<prefix><vendor_profile_id>' → RECOMPUTE that add-on's
     // paid count, the seat's pattern above. The key names the shop directly, so the order must be theirs (SEC-4b).
@@ -2387,6 +2416,29 @@ const PREFIX_HOOKS: ReadonlyArray<{
       const target = parseCountAddOnServiceKey(ctx.serviceKey);
       if (!target) return;
       await assertOrderOwnsVendorTarget(ctx, target.vendorProfileId);
+      // ⏳ EVERY ADD-ON PAYMENT BUYS 28 DAYS, NEVER FOREVER (owner 2026-11-19 "2490 / 4 weeks"; 2026-11-06 "per 4
+      // weeks"; review: a count with no expiry kept one payment forever). THIS order gets its own window —
+      // `orders.expires_at` = approval + 28 days, the paid branch's pattern. Stamped once: a re-approval never moves a
+      // window already set. The Ultra Add-on has no stored count (the database's `vendor_live_ultra_addons` reads the
+      // windows live); the "+1" counts are recomputed from the windows that still cover now
+      // ({@link recomputeVendorAddOnCount}), and `recount_vendor_count_addons()` lowers them when a window lapses.
+      const expiresAt = addOnWindowEnd(Date.now());
+      const { error: stampErr } = await ctx.admin
+        .from('orders')
+        .update({ expires_at: expiresAt })
+        .eq('order_id', ctx.orderId)
+        .is('expires_at', null);
+      if (stampErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} window stamp failed: ${stampErr.message}`);
+      if (target.kind === 'ultra') {
+        await appendLedger(ctx.admin, {
+          order_id: ctx.orderId,
+          event_type: 'service_activated',
+          actor_user_id: ctx.actorUserId,
+          actor_role: 'admin',
+          metadata: { service_key: ctx.serviceKey, vendor_profile_id: target.vendorProfileId, expires_at: expiresAt },
+        });
+        return;
+      }
       const paid = await recomputeVendorAddOnCount(ctx.admin, target.kind, target.vendorProfileId);
       await appendLedger(ctx.admin, {
         order_id: ctx.orderId,
@@ -2396,7 +2448,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
         metadata: {
           service_key: ctx.serviceKey,
           vendor_profile_id: target.vendorProfileId,
-          [COUNT_ADDONS[target.kind].column]: paid,
+          [COUNT_ADDONS[target.kind].column ?? 'count']: paid,
         },
       });
     },
@@ -2809,10 +2861,28 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
     }
   }
 
+  // 🔁 A refunded/cancelled Ultra Add-on RENEWAL takes its 28 days back off the add-on it extended (while that add-on
+  // ends at or after this renewal's mark — refunds may come out of order; later renewals' marks shift down with it).
+  // Non-fatal, like the rest of this path.
+  if (parseUltraAddOnRenewalServiceKey(ctx.serviceKey)) {
+    try {
+      const { data: took, error } = await ctx.admin.rpc('ultra_addon_reverse_renewal', { p_renewal_order_id: ctx.orderId });
+      if (error) throw new Error(error.message);
+      // FALSE = the renewal had been applied but its add-on already ends before its mark, so no day was taken back.
+      // Never let that look like a reversal that worked (review, 20 Nov): Setnayan decides by hand.
+      if (took === false) {
+        throw new Error(`renewal ${ctx.orderId} refunded, but its add-on already ends before the renewal's mark: no day taken back`);
+      }
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_ultra_addon_renew', ctx, e);
+    }
+  }
+
   // Ultra add-ons (owner 2026-11-06) — a refunded/cancelled add-on order LOWERS its paid count, symmetric to the
   // activation hook. Recompute, never decrement; non-fatal.
   const addOnTarget = parseCountAddOnServiceKey(ctx.serviceKey);
-  if (addOnTarget) {
+  // The Ultra Add-on has no stored count: a refunded order leaves 'paid' and drops out of the live count by itself.
+  if (addOnTarget && addOnTarget.kind !== 'ultra') {
     try {
       await recomputeVendorAddOnCount(ctx.admin, addOnTarget.kind, addOnTarget.vendorProfileId);
     } catch (e) {

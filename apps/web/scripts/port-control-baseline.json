@@ -17669,6 +17669,7 @@
         "vendor-dashboard/subscription/_components/plan-rows.tsx",
         "vendor-dashboard/subscription/_components/plan-screen.tsx",
         "vendor-dashboard/subscription/_components/plan-sheet.tsx",
+        "vendor-dashboard/subscription/_components/ultra-addon-button.tsx",
         "vendor-dashboard/subscription/actions.ts",
         "vendor-dashboard/subscription/ai-addon-actions.ts",
         "vendor-dashboard/subscription/badge-upgrade-actions.ts",
@@ -17683,11 +17684,11 @@
         "/vendor-dashboard/collections",
         "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/profile",
-        "/vendor-dashboard/team"
+        "/vendor-dashboard/profile"
       ],
       "actions": [
         "action",
+        "buyUltraAddOn",
         "cancelScheduledPlanChange",
         "formAction",
         "startSubscriptionPurchase"
@@ -17733,6 +17734,7 @@
         "SubmitButton",
         "SupplierSubmit",
         "SwitchTrack",
+        "UltraAddOnButton",
         "Vendor3dBoothActionState",
         "VendorAiAddonActionState"
       ]

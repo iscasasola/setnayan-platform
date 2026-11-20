@@ -471,6 +471,11 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       counting until some unrelated review happens to refresh the stars.
     */
     'maybeRunTopUpUnlist',
+    /*
+      ⏳ The "+1" add-on recount (review 2026-11-19). A paid 28-day window that lapses fires no order event; drop this
+      and a lapsed add-on keeps raising the plan's allowance for a shop that stopped paying.
+    */
+    'maybeRecountLapsedAddOns',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -492,7 +497,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // at the yes; named in the list above).
     // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
     // 13 since 2026-11-12: `maybeRunTopUpUnlist` (the booking-fee top-up unlist; named above).
-    13,
+    // 14 since 2026-11-19: `maybeRecountLapsedAddOns` (the "+1" add-on recount; named above).
+    14,
     'the count of post-response jobs changed',
   );
 });

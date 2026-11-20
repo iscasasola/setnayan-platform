@@ -20,12 +20,14 @@ const line = (tier: string, key: string, paywallOn = true) =>
 test('what a plan gives is read from TIER_CAPS', () => {
   assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.serviceCardsTotal} in total`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
-  assert.equal(line('enterprise', 'services'), '80 in total · 12 kinds of work'); // Max, owner 2026-11-18
+  assert.equal(line('enterprise', 'services'), '68 in total · 12 kinds of work'); // Ultra, owner 2026-11-19
   // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
   for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
-  assert.equal(line('verified', 'web'), 'Comes with Plus');
+  // The same shop page on every plan since 2026-11-19 (owner: "shop page also is 1 for all already").
+  assert.equal(line('verified', 'web'), 'Yes');
+  assert.equal(line('free', 'web'), 'Yes');
   // Branches (owner 2026-11-04, "branches 0,0,3,10"; only Ultra buys more).
   assert.equal(line('solo', 'branches'), 'Not on this plan');
   assert.equal(line('pro', 'branches'), `${TIER_CAPS.pro.branchesIncluded} included`);

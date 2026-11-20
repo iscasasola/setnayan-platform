@@ -1,6 +1,7 @@
 import 'server-only';
 import { renderBrandedEmail } from '@/lib/email-template';
 import { SUPPORT_EMAIL } from './contact-addresses';
+import { renewalPeriodSentence, type RenewalPeriod } from './renewal-reminder-products';
 
 // Renewal-reminder email (owner 2026-07-10 · recurring-billing scaffold).
 //
@@ -28,6 +29,8 @@ export type RenewalReminderParts = {
   expiresAt: Date;
   /** Absolute URL to renew (pricing / the item's checkout). */
   renewUrl: string;
+  /** How long one renewal buys (`renewalReminderProduct`). Omitted = a year, the scaffold's original copy. */
+  period?: RenewalPeriod;
 };
 
 export type RenewalReminderEmail = {
@@ -72,7 +75,7 @@ export function buildRenewalReminderEmail(
 
   const greeting = `Hi ${who},`;
   const p1 = `Your ${productTitle} on Setnayan is active through ${dateStr} — that's ${when}.`;
-  const p2 = `To keep it running without interruption, renew before then. Renewal is a one-time prepaid year (no automatic charge — you're always in control of when you pay).`;
+  const p2 = renewalPeriodSentence(parts.period ?? 'year');
   const p3 = `If you'd rather let it lapse, no action is needed — it simply won't renew.`;
 
   const text = [greeting, '', p1, '', p2, '', p3, '', `Renew: ${renewUrl}`].join('\n');

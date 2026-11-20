@@ -1,25 +1,27 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { asVendorTier } from './vendor-tier-caps';
+import { asVendorTier, tierCaps } from './vendor-tier-caps';
 
 /**
  * Website-tier capability gate (owner 2026-07-03 tier ladder). Maps a vendor's
  * subscription `tier_state` to what the microsite editor unlocks:
- *   - canPersonalize (Supplier Plus and up): About · accent · featured services · sections
- *   - canPremium (Pro+): custom slug · hero photo · pinned review · editorials
- *     + the 2-column public layout (mirrors tierCaps.premiumPage — NOT customWebsiteName, which is Supplier Plus and up since 2026-11-04)
- *   - isEnterprise: the cinematic flagship layer
- * Free / Verified get the clean auto-composed page (no customization).
+ *   - canPersonalize (`website === 'custom'` — every plan since 2026-11-19): About · accent · featured services · sections
+ *   - canPremium (`premiumPage` — every plan since 2026-11-19): custom slug · hero photo · pinned review · editorials
+ *     + the 2-column public layout
+ *   - isEnterprise: the flagship "Films" layer (the video portfolio) — EVERY plan since 2026-11-19 (owner ruled §C,
+ *     "Yes, all five": item 5, *"Films layer opens to every plan"*). The key keeps its old name so no reader moves.)
  */
 export function micrositeCan(tierState: string | null | undefined): {
   canPersonalize: boolean;
   canPremium: boolean;
   isEnterprise: boolean;
 } {
-  // Rank is the website ladder Free/Verified 0 · Supplier Plus 1 · Pro 2 · Ultra (enterprise) 3.
-  const t = asVendorTier(tierState ?? null);
-  const rank = t === 'enterprise' ? 3 : t === 'pro' ? 2 : t === 'solo' ? 1 : 0;
-  return { canPersonalize: rank >= 1, canPremium: rank >= 2, isEnterprise: rank >= 3 };
+  // 🌐 READ FROM THE PLAN TABLE (owner 2026-11-19: *"shop page also is 1 for all already"* — the same shop page on
+  // every plan, the best one): personalising is `website === 'custom'`, the Pro page parts are `premiumPage`, both
+  // TRUE on every plan now — and the flagship "Films" layer too (owner ruled 2026-11-19, §C item 5: *"Films layer
+  // opens to every plan"*). It reads `premiumPage`, the same "one page for all" flag, so the three move together.
+  const c = tierCaps(asVendorTier(tierState ?? null));
+  return { canPersonalize: c.website === 'custom', canPremium: c.premiumPage, isEnterprise: c.premiumPage };
 }
 
 /**

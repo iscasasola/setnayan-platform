@@ -28,7 +28,8 @@ import {
 import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, type VendorBranchView } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
-import { isTierAtLeast, canBuyExtraBranches } from '@/lib/vendor-tier-caps';
+import { isTierAtLeast, canRenewExtraBranches, holdsBoughtExtras, ULTRA_ADDON_GIVES } from '@/lib/vendor-tier-caps';
+import { fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { shopCategoryCount } from '@/lib/shop-category-count';
@@ -143,6 +144,8 @@ export type DetailsData = {
     isVerified?: boolean;
     /** The plan was read (false → Where you work says so, never a false 0 km). */
     tierMeasured?: boolean;
+    /** 🛒 +1 included branch per Ultra Add-on the shop holds (owner 2026-11-19); 0 when none. */
+    addOnBranches?: number;
   };
   pay: { methods: VendorPaymentMethodRow[]; measured: boolean };
   /** 🔎 What Run Deep Search does for this shop now (`loadDeepSearchOffer` — the Deep Search page's own resolver).
@@ -244,9 +247,13 @@ export async function loadDetailsData(
     const own = await ownRead;
     let branchFeePhp: number | null = null;
     let branchPay: PayInfo = { accounts: [], open: [] };
-    // Only an Ultra shop's manager can BUY a branch (owner 2026-11-04 — Pro's are included, no fee), so only it pays
-    // for the fee + rails reads.
-    if (canBuyExtraBranches(own.tier_state ?? null)) {
+    // 🛒 +1 included branch per Ultra Add-on the shop holds (owner 2026-11-19), the same the database gate adds.
+    const addOnBranches = holdsBoughtExtras(own.tier_state ?? null)
+      ? (await fetchAddOnExtras(supabase, vendorId)).ultra * ULTRA_ADDON_GIVES.branches
+      : 0;
+    // Only an Ultra shop may RENEW a branch it already bought (no single branch is sold since 2026-11-19), so only it
+    // pays for the fee + rails reads.
+    if (canRenewExtraBranches(own.tier_state ?? null)) {
       const [fee, settings] = await Promise.all([
         fetchBranchFeePhp(supabase).catch((err) => {
           logQueryError('VendorDetails.branchFee', err, { vendorId });
@@ -260,7 +267,7 @@ export async function loadDetailsData(
       branchFeePhp = fee;
       if (settings) branchPay = openRailDetails(settings);
     }
-    return { branchFeePhp, branchPay };
+    return { branchFeePhp, branchPay, addOnBranches };
   })();
   const payRead = fetchOwnPaymentMethodsMeasured(supabase, vendorId);
   // 🔎 Deep Search (Supplier dashboard v13 note 2): the same offer `/vendor-dashboard/deep-search` makes — it waits for
@@ -293,7 +300,7 @@ export async function loadDetailsData(
   // Never throws: an unread list is logged where it is read and comes back `null` (the notes then wait for the save).
   const fairWordsRead = loadClaimWordsFor(vendorId);
 
-  const [own, businessStartDate, app, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay }, pay, deepSearch, lastDeepSearch, fairWords] =
+  const [own, businessStartDate, app, logo, vocab, openCorrections, suggestion, branches, { branchFeePhp, branchPay, addOnBranches }, pay, deepSearch, lastDeepSearch, fairWords] =
     await Promise.all([
       ownRead,
       startDateRead,
@@ -420,6 +427,7 @@ export async function loadDetailsData(
       branchFeePhp,
       branchAutoRadius: branchAutoRadiusKm(),
       branchPay,
+      addOnBranches,
       isVerified,
       tierMeasured: ownMeasured,
     },

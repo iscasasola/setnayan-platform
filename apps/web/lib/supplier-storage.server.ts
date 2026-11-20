@@ -69,12 +69,19 @@ export async function checkSupplierStorage(
     return { kind: 'unavailable' };
   }
   const plan = (shop.data as { tier_state: string | null }).tier_state;
-  if (storageAllowanceBytes(plan) === null) return { kind: 'fits' }; // no allowance on this plan
+  // 🛒 +50 GB per Ultra Add-on held NOW (owner 2026-11-19; 28 days per payment) — the same live count the database
+  // gate adds. Unreadable → no packs (withholding, never granting): the gate still decides at the insert.
+  const live = await admin.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+  if (live.error) {
+    console.error('[supplier-storage] live Ultra Add-ons unreadable (counting none — the plan’s storage stands)', vendorProfileId, live.error.message);
+  }
+  const packs = live.error ? 0 : Math.max(0, Math.floor(Number(live.data) || 0));
+  if (storageAllowanceBytes(plan, packs) === null) return { kind: 'fits' }; // no allowance on this plan
   const used = await readStoredBytes(admin, vendorProfileId);
   if (used.status !== 'ok') return { kind: 'unavailable' };
-  return storageFits(plan, used.bytes, incomingBytes)
+  return storageFits(plan, used.bytes, incomingBytes, packs)
     ? { kind: 'fits' }
-    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes) };
+    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes, packs) };
 }
 
 /**

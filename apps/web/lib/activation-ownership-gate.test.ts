@@ -83,10 +83,11 @@ const HOOKS = [
   },
   {
     // Added 2026-11-06 with the ULTRA ADD-ONS (owner, "ULTRA ADD-ON PRICES"): the key names the buying shop, exactly
-    // like the extra seat — the paying order must be that shop's before its paid count is recomputed.
+    // like the extra seat — the paying order must be that shop's before its paid count is recomputed. Since the
+    // 28-day review fix (2026-11-19) the first write is the order's own window stamp, then the recompute.
     name: 'ultra add-on count',
     extract: 'const target = parseCountAddOnServiceKey(ctx.serviceKey);',
-    firstEffect: 'recomputeVendorAddOnCount(ctx.admin',
+    firstEffect: '.update({ expires_at: expiresAt })',
   },
 ] as const;
 

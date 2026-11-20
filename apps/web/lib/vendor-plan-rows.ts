@@ -170,7 +170,7 @@ export function bookingFeeRow(
   }
 }
 
-/** Ultra may buy branches past the included ones — `canBuyExtraBranches`, kept rank-local so this file stays pure. */
+/** Ultra may add branches past the included ones — through the Ultra Add-on (`canBuyTheUltraAddOn`, 2026-11-19), kept rank-local so this file stays pure. */
 function canBuyMoreBranches(tier: VendorTier): boolean {
   return RANK[tier] >= RANK.enterprise;
 }

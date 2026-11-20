@@ -98,10 +98,14 @@ test('the refusal names the plan, what is left, the way to make room and the nex
   const full = storageFullMessage('pro', 10 * GB, 1_000_000);
   assert.match(full, /Your Pro plan’s 10 GB of storage is full\./);
   assert.match(full, /move to Ultra for 20 GB/);
-  // Ultra has no plan above it, and the packs are not on sale: no "move to", never an invented offer.
+  // Ultra has no plan above it: no "move to" — its way up is the Ultra Add-on (+50 GB, owner 2026-11-19).
   const ultra = storageFullMessage('enterprise', 20 * GB, 1_000_000);
-  assert.match(ultra, /Your Ultra plan’s 20 GB of storage is full\. Remove files from an event to make room\./);
+  assert.match(ultra, /Your Ultra plan’s 20 GB of storage is full\. Remove files from an event to make room, or add the Ultra Add-on \(\+50 GB\) on your Plan page\./);
   assert.doesNotMatch(ultra, /move to/);
+  // An Ultra shop holding two add-ons holds 20 + 2 × 50 GB — the same sum the database gate makes.
+  assert.equal(storageAllowanceBytes('enterprise', 2), 120 * GB);
+  assert.equal(storageAllowanceBytes('pro', 2), 10 * GB, 'an add-on counted below Ultra');
+  assert.equal(storageAllowanceBytes('free', 2), null);
   assert.equal(nextStoragePlan('solo'), 'pro');
   assert.equal(nextStoragePlan('pro'), 'enterprise');
   assert.equal(nextStoragePlan('enterprise'), null);

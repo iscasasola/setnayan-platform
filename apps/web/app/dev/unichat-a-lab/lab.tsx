@@ -45,7 +45,7 @@ const QUOTE: NegotiationQuote = {
   locks: { quote: false, plan: false },
 };
 const ASK = (over: Partial<ChangeAskRow>): ChangeAskRow => ({
-  askId: 'c1', subject: 'quote', note: 'Can you do ₱40,000? Our budget is tight.', askedAt: `${TODAY}T02:00:00Z`, status: 'open',
+  askId: 'c1', subject: 'quote', note: 'Can you meet our budget? It is tight.', askedAt: `${TODAY}T02:00:00Z`, status: 'open',
   proposalId: QUOTE.proposalId, amountCentavos: C(40_000), scopeLabel: null, goodUntil: '2026-11-24', raisedBy: 'host', ...over,
 });
 const PLAN_ASK = (over: Partial<ChangeAskRow>) =>
@@ -110,7 +110,7 @@ export default async function UnichatALab({ searchParams }: { searchParams: Prom
           kind="counter"
           askedAt={posted}
           viewer={side}
-          seed={{ ask: ASK(settled ? { status: 'accepted' } : vendor ? {} : { raisedBy: 'supplier', note: 'We can meet you at ₱45,000.', amountCentavos: C(45_000) }), quote: QUOTE, today: TODAY }}
+          seed={{ ask: ASK(settled ? { status: 'accepted' } : vendor ? {} : { raisedBy: 'supplier', note: 'We can meet you halfway.', amountCentavos: C(45_000) }), quote: QUOTE, today: TODAY }}
         />
         <NegotiationCard threadId={THREAD} kind="plan" askedAt={posted} viewer={side} seed={{ ask: PLAN_ASK(settled ? { status: 'accepted' } : {}), quote: QUOTE, today: TODAY }} />
         <DroppedOfferCard messageId="lab" viewer={vendor ? 'supplier' : 'couple'} kicker={vendor ? 'You · 9:02 AM' : 'Lumina · 9:02 AM'} seed={drop(settled ? { appliedIn: 3 } : {})} />

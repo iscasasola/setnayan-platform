@@ -6,7 +6,7 @@ import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-bundle-keys'
 import { useSaveLoader } from '@/components/sd-loader';
 import { HomeTodayItem } from '@/app/dashboard/[eventId]/_components/home-parts';
 import { ActionButton } from '@/components/action-button';
-import { Download } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 import { isInPrepWindow } from '@/lib/event-day-prep-window';
 import {
   prepareForEventDay,
@@ -143,7 +143,7 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
                 ? 'Saving for event day failed. Try again.'
                 : 'Saves your guest list and plan on this phone, for bad venue signal.'}
         </p>
-        {phase === 'done' ? null : <ActionButton tone="brand" main icon={Download} label="Prepare for event day" onClick={onClick} disabled={busy} waiting={busy} />}
+        {phase === 'done' ? null : <ActionButton tone="brand" main icon={Smartphone} label="Prepare for event day" onClick={onClick} disabled={busy} waiting={busy} />}
       </div>
     );
   }

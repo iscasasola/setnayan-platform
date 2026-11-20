@@ -155,12 +155,7 @@ export function HomeCoverBand({
                   Sat 12 Dec". The full date and the place stay in the door's name; the place stays on the line. */}
               <span aria-hidden className="hc-ecard-w">
                 {countdown.label}
-                {cardDate ? (
-                  <>
-                    {countdown.label ? ' · ' : ''}
-                    <span className="hc-ecard-d">{cardDate}</span>
-                  </>
-                ) : null}
+                {cardDate ? <span className="hc-ecard-d">{countdown.label ? ` · ${cardDate}` : cardDate}</span> : null}
               </span>
             </Link>
           ) : null}

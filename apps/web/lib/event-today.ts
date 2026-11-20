@@ -63,7 +63,7 @@ export type EventTodayRow = {
   /** May it go to tomorrow? Never a red row, never a "couldn't load" row, never a key the record cannot hold. */
   putOff: boolean;
   /** A payment: the amount as words, what it is for, and the shipped Pay door (`?pay=<line item>`). */
-  pay?: { id: string; amount: string; what: string; href: string };
+  pay?: { id: string; amount: string; what: string; href: string; /** "Pay ₱40,000" — worded once, here. */ label: string };
   /** A plan task: its id and the row Planning Stage's tick writes (null = a computed step — it opens its row). */
   task?: { id: string; tick: { kind: 'task' | 'manual'; id: string } | null };
   /** The answer when it is ONE door ("Send the invitations", "Answer"). */
@@ -206,7 +206,7 @@ export function buildEventToday(i: {
       href: budgetPageHref(e),
       page: 'Budget',
       putOff: true,
-      pay: { id: p.id, amount, what: p.what, href: budgetPageHref(e, { pay: p.id }) },
+      pay: { id: p.id, amount, what: p.what, href: budgetPageHref(e, { pay: p.id }), label: `Pay ${formatPhpRounded(p.owedPhp)}` },
     });
   }
 

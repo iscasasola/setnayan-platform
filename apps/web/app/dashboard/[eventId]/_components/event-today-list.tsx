@@ -54,7 +54,6 @@ type ListCtx = {
   putOff: (key: string) => void;
   refuse: () => void;
   go: (href: string) => void;
-  reload: () => void;
 };
 const Ctx = createContext<ListCtx | null>(null);
 
@@ -88,9 +87,6 @@ export function EventTodayGroup({ eventId, children }: { eventId: string; childr
       refuse: () => say(PUT_OFF_WORDS.refused, 'note'),
       // one-render: keep (navigation) — a drag right opens the row's own page, like "Open in page ›"
       go: (href) => (router ? router.push(href) : window.location.assign(href)),
-      // one-render: keep (retry) — a row whose read failed, pressed by the person; no write came before it.
-      // Never a whole-page reload (a-save-never-resets-the-screen): the reads run again in place.
-      reload: () => router?.refresh(),
     }),
     [eventId, openKey, run, say, router],
   );
@@ -226,7 +222,7 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
             )}
           </button>
           {/* A payment's closed row ends with Pay — the shipped door to that payment's own Pay sheet. */}
-          {row.pay && !open ? <ActionButton tone="neutral" icon={Wallet} label="Pay" name={`${row.title} — Pay ${row.pay.amount}`} href={row.pay.href} data-event-today-pay="" /> : null}
+          {row.pay && !open ? <ActionButton tone="neutral" icon={Wallet} label="Pay" name={`${row.title} — ${row.pay.label}`} href={row.pay.href} data-event-today-pay="" /> : null}
         </div>
       </div>
       {open ? (
@@ -236,7 +232,7 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
               <p className="text-[15px] font-semibold text-[color:var(--sn-ink-900)]">{row.pay.what}</p>
               <p className="text-[14px] text-[color:var(--sn-ink-500)]">{row.line}</p>
               <span className="mt-1 self-start">
-                <ActionButton tone="brand" main icon={Wallet} label={`Pay ${row.pay.amount}`} href={row.pay.href} data-event-today-pay-open="" />
+                <ActionButton tone="brand" main icon={Wallet} label={row.pay.label} href={row.pay.href} data-event-today-pay-open="" />
               </span>
             </>
           ) : null}
@@ -274,7 +270,11 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
 
 /** A read that failed, as a row: it SAYS so, and the press opens its page or runs the reads again. */
 export function EventTodayUnreadRow({ row }: { row: EventTodayRow }) {
-  const g = useContext(Ctx);
+  const router = useContext(AppRouterContext);
+  // Never a whole-page reload (a-save-never-resets-the-screen): Home's reads run again in place. Its own part, so
+  // nothing that writes comes before this press.
+  // one-render: keep (retry) — a row whose read failed, pressed by the person; no write came before it.
+  const reload = () => router?.refresh();
   const inner = (
     <>
       <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full" style={{ background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' }}>
@@ -292,7 +292,7 @@ export function EventTodayUnreadRow({ row }: { row: EventTodayRow }) {
   return (
     <li className="list-none border-b border-[color:var(--sn-line)]" data-event-today-row={row.key} data-event-today-kind="unread" role="status">
       {row.reload || !row.href ? (
-        <button type="button" className={cls} onClick={() => g?.reload()} {...marks}>
+        <button type="button" className={cls} onClick={reload} {...marks}>
           {inner}
         </button>
       ) : (

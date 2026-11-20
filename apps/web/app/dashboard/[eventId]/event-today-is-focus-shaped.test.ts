@@ -153,5 +153,5 @@ test('5 · the day-of and after-the-day screens keep their Today lines', () => {
   assert.match(page, /<div data-home-day-now="" [^>]*>\s*\{todayAsks\}/, 'the day-of console lost its Today lines');
   assert.match(page, /\{afterActive \? todayAsks : null\}/, 'the after screen lost its Today lines');
   assert.match(page, /const todayRows = afterActive\s*\? \{ asks: \[\], bodies: \{\} \}/, 'after the day the list would repeat the lines above it');
-  assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso \}\}/, 'the first screen is not handed the asks as rows');
+  assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames\(guests\) \}\}/, 'the first screen is not handed the asks as rows');
 });

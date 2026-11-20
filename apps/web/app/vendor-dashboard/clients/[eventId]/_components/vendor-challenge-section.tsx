@@ -150,9 +150,9 @@ export async function VendorChallengeSection({
           </div>
         </>
       ) : unread && ready.reason === 'not_subscribed' ? (
-        <div className="mt-4 rounded-lg border border-ink/10 px-3 py-2.5 text-xs text-ink/70" data-challenge-unread="">
-          <p>We couldn&rsquo;t check your plan just now. Refresh to try again.</p>
-        </div>
+        <p className="mt-4 text-xs text-ink/70" data-challenge-unread="">
+          We couldn&rsquo;t check your plan just now. Refresh to try again.
+        </p>
       ) : ready.reason === 'not_subscribed' ? (
         // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up — the shared 🔒 (Problem → Solution → Upgrade),
         // never a buy link: it is not sold on its own any more. The RPC re-checks (vendor_pro_tools_included).

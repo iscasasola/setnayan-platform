@@ -1778,6 +1778,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'chat_decision_messages' },
       { kind: 'fk', table: 'chat_decision_messages', column: 'topic_id', references: 'chat_decision_topics' },
       { kind: 'fk', table: 'chat_decision_messages', column: 'message_id', references: 'chat_messages' },
+      // 💬 2026-11-20 — Unichat H1 (20271354347259): a sender edits or unsends their own message (the words before are
+      // kept in chat_message_revisions, read by nobody in the chat); a voice note is a chat file with its length; and a
+      // person sets their own "Remind me" on a message — one per person per message.
+      { kind: 'column', table: 'chat_messages', column: 'edited_at' },
+      { kind: 'column', table: 'chat_messages', column: 'unsent_at' },
+      { kind: 'column', table: 'chat_messages', column: 'voice_seconds' },
+      { kind: 'table', table: 'chat_message_revisions' },
+      { kind: 'fk', table: 'chat_message_revisions', column: 'message_id', references: 'chat_messages' },
+      { kind: 'fk', table: 'chat_message_revisions', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'column', table: 'chat_message_revisions', column: 'body_before' },
+      { kind: 'table', table: 'chat_message_reminders' },
+      { kind: 'fk', table: 'chat_message_reminders', column: 'message_id', references: 'chat_messages' },
+      { kind: 'fk', table: 'chat_message_reminders', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'unique', table: 'chat_message_reminders', columns: ['message_id', 'user_id'] },
+      { kind: 'column', table: 'chat_message_reminders', column: 'delivered_at' },
       { kind: 'table', table: 'chat_polls' },
       { kind: 'fk', table: 'chat_polls', column: 'thread_id', references: 'chat_threads' },
       { kind: 'fk', table: 'chat_polls', column: 'saved_decision_id', references: 'chat_decision_topics' },

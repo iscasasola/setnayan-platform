@@ -263,7 +263,7 @@ test('publish: owner flips draft→published; readable on the app read path', as
     [F.creatorChapterId],
   );
   await db.exec(`RESET ROLE`);
-  // ✅ FLIPPED 2026-11-17, as the note above asked: migration 20271353924909 added exactly that helper
+  // ✅ FLIPPED 2026-11-17, as the note above asked: migration 20271355258231 added exactly that helper
   // (`article_author_is_public`, SECURITY DEFINER, a boolean) for the article read, so a published chapter on a
   // PUBLIC profile is now readable by anon through PostgREST. The hidden-profile test below still holds the
   // other half: a hidden profile with no posting name stays invisible.

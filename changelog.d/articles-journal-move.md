@@ -13,11 +13,11 @@ the controller).
   browser cannot set them. `users.posting_name` (chosen on the first post).
   `creator_chapter_replies` — one level deep, RLS at create, grants from the
   policies. Report target `chapter_reply`. `articles` reserved for shop addresses.
-  Migration `20271353924909`.
+  Migration `20271355258231`.
 - **The Journal moves in.** 91 posts become rows as "Setnayan Journal", generated
   from the corrected source (`lib/journal-import-sql.ts`, held equal by a test);
   3 staged posts stay drafts; no cover photos; spotlight slugs re-pointed.
-  Migration `20271354669097`. Copy fixed per the audit: Event Hub (not "wedding
+  Migration `20271355899662`. Copy fixed per the audit: Event Hub (not "wedding
   website"), supplier slugs, Event Pro named honestly, zero-commission narrowed,
   and every unsourced price figure removed ("ask 3 suppliers for a quote").
 - **Screens.** `/articles` (Tag ▾ · Sort ▾ · Write a post), `/articles/{slug}`

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { startAhead } from '@/lib/start-ahead';
 import { redirect } from 'next/navigation';
@@ -245,9 +246,7 @@ const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
 
 async function CustomersPipeline({ search }: { search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -1404,9 +1403,7 @@ function eventWords(e: { venue_name: string | null; event_type: string | null } 
 /** One day (frame 35) — `?seg=dates&day=YYYY-MM-DD`; the old `/calendar/[date]` route forwards here. */
 async function CustomersDay({ day, search }: { day: string; search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

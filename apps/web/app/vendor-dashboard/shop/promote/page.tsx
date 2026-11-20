@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -51,9 +52,7 @@ export default async function ShopPromotePage({
 }) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

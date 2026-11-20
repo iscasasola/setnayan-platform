@@ -20,6 +20,7 @@ import {
   addOnCountFromPaid,
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
+  parseUltraAddOnRenewalServiceKey,
   type CountAddOnKind,
   addOnWindowEnd,
 } from '@/lib/vendor-ultra-addons';
@@ -2387,6 +2388,26 @@ const PREFIX_HOOKS: ReadonlyArray<{
     },
   },
   {
+    // 🔁 RENEWING ONE ULTRA ADD-ON (controller ruling on PR #8019, 20 Nov, option A) — 'vendor_ultra_addon_renew__<the
+    // add-on's order_id>' → the database moves THAT add-on's window to its own live end + 28 days, and nothing else
+    // (`ultra_addon_apply_renewal`: checks the add-on is the same shop's and paid; once only — a re-approval changes
+    // nothing). The renewal is never counted as a second add-on.
+    match: (serviceKey) => parseUltraAddOnRenewalServiceKey(serviceKey) !== null,
+    run: async (ctx) => {
+      const addOnOrderId = parseUltraAddOnRenewalServiceKey(ctx.serviceKey);
+      if (!addOnOrderId) return;
+      const { data: newEnd, error } = await ctx.admin.rpc('ultra_addon_apply_renewal', { p_renewal_order_id: ctx.orderId });
+      if (error) throw new Error(`Ultra Add-on renewal failed: ${error.message}`);
+      await appendLedger(ctx.admin, {
+        order_id: ctx.orderId,
+        event_type: 'service_activated',
+        actor_user_id: ctx.actorUserId,
+        actor_role: 'admin',
+        metadata: { service_key: ctx.serviceKey, renewed_order_id: addOnOrderId, expires_at: newEnd ?? null },
+      });
+    },
+  },
+  {
     // ULTRA ADD-ONS (owner 2026-11-06, "ULTRA ADD-ON PRICES": +1 category · +1 service card · +1 wait list · +1
     // booking per date, ₱199 per 4 weeks each, Ultra only) — '<prefix><vendor_profile_id>' → RECOMPUTE that add-on's
     // paid count, the seat's pattern above. The key names the shop directly, so the order must be theirs (SEC-4b).
@@ -2837,6 +2858,17 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       await recomputeVendorExtraSeats(ctx.admin, seatVendorId);
     } catch (e) {
       reportActivationFault('deactivate:vendor_extra_seat', ctx, e);
+    }
+  }
+
+  // 🔁 A refunded/cancelled Ultra Add-on RENEWAL takes its 28 days back off the add-on it extended (only while that
+  // add-on still ends where it put it). Non-fatal, like the rest of this path.
+  if (parseUltraAddOnRenewalServiceKey(ctx.serviceKey)) {
+    try {
+      const { error } = await ctx.admin.rpc('ultra_addon_reverse_renewal', { p_renewal_order_id: ctx.orderId });
+      if (error) throw new Error(error.message);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_ultra_addon_renew', ctx, e);
     }
   }
 

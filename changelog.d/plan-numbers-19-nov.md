@@ -52,3 +52,10 @@ also is 1 for all already"* · the final table: *"this is good"*. Specs: SUPPLIE
 
 SPEC IMPACT: None in this PR — the rulings are in the corpus DECISION_LOG 2026-11-19 (incl. the §C "Yes, all five")
 and the change plan (ac15265b).
+
+### Renewing an Ultra Add-on extends that add-on (20 Nov, controller ruling on review, option A)
+- The Plan page lists each live Ultra Add-on with its end date and its own **Renew** button. A renewal is an order keyed `vendor_ultra_addon_renew__<the add-on's order_id>`; on approval `ultra_addon_apply_renewal` moves THAT add-on's window to its own live end + 28 days (a lapsed one restarts from today). No other add-on moves, the renewal is never counted as an add-on, a re-approval changes nothing, and a refund takes back exactly its 28 days (`ultra_addon_reverse_renewal`).
+- "Add one" still buys a new add-on; a renewal without an order id (or for an add-on that has lapsed) is a new add-on. An order id that is not the shop's own add-on is refused.
+- Renewal orders are a supplier paying Setnayan (`vendor-pays-setnayan`) and are not sent their own renewal reminder.
+- DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts` (two live add-ons; 6/6). No new server action — folded into `buyUltraAddOn`.
+SPEC IMPACT: None beyond the ruling already in the PR's STATUS (Decisions).

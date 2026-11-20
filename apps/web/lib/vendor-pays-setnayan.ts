@@ -70,6 +70,8 @@ export const VENDOR_PAYS_SETNAYAN_PREFIXES: readonly string[] = [
   'vendor_extra_booking_per_date__',
   // 2026-11-19 — the Ultra Add-on, the ONE add-on (owner, "just 1 pack"; lib/vendor-ultra-addons.ts).
   'vendor_ultra_addon__',
+  // 2026-11-20 — renewing one Ultra Add-on (PR #8019, option A; lib/vendor-ultra-addons.ts ULTRA_ADDON_RENEW_PREFIX).
+  'vendor_ultra_addon_renew__',
   'vendor_subscription__',
 ] as const;
 

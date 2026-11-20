@@ -37,7 +37,7 @@ import { startSubscriptionPurchase } from '../actions';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
-import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
+import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, fetchAddOnExtras, fetchLiveUltraAddOnOrders } from '@/lib/vendor-ultra-addons';
 import { buyUltraAddOn } from '../ultra-addon-actions';
 import { UltraAddOnButton } from './ultra-addon-button';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
@@ -224,13 +224,16 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // price (every plan) and, on Ultra, the Ultra Add-on (2026-11-19 — it replaced the extra seats and branches row). A shop that bought a chatbot window or an Ultra
   // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
   const ultraHoldsExtras = holdsBoughtExtras(currentTier);
-  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead] = await Promise.all([
+  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead, liveUltraAddOns] = await Promise.all([
     ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
     holdsExtraSeats(currentTier)
       ? supabase.from('vendor_profiles').select('extra_agent_seats').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
       : Promise.resolve(null),
+    // 🔁 Each live Ultra Add-on, so each can be RENEWED from its own end (PR #8019, option A). Admin client: a co-admin
+    // must see the add-on the owner paid for; the filter is this shop's own key. null = unread, said as such.
+    canBuyUltraAddOn('ultra', currentTier) ? fetchLiveUltraAddOnOrders(createAdminClient(), profile.vendor_profile_id) : Promise.resolve([]),
   ]);
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
   const extraSeats =
@@ -533,6 +536,17 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             .join(' · '),
           end:
             ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} /> : null,
+          // 🔁 One row per add-on held, each with its own Renew (4 more weeks from ITS end — no paid day lost). "Add one"
+          // above still buys another. Unread → one honest line, never an empty list that hides the Renew buttons.
+          held:
+            liveUltraAddOns === null
+              ? [{ key: 'unread', line: 'We couldn’t read your add-ons just now. Refresh to renew one.', end: null }]
+              : liveUltraAddOns.map((a, i) => ({
+                  key: a.orderId,
+                  line: `Add-on ${NUMBER.format(i + 1)} · runs until ${fmtDate(a.expiresAt)}`,
+                  end:
+                    ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} renewOrderId={a.orderId} /> : null,
+                })),
         }
       : null;
   // A single extra seat already paid for is kept and renews (2026-11-19: no existing subscriber's limits move until the

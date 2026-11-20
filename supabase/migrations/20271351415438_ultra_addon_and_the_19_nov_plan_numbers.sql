@@ -42,6 +42,9 @@
 --
 -- RLS unchanged · no new table or column · no subscription row is written. Section 5 writes only `orders.expires_at` on
 -- paid "+1" add-on orders that had none, and re-counts those add-ons' stored counts from the live windows.
+-- 7 · RENEWING ONE ADD-ON EXTENDS THAT ONE (controller ruling on PR #8019, 20 Nov, option A): two service-role
+--     functions, `ultra_addon_apply_renewal` / `ultra_addon_reverse_renewal`, over a renewal order keyed
+--     `vendor_ultra_addon_renew__<the add-on's order_id>`; the reminder (section 6) skips renewal orders.
 -- 🛑 NEVER APPLIED BY HAND. The pipeline (`supabase db push --include-all`) applies it. Idempotent.
 -- ============================================================================
 
@@ -447,6 +450,8 @@ AS $$
     AND o.service_key NOT LIKE 'vendor\_extra\_service\_card\_\_%'
     AND o.service_key NOT LIKE 'vendor\_extra\_waitlist\_\_%'
     AND o.service_key NOT LIKE 'vendor\_extra\_booking\_per\_date\_\_%'
+    -- A renewal order's window is a COPY of the add-on it extended (section 7) — the add-on itself is reminded.
+    AND o.service_key NOT LIKE 'vendor\_ultra\_addon\_renew\_\_%'
     AND NOT EXISTS (
       SELECT 1 FROM public.renewal_reminder_log l
       WHERE l.order_id = o.order_id
@@ -457,5 +462,98 @@ AS $$
 $$;
 
 REVOKE ALL ON FUNCTION public.subscriptions_due_for_renewal_reminder(p_days integer) FROM PUBLIC, anon, authenticated;
+
+-- ── 7 · renewing ONE Ultra Add-on extends THAT add-on (controller ruling on PR #8019, 20 Nov, option A) ──────────
+-- Review (20 Nov): the renewal email says "renew before then", but the only way to pay again was "Add one", which
+-- starts a SECOND add-on with its own 28 days, so the days left on the first were lost. Now:
+--   · a renewal is its own order keyed `vendor_ultra_addon_renew__<the add-on's order_id>`, minted by the same
+--     `buyUltraAddOn` server action when the Plan page's Renew button posts that order id;
+--   · on approval, `ultra_addon_apply_renewal` moves THAT add-on's window to (its live end, or now if it has lapsed)
+--     + 28 days. Any other add-on the shop holds is untouched;
+--   · the renewal order is NOT an add-on: its key is not `vendor_ultra_addon__…`, so `vendor_live_ultra_addons` never
+--     counts it. Its own `expires_at` records the end it set: that is the once-only marker (a re-approval changes
+--     nothing) and lets a refund undo exactly what it added (`ultra_addon_reverse_renewal`);
+--   · "Add one" still buys a NEW add-on, and a renewal without an order id is a new add-on (the app decides that).
+-- Service role only: the activation hook (lib/sku-activation.ts) calls both.
+CREATE OR REPLACE FUNCTION public.ultra_addon_apply_renewal(p_renewal_order_id uuid)
+RETURNS timestamptz
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_prefix CONSTANT text := 'vendor_ultra_addon_renew__';
+  r public.orders%ROWTYPE;
+  t public.orders%ROWTYPE;
+  v_end timestamptz;
+BEGIN
+  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
+  IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix THEN
+    RAISE EXCEPTION 'ultra_addon_apply_renewal: % is not an Ultra Add-on renewal', p_renewal_order_id;
+  END IF;
+  IF r.status NOT IN ('paid', 'fulfilled') THEN
+    RAISE EXCEPTION 'ultra_addon_apply_renewal: renewal % is not paid (%)', p_renewal_order_id, r.status;
+  END IF;
+  -- Once only: the end it already set.
+  IF r.expires_at IS NOT NULL THEN
+    RETURN r.expires_at;
+  END IF;
+
+  SELECT * INTO t FROM public.orders
+   WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
+   FOR UPDATE;
+  -- The add-on must be THIS shop's, an Ultra Add-on, and paid.
+  IF NOT FOUND
+     OR r.vendor_profile_id IS NULL
+     OR t.vendor_profile_id IS DISTINCT FROM r.vendor_profile_id
+     OR t.service_key IS DISTINCT FROM 'vendor_ultra_addon__' || r.vendor_profile_id::text
+     OR t.status NOT IN ('paid', 'fulfilled') THEN
+    RAISE EXCEPTION 'ultra_addon_apply_renewal: renewal % names no paid Ultra Add-on of the same shop', p_renewal_order_id;
+  END IF;
+
+  -- From its OWN live end, so no paid day is lost; a lapsed add-on starts again from now.
+  v_end := GREATEST(COALESCE(t.expires_at, now()), now()) + interval '28 days';
+  UPDATE public.orders SET expires_at = v_end, updated_at = now() WHERE order_id = t.order_id;
+  UPDATE public.orders SET expires_at = v_end, updated_at = now() WHERE order_id = r.order_id;
+  RETURN v_end;
+END;
+$$;
+
+COMMENT ON FUNCTION public.ultra_addon_apply_renewal(uuid) IS
+  'Apply one paid Ultra Add-on renewal (key vendor_ultra_addon_renew__<add-on order_id>): move THAT add-on''s orders.expires_at to GREATEST(its end, now()) + 28 days and stamp the same end on the renewal order (the once-only marker). Other add-ons are untouched; the renewal order is never counted as an add-on. Controller ruling on PR #8019, 20 Nov (option A). Called by the activation hook (lib/sku-activation.ts). service_role only.';
+
+REVOKE ALL ON FUNCTION public.ultra_addon_apply_renewal(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ultra_addon_apply_renewal(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.ultra_addon_reverse_renewal(p_renewal_order_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE
+  v_prefix CONSTANT text := 'vendor_ultra_addon_renew__';
+  r public.orders%ROWTYPE;
+BEGIN
+  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
+  IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix OR r.expires_at IS NULL THEN
+    RETURN; -- not a renewal, or never applied: nothing to undo
+  END IF;
+  -- Take back exactly the 28 days it added, and only while the add-on still ends where this renewal put it (a later
+  -- renewal has since moved it on → leave that one's days alone; withholding a refund's days is the admin's call).
+  UPDATE public.orders t
+     SET expires_at = t.expires_at - interval '28 days', updated_at = now()
+   WHERE t.order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
+     AND t.vendor_profile_id = r.vendor_profile_id
+     AND t.expires_at = r.expires_at;
+  UPDATE public.orders SET expires_at = NULL, updated_at = now() WHERE order_id = r.order_id;
+END;
+$$;
+
+COMMENT ON FUNCTION public.ultra_addon_reverse_renewal(uuid) IS
+  'Undo a refunded or cancelled Ultra Add-on renewal: take its 28 days back off the add-on it extended, only while that add-on still ends where this renewal put it, and clear the renewal''s marker. Called by the deactivation hook (lib/sku-activation.ts). service_role only.';
+
+REVOKE ALL ON FUNCTION public.ultra_addon_reverse_renewal(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ultra_addon_reverse_renewal(uuid) TO service_role;
 
 COMMIT;

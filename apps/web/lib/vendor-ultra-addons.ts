@@ -163,6 +163,58 @@ export function canBuyUltraAddOn(kind: UltraAddOnKind, tier: string | null | und
   }
 }
 
+/**
+ * 🔁 RENEWING ONE ULTRA ADD-ON (controller ruling on PR #8019, 20 Nov, option A). A renewal is its own order keyed
+ * `vendor_ultra_addon_renew__<the add-on's order_id>`; on approval the database's `ultra_addon_apply_renewal` moves THAT
+ * add-on's window to its own live end + 28 days, and nothing else. The key deliberately does NOT start with the add-on's
+ * prefix (`vendor_ultra_addon__`), so the live count never counts a renewal as a second add-on.
+ */
+export const ULTRA_ADDON_RENEW_PREFIX = 'vendor_ultra_addon_renew__';
+
+export function ultraAddOnRenewalServiceKey(addOnOrderId: string): string {
+  return `${ULTRA_ADDON_RENEW_PREFIX}${addOnOrderId}`;
+}
+
+/** The add-on order a renewal key names; null for any other key. Pure. */
+export function parseUltraAddOnRenewalServiceKey(serviceKey: string | null | undefined): string | null {
+  if (typeof serviceKey !== 'string' || !serviceKey.startsWith(ULTRA_ADDON_RENEW_PREFIX)) return null;
+  const id = serviceKey.slice(ULTRA_ADDON_RENEW_PREFIX.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) ? id.toLowerCase() : null;
+}
+
+/** One Ultra Add-on the shop holds now: its order and when its 28 days end. */
+export type LiveUltraAddOn = { orderId: string; expiresAt: string };
+
+/**
+ * The shop's live Ultra Add-on ORDERS — each one the Plan page can renew. Read with the caller's own client (a shop
+ * reads its own orders). `null` = UNREAD, said as such; never an empty list that would hide a Renew button.
+ */
+export async function fetchLiveUltraAddOnOrders(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  nowMs: number = Date.now(),
+): Promise<LiveUltraAddOn[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_id, expires_at')
+      .eq('service_key', countAddOnServiceKey('ultra', vendorProfileId))
+      .eq('status', 'paid')
+      .gt('expires_at', new Date(nowMs).toISOString())
+      .order('expires_at', { ascending: true });
+    if (error) {
+      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-on orders', error);
+      return null;
+    }
+    return ((data ?? []) as { order_id: string; expires_at: string | null }[])
+      .filter((r) => typeof r.expires_at === 'string')
+      .map((r) => ({ orderId: r.order_id, expiresAt: r.expires_at as string }));
+  } catch (e) {
+    console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-on orders', e);
+    return null;
+  }
+}
+
 /** `vendor_extra_category__<vendor_profile_id>` and its siblings. */
 export function countAddOnServiceKey(kind: CountAddOnKind, vendorProfileId: string): string {
   return `${COUNT_ADDONS[kind].servicePrefix}${vendorProfileId}`;

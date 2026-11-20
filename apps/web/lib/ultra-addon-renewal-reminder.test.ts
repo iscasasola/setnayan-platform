@@ -66,7 +66,11 @@ test('the retired "+1" add-ons are never told to renew — the SQL leaves out th
     const like = prefix.replace(/_/g, '\\_');
     assert.ok(fn.includes(`NOT LIKE '${like}%'`), `${prefix} orders would be told to renew an add-on that is not sold`);
   }
-  assert.ok(!fn.slice(0, fn.indexOf('$$;')).includes('vendor\\_ultra\\_addon'), 'the Ultra Add-on was left out of the reminder');
+  const body = fn.slice(0, fn.indexOf('$$;'));
+  // The add-on itself (`vendor_ultra_addon__…`) is reminded; only its RENEWAL orders (PR #8019, 20 Nov — their window is
+  // a copy of the add-on's) are left out, or the shop would be told twice.
+  assert.ok(!body.includes('vendor\\_ultra\\_addon\\_\\_'), 'the Ultra Add-on was left out of the reminder');
+  assert.ok(body.includes("NOT LIKE 'vendor\\_ultra\\_addon\\_renew\\_\\_%'"), 'a renewal order would be reminded as well as its add-on');
   // The four are exactly the stored-count add-ons (everything but the Ultra Add-on).
   const stored = Object.values(COUNT_ADDONS).filter((d) => d.column !== null).map((d) => d.servicePrefix).sort();
   assert.deepEqual([...RENEWAL_NOT_REMINDED_PREFIXES].sort(), stored);

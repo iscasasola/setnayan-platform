@@ -80,7 +80,7 @@ export function PlanRows({
    * the shop holds) and its Add control, built by the page around the `buyUltraAddOn` form. null = not drawn (not
    * Ultra, or not on sale). It replaces the "Extra seats and branches" row — single extras are not sold any more.
    */
-  ultraAddOn?: { line: string; end: ReactNode } | null;
+  ultraAddOn?: { line: string; end: ReactNode; held?: readonly { key: string; line: string; end: ReactNode }[] } | null;
   /** 💳 Add-ons bought before they folded into the plans, while they still run (item 11). */
   bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
@@ -166,6 +166,9 @@ export function PlanRows({
         {ultraAddOn ? (
           <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Ultra Add-on" line={ultraAddOn.line} end={ultraAddOn.end} />
         ) : null}
+        {(ultraAddOn?.held ?? []).map((h) => (
+          <DatesRow key={h.key} data="plan-ultra-addon-held" lead={ic(Users)} title="Ultra Add-on" line={h.line} end={h.end} />
+        ))}
         {bought.map((b) => (
           <DatesRow key={b.key} data="plan-bought" lead={ic(Store)} title={b.title} line={b.line} />
         ))}

@@ -461,7 +461,8 @@ export function ClaimDoor({
           // The claim page's own offer rows (TeamInviteDoor, `doorOffer`) — kept on the door, and applied on the finish
           // by the shipped `claim_ready_the_invited_shop`. Rows with dividers, nothing boxed.
           <section data-claim-door-offer="">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
+            {/* A plain section label, not a mono caption (the template sheet's rule) — paying for the P1 shop card's point. */}
+            <p className="text-[13px] font-semibold" style={{ color: 'var(--m-ink)' }}>
               Your offer
             </p>
             <dl className="mt-1.5 divide-y border-y text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { claimCardFrom, claimedWelcomePath, firstCardLanding } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
@@ -47,9 +48,7 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
   const cardCarry = claimCardFrom(search);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     // Not authenticated — send them back through the public claim page
     // so the right sign-in/sign-up CTA appears.

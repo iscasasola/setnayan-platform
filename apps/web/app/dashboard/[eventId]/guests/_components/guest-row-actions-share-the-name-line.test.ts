@@ -100,8 +100,9 @@ test('PLACEMENT: avatar, name and buttons auto-place into ONE grid row (simulate
   // The row's children, in DOM order, as written in GuestRowLine.
   const ava = ROW.indexOf('className={styles.ava}');
   const who = ROW.indexOf('className={styles.who}');
-  const acts = ROW.indexOf('className={styles.acts}');
-  assert.ok(ava > 0 && who > ava && acts > who, 'the row is no longer avatar → name → buttons');
+  // 👥 20 Nov (Guests redesign): the row's end holds its STATE (a quiet tick, or the exception's pill) — no button.
+  const acts = ROW.indexOf('className={styles.state}');
+  assert.ok(ava > 0 && who > ava && acts > who, 'the row is no longer avatar → name → state');
   // The buttons are a SIBLING of the name's button, not inside it: the name's button closes before they open.
   const whoClose = ROW.indexOf('</button>', who);
   assert.ok(whoClose > who && whoClose < acts, 'the buttons sit inside the name’s button — a new line, and a button in a button');
@@ -119,7 +120,7 @@ test('PLACEMENT: avatar, name and buttons auto-place into ONE grid row (simulate
   let row = 1;
   let cursor = 1;
   const placed: Record<string, number> = {};
-  for (const cls of ['ava', 'who', 'acts']) {
+  for (const cls of ['ava', 'who', 'state']) {
     const c = colOf(cls);
     if (c !== null) {
       assert.ok(Number.isInteger(c) && c >= 1, `.${cls}: grid-column ${c} is not a line this guard can place`);
@@ -132,7 +133,7 @@ test('PLACEMENT: avatar, name and buttons auto-place into ONE grid row (simulate
     placed[cls] = row;
     cursor += 1;
   }
-  assert.deepEqual(placed, { ava: 1, who: 1, acts: 1 }, `the buttons fall to grid row ${placed['acts']} — under the name, two lines per guest`);
+  assert.deepEqual(placed, { ava: 1, who: 1, state: 1 }, `the state falls to grid row ${placed['state']} — under the name, two lines per guest`);
   assert.ok(cursor - 1 <= cols.length, `the buttons are placed past the ${cols.length} declared tracks (an implicit column)`);
   assert.equal(g['align-items'], 'center', 'the buttons are not centred on the row');
   assert.equal(decls(rulesFor('.g .acts'))['margin-top'], undefined, 'the buttons keep a second line’s top margin');
@@ -187,21 +188,13 @@ test('WIDE: from 701 nothing hides a guest row’s words', () => {
 });
 
 test('every row button is named for its guest — an icon-only list is not forty identical “Delete”s', () => {
-  const acts = ROW.slice(ROW.indexOf('className={styles.acts}'));
-  const body = acts.slice(0, acts.indexOf('</span>'));
-  const buttons = body.match(/<ActionButton\b[\s\S]*?\/>/g) ?? [];
-  for (const b of buttons) {
-    const label = /label="([^"]+)"/.exec(b)?.[1];
-    assert.ok(label, `a row button without a word: ${b}`);
-    assert.ok(b.includes(`name={\`${label} \${name}\`}`), `“${label}” is not named for its guest (aria-label "${label} <name>")`);
-  }
+  // 👥 Guests redesign pick 3 (owner 20 Nov 2026): "No share button on guest rows" — the row's end is its state, never
+  // a button; the one verb on a row is its swipe.
+  const end = ROW.slice(ROW.indexOf('className={styles.state}'));
+  assert.doesNotMatch(end.slice(0, end.indexOf('</span>\n      )}')), /<ActionButton\b|<button\b|<GuestInviteCell\b/, 'a button is back at the row’s end');
   // 👈 Delete is the row's swipe since 2026-11-03 — still named for its guest, never forty identical “Delete”s.
   const swipe = ROW.slice(ROW.indexOf('<SwipeToDelete'));
   assert.ok(ROW.indexOf('<SwipeToDelete') > 0, 'the row lost Delete (its swipe)');
-  assert.match(swipe, /label=\{del === 'remove' \? `Delete \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe Delete is not named for its guest');
-  // 📤 Share is the shipped Invite cell drawn as one icon; ITS name carries the guest (guest-invite-cell.tsx, layout 'icon').
-  assert.match(body, /<GuestInviteCell\b[^>]*layout="icon"/, 'the row lost Share');
-  const CELL = stripComments(readFileSync(join(HERE, 'guest-invite-cell.tsx'), 'utf8'));
-  const icon = CELL.slice(CELL.indexOf("if (layout === 'icon') {"));
-  assert.match(icon, /label="Share"\s+name=\{sentAt \? `Share \$\{guest\.fullName\}/, 'Share is not named for its guest');
+  assert.match(swipe, /label=\{del === 'remove' \? `Remove \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe Remove is not named for its guest');
+  assert.doesNotMatch(ROW, /<GuestInviteCell\b/, 'a guest row carries Share again');
 });

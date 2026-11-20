@@ -129,8 +129,10 @@ for (const [label, profile] of [
   });
 }
 
-test('row counts match the ruling: wedding 10 · ceremonial 9 · simple_event 8 · date/hangout/travel 6', () => {
+test('row counts match the ruling: wedding 8 · ceremonial 7 · simple_event 7 · date/hangout/travel 5', () => {
   /*
+    🔄 2026-11-20: Patiktok (no surface — every type) and Music Maker (`song` — wedding + ceremonial) were RETIRED
+    (lib/retired-products.ts), so wedding and ceremonial lose two, simple_event and date one: 10·9·8·6 → 8·7·7·5.
     🔄 EACH COUNT ROSE BY EXACTLY ONE, 2026-09-03, and "exactly one" is the
     assertion that matters. The Mood Board joined the Studio group (owner: *"i
     do not see it"*) and it carries NO `surface`, so it is offered on every
@@ -154,10 +156,10 @@ test('row counts match the ruling: wedding 10 · ceremonial 9 · simple_event 8 
   const countWithShelf = (profile: EventTypeProfile) =>
     railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile }).length; // includes "All services"
 
-  assert.equal(countWithShelf(WEDDING), 10, 'wedding');
-  assert.equal(countWithShelf(CEREMONIAL), 9, 'ceremonial & party');
-  assert.equal(countWithShelf(SIMPLE_EVENT), 8, 'simple_event');
-  assert.equal(countWithShelf(DATE), 6, 'date/hangout/travel');
+  assert.equal(countWithShelf(WEDDING), 8, 'wedding');
+  assert.equal(countWithShelf(CEREMONIAL), 7, 'ceremonial & party');
+  assert.equal(countWithShelf(SIMPLE_EVENT), 7, 'simple_event');
+  assert.equal(countWithShelf(DATE), 5, 'date/hangout/travel');
 
   // …and the free unscoped row that DOES belong inside an event is in every
   // one of them, which is what "no surface" MEANS. Counts alone would also be
@@ -208,7 +210,7 @@ test('Samahan (Groups) is on /features and never an in-event Studio row', () => 
   }
 });
 
-test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride their own surface', () => {
+test('Logo Maker is wedding-only; 3D Plan and Live Studio each ride their own surface; Music Maker is retired', () => {
   const keysFor = (profile: EventTypeProfile) => new Set(sidebarKeys(profile));
 
   assert.ok(keysFor(WEDDING).has('palogo'), 'Logo Maker must show on a wedding');
@@ -216,7 +218,7 @@ test('Logo Maker is wedding-only; 3D Plan, Live Studio and Pakanta each ride the
 
   assert.ok(keysFor(SIMPLE_EVENT).has('pa3d'), '3D Plan rides seating, which simple_event has');
   assert.ok(keysFor(SIMPLE_EVENT).has('panood'), 'Live Studio rides livestream, which simple_event has');
-  assert.ok(!keysFor(SIMPLE_EVENT).has('pakanta'), 'Pakanta rides song, which simple_event does not have');
+  assert.ok(!keysFor(WEDDING).has('pakanta'), 'Music Maker is retired (2026-11-20) — no row even on a wedding');
 
   assert.ok(!keysFor(DATE).has('pa3d'), '3D Plan must not show on date/hangout/travel');
   assert.ok(!keysFor(DATE).has('panood'), 'Live Studio must not show on date/hangout/travel');

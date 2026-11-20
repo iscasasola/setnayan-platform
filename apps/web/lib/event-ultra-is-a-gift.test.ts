@@ -74,8 +74,14 @@ test('🏅 Ultra is a reward KIND, and Black Diamond pays it (owner 15 Nov "Even
 });
 
 test('the SQL gift door grants exactly what Ultra grants (lib/event-ultra.ts EVENT_ULTRA_GRANTS)', () => {
-  // The ONE Ultra gift migration is main's 20271348181787 (applied in prod); #7678's unapplied copy was withdrawn.
-  const file = readdirSync(MIGRATIONS).find((f) => f.endsWith('_black_diamond_gives_event_ultra.sql'));
+  // The LATEST migration that defines the gifted-access readers is the one in force. It was main's 20271348181787
+  // (black_diamond_gives_event_ultra); since 2026-11-20 it is `_retire_patiktok_and_music_maker`, which drops
+  // PATIKTOK_COMPILER (retired) from both Ultra lists.
+  const file = readdirSync(MIGRATIONS)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) => /CREATE OR REPLACE FUNCTION public\.event_comp_active_skus\(/.test(readFileSync(join(MIGRATIONS, f), 'utf8')))
+    .at(-1);
   assert.ok(file, 'the Ultra gift migration is missing');
   const sql = readFileSync(join(MIGRATIONS, file!), 'utf8').replace(/--[^\n]*/g, '');
   const lists = [...sql.matchAll(/(?:ARRAY\[|IN \()('[A-Z_]+'(?:,\s*'[A-Z_]+')*)[\])]/g)]

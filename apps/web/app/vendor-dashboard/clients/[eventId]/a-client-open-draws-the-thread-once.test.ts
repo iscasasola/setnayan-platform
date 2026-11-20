@@ -251,10 +251,15 @@ test('2 · only the Chat view marks the conversation read — and only once it i
   const shell = readFileSync(join(__dirname, '..', '..', '..', '_components', 'picked', 'picked-shell.tsx'), 'utf8') /* the ONE picked shell */;
   // (18 Nov 2026: on a computer the Chat body also sits in its own always-shown column — still "mounted = shown".)
   assert.match(shell, /\{bodies\[workPage\]\}/, 'the shell no longer mounts only the shown page — a mount would not mean "shown"');
-  assert.equal((shell.match(/\{bodies\[/g) ?? []).length, 2, 'a body is mounted somewhere other than the shown page and the side Chat column');
+  // (19 Nov 2026 — one chat that holds everything: a page RISEN over the chat is the third mount. It is never the chat
+  // itself, and while it is up the chat under it is told it is covered, so mounted-but-covered never marks read.)
+  assert.equal((shell.match(/\{bodies\[/g) ?? []).length, 3, 'a body is mounted somewhere other than the shown page, the side Chat column and the risen page');
+  assert.match(shell, /const risenPage: P \| null = rises && page !== homePage \? page : null;/, 'the risen page could be the chat itself — the chat would be mounted twice');
+  assert.match(shell, /<PickedCoveredContext\.Provider value=\{risenPage !== null\}>\{bodies\[workPage\]\}<\/PickedCoveredContext\.Provider>/, 'the chat under a risen page is not told it is covered');
   assert.match(shell, /\{split \? \(\s*<aside[\s\S]{0,2400}\{bodies\[sideChat!\.page\]\}/, 'the side Chat column is mounted when it is not shown');
   const marker = readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8');
-  assert.match(marker, /useEffect\(\(\) => \{\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount');
+  assert.match(marker, /useEffect\(\(\) => \{\s*if \(covered\) return;\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount — or writes while the chat is covered by a risen page');
+  assert.match(marker, /const covered = useContext\(PickedCoveredContext\);/);
 });
 
 test('3 · Details’ Decisions cost zero requests — the open costs what Chat + Quotation alone cost', async () => {

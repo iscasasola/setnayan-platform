@@ -176,10 +176,11 @@ test('5 · a row’s Share is that guest’s own share — it never opens the ru
   // Owner 2026-11-05: Share opens THIS cell's own menu (this guest's message) on every device — never the run.
   assert.match(rowShare, /invite\(at\)/, 'the row’s Share no longer opens this guest’s own menu');
   assert.doesNotMatch(cell, /sendRunHref|guests\/send|useRouter|router\.push|location\.(href|assign)/, 'the Share cell navigates — one guest’s Share must be that guest only');
-  // The list row hands the cell ONE guest — itself.
+  // 👥 Guests redesign pick 3 (owner 20 Nov 2026): "No share button on guest rows" — a row hands the cell nobody now.
+  // One guest's Send invite is on their card; the list's summary "Send N invites" is the run itself, with no ids.
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /<GuestInviteCell eventId=\{eventId\} layout="icon" guest=\{share\}/);
-  assert.match(screen, /const share: SendInviteGuest \| null =\s*invite && token\s*\?\s*\{\s*guestId: g\.guest_id,/);
+  assert.doesNotMatch(screen, /<GuestInviteCell\b/, 'a guest row carries a Share again');
+  assert.match(screen, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/send`\}[\s\S]{0,160}data-roster-to-invite="door"/, 'the summary lost "Send N invites"');
   // The only door to the run with ids is Select's "Invite N", over the to-invite selected.
   assert.equal((screen.match(/sendRunHref\(/g) ?? []).length, 1);
   assert.match(screen, /router\.push\(sendRunHref\(eventId, invitable\.map\(\(g\) => g\.guest_id\)\)\)/);

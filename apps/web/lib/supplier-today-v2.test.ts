@@ -31,6 +31,8 @@ import {
   eventUrgency,
   eventRowWords,
   todayOneList,
+  thisWeekLine,
+  todayHeldOff,
   orderByUrgency,
   taskUrgency,
   CARDS_LOCK_KEY,
@@ -322,4 +324,53 @@ test('V6 · the one list: every bill, the permit and the events each sit at thei
   });
   assert.deepEqual(list.map((e) => e.key), ['dc', 'fee-late', 'fee-soon', 'renewal', 'event-tmr', 'r1'], 'not red, then amber, then the rest — or a bill moved as one block');
   assert.deepEqual(list.map((e) => e.urgency?.word ?? '—'), ['Today', 'Overdue', 'Soon', 'Soon', 'Soon', '—']);
+});
+
+test('T1 · v3 part 2: a task put off sits under Tomorrow, out of the count — a red one never leaves Today', () => {
+  const s = splitTodayNeeds({
+    needs: [need('r1'), need('late'), need('m1'), need('soon')],
+    cards: [card('r1', 'review'), dated('late', '2026-11-18T00:00:00Z'), card('m1', 'message'), dated('soon', '2026-11-25T04:00:00Z')],
+    completedToGo: null,
+    aside: new Set(),
+    now: NOW,
+    putOff: new Set(['r1', 'late', 'soon']),
+  });
+  assert.deepEqual(s.tomorrow.map((r) => r.key), ['r1', 'soon'], 'a put-off task is not under Tomorrow');
+  assert.deepEqual(s.list.map((r) => r.key), ['late', 'm1'], 'a red task was hidden by a put-off record, or a put-off task stayed listed');
+  assert.equal(s.quick.length + s.screen.length, 2, 'a put-off task is still counted today');
+  // No record (or an unread one) holds nothing off.
+  assert.equal(splitTodayNeeds({ needs: [need('r1')], cards: [card('r1', 'review')], completedToGo: null, aside: new Set(), now: NOW }).tomorrow.length, 0);
+});
+
+test('S1 · v3 part 5: a booking ask is amber only inside the owner’s window — not set, never coloured', () => {
+  const ask = (h: number) => ({ ...card('a', 'lock_request'), expiresAt: new Date(NOW + h * 3_600_000).toISOString() }) as WhatsNewCard;
+  assert.deepEqual(taskUrgency(ask(10), NOW, 24), { level: 'amber', word: 'Soon' });
+  assert.equal(taskUrgency(ask(30), NOW, 24), null, 'an ask outside the window was coloured');
+  assert.equal(taskUrgency(ask(10), NOW, null), null, 'a window nobody set coloured a row');
+  assert.equal(taskUrgency(ask(-1), NOW, 24), null, 'a lapsed ask wears Soon');
+});
+
+test('T2 · v3 part 2: a bill, the permit and an event go to tomorrow too — a red one never', () => {
+  const today = '2026-11-19';
+  const split = splitTodayNeeds({ needs: [need('r1')], cards: [card('r1', 'review')], completedToGo: null, aside: new Set(), now: NOW, putOff: new Set(['fee-soon', 'fee-late', 'event-tmr']) });
+  const args = {
+    split,
+    bills: [{ orderId: 'soon', dueOn: '2026-11-30' }, { orderId: 'late', dueOn: '2026-11-14' }],
+    events: [{ id: 'tmr', eventName: 'Santos', date: '2026-11-20', inDays: 1, place: null, href: '/x' }],
+    todayIso: today,
+  };
+  assert.deepEqual(todayOneList(args).map((e) => e.key), ['fee-late', 'r1'], 'an overdue bill was hidden, or a put-off one stayed');
+  assert.deepEqual(todayHeldOff(args).map((e) => e.key), ['fee-soon', 'event-tmr']);
+});
+
+test('S2 · 20 Nov ruling: an unanswered inquiry turns amber after the owner’s hours; events this week are ONE line', () => {
+  const inq = (h: number) => ({ ...card('i', 'inquiry'), createdAt: new Date(NOW - h * 3_600_000).toISOString() }) as WhatsNewCard;
+  assert.deepEqual(taskUrgency(inq(25), NOW, 24), { level: 'amber', word: 'Soon' });
+  assert.equal(taskUrgency(inq(3), NOW, 24), null, 'a fresh inquiry was coloured');
+  assert.equal(taskUrgency(inq(300), NOW, null), null, 'a window nobody set coloured an inquiry');
+  const ev = (inDays: number) => ({ inDays });
+  assert.deepEqual(thisWeekLine([ev(0), ev(1), ev(2), ev(5), ev(7), ev(8)], 7), { count: 3, label: 'This week: 3 events' }, 'today/tomorrow (own rows) or beyond the window were counted');
+  assert.deepEqual(thisWeekLine([ev(3)], 7), { count: 1, label: 'This week: 1 event' });
+  assert.equal(thisWeekLine([ev(3)], null), null, 'a window nobody set drew a line');
+  assert.equal(thisWeekLine([ev(1)], 7), null);
 });

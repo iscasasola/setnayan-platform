@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { UploadRing } from '@/app/_components/upload-ring';
 import { createPortal } from 'react-dom';
 import { ArrowDown, ArrowUp, ChevronRight, GripVertical, Plus, Upload, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -740,8 +741,8 @@ export function StudioPosterPhoto({ eventId, saved, thumb }: { eventId: string; 
               {/* eslint-disable-next-line @next/next/no-img-element -- the photo just picked (a local address) or the poster's own preview */}
               {shown ? <img src={shown} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" /> : null}
               {pct !== null ? (
-                <span data-upload-pie={pct} className="relative flex h-14 w-14 items-center justify-center rounded-full" style={{ background: `conic-gradient(rgb(var(--sn-accent)) ${pct}%, rgb(0 0 0 / 0.1) 0)` }}>
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-raised text-[12px] font-bold tabular-nums text-sn-accent">{pct}%</span>
+                <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-raised">
+                  <UploadRing pct={pct} size={56} stroke={6} showPct />
                 </span>
               ) : !shown ? (
                 <>

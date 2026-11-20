@@ -25,18 +25,25 @@
  * bench). The ranking scorer is deliberately NOT wired in this pass — see
  * `lib/compat-score.ts` / `lib/bench-sort.ts`, untouched.
  *
+ * ── 🔓 REACH IS NOT A PLAN ALLOWANCE (owner 2026-11-19, DECISION_LOG) ────────
+ * Verbatim: *"ok unlock the range. not plan dependend anymore."* · *"Free
+ * Unverified account will have a range of 0km."* This REPLACES the 2026-11-18
+ * 5 · 10 · 50 · 100 km · nationwide ladder. The ONE ceiling is
+ * {@link reachCeilingKm}, and it reads VERIFICATION, never the plan:
+ *   · unverified → 0 km. Not in search, Discover or Find (lib/findable-shop.ts);
+ *     reached by its own link or QR. It cannot declare a ring.
+ *   · verified, ANY plan → no plan ceiling: the shop's own declared ring speaks,
+ *     bounded only by the typo guard {@link MAX_DECLARABLE_RADIUS_KM}. A blank
+ *     ring means no distance limit of its own.
+ *
  * ── THE TWO ENFORCEMENT POINTS, AND WHY THERE ARE TWO ───────────────────────
- * 1. WRITE TIME — `validateServiceRadiusPair` refuses an outer radius above the
- *    vendor's tier cap, with a sentence a human can act on.
- * 2. READ TIME — `effectiveOuterRadiusKm` re-clamps to the CURRENT tier cap on
- *    every read. This is the half that matters. A vendor who declared 50 km on
- *    Pro and then lapses to Verified keeps a stale 50 in the column; without
- *    the read-time clamp a cancelled subscription would go on buying reach
- *    forever. With it, the stale value is simply never believed above the cap —
- *    no backfill job, no cron, no downgrade hook to forget to call.
+ * 1. WRITE TIME — `validateServiceRadiusPair` refuses any ring from a shop that
+ *    is not verified, and any ring past the typo guard.
+ * 2. READ TIME — `effectiveOuterRadiusKm` re-applies the ceiling on every read.
+ *    A shop that declared 50 km while verified and is later un-verified keeps a
+ *    stale 50 in the column; without the read-time clamp it would go on
+ *    reaching couples. With it, the stale value reads 0 — no backfill job.
  */
-
-import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 
 /**
  * The couple-facing verdict for one vendor at one venue.
@@ -49,8 +56,9 @@ import { tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
  */
 export type TravelFeeVerdict = 'free_travel' | 'travel_fee' | 'outside_range' | null;
 
-/** Hard ceiling on a declared ring — the widest tier cap, so a typo'd 99999
- *  is rejected at the form rather than clamped silently into something odd. */
+/** Hard ceiling on a declared ring — a typo guard, the same for every shop and plan (it predates the 2026-11-19
+ *  unlock and is the "sane max" that ruling keeps), so a typo'd 99999 is rejected at the form rather than clamped
+ *  silently into something odd. Roughly the length of the Philippines. */
 export const MAX_DECLARABLE_RADIUS_KM = 1000;
 
 /**
@@ -80,65 +88,75 @@ export function normalizeRadiusKm(value: unknown): number | null {
 }
 
 /**
- * The tier's ceiling on the outer radius, in km.
+ * 🔓 THE ONE REACH CEILING, in km — verification, never the plan (owner 2026-11-19).
  *
- * `tierCaps().serviceRadiusKm` is the SAME number the public plans page
- * advertises as reach (`growSpec` in `supplier-front-data.ts`): free 5 · verified
- * 10 · solo 50 · pro 100 · enterprise nationwide (owner 2026-11-18, ruling 30). Under the inner/outer
- * model that number stops being a CLAIM about the vendor and becomes the CAP on
- * what the vendor may claim — which is what makes the published feature honest
- * (spec §17.2.1).
+ *   verified     → `Infinity` (no plan ceiling; the shop's own ring speaks)
+ *   not verified → 0          (found only by its own link or QR)
+ *
+ * `verified` is `vendor_profiles.verification_state = 'verified'` — pass
+ * {@link isVerifiedForReach} over the row. Anything but an explicit `true` is 0:
+ * an unread state never grants reach.
  */
-export function tierOuterRadiusCapKm(tier: string | null | undefined): number {
-  return tierCaps(asVendorTier(tier)).serviceRadiusKm;
+export function reachCeilingKm(verified: boolean | null | undefined): number {
+  return verified === true ? Infinity : 0;
+}
+
+/** The verification read every reach caller uses: `verification_state = 'verified'`, nothing else. */
+export function isVerifiedForReach(verificationState: string | null | undefined): boolean {
+  return verificationState === 'verified';
 }
 
 /**
- * THE DOWNGRADE CLAMP. `min(declared ?? cap, cap)`.
+ * THE CLAMP. `min(declared ?? ceiling, ceiling)`.
  *
- *   declared > cap  → cap       (a lapsed subscription stops buying reach)
- *   declared ≤ cap  → declared  (the vendor's own, narrower word wins)
- *   declared null   → cap       (undeclared keeps today's tier-derived reach)
+ *   not verified    → 0         (whatever the column holds)
+ *   verified, said  → declared  (the shop's own word, on any plan)
+ *   verified, blank → Infinity  (no distance limit of its own)
  *
  * Called on EVERY read, so the stored column may be stale forever without ever
- * being believed. Free's cap is 5 km since 2026-11-18 (it was 0, which made a
- * free declaration inert); a cap of 0 still reads as "no usable ring".
- *
- * `Infinity` is passed through untouched for any future unlimited tier —
- * `Math.min(n, Infinity) === n`, so a declaration is honoured verbatim.
+ * being believed past the ceiling.
  */
 export function effectiveOuterRadiusKm(
   declaredKm: number | null | undefined,
-  tier: string | null | undefined,
+  verified: boolean | null | undefined,
 ): number {
-  const cap = tierOuterRadiusCapKm(tier);
+  const cap = reachCeilingKm(verified);
   const declared = normalizeRadiusKm(declaredKm);
   if (declared === null) return cap;
   return Math.min(declared, cap);
 }
 
 /**
- * The inner ring, clamped the same way — a stale inner can never poke outside
- * the effective outer.
+ * 🔎 DOES A COUPLE'S SEARCH FIND THIS SHOP AT THIS DISTANCE? — owner 2026-11-19: "verified sets its own range".
  *
- * Concretely: a Pro vendor declares 15 free / 50 furthest, then lapses to
- * Verified (cap 20). The outer clamps 50 → 20, and 15 still fits, so nothing
- * moves. But a vendor who declared 30 free / 50 furthest on Pro would, after the
- * same lapse, have an inner ring WIDER than their own effective outer — an
- * incoherent state that would make every venue between 20 and 30 km read
- * "free travel" while simultaneously being out of range. Clamping inner to the
- * effective outer collapses that to a coherent "free everywhere we go".
+ * The plan no longer limits reach, but the shop's OWN declared outer ring still does: a verified shop with a 20 km ring
+ * is not found by a couple 500 km away. Pass the CLAMPED ring ({@link effectiveOuterRadiusKm}).
+ *
+ *   distance unknown          → found (fail-open: no anchor or no HQ pin)
+ *   ring ∞ (verified, blank)  → found (no distance limit of its own)
+ *   ring 0 (not verified)     → found HERE — not distance-scoped; `is_findable` keeps it out of search
+ *   ring finite               → found only within it (inclusive)
+ */
+export function reachAdmits(distanceKm: number | null | undefined, effectiveOuterKm: number): boolean {
+  if (typeof distanceKm !== 'number' || !Number.isFinite(distanceKm)) return true;
+  if (!Number.isFinite(effectiveOuterKm) || effectiveOuterKm <= 0) return true;
+  return distanceKm <= effectiveOuterKm;
+}
+
+/**
+ * The inner ring, clamped the same way — a stale inner can never poke outside
+ * the effective outer (an un-verified shop's outer reads 0, so its inner does too).
  *
  * Returns null when the inner ring is undeclared — the badge needs BOTH rings.
  */
 export function effectiveInnerRadiusKm(
   declaredInnerKm: number | null | undefined,
   declaredOuterKm: number | null | undefined,
-  tier: string | null | undefined,
+  verified: boolean | null | undefined,
 ): number | null {
   const inner = normalizeRadiusKm(declaredInnerKm);
   if (inner === null) return null;
-  return Math.min(inner, effectiveOuterRadiusKm(declaredOuterKm, tier));
+  return Math.min(inner, effectiveOuterRadiusKm(declaredOuterKm, verified));
 }
 
 /**
@@ -164,9 +182,9 @@ export function effectiveInnerRadiusKm(
  */
 export function resolveTravelFeeVerdict(input: {
   distanceKm: number | null | undefined;
-  /** ALREADY tier-clamped — pass `effectiveInnerRadiusKm(...)`. */
+  /** ALREADY clamped — pass `effectiveInnerRadiusKm(...)`. */
   innerKm: number | null | undefined;
-  /** ALREADY tier-clamped — pass `effectiveOuterRadiusKm(...)`. */
+  /** ALREADY clamped — pass `effectiveOuterRadiusKm(...)`. */
   outerKm: number | null | undefined;
 }): TravelFeeVerdict {
   const { distanceKm, innerKm, outerKm } = input;
@@ -186,7 +204,7 @@ export function resolveTravelFeeVerdict(input: {
 }
 
 /**
- * THE ONE COMPOSER — raw stored columns + tier → the pair of EFFECTIVE rings
+ * THE ONE COMPOSER — raw stored columns + verification → the pair of EFFECTIVE rings
  * every downstream reader is allowed to see.
  *
  * ── WHY THIS IS A FUNCTION AND NOT TWO CALLS AT EACH CALL SITE ──────────────
@@ -205,11 +223,9 @@ export function resolveTravelFeeVerdict(input: {
  *
  * ── THE ONE NON-OBVIOUS RULE ────────────────────────────────────────────────
  * `outerKm` is null unless the vendor ACTUALLY DECLARED an outer ring.
- * `effectiveOuterRadiusKm` answers a blank with the TIER CAP, which is the right
- * answer for "how far does their plan let them go" and the WRONG answer for
- * "what did they say" — shipping it downstream would silently convert "hasn't
- * said" into "declared their tier cap", i.e. reinstate the tier-proxy claim that
- * §17 exists to delete. `innerKm` is null on the same principle (its helper
+ * `effectiveOuterRadiusKm` answers a blank with the CEILING, which is the right
+ * answer for "how far may they go" and the WRONG answer for "what did they say"
+ * — shipping it downstream would silently convert "hasn't said" into a claim. `innerKm` is null on the same principle (its helper
  * already returns null for an undeclared inner).
  *
  * Either ring null → `resolveTravelFeeVerdict` returns null → the badge falls
@@ -219,17 +235,18 @@ export function resolveTravelFeeVerdict(input: {
 export function resolveDeclaredRings(input: {
   declaredInnerKm: number | null | undefined;
   declaredOuterKm: number | null | undefined;
-  tier: string | null | undefined;
+  /** `isVerifiedForReach(verification_state)` — the shop's verification, never its plan. */
+  verified: boolean | null | undefined;
 }): { innerKm: number | null; outerKm: number | null } {
   const declaredOuter = normalizeRadiusKm(input.declaredOuterKm);
   return {
-    innerKm: effectiveInnerRadiusKm(input.declaredInnerKm, input.declaredOuterKm, input.tier),
-    outerKm: declaredOuter === null ? null : effectiveOuterRadiusKm(declaredOuter, input.tier),
+    innerKm: effectiveInnerRadiusKm(input.declaredInnerKm, input.declaredOuterKm, input.verified),
+    outerKm: declaredOuter === null ? null : effectiveOuterRadiusKm(declaredOuter, input.verified),
   };
 }
 
 /**
- * The whole read path in one call: raw stored columns + tier + distance → the
+ * The whole read path in one call: raw stored columns + verification + distance → the
  * badge verdict. This is what the couple's bench uses, so the clamp can never
  * be skipped by forgetting to compose the two helpers.
  */
@@ -237,7 +254,7 @@ export function travelFeeVerdictForVendor(input: {
   distanceKm: number | null | undefined;
   declaredInnerKm: number | null | undefined;
   declaredOuterKm: number | null | undefined;
-  tier: string | null | undefined;
+  verified: boolean | null | undefined;
 }): TravelFeeVerdict {
   return resolveTravelFeeVerdict({
     distanceKm: input.distanceKm,
@@ -288,8 +305,8 @@ export type ReachBadgeResolution =
  * same vendor" shape (Explore_Replan §15.9 decision 5), and this is the cheapest
  * possible way not to add a second.
  *
- * `innerKm` / `outerKm` must ALREADY be tier-clamped (they are, on the vendors
- * page, where the tier is in hand).
+ * `innerKm` / `outerKm` must ALREADY be clamped (they are, on the vendors
+ * page, where the verification is in hand).
  */
 export function resolveReachBadge(input: {
   distanceKm: number | null | undefined;
@@ -341,13 +358,12 @@ export type ServiceRadiusValidation =
   | ({ ok: true } & ServiceRadiusPair)
   | { ok: false; error: string };
 
-/** Human-readable km, so "up to 100 km" never renders as "up to Infinity km". */
-function capLabel(cap: number): string {
-  return Number.isFinite(cap) ? `${cap} km` : 'any distance';
-}
+/** What an unverified shop is told when it tries to set a distance (owner 2026-11-19: unverified = 0 km). */
+export const REACH_NEEDS_VERIFIED =
+  'Your shop reaches couples by distance once it’s verified. Get verified to set how far you go.';
 
 /**
- * Validate a submitted (inner, outer) pair against the vendor's CURRENT tier.
+ * Validate a submitted (inner, outer) pair against the shop's CURRENT verification.
  *
  * Blank is always allowed and means "not declared" — clearing both fields is a
  * legitimate save that returns the vendor to the tier-derived fallback.
@@ -355,23 +371,24 @@ function capLabel(cap: number): string {
  * Rejections, in the order they're checked:
  *   • a value that isn't a whole, non-negative number of km,
  *   • either ring above `MAX_DECLARABLE_RADIUS_KM` (typo guard),
- *   • the tier having no service reach at all (a cap of 0 — no plan today),
- *   • either ring above the tier cap — INCLUDING the inner, since inner ≤ outer
- *     ≤ cap means an inner above the cap is impossible by construction,
+ *   • the shop not being verified (ceiling 0 — owner 2026-11-19),
  *   • inner > outer.
  *
+ * There is NO plan ceiling (owner 2026-11-19): a verified Free shop may save
+ * 200 km exactly as an Ultra shop may.
+ *
  * Note the deliberate asymmetry with the DB: the database enforces ordering and
- * non-negativity (invariants that are true regardless of subscription state),
- * while the TIER CAP is enforced only here and re-clamped at read time. A
- * tier-reading CHECK constraint would fire on downgrade and brick every write to
- * a lapsed vendor's row.
+ * non-negativity, while the verification ceiling is enforced only here and
+ * re-clamped at read time. A CHECK reading verification would fire when a shop
+ * is un-verified and brick every write to its row.
  */
 export function validateServiceRadiusPair(input: {
   inner: unknown;
   outer: unknown;
-  tier: string | null | undefined;
+  /** Read from the database by the caller — never the form's word for it. */
+  verified: boolean | null | undefined;
 }): ServiceRadiusValidation {
-  const cap = tierOuterRadiusCapKm(input.tier);
+  const cap = reachCeilingKm(input.verified);
 
   const innerRaw = typeof input.inner === 'string' ? input.inner.trim() : input.inner;
   const outerRaw = typeof input.outer === 'string' ? input.outer.trim() : input.outer;
@@ -402,23 +419,7 @@ export function validateServiceRadiusPair(input: {
 
   const declaresSomething = inner !== null || outer !== null;
   if (declaresSomething && !(cap > 0)) {
-    return {
-      ok: false,
-      error:
-        'Your current plan doesn’t include a service reach yet, so there’s no distance to set. Upgrade to appear on couples’ maps.',
-    };
-  }
-  if (outer !== null && outer > cap) {
-    return {
-      ok: false,
-      error: `Your plan covers up to ${capLabel(cap)}. Lower your furthest distance, or upgrade for more reach.`,
-    };
-  }
-  if (inner !== null && inner > cap) {
-    return {
-      ok: false,
-      error: `Your plan covers up to ${capLabel(cap)}. Lower your free-travel distance, or upgrade for more reach.`,
-    };
+    return { ok: false, error: REACH_NEEDS_VERIFIED };
   }
   if (inner !== null && outer !== null && inner > outer) {
     return {

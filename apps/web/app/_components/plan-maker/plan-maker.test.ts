@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { PlanMaker, type PlanMakerOptions } from './plan-maker';
-import type { Plan } from '@/lib/plan-maker';
+import type { Plan } from '@/lib/seat-plan-engine';
 
 // tsx compiles the component's JSX as React.createElement — give it the React it looks for.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -93,7 +93,7 @@ test('the name layer: off draws no names; on draws them', async () => {
 });
 
 test('the shared maker never says "vendor"', () => {
-  for (const f of ['plan-maker.tsx', '../../../lib/plan-maker.ts']) {
+  for (const f of ['plan-maker.tsx', '../../../lib/seat-plan-engine/plan.ts']) {
     const src = readFileSync(join(__dirname, f), 'utf8');
     assert.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, ''), /\bvendor/i, f);
   }

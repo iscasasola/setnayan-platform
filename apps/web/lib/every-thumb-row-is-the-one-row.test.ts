@@ -19,7 +19,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ChevronsUpDown, ListFilter, Plus, SquareCheck } from 'lucide-react';
+import { ChevronsUpDown, SlidersHorizontal, Plus, SquareCheck } from 'lucide-react';
 import type * as RowMod from '@/components/thumb-row';
 import type * as FindMod from '@/app/dashboard/[eventId]/vendors/_components/find-thumb-row';
 import type * as ShellMod from '@/app/_components/frontdoor/shell-thumb-rows';
@@ -89,7 +89,7 @@ describe('the row draws one order', () => {
         name: 'probe',
         // given out of order on purpose: the component owns the order, not the caller
         action: { icon: Plus, label: 'Add' },
-        right: [{ menu: [{ key: 'a', label: 'A', icon: createElement(ListFilter) }], label: 'Sort', value: 'a', onPick: () => {} }],
+        right: [{ menu: [{ key: 'a', label: 'A', icon: createElement(SlidersHorizontal) }], label: 'Sort', value: 'a', onPick: () => {} }],
         field: { placeholder: 'Search guests' },
         left: [
           { icon: ChevronsUpDown, label: 'Expand all' },
@@ -166,8 +166,10 @@ describe('placeholders name the place, short', () => {
     assert.deepEqual(found.map((p) => p.words).sort(), 
       // Build 2 #43d (v113 `thumb()`): the one Clients screen says "Search clients"; the shell's Events search is untouched.
       // 🏠 "Search events" twice: the dock row (`EventsThumbRow`, kept for the thumb-row lab) and Home › Events' first row.
-      ['Search clients', 'Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
+      // 19 Nov 2026: "Search clients" left this page for `ClientsSearch` (the search is the add) — pinned just below.
+      ['Search events', 'Search events', 'Search events, people, suppliers', 'Search guests'].sort(),
     );
+    assert.match(read('app/vendor-dashboard/customers/_components/clients-search.tsx'), /<SearchBox\s+placeholder="Search clients"/, 'the Clients search lost its two-word name');
   });
   it('≤ 3 words unless the field is alone in its row', () => {
     for (const p of found) {

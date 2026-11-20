@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
 import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -41,7 +42,7 @@ export default async function RoomsSeatingPage({ searchParams }: { searchParams:
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const floorPlanOpen = !vendorPaywallApplies(isTierAtLeast(tier, 'pro'));
+  const floorPlanOpen = !vendorPaywallApplies(isTierAtLeast(tier, SUPPLIER_FLOOR_PLAN_MIN_TIER));
   const hallSize =
     profile.venue_width_m != null && profile.venue_length_m != null
       ? { widthM: Number(profile.venue_width_m), lengthM: Number(profile.venue_length_m) }

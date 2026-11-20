@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1918
-# tables: 516
-# columns: 6205
-# notnull: 3748
+# ledger: 1935
+# tables: 521
+# columns: 6248
+# notnull: 3770
 [ledger]
 20260512000000
 20260513000000
@@ -1928,8 +1928,25 @@
 20271350427190
 20271350444634
 20271350575211
+20271350627144
+20271350696878
+20271350875090
 20271350937606
+20271351048946
+20271351451190
 20271351728222
+20271352068061
+20271352180500
+20271352461498
+20271352882666
+20271352968519
+20271353093349
+20271353556136
+20271354465843
+20271354681750
+20271354727518
+20271355036188
+20271355746081
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1970,6 +1987,10 @@ admin_data_access_log.admin_user_id
 admin_data_access_log.context
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.amount_php
 admin_received_transactions.channel
 admin_received_transactions.created_at
@@ -2176,6 +2197,10 @@ booking_fee_disputes.opened_by_user_id
 booking_fee_disputes.reason
 booking_fee_disputes.status
 booking_fee_disputes.vendor_profile_id
+booking_fee_event_import_slots.created_at
+booking_fee_event_import_slots.event_id
+booking_fee_event_import_slots.imported_at
+booking_fee_event_import_slots.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.attribution_frozen_at
 booking_fee_ledger.attribution_thread_id
@@ -2285,6 +2310,7 @@ canonical_service_schemas.schema_version
 canonical_service_schemas.shared_attribute_groups
 canonical_service_schemas.updated_at
 canonical_service_taxonomy.applicable_event_types
+canonical_service_taxonomy.availability_style
 canonical_service_taxonomy.canonical_service
 canonical_service_taxonomy.created_at
 canonical_service_taxonomy.dietary
@@ -2418,6 +2444,7 @@ chat_polls.thread_id
 chat_thread_members.added_by_user_id
 chat_thread_members.joined_at
 chat_thread_members.left_at
+chat_thread_members.left_by_removal
 chat_thread_members.left_note
 chat_thread_members.thread_id
 chat_thread_members.user_id
@@ -3562,6 +3589,13 @@ event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.locked_at
 event_supplier_schedule_marks.seen_at
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.decided_at
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.shared_by
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -3771,6 +3805,7 @@ event_vendor_working_notes.visibility
 event_vendors.agreed_hours
 event_vendors.archived_at
 event_vendors.archived_by_lock_of
+event_vendors.booked_quantity
 event_vendors.category
 event_vendors.category_key
 event_vendors.completion_disputed_at
@@ -3834,6 +3869,7 @@ event_vendors.package_role
 event_vendors.papic_captures_hidden
 event_vendors.pax_quote_base
 event_vendors.pax_surcharge_php
+event_vendors.prep_days
 event_vendors.pricing_basis
 event_vendors.public_id
 event_vendors.requested_service_ids
@@ -5714,6 +5750,8 @@ platform_package_catalog.title
 platform_package_catalog.updated_at
 platform_package_catalog.updated_by_admin_id
 platform_retail_catalog_v2.billing_period
+platform_retail_catalog_v2.bundle_of_service_code
+platform_retail_catalog_v2.bundle_quantity
 platform_retail_catalog_v2.created_at
 platform_retail_catalog_v2.description
 platform_retail_catalog_v2.fullres_extra_keep_days
@@ -5799,6 +5837,8 @@ platform_settings.gift_limit_pct
 platform_settings.google_drive_oauth_client_id
 platform_settings.google_drive_oauth_redirect_uri
 platform_settings.google_picker_api_key
+platform_settings.grow_few_bookings_month
+platform_settings.grow_few_inquiries_28d
 platform_settings.id
 platform_settings.ig_user_id
 platform_settings.launch_offer_booking_cap
@@ -5834,8 +5874,11 @@ platform_settings.setnayan_ai_paywall_enabled
 platform_settings.setnayan_ai_per_event_pricing_enabled
 platform_settings.setnayan_pay_fee_pct
 platform_settings.spotlight_homepage_enabled
+platform_settings.story_photo_silence_days
 platform_settings.tiktok_client_key
 platform_settings.tiktok_oauth_redirect_uri
+platform_settings.today_soon_ask_hours
+platform_settings.today_soon_event_days
 platform_settings.updated_at
 platform_settings.vendor_addon_tiered_pricing_enabled
 platform_settings.vendor_credit_warning_sweep_last_run_at
@@ -6177,11 +6220,13 @@ shop_badge_upgrades.started_choice
 shop_badge_upgrades.started_period_days
 shop_badge_upgrades.upgrade_id
 shop_badge_upgrades.vendor_profile_id
+shop_gift_purchases.bundle_code
 shop_gift_purchases.created_at
 shop_gift_purchases.created_by
 shop_gift_purchases.credits_each
 shop_gift_purchases.gift_kind
 shop_gift_purchases.order_id
+shop_gift_purchases.packs_each
 shop_gift_purchases.price_basis
 shop_gift_purchases.quantity
 shop_gift_purchases.service_code
@@ -6198,6 +6243,8 @@ shop_gift_stock_entries.kind
 shop_gift_stock_entries.note
 shop_gift_stock_entries.order_id
 shop_gift_stock_entries.own_client_gift_id
+shop_gift_stock_entries.pack_code
+shop_gift_stock_entries.packs
 shop_gift_stock_entries.pool_grant_id
 shop_gift_stock_entries.proposal_id
 shop_gift_stock_entries.unlocks_sku
@@ -6327,6 +6374,11 @@ stewardship_transfers.to_user_id
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
 stewardship_transfers.verification_ref
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
+supplier_event_wrap_ups.wrapped_by
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -6405,6 +6457,11 @@ supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.updated_by_user_id
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.put_off_by
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.closest_existing
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
@@ -7851,6 +7908,7 @@ vendor_service_time_slots.vendor_profile_id
 vendor_service_time_slots.vendor_service_id
 vendor_services.added_pax_block
 vendor_services.added_pax_price_php
+vendor_services.availability_style
 vendor_services.base_pax
 vendor_services.branch_copy_of
 vendor_services.branch_id
@@ -7876,6 +7934,7 @@ vendor_services.last_minute_end_months
 vendor_services.last_minute_surcharge_pct
 vendor_services.min_hours
 vendor_services.min_pax
+vendor_services.order_lead_days
 vendor_services.package_inclusions
 vendor_services.per_pax_price_php
 vendor_services.plan_held_at
@@ -7897,6 +7956,7 @@ vendor_services.title
 vendor_services.transport_flat_fee_php
 vendor_services.transport_included
 vendor_services.updated_at
+vendor_services.usual_prep_days
 vendor_services.vendor_profile_id
 vendor_services.vendor_service_id
 vendor_songs.created_at
@@ -8157,6 +8217,10 @@ admin_audit_log.metadata
 admin_data_access_log.access_log_id
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.channel
 admin_received_transactions.created_at
 admin_received_transactions.read_status
@@ -8274,6 +8338,10 @@ booking_fee_disputes.created_at
 booking_fee_disputes.dispute_id
 booking_fee_disputes.status
 booking_fee_disputes.vendor_profile_id
+booking_fee_event_import_slots.created_at
+booking_fee_event_import_slots.event_id
+booking_fee_event_import_slots.imported_at
+booking_fee_event_import_slots.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.created_at
 booking_fee_ledger.fee_paid_total_centavos
@@ -8430,6 +8498,7 @@ chat_polls.poll_id
 chat_polls.question
 chat_polls.thread_id
 chat_thread_members.joined_at
+chat_thread_members.left_by_removal
 chat_thread_members.thread_id
 chat_thread_members.user_id
 chat_thread_reads.last_read_at
@@ -9149,6 +9218,11 @@ event_supplier_files.updated_at
 event_supplier_files.vendor_profile_id
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -10775,6 +10849,10 @@ stewardship_transfers.initiated_at
 stewardship_transfers.status
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -10833,6 +10911,10 @@ supplier_scan_settings.enabled
 supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches

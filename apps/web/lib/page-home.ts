@@ -72,7 +72,7 @@ export const BAR_ROOTS = {
     '/vendor-dashboard/collections',
   ],
   // The five tabs' landings (owner 13 Nov 2026 — `lib/admin/admin-tabs.ts`).
-  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/categories', '/admin/app-performance'],
+  admin: ['/admin', '/admin/payments', '/admin/accounts', '/admin/catalogue', '/admin/app-performance'],
 } as const;
 
 const ROOTS = new Set<string>(Object.values(BAR_ROOTS).flat());
@@ -105,6 +105,7 @@ const LABELS: Record<string, string> = {
   '/admin': 'Work',
   '/admin/payments': 'Money',
   '/admin/accounts': 'People',
+  '/admin/catalogue': 'Catalogue',
   '/admin/categories': 'Catalogue',
   '/admin/app-performance': 'Insights',
   '/admin/more': 'All surfaces',

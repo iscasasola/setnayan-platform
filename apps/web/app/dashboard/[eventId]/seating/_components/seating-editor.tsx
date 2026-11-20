@@ -96,7 +96,6 @@ import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
-import { fitRoom, nearestWall, planRoomWords, seatingBoxPct, seatingJoinRow, snapToLines, type SeatingFloor } from '@/lib/plan-maker';
 import { guestSeatView } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
@@ -104,9 +103,7 @@ import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
-  CHAIR_PX,
   SIDE_COLORS,
-  TABLE_FOOTPRINT_M,
   boothTypeForVendorCategory,
   boothPresenceLabel,
   boothPerimeterSlots,
@@ -114,17 +111,13 @@ import {
   solveAutoLayout,
   freeBoothSlots,
   defaultPriorityOrder,
-  defaultTablePosition,
-  effectiveCapacity,
   autoArrangeNewTableKey,
   autoArrangeSummary,
   autoSeatRoom,
   tablesToAddForAutoSeat,
   groupTablesIntoUnits,
   guestTier,
-  removedSeatSet,
   roleTier,
-  rotatePoint,
   nextTableName,
   obbOf,
   checkPlacement,
@@ -137,10 +130,6 @@ import {
   atLegalJoint,
   chainableShapes,
   stageZone,
-  TABLE_TYPE_CATALOG,
-  TABLE_TYPE_LABEL,
-  shapeHintFor,
-  tableGeometry,
   tableNumberEndsInFour,
   relaxLowestPriorityRule,
   type BoothType,
@@ -153,10 +142,7 @@ import {
   type FloorPlanRow,
   sanitizeCapacity,
   weldCommitBatch,
-  DEFAULT_ROOM_M,
   type FloorSignRow,
-  type TableShapeHint,
-  type TableType,
   type WorldPose,
   type OracleZone,
   type DropHit,
@@ -166,6 +152,30 @@ import {
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
 } from '@/lib/seating';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
+import {
+  CHAIR_PX,
+  TABLE_FOOTPRINT_M,
+  defaultTablePosition,
+  effectiveCapacity,
+  removedSeatSet,
+  rotatePoint,
+  TABLE_TYPE_CATALOG,
+  TABLE_TYPE_LABEL,
+  shapeHintFor,
+  tableGeometry,
+  DEFAULT_ROOM_M,
+  type TableShapeHint,
+  type TableType,
+  nearestWall,
+  fitRoom,
+  planRoomWords,
+  seatingBoxPct,
+  seatingJoinRow,
+  snapToLines,
+  type SeatingFloor,
+} from '@/lib/seat-plan-engine';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   roleSeatingChoice,
@@ -2884,7 +2894,7 @@ export function SeatingEditor({
   };
 
   /* 🪑 WHERE A NEW TABLE LANDS — ON THE GRID (owner 2026-11-20, pick 3; the fault, live: new tables landed off the row,
-     wherever the first free spot was). The shared core answers (`seatingJoinRow`, lib/plan-maker.ts — the same rows a
+     wherever the first free spot was). The shared core answers (`seatingJoinRow`, lib/seat-plan-engine — the same rows a
      shop's Spaces lines up): the first row, front first, still on the grid with room; that row re-centres on the stage
      line; a table placed by hand never moves. null = no free line (the shipped `computeSpawnFor` then finds a spot). */
   const floorForGrid: SeatingFloor = {
@@ -3571,7 +3581,7 @@ export function SeatingEditor({
         // Alignment snap: pull to another table's centre (or the room
         // centreline) when within tolerance — the matched axis draws a guide
         // hairline. Hold Alt to drag free of all snapping.
-        /* 📏 The shared core's line-up (`snapToLines`, lib/plan-maker.ts — a shop's Spaces snaps the same way): another
+        /* 📏 The shared core's line-up (`snapToLines`, lib/seat-plan-engine — a shop's Spaces snaps the same way): another
            table's row or column, or the STAGE LINE every row centres on (it was the room's middle, which is not where
            the rows are when the stage is off-centre). It also says WHICH table it lined up with (owner 2026-11-20:
            "the name of what it lined up with"). */
@@ -4497,7 +4507,7 @@ export function SeatingEditor({
 
   /* 📐 FIT SHOWS THE WHOLE ROOM (owner 2026-11-20, DECISION_LOG "GUESTS › SEATS, ROUND TWO": *Fit shows the whole
      room*; the fault, live at 375: Fit and the draft framed the TABLES, so two tables filled the screen and the walls
-     were nowhere). The answer is the shared core's (`fitRoom`, lib/plan-maker.ts — a shop's Spaces fits the same way):
+     were nowhere). The answer is the shared core's (`fitRoom`, lib/seat-plan-engine — a shop's Spaces fits the same way):
      every wall, centred in the part of the floor nothing covers — under the pinned row (`--gs-stick-h`) and above the
      tray and the thumb row (`--sn-thumb-room`, less the dock the cell already stops at: the zoom stack's own footing).
      What stands BEYOND a wall stays in view too (a table dragged past one, the cocktail area docked outside).
@@ -8746,8 +8756,8 @@ export function SeatingEditor({
               stays the mouth label. Sits under the pill (z-0). */}
           {entrance.enabled && entrance.kind === 'tunnel'
             ? (() => {
-                // Nearest wall (argmin distance) — the shared plan core's rule (lib/plan-maker.ts), ties top · bottom ·
-                // left · right exactly as this block always tested them.
+                // Nearest wall (argmin distance) — the shared engine's rule (`nearestWall`, lib/seat-plan-engine), ties
+                // top · bottom · left · right exactly as this block always tested them. A supplier's door uses it too.
                 const wall = nearestWall(entrance.x, entrance.y);
                 // Depth as a % of the room dimension along the inward axis; a
                 // free board (no metre size) uses a fixed ~12% fallback.

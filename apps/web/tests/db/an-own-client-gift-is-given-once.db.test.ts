@@ -52,8 +52,13 @@ async function shopOf(userId: string, name: string): Promise<string> {
   );
 }
 
+/** Bought stock, COUNTED IN PACKS (owner 2026-11-14): `credits` of Papic 150, so credits / 150 packs of it. */
 async function stockIn(shop: string, credits: number): Promise<void> {
-  await db.query(`INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind) VALUES ($1, 'papic', $2, 'bought')`, [shop, credits]);
+  assert.equal(credits % 150, 0, 'stock arrives in whole Papic 150 packs');
+  await db.query(
+    `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, pack_code, packs) VALUES ($1, 'papic', $2, 'bought', $3, $4)`,
+    [shop, credits, P150, credits / 150],
+  );
 }
 
 async function newEvent(hostUser: string, createdAt: string | null = null): Promise<string> {
@@ -73,7 +78,9 @@ async function invite(shop: string, createdAt: string): Promise<string> {
   );
 }
 
-const LINES = [{ service_code: 'PAPIC_GUEST', title: 'Papic 150', kind: 'papic', credits: 150 }];
+/** The Papic 150 pack — the pack a 150-credit badge reward is, too (`shop_gift_papic_pack_of_credits`). */
+const P150 = 'PAPIC_GUEST_150';
+const LINES = [{ service_code: P150, title: 'Papic 150', kind: 'papic', credits: 150 }];
 
 type Give = { status: string; own_gift_id?: string; credits?: number; free?: number; account_new?: boolean | null; event_new?: boolean | null; first_import?: boolean };
 async function give(shop: string, eventId: string, inviteId: string | null, userId: string | null): Promise<Give> {
@@ -116,27 +123,32 @@ test('replay applies every migration incl. own clients', () => {
 });
 
 test('1 · the gift is given once, from bought stock, into the shared pool, as an own-client row', async () => {
-  await stockIn(shopA, 1000);
+  await stockIn(shopA, 1050);
   const couple = await newUser('new-couple@test.test', 'customer');
   const inv = await invite(shopA, new Date(Date.now() - 60_000).toISOString());
   const eventId = await newEvent(couple);
   const first = await give(shopA, eventId, inv, couple);
   assert.equal(first.status, 'ok');
   assert.equal(first.credits, 150);
-  assert.equal(await balance(shopA), 850);
+  assert.equal(await balance(shopA), 900);
   const pool = await one<number>(`SELECT COALESCE(SUM(points), 0)::int AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'shop_gift'`, [eventId]);
   assert.equal(pool, 150);
   const kinds = await one<string>(`SELECT string_agg(kind, ',') AS v FROM public.shop_gift_stock_entries WHERE event_id = $1`, [eventId]);
   assert.equal(kinds, 'own_client', 'an own-client gift is its own kind — never a quote\'s "given"');
   const again = await give(shopA, eventId, inv, couple);
   assert.equal(again.status, 'already');
-  assert.equal(await balance(shopA), 850, 'a repeat never gives twice');
+  assert.equal(await balance(shopA), 900, 'a repeat never gives twice');
   assert.equal(await one<string>(`SELECT status AS v FROM public.vendor_client_invites WHERE invite_id = $1`, [inv]), 'joined');
 });
 
 test('2 · a badge reward never pays for an own-client gift; short stock writes nothing', async () => {
   await db.query(`SELECT public.shop_badge_reward_grant($1, 'reviews:5', 'reviews', 'papic', 1, 150)`, [shopB]);
   assert.equal(await balance(shopB), 150, 'the reward sits in the stock');
+  assert.equal(
+    await one<string>(`SELECT pack_code AS v FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND kind = 'badge_reward'`, [shopB]),
+    P150,
+    'the reward is the same pack the gift asks for — so this test is about the reward, not about a missing pack',
+  );
   const eventId = await newEvent(oldCouple);
   const res = await give(shopB, eventId, null, null);
   assert.equal(res.status, 'short');
@@ -146,8 +158,8 @@ test('2 · a badge reward never pays for an own-client gift; short stock writes 
 });
 
 test('3 · the facts: new account · old account · first import · a second shop on the same event', async () => {
-  await stockIn(shopB, 1000);
-  await stockIn(shopC, 1000);
+  await stockIn(shopB, 1050);
+  await stockIn(shopC, 1050);
   // An existing account, an event it already had, imported by shop B first: not new, not a new event, but FIRST.
   const invitedAt = new Date(Date.now() - 60_000).toISOString();
   const eventId = await newEvent(oldCouple, new Date(Date.now() - 86_400_000).toISOString());

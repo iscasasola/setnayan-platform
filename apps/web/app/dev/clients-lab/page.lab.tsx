@@ -40,7 +40,7 @@ import { Plus, Settings } from 'lucide-react';
 import { SearchBox } from '@/app/_components/search-box';
 import { dayHeadWords } from '@/lib/vendor-dates';
 import { PickedClientShell } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell';
-import { pickedMenuFor, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { pickedAnchorOf, pickedMenuFor, visiblePickedPage, type PickedClientPage } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 import { clientLandingPage } from '@/lib/upcoming-schedule-door';
 import { DetailsNumbersRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers-row';
 import { detailsNumbers } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-numbers';
@@ -50,7 +50,7 @@ import { SuppliersList } from '@/app/vendor-dashboard/clients/[eventId]/_compone
 import { supplierRows } from '@/app/vendor-dashboard/clients/[eventId]/_components/suppliers-rows';
 import { LabDetailsDecisions } from './lab-decisions';
 import { LabAskingPick } from './lab-asking';
-import { DetailsFormsDoor } from '@/app/vendor-dashboard/clients/[eventId]/_components/details-forms-door';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
 import { ScheduleDays, type AllClientsMonth } from '@/app/vendor-dashboard/clients/[eventId]/_components/schedule-days';
 import { clientScheduleDays, type ScheduleDayInputs } from '@/lib/schedule-days';
 import { SupplierSchedule } from '@/app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule';
@@ -183,8 +183,14 @@ function pickedBodies(
             { vendor_name: 'Kusina ni Lola', category: 'caterer' },
           ])}
         />
-        <LabDetailsDecisions mode={decisions} />
-        <DetailsFormsDoor />
+        {/* 🗂 Seven tabs (18 Nov): Forms, then Decisions, are parts of Details — the forms body is proven in /dev/forms-lab. */}
+        <section id="forms" aria-label="Forms" className="scroll-mt-4" data-picked-part="forms">
+          <p className="home-k2 pb-1">Forms</p>
+          {later('The Forms body')}
+        </section>
+        <section id="decisions" aria-label="Decisions" className="scroll-mt-4" data-picked-part="decisions">
+          <LabDetailsDecisions mode={decisions} />
+        </section>
       </div>
     ),
     schedule: (
@@ -216,11 +222,20 @@ function pickedBodies(
         </ScheduleDays>
       </>
     ),
-    chat: later('Chat'),
-    quote: later('Quotation'),
-    // 💸 B2-E: the Payment page with two refunds recorded (?v=pick&page=payments; &refunds=fail = the refused read). Lab
-    // rows; the "Record a refund" sheet opens, but its save is never pressed here (it would call the server action).
-    payments: (
+    chat: (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3" data-lab-chat="">
+        {Array.from({ length: 14 }, (_, i) => (
+          <p key={i} className={`my-1 max-w-[80%] rounded-2xl px-3 py-2 text-[14px] ${i % 2 ? 'self-end bg-sn-accent text-sn-on-accent' : 'self-start bg-frame text-ink'}`}>
+            {i % 2 ? 'Yes, until Dec 8. I sent the form again.' : 'Hi! Can we still change the dessert table?'}
+          </p>
+        ))}
+      </div>
+    ),
+    // 💰 Book & Budget (seven tabs, 18 Nov): the Payment page (?v=pick&page=quote; &refunds=fail = the refused read), then
+    // the quote. Lab rows; the "Record a refund" sheet opens, but its save is never pressed here (it calls the server).
+    quote: (
+      <>
+      <section id="payments" aria-label="Payments" className="scroll-mt-4" data-picked-part="payments">
       <PaymentPage
         ctx={{
           eventId: 'ev-reyes',
@@ -238,8 +253,15 @@ function pickedBodies(
         money={LAB_PAYMENT_MONEY}
         refunds={{ eventVendorId: ME, clientName: 'Reyes & Santos', measured: !refundsFail, rows: refundsFail ? [] : LAB_REFUNDS }}
       />
+      </section>
+      <section id="quote" aria-label="Quotation" className="mt-6 scroll-mt-4" data-picked-part="quote">
+        <p className="home-k2 mb-2">Quotation</p>
+        {later('The quote body')}
+      </section>
+      </>
     ),
-    forms: later('Forms'),
+    payments: null,
+    forms: null,
     files: later('Files'),
     hub: later('Hub'),
     report: later('Report'),
@@ -373,7 +395,9 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   }
 
   if (v === 'pick') {
-    const page = (one(sp.page) ?? 'details') as PickedClientPage;
+    // `?tab=` lands exactly as the real client page does (page + part); `?page=` is the lab's own plain pick.
+    const tab = one(sp.tab);
+    const page = tab ? visiblePickedPage(tab, true) : ((one(sp.page) ?? 'details') as PickedClientPage);
     return (
       <div className="min-h-screen bg-cream" data-clients-lab="pick">
         <PickedClientShell
@@ -381,6 +405,7 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           eventName="Reyes & Santos wedding"
           menu={pickedMenuFor(true)}
           initialPage={page}
+          landAt={pickedAnchorOf(tab)}
           bodies={pickedBodies(
             page,
             one(sp.cal) === 'fail' ? 'fail' : one(sp.cal) === 'two' ? 'two' : null,
@@ -389,6 +414,8 @@ export default async function ClientsLabPage({ searchParams }: Props) {
           )}
           settingsLine={{ line: 'This client only', tip: 'Lab.' }}
           settings={null}
+          workDefault="details"
+          nextStep={<NextStepRow step={{ line: `${peso(242830)} due Wed, Dec 9`, page: 'quote', anchor: 'payments' }} />}
         />
       </div>
     );
@@ -423,13 +450,13 @@ export default async function ClientsLabPage({ searchParams }: Props) {
   };
   return (
     <div className="min-h-screen bg-cream" data-clients-lab="events">
-      <main className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 tab:max-w-none">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-6 pt-0 sm:px-6 tab:pt-3 lg:px-8 tab:max-w-none">
         <div className="pb-24">
           <div id="customers" className="min-w-0 scroll-mt-24" data-customers-events="">
             <CustomersPin
               seg="events"
               hrefs={{ events: '/dev/clients-lab', dates: '/dev/supplier-lab?s=dates', money: '/dev/supplier-lab?s=money' }}
-              title={{ counts: `4 booked · ${peso(18000)} to collect` }}
+              title={{}}
               month={{
                 initialDayStates: LAB_CALENDAR.dayStates,
                 initialWaitlist: LAB_CALENDAR.waitlist,

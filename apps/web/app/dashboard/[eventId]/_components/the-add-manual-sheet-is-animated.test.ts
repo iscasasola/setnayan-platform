@@ -25,6 +25,7 @@
  * appear at all, so a rename cannot leave it passing over nothing.
  */
 import { describe, it } from 'node:test';
+import { stripComments } from '@/lib/strip-comments';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -68,7 +69,13 @@ describe('the add-manually sheet is animated', () => {
   });
 
   it("the Sheet's rise and fade are defined, worn by the Sheet, and `backwards`", () => {
-    for (const c of ['sn-rise', 'sn-fade']) {
+    // 🎞 18 Nov 2026 (the motion standard, "sheets use Stack"): the panel no longer wears the small `.sn-rise` — the
+    // Sheet moves itself (the grow, or Stack: `playSheetStack`, transform + opacity, the open filling `backwards`).
+    const code = stripComments(sheet);
+    assert.match(code, /void playSheetStack\(parts, false\);/, 'a sheet with no press behind it opens without motion');
+    assert.match(code, /fill: 'backwards', id: STACK_ID/, 'the Stack open is not `backwards`');
+    assert.doesNotMatch(code, /sn-rise/, 'the panel wears .sn-rise again — two motions on one sheet');
+    for (const c of ['sn-fade']) {
       const i = css.indexOf(`.${c} {`);
       assert.ok(i > 0, `.${c} is not defined in globals.css`);
       const decl = css.slice(i, css.indexOf('}', i));

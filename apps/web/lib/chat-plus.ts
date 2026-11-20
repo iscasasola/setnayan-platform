@@ -15,8 +15,9 @@
  *
  * 🧭 THE (+) FOLLOWS THE MENU (owner 11 Nov 2026, DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE
  * ORDER" — *"Rearrange it as well as we rearrange the menu. Align them both."*). Every row belongs to ONE page of the
- * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — Chat · Details · Quotation · Payment ·
- * Forms · Schedule · Files · Report — so the sheet reads as the menu's mirror, each row under its tab's word.
+ * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — since the seven tabs (owner 18 Nov 2026)
+ * Chat · Details · Book & Budget · Schedule · Files · Report — so the sheet reads as the menu's mirror, each row under its
+ * tab's word. Form went under Details (Forms is a part of Details now) and Payment under Book & Budget.
  * `lib/chat-plus.test.ts` derives the expected order from `PICKED_CLIENT_PAGES` itself, so the two can never drift.
  *
  * 📷 The composer's Camera (and, for the host, Photo) are rows HERE, under Files, since the same ruling — before it the
@@ -98,9 +99,9 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   decision: 'chat',
   poll: 'chat',
   access: 'details',
-  payment: 'payments',
-  logpay: 'payments',
-  form: 'forms',
+  form: 'details',
+  payment: 'quote',
+  logpay: 'quote',
   meeting: 'schedule',
   camera: 'files',
   photo: 'files',
@@ -166,8 +167,9 @@ export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change o
 
 /**
  * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
- * Propose a payment plan · See every version; then the menu's order (owner 11 Nov): Decision (Chat) · Ask for access
- * (Details) · Payment · Form (Forms) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a problem (LAST).
+ * Propose a payment plan · See every version; then the menu's order (seven tabs, 18 Nov): Decision · Poll (Chat) · Ask
+ * for access · Form (Details) · Payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a
+ * problem (LAST).
  */
 export function supplierPlusRows(opts: {
   paid: boolean;
@@ -221,19 +223,19 @@ export function supplierPlusRows(opts: {
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     {
-      key: 'payment',
-      label: 'Payment',
-      line: 'Ask for the next one now',
-      card: 'payment',
-      door: 'ask-payment',
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    {
       key: 'form',
       label: 'Form',
       line: 'A saved question set, answered one at a time',
       card: 'form',
       door: 'questions-for-couple',
+      shutUntilAgreement: { reason: 'Opens once they book you' },
+    },
+    {
+      key: 'payment',
+      label: 'Payment',
+      line: 'Ask for the next one now',
+      card: 'payment',
+      door: 'ask-payment',
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
@@ -248,7 +250,7 @@ export function supplierPlusRows(opts: {
 /**
  * Host · and a coordinator with another supplier (who drops Log a payment — it is the hosts' money). The same relative
  * order as the supplier's (+) AND the host's own picked-supplier menu (`picked-supplier-menu.ts`, re-ordered 11 Nov to
- * mirror the supplier's): Decision (Chat) · Log a payment (Payment) · Meeting (Schedule) · Camera · Photos & files (Files) ·
+ * mirror the supplier's; seven tabs 18 Nov): Decision (Chat) · Log a payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) ·
  * Report a problem (Report — last).
  *
  * 📷 ONE phone picker, as on the supplier's (+) (owner 11 Nov, *"The (+) has dupes?"*, built for the supplier in #7483,

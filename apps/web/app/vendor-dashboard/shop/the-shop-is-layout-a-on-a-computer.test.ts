@@ -2,7 +2,7 @@
  * GUARD — SHOP ON A COMPUTER IS LAYOUT A, AND THE PHONE IS UNCHANGED (owner 16 Nov, DECISION_LOG "SUPPLIER DESKTOP MAIN
  * PAGES APPROVED", picks 3 · 4 · 5; P1 drawing `prototypes/supplier_desktop_main_2026-11-16/`).
  *
- *   1. One side column holds Analytics → Badges → Makers, in that order; the service list follows it inside one wrapper.
+ *   1. One side column holds Makers (Templates, then Specialized tools) → Analytics → Badges, in that order (owner 19 Nov); the service list follows it inside one wrapper.
  *   2. Below 1280 both wrappers draw nothing (`display: contents` at the top level of the stylesheet).
  *   3. From 1280: side column 400px beside the cards; the analytics carousel is a grid; cards 2 across.
  *   4. From 1600: side column 440px; cards 3 across. Both widths are ONE token (`--shop-desk-side`).
@@ -21,11 +21,11 @@ const PAGE = stripComments(readFileSync(join(import.meta.dirname, 'page.tsx'), '
 const CSS = stripComments(readFileSync(join(import.meta.dirname, '../_components/supplier-frame.css'), 'utf8'));
 const SHOP = CSS.slice(CSS.indexOf('[data-shop-desk],'));
 
-test('1 · the side column is Analytics → Badges → Makers, then the services, all in one wrapper', () => {
+test('1 · the side column is Makers → Analytics → Badges, then the services, all in one wrapper', () => {
   const at = (s: string) => PAGE.indexOf(s);
-  const order = [at('data-shop-desk=""'), at('data-shop-desk-side=""'), at('<OneAnalyticsSection'), at('<ShopBadgeRow'), at('<ShopMakers'), at('data-shop-services=""')];
+  const order = [at('data-shop-desk=""'), at('data-shop-desk-side=""'), at('<ShopMakers'), at('<OneAnalyticsSection'), at('<ShopBadgeRow'), at('data-shop-services=""')];
   assert.ok(order.every((i) => i > 0), `a Shop part is missing: ${order.join(',')}`);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop parts are out of the shipped order');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the Shop parts are out of the drawn order');
   const side = PAGE.slice(at('data-shop-desk-side=""'), at('data-shop-services=""'));
   assert.equal((side.match(/<\/div>/g) ?? []).length - (side.match(/<div\b/g) ?? []).length, 1, 'the side column does not close right before the services');
 });

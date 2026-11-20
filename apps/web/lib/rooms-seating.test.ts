@@ -35,7 +35,7 @@ test('tables: one chair count; ends belong to Long; small Long draws square', ()
   assert.equal(chairPoints('half_moon', 4, false).length, 4);
   assert.equal(shapeDrawn('long', 4, false), 'square');
   assert.equal(shapeDrawn('long', 4, true), 'long');
-  assert.equal(tableWords('long', 10, true), 'Long · 10 chairs · at the ends');
+  assert.equal(tableWords('long', 10, true), 'Long · 10 chairs · 2 at the ends');
   assert.equal(tableWords('round', 8, true), 'Round · 8 chairs', 'a Round table said "at the ends"');
   assert.equal(tableWords('half_moon', 4, false), 'Half-moon booth · seats 4');
 });

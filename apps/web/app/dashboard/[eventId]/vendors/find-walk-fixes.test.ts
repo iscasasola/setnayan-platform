@@ -69,9 +69,19 @@ test('2 · the pinned block and the pinned category head travel WITH the top bar
   // The bar: `.fd-topwrap`, the app variant.
   const bar = /\.fd\[data-chrome='app'\] \.fd-topwrap \{[^}]*?transition:\s*([^;]+);/.exec(FRONT_DOOR)?.[1];
   assert.ok(bar, "the app top bar's transition moved — re-anchor on .fd-topwrap");
-  const barMotion = motionOf(bar!, 'transform');
-  assert.equal(barMotion.ms, 300);
-  assert.equal(barMotion.curve, 'ease-out');
+  // 🫳 18 Nov 2026 (motion standard § 5 #37 Tuck): the bar no longer carries numbers of its own — it reads the ONE pair
+  // `--sn-tuck-dur` / `--sn-tuck-ease` (back: Quick on Settle; away, under `html[data-tuck]`: Move on the Spring), and
+  // "moves as one" now means every follower reads that same pair.
+  const PAIR = 'var(--sn-tuck-dur) var(--sn-tuck-ease)';
+  const paceOf = (transition: string, property: string) => {
+    const part = transition.split(/,(?![^()]*\))/).map((x) => x.trim()).find((x) => x.split(/\s+/)[0] === property);
+    assert.ok(part, `no transition on ${property} in "${transition}"`);
+    return part!.split(/\s+/).slice(1).join(' ');
+  };
+  const barMotion = paceOf(bar!, 'transform');
+  assert.equal(barMotion, PAIR, 'the top bar keeps a speed of its own — the pinned parts cannot follow it');
+  assert.match(GLOBALS, /:root \{[^}]*--sn-tuck-dur: var\(--sn-m-quick\);\s*--sn-tuck-ease: var\(--sn-m-settle\);/);
+  assert.match(GLOBALS, /html\[data-tuck\] \{\s*--sn-tuck-dur: var\(--sn-m-move\);\s*--sn-tuck-ease: var\(--sn-m-spring\);/);
   // It slides for everybody: no reduced-motion rule stops it.
   assert.doesNotMatch(
     FRONT_DOOR,
@@ -82,7 +92,7 @@ test('2 · the pinned block and the pinned category head travel WITH the top bar
   // The pinned block (date · place, Find · Build · Booked).
   const block = /\[data-suppliers-stick\]\{transition:([^}]+)\}/.exec(SHELL)?.[1];
   assert.ok(block, 'the pinned block has no transition of its own — it will jump while the bar slides');
-  assert.deepEqual(motionOf(block!, 'top'), barMotion, 'the pinned block and the bar no longer move as one');
+  assert.equal(paceOf(block!, 'top'), barMotion, 'the pinned block and the bar no longer move as one');
   const cls = /<div\s+ref=\{stickRef\}\s+data-suppliers-stick=""\s+className="([^"]*)"/.exec(SHELL)?.[1] ?? '';
   assert.ok(cls, 'the pinned block is gone — re-anchor on data-suppliers-stick');
   assert.doesNotMatch(cls, /(^| )(ease-\S+|duration-\S+|transition\S*)( |$)/, "a Tailwind curve on the block is not the bar's curve");
@@ -91,7 +101,7 @@ test('2 · the pinned block and the pinned category head travel WITH the top bar
   // The open category's pinned head.
   const head = /\.slcat \.fold\.flat \.cat\.open>\.cat-head-row\{transition:([^}]+)\}/.exec(BENCH)?.[1];
   assert.ok(head, "the pinned category head jumps to its new place while the bar is still sliding");
-  assert.deepEqual(motionOf(head!, 'top'), barMotion, 'the pinned head and the bar no longer move as one');
+  assert.equal(paceOf(head!, 'top'), barMotion, 'the pinned head and the bar no longer move as one');
   assert.doesNotMatch(
     BENCH,
     /prefers-reduced-motion:reduce\)\{[^@]*\.cat-head-row\{transition:none/,

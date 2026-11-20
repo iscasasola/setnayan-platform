@@ -119,7 +119,7 @@ test('2 · the date and the day’s word sit under the title; the separate row i
   const shell = read('app/_components/picked/picked-shell.tsx');
   const pin = shell.slice(shell.indexOf('data-picked-pin=""'), shell.indexOf('data-picked-head-actions=""'));
   assert.ok(pin.indexOf('<h1') >= 0 && pin.indexOf('<h1') < pin.indexOf('data-picked-head-line=""'), 'no line under the title');
-  assert.match(shell, /<PickedHeadLineContext\.Provider value=\{headLineSlot\}>[\s\S]*\{bodies\[page\]\}/);
+  assert.match(shell, /<PickedHeadLineContext\.Provider value=\{headLineSlot\}>[\s\S]*\{bodies\[workPage\]\}/);
   // The page puts the compact answer in the head (picked) or on the head's own line (full screen) — never a row.
   assert.match(THREAD, /\{embedded \? <PickedHeadLine>\{answerInHead\(true\)\}<\/PickedHeadLine> : null\}/);
   assert.match(THREAD, /\{answerInHead\(false\)\}/);

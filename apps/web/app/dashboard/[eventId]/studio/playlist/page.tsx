@@ -26,6 +26,8 @@
  * moment a Music vendor locks.
  */
 
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -59,9 +61,7 @@ export default async function PlaylistPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Fetch event + booked Music vendor (if any) in parallel with picks.
@@ -80,11 +80,12 @@ export default async function PlaylistPage({ params }: Props) {
     // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
     // below bounced EVERY visitor straight back to /dashboard: this page was
     // 100% unreachable in production.
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id,display_name', () =>
+      supabase
       .from('events')
       .select('event_id,display_name')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
     supabase
       .from('event_vendors')
       .select('vendor_id,vendor_name,category,status')

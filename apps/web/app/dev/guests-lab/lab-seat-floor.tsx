@@ -5,7 +5,7 @@ import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/sea
 import { SeatFloorWritesContext, type SeatFloorWrites } from '@/app/dashboard/[eventId]/seating/_components/seat-floor-writes';
 import type { SeatingGuest } from '@/app/dashboard/[eventId]/seating/_components/seating-editor';
 import { recommendTableSet, shapeHintFor, type EventTableRow, type TableType } from '@/lib/seating';
-import { seatingFloorOf, seatingGridLayout } from '@/lib/plan-maker';
+import { seatingFloorOf, seatingGridLayout } from '@/lib/seat-plan-engine';
 
 /**
  * 🧪 `&floor=empty` — THE SEAT PLAN'S FLOOR, STARTED FROM NOTHING, ON FIXTURE DATA (owner 2026-11-20 build, "the

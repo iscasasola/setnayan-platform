@@ -22,9 +22,12 @@ const HERO = read('_components/supplier-hero.tsx');
 
 // UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): Portfolio has NO header any more, so it
 // mounts no hero. Today and Shop still mount the one hero, exactly once each.
-test('1 · Today and Shop mount the one hero; Portfolio has no header', () => {
+// RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1): Today has no photo header either —
+// its top is a two-line mast (`today-is-focus-shaped.test.ts`). The hero is now Shop's alone, mounted exactly once.
+test('1 · Shop mounts the one hero; Today and Portfolio have no photo header', () => {
   assert.doesNotMatch(read('collections/_components/portfolio-view.tsx'), /<SupplierHero\b/, 'Portfolio has a header again');
-  for (const f of ['_components/today-cover.tsx', 'shop/_components/shop-cover.tsx']) {
+  assert.doesNotMatch(read('_components/today-cover.tsx'), /<SupplierHero\b|supplier-hero'/, 'Today has a photo header again');
+  for (const f of ['shop/_components/shop-cover.tsx']) {
     const src = read(f);
     assert.match(src, /from '(?:\.\.\/)+_components\/supplier-hero'|from '\.\/supplier-hero'/, `${f} does not import the one hero`);
     assert.equal((src.match(/<SupplierHero\b/g) ?? []).length, 1, `${f} does not mount the one hero exactly once`);
@@ -36,7 +39,9 @@ test('2 · one height, the gutters, the scrim and the sample caption live in the
   // 208 px whenever its lines fit; in flow, so a long sub row grows it instead of drawing over the eyebrow (W1 F3).
   assert.match(HERO, /className="relative isolate flex min-h-\[208px\] flex-none flex-col overflow-hidden rounded-b-3xl px-4 pb-4 pt-3\.5/, 'the hero lost its one height or its 16 px gutters');
   assert.doesNotMatch(HERO, /\babsolute (?:inset-x-4|left-4|right-4|bottom-4|top-16)\b/, 'a hero line is absolutely placed again — it can draw over another');
-  assert.match(HERO, /className="mt-auto pt-2" data-supplier-hero-foot=""/, 'the title block is not pinned to the bottom');
+  // 🔁 RE-AIMED 2026-11-19: the rows take an extra class only when the photo is a door (Shop — owner, "the actual cover
+  // photo tap that"); the title block is still in flow and still pinned to the bottom.
+  assert.match(HERO, /className=\{`mt-auto pt-2 \$\{over\}`\} data-supplier-hero-foot=""/, 'the title block is not pinned to the bottom');
   assert.match(HERO, /linear-gradient\(to top/, 'the legibility scrim is gone');
   assert.match(HERO, /Sample photo · Upload yours/, 'a placeholder could pass as the supplier’s own work');
 });

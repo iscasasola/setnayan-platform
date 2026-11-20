@@ -4,7 +4,7 @@
  * 🪑 PLAN MAKER — the seat plan's drawing and editing, for ANY plan: a couple's room or a supplier's dining area.
  *
  * Owner, 18 Nov 2026: *"we can fix that seat plan to adapt for this one and improve the functions … they are already
- * coded. we just need to improve and adapt them properly"* (DECISION_LOG 2026-11-18). The math is `lib/plan-maker.ts`,
+ * coded. we just need to improve and adapt them properly"* (DECISION_LOG 2026-11-18). The math is `lib/seat-plan-engine` (shared with the couple's Seat plan),
  * which draws every couple table through the couple's own `tableGeometry` and lines tables up through the couple's
  * own `computeAutoLayout`. This component is the screen around it, and it takes a PLAN, not an event:
  *
@@ -29,8 +29,8 @@ import { ActionButton } from '@/components/action-button';
 import { Counter } from '@/app/_components/counter';
 import { FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import { CHAIR_PX, type TableGeometry } from '@/lib/seating';
 import {
+  CHAIR_PX,
   PLAN_MAX_CHAIRS,
   PLAN_TABLE_SHAPES,
   addDoor,
@@ -61,7 +61,8 @@ import {
   type PlanTable,
   type PlanTableShape,
   type PlanView,
-} from '@/lib/plan-maker';
+  type TableGeometry,
+} from '@/lib/seat-plan-engine';
 
 export type PlanMakerOptions = {
   /** The views this page may show, in dropdown order. Default both. */

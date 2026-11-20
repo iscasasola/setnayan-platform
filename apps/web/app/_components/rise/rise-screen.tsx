@@ -36,7 +36,8 @@ import { InSheet } from '@/app/_components/sheet';
 import { usePortalHost } from '@/lib/use-portal-host';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useBackCloses } from '@/lib/use-back-closes';
-import { riseOriginNow, riseScreenMotion, watchRiseOrigins, type RiseRect } from '@/lib/rise-screen';
+import { closeWindow, growPlan, playBehind, playGrowParts, playPicture, riseOriginNow, riseScreenMotion, watchRiseOrigins, type GrowParts, type RiseKind, type RiseRect } from '@/lib/rise-screen';
+import { onItsOwnLayer } from '@/lib/rise-layer';
 import { prefersReducedMotion } from '@/app/_components/picked/picked-motion';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { TAB_RESELECT_EVENT, useChromeAway } from '@/app/_components/nav/use-chrome-away';
@@ -51,6 +52,23 @@ function rectOf(el: HTMLElement | null): RiseRect | null {
 }
 
 const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
+
+/** The tapped thing's own corner — the shape grows from IT, not from a fixed 14 px. */
+function radiusOf(el: HTMLElement | null): number {
+  if (!el || !el.isConnected) return 14;
+  const n = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+  return Number.isFinite(n) ? n : 14;
+}
+
+/** The full screen's parts for the one grow player (`playGrowParts`, lib/rise-screen.ts). */
+function riseParts(root: HTMLElement): GrowParts {
+  return {
+    title: root.querySelector('[data-rise-title]'),
+    blocks: Array.from(root.querySelector('[data-rise-body] > div')?.children ?? []),
+    chrome: Array.from(root.querySelectorAll('[data-rise-close], [data-rise-info-button]')),
+    bar: Array.from(root.querySelectorAll('[data-rise-thumb]')),
+  };
+}
 
 /**
  * ⤵ THE SAME CLOSE FROM INSIDE (13 Nov rollout): a "Done" / "Not now" drawn in the body steps out exactly as ✕ does — the
@@ -90,10 +108,17 @@ export type RiseScreenProps = {
   busy?: boolean;
   /** `data-rise-screen` — the guard's and the lab's anchor. */
   data: string;
+  /**
+   * 🗺 WHAT KIND OF SCREEN THIS IS — the full-screen map (owner 18 Nov 2026, `FULL_SCREEN_MAP` in lib/rise-screen.ts):
+   * `stack` something you fill in or edit · `zoom` a whole tool · `picture` anything with a photo (mark the screen's
+   * picture `data-rise-photo`). Absent: `grow`, out of the pressed thing (13 Nov). A person's card is the Side peek
+   * (`InspectorSheet`), not this. 🔒 app/_components/rise/the-full-screen-map-is-the-standard.test.ts
+   */
+  kind?: RiseKind;
   children: ReactNode;
 };
 
-export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, children }: RiseScreenProps) {
+export function RiseScreen({ title, line, info, labelledById, actions, thumb, fill = false, onClose, busy = false, data, kind = 'grow', children }: RiseScreenProps) {
   const host = usePortalHost();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const originRef = useRef<HTMLElement | null>(null);
@@ -102,6 +127,8 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
   onCloseRef.current = onClose;
   const busyRef = useRef(busy);
   busyRef.current = busy;
+  const kindRef = useRef(kind);
+  kindRef.current = kind;
   const headingId = useId();
   const infoId = useId();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -120,8 +147,16 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     const el = rootRef.current;
     if (!el || !host) return;
     originRef.current = riseOriginNow();
-    const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
-    if (m && typeof el.animate === 'function') el.animate(m.frames, m.timing);
+    const reduced = prefersReducedMotion();
+    const m = riseScreenMotion(rectOf(originRef.current), viewport(), reduced, radiusOf(originRef.current), kindRef.current);
+    if (m && typeof el.animate === 'function') onItsOwnLayer(el, el.animate(m.frames, m.timing));
+    if (m && kindRef.current === 'picture') void playPicture(el, originRef.current, false, reduced);
+    // 🎞 The grow's parts — only when it grows from a press (a deep link simply appears, as before).
+    const plan = m && !reduced ? growPlan(reduced, true) : null;
+    if (plan && typeof el.animate === 'function') {
+      playBehind(el, plan, false);
+      playGrowParts(riseParts(el), plan, false);
+    }
     // Once, when the portal lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [host]);
@@ -132,9 +167,21 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
     closingRef.current = true;
     const done = () => onCloseRef.current();
     const el = rootRef.current;
-    const m = riseScreenMotion(rectOf(originRef.current), viewport(), prefersReducedMotion());
+    const reduced = prefersReducedMotion();
+    const m = riseScreenMotion(rectOf(originRef.current), viewport(), reduced, radiusOf(originRef.current), kindRef.current);
     if (!el || !m || typeof el.animate !== 'function') return done();
-    el.animate(m.frames, { ...m.timing, direction: 'reverse', fill: 'forwards' }).finished.then(done, done);
+    // 🖼 Picture leads: the card drops away while the photo flies home; the screen leaves once BOTH have landed.
+    const photoHome = kindRef.current === 'picture' ? playPicture(el, originRef.current, true, reduced) : null;
+    // ⤵ Every window mirrored at 80 %: the chrome and the steps leave first, then the shape closes into the thing you
+    // tapped while the page behind comes forward. The caller unmounts once the shape has landed.
+    const plan = !reduced ? growPlan(reduced, true) : null;
+    if (plan) {
+      playGrowParts(riseParts(el), plan, true);
+      playBehind(el, plan, true);
+    }
+    const shapeDelay = plan ? closeWindow(plan.shape, plan).delay : 0;
+    const shape = onItsOwnLayer(el, el.animate(m.frames, { ...m.closeTiming, delay: shapeDelay, direction: 'reverse', fill: 'forwards' })).finished;
+    (photoHome ? Promise.all([shape, photoHome]) : shape).then(done, done);
   }, []);
 
   // ← The phone's Back closes the screen, not the page; ✕ and Esc step back through the same entry.
@@ -166,7 +213,11 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
       aria-modal="true"
       aria-labelledby={labelled}
       data-rise-screen={data}
+      data-rise-kind={kind}
       className="fixed inset-0 z-sn-pop flex h-[100dvh] flex-col bg-cream text-ink outline-none"
+      // Stack lands on the Spring: for a few frames it stands ~5 % ABOVE its place. The same cream runs on below it, so
+      // the page behind never shows through at the foot (a shadow paints; it is not animated).
+      style={kind === 'stack' ? { boxShadow: '0 12vh 0 0 rgb(var(--color-cream))' } : undefined}
     >
       {/* 📌 The head: ✕ · the title over its one line · the screen's own action · ⓘ (settings prototype `.fs-head`). */}
       <div className="shrink-0 border-b border-ink/10 bg-cream pt-[env(safe-area-inset-top)]" data-rise-head="">
@@ -174,7 +225,7 @@ export function RiseScreen({ title, line, info, labelledById, actions, thumb, fi
           <span className="inline-flex shrink-0" data-rise-close="">
             <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={close} />
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1" data-rise-title="">
             {title ? (
               <>
                 <b id={headingId} className="block truncate text-[17px] font-bold leading-tight text-ink">

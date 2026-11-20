@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
 import { SEAT_HOLD_MS } from '@/lib/seat-list-drop';
 import { useThumbRoom } from '@/lib/thumb-room';
+import { dropGhost, ghostAt, liftGhost } from '@/lib/lift';
 
 /**
  * ✋ THE SEAT PLAN IS DRAG-FIRST ON A PHONE (owner 2026-11-16, DECISION_LOG "seat plan guest drag on phone", batch 2
@@ -210,9 +211,11 @@ export function SeatFaceTray({
     name.textContent = p.item.name;
     ghost.appendChild(name);
     ghost.className =
-      'pointer-events-none inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink shadow-[0_14px_30px_rgb(var(--color-ink)/0.28)]';
+      'pointer-events-none inline-flex max-w-[16rem] items-center gap-2 rounded-full bg-cream py-1.5 pl-1.5 pr-3.5 text-sm text-ink';
     /* Where it is drawn is the finger's (its transform), from the screen's corner — the List ghost's own way. */
     Object.assign(ghost.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999', willChange: 'transform' });
+    // THE ONE LIFT (MOTION_STANDARD § 4 #15): its size and its shadow are `.sn-m-lift`'s, as on every drag.
+    liftGhost(ghost);
     document.body.appendChild(ghost);
     drag.current = { item: p.item, ghost, x, y, armed: false };
     place(drag.current);
@@ -226,7 +229,7 @@ export function SeatFaceTray({
   };
   /* The ghost rides just above the finger (it would hide the chair under it), tilted as drawn. */
   const place = (d: Drag) => {
-    d.ghost.style.transform = `translate(${d.x - 22}px,${d.y - 64}px) rotate(-3deg) scale(1.02)`;
+    d.ghost.style.transform = `${ghostAt(d.x - 22, d.y - 64)} rotate(-3deg)`;
   };
   const end = (drop: boolean) => {
     const d = drag.current;
@@ -236,7 +239,7 @@ export function SeatFaceTray({
     light(null, null);
     /* Let go before the hold: a tap — the face's own click (the shipped "Move … to…") answers it. */
     if (!d) return;
-    d.ghost.remove();
+    void dropGhost(d.ghost);
     setHeld(null);
     swallow.current = true;
     setTimeout(() => (swallow.current = false), 0);

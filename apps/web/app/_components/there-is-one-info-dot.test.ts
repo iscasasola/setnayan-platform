@@ -101,6 +101,9 @@ const SITES: Record<string, Site> = {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',
     colours: 'obsidian',
   },
+  'app/_components/frontdoor/front-door-landing.tsx': {
+    why: 'the signed-out front page (approved drawing 2026-11-20) ships no script; its ⓘ is a server-rendered <details> that opens its words IN the page under the line',
+  },
 };
 
 /** Draws an "i" that is NOT an info button. Each needs a reason a person would accept. */

@@ -132,8 +132,10 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -179,14 +181,17 @@ import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
 import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { DetailsFormsDoor } from './_components/details-forms-door';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
+import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
+import { SupplierColumns } from '../../_components/supplier-columns';
 import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
+  pickedAnchorOf,
   pickedMenuFor,
   visiblePickedPage,
   wantsScriptFold,
@@ -1016,6 +1021,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         }),
         readDayCheck(supabase, lockRequest.event_vendor_id),
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
+        piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
@@ -1107,9 +1113,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
   // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
   // to "Pick which stay on" and the card says why, naming the service.
-  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
+  const [feeForecast, dayCheck, heldService, askPieces]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null, PiecesAsk | null] = lockRequest?.event_vendor_id
     ? await askReadsP!
-    : [null, null, null];
+    : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
@@ -1972,6 +1978,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (
@@ -1987,6 +2004,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          askPieces={askPieces}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />
@@ -2606,8 +2624,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // ------------------------------------------------------------------------
   // "Your next move" — decided in lib/supplier-next-move.ts and EXECUTED by its test. It was the desktop context
-  // rail of the old tab shell (lg+ only); THE ONE BUILD keeps it, still desktop-only, on Details beside the stage
-  // strip it explains. Its two quick links (Chat · Payments) are gone — both are pages of the menu now.
+  // rail of the old tab shell (lg+ only), then a desktop-only card on Details. Its two quick links (Chat · Payments)
+  // are gone — both are pages of the menu now.
+  // 🖥 Lane 5 (owner 2026-11-13, "nothing may exist only on desktop"): from 701 it is Details' RIGHT COLUMN
+  // (`SupplierColumns`, as the Hub's event card is); below 701 the same card sits in the list, where it stood on a desk.
   // ------------------------------------------------------------------------
   const inquiryStatus: string | null = thread?.inquiry_status ?? null;
   const nextMove = supplierNextMove(
@@ -2624,7 +2644,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     eventName,
   );
   const nextMoveCard = (
-    <div className="hidden lg:block" data-next-move="">
+    <div data-next-move="">
       <ShopCard pad="tight">
         <p className="home-k2 !mt-0 !mb-0">Your next move</p>
         <div className="mt-2">
@@ -2652,57 +2672,86 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     numbers — they are the next thing to do. Decisions is the LIST, in place (Build 2 #42): drawn by the thread page
     from the ONE draw Chat and Quotation share — 0 requests of Details' own.
   */
+  // 🖥 From 701: the Details list left, "Your next move" right. The pane sits inside the picked screen's own scroller, so
+  // it pins to that scroller's top (not the frame's pin line) and is as tall as the card.
   const detailsShipped = (
-    <div className="space-y-4" data-details-shipped="">
-      {pipelineBlock}
-      <DetailsNumbersRow cells={numbersCells} />
-      {askAnswerBlock}
-      {/* 🗓 The two answers Today used to own (date change · removal request), on THIS client — C1's ONE mount (A2 A8),
-          read only for a booked client (both ask a booked/paid shop); an answer given here lands back here. */}
-      {isBooked ? (
-        <ClientDayAnswers
-          eventId={eventId}
-          vendorProfileId={profile.vendor_profile_id}
-          coupleName={eventName}
-          eventDate={brief.event.event_date}
-        />
-      ) : null}
-      {badgesRow}
-      {/* 🗂 The coordinator's door (owner 2026-10-28). */}
-      {runsThisEvent ? (
-        <div className="flex flex-wrap gap-2">
-          <OpenTheirEvent eventId={eventId} />
-        </div>
-      ) : null}
-      {nextMoveCard}
-      {/* 👥 `brief.hosts` — C2's `event_chat_hosts()` on every rung (spec §9 #1); an unread list draws nothing. */}
-      <HostsList hosts={hostRows(brief.hosts)} />
-      {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
-      {overviewNode}
-      {coupleAnswersNode}
-      {feeLockPanel}
-      {/* Item 2 of the ruling — "the request to access features". The panel
-          above already says why, so this withholds rather than repeating it. */}
-      {feeUnlocked ? askBlock : null}
-      {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
-      {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
-      {isBooked && feeUnlocked ? (
-        <VendorCompletionCard
-          eventId={eventId}
-          isCompleteConfirmed={isCompleteConfirmed}
-          isDisputed={isDisputed}
-          isVendorMarked={isVendorMarked}
-          notice={completedNotice}
-        />
-      ) : null}
-      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor eventName={eventName} />
+    <div className="tab:[&_.sn-cols-pane]:top-0 tab:[&_.sn-cols-pane]:h-auto" data-details-cols="">
+      <SupplierColumns
+        name="client-details"
+        paneLabel={`${eventName} · your next move`}
+        pane={<div className="tab:pl-4">{nextMoveCard}</div>}
+        list={
+          <div className="space-y-4 tab:pr-4" data-details-shipped="">
+            {pipelineBlock}
+            <DetailsNumbersRow cells={numbersCells} />
+            {askAnswerBlock}
+            {/* 🗓 The two answers Today used to own (date change · removal request), on THIS client — C1's ONE mount (A2 A8),
+                read only for a booked client (both ask a booked/paid shop); an answer given here lands back here. */}
+            {isBooked ? (
+              <ClientDayAnswers
+                eventId={eventId}
+                vendorProfileId={profile.vendor_profile_id}
+                coupleName={eventName}
+                eventDate={brief.event.event_date}
+              />
+            ) : null}
+            {badgesRow}
+            {/* 🗂 The coordinator's door (owner 2026-10-28). */}
+            {runsThisEvent ? (
+              <div className="flex flex-wrap gap-2">
+                <OpenTheirEvent eventId={eventId} />
+              </div>
+            ) : null}
+            {/* 📱 The phone's copy of the card: the right column is not drawn below 701, so it stays in the list there. */}
+            <div className="tab:hidden" data-next-move-phone="">
+              {nextMoveCard}
+            </div>
+            {/* 👥 `brief.hosts` — C2's `event_chat_hosts()` on every rung (spec §9 #1); an unread list draws nothing. */}
+            <HostsList hosts={hostRows(brief.hosts)} />
+            {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
+            {overviewNode}
+            {coupleAnswersNode}
+            {feeLockPanel}
+            {/* Item 2 of the ruling — "the request to access features". The panel
+                above already says why, so this withholds rather than repeating it. */}
+            {feeUnlocked ? askBlock : null}
+            {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
+            {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
+            {isBooked && feeUnlocked ? (
+              <VendorCompletionCard
+                eventId={eventId}
+                isCompleteConfirmed={isCompleteConfirmed}
+                isDisputed={isDisputed}
+                isVendorMarked={isVendorMarked}
+                notice={completedNotice}
+              />
+            ) : null}
+          </div>
+        }
+      />
     </div>
   );
 
+  // ➡ THE NEXT STEP ROW (owner 18 Nov 2026) — from reads above; an unread stage gives no row (`lib/client-next-step.ts`).
+  const nextStepSteps = planRowsAll.flatMap((p) => p.steps ?? []);
+  const nextDueRollup = computePlanRollup(nextStepSteps).next;
+  const crewCalls = myTasksRes.error
+    ? undefined
+    : crewHere.map((c) => c.startIso).filter((at) => at.slice(0, 10) === (brief.event.event_date ?? '').slice(0, 10)).sort();
+  const nextStep = clientNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date ?? null,
+    isBooked,
+    quoteWaiting: proposalRowsError ? null : isQuoted && !isAccepted && !lockRequest,
+    nextDue: !planReadComplete ? undefined : nextDueRollup ? { amountPhp: nextDueRollup.amountPhp, dueDate: nextDueRollup.dueDate } : null,
+    crewCallAt: crewCalls === undefined ? undefined : (crewCalls[0] ?? null),
+    handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
+  });
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
+    // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
+    decisions: <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />,
     shipped: {
       details: detailsShipped,
       schedule: (
@@ -2789,7 +2838,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
-      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
+      nextStep={nextStep ? <NextStepRow step={nextStep} /> : null}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

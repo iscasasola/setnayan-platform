@@ -191,7 +191,8 @@ test('2 · a named +1 never shows Release seat; every seat with no name yet does
   };
   assert.match(rowOf('h-1'), /aria-label="Release [^"]*"[^>]*>[\s\S]*?Release seat/, 'the seat with no name yet has no Release seat');
   assert.doesNotMatch(rowOf('h-2'), /Release seat|aria-label="Release /, 'a named +1 shows Release seat');
-  assert.match(rowOf('h-2'), /aria-label="Delete /, 'a named +1 lost the shipped remove (its swipe Delete since 2026-11-03)');
+  // (👥 20 Nov, Guests redesign: the swipe's word is "Remove", as drawn — the same shipped remove and its warning.)
+  assert.match(rowOf('h-2'), /aria-label="Remove /, 'a named +1 lost the shipped remove (its swipe Remove since 2026-11-20)');
 });
 
 /* ── 3–5 · the server action, over the in-memory database ─────────────────────────────────────────────────────── */

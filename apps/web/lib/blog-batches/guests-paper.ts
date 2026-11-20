@@ -187,12 +187,12 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
           'Your names, so there is no doubt whose wedding this is.',
           'The wedding date, plus the city or general location, so travellers can begin planning.',
           'A clear line letting guests know that a formal invitation will follow.',
-          'Optionally, a link to your wedding website, where the details can live and grow as you confirm them.',
+          'Optionally, a link to your Event Hub, where the details can live and grow as you confirm them.',
         ],
       },
       {
         type: 'p',
-        text: 'Notice what is deliberately absent: the dress code, the exact ceremony time, RSVP instructions, the registry. All of that belongs on the formal invitation, once it is locked down. Overloading a save-the-date only invites a flood of questions you are not ready to answer. On the format — printed cards make lovely keepsakes, but they are slow and add cost, and speed is exactly what a save-the-date is for. A digital version reaches everyone in a day, costs nothing, and can point straight to a wedding website where details fill in over time. Many couples do both: a printed card for the grandparents, a digital one for everyone else.',
+        text: 'Notice what is deliberately absent: the dress code, the exact ceremony time, RSVP instructions, the registry. All of that belongs on the formal invitation, once it is locked down. Overloading a save-the-date only invites a flood of questions you are not ready to answer. On the format — printed cards make lovely keepsakes, but they are slow and add cost, and speed is exactly what a save-the-date is for. A digital version reaches everyone in a day, costs nothing, and can point straight to your Event Hub, where details fill in over time. Many couples do both: a printed card for the grandparents, a digital one for everyone else.',
       },
       {
         type: 'cta',
@@ -252,7 +252,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
           'The full names of the couple, spelled exactly as guests would recognise them.',
           'The date, the ceremony time, and the ceremony venue with its complete address.',
           'The reception venue and time, if it differs from the ceremony.',
-          'A clear RSVP method and deadline — a name and number, an email, or a website link.',
+          'A clear RSVP method and deadline — a name and number, an email, or your Event Hub link.',
           'The dress code, worded kindly, such as "formal" or "Filipiniana".',
         ],
       },
@@ -262,7 +262,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your Event Hub or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your wedding website, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church celebration can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
+        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your Event Hub or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your Event Hub, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church celebration can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
       },
       {
         type: 'cta',
@@ -634,7 +634,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'However you decide, clarity delivered with warmth is everything. Vagueness is what breeds the misunderstandings, and the surprise extra guests at the door. Address each invitation to the specific people invited, so guests see at a glance who is included. Put any adults-only note on your wedding website or a small separate insert, worded gently rather than as a scold on the main card. Make the sensible exceptions clear — the entourage children and infants in arms are almost always welcome. And tell your close family directly and early, so they hear it from you, warmly, instead of reading it off a card. If a hard line feels too cold for your family, there are gentler options worth weighing: some couples welcome children to the church ceremony but keep the reception for adults; others arrange a small supervised kids\' corner or a separate children\'s table so parents can relax and the little ones stay happy. These compromises cost a little more, but for some families they buy a great deal of goodwill.',
+        text: 'However you decide, clarity delivered with warmth is everything. Vagueness is what breeds the misunderstandings, and the surprise extra guests at the door. Address each invitation to the specific people invited, so guests see at a glance who is included. Put any adults-only note on your Event Hub or a small separate insert, worded gently rather than as a scold on the main card. Make the sensible exceptions clear — the entourage children and infants in arms are almost always welcome. And tell your close family directly and early, so they hear it from you, warmly, instead of reading it off a card. If a hard line feels too cold for your family, there are gentler options worth weighing: some couples welcome children to the church ceremony but keep the reception for adults; others arrange a small supervised kids\' corner or a separate children\'s table so parents can relax and the little ones stay happy. These compromises cost a little more, but for some families they buy a great deal of goodwill.',
       },
       {
         type: 'p',

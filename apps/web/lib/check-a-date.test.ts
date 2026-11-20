@@ -7,10 +7,11 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkDateAnswer, checkDateStateOf, checkDateWindow, checkDateWords, checkADateUrl, checkDateResumeHref, type CheckDateInput } from './check-a-date';
+import { checkDateAnswer, checkDateStateOf, checkDateWindowFor, checkDateWords, checkADateUrl, checkDateResumeHref, withBookingWindow, type CheckDateInput } from './check-a-date';
+import { OPEN_BOOKING_WINDOW } from './booking-window';
 
 const TODAY = '2026-10-28';
-const W = checkDateWindow(TODAY);
+const W = checkDateWindowFor(TODAY, OPEN_BOOKING_WINDOW);
 const base = (over: Partial<CheckDateInput> = {}): CheckDateInput => ({
   pools: [{ poolId: 'cater', capacity: 1 }],
   bookings: [],
@@ -23,10 +24,41 @@ const base = (over: Partial<CheckDateInput> = {}): CheckDateInput => ({
 });
 const at = (a: { notBookable: string[] }) => ({ notBookable: new Set(a.notBookable), today: TODAY, to: W.to });
 
-test('the window runs from the 1st of this month for three years (SHOP-02 v7: to the same month three years on)', () => {
+test('a shop that sets nothing answers to exactly 3 years from today (owner 19 Nov: "if at most is not set. you can book up to 3 years from now")', () => {
   assert.equal(W.from, '2026-10-01');
-  assert.equal(W.to, '2029-10-31');
+  assert.equal(W.to, '2029-10-28');
   assert.equal(W.months.length, 37);
+  assert.equal(checkDateStateOf('2029-10-28', at(checkDateAnswer(base()))), 'available', 'the last day is offered');
+  assert.equal(checkDateStateOf('2029-10-29', at(checkDateAnswer(base()))), null, 'the day after is not offered');
+});
+
+test('a shop\'s At most ends the calendar on its own last day; its At least greys the days before (owner 19 Nov)', () => {
+  const w = { minDays: 7, maxMonths: 24 };
+  const win = checkDateWindowFor(TODAY, w);
+  assert.equal(win.to, '2028-10-28');
+  assert.equal(win.months.length, 25);
+  const a = withBookingWindow(checkDateAnswer(base({ months: win.months })), TODAY, w);
+  const on = (d: string) => checkDateStateOf(d, { notBookable: new Set(a.notBookable), today: TODAY, to: win.to });
+  assert.equal(on('2026-10-28'), 'not_bookable', 'today is too soon at 7 days');
+  assert.equal(on('2026-11-03'), 'not_bookable', 'day 6 is too soon');
+  assert.equal(on('2026-11-04'), 'available', 'day 7 is the first day taken');
+  assert.equal(on('2028-10-28'), 'available');
+  assert.equal(on('2028-10-29'), null, 'after At most: not offered');
+});
+
+test('At least greys each card too, and only adds — a closed day stays closed', () => {
+  const a = checkDateAnswer(
+    base({
+      pools: [{ poolId: 'cater', capacity: 1 }, { poolId: 'cake', capacity: 1 }],
+      services: [{ serviceId: 'full', poolIds: ['cater'] }, { serviceId: 'cake', poolIds: ['cake'] }],
+      bookings: [{ poolId: 'cake', bookedDate: '2026-12-01' }],
+    }),
+  );
+  const w = withBookingWindow(a, TODAY, { minDays: 3, maxMonths: 36 });
+  assert.ok(w.perService);
+  for (const id of ['full', 'cake']) for (const d of ['2026-10-28', '2026-10-29', '2026-10-30']) assert.ok(w.perService[id]!.includes(d), `${id} ${d}`);
+  assert.ok(w.perService.cake!.includes('2026-12-01'));
+  assert.deepEqual(withBookingWindow(a, TODAY, OPEN_BOOKING_WINDOW), a, 'the open window changes nothing');
 });
 
 test('an all-day closure is Not bookable; a morning block leaves the day Available', () => {
@@ -77,8 +109,8 @@ test("the shop's own hold is Not bookable; approve-first stays Available", () =>
 test('past days and days beyond the window are not answered', () => {
   const a = checkDateAnswer(base());
   assert.equal(checkDateStateOf('2026-10-27', at(a)), null);
-  assert.equal(checkDateStateOf('2029-10-31', at(a)), 'available', 'the last day of the third year is answered');
-  assert.equal(checkDateStateOf('2029-11-01', at(a)), null);
+  assert.equal(checkDateStateOf('2029-10-28', at(a)), 'available', 'three years from today is answered');
+  assert.equal(checkDateStateOf('2029-10-29', at(a)), null);
   assert.equal(checkDateStateOf(TODAY, at(a)), 'available');
   assert.ok(a.notBookable.every((d) => d >= TODAY), 'no past day is ever listed');
 });

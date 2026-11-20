@@ -16,7 +16,7 @@ const days = clientScheduleDays({
     { appointment_id: 'm2', label: 'Tasting', scheduled_at: '2026-11-12T07:00:00Z', status: 'done' },
   ],
   payments: [
-    { label: 'Downpayment', due_date: '2026-11-15', state: 'paid' },
+    { label: 'First payment', due_date: '2026-11-15', state: 'paid' },
     { label: 'Second payment', due_date: '2026-12-10', state: 'due' },
     { label: 'Balance', due_date: '2026-12-19', state: 'due' },
   ],
@@ -34,7 +34,7 @@ test('1 · the drawing’s weeks: This week · Next week · ranges, clipped at t
 });
 
 test('2 · Done folds away; statuses are the shipped facts', () => {
-  assert.deepEqual(a.done.map((r) => r.title), ['Tasting', 'Downpayment due']);
+  assert.deepEqual(a.done.map((r) => r.title), ['Tasting', 'First payment due']);
   const ocular = a.groups[0]!.rows[0]!;
   assert.deepEqual([ocular.title, ocular.status, ocular.mon, ocular.d, ocular.kind], ['Ocular', 'Asked', 'Nov', '20', 'meeting']);
   assert.deepEqual(a.groups[1]!.rows.map((r) => [r.title, r.status]), [['Quote v2 good until', 'Due']]);

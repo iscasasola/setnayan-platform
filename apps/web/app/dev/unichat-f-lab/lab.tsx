@@ -69,7 +69,7 @@ export default async function UnichatFLab({ searchParams }: { searchParams: Prom
             { appointment_id: 'a0', label: 'Call with the hosts', scheduled_at: '2026-11-12T07:00:00Z', status: 'done' },
           ],
           payments: [
-            { label: 'Downpayment', due_date: '2026-11-15', state: 'paid' },
+            { label: 'First payment', due_date: '2026-11-15', state: 'paid' },
             { label: '₱31,000', due_date: '2026-12-10', state: 'due' },
           ],
         });

@@ -6,7 +6,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, Eye } from 'lucide-react';
+import { Check, ChevronLeft, Eye } from 'lucide-react';
+import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
+import Link from 'next/link';
 import type { TourKey } from '@/lib/tours';
 import { SPOTLIGHT_REPLAY_EVENT } from '@/app/_components/spotlight-mount';
 import { HOST_PAGE_TOURS } from '@/lib/host-page-tours';
@@ -496,6 +498,12 @@ export function MakerShell({
     );
   }, []);
   useTheAppsRoom(shellRef);
+  /* 🫥 THE MAKER IS FULL SCREEN (owner 20 Nov 2026 — *"chat goes full screen. same to event hub"* · *"or hide everything
+     and use the full screen?"*; DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" (6), amending 30 Oct's
+     "THE APP'S NAV STAYS"): while the Maker is open the app's top bar and bottom nav step away — the app's one mechanism
+     (`useChromeAway`, the picked client's), never a second. The shell still sits in the room they leave
+     (`useTheAppsRoom` follows them as they slide), so it fills the screen; ‹ on the bar is the way out. */
+  useChromeAway(true);
 
   /* 🧷 A MAKER SAVE NEVER REMOUNTS THE MAKER (owner 2026-09-28: *"a lot of
      times. it reloads the whole page. which shouldn't"*). Every Maker panel
@@ -1114,6 +1122,19 @@ export function MakerShell({
           {/* 🧭 THE STAGE PILL where the screen's name was (Build 6 Lane F, 2026-11-10 — the Studio half is gone): ● the
               stage ▾ opens the five stages' one list; while a scene's editor is risen the same place reads ✕ · its
               name, and ✕ falls back into the scene (`StageSwitch`). A desktop shows it too (`maker-desk.tsx`). */}
+          {/* ‹ THE WAY OUT (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)): the app's
+              bars step away while the Maker is open, so the bar leads out itself — to the event's Home, the door the
+              bottom nav's Home tab opened. The draft stays as it is (every edit is already saved to it). */}
+          <Link
+            href={`/dashboard/${eventId}`}
+            aria-label="Close the Maker"
+            data-maker-tool="leave"
+            data-bar-item="Leave"
+            data-maker-leave=""
+            className={`${MAKER_BAR_ICON} ${MAKER_BAR_PHONE.leave}`}
+          >
+            <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
+          </Link>
           {printsPage ? (
             /* 🖨 The Prints page names itself where the stage pill stands — it has no stage to switch to. */
             <h1 data-maker-tool="side" data-bar-item="Prints" data-bar-fill="" data-prints-page-title="" className={`flex min-w-0 flex-1 items-center justify-center truncate text-[16px] font-semibold text-ink ${MAKER_BAR_PHONE.side}`}>
@@ -1181,6 +1202,8 @@ export function MakerShell({
                   gifts: giftsTile ? { line: giftsTile.status, open: () => openStudio('gifts') } : null,
                   /* 🖨 Prints moved in (Build 6 Lane F, pick B): the shipped Prints page. */
                   prints: { href: printsPageHref(eventId) },
+                  /* ↺ History moved in from the bar (20 Nov) — the draft bar registered it (`MakerDraftDoor.history`). */
+                  history: draft?.history ?? null,
                 }}
               >
                 {/* The work area's own extras for Your Event Hub (the Event Pro line), and what the page hands in. */}
@@ -1359,9 +1382,13 @@ function useTheAppsRoom(shellRef: { current: HTMLDivElement | null }) {
     for (const x of [bar, dock, column]) if (x) ro?.observe(x);
     const mo = new MutationObserver(later);
     for (const x of [bar, dock]) if (x) mo.observe(x, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
-    /* A bar's slide ends where it rests — read once it has (only the two bars' own slides). */
+    /* 🫥 …and the chrome stepping away or back (`useChromeAway`, 20 Nov) — an attribute on <html>, whose slide moves the
+       bar's WRAPPER (`.fd-topwrap`), not the bar. */
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-chrome-away', 'data-chrome-back'] });
+    /* A bar's slide ends where it rests — read once it has (the two bars' own slides, or a box that carries one). */
     const slid = (e: Event) => {
-      if (e.target === bar || e.target === dock) later();
+      const t = e.target;
+      if (t === bar || t === dock || (t instanceof Node && ((bar && t.contains(bar)) || (dock && t.contains(dock))))) later();
     };
     window.addEventListener('resize', later);
     document.addEventListener('transitionend', slid, true);

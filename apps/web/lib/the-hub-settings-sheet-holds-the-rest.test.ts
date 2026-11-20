@@ -30,9 +30,13 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const HUB = read(`${L}/_components/hub-settings.tsx`);
 const SHELL = read(`${L}/_components/maker-shell.tsx`);
 
-test('1 · one sheet, four groups in the prototype’s order, and the event’s own facts sent to Home', () => {
+test('1 · one sheet, History first (20 Nov), then the four groups in the prototype’s order, and the event’s own facts sent to Home', () => {
   const groups = [...HUB.matchAll(/data-hub-settings-group="([a-z-]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(groups, ['look', 'your-event-hub', 'guests-see', 'gifts'], 'the groups are not Look · Your Event Hub · What guests see · E-Gifts');
+  /* ↺ History left the top bar (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (5)): it is
+     the ⚙'s FIRST group, with "Undo last change". */
+  assert.deepEqual(groups, ['history', 'look', 'your-event-hub', 'guests-see', 'gifts'], 'the groups are not History · Look · Your Event Hub · What guests see · E-Gifts');
+  assert.match(HUB, /label="Undo last change"[\s\S]{0,120}disabled=\{!doors\.history\.canUndo\}[\s\S]{0,80}onClick=\{go\(doors\.history\.undo\)\}/, 'History has no "Undo last change"');
+  assert.match(HUB, /Your history could not be read just now/, 'an unread history would read as "No changes are waiting"');
   assert.match(HUB, /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the sheet is not the house ⚙’s');
   // The event's first tab is called Today since THE ONE BUILD (L1, 8 Nov 2026: "Home → Today, word only").
   assert.match(HUB, /Names, date, venues and parents are in Today › Event settings\./, 'the event’s own facts are not sent to Today (the event’s first tab)');

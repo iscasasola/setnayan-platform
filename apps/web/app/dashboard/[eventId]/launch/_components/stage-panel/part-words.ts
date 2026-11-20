@@ -33,6 +33,7 @@ import { SCENE_TYPE_MULTILINE, isTypeCaretPart, type SceneTypeField } from '@/li
 import { withTypedWords } from '@/lib/type-in-place';
 import { SCENE_FIELD_LABEL, sceneFieldMax, sceneTypeWrite, type SceneOwnWords } from '@/lib/scene-type-words';
 import { DISPLAY_NAME_MAX, typedDisplayName } from '@/lib/typed-names';
+import { MAKER_EVENT_NAME_LABEL } from '@/lib/maker-parts';
 import type { ElementDraftAction } from '../../../website/editor/_components/element-sheet';
 import { readPostEventWords } from './post-event-edit';
 import { CLOSING_CANVAS_KEY, CLOSING_EL } from '@/lib/closing-line';
@@ -78,7 +79,7 @@ export const partWordsId = (f: Pick<PartWordsField, 'el' | 'field'>): string => 
 
 /**
  * The texts the page draws for a part: `el` names one line of the cover; without it, every field the section marks.
- * `partLabel` names a part's ONE text ("Names", "Invite line"); a part of several is named by its fields.
+ * `partLabel` names a part's ONE text ("Event name", "Invite line"); a part of several is named by its fields.
  */
 export function readPartWords(
   doc: Document | null | undefined,
@@ -107,7 +108,9 @@ export function readPartWords(
         key,
         el,
         field: null,
-        label: partLabel || HUB_ELEMENT_LABEL[el as HubElementKey] || 'Words',
+        /* 🏷 The title's field says what it writes — the EVENT'S name (`events.display_name`), never "Names" (owner 20 Nov,
+           DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (7)). */
+        label: names ? MAKER_EVENT_NAME_LABEL : partLabel || HUB_ELEMENT_LABEL[el as HubElementKey] || 'Words',
         text: partWords(part),
         auto: part.getAttribute('data-el-word') ?? part.querySelector('[data-el-word]')?.getAttribute('data-el-word') ?? null,
         long: false,

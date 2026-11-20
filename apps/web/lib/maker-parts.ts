@@ -109,6 +109,13 @@ export const MAKER_PART_ANIMATE_STEPS = [
   { step: 'out', label: 'Build out' },
 ] as const;
 
+/**
+ * 🏷 THE TITLE'S TEXT FIELD IS "Event name" (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL
+ * SCREEN, APPROVED" (7): *"event name"*). It writes `events.display_name` — the event's name, which a birthday or a wake
+ * has too — so no Maker surface labels it "Names". The scene keeps its own name, "Event title".
+ */
+export const MAKER_EVENT_NAME_LABEL = 'Event name';
+
 /* ── the stages and their pages ───────────────────────────────────────────── */
 
 /** The five stages, in the order a guest meets them (Save the Date · RSVP · Invitation · The Day · Post Event). */

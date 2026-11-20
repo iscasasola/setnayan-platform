@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronRight, Eye, Gift, Printer } from 'lucide-react';
+import { ChevronRight, Eye, Gift, History, Printer, Undo2 } from 'lucide-react';
+import type { MakerDraftDoor } from './maker-context';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormRow, FormRows } from '@/app/_components/form-row';
@@ -33,6 +34,10 @@ import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
  *   · E-GIFTS — Ways to give: the shipped E-Gifts page (2026-10-27 "APPROVED — SETTINGS PER MENU", call 5);
  *   · and one closing line: the names, the date, the venues and the parents are Home › Event Settings.
  *
+ * ↺ HISTORY IS THE FIRST GROUP (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"
+ * (5); prototype `maker_one_toolbar_expand_2026-11-20_fable.html` `gearSheet`): ↺ left the top bar, so the newest edits
+ * waiting for ✓ Apply are listed here, with "Undo last change" and the whole list (the shipped `hub-history-sheet.tsx`).
+ *
  * ⚡ Its own module, reached through the lazy stand-in (`details-lazy.tsx` `HubSettingsGear`): the house sheet, its ⓘ and
  * its rows are not in the Maker's first load (`scripts/check-maker-js-budget.mjs` — the first load sits at its
  * ceiling). The shell holds `open`, so Settings › Who can view in the lower third opens the same sheet.
@@ -49,6 +54,8 @@ export type HubSettingsDoors = {
   gifts: { line: string; open: () => void } | null;
   /** 🖨 Prints — the shipped Prints page's address (`printsPageHref`); null where the event has no Hub to print from. */
   prints: { href: string } | null;
+  /** ↺ History — the draft bar's list and its one step back (`MakerDraftDoor.history`); absent until the bar is up. */
+  history?: MakerDraftDoor['history'] | null;
 };
 
 /** The Prints row's line — the prototype's words (frame H4). */
@@ -84,6 +91,45 @@ export function HubSettingsGear({
   return (
     <MenuSettingsButton menu="hub" open={open} onOpenChange={onOpenChange}>
       <div className="flex flex-col px-3 pb-4 lg:px-4" data-hub-settings="">
+        {/* ── HISTORY ── first, with Undo last change (20 Nov). */}
+        {doors.history ? (
+          <section data-hub-settings-group="history">
+            <p className={GROUP}>
+              <InfoTip label="History" align="start">
+                Every edit saves to your draft by itself. Guests see nothing until ✓ Apply.
+              </InfoTip>
+            </p>
+            {doors.history.recent === null ? (
+              <p role="alert" className="py-3 text-[13px] text-danger-700" data-hub-settings-history="unread">
+                Your history could not be read just now. Nothing was changed.
+              </p>
+            ) : doors.history.recent.length === 0 ? (
+              <p className="py-3 text-[13px] text-ink/60" data-hub-settings-history="none">
+                No changes are waiting.
+              </p>
+            ) : (
+              <FormRows data="hub-history">
+                {doors.history.recent.map((what, i) => (
+                  <FormRow key={`${i}:${what}`} data={`history-${i}`} name={what} line="Waiting for ✓ Apply" attrs={{ 'data-hub-settings-history-row': String(i) }} />
+                ))}
+              </FormRows>
+            )}
+            <div className="flex gap-2 pt-2" data-hub-settings-history-actions="">
+              <ActionButton
+                tone="neutral"
+                icon={Undo2}
+                label="Undo last change"
+                disabled={!doors.history.canUndo}
+                waiting={doors.history.busy}
+                onClick={go(doors.history.undo)}
+              />
+              {doors.history.recent !== null ? (
+                <ActionButton tone="neutral" icon={History} label="All changes" onClick={go(doors.history.open)} />
+              ) : null}
+            </div>
+          </section>
+        ) : null}
+
         {/* ── LOOK ── */}
         <section data-hub-settings-group="look">
           <p className={GROUP}>

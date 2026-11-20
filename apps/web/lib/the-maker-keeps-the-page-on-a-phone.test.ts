@@ -60,7 +60,7 @@ async function withRouter(el: React.ReactElement): Promise<React.ReactElement> {
   return React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, el);
 }
 
-/** Undo · Preview · Apply as the draft bar draws them (`HubDraftToolbar` — pinned below to these exact props). */
+/** Preview · Apply as the draft bar draws them (↺ left the bar for ⚙ on 20 Nov 2026) (`HubDraftToolbar` — pinned below to these exact props). */
 async function draftButtons(): Promise<React.ReactElement> {
   const { DraftButton } = await import('../app/dashboard/[eventId]/website/_components/hub-draft-button');
   const { useMaker } = await import(`../${L}/maker-context`);
@@ -70,7 +70,6 @@ async function draftButtons(): Promise<React.ReactElement> {
     return React.createElement(
       React.Fragment,
       null,
-      React.createElement(DraftButton, { label: 'Undo', icon: null, bar: 'icon', phone: { width: MAKER_BAR_PHONE.undoTop }, ...off }),
       maker?.previewMenu ?? null,
       React.createElement(DraftButton, { label: 'Apply', name: 'Apply 0 changes', icon: null, primary: true, bar: 'apply', phone: { width: MAKER_BAR_PHONE.applyTop }, ...off }),
     );
@@ -367,10 +366,10 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
   assert.ok(used <= 375, `the ${where} bar needs ${used} px at least — more than 375, so it wraps or overflows`);
 }
 
-test('📏 the top bar is ONE row at 375 px — the screen · ↶ Undo · 👁 Preview · ✓ Apply · ⚙; the old bottom bar is gone', async () => {
+test('📏 the top bar is ONE row at 375 px — ‹ · the stage · 👁 Preview · ✓ Apply · ⚙; the old bottom bar is gone', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  fitsOneRow(top, ['Stages or Studio', 'Undo', 'Preview', 'Apply', 'Settings'], 'top');
+  fitsOneRow(top, ['Leave', 'Stages or Studio', 'Preview', 'Apply', 'Settings'], 'top');
   assert.match(top.head, /max-lg:h-\[52px\]/, 'the top bar is no longer one 52 px row');
   // 🧰 The bottom bar (Page ▾ · Look · Event Details) is REPLACED by the lower third (owner 2026-10-05).
   assert.doesNotMatch(html, /aria-label="Maker tools"|data-maker-bottom-bar=""/, 'the old bottom bar is back');
@@ -382,18 +381,18 @@ test('📏 the top bar is ONE row at 375 px — the screen · ↶ Undo · 👁 P
   assert.match(header, /data-maker-tool="side"/, 'the top bar does not draw Stages | Studio');
   assert.doesNotMatch(header, /data-maker-screen-label/, 'the old Maker’s screen label is back');
   assert.doesNotMatch(header, /as a guest sees it/, 'the cut-off "as a guest sees it" is back on the top bar');
-  // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
+  // The draft bar draws Apply with exactly these phone props (the stub above is its copy); ↺ is ⚙'s now (20 Nov).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /bar="icon"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo is not the bar’s 44 px icon');
+  assert.doesNotMatch(bar, /label="History"/, 'the draft bar’s ↺ is back on the bar — it is ⚙’s first group (20 Nov)');
   assert.match(bar, /primary\s*bar="apply"\s*phone=\{\{ width: MAKER_BAR_PHONE\.applyTop \}\}/, 'the draft bar’s Apply is not the bar’s filled ✓');
   assert.doesNotMatch(bar, /\border-2\b/, 'a draft-bar item is ordered onto a second row again');
 });
 
-test('🔘 every button on the bar is a ≥ 44 px target with its name — Undo · Preview · Apply · ⚙ (phone AND desktop)', async () => {
+test('🔘 every button on the bar is a ≥ 44 px target with its name — ‹ · Preview · Apply · ⚙ (phone AND desktop)', async () => {
   const html = await shell(null);
   const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
   const want: Record<string, RegExp> = {
-    Undo: /aria-label="Undo"/,
+    Leave: /aria-label="Close the Maker"/,
     Preview: /aria-label="Preview"/,
     Apply: /aria-label="Apply \d+ changes?"/,
   };

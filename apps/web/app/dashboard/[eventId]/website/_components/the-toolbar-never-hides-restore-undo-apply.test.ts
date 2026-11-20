@@ -103,22 +103,21 @@ test('Apply (primary) reads through the shared button-primary class, like every 
  * ⋯ — registered from this bar (`MakerState.draft`) and still switched off, with
  * its reason, on the same field. This bar's own ⋯ button went (one ⋯ per bar).
  */
-test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — unconditionally — and registers Restore for Page ▾', () => {
+test('HubDraftToolbar renders exactly Apply as a DraftButton — unconditionally — registers Restore for Page ▾, and hands ⚙ History', () => {
   const fn = body('HubDraftToolbar');
   const calls = [...fn.matchAll(/<DraftButton\b/g)];
-  assert.equal(calls.length, 2, `expected 2 <DraftButton>, found ${calls.length}`);
+  /* ↺ HISTORY LEFT THE BAR (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" (5)):
+     it is ⚙'s first group, with "Undo last change". The bar keeps ONE DraftButton — ✓ Apply. */
+  assert.equal(calls.length, 1, `expected 1 <DraftButton>, found ${calls.length}`);
   assert.doesNotMatch(fn, /label="Restore"/, 'Restore is back on the bar — it is ⋯’s row (the Maker in 4)');
-  /* ↺ Undo became HISTORY (owner 2026-11-09): the same never-hidden control, opening the list of this draft's edits. */
-  const at = fn.indexOf('label="History"');
-  assert.ok(at > 0, "History's DraftButton is missing");
-  const before = fn.slice(Math.max(0, at - 120), at);
-  assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.history\s*\?|summary\.history\s*&&/, 'History must not be conditionally rendered');
+  assert.doesNotMatch(fn, /label="History"/, '↺ History is back on the bar — it is ⚙’s first group');
   const applyAt = fn.indexOf('label="Apply"');
   assert.ok(applyAt > 0, "Apply's DraftButton is missing");
   const beforeApply = fn.slice(Math.max(0, applyAt - 160), applyAt);
   assert.doesNotMatch(beforeApply, /summary\.hasChanges\s*&&\s*!onlyPro|onlyPro\s*\?/, 'Apply must not be hidden when every change is Pro-gated — disabled + InfoTip instead');
-  // Restore: registered with the shell unconditionally, running this bar's own act.
+  // Restore: registered with the shell unconditionally, running this bar's own act — and History beside it, for ⚙.
   assert.match(fn, /setDraftDoor\(\{\s*canRestore,\s*restore: \(\) => actRef\.current\(\{ intent: 'restore' \}\),/);
+  assert.match(fn, /history: \{\s*recent: historyRecent,/, 'the bar does not hand ⚙ its History');
 });
 
 test('each control disables off the field that actually means "nothing to do", not off pending alone', () => {
@@ -129,21 +128,22 @@ test('each control disables off the field that actually means "nothing to do", n
     return fn.slice(at, at + 420);
   };
   assert.match(fn, /const canRestore = !pending && summary\.hasChanges;/, 'Restore: nothing to restore once the draft matches live');
-  /* ↺ History opens even with nothing drafted (the list still says what guests see now) — off only while a press is on
-     its way or when the history could not be read. */
-  assert.match(block('label="History"'), /disabled=\{pending \|\| !summary\.history\}/, 'History: off only when its rows are missing');
+  /* ⚙'s "Undo last change": off while a press is on its way, or when there is no step of your own to take back. */
+  assert.match(fn, /const canUndo = !pending && summary\.canUndo;/, 'Undo last change: off only when nothing of yours can be taken back');
+  /* …and its list says it could not be read rather than drawing none (`recent: null`). */
+  assert.match(fn, /summary\.history \? summary\.history\.filter\([\s\S]{0,120}\) : null/, 'an unread history would read as "nothing waiting"');
   assert.match(block('label="Apply"'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Apply: nothing to apply once the draft matches live');
 });
 
 test('Apply is the one primary (filled) button, and it wears the count of changes waiting', () => {
   const fn = body('HubDraftToolbar');
-  const undo = fn.slice(fn.indexOf('label="History"'), fn.indexOf('label="Apply"'));
+  const before = fn.slice(fn.indexOf('<IconPill label="Preview">'), fn.indexOf('label="Apply"'));
   const apply = fn.slice(fn.indexOf('label="Apply"'), fn.indexOf('label="Apply"') + 900);
-  assert.doesNotMatch(undo, /\bprimary\b/, 'History must not be the primary button');
+  assert.doesNotMatch(before, /\bprimary\b/, 'Preview must not be the primary button');
   assert.match(apply, /\bprimary\b/, 'Apply must be the primary button');
   assert.match(apply, /data-maker-apply-count=""/, 'Apply lost its count (design: "Apply 3")');
-  // The bar's Preview menu sits between Undo and Apply (owner 2026-10-04: ‹ · stage · ↶ · 👁 · ✓N).
-  assert.match(undo, /\{maker\?\.previewMenu \?\? null\}/);
+  // The bar's Preview menu sits before Apply (20 Nov: ‹ · stage · 👁 · ✓N · ⚙).
+  assert.match(before, /\{maker\?\.previewMenu \?\? null\}/);
 });
 
 /*

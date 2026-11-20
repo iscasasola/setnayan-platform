@@ -303,6 +303,18 @@ export type MakerDraftDoor = {
   restore: () => void;
   /** How many changes the draft holds that are not applied yet — the draft bar's own ✓ count (0: none). */
   count: number;
+  /**
+   * ↺ HISTORY IS ⚙'S FIRST GROUP (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (5)):
+   * the bar no longer draws ↺, so the draft bar hands the ⚙ its list and its one step back. `recent`: the newest edits
+   * waiting for ✓ Apply, newest first (at most four); null where the history could not be read (said, never empty).
+   */
+  history?: {
+    recent: readonly string[] | null;
+    open: () => void;
+    canUndo: boolean;
+    undo: () => void;
+    busy: boolean;
+  };
 };
 
 /**

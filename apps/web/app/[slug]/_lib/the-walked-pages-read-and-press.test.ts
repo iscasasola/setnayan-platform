@@ -129,6 +129,8 @@ const PRESS: Array<[string, string]> = [
   ['_components/terms-tick.tsx', 'Privacy Notice\n        </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
+  // ‹ The E-Gifts page's visible way back (20 Nov 2026 — "goes full screen and no way back").
+  ['pabuya/page.tsx', 'strokeWidth={1.9} />\n            Back\n          </Link>'],
   ['seat/page.tsx', '<EventHubHeaderBrand eventId={eventId} />'],
   ['avatar/page.tsx', '← Back\n          </Link>'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
@@ -141,6 +143,7 @@ const WIDE: Array<[string, string]> = [
   ['_components/terms-tick.tsx', 'Terms\n        </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
+  ['pabuya/page.tsx', 'strokeWidth={1.9} />\n            Back\n          </Link>'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],
 ];
 

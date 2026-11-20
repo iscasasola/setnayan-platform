@@ -120,14 +120,14 @@ async function shell(): Promise<string> {
   );
 }
 
-test('2a · ✕ Exit is GONE — the app’s nav is the way out (owner 2026-10-30); the row ends with ⚙', async () => {
-  /* 🧭 AMENDED 30 Oct — DECISION_LOG "EVENT PRO (look redesign) — THE APP'S NAV STAYS", call (1), *"yes"*: the Hub
-     keeps the app's top bar and bottom nav, so the Maker's red ✕ (25 Oct: a link to this event's dashboard) is
-     dropped — Home on the bottom nav (or the rail) is that same way out. Nothing stands in its place; the row is
-     [Stage ▾ | Studio ▾] · ↺ · ✓ · ⚙. */
+test('2a · ✕ Exit stays gone; ‹ leads the row since the Maker is full screen (20 Nov); the row ends with ⚙', async () => {
+  /* 🫥 AMENDED 20 Nov 2026 — DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" (6): the app's top bar
+     and bottom nav step away while the Maker is open, so the bar leads out itself — ‹, to the event's Home (the door
+     the ✕ and then the Home tab opened). The red ✕ pill stays gone. Row: ‹ · Stage ▾ · ✓ · ⚙ (a desktop adds 👁). */
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
   assert.doesNotMatch(header, /data-icon-pill="exit"|data-maker-tool="exit"|aria-label="Exit"/, 'the ✕ Exit is back on the Hub’s pinned row');
-  assert.doesNotMatch(header, /lucide-chevron-left/, 'a ‹ stands in the ✕’s place');
+  assert.match(header, /<a\b(?=[^>]*href="\/dashboard\/e1")[^>]*data-maker-tool="leave"[^>]*>[\s\S]*?lucide-chevron-left/, 'the ‹ that leads out of the full-screen Maker is not first on the row');
+  assert.ok(header.indexOf('data-maker-tool="leave"') < header.indexOf('data-maker-tool="side"'), '‹ is not before the Stage pill');
   /* (The ⚙ itself — `MenuSettingsButton menu="hub"` — loads with the Maker's lazy chunk: its place is what renders here.) */
   assert.match(header, /data-maker-tool="settings"/, 'the row does not end with the Event Hub ⚙');
 });
@@ -139,10 +139,10 @@ test('2b · the bar says where you are with Stages | Studio — the old screen l
   assert.doesNotMatch(header, /as a guest sees it/);
 });
 
-test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GREEN pill', async () => {
+test('2c · 👁 Preview sits in its own pill (↺ left for ⚙, 20 Nov); ✓ Apply is its own GREEN pill', async () => {
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  /* ↺ is History since 2026-11-09 — the same place in the same pill. */
-  assert.match(bar, /<IconPill label="History and preview">[\s\S]*?<DraftButton\s+label="History"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'History and Preview are not one shared pill');
+  assert.match(bar, /<IconPill label="Preview">[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Preview is not in its own pill');
+  assert.doesNotMatch(bar, /<DraftButton\s+label="History"/, '↺ History is back on the bar — it is ⚙’s first group (20 Nov)');
   assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply=""[^>]*>/, 'Apply is not its own pill');
   assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
   assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');

@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, Info, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -71,8 +71,11 @@ export function KindCard({
   chip?: ReactNode;
   tone?: 'mine' | 'theirs' | 'auto';
   anchorId?: string;
-  /** ⓘ at the right of the title (the drawing's `.cinfo`) — the card's details live behind it (Unichat part C). */
-  info?: ReactNode;
+  /**
+   * ⓘ at the right of the title (the drawing's `.cinfo`) — the card's details live behind it (Unichat part C). Drawn
+   * HERE, in the shared part, so a card file never hand-draws it (`lane-c-cards.test.ts` 🔘). `data` rides on the button.
+   */
+  info?: { onOpen: () => void; data?: Record<`data-${string}`, string | undefined> };
   /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
   warn?: boolean;
   children?: ReactNode;
@@ -134,7 +137,18 @@ export function KindCard({
           </span>
         </span>
       </span>
-      {info ?? null}
+      {info ? (
+        <button
+          type="button"
+          className="sn-press -m-2 grid h-11 w-11 place-items-center rounded-full text-ink/70"
+          aria-label="Details"
+          aria-haspopup="dialog"
+          onClick={info.onOpen}
+          {...info.data}
+        >
+          <Info aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+        </button>
+      ) : null}
       {children ? <div className="col-span-full min-w-0 text-[15px] text-ink">{children}</div> : null}
     </section>
   );

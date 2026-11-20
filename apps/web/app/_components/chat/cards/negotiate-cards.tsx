@@ -15,7 +15,7 @@
  *   "Expired · ask again" is derived from Good until — no job, no stored state.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, Check, Info, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, Check, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
@@ -918,20 +918,7 @@ export function NegotiationCard({
             <ArrowLeftRight className="h-[18px] w-[18px]" strokeWidth={1.9} />
           </span>
         }
-        info={
-          <button
-            type="button"
-            className="sn-press -m-2 grid h-11 w-11 place-items-center rounded-full text-ink/70"
-            aria-label="Details"
-            aria-haspopup="dialog"
-            onClick={() => setInfo(true)}
-            data-counter-info=""
-            data-negotiation={kind}
-            data-negotiation-status={negotiationStatus}
-          >
-            <Info aria-hidden className="h-5 w-5" strokeWidth={1.9} />
-          </button>
-        }
+        info={{ onOpen: () => setInfo(true), data: { 'data-counter-info': '', 'data-negotiation': kind, 'data-negotiation-status': negotiationStatus } }}
       >
         {answers || counterEditor || problem ? (
           <div className="grid gap-2" data-counter-face="">

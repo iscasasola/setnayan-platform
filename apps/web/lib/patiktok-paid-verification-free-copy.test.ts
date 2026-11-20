@@ -23,14 +23,11 @@ import { PUBLIC_HELP_SOURCES } from '@/lib/help-sources.test-helper';
 const WEB = dirname(dirname(fileURLToPath(import.meta.url)));
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('Patiktok is paid on /features — no free half, no "free" in its copy', () => {
-  const p = DAY_MEMORIES_FEATURES.find((f) => f.slug === 'patiktok');
-  assert.ok(p, 'the Patiktok feature entry moved');
-  assert.equal(p.price.kind, 'paid', 'Patiktok must be priced as paid (per day), not free / free-plus');
-  // `assert.equal` above already narrowed `kind` to 'paid', so `codes` is readable here.
-  assert.deepEqual([...p.price.codes], ['PATIKTOK_COMPILER']);
-  const words = JSON.stringify([p.description, p.answer, p.steps, p.faq, p.line]);
-  assert.doesNotMatch(words, /\bfree\b|\blibre/i, 'Patiktok copy on /features still implies a free part');
+// 🪦 2026-11-20: Patiktok is RETIRED (owner: "Retire Patiktok and Music Maker ( we do not want to serve this
+// anymore)") — it has no /features entry to price at all. The rule that it stays gone is
+// lib/retired-products-stay-retired.test.ts; this slot now only proves the entry did not come back.
+test('Patiktok has no /features entry — retired, so it is neither free nor paid there', () => {
+  assert.equal(DAY_MEMORIES_FEATURES.find((f) => (f.slug as string) === 'patiktok'), undefined, 'the retired Patiktok feature entry is back');
 });
 
 test('Patiktok on /pricing reads its per-day price from the row', () => {

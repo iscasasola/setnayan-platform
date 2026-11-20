@@ -42,7 +42,9 @@ test('ONE group for every guest row: the list element is fitted once, never each
   assert.match(SCREEN, /<div ref=\{listRef\} data-guest-rows="">/, 'the group element is not the list');
   const row = SCREEN.slice(SCREEN.indexOf('function GuestRowLine('));
   assert.doesNotMatch(row, /useRowState|fitGroup|useFitRow/, 'a guest row fits itself — rows would disagree');
-  assert.match(row, /className=\{styles\.acts\} data-fit-row=""/, 'a row’s buttons are not measured as part of the group');
+  // 👥 20 Nov (Guests redesign pick 3): a guest row has no buttons left to fit — its end is its state (a tick or a pill),
+  // and its one verb is the swipe. The group fit still runs for the rows that do carry buttons (Just added, Titles).
+  assert.doesNotMatch(row.slice(0, row.indexOf('function GuestJumpRow(')), /data-fit-row=""/, 'a guest row grew buttons to fit again');
 });
 
 test('the state is written on the GROUP and CSS reads it from there', () => {

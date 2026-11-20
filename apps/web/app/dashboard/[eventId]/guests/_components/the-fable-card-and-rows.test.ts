@@ -207,8 +207,9 @@ test('rows: requests are never rows between guests — one door leads to the Req
   // the summary carousel ("● N requests to join ›") — the whole card opens the same Requests page.
   const SCREEN = read('guests-screen.tsx');
   assert.doesNotMatch(SCREEN, /data-requests-strip=""/, 'the requests strip came back above the list — it is card ① now');
+  // 👥 20 Nov (Guests redesign §1): the door is the summary's extra line — "N asking to join ›".
   assert.match(SCREEN, /href=\{`\/dashboard\/\$\{eventId\}\/guests\/claims`\}[^>]*data-requests-door=""/);
-  assert.match(SCREEN, /'request' : 'requests'\} to join/);
+  assert.match(SCREEN, /<\/b>\{' '\}\s*asking to join/);
   assert.match(PAGE, /\.filter\(\(g\) => !selfJoinIds\.includes\(g\.guest_id\)\)/, 'requests are drawn as rows on the new list');
 });
 

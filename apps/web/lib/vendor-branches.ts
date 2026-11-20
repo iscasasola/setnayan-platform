@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { tierCaps } from './vendor-tier-caps';
 
 /**
  * Vendor Branches — sub-location accounts ("multiple accounts depending on plans").
@@ -105,15 +104,13 @@ export const BRANCH_ADDRESS_MAX = 300;
 
 /**
  * Automatic branch service radius (km). Range is no longer a manual input
- * (owner 2026-07-02 "range is automatic") — a branch inherits its shop's plan
- * reach (vendor-tier-caps · serviceRadiusKm), clamped to the column's stored
- * max. Pro (100 km) and Ultra (nationwide → the column's ceiling) both have
- * branches since owner 2026-11-04; the default stays Ultra for old callers.
+ * (owner 2026-07-02 "range is automatic"). It used to inherit the plan's reach;
+ * since 2026-11-19 reach is NOT a plan allowance (owner: "unlock the range. not
+ * plan dependend anymore"), so every branch gets the column's stored max — what
+ * Ultra's nationwide reach already resolved to. The same on every plan.
  */
-export function branchAutoRadiusKm(tier: string | null | undefined = 'enterprise'): number {
-  const reach = tierCaps(tier).serviceRadiusKm;
-  if (!Number.isFinite(reach) || reach <= 0) return BRANCH_RADIUS_MAX_KM;
-  return Math.min(Math.max(BRANCH_RADIUS_MIN_KM, Math.round(reach)), BRANCH_RADIUS_MAX_KM);
+export function branchAutoRadiusKm(): number {
+  return BRANCH_RADIUS_MAX_KM;
 }
 
 export type BranchStatus = 'active' | 'pending_payment' | 'expired' | 'cancelled';

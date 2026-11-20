@@ -168,7 +168,6 @@ const LAB_DOWN_FACTS: DowngradeFacts = {
   includedBranches: 3,
   seats: { people: 5, freeHelpers: 1, counted: 4 },
   extraSeats: 0,
-  reachKm: 100,
   storedBytes: 7_400_000_000,
   badge: { verification_state: 'verified', next_renewal_due_at: EARLY_SHOPS_PAPERS_DUE_ISO },
 };

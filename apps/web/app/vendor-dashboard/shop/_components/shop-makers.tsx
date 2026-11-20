@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, ClipboardList, FolderOpen, Lock, Tag, Wrench, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ClipboardList, Lock, Tag, WalletCards, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
@@ -13,7 +13,6 @@ import { BodyPanel } from '../../_components/body-panel';
 import { ServiceScannerPick } from './service-scanner-pick';
 import { LockExplainer } from '@/app/_components/lock/locked-feature';
 import type { OfferMakerStart } from '../../offers/_components/offer-maker';
-import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
@@ -41,14 +40,16 @@ const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').the
  *                 arrival, and `&new=season&from=…&to=…` opens a new season offer on those days (Analytics' "Slow months").
  *                 🔒 An unverified shop sees the tile with its 🔒 and a tap shows the shared lock — Problem → Solution →
  *                 Get verified (`LockExplainer`); the server refuses it too (`offers/actions.ts`).
- *   Templates → (Card Maker part 4; HYBRID drawing, owner 17 Nov "Keep Templates") ONE place for what a shop saves once
- *                 and uses on many cards — Show ▾ Quick Forms (the Forms Maker's body) · Discounts and Promos (the Offer
- *                 Maker rises over it) · Payment Strategies (the saved pay plans). Server-drawn while `?maker=templates`.
+ *   Payment Strategies → (Card Maker part 4, owner 17 Nov name; controller ruling 20 Nov under the owner's delegation:
+ *                 the ONE new template, the third tile of Templates — Quick Forms is the Forms Maker's own body and
+ *                 Discounts and Promos is the Offer Maker, so neither gets a second door). The shop's saved pay plans
+ *                 (`ShopPayPlans`): tap opens its payments, swipe left deletes with Undo. Its reads are the server's,
+ *                 drawn only while `?maker=plans` (`shop-pay-plans-body.tsx`), like the Forms Maker.
  * 🔒 shop/the-shop-tab-is-v113.test.ts · _components/the-body-panel-keeps-the-navs.test.ts · offers/the-offer-maker-is-the-prototype.test.ts
  */
 export type ScannerLine = { coverageId: number; label: string; choice: ScannerChoice };
 
-type MakerKey = 'forms' | 'offers' | 'tools' | 'templates';
+type MakerKey = 'forms' | 'offers' | 'plans';
 
 /** The Offer Maker tile's facts — read with the Shop's own row. `running`/`total` null = unread ("Couldn't load"). */
 export type OfferTileFacts = { verified: boolean; running: number | null; total: number | null; papers: string };
@@ -59,21 +60,18 @@ export type BookedDay = { eventId: string; eventName: string; bookedDate: string
 export function ShopMakers({
   scanners,
   formsBody,
-  templatesBody = null,
   formsOn = true,
   formsSaved,
   categories = [],
   services = [],
   booked = null,
   offers = null,
+  plansBody,
 }: {
   /** One line per service; null = the scanner settings could not be read (said so, never "Off"). */
   scanners: ScannerLine[] | null;
   /** The Forms Maker's body, server-drawn while `?maker=forms`; null while closed (or still on its way). */
   formsBody: ReactNode | null;
-  /** 🗂 The Templates body, server-drawn while `?maker=templates`; null while closed (or still on its way). Absent (the
-   *  lab rows that predate it) = no Templates tile. */
-  templatesBody?: ReactNode | null | false;
   /** The lab draws the row without the Forms tile's server body; the app always has the Forms Maker. */
   formsOn?: boolean;
   /** 📋 How many live forms the shop has saved — said on the tile ("3 saved" · "None yet"). null = unread ("Couldn't
@@ -87,18 +85,22 @@ export function ShopMakers({
   booked?: readonly BookedDay[] | null;
   /** 🏷 The Offer Maker tile (Build 6 Lane D). null = not drawn (the lab rows that predate it). */
   offers?: OfferTileFacts | null;
+  /** 💳 The Payment Strategies body, server-drawn while `?maker=plans`; null while closed (or still on its way). Absent
+   *  (the lab rows that predate it) = no tile. */
+  plansBody?: ReactNode | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
+  const plansOn = plansBody !== undefined;
   const [open, setOpen] = useState<MakerKey | null>(
-    inUrl === 'forms' ? 'forms' : inUrl === 'templates' && templatesBody !== false ? 'templates' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
+    inUrl === 'forms' ? 'forms' : inUrl === 'plans' && plansOn ? 'plans' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
   );
   const [lockOpen, setLockOpen] = useState(false);
-  // 🗂 Templates › Discounts and Promos raises the shipped Offer Maker OVER the Templates panel (× returns to it).
-  const [offersOver, setOffersOver] = useState(false);
-  const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, offers: null, tools: null, templates: null });
+  const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, offers: null, plans: null });
+  const toolTiles = useRef<Partial<Record<SpecializedToolKey, HTMLButtonElement | null>>>({});
+  const root = useRef<HTMLDivElement>(null);
   // 🌙 "Run an offer for [month]" (Analytics) lands here with the season's days: a NEW season offer opens on them.
   // 🃏 "Run an offer on [card]" lands with the card: a NEW offer opens with that card picked.
   const offerStart: OfferMakerStart =
@@ -111,18 +113,19 @@ export function ShopMakers({
           : null;
   const frame = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    frame.current = (tiles.current.tools?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
+    frame.current = (root.current?.closest('[data-shop-tab],[data-shop-tab-lab]') as HTMLElement | null) ?? null;
   }, []);
   const tools = specializedToolsFor(categories, services);
-  const [tool, setTool] = useState<SpecializedToolKey>('scanner');
+  // 🧰 Which tool's panel is open — none until a tile is tapped (the row itself is always on the page).
+  const [tool, setTool] = useState<SpecializedToolKey | null>(null);
 
-  // Only the Forms Maker and Templates write the address — their bodies are the server's (`?maker=forms` ·
-  // `?maker=templates`), so a reload lands on them too. The
+  // Only the Forms Maker and Payment Strategies write the address — their bodies are the server's (`?maker=forms` ·
+  // `?maker=plans`), so a reload lands on them too. The
   // Scanner's lines are already on the page: it opens with NO request (an address change would re-draw the whole Shop
   // on the server for nothing). Closing clears the address only if it carries a maker. The page never scrolls for it.
   const go = (k: MakerKey | null) => {
     setOpen(k);
-    const writes = k === 'forms' || k === 'templates';
+    const writes = k === 'forms' || k === 'plans';
     if (!writes && !params.get('maker')) return;
     const q = new URLSearchParams(params.toString());
     if (writes) q.set('maker', k);
@@ -144,50 +147,96 @@ export function ShopMakers({
   const list: { k: MakerKey; title: string; sub: string; icon: LucideIcon; head: string }[] = [
     ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     ...(offers ? [{ k: 'offers' as const, title: 'Offer Maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
-    { k: 'tools', title: 'Specialized tools', sub: `Scanner · ${formatCount(tools.length - 1)} tools`, icon: Wrench, head: 'Each tool opens where you use it' },
-    ...(templatesBody !== false && templatesBody !== undefined
-      ? [{ k: 'templates' as const, title: 'Templates', sub: 'Saved once', icon: FolderOpen, head: 'Saved once, used on any card' }]
-      : []),
+    ...(plansOn ? [{ k: 'plans' as const, title: 'Payment Strategies', sub: 'Saved pay plans', icon: WalletCards, head: 'Saved once, used on any card' }] : []),
   ];
-  const picked = tools.find((t) => t.tool.key === tool)?.tool ?? tools[0]!.tool;
+  const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;
+  const PickedIcon = picked ? toolIcon(picked.key) : null;
   const cur = open ? list.find((t) => t.k === open) : undefined;
 
   return (
-    <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
-      <div className="flex items-baseline justify-between px-4 pb-2 pt-5">
-        <h2 id="shop-makers-h" className="home-k2 !my-0">
-          Makers
-        </h2>
-      </div>
-      <div className="grid gap-2 px-4" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }} data-maker-row="">
-        {list.map((t) => (
-          <button
-            key={t.k}
-            ref={(el) => {
-              tiles.current[t.k] = el;
-            }}
-            type="button"
-            onClick={() => (t.k === 'offers' && offers && !offers.verified ? setLockOpen(true) : go(t.k))}
-            aria-expanded={open === t.k}
-            aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
-            className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
-            data-maker={t.k}
-          >
-            <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-              <t.icon className="h-5 w-5" strokeWidth={1.75} />
-            </span>
-            <b className="inline-flex items-center gap-1 text-sm font-semibold leading-tight text-ink">
-              {t.title}
-              {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
-            </b>
-            <small className="text-xs leading-tight text-ink/70">{t.sub}</small>
-          </button>
-        ))}
-      </div>
+    <div ref={root} data-shop-makers-and-tools="">
+      {/* 📋 TEMPLATES (owner 19 Nov 2026: "form maker and offer makers are all inside Templates then Specialized Tools") —
+          the two things a shop makes once and sends to couples, then Payment Strategies (saved pay plans, ruling 20 Nov). Each tile
+          opens as it did under "Makers". */}
+      {list.length > 0 ? (
+        <section aria-labelledby="shop-makers-h" data-shop-makers="" id="makers" className="scroll-mt-24">
+          <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
+            <h2 id="shop-makers-h" className="home-k2 !my-0">
+              Templates
+            </h2>
+            <small className="text-xs text-ink/70">Made once, sent to couples</small>
+          </div>
+          <div className="grid gap-2 px-4" style={{ gridTemplateColumns: `repeat(${list.length}, minmax(0, 1fr))` }} data-maker-row="">
+            {list.map((t) => (
+              <button
+                key={t.k}
+                ref={(el) => {
+                  tiles.current[t.k] = el;
+                }}
+                type="button"
+                onClick={() => (t.k === 'offers' && offers && !offers.verified ? setLockOpen(true) : go(t.k))}
+                aria-expanded={open === t.k}
+                aria-haspopup="dialog" // the Maker opens the in-body panel OVER the page (BodyPanel) — a popup surface, not an in-place fold
+                className="sn-press flex min-h-[104px] flex-col items-center justify-center gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-2 py-3 text-center" // no-card-ok: a Maker tile is a <button> (it opens the Maker into the body) — frames only on what you press
+                data-maker={t.k}
+              >
+                <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
+                  <t.icon className="h-5 w-5" strokeWidth={1.75} />
+                </span>
+                <b className="inline-flex items-center gap-1 text-sm font-semibold leading-tight text-ink">
+                  {t.title}
+                  {t.k === 'offers' && offers && !offers.verified ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
+                </b>
+                <small className="text-xs leading-tight text-ink/70">{t.sub}</small>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      {(open === 'offers' || offersOver) && offers?.verified ? (
+      {/* 🧰 SPECIALIZED TOOLS — its own part, OPEN ON THE PAGE (owner 19 Nov 2026): the carousel that sat one tap inside the
+          old third Maker tile. Scanner first, then suggested, then the rest; a tile opens that tool into the body. */}
+      <section aria-labelledby="shop-tools-h" data-specialized-tools="" id="tools" className="scroll-mt-24">
+        <div className="flex items-baseline justify-between gap-3 px-4 pb-2 pt-5">
+          <h2 id="shop-tools-h" className="home-k2 !my-0">
+            Specialized tools
+          </h2>
+          <small className="text-xs text-ink/70">Each tool opens where you use it</small>
+        </div>
+        <ul className="sn-glide-x flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
+          {tools.map(({ tool: t, suggested }) => {
+            const Icon = toolIcon(t.key);
+            const on = t.key === picked?.key;
+            return (
+              <li key={t.key} className="w-[150px] flex-none snap-start">
+                <button
+                  ref={(el) => {
+                    toolTiles.current[t.key] = el;
+                  }}
+                  type="button"
+                  onClick={() => setTool(t.key)}
+                  aria-expanded={on}
+                  aria-haspopup="dialog"
+                  className="sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left" // no-card-ok: a carousel tile is a <button>
+                  data-tool-tile={t.key}
+                  data-tool-suggested={suggested ? '' : undefined}
+                >
+                  <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                  </span>
+                  <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
+                  <small className="text-xs leading-snug text-ink/70">{t.line}</small>
+                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {open === 'offers' && offers?.verified ? (
         <Suspense fallback={null}>
-          <OfferMaker onClose={() => (offersOver ? setOffersOver(false) : go(null))} start={offersOver ? null : offerStart} />
+          <OfferMaker onClose={() => go(null)} start={offerStart} />
         </Suspense>
       ) : null}
       {lockOpen && offers ? (
@@ -208,56 +257,38 @@ export function ShopMakers({
           onClose={() => go(null)}
           data={`maker-${cur.k}`}
         >
-          {cur.k === 'tools' ? (
-            <div data-specialized-tools="">
-              {/* 🎠 THE CAROUSEL — swipe · tap one. Scanner first, then suggested, then the rest; all open. */}
-              <ul className="sn-glide-x -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]" data-tool-carousel="">
-                {tools.map(({ tool: t, suggested }) => {
-                  const Icon = toolIcon(t.key);
-                  const on = t.key === picked.key;
-                  return (
-                    <li key={t.key} className="w-[150px] flex-none snap-start">
-                      <button
-                        type="button"
-                        onClick={() => setTool(t.key)}
-                        aria-pressed={on}
-                        className={`sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left ${on ? 'ring-1 ring-[color:var(--m-orange)]' : ''}`} // no-card-ok: a carousel tile is a <button>
-                        data-tool-tile={t.key}
-                        data-tool-suggested={suggested ? '' : undefined}
-                      >
-                        <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
-                          <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                        </span>
-                        <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
-                        <small className="text-xs leading-snug text-ink/70">{t.line}</small>
-                        <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <ToolBody tool={picked} scanners={scanners} booked={booked} />
-            </div>
-          ) : cur.k === 'templates' ? (
-            <TemplatesOffersContext.Provider
-              value={offers ? { facts: offers, open: () => setOffersOver(true), locked: () => setLockOpen(true) } : null}
-            >
-              {templatesBody || (
-                <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-templates-loading="">
-                  Opening your templates…
+          {cur.k === 'plans'
+            ? (plansBody ?? (
+                <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-plans-loading="">
+                  Opening your Payment Strategies…
                 </p>
-              )}
-            </TemplatesOffersContext.Provider>
-          ) : (
-            (formsBody ?? (
-              <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-forms-loading="">
-                Opening your forms…
-              </p>
-            ))
-          )}
+              ))
+            : (formsBody ?? (
+                <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-forms-loading="">
+                  Opening your forms…
+                </p>
+              ))}
         </BodyPanel>
       ) : null}
-    </section>
+
+      {picked && PickedIcon ? (
+        <BodyPanel
+          origin={toolTiles.current[picked.key] ?? null}
+          frame={frame.current}
+          title={picked.title}
+          sub={picked.line}
+          lead={
+            <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
+              <PickedIcon className="h-5 w-5" strokeWidth={1.75} />
+            </span>
+          }
+          onClose={() => setTool(null)}
+          data={`tool-${picked.key}`}
+        >
+          <ToolBody tool={picked} scanners={scanners} booked={booked} />
+        </BodyPanel>
+      ) : null}
+    </div>
   );
 }
 

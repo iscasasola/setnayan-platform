@@ -14,6 +14,7 @@
  *   · A couple seat this account may not hold → said plainly, no Yes at all
  *     (lib/seat-binding.ts `COUPLE_SEAT_REFUSED`).
  */
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -48,9 +49,7 @@ export default async function ConfirmSeatLinkPage({ params, searchParams }: Prop
   const carry = connectQuery({ thenReply, approved });
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/join/${eventId}/connect${carry}`)}`);
 
   const seat = await findSeatToConnect(eventId, user.id, user.email ?? null, approved);

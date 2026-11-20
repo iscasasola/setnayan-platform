@@ -1,21 +1,24 @@
 /**
- * 🗂 SHOP › TEMPLATES (Card Maker part 4) — the rules the panel is held to:
- *   · the three kinds carry the owner's 17 Nov names, in the drawing's order, picked from ONE dropdown;
- *   · Quick Forms IS the Forms Maker's body (never a second list), and its rows now swipe-delete with Undo;
- *   · Payment Strategies reads honestly (a refused read is said, never "none yet") and deletes with Undo through the
- *     shipped `formsAction` (no new server action), retiring only a live plan of THIS shop and checking the row count;
- *   · Discounts and Promos raises the shipped Offer Maker — no second offers list.
+ * 💳 SHOP › TEMPLATES › PAYMENT STRATEGIES (Card Maker part 4; controller ruling 20 Nov under the owner's delegation)
+ * — the rules it is held to:
+ *   · it is the THIRD tile of main's Templates row (Forms Maker · Offer Maker · Payment Strategies), the same tile and
+ *     tap as the other two, its body server-drawn while `?maker=plans`;
+ *   · ONE place per tool: no second door into the Forms Maker or the Offer Maker (the old part-4 "Templates" panel's
+ *     Quick Forms and Discounts and Promos kinds are gone) — the Forms Maker's own rows swipe-delete with Undo;
+ *   · it reads honestly (a refused read is said, never "none yet") and deletes with Undo through the shipped
+ *     `formsAction` (no new server action), retiring only a live plan of THIS shop and checking the row count.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripComments } from '@/lib/strip-comments';
-import { TEMPLATE_KINDS, paymentLine, planDeletedLine, planRowLine, type PlanTemplate } from '@/lib/pay-plan-templates';
+import { paymentLine, planDeletedLine, planRowLine, type PlanTemplate } from '@/lib/pay-plan-templates';
 import type { ScheduleItemDraft } from '@/lib/vendor-service-payment-schedules';
 
 const read = (p: string) => stripComments(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const TEMPLATES = read('./_components/shop-templates.tsx');
-const BODY = read('./_components/shop-templates-body.tsx');
+const TEMPLATES = read('./_components/shop-pay-plans.tsx');
+const BODY = read('./_components/shop-pay-plans-body.tsx');
+const PAGE = read('./page.tsx');
 const MAKERS = read('./_components/shop-makers.tsx');
 const FORMS = read('../forms/_components/forms-page-body.tsx');
 const ACTIONS = read('../forms/actions.ts');
@@ -44,12 +47,20 @@ const plan = (o: Partial<PlanTemplate> = {}): PlanTemplate => ({
   ...o,
 });
 
-test('the three kinds carry the ruled names, in the drawing order', () => {
-  assert.deepEqual(
-    TEMPLATE_KINDS.map((k) => k.label),
-    ['Quick Forms', 'Discounts and Promos', 'Payment Strategies'],
-  );
-  assert.match(TEMPLATES, /<ChosenRow[\s\S]*?name="Show"/, 'one dropdown picks the kind');
+test('Payment Strategies is the third Templates tile — the same tile and tap, its body read only while open', () => {
+  const row = MAKERS.slice(MAKERS.indexOf('const list:'), MAKERS.indexOf('];', MAKERS.indexOf('const list:')));
+  const order = ['Forms Maker', 'Offer Maker', 'Payment Strategies'].map((t) => row.indexOf(`title: '${t}'`));
+  assert.ok(order.every((i) => i > 0) && order[0]! < order[1]! && order[1]! < order[2]!, `the Templates row is not Forms · Offers · Payment Strategies: ${order}`);
+  assert.match(MAKERS, /const writes = k === 'forms' \|\| k === 'plans';/, 'the plans tile does not write ?maker=plans');
+  assert.match(MAKERS, /cur\.k === 'plans'\s*\?\s*\(plansBody \?\?/);
+  assert.match(BODY, /return sp\.maker === 'plans' \? <ShopPayPlansBody \/> : null;/);
+  assert.match(PAGE, /plansBody=\{shopPayPlansBody\(sp\)\}/);
+});
+
+test('one place per tool — no second door into the Forms Maker or the Offer Maker', () => {
+  assert.doesNotMatch(TEMPLATES, /ShopFormsBody|ShopFormsMaker|ChosenRow|Quick Forms|Discounts and Promos|OfferMaker|offers/);
+  assert.doesNotMatch(MAKERS, /title: '(Templates|Saved templates|Quick Forms|Discounts and Promos)'/);
+  assert.doesNotMatch(MAKERS, /offersOver|TemplatesOffersContext/);
 });
 
 test('a payment reads in plain words', () => {
@@ -61,8 +72,7 @@ test('a payment reads in plain words', () => {
   assert.match(planDeletedLine(plan()), /cards keep the payments/);
 });
 
-test('Quick Forms IS the Forms Maker body, and its rows swipe-delete with Undo', () => {
-  assert.match(BODY, /forms=\{<ShopFormsBody \/>\}/);
+test('the Forms Maker\'s own rows swipe-delete with Undo (part 4, kept in its one place)', () => {
   assert.match(FORMS, /onRetire \? \(\s*<SwipeToDelete/);
   assert.match(FORMS, /deleteWithUndo\(\{[\s\S]*?fd\.set\('op', 'retire'\)/);
   assert.match(FORMS, /onRetire=\{retire\}/);
@@ -84,12 +94,6 @@ test('the plan read is honest: a refused read is unread, never an empty list', (
   assert.match(READER, /\.is\('retired_at', null\)/);
 });
 
-test('Discounts and Promos raises the shipped Offer Maker — no second offers list', () => {
-  assert.doesNotMatch(TEMPLATES, /offerMaker\(/, 'Templates never reads or writes offers itself');
-  assert.match(MAKERS, /open: \(\) => setOffersOver\(true\)/);
-  assert.match(MAKERS, /\(open === 'offers' \|\| offersOver\) && offers\?\.verified/);
-});
-
 test('the panel says each state — a refused read is said, never "none yet"', () => {
   // (A static render would pull the server action's `server-only` imports into node; the states are pinned in source.)
   const list = TEMPLATES.slice(TEMPLATES.indexOf('function PlanList'));
@@ -98,7 +102,6 @@ test('the panel says each state — a refused read is said, never "none yet"', (
   assert.ok(unread > 0 && none > unread, 'the unread branch returns before the empty line can draw');
   assert.match(list, /could not be read just now/);
   assert.match(list, /plans === null\)[\s\S]*?Opening your Payment Strategies/);
-  assert.match(TEMPLATES, /const kinds = TEMPLATE_KINDS\.filter\(\(k\) => k\.key !== 'offers' \|\| offers\)/, 'no offers kind without the Offer Maker door');
   assert.match(TEMPLATES, /data-templates-plan=\{p\.id\}/);
   assert.match(TEMPLATES, /<SwipeToDelete key=\{p\.id\} as="li"/);
 });

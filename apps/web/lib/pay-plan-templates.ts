@@ -51,11 +51,3 @@ export function planRowLine(p: PlanTemplate): string {
 export function planDeletedLine(p: PlanTemplate): string {
   return p.cardCount > 0 ? `${p.name} deleted · its ${p.cardCount === 1 ? 'card keeps' : 'cards keep'} the payments` : `${p.name} deleted`;
 }
-
-/** The kinds the Show dropdown lists, in the drawing's order (Availability is the Availability builder's, not here yet). */
-export const TEMPLATE_KINDS = [
-  { key: 'forms', label: 'Quick Forms' },
-  { key: 'offers', label: 'Discounts and Promos' },
-  { key: 'plans', label: 'Payment Strategies' },
-] as const;
-export type TemplateKind = (typeof TEMPLATE_KINDS)[number]['key'];

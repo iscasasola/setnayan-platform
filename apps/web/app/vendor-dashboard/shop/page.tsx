@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
@@ -53,7 +54,6 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
-import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
@@ -159,9 +159,7 @@ type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rej
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
@@ -710,6 +708,19 @@ async function ShopHome({
             (`display: contents`) — the phone is unchanged. The grid lives in `_components/supplier-frame.css`. */}
         <div data-shop-desk="">
         <div data-shop-desk-side="">
+        {/* 📋🧰 TEMPLATES, THEN SPECIALIZED TOOLS — ABOVE the numbers (owner 19 Nov 2026, "Yes, all three": what you set up comes
+            before what you read). Templates = Forms Maker · Offer Maker; Specialized tools = its own open row. */}
+        <ShopMakers
+          scanners={scanners}
+          formsBody={shopFormsBody(sp)}
+          plansBody={shopPayPlansBody(sp)}
+          formsSaved={data.formsSaved}
+          categories={(data.serviceRows ?? []).map((r) => r.label)}
+          services={data.services}
+          booked={data.booked}
+          offers={data.offerTile}
+        />
+
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
             "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
             months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
@@ -720,18 +731,6 @@ async function ShopHome({
 
         {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
         <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
-
-        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Specialized tools, Lane E item 13), each opening into the body. */}
-        <ShopMakers
-          scanners={scanners}
-          formsBody={shopFormsBody(sp)}
-          templatesBody={shopTemplatesBody(sp)}
-          formsSaved={data.formsSaved}
-          categories={(data.serviceRows ?? []).map((r) => r.label)}
-          services={data.services}
-          booked={data.booked}
-          offers={data.offerTile}
-        />
         </div>
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped
@@ -770,6 +769,7 @@ import { Suspense } from 'react';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
+import { shopPayPlansBody } from './_components/shop-pay-plans-body';
 
 export default async function VendorShopHub({
   searchParams,

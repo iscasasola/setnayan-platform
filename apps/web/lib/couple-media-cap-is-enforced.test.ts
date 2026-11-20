@@ -162,14 +162,14 @@ test('3 · the refusal is the plain reason, names the room left, and names THIS 
     coupleMediaFullMessage(496 * MB, 12 * MB, true),
     'This file is 12 MB, and this event has 4 MB of its 500 MB of uploads left. Remove a photo or video to make room, or pick a smaller file.',
   );
-  // FREE: 10 MB, then ONE line about Pro — a ◆, never a padlock.
+  // FREE: 10 MB, then ONE line about Pro — a ◆, never a padlock. 🎟 Event Pro's own number: 1 GB since the 18 Nov re-cut.
   assert.equal(
     coupleMediaFullMessage(coupleMediaCapBytes(false), 2 * MB, false),
-    'This event has used its 10 MB of uploads. Remove a photo or video to add more. ◆ Event Pro gives you 500 MB of uploads.',
+    'This event has used its 10 MB of uploads. Remove a photo or video to add more. ◆ Event Pro gives you 1 GB of uploads.',
   );
   assert.equal(
     coupleMediaFullMessage(6 * MB, 12 * MB, false),
-    'This file is 12 MB, and this event has 4 MB of its 10 MB of uploads left. Remove a photo or video to make room, or pick a smaller file. ◆ Event Pro gives you 500 MB of uploads.',
+    'This file is 12 MB, and this event has 4 MB of its 10 MB of uploads left. Remove a photo or video to make room, or pick a smaller file. ◆ Event Pro gives you 1 GB of uploads.',
   );
   assert.doesNotMatch(coupleMediaFullMessage(10 * MB, MB, false), /🔒|lock/i, 'Pro marks itself with ◆ and never blocks with a padlock');
   assert.equal(COUPLE_MEDIA_FULL_CODE, 'event_media_full');
@@ -184,7 +184,7 @@ test('3b · /api/upload reserves the bytes BEFORE it signs the PUT, and counts n
   const refusal = route.slice(reserveAt, signAt);
   assert.match(
     refusal,
-    /if \(reservation\.kind === 'full'\) \{\s*return NextResponse\.json\(\s*\{\s*error: coupleMediaFullMessage\(reservation\.usedBytes, sizeBytes, reservation\.isPro\),\s*code: COUPLE_MEDIA_FULL_CODE,\s*\},\s*\{ status: 413 \},?\s*\);\s*\}/,
+    /if \(reservation\.kind === 'full'\) \{\s*return NextResponse\.json\(\s*\{\s*error: coupleMediaFullMessage\(reservation\.usedBytes, sizeBytes, reservation\.plan\),\s*code: COUPLE_MEDIA_FULL_CODE,\s*\},\s*\{ status: 413 \},?\s*\);\s*\}/,
     'a full allowance RETURNS the refusal — nothing reaches the signer',
   );
   assert.match(
@@ -198,7 +198,9 @@ test('3b · /api/upload reserves the bytes BEFORE it signs the PUT, and counts n
   const server = read('lib/couple-media-allowance.server.ts');
   // The cap handed to the RPC is the PLAN's, from the one function, read with the real Pro gate — never a literal.
   // RE-AIMED 2026-10-22 (part by part): 500 MB is the Background part's (gate 12) — Full Pro and the cap included.
-  assert.match(server, /const isPro = await eventHubPartActive\(admin, eventId, 'background'\)\.catch\(\(\) => false\);\s*const capBytes = coupleMediaCapBytes\(isPro\);/);
+  // RE-AIMED 2026-11-18 (the re-cut): the PLAN — Plus 500 MB · Pro 1 GB · Ultra 2 GB — with the Background part still 500 MB.
+  assert.match(server, /const plan = await eventCoupleMediaPlan\(admin, eventId\);\s*const capBytes = coupleMediaCapBytes\(plan\);/);
+  assert.match(server, /eventHubPartActive\(supabase, eventId, 'background'\)\.catch\(no\)/, 'the Background part still widens the cap');
   assert.match(server, /rpc\('reserve_couple_media_bytes'[\s\S]*?p_cap: capBytes,/);
   assert.doesNotMatch(server, /MAKER_EVENT_MEDIA_BYTES_CAP|\d+ \* 1024 \* 1024/, 'no second constant set beside coupleMediaCapBytes');
   assert.match(server, /rpc\('set_couple_media_bytes'/);
@@ -228,8 +230,9 @@ test('3c · ONE cap: the existing constant is plan-aware, and only its own file 
   }
   assert.deepEqual(offenders, []);
   const limits = read('lib/maker-media-limits.ts');
-  assert.match(limits, /export const MAKER_EVENT_MEDIA_BYTES_CAP = \{\s*free: 10 \* 1024 \* 1024,[^\n]*\n\s*pro: 500 \* 1024 \* 1024,[^\n]*\n\} as const;/);
-  assert.match(limits, /export function coupleMediaCapBytes\(isPro: boolean\): number \{\s*return isPro \? MAKER_EVENT_MEDIA_BYTES_CAP\.pro : MAKER_EVENT_MEDIA_BYTES_CAP\.free;\s*\}/);
+  assert.match(limits, /export const MAKER_EVENT_MEDIA_BYTES_CAP = \{\s*free: 10 \* 1024 \* 1024,[^\n]*\n[\s\S]*?pro: 500 \* 1024 \* 1024,[^\n]*\n[\s\S]*?eventPro: 1024 \* 1024 \* 1024,[^\n]*\n[\s\S]*?eventUltra: 2 \* 1024 \* 1024 \* 1024,[^\n]*\n\} as const;/);
+  // 🎟 18 Nov re-cut: the ONE function now takes the plan; the older boolean still reads 500 MB / 10 MB.
+  assert.match(limits, /export function coupleMediaCapBytes\(plan: boolean \| EventMediaPlan\): number \{/);
 });
 
 /* ── 4 · THE METER WHERE THE UPLOADS HAPPEN ──────────────────────────────── */
@@ -277,7 +280,7 @@ test('4a · a FREE couple reads 10 MB, and at the cap sees one ◆ Pro line with
   assert.doesNotMatch(meter(part), /Unlock Pro/, 'the Pro line waits until the allowance is used');
   const full = meter(await paintRow({ ownsPro: false, mediaUsedBytes: coupleMediaCapBytes(false) }));
   assert.match(full, /10 MB of 10 MB/);
-  assert.match(full, /◆ Event Pro gives you 500 MB\./, 'ONE line, the Pro mark, the Pro number');
+  assert.match(full, /◆ Event Pro gives you 1 GB\./, 'ONE line, the Pro mark, the Pro number (1 GB since the 18 Nov re-cut)');
   assert.match(full, new RegExp(`href="/dashboard/${E}/studio/website-pro"[^>]*>Unlock Pro<`), 'Unlock Pro goes to the existing upgrade path');
   assert.doesNotMatch(full, /🔒|padlock/i, 'never a padlock');
   // A couple already OVER the new Free number (files are never deleted): full, nothing removed, still just one line.
@@ -288,7 +291,7 @@ test('4a · a FREE couple reads 10 MB, and at the cap sees one ◆ Pro line with
 
 test('4b · the Main background shows it too, and both stay in the lazy Maker chunk', () => {
   const panel = read(`${EDITOR}/_components/main-background-panel.tsx`);
-  assert.match(panel, /<FileUpload[\s\S]*?pathPrefix=\{`events\/\$\{eventId\}\/main-background`\}[^<]*?\/>[\s{}]*\{typeof mediaUsedBytes === 'number' \? <MakerMediaMeter usedBytes=\{mediaUsedBytes\} capBytes=\{coupleMediaCapBytes\(ownsPro\)\} proHref=\{ownsPro \? null : `\/dashboard\/\$\{eventId\}\/studio\/website-pro`\} \/> : null\}/);
+  assert.match(panel, /<FileUpload[\s\S]*?pathPrefix=\{`events\/\$\{eventId\}\/main-background`\}[^<]*?\/>[\s{}]*\{typeof mediaUsedBytes === 'number' \? <MakerMediaMeter usedBytes=\{mediaUsedBytes\} capBytes=\{coupleMediaCapBytes\(mediaPlan \?\? ownsPro\)\} proHref=\{ownsPro \? null : `\/dashboard\/\$\{eventId\}\/studio\/website-pro`\} \/> : null\}/);
   const page = read(`${EDITOR}/page.tsx`);
   assert.match(page, /<MainBackgroundPanel[\s\S]*?mediaUsedBytes=\{mediaUsedBytes\}/);
   assert.match(page, /sceneFormat=\{\{[\s\S]*?mediaUsedBytes,/);
@@ -414,7 +417,7 @@ test('4c · the Cover Scene (the hero’s upload) is handed the PLAN — its upl
   // props of `CoverSceneGroundRows`, so the typecheck refuses a mount that forgets them.
   const row = read(`${EDITOR}/_components/scene-background-row.tsx`);
   const heroBranch = /if \(props\.widgetType === 'hero'\) \{[\s\S]*?<CoverSceneGroundRows[\s\S]*?\/>/.exec(row)?.[0] ?? '';
-  assert.match(heroBranch, /mediaCapBytes=\{coupleMediaCapBytes\(props\.ownsPro\)\}/, 'the hero branch hands on the plan’s number, from the real Pro gate');
+  assert.match(heroBranch, /mediaCapBytes=\{coupleMediaCapBytes\(props\.mediaPlan \?\? props\.ownsPro\)\}/, 'the hero branch hands on the plan’s number (the plan, else the real Pro gate)');
   assert.match(heroBranch, /proHref=\{props\.ownsPro \|\| props\.storeShell \? null : `\/dashboard\/\$\{props\.eventId\}\/studio\/website-pro`\}/, 'and the buy path, for a Free event only');
   const cover = read('app/dashboard/[eventId]/launch/_components/stage-panel/cover-words-background.tsx');
   assert.match(cover, /\n\s*mediaCapBytes: number;/, 'mediaCapBytes is required');

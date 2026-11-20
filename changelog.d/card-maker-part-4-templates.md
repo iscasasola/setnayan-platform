@@ -18,3 +18,13 @@ while `?maker=templates`.
   builder's and are not drawn here.
 
 SPEC IMPACT: None — implements the approved drawing's Templates screen on the shipped Shop; no corpus text changes.
+
+**Re-shaped 20 Nov onto main's Templates row (controller ruling under the owner's 20 Nov delegation — one place per
+tool).** Main (owner 19 Nov) renamed Shop › Makers to **Templates** (Forms Maker · Offer Maker) and moved Specialized
+tools to their own open row. So this part's own "Templates" tile and its Show ▾ panel are **removed**: Quick Forms was
+the Forms Maker's own body and Discounts and Promos was the Offer Maker, each already one tap away. **Payment
+Strategies** — the one new tool — is the **third tile** of main's Templates row (same tile, icon style and tap), its body
+server-drawn while `?maker=plans` (`shop-pay-plans-body.tsx` → `ShopPayPlans`). The Forms Maker rows keep their swipe-left
+delete with Undo. **Removes:** the "Templates" tile (`FolderOpen`), `?maker=templates`, the Show ▾ kinds dropdown
+(`TEMPLATE_KINDS`), the Offer-Maker-over-Templates raise (`offersOver`, `TemplatesOffersContext`), and this part's copy of
+the Specialized tools tile.

@@ -84,7 +84,11 @@ export const VENDOR_PROFILE_EXPORT_OMITTED: Record<string, string> = {};
  */
 export const VENDOR_PROFILE_EXPORT_SELECT =
   'absorbs_convenience_fee, ai_addon_expires_at, ai_addon_level, ai_addon_trial_used_at, ' +
-  'bir_service_category, booth_addon_expires_at, booth_addon_trial_used_at, business_name, ' +
+  'bir_service_category, ' +
+  // booking_min_days · booking_max_months (migration 20271354345662) — how far away the shop takes bookings (At least ·
+  // At most, Clients ⚙ › Teams and days). The shop's own setting, exported like the pause above.
+  'booking_max_months, booking_min_days, ' +
+  'booth_addon_expires_at, booth_addon_trial_used_at, business_name, ' +
   'business_owner_name, business_owner_position, business_slug, capacity_max, capacity_min, ' +
   'compatible_ceremony_types, compatible_venue_settings, contact_email, contact_phone, ' +
   'created_at, created_by_admin_user_id, demo_batch_id, demotion_count, event_types, ' +

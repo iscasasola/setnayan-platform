@@ -11,7 +11,16 @@
  * ⚠ No price here, ever: the rate is read from the admin fee table where a sentence shows it.
  */
 
-/** The full rule, to a supplier (second person). */
+/**
+ * 🔑 THE FREE BOOKING ON THE PUBLIC PAGES, in the owner's 19 Nov words (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN
+ * ANSWERS", item 4): no number of months on any public page. /for-suppliers and /for-coordinators say this; the rule
+ * below stays for the in-app client card only (controller ruling, 20 Nov). Open PR #8041 exports the same sentence from
+ * `lib/seo/ai-answers.ts` — whichever lands second imports this one.
+ * 🔒 lib/no-fee-wording.test.ts
+ */
+export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";
+
+/** The full rule, to a supplier (second person) — the in-app client card. Public pages say SUPPLIER_FREE_BOOKING_LINE. */
 export const FEE_FREE_RULE =
   'Your booking is free when you are the first supplier to bring an event onto Setnayan, and a couple you bring onto Setnayan books you free for a year — verified shops only.';
 

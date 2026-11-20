@@ -81,7 +81,8 @@ test('the anchor: there are nine Studio apps and each names a page', () => {
      the things you make · Planner = the five free planning tools · Together =
      Samahan). The count is still pinned here, deliberately, because adding a
      row is still a decision to put a door in front of every stranger. */
-  assert.equal(STUDIO_APPS.length, 15, 'there are fifteen doorway products');
+  // 🪦 15 → 13 on 2026-11-20: Patiktok and Music Maker were retired (lib/retired-products.ts).
+  assert.equal(STUDIO_APPS.length, 13, 'there are thirteen doorway products');
   for (const a of STUDIO_APPS) {
     assert.ok(a.href.startsWith('/'), `${a.key}: href is not a path`);
     assert.ok(a.description.length > 80, `${a.key}: description is a stub`);
@@ -358,7 +359,7 @@ test('promoting a FREE tool renders no price, tier or lock in the rail', () => {
   */
   const rows = railToolsSignedIn({ eventId: null, count: 0, profile: null });
   const free = rows.find((r) => r.key === 'mood-board');
-  const paid = rows.find((r) => r.key === 'pakanta');
+  const paid = rows.find((r) => r.key === 'panood');
   assert.ok(free && paid, 'the two rows this compares are not both rendered');
   assert.deepEqual(
     Object.keys(free!).sort(),

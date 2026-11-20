@@ -98,15 +98,20 @@ test('10 · host · after the event: a delivered handover not yet confirmed → 
   assert.equal(coupleNextStep({ ...after, nextDue: { amountPhp: 1000, dueDate: '2026-12-09' } }), null);
 });
 
-test('11 · both pages draw the ONE row, and the host page feeds it only what it read', () => {
+test('11 · the host page draws the ONE row and feeds it only what it read; the supplier’s strip says its step', () => {
   const HERE = dirname(fileURLToPath(import.meta.url));
   const read = (rel: string) => stripComments(readFileSync(join(HERE, '..', rel), 'utf8'));
   const supplier = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
   const ws = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
-  for (const [name, src] of [['supplier', supplier], ['host', ws]] as const) {
+  for (const [name, src] of [['host', ws]] as const) {
     assert.match(src, /import \{ NextStepRow \} from '@\/app\/_components\/picked\/next-step-row';/, `${name}: not the shared row`);
     assert.match(src, /<NextStepRow step=\{/, `${name}: the row is not drawn`);
   }
+  // 💬 The SUPPLIER's client page is one chat since 19 Nov 2026: the Next step has no row of its own on top of the
+  // chat — the summary strip says it, in the box it opens (`chatStrip`'s `step`, held by lib/client-chat-strip.test.ts).
+  assert.match(supplier, /const nextStep = clientNextStep\(\{/, 'supplier: the next step is no longer worked out');
+  assert.match(supplier, /step: nextStep \? \{ line: nextStep\.line, page: nextStep\.page \} : null,/, 'supplier: the strip is not handed the next step — its fact left the screen');
+  assert.doesNotMatch(supplier, /<NextStepRow\b/, 'supplier: the Next step row is back on top of the chat beside the strip that already says it');
   assert.match(ws, /nextStep=\{hostNextStep \? <NextStepRow step=\{hostNextStep\} \/> : null\}/, 'the host shell is not handed the row');
   // Unread is kept apart from empty, for each read the row uses.
   assert.match(ws, /if \(planProgress\.readComplete === false\) planProgressUnread = true;/);

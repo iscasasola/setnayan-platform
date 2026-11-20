@@ -27,6 +27,9 @@ import {
   ONE_POLL_REASON,
   PLUS_CARD_TOPIC,
   PLUS_ROW_PAGE,
+  PLUS_ROW_SECTION,
+  PLUS_SECTIONS,
+  PLUS_SECTION_WORD,
   filterSlash,
   hostPlusRows,
   plusGate,
@@ -38,15 +41,29 @@ import {
   type PlusRow,
   type RunningTopic,
 } from './chat-plus';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { KIND_CHIPS } from './chat-kinds';
 import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Propose a payment plan · See every version) · Decision · Poll · Ask for access · Form · Payment · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files · Report a problem', () => {
+  // 19 Nov 2026 (drawing S9ScH2Ps v3, screen 6): Drop an offer joins Negotiate (PR-4's card, now reachable), and Form
+  // comes before Ask for access under "Ask & decide".
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Ask for access', 'Form', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
   );
+  // An offer changes a quote: not drawn before one exists, shut (with Change quote's own reason) once they booked at it.
+  assert.ok(!supplierPlusRows({ paid: false, hasQuote: false }).some((r) => r.key === 'offer'), 'Drop an offer is drawn with no quote to apply it to');
+  const offer = supplierPlusRows({ paid: false }).find((r) => r.key === 'offer')!;
+  assert.deepEqual([offer.line, offer.card, offer.shutNow ?? null], ['They apply it with one tap', 'offer', null]);
+  const booked = supplierPlusRows({ paid: false, booked: true });
+  assert.deepEqual(booked.find((r) => r.key === 'offer')!.shutNow, booked.find((r) => r.key === 'quote')!.shutNow);
+  assert.ok(booked.find((r) => r.key === 'offer')!.shutNow, 'a booked quote takes no dropped offer — the row is shut, never hidden');
+  assert.ok(!hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'offer'), 'the hosts never drop an offer — it is the shop’s');
   assert.equal(supplierPlusRows({ paid: true }).find((r) => r.key === 'quote')!.line, 'A new version · the paid one is the floor');
   const photos = supplierPlusRows({ paid: false }).find((r) => r.key === 'photos')!;
   assert.equal(photos.line, 'From your phone or your portfolio');
@@ -88,7 +105,7 @@ test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting
 test('1c · a row that cannot open yet is shut with its reason — never hidden', () => {
   const shut = supplierPlusRows({ paid: false }).filter((r) => r.shutUntilAgreement);
   // Ask for access is the shipped ask, which is for a supplier booked on the event (chat gaps, 8 Nov).
-  assert.deepEqual(shut.map((r) => r.key), ['access', 'form', 'payment']);
+  assert.deepEqual(shut.map((r) => r.key), ['form', 'access', 'payment']);
   for (const r of shut) assert.ok(r.shutUntilAgreement!.reason.length > 0);
 });
 
@@ -132,6 +149,28 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
   // Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
   assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
+});
+
+test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files, Report a problem last under a bare line (19 Nov)', () => {
+  // The supplier's client page is one chat: no tab row, so a heading named after a tab names nothing. The order of the
+  // sections is DERIVED from `PLUS_SECTIONS`, never hand-copied; every row has a section; no section is split in two.
+  for (const opts of [{ paid: false }, { paid: true }, { paid: false, hasQuote: false }, { paid: false, booked: true }]) {
+    const rows = supplierPlusRows(opts);
+    const secs = rows.map((r) => PLUS_ROW_SECTION[r.key]);
+    const ranks = secs.map((x) => PLUS_SECTIONS.indexOf(x));
+    assert.ok(ranks.every((r) => r >= 0), 'a row has no section');
+    for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, `'${rows[i]!.label}' is drawn above its section's place`);
+    assert.equal(secs.at(-1), 'report');
+    assert.equal(secs.filter((x) => x === 'report').length, 1, 'Report a problem shares its line with another row');
+  }
+  const words = [...new Set(supplierPlusRows({ paid: false }).map((r) => PLUS_ROW_SECTION[r.key]))].map((k) => PLUS_SECTION_WORD[k]);
+  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files', null]);
+  // The group words match the chips in the text box (one vocabulary on the screen).
+  for (const w of ['Money', 'Dates', 'Files']) assert.ok(KIND_CHIPS.some((c) => c.label === w), `the chips have no '${w}'`);
+  // The sheet draws THESE for the supplier, and still the tabs' words for the host.
+  const sheet = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx'), 'utf8');
+  assert.match(sheet, /\.\.\.\(side === 'vendor' \? \{ section: PLUS_ROW_SECTION\[r\.key\] \} : \{\}\),/);
+  assert.match(sheet, /if \(row\.section\) return \{ key: row\.section, word: PLUS_SECTION_WORD\[row\.section\] \};/);
 });
 
 test('1e · ONE phone picker on the supplier’s (+): Photos & files takes the phone’s photos and videos; Camera is the other act', () => {
@@ -223,7 +262,7 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
   }
   // The words the ruling names (M14 + /meeting /decision /poll), Negotiate's first (12 Nov: /quote · /plan; the hosts' /ask · /counter).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
-    '/quote', '/plan', '/decision', '/poll', '/access', '/form', '/payment', '/meeting', '/file',
+    '/quote', '/offer', '/plan', '/decision', '/poll', '/form', '/access', '/payment', '/meeting', '/file',
   ]);
   assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 2).map((r) => `/${r.word}`), ['/counter', '/plan']); // no /ask — ruling 6076
   // "/p" → Propose a payment plan (its word /plan) · Poll · Payment · Photos & files.
@@ -249,8 +288,8 @@ test('7 · Enter never picks a greyed row', () => {
 // mapping `counter` to 'payments' in PLUS_ROW_PAGE → 8 RED.
 test('8 · Negotiate is FIRST on both (+) menus, holding exactly the design’s rows', () => {
   for (const [side, rows, want] of [
-    ['supplier', supplierPlusRows({ paid: false }), ['Change quote', 'Propose a payment plan', 'See every version']],
-    ['supplier · paid', supplierPlusRows({ paid: true }), ['Change quote', 'Propose a payment plan', 'See every version']],
+    ['supplier', supplierPlusRows({ paid: false }), ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version']],
+    ['supplier · paid', supplierPlusRows({ paid: true }), ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version']],
     ['host', hostPlusRows({ canLogPayment: true }), HOST_NEGOTIATE],
     ['host · coordinator', hostPlusRows({ canLogPayment: false }), HOST_NEGOTIATE],
   ] as const) {

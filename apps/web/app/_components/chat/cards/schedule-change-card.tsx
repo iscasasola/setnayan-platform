@@ -16,9 +16,8 @@ import { Eye } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { scheduleChangeHeadline } from '@/lib/schedule-hand-in-hand';
 import { markDay } from '@/lib/supplier-schedule-marks';
-import { ChatCardShell } from '../chat-step-card';
 import { loadScheduleSeen, markScheduleSeenFromChat } from './card-calls';
-import { Problem } from './card-bits';
+import { KindCard, Problem } from './card-bits';
 
 export function ScheduleChangeCard({
   threadId,
@@ -75,11 +74,19 @@ export function ScheduleChangeCard({
 
   const mine = viewer === 'vendor';
   return (
-    <ChatCardShell topic="schedule" kicker="Schedule" title="Schedule changed" tone="auto">
+    <KindCard
+      kind="meeting"
+      topic="schedule"
+      kicker="Schedule"
+      title="Schedule changed"
+      turn={answered ? 'done' : mine && seen ? 'me' : 'wait'}
+      settled={answered ? `${chapter} · ${from} → ${to} · seen` : undefined}
+    >
       <div className="grid gap-2" data-schedule-change-card={answered ? 'seen' : 'open'}>
         <p className="text-[15px] font-semibold text-ink">{scheduleChangeHeadline(chapter, shift, mine ? 'you' : supplierName)}</p>
-        <p className="text-[14px] tabular-nums text-ink/65">
-          {chapter} · {from} → {to}
+        {/* The meeting kind's signature: the old time struck, the new one bold. */}
+        <p className="text-[14px] tabular-nums text-ink/70">
+          {chapter} · <s>{from}</s> → <b className="font-bold text-ink">{to}</b>
         </p>
         <p className="text-[14px] text-ink/65">
           {mine
@@ -102,6 +109,6 @@ export function ScheduleChangeCard({
           </p>
         ) : null}
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }

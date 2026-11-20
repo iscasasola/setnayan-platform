@@ -286,9 +286,12 @@ test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite sho
     assert.doesNotMatch(code, /preferred supplier/i, `${f} still says "preferred supplier"`);
     assert.doesNotMatch(code, /your Trusted by\b/, `${f} still says "your Trusted by"`);
   }
-  // The two fixes: all four /for-coordinators buttons carry ?as=coordinator; no invite perk promises the marketplace.
+  // The two fixes: every /for-coordinators button carries ?as=coordinator; no invite perk promises the marketplace.
+  // Main's 20 Nov page (batch A) has two start buttons, both `href={START}`; none opens the bare self-serve door.
   const fc = read('app/(shell)/for-coordinators/page.tsx');
-  assert.equal((fc.match(/href="\/open-shop\?as=coordinator"/g) ?? []).length, 4);
+  assert.match(fc, /const START = '\/open-shop\?as=coordinator';/);
+  assert.equal((fc.match(/href=\{START\}/g) ?? []).length, 2, 'the hero and the close each open the coordinator door');
+  assert.equal((fc.match(/href="\/open-shop[?"]/g) ?? []).length, 0, 'a /for-coordinators button opens /open-shop without ?as=coordinator');
   for (const f of ['app/vendor/claim/[token]/_components/claim-parts.tsx', 'app/vendor/claim/[token]/page.tsx']) {
     assert.doesNotMatch(read(f), /marketplace listing|Marketplace exposure/, `${f} still promises the marketplace`);
   }

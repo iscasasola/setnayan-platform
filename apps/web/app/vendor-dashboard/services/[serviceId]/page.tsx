@@ -135,6 +135,7 @@ export default async function EditServiceCardPage({
       <CanvasMaker
         categoryValue={card.category}
         categoryLabel={kindName}
+        categoryPath={ctx.kindPath(card.category)}
         otherCategories={ctx.otherCategories}
         coverages={ctx.coverages}
         vendorProfileId={profile.vendor_profile_id}

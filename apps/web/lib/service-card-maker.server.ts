@@ -102,6 +102,12 @@ export type MakerContext = {
   availabilityOf: Record<string, AvailabilityStyle> | null;
   kindLabel: (kind: string) => string;
   /**
+   * 🗂 THE SERVICES ROW'S SECOND LINE (Card Maker HYBRID, owner-approved 17 Nov): where a service sits in the live
+   * taxonomy, "Group › Category" (e.g. "Venues & Simbahan › Reception Venues"). Read from the same tree the kind sheet
+   * groups by — never typed. `null` = not a live service (an old kind, Other): the row then says nothing.
+   */
+  kindPath: (kind: string) => string | null;
+  /**
    * 🎁 THE CARD'S GIFT ROW (makers prototype 7 Nov 2026 § 3) — the giftable packs on the live catalogue and what this
    * shop can still offer of each kind. `null` = could not be read (the row then offers No gift · Setnayan gift and
    * lists the packs as unreadable — never as empty stock).
@@ -350,6 +356,11 @@ export async function loadMakerContext(
   }
 
   const coveredChoices = coverageKindOptions.filter((o) => o.standing === 'covered');
+  /* 🗂 "Group › Category" for each live service — a level is never said twice in a row (as `pathLabel`). */
+  const kindPathOf = new Map<string, string>();
+  for (const p of tree)
+    for (const b of p.branches)
+      for (const l of b.leaves) if (!kindPathOf.has(l.canonicalService)) kindPathOf.set(l.canonicalService, b.label && b.label !== p.label ? `${p.label} › ${b.label}` : p.label);
 
   return {
     categoryOptions,
@@ -381,6 +392,7 @@ export async function loadMakerContext(
     bookingsPerDate,
     availabilityOf,
     kindLabel,
+    kindPath: (kind: string) => kindPathOf.get(kind) ?? null,
     giftPacks,
     giftFree: freeByKind(giftStock),
     checkRules,

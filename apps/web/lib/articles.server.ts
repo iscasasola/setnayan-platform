@@ -31,6 +31,7 @@ export { bylineFor, UNNAMED_MEMBER, type Byline } from '@/lib/article-byline';
 import { cardTarget, findPostLinks } from '@/lib/article-links';
 import { isShopLive, SHOP_LIVE_COLUMNS } from '@/lib/vendor-visibility';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { onlyPublicArticles } from '@/lib/public-articles';
 
 export type ArticleRead<T> = { ok: true; data: T } | { ok: false };
 
@@ -153,13 +154,7 @@ export async function listArticles(opts: { tag?: string | null; sort?: ArticleSo
   ArticleRead<{ articles: ArticleCard[]; tags: string[] }>
 > {
   const supabase = await createClient();
-  let q = supabase
-    .from('creator_chapters')
-    .select(ARTICLE_COLS)
-    .eq('status', 'published')
-    .not('slug', 'is', null)
-    .is('removed_at', null)
-    .lte('published_at', new Date().toISOString())
+  let q = onlyPublicArticles(supabase.from('creator_chapters').select(ARTICLE_COLS))
     .order('published_at', { ascending: false })
     .limit(60);
   if (opts.tag) q = q.contains('tags', [opts.tag]);
@@ -189,13 +184,7 @@ export async function articlesForTag(tag: string, limit = 3): Promise<ArticleRea
  */
 export async function listPublicArticleAddresses(): Promise<ArticleRead<{ slug: string; updatedAt: string; isJournal: boolean }[]>> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('creator_chapters')
-    .select('slug, updated_at, is_journal')
-    .eq('status', 'published')
-    .not('slug', 'is', null)
-    .is('removed_at', null)
-    .lte('published_at', new Date().toISOString())
+  const { data, error } = await onlyPublicArticles(supabase.from('creator_chapters').select('slug, updated_at, is_journal'))
     .order('updated_at', { ascending: false })
     .limit(5000);
   if (error) {
@@ -227,7 +216,7 @@ async function resolveLinkCards(body: string): Promise<LinkCard[]> {
           .in('business_slug', words)
       : Promise.resolve({ data: [], error: null }),
     slugs.length
-      ? supabase.from('creator_chapters').select('slug, title, body, is_journal').in('slug', slugs).eq('status', 'published').is('removed_at', null)
+      ? onlyPublicArticles(supabase.from('creator_chapters').select('slug, title, body, is_journal')).in('slug', slugs)
       : Promise.resolve({ data: [], error: null }),
   ]);
   for (const [what, err] of [['shops', shopsRes.error], ['articles', articlesRes.error]] as const) {
@@ -264,12 +253,8 @@ async function resolveLinkCards(body: string): Promise<LinkCard[]> {
 export async function articleBySlug(slug: string): Promise<ArticleRead<Article | null>> {
   const supabase = await createClient();
   const [{ data, error }, { data: auth }] = await Promise.all([
-    supabase
-      .from('creator_chapters')
-      .select(ARTICLE_COLS)
+    onlyPublicArticles(supabase.from('creator_chapters').select(ARTICLE_COLS))
       .eq('slug', slug)
-      .eq('status', 'published')
-      .is('removed_at', null)
       .maybeSingle(),
     supabase.auth.getUser(),
   ]);
@@ -331,13 +316,8 @@ export async function articleBySlug(slug: string): Promise<ArticleRead<Article |
  */
 export async function articleSlugForChapter(publicId: string): Promise<string | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('creator_chapters')
-    .select('slug')
+  const { data, error } = await onlyPublicArticles(supabase.from('creator_chapters').select('slug'))
     .eq('public_id', publicId)
-    .eq('status', 'published')
-    .is('removed_at', null)
-    .not('slug', 'is', null)
     .maybeSingle();
   if (error) {
     logQueryError('articles.articleSlugForChapter', error);

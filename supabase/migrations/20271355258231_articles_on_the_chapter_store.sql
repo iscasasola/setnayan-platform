@@ -18,6 +18,13 @@
 -- `auth.role() IS NULL`, which can never be NULL in the PGlite replay (2026-08-12 lesson).
 -- ============================================================================
 
+-- 0a. LOCK ORDER (ship-controller review, 2026-11-20). Signup locks auth.users, then public.users. This
+--     migration must take them in that SAME order, or a signup arriving mid-push can deadlock against it
+--     (the same class as the 2026-11-20 prod deadlock). So the replies table, whose FK takes a lock on
+--     auth.users, is created (1d-pre) after creator_chapters and before any ALTER on public.users. And no statement waits
+--     longer than 5 s for a lock: a push that cannot get one fails and is retried, it never queues signups.
+SET LOCAL lock_timeout = '5s';
+
 -- ---------------------------------------------------------------------------
 -- 1. creator_chapters — slug · tags · is_journal · posted_as_vendor_id · removed_at
 -- ---------------------------------------------------------------------------
@@ -177,6 +184,30 @@ CREATE TRIGGER creator_chapters_article_fields_guard
   BEFORE INSERT OR UPDATE ON public.creator_chapters
   FOR EACH ROW EXECUTE FUNCTION public.creator_chapters_article_fields_guard();
 
+-- 1d-pre. creator_chapter_replies: the table only (see 0a: after creator_chapters, before public.users). Its policies, grants and guard are in section 3.
+CREATE TABLE IF NOT EXISTS public.creator_chapter_replies (
+  id                  BIGSERIAL PRIMARY KEY,
+  reply_id            UUID        NOT NULL UNIQUE DEFAULT gen_random_uuid(),
+  chapter_id          UUID        NOT NULL REFERENCES public.creator_chapters(chapter_id) ON DELETE CASCADE,
+  user_id             UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  posted_as_vendor_id UUID        NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE SET NULL,
+  body                TEXT        NOT NULL CHECK (length(btrim(body)) BETWEEN 1 AND 5000),
+  removed_at          TIMESTAMPTZ NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.creator_chapter_replies ENABLE ROW LEVEL SECURITY;
+
+CREATE INDEX IF NOT EXISTS creator_chapter_replies_chapter_idx
+  ON public.creator_chapter_replies (chapter_id, created_at);
+CREATE INDEX IF NOT EXISTS creator_chapter_replies_user_idx
+  ON public.creator_chapter_replies (user_id);
+
+COMMENT ON TABLE public.creator_chapter_replies IS
+  'Replies to an article (a published creator_chapters row). ONE level deep: there is no parent column, so a '
+  'reply cannot answer a reply (owner 2026-11-17). Shown under the writer''s posting name, or their shop.';
+
 -- 1d. Every chapter that already exists gets its address (the trigger fills a NULL slug on update).
 UPDATE public.creator_chapters SET updated_at = updated_at WHERE slug IS NULL;
 
@@ -189,6 +220,8 @@ UPDATE public.creator_chapters SET updated_at = updated_at WHERE slug IS NULL;
 --     account: a Journal post · a shop's post · an author who CHOSE a posting name (the Write sheet asks for one
 --     before the first post) · or an author whose profile is public. A chapter by a person with a hidden
 --     profile and no posting name stays exactly as private as it was.
+--     📅 A post dated in the future is NOT public yet (the Journal import schedules 13 posts ahead, and
+--     lib/blog.ts used to hide them): `published_at <= now()`, the same rule as every read in articles.server.ts.
 --     The answer reads `users`, whose own RLS refuses anon — so it is ONE SECURITY DEFINER helper returning a
 --     boolean (never a row), or the policy would err closed for every signed-out reader.
 -- `users.posting_name` must exist before this function is created (a SQL function's body is checked at
@@ -220,6 +253,7 @@ CREATE POLICY public_can_read_published_article ON public.creator_chapters
   FOR SELECT TO anon, authenticated
   USING (
     status = 'published' AND slug IS NOT NULL AND removed_at IS NULL
+    AND published_at <= now()
     AND public.article_author_is_public(user_id, is_journal, posted_as_vendor_id)
   );
 
@@ -244,28 +278,7 @@ COMMENT ON COLUMN public.users.posting_name IS
 -- ---------------------------------------------------------------------------
 -- 3. creator_chapter_replies — replies, ONE level deep (no parent column, by design)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.creator_chapter_replies (
-  id                  BIGSERIAL PRIMARY KEY,
-  reply_id            UUID        NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-  chapter_id          UUID        NOT NULL REFERENCES public.creator_chapters(chapter_id) ON DELETE CASCADE,
-  user_id             UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  posted_as_vendor_id UUID        NULL REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE SET NULL,
-  body                TEXT        NOT NULL CHECK (length(btrim(body)) BETWEEN 1 AND 5000),
-  removed_at          TIMESTAMPTZ NULL,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-ALTER TABLE public.creator_chapter_replies ENABLE ROW LEVEL SECURITY;
-
-CREATE INDEX IF NOT EXISTS creator_chapter_replies_chapter_idx
-  ON public.creator_chapter_replies (chapter_id, created_at);
-CREATE INDEX IF NOT EXISTS creator_chapter_replies_user_idx
-  ON public.creator_chapter_replies (user_id);
-
-COMMENT ON TABLE public.creator_chapter_replies IS
-  'Replies to an article (a published creator_chapters row). ONE level deep: there is no parent column, so a '
-  'reply cannot answer a reply (owner 2026-11-17). Shown under the writer''s posting name, or their shop.';
+-- (The table itself is created in section 0b, before public.users is touched: lock order.)
 
 -- 3a. Who reads, who writes. Pattern: public read of live replies on a live article · own-row write.
 DROP POLICY IF EXISTS replies_public_read ON public.creator_chapter_replies;
@@ -277,6 +290,7 @@ CREATE POLICY replies_public_read ON public.creator_chapter_replies
       SELECT 1 FROM public.creator_chapters c
        WHERE c.chapter_id = creator_chapter_replies.chapter_id
          AND c.status = 'published' AND c.slug IS NOT NULL AND c.removed_at IS NULL
+         AND c.published_at <= now()
          AND public.article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)
     )
   );
@@ -295,6 +309,7 @@ CREATE POLICY replies_author_inserts ON public.creator_chapter_replies
       SELECT 1 FROM public.creator_chapters c
        WHERE c.chapter_id = creator_chapter_replies.chapter_id
          AND c.status = 'published' AND c.slug IS NOT NULL AND c.removed_at IS NULL
+         AND c.published_at <= now()
          AND public.article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)
     )
   );

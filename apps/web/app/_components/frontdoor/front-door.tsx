@@ -31,14 +31,13 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveShellSearchContext, type ShellSearchContext } from './shell-search-context';
 import { getCurrentUser } from '@/lib/auth';
 import { getCreatableEventTypes, getEventTypeVocab, type EventTypeRow } from '@/lib/event-types-db';
-import { FrontDoorLanding, frontPageSample, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { FrontDoorLanding, frontPageTiles, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
+import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import type { PlanFacts } from './front-door-landing-data';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
 import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
-import { specializationFreeWindowActive } from '@/lib/vendor-specialization-gate';
-import { vendorDayOfFreeUntilIso } from '@/lib/vendor-dayof-free-until';
 import { opensSupplierView } from '@/lib/discover-suppliers';
 import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
 import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
@@ -273,7 +272,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         docblock for the fuller reasoning behind dropping the old always-on
         opening.
       */
-      heading={account.signedIn ? undefined : <FrontDoorAnchor />}
+      heading={account.signedIn ? undefined : <FrontDoorAnchor tiles={frontPageTiles(eventTypes, experienceQuizEnabled())} kinds={eventTypes.length} />}
       /*
         🧭 NO TOOL LISTS ON `/` (owner 2026-10-01, built 2026-10-23): the rail
         is Discover · Find suppliers · Features · How it works · Sign in signed
@@ -365,15 +364,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
           />
         )
       ) : signedOut ? (
-        /* The 4 Nov front page — the shipped shelves ride inside it, unchanged, as #shelves. */
-        <FrontDoorLanding
-          eventTypes={eventTypes}
-          planPrices={planPrices}
-          planFacts={planFacts}
-          /* The coordinator band says "Free" on the floor kit only while the paywall itself makes it free. */
-          floorKitFree={specializationFreeWindowActive(vendorDayOfFreeUntilIso(), Date.now())}
-          sample={frontPageSample(new Date())}
-        />
+        /* The 20 Nov front page (prototypes/front_page_home_2026-11-19 v5): see it as a guest, plan it, keep it, plans. */
+        <FrontDoorLanding planPrices={planPrices} planFacts={planFacts} />
       ) : (
         <>
           {view.kind === 'stories' ? (

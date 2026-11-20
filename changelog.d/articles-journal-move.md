@@ -32,6 +32,15 @@ the controller).
   `listPublicArticleAddresses()` (slug + updated_at, public and not removed).
 - New posts carry no video link and no teaser; older chapters keep theirs.
 
+- **Review fixes (2026-11-20).** A post dated in the future is not public until
+  its day: every article read goes through one helper, `onlyPublicArticles`
+  (`lib/public-articles.ts`), and the RLS policies require `published_at <= now()`.
+  The Journal is Setnayan's: profile, chapter page, share card, counts, creator
+  desk, storyteller candidates and creator analytics all filter
+  `is_journal = false`. The migration creates the replies table (its FK locks
+  `auth.users`) before any change to `public.users`, the same order as signup,
+  and sets `lock_timeout = '5s'`. Guard: `the-journal-is-setnayans-and-dated.test.ts`.
+
 SPEC IMPACT: None (DECISION_LOG 2026-11-17 rows already describe it). One reading
 recorded in the PR: "outside link will only be a link" is built as a link with no
 card, not as dead text.

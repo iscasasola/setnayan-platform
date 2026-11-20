@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8017
+# facts: 8022
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     650
-#   col       5767
+#   col       5770
 #   policy    1177
 #   view      10
-#   func      409
+#   func      411
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2387,6 +2387,7 @@ col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
 col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
+col	public.event_vendors.booked_quantity	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
 col	public.event_vendors.category_key	anon=SIU authenticated=SIU
 col	public.event_vendors.completion_disputed_at	anon=SIU authenticated=SIU
@@ -2450,6 +2451,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
+col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -6216,6 +6218,7 @@ col	public.vendor_services.title	anon=S authenticated=SIU
 col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
 col	public.vendor_services.transport_included	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
+col	public.vendor_services.usual_prep_days	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
@@ -6578,13 +6581,13 @@ policy	public.couple_wedding_type_notify_signups|notify_signups_insert_any	mode=
 policy	public.couple_wedding_type_notify_signups|notify_signups_read_own_or_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.creator_chapter_replies|replies_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.creator_chapter_replies|replies_author_deletes	mode=PERMISSIVE cmd=DELETE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
-policy	public.creator_chapter_replies|replies_author_inserts	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL) AND article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)))))
+policy	public.creator_chapter_replies|replies_author_inserts	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL) AND (c.published_at <= now()) AND article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id)))))
 policy	public.creator_chapter_replies|replies_author_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.creator_chapter_replies|replies_author_updates	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
-policy	public.creator_chapter_replies|replies_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((removed_at IS NULL) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL) AND article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id))))) check=NULL
+policy	public.creator_chapter_replies|replies_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((removed_at IS NULL) AND (EXISTS ( SELECT 1 FROM creator_chapters c WHERE ((c.chapter_id = creator_chapter_replies.chapter_id) AND (c.status = 'published'::text) AND (c.slug IS NOT NULL) AND (c.removed_at IS NULL) AND (c.published_at <= now()) AND article_author_is_public(c.user_id, c.is_journal, c.posted_as_vendor_id))))) check=NULL
 policy	public.creator_chapters|admin_full_access_creator_chapters	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.creator_chapters|creator_owns_chapter	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
-policy	public.creator_chapters|public_can_read_published_article	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (slug IS NOT NULL) AND (removed_at IS NULL) AND article_author_is_public(user_id, is_journal, posted_as_vendor_id)) check=NULL
+policy	public.creator_chapters|public_can_read_published_article	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (slug IS NOT NULL) AND (removed_at IS NULL) AND (published_at <= now()) AND article_author_is_public(user_id, is_journal, posted_as_vendor_id)) check=NULL
 policy	public.creator_chapters|public_can_read_published_chapter	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((status = 'published'::text) AND (EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = creator_chapters.user_id) AND (u.public_profile_enabled = true))))) check=NULL
 policy	public.cron_job_runs|cron_job_runs_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.csp_violation_reports|csp_violation_reports_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
@@ -7922,6 +7925,7 @@ func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authentic
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_booked_quantity(p_event_vendor_id uuid, p_quantity integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
@@ -7984,6 +7988,7 @@ func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exe
 func	public.vendor_couple_photo_shares()	secdef=yes exec=authenticated search_path=public
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_day_check(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_day_pool_taken(p_day date)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public

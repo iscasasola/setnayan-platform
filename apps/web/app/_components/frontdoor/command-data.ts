@@ -145,7 +145,8 @@ async function loadCommandItems(userId: string): Promise<HomeCommandItem[]> {
           supabase
             .from('creator_chapters')
             .select('chapter_id', { count: 'exact', head: true })
-            .eq('user_id', user.id),
+            .eq('user_id', user.id)
+            .eq('is_journal', false), // 📰 the Journal is Setnayan's, not this person's chapters
         ]);
 
       const { comingUp, finished } = splitEventBoard(

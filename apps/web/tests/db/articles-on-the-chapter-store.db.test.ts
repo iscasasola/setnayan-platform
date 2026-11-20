@@ -291,7 +291,18 @@ test('8 · the Journal import: nothing without an internal account; with one, ev
   const venue = rows.find((r) => r.slug === 'how-to-choose-a-wedding-venue-philippines');
   assert.ok(venue?.tags.includes('venues'), 'onboarding can find its article by tag');
 
+  // 📅 Published AND dated today or earlier (PR #7919 review): the import schedules posts ahead, and a
+  // future-dated post is not public until its day. Measured against the clock, so it holds on any date.
+  const dueNow = (await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.creator_chapters WHERE is_journal AND status = 'published' AND published_at <= now()`,
+  )).rows[0]!.n;
+  const published = ALL_BLOG_ARTICLES.length - staged.length;
+  console.log(`journal: ${published} published · ${dueNow} dated today or earlier · ${published - dueNow} scheduled ahead`);
   await asAnon();
-  assert.equal(await journalCount(), ALL_BLOG_ARTICLES.length - staged.length, 'anon reads every published post, no drafts');
+  assert.equal(await journalCount(), dueNow, 'anon reads every published post whose date has arrived, no drafts');
+  const early = (await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.creator_chapters WHERE is_journal AND published_at > now()`,
+  )).rows[0]!.n;
+  assert.equal(early, 0, 'anon never reads a post dated in the future');
   await asOwner();
 });

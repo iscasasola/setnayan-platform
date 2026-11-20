@@ -5,6 +5,11 @@
  * Services · Page · Gallery · Analytics, one dropdown (any set of choices is ONE dropdown), each section's three figures
  * on its pinned row (DECISION_LOG "EVERY SUPPLIER-DASHBOARD PAGE: THE TOP ROWS COMPRESS INTO ONE PINNED ROW ON SCROLL").
  *
+ * 🔁 RE-AIMED ON PURPOSE 2026-11-19 (owner, "Yes, all three" · drawing `shop_final_with_spaces_2026-11-19`, Part 8, approved):
+ * THE MENU FOLLOWS THE PAGE — Details · Portfolio · Templates · Specialized tools · Analytics · Bundles and services. Page
+ * and Promote LEFT the menu (View shop and the Promote button already open them); their own screens still name their
+ * section on the pinned row (`SHOP_SEGMENT_ALL`). Checks 2–4 are unchanged.
+ *
  *   1. ONE SOURCE: the five, in the prototype's order and words, in `shop-sections.ts` — + Promote after Page (owner
  *      2026-11-05: the shop's QR codes leave Customers for Shop, "beside the website, print materials and gifts") — the
  *      bar's page menu from 701 lists exactly them (never a copy).
@@ -29,10 +34,10 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const VD = join(HERE, '..');
 const read = (rel: string) => stripComments(readFileSync(join(VD, rel), 'utf8'));
 
-test('1 · the v13 sections + Promote, in the approved order and words — and the bar menu lists exactly them', () => {
+test('1 · the sections in the page’s own order and words (19 Nov) — and the bar menu lists exactly them', () => {
   assert.deepEqual(
     SHOP_SEGMENT_ORDER.map((s) => SHOP_SEGMENT_LABEL[s]),
-    ['Details', 'Bundles and services', 'Page', 'Promote', 'Portfolio', 'Analytics'],
+    ['Details', 'Portfolio', 'Templates', 'Specialized tools', 'Analytics', 'Bundles and services'],
   );
   // 🖼 THE ONE BUILD (L1, 2026-11-08): the gallery's address is the PORTFOLIO tab now — it names Portfolio until the Shop
   // lane drops the segment (C4), which then also drops 'Portfolio' from the list above and this filter.
@@ -41,6 +46,13 @@ test('1 · the v13 sections + Promote, in the approved order and words — and t
     assert.equal(m?.tab, 'Shop', `${s} does not name Shop`);
     assert.equal(m?.section, SHOP_SEGMENT_LABEL[s], `${s}: the bar menu names "${m?.section}"`);
     assert.deepEqual(m?.sections?.map((x) => x.label), SHOP_SEGMENT_ORDER.map((x) => SHOP_SEGMENT_LABEL[x]));
+  }
+  // Page and Promote left the list, but their screens are still Shop's and still say which section they are.
+  for (const s of ['page', 'promote'] as const) {
+    assert.ok(!SHOP_SEGMENT_ORDER.includes(s), `${s} is back in the Shop menu (its button on the cover is its one door)`);
+    const m = supplierPageMenuOf(SHOP_SEGMENT_HREF[s], null);
+    assert.equal(m?.tab, 'Shop');
+    assert.equal(m?.section, SHOP_SEGMENT_LABEL[s], `${s}: its own screen no longer names its section`);
   }
   assert.doesNotMatch(read('_components/supplier-page-menu.tsx'), /\['services',\s*'page'/, 'the bar menu holds its own copy of the list');
 });
@@ -84,7 +96,7 @@ test('3 · every Shop screen hands its row its own section and its own figures',
     assert.ok(rows.some((r) => maker.test(r)), `${file}: the row carries no ${seg} figures`);
     n += 1;
   }
-  assert.equal(n, SHOP_SEGMENT_ORDER.length - 3, 'a section has no screen in this check');
+  assert.equal(n, 3, 'a Shop sub-screen (Details · Page · Promote) is missing from this check');
   // UPDATED ON PURPOSE (owner 2026-11-19, "simple (no header)" · "portfolio simpler approved"): the Portfolio tab has no header and so no
   // pinned row; its ⚙ sits at the right of Row 1's heading (`collections/the-portfolio-is-simpler.test.ts`).
   assert.doesNotMatch(read('collections/_components/portfolio-view.tsx'), /<PinWord\b/, 'the Portfolio tab has a pinned row again');

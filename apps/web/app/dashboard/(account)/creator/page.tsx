@@ -163,6 +163,7 @@ async function CreatorBody({
         'chapter_id, public_id, title, kind, body, embed_url, embed_provider, substrate, event_id, happened_on, teaser_r2_key, status, published_at, updated_at',
       )
       .eq('user_id', userId)
+      .eq('is_journal', false) // 📰 the Journal is Setnayan's: it is edited in /articles, never listed here
       .order('updated_at', { ascending: false }),
     fetchCreatorInbox(supabase, userId),
   ]);

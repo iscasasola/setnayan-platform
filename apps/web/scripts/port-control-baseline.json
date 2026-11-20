@@ -429,6 +429,8 @@
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
         "for-suppliers/_components/supplier-front-page.tsx",
+        "for-suppliers/_components/supplier-how-we-earn-data.ts",
+        "for-suppliers/_components/supplier-how-we-earn.tsx",
         "for-suppliers/_components/supplier-plan-table.tsx"
       ],
       "destinations": [
@@ -467,8 +469,10 @@
         "SupplierFrontCodes",
         "SupplierFrontPage",
         "SupplierFrontRoot",
+        "SupplierHowWeEarn",
         "SupplierPlanTable",
-        "SwitchTrack"
+        "SwitchTrack",
+        "Wedding"
       ]
     },
     "/(shell)/guest-list": {
@@ -15642,6 +15646,7 @@
         "vendor-dashboard/customers/_components/clients-search.tsx",
         "vendor-dashboard/customers/_components/clients-show-sort.tsx",
         "vendor-dashboard/customers/_components/clients-tile-lists.tsx",
+        "vendor-dashboard/customers/_components/count-bar.tsx",
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-figures.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
@@ -15717,6 +15722,7 @@
         "ClientsShowSort",
         "ContractsSurface",
         "Count",
+        "CountBarView",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
@@ -15748,6 +15754,7 @@
         "FormRow",
         "FormRows",
         "GearUp",
+        "GroupHeading",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -17134,6 +17141,7 @@
         "SwitchTrack",
         "TypedRow",
         "UndoToastHost",
+        "UsualPrepRow",
         "VendorTier",
         "YourCoverage"
       ]

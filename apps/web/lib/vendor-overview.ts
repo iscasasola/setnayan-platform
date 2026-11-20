@@ -6,7 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
-import { fetchVendorThreads } from '@/lib/chat';
+import { fetchVendorThreadsDetailed } from '@/lib/chat';
 import { shortenGeneratedBody } from '@/lib/conversation-list';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { fetchVendorContracts } from '@/lib/contracts';
@@ -466,7 +466,9 @@ export async function fetchVendorOverviewData(
 
   // --- 1. Vendor's own-session reads (RLS-scoped, fail-soft) -----------------
   const ownReads = Promise.all([
-    fetchVendorThreads(supabase, vendorProfileId).catch(() => []),
+    // T-2 (supplier audit 2026-11-17): the DETAILED read, so a refused or short threads read makes the desk say
+    // "couldn't load" — `.catch(() => [])` dropped every inquiry and owed reply and Today read "Nothing waiting on you".
+    fetchVendorThreadsDetailed(supabase, vendorProfileId).catch(() => ({ threads: [], complete: false })),
     fetchReviewsForVendorWithCouple(supabase, vendorProfileId, { limit: 50 }).catch(
       () => [],
     ),
@@ -511,10 +513,13 @@ export async function fetchVendorOverviewData(
   ]);
 
   const [
-    [threads, reviews, contracts, roomRead, disputes, meetingProposals, draftQuotes],
+    [threadsRead, reviews, contracts, roomRead, disputes, meetingsRead, quotesRead],
     [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting, dateChangeRead],
   ] = await Promise.all([ownReads, adminReads]);
 
+  const threads = threadsRead.threads;
+  const meetingProposals = meetingsRead ?? [];
+  const draftQuotes = quotesRead ?? [];
   const roomBookings = roomRead.events;
   const bookingsComplete = roomRead.complete;
   // CYC-14: a pending thread whose couple already booked this shop, or that the supplier answered, is not "new".
@@ -621,6 +626,9 @@ export async function fetchVendorOverviewData(
     and an empty desk would otherwise read "You're all caught up".
   */
   const deskIncomplete =
+    !threadsRead.complete ||
+    meetingsRead === null ||
+    quotesRead === null ||
     !lockRead.complete ||
     !lockAgreementRead.complete ||
     !deletionRead.complete ||
@@ -1028,10 +1036,13 @@ export async function fetchVendorOverviewData(
   const bookedThisMonth = bookedThisMonthCount(roomRead, monthPrefix);
 
   const since28 = Date.now() - 28 * 86_400_000;
-  const inquiries28 = threads.filter((t) => {
-    const at = Date.parse(String((t as { created_at?: string | null }).created_at ?? ''));
-    return Number.isFinite(at) && at >= since28;
-  }).length;
+  // T-2: a refused or short threads read counts FEWER inquiries than arrived — no number then ("couldn't load").
+  const inquiries28 = threadsRead.complete
+    ? threads.filter((t) => {
+        const at = Date.parse(String((t as { created_at?: string | null }).created_at ?? ''));
+        return Number.isFinite(at) && at >= since28;
+      }).length
+    : undefined;
 
   const askDayHolds: Record<string, string[]> = {};
   for (const ar of answerableAsks) {
@@ -1589,7 +1600,7 @@ type MeetingProposal = {
 async function fetchCoupleMeetingProposals(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<MeetingProposal[]> {
+): Promise<MeetingProposal[] | null> {
   const { data, error } = await supabase
     .from('event_appointments')
     .select(
@@ -1603,7 +1614,7 @@ async function fetchCoupleMeetingProposals(
     logQueryError('vendor-overview:fetchCoupleMeetingProposals', error, {
       vendor_profile_id: vendorProfileId,
     });
-    return [];
+    return null; // T-2: refused ≠ none — the desk says "couldn't load".
   }
   return ((data ?? []) as Array<{
     appointment_id: string;
@@ -1640,7 +1651,7 @@ type UnsentQuote = {
 async function fetchUnsentQuotes(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<UnsentQuote[]> {
+): Promise<UnsentQuote[] | null> {
   const { data, error } = await supabase
     .from('vendor_proposals')
     .select('proposal_id, public_id, event_id, title, total_centavos, created_at')
@@ -1651,7 +1662,7 @@ async function fetchUnsentQuotes(
     logQueryError('vendor-overview:fetchUnsentQuotes', error, {
       vendor_profile_id: vendorProfileId,
     });
-    return [];
+    return null; // T-2: refused ≠ none — the desk says "couldn't load".
   }
   return ((data ?? []) as Array<{
     proposal_id: string;

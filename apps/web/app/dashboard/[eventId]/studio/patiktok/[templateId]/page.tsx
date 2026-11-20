@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Music, Sparkles } from 'lucide-react';
@@ -29,16 +31,15 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
   if (!template) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'display_name', () =>
+      supabase
     .from('events')
     .select('display_name')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (eventError) {
     logQueryError(
       'PatiktokTemplatePage.event',

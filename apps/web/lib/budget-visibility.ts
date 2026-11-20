@@ -45,6 +45,7 @@
  * lines above that fallback. If a future area is added here, read
  * `lib/delegate-areas.ts` before choosing the predicate.
  */
+import { eventDelegateGrantOnce } from '@/lib/event-delegate-once';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyDelegateAccessWindow } from './delegate-access-window.server';
 import { resolveAreaLevel, type AreaLevel, type ModeratorPermissions } from './delegate-areas';
@@ -116,14 +117,8 @@ export async function resolveBudgetVisibility(
       .eq('user_id', userId)
       .eq('member_type', 'couple')
       .maybeSingle(),
-    supabase
-      .from('event_moderators')
-      .select('permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', userId)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle(),
+    // The render's one delegate-grant read (lib/event-delegate-once.ts).
+    eventDelegateGrantOnce(supabase, eventId, userId),
   ]);
 
   // ⚠ AN UNREAD ROW IS NOT AN ABSENT ROW. A refused or failed read resolves

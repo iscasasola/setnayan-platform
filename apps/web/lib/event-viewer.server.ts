@@ -1,3 +1,4 @@
+import { eventDelegateGrantOnce } from '@/lib/event-delegate-once';
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -42,14 +43,8 @@ export async function fetchEventViewer(
   const [memberRes, delegateRes, eventRes] = await Promise.all([
     // The render's one membership read (lib/event-membership-once.ts) — the event layout's gate asks it too.
     eventMemberTypeOnce(supabase, eventId, userId),
-    supabase
-      .from('event_moderators')
-      .select('permissions_json')
-      .eq('event_id', eventId)
-      .eq('user_id', userId)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle(),
+    // The render's one delegate-grant read (lib/event-delegate-once.ts) — the People and Schedule pages ask it too.
+    eventDelegateGrantOnce(supabase, eventId, userId),
     // The access WINDOW (owner 2026-09-14: a delegate's access ends seven days
     // after the event; the couple's never does). Read alongside the other two
     // rather than after them — it is the same round trip, and a delegate whose

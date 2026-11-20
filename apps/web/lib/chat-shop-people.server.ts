@@ -66,7 +66,7 @@ export async function readShopChatPeople(
 export async function readThreadHostPeople(
   admin: SupabaseClient,
   args: { threadId: string; eventId: string },
-): Promise<{ members: string[]; coordinators: string[] }> {
+): Promise<{ members: string[]; coordinators: string[]; measured: boolean }> {
   // 🔒 A SEAT COUNTS ONLY WHILE ITS PERSON IS STILL A HOST OF THE EVENT (20271352461498, owner 19 Nov "yes fix the
   // co-host leak today"). A removed co-host's row can outlive their membership; reading the event's 'couple' rows in
   // the same trip keeps this list exactly as narrow as `current_thread_ids()`.
@@ -76,8 +76,12 @@ export async function readThreadHostPeople(
   ]);
   if (membersRes.error) logQueryError('readThreadHostPeople.members', membersRes.error, { thread_id: args.threadId }, 'graceful_degrade');
   if (peopleRes.error) logQueryError('readThreadHostPeople.people', peopleRes.error, { event_id: args.eventId }, 'graceful_degrade');
-  return threadHostPeopleFrom({
+  const people = threadHostPeopleFrom({
     seats: (membersRes.data ?? []) as Array<{ user_id: string | null; left_at: string | null }>,
     eventPeople: (peopleRes.data ?? []) as Array<{ user_id: string | null; member_type: string }>,
   });
+  // ⚠ A FAILED READ IS NOT AN EMPTY CHAT. Either read refused → the lists above are empty, which is safe for who is
+  // TOLD (narrower, never wider) but a lie if anybody SAYS it: `measured: false` lets the whisper box and the send core
+  // say "couldn't check" instead of "no co-host is in this chat". (The guests.ts honest-read pattern.)
+  return { ...people, measured: !membersRes.error && !peopleRes.error };
 }

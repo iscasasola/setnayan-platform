@@ -164,10 +164,13 @@
 .fx { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--sf-line); }
 .fxTry { font-size: 15px; line-height: 1.35; font-weight: 650; }
 .fxRule { position: relative; margin-top: 10px; }
-.fxBar { position: relative; height: 74px; pointer-events: none; }
+.fxBar { position: relative; height: 74px; cursor: grab; touch-action: pan-y; user-select: none; -webkit-tap-highlight-color: transparent; }
+.fxBar:active { cursor: grabbing; }
+.fxBar:focus-visible { outline: 3px solid var(--sf-acc); outline-offset: 4px; border-radius: var(--m-r-md); }
+.fxBar:focus-visible .fxThumb, .fxBar:active .fxThumb { transform: scale(1.15); }
 .fxTrack { position: absolute; left: 0; right: 0; top: 40px; height: 10px; border-radius: var(--m-r-full); background: var(--sf-chip); overflow: hidden; }
 .fxFill { position: absolute; inset: 0; background: var(--sf-acc); transform-origin: left center; }
-.fxThumb { position: absolute; top: 34px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--sf-acc); border: 3px solid var(--sf-card); box-shadow: 0 2px 8px var(--sf-shade), 0 0 0 1px var(--sf-line); }
+.fxThumb { position: absolute; top: 34px; transition: transform var(--sn-m-tap) var(--sn-m-settle); width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: var(--sf-acc); border: 3px solid var(--sf-card); box-shadow: 0 2px 8px var(--sf-shade), 0 0 0 1px var(--sf-line); }
 .fxFree { position: absolute; right: 0; top: 0; padding: 5px 10px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--sf-ok) 14%, transparent); color: var(--sf-ok); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 .fxEnd { position: absolute; left: 0; top: 57px; font-size: 10.5px; font-weight: 600; color: var(--sf-m1); font-variant-numeric: tabular-nums; }
 .fxEndR { left: auto; right: 0; }

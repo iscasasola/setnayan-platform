@@ -77,7 +77,8 @@ test('ServiceCardView is flag-gated, and OFF is a card with NO control on it', (
 test('the doorway, the affordance and the sheet are ALL behind the flag', () => {
   // The door is either a LINK (an address) or the client BUTTON (a callback) — both only when the view handed one in,
   // and the view hands one in only behind detailsEnabled (pinned above).
-  assert.match(face, /\{door && 'href' in door \? \(\s*<Link/, 'the stretched doorway LINK must only render for a door');
+  // Card 14 (20 Nov): the door is built ONCE (`doorEl`) and placed last in each of the face's two layouts.
+  assert.match(face, /const doorEl =\s*door && 'href' in door \? \(\s*<Link/, 'the stretched doorway LINK must only render for a door');
   assert.match(face, /\) : door \? \(\s*<ServiceFaceDoorButton/, 'the stretched doorway button must only render for a door');
   // Neither control may exist anywhere else in the card.
   assert.equal(
@@ -85,6 +86,7 @@ test('the doorway, the affordance and the sheet are ALL behind the flag', () => 
     2,
     'a third full-card control appeared, or one lost its gate',
   );
+  assert.equal((face.match(/\{doorEl\}/g) ?? []).length, 2, 'the door is placed once per layout (row, mall) — no more, no fewer');
   // No separate "View details" affordance any more — the whole face is the door (owner 12 Nov).
   assert.doesNotMatch(gallery + face, /View details\s*</, 'a visible View details affordance came back');
   // The dialog itself — mounted only when the flag is on AND a card is open.

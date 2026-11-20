@@ -92,7 +92,8 @@
  *                                    stopped (Next card) · no photos yet (Next card) · low on the day
  */
 import { CoordinatingLine } from '@/app/dashboard/[eventId]/_components/coordinating-line';
-import { CoordinatorLevelAsk } from '@/app/dashboard/[eventId]/_components/coordinator-level-ask';
+import { eventTodayAsks } from '@/app/dashboard/[eventId]/_components/event-today-asks';
+import { manilaToday } from '@/lib/chat-cards';
 import { labEventSettingsRows, labYourAccessRows } from './lab-event-settings';
 import { PapicBuySheet } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-buy-sheet';
 import { PapicCameraSettings } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings';
@@ -133,7 +134,10 @@ import { labPlanningList } from '../schedule-lab/lab-planning';
 /** The lab's To do tile facts — `planningProgress` over Planning Stage's own fixture list. */
 function labTodoFacts() {
   const p = planningProgress(labPlanningList().items);
-  return { done: p.done, total: p.total, open: p.open, next: p.next, dueThisWeek: p.dueThisWeek };
+  // Real plan tasks carry the Planning Stage tick (`HomeChecklistFacts.next[].tick`); the lab's do too, so Home's list
+  // draws the shipped tick circle as the app does (Event Today drawing v3: "Plan tasks keep the shipped tick circle").
+  const next = p.next.map((t) => ({ ...t, tick: { kind: 'task' as const, id: t.id } }));
+  return { done: p.done, total: p.total, open: p.open, next, dueThisWeek: p.dueThisWeek };
 }
 import { resolveSiteNav } from '@/app/[slug]/_lib/site-nav';
 import { STAGE_BAR } from '@/app/[slug]/_lib/stage-bar';
@@ -162,7 +166,7 @@ import {
 import { OfflineLab } from './offline-lab';
 import { OfflineScheduleLab } from './offline-schedule-lab';
 import { LabFactSheets } from '../suppliers-lab/lab-fact-sheets';
-import { isEventSettingsRow, peopleWithAccessHref } from '@/lib/people-with-access-href';
+import { isEventSettingsRow } from '@/lib/people-with-access-href';
 import { HomeWhosHereCard } from '@/app/dashboard/[eventId]/_components/home-cards/home-whos-here-card';
 import { EventTeamPresenceLab } from '@/app/dashboard/[eventId]/_components/event-team-presence';
 import { labOpenMarchCard } from '@/app/dev/details-lab/lab-march-cards';
@@ -379,7 +383,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string; tomorrow?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -690,8 +694,8 @@ export default async function HomeLab({
     countdown: labDate
       ? labDate.countdown
       : weekOut
-      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' }
-      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', placeLine: 'Tagaytay' },
+      ? { value: '7', label: 'days to go', days: 7, hasDate: true, long: 'Saturday, December 12, 2026', short: 'Sat 12 Dec', placeLine: 'Tagaytay' }
+      : { value: days.value, label: days.label, days: F.days ?? null, hasDate: days.value !== '—', long: 'Saturday, December 12, 2026', short: days.value !== '—' ? 'Sat 12 Dec' : null, placeLine: 'Tagaytay' },
     ...(labNeeds?.guestList === false ? { guests: null } : unread ? {} : { guests: { coming: F.coming, noReply: F.noReply, toInvite: 35, declined: 4, total: 131 } }),
     ...(q.hidden === '1' ? { budget: null } : unread ? {} : { budget: { paidPhp: F.paid, owingPhp: F.owing, pays: fixturePays() } }),
     /* ✅ To do (owner 2026-11-01, "Checklist merges into Planning Stage"): the SAME fixture list `/dev/schedule-lab?view=
@@ -723,23 +727,36 @@ export default async function HomeLab({
         eventId={E}
         /* ✨ The Memories line (Home redraw 2026-11-02) — the lab's words; the page words it from its own reads. */
         memories={q.sched === 'day' ? '12 photos so far · filling now' : 'Fills on the day · photos, reels and your Thank-you video'}
-        /* ☀ The Today asks — under the cover, first in the Today list (owner 2026-10-29). */
-        asks={
-          q.level === '1' || q.level === 'unread' ? (
-            <CoordinatorLevelAsk
-              eventId={E}
-              asks={[
-                {
-                  moderatorId: 'lab-seat',
-                  shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
-                  logoUrl: null,
-                },
-              ]}
-              unread={q.level === 'unread'}
-              accessHref={peopleWithAccessHref(E)}
-            />
-          ) : null
-        }
+        /* ☀ The asks are rows of the ONE list under the card (owner 20 Nov 2026, Event Today, Focus shape):
+           `&level=1|unread` — a coordinator's access to pick · `&tomorrow=1` — that row put off to tomorrow. */
+        todayList={{
+          ...eventTodayAsks({
+            eventId: E,
+            access: { ok: true, count: 0, claims: [] },
+            coordinator:
+              q.level === '1' || q.level === 'unread'
+                ? {
+                    unread: q.level === 'unread',
+                    asks:
+                      q.level === 'unread'
+                        ? []
+                        : [
+                            {
+                              moderatorId: 'lab-seat',
+                              shop: q.shop === 'none' ? null : q.shop === 'long' ? 'The Wedding Project Events & Coordination by Ana Marie' : 'The Wedding Project',
+                              logoUrl: null,
+                            },
+                          ],
+                  }
+                : null,
+            mood: { ok: true, asks: { suggestions: [], changes: [] } },
+            dateChange: { ok: true, view: null },
+            prep: null,
+            now: Date.now(),
+          }),
+          putOffs: q.tomorrow === '1' ? [{ task_key: 'ask:coordinator:lab-seat', until_day: '2999-01-01' }] : [],
+          todayIso: manilaToday(),
+        }}
         /* ⚙ Event Settings on the cover — its rows drawn on the lab's fixture (`lab-event-settings.tsx`), no database. */
         /* `&as=helper|coordinator` — 🪪 a helper's ⚙ (owner 2026-10-31): the same sheet, "Your access" alone, read-only. */
         eventSettings={labAs === null}

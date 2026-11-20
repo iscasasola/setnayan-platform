@@ -88,7 +88,11 @@ test('4 · calm only when nothing waits and everything was read — and the firs
   assert.equal(t.words, 'Nothing waits on you');
   const screen = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'home-first-screen.tsx'), 'utf8'));
   assert.match(screen, /homeToday\(next, control\.guests, homeWaiting\(control\)\)/, 'the first screen’s Today ignores what waits');
-  assert.match(screen, /holds=\{today\.holds\?\.task \?\? null\}/, 'the To do list repeats the task Now holds');
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the To do block is the one list now, built from the SAME `today`
+  // — `buildEventToday` leaves out the task (and the payment) Now holds (`lib/event-today.test.ts` test 2).
+  assert.match(screen, /buildEventToday\(\{ control, today, /, 'the list is not built from the Today the card shows — it could repeat what Now holds');
+  const lib = stripComments(readFileSync(join(process.cwd(), 'lib', 'event-today.ts'), 'utf8'));
+  assert.match(lib, /checklist\.next\.filter\(\(t\) => t\.id !== today\.holds\?\.task\)/, 'the To do list repeats the task Now holds');
   const faces = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', '_components', 'home-control-faces.ts'), 'utf8'));
   assert.match(faces, /homeToday\(input\.next, input\.guests, homeWaiting\(input\)\)/, 'the tiles’ Today ignores what waits');
 });

@@ -4,7 +4,8 @@
  * MENU AND THE CHAT (+) FOLLOW ONE ORDER").
  *
  * What would silently undo it:
- *   1. a row the prototype names drops out, changes order, or Report a problem stops being LAST on both sides;
+ *   1. a row the prototype names drops out, changes order, or Report a problem comes BACK into the (+) (part G, 20 Nov: it
+ *      lives under the head's ⋯ on both sides; Photos & files is now last);
  *   1d. the (+) and the picked client's menu drift apart — a row sits under a page that comes LATER in the menu than the
  *       page of the row above it (the order is DERIVED here from `PICKED_CLIENT_PAGES`, never hand-copied), or a row
  *       names a page the menu does not have;
@@ -49,12 +50,12 @@ import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files · Report a problem', () => {
+test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files — Report a problem lives under ⋯ (part G)', () => {
   // 19 Nov 2026 (drawing S9ScH2Ps v3, screen 6): Drop an offer joins Negotiate (PR-4's card, now reachable), and Form
   // comes before Ask for access under "Ask & decide".
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   // An offer changes a quote: not drawn before one exists, shut (with Change quote's own reason) once they booked at it.
   assert.ok(!supplierPlusRows({ paid: false, hasQuote: false }).some((r) => r.key === 'offer'), 'Drop an offer is drawn with no quote to apply it to');
@@ -83,14 +84,14 @@ test('1a · the host’s (+) has no generic Ask for a change — and the slash l
   }
 });
 
-test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files · Report a problem (no Log a payment without the right)', () => {
+test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files — Report under ⋯ (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files'],
   );
   // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
@@ -119,7 +120,7 @@ function pagesOf(rows: PlusRow[]): PickedClientPage[] {
   return menuRows(rows).map((r) => PLUS_ROW_PAGE[r.key] as PickedClientPage);
 }
 
-test('1d · the (+) follows the menu: every row’s page is in the menu, in the menu’s order, Report last — both sides', () => {
+test('1d · the (+) follows the menu: every row’s page is in the menu, in the menu’s order, Photos & files last — both sides (Report left for ⋯, part G)', () => {
   for (const [side, rows] of [
     ['supplier', supplierPlusRows({ paid: false })],
     ['supplier · paid', supplierPlusRows({ paid: true })],
@@ -136,8 +137,9 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
         `${side}: '${under[i]!.label}' (${pages[i]}) is drawn above the menu's order — after '${under[i - 1]!.label}' (${pages[i - 1]})`,
       );
     }
-    assert.equal(rows.at(-1)!.key, 'report', `${side}: Report a problem is not last`);
-    assert.equal(PLUS_ROW_PAGE.report, 'report');
+    assert.ok(['photos', 'file'].includes(rows.at(-1)!.key), `${side}: Photos & files is not last`);
+    assert.equal(PLUS_ROW_PAGE[rows.at(-1)!.key], 'files');
+    assert.ok(!rows.some((r) => r.key === 'report'), `${side}: Report a problem is back in the (+) — it lives under ⋯ (part G)`);
   }
   // The expected order, DERIVED: stable-sort the rows under the mirror by the menu and they must already be in that order.
   const rows = menuRows(supplierPlusRows({ paid: false }));
@@ -148,10 +150,10 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
   // Budget · Schedule · Files · Report) — Form sits under Details, Payment under Book & Budget; Change quote moved up into
   // Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
-  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
+  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files']);
 });
 
-test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files, Report a problem last under a bare line (19 Nov)', () => {
+test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files (Report a problem left for ⋯, part G)', () => {
   // The supplier's client page is one chat: no tab row, so a heading named after a tab names nothing. The order of the
   // sections is DERIVED from `PLUS_SECTIONS`, never hand-copied; every row has a section; no section is split in two.
   for (const opts of [{ paid: false }, { paid: true }, { paid: false, hasQuote: false }, { paid: false, booked: true }]) {
@@ -160,11 +162,11 @@ test('1f · the SUPPLIER’s sheet is grouped by plain words, not tabs — Negot
     const ranks = secs.map((x) => PLUS_SECTIONS.indexOf(x));
     assert.ok(ranks.every((r) => r >= 0), 'a row has no section');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, `'${rows[i]!.label}' is drawn above its section's place`);
-    assert.equal(secs.at(-1), 'report');
-    assert.equal(secs.filter((x) => x === 'report').length, 1, 'Report a problem shares its line with another row');
+    assert.equal(secs.at(-1), 'files');
+    assert.ok(!secs.includes('report'), 'Report a problem is back in the (+)');
   }
   const words = [...new Set(supplierPlusRows({ paid: false }).map((r) => PLUS_ROW_SECTION[r.key]))].map((k) => PLUS_SECTION_WORD[k]);
-  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files', null]);
+  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files']);
   // The group words match the chips in the text box (one vocabulary on the screen).
   for (const w of ['Money', 'Dates', 'Files']) assert.ok(KIND_CHIPS.some((c) => c.label === w), `the chips have no '${w}'`);
   // The sheet draws THESE for the supplier, and still the tabs' words for the host.

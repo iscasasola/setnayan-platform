@@ -42,7 +42,7 @@ import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
 export const USER_3_TOPICS: HelpTopic[] = [
   {
     key: 'host-live-and-patiktok',
-    label: 'Live stream and Patiktok',
+    label: 'Live stream',
     roles: ['couple'],
     articles: [
       {
@@ -73,20 +73,7 @@ export const USER_3_TOPICS: HelpTopic[] = [
         body: 'Each camera has its own link and QR — send it to the person holding that camera. They sign in, tap Join this camera, and keep the screen open pointed where you want. Each camera reads Connected once it is on. Reissuing a camera’s link disconnects that phone and the old link stops working.',
         appBody: HELP_NOT_IN_THE_APP,
       },
-      {
-        // studio/patiktok/page.tsx HowItWorks
-        slug: 'what-is-patiktok',
-        title: 'What is Patiktok?',
-        body: 'Short dance reels of your guests. Whoever runs the booth picks a template for each guest, the phone records them following it, and every clip is put together into one vertical reel. Recording and watching are free; saving and sharing the reels comes with Patiktok.',
-        appBody: HELP_NOT_IN_THE_APP,
-      },
-      {
-        // studio/patiktok/page.tsx "1 · Pick 2 templates", "Open booth dashboard"; booth/page.tsx "Primary template", "Backup template"
-        slug: 'set-up-the-patiktok-booth',
-        title: 'How do I set up the Patiktok booth?',
-        body: 'Pick two templates — your main one and a backup — each with its own music. Then whoever runs the booth signs in to your event on a phone and opens the booth dashboard. Finished reels are under Your renders.',
-        appBody: HELP_NOT_IN_THE_APP,
-      },
+      // 🪦 'what-is-patiktok' and 'set-up-the-patiktok-booth' left 2026-11-20 — Patiktok is retired (lib/retired-products.ts).
     ],
   },
   {

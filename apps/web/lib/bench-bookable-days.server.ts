@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { namedCalendarsEnabled } from '@/lib/schedule-pools';
+import { bookingWindowOf, windowRefusals, windowToday, type BookingWindow } from '@/lib/booking-window';
 import {
   isAccommodationCategory,
   UNBOOKABLE_MAX_CARDS,
@@ -111,6 +112,11 @@ export async function readSuppliersWithNoBookingLeft(args: {
         if (r.service_id && r.refused_on) refused.add(refusalKey(r.service_id, r.refused_on));
       }
     }
+    // 📅 The shop's own window (owner 2026-11-19, "HOW FAR AWAY A SHOP TAKES BOOKINGS"): a day before its At least or
+    // after its At most is refused like a closed one. A refused read is "could not check", never "free".
+    const windows = await readBookingWindows(args.admin, [...cardsBySupplier.keys()]);
+    if (windows === null) return null;
+    for (const r of windowRefusals(cardsBySupplier, windows, days, windowToday())) refused.add(refusalKey(r.card, r.day));
     if (args.fitsOut) for (const [id, fit] of supplierDayFits(cardsBySupplier, refused, optionsOf)) args.fitsOut.set(id, fit);
     return suppliersWithNoBookingLeft(cardsBySupplier, refused, optionsOf);
   } catch {
@@ -156,8 +162,11 @@ export async function readCardRefusals(args: {
         }),
       ),
     );
+    // 📅 Which shop each card belongs to, for its window — asked alongside the refusals, never after them.
+    const ownersRead = args.admin.from('vendor_services').select('vendor_service_id, vendor_profile_id').in('vendor_service_id', cards);
+    const [results, owners] = await Promise.all([Promise.all(calls), ownersRead]);
     const refused = new Set<string>();
-    for (const { data, error } of await Promise.all(calls)) {
+    for (const { data, error } of results) {
       if (error) {
         logQueryError('bench-bookable-days: card refusals', error);
         return null;
@@ -166,8 +175,41 @@ export async function readCardRefusals(args: {
         if (r.service_id && r.refused_on) refused.add(refusalKey(r.service_id, r.refused_on));
       }
     }
+    if (owners.error) {
+      logQueryError('bench-bookable-days: card shops', owners.error);
+      return null;
+    }
+    const cardsBySupplier = new Map<string, string[]>();
+    for (const r of (owners.data ?? []) as { vendor_service_id: string; vendor_profile_id: string }[]) {
+      cardsBySupplier.set(r.vendor_profile_id, [...(cardsBySupplier.get(r.vendor_profile_id) ?? []), r.vendor_service_id]);
+    }
+    const windows = await readBookingWindows(args.admin, [...cardsBySupplier.keys()]);
+    if (windows === null) return null;
+    for (const r of windowRefusals(cardsBySupplier, windows, days, windowToday())) refused.add(refusalKey(r.card, r.day));
     return refused;
   } catch {
     return null;
   }
+}
+
+/**
+ * 📅 Each shop's "How far away you take bookings" (`lib/booking-window.ts`), ONE read for every shop judged. A refused
+ * read is `null` — the caller then says the dates could not be checked, as for any other refusal it could not read.
+ */
+async function readBookingWindows(admin: SupabaseClient, supplierIds: readonly string[]): Promise<Map<string, BookingWindow> | null> {
+  if (supplierIds.length === 0) return new Map();
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('vendor_profile_id, booking_min_days, booking_max_months')
+    .in('vendor_profile_id', supplierIds as string[]);
+  if (error) {
+    logQueryError('bench-bookable-days: booking windows', error);
+    return null;
+  }
+  return new Map(
+    ((data ?? []) as { vendor_profile_id: string; booking_min_days: number | null; booking_max_months: number | null }[]).map((r) => [
+      r.vendor_profile_id,
+      bookingWindowOf(r),
+    ]),
+  );
 }

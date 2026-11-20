@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -50,9 +51,7 @@ export default async function AdminIntegrationsPage({
 
   // Defense-in-depth admin gate (team-member-aware).
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

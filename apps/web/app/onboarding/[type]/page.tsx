@@ -28,7 +28,7 @@ import { startGuestsForSize } from '@/lib/event-size';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
-import { safeNext } from '@/lib/auth';
+import { getCurrentUser, safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { profileSetup, resolveProfile } from '@/lib/event-type-profile';
@@ -116,14 +116,14 @@ export default async function GenericOnboardingPage({
   // fetched and then ignored.
   // getOnboardingSpec resolves the admin-editable content (questions / plan /
   // reveal / intro) for this type — DB override OR the TS default (0053 2026-06-28).
-  const [{ data: userData }, tiles, spec] = await Promise.all([
-    supabase.auth.getUser(),
+  const [user, tiles, spec] = await Promise.all([
+    // The request's one account read (`lib/auth.ts`), shared with the layout above.
+    getCurrentUser(),
     vendorFree ? Promise.resolve([]) : getOnboardingTiles(type),
     // The register rides along so a wake's quiz + reveal are solemn on EVERY
     // path, including the two where the override read fails (solemn-content.ts).
     getOnboardingSpec(type, flow.personaPackKey, profile.terminology.register),
   ]);
-  const user = userData.user;
 
   // ── ENTRANCE GREY-OUT (owner ruling 2026-09-11, DECISION_LOG.md — "same
   // treatment for any other one-at-a-time event type"). PR #5447 did this for

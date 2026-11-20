@@ -7,7 +7,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
-import { safeNext } from '@/lib/auth';
+import { safeNext, getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { resolveActiveShopId } from '@/lib/active-shop';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -152,9 +152,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // of the form. A SETTLED wedding (archived, or completed) does NOT block — so
   // remarriage works. The server action re-checks authoritatively.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const inPlanningWedding = user ? await getInPlanningWedding(supabase, user.id) : null;
   // 🚪 A brand-new account's FIRST screen after the You card (owner 2026-10-21, prototype
   // first_run_you_and_next_steps P2): there is no board behind it yet, so no "Back to events". A count, not the

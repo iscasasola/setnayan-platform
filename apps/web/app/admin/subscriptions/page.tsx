@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { Crown } from 'lucide-react';
@@ -83,9 +84,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
 
   // Admin gate — bounce non-admins before any read.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

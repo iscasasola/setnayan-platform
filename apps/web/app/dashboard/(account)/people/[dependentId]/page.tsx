@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { formatEventDate } from '@/lib/events';
 import { notFound } from 'next/navigation';
@@ -66,9 +67,7 @@ export default async function DependentPage({
 
   const { dependentId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) notFound();
 
   const { data: depRow, error: depError } = await supabase

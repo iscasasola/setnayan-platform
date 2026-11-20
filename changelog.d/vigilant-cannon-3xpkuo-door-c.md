@@ -40,3 +40,4 @@ SPEC IMPACT: None — builds the approved 19 Nov drawing.
 SPEC IMPACT: None.
 
 - PC7 shop card → rows on white (owner 20 Nov, option a): a frame only on what you press; clears the template ratchet for vendor/claim/[token].
+- Lab: `/dev/open-shop-lab?screen=invite` draws the /i invite door on a fixture inviter (for the §4 light/dark shots).

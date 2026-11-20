@@ -124,7 +124,7 @@ const PAGE_LD = {
 const TOOLS: readonly { src: string; alt: string; name: string; line: string }[] = [
   { src: `${SHOT}/t-guests.webp`, alt: 'The guest list screen', name: 'Guest list', line: 'Replies counted as guests tap.' },
   { src: `${SHOT}/t-seat.webp`, alt: 'The seat plan screen', name: 'Seat plan', line: 'Tables and meal counts.' },
-  { src: `${SHOT}/t-3d.webp`, alt: 'The 3D seat plan screen', name: '3D seat plan', line: 'Walk the room before it is set.' },
+  { src: `${SHOT}/t-seat-3d.webp`, alt: 'The 3D seat plan screen', name: '3D seat plan', line: 'Walk the room before it is set.' },
   { src: `${SHOT}/t-hub.webp`, alt: 'The Event Hub editor', name: 'Event Hub', line: 'The invitation and replies, one link.' },
   { src: `${SHOT}/t-sched.webp`, alt: 'The schedule screen', name: 'Schedule', line: 'Every supplier’s moment on one timeline.' },
 ];

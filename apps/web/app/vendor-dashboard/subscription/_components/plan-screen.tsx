@@ -9,7 +9,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
 import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
@@ -239,7 +239,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
 
   // DB prices for the chosen cycle, keyed by sku_code.
-  const vendorCatalog = await fetchV2VendorCatalog();
+  // L-2: the read's outcome is kept — a REFUSED catalogue is not "nothing on sale".
+  const { rows: vendorCatalog, ok: catalogRead } = await fetchV2VendorCatalogRead();
+  const catalogUnread = !catalogRead;
   // The Ultra Add-on (Ultra only) — the row its purchase CHARGES; unread → no figure, no Add control.
   const ultraAddOnPricePhp = vendorCatalog.find((r) => r.sku_code === COUNT_ADDONS.ultra.sku)?.price_php ?? null;
   const priceBySku = new Map<string, number>();
@@ -258,7 +260,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // works." Until it's applied, Solo is omitted so we never render a buy button
   // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
   // next request — no redeploy (this is a server component reading live prices).
-  const soloBuyable = priceBySku.has('solo_vendor_annual');
+  // L-2 (supplier audit 2026-11-17): an UNREAD catalogue is not proof Solo is unwired — dropping the row then took a
+  // Plus shop's own "Plus · your plan" row away. Unread keeps every row; their prices are unread (no figure, no Pay).
+  const soloBuyable = priceBySku.has('solo_vendor_annual') || catalogUnread || currentTier === 'solo';
   const visibleTiers: PaidTier[] = soloBuyable
     ? PAID_TIERS
     : PAID_TIERS.filter((t) => t !== 'solo');
@@ -612,6 +616,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             expiresOn={expiresOn}
             storeShell={storeShell}
             papersProgress={papersProgress(papersRead)}
+            pricesUnread={catalogUnread}
             gift={
               gift
                 ? {

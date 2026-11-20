@@ -93,7 +93,7 @@ export type CheckDateService = { serviceId: string; poolIds: string[] };
 export type CheckDateInput = {
   pools: CheckDatePool[];
   /** Live (not released) Setnayan bookings: a schedule and a date — never who. */
-  bookings: { poolId: string; bookedDate: string }[];
+  bookings: { poolId: string; bookedDate: string; /** 🔢 false = a by-the-piece booking: never a seat (lib/piece-seats.ts). */ seat?: boolean }[];
   /** Every block that can touch the window, as PH civil days (`notAvailableShapeOf`), with its schedule (null = all). */
   blocks: CalendarBlockInput[];
   /** The shop's own day states in the window (`locked` · `whitelist`), per schedule (null = all). */

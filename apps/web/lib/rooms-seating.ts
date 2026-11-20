@@ -16,6 +16,8 @@
  * Pure: no React, no database. 🔒 lib/rooms-seating.test.ts
  */
 
+import { PLAN_MAX_CHAIRS, PLAN_MAX_SIDE_M, parsePlanSide, planDrawnShape, planTableWords, type PlanTable } from '@/lib/seat-plan-engine';
+
 export type UnitKind = 'room' | 'table';
 export type GroupKind = 'floor' | 'dining_area';
 export type TableShape = 'round' | 'long' | 'half_moon';
@@ -88,24 +90,23 @@ export const isWall = (v: unknown): v is Wall => WALLS.some((d) => d.key === v);
 export const isAlong = (v: unknown): v is Along => ALONGS.some((d) => d.key === v);
 
 /** Limits, matched to the database CHECKs (migration 20271350389612). */
-export const MAX_CHAIRS = 60;
+export const MAX_CHAIRS = PLAN_MAX_CHAIRS;
 export const MAX_UNIT_NAME = 30;
 export const MAX_GROUP_NAME = 60;
 /** One "Add" may make at most this many rooms or tables (a typo like "1-10000" is refused, never half-made). */
 export const MAX_ADD = 200;
 /** Metres — the ceiling `vendor_profiles_venue_dimensions_check` uses. */
-export const MAX_SIDE_M = 500;
+export const MAX_SIDE_M = PLAN_MAX_SIDE_M;
 
-/** "Round · 8 chairs", "Long · 10 chairs · at the ends", "Half-moon booth · seats 4". */
+/** "Round · 8 chairs", "Long · 10 chairs · 2 at the ends", "Half-moon booth · seats 4". */
 export function tableWords(shape: TableShape, chairs: number, atEnds: boolean): string {
-  if (shape === 'half_moon') return `Half-moon booth · seats ${chairs}`;
-  const look = shapeDrawn(shape, chairs, atEnds) === 'square' ? 'Square' : shape === 'long' ? 'Long' : 'Round';
-  return `${look} · ${chairs} ${chairs === 1 ? 'chair' : 'chairs'}${shape === 'long' && atEnds ? ' · at the ends' : ''}`;
+  // The engine's words — the tile and the floor plan never disagree (ADAPTER.md §4).
+  return planTableWords({ id: '', label: '', kind: shape, chairs, chairsAtEnds: atEnds, x: null, y: null } satisfies PlanTable);
 }
 
 /** The drawing's rule: a Long table with 4 chairs or fewer and no end chairs draws as a square. */
 export function shapeDrawn(shape: TableShape, chairs: number, atEnds: boolean): TableShape | 'square' {
-  return shape === 'long' && chairs <= 4 && !atEnds ? 'square' : shape;
+  return planDrawnShape({ kind: shape, chairs, chairsAtEnds: atEnds }) as TableShape | 'square';
 }
 
 /** Where each chair sits around a table, in a 100 × 100 box (the tile's little picture). */
@@ -217,10 +218,7 @@ export function unitsOf(units: readonly Unit[], groupId: string): Unit[] {
 
 /** A room size in metres from a typed field: blank = none; else a number above 0 and up to 500. */
 export function parseSide(raw: unknown): number | null | 'bad' {
-  if (typeof raw !== 'string' || !raw.trim()) return null;
-  const n = Number(raw.trim());
-  if (!Number.isFinite(n) || n <= 0 || n > MAX_SIDE_M) return 'bad';
-  return Math.round(n * 10) / 10;
+  return parsePlanSide(raw);
 }
 
 /** Both sides or neither — the database's pairwise CHECK, said in words first. */

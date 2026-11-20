@@ -20,3 +20,14 @@ SPECS: `prototypes/units_rooms_seating_2026-11-18/MAP.md` piece A; DECISION_LOG 
 "NOTHING NEW").
 SPEC IMPACT: specs `prototypes/units_rooms_seating_2026-11-18/STEP5_SPEC.md` (new — pieces B, C, D, spec only) and a
 FEATURE_REGISTER row for the route.
+
+## 2026-11-21 · refactor(rooms-seating): on the one seat-plan engine (ADAPTER.md)
+
+Caught up with `main` (merge only). Per `lib/seat-plan-engine/ADAPTER.md` (DECISION_LOG 2026-11-20 "ONE SEAT-PLAN
+ENGINE"): `lib/plan-maker.ts` + its test are gone — the PlanMaker and the page import `@/lib/seat-plan-engine`. The
+tile's rules (`tableWords`, `shapeDrawn`, `parseSide`, the 60-chair and 500 m limits) call the engine, so the tile and
+the floor plan cannot disagree ("Long · 10 chairs · 2 at the ends", the engine's words). The floor view is offered by
+`planViewsFor('supplier', open)` at `SUPPLIER_FLOOR_PLAN_MIN_TIER`, and a table's Move runs `validatePlan` first —
+a supplier floor refuses the same overlap / outside an event floor refuses. An unsized area is now 20 × 30 m.
+
+SPEC IMPACT: None (implements the 2026-11-20 ruling).

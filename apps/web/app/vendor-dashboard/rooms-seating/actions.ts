@@ -14,6 +14,7 @@ import {
   lineUp,
   parseRoomSize,
   parseUnitNames,
+  shopPlanOf,
   type Along,
   type DoorKind,
   type RoomsSeating,
@@ -21,6 +22,7 @@ import {
   type UnitKind,
   type Wall,
 } from '@/lib/rooms-seating';
+import { planFromShopPlan, validatePlan } from '@/lib/seat-plan-engine';
 
 /**
  * 🛏 Rooms & seating — the writes (piece A, owner 2026-11-18). Each returns the shop's whole fresh read, so the page
@@ -260,6 +262,16 @@ async function saveTablePlace(id: string, x: number, y: number, rotationDeg: num
   if (!s) return NO_SHOP;
   const ok = (n: number, lo: number, hi: number) => Number.isFinite(n) && n >= lo && n <= hi;
   if (!ok(x, 0, 100) || !ok(y, 0, 100) || !ok(rotationDeg, -360, 360)) return { ok: false, error: 'That place is off the plan.' };
+  // ONE check before a save (ADAPTER.md §5): the engine's validatePlan, through the couple's own placement oracle — a
+  // supplier floor refuses exactly what an event floor refuses. Only this table's overlap / outside refuses the move.
+  const now = await readRoomsSeating(s.supabase, s.profile.vendor_profile_id);
+  const unit = now?.units.find((u) => u.id === id);
+  if (now && unit) {
+    const moved = { ...now, units: now.units.map((u) => (u.id === id ? { ...u, x, y, rotationDeg } : u)) };
+    const area = shopPlanOf(moved, unit.groupId, null);
+    const bad = area ? validatePlan(planFromShopPlan(area)).find((p) => (p.kind === 'overlap' || p.kind === 'outside') && p.tableId === id) : undefined;
+    if (bad) return { ok: false, error: bad.words };
+  }
   const { error } = await s.supabase
     .from('vendor_units')
     .update({ x_pos: x, y_pos: y, rotation_deg: Math.round(rotationDeg) })

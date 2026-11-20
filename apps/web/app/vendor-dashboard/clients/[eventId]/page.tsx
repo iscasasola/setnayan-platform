@@ -147,7 +147,7 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import type { SettlePay } from '@/app/_components/payment/settle-pay-by';
 import { TopUpSettleSheet } from '@/app/_components/top-up-settle-sheet';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
-import { supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
+import { ASKED, supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
 import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
@@ -2373,7 +2373,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       roster: isBooked ? (brief as { vendor_roster?: unknown }).vendor_roster : undefined,
       coordinatorTrade: COORDINATOR_TRADE_SERVICES,
       supplier: profile.business_name,
-      stage: isBooked ? 'Booked' : lockRequest ? 'Asked to book' : isAccepted ? 'Quote accepted' : proposalRowsError ? null : isQuoted ? 'Quoted' : 'Inquiry',
+      stage: isBooked ? 'Booked' : lockRequest ? ASKED : isAccepted ? 'Quote accepted' : proposalRowsError ? null : isQuoted ? 'Quoted' : 'Inquiry',
     }),
   };
 

@@ -38,7 +38,7 @@ const QUOTE: NegotiationQuote = {
   totalCentavos: C(51_000),
   lines: LINES,
   planRows: [
-    { seq: 0, label: 'Downpayment', amount_centavos: C(25_500) },
+    { seq: 0, label: 'First payment', amount_centavos: C(25_500) },
     { seq: 1, label: 'Final balance', amount_centavos: C(25_500), is_auto_balance: true },
   ],
   creditCentavos: 0,
@@ -54,7 +54,7 @@ const PLAN_ASK = (over: Partial<ChangeAskRow>) =>
   ASK({
     askId: 'p1', subject: 'plan', amountCentavos: null, raisedBy: 'supplier', note: 'Three payments, if that helps?',
     proposedPlan: [
-      { seq: 0, label: 'Downpayment', amount_centavos: C(17_000) },
+      { seq: 0, label: 'First payment', amount_centavos: C(17_000) },
       { seq: 1, label: 'Second payment', amount_centavos: C(17_000) },
       { seq: 2, label: 'Final balance', amount_centavos: C(17_000), is_auto_balance: true },
     ],
@@ -77,7 +77,7 @@ export default async function UnichatALab({ searchParams }: { searchParams: Prom
 
   const offer: Offer = { ...blankOffer('S89D-LAB000000A'), name: 'Book early', phpOff: 3000, untilDate: addDays(TODAY, 30) };
   const plan = resolveSchedule({
-    manual: [{ label: 'Downpayment', kind: 'percent', amountPhp: null, percent: 50, due: 'on_lock', offsetDays: 0 }],
+    manual: [{ label: 'First payment', kind: 'percent', amountPhp: null, percent: 50, due: 'on_lock', offsetDays: 0 }],
     autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 14 },
     baseCentavos: C(51_000),
     creditCentavos: 0,

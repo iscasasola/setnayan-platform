@@ -5,7 +5,7 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Check, Info, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -147,13 +147,20 @@ export function KindCard({
       {info ? (
         <button
           type="button"
-          className="sn-press -m-2 grid h-11 w-11 place-items-center rounded-full text-ink/70"
+          className="sn-press group/info -m-2 grid h-11 w-11 place-items-center rounded-full"
           aria-label="Details"
           aria-haspopup="dialog"
           onClick={info.onOpen}
           {...info.data}
         >
-          <Info aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+          {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — there-is-one-info-dot), inside this 44-px button,
+              which opens the card's details sheet. */}
+          <span
+            aria-hidden="true"
+            className="sn-press-ring inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn group-hover/info:border-terracotta group-hover/info:text-terracotta"
+          >
+            i
+          </span>
         </button>
       ) : null}
       {children ? <div className="col-span-full min-w-0 text-[15px] text-ink">{children}</div> : null}

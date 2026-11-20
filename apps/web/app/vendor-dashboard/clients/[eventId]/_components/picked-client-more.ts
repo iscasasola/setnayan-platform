@@ -41,7 +41,7 @@ export function clientMoreRows({ songs, script, crewHref, crewDay, calendar }: C
   const rows: PickedMoreRow<PickedClientPage>[] = [];
   if (songs) rows.push({ id: 'songs', label: 'Song list', icon: ListMusic, heading: 'For your trade', body: songs });
   if (script) rows.push({ id: 'script', label: 'Script', icon: ScrollText, heading: songs ? undefined : 'For your trade', body: script });
-  rows.push('files', { id: 'hub', label: 'Event Hub', icon: TOPIC_ICON.hub, page: 'hub' });
+  rows.push('files', { id: 'hub', label: 'Hub', icon: TOPIC_ICON.hub, page: 'hub' });
   if (crewHref) rows.push({ id: 'crew', label: crewDay ? `Crew for ${crewDay}` : 'Crew', icon: Users, href: crewHref });
   if (calendar) rows.push({ id: 'calendar', label: 'Add to my calendar', icon: CalendarPlus, file: calendar });
   rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });

@@ -735,8 +735,7 @@ export async function VendorServicesManager({
           <>
           {cardExtrasUnread ? (
             <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-shop-card-extras-unread="">
-              Couldn&rsquo;t load what&rsquo;s included and the discounts on your cards — they are unchanged. Refresh in a
-              moment to try again.
+              Couldn&rsquo;t load your cards&rsquo; inclusions and discounts. Nothing changed — refresh to try again.
             </p>
           ) : null}
           <ul className="space-y-5" data-shop-card-list="">

@@ -154,10 +154,11 @@ test('5 · the wiring: rows decide on the server; the screen draws the bar and s
   const settleFn = decide.slice(decide.indexOf('export async function settleAfterAsking'));
   assert.match(settleFn, /readBackstageInWindow\(admin, eventId, suggestionId\)/, 'the backstage rule is not read by the settle');
   const reader = decide.slice(decide.indexOf('async function readBackstageInWindow'));
-  assert.match(reader, /\.from\('event_schedule_suggestions'\)/, 'the rule does not read the request row');
-  assert.match(reader, /\.from\('event_schedule_blocks'\)/, 'the rule does not read the chapter');
-  assert.match(reader, /r\.status !== 'open'/, 'an answered request could be applied again');
-  assert.match(reader, /backstageAppliesAtOnce\(/, 'the rule is decided somewhere other than the guarded function');
+  // Since the finish build the DATABASE decides (`schedule_request_goes_in_at_once`, held by
+  // tests/db/backstage-in-the-window-goes-in-at-once.db.test.ts); the server asks it and a refused read waits.
+  assert.match(reader, /admin\.rpc\('schedule_request_goes_in_at_once', \{ p_suggestion_id: suggestionId \}\)/, 'the settle no longer asks the database for the verdict');
+  assert.match(reader, /if \(error\) \{[\s\S]*?return false;/, 'a refused verdict could let the change in');
+  assert.match(reader, /return data === true;/, 'anything but a plain yes could let the change in');
 
   const action = read('app/vendor-dashboard/clients/[eventId]/actions.ts');
   assert.match(action, /if \(why\.backstage\) \{[\s\S]*?backstageSetLine\([\s\S]*?return \{ ok: true, outcome \};/, 'a backstage set does not post its quiet line');

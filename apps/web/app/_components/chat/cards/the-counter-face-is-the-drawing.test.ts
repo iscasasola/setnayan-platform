@@ -24,7 +24,9 @@ test('1 · the face: old → new price, one line, ⓘ, and Decline · Counter ·
   assert.match(src, /<ArrowRight\b/, 'old → new');
   assert.match(face, /'Under your lowest'/, 'the warning line on the face');
   assert.match(face, /warn=\{underLowest && answers\}/, 'in the warn colour');
-  assert.match(face, /info=\{\s*<button[\s\S]{0,300}aria-label="Details"[\s\S]{0,200}onClick=\{\(\) => setInfo\(true\)\}/, 'ⓘ opens the sheet');
+  assert.match(face, /info=\{\{ onOpen: \(\) => setInfo\(true\)/, 'ⓘ opens the sheet');
+  const bits = stripComments(readFileSync(join(WEB, 'app/_components/chat/cards/card-bits.tsx'), 'utf8'));
+  assert.match(bits, /<button\s+type="button"[\s\S]{0,200}aria-label="Details"[\s\S]{0,80}onClick=\{info\.onOpen\}/, 'the shared card part draws the ⓘ');
   const order = ['label="Decline"', 'label="Counter"', 'label="Accept"'].map((l) => status.indexOf(l));
   assert.ok(order.every((i) => i > 0), 'all three answers exist');
   assert.ok(order[0]! < order[1]! && order[1]! < order[2]!, 'Decline · Counter · Accept, in that order');
@@ -58,7 +60,7 @@ test('3 · every control still reachable: the counter editor, Try again, the ref
   assert.match(status, /\{blocked \? <Problem text=\{blocked\} \/> : null\}/, 'why Accept is greyed, said beside it');
   assert.match(card, /settled=\{settled\}/, 'a settled counter folds to one line whose press opens the details');
   assert.match(status, /if \(textOnly\) return line\(/, 'the sheet never draws a second set of buttons');
-  assert.match(face, /data-negotiation=\{kind\}\s+data-negotiation-status=\{negotiationStatus\}/, 'Every version can still find their open counter');
+  assert.match(face, /'data-negotiation': kind, 'data-negotiation-status': negotiationStatus/, 'Every version can still find their open counter');
 });
 
 test('4 · the lowest stays private: read on the supplier side only, never for the hosts', () => {

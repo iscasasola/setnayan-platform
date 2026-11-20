@@ -38,12 +38,16 @@ test('a never-verified shop is untouched; so is a shop with no deadline', () => 
 test('IDEMPOTENT — a stamped shop is not due again; the write is conditional and only a changed row is told', () => {
   assert.equal(papersLapseDue(shop({ papers_lapsed_at: '2027-03-31T00:00:00Z' }), new Date('2027-05-01T00:00:00Z')), false);
   const src = stripComments(readFileSync(join(WEB, 'lib', 'papers-lapse.server.ts'), 'utf8'));
-  const write = src.indexOf('papers_lapsed_at: stampedAt');
-  const conditional = src.indexOf(".is('papers_lapsed_at', null)", write);
-  const changedCheck = src.indexOf('changed.length !== 1', write);
+  // The write is `stamp_papers_lapse` (20271354465843): conditional on `papers_lapsed_at IS NULL` in SQL, and true
+  // only for a row it changed. tests/db/papers-lapse-drops-the-plan.db.test.ts holds the SQL half.
+  const write = src.indexOf("rpc('stamp_papers_lapse'");
+  const changedCheck = src.indexOf('changed !== true', write);
   const notify = src.indexOf('emitNotification(', write);
-  assert.ok(write > 0 && conditional > write, 'the stamp must be a conditional write');
-  assert.ok(changedCheck > conditional && notify > changedCheck, 'only a row the write changed may be told');
+  assert.ok(write > 0, 'the stamp must go through stamp_papers_lapse (a plain update is refused by the downgrade guard)');
+  assert.ok(changedCheck > write && notify > changedCheck, 'only a row the write changed may be told');
+  assert.ok(!/\.from\('vendor_profiles'\)\s*\.update\(/.test(src), 'the lapse writes vendor_profiles with a plain update again');
+  const sql = readFileSync(join(WEB, '..', '..', 'supabase', 'migrations', '20271354465843_papers_lapse_drops_the_plan_deliberately.sql'), 'utf8');
+  assert.match(sql, /AND vp\.papers_lapsed_at IS NULL/, 'the SQL write is no longer conditional');
   assert.ok(!/verification_state:|public_visibility:/.test(src), 'the lapse writes verification_state or public_visibility');
 });
 

@@ -24,3 +24,5 @@ front-page plan-preview check (`the-lab-never-ships`, now conditional: the drawi
 
 SPEC IMPACT: None — the page implements the already-approved drawing `prototypes/for_suppliers_2026-11-20/`; the
 drawing's unbuilt lines (fee ceiling, 100,000th fee, first-supplier rule, gift, Ultra Add-on) stay owner rulings to build.
+
+- fix: three stale `numbers-carry-commas` allowlist rows for the old suppliers page (FREE_PHOTOS ×2, BADGE_FIRST) are deleted — the new page no longer renders them.

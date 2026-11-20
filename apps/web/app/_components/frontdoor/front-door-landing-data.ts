@@ -441,6 +441,7 @@ export const ULTRA_PEEK: readonly string[] = [
   'Your full-size photos kept 12 months after the event',
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
+  // Patiktok left this line 2026-11-20 — retired; owner *"Keep ₱9,990"* (Ultra loses it, keeps its price).
   return [`${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
 }
 
@@ -458,6 +459,6 @@ export const ADD_ONS: readonly { photo: string; title: string; line: string; hre
     line: 'Stream the day on your Event Hub, for family who can’t be there.',
     href: '/features/live-watch',
   },
-  { photo: 'addon-music', title: 'Music Maker', line: 'A song of your own, made for your event.', href: '/features/music-maker' },
-  { photo: 'addon-patiktok', title: 'Patiktok', line: 'Short reels made from your day.', href: '/features/patiktok' },
+  // 🪦 Music Maker and Patiktok left 2026-11-20 (owner: *"Retire Patiktok and Music Maker ( we do not want to serve
+  // this anymore)"* — lib/retired-products.ts).
 ];

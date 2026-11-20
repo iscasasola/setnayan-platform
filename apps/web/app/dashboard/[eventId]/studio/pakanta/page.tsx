@@ -1,3 +1,4 @@
+import { redirectUnlessEventKeepsRetired } from '@/lib/retired-products.server';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
@@ -68,6 +69,8 @@ export default async function PakantaPage({ params }: Props) {
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');
+  // 🪦 RETIRED (owner 2026-11-20) — an event that does not already have it goes to its dashboard.
+  await redirectUnlessEventKeepsRetired(eventId, 'PAKANTA');
   const supabase = await createClient();
 
   // Select the delivery columns too. Graceful-degrade: if they don't exist on

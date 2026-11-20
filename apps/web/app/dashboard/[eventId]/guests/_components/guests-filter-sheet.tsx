@@ -50,6 +50,8 @@ export type GuestsFilterSheetProps = {
   shown: number;
   /** ✕ Clear all — every choice back to the plain list. */
   onClearAll: () => void;
+  /** ⇕ The sheet's last line: fold every heading, or open them all (Guests redesign, 20 Nov). Null → not drawn. */
+  fold?: { allOpen: boolean; onToggle: () => void } | null;
 };
 
 export function GuestsFilterSheet({

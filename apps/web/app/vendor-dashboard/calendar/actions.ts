@@ -37,6 +37,7 @@ import {
   notifyWaitlistForFreedRange,
 } from '@/lib/vendor-waitlist';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { bookingWindowFromForm } from '@/lib/booking-window';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -705,8 +706,15 @@ export async function setCalendarDayState(formData: FormData): Promise<void> {
   backToCalendar(formData, status === 'cleared' ? 'day_state_cleared' : 'day_state_saved');
 }
 
-/** Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23). */
+/**
+ * Pool daily capacity — the supplier's own number, clamped only to the database's 50 (no plan limit, 2026-10-23).
+ *
+ * 📅 `op=booking_window` is the other Teams and days number — "How far away you take bookings" (`saveBookingWindow`
+ * below). It rides this action rather than a new export: every exported server action is a Vercel route
+ * (`scripts/lint-server-action-budget.mjs`), and BUILD_RULES §3 says server actions do not grow.
+ */
 export async function updatePoolCapacity(formData: FormData): Promise<void> {
+  if (str(formData, 'op') === 'booking_window') return saveBookingWindow(formData);
   const { supabase, profile } = await requireVendor();
   const poolId = str(formData, 'pool_id');
   const raw = Number(str(formData, 'capacity'));
@@ -726,6 +734,28 @@ export async function updatePoolCapacity(formData: FormData): Promise<void> {
   revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, capacity === raw ? 'capacity_saved' : 'capacity_clamped');
+}
+
+/**
+ * 📅 HOW FAR AWAY YOU TAKE BOOKINGS (owner 2026-11-19, DECISION_LOG "AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS";
+ * drawing `schedule_questions_placement_2026-11-19.html` §5). Two picks, every card: At least (days before the event)
+ * and At most (how far ahead). Only the drawing's picks are stored (`bookingWindowFromForm`); Same day and 3 years are
+ * stored empty. The shop's own session writes its own row (vendor_profiles_owner), as the waiting-list settings do.
+ */
+async function saveBookingWindow(formData: FormData): Promise<void> {
+  const { supabase, profile } = await requireVendor();
+  const picked = bookingWindowFromForm(str(formData, 'booking_min_days'), str(formData, 'booking_max_months'));
+  if (!picked) backToCalendar(formData, 'bad_booking_window');
+  // `.select()` so a write the row policy turns into ZERO rows reads as not saved — never as "saved" (ship review of #8058).
+  const { data: saved, error } = await supabase
+    .from('vendor_profiles')
+    .update({ booking_min_days: picked.booking_min_days, booking_max_months: picked.booking_max_months })
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .select('vendor_profile_id');
+  if (error || !saved || saved.length === 0) backToCalendar(formData, 'save_failed');
+  revalidateShopPage(profile.vendor_profile_id);
+  revalidateScheduleSurfaces();
+  backToCalendar(formData, 'booking_window_saved');
 }
 
 /**

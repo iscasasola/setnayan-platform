@@ -135,7 +135,7 @@ export const RETAIL: RetailRow[] = [
   // under-describing a live product. The retirement pairing documented in
   // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
   { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Watch — hosted channel', retail_price_php: 3000, is_active: true },
-  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2990, is_active: true }, // final price sheet 2026-11-04
+  { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2990, is_active: false }, // RETIRED 2026-11-20
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on
   // PAPIC_ADDON_STORIES: this file is a SECOND hand-typed copy of the catalog and
@@ -157,7 +157,7 @@ export const RETAIL: RetailRow[] = [
   // its fallback stub. A fixture is a SECOND hand-typed copy of the catalog —
   // when a SKU's is_active changes in prod, it must change here in the same PR.
   { service_code: 'PAPIC_ADDON_STORIES', title: 'Stories', retail_price_php: 2000, is_active: false },
-  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 2490, is_active: true }, // final price sheet 2026-11-04
+  { service_code: 'PATIKTOK_COMPILER', title: 'Patiktok', retail_price_php: 2490, is_active: false }, // RETIRED 2026-11-20
   // SEATING_3D is FREE for couples since 2026-09-05 (owner) — deactivated in
   // prod by migration 20271205977137 and carried by FREE_FOR_ALL_SKUS (PR
   // #5185). Kept listed, inactive, same convention as KWENTO below.

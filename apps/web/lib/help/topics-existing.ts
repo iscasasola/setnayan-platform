@@ -74,7 +74,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside Event Pro and Event Ultra — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Supplier Plus, Supplier Pro and Supplier Ultra plans — see setnayan.com/for-suppliers.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside Event Pro and Event Ultra — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Supplier Plus, Supplier Pro and Supplier Ultra plans; no plan limits how many bookings a supplier takes — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -141,12 +141,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
       },
-      {
-        slug: 'what-is-pakanta',
-        title: 'What is Music Maker?',
-        appBody: HELP_NOT_IN_THE_APP,
-        body: 'A custom Filipino-style song made for the couple — written from what you already told us about your story, and yours to keep for the ceremony or reception. A one-time per-event purchase (current price on setnayan.com/pricing).',
-      },
+      // 🪦 'what-is-pakanta' (Music Maker) left 2026-11-20 — retired (lib/retired-products.ts).
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
@@ -627,7 +622,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch, Music Maker and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
+        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',

@@ -259,11 +259,11 @@ export function ThumbRow({
   };
   const onFieldBlur = (e: FocusEvent<HTMLElement>) => {
     ride.rowProps.onBlur(e);
+    const seat = e.currentTarget;
+    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, false, forceShape('open'));
     // 👉 Left EMPTY, a box dragged into adding goes back to searching ("drag it back, or clear it") — an empty box has
     // no ✕ to press, and must never be stranded in Add.
     if (ownInput.current && ownInput.current.value.trim() === '' && !e.currentTarget.contains(e.relatedTarget as Node | null)) searchAdd.forget();
-    const seat = e.currentTarget;
-    if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, false, forceShape('open'));
   };
   const onFieldClick = (e: MouseEvent<HTMLElement>) => focusSearchNow(e.currentTarget);
   /* 📌 The words changed → the first result is pinned (`lib/search-pin.ts`, through the one riding row). */

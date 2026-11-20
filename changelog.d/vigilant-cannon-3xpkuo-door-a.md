@@ -36,3 +36,22 @@ SPEC IMPACT: None — builds the approved 19 Nov drawing.
 Caught up with #8028 + `main` (merge only). P4: Approve card full width, Edit · Skip for now under it (the team door: Approve over Skip). Shot: `build-sessions/shots-onboarding-375/a1-accept-375.jpg`.
 
 SPEC IMPACT: None.
+
+## 2026-11-20 · fix(onboarding): Door A's account, check list and first card match the approved drawing (P2 · P3 · P4)
+
+Owner's "Approved" on the controller questions (20 Nov), built to drawing `36jmQMWrANcgd2HxihAUw5` v4:
+
+- **P2 · Create your account:** Google · Apple, then "or", then the email boxes, all at once — as Door B's PB2. The
+  two-step "Continue with Email" (v19, 7 Nov) is superseded by the 19 Nov drawing. The OAuth row sits above the finish
+  form (forms never nest); the line reads "Your changes save as you go."
+- **P3:** the list is titled "Check your shop" (`CLAIM_CHECK_HEAD`); Door B keeps "Your shop".
+- **P4 · Your first service card:** the couple's own first card is drafted — the card as couples will see it (its lines
+  read-only on the face), then "Built from what <couple> recorded" (they picked it · they booked you for · they logged
+  it / add yours), the price box, then Approve · Edit · Skip. Its lines are changed in the Card Maker (Edit). The
+  Setnayan team's door and services the supplier added keep the form.
+- **One piece, two doors:** the drafted card moved out of the wizard into `app/open-shop/_components/first-card-draft.tsx`
+  (`FirstCardDraft`); Door B's PB4 renders it unchanged.
+- Tests: `the-claim-door.test.ts` test 3 now pins P2 (the 7 Nov rule it held is superseded); new test 4 pins P4 and the
+  one shared piece. Six sabotages, each red.
+
+SPEC IMPACT: None (builds the approved drawing; no new rule).

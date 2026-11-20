@@ -19,6 +19,7 @@ import { TakenSignIn } from './taken-sign-in';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { formatCount } from '@/lib/format-number';
+import { FirstCardDraft } from './first-card-draft';
 import { formatPhoneDigits, maxDigitsFor } from '@/lib/open-shop-phone';
 import { planSplit, holdsMoreThanFree } from '@/lib/open-shop-more-services';
 import {
@@ -42,7 +43,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { ServicePicker, type PickerParentView } from '@/app/_components/service-picker';
 import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
 import { Sheet } from '@/app/_components/sheet';
-import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
+import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, FIRST_CARD_PRICED_LINE, CLAIM_CHECK_HEAD, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
 // 🔵 The supplier blue look (owner 19 Nov) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 import type { SpecialtyField } from './service-cards';
@@ -175,7 +176,6 @@ export function ClaimDoor({
   error,
   startOnAccount = false,
   declineAction,
-  startOnEmail = false,
   taken = false,
   sentTo = null,
 }: {
@@ -275,7 +275,9 @@ export function ClaimDoor({
   };
   // Google / Apple are drawn on this shell (the wizard's own rule); with neither, Email is the only way and starts open.
   const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
-  const [emailWay, setEmailWay] = useState(!waysShown || startOnEmail || taken);
+  // P2 (drawing v4, 19 Nov — newer than v19's 7 Nov "Email chosen → the ways go"): Google · Apple, then "or", then the
+  // email boxes, all at once — as Door B's PB2. `startOnEmail` (the lab's `&way=email`) now matches the default.
+  const [emailWay, setEmailWay] = useState(true);
 
   // The draft survives signing in with Google / Apple (they leave the page) AND the email link (which can open in a
   // NEW tab — so localStorage, not sessionStorage) — this browser only, this link only. The password is never in it.
@@ -575,7 +577,8 @@ export function ClaimDoor({
     };
   } else if (view === 'details') {
     // 🚪 CHECK YOUR SHOP (19 Nov) — ONE list, a sheet per fact, filled from what they entered.
-    [title] = ONBOARDING_HEADS.check;
+    // P3 (drawing v4): the claim door's list is "Check your shop" — the couple's facts, to correct. Door B's is "Your shop".
+    title = CLAIM_CHECK_HEAD;
     // P3: "Change anything <couple> got wrong."
     line = team ? `Filled from what the Setnayan team set up. Tap a line to fix it.` : claimCheckLine(record.inviterName);
     const value = (k: ClaimDetailKey): React.ReactNode => {
@@ -831,73 +834,48 @@ export function ClaimDoor({
     // 🚪 19 Nov: the first card (Approve · Edit · Skip), drafted from the couple's category, the service they booked
     // and the price they logged.
     title = i === 0 ? ONBOARDING_HEADS.card[0] : c.name || s?.label || 'Service card';
-    line = inBundle
+    // P4 / P4·b (drawing v4): the couple's own first card is DRAFTED — the card as couples will see it, then "Built
+    // from what <couple> recorded" — the same piece Door B's PB4 draws (`FirstCardDraft`). Its lines are changed in the
+    // Card Maker (Edit), not here. The Setnayan team's door and a service the supplier added are not drawn this way.
+    const drafted = i === 0 && !team && !added && !inBundle;
+    const cardPriceNum = Number(digits(c.price)) || 0;
+    line = drafted
+      ? cardPriceNum
+        ? `We drafted it. ${FIRST_CARD_PRICED_LINE}`
+        : ONBOARDING_HEADS.card[1]
+      : inBundle
       ? 'Part of their booking — nothing else is needed here.'
       : added
         ? `Your own service — on your shop, priced on its own. Not part of ${team ? 'your invite' : `${record.inviterName}’s booking`}.`
         : team
         ? 'Your service card — add your starting price and what’s included.'
         : 'Your service card — their confirmed price and lines, already in.';
-    body = (
-      <div className="grid gap-4" data-claim-door-card={i}>
-        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          {c.name || s?.label}
-          {team ? '' : ` · for ${record.inviterName}`}
-        </p>
-        {team || added
-          ? null
-          : inBundle
-          ? band(
-              <>
-                Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
-              </>,
-            )
-          : band(
-              <>
-                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)}
-                {c.basisFromRecord && c.basis && c.basis !== 'fixed' && record.agreedCount ? ` · ${countWords(c.basis, record.agreedCount)} agreed` : ''} ·{' '}
-                {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
-              </>,
-            )}
-        {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
-        {inBundle ? (
-          <span>
-            <ActionButton tone="neutral" icon={Tag} label="Price it on its own" onClick={() => setCard({ bundled: false })} />
+    const priceBox = c.basis ? (
+      <CardPricing
+        c={c}
+        inviter={record.inviterName}
+        agreedCount={record.agreedCount ?? null}
+        error={cardErr}
+        onChange={(patch) => {
+          setCardErr(null);
+          setCard(patch);
+        }}
+      />
+    ) : (
+      field(
+        drafted ? 'From (PHP)' : 'Price',
+        <span className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+            ₱
           </span>
-        ) : (
-          <>
-            {c.basis ? (
-              <CardPricing
-                c={c}
-                inviter={record.inviterName}
-                agreedCount={record.agreedCount ?? null}
-                error={cardErr}
-                onChange={(patch) => {
-                  setCardErr(null);
-                  setCard(patch);
-                }}
-              />
-            ) : (
-              field(
-                'Price',
-                <span className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
-                    ₱
-                  </span>
-                  <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
-                </span>,
-                undefined,
-                'shown as “from”',
-              )
-            )}
-            <div className="grid gap-1">
-              <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                What’s included
-              </span>
-              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'e.g. Same-day highlight reel', 'Inclusion')}
-            </div>
-          </>
-        )}
+          <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
+        </span>,
+        undefined,
+        drafted ? undefined : 'shown as “from”',
+      )
+    );
+    const extras = (
+      <>
         {kinds.length > 1
           ? field(
               'Which one?',
@@ -949,8 +927,74 @@ export function ClaimDoor({
             ))}
           </div>
         ) : null}
+      </>
+    );
+    const loggedPrice = record.price ?? null;
+    const draftedBody = drafted ? (
+      <div className="grid gap-4" data-claim-door-card={i} data-claim-door-card-drafted="">
+        <FirstCardDraft
+          category={s?.label ?? 'Your service'}
+          name={c.name.trim() || s?.label || 'Your service'}
+          price={cardPriceNum || null}
+          lines={c.inclusions.map((l) => l.trim()).filter(Boolean)}
+          sourceHead={`Built from what ${record.inviterName} recorded`}
+          sources={[
+            ['Category', s?.label ?? '—', 'they picked it'],
+            ['Service', c.name.trim() || s?.label || '—', 'they booked you for'],
+            [
+              'Price',
+              cardPriceNum ? peso(c.price) : 'Not logged',
+              !cardPriceNum ? 'add yours' : loggedPrice && cardPriceNum === loggedPrice ? 'they logged it' : loggedPrice ? 'you changed it' : 'you typed it',
+            ],
+          ]}
+          faceAttr="data-claim-door-card-face"
+          sourceAttr="data-claim-door-card-source"
+        />
+        {priceBox}
+        {extras}
+      </div>
+    ) : null;
+    body = (
+      <div className="grid gap-4" data-claim-door-card={i}>
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          {c.name || s?.label}
+          {team ? '' : ` · for ${record.inviterName}`}
+        </p>
+        {team || added
+          ? null
+          : inBundle
+          ? band(
+              <>
+                Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
+              </>,
+            )
+          : band(
+              <>
+                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)}
+                {c.basisFromRecord && c.basis && c.basis !== 'fixed' && record.agreedCount ? ` · ${countWords(c.basis, record.agreedCount)} agreed` : ''} ·{' '}
+                {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
+              </>,
+            )}
+        {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
+        {inBundle ? (
+          <span>
+            <ActionButton tone="neutral" icon={Tag} label="Price it on its own" onClick={() => setCard({ bundled: false })} />
+          </span>
+        ) : (
+          <>
+            {priceBox}
+            <div className="grid gap-1">
+              <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                What’s included
+              </span>
+              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'e.g. Same-day highlight reel', 'Inclusion')}
+            </div>
+          </>
+        )}
+        {extras}
       </div>
     );
+    if (draftedBody) body = draftedBody;
     // Per hour: the price for each extra hour is theirs to set, and the door asks for it (v2).
     const pricingOk = () => {
       if (!inBundle && c.basis && claimPricingMissing(cardPricing(c))) {
@@ -1194,7 +1238,7 @@ export function ClaimDoor({
     // 🚪 CREATE YOUR ACCOUNT — SECOND (owner 19 Nov). Google / Apple / Sign in finish here and come back signed in; the
     // email way's boxes are typed here and stay MOUNTED inside the finish form, which posts on You're all set.
     [title] = ONBOARDING_HEADS.account;
-    line = signedInAs ? `Signed in as ${signedInAs}.` : 'Pick how you’ll sign in. Everything you confirmed stays.';
+    line = signedInAs ? `Signed in as ${signedInAs}.` : ONBOARDING_HEADS.account[1];
     const returnTo = claimDoorHref(record.token) + '&step=account';
     if (signedInAs) {
       body = (
@@ -1229,11 +1273,6 @@ export function ClaimDoor({
       // ONE grey "✕ Use another way" brings them back. Drawn INSIDE the finish form (below), so the boxes post.
       body = (
         <div className="grid max-w-[620px] gap-4" data-claim-door-account="" data-claim-door-email="">
-          {waysShown ? (
-            <span className="flex">
-              <ActionButton tone="neutral" icon={X} label="Use another way" onClick={() => setEmailWay(false)} data-testid="claim-door-another-way" />
-            </span>
-          ) : null}
           <label className="block max-w-[620px] space-y-1">
             <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
               Email{' '}
@@ -1398,6 +1437,22 @@ export function ClaimDoor({
           ) : null}
           {/* Every body but the email way's stays OUTSIDE the finish form: the decline and the Google / Apple row are
               forms of their own (forms never nest). The email way's boxes live inside it, hidden off the account screen. */}
+          {d.screen === 'account' && emailMounted && waysShown ? (
+            <div key="ways-above" className="os-in-r grid max-w-[620px] gap-2" data-claim-door-ways="">
+              {oauth.desktop ? (
+                <DesktopOAuthButtons next={claimDoorHref(record.token) + '&step=account'} />
+              ) : oauth.native ? (
+                <NativeOAuthButtons next={claimDoorHref(record.token) + '&step=account'} accountType="vendor" />
+              ) : (
+                <OAuthButtonRow next={claimDoorHref(record.token) + '&step=account'} withAccountType defaultAccountType="vendor" />
+              )}
+              <span className="flex items-center gap-3 text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-or="">
+                <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                or
+                <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+              </span>
+            </div>
+          ) : null}
           {d.screen === 'account' && emailMounted ? null : (
             <div key={`b-${d.screen}`} className="os-in-r grid gap-4">
               {body}

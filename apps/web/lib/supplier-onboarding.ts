@@ -65,6 +65,9 @@ export const ACCEPT_LINE = 'Accept to run this booking on Setnayan. Free.';
 /** P1's quiet decline link (was the grey pill "I'm not this supplier"). */
 export const NOT_MY_BUSINESS = 'Not my business';
 
+/** P3's title (drawing v4): on the claim door the list is the couple's record to correct. Door B keeps `ONBOARDING_HEADS.check`. */
+export const CLAIM_CHECK_HEAD = 'Check your shop';
+
 /**
  * 🚪 P3 — DOOR A'S ROW NAMES (owner 19 Nov drawing). The couple's record names a booking, so its rows read Covers ·
  * Booked · Pays · They pay you where the self-serve list says Services · Booked · They pay you. `plan` (the payment

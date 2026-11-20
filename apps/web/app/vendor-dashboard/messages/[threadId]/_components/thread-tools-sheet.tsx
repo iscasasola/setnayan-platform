@@ -427,7 +427,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'quote' ? 'quote' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,

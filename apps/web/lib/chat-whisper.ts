@@ -454,3 +454,23 @@ export function whisperTypingFrom(raw: unknown): WhisperTyping | null {
   if (typeof o.threadId !== 'string' || typeof o.userId !== 'string' || typeof o.typing !== 'boolean') return null;
   return { threadId: o.threadId, userId: o.userId, typing: o.typing };
 }
+
+/**
+ * 👀 WHO MAY BE NAMED UNDER "SEEN" (the #8047 review, 20 Nov 2026: under your own whisper it read "Seen · <supplier
+ * person>" for a line they never received). A reader's broadcast says only "I read this chat up to here", and that is
+ * true of a shared line — but a private line or a whisper reached ONLY its recipients, and those were chosen by the
+ * server at Send with the one side rule (`whisperRecipients` for the hosts' side · `teamWhisperRecipients` over
+ * `chat_shop_team_user_ids` for the team) and written onto the line (`recipient_user_ids`). So the names under it come
+ * from that stored list and nowhere else: the supplier is never named under the hosts' whisper, the hosts never under a
+ * team whisper. A whisper whose list is not on the row names nobody — the plain word, never a guess.
+ * `readerIds` = everyone who said they read past the line; returns the ones it may name, in their order.
+ */
+export function seenByWhoGotIt(
+  m: Parameters<typeof privateRecipientIds>[0] & { whisper_side?: string | null },
+  readerIds: readonly string[],
+): string[] {
+  const to = privateRecipientIds(m);
+  if (to.length > 0) return readerIds.filter((id) => to.includes(id));
+  if (whisperSideOf(m.whisper_side)) return [];
+  return [...readerIds];
+}

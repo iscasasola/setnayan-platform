@@ -1,6 +1,6 @@
 ## 2026-11-20 · feat(chat): Unichat parts B+D — tools in the text box, chips, Private, search, presence
 
-Stacked on #8039 + #8060 (Part E merged in). Owner, on the approved live drawing (`build-sessions/UNICHAT-LIVE-2026-11-19.html`, plan
+Stacked on #8039 + #8060 (Part E merged in). Owner, on the approved live drawing (DECISION_LOG: `prototypes/unichat_live_v3_2026-11-20.html`; the platform copy is `build-sessions/UNICHAT-LIVE-2026-11-19.html`, plan
 `UNICHAT-BUILD-PLAN-2026-11-20.md` rows B and D): *"build it now, I am happy with the design."*
 
 **B — tools inside the text box**
@@ -10,8 +10,10 @@ Stacked on #8039 + #8060 (Part E merged in). Owner, on the approved live drawing
   Next / Send stands in the box's own Send place and says what it sends. The card's own form sits outside the send
   form (`chat-send-form.tsx`, `chat/chat-tool-frame.ts`, `chat/chat-step-card.tsx`, `chat/plus-draft.tsx`).
 - On a computer the tiles and the tool open as a **third column** on the chat's frame; the chat narrows, never covered.
-- The (+) is **tiles** (two across) and holds **only things you send**: "Report a problem" (→ the ⋯ menu) and
-  "See every version" (the strip's Deal box · the quote card's own row) are no longer rows (`lib/chat-plus.ts`).
+- The (+) is **tiles** (two across) and holds **only things you send**: "See every version" (the strip's Deal box · the
+  quote card's own row) is no longer a row. **"Report a problem" STAYS the last row until Part G (#8048) moves it into
+  the ⋯** (ship-controller ruling 20 Nov: a chat page is never left with no in-chat Report) — held by
+  `lib/every-chat-page-has-a-report-door.test.ts` on both thread pages (`lib/chat-plus.ts`).
 - **Several (+) cards may be open at once** — owner approval 20 Nov supersedes the 8 Nov "one (+) at a time":
   `plusGate` never shuts; a card waiting for its answer no longer blocks the next.
 - **A typed price or day offers its tool** (`typedOffer`): "Can you do ₱38,000?" → Counter (hosts) / the quote
@@ -27,7 +29,10 @@ Stacked on #8039 + #8060 (Part E merged in). Owner, on the approved live drawing
   Shift+Enter. It tints matches with the browser's highlight and writes no node of the conversation
   (`lib/chat-search.ts`).
 - **Seen by**: "Seen · Claire, Liza" when the readers said so on the chat's own channel (the read broadcast now says
-  who); a page-loaded "Seen" stays the plain word.
+  who); a page-loaded "Seen" stays the plain word. Under a private line or a whisper it names ONLY the people the line
+  reached — the list the server wrote at Send with the one side rule (`seenByWhoGotIt`, `lib/chat-whisper.ts`): never
+  the supplier under the hosts' whisper, never the hosts under a team whisper
+  (`lib/a-whisper-is-seen-only-by-who-got-it.test.ts`).
 - Presence faces (the green ring) and "Not sent · Try again" were already shipped and are unchanged.
 
 **One Private chip (Parts D + E folded, 20 Nov — DECISION_LOG "UNICHAT PART E — FIVE CALLS", call 4)**

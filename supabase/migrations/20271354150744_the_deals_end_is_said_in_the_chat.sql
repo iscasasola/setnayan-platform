@@ -33,6 +33,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 -- The four shipped kinds, in the words the hosts' Handover inbox already uses (handover-inbox.tsx KIND_META).
 CREATE OR REPLACE FUNCTION public.handover_kind_words(p_kind TEXT)

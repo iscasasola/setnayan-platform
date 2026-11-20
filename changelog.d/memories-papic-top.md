@@ -42,7 +42,13 @@ change and no new server function.
     - `papic-chapter` (the chapter row is drawn in the opened sheet);
     - `life-flash-card` and `r3-thank-you-forwards` (`seat="sheet"`);
     - `home-upper-opens-lower-grows` (the head rises);
-    - `only-the-acting-widgets-are-framed` (`sn-frame` counts as a frame).
+    - `only-the-acting-widgets-are-framed` (`sn-frame` counts as a frame);
+    - `home-papic-head-is-shoot-now` (the head control passes each choice's sub-line).
+- **The switch, as drawn ("Proposed · the switch, opened"):** the pill says the choice in full ("On — event day"),
+  framed in light as well as dark, and each choice in its menu carries its sub-line — "guests’ cameras stay closed" ·
+  "cameras open Fri 18 Dec" · "cameras open on the Event Hub now". The sub-lines come from the same gate as the state
+  line (`papicHeadHints` in `lib/papic-guest-cameras-line.ts`), never a fixed date; a window that has closed says
+  "cameras have closed". The writes are unchanged.
 
 SPEC IMPACT: None. This builds an already-approved drawing and ruling (DECISION_LOG 2026-11-20). No corpus decision
 changes.

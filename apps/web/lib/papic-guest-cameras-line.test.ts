@@ -12,7 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CAMERAS_UNREAD, camerasDayWords, papicGuestCamerasLine, papicGuestCamerasLines } from './papic-guest-cameras-line';
+import { CAMERAS_UNREAD, camerasDayWords, papicGuestCamerasLine, papicGuestCamerasLines, papicHeadHints } from './papic-guest-cameras-line';
 import { PAPIC_HEAD_OPTIONS, papicHeadLine } from './papic-shoot-now';
 
 const D = { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' };
@@ -70,4 +70,19 @@ test('the day words — Manila, short, no fixed date', () => {
   assert.equal(camerasDayWords('2026-12-17T16:30:00Z', BEFORE), 'Fri 18 Dec', 'a UTC instant late on the 17th is the 18th in Manila');
   assert.equal(camerasDayWords(null, BEFORE), null);
   assert.equal(camerasDayWords('not a date', BEFORE), null);
+});
+
+// 📷 The picker's sub-lines (the approved drawing's "switch, opened"), from the same gate — never a fixed date.
+test('papicHeadHints: each choice says what it does to guests’ cameras, from the gate', () => {
+  const d = { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' };
+  const before = Date.parse('2026-11-20T10:00:00+08:00');
+  assert.deepEqual(papicHeadHints(d, before), {
+    off: 'guests’ cameras stay closed',
+    eventday: 'cameras open Fri 18 Dec',
+    now: 'cameras open on the Event Hub now',
+  });
+  const after = Date.parse('2026-12-21T10:00:00+08:00');
+  assert.equal(papicHeadHints(d, after).eventday, 'cameras have closed');
+  assert.equal(papicHeadHints(d, after).now, 'cameras have closed');
+  assert.deepEqual(papicHeadHints(null, before), {});
 });

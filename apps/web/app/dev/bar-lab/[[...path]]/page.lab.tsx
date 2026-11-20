@@ -89,7 +89,7 @@ import { PapicChapterRow } from '@/app/dashboard/[eventId]/_components/papic-cha
 import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
 import { MemoriesAddPhotosButton } from '@/app/_components/memories/memories-add-photos';
-import { papicGuestCamerasLines } from '@/lib/papic-guest-cameras-line';
+import { papicGuestCamerasLines, papicHeadHints } from '@/lib/papic-guest-cameras-line';
 
 export const dynamic = 'force-dynamic';
 
@@ -283,11 +283,9 @@ export default async function BarLab({
     const addState = sp.add === 'off' ? 'off' : 'open';
     // 📷 THE PAPIC BLOCK (2026-11-20) — the real card on fixtures: a head on "On — event day" for Fri 18 Dec 2026.
     const papicFacts = { live: true, draftOn: true, early: false };
-    const cameras = papicGuestCamerasLines(
-      papicFacts,
-      { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' },
-      Date.parse('2026-11-20T10:00:00+08:00'),
-    );
+    const cameraDates = { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' };
+    const LAB_NOW = Date.parse('2026-11-20T10:00:00+08:00');
+    const cameras = papicGuestCamerasLines(papicFacts, cameraDates, LAB_NOW);
     const papicLeft = sp.pot === 'x' ? null : 100137;
     const papic =
       sp.papic === '0' ? null : (
@@ -296,7 +294,7 @@ export default async function BarLab({
           card={{
             phase: 'before',
             thankYouHref: null,
-            headControl: <PapicHeadPicker eventId={EVENT} {...papicFacts} standIn="ok" />,
+            headControl: <PapicHeadPicker eventId={EVENT} {...papicFacts} hints={papicHeadHints(cameraDates, LAB_NOW)} standIn="ok" />,
             headLine: cameras.now,
             lineFor: cameras.byHead,
             counts: { total: papicLeft === null ? null : 100150, left: papicLeft },

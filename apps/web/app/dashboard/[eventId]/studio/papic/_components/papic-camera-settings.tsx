@@ -29,7 +29,7 @@ import { GuestAllotmentsChoice } from './guest-allotments-choice';
 import { PhoneUploadsChoice } from './phone-uploads-choice';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
 import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
-import { CAMERAS_UNREAD, papicGuestCamerasLine } from '@/lib/papic-guest-cameras-line';
+import { CAMERAS_UNREAD, papicGuestCamerasLine, papicHeadHints } from '@/lib/papic-guest-cameras-line';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -237,7 +237,7 @@ export async function PapicCameraSettings({
  */
 export async function PapicHeadControl({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
   const head = await readPapicHead(eventId, papicOn);
-  return <PapicHeadPicker eventId={eventId} live={head.live} draftOn={head.draftOn} early={head.early} />;
+  return <PapicHeadPicker eventId={eventId} live={head.live} draftOn={head.draftOn} early={head.early} hints={papicHeadHints(head.dates, Date.now())} />;
 }
 
 /**

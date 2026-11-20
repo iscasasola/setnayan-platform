@@ -80,3 +80,20 @@ export function papicGuestCamerasLines(f: PapicHeadFacts, d: CamerasGateDates, n
   }
   return { now: papicGuestCamerasLine(f, d, nowMs), byHead };
 }
+
+/**
+ * 📷 THE PICKER'S SUB-LINES (the approved drawing, "Proposed · the switch, opened", owner "memories approved" 20 Nov):
+ * under each choice, what it does to guests' cameras — "guests’ cameras stay closed" · "cameras open Fri 18 Dec" ·
+ * "cameras open on the Event Hub now". Computed from the SAME gate as the state line, never a fixed date; a position
+ * the gate has already closed says so ("cameras have closed"). null dates → no sub-lines (the picker shows its words alone).
+ */
+export function papicHeadHints(d: CamerasGateDates | null, nowMs: number): Partial<Record<'off' | 'eventday' | 'now', string>> {
+  if (!d) return {};
+  const sub = (line: string) => line.replace(/^Guests’ cameras/, 'cameras');
+  const now = guestCaptureGate({ earlyAllowed: true, eventDate: d.eventDate, windowStart: d.windowStart, windowEnd: d.windowEnd, nowMs });
+  return {
+    off: 'guests’ cameras stay closed',
+    eventday: sub(gateLine(false, d, nowMs)),
+    now: now.state === 'open' ? 'cameras open on the Event Hub now' : sub(gateLine(true, d, nowMs)),
+  };
+}

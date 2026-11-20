@@ -5,12 +5,13 @@
  * strip, an equal-width choice row, a refusal line. Loaded only with a card (each card is its own lazy chunk).
  */
 import type { ReactNode } from 'react';
-import { ArrowLeftRight, Check, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Check, Info, List, PhilippinePeso, RotateCcw, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { ledgerLine, type Ledger } from '@/lib/chat-cards';
 import { TOPIC_ICON, type ChatTopic } from '@/lib/topic-icons';
+import { ChatCardShell } from '../chat-step-card';
 
 /**
  * 🎨 THE ONE CARD LOOK (Unichat part A, 20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19 `.cd`). Every card in the stream
@@ -58,6 +59,8 @@ export function KindCard({
   chip,
   tone = 'auto',
   anchorId,
+  info,
+  warn = false,
   mark,
   children,
 }: {
@@ -74,6 +77,13 @@ export function KindCard({
   chip?: ReactNode;
   tone?: 'mine' | 'theirs' | 'auto';
   anchorId?: string;
+  /**
+   * ⓘ at the right of the title (the drawing's `.cinfo`) — the card's details live behind it (Unichat part C). Drawn
+   * HERE, in the shared part, so a card file never hand-draws it (`lane-c-cards.test.ts` 🔘). `data` rides on the button.
+   */
+  info?: { onOpen: () => void; data?: Record<`data-${string}`, string | undefined> };
+  /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
+  warn?: boolean;
   /** A payment plan wears the drawing's plan mark (≡) instead of the payment topic's glyph. */
   mark?: 'plan';
   children?: ReactNode;
@@ -113,7 +123,7 @@ export function KindCard({
       data-card-kind={kind}
       data-card-turn={turn}
       aria-label={label}
-      className={`my-2 grid scroll-mt-3 grid-cols-[36px_minmax(0,1fr)] items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
+      className={`my-2 grid scroll-mt-3 ${info ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
     >
       {chip ?? (
         <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-md ${k.chip}`}>
@@ -129,11 +139,60 @@ export function KindCard({
               Your turn
             </span>
           ) : null}
-          <span className="truncate">{kicker}</span>
+          <span className={warn ? 'truncate font-semibold' : 'truncate'} style={warn ? { color: 'rgb(var(--color-warn))' } : undefined} data-card-warn={warn ? '' : undefined}>
+            {kicker}
+          </span>
         </span>
       </span>
+      {info ? (
+        <button
+          type="button"
+          className="sn-press -m-2 grid h-11 w-11 place-items-center rounded-full text-ink/70"
+          aria-label="Details"
+          aria-haspopup="dialog"
+          onClick={info.onOpen}
+          {...info.data}
+        >
+          <Info aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+        </button>
+      ) : null}
       {children ? <div className="col-span-full min-w-0 text-[15px] text-ink">{children}</div> : null}
     </section>
+  );
+}
+
+/**
+ * 🧩 WHERE AN EDITOR SITS (Unichat part C, 20 Nov 2026). The quote, counter and plan editors are drawn the same in two
+ * places: as the (+) card in the stream (`frame="card"`, today's placement — the shell with its title and ✕), and
+ * INSIDE THE TEXT BOX on a phone (`frame="bare"` — the composer owns the title, the ✕ and the frame, so the editor
+ * brings only its fields and its own Cancel · Send row). One component, two hosts; nothing is built twice.
+ */
+export type EditorFrame = 'card' | 'bare';
+
+export function EditorShell({
+  frame = 'card',
+  topic,
+  title,
+  onClose,
+  children,
+}: {
+  frame?: EditorFrame;
+  topic: ChatTopic;
+  title: string;
+  onClose?: () => void;
+  children: ReactNode;
+}) {
+  if (frame === 'bare') {
+    return (
+      <div role="group" aria-label={title} data-chat-editor={topic} className="text-[15px] text-ink">
+        {children}
+      </div>
+    );
+  }
+  return (
+    <ChatCardShell topic={topic} kicker="You · not sent yet" title={title} onClose={onClose}>
+      {children}
+    </ChatCardShell>
   );
 }
 

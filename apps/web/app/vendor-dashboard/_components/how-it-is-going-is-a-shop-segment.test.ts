@@ -89,7 +89,9 @@ const SCREEN_FOR: Partial<Record<ShopSegment, string>> = {
 */
 /* 🎠 And since 11 Nov 2026 (owner: "Analytics should be the carousel"), `insights` is a SECTION of the Shop tab —
    `/vendor-dashboard/shop#analytics`, the one Analytics carousel — so it is not a sub-screen either. */
-const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery', 'insights'];
+/* 📋🧰 And since 19 Nov 2026 (owner, "Yes, all three": the menu follows the page) `templates` and `tools` are SECTIONS of
+   the Shop tab too — `/vendor-dashboard/shop#makers` and `#tools` — never sub-screens. */
+const TABS_NOT_SUBSCREENS: readonly ShopSegment[] = ['services', 'gallery', 'insights', 'templates', 'tools'];
 
 test('every page a Shop segment opens draws the Shop switcher with that segment on', () => {
   for (const [seg, href] of Object.entries(SHOP_SEGMENT_HREF) as [ShopSegment, string][]) {

@@ -106,7 +106,7 @@ export function TeamMemberCard({
         {face}
         <ChevronDown
           aria-hidden
-          className="h-4 w-4 flex-none text-ink/40 transition-transform duration-[var(--sn-dur-control)] group-open:rotate-180"
+          className="h-4 w-4 flex-none text-ink/40 transition-transform duration-sn-control ease-sn group-open:rotate-180"
         />
       </summary>
       {/* The controls take their own line under the card, so a name is never squeezed to "Jo…" at 390 px. */}

@@ -84,8 +84,8 @@ import {
   PriceBracketsEditor,
 } from './service-list-editors';
 import { ShowcaseClipField } from './showcase-media-fields';
-import { CARD_PHOTOS_FULL_TIP, CARD_PHOTOS_TIP, CardPhotoGallery } from './card-photo-gallery';
-import { CARD_MAX_PHOTOS } from '@/lib/card-photos';
+import { CARD_PHOTOS_TIP, CardPhotoGallery, cardPhotosFullTip } from './card-photo-gallery';
+import { cardPhotoLimit, cardPhotoOrder } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
@@ -740,6 +740,10 @@ export function CanvasMaker({
     giftPickOf({ includes_setnayan_gift: initial?.includesSetnayanGift ?? false, gift_pack_code: initial?.giftPackCode ?? null }),
   );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+  // New photos stop at 5; a card opened with 6 keeps 6 (Decided Q5) — the SAME rule the gallery counts by, fixed at open.
+  const [photoLimit] = useState(() =>
+    cardPhotoLimit(cardPhotoOrder(editing?.coverKey ?? initial?.coverPhotoR2Key ?? null, initial?.showcasePhotoR2Keys).length),
+  );
   /** What the Extras and Exact time slots pills say, read off the LIVE form — a new card has no saved rows to count. */
   const [liveCounts, setLiveCounts] = useState<{ extras: number; slots: number }>({ extras: editing?.addons.length ?? 0, slots: editing?.slots.length ?? 0 });
   const savedSlots = useRef(editing?.slots.length ?? 0);
@@ -1348,8 +1352,8 @@ export function CanvasMaker({
             <MakerGroup
               id="photos"
               label="Photos"
-              aside={`${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(CARD_MAX_PHOTOS)}`}
-              tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= CARD_MAX_PHOTOS ? CARD_PHOTOS_FULL_TIP : CARD_PHOTOS_TIP}
+              aside={`${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(photoLimit)}`}
+              tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= photoLimit ? cardPhotosFullTip(photoLimit) : CARD_PHOTOS_TIP}
             >
               <div data-maker-row="photos">
                 <div className="pt-1" data-maker-gallery="">

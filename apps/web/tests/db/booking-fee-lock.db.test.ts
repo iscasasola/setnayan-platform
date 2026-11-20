@@ -142,22 +142,21 @@ after(async () => {
   await db?.close();
 });
 
-test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', async () => {
+test('schedule: booking_fee_centavos is 5% then 3%, ₱50 floor, LOCKED at ₱100,000 (owner 2026-11-20)', async () => {
   const q = async (c: number) => {
     const r = await db.query<{ f: number }>(`SELECT public.booking_fee_centavos($1)::int AS f`, [c]);
     return r.rows[0]!.f;
   };
-  // Owner-locked 2026-07-25: 5% on the first ₱100,000, then 1% above.
-  // The SQL is the authoritative mirror of lib/booking-fee.ts — these are the
-  // same four worked examples the model states, in centavos.
+  // Owner 2026-11-20: 5% on the first ₱100,000, then 3% above, locked at ₱100,000.
+  // The SQL is the authoritative mirror of lib/booking-fee.ts — in centavos.
   assert.equal(await q(0), 0); // ₱0 → no fee
   assert.equal(await q(50_000), 5_000); // ₱500 → 5% = ₱25 → floored ₱50 (5000c)
   assert.equal(await q(10_000_00), 50_000); // ₱10,000 → ₱500 (inside the band)
   assert.equal(await q(100_000_00), 500_000); // ₱100,000 → ₱5,000 (the band edge)
   assert.equal(await q(60_000_00), 300_000); // ₱60,000 → ₱3,000
-  assert.equal(await q(300_000_00), 700_000); // ₱300,000 → ₱7,000
-  assert.equal(await q(1_000_000_00), 1_400_000); // ₱1M → ₱14,000, uncapped
-  assert.equal(await q(10_000_000_00), 10_400_000); // ₱10M → ₱104,000
+  assert.equal(await q(300_000_00), 1_100_000); // ₱300,000 → ₱11,000
+  assert.equal(await q(1_000_000_00), 3_200_000); // ₱1M → ₱32,000
+  assert.equal(await q(10_000_000_00), 10_000_000); // ₱10M → ₱302,000 → LOCKED at ₱100,000
 
   // The property that stops under-declaration paying: monotonic across the edge.
   assert.ok(
@@ -175,16 +174,15 @@ test('schedule: booking_fee_centavos is the 5%/1% TAPER, ₱50 floor, NO cap', a
   }
 });
 
-// ⚖ One free booking since 2026-10-23 (owner: "Your first booking is on us.
-// Not 5."). The boundary moved from 5th-vs-6th to 1st-vs-2nd.
-test('the first booking free, then 5% at the 2nd — the boundary + the base', async () => {
+// ⚖ 20 Nov 2026: no free first booking (it was one since 2026-10-23, five before). Booking 1 is billed.
+test('the first booking is billed, and so is the 2nd — 5% of the confirmed base', async () => {
   const { vendorProfileId } = await newVendor('free5@fee.test');
 
-  // Booking 1 → FREE (waived_free5, no money).
+  // Booking 1 → CHARGED, pending.
   const first = await lockAndCharge(vendorProfileId, 100_000, 'free1-1');
-  assert.equal(first.is_free, true, 'booking 1 is free');
-  assert.equal(first.status, 'waived_free5', 'booking 1 → waived_free5');
-  assert.equal(first.amount_charged_centavos, 0, 'booking 1 charges nothing');
+  assert.equal(first.is_free, false, 'booking 1 is not free any more');
+  assert.equal(first.status, 'pending', 'booking 1 → pending');
+  assert.equal(first.amount_charged_centavos, 500_000, 'booking 1 charges 5% of ₱100,000');
   assert.equal(first.booking_ordinal, 1, 'booking 1 ordinal frozen');
 
   // Booking 2 → CHARGED 5% of the confirmed ₱100,000 = ₱5,000 (500000c), pending.
@@ -201,7 +199,7 @@ test('the first booking free, then 5% at the 2nd — the boundary + the base', a
        WHERE vendor_profile_id = $1 AND status = 'pending'`,
     [vendorProfileId],
   );
-  assert.equal(chargeCount.rows[0]!.c, 1, 'only the 2nd booking has a pending charge');
+  assert.equal(chargeCount.rows[0]!.c, 2, 'both bookings have a pending charge');
 });
 
 test('idempotent re-lock: same (vendor,event) never double-charges', async () => {
@@ -216,7 +214,7 @@ test('idempotent re-lock: same (vendor,event) never double-charges', async () =>
   const first = await openLockCharge(evId);
   assert.equal(first.status, 'pending');
   assert.equal(first.reused, false, 'first open mints a charge');
-  assert.equal(first.computed_fee_centavos, 600_000, '₱200,000 → ₱6,000 (5% of 100k + 1% of 100k)');
+  assert.equal(first.computed_fee_centavos, 800_000, '₱200,000 → ₱8,000 (5% of 100k + 3% of 100k)');
 
   // Re-lock the SAME event_vendor → same charge, no new row.
   const second = await openLockCharge(evId);

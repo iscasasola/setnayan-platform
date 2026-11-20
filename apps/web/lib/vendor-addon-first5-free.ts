@@ -1,6 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
 import type { VendorAddonSku } from './vendor-addon-tier-pricing';
+
+/**
+ * ⚠ 20 NOV: DECOUPLED FROM THE BOOKING FEE. This window used to read the fee's
+ * `FREE_BOOKING_LIMIT`. The fee's free first booking is gone (specs DECISION_LOG
+ * 2026-11-20 "BILLING MUST FOLLOW THE RETIRED COPY"), which would have silently
+ * repriced these add-ons too — a money change nobody ruled on. So the window
+ * keeps its own value, unchanged at ONE booking, until the owner rules on it.
+ */
+const FREE_BOOKING_LIMIT = 1;
 
 /**
  * vendor-addon-first5-free.ts — "free until your 6th booking" for the two

@@ -1,7 +1,7 @@
 /**
- * Unit suite for the vendor booking-fee schedule (owner-directed 2026-07-24,
- * owner-locked 2026-07-25): 5% on the first ₱100,000, then 1% above;
- * ₱50 floor (binds ≤₱1,000); NO cap.
+ * Unit suite for the vendor booking-fee schedule — owner 2026-11-20: 5% on the
+ * first ₱100,000, then 3% above; ₱50 floor (binds ≤₱1,000); LOCKED at
+ * ₱100,000. Unverified shops: the head rate on the whole booking, locked too.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import {
   bookingFeePhp,
   bookingFeeEffectiveRate,
+  bookingFeePhpFor,
+  unverifiedBookingFeePhp,
   BOOKING_FEE,
   BOOKING_FEE_RATE,
 } from './booking-fee';
@@ -29,13 +31,33 @@ test('just above the floor is continuous: ₱1,001 → ₱50.05', () => {
   assert.equal(bookingFeePhp(1_001), 50.05);
 });
 
-test('the TAPER — the owner\u2019s own worked examples', () => {
-  // Vendor_Monetization_Model_LOCKED_2026-07-25.md \u00a7 3, verbatim. These four
-  // numbers are the spec; if any moves, the code no longer matches the model.
-  assert.equal(bookingFeePhp(60_000), 3_000);      // all inside the 5% band
-  assert.equal(bookingFeePhp(300_000), 7_000);     // 5,000 + 1% of 200,000
-  assert.equal(bookingFeePhp(1_000_000), 14_000);  // 5,000 + 1% of 900,000
-  assert.equal(bookingFeePhp(10_000_000), 104_000);// 5,000 + 1% of 9,900,000
+test('the 20 Nov schedule — worked examples', () => {
+  // Specs DECISION_LOG 2026-11-20 "BOOKING FEE: 5% OF THE FIRST ₱100,000, 3% AFTER, LOCKED AT ₱100,000".
+  assert.equal(bookingFeePhp(50_000), 2_500);        // all inside the 5% band
+  assert.equal(bookingFeePhp(100_000), 5_000);       // the band edge
+  assert.equal(bookingFeePhp(250_000), 9_500);       // 5,000 + 3% of 150,000
+  assert.equal(bookingFeePhp(1_000_000), 32_000);    // 5,000 + 3% of 900,000
+  assert.equal(bookingFeePhp(3_266_666), 99_999.98); // just under the lock
+  assert.equal(bookingFeePhp(3_266_667), 100_000);   // the lock is reached (~₱3.27M)
+  assert.equal(bookingFeePhp(5_000_000), 100_000);   // locked: 2% of ₱5M
+  assert.equal(bookingFeePhp(10_000_000), 100_000);  // locked: 1% of ₱10M
+});
+
+test('unverified shops: the head rate on the WHOLE booking, same floor, same lock', () => {
+  assert.equal(unverifiedBookingFeePhp(500), 50);
+  assert.equal(unverifiedBookingFeePhp(50_000), 2_500);
+  assert.equal(unverifiedBookingFeePhp(250_000), 12_500);
+  assert.equal(unverifiedBookingFeePhp(2_000_000), 100_000);
+  assert.equal(unverifiedBookingFeePhp(10_000_000), 100_000);
+  assert.equal(bookingFeePhpFor(250_000, BOOKING_FEE, { verified: false }), 12_500);
+  assert.equal(bookingFeePhpFor(250_000, BOOKING_FEE, { verified: true }), 9_500);
+});
+
+test('a schedule with no lock given is locked at the ruled default, never unlocked', () => {
+  const { capPhp: _drop, ...noCap } = BOOKING_FEE;
+  void _drop;
+  assert.equal(bookingFeePhp(10_000_000, noCap), 100_000);
+  assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, capPhp: 50_000 }), 50_000);
 });
 
 test('the 5% band applies in full below \u20b1100,000', () => {
@@ -50,9 +72,9 @@ test('CONTINUITY at the band edge \u2014 no cliff at \u20b1100,000', () => {
   // gaming the declared amount.
   const at = bookingFeePhp(100_000);
   assert.equal(at, 5_000);
-  // A ±₱1 probe moves by the LOCAL slope — ₱0.05 below the edge (5%), ₱0.01
-  // above it (1%). Anything larger than that is a genuine step, i.e. a cliff.
-  assert.ok(bookingFeePhp(100_001) - at <= 0.01 + 1e-9, 'step UP at the edge');
+  // A ±₱1 probe moves by the LOCAL slope — ₱0.05 below the edge (5%), ₱0.03
+  // above it (3%). Anything larger than that is a genuine step, i.e. a cliff.
+  assert.ok(bookingFeePhp(100_001) - at <= 0.03 + 1e-9, 'step UP at the edge');
   assert.ok(at - bookingFeePhp(99_999) <= 0.05 + 1e-9, 'step DOWN at the edge');
   // And the ordering never inverts across the edge.
   assert.ok(bookingFeePhp(99_999) < at && at < bookingFeePhp(100_001));
@@ -79,10 +101,12 @@ test('MONOTONIC \u2014 declaring more never pays less', () => {
   }
 });
 
-test('effective rate: 5% inside the band, then falls toward 1%', () => {
+test('effective rate: 5% inside the band, then falls — and keeps falling once locked', () => {
   assert.equal(bookingFeeEffectiveRate(100_000), 0.05);
-  // ₱1M pays ₱14,000 → 1.4%, well under the flat rate it replaced.
-  assert.ok(Math.abs(bookingFeeEffectiveRate(1_000_000) - 0.014) < 1e-9);
+  // ₱1M pays ₱32,000 → 3.2%; once locked, ₱5M = 2% and ₱10M = 1% (the owner's own figures).
+  assert.ok(Math.abs(bookingFeeEffectiveRate(1_000_000) - 0.032) < 1e-9);
+  assert.ok(Math.abs(bookingFeeEffectiveRate(5_000_000) - 0.02) < 1e-9);
+  assert.ok(Math.abs(bookingFeeEffectiveRate(10_000_000) - 0.01) < 1e-9);
   assert.ok(bookingFeeEffectiveRate(500) > 0.05); // floor → higher effective rate
   assert.equal(bookingFeeEffectiveRate(0), 0);
 });

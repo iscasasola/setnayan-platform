@@ -12,9 +12,8 @@
  *
  * Held by `lib/vendor-plan-rows.test.ts`.
  */
-import { bookingFeeScheduleSummary } from './booking-fee';
-import type { BookingFeeStanding } from './booking-fee-disclosure';
-import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
+import { bookingFeeScheduleSummary, unverifiedBookingFeeScheduleSummary } from './booking-fee';
+import { ordinalWord, type BookingFeeStanding } from './booking-fee-disclosure';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
@@ -137,6 +136,13 @@ function chatbotLine(tier: VendorTier): string {
  * The Booking fee row — from the LIVE standing for the shop's NEXT Setnayan booking (eventId null), plus how many
  * bills are waiting. `null` = render no row (the fee system is off). An unread standing says so; it never reads as free.
  */
+/** The schedule a shop is priced on — the taper when verified, the flat rate when not (owner 2026-11-20). */
+function scheduleLine(standing: Extract<BookingFeeStanding, { schedule: unknown; unverified?: boolean }>): string {
+  return standing.unverified
+    ? unverifiedBookingFeeScheduleSummary(standing.schedule)
+    : bookingFeeScheduleSummary(standing.schedule);
+}
+
 export function bookingFeeRow(
   standing: BookingFeeStanding,
   dueCount: number,
@@ -152,26 +158,29 @@ export function bookingFeeRow(
     case 'launch_offer':
       return { line: 'Setnayan launch offer · your next booking’s fee is waived', badge: due ?? { tone: 'ok', word: 'Waived' } };
     case 'promo_window':
-      return { line: `${bookingFeeScheduleSummary(standing.schedule)} · waived while a Setnayan promotion runs`, badge: due ?? { tone: 'ok', word: 'Waived' } };
-    // ⚖ ONE FREE BOOKING (owner 2026-10-23: "Your first booking is on us. Not 5.").
-    // The badge says whether it is still to come — never a count of free ones.
+      return { line: `${scheduleLine(standing)} · waived while a Setnayan promotion runs`, badge: due ?? { tone: 'ok', word: 'Waived' } };
+    // ⚖ A booking frozen free before 20 Nov keeps its waiver; no booking made now takes a free place.
     case 'free':
       return {
-        line: `${bookingFeeScheduleSummary(standing.schedule)} · ${FIRST_BOOKING_ON_US_CLAUSE}`,
-        badge: due ?? { tone: 'quiet', word: 'First booking free' },
+        line: `${scheduleLine(standing)} · this booking stays free`,
+        badge: due ?? { tone: 'ok', word: 'Waived' },
       };
     case 'billable':
       // 🏅 A free booking fee waiting (badge reward, owner 2026-11-05) — the next booking with a fee reads ₱0.
       if (standing.badgeReward === 'next') {
         return {
-          line: `${bookingFeeScheduleSummary(standing.schedule)} · your next one is free · Badge reward`,
-          badge: due ?? { tone: 'ok', word: 'Badge reward' },
+          line: `${scheduleLine(standing)} · a free booking fee ticket pays your next one by itself`,
+          badge: due ?? { tone: 'ok', word: 'Ticket waiting' },
         };
       }
-      return {
-        line: `${bookingFeeScheduleSummary(standing.schedule)} · locked until settled`,
-        badge: due ?? { tone: 'quiet', word: 'Free booking used' },
-      };
+      // 🎁 Setnayan's every-Nth booking fee (owner 2026-11-20) — this booking was the Nth, so it is free.
+      if (typeof standing.platformFree === 'number') {
+        return {
+          line: `${scheduleLine(standing)} · Setnayan's ${ordinalWord(standing.platformFree)} booking fee — free`,
+          badge: due ?? { tone: 'ok', word: 'Waived' },
+        };
+      }
+      return { line: scheduleLine(standing), badge: due };
   }
 }
 

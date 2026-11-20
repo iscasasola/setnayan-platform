@@ -42,19 +42,19 @@ import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 
-test('1 · the money: booking #1 is waived, booking #2 is billed (no launch offer)', () => {
-  const first = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 1, agreedTotalPhp: 100_000, businessFree: 'available' });
-  assert.deepEqual(first, { charge: true, free: true, feePhp: 0, createOrder: false }, 'the first booking was not waived');
-
-  const second = decideLockFee({ flagEnabled: true, verified: true, bookingOrdinal: 2, agreedTotalPhp: 100_000, businessFree: 'available' });
-  assert.equal(second.free, false, 'booking #2 was still free — the old five-booking rule is back');
-  assert.equal(second.charge, true);
-  assert.ok(second.feePhp > 0, 'booking #2 carried no fee');
-  assert.equal(second.createOrder, true, 'booking #2 issued no order to pay');
-
-  assert.equal(isFreeBooking(1), true);
-  assert.equal(isFreeBooking(2), false);
-  assert.equal(isFreeBooking(5), false, 'the 5th booking is free again');
+test('1 · the money (20 Nov): booking #1 is billed too — the free first booking is retired', () => {
+  const base = {
+    flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+    launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 1, freeEveryNth: 100_000,
+    ticketWaiting: false, agreedTotalPhp: 100_000,
+  } as const;
+  const first = decideLockFee(base);
+  assert.equal(first.free, false, 'the first booking was waived — the retired rule is back');
+  assert.equal(first.createOrder, true);
+  assert.equal(FREE_BOOKING_LIMIT, 0);
+  assert.equal(isFreeBooking(1), false);
+  // A booking frozen free before the change keeps its waiver.
+  assert.equal(decideLockFee({ ...base, frozenFree: true }).free, true);
 });
 
 test('2 · a booking frozen free under the old rule stays free — read off the ledger, never re-derived', () => {
@@ -158,11 +158,9 @@ test('3b · the scan can hit (each pattern convicts the line it was written for)
   }
 });
 
-test('4 · the copy is written for ONE free booking, so the twin must say one', () => {
-  assert.equal(
-    FREE_BOOKING_LIMIT,
-    1,
-    'FREE_BOOKING_LIMIT moved — every "your first booking from Setnayan is on us" sentence is now untrue; change the copy with it',
-  );
+test('4 · 20 Nov: the limit is 0 — "first booking on us" is retired copy, kept only for pages being rewritten', () => {
+  assert.equal(FREE_BOOKING_LIMIT, 0, 'a free first booking is back');
+  // Still exported for the public pages whose rewrites are in flight (#8049 · #8050 · #8041); no fee surface may use
+  // it — the-20-nov-fee-rulings.test.ts holds that.
   assert.equal(FIRST_BOOKING_ON_US, 'Your first booking from Setnayan is on us.');
 });

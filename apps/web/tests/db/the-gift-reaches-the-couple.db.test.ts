@@ -594,18 +594,25 @@ test('⑦ the quote names a count only when the bill will carry it', async () =>
   // so its card-off quote is `free_booking` — `card_says_no` is the one arm the
   // quote's own switch can turn into a promise, and a free booking must not
   // reach it. The card-off case is asked past the five, below.
+  // ⚖ 20 Nov: no booking takes a free place now — the free booking here is a place FROZEN free before the change.
   const eNoFree = await newEvent('quote-no-free');
   await newBooking(eNoFree, vendorProfileId, 50_000, { serviceId: no, status: 'considering' });
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vendorProfileId, eNoFree],
+  );
   assert.equal(await ask(eNoFree), 'free_booking');
 
   const eImport = await newEvent('quote-import');
   await newBooking(eImport, vendorProfileId, 50_000, { serviceId: yes, status: 'considering', sourced: false });
   assert.equal(await ask(eImport), 'not_sourced');
 
-  // A brand-new supplier: the next booking is one of the first five → free → no gift.
+  // ⚖ 20 Nov: a brand-new supplier's next booking carries a fee — so the gift is real.
   const eFirst = await newEvent('quote-first');
   await newBooking(eFirst, vendorProfileId, 50_000, { serviceId: yes, status: 'considering' });
-  assert.equal(await ask(eFirst), 'free_booking');
+  assert.equal(await ask(eFirst), 'applies');
 
   // Past the five → the gift is real.
   await warmPastFree5(vendorProfileId, 'quote');

@@ -68,9 +68,12 @@ test('boundary: free at 0-1 committed bookings, charged from 2', () => {
   }
 });
 
-test('boundary is anchored to the fee engine, not a magic 5', () => {
-  assert.equal(vendorInFirst5Window(FREE_BOOKING_LIMIT), true);
-  assert.equal(vendorInFirst5Window(FREE_BOOKING_LIMIT + 1), false);
+test('20 Nov: the add-on window is DECOUPLED from the fee — the fee has no free booking, the add-on window keeps one', () => {
+  // The fee's free first booking is retired (FREE_BOOKING_LIMIT 0). Following it would have repriced these add-ons —
+  // a money change nobody ruled on — so the window keeps its own value of one booking until the owner rules.
+  assert.equal(FREE_BOOKING_LIMIT, 0);
+  assert.equal(vendorInFirst5Window(1), true);
+  assert.equal(vendorInFirst5Window(2), false);
 });
 
 test('end to end at the boundary, policy on', () => {

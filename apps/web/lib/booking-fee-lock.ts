@@ -5,17 +5,23 @@
  *
  * The owner moved the fee TRIGGER from proposal SEND to the vendor LOCK
  * (event_vendors → contracted). Fee base = the COUPLE-CONFIRMED agreed total
- * (event_vendors.total_cost_php). Rate = 5%, then 1% beyond ₱100,000 · ₱50 floor
- * · no cap (lib/booking-fee.ts — owner-ruled 2026-07-27; there is no flat rate).
- * A verified vendor's FIRST Setnayan-sourced booking pays NOTHING; booking 2+
- * pays that schedule, collected on the manual GCash/BDO QR `orders` rail.
- * (Owner 2026-10-23: "Your first booking is on us. Not 5." — it was five.)
+ * (event_vendors.total_cost_php). The schedule is lib/booking-fee.ts (owner
+ * 2026-11-20: 5% of the first ₱100,000, 3% after, locked at ₱100,000; an
+ * unverified shop pays the head rate on the whole booking, locked too). Collected on the manual
+ * GCash/BDO QR `orders` rail.
+ *
+ * ⚖ 20 NOV — THERE IS NO FREE FIRST BOOKING ANY MORE (specs DECISION_LOG
+ * "BILLING MUST FOLLOW THE RETIRED COPY"). The only bookings with no fee are the
+ * ones `booking_fee_attribution_for` calls 'import' (the 16 Nov rule), a ledger
+ * row frozen free before the change (never taken back), the launch offer, a
+ * free-fee window, Setnayan's every-Nth booking fee, and a free booking fee
+ * ticket (auto-claimed — never redeemed at will).
  *
  * The DB-touching wrapper (open the charge + issue the vendor order + notify)
  * lives in lib/booking-fee-lock.server.ts and composes these.
  */
 
-import { bookingFeePhp } from '@/lib/booking-fee';
+import { bookingFeePhpFor, type BookingFeeSchedule } from '@/lib/booking-fee';
 
 /**
  * The vendor-payer order service_key for a lock booking fee. The charge_id is
@@ -40,9 +46,16 @@ export const BOOKING_FEE_LOCK_SERVICE_PREFIX = 'vendor_booking_fee__';
  * so `the-first-booking-is-on-us.test.ts` pins this to 1 as well: a change here
  * is a change of every sentence below, not of a number.
  */
-export const FREE_BOOKING_LIMIT = 1;
+export const FREE_BOOKING_LIMIT = 0;
 
 /**
+ * ⚠ RETIRED RULE (20 Nov). The four sentences below promise a free first
+ * booking, which billing no longer gives. They are kept ONLY because public
+ * pages still import them and those pages are being rewritten in their own PRs
+ * (front page #8049, For Suppliers #8050, search/AI/help text #8041). No fee
+ * surface, bill or receipt may use them — `the-20-nov-fee-rulings.test.ts`
+ * fails if one does.
+ *
  * THE SENTENCE (owner 2026-10-23). Every supplier surface that names the free
  * booking says this, or a lower-cased clause of it — never a count of free
  * bookings, which is how "your first 5" outlived the rule on twelve pages.
@@ -154,43 +167,112 @@ export function freeHeldBackSentence(reason: FreeHeldBack, when: 'is' | 'would' 
   return 'We could not confirm this is your business’s first booking from Setnayan, so the fee applies. If it is, message Setnayan and we will check.';
 }
 
+/**
+ * 🎁 SETNAYAN'S EVERY-NTH BOOKING FEE (owner 2026-11-20: "every 100,000th booking fee", counted across "All of
+ * Setnayan"). True when a booking's place in the platform-wide count of fee bookings is a multiple of N
+ * (`platform_settings.booking_fee_free_every_nth`). Twin of `public.booking_fee_platform_number_is_free`. A count of
+ * bookings, never pesos. N is passed in — read from settings, never typed here.
+ */
+export function isPlatformFreeNumber(platformFeeNumber: number | null | undefined, freeEveryNth: number): boolean {
+  if (typeof platformFeeNumber !== 'number' || !Number.isInteger(platformFeeNumber) || platformFeeNumber <= 0) return false;
+  if (!Number.isInteger(freeEveryNth) || freeEveryNth <= 0) return false;
+  return platformFeeNumber % freeEveryNth === 0;
+}
+
+/** Why a lock decision came out the way it did — one word per arm of `booking_fee_open_lock_charge`. */
+export type LockFeeReason =
+  | 'off'          // flag off, or no marketplace shop — no charge row at all
+  | 'not_sourced'  // attribution 'import' — the 16 Nov rule: no fee, ever, on this booking
+  | 'launch_offer' // one of the launch offer's bookings
+  | 'frozen_free'  // a ledger place frozen free before 20 Nov — a waiver already granted stays granted
+  | 'zero'         // a ₱0 / barter total
+  | 'promo'        // a free-fee window is running
+  | 'every_nth'    // Setnayan's every-Nth booking fee
+  | 'ticket'       // the shop's oldest free booking fee ticket paid it (auto-claimed)
+  | 'billed';      // billed: a pending charge + an order
+
 export type LockFeeDecision = {
   /** Whether a charge row should exist at all (false = flag off / off-platform). */
   charge: boolean;
-  /** Whether this booking is the free first one (no money, but a waived charge). */
+  /** Whether the shop is billed nothing on this booking. */
   free: boolean;
-  /** The fee owed in PHP (0 when free / ₱0 booking). */
+  /** The fee BILLED in PHP (0 when free). */
   feePhp: number;
-  /** Whether a vendor-payer QR order should be issued (fee > 0 and not free). */
+  /** What the fee is on this total for this shop — recorded even when it is waived (`computed_fee_centavos`). */
+  computedFeePhp: number;
+  /** Whether a vendor-payer QR order should be issued (billed and fee > 0). */
   createOrder: boolean;
+  /** Whether this booking takes a place in Setnayan's count of fee bookings. */
+  takesPlatformNumber: boolean;
+  reason: LockFeeReason;
 };
 
 /**
- * The pure LOCK-fee decision — the single source of truth mirrored by the SQL
- * RPC. Deterministic, no I/O. Kept a strict predicate so a mutation to any arm
- * (flag gate, verified gate, free-booking boundary, fee base) is caught by tests.
+ * The pure LOCK-fee decision — the mirror of `booking_fee_open_lock_charge` (migration 20271354437946), arm for arm
+ * and in the same order. Deterministic, no I/O. Every number arrives as an argument (the schedule and N come from
+ * `platform_settings`); nothing here types a rate, a band, a lock or a count.
  *
- *   • flag OFF or NOT verified  → no charge, no order (byte-identical to today)
- *   • the first (ordinal ≤ 1)   → a waived charge, NO money, NO order —
- *     ONLY when the business has not spent it on another shop (`businessFree`
- *     is `available`); otherwise it is billed like a 2nd (fail closed)
- *   • 2nd+ with fee > 0         → a pending charge + a vendor QR order
- *   • 2nd+ but ₱0/barter total  → a cleared charge, NO order
+ *   1 · flag OFF or no marketplace shop      → no charge
+ *   2 · attribution 'import'                 → waived, no fee recorded (the 16 Nov import rule)
+ *   3 · launch offer                         → waived, fee recorded
+ *   4 · a place frozen free (pre-20 Nov)     → waived, fee recorded (never taken back)
+ *   5 · fee ₱0                               → a cleared charge
+ *   6 · free-fee window                      → waived, fee recorded
+ *   7 · the booking carries a fee → takes its number in Setnayan's count:
+ *         every Nth                          → waived; a ticket the shop holds is NOT used
+ *         else a ticket waiting              → the ticket pays it (auto-claimed, oldest first)
+ *         else                               → billed, with an order
+ *
+ * The fee is the verified taper or, for an unverified shop, the flat rate — both locked (`bookingFeePhpFor`).
  */
 export function decideLockFee(args: {
   flagEnabled: boolean;
-  verified: boolean;
-  bookingOrdinal: number;
+  /** The booking row names a marketplace shop (`event_vendors.marketplace_vendor_id`). */
+  onPlatform: boolean;
+  /** `booking_fee_attribution_for` for this (shop, event). */
+  attribution: 'sourced' | 'import';
+  /** `booking_fee_shop_verified_since(shop) IS NOT NULL` — picks the taper over the flat rate. */
+  shopVerified: boolean;
+  /** `booking_fee_ledger.is_free_booking` on a row frozen before 20 Nov. */
+  frozenFree: boolean;
+  launchOffer: boolean;
+  promoWindow: boolean;
   agreedTotalPhp: number | null | undefined;
-  /** `booking_fee_business_free_standing` for this shop. REQUIRED — no default, so no caller can forget it. */
-  businessFree: BusinessFreeStanding;
+  schedule: BookingFeeSchedule;
+  /** The place this booking takes in Setnayan's count if it carries a fee (the counter's next number). */
+  nextPlatformNumber: number;
+  /** `platform_settings.booking_fee_free_every_nth`. */
+  freeEveryNth: number;
+  /** The shop holds an unused free booking fee ticket (`shop_badge_rewards`, reward_kind 'fee_waiver'). */
+  ticketWaiting: boolean;
 }): LockFeeDecision {
-  if (!args.flagEnabled || !args.verified) {
-    return { charge: false, free: false, feePhp: 0, createOrder: false };
+  const none = (reason: LockFeeReason, computedFeePhp = 0): LockFeeDecision => ({
+    charge: reason !== 'off',
+    free: true,
+    feePhp: 0,
+    computedFeePhp,
+    createOrder: false,
+    takesPlatformNumber: false,
+    reason,
+  });
+  if (!args.flagEnabled || !args.onPlatform) return none('off');
+  if (args.attribution === 'import') return none('not_sourced');
+  const fee = bookingFeePhpFor(Number(args.agreedTotalPhp ?? 0), args.schedule, { verified: args.shopVerified });
+  if (args.launchOffer) return none('launch_offer', fee);
+  if (args.frozenFree) return none('frozen_free', fee);
+  if (fee <= 0) return none('zero', 0);
+  if (args.promoWindow) return none('promo', fee);
+  if (isPlatformFreeNumber(args.nextPlatformNumber, args.freeEveryNth)) {
+    return { ...none('every_nth', fee), takesPlatformNumber: true };
   }
-  if (isFreeBooking(args.bookingOrdinal) && businessMayTakeFreeBooking(args.businessFree)) {
-    return { charge: true, free: true, feePhp: 0, createOrder: false };
-  }
-  const feePhp = bookingFeePhp(Number(args.agreedTotalPhp ?? 0));
-  return { charge: true, free: false, feePhp, createOrder: feePhp > 0 };
+  if (args.ticketWaiting) return { ...none('ticket', fee), takesPlatformNumber: true };
+  return {
+    charge: true,
+    free: false,
+    feePhp: fee,
+    computedFeePhp: fee,
+    createOrder: true,
+    takesPlatformNumber: true,
+    reason: 'billed',
+  };
 }

@@ -20,8 +20,6 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  ChevronsDownUp,
-  ChevronsUpDown,
   CircleDot,
   GripVertical,
   Lock,
@@ -102,9 +100,7 @@ import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
-  CHAIR_PX,
   SIDE_COLORS,
-  TABLE_FOOTPRINT_M,
   boothTypeForVendorCategory,
   boothPresenceLabel,
   boothPerimeterSlots,
@@ -112,17 +108,13 @@ import {
   solveAutoLayout,
   freeBoothSlots,
   defaultPriorityOrder,
-  defaultTablePosition,
-  effectiveCapacity,
   autoArrangeNewTableKey,
   autoArrangeSummary,
   autoSeatRoom,
   tablesToAddForAutoSeat,
   groupTablesIntoUnits,
   guestTier,
-  removedSeatSet,
   roleTier,
-  rotatePoint,
   nextTableName,
   obbOf,
   checkPlacement,
@@ -135,10 +127,6 @@ import {
   atLegalJoint,
   chainableShapes,
   stageZone,
-  TABLE_TYPE_CATALOG,
-  TABLE_TYPE_LABEL,
-  shapeHintFor,
-  tableGeometry,
   tableNumberEndsInFour,
   relaxLowestPriorityRule,
   type BoothType,
@@ -151,10 +139,7 @@ import {
   type FloorPlanRow,
   sanitizeCapacity,
   weldCommitBatch,
-  DEFAULT_ROOM_M,
   type FloorSignRow,
-  type TableShapeHint,
-  type TableType,
   type WorldPose,
   type OracleZone,
   type DropHit,
@@ -164,6 +149,24 @@ import {
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
 } from '@/lib/seating';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
+import {
+  CHAIR_PX,
+  TABLE_FOOTPRINT_M,
+  defaultTablePosition,
+  effectiveCapacity,
+  removedSeatSet,
+  rotatePoint,
+  TABLE_TYPE_CATALOG,
+  TABLE_TYPE_LABEL,
+  shapeHintFor,
+  tableGeometry,
+  DEFAULT_ROOM_M,
+  type TableShapeHint,
+  type TableType,
+  nearestWall,
+} from '@/lib/seat-plan-engine';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   roleSeatingChoice,
@@ -7426,8 +7429,6 @@ export function SeatingEditor({
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -7559,19 +7560,8 @@ export function SeatingEditor({
             {seatPop ?? tableBar ?? seatTray}
             <lens.ThumbRow
               name="guests-seats"
-              left={
-                view === 'list' && !in3d
-                  ? [
-                      {
-                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
-                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
-                        expanded: facesAllOpen,
-                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
-                        testId: 'seats-expand',
-                      },
-                    ]
-                  : []
-              }
+              /* 👥 Guests redesign pick 5 (20 Nov): Seats › List is table cards, each rising on its own — there are no
+                 headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
                 input: {
@@ -8508,15 +8498,12 @@ export function SeatingEditor({
               stays the mouth label. Sits under the pill (z-0). */}
           {entrance.enabled && entrance.kind === 'tunnel'
             ? (() => {
-                // Nearest wall (argmin distance) — same pattern as stageWallOf.
-                const dTop = entrance.y;
-                const dBottom = 100 - entrance.y;
-                const dLeft = entrance.x;
-                const dRight = 100 - entrance.x;
-                const min = Math.min(dTop, dBottom, dLeft, dRight);
+                // Nearest wall (argmin distance) — the shared engine's rule (`nearestWall`, lib/seat-plan-engine), ties
+                // top · bottom · left · right exactly as this block always tested them. A supplier's door uses it too.
+                const wall = nearestWall(entrance.x, entrance.y);
                 // Depth as a % of the room dimension along the inward axis; a
                 // free board (no metre size) uses a fixed ~12% fallback.
-                const vertical = min === dTop || min === dBottom;
+                const vertical = wall === 'top' || wall === 'bottom';
                 const roomDim = venueScaled ? (vertical ? venue.length : venue.width) : 0;
                 const depthPct = roomDim > 0 ? Math.min(60, (entrance.depthM / roomDim) * 100) : 12;
                 const MOUTH = 13; // clear width of the walk-through, % of canvas
@@ -8524,17 +8511,17 @@ export function SeatingEditor({
                 let top: number;
                 let width: number;
                 let height: number;
-                if (min === dTop) {
+                if (wall === 'top') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 0;
-                } else if (min === dBottom) {
+                } else if (wall === 'bottom') {
                   width = MOUTH;
                   height = depthPct;
                   left = entrance.x - MOUTH / 2;
                   top = 100 - depthPct;
-                } else if (min === dLeft) {
+                } else if (wall === 'left') {
                   width = depthPct;
                   height = MOUTH;
                   left = 0;

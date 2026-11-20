@@ -31,6 +31,7 @@ import {
 import { ChatCardShell } from '../chat-step-card';
 import { loadCardsForMakeQuote } from './card-calls';
 import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
+import { LowestRow, UnderLowestLine } from './lowest-price';
 
 export const MAKE_A_QUOTE_TITLE = 'Make a quote';
 
@@ -172,6 +173,9 @@ function MakeQuoteForm({
         onKeep={(v) => setTyped(v)}
         data="make-quote-offer"
       />
+      {/* 🤝 Your lowest, private (19 Nov 2026): typed once here; an offer under it gets ONE quiet line — never a block. */}
+      <UnderLowestLine threadId={threadId} totalCentavos={offerC} />
+      <LowestRow threadId={threadId} />
       <DateRow
         name="Good until"
         about={{ words: 'A quote is good for 14 days unless you change it — never past the event day.' }}

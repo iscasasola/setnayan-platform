@@ -108,6 +108,8 @@ test('4 · a page switch costs no request', () => {
   assert.match(shell, /overflow-x-hidden overscroll-contain \[overscroll-behavior-x:none\]/);
   // 19 Nov 2026: not even the Script fold — a landing and an in-page door share ONE vertical scroll of the body's own scroller.
   assert.equal((stripComments(shell).match(/scrollIntoView\(/g) ?? []).length, 0, 'scrollIntoView is back — it moves the body sideways (§10 #26)');
-  assert.equal((shell.match(/scrollToPart\(/g) ?? []).length, 4, 'a landing and nav.select no longer share the one scroll path');
+  // (19 Nov 2026: a fifth call — a door to a part of a page that RISES over the chat finds the part again once the
+  // risen screen has landed on <body>; still the ONE function.)
+  assert.equal((shell.match(/scrollToPart\(/g) ?? []).length, 5, 'a landing and nav.select no longer share the one scroll path');
   assert.match(shell, /function scrollToPart\(id: string\): boolean \{[\s\S]{0,400}scroller\.scrollTo\(\{ top,/);
 });

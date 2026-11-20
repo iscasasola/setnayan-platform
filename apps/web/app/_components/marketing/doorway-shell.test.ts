@@ -86,11 +86,11 @@ const DOORWAYS = [
   'pawebsite',
   'papic',
   'panood',
-  'patiktok',
   'pa3d',
   'mood-board',
-  'pakanta',
   'palogo',
+  // 🪦 'patiktok' and 'pakanta' left 2026-11-20 with STUDIO_APPS — both products retired (owner: "Retire Patiktok
+  // and Music Maker"); their pages are now redirect-only stubs to /features.
 ] as const;
 
 /**

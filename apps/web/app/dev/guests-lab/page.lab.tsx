@@ -1075,14 +1075,6 @@ export default async function GuestsLabPage({
                     requestsBody={sp.req === '0' ? null : <LabRequestsStandIn act={labDecide} />}
                     initialAsking={sp.gshow === 'requests'}
                     oneQr={sp.oneqr === '1'}
-                    // 📤 Each row's Share, as the page hands it: the address, the event's words, and a token per guest the
-                    // run would hold (`sendRunGuests` = the page's `mayBeInvited`); the lab's token is the guest's id.
-                    invite={{
-                      base: LAB_HUB,
-                      tokens: Object.fromEntries(sendRunGuests(roster).map((g) => [g.guest_id, g.guest_id] as const)),
-                      facts: { hostsName: 'Maria & Jose', eventWord: 'wedding', eventDate: '2026-12-12', datePrecision: 'day' },
-                      template: null,
-                    }}
                     titlesWaiting={sp.titles === '1' ? LAB_TITLES_WAITING : []}
                     rootLabel="Maria & Jose"
                     initialQuery={typeof sp.q === 'string' ? sp.q : ''}

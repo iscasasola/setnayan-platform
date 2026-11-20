@@ -117,7 +117,7 @@ test('dark mode: no surface is painted white — tiles and empty chairs wear the
   for (const view of ['grid', 'floor'] as const) {
     const html = await render({ views: ['grid', 'floor'], view });
     // A shared control may pair `bg-white` with its own `dark:bg-…`; a white with no dark partner is the fault.
-    const unpaired = [...html.matchAll(/class="([^"]*)"/g)].map((m) => m[1]).filter((c) => /(^|\s)bg-white(\s|$)/.test(c) && !/dark:bg-/.test(c));
+    const unpaired = [...html.matchAll(/class="([^"]*)"/g)].map((m) => m[1] ?? '').filter((c) => /(^|\s)bg-white(\s|$)/.test(c) && !/dark:bg-/.test(c));
     assert.deepEqual(unpaired, [], `${view}: a bg-white surface with no dark partner`);
     const whites = html.match(/\bfill-white\b/g) ?? [];
     // The one allowed white is the word on the terracotta "marked" pill, which is terracotta in both themes.

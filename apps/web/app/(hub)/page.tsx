@@ -209,7 +209,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), Live Watch livestream on the event page, and a custom Music Maker song. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), and Live Watch livestream on the event page. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -220,7 +220,7 @@ const softwareAppJsonLd = {
     // code caps a list — and it is the one claim the Philippine rivals cannot
     // make (their free tiers stop at 30–50 guests).
     // ⚠ NO ROLE COUNT BEYOND "MORE THAN 30" — `GuestRole` has 35 values today.
-    // ⚠ PATIKTOK IS DELIBERATELY ABSENT until the owner settles booth vs reel.
+    // ⚠ PATIKTOK IS ABSENT — retired 2026-11-20 (lib/retired-products.ts).
     'Guest list with no guest limit and more than 30 Filipino ceremony roles — principal sponsors (ninong and ninang), candle, veil, cord and coin sponsors, bearers, the wedding party, and Nikah roles (free)',
     'RSVP with a personal QR code for every guest and a real-time headcount (free)',
     'Seat plan editor, and 3D Plan — walk your reception in 3D before the day, built from your seat plan (both free)',
@@ -234,7 +234,7 @@ const softwareAppJsonLd = {
     'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Pro and Event Ultra)',
-    'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
+    // 🪦 Music Maker retired 2026-11-20 (lib/retired-products.ts) — its line left with it.
     'Logo Maker — your own event logo across invites, the Event Hub, and signage (free; Event Pro animates it)',
     'Groups — a standing group for your barkada, clan or parish: short stories that disappear after 24 hours, one group chat, and the events you plan together (free)',
     'Memories — every photo, video, and milestone from the day gathered into one place the host keeps',

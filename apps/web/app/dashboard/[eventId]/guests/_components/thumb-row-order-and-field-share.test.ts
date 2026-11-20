@@ -37,7 +37,9 @@ test('List: ⇕ · Search guests · ≡ (Show & sort) · ＋ Add ▾ — the ONE
   // 18–19 Nov 2026 (owner: "so we also do no need an add button because. our text box is search / add feature"): the
   // ＋ Add ▾ seat is gone — the field is the add (`field.onAdd`, lib/a-search-that-adds-shows-add.test.ts).
   const row = SCREEN.slice(at, SCREEN.indexOf('/>', SCREEN.indexOf('right={[{ node: filterSheet }]}', at)) + 2);
-  const order = ['left={[', "testId: 'thumb-expand'", 'field={field}', 'right={[{ node: filterSheet }]}'].map((m) => row.indexOf(m));
+  // 👥 20 Nov (Guests redesign §2): one row — 🔍 (drag right to add) · Show and sort. ⇕ Fold all is the sheet's last line.
+  assert.doesNotMatch(row, /left=\{\[|thumb-expand/, '⇕ is back on the thumb row — it is the last line of Show and sort');
+  const order = ['field={field}', 'right={[{ node: filterSheet }]}'].map((m) => row.indexOf(m));
   assert.doesNotMatch(row, /\baction=/, 'the List row seats a ＋ Add beside the field that adds');
   assert.ok(order.every((i) => i > -1), `a control is missing from the thumb row: ${order.join(',')}`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the thumb row is out of order');

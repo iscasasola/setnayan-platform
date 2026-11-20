@@ -41,7 +41,9 @@ function drawnIn(token: string, src: string): boolean {
   const lit = new RegExp(`(?:data-tour|\\btour)=["'{\`]+${t}["'}\`]`);
   const chosen = new RegExp(`data-tour=\\{[^}]*['"]${t}['"]`);
   // `addTour:` — the 🔍 → ＋ icon of a field that adds (19 Nov 2026, `components/search-add.tsx`), pinned below.
-  const seat = new RegExp(`\\b(?:tour|addTour): ['"]${t}['"]`);
+  // `titleTour:` — a picked screen's tour stop on its title (19 Nov 2026, `app/_components/picked/picked-shell.tsx`
+  // stamps `data-tour={chatHome.titleTour}`, pinned in the-client-page-is-one-chat.test.ts).
+  const seat = new RegExp(`\\b(?:tour|addTour|titleTour): ['"]${t}['"]`);
   return lit.test(src) || chosen.test(src) || seat.test(src);
 }
 
@@ -167,7 +169,7 @@ const ANCHOR_HOME: Record<string, string | string[]> = {
   'customers-list': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   'customers-event': 'app/vendor-dashboard/customers/_components/customers-roster.tsx',
   'client-chat': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
-  'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx',
+  'client-quote': 'app/vendor-dashboard/clients/[eventId]/_components/client-chat-strip.tsx',
   'maker-hint': 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
   'maker-tools': 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx',
   'maker-apply': 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',

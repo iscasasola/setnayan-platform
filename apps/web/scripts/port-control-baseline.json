@@ -148,12 +148,16 @@
         "_components/chat/cards/book-request-card.tsx",
         "_components/chat/cards/card-bits.tsx",
         "_components/chat/cards/card-calls.ts",
+        "_components/chat/cards/deal-sheet.tsx",
         "_components/chat/cards/decision-step-card.tsx",
         "_components/chat/cards/files-step-card.tsx",
         "_components/chat/cards/form-step-card.tsx",
         "_components/chat/cards/guest-recount-card.tsx",
+        "_components/chat/cards/inquiry-card.tsx",
         "_components/chat/cards/lazy-cards.tsx",
         "_components/chat/cards/log-payment-card.tsx",
+        "_components/chat/cards/lowest-calls.ts",
+        "_components/chat/cards/lowest-price.tsx",
         "_components/chat/cards/make-quote-card.tsx",
         "_components/chat/cards/negotiate-cards.tsx",
         "_components/chat/cards/offer-calls.ts",
@@ -169,6 +173,7 @@
         "_components/chat/chat-blocker.tsx",
         "_components/chat/chat-box.tsx",
         "_components/chat/chat-file-swipe.tsx",
+        "_components/chat/chat-home.tsx",
         "_components/chat/chat-host-strip.tsx",
         "_components/chat/chat-pinned-stack.tsx",
         "_components/chat/chat-pins.tsx",
@@ -694,9 +699,7 @@
         "/features/guest-list",
         "/features/live-watch",
         "/features/marketplace",
-        "/features/music-maker",
         "/features/papic",
-        "/features/patiktok",
         "/features/schedule",
         "/features/seat-plan",
         "/features/wedding-march",
@@ -893,6 +896,9 @@
         "ChatFileRemoveSheet",
         "ChatFileSwipe",
         "ChatFileUndoRing",
+        "ChatHome",
+        "ChatHomeContext.Provider",
+        "ChatHomeTop",
         "ChatHostStrip",
         "ChatOfferedServiceCard",
         "ChatOriginMark",
@@ -950,6 +956,7 @@
         "DatesRow",
         "DayBox",
         "DayStage",
+        "DealSheet",
         "DecisionCard",
         "DecisionPanel",
         "DecisionStepCard",
@@ -1001,6 +1008,7 @@
         "DropContext",
         "DropResult",
         "DroppedOffer",
+        "DroppedOfferCard",
         "EffectComposer",
         "Element",
         "EmoteBubbles",
@@ -1024,6 +1032,7 @@
         "ExplainPopup",
         "Face",
         "FacebookIcon",
+        "Fact",
         "FairHit",
         "FavoriteHeart",
         "FavoriteResult",
@@ -1146,6 +1155,7 @@
         "InSheet.Provider",
         "InfoTip",
         "InlineCheckoutDrawer",
+        "InquiryCard",
         "InspectorContext.Provider",
         "InspectorContextValue",
         "InspectorSelect",
@@ -1166,6 +1176,7 @@
         "KeepAnswer",
         "KeepsakeKey",
         "Kept",
+        "Key",
         "KickerChip",
         "Kind",
         "KindIcon",
@@ -1223,6 +1234,8 @@
         "LogoMark",
         "LookState",
         "LowerThird",
+        "LowestResult",
+        "LowestRow",
         "Lucide",
         "Made",
         "MainEl",
@@ -1295,6 +1308,7 @@
         "NotificationsHead",
         "NotificationsList",
         "OAuthTermsLine",
+        "OfferDropCard",
         "OfflineBar",
         "OfflineDaemonMount",
         "OnBody",
@@ -1352,6 +1366,7 @@
         "PickLinks",
         "PickListPlacement",
         "PickMenu",
+        "PickedCoveredContext.Provider",
         "PickedHeadContext.Provider",
         "PickedHeadLineContext.Provider",
         "PickedNavContext.Provider",
@@ -1453,6 +1468,7 @@
         "RevealWhatIsSeen",
         "ReviewGroupHead",
         "RiseCloseContext.Provider",
+        "RiseCloser",
         "RiseScreen",
         "RisenFilterForm",
         "RiserChassis",
@@ -1658,6 +1674,7 @@
         "TypingBand",
         "TypingState",
         "UnblockGuide",
+        "UnderLowestLine",
         "UndoToastHost",
         "Unknown",
         "UnreadBellBadge",
@@ -1843,6 +1860,48 @@
         "Reveal",
         "RevealBand",
         "RevealList"
+      ]
+    },
+    "/(shell)/articles/(list)": {
+      "files": [
+        "(shell)/articles/(list)/loading.tsx",
+        "(shell)/articles/(list)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ArticlesFeedView"
+      ]
+    },
+    "/(shell)/articles/[slug]": {
+      "files": [
+        "(shell)/articles/[slug]/article-view.tsx",
+        "(shell)/articles/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Article",
+        "ArticleParagraph",
+        "ArticleView",
+        "BackButton",
+        "BylineName",
+        "LinkCardView",
+        "Metadata",
+        "ReplyBox",
+        "ReportPageButton",
+        "TagChips"
+      ]
+    },
+    "/(shell)/articles/write": {
+      "files": [
+        "(shell)/articles/write/loading.tsx",
+        "(shell)/articles/write/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "WriteSheet"
       ]
     },
     "/(shell)/budget": {
@@ -2050,42 +2109,34 @@
     },
     "/(shell)/for-coordinators": {
       "files": [
-        "(shell)/for-coordinators/_badges.generated.ts",
         "(shell)/for-coordinators/_claims.server.ts",
         "(shell)/for-coordinators/_claims.ts",
         "(shell)/for-coordinators/_facts.ts",
-        "(shell)/for-coordinators/_fc-client.tsx",
+        "(shell)/for-coordinators/_fc-info.tsx",
         "(shell)/for-coordinators/_prices.server.ts",
         "(shell)/for-coordinators/loading.tsx",
         "(shell)/for-coordinators/page.tsx"
       ],
       "destinations": [
-        "/open-shop",
-        "/v/[seg]"
+        "/about",
+        "/for-suppliers",
+        "/help",
+        "/pricing",
+        "/privacy",
+        "/terms"
       ],
       "actions": [],
       "blocks": [
-        "AccessCard",
-        "CheckADate",
-        "ChipIcon",
+        "CardBadgeRow",
         "ClaimSwitches",
         "CoordinatorPrices",
-        "FcEffects",
-        "FeeSlider",
-        "HTMLButtonElement",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HeroStage",
+        "Facts",
+        "FcInfo",
+        "FcSampleQr",
+        "Head",
         "Image",
-        "InfoToggle",
         "Link",
-        "Pill",
-        "PlanPagePreview",
-        "PlanTiers",
-        "QrMoments",
-        "RunTheDay",
-        "SampleShopPage",
-        "SupplierPlanTable",
+        "ServiceFace",
         "T"
       ]
     },
@@ -2093,57 +2144,32 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
-        "for-suppliers/_components/plan-page-preview.tsx",
-        "for-suppliers/_components/plan-table-chips.tsx",
         "for-suppliers/_components/plan-table-data.ts",
-        "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
         "for-suppliers/_components/supplier-front-page.tsx",
         "for-suppliers/_components/supplier-how-we-earn-data.ts",
-        "for-suppliers/_components/supplier-how-we-earn.tsx",
-        "for-suppliers/_components/supplier-plan-table.tsx"
+        "for-suppliers/_components/supplier-how-we-earn.tsx"
       ],
       "destinations": [
         "/pricing"
       ],
       "actions": [],
       "blocks": [
-        "Cell",
-        "CheckADateDemo",
-        "CtaDock",
-        "DayStatus",
-        "FeeStory",
-        "FoldPill",
+        "CardBadgeRow",
+        "FeeRuler",
         "HTMLButtonElement",
         "HTMLDivElement",
-        "HTMLElement",
-        "HeroStage",
         "Image",
         "Info",
+        "Lede",
         "Link",
-        "Photo",
-        "Pill",
-        "PlanPagePreview",
-        "PlanPageSheet",
-        "PlanPicker",
-        "PlanPreview",
-        "PlanPrice",
-        "PlanTableChips",
-        "PriceShapeCalc",
-        "QrChip",
-        "QrCtx.Provider",
-        "QrKey",
-        "QrSheetProvider",
-        "SampleShopPage",
-        "SupplierBadgeShelf",
-        "SupplierFrontCodes",
+        "PlanRows",
+        "SecHead",
+        "ServiceFace",
         "SupplierFrontPage",
-        "SupplierFrontRoot",
         "SupplierHowWeEarn",
-        "SupplierPlanTable",
-        "SwitchTrack",
         "Wedding"
       ]
     },
@@ -2309,18 +2335,11 @@
     },
     "/(shell)/pakanta": {
       "files": [
-        "(shell)/pakanta/loading.tsx",
         "(shell)/pakanta/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=pakanta",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/palogo": {
       "files": [
@@ -2434,18 +2453,11 @@
     },
     "/(shell)/patiktok": {
       "files": [
-        "(shell)/patiktok/loading.tsx",
         "(shell)/patiktok/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=patiktok",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/pawebsite": {
       "files": [
@@ -9646,7 +9658,6 @@
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
-        "GuestInviteCell",
         "GuestJumpRow",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
@@ -11675,7 +11686,6 @@
         "GuestSeatView",
         "HTMLDivElement",
         "HTMLElement",
-        "Head",
         "HoldButton",
         "Icon",
         "InfoTip",
@@ -11704,6 +11714,7 @@
         "PresenceMeta",
         "PriorityOrder",
         "ReadRefusedNotice",
+        "RiseScreen",
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
@@ -11740,7 +11751,8 @@
         "TypedRow",
         "UndoToastHost",
         "VipMark",
-        "VipPlusOneSeating"
+        "VipPlusOneSeating",
+        "WithRiseClose"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {
@@ -16589,6 +16601,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/client-chat-strip.tsx",
         "vendor-dashboard/clients/[eventId]/_components/client-refunds.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/coordinator-answers.tsx",
@@ -16719,9 +16732,13 @@
         "ChangeOp",
         "ChangeRequestsQueue",
         "ChapterSection",
+        "ChatHome",
+        "ChatHomeProvider",
+        "ChatHomeTop",
         "ChatPage",
         "Choice",
         "ChosenRow",
+        "ClientChatStrip",
         "ClientDayAnswers",
         "ClientNotes",
         "ClientRefundView",
@@ -16780,7 +16797,6 @@
         "MyMomentSheet",
         "MyTimesSheet",
         "NamedColourDot",
-        "NextStepRow",
         "OpenTheirEvent",
         "OverviewTab",
         "OwnTimesForm",
@@ -17241,7 +17257,8 @@
         "formAction",
         "importExternalClient",
         "moveAction",
-        "removeBlock"
+        "removeBlock",
+        "saveAction"
       ],
       "blocks": [
         "AccordionSkeleton",
@@ -17251,6 +17268,7 @@
         "BlockDateAdd",
         "BookedMonthScope",
         "BookingFeeBills",
+        "BookingWindowRows",
         "BookingsSurface",
         "BuyAPack",
         "BuyVendorPapicPortfolioPackState",

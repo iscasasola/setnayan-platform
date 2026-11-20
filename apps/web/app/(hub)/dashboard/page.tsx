@@ -767,7 +767,8 @@ async function EventsBoard({
       const { data, error } = await supabase
         .from('creator_chapters')
         .select('event_id, status')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('is_journal', false); // 📰 the Journal is Setnayan's, not this person's chapters
       if (error) console.error('[supabase-error] app/(hub)/dashboard/page.tsx · from:creator_chapters.select', error);
       if (!error) {
         chapterCount = ((data ?? []) as unknown[]).length;

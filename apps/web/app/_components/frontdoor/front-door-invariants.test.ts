@@ -315,10 +315,12 @@ test('every Studio product still has its public page', () => {
   assert.deepEqual(missing, [], `a Studio product points at a page that does not exist: ${missing.join(', ')}`);
 });
 
-test('Music Maker (was Pakanta) is one of them', () => {
-  const row = STUDIO_APPS.find((r) => r.name === 'Music Maker');
-  assert.ok(row, 'Music Maker is sold and must stay a Studio product (owner 2026-08-21)');
-  assert.equal(row?.href, '/pakanta');
+// 🪦 'Music Maker (was Pakanta) is one of them' — INVERTED 2026-11-20. Owner: *"Retire Patiktok and Music Maker
+// ( we do not want to serve this anymore)"*. Music Maker is no longer a Studio product; the rule that it stays OUT
+// (with Patiktok) is held by lib/retired-products-stay-retired.test.ts.
+test('Music Maker and Patiktok are NOT Studio products any more (retired 2026-11-20)', () => {
+  const retired = STUDIO_APPS.filter((r) => r.name === 'Music Maker' || r.name === 'Patiktok' || r.href === '/pakanta' || r.href === '/patiktok');
+  assert.deepEqual(retired.map((r) => r.name), [], 'a retired product is back in STUDIO_APPS');
 });
 
 /* ── 7 · THE CRON-FREE JOBS ────────────────────────────────────────────────

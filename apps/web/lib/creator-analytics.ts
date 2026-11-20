@@ -219,7 +219,8 @@ export async function fetchInfluencerAnalyticsForAdmin(): Promise<InfluencerAnal
     const { data: chapterRows, error: chapterErr } = await admin
       .from('creator_chapters')
       .select('user_id')
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .eq('is_journal', false); // 📰 the Journal does not make its owner a creator
     // The gate metric is derived from this read. A REFUSED read here would
     // otherwise produce a confident "0 of 25" — return unmeasured instead, so the
     // surface reports that it does not know rather than that nothing happened.

@@ -21,8 +21,6 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
   CircleDot,
   GripVertical,
   Lock,
@@ -7624,8 +7622,6 @@ export function SeatingEditor({
       setHighlightId(g.seated_table_id);
     }
   };
-  const faceKeys = [SEAT_LIST_UNSEATED, ...faceUnits.map((u) => u.key)];
-  const facesAllOpen = faceKeys.every((k) => faceOpen.has(k));
   const seatAddOptions: PickOption[] = [
     { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
     { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
@@ -7783,19 +7779,8 @@ export function SeatingEditor({
             {overThumb}
             <lens.ThumbRow
               name="guests-seats"
-              left={
-                view === 'list' && !in3d
-                  ? [
-                      {
-                        icon: facesAllOpen ? ChevronsDownUp : ChevronsUpDown,
-                        label: facesAllOpen ? 'Collapse all' : 'Expand all',
-                        expanded: facesAllOpen,
-                        onClick: () => setFaceOpen(facesAllOpen ? new Set() : new Set(faceKeys)),
-                        testId: 'seats-expand',
-                      },
-                    ]
-                  : []
-              }
+              /* 👥 Guests redesign pick 5 (20 Nov): Seats › List is table cards, each rising on its own — there are no
+                 headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
                 input: {

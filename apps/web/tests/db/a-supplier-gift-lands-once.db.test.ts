@@ -492,13 +492,14 @@ test('6 · 💎 Event Ultra: a fourth kind; full Ultra on a Pro event, with what
 
   // A gifted Ultra answers for what Ultra grants (lib/event-ultra.ts EVENT_ULTRA_GRANTS) — the app's aliases read
   // orders only, so without this a gifted Ultra would unlock nothing but its own name.
-  for (const sku of ['EVENT_ULTRA', 'COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PATIKTOK_COMPILER']) {
+  for (const sku of ['EVENT_ULTRA', 'COUPLE_WEBSITE_PRO', 'LIVE_STUDIO']) {
     assert.equal(await hasComp(b.eventId, sku), true, `a gifted Ultra does not unlock ${sku}`);
   }
   assert.equal(await hasComp(b.eventId, 'PAKANTA'), false, 'Ultra never grants Music Maker (staff-made)');
+  assert.equal(await hasComp(b.eventId, 'PATIKTOK_COMPILER'), false, 'Ultra no longer grants Patiktok (retired 2026-11-20)');
   assert.deepEqual(
     [...(await compSkus(b.eventId))].sort(),
-    ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'LIVE_STUDIO', 'PATIKTOK_COMPILER'],
+    ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'LIVE_STUDIO'],
   );
   // What buying it does: AI on, and the included credits topped up to ULTRA's own row.
   assert.equal(await one<boolean>(`SELECT setnayan_ai_active AS v FROM public.events WHERE event_id = $1`, [b.eventId]), true);

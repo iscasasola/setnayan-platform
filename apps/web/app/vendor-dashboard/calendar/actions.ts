@@ -746,9 +746,13 @@ async function saveBookingWindow(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const picked = bookingWindowFromForm(str(formData, 'booking_min_days'), str(formData, 'booking_max_months'));
   if (!picked) backToCalendar(formData, 'bad_booking_window');
-  const { error } = await supabase.from('vendor_profiles').update({ booking_min_days: picked.booking_min_days, booking_max_months: picked.booking_max_months })
-    .eq('vendor_profile_id', profile.vendor_profile_id);
-  if (error) backToCalendar(formData, 'save_failed');
+  // `.select()` so a write the row policy turns into ZERO rows reads as not saved — never as "saved" (ship review of #8058).
+  const { data: saved, error } = await supabase
+    .from('vendor_profiles')
+    .update({ booking_min_days: picked.booking_min_days, booking_max_months: picked.booking_max_months })
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .select('vendor_profile_id');
+  if (error || !saved || saved.length === 0) backToCalendar(formData, 'save_failed');
   revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
   backToCalendar(formData, 'booking_window_saved');

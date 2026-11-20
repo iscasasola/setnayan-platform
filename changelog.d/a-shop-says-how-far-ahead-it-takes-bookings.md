@@ -15,8 +15,11 @@ Owner 2026-11-19, DECISION_LOG "HOW FAR AWAY A SHOP TAKES BOOKINGS: AT LEAST AND
   shop page's side card). `CHECK_DATE_MONTHS_AHEAD = 37` is removed — a shop that sets nothing now answers to exactly
   3 years from today (was the end of that month). Find and the bench refuse a card on a day outside its shop's window
   (`readCardRefusals`, `readSuppliersWithNoBookingLeft`); a refused window read is "could not check", never "free".
-- **The ask:** `finalizeVendor` refuses a date outside the shop's window, after the card's own "Order at least N days"
-  — so a card can only be stricter than its shop. Fails open on a read error, logged, like the card's rule.
+- **The ask:** `finalizeVendor` refuses a date outside the shop's window **above the slot / daily-capacity split**, so a
+  card with time slots is checked too (ship review); a card's own "Order at least N days" can only be stricter. Fails
+  open on a read error, logged, like the card's rule.
+- **The save** reads its row back (`.select()`), so a write the row policy turns into zero rows says "did not go
+  through" instead of "saved".
 - `service_cards_unbookable_on` is NOT redefined: it mirrors the lock's calendar refusals line by line
   (`h6-mirrors-the-booking-path.test.ts`); the window is applied beside it in TypeScript.
 - Pure rule + guards: `lib/booking-window.ts`, `lib/booking-window.test.ts`.

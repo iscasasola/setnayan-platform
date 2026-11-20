@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1922
-# tables: 516
-# columns: 6216
-# notnull: 3748
+# ledger: 1928
+# tables: 517
+# columns: 6220
+# notnull: 3752
 [ledger]
 20260512000000
 20260513000000
@@ -1928,12 +1928,18 @@
 20271350427190
 20271350444634
 20271350575211
+20271350627144
 20271350696878
 20271350875090
 20271350937606
 20271351048946
 20271351451190
 20271351728222
+20271352180500
+20271352461498
+20271352882666
+20271352968519
+20271353556136
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2180,6 +2186,10 @@ booking_fee_disputes.opened_by_user_id
 booking_fee_disputes.reason
 booking_fee_disputes.status
 booking_fee_disputes.vendor_profile_id
+booking_fee_event_import_slots.created_at
+booking_fee_event_import_slots.event_id
+booking_fee_event_import_slots.imported_at
+booking_fee_event_import_slots.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.attribution_frozen_at
 booking_fee_ledger.attribution_thread_id
@@ -8289,6 +8299,10 @@ booking_fee_disputes.created_at
 booking_fee_disputes.dispute_id
 booking_fee_disputes.status
 booking_fee_disputes.vendor_profile_id
+booking_fee_event_import_slots.created_at
+booking_fee_event_import_slots.event_id
+booking_fee_event_import_slots.imported_at
+booking_fee_event_import_slots.vendor_profile_id
 booking_fee_ledger.attribution
 booking_fee_ledger.created_at
 booking_fee_ledger.fee_paid_total_centavos

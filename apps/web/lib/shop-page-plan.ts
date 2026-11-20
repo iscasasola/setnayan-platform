@@ -4,9 +4,9 @@
  * by plan" table) adds to the card column: the reach line + ring, the shop's own web address, the pinned review.
  *
  * 🔑 NO SECOND COPY OF A CAP. Every number and every "which plan" is read from the shipped sources:
- *   · reach  — `effectiveOuterRadiusKm` (lib/vendor-service-radius.ts): the plan's `serviceRadiusKm` (read from
- *              lib/vendor-tier-caps.ts — Ultra is `Infinity`, "nationwide", since 2026-11-04) clamping the shop's own
- *              declared outer ring — the SAME number couples' search and the supplier's own Where you work map draw;
+ *   · reach  — `effectiveOuterRadiusKm` (lib/vendor-service-radius.ts): the shop's own declared outer ring under the
+ *              verification ceiling — NOT the plan's (owner 2026-11-19, "unlock the range. not plan dependend
+ *              anymore") — the SAME number couples' search and the supplier's own Where you work map draw;
  *   · own address — `tierCaps(tier).customWebsiteName` (Supplier Plus and up since 2026-11-04; the Pro page parts read
  *              `premiumPage`, the cap the page calls `premiumLayout`);
  *   · pinned review — the page's own `proPicksRender` (Pro+, flag-aware) and `reviewCommentsViewable`.
@@ -20,18 +20,17 @@ export type ShopReach =
   | { kind: 'ring'; km: number }
   /** A shop Setnayan has not verified yet reaches 0 km (owner 2026-10-29, "Free = 0 km because unverified"). */
   | { kind: 'until_verified' }
-  /** Verified, on a plan that reaches nationwide (Ultra, owner 2026-11-04) and no narrower ring of its own. */
+  /** Verified, with no narrower ring of its own — any plan since 2026-11-19 (reach is not a plan allowance). */
   | { kind: 'nationwide' }
   /** Verified, and the plan/declaration still gives no ring — say the city only, never a claim. */
   | { kind: 'city_only' };
 
 export function shopReach(input: {
   verified: boolean;
-  tier: string | null | undefined;
   declaredOuterKm: number | null | undefined;
 }): ShopReach {
   if (!input.verified) return { kind: 'until_verified' };
-  const km = effectiveOuterRadiusKm(input.declaredOuterKm, input.tier);
+  const km = effectiveOuterRadiusKm(input.declaredOuterKm, input.verified);
   if (km === Infinity) return { kind: 'nationwide' };
   return Number.isFinite(km) && km > 0 ? { kind: 'ring', km } : { kind: 'city_only' };
 }

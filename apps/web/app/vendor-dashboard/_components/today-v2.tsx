@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Wallet } from 'lucide-react';
 import { Badge } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
-import { SupplierOpenRow } from './supplier-open-row';
 import { RowIcon, TodayEyebrow, TodayNoteRow, TodayRow, nextHref } from './supplier-today-first-screen';
 import {
   ContractDraftBody,
@@ -23,9 +22,28 @@ import {
 } from './overview-sections';
 import { TodayAsideButton, TodayQuickGroup, TodayQuickRow } from './today-v2-client';
 import { formatCount } from '@/lib/format-number';
-import { BILLS_UNREAD_LINE, DONE_UNREAD_LINE, type DoneTodayRow, type GrowStage, type TodayBadgeTag, type TodaySplit, type TodayTaskRow, type TrendLine } from '@/lib/supplier-today-v2';
+import {
+  BILLS_UNREAD_LINE,
+  DONE_UNREAD_LINE,
+  EVENTS_UNREAD_LINE,
+  RECOMMENDED_TAG,
+  eventRowWords,
+  feeRowLine,
+  type DoneTodayRow,
+  type GrowStage,
+  type TodayBadgeTag,
+  type TodayEventDay,
+  type TodayListEntry,
+  type TodaySplit,
+  type TodayTaskRow,
+  type TodayUrgency,
+  type TrendLine,
+} from '@/lib/supplier-today-v2';
+import { shortDay, type TodayNeed } from '@/lib/supplier-today';
+import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+
 import type { WhatsNewCard } from '@/lib/vendor-overview';
-import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { feeIntroducedLine, type DueFeeBill, type FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { postVendorReply } from '../reviews/actions';
 import {
@@ -152,87 +170,155 @@ function ScreenBody({ card, a, todayIso, onDesk }: { card: WhatsNewCard; a: Toda
   }
 }
 
-function QuickRows({ rows, a }: { rows: readonly TodayTaskRow[]; a: TodayV2Answers }) {
+/** The open card's one small link: the task's own page (drawing V3 · 0 — "Open in page ›", the same on every card). */
+function CardFoot({ href }: { href: string }) {
   return (
-    <TodayQuickGroup rows={rows.map((r) => ({ key: r.key, kind: r.card?.kind ?? 'other' }))}>
-      {rows.map((r) => (
-        <TodayQuickRow
-          key={r.key}
-          rowKey={r.key}
-          title={r.label}
-          line={r.line}
-          lead={<RowIcon name={r.icon} />}
-          aside={
-            <>
-              {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
-              <TodayBadgeTagChip tag={r.tag} aside />
-            </>
-          }
-        >
-          {r.card ? <QuickBody card={r.card} a={a} /> : null}
-        </TodayQuickRow>
-      ))}
-    </TodayQuickGroup>
-  );
-}
-
-function ScreenRows({ rows, a, todayIso, onDesk }: { rows: readonly TodayTaskRow[]; a: TodayV2Answers; todayIso: string; onDesk: readonly string[] }) {
-  return (
-    <>
-      {rows.map((r) => (
-        <div key={r.key} data-today-screen-row={r.card?.kind ?? 'other'} className="border-t border-ink/10 first:border-t-0">
-          {r.card ? (
-            <SupplierOpenRow
-              id={`task-${r.key}`}
-              data="today-task"
-              title={r.label}
-              line={r.line}
-              lead={<RowIcon name={r.icon} />}
-              aside={
-                <>
-                  {r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
-                  <TodayBadgeTagChip tag={r.tag} aside />
-                </>
-              }
-              rise
-              paneTitle={r.label}
-            >
-              <ScreenBody card={r.card} a={a} todayIso={todayIso} onDesk={onDesk} />
-            </SupplierOpenRow>
-          ) : (
-            <TodayRow href={nextHref(r.target)} label={r.label} line={r.line} rowIcon={r.icon} marker={r.key} />
-          )}
-        </div>
-      ))}
-    </>
+    <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
+      Open in page ›
+    </a>
   );
 }
 
 /**
- * 📋 NEEDS YOU TODAY, v2 — the rows only (the pinned heading and its count stay the shipped first screen's).
+ * 📋 ONE LIST (Today v3 part 1, owner 19 Nov "all recommended"): every task is the SAME row — a tap opens it in place as
+ * a card and it is answered there with the shipped form (`QuickBody` for the short kinds, `ScreenBody` for the rest —
+ * no row rises as a second screen any more). A row with no desk card behind it stays a link to its page.
+ */
+function TaskRow({ r, a, todayIso, onDesk }: { r: TodayTaskRow; a: TodayV2Answers; todayIso: string; onDesk: readonly string[] }) {
+  return r.card ? (
+    <TodayQuickRow
+      rowKey={r.key}
+      title={r.label}
+      line={r.urgency ? `${r.urgency.word} · ${r.line}` : r.line}
+      lead={<RowIcon name={r.icon} />}
+      urgency={r.urgency?.level ?? null}
+      foot={<CardFoot href={nextHref(r.target)} />}
+      aside={r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
+      below={r.tag ? <TodayBadgeTagChip tag={r.tag} /> : null}
+    >
+      <div data-today-task-kind={r.card.kind}>
+        {r.mode === 'quick' ? <QuickBody card={r.card} a={a} /> : <ScreenBody card={r.card} a={a} todayIso={todayIso} onDesk={onDesk} />}
+      </div>
+    </TodayQuickRow>
+  ) : (
+    <div className="border-t border-ink/10 first:border-t-0">
+      <TodayRow href={nextHref(r.target)} label={r.label} line={r.line} rowIcon={r.icon} marker={r.key} />
+    </div>
+  );
+}
+
+/**
+ * 💸 ONE FEE BILL, ITS OWN ROW (drawing V3 · 3 "₱ Booking fee · Cruz · Overdue · since Sat 14 Nov"): its own level —
+ * tint, edge and word — and its own place in the list. Tapped, it opens as a card holding the amount and how to pay,
+ * with Pay (the bill's page, where the proof is sent) and "Open in page ›" (drawing V3 · 2 "Booking fee bill").
+ * Still a `data-fee-bill-today` row inside `data-today-need-bills`, so Today's search finds it as a payment.
+ */
+function BillRow({ bill, urgency, copy, todayIso, lockLine }: { bill: DueFeeBill; urgency: TodayUrgency; copy: FeeDisclosure; todayIso: string; lockLine: string | null }) {
+  const introduced = feeIntroducedLine(bill);
+  const pay = vendorBookingFeePayPath(bill.orderId);
+  return (
+    <div data-today-need-bills="" data-today-need-kind="payments" className="contents">
+      <TodayQuickRow
+        rowKey={`fee-${bill.orderId}`}
+        title={copy.headline}
+        line={`${urgency.word} · ${feeRowLine(bill, todayIso, copy.detail)}`}
+        lead={<RowIcon name="peso" />}
+        urgency={urgency.level}
+        attrs={{ 'data-fee-bill-today': '', 'data-testid': 'booking-fee-bill' }}
+        foot={<CardFoot href={pay} />}
+        aside={null}
+      >
+        <div data-today-task-kind="fee">
+          <b className="block text-[15px] font-bold text-ink">{copy.detail}</b>
+          {introduced ? <span className="block text-[13px] text-[color:var(--m-slate-2)]" data-fee-introduced="">{introduced}</span> : null}
+          {lockLine ? <span className="mt-1 block text-[13px] text-[color:var(--m-slate-2)]">{lockLine}</span> : null}
+          <div className="mt-2">
+            <ActionButton tone="brand" icon={<Wallet {...ico} />} label={copy.payLabel ?? 'Pay'} name={`${copy.payLabel ?? 'Pay'} — ${copy.headline}`} href={pay} className="min-h-11" />
+          </div>
+        </div>
+      </TodayQuickRow>
+    </div>
+  );
+}
+
+/** 📄 The business permit, when it wears a level (drawing V3 · 2 "What is due · Upload" → your documents). */
+function PermitRow({ need, urgency }: { need: TodayNeed; urgency: TodayUrgency }) {
+  const href = nextHref(need.target);
+  return (
+    <TodayQuickRow
+      rowKey={need.key}
+      title={need.label}
+      line={`${urgency.word} · ${need.line}`}
+      lead={<RowIcon name={need.icon} />}
+      urgency={urgency.level}
+      attrs={{ 'data-today-permit': '' }}
+      foot={<CardFoot href={href} />}
+      aside={null}
+      below={<TodayBadgeTagChip tag={RECOMMENDED_TAG.renewal ?? null} />}
+    >
+      <div data-today-task-kind="permit">
+        <span className="block text-[14px] text-ink">{need.line}</span>
+        <div className="mt-2">
+          <ActionButton tone="brand" icon={<ChevronRight {...ico} />} label="Upload" href={href} className="min-h-11" />
+        </div>
+      </div>
+    </TodayQuickRow>
+  );
+}
+
+/** 📅 A booked event today or tomorrow (drawing V3 · 2 "The day’s line — nothing to answer"; its link is its one action). */
+function EventRow({ event, urgency }: { event: TodayEventDay; urgency: TodayUrgency }) {
+  const w = eventRowWords(event);
+  return (
+    <TodayQuickRow
+      rowKey={`event-${event.id}`}
+      title={w.label}
+      line={`${urgency.word} · ${w.line}`}
+      lead={<RowIcon name="calendar" />}
+      urgency={urgency.level}
+      attrs={{ 'data-today-event-day': event.id }}
+      foot={<CardFoot href={event.href} />}
+      aside={null}
+    >
+      <div data-today-task-kind="event">
+        <span className="block text-[14px] text-ink">{[shortDay(event.date), event.place].filter(Boolean).join(' · ')}</span>
+      </div>
+    </TodayQuickRow>
+  );
+}
+
+/**
+ * 📋 NEEDS YOU TODAY, v3 — the rows only (the pinned heading and its count stay the shipped first screen's).
  */
 export function TodayV2Needs({
   split,
+  list,
+  billCopy,
+  lockLine = null,
   answers,
   todayIso,
   onDesk,
-  bills,
-  billCount,
   billsUnread = false,
+  eventsUnread = false,
   doneUnread = false,
   done,
   allDone,
 }: {
   split: TodaySplit;
+  /** v3: the ONE list, already in its order (`todayOneList`) — tasks, each fee bill, the permit, today's events. */
+  list: ReadonlyArray<TodayListEntry<DueFeeBill>>;
+  /** Each bill's words (`feeRowCopy`). */
+  billCopy: (b: DueFeeBill) => FeeDisclosure;
+  /** The gate's own sentence (`feeLockLine`), said inside each open bill card. */
+  lockLine?: string | null;
   answers: TodayV2Answers;
   todayIso: string;
   /** Every desk row key (for the "Got it" cookie to forget rows that left the desk). */
   onDesk: readonly string[];
-  bills: ReactNode;
-  /** How many fee bills are listed — each is ONE task, the same count the cover's "N tasks today" uses. */
-  billCount: number;
   /** The fee bills could not be read: said on the list, and Today is never "done". */
   billsUnread?: boolean;
+  /** The booked events could not be read: said on the list (an event today may be missing), and Today is never "done". */
+  eventsUnread?: boolean;
   /** Today's finished count could not be read: said, never drawn as nothing done. */
   doneUnread?: boolean;
   done: readonly DoneTodayRow[];
@@ -240,28 +326,30 @@ export function TodayV2Needs({
 }) {
   return (
     <>
-      {split.quick.length > 0 ? (
-        <div data-today-quick="" id="today-quick">
-          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">Quick · {formatCount(split.quick.length)}</p>
-          <QuickRows rows={split.quick} a={answers} />
-        </div>
-      ) : null}
-      {split.screen.length > 0 || billCount > 0 ? (
-        <div data-today-opens-a-screen="">
-          <p className="flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.06em] text-[color:var(--m-slate-2)]">
-            Opens a screen · {formatCount(split.screen.length + billCount)}
-          </p>
-          <ScreenRows rows={split.screen} a={answers} todayIso={todayIso} onDesk={onDesk} />
-          {billCount > 0 ? (
-            <div data-today-need-bills="" data-today-need-kind="payments" className="[&>div]:border-t [&>div]:border-ink/10">
-              {bills}
-            </div>
-          ) : null}
+      {/* ONE LIST, MOST URGENT FIRST — red, then amber, then the rest (`todayOneList`); no Quick / Longer groups, one
+          count (the pinned heading's). Each fee bill, the permit and today's events are rows of their own, each at its
+          own level. */}
+      {list.length > 0 ? (
+        <div data-today-one-list="" id="today-quick">
+          <TodayQuickGroup rows={list.map((e) => ({ key: e.key, kind: e.type === 'task' ? (e.row.card?.kind ?? 'other') : e.type }))}>
+            {list.map((e) =>
+              e.type === 'task' ? (
+                <TaskRow key={e.key} r={e.row} a={answers} todayIso={todayIso} onDesk={onDesk} />
+              ) : e.type === 'bill' ? (
+                <BillRow key={e.key} bill={e.bill} urgency={e.urgency} copy={billCopy(e.bill)} todayIso={todayIso} lockLine={lockLine} />
+              ) : e.type === 'permit' ? (
+                <PermitRow key={e.key} need={e.need} urgency={e.urgency} />
+              ) : (
+                <EventRow key={e.key} event={e.event} urgency={e.urgency} />
+              ),
+            )}
+          </TodayQuickGroup>
         </div>
       ) : null}
       {split.unread ? (
         <TodayRow href={nextHref(split.unread.target)} label={split.unread.label} line={split.unread.line} lineTone="danger" rowIcon={split.unread.icon} marker="unread" />
       ) : null}
+      {eventsUnread ? <TodayNoteRow label={EVENTS_UNREAD_LINE} line="Nothing was lost · try again in a moment" rowIcon="help" marker="events-unread" /> : null}
       {billsUnread ? <TodayNoteRow label={BILLS_UNREAD_LINE} line="Nothing was lost · try again in a moment" rowIcon="help" marker="bills-unread" /> : null}
       {allDone ? (
         <div data-today-all-done="" role="status" className="py-6 text-center">
@@ -446,7 +534,7 @@ export function TodayV2Sub({ tasks, progress, allDone, left, pips }: { tasks: st
       {total > 0 && total <= 24 ? (
         <span aria-hidden className="mt-2 flex gap-1" data-today-pips="">
           {Array.from({ length: total }, (_, i) => (
-            <i key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < doneCount ? 'rgb(var(--color-ok))' : 'rgb(255 255 255 / 0.55)' }} />
+            <i key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < doneCount ? 'rgb(var(--color-ok))' : 'color-mix(in srgb, currentColor 16%, transparent)' }} />
           ))}
         </span>
       ) : null}

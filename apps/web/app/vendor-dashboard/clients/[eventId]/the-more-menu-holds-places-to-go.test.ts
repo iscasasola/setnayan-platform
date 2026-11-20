@@ -172,3 +172,18 @@ test('7 · the head’s search door is a marked slot: it asks the chat inside th
   const listens = read('app/_components/chat-message-stream.tsx').includes('PICKED_CHAT_SEARCH_EVENT');
   for (const [name, src] of [['supplier', CLIENT_SHELL], ['host', HOST_SHELL]] as const) assert.ok(listens || !/headSearch=/.test(src), `the ${name} side draws a magnifier nothing answers`);
 });
+
+test('9 · Report a problem left the (+) on both sides — and every chat still reaches it through its head menu', async () => {
+  const { supplierPlusRows, hostPlusRows } = await import('../../../../lib/chat-plus');
+  for (const rows of [supplierPlusRows({ paid: false }), supplierPlusRows({ paid: true, booked: true }), hostPlusRows({ canLogPayment: true }), hostPlusRows({ canLogPayment: false })]) {
+    assert.ok(!rows.some((r) => r.key === 'report'), 'Report a problem is back in the (+)');
+  }
+  // The supplier's client page: ⋯ (rule 1). The standalone thread (inbox pane, a return with a notice): ⋮ links to the
+  // client's Report page wherever the client page opens.
+  const thread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
+  assert.match(thread, /\.\.\.\(clientAdmits \? \[\{ href: `\/vendor-dashboard\/clients\/\$\{thread\.event_id\}\?tab=report`, label: 'Report a problem', icon: 'problem' as const \}\] : \[\]\),/, 'the supplier’s thread lost its way to Report');
+  // The host: the picked supplier's ⋯ (rule 6), and the host's thread ⋮ → the workspace's Report page.
+  const hostThread = read('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
+  assert.match(hostThread, /\{ href: `\$\{workspaceHref\}\?tab=report`, label: 'Report a problem', icon: 'problem' \}/, 'the host’s thread lost its way to Report');
+  assert.match(read('app/_components/chat-thread-menu.tsx'), /problem: TriangleAlert,/);
+});

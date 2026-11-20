@@ -1947,6 +1947,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
+                    // 🚩 Report a problem left the (+) for the head's ⋯ (Unichat part G, 20 Nov). This page still draws on its
+                    // own (the inbox pane, a return with a notice), so ⋮ keeps the way in — only where the client page opens.
+                    ...(clientAdmits ? [{ href: `/vendor-dashboard/clients/${thread.event_id}?tab=report`, label: 'Report a problem', icon: 'problem' as const }] : []),
                   ]}
                 />
                 </>

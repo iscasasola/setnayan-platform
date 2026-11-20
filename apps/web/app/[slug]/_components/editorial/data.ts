@@ -3587,7 +3587,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch', 'Music Maker'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -4068,7 +4068,7 @@ function jackAndRose(): EditorialData {
       { author: 'Jack & Rose', role: 'couple', quote: 'Planning an out-of-town wedding from the lowlands was the easy part. One workspace held it all.', stars: 5 },
       { author: 'Ate Glenda', role: 'guest', quote: 'Even with the fog and the drive, everything started on time. Magical and organized.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Music Maker'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic'],
     galleryPhotos: [
       '/realstories/jack-rose-g1.jpg',
       '/realstories/jack-rose-g2.jpg',

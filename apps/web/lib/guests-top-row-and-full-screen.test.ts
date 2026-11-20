@@ -147,7 +147,7 @@ test('(5) every view wears the SAME one row — one ▾ naming the view, no segm
   const { renderGuestsScreen, guestRow } = await import('../app/dashboard/[eventId]/guests/_components/render-guests-screen');
   const guests = [guestRow(), guestRow({ rsvp_status: 'attending' } as never), guestRow({ rsvp_status: 'declined' } as never)];
   const views: { name: string; gview: 'list' | 'map' | 'seats' | 'march'; seat: '3d' | 'list' | null; words: string; replies: boolean }[] = [
-    { name: 'Guests › List', gview: 'list', seat: null, words: 'Guests · List', replies: true },
+    { name: 'Guests › List', gview: 'list', seat: null, words: 'Guests · List', replies: false }, // 👥 20 Nov: the List says its counts in words under the row (Guests redesign §1)
     { name: 'Guests › Map', gview: 'map', seat: null, words: 'Guests · Map', replies: true },
     { name: 'Seats › List', gview: 'seats', seat: 'list', words: 'Seats · List', replies: false },
     { name: 'Seats › 2D', gview: 'seats', seat: null, words: 'Seats · 2D', replies: false },

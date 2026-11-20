@@ -23,6 +23,7 @@ export function FirstCardDraft({
   lines,
   sourceHead,
   sources,
+  between,
   faceAttr,
   sourceAttr,
 }: {
@@ -37,6 +38,8 @@ export function FirstCardDraft({
   /** "Built from what you typed" · "Built from what <couple> recorded". */
   sourceHead: string;
   sources: readonly FirstCardSource[];
+  /** Drawn between the card and "Built from …" — Door C's page puts its "Trusted partners" here (PC4). */
+  between?: React.ReactNode;
   /** The door's own data attribute names for the two blocks (its tests and shots find them by these). */
   faceAttr: string;
   sourceAttr: string;
@@ -70,6 +73,7 @@ export function FirstCardDraft({
           </span>
         )}
       </div>
+      {between}
       <div className="grid gap-1.5 text-[13.5px]" {...{ [sourceAttr]: '' }}>
         <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
           {sourceHead}

@@ -11,9 +11,9 @@ the Pages list, 👁 Preview and the Free/Pro Apply sheet follow in a stacked PR
 - **↺ History is ⚙'s first group**, with "Undo last change" and "All changes" (the shipped list). The draft bar
   hands it over through `MakerDraftDoor.history`; an unread history is said, never shown as "nothing waiting".
 - **One toolbar on every scene: Edit · Style · Animate ◆.** Background is Style's own toggle beside the tabs; ▶ is
-  Animate's (and the stage's while nothing is picked); ◆ marks Animate for a couple without Event Pro.
+  Animate's (and the stage's while nothing is picked); ◆ marks Animate for a couple without the full Event Hub.
 - **A tap always selects.** Logo, Love Story, Schedule, Dress code and E-Gifts no longer jump full screen on a tap;
-  ⤢ Expand on the toolbar opens their editor. Full screen has its name, ⤡ Minimize and ✓ Done on top; Esc and the
+  ⤢ Expand on the toolbar opens the editor of Logo, Love Story, Schedule and E-Gifts. Full screen has its name, ⤡ Minimize and ✓ Done on top; Esc and the
   browser's Back close it too (one close path, one pushed history entry). Fixes E-Gifts' "no way back".
 - **The guest E-Gifts page** (`/[slug]/pabuya`) has a labelled 44-px ‹ Back.
 - **"Event name"** labels the title's field (it writes `events.display_name`).

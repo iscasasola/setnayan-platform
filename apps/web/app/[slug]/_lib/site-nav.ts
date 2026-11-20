@@ -15,7 +15,6 @@
  *
  *  1. "the couple always have their papic. since they can take photos anytime"
  *     → the couple's camera is UNCONDITIONAL. No phase, no switch removes it.
- *     (Its TAB leaves Post Event since 20 Nov 2026 — C1 below; the camera stays.)
  *
  *  2. "the papic service will always run but the host of the event has the
  *     power to allow use and not allow use"
@@ -54,14 +53,14 @@
  *      with nothing behind it is NOT DRAWN — the rest widen, never a dead tab.
  *      "Suppliers", never "Vendors" (owner 2026-09-27).
  *  E2. "no more camera since that event is done" → after the day a GUEST and a
- *      STRANGER have no Camera slot at all; ~~THE COUPLE KEEPS THEIRS~~ — since
- *      20 Nov 2026 (C1 below) nobody has a Camera TAB after the day. This supersedes ruling 2's "drawn
+ *      STRANGER have no Camera slot at all; THE COUPLE KEEPS THEIRS (ruling 1
+ *      stands — it is still unconditional). This supersedes ruling 2's "drawn
  *      locked" for the `after` phase only: the invitation's camera promise is
  *      spent once the day is over, and a locked camera on the recap reads as
  *      broken. Before the day and on the day, ruling 2 is unchanged.
- *      ⚖ ~~Six doors for the couple … so Suppliers yields first for them.~~
- *      Retired 20 Nov 2026 (C1 below): with no Camera after the day the couple
- *      has five doors too, and Suppliers keeps its slot.
+ *      ⚖ Six doors for the couple (Film · Suppliers · Camera · Gallery ·
+ *      Manage) would break the five-slot shape, so Suppliers — a scroll within
+ *      the page they are editing — yields first for them.
  *
  * ── PAPIC ON = A CAMERA TAB ON EVERY STAGE (owner, 2026-10-30 — DECISION_LOG
  *    "PAPIC ON = A CAMERA TAB ON EVERY STAGE", points 1 and 2) ───────────────
@@ -76,20 +75,15 @@
  *      Papic OFF → before the day and after it there is no Camera (the stage's
  *      list decides, as before); on the day ruling 2's LOCKED camera stands.
  *      Strangers and suppliers are unchanged: no camera.
- *      ⚖ NARROWED 20 Nov 2026 by C1 below: Post Event carries no Camera at all.
  *
- * ── ONE BAR PER STAGE (controller under owner delegation, 20 Nov 2026 —
- *    DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED") ─────
+ * ── ONE BAR ON THE DAY (controller under owner delegation, 20 Nov 2026 —
+ *    DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED") ────
  *
- *  C1. Post Event is Recap · Film · Suppliers · Memories · Me. "Camera leaves
- *      the bar after the day" — for EVERYONE: a guest with Papic still on (P1's
- *      Post Event arm) and the couple (ruling 1 and E2's couple arm) lose the
- *      TAB, never the camera. Its address stays where it is linked today (the
- *      couple's Papic studio, the guest's own camera link). Suppliers takes the
- *      freed fifth slot, so the cap no longer drops it.
  *  C2. The Day keeps ONE bar, Live · Home · Camera · Memories · Me: the
  *      `/[slug]/hub` second bar is gone (`hub/page.tsx` sends its visitor to the
- *      matching tab here) and Watch lives inside Live.
+ *      matching tab here) and Watch lives inside Live. The Post Event bar is left
+ *      as shipped (DECISION_LOG "POST EVENT LEAVES THE EVENT HUB" (2)).
+ *
  *  P2. "when there is already existing papic shots or uploaded photos via
  *      papic, the memories will be available" → `memoriesHasPhotos` (the
  *      event's Papic frames, `countGalleryFrames` — shots AND uploads, with the
@@ -382,10 +376,15 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // 4 — CAMERA (Papic). The centre slot on the day.
   if (isStranger) {
     // Inside content — never drawn for somebody without a key.
-  } else if (phase === 'after') {
-    // 📖 C1 (20 Nov 2026) — "Camera leaves the bar after the day", for everyone:
-    // the guest (E2, and P1's Papic-on arm) AND the couple. Suppliers takes the
-    // slot. The camera itself is not removed — only its tab on this stage.
+  } else if (phase === 'after' && !isCouple) {
+    // 📖 E2 — "no more camera since that event is done". After the day a
+    // guest's camera promise is spent; the couple keeps theirs (next branch).
+    // 📷 …UNLESS PAPIC IS STILL ON (owner 2026-10-30, P1: "no matter what event
+    // hub stage it is"): then Post Event carries the guest's Camera too — LIVE
+    // only, never a locked stand-in (E2 still holds for "off").
+    if (!isVendor && hostAllowsCamera && dest.camera) {
+      slots.push({ key: 'camera', label: 'Camera', state: 'live', href: dest.camera });
+    }
   } else if (isCouple) {
     // Unconditional. It is their wedding.
     slots.push(
@@ -493,13 +492,12 @@ export function resolveSiteNav(input: NavInput): NavSlot[] {
   // stage's list — Save the Date and the Invitation carry it too. Only a guest's
   // or the couple's (a stranger and a supplier never had one pushed above), and
   // only live: a locked camera stays where the stage lists it (the day).
-  // (No camera is pushed after the day — C1 — so this never reaches Post Event.)
   const papicCamera = (s: NavSlot) =>
     s.key === 'camera' && s.state === 'live' && hostAllowsCamera && (viewer.kind === 'guest' || isCouple);
   const allowed = allow ? slots.filter((s) => allow.includes(s.key) || (earlyGuest && s.key === 'camera') || papicCamera(s)) : slots;
-  // ⚖ Five slots, always. Since C1 (20 Nov 2026) no rule here can reach six
-  // after the day; should one ever do so, Suppliers — a scroll within the page —
-  // still yields first rather than a door that leaves.
+  // ⚖ Five slots, always. After the day the couple can have six doors (their
+  // camera is unconditional); Suppliers — a scroll within the page they edit —
+  // yields first. Nobody else can exceed five.
   if (allowed.length > 5) {
     const i = allowed.findIndex((s) => s.key === 'suppliers');
     if (i >= 0) allowed.splice(i, 1);

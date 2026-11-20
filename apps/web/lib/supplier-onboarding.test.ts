@@ -36,6 +36,9 @@ import {
   firstCardFrom,
   FIELD_FACT,
   FIRST_CARD_ERRORS,
+  INVITE_SHOPS_LINE,
+  INVITE_SHOPS_PATH,
+  TRUSTED_PARTNERS,
   ONBOARDING_SCREENS,
   ONBOARDING_STEP,
   SELF_SERVE_FACTS,
@@ -243,4 +246,53 @@ test('11 · "on your page" only when the shipped switch said yes — a refusal i
   assert.doesNotMatch(WIZARD, /· on your page`/);
   assert.match(WELCOME, /FIRST_CARD_RETRY/);
   assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
+});
+
+test('10 · Door C — coordination pre-picked in ONE dropdown, then "Invite shops you trust", "Trusted partners" everywhere', () => {
+  // Coordination pre-picked: the first coordination service, ONE dropdown of COORDINATOR_TRADE_SERVICES' leaves.
+  assert.match(WIZARD, /import \{ COORDINATOR_TRADE_SERVICES \} from '@\/lib\/coordinator-trade'/);
+  assert.match(WIZARD, /if \(coordinator && !service && coordinationLeaves\[0\]\) \{\s*setService\(coordinationLeaves\[0\]\.key\);/);
+  assert.match(WIZARD, /<PickMenu\s+label="Your main coordination service"/);
+  // The shop opens on the coordinator's own invite QR, then Done → the first card's landing.
+  assert.match(WIZARD, /\{coordinating \? <input type="hidden" name="as" value="coordinator" \/> : null\}/);
+  // EVERY way out goes through the invite — the session path, a refused card and the Email way's confirm link
+  // (review 19 Nov: an Email-way coordinator never reached it).
+  assert.match(ACTION, /const coordinating = formData\.get\('as'\) === 'coordinator';/);
+  assert.match(ACTION, /const viaInvite = \(path: string\) => \(coordinating \? `\$\{INVITE_SHOPS_PATH\}\?next=\$\{encodeURIComponent\(path\)\}` : path\);/);
+  assert.match(ACTION, /const afterConfirm = viaInvite\(/);
+  assert.equal((ACTION.match(/redirect\(viaInvite\(/g) ?? []).length, 3, 'every session-path landing: the first card’s outcome, Edit, and the rest');
+  // PC4 · PC6 · PC7, and the tab keeps its shipped word (the rename was the tie and the page section only).
+  assert.match(WIZARD, /coordinating \? YOUR_PAGE_HEAD : ONBOARDING_HEADS\.card\[0\]/);
+  assert.match(WIZARD, /label=\{coordinating \? APPROVE_PAGE : 'Approve card'\}/);
+  assert.match(WIZARD, /\[coordinating \? 'Page' : 'Link',/);
+  assert.match(read('app/vendor/claim/[token]/_components/claim-parts.tsx'), /You&rsquo;ll show on their page as a trusted partner\./);
+  assert.match(read('app/vendor-dashboard/partnerships/page.tsx'), /title="Partnerships"/);
+  const invite = read('app/open-shop/invite/page.tsx');
+  assert.equal(INVITE_SHOPS_PATH, '/open-shop/invite');
+  assert.equal(INVITE_SHOPS_LINE, 'Only invite those you trust.', 'the owner’s line, verbatim');
+  assert.match(invite, /supplierInvitePath\(row\.business_slug\)/, 'the QR is not their own /i/<slug> link');
+  assert.match(invite, /<QrCard\b/, 'not the shipped QR card (with Share)');
+  assert.match(invite, /\{INVITE_SHOPS_LINE\}/);
+  assert.match(invite, /shopConsolePath\(next\)/, 'Done must only ever land in the Shop console');
+  // The blue invite door, then the self-serve door.
+  const door = read('app/i/[slug]/page.tsx');
+  assert.match(door, /<div data-supplier-look="">/);
+  // "Trusted partners" — the tie and the shop-page section (the DB is unchanged; the BADGE "Trusted by" is another thing).
+  assert.equal(TRUSTED_PARTNERS, 'Trusted partners');
+  const shopPage = read('app/v/[slug]/page.tsx');
+  assert.equal((shopPage.match(/^\s*Trusted partners\s*$/gm) ?? []).length, 2, 'the shop page section is not "Trusted partners"');
+  for (const f of ['lib/supplier-invite.ts', 'app/vendor-dashboard/partnerships/page.tsx', 'app/vendor-dashboard/partnerships/actions.ts', 'app/vendor/claim/[token]/_components/claim-parts.tsx', 'app/i/[slug]/page.tsx']) {
+    const code = read(f).replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+    assert.doesNotMatch(code, /preferred supplier/i, `${f} still says "preferred supplier"`);
+    assert.doesNotMatch(code, /your Trusted by\b/, `${f} still says "your Trusted by"`);
+  }
+  // The two fixes: every /for-coordinators button carries ?as=coordinator; no invite perk promises the marketplace.
+  // Main's 20 Nov page (batch A) has two start buttons, both `href={START}`; none opens the bare self-serve door.
+  const fc = read('app/(shell)/for-coordinators/page.tsx');
+  assert.match(fc, /const START = '\/open-shop\?as=coordinator';/);
+  assert.equal((fc.match(/href=\{START\}/g) ?? []).length, 2, 'the hero and the close each open the coordinator door');
+  assert.equal((fc.match(/href="\/open-shop[?"]/g) ?? []).length, 0, 'a /for-coordinators button opens /open-shop without ?as=coordinator');
+  for (const f of ['app/vendor/claim/[token]/_components/claim-parts.tsx', 'app/vendor/claim/[token]/page.tsx']) {
+    assert.doesNotMatch(read(f), /marketplace listing|Marketplace exposure/, `${f} still promises the marketplace`);
+  }
 });

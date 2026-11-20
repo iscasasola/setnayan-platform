@@ -49,7 +49,15 @@ export const FIRST_CARD_PRICED_LINE = 'Approve it, edit it, or skip.';
 export const ONBOARDING_STEP_NAMES = {
   open: ['Start', 'Account', 'Your shop', 'Your card', 'Done'],
   claim: ['Accept', 'Account', 'Your shop', 'Your card', 'Done'],
+  /** Door C: step 4 is their page (PC4). "Invite" is the screen right after Open my shop (`/open-shop/invite`). */
+  coordinator: ['Start', 'Account', 'Shop', 'Page', 'Done'],
 } as const;
+
+/** PC4 — Door C's step 4 is their PAGE, drafted with the first card on it (owner: "we will also create their first page"). */
+export const YOUR_PAGE_HEAD = 'Your page';
+export const APPROVE_PAGE = 'Approve page';
+/** PC4 — the page's Trusted partners section before any shop joins. */
+export const PAGE_PARTNERS_EMPTY = 'Shops you invite show here.'
 
 /** Door B's first screen (PB1): the name, what you do and the main service, on one screen. */
 export const OPEN_YOUR_SHOP_HEAD = ['Open your shop', 'Three answers. Free.'] as const;
@@ -215,6 +223,16 @@ export function firstCardLanding(input: {
   if (input.category) return `/vendor-dashboard/services/new/${encodeURIComponent(input.category)}`;
   return '/vendor-dashboard/services/new';
 }
+
+/* ───────────────────────── Door C — "Invite shops you trust" ───────────────────────── */
+
+/** The coordinator door's screen after the shop opens: their `/i/<slug>` QR, Share, and the line below. */
+export const INVITE_SHOPS_PATH = '/open-shop/invite';
+export const INVITE_SHOPS_HEAD = ['Invite shops you trust', 'Your own invite QR. A shop that scans it joins as your trusted partner.'] as const;
+/** The owner's line, verbatim. */
+export const INVITE_SHOPS_LINE = 'Only invite those you trust.';
+/** The word for the coordinator-to-shop tie and the shop-page section (renames "preferred supplier" / "Trusted by"). */
+export const TRUSTED_PARTNERS = 'Trusted partners';
 
 /* ── the first card, as it truly stands after the door ──
  * The shipped maker makes EVERY card as a draft (`is_active: false`, `createVendorService`); the door then asks the

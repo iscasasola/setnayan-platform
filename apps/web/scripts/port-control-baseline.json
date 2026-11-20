@@ -13233,6 +13233,18 @@
         "UndoToastHost"
       ]
     },
+    "/open-shop/invite": {
+      "files": [
+        "open-shop/invite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "FirstRunBrand",
+        "QrCard"
+      ]
+    },
     "/open-shop/logo": {
       "files": [
         "open-shop/logo/_components/add-your-logo.tsx",

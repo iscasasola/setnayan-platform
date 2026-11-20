@@ -45,6 +45,7 @@ import {
   type EventTypeRow,
 } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { sampleSnapshot } from '@/lib/sample-event/hub';
+import { SETNAYAN_GIFT_PHOTOS } from '@/app/_components/setnayan-gift-line';
 import { formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
 import { PLUS_MORE, PRO_PEEK, ULTRA_PEEK, plusPeek, proMore, type PlanFacts } from './front-door-landing-data';
@@ -370,7 +371,7 @@ export function FrontDoorLanding({
             <b>You pay them directly.</b> 0% commission.
           </li>
           <li>
-            <b>A Setnayan gift.</b> Some bookings come with free Papic photos for your event.
+            <b>A Setnayan gift.</b> Some bookings come with {SETNAYAN_GIFT_PHOTOS}.
           </li>
         </ul>
       </section>

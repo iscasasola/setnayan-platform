@@ -39,3 +39,6 @@ SPEC IMPACT: None — builds the approved 19 Nov drawing.
 - Tests: `lib/supplier-onboarding.test.ts` 12.
 
 SPEC IMPACT: None.
+
+- Review 20 Nov (non-blocking, folded here): the welcome ticks "and first card" only when `readHasLiveCard` reads a live card now (a reload or hand-typed `?card=live` cannot fake it; a failed read is no tick); a made draft whose id was lost opens the cards list, never a second "new" card.
+- P1 shop card → rows on white (owner 20 Nov, option a): a frame only on what you press; clears the template ratchet for open-shop.

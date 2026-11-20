@@ -321,6 +321,18 @@ export function firstCardStateFrom(search: Record<string, string | string[] | un
   return v === FIRST_CARD_LIVE || v === FIRST_CARD_SKIPPED || v === 'draft' || v === 'refused' ? v : null;
 }
 
+/**
+ * ✓ The welcome's "and first card" tick, held to the database (review 20 Nov): `?card=live` is only a claim on the
+ * address — a reload or a hand-typed link can carry it. It ticks only when the shop has a live card NOW; an unread or
+ * empty answer drops it to the bare welcome (never a ✓ on a guess). Every other state passes through unchanged.
+ */
+export function confirmedCardState(
+  state: ClaimFirstCardState | null,
+  liveNow: boolean,
+): ClaimFirstCardState | null {
+  return state === FIRST_CARD_LIVE && !liveNow ? null : state;
+}
+
 /** 🚪 The claim door's first card, as the finish found it (review 20 Nov) — carried THROUGH finalize to the welcome. */
 export type ClaimFirstCardState = 'live' | 'skipped' | 'draft' | 'refused';
 type ClaimCardCarry = { state: ClaimFirstCardState; why: string | null; id: string | null };

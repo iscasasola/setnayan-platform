@@ -85,8 +85,15 @@ export function TodayWelcome({
             {card.title} <span className="font-normal text-ink/60">· from ₱{formatCount(card.price)}</span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
+            {/* A draft whose id could not be read back opens the cards list — never a second "new" card. */}
             <Link
-              href={card.id ? `/vendor-dashboard/services/${card.id}` : `/vendor-dashboard/services/new/${encodeURIComponent(card.category)}`}
+              href={
+                card.id
+                  ? `/vendor-dashboard/services/${card.id}`
+                  : card.state === 'draft'
+                    ? '/vendor-dashboard/services'
+                    : `/vendor-dashboard/services/new/${encodeURIComponent(card.category)}`
+              }
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink hover:bg-ink/5"
               data-today-welcome-card-edit=""
             >

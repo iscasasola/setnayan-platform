@@ -25,6 +25,7 @@ import {
   FIRST_CARD_CARRY_LINE,
   FIRST_CARD_NOT_LIVE,
   TODAY_WELCOME_DONE,
+  confirmedCardState,
   firstCardLiveFrom,
   firstCardLivePath,
   firstCardStateFrom,
@@ -242,7 +243,7 @@ test('11 · "on your page" only when the shipped switch said yes — a refusal i
   // The wizard's last screen never says "on your page" or ticks the card before it exists.
   assert.doesNotMatch(WIZARD, /· on your page`/);
   assert.match(WELCOME, /FIRST_CARD_RETRY/);
-  assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
+  assert.match(TODAY, /cardState=\{confirmedCardState\(firstCardStateFrom\(search\), await cardLiveNowP\)\}/);
 });
 
 test('9 · Door A (P1 · P3 · P5 · P6) speaks the drawing’s words, and the team door promises no Card Maker', async () => {
@@ -297,4 +298,19 @@ test('12 · Door A carries the first card through finalize — the claimed welco
   // P5's Cards row is never ticked — the cards are drafts until the switch says otherwise.
   assert.match(DOOR, /\$\{CLAIM_CARDS_MADE_AS\}`[^\n]*ok: false \}/);
   assert.match(sb.CLAIM_CARDS_MADE_AS, /drafts/);
+});
+
+test('14 · the ✓ survives only what is true now; a made card whose id was lost never opens a second "new" card (20 Nov review)', () => {
+  // ?card=live is a claim on the address: it ticks only when a live card is read back now.
+  assert.equal(confirmedCardState('live', true), 'live');
+  assert.equal(confirmedCardState('live', false), null);
+  for (const st of ['draft', 'refused', 'skipped'] as const) assert.equal(confirmedCardState(st, false), st);
+  assert.equal(confirmedCardState(null, true), null);
+  const reads = read('lib/supplier-today.server.ts');
+  const live = reads.slice(reads.indexOf('export async function readHasLiveCard('));
+  assert.match(live, /\.from\('vendor_services'\)[^;]*\.eq\('is_active', true\)/);
+  assert.match(live, /if \(error\) \{[^}]*return false;/);
+  assert.match(TODAY, /\? readHasLiveCard\(supabase, vendorProfileId\)/);
+  // A draft with no id read back opens the cards list, not the "new card" maker.
+  assert.match(WELCOME, /card\.state === 'draft'\s*\?\s*'\/vendor-dashboard\/services'/);
 });

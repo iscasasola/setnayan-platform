@@ -14,16 +14,7 @@ import { moodboardLibraryAccessForProfile } from '@/lib/moodboard-library-access
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { giftDoorWords, giftShopLine, planGiftOf } from '@/lib/plan-gift';
-import {
-  readEventDayFacts,
-  readNextEventFacts,
-  readTodaySchedules,
-  readTodayShopRow,
-  readTodayViews,
-  type EventDayFacts,
-  type TodaySchedules,
-  type TodayShopRow,
-} from '@/lib/supplier-today.server';
+import { readEventDayFacts, readHasLiveCard, readNextEventFacts, readTodaySchedules, readTodayShopRow, readTodayViews, type EventDayFacts, type TodaySchedules, type TodayShopRow } from '@/lib/supplier-today.server';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   fetchVendorOverviewData,
@@ -74,7 +65,7 @@ import {
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
 import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
-import { claimCardFrom, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { claimCardFrom, confirmedCardState, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -332,6 +323,12 @@ export default async function VendorOverviewPage({
   const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
+  // ✓ The welcome ticks "and first card" only when a card of this shop is live NOW (`confirmedCardState`) — read only
+  // on `?card=live`, started beside the page's other reads; a refused read is "not live" (no ✓ on a guess).
+  const cardLiveNowP =
+    welcome && firstCardStateFrom(search) === 'live'
+      ? readHasLiveCard(supabase, vendorProfileId)
+      : Promise.resolve(false);
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
   // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
   // 📋 TODAY v2's reads (done today · covers · the Trending hold · Completed bookings · the radar · the grow lines) —
@@ -800,7 +797,7 @@ export default async function VendorOverviewPage({
           kind={welcome}
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
-          cardState={firstCardStateFrom(search)}
+          cardState={confirmedCardState(firstCardStateFrom(search), await cardLiveNowP)}
           cardNote={claimCardFrom(search)}
           claimed={await claimedWelcomeP}
         />

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { readSentTo } from '@/lib/open-shop-sent-to';
 import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { redirect } from 'next/navigation';
@@ -60,9 +61,7 @@ export default async function OpenShopPage({
   // general-purpose redirector. Default: Today.
   const landing = shopConsolePath(next);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   // Logged out is no longer a bounce (owner 2026-09-22): the wizard renders for a
   // stranger and step 4 creates the account with the shop. Every read below that
   // needs an account is guarded on `user`; the vocab reads are anon-readable, and

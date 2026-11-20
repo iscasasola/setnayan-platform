@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { DatesRow } from '../customers/_components/dates-row';
@@ -12,9 +13,7 @@ export const metadata = { title: 'Help · Supplier' };
  */
 export default async function VendorHelpPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   return (

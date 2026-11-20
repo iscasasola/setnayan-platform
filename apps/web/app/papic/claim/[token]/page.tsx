@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { Camera, LogIn, CircleAlert, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -42,9 +43,7 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   const { state } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // ---- Terminal states (checked first so they show whether or not a session
   //      was minted — the claim action redirects back here with ?state=…). ----

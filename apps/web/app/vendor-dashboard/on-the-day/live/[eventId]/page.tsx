@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
 import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
@@ -104,9 +105,7 @@ export default async function VendorOnTheDayLivePage({
   const { role: requestedRole, view: rawView } = await searchParams;
   const view = eventHubViewOf(rawView);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=/vendor-dashboard/on-the-day/live/${eventId}`);
 
   // Access resolution: the vendor owner/team-member opens their own console;

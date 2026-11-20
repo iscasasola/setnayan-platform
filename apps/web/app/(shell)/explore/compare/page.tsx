@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -155,9 +156,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
   const admin = createAdminClient();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // Resolve the couple's primary event so we can render save state +
   // distance-from-venue per row. Anonymous viewers and couples without an

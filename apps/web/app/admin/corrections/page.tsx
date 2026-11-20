@@ -1,4 +1,8 @@
-import Link from 'next/link';
+import { InfoTip } from '@/app/_components/info-tip';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
+import { ADMIN_FRAME } from '../_components/admin-frame';
 import { ArrowRight } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { relativeTime } from '@/lib/activity';
@@ -129,7 +133,7 @@ export default async function AdminCorrectionsPage({
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
         title="Profile corrections"
       />
@@ -144,12 +148,12 @@ export default async function AdminCorrectionsPage({
         </FormFlash>
       ) : null}
       {search.declined === '1' ? (
-        <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        <p role="status" className={`mb-2 ${TEMPLATE_SUBLINE}`}>
           Correction declined — the supplier&rsquo;s profile is unchanged.
         </p>
       ) : null}
       {search.already_resolved === '1' ? (
-        <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        <p role="status" className={`mb-2 ${TEMPLATE_SUBLINE}`}>
           That request was already resolved by another admin — nothing changed.
         </p>
       ) : null}
@@ -163,35 +167,28 @@ export default async function AdminCorrectionsPage({
 
       <ShopAddressCorrection />
 
-      <nav className="mb-4 flex flex-wrap gap-2" aria-label="Request status">
-        {STATUS_FILTERS.map((t) => {
-          const active = status === t.value;
-          return (
-            <Link
-              key={t.value}
-              href={`/admin/corrections?status=${t.value}`}
-              aria-pressed={active}
-              className={
-                active
-                  ? 'inline-flex items-center rounded-full bg-ink px-3 py-1 text-xs font-medium text-cream'
-                  : 'inline-flex items-center rounded-full border border-ink/20 bg-white/70 px-3 py-1 text-xs text-ink/70 hover:bg-ink/5'
-              }
-            >
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
+      <TemplateSection
+        label="Requests"
+        data="correction-requests"
+        right={
+          <LinkPickMenu
+            label="Request status"
+            value={status}
+            dataAttr="correction-status"
+            options={STATUS_FILTERS.map((t) => ({ key: t.value, label: t.label, href: `/admin/corrections?status=${t.value}` }))}
+          />
+        }
+      >
       {!rowsOk ? (
         <ReadFailed what="the correction requests" />
       ) : rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
-          No correction requests for this filter. Verified suppliers file them
-          from their My Shop profile when a locked detail needs to change.
-        </p>
+        <TemplateEmpty data="correction-requests">
+          <InfoTip label="No correction requests for this filter." align="start">
+            Verified suppliers file them from their My Shop profile when a locked detail needs to change.
+          </InfoTip>
+        </TemplateEmpty>
       ) : (
-        <ul className="grid gap-3">
+        <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
           {rows.map((r) => (
             <li key={r.id}>
               <RequestCard
@@ -203,6 +200,7 @@ export default async function AdminCorrectionsPage({
           ))}
         </ul>
       )}
+      </TemplateSection>
     </div>
   );
 }
@@ -224,11 +222,11 @@ function RequestCard({
 }) {
   const fieldLabel = LOCKED_FIELD_LABEL[request.field_key] ?? request.field_key;
   return (
-    <article className="space-y-3 sn-tile p-5">
+    <article className="space-y-3 py-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-ink">{vendorName}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
+          <p className={`mt-0.5 flex flex-wrap items-center gap-2 ${TEMPLATE_SUBLINE}`}>
             <span>{request.public_id}</span>
             <span aria-hidden>·</span>
             <span>{fieldLabel}</span>
@@ -237,7 +235,7 @@ function RequestCard({
           </p>
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${STATUS_TONE[request.status]}`}
+          className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${STATUS_TONE[request.status]}`}
         >
           {request.status}
         </span>
@@ -254,22 +252,25 @@ function RequestCard({
       </div>
 
       {heldBy ? (
-        <p className="rounded-md border border-warn-200 bg-warn-50 px-3 py-2 text-xs text-warn-900" data-held-name-holder>
+        <div className="text-[13px] leading-snug" style={{ color: 'rgb(var(--color-warn))' }} data-held-name-holder>
           {'unverified' in heldBy ? (
             <>Couldn&rsquo;t check whether this name is held — reload before applying.</>
           ) : (
             <>
               <span className="font-medium">Held name.</span> Its core &ldquo;{heldBy.core}&rdquo; is held by{' '}
               <strong>{heldBy.holderName ?? 'a shop'}</strong>
-              {heldBy.reason ? <> ({HOLD_REASON_LABEL[heldBy.reason]})</> : null}. Check this supplier&rsquo;s papers
-              prove it is the same business before you apply. Applying also frees this core for this shop.
+              {heldBy.reason ? <> ({HOLD_REASON_LABEL[heldBy.reason]})</> : null}.{' '}
+              <InfoTip label="Check the papers" align="start">
+                Check this supplier&rsquo;s papers prove it is the same business before you apply. Applying also frees
+                this core for this shop.
+              </InfoTip>
             </>
           )}
-        </p>
+        </div>
       ) : null}
 
       {request.note ? (
-        <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
+        <p className={TEMPLATE_SUBLINE}>
           <span className="font-medium">Supplier note:</span> {request.note}
         </p>
       ) : null}
@@ -284,7 +285,7 @@ function RequestCard({
             message={`Writes "${request.requested_value ?? ''}" to this supplier's ${fieldLabel} — the only edit path for a verified shop's locked details.`}
           >
             <input type="hidden" name="request_id" value={request.id} />
-            <SubmitButton pendingLabel="Applying…" className="button-primary h-9 px-3 text-xs">
+            <SubmitButton pendingLabel="Applying…" className={actionButtonClass('ok', { main: true })}>
               Apply to profile
             </SubmitButton>
           </ConfirmForm>
@@ -295,16 +296,13 @@ function RequestCard({
             message="Leaves the supplier's profile unchanged and closes the request."
           >
             <input type="hidden" name="request_id" value={request.id} />
-            <SubmitButton
-              pendingLabel="Declining…"
-              className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
-            >
+            <SubmitButton pendingLabel="Declining…" className={actionButtonClass('neutral')}>
               Decline
             </SubmitButton>
           </ConfirmForm>
         </div>
       ) : request.resolved_at ? (
-        <p className="border-t border-ink/10 pt-3 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+        <p className={`border-t border-[color:var(--m-line)] pt-3 ${TEMPLATE_SUBLINE}`}>
           Resolved {relativeTime(request.resolved_at)}
         </p>
       ) : null}
@@ -326,23 +324,23 @@ function RequestCard({
  */
 function ShopAddressCorrection() {
   return (
-    <details className="sn-tile mb-6">
-      <summary className="cursor-pointer text-sm font-medium text-ink/85">
+    <details className={`${ADMIN_FRAME} mb-2 mt-1 px-4 py-3`}>
+      <summary className="flex min-h-11 cursor-pointer items-center text-[15px] font-semibold text-ink">
         Correct a shop&rsquo;s web address
       </summary>
-      <div className="mt-4 space-y-4">
-        <p className="max-w-2xl text-sm text-ink/65">
+      <div className="mt-2 space-y-4">
+        <InfoTip label="About moving an address" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
           A shop&rsquo;s address is permanent — it goes on save-the-dates,
           printed QR codes and the sitemap, and the shop cannot change it
           themselves. This is the only way to move one, for a typo, a
           trademark complaint, or an address built from a name the business
           has since corrected. The old address will keep working and send
           visitors to the new one.
-        </p>
+        </InfoTip>
         <form action={correctShopAddress} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1">
-              <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+              <span className={TEMPLATE_SUBLINE}>
                 Current address
               </span>
               <input
@@ -353,7 +351,7 @@ function ShopAddressCorrection() {
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+              <span className={TEMPLATE_SUBLINE}>
                 New address
               </span>
               <input
@@ -366,7 +364,7 @@ function ShopAddressCorrection() {
             </label>
           </div>
           <label className="block space-y-1">
-            <span className="text-xs uppercase tracking-[0.12em] text-ink/55">
+            <span className={TEMPLATE_SUBLINE}>
               Why (recorded against the shop)
             </span>
             <textarea
@@ -378,10 +376,7 @@ function ShopAddressCorrection() {
               className="input-field w-full text-sm"
             />
           </label>
-          <SubmitButton
-            pendingLabel="Moving…"
-            className="button-secondary inline-flex h-9 items-center px-3 text-xs"
-          >
+          <SubmitButton pendingLabel="Moving…" className={actionButtonClass('brand')}>
             Move the address
           </SubmitButton>
         </form>

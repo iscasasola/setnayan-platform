@@ -554,7 +554,7 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
     /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
   );
   // 📸 + nextDay, bookedThisMonth (THE ONE BUILD A3/A4) — read off the same room read, no read of their own.
-  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds, nextDay, bookedThisMonth \};/);
+  assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete, bookingsComplete, inquiries28, askDayHolds, nextDay, bookedThisMonth \};/);
   const page = read('app/vendor-dashboard/page.tsx');
   // 🧩 Since the simpler Today (2026-10-14) the page hands the desk to the one drawing (`SupplierTodayScreen`),
   // which mounts the feed; the properties below are asserted where each now lives.

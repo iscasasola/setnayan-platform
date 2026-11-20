@@ -268,7 +268,7 @@ export async function createBranch(
       parent_vendor_profile_id: vendorProfileId,
       branch_label: label,
       branch_city: city,
-      branch_radius_km: branchAutoRadiusKm(tier),
+      branch_radius_km: branchAutoRadiusKm(),
       branch_latitude: hasCoords ? lat : null,
       branch_longitude: hasCoords ? lng : null,
       branch_address: address || null,
@@ -304,14 +304,14 @@ export async function createBranch(
   if (!channel) return err(PAYMENTS_PAUSED_MESSAGE);
 
   // 1) Branch row — starts INACTIVE; activates when the admin approves the fee.
-  //    Range is automatic (inherits the plan's reach).
+  //    Range is automatic (the shop's own verified range; no plan sets reach since 2026-11-19).
   const { data: branchRow, error: bErr } = await supabase
     .from('vendor_branches')
     .insert({
       parent_vendor_profile_id: vendorProfileId,
       branch_label: label,
       branch_city: city,
-      branch_radius_km: branchAutoRadiusKm(tier),
+      branch_radius_km: branchAutoRadiusKm(),
       branch_latitude: hasCoords ? lat : null,
       branch_longitude: hasCoords ? lng : null,
       branch_address: address || null,

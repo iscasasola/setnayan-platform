@@ -26,6 +26,7 @@ import { yourEventDateDisplay } from '@/lib/details-your-event';
 import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
 import { eventDateWords } from '@/lib/agreed-now';
 import { eventDateOptionWords } from '@/lib/event-chat-title';
+import { stripComments } from '@/lib/strip-comments';
 
 const MONTHS = ['2027-02-01', '2027-04-01', '2027-05-01'];
 const SAID = 'Feb · Apr · May 2027';
@@ -120,10 +121,8 @@ function walk(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Comments out, so a note naming a column never counts as reading it. */
-function code(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
-}
+/** Comments out (the ONE shared stripper), so a note naming a column never counts as reading it. */
+const code = (src: string): string => stripComments(src);
 
 const FILES = [...walk(path.join(WEB, 'app')), ...walk(path.join(WEB, 'lib'))];
 

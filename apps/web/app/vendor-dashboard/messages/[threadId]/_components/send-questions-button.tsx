@@ -39,14 +39,16 @@ export function SendQuestionsButton({
           {state.message}
         </p>
       ) : sent ? (
-        <p role="status" className="text-[13px] text-[color:var(--m-slate-2)]">
-          They&rsquo;ll find them in their event. Their answers come back to this customer&rsquo;s card.
+        <>
+          <p role="status" className="text-[13px] text-[color:var(--m-slate-2)]">
+            They&rsquo;ll find them in their event. Their answers come back to this customer&rsquo;s card.
+          </p>
           {state.status === 'sent' && !state.chatLine ? (
-            <span className="block" style={{ color: 'rgb(var(--color-warn))' }} data-questions-chat-line-missing="">
+            <p className="text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-questions-chat-line-missing="">
               The note in this chat didn&rsquo;t post &mdash; tell them here that the questions are waiting.
-            </span>
+            </p>
           ) : null}
-        </p>
+        </>
       ) : null}
     </form>
   );

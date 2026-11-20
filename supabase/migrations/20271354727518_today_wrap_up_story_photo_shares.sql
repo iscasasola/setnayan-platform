@@ -141,6 +141,9 @@ CREATE POLICY supplier_event_wrap_ups_shop_insert
     AND event_id IN (SELECT public.current_vendor_booked_event_ids())
   );
 
+-- A hot table: never wait on a lock (a hot-table ALTER deadlocked a deploy on 2026-11-20) — fail fast, retry.
+SET LOCAL lock_timeout = '5s';
+
 -- ── 4 · the silence setting (its admin field is Today v3 part 5) ──────────
 ALTER TABLE public.platform_settings
   ADD COLUMN IF NOT EXISTS story_photo_silence_days INTEGER;

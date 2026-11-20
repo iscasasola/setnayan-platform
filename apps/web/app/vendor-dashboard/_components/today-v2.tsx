@@ -22,6 +22,7 @@ import {
 } from './overview-sections';
 import { TodayAsideButton, TodayQuickGroup, TodayQuickRow, TodayTomorrowLink } from './today-v2-client';
 import { PUT_OFF_WORDS } from '@/lib/today-put-off';
+import { THIS_WEEK_HREF } from '@/lib/supplier-today-v2';
 import { wrapUpApplies, type WrapUpFacts } from '@/lib/today-wrap-up';
 import { TodayWrapUpBody } from './today-wrap-up';
 import { formatCount } from '@/lib/format-number';
@@ -312,6 +313,7 @@ export function TodayV2Needs({
   split,
   list,
   tomorrowMore = [],
+  thisWeek = null,
   billCopy,
   lockLine = null,
   answers,
@@ -323,6 +325,8 @@ export function TodayV2Needs({
   done,
   allDone,
 }: {
+  /** 📅 "This week: N events" — one line that opens the calendar (`thisWeekLine`); null = none or not set. */
+  thisWeek?: { label: string; count: number } | null;
   /** ⏭ v3 part 2 — the bills, permit and events put off with "Do it tomorrow" (`holdOffEntries`). */
   tomorrowMore?: ReadonlyArray<{ key: string; label: string; icon: Parameters<typeof RowIcon>[0]['name'] }>;
   split: TodaySplit;
@@ -365,6 +369,12 @@ export function TodayV2Needs({
               ),
             )}
           </TodayQuickGroup>
+        </div>
+      ) : null}
+      {/* 📅 THIS WEEK (DECISION_LOG 2026-11-20 item 3): the events beyond tomorrow, one line, opens the calendar. */}
+      {thisWeek ? (
+        <div data-today-this-week={thisWeek.count} className="border-t border-ink/10">
+          <TodayRow href={THIS_WEEK_HREF} label={thisWeek.label} line="Open your calendar" rowIcon="calendar" marker="this-week" />
         </div>
       ) : null}
       {/* ⏭ TOMORROW (v3 part 2, drawing V3 · 2 frame D): what was put off — not counted today, back by itself tomorrow. */}

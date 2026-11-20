@@ -124,6 +124,13 @@ export type TodayUrgency = { level: 'red' | 'amber'; word: 'Overdue' | 'Today' |
  * trigger) closes within the owner's `soonAskHours` (Admin › Settings). Not set → never coloured.
  */
 export function taskUrgency(card: WhatsNewCard | null, now: number, soonAskHours: number | null = null): TodayUrgency | null {
+  // ⚖ DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3: an UNANSWERED inquiry turns amber once it has waited the
+  // owner's hours (Admin › Settings, ruled 24). It has only its arrival time, so that is what is counted from.
+  if (card?.kind === 'inquiry') {
+    if (soonAskHours === null) return null;
+    const waited = now - new Date(card.createdAt).getTime();
+    return Number.isFinite(waited) && waited >= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
   if (card?.kind === 'lock_request') {
     if (soonAskHours === null || !card.expiresAt) return null;
     const left = new Date(card.expiresAt).getTime() - now;
@@ -184,6 +191,19 @@ export function eventUrgency(inDays: number): TodayUrgency | null {
   if (inDays === 1) return { level: 'amber', word: 'Soon' };
   return null;
 }
+
+/**
+ * 📅 "This week: N events" (DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3): the booked events beyond tomorrow
+ * and within the owner's days (Admin › Settings, ruled 7) are ONE line that opens the calendar — never a row each, never
+ * counted. Today's and tomorrow's events are rows of their own (`eventUrgency`). Not set → no line.
+ */
+export function thisWeekLine(events: ReadonlyArray<{ inDays: number }>, soonEventDays: number | null): { label: string; count: number } | null {
+  if (soonEventDays === null || !Number.isFinite(soonEventDays)) return null;
+  const n = events.filter((e) => Number.isFinite(e.inDays) && e.inDays >= 2 && e.inDays <= soonEventDays).length;
+  return n > 0 ? { count: n, label: `This week: ${formatCount(n)} ${n === 1 ? 'event' : 'events'}` } : null;
+}
+
+export const THIS_WEEK_HREF = '/vendor-dashboard/calendar';
 
 /** A booked event on today's list (the page's `upcoming`, `lib/vendor-overview.ts`). */
 export type TodayEventDay = { id: string; eventName: string; date: string; inDays: number; place: string | null; href: string };

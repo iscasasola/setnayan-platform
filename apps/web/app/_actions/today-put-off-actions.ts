@@ -13,7 +13,7 @@
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route and the budget
  * (`scripts/lint-server-action-budget.mjs`) had exactly one left.
  *
- * 🔑 Runs under the CALLER'S OWN session, so RLS (migration 20271352477387) is the rule: a shop's owner or team writes
+ * 🔑 Runs under the CALLER'S OWN session, so RLS (migration 20271354681750) is the rule: a shop's owner or team writes
  * its own rows, signed as itself. Whether a row is red is decided where its deadline is read, and a red row ignores
  * any record (`lib/today-put-off.ts`), so no record written here can ever hide an urgent task.
  * Every outcome is said in words — never a silent no-op.

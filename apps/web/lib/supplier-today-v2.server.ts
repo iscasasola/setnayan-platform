@@ -31,7 +31,7 @@ export type TodayV2Reads = {
   trendingCard: { title: string } | null;
   completedBookings: number | null;
   radar: DemandRadar | null;
-  cutoffs: { fewInquiries: number | null; fewBookings: number | null; soonAskHours?: number | null };
+  cutoffs: { fewInquiries: number | null; fewBookings: number | null; soonAskHours?: number | null; soonEventDays?: number | null };
   /** Approved, live inspiration photos — the Inspiration box's own predicates (`badge-rewards.server.ts`); null unread. */
   inspirationPhotos: number | null;
   /**
@@ -152,11 +152,13 @@ async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: str
 async function readCutoffs(admin: SupabaseClient): Promise<TodayV2Reads['cutoffs']> {
   // The admin page's own reader — one rule for "set", "not set" and "could not be read" (unread decides nothing: off).
   const g = await fetchGrowLines(admin);
-  return g.read ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings, soonAskHours: g.soonAskHours } : { fewInquiries: null, fewBookings: null, soonAskHours: null };
+  return g.read
+    ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings, soonAskHours: g.soonAskHours, soonEventDays: g.soonEventDays }
+    : { fewInquiries: null, fewBookings: null, soonAskHours: null, soonEventDays: null };
 }
 
 async function readPutOffs(supabase: SupabaseClient, vendorProfileId: string, todayIso: string): Promise<PutOffRecord[] | null> {
-  // The caller's own session: RLS (migration 20271352477387) is the shop's own rows.
+  // The caller's own session: RLS (migration 20271354681750) is the shop's own rows.
   const r = await supabase.from('supplier_today_put_offs').select('task_key, until_day').eq('vendor_profile_id', vendorProfileId).gt('until_day', todayIso).limit(200);
   if (r.error) {
     logQueryError('supplier-today-v2: put-offs', r.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');

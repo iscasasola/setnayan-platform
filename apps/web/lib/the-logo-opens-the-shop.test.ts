@@ -122,7 +122,7 @@ test('the shop row is lifted ABOVE the stretched doorway, not inside it', () => 
   // Card 14 (20 Nov): the row has two looks (row · mall), so its class is a two-way choice — BOTH must lift.
   const shopRow = cardView.match(/<span\s+className=\{\s*mall\s*\?\s*'([^']*)'\s*:\s*'([^']*)'\s*\}\s*data-service-face-shop=""/);
   assert.ok(
-    shopRow && shopRow[1].startsWith('relative z-10') && shopRow[2].startsWith('relative z-10'),
+    shopRow?.[1]?.startsWith('relative z-10') === true && shopRow[2]?.startsWith('relative z-10') === true,
     'the shop row lost its z-10 lift — the stretched doorway now covers the logo',
   );
   // And the doorway must still be the last child of the card.

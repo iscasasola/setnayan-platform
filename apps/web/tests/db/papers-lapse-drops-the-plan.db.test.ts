@@ -14,7 +14,8 @@ import { createReplayedDb, type ReplayResult } from './replay-migrations';
  * ✅ `stamp_papers_lapse` (20271354465843) sets the flag for its own transaction and writes the stamp, the Free
  * plan and the stopped clock in ONE update. Test 1 is the fault itself, reproduced against the full schema: it
  * holds whether or not the fix exists, and it is why the fix must be a function. Tests 2–3 fail without the
- * migration (no such function). Tests 5–6 prove the guard is still closed for every other writer.
+ * migration (no such function). Tests 5–6 prove the guard is still closed for every other writer. Tests 7–9 prove a
+ * paid drop and the row that holds its days commit together or not at all.
  */
 
 let replay: ReplayResult;
@@ -147,4 +148,86 @@ test('6 · a plain downgrade from anywhere else is still refused, and only the s
             has_function_privilege('service_role', 'public.stamp_papers_lapse(uuid, text, timestamptz)', 'EXECUTE') AS svc`,
   );
   assert.deepEqual(r.rows[0], { anon: false, authed: false, svc: true });
+});
+
+/* ── 💸 THE HOLD LANDS WITH THE DROP — never after it (review of #8056 at 6c8b36df7) ─────────────────────────────
+ * Renewal gives a paid plan back from the latest `vendor_papers_lapsed` audit row (held_tier, held_ms —
+ * heldPlanBack in lib/verification-decision.server.ts). Written by a separate call after the drop committed, a failed
+ * insert lost the paid days for good: the stamp stops a re-run and renewal finds no hold. The row is now written
+ * inside stamp_papers_lapse, so the drop and the hold commit or fail together. */
+
+type Hold = { held_tier: string | null; held_ms: number | null; tier_before: string; tier_after: string; has_held: boolean };
+async function holdRows(id: string): Promise<Hold[]> {
+  const r = await db.query<Hold>(
+    `SELECT metadata->>'held_tier' AS held_tier, (metadata->>'held_ms')::bigint::float8 AS held_ms,
+            metadata->>'tier_before' AS tier_before, metadata->>'tier_after' AS tier_after,
+            metadata ? 'held_tier' AS has_held
+       FROM public.admin_audit_log
+      WHERE action = 'vendor_papers_lapsed' AND target_id = $1`,
+    [id],
+  );
+  return r.rows;
+}
+
+test('7 · every paid drop writes its hold row in the same call — the days left, the tier, and no hold for a free drop', async () => {
+  const paid = await lapsedShop('pro', "NOW() + INTERVAL '40 days'");
+  assert.equal(await stamp(paid, 'hold'), true);
+  const [h, ...more] = await holdRows(paid);
+  assert.equal(more.length, 0, 'one lapse wrote more than one row');
+  assert.ok(h, 'a paid plan was dropped with NO hold row — its days are lost');
+  assert.equal(h.held_tier, 'pro');
+  assert.equal(h.tier_before, 'pro');
+  assert.equal(h.tier_after, 'free');
+  const days = (h.held_ms ?? 0) / 86_400_000;
+  assert.ok(days > 39.9 && days <= 40, `held ${days} days, expected ~40`);
+
+  const comped = await lapsedShop('pro', 'NULL');
+  assert.equal(await stamp(comped, 'hold'), true);
+  const [c] = await holdRows(comped);
+  assert.ok(c && c.has_held && c.held_tier === 'pro' && c.held_ms === null, 'a plan with no clock must wait whole (held_ms null)');
+
+  const free = await lapsedShop('verified', 'NULL');
+  assert.equal(await stamp(free, 'free_drop'), true);
+  const [f] = await holdRows(free);
+  assert.ok(f && !f.has_held && f.tier_after === 'free', 'the free drop wrote a hold, or no row');
+
+  // Across every shop this file stamped: no paid shop sits on free with a stopped clock and no hold row.
+  const orphans = await db.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM public.vendor_profiles vp
+      WHERE vp.papers_lapsed_at IS NOT NULL AND vp.tier_state = 'free'
+        AND NOT EXISTS (SELECT 1 FROM public.admin_audit_log a
+                         WHERE a.action = 'vendor_papers_lapsed' AND a.target_id = vp.vendor_profile_id::text)`,
+  );
+  assert.equal(orphans.rows[0]!.n, 0, 'a lapsed shop was dropped with no audit row');
+});
+
+test('8 · if the hold row cannot be written, the drop rolls back with it — nothing is lost, the shop is retried tomorrow', async () => {
+  const id = await lapsedShop('pro', "NOW() + INTERVAL '40 days'");
+  await db.exec(`
+    CREATE FUNCTION public.__fail_lapse_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN RAISE EXCEPTION 'audit insert refused (test)'; END; $$;
+    CREATE TRIGGER __fail_lapse_audit BEFORE INSERT ON public.admin_audit_log
+      FOR EACH ROW WHEN (NEW.action = 'vendor_papers_lapsed') EXECUTE FUNCTION public.__fail_lapse_audit();
+  `);
+  try {
+    await assert.rejects(() => stamp(id, 'hold'), /audit insert refused/);
+  } finally {
+    await db.exec(`DROP TRIGGER __fail_lapse_audit ON public.admin_audit_log; DROP FUNCTION public.__fail_lapse_audit();`);
+  }
+  const s = await read(id);
+  assert.equal(s.tier_state, 'pro', 'the plan dropped although its hold was never written');
+  assert.notEqual(s.tier_expires_at, null);
+  assert.equal(s.papers_lapsed_at, null, 'the shop was stamped, so tomorrow\'s pass would skip it');
+  // …and the next pass does it properly.
+  assert.equal(await stamp(id, 'hold'), true);
+  assert.equal((await holdRows(id))[0]?.held_tier, 'pro');
+});
+
+test('9 · a hold handed a stale row (no longer a running paid plan) is refused and changes nothing', async () => {
+  const id = await lapsedShop('pro', "NOW() - INTERVAL '1 day'");
+  await assert.rejects(() => stamp(id, 'hold'), /not a plan to hold/);
+  const s = await read(id);
+  assert.equal(s.tier_state, 'pro');
+  assert.equal(s.papers_lapsed_at, null);
+  assert.equal((await holdRows(id)).length, 0);
 });

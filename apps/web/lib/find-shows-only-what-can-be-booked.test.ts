@@ -105,7 +105,8 @@ test('the hide stays what it was: only strangers leave, a supplier with no card 
   const hide = server.slice(server.indexOf('export async function readSuppliersWithNoBookingLeft'), server.indexOf('export async function findSuppliersWithNoBookingLeft'));
   // Every failure says "could not check" (null) — never an empty set, which means "checked, everybody is free".
   const unreadReturns = hide.match(/return null;/g) ?? [];
-  assert.equal(unreadReturns.length, 3, `expected the three could-not-check returns, found ${unreadReturns.length}`);
+  // 4 since 2026-11-20: the shop's booking window (`readBookingWindows`) is one more read that can be refused.
+  assert.equal(unreadReturns.length, 4, `expected the four could-not-check returns, found ${unreadReturns.length}`);
   assert.match(hide, /\} catch \{\s*return null;\s*\}/);
   assert.doesNotMatch(hide, /logQueryError\([^)]*\);\s*return new Set\(\);/, 'a failed read answered "everybody is free"');
   // Find's bench search keeps its fail-open hide by folding the unread answer to "hide nobody".

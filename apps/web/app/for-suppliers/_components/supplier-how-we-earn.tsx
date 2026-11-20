@@ -5,7 +5,8 @@
  * `prototypes/supplier_how_we_earn_2026-11-16/` v2. Ported, not redrawn — the ruled words replace the drawing's:
  *   · (1) the paid-spot promise reads exactly PAID_SPOT_PROMISE (supplier-how-we-earn-data.ts) (no "there are no paid spots today");
  *   · (2) the found-you receipt line is shown here as a sample; the real one sits on the client card and the fee bill;
- *   · (3) the badge reward ("a free booking fee from 1,000 events") stays ONLY in the Badges ⓘ — never repeated here.
+ *   · (3) the badge reward ("a free booking fee from 1,000 events") is never repeated here — and since 15 Nov no badge earns
+ *     a new free fee at all (`FIRST_FREE_FEE_STEP` = 0, lib/badge-rewards.ts), so the page says it nowhere.
  *
  * ⚠ NO TYPED PESO. Every ₱ arrives as a prop read from the catalogues (`getVendorPrices()` →
  * `vendor_billing_catalog`, `getCustomerSkuPrice` → `platform_retail_catalog_v2`) or the live fee schedule; an unread
@@ -136,7 +137,7 @@ export function SupplierHowWeEarn({
       </div>
 
       <div className={s.earnCtas}>
-        <a className={s.btn} href="#plans">
+        <a className="fd-chip" href="#plans">
           See the plans
         </a>
         <Info label="How a fee is questioned">

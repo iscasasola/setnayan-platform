@@ -24,12 +24,28 @@
  * action's redirect target would have to carry a fragment the server cannot
  * see. See `lib/return-path.ts` for the one place the query needed care.
  */
-export type ThreadView = 'all' | 'decisions' | 'files';
+/**
+ * 💬 SIX SINCE 19 NOV 2026 (owner: the client page is ONE chat that holds everything; drawing S9ScH2Ps v3, screen 5): the
+ * switch moved INTO the text box as chips — All · Decisions · Forms · Money · Dates · Files — and one picked kind
+ * filters the stream to that kind's cards and lines. `forms`, `money` and `dates` are the three new kinds. A chat that
+ * does not draw the chips (the routed thread page, the host's side until its own build) reads a new kind as the chat
+ * (`legacyThreadView`), so an old `?view=decisions|files` link means exactly what it always did there.
+ */
+export type ThreadView = 'all' | 'decisions' | 'files' | 'forms' | 'money' | 'dates';
+
+/** The kinds a chip filters to, in the chips' order (All is the absence of one). */
+export const THREAD_KINDS = ['decisions', 'forms', 'money', 'dates', 'files'] as const;
+export type ThreadKind = (typeof THREAD_KINDS)[number];
 
 /** Anything that is not a view we know is the chat. Never throws. */
 export function parseThreadView(v: unknown): ThreadView {
   const raw = Array.isArray(v) ? v[0] : v;
-  return raw === 'decisions' || raw === 'files' ? raw : 'all';
+  return (THREAD_KINDS as readonly unknown[]).includes(raw) ? (raw as ThreadView) : 'all';
+}
+
+/** The view a chat WITHOUT the chips shows for a `?view=`: its three shipped thirds; a chip-only kind is the chat. */
+export function legacyThreadView(v: ThreadView): 'all' | 'decisions' | 'files' {
+  return v === 'decisions' || v === 'files' ? v : 'all';
 }
 
 /**

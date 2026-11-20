@@ -245,6 +245,42 @@ export async function readEventForms(
   return { status: 'ok', sent, linkedToBooked };
 }
 
+/**
+ * 💬 HOW MANY SENT FORMS ARE STILL OPEN — the Forms box of the client chat's summary strip (owner 19 Nov 2026, "THE
+ * CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING"). The same count the Forms page shows per form ("answered N of M",
+ * `readEventForms` above — the same items, the same `answeredCount`), without the library the strip does not draw:
+ * one read when nothing was sent, three when something was. A refused read is `unread` — never "0 open".
+ */
+export async function readOpenFormCount(
+  supabase: SupabaseClient,
+  args: { eventId: string; vendorProfileId: string },
+): Promise<{ status: 'ok'; sent: number; open: number } | { status: 'unread' }> {
+  const sendsRes = await supabase.from('event_form_sends').select('form_id').eq('event_id', args.eventId).eq('vendor_profile_id', args.vendorProfileId);
+  if (sendsRes.error) {
+    logQueryError('readOpenFormCount.sends', sendsRes.error, { event_id: args.eventId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  const sentIds = [...new Set(((sendsRes.data ?? []) as { form_id: string }[]).map((s) => s.form_id))];
+  if (sentIds.length === 0) return { status: 'ok', sent: 0, open: 0 };
+  const [itemsRes, answersRes] = await Promise.all([
+    supabase.from('vendor_questions').select(ITEM_COLS).eq('vendor_profile_id', args.vendorProfileId).in('form_id', sentIds),
+    supabase.from('event_question_answers').select('question_id, answer').eq('event_id', args.eventId),
+  ]);
+  const err = itemsRes.error ?? answersRes.error;
+  if (err) {
+    logQueryError('readOpenFormCount.answers', err, { event_id: args.eventId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  const items = (itemsRes.data ?? []) as unknown as FormItemRow[];
+  const answered = new Set(((answersRes.data ?? []) as { question_id: string; answer: string }[]).filter((a) => a.answer).map((a) => a.question_id));
+  let open = 0;
+  for (const id of sentIds) {
+    const c = answeredCount(liveItems(items.filter((i) => i.form_id === id)), answered);
+    if (c.answered < c.total) open += 1;
+  }
+  return { status: 'ok', sent: sentIds.length, open };
+}
+
 export type FormSuggestion = { templateKey: string; title: string; itemCount: number };
 export type SuggestionsRead =
   | { status: 'ok'; serviceLabel: string | null; groupLabel: string | null; own: FormSuggestion[]; alsoUseful: FormSuggestion[] }

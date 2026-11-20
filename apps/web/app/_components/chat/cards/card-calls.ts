@@ -18,6 +18,7 @@
  * A refused read returns `{ ok: false }` and the card says "Couldn't load" — never an empty list dressed as "none yet".
  */
 import { createClient } from '@/lib/supabase/client';
+import { askKindOf, quoteLinesOf } from '@/lib/chat-deal';
 import { logPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { loadCatalogueExtrasForQuote } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { vendorAskForPayment, type PaymentAskOutcome } from '@/app/vendor-dashboard/clients/[eventId]/actions';
@@ -85,20 +86,6 @@ export type QuoteForCard = {
 
 const QUOTE_COLS =
   'proposal_id, public_id, title, total_centavos, status, sent_at, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift, service_card_ids, changes_locked, plan_locked';
-
-function cardLinesOf(raw: unknown): CardLine[] {
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr.map((l, i) => {
-    const r = (l ?? {}) as { label?: unknown; detail?: unknown; amount_centavos?: unknown };
-    const amt = r.amount_centavos == null ? null : Math.round(Number(r.amount_centavos));
-    return {
-      key: `l${i}`,
-      label: String(r.label ?? '').trim() || 'Line item',
-      detail: r.detail == null ? null : String(r.detail),
-      amountCentavos: amt == null || !Number.isFinite(amt) ? null : amt,
-    };
-  });
-}
 
 async function liveQuote(supabase: ReturnType<typeof createClient>, eventId: string, shop: string) {
   return supabase
@@ -171,7 +158,7 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     title: String(row.title ?? 'Quote'),
     status: String(row.status),
     totalCentavos: Math.round(Number(row.total_centavos) || 0),
-    lines: cardLinesOf(row.line_items),
+    lines: quoteLinesOf(row.line_items),
     validUntil: (row.valid_until as string | null) ?? null,
     paymentMethodIds: Array.isArray(row.payment_method_ids) ? (row.payment_method_ids as string[]) : [],
     gift: typeof row.includes_setnayan_gift === 'boolean' ? row.includes_setnayan_gift : null,
@@ -325,7 +312,7 @@ function askOf(r: AskDbRow): ChangeAskRow {
     goodUntil: r.good_until,
     raisedBy: r.raised_by ?? 'host',
     answerProposalId: r.answer_proposal_id,
-    kind: r.kind ?? (r.amount_centavos != null ? 'counter' : r.proposed_plan != null ? 'plan' : 'words'),
+    kind: askKindOf(r),
     moneyHidden: r.money_hidden === true,
   };
 }
@@ -397,7 +384,7 @@ export async function loadNegotiation(threadId: string): Promise<{ ok: true; quo
       title: String(row.title ?? 'Quote'),
       status: String(row.status),
       totalCentavos: Math.round(Number(row.total_centavos) || 0),
-      lines: cardLinesOf(row.line_items),
+      lines: quoteLinesOf(row.line_items),
       planRows: Array.isArray(sched.installments) ? sched.installments.map((r) => ({ ...r, seq: Number(r.seq), amount_centavos: Math.round(Number(r.amount_centavos) || 0) })) : [],
       creditCentavos: Math.max(0, Math.round(Number(sched.credit_centavos) || 0)),
       floorCentavos: floorRes.data == null ? null : Math.round(Number(floorRes.data)),

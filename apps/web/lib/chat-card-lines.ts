@@ -136,6 +136,16 @@ export function scheduleChangeFromLine(
   return { chapter: m[1]!, from: m[2]!, to: m[3]!, shift: m[4]! };
 }
 
+/**
+ * ✉ The service an inquiry names — its own last line, as `startServiceInquiry` writes it (`inquiryServicesLine`):
+ * "Service: Reception Lights & Sound" → that name; "Services: A · B" → "A · B"; no such line → null (the inquiry card
+ * then says "Not given", never a guess).
+ */
+export function inquiryServiceOf(body: string | null | undefined): string | null {
+  const m = /^Services?: (.+)$/m.exec(body ?? '');
+  return m ? m[1]!.trim() || null : null;
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
 export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | 'negotiate' | 'schedule' | null {
   if (bookRequestFromLine(body)) return 'book';

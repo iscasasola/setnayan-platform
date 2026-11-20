@@ -263,10 +263,10 @@ export default async function BarLab({
     const flash = none ? { moments: 1 } : { moments: 9 };
     const thankYou = { key: 'thank-you', name: 'Thank-You Video', line: 'A short film for everyone who came', href: appStoreDetailHref('thank-you', EVENT) };
     const cards: Record<KeepsakeKey, React.ReactNode> = {
-      magazine: <MagazineCard eventId={EVENT} state={magazine} />,
-      recap: <RecapCard eventId={EVENT} state={recap} />,
-      flash: <LifeFlashCard eventId={EVENT} state={flash} />,
-      'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} />,
+      magazine: <MagazineCard eventId={EVENT} state={magazine} seat="sheet" />,
+      recap: <RecapCard eventId={EVENT} state={recap} seat="sheet" />,
+      flash: <LifeFlashCard eventId={EVENT} state={flash} seat="sheet" />,
+      'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} seat="sheet" />,
     };
     const doors = keepsakeDoors({ magazine, recap, flash, flashMin: SCOPE_MIN_MOMENTS.event, thankYou: true });
     const addState = sp.add === 'off' ? 'off' : 'open';

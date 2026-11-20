@@ -1,46 +1,45 @@
 'use client';
 
 /**
- * papic-home-card.tsx — PAPIC ON HOME: one head with its ON/OFF switch, and the camera settings opening UNDER it.
+ * papic-home-card.tsx — 📷 PAPIC, THE BLOCK AT THE TOP OF MEMORIES (owner 2026-11-20, *"memories approved"* —
+ * `prototypes/memories_redesign_2026-11-20/memories_redesign_2026-11-20_fable.html`, DECISION_LOG 2026-11-20 "EVENT ›
+ * MEMORIES — PAPIC ON TOP + FIVE OPENED PAGES, APPROVED"). Owner: *"on the Top will have papic … turning papic service on
+ * and off. to add a media file manually, Remaining Credits to use. Tapping will open the rest of papic settings … easy"*.
  *
- * Owner 2026-10-26, on the Home card: *"name it Papic and not Guest Photos."* · *"the gallery should not be there."* ·
- * *"it just needs to have a quick on off button and expand for more settings for papic"* — superseding the 2026-10-23/24
- * quick view (coverage · credits meter · the latest five · Add more) and the phone's own closed tile face.
+ *   THE BLOCK   the camera mark · "Papic" · the head's ONE dropdown (Off · On — event day · On — everyone, now — the
+ *               shipped `PapicHeadPicker`, its writes unchanged) · ONE state line (`lib/papic-guest-cameras-line.ts`,
+ *               the gate's own answer) · ONE big "N credits left" (Total · Taken in its ⓘ; an unread pot is "—", never
+ *               0) · two equal buttons, **Add photos** (main — the picker at once, `memories-add-photos.tsx`) and **Add
+ *               more** (the shipped buy sheet) · a full-width "All Papic settings ›" row.
+ *   OPENED      a tap on the block's body or that row RISES every Papic setting as one full screen — the app's shared
+ *               `RiseScreen` (house rule: rise full screen; ✕, Esc and the phone's Back close it). Same items, same
+ *               order as the unfold it replaces, "Shooting into" first. Until 20 Nov the settings unfolded in place under
+ *               the card (owner 2026-10-23/26) — that unfold, its › → ⌄ and the inline region are gone.
  *
- *   CLOSED   the head only — the camera mark · "Papic" (small line "Guest photos") · the Papic switch · › to expand.
- *            Nothing else: no coverage, no credits, no meter, no photos, no Add more.
- *   OPEN     a tap on the head reveals the camera settings directly under it, inline — the height grows and the
- *            settings fade in (420 ms, the house ease; reduced motion: at once). No navigation, no overlay, the address
- *            does not change; the head (⌄) folds it back. Credits, Add more and the dates live in the settings; after
- *            the day, the Thank-You Video door is the open card's first row.
+ * The switch, the ⓘ and the two buttons are presses of their own — a tap on one never also opens the settings, and a
+ * sheet they open (portalled to <body>) never bubbles into "open the settings" either.
  *
- * ONE card, on Home › Today (owner 2026-10-26, DECISION_LOG "THE PAPIC CARD LIVES ON HOME › TODAY; THE STANDALONE
- * PAPIC PAGE IS REMOVED": *"that papic frame with toggle, place that on home and remove that page"* · *"it should be on
- * the today"*). The Papic page is gone; its every setting opens from this card's ›.
- *
- * 🔢 THE FACE CARRIES THE COUNTS (owner 2026-10-26, on the Papic row: *"this is the widget that should be at home with
- * the count of the total, taken, remaining and a button to add more"*): under the head, one line Total · Taken ·
- * Remaining (credits, from the one pot read Home already makes — a failed read says "Couldn't check", never 0) and
- * "Add more", the one buy sheet (Apple's in the app, the web's on the web; none where neither sells). Both sit OUTSIDE
- * the head's button — a sheet's button inside a button is invalid HTML — so the head still only opens the settings.
+ * Seats: Memories only since 2026-11-08 (THE ONE BUILD: *"Papic + Thank You into Memories"*); the dev home-lab draws it
+ * on fixtures. 🔒 `papic-opens-in-memories.test.ts` · `papic-lives-in-memories.test.ts` · `memories-papic-is-on-top.test.ts`.
  */
 
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { ChevronRight, Clapperboard } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import type { PapicCardPhase } from '@/lib/papic-home-card';
-import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { formatCount } from '@/lib/format-number';
 import { PAPIC_CARD_ANCHOR } from '@/lib/papic-home-href';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 import { papicCountsWords } from '@/lib/papic-card-counts';
 
 /**
- * 📷 THE HEAD'S LINE CAN BE SAID BY THE HEAD'S SWITCH (owner 2026-10-30: the head switch is "Let everybody shoot now"
- * once Papic is on, with a short line under the title). The server draws the line from what is saved (`headLine`); the
- * switch, a sibling of the head's button, says the new line the moment it is pressed and takes it back if the save
- * fails — so the line and the switch never say two things. null = the saved line.
- * A refused save is said UNDER THE HEAD, in the card's flow (`problem`) — never inside the switch's absolute slot, where
- * a sentence widened the slot and threw the switch over the camera mark (walk 2026-10-30, 390 px).
+ * 📷 THE HEAD'S LINE CAN BE SAID BY THE HEAD'S SWITCH (owner 2026-10-30). The server draws the line from what is saved
+ * (`headLine`); the switch, a sibling of the head's button, says the new line the moment it is pressed and takes it back
+ * if the save fails — so the line and the switch never say two things. The switch says ITS words (`papicHeadLine`); the
+ * card shows the state line for them (`lineFor`, 2026-11-20). null = the saved line.
+ * A refused save is said UNDER THE HEAD, in the card's flow (`problem`) — never inside the switch's slot.
  */
 type PapicHeadSay = { line: (line: string | null) => void; problem: (problem: string | null) => void };
 const PapicHeadContext = createContext<PapicHeadSay | null>(null);
@@ -48,6 +47,9 @@ const SAY_NOTHING: PapicHeadSay = { line: () => {}, problem: () => {} };
 export function usePapicHead(): PapicHeadSay {
   return useContext(PapicHeadContext) ?? SAY_NOTHING;
 }
+
+/** A tap that landed on one of the block's own presses (or a popover hanging from one) is that press's, not "open". */
+const OWN_PRESS = 'button, a, input, select, textarea, label, [role="menu"], [role="listbox"], [role="dialog"], [role="tooltip"], [data-papic-card-acts]';
 
 export function PapicHomeCard({
   name,
@@ -60,50 +62,55 @@ export function PapicHomeCard({
   defaultOpen = false,
   headControl = null,
   headLine = null,
+  lineFor = null,
   counts = null,
+  add = null,
   buy = null,
   chapter = null,
 }: {
   name: string;
   brand?: string;
   icon: ReactNode;
-  /** Where the capture window stands — after the day, the open card leads with the Thank-You Video door. */
+  /** Where the capture window stands — after the day, the opened settings lead with the Thank-You Video door. */
   phase: PapicCardPhase | null;
-  /** The Thank-You Video door, offered after the day (null: not offered). */
+  /** The Thank-You Video door, offered after the day (null: not offered — Memories' keepsake row is its one home). */
   thankYouHref?: string | null;
-  /** The camera settings, drawn by the server — revealed under the head. */
+  /** Every Papic setting, drawn by the server — risen full screen on a tap. */
   settings: ReactNode;
   marker?: Record<string, string>;
-  /** Open on arrival — the Papic page draws this same card, open (owner ruling 2026-10-24: one card, everywhere). */
+  /** Open on arrival — a save's outcome, a purchase error, or an old `?papic=open` link: the settings rise at once. */
   defaultOpen?: boolean;
-  /**
-   * The Papic ON/OFF switch, in the head beside the › — shown closed AND open (owner 2026-10-26: "a quick on off
-   * button"). A SIBLING of the head's button, never inside it (a switch in a button is invalid HTML).
-   */
+  /** The head's ONE dropdown (Off · On — event day · On — everyone, now). A SIBLING of the head's button. */
   headControl?: ReactNode;
-  /** The line under the title in place of `brand` — what the head's switch has saved (owner 2026-10-30); null = `brand`. */
+  /** The ONE state line under the name (`papicGuestCamerasLine`); null = `brand`. */
   headLine?: ReactNode;
-  /** The pot: what it holds and has left. null = not shown (a lab); a field null = not measured ("Couldn't check"). */
+  /** The state line for each line the head's switch can say (`papicGuestCamerasLines().byHead`); null = say it as is. */
+  lineFor?: Record<string, string> | null;
+  /** The pot: what it holds and has left. null = not shown (a lab); a field null = not measured ("—", never 0). */
   counts?: { total: number | null; left: number | null } | null;
+  /** "Add photos" — the main button (`MemoriesAddPhotosButton`); null = not offered here. */
+  add?: ReactNode;
   /** "Add more" — the one buy sheet, built by the server for this platform; null = not offered here. */
   buy?: ReactNode;
-  /**
-   * 📷 The chapter Papic shoots into (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER") — its dropdown,
-   * its window and "This chapter: N photos", under the event-wide counts (`PapicChapterRow`). null = not drawn.
-   */
+  /** 📷 "Shooting into" — the chapter row (owner 2026-11-01), the opened settings' FIRST row since 20 Nov. */
   chapter?: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [saidLine, sayLine] = useState<string | null>(null);
   const [saidProblem, sayProblem] = useState<string | null>(null);
-  const [say] = useState<PapicHeadSay>(() => ({ line: sayLine, problem: sayProblem }));
-  // 🔒 ONE OPEN AT A TIME on Home (owner-approved 2026-10-24): opening Papic closes the service open before.
+  // The switch says ITS words; the card keeps the state line for them (`lineFor`) — one fact, one wording.
+  const lineForRef = useRef(lineFor);
+  lineForRef.current = lineFor;
+  const [say] = useState<PapicHeadSay>(() => ({
+    line: (said) => sayLine(said === null ? null : (lineForRef.current?.[said] ?? said)),
+    problem: sayProblem,
+  }));
+  // 🔒 ONE OPEN AT A TIME (owner-approved 2026-10-24): the risen settings join one-open, and the scope below keeps a
+  // dropdown or ⓘ inside them from closing their own sheet.
   const oneOpenId = useOneOpen(open, setOpen);
-  const regionId = useId();
   const root = useRef<HTMLDivElement>(null);
-  // 🔗 An old link to the retired Papic page lands on Home as `?papic=open` (owner 2026-10-24: "the controller page is
-  // retired; its contents live inside the expanded card"): the card opens itself, scrolls into view, and the address
-  // goes back to Home's own — opening never navigates.
+  // 🔗 An old link to the retired Papic page lands here as `?papic=open` (`lib/legacy-redirects.ts`): the settings rise,
+  // the card scrolls into view, and the address goes back to the page's own — opening never navigates.
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
@@ -117,120 +124,131 @@ export function PapicHomeCard({
     }
   }, []);
 
+  // The block's body opens the settings — never a tap on its own presses, and never a click that bubbled (through React)
+  // out of a sheet one of them portalled to <body>: that target is not inside this block.
+  const onBody = (e: MouseEvent<HTMLDivElement>) => {
+    const t = e.target as Element;
+    if (!e.currentTarget.contains(t) || t.closest(OWN_PRESS)) return;
+    setOpen(true);
+  };
+
   return (
-    <div ref={root} id={PAPIC_CARD_ANCHOR} className="col-span-full flex min-w-0 scroll-mt-20 flex-col md:col-span-1" data-papic-home-card={open ? 'open' : 'rest'}>
+    <div ref={root} id={PAPIC_CARD_ANCHOR} className="flex min-w-0 scroll-mt-20 flex-col" data-papic-home-card={open ? 'open' : 'rest'}>
       <OneOpenScope id={oneOpenId}>
-        <PapicHeadContext.Provider value={say}>
-        <div className="sg-row relative" {...marker}>
-          {/* THE SWITCH — in the head, closed and open, over the head's right edge beside the ›. */}
-          {headControl ? (
-            <div className="absolute right-12 top-[7px] z-[1] [&_[data-form-row-name]]:sr-only [&_[data-form-row]]:!min-h-0 [&_[data-form-row]]:!p-0" data-papic-head-switch="">
-              {headControl}
-            </div>
-          ) : null}
-          {/* THE HEAD — the card's one press: it opens the settings under the card, never another page. */}
-          <button
-            type="button"
-            aria-expanded={open}
-            aria-controls={regionId}
-            onClick={() => setOpen((v) => !v)}
-            className="block w-full min-w-0 text-left"
-            data-papic-card-head=""
-            data-tour="home-papic-card"
-          >
-            <span className="sg-head">
-              <span className="sg-mark" aria-hidden>
+      <PapicHeadContext.Provider value={say}>
+        <div className="sn-frame flex min-w-0 cursor-pointer flex-col gap-2.5 px-3.5 pt-3 text-ink" onClick={onBody} {...marker}>
+          <div className="flex min-w-0 items-center gap-2.5">
+            {/* THE HEAD — a press of its own (keyboard and reader): it rises the settings, never another page. */}
+            <button
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={open}
+              onClick={() => setOpen(true)}
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-left"
+              data-papic-card-head=""
+              data-tour="home-papic-card"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-ink/[0.06] [&_svg]:h-5 [&_svg]:w-5" aria-hidden>
                 {icon}
               </span>
-              {/* The head's control is a compact dropdown (owner 2026-10-30: Off · On — event day · On — everyone, now) — the
-                  title keeps clear of its widest face. */}
-              <span className={`min-w-0 ${headControl ? 'pr-24' : ''}`}>
-                <span className="sg-name block truncate">{name}</span>
-                {saidLine !== null || headLine || brand ? (
-                  <span className={`sg-brand block ${saidLine !== null || headLine ? '[text-wrap:balance]' : 'truncate'}`} data-papic-head-line="">
-                    {saidLine ?? headLine ?? brand}
-                  </span>
-                ) : null}
-              </span>
-              {/* › turns to ⌄ as the card grows in place (owner 2026-10-24). */}
-              <ChevronRight
-                aria-hidden
-                className={`sg-arrow h-[18px] w-[18px] transition-transform duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
-                strokeWidth={1.9}
-              />
-            </span>
-          </button>
+              <span className="min-w-0 truncate text-[18px] font-bold leading-tight">{name}</span>
+            </button>
+            {/* THE SWITCH — the head's one dropdown, on the right, a sibling of the head's button. */}
+            {headControl ? (
+              <div className="shrink-0 [&_[data-form-row-name]]:sr-only [&_[data-form-row]]:!min-h-0 [&_[data-form-row]]:!p-0" data-papic-head-switch="">
+                {headControl}
+              </div>
+            ) : null}
+          </div>
 
+          {saidLine !== null || headLine || brand ? (
+            <p className="-mt-1 text-[13.5px] leading-snug text-ink/65 [text-wrap:balance]" data-papic-head-line="">
+              {saidLine ?? headLine ?? brand}
+            </p>
+          ) : null}
           {saidProblem ? (
-            <p role="alert" className="pt-1 text-[12.5px] font-semibold leading-snug text-danger-700" data-papic-head-problem="">
+            <p role="alert" className="-mt-1 text-[12.5px] font-semibold leading-snug text-danger-700" data-papic-head-problem="">
               {saidProblem}
             </p>
           ) : null}
 
-          {/* 🔢 TOTAL · TAKEN · REMAINING, and ADD MORE — on the face, closed and open (owner 2026-10-26). */}
-          {counts || buy ? (
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 pt-2" data-papic-card-face="">
-              {counts ? <PapicCounts total={counts.total} left={counts.left} /> : <span />}
+          {/* 🔢 ONE BIG NUMBER — the credits left; Total · Taken live in its ⓘ. */}
+          {counts ? <PapicCredits total={counts.total} left={counts.left} /> : null}
+
+          {/* Add photos (main) · Add more — two equal buttons, each a press of its own. */}
+          {add || buy ? (
+            <div className="grid grid-cols-2 gap-2 [&_.ab]:w-full [&_.ab]:justify-center" data-papic-card-acts="" data-papic-card-face="">
+              {add ? (
+                <span className="min-w-0" data-papic-card-add="">
+                  {add}
+                </span>
+              ) : null}
               {buy ? (
-                <span className="shrink-0" data-papic-card-add-more="">
+                <span className={`min-w-0 ${add ? '' : 'col-span-2'}`} data-papic-card-add-more="">
                   {buy}
                 </span>
               ) : null}
             </div>
           ) : null}
 
-          {/* 📷 THE CHAPTER IT SHOOTS INTO — under the event-wide counts, closed and open (owner 2026-11-01). Outside the
-              head's button, like the counts: its dropdown and Start now are presses of their own. */}
-          {chapter}
-
-          {/* THE SETTINGS, INSIDE THE CARD'S OWN FRAME — the height grows, the settings fade in; folded, they are inert. */}
-          <div
-            id={regionId}
-            role="region"
-            aria-label="Papic settings"
-            inert={!open}
-            data-papic-home-settings={open ? 'open' : 'closed'}
-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.2,0.7,0.2,1)] motion-reduce:transition-none ${
-              open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-            }`}
+          {/* "All Papic settings ›" — the full-width row that rises them (the › that unfolded the card until 20 Nov). */}
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => setOpen(true)}
+            className="-mx-3.5 flex min-h-[46px] items-center gap-2 border-t border-ink/10 px-3.5 text-left text-[14.5px] font-semibold"
+            data-papic-all-settings=""
           >
-            <div className="min-h-0 overflow-hidden">
-              {/* After the day, the Thank-You Video door leads the open card (it lived on the closed card until 2026-10-26). */}
+            <span className="min-w-0 flex-1 truncate">All {name} settings</span>
+            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.9} />
+          </button>
+        </div>
+
+        {/* ⤴ EVERY PAPIC SETTING, RISEN FULL SCREEN — the shared part; "Shooting into" first, then the shipped settings
+            in their own order. Drawn only while open. */}
+        {open ? (
+          <RiseScreen title={`${name} settings`} data="papic-settings" kind="stack" onClose={() => setOpen(false)}>
+            <div role="region" aria-label={`${name} settings`} className="px-4 pt-2" data-papic-home-settings="open">
+              {/* After the day, the Thank-You Video door leads (where a seat hands one — Memories' keepsake row is its home). */}
               {phase === 'after' && thankYouHref ? (
-                <div className="sg-acts" data-papic-thank-you="">
+                <div className="sg-acts pb-2" data-papic-thank-you="">
                   <ActionButton tone="brand" icon={<Clapperboard aria-hidden="true" strokeWidth={1.9} />} label="Thank-You Video" href={thankYouHref} />
                 </div>
               ) : null}
+              {chapter ? <div data-papic-settings-first="">{chapter}</div> : null}
               <div className="pt-4">{settings}</div>
             </div>
-          </div>
-        </div>
-        </PapicHeadContext.Provider>
+          </RiseScreen>
+        ) : null}
+      </PapicHeadContext.Provider>
       </OneOpenScope>
     </div>
   );
 }
 
-/** Total · Taken · Remaining — the pot, in one line. A field that was not measured says so, never 0. */
-function PapicCounts({ total, left }: { total: number | null; left: number | null }) {
+/** "N credits left", big — Total · Taken in its ⓘ. A field that was not measured is "—", never 0. */
+function PapicCredits({ total, left }: { total: number | null; left: number | null }) {
   const words = papicCountsWords(total, left);
   if (!words) {
     return (
-      <p role="status" className="text-[13px] text-ink/75" data-papic-card-counts="unread">
-        Credits · Couldn&rsquo;t check
-      </p>
+      <div role="status" className="flex items-center gap-2" data-papic-card-counts="unread">
+        <span className="text-[30px] font-bold leading-none tracking-[-0.01em]">—</span>
+        <InfoTip label="credits left" labelClassName="text-[15px] font-medium text-ink/65" align="start">
+          Couldn&rsquo;t check your credits just now. Nothing has changed — refresh to try again.
+        </InfoTip>
+      </div>
     );
   }
+  const [all, taken, rest] = words.map(([, n]) => n) as [number, number, number];
   return (
-    <dl className="flex items-baseline gap-3 text-[13px] text-ink/75" data-papic-card-counts="">
-      {words.map(([k, v]) => (
-        <div key={k} className="flex items-baseline gap-1">
-          <dt>{k}</dt>
-          <dd className={`font-semibold ${k === 'Remaining' ? 'text-success-700' : 'text-ink'}`} data-papic-card-count={k.toLowerCase()}>
-            {formatCount(v)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="flex items-center gap-2" data-papic-card-counts="">
+      <span className="text-[30px] font-bold leading-none tracking-[-0.01em]" data-papic-card-count="remaining">
+        {formatCount(rest)}
+      </span>
+      <InfoTip label={rest === 1 ? 'credit left' : 'credits left'} labelClassName="text-[15px] font-medium text-ink/65" align="start">
+        Total <b data-papic-card-count="total">{formatCount(all)}</b> · Taken <b data-papic-card-count="taken">{formatCount(taken)}</b>. One credit is one
+        camera photo; a short clip uses a little more.
+      </InfoTip>
+    </div>
   );
 }

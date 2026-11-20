@@ -497,13 +497,14 @@ export function AccordionLockButton({
   if (state.kind === 'requested') {
     return (
       <div className={wrapperClassName}>
+        {/* ↩ Undo — the shipped withdraw (`withdrawVendorLockRequest`), the same one the bench's "Take it back" uses.
+            Its gap is `ml-1`, not a `{' '}`, so the line stays one short paragraph (template-score-ratchet). */}
         <p role="status" className="text-xs text-ink/70">
           {/* 🪑 By the piece (owner Q2, 20 Nov): the ask carries no number — never the stock, only who says how many. */}
           {state.byThePiece
             ? piecesAskSentLine(state.vendorName)
-            : <>Booking requested — waiting for {state.vendorName} to agree.</>}{' '}
-          {/* ↩ Undo — the shipped withdraw (`withdrawVendorLockRequest`), the same one the bench's "Take it back" uses. */}
-          <WithdrawAskButton vendorId={vendorId} vendorName={state.vendorName} label="Undo" className="underline" />
+            : <>Booking requested — waiting for {state.vendorName} to agree.</>}
+          <WithdrawAskButton vendorId={vendorId} vendorName={state.vendorName} label="Undo" className="ml-1 underline" />
         </p>
       </div>
     );

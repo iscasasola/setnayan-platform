@@ -15,3 +15,9 @@ SPEC IMPACT: None
 `readAreaSupplierCounts` re-typed `public_visibility = verified` instead of asking `isShopLive` (`lib/every-public-surface-asks-one-predicate.test.ts` was red). It now selects `SHOP_LIVE_COLUMNS` and filters with `isShopLive`.
 
 SPEC IMPACT: None
+
+## 2026-11-21 · fix(suppliers): the asked line stays one short paragraph after the #8012 catch-up
+
+The #8012 merge put its guarded "Booking requested…" line, an Undo comment and a `{' '}` inside one `<p>` in `accordion-lock.tsx`, so `lib/template-score-ratchet.test.ts` counted a new long paragraph (Suppliers 69 → 71, baseline 69). The comment moved above the `<p>` and the Undo's gap is `ml-1`. #8012's line is unchanged and nothing moves on screen.
+
+SPEC IMPACT: None

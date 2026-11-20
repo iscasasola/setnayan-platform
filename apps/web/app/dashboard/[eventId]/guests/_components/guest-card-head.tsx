@@ -92,7 +92,7 @@ export function GuestCardAvatar({
 export function GuestCardReplyBadge({ guest, proxy }: { guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>; proxy?: GuestCardData['proxy'] }) {
   const coming = guest.role === 'bride' || guest.role === 'groom' || (guest.rsvp_status === 'attending' && !proxy?.representedBy);
   return (
-    <span data-guest-card-reply={coming ? 'coming' : guest.rsvp_status} className={coming ? 'text-success-700' : undefined}>
+    <span data-guest-card-reply={coming ? 'attending' : guest.rsvp_status} className={coming ? 'text-success-700' : undefined}>
       {guestCardReply(guest, proxy)}
     </span>
   );

@@ -102,7 +102,7 @@ COMMENT ON COLUMN public.event_vendors.prep_days IS
   'Made to order: THIS order''s preparation time in days (2b, confirmed at accept). NULL = the card''s usual_prep_days. '
   'Not browser-readable; written only by a definer (trg_booked_quantity_only_by_the_definer covers it).';
 
--- booked_quantity is READ in the browser (the couple's own ask, the supplier's Agree prefill — under the row
+-- booked_quantity is READ in the browser (the couple's own booking, the supplier's Agree prefill — under the row
 -- policies), so it is granted like every other non-amount column since 20271343340931. prep_days is NOT granted: a
 -- browser never reads it directly (owner/controller 19 Nov: couples neither read nor write it).
 GRANT SELECT (booked_quantity) ON public.event_vendors TO anon, authenticated;
@@ -473,7 +473,7 @@ BEGIN
   -- 🔒 LOCK ORDER (review 2026-11-20): the BOOKING row first, then the card, then the shop's one count lock — the
   -- same order vendor_agree_to_lock takes them (event_vendors FOR UPDATE → vendor_services FOR NO KEY UPDATE →
   -- lock_shop_day_counts). Taking the card first and the booking last (as drafted) deadlocks against a yes on the same
-  -- booking. set_asked_quantity takes the booking row first too.
+  -- booking.
   SELECT ev.event_id, ev.service_id INTO v_event_id, v_service
     FROM public.event_vendors ev
    WHERE ev.vendor_id = p_event_vendor_id
@@ -527,73 +527,9 @@ GRANT EXECUTE ON FUNCTION public.set_booked_quantity(uuid, int) TO authenticated
 -- ── 5 · (withdrawn in review) the schedule's 1..500 stands — see the header ──
 
 
--- ── 6 · the COUPLE picks how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN step 3 AV-PIECE "the
---     couple picks how many"). Their ask carries the number; the supplier may change it when accepting
---     (set_booked_quantity). An ask takes nothing — only the yes takes pieces — so this checks the stock only to
---     answer honestly ("only 180 free that day"), it never holds them.
-CREATE OR REPLACE FUNCTION public.set_asked_quantity(p_event_vendor_id uuid, p_quantity int)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $function$
-DECLARE
-  v_event_id uuid;
-  v_service  uuid;
-  v_status   text;
-  v_style    text;
-  v_cap      int;
-  v_date     date;
-  v_prec     text;
-  v_out      int;
-  v_qty      int;
-BEGIN
-  -- 🔒 The BOOKING row is locked before its status is read (review 2026-11-20): read-then-write without it let a
-  -- couple's ask racing the supplier's yes rewrite booked_quantity on a booking the yes had just contracted, past the
-  -- number the yes checked. Same first lock as set_booked_quantity and vendor_agree_to_lock (booking → card → shop).
-  SELECT ev.event_id, ev.service_id, ev.status::text, ev.booked_quantity INTO v_event_id, v_service, v_status, v_qty
-    FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id
-     FOR UPDATE;
-  IF v_event_id IS NULL OR (v_event_id NOT IN (SELECT public.current_couple_event_ids()) AND NOT public.is_admin()) THEN
-    RETURN jsonb_build_object('status', 'not_authorized');
-  END IF;
-  IF v_status IN ('contracted', 'deposit_paid', 'delivered', 'complete') THEN
-    RETURN jsonb_build_object('status', 'already_booked');
-  END IF;
-  SELECT vs.availability_style, NULLIF(vs.daily_capacity, 0) INTO v_style, v_cap
-    FROM public.vendor_services vs WHERE vs.vendor_service_id = v_service;
-  IF v_style IS DISTINCT FROM 'piece' THEN
-    RETURN jsonb_build_object('status', 'not_by_the_piece');
-  END IF;
-  -- A door that asks no number (book-this-build, pending-lock-proposals — review 2026-11-20) sends NULL: the row's own
-  -- number from an earlier ask stands. No number anywhere → 'pieces_needed' (the app sends the couple to the picker);
-  -- a number that is not a whole number of at least one → 'bad_quantity'. Never "one piece" by default.
-  IF p_quantity IS NULL AND v_qty IS NULL THEN
-    RETURN jsonb_build_object('status', 'pieces_needed');
-  END IF;
-  v_qty := COALESCE(p_quantity, v_qty);
-  IF v_qty < 1 THEN
-    RETURN jsonb_build_object('status', 'bad_quantity');
-  END IF;
-  SELECT event_date, event_date_precision INTO v_date, v_prec FROM public.events WHERE event_id = v_event_id;
-  IF v_cap IS NOT NULL AND v_date IS NOT NULL AND v_prec = 'day' THEN
-    v_out := public.service_card_bookings_on(v_service, v_date, p_event_vendor_id);
-    IF v_out + v_qty > v_cap THEN
-      RETURN jsonb_build_object('status', 'full', 'have', v_cap, 'free', GREATEST(v_cap - v_out, 0));
-    END IF;
-  END IF;
-  -- The status predicate rides the write too: a booked row is never rewritten by an ask, lock or no lock.
-  UPDATE public.event_vendors SET booked_quantity = v_qty
-   WHERE vendor_id = p_event_vendor_id
-     AND status::text NOT IN ('contracted', 'deposit_paid', 'delivered', 'complete');
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('status', 'already_booked');
-  END IF;
-  RETURN jsonb_build_object('status', 'ok', 'quantity', v_qty);
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.set_asked_quantity(uuid, int) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.set_asked_quantity(uuid, int) TO authenticated, service_role;
+-- ── 6 · (withdrawn — owner Q2, 20 Nov: NO) a couple's ask carries no number. The supplier types how many they can
+--     give at the yes (set_booked_quantity / vendor_agree_to_lock, which refuses a piece yes with no number:
+--     'pieces_needed'). A couple never sees, and never states a number against, the stock.
 
 -- ── 7 · the Clients day bar reads the guard's own count ─────────────────────
 -- vendor_day_pool_taken(day) — every schedule of the CALLER's shop, for the Clients day:

@@ -3,8 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * 🪑 THE PIECES ASK (Availability plan step 4, owner ruling 2, DECISION_LOG 2026-11-19 "AVAILABILITY STEPS 3 AND 4
- * APPROVED"; owner Q2 19 Nov): when the asked-for card is Rented by the piece, the COUPLE said how many when they
- * asked; the supplier's yes shows that number and may change it (`set_booked_quantity`, all or nothing).
+ * APPROVED"; owner Q2, 20 Nov: NO): when the asked-for card is Rented by the piece, the couple's ask carries no number —
+ * the SUPPLIER types how many they can give at the yes (`set_booked_quantity`, all or nothing).
  *
  * Null = the card is not by the piece (or the read failed) — Agree stands exactly as before. A failed read cannot
  * let a piece booking through without a number: `vendorAgreeToLock` refuses it (`pieces_needed`) server-side.
@@ -14,7 +14,7 @@ export type PiecesAsk = {
   /** The card's "How many do you have"; NULL = the card has no number yet — the field still shows (review 2026-11-20:
    *  the notice says "type how many", so the field must be there), only without a "You have N" line or a maximum. */
   have: number | null;
-  /** The couple's own number from their ask (NULL = not said). */
+  /** A number already on the booking (NULL = none yet — the usual case, since a couple's ask carries none). */
   asked: number | null;
 };
 

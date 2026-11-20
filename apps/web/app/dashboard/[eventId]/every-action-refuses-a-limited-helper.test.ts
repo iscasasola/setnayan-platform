@@ -56,7 +56,6 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const NO_EVENT_WRITE: Record<string, string> = {
   'delete-actions.ts#getEventDeletionImpact': 'read: counts what a delete would remove',
   'actions.ts#previewPersonalizationConflicts': 'read: a preview, writes nothing',
-  'vendors/actions.ts#lockPiecesAsk': 'read: how many a by-the-piece card has, before the lock (Availability step 4)',
   'studio/patiktok/actions.ts#matchPatiktokFace': 'read: face lookup, returns a guest',
   'studio/mood-board/actions.ts#readMoodboardThemeDescription': 'read: parses text',
   'studio/mood-board/actions.ts#fetchThemeTemplates': 'read: template catalogue',

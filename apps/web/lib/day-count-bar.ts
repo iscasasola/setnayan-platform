@@ -73,9 +73,18 @@ export function countBarOf(input: {
   };
 }
 
-/** "chairs" when the bar has its noun, else "piece"/"pieces" by count. The noun is the schedule's own word, kept as
- *  typed — never singularised by a guess ("1 chairs free" is the honest cost of not inventing a word). */
-const pieceWord = (b: { noun?: string }, count: number) => b.noun ?? (count === 1 ? 'piece' : 'pieces');
+/** One of the schedule's word: "chairs" → "chair", "tables" → "table", "boxes" → "box", "parties" → "party". A word
+ *  that does not end in a plain plural is kept as typed ("1 equipment free"), never guessed at (review 2026-11-20). */
+export function singularOf(noun: string): string {
+  if (/[^aeiou]ies$/.test(noun)) return noun.slice(0, -3) + 'y';
+  if (/(ss|sh|ch|x|z)es$/.test(noun)) return noun.slice(0, -2);
+  if (/[^s]s$/.test(noun)) return noun.slice(0, -1);
+  return noun;
+}
+
+/** "chairs" when the bar has its noun ("chair" for one), else "piece"/"pieces" by count. */
+const pieceWord = (b: { noun?: string }, count: number) =>
+  b.noun ? (count === 1 ? singularOf(b.noun) : b.noun) : count === 1 ? 'piece' : 'pieces';
 
 /** The taken share of the fill bar, 0..100, for a bar above ten. */
 export function countBarFillPct(bar: { taken: number; total: number }): number {

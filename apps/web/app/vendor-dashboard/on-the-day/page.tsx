@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
@@ -175,9 +176,7 @@ export default async function VendorOnTheDayPage({
    */
   const embedHub = sp.__embed === 'hub' && configureId != null;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=/vendor-dashboard/on-the-day');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   // Straight to the documents fold — `/vendor-dashboard/verify` is only a forwarding stub to it (no stub bounce).

@@ -54,7 +54,6 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  * one formatter. Either half alone would be a half-guard.
  */
 const RENDER: Record<string, (n: number) => string> = {
-  'Service reach': (n) => (!Number.isFinite(n) ? 'Nationwide' : n === 0 ? '—' : `${n} km`),
   'Parent categories': (n) => (!Number.isFinite(n) ? 'All' : n === 0 ? '—' : `${n}`),
   'Service cards': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
   'Team seats': (n) => (!Number.isFinite(n) ? 'Unlimited' : n === 0 ? '—' : `${n}`),
@@ -64,7 +63,6 @@ const RENDER: Record<string, (n: number) => string> = {
 };
 
 const FIELD: Record<string, keyof (typeof TIER_CAPS)['pro']> = {
-  'Service reach': 'serviceRadiusKm',
   'Parent categories': 'parentCategories',
   'Service cards': 'serviceCardsTotal',
   'Team seats': 'agentAccounts',
@@ -138,11 +136,12 @@ test('the approved page routes EVERY cap it shows through a formatter', () => {
   assert.deepEqual(leaks, [], `The page would print a JavaScript value:\n  ${leaks.join('\n  ')}`);
 
   // The rendered check covers today's caps; this covers tomorrow's. A cap may only reach a string through
-  // reach() / countNoun() / formatCount(), each of which turns Infinity into words or a dash.
+  // countNoun() / formatCount(), each of which turns Infinity into words or a dash. (`reach()` went with the reach
+  // ladder, 2026-11-19 — reach is not a plan allowance, so no radius reaches this page as a number.)
   const src = readFileSync(resolve(HERE, 'supplier-front-data.ts'), 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\/\/.*$/gm, '');
   const raw = src.match(/\$\{\s*(?:c|caps|TIER_CAPS(?:\[[^\]]+\])?)\.\w+\s*\}/g) ?? [];
   assert.deepEqual(raw, [], 'supplier-front-data.ts interpolates a cap directly — that is how "Infinity" reached the page');
-  assert.match(src, /function reach\(km: number[^)]*\)[^{]*\{[^}]*Number\.isFinite\(km\)/, 'reach() no longer handles an infinite radius');
+  assert.doesNotMatch(src, /serviceRadiusKm/, 'supplier-front-data.ts prints a reach per plan again');
 });

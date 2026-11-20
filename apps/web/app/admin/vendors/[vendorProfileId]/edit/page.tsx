@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
@@ -51,9 +52,7 @@ export default async function AdminEditUnclaimedVendorPage({
 
   // Admin-only gate — block the route entirely for non-admins.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

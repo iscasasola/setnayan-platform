@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnNotifications } from '@/lib/notifications';
@@ -17,9 +18,7 @@ export const metadata = { title: 'Notifications · Supplier' };
  */
 export default async function VendorNotificationsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // 📍 Each row's PLACE: one batch for the rows' events, and the account menu's facts the layout already read.

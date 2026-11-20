@@ -8764,7 +8764,14 @@ export function SeatingEditor({
                 return (
                   /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): the one next thing on an empty floor — on the warm surface,
                      its three steps the only framed (pressable) rows on the screen. */
-                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm">
+                  /* 👆 THE STEPS TAKE A TAP (owner 2026-11-20, live: "Build my seating draft" did nothing on tap). This card
+                     sits INSIDE the floor, whose `onCanvasPointerDown` captures every press for its pan — and a captured
+                     pointer's `click` lands on the floor, never on the step. The card keeps its presses to itself. */
+                  <div
+                    data-floor-steps=""
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm"
+                  >
                     <div aria-hidden className="mx-auto mb-3 flex h-16 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-ink/[0.02]">
                       <span className="h-8 w-8 rounded-full border border-dashed border-ink/25" />
                     </div>

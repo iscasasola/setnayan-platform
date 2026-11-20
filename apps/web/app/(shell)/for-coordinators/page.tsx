@@ -93,7 +93,6 @@ import {
   planName,
   planPill,
   reachLadderSentence,
-  reachWords,
   verifiedSpec,
   type FoldGroup,
 } from './_facts';
@@ -622,9 +621,8 @@ export default async function ForCoordinatorsPage() {
                   {on.dayOfFree ? ' Your day-of desks are free too, with no end date.' : null}
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
-                  {reachWords(TIER_CAPS.verified.serviceRadiusKm)} around you. Paid plans add reach, categories, team seats
-                  and branches. See Plans below.
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search, and you set how
+                  far you go. Paid plans add categories, team seats and branches. See Plans below.
                 </p>
               </InfoToggle>
             </div>
@@ -1071,7 +1069,7 @@ export default async function ForCoordinatorsPage() {
             <div className="fc-beat-head">
               <h2>{"Free to join. Verified free. Grow when you're ready."}</h2>
               <p className="fc-lede">
-                Every tool to run your bookings is free. Paid plans add reach, a bigger team and more branches. Prices are per
+                Every tool to run your bookings is free. Paid plans add a bigger team and more branches. Prices are per
                 4 weeks.
               </p>
             </div>

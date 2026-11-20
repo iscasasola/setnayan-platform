@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
@@ -41,9 +42,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
   const { token } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     // Not authenticated — send them back through the public claim page
     // so the right sign-in/sign-up CTA appears.

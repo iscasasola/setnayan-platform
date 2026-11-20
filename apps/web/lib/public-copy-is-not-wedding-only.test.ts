@@ -353,7 +353,9 @@ const layoutSource = stripComments(readFileSync(LAYOUT, 'utf8'));
 
 /** The literal assigned to `const NAME = '…'` in the stripped layout. */
 function layoutConst(name: string): string {
-  const hit = new RegExp(`const ${name} =\\s*'([^']+)'`).exec(layoutSource)?.[1];
+  // Either quote: the 20 Nov description holds an apostrophe ("guests' phones"), so it is double-quoted.
+  const m = new RegExp(`const ${name} =\\s*(?:'([^']+)'|"([^"]+)")`).exec(layoutSource);
+  const hit = m?.[1] ?? m?.[2];
   assert.ok(hit, `${name} is gone from app/layout.tsx — find where the default title moved before changing this guard`);
   return hit!;
 }
@@ -366,9 +368,12 @@ function baseMetadataBlock(): string {
   return layoutSource.slice(start, end);
 }
 
-test('the site-wide default title is the owner\'s tagline, not a wedding-only line', () => {
+// ⚖ 2026-11-20 (owner, "Yes, brand lines"; specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md §12): the default title is
+// the north-star brand line. It replaced "Plan, share and relive every event" (22 Oct, "TAGLINE SAYS EVENT"), which
+// the email footer still carries.
+test('the site-wide default title is the owner\'s brand line, not a wedding-only line', () => {
   const title = layoutConst('SITE_TITLE');
-  assert.equal(title, 'Setnayan · Plan, share and relive every event');
+  assert.equal(title, 'Setnayan · The home of every Filipino celebration');
   assert.ok(!/\bwedding/i.test(title), `the default title sells weddings only: ${JSON.stringify(title)}`);
 });
 
@@ -383,14 +388,24 @@ test('title.default, openGraph and twitter all read the ONE title and descriptio
   assert.equal(literal, null, `a wedding-only title/description literal is back in baseMetadata: ${JSON.stringify(literal?.[3])}`);
 });
 
-test('the default description names the services, not one event type, and says "supplier"', () => {
+// ⚖ 2026-11-20 (owner, via the direction-plan session; specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md §12): the
+// default description is the ruled line, PINNED WORD FOR WORD. It used to have to name suppliers and six services
+// (Event Hub, Papic, Live Watch, Patiktok, Music Maker, Setnayan AI); the ruled line names none of them, so that
+// requirement became this exact pin — any drifted word now fails here.
+// "Hosts pay 0% commission": the zero is said to hosts only, never a bare "0% commission" a supplier could read as
+// theirs (suppliers pay the booking fee on clients Setnayan brings).
+test('the default description is the ruled line, word for word', () => {
   const desc = layoutConst('SITE_DESCRIPTION');
+  assert.equal(
+    desc,
+    "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life. Hosts pay 0% commission.",
+  );
   assert.ok(!/\bwedding/i.test(desc), `the default description narrows the product to weddings: ${JSON.stringify(desc)}`);
   assert.ok(!/\bvendors?\b/i.test(desc), 'the default description says "vendor" — the customer-facing word is "supplier"');
-  assert.ok(/\bsuppliers?\b/i.test(desc), 'the default description no longer mentions suppliers');
+  assert.ok(desc.length <= 155, `the default description is ${desc.length} characters — a search snippet cuts at about 155`);
   // Patiktok and Music Maker left 2026-11-20 (retired — lib/retired-products-stay-retired.test.ts holds them OUT).
-  for (const service of ['Event Hub', 'Papic', 'Live Watch', 'Setnayan AI']) {
-    assert.ok(desc.includes(service), `the default description no longer names ${service}`);
+  for (const retired of ['Patiktok', 'Music Maker']) {
+    assert.ok(!desc.includes(retired), `the default description names the retired ${retired}`);
   }
 });
 

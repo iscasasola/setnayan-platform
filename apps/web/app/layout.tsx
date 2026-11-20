@@ -350,12 +350,16 @@ const vidaloka = localFont({
 // says the same thing instead of "Filipino wedding planning + verified
 // suppliers" — which sold one event type as the whole product. One constant,
 // used by `title.default`, `openGraph` and `twitter`, so the three cannot drift.
-// ⚠ The description names the services, is event-type neutral, and says
-// "supplier", never "vendor". Guarded by lib/public-copy-is-not-wedding-only.test.ts.
 // ⚠ Pages with their own title (the homepage's HOME_TITLE) are unaffected.
-const SITE_TITLE = 'Setnayan · Plan, share and relive every event';
+// 🏷 2026-11-20 — BOTH ARE BRAND LINES NOW (owner, "Yes, brand lines"; specs
+// SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md §12): the title says "celebration" (allowed by
+// NAME in lib/the-app-says-event-in-plain-words.test.ts) and the description is the
+// ruled line, word for word — "Hosts pay 0% commission", never a bare "0% commission"
+// a supplier could read as theirs. Both are pinned exactly by
+// lib/public-copy-is-not-wedding-only.test.ts.
+const SITE_TITLE = 'Setnayan · The home of every Filipino celebration';
 const SITE_DESCRIPTION =
-  'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch and Setnayan AI.';
+  "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life. Hosts pay 0% commission.";
 
 // Static metadata baseline. `icons` is intentionally NOT here — it's resolved
 // per-request in generateMetadata() below so the admin-controlled brand icon
@@ -519,8 +523,13 @@ const organizationJsonLd = {
   // SoftwareApplication node on the same homepage described two different
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
+  // 📄 REWRITTEN 2026-11-20 from the one source (specs SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md
+  // §1 + §2, owner: "Yes, send it"): the meaning is "let's get that set", never the
+  // retired "that's all set"; the retired Logo & QR part is gone. 🏷 It is a BRAND LINE
+  // and says "celebration" (owner 20 Nov, "Yes, brand lines") — allowed by NAME
+  // (`organizationJsonLd.description`) in lib/the-app-says-event-in-plain-words.test.ts.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is the home of every Filipino celebration: where you plan it, where your guests live it, and where you keep it for life. Plan it: a host plans any event free, with no guest limit: guest list, replies, seat plan in 2D and 3D, budget in pesos, schedule, mood board, and verified Filipino suppliers booked in writing at 0% commission. Live it: every guest opens their own page from a link or QR, with no app and no account; on the day their phones become the camera crew (Papic), the door scans their pass, and relatives abroad watch on the same page (Live Watch). Keep it: every photo lands in one album that finds the people in it, the page becomes the story of the day, and each family's events stay together on one Memories page, year after year. For weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more, across the Philippines.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {

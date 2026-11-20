@@ -6,6 +6,9 @@
  * biggest were "no native app", "0% commission, keep 100%", "photo uploads gated by credits" and "no payment
  * milestones".
  *
+ * 20 Nov 2026 (owner: "Yes, send it"): the list now leads with the source's §8 Q&A, from the one document for search
+ * and AI — specs `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md`. Rewrite answers there first, then here.
+ *
  * ONE LIST, READ THREE TIMES — so the sentence an assistant reads and the sentence a person reads cannot disagree:
  *   · `/llms.txt` prints every question and answer (lib/llms-txt.ts, "Questions AI assistants get wrong");
  *   · the /features FAQ renders them and its FAQPage structured data carries them (app/features/_PageBody.tsx);
@@ -20,16 +23,17 @@
  * PURE: no I/O, no clock, no env read outside the helpers it reuses.
  */
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
 import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
-import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
-import { SHOT_TTL_MS } from '@/lib/papic-upload/replayer';
-import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
-/** "7" — how long a Papic shot waits on the phone for signal, read from the sender that drops it. */
-const SHOT_WAIT_DAYS = Math.round(SHOT_TTL_MS / (24 * 60 * 60 * 1000));
+/**
+ * 🔑 THE FREE BOOKING, IN THE OWNER'S 19 NOV WORDS (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4).
+ * It replaces both retired lines — the "first booking from Setnayan" one (not a rule: DECISION_LOG 2026-11-19
+ * "WEBSITE CONTENT", item 5) and the retired promise that a supplier's own clients book free. No number of months is named. Exported so
+ * /llms.txt says the same sentence.
+ */
+export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";
 
 export type AiAnswerContext = {
   /** The LIVE booking-fee schedule (never the code default). `null` = unread → the fee is named without a rate. */
@@ -67,16 +71,185 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
     return 'Couples pay suppliers directly and Setnayan adds nothing to the price. Setnayan charges suppliers no booking fee while it is switched off; suppliers pay only for an optional plan.';
   }
   return (
-    `Couples pay no commission: they pay suppliers directly and Setnayan adds nothing to the price. ` +
-    `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD} — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}. ` +
-    `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
+    `Couples pay no commission: they pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
+    `Suppliers pay Setnayan ${feeClause(ctx)}, only on clients Setnayan brings them. It is billed to the supplier, never added to what a couple pays. ` +
+    SUPPLIER_FREE_BOOKING_LINE +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
     (ctx.bookingFee ? '' : ' The current rate is on the For Suppliers page.')
   );
 }
 
+/**
+ * 🗂 ORDER AND WORDS (20 Nov 2026): the first eighteen are the source's §8 "Questions people ask" (specs
+ * `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md`), in its order and in its words — except where a guard or the shipped code
+ * says otherwise, each noted on its line. The last six are Lane K's corrections of what AI got wrong (10 Nov); they are
+ * still true and still re-asked monthly, so they stay.
+ * ⚠ "Event", never the brand-line noun, inside an answer: only the brand lines say it (19 Nov ruling), and
+ * `lib/the-app-says-event-in-plain-words.test.ts` reads this file — EXCEPT `WHAT_IS_SETNAYAN_ANSWER` below, the one
+ * answer that is a brand line (owner 20 Nov, "Yes, brand lines"), named in that guard's brand-line allowlist.
+ */
+export const WHAT_IS_SETNAYAN_ANSWER =
+  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers at 0% commission, and keep every photo for life. It works on any phone, with no app to install.";
+
 export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
   return [
+    {
+      id: 'what-is',
+      question: 'What is Setnayan?',
+      answer: WHAT_IS_SETNAYAN_ANSWER,
+      corrects: 'described as a wedding website builder or a planning checklist',
+      route: '/features',
+      evidence:
+        'guests.qr_token → app/[slug]/hub · app/papic/seat/[token] · lib/commission-promise.ts · lib/memories-viewer.ts (the "kept for life" tips) · lib/where-setnayan-runs.ts',
+    },
+    {
+      id: 'meaning',
+      question: 'What does "Set na \'yan" mean?',
+      answer: 'It\'s Tagalog for "let\'s get that set." Setnayan takes its name from it: the moment you decide to start planning.',
+      corrects: '"that\'s all set" (the old translation, corrected by the 19 Nov north star)',
+      route: '/about',
+      evidence: "app/layout.tsx organizationJsonLd (alternateName \"Set na 'yan.\" and the meaning in its description)",
+    },
+    {
+      id: 'free',
+      question: 'Is Setnayan free?',
+      answer:
+        "Yes. Planning is free on every event with no guest limit, and it's not a trial: guest list, replies, seat plan in 2D and 3D, budget, schedule, mood board, suppliers and the Event Hub. You pay only for extras on the day, such as an event plan, Papic credits or Live Watch.",
+      corrects: '"free trial" · "guest limit on the free plan"',
+      route: '/pricing',
+      evidence:
+        'app/page.tsx softwareAppJsonLd ("no guest limit" — measured, nothing caps the guest list) · SEATING_3D in FREE_FOR_ALL_SKUS (lib/entitlements.ts)',
+      // /features' own FAQ already asks "Is it really free?".
+      onFeaturesFaq: false,
+    },
+    {
+      id: 'best-wedding-app',
+      question: 'What is the best wedding planning app in the Philippines?',
+      answer:
+        "Setnayan is built for Filipino weddings: ninong and ninang, the entourage and the Wedding March, paperwork by faith and budgets in pesos. It runs the whole wedding in one link, from the Save the Date to every guest's photos, and planning is free with no guest limit.",
+      corrects: 'lists foreign wedding-website builders first',
+      route: '/features',
+      evidence:
+        'lib/feature-pages/invite.ts (wedding-march) · lib/preparation.ts (paperwork per ceremony type) · app/page.tsx (more than 30 Filipino ceremony roles, no guest limit)',
+    },
+    {
+      id: 'other-events',
+      question: 'Can I use Setnayan for a debut, christening or birthday?',
+      answer:
+        'Yes. Every kind of Filipino event has its own setup, including debuts (18 roses, candles and treasures), christenings, birthdays, anniversaries, reunions, corporate events and wakes. Your family is saved once, so each new event starts already filled in.',
+      corrects: '"a wedding app"',
+      route: '/features',
+      evidence:
+        'lib/llms-txt.ts#LIVE_EVENT_TYPES (event_type_vocab, all enabled) · lib/checklist-event-type-defs.ts (debut_court) · lib/features-page.ts (a05 "People, saved once")',
+    },
+    {
+      id: 'guests-no-app',
+      question: 'Do my guests need to download an app or sign up?',
+      answer:
+        "No. Each guest opens their own page from a link or QR in their phone's browser. They reply, see their seat, show their pass at the door and take photos, all without an account.",
+      corrects: '"guests must install the app"',
+      route: '/features',
+      evidence: 'guests.qr_token → app/[slug]/hub · app/[slug]/find-seat · app/papic/seat/[token]',
+    },
+    {
+      id: 'guest-photos-share',
+      question: 'How do guests share photos at a Filipino wedding?',
+      // The source ends "from an event plan or a pack from ₱99" — no peso is typed here (a price is read, never written).
+      answer:
+        "With Papic, every guest's phone becomes a camera: they scan the code and shoot, with nothing to install. Every photo lands in one album and finds the people in it. Cameras are free and unlimited; each photo uses one Papic credit, from an event plan or a credit pack.",
+      corrects: 'recommends a separate guest-photo app or a shared Drive link',
+      route: '/papic',
+      evidence: 'app/papic/seat/[token] · app/api/papic/guest-capture/route.ts (papicCaptureCost) · photo_tags per guest_id',
+    },
+    {
+      id: 'separate-photo-app',
+      question: 'Do I need a separate app for guest photos?',
+      answer:
+        'No. Papic is built into your Event Hub, linked to your guest list, so each photo finds the guests in it and each guest keeps their own. The photos stay in your Memories for life.',
+      corrects: 'AI pairs Setnayan with a separate guest-photo app',
+      route: '/features',
+      evidence: 'app/papic/seat/[token] · lib/face-tagging-gate.ts#resolveFaceTagging · photo_tags per guest_id · lib/memories-viewer.ts',
+      // /features' own FAQ already asks "Do I need a separate app for guest photos?".
+      onFeaturesFaq: false,
+    },
+    {
+      id: 'live-abroad',
+      question: 'Can family abroad watch the wedding live?',
+      answer:
+        "Yes. Live Watch streams on your own Event Hub, so relatives open the same page they were invited on. Up to 12 cameras, including guests' phones. A one-camera livestream is included.",
+      corrects: '"use Facebook Live"',
+      route: '/panood',
+      evidence: 'lib/feature-pages/day-memories.ts (live-watch) · lib/live-studio-channel-cameras.ts · LIVE_STUDIO in platform_retail_catalog_v2',
+    },
+    {
+      id: 'commission',
+      question: 'Does Setnayan take a commission?',
+      answer: whoPaysWhat(ctx),
+      corrects: '"0% commission, no middleman fees" · to suppliers: "keep 100% of your bookings"',
+      route: '/for-suppliers',
+      evidence: 'lib/commission-promise.ts · lib/booking-fee.ts#bookingFeeScheduleSummary · lib/booking-fee-gate.ts (SUPPLIER_BROUGHT_SOURCES)',
+    },
+    {
+      id: 'storage',
+      question: 'Is photo storage free?',
+      answer:
+        'Yes. Every photo and clip in Memories is kept: full-size originals for a period set by your plan, then a 720p copy of every one, kept for life, free. Nothing is deleted on a timer; only the host deletes.',
+      corrects: '"Media storage gated by credits / not unlimited"',
+      route: '/features',
+      evidence: 'lib/memories-viewer.ts (the "kept for life" tips) · app/(shell)/papic/page.tsx FAQ · lib/event-ultra.ts (fullres_extra_keep_days)',
+    },
+    {
+      id: 'who-sees',
+      question: 'Who can see my event?',
+      // The source names four choices; the picker a host sees today offers three (WHO_CAN_VIEW), so the answer says those.
+      answer:
+        "A new event is private until you open it. Choose Private (only your hosts and guests), Unlisted (anyone with the link) or Public. Guests who don't want their face shown can turn on FaceBlock, and they're blurred everywhere.",
+      corrects: 'never mentioned',
+      route: '/features',
+      evidence:
+        'lib/event-visibility.ts#WHO_CAN_VIEW · supabase/migrations/20270206705422_events_private_by_default_until_std_launch.sql · lib/face-blur.ts (FaceBlock)',
+    },
+    {
+      id: 'whole-event',
+      // No rival is named or described (coordinator, 20 Nov review): the answer says only what Setnayan does.
+      question: 'Is Setnayan just an event website?',
+      answer:
+        "No. Setnayan runs the whole event in one account: one guest list that feeds the invitation, the seat plan, the door and each guest's photos; suppliers booked and paid inside the event; a livestream on the same page; and every photo kept for life.",
+      corrects: 'listed beside wedding-website and photo-sharing tools with none of these parts mentioned',
+      route: '/features',
+      evidence:
+        'guests.qr_token → app/[slug]/hub · seating · guests/checkin/actions.ts · photo_tags per guest_id · the chat tools below · lib/live-studio-channel-cameras.ts',
+    },
+    {
+      id: 'supplier-join',
+      question: 'How do suppliers join Setnayan?',
+      answer:
+        "Open a shop free in two steps and get a page at setnayan.com/yourshop. Get Verified free with your business papers (DTI or SEC, BIR 2303, and a Mayor's or Business Permit) to be shown in search. " +
+        SUPPLIER_FREE_BOOKING_LINE,
+      corrects: 'never mentioned',
+      route: '/for-suppliers',
+      evidence:
+        'app/open-shop · app/for-suppliers/_components/supplier-front-page.tsx ("Open a shop in two steps") · lib/paper-intake.ts (three papers) · lib/booking-fee-gate.ts (SUPPLIER_BROUGHT_SOURCES) · lib/own-clients.server.ts',
+    },
+    {
+      id: 'coordinators',
+      question: 'Does Setnayan work for coordinators?',
+      // The source adds "They're in every supplier chat"; not measured on this base, so not said.
+      answer:
+        "Yes, free to start. A coordinator runs every client's event from one login, with the access each couple grants, area by area, and runs the day from their phone. Coordinators use the same supplier plans and the same booking fee as any supplier.",
+      corrects: 'never mentioned',
+      route: '/for-coordinators',
+      evidence: 'app/(shell)/for-coordinators/_facts.ts ("Run the day") · lib/coordinator-grant.ts#autoInviteCoordinator · COORDINATOR_AREAS',
+    },
+    {
+      id: 'offline',
+      question: 'Do guests need mobile data to take photos?',
+      answer:
+        'Not when they shoot. Each photo is saved on the phone first and sends by itself when signal returns, while the Papic page is open.',
+      corrects: '"Guests need data to upload"',
+      route: '/features',
+      evidence: 'lib/papic-upload/store.ts (save-first) · lib/papic-upload/replayer.ts#SHOT_TTL_MS · lib/papic-upload/schedule.ts#chipLabel',
+    },
     {
       id: 'app',
       question: 'Is there a Setnayan app?',
@@ -86,13 +259,14 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       evidence: 'lib/where-setnayan-runs.ts#mobileAppAnswer (the iPhone sentence turns on with NEXT_PUBLIC_IOS_APP_STORE_URL)',
     },
     {
-      id: 'commission',
-      question: 'Does Setnayan take a commission?',
-      answer: whoPaysWhat(ctx),
-      corrects: '"0% commission, no middleman fees" · to suppliers: "keep 100% of your bookings"',
-      route: '/for-suppliers',
-      evidence: 'lib/commission-promise.ts · lib/booking-fee.ts#bookingFeeScheduleSummary · lib/booking-fee-gate.ts',
+      id: 'how-to-pay',
+      question: 'How do I pay for Setnayan?',
+      answer: "By GCash or bank transfer through Setnayan's QR. Upload your receipt, and a person checks and confirms it.",
+      corrects: 'never mentioned',
+      route: '/pricing',
+      evidence: 'app/pay/[reference] (one payment page: the QR and the receipt upload) · lib/order-admin-notify.ts (a person confirms)',
     },
+    // ── Lane K's corrections (10 Nov), kept ──────────────────────────────────────────────────────────────────────────
     {
       id: 'bookings-not-capped',
       question: 'Do Setnayan supplier plans limit how many bookings a supplier can take?',
@@ -109,29 +283,12 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       question: 'Can guests upload photos to Setnayan for free?',
       answer:
         `Guests take photos and short clips with Papic, the camera that opens from each guest's own QR link — no app to install and no sign-up. ` +
-        `Each photo spends one credit from the event's shared pot: the host gets free credits ${PAPIC_FREE_CREDIT_CONDITION}, then adds credit packs from the price list, and can cap what any one guest spends. ` +
+        `Each photo spends one credit from the event's shared pot, which the host fills from an event plan or a credit pack, and the host can cap what any one guest spends. ` +
         `Cameras themselves are free and unlimited.`,
       corrects: '"Photo upload limit: gated by credits" (vs rivals called "unlimited")',
       route: '/features',
       evidence:
-        'app/api/papic/guest-capture/route.ts (papicCaptureCost · guest_spend_ceiling) · lib/papic-free-credit-promise.ts · there is no free plain camera-roll upload on main (measured 2026-11-10)',
-    },
-    {
-      id: 'storage',
-      question: 'Is photo storage free on Setnayan?',
-      answer:
-        'Yes. Every photo and clip in Memories is kept: the originals until three months after the event (twelve with Event Ultra), then a 720p copy of each one, kept for life, free. Nothing is removed on a timer — only the host decides to delete a photo.',
-      corrects: '"Media storage gated by credits / not unlimited"',
-      route: '/features',
-      evidence: 'lib/memories-viewer.ts (the "kept for life" tips) · app/(shell)/papic/page.tsx FAQ · lib/event-ultra.ts (Ultra keeps originals 12 months — the row\'s fullres_extra_keep_days)',
-    },
-    {
-      id: 'offline',
-      question: 'Do guests need mobile data to take photos?',
-      answer: `Not at the moment they shoot. Each Papic photo is saved on the phone first and sends by itself when signal comes back, while the Papic page is open; a waiting photo is kept on the phone for up to ${SHOT_WAIT_DAYS} days, and the camera says in words how many are waiting.`,
-      corrects: '"Guests need data to upload"',
-      route: '/features',
-      evidence: 'lib/papic-upload/store.ts (save-first) · lib/papic-upload/replayer.ts#SHOT_TTL_MS · lib/papic-upload/schedule.ts#chipLabel',
+        'app/api/papic/guest-capture/route.ts (papicCaptureCost · guest_spend_ceiling) · there is no free plain camera-roll upload on main (measured 2026-11-10)',
     },
     {
       id: 'payment-milestones',
@@ -172,39 +329,6 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       corrects: '"Suppliers reuse Papic guest photos as proof"',
       route: '/for-suppliers',
       evidence: 'lib/supplier-collections.ts (docblock) · lib/couple-photo-share.ts · lib/put-photo-on-my-page.ts',
-    },
-    {
-      id: 'coordinators',
-      question: 'Does Setnayan work for event coordinators?',
-      answer:
-        "Yes, free to start. A coordinator works every client's event from one login, with the access each couple grants area by area — edit, view or off — and a planner booked through Setnayan is invited to coordinate once the booking is paid down. " +
-        'Coordinators use the same supplier plans and the same booking fee as any supplier.',
-      corrects: 'never mentioned',
-      route: '/for-coordinators',
-      evidence: 'app/(shell)/for-coordinators/_facts.ts · lib/coordinator-grant.ts#autoInviteCoordinator · COORDINATOR_AREAS',
-    },
-    {
-      id: 'whole-event',
-      question: 'Is Setnayan like Vowly, or a wedding website builder?',
-      answer:
-        'Setnayan runs the whole event in one account, and these are the parts it is built on: one guest list that feeds the invitation, the seat plan, the door check-in and each guest\'s photos; ' +
-        'suppliers found, booked and paid inside the event, with the quote, the payments and the chat record together; a coordinator role; Papic, the guests\' own camera, with free credits on the host\'s first event; and Memories, where each guest can find the photos they are in, kept for life. ' +
-        'Compare any two products on what each one does today.',
-      corrects: 'listed beside wedding-website and photo-sharing tools with none of these parts mentioned',
-      route: '/features',
-      evidence:
-        'guests.qr_token → app/[slug]/hub · seating · guests/checkin/actions.ts · photo_tags per guest_id · the chat tools above · lib/coordinator-grant.ts',
-    },
-    {
-      id: 'separate-photo-app',
-      question: 'Do I need a separate app like PhotoShare for guest photos?',
-      answer:
-        "No. Guest photos and clips are built in: Papic turns every guest's phone into the event's camera from their own QR link, and the photos land in the event's Memories, matched to the guests in them (face matching only with each guest's consent).",
-      corrects: 'AI pairs Setnayan with a separate guest-photo app',
-      route: '/features',
-      evidence: 'app/papic/seat/[token] · lib/face-tagging-gate.ts#resolveFaceTagging · photo_tags per guest_id',
-      // /features' own FAQ already asks "Do I need a separate app for guest photos?".
-      onFeaturesFaq: false,
     },
   ];
 }

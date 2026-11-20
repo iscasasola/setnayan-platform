@@ -10,6 +10,7 @@ import {
   splitTodayNeeds,
   todayOneList,
   todayHeldOff,
+  thisWeekLine,
   type TodayEventDay,
   todayProgress,
   trendingLines,
@@ -155,6 +156,7 @@ export function buildTodayV2(i: TodayV2Input): {
           split={split}
           list={list}
           tomorrowMore={later}
+          thisWeek={thisWeekLine(i.events ?? [], r?.cutoffs.soonEventDays ?? null)}
           billCopy={i.view.billCopy}
           lockLine={i.view.lockLine}
           answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts, wrapUps: i.wrapUps ?? {} }}

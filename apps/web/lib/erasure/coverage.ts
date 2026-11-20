@@ -1026,7 +1026,7 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   {
     table: 'admin_focus_put_offs',
     column: 'user_id',
-    why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271354133662). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
+    why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
   },
   {
     table: 'event_today_put_offs',

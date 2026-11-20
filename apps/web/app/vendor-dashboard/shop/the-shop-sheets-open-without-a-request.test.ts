@@ -33,7 +33,9 @@ test('1 · a cover sheet opens and closes without asking the server', () => {
   assert.doesNotMatch(COVER, /\brouter\.(replace|push|refresh)\s*\(|\buseRouter\b/, 'a cover sheet re-runs the whole Shop page again');
   assert.match(COVER, /window\.history\.replaceState\(null, '',/, 'the cover no longer writes its address in place');
   for (const id of ['promote', 'qr', 'logo', 'cover'] as const) {
-    assert.match(COVER, new RegExp(`onClick=\\{\\(\\) => openSheet\\('${id}'\\)\\}`), `the ${id} tap no longer opens its sheet locally`);
+    // 🔁 RE-AIMED 2026-11-19 (owner: "cover photo should not be an icon but the actual cover photo tap that"): the Cover
+    // door is gone — a tap on the photo opens the picker. Its screen stays for the addresses that name it (`?view=cover`).
+    if (id !== 'cover') assert.match(COVER, new RegExp(`onClick=\\{\\(\\) => openSheet\\('${id}'\\)\\}`), `the ${id} tap no longer opens its sheet locally`);
     assert.match(COVER, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\} onClose=\\{\\(\\) => closeSheet\\('${id}'\\)\\}`), `the ${id} sheet is not driven by the local state`);
   }
   assert.match(COVER, /const openSheet = \(id: CoverSheet\) => \{\s*setSheet\(id\);\s*replaceAddressParam\(/, 'opening does not set the state first');

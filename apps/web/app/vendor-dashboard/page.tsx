@@ -606,6 +606,7 @@ export default async function VendorOverviewPage({
     // couldn't load — may be missing … a payment" and drops the count.
     deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
+    bookingsComplete: data.bookingsComplete,
     schedules,
     firstSteps,
     verified: shopRow ? shopRow.verified : firstSteps == null,

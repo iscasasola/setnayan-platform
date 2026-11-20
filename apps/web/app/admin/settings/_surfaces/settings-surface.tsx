@@ -298,11 +298,11 @@ export async function SettingsSurface({ searchParams }: Props) {
             />
           </Field>
           <Field
-            label="“Soon” — booking ask, in hours"
+            label="“Soon” — inquiry or booking ask, in hours"
             htmlFor="today_soon_ask_hours"
             help={
               growLines.read
-                ? 'A supplier’s Today shows a booking ask in amber, with the word “Soon”, when its window closes within this many hours. Leave blank to keep that colour off.'
+                ? 'A supplier’s Today shows an inquiry unanswered for this many hours, or a booking ask whose window closes within them, in amber with the word “Soon”. Leave blank to keep that colour off.'
                 : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
             }
           >
@@ -324,7 +324,7 @@ export async function SettingsSurface({ searchParams }: Props) {
             htmlFor="today_soon_event_days"
             help={
               growLines.read
-                ? 'A booked event this many days away or fewer counts as “Soon” on a supplier’s Today. Leave blank to keep it off.'
+                ? 'Booked events beyond tomorrow and this many days away or fewer show on a supplier’s Today as one line, “This week: N events”, that opens the calendar. Leave blank to keep it off.'
                 : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
             }
           >

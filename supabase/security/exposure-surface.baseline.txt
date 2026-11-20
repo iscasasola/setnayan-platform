@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8034
+# facts: 8039
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     653
-#   col       5781
+#   col       5784
 #   policy    1180
 #   view      10
-#   func      406
+#   func      408
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2392,6 +2392,7 @@ col	public.event_vendor_working_notes.visibility	anon=SIU authenticated=SIU
 col	public.event_vendors.agreed_hours	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_at	anon=SIU authenticated=SIU
 col	public.event_vendors.archived_by_lock_of	anon=SIU authenticated=SIU
+col	public.event_vendors.booked_quantity	anon=SIU authenticated=SIU
 col	public.event_vendors.category	anon=SIU authenticated=SIU
 col	public.event_vendors.category_key	anon=SIU authenticated=SIU
 col	public.event_vendors.completion_disputed_at	anon=SIU authenticated=SIU
@@ -2455,6 +2456,7 @@ col	public.event_vendors.package_role	anon=SIU authenticated=SIU
 col	public.event_vendors.papic_captures_hidden	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_quote_base	anon=SIU authenticated=SIU
 col	public.event_vendors.pax_surcharge_php	anon=IU authenticated=IU
+col	public.event_vendors.prep_days	anon=IU authenticated=IU
 col	public.event_vendors.pricing_basis	anon=SIU authenticated=SIU
 col	public.event_vendors.public_id	anon=SIU authenticated=SIU
 col	public.event_vendors.requested_service_ids	anon=SIU authenticated=SIU
@@ -6233,6 +6235,7 @@ col	public.vendor_services.title	anon=S authenticated=SIU
 col	public.vendor_services.transport_flat_fee_php	anon=S authenticated=SIU
 col	public.vendor_services.transport_included	anon=S authenticated=SIU
 col	public.vendor_services.updated_at	anon=S authenticated=SIU
+col	public.vendor_services.usual_prep_days	anon=S authenticated=SIU
 col	public.vendor_services.vendor_profile_id	anon=S authenticated=SIU
 col	public.vendor_services.vendor_service_id	anon=S authenticated=SIU
 col	public.vendor_songs.created_at	anon=SIU authenticated=SIU
@@ -7939,6 +7942,7 @@ func	public.schedule_crew_names_ok(p_names text[])	secdef=no exec=anon,authentic
 func	public.service_card_couple_photos(p_vendor_service_ids uuid[])	secdef=yes exec=anon,authenticated search_path=public
 func	public.service_card_opens(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
+func	public.set_booked_quantity(p_event_vendor_id uuid, p_quantity integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_march_group(p_event_id uuid, p_guest_id uuid, p_group text)	secdef=no exec=authenticated search_path=public, pg_temp
@@ -8001,6 +8005,7 @@ func	public.vendor_claim_locked_qr(p_token text, p_event_id uuid)	secdef=yes exe
 func	public.vendor_couple_photo_shares()	secdef=yes exec=authenticated search_path=public
 func	public.vendor_customer_source_counts(p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.vendor_day_check(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.vendor_day_pool_taken(p_day date)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_deal_size(p_vendor_profile_id uuid, p_since timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
 func	public.vendor_decline_lock(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.vendor_decline_part(p_finalization_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public

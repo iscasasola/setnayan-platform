@@ -510,7 +510,7 @@ export async function fetchDriveSpeed(supabase: SupabaseClient): Promise<DriveSp
 // `read: false` = it could not be read, which is NOT "not set": the admin fields are then locked, as drive speed is.
 // ---------------------------------------------------------------------------
 
-// ⚙ Today v3 part 5 (migration 20271354346521): the same row also holds Today's three other owner numbers — the days of
+// ⚙ Today v3 part 5 (migration 20271355746081): the same row also holds Today's three other owner numbers — the days of
 // silence before a shared photo counts as accepted, and the two "Soon" windows. Same rule: NULL = not set = off.
 export type GrowLines =
   | { read: true; fewInquiries: number | null; fewBookings: number | null; silenceDays: number | null; soonAskHours: number | null; soonEventDays: number | null }

@@ -31,6 +31,7 @@ import {
   eventUrgency,
   eventRowWords,
   todayOneList,
+  thisWeekLine,
   todayHeldOff,
   orderByUrgency,
   taskUrgency,
@@ -360,4 +361,16 @@ test('T2 · v3 part 2: a bill, the permit and an event go to tomorrow too — a 
   };
   assert.deepEqual(todayOneList(args).map((e) => e.key), ['fee-late', 'r1'], 'an overdue bill was hidden, or a put-off one stayed');
   assert.deepEqual(todayHeldOff(args).map((e) => e.key), ['fee-soon', 'event-tmr']);
+});
+
+test('S2 · 20 Nov ruling: an unanswered inquiry turns amber after the owner’s hours; events this week are ONE line', () => {
+  const inq = (h: number) => ({ ...card('i', 'inquiry'), createdAt: new Date(NOW - h * 3_600_000).toISOString() }) as WhatsNewCard;
+  assert.deepEqual(taskUrgency(inq(25), NOW, 24), { level: 'amber', word: 'Soon' });
+  assert.equal(taskUrgency(inq(3), NOW, 24), null, 'a fresh inquiry was coloured');
+  assert.equal(taskUrgency(inq(300), NOW, null), null, 'a window nobody set coloured an inquiry');
+  const ev = (inDays: number) => ({ inDays });
+  assert.deepEqual(thisWeekLine([ev(0), ev(1), ev(2), ev(5), ev(7), ev(8)], 7), { count: 3, label: 'This week: 3 events' }, 'today/tomorrow (own rows) or beyond the window were counted');
+  assert.deepEqual(thisWeekLine([ev(3)], 7), { count: 1, label: 'This week: 1 event' });
+  assert.equal(thisWeekLine([ev(3)], null), null, 'a window nobody set drew a line');
+  assert.equal(thisWeekLine([ev(1)], 7), null);
 });

@@ -889,7 +889,7 @@ export async function buildPersonalDataExport(
       .select('poll_id, choice_id, thread_id, voted_at')
       .eq('voter_user_id', user.id)
       .order('voted_at', { ascending: true }),
-    // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271354133662).
+    // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271355036188).
     // Owner-scoped on user_id: which Focus item, until which day. Nobody else's record is in it.
     supabase
       .from('admin_focus_put_offs')

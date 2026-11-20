@@ -168,6 +168,33 @@ function readsOf(file: string): Read[] {
       if (callee === 'withSchemaRetry') expr = unwrap(arrow.parent);
     }
 
+    /* ⚡ Started ahead (`lib/start-ahead.ts`): `const x = cond ? startAhead(Promise.resolve(chain)) : null` — the read is
+       bound where `x` is awaited (`await x` / `await x!`), so the walker follows the name to that await. */
+    let ahead: ts.Node = expr;
+    if (ahead.parent && ts.isCallExpression(ahead.parent) && ahead.parent.expression.getText() === 'Promise.resolve') ahead = unwrap(ahead.parent);
+    if (ahead.parent && ts.isCallExpression(ahead.parent) && ts.isIdentifier(ahead.parent.expression) && ahead.parent.expression.text === 'startAhead') {
+      let holder: ts.Node = unwrap(ahead.parent);
+      while (holder.parent && ts.isConditionalExpression(holder.parent)) holder = unwrap(holder.parent);
+      if (holder.parent && ts.isVariableDeclaration(holder.parent) && ts.isIdentifier(holder.parent.name)) {
+        const name = holder.parent.name.text;
+        let awaitedAt: ts.BindingName | undefined;
+        const find = (n: ts.Node) => {
+          if (awaitedAt) return;
+          if (ts.isAwaitExpression(n)) {
+            let inner: ts.Expression = n.expression;
+            while (ts.isNonNullExpression(inner) || ts.isParenthesizedExpression(inner)) inner = inner.expression;
+            const decl = unwrap(n).parent;
+            if (ts.isIdentifier(inner) && inner.text === name && decl && ts.isVariableDeclaration(decl)) awaitedAt = decl.name;
+          }
+          ts.forEachChild(n, find);
+        };
+        find(sf);
+        const consulted = consultedError(awaitedAt);
+        out.push({ file, table, line, bound: consulted ?? boundData(awaitedAt), verdict: consulted ? 'consulted' : 'discarded' });
+        return;
+      }
+    }
+
     // One of a `Promise.all([…])`: the matching element of the array pattern.
     let pattern: ts.BindingName | undefined;
     const list = expr.parent;

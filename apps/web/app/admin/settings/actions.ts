@@ -148,32 +148,7 @@ export async function saveBusinessIdentity(formData: FormData) {
     return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
   }
 
-  // Vendor VALIDATE destinations (migration 20270503417266) — saved in a
-  // SEPARATE update so a pre-migration database (columns missing) fails only
-  // this pair with a specific message instead of bricking the whole
-  // business-identity save above.
-  const validateEmail =
-    nullIfBlank(formData.get('vendor_validate_email')) ??
-    'verify@setnayan.com';
-  const validatePhone = nullIfBlank(formData.get('vendor_validate_phone'));
-  const { error: validateErr } = await admin
-    .from('platform_settings')
-    .update({
-      vendor_validate_email: validateEmail,
-      vendor_validate_phone: validatePhone,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
-  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
-  if (validateErr) {
-    return redirect(
-      `/admin/settings?error=${encodeURIComponent(
-        `Business identity saved, but the VALIDATE contact fields couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (VALIDATE contacts)', validateErr)}`,
-      )}`,
-    );
-  }
-
-  // 🚗 Drive speed (migration 20271308471868, slice 5) — its own update for the same reason as the VALIDATE pair.
+  // 🚗 Drive speed (migration 20271308471868, slice 5) — its own update, so a pre-migration database fails only this field.
   // Absent from the form (the field is locked when the current value couldn't be read) = leave it as it is.
   if (formData.has('drive_speed_kmh')) {
     const speedRaw = formData.get('drive_speed_kmh');

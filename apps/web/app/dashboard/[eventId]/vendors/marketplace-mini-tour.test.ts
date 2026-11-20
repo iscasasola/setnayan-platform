@@ -46,9 +46,13 @@ test('the vendor dashboard mounts its welcome tour, gated on the batched profile
   // The gate reads tour_seen_keys from the layout's ONE batched users select —
   // dropping the column there makes the gate read undefined and the tour fire
   // on every page load forever, which is worse than no tour.
+  // (speed pass 2026-11-18) The layout's users row is the render's ONE read, `getUserRow` (lib/user-row.ts) — the
+  // column must be in ITS list, and the layout must still ask it.
+  assert.match(layout, /getUserRow\(user\.id\)/, 'the vendor layout no longer reads the users row through getUserRow');
+  const userRow = readFileSync(path.join(__dirname, '..', '..', '..', '..', 'lib', 'user-row.ts'), 'utf8');
   assert.ok(
-    /select\('[^']*tour_seen_keys[^']*'\)/.test(layout),
-    "the vendor layout's users select no longer fetches tour_seen_keys — the welcome-tour gate is reading undefined",
+    /USER_ROW_CARRIES =\s*'[^']*tour_seen_keys[^']*'/.test(userRow),
+    "the users row no longer fetches tour_seen_keys — the welcome-tour gate is reading undefined",
   );
 });
 

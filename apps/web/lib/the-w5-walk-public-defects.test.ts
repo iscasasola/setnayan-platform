@@ -30,7 +30,7 @@ test('B2 · the standalone public links and the header Sign in are a 44px BOX, n
   const reskin = read('app/_components/home/home-reskin.css');
   const cases: [string, string, string][] = [
     [door, '.fd-smallprint a', 'sidebar Company / Legal links (32)'],
-    [landing, '.fd .fl-more', '"See the Event Hub Maker" · "All features…" · "Open a shop — free" (23)'],
+    [landing, '.fd .fl-go', '"All N kinds →" · "See all →" beside a section head (the 20 Nov page; was .fl-more, 23)'],
     [landing, '.fd .fl-foot a', 'the front-page footer links (20)'],
     [reskin, '.home-reskin .hr-nav .hr-signin', 'header Sign in (36)'],
     [reskin, '.home-reskin .hr-foot-base a', 'footer DPO address (20)'],

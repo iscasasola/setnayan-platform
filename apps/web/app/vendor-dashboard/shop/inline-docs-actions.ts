@@ -45,11 +45,13 @@ import { DOC_SLOT_KEYS, buildSlotValue } from '@/lib/vendor-verification-slots';
 import { parseRegistrationNumber, UNIQUE_VIOLATION } from '@/lib/vendor-registration-number';
 import { PAIR_COLUMNS } from '@/lib/verification-pairs';
 import { isReadableSlotKey, slotR2Key } from '@/lib/verification-paper-read';
-import { fileTypedValues, openSealedSlot, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
+import { fileTypedValues, openSealedSlot, registrationNumberOnPaper, type IntakeReport, type IntakeSlot } from '@/lib/paper-intake';
 import { MAX_FILES_PER_INTAKE, intakePapers, paperSealKey } from '@/lib/paper-intake.server';
 import { runAutoVerifyOnSubmit } from '@/lib/auto-verify.server';
+import { REGISTRATION_CLAIM_FAILED_ACTION } from '@/lib/verification-checks';
 import { haversineKm } from '@/lib/geo';
-import { renewalUploadOpen } from '@/lib/verified-badge';
+import { manilaDateKey, renewalUploadOpen } from '@/lib/verified-badge';
+import { seedRenewalDraft } from '@/lib/papers-renewal';
 import {
   LOCKED_IDENTITY_FIELD_KEYS,
   VERIFIED_LOCK_ERROR,
@@ -371,8 +373,14 @@ async function resolveEditableDraft(
   // 📨 A SEND-BACK NAMES ONLY THE PAPER THAT NEEDS A NEW COPY (owner 2026-11-14, "Only the named one"): after a
   // send-back the new draft keeps every paper the admin did NOT name, exactly as it was, and carries the named
   // ones as markers with no file. A send-back made before that rule names nothing and starts empty, as before.
+  // 🔁 A RENEWAL KEEPS LAST YEAR'S PAPERS THAT ARE STILL GOOD (approved design "Papers renewal", §3: "The checklist
+  // already knows the DTI and BIR are still good, so the button asks for the permit only") — file, sealed read and
+  // all, so Submit re-runs every check on them. A paper that ran out leaves only its end date (`seedRenewalDraft`).
   const seed: DocUploadMap =
-    status === 'rejected' ? seedDraftAfterSendBack((app?.doc_uploads ?? {}) as DocUploadMap) : {};
+    status === 'rejected' ? seedDraftAfterSendBack((app?.doc_uploads ?? {}) as DocUploadMap)
+      : status === 'approved' && app
+        ? (seedRenewalDraft(app.doc_uploads as Record<string, unknown> | null, manilaDateKey(new Date()), app.application_id) as DocUploadMap)
+        : {};
   const { data: inserted, error } = await supabase
     .from('vendor_verification_applications')
     .insert({
@@ -703,10 +711,14 @@ export async function updateDocUploadInline(
 // ---------------------------------------------------------------------------
 // Government registration number capture + uniqueness enforcement
 //
-// The vendor types their government registration number (BIR TIN / DTI / SEC /
-// Mayor's Permit) during verification. It is stored on THEIR OWN
-// vendor_profiles row (RLS: vendor_profiles_owner) as:
-//   • registration_number_raw        — what they typed (display / admin)
+// 🔢 READ OFF THE PAPER, NEVER TYPED (owner 2026-11-14, DECISION_LOG 93ed7cd0
+// cut 2). On Submit, the number on the DTI/SEC paper — read off a clean copy,
+// or typed from that paper only after the third unclear try
+// (`registrationNumberOnPaper`, sealed) — is claimed for the shop. There is no
+// form field for it and no exported action: the claim is made here, once, by
+// the submit. It is stored on THEIR OWN vendor_profiles row (RLS:
+// vendor_profiles_owner) as:
+//   • registration_number_raw        — the number on the paper (display / admin)
 //   • registration_number_normalized — the canonical key the partial-UNIQUE
 //     index guards (anti-farm: no two shops share one registered identity)
 //
@@ -720,26 +732,23 @@ export async function updateDocUploadInline(
 // manual admin verification review, and return a clear message.
 // ---------------------------------------------------------------------------
 
-export type RegNumberSaveResult =
+type RegNumberClaim =
   | { ok: true; needsReview: boolean }
   | { ok: false; error: string };
 
-export async function saveRegistrationNumberInline(
-  _prev: RegNumberSaveResult | null,
-  formData: FormData,
-): Promise<RegNumberSaveResult> {
-  const auth = await requireVendorId();
-  if (!auth) return { ok: false, error: 'Please sign in again.' };
-
-  const parsed = parseRegistrationNumber(String(formData.get('registration_number') ?? ''));
+/**
+ * NOT exported: a "use server" export is a public route, and the number must
+ * never arrive from a request. The submit calls this with the sealed paper's
+ * number. A number the parser cannot make out is not claimed — the admin's
+ * check then says "read it off the certificate", which is the honest answer.
+ */
+async function claimRegistrationNumber(
+  auth: { supabase: SupabaseClient; vendorProfileId: string },
+  numberOnPaper: string,
+): Promise<RegNumberClaim> {
+  const parsed = parseRegistrationNumber(numberOnPaper);
   if (!parsed.ok) {
-    if (parsed.reason === 'empty') {
-      return { ok: false, error: 'Enter your government registration number.' };
-    }
-    return {
-      ok: false,
-      error: 'That does not look like a complete registration number — enter your full BIR TIN, DTI, SEC, or permit number.',
-    };
+    return { ok: false, error: 'The number on the paper could not be made out.' };
   }
 
   const now = new Date().toISOString();
@@ -790,8 +799,8 @@ export async function saveRegistrationNumberInline(
 
   revalidatePath('/vendor-dashboard/shop');
   revalidatePath('/vendor-dashboard/verify');
-  // ok:true — the submission was ACCEPTED (not lost), just flagged. The UI
-  // shows REGISTRATION_NUMBER_TAKEN_MESSAGE via needsReview.
+  // ok:true — the number was RECORDED (not lost), just flagged: the admin's
+  // check reads "Same registration number as <shop>".
   return { ok: true, needsReview: true };
 }
 
@@ -900,6 +909,33 @@ export async function submitInlineForReview(
     applicationType: app.application_type as string | null | undefined,
   }).catch(() => undefined);
 
+  // 🔢 The number comes off the DTI/SEC paper (sealed), never from this request.
+  // Best-effort: a number that cannot be claimed never refuses a submit that
+  // already landed — the admin's registration check says what is missing.
+  const sealKey = paperSealKey();
+  const numberOnPaper = sealKey
+    ? registrationNumberOnPaper(openSealedSlot('dti_certificate', (app.doc_uploads as Record<string, unknown> | null)?.dti_certificate, sealKey))
+    : null;
+  if (numberOnPaper) {
+    const claim = await claimRegistrationNumber(auth, numberOnPaper).catch((e: unknown) => ({
+      ok: false as const,
+      error: e instanceof Error ? e.message : String(e),
+    }));
+    if (!claim.ok) {
+      console.error('[submitInlineForReview] registration-number claim failed', claim.error);
+      // 🔢 …and the ADMIN is told: one audit row the registration check reads as "Claim failed"
+      // (`readRegistrationClaimFailures`). Service role, scoped by the session-proved shop id.
+      const { error: auditErr } = await createAdminClient().from('admin_audit_log').insert({
+        action: REGISTRATION_CLAIM_FAILED_ACTION,
+        target_table: 'vendor_profiles',
+        target_id: auth.vendorProfileId,
+        actor_user_id: null,
+        metadata: { reason: claim.error, application_id: app.application_id },
+      });
+      if (auditErr) console.error('[submitInlineForReview] could not record the failed claim for the admin', auditErr);
+    }
+  }
+
   // ✅ CLEAN PAPERS VERIFY THE SHOP ON SUBMIT (owner, "by the time they save
   // it, they can be verified right there"). The decision is made on the SERVER
   // from sealed reads, the allowlisted registry page and the other-shop
@@ -934,8 +970,8 @@ export async function submitInlineForReview(
 //
 // ⛔ `registration_number_raw` is deliberately NOT writable through here. It
 // carries the anti-farm uniqueness claim (partial-UNIQUE index + the soft
-// review flag), and a second writer would be a second copy of that rule. The
-// call is delegated to `saveRegistrationNumberInline`, unchanged.
+// review flag), and a second writer would be a second copy of that rule. Its
+// one writer is `claimRegistrationNumber`, fed from the paper on Submit.
 // ---------------------------------------------------------------------------
 
 /** Length caps. The two shared with the admin correction path MIRROR it — a

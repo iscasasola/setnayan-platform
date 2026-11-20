@@ -188,6 +188,17 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     text: 'You closed this date on your calendar, so this booking cannot be taken. Open the date again in Dates if you can take it, or turn this one down so the couple can look elsewhere.',
     door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
   }),
+  // 📊 RENTED BY THE PIECE (Availability plan step 4, owner ruling 2): the supplier says how many pieces at the yes.
+  pieces_needed: () => ({
+    tone: 'refused',
+    text: 'This card rents by the piece, so say how many you can give. Open this client in Clients, type the number, then agree. Nothing was booked yet.',
+  }),
+  // The pieces asked would go past what the card has that day (`set_booked_quantity`, all or nothing).
+  pieces_full: () => ({
+    tone: 'refused',
+    text: 'You don’t have that many pieces free on that date, so this booking was not taken. Agree to fewer, or turn this one down.',
+    door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
+  }),
   hall_taken: (ctx) => {
     const taken = ctx.halls?.taken ?? [];
     const free = ctx.halls?.free ?? [];

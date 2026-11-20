@@ -42,7 +42,7 @@ import {
 import { fetchPreferenceMatches, type PreferenceMatch } from '@/lib/preference-match';
 import { regionForCity } from '@/lib/regions';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
-import { tierCaps } from '@/lib/vendor-tier-caps';
+import { effectiveOuterRadiusKm, isVerifiedForReach, reachAdmits } from '@/lib/vendor-service-radius';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { haversineKm } from '@/lib/geo';
 import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
@@ -113,8 +113,8 @@ export type WizardVendorRec = {
    *  vendor_profiles (free | verified | pro | enterprise) · NOT NULL
    *  DEFAULT 'free'. Drives the day-1 name reveal on the wizard grid
    *  card (isTrueNameTier → pro/enterprise reveal real business_name) +
-   *  the optional service-radius scope (tierCaps.serviceRadiusKm) when
-   *  the caller passes anchor coords. Populated from the same batched
+   *  (reach is NOT read from the tier since 2026-11-19 — see `reachAdmits`).
+   *  Populated from the same batched
    *  vendor_profiles read as verification_state + name_revealed_at +
    *  screen_name. Null = unknown tier → treated as free (name hidden,
    *  radius unscoped / admit). */
@@ -254,14 +254,15 @@ type Args = {
    *  (`event_song_picks`) they perform, and each row gets a match label. Omit
    *  (or non-music category) → exact prior behavior, no extra reads. */
   matchEventId?: string;
-  /** Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Anchor
+  /** Service-radius gate (`reachAdmits`, lib/vendor-service-radius.ts). Anchor
    *  coordinates (the event venue) the per-vendor distance is measured FROM.
    *  Supplied ONLY by the dashboard Services surface (category-search.ts); the
    *  /vendors browse + onboarding region-ring callers omit them, so the radius
    *  cut never applies there. When BOTH are non-null the candidate pool drops
-   *  any vendor whose tier radius (Verified 20km · Pro 50km · Enterprise ∞ ·
-   *  Free 0 = unscoped) is exceeded — fail-open for unknown tier / missing
-   *  coords (see the radiusOk predicate). Omit/null = no radius scope. */
+   *  any VERIFIED vendor beyond its own declared outer ring (no plan ceiling since
+   *  2026-11-19; a blank ring = no limit; an unverified shop is unscoped here and
+   *  kept out by `is_findable`); fail-open for a missing row / coords (radiusOk).
+   *  Omit/null = no radius scope. */
   anchorLat?: number | null;
   anchorLng?: number | null;
   /** When TRUE, the service-radius gate stops EXCLUDING out-of-range vendors —
@@ -340,7 +341,7 @@ export async function fetchWizardVendorRecommendations(
   // ranked outside the top-N by ad_rank can still float up. Inert until vendor
   // facet tags exist, so this only widens the read when an event is in context.
   const needsPreferenceMatch = !!args.matchEventId;
-  // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). Only
+  // Service-radius gate (the shop's own ring, `reachAdmits`). Only
   // active when the caller supplies anchor coords (dashboard Services surface);
   // narrows the candidate pool in JS post-fetch, so it over-fetches like the
   // region / pax scopes to keep a full `limit` of in-radius rows.
@@ -547,11 +548,11 @@ export async function fetchWizardVendorRecommendations(
     const attrIds = baseRows.map((r) => r.vendor_profile_id);
     const { data: attrRows } = await admin
       .from('vendor_profiles')
-      .select('vendor_profile_id, capacity_max, venue_type, tier_state, tier_expires_at, verification_state')
+      .select('vendor_profile_id, capacity_max, venue_type, tier_state, tier_expires_at, verification_state, outer_radius_km')
       .in('vendor_profile_id', attrIds);
     const attrById = new Map<
       string,
-      { cap: number | null; type: string | null; tier: string | null }
+      { cap: number | null; type: string | null; verified: boolean; outerKm: number | null }
     >(
       (attrRows ?? []).map((r) => {
         const row = r as {
@@ -561,14 +562,17 @@ export async function fetchWizardVendorRecommendations(
           tier_state: string | null;
           tier_expires_at?: string | null;
           verification_state?: string | null;
+          outer_radius_km?: number | null;
         };
         return [
           row.vendor_profile_id,
           {
             cap: row.capacity_max ?? null,
             type: row.venue_type ?? null,
-            // A plan whose paid days ended reads as the sweep will write it (`liveTierState`).
-            tier: liveTierState(row, Date.now()),
+            // Reach reads verification, never the plan (owner 2026-11-19).
+            verified: isVerifiedForReach(row.verification_state ?? null),
+            // The shop's own declared outer ring — what limits who finds a verified shop.
+            outerKm: row.outer_radius_km ?? null,
           },
         ];
       }),
@@ -579,24 +583,20 @@ export async function fetchWizardVendorRecommendations(
       const type = a?.type ?? null;
       const paxOk = pax === null || cap === null || cap >= pax;
       const typeOk = vType === null || type === null || type === vType;
-      // Phase C service-radius gate. EXPLICIT fail-open — do NOT route an
-      // unknown/missing tier through tierCaps (which coerces null → free → 0
-      // and would wrongly distance-scope it). A vendor is admitted when:
-      // radius scope is off · the tier probe row is missing (unknown tier) ·
-      // the vendor has no HQ coords · the tier radius is Infinity (Enterprise)
-      // · the tier radius is 0 (Free = not distance-scoped) · OR it's within
-      // the tier radius of the anchor.
-      const radiusKm = a ? tierCaps(a.tier).serviceRadiusKm : Infinity;
+      // Service-radius gate. EXPLICIT fail-open. Since 2026-11-19 no PLAN sets a radius (owner: "unlock the range. not
+      // plan dependend anymore") — but "verified sets its own range": a verified shop is found only inside its own
+      // declared outer ring (∞ when it declared none). Unverified reads 0 and is admitted here; `is_findable` keeps it
+      // out of search. Admitted too: radius scope off · the probe row missing · no HQ coords.
       const radiusOk =
         !!args.includeOutOfRadius || // expander mode → never exclude on radius
         !needsRadiusScope ||
         a === undefined || // row missing from probe → admit (unknown tier)
         r.hq_latitude == null ||
         r.hq_longitude == null ||
-        !Number.isFinite(radiusKm) || // enterprise = Infinity → admit
-        radiusKm <= 0 || // free = 0 → not distance-scoped → admit
-        haversineKm(args.anchorLat!, args.anchorLng!, r.hq_latitude, r.hq_longitude) <=
-          radiusKm;
+        reachAdmits(
+          haversineKm(args.anchorLat!, args.anchorLng!, r.hq_latitude, r.hq_longitude),
+          effectiveOuterRadiusKm(a.outerKm, a.verified),
+        );
       return paxOk && typeOk && radiusOk;
     });
     if (baseRows.length === 0) return [];

@@ -27,6 +27,7 @@ import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-car
 import { loadQuoteForCard, type QuoteForCard } from './card-calls';
 import { MakeQuoteCard } from './make-quote-card';
 import { CouldNotLoad, EmptyLine, LedgerStrip, Loading, Problem, type Read } from './card-bits';
+import { UnderLowestLine } from './lowest-price';
 
 type Op = 'add' | 'edit' | 'remove';
 type Cur = { op: Op | null; pick: string | null; key: string | null; name: string; pricePhp: string };
@@ -256,6 +257,8 @@ function QuoteSteps({
           onSwipe={removeLine}
         />
         <TotalStrip agreed={q.totalCentavos} next={total} />
+        {/* 🤝 Under the supplier's private lowest: ONE quiet line, never a block (owner 19 Nov 2026). */}
+        <UnderLowestLine threadId={threadId} totalCentavos={total} />
         {ledger ? <LedgerStrip ledger={ledger} /> : null}
         <Problem text={underNow ?? (ledger && !ledger.paysInFull ? ledger.problem : null)} />
         {edits.length === 0 ? <p className="text-[14px] text-ink/55">No change yet.</p> : null}

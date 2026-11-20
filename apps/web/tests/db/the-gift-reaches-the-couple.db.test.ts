@@ -74,7 +74,7 @@ async function sqlGiftForBooking(bookingPhp: number): Promise<Gift> {
 /** The live ladder as the TS reads it — the SAME two tables, no typed price. */
 async function tsLadder(): Promise<GiftRung[]> {
   const c = await db.query<GiftCatalogRow>(
-    `SELECT service_code, retail_price_php, gift_price_php, is_active, retired_at
+    `SELECT service_code, retail_price_php, is_active, retired_at
        FROM public.platform_retail_catalog_v2 WHERE service_code LIKE 'PAPIC_GUEST%'`,
   );
   const t = await db.query<GiftTierRow>(
@@ -141,10 +141,13 @@ async function newBooking(
 ): Promise<string> {
   const r = await db.query<{ vendor_id: string }>(
     `INSERT INTO public.event_vendors
-       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, service_id)
-     VALUES ($1, 'photographer', 'Gift Test Vendor', $4::vendor_status, $2, $3, $5)
+       (event_id, category, vendor_name, status, total_cost_php, marketplace_vendor_id, service_id, source)
+     VALUES ($1, 'photographer', 'Gift Test Vendor', $4::vendor_status, $2, $3, $5, $6)
      RETURNING vendor_id`,
-    [eventId, totalPhp, vendorProfileId, opts.status ?? 'contracted', opts.serviceId ?? null],
+    // ⟲ Owner 2026-11-16 (answer 3): nothing imported now pays — a not-sourced booking is recorded as the supplier's
+    // own import (the Locked QR), the way the app records a client the supplier brought.
+    [eventId, totalPhp, vendorProfileId, opts.status ?? 'contracted', opts.serviceId ?? null,
+     opts.sourced === false ? 'vendor_locked_qr' : null],
   );
   if (opts.sourced !== false) {
     await db.query(
@@ -309,9 +312,8 @@ test('② the TS the quote uses == the SQL the bill uses, at every amount swept'
   assert.ok(checked > 150, `swept ${checked} amounts`);
 });
 
-test('② 💝 GIFT PRICE (2026-11-04): a Verified-and-up shop is charged the gift price for the SAME photos; Free pays the list — TS == SQL', async () => {
+test('② 📦 ONE PRICE (2026-11-14, "we only have the 10+1"): a Verified-and-up shop is charged the LIST price, the same as Free — TS == SQL', async () => {
   const ladder = await tsLadder();
-  assert.ok(ladder.every((r) => typeof r.giftPriceCentavos === 'number' && r.giftPriceCentavos > 0), 'every rung has a gift price');
   const free = await newVendor('giftprice-free@gift.test');
   const pro = await newVendor('giftprice-pro@gift.test');
   await db.query(`UPDATE public.vendor_profiles SET tier_state = 'pro' WHERE vendor_profile_id = $1`, [pro.vendorProfileId]);
@@ -323,25 +325,24 @@ test('② 💝 GIFT PRICE (2026-11-04): a Verified-and-up shop is charged the gi
     const row = r.rows[0]!;
     return { credits: Number(row.credits), charge_centavos: Number(row.charge_centavos), capped: row.capped };
   };
-  let cheaper = 0;
+  // The retired price is still in the table (never dropped) — and moves nothing.
+  const withGift = await db.query<{ n: string }>(
+    `SELECT count(*) AS n FROM public.platform_retail_catalog_v2 WHERE service_code LIKE 'PAPIC_GUEST%' AND gift_price_php IS NOT NULL`,
+  );
+  assert.ok(Number(withGift.rows[0]!.n) > 0, 'the fixture must still carry a gift price, or this proves nothing');
+  let swept = 0;
   for (let booking = 0; booking <= 4_000_000; booking += booking < 200_000 ? 3_119 : 97_222) {
     const fee = await sqlFeeCentavos(booking);
     const list = await sqlGiftForFee(fee);
-    const asFree = await two(fee, free.vendorProfileId);
-    const asPro = await two(fee, pro.vendorProfileId);
-    assert.deepEqual(asFree, list, `Free pays the list at ₱${booking}`);
-    assert.equal(asPro.credits, list.credits, `the couple's photos never move with the supplier's plan (₱${booking})`);
-    assert.ok(asPro.charge_centavos <= list.charge_centavos, `the gift price never exceeds the list (₱${booking})`);
-    const ts = setnayanGiftForFee(fee, ladder, { giftPrice: true });
-    assert.deepEqual({ credits: ts.credits, charge_centavos: ts.chargeCentavos, capped: ts.capped }, asPro, `gift-price parity at ₱${booking}`);
-    if (asPro.charge_centavos < list.charge_centavos) cheaper += 1;
+    assert.deepEqual(await two(fee, free.vendorProfileId), list, `Free pays the list at ₱${booking}`);
+    assert.deepEqual(await two(fee, pro.vendorProfileId), list, `Pro pays the list too at ₱${booking}`);
+    const ts = setnayanGiftForFee(fee, ladder);
+    assert.deepEqual({ credits: ts.credits, charge_centavos: ts.chargeCentavos, capped: ts.capped }, list, `parity at ₱${booking}`);
+    swept += 1;
   }
-  assert.ok(cheaper > 20, `the gift price was cheaper on ${cheaper} amounts`);
-  // At the cap the Verified-and-up shop pays the top pack's GIFT price, read from the row.
-  const top = ladder[ladder.length - 1]!;
-  const capped = await two(1_000_000_000, pro.vendorProfileId);
-  assert.equal(capped.credits, top.credits);
-  assert.equal(capped.charge_centavos, top.giftPriceCentavos);
+  assert.ok(swept > 20, `swept ${swept} amounts`);
+  const v = await db.query<{ ok: boolean }>(`SELECT public.vendor_pays_gift_price($1::uuid) AS ok`, [pro.vendorProfileId]);
+  assert.equal(v.rows[0]!.ok, false, 'no plan buys a lower gift price');
 });
 
 test('② the bill clause the TS mints == the one the SQL mints', async () => {

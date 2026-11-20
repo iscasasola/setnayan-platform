@@ -10,6 +10,7 @@
  * optional by design (email links keep working), so it stays a visible control
  * rather than a faint link under the fold.
  */
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { safeNext } from '@/lib/safe-next';
@@ -43,9 +44,7 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
 
   // Authenticated (they just clicked the magic link). If not, bounce to login.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) {
     redirect(`/login?next=${encodeURIComponent(`/join/${eventId}/set-password`)}`);
   }

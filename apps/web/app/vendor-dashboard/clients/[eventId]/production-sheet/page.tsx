@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ChefHat, Plus, Trash2 } from 'lucide-react';
@@ -117,9 +118,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
   const { eventId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -185,7 +184,7 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
     : null;
 
   return (
-    <section className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 print:max-w-none print:py-2">
+    <section className="mx-auto w-full tab:max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8 print:max-w-none print:py-2">
       <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
         <Link
           href={`/vendor-dashboard/clients/${eventId}`}

@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -26,9 +28,7 @@ export default async function PapicPoolPosterPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: membership } = await supabase
@@ -41,11 +41,12 @@ export default async function PapicPoolPosterPage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at', () =>
+      supabase
     .from('events')
     .select('display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   if (eventError) {
     logQueryError(
       'PapicCrewPoster.event',

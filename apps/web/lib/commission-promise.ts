@@ -35,6 +35,7 @@
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /**
  * The commission rate the promise is about — the ONE figure behind every
@@ -80,8 +81,8 @@ export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): 
   const rate = schedule ? ` of ${bookingFeeScheduleSummary(schedule)}` : '';
   return (
     `${base} Setnayan bills you a booking fee${rate}, ` +
-    `only on the couples we introduce — ${FIRST_BOOKING_ON_US_CLAUSE}, ` +
-    'and your own clients stay free. It is charged to you, never added to what a couple pays.' +
+    `${FEE_SCOPE} — ${FIRST_BOOKING_ON_US_CLAUSE}. ` +
+    `${FEE_FREE_RULE} It is charged to you, never added to what a couple pays.` +
     (schedule ? '' : ' The rate is shown in full before you agree to any booking.')
   );
 }
@@ -93,8 +94,8 @@ export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): 
 export function supplierCommissionShort(schedule: BookingFeeSchedule | null): string {
   if (!isBookingFeeEnabled()) return '0% commission — no booking fee while it is switched off';
   return schedule
-    ? `0% commission · booking fee ${bookingFeeScheduleSummary(schedule)}, only on couples we introduce`
-    : '0% commission · a booking fee only on couples we introduce';
+    ? `0% commission · booking fee ${bookingFeeScheduleSummary(schedule)}, ${FEE_SCOPE}`
+    : `0% commission · a booking fee, ${FEE_SCOPE}`;
 }
 
 /**

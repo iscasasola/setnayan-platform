@@ -19,7 +19,7 @@ import { createPortal } from 'react-dom';
 import { Plus } from 'lucide-react';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
-import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { mapWrite, mapWriteForm, type ShippedFormKind } from '../four-level-actions';
 
 export type WriteResult = { ok: true; message: string; id?: string; previous?: string } | { ok: false; error: string };
@@ -282,7 +282,8 @@ export function InPlaceSwitch({ label, on, door, help }: { label: string; on: bo
 type AddDoor =
   | { form: ShippedFormKind; hidden: Record<string, string>; field: string }
   | { op: 'addCategory'; groupId: string }
-  | { op: 'addService'; categoryId: string };
+  /** `availability`: the category's most common Availability ('' = Not set) — the new service's pre-filled pick. */
+  | { op: 'addService'; categoryId: string; availability?: { prefill: string; choices: readonly PickOption[] } };
 
 /**
  * The LAST-ROW ADD (the map's own shape): a dashed "＋ Add …" row; a press turns it into a field; Enter (or leaving
@@ -292,6 +293,16 @@ export function DrawerAddRow({ text, placeholder, door, what }: { text: string; 
   const [editing, setEditing] = useState(false);
   const [v, setV] = useState('');
   const { pending, run, local } = useInPlace();
+  const avail = 'op' in door && door.op === 'addService' ? door.availability : undefined;
+  const [style, setStyle] = useState(avail?.prefill ?? '');
+  const box = useRef<HTMLDivElement>(null);
+  /* Availability ▾ (plan step 2) — the same seven + Not set as the service row; picking it never adds the service. */
+  const availPick = avail ? (
+    <div className="mb-2 flex flex-wrap items-center gap-2 text-[12.5px] text-ink/70" data-add-availability="">
+      <span>Availability</span>
+      <PickMenu label="Availability of the new service" value={style} options={[...avail.choices]} onPick={setStyle} compact className="border border-ink/15" />
+    </div>
+  ) : null;
   const add = () => {
     const label = v.trim();
     if (!label) return setEditing(false);
@@ -300,7 +311,7 @@ export function DrawerAddRow({ text, placeholder, door, what }: { text: string; 
         ? postForm(door.form, { ...door.hidden, [door.field]: label })
         : door.op === 'addCategory'
           ? (mapWrite({ op: 'addCategory', groupId: door.groupId, label }) as Promise<WriteResult>)
-          : (mapWrite({ op: 'addService', categoryId: door.categoryId, label }) as Promise<WriteResult>);
+          : (mapWrite({ op: 'addService', categoryId: door.categoryId, label, availability: style }) as Promise<WriteResult>);
     run(write, {
       what,
       said: `Added — ${label}`,
@@ -314,7 +325,8 @@ export function DrawerAddRow({ text, placeholder, door, what }: { text: string; 
   };
   if (!editing) {
     return (
-      <div>
+      <div ref={box}>
+        {availPick}
         <button
           type="button"
           onClick={() => setEditing(true)}
@@ -331,7 +343,8 @@ export function DrawerAddRow({ text, placeholder, door, what }: { text: string; 
     );
   }
   return (
-    <div>
+    <div ref={box}>
+      {availPick}
       <input
         autoFocus
         value={v}
@@ -351,7 +364,11 @@ export function DrawerAddRow({ text, placeholder, door, what }: { text: string; 
             setEditing(false);
           }
         }}
-        onBlur={add}
+        onBlur={(e) => {
+          // Tapping Availability ▾ while typing must not add the half-typed service.
+          if (e.relatedTarget instanceof Node && box.current?.contains(e.relatedTarget)) return;
+          add();
+        }}
       />
       <SaidLine said={local} />
     </div>

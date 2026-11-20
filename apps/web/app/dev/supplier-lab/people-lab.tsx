@@ -300,6 +300,7 @@ export function PeopleLab({
         slotsHref="/vendor-dashboard/shop"
         icsHref="/vendor-dashboard/customers/calendar.ics"
         approveFirst
+        bookingWindow={{ minDays: 7, maxMonths: 24 }}
         actions={{ updatePoolCapacity, createCalendar, editCalendar, reassignCategoryPool }}
       />
     </div>

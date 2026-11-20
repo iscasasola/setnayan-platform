@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -35,9 +36,7 @@ export default async function YourPage({
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   // No shop resolved (or the read failed): back to the dashboard, whose layout tells the two apart — never to

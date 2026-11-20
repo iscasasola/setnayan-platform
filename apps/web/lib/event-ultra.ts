@@ -7,7 +7,8 @@
  *   2. full-size originals kept 12 months after the event's last day instead of 3 — the catalogue row's
  *      `fullres_extra_keep_days`, read by `papic_events_past_fullres_clock` (migration `_event_ultra_plan`);
  *   3. canvas prints (the Our Day poster on canvas) — `canvasPrintsUnlockedFrom` below;
- *   4. Patiktok — `PATIKTOK_COMPILER`;
+ *   4. ~~Patiktok~~ — REMOVED 2026-11-20: Patiktok is retired (owner *"Retire Patiktok and Music Maker"*), and
+ *      Ultra keeps its price without it (owner *"Keep ₱9,990"*). lib/retired-products.ts;
  *   5. Papic credits — the row's `included_papic_credits` (3,500), granted by `activateEventPlan`;
  *   6. the Thank You video ONLY if it renders with no staff step. It does (browser render, lib/thank-you-video.ts),
  *      but it is already FREE for every event (`FREE_FOR_ALL_SKUS`), so Ultra lists nothing for it — selling a free
@@ -29,13 +30,13 @@ export const EVENT_ULTRA_SKU = 'EVENT_ULTRA';
  * minted per part. A refund of the Ultra order takes all of them away together.
  *   · `COUPLE_WEBSITE_PRO` — Event Pro, whole (and, through the alias lists that already name Pro, the logo animation,
  *     Editorial and the premium Save-the-Date openings — aliases are not transitive, so each list names Ultra too);
- *   · `LIVE_STUDIO`        — Live Watch, self-run;
- *   · `PATIKTOK_COMPILER`  — Patiktok's save / share / post half (`patiktokSaveUnlocked`).
+ *   · `LIVE_STUDIO`        — Live Watch, self-run.
+ * (`PATIKTOK_COMPILER` left 2026-11-20 — Patiktok is retired; migration `_retire_patiktok_and_music_maker` drops it
+ *  from the two gifted-Ultra SQL readers in the same PR.)
  */
 export const EVENT_ULTRA_GRANTS: readonly string[] = Object.freeze([
   'COUPLE_WEBSITE_PRO',
   'LIVE_STUDIO',
-  'PATIKTOK_COMPILER',
 ]);
 
 /**
@@ -112,6 +113,29 @@ export function fullResKeepDays(standardDays: number, extraKeepDays: readonly (n
  */
 
 /** Which plan the credit came from — the words on the screen follow it. */
+/**
+ * 💳 Is a Plus / Pro payment still open on this event, so Ultra must be refused (owner 2026-11-16, "Approved", #7841)?
+ * OPEN = 'submitted' (the couple logged it, the team has not confirmed it) OR 'awaiting_payment' (the team bounced it
+ * back for better proof — still owed, still cancellable). Both are unpaid and both can still clear, so selling Ultra at
+ * full price on top would bill the plan twice once it clears, and selling it at the difference would credit money never
+ * received. A PAID Pro wins (its difference is the right price); a Plus counts only when no plan is paid.
+ * `null` = nothing open, price as usual. Pure: `readUltraUpgradeCharge` hands it the order lines it already read.
+ */
+export const ULTRA_PLAN_OPEN_STATUSES: ReadonlySet<string> = new Set(['submitted', 'awaiting_payment']);
+export function ultraPlanPaymentOpen(input: {
+  lines: readonly { service_key: string | null; status: string | null }[];
+  proSku: string;
+  plusSku: string;
+  proPaid: boolean;
+  plusPaid: boolean;
+}): 'pro' | 'plus' | null {
+  const open = (sku: string) =>
+    input.lines.some((r) => r.service_key === sku && r.status !== null && ULTRA_PLAN_OPEN_STATUSES.has(r.status));
+  if (!input.proPaid && open(input.proSku)) return 'pro';
+  if (!input.proPaid && !input.plusPaid && open(input.plusSku)) return 'plus';
+  return null;
+}
+
 export type UltraUpgradeFrom = 'pro' | 'plus' | 'parts';
 
 export type UltraUpgradeCharge =

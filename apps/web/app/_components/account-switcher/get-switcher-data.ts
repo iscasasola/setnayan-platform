@@ -1,3 +1,4 @@
+import { getUserRow } from '@/lib/user-row';
 import { shopPath } from '@/lib/shop-address';
 import 'server-only';
 
@@ -159,11 +160,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
 
   // Parallel: user profile + role summary + events the user belongs to
   const [userRes, roles, membershipRes] = await Promise.all([
-    supabase
-      .from('users')
-      .select('display_name, email, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, is_internal, is_team_member, theme_preference')
-      .eq('user_id', userId)
-      .maybeSingle(),
+    // ⚡ The render's one read of this row (`lib/user-row.ts`) — the layout above asked the same promise.
+    getUserRow(userId),
     fetchUserRoleSummary(supabase, userId),
     supabase
       .from('event_members')

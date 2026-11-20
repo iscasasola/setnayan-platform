@@ -17,6 +17,7 @@ import {
   type SeatBindRefusal,
 } from '@/lib/seat-binding';
 import { coupleSentThisSeatLink, signCoupleSeatLink } from '@/lib/seat-link-approval';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * Invite/Join v2 — email-link → real Setnayan account (0000 ADDENDUM 2026-06-25).
@@ -34,7 +35,7 @@ import { coupleSentThisSeatLink, signCoupleSeatLink } from '@/lib/seat-link-appr
  * Resend ourselves.
  */
 
-const appUrl = () => process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+const appUrl = siteOrigin;
 
 /**
  * Email a passwordless sign-in link that lands the guest on the event-connect

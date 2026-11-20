@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
@@ -20,9 +21,7 @@ export default async function PrintSheetPage({ params }: Props) {
   const supabase = await createClient();
   // The couple's own words for roles (owner 2026-09-30) — printed on each card.
   const roleNames = await loadRoleNames(supabase, eventId, 'PrintSheetPage.roleNames');
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: event } = await supabase

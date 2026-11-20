@@ -122,9 +122,12 @@ test('(3) the admin Pause and the supplier Shop status run the SAME path, and th
 test('(audit 1) /v/[slug] says "This shop is paused" first — never "finishing verification" for a paused shop', () => {
   const page = read('app/v/[slug]/page.tsx');
   assert.match(page, /const shopPaused = isShopPaused\(vendor\) \|\| visibility === 'archived'/);
-  assert.match(page, /\{shopPaused \? \(\s*<div className=\{SHOP_CALM_COLUMN_CLASS\}>\s*<ShopPausedNotice \/>/);
+  // v16 S6 retired the calm column on this page; the paused notice rides the same band as the not-verified one.
+  assert.match(page, /\{shopPaused \? \(\s*<div className="pt-6" data-shop-paused-band="">\s*<ShopPausedNotice \/>/);
   // The paused notice renders ahead of the not-yet-verified notice.
-  assert.ok(page.indexOf('<ShopPausedNotice />') < page.indexOf('<NotYetVerifiedNotice />'));
+  // `<NotYetVerifiedNotice` without its props: papers renewal (#7875) passes it `renewing`. Both must be present.
+  assert.ok(page.includes('<NotYetVerifiedNotice'), 'the not-yet-verified notice is gone');
+  assert.ok(page.indexOf('<ShopPausedNotice />') < page.indexOf('<NotYetVerifiedNotice'));
   assert.match(page, /paused=\{shopPaused\}/, 'the packages section no longer hears the pause');
   // In the packages, the paused line is the FIRST branch — ahead of "Not yet bookable — finishing verification".
   const pk = page.slice(page.indexOf('function VendorPackagesSection'));

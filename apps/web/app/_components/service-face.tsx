@@ -196,6 +196,20 @@ export function ServiceFace({
     ))
   );
 
+  // THE DOOR — built once, placed last in either layout, stretched over the face. The shop line and the footer are
+  // lifted above it (z-10) and stay its SIBLINGS: an <a> inside an <a> is invalid HTML.
+  const doorEl =
+    door && 'href' in door ? (
+      <Link
+        href={door.href}
+        aria-label={door.label}
+        data-service-face-door=""
+        className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      />
+    ) : door ? (
+      <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
+    ) : null;
+
   if (layout === 'mall') {
     return (
       <div
@@ -234,16 +248,7 @@ export function ServiceFace({
           askVenue={askVenue}
         />
         {footer ? <div className="relative z-10 px-2.5 pb-2.5">{footer}</div> : null}
-        {door && 'href' in door ? (
-          <Link
-            href={door.href}
-            aria-label={door.label}
-            data-service-face-door=""
-            className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-          />
-        ) : door ? (
-          <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
-        ) : null}
+        {doorEl}
         {coverAction ? (
           <div className="absolute right-0 top-0 z-20" data-mall-cover-action="">
             {coverAction}
@@ -338,18 +343,8 @@ export function ServiceFace({
 
       {footer ? <div className="relative z-10">{footer}</div> : null}
 
-      {/* THE DOOR — last child, stretched over the face. The shop line and the footer are lifted above it (z-10) and
-          stay its SIBLINGS: an <a> inside an <a> is invalid HTML. */}
-      {door && 'href' in door ? (
-        <Link
-          href={door.href}
-          aria-label={door.label}
-          data-service-face-door=""
-          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        />
-      ) : door ? (
-        <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
-      ) : null}
+      {/* THE DOOR — last child (built once above). */}
+      {doorEl}
     </div>
   );
 }

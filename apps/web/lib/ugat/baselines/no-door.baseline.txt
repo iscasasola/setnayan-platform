@@ -55,6 +55,7 @@
 /dev/maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/mall-card-lab	# 2026-11-20 · internal (dev lab, 404 in production) · card 14 on Discover's grid with Save on the photo; reached by typing its address
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/memories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/notifications-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

@@ -39,9 +39,9 @@ type LabCard = {
 };
 
 function row(c: LabCard): VendorServiceRow {
-  return {
+  const r: VendorServiceRow = {
     vendor_service_id: `00000000-0000-4000-8000-${c.id.padStart(12, '0').slice(-12)}`,
-    public_id: null,
+    public_id: `S89L-LAB${c.id.toUpperCase()}`,
     vendor_profile_id: `p-${c.id}`,
     category: 'photo_booth',
     title: c.title,
@@ -73,7 +73,8 @@ function row(c: LabCard): VendorServiceRow {
     coverage_id: null,
     created_at: '2026-10-01T00:00:00Z',
     updated_at: '2026-10-01T00:00:00Z',
-  } as VendorServiceRow;
+  };
+  return r;
 }
 
 const CITY: Record<string, string> = {

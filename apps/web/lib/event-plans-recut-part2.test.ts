@@ -200,7 +200,17 @@ test('(H) eventHubOwnership: Event Plus, Pro and Ultra are the whole Hub; the op
   const src = read('lib/couple-website-pro.ts');
   // 🏛 Owner 20 Nov 2026: Event Plus is the whole Event Hub (Pro and Ultra include it), read in the gate's own mode.
   assert.match(src, /holds\(EVENT_PLUS_SKU\),\s*holds\(FULL_PRO_SKU\),\s*holds\(EVENT_ULTRA_PLAN_SKU\),/, 'Event Plus is not read as the whole Hub');
-  assert.match(src, /if \(plusHeldOutright \|\| proHeld \|\| ultraHeld\) return everyHubPartHeld\(proHeld \|\| ultraHeld\);/, 'Event Plus no longer holds the whole Hub, or it grants the Pro plan');
+  assert.match(src, /if \(proHeld \|\| ultraHeld\) return everyHubPartHeld\(true\);/, 'Pro / Ultra no longer hold the whole Hub and the Pro plan');
+  // 💳 A held Plus is the whole Hub WITHOUT the Pro plan — and a PAID one carries its price in `paidPhp`, so Pro and
+  // Ultra are sold at the difference (#8004 review, 20 Nov). Paired with the replay-backed figures in
+  // tests/db/event-hub-pro-parts-and-the-cap.db.test.ts (₱2,500 and ₱7,000).
+  const step1 = src.slice(src.indexOf('if (plusHeldOutright) {'), src.indexOf('// 2. Each part on its own.'));
+  assert.ok(step1.length > 100, 'the paid-Plus branch of step 1 is gone');
+  assert.match(step1, /eventSkuLinesFor\(supabase, eventId, \[EVENT_PLUS_SKU\]\)/, 'the Plus payment is not read');
+  assert.match(step1, /counts\(r\.status\)/, 'the Plus payment is not read in the gate’s own mode');
+  assert.match(step1, /if \(!plusPaidHere\) return everyHubPartHeld\(false\);/, 'a gifted / comped Plus earns a credit, or gets the Pro plan');
+  assert.match(step1, /fullHeld: true,[\s\S]{0,200}plusPaid: true,/, 'a paid Plus is not carried as paid toward Pro and Ultra');
+  assert.doesNotMatch(step1, /proPlan/, 'a Plus was handed the Pro plan');
   assert.match(src, /holds\(STD_PREMIUM_OPENINGS_SKU\)/, 'the openings’ own unlock is not read for gate 1');
   assert.match(src, /if \(openingsHeld\) gates\.push\('1'\);/);
   assert.match(src, /mode === 'active' \? eventSkuActive\(supabase, eventId, sku\) : eventOwnsSku\(supabase, eventId, sku\)/);

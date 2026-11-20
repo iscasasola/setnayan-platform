@@ -232,7 +232,7 @@ test('the reveal is still aliased to this SKU (and, since 2026-11-19, to Event P
     aliases[0]!,
     // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
     // 💎 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too, so the description no
-    //    longer calls it Pro's exclusive (migration 20271355365735 drops "comes only with this").
+    //    longer calls it Pro's exclusive (migration 20271356433378 drops "comes only with this").
     new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?\\]\\)`),
     'the cinematic reveal is no longer granted by Event Pro',
   );

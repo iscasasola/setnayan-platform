@@ -259,3 +259,45 @@ test('🪄 the retired Animated Monogram reads as Logo & QR — owned, and count
   assert.equal(o.paidPhp, 1500, 'the monogram did not count at Logo & QR’s web value');
   assert.equal(hubRestToEverything(o), (await everythingPhp()) - 1500);
 });
+
+/* 💳 A PAID EVENT PLUS COUNTS TOWARD PRO AND ULTRA (ship-controller review of #8004, 20 Nov; owner 2026-11-04 "upgrade for
+   the difference" and 2026-11-13 "Pay the difference"). Since 20 Nov a Plus holds the whole Hub — and `eventHubOwnership`
+   carries the PAID Plus in `paidPhp` (lib/couple-website-pro.ts, step 1), so the charge sells Pro at Pro's row less Plus,
+   and Ultra at Ultra's row less Plus. Every price is the replayed catalogue's; the expected figures are the review's.
+   Step 1's source is held by lib/event-plans-recut-part2.test.ts (H); this holds the figures it must produce. */
+test('💳 a paid Event Plus buys Pro for ₱2,500 and Ultra for ₱7,000 — the difference, never the full price', async () => {
+  const { hubPartsCharge } = await import('../../lib/hub-parts');
+  const { ultraUpgradeCharge } = await import('../../lib/event-ultra');
+  const r = await db.query<{ code: string; php: string }>(
+    `SELECT service_code AS code, retail_price_php::text AS php FROM public.platform_retail_catalog_v2
+      WHERE service_code IN ('EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA')`,
+  );
+  const row = (c: string) => Number(r.rows.find((x) => x.code === c)?.php ?? NaN);
+  const plus = row('EVENT_PLUS');
+  const pro = row('COUPLE_WEBSITE_PRO');
+  const ultra = row('EVENT_ULTRA');
+  assert.ok(plus > 0 && pro > 0 && ultra > 0, 'a plan row is missing from the replay — the check is blind');
+  // What `eventHubOwnership` step 1 returns for a PAID Plus (the same call, the same inputs).
+  const owned = hubOwnershipFrom({
+    fullHeld: true,
+    partHeld: () => true,
+    paidParts: [],
+    prices: new Map([['EVENT_PLUS', plus], ['COUPLE_WEBSITE_PRO', pro]]),
+    fullPrice: plus,
+    plusPaid: true,
+  });
+  assert.equal(owned.full, true);
+  assert.equal(owned.paidPhp, plus, 'a paid Plus is not carried as paid toward the next plan');
+  assert.equal(owned.proPlan, undefined, 'a Plus was read as the Pro plan');
+  // Pro: the server's `hubPartsCharge('full')` against Pro's row.
+  const proCharge = hubPartsCharge({ parts: 'full', owned, prices: new Map(), fullPrice: pro });
+  assert.deepEqual(proCharge, { ok: true, php: pro - plus, capped: false }, 'a paid Plus is refused Pro, or charged it in full');
+  assert.equal(pro - plus, 2500);
+  // Ultra: `readUltraUpgradeCharge` hands `ultraUpgradeCharge` exactly this.
+  const ultraCharge = ultraUpgradeCharge({ ultraPhp: ultra, proPaid: false, proPhp: pro, plusPaid: true, plusPhp: plus, paidTowardProPhp: owned.paidPhp });
+  assert.deepEqual(ultraCharge, { ok: true, php: ultra - plus, creditPhp: plus, from: 'plus' }, 'Plus → Ultra is not the difference');
+  assert.equal(ultra - plus, 7000);
+  // …and a Pro plan already held is never sold again.
+  const proHeld = hubOwnershipFrom({ fullHeld: true, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null, proPlan: true });
+  assert.deepEqual(hubPartsCharge({ parts: 'full', owned: proHeld, prices: new Map(), fullPrice: pro }), { ok: false, why: 'already_owned' });
+});

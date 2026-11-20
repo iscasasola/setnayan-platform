@@ -81,7 +81,7 @@ export const RETAIL: RetailRow[] = [
   // service_code = 'COUPLE_WEBSITE_PRO'.
   // 💰 FINAL PRICE SHEET (owner 2026-11-04): Event Pro ₱5,690 and the new Event Plus ₱2,990 (Setnayan AI comes inside
   // both). Moves in the SAME PR as the catalogue migration — re-check with the select above.
-  // 🏛 Owner 20 Nov 2026 (`Pricing.md` §1.1): Event Pro ₱5,690 → ₱5,490 (migration 20271355365735, guarded on 5,690).
+  // 🏛 Owner 20 Nov 2026 (`Pricing.md` §1.1): Event Pro ₱5,690 → ₱5,490 (migration 20271356433378, guarded on 5,690).
   { service_code: 'COUPLE_WEBSITE_PRO', title: 'Event Pro', retail_price_php: 5490, is_active: true },
   { service_code: 'EVENT_PLUS', title: 'Event Plus', retail_price_php: 2990, is_active: true },
   // Mirrors migration 20271344860040_event_ultra_plan (the row's own INSERT); the db guard compares it to the replay.

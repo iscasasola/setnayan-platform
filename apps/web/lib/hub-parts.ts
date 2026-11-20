@@ -588,12 +588,17 @@ export function hubPartsCharge(input: {
   prices: ReadonlyMap<string, number>;
   fullPrice: number | null;
 }): HubPartsCharge {
-  if (input.owned.full) return { ok: false, why: 'already_owned' };
-  // 💎 The Event Pro plan is held (a Pro bought from 19 Nov): Pro is not sold twice. Everything is Event Ultra now.
-  if (input.parts === 'full' && input.owned.proPlan) return { ok: false, why: 'already_owned' };
+  // 💎 'full' here is the Event Pro PLAN (`FULL_PRO_SKU`): never sold twice. Since the owner's 20 Nov ruling the whole
+  //    Hub (`owned.full`) is Event Plus, which Pro includes — so a Plus event IS sold Pro, at Pro's row less what it paid
+  //    (`paidPhp`, the paid Plus). A part is never sold to an event that holds everything.
+  if (input.parts === 'full' ? input.owned.proPlan : input.owned.full) return { ok: false, why: 'already_owned' };
   const rest = input.fullPrice === null ? null : Math.max(0, input.fullPrice - input.owned.paidPhp);
   if (rest === null) return { ok: false, why: 'unpriced' };
-  if (input.parts === 'full') return { ok: true, php: rest, capped: false };
+  if (input.parts === 'full') {
+    // Never a ₱0 order: an event whose payments already reach Pro's row holds it as owned.
+    if (rest === 0 && input.owned.full) return { ok: false, why: 'already_owned' };
+    return { ok: true, php: rest, capped: false };
+  }
   if (input.parts.length === 0) return { ok: false, why: 'nothing_to_buy' };
   let sum = 0;
   for (const id of input.parts) {

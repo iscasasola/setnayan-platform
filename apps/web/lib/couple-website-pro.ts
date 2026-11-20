@@ -157,7 +157,26 @@ export function eventHubOwnership(
       holds(FULL_PRO_SKU),
       holds(EVENT_ULTRA_PLAN_SKU),
     ]);
-    if (plusHeldOutright || proHeld || ultraHeld) return everyHubPartHeld(proHeld || ultraHeld);
+    if (proHeld || ultraHeld) return everyHubPartHeld(true);
+    if (plusHeldOutright) {
+      // 💳 A PAID Event Plus counts toward Pro and Ultra (owner 2026-11-04 "upgrade for the difference"; 2026-11-13 "Pay
+      //    the difference"): the whole Hub is held, AND `paidPhp` carries the Plus row it was paid at — its own order or a
+      //    basket line in a status that counts in this mode, never a comp or a gift (not paid). Without it a Plus event
+      //    was refused Pro (`hubPartsCharge` saw everything held) and charged Ultra in full. The price is read only when
+      //    the Plus was paid, so a gifted or comped Plus costs no extra read.
+      const plusLines = await eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU]);
+      const plusPaidHere = plusLines.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
+      if (!plusPaidHere) return everyHubPartHeld(false);
+      const plusPrices = await hubPartPrices(supabase);
+      return hubOwnershipFrom({
+        fullHeld: true,
+        partHeld: () => true,
+        paidParts: [],
+        prices: withPlanPrices(plusPrices),
+        fullPrice: plusPrices.everything,
+        plusPaid: true,
+      });
+    }
     // 2. Each part on its own. A part is sold only by its own order (or gifted by
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
     //    and an internal/founder host already answered in step 1 — so the ONE batch

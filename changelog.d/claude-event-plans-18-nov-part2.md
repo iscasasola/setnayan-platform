@@ -20,10 +20,18 @@ CREDITS + THE WHOLE EVENT HUB" (specs DECISION_LOG 2026-11-20, `Pricing.md` §1.
   Ultra is a plain card after it, no Patiktok.
 - **iPhone**: the Apple screen sells `event_plus` (the existing product); no new App Store product. The `event-hub-pro`
   start refuses "owned" on the Pro plan, not on the Hub alone.
-- Migration `20271355365735_event_plans_recut_part2_plus_holds_the_hub.sql` (data): Event Pro ₱5,690 → **₱5,490**, guarded
+- Migration `20271356433378_event_plans_recut_part2_plus_holds_the_hub.sql` (data): Event Pro ₱5,690 → **₱5,490**, guarded
   on the old figure, and its 10 + 1 gift bundle follows as 10 × the new row (the bundle rule; guarded on 10 × ₱5,690); Event Pro `included_papic_credits` 3,000 and `fullres_extra_keep_days` 92 (≈ 6 months); Event Ultra
   6,000. Descriptions: Plus says the whole Event Hub; Pro is Plus + Setnayan AI; Ultra loses Patiktok (and its typed
   "3,500"). Each UPDATE matches only the exact stale text, so an admin-written description is left alone.
+- **A paid Plus counts toward Pro and Ultra** (ship-controller review, 20 Nov): `eventHubOwnership` step 1 carries a
+  PAID Event Plus (its own order or a basket line, in the mode's status; never a comp or a gift) in `paidPhp`, so a Plus
+  event is sold Pro at ₱2,500 (Pro row less Plus) and Ultra at ₱7,000 (Ultra row less Plus) — before, Pro was refused and
+  Ultra charged in full. `hubPartsCharge` sells `'full'` (the Pro plan) to a whole-Hub event that lacks the plan, never as
+  a ₱0 order. Pinned on the replay's catalogue rows (`event-hub-pro-parts-and-the-cap.db.test.ts`) and in source
+  (`event-plans-recut-part2.test.ts` H, sabotage-checked).
+- The iPhone app's held line reads "◆ N waiting for Plus" / "Remove Plus changes" (the plan's new name; owner wording of
+  2026-10-08 otherwise kept). /features' Plus card says "the whole Event Hub".
 - Copy: /pricing, the front door, llms.txt (Setnayan AI is in Pro and Ultra, not "all three"), help and the add-ons blurb
   say the whole Hub is Event Plus; nothing says Ultra carries Patiktok.
 - Tests: re-aimed to the ruling — entitlements, animated-monogram, pro-parts-in-the-app, scene-upload-media,

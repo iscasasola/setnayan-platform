@@ -182,7 +182,7 @@ export function ApplyProSheet({
               <div className="mt-2 flex min-h-11 items-center justify-between gap-2" data-apply-held-for-pro="">
                 <p className="inline-flex items-center gap-1.5">
                   <PaidMark state="try" bare label="Event Plus" size="xs" />
-                  {formatCount(heldForPro)} waiting for Pro
+                  {formatCount(heldForPro)} waiting for Plus
                 </p>
                 {onRemoveHeld ? (
                   <button
@@ -191,7 +191,7 @@ export function ApplyProSheet({
                     onClick={onRemoveHeld}
                     className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
                   >
-                    Remove Pro changes
+                    Remove Plus changes
                   </button>
                 ) : null}
               </div>

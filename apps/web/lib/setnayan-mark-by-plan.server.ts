@@ -11,7 +11,7 @@ import { setnayanMarkFor, type SetnayanMark } from '@/lib/setnayan-mark-by-plan'
 /**
  * 🏷 THE EVENT'S SETNAYAN MARK, READ FROM ITS PLAN (DECISION_LOG 2026-11-04; Build 6 Lane L) — the shipped readers only
  * (Rule 0): Event Pro = `eventProPlanActive` (the Pro PLAN — Pro or Ultra;
- * owner 2026-11-19: the 11 parts moved to Ultra, "no Setnayan mark" stayed Pro's); Event Plus = `eventSkuActive(EVENT_PLUS)`. Both FEATURE gates (admin-approved), both as the viewer is SHOWN
+ * owner 2026-11-19/20: "no Setnayan mark" is Pro's and Ultra's; the whole Hub is Event Plus's); Event Plus = `eventSkuActive(EVENT_PLUS)`. Both FEATURE gates (admin-approved), both as the viewer is SHOWN
  * them (`asViewed` — "view as a free couple" sees the free mark).
  *
  * 🔒 A read that fails is the FREE mark (the watermark) — the safe default every footer gate already keeps: a lost read

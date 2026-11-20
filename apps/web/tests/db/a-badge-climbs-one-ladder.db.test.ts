@@ -380,7 +380,7 @@ test('5 · 💎 a GIFTED Ultra is FULL Ultra: 12-month originals and canvas; a g
   await deliverGift(pro.eventVendorId);
   const after = await released();
   assert.ok(!after.has(ultra.eventId), 'a GIFTED Ultra event was released at three months — the gift does not hold originals');
-  // 🎟 Since the 18 Nov re-cut a gifted Pro is full Pro too: 6 months (ruling 36, 20271355365735) — held at 100 days.
+  // 🎟 Since the 18 Nov re-cut a gifted Pro is full Pro too: 6 months (ruling 36, 20271356433378) — held at 100 days.
   assert.ok(!after.has(pro.eventId), 'a GIFTED Pro event was released at three months — Pro keeps originals 6 months');
   assert.equal(await holdsUltra(ultra.eventId), true, 'a gifted Ultra does not open canvas prints');
   assert.equal(await holdsUltra(pro.eventId), false, 'a gifted Pro opened canvas prints');

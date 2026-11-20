@@ -201,7 +201,7 @@ test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell 
   const fn = body('HubDraftToolbar');
   // 🏛 Owner 20 Nov: the whole Event Hub is Event Plus.
   assert.match(fn, /Apply needs Event Plus/, 'the try-then-pay line must still render');
-  assert.match(fn, /waiting for Pro/, 'the store-shell line must still render — no price, no pay path, no web in the shell');
+  assert.match(fn, /waiting for Plus/, 'the store-shell line must still render — no price, no pay path, no web in the shell');
   assert.match(fn, /<ResultLine result=\{result\}\s*\/>/, 'the outcome of the last action must still be reported');
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });

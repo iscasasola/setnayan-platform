@@ -1,5 +1,6 @@
 'use client';
 
+import { piecesAskSentLine } from '@/lib/pieces-ask-words';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -27,7 +28,6 @@ import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import {
   finalizeVendor,
   listLockTimeSlots,
-  lockPiecesAsk,
   revertVendorToConsidering,
   type FinalizeVendorResult,
   type LockMilestone,
@@ -87,13 +87,6 @@ type LockState =
     }
   // Tier #3 (owner 2026-06-09): the booked service has active time windows —
   // the couple must pick one before the lock proceeds.
-  // 🪑 Rented by the piece (owner Q2, 19 Nov): the couple says how many before the lock proceeds.
-  | {
-      kind: 'pieces_select';
-      cardName: string;
-      value: string;
-      slots: VendorServiceTimeSlot[];
-    }
   | {
       kind: 'slot_select';
       slots: VendorServiceTimeSlot[];
@@ -154,7 +147,7 @@ type LockState =
   // looked exactly like a press that did nothing — tolerable only on the
   // bench, whose own revalidation swaps Lock for Withdraw. In the chat card
   // (the second mount) nothing revalidated, so the ask was invisible.
-  | { kind: 'requested'; vendorName: string }
+  | { kind: 'requested'; vendorName: string; byThePiece: boolean }
   // Coordinator proposed the lock (spec § 4) — the couple confirms it.
   | { kind: 'proposed'; vendorName: string };
 
@@ -250,35 +243,21 @@ export function AccordionLockButton({
     // demoted, archived or frozen shop.
     startTransition(async () => {
       let slots: VendorServiceTimeSlot[] = [];
-      let pieces: Awaited<ReturnType<typeof lockPiecesAsk>> = null;
       try {
-        [slots, pieces] = await Promise.all([
-          listLockTimeSlots(eventId, vendorId),
-          lockPiecesAsk(eventId, vendorId).catch(() => null),
-        ]);
+        slots = await listLockTimeSlots(eventId, vendorId);
       } catch {
         // Degrade open — a slot-fetch hiccup must not block locking. The
         // server still enforces (returns 'slot_required' if a pick is needed).
         slots = [];
       }
-      if (pieces) {
-        setState({ kind: 'pieces_select', cardName: pieces.cardName, value: pieces.asked ? String(pieces.asked) : '', slots });
+      const firstSlot = slots[0];
+      if (firstSlot) {
+        setState({ kind: 'slot_select', slots, selectedSlotId: firstSlot.slot_id });
         return;
       }
-      afterPieces(slots);
+      performLock(false, null, false);
     });
   };
-
-  // After "how many" (or none asked): the time slot if the card has them, else the one-tap lock.
-  const afterPieces = (slots: VendorServiceTimeSlot[]) => {
-    const firstSlot = slots[0];
-    if (firstSlot) {
-      setState({ kind: 'slot_select', slots, selectedSlotId: firstSlot.slot_id });
-      return;
-    }
-    performLock(false, null, false);
-  };
-  const piecesRef = useRef<string | null>(null);
 
   const performLock = (
     override: boolean,
@@ -293,7 +272,6 @@ export function AccordionLockButton({
       fd.set('vendor_id', vendorId);
       if (override) fd.set('override_existing', '1');
       if (slotId) fd.set('service_time_slot_id', slotId);
-      if (piecesRef.current) fd.set('booked_quantity', piecesRef.current);
       if (confirmDateLock) fd.set('confirm_date_lock', '1');
       if (impactConfirmedRef.current) fd.set('confirm_lock_impact', '1');
       if (acknowledgeReservationTerms) fd.set('acknowledge_reservation_terms', '1');
@@ -478,7 +456,7 @@ export function AccordionLockButton({
           // the row (the bench's Withdraw, the chat card's "you have asked them
           // to lock") catches up on the action's own answer (it revalidates).
           haptic('confirm');
-          setState({ kind: 'requested', vendorName: result.vendorName });
+          setState({ kind: 'requested', vendorName: result.vendorName, byThePiece: result.byThePiece === true });
           return;
         default: {
           // 🔴 A RESULT THIS SWITCH DOES NOT NAME MUST NEVER RENDER AS NOTHING.
@@ -515,7 +493,10 @@ export function AccordionLockButton({
     return (
       <div className={wrapperClassName}>
         <p role="status" className="text-xs text-ink/70">
-          Booking requested — waiting for {state.vendorName} to agree.
+          {/* 🪑 By the piece (owner Q2, 20 Nov): the ask carries no number — never the stock, only who says how many. */}
+          {state.byThePiece
+            ? piecesAskSentLine(state.vendorName)
+            : `Booking requested — waiting for ${state.vendorName} to agree.`}
         </p>
       </div>
     );
@@ -572,21 +553,6 @@ export function AccordionLockButton({
           groupId={groupId}
           isPending={isPending}
           onSwitch={() => performLock(true, null, false)}
-          onDismiss={() => setState({ kind: 'idle' })}
-        />
-      ) : null}
-
-      {state.kind === 'pieces_select' ? (
-        <PiecesPickerModal
-          vendorName={vendorName}
-          cardName={state.cardName}
-          value={state.value}
-          isPending={isPending}
-          onChange={(value) => setState({ ...state, value })}
-          onConfirm={() => {
-            piecesRef.current = state.value;
-            afterPieces(state.slots);
-          }}
           onDismiss={() => setState({ kind: 'idle' })}
         />
       ) : null}
@@ -1003,70 +969,6 @@ function ExceptionModal({
             href={resolveBrowseSimilarHref(groupId)}
           />
         )}
-      </div>
-    </LockPopup>
-  );
-}
-
-/** 🪑 How many pieces the couple needs (owner Q2, 19 Nov) — asked before the lock when the card rents by the piece.
- *  The supplier may change it at their yes; only the yes takes the pieces. 🔒 Never says how many the supplier has —
- *  couples only ever see "available"; the server says whether the number fits. */
-function PiecesPickerModal({
-  vendorName,
-  cardName,
-  value,
-  isPending,
-  onChange,
-  onConfirm,
-  onDismiss,
-}: {
-  vendorName: string;
-  cardName: string;
-  value: string;
-  isPending: boolean;
-  onChange: (value: string) => void;
-  onConfirm: () => void;
-  onDismiss: () => void;
-}) {
-  const n = Number(value);
-  const ok = Number.isInteger(n) && n >= 1;
-  return (
-    <LockPopup label={`How many ${cardName} do you need`} onClose={onDismiss}>
-      <div className="space-y-1 pr-8">
-        <h3 className="text-sm font-semibold text-ink">How many {cardName} do you need?</h3>
-        <p className="text-xs leading-snug text-ink/65">
-          {vendorName} rents these by the piece. Say how many you need — you’ll be told at once if that many are available.
-        </p>
-      </div>
-      <label className="mt-4 block text-xs font-medium text-ink/70">
-        How many
-        <input
-          type="number"
-          inputMode="numeric"
-          min={1}
-          step={1}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && ok && !isPending) {
-              e.preventDefault();
-              onConfirm();
-            }
-          }}
-          className="mt-1 block h-11 w-32 rounded-lg border border-ink/20 bg-white px-3 text-sm text-ink dark:bg-raised" // no-card-ok: the class of a number <input> (a field, not a box)
-          data-lock-pieces=""
-        />
-      </label>
-      <div className="mt-5 flex flex-wrap justify-end gap-2">
-        <ActionButton tone="neutral" icon={X} label="Cancel" onClick={onDismiss} disabled={isPending} />
-        <ActionButton
-          tone="brand"
-          main
-          icon={isPending ? LOCK_PENDING_ICON : BookmarkCheck}
-          label={isPending ? 'Booking…' : 'Book these'}
-          onClick={onConfirm}
-          disabled={isPending || !ok}
-        />
       </div>
     </LockPopup>
   );

@@ -298,28 +298,19 @@ test('5 · ONE number for pieces: a 2,000-chair card on a 1-a-day schedule takes
   await assert.rejects(mkPool(shop.vpid, 2000), /daily_booking_capacity/);
 });
 
-async function askQty(uid: string, row: string, n: number | null): Promise<{ status: string; free?: number }> {
-  return asUser(uid, async () => (await db.query<{ r: { status: string; free?: number } }>(`SELECT public.set_asked_quantity($1, $2) AS r`, [row, n])).rows[0]!.r);
-}
-
-test('6 · the COUPLE says how many at the ask — honestly told when not enough are free; a stranger cannot', async () => {
+test('6 · a couple\'s ask carries NO number (owner Q2, 20 Nov: NO) — the supplier says how many at the yes; a couple cannot state one', async () => {
+  // There is no couple-side writer at all: the picker and its definer were withdrawn.
+  const fn = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pg_proc WHERE proname = 'set_asked_quantity'`);
+  assert.equal(fn.rows[0]!.n, 0, 'a couple-side "how many" writer exists');
   const shop = await mkShop('Ask Rentals', 'pro');
   const chairs = await pieceCard(shop.vpid, 500);
-  const other = await booked(shop.vpid, chairs);
-  await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [other]);
   const row = await ask(couple, shop.vpid, chairs);
-  const tooMany = await askQty(couple, row, 200);
-  assert.equal(tooMany.status, 'full');
-  assert.equal(tooMany.free, 180);
-  assert.equal((await askQty(couple, row, 150)).status, 'ok');
-  const q = (await db.query<{ q: number }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q;
-  assert.equal(q, 150, "the couple's number was not kept");
-  const stranger = await mkUser('stranger-couple', 'customer');
-  assert.equal((await askQty(stranger, row, 10)).status, 'not_authorized');
-  // The yes takes the couple's number — no supplier number needed.
+  assert.equal((await db.query<{ q: number | null }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q, null);
+  // The yes with no number is refused (never one piece by default); the supplier types it, then the yes takes it.
+  assert.equal((await agree(shop.uid, row)).status, 'pieces_needed');
+  assert.equal((await setQty(shop.uid, row, 150)).status, 'ok');
   assert.notEqual((await agree(shop.uid, row)).status, 'pieces_needed');
-  assert.equal(await outOn(chairs), 470);
-  assert.equal((await askQty(couple, row, 1)).status, 'already_booked', 'a booked number changed after the yes');
+  assert.equal(await outOn(chairs), 150);
 });
 
 test('7 · the yes counts its OWN pieces: 420 of 500 out, a stale 100 is refused, 80 fits, then 1 more is refused', async () => {
@@ -331,7 +322,7 @@ test('7 · the yes counts its OWN pieces: 420 of 500 out, a stale 100 is refused
   await db.query(`UPDATE public.event_vendors SET booked_quantity = 320 WHERE vendor_id = $1`, [other]);
   const [ca, cb, cc] = [await mkUser('race-a', 'customer'), await mkUser('race-b', 'customer'), await mkUser('race-c', 'customer')];
   const a = await ask(ca, shop.vpid, chairs);
-  assert.equal((await askQty(ca, a, 100)).status, 'ok');
+  assert.equal((await setQty(shop.uid, a, 100)).status, 'ok');
   assert.equal((await agree(shop.uid, a)).status, 'ok');
   assert.equal(await outOn(chairs), 420);
   // A number written while it still fitted (the couple asked before the other yes) — the yes must re-count.
@@ -501,36 +492,9 @@ test('12 · every writer of a booking\'s pieces locks in ONE order — booking r
     assert.ok(shop >= 0, `${fn} never takes the shop lock`);
     assert.ok(booking < card && card < shop, `${fn} locks out of order (booking ${booking}, card ${card}, shop ${shop})`);
   }
-  // The couple's ask locks the booking row BEFORE it reads the status it checks.
-  const asked = await bodyOf('set_asked_quantity');
-  const lockedAt = lockAt(asked, 'booking');
-  assert.ok(lockedAt >= 0, 'set_asked_quantity reads the status without locking the booking row');
-  assert.ok(lockedAt < asked.search(/v_status\s+IN\s*\(/i), 'set_asked_quantity checks the status before it locks the row');
-  // …and the write carries the status predicate too, so a booked row is never rewritten by an ask.
-  assert.match(asked, /UPDATE\s+public\.event_vendors\s+SET\s+booked_quantity[\s\S]*?status::text\s+NOT\s+IN\s*\(\s*'contracted'/i);
 });
 
-test('13 · a door with no "how many" field keeps the couple\'s earlier number; no number anywhere is pieces_needed, never one', async () => {
-  const shop = await mkShop('Door Rentals', 'pro');
-  const chairs = await pieceCard(shop.vpid, 500);
-  const row = await ask(couple, shop.vpid, chairs);
-  // No number yet, none sent (book-this-build / pending-lock-proposals) → the couple is sent to the picker.
-  assert.equal((await askQty(couple, row, null)).status, 'pieces_needed');
-  assert.equal((await db.query<{ q: number | null }>(`SELECT booked_quantity AS q FROM public.event_vendors WHERE vendor_id = $1`, [row])).rows[0]!.q, null);
-  // The accordion asked 150; a later door sends nothing → 150 stands, and is re-checked against what is free.
-  assert.equal((await askQty(couple, row, 150)).status, 'ok');
-  const again = await askQty(couple, row, null);
-  assert.equal(again.status, 'ok');
-  assert.equal((again as { quantity?: number }).quantity, 150);
-  const other = await booked(shop.vpid, chairs);
-  await db.query(`UPDATE public.event_vendors SET booked_quantity = 400 WHERE vendor_id = $1`, [other]);
-  const late = await askQty(couple, row, null);
-  assert.equal(late.status, 'full', 'a kept number was not re-checked against what is free now');
-  assert.equal(late.free, 100);
-  assert.equal((await askQty(couple, row, 0)).status, 'bad_quantity');
-});
-
-test('14 · a piece card WITH time windows is still counted by its pieces at the yes (review 2026-11-20)', async () => {
+test('13 · a piece card WITH time windows is still counted by its pieces at the yes (review 2026-11-20)', async () => {
   const shop = await mkShop('Slot Rentals', 'pro');
   const chairs = await pieceCard(shop.vpid, 500);
   await db.query(

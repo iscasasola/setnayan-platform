@@ -16,9 +16,9 @@ APPROVED"):
 - **On a computer, two columns:** the groups and bars on the left (tools row under it), the tapped group's bookings on
   the right (`?grp=`).
 - **Always available cards are never on the day** and never counted.
-- **The couple picks how many** (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN AV-PIECE): booking a
-  by-the-piece card asks "How many ‹card› do you need?" first (`set_asked_quantity`; told honestly when not enough are
-  free; an ask holds nothing). The supplier's Agree shows that number and may change it (`set_booked_quantity`).
+- **The supplier says how many** (owner Q2, 20 Nov: NO — the couple's picker is withdrawn): a couple's ask on a
+  by-the-piece card carries no number and never shows the stock; the supplier types how many they can give at the yes
+  (`set_booked_quantity`), and a piece yes with no number is refused (`pieces_needed`), never one piece by default.
 - **No double booking, in the database:** the yes (`vendor_agree_to_lock`) now refuses when out + this booking's
   pieces > the card's number — before, it compared out >= number only, so two 100-chair yeses with 320 of 500 out
   could both land — under ONE lock per shop (`lock_shop_day_counts`, also taken by `set_booked_quantity`).
@@ -52,3 +52,12 @@ with none anywhere the couple is sent to the supplier's card (`pieces_needed`), 
 on the time-slot path too, and the yes counts a slotted piece card by its pieces · the supplier's "how many" field
 shows on every piece card (no "You have N" until the card has a number) · "180 chairs free", as drawn · DB tests 12–14
 (lock order read from each function's code, the kept number, the slotted piece card).
+
+**Re-review (20 Nov, second pass) · owner Q2 = NO:** the couple's "How many do you need?" picker
+(`PiecesPickerModal`, `lockPiecesAsk`) and its definer `set_asked_quantity` are removed — the migration is unapplied, so
+the function never reaches production. A couple never sees the stock and never states a number; the supplier gives it
+at the yes. One of the schedule's word reads singular ("1 chair free"). DB test 6 now proves there is no couple-side
+writer and the supplier's number is what the yes takes; the old tests 12 (ask part) and 13 (kept ask number) go with it. Owner,
+verbatim: *"No, keep the ruling — remove the picker"*. A piece ask that is sent says "Ask sent. ‹shop› will tell you how
+many they can give." on the lock button and in the pending proposals (`lock_requested` now carries `byThePiece`), and
+a sent ask in the pending proposals reads "Ask sent", no longer "needs a few details".

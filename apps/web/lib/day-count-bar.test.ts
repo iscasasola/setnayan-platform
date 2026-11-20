@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { countBarKind, countBarOf, countBarFillPct, freeWords } from './day-count-bar';
+import { singularOf, countBarKind, countBarOf, countBarFillPct, freeWords } from './day-count-bar';
 import { dayGroupsOf, dayAnswerOfGroups } from './vendor-dates';
 
 test('orders: "3 of 5 in progress · 2 free", one piece per order up to ten, the dot by how many are left', () => {
@@ -47,6 +47,13 @@ test('the answer line sums the free counts', () => {
   // A bar with no noun falls back to "pieces", and a single one to "piece".
   assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', taken: 320, total: 500 })]), '180 pieces free');
   assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', noun: ' ', taken: 499, total: 500 })]), '1 piece free');
+  // One of the schedule's word reads singular — "1 chair free", never "1 chairs free" (review 2026-11-20).
+  assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', noun: 'Chairs', taken: 499, total: 500 })]), '1 chair free');
+  assert.equal(singularOf('tables'), 'table');
+  assert.equal(singularOf('boxes'), 'box');
+  assert.equal(singularOf('parties'), 'party');
+  assert.equal(singularOf('glass'), 'glass');
+  assert.equal(singularOf('equipment'), 'equipment');
   // The noun belongs to pieces only — an orders bar never carries it.
   const on = countBarOf({ kind: 'orders', name: 'Orders in progress', noun: 'Cakes', taken: 3, total: 5 });
   assert.equal(on.unread ? null : on.noun, undefined);

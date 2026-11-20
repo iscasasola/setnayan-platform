@@ -164,6 +164,7 @@ import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 import { bookingCostWrite } from '@/lib/booking-cost-write';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import {
   AGREED_COUNT_FIELD,
   PRICE_BASIS_FIELD,
@@ -728,6 +729,10 @@ export type FinalizeVendorResult =
       vendorName: string;
       /** ISO. Mirrors the deadline the trigger materialized on the row. */
       expiresAt: string;
+      /** 🪑 The card rents by the piece (owner Q2, 20 Nov: no couple picker) — the ask went with no number and the
+       *  supplier says how many they can give. FALSE when not, or when the read was refused (logged; the plain
+       *  "sent" line is still true). */
+      byThePiece?: boolean;
     }
   // Locking this vendor narrows the couple's remaining candidate dates to a
   // single day — so confirming the lock also finalizes the wedding date. The
@@ -1052,11 +1057,6 @@ async function resolveLockImpact(args: {
     return null;
   }
 }
-
-/** 🪑 A by-the-piece card with no number anywhere (a door with no "how many" field, and no earlier ask) — the couple is
- *  sent to the supplier's card, whose Book asks how many (review 2026-11-20). Never booked as one piece. */
-const PIECES_NEEDED_COUPLE_MESSAGE =
-  'This supplier rents by the piece. Open their card and tap Book to say how many you need — nothing was asked yet.';
 
 export async function finalizeVendor(
   formData: FormData,
@@ -1729,39 +1729,9 @@ export async function finalizeVendor(
       .eq('vendor_service_id', targetVendor.service_id)
       .eq('is_active', true);
 
-    // 🪑 RENTED BY THE PIECE — the couple says how many (owner Q2, 19 Nov: "yes it should show"; AVAILABILITY_PLAN
-    // AV-PIECE "the couple picks how many"). Written by ONE definer (`set_asked_quantity`, their own row only, before
-    // the yes). An ask holds nothing; only the supplier's yes takes the pieces (`vendor_agree_to_lock`, under one
-    // lock per shop) — so "only N free" here is an honest answer, not a hold. A card not by the piece answers
-    // `not_by_the_piece` and the ask goes on as before. A refused write is refused, never booked as one piece.
-    // ⏱ Asked on BOTH paths (review 2026-11-20): a piece card with time windows is still counted by its pieces.
-    // 🚪 A door with no "how many" field (book-this-build, pending-lock-proposals) sends nothing: the definer keeps the
-    // number from the couple's earlier ask; with none anywhere it answers `pieces_needed` and the couple is sent to
-    // the supplier's card, where the lock asks how many.
-    {
-      const rawQty = String(formData.get('booked_quantity') ?? '').trim();
-      const { data: qRaw, error: qErr } = await supabase.rpc('set_asked_quantity', {
-        p_event_vendor_id: vendorId,
-        p_quantity: rawQty === '' ? null : Number.isInteger(Number(rawQty)) ? Number(rawQty) : 0,
-      });
-      const q = (qRaw ?? {}) as { status?: string; free?: number };
-      if (qErr) {
-        console.error('[finalizeVendor] pieces write failed', qErr.message);
-        return { status: 'error', message: 'We couldn’t save how many you need. Try again.' };
-      }
-      if (q.status === 'pieces_needed') {
-        return { status: 'error', message: PIECES_NEEDED_COUPLE_MESSAGE };
-      }
-      if (q.status === 'bad_quantity') {
-        return { status: 'error', message: 'Say how many you need, then book.' };
-      }
-      if (q.status === 'full') {
-        return {
-          status: 'error',
-          message: q.free && q.free > 0 ? `Only ${q.free.toLocaleString('en-US')} are free on your date. Ask for fewer.` : 'None are free on your date.',
-        };
-      }
-    }
+    // 🪑 RENTED BY THE PIECE (owner Q2, 20 Nov: NO): the couple's ask carries no number — the supplier says how many
+    // they can give at the yes (`vendor_agree_to_lock` refuses a piece yes with no number: `pieces_needed`). A couple
+    // never sees, and never states against, the stock.
 
     let useSlotPath = false;
     if ((slotCount ?? 0) > 0) {
@@ -2283,12 +2253,16 @@ export async function finalizeVendor(
       );
     }
 
+    const piece = await pieceBookingIdsOf(supabase, [vendorId]);
+    if (piece.error) console.error('[finalizeVendor] piece-card read failed', piece.error.message);
+
     revalidatePath(`/dashboard/${eventId}/vendors`);
     return {
       status: 'lock_requested',
       vendorId,
       vendorName: targetVendor.vendor_name as string,
       expiresAt,
+      byThePiece: piece.ids?.has(vendorId) ?? false,
     };
   }
 
@@ -3034,42 +3008,6 @@ export async function finalizeVendor(
 // fetchSlotsForCoupleBooking. Empty array → the lock proceeds with the existing
 // one-tap happy path, unchanged for the vast majority of vendors.
 // ============================================================================
-/**
- * 🪑 The pieces ask before the lock (owner Q2, 19 Nov): when the booked card is Rented by the piece, the lock asks
- * "How many do you need". Null = not by the piece, or the read failed (the server still refuses a piece ask with no
- * number — `set_asked_quantity` in finalizeVendor). 🔒 It never carries how many the supplier HAS: couples only ever see
- * "available" (the card maker's own promise) — the server answers whether their number fits.
- */
-export async function lockPiecesAsk(
-  eventId: string,
-  vendorId: string,
-): Promise<{ cardName: string; asked: number | null } | null> {
-  if (!eventId || !vendorId) return null;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: ev, error } = await supabase
-    .from('event_vendors')
-    .select('service_id, booked_quantity')
-    .eq('vendor_id', vendorId)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  const row = ev as { service_id: string | null; booked_quantity: number | null } | null;
-  if (error) console.error('[lockPiecesAsk] booking read failed', error.message);
-  if (error || !row?.service_id) return null;
-  const { data: card, error: cardErr } = await supabase
-    .from('vendor_services')
-    .select('title, availability_style')
-    .eq('vendor_service_id', row.service_id)
-    .maybeSingle();
-  const c = card as { title: string | null; availability_style: string | null } | null;
-  if (cardErr) console.error('[lockPiecesAsk] card read failed', cardErr.message);
-  if (cardErr || !c || c.availability_style !== 'piece') return null;
-  return { cardName: c.title?.trim() || 'pieces', asked: row.booked_quantity };
-}
-
 export async function listLockTimeSlots(
   eventId: string,
   vendorId: string,

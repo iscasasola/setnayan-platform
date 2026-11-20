@@ -2163,7 +2163,8 @@ function InlineMoreCard({
         mallPrice={
           svc?.priceText ? mallPrice({ perGuest: svc.perGuest ?? null, guests: mallEvent.guests, price: svc.priceText, priceNote: null }) : null
         }
-        distance={aboutKmLine(v.distanceKm)}
+        // No venue pin → the search measured from the region's centre, not a venue: ask for the venue instead.
+        distance={mallEvent.askVenue ? null : aboutKmLine(v.distanceKm)}
         askVenue={mallEvent.askVenue}
         coverCorner={
           v.boosted ? (
@@ -4610,6 +4611,8 @@ export function ShortlistCategories({
                     savedFirst(
                       sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
                       ({ v }) => benchSavedGoesFirst(v),
+                      // ★ Chosen stays first (6 Sep hoist ruling); saved go next.
+                      ({ v }) => v.status === 'locked',
                     ),
                     tilePins,
                     (e) => e.v.vendorId,

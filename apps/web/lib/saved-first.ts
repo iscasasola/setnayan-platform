@@ -34,10 +34,19 @@ export function savedGoesFirst(f: SavedFirstFacts): boolean {
 /**
  * A stable partition: the rows that qualify move to the front in the order they already had; every other row keeps
  * its place in the normal order behind them. Never re-sorts either half.
+ *
+ * `staysFirst` — rows that already lead and must keep leading. On the bench that is the ★ Chosen (locked) card: the
+ * 2026-09-06 "hoist it" ruling (`bench-sort.ts` `hoistLocked`) puts it first, and saved-first never pushes it down
+ * (controller ruling 20 Nov: Chosen → saved → the rest). Those rows are left out of the partition and kept ahead.
  */
-export function savedFirst<T>(rows: readonly T[], qualifies: (row: T) => boolean): T[] {
+export function savedFirst<T>(
+  rows: readonly T[],
+  qualifies: (row: T) => boolean,
+  staysFirst?: (row: T) => boolean,
+): T[] {
+  const kept: T[] = [];
   const first: T[] = [];
   const rest: T[] = [];
-  for (const r of rows) (qualifies(r) ? first : rest).push(r);
-  return first.length === 0 ? [...rows] : [...first, ...rest];
+  for (const r of rows) (staysFirst?.(r) ? kept : qualifies(r) ? first : rest).push(r);
+  return first.length === 0 ? [...rows] : [...kept, ...first, ...rest];
 }

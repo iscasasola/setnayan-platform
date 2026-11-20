@@ -28,9 +28,32 @@ test('the partition is stable: qualifying rows lead in their order, the rest kee
   assert.deepEqual(savedFirst(rows, () => false), rows, 'nobody qualifies → unchanged');
 });
 
+test('★ Chosen (locked) stays first, then saved, then the rest — saved-first never pushes the Chosen card down', () => {
+  type R = { id: string; locked: boolean; saved: boolean };
+  const rows: R[] = [
+    { id: 'chosen', locked: true, saved: false },
+    { id: 'a', locked: false, saved: false },
+    { id: 'saved', locked: false, saved: true },
+    { id: 'b', locked: false, saved: false },
+  ];
+  const out = savedFirst(rows, (r) => r.saved, (r) => r.locked).map((r) => r.id);
+  assert.deepEqual(out, ['chosen', 'saved', 'a', 'b']);
+  // A locked row that is also saved is still kept with the Chosen, not moved.
+  const both = savedFirst([{ id: 'x', locked: false, saved: true }, { id: 'c', locked: true, saved: true }], (r) => r.saved, (r) => r.locked);
+  assert.deepEqual(both.map((r) => r.id), ['c', 'x']);
+});
+
 test('Find (bench rail) and the category search both use the one rule, fed by the shipped reach + date reads', () => {
   const find = src('app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx');
   assert.match(find, /savedFirst\(\s*sortWithReasons\(/, 'the Find rail no longer puts saved suppliers first');
+  assert.match(
+    find,
+    /\(\{ v \}\) => benchSavedGoesFirst\(v\),[\s\S]{0,120}\(\{ v \}\) => v\.status === 'locked',/,
+    'saved-first no longer keeps the ★ Chosen card ahead',
+  );
+  // No venue pin: "More to compare" must not print a distance measured from the region centroid.
+  assert.match(find, /distance=\{mallEvent\.askVenue \? null : aboutKmLine\(v\.distanceKm\)\}/, 'More to compare shows a distance with no venue');
+  assert.doesNotMatch(find, /distance=\{aboutKmLine\(v\.distanceKm\)\}/, 'an ungated distance line came back');
   assert.match(find, /function benchSavedGoesFirst[\s\S]{0,700}resolveReachBadge\([\s\S]{0,400}dateFit === 'free'/);
 
   const search = src('app/dashboard/[eventId]/vendors/_actions/category-search.ts');

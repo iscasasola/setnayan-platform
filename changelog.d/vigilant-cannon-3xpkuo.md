@@ -47,3 +47,14 @@ SPEC IMPACT: None new — implements the 2026-11-19 DECISION_LOG rows as written
 - **"Your changes save as you go."** — each step and each sheet's Save park the answers in this browser tab.
 - Pins re-stated to the 19 Nov drawing (the-approved-redesign, the-gate-walk-fixes, the-v21-deltas, the-w1-walk-16-nov,
   supplier-onboarding — test 8 new). None deleted.
+
+## 2026-11-20 · fix(onboarding): the first card is "on your page" only when the shipped switch says so
+
+- The maker makes every card as a draft. After making it, the door now asks the shipped switch (`toggleVendorServiceActive`), which applies the publish gate and the live-cards cap. Live lands on `?card=live`. A refusal lands on `card=draft` with the switch's own sentence, the Card Maker opened on that card, and "Put it on my page".
+- Today's ticked row says "Your shop and first card" only on `card=live`. A bare `?opened=1` names the shop alone.
+- PB5 no longer says "· on your page" and no longer ticks a card that isn't made yet.
+- Approve is idempotent: a card the shop already has under that title is reused, so opening the confirm link twice makes no duplicate.
+- Tests: `lib/supplier-onboarding.test.ts` 11 (live, cap-refused, gate-refused, no answer, idempotency).
+
+SPEC IMPACT: None.
+

@@ -74,7 +74,7 @@ import {
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
 import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
-import { FIRST_CARD_SKIPPED, firstCardFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -800,7 +800,7 @@ export default async function VendorOverviewPage({
           kind={welcome}
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
-          skipped={search.card === FIRST_CARD_SKIPPED}
+          cardState={firstCardStateFrom(search)}
           claimed={await claimedWelcomeP}
         />
       ) : null}

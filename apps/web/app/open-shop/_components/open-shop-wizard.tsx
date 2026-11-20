@@ -1891,7 +1891,7 @@ export function OpenShopWizard({
             {/* 5 · You're all set — what opens, the plan (when the picks are more than Free holds), what "free" means,
                 then Open my shop. */}
             <div className={`${step === TOTAL_STEPS ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-done="">
-              {/* PB5 — what opens, each row ticked: Shop · Cards · Link. A card not made says so (no tick). */}
+              {/* PB5 — what opens: Shop · Cards · Link. Only what is already true is ticked; the card is made when they open. */}
               <ul className="grid divide-y border-y text-[14px]" style={{ borderColor: 'var(--m-line)' }} data-onboarding-done-rows="">
                 {(
                   [
@@ -1899,11 +1899,12 @@ export function OpenShopWizard({
                     [
                       'Cards',
                       cardChoice === 'approve'
-                        ? `${cardTitle.trim()} · on your page`
+                        ? `${cardTitle.trim()} · made when you open — Today says if it's on your page`
                         : cardChoice === 'edit'
                           ? `${cardTitle.trim() || 'Your first card'} · opens in the Card Maker`
                           : 'None yet — add one from Today',
-                      cardChoice === 'approve',
+                      // 🃏 No tick: the card is not made yet, and the shipped switch decides "on your page" (review 20 Nov).
+                      false,
                     ],
                     ['Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
                   ] as const

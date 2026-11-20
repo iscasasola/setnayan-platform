@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AlertCircle, BadgeCheck, Gift, Star } from 'lucide-react';
+import { AlertCircle, BadgeCheck, Check, Gift, MapPin, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { DemoOnlyMarker } from '@/app/_components/sample-marker';
@@ -7,6 +7,7 @@ import { ServiceFaceCoverShow } from '@/app/_components/service-face-cover-show'
 import { ServiceFaceDoorButton } from '@/app/_components/service-face-door';
 import { formatCount } from '@/lib/format-number';
 import { coverPhotoList, type CoverPhoto } from '@/lib/service-cover-show';
+import { SET_YOUR_VENUE_LINE, type MallPrice } from '@/lib/mall-card';
 
 /**
  * service-face.tsx — THE ONE SERVICE CARD FACE. Every service card in the app is drawn here.
@@ -103,6 +104,12 @@ export function ServiceFace({
   door,
   framed = true,
   id,
+  layout = 'row',
+  mallPrice = null,
+  medals = null,
+  distance = null,
+  askVenue = false,
+  coverAction = null,
 }: {
   name: string;
   /** Plain display URL of the cover. Ignored when `cover` is given. */
@@ -151,6 +158,27 @@ export function ServiceFace({
   /** false → the caller already draws the frame (Find's `.vcw`). */
   framed?: boolean;
   id?: string;
+  /**
+   * 🃏 CARD 14, "THE MALL CARD" (owner 20 Nov 2026, "card 14 approved" · "Do it") — the BROWSE face on Find and
+   * Discover: square photo with the "Verified shop" pill, shop line, two-line name, the price band, the medal row, then
+   * the date fit and the distance. 'row' (the default) is the face as it was — the shop's own page and the maker.
+   * The mall face drops the path line, city, rating, Includes, Not included and the gift line: they live in the opened
+   * card (DECISION_LOG "LOOK CALLS ARE THE DRAWING SESSION'S", picks 1 and 2).
+   */
+  layout?: 'row' | 'mall';
+  /** The mall face's price band (`lib/mall-card.ts` `mallPrice`). Null → `price` / `priceNote` as they are. */
+  mallPrice?: MallPrice | null;
+  /** The card's medal row (`CardBadgeRow`), where a star rating would sit. */
+  medals?: ReactNode;
+  /** "about 12 km from your venue" (`aboutKmLine`). Null → no line. */
+  distance?: string | null;
+  /** The event has no venue yet → the line asks for one instead. */
+  askVenue?: boolean;
+  /**
+   * 🔖 A press that sits ON the photo, top-right, above the card's door (the mall face only). Discover hands it the
+   * shipped Save bookmark (`SaveVendorButton`); Find hands nothing (owner 20 Nov: Save on browse, not in Find).
+   */
+  coverAction?: ReactNode;
 }) {
   const show = coverPhotoList(cover ? null : coverUrl, photos);
   const plays = show.length >= 2;
@@ -167,6 +195,68 @@ export function ServiceFace({
       </span>
     ))
   );
+
+  // THE DOOR — built once, placed last in either layout, stretched over the face. The shop line and the footer are
+  // lifted above it (z-10) and stay its SIBLINGS: an <a> inside an <a> is invalid HTML.
+  const doorEl =
+    door && 'href' in door ? (
+      <Link
+        href={door.href}
+        aria-label={door.label}
+        data-service-face-door=""
+        className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+      />
+    ) : door ? (
+      <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
+    ) : null;
+
+  if (layout === 'mall') {
+    return (
+      <div
+        id={id}
+        data-service-face=""
+        data-service-face-layout="mall"
+        className={
+          framed
+            ? 'sn-frame sn-frame-flush relative flex h-full w-full min-w-0 flex-col overflow-hidden transition-shadow hover:shadow-m-lg'
+            : 'relative flex h-full min-w-0 flex-col'
+        }
+      >
+        <MallFaceBody
+          cover={coverNode}
+          coverCorner={coverCorner}
+          plays={plays}
+          verified={shop?.verified === true}
+          shop={shop ?? null}
+          name={name}
+          discount={discount}
+          price={mallPrice ?? (price ? { big: price, you: null, note: priceNote } : null)}
+          priceMissing={priceMissing}
+          city={city}
+          rating={
+            rating ? (
+              <span className="inline-flex items-center gap-1 text-[11px] text-[var(--m-slate-2)]">
+                <Star aria-hidden className="h-3 w-3 text-[var(--m-orange-2)]" strokeWidth={1.75} />
+                {rating.avg.toFixed(1)}
+                {rating.count ? ` · ${formatCount(rating.count)}` : ''}
+              </span>
+            ) : null
+          }
+          medals={medals}
+          lines={lines}
+          distance={distance}
+          askVenue={askVenue}
+        />
+        {footer ? <div className="relative z-10 px-2.5 pb-2.5">{footer}</div> : null}
+        {doorEl}
+        {coverAction ? (
+          <div className="absolute right-0 top-0 z-20" data-mall-cover-action="">
+            {coverAction}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -253,31 +343,21 @@ export function ServiceFace({
 
       {footer ? <div className="relative z-10">{footer}</div> : null}
 
-      {/* THE DOOR — last child, stretched over the face. The shop line and the footer are lifted above it (z-10) and
-          stay its SIBLINGS: an <a> inside an <a> is invalid HTML. */}
-      {door && 'href' in door ? (
-        <Link
-          href={door.href}
-          aria-label={door.label}
-          data-service-face-door=""
-          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-        />
-      ) : door ? (
-        <ServiceFaceDoorButton label={door.label} hasPopup={door.hasPopup} onOpen={door.onOpen} />
-      ) : null}
+      {/* THE DOOR — last child (built once above). */}
+      {doorEl}
     </div>
   );
 }
 
 /** The shop line: a round logo + the name (one control that opens the shop), then Verified. */
-function ShopLine({ shop }: { shop: ServiceFaceShop }) {
+function ShopLine({ shop, mall = false }: { shop: ServiceFaceShop; mall?: boolean }) {
   const logo = shop.logoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element -- an already-resolved logo URL; a pasted legacy host must not 400 through next/image
-    <img src={shop.logoUrl} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" loading="lazy" />
+    <img src={shop.logoUrl} alt="" className={`${mall ? 'h-[18px] w-[18px]' : 'h-5 w-5'} shrink-0 rounded-full object-cover`} loading="lazy" />
   ) : (
     <span
       aria-hidden
-      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--m-orange-4)] text-[8px] font-bold text-[var(--m-orange-deep)]"
+      className={`flex ${mall ? 'h-[18px] w-[18px] text-[7.5px]' : 'h-5 w-5 text-[8px]'} shrink-0 items-center justify-center rounded-full bg-[var(--m-orange-4)] font-bold text-[var(--m-orange-deep)]`}
     >
       {initialsOf(shop.name)}
     </span>
@@ -289,7 +369,14 @@ function ShopLine({ shop }: { shop: ServiceFaceShop }) {
     </>
   );
   return (
-    <span className="relative z-10 flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[var(--m-slate-2)]" data-service-face-shop="">
+    <span
+      className={
+        mall
+          ? 'relative z-10 flex min-h-[18px] min-w-0 items-center gap-1.5 text-[11.5px] font-medium leading-tight text-[var(--m-slate-2)]'
+          : 'relative z-10 flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[var(--m-slate-2)]'
+      }
+      data-service-face-shop=""
+    >
       {shop.href ? (
         <Link href={shop.href} aria-label={`Visit ${shop.name}`} className="flex min-w-0 items-center gap-1.5 hover:text-terracotta">
           {inner}
@@ -297,7 +384,7 @@ function ShopLine({ shop }: { shop: ServiceFaceShop }) {
       ) : (
         <span className="flex min-w-0 items-center gap-1.5">{inner}</span>
       )}
-      {shop.verified ? (
+      {shop.verified && !mall ? (
         <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-[rgb(var(--color-ok)/0.12)] px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-[rgb(var(--color-ok))]">
           <BadgeCheck aria-hidden className="h-2.5 w-2.5" strokeWidth={2} /> Verified
         </span>
@@ -305,4 +392,179 @@ function ShopLine({ shop }: { shop: ServiceFaceShop }) {
       {shop.isDemo ? <DemoOnlyMarker /> : null}
     </span>
   );
+}
+
+/**
+ * 🃏 THE MALL FACE'S BODY (card 14) — spans only, so Find's bench card can draw it INSIDE its own link
+ * (`InspectorTrigger` is an <a>) and still be the one face: `ServiceFace layout="mall"` and Find's bench card both
+ * draw this, and nothing else draws a mall card. The drawing: corpus `prototypes/service_card_options_round3_2026-11-20/`
+ * option 14 (https://claude.ai/artifact/752FUN4BTE16bEWmpjP6r7).
+ */
+export function MallFaceBody({
+  cover,
+  coverCorner = null,
+  plays = false,
+  verified,
+  shop,
+  name,
+  discount = null,
+  price,
+  priceSlot = null,
+  priceMissing = null,
+  city = null,
+  rating = null,
+  medals = null,
+  lines = null,
+  extra = null,
+  distance = null,
+  askVenue = false,
+}: {
+  cover: ReactNode;
+  /** A small mark ON the photo, top-left ("★ Chosen", "Featured"). */
+  coverCorner?: ReactNode;
+  plays?: boolean;
+  /** The shop is Setnayan Verified → the "Verified shop" pill on the photo (it leaves the medal row). */
+  verified: boolean;
+  shop: ServiceFaceShop | null;
+  name: string;
+  discount?: string | null;
+  price: MallPrice | null;
+  /** A surface's own price band content (Find: the price recorded with this couple, and what was agreed). Wins over
+   *  `price`. */
+  priceSlot?: ReactNode;
+  priceMissing?: string | null;
+  /** Where the shop works — said quietly after the shop name. The drawing's sample shops carry none; ours do. */
+  city?: ReactNode;
+  /** The trusted rating, drawn where the drawing says a rating sits: at the head of the medal row. */
+  rating?: ReactNode;
+  medals?: ReactNode;
+  /** The date fit (and anything else a surface must say about the supplier) — the card's foot, above the distance. */
+  lines?: ReactNode;
+  /** Lines a surface keeps between the medals and the foot (Find's standing, unread, own record…). */
+  extra?: ReactNode;
+  distance?: string | null;
+  askVenue?: boolean;
+}) {
+  const footLine = distance ?? (askVenue ? SET_YOUR_VENUE_LINE : null);
+  return (
+    <>
+      {/* data-service-face-cover: the grown card's hero morphs out of THIS box (`heroClipFrom`). */}
+      <span
+        className="relative flex aspect-square w-full shrink-0 items-center justify-center overflow-hidden bg-[var(--m-orange-4)]"
+        data-service-face-cover=""
+      >
+        {cover}
+        {coverCorner ? (
+          <span className={`absolute left-2 top-2 max-w-[calc(100%-16px)]${plays ? ' pointer-events-none z-20' : ''}`}>{coverCorner}</span>
+        ) : null}
+        {verified ? (
+          <span
+            data-mall-verified=""
+            className={`absolute bottom-2 left-2 inline-flex h-5 items-center gap-1 rounded-md bg-[var(--sn-cb-verified-fill)] pl-[5px] pr-[7px] text-[9px] font-extrabold uppercase leading-none tracking-[.07em] text-[var(--m-paper)] shadow-[0_1px_4px_rgba(0,0,0,.25)]${
+              plays ? ' pointer-events-none z-20' : ''
+            }`}
+          >
+            <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={3.2} />
+            Verified shop
+          </span>
+        ) : null}
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5 px-2.5 pb-2.5 pt-[9px]">
+        {shop || city ? (
+          <span className="flex min-w-0 items-center gap-1.5">
+            {shop ? <ShopLine shop={shop} mall /> : null}
+            {city ? (
+              <span className="min-w-0 shrink truncate text-[11px] leading-tight text-[var(--m-slate-3)]" data-mall-city="">
+                {city}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+        <span
+          className="line-clamp-2 min-h-[2.6em] text-[13.5px] font-semibold leading-[1.3] text-[var(--m-ink)] [overflow-wrap:anywhere]"
+          data-mall-name=""
+        >
+          {name}
+        </span>
+        {priceSlot ? (
+          <span
+            data-mall-price=""
+            className="-mx-2.5 mt-px flex flex-wrap items-baseline gap-x-1.5 bg-[var(--m-paper-2)] px-2.5 py-[7px] text-[11px] leading-snug text-[var(--m-slate-2)]"
+          >
+            {priceSlot}
+          </span>
+        ) : price ? (
+          <span
+            data-mall-price=""
+            className="-mx-2.5 mt-px flex flex-wrap items-baseline gap-x-1.5 bg-[var(--m-paper-2)] px-2.5 py-[7px]"
+          >
+            <span
+              className={`whitespace-nowrap text-[19px] font-extrabold leading-tight tracking-[-.02em] text-[var(--m-ink)] [font-variant-numeric:tabular-nums]${
+                price.you ? ' basis-full' : ''
+              }`}
+            >
+              <MallFigure text={price.big} />
+            </span>
+            {price.you ? <span className="text-[11px] font-semibold leading-snug text-[var(--m-ink)]">{price.you}</span> : null}
+            {price.note ? <span className="text-[11px] leading-snug text-[var(--m-slate-2)]">{price.note}</span> : null}
+            {discount ? (
+              <span className="basis-full text-[10.5px] font-semibold leading-snug text-[rgb(var(--color-ok))]">{discount}</span>
+            ) : null}
+          </span>
+        ) : priceMissing ? (
+          <span
+            data-mall-price=""
+            className="-mx-2.5 mt-px bg-[var(--m-paper-2)] px-2.5 py-[7px] text-[12.5px] leading-snug text-[var(--m-slate-2)]"
+          >
+            {priceMissing}
+          </span>
+        ) : null}
+        {medals || rating ? (
+          <span className="relative z-10 flex min-h-[22px] min-w-0 items-center gap-2 pl-0.5" data-mall-medals="">
+            {rating}
+            {medals ? <span className="min-w-0 flex-1">{medals}</span> : null}
+          </span>
+        ) : null}
+        {extra}
+        {lines || footLine ? (
+          <span className="mt-auto flex flex-col gap-1 border-t border-[var(--m-line)] pt-[7px]" data-mall-foot="">
+            {lines}
+            {footLine ? (
+              <span
+                data-mall-distance={distance ? '' : 'ask'}
+                className={`flex items-start gap-1 text-[11px] font-medium leading-tight ${
+                  distance ? 'text-[var(--m-slate-2)]' : 'text-[var(--m-slate-3)]'
+                }`}
+              >
+                <MapPin aria-hidden className="mt-px h-3 w-3 shrink-0" strokeWidth={2} />
+                <span>{footLine}</span>
+              </span>
+            ) : null}
+          </span>
+        ) : null}
+      </span>
+    </>
+  );
+}
+
+/** "from ₱45,999" → a small "from"; "₱650 / guest" → a small "/ guest". The figure itself is untouched. */
+function MallFigure({ text }: { text: string }) {
+  const from = /^from\s+/i.exec(text);
+  if (from) {
+    return (
+      <>
+        <em className="text-[11px] font-semibold not-italic tracking-normal text-[var(--m-slate-2)]">from</em> {text.slice(from[0].length)}
+      </>
+    );
+  }
+  const per = /\s\/\s(guest|meal|hour|hr)$/i.exec(text);
+  if (per) {
+    return (
+      <>
+        {text.slice(0, per.index)}
+        <em className="text-[11px] font-semibold not-italic tracking-normal text-[var(--m-slate-2)]"> / {per[1]}</em>
+      </>
+    );
+  }
+  return <>{text}</>;
 }

@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, CalendarDays, ClipboardList, Lock, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ClipboardList, FolderOpen, Lock, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
@@ -13,6 +13,7 @@ import { BodyPanel } from '../../_components/body-panel';
 import { ServiceScannerPick } from './service-scanner-pick';
 import { LockExplainer } from '@/app/_components/lock/locked-feature';
 import type { OfferMakerStart } from '../../offers/_components/offer-maker';
+import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
@@ -40,11 +41,15 @@ const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').the
  *                 arrival, and `&new=season&from=…&to=…` opens a new season offer on those days (Analytics' "Slow months").
  *                 🔒 An unverified shop sees the tile with its 🔒 and a tap shows the shared lock — Problem → Solution →
  *                 Get verified (`LockExplainer`); the server refuses it too (`offers/actions.ts`).
+ *   Saved templates → (Card Maker part 4; HYBRID drawing, owner 17 Nov "Keep Templates") the third tile under the Templates
+ *                 heading (#8027): ONE place for what a shop saves once and uses on many cards — Show ▾ Quick Forms (the
+ *                 Forms Maker's body) · Discounts and Promos (the Offer Maker rises over it) · Payment Strategies (the saved
+ *                 pay plans). Server-drawn while `?maker=templates`.
  * 🔒 shop/the-shop-tab-is-v113.test.ts · _components/the-body-panel-keeps-the-navs.test.ts · offers/the-offer-maker-is-the-prototype.test.ts
  */
 export type ScannerLine = { coverageId: number; label: string; choice: ScannerChoice };
 
-type MakerKey = 'forms' | 'offers';
+type MakerKey = 'forms' | 'offers' | 'templates';
 
 /** The Offer Maker tile's facts — read with the Shop's own row. `running`/`total` null = unread ("Couldn't load"). */
 export type OfferTileFacts = { verified: boolean; running: number | null; total: number | null; papers: string };
@@ -55,6 +60,7 @@ export type BookedDay = { eventId: string; eventName: string; bookedDate: string
 export function ShopMakers({
   scanners,
   formsBody,
+  templatesBody = null,
   formsOn = true,
   formsSaved,
   categories = [],
@@ -66,6 +72,9 @@ export function ShopMakers({
   scanners: ScannerLine[] | null;
   /** The Forms Maker's body, server-drawn while `?maker=forms`; null while closed (or still on its way). */
   formsBody: ReactNode | null;
+  /** 🗂 The Saved templates body, server-drawn while `?maker=templates`; null while closed (or still on its way). Absent
+   *  (the lab rows that predate it) = no Saved templates tile. */
+  templatesBody?: ReactNode | null | false;
   /** The lab draws the row without the Forms tile's server body; the app always has the Forms Maker. */
   formsOn?: boolean;
   /** 📋 How many live forms the shop has saved — said on the tile ("3 saved" · "None yet"). null = unread ("Couldn't
@@ -84,9 +93,13 @@ export function ShopMakers({
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
-  const [open, setOpen] = useState<MakerKey | null>(inUrl === 'forms' ? 'forms' : inUrl === 'offers' && offers?.verified ? 'offers' : null);
+  const [open, setOpen] = useState<MakerKey | null>(
+    inUrl === 'forms' ? 'forms' : inUrl === 'templates' && templatesBody !== false ? 'templates' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
+  );
   const [lockOpen, setLockOpen] = useState(false);
-  const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, offers: null });
+  // 🗂 Saved templates › Discounts and Promos raises the shipped Offer Maker OVER the templates panel (× returns to it).
+  const [offersOver, setOffersOver] = useState(false);
+  const tiles = useRef<Record<MakerKey, HTMLButtonElement | null>>({ forms: null, offers: null, templates: null });
   const toolTiles = useRef<Partial<Record<SpecializedToolKey, HTMLButtonElement | null>>>({});
   const root = useRef<HTMLDivElement>(null);
   // 🌙 "Run an offer for [month]" (Analytics) lands here with the season's days: a NEW season offer opens on them.
@@ -112,9 +125,10 @@ export function ShopMakers({
   // on the server for nothing). Closing clears the address only if it carries a maker. The page never scrolls for it.
   const go = (k: MakerKey | null) => {
     setOpen(k);
-    if (k !== 'forms' && !params.get('maker')) return;
+    const writes = k === 'forms' || k === 'templates';
+    if (!writes && !params.get('maker')) return;
     const q = new URLSearchParams(params.toString());
-    if (k === 'forms') q.set('maker', k);
+    if (writes) q.set('maker', k);
     else {
       q.delete('maker');
       for (const x of ['new', 'from', 'to', 'card']) q.delete(x);
@@ -133,6 +147,9 @@ export function ShopMakers({
   const list: { k: MakerKey; title: string; sub: string; icon: LucideIcon; head: string }[] = [
     ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     ...(offers ? [{ k: 'offers' as const, title: 'Offer Maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
+    ...(templatesBody !== false && templatesBody !== undefined
+      ? [{ k: 'templates' as const, title: 'Templates', sub: 'Saved once', icon: FolderOpen, head: 'Saved once, used on any card' }]
+      : []),
   ];
   const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;
   const PickedIcon = picked ? toolIcon(picked.key) : null;
@@ -218,9 +235,9 @@ export function ShopMakers({
         </ul>
       </section>
 
-      {open === 'offers' && offers?.verified ? (
+      {(open === 'offers' || offersOver) && offers?.verified ? (
         <Suspense fallback={null}>
-          <OfferMaker onClose={() => go(null)} start={offerStart} />
+          <OfferMaker onClose={() => (offersOver ? setOffersOver(false) : go(null))} start={offersOver ? null : offerStart} />
         </Suspense>
       ) : null}
       {lockOpen && offers ? (
@@ -241,10 +258,22 @@ export function ShopMakers({
           onClose={() => go(null)}
           data={`maker-${cur.k}`}
         >
-          {formsBody ?? (
-            <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-forms-loading="">
-              Opening your forms…
-            </p>
+          {cur.k === 'templates' ? (
+            <TemplatesOffersContext.Provider
+              value={offers ? { facts: offers, open: () => setOffersOver(true), locked: () => setLockOpen(true) } : null}
+            >
+              {templatesBody || (
+                <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-templates-loading="">
+                  Opening your templates…
+                </p>
+              )}
+            </TemplatesOffersContext.Provider>
+          ) : (
+            (formsBody ?? (
+              <p role="status" className="py-4 text-[13.5px] text-ink/70" data-shop-forms-loading="">
+                Opening your forms…
+              </p>
+            ))
           )}
         </BodyPanel>
       ) : null}

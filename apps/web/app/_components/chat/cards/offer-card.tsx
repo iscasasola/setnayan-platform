@@ -23,7 +23,7 @@ import { manilaTodayIsoFor } from '@/lib/quote-valid-until';
 import { applyRefusal, coupleSeesDrop, dayWords, dropPicks, dropSavesWords, dropState, goodUntilWords, offerTakesWords, offerVersion, priceWordsFor, reachedLines } from '@/lib/offer-drop';
 import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { dropOfferIntoChat, loadDroppedOffer, loadMyOffers, type DropContext, type DroppableOffer, type DroppedOffer } from './offer-calls';
-import { CouldNotLoad, EmptyLine, EqualRow, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EmptyLine, EqualRow, KindCard, KindTag, Loading, Problem, type Read } from './card-bits';
 
 function addDays(day: string, n: number): string {
   const d = new Date(`${day}T00:00:00Z`);
@@ -185,9 +185,9 @@ export function DroppedOfferCard({
 
   if (read.at !== 'ok') {
     return (
-      <ChatCardShell topic="quote" kicker={`Offer · ${kicker}`} title="Your offer" tone={viewer === 'supplier' ? 'mine' : 'theirs'}>
+      <KindCard kind="offer" topic="quote" kicker={`Offer · ${kicker}`} title="Your offer" tone={viewer === 'supplier' ? 'mine' : 'theirs'}>
         {read.at === 'loading' ? <Loading /> : <CouldNotLoad what="this offer" onRetry={() => void load()} />}
-      </ChatCardShell>
+      </KindCard>
     );
   }
   const d = read.data;
@@ -223,9 +223,32 @@ export function DroppedOfferCard({
   };
 
   return (
-    <ChatCardShell topic="quote" kicker={`Offer · ${kicker}`} title={name} tone={viewer === 'supplier' ? 'mine' : 'theirs'}>
+    <KindCard
+      kind="offer"
+      topic="quote"
+      kicker={`Offer · ${kicker}`}
+      title={name}
+      tone={viewer === 'supplier' ? 'mine' : 'theirs'}
+      turn={st.k === 'applied' ? 'done' : st.k === 'expired' || st.k === 'ended' || st.k === 'gone' ? 'old' : viewer === 'couple' && !later ? 'me' : 'wait'}
+      settled={
+        st.k === 'applied'
+          ? `${name} · Applied · it is the named line on v${st.version}`
+          : st.k === 'expired'
+            ? `${name} · Expired ${dayWords(st.goodUntil)} · ask again`
+            : st.k === 'ended'
+              ? `${name} · This offer has ended`
+              : st.k === 'gone'
+                ? `${name} · This offer was removed`
+                : undefined
+      }
+    >
       <div className={`grid gap-2 ${st.k === 'expired' || st.k === 'ended' || st.k === 'gone' ? 'opacity-60' : ''}`} data-offer-card={st.k}>
-        {d.offer ? <p className="text-[15px] text-ink">{priceWordsFor(d.offer)}</p> : null}
+        {/* The offer kind's signature: what it takes off, as the kind's own pill. */}
+        {d.offer ? (
+          <p className="flex text-[15px] text-ink">
+            <KindTag kind="offer">{priceWordsFor(d.offer)}</KindTag>
+          </p>
+        ) : null}
         {preview?.ok ? (
           <p className="text-[14px] tabular-nums text-ink/75" data-offer-card-takes="">
             {offerTakesWords(preview.version.fit, reachedLabels)}
@@ -256,6 +279,6 @@ export function DroppedOfferCard({
         )}
         <Problem text={problem} />
       </div>
-    </ChatCardShell>
+    </KindCard>
   );
 }

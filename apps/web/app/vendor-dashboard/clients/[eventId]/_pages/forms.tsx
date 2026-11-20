@@ -45,8 +45,12 @@ export async function FormsPage({ ctx }: PickedPageProps) {
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', ctx.vendorProfileId).maybeSingle(),
   ]);
   const caps = tierCaps(asVendorTier((tierRes.data as { tier_state: string | null } | null)?.tier_state));
+  // C-3 (supplier audit 2026-11-17): a REFUSED plan read is not Free — it told a paid shop "Media files come with Pro".
+  // Unread draws no lock; the save still re-checks the plan on the server.
+  const tierUnread = Boolean(tierRes.error);
+  if (tierUnread) console.error('[supabase-error] forms page: plan read', tierRes.error);
   const lock = (has: boolean, pick: (c: ReturnType<typeof tierCaps>) => boolean) => {
-    if (has) return null;
+    if (has || tierUnread) return null;
     const plan = firstPlanWith(pick);
     return plan ? TIER_LABEL[plan] : 'a higher plan';
   };
@@ -67,7 +71,8 @@ export async function FormsPage({ ctx }: PickedPageProps) {
           bookedCardIds: bookedIds,
         })
       : Promise.resolve({ status: 'unread' as const }),
-    readFormSuggestions(supabase, ownCategories),
+    // F-1: no library read = no categories to suggest for — "unread", never "No suggested forms for this service yet".
+    lib ? readFormSuggestions(supabase, ownCategories) : Promise.resolve({ status: 'unread' as const }),
     startersForShopServices(profile?.services ?? null),
     // 🔤 This event kind's word for the client ("celebrant" on a debut) — never "couple" on every event.
     readClientNoun(ctx.eventId),

@@ -28,8 +28,8 @@ import {
   type SelfAddedBasis,
 } from '@/lib/self-added-price-basis';
 
-/** The Card Maker's three, with the maker's label for a flat price (canvas-maker.tsx `basisOptions`). */
-const BASIS_OPTIONS = PRICING_BASIS_OPTIONS.map((o) => ({
+/** The Card Maker's shipped three (Per unit is a supplier card's own, Card Maker part 7), with the maker's label for a flat price (canvas-maker.tsx `basisOptions`). */
+const BASIS_OPTIONS = PRICING_BASIS_OPTIONS.filter((o) => o.key !== 'per_unit').map((o) => ({
   key: o.key,
   label: o.key === 'fixed' ? 'One price' : o.label,
   hint: o.hint,

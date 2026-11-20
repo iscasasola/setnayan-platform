@@ -7,11 +7,13 @@
  * EVERYTHING"; drawing S9ScH2Ps v3). One screen over the still-mounted Clients list (or the envelope's Chats): the pinned
  * row (the client's name — the door to Details · ⋯ · ⚙ · ✕) and the CHAT. The seven-tab row is gone on a phone: the
  * summary strip on top of the chat (`ClientChatStrip`) raises Book & Budget · Schedule · Details at Forms · Details at
- * Decisions full screen over it, the name raises Details, and ⋯ holds Files · Hub · Report (`chatHome`). No page body
+ * Decisions full screen over it, the name raises Details, and ⋯ holds the places the strip does not open — the trade
+ * page · Details · Files · Event Hub · Crew · the calendar file · Report a problem (`clientMoreRows`, part G 20 Nov). No page body
  * was redrawn — only the way in changed, and every `?tab=` door opens the chat with that page risen.
- * 🖥 On a computer (≥ 1024) Chat keeps its own right column and the other pages switch the work column beside it
- * (`sideChat`, owner 18 Nov) — the tab row stays there. It replaces the flag-ON `RelationshipTabShell` branch of
- * `clients/[eventId]/page.tsx`; the flag-off card is untouched.
+ * 🖥 On a computer (≥ 1024) the chat is the page too, and a page opens in its OWN column beside it — the third column,
+ * 420 px, with its own ←; the chat narrows and is never covered, and opening another page replaces it (`pane`, owner
+ * 20 Nov 2026, drawing UNICHAT-LIVE; supersedes 18 Nov's work column + tab row beside a side chat). It replaces the
+ * flag-ON `RelationshipTabShell` branch of `clients/[eventId]/page.tsx`; the flag-off card is untouched.
  *
  * 🪞 THE SCREEN ITSELF IS THE ONE PICKED SHELL (`app/_components/picked/picked-shell.tsx`, Supplier Build 3 · Lane A,
  * 9 Nov 2026) — the host's picked supplier opens through the SAME component (owner 8 Nov: *"and will it take up the same
@@ -31,6 +33,7 @@ import { SUPPLIER_PICKED_LISTS } from '@/app/_components/picked/picked-motion';
 import { CLIENTS_LIST_HREF } from '@/lib/picked-client-close';
 import type { PickedClientPage } from './picked-client-menu';
 import { pickedAnchorOf, pickedPageNamed } from './picked-client-menu';
+import { clientMoreRows, type ClientMoreFacts } from './picked-client-more';
 import { warmPickedPages } from '../_pages/lazy';
 import { warmThreadParts } from '../../../messages/[threadId]/_components/on-demand';
 import { warmHubParts } from '../../../on-the-day/_components/on-demand';
@@ -56,6 +59,8 @@ const PAGE_ICON: Record<PickedClientPage, LucideIcon> = {
 };
 
 
+const NO_MORE_FACTS: ClientMoreFacts = {};
+
 /** ‹ The named way back (drawing `supplier_clients_clean_2026-11-16`: "‹ Calendar"). */
 const CLOSE_TO_CALENDAR = { label: 'Calendar', icon: ChevronLeft } as const;
 
@@ -64,9 +69,6 @@ const CLOSE_TO_CALENDAR = { label: 'Calendar', icon: ChevronLeft } as const;
  * With the chat as the page they left the tab row: the chat's stop is the client's name in the head (`titleTour: 'client-chat'`, written literally so the spotlight guard can see it), and
  * the quotation's is the strip's money box (`ClientChatStrip` wears `client-quote`).
  */
-
-/** 💬 What sits behind the head's ⋯ — the pages with no box in the strip, in the old menu's order (Hub once booked). */
-const MORE_PAGES: readonly PickedClientPage[] = ['files', 'hub', 'report'];
 
 export function PickedClientShell({
   eventId,
@@ -83,6 +85,7 @@ export function PickedClientShell({
   settings,
   chatUnread = null,
   closeHref = CLIENTS_LIST_HREF,
+  more = NO_MORE_FACTS,
 }: {
   eventId: string;
   eventName: string;
@@ -109,11 +112,13 @@ export function PickedClientShell({
   chatUnread?: number | null;
   /** Where ✕ goes when the card was not opened over a list (`pickedClientCloseHref`) — Today when it came from Today. */
   closeHref?: string;
+  /** ⋯ The rows that depend on this shop and this event (`clientMoreRows`): the trade page, Crew, the calendar file. */
+  more?: ClientMoreFacts;
 }) {
   const home = useMemo<ChatHome>(() => ({ top: strip, suggest, inquiry }), [strip, suggest, inquiry]);
   const chatHome = useMemo(
-    () => ({ page: 'chat' as const, line: `${eventName} · back to chat`, titleOpens: 'details' as const, more: MORE_PAGES, titleTour: 'client-chat' }),
-    [eventName],
+    () => ({ page: 'chat' as const, line: `${eventName} · back to chat`, titleOpens: 'details' as const, more: clientMoreRows(more), titleTour: 'client-chat', pane: true }),
+    [eventName, more],
   );
   return (
     <ChatHomeProvider value={home}>

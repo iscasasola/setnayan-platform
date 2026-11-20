@@ -132,7 +132,7 @@ export { HubDraftField } from './hub-draft-field';
 export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
-  needs_pro: 'needs Event Pro — it stays in your draft',
+  needs_pro: 'needs Event Plus — it stays in your draft',
   waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
@@ -770,13 +770,13 @@ export function HubDraftToolbar({
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} className="mr-1 align-middle" />
-                Apply needs Event Ultra{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} className="mr-1 align-middle" />
+                Apply needs Event Plus{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Ultra
+                      Get Event Plus
                     </Link>
                   </>
                 )}

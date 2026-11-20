@@ -169,7 +169,7 @@ export function ScenePhotoRow({
       <div className={`${SP_ROWS_ROW} row-start-3`} data-stage-edit-row="photos" data-scene-photos={type} aria-busy={busy || undefined}>
         <span className={`${SP_LOOK_ROW_LABEL} inline-flex items-center gap-1`}>
           {label}
-          {mark ? <PaidMark state={mark} word="ULTRA" label={paidMarkLabel(mark, 'Event Ultra')} size="xs" bare /> : null}
+          {mark ? <PaidMark state={mark} word="PLUS" label={paidMarkLabel(mark, 'Event Plus')} size="xs" bare /> : null}
         </span>
         <div role="group" aria-label={`${label} of this scene`} className={SP_BG_STRIP}>
           {Array.from({ length: t.media }, (_, i) => {

@@ -171,7 +171,7 @@ test('the defect, reproduced: through her OWN session, co-host B reads the event
 test('⚖ co-host B sees Pro and the hosted channel for an event whose orders host A placed', async () => {
   const { attempt } = await resolveAs(COHOST_B);
   const ent = await attempt;
-  // 💎 2026-11-19: a Pro order (with no date before 19 Nov) is the Pro PLAN — the Hub parts are Event Ultra's.
+  // 💎 A Pro order is the Pro PLAN (and, since 20 Nov, holds the whole Hub through Event Plus, which it includes).
   assert.equal(await eventProPlanActive(ent, EVENT), true, 'Event Pro belongs to the EVENT');
   assert.equal(await eventSkuActive(ent, EVENT, LIVE_STUDIO_HOSTED_CHANNEL_SKU), true);
 });

@@ -2,13 +2,13 @@ import { Check, Clock } from 'lucide-react';
 import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { PLUS_MORE, plusPeek, ULTRA_PEEK, ultraMore } from '@/app/_components/frontdoor/front-door-landing-data';
-import { HUB_PARTS } from '@/lib/hub-parts';
 
 /**
  * 💰 THE IN-APP PLAN OFFER (Controller F-W2-29, 2026-11-13): inside the app a couple is offered the SAME plans /pricing
- * and the front door offer — Free · Event Plus · Event Pro — each price and its included Papic credits READ from the
- * catalogue (`lib/event-plans.ts`, the front door's own helpers). Event Pro is the page's "Everything" card; `PlanOffer`
- * draws Free and Event Plus above it and `UltraOffer` draws Event Ultra (#7601) below it. Nothing typed: an unread row names no price and no count.
+ * and the front door offer — Free · Event Plus · Event Pro · Event Ultra — each price and its included Papic credits
+ * READ from the catalogue (`lib/event-plans.ts`, the front door's own helpers). Since the owner's 20 Nov ruling Event
+ * Plus is the whole Event Hub — the page's "Everything" card; `ProPlanCard` and `UltraOffer` (#7601) are plain plan
+ * cards below it. Nothing typed: an unread row names no price and no count.
  *
  * Event Plus counts toward Event Pro — `eventHubOwnership` already adds a paid Plus to `paidPhp`, so the Pro card asks
  * only the difference.
@@ -72,12 +72,14 @@ export function PlanOffer({
       {showPlus ? (
         <div
           id="plan-plus"
-          className={`rounded-3xl bg-ink/[0.04] p-5 ${focus === 'plus' ? 'ring-2 ring-terracotta/50' : ''}`}
+          className={`rounded-3xl bg-ink/[0.04] p-5 ${focus === 'plus' || facts.plus === 'buy' ? 'ring-2 ring-terracotta/50' : ''}`}
           data-event-plan="plus"
+          data-pro-everything={facts.plus}
           data-event-plan-state={facts.plus}
         >
           <p className="flex items-baseline justify-between gap-3">
-            <span className="text-lg font-semibold text-ink">Event Plus</span>
+            {/* 🏛 Event Plus is the whole Event Hub (owner 20 Nov) — the page's "Everything" card. */}
+            <span className="text-lg font-semibold text-ink">Event Plus · the whole Event Hub</span>
             {facts.plus === 'buy' && facts.plusPhp !== null ? (
               <span className="font-mono text-lg font-bold text-ink">{formatPhp(facts.plusPhp)}</span>
             ) : null}
@@ -107,15 +109,14 @@ export function PlanOffer({
 }
 
 /**
- * 💎 EVENT PRO, A PLAIN PLAN CARD (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls" (1) + (4)):
- * the "Everything" card moved to Event Ultra, so Pro is drawn like Plus — "Everything in Plus · Setnayan AI · no Setnayan
- * mark · N credits", N read from `included_papic_credits` (never typed). A Pro held from before 19 Nov keeps everything it
- * was sold as, and the card says so. `restPhp` is Pro's row less what the event paid toward it (Plus), as the drawer bills.
+ * 💎 EVENT PRO, A PLAIN PLAN CARD (owner 2026-11-19, "Event plans part 2 (#8004) — four calls" (4)): "Everything in Plus ·
+ * Setnayan AI · no Setnayan mark · N credits", N read from `included_papic_credits` (never typed). Since 20 Nov Plus is the
+ * whole Event Hub, so Pro is Plus + Setnayan AI. `restPhp` is Pro's row less what the event paid toward it (Plus), as the
+ * drawer bills.
  */
 export function ProPlanCard({
   facts,
   state,
-  kept,
   restPhp,
   proDrawer,
   focus = false,
@@ -123,8 +124,6 @@ export function ProPlanCard({
   facts: PlanOfferFacts;
   /** What this event holds of the Pro PLAN (`holdsProPlan`): approved · paid and under review · neither. */
   state: 'yours' | 'review' | 'buy';
-  /** The event's Pro came before 19 Nov and keeps all the Hub parts (`eventHubOwnership` answered everything). */
-  kept: boolean;
   /** Pro's price for this event — null when unread (then nothing is sold). */
   restPhp: number | null;
   proDrawer: (php: number) => React.ReactNode;
@@ -132,7 +131,6 @@ export function ProPlanCard({
 }) {
   if (facts.ultra !== 'buy') return null;
   if (state === 'buy' && restPhp === null) return null;
-  const credits = proCreditsLine(facts.proCredits);
   return (
     <div
       id="plan-pro"
@@ -145,11 +143,8 @@ export function ProPlanCard({
         {state === 'buy' && restPhp !== null ? <span className="font-mono text-lg font-bold text-ink">{formatPhp(restPhp)}</span> : null}
       </p>
       <p className="mt-1 text-sm leading-snug text-ink/65" data-pro-plan-lines="">
-        {kept
-          ? `Your Event Pro keeps all ${HUB_PARTS.length} Hub parts and Editorial. Nothing you had is taken away.`
-          : `Everything in Plus · Setnayan AI · no Setnayan mark${facts.proCredits !== null && facts.proCredits > 0 ? ` · ${formatCount(facts.proCredits)} credits` : ''}`}
+        {`Everything in Plus · Setnayan AI · no Setnayan mark${facts.proCredits !== null && facts.proCredits > 0 ? ` · ${formatCount(facts.proCredits)} credits` : ''}`}
       </p>
-      {kept && credits ? <p className="mt-1 text-sm text-ink/65">{credits}</p> : null}
       <div className="mt-3">
         {state === 'yours' ? (
           <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
@@ -168,42 +163,33 @@ export function ProPlanCard({
 }
 
 /**
- * 💎 EVENT ULTRA · EVERYTHING (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls" (1)): Ultra is
- * the page's "Everything" card — the 11 Hub parts moved here from Event Pro, and the parts list is drawn under it. Its
- * lines are the front door's (`ULTRA_PEEK`, `ultraMore`), its price and credits the `EVENT_ULTRA` row. An event that
- * already paid toward Plus or Pro pays only the difference: the checkout drawer asks the server for that figure
- * (`readUltraUpgradeCharge`, the reader the charge uses), so this card shows the row's price and says the difference
- * applies — it never computes one itself. A Pro kept from before 19 Nov already holds the parts, so its card names only
- * what Ultra adds.
+ * 💎 EVENT ULTRA (#7601, owner 2026-11-13) — the top plan, a plain card after Pro. Its lines are the front door's
+ * (`ULTRA_PEEK`, `ultraMore`), its price and credits the `EVENT_ULTRA` row. An event that already paid toward Plus or Pro
+ * pays only the difference: the checkout drawer asks the server for that figure (`readUltraUpgradeCharge`, the reader the
+ * charge uses), so this card shows the row's price and says the difference applies — it never computes one itself.
  */
 export function UltraOffer({
   facts,
   ultraDrawer,
   focus = false,
-  hubPartsHeld = false,
 }: {
   facts: PlanOfferFacts;
   ultraDrawer: (php: number) => React.ReactNode;
-  /** RW-13: a public door (or the Maker's "everything") opened the page for Ultra — the card is ringed. */
+  /** RW-13: a public door opened the page for Ultra — the card is ringed. */
   focus?: boolean;
-  /** The event already holds every Hub part (a Pro kept from before 19 Nov) — the card names what Ultra ADDS. */
-  hubPartsHeld?: boolean;
 }) {
   if (facts.ultra === 'buy' && facts.ultraPhp === null) return null;
   const more = ultraMore({ plusCredits: facts.plusCredits, proCredits: facts.proCredits, ultraCredits: facts.ultraCredits, freePapic: facts.freePapic });
-  const lines = hubPartsHeld
-    ? [...ULTRA_PEEK.slice(-2), ...more]
-    : ['Everything in Event Pro', `All ${HUB_PARTS.length} Hub parts · Editorial and guest columns`, ...ULTRA_PEEK, ...more];
+  const lines = ['Everything in Event Pro', ...ULTRA_PEEK, ...more];
   return (
     <div
       id="plan-ultra"
-      className={`rounded-3xl bg-ink/[0.04] p-5 ${focus || facts.ultra === 'buy' ? 'ring-2 ring-terracotta/50' : ''}`}
+      className={`rounded-3xl bg-ink/[0.04] p-5 ${focus ? 'ring-2 ring-terracotta/50' : ''}`}
       data-event-plan="ultra"
       data-event-plan-state={facts.ultra}
-      data-pro-everything={facts.ultra}
     >
       <p className="flex items-baseline justify-between gap-3">
-        <span className="text-lg font-semibold text-ink">Event Ultra · Everything</span>
+        <span className="text-lg font-semibold text-ink">Event Ultra</span>
         {facts.ultra === 'buy' && facts.ultraPhp !== null ? (
           <span className="font-mono text-lg font-bold text-ink">{formatPhp(facts.ultraPhp)}</span>
         ) : null}

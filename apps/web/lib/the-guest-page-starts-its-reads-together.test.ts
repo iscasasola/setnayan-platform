@@ -129,7 +129,7 @@ test('only these reads are started ahead — each one every path below awaits, n
     aheadCalls(LOADERS).sort(),
     [
       'eventPapicGuestActive', 'eventStdOpeningsActive', 'eventSetnayanMark', 'loadVenueBookings',
-      // 💎 The footer asks the Pro PLAN since 2026-11-19 (the Hub parts moved to Event Ultra).
+      // 💎 The footer asks the Pro PLAN (no Setnayan mark is Pro's and Ultra's; the whole Hub is Event Plus since 20 Nov).
       'proPlanActiveFor',
       // 💎 + what the event holds PART BY PART (2026-10-22) — a read, awaited right after the footer's, every path.
       'hubOwnershipFor',

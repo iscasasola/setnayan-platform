@@ -37,9 +37,9 @@ export type ProPartsBodyProps = {
   title: string;
   /** The plan's own name — `COUPLE_WEBSITE_PRO`'s catalogue title (RW-306), never typed here. */
   planName: string;
-  /** 💎 Everything's name — `EVENT_ULTRA`'s catalogue title (owner 2026-11-19: the parts moved to Ultra). */
+  /** 💎 Everything's name — `EVENT_PLUS`'s catalogue title (owner 2026-11-20: Event Plus is the whole Event Hub). */
   everythingName?: string;
-  /** 💎 Everything's price — the `EVENT_ULTRA` row; the cap and the part buttons are measured against it. */
+  /** 💎 Everything's price — the `EVENT_PLUS` row; the cap and the part buttons are measured against it. */
   everythingPhp?: number | null;
   back: { href: string; label: string };
   fromMaker: boolean;
@@ -61,7 +61,7 @@ export function ProPartsBody({
   eventId,
   title,
   planName,
-  everythingName = 'Event Ultra',
+  everythingName = 'Event Plus',
   everythingPhp = null,
   back,
   fromMaker,
@@ -79,14 +79,12 @@ export function ProPartsBody({
   const HERO = { label: title };
   const has = (o: HubOwnershipView | null, id: HubPartId) => Boolean(o && (o.full || o.parts.includes(id)));
   /* Everything you pay for parts counts toward everything — the rest, never below zero (the cap). 💎 Everything is Event
-     Ultra since 2026-11-19, so the rest is measured against Ultra's row. Pro is a plan card: its row less what the event
-     paid toward it (Plus), exactly what `resolveHubProCharge` bills. */
+     Plus since the owner's 20 Nov ruling, so the rest is measured against Plus's row. Pro is a plan card: its row less
+     what the event paid toward it (Plus), exactly what `resolveHubProCharge` bills. */
   const paidPhp = owned?.paidPhp ?? 0;
   const restPhp = everythingPhp === null ? null : Math.max(0, everythingPhp - paidPhp);
   const proState: 'yours' | 'review' | 'buy' = active && holdsProPlan(active) ? 'yours' : owned && holdsProPlan(owned) ? 'review' : 'buy';
   const proRestPhp = fullPhp === null ? null : Math.max(0, fullPhp - paidPhp);
-  /* A Pro kept from before 19 Nov: it holds everything without an Ultra order of its own. */
-  const kept = Boolean(active?.full) && proState === 'yours' && plans?.ultra === 'buy';
   const partPrice = (id: HubPartId): number | null => partPricePhp[id] ?? null;
   const stateOf = (id: HubPartId): 'yours' | 'review' | 'buy' =>
     has(active, id) ? 'yours' : has(owned, id) ? 'review' : 'buy';
@@ -96,7 +94,8 @@ export function ProPartsBody({
   const partsOnSale = HUB_PARTS.some((p) => partPrice(p.id) !== null);
 
   /* `?buy=` — the Apply sheet's pick, carried here: "style,motion" or "full". Unknown or owned parts are dropped. */
-  const buyFull = buy === 'full' || focusPlan === 'ultra';
+  /* `?buy=full` — the whole Hub, which is Event Plus since 20 Nov. */
+  const buyFull = buy === 'full';
   const buyParts = buyFull
     ? []
     : (buy ?? '')
@@ -150,8 +149,8 @@ export function ProPartsBody({
       {plans ? (
         <PlanOffer
           facts={plans}
-          focus={focusPlan}
-          proHeld={proState !== 'buy' || Boolean(active?.full || owned?.full)}
+          focus={buyFull ? 'plus' : focusPlan}
+          proHeld={proState !== 'buy'}
           plusDrawer={(php) => drawer({ serviceKey: EVENT_PLUS_SKU, name: 'Event Plus', php, label: 'Get Event Plus' })}
         />
       ) : null}
@@ -161,22 +160,26 @@ export function ProPartsBody({
         <ProPlanCard
           facts={plans}
           state={proState}
-          kept={kept}
           restPhp={proRestPhp}
           focus={focusPlan === 'pro'}
           proDrawer={(php) => drawer({ serviceKey: FULL_PRO_SKU, name: planName, php, label: `Get ${planName}` })}
         />
       ) : null}
 
-      {/* ── 💎 EVENT ULTRA · EVERYTHING — the "Everything" card moved here from Pro (owner 2026-11-19 (1)); the drawer
-             quotes the difference for a Plus/Pro event. ── */}
-      {active?.full && (!plans || plans.ultra === 'buy') && !kept ? (
+      {/* ── 💎 EVENT ULTRA, a plain plan card (#7601). The whole Hub is Event Plus's card above (owner 20 Nov). ── */}
+      {plans ? (
+        <UltraOffer
+          facts={plans}
+          focus={focusPlan === 'ultra'}
+          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: 'Event Ultra', php, label: 'Unlock Event Ultra' })}
+        />
+      ) : active?.full ? (
         <div className="rounded-3xl bg-ink/[0.04] p-5" data-pro-everything="yours">
           <p className="mb-1 inline-flex items-center gap-1.5 text-sm font-semibold text-success-800">
             <PaidMark state="unlocked" label={paidMarkLabel('unlocked', everythingName)} size="lg" tone="current" /> Unlocked
           </p>
           <p className="text-sm text-ink/70">
-            Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''} and the &ldquo;Powered by Setnayan&rdquo; footer is off.
+            Everything is on across your Event Hub{partsOnSale ? ` — all ${HUB_PARTS.length} parts —` : ''}.
           </p>
           <Link
             href={fromMaker ? back.href : hubHref}
@@ -186,19 +189,12 @@ export function ProPartsBody({
             <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
-      ) : plans ? (
-        <UltraOffer
-          facts={plans}
-          focus={buyFull}
-          hubPartsHeld={kept}
-          ultraDrawer={(php) => drawer({ serviceKey: EVENT_ULTRA_SKU, name: everythingName, php, label: `Unlock ${everythingName}` })}
-        />
       ) : restPhp === null ? (
         <p className="text-sm text-ink/65">Pricing loads from your catalog &mdash; please refresh in a moment.</p>
       ) : null}
 
       {/* A plan payment under review — the way to follow it (the old Everything card's link, kept). */}
-      {proState === 'review' || plans?.ultra === 'review' ? (
+      {proState === 'review' || plans?.plus === 'review' || plans?.ultra === 'review' ? (
         <Link href={`/dashboard/${eventId}/orders`} className="inline-flex min-h-11 items-center text-sm font-medium text-mulberry underline underline-offset-2">
           Track your order
         </Link>

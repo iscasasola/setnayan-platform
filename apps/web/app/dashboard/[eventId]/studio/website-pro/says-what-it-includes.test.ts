@@ -45,12 +45,12 @@ import { plusPeek } from '@/app/_components/frontdoor/front-door-landing-data';
 
 const SKU = 'COUPLE_WEBSITE_PRO';
 /* 💎 2026-11-19: what THIS SKU withholds from guests is the Pro PLAN's (`eventProPlanActive`); everything
-   (`eventCoupleWebsiteProActive`) is Event Ultra's since the Hub's parts moved. */
+   (`eventCoupleWebsiteProActive`) is Event Plus's since the owner's 20 Nov ruling. */
 const GATE = 'eventProPlanActive';
 
 /** The customer-facing sentences that describe this upgrade, all three of them. */
 function claimSurfaces(): Array<{ where: string; text: string }> {
-  /* 💎 RE-AIMED 2026-11-19 (owner, "Event plans part 2 — four calls"): the Hub's parts moved to Event Ultra, so Event
+  /* 💎 RE-AIMED 2026-11-19 (owner, "Event plans part 2 — four calls") and 20 Nov (Event Plus is the whole Event Hub): Event
      Pro's buy page claim is its PLAN CARD — the owner's words, "Everything in Plus · Setnayan AI · no Setnayan mark" —
      and "Everything in Plus" is the Plus card's own lines (`plusPeek`), read from the same file the page draws. */
   const offer = read(join(HERE, '_components', 'plan-offer.tsx'));
@@ -232,7 +232,7 @@ test('the reveal is still aliased to this SKU (and, since 2026-11-19, to Event P
     aliases[0]!,
     // 💎 Event Ultra (owner 2026-11-13) includes Event Pro whole, so it confers the reveal too — still never sold alone.
     // 💎 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too, so the description no
-    //    longer calls it Pro's exclusive (migration 20271350979842 drops "comes only with this").
+    //    longer calls it Pro's exclusive (migration 20271355365735 drops "comes only with this").
     new RegExp(`STD_PREMIUM_OPENINGS: Object\\.freeze\\(\\['${SKU}'(, EVENT_ULTRA_SKU)?(, 'EVENT_PLUS')?\\]\\)`),
     'the cinematic reveal is no longer granted by Event Pro',
   );

@@ -159,10 +159,10 @@ export const USER_2_TOPICS: HelpTopic[] = [
         body: 'Tap ↺ to open History, then tap a row to return to that point — Redo brings it back. Restore what guests see drops your whole draft.',
       },
       {
-        // website/_components/apply-pro-sheet.tsx "Unlock Ultra and Apply", "Apply without the Ultra effects"
+        // website/_components/apply-pro-sheet.tsx "Unlock Plus and Apply", "Apply without the Plus effects"
         slug: 'apply-with-pro-effects',
         title: 'What happens when I Apply with ◆ effects in my draft?',
-        body: 'The Apply sheet lists each ◆ effect. Unlock Ultra and Apply puts everything live with Event Ultra; Apply without the Ultra effects puts the rest live and keeps the ◆ effects waiting in your draft.',
+        body: 'The Apply sheet lists each ◆ effect. Unlock Plus and Apply puts everything live with Event Plus; Apply without the Plus effects puts the rest live and keeps the ◆ effects waiting in your draft.',
         appBody: 'The Apply sheet lists each ◆ effect. You can put the rest live and keep the ◆ effects waiting in your draft.',
       },
       {

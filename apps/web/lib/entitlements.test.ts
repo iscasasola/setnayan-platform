@@ -600,19 +600,16 @@ test('PAPIC_UNLOCK includes PAPIC_GUEST (so the guest camera unlocks = "unli gue
 // would let the second grant silently overwrite the first).
 // ──────────────────────────────────────────────────────────────────────────
 
-// 💎 2026-11-19 (owner, "Event plans part 2 — four calls"): Editorial moved to Event Ultra, so a Pro order no longer
-// confers it read side (a Pro kept from before 19 Nov reaches it through `isEditorialProActive`'s everything arm).
-test('alias query shape: EDITORIAL_PRO filters over itself + Event Ultra (not Pro, since 2026-11-19)', async () => {
+test('alias query shape: EDITORIAL_PRO filters over itself + Pro, Ultra and Plus', async () => {
   const { supabase, calls } = makeSupabase({ data: [], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'EDITORIAL_PRO');
   const skuIn = calls
     .filter((c) => c.method === 'in')
     .find((c) => (c.args[0] as string) === 'service_key');
-  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'EVENT_ULTRA']);
+  assert.deepEqual(skuIn?.args[1], ['EDITORIAL_PRO', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'EVENT_PLUS']);
 });
 
-test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + COUPLE_WEBSITE_PRO + Ultra + Event Plus', async () => {
-  // 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too.
+test('alias query shape: STD_PREMIUM_OPENINGS filters over itself + Pro, Ultra and Plus', async () => {
   const { supabase, calls } = makeSupabase({ data: [], error: null });
   await checkOrderOwnership(supabase, 'evt_42', 'STD_PREMIUM_OPENINGS');
   const skuIn = calls
@@ -673,18 +670,20 @@ test('umbrella: the standalone SKUs still confer only themselves (no reverse gra
 // still sells to couples who only want the animated logo. No bundle.
 // ──────────────────────────────────────────────────────────────────────────
 
-// 💎 SUPERSEDED 2026-11-19 (owner, "Event plans part 2 — four calls"): the animation is the Logo & QR part's, which is
-// Event Ultra's for a Pro bought from 19 Nov. An undated alias cannot tell a kept Pro from a new one, so the Pro alias
-// is gone; a kept Pro reaches the animation through the part (`eventAnimatedMonogramActive` → `eventHubPartActive`,
-// held by lib/event-plans-recut-part2.test.ts). An Ultra order still confers it at SKU level.
-test('Event Pro (2026-11-19): a COUPLE_WEBSITE_PRO order no longer confers the animation at SKU level; Ultra does', async () => {
-  assert.equal(await eventOwnsSku(makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted'), 'evt_1', 'ANIMATED_MONOGRAM'), false);
-  assert.equal(await eventSkuActive(makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'paid'), 'evt_1', 'ANIMATED_MONOGRAM'), false);
-  assert.equal(await eventSkuActive(makeOwnedSupabase(new Set(['EVENT_ULTRA']), 'paid'), 'evt_1', 'ANIMATED_MONOGRAM'), true);
+test('Event Pro: a COUPLE_WEBSITE_PRO owner OWNS the animated monogram (no second ₱500 offer)', async () => {
+  const supabase = makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted');
+  assert.equal(await eventOwnsSku(supabase, 'evt_1', 'ANIMATED_MONOGRAM'), true);
+});
+
+test('Event Pro: a PAID COUPLE_WEBSITE_PRO order plays the animation; a pending one waits', async () => {
   assert.equal(
-    await eventSkuActive(makeOwnedSupabase(new Set(['EVENT_ULTRA']), 'submitted'), 'evt_1', 'ANIMATED_MONOGRAM'),
+    await eventSkuActive(makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'paid'), 'evt_1', 'ANIMATED_MONOGRAM'),
+    true,
+  );
+  assert.equal(
+    await eventSkuActive(makeOwnedSupabase(new Set(['COUPLE_WEBSITE_PRO']), 'submitted'), 'evt_1', 'ANIMATED_MONOGRAM'),
     false,
-    'the handshake holds: the animation waits for the Ultra payment to be approved',
+    'the handshake holds: the animation waits for the Pro payment to be approved',
   );
 });
 
@@ -732,10 +731,11 @@ test('eventActiveSkus: a paid COUPLE_WEBSITE_PRO order fans out to BOTH aliased 
   const supabase = makeBatchSupabase([{ service_key: 'COUPLE_WEBSITE_PRO', status: 'paid' }]);
   const { active, pending } = await eventActiveSkus(supabase, 'evt_1');
   assert.equal(active.has('COUPLE_WEBSITE_PRO'), true, 'raw purchase key kept');
-  assert.equal(active.has('EDITORIAL_PRO'), true, 'Editorial is free for everyone (FREE_FOR_ALL_SKUS)');
+  assert.equal(active.has('EDITORIAL_PRO'), true, 'first aliased canonical granted');
   assert.equal(active.has('STD_PREMIUM_OPENINGS'), true, 'second aliased canonical granted (the overwrite regression)');
-  // 💎 2026-11-19: the animation left the Pro alias (it is the Logo & QR part's, Ultra's for a new Pro).
-  assert.equal(active.has('ANIMATED_MONOGRAM'), false, 'a Pro order confers the animation again — the parts moved to Ultra');
+  // 2026-09-24: the store grid's Monogram tile reads this set, so a Pro couple
+  // sees it Active rather than being sold the ₱500 again.
+  assert.equal(active.has('ANIMATED_MONOGRAM'), true, 'third aliased canonical granted (Event Pro animates the logo)');
   assert.equal(pending.size, 0);
 });
 
@@ -759,8 +759,7 @@ test('eventActiveSkus: a pending COUPLE_WEBSITE_PRO order marks both aliased can
   for (const key of active) {
     assert.ok(FREE_FOR_ALL_SKUS.has(key), `a pending order must activate nothing, but ${key} is active`);
   }
-  // 💎 2026-11-19: a Pro order no longer confers Editorial (moved to Event Ultra) — and it is free for everyone anyway.
-  assert.equal(pending.has('EDITORIAL_PRO'), false);
+  assert.equal(pending.has('EDITORIAL_PRO'), true);
   assert.equal(pending.has('STD_PREMIUM_OPENINGS'), true);
 });
 
@@ -783,11 +782,10 @@ test('SKU_OWNERSHIP_ALIASES: exactly the owner-locked bundle-only grants', () =>
     'PATIKTOK_COMPILER',
     'STD_PREMIUM_OPENINGS',
   ]);
-  // 💎 2026-11-19: Editorial and the animation moved to Event Ultra — no Pro alias for either.
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['EVENT_ULTRA']);
-  // 2026-11-19 (rulings 34/36): Event Plus confers the Cinematic Reveal openings too.
+  // 🏛 Owner 20 Nov 2026: Event Plus is the whole Event Hub — Editorial, the openings and the animation among it.
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.EDITORIAL_PRO, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'EVENT_PLUS']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.STD_PREMIUM_OPENINGS, ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'EVENT_PLUS']);
-  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_HUB_PART_LOGO_QR', 'EVENT_ULTRA']);
+  assert.deepEqual(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM, ['COUPLE_WEBSITE_PRO', 'COUPLE_HUB_PART_LOGO_QR', 'EVENT_ULTRA', 'EVENT_PLUS']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_WEBSITE_PRO, ['EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER, ['EVENT_ULTRA']);
   assert.deepEqual(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR, ['ANIMATED_MONOGRAM']);

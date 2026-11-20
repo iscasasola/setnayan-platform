@@ -89,7 +89,7 @@ test('with no part on sale the Pro page sells Everything alone — no part price
   // The Apply sheet's `?buy=` pick is a part order — only while parts are sold.
   assert.match(body, /\{partsOnSale && !active\?\.full && !owned\?\.full && buyParts\.length > 0/);
   // One list of what Everything opens, instead of the priced big/small bands.
-  // 💎 2026-11-19: what Everything opens is Event Ultra's (the owner's plan page — the list moved under the Ultra card).
+  // 🏛 Owner 20 Nov 2026: what Everything opens is Event Plus's — the whole Event Hub.
   assert.match(body, /partsOnSale\s*\?\s*\[\s*\{ title: 'Big parts'[\s\S]{0,120}\]\s*:\s*\[\{ title: `What \$\{everythingName\} opens`, parts: HUB_PARTS \}\]/);
   // A part's own button needs its price — and no part price is handed in once they are off sale.
   assert.match(body, /state === 'buy' && php !== null && !owned\?\.full \? \(/);
@@ -108,8 +108,8 @@ test('with no part on sale /pricing draws no parts dropdown and no "just the par
   const on = renderToStaticMarkup(React.createElement(HubProWays, { everythingLabel: 'Everything · ₱5,000', partsLabel: 'Just the parts you need · from ₱500', parts: null }));
   assert.match(on, /data-hub-ways="all"/, 'the guard cannot see the dropdown when parts ARE on sale — it is blind');
   const page = code('app/(shell)/pricing/page.tsx');
-  // 💎 2026-11-19: the Hub's parts are Event Ultra's.
-  assert.match(page, /are Event Ultra\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
+  // 🏛 Owner 20 Nov 2026: the whole Event Hub is Event Plus's.
+  assert.match(page, /come with Event Plus\$\{prices\.hubParts\.length > 0 \? ', or just the parts you need' : ''\}\./);
   // The parts list itself only holds rows the catalogue has ACTIVE (`_pricing-reads.ts`).
   assert.match(code('app/(shell)/pricing/_pricing-reads.ts'), /const n = r && r\.is_active \? Number\(r\.retail_price_php\) : NaN;/);
 });

@@ -26,7 +26,7 @@ import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku } from '@/lib/vendor-ultra-addons';
-import { EVENT_PLUS_SKU, HUB_PART_IDS, HUB_PLAN_GATES, hubOwnershipFrom } from '@/lib/hub-parts';
+import { EVENT_PLUS_SKU, HUB_PART_IDS, hubOwnershipFrom } from '@/lib/hub-parts';
 import {
   APPLIED_LOCKS,
   FREE_FINDABLE,
@@ -189,32 +189,26 @@ test('both front pages say what search does with an unverified shop', () => {
   }
 });
 
-test('the Event Plus card names only what a paid Event Plus order unlocks', () => {
-  // What the code grants a Plus-only event: no Event Hub part at all.
+test('the Event Plus card names what a paid Event Plus order unlocks — the whole Event Hub', () => {
+  // 🏛 Owner 20 Nov 2026 (DECISION_LOG "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): a paid Event Plus holds
+  // every Hub part. What the code grants: the Plus row paid against the everything price (the Plus row) is everything.
   const own = hubOwnershipFrom({
     fullHeld: false,
     partHeld: () => false,
     paidParts: [],
-    prices: new Map([[EVENT_PLUS_SKU, 1]]),
+    prices: new Map([[EVENT_PLUS_SKU, 2]]),
     fullPrice: 2,
     plusPaid: true,
   });
-  assert.equal(own.full, false);
-  assert.equal(own.parts.size, 0, 'Event Plus now unlocks a Hub part — say so on the Plus card and update this guard');
-  // 2026-11-19 (rulings 34/36): Plus passes exactly two GATES — 13 (a ready-made Pro theme) and 1
-  // (a Cinematic Reveal opening) — and still no whole part. The card may name those two and nothing else.
-  //    The gates are filled by eventHubOwnership from a held Event Plus; HUB_PLAN_GATES is that set.
-  assert.deepEqual([...HUB_PLAN_GATES].sort(), ['1', '13'], 'Event Plus no longer passes exactly gates 1 and 13 — update what the Plus card names');
-  assert.ok(HUB_PART_IDS.length > 0);
+  assert.equal(own.full, true, 'a paid Event Plus no longer holds the whole Event Hub — the Plus card says it does');
+  assert.equal(own.parts.size, HUB_PART_IDS.length);
+  assert.equal(own.proPlan, undefined, 'Event Plus grants the Pro plan (Setnayan AI, no mark) — it must not');
   const facts = { plusCredits: 7, proCredits: 9, freePapic: null };
   const plus = [...plusPeek(facts), ...PLUS_MORE].join(' · ');
-  assert.match(plus, /Pro themes/, 'the Plus card no longer names the ready-made Pro themes it unlocks (gate 13)');
-  assert.match(plus, /Save the Date/, 'the Plus card no longer names the cinematic Save the Date it unlocks (gate 1)');
-  assert.doesNotMatch(
-    plus.replace(/Ready-made Pro themes/i, ''),
-    /theme|music|web address|animation|Setnayan mark/i,
-    `the Plus card sells a Hub part: ${plus}`,
-  );
+  assert.match(plus, /whole Event Hub/, 'the Plus card no longer says it is the whole Event Hub');
+  assert.match(plus, /Pro themes/, 'the Plus card no longer names the ready-made Pro themes it unlocks');
+  assert.doesNotMatch(plus, /Setnayan AI/, 'the Plus card sells Setnayan AI, which comes with Event Pro');
+  assert.doesNotMatch(plus, /No Setnayan mark/i, 'the Plus card promises no mark — Plus keeps one small mark');
   assert.match(plus, /\b7 Papic credits\b/, 'the Plus card does not print the credits the catalogue read');
   assert.match(proMore(facts).join(' '), /\b9 Papic credits\b/, 'the Pro card does not print the credits the catalogue read');
   assert.doesNotMatch(plusPeek({ plusCredits: null, proCredits: null, freePapic: null }).join(' '), /credits/, 'an unread credit count is still said');

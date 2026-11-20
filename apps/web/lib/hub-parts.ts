@@ -57,13 +57,13 @@ export const FULL_PRO_SKU = 'COUPLE_WEBSITE_PRO';
 export const EVENT_PLUS_SKU = 'EVENT_PLUS';
 
 /**
- * 💎 EVERYTHING IS EVENT ULTRA (owner 18–19 Nov 2026, specs PLAN_RULINGS 34 + DECISION_LOG 2026-11-19 "Event plans part 2
- * (#8004), four calls"): the 11 Hub parts and Editorial moved from Event Pro to Event Ultra for new buyers. An Event Pro
- * held before 19 Nov keeps everything (`event_hub_pro_kept_lines`); a newer Pro is the Pro PLAN (`HubOwnership.proPlan`):
- * no Setnayan mark, the plan gates, Setnayan AI and its credits, but not the parts. Spelled here (client-safe), held equal
- * to `EVENT_ULTRA_SKU` (lib/event-ultra.ts) by `event-plans-recut-part2.test.ts`.
+ * 🏛 THE WHOLE EVENT HUB IS EVENT PLUS (owner 20 Nov 2026, DECISION_LOG "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE
+ * EVENT HUB": *"Event Plus is Papic 1000 + [the old Hub plan]"* · *"Yes, the whole Hub"*). Event Plus holds all 11 Hub parts
+ * with full editing, Editorial and the guest columns, and every theme; Pro and Ultra include it. This supersedes the
+ * 19 Nov call that moved the parts to Ultra. The everything price (the cap) is Event Plus's row. The Pro PLAN
+ * (`HubOwnership.proPlan`) stays Pro's and Ultra's: no Setnayan mark, Schedule Release, View as.
  */
-export const EVERYTHING_SKU = 'EVENT_ULTRA';
+export const EVERYTHING_SKU = EVENT_PLUS_SKU;
 
 export type HubPart = {
   id: HubPartId;
@@ -307,7 +307,7 @@ export type HubOwnership = {
   gates?: ReadonlySet<HubPlanGate>;
   /**
    * 💎 The event holds the Event Pro PLAN (owner 2026-11-19): no Setnayan mark, the footer off, the schedule for one
-   * person — without the 11 parts, which are Event Ultra's for a Pro bought from 19 Nov. Always true when `full`.
+   * person. Event Plus holds the whole Hub without it (owner 20 Nov); Pro and Ultra hold both.
    * Absent = false.
    */
   proPlan?: boolean;
@@ -315,14 +315,14 @@ export type HubOwnership = {
 
 export const NO_HUB_PARTS: HubOwnership = Object.freeze({ full: false, parts: new Set<HubPartId>(), paidPhp: 0, fullPricePhp: null });
 
-export function everyHubPart(fullPricePhp: number | null = null, paidPhp = 0): HubOwnership {
-  return { full: true, parts: new Set(HUB_PART_IDS), paidPhp, fullPricePhp, proPlan: true };
+export function everyHubPart(fullPricePhp: number | null = null, paidPhp = 0, proPlan = false): HubOwnership {
+  return { full: true, parts: new Set(HUB_PART_IDS), paidPhp, fullPricePhp, ...(proPlan ? { proPlan: true } : {}) };
 }
 
-/** 💎 Does the event hold the Event Pro PLAN — Pro, Ultra, a Pro kept from before 19 Nov, or the cap (`proPlan`)? */
+/** 💎 Does the event hold the Event Pro PLAN (Pro or Ultra, `proPlan`)? The whole Hub alone (Event Plus) does not. */
 export function holdsProPlan(o: HubOwnershipLike | HubOwnershipView): boolean {
   if (typeof o === 'boolean') return o;
-  return o.full || Boolean(o.proPlan);
+  return Boolean(o.proPlan);
 }
 
 /**
@@ -389,9 +389,9 @@ export function hubOwnershipFrom(input: {
    */
   plusPaid?: boolean;
   /**
-   * 💎 Event Pro was PAID for on this event (an order or a basket line — never a comp): its catalogue price
-   * (`prices.get(FULL_PRO_SKU)`) counts toward everything's price (Event Ultra's, owner 2026-11-19 — "what you paid
-   * counts toward a bigger plan"). Unread price → counts 0.
+   * Event Pro was PAID for on this event (an order or a basket line — never a comp): its catalogue price
+   * (`prices.get(FULL_PRO_SKU)`) counts toward the cap. Since 20 Nov a Pro holds the whole Hub outright, so this only
+   * matters to a caller that measures the cap without asking who holds what. Unread price → counts 0.
    */
   proPaid?: boolean;
   /** 💎 The Event Pro PLAN is held (any path) — carried as measured (`HubOwnership.proPlan`). */
@@ -413,7 +413,7 @@ export function hubOwnershipFrom(input: {
     priced(input.plusPaid ? input.prices.get(EVENT_PLUS_SKU) : undefined) +
     priced(input.proPaid ? input.prices.get(FULL_PRO_SKU) : undefined);
   const fullPrice = typeof input.fullPrice === 'number' && Number.isFinite(input.fullPrice) && input.fullPrice > 0 ? input.fullPrice : null;
-  if (input.fullHeld || (fullPrice !== null && paid >= fullPrice)) return everyHubPart(fullPrice, paid);
+  if (input.fullHeld || (fullPrice !== null && paid >= fullPrice)) return everyHubPart(fullPrice, paid, Boolean(input.proPlan));
   const legacyCap = input.legacy?.capPhp;
   if (
     input.legacy &&
@@ -422,7 +422,7 @@ export function hubOwnershipFrom(input: {
     legacyCap > 0 &&
     sumOf(input.legacy.paidParts) >= legacyCap
   ) {
-    return everyHubPart(fullPrice, paid);
+    return everyHubPart(fullPrice, paid, Boolean(input.proPlan));
   }
   const parts = new Set<HubPartId>();
   for (const id of HUB_PART_IDS) if (input.partHeld(id)) parts.add(id);

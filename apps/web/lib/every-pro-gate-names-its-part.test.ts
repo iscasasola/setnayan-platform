@@ -127,8 +127,8 @@ test('(2) "everything" is asked only where everything is the answer', () => {
 });
 
 /**
- * 💎 THE EVENT PRO PLAN (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls"): the 11 Hub parts and
- * Editorial moved to Event Ultra, while the plan's OWN perks stayed Event Pro's. Those ask the Pro PLAN
+ * 💎 THE EVENT PRO PLAN (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls"): the plan's OWN perks
+ * stayed Event Pro's (and Ultra's) — the 11 Hub parts and Editorial are Event Plus's since the owner's 20 Nov ruling. Those ask the Pro PLAN
  * (`eventProPlanActive` / `eventOwnsProPlan` / `proPlanActiveFor`), never everything and never a part — and only here.
  */
 const PRO_PLAN_ASKED_HERE: Record<string, string> = {

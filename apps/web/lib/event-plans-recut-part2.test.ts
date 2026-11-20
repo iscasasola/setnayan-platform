@@ -37,6 +37,10 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
  *     gates 2 (effects) and 3 (own film) stay with the Reveal part;
  *   · every consumer of either gate asks ONE helper (`ownsHubGate`), never a copy of the rule.
  *
+ * 🏛 20 Nov 2026 (owner, "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): a held Event Plus is now the WHOLE
+ *   Hub (test H, `eventHubOwnership` step 1), so it no longer reaches the gates alone. The gate mechanism stays — the
+ *   openings' own unlock still passes gate 1 — and the pure tests below hold it with a hand-built gate input.
+ *
  * The catalogue's numbers (Pro 3,000 credits + 6 months · Ultra 6,000) are held by the DB tests
  * `event-ultra-keeps-originals-12-months.db.test.ts` and `a-badge-climbs-one-ladder.db.test.ts`.
  *
@@ -44,13 +48,13 @@ import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
  *   · drop `plan: 'plus'` from gate 13 in HUB_PRO_GATES                   → 4 red (A, both B, C)
  *   · let the theme / opening fall through to `partsWriteAllowed` at Apply → 3 red (C, D, G)
  *   · remove 'EVENT_PLUS' from STD_PREMIUM_OPENINGS's aliases               → 1 red (F)
- *   · drop `if (plusHeld) gates.push('13')` in eventHubOwnership            → 1 red (H)
+ *   · drop `plusHeldOutright ||` from eventHubOwnership's step 1            → 1 red (H)
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(join(HERE, '..', rel), 'utf8');
 
-/** What `eventHubOwnership` hands a render for an event holding Event Plus alone. */
+/** An ownership holding only the two plan gates (the shape the gate mechanism hands a render). */
 const plusEvent = (): HubOwnership =>
   hubOwnershipFrom({ fullHeld: false, partHeld: () => false, paidParts: [], prices: new Map(), fullPrice: null, gates: ['1', '13'] });
 
@@ -192,13 +196,13 @@ test('(G) every theme and opening consumer asks ownsHubGate / the gate readers �
   }
 });
 
-test('(H) eventHubOwnership fills the gates from Event Plus and the openings’ unlock, read in the gate’s own mode', () => {
+test('(H) eventHubOwnership: Event Plus, Pro and Ultra are the whole Hub; the openings’ own unlock passes gate 1', () => {
   const src = read('lib/couple-website-pro.ts');
-  // 💎 2026-11-19: a Pro PLAN (from 19 Nov) holds everything Plus holds, so it passes both gates too.
-  assert.match(src, /plusPaid \|\| proHeld \? Promise\.resolve\(true\) : holds\(EVENT_PLUS_SKU\)/, 'Event Plus is not read for the gates');
+  // 🏛 Owner 20 Nov 2026: Event Plus is the whole Event Hub (Pro and Ultra include it), read in the gate's own mode.
+  assert.match(src, /holds\(EVENT_PLUS_SKU\),\s*holds\(FULL_PRO_SKU\),\s*holds\(EVENT_ULTRA_PLAN_SKU\),/, 'Event Plus is not read as the whole Hub');
+  assert.match(src, /if \(plusHeldOutright \|\| proHeld \|\| ultraHeld\) return everyHubPartHeld\(proHeld \|\| ultraHeld\);/, 'Event Plus no longer holds the whole Hub, or it grants the Pro plan');
   assert.match(src, /holds\(STD_PREMIUM_OPENINGS_SKU\)/, 'the openings’ own unlock is not read for gate 1');
-  assert.match(src, /if \(plusHeld \|\| openingsHeld\) gates\.push\('1'\);/);
-  assert.match(src, /if \(plusHeld\) gates\.push\('13'\);/, 'Event Plus no longer passes the Pro theme');
+  assert.match(src, /if \(openingsHeld\) gates\.push\('1'\);/);
   assert.match(src, /mode === 'active' \? eventSkuActive\(supabase, eventId, sku\) : eventOwnsSku\(supabase, eventId, sku\)/);
   // Both returns of the parts branch carry them.
   assert.equal((src.match(/^\s+gates,$/gm) ?? []).length, 2, 'one of the two hubOwnershipFrom calls drops the gates');

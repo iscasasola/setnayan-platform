@@ -108,7 +108,7 @@ test('the EVENT_ULTRA row is on sale, one-time, with its credits and a 12-month 
   assert.equal(Number(row.retail_price_php), 9990);
   assert.equal(row.billing_period, 'one_time');
   assert.equal(row.is_active, true);
-  // 🎟 6,000 since the 18 Nov re-cut (PLAN_RULINGS ruling 38: "6,000") — 20271350979842.
+  // 🎟 6,000 since the 18 Nov re-cut (PLAN_RULINGS ruling 38: "6,000") — 20271355365735.
   assert.equal(row.included_papic_credits, 6000);
   // 12 months in all: the standard hold plus the extra is at least 365 days, and it is not the plain 92.
   assert.ok(GRACE + row.fullres_extra_keep_days >= 365, '12 months is at least 365 days');
@@ -140,7 +140,7 @@ test('a refunded Ultra, a pending Ultra and no plan get NO extra hold', async ()
   }
 });
 
-/* 🎟 EVENT PRO KEEPS ORIGINALS 6 MONTHS (owner 2026-11-18, PLAN_RULINGS ruling 36) — 20271350979842 gives the Pro row
+/* 🎟 EVENT PRO KEEPS ORIGINALS 6 MONTHS (owner 2026-11-18, PLAN_RULINGS ruling 36) — 20271355365735 gives the Pro row
    92 extra days (92 + 92 ≈ 6 months). Sabotage: drop that UPDATE → the first assertion fails (Pro released at 100 days). */
 test('🎟 a PAID Event Pro keeps its originals 6 months, then lets go', async () => {
   const r = await db.query<{ d: number | null }>(
@@ -168,4 +168,22 @@ test('the warning job’s pulled-back call still sees the Ultra event before the
   await order(id, 'EVENT_ULTRA', 'paid');
   assert.ok(!(await expiredNow()).has(id), 'released a week early');
   assert.ok((await expiredNow(GRACE - 14)).has(id), 'the warning never fires for an Ultra event');
+});
+
+/* 🏛 EVENT PLUS IS THE WHOLE EVENT HUB (owner 20 Nov 2026; specs Pricing.md §1.1) — 20271355365735 moves Event Pro
+   ₱5,690 → ₱5,490 only from the old figure, and no plan description names Patiktok (retired the same day).
+   Sabotage: drop step 0 → the price assertion fails; restore "Patiktok" in 3b → the description assertion fails. */
+test('🏛 Event Pro reads ₱5,490 after the replay, and no plan description sells Patiktok', async () => {
+  const r = await db.query<{ service_code: string; retail_price_php: string | number | null; description: string | null }>(
+    `SELECT service_code, retail_price_php, description FROM public.platform_retail_catalog_v2
+      WHERE service_code IN ('EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA')`,
+  );
+  const row = (code: string) => r.rows.find((x) => x.service_code === code);
+  assert.ok(row('COUPLE_WEBSITE_PRO'), 'the Event Pro row is missing from the replay — the check is blind');
+  const pro = Number(row('COUPLE_WEBSITE_PRO')!.retail_price_php);
+  assert.equal(pro, 5490, 'Event Pro does not read ₱5,490 — the 20 Nov price move did not apply');
+  for (const x of r.rows) {
+    assert.doesNotMatch(x.description ?? '', /Patiktok/, `${x.service_code}'s description still sells Patiktok`);
+  }
+  assert.match(row('EVENT_PLUS')?.description ?? '', /whole Event Hub/, 'Event Plus does not say it is the whole Event Hub');
 });

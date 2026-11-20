@@ -79,8 +79,8 @@ test('1 · Upload media is drawn for a couple with NO picture at all, and open t
   assert.ok(chip, 'the chip is drawn with zero existing media');
   assert.match(chip, />Upload media</);
   assert.match(chip, /data-paid-mark="try"/, 'a small ◆ PRO mark says it is Pro (`makerProMark`)');
-  // 💎 2026-11-19: the Maker's ◆ marks read ULTRA — the Hub parts moved to Event Ultra.
-  assert.match(chip, />ULTRA</);
+  // 🏛 Owner 20 Nov 2026: the Maker's ◆ marks read PLUS — the whole Event Hub is Event Plus.
+  assert.match(chip, />PLUS</);
   assert.doesNotMatch(chip, /lucide-lock/, 'never a padlock — Pro is asked for at Apply');
   assert.doesNotMatch(chip, /\bdisabled=""/, 'the chip is tappable');
   const pro = await paintRow({ ownsPro: true, photoChoices: [], videoChoice: null });

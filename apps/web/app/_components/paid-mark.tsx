@@ -81,8 +81,8 @@ export function PaidMark({
   /** Optional visible word beside the mark ("Event Pro"). */
   text?: string;
   /**
-   * 💎 The plan word ◆ wears when no `text` is given — "PRO" by default. The Event Hub's parts moved to Event Ultra
-   * (owner 2026-11-19, DECISION_LOG "Event plans part 2 (#8004) — four calls"), so the Maker's marks pass "ULTRA".
+   * 💎 The plan word ◆ wears when no `text` is given — "PRO" by default. The whole Event Hub is Event Plus (owner 20 Nov
+   * 2026, DECISION_LOG "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"), so the Maker's marks pass "PLUS".
    */
   word?: string;
   size?: PaidMarkSize;

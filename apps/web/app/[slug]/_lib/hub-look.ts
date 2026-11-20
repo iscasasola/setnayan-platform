@@ -102,7 +102,7 @@ export const websiteProActiveFor = cache(
 );
 
 /**
- * 💎 The Event Pro PLAN (owner 2026-11-19) — Pro, Ultra, a Pro kept from before 19 Nov, or the cap. The plan's own perks
+ * 💎 The Event Pro PLAN (owner 2026-11-19) — Pro or Ultra (never Plus, which is the whole Hub but keeps one small mark). The plan's own perks
  * ask THIS: the footer and the watermark off, a guest's own schedule. Everything else (the parts) asks
  * `websiteProActiveFor` / `hubPartActiveFor`. Cached per event, as the viewer is shown it, like its siblings.
  */

@@ -365,7 +365,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
               {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
                   {`Up to ${FREE_MOMENT_CAP} stories, in your words, are free. More, and photos:`}
-                  <PaidMark state="try" word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} size="xs" />
+                  <PaidMark state="try" word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" />
                 </span>
               ) : p.ownsPro
                 ? 'Add as many moments as you like, with your photos.'

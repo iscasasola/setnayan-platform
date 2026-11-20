@@ -438,7 +438,7 @@ export function SectionsPanel({
                     <div data-maker-part="animate" className="mt-2 border-t border-dashed border-ink/10 pt-2">
                       <p className="mb-1 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
                         How it moves
-                        {proMark ? <PaidMark state={proMark} word="ULTRA" label={paidMarkLabel(proMark, 'Event Ultra')} size="xs" /> : null}
+                        {proMark ? <PaidMark state={proMark} word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} size="xs" /> : null}
                       </p>
                       <div className="flex flex-wrap items-center gap-1">
                         {HUB_MOTION_PRESETS.map((p) => (
@@ -519,7 +519,7 @@ export function SectionsPanel({
                                       }`}
                                     >
                                       {locked ? (
-                                        <PaidMark state="try" bare word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} size="xs" tone="current" />
+                                        <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" tone="current" />
                                       ) : null}
                                       {HUB_TRANSITION_LABEL[t]}
                                     </button>

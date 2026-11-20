@@ -74,13 +74,13 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
         appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Couples pay 0% commission on supplier bookings — they pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside all three — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Supplier Plus, Supplier Pro and Supplier Ultra plans — see setnayan.com/for-suppliers.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside Event Pro and Event Ultra — and each other service is priced on its own; current rates are on setnayan.com/pricing. Couples pay 0% commission on supplier bookings — they pay suppliers directly. Suppliers: Verified is free, for good, with Supplier Plus, Supplier Pro and Supplier Ultra plans — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
         title: 'Is Setnayan free for couples?',
         appBody: 'Yes. Planning in the app is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches.',
-        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (all three include Setnayan AI), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
+        body: 'Starting is free, with no card and no guest limit. The schedule, budget, guest list, seat plan and its 3D walkthrough, mood board, RSVP with a QR code for every guest, and the Event Hub with unlimited RSVP are all free with every account, plus marketplace browse and a preview of your supplier matches. Optional paid plans and services — Event Plus, Event Pro and Event Ultra (Event Pro and Event Ultra include Setnayan AI), the Live Watch multi-camera control room, Papic credit packs and more — are priced individually. You only pay for what you choose to add. Current rates are on setnayan.com/pricing.',
       },
       {
         // NEW 2026-11-13 — the paid plans had no article (Event Ultra added the same day, #7601). Words from what an order unlocks today:
@@ -88,7 +88,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras, the ready-made Pro themes, a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address; it adds Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event, and Patiktok. An Event Pro bought before 19 November 2026 keeps every part of the Event Hub. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and the whole Event Hub — every ready-made theme, and every part to design: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address — plus a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and adds Live Watch for one day, 2 GB of uploads and your full-size photos kept 12 months after the event. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -104,7 +104,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Setnayan\'s assisted planner. It is not sold on its own: it comes with Event Plus, Event Pro and Event Ultra, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
+        body: 'Setnayan\'s assisted planner. It is not sold on its own: it comes with Event Pro and Event Ultra, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -196,7 +196,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What is the best free Filipino wedding planner app?',
         appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly.',
-        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional paid plans — Event Plus, Event Pro and Event Ultra, all with the Setnayan AI planner — and services like the livestream are priced at setnayan.com/pricing.',
+        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers at 0% commission and pay them directly. Optional paid plans — Event Plus, Event Pro and Event Ultra; Pro and Ultra add the Setnayan AI planner — and services like the livestream are priced at setnayan.com/pricing.',
       },
       {
         slug: 'guest-list-with-ninongs-and-ninangs',
@@ -490,12 +490,12 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       },
       {
         // The slug stays (an indexed URL). Parts left sale 2026-10-26 (lib/event-hub-pro-is-sold-whole.test.ts) and the
-        // whole is Event Ultra since 2026-11-19 (EVENT_ULTRA; a Pro bought before then keeps it). The Apply sheet is
+        // whole is Event Plus since the owner's 20 Nov ruling (EVENT_PLUS; Pro and Ultra include it). The Apply sheet is
         // apply-pro-sheet.tsx; free themes are FREE_THEMES.
         slug: 'event-hub-pro-parts',
         title: 'How do Pro effects work on my Event Hub?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Classic, Modern and Cyber Neon are free themes; every other ready-made theme comes with Event Plus, Event Pro or Event Ultra, and every effect marked ◆ with Event Ultra. Try any of them in your draft — only you see it. When you press Apply, the sheet lists each ◆ effect and where it is: tap one to open it, or × to take it off. Unlock Ultra and Apply puts everything live with Event Ultra; Apply without the Ultra effects puts the rest live and keeps the ◆ ones in your draft. Event Ultra comes whole, not part by part, and what you paid for Event Plus or Event Pro counts toward it, so you pay only the difference. An Event Pro bought before 19 November 2026 keeps every ◆ effect. Its price is on setnayan.com/pricing.',
+        body: 'Classic, Modern and Cyber Neon are free themes; every other ready-made theme, and every effect marked ◆, comes with Event Plus (Event Pro and Event Ultra include it). Try any of them in your draft — only you see it. When you press Apply, the sheet lists each ◆ effect and where it is: tap one to open it, or × to take it off. Unlock Plus and Apply puts everything live with Event Plus; Apply without the Plus effects puts the rest live and keeps the ◆ ones in your draft. Event Plus comes whole, not part by part. Its price is on setnayan.com/pricing.',
       },
       {
         // 🔒 The Maker Edit shell's locked tabs (owner-approved 2026-11-13, "maker shell approved").
@@ -515,7 +515,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'monogram',
         title: 'Customize the QR monogram',
         appBody: 'Every guest’s QR code carries a mark in its centre and opens their own invitation. You will find it in Hub, under Event Details › QR code.',
-        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Ultra, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
+        body: 'Every guest’s QR has a mark in its centre: the Setnayan mark, or your own logo with Event Plus, which also lets you pick the QR’s shape, pattern and colour. Find it in Hub, under Event Details › QR code. Guests see a change once you press Apply.',
       },
       {
         slug: 'print-qr-sheet',

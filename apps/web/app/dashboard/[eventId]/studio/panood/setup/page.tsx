@@ -200,7 +200,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const ent = await eventEntitlementClient(eventId);
   const [baseOwned, customMonogramOwned, ownsHostedChannel] = await Promise.all([
     eventSkuActive(ent, eventId, 'PANOOD_SYSTEM'),
-    // 💎 The animation, or the Logo & QR part that carries it (a Pro kept from before 19 Nov, Ultra, the cap).
+    // 💎 The animation, or the Logo & QR part that carries it (Plus, Pro, Ultra, the cap).
     eventAnimatedMonogramActive(ent, eventId),
     // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
     // 2026-09-02)? Decides which pool-only connect notice renders below —
@@ -264,8 +264,8 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     monogramPartPhp != null
       ? formatPhp(monogramPartPhp)
       : monogramPrices?.everything != null
-        ? // 💎 Since 2026-11-19 the part is Event Ultra's (the plan page's "Everything" card) — its name and price, read.
-          `In ${monogramPrices.everythingTitle ?? 'Event Ultra'} · ${formatPhp(monogramPrices.everything)}`
+        ? // 🏛 The part is in Event Plus, the whole Event Hub (owner 20 Nov) — its name and price, read.
+          `In ${monogramPrices.everythingTitle ?? 'Event Plus'} · ${formatPhp(monogramPrices.everything)}`
         : null;
 
   // The venue connection check's last result — the couple's and the coordinator's to see.

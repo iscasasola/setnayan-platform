@@ -29,6 +29,9 @@ import {
 /** The Cinematic Reveal openings' unlock (gate 1) — spelled here, not imported, so this module takes no cycle through
  *  `lib/std-openings.ts` (which asks THIS module for the gate). Held equal by `event-plans-recut-part2.test.ts`. */
 const STD_PREMIUM_OPENINGS_SKU = 'STD_PREMIUM_OPENINGS';
+/** Event Ultra's code — spelled here like the openings' (no cycle through lib/event-ultra.ts); held equal by
+ *  `event-plus-holds-the-whole-hub.test.ts`. */
+const EVENT_ULTRA_PLAN_SKU = 'EVENT_ULTRA';
 
 /**
  * apps/web/lib/couple-website-pro.ts
@@ -100,7 +103,7 @@ export async function eventCoupleWebsiteProActive(
 }
 
 /**
- * 💎 THE EVENT PRO PLAN (owner 2026-11-19) — Pro, Ultra, a Pro kept from before 19 Nov, or the cap. What the plan
+ * 💎 THE EVENT PRO PLAN (owner 2026-11-19) — Pro or Ultra. Event Plus is the whole Hub (20 Nov) and is NOT the plan: it keeps one small mark. What the plan
  * itself gives asks THIS, never the everything gate above: no Setnayan mark (`eventSetnayanMark`), the footer and the
  * watermark off, the schedule for one person. The 11 parts and Editorial ask `eventHubPartActive` /
  * `eventCoupleWebsiteProActive` (everything). Admin-approved, like every feature gate.
@@ -143,17 +146,18 @@ export function eventHubOwnership(
   mode: 'active' | 'owned' = 'active',
 ): Promise<HubOwnership> {
   return askedOnce(supabase, 'hub-ownership', [eventId, mode], async () => {
-    // 1. 💎 EVERYTHING (owner 2026-11-19): Event Ultra through the whole chain — an internal or founder host, a basket,
-    //    a bundle, a comp, a gift: any of them is everything, and nothing else is read. Then Event Pro: a Pro held
-    //    through a path dated BEFORE 19 Nov keeps everything it was sold as (`event_hub_pro_kept_lines`); a newer Pro
-    //    is the Pro PLAN and falls through to the parts, the plan gates and the cap below.
+    // 1. 🏛 THE WHOLE HUB (owner 20 Nov 2026, "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): Event Plus, Pro
+    //    or Ultra held through the whole chain — an order, a basket, a bundle, a comp, a gift, an internal or founder
+    //    host — is everything, and nothing else is read. Pro and Ultra also hold the Pro PLAN (`proPlan`: no mark,
+    //    Schedule Release, View as); Plus does not. Asked in one step (the guest page's read depth).
     const holds = (sku: string) => (mode === 'active' ? eventSkuActive(supabase, eventId, sku) : eventOwnsSku(supabase, eventId, sku));
     const counts = mode === 'active' ? orderStatusConfersAccess : orderStatusConfersOwnership;
-    //    ⚡ Asked together (the guest page's read depth, `guest-page-reads.test.ts`): Ultra and Pro in one step, then the
-    //    kept-Pro answer beside the parts' reads below — never one more step in series.
-    const [ultraHeld, proHeld] = await Promise.all([holds(EVERYTHING_SKU), holds(FULL_PRO_SKU)]);
-    if (ultraHeld) return everyHubPartHeld();
-    const keptP = proHeld ? hubProKeptEverything(supabase, eventId, counts) : Promise.resolve(false);
+    const [plusHeldOutright, proHeld, ultraHeld] = await Promise.all([
+      holds(EVENT_PLUS_SKU),
+      holds(FULL_PRO_SKU),
+      holds(EVENT_ULTRA_PLAN_SKU),
+    ]);
+    if (plusHeldOutright || proHeld || ultraHeld) return everyHubPartHeld(proHeld || ultraHeld);
     // 2. Each part on its own. A part is sold only by its own order (or gifted by
     //    a comp, or freed by a promo) — never in a bundle or the onboarding basket,
     //    and an internal/founder host already answered in step 1 — so the ONE batch
@@ -163,38 +167,25 @@ export function eventHubOwnership(
     const [batch, rows, planRows] = await Promise.all([
       eventActiveSkus(supabase, eventId),
       eventSkuLinesFor(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY),
-      // 💎 Event Plus paid toward Pro (owner 2026-11-04), and Event Pro paid toward everything (owner 2026-11-19) —
-      //    their own orders and basket lines, read with their own status. A comp or a gift was not paid.
-      eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU, FULL_PRO_SKU]),
+      // 💎 Event Plus paid toward the cap (owner 2026-11-04) — its own order and basket lines, read with their own status.
+      eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU]),
     ]);
-    if (await keptP) return everyHubPartHeld();
     const plusPaid = planRows.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
-    const proPaid = proHeld && planRows.some((r) => r.service_key === FULL_PRO_SKU && counts(r.status));
-    // 🎟 THE PLAN GATES (owner 2026-11-18, PLAN_RULINGS rulings 34 · 36): Event Plus — held through ANY of the chain's
-    //    paths (its order, a basket line, a comp, a supplier's gift) — passes gate 13 (a ready-made Pro theme) and
-    //    gate 1 (a Cinematic Reveal opening) outside their parts; the opening's own unlock (`STD_PREMIUM_OPENINGS`, which
-    //    an Event Plus ORDER also confers through `SKU_OWNERSHIP_ALIASES`) passes gate 1. Asked with the same reader
-    //    and mode as Full Pro above, so the buy surface and the gate cannot disagree. Pro and Ultra already returned in
-    //    step 1 — they hold everything.
-    //    💎 A Pro PLAN (from 19 Nov) holds everything Plus holds, so it passes both gates too.
-    const [plusHeld, openingsHeld] = await Promise.all([
-      plusPaid || proHeld ? Promise.resolve(true) : holds(EVENT_PLUS_SKU),
-      holds(STD_PREMIUM_OPENINGS_SKU),
-    ]);
+    // 🎟 THE PLAN GATE LEFT (owner 2026-11-18 ruling 34; 20 Nov): Event Plus, Pro and Ultra returned in step 1 — since
+    //    20 Nov they hold everything — so here only the openings' own unlock (`STD_PREMIUM_OPENINGS`, sold on its own)
+    //    passes a gate: gate 1, a Cinematic Reveal opening, outside its part. Asked with the same reader and mode as
+    //    step 1, so the buy surface and the gate cannot disagree.
+    const openingsHeld = await holds(STD_PREMIUM_OPENINGS_SKU);
     const gates: HubPlanGate[] = [];
-    if (plusHeld || openingsHeld) gates.push('1');
-    if (plusHeld) gates.push('13');
+    if (openingsHeld) gates.push('1');
     const heldSku = (sku: string) =>
       batch.active.has(sku) || (mode === 'owned' && batch.pending.has(sku)) || rows.some((r) => r.service_key === sku && counts(r.status));
-    // 3. The cap: the parts PAID for, each at its catalogue (web) price, with a paid Plus and a paid Pro — measured
-    //    against EVERYTHING's price, Event Ultra's row (owner 2026-11-19: "what an event paid for single parts counts
-    //    toward Ultra's price, not Pro's").
+    // 3. The cap: the parts PAID for, each at its catalogue (web) price, with a paid Plus — measured against
+    //    EVERYTHING's price, Event Plus's row (owner 20 Nov: the whole Hub is Event Plus).
     const paidParts = rows
       .filter((r) => counts(r.status))
       .map((r) => hubPartOfPaidCode(r.service_key))
       .filter((p): p is HubPartId => p !== null);
-    //    ⚡ A paid Pro ALONE cannot reach Ultra's price (it is the rung below), so it reads no catalogue — the guest page
-    //    pays no extra step for every Pro event (`guest-page-reads.test.ts`). With Plus or a part beside it, it counts.
     const prices = paidParts.length === 0 && !plusPaid ? null : await hubPartPrices(supabase);
     const priceMap = prices ? withPlanPrices(prices) : new Map<string, number>();
     const own = hubOwnershipFrom({
@@ -204,8 +195,6 @@ export function eventHubOwnership(
       prices: priceMap,
       fullPrice: prices?.everything ?? null,
       plusPaid,
-      proPaid,
-      proPlan: proHeld,
       gates,
     });
     // 4. ⚖ The old cap, kept (owner 2026-10-28): asked ONLY for an event that has paid parts and has not reached
@@ -220,8 +209,6 @@ export function eventHubOwnership(
       prices: priceMap,
       fullPrice: prices?.everything ?? null,
       plusPaid,
-      proPaid,
-      proPlan: proHeld,
       gates,
       legacy: {
         capPhp: legacy.capPhp,
@@ -234,9 +221,9 @@ export function eventHubOwnership(
   });
 }
 
-/** Everything, held outright (Ultra, or a Pro kept from before 19 Nov) — no price was read, none is needed. */
-function everyHubPartHeld(): HubOwnership {
-  return hubOwnershipFrom({ fullHeld: true, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null });
+/** Everything, held outright (Plus, Pro or Ultra) — no price was read, none is needed. `proPlan` for Pro and Ultra. */
+function everyHubPartHeld(proPlan: boolean): HubOwnership {
+  return hubOwnershipFrom({ fullHeld: true, partHeld: () => true, paidParts: [], prices: new Map(), fullPrice: null, proPlan });
 }
 
 /** The catalogue map the cap reads: each part, Plus and Pro, at its row price. */
@@ -244,39 +231,6 @@ function withPlanPrices(prices: { parts: ReadonlyMap<string, number>; full: numb
   const m = new Map(prices.parts);
   if (prices.full !== null) m.set(FULL_PRO_SKU, prices.full);
   return m;
-}
-
-/**
- * 💎 Did this event's Event Pro come through a path dated BEFORE 19 Nov 2026 (owner 2026-11-19: a Pro ordered before
- * then keeps everything, and so do a gifted Pro, an admin comp and a bundle or basket with Pro in it)? One RPC,
- * `event_hub_pro_kept_lines`; the cutover lives only in that migration. The order lines come back with their own
- * status and are counted by the caller's rule (`counts`), so a refund takes it back and a pending order owns it only on
- * a buy surface. 🔒 Any failure → false (the Pro plan, not everything) — logged, never silent: a lost read may never
- * open the parts for free.
- */
-async function hubProKeptEverything(
-  supabase: SupabaseClient,
-  eventId: string,
-  counts: (status: string | null) => boolean,
-): Promise<boolean> {
-  const { data, error } = await supabase.rpc('event_hub_pro_kept_lines', { p_event_id: eventId });
-  if (error) {
-    console.error('[supabase-error] couple-website-pro: event_hub_pro_kept_lines', error);
-    return false;
-  }
-  return hubProKeptFrom(data, counts);
-}
-
-/** `event_hub_pro_kept_lines`' answer, read strictly — anything unexpected keeps nothing. */
-export function hubProKeptFrom(data: unknown, counts: (status: string | null) => boolean): boolean {
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
-  const d = data as { lines?: unknown; granted?: unknown };
-  if (d.granted === true) return true;
-  if (!Array.isArray(d.lines)) return false;
-  return d.lines.some((l) => {
-    const status = l && typeof l === 'object' ? (l as { status?: unknown }).status : null;
-    return typeof status === 'string' && counts(status);
-  });
 }
 
 /**
@@ -312,7 +266,7 @@ export function hubPartPrices(
   full: number | null;
   onSale: ReadonlySet<string>;
   fullTitle: string | null;
-  /** 💎 Everything's price — the Event Ultra row (owner 2026-11-19). Null when unread. */
+  /** 🏛 Everything's price — the Event Plus row (owner 20 Nov: the whole Hub is Event Plus). Null when unread. */
   everything: number | null;
   /** 💎 …and its name, read from that row. */
   everythingTitle: string | null;
@@ -322,7 +276,7 @@ export function hubPartPrices(
       .from('platform_retail_catalog_v2')
       // `title` rides the same read: the plan's NAME is the catalogue's (RW-306 — "read it, never type it"; `fullTitle`).
       .select('service_code, title, retail_price_php, is_active')
-      .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU, EVENT_PLUS_SKU, EVERYTHING_SKU]);
+      .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU, EVENT_PLUS_SKU]);
     if (error || !data) {
       if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
       return { parts: new Map(), full: null, onSale: new Set<string>(), fullTitle: null, everything: null, everythingTitle: null };
@@ -341,8 +295,9 @@ export function hubPartPrices(
       /* A part taken off sale still COUNTS toward the cap at its price (it was paid for); it just cannot be bought. */
       if (r.is_active) onSale.add(r.service_code);
       if (r.service_code === FULL_PRO_SKU) full = php;
-      else if (r.service_code === EVERYTHING_SKU) everything = php;
       else parts.set(r.service_code, php);
+      // 🏛 Everything's price is Event Plus's row (owner 20 Nov) — it stays in `parts` too, where a paid Plus is credited.
+      if (r.service_code === EVERYTHING_SKU) everything = php;
     }
     return { parts, full, onSale, fullTitle, everything, everythingTitle };
   });

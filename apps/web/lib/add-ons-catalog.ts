@@ -525,8 +525,8 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // 2026-09-28: "and colours" came out — colours are free for every couple
     // (the free-vs-Pro redraw); media backgrounds are what Pro adds.
     // 💎 2026-10-22 (owner, part by part): "its blurb gains 'or part by part'" — the Studio tile keeps its name.
-    // 💎 2026-11-19 (owner, "Event plans part 2 — four calls" (4)): the Hub's parts moved to Event Ultra.
-    blurb: 'Everything in Event Plus — the Pro themes for your invite link among it — with Setnayan AI and no Setnayan watermark.',
+    // 💎 2026-11-19 (4) + 20 Nov (owner): Event Plus holds the whole Event Hub; Pro is Plus + Setnayan AI.
+    blurb: 'Everything in Event Plus — the whole Event Hub, the Pro themes for your invite link among it — with Setnayan AI and no Setnayan watermark.',
     cta: 'Unlock Event Pro',
     studioGroup: 'website',
     serviceKey: 'COUPLE_WEBSITE_PRO',

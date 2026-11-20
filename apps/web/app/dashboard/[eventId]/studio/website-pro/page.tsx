@@ -146,7 +146,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
     if (php !== undefined) partPricePhp[p.id] = php;
   }
   // 🕯 Capiz light (motion standard § 9 ⑥): the highest plan now ON for this event — once, when this device first sees it.
-  const planOn: PlanKey | null = ultraActive ? 'ultra' : active?.full || active?.proPlan ? 'pro' : plusActive ? 'plus' : null;
+  // The whole Hub (`full`) is Event Plus since 20 Nov; the Pro plan is `proPlan`.
+  const planOn: PlanKey | null = ultraActive ? 'ultra' : active?.proPlan ? 'pro' : plusActive || active?.full ? 'plus' : null;
   return (
     <>
     <CapizLight subject={`event:${eventId}`} plan={planOn} word={`${planOn === 'pro' ? (prices?.fullTitle ?? PLAN_NAME.pro) : planOn ? PLAN_NAME[planOn] : ''} unlocked`} />
@@ -155,8 +156,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
       title={HERO.label}
       // 🏷 The plan's name from its catalogue row (RW-306) — the same read as the prices; unread → the plan list's name.
       planName={prices?.fullTitle ?? PLAN_NAME.pro}
-      // 💎 Everything is Event Ultra (owner 2026-11-19) — its name and price from its own row.
-      everythingName={prices?.everythingTitle ?? PLAN_NAME.ultra}
+      // 🏛 The whole Event Hub is Event Plus (owner 20 Nov) — its name and price from its own row.
+      everythingName={prices?.everythingTitle ?? PLAN_NAME.plus}
       everythingPhp={prices?.everything ?? null}
       back={back}
       fromMaker={fromMaker}

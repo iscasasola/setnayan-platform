@@ -11,10 +11,8 @@
  *   3. the server refuses every part in the app, refuses "Everything" once any part is owned, and an owned Pro;
  *   4. Apple's page sells Event Pro alone, at StoreKit's own `displayPrice` — never a part, never a typed ₱.
  *
- * 💎 RE-AIMED 2026-11-19 (owner, DECISION_LOG "Event plans part 2 (#8004) — four calls", "all your picks"): the Hub parts
- * moved to Event Ultra, so the one unlock is Event Ultra — "Unlock Ultra and Apply" — and Apple's page sells
- * `event_ultra`, or to an event that paid for Pro the upgrade product at the difference (2) + (3). The monogram's
- * Logo & QR part reaches a kept Pro through the part, not an undated Pro alias.
+ * 🏛 RE-AIMED 20 Nov 2026 (owner, "EVENT PLUS = 1,000 PAPIC CREDITS + THE WHOLE EVENT HUB"): the one unlock is Event
+ * Plus — "Unlock Plus and Apply" — and Apple's page sells `event_plus`. Pro, Ultra and the Logo & QR part keep the monogram.
  *
  * Run: cd apps/web && node --import tsx --test lib/pro-parts-in-the-app.test.ts
  */
@@ -38,9 +36,8 @@ const code = (rel: string) => stripComments(src(rel));
 
 test('the retired Animated Monogram reads as Logo & QR — in the chain, both ways', () => {
   assert.ok(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM?.includes('COUPLE_HUB_PART_LOGO_QR'), 'a Logo & QR owner lost the monogram');
-  // 💎 2026-11-19: everything is Event Ultra — Ultra confers the monogram; a Pro alias would give it to every new Pro.
-  assert.ok(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM?.includes('EVENT_ULTRA'), 'Event Ultra lost the monogram');
-  assert.ok(!SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM?.includes('COUPLE_WEBSITE_PRO'), 'an undated Pro alias is back');
+  assert.ok(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM?.includes('COUPLE_WEBSITE_PRO'), 'Full Pro lost the monogram');
+  assert.ok(SKU_OWNERSHIP_ALIASES.ANIMATED_MONOGRAM?.includes('EVENT_PLUS'), 'Event Plus (the whole Hub) lost the monogram');
   assert.ok(SKU_OWNERSHIP_ALIASES.COUPLE_HUB_PART_LOGO_QR?.includes('ANIMATED_MONOGRAM'), 'a monogram owner does not own Logo & QR');
 });
 
@@ -60,7 +57,7 @@ test('the cap counts a paid monogram as Logo & QR, at the part’s web value', (
   assert.match(resolver, /\.map\(\(r\) => hubPartOfPaidCode\(r\.service_key\)\)/);
 });
 
-test('the monogram page sells the Logo & QR part only while it is on sale — else Event Ultra whole (2026-11-19)', () => {
+test('the monogram page sells the Logo & QR part only while it is on sale — else Event Plus whole (20 Nov)', () => {
   const page = code('app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx');
   assert.match(page, /hubPart\('logo_qr'\)\.sku/);
   assert.doesNotMatch(page, /serviceKey=["']ANIMATED_MONOGRAM["']/);
@@ -84,7 +81,7 @@ test('the app hands the Apply sheet no part pricing — it is the one-unlock she
   assert.equal(applySheetButtons(null, null), null);
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
   assert.doesNotMatch(sheet, /appleStore|everythingOffered/, 'the sheet still has an Apple parts branch');
-  assert.match(sheet, /Unlock Ultra and Apply/);
+  assert.match(sheet, /Unlock Plus and Apply/);
 });
 
 /* ── 3 · the server refuses ─────────────────────────────────────────────── */
@@ -94,7 +91,7 @@ test('the server refuses every part in the app, Everything once any part is owne
   // A part product is no longer a product at all (`RETIRED_HUB_PART_PRODUCT_IDS`): the start refuses it as unknown.
   assert.match(a, /const product = iapProductById\(input\.productId\);[\s\S]{0,120}if \(!product \|\| !eventId\) return startRefusal\('unavailable'\);/);
   assert.doesNotMatch(a, /event-hub-part/, 'the app still knows a part product kind');
-  assert.match(a, /product\.kind === 'event-hub-pro'[\s\S]{0,400}if \(own\.full \|\| own\.proPlan\) return startRefusal\('owned'\);\s*if \(own\.parts\.size > 0 \|\| own\.paidPhp > 0\) return startRefusal\('not_on_sale'\);/);
+  assert.match(a, /product\.kind === 'event-hub-pro'[\s\S]{0,400}if \(own\.proPlan\) return startRefusal\('owned'\);\s*if \(own\.parts\.size > 0 \|\| own\.paidPhp > 0\) return startRefusal\('not_on_sale'\);/);
 });
 
 /* ── 4 · Apple's page ───────────────────────────────────────────────────── */
@@ -105,15 +102,11 @@ test('Apple’s page sells Event Pro alone, and not to an event that holds a par
   assert.doesNotMatch(page, /isHubPartId|iapProductForServiceKey|search\.buy/, 'Apple’s page still reads a part to sell');
   assert.match(page, /if \(own && \(own\.parts\.size > 0 \|\| own\.paidPhp > 0\)\) redirect\(back\);/);
   assert.match(page, /<AppleProScreen eventId=\{eventId\} back=\{back\} \/>/);
-  // 💎 2026-11-19 (3): an event that PAID for Pro is sold the upgrade, at the difference.
-  assert.match(page, /if \(proPaid\) return <AppleProScreen eventId=\{eventId\} back=\{back\} upgrade \/>;/);
 });
 
-test('Apple’s page prices Event Ultra (or its upgrade) from StoreKit — no part, no typed ₱', () => {
+test('Apple’s page prices Event Pro from StoreKit — no part, no typed ₱', () => {
   const screen = code('app/_components/iap/apple-pro-screen.tsx');
-  assert.match(screen, /iapProductForServiceKey\('EVENT_ULTRA'\)/);
-  assert.match(screen, /iapUpgradeProductForServiceKey\('EVENT_ULTRA'\)/);
-  assert.match(screen, /const PRO = upgrade \? ULTRA_UPGRADE : ULTRA;/);
+  assert.match(screen, /iapProductForServiceKey\('EVENT_PLUS'\)/);
   assert.match(screen, /map\?\.get\(PRO\.productId\)\?\.displayPrice/);
   assert.doesNotMatch(screen, /AppleProParts|parts\.map/, 'Apple’s page still sells parts');
   assert.doesNotMatch(screen, /₱\s*\d/, 'a typed price in the Apple page');

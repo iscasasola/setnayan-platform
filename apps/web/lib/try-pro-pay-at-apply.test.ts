@@ -324,8 +324,8 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(bar, /effects=\{asksForPro \? proEffects : \[\]\}/);
   // The price is the catalogue's, never typed.
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
-  // 💎 2026-11-19 (owner, "Event plans part 2 — four calls" (C)): the Hub parts are Event Ultra's — "Unlock Ultra and Apply".
-  assert.match(sheet, /Unlock Ultra and Apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
+  // 🏛 Owner 20 Nov 2026: the whole Event Hub is Event Plus — "Unlock Plus and Apply".
+  assert.match(sheet, /Unlock Plus and Apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);
   assert.doesNotMatch(sheet, /₱\s?\d/, 'a price is typed into the sheet');
 });
 

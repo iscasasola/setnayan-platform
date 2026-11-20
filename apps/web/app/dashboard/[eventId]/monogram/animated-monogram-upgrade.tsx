@@ -172,9 +172,8 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   const catalogue = await hubPartPrices(createAdminClient()).catch(() => null);
   const sale: MonogramSale = catalogue?.onSale.has(SKU_CODE)
     ? { serviceKey: SKU_CODE, pricePhp: catalogue.parts.get(SKU_CODE) ?? null, name: 'Event Pro · Logo & QR', whole: false }
-    : // 💎 Since 2026-11-19 the Logo & QR part (and so the animation) is Event Ultra's for new buyers — the plan page's
-      // "Everything" card sells it, by its catalogue row and name.
-      { serviceKey: EVERYTHING_SKU, pricePhp: catalogue?.everything ?? null, name: catalogue?.everythingTitle ?? 'Event Ultra', whole: true };
+    : // 🏛 The Logo & QR part (and so the animation) is in Event Plus, the whole Event Hub (owner 20 Nov) — its row and name.
+      { serviceKey: EVERYTHING_SKU, pricePhp: catalogue?.everything ?? null, name: catalogue?.everythingTitle ?? 'Event Plus', whole: true };
 
   /* ── THE UNLOCK IS A ROW, NOT A SECTION (owner 2026-09-20) ──────────────
    * "it doesn't need its own row. it just needs to be on the Animate and

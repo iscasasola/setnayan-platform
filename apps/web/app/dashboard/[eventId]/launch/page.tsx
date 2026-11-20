@@ -675,7 +675,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       ? null
       : {
           fromPhp: Math.min(...Object.values(partPricePhp)),
-          // 💎 Everything is Event Ultra (owner 2026-11-19) — the parts' rest is measured against its row.
+          // 💎 Everything is Event Plus (owner 20 Nov) — the parts' rest is measured against its row.
           fullPhp: proPrices.everything,
           paidPhp: proOwn.paidPhp,
           owned: [...proOwn.parts],

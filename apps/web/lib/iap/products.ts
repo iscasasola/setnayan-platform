@@ -77,12 +77,6 @@ export type IapProductKind =
   | 'event-plus'
   /** 💎 Event Ultra (owner 2026-11-13): one per event; everything in Pro + Live Watch + Patiktok + canvas + 12-month originals. */
   | 'event-ultra'
-  /**
-   * 💎 Event Ultra for an event that already PAID for Event Pro (owner 2026-11-19, DECISION_LOG "Event plans part 2
-   * (#8004) — four calls" (3)): Apple charges one fixed price, so "pay the difference" is its own product, priced at
-   * Ultra's row less Pro's (`priceLessRow`). It delivers the same EVENT_ULTRA order.
-   */
-  | 'event-ultra-upgrade'
   | 'live-watch'
   | 'papic-credits'
   /** 🍎 23 Oct: one unlock for the CURRENT event, never sold twice (Music Maker · Patiktok; Setnayan AI and Thank You retired). */
@@ -106,11 +100,6 @@ export type IapProduct = {
    * Connect from its tier's catalogue row (`AI_TIER_SKU`). The server refuses a tier product for an event of another tier.
    */
   aiTier?: Exclude<AiPriceTier, 'E'>;
-  /**
-   * 💎 The upgrade product only: the catalogue row whose price is taken OFF `serviceKey`'s — its App Store price is the
-   * difference (Ultra − Pro), and the delivery's one-price check reads that difference (`orderAmountPhp`).
-   */
-  priceLessRow?: string;
 };
 
 const PREFIX = 'com.setnayan.app.';
@@ -177,20 +166,6 @@ export const IAP_PRODUCTS: readonly IapProduct[] = Object.freeze([
     appleType: 'consumable',
     appStoreName: 'Event Ultra',
     credits: null,
-  },
-  /* 💎 Event Ultra, upgrading from a PAID Event Pro (owner 2026-11-19, "all your picks" (3)). ⚠ The OWNER must create
-     `com.setnayan.app.event_ultra_upgrade_from_pro` (consumable, "Event Ultra · upgrade from Pro") in App Store Connect
-     at the price point equal to EVENT_ULTRA's row less COUPLE_WEBSITE_PRO's; until he does, StoreKit returns no price
-     and the app offers nothing. Listed AFTER `event_ultra`, so `iapProductForServiceKey('EVENT_ULTRA')` stays the
-     whole plan. Sold only to an event with a paid Pro order (`startAppStorePurchase`). */
-  {
-    productId: `${PREFIX}event_ultra_upgrade_from_pro`,
-    serviceKey: 'EVENT_ULTRA',
-    kind: 'event-ultra-upgrade',
-    appleType: 'consumable',
-    appStoreName: 'Event Ultra · upgrade from Pro',
-    credits: null,
-    priceLessRow: EVENT_HUB_PRO_SERVICE_KEY,
   },
   {
     productId: `${PREFIX}live_watch`,
@@ -330,14 +305,9 @@ export function iapProductById(productId: string | null | undefined): IapProduct
   return IAP_PRODUCTS.find((p) => p.productId === productId) ?? null;
 }
 
-/** The product that sells this catalogue code (`COUPLE_WEBSITE_PRO` → `event_pro`) — the whole plan, never an upgrade. */
+/** The product that sells this catalogue code (`COUPLE_WEBSITE_PRO` → `event_pro`). */
 export function iapProductForServiceKey(serviceKey: string): IapProduct | null {
-  return IAP_PRODUCTS.find((p) => p.serviceKey === serviceKey && !p.priceLessRow) ?? null;
-}
-
-/** 💎 The upgrade product for this catalogue code (`EVENT_ULTRA` → `event_ultra_upgrade_from_pro`), or null. */
-export function iapUpgradeProductForServiceKey(serviceKey: string): IapProduct | null {
-  return IAP_PRODUCTS.find((p) => p.serviceKey === serviceKey && Boolean(p.priceLessRow)) ?? null;
+  return IAP_PRODUCTS.find((p) => p.serviceKey === serviceKey) ?? null;
 }
 
 /**

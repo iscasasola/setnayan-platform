@@ -199,7 +199,7 @@ export function StudioHubLookRow({ eventId, ownsPro, storeShell }: { eventId: st
           <StudioProDoor
             href={`/dashboard/${eventId}/studio/website-pro`}
             label={HUB_LOOK_ROW.door}
-            icon={<PaidMark state="try" word="ULTRA" label={paidMarkLabel('try', 'Event Ultra')} />}
+            icon={<PaidMark state="try" word="PLUS" label={paidMarkLabel('try', 'Event Plus')} />}
             note={HUB_LOOK_PRO_NOTE}
           />
         </span>

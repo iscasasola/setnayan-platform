@@ -142,9 +142,9 @@ function TableShapeSvg({
         const filled = names ? Boolean(who) : k < seated;
         return (
           <g key={k} transform={`translate(${s.x} ${s.y})`} data-plan-seat={k}>
-            <circle r={chairR} className={filled ? 'fill-ink stroke-ink' : 'fill-white stroke-ink'} strokeWidth={2} />
+            <circle r={chairR} className={filled ? 'fill-ink stroke-ink' : 'fill-raised stroke-ink'} strokeWidth={2} />
             {who ? (
-              <text textAnchor="middle" dominantBaseline="central" fontSize={chairR} className="fill-white" fontWeight={700}>
+              <text textAnchor="middle" dominantBaseline="central" fontSize={chairR} className="fill-cream" fontWeight={700}>
                 {who.trim().charAt(0).toUpperCase()}
               </text>
             ) : null}
@@ -428,7 +428,7 @@ export function PlanMaker({
                   type="button"
                   disabled={!full}
                   onClick={() => setSel(isSel ? null : { kind: 'table', id: t.id })}
-                  className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl border bg-white p-2 text-left disabled:cursor-default ${
+                  className={`flex min-h-[44px] w-full flex-col items-center gap-1 rounded-xl border bg-raised p-2 text-left disabled:cursor-default ${
                     isMarked || isSel ? 'border-terracotta ring-2 ring-terracotta/30' : 'border-ink/15'
                   }`}
                   data-plan-tile={t.id}

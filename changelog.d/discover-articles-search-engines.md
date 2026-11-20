@@ -15,6 +15,8 @@ column); Discover's Articles "See all" opens Build 2's feed. No migration, no ne
   llms.txt and Discover together; the Hide also refreshes the sitemap and llms.txt at once.
 - No read of its own: `lib/articles-index.server.ts` shapes Build 2's `listArticles` / `listPublicArticleAddresses`.
   The pure rules are `lib/articles-index.ts`. Guard: `lib/articles-are-findable.test.ts` (8 tests; 8 sabotages each
-  turned it red).
+  turned it red). Caught up with main on 20 Nov: main now keeps the four "public now" clauses in ONE definition,
+  `onlyPublicArticles` (`lib/public-articles.ts`), so guard 2 checks that every read goes through it and that it
+  still filters removed posts and drafts (sabotage: dropping the clause, or bypassing the helper, each turns it red).
 
 SPEC IMPACT: None (the 2026-11-17 DECISION_LOG rows and the drawing already describe it; the 18 Nov rulings are on #7935).

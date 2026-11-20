@@ -82,11 +82,19 @@ test('2 · a hidden post is a removed post: Hide sets removed_at, and every list
   assert.match(action, /revalidatePath\('\/sitemap-articles\.xml'\)/, 'a Hide must refresh the sitemap at once');
   assert.match(action, /revalidatePath\('\/llms\.txt'\)/, 'a Hide must refresh llms.txt at once');
 
+  // Main (#7919's ship review) moved the four "public now" clauses into ONE definition, `onlyPublicArticles`
+  // (lib/public-articles.ts), which every read in articles.server.ts uses. So: each read goes through it, and it
+  // still holds the removed and draft clauses — the same two facts this test pinned inline before.
+  const ruleSrc = src('lib/public-articles.ts');
+  const ruleAt = ruleSrc.indexOf('export function onlyPublicArticles');
+  assert.ok(ruleAt >= 0, 'onlyPublicArticles is gone');
+  const rule = ruleSrc.slice(ruleAt);
+  assert.match(rule, /\.is\('removed_at', null\)/, 'onlyPublicArticles lets a removed post through');
+  assert.match(rule, /\.eq\('status', 'published'\)/, 'onlyPublicArticles lets a draft through');
   const reads = src('lib/articles.server.ts');
   for (const fn of ['listArticles', 'listPublicArticleAddresses', 'articleBySlug']) {
     const body = fnBody(reads, fn);
-    assert.match(body, /\.is\('removed_at', null\)/, `${fn} lists a removed post`);
-    assert.match(body, /\.eq\('status', 'published'\)/, `${fn} lists a draft`);
+    assert.match(body, /onlyPublicArticles\(\s*supabase\s*\.from\('creator_chapters'\)/, `${fn} lists a removed post or a draft — it skips onlyPublicArticles`);
   }
   for (const rel of ['lib/articles-index.ts', 'lib/articles-index.server.ts', 'app/admin/user-reports/actions.ts']) {
     assert.doesNotMatch(src(rel), /CHAPTER_HIDE_NOTE|hiddenChapterIds/, `${rel} keeps a second “hidden” test beside removed_at`);

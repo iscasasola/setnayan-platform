@@ -63,5 +63,5 @@ test('4 · "Seen · Claire, Liza" names only those who said so on the chat’s c
   assert.equal(seenLine('Seen', ['A', 'B', 'C', 'D', 'E']), 'Seen · A, B, C +2');
   // The read broadcast says WHO read; the stream keeps each reader's latest and names those at or after your message.
   assert.match(STREAM, /payload: \{ side: viewerRole, at, by: currentUserId \}/);
-  assert.match(STREAM, /seenLine\(LAST_LINE_WORDS\.seen, \[\.\.\.seenBy\]\.filter\(\(\[, at\]\) => Date\.parse\(at\) >= Date\.parse\(ownLast\.created_at\)\)/);
+  assert.match(STREAM, /seenLine\(LAST_LINE_WORDS\.seen, seenByWhoGotIt\(ownLast, \[\.\.\.seenBy\]\.filter\(\(\[, at\]\) => Date\.parse\(at\) >= Date\.parse\(ownLast\.created_at\)\)/);
 });

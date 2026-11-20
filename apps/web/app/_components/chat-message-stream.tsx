@@ -130,7 +130,7 @@ import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, typ
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
-import { WHISPER_TYPING_WINDOW_EVENT, whisperSideOfLine, whisperStrip, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
+import { WHISPER_TYPING_WINDOW_EVENT, seenByWhoGotIt, whisperSideOfLine, whisperStrip, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
 import { readWhisper, sendWhisperTyping, subscribeWhisper } from '@/app/_components/chat/whisper-mode';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
@@ -3152,7 +3152,7 @@ export function ChatMessageStream({
         return (
           <li className="pr-1 text-right text-[12px] text-[color:var(--m-slate-2)]" data-chat-last-line={line.kind}>
             {line.kind === 'seen' && ownLast
-              ? seenLine(LAST_LINE_WORDS.seen, [...seenBy].filter(([, at]) => Date.parse(at) >= Date.parse(ownLast.created_at)).map(([id]) => personName(id)))
+              ? seenLine(LAST_LINE_WORDS.seen, seenByWhoGotIt(ownLast, [...seenBy].filter(([, at]) => Date.parse(at) >= Date.parse(ownLast.created_at)).map(([id]) => id)).map((id) => personName(id)))
               : LAST_LINE_WORDS[line.kind]}
           </li>
         );

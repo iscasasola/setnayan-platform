@@ -1,10 +1,11 @@
 'use client';
 
-import { ListFilter } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import type { ThumbMenu } from '@/components/thumb-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
 import { applyGuestsFilterPick, guestsFilterIsOn, guestsFilterOptions, type GuestsFilter } from '@/lib/guests-filter';
 import type { GuestsView } from '@/lib/guests-views';
+import { SortFace, sortLabel } from '@/components/sort-face';
 
 /**
  * guests-filter-menu.tsx — THE ⇅ ROUND OF EVERY GUESTS VIEW (R4 slice 1, owner 2026-10-29, prototype `filterSheet`).
@@ -14,13 +15,13 @@ import type { GuestsView } from '@/lib/guests-views';
  * File · Add ways; the Map's Add ways; Seats' people), so nothing a view's ≡ held before is lost. The current choice of
  * each section wears a ✓; the round wears a dot while anything narrows or re-orders the list.
  *
- * The face is the List's shipped ≡ icon (`ListFilter`) on every view — the same round the owner already knows.
+ * The face is the List's shipped ≡ icon (`SlidersHorizontal`) on every view — the same round the owner already knows.
  */
 export function FilterFace({ on }: { on: boolean }) {
   return (
     <span aria-hidden className="relative inline-flex h-[18px] w-[18px]" data-filter-face={on ? 'on' : 'off'}>
-      <ListFilter className="h-[18px] w-[18px]" strokeWidth={1.9} />
-      {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-terracotta" /> : null}
+      <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.9} />
+      {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-mulberry" /> : null}
     </span>
   );
 }
@@ -37,6 +38,7 @@ export function guestsFilterMenu({
   label = 'Show, group or sort',
   mark = 'data-thumb-filter',
   tour,
+  word = false,
 }: {
   view: GuestsView;
   filter: GuestsFilter;
@@ -54,6 +56,9 @@ export function guestsFilterMenu({
   label?: string;
   mark?: string;
   tour?: string;
+  /** The face is the ONE Show-and-Sort button's (`components/sort-face.tsx`: the sliders icon in the 44 round, named
+   *  "Show and sort") — the lists' rows; `label` is then not used. */
+  word?: boolean;
 }): ThumbMenu {
   const menu: PickOption[] = guestsFilterOptions(view, filter, { hasSides }).map((o) => ({
     key: o.key,
@@ -71,9 +76,9 @@ export function guestsFilterMenu({
   return {
     mark,
     tour,
-    label,
+    label: word ? sortLabel(alsoOn || guestsFilterIsOn(filter, view)) : label,
     value: null,
-    face: <FilterFace on={alsoOn || guestsFilterIsOn(filter, view)} />,
+    face: word ? <SortFace on={alsoOn || guestsFilterIsOn(filter, view)} /> : <FilterFace on={alsoOn || guestsFilterIsOn(filter, view)} />,
     menu: menu.concat(extras),
     onPick: (k) => {
       const next = applyGuestsFilterPick(filter, k);

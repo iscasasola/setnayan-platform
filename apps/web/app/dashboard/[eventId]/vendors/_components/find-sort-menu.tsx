@@ -5,7 +5,7 @@
  * under a category are gone; Sort · Price · Rating live behind the thumb row's ⇅).
  *
  * It is the SHARED ⇅, not a new control: the thumb row's ≡ seat (`ThumbMenu`, `components/thumb-row.tsx`) wearing the
- * Guests ⇅ face (`FilterFace`, `guests-filter-menu.tsx`) — ONE PickMenu with labelled sections, the current choice of
+ * one Show-and-Sort face (`SortFace`, `components/sort-face.tsx`) — ONE PickMenu with labelled sections, the current choice of
  * each wearing a ✓, the round wearing a dot while anything narrows or re-orders the list. The choices only re-arrange
  * what is already on the page: no request.
  *
@@ -24,7 +24,7 @@
  */
 import type { ThumbMenu } from '@/components/thumb-row';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
-import { FilterFace } from '@/app/dashboard/[eventId]/guests/_components/guests-filter-menu';
+import { SortFace, sortLabel } from '@/components/sort-face';
 import { FIND_FILTERS_OFF, filtersOn, type FindFilters, type FindRating } from '@/lib/find-service-cards';
 
 const RATINGS: readonly { key: FindRating; label: string }[] = [
@@ -77,9 +77,9 @@ export function findSortMenu({
     // 📏 Every row on ONE line at 390 px (owner 2026-10-31, "Yes, tidy it": a greyed row shows its short label only, its
     // reason in the ⓘ) — "Nearest to your venue" + its ⓘ needs this; the list was 168 px and wrapped every long row.
     menuMinWidth: FIND_SORT_MENU_MIN_WIDTH,
-    label: scope ? `Sort and filter ${scope}` : 'Sort suppliers',
+    label: sortLabel(narrowing > 0 || reordered),
     value: null,
-    face: <FilterFace on={narrowing > 0 || reordered} />,
+    face: <SortFace on={narrowing > 0 || reordered} />,
     menu,
     onPick: (k) => {
       if (k === 'clear') {

@@ -25,7 +25,7 @@
  * on main — it arrives with the Bundle Maker) and offers on BUNDLES (the Bundle Maker lane).
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Filter, Gift, Plus, Search, Tag, Wallet } from 'lucide-react';
+import { Gift, Plus, Search, SlidersHorizontal, Tag, Wallet } from 'lucide-react';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { ActionButton } from '@/components/action-button';
 import { BADGE_CLASS } from '@/app/_components/badge';
@@ -168,7 +168,7 @@ export function OfferMaker({ onClose, start = null }: { onClose: () => void; sta
       {data ? (
         <OffersScreen data={data} onClose={onClose} start={start} />
       ) : (
-        <RiseScreen title="Offers" line={read ? 'Couldn’t load' : 'Opening your offers…'} onClose={onClose} data="offer-maker">
+        <RiseScreen title="Offers" line={read ? 'Couldn’t load' : 'Opening your offers…'} onClose={onClose} data="offer-maker" kind="stack">
           <p role={read ? 'alert' : 'status'} className="px-4 py-6 text-sm text-ink/70" data-offers-read={read ? 'refused' : 'loading'}>
             {read && !read.ok ? read.message : 'Opening your offers…'}
           </p>
@@ -294,7 +294,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
         buttonText={FILTERS.find((f) => f.key === filter)!.label}
         dataAttr="data-offers-filter"
         className="sn-press grid h-12 w-12 flex-none place-items-center rounded-full border border-ink/10 bg-raised text-ink/75"
-        trigger={<Filter aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />}
+        trigger={<SlidersHorizontal aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />}
         options={FILTERS.map((f) => ({ key: f.key, label: f.label }))}
         onPick={(k) => setFilter(k as Filter)}
       />
@@ -311,6 +311,7 @@ export function OffersScreen({ data, onClose, start, openId = null }: { data: Of
       thumb={thumb}
       onClose={onClose}
       data="offer-maker"
+      kind="stack"
     >
       {error ? (
         <p role="alert" className="mx-4 mt-3 rounded-xl px-3 py-2 text-[13px]" style={{ background: 'rgb(var(--color-warn) / .12)', color: 'rgb(var(--color-warn))' }}>

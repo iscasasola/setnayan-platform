@@ -40,8 +40,6 @@ import type { SpotlightScript } from '@/lib/tours';
 import { labPaperPayload, labSetupDetails, type LabDocs } from './page-lab';
 import { forYourServicePages, type EventLines } from '@/lib/supplier-event-lines';
 import { findabilityNotice, shopFindability } from '@/lib/vendor-shop-findable';
-import { HERO_UPLOAD_PILL } from '@/app/vendor-dashboard/_components/supplier-hero';
-import { PortfolioUploadDoor } from '@/app/vendor-dashboard/_components/portfolio-upload';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
 import { buildTodayV2 } from '@/app/vendor-dashboard/_components/today-v2-assemble';
@@ -49,7 +47,6 @@ import { readTodayAside } from '@/lib/today-aside';
 
 /** The lab's Upload door: the real picker and uploader, on a lab shop with an empty portfolio (an upload here asks the
  *  dev server for a presign and is refused — the lab writes nothing). */
-const LAB_UPLOAD_FACTS: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: [], free: 50, allowanceUnread: false, walletBalance: 0 };
 
 // 🧪 THE ONE BUILD A14 adds: `two` (two bookings tomorrow — the carousel), `empty` (nothing waiting), `unread` (the desk
 // could not be read). `normal` = one next event; `eventday` = the photo card says Today with the day's chips.
@@ -418,7 +415,7 @@ function ClientPagesLab({ page }: { page: 'payment' | 'files' }) {
   );
 }
 
-export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library = false, rail = null, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** 📋 `&v2=1` — Today v2, "one task" (owner 18 Nov 2026): the SAME `buildTodayV2` the Today page runs, on lab reads. */ v2?: boolean; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
+export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, cards = null, library = false, rail = null, tomorrow = false, wrap = false, logoNext = false, gift: giftMode = null, eventsYouRun = [], docs = 'none', gbb = 2, coarse = false, qrSvg = null, tourScript = null, heroPhoto = false }: { /** ✓ `&wrap=1` — v3 part 3: each finished event has photos and reviews, so its row is the wrap-up card. */ wrap?: boolean; /** ⏭ `&tomorrow=1` — v3 part 2: the first task that is not red was put off with "Do it tomorrow". */ tomorrow?: boolean; /** 📋 `&v2=1` — Today v2, "one task" (owner 18 Nov 2026): the SAME `buildTodayV2` the Today page runs, on lab reads. */ v2?: boolean; /** ▦ `&cards=1-2` — the cards row's fixture: live and hidden cards on a plan of 3. */ cards?: { live: number; hidden: number } | null; /** 🖼 `&hero=1` — the hero wears a most-viewed photo (Lane E item 11); else the placeholder. */ heroPhoto?: boolean; /** 📥 step 6's code, drawn by the lab page (`renderUrlQrSvg`) — the shop's own page. */ qrSvg?: string | null; /** 🔦 the tour after step 6 (read by the lab page — `lib/tours.ts` stays on the server). */ tourScript?: SpotlightScript | null; /** 🔢 `&coarse=1` on setup — an /open-shop shop's [coarse, leaf] services (owner 2026-10-29). */ coarse?: boolean; /** 🧰 setup: how the papers stand (`&docs=some|checking|fix|unread`) and how many Buffet cards are made (`&gbb=0..3`). */ docs?: LabDocs; gbb?: number; sup: EasySupplier; moment: EasyMoment; /** Not drawn any more — Today answers nothing in place (THE ONE BUILD); the lab page still hands it. */ actions?: TodayActions; library?: boolean; /** 🗂 `?s=coord-today` — the events this supplier runs as a coordinator (owner 2026-10-28). */ eventsYouRun?: readonly EventYouRun[]; /** `setup` only — how far along the first steps are: `service` (details done) · `docs` (a service too) — prototype first_run S4 / S5. */ rail?: 'service' | 'docs' | null; /** `&logo=1` on setup: details done, no logo — the logo step is next (2026-10-22). */ logoNext?: boolean; /** 🎁 `&gift=running|soon` — a plan Setnayan gave (personal invite B6 · C2): Pro until 31 Jan 2027, or a week left. */ gift?: 'running' | 'soon' | null }) {
   if (moment === 'answers') {
     // 🗓 A8 — the date change and the delete request, as the client's Details draws them (the shipped bodies + Undo).
     const cards = SUPS.studio.desk.filter((c): c is Extract<WhatsNewCard, { kind: 'date_change' | 'delete_request' }> => c.kind === 'date_change' || c.kind === 'delete_request');
@@ -536,7 +533,6 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
         ? { startedAt: '12:00', next: { time: '3:30', label: 'Reception' }, line: '12:00 Ceremony · 3:30 Reception · 6:30 First dance', checkedIn: 118 }
         : null,
     // 📄 A9 — the permit row: inside its 60 days on an ordinary day (the prototype's "expires in 21 days").
-    renewalDueAt: moment === 'normal' ? new Date(NOW + 21 * 86_400_000 - 3_600_000).toISOString() : null,
     setupDrawn: setup,
     bookedThisMonth: setup ? null : 6,
     portfolio: undefined,
@@ -571,6 +567,8 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
         closed,
         deskIncomplete: moment === 'unread',
         billsUnread: false,
+        events: upcoming,
+        now: NOW,
         reads: moment === 'unread' ? null : {
           done: { replies: 2, payments: 0, delivered: 0, bookings: 0, dates: 0, inquiries: 0, meetings: 0, cancels: 0 },
           noCover: null,
@@ -578,12 +576,38 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
           trendingCard: { title: sup.categoryWord },
           completedBookings: 3,
           radar: null,
-          cutoffs: { fewInquiries: 20, fewBookings: 2 },
+          cutoffs: { fewInquiries: 20, fewBookings: 2, soonAskHours: 24, soonEventDays: 7 },
           inspirationPhotos: 4,
           // The plans rebuild's Verified total (#7975: 1 · 3 · 10 · 20 · 80 · 200) — a lab number; the page reads it.
-          cardRoom: null, // ⏸ off until the live-cards limit lands (see supplier-today-v2.server.ts)
+          // ▦ `&cards=<live>-<hidden>` sets the cards row's state on a plan of 3 (a fixture): 1-2 room · 3-4 the lock · 3-0 no row.
+          cardRoom: { allowed: 3, live: cards?.live ?? 1, hidden: cards?.hidden ?? 2 },
+          // ⏭ A put-off record (a fixture): the first desk task that is not a date change, back tomorrow.
+          putOffs: tomorrow ? needsAnswer.filter((c) => c.kind !== 'date_change').slice(0, 1).map((c) => ({ task_key: c.id, until_day: '2099-12-31' })) : [],
         },
         aside: readTodayAside(null, TODAY),
+        // ✓ The wrap-up facts (a fixture): six photos (the app's own art), two guest reviews, Ultra, 7 days.
+        wrapUps: wrap
+          ? Object.fromEntries(
+              needsAnswer
+                .filter((c) => c.kind === 'mark_complete')
+                .map((c) => [
+                  c.id,
+                  {
+                    eventId: c.kind === 'mark_complete' ? c.eventId : '',
+                    eventName: c.kind === 'mark_complete' ? c.eventName : '',
+                    eventDate: c.kind === 'mark_complete' ? c.eventDate : null,
+                    photos: ['drape', 'fan', 'chandelier', 'corner-floral', 'wax-seal', 'rsvp-ornament'].map((n, k) => ({ fileId: `00000000-0000-4000-8000-00000000000${k}`, url: `/art-kits/vintage/${n}.webp`, serviceTitle: 'Full-day photo' })),
+                    reviews: [
+                      { reviewId: 'g1', name: 'Gabriel D.', rating: 5, line: 'The photographer was everywhere and never in the way.', replied: false },
+                      { reviewId: 'g2', name: 'T. B.', rating: 4, line: 'Lovely shots of the 18 roses.', replied: false },
+                    ],
+                    parts: [{ slotKey: 'debut_portraits', label: 'Debut portraits' }],
+                    ultra: true,
+                    silenceDays: 7,
+                  },
+                ]),
+            )
+          : {},
         feeForecasts: Object.fromEntries(
           needsAnswer.flatMap((c) =>
             c.kind === 'lock_request'
@@ -619,18 +643,6 @@ export function TodayEasyLab({ sup: supKey, moment, v2: drawV2 = false, library 
         now={NOW}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
-        hero={
-          heroPhoto
-            ? { picture: { url: '/realstories/jack-jill-g1.jpg', kind: 'photo' }, caption: 'Most viewed · 412 views', upload: null }
-            : { picture: { url: '/placeholders/vendor.webp', kind: 'placeholder' }, caption: null, upload: {
-                door: (
-                  <PortfolioUploadDoor facts={LAB_UPLOAD_FACTS} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                    <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                    Upload
-                  </PortfolioUploadDoor>
-                ),
-              } }
-        }
         eventsYouRun={eventsYouRun}
         library={!built && library && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')}
         setup={

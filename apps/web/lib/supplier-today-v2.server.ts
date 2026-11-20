@@ -6,6 +6,8 @@ import { readCompletedBookingsCount } from '@/lib/badge-rewards.server';
 import { getVendorDemandRadar, DEMAND_RADAR_UNREADABLE, type DemandRadar } from '@/lib/demand-radar';
 import type { DoneTodayCounts } from '@/lib/supplier-today-v2';
 import { fetchGrowLines } from '@/lib/platform-settings';
+import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import type { PutOffRecord } from '@/lib/today-put-off';
 
 /**
  * lib/supplier-today-v2.server.ts — THE READS TODAY v2 ADDS (owner 18 Nov, `Today, one task` v2, "all picks").
@@ -29,14 +31,20 @@ export type TodayV2Reads = {
   trendingCard: { title: string } | null;
   completedBookings: number | null;
   radar: DemandRadar | null;
-  cutoffs: { fewInquiries: number | null; fewBookings: number | null };
+  cutoffs: { fewInquiries: number | null; fewBookings: number | null; soonAskHours?: number | null; soonEventDays?: number | null };
   /** Approved, live inspiration photos — the Inspiration box's own predicates (`badge-rewards.server.ts`); null unread. */
   inspirationPhotos: number | null;
   /**
-   * ▦ The cards the plan holds and the cards made, counted as the create gate counts them (`services/actions.ts`:
-   * `fetchCapsWithAddOns(...).serviceCardsTotal`, a founder unlimited, every card but a branch copy). Null = unread.
+   * ▦ The plan's LIVE total and this shop's live and hidden cards, counted as the live gate counts them
+   * (`services/actions.ts` `liveCardsCapRefusal`: `fetchCapsWithAddOns(...).serviceCardsTotal`, a founder unlimited,
+   * branch copies left out). Null = unread, or no limit applies — no row is drawn.
    */
-  cardRoom: { allowed: number; made: number } | null;
+  cardRoom: { allowed: number; live: number; hidden: number } | null;
+  /**
+   * ⏭ v3 part 2 — the shop's "Do it tomorrow" records still in force (`supplier_today_put_offs`, until_day after today).
+   * Null = unread: then NO task is held off (every task stays listed — an unread record never hides work).
+   */
+  putOffs: PutOffRecord[] | null;
 };
 
 /** Manila midnight of `todayIso`, as an instant. */
@@ -105,6 +113,29 @@ async function readCards(supabase: SupabaseClient, admin: SupabaseClient, vendor
 }
 
 
+/**
+ * ▦ The live total and the cards, for "You can turn on N more". The numbers are READ (the plan's caps + bought add-ons),
+ * never typed here. Any refused read → null: an unread number decides nothing.
+ */
+async function readCardRoom(supabase: SupabaseClient, vendorProfileId: string): Promise<TodayV2Reads['cardRoom']> {
+  const cards = () => supabase.from('vendor_services').select('vendor_service_id', { count: 'exact', head: true }).eq('vendor_profile_id', vendorProfileId).is('branch_copy_of', null);
+  const [tier, live, hidden] = await Promise.all([
+    supabase.from('vendor_profiles').select('tier_state, is_founder').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    cards().eq('is_active', true),
+    cards().eq('is_active', false),
+  ]);
+  const bad = tier.error ?? live.error ?? hidden.error;
+  if (bad || !tier.data || live.count == null || hidden.count == null) {
+    logQueryError('supplier-today-v2: card room', bad ?? { message: 'no row' }, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  const t = tier.data as { tier_state: string | null; is_founder: boolean | null };
+  // A founder has no live limit (the gate's own override) — nothing to count down, so no row.
+  if (t.is_founder === true) return null;
+  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, t.tier_state);
+  return Number.isFinite(caps.serviceCardsTotal) ? { allowed: caps.serviceCardsTotal, live: live.count, hidden: hidden.count } : null;
+}
+
 async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: string): Promise<number | null> {
   const r = await admin
     .from('moodboard_library_assets')
@@ -121,22 +152,32 @@ async function readInspirationPhotos(admin: SupabaseClient, vendorProfileId: str
 async function readCutoffs(admin: SupabaseClient): Promise<TodayV2Reads['cutoffs']> {
   // The admin page's own reader — one rule for "set", "not set" and "could not be read" (unread decides nothing: off).
   const g = await fetchGrowLines(admin);
-  return g.read ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings } : { fewInquiries: null, fewBookings: null };
+  return g.read
+    ? { fewInquiries: g.fewInquiries, fewBookings: g.fewBookings, soonAskHours: g.soonAskHours, soonEventDays: g.soonEventDays }
+    : { fewInquiries: null, fewBookings: null, soonAskHours: null, soonEventDays: null };
+}
+
+async function readPutOffs(supabase: SupabaseClient, vendorProfileId: string, todayIso: string): Promise<PutOffRecord[] | null> {
+  // The caller's own session: RLS (migration 20271354681750) is the shop's own rows.
+  const r = await supabase.from('supplier_today_put_offs').select('task_key, until_day').eq('vendor_profile_id', vendorProfileId).gt('until_day', todayIso).limit(200);
+  if (r.error) {
+    logQueryError('supplier-today-v2: put-offs', r.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  return (r.data ?? []) as PutOffRecord[];
 }
 
 export async function readTodayV2(args: { supabase: SupabaseClient; admin: SupabaseClient; vendorProfileId: string; todayIso: string }): Promise<TodayV2Reads> {
   const { supabase, admin, vendorProfileId, todayIso } = args;
-  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom] = await Promise.all([
+  const [done, cards, completedBookings, radar, cutoffs, inspirationPhotos, cardRoom, putOffs] = await Promise.all([
     readDoneToday(admin, vendorProfileId, manilaMidnightIso(todayIso)).catch(() => null),
     readCards(supabase, admin, vendorProfileId).catch(() => ({ noCover: null, coversUnread: true, trendingCard: null })),
     readCompletedBookingsCount(admin, vendorProfileId).catch(() => null),
     getVendorDemandRadar(supabase, vendorProfileId).catch(() => DEMAND_RADAR_UNREADABLE),
     readCutoffs(admin).catch(() => ({ fewInquiries: null, fewBookings: null })),
     readInspirationPhotos(admin, vendorProfileId).catch(() => null),
-    // ⏸ THE CARDS ROW IS OFF (owner 2026-11-19: "we already agreed they can add as many … so we can motivate them to
-    // upgrade"): making cards is unlimited — the plan limits how many are LIVE. The row comes back as "You can turn on
-    // N more" once the plans fix moves the limit to live cards; until then nothing is read and no row is drawn.
-    Promise.resolve(null as TodayV2Reads['cardRoom']),
+    readCardRoom(supabase, vendorProfileId).catch(() => null),
+    readPutOffs(supabase, vendorProfileId, todayIso).catch(() => null),
   ]);
   return {
     done,
@@ -148,5 +189,6 @@ export async function readTodayV2(args: { supabase: SupabaseClient; admin: Supab
     cutoffs,
     inspirationPhotos,
     cardRoom,
+    putOffs,
   };
 }

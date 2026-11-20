@@ -12,7 +12,7 @@
  */
 import { useMemo, useState, useTransition } from 'react';
 import { PlanMaker } from '@/app/_components/plan-maker/plan-maker';
-import { planFromShopPlan, placementsChanged, type Plan } from '@/lib/plan-maker';
+import { planFromShopPlan, placementsChanged, type Plan } from '@/lib/seat-plan-engine';
 import { useRouter } from 'next/navigation';
 import { Check, DoorOpen, Plus, RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';

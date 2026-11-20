@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
@@ -31,9 +32,7 @@ export const metadata = { title: 'Their work' };
 export default async function TheirWorkPage() {
   if (!cardRecordEnabled()) notFound();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

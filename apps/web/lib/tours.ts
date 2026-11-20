@@ -1576,7 +1576,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'shop-cover-photo',
           title: 'Add your cover photo',
-          body: 'The big photo at the top of your page. Pick one that shows your best work.',
+          body: 'The big photo at the top of your page. Tap it to pick one that shows your best work.',
         },
         {
           anchor: 'shop-services',
@@ -1996,7 +1996,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'suppliers-add-own',
           title: 'Add your own',
-          body: '＋ adds a supplier you already know — they don’t need to be on Setnayan.',
+          body: 'Type their name in the search, then tap 🔍 — it turns into ＋ and adds a supplier you already know. They don’t need to be on Setnayan.',
         },
       ],
       finale: {

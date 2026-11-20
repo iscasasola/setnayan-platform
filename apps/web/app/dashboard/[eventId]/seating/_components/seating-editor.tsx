@@ -95,7 +95,6 @@ import { UndoToastHost } from '../../guests/_components/undo-toast';
 import { pushUndo } from '../../guests/_components/undo-store';
 import { GuestConfirmActions, GuestPopup } from '../../guests/_components/guest-popup';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
-import { nearestWall } from '@/lib/plan-maker';
 import { guestSeatView } from '../../guests/seat-view-actions';
 import { GUEST_SEAT_VIEWS, GUEST_SEAT_VIEW_LABEL, GUEST_SEAT_VIEW_SHORT, parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import { StatusLine } from '@/app/_components/status-line';
@@ -103,9 +102,7 @@ import { Counter } from '@/app/_components/counter';
 import { seatCounter, seatStepWords } from '@/lib/seat-counter';
 import {
   BOOTH_CATALOG,
-  CHAIR_PX,
   SIDE_COLORS,
-  TABLE_FOOTPRINT_M,
   boothTypeForVendorCategory,
   boothPresenceLabel,
   boothPerimeterSlots,
@@ -113,17 +110,13 @@ import {
   solveAutoLayout,
   freeBoothSlots,
   defaultPriorityOrder,
-  defaultTablePosition,
-  effectiveCapacity,
   autoArrangeNewTableKey,
   autoArrangeSummary,
   autoSeatRoom,
   tablesToAddForAutoSeat,
   groupTablesIntoUnits,
   guestTier,
-  removedSeatSet,
   roleTier,
-  rotatePoint,
   nextTableName,
   obbOf,
   checkPlacement,
@@ -136,10 +129,6 @@ import {
   atLegalJoint,
   chainableShapes,
   stageZone,
-  TABLE_TYPE_CATALOG,
-  TABLE_TYPE_LABEL,
-  shapeHintFor,
-  tableGeometry,
   tableNumberEndsInFour,
   relaxLowestPriorityRule,
   type BoothType,
@@ -152,10 +141,7 @@ import {
   type FloorPlanRow,
   sanitizeCapacity,
   weldCommitBatch,
-  DEFAULT_ROOM_M,
   type FloorSignRow,
-  type TableShapeHint,
-  type TableType,
   type WorldPose,
   type OracleZone,
   type DropHit,
@@ -165,6 +151,24 @@ import {
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
 } from '@/lib/seating';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
+import {
+  CHAIR_PX,
+  TABLE_FOOTPRINT_M,
+  defaultTablePosition,
+  effectiveCapacity,
+  removedSeatSet,
+  rotatePoint,
+  TABLE_TYPE_CATALOG,
+  TABLE_TYPE_LABEL,
+  shapeHintFor,
+  tableGeometry,
+  DEFAULT_ROOM_M,
+  type TableShapeHint,
+  type TableType,
+  nearestWall,
+} from '@/lib/seat-plan-engine';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
   roleSeatingChoice,
@@ -8509,8 +8513,8 @@ export function SeatingEditor({
               stays the mouth label. Sits under the pill (z-0). */}
           {entrance.enabled && entrance.kind === 'tunnel'
             ? (() => {
-                // Nearest wall (argmin distance) — the shared plan core's rule (lib/plan-maker.ts), ties top · bottom ·
-                // left · right exactly as this block always tested them.
+                // Nearest wall (argmin distance) — the shared engine's rule (`nearestWall`, lib/seat-plan-engine), ties
+                // top · bottom · left · right exactly as this block always tested them. A supplier's door uses it too.
                 const wall = nearestWall(entrance.x, entrance.y);
                 // Depth as a % of the room dimension along the inward axis; a
                 // free board (no metre size) uses a fixed ~12% fallback.
@@ -8777,7 +8781,14 @@ export function SeatingEditor({
                 return (
                   /* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 2 · 13): the one next thing on an empty floor — on the warm surface,
                      its three steps the only framed (pressable) rows on the screen. */
-                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm">
+                  /* 👆 THE STEPS TAKE A TAP (owner 2026-11-20, live: "Build my seating draft" did nothing on tap). This card
+                     sits INSIDE the floor, whose `onCanvasPointerDown` captures every press for its pan — and a captured
+                     pointer's `click` lands on the floor, never on the step. The card keeps its presses to itself. */
+                  <div
+                    data-floor-steps=""
+                    onPointerDown={(e) => e.stopPropagation()}
+                    className="pointer-events-auto w-full max-w-sm rounded-2xl bg-[var(--m-paper-2)] p-5 shadow-sm"
+                  >
                     <div aria-hidden className="mx-auto mb-3 flex h-16 items-center justify-center rounded-lg border border-dashed border-ink/20 bg-ink/[0.02]">
                       <span className="h-8 w-8 rounded-full border border-dashed border-ink/25" />
                     </div>

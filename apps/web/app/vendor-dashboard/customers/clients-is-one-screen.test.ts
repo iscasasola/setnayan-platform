@@ -27,32 +27,44 @@ const title = PIN.slice(TITLE_AT, PIN.indexOf('\n  return (', TITLE_AT));
 test('(a) one screen: Events and Dates draw the same Clients screen, the month mounted on top by CustomersPin', () => {
   assert.doesNotMatch(PAGE, /function CustomersDates\b|<CustomersDates\b/, 'a second Dates view is back');
   assert.match(PAGE, /seg !== 'money' \? \([\s\S]{0,120}<CustomersPipeline search=\{search\} \/>/);
-  assert.match(PIN, /<CustomersCalendar \{\.\.\.month\} oneScreen between=\{body\} onPicked=\{onPicked\} after=\{rest\} \/>/);
+  assert.match(PIN, /<CustomersCalendar \{\.\.\.month\} oneScreen onPicked=\{onPicked\} after=\{rest\} \/>/);
   // The month draws no list of its own on the one screen — the clients' list is the list (never two lists of days).
   assert.match(CAL, /const allDays = picked \|\| !onClients \|\| oneScreen/);
   assert.match(CAL, /\) : oneScreen \? null : \(/, 'the month draws its own every-day list on the one screen');
 });
 
-test('(b) the pinned row reads "Clients · N booked · ₱X to collect · ⚙" — no ▾', () => {
+test('(b) the pinned row reads "Clients · ⚙" flush under the bar — no ▾, no counts, no empty top (owner 19 Nov)', () => {
   assert.match(title, /data-customers-title=""[\s\S]{0,80}Clients/);
-  assert.match(title, /\{title\.counts\}/);
-  assert.match(title, /\{gear\}/);
+  assert.match(title, /<GearUp>\{gear\}<\/GearUp>/, 'the ⚙ left the row (or stopped moving up into the bar from 701)');
   assert.doesNotMatch(title, /<PickMenu\b/, 'the one screen grew a view picker again');
-  assert.match(PAGE, /title=\{\{ counts: pinCounts \}\}/);
-  // "booked this month" when Today's stat narrowed the list (EB-219) — the money figure is the same exact one either way.
-  assert.match(PAGE, /booked(?:\$\{monthIds \? ' this month' : ''\})? · \$\{picture\.totals \? formatPhp\(picture\.totals\.toComePhp\) : '—'\} to collect/, '₱X to collect is not the exact money figure');
+  // "Clients, cleaner" (DECISION_LOG 2026-11-19): the tiles say the two figures, so the row does not repeat them.
+  assert.doesNotMatch(title, /title\.counts|data-customers-title-counts/, 'the counts are back beside "Clients"');
+  assert.match(PAGE, /title=\{\{\}\}/);
+  assert.doesNotMatch(PAGE, /const pinCounts\b/);
+  // No empty band: the row has no vertical padding or gap of its own, the column no top padding / space-y on a phone,
+  // and from 701 the row is not drawn (the app bar says "Clients ▾" and holds the ⚙).
+  const row = /className="sticky top-0[^"]*"/.exec(title)?.[0] ?? '';
+  assert.doesNotMatch(row, /\bpy-|\bpt-|\bmb-[2-9]/, 'the title row grew empty space again');
+  assert.match(row, /\btab:hidden\b/, 'a computer draws "Clients" twice');
+  assert.match(PAGE, /: 'pt-0 tab:pt-3'/, 'the Clients column pads its top on a phone again');
 });
 
 test('(c) the tiles are their own row under the month, never on the pinned row', () => {
   assert.doesNotMatch(title, /<PinDoors\b|\{doors\.map/, 'the tiles are back on the pinned row');
   assert.match(PIN, /data-customers-tiles=""/);
-  const body = PIN.slice(PIN.indexOf('const body = ('), PIN.indexOf('const rest = ('));
-  assert.ok(body.indexOf('{tilesRow}') > -1 && body.indexOf('{tilesRow}') < body.indexOf('quickRow'), 'tiles must sit over Overdue/Unread');
+  // Clients, cleaner (19 Nov, Q3): Overdue and Unread are tiles in the ONE row; the one screen has no quick row.
+  const row = PIN.slice(PIN.indexOf('  const tilesRow ='), PIN.indexOf('  // The lists wait hidden'));
+  assert.match(row, /\{doors\.map\(\(d\) => tile\(d\)\)\}\s*\{\(quick \?\? \[\]\)\s*\.filter\(\(q\) => !q\.zero\)/, 'Overdue / Unread left the tiles row');
+  assert.match(PIN, /const body = title \? \(\s*\/\/[^\n]*\n\s*tilesRow\s*\) :/, 'the one screen draws a quick row again');
+  // The tiles head the screen, over the week — not under the month.
+  assert.match(PIN, /\{body\}\s*<div id="calendar" className="scroll-mt-24">/, 'the tiles are not over the month');
 });
 
 test('(d) the thumb row is Search clients · ⇅ · ＋ — "Check a date" folded into the day bar', () => {
   assert.doesNotMatch(PAGE, /<CheckADate\b|from '\.\/_components\/check-a-date'/, 'Check a date is back on the thumb row');
-  assert.match(PAGE, /placeholder="Search clients"/);
+  // The search box moved into its own part (Search or add, 19 Nov): the page draws it, the part names what it searches.
+  assert.match(PAGE, /<ClientsSearch\b/, 'the thumb row lost its search');
+  assert.match(read('_components', 'clients-search.tsx'), /placeholder="Search clients"/);
   assert.match(PAGE, /<ClientsShowSort\b/);
   assert.match(PAGE, /<OutsideClientAdd\b/);
 });

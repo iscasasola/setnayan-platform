@@ -164,12 +164,15 @@ test('1e · a search marks the matching letters and says how many it found of ev
 test('2 · Events’ thumb row = the shared Search box (≥ 60 %) + Add (brand) — and nothing searches inside the list', () => {
   // The ONE row (owner 2026-10-22): "Search events" in the field seat, ＋ Add the main verb's round — no band.
   const at = PAGE.indexOf('<SupplierThumbRow\n        name="events"');
-  const thumb = PAGE.slice(at, PAGE.indexOf('\n      />', PAGE.indexOf('action={{', at)));
+  const thumb = PAGE.slice(at, PAGE.indexOf('\n      />', PAGE.indexOf('<OutsideClientAdd', at)));
   assert.ok(at > -1 && thumb.length > 50, 'Events has no thumb row');
   // v113 `thumb()` (Build 2 #43d): "Search clients" — the one Clients screen.
-  assert.match(thumb, /field=\{\{\s*node: \(\s*<SearchBox\b[\s\S]*placeholder="Search clients"/, 'the thumb row lost the search box');
-  assert.match(thumb, /action=\{\{\s*node: \(\s*<OutsideClientAdd\b/, 'the thumb row lost Add');
-  assert.ok(thumb.indexOf('<SearchBox') < thumb.indexOf('<OutsideClientAdd'), 'Add comes before the search box');
+  // 18–19 Nov 2026 (owner: "our text box is search / add feature"): the search IS the add — `ClientsSearch` is the shared
+  // SearchBox handed `add`, and the sheet is mounted without a button of its own.
+  assert.match(thumb, /field=\{\{\s*node: \(\s*<ClientsSearch\b/, 'the thumb row lost the search box');
+  assert.match(readFileSync(join(HERE, '_components', 'clients-search.tsx'), 'utf8'), /<SearchBox\s+placeholder="Search clients"[\s\S]*add=\{\{ matches, onAdd: openOutsideClientAdd \}\}/, 'the Clients search is not the shared box, or cannot add');
+  assert.match(thumb, /<OutsideClientAdd\s+trigger=\{false\}/, 'the add sheet is not mounted (or draws a second ＋ Add)');
+  assert.doesNotMatch(thumb, /\baction=\{\{/, 'a ＋ Add is back beside the search that adds');
   assert.match(ADD, /<ActionButton tone="brand" main icon=\{Plus\} label=\{label\}/, 'Add is not the brand main button');
   assert.match(ADD, /label = 'Add',/, 'People’s Add lost its word');
   // The box is ONE shared piece: a field in the thumb row (rule 3b keeps it ≥ 60 %), a GET form with no script.
@@ -237,15 +240,17 @@ test('3b · the one Clients screen reads each thing ONCE (owner: "the fewest req
   assert.doesNotMatch(PAGE, /function CustomersDates\b/, 'a second Dates view is back — Clients is ONE screen');
 });
 
-test('3c · one pinned row per screen: Clients · N booked · ₱X to collect · ⚙ over the month; Money with its own figures', () => {
+test('3c · one pinned row per screen: Clients · ⚙ over the tiles and the month; Money with its own figures', () => {
   const people = body(PAGE, 'CustomersPipeline');
   assert.match(
     people,
-    /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{ counts: pinCounts \}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
+    /<CustomersPin\s+seg="events"[\s\S]{0,120}title=\{\{\}\}\s+month=\{monthPart\.month\}\s+doors=\{doors\}\s+panels=\{panels\}/,
     'the one screen does not draw its title row, month, tiles and lists',
   );
-  // "booked this month" when Today's stat narrowed the list (EB-219) — that one ternary, nothing else.
-  assert.match(people, /const pinCounts = `\$\{doorValue\('booked'\) \?\? '—'\} booked(?:\$\{monthIds \? ' this month' : ''\})? · \$\{[^`]*\} to collect`/, 'the row does not read "N booked · ₱X to collect"');
+  // "Clients, cleaner" (19 Nov): the row no longer repeats "N booked · ₱X to collect" — the Booked and To collect tiles
+  // under it say both ("booked this month" when Today's stat narrowed the list, EB-219 — that one ternary, nothing else).
+  assert.doesNotMatch(people, /const pinCounts\b/, 'the row repeats the tiles\u2019 figures again');
+  assert.match(people, /word: monthIds \? 'booked this month' : 'booked'/, 'the Booked tile lost "booked this month"');
   assert.match(code('_components', 'money-segment.tsx'), /<CustomersPin\s+seg="money"\s+hrefs=\{CUSTOMER_SEGMENT_HREFS\}\s+figures=/, 'Money lost its pinned row');
   assert.doesNotMatch(body(PAGE, 'VendorCustomersHub'), /<CustomersPin\b/, 'the hub draws a second pinned row over a view’s own');
 });

@@ -1881,10 +1881,12 @@ export function OpenShopWizard({
                   ? 'Edit any time. No client is booked on it yet.'
                   : 'Edit opens the Card Maker once your shop is open.'}
               </p>
-              <div className="grid grid-cols-3 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+              {/* PB4 as drawn: Approve full width on top, Edit · Skip for now side by side under it (three in one row
+                  ran past the right gutter at 375 px). */}
+              <div className="grid grid-cols-2 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+                <ActionButton tone="brand" main icon={Check} label="Approve card" className="col-span-2" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
                 <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
                 <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
-                <ActionButton tone="brand" main icon={Check} label="Approve card" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
               </div>
             </div>
 
@@ -1996,7 +1998,7 @@ export function OpenShopWizard({
                   <ActionButton
                     tone="neutral"
                     icon={continueIcon}
-                    label={step === 1 && !service ? 'Pick a service to continue' : 'Continue'}
+                    label="Continue"
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}

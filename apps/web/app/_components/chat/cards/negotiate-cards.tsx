@@ -21,6 +21,9 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { TypedRow } from '@/app/_components/form-row';
 import { formatCentavosPhp } from '@/lib/php';
 import { HOSTS_ONLY } from '@/lib/money-mask';
+
+/** A counter's amount that did not come back: unknown, said as unknown (never ₱0). */
+const AMOUNT_UNKNOWN = '₱ — amount not loaded';
 import {
   ASK_SUBJECT_WORD,
   counterOutcome,
@@ -43,7 +46,7 @@ import {
   type ChangeAskRow,
   type NegotiationQuote,
 } from './card-calls';
-import { CouldNotLoad, EmptyLine, EqualRow, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EmptyLine, EqualRow, KindCard, KindTag, Loading, Problem, SegBar, type Read } from './card-bits';
 import { UnderLowestLine } from './lowest-price';
 
 export type NegotiateKind = 'ask' | 'counter' | 'plan';
@@ -459,7 +462,30 @@ export function NegotiationCard({
   };
   const title = kind === 'counter' ? `Counter · ${ask?.scopeLabel ?? 'the total'}` : 'Payment plan · counter';
   return (
-    <ChatCardShell topic="payment" kicker={`${ask ? who : '…'}${until.words && ask?.status === 'open' ? '' : ''}`} title={title} tone={mine ? 'mine' : 'theirs'}>
+    <KindCard
+      kind={kind === 'counter' ? 'counter' : 'payment'}
+      topic="payment"
+      mark={kind === 'plan' ? 'plan' : undefined}
+      kicker={`${ask ? who : '…'}${until.words && ask?.status === 'open' ? '' : ''}`}
+      title={title}
+      tone={mine ? 'mine' : 'theirs'}
+      turn={
+        !ask
+          ? 'wait'
+          : ask.status === 'accepted'
+            ? 'done'
+            : ask.status === 'declined' || ask.status === 'countered'
+              ? 'old'
+              : ask.status === 'open' && !until.expired && onLiveQuote && !ask.moneyHidden && !mine
+                ? 'me'
+                : 'wait'
+      }
+      settled={
+        ask && (ask.status === 'accepted' || ask.status === 'declined' || ask.status === 'countered')
+          ? `${title}${kind === 'counter' && !ask.moneyHidden && ask.amountCentavos != null ? ` · ${pesos(ask.amountCentavos)}` : ''} · ${ask.status === 'accepted' ? 'Accepted' : ask.status === 'declined' ? 'Declined' : 'Countered'}`
+          : undefined
+      }
+    >
       {read.at === 'loading' ? (
         <Loading />
       ) : read.at === 'failed' ? (
@@ -468,15 +494,39 @@ export function NegotiationCard({
         <div className="grid gap-2" data-negotiation={kind} data-negotiation-status={until.expired && ask!.status === 'open' ? 'expired' : ask!.status}>
           {kind === 'counter' ? (
             <p className="text-[20px] font-semibold tabular-nums text-ink">
-              {ask!.moneyHidden ? HOSTS_ONLY : pesos(ask!.amountCentavos ?? 0)}{' '}
+              {ask!.moneyHidden ? (
+                HOSTS_ONLY
+              ) : ask!.amountCentavos == null ? (
+                // A counter whose amount did not come back is unknown — never drawn as ₱0.
+                <span className="text-ink/60" data-counter-amount-unknown="">{AMOUNT_UNKNOWN}</span>
+              ) : (
+                pesos(ask!.amountCentavos)
+              )}{' '}
               {outcome ? (
                 <span className="text-[14px] font-normal text-ink/60">
                   {ask!.scopeLabel ? `for ${ask!.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}
                 </span>
               ) : null}
+              {/* The counter kind's signature: the gap, as the kind's own pill. */}
+              {outcome && !ask!.moneyHidden && ask!.amountCentavos != null && ask!.amountCentavos !== outcome.wasCentavos ? (
+                <span className="ml-1 align-middle">
+                  <KindTag kind="counter">
+                    {ask!.amountCentavos < outcome.wasCentavos ? '−' : '+'}
+                    {pesos(Math.abs(outcome.wasCentavos - ask!.amountCentavos))}
+                  </KindTag>
+                </span>
+              ) : null}
             </p>
           ) : (
-            ask!.moneyHidden ? <p className="text-[15px] text-ink/60">{HOSTS_ONLY}</p> : <PlanRows rows={ask!.proposedPlan ?? []} paid={paid} />
+            ask!.moneyHidden ? (
+              <p className="text-[15px] text-ink/60">{HOSTS_ONLY}</p>
+            ) : (
+              <>
+                {/* The plan's signature: one segment per payment, as wide as its share. */}
+                <SegBar amounts={(ask!.proposedPlan ?? []).map((r) => r.amount_centavos)} />
+                <PlanRows rows={ask!.proposedPlan ?? []} paid={paid} />
+              </>
+            )
           )}
           {ask!.note.trim() ? <p className="text-[15px] text-ink/80">&ldquo;{ask!.note}&rdquo;</p> : null}
           {ask!.status === 'open' && !until.expired && until.words ? <p className="text-[13px] text-ink/55">{until.words}</p> : null}
@@ -520,7 +570,7 @@ export function NegotiationCard({
           <Problem text={problem} />
         </div>
       )}
-    </ChatCardShell>
+    </KindCard>
   );
 }
 

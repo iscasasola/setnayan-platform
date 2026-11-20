@@ -273,6 +273,30 @@
     --sn-cat-schedule: 47 109 181;     /* #2F6DB5 */
     --sn-cat-asked: 201 71 26;         /* #C9471A */
     --sn-cat-collect: 162 69 126;      /* #A2457E */
+    /* 🎨 THE NINE CHAT-CARD KIND COLOURS (Unichat part A, 20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19 `.k-quote … .k-plain`):
+     * one colour per KIND of chat card — the 3 px left edge, the icon chip, the "Your turn" dot and the one signature
+     * detail. `--sn-kind-x` is the ink (edge · icon · words), `--sn-kind-x-bg` its pale chip fill. RGB triples so Tailwind
+     * alpha works (`text-kind-quote`, `bg-kind-quote-bg/55`). Every ink reaches 4.5:1 on its own fill AND on the white
+     * frame, so it may be words; two inks are a step deeper than the drawing for that reason — counter #C24E25 → #A8431D
+     * (3.77 → 4.78 on its fill) and file #857F79 → #6B655F (3.54 → 5.15). Dark pairs below. Read by `card-bits.tsx` only. */
+    --sn-kind-quote: 116 87 42;     /* #74572A */
+    --sn-kind-quote-bg: 244 236 221; /* #F4ECDD */
+    --sn-kind-counter: 168 67 29;   /* #A8431D */
+    --sn-kind-counter-bg: 250 224 209; /* #FAE0D1 */
+    --sn-kind-offer: 138 79 125;    /* #8A4F7D */
+    --sn-kind-offer-bg: 245 234 242; /* #F5EAF2 */
+    --sn-kind-meeting: 31 111 120;  /* #1F6F78 */
+    --sn-kind-meeting-bg: 227 241 242; /* #E3F1F2 */
+    --sn-kind-decision: 150 90 0;   /* #965A00 */
+    --sn-kind-decision-bg: 251 240 220; /* #FBF0DC */
+    --sn-kind-payment: 43 116 74;   /* #2B744A */
+    --sn-kind-payment-bg: 230 241 234; /* #E6F1EA */
+    --sn-kind-form: 94 89 85;       /* #5E5955 */
+    --sn-kind-form-bg: 241 238 234; /* #F1EEEA */
+    --sn-kind-file: 107 101 95;     /* #6B655F */
+    --sn-kind-file-bg: 244 242 239; /* #F4F2EF */
+    --sn-kind-plain: 79 83 91;      /* #4F535B */
+    --sn-kind-plain-bg: 236 235 234; /* #ECEBEA */
     /* ── THE SOFT HAIRLINE (v110 "No cut line"): what sits under a pinned row once the page scrolls under it — drawn as
      * `box-shadow: 0 1px 0 var(--sn-hair)` (class `sn-pin-hair`), never a `border-b`. 🔒
      * app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
@@ -413,6 +437,24 @@
     --sn-cat-schedule: 127 175 232;    /* #7FAFE8 */
     --sn-cat-asked: 240 130 90;        /* #F0825A */
     --sn-cat-collect: 217 138 192;     /* #D98AC0 */
+    --sn-kind-quote: 203 167 102;   /* #CBA766 */
+    --sn-kind-quote-bg: 56 49 35; /* #383123 = the drawing's dark tint */
+    --sn-kind-counter: 242 160 125; /* #F2A07D */
+    --sn-kind-counter-bg: 62 47 38; /* #3E2F26 = the drawing's dark tint */
+    --sn-kind-offer: 217 166 206;   /* #D9A6CE */
+    --sn-kind-offer-bg: 58 48 51; /* #3A3033 = the drawing's dark tint */
+    --sn-kind-meeting: 127 202 211; /* #7FCAD3 */
+    --sn-kind-meeting-bg: 44 54 52; /* #2C3634 = the drawing's dark tint */
+    --sn-kind-decision: 240 180 90; /* #F0B45A */
+    --sn-kind-decision-bg: 62 51 33; /* #3E3321 = the drawing's dark tint */
+    --sn-kind-payment: 111 207 151; /* #6FCF97 */
+    --sn-kind-payment-bg: 41 55 43; /* #29372B = the drawing's dark tint */
+    --sn-kind-form: 201 197 191;    /* #C9C5BF */
+    --sn-kind-form-bg: 56 53 49; /* #383531 = the drawing's dark tint */
+    --sn-kind-file: 181 175 158;    /* #B5AF9E */
+    --sn-kind-file-bg: 52 50 44; /* #34322C = the drawing's dark tint */
+    --sn-kind-plain: 201 203 206;   /* #C9CBCE */
+    --sn-kind-plain-bg: 56 54 51; /* #383633 = the drawing's dark tint */
     --sn-hair: rgb(251 250 247 / 0.1);
     /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
        (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */

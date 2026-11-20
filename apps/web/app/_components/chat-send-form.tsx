@@ -59,7 +59,6 @@ import {
   CHAT_WHISPER_FIELD,
   LEFT_WHISPER_ASK,
   MESSAGE_PLACEHOLDER,
-  WHISPER_NOBODY_LINE,
   WHISPER_OFF_LINE,
   WHISPER_OFF_LINE_STAY_MS,
   WHISPER_ON_LINE,
@@ -70,6 +69,7 @@ import {
   dragVerdict,
   everyoneWillSeeLine,
   leftWhisperAskBody,
+  whisperBlockedLine,
 } from '@/lib/chat-whisper';
 import { SubmitButton } from './submit-button';
 import { pressMs } from './press-feel';
@@ -137,9 +137,9 @@ type Props = {
    * 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19) — passed ONLY by the host's thread page, in a chat with a supplier.
    * `supplierName` is the name the mis-send reminder says ("Everyone will see this, including Mang Ben."); `coHosts` is
    * how many OTHER hosts are in this chat now (the people a whisper reaches — the server decides the list again at
-   * Send). Absent → no drag, no whisper (the supplier's composer, a group chat): the box is exactly as before.
+   * Send); `unread` = that read FAILED, so a drag says it could not load — never "no co-host". Absent → no drag, no whisper (the supplier's composer, a group chat): the box is exactly as before.
    */
-  whisper?: { supplierName: string; coHosts: number } | null;
+  whisper?: { supplierName: string; coHosts: number; unread?: boolean } | null;
   /**
    * 💬 THE CHIPS (owner 19 Nov 2026) — passed ONLY by the supplier's thread page inside the picked client: the sliders
    * button in the box, the kind chips above it, and the one suggested step. Absent → the box exactly as before.
@@ -392,8 +392,10 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const switchWhisper = () => {
     if (!canWhisper || !whisper) return;
     if (!whisperOn) {
-      if (whisper.coHosts <= 0) {
-        sayForAMoment(WHISPER_NOBODY_LINE);
+      // Nobody to whisper to — or the read of who is here failed, which is said as a failure, never as "nobody".
+      const blocked = whisperBlockedLine(whisper);
+      if (blocked) {
+        sayForAMoment(blocked);
         return;
       }
       if (switchLineTimer.current !== null) window.clearTimeout(switchLineTimer.current);

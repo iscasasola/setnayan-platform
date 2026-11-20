@@ -4,7 +4,6 @@ import { emitNotification } from '@/lib/notification-emit';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import {
-  PAPERS_LAPSED_AUDIT_ACTION,
   PAPERS_LAPSED_NOTICE,
   papersLapseDue,
   type LapseCandidate,
@@ -54,25 +53,23 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
       if (!papersLapseDue(row, now)) continue;
       const stampedAt = now.toISOString();
       // ⏸ RULING (2), 14 Nov "Fable's picks taken": the shop drops to Free; a PAID plan's unused days WAIT (held in
-      // this lapse's audit row below) and come back on renewal (`heldPlanBack` in verification-decision.server.ts).
+      // this lapse's audit row) and come back on renewal (`heldPlanBack` in verification-decision.server.ts).
       const plan = planHoldAtLapse(row, now);
-      const { data: changed, error: stampErr } = await admin
-        .from('vendor_profiles')
-        .update({
-          papers_lapsed_at: stampedAt,
-          // Free · Unverified: the free "verified" plan drops to "free"; a paid plan drops to "free" with its clock
-          // stopped (no end date while it waits — the days left are in the audit row).
-          ...(plan.kind === 'free_drop' ? { tier_state: 'free' } : {}),
-          ...(plan.kind === 'hold' ? { tier_state: 'free', tier_expires_at: null } : {}),
-          updated_at: stampedAt,
-        })
-        .eq('vendor_profile_id', row.vendor_profile_id)
-        .is('papers_lapsed_at', null)
-        .select('vendor_profile_id');
+      // 🔑 ONE WRITE, THROUGH THE ONE DOOR. A plain update that lowers a live plan is refused by
+      // `vendor_tier_no_silent_downgrade` (20271115090000) — and the pass never throws, so the refusal was a console
+      // line and the shop never dropped. `stamp_papers_lapse` (20271354465843) sets the deliberate-downgrade flag
+      // for its own transaction and writes the stamp, the Free plan, the stopped clock AND the audit row that holds
+      // the paid days (held_tier, held_ms) in ONE transaction — a drop can never commit without its hold. It is
+      // conditional (`papers_lapsed_at IS NULL`, re-checked in SQL) and returns true only for a row it changed.
+      const { data: changed, error: stampErr } = await admin.rpc('stamp_papers_lapse', {
+        p_vendor_profile_id: row.vendor_profile_id,
+        p_plan: plan.kind,
+        p_now: stampedAt,
+      });
+      if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
+      if (stampErr || changed !== true) continue;
       // The home page remembers the live shops for 60 s — this shop just left them (lib/home-shelf-clear.ts).
       clearHomeShelf('shops');
-      if (stampErr) console.error('[papers-lapse] stamp failed', stampErr.message);
-      if (stampErr || !Array.isArray(changed) || changed.length !== 1) continue;
       stamped += 1;
       if (row.user_id) {
         await emitNotification({
@@ -83,21 +80,6 @@ export async function stampLapsedPapers(_admin: SupabaseClient, now: Date = new 
           relatedUrl: '/vendor-dashboard/profile#docs',
         }).catch(() => undefined);
       }
-      const { error: auditErr } = await admin.from('admin_audit_log').insert({
-        action: PAPERS_LAPSED_AUDIT_ACTION,
-        target_table: 'vendor_profiles',
-        target_id: row.vendor_profile_id,
-        actor_user_id: null,
-        metadata: {
-          deadline: row.next_renewal_due_at,
-          lapsed_at: stampedAt,
-          tier_before: row.tier_state,
-          tier_after: plan.kind === 'none' ? row.tier_state : 'free',
-          ...(plan.kind === 'hold' ? { held_tier: plan.tier, held_ms: plan.heldMs, tier_expires_at_before: row.tier_expires_at ?? null } : {}),
-          notified: Boolean(row.user_id),
-        },
-      });
-      if (auditErr) console.error('[papers-lapse] audit write failed', auditErr.message);
     }
     return stamped;
   } catch (e) {

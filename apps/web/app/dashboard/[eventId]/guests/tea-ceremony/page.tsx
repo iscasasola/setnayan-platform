@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
@@ -58,11 +59,12 @@ export default async function TeaCeremonyPage({ params }: Props) {
   const supabase = await createClient();
   // The couple's own words for roles (owner 2026-09-30).
   const roleNames = await loadRoleNames(supabase, eventId, 'TeaCeremonyPage.roleNames');
-  const { data: eventRow, error: eventRowError } = await supabase
+  const { data: eventRow, error: eventRowError } = await eventRowOnce(supabase, eventId, 'event_id, display_name, ceremony_type, secondary_ceremony_type', () =>
+      supabase
     .from('events')
     .select('event_id, display_name, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // ⚠ the event record this page reads against. Degrades rather than claiming.
   if (eventRowError) {
     logQueryError('TeaCeremonyPage.eventRow', eventRowError, { eventId }, 'graceful_degrade');

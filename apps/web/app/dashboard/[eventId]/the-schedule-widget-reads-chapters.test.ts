@@ -9,8 +9,10 @@
  *   1 · THE FACTS: a chapter is a top-level block (`chaptersFromBlocks`) — a moment never stands as a line of its own;
  *       EVERY chapter running now is listed (never only the first, `pickTriggerNowNext`'s one block), each with its
  *       running moment as the exact line; What's next is every chapter starting at the next minute;
- *   2 · THE DOORS: N to approve · Release (the last week; ◆ PRO on Free) · N need you (a clash: one crew in two places
- *       at once) · N owe times (a booked supplier the schedule names on nothing); a zero hides its door;
+ *   2 · THE DOORS: Release (the last week; ◆ PRO on Free) · N need you (a clash: one crew in two places at once) ·
+ *       N owe times (a booked supplier the schedule names on nothing); a zero hides its door. "N to approve" LEFT the
+ *       card on 20 Nov 2026 (Event Today, drawing v3: supplier changes to approve are always on Today — the card's Now
+ *       strip or the list row `approve:schedule` — and an item shows once; `event-today-is-focus-shaped.test.ts` 6);
  *   3 · THE READ: Home reads the widget through `readHomeSchedule`, which reads `event_schedule_blocks` with the
  *       chapters' own field list and builds through `homeScheduleFrom`; the page hands it to the control row;
  *   4 · RENDERED: the card stands full width right after the Countdown, its faces from the chapters, its doors under them.
@@ -93,7 +95,7 @@ test('1 · every running chapter is Happening now, with its running moment; What
   assert.doesNotMatch(JSON.stringify(undated), /Sat, Dec 12/, 'an undated event names a placeholder day');
 });
 
-test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) · need you · owe times — a zero hides its door', () => {
+test('2 · the doors: Release in the last week (◆ PRO on Free) · need you · owe times — a zero hides its door', () => {
   const f = homeScheduleFrom({
     blocks: [...DAY.slice(0, 4), { ...DAY[4]!, responsible_vendor_ids: ['v-tagged'] }],
     // The same photographer in two places at once (Floor 14 and Floor 9, 9:30–10:30) — one clash.
@@ -109,7 +111,7 @@ test('2 · the doors: to approve · Release in the last week (◆ PRO on Free) �
   assert.equal(f.oweTimes, 2, 'a booked supplier named on nothing is not counted (or a named one is)');
   const week = (days: number, pro: boolean) =>
     homeControlTiles(fixtureControl('e1', { countdown: { ...fixtureControl('e1').countdown, days }, schedule: { ...f, pro } })).tiles.find((t) => t.key === 'sched')!;
-  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['2 to approve', 'Release', '1 need you', '2 suppliers without a time']);
+  assert.deepEqual(week(7, false).doors!.map((d) => d.label), ['Release', '1 need you', '2 suppliers without a time']);
   assert.equal(week(7, false).doors!.find((d) => d.id === 'release')!.pro, true, 'Release on Free wears no ◆ PRO');
   assert.equal(week(7, true).doors!.find((d) => d.id === 'release')!.pro, false, 'Release on Pro wears ◆ PRO');
   assert.ok(!week(40, false).doors!.some((d) => d.id === 'release'), 'Release shows 40 days out');
@@ -131,7 +133,7 @@ test('3 · Home reads the widget through the chapters, in its one round, and han
 });
 
 test('4 · rendered: the Schedule card is the first widget, its faces from the chapters, its doors under them', () => {
-  const f = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 2, bookedVendorIds: [], nowMs: at('2026-12-12T09:45'), tz: TZ, today: '2026-12-12' });
+  const f = homeScheduleFrom({ blocks: DAY, tasks: [], openRequests: 2, bookedVendorIds: ['v-silent'], nowMs: at('2026-12-12T09:45'), tz: TZ, today: '2026-12-12' });
   const html = drawHome({ control: fixtureControl('e1', { schedule: { ...f, pro: false } }) });
   const compact = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   const order = [...compact.matchAll(/data-home-tile="([a-z]+)"/g)].map((m) => m[1]);
@@ -140,6 +142,7 @@ test('4 · rendered: the Schedule card is the first widget, its faces from the c
   const card = slice(compact, 'data-home-tile="sched"', ['data-home-glance']);
   assert.match(text(card), /Happening now Preparation · Bride 9:00 AM · Hair and makeup Preparation · Groom/, 'the faces are not the chapters');
   assert.match(text(card), /What’s next Ceremony/);
-  assert.match(card, /data-home-sched-door="approve"/, 'the doors are not under the faces');
-  assert.match(text(card), /2 to approve/);
+  assert.match(card, /data-home-sched-door="owe"/, 'the doors are not under the faces');
+  assert.match(text(card), /1 supplier without a time/);
+  assert.doesNotMatch(card, /data-home-sched-door="approve"/, 'the card repeats "to approve" that Today already holds');
 });

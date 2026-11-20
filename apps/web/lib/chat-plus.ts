@@ -68,9 +68,8 @@ export type PlusCardKind =
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
 export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report';
-// ('offer' is a card kind, so it is a row key too. 'versions' left on 20 Nov 2026; 'report' STAYS until Part G (#8048)
-// moves Report into the ⋯ — a chat page is never left with no in-chat Report (ship-controller ruling 20 Nov). The (+) holds only
-// things you send.)
+// ('offer' is a card kind, so it is a row key too. 'versions' left on 20 Nov 2026 and Report a problem moved to the ⋯
+// (part G, `picked-client-more.ts`); the (+) holds only things you send.)
 
 /**
  * 🤝 THE NEGOTIATE GROUP — FIRST IN BOTH (+) MENUS (approved design `quote-maker-polish.html`, 12 Nov: the (+) shows
@@ -127,7 +126,7 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
  * 💬 THE SUPPLIER'S (+) HAS PLAIN GROUP WORDS (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS
  * EVERYTHING"; drawing S9ScH2Ps v3, screen 6). The supplier's client page has no tab row any more, so a heading named
  * after a tab ("Book & Budget", "Schedule") names nothing. The groups are the chips' own words — Negotiate · Ask &
- * decide · Money · Dates · Files. Report a problem keeps the last, bare line until Part G (#8048) moves it into the ⋯.
+ * decide · Money · Dates · Files. Report a problem lives under the head's ⋯ (part G).
  * The HOST's (+) still mirrors the host's seven tabs (`PLUS_ROW_PAGE`) until the host's own build.
  */
 export type PlusSection = 'negotiate' | 'ask' | 'money' | 'dates' | 'files' | 'report';
@@ -224,7 +223,7 @@ export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change o
  * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
  * Propose a payment plan · See every version; then the menu's order (seven tabs, 18 Nov): Decision · Poll (Chat) · Ask
  * for access · Form (Details) · Payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files). Report a
- * problem stays last until Part G (#8048); See every version left on 20 Nov 2026.
+ * problem lives under ⋯ (part G); See every version left on 20 Nov 2026.
  */
 export function supplierPlusRows(opts: {
   paid: boolean;
@@ -311,8 +310,8 @@ export function supplierPlusRows(opts: {
     // ONE phone picker (owner 11 Nov, "dupes"): the card's "From your phone" is the composer's own input — photo, video
     // or PDF — and its Portfolio source is drawn shut with its reason until the album build.
     { key: 'photos', label: 'Photos & files', line: 'From your phone or your portfolio', card: 'photos', door: 'share-file' },
-    // 🚩 Report a problem STAYS the last row until Part G (#8048) lands its ⋯ home (ship-controller ruling 20 Nov).
-    { key: 'report', label: 'Report a problem', line: 'This couple or this booking', card: null, door: 'report-problem' },
+    // 🚩 Report a problem LEFT the (+) (Unichat part G, owner 20 Nov — supersedes 9 Nov "last row of (+)"): it lives
+    // under the head's ⋯ only (`picked-client-more.ts`), so the (+) holds things you SEND.
   ];
 }
 
@@ -320,7 +319,7 @@ export function supplierPlusRows(opts: {
  * Host · and a coordinator with another supplier (who drops Log a payment — it is the hosts' money). The same relative
  * order as the supplier's (+) AND the host's own picked-supplier menu (`picked-supplier-menu.ts`, re-ordered 11 Nov to
  * mirror the supplier's; seven tabs 18 Nov): Decision (Chat) · Log a payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files).
- * Report a problem stays last until Part G (#8048) moves it into the ⋯.
+ * Report a problem lives under ⋯ (part G).
  *
  * 📷 ONE phone picker, as on the supplier's (+) (owner 11 Nov, *"The (+) has dupes?"*, built for the supplier in #7483,
  * mirrored here the same day — *"Clients side is not fixed also"*): "Photo — a photo or a video from your phone" and
@@ -363,8 +362,7 @@ export function hostPlusRows(opts: {
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
     { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    // 🚩 Report a problem STAYS the last row until Part G (#8048) lands its ⋯ home (ship-controller ruling 20 Nov).
-    { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
+    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`HOST_MORE`).
   );
   return rows;
 }

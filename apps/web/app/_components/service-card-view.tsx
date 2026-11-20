@@ -9,6 +9,7 @@ import {
   type ServiceFaceDoor,
 } from '@/app/_components/service-face';
 import type { ServiceCard } from '@/lib/service-card-view-model';
+import type { MallPrice } from '@/lib/mall-card';
 
 /**
  * The shop a marketplace card belongs to — its logo, its name, and the address
@@ -64,6 +65,7 @@ export function ServiceCardView({
   pathLead = null,
   coverUrl = null,
   footer = null,
+  mall = null,
 }: {
   card: ServiceCard;
   detailsEnabled: boolean;
@@ -84,6 +86,11 @@ export function ServiceCardView({
    *  the shop's own meta line and action row too — so the card is the ONE frame holding everything (owner 17 Nov,
    *  "i see so many spaces"). */
   footer?: ReactNode;
+  /**
+   * 🃏 Card 14, the mall face (Discover): the price for the couple's guest count, the distance from their venue, and
+   * the Save bookmark on the photo. Null → the row face as it was (the shop's own page, the maker).
+   */
+  mall?: { price: MallPrice | null; distance: string | null; askVenue: boolean; save?: ReactNode } | null;
 }) {
   // A LINK when the caller gave an address, a BUTTON when it gave a callback — one door, never two.
   const door: ServiceFaceDoor | undefined = !detailsEnabled
@@ -121,6 +128,16 @@ export function ServiceCardView({
         ) : null
       }
       door={door}
+      {...(mall
+        ? {
+            layout: 'mall' as const,
+            mallPrice: mall.price,
+            priceMissing: mall.price ? null : 'Price on request',
+            distance: mall.distance,
+            askVenue: mall.askVenue,
+            coverAction: mall.save ?? null,
+          }
+        : {})}
     />
   );
 }

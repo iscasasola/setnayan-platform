@@ -15683,7 +15683,8 @@
         "formAction",
         "importExternalClient",
         "moveAction",
-        "removeBlock"
+        "removeBlock",
+        "saveAction"
       ],
       "blocks": [
         "AccordionSkeleton",
@@ -15693,6 +15694,7 @@
         "BlockDateAdd",
         "BookedMonthScope",
         "BookingFeeBills",
+        "BookingWindowRows",
         "BookingsSurface",
         "BuyAPack",
         "BuyVendorPapicPortfolioPackState",

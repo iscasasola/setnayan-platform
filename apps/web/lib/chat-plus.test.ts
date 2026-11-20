@@ -58,12 +58,12 @@ import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files · Report a problem (until Part G)', () => {
+test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files — Report a problem lives under ⋯ (part G)', () => {
   // 19 Nov 2026 (drawing S9ScH2Ps v3, screen 6): Drop an offer joins Negotiate (PR-4's card, now reachable), and Form
   // comes before Ask for access under "Ask & decide".
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   // An offer changes a quote: not drawn before one exists, shut (with Change quote's own reason) once they booked at it.
   assert.ok(!supplierPlusRows({ paid: false, hasQuote: false }).some((r) => r.key === 'offer'), 'Drop an offer is drawn with no quote to apply it to');
@@ -95,11 +95,11 @@ test('1a · the host’s (+) has no generic Ask for a change — and the slash l
 test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting · Camera · Photos & files (no Log a payment without the right)', () => {
   assert.deepEqual(
     hostPlusRows({ canLogPayment: true }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Log a payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   assert.deepEqual(
     hostPlusRows({ canLogPayment: false }).map((r) => r.label),
-    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files', 'Report a problem'],
+    [...HOST_NEGOTIATE, 'Decision', 'Poll', 'Meeting', 'Camera', 'Photos & files'],
   );
   // 11 Nov (the host's side of the dupe, mirrored from the supplier's): ONE phone picker — Photos & files (the approved prototype's word, the supplier's own), which says so.
   const host = hostPlusRows({ canLogPayment: true });
@@ -145,9 +145,9 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
         `${side}: '${under[i]!.label}' (${pages[i]}) is drawn above the menu's order — after '${under[i - 1]!.label}' (${pages[i - 1]})`,
       );
     }
-    // Report a problem stays LAST until Part G (#8048) moves it into the ⋯ (ship-controller ruling 20 Nov).
-    assert.equal(rows.at(-1)!.key, 'report', `${side}: Report a problem is not last`);
-    assert.equal(PLUS_ROW_PAGE.report, 'report');
+    assert.ok(['photos', 'file'].includes(rows.at(-1)!.key), `${side}: Photos & files is not last`);
+    assert.equal(PLUS_ROW_PAGE[rows.at(-1)!.key], 'files');
+    assert.ok(!rows.some((r) => r.key === 'report'), `${side}: Report a problem is back in the (+) — it lives under ⋯ (part G)`);
   }
   // The expected order, DERIVED: stable-sort the rows under the mirror by the menu and they must already be in that order.
   const rows = menuRows(supplierPlusRows({ paid: false }));
@@ -158,7 +158,7 @@ test('1d · the (+) follows the menu: every row’s page is in the menu, in the 
   // Budget · Schedule · Files · Report) — Form sits under Details, Payment under Book & Budget; Change quote moved up into
   // Negotiate on 12 Nov.
   const groups = [...new Set(pagesOf(rows))].map((p) => PICKED_CLIENT_PAGES.find((m) => m.id === p)!.label);
-  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files', 'Report']);
+  assert.deepEqual(groups, ['Chat', 'Details', 'Book & Budget', 'Schedule', 'Files']);
 });
 
 test('1f · the SUPPLIER’s (+) is grouped by plain words, not tabs — Negotiate · Ask & decide · Money · Dates · Files (19 Nov; Report a problem left on 20 Nov)', () => {
@@ -170,11 +170,11 @@ test('1f · the SUPPLIER’s (+) is grouped by plain words, not tabs — Negotia
     const ranks = secs.map((x) => PLUS_SECTIONS.indexOf(x));
     assert.ok(ranks.every((r) => r >= 0), 'a row has no section');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, `'${rows[i]!.label}' is drawn above its section's place`);
-    assert.equal(secs.at(-1), 'report');
-    assert.equal(secs.filter((x) => x === 'report').length, 1, 'Report a problem shares its line with another row');
+    assert.equal(secs.at(-1), 'files');
+    assert.ok(!secs.includes('report'), 'Report a problem is back in the (+)');
   }
   const words = [...new Set(supplierPlusRows({ paid: false }).map((r) => PLUS_ROW_SECTION[r.key]))].map((k) => PLUS_SECTION_WORD[k]);
-  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files', null]);
+  assert.deepEqual(words, ['Negotiate', 'Ask & decide', 'Money', 'Dates', 'Files']);
   // The group words match the chips in the text box (one vocabulary on the screen).
   for (const w of ['Money', 'Dates', 'Files']) assert.ok(KIND_CHIPS.some((c) => c.label === w), `the chips have no '${w}'`);
   // The sheet draws THESE for the supplier, and still the tabs' words for the host.
@@ -331,16 +331,13 @@ test('9 · THE (+) HOLDS ONLY THINGS YOU SEND — no row lives in both the (+) a
     ...hostPlusRows({ canLogPayment: false, booked: true }),
   ];
   for (const r of every) {
-    // 🚩 Report a problem is the one place-to-go row that STAYS until Part G (#8048) moves it into the ⋯ (ship-controller
-    // ruling 20 Nov: a chat page is never left with no in-chat Report). Held by lib/every-chat-page-has-a-report-door.test.ts.
-    if (r.key === 'report') continue;
     // A thing you send is a card dropped into the chat, or a picture taken now. Nothing else is a row.
     assert.ok(r.card !== null || r.attach !== undefined, `'${r.label}' sends nothing — it is a place to go`);
     assert.ok(!/report|every version/i.test(r.label), `'${r.label}' is back in the (+)`);
   }
-  // The ⋯ is where Report lives on the supplier's client page (Files · Hub · Report) — so it is not lost, only moved.
-  const shell = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-shell.tsx'), 'utf8');
-  assert.match(shell, /const MORE_PAGES: readonly PickedClientPage\[\] = \[[^\]]*'report'[^\]]*\];/, 'Report left the (+) and is not in the ⋯ either');
+  // The ⋯ is where Report lives on the supplier's client page (part G, `picked-client-more.ts`) — so it is not lost, only moved.
+  const more = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'app/vendor-dashboard/clients/[eventId]/_components/picked-client-more.ts'), 'utf8');
+  assert.match(more, /rows\.push\(\{ id: 'report', label: 'Report a problem'/, 'Report left the (+) and is not in the ⋯ either');
 });
 
 test('10 · a typed price or day offers its tool — the row the (+) has open for this reader, never a shut or absent one', () => {

@@ -870,6 +870,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                           { href: `${workspaceHref}?tab=files`, label: 'Files', icon: 'files' },
                           { href: `${workspaceHref}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                           { href: `${workspaceHref}?tab=details`, label: 'Booking details', icon: 'details' },
+                          // 🚩 Report a problem left the host's (+) for ⋯ (Unichat part G): the workspace's Report page.
+                          { href: `${workspaceHref}?tab=report`, label: 'Report a problem', icon: 'problem' },
                         ]
                       : []
                   }

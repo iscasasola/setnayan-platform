@@ -34,6 +34,7 @@ import {
   type VendorServiceInclusion,
 } from '@/lib/vendor-service-public';
 import type { VendorServiceRow, VendorServiceDiscount } from '@/lib/vendor-services';
+import { perUnitPriceLine } from '@/lib/per-unit-price';
 import { formatCount } from '@/lib/format-number';
 
 /** Max inclusions listed before we collapse the rest into "+N more included". */
@@ -88,6 +89,10 @@ export type ServiceCard = {
    *  `serviceDetailsEnabled()`; with the flag off the key is ABSENT, so the
    *  card's serialized payload is byte-for-byte what it is today. */
   inclusionsFull?: string[];
+  /** 📝 The supplier's description of this card and a link to a video hosted elsewhere (HYBRID Q3, 2026-11-17) —
+   *  details-sheet only, and ABSENT when empty or the flag is off (the same byte-identical rule as `inclusionsFull`). */
+  about?: string;
+  videoLink?: string;
   /** "Not included" expectation flags, pre-formatted server-side
    *  ("Crew meal not included", "Transport: ₱1,500"). Empty → row hidden. */
   notIncluded: string[];
@@ -288,6 +293,9 @@ export function toServiceCard(
         ? ` · +${formatPhpRounded(row.extra_hour_php)}/extra hr`
         : '';
     priceDetail = `${base}${extra}`;
+  } else if (row.pricing_basis === 'per_unit') {
+    // 📦 Card Maker part 7 — "₱3,500 for 10 chairs · +₱350/chair"; the Custom word carries into it.
+    priceDetail = perUnitPriceLine({ base: row.unit_base_php, initial: row.initial_units, extra: row.extra_unit_php, word: row.unit_word });
   }
 
   // Best applicable discount → a single badge (pickBestDiscount ranks by peso
@@ -357,6 +365,8 @@ export function toServiceCard(
           publicId: row.public_id,
           // The sheet is the one place the "+N more included" tail is readable.
           inclusionsFull: allInclusions,
+          ...(row.description ? { about: row.description } : {}),
+          ...(row.video_url ? { videoLink: row.video_url } : {}),
         }
       : {}),
     notIncluded,

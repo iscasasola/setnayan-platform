@@ -306,7 +306,9 @@ export function CustomersCalendar({
       if (onClients) syncUrl();
       if (monthInputs.has(next) || !fetchMonth) return;
       startTransition(async () => {
-        const res = await fetchMonth(next);
+        // D-8 (supplier audit 2026-11-17): a THROWN month read (network, a server action error) went to the error
+        // boundary and replaced the whole Clients screen. It is the same "refused whole" as a null: said unread.
+        const res = await fetchMonth(next).catch(() => null);
         // Refused whole: nothing of this month is here — it is SAID unread, never drawn as a month of free days.
         if (!res) return setMonthInputs((prev) => new Map(prev).set(next, { dayStates: [], dayStatesRead: false, waitlist: [] }));
         setMonthInputs((prev) =>

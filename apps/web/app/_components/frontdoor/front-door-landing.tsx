@@ -201,7 +201,7 @@ const LIVE_SCREENS = [
   { shot: 'hub2', alt: 'A guest’s invitation, with her name and the reply buttons', b: 'Her name on it. She replies in a tap.', k: 'A guest · the bride’s cousin' },
   { shot: 'hub3', alt: 'A guest’s ticket with her QR, table and seat', b: 'Her own ticket, her table, her seat.', k: 'A guest · the bride’s cousin' },
   { shot: 'hub4', alt: 'An invitation marked Maid of Honor', b: 'Her place in the march, and what to wear.', k: 'A guest with a role · the maid of honor' },
-  { shot: 'hub5', alt: 'The day, live, with the photos a guest is in', b: 'The schedule, live. Her photos, found for her.', k: 'On the day' },
+  { shot: 'hub5', alt: 'The day, live, with the photos a guest is in', b: 'The schedule, live. Her photos, found for her.', k: 'The Day' },
 ] as const;
 
 const PILE = [

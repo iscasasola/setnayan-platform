@@ -325,8 +325,12 @@ export function CalendarLegend({
   blocked = false,
   full = false,
   mark = 'circle',
+  as: Tag = 'p',
 }: {
   dots: readonly CalendarDot[];
+  /** `'span'` when the legend sits inside a phrasing parent (the Clients month's ⓘ, owner "Yes, all three" 19 Nov) —
+   *  a `<p>` inside the tip's `<span>` is invalid HTML. The words and marks are the same either way. */
+  as?: 'p' | 'span';
   blocked?: boolean;
   /** Say a blocked day the way the grid draws it: `'box'` grids strike the number (#37), circle grids hatch it. */
   mark?: 'circle' | 'box';
@@ -334,7 +338,7 @@ export function CalendarLegend({
   full?: boolean;
 }) {
   return (
-    <p data-calendar-legend="" className="flex flex-wrap gap-x-3.5 gap-y-1.5 px-0.5 pt-2 text-[12px] text-ink/70">
+    <Tag data-calendar-legend="" className="flex flex-wrap gap-x-3.5 gap-y-1.5 px-0.5 pt-2 text-[12px] text-ink/70">
       {/* 📅 A box grid fills every day that can still take a booking with the seat green — the legend names it, so the
           green square is never read as the green "Booked here" dot (owner, 17 Nov). */}
       {mark === 'box' ? (
@@ -369,7 +373,7 @@ export function CalendarLegend({
           Full
         </span>
       ) : null}
-    </p>
+    </Tag>
   );
 }
 

@@ -145,7 +145,8 @@ export async function fetchEligibleCreators(opts?: {
   const { data: chapterRows } = await admin
     .from('creator_chapters')
     .select('user_id')
-    .eq('status', 'published');
+    .eq('status', 'published')
+    .eq('is_journal', false); // 📰 the Journal is Setnayan's — its owner is never an offer-able creator
   const counts = new Map<string, number>();
   for (const row of (chapterRows ?? []) as Array<{ user_id: string }>) {
     if (!row.user_id) continue;

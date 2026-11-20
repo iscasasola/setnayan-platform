@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Share, Eye, X } from 'lucide-react';
@@ -21,9 +22,7 @@ type Props = { params: Promise<{ contractId: string }> };
 export default async function VendorContractDetailPage({ params }: Props) {
   const { contractId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -45,7 +44,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
   const isCancelled = contract.status === 'cancelled';
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl space-y-6">
+    <div className="mx-auto w-full tab:max-w-3xl space-y-6">
       <Link
         href="/vendor-dashboard/contracts"
         className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"

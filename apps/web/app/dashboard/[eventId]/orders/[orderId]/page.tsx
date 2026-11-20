@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
@@ -47,9 +48,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
   const { eventId, orderId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const order = await fetchOrderById(supabase, orderId);

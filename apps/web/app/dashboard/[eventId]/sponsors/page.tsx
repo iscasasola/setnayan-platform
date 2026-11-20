@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
@@ -47,9 +48,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Gate access — must be a current host on this event (via either

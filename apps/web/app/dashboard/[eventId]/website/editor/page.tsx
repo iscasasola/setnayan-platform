@@ -7,7 +7,8 @@ import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { coupleMediaCapBytes, makerMediaMeterState } from '@/lib/maker-media-limits';
-import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { eventCoupleMediaPlan, settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
@@ -124,6 +125,7 @@ import {
 } from '../widgets/actions';
 import {
   computeSectionContentMap,
+  startPublicScheduleCount,
   SECTION_CONTENT_EVENT_COLUMNS,
 } from '@/lib/website-section-content';
 import {
@@ -218,6 +220,8 @@ export default async function WebsiteEditorPage({
      Held by `the-maker-reads-start-together.test.ts`. */
   const startEditorReads = () => {
     const draftRead = startAhead(readHubDraft(supabase, eventId));
+    // ⚡ The public schedule count `computeSectionContentMap` needs (wave 5 speed pass) — it used to wait for its own trip.
+    const scheduleCountRead = startAhead(Promise.resolve(startPublicScheduleCount(supabase, eventId)));
     const widgetsRead = startAhead(Promise.resolve(
       supabase
         .from('invitation_widgets')
@@ -279,7 +283,7 @@ export default async function WebsiteEditorPage({
     const roleNamesRead = startAhead(loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'));
     const revealStagesRead = startAhead(readMakerRevealStages(eventId));
     const logoFontsRead = startAhead(readMakerLogoFonts(eventId));
-    return { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
+    return { scheduleCountRead, draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead };
   };
   const readPro = () =>
     Promise.all([
@@ -391,7 +395,7 @@ export default async function WebsiteEditorPage({
     arrives where it did; every one is awaited on every path below. Nothing here writes (`readPostEventForMaker`,
     which may, stays where it was). Held by `the-maker-reads-start-together.test.ts`.
   */
-  const { draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
+  const { scheduleCountRead, draftRead, widgetsRead, prefsRead, scheduleBlocksRead, couplePeopleRead, riteRead, roleRowsRead, entourageRead, roleNamesRead, revealStagesRead, logoFontsRead } = editorReads ?? startEditorReads();
   const iapGate = await getIapGate();
   const storeShell = iapGate.storeShell;
   /* 🍎 …UNLESS Apple can sell Pro in this app (lib/iap/iap-gate.ts, owner
@@ -501,8 +505,13 @@ export default async function WebsiteEditorPage({
      below it, settling after the response keeps this render as fast as before
      and the next refresh (every save brings one) shows the freed bytes. */
   const countedMediaBytes = (event as { couple_media_bytes?: number | null }).couple_media_bytes ?? 0;
+  // 🎟 The plan's allowance (owner 2026-11-18: Free 10 MB · Plus 500 MB · Pro 1 GB · Ultra 2 GB) — the same reader the
+  // upload's reservation enforces with, shown as the viewer is SHOWN the plan ("view as a free couple" sees Free).
+  const mediaPlan: EventMediaPlan = (await asViewed(true))
+    ? await eventCoupleMediaPlan(await eventEntitlementClient(eventId), eventId).catch((): EventMediaPlan => 'free')
+    : 'free';
   let mediaUsedBytes = countedMediaBytes;
-  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(ownsPro)).isNear) {
+  if (makerMediaMeterState(countedMediaBytes, coupleMediaCapBytes(mediaPlan)).isNear) {
     mediaUsedBytes = (await settleCoupleMediaBytes(eventId)) ?? countedMediaBytes;
   } else if (countedMediaBytes > 0) {
     after(async () => {
@@ -678,6 +687,7 @@ export default async function WebsiteEditorPage({
     // The couple's own sections keep their words on their OWN row, so the rows
     // have to travel with the event for the map to know whether one is empty.
     allWidgets,
+    scheduleCountRead,
   );
 
   // Public schedule blocks — the same set guests see (source of truth stays
@@ -987,6 +997,7 @@ export default async function WebsiteEditorPage({
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
                       mediaUsedBytes={mediaUsedBytes}
+                      mediaPlan={mediaPlan}
                     />
                   </>
                 ),
@@ -1660,6 +1671,7 @@ export default async function WebsiteEditorPage({
                   videoChoice={videoChoice}
                   sceneUploads={sceneUploads}
                   mediaUsedBytes={mediaUsedBytes}
+                  mediaPlan={mediaPlan}
                   loopPosters={themeLoopPosters}
                   ownsPro={ownsPro}
                 />
@@ -1818,6 +1830,7 @@ export default async function WebsiteEditorPage({
         videoChoice,
         sceneUploads,
         mediaUsedBytes,
+        mediaPlan,
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,

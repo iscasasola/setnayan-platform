@@ -117,6 +117,13 @@ test('a stranger reads no row; the service role reads every figure', async () =>
 });
 
 const MONEY = ['total_cost_php', 'deposit_paid_php', 'transport_php', 'food_allowance_php', 'pax_surcharge_php'];
+/**
+ * Columns that are NOT an amount and are still closed to browsers ON PURPOSE — each with its reason. Asserted closed
+ * below, exactly like MONEY.
+ *   prep_days — a Made to order booking's own preparation time (migration 20271352068061, owner 19 Nov "AVAILABILITY
+ *               FINALIZED"): couples must neither read nor change it; only a definer writes and reads it.
+ */
+const CLOSED_ON_PURPOSE = ['prep_days'];
 
 test('migration B (20271343340931): every direct read of an amount is refused on a browser session — host included', async () => {
   const w = await newWorld();
@@ -187,12 +194,12 @@ test('every OTHER event_vendors column stays SELECT-able by anon and authenticat
      WHERE c.table_schema = 'public' AND c.table_name = 'event_vendors'
        AND c.column_name <> ALL ($1::text[])
        AND NOT has_column_privilege(r, 'public.event_vendors', c.column_name, 'SELECT')
-     ORDER BY 1, 2`, [MONEY]);
+     ORDER BY 1, 2`, [[...MONEY, ...CLOSED_ON_PURPOSE]]);
   assert.deepEqual(ungranted, [], 'these event_vendors columns are not browser-selectable — grant them in the migration that added them');
   const open = await q<{ r: string; c: string }>(`
     SELECT r, c FROM unnest($1::text[]) c, unnest(ARRAY['anon', 'authenticated']) r
-     WHERE has_column_privilege(r, 'public.event_vendors', c, 'SELECT')`, [MONEY]);
-  assert.deepEqual(open, [], 'a later migration handed a booking amount back to a browser role');
+     WHERE has_column_privilege(r, 'public.event_vendors', c, 'SELECT')`, [[...MONEY, ...CLOSED_ON_PURPOSE]]);
+  assert.deepEqual(open, [], 'a later migration handed a booking amount (or a column closed on purpose) back to a browser role');
   const fns = await q<{ ok: boolean }>(`
     SELECT has_function_privilege('authenticated', f, 'EXECUTE') AS ok
       FROM unnest(ARRAY['public.event_vendor_money_read(uuid)', 'public.event_vendor_money_event_ids()']) f`);

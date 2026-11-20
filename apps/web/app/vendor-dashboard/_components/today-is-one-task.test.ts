@@ -42,8 +42,11 @@ test('2 · each quick kind mounts its shipped form and action', () => {
   assert.ok(!/['"]use server['"]/.test(readFileSync(join(WEB, 'app/vendor-dashboard/_components/today-v2.tsx'), 'utf8')), 'Today v2 grew a server action');
 });
 
-test('3 · a bigger kind opens ONE risen screen', () => {
-  assert.match(V2, /<SupplierOpenRow[\s\S]{0,600}?\brise\b[\s\S]{0,200}?<ScreenBody/);
+// RE-AIMED ON PURPOSE (owner 19 Nov, on live Today: "remove the photo of that header" · "it was suppose to look like focus"; Today v3 part 1) — drawing V3 · 0, "just expand it and it becomes
+// a card" · "no pop up": a bigger kind no longer rises as a screen. It opens IN ITS ROW with the same shipped body.
+test('3 · a bigger kind opens in its own row, with its shipped body — never a risen screen, never a whole page', () => {
+  assert.doesNotMatch(V2, /<SupplierOpenRow\b/, 'a bigger kind rises as a second screen again');
+  assert.match(V2, /<TodayQuickRow[\s\S]{0,900}?r\.mode === 'quick' \? <QuickBody card=\{r\.card\} a=\{a\} \/> : <ScreenBody card=\{r\.card\}/, 'a bigger kind lost its answer inside the row');
 });
 
 test('4 · no "Flag as fake" on Today; one main button inside a quick row', () => {

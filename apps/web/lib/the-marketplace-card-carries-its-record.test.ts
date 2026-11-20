@@ -114,7 +114,8 @@ test('the records are read through the same flag and batched reader as the shop 
   const explore = read('lib', 'marketplace-service-card-faces.ts'); // 2026-11-16: the grid's card faces moved into lib/marketplace-service-card-faces.ts (shared by the supplier view and Discover's Service cards shelf)
   assert.match(explore, /cardRecordEnabled\(\)\s*\?\s*fetchServiceCardRecords\(/);
   const shop = read('app', 'v', '[slug]', 'page.tsx');
-  assert.match(shop, /cardRecordRating=\{cardRecordRatingFromTrusted\(/);
+  // Same reader — and since v16 S6 only for a verified shop (no rating on a shop Setnayan has not checked yet).
+  assert.match(shop, /cardRecordRating=\{isVerifiedShop \? cardRecordRatingFromTrusted\(trustedReviewStats\) : null\}/);
 });
 
 test('the shop-rating rule: nothing until a trusted review exists', () => {

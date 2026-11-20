@@ -56,6 +56,8 @@ import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/event
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
+import { readBookingWindow } from '@/lib/check-a-date.server';
+import { bookingWindowMessage, outsideBookingWindow, windowToday } from '@/lib/booking-window';
 import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
@@ -1891,6 +1893,14 @@ export async function finalizeVendor(
           const lead = typeof leadRaw === 'number' ? leadRaw : null;
           if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
             return { status: 'error', message: orderTooSoonMessage(lead) };
+          }
+          // 📅 HOW FAR AWAY THE SHOP TAKES BOOKINGS (owner 2026-11-19, "AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS"):
+          // every card of the shop, the same window Check a date and Find showed the couple. The card's own rule above
+          // can only be stricter. A refused read degrades OPEN, logged, like the rule above.
+          if (targetVendor.marketplace_vendor_id) {
+            const shopWindow = await readBookingWindow(createAdminClient(), targetVendor.marketplace_vendor_id);
+            const outside = shopWindow ? outsideBookingWindow(d.event_date, windowToday(), shopWindow) : null;
+            if (shopWindow && outside) return { status: 'error', message: bookingWindowMessage(outside, shopWindow) };
           }
         }
       }

@@ -29,6 +29,7 @@ import { buildCustomerCalendarMonth, type CalendarBlockInput, type CalendarBooki
 import type { SchedulePool, VendorCalendarDayState } from './vendor-schedule';
 import { blockClosesDay } from './not-available';
 import { arrivalParams, withShopArrival } from './shop-back';
+import { bookingWindowSpan, monthsToReach, tooSoonDays, type BookingWindow } from './booking-window';
 
 /** The two answers a couple ever reads. */
 export type CheckDateState = 'available' | 'not_bookable';
@@ -57,11 +58,12 @@ export type CheckDateEvent = {
 };
 
 /**
- * How far ahead the calendar answers, in months: this month + the next 36, so November 2026 reaches November 2029
- * (SHOP-02 v7, approved 14 Nov 2026: "it runs from today up to three years ahead"; it was two years). Later days are
- * not offered.
+ * How far ahead the calendar answers is THE SHOP'S OWN "At most" now (owner 2026-11-19, "HOW FAR AWAY A SHOP TAKES
+ * BOOKINGS: AT LEAST AND AT MOST, EMPTY AT MOST = 3 YEARS"; `lib/booking-window.ts`). The fixed
+ * `CHECK_DATE_MONTHS_AHEAD = 37` it replaces is removed (drawing §5: "Removed: the fixed 37 months"). A shop that sets
+ * nothing answers to exactly 3 years from today; days after its last day are not offered, and days inside its "At
+ * least" read Not bookable (`withBookingWindow`).
  */
-export const CHECK_DATE_MONTHS_AHEAD = 37;
 
 /** The page a shop's "Check a date" QR opens. `origin` has no trailing slash (`siteOrigin()`). */
 export function checkADatePath(slug: string): string {
@@ -72,7 +74,7 @@ export function checkADateUrl(origin: string, slug: string): string {
 }
 
 /** First and last day the calendar answers: the 1st of today's month → the last day `months` later. */
-export function checkDateWindow(today: string, months = CHECK_DATE_MONTHS_AHEAD): { from: string; to: string; months: string[] } {
+export function checkDateWindow(today: string, months: number): { from: string; to: string; months: string[] } {
   const [y = 1970, m = 1] = today.split('-').map(Number);
   const list: string[] = [];
   for (let i = 0; i < months; i++) {
@@ -83,6 +85,29 @@ export function checkDateWindow(today: string, months = CHECK_DATE_MONTHS_AHEAD)
   const [ly = y, lm = m] = last.split('-').map(Number);
   const lastDay = new Date(Date.UTC(ly, lm, 0)).getUTCDate();
   return { from: `${list[0]}-01`, to: `${last}-${String(lastDay).padStart(2, '0')}`, months: list };
+}
+
+/**
+ * The window a couple is shown for one shop: from the 1st of this month to the shop's last bookable day (its "At
+ * most" from today, 3 years when unset). `to` is that day itself, so `checkDateStateOf` offers nothing after it.
+ */
+export function checkDateWindowFor(today: string, w: BookingWindow): { from: string; to: string; months: string[] } {
+  const { last } = bookingWindowSpan(today, w);
+  return { ...checkDateWindow(today, monthsToReach(today, last)), to: last };
+}
+
+/**
+ * The shop's "At least" laid over an answer: every day from today until the first day it takes reads Not bookable —
+ * for the shop and for each of its cards. The calendar's own answer is never changed, only added to.
+ */
+export function withBookingWindow(answer: CheckDateAnswer, today: string, w: BookingWindow): CheckDateAnswer {
+  const soon = tooSoonDays(today, w);
+  if (soon.length === 0) return answer;
+  const add = (days: readonly string[]) => [...new Set([...days, ...soon])].sort();
+  return {
+    notBookable: add(answer.notBookable),
+    perService: answer.perService ? Object.fromEntries(Object.entries(answer.perService).map(([id, days]) => [id, add(days)])) : null,
+  };
 }
 
 /** A schedule as this page needs it: its id and its "How many a day". */

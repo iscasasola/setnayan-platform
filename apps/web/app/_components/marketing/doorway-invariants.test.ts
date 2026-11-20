@@ -82,10 +82,8 @@ const DOORWAYS = [
   'pa3d',
   'palogo',
   'alaala',
-  'patiktok',
+  // 'patiktok' and 'pakanta' left 2026-11-20 — retired; both pages are now redirects to /features.
   'setnayan-ai',
-  // The song — public page added 2026-08-21 so it could join the Studio rail.
-  'pakanta',
   // The mood board — public page added 2026-09-03 for the same reason, and it
   // is the first doorway on this list for a FREE tool (owner: *"i do not see
   // it"*, of the Studio group). The three invariants below do not care: an h1,
@@ -246,7 +244,7 @@ test('the scan is not vacuous — it really read ten pages', () => {
   // Every assertion above passes trivially if `sourcesFor` returns nothing:
   // a renamed folder or a moved app root would make this file green while
   // checking absolutely nothing.
-  assert.equal(DOORWAYS.length, 15);
+  assert.equal(DOORWAYS.length, 13);
   for (const route of DOORWAYS) {
     const srcs = sourcesFor(route);
     assert.ok(srcs.length > 0, `/${route}: no source files found — the app root is wrong`);

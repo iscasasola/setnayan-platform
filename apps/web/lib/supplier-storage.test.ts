@@ -215,7 +215,6 @@ test('the limits sheet: Pro → Plus over 5 GB waits for room; an unread store s
     includedBranches: 0,
     seats: null,
     extraSeats: 0,
-    reachKm: 30,
     storedBytes: 7 * GB,
     badge: null,
   };

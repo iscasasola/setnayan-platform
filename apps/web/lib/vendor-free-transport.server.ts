@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { haversineKm } from '@/lib/geo';
+import { isVerifiedForReach } from '@/lib/vendor-service-radius';
 import { isFreeTransportEnforcementEnabled } from '@/lib/vendor-free-transport-flag';
 import {
   resolveFreeTransportDecision,
@@ -11,7 +12,7 @@ import {
  * vendor-free-transport.server.ts — the DB-touching half of the inner-ring
  * free-travel enforcement. Every DECISION lives in the pure resolver
  * (`lib/vendor-free-transport.ts`); this module only fetches the six numbers the
- * resolver needs (tier, two rings, HQ pin, venue pin) and hands them over.
+ * resolver needs (verification, two rings, HQ pin, venue pin) and hands them over.
  *
  * ── THREE INVARIANTS, ALL LOAD-BEARING ─────────────────────────────────────
  *
@@ -85,7 +86,7 @@ export async function resolveThreadFreeTransport(args: {
     const [vendorRes, venueRes] = await Promise.all([
       admin
         .from('vendor_profiles')
-        .select('tier_state,inner_radius_km,outer_radius_km,hq_latitude,hq_longitude')
+        .select('verification_state,inner_radius_km,outer_radius_km,hq_latitude,hq_longitude')
         .eq('vendor_profile_id', args.vendorProfileId)
         .maybeSingle(),
       admin
@@ -116,7 +117,8 @@ export async function resolveThreadFreeTransport(args: {
       distanceKm,
       declaredInnerKm: num(v.inner_radius_km),
       declaredOuterKm: num(v.outer_radius_km),
-      tier: typeof v.tier_state === 'string' ? v.tier_state : null,
+      // Reach is verification, never the plan (owner 2026-11-19) — an unverified shop's rings read 0.
+      verified: isVerifiedForReach(typeof v.verification_state === 'string' ? v.verification_state : null),
     });
   } catch {
     return null;

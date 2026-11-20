@@ -1,4 +1,6 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
+import { startAhead } from '@/lib/start-ahead';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -64,6 +66,7 @@ import { eventTypeLabel } from '@/lib/demand-radar';
 import { filterBySearch, paginate, parseSearchParam } from '@/lib/paginate';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { formatCount } from '@/lib/format-number';
+import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import { CustomersRoster, EventsHeading, type RosterRow } from './_components/customers-roster';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { stageOfLane } from '@/lib/supplier-event-lines';
@@ -85,7 +88,6 @@ import {
   toCollectTileWords,
   unreadEvents,
   type ClientMeeting,
-  type CountRead,
 } from './clients-tiles';
 import { moneyPicture } from '@/lib/vendor-money';
 import { ClientsShowSort } from './_components/clients-show-sort';
@@ -107,8 +109,8 @@ import { fetchVendorOutcomeRollup } from '@/lib/inquiry-outcomes';
 import { eventChatTitle, eventDateOptionWords } from '@/lib/event-chat-title';
 import { ChatOriginMark } from '@/app/_components/chat/chat-back';
 import { OutsideClientAdd } from './_components/outside-client-add';
+import { ClientsEmptyAdd, ClientsSearch } from './_components/clients-search';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { SearchBox } from '@/app/_components/search-box';
 import { ThumbRow } from '@/components/thumb-row';
 import { rosterView } from './roster-view';
 import { DatesFolds } from './_components/dates-folds';
@@ -198,6 +200,8 @@ type Props = {
     tab?: string;
     /** Dates › one day (frame 35). */
     day?: string;
+    /** 🖥 Dates › one day, on a computer: the group whose bookings the right column lists (step 4). */
+    grp?: string;
     /** Events' door (`asking · talking · booked · done`) a pager link keeps. */
     door?: string;
     /** `?within=month` — Booked narrowed to this month (Today's "Booked · events this month", owner 75a46e3c item 9). */
@@ -242,9 +246,7 @@ const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; 
 
 async function CustomersPipeline({ search }: { search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -280,6 +282,45 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     .is('event_id', null)
     .order('created_at', { ascending: false })
     .limit(50);
+  /*
+    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
+    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
+    the team couldn't load, and nobody is narrowed by a guess.
+    ⚡ Started NOW, beside the roster's reads (speed pass 2026-11-18) — it needs nothing from them; awaited where it was.
+  */
+  const teamReads = startAhead(
+    Promise.all([
+      fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
+      fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
+      fetchVendorServices(supabase, vendorProfileId).catch(() => null),
+    ]),
+  );
+  /*
+    ⚡ THE SHOP'S OWN `event_vendors` ROWS start now too (speed pass 2026-11-18): the read is scoped by this caller's
+    profile id alone, so it needs nothing from the reads beside it. Why it uses the admin client, and why it is paged,
+    is said where it is awaited.
+  */
+  const rosterAdmin = createAdminClient();
+  const rosterBookingsRead = startAhead(readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await rosterAdmin
+        .from('event_vendors')
+        .select(
+          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
+          { count: 'exact' },
+        )
+        .eq('marketplace_vendor_id', vendorProfileId)
+        .is('archived_at', null)
+        // A covered cascade line carries no request of its own — only the anchor is
+        // asked — and folding one in would put the same event on the roster
+        // twice. Same filter the Answers Desk applies to the identical question.
+        .or('package_role.is.null,package_role.eq.anchor')
+        .order('vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: 1000 },
+  ));
   const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet).
     fetchVendorPools(supabase, vendorProfileId),
@@ -310,19 +351,12 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     // 💬 UNREAD (v113 button) — the shop's unread chat notices, per thread; matched to the list's events below.
     readUnreadChatCountsByThread(supabase, user.id),
   ]);
-  /*
-    👥 HANDLED BY (Show & sort, spec §9 #7) — the team and its service assignments, the shop's own pair
-    (`vendor_service_agents`, what `agent_customer_event_ids()` scopes an agent by). Refused → null: Handled by says
-    the team couldn't load, and nobody is narrowed by a guess.
-  */
-  const [teamRead, assignmentsRead, servicesRead] = await Promise.all([
-    fetchVendorTeam(supabase, vendorProfileId).catch(() => null),
-    fetchAgentServiceAssignments(supabase, vendorProfileId).catch(() => null),
-    fetchVendorServices(supabase, vendorProfileId).catch(() => null),
-  ]);
+  // 👥 Started beside the roster's reads (`teamReads`, above).
+  const [teamRead, assignmentsRead, servicesRead] = await teamReads;
 
   const threads = threadsRead.threads;
-  const monthPart = await customersMonth({
+  // ⚡ The month on top no longer holds the list back: started here, awaited just before the page is drawn.
+  const monthPartRead = startAhead(customersMonth({
     supabase,
     vendorProfileId,
     todayIso,
@@ -335,7 +369,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     services: servicesRead ?? [],
     teamRows: teamRead ?? [],
     reads: monthReads,
-  });
+  }));
   if (meetingsRead.error) logQueryError('VendorCustomersPage.meetings', meetingsRead.error, { vendorProfileId }, 'graceful_degrade');
   if (unreadRead.error) logQueryError('VendorCustomersPage.unread', { message: unreadRead.error }, { vendorProfileId }, 'graceful_degrade');
   const meetings: ClientMeeting[] = ((meetingsRead.data ?? []) as {
@@ -353,11 +387,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     status: a.status,
   }));
   const meetingsFailed = Boolean(meetingsRead.error);
-  const meetingsCount: CountRead = {
-    n: meetingsFailed ? meetings.length : (meetingsRead.count ?? meetings.length),
-    complete: !meetingsFailed && meetingsRead.count !== null,
-    failed: meetingsFailed,
-  };
 
   // ⚠ MONEY. A payday read that did not reach the server's count is NOT added
   // up: the status line says some payments couldn't load and every booked
@@ -407,32 +436,14 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     the retired Clients page asked "is it finished?" with the shared
     `rowReadsCompleted`; the roster now asks it too, through the derivation.
   */
-  const rosterAdmin = createAdminClient();
+  // `rosterAdmin` is made above, where the roster's first read starts (speed pass 2026-11-18).
   /*
     ⚠ PAGED TO THE SERVER'S EXACT COUNT. One un-ranged SELECT here was capped by
     PostgREST (Supabase default 1000 rows) with `error: null`, so past a
     thousand bookings the rest silently left the roster.
   */
-  const evRead = await readAllPages(
-    async (from, to) => {
-      const { data, error, count } = await rosterAdmin
-        .from('event_vendors')
-        .select(
-          'vendor_id, event_id, status, lock_request_state, lock_requested_at, lock_request_expires_at, completion_status, customer_confirmed_received_at, service_id',
-          { count: 'exact' },
-        )
-        .eq('marketplace_vendor_id', vendorProfileId)
-        .is('archived_at', null)
-        // A covered cascade line carries no request of its own — only the anchor is
-        // asked — and folding one in would put the same event on the roster
-        // twice. Same filter the Answers Desk applies to the identical question.
-        .or('package_role.is.null,package_role.eq.anchor')
-        .order('vendor_id', { ascending: true })
-        .range(from, to);
-      return { rows: data ?? null, error: error ? error.message : null, total: count };
-    },
-    { pageSize: 1000 },
-  );
+  // Started beside the page's first reads (`rosterBookingsRead`, above) — the same paged read, awaited here.
+  const evRead = await rosterBookingsRead;
   const evRows = evRead.rows;
   if (evRead.error || !evRead.complete) {
     logQueryError(
@@ -958,12 +969,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const unreadFailed = Boolean(unreadRead.error) || !unreadRead.complete;
   const doors: CustomersDoor[] = [
     { key: 'booked', value: doorValue('booked'), word: monthIds ? 'booked this month' : 'booked', dot: 'booked' },
-    { key: 'schedules', value: countWords(meetingsCount), word: 'meetings' },
     { key: 'asking', value: doorValue('asking'), word: 'asked', hot: doorCount('asking') > 0, dot: 'asking' },
     { key: 'collect', value: toCollectTileWords(picture.totals), word: 'to collect' },
   ];
-  // 📌 The pinned row's two figures (Build 2 #43b, v113 "6 booked · ₱48,000 to collect") — the SAME reads as the tiles.
-  const pinCounts = `${doorValue('booked') ?? '—'} booked${monthIds ? ' this month' : ''} · ${picture.totals ? formatPhp(picture.totals.toComePhp) : '—'} to collect`;
   const overdue = overdueRead(picture.totals);
   const quick: CustomersQuick[] = [
     { key: 'overdue', word: 'Overdue', value: overdue ? countWords(overdue) : null, zero: overdue?.n === 0 },
@@ -1004,6 +1012,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const panels: Record<string, ReactNode> = { ...rosterPanels, ...tilePanels };
 
+  const monthPart = await monthPartRead;
   return (
     <>
       {notice ? <SupplierToast text={notice.text} tone={notice.tone} retry={notice.retry} retryHref="/vendor-dashboard/customers" /> : null}
@@ -1018,13 +1027,20 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         <CustomersPin
           seg="events"
           hrefs={CUSTOMER_SEGMENT_HREFS}
-          title={{ counts: pinCounts }}
+          title={{}}
           month={monthPart.month}
           doors={doors}
           panels={panels}
           quick={quick}
           initial={initialDoor}
-          gear={<CustomersSettings body={search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} /> : null} />}
+          gear={
+            <CustomersSettings
+              body={
+                // 🧹 Not available · Waiting list · QR codes live in ⚙ › Teams and days now (owner "Yes, all three", 19 Nov, Q2).
+                search.gear === '1' ? <CustomersSettingsBody seg="events" search={search} daysTools={monthPart.folds} /> : null
+              }
+            />
+          }
           columns={{ rest: 'No events here yet. When somebody asks about a date, or books you, their event shows up here.' }}
           between={
             <>
@@ -1054,7 +1070,6 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
               {keptNotesMeasured && keptNotes.length > 0 ? (
                 <KeptNotesFold notes={keptNotes.map((n) => ({ noteId: n.note_id, body: n.body, createdAt: n.created_at }))} />
               ) : null}
-              {monthPart.folds}
             </div>
           }
         />
@@ -1066,17 +1081,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
         name="events"
         label="Customer tools"
         row={
+          <>
+          {/* ➕ SEARCH OR ADD (owner 18–19 Nov 2026): no ＋ Add beside the search — the search is the add
+              (`clients-search.tsx`); the sheet it opens is mounted here, without a button of its own. */}
+          <ClientsEmptyAdd />
           <ThumbRow
             name="customers"
             field={{
               node: (
-                <SearchBox
-                  placeholder="Search clients"
+                <ClientsSearch
                   defaultValue={search.q ?? ''}
                   keep={keepParamsFrom(sp, ['q', 'page', 'copage', 'notice', 'add', 'door', 'lane', 'block', 'gear'])}
-                  hash="#customers"
-                  data="customers"
-                  tour="customers-search"
+                  matches={narrowed.length > 0}
                 />
               ),
             }}
@@ -1097,21 +1113,18 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 ),
               },
             ]}
-            action={{
-              node: (
-                <OutsideClientAdd
-                  pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
-                  action={importExternalClient}
-                  startOpen={search.add === 'outside'}
-                  today={todayIso}
-                  setupHref="/vendor-dashboard/customers?gear=1"
-                  tour="customers-add"
-                  halls={pools.length > 0 && pools.every((p) => p.isHall)}
-                  seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
-                />
-              ),
-            }}
           />
+          <OutsideClientAdd
+            trigger={false}
+            pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
+            action={importExternalClient}
+            startOpen={search.add === 'outside'}
+            today={todayIso}
+            setupHref="/vendor-dashboard/customers?gear=1"
+            halls={pools.length > 0 && pools.every((p) => p.isHall)}
+            seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
+          />
+          </>
         }
       />
     </>
@@ -1355,7 +1368,7 @@ async function customersMonth({
     /** The month's tools, at the foot of the screen — the same folds Dates drew under its month. */
     folds: (
       // The month's own anchor (`#calendar`) sits on the month itself, in `CustomersPin`.
-      <div className="mt-6" data-customers-month-tools="">
+      <div className="mt-2" data-customers-month-tools="">
         <DatesFolds
           today={todayIso}
           month={month}
@@ -1390,9 +1403,7 @@ function eventWords(e: { venue_name: string | null; event_type: string | null } 
 /** One day (frame 35) — `?seg=dates&day=YYYY-MM-DD`; the old `/calendar/[date]` route forwards here. */
 async function CustomersDay({ day, search }: { day: string; search: Awaited<Props['searchParams']> }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -1401,7 +1412,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const todayIso = manilaTodayIso();
   const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
 
-  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe] = await Promise.all([
+  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe, cardStyles, poolTaken] = await Promise.all([
     fetchVendorPools(supabase, vendorProfileId),
     // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
     // and an event with a seat is booked — the holders are the open conversations without one.
@@ -1411,14 +1422,40 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     fetchVendorWaitlist(supabase, vendorProfileId, day),
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+    // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
+    supabase.from('vendor_services').select('vendor_service_id, title, availability_style').eq('vendor_profile_id', vendorProfileId),
+    // 🔒 Step 4: the day's counts per schedule FROM THE GUARDS' own functions — one call: seats (`schedule_pool_taken_on`,
+    // what acquire refuses by) and, for by-the-piece cards, pieces out of the card's own number, each stock once
+    // (`service_card_bookings_on` · `service_card_daily_limit`, what the yes refuses by).
+    supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
+  if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
+  if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
+  const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number; pieces_out: number | null; pieces_have: number | null }[];
+  const takenByPool = new Map(takenRows.map((r) => [r.pool_id, r.taken]));
+  // 🛠 Made to order is counted IN PROGRESS across each order's preparation window (owner 19 Nov, AVAILABILITY FINALIZED).
+  const inProgressByPool = new Map(takenRows.map((r) => [r.pool_id, r.in_progress]));
+  const piecesByPool = new Map(takenRows.map((r) => [r.pool_id, { out: r.pieces_out, have: r.pieces_have }]));
+  /** The database's count for a schedule with a bar; a refused read is `null` (never "0 out"). */
+  const dbTakenOf = (poolId: string, style: string | null | undefined): number | null =>
+    poolTaken.error
+      ? null
+      : style === 'piece'
+        ? (piecesByPool.get(poolId)?.out ?? 0)
+        : ((style === 'order' ? inProgressByPool : takenByPool).get(poolId) ?? 0);
+  const cardById = new Map(
+    ((cardStyles.data ?? []) as { vendor_service_id: string; title: string | null; availability_style: string | null }[]).map((c) => [
+      c.vendor_service_id,
+      { title: c.title, style: isAvailabilityStyle(c.availability_style) ? c.availability_style : null },
+    ]),
+  );
   const poolLabel = new Map(pools.map((p) => [p.poolId, p.label]));
   const namePools = pools.length > 1;
   const bookedToday = bookings.filter((b) => b.bookedDate === day);
 
   // The booked events' place and kind (admin: the supplier holds no `events` RLS) — and the holders' names and dates.
   const bookedEventIds = new Set(bookings.map((b) => b.eventId));
-  const [{ asks, measured: asksMeasured }, eventsRead, caps] = await Promise.all([
+  const [{ asks, measured: asksMeasured }, eventsRead, caps, piecesRead] = await Promise.all([
     readOpenAsks(threadsRead.threads, bookedEventIds, vendorProfileId),
     bookedToday.length > 0
       ? readInChunks([...new Set(bookedToday.map((b) => b.eventId))], (part) =>
@@ -1427,7 +1464,35 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
       : Promise.resolve({ rows: [], error: null }),
     // "Holding this date · N of M" — the plan's ceiling.
     tierCaps((tierProbe.data as { tier_state?: string } | null)?.tier_state ?? null),
+    // 📊 Step 4: the pieces each booking on the day takes, and its card — the shop's own seats (proven by the pool read).
+    bookedToday.some((b) => b.eventVendorId)
+      ? readInChunks([...new Set(bookedToday.map((b) => b.eventVendorId).filter((v): v is string => Boolean(v)))], (part) =>
+          createAdminClient().from('event_vendors').select('vendor_id, service_id, booked_quantity').in('vendor_id', part),
+        )
+      : Promise.resolve({ rows: [], error: null }),
   ]);
+  if (piecesRead.error) logQueryError('VendorCustomersPage.dayPieces', piecesRead.error, {}, 'graceful_degrade');
+  const rowById = new Map(
+    ((piecesRead.rows ?? []) as { vendor_id: string; service_id: string | null; booked_quantity: number | null }[]).map((r) => [r.vendor_id, r]),
+  );
+  const cardOfBooking = (eventVendorId: string | null | undefined) => {
+    const sid = eventVendorId ? rowById.get(eventVendorId)?.service_id : null;
+    return sid ? cardById.get(sid) ?? null : null;
+  };
+  // 🗓 A schedule's style: the ONE style every card on it books by (Made to order · by the piece). Mixed, Not set or
+  // unread → null, and the group keeps today's look. An Always available card is never on the calendar (ruling 4).
+  const poolStyle = (p: (typeof pools)[number]): { style: AvailabilityStyle | null; barName?: string } => {
+    if (cardStyles.error) return { style: null };
+    const cards = [...new Set([...p.serviceIds, ...bookedToday.filter((b) => b.poolId === p.poolId).map((b) => rowById.get(b.eventVendorId ?? '')?.service_id ?? '')])]
+      .filter(Boolean)
+      .map((sid) => cardById.get(sid))
+      .filter((c): c is { title: string | null; style: AvailabilityStyle | null } => Boolean(c) && c!.style !== 'none');
+    const styles = new Set(cards.map((c) => c.style));
+    if (cards.length === 0 || styles.size !== 1) return { style: null };
+    const style = [...styles][0] ?? null;
+    if (style !== 'order' && style !== 'piece') return { style };
+    return { style, barName: style === 'piece' && cards.length === 1 ? (cards[0]!.title?.trim() || undefined) : undefined };
+  };
   if (eventsRead.error) logQueryError('VendorCustomersPage.dayEvents', eventsRead.error, {}, 'graceful_degrade');
   const eventById = new Map(
     ((eventsRead.rows ?? []) as { event_id: string; venue_name: string | null; event_type: string | null }[]).map((e) => [e.event_id, e]),
@@ -1466,14 +1531,38 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   // The day, schedule by schedule — every block through the ONE rule (`lib/not-available.ts`, repeats + hours).
   const groups = dayGroupsOf(day, {
     today: todayIso,
-    pools: pools.map((p) => ({ poolId: p.poolId, label: p.label, capacity: p.capacity })),
-    bookings: bookedToday.map((b) => ({
-      key: b.poolBookingId,
-      poolId: b.poolId,
-      title: b.eventName,
-      line: [...eventWords(eventById.get(b.eventId)), 'Booked here'].filter(Boolean).join(' · '),
-      href: `/vendor-dashboard/clients/${b.eventId}`,
-    })),
+    pools: pools.map((p) => {
+      const st = poolStyle(p);
+      // 🔢 ONE NUMBER FOR PIECES (review 2026-11-19, owner 2a): a by-the-piece group counts against its cards' own
+      // "How many do you have", each stock once — the yes's number — never the schedule's "how many a day". A piece
+      // card with no number has nothing to count against, so the group keeps the plain look.
+      const have = piecesByPool.get(p.poolId)?.have ?? null;
+      if (st.style === 'piece' && !poolTaken.error && have === null) return { poolId: p.poolId, label: p.label, capacity: p.capacity, style: null };
+      const capacity = st.style === 'piece' && have !== null ? have : p.capacity;
+      return { poolId: p.poolId, label: p.label, capacity, ...st, ...(st.style === 'order' || st.style === 'piece' ? { dbTaken: dbTakenOf(p.poolId, st.style) } : {}) };
+    }),
+    bookings: bookedToday
+      // An Always available card is never on the calendar (ruling 4) — an older seat it holds is not drawn either.
+      .filter((b) => cardOfBooking(b.eventVendorId)?.style !== 'none')
+      .map((b) => {
+        const row = b.eventVendorId ? rowById.get(b.eventVendorId) : undefined;
+        const piece = cardOfBooking(b.eventVendorId)?.style === 'piece';
+        // A refused pieces read is said on the bar, never "0 out" (null); a row the read did not return is 1.
+        const quantity = piecesRead.error ? null : (row?.booked_quantity ?? 1);
+        return {
+          key: b.poolBookingId,
+          poolId: b.poolId,
+          title: b.eventName,
+          line: [piece && quantity !== null ? `${formatCount(quantity)} ${quantity === 1 ? 'piece' : 'pieces'}` : '', ...eventWords(eventById.get(b.eventId)), 'Booked here']
+            .filter(Boolean)
+            .join(' · '),
+          href: `/vendor-dashboard/clients/${b.eventId}`,
+          quantity,
+          // 🔢 Pieces never take a seat (owner 2c): a chair booking is LISTED on its schedule's day but never counted
+          // against the schedule's seats — the same rule as `schedule_pool_taken_on`.
+          seat: !piece,
+        };
+      }),
     blocks: blocksRead.blocks,
     holds: holds.map((h) => ({ poolId: h.poolId, stateDate: h.stateDate, dayState: h.dayState })),
   });
@@ -1563,6 +1652,9 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     })),
     whoWorks,
     qrHref: `/vendor-dashboard/invite?mode=locked&date=${day}`,
+    // 🖥 Step 4: on a computer the right column lists the tapped group's bookings (`?grp=`); the first group by default.
+    pickedGroup: groups.find((g) => g.poolId === search.grp)?.poolId ?? groups[0]?.poolId ?? null,
+    groupHrefBase: `/vendor-dashboard/customers?seg=dates&day=${day}&grp=`,
     venue: venueDay,
   };
 
@@ -1659,6 +1751,14 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
   // 🔀 The old `?seg=people` (the first view's address until 2026-10-30) lands on Events — every other param kept.
   const forward = oldPeopleAddressForward(sp);
   if (forward) redirect(forward);
+  // 🧹 Not available and Waiting list moved into ⚙ › Teams and days (owner "Yes, all three", 19 Nov, Q2): an old
+  // `?open=block|waitlist` address still lands on its fold — now inside the ⚙ sheet, so the sheet opens with it.
+  if ((sp.open === 'block' || sp.open === 'waitlist') && sp.gear !== '1') {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (typeof v === 'string') q.set(k, v);
+    q.set('gear', '1');
+    redirect(`/vendor-dashboard/customers?${q.toString()}`);
+  }
   const seg = customersSegmentOf(sp);
   const openRaw =
     (typeof sp.open === 'string' && sp.open) ||
@@ -1676,7 +1776,11 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
         <div
           // Events uses the whole width from a tablet up (owner 2026-10-29, "maximize the screen use"); Money keeps its
           // reading measure, Dates its month's.
-          className={`mx-auto w-full max-w-3xl space-y-4 px-4 pb-6 pt-4 sm:px-6 lg:px-8 ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
+          // 🧹 NO EMPTY TOP on the one Clients screen (owner 19 Nov): no top padding on a phone, and no space-y — the sr-only
+          // <h1> is a sibling too, so `space-y-4` put 16px of nothing over "Clients". Money and one day keep theirs.
+          className={`mx-auto w-full max-w-3xl px-4 pb-6 sm:px-6 lg:px-8 ${
+            seg === 'money' || search.day ? 'space-y-4 pt-4' : 'pt-0 tab:pt-3'
+          } ${seg === 'money' ? 'tab:max-w-3xl' : search.day ? 'tab:max-w-5xl' : 'tab:max-w-none'}`}
           data-customers-seg-open={seg}
         >
           <h1 className="sr-only">Clients</h1>

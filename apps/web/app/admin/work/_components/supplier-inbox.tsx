@@ -29,6 +29,8 @@ import {
 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { FormPick } from './form-pick';
 import { EventTypeNameRow } from './event-type-name-row';
 import { WorkRowHead } from './work-row-head';
@@ -388,37 +390,32 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
   const counts = countByKind(read.items);
   const shown = kind ? read.items.filter((i) => i.kind === kind) : read.items;
   const back = href(basePath, { item: undefined, settle: undefined, why: undefined });
-  const chip = (k: SupplierWorkKind | undefined, label: string, n: number) => {
-    const on = kind === k;
-    return (
-      <Link
-        key={k ?? 'all'}
-        href={href(back, { kind: k })}
-        aria-current={on ? 'page' : undefined}
-        className={`sn-press inline-flex min-h-10 items-center rounded-full border px-3.5 text-[13px] font-semibold ${
-          on ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-white text-ink dark:bg-raised'
-        }`}
-        data-work-chip={k ?? 'all'}
-      >
-        {label} {formatCount(n)}
-      </Link>
-    );
-  };
   const unread = read.failed.map((k) => SUPPLIER_WORK_CHIP[k]);
+  // 📐 ADMIN CLEAN PORT (owner 19 Nov 2026): the chip row is ONE dropdown — same `?kind=` addresses, same words.
+  const kindOptions = [
+    { key: 'all', label: `All ${formatCount(read.items.length)}`, href: href(back, { kind: undefined }) },
+    ...SUPPLIER_WORK_KINDS.map((k) => ({ key: k, label: `${SUPPLIER_WORK_CHIP[k]} ${formatCount(counts[k])}`, href: href(back, { kind: k }) })),
+  ];
   return (
-    <section aria-labelledby="supplier-inbox-h" className="mb-6" data-supplier-inbox="">
-      <h2 id="supplier-inbox-h" className="text-lg font-semibold text-ink">
-        From suppliers
-      </h2>
-      <p className="mb-3 text-sm text-ink/70">Everything a supplier sent, oldest first. Each one is done right here.</p>
-      <nav aria-label="Filter what suppliers sent" className="mb-3 flex flex-wrap gap-2">
-        {chip(undefined, 'All', read.items.length)}
-        {SUPPLIER_WORK_KINDS.map((k) => chip(k, SUPPLIER_WORK_CHIP[k], counts[k]))}
-      </nav>
+    <div className="mb-6" data-supplier-inbox="">
+      <TemplateSection
+        label="From suppliers"
+        first
+        tip="Everything a supplier sent, oldest first. Each one is done right here."
+        data="supplier-inbox"
+        right={
+          <LinkPickMenu
+            label="Filter what suppliers sent"
+            value={kind ?? 'all'}
+            dataAttr="work-chip"
+            options={kindOptions}
+          />
+        }
+      >
       {unread.length > 0 ? (
-        <p role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-3 text-sm text-ink" data-work-unread="">
-          Couldn’t read {unread.join(' · ')} — refresh to try again. This is not an all-clear.
-        </p>
+        <TemplateFail data="work-unread">
+          <span data-work-unread="">Couldn’t read {unread.join(' · ')} — refresh to try again. This is not an all-clear.</span>
+        </TemplateFail>
       ) : null}
       {read.absent.includes('types') && (!kind || kind === 'types') ? (
         <div className="mb-3 text-xs text-ink/70" data-work-absent="types">
@@ -429,9 +426,9 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
         </div>
       ) : null}
       {shown.length === 0 && unread.length === 0 ? (
-        <p className="sn-tile p-5 text-center text-sm text-ink/70" data-work-clear="">
-          All clear ✓ — nothing from suppliers{kind ? ` under ${SUPPLIER_WORK_CHIP[kind]}` : ''}.
-        </p>
+        <TemplateEmpty data="work-clear">
+          <span data-work-clear="">All clear ✓ — nothing from suppliers{kind ? ` under ${SUPPLIER_WORK_CHIP[kind]}` : ''}.</span>
+        </TemplateEmpty>
       ) : (
         <ul className="space-y-2">
           {shown.map((item) => {
@@ -499,6 +496,7 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
           })}
         </ul>
       )}
-    </section>
+      </TemplateSection>
+    </div>
   );
 }

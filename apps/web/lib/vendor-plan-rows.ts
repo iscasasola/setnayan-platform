@@ -17,7 +17,7 @@ import type { BookingFeeStanding } from './booking-fee-disclosure';
 import { FIRST_BOOKING_ON_US_CLAUSE } from './booking-fee-lock';
 import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
-import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
+import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
@@ -54,12 +54,6 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
   const seats = allowance(c.agentAccounts, 'agentAccounts', paywallOn);
   const waitlist = allowance(c.waitlistAcceptances, 'waitlistAcceptances', paywallOn);
   const free = FREE_HELPER_SEATS > 0 ? ` + ${formatCount(FREE_HELPER_SEATS)} free Helper` : '';
-  // Nationwide is Ultra's `Infinity` (owner 2026-11-04) — never a km threshold: Pro reaches 100 km and is not nationwide.
-  const reach = !Number.isFinite(c.serviceRadiusKm)
-    ? 'Nationwide'
-    : c.serviceRadiusKm > 0
-      ? `${formatCount(c.serviceRadiusKm)} km around you`
-      : 'Not in couples’ search on this plan';
   const webPlan = firstPlanWith((x) => x.customWebsiteName);
   const branches = c.branchesIncluded > 0
     ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
@@ -77,7 +71,7 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'services',
       title: 'Services you can put up',
-      line: `${n(c.servicesPerLeaf)} per kind · ${Number.isFinite(c.parentCategories) ? `${formatCount(c.parentCategories)} ${plural(c.parentCategories, 'kind of work', 'kinds of work')}` : 'every kind of work'}`,
+      line: `${n(c.serviceCardsTotal)} in total · ${Number.isFinite(c.parentCategories) ? `${formatCount(c.parentCategories)} ${plural(c.parentCategories, 'kind of work', 'kinds of work')}` : 'every kind of work'}`,
     },
     {
       key: 'helpers',
@@ -89,14 +83,16 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'waitlist',
       title: 'Waiting list',
-      line: waitlist > 0 ? `${n(waitlist)} a date` : 'Not on this plan',
+      // No plan limit since 2026-11-18 (ruling 32): at the setting's own ceiling the shop chooses its number.
+      line: waitlist >= WAITLIST_SETTING_MAX ? `You choose, up to ${n(waitlist)} a date` : waitlist > 0 ? `${n(waitlist)} a date` : 'Not on this plan',
     },
     {
       key: 'holding',
       title: 'Asking for a date · couples at once',
       line: `${n(c.whitelistPerDate)} a date`,
     },
-    { key: 'reach', title: 'How far you reach', line: reach },
+    // ⛔ No "How far you reach" line since 2026-11-19 — reach is not a plan allowance (owner: "unlock the range. not plan
+    // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
       // 💾 Owner 2026-11-13 "plan storage": Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep
@@ -145,7 +141,7 @@ export function bookingFeeRow(
     case 'silent':
       return due ? { line: 'Bills waiting', badge: due } : null;
     case 'not_sourced':
-      return { line: 'Only on couples Setnayan brings you · your own clients are free', badge: due };
+      return { line: 'Free when you bring the event first · every other booking carries the fee', badge: due };
     case 'unreadable':
       return { line: 'Couldn’t check your fee just now — nothing changed', badge: due };
     case 'launch_offer':

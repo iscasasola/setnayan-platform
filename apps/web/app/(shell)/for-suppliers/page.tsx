@@ -1,19 +1,15 @@
 /**
- * /for-suppliers — "Not just a place to sell. A place to stay."
+ * /for-suppliers — "Run the business you already have."
  *
- * 🆕 REBUILT 2026-11-06 to the owner-approved page (`prototypes/for_suppliers_2026-11-06/index.html` in the spec
- * corpus; DECISION_LOG "SUPPLIER FRONT PAGE (/for-suppliers): ONE STORY FOR EVERYONE — APPROVED"). The page itself is
- * `SupplierFrontPage` (`app/for-suppliers/_components/supplier-front-page.tsx`); this file READS what it shows:
+ * 🆕 REBUILT 2026-11-20 to the owner-approved drawing `prototypes/for_suppliers_2026-11-20/` (spec corpus), which
+ * replaced the 6 Nov page ("Not just a place to sell. A place to stay."). Every line of the drawing ships only once
+ * its build is live — see the header of `SupplierFrontPage` (`app/for-suppliers/_components/supplier-front-page.tsx`)
+ * for what it shows instead. This file READS what it shows:
  *
  *   · the plan prices, year prices and the branch + seat add-ons → `getVendorPrices()` (the live catalog — never typed);
  *   · the booking fee → `getLiveBookingFeeSchedule()` + `isBookingFeeEnabled()` — the live schedule, never the code
  *     default (`fee-copy-reads-the-live-rate.test.ts`);
- *   · the sample shop's four codes → its REAL addresses (`buildVendorInviteUrl`, `checkADateUrl`, `myPageUrl`), drawn
- *     by the same `renderUrlQrSvg` the Promote screen uses.
- *
- * ⚠ THE SAMPLE SHOP (`SAMPLE_SHOP`, `setnayan-production`) does not exist under that address in production yet — the
- * demo shop is `setnaprod`, and it is a demo shop, which the public shop page opens to nobody. Until the owner renames
- * and opens it, every code and "See a real shop" lead to a closed page. Owner task, flagged in the PR.
+ *   (the 20 Nov drawing shows no sample-shop QR codes, so the page no longer draws them).
  *
  * 🧭 In the shell since 2026-11-04 (owner: *"the page is on the wrong shell"*): the front-door bar + rail come from
  * `app/(shell)/layout.tsx`, which also owns `force-dynamic` (`one-shell-mount.test.ts` forbids a page re-declaring
@@ -23,25 +19,23 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { SupplierFrontPage, type SupplierFrontCodes } from '@/app/for-suppliers/_components/supplier-front-page';
-import { SAMPLE_SHOP, growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
+import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
+import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { getVendorPrices } from '@/lib/v2-catalog';
+import { getCustomerSkuPrice, getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { supplierCommissionPromise, supplierCommissionShort } from '@/lib/commission-promise';
 import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
-import { renderUrlQrSvg } from '@/lib/qr';
-import { siteOrigin } from '@/lib/site-origin';
-import { checkADateUrl } from '@/lib/check-a-date';
-import { myPageUrl } from '@/lib/supplier-qr-codes';
-import { buildVendorInviteUrl } from '@/lib/vendor-couple-invite';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 
-const HEADLINE = 'Not just a place to sell. A place to stay.';
+/** The gift the "How Setnayan earns" row prices from — the smallest single gift a supplier can give (owner, 16 Nov). */
+const GIFT_FROM_SKU = 'PAPIC_GUEST_150';
+
+const HEADLINE = 'Run the business you already have.';
 
 /**
  * "Supplier Plus ₱… · Supplier Pro ₱…" — only the tiers whose price was READ. A tier whose
@@ -76,12 +70,12 @@ export async function generateMetadata() {
   const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Your shop, your calendar, your clients and your event day, in one place. Free to start. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — ${FIRST_BOOKING_ON_US_CLAUSE}, and your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       images: BRAND_OG_IMAGES,
       title,
-      description: `Your shop, your calendar, your clients and your event day, in one place · ${supplierCommissionShort(fee)} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
+      description: `Your clients, quotes and dates. One free place · ${supplierCommissionShort(fee)} · free when you bring the event first.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',
@@ -188,33 +182,14 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
   };
 }
 
-/** The sample shop's four scannable codes, at their real addresses. A code that fails to draw draws nothing. */
-async function sampleShopCodes(): Promise<SupplierFrontCodes> {
-  const origin = siteOrigin();
-  const page = myPageUrl(origin, SAMPLE_SHOP.slug);
-  const urls = {
-    shortlist: buildVendorInviteUrl(SAMPLE_SHOP.slug),
-    dates: checkADateUrl(origin, SAMPLE_SHOP.slug),
-    page,
-    review: `${page}#reviews`,
-  };
-  const draw = (url: string) => renderUrlQrSvg(url, 220).catch(() => '');
-  const [shortlist, dates, pageSvg, review] = await Promise.all([
-    draw(urls.shortlist),
-    draw(urls.dates),
-    draw(urls.page),
-    draw(urls.review),
-  ]);
-  return {
-    shortlist: { url: urls.shortlist, svg: shortlist },
-    dates: { url: urls.dates, svg: dates },
-    page: { url: urls.page, svg: pageSvg },
-    review: { url: urls.review, svg: review },
-  };
-}
-
 export default async function ForSuppliersPage() {
-  const [p, fee, codes] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule(), sampleShopCodes()]);
+  // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
+  // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
+  const [p, fee, papic150] = await Promise.all([
+    getVendorPrices(),
+    getLiveBookingFeeSchedule(),
+    getCustomerSkuPrice(GIFT_FROM_SKU),
+  ]);
   return (
     <>
       <script
@@ -237,9 +212,9 @@ export default async function ForSuppliersPage() {
             seat: p.seat,
             bySku: p.bySku,
           }}
+          giftFrom={papic150 ? `₱${papic150}` : null}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
-          codes={codes}
           afterPlans={
             /*
               THE RETURN LEG (owner, 2026-09-22): /pricing points here, and this points back — named for WHOSE prices

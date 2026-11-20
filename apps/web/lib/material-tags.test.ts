@@ -1,15 +1,16 @@
 /**
  * material-tags.test.ts — 🏷 EVERY MATERIAL A SHOP HANDS OUT NAMES ITSELF, AND THE NAME RIDES TO THE BOOKING (owner
- * 2026-11-16, DECISION_LOG b8d39503 · b95998b3 · d2e360e4).
+ * 2026-11-16, DECISION_LOG b8d39503 · b95998b3, and "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY PLAN" 34909f12
+ * with its same-day amendment, which superseded d2e360e4 "only Supplier Ultra's prints are the shop's own").
  *
  *   (a) every material's QR / link writes its `via`
  *   (b) `via` + utm ride view → inquiry → booking, and onto a NEW sign-up attribution
- *   (c) 💳 ONLY SUPPLIER ULTRA'S PRINTS ARE OWN — judged at INQUIRY time by the shop's CURRENT plan
+ *   (c) 💳 VERIFIED = OWN, ON ANY PLAN — the piece never decides the fee; the shop's verification at the inquiry does
  *
- * SABOTAGE (each run once and reverted before commit — see the PR body for the red lines):
- *   · drop `&& !shopOnUltra` in arrivalInquirySourceOf (every print free again)   → (c) RED
- *   · make the server judge skip the plan read (`claimedSource` passed through)   → (c) RED
- *   · read an expired Ultra as Ultra in shopOnUltraNow                             → (c) RED
+ * SABOTAGE (each run once and reverted before commit — see the PR STATUS for the red lines):
+ *   · make a print piece Setnayan-sourced in arrivalInquirySourceOf (the old Ultra gate) → (c) RED
+ *   · read the shop's plan (`tier_state`) in the inquiry's own decision                  → (c) RED
+ *   · let ownLinkArrival skip the verification read                                     → (c) RED
  *   · build the tarp's code with 'card' in the prints route                        → (a) RED
  *   · stop withShopArrival writing `via`                                           → (b) RED
  *   · stop stampThreadProvenance writing `inquiry_via`                             → (b) RED
@@ -19,20 +20,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
 import {
   MATERIAL_VIAS,
   PRINT_VIAS,
   SIGNUP_WINDOW_MS,
   arrivalUtmOf,
-  isPrintVia,
   materialViaOf,
-  shopOnUltraNow,
   viewCountsAsSignup,
   withVia,
 } from '@/lib/material-tags';
 import { PRINT_PIECE_IDS } from '@/lib/supplier-prints';
-import { arrivalInquirySourceOf, OWN_LINK_SRC, ownDatesUrl, ownPageUrl, ownReviewsUrl, photoMarkPageUrl, myPageUrl } from '@/lib/supplier-qr-codes';
+import { arrivalInquirySourceOf, OWN_LINK_SRC, ownDatesUrl, ownPageUrl, ownReviewsUrl, myPageUrl } from '@/lib/supplier-qr-codes';
+import { markQrUrl } from '@/lib/watermark-text';
+import { FEE_FREE_RULE, FEE_FREE_RULE_THIRD } from '@/lib/booking-fee-who-words';
 import { printQr, printQrUrl } from '@/lib/supplier-prints-shop';
 import { arrivalParams, withShopArrival } from '@/lib/shop-back';
 import { datesSheetHref } from '@/lib/check-a-date';
@@ -45,7 +45,6 @@ const WEB = join(import.meta.dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const O = 'https://www.setnayan.com';
 const SLUG = 'titanena';
-const NOW = Date.parse('2026-11-16T12:00:00Z');
 
 // ── the vocabulary ───────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -55,8 +54,6 @@ test('the ten words: the seven print pieces (PRINT_PIECES ids, in order), then s
   for (const v of MATERIAL_VIAS) assert.equal(materialViaOf(v), v);
   assert.equal(materialViaOf(' Tarp '), 'tarp', 'a hand-typed capital is the same piece');
   for (const bad of ['', 'flyer', 'card;drop', null, undefined, 3, ['card']]) assert.equal(materialViaOf(bad), null, `${String(bad)} is not a piece`);
-  assert.ok(isPrintVia('tarp') && isPrintVia('card'));
-  for (const v of ['sticker', 'link', 'photo', null, 'x']) assert.equal(isPrintVia(v), false, `${v} is not a print`);
 });
 
 test('the migration CHECKs carry exactly the same ten words, on all four columns', () => {
@@ -98,78 +95,59 @@ test('(a) the sticker, the share link, the on-screen codes and the photo mark ea
   assert.match(code('app/vendor-dashboard/shop/promote/_components/promote-body.tsx'), /printQrUrl\('reviews', origin, slug!, 'link'\)/);
   assert.match(code('lib/check-a-date-qr.ts'), /ownDatesUrl\(origin, slug, 'link'\)/);
   // 📸 b95998b3: the photo mark is Setnayan's — NO src=own (so the fee applies and it counts for badges), via=photo.
-  const photo = new URL(photoMarkPageUrl(O, SLUG));
+  // Main's photo-mark builder (`markQrUrl`, lib/watermark-text.ts) is the ONE builder for that address.
+  const photo = new URL(markQrUrl(SLUG));
   assert.equal(photo.searchParams.get('src'), null, 'the photo mark QR must never be the shop’s own');
-  assert.equal(photo.searchParams.get('via'), 'photo');
+  assert.equal(materialViaOf(photo.searchParams.get('via')), 'photo', 'the photo mark names a word in the vocabulary');
   assert.equal(`${photo.origin}${photo.pathname}`, myPageUrl(O, SLUG));
-  assert.equal(bookingFeeAttribution(arrivalInquirySourceOf(photo.searchParams.get('src'), 'photo', true)), 'sourced', 'a photo scan pays the fee even on Ultra');
+  assert.equal(bookingFeeAttribution(arrivalInquirySourceOf(photo.searchParams.get('src'))), 'sourced', 'a photo scan pays the fee on every plan');
+  assert.doesNotMatch(code('lib/supplier-qr-codes.ts'), /export function photoMarkPageUrl/, 'a second builder for the photo-mark address');
 });
 
-// ── (c) 💳 the Ultra-only own rule ───────────────────────────────────────────────────────────────────────────────────
+// ── (c) 💳 verified = own, on any plan ───────────────────────────────────────────────────────────────────────────────
 
-test('(c) a PRINT is the shop’s own only on Ultra — on any lower plan it is Setnayan-sourced and pays the fee', () => {
-  for (const piece of PRINT_VIAS) {
-    assert.equal(arrivalInquirySourceOf(OWN_LINK_SRC, piece, true), 'website', `${piece} on Ultra is own`);
-    assert.equal(arrivalInquirySourceOf(OWN_LINK_SRC, piece, false), 'shop_page', `${piece} below Ultra is sourced`);
-    assert.equal(arrivalInquirySourceOf(OWN_LINK_SRC, piece), 'shop_page', 'a caller that never read the plan gets the fee, never a waiver');
-    // …which is the money: the fee gate's own answer for each.
-    assert.equal(bookingFeeAttribution(arrivalInquirySourceOf(OWN_LINK_SRC, piece, true)), 'import');
-    assert.equal(bookingFeeAttribution(arrivalInquirySourceOf(OWN_LINK_SRC, piece, false)), 'sourced');
+test('(c) the piece never decides the stamp: every own code is the shop’s own, a print exactly like a link', () => {
+  assert.equal(arrivalInquirySourceOf.length, 1, 'the arrival rule takes the src alone — no piece, no plan');
+  assert.match(code('lib/supplier-qr-codes.ts'), /export function arrivalInquirySourceOf\(src: unknown\): /, 'the arrival rule takes a piece or a plan again');
+  // Even a caller that hands it a piece and "not Ultra" (the superseded call shape) gets the shop's own code back.
+  const loose = arrivalInquirySourceOf as unknown as (...a: unknown[]) => string;
+  for (const piece of MATERIAL_VIAS) assert.equal(loose(OWN_LINK_SRC, piece, false), 'website', `${piece} below Ultra is still the shop’s own code`);
+  assert.equal(arrivalInquirySourceOf(OWN_LINK_SRC), 'website');
+  for (const piece of MATERIAL_VIAS.filter((v) => v !== 'photo')) {
+    const url = new URL(piece === 'sticker' || piece === 'link' ? ownPageUrl(O, SLUG, piece) : printQr('page', O, SLUG, piece).url);
+    assert.equal(arrivalInquirySourceOf(url.searchParams.get('src')), 'website', `${piece} is the shop’s own code`);
+    assert.equal(bookingFeeAttribution(arrivalInquirySourceOf(url.searchParams.get('src'))), 'import', `${piece} is the shop’s own client once verified`);
   }
-  // Not prints — the 13 Nov rule stands (whether the Ultra rule covers them is OPEN for the owner in d2e360e4).
-  for (const v of ['sticker', 'link', null, 'not-a-piece']) {
-    assert.equal(arrivalInquirySourceOf(OWN_LINK_SRC, v, false), 'website', `${v} is unchanged`);
+  assert.equal(arrivalInquirySourceOf(undefined), 'shop_page', 'a piece without src=own is never own');
+  // No plan is read for this anywhere: the Ultra helpers are gone with the superseded ruling.
+  for (const rel of ['lib/material-tags.ts', 'lib/supplier-qr-codes.ts', 'lib/supplier-prints-shop.ts', 'app/v/[slug]/inquiry-actions.ts']) {
+    assert.doesNotMatch(code(rel), /shopOnUltra|readShopOnUltraNow|isPrintVia/, `${rel} judges a print by the shop’s plan again`);
   }
-  assert.equal(arrivalInquirySourceOf(undefined, 'card', true), 'shop_page', 'a print tag without src=own is never own');
-  assert.equal(arrivalInquirySourceOf('explore', 'card', false), 'explore');
 });
 
-test('(c) Ultra NOW: enterprise and not lapsed — a dropped or lapsed shop is not Ultra', () => {
-  assert.equal(shopOnUltraNow({ tier_state: 'enterprise', tier_expires_at: null }, NOW), true);
-  assert.equal(shopOnUltraNow({ tier_state: 'enterprise', tier_expires_at: '2026-12-01T00:00:00Z' }, NOW), true);
-  assert.equal(shopOnUltraNow({ tier_state: 'enterprise', tier_expires_at: '2026-11-16T11:59:59Z' }, NOW), false, 'lapsed before the sweep lowered it');
-  assert.equal(shopOnUltraNow({ tier_state: 'enterprise', tier_expires_at: 'soon' }, NOW), false, 'an unreadable expiry is not Ultra');
-  for (const t of ['pro', 'solo', 'verified', 'free', null, 'ENTERPRISE']) {
-    assert.equal(shopOnUltraNow({ tier_state: t, tier_expires_at: null }, NOW), false, `${t} is not Ultra`);
-  }
-  assert.equal(shopOnUltraNow(null, NOW), false, 'no row is not Ultra');
-});
-
-test('(c) the server re-judges a print with the plan read AT THE INQUIRY, before anything is stamped', () => {
+test('(c) the inquiry asks the shop’s VERIFICATION, read at that moment, before anything is stamped', () => {
   const action = code('app/v/[slug]/inquiry-actions.ts');
   assert.match(
     action,
-    /const declaredSource =\s*claimedSource === 'website' && isPrintVia\(via\)\s*\? arrivalInquirySourceOf\(OWN_LINK_SRC, via, await readShopOnUltraNow\(admin, vendorProfileId\)\)\s*: claimedSource;/,
-    'a print below Ultra must be re-stamped shop_page on the server',
+    /declaredSource === 'website' && !referral\s*\? await ownLinkArrival\(admin, vendorProfileId, eventId\)/,
+    'an own arrival must be judged by ownLinkArrival on the server',
   );
+  assert.match(action, /const ownedSource = arrival === 'not_own' \? 'shop_page' : declaredSource;/, 'an unverified shop’s scan is Setnayan-sourced');
   const stampAt = action.indexOf('await stampThreadProvenance(threadId, {');
-  assert.ok(stampAt > action.indexOf('const declaredSource ='), 'the plan is judged before the stamp');
-  assert.match(action.slice(stampAt, stampAt + 300), /inquirySource: referral \? 'influencer' : declaredSource,/);
-  // The plan read: the shop's own subscription row, never the promotion-aware resolver; a failed read is not Ultra.
-  const server = code('lib/material-tags.server.ts');
-  assert.match(server, /\.select\('tier_state, tier_expires_at'\)/);
-  assert.match(server, /if \(error\) \{\s*logQueryError\([^;]*\);\s*return false;/);
-  assert.doesNotMatch(server, /resolveVendorTier/);
+  assert.ok(stampAt > action.indexOf('const ownedSource ='), 'verification is judged before the stamp');
+  assert.match(action.slice(stampAt, stampAt + 300), /inquirySource: referral \? 'influencer' : ownedSource,/);
+  assert.doesNotMatch(action.slice(action.indexOf('const declaredSource ='), stampAt), /tier_state|tier_expires_at|resolveVendorTier/, 'the plan decides "own" again');
+  // ownLinkArrival: verification FIRST, on any plan; a failed read is 'unknown' (never charged on), unverified is not own.
+  const own = code('lib/own-clients.server.ts');
+  const fn = own.slice(own.indexOf('export async function ownLinkArrival('), own.indexOf('export type ClientInviteRow'));
+  assert.match(fn, /const verified = await fetchShopVerified\(admin, vendorProfileId\);\s*if \(verified === null\) return 'unknown';\s*if \(!verified\) return 'not_own';/);
+  assert.doesNotMatch(fn, /tier_state|enterprise|Ultra/i, 'own-ness reads the plan');
+  assert.equal(bookingFeeAttribution('shop_page'), 'sourced');
 });
 
-test('(c) readShopOnUltraNow: Ultra row → true; a refused read or a lower plan → false', async () => {
-  // `server-only` shim (the shape of lib/a-booking-freezes-the-plan-it-agreed-to.test.ts) before the dynamic import.
-  type Ctor = { _resolveFilename: (r: string, ...rest: unknown[]) => string; _cache: Record<string, unknown>; new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] } };
-  const M = (createRequire(import.meta.url)('node:module') as { Module: Ctor }).Module;
-  const STUB = join(process.cwd(), '__server_only_stub_material_tags__.js');
-  const stub = new M(STUB);
-  Object.assign(stub, { filename: STUB, loaded: true, exports: {}, paths: [] });
-  M._cache[STUB] = stub;
-  const resolve = M._resolveFilename;
-  M._resolveFilename = function (r: string, ...rest: unknown[]) {
-    return r === 'server-only' ? STUB : resolve.call(this, r, ...rest);
-  };
-  const { readShopOnUltraNow } = await import('@/lib/material-tags.server');
-  const fake = (result: { data: unknown; error: unknown }) =>
-    ({ from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => result }) }) }) }) as never;
-  assert.equal(await readShopOnUltraNow(fake({ data: { tier_state: 'enterprise', tier_expires_at: null }, error: null }), 'v1', NOW), true);
-  assert.equal(await readShopOnUltraNow(fake({ data: { tier_state: 'pro', tier_expires_at: null }, error: null }), 'v1', NOW), false);
-  assert.equal(await readShopOnUltraNow(fake({ data: null, error: { message: 'refused', code: '42501' } }), 'v1', NOW), false);
+test('(c) the quoted fee words say the same rule: free only for a verified shop', () => {
+  assert.match(FEE_FREE_RULE, /verified shops only/);
+  assert.match(FEE_FREE_RULE_THIRD, /^A verified supplier/);
 });
 
 // ── (b) the piece rides view → inquiry → booking → sign-up ───────────────────────────────────────────────────────────

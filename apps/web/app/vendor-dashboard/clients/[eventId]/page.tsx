@@ -68,6 +68,9 @@ import { readVendorHeadcountRule, type SupplierHeadcount } from '@/lib/supplier-
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
+import { QuoteTopLines } from './_components/quote-top-lines';
+import { quotePlanLine } from '@/lib/quote-top-lines';
+import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
   PROPOSAL_STATUS_LABEL,
   PROPOSAL_STATUS_TONE,
@@ -129,8 +132,10 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
 import { readSettlePay } from '@/lib/booking-fee-settle-pay.server';
@@ -173,16 +178,24 @@ import { DetailsNumbersRow } from './_components/details-numbers-row';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
-import { ScheduleCalendar } from './_components/schedule-calendar';
+import { ScheduleDays } from './_components/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { DetailsFormsDoor } from './_components/details-forms-door';
+import { ClientChatStrip } from './_components/client-chat-strip';
+import { chatStrip, nextDated, suggestedStep } from '@/lib/client-chat-strip';
+import { manilaDayAndTime } from '@/lib/schedule-days';
+import { readOpenFormCount } from '@/lib/vendor-forms.server';
+import { refundedTotalPhp } from '@/lib/client-refunds';
+import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
 import { PickedClientShell } from './_components/picked-client-shell';
+import { SupplierColumns } from '../../_components/supplier-columns';
 import { pickedClientCloseHref } from '@/lib/picked-client-close';
 import { PickedClientSettings } from './_components/picked-client-settings';
 import {
   SCRIPT_FOLD_ID,
+  pickedAnchorOf,
   pickedMenuFor,
   visiblePickedPage,
   wantsScriptFold,
@@ -250,6 +263,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
+import { dealAskOf, quoteLinesOf, theirAskTotalCentavos, theirOpenAsk, type DealAskDbRow } from '@/lib/chat-deal';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
@@ -1012,6 +1026,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         }),
         readDayCheck(supabase, lockRequest.event_vendor_id),
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
+        piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
@@ -1103,9 +1118,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
   // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
   // to "Pick which stay on" and the card says why, naming the service.
-  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
+  const [feeForecast, dayCheck, heldService, askPieces]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null, PiecesAsk | null] = lockRequest?.event_vendor_id
     ? await askReadsP!
-    : [null, null, null];
+    : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
@@ -1249,6 +1264,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     bare landing opens Details. The full-screen thread route stays for the envelope doors (6 Nov ruling).
   */
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
+  // 💬 THE CHAT STRIP'S TWO OWN READS (19 Nov 2026) — flag ON only, started now and awaited at the shell: the hosts'
+  // newest open counter (the Deal box, before booking) and how many sent forms are still open (booked only — Forms is
+  // shut before). Everything else the strip says comes from reads this page already made.
+  const stripAsksP =
+    relationshipShellEnabled && !isBooked && threadId ? startRead(supabase.rpc('change_asks_read', { p_thread_id: threadId })) : null;
+  const stripFormsP =
+    relationshipShellEnabled && isBooked
+      ? startRead(readOpenFormCount(supabase, { eventId, vendorProfileId: profile.vendor_profile_id }).catch(() => ({ status: 'unread' as const })))
+      : null;
   const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
 
   /*
@@ -1877,9 +1901,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // event, both under the vendor's own RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  // 🔎 A refused appointments read is KEPT (19 Nov 2026 review): the days strip says "couldn't load", never an empty day.
+  let appointmentsReadFailed = false;
   if (isBooked) {
     const apptCats = appointmentCategoriesFor(brief.booked_categories);
-    const [{ data: catalogRows }, { data: apptRows }] = await Promise.all([
+    const [{ data: catalogRows }, { data: apptRows, error: apptError }] = await Promise.all([
       supabase
         .from('appointment_type_catalog')
         .select('category, type, label, default_mode, default_duration_min, sort_order')
@@ -1894,6 +1920,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false }),
     ]);
+    if (apptError) {
+      appointmentsReadFailed = true;
+      console.error('[client-page] appointments read failed', apptError);
+    }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
       type: string;
@@ -1920,16 +1950,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // counts them with the Clients tile's own rule (`openMeetingsWindow`), never a hard-coded "none yet" over a real one.
   // A refused read is `null` ("couldn't load").
   let openMeetings: number | null = 0;
+  // 💬 The same read now keeps WHICH meetings (the chat strip's Next box, 19 Nov 2026) — still one request, the count
+  // is the rows it returned.
+  let openMeetingRows: { type: string; custom_label: string | null; scheduled_at: string | null; status: string }[] = [];
   if (!isBooked) {
-    const { count, error } = await supabase
+    const { data: meetingRows, error } = await supabase
       .from('event_appointments')
-      .select('appointment_id', { count: 'exact', head: true })
+      .select('appointment_id, type, custom_label, scheduled_at, status')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('status', [...OPEN_MEETING_STATUSES])
       .or(openMeetingsWindow(manilaTodayIso()));
     if (error) logQueryError('vendorClientCard.openMeetings', error, { eventId }, 'graceful_degrade');
-    openMeetings = error ? null : (count ?? 0);
+    openMeetingRows = error ? [] : ((meetingRows ?? []) as typeof openMeetingRows);
+    openMeetings = error ? null : openMeetingRows.length;
   }
 
   clientTimer.flush();
@@ -1962,6 +1996,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           them a request they could read and not answer. A decision with a
           seven-day fuse may not be reachable from exactly one screen. Same two
           server actions, no second state machine. */}
+      {/* 🕯 The Tie (motion standard § 9 ①) — the supplier just agreed (`?lock_agree=ok`): once per booking on this device,
+          still on a reload. It takes "booking confirmed" from Celebrate — Celebrate's booking hook renders this part. */}
+      {search.lock_agree === 'ok' && lockNotice?.tone === 'ok' ? (
+        <div className="mb-3" data-lock-tie="">
+          <TheTie
+            bookingId={`shop:${profile.vendor_profile_id}:${eventId}`}
+            couple={{ name: eventName, sub: fmtShortDate(brief.event.event_date) || null }}
+            supplier={{ name: profile.business_name }}
+          />
+        </div>
+      ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
       {lockRequest ? (
@@ -1977,6 +2022,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          askPieces={askPieces}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />
@@ -2596,8 +2642,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
 
   // ------------------------------------------------------------------------
   // "Your next move" — decided in lib/supplier-next-move.ts and EXECUTED by its test. It was the desktop context
-  // rail of the old tab shell (lg+ only); THE ONE BUILD keeps it, still desktop-only, on Details beside the stage
-  // strip it explains. Its two quick links (Chat · Payments) are gone — both are pages of the menu now.
+  // rail of the old tab shell (lg+ only), then a desktop-only card on Details. Its two quick links (Chat · Payments)
+  // are gone — both are pages of the menu now.
+  // 🖥 Lane 5 (owner 2026-11-13, "nothing may exist only on desktop"): from 701 it is Details' RIGHT COLUMN
+  // (`SupplierColumns`, as the Hub's event card is); below 701 the same card sits in the list, where it stood on a desk.
   // ------------------------------------------------------------------------
   const inquiryStatus: string | null = thread?.inquiry_status ?? null;
   const nextMove = supplierNextMove(
@@ -2614,7 +2662,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     eventName,
   );
   const nextMoveCard = (
-    <div className="hidden lg:block" data-next-move="">
+    <div data-next-move="">
       <ShopCard pad="tight">
         <p className="home-k2 !mt-0 !mb-0">Your next move</p>
         <div className="mt-2">
@@ -2642,65 +2690,174 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     numbers — they are the next thing to do. Decisions is the LIST, in place (Build 2 #42): drawn by the thread page
     from the ONE draw Chat and Quotation share — 0 requests of Details' own.
   */
+  // 🖥 From 701: the Details list left, "Your next move" right. The pane sits inside the picked screen's own scroller, so
+  // it pins to that scroller's top (not the frame's pin line) and is as tall as the card.
   const detailsShipped = (
-    <div className="space-y-4" data-details-shipped="">
-      {pipelineBlock}
-      <DetailsNumbersRow cells={numbersCells} />
-      {askAnswerBlock}
-      {/* 🗓 The two answers Today used to own (date change · removal request), on THIS client — C1's ONE mount (A2 A8),
-          read only for a booked client (both ask a booked/paid shop); an answer given here lands back here. */}
-      {isBooked ? (
-        <ClientDayAnswers
-          eventId={eventId}
-          vendorProfileId={profile.vendor_profile_id}
-          coupleName={eventName}
-          eventDate={brief.event.event_date}
-        />
-      ) : null}
-      {badgesRow}
-      {/* 🗂 The coordinator's door (owner 2026-10-28). */}
-      {runsThisEvent ? (
-        <div className="flex flex-wrap gap-2">
-          <OpenTheirEvent eventId={eventId} />
-        </div>
-      ) : null}
-      {nextMoveCard}
-      {/* 👥 `brief.hosts` — C2's `event_chat_hosts()` on every rung (spec §9 #1); an unread list draws nothing. */}
-      <HostsList hosts={hostRows(brief.hosts)} />
-      {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
-      {overviewNode}
-      {coupleAnswersNode}
-      {feeLockPanel}
-      {/* Item 2 of the ruling — "the request to access features". The panel
-          above already says why, so this withholds rather than repeating it. */}
-      {feeUnlocked ? askBlock : null}
-      {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
-      {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
-      {isBooked && feeUnlocked ? (
-        <VendorCompletionCard
-          eventId={eventId}
-          isCompleteConfirmed={isCompleteConfirmed}
-          isDisputed={isDisputed}
-          isVendorMarked={isVendorMarked}
-          notice={completedNotice}
-        />
-      ) : null}
-      {/* Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. */}
-      <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />
-      <DetailsFormsDoor eventName={eventName} />
+    <div className="tab:[&_.sn-cols-pane]:top-0 tab:[&_.sn-cols-pane]:h-auto" data-details-cols="">
+      <SupplierColumns
+        name="client-details"
+        paneLabel={`${eventName} · your next move`}
+        pane={<div className="tab:pl-4">{nextMoveCard}</div>}
+        list={
+          <div className="space-y-4 tab:pr-4" data-details-shipped="">
+            {pipelineBlock}
+            <DetailsNumbersRow cells={numbersCells} />
+            {askAnswerBlock}
+            {/* 🗓 The two answers Today used to own (date change · removal request), on THIS client — C1's ONE mount (A2 A8),
+                read only for a booked client (both ask a booked/paid shop); an answer given here lands back here. */}
+            {isBooked ? (
+              <ClientDayAnswers
+                eventId={eventId}
+                vendorProfileId={profile.vendor_profile_id}
+                coupleName={eventName}
+                eventDate={brief.event.event_date}
+              />
+            ) : null}
+            {badgesRow}
+            {/* 🗂 The coordinator's door (owner 2026-10-28). */}
+            {runsThisEvent ? (
+              <div className="flex flex-wrap gap-2">
+                <OpenTheirEvent eventId={eventId} />
+              </div>
+            ) : null}
+            {/* 📱 The phone's copy of the card: the right column is not drawn below 701, so it stays in the list there. */}
+            <div className="tab:hidden" data-next-move-phone="">
+              {nextMoveCard}
+            </div>
+            {/* 👥 `brief.hosts` — C2's `event_chat_hosts()` on every rung (spec §9 #1); an unread list draws nothing. */}
+            <HostsList hosts={hostRows(brief.hosts)} />
+            {/* The brief, from the REDACTED payload at every locked stage — then what the couple told you beside it (v113 `det`). */}
+            {overviewNode}
+            {coupleAnswersNode}
+            {feeLockPanel}
+            {/* Item 2 of the ruling — "the request to access features". The panel
+                above already says why, so this withholds rather than repeating it. */}
+            {feeUnlocked ? askBlock : null}
+            {/* The other booked suppliers — the brief carries them from booking on; absent before. */}
+            {isBooked ? <SuppliersList rows={supplierRows((brief as { vendor_roster?: unknown }).vendor_roster)} /> : null}
+            {isBooked && feeUnlocked ? (
+              <VendorCompletionCard
+                eventId={eventId}
+                isCompleteConfirmed={isCompleteConfirmed}
+                isDisputed={isDisputed}
+                isVendorMarked={isVendorMarked}
+                notice={completedNotice}
+              />
+            ) : null}
+          </div>
+        }
+      />
     </div>
   );
 
+  // ➡ THE NEXT STEP ROW (owner 18 Nov 2026) — from reads above; an unread stage gives no row (`lib/client-next-step.ts`).
+  const nextStepSteps = planRowsAll.flatMap((p) => p.steps ?? []);
+  const nextDueRollup = computePlanRollup(nextStepSteps).next;
+  const crewCalls = myTasksRes.error
+    ? undefined
+    : crewHere.map((c) => c.startIso).filter((at) => at.slice(0, 10) === (brief.event.event_date ?? '').slice(0, 10)).sort();
+  const nextStep = clientNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: brief.event.event_date ?? null,
+    isBooked,
+    quoteWaiting: proposalRowsError ? null : isQuoted && !isAccepted && !lockRequest,
+    nextDue: !planReadComplete ? undefined : nextDueRollup ? { amountPhp: nextDueRollup.amountPhp, dueDate: nextDueRollup.dueDate } : null,
+    crewCallAt: crewCalls === undefined ? undefined : (crewCalls[0] ?? null),
+    handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
+  });
+
+  // 💬 THE CHAT STRIP (owner 19 Nov 2026 — the client page is ONE chat that holds everything; `lib/client-chat-strip.ts`).
+  // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
+  // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
+  const stripToday = manilaTodayIso();
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        ledgerUnreadable,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  const stripAsksRes = stripAsksP ? await stripAsksP : null;
+  const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
+  if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
+  // Their ask: ONE rule with Every version (`lib/chat-deal.ts`) — picked by `theirOpenAsk`, a one-line counter made a total.
+  const theirOpenAskRow = stripAsks ? theirOpenAsk(stripAsks, stripToday) : null;
+  const theirAskTotal =
+    theirOpenAskRow && sentQuote
+      ? theirAskTotalCentavos(theirOpenAskRow, { totalCentavos: sentQuote.total_centavos, lines: quoteLinesOf(sentQuote.line_items) })
+      : null;
+  const stripForms = stripFormsP ? await stripFormsP : null;
+  const stripMeetings = isBooked
+    ? appointmentsReadFailed
+      ? null
+      : appointmentViews.map((a) => ({ title: a.label, day: manilaDayAndTime(a.scheduled_at)?.day ?? null, status: a.status }))
+    : openMeetings === null
+      ? null
+      : openMeetingRows.map((a) => ({ title: resolveAppointmentLabel(a, {}), day: manilaDayAndTime(a.scheduled_at)?.day ?? null, status: a.status }));
+  const stripNext = nextDated({ todayIso: stripToday, eventDate: brief.event.event_date ?? null, meetings: stripMeetings });
+  const stripBoxes = chatStrip({
+    isBooked,
+    todayIso: stripToday,
+    peso: (php) => fmtPeso(php),
+    paid: stripPay && !(stripPay.partial && stripPay.paidPhp === null)
+      ? { paidPhp: stripPay.paidPhp, agreedPhp: stripPay.agreedPhp, next: stripPay.next }
+      : null,
+    quote: proposalRowsError ? null : sentQuote ? { totalPhp: sentQuote.total_centavos / 100, sentAt: sentQuote.sent_at ?? sentQuote.created_at ?? null, validUntil: sentQuote.valid_until ?? null } : undefined,
+    theirAsk: !threadId ? undefined : stripAsks === null ? null : theirAskTotal != null ? theirAskTotal / 100 : undefined,
+    next: stripNext,
+    forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
+    step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,
+  });
+  const stripSuggest = suggestedStep({
+    hasThread: Boolean(threadId),
+    isBooked,
+    peso: (php) => fmtPeso(php),
+    hasQuote: proposalRowsError ? null : Boolean(sentQuote),
+    hasMeetingAhead: stripMeetings === null ? null : stripMeetings.some((m) => m.day !== null && m.day >= stripToday),
+    nextDue: !stripPay || (stripPay.partial && stripPay.paidPhp === null) ? undefined : stripPay.next && !stripPay.next.check ? { amountPhp: stripPay.next.amountPhp } : null,
+  });
+  // 💬 The first inquiry, as a card (drawing screen 10): what the supplier may already see of the event. A fact the
+  // brief holds back until they book is `undefined` (said as "After they book"), never "Not given".
+  const paxAsked = thread?.pax_current ?? thread?.pax_at_inquiry ?? null;
+  const inquiryFacts = threadId
+    ? {
+        date: brief.event.event_date ?? null,
+        guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,
+        venue: brief.event.venue_name || brief.event.region || null,
+        budget: brief.budget_band ? `${fmtPesoCentavos(brief.budget_band.lo_centavos)} – ${fmtPesoCentavos(brief.budget_band.hi_centavos)}` : null,
+        hasQuote: Boolean(sentQuote),
+      }
+    : null;
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
+    // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
+    decisions: <DetailsDecisions threadId={threadId} eventId={eventId} threadSearch={pickedCtx.threadSearch} />,
     shipped: {
       details: detailsShipped,
       schedule: (
         <>
-          {/* 📅 v113 `calC`: the shop's month first — the Clients calendar itself, this event's day picked (one request,
-              on first view; the shop's own calendar, so outside the fee gate). No date yet → no month to point at. */}
-          {brief.event.event_date ? <ScheduleCalendar eventDate={brief.event.event_date} todayIso={manilaTodayIso()} /> : null}
-          {gated(scheduleNode)}
+          {/* 📅 THE DAYS STRIP (owner 18 Nov 2026, drawing NL5NDoD6 v7 — replaces v113's shop month here): this client's
+              days on top — the event day(s), Meeting-card days, payment due days, all from reads above — with "All
+              clients" asking the Clients month (one request, only when chosen). The blow-by-blow below is unchanged. A
+              chapter's day is operating detail, so it joins only once the fee unlocks the event. */}
+          <ScheduleDays
+            eventId={eventId}
+            eventName={eventName}
+            eventDate={brief.event.event_date ?? null}
+            todayIso={manilaTodayIso()}
+            items={clientScheduleDays({
+              eventDate: brief.event.event_date ?? null,
+              chapters: feeUnlocked ? allBlocks : [],
+              meetings: appointmentViews,
+              payments: planRowsAll.flatMap((p) => p.steps ?? []),
+            })}
+            unread={scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })}
+          >
+            {gated(scheduleNode)}
+          </ScheduleDays>
           {/* The Script fold sits at the END of Schedule (7 Nov ruling) — same entitlement gate as before. */}
           {showScript ? (
             <section id={SCRIPT_FOLD_ID} className="mt-6 scroll-mt-4" data-script-fold="">
@@ -2737,6 +2894,22 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           ? { eventVendorId, clientName: eventName, measured: clientRefunds.measured, rows: clientRefunds.rows }
           : undefined,
     },
+    // 🧾 Owner 18 Nov 2026: "Paid N of M · Next due ›" → Payment and "Who it counts · rule · N", above the quote. Both
+    // from reads above (the plan, `get_vendor_headcount_rule`) — booked only, as Payment is.
+    quoteTop: isBooked ? (
+      <QuoteTopLines
+        eventId={eventId}
+        plan={(() => {
+          const steps = planRowsAll.flatMap((p) => p.steps ?? []);
+          return quotePlanLine(planReadComplete, steps, computePlanRollup(steps).next?.dueDate ?? null);
+        })()}
+        count={
+          headcountRule
+            ? { rule: ruleWords(headcountRule.mode, [...ruleRoleLabels(headcountRule.roles, headcountNames), ...headcountRule.groups]), counted: headcountRule.counted }
+            : null
+        }
+      />
+    ) : null,
   });
 
   return (
@@ -2748,7 +2921,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
       initialPage={visiblePickedPage(rawTab, isBooked)}
       bodies={bodies}
-      scrollToScript={wantsScriptFold(rawTab) && showScript}
+      landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
+      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} />}
+      suggest={stripSuggest}
+      inquiry={inquiryFacts}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

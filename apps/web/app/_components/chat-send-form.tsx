@@ -29,14 +29,48 @@
 //      message SHOWS AT ONCE: Send paints a faded "Sending…" bubble in the
 //      stream before the server answers (`lib/chat-optimistic.ts`), and a send
 //      that fails says "Not sent · Try again" in words — never a silent loss.
+//   6. (2026-11-19 · "MESSAGE ⇄ WHISPER APPROVED", drawing `prototypes/chat_send_to_private_2026-11-19.html`) ONE BOX:
+//      the ＋ sits inside its left end and Send inside its right end, and Send is ink at rest. On a HOST's composer
+//      (`whisper` given) dragging the BOX right — never Send — turns Whisper on: the next lines reach the co-hosts
+//      only, the supplier never. It stays on until the box is dragged again, and the switch never sends. The 🔒 button
+//      is gone there (a face in the strip is still private to one person). The rules are `lib/chat-whisper.ts`.
+//   7. (2026-11-19 · "THE CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING", drawing S9ScH2Ps v3, screens 5 · 11) On the
+//      supplier's client chat (`kinds`): a SLIDERS button inside the box, before Send, raises the chips above it —
+//      All · Decisions · Forms · Money · Dates · Files, each with its count — and one picked chip filters the stream
+//      (`lib/chat-kind-store.ts`; it replaces the Chat · Decisions · Files switch that sat under the head). And ONE
+//      suggested step sits inside the box, left of "Message" (`ChatHome.suggest`): it opens the same card its (+) row
+//      opens, and it steps away the moment a word is typed.
 
 import { CHAT_SENT_AS_FIELD, type ChatSentAs } from '@/lib/chat-sent-as';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Camera, ImageIcon, Lock, Paperclip, SendHorizontal, X } from 'lucide-react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { Camera, ImageIcon, Lock, Paperclip, SlidersHorizontal, X } from 'lucide-react';
+import { useChatHome } from '@/app/_components/chat/chat-home';
+import { KIND_CHIPS } from '@/lib/chat-kinds';
+import { pickKind, useKinds } from '@/lib/chat-kind-store';
+import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
 import { CHAT_PRIVATE_FIELD, PRIVATE_BOX_FILL, PRIVATE_BOX_OUTLINE, PRIVATE_FOCUS_RING, PRIVATE_MARK, PRIVATE_WORDS_ONLY_MESSAGE, joinNames, privateBoxPlaceholder } from '@/lib/chat-private';
 import { setPrivateTo, useChatPeople, usePrivateReply, usePrivateTo } from '@/app/_components/chat/private-to';
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
+import { setWhisper, useWhisper } from '@/app/_components/chat/whisper-mode';
+import { WhisperSendIcon } from '@/app/_components/chat/whisper-send-icon';
+import { ConfirmDialog } from '@/app/_components/confirm-dialog';
+import {
+  CHAT_WHISPER_FIELD,
+  LEFT_WHISPER_ASK,
+  MESSAGE_PLACEHOLDER,
+  WHISPER_OFF_LINE,
+  WHISPER_OFF_LINE_STAY_MS,
+  WHISPER_ON_LINE,
+  WHISPER_PLACEHOLDER,
+  WHISPER_WORDS_ONLY_MESSAGE,
+  dragFollowPx,
+  dragSwitches,
+  dragVerdict,
+  everyoneWillSeeLine,
+  leftWhisperAskBody,
+  whisperBlockedLine,
+} from '@/lib/chat-whisper';
 import { SubmitButton } from './submit-button';
 import { pressMs } from './press-feel';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -99,6 +133,18 @@ type Props = {
    * no "/", no file. The string is why, said under the box ("Settle ₱X booking fee to use this"). Absent → as shipped.
    */
   wordsOnly?: string | null;
+  /**
+   * 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19) — passed ONLY by the host's thread page, in a chat with a supplier.
+   * `supplierName` is the name the mis-send reminder says ("Everyone will see this, including Mang Ben."); `coHosts` is
+   * how many OTHER hosts are in this chat now (the people a whisper reaches — the server decides the list again at
+   * Send); `unread` = that read FAILED, so a drag says it could not load — never "no co-host". Absent → no drag, no whisper (the supplier's composer, a group chat): the box is exactly as before.
+   */
+  whisper?: { supplierName: string; coHosts: number; unread?: boolean } | null;
+  /**
+   * 💬 THE CHIPS (owner 19 Nov 2026) — passed ONLY by the supplier's thread page inside the picked client: the sliders
+   * button in the box, the kind chips above it, and the one suggested step. Absent → the box exactly as before.
+   */
+  kinds?: boolean;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -107,7 +153,16 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null, whisper = null, kinds = false }: Props) {
+  /* 💬 The chips (19 Nov 2026). The picked kind is the chat's own (`chat-kind-store`): the stream filters by it and
+     publishes each kind's count; this box only shows and picks. The sliders button opens the chips; pressed again — or
+     All — it shows everything. */
+  const kindState = useKinds(threadId);
+  const [chipsUp, setChipsUp] = useState(false);
+  const filtering = kinds && kindState.view !== 'all';
+  const chipsShown = kinds && (chipsUp || filtering);
+  const home = useChatHome();
+
   const feeWordsOnly = Boolean(wordsOnly);
   // 🔒 MESSAGING ONE PERSON PRIVATELY (DECISION_LOG 2026-11-09 🔒), set by a face in the host strip. While it is on the message is
   // WORDS ONLY (owner, 9 Nov: "private messages are just words. everything else is public."): the ＋ and every attach
@@ -128,11 +183,20 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
      While private they also LEAVE the page once they are out (words only: no ＋, no file input) — and a composer drawn
      already private never draws them at all. Reduced motion: the same end states, no movement. */
   const toolsOut = Boolean(privateTo) || hasDraft;
+  /* 🤫 WHISPER (owner, 19 Nov). On only where the page offers it (a host, in a supplier's chat), never while a private
+     recipient is set (that door has its own ×) and never under the fee's words-only lock. Like a private line a whisper
+     is WORDS ONLY: the ＋ folds away inside the box and every attach leaves the page with it. */
+  const canWhisper = Boolean(whisper) && !feeWordsOnly && !privateTo;
+  const whisperOn = useWhisper(threadId) && canWhisper;
+  const wordsMode = Boolean(privateTo) || whisperOn;
+  // 💬 The one suggested step shows only in an empty, ordinary box — gone once a word is typed, never in a words-only box.
+  const suggestOn = kinds && Boolean(home?.suggest) && !hasDraft && !wordsMode && !feeWordsOnly;
+  const toolsAway = toolsOut || whisperOn;
   const reduceMotion = usePrefersReducedMotion();
-  const [toolsMounted, setToolsMounted] = useState(!privateTo && !feeWordsOnly);
-  const [toolsShown, setToolsShown] = useState(!toolsOut);
+  const [toolsMounted, setToolsMounted] = useState(!wordsMode && !feeWordsOnly);
+  const [toolsShown, setToolsShown] = useState(!toolsAway);
   useEffect(() => {
-    if (!toolsOut) {
+    if (!toolsAway) {
       setToolsMounted(true);
       // One frame drawn "out" first, so the way back in is a slide, not a jump.
       let inner = 0;
@@ -145,7 +209,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       };
     }
     setToolsShown(false);
-    if (!privateTo) return;
+    if (!wordsMode) {
+      // Away only because of a draft: the tools stay ON the page (slid out, inert), so the one file input is still
+      // there for a dropped or pasted file — also right after leaving Whisper or a private line with words typed.
+      setToolsMounted(!feeWordsOnly);
+      return;
+    }
     if (reduceMotion) {
       setToolsMounted(false);
       return;
@@ -153,7 +222,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     const ms = pressMs(getComputedStyle(document.documentElement).getPropertyValue('--sn-pill-dur'));
     const t = window.setTimeout(() => setToolsMounted(false), ms);
     return () => window.clearTimeout(t);
-  }, [toolsOut, privateTo, reduceMotion]);
+  }, [toolsAway, wordsMode, reduceMotion, feeWordsOnly]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /* ⌨ "/" SHORTCUTS (owner 11 Nov). Typing "/" first lifts the (+)'s own card rows above the box (the (+) on this chat
      publishes them — `sheetSlashRows`); Enter or a tap drops that card exactly as the (+) row does. Words only while
@@ -161,13 +230,23 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   const plus = usePlus(threadId);
   const [slashText, setSlashText] = useState<string | null>(null);
   const [slashHi, setSlashHi] = useState(0);
-  const slashQ = privateTo || feeWordsOnly || slashText === null ? null : slashQuery(slashText);
+  const slashQ = wordsMode || feeWordsOnly || slashText === null ? null : slashQuery(slashText);
   const slashOn = slashQ !== null && plus.slash.length > 0;
   const slashList = slashOn ? filterSlash(plus.slash, slashQ) : [];
   const slashRunning = plus.draft
     ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
     : plus.sent;
   const slashGate = plusGate(slashRunning ?? null);
+  /* 💬 The one suggested step (drawing screen 11): the same card its (+) row drops, one at a time like any other. */
+  const takeSuggested = (card: SlashRow['card']) => {
+    if (slashGate.shut) {
+      patchPlus(threadId, { toast: { text: slashGate.message, at: Date.now() } });
+      if (slashRunning) jumpTo(slashRunning.anchorId);
+      return;
+    }
+    patchPlus(threadId, { draft: { kind: card, startedAt: Date.now() } });
+    if (!RISING_DRAFTS.has(card)) window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
+  };
   const pickSlash = (row: SlashRow) => {
     if (row.shut) return;
     if (slashGate.shut) {
@@ -219,7 +298,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     setFileError(null);
   };
   // 🔒 Going private lets go of a picked file (the attach controls are not drawn while it is on — words only).
-  const goingPrivate = privateTo !== null;
+  const goingPrivate = privateTo !== null || whisperOn;
   useEffect(() => {
     if (!goingPrivate) return;
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -268,6 +347,10 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
       return true;
     }
+    if (whisperOn) {
+      setFileError(WHISPER_WORDS_ONLY_MESSAGE);
+      return true;
+    }
     attachFile(file);
     return true;
   };
@@ -285,6 +368,108 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   }
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const photoRef = useRef<HTMLInputElement | null>(null);
+
+  /* 🤫 THE SWITCH (owner, 19 Nov: "the drag doesn't go to the send button … it always goes to the text box"). Dragging
+     the BOX right — or the keyboard's own switch below — turns Whisper on or off. It never sends. Going back to Message
+     with words typed ARMS the mis-send reminder: the words turn ink, one line says who will see them, and the first
+     Send after that asks once. An empty box arms nothing and says "Back to everyone" for a moment. */
+  const [leftWithWords, setLeftWithWords] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const askPassedRef = useRef(false);
+  const [switchLine, setSwitchLine] = useState<string | null>(null);
+  const switchLineTimer = useRef<number | null>(null);
+  const sayForAMoment = (line: string) => {
+    if (switchLineTimer.current !== null) window.clearTimeout(switchLineTimer.current);
+    setSwitchLine(line);
+    switchLineTimer.current = window.setTimeout(() => setSwitchLine(null), WHISPER_OFF_LINE_STAY_MS);
+  };
+  useEffect(
+    () => () => {
+      if (switchLineTimer.current !== null) window.clearTimeout(switchLineTimer.current);
+    },
+    [],
+  );
+  const switchWhisper = () => {
+    if (!canWhisper || !whisper) return;
+    if (!whisperOn) {
+      // Nobody to whisper to — or the read of who is here failed, which is said as a failure, never as "nobody".
+      const blocked = whisperBlockedLine(whisper);
+      if (blocked) {
+        sayForAMoment(blocked);
+        return;
+      }
+      if (switchLineTimer.current !== null) window.clearTimeout(switchLineTimer.current);
+      setSwitchLine(null);
+      setLeftWithWords(false);
+      askPassedRef.current = false;
+      setWhisper(threadId, true);
+      return;
+    }
+    setWhisper(threadId, false);
+    const typed = (textareaRef.current?.value ?? '').trim().length > 0;
+    setLeftWithWords(typed);
+    askPassedRef.current = false;
+    if (typed) setSwitchLine(null);
+    else sayForAMoment(WHISPER_OFF_LINE);
+  };
+  // A private recipient picked from a face while whispering ends the whisper — one mode at a time.
+  const hasPrivateTo = privateTo !== null;
+  useEffect(() => {
+    if (hasPrivateTo) setWhisper(threadId, false);
+  }, [hasPrivateTo, threadId]);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<{ id: number; x: number; y: number; ours: boolean } | null>(null);
+  const endDrag = (switches: boolean) => {
+    const box = boxRef.current;
+    if (box) {
+      box.removeAttribute('data-chat-dragging');
+      box.style.translate = '';
+    }
+    drag.current = null;
+    if (switches) switchWhisper();
+  };
+  const dragProps = whisper
+    ? {
+        onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
+          if (!canWhisper || (e.pointerType === 'mouse' && e.button !== 0)) return;
+          const target = e.target as HTMLElement;
+          // Never a drag on Send, the ＋ or any other control inside the box — a slip there can not switch or send.
+          if (target.closest('button, a, label, input')) return;
+          // A mouse dragged across typed words is selecting them.
+          if (e.pointerType === 'mouse' && target instanceof HTMLTextAreaElement && target.value.length > 0) return;
+          drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, ours: false };
+        },
+        onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
+          const d = drag.current;
+          if (!d || d.id !== e.pointerId) return;
+          const dx = e.clientX - d.x;
+          const dy = e.clientY - d.y;
+          if (!d.ours) {
+            const verdict = dragVerdict(dx, dy);
+            if (verdict === 'none') return;
+            if (verdict === 'vertical') {
+              drag.current = null;
+              return;
+            }
+            d.ours = true;
+            // Capture keeps the drag ours when the thumb leaves the box; a pointer that can not be captured still drags.
+            try {
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+            } catch {
+              /* not capturable — the box still follows while the pointer is over it */
+            }
+            e.currentTarget.setAttribute('data-chat-dragging', '');
+          }
+          if (!reduceMotion) e.currentTarget.style.translate = `${dragFollowPx(dx)}px 0`;
+        },
+        onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => {
+          const d = drag.current;
+          if (!d || d.id !== e.pointerId) return;
+          endDrag(d.ours && dragSwitches(e.clientX - d.x));
+        },
+        onPointerCancel: () => endDrag(false),
+      }
+    : {};
 
   /** Send one FormData and say how it went — the first try and every Try again run through here. */
   const deliver = async (formData: FormData, pending: PendingSend, hasFile: boolean) => {
@@ -368,6 +553,14 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         e.preventDefault();
         takeDropped(dt.files);
       }}
+      onSubmit={(e) => {
+        // 🤫 THE ONE ASK (owner, 19 Nov "Yes, add it"): the first Send after leaving Whisper with words typed stops
+        // here — before the action, so the words stay in the box whatever is answered.
+        if (!leftWithWords || askPassedRef.current) return;
+        if ((textareaRef.current?.value ?? '').trim().length === 0) return;
+        e.preventDefault();
+        setAsking(true);
+      }}
       action={async (formData: FormData) => {
         // We strip `return_to` so the server action doesn't redirect — the
         // Realtime stream is now the source of truth for the painted UI.
@@ -388,6 +581,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         // 💸 Words only while a top-up is overdue — said in the lock's own words.
         if (wordsOnly && hasFile) {
           setFileError(wordsOnly);
+          return;
+        }
+        // 🤫 A whisper is words only too — and a whisper is never sent as anything else: the field below rides the
+        // form only while whisper is on, and the server refuses it rather than sending it to everyone.
+        if (whisperOn && hasFile) {
+          setFileError(WHISPER_WORDS_ONLY_MESSAGE);
           return;
         }
 
@@ -416,6 +615,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           at: Date.now(),
           state: 'sending',
           privateTo: privateTo ? privateNames : null,
+          whisper: whisperOn,
         };
         window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
         setSlashText(null);
@@ -424,6 +624,9 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           textareaRef.current.style.height = '';
         }
         setHasDraft(false);
+        // The reminder was about THOSE words; they are sent now.
+        setLeftWithWords(false);
+        askPassedRef.current = false;
         // The file chip goes, but the picked file stays inside `formData` for a Try again.
         if (fileInputRef.current) fileInputRef.current.value = '';
         setFileName(null);
@@ -439,9 +642,10 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
       <input type="hidden" name="thread_id" value={threadId} />
       {sentAs ? <input type="hidden" name={CHAT_SENT_AS_FIELD} value={sentAs} /> : null}
       {privateTo?.map((p) => <input key={p.userId} type="hidden" name={CHAT_PRIVATE_FIELD} value={p.userId} />)}
+      {whisperOn ? <input type="hidden" name={CHAT_WHISPER_FIELD} value="1" data-chat-whisper-field="" /> : null}
 
       {/* 🔒 The 🔒's list — tick one or several, the message box goes private for them. */}
-      {!privateTo && pickingPrivate && chatPeople.length > 0 ? (
+      {!privateTo && !whisper && pickingPrivate && chatPeople.length > 0 ? (
         <PrivatePeopleList
           people={chatPeople}
           initiallyTicked={replyIds ?? []}
@@ -505,7 +709,65 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {wordsOnly}
         </p>
       ) : null}
-      <div className="flex items-end gap-0.5" data-chat-composer-row="" {...(privateTo || feeWordsOnly ? { 'data-chat-words-only': '' } : {})}>
+      {/* 🤫 The line over the box (the drawing's): whispering · back to everyone · or the mis-send reminder. */}
+      {whisper && (whisperOn || leftWithWords || switchLine) ? (
+        <p
+          role="status"
+          className={`sn-whisper-line px-1 text-center text-[11.5px] font-bold ${whisperOn ? 'text-[rgb(var(--color-private-text))]' : leftWithWords ? 'text-[12px] text-ink' : 'text-[color:var(--m-slate-2)]'}`}
+          data-chat-whisper-line={whisperOn ? 'on' : leftWithWords ? 'reminder' : switchLine ? 'said' : 'none'}
+        >
+          {whisperOn ? WHISPER_ON_LINE : leftWithWords ? everyoneWillSeeLine(whisper.supplierName) : switchLine}
+        </p>
+      ) : null}
+      {/* ⌨ The same switch without a drag (a keyboard, a switch control, a screen reader) — out of sight until focused. */}
+      {whisper && canWhisper ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={whisperOn}
+          onClick={switchWhisper}
+          className="sr-only focus-visible:not-sr-only focus-visible:self-center focus-visible:rounded-full focus-visible:px-3 focus-visible:py-2 focus-visible:text-[13px] focus-visible:font-semibold focus-visible:text-[rgb(var(--color-private-text))]"
+          data-chat-whisper-switch=""
+        >
+          Whisper to co-hosts only
+        </button>
+      ) : null}
+      {/* 💬 THE CHIPS — raised above the box, in the thumb zone; ONE switch (the picked chip is the filled one). */}
+      {chipsShown ? (
+        <div role="group" aria-label="Show" className="-mx-1 mb-1.5 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-chat-kind-chips="" data-no-page-swipe="">
+          {KIND_CHIPS.map((c) => {
+            const on = kindState.view === c.key;
+            const n = c.key === 'all' ? null : (kindState.counts?.[c.key] ?? null);
+            return (
+              <button
+                key={c.key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => {
+                  pickKind(threadId, c.key);
+                  if (c.key === 'all') setChipsUp(false);
+                }}
+                className={`sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-semibold ${
+                  on ? 'border-sn-accent bg-sn-accent text-sn-on-accent' : 'border-[color:var(--m-line)] bg-[color:var(--m-paper)] text-ink'
+                }`}
+                data-chat-kind-chip={c.key}
+              >
+                {c.label}
+                {n != null ? <span className={`font-mono text-[12px] font-normal ${on ? 'text-white/85' : 'text-[color:var(--m-slate-2)]'}`}>{formatCount(n)}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <div
+        ref={boxRef}
+        className={`sn-chat-onebox flex items-end gap-0.5 rounded-3xl ${privateTo ? '' : 'bg-[color:var(--m-paper-2)]'} ${wordsMode ? '' : 'focus-within:ring-2 focus-within:ring-sn-accent/30'}`}
+        data-chat-composer-row=""
+        data-chat-one-box=""
+        {...(wordsMode || feeWordsOnly ? { 'data-chat-words-only': '' } : {})}
+        {...(whisper ? { 'data-chat-whisper': whisperOn ? 'on' : 'off' } : {})}
+        {...dragProps}
+      >
         {/* 💸 Words only while a top-up is overdue: the tools group is never drawn (no ＋, no 🔒, no file). */}
         {toolsMounted && !feeWordsOnly ? (
         <div
@@ -516,7 +778,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         <div className="flex min-w-0 items-end gap-0.5">
         {lead ?? null}
         {/* 🔒 Message someone privately, any time (owner, 9 Nov) — beside the ＋; only when someone else is in the chat. */}
-        {chatPeople.length > 0 ? (
+        {chatPeople.length > 0 && !whisper ? (
           <ActionButton
             tone="info"
             quiet
@@ -580,7 +842,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             left, "Private message to Jose" while empty, and an × inside at its right that returns it to "Message"
             (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
         <div
-          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsOut ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
+          className={`sn-composer-box relative my-[3px] flex min-w-0 flex-1 rounded-2xl ${toolsAway ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
           // 💸 Words only while a top-up is overdue: a pasted file is refused, in the lock's own words.
@@ -595,14 +857,27 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {privateTo ? (
             <Lock aria-hidden className={`pointer-events-none absolute bottom-[11px] left-3 h-4 w-4 ${PRIVATE_MARK}`} strokeWidth={2.2} />
           ) : null}
+          {/* 💬 ONE SUGGESTED STEP, inside the box, left of "Message" — gone once a word is typed (words only: none). */}
+          {suggestOn && home?.suggest ? (
+            <button
+              type="button"
+              onClick={() => takeSuggested(home.suggest!.card)}
+              className="sn-press my-auto ml-1 inline-flex min-h-11 shrink-0 items-center"
+              data-chat-suggested={home.suggest.card}
+            >
+              <span className="inline-flex h-[30px] items-center whitespace-nowrap rounded-full bg-sn-accent px-3 text-[13px] font-semibold text-sn-on-accent">{home.suggest.label}</span>
+            </button>
+          ) : null}
         <textarea
           ref={textareaRef}
           name="body"
           rows={1}
           maxLength={4000}
-          placeholder={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
-          aria-label={privateTo ? privateBoxPlaceholder(privateNames) : 'Message'}
-          className={`max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : 'bg-[color:var(--m-paper-2)] px-3.5 placeholder:text-[color:var(--m-slate-3)]'} py-[9px] text-[15px] leading-5 text-ink outline-none ${privateTo ? PRIVATE_FOCUS_RING : 'focus:ring-2 focus:ring-sn-accent/30'}`}
+          // 💬 While the suggested step shows it is the box's invitation: at 390 px "Message" cannot sit beside it with
+          // ＋ · 🔒 · sliders · Send, and wrapped under it — the name stays for a screen reader (`aria-label`).
+          placeholder={suggestOn ? '' : privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}
+          aria-label={privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}
+          className={`sn-chat-onebox-field max-h-36 min-h-[38px] min-w-0 flex-1 resize-none rounded-2xl border-0 ${privateTo ? `pl-9 pr-11 ${PRIVATE_BOX_FILL}` : `bg-[color:var(--m-paper-2)] px-3.5 ${whisperOn ? 'placeholder:text-[rgb(var(--color-private-text))]' : 'placeholder:text-[color:var(--m-slate-3)]'}`} py-[9px] text-[15px] leading-5 ${whisperOn ? 'text-[rgb(var(--color-private-text))]' : 'text-ink'} outline-none ${privateTo ? PRIVATE_FOCUS_RING : ''}`}
           data-rides=""
           onPaste={(e) => {
             // 🔒 Words only while private (owner, 9 Nov): a pasted picture or file is refused, said in the row's own words.
@@ -613,11 +888,22 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             e.preventDefault();
             setFileError(PRIVATE_WORDS_ONLY_MESSAGE);
           }}
+          onPasteCapture={(e) => {
+            // 🤫 …and while whispering, in the whisper's own words.
+            if (!whisperOn) return;
+            const dt = e.clipboardData;
+            if (!(dt.files.length > 0 || Array.from(dt.items).some((it) => it.kind === 'file'))) return;
+            e.preventDefault();
+            e.stopPropagation();
+            setFileError(WHISPER_WORDS_ONLY_MESSAGE);
+          }}
           onFocus={() => setTyping(true)}
           onBlur={() => setTyping(false)}
           onInput={(e) => {
             const el = e.currentTarget;
             setHasDraft(el.value.trim().length > 0);
+            // The reminder is about the words carried out of Whisper — an emptied box carries none.
+            if (leftWithWords && el.value.trim().length === 0) setLeftWithWords(false);
             const typed = el.value.startsWith('/') ? el.value : null;
             if (typed !== slashText) setSlashHi(0);
             setSlashText(typed);
@@ -692,15 +978,58 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             />
           ) : null}
         </div>
+        {/* 💬 The sliders — the app's one show/sort icon — inside the box, before Send. Filled while a chip is picked. */}
+        {kinds ? (
+          <button
+            type="button"
+            aria-label={filtering ? 'Show everything' : 'Show one kind'}
+            aria-pressed={chipsShown}
+            aria-expanded={chipsShown}
+            onClick={() => {
+              if (chipsShown) {
+                if (filtering) pickKind(threadId, 'all');
+                setChipsUp(false);
+              } else setChipsUp(true);
+            }}
+            className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            data-chat-kind-open=""
+          >
+            <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-full ${filtering ? 'bg-ink text-cream' : 'text-ink'}`}>
+              <SlidersHorizontal className="h-5 w-5" strokeWidth={1.9} />
+            </span>
+          </button>
+        ) : null}
         <SubmitButton
           aria-label="Send"
           pendingLabel=""
-          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${privateTo ? PRIVATE_MARK : 'text-sn-accent'} hover:bg-ink/[0.05] disabled:opacity-60`}
+          className={`sn-whisper-send inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${wordsMode ? PRIVATE_MARK : 'text-ink'} hover:bg-ink/[0.05] disabled:opacity-60`}
           {...(privateTo ? { 'data-chat-private-send': '' } : {})}
         >
-          <SendHorizontal className="h-[22px] w-[22px]" strokeWidth={1.9} />
+          <WhisperSendIcon on={whisperOn} className="h-6 w-6" />
         </SubmitButton>
       </div>
+      {whisper ? (
+        <ConfirmDialog
+          open={asking}
+          title={LEFT_WHISPER_ASK}
+          body={leftWhisperAskBody(whisper.supplierName)}
+          confirmLabel="Send"
+          cancelLabel="Cancel"
+          equalRow
+          onConfirm={() => {
+            // Asked once: this Send goes, and Send does not ask again until the next switch.
+            setAsking(false);
+            askPassedRef.current = true;
+            formRef.current?.requestSubmit();
+          }}
+          onCancel={() => {
+            // Cancel keeps the words — and the ask is spent (owner: "the first Send after that asks once").
+            setAsking(false);
+            askPassedRef.current = true;
+            textareaRef.current?.focus();
+          }}
+        />
+      ) : null}
     </form>
   );
 }

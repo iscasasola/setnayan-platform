@@ -31,6 +31,7 @@ import { formatPhp } from '@/lib/php';
 import { DetailsScreen } from '@/app/vendor-dashboard/profile/_components/details-screen';
 import type { DetailsData } from '@/app/vendor-dashboard/profile/details-data';
 import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-panel';
+import { reachCeilingKm } from '@/lib/vendor-service-radius';
 import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
 import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
 import { servicesFigures, shopServiceRows, type ShopCardLite } from '@/lib/shop-services-summary';
@@ -51,9 +52,11 @@ import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-o
 import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
 import { badgePrintSvg } from '@/lib/shop-badge-print';
+import { VERIFIED_PRINT_LABEL } from '@/lib/print-badges-v84';
+import { VERIFIED_V84_SIDE, verifiedV84Svg } from '@/lib/verified-v84-art';
 import { ShopBadgePill } from '@/app/_components/shop-badge-pill';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
-import { badgesForPrint, shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
+import { shopBadges, trackerSummary, type ShopBadgeFacts, type TrackerFacts } from '@/lib/shop-badges';
 import { ReviewReplies } from '@/app/vendor-dashboard/website/_components/review-replies';
 import type { GuestReviewsRead } from '@/lib/guest-reviews';
 import { setupPapers, type SetupPaper } from '@/lib/setup-papers';
@@ -338,8 +341,8 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      // The plan's own reach (Free 0 · Supplier Plus 30 · Pro 50) — the lab draws what the shop's plan really allows.
-      reachKm: tierCaps(f.tier).serviceRadiusKm,
+      // The verification ceiling (∞ verified · 0 unverified) — reach is not a plan allowance (owner 2026-11-19).
+      reachKm: reachCeilingKm(f.verified),
       innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,
       isVerified: f.verified,
@@ -529,12 +532,17 @@ function labAwardsUrl(f: { verified: boolean; completedEvents: number | null }):
 /** The earned line exactly as Today mounts it (above the screen), its facts and print file handed in as data: URIs —
  *  `?s=clear&earned=verified|milestone` (page.tsx's Today states). Lives here, beside `badge-today`, so the lab's one
  *  print-file draw stays in one file (lib/every-logo-plays.test.ts's STILL entry for this file). */
+/** The Today line's one print file (it saves only Setnayan Verified): the REAL badge file, v84 art, as a data: URI. */
+function labVerifiedFile(verified: boolean): Record<string, string> {
+  if (!verified) return {};
+  const art = { badge: { kind: 'verified' as const, key: 'verified' as const, label: VERIFIED_PRINT_LABEL }, w: VERIFIED_V84_SIDE, h: VERIFIED_V84_SIDE, svg: verifiedV84Svg({ uid: 'labv', size: VERIFIED_V84_SIDE, word: false }), png: null };
+  return { verified: `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([art])).toString('base64')}` };
+}
+
 export function LabEarnedLine({ which }: { which: string }) {
   const facts = EARNED_FACTS[which];
   if (!facts) return null;
-  const files = Object.fromEntries(
-    badgesForPrint(facts).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
-  );
+  const files = labVerifiedFile(facts.verified);
   return (
     <BadgeEarnedLine
       factsUrl={`data:application/json,${encodeURIComponent(JSON.stringify({ vendorId: `lab-earned-${which}`, facts }))}`}
@@ -685,9 +693,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
     /* 🏅 The Today line (`badge-earned-line.tsx`) on lab facts: its facts and its print file are handed in as data:
        URIs, so nothing leaves the machine and Save to print saves the REAL outlined file for this lab shop. */
     const bf = labBadgeFacts(who);
-    const files = Object.fromEntries(
-      badgesForPrint(bf).map((b) => [b.key, `data:image/svg+xml;base64,${Buffer.from(badgePrintSvg([b])).toString('base64')}`]),
-    );
+    const files = labVerifiedFile(bf.verified);
     return (
       <div className="min-h-screen bg-cream px-4 pt-4 text-ink" data-lab-badge-today="">
         <BadgeEarnedLine
@@ -819,7 +825,7 @@ export function PageLab({ state, who: rawWho, draft, invited = false, asked = fa
       <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-collections="">
         <ShopSegments on="gallery" figures={galleryFigures({ photos: f.collections.page?.photos ?? 0, videos: f.collections.page?.videos ?? 0, credits: fail ? null : lp.walletBalance })} />
         <h1 className="sn-h1">Your collections</h1>
-        <CollectionsList
+        <CollectionsList vendorId="lab"
           input={f.collections}
           groups={{ events: [], services: [], inspiration: 'off', stories: [] }}
           gallery={

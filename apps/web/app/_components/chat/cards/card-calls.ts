@@ -18,6 +18,7 @@
  * A refused read returns `{ ok: false }` and the card says "Couldn't load" — never an empty list dressed as "none yet".
  */
 import { createClient } from '@/lib/supabase/client';
+import { askKindOf, quoteLinesOf } from '@/lib/chat-deal';
 import { logPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { loadCatalogueExtrasForQuote } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { vendorAskForPayment, type PaymentAskOutcome } from '@/app/vendor-dashboard/clients/[eventId]/actions';
@@ -35,6 +36,7 @@ import {
 } from '@/lib/chat-cards';
 import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-schedule';
 import { openDecision } from '@/lib/chat-decisions';
+import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 
 type Fail = { ok: false };
@@ -84,20 +86,6 @@ export type QuoteForCard = {
 
 const QUOTE_COLS =
   'proposal_id, public_id, title, total_centavos, status, sent_at, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift, service_card_ids, changes_locked, plan_locked';
-
-function cardLinesOf(raw: unknown): CardLine[] {
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr.map((l, i) => {
-    const r = (l ?? {}) as { label?: unknown; detail?: unknown; amount_centavos?: unknown };
-    const amt = r.amount_centavos == null ? null : Math.round(Number(r.amount_centavos));
-    return {
-      key: `l${i}`,
-      label: String(r.label ?? '').trim() || 'Line item',
-      detail: r.detail == null ? null : String(r.detail),
-      amountCentavos: amt == null || !Number.isFinite(amt) ? null : amt,
-    };
-  });
-}
 
 async function liveQuote(supabase: ReturnType<typeof createClient>, eventId: string, shop: string) {
   return supabase
@@ -170,7 +158,7 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     title: String(row.title ?? 'Quote'),
     status: String(row.status),
     totalCentavos: Math.round(Number(row.total_centavos) || 0),
-    lines: cardLinesOf(row.line_items),
+    lines: quoteLinesOf(row.line_items),
     validUntil: (row.valid_until as string | null) ?? null,
     paymentMethodIds: Array.isArray(row.payment_method_ids) ? (row.payment_method_ids as string[]) : [],
     gift: typeof row.includes_setnayan_gift === 'boolean' ? row.includes_setnayan_gift : null,
@@ -324,7 +312,7 @@ function askOf(r: AskDbRow): ChangeAskRow {
     goodUntil: r.good_until,
     raisedBy: r.raised_by ?? 'host',
     answerProposalId: r.answer_proposal_id,
-    kind: r.kind ?? (r.amount_centavos != null ? 'counter' : r.proposed_plan != null ? 'plan' : 'words'),
+    kind: askKindOf(r),
     moneyHidden: r.money_hidden === true,
   };
 }
@@ -396,7 +384,7 @@ export async function loadNegotiation(threadId: string): Promise<{ ok: true; quo
       title: String(row.title ?? 'Quote'),
       status: String(row.status),
       totalCentavos: Math.round(Number(row.total_centavos) || 0),
-      lines: cardLinesOf(row.line_items),
+      lines: quoteLinesOf(row.line_items),
       planRows: Array.isArray(sched.installments) ? sched.installments.map((r) => ({ ...r, seq: Number(r.seq), amount_centavos: Math.round(Number(r.amount_centavos) || 0) })) : [],
       creditCentavos: Math.max(0, Math.round(Number(sched.credit_centavos) || 0)),
       floorCentavos: floorRes.data == null ? null : Math.round(Number(floorRes.data)),
@@ -554,15 +542,23 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
 
 // ── Form · the shop's library ────────────────────────────────────────────────
 
-/** The shop's form library for the Send-a-form card: each live form and its asked questions (`readShopForms`' read). */
+/**
+ * The shop's forms for the Send-a-form card: each live form and its asked questions (`readShopForms`' read) — ONLY the
+ * forms this client may be sent (owner 18 Nov 2026: the forms on the cards they asked about + the chat forms), asked of
+ * `formsAction` op `client` in the same wave. A refused narrowing is a refused read, never the whole library.
+ */
 export async function loadShopFormsForCard(
   threadId: string,
 ): Promise<{ ok: true; forms: { formId: string; title: string; questions: string[] }[] } | Fail> {
   const supabase = createClient();
-  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id, event_id').eq('thread_id', threadId).maybeSingle();
   if (tErr || !thread) return refused('forms · thread', tErr);
   const shop = (thread as { vendor_profile_id: string }).vendor_profile_id;
-  const [formsRes, itemsRes] = await Promise.all([
+  const eventId = (thread as { event_id: string | null }).event_id;
+  const clientFd = new FormData();
+  clientFd.set('op', 'client');
+  clientFd.set('event_id', eventId ?? '');
+  const [formsRes, itemsRes, clientRes] = await Promise.all([
     supabase.from('vendor_forms').select('form_id, title').eq('vendor_profile_id', shop).is('retired_at', null).order('updated_at', { ascending: false }),
     supabase
       .from('vendor_questions')
@@ -571,12 +567,15 @@ export async function loadShopFormsForCard(
       .not('form_id', 'is', null)
       .eq('is_asked', true)
       .order('display_order', { ascending: true }),
+    formsAction({ status: 'idle' }, clientFd).catch(() => null),
   ]);
   if (formsRes.error || itemsRes.error) return refused('forms · library', formsRes.error ?? itemsRes.error);
+  if (!clientRes || clientRes.status !== 'client') return refused('forms · this client', null);
+  const theirs = new Set(clientRes.formIds);
   const items = (itemsRes.data ?? []) as { form_id: string; item_kind: string; prompt: string }[];
   return {
     ok: true,
-    forms: ((formsRes.data ?? []) as { form_id: string; title: string }[]).map((f) => ({
+    forms: ((formsRes.data ?? []) as { form_id: string; title: string }[]).filter((f) => theirs.has(f.form_id)).map((f) => ({
       formId: f.form_id,
       title: f.title,
       questions: items.filter((it) => it.form_id === f.form_id && it.item_kind === 'question').map((it) => it.prompt),

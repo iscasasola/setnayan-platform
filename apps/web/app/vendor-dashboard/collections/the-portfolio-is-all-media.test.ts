@@ -40,11 +40,12 @@ test('2 · an album opens into the body with its "+N"; the pick for Show is its 
 
 test('3 · Show is greyed until a pick, and draws nothing but the photos', () => {
   assert.match(VIEW, /const canShow = Boolean\(album && album\.urls\.length > 0\);/);
-  // Both Show doors are greyed until a pick: the pinned row's button, and the thumb row's ⇅ menu row "Show ▶" (Lane E
-  // item 4 moved the ▶ inside the one dropdown) — it says "pick an album first" and does nothing until one is picked.
-  assert.equal([...VIEW.matchAll(/disabled=\{!canShow\}/g)].length, 1, 'the pinned row’s Show is live before an album is picked');
-  assert.match(VIEW, /if \(k === 'show'\) \{\s*if \(canShow\) setShowing\(true\);/, 'the thumb row’s Show ▶ opens before an album is picked');
-  assert.match(VIEW, /'Show ▶ · pick an album first'/);
+  // UPDATED ON PURPOSE (owner 2026-11-19, "portfolio simpler approved" · "just one: show and sort"): the pinned row is
+  // gone with the header, and the thumb row's one dropdown is Show (a FILTER) + Sort — so the ONE Show ▶ door moved into
+  // the ⚙, beside the album pick. It is still greyed until an album is picked, and still says to pick one first.
+  assert.match(VIEW, /onPlay=\{canShow \? \(\) => setShowing\(true\) : null\}/, 'Show ▶ opens before an album is picked');
+  assert.equal([...SETTINGS.matchAll(/disabled=\{!onPlay\}/g)].length, 1, 'the ⚙’s Show ▶ is live before an album is picked');
+  assert.match(SETTINGS, /'Pick an album first\.'/);
   assert.doesNotMatch(SHOW, />[^<{]*(₱|price|Edit|Delete|Remove|caption)[^<]*</i, 'Show draws a price, an edit or a caption');
   assert.doesNotMatch(SHOW, /<(form|input|ActionButton)\b|formatPhp|priceText/, 'Show carries a control or a price');
 });

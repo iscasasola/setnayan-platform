@@ -12,8 +12,11 @@
  *   booking  → `event_vendors.source_via` / `source_utm` (filled from the thread, the way `source` is)
  *   sign-up  → `signup_attributions` (a NEW account whose first tagged shop view came from a piece)
  *
- * 💳 THE FEE RULE IS NOT THIS TAG. `?src=own` still decides "the shop's own client"; `via` only names the piece —
- * except for the one case the 16 Nov plan ruling adds (`PRINT_VIAS`, read by `arrivalInquirySourceOf`).
+ * 💳 THE FEE RULE IS NOT THIS TAG. `?src=own` still marks the shop's own code; `via` only names the piece. Whether an
+ * own arrival is the shop's own client is decided at the inquiry by the shop's VERIFICATION, on any plan and for any
+ * piece (owner 2026-11-16, DECISION_LOG "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY PLAN", which superseded
+ * "only Supplier Ultra's prints are the shop's own"; amended the same day: an unverified shop keeps its QR, but every
+ * booking from it is Setnayan-sourced). That check is `ownLinkArrival` (`lib/own-clients.server.ts`), never this file.
  *
  * Pure. 🔒 lib/material-tags.test.ts
  */
@@ -35,11 +38,6 @@ export const VIA_PARAM = 'via';
 export function materialViaOf(raw: unknown): MaterialVia | null {
   const v = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
   return (MATERIAL_VIAS as readonly string[]).includes(v) ? (v as MaterialVia) : null;
-}
-
-/** Is this the QR on a PRINTED piece (Shop › Promote › Prints) — the only codes the Ultra-only own rule reads? */
-export function isPrintVia(raw: unknown): raw is PrintVia {
-  return typeof raw === 'string' && (PRINT_VIAS as readonly string[]).includes(raw);
 }
 
 /** `url` with `?via=` (or `&via=`) appended before any `#hash`. */
@@ -80,26 +78,6 @@ export function arrivalUtmOf(search: {
 /** A utm string handed in by a client, kept only as a bounded string. */
 export function utmOf(raw: unknown): string | null {
   return typeof raw === 'string' && raw.trim() ? raw.trim().slice(0, UTM_MAX) : null;
-}
-
-/**
- * 💳 IS THE SHOP ON SUPPLIER ULTRA *NOW* (owner 2026-11-16, DECISION_LOG "ONLY SUPPLIER ULTRA'S PRINTS ARE THE SHOP'S
- * OWN"; verbatim on a downgrade: *"If they go down a plan. And someone scans their qr code. It will have booking
- * fee"*). Ultra is the `enterprise` tier. Read from the shop's OWN subscription row at the moment of the inquiry — a
- * lapsed `tier_expires_at` is not Ultra even before the login-driven sweep has lowered `tier_state`.
- *
- * ⚠ Deliberately NOT `resolveVendorTier`: an admin free-window PROMOTION is a grant of features, not the plan the owner
- * named, and reading it here would waive the fee for every promoted shop's prints. Fails toward the fee: no row, an
- * unreadable row or an unparseable expiry is not Ultra.
- */
-export function shopOnUltraNow(
-  row: { tier_state?: string | null; tier_expires_at?: string | null } | null | undefined,
-  nowMs: number,
-): boolean {
-  if (!row || row.tier_state !== 'enterprise') return false;
-  if (row.tier_expires_at == null) return true;
-  const until = Date.parse(row.tier_expires_at);
-  return Number.isFinite(until) && until > nowMs;
 }
 
 /**

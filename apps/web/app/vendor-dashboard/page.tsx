@@ -6,7 +6,7 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -18,7 +18,6 @@ import {
   readEventDayFacts,
   readNextEventFacts,
   readTodaySchedules,
-  readTodayRenewal,
   readTodayShopRow,
   readTodayViews,
   type EventDayFacts,
@@ -48,6 +47,7 @@ import { readCardBadgeCongrats } from '@/lib/card-badges.server';
 import { parseCardBadgeCongratsParam } from '@/lib/card-badges';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { PapersRenewalLine } from './_components/papers-renewal-line';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
 import { manilaToday } from '@/lib/std-views';
 
@@ -78,12 +78,6 @@ import { TodayThumbRow } from './_components/today-thumb-row';
 import { assembleSupplierToday } from '@/lib/supplier-today-view';
 import { assembleNextEvents, nextEventDay, type NextEventFacts } from '@/lib/supplier-today-next-events';
 import { readTodayPortfolioCount } from '@/lib/supplier-today-portfolio';
-import { heroPicture, readPortfolioPhotoViews } from '@/lib/supplier-hero.server';
-import { mostViewedPhotoKey, viewsOf } from '@/lib/supplier-hero';
-import { HERO_UPLOAD_PILL } from './_components/supplier-hero';
-import { PortfolioUploadDoor } from './_components/portfolio-upload';
-import { readPortfolioUploadFacts } from '@/lib/portfolio-upload-facts.server';
-import { formatCount } from '@/lib/format-number';
 import { displayServiceLabel } from '@/lib/vendors';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { SupplierSetupScreen } from './_components/supplier-setup-screen';
@@ -97,6 +91,15 @@ import { siteOrigin } from '@/lib/site-origin';
 import { SETUP_TOUR_KEY } from '@/lib/supplier-setup';
 import { TOURS } from '@/lib/tours';
 import { readTourSeen } from '@/lib/tour-seen.server';
+import { cookies } from 'next/headers';
+import { readTodayV2 } from '@/lib/supplier-today-v2.server';
+import { forecastForBooking } from '@/lib/booking-fee-disclosure.server';
+import { TODAY_ASIDE_COOKIE, readTodayAside } from '@/lib/today-aside';
+import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
+import { buildTodayV2 } from './_components/today-v2-assemble';
+import { readStorySilenceDays, readWrapUpFacts } from '@/lib/today-wrap-up.server';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
+import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -209,6 +212,8 @@ export default async function VendorOverviewPage({
     date_answer?: string;
     /** `{serviceId}.{badge}` — the card-badge Today line's link (`cardBadgeCongratsHref`): open its congratulations. */
     card_badge?: string;
+    /** `1` — "I delivered this service" answered on a Today row (`vendorMarkServiceComplete`, Today v2). */
+    completed?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -310,6 +315,10 @@ export default async function VendorOverviewPage({
   const vendorProfileId = profile.vendor_profile_id;
   // 🎗 Arrived from a card-badge Today line ("Congratulations, your [card] service card earned [badge]"): its
   // congratulations opens, only for a card of THIS shop holding that badge now. No link = no read.
+  // 📋 TODAY v2's reads (done today · covers · the Trending hold · Completed bookings · the radar · the grow lines) —
+  // started now, beside wave 1, never a wave of their own (`lib/supplier-today-v2.server.ts`).
+  const v2ReadsP = readTodayV2({ supabase, admin: createAdminClient(), vendorProfileId, todayIso }).catch(() => null);
+  const asideP = cookies().then((c) => readTodayAside(c.get(TODAY_ASIDE_COOKIE)?.value ?? null, todayIso)).catch(() => readTodayAside(null, todayIso));
   const cardBadgeLink = parseCardBadgeCongratsParam(search.card_badge);
   const cardBadgeCongratsP = cardBadgeLink
     ? readCardBadgeCongrats(createAdminClient(), vendorProfileId, cardBadgeLink).catch(() => null)
@@ -320,38 +329,10 @@ export default async function VendorOverviewPage({
     (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
-  // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
-  const renewalP = readTodayRenewal(supabase, vendorProfileId);
-  // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
+  // 🖼 The Portfolio stat's count — C4's one read, started beside the shop row (not after the page's other reads).
   const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
-  // 🖼 Lane E item 11: Today's hero = the most-viewed portfolio photo (ties → latest; no views → latest; no photo →
-  // the category placeholder). Started now, awaited once at the render — never another wait in this run.
-  const heroP = (async () => {
-    const keys = (profile.portfolio_r2_keys ?? []) as string[];
-    const views = keys.length > 0 ? await readPortfolioPhotoViews(supabase, vendorProfileId) : null;
-    const key = mostViewedPhotoKey(keys, views);
-    const n = viewsOf(key, views);
-    const picture = await heroPicture(key, profile.services as string[] | null);
-    // 📂 Upload opens the device's picker HERE (owner 9 Nov) — its facts read only while the hero is a placeholder.
-    const uploadFacts =
-      picture.kind === 'placeholder'
-        ? await readPortfolioUploadFacts(supabase, vendorProfileId, keys, shopRowP.then((row) => row?.tierState ?? null).catch(() => null))
-        : null;
-    return {
-      picture,
-      caption: picture.kind === 'photo' ? (n > 0 ? `Most viewed · ${formatCount(n)} ${n === 1 ? 'view' : 'views'}` : 'Latest photo') : null,
-      upload: uploadFacts
-        ? {
-            door: (
-              <PortfolioUploadDoor facts={uploadFacts} className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Upload
-              </PortfolioUploadDoor>
-            ),
-          }
-        : null,
-    };
-  })().catch(() => null);
+  // 🖼 NO HERO PHOTO (owner 19 Nov, looking at live Today: "remove the photo of that header" — supersedes the 9 Nov
+  // "Today shows the most-viewed"). Nothing is read for a picture any more; uploading stays on Portfolio.
   const settingUpP = shopRowP.then((row) => !row?.verified).catch(() => false);
   const setupDetailsP = settingUpP.then((yes) => (yes ? loadDetailsData(supabase, profile, { deepSearch: false }).catch(() => null) : null));
   // 🔦 Step 6's ✓ is the tour after it, on record (`SETUP_TOUR_KEY` in `users.tour_seen_keys`). A refused read is
@@ -620,8 +601,12 @@ export default async function VendorOverviewPage({
   const view = assembleSupplierToday({
     needsAnswer,
     closed: nothingToAnswer,
-    deskIncomplete,
+    // 🔎 An unreadable bill list is not "you owe nothing" (supplier dashboard audit, 2026-11-17). Drawn as `[]` it
+    // let Today say "Nothing waiting on you" with a booking fee unpaid; an incomplete desk says "Some answers
+    // couldn't load — may be missing … a payment" and drops the count.
+    deskIncomplete: deskIncomplete || feeBillsRead === FEE_BILLS_UNREADABLE,
     upcoming,
+    bookingsComplete: data.bookingsComplete,
     schedules,
     firstSteps,
     verified: shopRow ? shopRow.verified : firstSteps == null,
@@ -650,7 +635,6 @@ export default async function VendorOverviewPage({
     askDayHolds: data.askDayHolds,
     dayFacts,
     // 📄 The badge's papers deadline (A9), read off the self view beside the shop row — undefined when refused.
-    renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     portfolio: await portfolioP,
@@ -705,6 +689,8 @@ export default async function VendorOverviewPage({
                 ? 'note'
                 : 'bad',
         }
+      : search.completed === '1'
+        ? { text: 'Marked as delivered. The couple can now confirm they received it — that opens your review.', tone: 'ok' as const }
       : depositAnswer
         ? {
             text: depositAnswer,
@@ -717,8 +703,65 @@ export default async function VendorOverviewPage({
           }
         : null;
 
+  /*
+    📋 TODAY v2 — "ONE TASK" (owner 18 Nov 2026, `Today, one task` v2, "all picks"). The shipped `view.needs`, split:
+    quick rows answered on the row · rows that open ONE focused screen · the shop's own gaps (recommended, never
+    counted) — plus Done today, the Next badge card, the grow stage and What's trending. 🔒 today-is-one-task.test.ts
+  */
+  const [v2r, aside, feeForecasts, wrapUps] = await Promise.all([
+    v2ReadsP,
+    asideP,
+    Promise.all(
+      needsAnswer
+        .filter((c): c is Extract<typeof c, { kind: 'lock_request' }> => c.kind === 'lock_request')
+        .slice(0, 5)
+        .map(async (c) => [c.eventVendorId, await forecastForBooking(createAdminClient(), { vendorProfileId, eventVendorId: c.eventVendorId }).catch(() => null)] as const),
+    ).then((pairs) => Object.fromEntries(pairs) as Record<string, FeeDisclosure | null>),
+    // ✓ Today v3 part 3 — each finished event's wrap-up facts (photos · reviews · plan · silence days). One guest-review
+    // read for the shop, filtered per event. Unread → null → that row keeps v2's quick "I delivered" (never "no photos").
+    (async (): Promise<Record<string, WrapUpFacts | null>> => {
+      const doneCards = needsAnswer.filter((c): c is Extract<typeof c, { kind: 'mark_complete' }> => c.kind === 'mark_complete').slice(0, 3);
+      if (doneCards.length === 0) return {};
+      const admin = createAdminClient();
+      const [guestReviews, silenceDays] = await Promise.all([
+        readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
+        readStorySilenceDays(admin).catch(() => null),
+      ]);
+      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const pairs = await Promise.all(
+        doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
+      );
+      return Object.fromEntries(pairs);
+    })().catch(() => ({})),
+  ]);
+
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
   const libraryOpen = moodboardLibraryAccessForProfile(profile, await inspirationPartsRead).allowed;
+  const { view: viewV2, v2 } = buildTodayV2({
+    view,
+    needsAnswer,
+    closed: nothingToAnswer,
+    deskIncomplete,
+    billsUnread: feeBillsRead === FEE_BILLS_UNREADABLE,
+    now: renderNow,
+    reads: v2r,
+    aside,
+    feeForecasts,
+    wrapUps,
+    payoutReadiness,
+    setupDrawn: setup !== null,
+    verified: shopRow ? shopRow.verified : firstSteps == null,
+    findable: findability.findable,
+    findableHref: findabilityBanner?.cta?.href ?? null,
+    views,
+    inquiries28: data.inquiries28 ?? null,
+    bookedThisMonth: data.bookedThisMonth ?? null,
+    todayIso,
+    // v3: an event today or tomorrow is a row in the one list (drawing V3 · 3).
+    events: upcoming,
+    eventsUnread: data.bookingsComplete === false,
+    library: libraryOpen && !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done'),
+  });
   const { events: eventsYouRun } = await eventsYouRunP;
 
   return (
@@ -730,25 +773,24 @@ export default async function VendorOverviewPage({
 
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
+      <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
-        view={view}
+        view={viewV2}
+        v2={v2}
         outcome={outcome}
         shopName={profile.business_name ?? null}
         todayIso={todayIso}
         now={renderNow}
         nextEvents={<TodayNextEvents next={nextEvents} />}
         thumb={<TodayThumbRow />}
-        hero={await heroP}
         earned={<BadgeEarnedLine />}
         eventsYouRun={eventsYouRun}
         setup={setup}
         // 🌱🖼 "Add to the inspiration library" — only for a shop whose trades supply a part (owner 2026-10-19).
         // While it is a first step still to do (personal invite B6), the step IS the door — the row would say it twice.
-        library={
-          libraryOpen &&
-          !firstSteps?.steps.some((st) => st.key === 'inspiration' && st.state !== 'done')
-        }
+        // 📋 Today v2 draws it as a task in "Also for your page" (owner 18 Nov), so the Shop group's door is not drawn twice.
+        library={false}
       />
       {/* 🔦 No page tour of its own: the supplier's journey (`supplier_spotlight_v1`, in the supplier frame) is the one
           tour (W1-B14 — the per-page tours were retired 16 Nov 2026). */}

@@ -35,7 +35,6 @@ const base: DowngradeFacts = {
   includedBranches: 0,
   seats: { people: 0, freeHelpers: 0, counted: 0 },
   extraSeats: 0,
-  reachKm: null,
   storedBytes: 0,
   badge: null,
 };
@@ -47,7 +46,7 @@ test('a plan at or above the shop’s own draws nothing', () => {
 });
 
 test('services: what the lower plan does not hold goes on hold, counted by the create gate’s rule', () => {
-  // Pro → Free: Free holds TIER_CAPS.free.parentCategories families × servicesPerLeaf per kind.
+  // Pro → Free: Free holds TIER_CAPS.free.parentCategories families and serviceCardsTotal cards.
   const cards = [card('a', 'photo', ['A']), card('b', 'video', ['B']), card('c', 'florist', ['C'])];
   const f = downgradeFit({ ...base, cards }, 'pro', 'free', opts);
   const row = f.rows.find((r) => r.key === 'services');
@@ -66,12 +65,9 @@ test('a card already held is not counted again', () => {
   assert.equal(f.rows.find((r) => r.key === 'services'), undefined);
 });
 
-test('bookings a day: a card over the lower plan’s number is named', () => {
-  const perDay = limitOf('solo', 'bookingsPerDate', true);
-  const f = downgradeFit({ ...base, cards: [card('a', 'photo', ['A'], perDay + 2)] }, 'pro', 'solo', opts);
-  const row = f.rows.find((r) => r.key === 'dailyBookings');
-  assert.ok(row);
-  assert.equal(row.fix?.href, FIX_HREF.dailyBookings);
+test('bookings a day are never a downgrade row — not a plan limit since 2026-11-18 (ruling 17)', () => {
+  const f = downgradeFit({ ...base, cards: [card('a', 'photo', ['A'], 300)] }, 'pro', 'solo', opts);
+  assert.equal(f.rows.some((r) => (r.key as string) === 'dailyBookings'), false);
 });
 
 test('team seats and branches are KEPT over a lower plan — the line says so', () => {
@@ -96,12 +92,11 @@ test('Free and Verified have no branches — read from the plan table', () => {
   assert.equal(limitOf('verified', 'branches', true), 0);
 });
 
-test('reach over the lower plan is named with both numbers in words', () => {
-  const soloKm = TIER_CAPS.solo.serviceRadiusKm;
-  const f = downgradeFit({ ...base, reachKm: soloKm + 10 }, 'pro', 'solo', opts);
-  const row = f.rows.find((r) => r.key === 'reach');
-  assert.ok(row);
-  assert.match(row.line, new RegExp(`${soloKm + 10} km`));
+test('reach is NEVER a downgrade row — moving plans does not change how far a shop goes (owner 2026-11-19)', () => {
+  for (const [from, to] of [['enterprise', 'free'], ['pro', 'solo'], ['solo', 'verified']] as const) {
+    const f = downgradeFit(base, from, to, opts);
+    assert.ok(!f.rows.some((r) => (r.key as string) === 'reach'), `${from} → ${to} drew a reach row`);
+  }
 });
 
 test('THE STORAGE FLOOR: below what the shop stores blocks the switch until some is removed', () => {

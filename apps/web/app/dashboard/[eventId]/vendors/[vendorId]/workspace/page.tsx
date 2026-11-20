@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
@@ -83,10 +84,14 @@ import { findBoardHref, type FindInspiration } from '@/lib/find-inspiration';
 import { FindInspirationRow, FindInspirationStrip } from '../../_components/find-inspiration';
 import { CoupleThreadBody } from '../../../messages/[threadId]/_components/couple-thread-body';
 import { PickedSupplierShell } from './_components/picked-supplier-shell';
+import { coupleNextStep, workColumnDefault } from '@/lib/client-next-step';
+import { NextStepRow } from '@/app/_components/picked/next-step-row';
+import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { PickedSupplierEmpty } from './_components/picked-supplier-empty';
 import { ReportSupplierPage } from './_components/report-supplier-page';
 import { PickedSupplierWho } from './_components/picked-supplier-who';
 import {
+  pickedSupplierAnchorOf,
   pickedSupplierMenuFor,
   visiblePickedSupplierPage,
   type PickedSupplierPage,
@@ -158,6 +163,7 @@ import { ShotListCard, type ShotListCardState } from './_components/shot-list-ca
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
+import { CoupleStoryShares } from './_components/couple-story-shares';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -353,9 +359,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { eventId, vendorId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
@@ -922,6 +926,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // STEPPER that replaces the flat PR-B installment list. Couple-RLS read (both
   // tables are the couple's own). Best-effort.
   let planProgress: PlanProgress = { steps: null, clearedAt: null };
+  // 🔎 The Next step row names an amount as DUE — so a plan it could not read is kept apart from "no plan".
+  let planProgressUnread = false;
   try {
     planProgress = await fetchPlanProgressForCouple({
       authedClient: supabase,
@@ -930,7 +936,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     });
   } catch {
     planProgress = { steps: null, clearedAt: null };
+    planProgressUnread = true;
   }
+  if (planProgress.readComplete === false) planProgressUnread = true;
 
   // 💸 B2-E · REFUNDS THIS SUPPLIER GAVE YOU (`event_vendor_refunds`, the couple's own RLS arm). The supplier records
   // them; nothing moves on Setnayan. ONE request. Refused → said in words, never "no refunds".
@@ -964,6 +972,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     policyAck = null;
   }
 
+  // ⛔ A refused contracts read used to become `[]`: the chip said the booking had no contract and the panel said
+  // "No contracts uploaded yet" — over a read that never answered (audit 2026-11-17). Measured now.
+  const contractsMeasured = !contractsRes.error;
+  if (!contractsMeasured) logQueryError('workspace.contracts', contractsRes.error, { event_id: eventId });
   const contracts = (contractsRes.data ?? []) as Array<{
     contract_id: string;
     public_id: string;
@@ -1319,6 +1331,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // never cross RLS). Mirrors VendorProposalsCard's query so we only ever offer
   // a "Log as service price" action for a proposal already visible to them.
   let proposalCandidates: QuoteCandidate[] = [];
+  // ➡ Next step: a sent quote nobody answered. null = the read was refused (the row then says nothing).
+  let quoteToDecide: boolean | null = false;
   if (ev.marketplace_vendor_id) {
     try {
       const { data: propRows, error: propRowsError } = await supabase
@@ -1333,6 +1347,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // ⚠ couple's answer is invisible to them.
       if (propRowsError) {
         logQueryError('VendorWorkspacePage.propRows', propRowsError, { eventId }, 'graceful_degrade');
+        quoteToDecide = null;
+      } else {
+        const statuses = ((propRows ?? []) as Array<{ status: string | null }>).map((p) => p.status);
+        quoteToDecide = !statuses.includes('accepted') && statuses.some((st) => st === 'sent' || st === 'viewed');
       }
       proposalCandidates = ((propRows ?? []) as Array<{
         proposal_id: string;
@@ -1357,6 +1375,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         );
     } catch {
       proposalCandidates = [];
+      quoteToDecide = null;
     }
   }
 
@@ -1855,6 +1874,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // R10 · booked = the row is at-or-past `contracted` (`inferStage` reads exactly CONFIRMED_VENDOR_STATUSES) — the
   // same rule the Budget and `moneyStep` use. An accepted quote alone is not a booking.
   const quoteSchedule = quoteScheduleFrame(stage !== null, displayName);
+  // R12 · an unbooked quote's rows are terms, not debts — no "that day has already passed" on them.
+  const quoteBooked = stage !== null;
   const statusSection = (
       <section id="payments" aria-label="Payment" className="space-y-1">
         <PaymentAsksCard
@@ -1906,12 +1927,17 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             tip={quoteSchedule.tip}
             data="schedule"
           >
+            {quoteSchedule.line ? (
+              <p className={`${TEMPLATE_SUBLINE} pb-2`} data-schedule-not-owed="">
+                {quoteSchedule.line}
+              </p>
+            ) : null}
             <TemplateRows label="Payment schedule">
               {acceptedQuote.schedule.map((row, i) => (
                 <TemplateRow
                   key={`${i}-${row.label}`}
                   title={row.label}
-                  line={`Due ${scheduleDueText(row, manilaToday())}`}
+                  line={`Due ${scheduleDueText(row, manilaToday(), quoteBooked)}`}
                   right={<b className={`text-[15px] ${TEMPLATE_MONEY}`}>{pesoFromCentavos(row.amountCentavos)}</b>}
                 />
               ))}
@@ -2178,6 +2204,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <div className="flex items-center gap-2">
               {/* Derived contract indicator (2026-06-22) — shows this booking's
                   contract status at a glance, linking to the contract. */}
+              {contractsMeasured ? (
               <span
                 className={[
                   'inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em]',
@@ -2190,9 +2217,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               >
                 {bookingContractStateLabel(contractState)}
               </span>
+              ) : null}
               <Link
                 href={`/dashboard/${eventId}/contracts`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
+                className="inline-flex min-h-11 items-center gap-1 text-[11px] font-medium text-terracotta-700 hover:text-terracotta-800"
               >
                 <Upload aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Manage
@@ -2205,6 +2233,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
+          ) : !contractsMeasured ? (
+            <p role="status" className="text-xs text-warn-800">
+              Couldn&rsquo;t load contracts just now &mdash; that does not mean there are none.
+            </p>
           ) : contracts.length === 0 ? (
             <div className="space-y-2">
               <p className="text-xs text-ink/55">
@@ -2216,7 +2248,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   in the thread. Deep-links straight to the conversation. */}
               <Link
                 href={conversationHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-terracotta/30 bg-terracotta/[0.04] px-3 py-1.5 text-[11px] font-medium text-terracotta-700 transition hover:bg-terracotta/[0.08]"
               >
                 <MessageCircle aria-hidden className="h-3 w-3" strokeWidth={2} />
                 Ask {displayName} for a contract
@@ -2900,7 +2932,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // Chat page without a conversation.
   // ------------------------------------------------------------------------
   const hasQuotesToShow = Boolean(ev.marketplace_vendor_id);
-  const pickedMenu = pickedSupplierMenuFor({ quote: hasQuotesToShow, chat: Boolean(chatThread) });
+  const pickedMenu = pickedSupplierMenuFor({ chat: Boolean(chatThread) });
 
   // 💗 INSPIRATION (the prototype's host tab) — the SHIPPED board's strip for this supplier's category
   // (`FindInspirationStrip`, Suppliers › Find), the looks the host saved there; "See all" opens the whole board. A
@@ -2964,6 +2996,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     </SupplierQuestionsCard>
   ) : null;
 
+  const formsBody = formsPage ?? (
+    <p className="py-6 text-sm text-ink/60">{displayName} is not on Setnayan, so there are no forms from them to answer.</p>
+  );
   const pickedBodies: Record<PickedSupplierPage, ReactNode> = {
     details: (
       <div className="space-y-6" data-picked-supplier-page="details">
@@ -2978,6 +3013,16 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {notesSection}
         {workingFolderSection}
         {claimSection}
+        {/* 🗂 SEVEN TABS, MIRRORED (owner 18 Nov 2026): Forms and Inspiration are parts of Details now — moved whole. */}
+        <section id="forms" aria-label="Forms" className="scroll-mt-4" data-picked-part="forms">
+          <p className="home-k2 mb-2">Forms</p>
+          {formsBody}
+        </section>
+        {/* A plain wrapper: `inspirationSection` is already the labelled <section> (never a section in a section). */}
+        <div id="inspiration" className="scroll-mt-4" data-picked-part="inspiration">
+          <p className="home-k2 mb-2">Inspiration</p>
+          {inspirationSection}
+        </div>
       </div>
     ),
     chat: chatThread ? (
@@ -3000,41 +3045,41 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         )}
       </div>
     ),
-    quote: hasQuotesToShow ? (
-      <div data-picked-supplier-page="quote">
-        {moneyHidden ? (
-          hostsOnlyPanel
-        ) : (
-          <VendorProposalsCard
-            eventId={eventId}
-            marketplaceVendorId={ev.marketplace_vendor_id}
-            displayName={displayName}
-            whenEmpty={quotationEmpty}
-          />
-        )}
-      </div>
-    ) : null,
-    payments: (
-      <div className="space-y-6" data-picked-supplier-page="payments">
-        {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
-        {moneyHidden ? hostsOnlyPanel : statusSection}
-        {moneyHidden ? null : paymentModeSection}
-      </div>
-    ),
-    forms: (
-      <div className="space-y-6" data-picked-supplier-page="forms">
-        {formsPage ?? (
-          <p className="py-6 text-sm text-ink/60">
-            {displayName} is not on Setnayan, so there are no forms from them to answer.
-          </p>
-        )}
+    // 💰 BOOK & BUDGET (owner 18 Nov 2026): the Payment body, then the quote — one money story per booking. A supplier
+    // the host added themselves sent no quote, so that part is simply not drawn (never a blank one).
+    quote: (
+      <div className="space-y-6" data-picked-supplier-page="quote">
+        {/* A plain wrapper: `statusSection` is already <section id="payments">, so the id is said ONCE — here only when
+            the money is hidden and that section is not drawn. */}
+        <div id={moneyHidden ? 'payments' : undefined} className="space-y-6 scroll-mt-4" data-picked-part="payments">
+          {/* 🔒 Build 3 lane B: a coordinator without Budget & payments = View reads "₱ — hosts only", stripped server-side. */}
+          {moneyHidden ? hostsOnlyPanel : statusSection}
+          {moneyHidden ? null : paymentModeSection}
+        </div>
+        {hasQuotesToShow && !moneyHidden ? (
+          <section id="quote" aria-label="Quotation" className="scroll-mt-4" data-picked-part="quote">
+            <p className="home-k2 mb-2">Quotation</p>
+            <VendorProposalsCard
+              eventId={eventId}
+              marketplaceVendorId={ev.marketplace_vendor_id}
+              displayName={displayName}
+              whenEmpty={quotationEmpty}
+            />
+          </section>
+        ) : null}
       </div>
     ),
+    payments: null,
+    forms: null,
     files: (
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
         {ev.marketplace_vendor_id ? (
-          <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          <>
+            <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+            {/* ✓ Today v3 part 3: the photos the shop sent for your story at its wrap-up — Approve all · Hide some. */}
+            <CoupleStoryShares eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          </>
         ) : null}
         {/*
           📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple
@@ -3052,7 +3097,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         {documentsSection}
       </div>
     ),
-    inspiration: inspirationSection,
+    inspiration: null,
     // 🚩 Report (owner 11 Nov 2026, "There is also no report") — the host's shipped Report a problem, about this supplier.
     report: <ReportSupplierPage eventId={eventId} eventVendorId={ev.vendor_id} supplierName={displayName} />,
   };
@@ -3072,6 +3117,20 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     ]),
   ) as Record<PickedSupplierPage, ReactNode>;
 
+  // ➡ THE NEXT STEP ROW ON TOP OF CHAT (owner 19 Nov 2026 — the host's mirror of the supplier's row). Every input is a
+  // read this page already made; a stage it could not read gives no row (`coupleNextStep`).
+  // 🔒 A coordinator without Budget & payments sees no peso figure and no quote on this page (`moneyHidden`) — so the
+  // row never names either for them. A plan the supplier marked cleared has nothing due.
+  const nextDueStep = planProgress.clearedAt ? null : (planProgress.steps?.find((st) => st.state === 'due') ?? null);
+  const hostNextStep = coupleNextStep({
+    todayIso: manilaTodayIso(),
+    eventDate: deliverEventDate,
+    isBooked: stage !== null,
+    quoteToDecide: moneyHidden ? false : quoteToDecide,
+    nextDue: moneyHidden ? null : planProgressUnread ? undefined : nextDueStep ? { amountPhp: nextDueStep.amount_php, dueDate: nextDueStep.due_date } : null,
+    handoverWaiting: handoverRowsError ? undefined : handovers.some((h) => h.status === 'delivered' && !h.couple_acknowledged_at),
+  });
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3082,6 +3141,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       // The page the URL names, painted on the server — Chats rows name `?tab=chat`; the Suppliers list names none, and
       // opens on the menu's first page (Chat; Details when there is no conversation).
       initialPage={visiblePickedSupplierPage(rawLanding, pickedMenu)}
+      landAt={pickedSupplierAnchorOf(rawLanding)}
+      workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
+      nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
     />
   );

@@ -48,7 +48,7 @@ export const EVENT_HELD_PAGE_WORDS: Readonly<Record<string, string>> = {
   // The living-memory page — its masthead is "Your wedding, kept alive." — and its Story Assignments (RW-315).
   alaala: 'Kept alive',
   'alaala/assignments': 'Story Assignments',
-  // The page's own masthead / route word (lib/route-meta.ts).
+  // The page's own masthead / route word.
   sponsors: 'Sponsors',
   manpower: 'Manpower',
 };

@@ -9,7 +9,7 @@ import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { countDueVendorFeeOrders } from '@/lib/vendor-booking-fees.server';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
 import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
@@ -50,6 +50,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveBookingFeeStanding } from '@/lib/booking-fee-disclosure.server';
 import type { BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { planWord } from '@/lib/vendor-plan-change-words';
+import { CapizLight } from '@/app/_components/signature/capiz-light';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -152,7 +153,21 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       .select('tier_state, tier_expires_at, tier_billing_cycle, verification_state, tier_source')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-  let { data: tierRow } = await readTierRow();
+  const firstTierRead = await readTierRow();
+  let tierRow = firstTierRead.data;
+  // 🔎 A REFUSED PLAN READ IS NOT FREE (supplier dashboard audit, 2026-11-17). With `error` dropped, `tierRow` was
+  // null, `asVendorTier(undefined)` gave 'free', and a paying shop read "You are on Free · nothing to pay" and
+  // "there is nothing to cancel", with every paid row behind a "Get verified" lock. Say it could not load instead.
+  if (firstTierRead.error) {
+    logQueryError('subscription/plan-screen · vendor_profiles tier read', firstTierRead.error, { vendor_profile_id: profile.vendor_profile_id }, 'graceful_degrade');
+    return (
+      <Column embedded={embedded}>
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-plan-unread="">
+          Couldn&apos;t load your plan — nothing has changed. Refresh in a moment to try again.
+        </p>
+      </Column>
+    );
+  }
   // ⏳ A PLAN THAT HAS RUN OUT IS ENDED BEFORE THIS SCREEN DRAWS IT (Lane G · Step 0 rows 14–15, 2026-11-10).
   // The layout's lapse sweep runs AFTER the response, so this page — the one that prints the plan and its day —
   // drew the ended plan as current ("You are on Solo · until Oct 19, 2026") on the visit that ended it. When the
@@ -224,7 +239,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       : null;
 
   // DB prices for the chosen cycle, keyed by sku_code.
-  const vendorCatalog = await fetchV2VendorCatalog();
+  // L-2: the read's outcome is kept — a REFUSED catalogue is not "nothing on sale".
+  const { rows: vendorCatalog, ok: catalogRead } = await fetchV2VendorCatalogRead();
+  const catalogUnread = !catalogRead;
   // The extra seat and the extra branch (Ultra only) — the rows their purchases CHARGE; unread → no figure.
   const seatPricePhp = vendorCatalog.find((r) => r.sku_code === SEAT_SKU_CODE)?.price_php ?? null;
   const branchPricePhp = vendorCatalog.find((r) => r.sku_code === BRANCH_SKU_CODE)?.price_php ?? null;
@@ -244,7 +261,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // works." Until it's applied, Solo is omitted so we never render a buy button
   // that would hard-error (UNMAPPED_SKU_TIER). Once applied, Solo appears on the
   // next request — no redeploy (this is a server component reading live prices).
-  const soloBuyable = priceBySku.has('solo_vendor_annual');
+  // L-2 (supplier audit 2026-11-17): an UNREAD catalogue is not proof Solo is unwired — dropping the row then took a
+  // Plus shop's own "Plus · your plan" row away. Unread keeps every row; their prices are unread (no figure, no Pay).
+  const soloBuyable = priceBySku.has('solo_vendor_annual') || catalogUnread || currentTier === 'solo';
   const visibleTiers: PaidTier[] = soloBuyable
     ? PAID_TIERS
     : PAID_TIERS.filter((t) => t !== 'solo');
@@ -548,6 +567,13 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
                 creditPhp: heldCreditPhp,
               }}
             />
+            {/* 🕯 Capiz light (motion standard § 9 ⑥) — once, when this device first sees a paid plan on. */}
+            <CapizLight
+              subject={`shop:${profile.vendor_profile_id}`}
+              plan={currentTier === 'solo' || currentTier === 'pro' || currentTier === 'enterprise' ? currentTier : null}
+              word={`${planWord(currentTier)} unlocked`}
+              justNow={Boolean(search.applied)}
+            />
             {search.applied && (
               <ShopNotice tone="success" role="status">
                 Done — there was nothing to pay. The money already on your account covered it, and your new plan is on now.
@@ -582,6 +608,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             expiresOn={expiresOn}
             storeShell={storeShell}
             papersProgress={papersProgress(papersRead)}
+            pricesUnread={catalogUnread}
             gift={
               gift
                 ? {

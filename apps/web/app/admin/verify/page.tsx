@@ -24,13 +24,10 @@ import {
   APPLICATION_TYPE_NAME,
   DOC_SLOTS,
   REQUIRED_DOC_SLOT_KEYS,
-  EMPTY_CONTACT_CONFIRMATION,
   SOCIAL_PLATFORM_LABEL,
   computeSlaTone,
   countCompleteSlots,
-  expectedValidateToken,
   feeLabelForCentavos,
-  fetchContactConfirmations,
   formatSlaCountdown,
   isSlotComplete,
   parseApplicationStatus,
@@ -40,16 +37,11 @@ import {
   parseVerificationState,
   resolveApplicationFeeCentavos,
   type ApplicationStatus,
-  type ContactConfirmation,
   type DocUpload,
   type DocUploadMap,
   type SlaTone,
   type VerificationState,
 } from '@/lib/vendor-verification';
-import {
-  fetchVendorValidateContacts,
-  type VendorValidateContacts,
-} from '@/lib/platform-settings';
 import { VerificationStateBadge } from '@/app/_components/verification/verification-status-card';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PillLink, PillTrack } from '@/app/_components/pill-track';
@@ -60,15 +52,15 @@ import {
   approveVendor,
   archiveVendor,
   demoteVendor,
-  markVendorContactConfirmed,
   rejectApplication,
-  rejectVendor,
+  setVendorPause,
   openApplicationDocument,
   runVendorDeepSearchAction,
   setApplicationInReview,
   verifyVendorExperience,
 } from './actions';
 import { FINDABLE_INPUT_COLUMNS, findLockState } from '@/lib/findable-shop';
+import { isShopPaused } from '@/lib/shop-status';
 import { FindLine } from './_components/find-line';
 import { vendorExperienceEnabled } from '@/lib/vendor-experience';
 import {
@@ -89,6 +81,7 @@ import {
   buildVerificationChecks,
   buildVerificationChecksForVendors,
   readPayoutNameFacts,
+  readRegistrationClaimFailures,
   type VerificationChecksReport,
 } from '@/lib/verification-checks-server';
 import {
@@ -152,14 +145,17 @@ type Props = {
   searchParams: Promise<{
     surface?: string; // 'applications' (default) | 'visibility'
     status?: string;
+    /** 🔦 ONE shop's application — the per-shop Verify address Focus opens (`?shop=<vendor_profile_id>`). */
+    shop?: string;
     approved?: string;
     rejected?: string;
     archived?: string;
+    paused?: string;
+    unpaused?: string;
     app_approved?: string;
     app_rejected?: string;
     demoted?: string;
     in_review?: string;
-    contact_marked?: string;
     deep_search?: string;
     reread?: string;
     error?: string;
@@ -191,6 +187,8 @@ type VendorVisibilityRow = {
   fraud_tombstoned?: boolean | null;
   /** False once the shop's papers lapsed (migration 20271348041863). */
   papers_current?: boolean | null;
+  /** ⏸ Set while the shop is paused (migration 20271350091032) — read by `isShopFindable` via FINDABLE_INPUT_COLUMNS. */
+  paused_at?: string | null;
 };
 
 type ApplicationRow = {
@@ -277,7 +275,7 @@ export default async function AdminVerifyPage({ searchParams }: Props) {
       <SurfaceTabs current={surface} />
 
       {surface === 'applications' ? (
-        <ApplicationsSurface statusParam={search.status} error={search.error} />
+        <ApplicationsSurface statusParam={search.status} error={search.error} shopParam={search.shop} />
       ) : (
         <VisibilitySurface statusParam={search.status} error={search.error} />
       )}
@@ -345,13 +343,6 @@ function FlashBanner({
       </p>
     );
   }
-  if (search.contact_marked === '1') {
-    return (
-      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
-        VALIDATE message marked as received.
-      </p>
-    );
-  }
   if (search.reread === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
@@ -380,6 +371,20 @@ function FlashBanner({
       </p>
     );
   }
+  if (search.paused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
+        Shop paused — it takes no new bookings or clients, and its QR says it is paused. Existing bookings carry on.
+      </p>
+    );
+  }
+  if (search.unpaused === '1') {
+    return (
+      <p className="mb-4 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        Shop unpaused — it takes new bookings again.
+      </p>
+    );
+  }
   if (search.archived === '1') {
     return (
       <p className="mb-4 rounded-md border border-ink/15 bg-ink/5 px-4 py-3 text-sm text-ink/75">
@@ -397,12 +402,20 @@ function FlashBanner({
 async function ApplicationsSurface({
   statusParam,
   error,
+  shopParam,
 }: {
   statusParam?: string;
   error?: string;
+  shopParam?: string;
 }) {
   const tabFilter = parseApplicationsTab(statusParam);
   const admin = createAdminClient();
+  /*
+    🔦 THE PER-SHOP VERIFY ADDRESS (Focus at Spotlight level, owner approved 18 Nov 2026): a supplier found in Focus
+    with papers waiting opens HERE, on its own application, instead of the whole queue. Only a uuid is read —
+    anything else is ignored and the whole queue shows.
+  */
+  const shopId = typeof shopParam === 'string' && /^[0-9a-f-]{36}$/i.test(shopParam) ? shopParam.toLowerCase() : null;
 
   // Read applications joined with their vendor row. We don't use a foreign-key
   // joined select via Supabase JS because the relationship hasn't been declared
@@ -413,6 +426,7 @@ async function ApplicationsSurface({
       'application_id,public_id,vendor_profile_id,application_type,fee_php_centavos,status,doc_uploads,docs_complete,submitted_at,sla_due_at,decision,decision_reason,decided_at,admin_user_id,created_at',
     )
     .in('status', tabFilter.statuses)
+    .match(shopId ? { vendor_profile_id: shopId } : {})
     .order('submitted_at', { ascending: true, nullsFirst: false })
     .limit(200);
 
@@ -423,15 +437,6 @@ async function ApplicationsSurface({
   const apps = (appData ?? []) as Omit<ApplicationRow, 'vendor'>[];
   const vendorIds = Array.from(new Set(apps.map((a) => a.vendor_profile_id)));
 
-  // VALIDATE contact confirmations (migration 20270503417266) — both are soft
-  // probes that degrade to "unconfirmed" / defaults on a pre-migration DB.
-  const [contactConfirmations, validateContacts] = await Promise.all([
-    fetchContactConfirmations(
-      admin,
-      apps.map((a) => a.application_id),
-    ),
-    fetchVendorValidateContacts(admin),
-  ]);
   // Latest deep-search dossier per vendor (soft probe — degrades to empty on a
   // pre-migration DB). Rows arrive newest-first; first one per vendor wins.
   const dossierMap: Record<string, DossierRow> = {};
@@ -685,6 +690,8 @@ async function ApplicationsSurface({
   const checksMap: Record<string, VerificationChecksReport> = {};
   // SUP-27: the payout-name facts for every shop on screen, in one batch.
   const payoutNames = await readPayoutNameFacts(fullRows.map((r) => r.vendor_profile_id));
+  // 🔢 A Submit whose paper's number could not be saved shows "Claim failed" on the check, never only in a log.
+  const claimFailures = await readRegistrationClaimFailures(fullRows.map((r) => r.vendor_profile_id));
   const checkReports = vendorReadFailed ? [] : await Promise.all(
     fullRows.map(async (r) => ({
       id: r.application_id,
@@ -695,12 +702,9 @@ async function ApplicationsSurface({
         contactEmail: r.vendor.contact_email,
         contactPhone: r.vendor.contact_phone,
         hqAddress: r.vendor.hq_address,
-        contactEmailConfirmedAt:
-          contactConfirmations[r.application_id]?.contact_email_confirmed_at ?? null,
-        contactPhoneConfirmedAt:
-          contactConfirmations[r.application_id]?.contact_phone_confirmed_at ?? null,
         registrationNumberRaw: r.vendor.registrationNumberRaw,
         registrationNumberNeedsReview: r.vendor.registrationNumberNeedsReview,
+        registrationClaimFailure: claimFailures[r.vendor_profile_id] ?? null,
         inBusinessSinceYear: r.vendor.inBusinessSinceYear,
         experienceVerifiedAt: r.vendor.experienceVerifiedAt,
         payoutNames: payoutNames[r.vendor_profile_id],
@@ -755,6 +759,15 @@ async function ApplicationsSurface({
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
 
+      {shopId ? (
+        <p className="mb-3 text-sm text-ink/75" data-verify-one-shop="">
+          Showing one shop&apos;s application.{' '}
+          <Link href={`/admin/verify?status=${encodeURIComponent(statusParam ?? 'pending_review')}`} className="underline underline-offset-2">
+            Show the whole queue
+          </Link>
+        </p>
+      ) : null}
+
       {appErr ? (
         <FormFlash tone="error">
           Verification applications couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
@@ -787,11 +800,6 @@ async function ApplicationsSurface({
                 <ApplicationCard
                   application={r}
                   autoCheck={autoMap[r.application_id] ?? null}
-                  confirmation={
-                    contactConfirmations[r.application_id] ??
-                    EMPTY_CONTACT_CONFIRMATION
-                  }
-                  validateContacts={validateContacts}
                   dossierRow={dossierMap[r.vendor_profile_id] ?? null}
                   checks={checksMap[r.application_id] ?? null}
                   freeBookingMatch={freeBookingMatchMap[r.vendor_profile_id] ?? null}
@@ -964,8 +972,6 @@ function ApplicationsTabs({ current }: { current: string }) {
 function ApplicationCard({
   application,
   autoCheck,
-  confirmation,
-  validateContacts,
   dossierRow,
   checks,
   freeBookingMatch,
@@ -973,8 +979,6 @@ function ApplicationCard({
   application: ApplicationRow;
   /** The latest automatic check on this application, or null when none ran. */
   autoCheck: AutoCheckRow | null;
-  confirmation: ContactConfirmation;
-  validateContacts: VendorValidateContacts;
   dossierRow: DossierRow | null;
   /** null when the checks could not be built at all — the card says so. */
   checks: VerificationChecksReport | null;
@@ -1197,104 +1201,10 @@ function ApplicationCard({
         </div>
       ) : null}
 
-      <ContactConfirmationBlock
-        application={application}
-        confirmation={confirmation}
-        validateContacts={validateContacts}
-      />
-
       <DeepSearchBlock application={application} dossierRow={dossierRow} />
 
       <ActionRow application={application} checks={checks} />
     </article>
-  );
-}
-
-/**
- * Contact confirmation — the vendor sends a literal "VALIDATE <shop name>"
- * EMAIL and TEXT to the Setnayan-owned validate inbox/number; the reviewing
- * admin marks each one as received here. Stamps land on the application row
- * via the admin-only mark_vendor_contact_confirmed RPC (20270503417266).
- */
-function ContactConfirmationBlock({
-  application,
-  confirmation,
-  validateContacts,
-}: {
-  application: ApplicationRow;
-  confirmation: ContactConfirmation;
-  validateContacts: VendorValidateContacts;
-}) {
-  const token = expectedValidateToken(application.vendor.business_name);
-  return (
-    <div className="space-y-2 rounded-md border border-ink/10 bg-cream/60 px-3 py-2">
-      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-        Contact confirmation
-      </p>
-      <p className="text-xs text-ink/65">
-        The supplier sends{' '}
-        <span className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px] text-ink">
-          {token}
-        </span>{' '}
-        by email to{' '}
-        <span className="font-medium text-ink">
-          {validateContacts.vendor_validate_email}
-        </span>{' '}
-        and by text to{' '}
-        <span className="font-medium text-ink">
-          {validateContacts.vendor_validate_phone ?? 'number coming soon'}
-        </span>
-        . Mark each one once it lands.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        <ContactChannelMark
-          applicationId={application.application_id}
-          channel="email"
-          label="Mark email received"
-          confirmedAt={confirmation.contact_email_confirmed_at}
-        />
-        <ContactChannelMark
-          applicationId={application.application_id}
-          channel="phone"
-          label="Mark text received"
-          confirmedAt={confirmation.contact_phone_confirmed_at}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ContactChannelMark({
-  applicationId,
-  channel,
-  label,
-  confirmedAt,
-}: {
-  applicationId: string;
-  channel: 'email' | 'phone';
-  label: string;
-  confirmedAt: string | null;
-}) {
-  if (confirmedAt) {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-md border border-success-200 bg-success-50 px-2.5 py-1 text-xs font-medium text-success-800">
-        <BadgeCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {channel === 'email' ? 'Email' : 'Text'} received{' '}
-        {new Date(confirmedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
-      </span>
-    );
-  }
-  return (
-    <form action={markVendorContactConfirmed}>
-      <input type="hidden" name="application_id" value={applicationId} />
-      <input type="hidden" name="channel" value={channel} />
-      <SubmitButton
-        pendingLabel="Marking…"
-        className="inline-flex h-9 items-center rounded-md border border-ink/20 px-3 text-xs text-ink/70 hover:bg-ink/5"
-      >
-        {label}
-      </SubmitButton>
-    </form>
   );
 }
 
@@ -2555,6 +2465,8 @@ function VerifyCard({
   bypass: { expiresAt: string | null; expiredAt: string | null } | null;
 }) {
   const visibility = parseVisibility(vendor.public_visibility);
+  /** ⏸ The admin's Pause (and a supplier's own) — `paused_at`, read through FINDABLE_INPUT_COLUMNS. */
+  const paused = isShopPaused(vendor);
   const vouch = bypassState({
     expiresAt: bypass?.expiresAt ?? null,
     // The desk does not re-read the applications table per card; a shop whose
@@ -2579,7 +2491,14 @@ function VerifyCard({
             ) : null}
           </div>
         </div>
-        <VisibilityBadge value={visibility} />
+        <div className="flex flex-col items-end gap-1">
+          <VisibilityBadge value={visibility} />
+          {paused ? (
+            <span data-shop-paused className="text-xs font-medium text-ink/70">
+              Paused
+            </span>
+          ) : null}
+        </div>
       </header>
 
       {vendor.tagline ? <p className="text-xs text-ink/65">{vendor.tagline}</p> : null}
@@ -2647,19 +2566,38 @@ function VerifyCard({
           vouch={vouch}
           alreadyListed={visibility === 'verified'}
         />
-        {visibility !== 'hidden' ? (
-          <ConfirmForm
-            action={rejectVendor}
-            title="Hide this supplier?"
-            confirmLabel="Reject → Hidden"
-            message="This hides the supplier from marketplace browse — couples can no longer find them. Reversible by approving again later."
-          >
-            <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
-            <input type="hidden" name="reject_to" value="hidden" />
-            <SubmitButton pendingLabel="Hiding…" className="button-secondary h-9 px-3 text-xs">
-              Reject → Hidden
-            </SubmitButton>
-          </ConfirmForm>
+        {/* ⏸ Owner 2026-11-16 (answer 3 to PR #7890): the admin's "Hide" BECAME Pause — one control. A pause holds
+            for verified and unverified shops alike (Hide did nothing to an unverified one). A closed (archived) shop
+            has nothing to pause. */}
+        {visibility !== 'archived' ? (
+          paused ? (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Unpause this shop?"
+              confirmLabel="Unpause"
+              destructive={false}
+              message="The shop takes new bookings and clients again, and its QR works as before."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="open" />
+              <SubmitButton pendingLabel="Unpausing…" className="button-secondary h-9 px-3 text-xs">
+                Unpause
+              </SubmitButton>
+            </ConfirmForm>
+          ) : (
+            <ConfirmForm
+              action={setVendorPause}
+              title="Pause this shop?"
+              confirmLabel="Pause"
+              message="The shop leaves every list and takes no new bookings or clients; its page and QR say it is paused. Couples who already booked keep their bookings and can still message it. Unpause any time."
+            >
+              <input type="hidden" name="vendor_profile_id" value={vendor.vendor_profile_id} />
+              <input type="hidden" name="status" value="paused" />
+              <SubmitButton pendingLabel="Pausing…" className="button-secondary h-9 px-3 text-xs">
+                Pause
+              </SubmitButton>
+            </ConfirmForm>
+          )
         ) : null}
         {visibility !== 'archived' ? (
           <ConfirmForm

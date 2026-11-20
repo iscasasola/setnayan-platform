@@ -64,6 +64,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
+  { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',
@@ -122,6 +123,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'couple_event_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'couple_wedding_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'creator_chapters', decision: 'exported', as: 'creator_chapters' },
+  { table: 'creator_chapter_replies', decision: 'exported', as: 'article_replies' },
   { table: 'discount_code_eligible_users', decision: 'exported', as: 'vouchers_you_were_offered' },
   { table: 'event_moderators', decision: 'exported', as: 'cohost_roles' },
   { table: 'event_preparation_items', decision: 'exported', as: 'prep_items_added' },
@@ -176,6 +178,14 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'A record that a GUEST\'s invitation QR was replaced. `actor_user_id` is the host or admin who pressed ' +
       'rotate — an action ON another person\'s pass, not personal data of the presser — and `old_token_sha256` is ' +
       'derived from a credential. Same line as resolved_by on event_day_requests.',
+  },
+  {
+    table: 'admin_received_transactions',
+    decision: 'excluded',
+    why:
+      'Setnayan\'s own bank record — a transfer that arrived in our BDO, read from the admin\'s screenshot. ' +
+      '`created_by` / `matched_by` are the staff member who dropped or matched it; the row is not about them. ' +
+      'The buyer\'s side of the same money is their payment row, which is exported. Same line as platform_expenses.',
   },
   {
     table: 'platform_expenses',
@@ -296,6 +306,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'shop_papic_wallet_entries. `created_by` is an actor stamp on who caused the entry; the row says nothing ' +
       'about that person, the shop owner reads it on Shop › Promote › Your gifts, and erasure clears the stamp ' +
       '(lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'vendor_client_invites',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s own "Add a client" invites (Own clients v4, 2026-11-16) — keyed to the shop (vendor_profile_id). ' +
+      '`created_by` is an actor stamp on which shop account pressed Add; the row says nothing about that person. The ' +
+      'name and contact it holds are the CLIENT\'s, typed by the shop about somebody who has no account yet; once ' +
+      'they join, the event they joined is theirs and is exported with `events`. The shop reads its own rows.',
   },
   {
     table: 'shop_badge_upgrades',

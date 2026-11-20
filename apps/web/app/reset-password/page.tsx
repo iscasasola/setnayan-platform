@@ -17,6 +17,7 @@
  * spent link is a DEAD END, so it does not wear the action colour. The one
  * control on the dead end still leads somewhere real — a fresh link.
  */
+import { getCurrentUser } from '@/lib/auth';
 import { ExpiredResend } from '@/app/forgot-password/_components/reset-sent';
 import { requestPasswordReset } from '@/app/forgot-password/actions';
 import Link from 'next/link';
@@ -48,9 +49,7 @@ export default async function ResetPasswordPage({
   const errorMessage = params.error ? decodeURIComponent(params.error) : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     // Recovery links are single-use and short-lived — landing here without a

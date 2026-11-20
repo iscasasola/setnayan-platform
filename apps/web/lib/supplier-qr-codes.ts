@@ -1,6 +1,6 @@
 import { shopPath } from '@/lib/shop-address';
 import type { VendorDay } from '@/lib/vendor-day-picker';
-import { isPrintVia, materialViaOf, withVia, type MaterialVia } from '@/lib/material-tags';
+import { withVia, type MaterialVia } from '@/lib/material-tags';
 
 /**
  * 🔳 THE SHOP'S QR CODES — the choices of the "Which code ▾" dropdown. Since 2026-11-05 the list is split between two
@@ -106,38 +106,20 @@ export function ownReviewsUrl(origin: string, slug: string, via: MaterialVia): s
   return withVia(`${myPageUrl(origin, slug)}/review?src=${OWN_LINK_SRC}`, via);
 }
 
-/**
- * 📸 THE PHOTO MARK'S QR (owner 2026-11-16, DECISION_LOG "THE QR ON A SHOP'S PHOTOS IS SETNAYAN'S"; verbatim *"The qr
- * codes on photos will have the no tag. Because this is from setnayan"*): the PLAIN page — NO `src=own`, so a couple who
- * scans it and books pays the booking fee and the booking counts for badges — named `via=photo` for the stats only.
- * Built here for the photo-mark QR when it is drawn; never `ownPageUrl`.
- */
-export function photoMarkPageUrl(origin: string, slug: string): string {
-  return withVia(myPageUrl(origin, slug), 'photo');
-}
 
 /**
  * 💳 THE ONE RULE for what an arrival on the shop (or its Check-a-date page) is stamped when it asks (owner 2026-11-13,
  * walk F-W1-58 · RW-19): `?src=own` — the supplier's own code or link — is 'website', their own client; a Setnayan
  * surface's tag is that surface; NO tag found the shop on Setnayan → 'shop_page', sourced.
  *
- * 🖨💳 EXCEPT A PRINT ON A PLAN BELOW ULTRA (owner 2026-11-16, DECISION_LOG "PRINTS OPEN TO EVERY SUPPLIER PLAN — BUT
- * ONLY SUPPLIER ULTRA'S PRINTS ARE THE SHOP'S OWN"): an own code whose `via` is a PRINTED piece (`isPrintVia`) is the
- * shop's own ONLY while the shop is on Ultra AT THE TIME OF THE INQUIRY (`shopOnUltraNow`) — a printed `?src=own` cannot
- * be recalled, so a shop that drops from Ultra keeps its prints and its scans pay the fee. On any lower plan the scan
- * is 'shop_page', Setnayan-sourced. `shopOnUltra` defaults to false: a caller that has not read the plan gets the fee,
- * never a waiver. The door sticker, the shared link and the on-screen codes are not prints (that question is OPEN for
- * the owner in the same row) and keep the 13 Nov rule.
- *
- * The shop page calls this for what it hands the sheet; `startServiceInquiry` calls it AGAIN with the plan read from
- * the database before anything is stamped — the server's answer is the one that is kept.
+ * 🔓 THE PIECE NEVER CHANGES THIS (owner 2026-11-16, DECISION_LOG "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY
+ * PLAN", which superseded "only Supplier Ultra's prints are the shop's own"): a printed card, a tarp, the door sticker
+ * and a shared link are all the shop's own code on every plan. Whether that own arrival is really the shop's own
+ * client is decided at the inquiry, from the shop's verification read THEN (`ownLinkArrival` in
+ * `lib/own-clients.server.ts`): an unverified shop's scan is 'shop_page', Setnayan-sourced.
  */
-export function arrivalInquirySourceOf(
-  src: unknown,
-  via: unknown = null,
-  shopOnUltra = false,
-): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
-  if (src === OWN_LINK_SRC) return isPrintVia(materialViaOf(via)) && !shopOnUltra ? 'shop_page' : 'website';
+export function arrivalInquirySourceOf(src: unknown): 'website' | 'editorial' | 'favorites' | 'explore' | 'search' | 'shop_page' {
+  if (src === OWN_LINK_SRC) return 'website';
   if (src === 'editorial' || src === 'favorites' || src === 'explore' || src === 'search') return src;
   return 'shop_page';
 }

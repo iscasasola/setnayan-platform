@@ -29,7 +29,7 @@ test('the Seats and March words a person reads wrap, never cut', () => {
   const tiles = read('app/dashboard/[eventId]/guests/_components/view-summary-cards.tsx');
   const phone = read(`${S}/seat-plan-phone.tsx`);
   const spots: [string, string, string][] = [
-    ['the Seats › List table name', faces, '{label}</span>'],
+    ['the Seats › List table name', faces, '{u.label}</span>'], // 👥 20 Nov: the name on the table's card
     ['the main tile’s word', tiles, '{t.word}</span>'],
     ['a count tile’s word', tiles, "{t.value === null ? 'couldn’t read' : t.word}</span>"],
     ['the move sheet’s guest name', phone, '{fullName}</span>'],

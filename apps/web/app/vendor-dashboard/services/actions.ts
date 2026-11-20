@@ -30,6 +30,7 @@ import {
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { cardCountHasNoCap, isCardPickableStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import {
   deriveBranchStatus,
   fetchLatestBranchOrders,
@@ -52,6 +53,7 @@ import {
   type LeafIndex,
 } from '@/lib/service-card-kind';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
+import { heldHiddenMessage, LIVE_CARDS_UNREAD, liveCardsVerdict } from '@/lib/live-cards-cap';
 import { bookingsPerDateRefusal } from '@/lib/card-bookings-per-date';
 import {
   assignCardSchedule,
@@ -94,7 +96,7 @@ import {
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
 import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
-import { freeByKind, shopGiftKindOf } from '@/lib/shop-gifts';
+import { freeByKind, freeOfPack, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { cardPhotoFields } from '@/lib/card-photos';
@@ -545,11 +547,39 @@ function parseDailyCapacityOrThrow(raw: FormDataEntryValue | null): number | nul
 }
 
 /**
- * A CARD'S BOOKINGS PER DATE STAYS INSIDE ITS PLAN (owner 2026-11-06, DECISION_LOG "BOOKINGS PER DATE PER SERVICE IS A
- * PLAN ALLOWANCE": Solo 1 · Pro 3 · Ultra 5, plus any "+1 booking per date" bought). Null = it may be saved; else the
- * sentence to show. Free · Verified: 1 each, like Solo (owner click 2026-11-06). A card re-saved with the SAME number
- * it already holds above a lowered cap is grandfathered (lib/card-bookings-per-date.ts). The database honours only the
- * cap either way (`service_card_daily_limit`).
+ * 🗓 The Availability block's two fields (plan step 3). Null when the form did not carry the block (every older form —
+ * they leave the stored style alone). '' = Not set. A Coming soon style is refused, never stored: the maker never
+ * offers it, so only a tampered form sends one. `order_lead_days` 0..365; '' or 0 = no rule. `usual_prep_days` 0..365.
+ */
+function parseCardAvailability(
+  formData: FormData,
+): { style: AvailabilityStyle | null; leadDays: number | null; prepDays: number | null } | { problem: string } | null {
+  if (formData.get('availability_present') !== '1') return null;
+  const rawStyle = String(formData.get('availability_style') ?? '').trim();
+  if (rawStyle !== '' && !isCardPickableStyle(rawStyle)) return { problem: 'That way of booking can’t be picked yet.' };
+  const style = rawStyle === '' ? null : (rawStyle as AvailabilityStyle);
+  const rawLead = String(formData.get('order_lead_days') ?? '').trim();
+  let leadDays: number | null = null;
+  if (rawLead !== '') {
+    const d = Number(rawLead);
+    if (!Number.isInteger(d) || d < 0 || d > 365) return { problem: 'Order at least: a whole number of days, 0 to 365.' };
+    leadDays = d;
+  }
+  // 🛠 Made to order: "Usual preparation time" (owner 19 Nov, AVAILABILITY FINALIZED), 0..365; '' = none.
+  const rawPrep = String(formData.get('usual_prep_days') ?? '').trim();
+  let prepDays: number | null = null;
+  if (rawPrep !== '') {
+    const d = Number(rawPrep);
+    if (!Number.isInteger(d) || d < 0 || d > 365) return { problem: 'Usual preparation time: a whole number of days, 0 to 365.' };
+    prepDays = d;
+  }
+  return { style, leadDays, prepDays };
+}
+
+/**
+ * A CARD'S BOOKINGS PER DATE IS THE SHOP'S OWN NUMBER (owner 2026-11-18, ruling 17 — no plan limit on any plan), up to
+ * DAILY_CAPACITY_MAX. Null = it may be saved; else the sentence to show. A card re-saved with the SAME number it already
+ * holds is never refused (lib/card-bookings-per-date.ts).
  */
 async function bookingsPerDatePlanRefusal(
   supabase: SupabaseClient,
@@ -558,13 +588,6 @@ async function bookingsPerDatePlanRefusal(
   serviceId: string | null,
 ): Promise<string | null> {
   if (requested === null) return null;
-  const { data: tierRow } = await supabase
-    .from('vendor_profiles')
-    .select('tier_state')
-    .eq('vendor_profile_id', vendorProfileId)
-    .maybeSingle();
-  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
-  const caps = await fetchCapsWithAddOns(supabase, vendorProfileId, tier);
   let stored: number | null = null;
   if (serviceId) {
     const { data: row } = await supabase
@@ -576,7 +599,48 @@ async function bookingsPerDatePlanRefusal(
     const n = Number((row as { daily_capacity?: number | null } | null)?.daily_capacity);
     stored = Number.isInteger(n) && n > 0 ? n : null;
   }
-  return bookingsPerDateRefusal({ tier, effectiveCap: caps.bookingsPerDatePerService, requested, stored });
+  return bookingsPerDateRefusal({ requested, stored });
+}
+
+/**
+ * 🔒 May this card go LIVE under the plan's live total? (`lib/live-cards-cap.ts` holds the rule and its sentences —
+ * owner 19 Nov 2026, cards unlimited to make, the plan counts the live ones.) `null` = yes. A read error fails closed.
+ */
+async function liveCardsCapRefusal(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+  cap: number,
+  serviceId: string | null,
+): Promise<string | null> {
+  if (!Number.isFinite(cap)) return null;
+  let isBranchCopy = false;
+  if (serviceId) {
+    const { data: self, error: selfError } = await supabase
+      .from('vendor_services')
+      .select('branch_copy_of')
+      .eq('vendor_service_id', serviceId)
+      .eq('vendor_profile_id', vendorProfileId)
+      .maybeSingle();
+    if (selfError) {
+      console.error('[supabase-error] services: read the card before the live-cards count', selfError);
+      return LIVE_CARDS_UNREAD;
+    }
+    isBranchCopy = Boolean((self as { branch_copy_of?: string | null } | null)?.branch_copy_of);
+    if (isBranchCopy) return null;
+  }
+  let q = supabase
+    .from('vendor_services')
+    .select('vendor_service_id', { count: 'exact', head: true })
+    .eq('vendor_profile_id', vendorProfileId)
+    .eq('is_active', true)
+    .is('branch_copy_of', null);
+  if (serviceId) q = q.neq('vendor_service_id', serviceId);
+  const { count, error } = await q;
+  if (error || typeof count !== 'number') {
+    if (error) console.error('[supabase-error] services: count the live cards', error);
+    return LIVE_CARDS_UNREAD;
+  }
+  return liveCardsVerdict({ cap, liveOthers: count, isBranchCopy });
 }
 
 /** Resolve a submitted coverage_id to a number ONLY if it belongs to this
@@ -809,7 +873,7 @@ export async function createVendorService(formData: FormData) {
   // unlock_vendor_event. Other caps unchanged.
   const caps =
     tierRowTyped?.is_founder === true
-      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      ? { ...baseCaps, parentCategories: Infinity, serviceCardsTotal: Infinity }
       : baseCaps;
 
   // (0) Per-service daily capacity (#2) — the supplier's own number, inside the plan's bookings per date per card
@@ -835,15 +899,8 @@ export async function createVendorService(formData: FormData) {
     .is('branch_copy_of', null);
   const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
-  // (1) Services-per-leaf cap (#1, owner 2026-06-07): FREE 2 · VERIFIED 2 ·
-  // PRO 5 · ENTERPRISE ∞ distinct listings within one leaf category.
-  if (caps.servicesPerLeaf !== Infinity) {
-    const inLeaf = existing.filter((r) => r.category === category).length;
-    if (inLeaf >= caps.servicesPerLeaf) {
-      const msg = `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`;
-      return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(msg)}`);
-    }
-  }
+  // (1) No card total on CREATE (owner 19 Nov 2026 — cards are unlimited to make). This form writes a hidden card
+  // (`is_active: false` below); the plan's number is asked when a card is turned LIVE (`liveCardsCapRefusal`).
 
   // (2) Parent-category cap (Phase B): distinct parents of the 10 — FREE 1 ·
   // VERIFIED 3 · PRO 3 · ENTERPRISE ∞. Only blocks when this service introduces
@@ -1573,7 +1630,8 @@ export async function commitVendorService(formData: FormData) {
   const serviceId =
     typeof idRaw === 'string' && idRaw.length > 0 ? idRaw : null;
   const isCreate = serviceId === null;
-  const publish = formData.get('publish') === 'true';
+  // `let`: a NEW card asked to go live past the plan's live total is saved hidden instead (see `heldHidden`).
+  let publish = formData.get('publish') === 'true';
 
   // PR-C — preserve claim context across a validation bounce. When a claim-
   // driven first-service CREATE fails validation, the plain
@@ -1644,7 +1702,7 @@ export async function commitVendorService(formData: FormData) {
   const baseCaps = await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tierRowTyped?.tier_state);
   const caps =
     tierRowTyped?.is_founder === true
-      ? { ...baseCaps, parentCategories: Infinity, servicesPerLeaf: Infinity }
+      ? { ...baseCaps, parentCategories: Infinity, serviceCardsTotal: Infinity }
       : baseCaps;
 
   // ---- Parse the vendor_services fields (reuse the legacy helpers) ----
@@ -1794,7 +1852,8 @@ export async function commitVendorService(formData: FormData) {
         const pack = packs?.find((p) => p.code === code) ?? null;
         const free = freeByKind(stock);
         if (packs && !pack) return back('That gift is not on sale right now — pick another.');
-        if (pack && free && free[pack.kind] < pack.credits) {
+        // 🔢 Papic is counted in packs (2026-11-14): one of THIS pack must be free.
+        if (pack && free && (freeOfPack(free, pack) ?? 0) < 1) {
           return back('Not enough of that gift in your stock — buy it first (Shop › Promote › Your gifts).');
         }
       }
@@ -1823,8 +1882,13 @@ export async function commitVendorService(formData: FormData) {
   // stay". A card ALREADY live is held only to its price (`unmetForALiveCard`);
   // it is flagged for the rest, never refused. `save_vendor_service` and the
   // trigger draw the same line, in the same order, with the same sentences.
+  // 🗓 THE CARD'S AVAILABILITY (plan step 3, owner "ok" 2026-11-19): its own style + Made to order's "Order at least N
+  // days". Read only when the form carried the Availability block; written after the card row exists (below).
+  const availability = parseCardAvailability(formData);
+  if (availability && 'problem' in availability) return back(availability.problem);
   // A card's bookings per date stays inside its plan (owner 2026-11-06) — the maker's save, same rule as the editor's.
-  {
+  // Rented by the piece has NO cap above 500 (owner ruling 3, 2026-11-19), so a piece card skips the ceiling.
+  if (!(availability && cardCountHasNoCap(availability.style))) {
     const overPlan = await bookingsPerDatePlanRefusal(
       supabase,
       profile.vendor_profile_id,
@@ -1854,6 +1918,7 @@ export async function commitVendorService(formData: FormData) {
     }
   }
 
+  let heldHidden: string | null = null;
   if (publish) {
     let alreadyLive = false;
     if (!isCreate) {
@@ -1878,6 +1943,16 @@ export async function commitVendorService(formData: FormData) {
     const unmet = alreadyLive ? unmetForALiveCard(facts) : unmetPublishRequirements(facts);
     const firstUnmet = unmet[0];
     if (firstUnmet) return back(PUBLISH_REFUSAL_MESSAGE[firstUnmet]);
+    // 🔒 THE PLAN COUNTS LIVE CARDS (owner 19 Nov 2026). A card already live is not asked again. An EDIT turned live
+    // past the total is refused; a NEW card is never refused — it is saved hidden and the sentence says so.
+    if (!alreadyLive) {
+      const overLive = await liveCardsCapRefusal(supabase, profile.vendor_profile_id, caps.serviceCardsTotal, serviceId);
+      if (overLive && !isCreate) return back(overLive);
+      if (overLive) {
+        publish = false;
+        heldHidden = overLive;
+      }
+    }
   }
 
   // ---- ★ Customization step (flag-dark behind packageAuthoringEnabled) ----
@@ -2033,14 +2108,7 @@ export async function commitVendorService(formData: FormData) {
       .is('branch_copy_of', null);
     const existing = (existingRows ?? []) as { category: VendorCategory }[];
 
-    if (caps.servicesPerLeaf !== Infinity) {
-      const inLeaf = existing.filter((r) => r.category === category).length;
-      if (inLeaf >= caps.servicesPerLeaf) {
-        return back(
-          `Your plan allows ${caps.servicesPerLeaf} service${caps.servicesPerLeaf === 1 ? '' : 's'} per category. Upgrade to add more here.`,
-        );
-      }
-    }
+    // No card total on CREATE (owner 19 Nov 2026 — cards are unlimited to make). The live count is asked at publish.
     // Parent cap counts the UNION of legacy service-category parents ∪ the
     // vendor's coverage parents — coverage is becoming the source of truth
     // (see coverageParents; fail-soft to services-only on read error).
@@ -2179,6 +2247,14 @@ export async function commitVendorService(formData: FormData) {
   const partProblems: string[] = [];
   const cardId = typeof savedId === 'string' && savedId.length > 0 ? savedId : null;
   if (cardId) {
+    if (availability) {
+      const { error: availErr } = await supabase
+        .from('vendor_services')
+        .update({ availability_style: availability.style, order_lead_days: availability.leadDays, usual_prep_days: availability.prepDays })
+        .eq('vendor_service_id', cardId)
+        .eq('vendor_profile_id', profile.vendor_profile_id);
+      if (availErr) partProblems.push('how it books');
+    }
     // 🎁 …and a card moving ONTO a pack writes it AFTER, once the RPC has set `includes_setnayan_gift` to false.
     if (typeof giftPackCode === 'string') {
       const { error: packErr } = await supabase
@@ -2420,6 +2496,12 @@ export async function commitVendorService(formData: FormData) {
   // the "you now have X active cards" line can be worded truthfully. On success
   // `publish` IS the final is_active — a publish the RPC refuses errors above.
   const made = isCreate ? `&created=${publish ? 'live' : 'draft'}` : '';
+  if (heldHidden) {
+    // The card IS made (never refused by plan) — it is hidden, and the plan's live total is the reason.
+    redirect(
+      `${await servicesReturnBase()}?error=${encodeURIComponent(heldHiddenMessage(heldHidden))}#service-${savedId ?? ''}`,
+    );
+  }
   redirect(`${await servicesReturnBase()}?saved=1${made}${named}#service-${savedId ?? ''}`);
 }
 
@@ -2511,6 +2593,27 @@ export async function toggleVendorServiceActive(formData: FormData) {
     const refusal = publishRefusalFor(unmet);
     if (refusal) {
       return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(refusal)}`);
+    }
+    // 🔒 THE PLAN COUNTS LIVE CARDS (owner 19 Nov 2026, `lib/live-cards-cap.ts`): turning a hidden card on past the
+    // plan's live total is refused — the same number and sentence as the maker's Publish. A card already on is not
+    // asked again. Founders are unlimited, as on every other card cap (owner 2026-06-09).
+    if (row.is_active !== true) {
+      const { data: tierRow, error: tierError } = await supabase
+        .from('vendor_profiles')
+        .select('tier_state, is_founder')
+        .eq('vendor_profile_id', profile.vendor_profile_id)
+        .maybeSingle();
+      if (tierError) {
+        console.error('[supabase-error] services: read the plan before turning a card on', tierError);
+        return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(LIVE_CARDS_UNREAD)}`);
+      }
+      const tier = tierRow as { tier_state?: string | null; is_founder?: boolean | null } | null;
+      const liveCap =
+        tier?.is_founder === true
+          ? Infinity
+          : (await fetchCapsWithAddOns(supabase, profile.vendor_profile_id, tier?.tier_state)).serviceCardsTotal;
+      const overLive = await liveCardsCapRefusal(supabase, profile.vendor_profile_id, liveCap, idRaw);
+      if (overLive) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(overLive)}`);
     }
   }
 

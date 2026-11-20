@@ -14,7 +14,9 @@
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-people-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the four People records on fixtures; reached by typing its address
+/dev/articles-lab	# 2026-11-17 · internal (dev lab, 404 in production) · the articles feed, an article and the Write sheet on the drawing's sample rows; reached by typing its address
 /dev/admin-shell-lab	# 2026-11-13 · internal (dev lab, 404 in production) · the admin five-tab shell on fixtures; reached by typing its address
+/dev/admin-catalogue-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the admin Catalogue screens on fixtures; reached by typing its address
 /dev/admin-money-lab	# 2026-11-14 · internal (dev lab, 404 in production) · Admin › Money's inner screens on fixtures; reached by typing its address
 /dev/art-kit-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/avatar-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -61,6 +63,7 @@
 /dev/offer-maker-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — the Offer Maker on fixture data (Build 6 Lane D), 404 in production
 /dev/onboarding-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/open-shop-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/papers-renewal-lab	# 2026-11-16 · internal (dev, prototypes) · a dev-only lab for the papers renewal shots; 404 in production
 /dev/papic-camera-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/people-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/personal-invite-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -105,4 +108,7 @@
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/award-lab	# 2026-11-15 · internal (dev lab, 404 in production) · the shared award kit (badge, reward tickets, seal plaque, story video) on sample data; reached by typing its address
+/dev/motion-screens-lab	# first run 2026-11-18 · internal (dev, prototypes) · the motion standard's Phase 3 lab (Tuck, Highlight, the full-screen map, Push); 404 in production
+/dev/motion-screens-lab/deeper	# first run 2026-11-18 · internal (dev, prototypes) · the lab's one deeper page — reached from the lab itself by a built address; 404 in production
+/dev/signature-lab	# first run 2026-11-19 · internal (dev, prototypes) · the motion standard's six signature moments on the shipped parts (§ 9); 404 in production
 /dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address

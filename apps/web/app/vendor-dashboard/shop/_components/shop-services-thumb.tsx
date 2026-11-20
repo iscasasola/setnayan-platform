@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ListFilter } from 'lucide-react';
+import { SortFace } from '@/components/sort-face';
 import { ThumbRow } from '@/components/thumb-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
@@ -106,11 +106,8 @@ export function ShopServicesThumb({ bundlesOn = false }: { bundlesOn?: boolean }
                 apply(words, nextShow, nextSort);
               },
               mark: 'data-shop-services-show',
-              face: (
-                <span aria-hidden className="inline-flex">
-                  <ListFilter className="h-5 w-5" strokeWidth={1.75} />
-                </span>
-              ),
+              // the dot while a Show or a Sort other than the default is on (owner 19 Nov)
+              face: <SortFace on={show !== 'all' || sort !== 'listed'} />,
             },
           ]}
           action={{

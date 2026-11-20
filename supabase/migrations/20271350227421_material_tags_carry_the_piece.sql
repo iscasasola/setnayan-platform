@@ -15,8 +15,9 @@
 --                                           "Registered"). One row per user, written by the service role only.
 --
 -- 💳 MONEY-NEUTRAL BY CONSTRUCTION. No function, trigger or RLS policy that decides the booking fee reads any of these
--- columns; the fee still reads chat_threads.inquiry_source / event_vendors.source. The Ultra-only own rule (d2e360e4)
--- is decided in app code (arrivalInquirySourceOf, at inquiry time) and lands in inquiry_source as before.
+-- columns; the fee still reads chat_threads.inquiry_source / event_vendors.source. Whether an own arrival is the shop's
+-- own client is decided in app code by the shop's verification at inquiry time (ownLinkArrival, owner 16 Nov "every
+-- verified account gets the QR features, on any plan") and lands in inquiry_source as before.
 --
 -- NO WRITES TO EXISTING ROWS. Every new column is NULLABLE with no default, so adding it touches no row; the new table
 -- starts empty. RLS on the new table is enabled at CREATE, and every browser role's grant is revoked: it is read and

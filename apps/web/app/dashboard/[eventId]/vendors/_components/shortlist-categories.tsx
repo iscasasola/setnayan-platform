@@ -70,7 +70,6 @@ import {
   MessageCircle,
   Bookmark,
   Undo2,
-  ListFilter,
   RotateCcw,
   Check,
   ArrowUp,
@@ -80,6 +79,7 @@ import {
 } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { FORM_ROW_RULE, FORM_ROW_SUBLINE } from '@/lib/form-row';
+import { HOLD_MS } from '@/lib/motion-table';
 import { DATE_FIT_WORDS } from '@/lib/calendar-truth';
 import { formatPhp } from '@/lib/orders';
 import {
@@ -415,7 +415,7 @@ const SLCAT_CSS = `
    its new place while the bar was still sliding left a strip of the list
    showing between the pinned block and the head (controller's walk at 375,
    2026-10-08). Same duration, same curve as the bar, so they travel as one. */
-.slcat .fold.flat .cat.open>.cat-head-row{transition:top .3s ease-out}
+.slcat .fold.flat .cat.open>.cat-head-row{transition:top var(--sn-tuck-dur) var(--sn-tuck-ease)}
 html.dark .slcat .fold.flat .cat.open>.cat-head-row{background:#17160F}
 .slcat .fold.flat .cat.open .cat-collapse{transition-delay:.12s}
 .slcat .fold.flat .cat.open .cat-ic{animation:slcat-pop 420ms var(--ease)}
@@ -1193,7 +1193,8 @@ function CardDateBlock({
  * A press that travels more than a few pixels is a scroll, and a scroll must
  * stay a scroll.
  */
-const LONG_PRESS_MS = 450;
+/* The motion standard's ONE hold (350 ms, MOTION_STANDARD § 2 / § 4 #24 Long press) — was a 450 of its own. */
+const LONG_PRESS_MS = HOLD_MS;
 const LONG_PRESS_SLOP_PX = 8;
 let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 let longPressOrigin: { x: number; y: number } | null = null;
@@ -1747,7 +1748,7 @@ function VendorCard({
     // A clashing card with nothing to offer still sits behind the divider, so
     // it still reads as sunk. (`buildFit` is only ever populated under the flag,
     // so this branch cannot fire in pre-replan production.)
-    const told = v.notYetVerified ? <NotYetVerifiedThreadLine /> : null;
+    const told = v.notYetVerified ? <NotYetVerifiedThreadLine renewing={v.papersRenewing} /> : null;
     return v.buildFit === 'clash' || unavailable || told ? (
       <div className={`vcw${v.buildFit === 'clash' || unavailable ? ' is-dim' : ''}`}>
         {card}
@@ -1827,7 +1828,7 @@ function VendorCard({
       {card}
       {/* 🛡 Owner 16 Nov (36d74d48): the couple is told, never blocked — the chat head's own line, under the card (its ⓘ
           is a button, so it cannot sit inside the card's link). */}
-      {v.notYetVerified ? <NotYetVerifiedThreadLine /> : null}
+      {v.notYetVerified ? <NotYetVerifiedThreadLine renewing={v.papersRenewing} /> : null}
       <BenchVendorActions
         actions={actions}
         eventId={eventId}
@@ -1835,6 +1836,7 @@ function VendorCard({
         vendorName={v.name}
         groupLabel={tileLabel}
         verifiedState={v.verifiedState}
+        papersRenewing={v.papersRenewing}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
         booked={v.status === 'locked'}
         hasPrice={v.totalCostPhp != null}
@@ -2768,7 +2770,7 @@ function MoreToCompare({
         <div className="morefoot">
           <ActionButton
             tone="neutral"
-            icon={suggest ? Search : ListFilter}
+            icon={suggest ? Search : SlidersHorizontal}
             label={suggest ? searchAllLabel(label, page.totalCards) : inlineMoreSeeAllLabel(label)}
             onClick={onSeeAll}
           />
@@ -5161,6 +5163,9 @@ export function ShortlistCategories({
           onSearch={setQuery}
           preset={thumbPreset}
           onAdd={addYourOwn}
+          // ➕ 🔍 → ＋ by itself only where the page KNOWS nothing matched: the whole-shortlist search (`shortlistMissed`).
+          // Inside one open category the cards are searched by their own list — there the tap on 🔍 is the switch.
+          matches={!shortlistMissed}
           emptyPanel={findPanel}
           onGoToCategory={goToCategory}
           sortMenu={findSortMenu({

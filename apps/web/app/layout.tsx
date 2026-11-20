@@ -18,6 +18,7 @@ import './_components/pinned-row/pin-fold.css';
 import './_components/collapsing-top/collapsing-top.css';
 import './_components/fold.css';
 import './service-icons.css';
+import './signature-moments.css';
 import { ClientTypeDetector } from './_components/client-type-detector';
 import { StoreShellLinkGuard } from './_components/store-shell-link-guard';
 import { NativeBridge } from './_components/native-bridge';
@@ -27,6 +28,7 @@ import { StaleTabNotice } from './_components/stale-tab-notice';
 import { DemoModeBanner } from './_components/demo-mode-banner';
 import { OfflineDaemonMount } from './_components/offline-daemon-mount';
 import { NavProgress } from './_components/nav-progress';
+import { PhotoArrives } from './_components/photo-arrives';
 import { NavSlideController } from './_components/nav/nav-slide-controller';
 import { AppInitSplash } from './_components/app-init-splash';
 import { SiteChrome } from './_components/marketing/site-chrome';
@@ -57,6 +59,7 @@ import { appColoursToCss } from '@/lib/app-colours';
 import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -352,13 +355,13 @@ const vidaloka = localFont({
 // ⚠ Pages with their own title (the homepage's HOME_TITLE) are unaffected.
 const SITE_TITLE = 'Setnayan · Plan, share and relive every event';
 const SITE_DESCRIPTION =
-  'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch, Patiktok, Music Maker and Setnayan AI.';
+  'Plan any Filipino event free in your Event Hub, book verified suppliers at 0% commission, and share and relive it with Papic photos, Live Watch and Setnayan AI.';
 
 // Static metadata baseline. `icons` is intentionally NOT here — it's resolved
 // per-request in generateMetadata() below so the admin-controlled brand icon
 // (owner 2026-06-10) can override the defaults. Everything else is constant.
 const baseMetadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(siteOrigin()),
   title: {
     default: SITE_TITLE,
     template: '%s · Setnayan',
@@ -517,7 +520,7 @@ const organizationJsonLd = {
   // companies. ⚠ No event-type COUNT and "event", not "celebration" (a wake is a
   // live type) — the same two rules page.tsx records.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
+    "Setnayan (SET-na-yan, from Tagalog \"Set na 'yan.\" — \"that's all set\") is the Philippines-first life-events platform — one free account for a Filipino household to plan each occasion, run the day, and keep it for life. Weddings are the deepest surface, and the same tools run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more. Planning is free — guest list, RSVP, seating, budget, and a personal Event Hub — with optional paid upgrades that set the day apart: Papic (guests' phones become a coordinated photo-and-video crew, with QR-tagged Memories and personal highlight reels — free to start on every event, with paid top-ups for more credits), Live Watch livestream on the event page, the Setnayan AI planner, and Event Pro (its Logo & QR part animates your own logo) — each priced individually in PHP. Everything a host creates gathers into one living memory (Memories) they keep, and each event becomes its own recurring anniversary. 0% commission on supplier bookings; verified Filipino event suppliers across Metro Manila, Cebu, Davao, Tagaytay, and nationwide.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {
@@ -757,6 +760,9 @@ export default async function RootLayout({
             their own loading.tsx, and any added later). Pure client → no
             static-generation impact. See _components/nav-progress.tsx. */}
         <NavProgress />
+        {/* Photo arrives (motion standard 18 Nov 2026) — one capture listener; a photo carrying `PHOTO_ARRIVES`
+            fades and settles in as it lands. Never hides a photo. See lib/photo-arrives.ts. */}
+        <PhotoArrives />
         {/* Mobile bottom-nav carousel page-slide (NAV · 2026-06-21). Global
             client interceptor; drives a directional View Transition on top-level
             tab taps. No-op on desktop / reduced-motion / unsupported browsers,

@@ -50,11 +50,6 @@ function planName(t: VendorTier): string {
   return t === 'verified' ? 'Verified' : TIER_LABEL[t];
 }
 
-/** "20 km" / "nationwide" from a radius (Ultra is `Infinity`). */
-function reach(km: number, nationwide = 'nationwide'): string {
-  return Number.isFinite(km) ? `${formatCount(km)} km` : nationwide;
-}
-
 /** The pill beside a feature: "Verified", "Solo+", "Pro+", or "Ultra" (nothing is above Ultra on this page). */
 export function planPill(t: VendorTier | null): string {
   if (t === null || t === 'free') return 'Free';
@@ -72,36 +67,38 @@ export function tierOfPlansRow(row: RegExp): VendorTier | null {
 /* ───────────────────────── the steps: Free → Verified → Grow ───────────────────────── */
 
 /**
- * "1 category · 1 service card · found until your first inquiry" — Free's line, from its caps. The search half is the
+ * "1 category · 1 service card live · found until your first inquiry" — Free's line, from its caps. The search half is the
  * 7 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts): an unverified shop shows in
  * search until its first inquiry, then waits for Verified. (It said "not in search yet" until Lane J — false since 7 Nov.)
  */
 export function freeSpec(): string {
   const c = TIER_CAPS.free;
-  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} · ${FREE_FINDABLE}`;
-}
-
-/** "20 km around you · the Verified seal · get paid in the app" — Verified's line. */
-export function verifiedSpec(): string {
-  return `${reach(TIER_CAPS.verified.serviceRadiusKm)} around you · the Verified seal · get paid in the app`;
+  return `${countNoun(c.parentCategories, 'category', 'categories')} · ${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live · ${FREE_FINDABLE}`;
 }
 
 /**
- * A paid plan's spec line, e.g. Pro: "100 km · 8 categories · 10 service cards each · 3 bookings a day per service, at
- * each branch · 5 team seats · 3 branches · waiting list, 1 a date". A part a plan does not have (Plus's branches,
- * Plus's waiting list) is left out, as the prototype leaves it out. Every number is TIER_CAPS.
+ * "You set your own reach · the Verified seal · get paid in the app" — Verified's line. Reach is not a plan allowance
+ * since 2026-11-19 (owner: *"unlock the range. not plan dependend anymore"*): verified, every plan sets its own.
+ */
+export function verifiedSpec(): string {
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app`;
+}
+
+/**
+ * A paid plan's spec line, e.g. Pro: "8 categories · 20 service cards live · 5 team seats · 2 branches". A part a
+ * plan does not have (Plus's branches) is left out, as the prototype leaves it out. The waiting list has no plan limit
+ * since 2026-11-18, and reach is not a plan allowance since 2026-11-19, so neither is a part. Every number is TIER_CAPS.
  */
 export function growSpec(t: GrowTier): string {
   const c: TierCaps = TIER_CAPS[t];
   const parts = [
-    reach(c.serviceRadiusKm, 'Nationwide'),
     countNoun(c.parentCategories, 'category', 'categories'),
-    `${countNoun(c.servicesPerLeaf, 'service card', 'service cards')} each`,
-    `${countNoun(c.bookingsPerDatePerService, 'booking', 'bookings')} a day per service, at each branch`,
+    // Cards are unlimited to MAKE; the plan counts the LIVE ones (owner 19 Nov 2026, lib/live-cards-cap.ts). Bookings a
+    // day are not a plan limit (ruling 17, no part).
+    `${countNoun(c.serviceCardsTotal, 'service card', 'service cards')} live`,
     countNoun(c.agentAccounts, 'team seat', 'team seats'),
   ];
   if (c.branchesIncluded > 0) parts.push(countNoun(c.branchesIncluded, 'branch', 'branches'));
-  if (c.waitlistAcceptances > 0) parts.push(`waiting list, ${formatCount(c.waitlistAcceptances)} a date`);
   return parts.join(' · ');
 }
 
@@ -180,15 +177,17 @@ export const VERIFIED_PAPERS = ['DTI or SEC', 'BIR 2303', 'Permit'] as const;
 
 /* ───────────────────────── reach, the free base, the badges ───────────────────────── */
 
-/** "20 km around you, 30 km on Solo, 100 km on Pro, nationwide on Ultra" — the ⓘ under the QR codes. */
-export function reachSentence(): string {
-  const head = `${reach(TIER_CAPS.verified.serviceRadiusKm)} around you`;
-  const rest = GROW_TIERS.map((t) => `${reach(TIER_CAPS[t].serviceRadiusKm)} on ${planName(t)}`);
-  return [head, ...rest.slice(0, -1)].join(', ') + `, ${rest[rest.length - 1]}`;
-}
+/**
+ * 🔓 REACH IS NOT A PLAN ALLOWANCE (owner 2026-11-19, verbatim: *"ok unlock the range. not plan dependend anymore."* ·
+ * *"Free Unverified account will have a range of 0km."*). An unverified shop is found by its own link or QR; a verified
+ * shop on ANY plan sets how far it goes. No km per plan is printed anywhere on this page.
+ */
+export const VERIFIED_REACH = 'You set your own reach';
 
-/** Verified's own reach, for "Shown in search 20 km around you". */
-export const VERIFIED_REACH = reach(TIER_CAPS.verified.serviceRadiusKm);
+/** The ⓘ under the QR codes — one sentence, the same on every plan. */
+export function reachSentence(): string {
+  return 'until then you are found by your own link and QR; once verified, you set how far you go, on every plan';
+}
 
 /** The free photo base ("50 portfolio photos"). */
 export const FREE_PHOTOS = formatCount(PORTFOLIO_FREE_BASE);
@@ -204,7 +203,6 @@ export type FoldLine = { text: string; pill: string };
 export type FoldGroup = { title: string; lines: FoldLine[] };
 
 const seatsFrom = firstPlanWith((c) => c.agentAccounts > 0);
-const reachGrowsFrom = firstPlanWith((c) => c.serviceRadiusKm > TIER_CAPS.verified.serviceRadiusKm);
 const waitlistFrom = firstPlanWith((c) => c.waitlistAcceptances > 0);
 const branchesFrom = firstPlanWith((c) => c.branchesIncluded > 0);
 
@@ -222,8 +220,8 @@ export function foldGroups(): FoldGroup[] {
         free('Your public page, auto-built, ready for Google'),
         free(`${FREE_PHOTOS} portfolio photos`),
         free('Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review'),
-        at(`Shown in search ${VERIFIED_REACH} around you`, 'verified'),
-        at('Wider search reach as you grow', reachGrowsFrom),
+        at('Shown in search, as far as you go', 'verified'),
+        at('Your own reach on every plan — you set it', 'verified'),
         at('Your own web address', tierOfPlansRow(/^Your own web address$/)),
         at('Featured in Stories, editorial spotlights', tierOfPlansRow(/^Featured in Stories$/)),
         free('NFC tags, door sticker, ready-made printed pieces'),
@@ -314,6 +312,16 @@ export const PRICE_SHAPE_EXAMPLES = {
 
 /** The fee slider's travel — an example booking price the visitor drags, not a price. */
 export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 } as const;
+
+/**
+ * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
+ * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
+ * `bookingFeePhp` in the client — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ */
+export const FEE_STOPS = [
+  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000,
+] as const;
+export const FEE_STOP_START = 6;
 
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 

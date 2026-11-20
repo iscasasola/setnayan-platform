@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
@@ -12,9 +13,8 @@ import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { giftBasisFrom } from '@/lib/papic-on-a-quote';
-import { fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
+import { fetchShopGiftBundles, fetchShopGiftQuoteBasis } from '@/lib/shop-gifts.server';
 import { readQuoteDoors, type QuoteDoors } from '@/lib/quote-doors.server';
-import { fetchVendorPaysGiftPrice } from '@/lib/setnayan-gift.server';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
@@ -164,7 +164,7 @@ import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
-import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { Badge } from '@/app/_components/badge';
@@ -321,9 +321,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       halls: lockAgreeHalls(sp?.taken, sp?.free),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
@@ -443,9 +441,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   });
   const shopGiftsRead = (async () => {
     const giftAdmin = createAdminClient();
-    const [basis, paysGiftPrice, settings, papicOn, storeShell] = await Promise.all([
+    const [basis, settings, papicOn, storeShell] = await Promise.all([
       fetchShopGiftQuoteBasis(giftAdmin, profile.vendor_profile_id, thread.event_id),
-      fetchVendorPaysGiftPrice(giftAdmin, profile.vendor_profile_id),
       fetchPlatformSettings(supabase),
       isVendorPapicCaptureEnabled(),
       isStoreShellRequest(),
@@ -454,7 +451,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     const packs = basis ? (papicOn ? basis.packs : basis.packs.filter((p) => p.kind !== 'papic')) : [];
     if (!basis || packs.length === 0) return { basis: null, buy: null };
     const openRails = openRailOptions(settings);
-    return { basis: { ...basis, packs }, buy: storeShell ? null : { paysGiftPrice, openRails } };
+    // 📦 The buy-10-get-1 bundles, read from the catalogue (2026-11-14) — a Papic one only while Papic is on (2026-11-17).
+    // null = the bundle read failed: the Buy sheet says so instead of showing no bundles.
+    const bundlesRead = storeShell ? [] : await fetchShopGiftBundles(giftAdmin, basis.packs);
+    const bundles = bundlesRead === null ? null : bundlesRead.filter((b) => papicOn || b.pack.kind !== 'papic');
+    return { basis: { ...basis, packs }, buy: storeShell ? null : { bundles, openRails } };
   })().catch((err) => {
     console.error('[supabase-error] messages thread · shop gifts', err);
     return { basis: null, buy: null };
@@ -1552,6 +1553,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     askPin && toolNodes['booking-ask']
       ? askPin
       : firstBlocker(chatPins.facts, { nowMs: Date.now(), eventDate: event?.event_date ?? null }, ['quote_expired', 'booking_fee', 'call_time', 'change_approval']);
+  // 🔗 THE COMPOSE DOORS ARE ABSOLUTE INSIDE THE PICKED CLIENT (supplier dashboard audit, 2026-11-17). This chat box
+  // is also drawn at /vendor-dashboard/clients/<id>?tab=chat, where a relative `?compose=…` dropped `tab=chat` and
+  // landed on Details: the client page never reads `compose`. Full screen keeps the relative form the page parses.
+  const composeQuoteHref = embedded && thread.event_id ? customerCardHref(thread.event_id, 'quote') : `?compose=quote`;
+  const composeDealHref = embedded ? `${supplierThreadPageHref(threadId)}?compose=deal` : `?compose=deal`;
   const chatBlocker = (() => {
     if (!blockFact) return null;
     const kind = BLOCKER_OF[blockFact.kind];
@@ -1586,7 +1592,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         topic: 'quote' as const,
         why: 'They can’t accept it any more. Send a new one — it opens filled in from the old quotation.',
         action: (
-          <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href="?compose=quote" className="!h-11 !min-h-11 w-full" />
+          <ActionButton tone="brand" main icon={<Send aria-hidden strokeWidth={1.9} />} label="Send a new quotation" href={composeQuoteHref} className="!h-11 !min-h-11 w-full" />
         ),
       };
     }
@@ -2176,6 +2182,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
                   wordsOnly={await feeWordsOnlyRead}
+                  // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
+                  kinds={embedded}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2376,9 +2384,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             // 🏪 The shop's own name for the strip: a login that also hosts this event sees the shop, then You.
             {...(embedded ? { shopLabel: profile.business_name ?? null } : {})}
             dealEntry={dealEntry}
-            counterHref={`?compose=deal`}
+            counterHref={composeDealHref}
             // S5 · "Update this quote" on the live card → Build a quote, seeded.
-            reviseHref={`?compose=quote`}
+            reviseHref={composeQuoteHref}
             threadId={threadId}
             initialMessages={initialMessages}
             currentUserId={user.id}
@@ -2389,6 +2397,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             decisionPayments={decisionPayments}
             decisionGuestCounts={decisionGuestCounts}
             initialView={initialView}
+            // 💬 ONE CHAT THAT HOLDS EVERYTHING (owner 19 Nov 2026) — only inside the client page: the strip on top, the
+            // chips' filter, quiet step lines, the inquiry card (once the inquiry is answered — while it is pending the
+            // shipped "Their ask" above carries it with Accept · Ask · Decline) and Every version behind the Deal box.
+            oneChat={embedded}
+            inquiryPending={thread.inquiry_status === 'pending'}
+            inquiryCalendar={dayAnswer === null || dayAnswer.kind === 'no_date' || dayAnswer.kind === 'not_set' || dayAnswer.kind === 'booked' ? null : threadDayIsOpen(dayAnswer) ? 'open' : 'busy'}
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.

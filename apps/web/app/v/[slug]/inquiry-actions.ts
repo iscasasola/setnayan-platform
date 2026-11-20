@@ -31,6 +31,7 @@ import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import * as Sentry from '@sentry/nextjs';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ownLinkArrival } from '@/lib/own-clients.server';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
@@ -49,9 +50,7 @@ import {
 } from '@/lib/package-picks-summary';
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
 import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
-import { isPrintVia, materialViaOf, utmOf } from '@/lib/material-tags';
-import { readShopOnUltraNow } from '@/lib/material-tags.server';
-import { arrivalInquirySourceOf, OWN_LINK_SRC } from '@/lib/supplier-qr-codes';
+import { materialViaOf, utmOf } from '@/lib/material-tags';
 import {
   resolveReferringChapter,
   resolveIsReturning,
@@ -261,8 +260,8 @@ export async function startServiceInquiry(input: {
   /**
    * 🏷 The material tag of the arrival (`?via=card` …, owner 2026-11-16 — `lib/material-tags.ts`) and its campaign
    * tags. Re-validated here (only a known piece, a bounded string) and stamped on a BRAND-NEW thread beside its source,
-   * then carried onto the booking row. The piece also feeds the ONE money decision below: a print below Ultra is
-   * Setnayan-sourced.
+   * then carried onto the booking row. It never decides the fee: an own arrival is the shop's own client only when the
+   * shop is VERIFIED (`ownLinkArrival`, any plan, any piece).
    */
   inquiryVia?: string | null;
   inquiryUtm?: string | null;
@@ -508,24 +507,33 @@ export async function startServiceInquiry(input: {
     // surface the SERVER doesn't own: 'influencer' is derived from a validated
     // referral, and 'degree' is unwired (server-set only) — reject both if a
     // client supplies them.
-    const claimedSource =
+    const declaredSource =
       isInquirySource(input.inquirySource) &&
       input.inquirySource !== 'influencer' &&
       input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
-    // 🖨💳 ONLY SUPPLIER ULTRA'S PRINTS ARE THE SHOP'S OWN (owner 2026-11-16, DECISION_LOG d2e360e4). An own arrival
-    // ('website') whose piece is a PRINT is judged again HERE, with the shop's plan read NOW — never the plan at print
-    // time, never the page's guess: on any plan below Ultra (or a shop that dropped from Ultra) it is 'shop_page',
-    // Setnayan-sourced, and the booking fee applies. Every other source passes through untouched.
+    // 🏷 The piece that brought the couple (`?via=`, owner 2026-11-16 "EVERY MATERIAL A SHOP HANDS OUT CARRIES ITS OWN
+    // TAG"). It only NAMES the piece: whether the ask is the shop's own is decided below by `ownLinkArrival` (a VERIFIED
+    // shop, any plan — DECISION_LOG 16 Nov "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY PLAN"), never by the tag.
     const via = materialViaOf(input.inquiryVia);
-    const declaredSource =
-      claimedSource === 'website' && isPrintVia(via)
-        ? arrivalInquirySourceOf(OWN_LINK_SRC, via, await readShopOnUltraNow(admin, vendorProfileId))
-        : claimedSource;
+    // 🔗🎁 OWN CLIENTS v4 (owner 2026-11-16, "a client who arrives through the supplier's own link is treated like an
+    // import"): a first ask through the shop's OWN link (`?src=own` → 'website') makes the couple its own client only
+    // with the link's Setnayan gift, given now from a VERIFIED shop's bought stock (once per shop + event). Measured "not
+    // own" (unverified, no gift, too little stock) → stamped as a visit to the shop's page on Setnayan ('shop_page' — the
+    // normal fee). A FAILED read is not evidence (controller audit, 16 Nov): the own-link stamp stays and the fee is left
+    // to the booking-fee logic — never charged on an unknown.
+    const arrival =
+      declaredSource === 'website' && !referral
+        ? await ownLinkArrival(admin, vendorProfileId, eventId).catch((e: unknown) => {
+            console.error('[own-clients] own-link arrival', e);
+            return 'unknown' as const;
+          })
+        : null;
+    const ownedSource = arrival === 'not_own' ? 'shop_page' : declaredSource;
     await stampThreadProvenance(threadId, {
       referringChapterId: referral?.chapterId ?? null,
-      inquirySource: referral ? 'influencer' : declaredSource,
+      inquirySource: referral ? 'influencer' : ownedSource,
       isReturning: returning,
       via,
       utm: utmOf(input.inquiryUtm),

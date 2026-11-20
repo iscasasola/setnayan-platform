@@ -65,7 +65,8 @@
   z-index: 15;
   background: var(--gs-paper);
   padding: 8px 0 10px;
-  transition: top 300ms ease-out;
+  /* With the top bar, at the bar's own two speeds (globals.css `--sn-tuck-*`). */
+  transition: top var(--sn-tuck-dur) var(--sn-tuck-ease);
 }
 /* The List · Map · Setup doors are no longer drawn here: they wear the app's one pill selector
    (`app/_components/pill-selector.tsx`, owner 2026-10-08). */
@@ -1335,6 +1336,21 @@ button.ico {
     padding-right: max(0px, var(--sn-safe-r));
   }
 }
+/* ➕ The ways to add, above the EMPTY search while it has the cursor (guests-screen.tsx `emptyWays`) — a small menu
+   floating over the list, so it has an edge (the Find row's empty panel is the same surface). */
+.emptyWays {
+  position: absolute;
+  left: max(16px, var(--sn-safe-l));
+  right: max(16px, var(--sn-safe-r));
+  bottom: 100%;
+  padding: 10px 12px 8px;
+  border-radius: var(--m-r-lg);
+  background: var(--m-paper);
+  box-shadow: 0 -6px 28px rgba(0, 0, 0, 0.14), 0 0 0 1px rgb(var(--color-ink) / 0.1);
+}
+.emptyWays .ways {
+  margin-top: 0;
+}
 .thumb {
   flex: 1;
   display: flex;
@@ -1846,4 +1862,231 @@ button.countsDoor[aria-pressed='true'] {
 }
 .sec[data-role-drop='no'] > .barWrap {
   background: rgb(var(--color-ink) / 0.05);
+}
+
+/* ═══ 👥 GUESTS REDESIGN (owner 20 Nov 2026, "Yes, your picks" → "Yes, build it"; drawing
+   `prototypes/guests_redesign_2026-11-20/` §1). Tokens only — the drawing's hexes are the app's own (its header names
+   them): ok = --color-ok, warn = --color-warn, danger = --color-danger, CTA = --color-mulberry. ═══ */
+
+/* 📊 One summary, in words: "34 guests ⓘ · Send 30 invites", one thin bar, "32 coming · 0 can't come · 2 no reply". */
+.sum {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 6px 0 12px;
+  min-width: 0;
+}
+.sumTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.sumBig {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--gs-mute);
+}
+.sumBig > b {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--gs-ink);
+}
+.sumTip {
+  color: var(--gs-mute);
+}
+/* The one action: a neutral 44 pill (the drawing's `.ab`), never a second terracotta on the screen. */
+.sumSend:global(.ab) {
+  flex: 0 0 auto;
+}
+.sumSend svg {
+  width: 17px;
+  height: 17px;
+}
+.sumDone {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--gs-ok);
+}
+.sumDone svg {
+  width: 15px;
+  height: 15px;
+}
+/* The bar: each part its share; a 2 px gap between parts, the rest of the track the hairline. */
+.sumBar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  border-radius: var(--m-r-full);
+  overflow: hidden;
+  background: var(--gs-line);
+}
+.sumBar > i {
+  display: block;
+  border-radius: var(--m-r-full);
+  transition: flex-basis var(--sn-m-move) var(--sn-m-settle);
+}
+.sumBar > i[data-arc='yes'] {
+  flex: 0 0 calc(var(--gs-yes, 0) * 1%);
+  background: var(--gs-ok);
+}
+.sumBar > i[data-arc='none'] {
+  flex: 0 0 calc(var(--gs-none, 0) * 1%);
+  background: color-mix(in srgb, var(--gs-warn) 55%, var(--gs-gild));
+}
+.sumBar > i[data-arc='no'] {
+  flex: 0 0 calc(var(--gs-no, 0) * 1%);
+  background: rgb(var(--color-danger));
+}
+@media (prefers-reduced-motion: reduce) {
+  .sumBar > i {
+    transition: none;
+  }
+}
+.sumWords {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 0;
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--gs-mute);
+}
+/* Each word is a door — a 44 px press around a line of words (no frame: frames only on what looks pressable). */
+.sumDoor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin: -10px 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-underline-offset: 4px;
+}
+.sumDoor b {
+  font-weight: 600;
+  color: var(--gs-ink);
+}
+.sumDoor[aria-pressed='true'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  color: var(--gs-ink);
+}
+/* An exception carries its colour, only while it is more than none. */
+.sumWait,
+.sumWait b {
+  color: var(--gs-warn);
+}
+.sumNo,
+.sumNo b {
+  color: rgb(var(--color-danger));
+}
+
+/* 🎨 The side is a small dot ON the photo, bottom right, ringed in the page (drawing `.sb::after`). */
+.avaSide {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--gs-paper);
+}
+
+/* ✓ Coming is a quiet green tick at the row's end; the exceptions keep a pill. */
+.state {
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 24px;
+}
+.tick {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  color: var(--gs-ok);
+}
+.tick svg {
+  width: 18px;
+  height: 18px;
+}
+.state > .pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pillWait {
+  background: color-mix(in srgb, var(--gs-warn) 13%, transparent);
+  color: var(--gs-warn);
+}
+/* "No seat yet" carries the waiting colour in the plain second line. */
+.noSeat {
+  color: var(--gs-warn);
+  font-weight: 500;
+}
+/* The redesigned rows breathe as the drawing's: a 58 px line, the name at 16. */
+.screen[data-guests-screen] .g[data-guest-row] {
+  min-height: 58px;
+}
+.screen[data-guests-screen] .g[data-guest-row] .nmt {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* 👉 The box's two lines (Guests redesign §2): the drag hint while searching; while adding, what Enter will add. Both
+   sit right above the thumb row, in the page's muted words; the add line in the add colour. */
+.dragHint {
+  position: absolute;
+  left: max(22px, calc(var(--sn-safe-l) + 6px));
+  right: max(22px, calc(var(--sn-safe-r) + 6px));
+  bottom: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--gs-mute);
+  pointer-events: none;
+}
+.dragHint svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+.addNext {
+  color: rgb(var(--color-mulberry));
+}
+
+/* 🪑 Seats › List says its counts in words under the row ("34 seated · 0 to seat · 9 tables · 43 empty chairs",
+   Guests redesign §4: "no sofa, person or target icons"), so the top row's icon counts step aside on that view only.
+   2D and 3D keep them (not redrawn in this build). */
+.screen[data-guests-screen='seats'][data-seat-mode='list'] [data-guests-view-counts] {
+  display: none;
+}
+/* 👁 "N to invite" for a look-only helper: a plain count, never the done green. */
+.sumLeft {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--gs-mute);
 }

@@ -21,9 +21,8 @@ import { formatCount } from '@/lib/format-number';
 import { LOCKS, LOCK_KEYS } from '@/lib/locks';
 import { PLAN_LIMITS, limitOf, limitWords } from '@/lib/plan-sheet';
 import { allowance } from '@/lib/vendor-plan-rows';
-import { TIER_CAPS, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, WAITLIST_SETTING_MAX, canBuyExtraBranches, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
-import { tierPaysGiftPrice } from '@/lib/shop-gifts';
 import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { vendorAddonSkuCode } from '@/lib/vendor-addon-tier-pricing';
 import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku } from '@/lib/vendor-ultra-addons';
@@ -31,6 +30,7 @@ import { EVENT_PLUS_SKU, HUB_PART_IDS, hubOwnershipFrom } from '@/lib/hub-parts'
 import {
   APPLIED_LOCKS,
   FREE_FINDABLE,
+  PLAN_TABLE_REACH,
   TABLE_TIERS,
   UNAPPLIED_LOCKS,
   addonLines,
@@ -69,7 +69,6 @@ const row = (groups: TableGroup[], key: string) => {
 test('no peso amount and no credit count is typed into a plan table, its renderer or the plan cards', () => {
   const files = [
     'app/for-suppliers/_components/plan-table-data.ts',
-    'app/for-suppliers/_components/supplier-plan-table.tsx',
     'app/_components/frontdoor/front-door-landing-data.ts',
   ];
   for (const rel of files) {
@@ -87,7 +86,7 @@ test('every limit cell is the entitlement code — in both states of the plan pa
       const r = row(g, `limit:${l.key}`);
       for (const t of TABLE_TIERS) {
         const v = limitOf(t, l.key, paywallOn);
-        const say = (n: number) => (l.key === 'reach' && n === 0 ? FREE_FINDABLE.replace(/^f/, 'F') : n === 0 ? 'None' : limitWords(l.key, n));
+        const say = (n: number) => (n === 0 ? 'None' : limitWords(l.key, n));
         // 2026-11-14 "Verified joins Free": where the verified step differs, the Free cell says both — each through the
         // same entitlement reader.
         const ver = limitOf('verified', l.key, paywallOn);
@@ -99,14 +98,16 @@ test('every limit cell is the entitlement code — in both states of the plan pa
     const wl = row(g, 'limit:waitlist');
     for (const t of TABLE_TIERS) {
       const v = allowance(TIER_CAPS[t].waitlistAcceptances, 'waitlistAcceptances', paywallOn);
-      assert.equal(wl.cells[t].text, v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
+      assert.equal(wl.cells[t].text, v >= WAITLIST_SETTING_MAX ? 'No plan limit' : v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
     }
   }
-  // Anti-vacuity: the six limits are the plan sheet's six, and Pro/Ultra differ on bookings a day (3 vs 5 today).
+  // Anti-vacuity: the limits are the plan sheet's, and Pro/Max differ on service cards (20 vs 80 today). No bookings-a-day
+  // row since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   const g = planTable({ paywallOn: true, prices: PRICES });
-  const bpd = row(g, 'limit:bookingsPerDate');
-  assert.equal(bpd.cells.pro.text, formatCount(TIER_CAPS.pro.bookingsPerDatePerService));
-  assert.equal(bpd.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.bookingsPerDatePerService));
+  const cards = row(g, 'limit:serviceCards');
+  assert.equal(cards.cells.pro.text, formatCount(TIER_CAPS.pro.serviceCardsTotal));
+  assert.equal(cards.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.serviceCardsTotal));
+  assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 
 test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gifts are the gift-price rule', () => {
@@ -127,7 +128,8 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   yes('tool:chatbot', (t) => (PLAN_CHATBOT_LEVEL[t] ?? 'none') !== 'none');
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
   const gift = row(g, 'money:gift');
-  for (const t of TABLE_TIERS) assert.equal(gift.cells[t].text, tierPaysGiftPrice(t) ? 'Gift price' : 'List price', `gift · ${t}`);
+  // 📦 One price per gift on every plan (owner 2026-11-14) — no plan buys gifts for less; bundles are open to all.
+  for (const t of TABLE_TIERS) assert.equal(gift.cells[t].text, 'List price', `gift · ${t}`);
 });
 
 test('every price cell is the price the page read — or "—" when it read nothing', () => {
@@ -232,4 +234,14 @@ test('/features: a light "no select" on the sections, and nothing more', () => {
   }
   const robots = code('app/robots.ts');
   assert.doesNotMatch(robots, /disallow[^\n]*['"`]\/features/i, 'robots blocks /features');
+});
+
+test('reach is ONE cell, the same on every plan — no km per plan (owner 2026-11-19)', () => {
+  // *"ok unlock the range. not plan dependend anymore."* · *"Free Unverified account will have a range of 0km."*
+  for (const paywallOn of [false, true]) {
+    const r = row(planTable({ paywallOn, prices: PRICES }), 'limit:reach');
+    for (const t of TABLE_TIERS) assert.equal(r.cells[t].text, PLAN_TABLE_REACH, `${t} · paywall ${paywallOn}`);
+  }
+  assert.doesNotMatch(PLAN_TABLE_REACH, /\bkm\b|nationwide/i);
+  assert.ok(!PLAN_LIMITS.some((l) => (l.key as string) === 'reach'), 'reach came back as a plan limit');
 });

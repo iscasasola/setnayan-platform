@@ -67,9 +67,16 @@ export function changeAskFromLine(body: string | null | undefined): { subject: A
   return null;
 }
 
-/** The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null. */
+/**
+ * The title a supplier's shipped form line names ("I sent you a form — “<title>”. Answer it in your event."), or null.
+ * "Send again" (owner 18 Nov 2026) words it "I sent you a form again — “<title>”. Your last answers are still ticked; …"
+ * — the same form, so the host's face mounts under it too, with their answers already in it.
+ */
 export function formLineTitle(body: string | null | undefined): string | null {
-  const m = /^I sent you a form — “(.+)”\. Answer it in your event\.$/.exec((body ?? '').trim());
+  const m =
+    /^I sent you a form(?: again)? — “(.+)”\. (?:Answer it in your event|Your last answers are still ticked; change any you like in your event)\.$/.exec(
+      (body ?? '').trim(),
+    );
   return m ? m[1]! : null;
 }
 
@@ -127,6 +134,16 @@ export function scheduleChangeFromLine(
   );
   if (!m || !/\d/.test(m[4]!)) return null;
   return { chapter: m[1]!, from: m[2]!, to: m[3]!, shift: m[4]! };
+}
+
+/**
+ * ✉ The service an inquiry names — its own last line, as `startServiceInquiry` writes it (`inquiryServicesLine`):
+ * "Service: Reception Lights & Sound" → that name; "Services: A · B" → "A · B"; no such line → null (the inquiry card
+ * then says "Not given", never a guess).
+ */
+export function inquiryServiceOf(body: string | null | undefined): string | null {
+  const m = /^Services?: (.+)$/m.exec(body ?? '');
+  return m ? m[1]!.trim() || null : null;
 }
 
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */

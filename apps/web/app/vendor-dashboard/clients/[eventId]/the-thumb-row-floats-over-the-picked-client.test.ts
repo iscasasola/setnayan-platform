@@ -68,7 +68,7 @@ test('2 · the shell keeps a thumb host inside its own layer and hands it to eve
   assert.ok(screen.length > 500, 'the shell’s `screen` tree moved — re-anchor this guard');
   assert.match(
     screen,
-    /<ThumbLayerContext\.Provider value=\{thumbLayer\}>\{bodies\[page\]\}<\/ThumbLayerContext\.Provider>/,
+    /<ThumbLayerContext\.Provider value=\{thumbLayer\}>\s*(?:\{[^}]*\}\s*)*(?:<PickedCoveredContext\.Provider value=\{risenPage !== null\}>)?\{bodies\[workPage\]\}(?:<\/PickedCoveredContext\.Provider>)?\s*<\/ThumbLayerContext\.Provider>/,
     'the page bodies are not told which layer their thumb row floats in — it lands on <body>, under the client',
   );
   assert.match(SHELL, /useMemo<ThumbLayer>\(\(\) => \(\{ host: thumbHost, column: thumbColumn \}\)/);
@@ -79,7 +79,9 @@ test('2 · the shell keeps a thumb host inside its own layer and hands it to eve
   const page = screen.indexOf('id="picked-page"');
   const pageEnd = screen.indexOf('</div>', screen.indexOf('</ThumbLayerContext.Provider>'));
   assert.ok(page > 0 && pageEnd > page && host > pageEnd, 'the thumb host is inside the sliding page, or before the body');
-  assert.match(SHELL, /ref=\{setThumbColumn\}[^>]*data-picked-pin=""/, 'the row’s column is not the (unmoving) pinned row');
+  // 18 Nov 2026: beside the side Chat column (a computer) the row's column is the work column, never the whole frame.
+  assert.match(SHELL, /ref=\{split \? undefined : setThumbColumn\}[^>]*data-picked-pin=""/, 'the row’s column is not the (unmoving) pinned row');
+  assert.match(SHELL, /if \(split\) setThumbColumn\(el\);/, 'on a computer the row is not held to the work column');
 });
 
 test('3 · inside a layer the row portals into the layer’s host — never <body> under it, never up into the pinned row', () => {

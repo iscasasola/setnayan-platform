@@ -5,4 +5,3 @@ packages:
   # `cap sync` plugin resolution). Excluded so the root pnpm frozen-lockfile
   # install ignores it and the web app's dependency tree stays untouched.
   - "!apps/mobile"
-  - "packages/*"

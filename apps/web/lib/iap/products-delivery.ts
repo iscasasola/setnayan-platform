@@ -69,6 +69,23 @@ const RETIRED_EVENT_PRODUCTS: readonly IapProduct[] = Object.freeze([
       aiTier,
     }),
   ),
+  /* 🗑 RETIRED 2026-11-20 (owner, *"Retire Patiktok and Music Maker ( we do not want to serve this anymore)"*). Zero
+     sold on the web; delivery stays so a late Apple transaction is still honoured. */
+  ...(
+    [
+      ['music_maker', 'PAKANTA', 'Music Maker'],
+      ['patiktok', 'PATIKTOK_COMPILER', 'Patiktok'],
+    ] as const
+  ).map(
+    ([id, serviceKey, name]): IapProduct => ({
+      productId: `com.setnayan.app.${id}`,
+      serviceKey,
+      kind: 'event-unlock',
+      appleType: 'consumable',
+      appStoreName: name,
+      credits: null,
+    }),
+  ),
 ]);
 
 /**
@@ -88,5 +105,6 @@ export function iapProductForDelivery(productId: string | null | undefined): Iap
 /** 🗑 The five retired Papic credit product ids — never sold again, never asked of StoreKit, never reused. */
 export const RETIRED_PAPIC_CREDIT_PRODUCT_IDS: readonly string[] = RETIRED_PAPIC_CREDIT_PRODUCTS.map((p) => p.productId);
 
-/** 🗑 `event_hub_pro` and the four Setnayan AI product ids (retired 2026-11-04) — delivered, never sold again. */
+/** 🗑 `event_hub_pro`, the four Setnayan AI product ids (retired 2026-11-04), `music_maker` and `patiktok` (retired
+ *  2026-11-20) — delivered, never sold again. */
 export const RETIRED_EVENT_PRODUCT_IDS: readonly string[] = RETIRED_EVENT_PRODUCTS.map((p) => p.productId);

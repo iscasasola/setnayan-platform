@@ -452,7 +452,7 @@ a.door:hover .name {
   font-size: 13px;
   color: var(--p2, rgb(var(--color-terracotta)));
   border: 1.5px solid var(--p2, rgb(var(--color-terracotta)));
-  transition: all 0.8s;
+  transition: color var(--sn-m-rise) var(--sn-m-settle), border-color var(--sn-m-rise) var(--sn-m-settle);
 }
 .hcNames {
   font-weight: 700;
@@ -477,7 +477,7 @@ a.door:hover .name {
   border-radius: var(--m-r-full);
   background: var(--p1);
   color: #17160f;
-  transition: background 0.8s;
+  transition: background var(--sn-m-rise) var(--sn-m-settle);
 }
 .hubcardSmall {
   display: flex;
@@ -523,16 +523,16 @@ a.door:hover .name {
   width: calc(20% - 6px);
   border: 2px solid rgb(var(--color-ink));
   border-radius: var(--m-r-md);
-  transition: left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--sn-m-rise) var(--sn-m-spring);
 }
 .mo[data-pal='1'] .ring {
-  left: calc(20% + 1.6px);
+  transform: translateX(calc(100% + 7.6px));
 }
 .mo[data-pal='2'] .ring {
-  left: calc(40% + 3.2px);
+  transform: translateX(calc(200% + 15.2px));
 }
 .mo[data-pal='3'] .ring {
-  left: calc(60% + 4.8px);
+  transform: translateX(calc(300% + 22.8px));
 }
 .mono {
   width: 56px;
@@ -545,20 +545,23 @@ a.door:hover .name {
 .mono path,
 .mono circle {
   stroke-dasharray: 160;
+}
+.scope[data-motion] .mo:not([data-on]) .mono path,
+.scope[data-motion] .mo:not([data-on]) .mono circle {
   stroke-dashoffset: 160;
 }
 .mo[data-on] .mono circle {
-  animation: draw 1.6s ease forwards;
+  animation: draw calc(var(--sn-m-rise) * 2) var(--sn-m-settle) backwards;
 }
 .mo[data-on] .mono .m2 {
-  animation-delay: 0.5s;
+  animation-delay: var(--sn-m-rise);
 }
 .mo[data-on] .mono .m3 {
-  animation: draw 1s ease 1.2s forwards;
+  animation: draw var(--sn-m-rise) var(--sn-m-settle) calc(var(--sn-m-rise) * 2) backwards;
 }
 @keyframes draw {
-  to {
-    stroke-dashoffset: 0;
+  from {
+    stroke-dashoffset: 160;
   }
 }
 .count {
@@ -590,18 +593,20 @@ a.door:hover .name {
   padding: 7px 0;
   border-bottom: 1px solid var(--sn-hair);
   font-size: 14px;
+}
+/* 🔑 THE RESTING STATE IS THE BASE STYLE (motion standard § 6). A moment's parts wait hidden only once the script has
+   marked the page `data-motion` and until the moment is seen (`data-on`); each then arrives on a `from`-only keyframe,
+   filled `backwards`. With no script, or no animation support, every moment is simply complete. */
+.scope[data-motion] .mo:not([data-on]) .glist li,
+.scope[data-motion] .mo:not([data-on]) .msg,
+.scope[data-motion] .mo:not([data-on]) .qcard,
+.scope[data-motion] .mo:not([data-on]) .fam li {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(var(--sn-w-rise));
 }
 .mo[data-on] .glist li {
-  animation: up 0.5s ease forwards;
-  animation-delay: calc(0.25s * var(--d));
-}
-@keyframes up {
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-w-stagger) * min(var(--d, 0), 5));
 }
 .av {
   width: 26px;
@@ -635,12 +640,13 @@ a.door:hover .name {
   fill: rgb(var(--color-ink) / 0.12);
 }
 .mo[data-on] .seats .st {
-  animation: fillseat 0.3s ease forwards;
-  animation-delay: calc(0.045s * var(--d) + 0.4s);
+  fill: rgb(var(--color-terracotta));
+  animation: fillseat var(--sn-m-quick) var(--sn-m-settle) backwards;
+  animation-delay: calc(calc(var(--sn-w-stagger) * min(var(--d, 0), 5)) + var(--sn-m-move));
 }
 @keyframes fillseat {
-  to {
-    fill: rgb(var(--color-terracotta));
+  from {
+    fill: rgb(var(--color-ink) / 0.12);
   }
 }
 .thread {
@@ -654,8 +660,6 @@ a.door:hover .name {
   background: var(--surface-soft);
   font-size: 14px;
   line-height: 1.4;
-  opacity: 0;
-  transform: translateY(8px);
 }
 .msgMe {
   margin-left: auto;
@@ -674,8 +678,9 @@ a.door:hover .name {
 }
 .mo[data-on] .msg,
 .mo[data-on] .qcard {
-  animation: up 0.5s ease forwards;
-  animation-delay: calc(0.9s * var(--d) + 0.2s);
+  /* a conversation plays out: one step each Rise */
+  animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-m-rise) * var(--d, 0) + var(--sn-m-quick));
 }
 .qcard {
   border: 1px solid rgb(var(--color-ink) / 0.14);
@@ -683,8 +688,6 @@ a.door:hover .name {
   padding: 12px;
   display: grid;
   gap: 8px;
-  opacity: 0;
-  transform: translateY(8px);
   background: var(--surface);
 }
 .qcH {
@@ -802,20 +805,19 @@ button.btnFill {
   top: 3px;
   left: 12.5%;
   height: 2px;
-  width: 0;
+  width: 50%;
+  transform-origin: left center;
   padding: 0;
   background: rgb(var(--color-mulberry));
 }
 .stages .prog::before {
   display: none;
 }
-.mo[data-on] .stages .prog {
-  animation: prog 1.6s ease-out forwards;
+.scope[data-motion] .mo:not([data-on]) .stages .prog {
+  transform: scaleX(0);
 }
-@keyframes prog {
-  to {
-    width: 50%;
-  }
+.mo[data-on] .stages .prog {
+  animation: sn-w-tl-line-x calc(var(--sn-m-rise) * 2) var(--sn-m-settle) backwards;
 }
 .livegrid {
   display: grid;
@@ -871,18 +873,18 @@ button.btnFill {
 .tileImg {
   object-fit: cover;
 }
-.ppGrid .tile {
+.scope[data-motion] .mo:not([data-on]) .ppGrid .tile {
   opacity: 0;
   transform: translateY(-24px) rotate(-3deg);
 }
 .mo[data-on] .ppGrid .tile {
-  animation: drop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  animation-delay: calc(0.35s * var(--d) + 0.6s);
+  animation: drop var(--sn-m-move) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-m-move) * var(--d, 0) + var(--sn-m-rise));
 }
 @keyframes drop {
-  to {
-    opacity: 1;
-    transform: none;
+  from {
+    opacity: 0;
+    transform: translateY(-24px) rotate(-3deg);
   }
 }
 .memgrid {
@@ -893,19 +895,19 @@ button.btnFill {
 }
 .memgrid .tile {
   aspect-ratio: auto;
+}
+.scope[data-motion] .mo:not([data-on]) .memgrid .tile,
+.scope[data-motion] .mo:not([data-on]) .stamp,
+.scope[data-motion] .mo:not([data-on]) .vbadge,
+.scope[data-motion] .mo:not([data-on]) .paid {
   opacity: 0;
 }
 .memgrid .tile:first-child {
   grid-row: 1 / span 2;
 }
 .mo[data-on] .memgrid .tile {
-  animation: fade 0.8s ease forwards;
-  animation-delay: calc(0.2s * var(--d));
-}
-@keyframes fade {
-  to {
-    opacity: 1;
-  }
+  animation: sn-w-fade var(--sn-m-move) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-w-stagger) * min(var(--d, 0), 5));
 }
 .facts {
   list-style: none;
@@ -964,17 +966,10 @@ button.btnFill {
   justify-content: center;
   font-weight: 700;
   color: rgb(var(--color-ok));
-  opacity: 0;
-  transform: scale(0.8);
 }
+/* EMPHASIS — the stamp lands once, Quick on Spring */
 .mo[data-on] .stamp {
-  animation: pop 0.5s cubic-bezier(0.2, 1.2, 0.3, 1) 1.2s forwards;
-}
-@keyframes pop {
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  animation: sn-w-stamp var(--sn-m-quick) var(--sn-m-spring) calc(var(--sn-m-rise) * 2) backwards;
 }
 .shop {
   display: grid;
@@ -1012,10 +1007,9 @@ button.btnFill {
   font-size: 11px;
   font-weight: 600;
   color: rgb(var(--color-ok));
-  opacity: 0;
 }
 .mo[data-on] .vbadge {
-  animation: fade 0.6s ease 0.8s forwards;
+  animation: sn-w-fade var(--sn-m-quick) var(--sn-m-settle) var(--sn-m-rise) backwards;
 }
 .scard {
   display: flex;
@@ -1047,7 +1041,7 @@ button.btnFill {
   color: rgb(var(--color-cream));
   overflow: hidden;
   flex: none;
-  transition: background 0.4s;
+  transition: background var(--sn-m-quick) var(--sn-m-settle);
 }
 .knob {
   position: absolute;
@@ -1057,33 +1051,33 @@ button.btnFill {
   height: 24px;
   border-radius: var(--m-r-full);
   background: #fff;
-  transition: left 0.4s;
+  transition: left var(--sn-m-toggle) var(--sn-m-settle);
 }
 .wOff {
   margin-left: auto;
-  transition: opacity 0.3s;
+  transition: opacity var(--sn-m-quick) var(--sn-m-settle);
 }
 .wOn {
   position: absolute;
   left: 12px;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity var(--sn-m-quick) var(--sn-m-settle);
 }
 .mo[data-on] .swGo {
   background: rgb(var(--color-ok));
-  transition-delay: 1.4s;
+  transition-delay: calc(var(--sn-m-rise) * 2);
 }
 .mo[data-on] .swGo .knob {
   left: calc(100% - 27px);
-  transition-delay: 1.4s;
+  transition-delay: calc(var(--sn-m-rise) * 2);
 }
 .mo[data-on] .swGo .wOff {
   opacity: 0;
-  transition-delay: 1.4s;
+  transition-delay: calc(var(--sn-m-rise) * 2);
 }
 .mo[data-on] .swGo .wOn {
   opacity: 1;
-  transition-delay: 1.4s;
+  transition-delay: calc(var(--sn-m-rise) * 2);
 }
 .payplan {
   list-style: none;
@@ -1105,12 +1099,11 @@ button.btnFill {
   align-items: center;
   color: rgb(var(--color-ok));
   font-weight: 600;
-  opacity: 0;
   white-space: nowrap;
 }
 .mo[data-on] .paid {
-  animation: fade 0.5s ease forwards;
-  animation-delay: calc(0.7s * var(--d) + 0.4s);
+  animation: sn-w-fade var(--sn-m-quick) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-m-rise) * var(--d, 0) + var(--sn-m-move));
 }
 .review p {
   margin: 8px 0 4px;
@@ -1123,6 +1116,8 @@ button.btnFill {
 }
 .stars i {
   color: rgb(var(--color-terracotta));
+}
+.scope[data-motion] .mo:not([data-on]) .stars i {
   opacity: 0.2;
 }
 .stars .ci {
@@ -1131,8 +1126,13 @@ button.btnFill {
   fill: currentColor;
 }
 .mo[data-on] .stars i {
-  animation: fade 0.4s ease forwards;
-  animation-delay: calc(0.2s * var(--d) + 0.3s);
+  animation: starIn var(--sn-m-quick) var(--sn-m-settle) backwards;
+  animation-delay: calc(calc(var(--sn-w-stagger) * min(var(--d, 0), 5)) + var(--sn-m-move));
+}
+@keyframes starIn {
+  from {
+    opacity: 0.2;
+  }
 }
 .ana {
   display: grid;
@@ -1146,7 +1146,8 @@ button.btnFill {
 }
 .bars i {
   flex: 1;
-  height: 0;
+  height: var(--h);
+  transform-origin: bottom center;
   border-radius: 4px 4px 0 0;
   background: rgb(var(--color-link) / 0.55);
 }
@@ -1154,14 +1155,12 @@ button.btnFill {
 .bars i:nth-child(3) {
   background: rgb(var(--color-terracotta) / 0.55);
 }
-.mo[data-on] .bars i {
-  animation: grow 0.7s ease forwards;
-  animation-delay: calc(0.08s * var(--d) + 0.3s);
+.scope[data-motion] .mo:not([data-on]) .bars i {
+  transform: scaleY(0);
 }
-@keyframes grow {
-  to {
-    height: var(--h);
-  }
+.mo[data-on] .bars i {
+  animation: sn-w-tl-line var(--sn-m-rise) var(--sn-m-settle) backwards;
+  animation-delay: calc(calc(var(--sn-w-stagger) * min(var(--d, 0), 5)) + var(--sn-m-move));
 }
 .rec {
   display: flex;
@@ -1210,21 +1209,26 @@ button.btnFill {
   padding: 0;
   border: 0;
 }
-.mo[data-on] .ros .nowline {
-  animation: nowline 6s ease-in-out infinite alternate;
+/* DRIFT's place on this page (motion standard § 6, owner 18 Nov: "one moving background max") — the run of show's
+   "now" line is /features' ONE endless loop; it stands still at 640 px and narrower and under reduced motion. It
+   travels by transform, not `top`. 🔒 lib/the-website-moves-by-the-standard.test.ts */
+@media (min-width: 641px) and (prefers-reduced-motion: no-preference) {
+  .mo[data-on] .ros .nowline {
+    animation: nowline 20s ease-in-out infinite alternate; /* row 43: a Drift is 20 s+ */
+  }
 }
 @keyframes nowline {
   0%,
   20% {
-    top: 0;
+    transform: translateY(0);
   }
   40%,
   60% {
-    top: 38px;
+    transform: translateY(38px);
   }
   80%,
   100% {
-    top: 76px;
+    transform: translateY(76px);
   }
 }
 .shift {
@@ -1257,12 +1261,10 @@ button.btnFill {
   align-items: center;
   padding: 8px 0;
   font-size: 14px;
-  opacity: 0;
-  transform: translateX(-6px);
 }
 .mo[data-on] .fam li {
-  animation: up 0.5s ease forwards;
-  animation-delay: calc(0.22s * var(--d));
+  animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) backwards;
+  animation-delay: calc(var(--sn-w-stagger) * min(var(--d, 0), 5));
 }
 .yr {
   font-family: var(--font-mono);
@@ -1624,7 +1626,7 @@ button.btnFill {
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .stripImg {
-      animation: px linear both;
+      animation: px linear backwards;
       animation-timeline: view();
       animation-range: entry 0% exit 100%;
       transform-origin: center;
@@ -1673,3 +1675,10 @@ button.btnFill {
     fill: rgb(var(--color-terracotta));
   }
 }
+
+/* The website's named motions — copies of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
+@keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
+@keyframes sn-w-fade { from { opacity: 0; } }
+@keyframes sn-w-stamp { from { opacity: 0; transform: scale(1.6); } }
+@keyframes sn-w-tl-line { from { transform: scaleY(0); } }
+@keyframes sn-w-tl-line-x { from { transform: scaleX(0); } }

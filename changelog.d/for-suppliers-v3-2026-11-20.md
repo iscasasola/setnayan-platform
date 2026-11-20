@@ -28,3 +28,5 @@ drawing's unbuilt lines (fee ceiling, 100,000th fee, first-supplier rule, gift, 
 - fix: three stale `numbers-carry-commas` allowlist rows for the old suppliers page (FREE_PHOTOS ×2, BADGE_FIRST) are deleted — the new page no longer renders them.
 
 - fix: the `the-couple-books-never-locks` allowlist row for `app/for-suppliers/` is dropped — the new page has nothing it excused.
+
+- merge: main (#8014 reach is not a plan allowance). The page names no reach by plan, so it keeps its own copy; the generated files are regenerated.

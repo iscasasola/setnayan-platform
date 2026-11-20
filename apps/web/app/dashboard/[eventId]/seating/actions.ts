@@ -20,13 +20,11 @@ import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } fro
 import { parseRoleSeating, type RoleSeating } from '@/lib/role-seating';
 import {
   BOOTH_CATALOG,
-  TABLE_TYPE_CATALOG,
   autoArrangeNewTableKey,
   autoSeatRoom,
   chainableShapes,
   computeAutoLayout,
   computeAutoSeat,
-  effectiveCapacity,
   fetchAssignments,
   fetchFloorPlan,
   fetchGroupAdjacency,
@@ -34,12 +32,8 @@ import {
   metricPoseM,
   parsePriorityOrder,
   recommendTableSet,
-  removedSeatSet,
   roleTier,
-  roomBoxM,
-  shapeHintFor,
   solveSeatPlan,
-  tableGeometry,
   tablesToAddForAutoSeat,
   validateChainJointM,
   type AutoSeatCannotFit,
@@ -47,8 +41,18 @@ import {
   type VipPlusOneSeating,
   type BoothType,
   type PriorityOrder,
-  type TableType,
 } from '@/lib/seating';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
+import {
+  TABLE_TYPE_CATALOG,
+  effectiveCapacity,
+  removedSeatSet,
+  roomBoxM,
+  shapeHintFor,
+  tableGeometry,
+  type TableType,
+} from '@/lib/seat-plan-engine';
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';

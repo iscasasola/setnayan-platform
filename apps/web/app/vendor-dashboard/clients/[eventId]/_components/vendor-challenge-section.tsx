@@ -65,24 +65,24 @@ export async function VendorChallengeSection({
   // page gates it behind isBooked), so booked = true here.
   const [challenges, entitled, papicActive] = await Promise.all([
     fetchVendorChallenges(supabase, eventId),
-    // The shop's live 28-day window, or a legacy per-event sponsorship. Read with
-    // the ADMIN client: papic_challenge_expires_at is a paid entitlement column
-    // and a read the session could refuse would degrade to "not entitled",
-    // hiding the composer from somebody who is paying for it.
+    // THE DATABASE'S OWN GATE (vendor_papic_challenge_entitled — Pro and up, a legacy paid window, or
+    // grandfathered), so "On" here is exactly what the submit RPC allows. Admin client: service role only.
+    // null = unread → an honest "couldn't check", never the upgrade lock (a Pro shop must not be told to upgrade).
     fetchPhotoChallengeEntitled(admin, eventId, vendorProfileId),
     eventPapicActive(admin, eventId), // needs admin: paparazzi_seats + couple orders are couple-RLS
   ]);
 
   // The same pure decision the database re-asks in vendor_papic_challenge_entitled
   // (booked is implied by mount).
-  const ready = photoChallengeEventReady({ booked: true, papicActive, entitled });
+  const unread = entitled === null;
+  const ready = photoChallengeEventReady({ booked: true, papicActive, entitled: entitled === true });
 
   return (
     <ShopCard pad="roomy">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Trophy aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         Papic Challenges
-        {entitled ? (
+        {entitled === true ? (
           <Badge tone="ok" data="challenges-on">On</Badge>
         ) : null}
       </h3>
@@ -149,6 +149,10 @@ export async function VendorChallengeSection({
             />
           </div>
         </>
+      ) : unread && ready.reason === 'not_subscribed' ? (
+        <div className="mt-4 rounded-lg border border-ink/10 px-3 py-2.5 text-xs text-ink/70" data-challenge-unread="">
+          <p>We couldn&rsquo;t check your plan just now. Refresh to try again.</p>
+        </div>
       ) : ready.reason === 'not_subscribed' ? (
         // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up — the shared 🔒 (Problem → Solution → Upgrade),
         // never a buy link: it is not sold on its own any more. The RPC re-checks (vendor_pro_tools_included).

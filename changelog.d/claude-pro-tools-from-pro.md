@@ -23,3 +23,7 @@ SPECIAL NOTE: the badge rewards (`lib/badge-upgrades.ts`) can still grant a lowe
 booth or chatbot window; the legacy windows are honoured as paid time. Flagged to the controller, not changed.
 
 SPEC IMPACT: `DECISION_LOG.md` row 2026-11-20 (controller, under owner delegation — closes the open (3) as no, with grandfathering).
+
+### Ship review fixes (20 Nov)
+- The photo challenge card now asks the database's own gate (`vendor_papic_challenge_entitled`) instead of the old Specialized tools unlock read: a Plus or trial shop after the ship is no longer shown "On" for a submit the database refuses, opening the card no longer claims the one-time trial, and a failed read shows "couldn't check" instead of the upgrade lock.
+- Plan copy follows the ruling: the 3D booth logo line sits under Pro (anchored to `PRO_TOOLS_MIN_TIER`, "add-on" dropped); Plus's Specialized tools row and line no longer say "All"; features entry c43 says the two tools come with Pro.

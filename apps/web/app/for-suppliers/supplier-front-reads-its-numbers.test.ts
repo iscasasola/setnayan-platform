@@ -111,3 +111,12 @@ test('the page says nothing the brief forbids', () => {
     assert.doesNotMatch(src, /demo shop/i, `${rel} offers a demo shop`);
   }
 });
+
+test('owner 20 Nov: the 3D booth logo and Papic Challenges sit under Pro, never Plus, and nothing calls the booth an add-on', async () => {
+  const { growLines } = await import('./_components/supplier-front-data');
+  const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
+  assert.doesNotMatch(words('solo'), /3D seat plan|All specialized tools/);
+  assert.match(words('pro'), /3D seat plan/);
+  assert.match(words('pro'), /Papic Challenges|All specialized tools/);
+  for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
+});

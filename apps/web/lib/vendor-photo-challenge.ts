@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTierAtLeast } from './vendor-tier-caps';
-import { fetchVendorSpecializedToolsUnlocked } from '@/lib/specialized-tools-access';
 
 /**
  * vendor-photo-challenge.ts — Papic Challenges pricing + eligibility.
@@ -274,8 +273,9 @@ export async function fetchPhotoChallengeExpiry(
 }
 
 /**
- * Is this shop entitled to run a challenge? Mirrors the SQL
- * `vendor_papic_challenge_entitled`, which is the actual gate.
+ * Is this shop entitled to run a challenge? CALLS the SQL
+ * `vendor_papic_challenge_entitled`, which is the actual gate (since 20 Nov — it
+ * used to re-derive it here and drifted). `true` · `false` · `null` = unread.
  *
  * ⚠ ONE WAY IN. Owner 2026-08-29: *"vendors only purchase papic challenges for a
  * 4-week subscription."* This used to carry a second arm honouring a legacy ₱400
@@ -288,22 +288,33 @@ export async function fetchPhotoChallengeExpiry(
  * entitled when there is one. (The table itself was dropped 2026-09-18.)
  *
  * `eventId` WAS accepted and ignored (a subscription covers every celebration the
- * shop is booked for). Since 2026-11-09 it is read for the Specialized tools
- * trial, which is per event. The other per-celebration questions (booked? Papic
+ * shop is booked for). Since 2026-11-09 it is read for the per-event trial —
+ * now inside the database gate, which this passes it to. The other per-celebration questions (booked? Papic
  * on?) are still {@link photoChallengeEventReady}'s.
  */
 export async function fetchPhotoChallengeEntitled(
   supabase: SupabaseClient,
   eventId: string,
   vendorProfileId: string,
-  nowMs: number = Date.now(),
-): Promise<boolean> {
-  const expiry = await fetchPhotoChallengeExpiry(supabase, vendorProfileId);
-  if (isPhotoChallengeSubscriptionActive(expiry, nowMs)) return true;
-  // 🧰 Build 4 (owner 2026-11-09): the retired subscription above still counts until its paid time
-  // ends; the Specialized tools unlock is the way in now — paid, Pro / Ultra, or the first-booked-event
-  // trial, which is why `eventId` is read again. The SQL gate asks the same question
-  // (`vendor_papic_challenge_entitled` → `vendor_specialized_tools_unlocked`). Service role only: the
-  // one caller passes the admin client, and a refusal reads as "not entitled".
-  return fetchVendorSpecializedToolsUnlocked(supabase, vendorProfileId, eventId);
+): Promise<boolean | null> {
+  // 🎁 Owner 20 Nov (Pro and up, grandfathered): ask the DATABASE's own gate — the very function the authoring and
+  // photo-delivery RPCs call — so the card can never say "On" to a shop the submit then refuses (a Plus shop after
+  // the ship, or a trial window). Read only: it claims nothing (the old path claimed the one-time Specialized tools
+  // trial just by opening this card). Service role only — the one caller passes the admin client.
+  // `null` = UNREAD: a failed read is never "not entitled", which would show a Pro shop the upgrade lock.
+  if (!vendorProfileId || !eventId) return false;
+  try {
+    const { data, error } = await supabase.rpc('vendor_papic_challenge_entitled', {
+      p_vendor_profile_id: vendorProfileId,
+      p_event_id: eventId,
+    });
+    if (error) {
+      console.error('[supabase-error] vendor-photo-challenge: vendor_papic_challenge_entitled', error);
+      return null;
+    }
+    return data === true;
+  } catch (e) {
+    console.error('[supabase-error] vendor-photo-challenge: vendor_papic_challenge_entitled', e);
+    return null;
+  }
 }

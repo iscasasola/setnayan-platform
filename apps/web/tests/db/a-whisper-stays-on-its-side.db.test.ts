@@ -10,8 +10,8 @@
  *   3 · F1 STAYS CLOSED — a co-host removed from the event, a coordinator removed from it, and a team member who is
  *                     deactivated each read NEITHER whisper afterwards (the side is judged NOW, not at send).
  *   4 · THE WRITE   — a whisper that crosses sides, claims the other side, or has nobody to hear it is refused.
- *   5 · SABOTAGE    — without the new RESTRICTIVE policy the deactivated team member DOES read the team whisper (the
- *                     shop's permissive read never looks at deactivated_at): the policy is what closes it; and a shared
+ *   5 · SABOTAGE    — without the RESTRICTIVE policies the deactivated team member DOES read the team whisper (the
+ *                     shop's permissive read never looks at deactivated_at): they are what close it; and a shared
  *                     line IS read by the supplier, so the zeros above are real.
  *
  * Run (from apps/web): tsx --test tests/db/a-whisper-stays-on-its-side.db.test.ts
@@ -249,9 +249,12 @@ test('SABOTAGE: without the policy a deactivated team member reads the team whis
   const teamId = await whisper(w, w.supplier, 'team', await teamList(w, w.supplier));
   await db.query(`UPDATE public.vendor_team_members SET deactivated_at = NOW() WHERE vendor_profile_id = $1 AND user_id = $2`, [w.shop, w.teammate]);
   assert.equal(await reads(w.teammate, teamId), 0);
-  // Drop the new RESTRICTIVE policy inside a transaction; `as` → `reset` rolls it back.
+  // Drop the RESTRICTIVE policies that close it inside a transaction; `as` → `reset` rolls them back. Two close it
+  // now: the whisper's side, and (20271354552883) a removed member reads nothing at all — proven alone, on a SHARED
+  // line, in a-removed-member-reads-nothing.db.test.ts.
   await db.exec(`BEGIN`);
   await db.exec(`DROP POLICY chat_messages_whisper_stays_on_its_side ON public.chat_messages`);
+  await db.exec(`DROP POLICY chat_messages_a_removed_member_reads_nothing ON public.chat_messages`);
   const without = await reads(w.teammate, teamId);
   assert.equal(without, 1, 'the deactivated member reads nothing even without the policy — the test cannot see what the policy closes');
   const back = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pg_policies WHERE policyname = 'chat_messages_whisper_stays_on_its_side'`);

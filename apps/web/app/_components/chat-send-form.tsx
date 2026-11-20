@@ -730,9 +730,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           private and the line beside it says WHO it reaches; the ⓘ says staff read it only inside an open dispute. */}
       {whisper && whisperOn && whisper.reach ? (
         <div role="status" className="flex items-center justify-center gap-1.5 px-1 text-[12px] font-semibold text-[rgb(var(--color-private-text))]" data-chat-whisper-line="on" data-chat-whisper-reach={whisper.side ?? 'hosts'}>
-          <span className="inline-flex items-center rounded-full bg-[rgb(var(--color-private-tint))] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-private-text))] ring-1 ring-inset ring-[rgb(var(--color-private)/0.45)]" data-chat-private-chip="">
-            Private
-          </span>
+          {/* 🔒 The lock on Private: the 20 Nov drawing's icon before the word (controller, owner delegation 20 Nov). */}
+          <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--color-private-tint))] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-private-text))] ring-1 ring-inset ring-[rgb(var(--color-private)/0.45)]" data-chat-private-chip=""><Lock aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.2} />Private</span>
           <InfoTip label={whisper.reach} ariaLabel="Who sees this" align="end">
             {WHISPER_DISPUTE_NOTE}
           </InfoTip>

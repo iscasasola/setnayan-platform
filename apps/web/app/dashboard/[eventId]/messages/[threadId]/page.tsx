@@ -729,8 +729,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // exactly ONE follow-up nudge (1); past that the form re-disables until the
   // vendor accepts. Mirrors `countCoupleMessages` (lib/chat.ts) behind the
   // server gate in sendChatMessage so the UI and the no-JS form path agree.
+  // 🗣 The hosts' side shares one allowance — the couple's lines and the coordinator's (Unichat part E, 20 Nov), as the
+  // send core counts them (countCoupleMessages + countCoordinatorMessages).
   const coupleMsgCount = initialMessages.filter(
-    (m) => m.sender_role === 'couple',
+    (m) => m.sender_role === 'couple' || m.sender_role === 'coordinator',
   ).length;
   const canFollowUpWhilePending = coupleMsgCount <= 1;
 

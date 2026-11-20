@@ -404,6 +404,21 @@ export async function countCoupleMessages(
 }
 
 /**
+ * 🗣 The coordinator's lines on a thread (Unichat part E, 20 Nov: "coordinators post like hosts" — the 9 Nov ruling).
+ * A coordinator speaks on the HOSTS' side, so their lines share the hosts' pre-accept allowance with the couple's
+ * (`countCoupleMessages` + this, in the send core and the page's mirror). The database stamps them 'coordinator'
+ * (tg_chat_messages_derive_sender), which is why `countCoupleMessages` alone never saw them.
+ */
+export async function countCoordinatorMessages(admin: SupabaseClient, threadId: string): Promise<number> {
+  const { count } = await admin
+    .from('chat_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('thread_id', threadId)
+    .eq('sender_role', 'coordinator');
+  return count ?? 0;
+}
+
+/**
  * Compute the current viewer's Viber-style archive state for a thread row that
  * embedded `reads:chat_thread_reads(archived_at)`. RLS scopes the embed to the
  * caller (chat_thread_reads_self_all → user_id = auth.uid()), so `reads` is a

@@ -31,14 +31,17 @@ export function PrivateMark({
   label?: string;
 }) {
   // 🤫 A WHISPER (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"): the strip across the bubble's top, sky blue,
-  // "Whisper · co-hosts only" — no lock and no names (it is a whisper, not a vault; every co-host hears it).
+  // "Whisper · co-hosts only" — no names (every one on its side hears it). 🔒 The drawing's lock opens it (UNICHAT-LIVE
+  // 20 Nov `.lk` / `.wnote`: the lock, 12px, before the words) — the 20 Nov drawing over 19 Nov's "not a lock"
+  // (controller, under owner delegation 20 Nov).
   if (whisper) {
     return (
       <p
-        className="-mx-3 -mt-2 mb-1.5 bg-[rgb(var(--color-private-text))] px-3 py-[3px] text-[11px] font-bold text-[rgb(var(--color-private-tint))]"
+        className="-mx-3 -mt-2 mb-1.5 flex items-center gap-1 bg-[rgb(var(--color-private-text))] px-3 py-[3px] text-[11px] font-bold text-[rgb(var(--color-private-tint))]"
         data-chat-whisper-strip=""
       >
-        {label ?? WHISPER_STRIP}
+        <Lock aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.2} />
+        <span>{label ?? WHISPER_STRIP}</span>
       </p>
     );
   }

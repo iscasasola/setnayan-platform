@@ -201,8 +201,8 @@ test('4 · chat-send admits the team the policy admits before "not_member"; the 
   const send = read('lib/chat-send.ts');
   assert.match(
     send,
-    // 🤫 Part E (20 Nov): one branch may sit between — the event's coordinator, admitted for a WHISPER only.
-    /\} else if \(\(await shopPeopleRead\(\)\)\.userIds\.includes\(user\.id\)\) \{\s*senderRole = 'vendor';\s*\}(?: else if \(input\.whisper && \(await readIsCoordinator\([^)]*\)\)\) \{[^}]*\})? else \{\s*return \{ ok: false, code: 'not_member'/,
+    // 🗣 Part E (20 Nov): one branch sits between — the event's coordinator, who posts like a host (9 Nov ruling).
+    /\} else if \(\(await shopPeopleRead\(\)\)\.userIds\.includes\(user\.id\)\) \{\s*senderRole = 'vendor';\s*\}(?: else if \(await readIsCoordinator\([^)]*\)\) \{[^}]*\})? else \{\s*return \{ ok: false, code: 'not_member'/,
     'a team member RLS admits is refused as not_member',
   );
   const block = read('lib/chat-block.ts');

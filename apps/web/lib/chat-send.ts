@@ -21,7 +21,7 @@ import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
-import { fetchThreadById, countCoupleMessages } from './chat';
+import { fetchThreadById, countCoupleMessages, countCoordinatorMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
 import {
@@ -61,8 +61,9 @@ const CHAT_ATTACHMENT_MIME_SET = new Set<string>(CHAT_ATTACHMENT_MIME);
 const CHAT_CONTACT_REFUSAL_MARKER = 'CONTACT_BLOCKED';
 
 /**
- * 🤫 Is this login a coordinator of the event? Asked ONLY for a whisper (a coordinator whispers with the hosts — owner,
- * 20 Nov). A refused read is "no" — the whisper is then refused as not-a-member, never sent to anyone.
+ * 🗣 Is this login a coordinator of the event? A coordinator posts like a host (DECISION_LOG 9 Nov, held by the controller
+ * under owner delegation 20 Nov) and whispers with the hosts (owner, 20 Nov). A refused read is "no" — the line is then
+ * refused as not-a-member, never sent as anyone.
  */
 async function readIsCoordinator(supabase: SupabaseClient, eventId: string, userId: string): Promise<boolean> {
   const { data, error } = await supabase
@@ -270,10 +271,11 @@ export async function sendChatMessageCore(
     senderRole = 'vendor';
   } else if ((await shopPeopleRead()).userIds.includes(user.id)) {
     senderRole = 'vendor';
-  } else if (input.whisper && (await readIsCoordinator(supabase, thread.event_id, user.id))) {
-    // 🤫 The event's coordinator whispers WITH the hosts (owner, 20 Nov: "host and coordinator can whisper to each
-    // other") — on the hosts' side, so the gates below treat the line as that side's. The database stamps the row
-    // 'coordinator' (tg_chat_messages_derive_sender) and re-judges the side (tg_chat_messages_whisper_stays_on_its_side).
+  } else if (await readIsCoordinator(supabase, thread.event_id, user.id)) {
+    // 🗣 The event's coordinator posts like a host (9 Nov ruling, upheld 20 Nov) and whispers WITH the hosts (owner,
+    // 20 Nov: "host and coordinator can whisper to each other") — on the hosts' side, so the gates below treat the line
+    // as that side's. The database stamps the row 'coordinator' (tg_chat_messages_derive_sender), admits it only while
+    // they ARE a coordinator here (chat_messages_member_insert → current_thread_ids), and re-judges a whisper's side.
     senderRole = 'couple';
     senderIsCoordinator = true;
   } else {
@@ -403,7 +405,12 @@ export async function sendChatMessageCore(
   // countCoupleMessages' docstring for the full reasoning.)
   let priorMessageCount = 0;
   if (senderRole === 'couple') {
-    priorMessageCount = await countCoupleMessages(admin, thread.thread_id);
+    // 🗣 The hosts' side shares ONE allowance: the couple's lines and the coordinator's (Unichat part E, 20 Nov).
+    const [coupleLines, coordinatorLines] = await Promise.all([
+      countCoupleMessages(admin, thread.thread_id),
+      countCoordinatorMessages(admin, thread.thread_id),
+    ]);
+    priorMessageCount = coupleLines + coordinatorLines;
     isFirstMessage = priorMessageCount === 0;
   }
 
@@ -612,7 +619,8 @@ export async function sendChatMessageCore(
   // branch on it; it just no longer decides what lands in the row.
   // 🏪 The screen's side (owner, 11 Nov) — the database honours it only if this sender holds it, and never names a
   // recipient. Written as its own literal so the send path's column scan (chat-sender-not-forgeable) still sees it.
-  const sidePayload = asSide
+  // 🗣 A coordinator holds no side to ask for — the database names them 'coordinator' (a 'couple' ask would be refused).
+  const sidePayload = asSide && !senderIsCoordinator
     ? {
         sent_as: asSide,
       }

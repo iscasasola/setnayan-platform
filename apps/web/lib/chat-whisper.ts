@@ -148,16 +148,20 @@ export const WHISPER_DISPUTE_NOTE = 'Setnayan staff can read it only while a dis
  * the OTHER hosts in this chat by first name; `coordinators` = how many coordinators (other than the viewer) hear it.
  * A coordinator whispering sees the hosts by name. Nobody → `null` (the box says so in its own words).
  */
+/** The coordinator's line, word for word from the drawing (UNICHAT-LIVE 20 Nov; controller under owner delegation 20 Nov). */
+export const WHISPER_COORDINATOR_REACH = 'You and the hosts';
+
 export function hostsWhisperReach(input: {
   names: readonly string[];
   coordinators: number;
-  /** The writer IS a coordinator: the others are "the other coordinator", never "your coordinator". */
+  /** The writer IS a coordinator: the drawing's line, "You and the hosts" — never names, never "your coordinator". */
   viewerIsCoordinator?: boolean;
 }): string | null {
   const parts = input.names.filter((n) => n.trim().length > 0);
-  const who = input.viewerIsCoordinator ? 'the other coordinator' : 'your coordinator';
-  if (input.coordinators === 1) parts.push(who);
-  else if (input.coordinators > 1) parts.push(`${who}s`);
+  // Nobody to hear it is still nobody, for a coordinator too (the box then says so — never "the hosts").
+  if (input.viewerIsCoordinator) return parts.length + input.coordinators > 0 ? WHISPER_COORDINATOR_REACH : null;
+  if (input.coordinators === 1) parts.push('your coordinator');
+  else if (input.coordinators > 1) parts.push('your coordinators');
   if (parts.length === 0) return null;
   return parts.length === 1 ? `Only you and ${parts[0]}` : `Only you, ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }

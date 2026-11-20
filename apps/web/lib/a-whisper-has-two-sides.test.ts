@@ -28,6 +28,7 @@ import {
   WHISPER_TEAM_UNREAD_LINE,
   WHISPER_UNREAD_LINE,
   hostsWhisperReach,
+  WHISPER_COORDINATOR_REACH,
   leftWhisperAskBody,
   teamWhisperRecipients,
   whisperBlockedLine,
@@ -98,9 +99,11 @@ test('2 · the reach line and the strip, by side', () => {
   assert.equal(hostsWhisperReach({ names: [], coordinators: 1 }), 'Only you and your coordinator');
   assert.equal(hostsWhisperReach({ names: ['Ana', 'Ben'], coordinators: 2 }), 'Only you, Ana, Ben and your coordinators');
   assert.equal(hostsWhisperReach({ names: [], coordinators: 0 }), null, 'nobody is said as somebody');
-  // A coordinator writing: the hosts by name, a fellow coordinator never called "your" coordinator.
-  assert.equal(hostsWhisperReach({ names: ['Ana', 'Ben'], coordinators: 0, viewerIsCoordinator: true }), 'Only you, Ana and Ben');
-  assert.equal(hostsWhisperReach({ names: ['Ana'], coordinators: 1, viewerIsCoordinator: true }), 'Only you, Ana and the other coordinator');
+  // A coordinator writing: the drawing's words exactly — "You and the hosts" (controller, under owner delegation 20 Nov).
+  assert.equal(WHISPER_COORDINATOR_REACH, 'You and the hosts');
+  assert.equal(hostsWhisperReach({ names: ['Ana', 'Ben'], coordinators: 0, viewerIsCoordinator: true }), 'You and the hosts');
+  assert.equal(hostsWhisperReach({ names: ['Ana'], coordinators: 1, viewerIsCoordinator: true }), 'You and the hosts');
+  assert.equal(hostsWhisperReach({ names: [], coordinators: 0, viewerIsCoordinator: true }), null, 'a coordinator alone is told nobody, not "the hosts"');
   assert.equal(WHISPER_TEAM_REACH, 'Only your team');
   assert.equal(whisperStrip('team', 'Lumina'), 'Whisper · your team only');
   assert.equal(whisperStrip('hosts', 'Lumina'), 'Whisper · Lumina can’t see');
@@ -153,7 +156,7 @@ test('5 · the page reads: a coordinator gets the hosts’ whisper; a team membe
 
   const coordinator = await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS, users: { data: [{ user_id: 'ana', first_name: 'Ana', display_name: null }, { user_id: 'ben', first_name: 'Ben', display_name: null }], error: null } }), { ...at, viewerId: 'liza' });
   assert.deepEqual(coordinator?.ids, ['ana', 'ben'], 'the coordinator cannot whisper with the hosts');
-  assert.equal(coordinator?.reach, 'Only you, Ana and Ben');
+  assert.equal(coordinator?.reach, 'You and the hosts', 'the coordinator’s line is the drawing’s');
 
   assert.equal(await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS }), { ...at, viewerId: 'stranger' }), null);
   assert.equal(await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS }), { ...at, viewerId: 'sol' }), null, 'the shop gets the hosts’ whisper');
@@ -184,11 +187,13 @@ test('6 · the composer: the sky Private chip, who it reaches, and the dispute �
   );
   setWhisper(T, false);
   for (const [name, m, reach] of [['hosts', hosts, 'Only you, Ana and your coordinator'], ['team', team, 'Only your team']] as const) {
-    assert.match(m, /data-chat-private-chip=""[^>]*>Private<\/span>/, `${name}: no Private chip while whispering`);
+    assert.match(m, /data-chat-private-chip=""/, `${name}: no Private chip while whispering`);
     assert.ok(m.includes(reach), `${name}: the line does not say who it reaches`);
     assert.match(m, /color-private/, `${name}: the chip is not the sky private look`);
     assert.match(m, new RegExp(`data-chat-whisper-reach="${name}"`));
-    assert.doesNotMatch(m, /lucide-lock/, `${name}: a lock on the whisper (owner 19 Nov: "it shouldn't be a lock")`);
+    // 🔒 The lock on Private — the 20 Nov drawing wins over the 19 Nov "not a lock" (controller, owner delegation 20 Nov):
+    // its icon (lucide Lock), inside the sky chip, before the word.
+    assert.match(m, /data-chat-private-chip=""[^>]*><svg[^>]*lucide-lock[^>]*>[\s\S]*?<\/svg>Private<\/span>/, `${name}: no lock on Private`);
   }
   assert.match(team, /Whisper to your team only/);
 });

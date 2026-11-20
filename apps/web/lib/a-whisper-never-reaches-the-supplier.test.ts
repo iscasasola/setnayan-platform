@@ -277,7 +277,7 @@ test('6 · the Send icon is the drawing’s two outlines and its order, on the m
   assert.match(block, /@media \(prefers-reduced-motion: reduce\) \{\s*\.sn-chat-onebox,\s*\.sn-whisper-send,\s*\.sn-chat-onebox-field \{ transition: none; \}/);
 });
 
-test('7 · a line is a whisper only when its people are exactly the co-hosts; its strip has no lock', () => {
+test('7 · a line is a whisper only when its people are exactly the co-hosts; its strip wears the drawing’s lock', () => {
   const co = ['b', 'c'];
   assert.equal(isWhisperLine({ sender_role: 'couple', sender_user_id: 'a', recipient_user_ids: ['b', 'c'] }, co, 'a'), true);
   assert.equal(isWhisperLine({ sender_role: 'couple', sender_user_id: 'b', recipient_user_ids: ['a', 'c'] }, co, 'a'), true, 'a co-host’s whisper does not read as one');
@@ -293,7 +293,9 @@ test('7 · a line is a whisper only when its people are exactly the co-hosts; it
   const strip = renderToStaticMarkup(h(PrivateMark, { privateWith: ['Ben', 'Cai'], whisper: true }));
   assert.match(strip, new RegExp(WHISPER_STRIP));
   assert.equal(WHISPER_STRIP, 'Whisper · co-hosts only');
-  assert.doesNotMatch(strip, /<svg|Private ·/, 'a whisper’s strip wears a lock or the private words');
+  // 🔒 20 Nov drawing (controller, owner delegation 20 Nov): the lock opens the strip — still never the private words.
+  assert.match(strip, /^<p[^>]*><svg[^>]*lucide-lock/, 'a whisper’s strip lost the drawing’s lock, or it is not first');
+  assert.doesNotMatch(strip, /Private ·/, 'a whisper’s strip wears the private words');
   assert.doesNotMatch(renderToStaticMarkup(h(PrivateTime, { at: '2026-11-19T02:05:00Z', alignEnd: true, whisper: true })), /<svg/, 'a whisper’s time row wears a lock');
   // A private line that is NOT a whisper keeps its lock and its names.
   assert.match(renderToStaticMarkup(h(PrivateMark, { privateWith: 'Jose' })), /Private · only you and Jose/);

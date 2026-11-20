@@ -14,6 +14,7 @@
  * Dev only (`page.lab.tsx`). Pressing Save here calls the real action, which needs a signed-in session.
  */
 import { notFound } from 'next/navigation';
+import { formatCount } from '@/lib/format-number';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { SaveVendorButton } from '@/app/(shell)/explore/_components/save-vendor-button';
 import { toServiceCard } from '@/lib/service-card-view-model';
@@ -124,7 +125,7 @@ export default async function MallCardLabPage({
     <main className="mx-auto w-full max-w-6xl px-4 py-6" data-mall-card-lab="">
       <p className="text-xs text-ink/55">
         Lab · Discover service cards (card 14) — real production cards · venue {venue ? 'set' : 'not set'} · guests{' '}
-        {guests ?? 'not set'}
+        {guests != null ? formatCount(guests) : 'not set'}
       </p>
       <ul className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4 lg:gap-5" data-mall-grid="">
         {cards.map((c, i) => {

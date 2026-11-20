@@ -49,7 +49,7 @@ const LAB_PACKS: ShopGiftPack[] = [
 function labGift(key: string | undefined): AgreeGiftBasis | null {
   if (!key) return null;
   const none = { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} as Record<string, number> };
-  const base = { packs: LAB_PACKS, feeCentavos: 513_000, limitPct: 40, eventHas: 'none' as const };
+  const base = { packs: LAB_PACKS, feeCentavos: 571_000, billCentavos: 0, limitPct: 40, eventHas: 'none' as const };
   if (key === 'stock') return { ...base, free: { ...none, papic: 1150, packs: { PAPIC_GUEST_150: 1, PAPIC_GUEST_1K: 1 } }, sent: {} };
   if (key === 'sent') return { ...base, free: none, sent: { PAPIC_GUEST_150: 1 } };
   return { ...base, free: none, sent: {} };

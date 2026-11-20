@@ -59,7 +59,9 @@ export async function fetchAgreeGiftBasis(
       }
     }
     const storeShell = await isStoreShellRequest();
-    return { packs, feeCentavos, limitPct, free: freeByKind(stock), eventHas, sent, canBuy: !storeShell };
+    // The bill the yes opens: only a billable booking with no free (badge) fee waiting is charged.
+    const billCentavos = standing.kind === 'billable' && !('badgeReward' in standing && standing.badgeReward) ? feeCentavos : 0;
+    return { packs, feeCentavos, billCentavos, limitPct, free: freeByKind(stock), eventHas, sent, canBuy: !storeShell };
   } catch (e) {
     console.error('[agree-gifts] basis read failed', e);
     return null;

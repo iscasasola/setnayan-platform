@@ -93,6 +93,8 @@ test('3 · stock first, then a SENT store payment, else buy it first — never o
   assert.equal(row.inStock, 1, '"In your stock" is the pack’s own count');
   assert.equal(row.sent, 1, '"Bought · waiting for approval" is counted apart');
   assert.equal(row.buyMore, true, 'both used: "0 left · Buy more ›"');
+  assert.equal(row.fits, true, 'one more would fit if bought — the row offers the store');
+  assert.equal(row.canAdd, false, 'but it cannot be added until it is bought');
   // An unreadable stock is never free: the pick is bought in the store first.
   assert.equal(judgeAgreeGifts([P1K.code], basis(5_000_000, { free: null })).state, 'needs_stock');
 });

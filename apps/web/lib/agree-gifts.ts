@@ -53,6 +53,11 @@ export type AgreeGiftBasis = {
    * absent = none.
    */
   sent?: Readonly<Record<string, number>> | null;
+  /**
+   * What the yes will actually BILL, in centavos — 0 on a free, waived, promotion, imported or badge-paid booking. The
+   * limit is still measured on `feeCentavos` (the fee the booking is worth). Absent = `feeCentavos`.
+   */
+  billCentavos?: number;
   /** False inside the iPhone app (store shell): nothing is sold there, so no "Buy" word or store door is drawn. */
   canBuy?: boolean;
 };
@@ -165,6 +170,8 @@ export type AgreeGiftOption = {
   canAdd: boolean;
   /** At one gift in all, the last one cannot be taken off (20 Nov: never none). */
   canRemove: boolean;
+  /** One more of it would fit this gift if the shop had it — the row may offer "0 left · Buy more ›". */
+  fits: boolean;
   /** Why one more cannot be added, in the supplier's words. */
   why: string | null;
 };
@@ -196,6 +203,7 @@ export function agreeGiftOptions(codes: readonly string[], basis: AgreeGiftBasis
       sent,
       buyMore,
       canAdd: next.state === 'ok',
+      fits: next.state === 'ok' || next.state === 'needs_stock',
       canRemove: count > 0 && codes.length > 1,
       why,
     };

@@ -52,7 +52,7 @@ export function AgreeGiftPicker({ basis, regift = false }: { basis: AgreeGiftBas
   const better = useMemo(() => offersBetterPapicMix(codes, basis), [codes, basis]);
   const items = agreeGiftItems(verdict.lines);
   const ok = verdict.state === 'ok';
-  const fee = basis.feeCentavos;
+  const fee = basis.billCentavos ?? basis.feeCentavos;
   const fromStock = verdict.lines.filter((l) => l.source === 'stock').length;
   const waiting = verdict.lines.filter((l) => l.source === 'sent').length;
   // The way back from the store: this page, reopening on the gift bought (owner 21 Nov).
@@ -83,7 +83,7 @@ export function AgreeGiftPicker({ basis, regift = false }: { basis: AgreeGiftBas
         {regift ? null : (
         <div className="flex items-baseline justify-between gap-3 py-3">
           <dt className="text-ink/70">Booking fee</dt>
-          <dd className="tabular-nums text-ink">{fee > 0 ? pesoFromCentavos(fee) : 'No fee on this booking'}</dd>
+          <dd className="tabular-nums text-ink">{fee > 0 ? pesoFromCentavos(fee) : 'No bill on this booking'}</dd>
         </div>
         )}
         <div className="py-3">
@@ -189,7 +189,7 @@ export function AgreeGiftPicker({ basis, regift = false }: { basis: AgreeGiftBas
                     {o.sent > 0 ? ` · Bought · waiting for approval (${formatCount(o.sent)})` : ''}
                     {!o.canAdd && o.why ? ` · ${o.why}` : ''}
                   </span>
-                  {canBuy && o.buyMore && o.canAdd ? (
+                  {canBuy && o.buyMore && o.fits ? (
                     <Link
                       href={buyHref(o.pack.code)}
                       className="mt-0.5 inline-block text-[12.5px] font-semibold text-terracotta-700 underline underline-offset-2"

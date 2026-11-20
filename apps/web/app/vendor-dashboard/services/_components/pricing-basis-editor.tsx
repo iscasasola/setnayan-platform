@@ -159,18 +159,11 @@ export function PricingBasisEditor({
         </>
       );
     }
-    /* 💰 FLAT PRICE IS ONE NUMBER (HYBRID drawing 17 Nov, "What this removes": *"On Price: 'Price covers' on a flat
-       price"*; the drawing's Flat price is the Base price alone). A card that ALREADY carries a guest cover or an
-       extra-guest price keeps both rows — hiding them would save them as empty and silently drop that card's
-       per-guest charge (a money change nobody ruled). */
-    const flatHasCover = defaults.base_pax != null || defaults.added_pax_price_php != null;
     return basis === 'fixed' ? (
-      flatHasCover ? (
       <>
         <TypedRow key="base_pax" name="Price covers" about={{ title: 'Price covers', words: 'Guests the price covers. Blank = one price, any guest count.' }} value={v(defaults.base_pax)} empty="Any count" inputMode="numeric" check={count} fieldName="base_pax" onKeep={() => undefined} data="price-covers" attrs={{ 'data-maker-price-field': 'base_pax' }} />
         <TypedRow key="added_pax_price_php" name={`Each extra ${perPaxUnit}`} about={{ title: `Each extra ${perPaxUnit}`, words: `Optional. Charged per ${perPaxUnit} above that.` }} value={v(defaults.added_pax_price_php)} amount empty="None" fieldName="added_pax_price_php" onKeep={() => undefined} data="price-extra-guest" attrs={{ 'data-maker-price-field': 'added_pax_price_php' }} />
       </>
-      ) : null
     ) : basis === 'per_pax' ? (
       <>
         <TypedRow key="min_pax" name={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} about={{ title: isCrewMeals ? 'Minimum meals' : 'Minimum guests', words: 'The floor — the card shows rate × minimum.' }} value={v(defaults.min_pax)} empty="None" inputMode="numeric" check={count} fieldName="min_pax" onType={setStart} onKeep={(t) => { setStart(t); return undefined; }} data="price-min-pax" attrs={{ 'data-maker-price-field': 'min_pax' }} />

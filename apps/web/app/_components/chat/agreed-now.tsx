@@ -24,7 +24,7 @@ import { ChangedRow } from './changed-row';
 import { agreedEventFact, type AgreedFact } from '@/lib/agreed-facts';
 
 /** The event's facts this card reads — the locked day AND the couple's still-open date options (EB-286). */
-const EVENT_COLS = 'event_date, estimated_pax, final_pax, date_mode, date_candidates, date_window_start, date_window_end, event_days, event_type';
+const EVENT_COLS = 'event_date, estimated_pax, final_pax, date_mode, date_candidates, date_window_start, date_window_end, date_months, event_days, event_type';
 
 export async function AgreedNow({
   eventId,
@@ -108,6 +108,7 @@ export async function AgreedNow({
     date_candidates: string[] | null;
     date_window_start: string | null;
     date_window_end: string | null;
+    date_months: string[] | null;
     event_days: number | null;
     event_type: string | null;
   };
@@ -126,6 +127,7 @@ export async function AgreedNow({
         windowStart: event.date_window_start,
         windowEnd: event.date_window_end,
         days: event.event_days,
+        months: event.date_months,
       },
     },
     changes,

@@ -302,8 +302,13 @@ function DateBody({
   const fewOffered = booked === 0;
   const maxDays = Math.min(MAX_EVENT_DAYS, Math.max(1, data.maxDays ?? 1));
   const opts = data.options ?? { mode: 'specific' as const, candidates: [], windowStart: null, windowEnd: null };
-  const hasOptions = !data.date && (opts.candidates.length > 0 || !!(opts.windowStart && opts.windowEnd));
-  const [mode, setMode] = useState<'have' | 'few' | 'help'>(helpFirst ? 'help' : fewOffered && hasOptions ? 'few' : 'have');
+  /* 🗓 "Some months" counts as options: the ladder says the months. "A few dates" edits days and ranges only, so a
+     months event opens on "I have a date" (picking a day, or saving dates there, replaces the months). */
+  const monthsPicked = opts.mode === 'months' ? (opts.months ?? []).length : 0;
+  const hasOptions = !data.date && (opts.candidates.length > 0 || !!(opts.windowStart && opts.windowEnd) || monthsPicked > 0);
+  const [mode, setMode] = useState<'have' | 'few' | 'help'>(
+    helpFirst ? 'help' : fewOffered && hasOptions && monthsPicked === 0 ? 'few' : 'have',
+  );
   /* The date as it now stands on the event — shown at once after a save (the ladder, the row). */
   const [shown, setShown] = useState({ date: data.date, precision: data.precision, end: data.endDate ?? null });
   const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
@@ -403,7 +408,7 @@ function DateBody({
           </FormRows>
           {hasOptions && !shown.date ? (
             <p className="text-[12.5px] text-ink/70" data-date-replaces-options="">
-              Picking one day replaces the {opts.candidates.length ? `${opts.candidates.length} ${(data.days ?? 1) > 1 ? 'options' : 'dates'}` : 'window'} you’re
+              Picking one day replaces the {monthsPicked > 0 ? 'months' : opts.candidates.length ? `${opts.candidates.length} ${(data.days ?? 1) > 1 ? 'options' : 'dates'}` : 'window'} you’re
               considering — your date becomes exact{(data.days ?? 1) > 1 ? ` (${data.days} days from it)` : ''}.
             </p>
           ) : null}
@@ -480,7 +485,8 @@ function FewDates({
 }) {
   const o = data.options ?? { mode: 'specific' as const, candidates: [], windowStart: null, windowEnd: null };
   const [w, setW] = useState({
-    mode: o.mode as 'window' | 'specific' | 'months',
+    // 🗓 This editor writes days or a range; a "Some months" event starts it on days (saving replaces the months).
+    mode: (o.mode === 'months' ? 'specific' : o.mode) as 'window' | 'specific' | 'months',
     candidates: [...o.candidates].sort(),
     windowStart: o.windowStart,
     windowEnd: o.windowEnd,

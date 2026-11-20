@@ -260,6 +260,8 @@ type EventBudgetRow = {
   date_candidates: string[] | null;
   date_window_start: string | null;
   date_window_end: string | null;
+  // 🗓 "Some months" (owner 2026-11-17, migration 20271355916558): the picked months, read so the date line says them.
+  date_months: string[] | null;
   // 📅 The main span's last day and the day count (owner 2026-11-13) — the date · place line reads them.
   event_end_date: string | null;
   event_days: number | null;
@@ -366,7 +368,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       // read path; same columns, same row shape, guests get zero rows.
       .from('events_host')
       .select(
-        'event_date, event_date_precision, event_end_date, event_days, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, planning_mode, setnayan_ai_active, style_preferences',
+        'event_date, event_date_precision, event_end_date, event_days, estimated_budget_centavos, budget_band, mood_board_updated_at, venue_latitude, venue_longitude, ceremony_venue_latitude, ceremony_venue_longitude, event_type, ceremony_type, secondary_ceremony_type, venue_setting, region, estimated_pax, mood_feel_key, date_mode, date_candidates, date_window_start, date_window_end, date_months, planning_mode, setnayan_ai_active, style_preferences',
       )
       // `event_id`, NOT `id`. The view carries BOTH: `id` is the hidden
       // bigserial (internal joins only) and `event_id` is the uuid every route
@@ -2978,6 +2980,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             windowStart: ev.date_window_start,
             windowEnd: ev.date_window_end,
             days: ev.event_days ?? 1,
+            months: ev.date_months,
           },
         }),
         // The area by its own name; an unlisted spelling is shown as typed

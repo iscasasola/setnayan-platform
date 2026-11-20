@@ -63,6 +63,14 @@ export type CardFoldProps = {
   danger?: boolean;
   /** ⓘ beside the title — the details the row keeps out of sight (`Fold`'s `tip`). */
   tip?: ReactNode;
+  /**
+   * 🏷 The row's stable handle (`data-fold="card-<handle>"`) when its TITLE is not it. The 20 Nov card renamed the groups
+   * ("Basic Info" → "Name and contact" …); the handles the tours, the quick actions and the guards find a group by did
+   * not move. Absent → the handle is the title, as before.
+   */
+  handle?: string;
+  /** 🎨 Its summary is something still MISSING ("Add a mobile") — drawn in the accent; a filled summary stays grey. */
+  missing?: boolean;
   children: ReactNode;
 };
 export type CardPickProps = {

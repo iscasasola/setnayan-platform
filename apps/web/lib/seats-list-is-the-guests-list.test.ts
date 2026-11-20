@@ -9,15 +9,21 @@
  *
  *   1 · ONE ANSWER FOR A DROP (`planSeatDrop`): an empty seat seats them, someone's seat trades, "To seat" unseats, their
  *       own seat does nothing — the drag and "tap · move" share it.
- *   2 · THE GUEST LIST'S OWN ROWS AND HEADERS — its stylesheet imported (never copied) and the shared button.
- *   3 · DRAWN: "TABLE 5 · 8 of 10 seats", a row per seat (an empty seat is a row with its Add), ✎ and Type ▾ · − N +
- *       ONLY on the picked (open) table; with no Edit held, nothing on it can move anyone.
+ *   2 · THE GUEST LIST'S OWN ROWS — its stylesheet imported (never copied) and the shared button.
+ *   3 · DRAWN: a table's people are the Guest list's rows, its tools ONLY on the picked (opened) table; with no Edit
+ *       held, nothing on it can move anyone.
+ *
+ * ⚠ AMENDED 20 Nov 2026 (Guests redesign § 4, owner round-one pick 5 *"Seats › List = every table as a card"*, then
+ * *"Yes, build it"*): the foldable header per table and the row per EMPTY seat are gone. Every table is a card ("8 of
+ * 10", faces, dotted chairs); tapped, it rises full screen with its people as the Guest list's rows, ONE row for its
+ * empty seats, and its tools at the bottom. 2 and 3 below were re-aimed at that; the card look itself is held by
+ * `seating/_components/seats-list-is-table-cards.test.ts`. 1, 4 and 5 are unchanged.
  *   4 · THE DRAG IS THE SHARED ONE (edge scroll) with "tap · move" beside it; the plan's own writes do the moving.
  *   5 · Type ▾ is the shared dropdown over the plan's own shapes; seats − N + is the plan's own Counter; Auto arrange
  *       stays in the Seats row's ⋯.
  *
- * SABOTAGE (each seen red, then restored): `planSeatDrop` trading onto the mover's own seat → 1 · `headTools(u.key)` drawn
- * on every header (the `isOpen ?` dropped) → 3 · the list's `dragEdgeStep` call removed → 4 · `onDrop={dropSeat}`
+ * SABOTAGE (each seen red, then restored): `planSeatDrop` trading onto the mover's own seat → 1 · the opened table's tools drawn
+ * for every table → 3 · the list's `dragEdgeStep` call removed → 4 · `onDrop={dropSeat}`
  * unwired → 4.
  */
 import test from 'node:test';
@@ -61,19 +67,19 @@ test('1 · a drop has ONE answer: empty seat → sit · someone → trade · To 
   assert.equal(seatTallyWords(0, 1), '0 of 1 seat');
 });
 
-test('2 · the rows and headers are the Guest list’s own — its stylesheet imported, never copied, and the shared button', () => {
+test('2 · a table’s people are the Guest list’s own rows — its stylesheet imported, never copied, and the shared button', () => {
   assert.ok(LIST.includes("import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.module.css';"), 'Seats › List no longer reads the Guest list’s stylesheet');
   assert.ok(LIST.includes("import { ActionButton } from '@/components/action-button';"), 'the rows lost the shared button');
   for (const cls of ['gs.g', 'gs.ava', 'gs.who', 'gs.nm', 'gs.nmt', 'gs.meta', 'gs.acts', 'gs.dot']) assert.ok(LIST.includes(cls), `a seat row no longer wears the Guest row’s ${cls}`);
-  for (const cls of ['gs.sec', 'gs.accSec', 'gs.open', 'gs.barWrap', 'gs.bar', 'gs.ico', 'gs.lab', 'gs.n', 'gs.chev', 'gs.fold']) assert.ok(LIST.includes(cls), `a table header no longer wears the Guest header’s ${cls}`);
-  assert.match(LIST, /`\$\{gs\.barWrap\} sn-acc-head`/, 'a table header is not the house foldable header');
+  // 20 Nov 2026: no foldable header per table any more — a table is a card (seats-list-is-table-cards.test.ts).
+  assert.doesNotMatch(LIST, /sn-acc-head|gs\.barWrap|gs\.fold\b/, 'the foldable table headers are back beside the cards');
   // ⇔ one state for every row's buttons — the Guest list's own fit.
   assert.match(LIST, /useRowState\(listRef, /);
   // No stylesheet of its own re-draws a row (a copy is how two lists drift).
   assert.deepEqual(LIST.match(/[\w-]+\.module\.css/g), ['guests-screen.module.css'], 'Seats › List brought a stylesheet of its own');
 });
 
-test('3 · drawn: "TABLE 5 · 8 of 10 seats", a row per seat, ✎ and Type ▾ · − N + only on the picked table', async () => {
+test('3 · drawn: "8 of 10" on the card; opened, a row per PERSON, Rename and Type ▾ · − N + only on the opened table', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { SeatList } = await import('../app/dashboard/[eventId]/seating/_components/seat-list');
   const g = (id: string) => ({ id, name: `Guest ${id}`, initials: id.toUpperCase(), photo: null, side: 'bride' as const, placed: 'placed by you' });
@@ -82,7 +88,7 @@ test('3 · drawn: "TABLE 5 · 8 of 10 seats", a row per seat, ✎ and Type ▾ �
     { key: 't5', label: 'Table 5', seated: 8, capacity: 10, seats: seats('t5', 10, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) },
     { key: 't6', label: 'Table 6', seated: 1, capacity: 8, seats: seats('t6', 8, ['i']) },
   ];
-  const draw = (canEdit: boolean) =>
+  const draw = (canEdit: boolean, initialOpenKey: string | null = 't5') =>
     renderToStaticMarkup(
       React.createElement(SeatList, {
         units,
@@ -100,29 +106,32 @@ test('3 · drawn: "TABLE 5 · 8 of 10 seats", a row per seat, ✎ and Type ▾ �
         renaming: () => null,
         tableTools: (k: string) => React.createElement('span', { 'data-test-tools': k }, 'Type ▾ − N +'),
         onDrop: () => {},
+        initialOpenKey,
       }),
     );
   const html = draw(true);
-  assert.match(html, />Table 5<\/span><span[^>]*data-seat-tally="">· 8 of 10 seats</, 'the header does not read "Table 5 · 8 of 10 seats"');
-  assert.match(html, />Table 6<\/span><span[^>]*data-seat-tally="">· 1 of 8 seats</);
-  // ✎ and the table's tools: the picked (open) table only.
-  assert.deepEqual([...html.matchAll(/data-test-pencil="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'a ✎ is drawn on a header that is not picked');
-  assert.deepEqual([...html.matchAll(/data-test-tools="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'Type ▾ / seats are drawn on a table that is not picked');
-  // A row per seat on the open table: 8 guests and 2 empty seats, each empty seat with its Add.
-  const t5 = html.slice(html.indexOf('data-seat-section="t5"'), html.indexOf('data-seat-section="t6"'));
-  assert.equal((t5.match(/data-seat-guest="/g) ?? []).length, 8);
-  assert.equal((t5.match(/data-seat-empty=""/g) ?? []).length, 2, '"8 of 10" does not draw two empty seats');
-  assert.equal((t5.match(/data-test-add="/g) ?? []).length, 2, 'an empty seat has no Add');
-  assert.match(t5, /data-seat-guest="a"[^>]*data-seat-drag="a"[^>]*data-seat-drop="seat" data-seat-drop-table="t5" data-seat-drop-seat="0" data-seat-drop-guest="a"/, 'a seat row is no drag source / drop seat');
+  assert.match(html, />Table 5<\/span><span[^>]*data-seat-tally="">8 of 10</, 'the card does not read "Table 5 · 8 of 10"');
+  assert.match(html, />Table 6<\/span><span[^>]*data-seat-tally="">1 of 8</);
+  // Rename and the table's tools: the picked (opened) table only — and none at all while no table is opened.
+  assert.deepEqual([...html.matchAll(/data-test-pencil="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'Rename is drawn for a table that is not opened');
+  assert.deepEqual([...html.matchAll(/data-test-tools="([^"]+)"/g)].map((m) => m[1]), ['t5'], 'Type ▾ / seats are drawn for a table that is not opened');
+  assert.doesNotMatch(draw(true, null), /data-test-pencil=|data-test-tools=|data-seat-table-open=/, 'a table’s tools are drawn with no table opened');
+  // The opened table: a row per PERSON (8), and ONE row for its 2 empty seats.
+  const t5 = html.slice(html.indexOf('data-seat-table-open="t5"'));
+  assert.equal((t5.match(/data-seat-row="" data-seat-guest="/g) ?? []).length, 8);
+  assert.equal((t5.match(/data-seat-empty-row=""/g) ?? []).length, 1, 'the empty seats are not ONE row');
+  assert.match(t5, /data-seat-empty-count="2"[\s\S]*?2 empty seats[\s\S]*?Seats 9 to 10/, '"8 of 10" does not say its two empty seats');
   assert.match(t5, /Seat 1 · placed by you/);
-  assert.match(t5, /aria-label="Swap Guest a"[\s\S]*?aria-label="Remove Guest a from the seat"/, 'a row lost Swap · Remove');
-  // To seat leads, and is itself where a guest is let go to lose their seat.
+  assert.match(t5, /aria-label="Move Guest a"[\s\S]*?aria-label="Remove Guest a from the seat"/, 'a row lost Move · Remove');
+  // To seat leads, and is itself where a guest is let go to lose their seat; a card is where one is let go to sit.
   assert.ok(html.indexOf('data-seat-section="unseated"') < html.indexOf('data-seat-section="t5"'), 'To seat does not lead');
   assert.match(html, /data-seat-section="unseated"[^>]*data-seat-drop="unseated"/);
+  assert.match(html, /data-seat-unseated="" data-seat-drag="z"/, 'a guest to seat cannot be held and dragged');
+  assert.match(html, /data-seat-card="t5"[^>]*data-seat-drop="seat" data-seat-drop-table="t5" data-seat-drop-seat="8"/, 'a card is not where a guest lands on its next free seat');
   // Without Edit held: the list reads, and nothing on it moves anyone.
   const ro = draw(false);
   assert.doesNotMatch(ro, /data-seat-drag=/, 'a guest can be dragged without Edit');
-  assert.doesNotMatch(ro, /data-row-acts=""/, 'Swap / Remove / Add are offered without Edit');
+  assert.doesNotMatch(ro, /data-row-acts=""/, 'Move / Remove / Add are offered without Edit');
 });
 
 test('4 · the drag is THE shared one (edge scroll), "tap · move" stays beside it, and the plan’s own moves do the moving', () => {
@@ -131,7 +140,7 @@ test('4 · the drag is THE shared one (edge scroll), "tap · move" stays beside 
   assert.match(LIST, /scroller: dragScrollerOf\(p\.el\)/);
   assert.match(LIST, /box\?\.addEventListener\('touchmove', block, \{ passive: false \}\)/, 'a held guest lets the list scroll under the finger');
   assert.match(LIST, /if \(target\) onDropRef\.current\(d\.id, target\);/);
-  // tap · move: Swap / Seat picks them up; an empty seat or another guest tapped is where they go.
+  // tap · move: Move picks them up; an empty seat or another guest tapped is where they go.
   assert.match(LIST, /onClick=\{\(\) => onPick\(g\.id\)\}/);
   assert.match(ED, /<SeatList[\s\S]{0,900}?onOpenGuest=\{tapFace\}[\s\S]{0,400}?onRemove=\{unseat\}\s*onSeatHere=\{tapBlank\}[\s\S]{0,300}?onDrop=\{dropSeat\}/, 'the list is not wired to the plan’s own moves');
   const drop = ED.slice(ED.indexOf('const dropSeat = '), ED.indexOf('const unitOfKey = '));

@@ -110,8 +110,12 @@ export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
  * the left, its summary at the right cut with "…" (never a second line), a hairline under every row but the last, the row inset
  * from the card's edge by the prototype's 2 px.
  */
-export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, tip, children }: CardFoldProps) {
+export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, tip, handle, missing = false, children }: CardFoldProps) {
+  const data = `card-${(handle ?? summary).toLowerCase().replace(/\W+/g, '-')}`;
   return (
+    /* 🎨 The mark the missing colour reads (globals.css `[data-card-row-missing]`). Always the same box — a save that fills
+       the row only drops the mark, it never re-makes the fold under the finger. */
+    <div className="contents" data-card-row={data} data-card-row-missing={missing ? '' : undefined}>
     <Fold title={summary}
       summary={value ?? emptyValue ?? '—'}
       summaryEnd
@@ -119,10 +123,11 @@ export function CardFold({ summary, value, emptyValue, open = false, last = fals
       tip={tip}
       defaultOpen={open}
       className={`px-0.5 ${last ? '' : 'border-b border-ink/10'}`}
-      data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}
+      data={data}
     >
-      <FormRows data={`card-${summary.toLowerCase().replace(/\W+/g, '-')}`}>{children}</FormRows>
+      <FormRows data={data}>{children}</FormRows>
     </Fold>
+    </div>
   );
 }
 

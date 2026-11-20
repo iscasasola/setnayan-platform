@@ -1,5 +1,6 @@
 import { InfoTip } from '@/app/_components/info-tip';
-import { Sparkles, Heart, CheckCircle2 } from 'lucide-react';
+import { Heart, CheckCircle2 } from 'lucide-react';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail } from '@/app/_components/template-rows';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -236,14 +237,14 @@ export default async function AdminPakantaPage() {
     });
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content; the decorative tile goes with the
           name.
           ⚖ The sentence survives: it is the WORKFLOW — the brief is already
           composed from what the couple told us, so you copy it into Suno and
           never re-interview anybody. */}
       <PageMasthead title="Music Maker queue" />
-      <div className="mb-6 max-w-2xl">
+      <div className="mb-3">
         <InfoTip label="What this page shows" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
           Each couple’s custom-song brief, auto-composed from the love story they told in
         onboarding plus any Music Maker preferences. Copy the brief into Suno to write the
@@ -252,27 +253,21 @@ export default async function AdminPakantaPage() {
       </div>
 
       {queryError ? (
-        <div
-          role="alert"
-          className="mb-6 rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink"
-        >
+        <TemplateFail retryHref="/admin/pakanta" data="music-maker">
           Couldn’t load this — refresh to try again. This is not an empty queue.
-        </div>
+        </TemplateFail>
       ) : null}
 
       {/* Rows that DID load still show under the notice; only the "none yet"
           claim is withheld, because a partial read cannot prove an absence. */}
       {rows.length === 0 && queryError ? null : rows.length === 0 ? (
-        <div className="py-8 text-center border-t border-ink/10">
-          <Sparkles aria-hidden className="mx-auto mb-3 h-8 w-8 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No Music Maker orders yet.</p>
-          <div className="mx-auto mt-1 max-w-md">
-            <InfoTip label="How briefs arrive" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
-              When a couple buys Music Maker (on its own or inside a bundle), their brief — built from
-            the onboarding love story — appears here for the music team to write and deliver.
-            </InfoTip>
-          </div>
-        </div>
+        <TemplateEmpty data="music-maker">
+          No Music Maker orders yet.{' '}
+          <InfoTip label="How briefs arrive" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+            When a couple buys Music Maker (on its own or inside a bundle), their brief — built from
+          the onboarding love story — appears here for the music team to write and deliver.
+          </InfoTip>
+        </TemplateEmpty>
       ) : (
         <ul className="space-y-5">
           {rows.map((row) => {
@@ -284,9 +279,9 @@ export default async function AdminPakantaPage() {
                 className="py-5 border-t border-ink/10"
               >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold tracking-tight text-ink">
+                  <p className="text-[15px] font-semibold leading-tight text-ink">
                     {brief.coupleNames}
-                  </h2>
+                  </p>
                   <div className="flex items-center gap-2">
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${status.cls}`}
@@ -307,7 +302,7 @@ export default async function AdminPakantaPage() {
                 ) : null}
 
                 {!brief.hasMaterial ? (
-                  <p className="rounded-lg bg-warn-50 px-3 py-2 text-sm text-warn-800">
+                  <p className="text-sm" style={{ color: 'rgb(var(--color-warn))' }}>
                     No story material yet — the couple hasn’t finished the love-story onboarding or
                     a Music Maker intake.
                   </p>
@@ -315,7 +310,7 @@ export default async function AdminPakantaPage() {
                   <>
                     {brief.storyParagraphs.length > 0 ? (
                       <div className="mb-3">
-                        <p className="mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                        <p className={`mb-1 ${TEMPLATE_SUBLINE}`}>
                           Their story
                         </p>
                         <ul className="space-y-1 text-sm text-ink/75">
@@ -337,7 +332,7 @@ export default async function AdminPakantaPage() {
                     ) : null}
 
                     <div className="mb-3 text-sm text-ink/70">
-                      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                      <span className={TEMPLATE_SUBLINE}>
                         Music
                       </span>
                       <div className="mt-1 space-y-0.5">
@@ -381,7 +376,7 @@ export default async function AdminPakantaPage() {
 
                 {/* Delivered-song preview (when a finished song is on file). */}
                 {row.delivered && row.previewUrl ? (
-                  <div className="mt-4 border-success-200 bg-success-50 py-4 border-t border-ink/10">
+                  <div className="mt-4 py-4 border-t border-ink/10">
                     <p className="mb-2 inline-flex items-center gap-1.5 text-sm font-medium text-success-800">
                       <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
                       Delivered{row.deliveredFilename ? ` — ${row.deliveredFilename}` : ''}

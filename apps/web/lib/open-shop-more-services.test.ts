@@ -89,20 +89,18 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
     l.map((r) => r.name),
     ['Free · Verified', 'Plus adds', 'Pro adds', 'Ultra adds'],
   );
-  // The prototype's own words, rebuilt from the caps (Free reaches what Verified does once verified).
-  assert.equal(
-    l[0]!.caps,
-    `1 category · 1 service · reach ${TIER_CAPS.verified.serviceRadiusKm} km · basic search listing`,
-  );
+  // The prototype's own words, rebuilt from the caps. No reach on any rung: reach is not a plan allowance (2026-11-19).
+  assert.equal(l[0]!.caps, '1 category · 1 service · basic search listing');
   assert.equal(
     l[1]!.caps,
-    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.serviceCardsTotal} services · reach ${TIER_CAPS.solo.serviceRadiusKm} km · enhanced search`,
+    `${TIER_CAPS.solo.parentCategories} categories · ${TIER_CAPS.solo.serviceCardsTotal} services · enhanced search`,
   );
   assert.equal(
     l[2]!.caps,
-    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.serviceCardsTotal} services · reach ${TIER_CAPS.pro.serviceRadiusKm} km · AI answers can quote your offers`,
+    `${TIER_CAPS.pro.parentCategories} categories · ${TIER_CAPS.pro.serviceCardsTotal} services · AI answers can quote your offers`,
   );
-  assert.match(l[3]!.caps, /· nationwide · top search priority$/);
+  assert.match(l[3]!.caps, / · top search priority$/);
+  assert.doesNotMatch(JSON.stringify(l), /\bkm\b|nationwide/i);
   assert.doesNotMatch(JSON.stringify(l), /₱|PHP|\bpeso/i);
   const t = whatEachPlanHolds();
   assert.equal(t.title, 'What each plan adds');

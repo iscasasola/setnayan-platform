@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -41,9 +42,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   if (!isUuid(guestId) || !isUuid(eventId)) notFound();
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // The card and everything drawn on it — the one reader every in-place card uses too (`readGuestCard`).

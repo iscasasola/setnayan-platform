@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
@@ -35,7 +36,7 @@ import {
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
 import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
-import { readThreadShopNotYetVerified } from '@/lib/not-yet-verified.server';
+import { readThreadShopVerifiedNote } from '@/lib/not-yet-verified.server';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { proposalBackDoor } from '@/lib/proposal-back';
@@ -129,9 +130,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const { publicId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // RLS is the gate: vendor org OR couple/delegate (non-draft) — anyone else
@@ -381,7 +380,9 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         (pick as { category?: string | null }).category ?? null,
       );
       // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the chat's own read.
-      lockTarget.notYetVerified = await readThreadShopNotYetVerified(createAdminClient(), proposal.vendor_profile_id);
+      const note = await readThreadShopVerifiedNote(createAdminClient(), proposal.vendor_profile_id);
+      lockTarget.notYetVerified = note !== null;
+      lockTarget.papersRenewing = note === 'renewing';
     }
   }
 
@@ -762,6 +763,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               vendorId={lockTarget.vendorId}
               vendorName={businessName}
               isVerified={lockTarget.notYetVerified ? false : undefined}
+              papersRenewing={lockTarget.papersRenewing === true}
               label={
                 isLockHandshakeEnabled()
                   ? `Ask ${businessName} to confirm your booking`

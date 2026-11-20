@@ -26,6 +26,7 @@ import { countNoun } from '@/lib/format-number';
 import { PHONE_CLIP_MAX_MS, PHONE_CLIP_MIN_MS } from '@/lib/papic-phone-uploads';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
 import type { HelpTopic } from '@/lib/help';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 /**
  * The Papic shot currency, DERIVED — `papicPointCurrencyTerms()` interpolates
@@ -87,7 +88,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Setnayan AI — it tells you what is next and flags what is at risk — and Papic credits for your guests’ cameras, and the Setnayan watermark gives way to one small “Made with Setnayan”. Event Pro is everything in Event Plus with more Papic credits, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, and Patiktok. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event instead of 3, and Patiktok. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -377,8 +378,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays.`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee only on couples Setnayan introduces. ${FIRST_BOOKING_ON_US} A supplier's own clients are always free, and the fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
+        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FIRST_BOOKING_ON_US} ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },

@@ -361,7 +361,7 @@ export function FrontDoorLanding({
         </div>
         <ul className="fl-also">
           <li>
-            <b>Badges are earned.</b> Every badge and seal is earned: real bookings, real replies, checked papers.
+            <b>Badges are earned.</b> Every badge and seal is earned: real bookings, real inquiries, checked papers.
           </li>
           <li>
             <b>Nothing is a screenshot.</b> Every quote and payment is a card in your chat.

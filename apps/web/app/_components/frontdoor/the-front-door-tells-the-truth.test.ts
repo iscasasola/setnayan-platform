@@ -96,9 +96,9 @@ test('1 · the headline is the approved one', async () => {
   assert.match(page, /A Setnayan gift\. Some bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
   assert.doesNotMatch(page, /every booking (comes|carries) (with )?a gift/i, 'the page promises a gift on every booking, which is not built');
   assert.doesNotMatch(page, /Many bookings come with/, '"many" is not measured — the gift row says "Some"');
-  // Badges are earned three ways (lib/card-badges.ts): bookings, replies (Quick Responder, Trending Now count
+  // Badges are earned three ways (lib/card-badges.ts): bookings, inquiries (Quick Responder, Trending Now count
   // inquiries) and checked papers (Setnayan Verified) — never "only from real bookings".
-  assert.match(page, /Badges are earned\. Every badge and seal is earned: real bookings, real replies, checked papers\./, 'the badges row is not the corrected wording');
+  assert.match(page, /Badges are earned\. Every badge and seal is earned: real bookings, real inquiries, checked papers\./, 'the badges row is not the corrected wording');
   assert.doesNotMatch(page, /comes only from real bookings/, 'the badges row says bookings only — Quick Responder, Trending Now and Verified are not booking-earned');
 });
 

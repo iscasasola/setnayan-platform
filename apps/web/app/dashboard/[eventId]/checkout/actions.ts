@@ -1343,13 +1343,3 @@ async function quoteWelcomeForLine(input: {
     return null;
   }
 }
-
-/**
- * ⚖ WHICH ONE QR THE CHECKOUT DRAWER DRAWS (owner 2026-11-18) — GCash or BDO for
- * this amount, by `pickPayerRail`. Display only: `submitOrderAction` asks the
- * same rule again with the amount it computes itself. Anything unreadable ⇒ BDO.
- */
-export async function payerRailForAmount(amountPhp: number): Promise<'gcash' | 'bdo'> {
-  if (typeof amountPhp !== 'number' || !Number.isFinite(amountPhp)) return 'bdo';
-  return pickPayerRail(amountPhp, await getGcashGate());
-}

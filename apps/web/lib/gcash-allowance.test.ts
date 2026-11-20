@@ -121,3 +121,21 @@ test('the month total is narrowed to GCash IN SQL — BDO rows never fill the 1,
     assert.equal(isGcashRail({ id: ch, label: ch }) ? ch.toLowerCase().includes('gcash') : true, true, ch);
   }
 });
+
+// 🔒 Ship-controller review of #7940 (2026-11-21). Sabotage, measured: `.gte('paid_at'` in the gate → red;
+// dropping the `events` read in the route → red.
+test('the monthly GCash meter counts on created_at, never the payer-set paid_at', () => {
+  const src = readFileSync(join(process.cwd(), 'lib/gcash-allowance.server.ts'), 'utf8');
+  assert.match(src, /\.gte\('created_at', monthStart\)/, 'the month window must be on created_at');
+  assert.doesNotMatch(src, /\.gte\('paid_at'/, 'paid_at is set by the payer (up to 60 days back)');
+});
+
+test('the QR-rail read is signed-in, event-scoped, one word, and not a server action', () => {
+  const route = readFileSync(join(process.cwd(), 'app/api/pay-rail/route.ts'), 'utf8');
+  assert.doesNotMatch(route, /^'use server'/m);
+  assert.match(route, /auth\.getUser\(\)[\s\S]*status: 401/, 'no sign-in check');
+  assert.match(route, /from\('events'\)\.select\('event_id'\)\.eq\('event_id', eventId\)[\s\S]*status: 403/, 'no member check');
+  assert.match(route, /NextResponse\.json\(\{ rail \}/, 'must answer one word, never the gate numbers');
+  const actions = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/checkout/actions.ts'), 'utf8');
+  assert.doesNotMatch(actions, /export async function payerRailForAmount/);
+});

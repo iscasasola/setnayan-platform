@@ -31,6 +31,9 @@
 
 BEGIN;
 
+-- A busy table: wait at most 5 s for its lock, then fail and let the pipeline retry, never queue every query behind it.
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE public.admin_received_transactions
   ADD COLUMN IF NOT EXISTS released_at TIMESTAMPTZ;
 

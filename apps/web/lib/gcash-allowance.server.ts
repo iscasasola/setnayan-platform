@@ -17,7 +17,8 @@ const GCASH_MONTH_ROW_CAP = 1000;
  * allowance is about all of them.
  *
  * The month window is the same one the admin meter uses (`monthStartISO`, the
- * Manila calendar month, on `paid_at`).
+ * Manila calendar month), counted on `created_at` — when the payment was LOGGED. ⛔ Never `paid_at`: the payer
+ * sets that date themself (up to 60 days back), so a payment dated last month would slip under this month's allowance.
  *
  * ⛔ FAILS TO NULL, AND NULL MEANS BDO. A refused or thrown read of either half
  * returns `null`, which `pickPayerRail` turns into BDO — never a wider GCash.
@@ -32,7 +33,7 @@ export async function getGcashGate(opts?: { excludeOrderId?: string | null; now?
         .from('payments')
         .select('channel, amount_php, status, order_id')
         .in('status', ['pending', 'matched'])
-        .gte('paid_at', monthStart)
+        .gte('created_at', monthStart)
         // 🔑 NARROWED IN SQL. Unfiltered, every BDO payment of the month counted
         // toward PostgREST's 1,000-row cap, so at volume the GCash total came
         // back short — an allowance that overshoots. `%gcash%` is a SUPERSET of

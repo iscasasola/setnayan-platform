@@ -92,7 +92,6 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
 import {
   applyVoucherAction,
-  payerRailForAmount,
   submitOrderAction,
   type ApplyVoucherResult,
   type SubmitOrderResult,
@@ -416,9 +415,12 @@ export function InlineCheckoutDrawer({
   // on BDO — never a wider GCash.
   useEffect(() => {
     let live = true;
-    payerRailForAmount(finalGrossPhp)
+    // A signed-in GET (`app/api/pay-rail`), not a server action: it writes nothing and answers one word.
+    const q = new URLSearchParams({ amount: String(finalGrossPhp), event: eventId });
+    fetch(`/api/pay-rail?${q.toString()}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ rail?: string }>) : { rail: 'bdo' }))
       .then((pick) => {
-        if (live) setRailPick(pick === 'gcash' ? 'gcash' : 'bdo');
+        if (live) setRailPick(pick.rail === 'gcash' ? 'gcash' : 'bdo');
       })
       .catch(() => {
         if (live) setRailPick('bdo');
@@ -426,7 +428,7 @@ export function InlineCheckoutDrawer({
     return () => {
       live = false;
     };
-  }, [finalGrossPhp]);
+  }, [finalGrossPhp, eventId]);
 
   // On a successful submit, hold the brand loader's "Ready ✓" state briefly,
   // then reveal the confirmation card. Gives the completion beat room to play.

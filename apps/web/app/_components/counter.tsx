@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 
 /**
@@ -35,7 +35,14 @@ export function Counter({
   moreLabel = 'One more',
   label,
   data,
+  onType,
 }: {
+  /**
+   * ⌨ Tapping the number lets you TYPE it (numeric keypad), on the same pill — for a count too big to tap to ("How many
+   * do you have": 900 chairs; Availability step 4, decided by the drawing session 19 Nov, owner told). Enter or leaving
+   * the box keeps the figure in place; the caller clamps it. Left out, the number is plain text as before.
+   */
+  onType?: (n: number) => void;
   value: number;
   onLess: () => void;
   onMore: () => void;
@@ -74,12 +81,51 @@ export function Counter({
       <button type="button" data-counter-less="" aria-label={lessLabel} disabled={lessDisabled} onClick={onLess} className={sign}>
         <Minus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
       </button>
-      <b ref={num} data-counter-value={value} aria-live="polite" className="inline-block min-w-[34px] text-center text-[16px] font-semibold tabular-nums text-ink">
-        {value}
-      </b>
+      {onType ? (
+        <TypedNumber value={value} label={label} onType={onType} />
+      ) : (
+        <b ref={num} data-counter-value={value} aria-live="polite" className="inline-block min-w-[34px] text-center text-[16px] font-semibold tabular-nums text-ink">
+          {value}
+        </b>
+      )}
       <button type="button" data-counter-more="" aria-label={moreLabel} disabled={moreDisabled} onClick={onMore} className={sign}>
         <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
       </button>
     </span>
+  );
+}
+
+/** The number as a box you can type in — drawn like the number (no frame of its own: the pill is the frame). */
+function TypedNumber({ value, label, onType }: { value: number; label: string; onType: (n: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const keep = () => {
+    const n = Number.parseInt(text.replace(/[^0-9]/g, ''), 10);
+    // Show the kept figure: a clamped or refused entry snaps back to the number the caller holds.
+    setText(String(value));
+    if (Number.isFinite(n)) onType(n);
+  };
+  return (
+    <input // field-ok: the number inside the Counter pill (kind 17), not a form field of its own
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      aria-label={label}
+      data-counter-value={value}
+      data-counter-typed=""
+      value={text}
+      size={Math.max(2, text.length)}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={(e) => e.currentTarget.select()}
+      onBlur={keep}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          keep();
+          e.currentTarget.blur();
+        }
+      }}
+      className="min-w-[34px] max-w-[88px] bg-transparent text-center text-[16px] font-semibold tabular-nums text-ink outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-sn-accent/40"
+    />
   );
 }

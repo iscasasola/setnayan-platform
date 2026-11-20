@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import type { Metadata } from 'next';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -53,9 +54,7 @@ export default async function AccessRequestsPage({
 }) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data, error: dataError } = await supabase

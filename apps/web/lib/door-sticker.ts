@@ -10,7 +10,7 @@ import { SUPPLIER_QR_MODE_LABEL, type SupplierQrMode } from '@/lib/supplier-qr-c
  *
  *   · The code is the SAME one the QR card shows, never a new public page: My page (`/v/<slug>`) or Check a date
  *     (`/v/<slug>/dates`), picked in ONE dropdown. Their labels are the QR dropdown's own words.
- *   · The badges are read AT PRINT TIME (`/api/vendor/door-sticker` → `badgesForPrint`), like the badges file.
+ *   · The badges are read AT PRINT TIME (`/api/vendor/door-sticker` → `readPrintBadges`, only the v84 badges), like the badges file.
  *
  * PURE — a client component reads the choices and labels from here. The drawing is `lib/door-sticker-print.ts`.
  * 🔒 lib/door-sticker.test.ts

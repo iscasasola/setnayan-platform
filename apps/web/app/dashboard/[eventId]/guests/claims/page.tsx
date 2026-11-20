@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
@@ -235,7 +236,8 @@ export default async function RequestsPage({ params, searchParams }: Props) {
       const [setup, base] = await Promise.all([
         loadInviteSetup(supabase, eventId),
         (async () => {
-          const { data: ev, error: evError } = await supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle();
+          const { data: ev, error: evError } = await eventRowOnce(supabase, eventId, 'slug', () =>
+      supabase.from('events').select('slug').eq('event_id', eventId).maybeSingle());
           // Unread → no link on Send invite (it says so itself), never a wrong one.
           if (evError) logQueryError('RequestsPage.decided.slug', evError, { event_id: eventId }, 'graceful_degrade');
           return fetchInvitationBase(eventId, (ev?.slug as string | null) ?? null);

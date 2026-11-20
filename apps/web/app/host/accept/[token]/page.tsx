@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ShieldAlert, Sparkles, Users } from 'lucide-react';
@@ -159,9 +160,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
 
   // Sign-in gate.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     const nextUrl = `/host/accept/${token}`;

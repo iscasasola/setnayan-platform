@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown, Minimize2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
@@ -157,12 +157,15 @@ export function StageSwitch({
           <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-sn-elem motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
         </button>
       ) : (
-        /* ✓ DONE ON TOP (20 Nov (2)): the editor's name, and Done — the house main button, never a small grey ✕ (owner:
-           E-Gifts "goes full screen and no way back"). ⤡ Minimize, Esc and Back close it the same way. */
+        /* ✓ DONE ON TOP (20 Nov (2)): the editor's name, ⤡ Minimize and Done — the house main button, never a small grey ✕
+           (owner: E-Gifts "goes full screen and no way back"). Esc and Back close it the same way. */
         <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2 pl-2">
           <h1 data-stage-editor-title="" className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">
             {editor.label}
           </h1>
+          {/* ⤡ Minimize — beside Done, never over the editor's own controls (a floating one covered the Logo editor's
+              Spacing slider at 390, measured in the Maker lab 20 Nov). */}
+          <ActionButton tone="neutral" iconOnly icon={Minimize2} label={`Minimize ${editor.label}`} onClick={requestClose} data-stage-editor-minimize="" className="shrink-0" />
           <ActionButton tone="brand" main icon={Check} label="Done" name={`Done — back to ${editor.label} on the page`} onClick={requestClose} data-stage-editor-close="" className="shrink-0" />
         </span>
       )}

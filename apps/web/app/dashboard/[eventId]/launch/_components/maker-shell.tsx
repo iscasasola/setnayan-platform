@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, ChevronLeft, Eye, Minimize2 } from 'lucide-react';
+import { Check, ChevronLeft, Eye } from 'lucide-react';
 import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 import Link from 'next/link';
 import type { TourKey } from '@/lib/tours';
@@ -36,7 +36,6 @@ import {
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
-  MAKER_EDITOR_CLOSE_EVENT,
   MAKER_OPEN_GUESTS_SEE_EVENT,
   type MakerAddScene,
   type MakerDevice,
@@ -1287,19 +1286,6 @@ export function MakerShell({
           ) : null}
         </div>
 
-        {/* ⤡ MINIMIZE — where ⤢ was, in the thumb's reach (20 Nov (2)): the same close as ✓ Done, Esc and Back. */}
-        {studioFull && !printsPage && studioTile ? (
-          <button
-            type="button"
-            aria-label={`Minimize ${studioFrom?.label ?? studioTile.label}`}
-            data-maker-minimize=""
-            onClick={() => window.dispatchEvent(new Event(MAKER_EDITOR_CLOSE_EVENT))}
-            className="sn-press absolute bottom-[calc(var(--maker-safe-b,env(safe-area-inset-bottom))+8px)] right-3 z-[45] inline-flex h-11 items-center gap-1.5 rounded-full bg-ink/[0.06] px-4 text-[13px] font-semibold text-ink lg:hidden"
-          >
-            <Minimize2 aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Minimize
-          </button>
-        ) : null}
         {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
         {studioFrom && studioOn ? <EditorFieldFocus focus={studioFrom.focus} at={studioAt} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool

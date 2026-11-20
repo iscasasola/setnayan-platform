@@ -191,7 +191,7 @@ test('4 · one box: ＋ and Send inside it, "Message" / "Whisper", no lock, word
   const sw = form.slice(form.indexOf('const switchWhisper = () => {'), form.indexOf('const hasPrivateTo'));
   assert.doesNotMatch(sw, /requestSubmit|sendAction|deliver\(/, 'switching Message ⇄ Whisper can send');
   // Nobody to whisper to → it does not turn on.
-  assert.match(sw, /if \(whisper\.coHosts <= 0\) \{\s*sayForAMoment\(WHISPER_NOBODY_LINE\);\s*return;/);
+  assert.match(sw, /const blocked = whisperBlockedLine\(whisper\);\s*if \(blocked\) \{\s*sayForAMoment\(blocked\);\s*return;/);
   // A private recipient and a whisper are never on together.
   assert.match(form, /const canWhisper = Boolean\(whisper\) && !feeWordsOnly && !privateTo;/);
 

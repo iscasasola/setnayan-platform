@@ -14,6 +14,7 @@
  */
 
 import { formatCount } from '@/lib/format-number';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { FREE_THEMES } from '@/lib/invite-themes';
 
 /* ─── HERO ───────────────────────────────────────────────────────────────────────────────────── */
@@ -390,8 +391,11 @@ export const FREE_PEEK: readonly string[] = [
  * Entrance animation · Only a small Setnayan mark" — a Plus order unlocks none of them (themes, music and the address
  * are Event Pro parts; the watermark comes off with Event Pro only). They come back the day the app grants them.
  */
+// 🎟 18 Nov re-cut (owner 2026-11-18, rulings 34 + 36): Event Plus works for events with no suppliers, so it no longer
+// carries Setnayan AI (Event Pro does; Plus orders placed before the re-cut keep theirs). What a Plus order unlocks today:
+// the one small mark (`setnayanMarkFor`), 500 MB of uploads (`eventCoupleMediaPlan`) and the included credits.
 export function plusPeek(f: PlanFacts): readonly string[] {
-  return ['Setnayan AI — tells you what’s next and flags what’s at risk', ...creditsLine(f.plusCredits)];
+  return ['One small “Made with Setnayan” mark instead of the watermark', `${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads`, ...creditsLine(f.plusCredits)];
 }
 export const PLUS_MORE: readonly string[] = ['What you pay counts toward Event Pro — upgrade for the difference'];
 
@@ -405,7 +409,8 @@ export const PRO_PEEK: readonly string[] = [
  * and find-my-table pages still print "Powered by Setnayan" (Lane L builds the marks by plan). Says what is true now.
  */
 export function proMore(f: PlanFacts): readonly string[] {
-  return ['No Setnayan watermark on your Event Hub', ...creditsLine(f.proCredits)];
+  // 🎟 Setnayan AI moved here from Event Plus in the 18 Nov re-cut; 1 GB of uploads (`eventCoupleMediaPlan`).
+  return ['Setnayan AI — tells you what’s next and flags what’s at risk', 'No Setnayan watermark on your Event Hub', `${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of uploads`, ...creditsLine(f.proCredits)];
 }
 
 /**
@@ -422,7 +427,7 @@ export const ULTRA_PEEK: readonly string[] = [
 ];
 export function ultraMore(f: PlanFacts): readonly string[] {
   // Patiktok left this line 2026-11-20 — retired; owner *"Keep ₱9,990"* (Ultra loses it, keeps its price).
-  return [...creditsLine(f.ultraCredits ?? null)];
+  return [`${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`, ...creditsLine(f.ultraCredits ?? null)];
 }
 
 /** The add-on tiles. Each opens its own feature page, which reads the live price. */

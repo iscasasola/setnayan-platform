@@ -58,7 +58,7 @@ export async function readDowngradeFacts(
     // (migration 20271217955839) — the service role reads it, scoped by the shop id the caller resolved from the session.
     admin
       .from('vendor_profiles')
-      .select('verification_state,next_renewal_due_at,outer_radius_km')
+      .select('verification_state,next_renewal_due_at')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle()
       .then(
@@ -83,16 +83,14 @@ export async function readDowngradeFacts(
   if (branches.error) console.error('[downgrade-limits] branches unreadable', vendorProfileId, branches.error.message);
   if (shop.error) console.error('[downgrade-limits] shop row unreadable', vendorProfileId, shop.error.message);
 
-  const row = shop.error ? null : (shop.data as { verification_state: string | null; next_renewal_due_at: string | null; outer_radius_km: number | null } | null);
+  const row = shop.error ? null : (shop.data as { verification_state: string | null; next_renewal_due_at: string | null } | null);
   const owner = stay.status === 'ok' ? stay.shop.ownerUserId : null;
-  const reach = row?.outer_radius_km;
   return {
     founder: stay.status === 'ok' ? stay.shop.founder : false,
     cards,
     includedBranches: branches.error || typeof branches.count !== 'number' ? null : branches.count,
     seats: team && owner ? teamSeats(team, owner) : null,
     extraSeats,
-    reachKm: typeof reach === 'number' && Number.isFinite(reach) ? reach : null,
     storedBytes: stored.status === 'ok' ? stored.bytes : null,
     badge: row ? { verification_state: row.verification_state, next_renewal_due_at: row.next_renewal_due_at } : null,
   };

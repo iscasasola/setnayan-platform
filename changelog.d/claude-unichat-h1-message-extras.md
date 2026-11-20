@@ -1,9 +1,27 @@
-## 2026-11-20 · feat(chat): Unichat part H1 — edit and unsend your own message, voice notes, "Remind me"
+## 2026-11-20 · feat(chat): Unichat part H1 — one team rule, edit and unsend your own message, voice notes, "Remind me"
 
 The message half of row H of `UNICHAT-BUILD-PLAN-2026-11-20.md`, on the approved live drawing
 (`build-sessions/UNICHAT-LIVE-2026-11-19.html`; DECISION_LOG 2026-11-20 "Unichat live prototype v3 APPROVED": "…
 edit/unsend, seen-by, failed-send retry, voice notes, reminders …"). Stacked on #8047. The other half of row H
 (receipt card, terms at Accept, crew for the day, handover + review) is part H2, a different PR.
+
+Stacked on #8047 and #8060 (Unichat part E, merged in).
+
+**One definition of "team" — and a host whispers as a host** (controller ruling on the #8060 review, 20 Nov)
+
+- The fault: the database counted the shop's team as ANY live team member and let the shop win over a host seat; the
+  app counted owner/admin plus members serving THIS event. A host who was also a junior member of the shop was a host
+  to the app and "team" to the database, so every whisper they sent with their co-hosts was refused.
+- **One rule, written once, in the database** (migration `20271355512715`): `chat_shop_team_user_ids(shop, event)` —
+  the owner · every live owner/admin member · a live member below admin whose assigned service this event booked.
+  `chat_is_shop_team` derives from it; `chat_whisper_side_of` (so E's trigger and RESTRICTIVE read) judges by it. The
+  app reads the same function (`readShopChatPeople` → RPC); its own copy (`shopChatPeopleFrom`) is gone.
+- **A host of the event is on the hosts' side** in that event's chats, whatever their shop role: seated → hosts' side;
+  not seated → no side, never the shop's team (`teamSideOf` in the app, the same order in the database). A coordinator
+  who is on the shop's team stays the shop there, as before.
+- `tests/db/a-host-on-the-shops-team-whispers-as-a-host.db.test.ts` — **failed first** (0/3 without the migration:
+  `WHISPER_NOT_YOUR_SIDE` path, then `function chat_shop_team_user_ids does not exist` ×2), 3/3 with it. E's five DB
+  suites stay green.
 
 **Edit and unsend**
 
@@ -65,5 +83,7 @@ edit/unsend, seen-by, failed-send retry, voice notes, reminders …"). Stacked o
 - Reply · Heart · Make it a decision · Copy in the drawing's hold menu are other parts; "Remind me" on a card (quote,
   meeting…) is not offered yet — bubbles only.
 
-SPEC IMPACT: None — implements rulings already in DECISION_LOG (2026-11-20 "Unichat live prototype v3 APPROVED",
-"UNICHAT BUILD STARTS"). Two build choices are flagged above for the owner (reminder times; the 59 s voice cap).
+SPEC IMPACT: `DECISION_LOG.md` — new 2026-11-20 row "ONE DEFINITION OF "TEAM" IN A CHAT — AND A HOST WHISPERS AS A
+HOST" (specs 638ce578), recording the controller's #8060-review ruling this PR builds. Everything else implements rulings
+already in DECISION_LOG (2026-11-20 "Unichat live prototype v3 APPROVED", "UNICHAT BUILD STARTS"). Two build choices
+are flagged above for the owner (reminder times; the 59 s voice cap).

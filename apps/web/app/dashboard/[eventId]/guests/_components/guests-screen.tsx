@@ -1199,6 +1199,11 @@ export function GuestsScreen(props: GuestsScreenProps) {
           Send <Count value={stats.toInvite} id="gs-toinv" /> {stats.toInvite === 1 ? 'invite' : 'invites'}
         </span>
       </Link>
+    ) : stats.toInvite > 0 ? (
+      /* 👁 A look-only helper is offered no send — but still told how many are left to invite. */
+      <span className={styles.sumLeft} data-roster-to-invite="count">
+        <Count value={stats.toInvite} id="gs-toinv" /> to invite
+      </span>
     ) : stats.toInvite === 0 && listToWalk ? (
       <span className={styles.sumDone} data-roster-to-invite="words">
         <Check aria-hidden strokeWidth={2} /> {everyoneSent ? 'Everyone invited' : 'Nobody left to invite'}
@@ -1786,7 +1791,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
     if (!r || r === 'guest') return null;
     const word = guestRoleLabel(r, roleNames);
     if (!heading) return word;
-    const stem = (t: string) => normalizeSearchText(t).replace(/(es|s)$/u, '');
+    // "Groomsmen" ↔ "Groomsman", "Principal sponsors" ↔ "Principal sponsor": the heading's plural is the role's word.
+    const stem = (t: string) => normalizeSearchText(t).replace(/men$/u, 'man').replace(/(es|s)$/u, '');
     return stem(heading) === stem(word) ? null : word;
   };
 
@@ -2600,7 +2606,8 @@ function GuestRowLine({
       {/* ➡ THE ROW'S STATE ENDS THE NAME'S LINE — no button (Guests redesign pick 3, 20 Nov: "No share button on guest
           rows" — Send invite is on the guest card, "Send N invites" in the list's summary). Delete is the row's swipe on
           a phone and its hover Delete on a computer (`SwipeToDelete`, below). */}
-      {selectMode || !status ? null : (
+      {/* The state stays in Select mode too — picking who to invite reads best when the reply is in view. */}
+      {!status ? null : (
         <span className={styles.state} data-row-state-end="">
           {status === 'tick' ? (
             <span className={styles.tick} data-reply-pill="" data-reply="attending" role="img" aria-label={ROW_WORDS.attending}>

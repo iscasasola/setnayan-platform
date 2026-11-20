@@ -65,6 +65,7 @@ export function SeatList({
   pickedId,
   canEdit,
   open,
+  onToggle,
   onOpenGuest,
   onPick,
   onRemove,
@@ -362,15 +363,28 @@ export function SeatList({
   /** "Add a guest" open on the risen table — the names stay listed so they are tapped one after another (pick 5). */
   const [adding, setAdding] = useState(false);
   useRowState(sheetRef, [sheet, units, unseated, canEdit, pickedId, adding]);
-  /* A search, a count door or a drop that opens a table in the editor's `open` (goToFound · openUnseated) raises it here. */
+  /* A search or a count door that opens ONE table in the editor's `open` (goToFound · openUnseated) raises it here. The
+     editor's set is only a doorbell now: it is emptied on arrival and whenever the risen table closes, so the same table
+     can ring again (a second Enter on the same search). More than one key added at once is never a raise. */
   const seenOpen = useRef<ReadonlySet<string>>(open);
+  const onToggleRef = useRef(onToggle);
+  onToggleRef.current = onToggle;
+  const arrivalCleared = useRef(false);
+  useEffect(() => {
+    // The editor opens one header on arrival (its old "first table" rule) — nothing is risen on arrival, so let it go.
+    // Once only: a toggle run twice (React's development double-run) would put it back.
+    if (arrivalCleared.current) return;
+    arrivalCleared.current = true;
+    for (const k of seenOpen.current) onToggleRef.current(k);
+  }, []);
   useEffect(() => {
     const before = seenOpen.current;
     seenOpen.current = open;
-    const added = [...open].find((k) => !before.has(k));
-    if (added) setSheet(added);
+    const added = [...open].filter((k) => !before.has(k));
+    if (added.length === 1) setSheet(added[0]!);
   }, [open]);
   const close = () => {
+    if (sheet && seenOpen.current.has(sheet)) onToggleRef.current(sheet);
     setSheet(null);
     setAdding(false);
   };

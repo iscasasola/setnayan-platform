@@ -175,3 +175,13 @@ test('5 · Type ▾ is the shared dropdown over the plan’s shapes, seats − N
   // The old row of faces is gone — one list, not two.
   assert.doesNotMatch(ED, /SeatFacesList|seat-faces-list/);
 });
+
+test('6 · the editor\'s open set is a doorbell: ONE key raises a table, more never do; closing lets the same table ring again', () => {
+  // Ship review on #8064 (20 Nov): ⇕ "Expand all" added every key at once and raised one table; and a table already in
+  // the set could never ring again, so a second Enter on the same search did nothing.
+  assert.match(LIST, /const added = \[\.\.\.open\]\.filter\(\(k\) => !before\.has\(k\)\);\s*if \(added\.length === 1\) setSheet\(added\[0\]!\);/, 'more than one key added at once raises a table');
+  assert.match(LIST, /const close = \(\) => \{\s*if \(sheet && seenOpen\.current\.has\(sheet\)\) onToggleRef\.current\(sheet\);/, 'closing the risen table leaves its key in the editor\'s set — it can never ring again');
+  assert.match(LIST, /for \(const k of seenOpen\.current\) onToggleRef\.current\(k\);/, 'the arrival key is never let go');
+  // And the ⇕ that expanded every header is gone from the Seats row — there are no headers on Seats › List.
+  assert.doesNotMatch(ED, /testId: 'seats-expand'/, '⇕ Expand all is back on the Seats row');
+});

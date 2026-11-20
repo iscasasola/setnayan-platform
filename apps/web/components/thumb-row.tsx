@@ -259,6 +259,9 @@ export function ThumbRow({
   };
   const onFieldBlur = (e: FocusEvent<HTMLElement>) => {
     ride.rowProps.onBlur(e);
+    // 👉 Left EMPTY, a box dragged into adding goes back to searching ("drag it back, or clear it") — an empty box has
+    // no ✕ to press, and must never be stranded in Add.
+    if (ownInput.current && ownInput.current.value.trim() === '' && !e.currentTarget.contains(e.relatedTarget as Node | null)) searchAdd.forget();
     const seat = e.currentTarget;
     if (rowRef.current && !seat.contains(e.relatedTarget as Node | null)) playSearchGrows(rowRef.current, seat, false, forceShape('open'));
   };
@@ -295,6 +298,8 @@ export function ThumbRow({
           if (!d || d.id !== e.pointerId) return;
           const dx = e.clientX - d.x;
           if (Math.abs(e.clientY - d.y) > Math.abs(dx)) return;
+          // Once it is a drag, the box keeps the pointer — a finger or mouse that leaves it still ends the drag here.
+          if (Math.abs(dx) > 8 && !e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.setPointerCapture(e.pointerId);
           const follow = Math.max(-SEARCH_ADD_DRAG_FOLLOW_PX, Math.min(SEARCH_ADD_DRAG_FOLLOW_PX, dx * 0.5));
           e.currentTarget.style.translate = `${follow}px 0`;
         },
@@ -393,7 +398,7 @@ export function ThumbRow({
                   {dragAdd.kind}
                 </span>
               ) : null}
-              {field.kind === 'date' || (dragAdd?.kind && searchAdd.mode === 'add') ? null : (
+              {field.kind === 'date' ? null : (
                 <ClearButton
                   label="Clear the search"
                   data-thumb-clear=""

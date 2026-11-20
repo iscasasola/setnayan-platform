@@ -282,4 +282,7 @@ test('9 · drag the box right to add, back left to search (Guests redesign pick 
   assert.match(ROW, /if \(\(e\.target as HTMLElement\)\.closest\('button'\)\) return;/, 'a press on the box’s own buttons starts a drag');
   assert.match(ROW, /searchAdd\.forget\(\);/, '✕ does not end an add the box was dragged into');
   assert.match(GUESTS, /dragAdd:\s*writesOff \|\| gview !== 'list'\s*\? undefined/, 'Guests › List does not offer the drag (or a viewer who may not write is offered it)');
+  // Never stranded in Add (ship review, 20 Nov): the ✕ stays in every add state, and a box left EMPTY lets go of the drag.
+  assert.match(ROW, /\{field\.kind === 'date' \? null : \(\s*<ClearButton/, 'the ✕ is hidden in some state again — an add with words has no way out');
+  assert.match(ROW, /ownInput\.current\.value\.trim\(\) === ''[^\n]*searchAdd\.forget\(\);/, 'an emptied box stays in Add with no way back');
 });

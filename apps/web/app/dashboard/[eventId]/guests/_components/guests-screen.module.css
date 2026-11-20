@@ -2084,3 +2084,9 @@ button.countsDoor[aria-pressed='true'] {
 .screen[data-guests-screen='seats'][data-seat-mode='list'] [data-guests-view-counts] {
   display: none;
 }
+/* 👁 "N to invite" for a look-only helper: a plain count, never the done green. */
+.sumLeft {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--gs-mute);
+}

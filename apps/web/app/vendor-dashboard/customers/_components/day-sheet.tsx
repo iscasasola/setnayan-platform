@@ -9,6 +9,9 @@ import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
 import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
+import { Badge } from '@/app/_components/badge';
+import { availabilityName, type AvailabilityStyle } from '@/lib/availability-styles';
+import { CountBarView } from './count-bar';
 
 /**
  * CUSTOMERS › DATES › A DAY (S-PR3, redrawn to the 2026-10-14 approved prototype `SCREENS.day`; plan § 8 gap 11).
@@ -66,6 +69,9 @@ export type DaySheetData = {
   whoWorks: string | null;
   /** The booked QR with this date filled (`/vendor-dashboard/invite?mode=locked&date=`). */
   qrHref: string;
+  /** 🖥 Step 4 · on a computer: the group whose bookings the right column lists (`?grp=`), and the link it is set by. */
+  pickedGroup?: string | null;
+  groupHrefBase?: string;
   /**
    * A VENUE'S DAY, PER HALL (owner 2026-10-14 🏛): the answer ("Hall B · Hall C free · Hall A booked"), a row per hall,
    * and "Joined halls" — each card using several halls, free or saying which hall is taken. Null for other shops.
@@ -101,10 +107,15 @@ export function DaySheet({
   const single = data.closures.length === 1 ? data.closures[0]! : null;
   const blockedOn = data.closures.length > 0;
   const many = data.groups.length > 1;
+  // 🖥 STEP 4 · ON A COMPUTER, TWO COLUMNS (drawing 2026-11-19): the day's groups and bars on the left, the tapped
+  // group's bookings on the right, and the tools row under the left column. The phone is one column, as before.
+  const split = !data.venue && data.groups.length > 0;
+  const picked = split ? (data.groups.find((g) => g.poolId === data.pickedGroup) ?? data.groups[0]!) : null;
   const holding = data.holders.filter((h) => !h.agreed).length + data.waiting;
 
   return (
-    <div data-dates-day={day}>
+    <div data-dates-day={day} className={split ? 'tab:grid tab:grid-cols-[1.1fr_1fr] tab:items-start tab:gap-6' : undefined}>
+      <div data-dates-day-left="">
       <Link href={data.backHref} className="sn-press -ml-1 inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-ink" data-dates-day-back="">
         <ChevronLeft aria-hidden className="h-5 w-5 text-sn-accent" strokeWidth={2} />
         Dates
@@ -159,15 +170,13 @@ export function DaySheet({
           </div>
         ) : null}
         {(data.venue ? [] : data.groups).map((g) => (
-          <div key={g.poolId} data-dates-day-group={g.poolId}>
-            {many ? (
-              <p className="flex items-center gap-2 border-t border-ink/10 pb-0.5 pt-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55 first:border-t-0">
-                <span className="min-w-0 flex-1 truncate">{g.label}</span>
-                <span className="text-[13px] font-medium normal-case tracking-normal" style={{ color: ANSWER_TONE[g.right.tone === 'warn' ? 'warn' : g.right.tone] }}>
-                  {g.right.word}
-                </span>
-              </p>
+          <div key={g.poolId} data-dates-day-group={g.poolId} data-dates-day-group-style={g.style ?? ''}>
+            {many || g.bar || g.style ? (
+              <GroupHeading g={g} href={split && data.groupHrefBase ? `${data.groupHrefBase}${g.poolId}` : null} picked={picked?.poolId === g.poolId} />
             ) : null}
+            {g.bar ? <CountBarView bar={g.bar} /> : null}
+            {/* On a computer the rows move to the right column (the tapped group's). */}
+            <div className={split ? 'tab:hidden' : undefined}>
             {g.rows.map((r) => (
               <DatesRow
                 key={r.key}
@@ -179,6 +188,7 @@ export function DaySheet({
                 lead={r.kind === 'blocked' ? <RowTile><CalendarX2 strokeWidth={1.75} /></RowTile> : r.kind === 'outside' ? <RowTile><Users strokeWidth={1.75} /></RowTile> : undefined}
               />
             ))}
+            </div>
           </div>
         ))}
 
@@ -304,7 +314,75 @@ export function DaySheet({
           href={data.qrHref}
         />
       </div>
+      </div>
+      {picked ? (
+        <div className="hidden tab:block tab:rounded-2xl tab:bg-frame tab:shadow-sn-frame tab:p-3.5" data-dates-day-right={picked.poolId}>
+          <h3 className="text-[17px] font-semibold text-ink">Who has it · {picked.label}</h3>
+          {picked.rows.map((r) => (
+            <DatesRow
+              key={r.key}
+              data={r.kind}
+              title={r.title}
+              line={r.line || undefined}
+              badge={r.badge}
+              href={r.href ?? null}
+              lead={r.kind === 'blocked' ? <RowTile><CalendarX2 strokeWidth={1.75} /></RowTile> : r.kind === 'outside' ? <RowTile><Users strokeWidth={1.75} /></RowTile> : undefined}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * A style's tag on the heading, in plain words only ("Made to order", "By the piece") — never an AV code (owner, final
+ * drawing spaces_final_screens_2026-11-19.html, DECISION_LOG ba647712).
+ */
+function tagWords(style: AvailabilityStyle): string {
+  return style === 'piece' ? 'By the piece' : availabilityName(style);
+}
+
+/**
+ * One group's heading: its name, its style in plain words (step 4), and — for a group with no Day bar — today's right-hand word.
+ * On a computer it is the link that picks the group for the right column.
+ */
+function GroupHeading({ g, href, picked }: { g: DayGroup; href: string | null; picked: boolean }) {
+  const right = g.bar ? null : (
+    <span className="text-[13px] font-medium normal-case tracking-normal" style={{ color: ANSWER_TONE[g.right.tone === 'warn' ? 'warn' : g.right.tone] }}>
+      {g.right.word}
+    </span>
+  );
+  const cls = 'flex items-center gap-2 border-t border-ink/10 pb-0.5 pt-3.5 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink/55';
+  const name = (
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="truncate">{g.label}</span>
+      {g.style ? (
+        <Badge tone="quiet" data="dates-group-style">
+          {tagWords(g.style)}
+        </Badge>
+      ) : null}
+    </span>
+  );
+  return (
+    <>
+      <p className={`${cls} ${href ? 'tab:hidden' : ''}`} data-dates-day-group-head="">
+        {name}
+        {right}
+      </p>
+      {href ? (
+        <Link
+          href={href}
+          scroll={false}
+          aria-current={picked ? 'true' : undefined}
+          className={`${cls} sn-press hidden min-h-11 tab:flex ${picked ? 'text-ink' : ''}`}
+          data-dates-day-group-pick={g.poolId}
+        >
+          {name}
+          {right}
+        </Link>
+      ) : null}
+    </>
   );
 }
 

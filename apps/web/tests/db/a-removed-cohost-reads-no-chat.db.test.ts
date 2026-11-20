@@ -10,7 +10,8 @@
  *   · the removed co-host reads zero threads and zero messages, cannot post, and cannot be picked for a private line;
  *   · the creator, a current co-host, the coordinator and the supplier still read everything;
  *   · the read check holds on its own (an orphaned seat with no membership change behind it reads nothing);
- *   · a supplier in a host-made group — a seat with NO event_members row — keeps it.
+ *   · a supplier in a host-made group — a seat with NO event_members row — keeps it (and, since 20271353093349, the
+ *     removed co-host leaves that group — owner ruling 20 Nov).
  *
  * Run (from apps/web): tsx --test tests/db/a-removed-cohost-reads-no-chat.db.test.ts
  */
@@ -295,13 +296,14 @@ test('a supplier in a host-made group — a seat with NO event_members row — k
   assert.ok((await myThreads(w.supplier)).includes(g), 'the supplier is in the group they were put in');
   assert.ok((await myThreads(w.removed)).includes(g), 'setup: the co-host is in it too');
 
-  // Removed as co-host but still a guest of the event: still someone here, so a group they were put in keeps them.
+  // Removed as co-host, still a guest: owner ruling 20 Nov ("all your picks") — a removed co-host ALSO leaves the
+  // host-made groups (20271353093349). The full proof is tests/db/a-stale-guest-or-crew-seat-hears-nothing.db.test.ts.
   await db.query(`UPDATE public.event_moderators SET removed_at = now() WHERE moderator_id = $1`, [w.removedSeat]);
   assert.ok((await myThreads(w.supplier)).includes(g), 'the supplier keeps the group seat');
-  assert.ok((await myThreads(w.removed)).includes(g), 'a person still on the guest list keeps a group seat');
-  assert.ok(!(await myThreads(w.removed)).includes(w.threadId), '…but not the supplier chat');
+  assert.ok(!(await myThreads(w.removed)).includes(g), 'a removed co-host leaves the host-made group (owner, 20 Nov)');
+  assert.ok(!(await myThreads(w.removed)).includes(w.threadId), '…and the supplier chat');
 
-  // Gone from the event entirely: out of the group too.
+  // Gone from the event entirely: still out, and the supplier still in.
   await db.query(`DELETE FROM public.event_members WHERE event_id = $1 AND user_id = $2`, [w.eventId, w.removed]);
   assert.ok(!(await myThreads(w.removed)).includes(g), 'off the event → out of the group');
   assert.ok((await myThreads(w.supplier)).includes(g), 'the supplier is untouched');

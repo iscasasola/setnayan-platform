@@ -10,20 +10,27 @@ import { whisperRecipients } from './chat-whisper';
  * when a whisper can be sent, and the stream labels as a whisper exactly the lines that are one. The page's list is
  * only what is DRAWN; `sendChatMessageCore` reads it again at Send and that read is the one that decides.
  *
- *   `null`  the viewer is not a host IN this chat (a coordinator, a host who left) → the page offers no whisper.
- *   `[]`    a host, alone here → the box says there is nobody to whisper to.
+ *   `null`               the viewer is not a host IN this chat (a coordinator, a host who left) → no whisper offered.
+ *   `{ ids: [] }`        a host, alone here → the box says there is nobody to whisper to.
+ *   `{ unread: true }`   the read of who is here FAILED → the box says it could not load. Never "nobody": a failure
+ *                        must not render identically to emptiness (🔒 lib/a-failed-whisper-read-is-not-nobody.test.ts).
  */
+export type WhisperCoHosts = { ids: string[]; unread: boolean } | null;
+
+export const WHISPER_CO_HOSTS_UNREAD: NonNullable<WhisperCoHosts> = { ids: [], unread: true };
+
 export async function readWhisperCoHostIds(
   admin: SupabaseClient,
   args: { threadId: string; eventId: string; vendorProfileId: string; viewerId: string },
-): Promise<string[] | null> {
+): Promise<WhisperCoHosts> {
   const [hostPeople, shop] = await Promise.all([
     readThreadHostPeople(admin, { threadId: args.threadId, eventId: args.eventId }),
     readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId }),
   ]);
+  if (!hostPeople.measured) return WHISPER_CO_HOSTS_UNREAD;
   if (!hostPeople.members.includes(args.viewerId)) return null;
   const shopUserIds = [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])];
   // One login can host the event AND run the shop: on this page it is a host, but it never whispers past itself.
   if (shopUserIds.includes(args.viewerId)) return null;
-  return whisperRecipients({ hostMemberIds: hostPeople.members, shopUserIds, senderUserId: args.viewerId });
+  return { ids: whisperRecipients({ hostMemberIds: hostPeople.members, shopUserIds, senderUserId: args.viewerId }), unread: false };
 }

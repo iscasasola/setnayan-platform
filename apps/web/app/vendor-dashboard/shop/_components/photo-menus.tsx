@@ -2,7 +2,7 @@
 
 import { RequestOnlyRow } from './editable-row';
 import { ADMIN_SET_UP_ROW_FIELD } from '@/lib/vendor-corrections';
-import { useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Crop, Eye, Images, Upload, type LucideIcon } from 'lucide-react';
 import { PhotoViewer } from '@/app/_components/gallery/photo-viewer';
@@ -33,6 +33,12 @@ import type { ProfileFieldData } from './editable-row';
 // 📦 The viewer is a STATIC import on purpose (Shop only, ~4 KB gz). Loaded on demand it was a chunk shared with
 // Library and Memories, and an on-demand load turns every chunk it names into an entry of the webpack runtime that ships
 // on EVERY page — measured over the 202.3 KB shared-bundle lock (Build 3 integration, #7416). Same call as `portfolio-upload.tsx`.
+
+/**
+ * 📷 The photo the supplier just picked by tapping their logo on the cover (owner 19 Nov 2026: the logo is the button, the
+ * picker opens at once). The cover provides it around the Logo screen; with one, the screen opens straight on the framer.
+ */
+export const PickedLogoFiles = createContext<File[] | null>(null);
 
 const ROW = 'flex min-h-14 w-full items-center gap-3.5 py-2 text-left';
 
@@ -120,7 +126,9 @@ export function LogoPhotoMenu({
   logoFields: ProfileFieldData;
   isVerified: boolean;
 }) {
-  const [files, setFiles] = useState<File[] | null>(null);
+  const fromCover = useContext(PickedLogoFiles);
+  const [own, setFiles] = useState<File[] | null>(null);
+  const files = own ?? fromCover;
   const [editing, setEditing] = useState(false);
   /* 🖼 RW-265: a VERIFIED shop's logo changes by request (`identityLockOf` → `logo_url`). Upload and Adjust would only be
      refused by the server, so the menu offers the same "Ask to change" row the shop's other locked details use. */

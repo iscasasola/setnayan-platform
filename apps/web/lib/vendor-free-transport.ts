@@ -89,7 +89,8 @@ export function resolveFreeTransportDecision(input: {
   distanceKm: number | null | undefined;
   declaredInnerKm: number | null | undefined;
   declaredOuterKm: number | null | undefined;
-  tier: string | null | undefined;
+  /** `isVerifiedForReach(verification_state)` — the shop's verification, never its plan (owner 2026-11-19). */
+  verified: boolean | null | undefined;
 }): FreeTransportDecision {
   const verdict = resolveTravelFeeVerdict({
     distanceKm: input.distanceKm,

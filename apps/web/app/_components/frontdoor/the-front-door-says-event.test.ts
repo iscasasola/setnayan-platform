@@ -21,6 +21,12 @@ import ts from 'typescript';
  * mistaken for copy and a REWORDED sentence is caught as surely as the old
  * one. A new file in this folder is covered the day it lands.
  *
+ * 🔧 TWO BRAND LINES, BY NAME, NOT A LOOSER RULE (owner 19 Nov; front page v5 approved 20 Nov, specs ef5df0b5): the
+ * brand headline and the closing tagline say "celebration" — "The home of every Filipino celebration." and "Every
+ * celebration, all in one place, for life." Each is held as ONE exported constant (`HOME_BRAND_LINE`,
+ * `HOME_CLOSE_LINE`), and only a string that IS one of those two exact lines is let through. Every heading, button and
+ * sentence still says event.
+ *
  * The verb is not the noun: "celebrate" / "celebrating" in a sentence is not
  * the name of a thing and does not match. The rendered hero is checked too,
  * so the words that actually reach the page are the ones under test.
@@ -31,6 +37,9 @@ import ts from 'typescript';
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** The noun, as a name for the thing — the verb forms do not match. */
 const NOUN = /\bcelebrations?\b/i;
+
+/** The two brand lines, exactly — the only strings in this folder that may say "celebration". */
+const BRAND_LINES = new Set(['The home of every Filipino celebration.', 'Every celebration, all in one place, for life.']);
 
 const FILES = readdirSync(HERE).filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f));
 
@@ -66,17 +75,17 @@ test('no front-door string names the thing a "celebration"', () => {
   const hits: string[] = [];
   for (const f of FILES) {
     for (const { text, line } of copyIn(f)) {
-      if (NOUN.test(text)) hits.push(`${f}:${line} — ${JSON.stringify(text.trim().slice(0, 90))}`);
+      if (NOUN.test(text) && !BRAND_LINES.has(text.trim())) hits.push(`${f}:${line} — ${JSON.stringify(text.trim().slice(0, 90))}`);
     }
   }
   assert.deepEqual(hits, [], 'House word: say "event", never "celebration":\n' + hits.join('\n'));
 });
 
-test('the rendered Home hero says "event" and never "celebration"', async () => {
+test('the rendered Home hero says "event", and "celebration" only in its brand headline', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FrontDoorAnchor } = await import('./front-door-anchor');
   const html = renderToStaticMarkup(React.createElement(FrontDoorAnchor));
   const text = html.replace(/<[^>]+>/g, ' ');
-  assert.doesNotMatch(text, NOUN);
+  assert.doesNotMatch(text.replace('The home of every Filipino celebration.', ''), NOUN);
   assert.match(text, /\bevent\b/i);
 });

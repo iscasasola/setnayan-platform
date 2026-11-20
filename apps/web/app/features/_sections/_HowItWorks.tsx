@@ -96,12 +96,12 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — the guest list, seat plan, budget, schedule and mood board live here',
           'The Event Hub Maker: five stages, drafted until you press Apply',
-          'Event Plus or Event Pro (Setnayan AI comes inside both), and add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
+          'Event Plus, Event Pro or Event Ultra (Setnayan AI comes inside Pro and Ultra), and add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {
         label: 'Supplier',
-        who: 'You sell to hosts. Your shop is free, and Verified is free too. Plus, Pro and Ultra add reach, a team and branches.',
+        who: 'You sell to hosts. Your shop is free, and Verified is free too — it is what puts you in search, as far as you choose to travel. Plus, Pro and Ultra add a team and branches.',
         where: [
           'Today · Clients · Shop · Portfolio — the next thing to answer, your people, dates and event days, your services and page, your photos and videos',
           'One chat per client — hosts who find you, and the clients you bring or import yourself — with quotes, payments and files',
@@ -200,7 +200,7 @@ const COPY: Record<
         where: [
           'Today · Guests · Suppliers · Memories · Hub — nandito ang guest list, seat plan, budget, schedule at mood board',
           'Ang Event Hub Maker: limang stage, draft hangga’t hindi mo pinipindot ang Apply',
-          'Event Plus o Event Pro (kasama na sa dalawa ang Setnayan AI), at add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
+          'Event Plus, Event Pro o Event Ultra (kasama ang Setnayan AI sa Pro at Ultra), at add-ons: Papic credits, Live Watch, Music Maker, Patiktok',
         ],
       },
       {

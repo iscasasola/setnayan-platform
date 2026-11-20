@@ -1,5 +1,6 @@
 'use client';
 
+import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { ChosenRow } from '@/app/_components/form-row';
 import { ShowSortSheet, ShowSortTopic } from '@/app/_components/show-sort-sheet';
 import type { PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu-types';
@@ -47,6 +48,7 @@ export function GuestsFilterPanel({
   pax,
   shown,
   onClearAll,
+  fold = null,
   onClose,
 }: GuestsFilterSheetProps & { onClose: () => void }) {
   const applied = guestsFilterApplied(filter, { plus: Boolean(plus?.value), asking: Boolean(asking?.on) }) + (pax?.value ? 1 : 0);
@@ -151,6 +153,19 @@ export function GuestsFilterPanel({
         onPick={pick}
         dataAttr="data-filter-sort"
       />
+      {/* ⇕ Fold all — the last line (Guests redesign §2, 20 Nov). One press; the sheet stays open on the words it changed. */}
+      {fold ? (
+        <button
+          type="button"
+          onClick={fold.onToggle}
+          aria-expanded={fold.allOpen}
+          className="sn-press flex min-h-11 w-full items-center gap-3 border-t border-ink/10 py-2.5 text-left text-[15px] text-ink"
+          data-filter-fold=""
+        >
+          {fold.allOpen ? <ChevronsDownUp aria-hidden className="h-[18px] w-[18px] text-ink/60" strokeWidth={1.9} /> : <ChevronsUpDown aria-hidden className="h-[18px] w-[18px] text-ink/60" strokeWidth={1.9} />}
+          <span className="min-w-0 flex-1">{fold.allOpen ? 'Fold all headings' : 'Open all headings'}</span>
+        </button>
+      ) : null}
     </ShowSortSheet>
   );
 }

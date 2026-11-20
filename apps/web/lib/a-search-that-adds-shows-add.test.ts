@@ -47,7 +47,7 @@ import { stripComments } from './strip-comments';
   };
 }
 const { ThumbRow } = require('@/components/thumb-row') as typeof RowMod;
-const { searchAddMode, searchAddPress, searchAddHeld, pressOnTouchEnd } = require('@/components/search-add') as typeof AddMod;
+const { searchAddMode, searchAddPress, searchAddHeld, pressOnTouchEnd, searchAddDrag, SEARCH_ADD_DRAG_PX } = require('@/components/search-add') as typeof AddMod;
 const { holdFocus } = require('@/components/clear-field') as { holdFocus: (e: { preventDefault: () => void }) => void };
 
 const WEB = join(__dirname, '..');
@@ -121,7 +121,8 @@ test('2 · a tap on 🔍 while there are matches → ＋; as ＋ the tap adds; e
   assert.equal(searchAddMode({ words: true, matches: true, asked: searchAddHeld(true, { words: true }) }), 'add', 'a tapped ＋ went back to 🔍 while the words match');
   assert.match(PART, /useEffect\(\(\) => \{\s*setHeld\(\(h\) => searchAddHeld\(h, \{ words \}\)\);\s*\}, \[words\]\);/, 'the hook does not let go of ＋ when the box is cleared');
   assert.doesNotMatch(PART, /setHeld\((?!\(h\) => searchAddHeld|true\))/, 'something other than the tap holds ＋');
-  assert.match(PART, /return \{ mode, asked: mode === 'add' && matches, press \};/, 'as ＋ over matches, Enter is not the add outright');
+  // 👉 Dragged right (Guests redesign pick 1, 20 Nov) is asking for the add too — Enter is then the add outright.
+  assert.match(PART, /return \{ mode, asked: mode === 'add' && \(matches \|\| dragged === 'add'\), press, drag, forget \};/, 'as ＋ over matches, Enter is not the add outright');
   assert.match(ROW, /<SearchAddIcon mode=\{searchAdd\.mode\} onPress=\{\(\) => searchAdd\.press\(ownInput\.current\)\}/);
 });
 
@@ -161,7 +162,9 @@ test('4 · a search WITHOUT onAdd never shows ＋ — the plain magnifier, no mo
   assert.ok(!row({ kind: 'date', onAdd: () => {}, query: 'x', matches: false }).includes('data-search-add-icon'));
   assert.match(BOX, /\{add \? \(\s*<SearchAddIcon\b[\s\S]{0,260}\) : \(\s*<Search aria-hidden/);
   assert.match(BOX, /useSearchAdd\(add \? \{[^}]*\} : null\)/);
-  assert.match(PART, /const mode: SearchAddMode = add \? searchAddMode\(\{ words, matches, asked: held \}\) : 'search';/);
+  assert.match(PART, /const ruled: SearchAddMode = add \? searchAddMode\(\{ words, matches, asked: held \}\) : 'search';/);
+  // A drag only ever applies to a search handed `onAdd` — without it the mode is the ruled 'search'.
+  assert.match(PART, /const mode: SearchAddMode = add && dragged \? dragged : ruled;/);
   // Only the three lists hand it over. (⚠ this scan's pattern is untested — tune it on the first run.)
   const hosts = walk(join(WEB, 'app')).concat(walk(join(WEB, 'components')))
     .filter((f) => {
@@ -267,4 +270,16 @@ test('9 · as ＋, Enter adds what was typed', () => {
   assert.match(ROW, /onKeyDown=\{adds \? onAddKeyDown : field\.input\?\.onKeyDown\}/, 'the input does not hear it');
   assert.ok(ROW.indexOf('{...field.input}') < ROW.indexOf('onKeyDown={adds ? onAddKeyDown'), 'the host’s own onKeyDown overrides the add');
   assert.match(BOX, /if \(add && searchAdd\.mode === 'add' && value\.trim\(\)\) \{\s*add\.onAdd\(value\.trim\(\)\);\s*return;\s*\}/);
+});
+
+test('9 · drag the box right to add, back left to search (Guests redesign pick 1, owner 20 Nov 2026)', () => {
+  assert.equal(searchAddDrag(SEARCH_ADD_DRAG_PX, 0), 'add', 'a drag right far enough does not switch to add');
+  assert.equal(searchAddDrag(-SEARCH_ADD_DRAG_PX, 0), 'search', 'a drag back left does not switch to search');
+  assert.equal(searchAddDrag(SEARCH_ADD_DRAG_PX - 1, 0), null, 'a short nudge switches');
+  assert.equal(searchAddDrag(SEARCH_ADD_DRAG_PX * 2, SEARCH_ADD_DRAG_PX * 3), null, 'a scroll is taken for a drag');
+  // Only a field that opts in is draggable; the ✕ and the icon keep their own presses.
+  assert.match(ROW, /const dragAdd = adds && ownField\?\.dragAdd \? ownField\.dragAdd : null;/);
+  assert.match(ROW, /if \(\(e\.target as HTMLElement\)\.closest\('button'\)\) return;/, 'a press on the box’s own buttons starts a drag');
+  assert.match(ROW, /searchAdd\.forget\(\);/, '✕ does not end an add the box was dragged into');
+  assert.match(GUESTS, /dragAdd:\s*writesOff \|\| gview !== 'list'\s*\? undefined/, 'Guests › List does not offer the drag (or a viewer who may not write is offered it)');
 });

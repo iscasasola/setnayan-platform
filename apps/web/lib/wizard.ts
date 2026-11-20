@@ -93,7 +93,7 @@ export type WizardTaskId =
   | 'after_party_music'
   | 'host_mc'
   | 'photobooths_booths'
-  | 'pakanta'
+  | 'pakanta' // retired 2026-11-20 — kept so a stored completion still type-checks
   | 'dance_instructor'
   // Phase 3 · Programming (T-6m to T-3m)
   | 'create_schedule'
@@ -103,7 +103,7 @@ export type WizardTaskId =
   | 'save_the_date_video'
   | 'papic'
   | 'panood'
-  | 'patiktok'
+  | 'patiktok' // retired 2026-11-20 — kept so a stored completion still type-checks
   | 'attire'
   | 'hair_makeup'
   | 'principal_sponsors'
@@ -693,25 +693,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     pillLabel: 'Programming',
     prerequisites: ['reception_venue'],
   },
-  {
-    // Added 2026-05-24 (owner directive · same row as Papic + Panood).
-    // Patiktok = physical TikTok booth at the venue (iteration 0017).
-    // Un-retired 2026-07-01 as a SINGLE admin-managed SKU (PATIKTOK_COMPILER,
-    // priced in platform_retail_catalog_v2 — no per-day/dual-tier/overage).
-    // Unlimited recordings included; 40-video soft cap is pacing guidance only.
-    // T-3mo entry, T-14d floor.
-    id: 'patiktok',
-    // 2026-05-24 owner directive (see papic comment above): moved from
-    // 17.7 to 16.8 · before save_the_date_video.
-    order: 16.8,
-    phase: 'programming',
-    kind: 'external_process',
-    title: 'Activate Patiktok',
-    whyItMatters:
-      "TikTok booth at the venue — guests step up, pick a trending sound from the printed QR menu, perform the dance, the booth auto-compiles + posts. Pick which TikTok handle owns the content (Setnayan or yours). Booking 3 months before gives time for sound curation + booth slot reservation.",
-    pillLabel: 'Programming',
-    prerequisites: ['reception_venue'],
-  },
+  // 'patiktok' task REMOVED 2026-11-20 — the product is retired (owner: "Retire Patiktok and Music Maker"; lib/retired-products.ts).
   {
     // 2026-05-24 senior-planner reorder: was order 18 (position 22 ·
     // after deploy_invitation at T-2mo · too late for custom gowns).
@@ -909,25 +891,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     pillLabel: 'Style & Identity',
     prerequisites: ['set_wedding_date'],
   },
-  {
-    // Added 2026-05-24 (owner directive · ❓ missing cards audit · "the
-    // rest, yes"). Pakanta = custom wedding song service powered by
-    // Suno Premier per iteration 0036. 3 tiers: Basic ₱1,999 / 24-hr ·
-    // Premium ₱3,999 / 2-5 days · Wedding Suite ₱9,999 / 5-7 days.
-    // Card surfaces the intake form + tier picker; production happens
-    // through the Pakanta workflow. Lands at position 17 (between rings
-    // and lights_sound). Lead time matches Premium tier · Wedding Suite
-    // benefits from earlier lock to allow the lyric-approval gate cycle.
-    id: 'pakanta',
-    order: 9.7,
-    phase: 'style_identity',
-    kind: 'external_process',
-    title: 'Order your wedding song (Music Maker)',
-    whyItMatters:
-      "Custom wedding song by Setnayan AI music. Pick a tier — Basic / 24 hr, Premium / 2-5 days with lyric approval, or the Wedding Suite / 5-7 days for 3 matching songs. The song saves to your event so every Setnayan-rendered video uses it.",
-    pillLabel: 'Style & Identity',
-    prerequisites: ['set_wedding_date'],
-  },
+  // 'pakanta' task REMOVED 2026-11-20 — the product is retired (owner: "Retire Patiktok and Music Maker"; lib/retired-products.ts).
   {
     // Added 2026-05-24 (owner directive · "also add Dance Instructor").
     // Filipino weddings routinely hire a dance instructor for the

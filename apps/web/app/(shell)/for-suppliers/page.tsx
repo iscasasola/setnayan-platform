@@ -22,7 +22,7 @@ import { ArrowRight } from 'lucide-react';
 import { SupplierFrontPage } from '@/app/for-suppliers/_components/supplier-front-page';
 import { growSpec } from '@/app/for-suppliers/_components/supplier-front-data';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
-import { getVendorPrices } from '@/lib/v2-catalog';
+import { getCustomerSkuPrice, getVendorPrices } from '@/lib/v2-catalog';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
@@ -31,6 +31,9 @@ import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
+
+/** The gift the "How Setnayan earns" row prices from — the smallest single gift a supplier can give (owner, 16 Nov). */
+const GIFT_FROM_SKU = 'PAPIC_GUEST_150';
 
 const HEADLINE = 'Run the business you already have.';
 
@@ -180,7 +183,13 @@ function forVendorsJsonLd(p: VendorPrices, fee: BookingFeeSchedule | null) {
 }
 
 export default async function ForSuppliersPage() {
-  const [p, fee] = await Promise.all([getVendorPrices(), getLiveBookingFeeSchedule()]);
+  // 🎁 The lowest single gift's LIST price (owner: Papic 150) for the "How Setnayan earns" gift row — every shop pays the
+  // list price (DECISION_LOG 14 Nov "BUY 10, GET 1 FREE"; 16 Nov 03e465e1). Never the withheld gift column.
+  const [p, fee, papic150] = await Promise.all([
+    getVendorPrices(),
+    getLiveBookingFeeSchedule(),
+    getCustomerSkuPrice(GIFT_FROM_SKU),
+  ]);
   return (
     <>
       <script
@@ -203,6 +212,7 @@ export default async function ForSuppliersPage() {
             seat: p.seat,
             bySku: p.bySku,
           }}
+          giftFrom={papic150 ? `₱${papic150}` : null}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

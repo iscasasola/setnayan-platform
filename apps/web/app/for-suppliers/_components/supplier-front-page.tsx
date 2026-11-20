@@ -40,6 +40,8 @@ import { FREE_FINDABLE } from './plan-table-data';
 import { GROW_TIERS, VERIFIED_PAPERS, growName, verifiedSpec } from './supplier-front-data';
 import { FeeRuler, PlanRows, type FreeWhen, type PlanRow } from './supplier-front-client';
 import { Info } from './supplier-front-info';
+import { SupplierHowWeEarn } from './supplier-how-we-earn';
+import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import s from './supplier-front.module.css';
 
 export type SupplierFrontPrices = {
@@ -158,8 +160,11 @@ export function SupplierFrontPage({
   prices,
   fee,
   afterPlans,
+  giftFrom = null,
 }: {
   prices: SupplierFrontPrices;
+  /** Papic 150's catalogue LIST price, formatted ("₱…"), for the "How Setnayan earns" gift row; null when unread. */
+  giftFrom?: string | null;
   fee: SupplierFrontFee;
   /** The sample shop's codes — the 6 Nov page drew them; the 20 Nov drawing does not. Optional so the lab still type-checks. */
   codes?: SupplierFrontCodes;
@@ -169,6 +174,8 @@ export function SupplierFrontPage({
   afterPlans?: ReactNode;
 }) {
   const f = fee.enabled && fee.schedule ? bookingFeeFigures(fee.schedule) : null;
+  /** What "How Setnayan earns" is handed: the same live figures the fee card prints. */
+  const words = { figures: f };
   const tapers = fee.schedule ? fee.schedule.tailRate < fee.schedule.rate : false;
   const cards = (t: VendorTier) => TIER_CAPS[t].serviceCardsTotal;
 
@@ -208,10 +215,23 @@ export function SupplierFrontPage({
           {CTA} →
         </Link>
         <p className={`${s.fine} ${s.c}`}>{FREE_LINE}</p>
+        <div className={s.heroInfo}>
+          <Info label="How the fee works">
+            <p>
+              Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
+              takes a cut of the deal. {FEE_FREE_RULE}
+            </p>
+            <p>
+              <a className={s.tlink} href="#earn">
+                How Setnayan earns
+              </a>
+            </p>
+          </Info>
+        </div>
         <nav className={`fd-chips ${s.chips}`} aria-label="On this page">
           <a className="fd-chip" href="#tools">Free tools</a>
           <a className="fd-chip" href="#verified">Get Verified free</a>
-          <a className="fd-chip" href="#fees">Fees</a>
+          <a className="fd-chip" href="#model">Fees</a>
           <a className="fd-chip" href="#plans">Plans</a>
         </nav>
       </section>
@@ -337,7 +357,7 @@ export function SupplierFrontPage({
       </section>
 
       {/* 6 · FEES */}
-      <section className={s.part} id="fees" aria-labelledby="sf-h-fees" data-rv="">
+      <section className={s.part} id="model" aria-labelledby="sf-h-fees" data-rv="">
         <SecHead id="sf-h-fees">Grow your business, not your fees</SecHead>
         <Lede text={`A booking fee applies to a booking, ${FEE_SCOPE}.`}>
           <p>Setnayan never takes a cut of the deal.</p>
@@ -365,8 +385,8 @@ export function SupplierFrontPage({
             <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
           </p>
           <p>
-            <b>Free booking fee tickets.</b> Some badge steps give you a ticket. It is applied automatically to your next
-            booking that carries the fee, and that booking’s fee is free.
+            <b>Free booking fee tickets.</b> A ticket you already hold is applied automatically to your next booking that
+            carries the fee, and that booking’s fee is free.
           </p>
           <p>
             <b>Your customers never see the fee.</b> We add nothing to your price.
@@ -391,6 +411,13 @@ export function SupplierFrontPage({
           </div>
         ) : null}
         <p className={s.fine}>Hosts never see the fee. They never pay it.</p>
+        <SupplierHowWeEarn
+          feeEnabled={fee.enabled}
+          figures={words.figures}
+          plans={{ plus: prices.soloMonthly, pro: prices.proMonthly, ultra: prices.enterpriseMonthly }}
+          deepSearch={prices.bySku[VENDOR_DEEP_SEARCH_SKU_CODE] ?? null}
+          giftFrom={giftFrom}
+        />
       </section>
 
       {/* 7 · PLANS */}

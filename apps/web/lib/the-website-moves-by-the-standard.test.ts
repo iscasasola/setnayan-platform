@@ -160,7 +160,14 @@ test('a public page has at most ONE endless loop, and none at 640 px or narrower
     seen += loops.length;
     assert.ok(loops.length <= 1, `${page} has ${loops.length} endless loops — the owner's rule is one moving background at most:\n  ${loops.join('\n  ')}`);
   }
-  assert.ok(seen >= 3, `premise: only ${seen} Drift loops found across the public pages — the scan is not reading the sheets`);
+  // Premise — the scan reads every page's sheets. It counts RULES, not loops: the owner's rule is "one moving background
+  // AT MOST", so a page may honestly draw none (the 20 Nov /for-suppliers drawing has no Drift). A loop count here broke
+  // the first time a redrawn page followed its drawing.
+  for (const [page, sheets] of Object.entries(PAGES)) {
+    const rules = sheets.reduce((n, sh) => n + parsed.get(sh.file)!.rules.length, 0);
+    assert.ok(rules >= 10, `premise: ${page} parsed only ${rules} rules — the scan is not reading its sheets`);
+  }
+  assert.ok(seen >= 1, `premise: no Drift loop found on any public page — the loop detector is not matching`);
 });
 
 // ── 3 · TRANSFORM AND OPACITY ONLY ──────────────────────────────────────────────────────────────────────────────────

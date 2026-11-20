@@ -386,6 +386,8 @@
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
         "for-suppliers/_components/supplier-front-page.tsx",
+        "for-suppliers/_components/supplier-how-we-earn-data.ts",
+        "for-suppliers/_components/supplier-how-we-earn.tsx",
         "for-suppliers/_components/supplier-plan-table.tsx"
       ],
       "destinations": [
@@ -408,7 +410,9 @@
         "PlanTableChips",
         "SecHead",
         "ServiceFace",
-        "SupplierFrontPage"
+        "SupplierFrontPage",
+        "SupplierHowWeEarn",
+        "Wedding"
       ]
     },
     "/(shell)/guest-list": {
@@ -17566,6 +17570,7 @@
         "Bridge",
         "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
+        "CouldNotLoad",
         "Counter",
         "DatesRow",
         "DockFace",

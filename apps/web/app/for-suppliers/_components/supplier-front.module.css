@@ -120,6 +120,47 @@
 .fbSay { margin-top: 14px !important; font-size: 15px; font-weight: 650; text-align: center; }
 .feeWhen { margin-top: 14px !important; padding-top: 12px; border-top: 1px solid var(--sf-line); font-size: 14px; color: var(--sf-m1); }
 
+/* ── 💸 How Setnayan earns (`#earn`, #7833) — mounted inside the fees section, on THIS sheet's tokens (controller ruling
+   (A), 20 Nov): the section's heading scale, 14/18 spacing, `--sf-*` colours. No colour is new. ── */
+.earn { margin-top: 22px; display: grid; gap: 18px; scroll-margin-top: var(--fd-bar, 56px); }
+.earnHead { display: grid; gap: 4px; }
+.kicker { font-size: 12.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--sf-m2); }
+.earnHead h3 { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 650; color: var(--sf-ink); }
+.promises { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.promises li { position: relative; display: grid; gap: 2px; padding: 12px 14px 12px 40px; border-radius: var(--m-r-md); background: var(--sf-card); border: 1px solid var(--sf-line); }
+.promises li::before { content: '✓'; position: absolute; left: 14px; top: 12px; color: var(--sf-ok); font-weight: 800; }
+.promises li b { font-weight: 650; color: var(--sf-ink); }
+.promises li span { font-size: 14px; color: var(--sf-m1); }
+.earnCols { display: grid; gap: 18px; }
+.earnCols h4, .wedding h4 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 650; color: var(--sf-ink); }
+.earnRow { display: grid; gap: 2px; padding: 12px 0; border-top: 1px solid var(--sf-line); }
+.earnRow b { font-weight: 650; color: var(--sf-ink); }
+.earnRow > span { font-size: 14px; color: var(--sf-m1); }
+.earnPrice { margin-top: 4px !important; font-size: 14px; font-weight: 650; color: var(--sf-ink); }
+.receipt { display: grid; gap: 4px; margin-top: 6px; }
+.receipt small { font-size: 12.5px; color: var(--sf-m2); }
+.srcTag { justify-self: start; padding: 4px 10px; border-radius: var(--m-r-full); background: var(--sf-chip); color: var(--sf-ink); font-size: 12.5px; font-weight: 600; }
+.pill { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: var(--m-r-full); font-size: 12px; font-weight: 650; }
+.free { background: var(--sf-wash); color: var(--sf-ok); }
+.feePill { background: var(--sf-chip); color: var(--sf-acc); }
+.wedding { display: grid; gap: 8px; }
+.wedding ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wedding li { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--m-r-md); background: var(--sf-card); border: 1px solid var(--sf-line); border-left-width: 4px; }
+.wedding li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.wedding li b { font-weight: 650; color: var(--sf-ink); }
+.wedding li small { font-size: 12.5px; color: var(--sf-m2); }
+.wedding li p { font-size: 14px; color: var(--sf-m1); }
+.wFree { border-left-color: var(--sf-ok) !important; }
+.wFee { border-left-color: var(--sf-acc) !important; }
+.wRow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.earnRule { margin-top: 4px !important; font-weight: 650; color: var(--sf-ink); }
+.earnCtas { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.tlink { color: var(--sf-ink); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
+.heroInfo { display: flex; justify-content: center; }
+@media (min-width: 760px) {
+  .earnCols { grid-template-columns: 1fr 1.3fr; gap: 28px; }
+}
+
 .fx { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--sf-line); }
 .fxTry { font-size: 15px; line-height: 1.35; font-weight: 650; }
 .fxRule { position: relative; margin-top: 10px; }

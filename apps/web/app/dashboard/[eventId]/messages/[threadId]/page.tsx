@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { ChatHost } from '@/lib/chat-hosts';
 import { readCoupleChatStripPeople } from '@/lib/chat-strip-people.server';
-import { WHISPER_CO_HOSTS_UNREAD, readWhisperCoHostIds, type WhisperCoHosts } from '@/lib/chat-whisper.server';
+import { WHISPER_AUDIENCE_UNREAD, readHostsWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { fetchCoupleThreads, fetchMessages, fetchMessagesMasked, fetchThreadById, formatChatTimestamp } from '@/lib/chat';
 import { ConversationColumn } from '@/app/_components/chat/conversation-column';
 import { buildCoupleConversationRows, readStandingExtras } from '@/lib/conversation-list';
@@ -560,18 +560,19 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       })
     : Promise.resolve(undefined);
 
-  // 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19): the OTHER hosts in this chat now — who a whisper would reach. NULL =
-  // this viewer is not a host in the chat (a coordinator, a host who left) → no whisper is offered. A FAILED read is
+  // 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19): who a whisper would reach — the OTHER hosts in this chat now AND the
+  // event's coordinators (Unichat part E, owner 20 Nov: "host and coordinator can whisper to each other"); a coordinator
+  // whispers too. NULL = this viewer is on no side here (a host who left) → no whisper is offered. A FAILED read is
   // `unread`, and the box says it could not load — never "no co-host is in this chat" (a failure is not emptiness).
   // Only what is drawn: the send core reads the list again at Send, and the database decides who can read the line.
-  const whisperCoHostsRead: Promise<WhisperCoHosts> = readWhisperCoHostIds(decisionAdmin, {
+  const whisperCoHostsRead: Promise<WhisperAudience> = readHostsWhisper(decisionAdmin, {
     threadId,
     eventId: thread.event_id,
     vendorProfileId: thread.vendor_profile_id,
     viewerId: user.id,
   }).catch((e: unknown) => {
     console.error('[couple thread] whisper co-hosts read failed', e);
-    return WHISPER_CO_HOSTS_UNREAD;
+    return WHISPER_AUDIENCE_UNREAD('hosts');
   });
 
   // 📌 THE PINS' OWN FACTS (Build 3 round 2), read as this host / coordinator: payment due · call time · access ask ·
@@ -646,7 +647,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const chatPins = await chatPinsRead;
   const whisperCoHosts = await whisperCoHostsRead;
   // The stream labels whispers only from a list that was really read.
-  const whisperCoHostIds = whisperCoHosts && !whisperCoHosts.unread ? whisperCoHosts.ids : null;
+  const whisperCoHostIds = whisperCoHosts && !whisperCoHosts.unread ? whisperCoHosts.legacyCoHostIds : null;
   const shopLogoUrl = await shopLogoRead;
   // 🚦 The host's one blocker this page answers: a coordinator / planner's Agree, once a payment is on record without it;
   // or a change the supplier asked for, within a week of the day (its key `adjustment:<id>` is the server's, so its
@@ -730,8 +731,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   // exactly ONE follow-up nudge (1); past that the form re-disables until the
   // vendor accepts. Mirrors `countCoupleMessages` (lib/chat.ts) behind the
   // server gate in sendChatMessage so the UI and the no-JS form path agree.
+  // 🗣 The hosts' side shares one allowance — the couple's lines and the coordinator's (Unichat part E, 20 Nov), as the
+  // send core counts them (countCoupleMessages + countCoordinatorMessages).
   const coupleMsgCount = initialMessages.filter(
-    (m) => m.sender_role === 'couple',
+    (m) => m.sender_role === 'couple' || m.sender_role === 'coordinator',
   ).length;
   const canFollowUpWhilePending = coupleMsgCount <= 1;
 
@@ -900,8 +903,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   lead={<CoupleThreadToolsSheet dealReveal={dealOpen ? dealEntry.composer.reveal : null} eventId={eventId} threadId={threadId} booked={THREAD_STAGE_HAS_AGREEMENT[threadStage]} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
-                  // 🤫 Drag the box right to whisper to the co-hosts — a host in this chat only (19 Nov).
-                  whisper={whisperCoHosts ? { supplierName: vendorLabel, coHosts: whisperCoHosts.ids.length, unread: whisperCoHosts.unread } : null}
+                  // 🤫 Drag the box right to whisper to the co-hosts and the coordinator — a host in this chat or the coordinator (19–20 Nov).
+                  whisper={whisperCoHosts ? { supplierName: vendorLabel, coHosts: whisperCoHosts.ids.length, unread: whisperCoHosts.unread, side: 'hosts', reach: whisperCoHosts.reach } : null}
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (

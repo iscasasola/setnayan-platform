@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN } from '@/lib/chat-private';
+import { CHAT_WHISPER_SIDE_COLUMN } from '@/lib/chat-whisper';
 
 /**
  * `'system'` is an AUTOMATED Setnayan message in the thread (e.g. the Build 3d-C
@@ -239,6 +240,12 @@ export type ChatMessageRow = {
    */
   recipient_user_ids?: string[] | null;
   /**
+   * 🤫 The side a WHISPER is on (Unichat part E, migration 20271354185201): 'hosts' (the hosts + their coordinator) or
+   * 'team' (the shop's own people). NULL = not a whisper. Stored so the label never drops off; RLS reads it only to
+   * someone on that side now. Name in ONE place: `CHAT_WHISPER_SIDE_COLUMN`.
+   */
+  whisper_side?: string | null;
+  /**
    * TRUE for Auto-Reply Assistant messages (vendor-autoreply Phase 3b,
    * migration 20270822679405). Posted server-side via service_role with
    * sender_role='vendor' + sender_user_id=null; the thread UI renders a
@@ -393,6 +400,21 @@ export async function countCoupleMessages(
     .select('*', { count: 'exact', head: true })
     .eq('thread_id', threadId)
     .eq('sender_role', 'couple');
+  return count ?? 0;
+}
+
+/**
+ * 🗣 The coordinator's lines on a thread (Unichat part E, 20 Nov: "coordinators post like hosts" — the 9 Nov ruling).
+ * A coordinator speaks on the HOSTS' side, so their lines share the hosts' pre-accept allowance with the couple's
+ * (`countCoupleMessages` + this, in the send core and the page's mirror). The database stamps them 'coordinator'
+ * (tg_chat_messages_derive_sender), which is why `countCoupleMessages` alone never saw them.
+ */
+export async function countCoordinatorMessages(admin: SupabaseClient, threadId: string): Promise<number> {
+  const { count } = await admin
+    .from('chat_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('thread_id', threadId)
+    .eq('sender_role', 'coordinator');
   return count ?? 0;
 }
 
@@ -725,6 +747,15 @@ export async function fetchMessages(
   // errors and the next one — exactly today's — answers, so a thread never breaks ahead of the column.
   // 👥 …and the recipient LIST (migration 20271340374819, a private line to several people) rides before that; until it
   // is live the next select — the one-recipient read — answers.
+  // 🤫 …and the whisper's side (migration 20271354185201) rides before THAT; until it is live, the next one answers.
+  const withWhisper = await supabase
+    .from('chat_messages')
+    .select(
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN},file_removed_at,vendor_offer_id,offer_good_until,${CHAT_WHISPER_SIDE_COLUMN}`,
+    )
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  if (!withWhisper.error) return (withWhisper.data ?? []) as unknown as ChatMessageRow[];
   const withSeveral = await supabase
     .from('chat_messages')
     .select(

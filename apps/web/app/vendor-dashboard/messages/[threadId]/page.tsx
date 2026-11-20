@@ -9,6 +9,7 @@ import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { WHISPER_AUDIENCE_UNREAD, readTeamWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -411,6 +412,18 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   const feeWordsOnlyRead = readWordsOnlyTopUp(profile.vendor_profile_id, thread.event_id, manilaTodayYmd()).then((o) =>
     o ? TOP_UP_WORDS.toolGated(o.amountPhp) : null,
   );
+  // 🤫 THE TEAM'S WHISPER (Unichat part E — owner 19 Nov: "supplier whispers to co suppliers on the chat. and
+  // coordinators and hosts do not see it"; "Own shop team"). Who a whisper from this box reaches: the shop's own people
+  // who may chat here, this login left out. NULL = this login is not on the team here → no whisper offered. A FAILED
+  // read is `unread` — the box says it could not load, never "no one". The send core reads again; the database decides.
+  const teamWhisperRead: Promise<WhisperAudience> = readTeamWhisper(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+    viewerId: user.id,
+  }).catch((e: unknown) => {
+    console.error('[supplier thread] team whisper read failed', e);
+    return WHISPER_AUDIENCE_UNREAD('team');
+  });
   const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
@@ -2184,6 +2197,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   wordsOnly={await feeWordsOnlyRead}
                   // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
                   kinds={embedded}
+                  // 🤫 Drag the box right to whisper to your own team — the hosts and the coordinator never see it (19 Nov).
+                  whisper={await teamWhisperRead.then((t) =>
+                    t ? { supplierName: 'the hosts', coHosts: t.ids.length, unread: t.unread, side: 'team' as const, reach: t.reach } : null,
+                  )}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (

@@ -4,6 +4,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readAllPages } from '@/lib/read-all-pages';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { shopPageGate } from '@/lib/own-shop-preview';
 import { resolveVendorDisplayName, displayServiceLabel } from '@/lib/vendors';
 import { isTrueNameTier } from '@/lib/vendor-tier-caps';
@@ -271,7 +272,7 @@ export async function readShopDateFacts(
       async (from, to) => {
         const { data, error, count } = await admin
           .from('vendor_schedule_pool_bookings')
-          .select('pool_id, booked_date', { count: 'exact' })
+          .select('pool_id, booked_date, event_vendor_id', { count: 'exact' })
           .eq('vendor_profile_id', id)
           .is('released_at', null)
           .gte('booked_date', today)
@@ -364,7 +365,19 @@ export async function readShopDateFacts(
   )
     .filter((b) => b.blocked_at && b.blocked_until)
     .map((b) => ({ poolId: b.pool_id, source: b.block_source, ...notAvailableShapeOf(b) }));
-  const bookings = (bookingsRead.rows as { pool_id: string; booked_date: string }[]).map((b) => ({ poolId: b.pool_id, bookedDate: b.booked_date }));
+  const bookingRows = bookingsRead.rows as { pool_id: string; booked_date: string; event_vendor_id: string | null }[];
+  // 🔢 Pieces never take a seat (owner 2c) — the same rule as the guard's `schedule_pool_taken_on`. A refused read is
+  // unreadable, like every other read here.
+  const pieces = await pieceBookingIdsOf(admin, bookingRows.map((b) => b.event_vendor_id));
+  if (pieces.error) {
+    logQueryError('readShopDateFacts.pieceSeats', pieces.error, { vendor_profile_id: id }, 'graceful_degrade');
+    return { kind: 'unreadable' as const };
+  }
+  const bookings = bookingRows.map((b) => ({
+    poolId: b.pool_id,
+    bookedDate: b.booked_date,
+    ...(b.event_vendor_id && pieces.ids.has(b.event_vendor_id) ? { seat: false } : {}),
+  }));
   const dayStates = ((statesRes.data ?? []) as { pool_id: string | null; state_date: string; day_state: string }[])
     .filter((s): s is { pool_id: string | null; state_date: string; day_state: 'locked' | 'whitelist' } => s.day_state === 'locked' || s.day_state === 'whitelist')
     .map((s) => ({ poolId: s.pool_id, stateDate: s.state_date, dayState: s.day_state }));

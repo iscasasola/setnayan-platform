@@ -104,6 +104,21 @@ export async function ScriptTab({
       .eq('event_id', eventId),
   ]);
 
+  // C-2 (supplier audit 2026-11-17): a REFUSED timeline or script read is said — never "<couple> haven't built their
+  // timeline yet", and never a blank composer whose save could write over a script nobody saw.
+  if (blocksRes.error || scriptsRes.error) {
+    console.error('[supabase-error] script-tab: timeline/scripts read', blocksRes.error ?? scriptsRes.error);
+    return (
+      <div className="flex min-h-14 items-center gap-2 border-b border-ink/10 py-3" data-script-unread="">
+        <AlertCircle className="h-4 w-4 shrink-0 text-[color:var(--m-slate-3)]" aria-hidden />
+        <p className="text-[15px] text-ink">
+          We couldn&rsquo;t load {coupleName}&rsquo;s timeline or your script. Refresh in a moment to try again.
+        </p>
+      </div>
+    );
+  }
+  if (linesRes.error) console.error('[supabase-error] script-tab: saved lines read', linesRes.error);
+  if (picksRes.error) console.error('[supabase-error] script-tab: activity picks read', picksRes.error);
   const blocks = (blocksRes.data ?? []) as ScriptBlock[];
   const scripts = (scriptsRes.data ?? []) as Array<{ block_id: string; body: string }>;
   const lines = (linesRes.data ?? []) as SavedLine[];

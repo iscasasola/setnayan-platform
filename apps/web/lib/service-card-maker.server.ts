@@ -442,7 +442,7 @@ export async function loadCardForEdit(
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,availability_style,order_lead_days,branch_id,exclusive_perk_text',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,is_active,daily_capacity,availability_style,order_lead_days,usual_prep_days,branch_id,exclusive_perk_text',
     )
     .eq('vendor_service_id', serviceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -571,6 +571,7 @@ export async function loadCardForEdit(
     dailyCapacity: str(c.daily_capacity),
     availabilityStyle: isAvailabilityStyle(c.availability_style) ? c.availability_style : null,
     orderLeadDays: str(c.order_lead_days),
+    usualPrepDays: str(c.usual_prep_days),
     branchId: str(c.branch_id),
     schedule: ((sched.data ?? []) as PaymentScheduleItemRow[]).map(rowToDraft),
     addons: ((addons.data ?? []) as { label: string; from_price_php: number | null }[]).map((a) => ({

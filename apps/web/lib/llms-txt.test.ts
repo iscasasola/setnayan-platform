@@ -355,7 +355,8 @@ test('the launch offer is named from the passed cap only, and absent when the of
 });
 
 // ⟲ Owner 2026-11-16 (d4899cd5 · 9fe95ebe · answer 3): a supplier-brought couple is free only when the supplier is the
-// FIRST to bring the event (or the import brought the couple onto Setnayan: a year). SABOTAGE: drop the clause → RED.
+// FIRST to bring the event (or the import brought the couple onto Setnayan — no length named on a public page, 19 Nov
+// PROMOTION PAGES (4)). SABOTAGE: drop the clause → RED.
 test('llms.txt says when a supplier-brought couple (own QR, invite or link) carries no fee — and that the rest pay', () => {
   const body = withFeeFlag('true', () => renderLlmsTxt(INPUT));
   assert.match(body, /the first supplier to bring an event onto Setnayan/);

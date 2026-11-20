@@ -157,6 +157,43 @@ export function isPlatformFreeNumber(platformFeeNumber: number | null | undefine
   return platformFeeNumber % freeEveryNth === 0;
 }
 
+/**
+ * THE NEW-CLIENT FREE WINDOW (owner 2026-11-16, specs DECISION_LOG "IMPORTED CLIENTS: A NEW ACCOUNT IS FREE FOR ONE
+ * YEAR WITH THAT SUPPLIER"): an import that CREATED the client's Setnayan account frees every booking that client makes
+ * with that shop while the import is less than `months` before the booking. At exactly `months`, and after, the fee
+ * applies. Twin of `public.booking_fee_new_client_window_covers` (migration 20271356623783), which
+ * `booking_fee_attribution_for` calls with NOW() — so this window is part of the ATTRIBUTION `decideLockFee` receives,
+ * not an arm of its own. `months` is `platform_settings.booking_fee_new_client_free_months`, passed in — never typed.
+ *
+ * Calendar months, in UTC, as Postgres `timestamptz - make_interval(months => n)`: the day clamps to the month's last
+ * day (31 Mar − 1 month = 28/29 Feb). Anything missing or nonsense → false (the fee), as the SQL's COALESCE(…, false).
+ */
+export function newClientWindowCovers(
+  importAt: string | Date | null | undefined,
+  at: string | Date | null | undefined,
+  months: number | null | undefined,
+): boolean {
+  if (importAt == null || at == null) return false;
+  if (typeof months !== 'number' || !Number.isInteger(months) || months <= 0) return false;
+  const imp = new Date(importAt).getTime();
+  const now = new Date(at);
+  if (!Number.isFinite(imp) || !Number.isFinite(now.getTime())) return false;
+  const total = now.getUTCFullYear() * 12 + now.getUTCMonth() - months;
+  const y = Math.floor(total / 12);
+  const m = total - y * 12;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  const start = Date.UTC(
+    y,
+    m,
+    Math.min(now.getUTCDate(), lastDay),
+    now.getUTCHours(),
+    now.getUTCMinutes(),
+    now.getUTCSeconds(),
+    now.getUTCMilliseconds(),
+  );
+  return imp > start;
+}
+
 /** Why a lock decision came out the way it did — one word per arm of `booking_fee_open_lock_charge`. */
 export type LockFeeReason =
   | 'off'          // flag off, or no marketplace shop — no charge row at all

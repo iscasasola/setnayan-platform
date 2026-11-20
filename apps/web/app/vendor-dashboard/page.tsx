@@ -18,7 +18,6 @@ import {
   readEventDayFacts,
   readNextEventFacts,
   readTodaySchedules,
-  readTodayRenewal,
   readTodayShopRow,
   readTodayViews,
   type EventDayFacts,
@@ -48,6 +47,7 @@ import { readCardBadgeCongrats } from '@/lib/card-badges.server';
 import { parseCardBadgeCongratsParam } from '@/lib/card-badges';
 import { ClaimWaitLines } from './_components/claim-wait-lines';
 import { readClaimWaits } from '@/lib/claim-access-wait.server';
+import { PapersRenewalLine } from './_components/papers-renewal-line';
 import { StayOnTodayLine } from './_components/stay-on-today-line';
 import { manilaToday } from '@/lib/std-views';
 
@@ -345,9 +345,7 @@ export default async function VendorOverviewPage({
     (`the-supplier-today-reads-together.test.ts`). An approved shop reads none of it.
   */
   const shopRowP = readTodayShopRow(supabase, vendorProfileId);
-  // 📄 The permit row's date — its own read off the shop's self view, beside the shop row (A9).
-  const renewalP = readTodayRenewal(supabase, vendorProfileId);
-  // 🖼 The Portfolio stat's count — C4's one read, started beside the renewal read (not after the page's other reads).
+  // 🖼 The Portfolio stat's count — C4's one read, started beside the shop row (not after the page's other reads).
   const portfolioP = readTodayPortfolioCount(vendorProfileId, supabase);
   // 🖼 Lane E item 11: Today's hero = the most-viewed portfolio photo (ties → latest; no views → latest; no photo →
   // the category placeholder). Started now, awaited once at the render — never another wait in this run.
@@ -678,7 +676,6 @@ export default async function VendorOverviewPage({
     askDayHolds: data.askDayHolds,
     dayFacts,
     // 📄 The badge's papers deadline (A9), read off the self view beside the shop row — undefined when refused.
-    renewalDueAt: await renewalP,
     setupDrawn: setup !== null,
     bookedThisMonth: data.bookedThisMonth ?? null,
     portfolio: await portfolioP,
@@ -805,6 +802,7 @@ export default async function VendorOverviewPage({
       ) : null}
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
+      <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <CardBadgeCongratsLink read={await cardBadgeCongratsP} />
       <SupplierTodayScreen
         view={viewV2}

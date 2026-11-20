@@ -199,7 +199,6 @@ const EXEMPT: Record<string, string> = {
   'app/dashboard/[eventId]/vendors/_components/build-body.tsx': 'the pinned Build bar holds buttons only; the fields are in the page',
   'app/_components/proposal-maker.tsx': 'THE ONE BUILD step 11 — the quote’s pinned bar holds Total · Save · Send quote only; every field is in the page above it',
   'app/(shell)/explore/_components/taxonomy-search.tsx': 'its field rides with the bar that holds it (sticky-marketplace-header.tsx)',
-  'app/open-shop/_components/open-shop-wizard.tsx': 'a row’s sheet, not a pinned row: its foot is set inline to the keyboard’s top from useKeyboardRide (the one reading), so its boxes ride',
   'app/[slug]/_components/rsvp-name-correction.tsx': 'a modal <dialog> sheet, not a pinned row: its foot is set inline to the keyboard’s top from useKeyboardRide (the one reading), so its box rides',
 };
 

@@ -27,7 +27,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from '@/lib/booking-fee-lock';
-import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
+import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { formatPeso } from '@/lib/v2-catalog-pure';
@@ -181,7 +181,7 @@ export function SupplierFrontPage({
 
   const freeWhen: FreeWhen[] = [
     { label: 'You bring the event first', hint: FEE_FREE_CHIP },
-    { label: 'A couple you brought onto Setnayan', hint: FEE_FREE_RULE },
+    { label: 'A couple you brought onto Setnayan', hint: SUPPLIER_FREE_BOOKING_LINE },
     { label: 'It is your first booking from Setnayan', hint: FIRST_BOOKING_ON_US },
     { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
   ];
@@ -219,7 +219,7 @@ export function SupplierFrontPage({
           <Info label="How the fee works">
             <p>
               Free to join and free to run your bookings. Couples pay you straight to your GCash or bank; Setnayan never
-              takes a cut of the deal. {FEE_FREE_RULE}
+              takes a cut of the deal. {SUPPLIER_FREE_BOOKING_LINE}
             </p>
             <p>
               <a className={s.tlink} href="#earn">
@@ -379,7 +379,7 @@ export function SupplierFrontPage({
             </p>
           )}
           <p>
-            <b>Who books you free.</b> {FEE_FREE_RULE}
+            <b>Who books you free.</b> {SUPPLIER_FREE_BOOKING_LINE}
           </p>
           <p>
             <b>Your first booking.</b> {FIRST_BOOKING_ON_US}
@@ -406,7 +406,7 @@ export function SupplierFrontPage({
             {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
             <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>
             <p className={s.feeWhen}>
-              <b>{FEE_FREE_CHIP}.</b> {FEE_FREE_RULE}
+              <b>{FEE_FREE_CHIP}.</b> {SUPPLIER_FREE_BOOKING_LINE}
             </p>
           </div>
         ) : null}

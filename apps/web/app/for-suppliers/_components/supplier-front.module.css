@@ -51,7 +51,7 @@
 /* ── shared ── */
 .fine { font-size: 12.5px; line-height: 1.45; color: var(--sf-m2); }
 .c { text-align: center; }
-.btn { display: flex; justify-content: center; min-height: 48px; padding: 0 24px; font-size: 15px; transition: transform var(--sn-m-release, .2s) ease-out; }
+.btn { display: flex; justify-content: center; min-height: 48px; padding: 0 24px; font-size: 15px; transition: transform var(--sn-m-release, 280ms) var(--sn-m-settle); }
 .btn:active { transform: scale(.97); }
 .part { padding: 34px 0 6px; scroll-margin-top: var(--fd-bar, 56px); }
 .sechead { margin: 6px 0 2px; }

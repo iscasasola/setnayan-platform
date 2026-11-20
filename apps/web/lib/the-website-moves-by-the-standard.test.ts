@@ -170,6 +170,76 @@ test('a public page has at most ONE endless loop, and none at 640 px or narrower
   assert.ok(seen >= 1, `premise: no Drift loop found on any public page — the loop detector is not matching`);
 });
 
+// ── 2b · EVERY MOTION ON THE STANDARD'S TOKENS; THE ONE LOOP IS ROW 43'S DRIFT ─────────────────────────────────────
+/**
+ * MOTION_STANDARD_2026-11-18 § 2 (the tokens) and § 6 row 43 (Drift: "20 s+ loop · ease in-out · one background per
+ * public page at most, desktop only · off; also off on phones"). On every adopted sheet:
+ *   · an animation or transition names no raw duration and no raw easing — it reads the `--sn-*` tokens (Tap · Quick ·
+ *     Release · Move · Rise · Settle · Spring …), or is `linear` (a scroll-driven motion, whose length is the scroll);
+ *   · the ONE exception is an endless loop, which must be a Drift: 20 s or longer, `ease-in-out` — or the Sheen token.
+ * Where it sits (desktop only, off under reduced motion, one a page) is the test above.
+ * ⏳ /for-coordinators' CURRENT sheet predates the tokens; its redraw (PR #8051) moves it onto them and removes it from
+ * TOKENS_LATER. Nothing else may be added there to go green.
+ */
+const TOKENS_LATER = new Set(['app/(shell)/for-coordinators/_for-coordinators.css']);
+/** Strip every `var(--sn-…)` (with any fallback, however nested) — what is left is what the sheet typed itself. */
+function untokened(v: string): string {
+  let out = v;
+  for (let i = 0; i < 6; i++) out = out.replace(/var\(\s*--sn-[\w-]+\s*(?:,[^()]*(?:\([^()]*\)[^()]*)*)?\)/g, ' TOKEN ');
+  return out;
+}
+const RAW_TIME = /(?<![\w-])(\d*\.?\d+)(ms|s)\b/g;
+const RAW_EASE = /(?<![\w-])(ease-in-out|ease-in|ease-out|ease|cubic-bezier\([^)]*\)|linear\([^)]*\)|steps\([^)]*\)|step-start|step-end)(?![\w-])/g;
+const motionValues = (body: string) =>
+  [...body.matchAll(/(?<![\w-])(animation|transition)(?:-duration|-timing-function|-delay)?\s*:\s*([^;}]+)/g)].map((m) => ({
+    prop: m[1]!,
+    value: m[2]!.trim(),
+  }));
+
+export function offStandard(sheet: string, rules: Rule[]): string[] {
+  const bad: string[] = [];
+  for (const r of rules) {
+    for (const { prop, value } of motionValues(r.body)) {
+      if (/^none\b/.test(value)) continue;
+      const left = untokened(value);
+      const times = [...left.matchAll(RAW_TIME)].map((m) => Number(m[1]) * (m[2] === 's' ? 1000 : 1));
+      const eases = [...left.matchAll(RAW_EASE)].map((m) => m[1]!);
+      const endless = prop === 'animation' && /\binfinite\b/.test(value);
+      if (endless) {
+        const sheen = /var\(\s*--sn-m-sheen\b/.test(value) && eases.every((e) => e === 'linear');
+        const drift = times.length >= 1 && times[0]! >= 20000 && times.slice(1).every((t) => t === 0) && eases.length === 1 && eases[0] === 'ease-in-out';
+        if (!sheen && !drift) bad.push(`${sheet} → ${r.selector}: the loop "${value}" is not row 43's Drift (20 s+, ease-in-out)`);
+        continue;
+      }
+      if (times.some((t) => t > 0)) bad.push(`${sheet} → ${r.selector}: ${prop} types a duration — "${value}"; read a --sn-m-* token`);
+      if (eases.some((e) => e !== 'linear' || times.some((t) => t > 0))) bad.push(`${sheet} → ${r.selector}: ${prop} types an easing — "${value}"; read --sn-m-settle / --sn-m-spring`);
+    }
+  }
+  return bad;
+}
+
+test('every motion on a public page reads the standard’s tokens, and its one loop is row 43’s Drift', () => {
+  let checked = 0;
+  const bad: string[] = [];
+  for (const s of SHEETS) {
+    if (!ADOPTED.has(s.file) || TOKENS_LATER.has(s.file)) continue;
+    const rules = parsed.get(s.file)!.rules;
+    checked += rules.reduce((n, r) => n + motionValues(r.body).length, 0);
+    bad.push(...offStandard(s.file, rules));
+  }
+  assert.deepEqual(bad, [], 'a public page moves off the standard');
+  assert.ok(checked >= 40, `premise: only ${checked} animation/transition declarations read`);
+  // The checker itself, on what it must refuse and what it must pass — so a regex that matches nothing cannot go green.
+  const r = (body: string): Rule => ({ selector: '.x', body, at: [] });
+  assert.equal(offStandard('t', [r('animation: sn-w-drift 6s ease-in-out infinite alternate')]).length, 1, 'a 6 s loop passed as a Drift');
+  assert.equal(offStandard('t', [r('animation: sn-w-drift 20s linear infinite')]).length, 1, 'a linear loop passed as a Drift');
+  assert.equal(offStandard('t', [r('transition: transform .2s ease-out')]).length, 2, 'a typed duration and easing passed');
+  assert.equal(offStandard('t', [r('animation: x var(--sn-m-move) cubic-bezier(.3,0,.3,1) backwards')]).length, 1, 'a typed curve passed');
+  assert.deepEqual(offStandard('t', [r('animation: sn-w-drift 20s ease-in-out infinite alternate')]), []);
+  assert.deepEqual(offStandard('t', [r('transition: transform var(--sn-m-release, .2s) var(--sn-m-settle, cubic-bezier(.2,.8,.2,1))')]), []);
+  assert.deepEqual(offStandard('t', [r('animation: sn-w-reveal linear backwards')]), []);
+});
+
 // ── 3 · TRANSFORM AND OPACITY ONLY ──────────────────────────────────────────────────────────────────────────────────
 const FORBIDDEN =
   /(?<![\w-])(filter|backdrop-filter|width|height|min-width|min-height|max-width|max-height|top|left|right|bottom|inset|margin(?:-\w+)?|padding(?:-\w+)?|grid-template-rows|grid-template-columns|background-position|font-size|line-height|flex-basis|gap)\s*:/g;

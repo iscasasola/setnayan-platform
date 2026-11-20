@@ -8,12 +8,10 @@
  * of months is named. The promise title is main's shipped OWN_CLIENT_PROMISE so the two never drift.
  */
 import { OWN_CLIENT_PROMISE } from '@/lib/own-clients';
+import { SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 
-/**
- * 🔑 THE FREE BOOKING, IN THE OWNER'S 19 NOV WORDS. Open PR #8041 exports the same sentence from `lib/seo/ai-answers.ts`
- * (for /llms.txt and help); whichever lands second imports the other's instead of keeping two copies.
- */
-export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";
+/** The free booking in the owner's 19 Nov words — one home, `lib/booking-fee-who-words.ts`; re-exported for the guard. */
+export { SUPPLIER_FREE_BOOKING_LINE };
 /** Ruling e5d166cd (1), verbatim. */
 export const PAID_SPOT_PROMISE = {
   title: 'No one can pay to rank above you.',

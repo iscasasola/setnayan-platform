@@ -55,13 +55,11 @@ test('own clients follow the 19 Nov ruling — the retired line is gone, no mont
   assert.match(words, /title: OWN_CLIENT_PROMISE,/, 'the own-client promise is not main\u2019s shipped line');
   const own = EARN_PROMISES.find((p) => p.title !== PAID_SPOT_PROMISE.title && p.body.includes(SUPPLIER_FREE_BOOKING_LINE));
   assert.ok(own, 'anti-vacuity: the own-client promise no longer says the 19 Nov line');
-  // The retired 16 Nov line, in any of the shapes it shipped in. The page's fee section still quotes FEE_FREE_RULE (pinned
-  // by lib/no-fee-wording.test.ts) — retiring that shared rule is its own change, not this block's.
-  for (const src of [block, words]) {
+  // The retired 16 Nov line, in any of the shapes it shipped in — on the block, its words and the page around it.
+  for (const src of [block, words, page]) {
     assert.doesNotMatch(src, /All your own clients, no limit/i, 'the retired own-clients line came back');
     assert.doesNotMatch(src, /free for a year|for 12 months|\bFEE_FREE_RULE\b/i, 'a number of months is named again');
   }
-  assert.doesNotMatch(page, /All your own clients, no limit/i, 'the retired own-clients line came back on the page');
 });
 
 test('(3) the badge reward is not repeated in this block — nor anywhere, while no badge earns a new free fee', () => {

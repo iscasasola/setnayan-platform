@@ -31,7 +31,6 @@ import {
   MORE_SEATS_FROM,
   PRICE_SHAPE_EXAMPLES,
   SAMPLE_SHOP,
-  VERIFIED_REACH,
   FREE_CARD_LINE,
   buyMoreLine,
   foldGroups,
@@ -378,8 +377,8 @@ export function SupplierFrontPage({
                   public page and {FREE_PHOTOS} portfolio photos.
                 </p>
                 <p>
-                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search{' '}
-                  {VERIFIED_REACH} around you. Paid plans add reach, categories, team seats and branches. See Plans below.
+                  Verified (free, once your DTI/SEC, BIR 2303 and permit are approved) puts you in search, and you set how far
+                  you go. Paid plans add categories, team seats and branches. See Plans below.
                 </p>
               </Info>
             </div>
@@ -965,8 +964,8 @@ export function SupplierFrontPage({
               <p className={s.kicker}>Plans</p>
               <h2>Start free. Grow when you&apos;re ready.</h2>
               <p className={s.lede}>
-                Every tool to run your bookings is free. Paid plans add reach, a bigger team, the specialized tools and the
-                AI chatbot.
+                Every tool to run your bookings is free. Paid plans add a bigger team, the specialized tools and the AI
+                chatbot.
               </p>
             </div>
             <div className={s.pickMore} data-rv="">

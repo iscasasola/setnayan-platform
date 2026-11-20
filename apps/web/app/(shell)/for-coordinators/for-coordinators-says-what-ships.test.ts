@@ -120,8 +120,10 @@ test('the fee is named only from the live schedule; unreadable → no rate is na
     assert.ok(PAGE.includes(f), `the fee does not read ${f}`);
   }
   assert.doesNotMatch(WORDS, /\b\d+(\.\d+)?%/, 'a percent is typed');
-  // The free-booking rule is LIVE (16 Nov) and has ONE wording — the page quotes it, never its own sentence.
-  for (const w of ['FEE_FREE_RULE', 'FEE_FREE_CHIP', 'FEE_SCOPE']) assert.ok(PAGE.includes(`{${w}}`), `the page does not quote ${w}`);
+  // The free booking has ONE public wording — the owner's 19 Nov line, no months (DECISION_LOG 2026-11-19 "PROMOTION
+  // PAGES", item 4); FEE_FREE_RULE ("…for a year") is the in-app client card's only. The page quotes, never retypes.
+  for (const w of ['SUPPLIER_FREE_BOOKING_LINE', 'FEE_FREE_CHIP', 'FEE_SCOPE']) assert.ok(PAGE.includes(`{${w}}`), `the page does not quote ${w}`);
+  assert.doesNotMatch(PAGE, /\bFEE_FREE_RULE\b|for a year|12 months/i, 'the page names a number of months');
   assert.match(PAGE, /from '@\/lib\/booking-fee-who-words'/);
 });
 

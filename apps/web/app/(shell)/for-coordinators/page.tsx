@@ -20,7 +20,7 @@
  *     (`sender_role` 'couple'); a coordinator whispering with the hosts is ruled, not built. The drawing's own note:
  *     "must not go live before whisper does." Its chip goes with it.
  *   · THE FREE-BOOKING RULE — LIVE since 16 Nov (`booking_fee_attribution_for`). The page quotes the ONE wording,
- *     `lib/booking-fee-who-words.ts` (FEE_FREE_RULE · FEE_FREE_CHIP · FEE_SCOPE), never its own sentence.
+ *     `lib/booking-fee-who-words.ts` (SUPPLIER_FREE_BOOKING_LINE · FEE_FREE_CHIP · FEE_SCOPE), never its own sentence.
  *   · "TRUSTED PARTNERS" — the rename is ruled, not built. The app says "preferred supplier" and "Trusted by"
  *     (lib/supplier-invite.ts), so the page does too.
  *   · COORDINATOR SETUP (Coordination already picked, the first card needs a price) — not built. The live door is
@@ -50,7 +50,7 @@ import type { CardBadgeView } from '@/lib/card-badges';
 import { TIERS } from '@/lib/badge-tiers';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
-import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
+import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { COORDINATOR_AREAS, areaChoices } from '@/lib/delegate-areas';
 import { INVITE_INFO } from '@/lib/supplier-invite';
 import { TIER_PRICE_PHP } from '@/lib/vendor-tier-caps';
@@ -368,7 +368,7 @@ export default async function ForCoordinatorsPage() {
                   <b>Booked · one-use.</b> You fill in the deal once. One code, for that client only. They scan, and
                   their event is made with you booked on it.
                 </p>
-                <p>{FEE_FREE_RULE}</p>
+                <p>{SUPPLIER_FREE_BOOKING_LINE}</p>
               </>
             }
           />
@@ -402,7 +402,7 @@ export default async function ForCoordinatorsPage() {
                     above, {FEE_SCOPE}. The smallest fee is {pesoWords(fee.minPhp)}.
                   </p>
                 ) : null}
-                <p>{FEE_FREE_RULE}</p>
+                <p>{SUPPLIER_FREE_BOOKING_LINE}</p>
                 <p>
                   <b>
                     {planName('free')} · {pesoWords(TIER_PRICE_PHP.free.monthly)}.

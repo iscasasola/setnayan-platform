@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { bookingFeeForecast } from './booking-fee-disclosure';
-import { FEE_FREE_RULE } from './booking-fee-who-words';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, SUPPLIER_FREE_BOOKING_LINE } from './booking-fee-who-words';
 
 const ROOT = join(__dirname, '..');
 const NEW = FEE_FREE_RULE;
@@ -59,10 +59,22 @@ test('the client card says the owner-approved sentence', () => {
   assert.ok((f as { detail: string }).detail.includes(NEW), (f as { detail: string }).detail);
 });
 
-test('both public pages quote the one rule', () => {
-  for (const p of ['app/for-suppliers/_components/supplier-front-page.tsx', 'app/(shell)/for-coordinators/page.tsx']) {
+/**
+ * 19 Nov (DECISION_LOG "PROMOTION PAGES", item 4; controller ruling 20 Nov): no number of months on a public page. The
+ * public pages say SUPPLIER_FREE_BOOKING_LINE; FEE_FREE_RULE ("…free for a year") is the in-app client card's only.
+ * /for-coordinators joins this list in its own PR (#8051), which moves that page onto the same line.
+ */
+const PUBLIC_PAGES = ['app/(shell)/for-coordinators/page.tsx'];
+
+test('the public pages say the 19 Nov free-booking line, and never a number of months', () => {
+  assert.equal(SUPPLIER_FREE_BOOKING_LINE, "New to Setnayan, or you're the first to bring their event? They book you free.");
+  assert.doesNotMatch(SUPPLIER_FREE_BOOKING_LINE, /month|year|\d/i, 'the public line names a period');
+  for (const p of PUBLIC_PAGES) {
     const s = readFileSync(join(ROOT, p), 'utf8');
-    assert.ok((s.match(/\{FEE_FREE_RULE\}/g) ?? []).length >= 2, `${p} no longer quotes FEE_FREE_RULE`);
+    assert.ok((s.match(/\{SUPPLIER_FREE_BOOKING_LINE\}/g) ?? []).length >= 2, `${p} no longer quotes SUPPLIER_FREE_BOOKING_LINE`);
     assert.ok(s.includes('{FEE_FREE_CHIP}'), `${p} lost the owner's chip words`);
+    assert.doesNotMatch(s, /\bFEE_FREE_RULE\b/, `${p} quotes the in-app rule, which names a year`);
+    assert.doesNotMatch(s.replace(/\s+/g, ' '), /for a year|12 months|for one year/i, `${p} names a number of months`);
   }
+  assert.match(FEE_FREE_CHIP, /first to bring the event/);
 });

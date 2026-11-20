@@ -141,8 +141,8 @@ function What({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function PlanPrice({ php }: { php: number | null }) {
-  if (php === null) return <span className="fl-pp">per event</span>;
+/** A price as the catalog has it. A row whose price could not be read is not drawn at all — never a figureless price. */
+function PlanPrice({ php }: { php: number }) {
   return (
     <span className="fl-pp">
       ₱{formatPeso(php)}
@@ -224,6 +224,8 @@ const PLAN_TOOLS = [
   { shot: 'scr-papic-0', alt: 'The event’s Memories, every photo in one place', b: 'Memories', s: 'Every photo, every guest’s, in one place.' },
 ] as const;
 
+const PLAN_COUNT_WORD: Record<number, string> = { 2: 'two', 3: 'three', 4: 'four' };
+
 export function FrontDoorLanding({
   planPrices,
   planFacts,
@@ -235,6 +237,8 @@ export function FrontDoorLanding({
 }) {
   const couple = sampleSnapshot().couple;
   const plusItems = [...plusPeek(planFacts), ...PLUS_MORE];
+  // Free always draws; a paid plan draws only when its price was read.
+  const planCount = 1 + [planPrices.plus, planPrices.pro, planPrices.ultra].filter((p) => p !== null).length;
   const proItems = [...PRO_PEEK, ...proMore(planFacts)];
   const ultraItems = [...ULTRA_PEEK, ...credits(planFacts.ultraCredits)];
 
@@ -413,7 +417,7 @@ export function FrontDoorLanding({
           </h2>
         </div>
         <details className="fl-all">
-          <summary>See the {planPrices.ultra !== null ? 'four' : 'three'} plans</summary>
+          <summary>{planCount === 1 ? 'See the Free plan' : `See the ${PLAN_COUNT_WORD[planCount] ?? formatCount(planCount)} plans`}</summary>
           <div className="fl-list">
             <PlanRow
               name="Free"
@@ -428,21 +432,25 @@ export function FrontDoorLanding({
               ]}
               under="Free, not a trial. Nothing expires."
             />
-            <PlanRow
-              name="Event Plus"
-              price={<PlanPrice php={planPrices.plus} />}
-              one="Setnayan AI and Papic credits for your event."
-              items={plusItems}
-              under="Everything in Free is included."
-            />
-            <PlanRow
-              name="Event Pro"
-              best
-              price={<PlanPrice php={planPrices.pro} />}
-              one="Everything in Plus, and an Event Hub that is fully yours."
-              items={proItems}
-              under="Everything in Plus is included."
-            />
+            {planPrices.plus !== null ? (
+              <PlanRow
+                name="Event Plus"
+                price={<PlanPrice php={planPrices.plus} />}
+                one="Setnayan AI and Papic credits for your event."
+                items={plusItems}
+                under="Everything in Free is included."
+              />
+            ) : null}
+            {planPrices.pro !== null ? (
+              <PlanRow
+                name="Event Pro"
+                best
+                price={<PlanPrice php={planPrices.pro} />}
+                one="Everything in Plus, and an Event Hub that is fully yours."
+                items={proItems}
+                under="Everything in Plus is included."
+              />
+            ) : null}
             {planPrices.ultra !== null ? (
               <PlanRow
                 name="Event Ultra"
@@ -453,9 +461,11 @@ export function FrontDoorLanding({
               />
             ) : null}
           </div>
-          <p className="fl-fine fl-under">
-            One price for the whole event. It unlocks for everyone on it. Upgrading pays only the difference.
-          </p>
+          {planCount > 1 ? (
+            <p className="fl-fine fl-under">
+              One price for the whole event. It unlocks for everyone on it. Upgrading pays only the difference.
+            </p>
+          ) : null}
         </details>
       </section>
 

@@ -14,3 +14,5 @@ sticky "Start your event — free" bar. 10,867 px → 3,591 px at 390 (3.3 swipe
   closed ⓘ, hero photo first, w5 walk, service cover.
 
 SPEC IMPACT: None — builds an approved drawing; no decision changed.
+
+- fix: a plan whose price could not be read (Event Plus / Pro / Ultra) is no longer drawn — never a figureless "per event" line; the "See the N plans" count follows the rows actually drawn. Guarded in `the-plan-prices-come-from-the-list.test.ts`.

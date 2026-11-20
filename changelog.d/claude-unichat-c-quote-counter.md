@@ -36,6 +36,11 @@ shipped writer (`sendCustomProposalFromChat`, `ask_for_a_change`).
   and `warn` (the kicker in the warn colour); every other card renders as before. The payment-plan card is unchanged.
   🔒 `app/_components/chat/cards/the-counter-face-is-the-drawing.test.ts`. Lab: `/dev/chat-cards-c-lab?m=counterface`
   (the drawing's own scene; `&v=host`, `&s=accepted|declined`). Shots: `build-sessions/shots-unichat-c/`.
+- **Carries part A (#8044) at its SHIP head** — merged, keeping A's `mark="plan"` / `DEAL_MARK` (the counter's ⇄ is
+  now A's by kind, so C's own chip went) beside C's ⓘ `info` / `warn`. **An unknown counter amount is never ₱0**:
+  the face's title, the folded line, the ⓘ details and the line-halfway all read "₱ — amount not loaded" (A's words)
+  — 🔒 `an-unknown-is-never-drawn-as-none.test.ts` test 1b. **A folded line never widens its column** — the
+  `min-w-0` on the folded frame and its line is now held by 🔒 `a-folded-line-never-widens-its-column.test.ts`.
 - **Hosted two ways** — `EditorShell` in `card-bits.tsx`: `frame="card"` is today's (+) card; `frame="bare"` drops the
   shell so the composer can host the same editor inside the text box (Unichat part B mounts it).
 - Rules in `apps/web/lib/chat-deal.ts`: `suggestedCounterCentavos`, `counterContext`, `openCounterBy`, `planBalance`,

@@ -76,7 +76,7 @@ export function InquiryCard({
       kicker={`Inquiry · from ${from} · ${at}`}
       title={service ?? 'An inquiry'}
       tone="theirs"
-      turn={facts.hasQuote ? 'done' : 'me'}
+      turn={facts.hasQuote ? 'done' : facts.hasQuote === null ? 'wait' : 'me'}
       settled={facts.hasQuote ? `${service ?? 'An inquiry'} · You replied with a quote` : undefined}
     >
       <div className="grid gap-0.5" data-inquiry="">
@@ -93,6 +93,11 @@ export function InquiryCard({
         {facts.hasQuote ? (
           <p className="pt-1 text-[13px] font-medium text-success-700" role="status" data-inquiry-settled="">
             You replied with a quote
+          </p>
+        ) : facts.hasQuote === null ? (
+          // The quotes read failed: unknown is said as unknown — never "no quote" with a Reply button under it.
+          <p className="pt-1 text-[13px] font-medium text-ink/70" role="alert" data-inquiry-quote-unknown="">
+            Couldn’t check for a quote. Refresh to try again.
           </p>
         ) : (
           <div className="flex justify-end pt-2">

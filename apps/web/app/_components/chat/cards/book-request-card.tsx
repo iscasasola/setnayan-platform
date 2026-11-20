@@ -54,7 +54,7 @@ export function BookRequestCard({
         topic="details"
         kicker={`Setnayan · ${at}`}
         title={w.title}
-        turn={state === 'booked' ? 'done' : 'old'}
+        turn={state === 'booked' || answeredAs === 'booked' ? 'done' : 'old'}
         settled={
           <>
             {w.title.replace(/ ✓$/, '')} · <span data-book-request={state} data-book-request-answered={answered ? answeredAs : undefined}>{words}</span>

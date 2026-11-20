@@ -15,13 +15,16 @@
  *   "Expired · ask again" is derived from Good until — no job, no stored state.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, Check, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, Check, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { formatCentavosPhp } from '@/lib/php';
 import { HOSTS_ONLY } from '@/lib/money-mask';
+
+/** A counter's amount that did not come back: unknown, said as unknown (never ₱0). */
+const AMOUNT_UNKNOWN = '₱ — amount not loaded';
 import {
   ASK_SUBJECT_WORD,
   counterOutcome,
@@ -783,7 +786,14 @@ export function NegotiationCard({
       <div className="grid gap-2" data-negotiation-details={kind}>
         {kind === 'counter' ? (
           <p className="text-[20px] font-semibold tabular-nums text-ink">
-            {ask.moneyHidden ? HOSTS_ONLY : pesos(ask.amountCentavos ?? 0)}{' '}
+            {ask.moneyHidden ? (
+              HOSTS_ONLY
+            ) : ask.amountCentavos == null ? (
+              // A counter whose amount did not come back is unknown — never drawn as ₱0.
+              <span className="text-ink/60" data-counter-amount-unknown="">{AMOUNT_UNKNOWN}</span>
+            ) : (
+              pesos(ask.amountCentavos)
+            )}{' '}
             {outcome ? (
               <span className="text-[14px] font-normal text-ink/60">
                 {ask.scopeLabel ? `for ${ask.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}
@@ -848,7 +858,7 @@ export function NegotiationCard({
           initialScope={ask.scopeLabel ?? null}
           // On the total the price opens on the suggested counter (their ask · your quote, never under the
           // supplier's lowest — `counterContext`). On ONE line: halfway between their price and the line's.
-          initialAmount={ask.scopeLabel ? lineHalfway(ask.amountCentavos ?? 0, outcome?.wasCentavos ?? 0) : undefined}
+          initialAmount={ask.scopeLabel && ask.amountCentavos != null && outcome ? lineHalfway(ask.amountCentavos, outcome.wasCentavos) : undefined}
           counters={ask.askId}
           viewer={viewer}
           onClose={() => setCountering(false)}
@@ -870,7 +880,7 @@ export function NegotiationCard({
   // ── The plan (unchanged): the whole body on the card ──
   if (kind === 'plan' || read.at !== 'ok' || !ask || settled !== undefined) {
     return (
-      <KindCard kind={kind === 'counter' ? 'counter' : 'payment'} topic="payment" kicker={ask ? who : '…'} title={title} tone={mine ? 'mine' : 'theirs'} turn={turn} settled={settled}>
+      <KindCard kind={kind === 'counter' ? 'counter' : 'payment'} topic="payment" mark={kind === 'plan' ? 'plan' : undefined} kicker={ask ? who : '…'} title={title} tone={mine ? 'mine' : 'theirs'} turn={turn} settled={settled}>
         {read.at === 'loading' ? (
           <Loading />
         ) : read.at === 'failed' ? (
@@ -912,12 +922,6 @@ export function NegotiationCard({
         hero={!ask.scopeLabel}
         tone={mine ? 'mine' : 'theirs'}
         turn={turn}
-        // The drawing's counter chip: ⇄ (its `KIC.counter`), in the counter kind's own colours.
-        chip={
-          <span aria-hidden className="grid h-9 w-9 place-items-center rounded-md bg-kind-counter-bg text-kind-counter">
-            <ArrowLeftRight className="h-[18px] w-[18px]" strokeWidth={1.9} />
-          </span>
-        }
         info={{ onOpen: () => setInfo(true), data: { 'data-counter-info': '', 'data-negotiation': kind, 'data-negotiation-status': negotiationStatus } }}
       >
         {answers || counterEditor || problem ? (
@@ -947,7 +951,15 @@ export function NegotiationCard({
 /** The face's title: ~~₱was~~ → ₱new on the total; "Line → ₱new" on one line; the hosts-only words when money is hidden. */
 function CounterTitle({ ask, wasCentavos }: { ask: ChangeAskRow; wasCentavos: number | null }) {
   if (ask.moneyHidden) return <>{HOSTS_ONLY}</>;
-  const now = pesos(ask.amountCentavos ?? 0);
+  // An amount that did not come back is unknown — never drawn as ₱0 (the honest-read rule).
+  const now =
+    ask.amountCentavos == null ? (
+      <span className="font-semibold text-ink/60" data-counter-amount-unknown="">
+        {AMOUNT_UNKNOWN}
+      </span>
+    ) : (
+      pesos(ask.amountCentavos)
+    );
   const arrow = <ArrowRight aria-label="to" className="mx-1 inline h-3.5 w-3.5 align-[-2px] text-ink/70" strokeWidth={2} />;
   if (ask.scopeLabel) {
     return (
@@ -970,7 +982,8 @@ function CounterTitle({ ask, wasCentavos }: { ask: ChangeAskRow; wasCentavos: nu
 /** "₱55,000" / "Second shooter → ₱8,000" — the settled line's words (the drawing's `tc`). */
 function counterWords(ask: ChangeAskRow): string {
   if (ask.moneyHidden) return 'Counter';
-  return ask.scopeLabel ? `${ask.scopeLabel} → ${pesos(ask.amountCentavos ?? 0)}` : pesos(ask.amountCentavos ?? 0);
+  const now = ask.amountCentavos == null ? AMOUNT_UNKNOWN : pesos(ask.amountCentavos);
+  return ask.scopeLabel ? `${ask.scopeLabel} → ${now}` : now;
 }
 
 /** "−₱5,000" — the gap on the total, signed; nothing on one line or when it is the same price. */

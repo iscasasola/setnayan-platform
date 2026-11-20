@@ -41,7 +41,7 @@ test('2 · ⓘ is the app’s one Sheet, and it holds everything the card used t
   assert.match(sheet, /\{status\(true\)\}/, 'the state in words is in the sheet');
   const details = card.slice(card.indexOf('const details ='), card.indexOf('const status ='));
   for (const [what, re] of [
-    ['the amount', /pesos\(ask\.amountCentavos \?\? 0\)/],
+    ['the amount (unknown says so)', /ask\.amountCentavos == null \? \([\s\S]{0,200}\{AMOUNT_UNKNOWN\}[\s\S]{0,60}pesos\(ask\.amountCentavos\)/],
     ['instead of / was', /instead of \$\{pesos\(outcome\.wasCentavos\)\}/],
     ['the gap pill', /<KindTag kind="counter">/],
     ['their words', /ask\.note\.trim\(\)/],

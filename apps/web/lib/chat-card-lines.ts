@@ -146,8 +146,58 @@ export function inquiryServiceOf(body: string | null | undefined): string | null
   return m ? m[1]!.trim() || null : null;
 }
 
+// ── The deal's end (Unichat part H2, 20 Nov 2026) — four lines the database writes, each one a card ───────────────
+
+/**
+ * 🧾 A CONFIRMED payment's own line, as the ledger trigger writes it (`tg_vendor_payments_chat_record`, migration
+ * 20271329937802): "First payment confirmed · ₱9,000" · "Payment confirmed · ₱9,000" · a supplier-recorded one,
+ * "Payment recorded · ₱9,000 · GCash · confirmed". The receipt card reads the payment ROW for every figure it shows;
+ * `amountWords` is only the ₱ text as the database printed it, used to find that row — never re-parsed into a price.
+ */
+export function receiptFromLine(body: string | null | undefined): { first: boolean; amountWords: string } | null {
+  const m = /^(First payment|Payment) (?:confirmed · (₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)|recorded · (₱\d{1,3}(?:,\d{3})*(?:\.\d{2})?)(?: · [^·]+)? · confirmed)$/.exec(
+    (body ?? '').trim(),
+  );
+  return m ? { first: m[1] === 'First payment', amountWords: (m[2] ?? m[3])! } : null;
+}
+
+export type HandoverKind = 'gallery_link' | 'file' | 'note' | 'signoff';
+/** The shipped kinds' own words (`handover-inbox.tsx` KIND_META) — the line says them, the card reads them back. */
+export const HANDOVER_KIND_WORD: Record<HandoverKind, string> = {
+  gallery_link: 'Album link',
+  file: 'Sample / proof',
+  note: 'Note',
+  signoff: 'All delivered',
+};
+
+/**
+ * 📦 "Handover · Album link" (optionally " · <the supplier's label>") — written when a supplier posts a delivery
+ * (`tg_booking_handovers_chat_record`, migration `the_deals_end_is_said_in_the_chat`). "Handover received · Album
+ * link" is the hosts' confirmation: `received` true, and it stays one settled line.
+ */
+export function handoverFromLine(body: string | null | undefined): { kind: HandoverKind; received: boolean } | null {
+  const m = /^Handover( received)? · (Album link|Sample \/ proof|Note|All delivered)(?: · .+)?$/s.exec((body ?? '').trim());
+  if (!m) return null;
+  const kind = (Object.keys(HANDOVER_KIND_WORD) as HandoverKind[]).find((k) => HANDOVER_KIND_WORD[k] === m[2]);
+  return kind ? { kind, received: Boolean(m[1]) } : null;
+}
+
+/** ⭐ The review ask — one line per chat, written when the hosts confirm the first handover (same migration). */
+export const REVIEW_ASK_LINE = 'Review asked · how did it go?';
+export function reviewAskFromLine(body: string | null | undefined): boolean {
+  return (body ?? '').trim() === REVIEW_ASK_LINE;
+}
+
+/** 👷 Crew for the day — one line per chat, written the first time the supplier's crew is named on the schedule. */
+export const DAY_CREW_LINE = 'Crew named for the day';
+export function dayCrewFromLine(body: string | null | undefined): boolean {
+  return (body ?? '').trim() === DAY_CREW_LINE;
+}
+
 /** Which lane-C card a SYSTEM line is, or null (the stream then draws the plain Setnayan line it always drew). */
-export function streamLineKind(body: string | null | undefined): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | 'negotiate' | 'schedule' | null {
+export function streamLineKind(
+  body: string | null | undefined,
+): 'book' | 'ask' | 'guests' | 'rise' | 'fall' | 'poll' | 'negotiate' | 'schedule' | 'receipt' | 'handover' | 'review' | 'crew' | null {
   if (bookRequestFromLine(body)) return 'book';
   if (negotiationFromLine(body)) return 'negotiate';
   if (pollFromLine(body)) return 'poll';
@@ -156,5 +206,9 @@ export function streamLineKind(body: string | null | undefined): 'book' | 'ask' 
   if (quoteRiseFromLine(body)) return 'rise';
   if (quoteFallFromLine(body)) return 'fall';
   if (scheduleChangeFromLine(body)) return 'schedule';
+  if (receiptFromLine(body)) return 'receipt';
+  if (handoverFromLine(body)) return 'handover';
+  if (reviewAskFromLine(body)) return 'review';
+  if (dayCrewFromLine(body)) return 'crew';
   return null;
 }

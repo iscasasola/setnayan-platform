@@ -7,6 +7,9 @@ import { resolveFlag, unlockForCouple, triggerRescan } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCalendarDate } from '@/lib/events';
+import { RECORD_SUBLINE, RecordEmpty } from '../../_components/record-kit';
+import { ADMIN_FRAME } from '../../_components/admin-frame';
+import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = { title: 'Editorial review · Admin' };
 
 /** Scan states that have produced a verdict. `pending` / `scanning` have not. */
@@ -48,7 +51,7 @@ export default async function EditorialReviewDetailPage({
   const canUnlock = scanFinished && redPending.length === 0 && row.scan_status !== 'admin_cleared';
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
       {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
           The owner removed the row that repeats the menu item you just tapped.
           The name below is the RECORD — it is the content, it is why you
@@ -61,14 +64,14 @@ export default async function EditorialReviewDetailPage({
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[--m-ink-tertiary] mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={RECORD_SUBLINE}>
             Editorial review
           </p>
-          <p className="text-xl font-semibold">
+          <p className="text-[24px] font-extrabold leading-tight text-ink">
             {event?.display_name ?? 'Unnamed couple'}
           </p>
           {event?.event_date && (
-            <p className="text-sm text-[--m-ink-secondary] mt-0.5">
+            <p className={`mt-0.5 ${RECORD_SUBLINE}`}>
               {formatCalendarDate(event.event_date, {
                 month: 'long', day: 'numeric', year: 'numeric',
               })}
@@ -80,7 +83,7 @@ export default async function EditorialReviewDetailPage({
 
       {/* Unlock action */}
       {row.scan_status === 'admin_cleared' ? (
-        <div className="rounded-lg border border-[--m-ink-border] bg-[--m-surface-raised] px-4 py-3 text-sm text-[--m-ink-secondary]">
+        <div className={`text-sm ${RECORD_SUBLINE}`}>
           Unlocked for couple on{' '}
           {row.unlocked_for_couple_at
             ? new Date(row.unlocked_for_couple_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
@@ -93,7 +96,7 @@ export default async function EditorialReviewDetailPage({
             await unlockForCouple(editorialId);
           }}
         >
-          <SubmitButton className="w-full bg-[--m-mulberry] text-white rounded-lg py-2.5 text-sm font-medium">
+          <SubmitButton className={actionButtonClass('ok', { main: true })}>
             Unlock for couple — all red flags resolved
           </SubmitButton>
         </form>
@@ -102,7 +105,7 @@ export default async function EditorialReviewDetailPage({
           The scan hasn&rsquo;t finished, so this can&rsquo;t be unlocked yet. Re-scan if it seems stuck.
         </div>
       ) : (
-        <div className="rounded-lg border border-[color:var(--sn-danger)]/30 bg-[var(--sn-danger-soft)] px-4 py-3 text-sm text-[color:var(--sn-danger)]">
+        <div className="text-sm text-[color:var(--sn-danger)]">
           {redPending.length} red flag{redPending.length > 1 ? 's' : ''} must be resolved before unlocking.
         </div>
       )}
@@ -115,7 +118,7 @@ export default async function EditorialReviewDetailPage({
             await triggerRescan(editorialId);
           }}
         >
-          <SubmitButton className="w-full rounded-lg border border-[--m-ink-border] bg-white py-2 text-sm text-[--m-ink-secondary] hover:bg-[--m-surface-raised]">
+          <SubmitButton className={actionButtonClass('neutral')}>
             Re-scan editorial
           </SubmitButton>
         </form>
@@ -123,11 +126,11 @@ export default async function EditorialReviewDetailPage({
 
       {/* Flags list */}
       {flags.length === 0 ? (
-        <div className="rounded-lg border border-[--m-ink-border] px-4 py-8 text-center text-sm text-[--m-ink-tertiary]">
+        <RecordEmpty>
           {scanFinished ? 'No flags — editorial was clean.' : 'No flags yet — the scan hasn’t finished.'}
-        </div>
+        </RecordEmpty>
       ) : (
-        <div className="space-y-4">
+        <div className={`${ADMIN_FRAME} px-4 [&>div+div]:border-t [&>div+div]:border-[color:var(--sn-divider)]`}>
           {flags.map(flag => (
             <FlagCard key={flag.id} flag={flag} editorialId={editorialId} />
           ))}
@@ -158,16 +161,10 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
   const resolved = flag.status !== 'pending';
 
   return (
-    <div className={`rounded-lg border p-4 space-y-3 ${
-      resolved
-        ? 'border-[--m-ink-border] opacity-60'
-        : flag.severity === 'red'
-          ? 'border-[color:var(--sn-danger)]/30 bg-[var(--sn-danger-soft)]'
-          : 'border-yellow-300 bg-yellow-50/40'
-    }`}>
+    <div className={`space-y-3 py-4 ${resolved ? 'opacity-60' : ''}`}>
       {/* Flag header */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
+        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
           flag.severity === 'red' ? 'bg-[var(--sn-danger-soft)] text-white' : 'bg-yellow-500 text-white'
         }`}>
           {flag.severity === 'red' ? '● Vulgar' : '● Grammar'}
@@ -182,22 +179,22 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
       </div>
 
       {/* Original text */}
-      <div className="rounded bg-white border border-[--m-ink-border] px-3 py-2">
-        <p className="text-[--m-ink-tertiary] mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Original</p>
+      <div>
+        <p className={`mb-1 ${RECORD_SUBLINE}`}>Original</p>
         <p className="text-sm leading-relaxed">{flag.original}</p>
       </div>
 
       {/* Note from scan */}
       {flag.note && (
-        <p className="text-xs text-[--m-ink-secondary] bg-white/60 px-3 py-1.5 rounded border border-[--m-ink-border]">
+        <p className={RECORD_SUBLINE}>
           {flag.note}
         </p>
       )}
 
       {/* Admin edit result */}
       {flag.admin_edit && (
-        <div className="rounded bg-green-50 border border-green-200 px-3 py-2">
-          <p className="text-green-700 mb-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">Admin rewrite</p>
+        <div>
+          <p className={`mb-1 ${RECORD_SUBLINE}`}>Admin rewrite</p>
           <p className="text-sm leading-relaxed text-green-900">{flag.admin_edit}</p>
         </div>
       )}
@@ -212,7 +209,7 @@ function FlagCard({ flag, editorialId }: { flag: ScanFlag; editorialId: string }
             }}
             className="flex gap-2"
           >
-            <SubmitButton className="flex-1 rounded-lg border border-[--m-ink-border] bg-white py-2 text-sm text-[--m-ink-secondary] hover:bg-[--m-surface-raised]">
+            <SubmitButton className={actionButtonClass('ok')}>
               Mark OK — no change
             </SubmitButton>
           </form>
@@ -238,9 +235,9 @@ function EditForm({ editorialId, flagId }: { editorialId: string; flagId: string
         name="admin_edit"
         rows={3}
         placeholder="Write the corrected version here, then submit…"
-        className="w-full rounded-lg border border-[--m-ink-border] px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-[--m-mulberry]"
+        className="input-field w-full resize-none text-sm"
       />
-      <SubmitButton className="rounded-lg bg-[--m-ink] text-[--m-paper] py-2 text-sm font-medium">
+      <SubmitButton className={actionButtonClass('brand')}>
         Save rewrite
       </SubmitButton>
     </form>

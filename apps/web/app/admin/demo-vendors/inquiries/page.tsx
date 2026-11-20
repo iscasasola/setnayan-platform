@@ -20,6 +20,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { TemplateFail } from '@/app/_components/template-rows';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Demo inquiries · Admin' };
@@ -124,20 +125,17 @@ export default async function DemoInquiriesPage() {
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
         title="Demo inquiries"
       />
 
       {labelsUnresolved ? (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900"
-        >
+        <TemplateFail data="event-labels">
           The events behind these inquiries could not be looked up, so every row
           below reads &ldquo;Couple&rdquo;. That is a failed lookup, not the
           before-you-accept masking this page does on purpose.
-        </p>
+        </TemplateFail>
       ) : null}
 
       <ConsoleTable

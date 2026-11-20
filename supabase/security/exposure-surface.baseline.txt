@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 7994
+# facts: 8008
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     648
-#   col       5755
-#   policy    1170
+#   tpriv     649
+#   col       5761
+#   policy    1175
 #   view      10
-#   func      407
+#   func      409
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -588,6 +588,7 @@ tpriv	public.vendor_portion_rules|authenticated	SIUD
 tpriv	public.vendor_profile_views|anon	SIUD
 tpriv	public.vendor_profile_views|authenticated	SIUD
 tpriv	public.vendor_profiles|authenticated	IUD
+tpriv	public.vendor_proposal_lowest|authenticated	SIUD
 tpriv	public.vendor_proposal_shop_gifts|authenticated	S
 tpriv	public.vendor_proposal_templates|anon	SIUD
 tpriv	public.vendor_proposal_templates|authenticated	SIUD
@@ -1061,6 +1062,7 @@ col	public.chat_messages.sent_as	anon=S authenticated=SI
 col	public.chat_messages.thread_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_offer_id	anon=S authenticated=SI
 col	public.chat_messages.vendor_profile_id	anon=S authenticated=SI
+col	public.chat_messages.whisper_side	anon=S authenticated=SI
 col	public.chat_poll_choices.choice_id	anon=- authenticated=S
 col	public.chat_poll_choices.label	anon=- authenticated=S
 col	public.chat_poll_choices.poll_id	anon=- authenticated=S
@@ -5835,6 +5837,11 @@ col	public.vendor_profiles.verification_state	anon=S authenticated=SIU
 col	public.vendor_profiles.waitlist_enabled	anon=- authenticated=SIU
 col	public.vendor_profiles.website	anon=- authenticated=SIU
 col	public.vendor_profiles.weddings_done_approx	anon=- authenticated=SIU
+col	public.vendor_proposal_lowest.event_id	anon=- authenticated=SIU
+col	public.vendor_proposal_lowest.lowest_centavos	anon=- authenticated=SIU
+col	public.vendor_proposal_lowest.updated_at	anon=- authenticated=SIU
+col	public.vendor_proposal_lowest.updated_by	anon=- authenticated=SIU
+col	public.vendor_proposal_lowest.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_proposal_shop_gifts.created_at	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.credits	anon=- authenticated=S
 col	public.vendor_proposal_shop_gifts.from_badge_reward	anon=- authenticated=S
@@ -6507,11 +6514,14 @@ policy	public.chat_message_hearts|chat_message_hearts_group_member_read	mode=PER
 policy	public.chat_message_hearts|chat_message_hearts_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids)))) check=NULL
 policy	public.chat_message_hearts|chat_message_hearts_own_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM chat_messages m WHERE (m.message_id = chat_message_hearts.message_id))))
 policy	public.chat_message_hearts|chat_message_hearts_own_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=((user_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1 FROM chat_messages m WHERE (m.message_id = chat_message_hearts.message_id))))
+policy	public.chat_messages|chat_messages_a_removed_member_reads_nothing	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_shop_seat_is_lost(vendor_profile_id)) OR (thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.chat_messages|chat_messages_a_removed_member_writes_nothing	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=((NOT chat_shop_seat_is_lost(vendor_profile_id)) OR ((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) AND (sender_role IS DISTINCT FROM 'vendor'::chat_sender_role)))
 policy	public.chat_messages|chat_messages_block_guard	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(NOT chat_pair_is_blocked(event_id, vendor_profile_id))
 policy	public.chat_messages|chat_messages_member_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))))
 policy	public.chat_messages|chat_messages_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids)))) check=NULL
 policy	public.chat_messages|chat_messages_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((body IS NULL) OR (NOT chat_text_has_money(body)) OR (NOT (event_id IN ( SELECT money_hidden_event_ids() AS money_hidden_event_ids))) OR (sender_user_id = ( SELECT auth.uid() AS uid)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR money_masked_read()) check=NULL
 policy	public.chat_messages|chat_messages_private_reaches_its_people	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((recipient_user_ids IS NULL) OR (sender_user_id = ( SELECT auth.uid() AS uid)) OR (( SELECT auth.uid() AS uid) = ANY (recipient_user_ids)) OR (( SELECT is_admin() AS is_admin) AND chat_private_in_dispute(event_id, vendor_profile_id))) check=NULL
+policy	public.chat_messages|chat_messages_whisper_stays_on_its_side	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((whisper_side IS NULL) OR (chat_whisper_my_side(thread_id) = whisper_side) OR (( SELECT is_admin() AS is_admin) AND chat_private_in_dispute(event_id, vendor_profile_id))) check=NULL
 policy	public.chat_poll_choices|chat_poll_choices_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_text_has_money(label)) OR (NOT chat_thread_money_hidden(thread_id))) check=NULL
 policy	public.chat_poll_choices|chat_poll_choices_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
 policy	public.chat_poll_votes|chat_poll_votes_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
@@ -6519,6 +6529,7 @@ policy	public.chat_polls|chat_polls_money_hosts_only	mode=RESTRICTIVE cmd=SELECT
 policy	public.chat_polls|chat_polls_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
 policy	public.chat_thread_members|chat_thread_members_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (user_id = ( SELECT auth.uid() AS uid)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
 policy	public.chat_thread_reads|chat_thread_reads_self_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
+policy	public.chat_threads|chat_threads_a_removed_member_reads_nothing	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_shop_seat_is_lost(vendor_profile_id)) OR (thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.chat_threads|chat_threads_follow_gate	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT vendor_follows.vendor_profile_id FROM vendor_follows WHERE (vendor_follows.follower_user_id = ( SELECT auth.uid() AS uid))))
 policy	public.chat_threads|chat_threads_groups_read_through_functions	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=(kind = 'supplier'::text) check=NULL
 policy	public.chat_threads|chat_threads_member_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))))
@@ -7470,6 +7481,7 @@ policy	public.vendor_profiles|vendor_profiles_admin_unclaimed_write	mode=PERMISS
 policy	public.vendor_profiles|vendor_profiles_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_profiles|vendor_profiles_owner	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.vendor_profiles|vendor_profiles_public_read	mode=PERMISSIVE cmd=SELECT roles=anon,authenticated using=((public_visibility = 'verified'::vendor_public_visibility) AND (verification_state = 'verified'::vendor_verification_state)) check=NULL
+policy	public.vendor_proposal_lowest|vendor_proposal_lowest_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_proposal_shop_gifts|vendor_proposal_shop_gifts_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (proposal_id IN ( SELECT p.proposal_id FROM vendor_proposals p)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_proposal_templates|vendor_proposal_templates_org_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_proposals|vendor_proposals_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((status <> 'draft'::text) AND ((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids)))) check=NULL
@@ -7688,6 +7700,7 @@ func	public.chat_poll_save_as_decision(p_poll_id uuid, p_choice_id uuid)	secdef=
 func	public.chat_poll_vote(p_poll_id uuid, p_choice_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_private_in_dispute(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_quotes_read(p_event_id uuid, p_vendor_profile_id uuid)	secdef=no exec=authenticated search_path=public
+func	public.chat_shop_seat_is_lost(p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_text_has_money(p_text text)	secdef=no exec=authenticated search_path=public
 func	public.chat_thread_add_host(p_thread_id uuid, p_user_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_thread_kind(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -7695,6 +7708,7 @@ func	public.chat_thread_leave(p_thread_id uuid, p_note text)	secdef=yes exec=aut
 func	public.chat_thread_messages_read(p_thread_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.chat_thread_money_hidden(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.chat_thread_my_left_note(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
+func	public.chat_whisper_my_side(p_thread_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.claim_manpower_gig(p_gig_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.claim_my_couple_row(p_event_id uuid, p_guest_id uuid)	secdef=yes exec=authenticated search_path=public

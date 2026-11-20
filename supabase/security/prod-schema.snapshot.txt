@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1928
+# ledger: 1930
 # tables: 517
-# columns: 6220
-# notnull: 3752
+# columns: 6221
+# notnull: 3753
 [ledger]
 20260512000000
 20260513000000
@@ -1939,7 +1939,9 @@
 20271352461498
 20271352882666
 20271352968519
+20271353093349
 20271353556136
+20271354465843
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2433,6 +2435,7 @@ chat_polls.thread_id
 chat_thread_members.added_by_user_id
 chat_thread_members.joined_at
 chat_thread_members.left_at
+chat_thread_members.left_by_removal
 chat_thread_members.left_note
 chat_thread_members.thread_id
 chat_thread_members.user_id
@@ -8459,6 +8462,7 @@ chat_polls.poll_id
 chat_polls.question
 chat_polls.thread_id
 chat_thread_members.joined_at
+chat_thread_members.left_by_removal
 chat_thread_members.thread_id
 chat_thread_members.user_id
 chat_thread_reads.last_read_at

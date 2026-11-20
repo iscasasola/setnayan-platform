@@ -95,12 +95,15 @@ type ShopData = {
   coverUrl: string | null;
   slug: string | null;
   city: string | null;
-  tier: string | null;
+  /** The plan word for the cover — `null` = the shop's own row was REFUSED, said as "Couldn't load", never "Free". */
+  planLabel: string | null;
   isVerified: boolean;
   websiteLive: boolean;
   /* Set when the read FAILED, as opposed to legitimately returning nothing. */
   logoUnavailable: boolean;
   verify: {
+    /** True when the latest application read was REFUSED — the cover never reads "Get verified · 0 of 3" then. */
+    unread: boolean;
     status: VerifyStatus;
     requiredDocsIn: boolean;
     /** How many of the required papers are in (the cover's "n of 3 papers"). */
@@ -405,6 +408,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       : null;
 
   const completion = businessProfileChecklist(profile);
+  // S-3: a REFUSED application read and "no application" both arrive as null — only the log tells them apart.
+  const verifyUnread = soft.broke('latestApplication');
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
   const trusted = facts?.trusted ?? null;
   const avg = trusted?.trusted_avg_rating ?? null;
@@ -427,11 +432,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     coverUrl,
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
-    tier: own?.tier_state ?? null,
+    // 💳 S-2 (supplier audit 2026-11-17): `own` is null ONLY when the shop's own row was refused (the profile above
+    // was read, so the row exists). `planWord(null)` is "Free" — a refused read must never tell a paying shop that.
+    planLabel: own ? planWord(own.tier_state ?? null) : null,
     isVerified: profile.public_visibility === 'verified',
     websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
     verify: {
+      unread: verifyUnread,
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
       requiredIn: countCompleteRequiredSlots(verifyUploads),
@@ -470,13 +478,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
     offerTile: {
-      verified: own?.verification_state === 'verified',
+      // S-4: an unread own row falls back to the profile's measured visibility — never a lock on a verified shop.
+      verified: own ? own.verification_state === 'verified' : profile.public_visibility === 'verified',
       total: own && Array.isArray(own.vendor_offers) ? own.vendor_offers.length : null,
       running:
         own && Array.isArray(own.vendor_offers)
           ? own.vendor_offers.filter((o) => offerStatus({ ...blankOffer(), isOn: o.is_on, untilDate: o.until_date, who: (o.who as OfferWho) ?? 'everyone', firstNCap: o.first_n_cap, firstNTaken: o.first_n_taken ?? 0 }, phTodayIso()).k === 'run').length
           : null,
-      papers: papersProgress({ done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
+      papers: papersProgress(verifyUnread ? null : { done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
     },
     fairSweep: { vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null },
   };
@@ -616,6 +625,7 @@ async function ShopHome({
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
       papersIn: data.verify.requiredIn,
+      unread: data.verify.unread,
       papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
@@ -623,7 +633,7 @@ async function ShopHome({
     events: data.events,
     earned: data.earned,
     nextBadge: data.nextBadge,
-    planLabel: planWord(data.tier),
+    planLabel: data.planLabel,
     publicPath,
     websiteLive: data.websiteLive,
     slug: data.slug,

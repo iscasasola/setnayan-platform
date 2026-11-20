@@ -21,10 +21,8 @@ test('what a plan gives is read from TIER_CAPS', () => {
   assert.match(line('pro', 'services')!, new RegExp(`^${TIER_CAPS.pro.serviceCardsTotal} in total`));
   assert.match(line('pro', 'helpers')!, new RegExp(`^${TIER_CAPS.pro.agentAccounts} team seats \\+ 1 free Helper`));
   assert.equal(line('enterprise', 'services'), '80 in total · 12 kinds of work'); // Max, owner 2026-11-18
-  assert.equal(line('free', 'reach'), '5 km around you'); // owner 2026-11-18: Free reaches 5 km (was 0)
-  assert.equal(line('enterprise', 'reach'), 'Nationwide');
-  // Owner 2026-11-04 ("SUPPLIER PLAN ALLOWANCES"): Pro reaches 100 km — NOT nationwide; Ultra does.
-  assert.equal(line('pro', 'reach'), `${TIER_CAPS.pro.serviceRadiusKm} km around you`);
+  // 🔓 No reach line on any plan since 2026-11-19 (owner: "unlock the range. not plan dependend anymore").
+  for (const t of ['free', 'verified', 'solo', 'pro', 'enterprise']) assert.equal(line(t, 'reach'), undefined, t);
   // Own web address from Plus up ("website applies to solo as well"); below it, the plan is named from the table.
   assert.equal(line('solo', 'web'), 'Yes');
   assert.equal(line('verified', 'web'), 'Comes with Plus');

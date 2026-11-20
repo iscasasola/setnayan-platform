@@ -14,10 +14,21 @@ import { CHAT_REMINDER_NOT_REMOVED, CHAT_REMINDER_NOT_SET, isReminderChoice, rem
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type EditChatMessageResult = { ok: true; body: string; editedAt: string | null } | { ok: false; message: string };
+export type EditChatMessageResult =
+  | { ok: true; body: string; editedAt: string | null; unsentAt: string | null }
+  | { ok: false; message: string };
 
-/** Save new words on your own message. The database re-checks it is yours, still new, words only, and clean. */
-export async function editChatMessage(messageId: string, body: string): Promise<EditChatMessageResult> {
+/**
+ * Change your own message — ONE server action, two intents (the action budget never rises; unsend is a mode of edit).
+ * `'edit'` (default): save new words. The database re-checks it is yours, still new, words only, and clean.
+ * `'unsend'`: unsend your own words or voice note. The row stays; everyone reads "… unsent a message". `body` is ignored.
+ */
+export async function editChatMessage(
+  messageId: string,
+  body: string,
+  intent: 'edit' | 'unsend' = 'edit',
+): Promise<EditChatMessageResult> {
+  if (intent === 'unsend') return unsendOwnMessage(messageId);
   if (typeof messageId !== 'string' || !UUID.test(messageId) || typeof body !== 'string') {
     return { ok: false, message: messageChangeWords('edit', 'failed') };
   }
@@ -36,23 +47,21 @@ export async function editChatMessage(messageId: string, body: string): Promise<
     return { ok: false, message: messageChangeWords('edit', why) };
   }
   const row = (Array.isArray(data) ? data[0] : data) as { edited_at: string | null } | null | undefined;
-  return { ok: true, body: trimmed, editedAt: row?.edited_at ?? null };
+  return { ok: true, body: trimmed, editedAt: row?.edited_at ?? null, unsentAt: null };
 }
 
-export type UnsendChatMessageResult = { ok: true; unsentAt: string } | { ok: false; message: string };
-
-/** Unsend your own words or voice note. The row stays; everyone reads "… unsent a message". */
-export async function unsendChatMessage(messageId: string): Promise<UnsendChatMessageResult> {
+/** Not exported — the `'unsend'` intent of `editChatMessage`. */
+async function unsendOwnMessage(messageId: string): Promise<EditChatMessageResult> {
   if (typeof messageId !== 'string' || !UUID.test(messageId)) return { ok: false, message: messageChangeWords('unsend', 'failed') };
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('unsend_my_chat_message', { p_message_id: messageId });
   if (error) {
     const why = messageChangeRefusal(error.message);
-    if (why === 'failed') console.error('[unsendChatMessage] failed:', error.message);
+    if (why === 'failed') console.error('[editChatMessage:unsend] failed:', error.message);
     return { ok: false, message: messageChangeWords('unsend', why) };
   }
   const row = (Array.isArray(data) ? data[0] : data) as { unsent_at: string | null } | null | undefined;
-  return { ok: true, unsentAt: row?.unsent_at ?? new Date().toISOString() };
+  return { ok: true, body: '', editedAt: null, unsentAt: row?.unsent_at ?? new Date().toISOString() };
 }
 
 /** `remindAt` is `null` only for `intent: 'clear'` (the reminder came off). */

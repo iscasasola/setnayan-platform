@@ -26,3 +26,5 @@ SPEC IMPACT: None — the page implements the already-approved drawing `prototyp
 drawing's unbuilt lines (fee ceiling, 100,000th fee, first-supplier rule, gift, Ultra Add-on) stay owner rulings to build.
 
 - fix: three stale `numbers-carry-commas` allowlist rows for the old suppliers page (FREE_PHOTOS ×2, BADGE_FIRST) are deleted — the new page no longer renders them.
+
+- fix: the `the-couple-books-never-locks` allowlist row for `app/for-suppliers/` is dropped — the new page has nothing it excused.

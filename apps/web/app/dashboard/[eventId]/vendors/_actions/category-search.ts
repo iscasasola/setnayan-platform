@@ -27,6 +27,7 @@
 
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { savedGoesFirst } from '@/lib/saved-first';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
@@ -1365,8 +1366,21 @@ export async function searchCategoryVendors(input: {
   // Relationship-depth tier: vendors this couple already knows float above
   // everything else, sorted depth-DESC then by the normal ad/review order.
   // Depth 0 vendors fall through to the original tier ladder below unchanged.
+  //
+  // 🔖 Saved first (owner 20 Nov, `lib/saved-first.ts`): a supplier only SAVED to this event (depth 1) leads only when
+  // the venue is in their reach (a KNOWN distance inside their radius) AND the calendar check ran on a date and found
+  // them free. Otherwise it falls into the ladder below like anyone else. Depth 2-3 (talking, booked) are unchanged.
   const withRelationship = searchableShaped
-    .filter((s) => s._depth > 0)
+    .filter(
+      (s) =>
+        s._depth > 1 ||
+        (s._depth === 1 &&
+          savedGoesFirst({
+            saved: true,
+            inReach: s.distanceKm !== null ? s.withinRadius : null,
+            freeOnDate: fitScope !== null ? s.serviceDateAvailable : null,
+          })),
+    )
     .sort(
       (a, b) =>
         b._depth - a._depth ||

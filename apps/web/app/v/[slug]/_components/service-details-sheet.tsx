@@ -383,6 +383,30 @@ export function ServiceDetailsSheet({
   if (inclusions.length === 0 && c.notIncluded.length === 0 && servesLine) {
     sections.push({ key: 'serves', title: 'Serves', note: 'who it is for', body: servesLine });
   }
+  // 🏅 ROUND 1 OPTION 3'S ORDER (owner 20 Nov: card 14 is the BROWSE face; the OPENED card keeps option 3's order —
+  // name · shop · price · what's included · not included · THEN the medal row). It used to sit above the name; it now
+  // closes the last fact section, or the face when the card has no facts.
+  const medalRow =
+    cardBadgeRow || (badges && badges.cardMedals.length > 0) ? (
+      <div className="mt-3" data-grown-card-badges="">
+        {cardBadgeRow ? (
+          <>{cardBadgeRow}</>
+        ) : badges && badges.cardMedals.length > 0 ? (
+          <CardMedalRow medals={badges.cardMedals} />
+        ) : null}
+      </div>
+    ) : null;
+  const lastFact = sections[sections.length - 1];
+  if (medalRow && lastFact) {
+    const body = lastFact.body;
+    lastFact.body = (
+      <>
+        {body}
+        {medalRow}
+      </>
+    );
+  }
+  const faceMedalRow = medalRow && !lastFact ? medalRow : null;
   // The record this card has earned — the SAME compiled object the card renders, from the page's one batched read.
   if (c.record) {
     sections.push({
@@ -680,13 +704,6 @@ export function ServiceDetailsSheet({
 
           {/* ── The face, grown: the card's own name · shop · price · offer · how the price works ── */}
           <div className="px-4 pb-2 pt-3" data-grown-face="">
-            {cardBadgeRow ? (
-              <div className="mb-1.5" data-grown-card-badges="">
-                {cardBadgeRow}
-              </div>
-            ) : badges && badges.cardMedals.length > 0 ? (
-              <CardMedalRow medals={badges.cardMedals} />
-            ) : null}
             <h2 id="service-details-title" className="text-[16px] font-semibold leading-snug text-ink">
               {c.label}
             </h2>
@@ -710,6 +727,7 @@ export function ServiceDetailsSheet({
             ) : null}
             {c.priceDetail ? <p className="mt-1 text-[12px] leading-snug text-ink/55">{c.priceDetail}</p> : null}
             {c.givesSetnayanGift ? <SetnayanGiftLine className="mt-1.5 flex items-start gap-1.5 text-[12px] font-medium text-terracotta-700" /> : null}
+            {faceMedalRow}
             {/* 📈 The card's opens — the shop's own number (Shop › Analytics' "opened"); no hide, in both views. */}
             {owner ? (
               <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-ink/60" data-grown-opens="">

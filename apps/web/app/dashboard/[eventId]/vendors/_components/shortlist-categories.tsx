@@ -24,7 +24,8 @@
 
 import { NotYetVerifiedThreadLine } from '@/app/_components/chat/not-yet-verified-line';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
-import { ServiceFace } from '@/app/_components/service-face';
+import { MallFaceBody, ServiceFace } from '@/app/_components/service-face';
+import { aboutKmLine, mallPrice } from '@/lib/mall-card';
 import {
   Fragment,
   createContext,
@@ -108,6 +109,7 @@ import {
   type SortReason,
   type SortShape,
 } from '@/lib/bench-sort';
+import { savedFirst, savedGoesFirst } from '@/lib/saved-first';
 import { isLensKey, LENSES, visibleLenses } from '@/lib/ranking-lenses';
 import { nearFromKey, nearKey, type NearFrom } from '@/lib/find-sort-choices';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -1108,6 +1110,52 @@ html.dark .slcat .fold.open .fold-nm,html.dark .slcat .cat.open .cat-nm,html.dar
 .slcat .bench-add{margin:4px 0 14px}
 /* A note is read, not pressed: no dashed box, it sits on the page (owner 2026-10-11). */
 .slcat .vact.note{border:0;padding-left:0;padding-right:0;background:none;min-height:0}
+/* 🃏 CARD 14 — THE MALL CARD (owner 20 Nov 2026, "card 14 approved" · "driving distance, two across" → "straight line,
+   about X km" · "Do it"; drawing https://claude.ai/artifact/752FUN4BTE16bEWmpjP6r7, section "14 in Find, with its
+   buttons"). The one-screen column (.fold.flat) runs the cards two across on a phone, three on a tablet and four on a
+   desktop; each snap unit is the card with its buttons under it. Sunk-tier dividers span the row. */
+.slcat .fold.flat .rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 10px;align-items:stretch;padding:4px 0 16px;container-type:inline-size}
+@container (min-width:600px){.slcat .fold.flat .rail{grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 16px}}
+@container (min-width:900px){.slcat .fold.flat .rail{grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 20px}}
+.slcat .fold.flat .rail>.raildiv,.slcat .fold.flat .rail>:not(.vcw):not(.vc){grid-column:1/-1}
+.slcat .fold.flat .vcw{min-width:0;width:auto;display:flex;flex-direction:column;gap:8px;padding:0;border:0;border-radius:0;background:none}
+.slcat .fold.flat .vcw:has(>.vc:active),.slcat .fold.flat .vcw:has(>.vc[data-inspector-selected='true']){background:none}
+.slcat .fold.flat .vc.mall,.slcat .fold.flat .vcw>.vc.mall,.slcat .fold.flat .vcw>[data-service-face-layout='mall']{display:flex;flex-direction:column;flex:1 0 auto;gap:0;padding:0;min-width:0;width:auto;background:rgb(var(--sn-frame-bg));border:0;border-radius:var(--sn-frame-radius);box-shadow:var(--sn-frame-shadow);overflow:hidden}
+.slcat .fold.flat .vcw>.vc.mall[data-inspector-selected='true']{box-shadow:var(--sn-frame-shadow),0 0 0 2px var(--gold)}
+.slcat .fold.flat .vc.mall [data-service-face-cover]>img{width:100%;height:100%;object-fit:cover}
+.slcat .fold.flat .vc.mall [data-service-face-cover]>.ini{font-size:28px}
+.slcat .fold.flat .vc.mall .mcorner{display:flex;flex-wrap:wrap;gap:4px}
+.slcat .fold.flat .vc.mall .mcorner>.pcorner,.slcat .fold.flat .vc.mall .mcorner>.rpill{position:static;inset:auto;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.slcat .fold.flat .vc.mall .badges{margin:0}
+.slcat .fold.flat .vc.mall .fits{margin:0}
+.slcat .fold.flat .vc.mall .stand,.slcat .fold.flat .vc.mall .incl{margin:0;padding:0}
+.slcat .fold.flat .vc.mall .price{font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+.slcat .fold.flat .vc.mall [data-price-basis-line]{display:contents}
+.slcat .fold.flat .vc.mall [data-price-basis-line] .price{flex:0 0 100%}
+/* THE BUTTONS (DECISION_LOG "14 + buttons"): the first verb is one full-width 44 px button, then a row of equal seats,
+   icon over word — two on a phone, three on a desktop. On a phone, with three or more verbs left, the second seat is
+   "More", which opens the rest in place. Under 150 px wide two seats cannot hold their words: they stack. */
+.slcat .fold.flat .vcw .vacts{container-type:inline-size;min-width:0}
+.slcat .fold.flat .vcw .verbs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:0;flex-wrap:nowrap}
+.slcat .fold.flat .vcw .verbs>*{min-width:0;width:100%}
+.slcat .fold.flat .vcw .verbs>:first-child{grid-column:1/-1}
+.slcat .fold.flat .vcw .verbs>:first-child,.slcat .fold.flat .vcw .verbs>:first-child>:is(a,button){min-height:44px;width:100%;justify-content:center;white-space:normal;text-align:center;text-wrap:balance}
+.slcat .fold.flat .vcw .verbs>:not(:first-child),.slcat .fold.flat .vcw .verbs>.verb-slot:not(:first-child)>:is(a,button){flex-direction:column;gap:3px;min-height:52px;padding:0 4px;font-size:11.5px;line-height:1.15;justify-content:center;width:100%}
+.slcat .fold.flat .vcw .verbs>.verb-slot{display:flex;flex-direction:column}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore-rest{display:none}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1'][data-more-open]>.vmore-rest{display:flex}
+.slcat .verbs>.vmore{display:none}
+.slcat .verbs>.vmore-rest{display:contents}
+.slcat .fold.flat .vcw .verbs>.vmore-rest{display:flex;flex-direction:column}
+.slcat .fold.flat .vcw .verbs>.vmore-rest>:is(a,button),.slcat .fold.flat .vcw .verbs>.vmore-rest>.verb-slot>:is(a,button){flex-direction:column;gap:3px;min-height:52px;padding:0 4px;font-size:11.5px;line-height:1.15;justify-content:center;width:100%}
+.slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore{display:flex}
+@container (max-width:150px){.slcat .fold.flat .vcw .verbs{grid-template-columns:minmax(0,1fr)}}
+@container (min-width:240px){
+  .slcat .fold.flat .vcw .verbs{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore-rest{display:flex}
+  .slcat .fold.flat .vcw .verbs[data-seat-more='1']>.vmore{display:none}
+}
+
 `;
 
 /** Two-letter monogram fallback — delegates to the shared shop/vendor helper
@@ -1374,6 +1422,14 @@ const PriceLineCtx = createContext<SelfAddedPriceLines | null | undefined>(undef
 type ServiceCardLook = { face: boolean; cards: Readonly<Record<string, BenchServiceCard>> | null };
 const NO_SERVICE_CARDS: ServiceCardLook = { face: false, cards: null };
 const ServiceCardCtx = createContext<ServiceCardLook>(NO_SERVICE_CARDS);
+/**
+ * 🃏 What card 14 knows about the event (owner 20 Nov): `guests` — `events.estimated_pax`, so a per-guest card can show
+ * the total for it; `askVenue` — the event has no venue pin, so the distance line asks for one instead of a number.
+ * The default (no event read) draws neither.
+ */
+type MallEvent = { guests: number | null; askVenue: boolean };
+const NO_MALL_EVENT: MallEvent = { guests: null, askVenue: false };
+const MallEventCtx = createContext<MallEvent>(NO_MALL_EVENT);
 
 /** One supplier's unread count. Shows on linked copies too — see `bench-unread.ts`. */
 function UnreadBadge({ threadId }: { threadId: string | null }) {
@@ -1479,6 +1535,7 @@ function VendorCard({
   const basisLine = selfAdded || priceLine?.follow ? priceLine : null;
   const look = useContext(ServiceCardCtx);
   const svc = look.face ? (look.cards?.[v.vendorId] ?? null) : null;
+  const mallEvent = useContext(MallEventCtx);
   const hasRecordedPrice = v.totalCostPhp != null && v.totalCostPhp > 0;
   // The recorded price, drawn ONCE (the-bench-card-keeps-everything pins it to one span) — bare as shipped, or
   // inside the price-basis line when an agreed count follows it.
@@ -1548,6 +1605,133 @@ function VendorCard({
     });
   }
 
+  // ── EVERY PIECE OF THE CARD, BUILT ONCE ───────────────────────────────────
+  // 🃏 Card 14 (owner 20 Nov, "card 14 approved" · "Do it"): on the one-screen page (`look.face`, the `.fold.flat`
+  // column) the bench card wears the MALL face — `MallFaceBody`, the same body `ServiceFace layout="mall"` draws, so
+  // Find and Discover show one card. The pre-replan bench keeps its shipped shape. Each piece below is built ONCE and
+  // placed by whichever shape is drawn (`the-bench-card-keeps-everything.test.ts` counts them).
+  const photo = v.photoUrl ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={v.photoUrl} alt="" loading="lazy" />
+  ) : (
+    <span className="ini">{initials(v.name)}</span>
+  );
+  // PR-H · "★ Chosen" is a claim about a settled booking. An ask is not
+  // one, so the corner says what is true instead of borrowing the word
+  // for a supplier who has not answered and may decline.
+  const corner =
+    v.status === 'locked' ? (
+      <span className="pcorner">★ Chosen</span>
+    ) : v.lockRequestState === 'requested' ? (
+      <span className="pcorner">Asked</span>
+    ) : null;
+  const reasonPill = reason && v.status !== 'locked' ? <span className={`rpill ${reason.tone}`}>{reason.label}</span> : null;
+  const cityEl = v.city ? (
+    <span className="sub">
+      <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+    </span>
+  ) : null;
+  const ratingEl =
+    v.rating != null ? (
+      <span className="stars">
+        <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
+        {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
+      </span>
+    ) : typeof v.reviewCount === 'number' ? (
+      // 0 reviews on a real marketplace pick — "New", never a fake
+      // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
+      // number for a marketplace-linked vendor (never an off-platform /
+      // manual pick, which carries no enrichment at all).
+      // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
+      <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
+    ) : null;
+  // On the mall face Verified is the pill on the photo (it leaves this row); Setnayan stays a badge.
+  const badgesEl =
+    v.isVerified || v.isSetnayan ? (
+      <span className="badges">
+        {v.isSetnayan ? (
+          <span className="bdg setnayan">
+            <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
+          </span>
+        ) : null}
+        {v.isVerified && !look.face ? (
+          <span className="bdg verified">
+            <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
+          </span>
+        ) : null}
+      </span>
+    ) : null;
+  // v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
+  // "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once.
+  const recordedPrice = hasRecordedPrice ? (
+    !basisLine?.follow && agreedSuffix(basisLine) ? (
+      <span data-price-basis-line="">
+        {priceEl}{' '}
+        <span className="sc-price">· {agreedSuffix(basisLine)}</span>
+      </span>
+    ) : (
+      priceEl
+    )
+  ) : null;
+  // The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record.
+  // 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why.
+  const recordLine =
+    basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
+      <span className="sc-rec" data-guest-follow="">
+        {guestFollowLine(basisLine.follow)}
+      </span>
+    ) : basisLine && hasRecordedPrice ? (
+      <span className="sc-rec" data-price-basis-after={basisLine.basis}>
+        {afterClaim(basisLine.basis).line}
+      </span>
+    ) : null;
+  // No price recorded with THIS couple yet → the service card's own price. Withheld by the shop, or never set →
+  // "Price on request", and only when the cards were actually read.
+  const cardPriceMissing =
+    look.face && !hasRecordedPrice && !v.includedWith && !svc?.priceText
+      ? selfAdded
+        ? 'No price recorded'
+        : look.cards
+          ? PRICE_ON_REQUEST
+          : null
+      : null;
+  // The same supplier, shown again in a category their package also covers. No price here by design — it is one
+  // booking with one price, which lives on the card in the category it was added under.
+  const includedWithEl = v.includedWith ? <span className="incl">Included with {v.includedWith}</span> : null;
+  // PR-G1 — the vendor's own free days inside the couple's date window, in the bench's mono voice. Renders only when
+  // there IS a signal; a calendar we could not read stays silent rather than guessing.
+  const datesEl = <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />;
+  // A supplier the couple added themselves: what they typed is THEIR RECORD, not a booking — and where their claim
+  // link stands (owner 2026-10-10: the couple is told when the supplier declines or never answers). Only drawn in the
+  // one-screen shape, for a self-added card.
+  const ownRecordEl =
+    look.face && selfAdded ? (
+      <span className="sc-rec" data-own-record="">
+        {ownRecordLine(v.status === 'locked')}
+      </span>
+    ) : null;
+  // …and once they have joined through it the card is no longer self-added, but it still says where this shop came from.
+  const inviteEl =
+    look.face && inviteStatuses !== undefined && (selfAdded || inviteStatuses?.[v.vendorId]?.key === 'joined') ? (
+      inviteStatuses === null ? (
+        <span className="sc-link" data-invite-status="unread">
+          {INVITE_STATUS_UNREAD_LINE}
+        </span>
+      ) : inviteStatuses[v.vendorId] ? (
+        <span className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`} data-invite-status={inviteStatuses[v.vendorId]!.key}>
+          {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
+        </span>
+      ) : null
+    ) : null;
+  // Where you stand — the last line of the meta block, under the dates. The couple's eye lands on the photo, then
+  // the name, then this.
+  const standingEl = <CardStanding standing={standing ?? null} />;
+  const fitEl = <FitBadges v={v} />;
+  const unreadEl = <UnreadBadge threadId={v.threadId} />;
+  // 📍 Card 14: "about N km from your venue" — straight line from the shop's nearest place (HQ or a live branch) to
+  // the event's venue (page.tsx). No venue → the line asks for one; no shop place → nothing.
+  const distanceLine = look.face ? aboutKmLine(v.distanceKm) : null;
+
   const card = (
     // Desktop inspector trigger (Merkado phase 3): at ≥xl a plain click opens the
     // vendor's quick-view in the sticky inspector column instead of navigating;
@@ -1556,7 +1740,7 @@ function VendorCard({
     <InspectorTrigger
       inspectId={`v:${v.vendorId}`}
       href={v.href}
-      className="vc"
+      className={look.face ? 'vc mall' : 'vc'}
       // Replaces the trigger's own click (its props spread AFTER it) — only for
       // a self-added supplier. Every other card keeps the inspector untouched.
       {...(selfAdded ? { onClick: openDetails, 'aria-busy': detailsLoading || undefined }
@@ -1564,163 +1748,66 @@ function VendorCard({
           ? { onClick: openSheet, 'aria-haspopup': svc?.detailsHref ? undefined : ('dialog' as const) }
           : {})}
     >
-      <span className="img">
-        {v.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={v.photoUrl} alt="" loading="lazy" />
-        ) : (
-          <span className="ini">{initials(v.name)}</span>
-        )}
-        {/* PR-H · "★ Chosen" is a claim about a settled booking. An ask is not
-            one, so the corner says what is true instead of borrowing the word
-            for a supplier who has not answered and may decline. */}
-        {v.status === 'locked' ? (
-          <span className="pcorner">★ Chosen</span>
-        ) : v.lockRequestState === 'requested' ? (
-          <span className="pcorner">Asked</span>
-        ) : null}
-        {reason && v.status !== 'locked' ? (
-          <span className={`rpill ${reason.tone}`}>{reason.label}</span>
-        ) : null}
-      </span>
-      <span className="meta">
-        {/* The service's own name leads (the supplier's title, else the
-            category), with its running offer beside it. A card with no service
-            card — added by the couple, or not linked to one — is named by the
-            category it sits in. */}
-        {look.face ? (
-          <span className="sc-name">
-            {svc?.name ?? tileLabel}
-            {svc?.discountBadge ? <span className="sc-disc">{svc.discountBadge}</span> : null}
+      {look.face ? (
+        <MallFaceBody
+          cover={photo}
+          coverCorner={corner || reasonPill ? <span className="mcorner">{corner}{reasonPill}</span> : null}
+          verified={v.isVerified === true}
+          shop={{ name: v.name, href: null, logoUrl: null }}
+          city={v.city}
+          name={svc?.name ?? tileLabel}
+          discount={hasRecordedPrice ? null : (svc?.discountBadge ?? null)}
+          price={
+            hasRecordedPrice || v.includedWith || !svc?.priceText
+              ? null
+              : mallPrice({ perGuest: svc.perGuest ?? null, guests: mallEvent.guests, price: svc.priceText, priceNote: null })
+          }
+          priceSlot={recordedPrice}
+          priceMissing={cardPriceMissing}
+          rating={ratingEl}
+          extra={
+            <>
+              {unreadEl}
+              {selfAdded ? <span className="sc-own">added by you</span> : null}
+              {badgesEl}
+              {recordLine}
+              {includedWithEl}
+              {ownRecordEl}
+              {inviteEl}
+              {standingEl}
+            </>
+          }
+          lines={
+            <>
+              {fitEl}
+              {datesEl}
+            </>
+          }
+          distance={distanceLine}
+          askVenue={mallEvent.askVenue}
+        />
+      ) : (
+        <>
+          <span className="img">
+            {photo}
+            {corner}
+            {reasonPill}
           </span>
-        ) : null}
-        <span className="vn">{v.name}</span>
-        <UnreadBadge threadId={v.threadId} />
-        {look.face && selfAdded ? <span className="sc-own">added by you</span> : null}
-        {v.city ? (
-          <span className="sub">
-            <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
+          <span className="meta">
+            <span className="vn">{v.name}</span>
+            {unreadEl}
+            {cityEl}
+            {ratingEl}
+            {badgesEl}
+            {fitEl}
+            {recordedPrice}
+            {recordLine}
+            {includedWithEl}
+            {datesEl}
+            {standingEl}
           </span>
-        ) : null}
-        {v.rating != null ? (
-          <span className="stars">
-            <Star size={11} strokeWidth={1.75} aria-hidden /> {v.rating.toFixed(1)}
-            {v.reviewCount != null ? ` · ${formatCount(v.reviewCount)}` : ''}
-          </span>
-        ) : typeof v.reviewCount === 'number' ? (
-          // 0 reviews on a real marketplace pick — "New", never a fake
-          // 0.0 (owner ruling 2026-09-11). reviewCount is only ever a known
-          // number for a marketplace-linked vendor (never an off-platform /
-          // manual pick, which carries no enrichment at all).
-          // 📖 CYC-15b (owner 2026-11-15): "New to Setnayan" only for a shop with NO bookings; "No reviews yet" otherwise.
-          <span className="stars">{v.bookedCount === 0 ? NEW_TO_SETNAYAN_LABEL : NO_REVIEWS_YET_LABEL}</span>
-        ) : null}
-        {v.isVerified || v.isSetnayan ? (
-          <span className="badges">
-            {v.isSetnayan ? (
-              <span className="bdg setnayan">
-                <Sparkles size={12} strokeWidth={2} aria-hidden /> Setnayan
-              </span>
-            ) : null}
-            {v.isVerified ? (
-              <span className="bdg verified">
-                <BadgeCheck size={12} strokeWidth={2} aria-hidden /> Verified
-              </span>
-            ) : null}
-          </span>
-        ) : null}
-        <FitBadges v={v} />
-        {/* v2 (owner 2026-11-13): the card's own total, then what was agreed — "₱162,000 · 120 guests agreed" /
-            "₱30,000 · 5 hours agreed". One price span, so the bench card still draws the number exactly once. */}
-        {hasRecordedPrice ? (
-          !basisLine?.follow && agreedSuffix(basisLine) ? (
-            <span data-price-basis-line="">
-              {priceEl}{' '}
-              <span className="sc-price">· {agreedSuffix(basisLine)}</span>
-            </span>
-          ) : (
-            priceEl
-          )
-        ) : null}
-        {/* The decided after-claim line (owner 13 Nov: "Yes, follow it") — only while it is still the couple's record. */}
-        {/* 👥 After the claim (20271343652941): a per-guest total follows the guest list — one line saying why. */}
-        {basisLine?.follow && hasRecordedPrice && guestFollowLine(basisLine.follow) ? (
-          <span className="sc-rec" data-guest-follow="">
-            {guestFollowLine(basisLine.follow)}
-          </span>
-        ) : basisLine && hasRecordedPrice ? (
-          <span className="sc-rec" data-price-basis-after={basisLine.basis}>
-            {afterClaim(basisLine.basis).line}
-          </span>
-        ) : null}
-        {/* No price recorded with THIS couple yet → the service card's own
-            "from ₱X". Withheld by the shop, or never set → "Price on request",
-            and only when the cards were actually read. */}
-        {look.face && !hasRecordedPrice && !v.includedWith ? (
-          svc?.priceText ? (
-            <span className="sc-price">{svc.priceText}</span>
-          ) : selfAdded ? (
-            <span className="sc-price none">No price recorded</span>
-          ) : look.cards ? (
-            <span className="sc-price none">{PRICE_ON_REQUEST}</span>
-          ) : null
-        ) : null}
-        {svc?.includesLine ? (
-          <span className="sc-inc">
-            <Gift size={12} strokeWidth={1.75} aria-hidden />
-            <span>{svc.includesLine}</span>
-          </span>
-        ) : null}
-        {/* 🧾 CYC-15 (walk 13 Nov): the card's static "Not included" is the SERVICE CARD's word — once this couple has a
-            recorded price (a quote, a deal, a booking) the quote's own lines are the truth, and "Not included: crew meal"
-            beside a quote that charges it said the opposite of what they were billed. */}
-        {svc && svc.notIncluded.length > 0 && !hasRecordedPrice ? (
-          <span className="sc-not">
-            <AlertCircle size={12} strokeWidth={1.75} aria-hidden />
-            <span>Not included: {svc.notIncluded.join(' · ')}</span>
-          </span>
-        ) : null}
-        {/* The one shared sentence — never re-typed, never a number. */}
-        {svc?.givesSetnayanGift ? <SetnayanGiftLine className="sc-gift" /> : null}
-        {/* The same supplier, shown again in a category their package also
-            covers. No price here by design — it is one booking with one price,
-            which lives on the card in the category it was added under. */}
-        {v.includedWith ? (
-          <span className="incl">Included with {v.includedWith}</span>
-        ) : null}
-        {/* PR-G1 — the vendor's own free days inside the couple's date window,
-            in the bench's mono voice. Renders only when there IS a signal; a
-            calendar we could not read stays silent rather than guessing. */}
-        <CardDateBlock line={v.freeDaysLine} dates={dates ?? null} name={v.name} />
-        {/* A supplier the couple added themselves: what they typed is THEIR
-            RECORD, not a booking — and where their claim link stands (owner
-            2026-10-10: the couple is told when the supplier declines or never
-            answers). Only drawn in the one-screen shape, for a self-added card. */}
-        {look.face && selfAdded ? (
-          <span className="sc-rec" data-own-record="">
-            {ownRecordLine(v.status === 'locked')}
-          </span>
-        ) : null}
-        {/* …and once they have joined through it the card is no longer
-            self-added, but it still says where this shop came from. */}
-        {look.face && inviteStatuses !== undefined && (selfAdded || inviteStatuses?.[v.vendorId]?.key === 'joined') ? (
-          inviteStatuses === null ? (
-            <span className="sc-link" data-invite-status="unread">
-              {INVITE_STATUS_UNREAD_LINE}
-            </span>
-          ) : inviteStatuses[v.vendorId] ? (
-            <span
-              className={`sc-link t-${inviteStatuses[v.vendorId]!.tone}`}
-              data-invite-status={inviteStatuses[v.vendorId]!.key}
-            >
-              {inviteStatuses[v.vendorId]!.key === 'joined' ? joinedLine(svc != null) : inviteStatuses[v.vendorId]!.line}
-            </span>
-          ) : null
-        ) : null}
-        {/* Where you stand — the last line of the meta block, under the dates.
-            The couple's eye lands on the photo, then the name, then this. */}
-        <CardStanding standing={standing ?? null} />
-      </span>
+        </>
+      )}
     </InspectorTrigger>
   );
   // Flag OFF (or nothing to offer) → the card is the whole render, unwrapped,
@@ -1873,6 +1960,25 @@ function VendorCard({
  * availability landed 2026-07-09 as the fast-follow to reach+budget — the fit is
  * computed batched upstream (page.tsx, one calendar query for the whole bench).
  */
+/**
+ * 🔖 A bench supplier goes first in line (`lib/saved-first.ts`): saved (a marketplace shop on the list, not yet
+ * chosen), the SAME reach read the card's badge draws in range, and free on the date. Unknown is not true.
+ */
+function benchSavedGoesFirst(v: ShortlistVendor): boolean {
+  return savedGoesFirst({
+    saved: v.status === 'considering' && v.marketplaceVendorId != null,
+    inReach:
+      resolveReachBadge({
+        distanceKm: v.distanceKm,
+        innerKm: v.innerRadiusKm,
+        outerKm: v.outerRadiusKm,
+        reachesVenue: v.reachesVenue,
+        serviceRadiusKm: v.serviceRadiusKm,
+      })?.inRange ?? null,
+    freeOnDate: v.dateFit === 'free' ? true : v.dateFit == null ? null : false,
+  });
+}
+
 function FitBadges({ v }: { v: ShortlistVendor }) {
   // "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026); null → "Booked that day".
   const takenOn = useContext(TakenOnCtx);
@@ -2041,6 +2147,7 @@ function InlineMoreCard({
   // The service card's own cover first; else the photo the search resolved.
   // No cover of its own but showcase photos → the first photo, not the shop's logo (the marketplace's C2 rule).
   const cover = svc?.coverUrl ?? svc?.photos?.[0] ?? benchCardImage(v);
+  const mallEvent = useContext(MallEventCtx);
   return (
     <div className={`vcw mrc${sunk ? ' is-dim' : ''}${busy ? ' is-busy' : ''}`}>
       {/* THE ONE FACE (owner 12 Nov, "ONE SERVICE CARD, EVERYWHERE") — Find's card IS the template, and it is now drawn
@@ -2050,6 +2157,13 @@ function InlineMoreCard({
         name={svc?.name || label}
         coverUrl={cover}
         photos={svc?.photos ?? null}
+        // 🃏 Card 14 (owner 20 Nov) — the same mall face the bench card above wears.
+        layout="mall"
+        mallPrice={
+          svc?.priceText ? mallPrice({ perGuest: svc.perGuest ?? null, guests: mallEvent.guests, price: svc.priceText, priceNote: null }) : null
+        }
+        distance={aboutKmLine(v.distanceKm)}
+        askVenue={mallEvent.askVenue}
         coverCorner={
           v.boosted ? (
             <span className="inline-block rounded-full bg-mulberry px-2 py-0.5 text-xs uppercase tracking-wide text-cream">
@@ -2911,6 +3025,7 @@ export function ShortlistCategories({
   onePerEventGroups = [],
   inspiration = null,
   takenOnLabel = null,
+  mallEvent = NO_MALL_EVENT,
 }: {
   /**
    * Unread messages per chat thread for this event, and whether we know them.
@@ -3055,6 +3170,8 @@ export function ShortlistCategories({
   /** "Taken on Dec 12" for the couple's committed day (owner 13 Nov 2026) — the badge on a supplier whose calendar
    *  shows it taken. Null/absent → "Booked that day", as before. */
   takenOnLabel?: string | null;
+  /** 🃏 Card 14 — the event's estimated guest count and whether its venue is set (`MallEventCtx`). */
+  mallEvent?: MallEvent;
   /**
    * The plan groups that are ONE PER EVENT — the categories' switch (`service_categories.one_per_event`, owner
    * 2026-10-29), read on the server (lib/one-per-event.ts). An array: it crosses to the client. Absent → none, so
@@ -4168,6 +4285,7 @@ export function ShortlistCategories({
     <InviteStatusCtx.Provider value={inviteStatusByVendorId}>
     <PriceLineCtx.Provider value={selfAddedPriceLines}>
     <ServiceCardCtx.Provider value={serviceLook}>
+    <MallEventCtx.Provider value={mallEvent}>
     <div className="slcat" ref={benchRef}>
       <style>{SLCAT_CSS}</style>
       {/* The remove confirm. It must live INSIDE the rendered tree or
@@ -4485,8 +4603,13 @@ export function ShortlistCategories({
                       ? t.vendors.filter((v) => v.name.toLowerCase().includes(scopedQ))
                       : t.vendors;
                   const scopedNone = scopedQ.length > 0 && scopeTile === t.tile && railVendors.length === 0;
+                  // 🔖 Saved first (owner 20 Nov): a supplier saved to this event leads the rail — only when the venue is
+                  // in their reach AND they are free on the date (`lib/saved-first.ts`). Then the couple's own pins.
                   const arrangedRail = applyBenchArrangement(
-                    sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
+                    savedFirst(
+                      sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
+                      ({ v }) => benchSavedGoesFirst(v),
+                    ),
                     tilePins,
                     (e) => e.v.vendorId,
                   );
@@ -5378,6 +5501,7 @@ export function ShortlistCategories({
         <SupplierSheet eventId={eventId} target={sheetTarget} load={loadSheet} onClose={() => setSheetTarget(null)} />
       ) : null}
     </div>
+    </MallEventCtx.Provider>
     </ServiceCardCtx.Provider>
     </PriceLineCtx.Provider>
     </InviteStatusCtx.Provider>

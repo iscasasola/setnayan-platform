@@ -746,7 +746,8 @@ async function saveBookingWindow(formData: FormData): Promise<void> {
   const { supabase, profile } = await requireVendor();
   const picked = bookingWindowFromForm(str(formData, 'booking_min_days'), str(formData, 'booking_max_months'));
   if (!picked) backToCalendar(formData, 'bad_booking_window');
-  const { error } = await supabase.from('vendor_profiles').update(picked).eq('vendor_profile_id', profile.vendor_profile_id);
+  const { error } = await supabase.from('vendor_profiles').update({ booking_min_days: picked.booking_min_days, booking_max_months: picked.booking_max_months })
+    .eq('vendor_profile_id', profile.vendor_profile_id);
   if (error) backToCalendar(formData, 'save_failed');
   revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();

@@ -52,3 +52,53 @@ GRANT SELECT (booking_min_days) ON public.vendor_profiles TO authenticated;
 GRANT SELECT (booking_max_months) ON public.vendor_profiles TO authenticated;
 REVOKE SELECT (booking_min_days) ON public.vendor_profiles FROM anon;
 REVOKE SELECT (booking_max_months) ON public.vendor_profiles FROM anon;
+
+-- ── The shop's own view re-projected (its projection is frozen at CREATE) ──
+-- `lint-vendor-profiles-column-grants.mjs`: a new vendor_profiles column must reach vendor_profiles_self, or the shop's
+-- own dashboard reads it as always empty. The 20271350091032 block verbatim, with the two window columns added to its
+-- anti-vacuity check.
+DROP VIEW IF EXISTS public.vendor_profiles_self;
+
+DO $$
+DECLARE
+  cols text;
+BEGIN
+  SELECT string_agg('vp.' || quote_ident(column_name), ', ' ORDER BY ordinal_position)
+    INTO cols
+    FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'vendor_profiles';
+  IF cols IS NULL THEN
+    RAISE EXCEPTION 'refusing to apply: computed vendor_profiles_self projection is empty';
+  END IF;
+  IF position('find_locked_at' IN cols) = 0 OR position('is_findable' IN cols) = 0
+     OR position('gallery_video_titles' IN cols) = 0
+     OR position('papers_lapsed_at' IN cols) = 0 OR position('papers_current' IN cols) = 0
+     OR position('paused_at' IN cols) = 0 OR position('paused_by' IN cols) = 0
+     OR position('booking_min_days' IN cols) = 0 OR position('booking_max_months' IN cols) = 0 THEN
+    RAISE EXCEPTION 'ANTI-VACUITY FAILED: vendor_profiles_self would not carry the find-lock, video-title, papers, pause or booking-window columns';
+  END IF;
+  EXECUTE format($v$
+    CREATE VIEW public.vendor_profiles_self
+      WITH (security_invoker = false) AS
+      SELECT %s
+        FROM public.vendor_profiles vp
+       WHERE vp.user_id = auth.uid()
+          OR vp.vendor_profile_id IN (SELECT public.current_vendor_ids('viewer'))
+  $v$, cols);
+END $$;
+
+ALTER VIEW public.vendor_profiles_self OWNER TO postgres;
+REVOKE ALL ON public.vendor_profiles_self FROM PUBLIC;
+REVOKE ALL ON public.vendor_profiles_self FROM anon;
+REVOKE ALL ON public.vendor_profiles_self FROM authenticated;
+GRANT SELECT ON public.vendor_profiles_self TO authenticated, service_role;
+
+COMMENT ON VIEW public.vendor_profiles_self IS
+  'Definer view: the caller''s OWN shops (owner via user_id = auth.uid(), or a '
+  'team member via current_vendor_ids(''viewer'')), projecting every '
+  'vendor_profiles column INCLUDING the eleven tax/registration/owner-identity '
+  'columns that 20271217955839 revoked from `authenticated` at table level. '
+  'Predicate mirrors policies vendor_profiles_owner + vendor_profiles_member_read '
+  'exactly -- it widens nothing. SELECT ONLY: an auto-updatable definer view '
+  'would let a teammate write past vendor_profiles_owner. Admin and public '
+  'surfaces do NOT use this -- they read the table on the service-role client.';

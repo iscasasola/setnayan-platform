@@ -343,7 +343,7 @@ export function DaysSettings({
       {/* ── HOW FAR AWAY YOU TAKE BOOKINGS (drawing §5 "Finalized": above Your halls; every card) ── */}
       <div className="border-b border-ink/10" data-dates-fold="booking-window">
         {bookingWindow ? (
-          <BookingWindowRows minDays={bookingWindow.minDays} maxMonths={bookingWindow.maxMonths} action={actions.updatePoolCapacity} month={month} returnSeg={seg} />
+          <BookingWindowRows minDays={bookingWindow.minDays} maxMonths={bookingWindow.maxMonths} saveAction={actions.updatePoolCapacity} month={month} returnSeg={seg} />
         ) : (
           <DatesRow data="booking-window-unread" title="How far away you take bookings" line="Couldn’t load this setting — reload in a moment" />
         )}

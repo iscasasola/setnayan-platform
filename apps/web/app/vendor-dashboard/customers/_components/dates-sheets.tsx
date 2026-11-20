@@ -310,7 +310,7 @@ export function CalendarSheet({
 export function BookingWindowRows({
   minDays,
   maxMonths,
-  action,
+  saveAction,
   month,
   returnSeg,
 }: {
@@ -319,7 +319,7 @@ export function BookingWindowRows({
   /** The shop's At most, in months (36 when unset). */
   maxMonths: number;
   /** The shipped `updatePoolCapacity`. */
-  action: Action;
+  saveAction: Action;
   month: string;
   returnSeg?: string;
 }) {
@@ -332,7 +332,7 @@ export function BookingWindowRows({
   return (
     <StayForm
       door="supCalendar.updatePoolCapacity"
-      action={action}
+      action={saveAction}
       onRefused={() => {
         setMin(minDays);
         setMax(maxMonths);

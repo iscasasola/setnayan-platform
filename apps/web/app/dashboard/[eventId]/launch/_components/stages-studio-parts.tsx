@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, Minimize2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
@@ -11,7 +11,8 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { GuestsSeeSheet } from './guests-see-sheet';
-import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_GUESTS_SEE_EVENT, MAKER_OPEN_PAGES_EVENT, useMaker } from './maker-context';
+import { MakerPagesSheet, type MakerPagesAsk } from './maker-pages-sheet';
 import { MakerDesk } from './maker-desk';
 import { riseEditorIn, riseEditorOut } from '@/lib/maker-editor-rise';
 
@@ -85,7 +86,27 @@ export function StageSwitch({
     if (editor?.full) void riseEditorOut().then(() => onClose?.());
     else onClose?.();
   };
+  /* ⌨ Esc comes back too (20 Nov) — never from a field being typed in, and never while a sheet is up over it. */
+  useEffect(() => {
+    if (!editor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      close();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   const [list, setList] = useState(false);
+  /* ≡ PAGES (20 Nov) — asked by the toolbar's name ▾ and the resting bar's Pages; this pill, always mounted, draws it. */
+  const [pagesAsk, setPagesAsk] = useState<MakerPagesAsk | null>(null);
+  useEffect(() => {
+    const open = (e: Event) => setPagesAsk(((e as CustomEvent<MakerPagesAsk>).detail ?? null) as MakerPagesAsk | null);
+    window.addEventListener(MAKER_OPEN_PAGES_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_PAGES_EVENT, open);
+  }, []);
   /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, opened from the Hub's ⚙ Event Hub settings with an event; this
      pill — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
@@ -120,11 +141,22 @@ export function StageSwitch({
           <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-sn-elem motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
         </button>
       ) : (
-        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2">
-          <ActionButton tone="neutral" iconOnly icon={X} label={`Close ${editor.label}`} onClick={close} data-stage-editor-close="" className="shrink-0" />
-          <h1 data-stage-editor-title="" className="min-w-0 truncate text-[16px] font-semibold text-ink">
+        /* ⤢ FULL SCREEN HAS ✓ DONE ON TOP (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (2); the
+           drawing's `.lt-head`: the part's name, then Done). It was "✕ name" in place of the stage pill. Done, ⤡ Minimize
+           (at the foot, where ⤢ stood), Esc and Back all come back to the part, its toolbar up. */
+        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2 pl-1">
+          <h1 data-stage-editor-title="" className="min-w-0 flex-1 truncate text-[16px] font-semibold text-ink">
             {editor.label}
           </h1>
+          <ActionButton tone="brand" main icon={Check} label="Done" name={`Done with ${editor.label}`} onClick={close} data-stage-editor-close="" className="shrink-0" />
+          {editor.full && typeof document !== 'undefined'
+            ? createPortal(
+                <span data-stage-editor-minimize="" className="pointer-events-none fixed bottom-[calc(env(safe-area-inset-bottom)+12px+var(--maker-lift,0px))] right-3 z-[45] lg:hidden">
+                  <ActionButton tone="neutral" icon={Minimize2} label="Minimize" name={`Minimize ${editor.label}`} onClick={close} className="pointer-events-auto shadow-lg" />
+                </span>,
+                document.body,
+              )
+            : null}
         </span>
       )}
       {/* THE FIVE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}
@@ -138,6 +170,7 @@ export function StageSwitch({
         onRsvpScreen={() => {}}
       />
       {guestsSee && typeof document !== 'undefined' ? createPortal(<GuestsSeeSheet onClose={() => setGuestsSee(false)} />, document.body) : null}
+      {pagesAsk && typeof document !== 'undefined' ? createPortal(<MakerPagesSheet ask={pagesAsk} onClose={() => setPagesAsk(null)} />, document.body) : null}
     </>
   );
 }

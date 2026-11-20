@@ -51,6 +51,24 @@ export function StageStyle({ look, background, rows = false, frame = false }: { 
      toolbar's own, `stage-tools.tsx`, on `data-stage-style-rows`). The bodies that are not the work area's (the
      Reveal, the Camera, the reply pages) keep their own pane. */
   if (rows && on === 'look') {
+    /* 🧰 BACKGROUND IS A ROW OF STYLE (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1): *"Background
+       joins Style"*; the drawing's Style is one list). The look comes first, its four rows as they were; the background
+       follows under its own heading, one scroll down — the same `StageBackground` rows, never a second copy. */
+    if (background) {
+      return (
+        <div className="h-full min-h-0 snap-y snap-proximity overflow-y-auto overscroll-contain [scrollbar-width:none]" data-stage-style-scroll="">
+          <div className={`${SP_STYLE_PANE} h-full snap-start`} data-stage-style={on} data-stage-style-rows="">
+            {look}
+          </div>
+          <section aria-label="Background" className="h-full snap-start" data-stage-style-bg="">
+            <p className="px-[12px] pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--sp-mute)]">Background</p>
+            <div className={`${SP_ROWS} h-[calc(100%-28px)] px-[10px]`} data-stage-bg-rows="">
+              {background}
+            </div>
+          </section>
+        </div>
+      );
+    }
     return (
       <div className={SP_STYLE_PANE} data-stage-style={on} data-stage-style-rows="">
         {look}

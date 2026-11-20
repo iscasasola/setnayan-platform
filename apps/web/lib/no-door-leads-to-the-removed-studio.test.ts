@@ -71,7 +71,8 @@ test('(1) the bar is one stage pill — no Studio half, no Studio pages, nothing
   const head = renderToStaticMarkup(
     React.createElement(StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: 'mood', label: 'Dress code', full: true }, onClose: () => {} }),
   );
-  assert.match(head, /<button(?=[^>]*aria-label="Close Dress code")(?=[^>]*data-stage-editor-close="")/, 'a risen editor has no ✕ that names it');
+  /* ✓ Done (20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (3)): the risen editor's way back names it. */
+  assert.match(head, /<button(?=[^>]*aria-label="Done with Dress code")(?=[^>]*data-stage-editor-close="")/, 'a risen editor has no ✓ Done that names it');
   assert.match(head, /data-stage-editor-title=""[^>]*>Dress code<\/h1>/);
   assert.doesNotMatch(head, /Studio|data-stage-pill=""/, 'a risen editor’s bar says Studio, or keeps the pill');
   // The pill is drawn first in the bar, by the shell, on every width (the Prints page names itself instead).
@@ -136,12 +137,13 @@ test('(4) the scenes are the doors — the ring, Dress code and Love Story rise 
   }
   assert.ok(doors > 10, 'anti-vacuity: no doors read');
   assert.equal(makerSceneDoorWords('Logo'), 'Open Logo');
-  // The canvas tap rises the editor (not only the door row): wired in the page-tap branch, before any other tool is asked.
+  /* 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (2)): the page tap no longer
+     rises an editor — the toolbar comes up on the part, and ⤢ Expand (or the part's door row) rises it. */
   const tools = stripComments(read(`${L}/stage-tools.tsx`));
   const tap = tools.slice(tools.indexOf("if (d.t === 'edit' && typeof d.key === 'string') {"), tools.indexOf("} else if (d.t === 'type' && d.phase === 'start') {"));
-  assert.ok(tap.length > 500, 'anti-vacuity: the page tap was not found');
-  assert.match(tap, /const rises = rsvpOpenRef\.current \? null : makerPartRisesEditor\(k\);\s*if \(rises\) \{\s*setSlotAsk\(null\);\s*riseRef\.current\(k, rises\);\s*return;\s*\}/);
-  assert.ok(tap.indexOf('riseRef.current(k, rises)') < tap.indexOf('askTool(toolFor(k), k)'), 'the tool is asked before the editor rises');
+  assert.ok(tap.length > 300, 'anti-vacuity: the page tap was not found');
+  assert.doesNotMatch(tap, /makerPartRisesEditor|riseRef\.current/, 'a tap rises an editor again');
+  assert.match(tools, /const expand = \(\) => \{[\s\S]{0,200}riseRef\.current\(picked, expandTile\)/, '⤢ Expand does not rise the part’s editor');
 });
 
 test('(5) Prints is a row of the Hub’s ⚙ — it opens the shipped Prints page', () => {

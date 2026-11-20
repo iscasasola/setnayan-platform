@@ -27,7 +27,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, MAKER_PART_TOOLS, MAKER_PART_TOOL_LABEL, makerPartToolWhy, makerPartToolWorks, makerWorkTool, type MakerPartKey } from './maker-parts';
+import { MAKER_PARTS, MAKER_PARTS_NO_LOOK, MAKER_PART_TOOLS, MAKER_PART_TOOL_LABEL, makerPartToolWhy, makerPartToolWorks, makerWorkTool, type MakerPartKey, MAKER_PART_TABS, MAKER_PART_TAB_LABEL, MAKER_PRO_TAB } from './maker-parts';
 import {
   SP_ROWS,
   STAGE_BAR_BAND_PX,
@@ -59,21 +59,23 @@ const has = (classes: string, c: string) => classes.split(' ').includes(c);
 
 test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, never under 10 px below the last row', () => {
   /* The owner's own sum, on an iPhone (812 tall, a 34-px home indicator). */
-  assert.equal(STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + STAGE_BAR_BAND_PX, 14 + 20 + 52);
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR"): the 20 px editing line became the toolbar's 44 px HEAD
+     (‹ · name ▾ · › · ⓘ · ✕ — every one a 44 px target), so the toolbar is 24 px taller: 354 on a tall phone. */
+  assert.equal(STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + STAGE_BAR_BAND_PX, 14 + 44 + 52);
   assert.deepEqual(stageBarRow(812), { row: 48, gap: 6 });
   assert.equal(stageBarGridPx(812), 210);
-  assert.equal(stageBarPx(812, 34), 330, '"330 px it is"');
+  assert.equal(stageBarPx(812, 34), 354, '330 px + the 24 px the head added');
   /* A short phone: 44-px rows, 4-px gaps — and the spec's "≈ 284 px". */
   assert.deepEqual(stageBarRow(667), { row: 44, gap: 4 });
   assert.equal(stageBarGridPx(667), 188);
-  assert.equal(stageBarPx(667, 0), 284);
+  assert.equal(stageBarPx(667, 0), 308);
   /* Either side of the line, and on it. */
   assert.deepEqual(stageBarRow(STAGE_BAR_SHORT_PX - 1), { row: 44, gap: 4 });
   assert.deepEqual(stageBarRow(STAGE_BAR_SHORT_PX), { row: 48, gap: 6 });
   /* The room under the last row is the phone's own, and never under 10. */
   for (const h of [568, 667, 739, 740, 812, 844, 932]) {
     for (const safe of [0, 8, 10, 21, 34]) {
-      const foot = stageBarPx(h, safe) - (14 + 20 + 52) - stageBarGridPx(h);
+      const foot = stageBarPx(h, safe) - (14 + 44 + 52) - stageBarGridPx(h);
       assert.equal(foot, Math.max(10, safe), `${h} tall, ${safe} safe: ${foot}px under the last row`);
     }
     /* The page keeps more than half the screen at every height. */
@@ -95,14 +97,15 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
 
   /* The frame's own pieces are the heights the sum names. */
   assert.ok(has(STAGE_BAR_HANDLE, 'h-[14px]'));
-  assert.ok(has(STAGE_BAR_LINE, 'h-5') && has(STAGE_BAR_LINE, 'truncate'), 'the editing line is 20 px, one line, cut');
+  assert.match(read(`${L}/stage-tools.tsx`), /data-stage-head="" hidden=\{resting\} className="relative flex h-11 /, 'the head is not one 44 px row');
   assert.ok(has(STAGE_ROW, 'h-[52px]'));
 
   /* …and the toolbar reports that height, the same picked or not: one call, no drag, no fold, no remembered share. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /onPx\(stageBarPx\(window\.innerHeight, safe\) - safe\);/, 'the toolbar is not told its one height');
   /* (+1 since 2026-10-30: stowed, it keeps only its head — `STAGE_BAR_STOW_PX`, `the-toolbar-shows-and-hides.test.ts`.) */
-  assert.equal((tools.match(/onPx\(/g) ?? []).length, 4, 'the height is said somewhere else too (away · stowed · the one height · unmount)');
+  /* (+1 on 20 Nov 2026: resting, it is only the resting bar — `STAGE_REST_PX`.) */
+  assert.equal((tools.match(/onPx\(/g) ?? []).length, 5, 'the height is said somewhere else too (away · resting · stowed · the one height · unmount)');
   assert.doesNotMatch(tools, /localStorage|MAKER_LT_SIZE_KEY|setPointerCapture|data-stage-folded|data-stage-grab/, 'the toolbar is dragged, folded or remembers a size again');
   /* The toolbar's own top line takes NO room (an inset shadow that follows the curve, never a border): a border's
      1 px pushed Edit's rows 1 px below the work area's (measured on the lab, 2026-10-09: 593 vs 592). */
@@ -112,19 +115,24 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   /* The work area's tool lies over exactly the four rows, on the room kept under the last one. */
   /* (+ the nav's lift since 2026-10-31: placed from the SCREEN's foot, the rows stood on the app's bottom nav —
      `the-hub-is-left-by-the-apps-nav.test.ts` 4.) */
-  assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:calc\(\$\{STAGE_BAR_FOOT_CSS\} \+ var\(--maker-lift,0px\)\)!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
+  assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:calc\(\$\{STAGE_BAR_FOOT_CSS\} \+ \$\{STAGE_BAR_BAND_PX\}px \+ var\(--maker-lift,0px\)\)!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
 });
 
-test('(2) four tools — Edit | Style | Background | Animate — words only, each as wide as its word', () => {
+test('(2) three tabs — Edit | Style | Animate ◆ — words only, each as wide as its word', () => {
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1)): Background joins Style. The work area still knows
+     four tools (`MAKER_PART_TOOLS` — 'bg' is Style's background rows); the toolbar draws THREE tabs. */
   assert.deepEqual([...MAKER_PART_TOOLS], ['edit', 'style', 'bg', 'animate']);
   assert.deepEqual(MAKER_PART_TOOLS.map((t) => MAKER_PART_TOOL_LABEL[t]), ['Edit', 'Style', 'Background', 'Animate']);
+  assert.deepEqual(MAKER_PART_TABS.map((t) => MAKER_PART_TAB_LABEL[t]), ['Edit', 'Style', 'Animate']);
 
   const tools = read(`${L}/stage-tools.tsx`);
   const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
   assert.ok(group.length > 300, 'anti-vacuity: the selector was not found');
   /* One button a tool, from the list — and what it draws is the tool's WORD, nothing else. */
-  assert.match(group, /\{MAKER_PART_TOOLS\.map\(\(t\) => \(\s*<button/);
-  assert.match(group, /className=\{STAGE_TOOL_BUTTON\}\s*>\s*\{MAKER_PART_TOOL_LABEL\[t\]\}\s*<\/button>/, 'a tool is not drawn as its word');
+  assert.match(group, /\{MAKER_PART_TABS\.map\(\(t\) => \(\s*<button/);
+  assert.match(group, /className=\{STAGE_TOOL_BUTTON\}\s*>\s*\{MAKER_PART_TAB_LABEL\[t\]\}/, 'a tab is not drawn as its word');
+  /* ◆ marks the full Event Hub's tab — a mark, never a padlock (BUILD_RULES: ◆ never blocks). */
+  assert.match(group, /t === MAKER_PRO_TAB \? \(\s*<span[^>]*data-stage-pro-tab=""[^>]*>\s*◆\s*<\/span>/);
   assert.doesNotMatch(group, /<svg|<[A-Z][A-Za-z]+ aria-hidden|strokeWidth/, 'a tool wears an icon again');
   assert.match(group, /<PillThumb \/>/, 'the thumb does not slide');
   assert.match(group, /data-seg-inset=\{STAGE_TOOL_INSET\}/);
@@ -307,16 +315,16 @@ test('(5) what left the toolbar: the stage ▾, "Tap a part of the page", the pa
   const tools = read(`${L}/stage-tools.tsx`);
   assert.doesNotMatch(tools, /<StageItemMenu/, 'the stage ▾ is back in the toolbar — "means we can remove this"');
   assert.doesNotMatch(tools, /Tap a part of the page|data-stage-nosel|data-stage-strip|data-stage-part=/, 'the hint or the part tiles are back — "these are not the tools"');
-  /* The order, top to bottom: the handle, the editing line, the selector, the four rows. */
-  const order = ['data-stage-handle=""', 'data-stage-caption=""', 'data-stage-row=""', 'data-stage-rows=""'].map((m) => tools.indexOf(m));
+  /* The order, top to bottom (the approved drawing, 20 Nov 2026): the handle, the head, the four rows, the foot (the tabs). */
+  const order = ['data-stage-handle=""', 'data-stage-caption=""', 'data-stage-rows=""', 'data-stage-row=""'].map((m) => tools.indexOf(m));
   assert.ok(order.every((i) => i > 0), 'a piece of the frame is missing');
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the frame is out of order — the handle is "above your editing"');
   /* The handle is drawn, never pressed. */
   const handle = tools.slice(order[0]! - 80, order[1]!);
   assert.match(handle, /<div aria-hidden data-stage-handle=""/);
   assert.doesNotMatch(handle, /<button|onPointer|onClick/);
-  /* "You're editing · Stage › Page › Part" — the part named once one is picked (how the line is shortened: (7)). */
-  assert.match(tools, /pageLabel && pages\.length > 1 \? pageLabel : null, picked \? makerPartLabelOn\(stageKey, picked\) : null\]\.filter\(/);
+  /* The head names the picked part, its page small after it where the stage has pages ((7)). */
+  assert.match(tools, /const headPage = pages\.length > 1 \? pageLabel : null;/);
   /* The guests' bar is still a bar under the page — its tabs only, where the stage has pages. */
   const bar = tools.slice(tools.indexOf('data-stage-guest-bar=""'), tools.indexOf('</nav>'));
   assert.ok(bar.length > 400, 'anti-vacuity: the guests’ bar was not found');
@@ -356,61 +364,22 @@ test('(6) mounted in one place — the Stages side of the one Maker (2026-10-25)
   assert.match(css, /'@media \(max-width:1023\.98px\)\{' \+/);
 });
 
-test('(7) the editing line is shortened from the FRONT — the part’s name is never the piece that is cut', async () => {
-  const { stageEditingLine, STAGE_BAR_LINE_LEAD, STAGE_BAR_LINE_ABOUT } = await import('./maker-stage-room');
-  const { MAKER_STAGE_PAGES } = await import('./maker-parts');
-  /* The worked example: 375 px cut this to "… › WELCOME › N…". */
-  const pieces = ['Invitation', 'Welcome', 'Event title'];
-  assert.deepEqual(stageEditingLine(pieces, 0), { lead: true, words: 'Invitation › Welcome › Event title' });
-  assert.deepEqual(stageEditingLine(pieces, 1), { lead: false, words: 'Invitation › Welcome › Event title' }, '"You’re editing ·" is not the first thing dropped');
-  assert.deepEqual(stageEditingLine(pieces, 2), { lead: false, words: 'Welcome › Event title' }, 'the stage is not dropped before the page');
-  assert.deepEqual(stageEditingLine(pieces, 3), { lead: false, words: 'Event title' });
-  /* Past the last level nothing more is dropped — the last piece is never lost. */
-  assert.deepEqual(stageEditingLine(pieces, 9), { lead: false, words: 'Event title' });
-  assert.deepEqual(stageEditingLine(['Save the Date', 'Event title'], 2), { lead: false, words: 'Event title' });
-  assert.deepEqual(stageEditingLine(['Post Event'], 1), { lead: false, words: 'Post Event' });
-  assert.equal(STAGE_BAR_LINE_LEAD, 'You’re editing');
-
-  /* EVERY part, on every page that lists it, at EVERY level: the line ends with the part's whole name, and each
-     level is no longer than the one before. */
-  let asked = 0;
-  for (const [stage, byPage] of Object.entries(MAKER_STAGE_PAGES)) {
-    for (const [page, keys] of Object.entries(byPage)) {
-      for (const k of keys) {
-        const name = MAKER_PARTS[k].label;
-        const trail = [stage, page, name];
-        let before = Infinity;
-        for (let level = 0; level <= trail.length + 1; level++) {
-          const { lead, words } = stageEditingLine(trail, level);
-          assert.ok(words === name || words.endsWith(` › ${name}`), `${stage}/${page}/${k} at level ${level}: “${words}” does not end with the whole name`);
-          const length = (lead ? STAGE_BAR_LINE_LEAD.length + 3 : 0) + words.length;
-          assert.ok(length <= before, `${k}: level ${level} is longer than the level before`);
-          before = length;
-          asked += 1;
-        }
-      }
-    }
-  }
-  assert.ok(asked >= 200, `anti-vacuity: only ${asked} lines`);
-
-  /* THE TOOLBAR STEPS DOWN WHILE THE LINE DOES NOT FIT — measured before the paint, never past the last piece. */
+test('(7) the head names the part whole: ‹ · name · page ▾ · › · ⓘ · ✕ — the name cut at its end, never under ⓘ or ✕', async () => {
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR"; drawing `.lt-head`): the "You're editing" line (cut
+     from the front, 2026-10-09) became the toolbar's head. */
+  const { STAGE_HEAD_NAME, STAGE_BAR_LINE_LEAD } = await import('./maker-stage-room');
   const tools = read(`${L}/stage-tools.tsx`);
-  assert.match(tools, /if \(el && el\.scrollWidth > el\.clientWidth \+ 0\.5 && lineLevel < linePieces\.length\) setLineAt\(\(l\) => \(\{ key: lineKey, level: lineLevel \+ 1, n: l\.n \}\)\);\s*\}, \[lineKey, lineLevel, linePieces\.length, lineAt\.n\]\);/);
-  /* …and again from the whole line at another width. */
-  assert.match(tools, /const again = \(\) => setLineAt\(\(l\) => \(\{ key: l\.key, level: 0, n: l\.n \+ 1 \}\)\);\s*window\.addEventListener\('resize', again\);/);
-  assert.match(tools, /const line = stageEditingLine\(linePieces, lineLevel\);/);
-  /* The pieces are stage, page, part — in that order, the part last. */
-  assert.match(tools, /const linePieces = \[makerStageLabel\(stageKey as never\), pageLabel && pages\.length > 1 \? pageLabel : null, picked \? makerPartLabelOn\(stageKey, picked\) : null\]\.filter\(/);
-  /* A new part (or another ⓘ) starts from the whole line again. */
-  assert.match(tools, /const lineLevel = lineAt\.key === lineKey \? lineAt\.level : 0;/);
-  /* What is drawn is the level's words; the WHOLE path is what a screen reader hears. */
-  const at = tools.indexOf('<p ref={lineRef} data-stage-caption=""');
-  const p = tools.slice(at, tools.indexOf('</p>', at));
-  assert.ok(at > 0 && p.length > 200, 'anti-vacuity: the line was not found');
-  assert.match(p, /<span className="sr-only">\s*\{STAGE_BAR_LINE_LEAD\} · \{linePieces\.join\(' › '\)\}\s*<\/span>/, 'the whole path is not said to a screen reader');
-  assert.match(p, /<span aria-hidden>\s*\{line\.lead \? `\$\{STAGE_BAR_LINE_LEAD\} · ` : ''\}\s*<b [^>]*>\{line\.words\}<\/b>\s*<\/span>/);
-  /* No second row, no smaller type: one line of the template's size, with the room the ⓘ needs only when there is one. */
-  assert.ok(has(STAGE_BAR_LINE, 'h-5') && has(STAGE_BAR_LINE, 'truncate') && has(STAGE_BAR_LINE, 'text-[9.5px]') && has(STAGE_BAR_LINE, 'px-2'));
-  assert.equal(STAGE_BAR_LINE_ABOUT, '!px-11');
-  assert.match(p, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
+  const at = tools.indexOf('data-stage-head=""');
+  const head = tools.slice(at, tools.indexOf('data-stage-close=""', at) + 200);
+  assert.ok(at > 0 && head.length > 800, 'anti-vacuity: the head was not found');
+  const order = ['data-stage-step="prev"', 'data-stage-name=""', 'data-stage-step="next"', '<StageAbout />', 'data-stage-close=""'].map((m) => head.indexOf(m));
+  assert.ok(order.every((i) => i > 0), 'a piece of the head is missing');
+  assert.deepEqual([...order].sort((a, b) => a - b), order, 'the head is out of order — ‹ · name ▾ · › · ⓘ · ✕');
+  /* The name is one 44 px button that opens Pages; its words are cut at their end inside it. */
+  assert.match(head, /data-stage-name=""[\s\S]{0,200}onClick=\{openPages\}\s*className=\{STAGE_HEAD_NAME\}/);
+  assert.ok(has(STAGE_HEAD_NAME, 'h-11') && has(STAGE_HEAD_NAME, 'min-w-0') && has(STAGE_HEAD_NAME, 'flex-1'));
+  assert.match(head, /<span className="min-w-0 truncate">\s*\{headName\}/);
+  /* The WHOLE path is still what a screen reader hears. */
+  assert.match(head, /<span className="sr-only">\s*\{STAGE_BAR_LINE_LEAD\} · \{linePieces\.join\(' › '\)\}\s*<\/span>/);
+  assert.equal(STAGE_BAR_LINE_LEAD, 'You’re editing');
 });

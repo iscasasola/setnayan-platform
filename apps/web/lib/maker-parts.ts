@@ -77,6 +77,38 @@ export type MakerPartTool = (typeof MAKER_PART_TOOLS)[number];
 export const MAKER_PART_TOOL_LABEL: Record<MakerPartTool, string> = { edit: 'Edit', style: 'Style', bg: 'Background', animate: 'Animate' };
 
 /**
+ * 🧰 ONE TOOLBAR, THREE TABS — Edit · Style · Animate ◆ (owner 20 Nov 2026, *"Yes, build it"* on
+ * `prototypes/maker_one_toolbar_expand_2026-11-20_fable.html`; DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN,
+ * APPROVED" (1)). Background is a row inside Style now, so the four tools are three TABS; `bg` stays a tool of the work
+ * area (the scene's Background body), shown under the Style tab. ◆ marks the Pro tab: a Free couple can try it, and
+ * ✓ Apply lists it. Held by `lib/the-toolbar-is-three-tabs.test.ts`.
+ */
+export const MAKER_PART_TABS = ['edit', 'style', 'animate'] as const;
+export type MakerPartTab = (typeof MAKER_PART_TABS)[number];
+export const MAKER_PART_TAB_LABEL: Record<MakerPartTab, string> = { edit: 'Edit', style: 'Style', animate: 'Animate' };
+/** ◆ The tab whose every choice is the full Event Hub's (Event Plus and up). Never a padlock: it is tried, and asked at ✓ Apply. */
+export const MAKER_PRO_TAB: MakerPartTab = 'animate';
+/** The tab a tool's body sits under: Background is Style's. */
+export function makerTabOf(tool: MakerPartTool): MakerPartTab {
+  return tool === 'bg' ? 'style' : tool;
+}
+
+/**
+ * ⤢ EXPAND — ONLY WHERE THE WORK NEEDS ROOM (DECISION_LOG 20 Nov "ONE TOOLBAR" (2) + "MAKER EDIT ROWS RUN BY IMPORTANCE"
+ * (2)): Logo, Love Story, Schedule, Wedding March, E-Gifts and Memories. A tap ALWAYS selects; ⤢ on the toolbar is the
+ * one door to full screen, and ⤡ Minimize, ✓ Done, Esc and Back come back. Dress code has NO ⤢ (its colours keep their
+ * one home, Event › Mood Board). Held by `lib/the-toolbar-is-three-tabs.test.ts`.
+ *
+ * ⏳ Wedding March and Memories are in the drawing's list but have NO full-screen editor in the Maker yet (the March list
+ * opens in Guests › March; nothing edits the Memories grid in place), so they get ⤢ when that editor exists — a ⤢ that
+ * opens nothing is a dead button (BUILD_RULES "Every capability has one reachable place"). Listed in PR #8072's STATUS.
+ */
+export const MAKER_PART_EXPANDS: readonly MakerPartKey[] = ['logo', 'story', 'schedule', 'gifts'];
+export function makerPartExpands(key: MakerPartKey | null): boolean {
+  return key !== null && MAKER_PART_EXPANDS.includes(key) && makerPartRisesEditor(key) !== null;
+}
+
+/**
  * What the WORK AREA is asked for a tool (`MAKER_STAGE_TOOL_EVENT`, `editor-shell.tsx` `onTool`): Animate is the
  * part's own motion; Edit, Style and Background are all read off the scene's Format (`StageStyle` shows the one the
  * toolbar is on — `stage-panel/store.ts` `useStageTool`). The work area's vocabulary is unchanged.

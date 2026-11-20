@@ -149,7 +149,10 @@ test('the rendered toolbar is EXACTLY ‹ · Stage ▾ · 👁 Preview · ✓ Ap
   /* 👁 Preview is in the DOM between the stage and Apply — hidden on a phone (`max-lg:hidden`), a desktop's word. */
   assert.deepEqual(toolsOf(html), ['leave', 'side', 'preview', 'apply', 'settings'], 'a control joined or left the top level of the Maker');
   const header = headerOf(html);
-  assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'Preview shows on a phone');
+  assert.match(header, /<span class="contents max-lg:hidden"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the desktop’s Preview menu shows on a phone');
+  /* 👁 …and a phone has its OWN eye (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (5): ‹ · Stage ▾ ·
+     👁 · ✓ · ⚙ — it replaced holding ▶). One eye per width, never two on one screen. */
+  assert.match(header, /<button[^>]*aria-label="Preview as a guest"[^>]*data-maker-preview-phone=""[^>]*class="[^"]*lg:hidden/, 'a phone has no 👁 on its top bar');
   // The old bar is gone: no Page ▾, no Event Details door, no Look chip.
   assert.doesNotMatch(header, /data-maker-page-menu|data-maker-tool="(page|details|look)"/, 'the old Maker’s bar is back');
   assert.doesNotMatch(header, new RegExp(`>${MAKER_DETAILS_LABEL}<`), 'the Event Details door is back on the bar');

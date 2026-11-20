@@ -36,7 +36,7 @@ import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
 import { canvasWriteKey } from './maker-draft-store';
-import { SP_KEY_BAR, STAGE_BAR_ABOUT, STAGE_BAR_LINE_ABOUT } from './maker-stage-room';
+import { SP_KEY_BAR, STAGE_BAR_ABOUT } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 
 /* The panel's pieces are compiled with the classic JSX runtime under `tsx` — they read `React` off the scope. */
@@ -308,16 +308,16 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
   /* Where it is: once, straight after the line, over the handle and the line — never on the selector's band. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.equal((tools.match(/<StageAbout \/>/g) ?? []).length, 1);
-  assert.match(tools, /<p ref=\{lineRef\} data-stage-caption=""[\s\S]{0,520}<\/p>\s*(?:\{\s*\}\s*)?<StageAbout \/>/);
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR"): the line became the toolbar's HEAD — ‹ · name ▾ · › ·
+     ⓘ · ✕ — and the ⓘ stands in it, right before ✕. */
+  assert.match(tools, /data-stage-head=""[\s\S]{0,2600}<StageAbout \/>\s*<\/span>\s*<button[^>]*data-stage-close=""/);
   const cls = STAGE_BAR_ABOUT.split(' ');
   assert.ok(cls.includes('absolute') && cls.includes('top-0') && cls.includes('right-0.5'));
   assert.ok(cls.includes('h-[38px]') && 38 <= 14 + 20 + 4, 'the ⓘ reaches the selector (14 handle + 20 line + the band’s 4 px)');
   assert.ok(cls.includes('w-11'), 'the ⓘ is under 44 px wide');
-  /* The line keeps clear of it on both sides when there is one, so its words stay centred and never run under it
-     (`lib/the-toolbar-is-four-rows.test.ts` (7) holds how the line is then shortened). */
-  assert.equal(STAGE_BAR_LINE_ABOUT, '!px-11');
-  assert.match(tools, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
-  assert.match(tools, /const hasAbout = Boolean\(useStagePanelNow\(\)\.about\);/);
+  /* 🧰 The head (20 Nov 2026) gives the ⓘ its own 44 px cell, so the name never runs under it — it is cut at its end
+     inside the space left (`min-w-0 truncate`), never drawn over the ⓘ or ✕. */
+  assert.match(tools, /data-stage-name=""[\s\S]{0,400}<span className="min-w-0 truncate">/);
   /* The sentences are still worked out from the part (the fixed scene's own line and source; a reply page's). */
   /* 🔁 RE-AIMED 2026-10-09: the same call now also tells the panel which LINE of the part is picked on the RSVP
      stage (`line: rsvpLine`, `the-rsvp-stage-is-parts.test.ts` §8). The claim here is unchanged: `about` is handed on. */

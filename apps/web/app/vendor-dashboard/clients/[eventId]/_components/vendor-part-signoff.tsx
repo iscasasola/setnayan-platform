@@ -39,8 +39,11 @@ export function VendorPartSignoff({
   agreeAction,
   declineAction,
   answerReopenAction,
+  unread = false,
 }: {
   rows: readonly VendorSignoffRow[];
+  /** C-6 (supplier audit 2026-11-17): the sign-off read was REFUSED — said, never drawn as "nothing to answer". */
+  unread?: boolean;
   agreeAction: (finalizationId: string) => Promise<Result>;
   declineAction: (finalizationId: string, reason: string) => Promise<Result>;
   answerReopenAction: (
@@ -59,6 +62,13 @@ export function VendorPartSignoff({
   const reopens = rows.filter((r) => r.state === 'agreed' && r.reopenState === 'pending');
   const settled = rows.filter((r) => r.state === 'agreed' && r.reopenState !== 'pending');
 
+  if (unread && rows.length === 0) {
+    return (
+      <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-signoff-unread="">
+        Couldn&rsquo;t load the couple&rsquo;s sign-off asks. Refresh in a moment — one may be waiting on you.
+      </p>
+    );
+  }
   if (rows.length === 0) return null;
 
   function run(id: string, fn: () => Promise<Result>) {

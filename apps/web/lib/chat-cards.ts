@@ -473,6 +473,14 @@ export const NEGOTIATE_PLAN_PRESETS: readonly { key: string; percent: number; la
   { key: 'full', percent: 100, label: 'Full when they book' },
 ];
 
+/** A preset as the schedule resolver's own draft — ONE spelling, read by the plan proposal and the chat's quote receipt. */
+export function negotiatePresetDraft(p: { percent: number }): { manual: InstallmentDraft[]; autoBalance: AutoBalanceMeta } {
+  return {
+    manual: [{ label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 }],
+    autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 7 },
+  };
+}
+
 export function planProposalOptions(input: {
   totalCentavos: number;
   creditCentavos: number;
@@ -482,8 +490,7 @@ export function planProposalOptions(input: {
   const base = Math.max(0, Math.round(input.totalCentavos)) + Math.max(0, Math.round(input.creditCentavos));
   return NEGOTIATE_PLAN_PRESETS.map((p) => {
     const resolved = resolveSchedule({
-      manual: [{ label: p.percent === 100 ? 'Full payment' : 'First payment', kind: 'percent', amountPhp: null, percent: p.percent, due: 'on_lock', offsetDays: 0 }],
-      autoBalance: { label: 'Final balance', due: 'before_event', offsetDays: 7 },
+      ...negotiatePresetDraft(p),
       baseCentavos: base,
       creditCentavos: Math.max(0, Math.round(input.creditCentavos)),
     });

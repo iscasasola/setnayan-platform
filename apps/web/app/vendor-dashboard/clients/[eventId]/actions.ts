@@ -1535,10 +1535,11 @@ export async function vendorAgreeToLock(formData: FormData) {
     }
   }
 
-  // 📊 RENTED BY THE PIECE (Availability plan step 4; owner Q2, 19 Nov: the COUPLE picks how many when they ask, and
-  // the supplier may change it here). A number typed at the yes replaces the couple's — written FIRST, all or nothing,
-  // by the one definer (`set_booked_quantity`), which refuses when the card's own "How many do you have" or a schedule
-  // would go past its number that day. Left blank, the couple's number stands. The yes itself (`vendor_agree_to_lock`)
+  // 📊 RENTED BY THE PIECE (Availability plan step 4; owner Q2, 20 Nov: "No, keep the ruling — remove the picker" — a
+  // couple's ask carries no number, the SUPPLIER says how many they can give here). The number typed at the yes is
+  // written FIRST, all or nothing, by the one definer (`set_booked_quantity`), which refuses when the card's own "How
+  // many do you have" or a schedule would go past its number that day. Left blank, a number already on the booking
+  // stands (none, usually). The yes itself (`vendor_agree_to_lock`)
   // then counts the booking's own pieces under one lock per shop, and refuses a piece booking with no number
   // (`pieces_needed`) — never one piece by default.
   {
@@ -1553,7 +1554,7 @@ export async function vendorAgreeToLock(formData: FormData) {
       });
       const set = (setRaw ?? {}) as { status?: string };
       // 🔒 ANY answer but `ok` STOPS the yes — a failed or refused write must never fall through to
-      // `vendor_agree_to_lock`, which would agree the booking on the couple's number instead of the supplier's.
+      // `vendor_agree_to_lock`, which would agree the booking on a number the supplier did not give.
       if (setErr) {
         console.error(`[vendorAgreeToLock] pieces write failed for vendor_id=${eventVendorId}:`, setErr.message);
         redirect(`${backTo}?lock_agree=error`);

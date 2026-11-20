@@ -720,6 +720,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who pressed “Release to Drive”. The job row is about the EVENT — file counters and a status — not about a person.',
   },
   {
+    table: 'service_included_templates',
+    column: 'updated_by',
+    why: 'Which admin last saved one of Setnayan’s starting "What’s included" lists (Quick Forms, migration 20271351904391). Platform content; the list stays, the clerk goes.',
+  },
+  {
     table: 'form_templates',
     column: 'updated_by',
     why: 'Which admin last saved a "Suggested for your service" form template. Platform content; the template stays, the clerk goes.',
@@ -1032,6 +1037,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'admin_focus_put_offs',
     column: 'user_id',
     why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
+  },
+  {
+    table: 'event_today_put_offs',
+    column: 'user_id',
+    why: '⏭ CASCADE + NOT NULL — one person\u2019s own "Do it tomorrow" on an event\u2019s Today (Event Today, Focus shape, migration 20271356173915). It is about that person\u2019s day and nobody else reads it; it goes with them, and the task stays on every other host\u2019s Today.',
   },
   {
     table: 'chat_poll_votes',

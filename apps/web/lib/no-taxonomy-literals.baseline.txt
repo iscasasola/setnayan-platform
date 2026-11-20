@@ -67,6 +67,7 @@ lib/event-type-profile.ts	list	1	# UNREVIEWED · found when the guard landed (20
 lib/ghost-booths.ts	import	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/ghost-booths.ts	list	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
 lib/inspiration-parts.ts	list	12	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables
+lib/mall-card.ts	compare	1	# 2026-11-20 · card 14: crew meals are priced per MEAL for the supplier's crew, so the guest count never totals them — the same carve-out as lib/canvas-form-snapshot.ts
 lib/marketplace-category-options.ts	import	3	# MOVED 2026-11-12 from explore/page.tsx, unchanged · the TAXONOMY_OPTIONS autocomplete (/explore + Discover's "All categories ▾"). Exit: build it from getTaxonomy()
 lib/marketplace-category-options.ts	list	1	# MOVED 2026-11-12 from explore/page.tsx, unchanged · the TAXONOMY_OPTIONS autocomplete (/explore + Discover's "All categories ▾"). Exit: build it from getTaxonomy()
 lib/mood-board-derive.ts	compare	1	# UNREVIEWED · found when the guard landed (2026-11-09). Exit: read getTaxonomy() / the taxonomy tables

@@ -5,6 +5,9 @@ import { getQueryClient } from '@/lib/query-client';
 import { eventBundleQueryKeys, type EventBundle } from '@/lib/event-bundle-keys';
 import { useSaveLoader } from '@/components/sd-loader';
 import { HomeTodayItem } from '@/app/dashboard/[eventId]/_components/home-parts';
+import { ActionButton } from '@/components/action-button';
+import { Smartphone } from 'lucide-react';
+import { isInPrepWindow } from '@/lib/event-day-prep-window';
 import {
   prepareForEventDay,
   type PrepareForEventDayResult,
@@ -45,25 +48,15 @@ type Props = {
   finished?: boolean;
   /** Override "now" for tests. */
   now?: Date;
+  /**
+   * 🃏 In the open card of its row on Home's Today list (owner 20 Nov 2026): the same press as ONE button, with its
+   * state said beside it. The list already asked the window (`isInPrepWindow`), so it is not asked twice.
+   */
+  inCard?: boolean;
 };
 
 type Phase = 'idle' | 'loading' | 'done' | 'error';
 
-const T_MINUS_DAYS = 3;
-const T_PLUS_DAYS = 1;
-
-function daysUntilDate(eventDate: string, now: Date): number {
-  const event = new Date(`${eventDate}T00:00:00`);
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  return Math.round((event.getTime() - today.getTime()) / 86_400_000);
-}
-
-function isInPrepWindow(eventDate: string | null, now: Date): boolean {
-  if (!eventDate) return false;
-  const days = daysUntilDate(eventDate, now);
-  return days <= T_MINUS_DAYS && days >= -T_PLUS_DAYS;
-}
 
 /**
  * Hydrate every section of the bundle into TanStack Query under the same
@@ -105,7 +98,7 @@ function warmAssetCache(urls: string[]): void {
   }
 }
 
-export function EventDayPrepCta({ eventId, eventDate, finished = false, now = new Date() }: Props) {
+export function EventDayPrepCta({ eventId, eventDate, finished = false, now = new Date(), inCard = false }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
@@ -113,7 +106,7 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
   // Nothing to prepare for once it has happened — checked BEFORE the window so
   // the honest answer wins over the arithmetic.
   if (finished) return null;
-  if (!isInPrepWindow(eventDate, now)) return null;
+  if (!inCard && !isInPrepWindow(eventDate, now)) return null;
 
   const onClick = (): void => {
     setPhase('loading');
@@ -137,6 +130,23 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
   };
 
   const busy = phase === 'loading' || pending;
+
+  if (inCard) {
+    return (
+      <div data-event-day-prep={phase} className="flex flex-col items-start gap-1">
+        <p className="text-[14px] text-ink/75" role="status">
+          {busy
+            ? 'Saving your event on this phone…'
+            : phase === 'done'
+              ? 'Ready for event day — saved on this phone, works offline.'
+              : phase === 'error'
+                ? 'Saving for event day failed. Try again.'
+                : 'Saves your guest list and plan on this phone, for bad venue signal.'}
+        </p>
+        {phase === 'done' ? null : <ActionButton tone="brand" main icon={Smartphone} label="Prepare for event day" onClick={onClick} disabled={busy} waiting={busy} />}
+      </div>
+    );
+  }
 
   /* ☀ A LINE OF HOME'S TODAY LIST, under the cover (owner 2026-10-29: *"The popup for the access and other popups
      above the header can be presented better"*) — it was a terracotta banner above the cover; it is the Today pill now

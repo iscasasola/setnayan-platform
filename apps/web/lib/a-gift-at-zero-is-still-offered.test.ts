@@ -36,7 +36,7 @@ test('the couple’s request door never reads gift stock — the booking is not 
 
 test('the ticket sheet says the hold rule and the ≥1 rule, never the retired line', () => {
   assert.equal(GIFT_HOLD_RULE, '1 is held for each service card on a quote.');
-  assert.equal(GIFT_AT_LEAST_ONE, 'Every booking needs at least 1 gift.');
+  assert.equal(GIFT_AT_LEAST_ONE, 'Every booking needs at least 1 gift. Bought gifts go on your gift bill.');
   assert.equal(GIFT_ZERO_LEFT, '0 left · Buy more ›');
   const sheet = read('app/vendor-dashboard/shop/promote/_components/gift-store.tsx');
   assert.match(sheet, /<InfoTip label=\{GIFT_HOLD_RULE\}[^>]*>\s*\{GIFT_AT_LEAST_ONE\}/);

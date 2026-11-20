@@ -48,6 +48,9 @@
 
 BEGIN;
 
+-- A busy table: wait at most 5 s for its lock, then fail and let the pipeline retry, never queue every query behind it.
+SET LOCAL lock_timeout = '5s';
+
 -- ── 1 · the most in one payment ─────────────────────────────────────────────
 ALTER TABLE public.platform_settings
   ADD COLUMN IF NOT EXISTS max_payment_php NUMERIC(12,2) NOT NULL DEFAULT 100000;

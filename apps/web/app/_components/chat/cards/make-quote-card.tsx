@@ -8,10 +8,16 @@
  * Now ＋ → Make a quote drops this short card: pick your cards, Your offer (starts at their own "from" prices), Good until
  * (FILLED — 14 days, or the event day if sooner — shown and changeable), a note. Send quote posts the SHIPPED writer
  * (`sendCustomProposalFromChat`), so it lands as the quote card the chat already shows (View quote · Waiting for them).
- * Full quotation opens today's builder (`#build-quote`) — discounts, payment schedule, travel and crew meal stay there.
+ * Full quotation opens today's builder (`#build-quote`).
+ *
+ * 🧾 ITEMISE (Unichat part C, owner 20 Nov 2026 — drawing UNICHAT-LIVE-2026-11-19, the quote tool): the one offer opens
+ * into a RECEIPT with the quote maker's real parts — a line per picked card, Crew meal, Transport, Discount, How they
+ * pay — priced by the maker's own resolvers (`lib/quote-receipt.ts`). The one-price card is unchanged until it is
+ * pressed; itemised, the receipt's lines and its schedule are what Send posts, through the same shipped writer.
+ * `frame="bare"` = hosted inside the text box on a phone (the composer owns the title and the ✕).
  */
-import { useCallback, useEffect, useId, useState } from 'react';
-import { Check, ExternalLink, Send } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { Check, ExternalLink, ListPlus, Send, Undo2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Explain } from '@/app/_components/explain';
 import { TypedRow } from '@/app/_components/form-row';
@@ -28,10 +34,12 @@ import {
   makeQuoteRefusal,
   type MakeQuoteCardOption,
 } from '@/lib/make-a-quote';
-import { ChatCardShell } from '../chat-step-card';
-import { loadCardsForMakeQuote } from './card-calls';
-import { CouldNotLoad, EmptyLine, Loading, Problem, type Read } from './card-bits';
+import { fitReceiptToTarget, receiptFromCards, receiptKey, receiptMoney, receiptPlanChoices, receiptRefusal, type ReceiptDraft } from '@/lib/quote-receipt';
+import type { AvailabilityStyle } from '@/lib/availability-styles';
+import { loadCardAvailability, loadCardsForMakeQuote } from './card-calls';
+import { CouldNotLoad, EditorShell, EmptyLine, Loading, Problem, type EditorFrame, type Read } from './card-bits';
 import { LowestRow, UnderLowestLine } from './lowest-price';
+import { QuoteReceipt, ReceiptPlanRow, receiptPlanProblem, receiptSchedule } from './quote-receipt';
 
 export const MAKE_A_QUOTE_TITLE = 'Make a quote';
 
@@ -41,13 +49,16 @@ export function MakeQuoteCard({
   onClose,
   onSent,
   seed,
+  frame = 'card',
 }: {
   threadId: string;
   eventDate: string | null;
   onClose?: () => void;
   onSent?: () => void;
-  /** Labs only — the shop's cards to draw without a read. */
-  seed?: { cards: MakeQuoteCardOption[]; picked?: string[] };
+  /** Labs only — the shop's cards to draw without a read (`itemised` opens the receipt). */
+  seed?: { cards: MakeQuoteCardOption[]; picked?: string[]; itemised?: boolean };
+  /** `bare` = hosted inside the text box (the composer owns the title and the ✕). */
+  frame?: EditorFrame;
 }) {
   const [read, setRead] = useState<Read<MakeQuoteCardOption[]>>(seed ? { at: 'ok', data: seed.cards } : { at: 'loading' });
   const load = useCallback(() => {
@@ -59,9 +70,9 @@ export function MakeQuoteCard({
   }, [load, seed]);
 
   const shell = (body: React.ReactNode) => (
-    <ChatCardShell topic="quote" kicker="You · not sent yet" title={MAKE_A_QUOTE_TITLE} onClose={onClose}>
+    <EditorShell frame={frame} topic="quote" title={MAKE_A_QUOTE_TITLE} onClose={onClose}>
       {body}
-    </ChatCardShell>
+    </EditorShell>
   );
   if (read.at === 'loading') return shell(<Loading />);
   if (read.at === 'failed') return shell(<CouldNotLoad what="your service cards" onRetry={load} />);
@@ -72,7 +83,7 @@ export function MakeQuoteCard({
         <FullQuotation onClose={onClose} />
       </div>
     ) : (
-      <MakeQuoteForm cards={read.data} threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} startPicked={seed?.picked} />
+      <MakeQuoteForm cards={read.data} threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} startPicked={seed?.picked} startItemised={seed?.itemised} />
     ),
   );
 }
@@ -100,6 +111,7 @@ function MakeQuoteForm({
   onClose,
   onSent,
   startPicked,
+  startItemised = false,
 }: {
   cards: MakeQuoteCardOption[];
   threadId: string;
@@ -107,6 +119,7 @@ function MakeQuoteForm({
   onClose?: () => void;
   onSent?: () => void;
   startPicked?: string[];
+  startItemised?: boolean;
 }) {
   const formId = useId();
   const today = manilaTodayIsoFor(Date.now());
@@ -115,11 +128,32 @@ function MakeQuoteForm({
   const chosen = cards.filter((c) => picked.includes(c.id));
   // The offer follows the picked cards until the supplier types their own.
   const [typed, setTyped] = useState<string | null>(null);
-  const offerC = typed == null ? makeQuoteOfferStart(chosen) : Math.round(Number(typed.replace(/[^\d.]/g, '')) * 100) || 0;
+  // 🧾 Itemised: the receipt is the quote. Null = the one-price card, exactly as it was.
+  const [draft, setDraft] = useState<ReceiptDraft | null>(() => (startItemised ? receiptFromCards(cards.filter((c) => (startPicked ?? []).includes(c.id))) : null));
+  const receipt = useMemo(() => (draft ? receiptMoney(draft) : null), [draft]);
+  const offerC = receipt ? receipt.net : typed == null ? makeQuoteOfferStart(chosen) : Math.round(Number(typed.replace(/[^\d.]/g, '')) * 100) || 0;
   const [validUntil, setValidUntil] = useState<string | null>(() => makeQuoteGoodUntil(today, eventDate));
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
-  const refusal = makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate });
+  const plans = useMemo(() => receiptPlanChoices(null, false), []);
+  const [planKey, setPlanKey] = useState(plans[0]!.key);
+  const plan = (plans.find((c) => c.key === planKey) ?? plans[0]!).plan;
+  // How each card books — read once the receipt opens; a refused read leaves the lines without a tag.
+  const [tags, setTags] = useState<Record<string, AvailabilityStyle> | null>(null);
+  const itemised = draft != null;
+  useEffect(() => {
+    if (!itemised) return;
+    let live = true;
+    void loadCardAvailability(threadId).then((r) => {
+      if (live && r.ok) setTags(r.byCard);
+    });
+    return () => {
+      live = false;
+    };
+  }, [itemised, threadId]);
+  const refusal =
+    (draft && receipt ? (chosen.length === 0 ? null : (receiptRefusal(draft, receipt) ?? receiptPlanProblem(plan, receipt, []))) : null) ??
+    makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate });
 
   const payload = JSON.stringify({
     lineItems: makeQuoteLines(chosen, offerC),
@@ -127,7 +161,20 @@ function MakeQuoteForm({
     title: chosen.map((c) => c.name).join(' · ').slice(0, 120) || 'Quote',
     note: note.trim() || null,
     serviceCardIds: chosen.map((c) => c.id),
+    // Itemised: the receipt's own lines and its schedule replace the one line (same writer, same re-sum on the server).
+    ...(receipt ? { lineItems: receipt.lineItems, schedule: receiptSchedule(plan, receipt) } : {}),
   });
+  /** A card picked or dropped while itemised adds or removes ITS line — the rest of the receipt is left alone. */
+  const toggleCard = (c: MakeQuoteCardOption, on: boolean) => {
+    setPicked((p) => (on ? p.filter((x) => x !== c.id) : [...p, c.id]));
+    setDraft((d) =>
+      d == null
+        ? d
+        : on
+          ? { ...d, lines: d.lines.filter((l) => l.cardId !== c.id) }
+          : { ...d, lines: [...d.lines, { key: receiptKey(), label: c.name.trim(), pricePhp: Math.max(0, c.fromCentavos ?? 0) / 100, qty: 1, free: false, cardId: c.id, src: null }] },
+    );
+  };
 
   return (
     <form
@@ -151,7 +198,7 @@ function MakeQuoteForm({
               <button
                 type="button"
                 aria-pressed={on}
-                onClick={() => setPicked((p) => (on ? p.filter((x) => x !== c.id) : [...p, c.id]))}
+                onClick={() => toggleCard(c, on)}
                 className={`flex min-h-11 w-full items-center gap-2 rounded-xl border px-3 text-left text-[14px] ${on ? 'border-mulberry bg-mulberry/[0.06] text-ink' : 'border-ink/15 text-ink/80'}`}
               >
                 <span aria-hidden className={`grid h-5 w-5 flex-none place-items-center rounded-full border ${on ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/25'}`}>
@@ -164,15 +211,39 @@ function MakeQuoteForm({
           );
         })}
       </ul>
-      <TypedRow
-        name="Your offer"
-        amount
-        value={typed ?? (offerC > 0 ? String(offerC / 100) : '')}
-        empty="₱"
-        onType={(v) => setTyped(v)}
-        onKeep={(v) => setTyped(v)}
-        data="make-quote-offer"
-      />
+      {draft && receipt ? (
+        <>
+          <QuoteReceipt draft={draft} onDraft={setDraft} money={receipt} tags={tags} />
+          <ReceiptPlanRow choices={plans} pick={planKey} onPick={setPlanKey} money={receipt} />
+          <div className="flex">
+            <ActionButton tone="neutral" quiet icon={Undo2} label="Use one price" onClick={() => setDraft(null)} data-make-quote-one-price="" />
+          </div>
+        </>
+      ) : (
+        <>
+          <TypedRow
+            name="Your offer"
+            amount
+            value={typed ?? (offerC > 0 ? String(offerC / 100) : '')}
+            empty="₱"
+            onType={(v) => setTyped(v)}
+            onKeep={(v) => setTyped(v)}
+            data="make-quote-offer"
+          />
+          {chosen.length > 0 ? (
+            <div className="flex">
+              {/* Same parts, your price: a typed offer under the cards' own prices opens as a Discount on the receipt. */}
+              <ActionButton
+                tone="neutral"
+                icon={ListPlus}
+                label="Itemise"
+                onClick={() => setDraft(typed == null ? receiptFromCards(chosen) : fitReceiptToTarget(receiptFromCards(chosen), offerC, ''))}
+                data-make-quote-itemise=""
+              />
+            </div>
+          ) : null}
+        </>
+      )}
       {/* 🤝 Your lowest, private (19 Nov 2026): typed once here; an offer under it gets ONE quiet line — never a block. */}
       <UnderLowestLine threadId={threadId} totalCentavos={offerC} />
       <LowestRow threadId={threadId} />
@@ -193,7 +264,7 @@ function MakeQuoteForm({
         <span className="mr-auto inline-flex items-center gap-1 text-[13px] text-ink/55">
           The rest is in Full quotation
           <Explain title="Full quotation">
-            Discounts, a payment schedule, travel and crew meals are set in Full quotation — the full form you already know.
+            Per-guest and per-hour prices, your offers, gifts and payment methods are set in Full quotation — the full form you already know. Lines, crew meal, transport, a discount and the payment plan are here too: press Itemise.
           </Explain>
         </span>
         <FullQuotation onClose={onClose} />

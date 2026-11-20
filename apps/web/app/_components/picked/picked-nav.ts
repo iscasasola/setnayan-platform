@@ -44,3 +44,11 @@ export const PickedHeadContext = createContext<HTMLElement | null>(null);
  * so every other page keeps the one-line head. `null` outside a picked shell.
  */
 export const PickedHeadLineContext = createContext<HTMLElement | null>(null);
+
+/**
+ * 🙈 THE PAGE UNDER A RISEN ONE IS NOT ON SHOW (19 Nov 2026 — the client page is one chat that holds everything). With
+ * the chat as the page's home it stays MOUNTED while Book & Budget, Schedule or Details is risen over it, so "mounted"
+ * no longer means "the reader is looking at it". True while a page is risen over the body; a part that acts on being
+ * SEEN (the chat's mark-as-read) waits for false. False everywhere else, and outside a picked shell.
+ */
+export const PickedCoveredContext = createContext(false);

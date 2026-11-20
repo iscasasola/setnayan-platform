@@ -235,10 +235,9 @@ export const STORE_SHELL_WEB_ONLY_FEATURE_SLUGS: ReadonlySet<string> = new Set([
   'event-hub',
   'prints',
   'logo-maker',
-  'music-maker',
   'papic',
   'live-watch',
-  'patiktok',
+  // ('music-maker' and 'patiktok' left 2026-11-20: retired — their pages redirect to /features.)
   // The supplier plans page quotes plan prices (free-plus, from vendor_billing_catalog) — truth sweep 2026-11-13.
   'supplier-plans',
 ]);
@@ -307,8 +306,8 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *     codes the controller links to; they carry no price.
  *
  *   · 🍎 (owner 2026-10-23, "five more Apple products") the homes of Setnayan AI
- *     (`studio/setnayan-ai`), Music Maker (`studio/pakanta`), Patiktok
- *     (`studio/patiktok` + its booth and templates) and the Thank-You Video
+ *     (`studio/setnayan-ai`) and the Thank-You Video — Music Maker (`studio/pakanta`) and Patiktok
+ *     (`studio/patiktok`) left 2026-11-20, RETIRED with their Apple products (lib/retired-products.ts)
  *     (`memories/thank-you` since reorg R3, was `studio/thank-you` — FREE for every event since 2026-10-26, so it opens
  *     here with no pay step at all; its Apple product is retired). Each page's ONE pay step becomes Apple's sheet
  *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
@@ -322,7 +321,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  * every build while the switch is off) nothing here opens.
  */
 const IAP_OPENED_ROUTE =
-  /^\/(?:dashboard\/[^/]+\/(?:studio\/(?:papic|panood\/cameras|setnayan-ai|pakanta|patiktok)|memories\/thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
+  /^\/(?:dashboard\/[^/]+\/(?:studio\/(?:papic|panood\/cameras|setnayan-ai)|memories\/thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
 
 /**
  * 🍎 IS THIS ADD-ON'S DOOR HIDDEN IN THE STORE SHELL? — the ONE rule every door site asks (owner 2026-10-23: App
@@ -331,8 +330,8 @@ const IAP_OPENED_ROUTE =
  *
  * `iap` false (every build in people's hands, and every build while the switch is off): exactly
  * `STORE_SHELL_HIDDEN_ADDON_KEYS` — guideline 3.1.1, no paid door without In-App Purchase.
- * `iap` true: a hidden key whose Studio home `IAP_OPENED_ROUTE` opens (Apple sells it here — Setnayan AI · Music
- * Maker · Patiktok · Thank You · Papic) gets its door back; every other paid key stays hidden. Derived from the
+ * `iap` true: a hidden key whose Studio home `IAP_OPENED_ROUTE` opens (Apple sells it here — Setnayan AI · Thank You ·
+ * Papic) gets its door back; every other paid key stays hidden. Derived from the
  * route, never a second list, so a product cannot open without its door, nor get a door without opening.
  * Held by `lib/the-app-shows-a-door-to-what-apple-sells.test.ts`.
  */

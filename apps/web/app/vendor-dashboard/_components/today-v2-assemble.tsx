@@ -9,12 +9,15 @@ import {
   roomToGrowRows,
   splitTodayNeeds,
   todayOneList,
+  todayHeldOff,
+  thisWeekLine,
   type TodayEventDay,
   todayProgress,
   trendingLines,
   type TodayBadgeTag,
 } from '@/lib/supplier-today-v2';
 import { asideKeys, gotItToday, type TodayAside } from '@/lib/today-aside';
+import { activePutOffs } from '@/lib/today-put-off';
 import { INSPIRATION_LIBRARY_HREF, INSPIRATION_LIBRARY_ROW } from '@/lib/inspiration-library-entry';
 import { shelfBadge } from '@/lib/shop-badge-shelf';
 import type { BadgeRewardFacts } from '@/lib/badge-rewards';
@@ -24,6 +27,7 @@ import type { TodayRowIcon } from '@/lib/supplier-today';
 import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { TodayV2Reads } from '@/lib/supplier-today-v2.server';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
 
 /**
  * 📋 TODAY v2, ASSEMBLED — ONE builder, so the Today page (its reads) and the dev lab (`/dev/supplier-lab?easy=…`, its
@@ -58,6 +62,8 @@ export type TodayV2Input = {
   billsUnread: boolean;
   /** v3: the clock the deadlines are read against (a date change's `dueAt`) — the page's render clock. */
   now: number;
+  /** ✓ v3 part 3 — the finished events' wrap-up facts (`readWrapUpFacts`), keyed by desk card id. */
+  wrapUps?: Record<string, WrapUpFacts | null>;
   /**
    * v3: the booked events (the page's `upcoming`) — one TODAY or TOMORROW is a row in the one list with its level
    * (drawing V3 · 3: "an event you run today" red · "a booked event tomorrow" amber). Absent → none.
@@ -90,11 +96,13 @@ export function buildTodayV2(i: TodayV2Input): {
   const deskCards = [...i.needsAnswer, ...i.closed];
   const tile = r && r.completedBookings !== null ? shelfBadge('completed_bookings', { counts: { completedBookings: r.completedBookings } as BadgeRewardFacts, verified: null, granted: null }) : null;
   const nextBadge = nextBadgeWords(tile?.nextShort ?? null);
-  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now });
+  const split = splitTodayNeeds({ needs: i.view.needs, cards: deskCards, completedToGo: nextBadge?.toGo ?? null, aside: asideKeys(i.aside), now: i.now, putOff: activePutOffs(r?.putOffs ?? null, i.todayIso), soonAskHours: r?.cutoffs.soonAskHours ?? null });
   const deskKeys = deskCards.map((c) => c.id);
   const gotIt = gotItToday(i.aside, new Set(deskKeys));
   const doneCount = doneTodayTotal(r?.done ?? null, gotIt);
   const list = todayOneList({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
+  // ⏭ A bill, the permit or an event put off with "Do it tomorrow" is listed under Tomorrow (a red one never is).
+  const later = todayHeldOff({ split, bills: i.view.bills, events: i.events ?? [], todayIso: i.todayIso });
   // The count is the one list, as drawn (V3 · 3 "Needs you today 6"): every task, every bill, the permit when it wears a
   // level, an event today or tomorrow.
   const left = i.deskIncomplete || i.eventsUnread ? null : list.length;
@@ -147,9 +155,11 @@ export function buildTodayV2(i: TodayV2Input): {
         <TodayV2Needs
           split={split}
           list={list}
+          tomorrowMore={later}
+          thisWeek={thisWeekLine(i.events ?? [], r?.cutoffs.soonEventDays ?? null)}
           billCopy={i.view.billCopy}
           lockLine={i.view.lockLine}
-          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts }}
+          answers={{ payoutReadiness: i.payoutReadiness, feeForecasts: i.feeForecasts, wrapUps: i.wrapUps ?? {} }}
           todayIso={i.todayIso}
           onDesk={deskKeys}
           billsUnread={i.billsUnread}

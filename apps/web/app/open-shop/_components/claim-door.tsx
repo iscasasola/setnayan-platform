@@ -497,8 +497,8 @@ export function ClaimDoor({
         ) : null}
         {team ? null : (
           // 🚪 P1 — the shop as the couple typed it: name and what it covers, the contact, what they booked. Rows on
-          // white, nothing boxed but the one shop card.
-          <section className="grid gap-2 rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)' }} data-claim-door-shop="">{/* no-card-ok: the owner-approved P1 shop card (drawing 36jmQMWrANcgd2HxihAUw5, 19 Nov) — the shop as the couple typed it */}
+          // white, nothing boxed (owner 20 Nov).
+          <section className="grid gap-2 border-y py-3" style={{ borderColor: 'var(--m-line)' }} data-claim-door-shop="">{/* P1 shop: rows on white — a frame only on what you press (owner 20 Nov, template ratchet) */}
             <b className="text-[15px] font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
               {record.business}
             </b>

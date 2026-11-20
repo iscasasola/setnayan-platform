@@ -99,6 +99,8 @@ import {
 } from '@/lib/budget-build';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { haversineKm } from '@/lib/distance';
+import { nearestKm, pinOf } from '@/lib/mall-card';
+import { readBranchPins } from '@/lib/supplier-places.server';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
 import { nearRows, type NearPin } from '@/lib/find-sort-choices';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
@@ -738,7 +740,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // chat_threads read stays on the couple RLS client — it's the couple's own
     // event's threads, correctly RLS-scoped, not the public vendor row.
     const enrichmentAdmin = createAdminClient();
-    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes] = await Promise.all([
+    const [statsRes, profRes, threadsRes, ringsRes, firstVerifiedRes, claimAsksRes, bookedRes, branchPinsByProfile] = await Promise.all([
       enrichmentAdmin
         .from('vendor_market_stats')
         .select(
@@ -829,6 +831,9 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         .select('marketplace_vendor_id')
         .in('marketplace_vendor_id', marketplaceIds)
         .in('status', [...CONFIRMED_VENDOR_STATUSES]),
+      // 🃏 Card 14 (owner 20 Nov, "straight line, about X km"): the shop's live branches, so the distance is from its
+      // NEAREST place — HQ or branch. Same round trip; fails soft to "no branches" (the HQ still measures).
+      readBranchPins(enrichmentAdmin, marketplaceIds),
     ]);
     // A refused read is UNKNOWN (null), never 0 — 0 would call an established shop "New".
     if (bookedRes.error) logQueryError('dashboard/[eventId]/vendors/page.tsx: booked counts', bookedRes.error, { event_id: eventId });
@@ -996,7 +1001,15 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
       const rating =
         s.avg_rating_overall != null ? Number(s.avg_rating_overall) : null;
-      const distanceKm = kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
+      // 📍 The nearest of the HQ and the live branches (card 14). No branches → exactly the HQ distance, as before.
+      const branchPins = branchPinsByProfile.get(pid) ?? [];
+      const distanceKm =
+        branchPins.length > 0 && anchors.reception
+          ? nearestKm({ lat: anchors.reception.latitude, lng: anchors.reception.longitude }, [
+              pinOf(s.hq_latitude, s.hq_longitude),
+              ...branchPins,
+            ])
+          : kmFrom(anchors.reception, s.hq_latitude, s.hq_longitude);
       const ceremonyDistanceKm = kmFrom(anchors.ceremony, s.hq_latitude, s.hq_longitude);
 
       // Fit-badge · service-radius reach (2026-07-09). Same ceiling + fail-open
@@ -2383,6 +2396,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         inspiration={findInspiration}
         // Owner 13 Nov 2026 — a supplier taken on the committed day reads "Taken on Dec 12" (the prototype's words).
         takenOnLabel={planPrecision === 'day' ? takenOnWords(planDate) : null}
+        // 🃏 Card 14 (owner 20 Nov): the per-guest total reads the event's estimated guest count; the distance line asks
+        // for a venue when the event has none (the reception anchor is the venue the distances measure from).
+        mallEvent={{
+          guests: Number.isInteger(ev?.estimated_pax) && (ev?.estimated_pax ?? 0) > 0 ? (ev?.estimated_pax ?? null) : null,
+          askVenue: (await nearAnchorsRead).reception == null,
+        }}
         // Pairs, not a Map — this component's own `teamCalendar` prop states the
         // rule: a Set/Map "crosses to the client as an array and is rebuilt there
         // rather than trusted to survive the boundary".

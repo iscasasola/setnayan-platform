@@ -53,7 +53,11 @@ test('1 · the first screen opens on the cover; Now rides it; the asks sit under
   const firstTag = afterOpen.match(/<([A-Za-z][\w.]*)/);
   assert.equal(firstTag?.[1], 'HomeCoverBand', `something renders above Home's cover: <${firstTag?.[1]}>`);
   const cover = body.indexOf('<HomeCoverBand');
-  const asks = body.indexOf('{asks}');
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the asks are rows of the ONE list now (`HomeTodayList`, handed
+  // `todayList`), so "the asks" is where that list is drawn — still under the cover, never above it.
+  const asks = body.indexOf('<HomeTodayList ');
+  assert.ok(asks > -1, 'the first screen lost the list that holds the asks');
+  assert.match(body, /<HomeTodayList [^>]*bodies=\{todayList\?\.bodies\}/, 'the list is not handed the asks’ answers');
   const today = body.indexOf('<HomeToday ');
   assert.ok(asks > cover, 'the asks render above the cover');
   // 🎴 Now rides the event card (owner-approved Home redraw 2026-11-02, round 3): the asks come after the card that
@@ -89,14 +93,21 @@ test('2 · Home draws nothing above the cover; the four prompts live only in tod
     assert.ok(block.includes(`<${a} `), `<${a}> left the Today asks`);
   }
   assert.ok(block.indexOf('<CoordinatorLevelCard ') < block.indexOf('<AccessRequestsDoorway '), 'the coordinator’s access is not first');
-  assert.match(page, /asks=\{todayAsks\}/, 'the Today asks are not handed to the first screen');
+  // RE-AIMED 20 Nov 2026: before the day the SAME asks are rows of the first screen's one list — worded from the very
+  // reads the doorways above take (`eventTodayAsks`), handed in as `todayList`; the lines themselves are drawn only
+  // where there is no cover.
+  assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames\(guests\) \}\}/, 'the asks are not handed to the first screen as rows');
+  assert.match(page, /eventTodayAsks\(\{\s*eventId,\s*access: accessAsks,\s*coordinator: coordinatorAsks,\s*mood: moodAsks,\s*dateChange,/, 'the list’s asks are not the doorways’ own reads');
+  for (const [door, read] of [['CoordinatorLevelCard', 'coordinatorAsks'], ['AccessRequestsDoorway', 'accessAsks'], ['MoodBoardAsksDoorway', 'moodAsks'], ['DateChangeDoorway', 'dateChange']] as const) {
+    assert.match(block, new RegExp(`<${door} [^>]*read=\\{${read}\\}`), `<${door}> reads again instead of taking the page's one read`);
+  }
   // Drawn where there is no cover: the day-of console, the after summary, and (as before lane 4) an After phase whose
   // summary could not be read — never ahead of the phase branch.
   assert.doesNotMatch(before, /todayAsks/, 'the Today asks render above the phase branch');
   assert.match(dayOf, /<div data-home-day-now="" [^>]*>\s*\{todayAsks\}/, 'the day-of console no longer leads with the Today asks');
   assert.match(after, /<div data-home-day-now="" [^>]*>\s*\{todayAsks\}/, 'the after summary no longer leads with the Today asks');
   assert.match(ret, /\{afterActive \? todayAsks : null\}\s*<AutoPreloadOnEventDay[^>]*\/>\s*\{homeFirstScreen\}/, 'the unread-summary After lost its asks');
-  assert.equal(page.split('todayAsks').length - 1, 5, 'todayAsks is drawn somewhere else');
+  assert.equal(page.split('todayAsks').length - 1, 4, 'todayAsks is drawn somewhere else');
 });
 
 test('3 · each prompt IS a Today line, never a tile of its own', () => {

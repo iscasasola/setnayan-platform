@@ -149,7 +149,16 @@ test('T4 · the card’s verbs come from the table — one row, every word kept'
   // Buttons keep their words (owner 2026-10-12, look call 2 — supersedes the 10-07 fit pass): ONE row, no fit
   // pass, and it wraps rather than dropping a word.
   assert.doesNotMatch(CARD, /useFitRow\(/, 'a fit pass would drop the words again');
-  assert.match(CARD, /<div className="verbs" data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}>\s*\{verbs\.map\(draw\)\}/);
+  // 🃏 Card 14 ("14 + buttons"): every verb is drawn from the table once (`drawn`); the row shows the first two, then
+  // "More" with the rest wrapped (phone, four or more) or the rest as they are — never a word dropped.
+  assert.match(CARD, /const drawn = verbs\.map\(draw\)\.filter\(\(n\) => n !== null\);/);
+  assert.match(CARD, /<div\s+className="verbs"\s+data-card-verbs=\{verbs\.map\(\(v\) => v\.key\)\.join\(' '\)\}/);
+  assert.match(CARD, /\{drawn\.slice\(0, 2\)\}/, 'the first two verbs are no longer drawn');
+  assert.match(
+    CARD,
+    /\{seatMore\s*\?\s*drawn\.slice\(2\)\.map\([\s\S]{0,200}?\{node\}[\s\S]{0,80}?:\s*drawn\.slice\(2\)\}/,
+    'the rest of the verbs are no longer drawn — a word was dropped',
+  );
   // Every control is the shipped button — nothing hand-made, no › in a control.
   assert.doesNotMatch(CARD, /<button\b|<a\b|›/);
   // The one lock path, the one inquiry path, the one withdraw path — wearing the pill.

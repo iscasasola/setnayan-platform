@@ -1,4 +1,7 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   VENDOR_DUTY_NAME,
@@ -48,14 +51,13 @@ export function TeamMemberCard({
 }) {
   const roleName = roleNameOf(names, duty);
   const where = memberWhereLine({ duty, branchLabel, cardCount, teamLabel, isSelf });
-  return (
-    <div
-      className="flex min-h-[60px] flex-wrap items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0"
-      data-dates-row="helpers-member"
-      data-team-member={memberId}
-      data-team-duty={duty}
-    >
-      <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-ink/[0.05] text-[14px] font-bold text-ink/70">
+  const face = (
+    <>
+      <span
+        aria-hidden
+        className="grid h-10 w-10 flex-none place-items-center rounded-full bg-terracotta/10 text-[14px] font-bold text-terracotta"
+        data-team-avatar=""
+      >
         {initialsOf(name)}
       </span>
       <span className="min-w-0 flex-1">
@@ -72,12 +74,45 @@ export function TeamMemberCard({
         </span>
       </span>
       {aside ?? null}
+    </>
+  );
+  // Drawing (b): "Tapping a card opens the same Role ▾ · Branch ▾ as the invite (c), and × Remove." The card stays one
+  // clean row; a tap opens its controls in place under it (rows: tap opens). A card with nothing to change is a plain row.
+  if (!end) {
+    return (
+      <div
+        className="flex min-h-[60px] items-center gap-3 border-t border-ink/10 py-2.5 first:border-t-0"
+        data-dates-row="helpers-member"
+        data-team-member={memberId}
+        data-team-duty={duty}
+      >
+        {face}
+      </div>
+    );
+  }
+  return (
+    <details
+      className="group border-t border-ink/10 first:border-t-0"
+      data-dates-row="helpers-member"
+      data-team-member={memberId}
+      data-team-duty={duty}
+    >
+      <summary
+        // The ⓘ inside the card opens its own note; it must not also open the card's controls.
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+        }}
+        className="flex min-h-[60px] cursor-pointer list-none items-center gap-3 py-2.5 [&::-webkit-details-marker]:hidden">
+        {face}
+        <ChevronDown
+          aria-hidden
+          className="h-4 w-4 flex-none text-ink/40 transition-transform duration-[var(--sn-dur-control)] group-open:rotate-180"
+        />
+      </summary>
       {/* The controls take their own line under the card, so a name is never squeezed to "Jo…" at 390 px. */}
-      {end ? (
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1 pl-[52px]" data-team-member-controls="">
-          {end}
-        </div>
-      ) : null}
-    </div>
+      <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-1 pb-3 pl-[52px]" data-team-member-controls="">
+        {end}
+      </div>
+    </details>
   );
 }

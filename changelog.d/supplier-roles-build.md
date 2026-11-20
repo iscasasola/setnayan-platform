@@ -23,3 +23,12 @@ SPEC IMPACT: new supplier role model (DECISION_LOG 2026-11-19 rows) — the corp
 session, so the corpus edit is flagged for the controller. ⚠ Owner sign-off: two new canonical RLS helpers
 (`current_vendor_duty_ids`, `current_vendor_branch_manager_scopes`); Marketing can edit a card's price (RLS cannot split
 columns). Not in this PR (drawing (d)–(h)): Plan-page rows, inquiry routing, Clients "Handled by", plan-end pause, chat line.
+
+## 2026-11-21 · fix(supplier-team): the member card matches drawing (b) — a tap opens its controls
+
+Caught up with `main` (merge only; ugat screens, exposure and FK baselines regenerated). The Team card is one clean
+row as drawing (b) draws it: gold-tinted initials, the shop's role name + ⓘ, where they work. Role ▾ · Branch ▾ ·
+Remove open in place under the card on a tap (rows: tap opens) instead of always showing; the ⓘ opens only its
+note. Pairs at 375 light / dark and desktop in `build-sessions/shots-supplier-roles/pair-*.png`.
+
+SPEC IMPACT: None.

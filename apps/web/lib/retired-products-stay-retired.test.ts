@@ -6,8 +6,9 @@
  * DESCRIBED on a public surface again (the front door, the site description, the homepage JSON-LD, /features,
  * /help, llms.txt, the sitemap, the in-app service cards and menus, the App Store product list).
  *
- * Event Ultra no longer SAYS it includes Patiktok (owner 2026-11-20, *"Keep ₱9,990"*: Ultra loses it, keeps its
- * price). Its read-side GRANT (`EVENT_ULTRA_GRANTS` + the two gifted-Ultra SQL functions) is a separate follow-up.
+ * Event Ultra no longer includes Patiktok (owner 2026-11-20, *"Keep ₱9,990"*: Ultra loses it, keeps its price) —
+ * neither in its copy nor in its read-side GRANT (`EVENT_ULTRA_GRANTS`, `SKU_OWNERSHIP_ALIASES` and the two
+ * gifted-Ultra SQL functions). Onboarding and the planning wizard no longer offer either.
  *
  * Run: `pnpm test:unit` (from apps/web).
  */
@@ -33,6 +34,10 @@ import { IAP_PRODUCTS } from './iap/products';
 import { ALL_HELP_ARTICLES } from './help';
 import { renderLlmsTxt, LINKED_ROUTES } from './llms-txt';
 import { INPUT_FOR_GUARDS } from './llms-txt-guard-input';
+import { EVENT_ULTRA_GRANTS } from './event-ultra';
+import { SKU_OWNERSHIP_ALIASES } from './entitlements';
+import { WIZARD_TASKS_PAID, WIZARD_TASKS_DIY } from './wizard';
+import { INAPP_TO_SERVICE_CODE, OUT_ANCHORS } from '../app/onboarding/wedding/_components/onboarding-pricing';
 import { ADD_ONS as FRONT_DOOR_ADD_ONS, ULTRA_PEEK, ultraMore } from '../app/_components/frontdoor/front-door-landing-data';
 
 const WEB = resolve(import.meta.dirname, '..');
@@ -207,4 +212,47 @@ test('the retired add-on keys are the catalogue keys of the retired codes', () =
     const e = ADD_ONS.find((a) => a.key === k);
     assert.ok(e && e.serviceKey && RETIRED_PRODUCT_CODES.has(e.serviceKey), `${k} → ${e?.serviceKey}`);
   }
+});
+
+/* ── 3 · NOT GIVEN AWAY, NOT OFFERED ON THE WAY IN ───────────────────────── */
+
+test('Event Ultra no longer confers a retired product — app grants, ownership aliases and the SQL readers', () => {
+  for (const code of RETIRED_PRODUCT_CODES) {
+    assert.ok(!EVENT_ULTRA_GRANTS.includes(code), `EVENT_ULTRA_GRANTS still grants ${code}`);
+    assert.ok(!(SKU_OWNERSHIP_ALIASES[code] ?? []).includes('EVENT_ULTRA'), `an Ultra order still confers ${code}`);
+  }
+  // The definition in force is the LATEST migration that (re)defines each gifted-access reader.
+  const dir = resolve(WEB, '../../supabase/migrations');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  for (const fn of ['event_has_comp_for_sku', 'event_comp_active_skus']) {
+    const re = new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(`);
+    const last = files.filter((f) => re.test(readFileSync(join(dir, f), 'utf8'))).at(-1);
+    assert.ok(last, `no migration defines ${fn}`);
+    const sql = readFileSync(join(dir, last!), 'utf8').replace(/--[^\n]*/g, '');
+    const body = sql.slice(sql.search(re));
+    const def = body.slice(0, body.indexOf('$$;', body.indexOf('$$') + 2));
+    for (const code of RETIRED_PRODUCT_CODES) assert.ok(!def.includes(`'${code}'`), `${last}: ${fn} still names ${code}`);
+  }
+});
+
+test('onboarding never offers, prices or recommends a retired product', () => {
+  for (const key of RETIRED_ADD_ON_KEYS) {
+    assert.ok(!(key in INAPP_TO_SERVICE_CODE), `onboarding still prices "${key}" (INAPP_TO_SERVICE_CODE)`);
+    assert.ok(!(key in OUT_ANCHORS), `onboarding still draws a "you save" anchor for "${key}"`);
+  }
+  for (const code of RETIRED_PRODUCT_CODES) {
+    assert.ok(!Object.values(INAPP_TO_SERVICE_CODE).includes(code), `onboarding still maps a key to ${code}`);
+  }
+  const shell = stripComments(read('app/onboarding/wedding/_components/onboarding-shell.tsx'));
+  for (const key of RETIRED_ADD_ON_KEYS) {
+    assert.ok(!new RegExp(`'${key}'|\\b${key}:`).test(shell), `onboarding-shell.tsx still names "${key}" (INAPP_KEYS / REC_PRIORITY / a supplier rec / its copy)`);
+  }
+  assert.ok(!NAME_RE.test(shell), 'onboarding-shell.tsx still names a retired product');
+});
+
+test('the planning wizard has no task for a retired product', () => {
+  const tasks = [...WIZARD_TASKS_PAID, ...WIZARD_TASKS_DIY];
+  assert.ok(tasks.length > 20, 'premise: the wizard lists are read');
+  const hits = tasks.filter((t) => RETIRED_ADD_ON_KEYS.has(t.id) || NAME_RE.test(t.title) || NAME_RE.test(t.whyItMatters ?? ''));
+  assert.deepEqual(hits.map((t) => t.id), [], 'wizard tasks for a retired product');
 });

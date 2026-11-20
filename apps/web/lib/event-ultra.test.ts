@@ -1,7 +1,7 @@
 /**
  * 💎 EVENT ULTRA (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT") — what the one Ultra order unlocks, held.
  *
- *   · the grants: Pro, Live Watch (self-run), Patiktok — read off the Ultra order by the SAME alias map every gate
+ *   · the grants: Pro, Live Watch (self-run) (Patiktok left 2026-11-20, retired) — read off the Ultra order by the SAME alias map every gate
  *     already reads, so an existing gate answers yes with no new code; never Music Maker or the hosted channel;
  *   · aliases are not transitive: every list that names Event Pro names Ultra too;
  *   · activation: the plan hook (Setnayan AI + credits topped up to the row's number);
@@ -32,7 +32,7 @@ const HERE = import.meta.dirname;
 const read = (rel: string) => readFileSync(path.join(HERE, rel), 'utf8');
 
 test('every Ultra grant is conferred by the Ultra order, through the alias map the gates already read', () => {
-  assert.deepEqual([...EVENT_ULTRA_GRANTS].sort(), ['COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PATIKTOK_COMPILER']);
+  assert.deepEqual([...EVENT_ULTRA_GRANTS].sort(), ['COUPLE_WEBSITE_PRO', 'LIVE_STUDIO']);
   for (const sku of EVENT_ULTRA_GRANTS) {
     assert.ok(SKU_OWNERSHIP_ALIASES[sku]?.includes(EVENT_ULTRA_SKU), `${sku} is not conferred by an Ultra order`);
   }

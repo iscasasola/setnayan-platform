@@ -11,8 +11,8 @@ import { isRetiredProductCode } from '@/lib/retired-products';
  * THE DOOR OF A RETIRED PRODUCT'S IN-APP PAGE (owner 2026-11-20: *"Retire Patiktok and Music Maker ( we do not want
  * to serve this anymore)"* — lib/retired-products.ts).
  *
- * An event that already has the product — bought, awaiting payment, or granted by a plan (Event Ultra grants
- * Patiktok; `eventOwnsSku` reads the aliases) — keeps its page. Every other event is sent to its own dashboard: the
+ * An event that already has the product — bought, awaiting payment, or comped (`eventOwnsSku` reads the aliases;
+ * Event Ultra stopped granting Patiktok 2026-11-20) — keeps its page. Every other event is sent to its own dashboard: the
  * page would only be a buy screen for a thing we no longer sell.
  *
  * 🔑 A READ THAT FAILS IS NOT "DOES NOT OWN IT". On an error the page opens as before; turning a refused read into a

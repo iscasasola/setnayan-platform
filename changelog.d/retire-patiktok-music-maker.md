@@ -4,8 +4,10 @@ Owner, verbatim: *"Retire Patiktok and Music Maker ( we do not want to serve thi
 first: zero purchases of either (`event_software_activations_v2`, `onboarding_order_items`, `shop_gift_purchases`
 all empty for `PATIKTOK_COMPILER` and `PAKANTA`).
 
-- **Migration `20271352393877_retire_patiktok_and_music_maker`** — both catalogue rows `is_active = false`,
-  `retired_at` stamped, `retirement_reason` quoting the owner. Idempotent; rows kept. Checkout already refuses an
+- **Migration `20271354471519_retire_patiktok_and_music_maker`** — both catalogue rows `is_active = false`,
+  `retired_at` stamped, `retirement_reason` quoting the owner. Idempotent; rows kept. It also redefines the two
+  gifted-Ultra readers (`event_has_comp_for_sku`, `event_comp_active_skus`, copied from 20271348181787) with
+  `PATIKTOK_COMPILER` dropped from their Ultra lists. Checkout already refuses an
   inactive SKU (`resolveServiceSellability`), and every catalogue-driven list (/pricing rows, the plan quiz, the
   supplier gift store) drops them on its own.
 - **One list:** `lib/retired-products.ts` (codes, add-on keys, feature slugs, public paths, names). Read by
@@ -22,10 +24,15 @@ all empty for `PATIKTOK_COMPILER` and `PAKANTA`).
 - **Onboarding:** the two quiz personas no longer suggest Music Maker.
 - **Guard:** `lib/retired-products-stay-retired.test.ts` — fails if either becomes buyable or is described in public
   again. Sabotage-tested (re-adding the App Store product, reopening the buy gate, re-adding the front-door tile
-  each failed it).
-- **Event Ultra's copy** no longer lists Patiktok (front door, the in-app plan offer, /pricing, /features, /help) —
-  owner *"Keep ₱9,990"*: Ultra loses Patiktok and keeps its price. Its read-side grant (`EVENT_ULTRA_GRANTS` + the
-  two gifted-Ultra SQL functions that mirror it) is NOT changed here — a follow-up; prod had zero Ultra orders.
+  each failed it); since extended to Ultra's grant + SQL readers, onboarding and the wizard, each sabotage-tested.
+- **Event Ultra loses Patiktok** — owner *"Keep ₱9,990"*: copy (front door, the in-app plan offer, /pricing,
+  /features, /help) AND grant (`EVENT_ULTRA_GRANTS`, the `SKU_OWNERSHIP_ALIASES.PATIKTOK_COMPILER` entry, the two SQL
+  readers). Prod had zero Ultra orders.
+- **Onboarding** no longer offers, prices or recommends Music Maker (`INAPP_KEYS`, `REC_PRIORITY`, the music-supplier
+  recs, `INAPP_TO_SERVICE_CODE`, `OUT_ANCHORS`) — after the row retirement it would have drawn ₱0 with a ₱12,500
+  "You save".
+- **Planning wizard:** the "Activate Patiktok" and "Order your wedding song (Music Maker)" tasks are gone; a blog
+  line and two sample real-wedding service lists no longer name Music Maker.
 - **/pricing** never prices a retired code even before the row retirement is applied (`ourPricesFrom`).
 - **Kept on purpose:** the engines, routes, tables, admin delivery queues, and the privacy / cookie / sub-processor
   disclosures (data already collected is still described).

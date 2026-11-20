@@ -15,12 +15,11 @@
  *   · the engine, its routes and its tables STAY — an event that owns one
  *     (or a plan that grants one, see below) keeps working.
  *
- * Event Ultra no longer LISTS Patiktok (owner 2026-11-20, *"Keep ₱9,990"*: Ultra
- * loses it and keeps its price). ⚠ Its read-side GRANT still stands —
- * `EVENT_ULTRA_GRANTS` (lib/event-ultra.ts) plus the two gifted-Ultra SQL
- * functions that mirror it — so an Ultra event can still open the Patiktok
- * page. Prod had zero Ultra orders on 2026-11-20. Removing the grant is a
- * follow-up (app list + SQL mirror + the db test that holds them equal).
+ * Event Ultra no longer includes Patiktok (owner 2026-11-20, *"Keep ₱9,990"*:
+ * Ultra loses it and keeps its price) — neither its copy nor its grant
+ * (`EVENT_ULTRA_GRANTS`, `SKU_OWNERSHIP_ALIASES`, and the two gifted-Ultra SQL
+ * readers redefined by migration `_retire_patiktok_and_music_maker`). Prod had
+ * zero Ultra orders on 2026-11-20, so nobody loses it.
  *
  * Guarded by `lib/retired-products-stay-retired.test.ts`.
  */

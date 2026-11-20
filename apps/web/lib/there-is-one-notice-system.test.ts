@@ -144,7 +144,7 @@ const CLOSE_WORDS_THAT_ARE_NOT_NOTICES: Record<string, { n: number; why: string 
   'app/[slug]/_components/copy-my-link.tsx': { n: 1, why: FLOW },
   // Today v2 (owner 18 Nov, "one task"): "Not now" on a Recommended task row puts THAT task aside for today — a choice on
   // a row of the list the supplier is working through, never the close of a notice.
-  'app/vendor-dashboard/_components/today-v2.tsx': { n: 2, why: FLOW },
+  'app/vendor-dashboard/_components/today-v2.tsx': { n: 1, why: FLOW },
   'app/[slug]/_components/selfie-capture.tsx': { n: 2, why: FLOW },
   'app/[slug]/_components/use-on-profile.tsx': { n: 1, why: FLOW },
   'app/[slug]/pabuya/_components/gift-record-sheet.tsx': { n: 1, why: SHEET },

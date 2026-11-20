@@ -210,8 +210,8 @@ export default async function VendorClaimPage({ params }: Props) {
               words — and the eyebrow stays the one doorway colour. */}
           <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-[14px] text-ink">
             <p className="leading-relaxed">
-              On connect, this engagement appears in your Clients pipeline at the Inquiry
-              stage. Chat unlocks immediately. <strong>No duplicate profile created.</strong>
+              Once connected, it shows in Clients as an Inquiry and chat opens.{' '}
+              <strong>No duplicate profile created.</strong>
             </p>
           </div>
 

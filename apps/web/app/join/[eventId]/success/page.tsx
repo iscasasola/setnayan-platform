@@ -8,6 +8,7 @@
  * has just joined needs to see WHICH event they joined above everything else —
  * they may have been sent three links in one week.
  */
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -32,9 +33,7 @@ export default async function JoinSuccessPage({ params, searchParams }: Props) {
   await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const admin = createAdminClient();

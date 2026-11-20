@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { redirect } from 'next/navigation';
@@ -63,9 +64,7 @@ export default async function EventHostsPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const viewer = await fetchEventViewer(supabase, eventId, user.id);

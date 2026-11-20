@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
 import { notFound } from 'next/navigation';
@@ -120,9 +121,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     : null;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const nextPath = `/vendor/lock/${token}`;
   const statusMessage = status ? STATUS_COPY[status] ?? null : null;

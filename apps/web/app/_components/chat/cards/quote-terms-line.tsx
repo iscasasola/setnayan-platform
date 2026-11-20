@@ -14,7 +14,6 @@
  * the reader was never shown is the one thing this line exists to prevent.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Info } from 'lucide-react';
 import { termsAtAccept } from '@/lib/deal-end';
 import { loadQuoteTerms } from './deal-end-calls';
 import type { Read } from './card-bits';
@@ -49,7 +48,13 @@ export function QuoteTermsLine({ proposalId, supplierName, seed }: { proposalId:
       {/* The whole line is the press; its reach is 44 px tall through the ::after. */}
       <summary className="sn-press relative flex min-h-7 cursor-pointer list-none items-center gap-1.5 text-[13px] text-ink/70 after:absolute after:inset-x-0 after:-inset-y-2 [&::-webkit-details-marker]:hidden">
         {/* The drawing's `.terms`: ⓘ + the sentence, nothing else. A tap opens the exact words under it. */}
-        <Info aria-hidden className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+        {/* The house ⓘ, class for class (`<InfoTip>`'s drawn circle — there-is-one-info-dot); the whole line is its press. */}
+        <span
+          aria-hidden="true"
+          className="sn-press-ring relative inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-ink/25 text-[10px] font-semibold leading-none text-ink/55 transition-all duration-sn-control ease-sn before:absolute before:-inset-[15px] before:content-[''] group-hover:border-terracotta group-hover:text-terracotta group-open:border-terracotta group-open:text-terracotta"
+        >
+          i
+        </span>
         <span className="min-w-0 truncate">{said.words}</span>
       </summary>
       <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-ink/[0.04] px-3 py-2 text-[13px] leading-snug text-ink/80">{read.data.terms}</p>

@@ -78,6 +78,9 @@ type Site = {
 
 const SITES: Record<string, Site> = {
   [INFO_TIP]: { why: 'THE house ⓘ — the source of LOOK.' },
+  'app/_components/chat/cards/quote-terms-line.tsx': {
+    why: 'the quote card’s terms line is a <details> whose whole 44-px line is the press and opens the exact words IN the card under it (Unichat part H2)',
+  },
   'app/_components/explain.tsx': {
     why: 'the explanation template (a 44-px button; a centred popup on a phone) — its mark is InfoTip’s, inside that button',
     colours: 'template',

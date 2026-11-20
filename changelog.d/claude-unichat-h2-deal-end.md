@@ -70,3 +70,5 @@ SPEC IMPACT: `DECISION_LOG.md` 20 Nov row, specs commit 1675080f ("decision: Uni
 document exists), crew, handover")
 (terms are the service card's reservation terms frozen on the quote at send; the receipt, crew, handover and review
 cards read shipped records; Book it waits for Availability step 4, #8012).
+
+**The terms line wears the house ⓘ (2026-11-21).** Not a lucide `<Info>`: InfoTip's drawn circle, class for class, with a SITES entry in `there-is-one-info-dot` (the whole `<summary>` line stays the press).

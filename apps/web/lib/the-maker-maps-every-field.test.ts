@@ -41,7 +41,7 @@ function namesRead(src: string): string[] {
   return [...src.matchAll(/\b(?:formData|fd)\.(?:get|getAll)\(\s*'([a-z0-9_]+)'/g)].map((m) => m[1] ?? '');
 }
 
-/** Every `name="…"` the maker tree posts (the maker + the editors it imports, one level of relative imports). */
+/** Every `name="…"` / `fieldName="…"` the maker tree posts (the maker + the editors it imports, one level of relative imports). */
 function namesPosted(): Set<string> {
   const out = new Set<string>();
   const seen = new Set<string>();
@@ -51,7 +51,9 @@ function namesPosted(): Set<string> {
     if (seen.has(file)) continue;
     seen.add(file);
     const src = read(file);
-    for (const m of src.matchAll(/(?<![\w$.])name\s*=\s*"([^"]*)"/g)) out.add(m[1] ?? '');
+    // A `TypedRow`'s `fieldName="…"` posts too: its own hidden input carries the kept words under that name
+    // (form-row.tsx `fieldName`). Card Maker part 7's Per unit rows exist only as TypedRows.
+    for (const m of src.matchAll(/(?<![\w$.])(?:name|fieldName)\s*=\s*"([^"]*)"/g)) out.add(m[1] ?? '');
     for (const m of src.matchAll(/(?<![\w$.])name\s*=\s*\{`([^`]*)`\}/g)) out.add((m[1] ?? '').replace(/\$\{[^}]*\}/g, '${}'));
     for (const m of src.matchAll(/from\s+'(\.[^']*)'/g)) {
       const f = resolve(dirname(file), `${m[1]}.tsx`);

@@ -4,6 +4,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { buildCustomerCalendarMonth } from '@/lib/vendor-customers';
 import { manilaDate, type SchedulePool } from '@/lib/vendor-schedule';
 import { threadDayAnswerOf, type ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import { NOT_AVAILABLE_COLUMNS, blockClosesDay, notAvailableFieldsOf, notAvailableWindowFilter } from '@/lib/not-available';
 
 /**
@@ -39,7 +40,7 @@ export async function readThreadDayAnswer(
         .eq('is_active', true),
       supabase
         .from('vendor_schedule_pool_bookings')
-        .select('pool_id, event_id')
+        .select('pool_id, event_id, event_vendor_id')
         .eq('vendor_profile_id', vendorProfileId)
         .eq('booked_date', date)
         .is('released_at', null),
@@ -81,13 +82,20 @@ export async function readThreadDayAnswer(
         serviceIds: [],
       }),
     );
-    const bookingRows = (bookingsRes.data ?? []) as { pool_id: string; event_id?: string | null }[];
+    const bookingRows = (bookingsRes.data ?? []) as { pool_id: string; event_id?: string | null; event_vendor_id?: string | null }[];
+    // 🔢 Pieces never take a seat (owner 2c) — the guard's own rule. A refused read FAILS TOWARD SILENCE, like the rest.
+    const pieces = await pieceBookingIdsOf(supabase, bookingRows.map((b) => b.event_vendor_id));
+    if (pieces.error) {
+      logQueryError('readThreadDayAnswer: piece seats', pieces.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+      return null;
+    }
     // 📅 CHAT-29: this couple's own live hold on the day → "Booked" (their booking is what closed it).
     const heldByThisEvent = !!eventId && bookingRows.some((b) => b.event_id === eventId);
     const bookings = bookingRows.map((b) => ({
       poolId: b.pool_id,
       bookedDate: date,
       eventName: '',
+      ...(b.event_vendor_id && pieces.ids.has(b.event_vendor_id) ? { seat: false } : {}),
     }));
     const blocks = (
       (blocksRes.data ?? []) as {

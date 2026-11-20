@@ -52,9 +52,9 @@ import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
-import { isAvailabilityStyle } from '@/lib/availability-styles';
 import type { CardMakerLibrary } from '@/lib/card-maker-library';
 import { QuickFormsEditor } from '@/app/admin/categories/_components/quick-forms-editor';
+import { isAvailabilityStyle } from '@/lib/availability-styles';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
@@ -244,6 +244,7 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
       dailyCapacity: '',
       availabilityStyle: null,
       orderLeadDays: '',
+      usualPrepDays: '',
       branchId: '',
       schedule: [
         {
@@ -343,6 +344,20 @@ export default async function CardMakerLabPage({
   const labAv = isAvailabilityStyle(sp.av) ? sp.av : null;
   const availabilityOf = labAv ? Object.fromEntries([shop.edit.kind, ...shop.covered.map((c) => c.value)].map((k) => [k, labAv])) : {};
   if (fx && isAvailabilityStyle(sp.avcard)) fx.editing.availabilityStyle = sp.avcard;
+  // 📦 `&price=unit|custom` — Card Maker part 7 on an edited card: Per unit, or Custom charging per "chair", with a Max.
+  // LAB FIXTURES — sample numbers, nobody's real price.
+  if (fx && (sp.price === 'unit' || sp.price === 'custom')) {
+    fx.initial.pricing = {
+      ...fx.initial.pricing,
+      pricing_basis: 'per_unit',
+      starting_price_php: 3500,
+      unit_word: sp.price === 'custom' ? 'chair' : null,
+      unit_base_php: 3500,
+      initial_units: 10,
+      extra_unit_php: 350,
+      price_max: sp.price === 'custom' ? 200 : null,
+    };
+  }
   // 📚 `&library=1|unread` — Card Maker HYBRID part 2: a saved pay plan on two cards, the shop's other cards, and
   // Setnayan's starting list for this service (the seed's Catering rows), or every read refused. LAB FIXTURES.
   const labCards = [

@@ -73,6 +73,7 @@ const SERVICE_COLS =
   'vendor_service_id,public_id,vendor_profile_id,category,title,starting_price_php,' +
   'added_pax_price_php,crew_size,crew_meal_required,is_active,created_at,updated_at,' +
   'pricing_basis,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,' +
+  'unit_word,unit_base_php,initial_units,extra_unit_php,price_max,' +
   'crew_meal_included,transport_included,transport_flat_fee_php,showcase_video_r2_key,' +
   'showcase_photo_r2_keys,primary_photo_r2_key,branch_id,recommended_lead_time_months,' +
   'last_minute_end_months,last_minute_surcharge_pct,daily_capacity,exclusive_perk_text,' +

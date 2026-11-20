@@ -51,10 +51,10 @@ import { SERVICE_DEFINITION_MAX } from '@/lib/service-definitions';
 import { ServiceInfo } from '@/app/_components/service-info';
 import { LevelIcon } from './map-rows';
 import { FormSuggestionsPane } from './form-suggestions-pane';
+import { QuickFormsPane } from './quick-forms-pane';
 import { CategoryAvailabilityPick, ServiceAvailabilityPick } from './availability-picks';
 import { AVAILABILITY_CHOICES } from './availability-choices';
 import { AVAILABILITY_STYLES, availabilityName, mostCommonAvailability } from '@/lib/availability-styles';
-import { QuickFormsPane } from './quick-forms-pane';
 
 type PlanGroupRef = { id: string; label: string; catalogTile?: string | null; catalogFolder?: string | null };
 

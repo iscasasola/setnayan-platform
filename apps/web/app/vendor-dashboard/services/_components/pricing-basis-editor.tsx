@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { ChosenRow, FormRow, TypedRow } from '@/app/_components/form-row';
+import { unitWord } from '@/lib/per-unit-price';
 
 /**
  * Pricing-basis editor (service-card redesign · Phase 3a). The three ways a
@@ -18,7 +19,7 @@ import { ChosenRow, FormRow, TypedRow } from '@/app/_components/form-row';
  * starting_price_php anchor + nulls the inactive columns.
  */
 
-export type Basis = 'fixed' | 'per_pax' | 'per_hour';
+export type Basis = 'fixed' | 'per_pax' | 'per_hour' | 'per_unit';
 
 export type PricingDefaults = {
   pricing_basis: Basis;
@@ -30,7 +31,14 @@ export type PricingDefaults = {
   hour_base_php: number | null;
   min_hours: number | null;
   extra_hour_php: number | null;
+  /* 📦 CARD MAKER PART 7 (migration 20271352223098) — Per unit · Custom · Max. Optional so every older caller compiles. */
+  unit_word?: string | null;
+  unit_base_php?: number | null;
+  initial_units?: number | null;
+  extra_unit_php?: number | null;
+  price_max?: number | null;
 };
+
 
 const line = 'var(--m-line)';
 
@@ -38,6 +46,7 @@ export const PRICING_BASIS_OPTIONS: { key: Basis; label: string; hint: string }[
   { key: 'fixed', label: 'Fixed price', hint: 'One flat price (booths, packages)' },
   { key: 'per_pax', label: 'Per guest', hint: 'Priced by head (catering, mobile bar)' },
   { key: 'per_hour', label: 'Per hour', hint: 'Priced by time (booths, hosts, lights)' },
+  { key: 'per_unit', label: 'Per unit', hint: 'Priced by the piece (chairs, tables, lights)' },
 ];
 const OPTIONS = PRICING_BASIS_OPTIONS;
 
@@ -48,6 +57,7 @@ export function PricingBasisEditor({
   category,
   basis: controlledBasis,
   part = 'all',
+  custom = false,
 }: {
   idPrefix: string;
   defaults: PricingDefaults;
@@ -71,11 +81,20 @@ export function PricingBasisEditor({
   basis?: Basis;
   /** `row` — the maker's one form (ruling 6058): `main` as ONE typed Form row (`TypedRow`, amount), same field names. */
   part?: 'all' | 'main' | 'more' | 'row' | 'basis' | 'brackets';
+  /** 📦 Part 7: a per-unit card that names what it charges per ("Custom" in the maker's dropdown). */
+  custom?: boolean;
 }) {
   const isCrewMeals = category === 'crew_meals';
   const perPaxUnit = isCrewMeals ? 'meal' : 'guest';
   const [ownBasis, setBasis] = useState<Basis>(defaults.pricing_basis ?? 'fixed');
   const basis = controlledBasis ?? ownBasis;
+  /* 📦 Part 7: the typed word carries into "Each extra chair" as it is typed (owner 17 Nov: "confused" when it did
+     not), and Max is checked against the starting number on screen — the database refuses it either way. */
+  const [word, setWord] = useState(defaults.unit_word ?? '');
+  const [start, setStart] = useState(() => {
+    const n = basis === 'per_pax' ? defaults.min_pax : basis === 'per_hour' ? defaults.min_hours : defaults.initial_units;
+    return n == null ? '' : String(n);
+  });
   if (part === 'row') {
     /* 📐 THE CARD MAKER AS ONE FORM (ruling 6058): the same one number, as ONE typed row of the maker's list — its name
        "Price · shown as “from”", the shipped help moved into the ⓘ, the same field name per basis. Keyed by basis so a
@@ -85,13 +104,15 @@ export function PricingBasisEditor({
         ? (['starting_price_php', defaults.starting_price_php, 'Whole pesos — couples see it as “from”.'] as const)
         : basis === 'per_pax'
           ? (['per_pax_price_php', defaults.per_pax_price_php, isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'] as const)
-          : (['hour_base_php', defaults.hour_base_php, 'Covers your minimum hours (set under Price · more).'] as const);
+          : basis === 'per_unit'
+            ? (['unit_base_php', defaults.unit_base_php ?? null, 'Covers the initial number. Couples see it as “from”.'] as const)
+            : (['hour_base_php', defaults.hour_base_php, 'Covers your minimum hours (set under Price · more).'] as const);
     return (
       <>
         <input type="hidden" name="pricing_basis" value={basis} />
         <TypedRow
           key={basis}
-          name={basis === 'per_pax' ? `Price, per ${perPaxUnit}` : 'Price'}
+          name={basis === 'per_pax' ? `Price, per ${perPaxUnit}` : basis === 'per_unit' ? 'Base price' : 'Price'}
           about={{ title: 'Price · shown as “from”', words: help }}
           value={value == null ? '' : String(value)}
           amount
@@ -110,17 +131,49 @@ export function PricingBasisEditor({
        holds, as rows of the Price group — same names, posted once (`more` is not drawn beside this part). */
     const count = (t: string) => (t.trim() === '' || /^\d+(\.\d+)?$/.test(t.trim()) ? null : 'A number, please.');
     const v = (n: number | null | undefined) => (n == null ? '' : String(n));
+    /* 📦 Max (owner 17 Nov): "max hours cannot be equal or less than Initial Hours. same with others. max hours can be
+       blank to have no limit." A whole number, more than the starting number shown on screen; blank = No limit. */
+    const startLabel = basis === 'per_pax' ? (isCrewMeals ? 'minimum meals' : 'minimum guests') : basis === 'per_hour' ? 'minimum hours' : custom ? 'initial number' : 'initial units';
+    const maxCheck = (t: string) => {
+      const x = t.trim();
+      if (x === '') return null;
+      if (!/^\d+$/.test(x) || Number(x) <= 0) return 'A whole number, please.';
+      const s0 = Number(start.trim());
+      return start.trim() !== '' && Number.isFinite(s0) && Number(x) <= s0 ? `Must be more than the ${startLabel}.` : null;
+    };
+    const maxRow = (name: string) => (
+      <TypedRow key="price_max" name={name} about={{ title: name, words: `Saved for later: couples don’t see it yet and bookings are not held to it. Empty = no limit. Must be more than the ${startLabel}.` }} value={v(defaults.price_max)} empty="No limit" inputMode="numeric" check={maxCheck} fieldName="price_max" onKeep={() => undefined} data="price-max" attrs={{ 'data-maker-price-field': 'price_max' }} />
+    );
+    if (basis === 'per_unit') {
+      const w = unitWord(custom ? word : null);
+      const wordCheck = (t: string) => (t.trim() === '' ? 'Type what you charge per.' : /[0-9<>]/.test(t) ? 'Letters only, please.' : null);
+      return (
+        <>
+          {custom ? (
+            <TypedRow key="unit_word" name="Charge per" about={{ title: 'Charge per', words: 'What you charge per — chair, table, set. Couples see “per chair”.' }} value={word} empty="e.g. table" maxLength={24} required check={wordCheck} fieldName="unit_word" onType={setWord} onKeep={(t) => { setWord(t.trim()); return undefined; }} data="price-unit-word" attrs={{ 'data-maker-price-field': 'unit_word' }} />
+          ) : null}
+          <TypedRow key="initial_units" name={custom ? 'Initial number' : 'Initial units'} about={{ title: custom ? 'Initial number' : 'Initial units', words: `How many ${w === 'unit' ? 'units' : w} the base price covers.` }} value={v(defaults.initial_units)} empty="Add" inputMode="numeric" required check={count} fieldName="initial_units" onType={setStart} onKeep={(t) => { setStart(t); return undefined; }} data="price-initial-units" attrs={{ 'data-maker-price-field': 'initial_units' }} />
+          <TypedRow key="extra_unit_php" name={`Each extra ${w}`} about={{ title: `Each extra ${w}`, words: 'Fills in by itself (base price ÷ the initial number). You can change it.' }} value={v(defaults.extra_unit_php)} amount empty="Fills in by itself" fieldName="extra_unit_php" onKeep={() => undefined} data="price-extra-unit" attrs={{ 'data-maker-price-field': 'extra_unit_php' }} />
+          {/* The drawing: "Max units" for Per unit, plain "Max" for Custom. */}
+          {maxRow(custom ? 'Max' : 'Max units')}
+        </>
+      );
+    }
     return basis === 'fixed' ? (
       <>
         <TypedRow key="base_pax" name="Price covers" about={{ title: 'Price covers', words: 'Guests the price covers. Blank = one price, any guest count.' }} value={v(defaults.base_pax)} empty="Any count" inputMode="numeric" check={count} fieldName="base_pax" onKeep={() => undefined} data="price-covers" attrs={{ 'data-maker-price-field': 'base_pax' }} />
         <TypedRow key="added_pax_price_php" name={`Each extra ${perPaxUnit}`} about={{ title: `Each extra ${perPaxUnit}`, words: `Optional. Charged per ${perPaxUnit} above that.` }} value={v(defaults.added_pax_price_php)} amount empty="None" fieldName="added_pax_price_php" onKeep={() => undefined} data="price-extra-guest" attrs={{ 'data-maker-price-field': 'added_pax_price_php' }} />
       </>
     ) : basis === 'per_pax' ? (
-      <TypedRow key="min_pax" name={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} about={{ title: isCrewMeals ? 'Minimum meals' : 'Minimum guests', words: 'The floor — the card shows rate × minimum.' }} value={v(defaults.min_pax)} empty="None" inputMode="numeric" check={count} fieldName="min_pax" onKeep={() => undefined} data="price-min-pax" attrs={{ 'data-maker-price-field': 'min_pax' }} />
+      <>
+        <TypedRow key="min_pax" name={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} about={{ title: isCrewMeals ? 'Minimum meals' : 'Minimum guests', words: 'The floor — the card shows rate × minimum.' }} value={v(defaults.min_pax)} empty="None" inputMode="numeric" check={count} fieldName="min_pax" onType={setStart} onKeep={(t) => { setStart(t); return undefined; }} data="price-min-pax" attrs={{ 'data-maker-price-field': 'min_pax' }} />
+        {maxRow(isCrewMeals ? 'Max meals' : 'Max guests')}
+      </>
     ) : (
       <>
-        <TypedRow key="min_hours" name="Minimum hours" about={{ title: 'Minimum hours', words: 'Hours the “from” price covers.' }} value={v(defaults.min_hours)} empty="None" inputMode="numeric" check={count} fieldName="min_hours" onKeep={() => undefined} data="price-min-hours" attrs={{ 'data-maker-price-field': 'min_hours' }} />
+        <TypedRow key="min_hours" name="Minimum hours" about={{ title: 'Minimum hours', words: 'Hours the “from” price covers.' }} value={v(defaults.min_hours)} empty="None" inputMode="numeric" check={count} fieldName="min_hours" onType={setStart} onKeep={(t) => { setStart(t); return undefined; }} data="price-min-hours" attrs={{ 'data-maker-price-field': 'min_hours' }} />
         <TypedRow key="extra_hour_php" name="Each extra hour" about={{ title: 'Each extra hour', words: 'Charged for each hour beyond the minimum.' }} value={v(defaults.extra_hour_php)} amount empty="None" fieldName="extra_hour_php" onKeep={() => undefined} data="price-extra-hour" attrs={{ 'data-maker-price-field': 'extra_hour_php' }} />
+        {maxRow('Max hours')}
       </>
     );
   }
@@ -140,6 +193,10 @@ export function PricingBasisEditor({
           <PField label={`From, per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'}>
             <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
           </PField>
+        ) : basis === 'per_unit' ? (
+          <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units. Couples see it as “from”.">
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+          </PField>
         ) : (
           <PField label="From (PHP)" id={`${idPrefix}-hourbase`} help="Covers your minimum hours (set under More settings).">
             <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
@@ -149,6 +206,8 @@ export function PricingBasisEditor({
     );
   }
   if (part === 'more') {
+    if (basis === 'per_unit') return <PerUnitFields idPrefix={idPrefix} defaults={defaults} />;
+    const keptMax = <KeptMax basis={basis} defaults={defaults} />;
     return basis === 'fixed' ? (
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -164,9 +223,11 @@ export function PricingBasisEditor({
     ) : basis === 'per_pax' ? (
       <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor — the card shows rate × minimum.">
         <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
+        {keptMax}
       </PField>
     ) : (
       <div className="grid gap-3 sm:grid-cols-2">
+        {keptMax}
         <PField label="Minimum hours" id={`${idPrefix}-minhours`} help="Hours the “from” price covers.">
           <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} placeholder="e.g. 5" className="input-field" />
         </PField>
@@ -176,14 +237,16 @@ export function PricingBasisEditor({
       </div>
     );
   }
-  const options = isCrewMeals
+  const options = (isCrewMeals
     ? OPTIONS.map((o) =>
         o.key === 'per_pax' ? { ...o, label: 'Per meal', hint: 'Priced per crew meal' } : o,
       )
-    : OPTIONS;
+    : OPTIONS
+  ).filter((o) => o.key !== 'per_unit');
   return (
     <div className="space-y-3">
       <input type="hidden" name="pricing_basis" value={basis} />
+      <KeptMax basis={basis} defaults={defaults} />
       <div>
         <p className="mb-1.5 text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
           How do you price this?
@@ -214,7 +277,14 @@ export function PricingBasisEditor({
         </div>
       </div>
 
-      {basis === 'fixed' ? (
+      {basis === 'per_unit' ? (
+        <div className="space-y-3">
+          <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units.">
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+          </PField>
+          <PerUnitFields idPrefix={idPrefix} defaults={defaults} />
+        </div>
+      ) : basis === 'fixed' ? (
         <div className="space-y-3">
           <PField
             label="Starting price (PHP)"
@@ -377,6 +447,34 @@ export function IncludedFlags({
           <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="e.g. 2000" className="input-field" />
         </PField>
       ) : null}
+    </div>
+  );
+}
+
+/** 📦 Part 7: a per guest / per hour card's Max rides through the older editors unchanged (they have no Max row). */
+function KeptMax({ basis, defaults }: { basis: Basis; defaults: PricingDefaults }) {
+  return (basis === 'per_pax' || basis === 'per_hour') && defaults.price_max != null ? (
+    <input type="hidden" name="price_max" value={defaults.price_max} />
+  ) : null;
+}
+
+/**
+ * 📦 Card Maker part 7 — a per-unit card in the older editors (Services list, wizard): its own fields, never the hour
+ * ones, so a per-unit card opened there posts what it is. The word, if any, is carried as it is.
+ */
+function PerUnitFields({ idPrefix, defaults }: { idPrefix: string; defaults: PricingDefaults }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {defaults.unit_word ? <input type="hidden" name="unit_word" value={defaults.unit_word} /> : null}
+      <PField label="Initial units" id={`${idPrefix}-initialunits`} help="How many the base price covers.">
+        <input id={`${idPrefix}-initialunits`} name="initial_units" type="number" min={1} step={1} defaultValue={defaults.initial_units ?? ''} placeholder="e.g. 10" className="input-field" />
+      </PField>
+      <PField label="Each extra (PHP)" id={`${idPrefix}-extraunit`} help="Blank fills in as base ÷ initial units.">
+        <input id={`${idPrefix}-extraunit`} name="extra_unit_php" type="number" min={0} step={1} defaultValue={defaults.extra_unit_php ?? ''} placeholder="e.g. 350" className="input-field" />
+      </PField>
+      <PField label="Max" id={`${idPrefix}-pricemax`} help="Empty = no limit. More than the initial units.">
+        <input id={`${idPrefix}-pricemax`} name="price_max" type="number" min={1} step={1} defaultValue={defaults.price_max ?? ''} placeholder="No limit" className="input-field" />
+      </PField>
     </div>
   );
 }

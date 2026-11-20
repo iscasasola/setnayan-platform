@@ -213,6 +213,8 @@ export type MakerEditing = {
   availabilityStyle: AvailabilityStyle | null;
   /** 🗓 Made to order: "Order at least N days" (`vendor_services.order_lead_days`); '' = no rule. */
   orderLeadDays: string;
+  /** 🛠 Made to order: "Usual preparation time" in days (`vendor_services.usual_prep_days`); '' = none. */
+  usualPrepDays: string;
   branchId: string;
   schedule: ScheduleItemDraft[];
   addons: AddonDraft[];
@@ -706,6 +708,7 @@ export function CanvasMaker({
     pickedStyle !== undefined ? pickedStyle : recommendedStyle && isCardPickableStyle(recommendedStyle) ? recommendedStyle : null;
   const storedPerDay = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
   const storedLead = editing && editing.orderLeadDays.trim() !== '' ? Number(editing.orderLeadDays) : null;
+  const storedPrep = editing && editing.usualPrepDays.trim() !== '' ? Number(editing.usualPrepDays) : null;
   const [perDay, setPerDay] = useState<number | null>(storedPerDay ?? (editing ? null : 1));
   const [leadDays, setLeadDays] = useState<number | null>(storedLead);
 
@@ -908,6 +911,9 @@ export function CanvasMaker({
       categoryValue,
     ).pricingBasis,
   );
+  /* 📦 CARD MAKER PART 7: "Custom" is a per-unit card that names what it charges per (unit_word). One basis column, so
+     the dropdown's fifth choice is this flag beside it. */
+  const [customUnit, setCustomUnit] = useState(Boolean(initial?.pricing.unit_word));
   // A new card follows its kind's default basis until they pick one themselves.
   const basisTouched = useRef(initial !== null || isEdit);
   useEffect(() => {
@@ -1077,11 +1083,16 @@ export function CanvasMaker({
   const [peekOpen, setPeekOpen] = useState(false);
   const [incMissing, setIncMissing] = useState(false);
   /** The basis dropdown, its hint under it — the shipped words (`PRICING_BASIS_OPTIONS`), the maker's labels. */
-  const basisOptions = PRICING_BASIS_OPTIONS.map((o) => ({
-    key: o.key,
-    label: o.key === 'fixed' ? 'One price' : o.key === 'per_pax' ? (category === 'crew_meals' ? 'Per meal' : 'Per guest') : o.label,
-    hint: o.hint,
-  }));
+  const basisOptions = [
+    ...PRICING_BASIS_OPTIONS.map((o) => ({
+      key: o.key as string,
+      label: o.key === 'fixed' ? 'One price' : o.key === 'per_pax' ? (category === 'crew_meals' ? 'Per meal' : 'Per guest') : o.label,
+      hint: o.hint,
+    })),
+    /* 📦 Part 7, the drawing's fifth: "Custom · Name your own". */
+    { key: 'custom', label: 'Custom', hint: 'Name your own (per table, per set)' },
+  ];
+  const basisKey = basis === 'per_unit' && customUnit ? 'custom' : basis;
   const cancelTo = cancelHref ?? (isEdit ? '/vendor-dashboard/shop' : '/vendor-dashboard/services');
   /** "Start another from this" for the edit lock's way out — the fold's row is inert while the card is locked. */
   const copyHref = editing ? `/vendor-dashboard/services/new/${category}?from=${editing.serviceId}` : null;
@@ -1423,12 +1434,13 @@ export function CanvasMaker({
                 <div data-maker-row="price" data-price-waits={priceWaits ?? undefined}>
                   <ChosenRow
                     name="How the price works"
-                    about={{ title: 'How the price works', words: <span data-basis-hint="">{basisOptions.find((o) => o.key === basis)?.hint}</span> }}
-                    value={basis}
+                    about={{ title: 'How the price works', words: <span data-basis-hint="">{basisOptions.find((o) => o.key === basisKey)?.hint}</span> }}
+                    value={basisKey}
                     options={basisOptions}
                     onPick={(k) => {
                       basisTouched.current = true;
-                      setBasis(k as Basis);
+                      setCustomUnit(k === 'custom');
+                      setBasis(k === 'custom' ? 'per_unit' : (k as Basis));
                     }}
                     dataAttr="data-maker-basis"
                     data="basis"
@@ -1457,7 +1469,7 @@ export function CanvasMaker({
                   ) : null}
                   {/* The basis's two main fields, beside Price — the same names `Price · more` posted before. */}
                   <div data-maker-price-basis="">
-                    <PricingBasisEditor idPrefix="canvas" category={category} basis={basis} part="basis" defaults={initial?.pricing ?? EMPTY_PRICING} />
+                    <PricingBasisEditor key={basisKey} idPrefix="canvas" category={category} basis={basis} custom={customUnit} part="basis" defaults={initial?.pricing ?? EMPTY_PRICING} />
                   </div>
                   {/* Price · more — the price brackets (Fixed only). Mounted while shut, so its boxes post either way. */}
                   {basis === 'fixed' ? (
@@ -1520,25 +1532,26 @@ export function CanvasMaker({
                 schedule, exact time slots, book ahead and last-minute — the shipped fields, on the first page. By the hour
                 / by the night are still being planned (Availability) and are not drawn. ── */}
             <MakerGroup id="m-terms" label="How clients book" line={bookingTermsLine(cardStyle, perDay, leadDays) ?? defaults.summary.terms}>
-              {/* 🗓 Availability (plan step 3, from main #7544/#8042) stays the TOP of how clients book — it moved
-                  with the group from More settings › Booking terms to the first page. */}
-              <div className="pb-2 pt-1">
-                <AvailabilityBlock
-                  serviceLabel={activeCategoryLabel}
-                  recommended={availabilityOf === null ? null : recommendedStyle}
-                  style={cardStyle}
-                  onPick={setPickedStyle}
-                  reads={availabilityReads(cardStyle, perDay, leadDays)}
-                />
-              </div>
+              {/* 🗓 Availability (plan step 3, #8011 — merged into the HYBRID layout's "How clients book" group): the style
+                  sets which question the day count asks; Made to order adds its two rows; Always available is never counted. */}
+              <AvailabilityBlock
+                serviceLabel={activeCategoryLabel}
+                recommended={availabilityOf === null ? null : recommendedStyle}
+                style={cardStyle}
+                onPick={setPickedStyle}
+                reads={availabilityReads(cardStyle, perDay, leadDays)}
+              />
               {cardStyle !== 'order' ? <input type="hidden" name="order_lead_days" value={editing?.orderLeadDays ?? ''} /> : null}
+              {cardStyle !== 'order' ? <input type="hidden" name="usual_prep_days" value={editing?.usualPrepDays ?? ''} /> : null}
+              {cardIsNeverCounted(cardStyle) ? (
+                /* Always available: the number is hidden and never counted — the stored one is kept as it is. */
+                <input type="hidden" name="daily_capacity" value={editing?.dailyCapacity ?? ''} />
+              ) : null}
               <FormRows width="short" data="same-day-rows">
-                {cardIsNeverCounted(cardStyle) ? (
-                  /* Always available: the number is hidden and never counted — the stored one is kept as it is. */
-                  <input type="hidden" name="daily_capacity" value={editing?.dailyCapacity ?? ''} />
-                ) : (
+                {cardIsNeverCounted(cardStyle) ? null : (
                   <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} style={cardStyle} onCount={setPerDay} />
                 )}
+                {cardStyle === 'order' ? <UsualPrepRow stored={storedPrep} /> : null}
                 {cardStyle === 'order' ? <OrderLeadRow stored={storedLead} onCount={setLeadDays} /> : null}
                 <div data-maker-row="schedule">
                   <ChosenRow
@@ -2497,6 +2510,32 @@ function OrderLeadRow({ stored, onCount }: { stored: number | null; onCount: (n:
       >
         <span className="flex flex-none" data-maker-order-lead="">
           <FormCounter name="order_lead_days" value={stored ?? 0} min={0} max={365} label="Days to order ahead" data="order-lead" blankUntilTouched={stored === null} onCount={onCount} />
+        </span>
+      </FormRow>
+    </div>
+  );
+}
+
+/**
+ * 🛠 MADE TO ORDER — "Usual preparation time" (owner 19 Nov, DECISION_LOG "AVAILABILITY FINALIZED"): how many days an
+ * order is being made before its date. Each order is counted IN PROGRESS on every one of those days, not only on the
+ * date it is due. Kept apart from "Order at least" (the couple's rule). Posts `usual_prep_days`; 0 = counted on the due
+ * date only. A stored blank shows 0 and posts blank until a tap — opening and saving never writes a number.
+ */
+function UsualPrepRow({ stored }: { stored: number | null }) {
+  return (
+    <div data-maker-row="usual-prep">
+      <FormRow
+        name="Usual preparation time"
+        line="days to make one order"
+        about={{
+          title: 'Usual preparation time',
+          words: 'An order counts as in progress on each of these days before its date, not only on the date. 0 = only on the date.',
+        }}
+        data="usual-prep"
+      >
+        <span className="flex flex-none" data-maker-usual-prep="">
+          <FormCounter name="usual_prep_days" value={stored ?? 0} min={0} max={365} label="Days to make one order" data="usual-prep" blankUntilTouched={stored === null} />
         </span>
       </FormRow>
     </div>

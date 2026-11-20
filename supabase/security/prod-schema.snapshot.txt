@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1931
-# tables: 517
-# columns: 6224
-# notnull: 3753
+# ledger: 1935
+# tables: 521
+# columns: 6248
+# notnull: 3770
 [ledger]
 20260512000000
 20260513000000
@@ -1943,6 +1943,10 @@
 20271353093349
 20271353556136
 20271354465843
+20271354681750
+20271354727518
+20271355036188
+20271355746081
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -1983,6 +1987,10 @@ admin_data_access_log.admin_user_id
 admin_data_access_log.context
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.amount_php
 admin_received_transactions.channel
 admin_received_transactions.created_at
@@ -3581,6 +3589,13 @@ event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.locked_at
 event_supplier_schedule_marks.seen_at
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.decided_at
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.shared_by
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -5859,8 +5874,11 @@ platform_settings.setnayan_ai_paywall_enabled
 platform_settings.setnayan_ai_per_event_pricing_enabled
 platform_settings.setnayan_pay_fee_pct
 platform_settings.spotlight_homepage_enabled
+platform_settings.story_photo_silence_days
 platform_settings.tiktok_client_key
 platform_settings.tiktok_oauth_redirect_uri
+platform_settings.today_soon_ask_hours
+platform_settings.today_soon_event_days
 platform_settings.updated_at
 platform_settings.vendor_addon_tiered_pricing_enabled
 platform_settings.vendor_credit_warning_sweep_last_run_at
@@ -6356,6 +6374,11 @@ stewardship_transfers.to_user_id
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
 stewardship_transfers.verification_ref
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
+supplier_event_wrap_ups.wrapped_by
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -6434,6 +6457,11 @@ supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.updated_by_user_id
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.put_off_by
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.closest_existing
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
@@ -8189,6 +8217,10 @@ admin_audit_log.metadata
 admin_data_access_log.access_log_id
 admin_data_access_log.created_at
 admin_data_access_log.surface
+admin_focus_put_offs.item_key
+admin_focus_put_offs.put_off_at
+admin_focus_put_offs.until_day
+admin_focus_put_offs.user_id
 admin_received_transactions.channel
 admin_received_transactions.created_at
 admin_received_transactions.read_status
@@ -9186,6 +9218,11 @@ event_supplier_files.updated_at
 event_supplier_files.vendor_profile_id
 event_supplier_schedule_marks.event_id
 event_supplier_schedule_marks.vendor_profile_id
+event_supplier_story_shares.couple_decision
+event_supplier_story_shares.event_id
+event_supplier_story_shares.file_id
+event_supplier_story_shares.shared_at
+event_supplier_story_shares.vendor_profile_id
 event_tables.capacity
 event_tables.created_at
 event_tables.event_id
@@ -10812,6 +10849,10 @@ stewardship_transfers.initiated_at
 stewardship_transfers.status
 stewardship_transfers.transfer_id
 stewardship_transfers.transfer_kind
+supplier_event_wrap_ups.event_id
+supplier_event_wrap_ups.photos_shared
+supplier_event_wrap_ups.vendor_profile_id
+supplier_event_wrap_ups.wrapped_at
 supplier_media.content_sha256
 supplier_media.created_at
 supplier_media.in_portfolio
@@ -10870,6 +10911,10 @@ supplier_scan_settings.enabled
 supplier_scan_settings.mode
 supplier_scan_settings.updated_at
 supplier_scan_settings.vendor_profile_id
+supplier_today_put_offs.put_off_at
+supplier_today_put_offs.task_key
+supplier_today_put_offs.until_day
+supplier_today_put_offs.vendor_profile_id
 taxonomy_category_request_drafts.drafted_at
 taxonomy_category_request_drafts.drafted_by
 taxonomy_category_request_drafts.near_matches

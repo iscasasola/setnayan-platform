@@ -8,5 +8,4 @@ Fix: the card stops its own `pointerdown` from reaching the floor (`data-floor-s
 
 Not changed here (found in the same walk, drawn in `prototypes/guests_redesign_2026-11-20/` for the owner): a new table lands off the existing row, the draft and "Fit" fit the tables not the room, the add-table sheet stays open after adding, and an empty Seats › List floats the thumb row mid-screen.
 
-SPECS IMPACT: None
 SPEC IMPACT: None

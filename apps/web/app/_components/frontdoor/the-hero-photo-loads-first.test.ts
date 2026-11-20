@@ -1,14 +1,13 @@
 /**
- * GUARD — the front page's first hero photo stays the first thing the phone fetches.
+ * GUARD — the front page's first photo stays the first thing the phone fetches.
  *
- * It is the LCP element of `/` on a phone (measured 2026-11-13 with a PerformanceObserver on a production build at
- * 412×823: `IMG` · `/marketing/2026-11-04/hero-wedding.webp`). Three things keep it fast and each is a one-word edit
- * away from regressing silently — nothing throws, the page looks the same, and only the LCP moves:
+ * It is the LCP element of `/` on a phone (measured 2026-11-13: `/marketing/2026-11-04/hero-wedding.webp`). 🔁 MOVED
+ * 20 Nov 2026: the 4 Nov hero turned six slides (`front-door-hero.tsx`); the 20 Nov front page
+ * (prototypes/front_page_home_2026-11-19 v5) leads with ONE inset photo, drawn in `front-door-anchor.tsx`. The same
+ * two rules hold it fast, each a one-word edit from regressing silently:
  *
- *   • it is in the SERVER HTML — slide 0 is drawn without waiting for the idle "arm" that gives the other five their
- *     `src` (a hydration-gated `src` cannot start downloading until the page's JavaScript has run);
- *   • `fetchPriority="high"` for slide 0 and `"low"` for the others;
- *   • no `loading="lazy"` (a lazy LCP image is fetched only after layout).
+ *   • it is a plain server-rendered <img> with its `src` in the HTML — nothing waits for script;
+ *   • `fetchPriority="high"`, and never `loading="lazy"` (a lazy LCP image is fetched only after layout).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,18 +15,19 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 
-const src = stripComments(readFileSync(join(__dirname, 'front-door-hero.tsx'), 'utf8'));
+const src = stripComments(readFileSync(join(__dirname, 'front-door-anchor.tsx'), 'utf8'));
 const img = src.slice(src.indexOf('<img'), src.indexOf('/>', src.indexOf('<img')));
 
-test('slide 0 renders its <img> on the server, before the idle arm', () => {
-  assert.ok(img.length > 20, 'premise: the hero <img> moved — re-anchor this guard');
-  assert.match(src, /\{i === 0 \|\| armed \? \(/, 'slide 0 must not wait for `armed`');
+test('the first photo is a server <img> with its src in the HTML', () => {
+  assert.ok(img.length > 20, 'premise: the first-screen <img> moved — re-anchor this guard');
+  assert.match(img, /src=\{marketingPhoto\('hero-wedding'\)\}/, 'the first photo must carry its src on the server');
+  assert.doesNotMatch(src, /^\s*['"]use client['"]/m, 'the first screen became a client module — its photo would wait for script');
 });
 
-test('slide 0 is fetched at high priority, the rest at low', () => {
-  assert.match(img, /fetchPriority=\{i === 0 \? 'high' : 'low'\}/);
+test('the first photo is fetched at high priority', () => {
+  assert.match(img, /fetchPriority="high"/);
 });
 
-test('the hero photo is never lazy-loaded', () => {
+test('the first photo is never lazy-loaded', () => {
   assert.doesNotMatch(img, /loading=/, 'loading="lazy" on the LCP image delays it until after layout');
 });

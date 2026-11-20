@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Handshake, CheckCircle2, Inbox, Send } from 'lucide-react';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -88,9 +89,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const sp = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

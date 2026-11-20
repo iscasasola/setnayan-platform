@@ -177,30 +177,26 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
     if (confirming === 'batch') {
       return (
         <span className="inline-flex items-center gap-2">
-          <button
+          <ActionButton
+            tone="danger"
+            main
+            icon={result.kind === 'busy' ? <Loader2 aria-hidden className="animate-spin" /> : Check}
+            label="Confirm delete"
             type="button"
             onClick={() => runCleanupBatch(batchId)}
             disabled={result.kind === 'busy'}
-            className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 text-xs text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {result.kind === 'busy' ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Check className="h-3 w-3" />
-            )}
-            Confirm delete
-          </button>
-          <button
+          />
+          <ActionButton
+            tone="neutral"
+            icon={X}
+            label="Cancel"
             type="button"
             onClick={() => {
               setConfirming(null);
               setResult({ kind: 'idle' });
             }}
             disabled={result.kind === 'busy'}
-            className="rounded-md bg-ink/5 px-2.5 py-1 text-xs text-ink/65 hover:bg-ink/10"
-          >
-            Cancel
-          </button>
+          />
         </span>
       );
     }
@@ -251,57 +247,49 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
           </>
         ) : confirming === 'all' ? (
           <>
-            <button
+            <ActionButton
+              tone="danger"
+              main
+              icon={result.kind === 'busy' ? <Loader2 aria-hidden className="animate-spin" /> : Check}
+              label={`Confirm: delete all ${totalCount.toLocaleString()} demo suppliers`}
               type="button"
               onClick={runCleanup}
               disabled={result.kind === 'busy'}
-              className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {result.kind === 'busy' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Confirm: delete all {totalCount.toLocaleString()} demo suppliers
-            </button>
-            <button
+            />
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Cancel"
               type="button"
               onClick={() => {
                 setConfirming(null);
                 setResult({ kind: 'idle' });
               }}
               disabled={result.kind === 'busy'}
-              className="rounded-md bg-ink/5 px-4 py-2 text-sm text-ink/65 hover:bg-ink/10"
-            >
-              Cancel
-            </button>
+            />
           </>
         ) : confirming === 'regen' ? (
           <>
-            <button
+            <ActionButton
+              tone="warn"
+              main
+              icon={result.kind === 'busy' ? <Loader2 aria-hidden className="animate-spin" /> : Check}
+              label="Confirm: cleanup all + show seed command"
               type="button"
               onClick={runRegenerate}
               disabled={result.kind === 'busy'}
-              className="inline-flex items-center gap-2 rounded-md bg-warn-600 px-4 py-2 text-sm font-medium text-white hover:bg-warn-700 disabled:opacity-50"
-            >
-              {result.kind === 'busy' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="h-4 w-4" />
-              )}
-              Confirm: cleanup all + show seed command
-            </button>
-            <button
+            />
+            <ActionButton
+              tone="neutral"
+              icon={X}
+              label="Cancel"
               type="button"
               onClick={() => {
                 setConfirming(null);
                 setResult({ kind: 'idle' });
               }}
               disabled={result.kind === 'busy'}
-              className="rounded-md bg-ink/5 px-4 py-2 text-sm text-ink/65 hover:bg-ink/10"
-            >
-              Cancel
-            </button>
+            />
           </>
         ) : (
           <>

@@ -140,9 +140,7 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
-        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
+        {/* Templates, then Specialized tools, ABOVE the numbers (owner 19 Nov 2026) — the page's own order. */}
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
@@ -150,6 +148,9 @@ function shopLab(fail: boolean, none: boolean) {
           services={none ? [] : ['live_band']}
           booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
         />
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
+        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
           <ShopServicesHead
             line={none ? 'Bundles first, then every service you do, by category' : 'Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live'}

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
@@ -35,9 +36,7 @@ const CLASSIC_WAX = ['#7c1c2b', '#5c2542', '#2f5043', '#1f3a5f', '#8a5a1c', '#3a
 export default async function StampMakerPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Same event-type backstop as the Save-the-Date index: a sub-route is its own

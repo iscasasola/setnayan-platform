@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -159,9 +160,7 @@ export default async function EditorialEditorPage({
     'public') as LandingVisibility;
   let showcaseOptedIn = false;
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (user) {
       const admin = createAdminClient();
       const { data: me, error: meError } = await admin

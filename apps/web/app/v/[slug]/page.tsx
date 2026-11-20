@@ -1,3 +1,5 @@
+import { getCurrentUser } from '@/lib/auth';
+import { startAhead } from '@/lib/start-ahead';
 import { shopPath } from '@/lib/shop-address';
 import { distinctShopServices } from '@/lib/distinct-shop-services';
 import Link from 'next/link';
@@ -332,8 +334,8 @@ export type PublicVendorRow = {
   hq_address: string | null;
   hq_latitude: number | null;
   hq_longitude: number | null;
-  /** The shop's own declared furthest distance — clamped to the plan on read (`effectiveOuterRadiusKm`). Optional:
-   *  the legacy select omits it, which reads as undeclared (the plan's ring). */
+  /** The shop's own declared furthest distance — clamped on read to the verification ceiling, never the plan
+   *  (`effectiveOuterRadiusKm`, owner 2026-11-19). Optional: the legacy select omits it, which reads as undeclared. */
   outer_radius_km?: number | null;
   website: string | null;
   // 🚪 NO contact_email / contact_phone, ON PURPOSE (2026-09-10). This page is
@@ -464,9 +466,7 @@ async function isAdminInDemoMode(): Promise<boolean> {
   const cookieStore = await cookies();
   if (cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value !== '1') return false;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return false;
   const { data: profile } = await supabase
     .from('users')
@@ -484,9 +484,7 @@ async function isAdminInDemoMode(): Promise<boolean> {
  */
 async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id' | 'user_id'>): Promise<boolean> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return false;
   if (typeof vendor.user_id === 'string' && vendor.user_id === user.id) return true;
   // The session's own client: `vendor_team_members_member_read` admits a member to their own team's rows.
@@ -1028,9 +1026,9 @@ export async function renderVendorBySlug({
   // "why can't i see setnaprod's website?" — SetnaProd is a demo shop (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)).
   // The membership read runs ONLY when the page is not public, so a stranger's view costs no extra query.
   const isDemoVendor = vendor.is_demo === true;
-  const inDemoMode = await isAdminInDemoMode();
   // 🏪 While bookings are closed a shop that chose Show my page opens before it is verified (`selfPublishedLive`).
-  const gateBookingsOpen = await areBookingsOpen();
+  // ⚡ The two gate reads need nothing from each other: asked together (speed pass 2026-11-18).
+  const [inDemoMode, gateBookingsOpen] = await Promise.all([isAdminInDemoMode(), areBookingsOpen()]);
   const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   const gate =
     publicGate.open === 'public'
@@ -1085,18 +1083,16 @@ export async function renderVendorBySlug({
   // Resolved ONCE for the whole render — the header logo and the JSON-LD
   // `image` below both consume it. See resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
-  const logoDisplayUrl = await resolveDisplayUrl(vendor.logo_url);
+  // ⚡ Started here, awaited after the unlisted-events reads below, which it no longer waits for.
+  const logoDisplayRead = startAhead(resolveDisplayUrl(vendor.logo_url));
 
   const pageRaw = Number(search.reviewsPage ?? '1');
   const reviewsPage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
   const limit = reviewsPage * REVIEWS_PAGE_SIZE;
 
   const admin = createAdminClient();
-  // 💸 UNLISTED AND UNCOUNTED (owner 2026-11-12): events whose booking-fee top-up is past its event day and unsettled.
-  // Their review, the photos put on this page from them and their featured story are left out until it is settled
-  // (the stars are uncounted in SQL). Empty with the fee lock off, and on a refused read.
-  const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
-  const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
+  // ⚡ The guests' reviews and each card's numbers start BEFORE the unlisted-events reads (speed pass 2026-11-18) —
+  // they need nothing from them; each is still awaited where it always was.
   // ⭐ FROM GUESTS (owner, 6 Nov) — the guests' own reviews, read beside everything below. Three states: a refused read
   // is SAID under the hosts' list, never turned into "no guest reviews". It never feeds the overall (option A).
   const guestReviewsPromise: Promise<GuestReviewsRead> = readGuestReviewsForVendor(admin, vendor.vendor_profile_id, {
@@ -1106,6 +1102,12 @@ export async function renderVendorBySlug({
   // guests' own. A refused read is `null`: that kind of line is simply not drawn on any card, never "0 reviews".
   const cardHostStatsPromise = fetchCardHostReviewStats(admin, vendor.vendor_profile_id).catch(() => null);
   const cardGuestStatsPromise = readCardGuestReviewStats(admin, vendor.vendor_profile_id).catch(() => null);
+  // 💸 UNLISTED AND UNCOUNTED (owner 2026-11-12): events whose booking-fee top-up is past its event day and unsettled.
+  // Their review, the photos put on this page from them and their featured story are left out until it is settled
+  // (the stars are uncounted in SQL). Empty with the fee lock off, and on a refused read.
+  const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
+  const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
+  const logoDisplayUrl = await logoDisplayRead;
   const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     fetchReviewStats(admin, vendor.vendor_profile_id),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
@@ -1653,11 +1655,10 @@ export async function renderVendorBySlug({
   });
 
   // ── SUPPLIER WEBSITE BY PLAN (owner-approved 2026-10-30) — the card column's plan pieces ─────────────────────────
-  // Reach: the plan's ring (lib/vendor-tier-caps.ts serviceRadiusKm) clamping the shop's own outer ring — the SAME
+  // Reach: the shop's own outer ring under the verification ceiling — never the plan's (owner 2026-11-19) — the SAME
   // number couples' search and the supplier's Where you work map draw; an unverified shop reaches 0 km and says why.
   const reach = shopReach({
     verified: vendor.verification_state === 'verified',
-    tier: effectiveTierState,
     declaredOuterKm: vendor.outer_radius_km ?? null,
   });
   // Solo+ — their own web address pointing at this page (approved Q4 = A; Solo since owner 2026-11-04). Read only when
@@ -1867,9 +1868,7 @@ export async function renderVendorBySlug({
   // page so the supabase client may have no user; that's fine — the gate
   // renders a "Sign in to follow" CTA in that case.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   /** The shop's own account is looking at its own page. Fails CLOSED: the
    *  fallback select carries no `user_id`, so a degraded read is a stranger. */
   const viewerOwnsShop =
@@ -2897,7 +2896,7 @@ export async function renderVendorBySlug({
               </a>
             ) : null}
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink/60">
-              {/* 📍 The city line carries the plan's reach (2026-10-23 · 2026-10-29): "Serves up to 20 km around
+              {/* 📍 The city line carries the shop's reach (2026-10-23 · 2026-10-29; never the plan's since 2026-11-19): "Serves up to 20 km around
                   Tagaytay", or "… · distance search opens once verified" before Setnayan has verified the shop. */}
               {/* The calm (unverified) page says its reach under Where, beside its pin. */}
               <ShopReachLine reach={reach} city={vendor.location_city ?? null} />

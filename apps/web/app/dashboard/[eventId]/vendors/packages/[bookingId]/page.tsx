@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { shopHrefForEvent } from '@/lib/shop-back';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -44,9 +45,7 @@ type Props = {
 export default async function PackageBookingPage({ params }: Props) {
   const { eventId, bookingId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Booking + package + items. RLS scopes to host on the event.

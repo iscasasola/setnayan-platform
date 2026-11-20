@@ -27,7 +27,7 @@
  * this move of its own. 🔒 lib/search-grows-is-one-shared-part.test.ts
  */
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
-import { EASE_SETTLE, MOVE_MS, QUICK_MS, TAP_MS } from '@/lib/motion-table';
+import { EASE_SETTLE, MOVE_MS, QUICK_MS, RISE_MS_STANDARD, TAP_MS } from '@/lib/motion-table';
 import { motionReduced, springEasing } from '@/lib/rows-move';
 
 const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
@@ -88,7 +88,8 @@ export function playSearchGrows(row: HTMLElement, field: HTMLElement, open: bool
   for (const el of [field, ...Array.from(row.querySelectorAll<HTMLElement>('*'))]) for (const a of el.getAnimations()) if (a.id === GROW_ID) a.cancel();
   const seats = Array.from(row.children).filter((s): s is HTMLElement => s instanceof HTMLElement && s !== field && !s.contains(field));
   // The magnifier is an <svg> (lucide) or the 🔍/＋ button — an Element either way, not always an HTMLElement.
-  const glyph = field.firstElementChild as (HTMLElement | SVGElement | null);
+  // A seat holding a shipped search box: its own magnifier inside it, not the box.
+  const glyph = field.querySelector<HTMLElement | SVGElement>('[data-search-add-icon], svg');
   const input = field.querySelector('input');
   // The new shape …
   const to = field.getBoundingClientRect();
@@ -170,6 +171,9 @@ export function playSearchGrows(row: HTMLElement, field: HTMLElement, open: bool
  * The hook a search row calls: when `open` flips, the field (`fieldSelector`, inside the row) grows across the row or
  * folds back. `shape` is the attribute on the row that CAUSES the layout change (the thumb row's `data-riding`) — it
  * is put back for one measure, then restored. Never plays on the first drawing.
+ *
+ * ⌨ A search HELD for the keyboard (`holdSearchForKeyboard`) is released HERE, as the row starts to ride: the shape it
+ * had was the icon, so the grow plays from the icon while the row lifts onto the keys.
  */
 export function useSearchGrows(rowRef: RefObject<HTMLElement | null>, open: boolean, { field: fieldSelector, shape }: { field: string; shape: string }): void {
   const was = useRef(open);
@@ -179,13 +183,59 @@ export function useSearchGrows(rowRef: RefObject<HTMLElement | null>, open: bool
     const row = rowRef.current;
     const field = row?.querySelector<HTMLElement>(fieldSelector);
     if (!row || !field) return;
+    const held = open && row.getAttribute(HOLD) === 'rest';
+    if (held) row.removeAttribute(HOLD);
     playSearchGrows(row, field, open, () => {
       row.toggleAttribute(shape, !open);
+      if (held) row.setAttribute(HOLD, 'rest');
       return () => {
         row.toggleAttribute(shape, open);
+        if (held) row.removeAttribute(HOLD);
       };
     });
   }, [open, fieldSelector, shape, rowRef]);
+}
+
+/* ── ⌨ THE GROW WAITS FOR THE KEYBOARD (owner 21 Nov 2026: *"the keyboard rises as i press the search. can i see it
+ * while the keyboard rises?"*; Fable's drawing, keyboard version). On a phone the tap raises the keyboard OVER the row,
+ * and the row only lifts onto the keys once the phone reports the keyboard (`lib/keyboard-ride.ts`) — so a grow played
+ * at the tap ran its whole course hidden under the rising keys. On a touch screen, with the keyboard not up yet, the
+ * search now HOLDS its icon shape (the row's own measuring switch, `data-search-force="rest"`) and grows the moment
+ * the row starts to ride (`useSearchGrows` above): pill and lift move together, above the keys.
+ * The cursor is in the input from the tap (tap and type is untouched — only the SHAPE waits). The hold lets go on its
+ * own, growing where it stands, at the first letter typed or after a Rise (700) with no keyboard (a hardware keyboard,
+ * a row that does not ride); a blur drops it. Reduced motion: no hold — at once. */
+const HOLD = 'data-search-force';
+
+/** Hold the field's icon shape until the row rides the keyboard. True when it holds (the caller then plays nothing). */
+export function holdSearchForKeyboard(row: HTMLElement, field: HTMLElement): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function' || motionReduced()) return false;
+  if (!window.matchMedia('(hover: none) and (pointer: coarse)').matches) return false;
+  if (document.documentElement.getAttribute('data-keyboard') === 'open') return false;
+  if (!field.hasAttribute('data-rides') || !field.querySelector("input[type='search']")) return false;
+  row.setAttribute(HOLD, 'rest');
+  const release = () => {
+    window.clearTimeout(timer);
+    field.removeEventListener('input', release);
+    field.removeEventListener('focusout', drop);
+    if (row.getAttribute(HOLD) !== 'rest') return; // the ride took it
+    row.removeAttribute(HOLD);
+    playSearchGrows(row, field, true, () => {
+      row.setAttribute(HOLD, 'rest');
+      return () => row.removeAttribute(HOLD);
+    });
+  };
+  const drop = (e: FocusEvent) => {
+    if (field.contains(e.relatedTarget as Node | null)) return;
+    window.clearTimeout(timer);
+    field.removeEventListener('input', release);
+    field.removeEventListener('focusout', drop);
+    if (row.getAttribute(HOLD) === 'rest') row.removeAttribute(HOLD);
+  };
+  const timer = window.setTimeout(release, RISE_MS_STANDARD);
+  field.addEventListener('input', release);
+  field.addEventListener('focusout', drop);
+  return true;
 }
 
 /**

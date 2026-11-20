@@ -113,6 +113,14 @@
    🔒 lib/search-grows-is-one-shared-part.test.ts */
 .row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) > .clearIn,
 .row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) > .clearIn { margin: 0; }
+/* A seat holding a SHIPPED search box (`ThumbNode` — the supplier's Clients, People, admin) rests the same way: the box's
+   own left padding, gap and trailing spacer step aside, so its magnifier is centred too (it sat 2 px right on Clients). */
+.row:not([data-search-force='open']) > .fieldNode:not(:focus-within):has(input[type='search']:placeholder-shown) > *,
+.row[data-search-force='rest'] > .fieldNode:has(input[type='search']) > * { padding: 0; gap: 0; justify-content: center; }
+.row:not([data-search-force='open']) > .fieldNode:not(:focus-within):has(input[type='search']:placeholder-shown) > * > :not(svg, input[type='search'], [data-search-add-icon]),
+.row[data-search-force='rest'] > .fieldNode:has(input[type='search']) > * > :not(svg, input[type='search'], [data-search-add-icon]) { display: none; }
+.row:not([data-search-force='open']) > .fieldNode:not(:focus-within):has(input[type='search']:placeholder-shown) > * > :global([data-search-add-icon]),
+.row[data-search-force='rest'] > .fieldNode:has(input[type='search']) > * > :global([data-search-add-icon]) { margin: 0; }
 /* Search on the LEFT, the rest on the right (owner 18 Nov: "search on left show and sort on right"): the seat after a
    resting search takes the free room before it. */
 .row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) + [data-thumb-seat],

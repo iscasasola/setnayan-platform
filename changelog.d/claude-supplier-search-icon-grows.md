@@ -11,7 +11,16 @@ the animation"*.
   into an oval, and Show just vanished. Now the pill's real width grows 44 → the row on Move 320 · Spring (overshoot
   capped at 8 px), the magnifier holds its place on the pill's curve, the words wait Tap 100 then fade in, Show gives way
   (fade, 6 px, .9) and returns 100 ms into the fold; the fold is Quick 200 · Settle. Reduced motion: at once.
-- It is the ONE shared row, so every list's search (Today, Clients, Guests, Find…) gets the same move.
+- **Seen while the keyboard rises** (owner: *"the keyboard rises as i press the search. can i see it while the keyboard
+  rises?"*). The row only lifts onto the keys once the phone reports the keyboard (`lib/keyboard-ride.ts`), so a grow
+  played at the tap ran out hidden under the rising keyboard. On a touch screen the search now holds its icon shape
+  until the row starts to ride, then grows with the lift, above the keys (`holdSearchForKeyboard`). The cursor is in the
+  field from the tap (tap and type untouched); the hold lets go at the first letter or after a Rise (700 ms) with no
+  keyboard. Proved with the app's `keyboardWillShow` in WebKit + Chromium; not yet seen on a real iPhone.
+- **Every thumb-row search** (owner: *"can this apply to all thumb row icons as they grow?"*): it is the ONE shared row,
+  so Today, Clients, Guests, Find, Events, Discover, Chats… all get it. A seat holding a shipped search box (Clients,
+  People, admin) now rests centred too — Clients sat 2 px right. Measured 0 px off on Today, Events, Discover, Clients and
+  Chats in both engines.
 - `/dev/thumb-row-lab?screen=today` walks the supplier's Today row with no sign-in (dev only).
 
 Guard `lib/search-grows-is-one-shared-part.test.ts` test 1 rewritten from "transform only (scaleX)" to the new contract

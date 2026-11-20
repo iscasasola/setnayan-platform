@@ -105,7 +105,7 @@ test('3 · ONE part — defined once, called by the one row, re-drawn by no list
   assert.deepEqual(defines, [PART], `search-grows is written in more than one place: ${defines.join(', ')}`);
   assert.deepEqual(calls, ['components/thumb-row.tsx'], `search-grows is called from: ${calls.join(', ') || 'nowhere'}`);
   const row = read('components/thumb-row.tsx');
-  assert.match(row, /import \{ focusSearchNow, playSearchGrows, useSearchGrows \} from '@\/app\/_components\/search-grows';/);
+  assert.match(row, /import \{ focusSearchNow, holdSearchForKeyboard, playSearchGrows, useSearchGrows \} from '@\/app\/_components\/search-grows';/);
   assert.match(row, /useSearchGrows\(rowRef, riding, \{ field: "\[data-thumb-seat='field'\]", shape: 'data-riding' \}\);/);
   /* The seat and the shape the part is told about are the row's own. */
   assert.match(row, /data-thumb-seat="field"/);
@@ -130,4 +130,36 @@ test('4 · the lists the owner named search in that row — so they inherit it',
   for (const rel of ['app/dashboard/[eventId]/guests/_components/guests-screen.tsx', 'app/vendor-dashboard/customers/page.tsx']) {
     assert.doesNotMatch(read(rel), /scaleX\(|searchGrows|search-grows/, `${rel} draws its own search grow`);
   }
+});
+
+test('5 · on a phone the grow waits for the row to ride the keyboard — so it is seen above the keys', () => {
+  // Owner, 21 Nov 2026: "the keyboard rises as i press the search. can i see it while the keyboard rises?"
+  const src = read(PART);
+  const hold = src.slice(src.indexOf('export function holdSearchForKeyboard('), src.indexOf('export function focusSearchNow('));
+  assert.ok(hold.length > 0, 'anti-vacuity: the hold is gone');
+  // Only on a touch screen, only while the keyboard is not up yet, only for a search that rides, never under reduce motion.
+  assert.match(hold, /motionReduced\(\)\) return false;/);
+  assert.match(hold, /matchMedia\('\(hover: none\) and \(pointer: coarse\)'\)\.matches\) return false;/);
+  assert.match(hold, /getAttribute\('data-keyboard'\) === 'open'\) return false;/);
+  assert.match(hold, /hasAttribute\('data-rides'\)/);
+  // It holds the icon shape — the row's own measuring switch — and lets go on its own: a Rise, or the first letter.
+  assert.match(hold, /row\.setAttribute\(HOLD, 'rest'\);/);
+  assert.match(hold, /window\.setTimeout\(release, RISE_MS_STANDARD\)/);
+  assert.match(hold, /field\.addEventListener\('input', release\)/);
+  // The ride releases it, playing the grow from the icon (the hook puts the hold back for its one measure).
+  const hook = src.slice(src.indexOf('export function useSearchGrows('), src.indexOf('export function holdSearchForKeyboard('));
+  assert.match(hook, /const held = open && row\.getAttribute\(HOLD\) === 'rest';/);
+  assert.match(hook, /if \(held\) row\.setAttribute\(HOLD, 'rest'\);/);
+  // The row asks for the hold at the tap, and grows at once only when it does not hold. Tap and type is untouched:
+  // the focus is the input's own (the hold changes only the SHAPE).
+  const row = read('components/thumb-row.tsx');
+  assert.match(row, /!holdSearchForKeyboard\(rowRef\.current, seat\)\) playSearchGrows\(rowRef\.current, seat, true, forceShape\('rest'\)\);/);
+  assert.doesNotMatch(hold, /\.focus\(/, 'the hold moves the focus (tap and type must stay one synchronous focus)');
+});
+
+test('6 · a shipped search box in the seat rests centred too (Clients, People, admin)', () => {
+  const css = read('components/thumb-row.module.css');
+  assert.match(css, /\.row\[data-search-force='rest'\] > \.fieldNode:has\(input\[type='search'\]\) > \* \{ padding: 0; gap: 0; justify-content: center; \}/);
+  assert.match(css, /> \* > :not\(svg, input\[type='search'\], \[data-search-add-icon\]\) \{ display: none; \}/);
+  assert.match(read(PART), /field\.querySelector<HTMLElement \| SVGElement>\('\[data-search-add-icon\], svg'\)/, 'the slide moves the whole box, not its magnifier');
 });

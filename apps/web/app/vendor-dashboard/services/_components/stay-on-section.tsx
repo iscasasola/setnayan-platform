@@ -10,7 +10,9 @@ import { StayOnPicker, type StayOnPlan } from './stay-on-picker';
 /**
  * "Which services stay on" on My Shop's services list (owner 2026-11-06, SERVICES LIFE CYCLE + A DOWNGRADE PUTS EXTRA
  * SERVICES ON HOLD + the PLAN PICKER WITH SWAP). Whether it shows is `stayOnNeed` — the same decision Today's line
- * reads. A read that failed draws nothing; before the first booking a Free / Verified shop sees one line only.
+ * reads. A read that failed is SAID, under the same `#stay-on` anchor the held cards' tags point at (V-5, supplier audit
+ * 2026-11-17: drawing nothing left every "On hold" tag pointing at nothing). Before the first booking a Free / Verified
+ * shop sees one line only.
  */
 export async function StayOnSection({
   supabase,
@@ -23,7 +25,15 @@ export async function StayOnSection({
 }) {
   const read = await readStayOn(supabase, createAdminClient(), vendorProfileId);
   const need = stayOnNeed(read);
-  if (read.status !== 'ok') return null;
+  if (read.status !== 'ok') {
+    return (
+      <section id="stay-on" className="scroll-mt-24 border-b border-ink/10 pb-4" data-stay-on-unread="">
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }}>
+          Couldn&rsquo;t load which services stay on. Refresh in a moment to try again.
+        </p>
+      </section>
+    );
+  }
   if (!need.show) {
     return need.line ? (
       <p className="text-[13px] text-[color:var(--m-slate-2)]" data-stay-on-line="">

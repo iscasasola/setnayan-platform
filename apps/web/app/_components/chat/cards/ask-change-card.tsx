@@ -24,9 +24,9 @@ import { TypedRow } from '@/app/_components/form-row';
 import { patchPlus } from '@/lib/chat-plus-store';
 import { askForAChange, askNoteWithPart, askPartWords, ASK_SUBJECT_WORD, type AskPart, type AskSubject } from '@/lib/chat-cards';
 import { QuoteCardLines, type QuoteCardLine } from '@/app/_components/quote-card-lines';
-import { ChatCardShell, ChatStepCard, type ChatCardStep } from '../chat-step-card';
+import { ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { answerChangeAskFromChat, askForAChangeFromChat, loadChangeAsks, type ChangeAskRow } from './card-calls';
-import { CouldNotLoad, EqualRow, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type Read } from './card-bits';
 
 export function AskChangeDoor({
   threadId,
@@ -224,7 +224,14 @@ export function ChangeAskCard({
     if (a === 'revised' && subject !== 'form') patchPlus(threadId, { draft: { kind: 'quote', startedAt: Date.now() } });
   };
   return (
-    <ChatCardShell topic={subject === 'form' ? 'forms' : 'quote'} kicker={`Ask · ${ASK_SUBJECT_WORD[subject]}`} title="Ask for a change" tone="auto">
+    <KindCard
+      kind={subject === 'form' ? 'form' : 'quote'}
+      topic={subject === 'form' ? 'forms' : 'quote'}
+      kicker={`Ask · ${ASK_SUBJECT_WORD[subject]}`}
+      title="Ask for a change"
+      turn={!ask ? 'wait' : ask.status === 'open' ? (viewer === 'vendor' ? 'me' : 'wait') : ask.status === 'revised' ? 'done' : 'old'}
+      settled={ask && ask.status !== 'open' ? `Ask for a change · ${ask.status === 'revised' ? 'The supplier is sending a new version' : 'Declined by the supplier'}` : undefined}
+    >
       {read.at === 'loading' ? (
         <Loading />
       ) : read.at === 'failed' ? (
@@ -249,6 +256,6 @@ export function ChangeAskCard({
           <Problem text={problem} />
         </div>
       )}
-    </ChatCardShell>
+    </KindCard>
   );
 }

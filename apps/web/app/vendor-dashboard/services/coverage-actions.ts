@@ -235,18 +235,27 @@ export async function deleteCoverage(formData: FormData): Promise<void> {
  */
 export async function addCoverageForCard(kind: string): Promise<AddCoverageForCardResult> {
   const { supabase, profile } = await requireVendor();
-  const tree = await getCoverageTaxonomy().catch(() => []);
+  // V-7 (supplier audit 2026-11-17): a refused taxonomy read became "That kind is not one couples search by yet" — a
+  // false claim about the shop's own trade. A refusal is said as one; nothing is added either way (still fails closed).
+  const tree = await getCoverageTaxonomy().catch(() => null);
+  if (tree === null) {
+    return { status: 'error', message: 'We couldn’t check that kind just now, so nothing was added. Try again in a moment.' };
+  }
   const leaves = buildLeafIndex(tree);
   const leafKey = typeof kind === 'string' ? coverageLeafForKind(kind, leaves) : null;
   const leaf = leafKey ? await findLeaf(leafKey) : null;
   if (!leafKey || !leaf) {
     return { status: 'error', message: 'That kind is not one couples search by yet, so nothing was added.' };
   }
-  const { data: tierRow } = await supabase
+  const { data: tierRow, error: tierErr } = await supabase
     .from('vendor_profiles')
     .select('tier_state, is_founder')
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
+  // V-7: an unread plan is not Free — a founder got a wrong "bigger plan" line. Refused → nothing added, said.
+  if (tierErr) {
+    return { status: 'error', message: 'We couldn’t check your plan just now, so nothing was added. Try again in a moment.' };
+  }
   const t = tierRow as { tier_state?: string | null; is_founder?: boolean | null } | null;
   // Plan + any bought "+1 category" (Ultra add-on, owner 2026-11-06).
   const parentCategories =

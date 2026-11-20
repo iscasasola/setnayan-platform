@@ -633,6 +633,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             .select('status, category')
             .eq('event_id', thread.event_id),
         ]);
+        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
+        // H-4 (supplier audit 2026-11-17): a refused suppliers read drew "None yet" on the Customer card for an event
+        // with booked suppliers. Refused = unread (null), the same as the thrown path below — never zero.
+        if (vendors.error) {
+          logQueryError('vendorThread.eventVendors', vendors.error, { eventId: thread.event_id }, 'graceful_degrade');
+          const hosts = members.error ? null : chatHostsFrom(members.data);
+          return { hostName: hosts?.[0]?.name ?? null, hosts, locked: null, total: null, lockedCategories: [] };
+        }
         const rows = (vendors.data ?? []) as Array<{
           status: string | null;
           category: string | null;
@@ -647,7 +655,6 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         const lockedCategories = lockedRows
           .map((r) => (r.category ? displayServiceLabel(r.category) : null))
           .filter((c): c is string => !!c);
-        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
         const hosts = members.error ? null : chatHostsFrom(members.data);
         const hostName = hosts?.[0]?.name ?? null;
         return { hostName, hosts, locked, total: rows.length, lockedCategories };
@@ -966,7 +973,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
      already started above, so it never costs a read the answer does not need. */
   const todayIso = manilaDate(new Date().toISOString());
   const dayAnswerRead: Promise<ThreadDayAnswer | null> = (async () => {
-    const [{ data: ev }, stage] = await Promise.all([eventRead, railStageRead]);
+    const [{ data: ev, error: evErr }, stage] = await Promise.all([eventRead, railStageRead]);
+    // H-5 (supplier audit 2026-11-17): a REFUSED event read is not "No date yet" — no answer line is drawn instead.
+    if (evErr) {
+      logQueryError('vendorThread.event', evErr, { eventId: thread.event_id }, 'graceful_degrade');
+      return null;
+    }
     if (!ev?.event_date) return { kind: 'no_date' };
     if (THREAD_STAGE_HAS_AGREEMENT[stage]) return { kind: 'booked' };
     return readThreadDayAnswer(supabase, {
@@ -1960,6 +1972,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
+                    // 🚩 Report a problem left the (+) for the head's ⋯ (Unichat part G, 20 Nov). This page still draws on its
+                    // own (the inbox pane, a return with a notice), so ⋮ keeps the way in — only where the client page opens.
+                    ...(clientAdmits ? [{ href: `/vendor-dashboard/clients/${thread.event_id}?tab=report`, label: 'Report a problem', icon: 'problem' as const }] : []),
                   ]}
                 />
                 </>

@@ -188,7 +188,7 @@ export async function resolveOrderChargeCentavos(
       .maybeSingle();
     if (aiErr) return { ok: false, refusal: 'read_error', detail: `platform_retail_catalog_v2: ${aiErr.message}` };
     if (aiRow && (aiRow as { is_active?: boolean | null }).is_active !== true) {
-      return { ok: false, refusal: 'no_price_source', detail: 'Setnayan AI comes with Event Plus and Event Pro' };
+      return { ok: false, refusal: 'no_price_source', detail: 'Setnayan AI comes with Event Pro and Event Ultra' };
     }
   }
 

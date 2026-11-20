@@ -1,5 +1,6 @@
 'use client';
 
+import type { EventMediaPlan } from '@/lib/event-plans';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { MakerHalfSheet } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
@@ -302,6 +303,8 @@ export function MakerWork({
     sceneUploads: readonly SceneUpload[];
     /** 💾 `events.couple_media_bytes`, settled — the plan's media meter beside Upload media. */
     mediaUsedBytes?: number;
+    /** 🎟 The event's upload plan (owner 2026-11-18) — the meter's number; absent reads the older Pro/Free answer. */
+    mediaPlan?: EventMediaPlan;
     mediaHref: string;
     hubTheme: string;
     openBrowse: boolean;
@@ -2286,6 +2289,7 @@ export function MakerWork({
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
               mediaUsedBytes={sceneFormat.mediaUsedBytes}
+              mediaPlan={sceneFormat.mediaPlan}
               loopPosters={sceneFormat.loopPosters}
               ownsPro={ownsPro}
               storeShell={sceneFormat.hideLocked}
@@ -3506,6 +3510,7 @@ export function MakerWork({
                 videoChoice={sceneFormat.videoChoice}
                 sceneUploads={sceneFormat.sceneUploads}
                 mediaUsedBytes={sceneFormat.mediaUsedBytes}
+                mediaPlan={sceneFormat.mediaPlan}
                 loopPosters={sceneFormat.loopPosters}
                 ownsPro={ownsPro}
               />

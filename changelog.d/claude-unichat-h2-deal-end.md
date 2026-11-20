@@ -42,10 +42,11 @@ chat face of a record that already ships — **no new table, no new column, no n
 - 🔒 `apps/web/lib/deal-end.test.ts` (7) · `apps/web/tests/db/the-deals-end-is-said-in-the-chat.db.test.ts` (7).
 
 NOT built here:
-- **Accept → "Book it", capped by what is free.** Open PR #8012 (Availability step 4) is building exactly this on the
-  booking path — the couple picks how many, `booked_quantity`, "told honestly if not enough are free", and the
-  all-or-nothing count in the database. A second count here would be a competing answer to the same question; the
-  chat step should be built on #8012 once it lands (`bookItCap` in `lib/chat-deal.ts` is ready for it).
+- **Accept → "Book it", capped by what is free.** Availability step 4 (#8012) builds exactly this on the booking
+  path — the couple picks how many, `booked_quantity`, "told honestly if not enough are free", and the
+  all-or-nothing count in the database. It was still open while this was built, and a second count here would have
+  been a competing answer to the same question. The chat step is the next small build on top of it (`bookItCap` in
+  `lib/chat-deal.ts` is ready).
 - **The receipt's PDF** (the drawing's "PDF" press): no receipt document exists for a supplier payment — Setnayan
   does not hold that money, the hosts' proof is the record.
 - **The drawn crew picker** (pick from the shop's team + one call time under ⋯ → Crew): ⋯ is part G (#8048) and the

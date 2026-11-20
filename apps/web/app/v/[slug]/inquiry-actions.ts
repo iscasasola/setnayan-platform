@@ -50,6 +50,7 @@ import {
 } from '@/lib/package-picks-summary';
 import { inquiryGateEnabled, evaluateInquiryVelocity } from '@/lib/inquiry-gate';
 import { isInquirySource, type InquirySource } from '@/lib/inquiry-source';
+import { materialViaOf, utmOf } from '@/lib/material-tags';
 import {
   resolveReferringChapter,
   resolveIsReturning,
@@ -256,6 +257,14 @@ export async function startServiceInquiry(input: {
    * Omitted/null = website default (stored NULL).
    */
   inquirySource?: InquirySource | string | null;
+  /**
+   * 🏷 The material tag of the arrival (`?via=card` …, owner 2026-11-16 — `lib/material-tags.ts`) and its campaign
+   * tags. Re-validated here (only a known piece, a bounded string) and stamped on a BRAND-NEW thread beside its source,
+   * then carried onto the booking row. It never decides the fee: an own arrival is the shop's own client only when the
+   * shop is VERIFIED (`ownLinkArrival`, any plan, any piece).
+   */
+  inquiryVia?: string | null;
+  inquiryUtm?: string | null;
 }): Promise<StartServiceInquiryResult> {
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   const initialServiceId = String(input.initialServiceId ?? '').trim();
@@ -504,6 +513,10 @@ export async function startServiceInquiry(input: {
       input.inquirySource !== 'degree'
         ? input.inquirySource
         : null;
+    // 🏷 The piece that brought the couple (`?via=`, owner 2026-11-16 "EVERY MATERIAL A SHOP HANDS OUT CARRIES ITS OWN
+    // TAG"). It only NAMES the piece: whether the ask is the shop's own is decided below by `ownLinkArrival` (a VERIFIED
+    // shop, any plan — DECISION_LOG 16 Nov "EVERY VERIFIED ACCOUNT GETS THE QR FEATURES, ON ANY PLAN"), never by the tag.
+    const via = materialViaOf(input.inquiryVia);
     // 🔗🎁 OWN CLIENTS v4 (owner 2026-11-16, "a client who arrives through the supplier's own link is treated like an
     // import"): a first ask through the shop's OWN link (`?src=own` → 'website') makes the couple its own client only
     // with the link's Setnayan gift, given now from a VERIFIED shop's bought stock (once per shop + event). Measured "not
@@ -522,6 +535,8 @@ export async function startServiceInquiry(input: {
       referringChapterId: referral?.chapterId ?? null,
       inquirySource: referral ? 'influencer' : ownedSource,
       isReturning: returning,
+      via,
+      utm: utmOf(input.inquiryUtm),
     });
   }
 
@@ -789,19 +804,25 @@ export async function startServiceInquiry(input: {
     */
     // Read with the service role scoped by THIS inquiry's own thread id (the upsert above proved it is the caller's),
     // the same client that stamped it — the stamp is provenance, not event content.
-    const { data: threadSourceRow } = await admin
+    // 🏷 The thread's piece + campaign tags ride along the same way (owner 2026-11-16): read back, never re-derived.
+    const { data: threadSourceRow, error: threadSourceErr } = await admin
       .from('chat_threads')
-      .select('inquiry_source')
+      .select('inquiry_source, inquiry_via, inquiry_utm')
       .eq('thread_id', threadId)
       .maybeSingle();
+    // Provenance only (never the fee's input here), so the booking still goes on — but a failed read is said, not
+    // silently turned into "no source, no piece".
+    if (threadSourceErr) console.error('[inquiry] thread provenance read failed', threadSourceErr.message);
     const threadSource =
       typeof (threadSourceRow as { inquiry_source?: unknown } | null)?.inquiry_source === 'string'
         ? ((threadSourceRow as { inquiry_source: string }).inquiry_source)
         : null;
+    const threadVia = materialViaOf((threadSourceRow as { inquiry_via?: unknown } | null)?.inquiry_via);
+    const threadUtm = utmOf((threadSourceRow as { inquiry_utm?: unknown } | null)?.inquiry_utm);
     // Look up the event_vendors row for this (event, marketplace_vendor) pair.
     const { data: evRow } = await supabase
       .from('event_vendors')
-      .select('vendor_id, requested_service_ids, service_id, source')
+      .select('vendor_id, requested_service_ids, service_id, source, source_via, source_utm')
       .eq('event_id', eventId)
       .eq('marketplace_vendor_id', vendorProfileId)
       .maybeSingle();
@@ -844,6 +865,9 @@ export async function startServiceInquiry(input: {
       const patch: Record<string, unknown> = { requested_service_ids: merged };
       if (!evRow.service_id && initialServiceId) patch.service_id = initialServiceId;
       if (!(evRow as { source?: string | null }).source && threadSource) patch.source = threadSource;
+      // 🏷 Filled only while empty, like `source` — a row's first piece is never rewritten by a later ask.
+      if (!(evRow as { source_via?: string | null }).source_via && threadVia) patch.source_via = threadVia;
+      if (!(evRow as { source_utm?: string | null }).source_utm && threadUtm) patch.source_utm = threadUtm;
 
       const { error: updateError } = await supabase
         .from('event_vendors')
@@ -888,6 +912,8 @@ export async function startServiceInquiry(input: {
           service_id: initialServiceId,
           requested_service_ids: confirmedServiceIds,
           ...(threadSource ? { source: threadSource } : {}),
+          ...(threadVia ? { source_via: threadVia } : {}),
+          ...(threadUtm ? { source_utm: threadUtm } : {}),
         } as Record<string, unknown>);
         if (insertError) reportEventVendorFault('insert', insertError, cardKind);
       }

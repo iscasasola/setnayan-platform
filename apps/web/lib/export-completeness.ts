@@ -152,6 +152,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_decision_messages', decision: 'excluded', why: 'Which shared message sits under which decision topic: the conversation\'s filing, read, moved and removed by either side. added_by_user_id only stamps who filed it; the message itself is exported to its sender as chat_messages_authored. The erasure clears the stamp (lib/erasure/coverage.ts).' },
   { table: 'chat_file_removals', decision: 'excluded', why: 'A removal mark on a chat file (sender for everyone, or either side for themselves); user_id only stamps who pressed. The file\'s message is exported to its sender as chat_messages_authored; rows cascade away with the account.' },
   { table: 'chat_polls', decision: 'excluded', why: 'The conversation\'s shared poll (a question and its choices), voted on by both sides — not the asker\'s record. asked_by / closed_by only stamp who pressed, the same call as chat_decision_topics. The subject\'s OWN act on a poll is their vote, exported as chat_poll_votes. The erasure clears both stamps.' },
+  { table: 'signup_attributions', decision: 'exported', as: 'signup_attribution' },
 
   // ── Excluded, with the reason ───────────────────────────────────────────
   {

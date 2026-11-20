@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8069
+# facts: 8082
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     655
-#   col       5801
-#   policy    1187
+#   tpriv     656
+#   col       5812
+#   policy    1188
 #   view      10
 #   func      412
 #
@@ -454,6 +454,7 @@ tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
 tpriv	public.shop_seals|authenticated	S
+tpriv	public.signup_attributions|authenticated	S
 tpriv	public.site_visit_days|authenticated	S
 tpriv	public.site_widgets|anon	SIUD
 tpriv	public.site_widgets|authenticated	SIUD
@@ -1118,6 +1119,8 @@ col	public.chat_threads.group_name	anon=IU authenticated=SIU
 col	public.chat_threads.group_roles	anon=IU authenticated=SIU
 col	public.chat_threads.inquiry_source	anon=SIU authenticated=SIU
 col	public.chat_threads.inquiry_status	anon=SIU authenticated=SIU
+col	public.chat_threads.inquiry_utm	anon=SIU authenticated=SIU
+col	public.chat_threads.inquiry_via	anon=SIU authenticated=SIU
 col	public.chat_threads.is_returning	anon=SIU authenticated=SIU
 col	public.chat_threads.kind	anon=IU authenticated=SIU
 col	public.chat_threads.last_push_notified_at	anon=SIU authenticated=SIU
@@ -2483,7 +2486,9 @@ col	public.event_vendors.setnayan_gift_locked_at	anon=SIU authenticated=SIU
 col	public.event_vendors.setnayan_gift_offered_at_lock	anon=SIU authenticated=SIU
 col	public.event_vendors.source	anon=SIU authenticated=SIU
 col	public.event_vendors.source_category	anon=SIU authenticated=SIU
+col	public.event_vendors.source_utm	anon=SIU authenticated=SIU
 col	public.event_vendors.source_venue_directory_id	anon=SIU authenticated=SIU
+col	public.event_vendors.source_via	anon=SIU authenticated=SIU
 col	public.event_vendors.status	anon=SIU authenticated=SIU
 col	public.event_vendors.total_cost_php	anon=IU authenticated=IU
 col	public.event_vendors.transport_php	anon=IU authenticated=IU
@@ -4606,6 +4611,12 @@ col	public.shop_seals.plan_gift_state	anon=- authenticated=S
 col	public.shop_seals.seal	anon=- authenticated=S
 col	public.shop_seals.seal_award_id	anon=- authenticated=S
 col	public.shop_seals.vendor_profile_id	anon=- authenticated=S
+col	public.signup_attributions.created_at	anon=- authenticated=S
+col	public.signup_attributions.src	anon=- authenticated=S
+col	public.signup_attributions.user_id	anon=- authenticated=S
+col	public.signup_attributions.utm	anon=- authenticated=S
+col	public.signup_attributions.vendor_profile_id	anon=- authenticated=S
+col	public.signup_attributions.via	anon=- authenticated=S
 col	public.site_visit_days.country	anon=- authenticated=S
 col	public.site_visit_days.day	anon=- authenticated=S
 col	public.site_visit_days.device	anon=- authenticated=S
@@ -5752,6 +5763,7 @@ col	public.vendor_profile_views.event_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.source	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.utm	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.vendor_profile_id	anon=SIU authenticated=SIU
+col	public.vendor_profile_views.via	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.view_id	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewed_at	anon=SIU authenticated=SIU
 col	public.vendor_profile_views.viewer_hash	anon=SIU authenticated=SIU
@@ -7289,6 +7301,7 @@ policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=P
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_seals|shop_seals_admin_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.shop_seals|shop_seals_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(( SELECT is_admin() AS is_admin) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))) check=NULL
+policy	public.signup_attributions|signup_attributions_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=NULL
 policy	public.site_visit_days|site_visit_days_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.site_widgets|site_widgets_admin_write_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=( SELECT is_admin() AS is_admin)
 policy	public.site_widgets|site_widgets_admin_write_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

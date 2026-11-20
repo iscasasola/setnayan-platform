@@ -62,7 +62,7 @@ test('4 · an unread read never draws "no photos"', () => {
 });
 
 test('5 · the couple’s words are the shipped ones', () => {
-  assert.match(COUPLE, />\s*Approve all\s*</);
+  assert.match(COUPLE, /label="Approve all"/);
   assert.match(COUPLE, /Hide some ▾/);
   assert.doesNotMatch(COUPLE, /\bAccept\b/, '"Accept" is back — the shipped words are "Approve all" and "Hide"');
 });

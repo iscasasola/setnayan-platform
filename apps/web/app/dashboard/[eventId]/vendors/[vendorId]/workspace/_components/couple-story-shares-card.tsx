@@ -4,6 +4,8 @@
 import { useActionState, useState } from 'react';
 import { eventFilesAction, type EventFilesState } from '@/app/_actions/event-files-actions';
 import { InfoTip } from '@/app/_components/info-tip';
+import { Check } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { formatCount } from '@/lib/format-number';
 
 type Photo = { fileId: string; state: 'accepted' | 'waiting' | 'hidden'; url: string };
@@ -38,9 +40,7 @@ export function CoupleStorySharesCard({ eventId, vendorProfileId, shopName, phot
         <form action={act} className="mt-2.5">
           {common}
           <input type="hidden" name="decision" value="approved" />
-          <button type="submit" disabled={pending} className="button-primary min-h-12 w-full">
-            Approve all
-          </button>
+          <ActionButton tone="brand" type="submit" icon={<Check aria-hidden strokeWidth={1.9} />} label="Approve all" waiting={pending} className="min-h-12 w-full" />
         </form>
       ) : null}
       <details className="mt-2">
@@ -76,11 +76,11 @@ export function CoupleStorySharesCard({ eventId, vendorProfileId, shopName, phot
       ) : (
         <p className="mt-2 text-[12.5px] text-[color:var(--m-slate-2)]">Nothing is removed.</p>
       )}
-      <p className="text-[13px]">
+      <div className="text-[13px]">
         <InfoTip label="What Hide does" align="start">
           A hidden photo leaves your story only. It stays on the supplier’s shop. It is not deleted. You can show it again any time.
         </InfoTip>
-      </p>
+      </div>
       {state.status === 'error' ? (
         <p role="alert" className="mt-1 text-[13px] text-[rgb(var(--color-danger))]">
           {state.message}

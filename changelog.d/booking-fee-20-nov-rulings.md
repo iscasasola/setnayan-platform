@@ -63,3 +63,13 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
 - **Labs for the §4 shots:** new `/dev/fee-rulings-lab` (Booking fees with the waived list · Admin › Pricing fee form);
   `supplier-plan-lab` and `booking-ask-lab` fixtures moved off the retired free first booking (`&ticket=1`,
   `&fee=unverified|ticket|platform|import`). Labs never compile in production.
+
+## 2026-11-21 · fix(fees): the add-on free window is 0 — the add-on's first booking is billed
+
+Owner, 21 Nov, answering "Is the add-on's free window 0?": *"Make it 0"*. `lib/vendor-addon-first5-free.ts`
+`FREE_BOOKING_LIMIT` 1 → 0, and 0 now means NO window (`vendorInFirst5Window` answers false for every count) — not
+"free while nothing is booked yet". It stays the add-on's own number (a code constant: no setting or catalogue row
+has ever held it), separate from the fee's. Tests in `lib/vendor-addon-first5-free.test.ts` were shown red on the
+old value first. No copy promised the window.
+
+SPEC IMPACT: DECISION_LOG 21 Nov row logged by the controller; no further corpus edit.

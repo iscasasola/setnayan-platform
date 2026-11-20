@@ -861,6 +861,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       })
     : null;
   // Made or not, live or not — the welcome is told the truth (`firstCardOutcomePath`). Edit opens the Card Maker on it.
+  // A coordinator goes by the invite screen first (`viaInvite`), as on every other landing.
   if (made && (made.ok === false || cardChoice !== 'edit')) {
     const landing = firstCardOutcomePath(WELCOME_OPENED_PATH, { title: cardTitle, price: cardPrice as number, category: cardCategory as string }, made);
     redirect(viaInvite(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing));

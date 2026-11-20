@@ -154,7 +154,7 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // --- ⬇ ADDED 2026-11-17 -------------------------------------------------
   // Discover's articles (/articles/{slug}, Build 2). A route folder, so the
   // GENERATED half carries it too; here because the database mirrors THIS half
-  // (migration 20271351771867).
+  // (migration 20271353924909).
   'articles',
 
 

@@ -453,7 +453,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'No commission does not mean suppliers pay nothing, and we would rather say so plainly. Setnayan bills a supplier a booking fee, only on the couples Setnayan introduces to them: a supplier’s first booking from Setnayan is on us, and the clients a supplier brings themselves — through their own invite, their own booking QR code or their own link — never carry a fee. The fee is charged to the supplier and is never added to what a couple pays. Suppliers can also choose an optional plan for more reach. The current rate is on the For Suppliers page.',
+        text: 'No commission does not mean suppliers pay nothing, and we would rather say so plainly. Setnayan bills a supplier a booking fee on a booking, unless the supplier is the first to bring the event: a supplier’s first booking from Setnayan is on us, a supplier who is the first to bring an event onto Setnayan — through their own invite, their own booking QR code or their own link — books it free, and a couple a supplier brings onto Setnayan books them free for a year. Every other booking carries the fee. The fee is charged to the supplier and is never added to what a couple pays. Suppliers can also choose an optional plan for more reach. The current rate is on the For Suppliers page.',
       },
       {
         type: 'p',

@@ -151,37 +151,17 @@ export const metadata = {
   },
 };
 
-// ISR, unchanged from the 2026-07-02 perf sweep — the homepage is the
-// highest-traffic public URL and edge-caching it removes the per-visit function
-// invocation. revalidate=300 also keeps the three cron-free after() jobs below
-// firing on a bounded schedule; `home-carries-the-cron-free-jobs.test.ts`
-// asserts this number for exactly that reason.
+// ⚡ NO `revalidate` HERE, ON PURPOSE (speed pass 2026-11-18). This page used to export `revalidate = 300` for ISR, but
+// it AWAITS `searchParams` (`?q=` is a real filter, below) and the front door reads the session, so Next renders it per
+// request and the 300 never did anything: the response is `private, no-cache, no-store` (curl, live da4a079, 18 Nov). The three
+// cron-free `after()` jobs below therefore run on EVERY view, not every 5 minutes; each job throttles itself with
+// its own database claim. `home-carries-the-cron-free-jobs.test.ts` now asserts that the page is request-rendered (or,
+// if it is ever made static again, that it has a revalidation window), so the jobs can never be starved.
 //
-// ⚠ WHY THIS IS NOT `force-dynamic`, though the front door reads the session.
-// An earlier cut of this change set `force-dynamic`, which would have made the
-// page dynamic for BOTH branches — costing the CURRENTLY LIVE homepage its
-// caching during the whole flag-off window, for a page that does not read the
-// session at all. Instead the route stays ISR and Next's own dynamic bailout
-// handles it: `cookies()` is reached only inside <FrontDoor>, so it runs only
-// once the flag is on, and the route becomes dynamic then rather than now.
-//
-// ⏭ KNOWN FOLLOW-UP AT THE FLIP: with the flag on, this route renders
-// per-request. If that proves too expensive once there is real traffic, cache
-// the four feed reads behind `unstable_cache` so only the session lookup stays
-// per-request. Named now so it is a decision later, not a surprise.
-//
-// ⚡ THAT FOLLOW-UP, 2026-10-11 — PARTLY TAKEN. Measured: 27 database calls a
-// view, and one caller asking every 60 s. The page is still rendered per request
-// (it reads `searchParams` and the session, and the after() jobs below need a
-// request), but its same-for-everyone ROW reads are now remembered for 60 s —
-// `lib/home-public-reads-core.ts` lists them and what may never join them.
-// Round 2, the same day: the event types' public rows and the two facts a
-// Discover card's cover can turn on (does the event own Event Pro, is its
-// logo animation on) joined them, so a signed-out view no longer walks the
-// ownership chain card by card — it was most of the page's waiting.
-// ⚠ NOT taken, and still asked on every view: the consented editorials
-// (`loadPublishedShowcases` — consent-gated; its own docblock says why).
-export const revalidate = 300;
+// Making `/` cacheable for signed-out visitors is a real win (TTFB 0.7–0.8 s vs 0.2–0.3 s elsewhere), but it moves the
+// session read and the `?q=` answer to the client, which changes the signed-in path: an owner decision, not a speed fix.
+// Its same-for-everyone row reads are already remembered for 60 s (`lib/home-public-reads-core.ts`); the consented
+// editorials (`loadPublishedShowcases`) are still read on every view.
 
 const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'

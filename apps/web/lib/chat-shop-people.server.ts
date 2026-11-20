@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { shopChatPeopleFrom, type ShopMemberRow } from '@/lib/chat-shop-people';
+import { shopChatPeopleFrom, threadHostPeopleFrom, type ShopMemberRow } from '@/lib/chat-shop-people';
 
 /**
  * WHO ON EACH SIDE MAY CHAT IN ONE (event × shop) CONVERSATION — the app's mirror of the policies, never wider
@@ -67,19 +67,17 @@ export async function readThreadHostPeople(
   admin: SupabaseClient,
   args: { threadId: string; eventId: string },
 ): Promise<{ members: string[]; coordinators: string[] }> {
-  const [membersRes, coordRes] = await Promise.all([
+  // 🔒 A SEAT COUNTS ONLY WHILE ITS PERSON IS STILL A HOST OF THE EVENT (20271352461498, owner 19 Nov "yes fix the
+  // co-host leak today"). A removed co-host's row can outlive their membership; reading the event's 'couple' rows in
+  // the same trip keeps this list exactly as narrow as `current_thread_ids()`.
+  const [membersRes, peopleRes] = await Promise.all([
     admin.from('chat_thread_members').select('user_id, left_at').eq('thread_id', args.threadId),
-    admin.from('event_members').select('user_id').eq('event_id', args.eventId).eq('member_type', 'coordinator'),
+    admin.from('event_members').select('user_id, member_type').eq('event_id', args.eventId).in('member_type', ['couple', 'coordinator']),
   ]);
   if (membersRes.error) logQueryError('readThreadHostPeople.members', membersRes.error, { thread_id: args.threadId }, 'graceful_degrade');
-  if (coordRes.error) logQueryError('readThreadHostPeople.coordinators', coordRes.error, { event_id: args.eventId }, 'graceful_degrade');
-  const members = new Set<string>();
-  for (const m of (membersRes.data ?? []) as Array<{ user_id: string; left_at: string | null }>) {
-    if (m.user_id && !m.left_at) members.add(m.user_id);
-  }
-  const coordinators = new Set<string>();
-  for (const c of (coordRes.data ?? []) as Array<{ user_id: string | null }>) {
-    if (c.user_id && !members.has(c.user_id)) coordinators.add(c.user_id);
-  }
-  return { members: [...members], coordinators: [...coordinators] };
+  if (peopleRes.error) logQueryError('readThreadHostPeople.people', peopleRes.error, { event_id: args.eventId }, 'graceful_degrade');
+  return threadHostPeopleFrom({
+    seats: (membersRes.data ?? []) as Array<{ user_id: string | null; left_at: string | null }>,
+    eventPeople: (peopleRes.data ?? []) as Array<{ user_id: string | null; member_type: string }>,
+  });
 }

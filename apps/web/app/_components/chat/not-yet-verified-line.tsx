@@ -1,6 +1,7 @@
 import { ShieldAlert } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from '@/lib/findable-shop';
+import { RENEWING_COUPLE_LINE, RENEWING_COUPLE_MARK } from '@/lib/papers-renewal';
 
 /**
  * 💬 "This shop is not yet verified by Setnayan" at the head of a couple's chat with that shop — DECISION_LOG
@@ -10,13 +11,24 @@ import { NOT_YET_VERIFIED_INFO, NOT_YET_VERIFIED_LINE } from '@/lib/findable-sho
  * Mounted in the shipped `ChatThreadHead`'s `below` slot (its own second row under the muted line), so the head
  * keeps its one look. ONE quiet line, not a banner, and not pressable apart from the ⓘ, which holds the details —
  * the same words as the shop page's notice (`NOT_YET_VERIFIED_INFO`), so the two can never disagree.
+ *
+ * 📄 `renewing` (papers renewal ruling 4, owner 16 Nov "11.yes"): a shop verified before whose papers lapsed reads
+ * "Renewing their papers with Setnayan" INSTEAD — alone, with the shop page's own long line behind the ⓘ.
  */
-export function NotYetVerifiedThreadLine() {
+export function NotYetVerifiedThreadLine({ renewing = false }: { renewing?: boolean } = {}) {
   return (
-    <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] leading-tight text-warn-800" data-thread-not-yet-verified="">
+    <p
+      className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] leading-tight text-warn-800"
+      data-thread-not-yet-verified=""
+      data-renewing={renewing ? '' : undefined}
+    >
       <ShieldAlert aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-      <InfoTip label={NOT_YET_VERIFIED_LINE} labelClassName="text-[12px] text-warn-800" align="start">
-        {NOT_YET_VERIFIED_INFO}
+      <InfoTip
+        label={renewing ? RENEWING_COUPLE_MARK : NOT_YET_VERIFIED_LINE}
+        labelClassName="text-[12px] text-warn-800"
+        align="start"
+      >
+        {renewing ? RENEWING_COUPLE_LINE : NOT_YET_VERIFIED_INFO}
       </InfoTip>
     </p>
   );

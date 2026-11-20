@@ -107,7 +107,7 @@ test('6 · the committed import migration is exactly what the corrected source g
   const { journalImportSql } = await import('@/lib/journal-import-sql');
   const file = path.resolve(
     __dirname,
-    '../../../supabase/migrations/20271351926267_the_journal_moves_into_articles.sql',
+    '../../../supabase/migrations/20271354669097_the_journal_moves_into_articles.sql',
   );
   assert.equal(
     fs.readFileSync(file, 'utf8'),

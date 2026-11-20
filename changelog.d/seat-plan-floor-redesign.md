@@ -48,3 +48,26 @@ moved unchanged from `lib/plan-maker.ts` to `lib/seat-plan-engine/rows.ts`, its 
 The engine's gap guard now pins Line up's `centredRun(…, GRID_GAP)`.
 
 SPEC IMPACT: None.
+
+## 2026-11-21 · feat(seat-plan): zoom in the thumb row, supplier spots, the 3D row's words, "Table ▾"
+
+Drawing § 5 · § 6 · § 9 — the rows the first block listed as not built that wait on nobody.
+
+- **Zoom in the thumb row** (§ 5): on Guests › Seats › 2D, fit · − · + is one pill in the thumb row (search · zoom ·
+  Show and sort), each press 44 px, on the plan's own `fitView` · `zoomAround`; the stack at the floor's right edge is
+  no longer drawn in Guests, so nothing stands on the plan. The standalone page keeps its stack. (`seat-floor-zoom.tsx`)
+- **Supplier spots** (§ 5): a booth on Guests' 2D floor is a small numbered chip on its wall with the booth's own
+  presses; a tap shows its name. The legend ends "Supplier spots · N", a dropdown of who is where; a pick names that
+  chip. (`seat-floor-spots.tsx`)
+- **The 3D row has words** (§ 6): Walk in · Accents · View only — one row, one size. "View only" reads "Editing" while
+  you hold the seat plan's edit and opens a card: "<Name> is editing" with "Take over" (the plan's own `lock.acquire`,
+  handed down through `SeatRoomLinkContext`; the room still takes no lock), Switch to 2D, Show ▾ and what the ⓘ said.
+  In Guests the thumb row's search, Entered on 3D, walks that guest to their seat (the room's own Guide me), so Guide me
+  leaves that row; a room drawn on its own keeps it. Walk around / Walk everyone in keep their words while playing.
+- **"Table ▾" at the Add box's right end** (§ 9): the ＋ menu's own list and handler (`seatAddOptions` · `onSeatAdd`);
+  picking anything but a table closes the box and adds it the ＋ menu's way.
+
+Guards: `the-floor-wears-its-chrome` · `the-room-says-its-controls`. Updated, claims kept: `the-seat-tray-never-covers-
+the-zoom` (the zoom is now a seat of the row the tray stands above) · `lib/maps-are-always-full-screen` (5).
+
+SPEC IMPACT: None — implements drawing § 5 · § 6 · § 9 as approved 2026-11-20.

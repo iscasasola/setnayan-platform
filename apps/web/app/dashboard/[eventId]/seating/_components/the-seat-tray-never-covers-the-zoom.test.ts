@@ -5,7 +5,9 @@
  *   1 · THE TRAY RESERVES ITS HEIGHT — it is drawn over the thumb row in the row's own fixed host, but only the row
  *       published `--sn-thumb-room`, so the zoom stack (which stands on that token) sat UNDER the tray: elementFromPoint
  *       on Zoom in / Zoom out hit a face. The tray now publishes its own covered height through the ONE mechanism
- *       (`useThumbRoom`, lib/thumb-room.ts), and the zoom stack still stands on the token.
+ *       (`useThumbRoom`, lib/thumb-room.ts). Since 20 Nov 2026 (drawing § 5) the zoom is not on the plan at all in
+ *       Guests: fit · − · + is a seat OF the thumb row, and the tray is drawn above the row in the same host — so the
+ *       tray can never lie over it (the-floor-wears-its-chrome.test.ts holds the pill itself).
  *   2 · THE EMPTY FLOOR'S STEPS STAY IN SIGHT (since 20 Nov 2026 they are a card over the thumb row, not on the plan —
  *       see the test) — "Lay out your floor" (and its "Build my seating draft" step) was
  *       centred on the whole floor, its foot under the tray; in Guests it is centred between the pinned row
@@ -28,15 +30,19 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'seating', '_components');
 const code = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 
-test('1 · the tray publishes its own room, and the zoom stack stands on it', () => {
+test('1 · the tray publishes its own room, and the zoom is a seat of the thumb row it stands above', () => {
   const tray = code('seat-face-tray.tsx');
   assert.match(tray, /import \{ useThumbRoom \} from '@\/lib\/thumb-room';/, 'the tray does not use the one thumb-room mechanism');
   assert.match(tray, /useThumbRoom\(trayRef\);/, 'the tray does not reserve its height — the zoom stack sits under it');
   assert.match(tray, /<div ref=\{trayRef\}/, 'the measured element is not the tray');
   const ed = code('seating-editor.tsx');
-  const zoom = ed.slice(ed.indexOf('const zoomStack = '), ed.indexOf('const studioPeople = '));
-  assert.ok(zoom.length > 0, 'zoomStack is gone');
-  assert.match(zoom, /bottom: 'max\(0\.75rem, calc\(var\(--sn-thumb-room, 0px\) - var\(--sn-bottomdock-h, 0px\)\)\)'/);
+  // The zoom is IN the row (its `right`), and the tray rides OVER the row (`overThumb`, drawn before it in the same host).
+  const host = ed.slice(ed.indexOf('const seatThumb ='), ed.indexOf('const askMoveSheet ='));
+  assert.ok(host.indexOf('{overThumb}') > 0 && host.indexOf('{overThumb}') < host.indexOf('<lens.ThumbRow'), 'the tray is not drawn above the row');
+  assert.match(host.slice(host.indexOf('right={[')), /^right=\{\[\s*\.\.\.\(roomOnly \? \[\{ node: <SeatZoomPill /, 'the zoom is not a seat of the thumb row');
+  // …and nothing of the zoom stands on Guests' plan, where the tray could lie over it.
+  assert.match(ed, /\{inGuests \? null : zoomStack\}/);
+  assert.doesNotMatch(ed, /\{inGuests && view === 'plan' \? zoomStack : null\}/, 'the zoom stack is back on Guests’ plan, under the tray');
 });
 
 test('2 · the empty floor’s first step is over the thumb row, never on the floor — and leaves room for itself', () => {

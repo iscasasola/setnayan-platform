@@ -244,6 +244,7 @@ import {
   seatPlanPieceKey,
   seatPlanPlaceRows,
   seatPlanRoomName,
+  SEAT_NAME_PX,
   SEAT_PLAN_MAP_PIECE,
   starterDraftHint,
   type SeatPlanGuestOptions,
@@ -251,6 +252,9 @@ import {
 import { SeatFaceTray, type FloorDrop, type TrayItem } from './seat-face-tray';
 import { FloorStartButtons, FloorStartCard, FloorStartTitle, OverThumbRow, type FloorHall } from './seat-floor-start';
 import { AddTableBar, DEFAULT_TABLE_TYPE, type TableDraft } from './seat-floor-add';
+import { SeatZoomPill } from './seat-floor-zoom';
+import { SpotChip, SupplierSpotsLegend, supplierSpots } from './seat-floor-spots';
+import { SeatRoomLinkContext, type SeatRoomLink } from './seat-room-link';
 import { useSeatFloorWrites } from './seat-floor-writes';
 import { MoveGuestSheet, SeatToast, PeopleSheet, PhoneSeatPlanFoot, PhoneSeatPlanHead, PhoneTableDock, SeatPlanToolRounds, StudioSeatPlanHead, StudioSeatPlanTools } from './seat-plan-phone';
 import { Sheet } from '@/app/_components/sheet';
@@ -1060,6 +1064,18 @@ export function SeatingEditor({
   useEffect(() => {
     setLiveHolderHeartbeatAt(lockHolderPeerHeartbeat);
   }, [lockHolderPeerHeartbeat]);
+  /* 🧊 What the 3D room drawn inside this plan shows of it (`seat-room-link.ts`, drawing § 6): who holds this ONE lock and
+     its own take-over (the room's "<Name> is editing · Take over"), and the thumb row's search on 3D (the room walks that
+     guest to their seat). The lab's in-memory floor holds Edit without a lock, so it hands no lock down. */
+  const [roomGuide, setRoomGuide] = useState<SeatRoomLink['guide']>(null);
+  const roomHolder = canEdit ? null : lockHolderPeer?.lockHolderLabel ?? lock.holderLabel;
+  const roomLink = useMemo<SeatRoomLink>(
+    () => ({
+      lock: floorWrites ? null : { holding: canEdit, holder: roomHolder, waiting: lock.status === 'acquiring', onTakeOver: lock.acquire },
+      guide: roomGuide,
+    }),
+    [floorWrites, canEdit, roomHolder, lock.status, lock.acquire, roomGuide],
+  );
   const [showAddTable, setShowAddTable] = useState(false);
   const [confirmAuto, setConfirmAuto] = useState(false);
   // 🪑 The last Auto arrange: its one line, what Undo puts back, and the
@@ -3100,6 +3116,9 @@ export function SeatingEditor({
   // without moving is the tap: it seats the picked guest / group there, joins
   // a table to the one waiting in "Link…", or selects. Nothing ever moves.
   const press = planPress(isPhone);
+  /** 🏪 The supplier spot whose chip shows its name (Guests › Seats › 2D, drawing § 5) — a tap on it again hides it. */
+  const [spotNamed, setSpotNamed] = useState<string | null>(null);
+  const nameSpot = (id: string) => setSpotNamed((c) => (c === id ? null : id));
   /* 🗺 2D IS THE ROOM (owner 2026-11-01, *"this makes it impossible for me to move the table"*): in Guests › Seats › 2D a
      tap on a table SELECTS it and the PICKED table drags — on a phone too (the 2026-10-01 "no drag on a phone" stays for
      everything else: an unpicked table, the elements, the booths). Any other press still pans. */
@@ -3109,6 +3128,8 @@ export function SeatingEditor({
       tapRef.current = { kind, id, sx: e.clientX, sy: e.clientY };
     };
   const runTap = (tap: NonNullable<typeof tapRef.current>) => {
+    // 🏪 A supplier spot's chip says its name on a tap (drawing § 5) — to look at, so no editing lock is needed.
+    if (roomOnly && tap.kind === 'booth') nameSpot(tap.id);
     // 🏪 2D is the room: a booth a booked supplier runs opens their card — to look at it, so no editing lock is needed.
     if (roomOnly && tap.kind === 'booth' && booths.some((b) => b.booth_id === tap.id && boothHasSupplier(b))) {
       clearSelection();
@@ -3247,7 +3268,6 @@ export function SeatingEditor({
      below that a table is its number and a ring that fills as its chairs fill (`TableFillRing`), and a tap says who
      sits there (`tableNames`). Zoom in — pinch or ＋ — and the names print as they always did. */
   const NAME_READABLE_PX = 7;
-  const SEAT_NAME_PX = 9; // the chair label's own size (`text-[9px]`)
   const roundScale = metricPpm ? (TABLE_FOOTPRINT_M.round_10 * metricPpm) / tableGeometry('round', 10).box.w : 1;
   const DETAIL_AT =
     details?.host === 'guests'
@@ -3781,6 +3801,8 @@ export function SeatingEditor({
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
+    // 🏪 A pressed-and-let-go supplier spot (a computer's drag press) says its name too (drawing § 5).
+    if (d && !d.moved && roomOnly && d.kind === 'booth') nameSpot(d.id);
     guidesRef.current = { x: null, y: null };
     const serpRot = serpSnapRotRef.current;
     serpSnapRotRef.current = null;
@@ -7211,6 +7233,25 @@ export function SeatingEditor({
         <FloorStartCard {...startProps} />
       </OverThumbRow>
     ) : null;
+  /* ＋ What the plan can add — the thumb row's ＋ menu and the Add box's "Table ▾" are this ONE list and handler. */
+  const seatAddOptions: PickOption[] = [
+    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
+    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
+    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
+    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
+    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
+    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
+    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
+  ];
+  const onSeatAdd = (k: string) => {
+    if (k === 'table') return addTable();
+    if (k === 'entrance') return addEntrance();
+    if (k === 'service') return addServiceDoor();
+    if (k === 'dance') return addDanceFloor();
+    if (k === 'cocktail') return addCocktailArea();
+    if (k === 'sign') return addSign();
+    if (k === 'booth') return addBooth();
+  };
   const addBar =
     inGuests && addingTable && canEdit ? (
       <OverThumbRow mark="add">
@@ -7221,6 +7262,16 @@ export function SeatingEditor({
           onDraft={setAddDraft}
           onAdd={commitAddTable}
           onCancel={() => setAddingTable(false)}
+          /* ▾ "Table ▾" at the box's right end (drawing § 9): the ＋ menu's own list and handler. A table is what the box
+             adds already; anything else closes the box and is added the way the ＋ menu adds it. */
+          kinds={{
+            options: seatAddOptions.map((o) => (o.key === 'table' ? { ...o, label: 'New table' } : o)),
+            onPick: (k) => {
+              if (k === 'table') return;
+              setAddingTable(false);
+              onSeatAdd(k);
+            },
+          }}
         />
        </div>
       </OverThumbRow>
@@ -7610,6 +7661,13 @@ export function SeatingEditor({
   const goToFound = (words: string) => {
     if (!lens) return;
     const hits = lens.find(words);
+    /* 🧊 On 3D the room walks the first one found WITH a seat to it — the room's own Guide me (drawing § 6, "search a
+       guest and the room flies to their seat"; `seat-room-link.ts`). */
+    if (in3d) {
+      const seated = guests.find((x) => hits.has(x.guest_id) && x.seated_table_id);
+      if (seated) setRoomGuide((c) => ({ guestId: seated.guest_id, at: (c?.at ?? 0) + 1 }));
+      return;
+    }
     const g = guests.find((x) => hits.has(x.guest_id));
     if (!g) return;
     if (view === 'list') {
@@ -7621,24 +7679,6 @@ export function SeatingEditor({
       setSelMarker(null);
       setHighlightId(g.seated_table_id);
     }
-  };
-  const seatAddOptions: PickOption[] = [
-    { key: 'table', label: 'New table…', disabledNote: canEdit ? undefined : 'Tap Edit first' },
-    { key: 'entrance', label: 'Entrance', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : entrance.enabled ? 'Already on the plan' : undefined },
-    { key: 'service', label: 'Service door', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : serviceDoor.enabled ? 'Already on the plan' : undefined },
-    { key: 'dance', label: 'Dance floor', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : dance.enabled ? 'Already on the plan' : undefined },
-    { key: 'cocktail', label: 'Cocktail area', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : cocktail.enabled ? 'Already on the plan' : undefined },
-    { key: 'sign', label: `Sign · ${signs.length}/24`, disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : signs.length >= 24 ? 'All 24 placed' : undefined },
-    { key: 'booth', label: 'Supplier booth', disabledNote: !canEdit ? 'Tap Edit first' : view !== 'plan' ? 'On the 2D plan' : undefined },
-  ];
-  const onSeatAdd = (k: string) => {
-    if (k === 'table') return addTable();
-    if (k === 'entrance') return addEntrance();
-    if (k === 'service') return addServiceDoor();
-    if (k === 'dance') return addDanceFloor();
-    if (k === 'cocktail') return addCocktailArea();
-    if (k === 'sign') return addSign();
-    if (k === 'booth') return addBooth();
   };
   /* 🔔 ONE toast line at a time, in the thumb row's own toast — never a strip across the floor's foot, where it covered
      the zoom (owner 2026-11-20, live: the draft's three-line notice sat on Zoom in / Zoom out). In Guests the plan's
@@ -7752,17 +7792,20 @@ export function SeatingEditor({
   ) : null;
   /* 🟢 ONE LINE UNDER THE PLAN EXPLAINS THE RINGS (owner 2026-11-20, drawing § 5): "34 seated · 0 to seat · Full · Has
      room · Empty" — the words that replace the top row's sofa / person / target icons on 2D. It reserves its own height
-     like everything else over the thumb row, and keeps clear of the zoom column on the right. */
+     like everything else over the thumb row. The zoom is in the thumb row now, so the line runs to the right edge.
+     🏪 "Supplier spots · N" ends it when the floor has any: its list is who is where, and a pick names that chip. */
+  const floorSpots = supplierSpots(booths);
   const seatLegend =
     roomOnly && tables.length > 0 && !addingTable ? (
       <OverThumbRow mark="legend">
-        <p data-seat-legend="" className="pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-1 pr-16 text-[11px] leading-tight text-ink/70">
+        <p data-seat-legend="" className="pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[11px] leading-tight text-ink/70">
           <span>
             <b className="font-semibold text-ink">{formatCount(seatedNow)}</b> seated · <b className="font-semibold text-ink">{formatCount(comingUnseated.length)}</b> to seat
           </span>
           <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-success-600" />Full</span>
           <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-gold" />Has room</span>
           <span className="inline-flex items-center gap-1"><i aria-hidden className="h-2.5 w-2.5 rounded-full border-2 border-ink/20" />Empty</span>
+          {floorSpots.length > 0 ? <SupplierSpotsLegend spots={floorSpots} onPick={setSpotNamed} /> : null}
         </p>
       </OverThumbRow>
     ) : null;
@@ -7807,6 +7850,8 @@ export function SeatingEditor({
                 },
               }}
               right={[
+                /* 🔍 2D: fit · − · + is a pill here, never a stack on the plan (drawing § 5; `seat-floor-zoom.tsx`). */
+                ...(roomOnly ? [{ node: <SeatZoomPill onFit={fitView} onOut={() => zoomAround(0.8)} onIn={() => zoomAround(1.25)} /> }] : []),
                 guestsFilterMenu({
                   view: 'seats',
                   filter: lens.filter,
@@ -7881,15 +7926,13 @@ export function SeatingEditor({
 
   /* zoom controls — §5.9: Fit first/largest, every target ≥44px.
      🧭 Studio: the thumb-zone tools and the people peek own the foot of the map, so the zoom rides at the top of the room.
-     🗺 Guests: the plan is the WHOLE screen (owner 2026-10-30, DECISION_LOG "SEATS 2D · SEATS 3D · THE MAP ARE ALWAYS FULL
-     SCREEN — NO FULL-SCREEN BUTTON"), and its top is under the pinned row — so the stack sits on the plan's cell, in the
-     LOWER third, just above the floating thumb row (`--sn-thumb-room`, the room that row measures, less the dock the cell
-     already stops at). Fit wears corner brackets, never ⤢. */
+     🗺 Guests: NOT drawn — the plan is the whole screen, and its fit · − · + is a pill in the thumb row instead, so nothing
+     stands on the plan (owner 2026-11-20, drawing § 5; `SeatZoomPill`, the same `fitView` · `zoomAround`).
+     Fit wears corner brackets, never ⤢. */
   const zoomStack = (
     <div
       data-seat-plan-zoom=""
-      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-full border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${inGuests ? '' : studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
-      style={inGuests ? { bottom: 'max(0.75rem, calc(var(--sn-thumb-room, 0px) - var(--sn-bottomdock-h, 0px)))' } : undefined}
+      className={`absolute right-3 z-20 flex flex-col overflow-hidden rounded-full border border-ink/15 bg-cream/90 shadow-sm backdrop-blur-sm ${studioSeat ? 'top-3' : 'bottom-[64px] lg:bottom-3'}`}
     >
       <button
         type="button"
@@ -8837,7 +8880,22 @@ export function SeatingEditor({
 
           {/* vendor booths — perimeter-anchored markers; the drag handler runs
               the wall-snap rules live so they can't leave the legal band */}
-          {booths.map((b) => {
+          {booths.map((b, bi) => {
+            /* 🏪 Guests › Seats › 2D: the booth is a numbered chip on its wall, its name on a tap (`seat-floor-spots.tsx`,
+               drawing § 5). Same presses as the marker below; a computer's drag press only once the plan is editable. */
+            if (roomOnly) {
+              const spot = floorSpots[bi]!;
+              return (
+                <div key={b.booth_id} className="absolute z-10 -translate-x-1/2 -translate-y-1/2" style={{ left: `${b.x_pos}%`, top: `${b.y_pos}%` }}>
+                  <SpotChip
+                    spot={spot}
+                    named={spotNamed === b.booth_id}
+                    picked={(selMarker?.kind === 'booth' && selMarker.id === b.booth_id) || dragId === `__booth_${b.booth_id}__`}
+                    onPointerDown={press === 'drag' && canEdit ? onBoothPointerDown(b.booth_id) : onTapDown('booth', b.booth_id)}
+                  />
+                </div>
+              );
+            }
             const unassigned = b.booth_type === 'unassigned';
             // Presence label (owner directive 2026-07-16): a booth mirrors the 3D
             // slot — a FINALIZED vendor's name when linked, "SETNAYAN" otherwise.
@@ -9787,16 +9845,16 @@ export function SeatingEditor({
             </div>
           </div>
         )}
-        {/* 🗺 Guests: the zoom stack rides the plan's cell, in the lower third (`zoomStack`). */}
-        {inGuests && view === 'plan' ? zoomStack : null}
+        {/* 🗺 Guests: no zoom stack on the plan — its fit · − · + is the thumb row's pill (`SeatZoomPill`). */}
         {/* 🪑 Details · 3D — the lab, drawn over the plan in this same part (free,
             always on — DECISION_LOG "3D SEAT PLANNING STAYS FREE"). The 2D plan
-            stays mounted beneath it, so its lock, guests and lists stay put. */}
+            stays mounted beneath it, so its lock, guests and lists stay put. In Guests the room reads who holds this
+            plan's lock, and the thumb row's search, from `SeatRoomLinkContext` (drawing § 6). */}
         {details?.lab && (!inGuests || seen3d) ? (
           /* 🗂 R4: in Guests the room is mounted the first time it is opened and KEPT (hidden while 2D or List shows) —
              its code and its lock load once. */
           <div data-seat-plan-3d="" hidden={!in3d} className="absolute inset-0 z-[45] overflow-hidden bg-cream">
-            {details.lab}
+            <SeatRoomLinkContext.Provider value={inGuests ? roomLink : null}>{details.lab}</SeatRoomLinkContext.Provider>
           </div>
         ) : null}
         {/* 🧭 Studio: the thumb-zone tools and the people, pulled up over the map. */}

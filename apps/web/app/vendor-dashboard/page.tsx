@@ -54,11 +54,14 @@ import { manilaToday } from '@/lib/std-views';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   lockAgreeFeeHeld,
+  lockAgreeGiftBuy,
   lockAgreeHalls,
   lockAgreeNotice,
   lockDeclineNotice,
   type LockAnswerNotice,
 } from '@/lib/lock-answer-notice';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { GiftReturnBanner } from '@/app/vendor-dashboard/shop/promote/_components/gift-return-banner';
 import {
   shopFindability,
   findabilityNotice,
@@ -207,6 +210,8 @@ export default async function VendorOverviewPage({
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     free?: string;
     competing?: string;
     date_answer?: string;
@@ -241,7 +246,7 @@ export default async function VendorOverviewPage({
       feeHeld: lockAgreeFeeHeld(search.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(search.taken, search.free),
+      halls: lockAgreeHalls(search.taken, search.free), giftBuy: lockAgreeGiftBuy(search.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(search.lock_decline);
   // ⚡ The layout already asked the auth server who this is (`getCurrentUser`,
   // remembered per request) — asking again here was a second auth round trip on
@@ -771,6 +776,8 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
+      {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}
+      <GiftReturnBanner className="mb-3" />
       <ClaimWaitLines read={await claimWaitsP} />
       <StayOnTodayLine supabase={supabase} vendorProfileId={vendorProfileId} />
       <PapersRenewalLine supabase={supabase} vendorProfileId={vendorProfileId} />

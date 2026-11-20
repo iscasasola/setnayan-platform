@@ -11,7 +11,11 @@
  *     14 Nov). Event Ultra counts at its list price;
  *   • the smallest Papic pack ("Papic 150") is always allowed;
  *   • STOCK FIRST — what the shop already holds shows "In your stock" and costs nothing more, but still counts toward
- *     the limit; the rest is added to the supplier's booking-fee bill;
+ *     the limit. ⚖ SUPERSEDED IN PART (DECISION_LOG 16 → 21 Nov): nothing is ever bought on the booking-fee bill
+ *     (16 Nov ee10c425). Every booking carries AT LEAST ONE gift, no exceptions (20 Nov) — the pick starts on the
+ *     smallest Papic pack and can never go to none. A gift the shop has none of reads "0 left · Buy more ›" and opens
+ *     the "Your gifts" store, then comes back here (21 Nov); a store payment that was SENT ("Waiting for approval")
+ *     covers one pick (21 Nov, controller).
  *   • "Most credits for your limit" (the best Papic mix, one tap) shows only when the gift is all Papic and a better
  *     mix exists;
  *   • at most one plan gift (pick 3, 14 Nov); Plus + Pro never make Ultra (pick 2).
@@ -45,11 +49,12 @@ export type AgreeGiftBasis = {
   /** What the couple's event already holds. */
   eventHas: EventHolds;
   /**
-   * 🎁 NO BILL (owner 2026-11-16, DECISION_LOG 03e465e1): a free, promo, badge-paid or imported booking raises no bill, so
-   * nothing can be bought — the supplier may still give from stock they already hold, within the limit of the fee the
-   * booking WOULD have carried (`feeCentavos`). Absent / false → a billed booking.
+   * 🎁 SENT store orders not yet approved, per gift code — each line covers ONE pick (21 Nov). Null = could not be read;
+   * absent = none.
    */
-  stockOnly?: boolean;
+  sent?: Readonly<Record<string, number>> | null;
+  /** False inside the iPhone app (store shell): nothing is sold there, so no "Buy" word or store door is drawn. */
+  canBuy?: boolean;
 };
 
 /** The limit for one booking: `limitPct`% of its fee, FLOORED — the SQL door's own arithmetic. */
@@ -58,7 +63,9 @@ export function agreeGiftLimitCentavos(feeCentavos: number, limitPct: number): n
   return Math.floor((Math.round(feeCentavos) * giftLimitPctOrDefault(limitPct)) / 100);
 }
 
-export type AgreeGiftLine = { pack: ShopGiftPack; fromStock: boolean };
+/** Where one picked line comes from: the shop's free stock, a sent store payment, or nowhere yet (buy it first). */
+export type AgreeGiftSource = 'stock' | 'sent' | null;
+export type AgreeGiftLine = { pack: ShopGiftPack; fromStock: boolean; source: AgreeGiftSource };
 
 export type AgreeGiftState =
   | 'none'
@@ -68,15 +75,15 @@ export type AgreeGiftState =
   | 'one_plan'
   | 'over_limit'
   | 'too_many'
-  | 'stock_only';
+  | 'needs_stock';
 
 export type AgreeGiftVerdict = {
   lines: AgreeGiftLine[];
   state: AgreeGiftState;
   /** Everything picked, at the list price — what the limit measures. */
   valueCentavos: number;
-  /** Only what was not in stock — what the bill adds. */
-  boughtCentavos: number;
+  /** The codes picked that the shop has none of yet — bought in the store first (`needs_stock`). */
+  missing: string[];
   limitCentavos: number;
   /** Papic credits picked (all lines). */
   credits: number;
@@ -100,17 +107,26 @@ export function judgeAgreeGifts(codes: readonly string[], basis: AgreeGiftBasis)
   const valueCentavos = picked.reduce((s, p) => s + p.srpCentavos, 0);
   const credits = picked.reduce((s, p) => s + (p.kind === 'papic' ? p.credits : 0), 0);
 
-  // Stock first, per code: the first `free` lines of that code come out of stock.
-  const usedOf = new Map<string, number>();
+  // Stock first, per code; then one sent store line per pick; anything left must be bought first.
+  const usedStock = new Map<string, number>();
+  const usedSent = new Map<string, number>();
   const lines: AgreeGiftLine[] = picked.map((pack) => {
     const have = freeOfPack(basis.free, pack) ?? 0;
-    const used = usedOf.get(pack.code) ?? 0;
-    const fromStock = used < have;
-    if (fromStock) usedOf.set(pack.code, used + 1);
-    return { pack, fromStock };
+    const s = usedStock.get(pack.code) ?? 0;
+    if (s < have) {
+      usedStock.set(pack.code, s + 1);
+      return { pack, fromStock: true, source: 'stock' as const };
+    }
+    const sentHave = basis.sent?.[pack.code] ?? 0;
+    const t = usedSent.get(pack.code) ?? 0;
+    if (t < sentHave) {
+      usedSent.set(pack.code, t + 1);
+      return { pack, fromStock: false, source: 'sent' as const };
+    }
+    return { pack, fromStock: false, source: null };
   });
-  const boughtCentavos = lines.reduce((s, l) => s + (l.fromStock ? 0 : l.pack.srpCentavos), 0);
-  const base = { lines, valueCentavos, boughtCentavos, limitCentavos, credits };
+  const missing = [...new Set(lines.filter((l) => l.source === null).map((l) => l.pack.code))].sort();
+  const base = { lines, valueCentavos, missing, limitCentavos, credits };
 
   if (unknown) return { ...base, state: 'unknown_pack' };
   if (picked.length === 0) return { ...base, state: 'none' };
@@ -120,19 +136,35 @@ export function judgeAgreeGifts(codes: readonly string[], basis: AgreeGiftBasis)
   const smallest = alwaysAllowedPack(basis.packs);
   const aloneSmallest = picked.length === 1 && !!smallest && picked[0]!.code === smallest.code;
   if (valueCentavos > limitCentavos && !aloneSmallest) return { ...base, state: 'over_limit' };
-  // No bill: every line must come from stock — the SQL door's own last check (`stock_only`).
-  if (basis.stockOnly && lines.some((l) => !l.fromStock)) return { ...base, state: 'stock_only' };
+  // Nothing in stock and nothing sent for it: bought in the "Your gifts" store first (`needs_stock`, 21 Nov).
+  if (missing.length > 0) return { ...base, state: 'needs_stock' };
   return { ...base, state: 'ok' };
 }
 
-/** One row of the picker: a pack, what one costs, how many are in stock, and whether one more can be added now. */
+/** The pick the Agree step starts on: the smallest Papic pack (20 Nov), or the gift the store just sold, if it fits. */
+export function agreeGiftStart(basis: AgreeGiftBasis, returned?: string | null): string[] {
+  if (returned && basis.packs.some((p) => p.code === returned)) {
+    const v = judgeAgreeGifts([returned], basis);
+    if (v.state === 'ok' || v.state === 'needs_stock') return [returned];
+  }
+  const smallest = alwaysAllowedPack(basis.packs);
+  return smallest ? [smallest.code] : [];
+}
+
+/** One row of the picker: a pack, what one costs, how many there are to give, and whether one more can be added now. */
 export type AgreeGiftOption = {
   pack: ShopGiftPack;
   /** How many of THIS pack are picked. */
   count: number;
   /** Free to offer from stock (null = could not be read). */
   inStock: number | null;
+  /** Bought in the store, payment sent, waiting for approval — not picked by another booking. */
+  sent: number;
+  /** None left to give for one more: the row reads "0 left · Buy more ›" and opens the store (21 Nov). */
+  buyMore: boolean;
   canAdd: boolean;
+  /** At one gift in all, the last one cannot be taken off (20 Nov: never none). */
+  canRemove: boolean;
   /** Why one more cannot be added, in the supplier's words. */
   why: string | null;
 };
@@ -142,9 +174,11 @@ export function agreeGiftOptions(codes: readonly string[], basis: AgreeGiftBasis
   return basis.packs.map((pack) => {
     const count = codes.filter((c) => c === pack.code).length;
     const inStock = freeOfPack(basis.free, pack);
+    const sent = basis.sent?.[pack.code] ?? 0;
     const next = judgeAgreeGifts([...codes, pack.code], basis);
+    const buyMore = (inStock ?? 0) + sent <= count;
     const why =
-      next.state === 'ok'
+      next.state === 'ok' || next.state === 'needs_stock'
         ? null
         : next.state === 'already_has'
           ? `Their event already has ${basis.eventHas === 'ultra' ? 'Event Ultra' : 'Event Pro'}`
@@ -154,10 +188,17 @@ export function agreeGiftOptions(codes: readonly string[], basis: AgreeGiftBasis
               ? 'Over this booking’s gift limit'
               : next.state === 'too_many'
                 ? 'That is the most one gift can hold'
-                : next.state === 'stock_only'
-                  ? 'Not in your stock — this booking has no bill to buy on'
-                  : 'Not on sale right now';
-    return { pack, count, inStock, canAdd: next.state === 'ok', why };
+                : 'Not on sale right now';
+    return {
+      pack,
+      count,
+      inStock,
+      sent,
+      buyMore,
+      canAdd: next.state === 'ok',
+      canRemove: count > 0 && codes.length > 1,
+      why,
+    };
   });
 }
 
@@ -205,13 +246,14 @@ export function bestPapicMix(basis: AgreeGiftBasis): string[] {
  * gives more credits than what is picked now (owner 2026-11-15).
  */
 export function offersBetterPapicMix(codes: readonly string[], basis: AgreeGiftBasis): boolean {
-  // No bill: the gift is whatever stock holds — a mix to BUY is not on offer.
-  if (basis.stockOnly) return false;
   const byCode = new Map(basis.packs.map((p) => [p.code, p]));
   const picked = codes.map((c) => byCode.get(c));
   if (picked.some((p) => !p || p.kind !== 'papic')) return false;
   const now = picked.reduce((s, p) => s + (p?.credits ?? 0), 0);
-  const best = bestPapicMix(basis).reduce((s, c) => s + (byCode.get(c)?.credits ?? 0), 0);
+  const mix = bestPapicMix(basis);
+  // Only a mix the shop can give right now (stock or sent) — never one that would send them off to buy.
+  if (judgeAgreeGifts(mix, basis).state !== 'ok') return false;
+  const best = mix.reduce((s, c) => s + (byCode.get(c)?.credits ?? 0), 0);
   return best > now;
 }
 
@@ -234,22 +276,35 @@ export function agreeGiftItems(lines: readonly AgreeGiftLine[]): string | null {
 export function agreeGiftOutcomeLine(status: string | null | undefined): { tone: 'ok' | 'refused'; text: string } | null {
   switch (status) {
     case 'ok':
-      return { tone: 'ok', text: 'Your gift is on this booking. It reaches the couple once your bill is paid — stock gifts at their first payment.' };
-    case 'over_limit':
-      return { tone: 'refused', text: 'Your gift did not go on: it was over this booking’s gift limit. The booking is agreed.' };
-    case 'already_has':
-      return { tone: 'refused', text: 'Your gift did not go on: their event already has that plan. The booking is agreed.' };
-    case 'stock_only':
-      return { tone: 'refused', text: 'Your gift did not go on: this booking has no bill, so only gifts already in your stock can be given. The booking is agreed.' };
-    case 'no_fee':
-      return { tone: 'refused', text: 'Your gift did not go on: this booking has no fee to size a gift by. The booking is agreed.' };
-    case 'unknown_pack':
-      return { tone: 'refused', text: 'Your gift did not go on: something in it is no longer on sale. The booking is agreed.' };
-    case 'one_plan':
-      return { tone: 'refused', text: 'Your gift did not go on: one plan per gift. The booking is agreed.' };
-    case 'error':
-      return { tone: 'refused', text: 'We couldn’t add your gift just now. The booking is agreed — nothing was added to your bill.' };
-    default:
+      return { tone: 'ok', text: 'Your gift is on this booking. It reaches the couple at their first payment — a bought gift once your payment is approved.' };
+    case 'already':
       return null;
+    case undefined:
+    case null:
+    case '':
+      return null;
+    default:
+      // The yes asked first (a dry run), so this is a race lost after it: the booking stands, the gift row asks again.
+      return { tone: 'refused', text: `${AGREE_GIFT_NEEDED} The booking is agreed.` };
   }
+}
+
+/** The one sentence for a booking without a live gift — at Agree's refusal and on an agreed booking (20–21 Nov). */
+export const AGREE_GIFT_NEEDED = 'Every booking needs at least 1 gift.';
+/** Its door: the "Your gifts" store, then back here. */
+export const AGREE_GIFT_BUY_ONE = 'Buy one ›';
+/** On an agreed booking whose gift was cleared (its store payment refused or refunded). */
+export const AGREE_GIFT_CLEARED = 'Needs at least 1 gift.';
+
+/**
+ * The store door with its way back (owner 21 Nov: "make them jump to the page where to buy gifts. after they buy, we can
+ * return to the booking fee"). `back` is where the supplier stands now; it is carried as a same-site path only and comes
+ * back with `agree_gift=<code>` so the Agree step reopens on the gift they bought.
+ */
+export function giftStoreHref(code: string | null, back: string): string {
+  const q = new URLSearchParams();
+  if (code) q.set('gift', code);
+  if (back.startsWith('/vendor-dashboard/') && !back.startsWith('//')) q.set('back', back);
+  const qs = q.toString();
+  return `/vendor-dashboard/shop/promote${qs ? `?${qs}` : ''}#gifts`;
 }

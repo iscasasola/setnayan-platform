@@ -71,7 +71,7 @@ export const SETNAYAN_GIFT_HINT =
 /** What the ⓘ beside "Gift" says — the card's shipped words and the shop-gift rulings (DECISION_LOG 2026-11-04 / 05). */
 export function giftTip(host: GiftHost, deliver: boolean = SHOP_PACK_GIFTS_DELIVER): readonly string[] {
   const all = [
-    `Setnayan gift — when you agree to a booking you can pick Papic packs or an Event plan for the couple’s event, within your gift limit. It is added to your booking fee bill; what is in your stock costs nothing more. Your ${host} shows either way.`,
+    `Setnayan gift — every booking you agree to carries at least 1 gift: Papic packs or an Event plan for the couple’s event, within your gift limit. Gifts come from your stock and are never added to your booking fee. Your ${host} shows either way.`,
     'Your own gifts — Papic packs, Event Plus, Event Pro or Event Ultra from your stock (Shop › Promote › Your gifts · buy first). They leave your stock when the couple’s first payment clears and land on their event.',
     'On one booking your gifts are capped at 40% of its fee; the smallest Papic pack is always allowed.',
     'A second Event Plus on an event that already holds Plus unlocks Event Pro instead.',

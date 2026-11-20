@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8103
+# facts: 8104
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     657
-#   col       5831
+#   col       5832
 #   policy    1189
 #   view      10
 #   func      412
@@ -871,14 +871,15 @@ col	public.booking_fee_ledger.ledger_id	anon=- authenticated=SIU
 col	public.booking_fee_ledger.source	anon=- authenticated=SIU
 col	public.booking_fee_ledger.updated_at	anon=- authenticated=SIU
 col	public.booking_fee_ledger.vendor_profile_id	anon=- authenticated=SIU
-col	public.booking_gift_lines.charge_id	anon=- authenticated=S
+col	public.booking_gift_lines.cleared_at	anon=- authenticated=S
+col	public.booking_gift_lines.cleared_reason	anon=- authenticated=S
 col	public.booking_gift_lines.created_at	anon=- authenticated=S
 col	public.booking_gift_lines.credits	anon=- authenticated=S
 col	public.booking_gift_lines.event_id	anon=- authenticated=S
 col	public.booking_gift_lines.event_vendor_id	anon=- authenticated=S
 col	public.booking_gift_lines.from_stock	anon=- authenticated=S
 col	public.booking_gift_lines.gift_kind	anon=- authenticated=S
-col	public.booking_gift_lines.given_at	anon=- authenticated=S
+col	public.booking_gift_lines.gift_order_line_id	anon=- authenticated=S
 col	public.booking_gift_lines.line_id	anon=- authenticated=S
 col	public.booking_gift_lines.price_centavos	anon=- authenticated=S
 col	public.booking_gift_lines.service_code	anon=- authenticated=S

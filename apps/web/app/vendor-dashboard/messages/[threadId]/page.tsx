@@ -108,7 +108,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import { customerCardHref, supplierThreadForward, supplierThreadNoticeSearch, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -208,6 +208,8 @@ type Props = {
     fee?: string;
     /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
     gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -322,7 +324,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(sp?.taken, sp?.free),
+      halls: lockAgreeHalls(sp?.taken, sp?.free), giftBuy: lockAgreeGiftBuy(sp?.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const giftOutcome = agreeGiftOutcomeLine(sp?.gift);
   const supabase = await createClient();

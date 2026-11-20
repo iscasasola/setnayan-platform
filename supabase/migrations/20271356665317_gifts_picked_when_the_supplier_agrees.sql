@@ -25,18 +25,30 @@
 --   • the old automatic "N free Papic photos" gift RETIRES for new bookings — a gift already on a bill
 --     or already given stays exactly as it is.
 --
+-- ⚖ SUPERSEDED IN PART — what this migration now builds (owner 2026-11-16 → 21 Nov, DECISION_LOG):
+--   • ee10c425 (16 Nov): gifts are ALWAYS bought as stock first, NEVER on a booking-fee bill — so nothing here
+--     touches a bill: no bought line, no bill clause, no re-priced order. A bill that already carries a gift
+--     keeps it, untouched (a stored money row is never rewritten).
+--   • 20 Nov "EVERY BOOKING CARRIES AT LEAST ONE SETNAYAN GIFT — NO EXCEPTIONS": found, imported, free-fee and
+--     paid-fee bookings alike. The pick refuses ZERO gifts (`none`), and a booking with no fee still takes a gift
+--     (the smallest Papic pack alone always fits) — there is no `no_fee` refusal any more.
+--   • 21 Nov "OUT OF GIFTS STILL MEANS THEY CAN BUY" + "JUMP TO THE BUY PAGE, THEN BACK": a gift the shop has none
+--     of is bought in the "Your gifts" store (its own bill, #7923) and the supplier comes back to Agree.
+--   • 21 Nov "A GIFT BOUGHT BY BDO COUNTS ONCE THE PAYMENT IS SENT": a store order line whose payment was SENT
+--     ("Waiting for approval") covers ONE pick (gift_order_line_id, one live pick per line); it becomes a stock
+--     hold when the admin approves (stock lands), and the pick is CLEARED (cleared_at) if that payment is refused
+--     or refunded — the booking then reads "Needs at least 1 gift. Buy one ›".
+--
 -- RULE 0 — WHAT THIS REUSES:
---   • the bill: `booking_fee_charges.gift_centavos` already rides beside the fee and the order is fee +
---     gift (`booking_fee_upsert_vendor_order`, the TS mint). A pick sets those columns.
---   • bought Papic: `booking_fee_grant_setnayan_gift` already lands `gift_credits` in the event's shared
---     pot when the fee order is paid. A pick's bought Papic credits ARE `gift_credits`.
 --   • stock: the shop gift ledger (`shop_gift_stock_entries`), its two status readers and its two
 --     delivery doors. An agree-time stock pick is one more HOLD, given by the same doors.
---   • a bought plan lands as a `bought` (+1) / `given` (−1, `unlocks_sku`) pair in that same ledger, so
---     the entitlement chain that already reads given unlocks sees it with no change.
+--   • buying: the "Your gifts" store (#7923) — its order (`vendor_gift__GIFT_CART`), its lines
+--     (`shop_gift_order_lines`), its approval (`shop_gift_grant_order_lines`). Nothing new is billed here.
+--   • telling the supplier: the shipped `payment_rejected` / `payment_refunded` notifications.
 --
--- ADD / LOOSEN ONLY: one new table (RLS at CREATE), three new functions, and six functions re-created
--- from their latest bodies with additions (named at each).
+-- ADD / LOOSEN ONLY: one new table (RLS at CREATE), six new functions (the pick, the smallest-pack reader, the
+-- sent-order reader, the store-order follower and its two trigger bodies), two triggers, and five functions re-created from their latest
+-- bodies with additions (named at each).
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── 1 · one row per gift picked at the yes ──────────────────────────────────
@@ -48,9 +60,10 @@ CREATE TABLE IF NOT EXISTS public.booking_gift_lines (
                       REFERENCES public.events(event_id) ON DELETE CASCADE,
   vendor_profile_id UUID NOT NULL
                       REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
-  -- The booking-fee charge a BOUGHT line rides on (NULL for a stock line).
-  charge_id         UUID
-                      REFERENCES public.booking_fee_charges(charge_id) ON DELETE SET NULL,
+  -- 🎁 A pick covered by a gift-store order line whose payment was SENT, not yet approved (owner 21 Nov). NULL for
+  -- a pick taken from stock at the yes. Kept after the stock lands (the line is then a stock hold, from_stock).
+  gift_order_line_id UUID
+                      REFERENCES public.shop_gift_order_lines(line_id) ON DELETE SET NULL,
   service_code      TEXT NOT NULL
                       CONSTRAINT booking_gift_lines_service_code_shape
                       CHECK (length(btrim(service_code)) > 0),
@@ -65,26 +78,35 @@ CREATE TABLE IF NOT EXISTS public.booking_gift_lines (
                       CONSTRAINT booking_gift_lines_price_positive CHECK (price_centavos > 0),
   title             TEXT NOT NULL,
   from_stock        BOOLEAN NOT NULL,
-  -- A bought PLAN line, once it landed on the event (or went to the shop's stock).
-  given_at          TIMESTAMPTZ,
+  -- Set when the store payment that covered this pick was refused or refunded before the gift reached the couple.
+  -- A cleared line holds nothing and gives nothing; the booking needs a gift again.
+  cleared_at        TIMESTAMPTZ,
+  cleared_reason    TEXT
+                      CONSTRAINT booking_gift_lines_cleared_reason_allowed
+                      CHECK (cleared_reason IS NULL OR cleared_reason IN ('refused', 'refunded')),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT booking_gift_lines_bought_rides_a_bill CHECK (from_stock OR charge_id IS NOT NULL),
+  -- Never bought on a booking-fee bill (16 Nov ee10c425): from stock, or covered by a SENT store order line.
+  CONSTRAINT booking_gift_lines_stock_or_sent CHECK (from_stock OR gift_order_line_id IS NOT NULL),
+  CONSTRAINT booking_gift_lines_cleared_has_reason CHECK ((cleared_at IS NULL) = (cleared_reason IS NULL)),
   CONSTRAINT booking_gift_lines_plan_is_one CHECK (gift_kind = 'papic' OR credits = 1)
 );
 
 CREATE INDEX IF NOT EXISTS booking_gift_lines_booking_idx
   ON public.booking_gift_lines (event_vendor_id);
-CREATE INDEX IF NOT EXISTS booking_gift_lines_charge_idx
-  ON public.booking_gift_lines (charge_id) WHERE charge_id IS NOT NULL;
+-- One store order line covers ONE live pick, never two (controller 21 Nov, guard 4).
+CREATE UNIQUE INDEX IF NOT EXISTS booking_gift_lines_one_pick_per_order_line
+  ON public.booking_gift_lines (gift_order_line_id)
+  WHERE gift_order_line_id IS NOT NULL AND cleared_at IS NULL;
 CREATE INDEX IF NOT EXISTS booking_gift_lines_shop_idx
   ON public.booking_gift_lines (vendor_profile_id, created_at DESC);
 
 COMMENT ON TABLE public.booking_gift_lines IS
-  'The gifts a supplier picked for the couple''s event when they agreed to the booking (owner 2026-11-15, '
-  'gift for services): one row per Papic pack or plan, its list price frozen at the yes. from_stock = taken '
-  'from the shop''s gift stock (held until the couple''s first payment, then given by the shop gift doors); '
-  'otherwise bought on the booking-fee bill (charge_id) and given when that bill is paid. Written only by '
-  'booking_gift_pick.';
+  'The gifts a supplier picked for the couple''s event when they agreed to the booking (owner 2026-11-15, gift for '
+  'services; every booking carries at least one — 20 Nov). One row per Papic pack or plan, its list price frozen at '
+  'the yes. from_stock = held from the shop''s gift stock until the couple''s first payment, then given by the shop '
+  'gift doors. Otherwise covered by a gift-store order line whose payment was sent (gift_order_line_id); it becomes a '
+  'stock hold when that payment is approved, and is cleared (cleared_at) if it is refused or refunded. Never on a '
+  'booking-fee bill. Written only by booking_gift_pick and the two triggers below.';
 
 ALTER TABLE public.booking_gift_lines ENABLE ROW LEVEL SECURITY;
 
@@ -105,62 +127,11 @@ REVOKE ALL ON TABLE public.booking_gift_lines FROM anon;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
   ON TABLE public.booking_gift_lines FROM authenticated;
 
--- ── 2 · what the gift adds to a bill, in words ──────────────────────────────
--- " ₱1,203.50 + your Setnayan gift for your couple: 2 × Papic 150 · Event Pro, ₱5,388"
--- Picked lines first; a bill that still carries the retired photo gift keeps its old clause;
--- otherwise ''. One source for the TS mint (rpc) and the SQL re-pricer below.
-CREATE OR REPLACE FUNCTION public.booking_gift_bill_clause(p_charge_id UUID)
-RETURNS TEXT
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_charge RECORD;
-  v_items  TEXT;
-BEGIN
-  SELECT amount_charged_centavos, gift_credits, gift_centavos
-    INTO v_charge
-    FROM public.booking_fee_charges
-   WHERE charge_id = p_charge_id;
-  IF NOT FOUND OR COALESCE(v_charge.gift_centavos, 0) <= 0 THEN
-    RETURN '';
-  END IF;
-  SELECT string_agg(x.item, ' · ' ORDER BY x.ord, x.item) INTO v_items
-    FROM (
-      SELECT CASE WHEN l.gift_kind = 'papic'
-                  THEN to_char(COUNT(*), 'FM999,990') || ' × ' || l.title
-                  ELSE l.title END AS item,
-             CASE l.gift_kind WHEN 'papic' THEN 0 WHEN 'event_plus' THEN 1
-                              WHEN 'event_pro' THEN 2 ELSE 3 END AS ord
-        FROM public.booking_gift_lines l
-       WHERE l.charge_id = p_charge_id
-         AND NOT l.from_stock
-       GROUP BY l.gift_kind, l.title
-    ) x;
-  IF v_items IS NULL THEN
-    -- No picked line: a bill that still carries the retired photo gift keeps its words.
-    IF COALESCE(v_charge.gift_credits, 0) > 0 THEN
-      RETURN public.setnayan_gift_bill_clause(v_charge.amount_charged_centavos,
-                                              v_charge.gift_credits, v_charge.gift_centavos);
-    END IF;
-    RETURN '';
-  END IF;
-  RETURN ' ' || public.booking_fee_php_text(v_charge.amount_charged_centavos / 100.0)
-      || ' + your Setnayan gift for your couple: ' || v_items || ', '
-      || public.booking_fee_php_text(v_charge.gift_centavos / 100.0);
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.booking_gift_bill_clause(UUID) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.booking_gift_bill_clause(UUID) TO service_role;
-
--- ── 3 · the charge sizes its gift from the picks; the photo gift retires ────
--- Re-created from 20271308555594. ADDED: (a) a NEW charge is never offered the retired photo gift
--- (setnayan_gift_offered := FALSE on INSERT; a charge already offered keeps its snapshot, so a bill
--- already raised is untouched); (b) a pending charge with BOUGHT picks carries exactly their list
--- prices and their Papic credits. Everything else is the old body.
+-- ── 2 · the photo gift retires for a new charge ────────────────────────────
+-- Re-created from 20271308555594 (still its latest body). ADDED ONLY: a NEW charge is never offered the retired
+-- photo gift (setnayan_gift_offered := FALSE on INSERT); a charge already offered keeps its snapshot, so a bill
+-- already raised is untouched. Gifts picked at the yes never reach a bill (16 Nov ee10c425). Everything else is the
+-- old body.
 CREATE OR REPLACE FUNCTION public.booking_fee_charges_size_the_gift()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -170,7 +141,6 @@ AS $$
 DECLARE
   v_gift  RECORD;
   v_stamp RECORD;
-  v_picks RECORD;
 BEGIN
   IF TG_OP = 'INSERT' THEN
     -- 🎁 RETIRED 2026-11-15 ("the old N free Papic photos gift retires; gifts already given stay").
@@ -189,23 +159,6 @@ BEGIN
     NEW.gift_credits  := OLD.gift_credits;
     NEW.gift_centavos := OLD.gift_centavos;
     RETURN NEW;
-  END IF;
-
-  -- 🎁 PICKED AT THE YES: the bill carries what was bought, at the list price frozen on each line.
-  IF TG_OP = 'UPDATE' AND NEW.status = 'pending'
-     AND COALESCE(NEW.amount_charged_centavos, 0) > 0 THEN
-    SELECT COALESCE(SUM(l.price_centavos), 0)::BIGINT AS centavos,
-           COALESCE(SUM(l.credits) FILTER (WHERE l.gift_kind = 'papic'), 0)::INTEGER AS credits,
-           COUNT(*)::INTEGER AS n
-      INTO v_picks
-      FROM public.booking_gift_lines l
-     WHERE l.charge_id = NEW.charge_id
-       AND NOT l.from_stock;
-    IF v_picks.n > 0 THEN
-      NEW.gift_credits  := v_picks.credits;
-      NEW.gift_centavos := v_picks.centavos;
-      RETURN NEW;
-    END IF;
   END IF;
 
   IF NEW.status = 'pending'
@@ -238,104 +191,6 @@ BEGIN
 END;
 $$;
 
--- ── 4 · the bill re-pricer names the picked gift ────────────────────────────
--- Re-created from 20271234849476. CHANGED ONLY: the gift clause comes from booking_gift_bill_clause
--- (picked items, else the retired photo clause), and the description is rewritten whenever the bill
--- carries any gift (a plan-only gift has no credits). Amounts, voiding and the one-bill-per-charge
--- insert are the old body.
-CREATE OR REPLACE FUNCTION public.booking_fee_upsert_vendor_order(p_charge_id UUID)
-RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_charge     RECORD;
-  v_order      RECORD;
-  v_svc        TEXT;
-  v_amount_php NUMERIC(12, 2);
-  v_payer      UUID;
-  v_ref        TEXT;
-  v_order_id   UUID;
-  v_desc       TEXT;
-BEGIN
-  SELECT charge_id, event_id, vendor_profile_id, amount_charged_centavos, status, kind,
-         gift_credits, gift_centavos
-    INTO v_charge
-    FROM public.booking_fee_charges
-    WHERE charge_id = p_charge_id;
-  IF NOT FOUND THEN RETURN; END IF;
-
-  v_svc := 'vendor_booking_fee__' || p_charge_id::text;
-  SELECT order_id, status, requested_total_php, description
-    INTO v_order
-    FROM public.orders
-    WHERE service_key = v_svc
-    LIMIT 1;
-
-  IF v_charge.status <> 'pending' OR COALESCE(v_charge.amount_charged_centavos, 0) <= 0 THEN
-    IF v_order.order_id IS NOT NULL
-       AND v_order.status NOT IN ('paid', 'fulfilled', 'refunded', 'cancelled') THEN
-      UPDATE public.orders
-        SET status = 'cancelled', updated_at = NOW()
-        WHERE order_id = v_order.order_id;
-      UPDATE public.payments
-        SET status = 'rejected',
-            admin_notes = COALESCE(admin_notes || ' ', '') || '[auto-void: booking amended]'
-        WHERE order_id = v_order.order_id AND status = 'pending';
-    END IF;
-    RETURN;
-  END IF;
-
-  v_amount_php := round(v_charge.amount_charged_centavos
-                        + COALESCE(v_charge.gift_centavos, 0))::numeric / 100.0;
-
-  IF v_order.order_id IS NOT NULL THEN
-    IF v_order.status IN ('paid', 'fulfilled', 'refunded', 'cancelled') THEN RETURN; END IF;
-    IF v_order.requested_total_php IS DISTINCT FROM v_amount_php THEN
-      v_desc := v_order.description;
-      IF COALESCE(v_charge.gift_centavos, 0) > 0
-         OR position(' + your Setnayan gift for your couple: ' IN COALESCE(v_desc, '')) > 0 THEN
-        v_desc := 'Setnayan booking fee (' || public.booking_fee_schedule_summary() || ')'
-          || public.booking_gift_bill_clause(p_charge_id)
-          || ' — amended booking, up for verification within 24 hrs';
-      END IF;
-      UPDATE public.orders
-        SET requested_total_php = v_amount_php, description = v_desc, updated_at = NOW()
-        WHERE order_id = v_order.order_id;
-      UPDATE public.payments
-        SET amount_php = v_amount_php
-        WHERE order_id = v_order.order_id AND status = 'pending';
-    END IF;
-    RETURN;
-  END IF;
-
-  SELECT user_id INTO v_payer
-    FROM public.vendor_profiles
-    WHERE vendor_profile_id = v_charge.vendor_profile_id;
-  IF v_payer IS NULL THEN RETURN; END IF;
-
-  v_ref := 'SN' || upper(substr(md5(gen_random_uuid()::text), 1, 8));
-  INSERT INTO public.orders
-    (event_id, user_id, vendor_profile_id, service_key, description,
-     requested_total_php, status, reference_code)
-  VALUES
-    (v_charge.event_id, v_payer, v_charge.vendor_profile_id, v_svc,
-     'Setnayan booking fee (' || public.booking_fee_schedule_summary() || ')'
-       || public.booking_gift_bill_clause(p_charge_id)
-       || ' — amended booking, up for verification within 24 hrs',
-     v_amount_php, 'submitted', v_ref)
-  ON CONFLICT (service_key) WHERE service_key LIKE 'vendor\_booking\_fee\_\_%' DO NOTHING
-  RETURNING order_id INTO v_order_id;
-  IF v_order_id IS NULL THEN RETURN; END IF;
-
-  INSERT INTO public.payments
-    (order_id, user_id, amount_php, channel, paid_at)
-  VALUES
-    (v_order_id, v_payer, v_amount_php, 'manual', CURRENT_DATE);
-END;
-$$;
-
 -- The smallest Papic pack on sale — the one that "always fits" under the gift limit (owner rule) — derived from the
 -- live catalogue, never typed. Moved here unchanged from the unapplied 20271346218077: #7678's re-allocated bundles
 -- migration (20271351048946) no longer needs it, so this booking door, its only caller, now carries it.
@@ -360,14 +215,53 @@ $function$;
 REVOKE ALL ON FUNCTION public.shop_gift_smallest_papic_pack() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shop_gift_smallest_papic_pack() TO service_role;
 
--- ── 5 · the pick — judged here, whatever the screen drew ────────────────────
--- p_codes: one entry per pack / plan (two Papic 1000 ⇒ the code twice). p_event_has: what the couple's
--- event already holds (none|plus|pro|ultra), from the app's entitlement chain. Picks are made ONCE per
--- booking; a repeat answers 'already' and changes nothing. Nothing is written on any refusal.
+-- ── 3 · what a SENT store order still covers ─────────────────────────────────
+-- ONE definition of "bought, payment sent, waiting for approval, not picked yet" (21 Nov, controller), read by the pick
+-- below and by the Agree step (`fetchAgreeGiftBasis`): this shop's "Your gifts" store line (#7923) whose order is still
+-- open, whose payment is PENDING and carries a bank reference or a screenshot (what the store's history calls "Waiting
+-- for approval"), whose stock has not landed or been reversed, and which no live pick already names.
+CREATE OR REPLACE FUNCTION public.shop_gift_sent_order_lines(p_vendor_profile_id UUID)
+RETURNS TABLE (line_id UUID, service_code TEXT, line_no SMALLINT, created_at TIMESTAMPTZ)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+  SELECT ol.line_id, ol.service_code, ol.line_no, ol.created_at
+    FROM public.shop_gift_order_lines ol
+    JOIN public.orders o ON o.order_id = ol.order_id
+   WHERE ol.vendor_profile_id = p_vendor_profile_id
+     AND o.status NOT IN ('cancelled', 'refunded', 'lapsed', 'paid', 'fulfilled')
+     AND EXISTS (SELECT 1 FROM public.payments p
+                  WHERE p.order_id = o.order_id
+                    AND p.status = 'pending'
+                    AND (btrim(COALESCE(p.reference_number, '')) <> ''
+                         OR btrim(COALESCE(p.screenshot_url, '')) <> ''))
+     AND NOT EXISTS (SELECT 1 FROM public.shop_gift_stock_entries e
+                      WHERE e.order_id = o.order_id
+                        AND e.kind IN ('bought', 'reversal'))
+     AND NOT EXISTS (SELECT 1 FROM public.booking_gift_lines b
+                      WHERE b.gift_order_line_id = ol.line_id AND b.cleared_at IS NULL);
+$function$;
+REVOKE ALL ON FUNCTION public.shop_gift_sent_order_lines(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.shop_gift_sent_order_lines(UUID) TO service_role;
+
+-- ── 3b · the pick — judged here, whatever the screen drew ───────────────────
+-- p_codes: one entry per pack / plan (two Papic 1000 ⇒ the code twice). p_event_has: what the couple's event already
+-- holds (none|plus|pro|ultra), from the app's entitlement chain. p_dry_run: judge only, write nothing — what the yes
+-- asks BEFORE it books, so Agree is refused with nothing booked (20 Nov: every booking carries ≥1 gift). Picks are
+-- made once per booking (a live pick answers 'already'); a booking whose pick was CLEARED (its store payment refused
+-- or refunded) picks again. Nothing is written on any refusal.
+--
+-- Where each line comes from, in order: the shop's free STOCK, then a gift-store order line whose payment was SENT
+-- and is not approved yet ("Waiting for approval" — one order line covers one pick). A line with neither answers
+-- 'needs_stock' with its codes: the supplier buys it in the "Your gifts" store and comes back (owner 21 Nov).
+-- Nothing is ever bought on the booking-fee bill (16 Nov ee10c425).
 CREATE OR REPLACE FUNCTION public.booking_gift_pick(
   p_event_vendor_id UUID,
   p_codes           TEXT[],
-  p_event_has       TEXT
+  p_event_has       TEXT,
+  p_dry_run         BOOLEAN DEFAULT FALSE
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -381,23 +275,22 @@ DECLARE
   v_limit     BIGINT;
   v_smallest  TEXT;
   v_value     BIGINT := 0;
-  v_bought    BIGINT := 0;
   v_n         INTEGER;
   v_stock     INTEGER := 0;
+  v_sent      INTEGER := 0;
   v_free      INTEGER;
-  v_order     RECORD;
-  v_amount    NUMERIC(12, 2);
-  v_billed    BOOLEAN := FALSE;
-  v_found     BOOLEAN;
-  v_charge_id UUID;
   v_fee       BIGINT;
+  v_line      UUID;
+  v_missing   TEXT[];
   c           RECORD;
+  r           RECORD;
 BEGIN
   IF p_event_vendor_id IS NULL OR p_event_has IS NULL
      OR p_event_has NOT IN ('none', 'plus', 'pro', 'ultra') THEN
     RETURN jsonb_build_object('status', 'bad_input');
   END IF;
   v_n := COALESCE(cardinality(p_codes), 0);
+  -- 🎁 Every booking needs at least 1 gift (owner 20 Nov, no exceptions).
   IF v_n = 0 THEN
     RETURN jsonb_build_object('status', 'none');
   END IF;
@@ -405,29 +298,29 @@ BEGIN
     RETURN jsonb_build_object('status', 'too_many');
   END IF;
 
-  SELECT ev.vendor_id, ev.event_id, ev.marketplace_vendor_id, ev.lock_agreed_at
+  SELECT ev.vendor_id, ev.event_id, ev.marketplace_vendor_id, ev.lock_agreed_at, ev.total_cost_php
     INTO v_ev
     FROM public.event_vendors ev
    WHERE ev.vendor_id = p_event_vendor_id;
   IF NOT FOUND OR v_ev.event_id IS NULL OR v_ev.marketplace_vendor_id IS NULL THEN
     RETURN jsonb_build_object('status', 'no_booking');
   END IF;
-  IF v_ev.lock_agreed_at IS NULL THEN
+  IF NOT COALESCE(p_dry_run, FALSE) AND v_ev.lock_agreed_at IS NULL THEN
     RETURN jsonb_build_object('status', 'not_agreed');
   END IF;
 
   -- The same per-shop lock as the shop gift doors: a pick and a delivery never race over stock.
   PERFORM pg_advisory_xact_lock(hashtextextended('shop_gift_stock:' || v_ev.marketplace_vendor_id::text, 0));
 
-  IF EXISTS (SELECT 1 FROM public.booking_gift_lines l WHERE l.event_vendor_id = p_event_vendor_id) THEN
+  IF EXISTS (SELECT 1 FROM public.booking_gift_lines l
+              WHERE l.event_vendor_id = p_event_vendor_id AND l.cleared_at IS NULL) THEN
     RETURN jsonb_build_object('status', 'already');
   END IF;
 
-  -- The gift is sized on THIS booking's fee. With a BILL (a pending, billed fee) the rest of the gift is bought on it.
-  -- 🎁 With NO bill (a free, promo, badge-paid or imported booking — owner 2026-11-16, DECISION_LOG 03e465e1) the
-  -- supplier may still give from stock they already hold: nothing is bought, no bill is made, and the limit is sized
-  -- on the fee this booking WOULD have carried (the charge's computed fee, else the live schedule on its total).
-  SELECT bc.charge_id, bc.amount_charged_centavos, bc.computed_fee_centavos, bc.status
+  -- The limit is sized on THIS booking's fee: the billed fee, else the fee it would have carried (a free, promo,
+  -- badge-paid or imported booking — 16 Nov 03e465e1), else the live schedule on its total. A booking with no fee at
+  -- all still takes a gift: the smallest Papic pack alone always fits (20 Nov: "no exceptions for gift").
+  SELECT bc.amount_charged_centavos, bc.computed_fee_centavos, bc.status
     INTO v_charge
     FROM public.booking_fee_charges bc
    WHERE bc.event_vendor_id = p_event_vendor_id
@@ -435,22 +328,14 @@ BEGIN
      AND bc.source = 'lock'
    ORDER BY bc.created_at DESC
    LIMIT 1;
-  v_found := FOUND;
-  IF v_found THEN
-    v_charge_id := v_charge.charge_id;
-    v_billed := v_charge.status = 'pending' AND COALESCE(v_charge.amount_charged_centavos, 0) > 0;
-  END IF;
-  IF v_billed THEN
+  IF FOUND AND v_charge.status = 'pending' AND COALESCE(v_charge.amount_charged_centavos, 0) > 0 THEN
     v_fee := v_charge.amount_charged_centavos;
-  ELSIF v_found AND COALESCE(v_charge.computed_fee_centavos, 0) > 0 THEN
+  ELSIF FOUND AND COALESCE(v_charge.computed_fee_centavos, 0) > 0 THEN
     v_fee := v_charge.computed_fee_centavos;
   ELSE
-    SELECT public.booking_fee_centavos(round(COALESCE(ev.total_cost_php, 0) * 100)::BIGINT) INTO v_fee
-      FROM public.event_vendors ev WHERE ev.vendor_id = p_event_vendor_id;
+    v_fee := public.booking_fee_centavos(round(COALESCE(v_ev.total_cost_php, 0) * 100)::BIGINT);
   END IF;
-  IF COALESCE(v_fee, 0) <= 0 THEN
-    RETURN jsonb_build_object('status', 'no_fee');
-  END IF;
+  v_fee := GREATEST(COALESCE(v_fee, 0), 0);
 
   v_pct := COALESCE((SELECT s.gift_limit_pct::BIGINT FROM public.platform_settings s WHERE s.id = 1), 40);
   v_limit := floor((v_fee * v_pct) / 100.0)::BIGINT;
@@ -458,10 +343,10 @@ BEGIN
 
   -- Every code, priced from the catalogue NOW (list price); Papic credits from its tier.
   CREATE TEMP TABLE IF NOT EXISTS _gift_pick (
-    ord BIGINT, code TEXT, kind TEXT, credits INTEGER, price BIGINT, title TEXT, from_stock BOOLEAN
+    ord BIGINT, code TEXT, kind TEXT, credits INTEGER, price BIGINT, title TEXT, from_stock BOOLEAN, order_line UUID
   ) ON COMMIT DROP;
   TRUNCATE pg_temp._gift_pick;
-  INSERT INTO pg_temp._gift_pick (ord, code, kind, credits, price, title, from_stock)
+  INSERT INTO pg_temp._gift_pick (ord, code, kind, credits, price, title, from_stock, order_line)
   SELECT u.ord, u.code,
          CASE WHEN left(u.code, 11) = 'PAPIC_GUEST' AND t.points IS NOT NULL THEN 'papic'
               WHEN u.code = 'EVENT_PLUS' THEN 'event_plus'
@@ -470,7 +355,8 @@ BEGIN
          CASE WHEN left(u.code, 11) = 'PAPIC_GUEST' THEN t.points ELSE 1 END,
          round(cat.retail_price_php * 100)::BIGINT,
          COALESCE(cat.title, u.code),
-         FALSE
+         FALSE,
+         NULL
     FROM unnest(p_codes) WITH ORDINALITY AS u(code, ord)
     LEFT JOIN public.platform_retail_catalog_v2 cat
       ON cat.service_code = u.code
@@ -495,22 +381,19 @@ BEGIN
                      OR (p_event_has = 'pro' AND g.kind <> 'event_ultra'))) THEN
     RETURN jsonb_build_object('status', 'already_has');
   END IF;
-  -- At most one plan gift (pick 3, 14 Nov: "at most one plan gift … the rest Papic"); Plus + Pro
-  -- never make Ultra (pick 2), so a second plan would be paid for and land as nothing.
+  -- At most one plan gift (pick 3, 14 Nov); Plus + Pro never make Ultra (pick 2).
   IF (SELECT COUNT(*) FROM pg_temp._gift_pick g WHERE g.kind <> 'papic') > 1 THEN
     RETURN jsonb_build_object('status', 'one_plan');
   END IF;
 
   SELECT COALESCE(SUM(g.price), 0)::BIGINT INTO v_value FROM pg_temp._gift_pick g;
-  -- The limit, at the price couples pay — stock lines included. Only the smallest Papic pack, alone,
-  -- always fits ("they can always give the lowest gift at any price").
+  -- The limit, at the price couples pay. Only the smallest Papic pack, alone, always fits.
   IF v_value > v_limit
      AND NOT (v_n = 1 AND (SELECT g.code FROM pg_temp._gift_pick g LIMIT 1) = v_smallest) THEN
     RETURN jsonb_build_object('status', 'over_limit', 'limit_centavos', v_limit, 'value_centavos', v_value);
   END IF;
 
-  -- STOCK FIRST. Free to offer = balance − what live quotes and earlier agree picks hold, across every
-  -- event (this event's own quote holds are already promised to it).
+  -- 1 · STOCK FIRST. Free to offer = balance − what live quotes and earlier agree picks hold, across every event.
   FOR c IN SELECT g.code, g.kind, COUNT(*)::INTEGER AS want
              FROM pg_temp._gift_pick g GROUP BY g.code, g.kind LOOP
     v_free := NULL;
@@ -532,68 +415,65 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- No bill: every line must come from stock — nothing can be bought where nothing is billed.
-  IF NOT v_billed AND EXISTS (SELECT 1 FROM pg_temp._gift_pick g WHERE NOT g.from_stock) THEN
-    RETURN jsonb_build_object('status', 'stock_only', 'from_stock', v_stock, 'lines', v_n);
+  -- 2 · A SENT STORE ORDER LINE covers one pick each (21 Nov) — `shop_gift_sent_order_lines`, the one definition the
+  -- Agree step's reader uses too. An unsent order counts for nothing.
+  FOR r IN SELECT g.ord, g.code FROM pg_temp._gift_pick g WHERE NOT g.from_stock ORDER BY g.ord LOOP
+    SELECT x.line_id INTO v_line
+      FROM public.shop_gift_sent_order_lines(v_ev.marketplace_vendor_id) x
+     WHERE x.service_code = r.code
+       AND NOT EXISTS (SELECT 1 FROM pg_temp._gift_pick g2 WHERE g2.order_line = x.line_id)
+     ORDER BY x.created_at, x.line_no
+     LIMIT 1;
+    IF v_line IS NOT NULL THEN
+      UPDATE pg_temp._gift_pick g SET order_line = v_line WHERE g.ord = r.ord;
+      v_sent := v_sent + 1;
+    END IF;
+  END LOOP;
+
+  -- 3 · Neither: the supplier buys it in the "Your gifts" store first, then comes back ("0 left · Buy more ›").
+  SELECT array_agg(DISTINCT g.code ORDER BY g.code) INTO v_missing
+    FROM pg_temp._gift_pick g WHERE NOT g.from_stock AND g.order_line IS NULL;
+  IF v_missing IS NOT NULL THEN
+    RETURN jsonb_build_object('status', 'needs_stock', 'codes', to_jsonb(v_missing),
+                              'from_stock', v_stock, 'sent', v_sent, 'lines', v_n);
+  END IF;
+
+  IF COALESCE(p_dry_run, FALSE) THEN
+    RETURN jsonb_build_object('status', 'ok', 'dry_run', TRUE, 'lines', v_n, 'from_stock', v_stock,
+                              'sent', v_sent, 'value_centavos', v_value, 'limit_centavos', v_limit);
   END IF;
 
   INSERT INTO public.booking_gift_lines
-    (event_vendor_id, event_id, vendor_profile_id, charge_id, service_code, gift_kind,
+    (event_vendor_id, event_id, vendor_profile_id, gift_order_line_id, service_code, gift_kind,
      credits, price_centavos, title, from_stock)
   SELECT p_event_vendor_id, v_ev.event_id, v_ev.marketplace_vendor_id,
-         CASE WHEN g.from_stock THEN NULL ELSE v_charge_id END,
-         g.code, g.kind, g.credits, g.price, g.title, g.from_stock
+         g.order_line, g.code, g.kind, g.credits, g.price, g.title, g.from_stock
     FROM pg_temp._gift_pick g
    ORDER BY g.ord;
-
-  SELECT COALESCE(SUM(g.price), 0)::BIGINT INTO v_bought FROM pg_temp._gift_pick g WHERE NOT g.from_stock;
-
-  IF v_bought > 0 THEN
-    -- The charge re-sizes its gift from the bought lines (trigger), then its bill follows.
-    UPDATE public.booking_fee_charges
-       SET updated_at = NOW()
-     WHERE charge_id = v_charge_id;
-    SELECT o.order_id, o.status INTO v_order
-      FROM public.orders o
-     WHERE o.service_key = 'vendor_booking_fee__' || v_charge_id::text
-     LIMIT 1;
-    IF FOUND AND v_order.status NOT IN ('paid', 'fulfilled', 'refunded', 'cancelled') THEN
-      v_amount := round(v_charge.amount_charged_centavos + v_bought)::numeric / 100.0;
-      UPDATE public.orders
-         SET requested_total_php = v_amount,
-             description = 'Setnayan booking fee (' || public.booking_fee_schedule_summary() || ')'
-               || public.booking_gift_bill_clause(v_charge_id)
-               || ' — up for verification, confirmation within 24 hrs',
-             updated_at = NOW()
-       WHERE order_id = v_order.order_id;
-      UPDATE public.payments
-         SET amount_php = v_amount
-       WHERE order_id = v_order.order_id AND status = 'pending';
-    END IF;
-  END IF;
 
   RETURN jsonb_build_object(
     'status', 'ok',
     'lines', v_n,
     'from_stock', v_stock,
+    'sent', v_sent,
     'value_centavos', v_value,
-    'bought_centavos', v_bought,
     'limit_centavos', v_limit);
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT, BOOLEAN) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT, BOOLEAN) TO service_role;
 
-COMMENT ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT) IS
-  'Gift for services (owner 2026-11-15): the gifts a supplier picked when agreeing to a booking. Prices every '
-  'code at the list price from platform_retail_catalog_v2, refuses a plan the event already holds and more than '
-  'one plan, caps the total at gift_limit_pct of the booking''s billed fee (stock lines included; the smallest '
-  'Papic pack alone always fits), takes from the shop''s gift stock first, and adds the rest to the booking-fee '
-  'bill. With no bill (free, promo, badge-paid, imported — owner 2026-11-16) only stock gifts are taken, sized on the '
-  'fee the booking would have carried. Once per booking. Service-role only (vendorAgreeToLock, after the yes).';
+COMMENT ON FUNCTION public.booking_gift_pick(UUID, TEXT[], TEXT, BOOLEAN) IS
+  'Gift for services: the gifts a supplier picks when agreeing to a booking — at least one, always (owner 20 Nov). '
+  'Prices every code at the list price from platform_retail_catalog_v2, refuses zero gifts, a plan the event already '
+  'holds and more than one plan, caps the total at gift_limit_pct of the booking''s fee (the smallest Papic pack alone '
+  'always fits, fee or no fee). Each line comes from the shop''s free stock, else from a gift-store order line whose '
+  'payment was sent (one line per pick); otherwise needs_stock — bought in the store first (21 Nov). Never on a '
+  'booking-fee bill (16 Nov). p_dry_run judges without writing (the yes asks first). Once per booking while a pick is '
+  'live. Service-role only (vendorAgreeToLock).';
 
--- ── 6 · stock readers count agree-time stock picks as held ──────────────────
+-- ── 4 · stock readers count agree-time stock picks as held ──────────────────
 -- Re-created from 20271351048946 (packs) and 20271348181787 (kinds, Black Diamond). ADDED: a stock line picked at a yes
 -- holds stock while its booking stands, until the event received it. To add it, what an event is
 -- promised is now summed PER EVENT (its live quotes' lines + its agree picks) before what that event
@@ -633,7 +513,7 @@ AS $function$
       FROM public.booking_gift_lines b
       JOIN public.event_vendors ev ON ev.vendor_id = b.event_vendor_id
      WHERE b.vendor_profile_id = p_vendor_profile_id
-       AND b.from_stock
+       AND b.from_stock AND b.cleared_at IS NULL
        AND b.gift_kind = 'papic'
        AND ev.archived_at IS NULL
        AND (p_except_event_id IS NULL OR b.event_id <> p_except_event_id)
@@ -719,7 +599,7 @@ AS $function$
       FROM public.booking_gift_lines b
       JOIN public.event_vendors ev ON ev.vendor_id = b.event_vendor_id
      WHERE b.vendor_profile_id = p_vendor_profile_id
-       AND b.from_stock
+       AND b.from_stock AND b.cleared_at IS NULL
        AND ev.archived_at IS NULL
        AND (b.gift_kind = 'papic' OR ev.deposit_acknowledged_at IS NULL)
        AND (p_except_event_id IS NULL OR b.event_id <> p_except_event_id)
@@ -753,7 +633,7 @@ $function$;
 REVOKE ALL ON FUNCTION public.shop_gift_stock_status(UUID, UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.shop_gift_stock_status(UUID, UUID) TO authenticated, service_role;
 
--- ── 7 · the two stock doors also give the agree-time stock picks ────────────
+-- ── 5 · the two stock doors also give the agree-time stock picks ────────────
 -- Re-created from 20271351048946 (Papic, with its pre-pack "never twice" guard) and 20271348181787 (plans, Black Diamond). ADDED: the booking's own
 -- from-stock picks are wanted beside the accepted quote's lines, and a booking with picks but no
 -- accepted quote is no longer turned away. Locks, per-pack shortness, the pool grant and the given
@@ -804,7 +684,7 @@ BEGIN
   SELECT (SELECT COUNT(*) FROM public.vendor_proposal_shop_gifts g
            WHERE v_proposal IS NOT NULL AND g.proposal_id = v_proposal AND g.gift_kind = 'papic')
        + (SELECT COUNT(*) FROM public.booking_gift_lines b
-           WHERE b.event_vendor_id = p_event_vendor_id AND b.from_stock AND b.gift_kind = 'papic')
+           WHERE b.event_vendor_id = p_event_vendor_id AND b.from_stock AND b.cleared_at IS NULL AND b.gift_kind = 'papic')
     INTO v_lines;
   IF v_lines <= 0 THEN
     IF v_proposal IS NULL THEN
@@ -850,7 +730,7 @@ BEGIN
           SELECT b.service_code, b.credits
             FROM public.booking_gift_lines b
            WHERE b.event_vendor_id = p_event_vendor_id
-             AND b.from_stock
+             AND b.from_stock AND b.cleared_at IS NULL
              AND b.gift_kind = 'papic'
         ) a
        GROUP BY a.pack_code
@@ -988,7 +868,7 @@ BEGIN
   ) AND NOT EXISTS (
     SELECT 1 FROM public.booking_gift_lines b
      WHERE b.event_vendor_id = p_event_vendor_id
-       AND b.from_stock
+       AND b.from_stock AND b.cleared_at IS NULL
        AND b.gift_kind IN ('event_plus', 'event_pro', 'event_ultra')
   ) THEN
     IF v_proposal IS NULL THEN
@@ -1008,7 +888,7 @@ BEGIN
     SELECT (SELECT COUNT(*) FROM public.vendor_proposal_shop_gifts g
              WHERE v_proposal IS NOT NULL AND g.proposal_id = v_proposal AND g.gift_kind = v_kind)
          + (SELECT COUNT(*) FROM public.booking_gift_lines b
-             WHERE b.event_vendor_id = p_event_vendor_id AND b.from_stock AND b.gift_kind = v_kind)
+             WHERE b.event_vendor_id = p_event_vendor_id AND b.from_stock AND b.cleared_at IS NULL AND b.gift_kind = v_kind)
       INTO v_wanted;
     SELECT COALESCE(-SUM(e.delta), 0)::INTEGER INTO v_given
       FROM public.shop_gift_stock_entries e
@@ -1079,127 +959,109 @@ $function$;
 REVOKE ALL ON FUNCTION public.shop_gift_deliver_unlocks_for_booking(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.shop_gift_deliver_unlocks_for_booking(UUID, TEXT) TO service_role;
 
--- ── 8 · a BOUGHT plan reaches the event when the supplier's bill is paid ────
--- Bought Papic needs nothing new: its credits are the charge's gift_credits, granted by
--- booking_fee_grant_setnayan_gift. A bought plan lands as a bought (+1) / given (−1, unlocks_sku) pair in
--- the shop's gift ledger — the row the entitlement chain already reads for a stock gift — netting the
--- shop's stock to zero. A plan the event already holds by then (the couple bought it meanwhile) is NOT
--- lost: only its bought (+1) row is written, so the shop keeps it to give again. Once per line (given_at).
-CREATE OR REPLACE FUNCTION public.booking_gift_give_bought_plans(
-  p_charge_id UUID,
-  p_order_id  UUID,
-  p_event_has TEXT
+-- ── 6 · a pick covered by a SENT store payment: lands with it, or clears with it ──
+-- Owner 21 Nov via the controller ("A GIFT BOUGHT BY BDO COUNTS ONCE THE PAYMENT IS SENT"). A store purchase becomes
+-- stock only when an admin approves its payment (`shop_gift_grant_order_lines` writes one 'bought' row per order line,
+-- `purchase_line_no` = that line). From that moment the pick it covered is an ordinary stock hold (from_stock), held by
+-- the readers above and given by the two doors at the couple's first payment.
+-- If the payment is REFUSED (rejectPayment cancels the order) or REFUNDED (the order goes 'refunded', or a reversal row
+-- lands), the pick is CLEARED — never deleted — unless that gift already reached the couple. The supplier is told by the
+-- shipped `payment_rejected` / `payment_refunded` notifications (no new message, no new email); the couple is told
+-- nothing; the booking reads "Needs at least 1 gift. Buy one ›" and may pick again.
+CREATE OR REPLACE FUNCTION public.booking_gift_lines_follow_the_store_order(
+  p_order_id UUID,
+  p_line_no  SMALLINT,
+  p_outcome  TEXT
 )
-RETURNS jsonb
+RETURNS INTEGER
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
-  v_charge   RECORD;
-  v_has      TEXT := p_event_has;
-  v_name     TEXT;
-  v_sku      TEXT;
-  v_included INTEGER;
-  v_held     INTEGER;
-  v_grant    UUID;
-  v_out      jsonb := '[]'::jsonb;
-  v_kept     INTEGER := 0;
-  r          RECORD;
+  v_n INTEGER := 0;
 BEGIN
-  IF p_charge_id IS NULL OR v_has IS NULL OR v_has NOT IN ('none', 'plus', 'pro', 'ultra') THEN
-    RETURN jsonb_build_object('status', 'bad_input');
+  IF p_order_id IS NULL OR p_outcome NOT IN ('landed', 'refused', 'refunded') THEN
+    RETURN 0;
   END IF;
-  SELECT charge_id, event_id, vendor_profile_id, status
-    INTO v_charge
-    FROM public.booking_fee_charges
-   WHERE charge_id = p_charge_id;
-  IF NOT FOUND OR v_charge.event_id IS NULL THEN
-    RETURN jsonb_build_object('status', 'no_charge');
+  IF p_outcome = 'landed' THEN
+    UPDATE public.booking_gift_lines b
+       SET from_stock = TRUE
+      FROM public.shop_gift_order_lines ol
+     WHERE b.gift_order_line_id = ol.line_id
+       AND ol.order_id = p_order_id
+       AND (p_line_no IS NULL OR ol.line_no = p_line_no)
+       AND b.cleared_at IS NULL
+       AND NOT b.from_stock;
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    RETURN v_n;
   END IF;
-  IF v_charge.status <> 'paid' THEN
-    RETURN jsonb_build_object('status', 'not_cleared');
-  END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM public.orders o
-     WHERE o.order_id = p_order_id
-       AND o.service_key = 'vendor_booking_fee__' || p_charge_id::text
-       AND o.status IN ('paid', 'fulfilled')
-  ) THEN
-    RETURN jsonb_build_object('status', 'order_not_paid');
-  END IF;
-
-  PERFORM pg_advisory_xact_lock(hashtextextended('shop_gift_stock:' || v_charge.vendor_profile_id::text, 0));
-
-  SELECT vp.business_name INTO v_name
-    FROM public.vendor_profiles vp
-   WHERE vp.vendor_profile_id = v_charge.vendor_profile_id;
-
-  FOR r IN
-    SELECT l.line_id, l.gift_kind
-      FROM public.booking_gift_lines l
-     WHERE l.charge_id = p_charge_id
-       AND NOT l.from_stock
-       AND l.gift_kind IN ('event_plus', 'event_pro', 'event_ultra')
-       AND l.given_at IS NULL
-     ORDER BY CASE l.gift_kind WHEN 'event_ultra' THEN 0 WHEN 'event_pro' THEN 1 ELSE 2 END
-     FOR UPDATE
-  LOOP
-    UPDATE public.booking_gift_lines SET given_at = NOW() WHERE line_id = r.line_id;
-    -- It was bought: it is the shop's first.
-    INSERT INTO public.shop_gift_stock_entries
-      (vendor_profile_id, gift_kind, delta, kind, event_id, note)
-    VALUES
-      (v_charge.vendor_profile_id, r.gift_kind, 1, 'bought', v_charge.event_id,
-       'Bought on the booking-fee bill as a gift for this booking');
-    IF v_has = 'ultra' OR (v_has = 'pro' AND r.gift_kind <> 'event_ultra') THEN
-      v_kept := v_kept + 1;   -- the event already holds it: it stays in the shop's stock
-      CONTINUE;
-    END IF;
-    v_sku := CASE
-               WHEN r.gift_kind = 'event_ultra' THEN 'EVENT_ULTRA'
-               WHEN r.gift_kind = 'event_pro' THEN 'COUPLE_WEBSITE_PRO'
-               WHEN v_has = 'plus' THEN 'COUPLE_WEBSITE_PRO'
-               ELSE 'EVENT_PLUS'
-             END;
-    UPDATE public.events SET setnayan_ai_active = TRUE
-     WHERE event_id = v_charge.event_id AND setnayan_ai_active IS DISTINCT FROM TRUE;
-    v_grant := NULL;
-    SELECT c.included_papic_credits INTO v_included
-      FROM public.platform_retail_catalog_v2 c
-     WHERE c.service_code = v_sku;
-    SELECT COALESCE(SUM(g.points), 0)::INTEGER INTO v_held
-      FROM public.papic_event_point_grants g
-     WHERE g.event_id = v_charge.event_id
-       AND g.source = 'plan_included';
-    IF COALESCE(v_included, 0) > v_held THEN
-      INSERT INTO public.papic_event_point_grants (event_id, points, source, note)
-      VALUES (v_charge.event_id, v_included - v_held, 'plan_included',
-              'Included with ' || v_sku || ' · gift from '
-                || COALESCE(NULLIF(btrim(v_name), ''), 'your supplier'))
-      RETURNING grant_id INTO v_grant;
-    END IF;
-    INSERT INTO public.shop_gift_stock_entries
-      (vendor_profile_id, gift_kind, delta, kind, event_id, pool_grant_id, unlocks_sku, note)
-    VALUES
-      (v_charge.vendor_profile_id, r.gift_kind, -1, 'given', v_charge.event_id, v_grant, v_sku,
-       'Given when the supplier''s booking-fee bill was paid');
-    v_out := v_out || jsonb_build_array(jsonb_build_object('gift_kind', r.gift_kind, 'unlocks_sku', v_sku));
-    v_has := CASE WHEN v_sku = 'EVENT_ULTRA' THEN 'ultra' WHEN v_sku = 'COUPLE_WEBSITE_PRO' THEN 'pro' ELSE 'plus' END;
-  END LOOP;
-
-  RETURN jsonb_build_object(
-    'status', CASE WHEN jsonb_array_length(v_out) > 0 THEN 'ok'
-                   WHEN v_kept > 0 THEN 'kept_in_stock' ELSE 'nothing_to_give' END,
-    'given', v_out, 'kept_in_stock', v_kept);
+  UPDATE public.booking_gift_lines b
+     SET cleared_at = NOW(), cleared_reason = p_outcome
+    FROM public.shop_gift_order_lines ol
+   WHERE b.gift_order_line_id = ol.line_id
+     AND ol.order_id = p_order_id
+     AND b.cleared_at IS NULL
+     -- A gift that already reached the couple stays given.
+     AND NOT EXISTS (
+           SELECT 1 FROM public.shop_gift_stock_entries e
+            WHERE e.vendor_profile_id = b.vendor_profile_id
+              AND e.event_id = b.event_id
+              AND e.kind = 'given'
+              AND (e.pack_code = b.service_code
+                   OR (b.gift_kind <> 'papic' AND e.gift_kind = b.gift_kind)));
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.booking_gift_give_bought_plans(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.booking_gift_give_bought_plans(UUID, UUID, TEXT) TO service_role;
+REVOKE ALL ON FUNCTION public.booking_gift_lines_follow_the_store_order(UUID, SMALLINT, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_gift_lines_follow_the_store_order(UUID, SMALLINT, TEXT) TO service_role;
 
-COMMENT ON FUNCTION public.booking_gift_give_bought_plans(UUID, UUID, TEXT) IS
-  'Gift for services: the Event Plus / Pro / Ultra a supplier bought on a booking-fee bill reach the couple''s '
-  'event when that bill is paid (owner 2026-11-15). Written as a bought/given pair in shop_gift_stock_entries '
-  'so the entitlement chain reads it like a stock gift; a plan the event already holds stays in the shop''s '
-  'stock. Ultra first; a second Plus becomes Pro. Once per line. Service-role only (payment approval).';
+CREATE OR REPLACE FUNCTION public.booking_gift_lines_on_stock_entry()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+BEGIN
+  IF NEW.kind = 'bought' THEN
+    PERFORM public.booking_gift_lines_follow_the_store_order(NEW.order_id, NEW.purchase_line_no, 'landed');
+  ELSIF NEW.kind = 'reversal' THEN
+    PERFORM public.booking_gift_lines_follow_the_store_order(NEW.order_id, NULL, 'refunded');
+  END IF;
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.booking_gift_lines_on_stock_entry() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS booking_gift_lines_on_stock_entry ON public.shop_gift_stock_entries;
+CREATE TRIGGER booking_gift_lines_on_stock_entry
+  AFTER INSERT ON public.shop_gift_stock_entries
+  FOR EACH ROW
+  WHEN (NEW.order_id IS NOT NULL AND NEW.kind IN ('bought', 'reversal'))
+  EXECUTE FUNCTION public.booking_gift_lines_on_stock_entry();
+
+CREATE OR REPLACE FUNCTION public.booking_gift_lines_on_store_order_closed()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+BEGIN
+  PERFORM public.booking_gift_lines_follow_the_store_order(
+    NEW.order_id, NULL, CASE WHEN NEW.status = 'refunded' THEN 'refunded' ELSE 'refused' END);
+  RETURN NULL;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.booking_gift_lines_on_store_order_closed() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS booking_gift_lines_on_store_order_closed ON public.orders;
+CREATE TRIGGER booking_gift_lines_on_store_order_closed
+  AFTER UPDATE OF status ON public.orders
+  FOR EACH ROW
+  WHEN (NEW.status IN ('cancelled', 'refunded', 'lapsed')
+        AND OLD.status IS DISTINCT FROM NEW.status
+        AND NEW.service_key = 'vendor_gift__GIFT_CART')
+  EXECUTE FUNCTION public.booking_gift_lines_on_store_order_closed();

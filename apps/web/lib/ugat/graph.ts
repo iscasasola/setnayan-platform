@@ -2387,21 +2387,25 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_of_service_code' },
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_quantity' },
       // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the gifts a supplier PICKS for the couple's event when they agree to
-      // a booking — one row per Papic pack or plan, its list price frozen at the yes. A stock line holds stock and is
-      // given by the shop gift doors at the couple's first payment; a bought line rides the booking-fee charge
-      // (charge_id; the charge's gift_centavos) and lands when that bill is paid. Written only by booking_gift_pick.
+      // a booking — one row per Papic pack or plan, its list price frozen at the yes; every booking carries at least one
+      // (20 Nov). NEVER on the booking-fee bill (16 Nov): a line is from stock (held, given at the couple's first
+      // payment) or covered by ONE sent gift-store order line (gift_order_line_id, 21 Nov) — approved, it becomes a stock
+      // hold; refused or refunded, it is cleared (cleared_at), never deleted. Written only by booking_gift_pick and the
+      // order-line followers.
       { kind: 'table', table: 'booking_gift_lines' },
       { kind: 'fk', table: 'booking_gift_lines', column: 'event_vendor_id', references: 'event_vendors' },
       { kind: 'fk', table: 'booking_gift_lines', column: 'event_id', references: 'events' },
       { kind: 'fk', table: 'booking_gift_lines', column: 'vendor_profile_id', references: 'vendor_profiles' },
-      { kind: 'fk', table: 'booking_gift_lines', column: 'charge_id', references: 'booking_fee_charges' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'gift_order_line_id', references: 'shop_gift_order_lines' },
       { kind: 'column', table: 'booking_gift_lines', column: 'from_stock' },
       { kind: 'column', table: 'booking_gift_lines', column: 'price_centavos' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'cleared_at' },
+      { kind: 'no_column', table: 'booking_gift_lines', column: 'charge_id' },
       {
         kind: 'check',
         table: 'booking_gift_lines',
-        name: 'booking_gift_lines_bought_rides_a_bill',
-        mentions: 'charge_id',
+        name: 'booking_gift_lines_stock_or_sent',
+        mentions: 'gift_order_line_id',
       },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },

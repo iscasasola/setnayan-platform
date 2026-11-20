@@ -24,6 +24,7 @@
  * Server-rendered; the two actions are props so the dev lab
  * (`/dev/booking-ask-lab`) draws the same panel without a session.
  */
+import Link from 'next/link';
 import { ArrowRight, Check, X } from 'lucide-react';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { BlockerAskRow } from '@/app/_components/chat/blocker-ask-row';
@@ -260,6 +261,14 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
       }`}
     >
       {notice.text}
+      {notice.door && notice.doorEverywhere ? (
+        <>
+          {' '}
+          <Link href={notice.door.href} className="font-semibold underline underline-offset-2" data-lock-answer-door="">
+            {notice.door.label}
+          </Link>
+        </>
+      ) : null}
     </p>
   );
 }

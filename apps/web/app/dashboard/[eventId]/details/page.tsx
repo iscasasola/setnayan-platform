@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { OneCodeUnderGetIn } from '@/app/dashboard/[eventId]/studio/papic/_components/one-code';
 import { coupleNamesLine } from '@/lib/typed-names';
@@ -145,9 +146,7 @@ export default async function EventDetailsPage({
   const flashParams = (await searchParams) ?? {};
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Every column here is granted to the session (the per-column allowlist,

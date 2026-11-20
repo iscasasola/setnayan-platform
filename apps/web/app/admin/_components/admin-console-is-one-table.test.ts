@@ -147,6 +147,7 @@ const CONVERTED = [
   // users surface held two, so its bill line only came out when both were done.
   'accounts/_surfaces/demo-vendors-surface.tsx',
   'accounts/_surfaces/events-surface.tsx',
+  'accounts/_surfaces/renewals-list.tsx',
   'accounts/_surfaces/users-surface.tsx',
   'accounts/_surfaces/vendors-surface.tsx',
   'accounts/_surfaces/venues-surface.tsx',

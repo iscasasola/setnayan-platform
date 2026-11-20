@@ -238,7 +238,7 @@ export function PortfolioView({
                 face: (
                   <span aria-hidden className="relative inline-flex h-5 w-5" data-portfolio-sort-face={on ? 'on' : 'off'}>
                     <SlidersHorizontal className="h-5 w-5" strokeWidth={1.75} />
-                    {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-terracotta" /> : null}
+                    {on ? <i className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-mulberry" /> : null}
                   </span>
                 ),
               },

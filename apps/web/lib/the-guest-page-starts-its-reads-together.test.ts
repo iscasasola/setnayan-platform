@@ -104,7 +104,7 @@ test('only these reads are started ahead — each one every path below awaits, n
     //   on as a promise, and an invited guest's own reads leave beside it — under three conditions, held below.
     // + `readYourSchedule` (2026-11-02, Event Hub › Me › Your schedule): four reads, started once the guest's row is
     //   known to be theirs, awaited once where Me is drawn — no return lies between (held below).
-    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readYourSchedule', 'resolveVendorCapability'].sort(),
+    ['getCurrentUser', 'isCoordinatorPrepReleaseEnabled', 'loadDoorwayFacts', 'loadEntourage', 'loadGuestContext', 'loadLiveLayer', 'loadWidgets', 'readGuestPassStanding', 'readGuestSupplierPageNotices', 'readWhoMadeTheDay', 'readYourSchedule', 'resolveVendorCapability'].sort(),
   );
   {
     const started = PAGE.indexOf('const yourScheduleAhead =');
@@ -112,6 +112,18 @@ test('only these reads are started ahead — each one every path below awaits, n
     assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, 'Your schedule is started before the guest is known, or never awaited');
     assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, 'a path between starting Your schedule and awaiting it leaves without awaiting it');
     assert.equal(count(PAGE, 'readYourSchedule('), 1, 'Your schedule is asked twice');
+  }
+  // + `readGuestSupplierPageNotices` and `readWhoMadeTheDay` (speed pass 2026-11-18): started beside Your schedule, each
+  //   under the condition its await had, each awaited once — no return lies between.
+  for (const [name, startedAt, awaitedAt] of [
+    ['readGuestSupplierPageNotices(', 'const supplierPageNoticesAhead =', 'const supplierPageNotices = supplierPageNoticesAhead ? await supplierPageNoticesAhead : [];'],
+    ['readWhoMadeTheDay(', 'const whoMadeTheDayAhead =', 'const whoMadeTheDay = whoMadeTheDayAhead ? await whoMadeTheDayAhead : null;'],
+  ] as const) {
+    const started = PAGE.indexOf(startedAt);
+    const awaited = PAGE.indexOf(awaitedAt);
+    assert.ok(started > PAGE.indexOf('} = guestContext;') && awaited > started, `${name} is started before the guest is known, or never awaited`);
+    assert.doesNotMatch(PAGE.slice(started, awaited), /\n\s*(return\b|redirect\(|notFound\()/, `a path between starting ${name} and awaiting it leaves without awaiting it`);
+    assert.equal(count(PAGE, name), 1, `${name} is asked twice`);
   }
   assert.deepEqual(
     aheadCalls(LOADERS).sort(),
@@ -219,7 +231,9 @@ test('the landing starts its body\'s reads together — only reads, only past th
     aheadCalls(ENTER).sort(),
     [
       'resolveProfile', 'resolveEventOwnerSlug', 'resolveEventQrLook', 'eventWordsFor', 'plusOneSeatsFor',
-      'passCardEligibilityFor', 'plusOnePassCardIds', 'createClient', 'readSeatHolder', 'readTicketSeats',
+      // `getCurrentUser` (2026-11-18): the viewer's account is the render's one cached read (`lib/auth.ts`), no longer a
+      // client of its own asking `auth.getUser()` (`lib/pages-ask-the-account-once.test.ts`).
+      'passCardEligibilityFor', 'plusOnePassCardIds', 'getCurrentUser', 'readSeatHolder', 'readTicketSeats',
     ].sort(),
   );
   // Never the tile code (a write) and never the ceremony time (one screen's read).
@@ -235,7 +249,7 @@ test('the landing starts its body\'s reads together — only reads, only past th
   }
   assert.match(BODY, /await Promise\.all\(\[passCardAhead, plusOneTicketIdsAhead\]\)/);
   // …and each read is asked once (the started call is the only call).
-  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'auth.getUser(']) {
+  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'getCurrentUser(']) {
     assert.equal(count(BODY, call), 1, `${call} is asked twice in the landing's body`);
   }
   // The canvas skips what it always skipped: the sample has no seats, holder, QR look or table.

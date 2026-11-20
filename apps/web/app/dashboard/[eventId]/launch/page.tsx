@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import { papicCardHref } from '@/lib/papic-home-href';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { venueTimezone } from '@/lib/event-clock.server';
@@ -1229,7 +1230,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     /* 🎁 The wish list (owner 2026-10-08) — read through the couple's own client (hosts-only under RLS); Studio draws it. */
     const wishListP = readStudioWishList(supabase, eventId);
     /* ⚡ A query builder only leaves when it is awaited, so this one is started here (it used to leave at its await). */
-    const egiftVisibilityP = startAhead(Promise.resolve(supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle()));
+    const egiftVisibilityP = startAhead(Promise.resolve(eventRowOnce(supabase, eventId, 'landing_page_visibility', () =>
+      supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle())));
     /* 🧭 Studio › Info's Your Event Hub rows and What to bring. */
     const studioHubP = startAhead(
       Promise.resolve(

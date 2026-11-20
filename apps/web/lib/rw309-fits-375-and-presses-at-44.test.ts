@@ -86,7 +86,11 @@ test('6 · RW-314: Story, Invitation and the Shop cover — each named control h
   // In the hero's sub row the press is `.sn-hit` (46 px, invisible) — a drawn `min-h-11` made every wrapped row 44 tall
   // and pushed the hero's lines over its eyebrow (W1 F3, 18 Nov). Either way the finger gets 44.
   assert.match(cover, /<a href="#docs" className="(?:sn-hit inline-flex|inline-flex min-h-11) items-center gap-1(?:\.5)? font-semibold"[^>]*>/, 'the Verified link');
-  assert.match(cover, /<a href="#plan" className="(?:sn-hit inline-flex|inline-flex min-h-11) items-center[^"]*" data-shop-plan="">/, 'the plan link');
+  // 🔁 RE-AIMED 2026-11-19 (owner, "Yes, all three"): the plan link left the cover photo — the Plan tile under it is the
+  // one door, and it is 72 px tall (`the-quick-row-is-the-drawn-five.test.ts`).
+  assert.doesNotMatch(cover, /data-shop-plan=/, 'the plan link is back on the cover photo');
+  assert.match(cover, /<a href="#plan" className=\{QUICK_TILE\} data-shop-quick="plan">/, 'the Plan tile');
+  assert.match(cover, /const QUICK_TILE =\s*'[^']*min-h-\[72px\]/, 'the Plan tile lost its height');
 });
 
 test('8 · admin walk: the Studio section tabs (Moodboard library …) press at 44', () => {

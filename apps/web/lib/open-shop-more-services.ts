@@ -106,25 +106,22 @@ const SEARCH_WORDS: Record<(typeof TIER_CAPS)[VendorTier]['seoLevel'], string> =
   priority: 'top search priority',
 };
 
-/** Reach in words: "reach 20 km" · "nationwide" (Ultra's `Infinity`). */
-const reachWords = (km: number) => (Number.isFinite(km) ? `reach ${formatCount(km)} km` : 'nationwide');
-
 /**
  * 🪜 THE LADDER THE PLAN SHEET SHOWS — "Free · Verified → Supplier Plus adds → Pro adds → Ultra adds" (prototype v16 `LADDER`,
  * the shape of `for-suppliers/_components/vendor-tier-deltas.tsx`: each plan says what it ADDS, once). Every number
- * is read from `TIER_CAPS`; Free's reach is Verified's (Free is not searchable until verified). No peso anywhere.
+ * is read from `TIER_CAPS`. No reach per rung: reach is not a plan allowance since 2026-11-19 (owner, "unlock the
+ * range. not plan dependend anymore"). No peso anywhere.
  */
 export function planLadder(): { name: string; caps: string }[] {
-  const rung = (t: VendorTier, first: boolean) => {
+  const rung = (t: VendorTier) => {
     const c = TIER_CAPS[t];
     const cats = `${formatCount(c.parentCategories)} ${c.parentCategories === 1 ? 'category' : 'categories'}`;
     const per = `${formatCount(c.serviceCardsTotal)} ${c.serviceCardsTotal === 1 ? 'service' : 'services'}`;
-    const reach = first ? reachWords(TIER_CAPS.verified.serviceRadiusKm) : reachWords(c.serviceRadiusKm);
-    return [cats, per, reach, SEARCH_WORDS[c.seoLevel]].join(' · ');
+    return [cats, per, SEARCH_WORDS[c.seoLevel]].join(' · ');
   };
   return [
-    { name: 'Free · Verified', caps: rung('free', true) },
-    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({ name: `${planWord(t)} adds`, caps: rung(t, false) })),
+    { name: 'Free · Verified', caps: rung('free') },
+    ...(['solo', 'pro', 'enterprise'] as const).map((t) => ({ name: `${planWord(t)} adds`, caps: rung(t) })),
   ];
 }
 

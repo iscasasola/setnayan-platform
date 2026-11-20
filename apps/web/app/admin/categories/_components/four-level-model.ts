@@ -8,6 +8,7 @@
  * Service (`canonical_service`) · Part (`inspiration_parts`). A service card (one `vendor_services` row)
  * only ever appears INSIDE a service. "Leaf" is never printed.
  */
+import type { AvailabilityStyle } from '@/lib/availability-styles';
 import { formatCount } from '@/lib/format-number';
 
 export type MapGroup = { id: string; label: string; iconName: string | null; hidden: boolean };
@@ -29,6 +30,8 @@ export type MapService = {
   hidden: boolean;
   /** Real `vendor_services` rows under it (demo shops excluded) — the row's "N cards". */
   cards: number;
+  /** How it books (plan step 2): a style, null = Not set, undefined = could not be read. */
+  availability?: AvailabilityStyle | null;
 };
 export type MapPart = {
   key: string;
@@ -68,6 +71,8 @@ export type MapData = {
    * never reads "no service", and "Needs a look" counts no category as missing one. 🔒 a-refused-services-read-is-said.test.ts
    */
   servicesRead: boolean;
+  /** True only when every service's Availability was READ — otherwise nothing is counted as Not set. */
+  availabilityRead?: boolean;
 };
 
 /** Selection: the context (`g:` group or `c:` category) and the highlighted item. */
@@ -203,6 +208,11 @@ export const gapParts = (d: MapData) => d.parts.filter((p) => p.services.length 
 /** A category whose shops would be filed under "Other" (③0-c part 2: "needs a look" lists it). */
 export const unfiledCategories = (d: MapData) => d.categories.filter((c) => !c.coarse);
 export const heldCards = (d: MapData) => d.cards.filter(cardHeld);
+/**
+ * Services with no Availability set (plan step 2) — only when it was READ; an unread setting proves nothing is unset.
+ * Combined services are not in `services` at all (`loadCategories` drops them), so they are never counted.
+ */
+export const unsetAvailability = (d: MapData) => (d.availabilityRead && d.servicesRead ? d.services.filter((s) => s.availability === null) : []);
 
 export function needsCount(d: MapData): number {
   return gapCategories(d).length + gapParts(d).length + heldCards(d).length + unfiledCategories(d).length;
@@ -217,7 +227,7 @@ export const groupNeeds = (d: MapData, g: MapGroup) => categoriesOf(d, g.id).som
 
 /** The Show ▾ choices the MAP answers (flat results); the shipped requests · unfiled · religion · scoped ·
  *  words keep the shipped list. "Hidden from couples" lists hidden groups, categories AND parts. */
-export const MAP_SHOWS = ['needs', 'parts', 'nosvc-cat', 'nosvc-part', 'hidden'] as const;
+export const MAP_SHOWS = ['needs', 'parts', 'nosvc-cat', 'nosvc-part', 'hidden', 'no-availability'] as const;
 export type MapShow = (typeof MAP_SHOWS)[number];
 
 export type FlatHit =
@@ -279,6 +289,9 @@ export function flatHits(d: MapData, q: string, show: string): FlatHit[] {
       const sv = serviceByKey(d, cd.service);
       out.push({ kind: 'card', id: cd.id, label: cd.title, path: `${categoryPath(d, sv?.tileId ?? null)} › ${sv?.label ?? cd.service}`, note: cardWord(cd) });
     }
+  }
+  if (show === 'no-availability') {
+    for (const s of unsetAvailability(d)) out.push({ kind: 'service', id: s.key, label: s.label, path: categoryPath(d, s.tileId), note: 'Availability not set' });
   }
   if (show === 'parts') for (const p of d.parts) out.push({ kind: 'part', id: p.key, label: p.label, path: categoryPath(d, p.home) });
   if (show === 'hidden') {

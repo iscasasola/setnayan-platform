@@ -18,8 +18,15 @@ the Pages list, 👁 Preview and the Free/Pro Apply sheet follow in a stacked PR
 - **The guest E-Gifts page** (`/[slug]/pabuya`) has a labelled 44-px ‹ Back.
 - **"Event name"** labels the title's field (it writes `events.display_name`).
 
+Controller review @a25ac75f5 (drawing v17): Dress code has no ⤢ — its door is "Colours and mood board"
+("DRESS COLOURS STAY IN MOOD BOARD"); ⚙'s History group reads "History · waiting for ✓ Apply" (empty: "Nothing
+waiting · Your changes collect here until ✓ Apply") and sits after the rows that change right away; ◆ is "part of the
+full Event Hub", never "Event Pro". Proof re-taken against v17 at 375 px light/dark plus desktop, with a gaps list that
+names the part carrying each remaining v17 ruling (`build-sessions/shots-maker-one-toolbar/README.md`).
+
 Not in this PR, named: ⤢ on Wedding March and Memories (no full-screen editor for either in the Maker yet);
-👁 on the phone's bar (part 5).
+👁 on the phone's bar (part 5); the v17 toolbar redraw, Pages, Look, ⚙ regroup and Stage ▾ without Post Event (part 4);
+Style/Animate/Edit rows (part 4b); ◆ on every Style choice and the Apply sheet's words (part 6).
 
 Guards re-aimed to the ruling, each citing it; port and root-map baselines regenerated (one deliberate removal: the
 ↺ anchor on the bar).

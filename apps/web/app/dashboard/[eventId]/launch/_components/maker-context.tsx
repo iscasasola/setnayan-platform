@@ -308,7 +308,7 @@ export type MakerDraftDoor = {
    * the bar no longer draws ↺, so the draft bar hands the ⚙ its list and its one step back. `recent`: the newest edits
    * waiting for ✓ Apply, newest first (at most four); null where the history could not be read (said, never empty).
    */
-  /** ◆ This event does not own Event Pro — the toolbar marks its Pro rows (20 Nov: ◆ for a Free couple only, never a lock). */
+  /** ◆ This event does not own the full Event Hub — the toolbar marks its ◆ rows (20 Nov: ◆ for a Free couple only, never a lock or a grey; ◆ means "the full Event Hub", never "Event Pro"). */
   proMarks?: boolean;
   history?: {
     recent: readonly string[] | null;

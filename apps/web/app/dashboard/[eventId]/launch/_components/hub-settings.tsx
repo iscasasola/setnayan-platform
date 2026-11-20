@@ -34,9 +34,11 @@ import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
  *   · E-GIFTS — Ways to give: the shipped E-Gifts page (2026-10-27 "APPROVED — SETTINGS PER MENU", call 5);
  *   · and one closing line: the names, the date, the venues and the parents are Home › Event Settings.
  *
- * ↺ HISTORY IS THE FIRST GROUP (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"
- * (5); prototype `maker_one_toolbar_expand_2026-11-20_fable.html` `gearSheet`): ↺ left the top bar, so the newest edits
- * waiting for ✓ Apply are listed here, with "Undo last change" and the whole list (the shipped `hub-history-sheet.tsx`).
+ * ↺ HISTORY · WAITING FOR ✓ APPLY (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"
+ * (5) and "MAKER: EVENT HUB SETTINGS REGROUPED" (1); prototype v17 `gearSheet`): ↺ left the top bar, so the newest edits
+ * waiting for ✓ Apply are listed here, with "Undo last change" and the whole list (the shipped `hub-history-sheet.tsx`) —
+ * after the rows that change right away, before Event info. ⏭ The rest of that regroup (Sharing · On every page · Share and
+ * print as their own groups, Event info 🔒, and the Look row leaving ⚙ for the toolbar's 🎨 Look button) is part 4's.
  *
  * ⚡ Its own module, reached through the lazy stand-in (`details-lazy.tsx` `HubSettingsGear`): the house sheet, its ⓘ and
  * its rows are not in the Maker's first load (`scripts/check-maker-js-budget.mjs` — the first load sits at its
@@ -91,45 +93,6 @@ export function HubSettingsGear({
   return (
     <MenuSettingsButton menu="hub" open={open} onOpenChange={onOpenChange}>
       <div className="flex flex-col px-3 pb-4 lg:px-4" data-hub-settings="">
-        {/* ── HISTORY ── first, with Undo last change (20 Nov). */}
-        {doors.history ? (
-          <section data-hub-settings-group="history">
-            <p className={GROUP}>
-              <InfoTip label="History" align="start">
-                Every edit saves to your draft by itself. Guests see nothing until ✓ Apply.
-              </InfoTip>
-            </p>
-            {doors.history.recent === null ? (
-              <p role="alert" className="py-3 text-[13px] text-danger-700" data-hub-settings-history="unread">
-                Your history could not be read just now. Nothing was changed.
-              </p>
-            ) : doors.history.recent.length === 0 ? (
-              <p className="py-3 text-[13px] text-ink/60" data-hub-settings-history="none">
-                No changes are waiting.
-              </p>
-            ) : (
-              <FormRows data="hub-history">
-                {doors.history.recent.map((what, i) => (
-                  <FormRow key={`${i}:${what}`} data={`history-${i}`} name={what} line="Waiting for ✓ Apply" attrs={{ 'data-hub-settings-history-row': String(i) }} />
-                ))}
-              </FormRows>
-            )}
-            <div className="flex gap-2 pt-2" data-hub-settings-history-actions="">
-              <ActionButton
-                tone="neutral"
-                icon={Undo2}
-                label="Undo last change"
-                disabled={!doors.history.canUndo}
-                waiting={doors.history.busy}
-                onClick={go(doors.history.undo)}
-              />
-              {doors.history.recent !== null ? (
-                <ActionButton tone="neutral" icon={History} label="All changes" onClick={go(doors.history.open)} />
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
         {/* ── LOOK ── */}
         <section data-hub-settings-group="look">
           <p className={GROUP}>
@@ -174,6 +137,46 @@ export function HubSettingsGear({
             </FormRows>
           ) : null}
         </section>
+
+        {/* ── HISTORY · waiting for ✓ Apply ── after the rows that change right away (20 Nov, "EVENT HUB SETTINGS REGROUPED"). */}
+        {doors.history ? (
+          <section data-hub-settings-group="history">
+            <p className={GROUP}>
+              <InfoTip label="History · waiting for ✓ Apply" align="start">
+                Every edit saves to your draft by itself. Guests see nothing until ✓ Apply.
+              </InfoTip>
+            </p>
+            {doors.history.recent === null ? (
+              <p role="alert" className="py-3 text-[13px] text-danger-700" data-hub-settings-history="unread">
+                Your history could not be read just now. Nothing was changed.
+              </p>
+            ) : doors.history.recent.length === 0 ? (
+              <p className="py-3 text-[13px] text-ink/60" data-hub-settings-history="none">
+                <span className="block font-semibold text-ink/80">Nothing waiting</span>
+                Your changes collect here until ✓ Apply.
+              </p>
+            ) : (
+              <FormRows data="hub-history">
+                {doors.history.recent.map((what, i) => (
+                  <FormRow key={`${i}:${what}`} data={`history-${i}`} name={what} line="Waiting for ✓ Apply" attrs={{ 'data-hub-settings-history-row': String(i) }} />
+                ))}
+              </FormRows>
+            )}
+            <div className="flex gap-2 pt-2" data-hub-settings-history-actions="">
+              <ActionButton
+                tone="neutral"
+                icon={Undo2}
+                label="Undo last change"
+                disabled={!doors.history.canUndo}
+                waiting={doors.history.busy}
+                onClick={go(doors.history.undo)}
+              />
+              {doors.history.recent !== null ? (
+                <ActionButton tone="neutral" icon={History} label="All changes" onClick={go(doors.history.open)} />
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {/* ── WHAT GUESTS SEE ── */}
         {guestsSeeShown ? (

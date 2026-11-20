@@ -1433,7 +1433,7 @@ export function StageTools({
   const showPlay = playing || !picked || shownTool === 'animate';
   /* ⤢ only on the parts whose editor needs the room, never on the RSVP stage (its screens carry their own tools). */
   const expand = picked && !rsvpOpen ? makerPartExpands(picked) : null;
-  /* ◆ for a couple without Event Pro (the draft bar knows — `MakerDraftDoor.proMarks`). */
+  /* ◆ for a couple without the full Event Hub (the draft bar knows — `MakerDraftDoor.proMarks`). */
   const proMarks = maker?.draft?.proMarks === true;
   const pickTool = (t: MakerPartTool) => {
     /* 🔒 A LOCKED TAB OPENS ITS PROBLEM → SOLUTION IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13) — it
@@ -1967,9 +1967,10 @@ export function StageTools({
               className={STAGE_TOOL_BUTTON}
             >
               {MAKER_PART_TOOL_LABEL[t]}
-              {/* ◆ Animate is Event Pro — marked for a couple without it, never locked: they try it, ✓ Apply asks. */}
+              {/* ◆ Animate is part of the full Event Hub (20 Nov "◆ MEANS 'THE FULL EVENT HUB'" — never "Event Pro"): marked
+                  for a couple without it, never locked or greyed — they try it, ✓ Apply asks. */}
               {t === 'animate' && proMarks ? (
-                <span aria-label=" (Event Pro)" data-stage-tool-pro="" className="ml-1 text-[11px] leading-none">
+                <span aria-label=" — part of the full Event Hub" data-stage-tool-pro="" className="ml-1 text-[11px] leading-none">
                   ◆
                 </span>
               ) : null}

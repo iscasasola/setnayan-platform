@@ -30,11 +30,14 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const HUB = read(`${L}/_components/hub-settings.tsx`);
 const SHELL = read(`${L}/_components/maker-shell.tsx`);
 
-test('1 · one sheet, History first (20 Nov), then the four groups in the prototype’s order, and the event’s own facts sent to Home', () => {
+test('1 · one sheet, History after the rows that change right away (20 Nov), with the four groups in the prototype’s order, and the event’s own facts sent to Home', () => {
   const groups = [...HUB.matchAll(/data-hub-settings-group="([a-z-]+)"/g)].map((m) => m[1]);
   /* ↺ History left the top bar (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (5)): it is
      the ⚙'s FIRST group, with "Undo last change". */
-  assert.deepEqual(groups, ['history', 'look', 'your-event-hub', 'guests-see', 'gifts'], 'the groups are not History · Look · Your Event Hub · What guests see · E-Gifts');
+  /* "EVENT HUB SETTINGS REGROUPED" (20 Nov): History · waiting for ✓ Apply comes after the rows that change right away.
+     ⏭ Part 4 finishes the regroup (Look leaves for the toolbar's 🎨 button; Sharing · On every page · Share and print). */
+  assert.deepEqual(groups, ['look', 'your-event-hub', 'history', 'guests-see', 'gifts'], 'History is not after the rows that change right away');
+  assert.match(HUB, /Nothing waiting<\/span>\s*Your changes collect here until ✓ Apply\./, 'the empty History does not say the drawing’s words');
   assert.match(HUB, /label="Undo last change"[\s\S]{0,120}disabled=\{!doors\.history\.canUndo\}[\s\S]{0,80}onClick=\{go\(doors\.history\.undo\)\}/, 'History has no "Undo last change"');
   assert.match(HUB, /Your history could not be read just now/, 'an unread history would read as "No changes are waiting"');
   assert.match(HUB, /<MenuSettingsButton menu="hub" open=\{open\} onOpenChange=\{onOpenChange\}>/, 'the sheet is not the house ⚙’s');

@@ -131,7 +131,8 @@ export function makerToolbarTabOf(tool: MakerPartTool): MakerToolbarTab {
 
 /**
  * ⤢ EXPAND — THE ONE DOOR TO FULL SCREEN (20 Nov (2): *"A tap always selects. ⤢ Expand on the toolbar is the only way into
- * full screen, and only on parts that need room"*). A tap on these used to RISE their editor at once (Build 6 Lane F,
+ * full screen, and only on parts that need room"*). Dress code lost ⤢ the same day ("DRESS COLOURS STAY IN MOOD BOARD" (2)).
+ * A tap on these used to RISE their editor at once (Build 6 Lane F,
  * `makerPartRisesEditor` — kept as the part map's fact, read by no tap any more); now a tap selects them like any part
  * and ⤢ on the toolbar opens the same editor. The drawing's list is Logo · Love Story · Schedule · Dress code · Wedding
  * March · E-Gifts · Memories: the five whose editor ships full screen are here; Wedding March and Memories have no
@@ -141,9 +142,10 @@ export const MAKER_EXPAND_PARTS: Readonly<Partial<Record<MakerPartKey, MakerStud
   logo: 'logo',
   story: 'story',
   schedule: 'schedule',
-  dress: 'mood',
   gifts: 'gifts',
 };
+/** 🎨 Dress code's one door (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD") — no ⤢: its colours are made in the event's Mood Board. The drawing's row title; its second line ("Made in Event › Mood Board") comes with part 4b's Edit rows — a door is one row (≤ 40). */
+export const MAKER_MOOD_BOARD_DOOR_WORDS = 'Colours and mood board';
 export function makerPartExpands(key: MakerPartKey | null | undefined): MakerStudioTool | null {
   return key ? (MAKER_EXPAND_PARTS[key] ?? null) : null;
 }
@@ -511,6 +513,12 @@ export function makerPartQuietRow(
   key: MakerPartKey,
 ): { words: string; to: { studio: MakerStudioTool | 'info' } | { suppliers: 'date' | 'venue' } | { guests: MakerGuestsRow } | { guestsView: MakerGuestsView } } | null {
   const src = makerPartSource(key);
+  /* 🎨 DRESS COLOURS STAY IN MOOD BOARD (owner 20 Nov 2026, DECISION_LOG "MAKER EDIT ROWS RUN BY IMPORTANCE; DRESS COLOURS STAY
+     IN MOOD BOARD" (2)): the colours have ONE home, the event's Mood Board (suppliers read the same colours) — the scene's
+     door says so, and no ⤢. ⚠ The Mood Board page (`/dashboard/[eventId]/studio/mood-board`) still forwards a host into
+     the Maker's own Mood Board editor (`makerHasWork`), so the door opens that same editor in place — a link out would
+     bounce straight back. Giving the Mood Board its own home outside the Event Hub is its own change. */
+  if (src.kind === 'studio' && src.tool === 'mood') return { words: MAKER_MOOD_BOARD_DOOR_WORDS, to: { studio: 'mood' } };
   if (src.kind === 'studio') return { words: makerSceneDoorWords(MAKER_STUDIO_TOOL_LABEL[src.tool]), to: { studio: src.tool } };
   if (src.kind === 'supplier') return { words: 'Change it in Suppliers', to: { suppliers: src.fact } };
   /* 🗂 R1: the reply's settings are Guests ⚙'s — another page of the app, like Suppliers: a plain door to the sheet's row. */

@@ -166,10 +166,14 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     ['story', 'Love Story'],
     ['logo', 'Logo'],
     ['gifts', 'E-Gifts'],
-    ['dress', 'Palette + Dress Code'],
   ];
   for (const [k, page] of jumps) {
     assert.equal(makerPartQuietRow(k)?.words, `Open ${page}`, `${k}: its door`);
+    assert.equal(makerPartSource(k).kind, 'studio');
+  }
+  /* 🎨 Dress code (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD" (2)): its door says where the colours are made. */
+  for (const k of ['dress', 'mywear'] as const) {
+    assert.equal(makerPartQuietRow(k)?.words, 'Colours and mood board', `${k}: its door`);
     assert.equal(makerPartSource(k).kind, 'studio');
   }
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
@@ -188,7 +192,9 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     const src = makerPartSource(k);
     const want =
       src.kind === 'studio'
-        ? `Open ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
+        ? src.tool === 'mood'
+          ? 'Colours and mood board' // 🎨 20 Nov: dress colours stay in Mood Board
+          : `Open ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
         : src.kind === 'supplier'
           ? 'Change it in Suppliers'
           : src.kind === 'guests'

@@ -24,12 +24,20 @@ if (sup) {
   shots.push(['6-team-desktop', sup + '&whisper=1', 1280, 860, 'light']);
 }
 const browser = await chromium.launch();
+const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null; // e.g. ONLY=2-host-375-dark,4-team-375-dark
 for (const [name, path, w, h, scheme, tryOn] of shots) {
+  if (ONLY && !ONLY.includes(name)) continue;
   const ctx = await browser.newContext({ viewport: { width: w, height: h }, colorScheme: scheme, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   await page.goto(B + path, { waitUntil: 'domcontentloaded', timeout: 400000 });
   await page.waitForTimeout(20000);
   await page.addStyleTag({ content: 'nextjs-portal{display:none!important}' });
+  // The app's dark mode is the `dark` class on <html>, set by theme-bootstrap-script only for a signed-in
+  // viewer on a dark-ready route. /dev labs are neither, so a dark shot sets the same class itself.
+  if (scheme === 'dark') {
+    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.waitForTimeout(600);
+  }
   if (tryOn) {
     await page.focus('[data-chat-whisper-switch]').catch(() => {});
     await page.click('[data-chat-whisper-switch]', { force: true }).catch((e) => console.log('click', e.message));

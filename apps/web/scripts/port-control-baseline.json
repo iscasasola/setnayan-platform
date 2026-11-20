@@ -9491,7 +9491,7 @@
         "Suspense",
         "ThreadInterestChips",
         "ThreadToolPanel",
-        "WhisperCoHosts"
+        "WhisperAudience"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -16175,7 +16175,8 @@
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive",
-        "VendorThreadPage"
+        "VendorThreadPage",
+        "WhisperAudience"
       ]
     },
     "/vendor-dashboard/moodboard-library": {
@@ -17588,6 +17589,7 @@
         "Bridge",
         "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
+        "CouldNotLoad",
         "Counter",
         "DatesRow",
         "DockFace",

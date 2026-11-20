@@ -52,6 +52,9 @@ test('(3) the short form: four things first, the rest under More options IN THE 
     const at = src.search(new RegExp(`(?<!\\[)data-maker-row="${k}"`));
     assert.ok(at > more && at < formClose, `${k} is not under More options in the card’s form`);
   }
-  /* On a phone the preview is one tap away, shut by default. */
-  assert.match(src, /const \[peekOpen, setPeekOpen\] = useState\(false\);/, 'the phone preview is open by default again');
+  /* 🔁 RE-AIMED 2026-11-16 (ruling c160a2aa): the phone's preview is no longer one tap away — the card is pinned on top,
+     always drawn, and the short form stays UNDER it, unchanged. */
+  assert.doesNotMatch(src, /peekOpen/, 'the phone preview is behind a tap again');
+  const pinned = src.indexOf('data-maker-card-pinned=""');
+  assert.ok(pinned > 0 && pinned < formOpen, 'the short form is no longer under the pinned card');
 });

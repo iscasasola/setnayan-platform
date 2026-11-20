@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 import {
   CARD_HIDE_KINDS,
   cardHideKey,
@@ -169,16 +170,20 @@ test('fix 1 · nothing hidden → the couple gets every item (just not the refs)
   assert.equal(out.photoRefs, undefined);
 });
 
-test('fix 1 · the page drops them on the server, for everyone but the shop, AFTER the looks are attached', () => {
+test('fix 1 · the page drops them on the server, for EVERY viewer (the shop too), AFTER the looks are attached', () => {
   const page = readFileSync(join(__dirname, '../app/v/[slug]/page.tsx'), 'utf8');
   const strip = page.indexOf('cardWithoutHidden(c,');
   assert.ok(strip > 0, 'the page strips the cards');
   assert.ok(strip > page.indexOf('withInspirationLooks(c, inspirationByService'), 'after every hideable item is on the card');
   assert.ok(strip < page.indexOf('<ServicesGallery', strip), 'before the cards are handed to the client');
-  assert.match(page, /if \(detailsEnabled && \(cardHides\.status === 'error' \|\| !viewerCuratesCards\)\)/);
-  // "The shop" is decided on the server, fail-closed, with the same check RLS uses for the write.
-  assert.match(page, /await viewerRunsShop\(vendor\.vendor_profile_id\)/);
-  assert.match(page, /ownerCheckFor=\{viewerCuratesCards \? vendor\.vendor_profile_id : null\}/);
+  /* 🔁 RE-AIMED 2026-11-16 (ruling c160a2aa, "hiding lives in ONE place — the Card Maker's grown card"): the shop page
+     shows what couples see to everyone, the shop included. No viewer keeps the hidden items here any more, and the
+     gallery is never told to curate. (Was: dropped for everyone BUT the shop, which curated on its own page.) */
+  const code = stripComments(page);
+  assert.match(code, /if \(detailsEnabled\) \{\s*for \(const g of groups\) \{\s*g\.cards = g\.cards\.map\(\(c\) =>\s*cardWithoutHidden\(/, 'the strip is gated on the shop again');
+  assert.doesNotMatch(code, /viewerCuratesCards|ownerCheckFor/, 'the shop page curates cards again — hiding lives only in the Card Maker');
+  // The fail-closed read is kept: a refused hides read still drops every hideable item, for everyone.
+  assert.match(code, /cardWithoutHidden\(c, cardHides\.status === 'error' \? 'unread' : \(cardHides\.byCard\.get\(c\.id\) \?\? \[\]\)\)/);
 });
 
 test('fix 2 · a FAILED hides read fails closed: nothing hideable is shown, and the card says so', () => {

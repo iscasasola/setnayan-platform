@@ -55,14 +55,23 @@ test('the preview stays in view from 701 up, and is PINNED at the top on a phone
   }
   // 🔁 2026-11-09 (Build 3 Lane E): the 👁 button and its sheet are gone — the card is pinned under the row on a phone.
   assert.doesNotMatch(src, /setSheet\('preview'\)|id="canvas-preview"/, 'the 👁 preview sheet is back');
-  /* 🔁 RE-AIMED 2026-11-14 (cut 3 of the supplier's eleven jobs, owner-approved — DECISION_LOG "THE SEVEN SUPPLIER CUTS
-     ARE APPROVED"): pinned, the phone's card left a ~60 px window for the fields at 390, so it sits behind ONE tap, "See it
-     as couples do", the same live face. Still a phone-only element (it never doubles the side preview from 701 up), and
-     still never the 👁 sheet that 9 Nov removed. */
-  const peek = src.slice(src.lastIndexOf('<div', src.indexOf('data-maker-card-peek=')), src.indexOf('data-maker-card-peek='));
-  assert.match(peek, /tab:hidden/, 'the phone card doubles the side preview from 701 up');
-  assert.match(src, /data-maker-see-as-couples=""/, 'the phone lost its way to see the card');
-  assert.match(src, /\{peekOpen \? <div className="pb-1">\{cardFace\}<\/div> : null\}/, 'the phone card is not the live face');
+  /* 🔁 RE-AIMED 2026-11-16 (ruling c160a2aa — it restores the 9/10 Nov design and supersedes cut 3's 14 Nov "See it as
+     couples do" tap): the phone's card is PINNED again — always drawn, never behind a toggle — under a small caps "As
+     couples see it" · "updates as you type", with "Tap the card · it opens as couples see it" under it. Still a
+     phone-only element (it never doubles the side preview from 701 up), and still never the 👁 sheet 9 Nov removed. */
+  const pinned = src.slice(src.lastIndexOf('<div', src.indexOf('data-maker-card-pinned=""')), src.indexOf('data-maker-card-pinned=""'));
+  assert.match(pinned, /sticky top-0/, 'the phone card is not pinned');
+  assert.match(pinned, /tab:hidden/, 'the pinned card doubles the side preview from 701 up');
+  assert.doesNotMatch(src, /peekOpen|data-maker-card-peek|data-maker-see-as-couples|See it as couples do/, 'the card is behind a tap again');
+  const block = src.slice(src.indexOf('data-maker-card-pinned=""'), src.indexOf('data-maker-split=""'));
+  assert.match(block, /<span className="sn-eye">As couples see it<\/span>/);
+  assert.match(block, /updates as you type/);
+  assert.match(block, /\{pinnedCard\}\s*\{pinnedLine\}/, 'the phone card is not the live, tappable face');
+  assert.match(src, /const pinnedCard = \(\s*<div className="relative"[^>]*>\s*\{cardFace\}/, 'the pinned card is not the live face');
+  assert.match(src, /Tap the card · it opens as couples see it/);
+  // From 701 up the right-hand card is the SAME tappable pinned card.
+  const aside = src.slice(src.indexOf('data-maker-card=""'), src.indexOf('</aside>'));
+  assert.match(aside, /\{pinnedCard\}\s*\{pinnedLine\}/, 'the side card is not the tappable pinned card');
 });
 
 test('every sheet docks right on a laptop, and keeps its veil on a phone', () => {

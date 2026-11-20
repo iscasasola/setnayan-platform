@@ -1874,9 +1874,11 @@ export async function renderVendorBySlug({
    *  fallback select carries no `user_id`, so a degraded read is a stranger. */
   const viewerOwnsShop =
     user !== null && typeof vendor.user_id === 'string' && vendor.user_id === user.id;
-  /** 🃏 The viewer runs this shop (owner or owner/admin team — who RLS lets hide): only THEY are sent the items hidden
-   *  on a card, to curate. Everyone else's cards are stripped on the server (`cardWithoutHidden`). Fails closed. */
-  const viewerCuratesCards =
+  /** 📸 The viewer runs this shop (owner or owner/admin team): photos by service adds its PRIVATE album photos, marked
+   *  "Only you" (owner 2026-11-14), asked after the page. Fails closed.
+   *  🃏 It no longer curates cards here (ruling c160a2aa, 2026-11-16): hiding per card lives ONLY in the Card Maker's
+   *  grown card, and this page shows every viewer — the shop included — the card couples see. */
+  const viewerSeesPrivatePhotos =
     detailsEnabled && !cachedCopy && user !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id));
   let coupleEventId: string | null = null;
   /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
@@ -2459,8 +2461,7 @@ export async function renderVendorBySlug({
     eventPhotosByService: eventPhotosByService,
     couplePhotosByService: couplePhotosByService,
     cardHides: cardHidesByService,
-    viewerCuratesCards: viewerCuratesCards,
-    ownerCheckFor: viewerCuratesCards ? vendor.vendor_profile_id : null,
+    privatePhotosFor: viewerSeesPrivatePhotos ? vendor.vendor_profile_id : null,
     /* 👁 A signed-in viewer reads the NON-public couple photos they may see AFTER the page — never in this HTML. */
     viewerSignedIn: user !== null,
     /* Reuses the SAME trusted aggregate the hero stars read — the only
@@ -3320,7 +3321,7 @@ export async function renderVendorBySlug({
             {...servicesProps}
             /* Said again here, where the section is drawn, so the page's own guards read them in place
                (the same values as in `servicesProps`, which photos by service reads). */
-            ownerCheckFor={viewerCuratesCards ? vendor.vendor_profile_id : null}
+            privatePhotosFor={viewerSeesPrivatePhotos ? vendor.vendor_profile_id : null}
             inquireMode={canMessage ? 'anchor' : 'none'}
             cardRecordRating={isVerifiedShop ? cardRecordRatingFromTrusted(trustedReviewStats) : null}
             quoteInSideCard
@@ -3412,7 +3413,7 @@ export async function renderVendorBySlug({
             {/* 📸 Ⓑ PHOTOS BY SERVICE (owner 2026-11-14, prototype "The way in"): one tile per service with a photo, each
                 opening that service's photos from every card — the same photos, by reference. */}
             {hasPhotosByService ? (
-              <PhotosByServiceRow views={photoServiceViews} ownerShopId={viewerCuratesCards ? vendor.vendor_profile_id : null} />
+              <PhotosByServiceRow views={photoServiceViews} ownerShopId={viewerSeesPrivatePhotos ? vendor.vendor_profile_id : null} />
             ) : null}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {/* 👁 Each photo opens full size on a tap, and that open is ONE view of that photo (Lane E item 11) — the
@@ -3979,12 +3980,10 @@ type ServicesPricingProps = {
   cardBadges: CardBadgesRead | null;
   /** The clock the medals' "time held" is read against — the server's, so the first client paint matches. */
   badgesNow: number;
-  /** 🃏 A signed-in viewer → the gallery asks once whether they run this shop (hide per card · 👁 · opens). */
-  ownerCheckFor: string | null;
+  /** 📸 The shop's id when the viewer runs it — photos by service adds its private "Only you" photos. Never a hide. */
+  privatePhotosFor: string | null;
   /** 🃏 What the shop hid on each card (`vendor_service_card_hides`), or `error` when that read failed. */
   cardHides: CardHidesRead;
-  /** 🃏 The viewer runs the shop (checked on the server) — the only viewer sent the hidden items. */
-  viewerCuratesCards: boolean;
   /** 📈 The shop whose card opens count (Build 6 Lane I, "Which card sells") — null for a demo shop or a team preview. */
   countOpensFor: string | null;
   services: ReadonlyArray<VendorServiceRow>;
@@ -4068,8 +4067,6 @@ function buildServiceGroups({
   reviewsByService,
   countOpensFor,
   cardHides,
-  viewerCuratesCards,
-  ownerCheckFor,
 }: ServicesPricingProps): ServiceGroup[] {
   /*
     ── SUP-14 · A CARD SITS UNDER ITS REAL TRADE ────────────────────────────
@@ -4173,9 +4170,10 @@ function buildServiceGroups({
 
   // 🃏 HIDDEN ITEMS ARE DROPPED HERE, ON THE SERVER — last, once every hideable item (photos, clip, event lines,
   // inspiration looks) is on the card. A couple's browser never receives what the shop hid. A FAILED hides read
-  // is not "nothing hidden": nobody can say which items are hidden, so none are sent and the card says so — for the
-  // shop too ("show nothing extra"). Only the shop, on a good read, keeps them, greyed, to curate.
-  if (detailsEnabled && (cardHides.status === 'error' || !viewerCuratesCards)) {
+  // is not "nothing hidden": nobody can say which items are hidden, so none are sent and the card says so.
+  // 🔁 FOR EVERY VIEWER, THE SHOP INCLUDED (ruling c160a2aa, 2026-11-16): this page shows what couples see; the shop
+  // curates its card in ONE place, the Card Maker's grown card (`loadMakerGrownCard`). Don't keep two places.
+  if (detailsEnabled) {
     for (const g of groups) {
       g.cards = g.cards.map((c) =>
         cardWithoutHidden(c, cardHides.status === 'error' ? 'unread' : (cardHides.byCard.get(c.id) ?? [])),
@@ -4191,7 +4189,7 @@ const QUOTE_HINT = 'Add the ones you want to one quote — final quotes happen i
 
 function ServicesPricingSection(props: ServicesPricingProps) {
   const groups = buildServiceGroups(props);
-  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, ownerCheckFor, cardBadges, badgesNow } = props;
+  const { businessName, viewerSignedIn, detailsEnabled, inquireMode, openServicePublicId, countOpensFor, privatePhotosFor, cardBadges, badgesNow } = props;
   // 🧾 v16 S3: the quote rides on the page's ONE Inquire, so it is offered only where that pop-up is (`'anchor'`).
   const quote =
     inquireMode === 'anchor'
@@ -4225,7 +4223,7 @@ function ServicesPricingSection(props: ServicesPricingProps) {
         openServicePublicId={openServicePublicId}
         shopName={businessName}
         countOpensFor={countOpensFor}
-        ownerCheckFor={ownerCheckFor}
+        privatePhotosFor={privatePhotosFor}
         quote={quote}
         notVerified={notVerified}
         renewing={props.renewing === true}

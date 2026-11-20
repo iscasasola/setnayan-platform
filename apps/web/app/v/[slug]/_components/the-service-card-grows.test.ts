@@ -16,6 +16,9 @@ import { stripComments } from '../../../../lib/strip-comments';
 const HERE = __dirname;
 const SHEET = readFileSync(join(HERE, 'service-details-sheet.tsx'), 'utf8');
 const GALLERY = readFileSync(join(HERE, 'services-gallery.tsx'), 'utf8');
+// 🔁 Ruling c160a2aa (2026-11-16): hiding per card moved, unchanged, from the shop page's gallery to the Card Maker's
+// grown card — the ONE place it lives now.
+const MAKER_GROWN = readFileSync(join(HERE, '../../../vendor-dashboard/services/_components/maker-grown-card.tsx'), 'utf8');
 // 2026-11-12 ONE SERVICE CARD: the card's door is the face's client button — that is where the tapped box is handed on.
 const VIEW = readFileSync(join(HERE, '../../../_components/service-face-door.tsx'), 'utf8');
 
@@ -107,8 +110,8 @@ test('📅 events show WITHOUT names — the record\'s anonymised lines, drawn o
 });
 
 test('🃏 fix · a hide that did not save SAYS so, and the item is never flipped before the save is confirmed', () => {
-  const gallery = stripComments(GALLERY);
-  const toggle = gallery.slice(gallery.indexOf('const toggleHide'), gallery.indexOf('const ownerFor'));
+  const gallery = stripComments(MAKER_GROWN);
+  const toggle = gallery.slice(gallery.indexOf('const toggleHide'), gallery.indexOf('const owner: GrownCardOwner'));
   assert.ok(toggle.length > 0, 'toggleHide is where the save lives');
   // setHides runs only inside settle, after the reply — never before the call goes out.
   const callAt = toggle.indexOf("couplePhotoShare({ op: 'card_hide'");
@@ -117,7 +120,7 @@ test('🃏 fix · a hide that did not save SAYS so, and the item is never flippe
   assert.ok(toggle.indexOf('setHides') > settleAt && toggle.indexOf('setHides') < callAt, 'setHides lives inside settle only');
   assert.match(toggle, /if \(error\) \{\s*setHideError[\s\S]{0,80}return;\s*\}/, 'a failed save stops before setHides');
   assert.match(toggle, /\.catch\(\(\) => settle\(cardHideSaveError\(null, hide\)\)\)/, 'a thrown call is a failure too');
-  assert.match(gallery, /saveError: hideError\[cardId\] \?\? null/);
+  assert.match(gallery, /saveError: hideError,/);
   // The sheet draws it as an alert, and a saving item cannot be tapped twice.
   const sheet = stripComments(SHEET);
   assert.match(sheet, /\{owner\?\.saveError \? \([\s\S]{0,120}role="alert"[\s\S]{0,300}\{owner\.saveError\}/);
@@ -135,6 +138,7 @@ test('🃏 fix · no "Albums" anywhere on the grown card — the owner ruled alb
   const files = [
     SHEET,
     GALLERY,
+    MAKER_GROWN,
     readFileSync(join(HERE, '../../../../lib/service-card-hides.ts'), 'utf8'),
     readFileSync(join(HERE, '../../../../lib/service-card-hides.server.ts'), 'utf8'),
     readFileSync(join(HERE, '../../../dev/shop-preview-lab/grown-owner-lab.tsx'), 'utf8'),

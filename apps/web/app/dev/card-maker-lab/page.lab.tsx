@@ -49,6 +49,7 @@ import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
 import type { CardPhotoVerdict } from '@/lib/service-card-checks';
 import type { MakerCheckRules } from '@/app/vendor-dashboard/services/_components/card-checks';
 import { AddServicePicker } from '@/app/vendor-dashboard/services/new/_components/add-service-picker';
+import { LAB_GROWN_CARD } from '../shop-preview-lab/inspiration-lab-fixture';
 
 /** 🃏 `&checks=1` — the owner's six seed words (the migration's), as the maker reads them. LAB FIXTURES. */
 const LAB_CLAIM_WORDS = [
@@ -412,6 +413,15 @@ export default async function CardMakerLabPage({
         checkRules={checkRules}
         availabilityOf={availabilityOf}
         photoCheck={withChecks ? labPhotoCheck : undefined}
+        // 🃏 ?grown=1 — the card pinned on top grows into the shop-preview lab's grown card (ruling c160a2aa); one photo
+        // hidden. ?grown=unread — the saved card could not be read. A hide here posts to the real action, which refuses.
+        grownCard={
+          sp.grown === '1'
+            ? { status: 'ok', card: LAB_GROWN_CARD, hidden: ['photo:r2://lab/g2.jpg'], curate: true, opens: 37, unread: [] }
+            : sp.grown === 'unread'
+              ? { status: 'unread' }
+              : undefined
+        }
       />
   );
 

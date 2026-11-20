@@ -10,9 +10,10 @@ import { hidesByCard, parseCardHideKey, type CardHidesRead } from '@/lib/service
  * 20271342673075). Keys and rules: `lib/service-card-hides.ts`.
  *
  * The public shop page reads every card's hides on the server (`readCardHides`, admin client — the table has no anon
- * grant) and drops the hidden items before the page is sent (`cardWithoutHidden`), unless the viewer runs the shop
- * (`viewerRunsShop`). The supplier's own grown card asks, after the page, whether this viewer runs the shop (`readCardOwnerView`)
- * and toggles one item (`setCardHide`) — both under the CALLER'S session, so RLS (`current_vendor_profile_ids()`: the
+ * grant) and drops the hidden items before the page is sent (`cardWithoutHidden`) — for EVERY viewer, the shop included
+ * (ruling c160a2aa, 2026-11-16: hiding per card lives in ONE place). That place is the Card Maker's grown card
+ * (`lib/service-card-for-maker.server.ts`): it reads this card's hides and the owner view (`readCardOwnerView`) on the
+ * server, and toggles one item (`setCardHide`) — under the CALLER'S session, so RLS (`current_vendor_profile_ids()`: the
  * owner and the owner/admin team) is the gate, never this file.
  *
  * Reached through the existing `couplePhotoShare` dispatcher (ops `card_owner` · `card_hide`) — no new server action:

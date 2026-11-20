@@ -58,6 +58,11 @@ test('1 · the late payment is Now’s — Pay opens it — and the Budget card 
   );
   const grid = slice(html, 'data-home-control="compact"', ['data-home-control="detail"']);
   assert.doesNotMatch(text(grid), /₱8,000/, 'the ₱8,000 Now names is drawn again below');
+  // 20 Nov 2026 (Event Today drawing v3, part C · 3): the tablet and 1280 Budget CARDS leave it out too — they listed
+  // every payment while only the tile obeyed the rule.
+  const pays = [...html.matchAll(/data-home-pay="([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(pays.length > 0, 'no Budget card drew its payments — the check below would be vacuous');
+  assert.ok(!pays.includes('li-1'), 'a Budget card repeats the payment Now holds');
 });
 
 test('2 · an overdue task is Now’s — ticked in place — and the To do list leaves it out', () => {

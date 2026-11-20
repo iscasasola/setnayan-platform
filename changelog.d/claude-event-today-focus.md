@@ -26,6 +26,9 @@ there is vital or maybe you can make it look better"* · *"Yes, build it"*. Stac
 - **Now never repeats below, widened.** The strip's item is left out of the list, and the Budget card leaves out every
   payment the list shows as a red row (`paysHeldByToday`). A payment that is only due soon stays on the Budget card,
   as drawn.
+- The tablet and 1280 Budget CARDS obey the same rule (`home-control-row.tsx` listed every payment; only the tile
+  filtered) — held by `home-now-never-repeats-below.test.ts` test 1. In dark, the plain event card now wears the dark
+  theme's ink (it kept the light band's espresso on its dark ground — unreadable, also on main).
 - After the plan's three tasks, ONE row "N more plan tasks this week ›" (the plan's own figure less what is on
   screen), then the kept line "N% of the plan done · All N this week ›".
 - The open "Send the invitations" card names who has not been sent theirs (`toInviteNames` in

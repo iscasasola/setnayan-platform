@@ -315,3 +315,15 @@ test('(d) /explore forwards to Discover carrying its filters; /explore/compare s
   assert.equal(legacyRedirectTarget('/explore/compare', '?ids=a,b'), null);
   assert.equal(legacyRedirectTarget('/explore/compare', ''), null);
 });
+
+test('a /blog link to a staged Journal post (imported as a draft) goes to /articles, never a 404 (PR #7919)', async () => {
+  const { ALL_BLOG_ARTICLES } = await import('@/lib/blog');
+  const { JOURNAL_STAGED_DATE } = await import('@/lib/journal-import-sql');
+  const { JOURNAL_DRAFT_SLUGS } = await import('@/lib/journal-move');
+  const staged = ALL_BLOG_ARTICLES.filter((a) => a.publishedAt >= JOURNAL_STAGED_DATE).map((a) => a.slug).sort();
+  assert.deepEqual([...JOURNAL_DRAFT_SLUGS].sort(), staged, 'JOURNAL_DRAFT_SLUGS is exactly the staged posts');
+  assert.ok(staged.length > 0);
+  for (const slug of staged) assert.equal(legacyRedirectTarget(`/blog/${slug}`), '/articles', slug);
+  const live = ALL_BLOG_ARTICLES.find((a) => a.publishedAt < JOURNAL_STAGED_DATE)!;
+  assert.match(legacyRedirectTarget(`/blog/${live.slug}`) ?? '', /^\/articles\/.+/, 'a published post still lands on its article');
+});

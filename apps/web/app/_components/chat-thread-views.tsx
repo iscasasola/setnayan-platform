@@ -53,7 +53,7 @@ import type { ThreadView } from '@/lib/thread-view';
 import { formatCount } from '@/lib/format-number';
 export type { ThreadView } from '@/lib/thread-view';
 
-const VIEW_HINT: Record<ThreadView, string> = {
+const VIEW_HINT: Partial<Record<ThreadView, string>> = {
   all: 'Decisions hides the chatter and shows only the cards — each with where it stands now.',
   decisions: 'Only the cards, oldest to newest — each says where it stands now.',
   files: 'Everything shared in this conversation, oldest to newest.',

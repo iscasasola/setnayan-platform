@@ -1,4 +1,4 @@
-import { articleHref, journalArticleSlug } from '@/lib/journal-move';
+import { articleHref, JOURNAL_DRAFT_SLUGS, journalArticleSlug } from '@/lib/journal-move';
 /**
  * lib/legacy-redirects.ts — the ONE map of retired page paths that still
  * forward, read by `middleware.ts`.
@@ -230,7 +230,8 @@ function journalTarget(path: string): string | null {
   const last = rest.slice(rest.lastIndexOf('/') + 1);
   if (last.includes('.')) return null;
   const slug = rest.includes('/') ? null : journalArticleSlug(rest);
-  return slug ? articleHref(slug) : '/articles';
+  // A staged post imports as a draft: no public article yet, so the list — never a 404.
+  return slug && !JOURNAL_DRAFT_SLUGS.has(slug) ? articleHref(slug) : '/articles';
 }
 
 function retiredTreeTarget(path: string): string | null {

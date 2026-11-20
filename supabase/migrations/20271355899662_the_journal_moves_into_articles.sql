@@ -753,7 +753,7 @@ Reception customs
 
 Regional and modern touches
 
-Customs vary across regions and faiths, and many couples now blend tradition with their own ideas — a same-day-edit video, a live band for the first dance, a Music Maker song written just for them. The traditions ground the day; the personal touches make it yours.
+Customs vary across regions and faiths, and many couples now blend tradition with their own ideas — a same-day-edit video, a live band for the first dance, a song written just for them. The traditions ground the day; the personal touches make it yours.
 
 Planning your own? Setnayan's guest list carries the full Filipino entourage — sponsors, bearers, ninong, and ninang.
 setnayan.com/signup$j74$,
@@ -2517,7 +2517,7 @@ The reception is where the program flow really earns its keep, guided steadily b
 
 Building your own flow
 
-Use this as a skeleton, then make it unmistakably yours — add a same-day-edit video, a surprise dance number, a quiet tribute to someone who could not be there, or a Music Maker song written just for you; trim anything that does not fit your day or your faith. Write the running order down clearly, share it with your host, coordinator, and photo-and-video team, and give every segment a rough time so the call sheet lines up. The couples whose weddings feel effortless are simply the ones who planned the flow carefully in advance. Then, on the day itself, you get to forget the timeline entirely and just be present — which is, after all, the whole point of planning it so well.
+Use this as a skeleton, then make it unmistakably yours — add a same-day-edit video, a surprise dance number, or a quiet tribute to someone who could not be there; trim anything that does not fit your day or your faith. Write the running order down clearly, share it with your host, coordinator, and photo-and-video team, and give every segment a rough time so the call sheet lines up. The couples whose weddings feel effortless are simply the ones who planned the flow carefully in advance. Then, on the day itself, you get to forget the timeline entirely and just be present — which is, after all, the whole point of planning it so well.
 
 Build your program, schedule, and supplier call times in one free workspace.
 setnayan.com/signup$j248$,

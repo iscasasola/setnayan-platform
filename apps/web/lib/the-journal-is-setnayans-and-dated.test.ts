@@ -7,7 +7,7 @@
  *   2. 📰 THE JOURNAL IS SETNAYAN'S, NOT ITS OWNER'S. The import owns its rows under the one internal account,
  *      whose public profile is on. Every read that treats chapters as a PERSON's work (their profile, their
  *      chapter page, the share card, their counts, their creator desk, the admin candidate list, the creator
- *      analytics) filters `is_journal = false`.
+ *      analytics, the supplier's offer-able creators) filters `is_journal = false`.
  *
  * SABOTAGE (run 2026-11-20; each turned this file red): dropping `.lte('published_at', …)` from the helper ·
  * writing `.from('creator_chapters').select(…).eq('status','published')` in articles.server.ts without the
@@ -74,6 +74,7 @@ const PERSONAL_READS: [string, RegExp][] = [
   ['app/_components/frontdoor/rail-data.ts', /\{ count: 'exact', head: true \}\)\s*\.eq\('user_id', user\.id\)\s*\.eq\('is_journal', false\)/],
   ['app/dashboard/(account)/creator/page.tsx', /\.eq\('user_id', userId\)\s*\.eq\('is_journal', false\)/],
   ['lib/storytellers.ts', /loadStorytellerCandidatesForAdmin[\s\S]*?\.eq\('is_journal', false\)/],
+  ['lib/creator-offers.ts', /fetchEligibleCreators[\s\S]*?select\('user_id'\)\s*\.eq\('status', 'published'\)\s*\.eq\('is_journal', false\)/],
   ['lib/creator-analytics.ts', /select\('user_id'\)\s*\.eq\('status', 'published'\)\s*\.eq\('is_journal', false\)/],
 ];
 

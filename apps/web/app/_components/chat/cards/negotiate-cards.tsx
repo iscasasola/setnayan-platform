@@ -44,6 +44,7 @@ import {
   type NegotiationQuote,
 } from './card-calls';
 import { CouldNotLoad, EmptyLine, EqualRow, Loading, Problem, type Read } from './card-bits';
+import { UnderLowestLine } from './lowest-price';
 
 export type NegotiateKind = 'ask' | 'counter' | 'plan';
 type Viewer = 'vendor' | 'couple';
@@ -123,6 +124,7 @@ export function NegotiateDraft({
         today={seed?.today ?? manilaToday()}
         initialScope={seed?.scope ?? null}
         initialAmount={seed?.amount}
+        viewer={viewer}
         onClose={onClose}
         onSent={onSent}
       />
@@ -205,6 +207,7 @@ function CounterBody({
   onClose,
   onSent,
   counters,
+  viewer,
 }: {
   threadId: string;
   quote: NegotiationQuote;
@@ -212,6 +215,8 @@ function CounterBody({
   today: string;
   initialScope: string | null;
   initialAmount?: string;
+  /** 🤝 The supplier's own counter is checked against their private lowest (one quiet line; the hosts' never is). */
+  viewer?: Viewer;
   onClose?: () => void;
   onSent?: () => void;
   /** Countering an open counter: its id (the server marks it 'countered'). */
@@ -270,6 +275,8 @@ function CounterBody({
       </Row>
       <TypedRow name="Your price" amount value={amount} empty="₱" openAsk={0} onType={setAmount} onKeep={setAmount} />
       <p className="-mt-1 text-[13px] text-ink/55" data-counter-was="">instead of {pesos(out.wasCentavos)}</p>
+      {/* 🤝 Under their own lowest: ONE quiet line, never a block — Send counter stays as it was (owner 19 Nov 2026). */}
+      {viewer === 'vendor' && cents > 0 ? <UnderLowestLine threadId={threadId} totalCentavos={out.newTotalCentavos} /> : null}
       <Row label="Good until" sub="then it expires">
         <PickMenu label="Good until" value={until} options={choices.map((c) => ({ key: c.key, label: c.label }))} onPick={setUntil} dataAttr="data-counter-until" />
       </Row>
@@ -475,6 +482,10 @@ export function NegotiationCard({
           {ask!.status === 'open' && !until.expired && until.words ? <p className="text-[13px] text-ink/55">{until.words}</p> : null}
           {/* What Accept would make — the plan re-split, paid rows fixed, and any money owed back (owner 12 Nov). */}
           {ask!.status === 'open' && !until.expired && outcome?.rows ? <PlanRows rows={outcome.rows} paid={paid} owedBack={outcome.owedBackCentavos} /> : null}
+          {/* 🤝 Their counter is under the supplier's own lowest: said before Accept, never blocking it. */}
+          {viewer === 'vendor' && !mine && ask!.status === 'open' && !until.expired && outcome ? (
+            <UnderLowestLine threadId={threadId} totalCentavos={outcome.newTotalCentavos} />
+          ) : null}
           <Status
             ask={ask!}
             mine={mine}
@@ -497,6 +508,7 @@ export function NegotiationCard({
                 initialScope={ask.scopeLabel ?? null}
                 initialAmount={String(Math.round(((ask.amountCentavos ?? 0) + (outcome?.wasCentavos ?? ask.amountCentavos ?? 0)) / 2 / 100 / 100) * 100)}
                 counters={ask.askId}
+                viewer={viewer}
                 onClose={() => setCountering(false)}
                 onSent={() => {
                   setCountering(false);

@@ -114,6 +114,15 @@ const urlPath = (rel: string) =>
 const callsNotFound = (page: string) =>
   /\bnotFound\s*\(\s*\)/.test(stripComments(readFileSync(page, 'utf8')));
 
+/** A pure legacy stub: the page's whole job is `redirect(...)` and it draws
+ *  nothing (no JSX). It must NOT stream either — a boundary would commit a 200
+ *  and turn the 307 into a client-side hop, the same status-code harm as the
+ *  soft-404 above. (2026-11-20: /patiktok and /pakanta, retired products.) */
+const isRedirectStub = (page: string) => {
+  const src = stripComments(readFileSync(page, 'utf8'));
+  return /\b(?:permanentRedirect|redirect)\s*\(\s*'\/[^']*'\s*\)/.test(src) && !/<[A-Za-z]/.test(src);
+};
+
 const ALL = GROUPS.flatMap((g) => routesUnder(join(APP, g)));
 
 /** EVERY route in the app, for the soft-404 check — which is not a rail
@@ -153,6 +162,7 @@ test('every rail-reachable route commits the press', () => {
   for (const r of ALL) {
     if (coveredBy(r.dir)) continue;
     if (callsNotFound(r.page)) continue; // must NOT stream — see the header
+    if (isRedirectStub(r.page)) continue; // a 307 must not become a streamed 200
     naked.push(r.rel);
   }
   assert.deepEqual(

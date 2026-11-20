@@ -378,42 +378,34 @@
     },
     "/(shell)/for-coordinators": {
       "files": [
-        "(shell)/for-coordinators/_badges.generated.ts",
         "(shell)/for-coordinators/_claims.server.ts",
         "(shell)/for-coordinators/_claims.ts",
         "(shell)/for-coordinators/_facts.ts",
-        "(shell)/for-coordinators/_fc-client.tsx",
+        "(shell)/for-coordinators/_fc-info.tsx",
         "(shell)/for-coordinators/_prices.server.ts",
         "(shell)/for-coordinators/loading.tsx",
         "(shell)/for-coordinators/page.tsx"
       ],
       "destinations": [
-        "/open-shop",
-        "/v/[seg]"
+        "/about",
+        "/for-suppliers",
+        "/help",
+        "/pricing",
+        "/privacy",
+        "/terms"
       ],
       "actions": [],
       "blocks": [
-        "AccessCard",
-        "CheckADate",
-        "ChipIcon",
+        "CardBadgeRow",
         "ClaimSwitches",
         "CoordinatorPrices",
-        "FcEffects",
-        "FeeSlider",
-        "HTMLButtonElement",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HeroStage",
+        "Facts",
+        "FcInfo",
+        "FcSampleQr",
+        "Head",
         "Image",
-        "InfoToggle",
         "Link",
-        "Pill",
-        "PlanPagePreview",
-        "PlanTiers",
-        "QrMoments",
-        "RunTheDay",
-        "SampleShopPage",
-        "SupplierPlanTable",
+        "ServiceFace",
         "T"
       ]
     },
@@ -421,57 +413,32 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
-        "for-suppliers/_components/plan-page-preview.tsx",
-        "for-suppliers/_components/plan-table-chips.tsx",
         "for-suppliers/_components/plan-table-data.ts",
-        "for-suppliers/_components/supplier-badge-shelf.tsx",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
         "for-suppliers/_components/supplier-front-page.tsx",
         "for-suppliers/_components/supplier-how-we-earn-data.ts",
-        "for-suppliers/_components/supplier-how-we-earn.tsx",
-        "for-suppliers/_components/supplier-plan-table.tsx"
+        "for-suppliers/_components/supplier-how-we-earn.tsx"
       ],
       "destinations": [
         "/pricing"
       ],
       "actions": [],
       "blocks": [
-        "Cell",
-        "CheckADateDemo",
-        "CtaDock",
-        "DayStatus",
-        "FeeStory",
-        "FoldPill",
+        "CardBadgeRow",
+        "FeeRuler",
         "HTMLButtonElement",
         "HTMLDivElement",
-        "HTMLElement",
-        "HeroStage",
         "Image",
         "Info",
+        "Lede",
         "Link",
-        "Photo",
-        "Pill",
-        "PlanPagePreview",
-        "PlanPageSheet",
-        "PlanPicker",
-        "PlanPreview",
-        "PlanPrice",
-        "PlanTableChips",
-        "PriceShapeCalc",
-        "QrChip",
-        "QrCtx.Provider",
-        "QrKey",
-        "QrSheetProvider",
-        "SampleShopPage",
-        "SupplierBadgeShelf",
-        "SupplierFrontCodes",
+        "PlanRows",
+        "SecHead",
+        "ServiceFace",
         "SupplierFrontPage",
-        "SupplierFrontRoot",
         "SupplierHowWeEarn",
-        "SupplierPlanTable",
-        "SwitchTrack",
         "Wedding"
       ]
     },
@@ -637,18 +604,11 @@
     },
     "/(shell)/pakanta": {
       "files": [
-        "(shell)/pakanta/loading.tsx",
         "(shell)/pakanta/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=pakanta",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/palogo": {
       "files": [
@@ -762,18 +722,11 @@
     },
     "/(shell)/patiktok": {
       "files": [
-        "(shell)/patiktok/loading.tsx",
         "(shell)/patiktok/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding?from=patiktok",
-        "/pricing"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DoorwayPage",
-        "SpotlightSection"
-      ]
+      "blocks": []
     },
     "/(shell)/pawebsite": {
       "files": [
@@ -2532,6 +2485,7 @@
         "admin/_components/focus-home.tsx",
         "admin/_components/focus-received.tsx",
         "admin/_components/focus-recents.tsx",
+        "admin/_components/focus-row.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
@@ -2666,11 +2620,15 @@
         "ErrorState",
         "FocusCardSheet",
         "FocusHome",
+        "FocusList",
+        "FocusListCtx.Provider",
         "FocusReceived",
         "FocusRecents",
+        "FocusRow",
         "Fold",
         "Fragment",
         "GuidedTour",
+        "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -2684,6 +2642,7 @@
         "OverlayBackdrop",
         "P",
         "PageMasthead",
+        "PeekToast",
         "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
@@ -2699,6 +2658,7 @@
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
+        "TwoWayPanes",
         "TypedRow",
         "UnreadBellBadge"
       ]
@@ -8117,7 +8077,6 @@
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
-        "GuestInviteCell",
         "GuestJumpRow",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
@@ -10146,7 +10105,6 @@
         "GuestSeatView",
         "HTMLDivElement",
         "HTMLElement",
-        "Head",
         "HoldButton",
         "Icon",
         "InfoTip",
@@ -10175,6 +10133,7 @@
         "PresenceMeta",
         "PriorityOrder",
         "ReadRefusedNotice",
+        "RiseScreen",
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
@@ -10211,7 +10170,8 @@
         "TypedRow",
         "UndoToastHost",
         "VipMark",
-        "VipPlusOneSeating"
+        "VipPlusOneSeating",
+        "WithRiseClose"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {
@@ -11851,6 +11811,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
@@ -11888,6 +11850,7 @@
         "/proposals/[seg]"
       ],
       "actions": [
+        "act",
         "action",
         "addWorkingNoteAction",
         "coupleConfirmReceived",
@@ -11917,6 +11880,8 @@
         "CoordinatorGrantChips",
         "CouplePhotoApprovals",
         "CouplePhotoApprovalsSheet",
+        "CoupleStoryShares",
+        "CoupleStorySharesCard",
         "CoupleThreadBody",
         "DepositReservation",
         "DetailPageSkeleton",
@@ -14513,6 +14478,7 @@
         "vendor-dashboard/_components/today-v2-assemble.tsx",
         "vendor-dashboard/_components/today-v2-client.tsx",
         "vendor-dashboard/_components/today-v2.tsx",
+        "vendor-dashboard/_components/today-wrap-up.tsx",
         "vendor-dashboard/_components/undoable-answers.tsx",
         "vendor-dashboard/_components/use-hero-pin.ts",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
@@ -14556,6 +14522,7 @@
       ],
       "actions": [
         "acceptInquiry",
+        "act",
         "agreeDeletion",
         "agreeLock",
         "answerDateChange",
@@ -14568,6 +14535,7 @@
         "formAction",
         "markServiceComplete",
         "postReviewReply",
+        "postVendorReply",
         "rejectLock",
         "renewAction",
         "respondMeeting",
@@ -14634,6 +14602,7 @@
         "Group",
         "GrowthWindow",
         "GrowthWindowCtx.Provider",
+        "GuestReply",
         "GuidedTour",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -14651,6 +14620,7 @@
         "InquiryBody",
         "KeepAnswer",
         "LatLng",
+        "Line",
         "Link",
         "LockBody",
         "LockRequestBody",
@@ -14725,6 +14695,7 @@
         "Spotlight",
         "SpotlightMount",
         "StageBadge",
+        "Stars",
         "State",
         "StayOnTodayLine",
         "StayOnTodayLineView",
@@ -14768,10 +14739,13 @@
         "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
+        "TodayTomorrowLink",
         "TodayTrending",
         "TodayV2Needs",
         "TodayV2Sub",
+        "TodayWrapUpBody",
         "TrackRecordRow",
+        "TwoWayPanes",
         "TypedRow",
         "UndoableAnswers",
         "Unread",
@@ -15046,6 +15020,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/client-chat-strip.tsx",
         "vendor-dashboard/clients/[eventId]/_components/client-refunds.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
         "vendor-dashboard/clients/[eventId]/_components/coordinator-answers.tsx",
@@ -15176,9 +15151,13 @@
         "ChangeOp",
         "ChangeRequestsQueue",
         "ChapterSection",
+        "ChatHome",
+        "ChatHomeProvider",
+        "ChatHomeTop",
         "ChatPage",
         "Choice",
         "ChosenRow",
+        "ClientChatStrip",
         "ClientDayAnswers",
         "ClientNotes",
         "ClientRefundView",
@@ -15237,7 +15216,6 @@
         "MyMomentSheet",
         "MyTimesSheet",
         "NamedColourDot",
-        "NextStepRow",
         "OpenTheirEvent",
         "OverviewTab",
         "OwnTimesForm",
@@ -15698,7 +15676,8 @@
         "formAction",
         "importExternalClient",
         "moveAction",
-        "removeBlock"
+        "removeBlock",
+        "saveAction"
       ],
       "blocks": [
         "AccordionSkeleton",
@@ -15708,6 +15687,7 @@
         "BlockDateAdd",
         "BookedMonthScope",
         "BookingFeeBills",
+        "BookingWindowRows",
         "BookingsSurface",
         "BuyAPack",
         "BuyVendorPapicPortfolioPackState",

@@ -29,7 +29,7 @@ import {
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
-import { CHAT_WHISPER_FIELD, whisperFromForm } from '@/lib/chat-whisper';
+import { CHAT_WHISPER_FIELD, teamWhisperTitle, whisperFromForm } from '@/lib/chat-whisper';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
 
 /**
@@ -223,7 +223,7 @@ export async function notifyOtherParty(args: {
         type: 'chat_message',
         title: args.whisper
           ? args.whisperSide === 'team'
-            ? `Whisper from your team · ${vendorName}`
+            ? teamWhisperTitle(vendorName)
             : `Whisper · ${eventName}`
           : `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,

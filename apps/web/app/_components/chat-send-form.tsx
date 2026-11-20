@@ -64,6 +64,7 @@ import {
   WHISPER_DISPUTE_NOTE,
   WHISPER_ON_LINE,
   WHISPER_PLACEHOLDER,
+  WHISPER_TEAM_SWITCH,
   WHISPER_WORDS_ONLY_MESSAGE,
   dragFollowPx,
   dragSwitches,
@@ -747,7 +748,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className="sr-only focus-visible:not-sr-only focus-visible:self-center focus-visible:rounded-full focus-visible:px-3 focus-visible:py-2 focus-visible:text-[13px] focus-visible:font-semibold focus-visible:text-[rgb(var(--color-private-text))]"
           data-chat-whisper-switch=""
         >
-          {whisper.side === 'team' ? 'Whisper to your team only' : 'Whisper to co-hosts only'}
+          {whisper.side === 'team' ? WHISPER_TEAM_SWITCH : 'Whisper to co-hosts only'}
         </button>
       ) : null}
       {/* 💬 THE CHIPS — raised above the box, in the thumb zone; ONE switch (the picked chip is the filled one). */}

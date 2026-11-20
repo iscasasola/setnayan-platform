@@ -43,7 +43,7 @@ export function quoteTermsFromCards(
 export function termsAtAccept(input: { terms: string | null | undefined; supplierName: string; status: string }): { words: string; agreed: boolean } | null {
   if (!(input.terms ?? '').trim()) return null;
   const agreed = input.status === 'accepted';
-  return { agreed, words: agreed ? `You agreed to ${input.supplierName}’s terms` : `Accepting means you agree to ${input.supplierName}’s terms` };
+  return { agreed, words: agreed ? `You agreed to ${input.supplierName}’s terms` : `You agree to ${input.supplierName}’s terms` };
 }
 
 // ── The receipt ─────────────────────────────────────────────────────────────

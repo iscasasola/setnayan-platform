@@ -8,6 +8,7 @@
  * The one write (the hosts confirming a handover) is the SHIPPED `acknowledgeHandover` action.
  */
 import { createClient } from '@/lib/supabase/client';
+import { TASK_COLUMNS } from '@/lib/schedule-chapters';
 import { acknowledgeHandover } from '@/app/dashboard/[eventId]/vendors/actions';
 import { dayCrew, handoverFor, receiptFor, type CrewTaskRow, type DayCrewMember, type HandoverRow, type PaymentRow, type Receipt } from '@/lib/deal-end';
 import type { HandoverKind } from '@/lib/chat-card-lines';
@@ -86,7 +87,8 @@ export async function loadDayCrew(threadId: string): Promise<DayCrewRead> {
   if (!b.vendorId) return { ok: true, members: [], firstArrival: null, eventId: b.eventId };
   const { data, error } = await supabase
     .from('event_schedule_tasks')
-    .select('block_id, crew, what, call_at, sort_order')
+    // The schedule's own column list (`TASK_COLUMNS`) — never a narrower hand-typed copy of it.
+    .select(TASK_COLUMNS)
     .eq('vendor_id', b.vendorId)
     .not('crew', 'is', null);
   if (error) return refused('crew · tasks', error);

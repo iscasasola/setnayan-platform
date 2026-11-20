@@ -6,6 +6,7 @@
  *   ?m=rose     "Quote rose to N pax · +₱X" as both sides' streams draw it (PR-2) · ?m=balance  the Final balance growing
  *   ?m=fell     "Quote fell to N pax · −₱X" as both sides' streams draw it · ?m=drop  the Final balance shrinking (paid stays)
  *   ?m=dealend  🏁 The deal's end (Unichat part H2): terms at Accept · receipt · crew · handover · review, both sides
+ *               (&f=1: the hosts' cards unseeded, so each read is refused and draws its "Couldn't load" face)
  *   ?m=make     🧾 Make a quote (cut 7) — the short card a no-quote chat drops (&e=1: a shop with no card on)
  *   &e=1                                                                          its honest EMPTY state
  *   &step=N                                                                       open on step N (filled up to it)
@@ -25,6 +26,7 @@ import { GuestRecountCard } from '@/app/_components/chat/cards/guest-recount-car
 import { BookRequestCard } from '@/app/_components/chat/cards/book-request-card';
 import type { QuoteForCard } from '@/app/_components/chat/cards/card-calls';
 import { planLedger } from '@/lib/chat-cards';
+import { formatPhp } from '@/lib/php';
 import { StreamLineCard } from '@/app/_components/chat/cards/stream-line-card';
 import { followGuestCount } from '@/lib/quote-pax-follow';
 import { ReceiptCard } from '@/app/_components/chat/cards/receipt-card';
@@ -314,6 +316,22 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
                 { name: 'Ben Tan', roles: ['Rigger'], arriveAt: null },
               ],
             };
+        if (sp.f === '1') {
+          // &f=1 — the hosts' cards with NO seed: each read really goes out, and the lab's dummy database refuses it,
+          // so every card draws its honest "Couldn't load" face (never an empty card, never ₱0).
+          return (
+            <div className="grid gap-1" data-dealend-lab="failed">
+              <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">
+                <p className="text-[15px] font-bold text-ink">{formatPhp(51_000)} · v2</p>
+                <QuoteTermsLine proposalId={QUOTE.proposalId} supplierName="Lumina Studio" />
+              </div>
+              <ReceiptCard threadId={THREAD} createdAt={at} amountWords={formatPhp(15_300)} first viewer="couple" supplierName="Lumina Studio" />
+              <CrewDayCard threadId={THREAD} viewer="couple" supplierName="Lumina Studio" />
+              <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer="couple" supplierName="Lumina Studio" />
+              <ReviewAskCard threadId={THREAD} viewer="couple" supplierName="Lumina Studio" />
+            </div>
+          );
+        }
         const handover = (status: 'delivered' | 'acknowledged') =>
           empty
             ? { handover: null, eventId: EVENT }
@@ -327,11 +345,11 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
                   <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{v === 'couple' ? 'The hosts’ chat' : 'The supplier’s chat'}</p>
                   {v === 'couple' ? (
                     <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">
-                      <p className="text-[15px] font-bold text-ink">₱51,000 · v2</p>
+                      <p className="text-[15px] font-bold text-ink">{formatPhp(51_000)} · v2</p>
                       <QuoteTermsLine proposalId={QUOTE.proposalId} supplierName="Lumina Studio" seed={{ terms: empty ? '' : 'First payment non-refundable · 50% back if cancelled 30+ days before', status: 'sent' }} />
                     </div>
                   ) : null}
-                  <ReceiptCard threadId={THREAD} createdAt={at} amountWords="₱15,300" first viewer={v} supplierName={name} seed={{ receipt }} />
+                  <ReceiptCard threadId={THREAD} createdAt={at} amountWords={formatPhp(15_300)} first viewer={v} supplierName={name} seed={{ receipt }} />
                   <CrewDayCard threadId={THREAD} viewer={v} supplierName={name} seed={crew} />
                   <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer={v} supplierName={name} seed={handover('delivered')} />
                   <HandoverCard threadId={THREAD} createdAt={at} kind="gallery_link" viewer={v} supplierName={name} seed={handover('acknowledged')} />

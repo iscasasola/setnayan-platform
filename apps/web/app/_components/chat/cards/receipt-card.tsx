@@ -15,10 +15,10 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { formatCentavosPhp } from '@/lib/php';
-import { formatLongDate } from '@/lib/format-date';
+import { dayMonth } from '@/lib/format-date';
 import type { Receipt } from '@/lib/deal-end';
 import { loadReceipt } from './deal-end-calls';
-import { CouldNotLoad, KindCard, Loading, MoneyBar, type Read } from './card-bits';
+import { CouldNotLoad, KindCard, Loading, type Read } from './card-bits';
 
 type Got = { receipt: Receipt | null };
 
@@ -59,16 +59,19 @@ export function ReceiptCard({
     );
   }
   const r = read.at === 'ok' ? read.data.receipt : null;
+  // The drawing's receipt (`c.type==='receipt'`): the amount as the hero with "Receipt" beside it, and one line under
+  // it — how it was paid · the day · its number (here the payment's own reference, when the hosts gave one).
+  const sub = r ? [r.method, r.paidOn ? dayMonth(r.paidOn) : null, r.reference ? `ref ${r.reference}` : null].filter(Boolean).join(' · ') : '';
   return (
     <KindCard
       kind="payment"
       topic="payment"
       hero={Boolean(r)}
-      kicker={r ? `${r.whatFor} · confirmed by ${supplierName}` : `Confirmed by ${supplierName}`}
+      kicker={r ? sub || `Confirmed by ${supplierName}` : `Confirmed by ${supplierName}`}
       title={
         r ? (
           <>
-            {formatCentavosPhp(r.amountCentavos)} <small className="text-[12px] font-semibold text-ink/70">Receipt</small>
+            {formatCentavosPhp(r.amountCentavos)} <small className="text-[13px] font-semibold text-ink/70">Receipt</small>
           </>
         ) : (
           'Receipt'
@@ -84,23 +87,16 @@ export function ReceiptCard({
         <p className="text-[14px] text-ink/70" data-receipt-card="not-found">
           Couldn&rsquo;t find this payment in your records. Open Book &amp; Budget to see every payment.
         </p>
-      ) : (
-        <dl className="grid gap-1.5 text-[14px]" data-receipt-card="ok">
-          {r.agreedCentavos != null ? (
-            <MoneyBar paid={r.paidCentavos} total={r.agreedCentavos} label={`${formatCentavosPhp(r.paidCentavos)} of ${formatCentavosPhp(r.agreedCentavos)} paid`} />
-          ) : null}
-          <Row k="What for" v={r.whatFor} />
-          {r.paidOn ? <Row k="Paid on" v={formatLongDate(r.paidOn)} /> : null}
-          {r.method ? <Row k="Paid by" v={r.reference ? `${r.method} · ref ${r.reference}` : r.method} /> : null}
-          {r.leftCentavos != null ? (
-            <Row k="What is left" v={r.leftCentavos === 0 ? 'Nothing · paid in full ✓' : formatCentavosPhp(r.leftCentavos)} strong />
-          ) : (
-            // No accepted quote states a total, so what is left is not worked out — said, never guessed.
-            <p className="text-[13px] text-ink/60" data-receipt-left="unknown">
-              What is left shows once a quote is accepted.
-            </p>
-          )}
+      ) : r.leftCentavos != null ? (
+        // A balance stays on the card, never behind an ⓘ: what is left after THIS payment.
+        <dl className="grid text-[14px]" data-receipt-card="ok">
+          <Row k={`${r.whatFor} · what is left`} v={r.leftCentavos === 0 ? 'Nothing · paid in full ✓' : formatCentavosPhp(r.leftCentavos)} strong />
         </dl>
+      ) : (
+        // No accepted quote states a total, so what is left is not worked out — said, never guessed.
+        <p className="text-[13px] text-ink/60" data-receipt-card="ok" data-receipt-left="unknown">
+          What is left shows once a quote is accepted.
+        </p>
       )}
     </KindCard>
   );
@@ -109,8 +105,8 @@ export function ReceiptCard({
 function Row({ k, v, strong = false }: { k: string; v: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="flex-none text-ink/70">{k}</dt>
-      <dd className={`min-w-0 truncate text-right tabular-nums text-ink ${strong ? 'font-bold' : ''}`}>{v}</dd>
+      <dt className="min-w-0 truncate text-ink/70">{k}</dt>
+      <dd className={`flex-none text-right tabular-nums text-ink ${strong ? 'font-bold' : ''}`}>{v}</dd>
     </div>
   );
 }

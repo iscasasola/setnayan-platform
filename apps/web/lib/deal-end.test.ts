@@ -40,7 +40,7 @@ test('1 · terms: the card’s own words, said once, never invented', () => {
     'Lights: 50% back if cancelled 30+ days before · First payment non-refundable\nSound: no-show forfeits the first payment',
   );
   assert.equal(termsAtAccept({ terms: '  ', supplierName: 'Lumina', status: 'sent' }), null, 'no terms → no line at all');
-  assert.deepEqual(termsAtAccept({ terms: 'x', supplierName: 'Lumina', status: 'viewed' }), { agreed: false, words: 'Accepting means you agree to Lumina’s terms' });
+  assert.deepEqual(termsAtAccept({ terms: 'x', supplierName: 'Lumina', status: 'viewed' }), { agreed: false, words: 'You agree to Lumina’s terms' });
   assert.deepEqual(termsAtAccept({ terms: 'x', supplierName: 'Lumina', status: 'accepted' }), { agreed: true, words: 'You agreed to Lumina’s terms' });
 });
 

@@ -18,7 +18,7 @@ import { HANDOVER_KIND_WORD, type HandoverKind } from '@/lib/chat-card-lines';
 import { handoverLink, starWords, type HandoverRow } from '@/lib/deal-end';
 import { markDay } from '@/lib/supplier-schedule-marks';
 import { confirmHandoverFromChat, loadHandover, loadReview } from './deal-end-calls';
-import { CouldNotLoad, KindCard, Loading, Problem, type Read } from './card-bits';
+import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type Read } from './card-bits';
 
 type GotHandover = { handover: HandoverRow | null; eventId: string };
 
@@ -69,8 +69,9 @@ export function HandoverCard({
     <KindCard
       kind="file"
       topic="files"
-      kicker={mine ? 'Sent by you' : `From ${supplierName}`}
-      title={h?.label?.trim() ? `Handover · ${h.label.trim()}` : `Handover · ${word}`}
+      // The drawing's handover: "Handover" as the title, what was delivered as the one line under it.
+      kicker={h?.label?.trim() || word}
+      title="Handover"
       turn={received ? 'done' : !mine && h?.status === 'delivered' ? 'me' : 'wait'}
       settled={received ? `Handover · ${h?.label?.trim() || word} · received${h?.couple_acknowledged_at ? ` ${markDay(h.couple_acknowledged_at)}` : ''}` : undefined}
     >
@@ -84,16 +85,17 @@ export function HandoverCard({
         </p>
       ) : (
         <div className="grid gap-2" data-handover-card={h.status}>
-          <p className="text-[13px] font-semibold text-ink/70">{word}</p>
           {/* A note's own words; a link is opened by the button, never printed as a second, raw door. */}
           {h.payload && !link ? <p className="whitespace-pre-wrap break-words text-[14px] text-ink/80">{h.payload}</p> : null}
           {h.status === 'disputed' ? <p className="text-[14px] font-medium text-warn-800">Reported as a problem · Setnayan is looking at it</p> : null}
-          <div className="flex flex-wrap gap-2">
-            {link ? <ActionButton tone="neutral" icon={ExternalLink} label="Open" href={link} target="_blank" /> : null}
-            {!mine && h.status === 'delivered' ? (
-              <ActionButton tone="ok" main icon={Check} label="I received it" onClick={confirm} disabled={busy} data-testid="handover-confirm" />
-            ) : null}
-          </div>
+          {link || (!mine && h.status === 'delivered') ? (
+            <EqualRow>
+              {link ? <ActionButton tone="neutral" icon={ExternalLink} label="Open" href={link} target="_blank" /> : null}
+              {!mine && h.status === 'delivered' ? (
+                <ActionButton tone="ok" main icon={Check} label="I received it" onClick={confirm} disabled={busy} data-testid="handover-confirm" />
+              ) : null}
+            </EqualRow>
+          ) : null}
           {mine && h.status === 'delivered' ? <p className="text-[13px] text-ink/60">Waiting for the hosts to confirm they received it</p> : null}
           <Problem text={problem} />
         </div>
@@ -132,7 +134,7 @@ export function ReviewAskCard({
     <KindCard
       kind="decision"
       topic="decision"
-      kicker={stars ? (got!.review!.body ? `“${got!.review!.body}”` : 'Review posted') : mine ? 'Stars and a few words' : 'The hosts review'}
+      kicker={stars ? (got!.review!.body ? `“${got!.review!.body}”` : 'Review posted') : mine ? 'Stars and one line' : 'The hosts review'}
       title={
         stars ? (
           <span role="img" aria-label={stars.label} data-review-stars="">
@@ -152,9 +154,9 @@ export function ReviewAskCard({
       ) : read.at === 'failed' ? (
         <CouldNotLoad what="the review" onRetry={load} />
       ) : !stars && mine && got!.writeHref ? (
-        <div className="flex" data-review-ask="open">
+        <EqualRow data="review-ask">
           <ActionButton tone="brand" main icon={PenLine} label="Write review" href={got!.writeHref} />
-        </div>
+        </EqualRow>
       ) : null}
     </KindCard>
   );

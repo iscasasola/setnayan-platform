@@ -14,7 +14,7 @@
  * the reader was never shown is the one thing this line exists to prevent.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ShieldCheck } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { termsAtAccept } from '@/lib/deal-end';
 import { loadQuoteTerms } from './deal-end-calls';
 import type { Read } from './card-bits';
@@ -47,10 +47,10 @@ export function QuoteTermsLine({ proposalId, supplierName, seed }: { proposalId:
   return (
     <details className="group mt-2" data-quote-terms={said.agreed ? 'agreed' : 'open'}>
       {/* The whole line is the press; its reach is 44 px tall through the ::after. */}
-      <summary className="sn-press relative flex min-h-7 cursor-pointer list-none items-center gap-1.5 text-[13px] font-medium text-ink/70 after:absolute after:inset-x-0 after:-inset-y-2 [&::-webkit-details-marker]:hidden">
-        <ShieldCheck aria-hidden className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
-        <span className="min-w-0 flex-1 truncate">{said.words}</span>
-        <ChevronDown aria-hidden className="h-4 w-4 flex-none transition-transform group-open:rotate-180" strokeWidth={2} />
+      <summary className="sn-press relative flex min-h-7 cursor-pointer list-none items-center gap-1.5 text-[13px] text-ink/70 after:absolute after:inset-x-0 after:-inset-y-2 [&::-webkit-details-marker]:hidden">
+        {/* The drawing's `.terms`: ⓘ + the sentence, nothing else. A tap opens the exact words under it. */}
+        <Info aria-hidden className="h-3.5 w-3.5 flex-none" strokeWidth={2} />
+        <span className="min-w-0 truncate">{said.words}</span>
       </summary>
       <p className="mt-1 whitespace-pre-wrap break-words rounded-md bg-ink/[0.04] px-3 py-2 text-[13px] leading-snug text-ink/80">{read.data.terms}</p>
     </details>

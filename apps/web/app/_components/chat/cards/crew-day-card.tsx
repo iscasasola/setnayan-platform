@@ -13,7 +13,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { clockWords } from '@/lib/schedule-chapters';
-import { countNoun } from '@/lib/format-number';
+import { formatCount } from '@/lib/format-number';
 import type { DayCrewMember } from '@/lib/deal-end';
 import { loadDayCrew } from './deal-end-calls';
 import { CouldNotLoad, KindCard, KindTag, Loading, type Read } from './card-bits';
@@ -50,25 +50,19 @@ export function CrewDayCard({
   }
   const got = read.at === 'ok' ? read.data : null;
   const first = got?.firstArrival ? clockWords(got.firstArrival) : '';
-  return (
-    <KindCard
-      kind="meeting"
-      topic="schedule"
-      kicker={got && got.members.length > 0 ? `${countNoun(got.members.length, 'person', 'people')}${first ? ` · first arrives ${first}` : ''}` : 'Who comes on the day'}
-      title={`${supplierName}’s crew for the day`}
-      turn="wait"
-    >
-      {read.at === 'loading' ? (
-        <Loading />
-      ) : read.at === 'failed' ? (
-        <CouldNotLoad what="the crew" onRetry={load} />
-      ) : got!.members.length === 0 ? (
-        <p className="text-[14px] text-ink/70" data-crew-day-card="none">
-          No crew is named on the Schedule right now.
-        </p>
-      ) : (
-        <ul className="grid gap-2" data-crew-day-card="ok">
-          {got!.members.map((m) => (
+  if (got && got.members.length > 0) {
+    // The drawing gives the hosts ONE quiet line ("Lumina’s crew is set · 3 · arrive 12:00 PM"), not a card. Its press
+    // opens who comes, what each does and when — read live off the Schedule.
+    return (
+      <details className="group my-1" data-crew-day-card="ok">
+        <summary className="sn-press relative mx-auto flex min-h-7 w-fit max-w-full cursor-pointer list-none items-center justify-center text-center text-[13px] text-ink/60 after:absolute after:inset-x-0 after:-inset-y-2 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0 truncate">
+            {supplierName}&rsquo;s crew is set · {formatCount(got.members.length)}
+            {first ? ` · arrive ${first}` : ''}
+          </span>
+        </summary>
+        <ul className="mt-2 grid gap-2 rounded-md bg-frame p-3 shadow-sn-hair">
+          {got.members.map((m) => (
             <li key={m.name} className="flex items-start justify-between gap-3">
               <span className="grid min-w-0">
                 <b className="truncate text-[15px] font-semibold text-ink">{m.name}</b>
@@ -81,6 +75,25 @@ export function CrewDayCard({
             </li>
           ))}
         </ul>
+      </details>
+    );
+  }
+  return (
+    <KindCard
+      kind="meeting"
+      topic="schedule"
+      kicker="Who comes on the day"
+      title={`${supplierName}’s crew for the day`}
+      turn="wait"
+    >
+      {read.at === 'loading' ? (
+        <Loading />
+      ) : read.at === 'failed' ? (
+        <CouldNotLoad what="the crew" onRetry={load} />
+      ) : (
+        <p className="text-[14px] text-ink/70" data-crew-day-card="none">
+          No crew is named on the Schedule right now.
+        </p>
       )}
     </KindCard>
   );

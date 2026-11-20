@@ -67,3 +67,10 @@ SPEC IMPACT: None beyond the ruling already in the PR's STATUS (Decisions).
 - DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts`: 9/9 (3 new; the two defect tests were shown red first).
 - Plan page: a held add-on row reads "Ultra Add-on 2 · Until Thu 17 Dec 2026" (the number moved to the title) — at 375 px the end date was cut off. §4 shots: `build-sessions/shots-plan-numbers/renew-*`.
 SPEC IMPACT: None.
+
+### Refunds of a renewal can no longer fail silently (20 Nov, round 4)
+- `ultra_addon_reverse_renewal` returns TRUE (28 days taken back), FALSE (applied, but the add-on already ends before the renewal's mark, so nothing was taken) or NULL (nothing to undo). The deactivation hook reports FALSE through `reportActivationFault`, so a reversal that moved nothing never looks like one that worked. The return type changed while the migration is unshipped, so the file drops the function before re-creating it.
+- Both renewal functions lock the add-on row before the renewal row, so an approval and a refund (or two refunds) on one add-on serialize and cannot deadlock.
+- If the original add-on itself is refunded, renewals already paid on it lose their value. That stays Setnayan's call, by hand (controller note).
+- DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts`: 13/13. New: refund the latest renewal (the earlier mark stays) · refund after the add-on has ended (28 days come off the end it set, never off today; no live window; taken once only) · a refund that takes nothing says FALSE · two add-ons on one shop stay independent through out-of-order refunds (B's mark, end and reminder lock never move).
+SPEC IMPACT: None.

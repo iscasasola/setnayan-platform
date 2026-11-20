@@ -490,10 +490,16 @@ DECLARE
   t public.orders%ROWTYPE;
   v_end timestamptz;
 BEGIN
-  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
+  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id;
   IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix THEN
     RAISE EXCEPTION 'ultra_addon_apply_renewal: % is not an Ultra Add-on renewal', p_renewal_order_id;
   END IF;
+  -- Lock order: the ADD-ON row first, then the renewal (the same order as ultra_addon_reverse_renewal), so an
+  -- approval and a refund on one add-on serialize on that row and never deadlock.
+  SELECT * INTO t FROM public.orders
+   WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
+   FOR UPDATE;
+  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
   IF r.status NOT IN ('paid', 'fulfilled') THEN
     RAISE EXCEPTION 'ultra_addon_apply_renewal: renewal % is not paid (%)', p_renewal_order_id, r.status;
   END IF;
@@ -501,10 +507,7 @@ BEGIN
   IF r.expires_at IS NOT NULL THEN
     RETURN r.expires_at;
   END IF;
-
-  SELECT * INTO t FROM public.orders
-   WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
-   FOR UPDATE;
+  SELECT * INTO t FROM public.orders WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid;
   -- The add-on must be THIS shop's, an Ultra Add-on, and paid.
   IF NOT FOUND
      OR r.vendor_profile_id IS NULL
@@ -531,8 +534,13 @@ COMMENT ON FUNCTION public.ultra_addon_apply_renewal(uuid) IS
 REVOKE ALL ON FUNCTION public.ultra_addon_apply_renewal(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ultra_addon_apply_renewal(uuid) TO service_role;
 
+-- Returns TRUE when it took the 28 days back, FALSE when the renewal had been applied but nothing could be taken (the
+-- add-on already ends before its mark), NULL when there was nothing to undo. The deactivation hook reports FALSE, so a
+-- reversal that moved nothing never looks like one that worked (review, 20 Nov). The return type changed while this
+-- migration was unshipped, hence the DROP (CREATE OR REPLACE cannot change a return type).
+DROP FUNCTION IF EXISTS public.ultra_addon_reverse_renewal(uuid);
 CREATE OR REPLACE FUNCTION public.ultra_addon_reverse_renewal(p_renewal_order_id uuid)
-RETURNS void
+RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
@@ -540,10 +548,18 @@ AS $$
 DECLARE
   v_prefix CONSTANT text := 'vendor_ultra_addon_renew__';
   r public.orders%ROWTYPE;
+  v_took boolean;
 BEGIN
+  SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id;
+  IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix THEN
+    RETURN NULL; -- not a renewal: nothing to undo
+  END IF;
+  -- Lock order: the ADD-ON row first, then this renewal (as in ultra_addon_apply_renewal). Every approval or refund of
+  -- this add-on waits here, so two refunds taken at once can neither deadlock nor read a stale end or mark.
+  PERFORM 1 FROM public.orders WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid FOR UPDATE;
   SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
-  IF NOT FOUND OR r.service_key IS NULL OR left(r.service_key, length(v_prefix)) <> v_prefix OR r.expires_at IS NULL THEN
-    RETURN; -- not a renewal, or never applied: nothing to undo
+  IF r.expires_at IS NULL THEN
+    RETURN NULL; -- never applied, or already undone: nothing to undo (time is never taken twice)
   END IF;
   -- Take back exactly the 28 days it added, while the add-on still ends at or after this renewal's mark. Refunds can
   -- come out of order (review, 20 Nov): with R1 then R2 applied, A ends at R2's mark, past R1's — refunding R1 still
@@ -554,7 +570,8 @@ BEGIN
    WHERE t.order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
      AND t.vendor_profile_id = r.vendor_profile_id
      AND t.expires_at >= r.expires_at;
-  IF FOUND THEN
+  v_took := FOUND;
+  IF v_took THEN
     UPDATE public.orders l
        SET expires_at = l.expires_at - interval '28 days', updated_at = now()
      WHERE l.service_key = r.service_key
@@ -565,11 +582,12 @@ BEGIN
     DELETE FROM public.renewal_reminder_log WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid;
   END IF;
   UPDATE public.orders SET expires_at = NULL, updated_at = now() WHERE order_id = r.order_id;
+  RETURN v_took;
 END;
 $$;
 
 COMMENT ON FUNCTION public.ultra_addon_reverse_renewal(uuid) IS
-  'Undo a refunded or cancelled Ultra Add-on renewal: take its 28 days back off the add-on it extended while that add-on ends at or after this renewal''s mark, move every later renewal''s mark of the same add-on down by 28 days, clear the add-on''s reminder lock, and clear the renewal''s marker. Called by the deactivation hook (lib/sku-activation.ts). service_role only.';
+  'Undo a refunded or cancelled Ultra Add-on renewal: take its 28 days back off the add-on it extended while that add-on ends at or after this renewal''s mark, move every later renewal''s mark of the same add-on down by 28 days, clear the add-on''s reminder lock, and clear the renewal''s marker. Returns TRUE when the 28 days were taken back, FALSE when the renewal had been applied but the add-on already ended before its mark (nothing taken; the hook reports it), NULL when there was nothing to undo. Locks the add-on row before the renewal row. Called by the deactivation hook (lib/sku-activation.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.ultra_addon_reverse_renewal(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.ultra_addon_reverse_renewal(uuid) TO service_role;

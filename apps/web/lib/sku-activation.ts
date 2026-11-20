@@ -2866,8 +2866,13 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
   // Non-fatal, like the rest of this path.
   if (parseUltraAddOnRenewalServiceKey(ctx.serviceKey)) {
     try {
-      const { error } = await ctx.admin.rpc('ultra_addon_reverse_renewal', { p_renewal_order_id: ctx.orderId });
+      const { data: took, error } = await ctx.admin.rpc('ultra_addon_reverse_renewal', { p_renewal_order_id: ctx.orderId });
       if (error) throw new Error(error.message);
+      // FALSE = the renewal had been applied but its add-on already ends before its mark, so no day was taken back.
+      // Never let that look like a reversal that worked (review, 20 Nov): Setnayan decides by hand.
+      if (took === false) {
+        throw new Error(`renewal ${ctx.orderId} refunded, but its add-on already ends before the renewal's mark: no day taken back`);
+      }
     } catch (e) {
       reportActivationFault('deactivate:vendor_ultra_addon_renew', ctx, e);
     }

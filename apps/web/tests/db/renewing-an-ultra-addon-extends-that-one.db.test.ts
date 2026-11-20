@@ -232,3 +232,97 @@ test('a refund takes nothing back when the add-on already ends BEFORE that renew
   await db.query(`SELECT public.ultra_addon_reverse_renewal($1)`, [r1]);
   assert.equal(await endsAt(a), before, 'end < mark → left alone');
 });
+
+// ── Round 4 (20 Nov): the rest of the controller's refund cases, and a reversal that can no longer be silent ─────────
+
+async function refund(renewalId: string): Promise<boolean | null> {
+  await db.query(`UPDATE public.orders SET status = 'refunded' WHERE order_id = $1`, [renewalId]);
+  const r = await db.query<{ took: boolean | null }>(`SELECT public.ultra_addon_reverse_renewal($1) AS took`, [renewalId]);
+  return r.rows[0]!.took;
+}
+
+test('refunding the LATEST renewal takes back its 28 days and leaves the earlier renewal’s mark where it is', async () => {
+  const s = await newShop('latest');
+  const a = await order(s, addOnKey(s.shop), 'paid', 10);
+  const a0 = (await endsAt(a))!;
+  const r1 = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [r1]);
+  const r1Mark = (await endsAt(r1))!;
+  const r2 = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [r2]);
+
+  assert.equal(await refund(r2), true, 'the reversal says it took the 28 days back');
+  assert.equal((await endsAt(a))! - a0, 28 * DAY, 'only R2’s 28 days are gone');
+  assert.equal(await endsAt(r1), r1Mark, 'R1’s mark is untouched (it came earlier)');
+  assert.equal(await endsAt(a), r1Mark, 'A ends at R1’s mark again');
+
+  assert.equal(await refund(r1), true);
+  assert.equal(await endsAt(a), a0, 'both refunded → A is back to its own end');
+});
+
+test('a refund after the add-on has already ended takes the 28 days back once, opens no live window, and reports it', async () => {
+  const s = await newShop('ended');
+  const a = await order(s, addOnKey(s.shop), 'paid', 10);
+  const r = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [r]);
+  // Time passes: the add-on (and so the renewal's mark) is 3 days in the past.
+  await db.query(`UPDATE public.orders SET expires_at = now() - interval '3 days' WHERE order_id IN ($1, $2)`, [a, r]);
+  const ended = (await endsAt(a))!;
+  assert.equal(await liveCount(s.shop), 0);
+
+  assert.equal(await refund(r), true);
+  assert.equal((await endsAt(a))!, ended - 28 * DAY, 'its 28 days come off the end it set, never off today');
+  assert.equal(await liveCount(s.shop), 0, 'no live add-on appears');
+  assert.ok(!(await dueIds()).includes(a), 'and nothing is reminded');
+
+  // Taken once only: a second reversal of the same refund changes nothing.
+  assert.equal(await refund(r), null, 'already undone → nothing to undo');
+  assert.equal((await endsAt(a))!, ended - 28 * DAY);
+});
+
+test('a refund that takes nothing back says so (false), so the hook can report it instead of looking like success', async () => {
+  const s = await newShop('says-so');
+  const a = await order(s, addOnKey(s.shop), 'paid', 10);
+  const r = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [r]);
+  await db.query(`UPDATE public.orders SET expires_at = expires_at - interval '5 days' WHERE order_id = $1`, [a]);
+  assert.equal(await refund(r), false, 'applied, but A ends before its mark → nothing taken, and it says so');
+  const never = await order(s, ultraAddOnRenewalServiceKey(a), 'submitted', null);
+  assert.equal(await refund(never), null, 'never applied → nothing to undo');
+});
+
+test('two add-ons on one shop stay independent through renewals and out-of-order refunds', async () => {
+  const s = await newShop('independent');
+  const a = await order(s, addOnKey(s.shop), 'paid', 5);
+  const b = await order(s, addOnKey(s.shop), 'paid', 9);
+  const a0 = (await endsAt(a))!;
+  const b0 = (await endsAt(b))!;
+  const ra1 = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [ra1]);
+  const rb = await order(s, ultraAddOnRenewalServiceKey(b), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [rb]);
+  const ra2 = await order(s, ultraAddOnRenewalServiceKey(a), 'paid', null);
+  await db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [ra2]);
+  const rbMark = (await endsAt(rb))!;
+  // B's renewal mark lies AFTER A's first renewal's mark — a shift keyed on the shop (not the add-on) would move it.
+  assert.ok(rbMark > (await endsAt(ra1))!);
+  assert.equal(await liveCount(s.shop), 2);
+
+  // A's reminder lock and B's, then refund A's FIRST renewal.
+  await db.query(`INSERT INTO public.renewal_reminder_log (order_id, reminder_window) VALUES ($1, '7d'), ($2, '7d')`, [a, b]);
+  assert.equal(await refund(ra1), true);
+  assert.equal((await endsAt(a))! - a0, 28 * DAY, 'A loses exactly R1’s 28 days');
+  assert.equal(await endsAt(ra2), await endsAt(a), 'A’s later renewal mark shifts with A');
+  assert.equal(await endsAt(b), b0 + 28 * DAY, 'B keeps its own renewal');
+  assert.equal(await endsAt(rb), rbMark, 'B’s renewal mark is never shifted by A’s refund');
+  const locks = await db.query<{ order_id: string }>(
+    `SELECT order_id FROM public.renewal_reminder_log WHERE order_id IN ($1, $2)`,
+    [a, b],
+  );
+  assert.deepEqual(locks.rows.map((r) => r.order_id), [b], 'only A’s reminder lock is cleared');
+
+  assert.equal(await refund(rb), true);
+  assert.equal(await endsAt(b), b0, 'B back to its own end');
+  assert.equal((await endsAt(a))! - a0, 28 * DAY, 'A unchanged by B’s refund');
+  assert.equal(await liveCount(s.shop), 2, 'still two add-ons throughout');
+});

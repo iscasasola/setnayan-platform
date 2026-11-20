@@ -23,7 +23,6 @@ import {
   canUseEditorialFeatures,
   isTierAtLeast,
   isTrueNameTier,
-  reachLadderWords,
   TIER_CAPS,
   VENDOR_TIERS,
   type VendorTier,
@@ -31,12 +30,13 @@ import {
 import { vendorHoldsActivePaidSub } from './vendor-favorite-gate';
 
 const LADDER = ['free', 'verified', 'solo', 'pro', 'enterprise'] as const;
-const NUMERIC = ['serviceRadiusKm', 'parentCategories', 'serviceCardsTotal', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
+const NUMERIC = ['parentCategories', 'serviceCardsTotal', 'agentAccounts', 'waitlistAcceptances', 'branchesIncluded'] as const;
 
 test('allowances · the owner\'s 2026-11-18 numbers, Free / Verified / Plus / Pro / Max', () => {
   const row = (k: (typeof NUMERIC)[number]) => LADDER.map((t) => TIER_CAPS[t][k]);
   // Owner 2026-11-18, DECISION_LOG "SUPPLIER PLANS REBUILT" (+ ruling 39). `enterprise` is the plan now called Max.
-  assert.deepEqual(row('serviceRadiusKm'), [5, 10, 50, 100, Infinity], 'reach: 5 / 10 / 50 / 100 km / nationwide');
+  // 🔓 No reach row: reach is not a plan allowance since 2026-11-19 (owner, "unlock the range. not plan dependend
+  // anymore") — held by `reach-is-not-a-plan-allowance.test.ts`.
   // Ultra raised 2026-11-14 ("SIMPLER SUPPLIER PLANS"): all 16 main categories · 30 cards each · 10 bookings a day.
   assert.deepEqual(row('parentCategories'), [1, 1, 2, 8, 12], 'main categories: 1 / 1 / 2 / 8 / all 12');
   assert.deepEqual(row('serviceCardsTotal'), [1, 3, 10, 20, 80], 'service cards in total: 1 / 3 / 10 / 20 / 80');
@@ -71,9 +71,8 @@ test('calls · the stale capability is gone from every plan', () => {
   for (const t of VENDOR_TIERS) assert.ok(!('calls' in TIER_CAPS[t]), `${t} still carries a calls cap`);
 });
 
-test('reach ladder words say "nationwide", never "Infinity"', () => {
-  assert.doesNotMatch(reachLadderWords(), /Infinity/);
-  assert.match(reachLadderWords(), /Ultra nationwide$/);
+test('reach · no plan carries a distance any more (owner 2026-11-19)', () => {
+  for (const t of VENDOR_TIERS) assert.ok(!('serviceRadiusKm' in TIER_CAPS[t]), `${t} still carries a reach cap`);
 });
 
 // ── Subscription-ladder contents (Vendor_Subscription_Ladder_2026-07-22 §1/§4) ──
@@ -82,47 +81,33 @@ test('reach ladder words say "nationwide", never "Infinity"', () => {
 // away from what's marketed. Prices are NOT asserted here (they live in the live
 // vendor_billing_catalog; TIER_PRICE_PHP is only a fallback).
 
-test('ladder · Free: 1 category, local reach, no market intel, no agent seats', () => {
+test('ladder · Free: 1 category, no market intel, no agent seats', () => {
   const c = TIER_CAPS.free;
   assert.equal(c.parentCategories, 1, 'Free lists under exactly 1 category');
-  assert.equal(c.serviceRadiusKm, 5, 'Free reach is 5 km from the shop (owner 2026-11-18)');
   assert.equal(c.marketIntel, false, 'Free has no Market Intel');
   assert.equal(canSeeMarketIntel('free'), false);
   assert.equal(c.agentAccounts, 0, 'Free has no agent seats');
 });
 
-test('ladder · Supplier Plus: expanded reach + analytics, still no Market Intel', () => {
+test('ladder · Supplier Plus: analytics, still no Market Intel', () => {
   const c = TIER_CAPS.solo;
-  assert.ok(c.serviceRadiusKm > 0, 'Supplier Plus unlocks reach beyond local');
   assert.equal(c.performanceTrends, true, 'Supplier Plus gets business-performance analytics');
   assert.equal(c.marketIntel, false, 'Supplier Plus does NOT get Market Intel (Pro+ only)');
   assert.equal(canSeeMarketIntel('solo'), false);
 });
 
-test('ladder · Pro: Market Intel + up to 5 seats + expanded reach', () => {
+test('ladder · Pro: Market Intel + up to 5 seats', () => {
   const c = TIER_CAPS.pro;
   assert.equal(c.marketIntel, true, 'Pro gets Market Intel (Demand Radar + Price-Position)');
   assert.equal(canSeeMarketIntel('pro'), true);
   assert.equal(c.agentAccounts, 5, 'Pro = up to 5 agent seats (owner 2026-11-04; was 3)');
-  assert.ok(
-    c.serviceRadiusKm > TIER_CAPS.solo.serviceRadiusKm,
-    'Pro reach is wider than Supplier Plus',
-  );
 });
 
-test('ladder · Max (enterprise): 12 seats + nationwide reach + all 12 categories', () => {
+test('ladder · Max (enterprise): 12 seats + all 12 categories', () => {
   const c = TIER_CAPS.enterprise;
   assert.equal(c.agentAccounts, 11, 'Max = 12 seats with the owner (owner 2026-11-18)');
-  assert.equal(c.serviceRadiusKm, Infinity, 'Ultra = nationwide (owner 2026-11-04; was 100 km)');
   assert.equal(c.parentCategories, 12, 'Max = all 12 main categories (owner 2026-11-18)');
   assert.equal(c.marketIntel, true, 'Enterprise keeps Market Intel');
-});
-
-test('ladder · reach is monotonic Free ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {
-  const { free, solo, pro, enterprise } = TIER_CAPS;
-  assert.ok(free.serviceRadiusKm <= solo.serviceRadiusKm);
-  assert.ok(solo.serviceRadiusKm <= pro.serviceRadiusKm);
-  assert.ok(pro.serviceRadiusKm <= enterprise.serviceRadiusKm);
 });
 
 test('ladder · agent seats are monotonic Free ≤ Supplier Plus ≤ Pro ≤ Enterprise', () => {

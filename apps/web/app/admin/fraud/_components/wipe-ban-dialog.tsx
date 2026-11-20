@@ -6,6 +6,8 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { initiateFraudWipeBan } from '../actions';
+import { ActionButton } from '@/components/action-button';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * Wipe + Ban INITIATION dialog (anti-fraud § 5). The irreversible action is
@@ -40,14 +42,7 @@ export function WipeBanDialog({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/50 bg-white px-3 py-1.5 text-xs font-bold text-terracotta-700 transition-colors hover:bg-terracotta-50"
-      >
-        <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-        Confirm fraud → wipe + ban
-      </button>
+      <ActionButton tone="danger" icon={ShieldAlert} label="Confirm fraud → wipe + ban" type="button" onClick={() => setOpen(true)} />
 
       {open ? (
         <div
@@ -125,17 +120,11 @@ export function WipeBanDialog({
               </label>
 
               <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-md border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-ink/5"
-                >
-                  Cancel
-                </button>
+                <ActionButton tone="neutral" icon={X} label="Cancel" type="button" onClick={() => setOpen(false)} />
                 <SubmitButton
                   pendingLabel="Opening request…"
                   disabled={!matches}
-                  className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-bold text-cream transition-colors hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  className={actionButtonClass('danger', { main: true })}
                 >
                   Open two-admin wipe + ban request
                 </SubmitButton>

@@ -8,6 +8,7 @@ import {
   AI_PLAN_SKUS,
   AI_PLAN_SKUS_BEFORE_RECUT,
   EVENT_PLANS_RECUT_AT,
+  EVENT_PLANS_RECUT_FLOOR,
   eventMediaPlanFrom,
   placedBeforeRecut,
   planOrderCarriesSetnayanAi,
@@ -23,15 +24,27 @@ import { coupleMediaFullMessage } from '@/lib/couple-media-allowance';
  *   · Uploads per event: Free 10 MB · Plus 500 MB · Pro 1 GB · Ultra 2 GB.
  *
  * SABOTAGE (each turns this red): put 'EVENT_PLUS' back into AI_INCLUDED_PLAN_SKUS · set the AI flag before asking the
- * order's date · move the re-cut line earlier · let a bad date strip a past buyer · drop a plan's upload number.
+ * order's date · set the re-cut line to a guessed date before the ship moment (anything before the floor) · let a bad
+ * date strip a past buyer · drop a plan's upload number.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => readFileSync(join(HERE, '..', rel), 'utf8');
 
-test('the re-cut line is the end of the ruling day, Manila — never earlier', () => {
-  assert.equal(EVENT_PLANS_RECUT_AT, '2026-11-19T00:00:00+08:00');
-  assert.ok(Date.parse(EVENT_PLANS_RECUT_AT) >= Date.parse('2026-11-18T16:00:00Z'));
+test('the re-cut line is never before the deploy: null until the ship moment, and never before the floor', () => {
+  // ⏱ Committed as null — no cut yet, every Plus order keeps the AI. The session that publishes sets it to the moment the
+  // deploy is SERVED (lib/event-plans.ts says how). Whatever it is set to, it may not sit before this change's commit.
+  assert.equal(Date.parse(EVENT_PLANS_RECUT_FLOOR), Date.parse('2026-11-19T17:00:00Z'));
+  if (EVENT_PLANS_RECUT_AT !== null) {
+    assert.ok(Number.isFinite(Date.parse(EVENT_PLANS_RECUT_AT)), 'the re-cut line is not a readable date');
+    assert.match(EVENT_PLANS_RECUT_AT, /\+08:00$/, 'write the ship moment as Manila time');
+    assert.ok(Date.parse(EVENT_PLANS_RECUT_AT) >= Date.parse(EVENT_PLANS_RECUT_FLOOR), 'the re-cut line sits before the deploy');
+  }
+  // With no cut set, a Plus order placed any time keeps the AI.
+  assert.equal(placedBeforeRecut('2027-06-01T00:00:00Z', null), true);
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2027-06-01T00:00:00Z', null), true);
+  // A cut set before the floor (the 19 Nov 00:00 guess this replaced) is IGNORED — it would strip the gap's buyers.
+  assert.equal(placedBeforeRecut('2026-11-19T10:00:00+08:00', '2026-11-19T00:00:00+08:00'), true);
 });
 
 test('Event Pro and Ultra carry Setnayan AI for every buyer; Event Plus only before the re-cut', () => {
@@ -39,10 +52,13 @@ test('Event Pro and Ultra carry Setnayan AI for every buyer; Event Plus only bef
   assert.deepEqual([...AI_PLAN_SKUS_BEFORE_RECUT], ['EVENT_PLUS']);
   assert.equal(planOrderCarriesSetnayanAi('COUPLE_WEBSITE_PRO', '2026-12-01T00:00:00Z'), true);
   assert.equal(planOrderCarriesSetnayanAi('EVENT_ULTRA', '2026-12-01T00:00:00Z'), true);
-  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-10T09:00:00+08:00'), true, 'a past Plus buyer keeps the AI');
-  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-18T23:59:59+08:00'), true, 'the ruling day itself is grandfathered');
-  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-19T00:00:00+08:00'), false, 'a new Plus buyer gets no AI');
-  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2027-01-01T00:00:00Z'), false);
+  // With a ship moment set (an example one — the real one is set at ship time):
+  const SHIP = '2026-11-20T09:00:00+08:00';
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-10T09:00:00+08:00', SHIP), true, 'a past Plus buyer keeps the AI');
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-19T15:00:00+08:00', SHIP), true, 'the gap before the deploy is grandfathered');
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2026-11-20T08:59:59+08:00', SHIP), true);
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', SHIP, SHIP), false, 'a new Plus buyer gets no AI');
+  assert.equal(planOrderCarriesSetnayanAi('EVENT_PLUS', '2027-01-01T00:00:00Z', SHIP), false);
   assert.equal(planOrderCarriesSetnayanAi('PAPIC_GUEST_1K', '2026-11-10T00:00:00Z'), false);
   assert.equal(planOrderCarriesSetnayanAi(null, null), false);
 });

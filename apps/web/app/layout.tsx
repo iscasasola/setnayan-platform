@@ -59,6 +59,7 @@ import { appColoursToCss } from '@/lib/app-colours';
 import { scheduleBookingFeeMintingStamp } from '@/lib/booking-fee-minting-stamp.server';
 import { orgSameAs } from '@/lib/seo/org-same-as';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { siteOrigin } from '@/lib/site-origin';
 
 /**
  * App cold-start ("initialization") splash gate — owner 2026-06-07.
@@ -364,7 +365,7 @@ const SITE_DESCRIPTION =
 // per-request in generateMetadata() below so the admin-controlled brand icon
 // (owner 2026-06-10) can override the defaults. Everything else is constant.
 const baseMetadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(siteOrigin()),
   title: {
     default: SITE_TITLE,
     template: '%s · Setnayan',

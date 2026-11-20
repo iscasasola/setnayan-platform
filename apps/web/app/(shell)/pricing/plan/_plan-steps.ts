@@ -12,6 +12,7 @@
  * figures (`lib/old-way-costs.ts`) are about printing and time, never about another company.
  */
 import { OLD_WAY, oldWayMoney, type OldWayMoney } from '@/lib/old-way-costs';
+import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import type { AiBand, TwoPrices } from '../_pricing-reads';
 
 export type PlanPrices = {
@@ -42,6 +43,7 @@ export type QuestionKey =
   | 'papic'
   | 'live'
   | 'livewatch'
+  | 'plus'
   | 'pro'
   | 'ai'
   | 'patiktok'
@@ -146,6 +148,21 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           php: p.liveWatch,
         }
       : null,
+    // 🎟 "Want a nicer look?" → Event Plus (owner 19 Nov, DECISION_LOG "WEBSITE CONTENT — TEN OPEN PLAN AND COPY CALLS
+    // ANSWERED" (9); WEBSITE_CONTENT_2026-11-19.md "The plan quiz"): Event Plus works with or without suppliers, so the
+    // quiz offers it on the LOOK, not on suppliers. Its tip says only what a Plus order unlocks today (the Lane J rule,
+    // `plusPeek` in front-door-landing-data.ts); the ruling also names premium themes and a premium Save the Date, which
+    // join this tip with the build that gives them to Plus (#8004). Asked only when its price was read.
+    p.plus != null
+      ? {
+          k: 'plus',
+          q: 'Want a nicer look?',
+          line: 'A cleaner Event Hub and more of your photos.',
+          item: 'Event Plus',
+          tip: `One small “Made with Setnayan” mark instead of the watermark, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of your own photos and clips, and Papic credits for your guests’ cameras — with or without suppliers. ${peso(p.plus)}. Event Pro includes everything in Event Plus.`,
+          php: p.plus,
+        }
+      : null,
     p.pro
       ? {
           k: 'pro',
@@ -153,7 +170,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           line: 'Your photos, music, themes and logo.',
           item: 'Event Pro',
           tip:
-            'Everything: your photos, music, themes and logo on the Event Hub, the cinematic reveal, 1 GB of your own media, prints in your look, no Setnayan mark, and Setnayan AI to suggest your suppliers and watch your plan. ' +
+            `Everything: your photos, music, themes and logo on the Event Hub, the cinematic reveal, ${formatMakerMediaMB(coupleMediaCapBytes('pro'))} of your own media, prints in your look, no Setnayan mark, and Setnayan AI to suggest your suppliers and watch your plan. ` +
               (p.pro.signup != null
                 ? `${peso(p.pro.signup)} while you set up your event · ${peso(p.pro.regular)} after.`
                 : `${peso(p.pro.regular)}.`) +
@@ -224,7 +241,10 @@ export type PlanResult = {
 };
 
 export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices): PlanResult {
-  const yes = qs.filter((q) => s.answers[q.k] && (!q.after || s.answers[q.after]));
+  const said = qs.filter((q) => s.answers[q.k] && (!q.after || s.answers[q.after]));
+  // Event Pro includes everything in Event Plus: a yes to both is Event Pro once, never both billed.
+  const proPicked = said.some((q) => q.k === 'pro');
+  const yes = proPicked ? said.filter((q) => q.k !== 'plus') : said;
   const paid = yes.filter((q) => q.php != null);
   const total = paid.reduce((sum, q) => sum + (q.php ?? 0), 0);
   const ai = p.ai[s.type] ?? null;

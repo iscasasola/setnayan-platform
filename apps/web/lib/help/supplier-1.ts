@@ -209,7 +209,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // lib/supplier-qr-codes.ts `OWN_LINK_SRC = 'own'`, `ownPageUrl`; lib/booking-fee-disclosure.ts own clients
         slug: 'supplier-your-own-link',
         title: 'Suppliers: does a couple who comes from my own QR count as Setnayan’s?',
-        // The fee half ("your own clients never carry a booking fee") is retired everywhere (DECISION_LOG 2026-11-19
+        // The fee half (the retired promise that a supplier's own clients pay no booking fee) is retired everywhere (DECISION_LOG 2026-11-19
         // "PROMOTION PAGES", item 4); the free booking is said only in the 19 Nov words, SUPPLIER_FREE_BOOKING_LINE.
         body: 'No. Your QR from setup and the links you share from your page are marked as yours, so a couple who reaches you through them is your own client.',
       },

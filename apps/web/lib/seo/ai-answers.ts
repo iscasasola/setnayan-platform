@@ -30,7 +30,7 @@ import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
 /**
  * 🔑 THE FREE BOOKING, IN THE OWNER'S 19 NOV WORDS (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN ANSWERS", item 4).
  * It replaces both retired lines — the "first booking from Setnayan" one (not a rule: DECISION_LOG 2026-11-19
- * "WEBSITE CONTENT", item 5) and the "own clients are always free" one. No number of months is named. Exported so
+ * "WEBSITE CONTENT", item 5) and the retired promise that a supplier's own clients book free. No number of months is named. Exported so
  * /llms.txt says the same sentence.
  */
 export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";

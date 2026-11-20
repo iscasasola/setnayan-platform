@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -25,9 +26,7 @@ const BUCKET = 'moodboard-library';
 
 export default async function StylistMoodboardLibraryPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // 🔑 ONE PREDICATE, SHARED WITH actions.ts. The page used to ask "do you own
@@ -153,7 +152,7 @@ export default async function StylistMoodboardLibraryPage() {
   const [shopPhotos, cardsByPart] = settledValue(shopRead);
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       {/* ‹ Portfolio — the library lights Portfolio's tab (THE ONE BUILD, 8 Nov 2026), so its back goes there too. */}
       <Link
         href="/vendor-dashboard/collections"

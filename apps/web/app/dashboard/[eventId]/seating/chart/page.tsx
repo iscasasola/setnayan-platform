@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import { BackButton } from '@/app/_components/back-button';
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
@@ -49,7 +50,8 @@ export default async function EntranceChartPage({ params }: Props) {
   if (!surfaceEnabled(await resolveProfileByEvent(eventId), 'seating')) redirect(`/dashboard/${eventId}`);
 
   const supabase = await createClient();
-  const { data: event } = await supabase.from('events').select('event_id, slug').eq('event_id', eventId).maybeSingle();
+  const { data: event } = await eventRowOnce(supabase, eventId, 'event_id, slug', () =>
+      supabase.from('events').select('event_id, slug').eq('event_id', eventId).maybeSingle());
   if (!event) notFound();
 
   // A helper without the guest list or the seat plan reads zero rows — say

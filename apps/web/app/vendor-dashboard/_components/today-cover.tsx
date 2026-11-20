@@ -1,24 +1,23 @@
 import type { ReactNode } from 'react';
 import { dateChip, greetedShop, greetingLine, pinnedCountsLine, tasksWord } from '@/lib/supplier-today-greeting';
-import { SupplierHero, type SupplierHeroPicture, type SupplierHeroUpload } from './supplier-hero';
 
 /**
- * 👋 TODAY'S COVER (THE ONE BUILD A1 · A2, v113 Today): "Good morning, / <Shop>" · the date chip · "N tasks today" ·
- * Today's ⚙ — the event Home's cover reused (v113: *"A big header that shrinks to one line on scroll (reused from the
- * event Home)"*): the same plain ground (`hc-ecard-plain`) and the same name face (`hc-ecard-name`), nothing new drawn.
+ * 👋 TODAY'S MAST (Today v3 part 1 — owner 19 Nov, looking at live Today: *"then why do i have a header when this was
+ * not part of the design"* · *"remove the photo of that header"* · *"we do not want unwanted space on top"* · *"it was
+ * suppose to look like focus"*). The Focus shape, as admin Focus draws it: ONE quiet line — "Good morning, <Shop> ·
+ * <date>" — over ONE bold line — "N tasks today · 2 of 9 done" — and Today's ⚙ at the right. No photo, no band, no
+ * Upload pill: it is only as tall as its two lines, so the first task sits right under it.
  *
  *   · The greeting names the SHOP (`greetedShop`, owner v112 *"Name of shop name"*), never the person, and its word
  *     follows the Manila clock (`greetingLine`).
  *   · "N tasks today" is handed in — the length of the Needs-you list under it (`view.needsCount`), so the two never
  *     disagree.
- *   · ⚙ is ONE mount (`TodaySettings cover`), handed in as `gear` (owner 11 Nov *"Today settings yes"*): top-right on
- *     the header, and only there (17 Nov, the clean look: "One ⚙ stays, in the header") — never a second sheet.
+ *   · ⚙ is ONE mount (`TodaySettings`), handed in as `gear` — top-right here, and only here.
+ *   · Uploading a photo stays on Portfolio (its own ＋); nothing on Today uploads any more.
  *
- * ⏳ THE COLLAPSE: the shared `CollapsingTop` (L1 foundation F2) takes `cover` = this, `row` = `TodayPinnedRow` and
- * `second` = the stats strip. Until `-foundation` lands the cover scrolls with the page (spec §3.1 "build behind the
- * shipped chrome, swap in when it lands") — no second collapse mechanism is drawn here.
- *
- * 🔒 lib/supplier-today-greeting.test.ts
+ * Supersedes the 9 Nov "Today's hero = the most-viewed portfolio photo" (Lane E item 11) and, for Today, the one
+ * 208-px `SupplierHero` (item 10) — Shop keeps its cover.
+ * 🔒 lib/supplier-today-greeting.test.ts · app/vendor-dashboard/_components/today-is-focus-shaped.test.ts
  */
 export function TodayCover({
   shopName,
@@ -26,7 +25,6 @@ export function TodayCover({
   todayIso,
   now,
   gear = null,
-  hero = null,
   sub,
 }: {
   shopName: string | null;
@@ -35,46 +33,34 @@ export function TodayCover({
   todayIso: string;
   now: number;
   gear?: ReactNode;
-  /** 📋 Today v2: "6 tasks today · 1 of 7 done" + the pips (`TodayV2Sub`) in place of the bare tasks chip. */
+  /** 📋 "6 tasks today · 1 of 7 done" + the pips (`TodayV2Sub`) in place of the bare tasks line. */
   sub?: ReactNode;
-  /**
-   * 🖼 Lane E item 11: the shared hero's picture — the most-viewed portfolio photo ("Most viewed · N views"), else the
-   * latest, else the category placeholder with its Upload door. Null (the lab, a guard) = the shipped placeholder file.
-   */
-  hero?: { picture: SupplierHeroPicture | null; caption: string | null; upload: SupplierHeroUpload | null } | null;
 }) {
   const shop = greetedShop(shopName);
   const tasksChip = tasksWord(tasks);
+  const bold = sub !== undefined ? sub : tasksChip ? <b className="font-semibold" data-today-tasks-chip="">{tasksChip}</b> : null;
   return (
-    <header data-today-cover="" data-tour="today-cover" className="relative -mx-4 -mt-4 mb-4 sm:-mx-6">
+    <header data-today-cover="" data-today-mast="" data-tour="today-cover" className="mb-1 flex items-start gap-2 pt-1">
       <h1 className="sr-only">Today</h1>
-      {/* 🖼 THE ONE SUPPLIER HERO (Lane E item 10) — the same part, height and gutters as Shop and Portfolio. */}
-      <SupplierHero
-        eyebrow={
-          <>
-            Today · <span data-today-date-chip="">{dateChip(todayIso)}</span>
-          </>
-        }
-        gear={gear ? <span data-today-cover-gear="">{gear}</span> : null}
-        title={
-          <>
-            <span data-today-greeting="">{greetingLine(now)}</span>
-            {shop ? (
-              <>
-                {' '}
-                <span data-today-greeted="">
-                  {shop}
-                </span>
-              </>
-            ) : null}
-          </>
-        }
-        sub={sub !== undefined ? sub : tasksChip ? <b className="font-semibold" data-today-tasks-chip="">{tasksChip}</b> : null}
-        picture={hero?.picture ?? null}
-        caption={hero?.caption ?? null}
-        upload={hero?.upload ?? null}
-        data={{ 'today-hero': '' }}
-      />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[13px] text-[color:var(--m-slate-2)]">
+          <span data-today-greeting="">{greetingLine(now)}</span>
+          {shop ? (
+            <>
+              {' '}
+              <span data-today-greeted="">{shop}</span>
+            </>
+          ) : null}
+          {' · '}
+          <span data-today-date-chip="">{dateChip(todayIso)}</span>
+        </p>
+        {bold ? <div className="text-[22px] font-extrabold leading-tight text-ink">{bold}</div> : null}
+      </div>
+      {gear ? (
+        <span className="shrink-0" data-today-cover-gear="">
+          {gear}
+        </span>
+      ) : null}
     </header>
   );
 }

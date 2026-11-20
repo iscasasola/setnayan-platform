@@ -26,6 +26,7 @@
  * canonical state store until the Phase A schema migration renames + drops them.
  */
 
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gem, Clock, CheckCircle2 } from 'lucide-react';
@@ -55,9 +56,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
   const search = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // CONCIERGE_ENABLED is permanently false (Concierge retired — see lib/concierge.ts),

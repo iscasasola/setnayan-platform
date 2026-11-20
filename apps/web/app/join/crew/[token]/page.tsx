@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import type { Metadata } from 'next';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -51,9 +52,7 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
   const anonymous = crewPassAnonEnabled();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) return anonymous ? <CrewNameForm token={token} shopWords="The shop" anonymous /> : <CrewSignIn token={token} />;
 
   // Where this phone stands — asked with no name, so nothing is written by looking.

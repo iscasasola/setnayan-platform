@@ -50,3 +50,8 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
   question, a dev lab); a listed file that stops saying it fails until its line is removed. Shown red on a planted
   `PLAN_LEAD`.
 - ⚠ Open PRs that import the deleted constants (#8050 For Suppliers) must take the who-words instead when they rebase.
+
+### Ship re-review 2 (20 Nov) — the last live "first booking free" lines
+- For Coordinators (fc-i11) no longer says "Your first bookings through Setnayan are free"; the features page's suppliers hero and c25 say "none when you are the first to bring the event".
+- Admin › Verify's same-business note no longer speaks of an unused free first booking: it says a match means not a new business or a new account, lists today's free bookings (own import as a new account · first import onto a new event · a new shop from a couple's Find invite · every 100,000th fee · a badge ticket — specs 1abf35bd) and keeps the old free booking in the past tense only. The held-back sentence for a frozen place is past tense too.
+- Guard 3 widened: plurals, sentences that wrap across JSX lines, "the first one (is) free" and "free first booking". Shown RED on the old tree (5 files), green after.

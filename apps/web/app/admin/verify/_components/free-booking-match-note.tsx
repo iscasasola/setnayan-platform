@@ -3,19 +3,24 @@ import { matchedOnText, type FreeBookingMatch } from '@/lib/business-free-bookin
 import { formatCount } from '@/lib/format-number';
 
 /**
- * 🛡 "Same business as another shop" + a link to each, and where the business's
- * ONE free first booking stands (owner 2026-11-06, DECISION_LOG "ONE FREE FIRST
- * BOOKING PER BUSINESS, NOT PER ACCOUNT"). Read-only, like the shared-number note.
+ * 🛡 "Same business as another shop" + a link to each (owner 2026-11-06, DECISION_LOG "ONE FREE FIRST BOOKING PER
+ * BUSINESS, NOT PER ACCOUNT" — the match itself). Read-only, like the shared-number note.
  *
- * `null` (the read failed) is said out loud — silence would read as "a new
- * business" — and it says what the money path does meanwhile: it bills.
+ * ⚖ 20 Nov: there is no free first booking any more (DECISION_LOG "BILLING MUST FOLLOW THE RETIRED COPY"). What the
+ * match still decides is whether this is a NEW business, which the new-business waivers need. The waivers today:
+ * the supplier's own import (a new account) · the first import onto a new event · every 100,000th fee · a badge
+ * ticket · a NEW shop opened from a couple's Suppliers › Find invite (specs 1abf35bd). A place frozen free under the
+ * old rule stays free, so "used the old free booking" is said in the past tense only.
+ *
+ * `null` (the read failed) is said out loud — silence would read as "a new business" — and it says what the money
+ * path does meanwhile: it bills.
  */
 export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null }) {
   if (!match || match.shops === null) {
     return (
       <p data-free-booking-match="unchecked" className="text-xs text-ink/60">
-        Couldn&rsquo;t check this shop against other shops for the free first booking — reload to try
-        again. Until the check runs, a booking is billed, not free.
+        Couldn&rsquo;t check this shop against other shops — reload to try again. Until the check runs, nothing is
+        waived for being a new business: a booking is billed.
       </p>
     );
   }
@@ -24,8 +29,7 @@ export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null
     withheld && withheld.checkUnreadable > 0 ? (
       <span data-free-booking-withheld="unreadable" className="mt-1 block text-[11px]">
         {withheld.checkUnreadable === 1 ? 'One booking was' : `${formatCount(withheld.checkUnreadable)} bookings were`} billed
-        because the same-business check could not run — check whether it should have been this business&rsquo;s free
-        first booking.
+        because the same-business check could not run — check whether it should have been waived for a new business.
       </span>
     ) : null;
   if (shops.length === 0) {
@@ -43,8 +47,8 @@ export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null
       className="rounded-md border border-warn-300/60 bg-warn-50 px-3 py-2 text-xs text-warn-900"
     >
       <p className="font-semibold">
-        Same business as {shops.length === 1 ? 'another shop' : `${formatCount(shops.length)} other shops`} — one free first
-        booking between them
+        Same business as {shops.length === 1 ? 'another shop' : `${formatCount(shops.length)} other shops`} — not a new
+        business
       </p>
       <ul className="mt-1 space-y-0.5">
         {shops.map((s) => (
@@ -53,18 +57,19 @@ export function FreeBookingMatchNote({ match }: { match: FreeBookingMatch | null
               {s.businessName} &rarr;
             </Link>{' '}
             <span className="opacity-80">· same {matchedOnText(s.matchedOn)}</span>
-            {s.tookFree ? <span className="font-semibold"> · used the free first booking</span> : null}
+            {s.tookFree ? <span className="font-semibold"> · used the old free booking (before 20 Nov)</span> : null}
           </li>
         ))}
       </ul>
       <p className="mt-1 text-[11px] opacity-80">
+        Matching another shop means this is not a new business or a new account. Free bookings today: its own import as a
+        new account · the first import onto a new event · a new shop opened from a couple&rsquo;s Find invite · every
+        100,000th fee · a badge ticket.
         {withheld?.selfTookFree
-          ? 'This shop used the free first booking, so the first booking of each shop above carries the fee.'
+          ? ' This shop used the old free booking before 20 Nov.'
           : holder
-            ? `The free first booking is used, so this shop's first booking carries the fee.`
-            : withheld
-              ? 'The free first booking is still unused — whichever of these shops books first takes it.'
-              : 'Whether this shop used the free first booking could not be read.'}
+            ? ' Another shop of this business used the old free booking before 20 Nov.'
+            : null}
         {withheld && withheld.alreadyUsed > 0
           ? ` ${withheld.alreadyUsed === 1 ? 'One booking has' : `${formatCount(withheld.alreadyUsed)} bookings have`} already been billed for this.`
           : null}

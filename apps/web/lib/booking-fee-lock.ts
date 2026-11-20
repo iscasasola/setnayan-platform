@@ -137,7 +137,8 @@ export function readFreeHeldBack(raw: unknown): FreeHeldBack | null {
  */
 export function freeHeldBackSentence(reason: FreeHeldBack, when: 'is' | 'would' | 'promo'): string {
   if (reason === 'business_already_used') {
-    const used = 'Your business already used its free first booking from Setnayan under another account';
+    // Past tense on purpose: a held-back place was frozen under the retired one-free-booking rule (gone 20 Nov).
+    const used = 'Under the old rule, your business’s one free booking from Setnayan was already used under another account';
     if (when === 'promo') return `${used}.`;
     return when === 'is' ? `${used}, so this one carries the fee.` : `${used}, so this one would carry the fee.`;
   }

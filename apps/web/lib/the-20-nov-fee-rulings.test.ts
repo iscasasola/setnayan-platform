@@ -88,8 +88,10 @@ test('2b · no shipped string tells a supplier to "redeem" a booking fee ticket'
  * listed file that stops saying it fails until its line is removed, so the list can only shrink.
  */
 const RETIRED_NAME = /\bFIRST_BOOKING_(ON_US|ON_US_CLAUSE|FREE|FREE_LABEL)\b/;
+// Widened (ship re-review 2, 20 Nov): plurals ("first bookings … are free"), a sentence that wraps onto the next JSX
+// line, "the first one (is) free", and the reversed "free first booking". A sentence still ends at . ' " or `.
 const RETIRED_WORDS =
-  /first booking[^.'"`\n]{0,40}\b(on us|is free|free)\b|unang booking[^.'"`\n]{0,40}libre|libre ang una mong booking/i;
+  /first bookings?[^.'"`]{0,60}?\b(on us|are free|is free|free)\b|\bthe first one(?:\s+is)?\s+free\b|\bfree first bookings?\b|unang booking[^.'"`]{0,40}libre|libre ang una mong booking/i;
 const ALLOWED: Record<string, string> = {
   'lib/booking-fee-disclosure.ts': 'freeBookingSentence — said only of a ledger place FROZEN free before 20 Nov, which stays free',
   'lib/help/supplier-1.ts': 'the help question "is my first booking free?" — its answer now says No',

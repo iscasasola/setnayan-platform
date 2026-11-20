@@ -978,8 +978,7 @@ export default async function ForCoordinatorsPage() {
               <p>Climb a badge, and we reward you, free.</p>
               <InfoToggle id="fc-i11" label="Fees, badges and rewards">
                 <p>
-                  {FEE_FREE_RULE} Every other booking carries the fee. Your first bookings through Setnayan are
-                  free.
+                  {FEE_FREE_RULE} Every other booking carries the fee.
                 </p>
                 <p>
                   Badges climb at {badgeRungs()} finished events; stars come from trusted reviews; years count from the year

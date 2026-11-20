@@ -12,7 +12,7 @@ import type { FreeBookingMatch } from '@/lib/business-free-booking-match';
 const STATES: Array<{ key: string; title: string; match: FreeBookingMatch | null }> = [
   {
     key: 'used',
-    title: 'Second account — the business already used its free first booking',
+    title: 'Second account — the business already used its one free booking (old rule, frozen)',
     match: {
       shops: [
         { vendorProfileId: 'lab-a', businessName: 'Bulgogi Catering', matchedOn: ['phone', 'registration_number'], tookFree: true },
@@ -23,7 +23,7 @@ const STATES: Array<{ key: string; title: string; match: FreeBookingMatch | null
   },
   {
     key: 'unused',
-    title: 'Same business, free first booking not used yet',
+    title: 'Same business, no waiver taken yet',
     match: {
       shops: [{ vendorProfileId: 'lab-c', businessName: 'Lumen Photo Co.', matchedOn: ['registration_number'], tookFree: false }],
       withheld: { alreadyUsed: 0, checkUnreadable: 0, selfTookFree: false },

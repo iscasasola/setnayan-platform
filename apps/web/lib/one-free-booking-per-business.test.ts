@@ -68,7 +68,7 @@ test('3 · the supplier reads why — and never "was on us; this would be number
     50_000,
   );
   assert.ok(projected);
-  assert.match(projected.detail, /already used its free first booking from Setnayan under another account/);
+  assert.match(projected.detail, /your business’s one free booking from Setnayan was already used under another account/);
   assert.doesNotMatch(projected.detail, /this would be number 1/);
   assert.match(projected.headline, /payable if they book/);
 

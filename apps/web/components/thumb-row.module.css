@@ -131,3 +131,18 @@
 @media (max-width: 360px) { .field > :global([data-search-add-icon]) { margin-left: -10px; } }
 .row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) > :global([data-search-add-icon]),
 .row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) > :global([data-search-add-icon]) { margin: 0; }
+/* 👉 DRAG THE BOX RIGHT TO ADD (owner 20 Nov 2026, Guests redesign pick 1; drawing `.box.add` · `.kind`). While it adds,
+   the box is ringed in the add colour (the morph's own `--color-mulberry`, the drawing's CTA), and its right end is the
+   small "Guest ▾" pick in the CTA's tint. The box follows a drag a short way (`translate`, written by the drag), and
+   settles back on the motion standard's Quick · Settle. A drag never selects the words. */
+.field[data-drag-add] { touch-action: pan-y; transition: translate var(--sn-m-quick) var(--sn-m-settle); }
+.row[data-thumb-row] > .field[data-search-mode='add'] { box-shadow: inset 0 0 0 1.5px rgb(var(--color-mulberry)), var(--sn-sh-float); }
+.row[data-riding] > [data-thumb-seat='field'][data-search-mode='add'] { box-shadow: inset 0 0 0 2px rgb(var(--color-mulberry)); }
+.kind { flex: 0 0 auto; display: inline-flex; align-items: center; margin: 0 -6px 0 0; }
+/* The press is 44 tall (the house minimum); the drawn pill inside it is the drawing's 36. */
+.kind :global(button) { height: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; border-radius: var(--m-r-full); }
+.kind :global([data-kind-face]) {
+  display: inline-flex; align-items: center; gap: 4px; height: 36px; border-radius: var(--m-r-full); padding: 0 10px 0 12px;
+  background: rgb(var(--color-mulberry) / 0.08); color: rgb(var(--color-mulberry)); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) { .field[data-drag-add] { transition: none; } }

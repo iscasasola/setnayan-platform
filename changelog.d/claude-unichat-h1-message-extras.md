@@ -34,7 +34,16 @@ Stacked on #8047 and #8060 (Unichat part E, merged in).
 - **The Private filter line is the drawing's**: "Private · N whispers · the hosts and Liza only" / "· your team only",
   N through `formatCount`, the names from the same read as the who-it-reaches line; a failed read says
   "couldn't load who sees these", never "no one" (`privateFilterLine`, `whisperFilterWho`).
-- Merged #8047 at c63218614e (its ONE Private chip, `there-is-one-private-chip.test.ts` green).
+- Merged #8047 at f84b81ff46 (its ONE Private chip, the Report door and "Seen" for who got a whisper — their guards
+  green) and #8060 at b177c4d2fa.
+- **The host guard is narrowed**: every team-side "your team" word now lives alone in `lib/chat-whisper-team.ts`
+  (re-exported by `lib/chat-whisper.ts`), and `the-host-says-suppliers` allow-lists only that file — the host lines in
+  `lib/chat-whisper.ts` are guarded again (proved red with a planted "your team", green after revert).
+- **Server actions stay at the 1,251 ceiling**: "remove the reminder" folds into `setChatReminder({ intent: 'clear' })`
+  — the H1 file exports one action fewer; the ceiling is untouched.
+- CI guards that pinned the pre-H1 shapes now follow it: a voice note is never swiped and never offered by the file
+  picker; "Save your edit" is the one Send; the send core still gets the screen's side; the lab's sample ₱ figures are
+  declared; the Screens map is regenerated.
 
 **Edit and unsend**
 

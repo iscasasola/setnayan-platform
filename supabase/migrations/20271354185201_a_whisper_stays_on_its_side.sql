@@ -62,6 +62,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · the side, stored with the line ──────────────────────────────────────
 ALTER TABLE public.chat_messages

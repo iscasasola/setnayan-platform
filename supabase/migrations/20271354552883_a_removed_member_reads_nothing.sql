@@ -40,6 +40,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 CREATE OR REPLACE FUNCTION public.chat_shop_seat_is_lost(p_vendor_profile_id UUID)
 RETURNS BOOLEAN

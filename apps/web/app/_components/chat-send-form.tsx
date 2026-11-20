@@ -70,6 +70,7 @@ import {
   MESSAGE_PLACEHOLDER,
   WHISPER_OFF_LINE,
   WHISPER_OFF_LINE_STAY_MS,
+  WHISPER_DISPUTE_NOTE,
   WHISPER_ON_LINE,
   WHISPER_PLACEHOLDER,
   WHISPER_WORDS_ONLY_MESSAGE,
@@ -79,7 +80,9 @@ import {
   everyoneWillSeeLine,
   leftWhisperAskBody,
   whisperBlockedLine,
+  type WhisperSide,
 } from '@/lib/chat-whisper';
+import { InfoTip } from './info-tip';
 import { SubmitButton } from './submit-button';
 import { pressMs } from './press-feel';
 import { useIsDesktop, usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -164,9 +167,13 @@ type Props = {
    * 🤫 MESSAGE ⇄ WHISPER (DECISION_LOG 2026-11-19) — passed ONLY by the host's thread page, in a chat with a supplier.
    * `supplierName` is the name the mis-send reminder says ("Everyone will see this, including Mang Ben."); `coHosts` is
    * how many OTHER hosts are in this chat now (the people a whisper reaches — the server decides the list again at
-   * Send); `unread` = that read FAILED, so a drag says it could not load — never "no co-host". Absent → no drag, no whisper (the supplier's composer, a group chat): the box is exactly as before.
+   * Send); `unread` = that read FAILED, so a drag says it could not load — never "no co-host". Absent → no drag, no whisper (a group chat): the box is exactly as before.
+   * 🏪 Unichat part E (owner 19–20 Nov): `side` — 'hosts' (the hosts + their coordinator; the host's AND the
+   * coordinator's page) or 'team' (the shop's own people; the supplier's page, where `supplierName` is the hosts' side
+   * the reminder names). `reach` — the line under the Private chip while whispering ("Only you, Ana and your
+   * coordinator" · "Only your team"); absent → the 19 Nov words.
    */
-  whisper?: { supplierName: string; coHosts: number; unread?: boolean } | null;
+  whisper?: { supplierName: string; coHosts: number; unread?: boolean; side?: WhisperSide; reach?: string | null } | null;
   /**
    * 💬 THE CHIPS (owner 19 Nov 2026) — passed ONLY by the supplier's thread page inside the picked client: the sliders
    * button in the box, the kind chips above it, and the one suggested step. Absent → the box exactly as before.
@@ -991,7 +998,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         </p>
       ) : null}
       {/* 🤫 The line over the box (the drawing's): whispering · back to everyone · or the mis-send reminder. */}
-      {whisper && (whisperOn || leftWithWords || switchLine) ? (
+      {whisper && (whisperOn ? !whisper.reach : leftWithWords || switchLine) ? (
         <p
           role="status"
           className={`sn-whisper-line px-1 text-center text-[11.5px] font-bold ${whisperOn ? 'text-[rgb(var(--color-private-text))]' : leftWithWords ? 'text-[12px] text-ink' : 'text-[color:var(--m-slate-2)]'}`}
@@ -999,6 +1006,17 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         >
           {whisperOn ? WHISPER_ON_LINE : leftWithWords ? everyoneWillSeeLine(whisper.supplierName) : switchLine}
         </p>
+      ) : null}
+      {/* 🔒 THE PRIVATE CHIP (Unichat part E, prototype UNICHAT-LIVE 19 Nov): while whispering, the sky chip says the box is
+          private and the line beside it says WHO it reaches; the ⓘ says staff read it only inside an open dispute. */}
+      {whisper && whisperOn && whisper.reach ? (
+        <div role="status" className="flex items-center justify-center gap-1.5 px-1 text-[12px] font-semibold text-[rgb(var(--color-private-text))]" data-chat-whisper-line="on" data-chat-whisper-reach={whisper.side ?? 'hosts'}>
+          {/* 🔒 The lock on Private: the 20 Nov drawing's icon before the word (controller, owner delegation 20 Nov). */}
+          <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--color-private-tint))] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-private-text))] ring-1 ring-inset ring-[rgb(var(--color-private)/0.45)]" data-chat-private-chip=""><Lock aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.2} />Private</span>
+          <InfoTip label={whisper.reach} ariaLabel="Who sees this" align="end">
+            {WHISPER_DISPUTE_NOTE}
+          </InfoTip>
+        </div>
       ) : null}
       {/* ⌨ The same switch without a drag (a keyboard, a switch control, a screen reader) — out of sight until focused. */}
       {whisper && canWhisper ? (
@@ -1010,7 +1028,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className="sr-only focus-visible:not-sr-only focus-visible:self-center focus-visible:rounded-full focus-visible:px-3 focus-visible:py-2 focus-visible:text-[13px] focus-visible:font-semibold focus-visible:text-[rgb(var(--color-private-text))]"
           data-chat-whisper-switch=""
         >
-          Whisper to co-hosts only
+          {whisper.side === 'team' ? 'Whisper to your team only' : 'Whisper to co-hosts only'}
         </button>
       ) : null}
       {/* 💬 A TYPED PRICE OR DAY OFFERS ITS TOOL — one line above the box; it opens the card, it never sends. */}

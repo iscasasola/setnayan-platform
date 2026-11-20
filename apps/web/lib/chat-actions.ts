@@ -186,6 +186,8 @@ export async function notifyOtherParty(args: {
   privateTo?: string | readonly string[] | null;
   /** 🤫 The private line is a WHISPER to the co-hosts — its notice says so, with no lock (it is a whisper, not a vault). */
   whisper?: boolean;
+  /** Which side the whisper is on (Unichat part E): the hosts' (with their coordinator) or the shop's own team. */
+  whisperSide?: 'hosts' | 'team' | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -224,7 +226,9 @@ export async function notifyOtherParty(args: {
         userId: to,
         type: 'chat_message',
         title: args.whisper
-          ? `Whisper from a co-host · ${eventName}`
+          ? args.whisperSide === 'team'
+            ? `Whisper from your team · ${vendorName}`
+            : `Whisper · ${eventName}`
           : `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,
         eventId: args.eventId,

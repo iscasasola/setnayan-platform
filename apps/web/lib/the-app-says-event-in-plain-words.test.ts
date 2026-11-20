@@ -123,6 +123,11 @@ const NOUN_ALLOWED_STRINGS: Record<string, string[]> = {
   'lib/moodboard-gallery-upload.ts': ['CELEBRATION'],
   // a music mood's name in the App Store demo card
   'app/_components/app-store/studio-card-demo.tsx': ['Joyful celebration'],
+  // BRAND LINES, not a name for the thing (owner 19 Nov: tagline, hero, share and email footer say "celebration";
+  // every heading and button says "event"). The 20 Nov front page's headline and its closing line — held by name
+  // in `the-front-door-says-event.test.ts` too.
+  'app/_components/frontdoor/front-door-anchor.tsx': ['The home of every Filipino celebration.'],
+  'app/_components/frontdoor/front-door-landing.tsx': ['Every celebration, all in one place, for life.'],
 };
 
 /**

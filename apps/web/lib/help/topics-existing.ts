@@ -87,7 +87,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event instead of 3, and Patiktok. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and lets you design every part of your Event Hub: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address. It takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, plus Live Watch for one day, 2 GB of uploads, your full-size photos kept 12 months after the event instead of 3. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -140,12 +140,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         title: 'How are suppliers verified on Setnayan?',
         body: 'Suppliers send three business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and a Setnayan admin checks them before the shop is verified. Verification is free, for good — no listing fee and no badge fee.',
       },
-      {
-        slug: 'what-is-pakanta',
-        title: 'What is Music Maker?',
-        appBody: HELP_NOT_IN_THE_APP,
-        body: 'A custom Filipino-style song made for the couple — written from what you already told us about your story, and yours to keep for the ceremony or reception. A one-time per-event purchase (current price on setnayan.com/pricing).',
-      },
+      // 🪦 'what-is-pakanta' (Music Maker) left 2026-11-20 — retired (lib/retired-products.ts).
       {
         slug: 'what-is-papic',
         title: 'What is Papic?',
@@ -625,7 +620,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'how-to-order',
         title: 'How to order a Setnayan service',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch, Music Maker and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
+        body: 'Open the plan or service you want — Event Plus, Event Pro, Event Ultra, Papic credits, Live Watch and the rest — and add it to your event. Pay by BDO or GCash, add a screenshot and the reference number, and send. Each has one fixed price, shown on its page.',
       },
       {
         slug: 'payment-instructions',

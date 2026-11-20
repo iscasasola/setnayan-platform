@@ -47,6 +47,16 @@ export function layerMayStepBack(state: unknown, id: string): boolean {
   return layerHolder(state) === id;
 }
 
+/**
+ * A URL rewrite made WHILE a layer is up (a page risen over the chat switches to another) must not wipe that layer's
+ * mark off the entry — or the layer could no longer tell the entry is its own. The state to write: the mark alone
+ * (Next's router adds its own keys to a state it is handed), or null when no layer holds the entry (pure).
+ */
+export function keepLayerMark(state: unknown): Record<string, unknown> | null {
+  const held = layerHolder(state);
+  return held ? { [MARK]: held } : null;
+}
+
 let nextLayer = 0;
 
 export function useBackCloses(open: boolean, onClose: () => void): () => void {

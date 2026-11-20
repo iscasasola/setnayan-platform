@@ -77,7 +77,36 @@ export type LabChatMode = {
   selfShop?: 'vendor' | 'couple';
   /** 🏪 `?logo=1` — the shop's logo on its messages (the couple page passes the presigned, revealed logo). A sample. */
   shopLogoUrl?: string;
+  /**
+   * 💬 `&one=…` — the supplier's one chat that holds everything (19 Nov 2026): the chips and the suggested step in the
+   * text box, the strip slot, quiet step lines and the inquiry card, on a sample deal (an inquiry, payments logged and
+   * confirmed, someone joining). `asking` = not booked yet (the inquiry leads); anything else = a booked client.
+   */
+  oneChat?: 'booked' | 'asking' | 'failed';
 };
+
+/** 💬 The one-chat sample deal: the hosts' inquiry first, then the steps a deal leaves behind. Sample words, nobody real. */
+function oneChatMessages(threadId: string, stage: 'booked' | 'asking' | 'failed') {
+  const base = LAB_MESSAGES[0]!;
+  const at = (d: number, h: number, m: number) => new Date(Date.UTC(2026, 10, d, h, m)).toISOString();
+  const row = (n: number, role: 'couple' | 'vendor' | 'system', body: string, created: string, more: object = {}) =>
+    ({ ...base, message_id: `00000000-0000-4000-8000-0000000007${n.toString().padStart(2, '0')}`, thread_id: threadId, sender_user_id: role === 'couple' ? LAB_USER : role === 'vendor' ? LAB_STAFF : null, sender_role: role, body, created_at: created, ...more }) as (typeof LAB_MESSAGES)[number];
+  const inquiry = row(1, 'couple', 'Hi! We’re planning our wedding and would love to hear about your availability and packages for our date. Could you share your rates and what’s included?\n\nService: Reception Lights & Sound', at(2, 2, 10));
+  const hello = row(2, 'vendor', 'Hi Maria! Yes, that date is open. Sending you our offer now.', at(2, 2, 40));
+  if (stage === 'asking') return [inquiry, hello, row(3, 'system', 'Counter · the total · ₱40,000 · Maria', at(18, 3, 0))];
+  return [
+    inquiry,
+    hello,
+    row(3, 'system', 'Booked ✓', at(14, 1, 0)),
+    row(4, 'system', 'Pia was added to this chat by Maria', at(15, 2, 0)),
+    row(5, 'couple', 'We sent the first payment through GCash!', at(18, 3, 0)),
+    row(6, 'system', 'Payment logged · ₱9,000 · GCash · ref 0921 · proof attached · waiting for the supplier to confirm', at(18, 3, 1)),
+    row(7, 'vendor', 'Thank you, checking now.', at(18, 3, 5)),
+    row(8, 'system', 'Payment confirmed · ₱9,000', at(18, 3, 20)),
+    row(9, 'vendor', '', at(19, 1, 0), { attachment_name: 'Menu-v2.pdf', attachment_mime: 'application/pdf', attachment_size_bytes: 1_200_000, attachment_r2_key: `r2://setnayan-thread-files/chat/${threadId}/${LAB_STAFF}/menu-v2.pdf` }),
+    row(10, 'system', 'Schedule changed · Ceremony · 2:00 PM → 2:30 PM · 30 min later', at(19, 2, 0)),
+  ];
+}
 
 /** 🏪 The `selfShop` thread: the host asks, then the SAME login answers from the shop. Sample words only. */
 function selfShopMessages(threadId: string, storedAs: 'vendor' | 'couple') {
@@ -110,7 +139,7 @@ function LabPins() {
   );
 }
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop, shopLogoUrl }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
+export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop, shopLogoUrl, oneChat }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
@@ -134,6 +163,8 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
   const viewer = selfShop ? LAB_USER : side === 'couple' ? LAB_USER : LAB_STAFF;
   const messages = noMessages
     ? []
+    : oneChat && side === 'vendor'
+      ? oneChatMessages(threadId, oneChat)
     : selfShop
       ? selfShopMessages(threadId, selfShop)
       : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)];
@@ -153,6 +184,8 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
             attachInputId={CHAT_ATTACH_INPUT_ID}
             userId={viewer}
             {...(side === 'vendor' ? { sentAs: 'vendor' as const } : {})}
+            // 💬 The chips + the suggested step (the real supplier page passes `kinds={embedded}`).
+            kinds={Boolean(oneChat) && side === 'vendor'}
           />
         }
       >
@@ -179,6 +212,10 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           {...(tallPins ? { pins: <LabPins /> } : {})}
           senderNames={side === 'couple' && !selfShop ? { [LAB_STAFF]: 'Paolo' } : {}}
           fileExpiry={{ eventDate: '2026-12-18', precision: 'day' }}
+          // 💬 One chat that holds everything — as the supplier's thread page passes it inside the client page.
+          oneChat={Boolean(oneChat) && side === 'vendor'}
+          inquiryCalendar={oneChat ? 'open' : null}
+          {...(oneChat && side === 'vendor' ? { plus: { eventId: LAB_MESSAGES[0]!.event_id, returnPath: '/dev/supplier-chat-lab' } } : {})}
         />
       </ChatBox>
     </div>

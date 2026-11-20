@@ -89,8 +89,8 @@ const SITES: Record<string, Site> = {
     why: 'the My Events shelf ⓘ is a server-rendered <details> so it opens with JavaScript off, on a venue’s bad signal',
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },
-  'app/(shell)/for-coordinators/_fc-client.tsx': {
-    why: 'the /for-coordinators "ⓘ title" pill opens its panel IN the page beneath it (a disclosure), not a hover note',
+  'app/(shell)/for-coordinators/_fc-info.tsx': {
+    why: 'the /for-coordinators ⓘ (approved drawing 2026-11-20) is a server-rendered <details> that opens its words IN the page under the line — the page ships no script',
   },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
   'app/for-suppliers/_components/supplier-front-info.tsx': {
@@ -100,6 +100,9 @@ const SITES: Record<string, Site> = {
   'app/_components/site-stage/site-stage.tsx': {
     why: 'the Maker’s who×when stage is obsidian in both themes; InfoTip’s ink and popover are the light page’s',
     colours: 'obsidian',
+  },
+  'app/_components/frontdoor/front-door-landing.tsx': {
+    why: 'the signed-out front page (approved drawing 2026-11-20) ships no script; its ⓘ is a server-rendered <details> that opens its words IN the page under the line',
   },
 };
 

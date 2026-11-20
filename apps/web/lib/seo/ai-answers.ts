@@ -273,7 +273,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       answer:
         `No. No plan, Free included, limits bookings, inquiries, shortlists or the waitlist — every booking a couple makes is one Setnayan can earn its booking fee on. ` +
         `A supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}. ` +
-        `Paid plans add reach, size and tools: how far couples find you, how many service cards and main categories, team seats, branches and storage.`,
+        `Paid plans add size and tools: how many service cards and main categories, team seats, branches and storage.`,
       corrects: '"free plan limited to N bookings" · "upgrade to take more bookings"',
       route: '/for-suppliers',
       evidence: 'lib/vendor-tier-caps.ts (no bookings-per-date cap; DAILY_CAPACITY_MAX) · lib/card-bookings-per-date.ts · supabase/migrations/20271350427190_supplier_plans_rebuilt_2026_11_18.sql (service_card_daily_limit)',

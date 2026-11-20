@@ -157,21 +157,23 @@ test('a missing SKU refuses to render, and names EVERY missing code at once', ()
     to PABATI, which went free hours later for the same reason and was retired
     out of the product the same day. It was PAKANTA + PATIKTOK_COMPILER until
     2026-09-27, when Patiktok became UNLISTED_UNTIL_PROVEN (still on sale, no
-    longer required here) — the fourth move, for the same reason. It is
-    PAKANTA + LIVE_STUDIO now.
+    longer required here) — the fourth move, for the same reason. It was
+    PAKANTA + LIVE_STUDIO until 2026-11-20, when Music Maker was retired (owner:
+    "Retire Patiktok and Music Maker") — the fifth move. It is EVENT_PLUS +
+    LIVE_STUDIO now.
 
     🔑 PICK CODES THAT ARE STILL REQUIRED, and check that when you touch this.
     A vacuous assertion here does not fail; it just stops testing half of what
     it says it tests.
   */
   const stripped = RETAIL.filter(
-    (r) => r.service_code !== 'PAKANTA' && r.service_code !== 'LIVE_STUDIO',
+    (r) => r.service_code !== 'EVENT_PLUS' && r.service_code !== 'LIVE_STUDIO',
   );
   assert.throws(
     () => renderLlmsTxt({ ...INPUT, retail: stripped }),
     (err: unknown) => {
       assert.ok(err instanceof MissingSkuError);
-      assert.deepEqual([...err.codes].sort(), ['LIVE_STUDIO', 'PAKANTA']);
+      assert.deepEqual([...err.codes].sort(), ['EVENT_PLUS', 'LIVE_STUDIO']);
       return true;
     },
     'a catalog missing a named SKU must throw rather than emit a half-true file',
@@ -180,11 +182,13 @@ test('a missing SKU refuses to render, and names EVERY missing code at once', ()
 
 test('a reprice propagates without touching this repo', () => {
   const repriced = RETAIL.map((r) =>
-    r.service_code === 'PAKANTA' ? { ...r, retail_price_php: 3200 } : r,
+    // Was PAKANTA until 2026-11-20 (Music Maker retired) — LIVE_STUDIO_HOSTED_CHANNEL is prose-priced and on sale.
+    r.service_code === 'LIVE_STUDIO_HOSTED_CHANNEL' ? { ...r, retail_price_php: 3217 } : r,
   );
+  const before = renderLlmsTxt(INPUT);
   const body = renderLlmsTxt({ ...INPUT, retail: repriced });
-  assert.ok(body.includes('₱3,200'), 'a catalog reprice must appear in llms.txt with no code change');
-  assert.ok(!body.includes('₱2,500 . Custom Filipino'), 'the old Pakanta price must be gone');
+  assert.ok(!before.includes('₱3,217'), 'premise: the test figure is not already in the file');
+  assert.ok(body.includes('₱3,217'), 'a catalog reprice must appear in llms.txt with no code change');
 });
 
 // ─── A RETIRED SKU MUST STOP BEING ADVERTISED ──────────────────────────────
@@ -247,15 +251,16 @@ test('advertising a SKU that is off sale REFUSES to render', () => {
   const retired = {
     ...INPUT,
     retail: INPUT.retail.map((r) =>
-      // 2026-10-22: ANIMATED_MONOGRAM was retired (the Logo & QR part sells it) — PAKANTA is prose-priced and on sale.
-      r.service_code === 'PAKANTA' ? { ...r, is_active: false } : r,
+      // 2026-10-22: ANIMATED_MONOGRAM was retired; 2026-11-20: PAKANTA (Music Maker) was retired —
+      // LIVE_STUDIO_HOSTED_CHANNEL is prose-priced and on sale.
+      r.service_code === 'LIVE_STUDIO_HOSTED_CHANNEL' ? { ...r, is_active: false } : r,
     ),
   };
   assert.throws(
     () => renderLlmsTxt(retired),
     (err: unknown) => {
       assert.ok(err instanceof RetiredSkuError, `expected RetiredSkuError, got ${err}`);
-      assert.match((err as Error).message, /PAKANTA/);
+      assert.match((err as Error).message, /LIVE_STUDIO_HOSTED_CHANNEL/);
       return true;
     },
     'A SKU named in the prose was taken off sale and llms.txt rendered anyway — ' +

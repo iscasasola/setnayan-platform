@@ -32,13 +32,16 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import { createPortal } from 'react-dom';
 import { onItsOwnLayer } from '@/lib/rise-layer';
 import { useRouter } from 'next/navigation';
-import { X, type LucideIcon } from 'lucide-react';
+import { MoreHorizontal, X, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { usePortalHost } from '@/lib/use-portal-host';
+import { keepLayerMark } from '@/lib/use-back-closes';
+import { Sheet } from '@/app/_components/sheet';
+import { RiseScreen, useRiseClose } from '@/app/_components/rise/rise-screen';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCount } from '@/lib/format-number';
-import { nextPanelTabId, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
+import { nextPanelTabId, PickedCoveredContext, PickedHeadContext, PickedHeadLineContext, PickedNavContext, type PickedShellNav } from './picked-nav';
 import { pickedPageFromUrl } from './picked-url-page';
 import { ThumbLayerContext, type ThumbLayer } from '@/app/vendor-dashboard/_components/thumb-layer';
 import {
@@ -118,6 +121,16 @@ export type PickedShellProps<P extends string> = {
   chatTop?: ReactNode;
   /** The part of its page a door id lands on (`payments` → `#payments` on Book & Budget); absent = the page's top. */
   anchorOf?: (raw: string) => string | null;
+  /**
+   * 💬 THE PAGE IS ITS CHAT (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING":
+   * *"can you make it live just as a chat but everything is inside that chat?"*). On a phone `page` is ALWAYS drawn and
+   * the menu row is gone: any other page RISES full screen over it (the one `RiseScreen`), so closing it lands on the
+   * same chat scroll — the chat never unmounted. The title opens `titleOpens`; the pages in `more` sit behind the head's
+   * ⋯. Every `?tab=` door still works: it opens the chat with that page risen.
+   * 🖥 From 1024 px nothing changes (owner 18 Nov: the chat keeps its own column, the tabs switch the work beside it).
+   * Absent = today's tabs everywhere (the host's picked supplier, until its own build).
+   */
+  chatHome?: { page: P; line: string; titleOpens: P; more: readonly P[]; /** 🔦 A tour stop on the title (`data-tour`). */ titleTour?: string } | null;
 };
 
 /** 🖥 The width from which the chat keeps its own column (`sideChat`). */
@@ -143,11 +156,24 @@ const MENU_FADE = {
  */
 function scrollToPart(id: string): boolean {
   const part = id ? document.getElementById(id) : null;
-  const scroller = part?.closest<HTMLElement>('[data-picked-body]');
+  // A page risen over the chat scrolls inside the rise screen's own body.
+  const scroller = part?.closest<HTMLElement>('[data-picked-body],[data-rise-body]');
   if (!part || !scroller) return false;
   const top = part.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop;
   scroller.scrollTo({ top, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   return true;
+}
+
+/** The risen page's ✕, handed up: a door back to the chat closes the screen the way its own ✕ does (the same fall). */
+function RiseCloser({ into }: { into: { current: (() => void) | null } }) {
+  const close = useRiseClose();
+  useEffect(() => {
+    into.current = close;
+    return () => {
+      if (into.current === close) into.current = null;
+    };
+  }, [close, into]);
+  return null;
 }
 
 /** `#deposit` → `deposit`; a malformed escape is simply not a part. */
@@ -181,6 +207,7 @@ export function PickedShell<P extends string>({
   sideChat = null,
   chatTop = null,
   anchorOf,
+  chatHome = null,
 }: PickedShellProps<P>) {
   const router = useRouter();
   const host = usePortalHost();
@@ -224,9 +251,23 @@ export function PickedShell<P extends string>({
     return () => mq.removeEventListener('change', on);
   }, [sideChatPage]);
   const split = wide && sideChat !== null;
+  // 💬 The chat is home (`chatHome`): once the page is awake on a phone, the chat is the one body and any other page
+  // rises over it. Before that (the server's paint, a computer) the page is drawn where it always was.
+  const [awake, setAwake] = useState(false);
+  useEffect(() => setAwake(true), []);
+  const homePage = chatHome?.page ?? null;
+  const rises = homePage !== null && awake && !split;
+  const risenPage: P | null = rises && page !== homePage ? page : null;
+  const riseCloseRef = useRef<(() => void) | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreHeadingId = useId();
+  const [risenThumbHost, setRisenThumbHost] = useState<HTMLDivElement | null>(null);
+  const risenThumbLayer = useMemo<ThumbLayer>(() => ({ host: risenThumbHost, column: risenThumbHost }), [risenThumbHost]);
   // The page the work column draws: on a computer the chat is never it (it has its own column).
-  const workPage: P = split && page === sideChat!.page ? sideChat!.workDefault : page;
+  const workPage: P = rises ? homePage! : split && page === sideChat!.page ? sideChat!.workDefault : page;
   const shownMenu = useMemo(() => (split ? menu.filter((m) => m.id !== sideChatPage) : menu), [split, menu, sideChatPage]);
+  // ⋯ Only pages this menu really has (Hub before booking is not one).
+  const moreMenu = useMemo(() => (chatHome ? chatHome.more.flatMap((id) => menu.filter((m) => m.id === id)) : []), [chatHome, menu]);
   const [gearOpen, setGearOpen] = useState(false);
   const [headSlot, setHeadSlot] = useState<HTMLSpanElement | null>(null);
   const [headLineSlot, setHeadLineSlot] = useState<HTMLSpanElement | null>(null);
@@ -342,14 +383,18 @@ export function PickedShell<P extends string>({
       : 'flex-1 lg:w-[592px] lg:flex-none xl:w-[564px]';
   const select = useCallback(
     (id: P) => {
-      if (id === workPage) return;
+      if (id === (rises ? page : workPage)) return;
       // 🖥 The chat is already open beside the work on a computer: a door to it leaves the work where it is.
       if (split && id === sideChatPage) return;
+      // 💬 Back to the chat from a risen page: the screen closes the way its own ✕ does (`landHome` then tidies the URL).
+      if (rises && id === homePage && riseCloseRef.current) return riseCloseRef.current();
       if (id === sideChatPage) setChatOpened(true);
       setPage(id);
       try {
         const url = new URL(window.location.href);
-        url.searchParams.set('tab', id);
+        // The chat is the page's plain address (one address per screen); any other page is `?tab=`.
+        if (rises && id === homePage) url.searchParams.delete('tab');
+        else url.searchParams.set('tab', id);
         url.hash = '';
         /* 🔗 THE ROUTER MUST HEAR THE TAB (walk 13 Nov 2026, F-W1-67/73: the supplier's card stayed `?tab=files`, the
            couple's workspace `?tab=schedule`, and a refresh opened the wrong page). `window.history.state` carries Next's
@@ -358,10 +403,13 @@ export function PickedShell<P extends string>({
            revalidation) wrote that address back. `null` is Next's documented way to change the URL: the router adopts it.
            (The Clients month keeps `window.history.state` on purpose — its taps race a pending fetch; a tab switch here
            sends no request. Details does the same as this, `lib/a-named-item-door-opens-its-item.test.ts` 6b.) */
-        window.history.replaceState(null, '', url.toString());
+        // A risen page holds a history entry of its own (the phone's Back closes it) — its mark rides along.
+        window.history.replaceState(keepLayerMark(window.history.state), '', url.toString());
       } catch {
         /* a URL that cannot be written still shows the right page */
       }
+      // 💬 The chat under a risen page never moves: no scroll to its top, no slide.
+      if (rises) return;
       bodyRef.current?.scrollTo({ top: 0 });
       // §10 #26: a 0.7 s slide of the PAGE (not the scroller), 44 px, opacity full at 45 %; the scroller keeps
       // overflow-x hidden, so no white edge shows while it travels.
@@ -377,8 +425,27 @@ export function PickedShell<P extends string>({
         );
       }
     },
-    [workPage, split, sideChatPage],
+    [workPage, split, sideChatPage, rises, page, homePage],
   );
+
+  // 💬 The risen page has closed (✕, Esc, the phone's Back): the chat is the page again, at its plain address.
+  const landHome = useCallback(() => {
+    if (homePage === null) return;
+    setPage(homePage);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('tab');
+      url.hash = '';
+      window.history.replaceState(null, '', url.toString());
+    } catch {
+      /* the chat still shows */
+    }
+  }, [homePage]);
+  // A second risen page (a door inside the first) starts at its own top.
+  useEffect(() => {
+    if (risenPage === null) return;
+    rootRef.current?.ownerDocument.querySelector('[data-picked-risen]')?.closest('[data-rise-body]')?.scrollTo({ top: 0 });
+  }, [risenPage]);
 
   // ⌨ Arrow keys step the menu one page by its id (the rule lives in `picked-nav.ts`); focus follows the pick.
   const ids = useMemo(() => shownMenu.map((m) => m.id), [shownMenu]);
@@ -400,7 +467,8 @@ export function PickedShell<P extends string>({
     let on = false;
     const start = (e: TouchEvent) => {
       const t = e.target as Element | null;
-      on = !!t && !t.closest(PAGE_SWIPE_SKIP) && e.touches.length === 1;
+      // 💬 With the chat as home on a phone there is no row of pages to step through: a swipe turns nothing.
+      on = !(homePage !== null && !split) && !!t && !t.closest(PAGE_SWIPE_SKIP) && e.touches.length === 1;
       if (!on) return;
       sx = e.touches[0]!.clientX;
       sy = e.touches[0]!.clientY;
@@ -422,7 +490,7 @@ export function PickedShell<P extends string>({
       body.removeEventListener('touchstart', start);
       body.removeEventListener('touchend', end);
     };
-  }, [shownMenu, workPage, select, host]);
+  }, [shownMenu, workPage, select, host, homePage, split]);
 
   // ✕ — the exact reverse of the open, then back to the list (or to it, on a hard load).
   const close = useCallback(() => {
@@ -453,9 +521,11 @@ export function PickedShell<P extends string>({
   // A folded id (`payments`, `forms`) is read by the side's own `pageOf`, and lands on its part (`anchorOf`).
   const nav = useMemo<PickedShellNav>(
     () => ({
-      page: workPage,
+      // 💬 Inside a risen page, the page is that one (its own doors must not think they are on the chat).
+      page: risenPage ?? workPage,
       select: (id: string) => {
         setGearOpen(false);
+        setMoreOpen(false);
         const target = menu.some((m) => m.id === id) ? (id as P) : (pageOf?.(id) ?? null);
         if (!target || !menu.some((m) => m.id === target)) return;
         select(target);
@@ -467,10 +537,13 @@ export function PickedShell<P extends string>({
               scrollToPart(anchor);
             }),
           );
+          // 💬 A page that RISES is drawn in place first and then moved onto <body>; a scroll made on the first frame
+          // is thrown away with it (the same reason `scrollTo` above waits) — so the part is found again once it lands.
+          if (rises) window.setTimeout(() => scrollToPart(anchor), prefersReducedMotion() ? 60 : PICKED_OPEN_MS);
         }
       },
     }),
-    [workPage, select, menu, pageOf, anchorOf],
+    [workPage, select, menu, pageOf, anchorOf, rises, risenPage],
   );
   // 🥞 On a computer the page rows span the work column, not the whole frame (the chat column has none).
   const bodyRefCb = useCallback(
@@ -498,7 +571,21 @@ export function PickedShell<P extends string>({
         <div ref={split ? undefined : setThumbColumn} className={`${frame} flex items-center gap-2 px-4 pt-2`} data-picked-pin="">
           <div className="min-w-0 flex-1">
             <h1 id={headingId} className="truncate text-[20px] font-bold leading-tight text-ink" data-pin-word="">
-              {title}
+              {chatHome ? (
+                // 💬 The name is the door to Details (drawing v3, screen 2) — the words are the press, so no frame.
+                <button
+                  type="button"
+                  onClick={() => nav.select(chatHome.titleOpens)}
+                  className="sn-press -my-1 inline-flex min-h-11 max-w-full items-center truncate text-left"
+                  aria-label={`${title} · open ${menu.find((m) => m.id === chatHome.titleOpens)?.label ?? 'details'}`}
+                  data-picked-title-door={chatHome.titleOpens}
+                  data-tour={chatHome.titleTour}
+                >
+                  <span className="truncate">{title}</span>
+                </button>
+              ) : (
+                title
+              )}
             </h1>
             {/* 📅 The page's own line under the title (the supplier's Chat: their date · Free — CHAT-09); empty = gone. */}
             <span ref={setHeadLineSlot} className="block truncate text-[12.5px] leading-tight text-ink/70 empty:hidden" data-picked-head-line="" />
@@ -507,6 +594,12 @@ export function PickedShell<P extends string>({
           <span ref={setHeadSlot} className="flex shrink-0 items-center gap-1.5 empty:hidden" data-picked-head-actions="" />
           {/* ⚙ This page's own settings — not the list's ⚙ (that menu is mounted once, on the list). The house door
               (`MenuSettingsButton`) on the `client` key (L1, `lib/menu-settings.ts`); its rows are this page's own. */}
+          {/* ⋯ The pages that left the strip (drawing v3: Files · Hub · Report). A phone only — a computer keeps its tabs. */}
+          {chatHome && moreMenu.length > 0 ? (
+            <span className="inline-flex shrink-0 lg:hidden" data-picked-more="">
+              <ActionButton tone="neutral" iconOnly icon={MoreHorizontal} label="More" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={() => setMoreOpen(true)} data-testid="picked-more" />
+            </span>
+          ) : null}
           {gear ? (
             <MenuSettingsButton menu="client" rise open={gearOpen} onOpenChange={setGearOpen} line={gear.line}>
               {gear.node}
@@ -522,7 +615,7 @@ export function PickedShell<P extends string>({
           ref={menuRef}
           role="tablist"
           aria-label={`${title} pages`}
-          className={`${frame} flex gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
+          className={`${frame} ${chatHome ? 'hidden lg:flex' : 'flex'} gap-0.5 overflow-x-auto px-4 pb-2 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${MENU_FADE[menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : 'none']}`}
           data-picked-menu=""
           data-picked-menu-more={menuMore.left ? (menuMore.right ? 'both' : 'left') : menuMore.right ? 'right' : undefined}
         >
@@ -587,7 +680,8 @@ export function PickedShell<P extends string>({
             <PickedHeadLineContext.Provider value={headLineSlot}>
               <ThumbLayerContext.Provider value={thumbLayer}>
                 {sideChat && workPage === sideChat.page ? chatTopRow : null}
-                {bodies[workPage]}
+                {/* 🙈 Under a risen page the chat stays mounted but is not on show — it must not mark itself read. */}
+                <PickedCoveredContext.Provider value={risenPage !== null}>{bodies[workPage]}</PickedCoveredContext.Provider>
               </ThumbLayerContext.Provider>
             </PickedHeadLineContext.Provider>
           </PickedHeadContext.Provider>
@@ -630,6 +724,51 @@ export function PickedShell<P extends string>({
       </div>
       {/* 🥞 The thumb host: a page's floating row lands HERE, inside this screen's layer (not on <body> under it). */}
       <div ref={setThumbHost} data-picked-thumb-layer="" />
+      {/* ⋯ The pages behind the head's More — rows, the row itself is the press. */}
+      {chatHome ? (
+        <Sheet open={moreOpen} onClose={() => setMoreOpen(false)} labelledById={moreHeadingId} rise>
+          <div className="px-5 pb-5 pt-5" data-picked-more-sheet="">
+            <h2 id={moreHeadingId} className="pr-12 text-[17px] font-semibold text-ink">
+              {title}
+            </h2>
+            <ul className="mt-2">
+              {moreMenu.map((m) => {
+                const Icon: LucideIcon = icons[m.id];
+                return (
+                  <li key={m.id}>
+                    <button type="button" onClick={() => nav.select(m.id)} className="sn-press flex min-h-[48px] w-full items-center gap-3 py-1 text-left" data-picked-more-row={m.id}>
+                      <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper-2)] text-sn-accent">
+                        <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{m.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </Sheet>
+      ) : null}
+      {/* ⤴ A PAGE RISEN OVER THE CHAT — the shipped body, unchanged; only the way in changed. ✕, Esc and the phone's
+          Back close it (the one `RiseScreen`), and the chat under it is where it was left. */}
+      {risenPage !== null && chatHome ? (
+        <RiseScreen
+          title={menu.find((m) => m.id === risenPage)?.label ?? title}
+          line={chatHome.line}
+          data="picked-page"
+          onClose={landHome}
+        >
+          <RiseCloser into={riseCloseRef} />
+          <div className="px-4 pb-[var(--sn-thumb-room,0px)] pt-3" data-picked-page-body={risenPage} data-picked-risen="">
+            <PickedHeadContext.Provider value={null}>
+              <PickedHeadLineContext.Provider value={null}>
+                <ThumbLayerContext.Provider value={risenThumbLayer}>{bodies[risenPage]}</ThumbLayerContext.Provider>
+              </PickedHeadLineContext.Provider>
+            </PickedHeadContext.Provider>
+          </div>
+          <div ref={setRisenThumbHost} data-picked-thumb-layer="risen" />
+        </RiseScreen>
+      ) : null}
     </div>
     </PickedNavContext.Provider>
   );

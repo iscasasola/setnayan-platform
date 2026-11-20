@@ -1,4 +1,6 @@
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+
+import { RETIRED_FEATURE_SLUGS } from '@/lib/retired-products';
 
 import { featurePage } from '@/lib/feature-pages';
 import { featureMetadata } from '@/lib/feature-pages/seo';
@@ -28,6 +30,8 @@ export async function generateMetadata({ params }: Props) {
 export default async function FeatureDetailPage({ params }: Props) {
   const { slug } = await params;
   const f = featurePage(slug);
+  // 🪦 A retired product's old page lands on the hub, never a 404 (owner 2026-11-20).
+  if (RETIRED_FEATURE_SLUGS.has(slug)) permanentRedirect('/features');
   if (!f) notFound();
   return <FeaturePageView feature={f} locale="en" />;
 }

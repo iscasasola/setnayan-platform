@@ -37,6 +37,7 @@ import { bookingFeeScheduleSummary, type BookingFeeSchedule } from './booking-fe
 import { isBookingFeeEnabled } from './booking-fee-gate';
 import { formatLaunchCap } from './launch-offer';
 import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
+import { RETIRED_PRODUCT_NAMES } from './retired-products';
 import { aiAnswers, SUPPLIER_FREE_BOOKING_LINE } from './seo/ai-answers';
 // Event Plus / Event Pro say exactly what the front door's plan cards say (Lane J made those true to what an order
 // unlocks) — one sentence, two readers.
@@ -175,7 +176,8 @@ const REQUIRED_RETAIL = [
   // means deleting the entry AND the prose line together; putting one back on sale
   // means restoring BOTH, or the active-price guard fails on the missing prose.
   'LIVE_STUDIO_HOSTED_CHANNEL',
-  'PAKANTA',
+  // PAKANTA (Music Maker) removed 2026-11-20 — RETIRED (owner: "Retire Patiktok and Music Maker"; lib/retired-products.ts).
+  // 🪤 Entry and prose went together.
   // SEATING_3D removed 2026-09-05 — owner set the 3D Plan FREE for couples
   // (PR #5185, FREE_FOR_ALL_SKUS; row deactivated by migration 20271205977137).
   // Measured first: the ₱1,500 gated nothing at any layer and had zero orders.
@@ -396,7 +398,6 @@ export const LINKED_ROUTES = [
   '/pa3d',
   '/palogo',
   '/pawebsite',
-  '/pakanta',
   '/monogram',
   '/alaala',
   '/about',
@@ -505,7 +506,8 @@ export const LLMS_PILLARS = [
 ] as const;
 
 export function llmsFeaturePages(): ReadonlyArray<{ path: string; name: string; summary: string; group: string; pillar: string }> {
-  const hidden = unlistedFeatureNames();
+  // 🪦 A RETIRED product (lib/retired-products.ts) is never described either, nor walks back in through a neighbour.
+  const hidden = [...unlistedFeatureNames(), ...RETIRED_PRODUCT_NAMES];
   const named = (text: string) => hidden.some((n) => new RegExp(`\\b${n}\\b`, 'i').test(text));
   return FEATURE_PAGES.filter((f) => !RETIRED_FROM_LLMS.has(f.slug) && !named(`${f.name.en} ${f.answer.en}`)).map((f) => ({
     path: featurePaths(f.slug).en,
@@ -605,8 +607,8 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // `SETNAYAN_FOR_SEARCH_AND_AI_2026-11-20.md`: §1 the entity card, §2 what Setnayan is, §3 who it is for, §4 the
   // three pillars, §7 against the market (by kind of tool, no rival named, no rival price, the internal "where rivals
   // are ahead" list NOT shipped), §9 the words. Change the words there first, then here.
-  // ⚠ Patiktok is in the source's §4 and §9 but is left out here: it is UNLISTED_UNTIL_PROVEN (owner 2026-09-27) and
-  // `llms-txt.test.ts` holds that. ⚠ The source's §9 "never say" column is left out too: it would print the retired
+  // ⚠ Patiktok is in the source's §4 and §9 but is left out here: it is RETIRED (owner 20 Nov, "Retire Patiktok and
+  // Music Maker"; lib/retired-products.ts), and `llms-txt.test.ts` holds that. ⚠ The source's §9 "never say" column is left out too: it would print the retired
   // names this file is guarded never to print (lib/seo/stale-claims.ts, the-retired-words-stay-gone.test.ts).
   return `# Setnayan
 
@@ -758,7 +760,7 @@ Use these names, so every engine names things the same way. Plain words first, b
 - [Setnayan AI](${url('/setnayan-ai')}) — Supplier matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-supplier risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Music Maker](${url('/pakanta')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Help](${url('/help')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -788,7 +790,6 @@ Pricing in PHP. All sales final on digital deliverables.
 
 - **Live Watch** — ${R('LIVE_STUDIO')} once per event, unlimited streams. Multi-camera control room, livestream embedded on the event page. A single-camera stream is included; rehearsal with up to 12 cameras is included, broadcasting them is the paid step.
 - **Live Watch — hosted channel** — ${R('LIVE_STUDIO_HOSTED_CHANNEL')} per day, optional, on top of Live Watch. For couples with no livestream channel of their own: Setnayan supplies and runs the YouTube channel the broadcast goes to. Charged for each day it is used, because a Setnayan channel is a scarce resource — unlike the software unlock, which costs nothing to run twice. Your own channel is the default and costs nothing extra.
-- **Music Maker** — ${R('PAKANTA')}. Custom Filipino-style song written for the couple.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones.
 - **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
@@ -812,7 +813,7 @@ ${supplierPlanTable(input)}
 
 ${supplierFee}
 
-A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches, storage, search visibility and an own web address — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
+A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
 Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
 
@@ -833,7 +834,6 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
 - **What is Live Watch?** Multi-camera live streaming embedded on the event page. ${R('LIVE_STUDIO')} once per event, unlimited streams; single-camera streaming is included, and so is rehearsing with up to 12 cameras.
-- **What is Music Maker?** A custom Filipino-style song written for the couple. ${R('PAKANTA')}.
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
 - **Where does Setnayan operate?** Philippines.

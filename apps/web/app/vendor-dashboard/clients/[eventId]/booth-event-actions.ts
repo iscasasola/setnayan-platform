@@ -132,6 +132,10 @@ export async function buyBoothBrandingForEvent(
   }
   const existing = await fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId);
   if (existing === 'active') return err('Your booth is already branded at this event.');
+  // C-1: a refused orders read is NOT "no order" — fail closed, or a supplier who already paid is charged twice.
+  if (existing === 'unread') {
+    return err('We couldn’t check whether this event is already paid for. Nothing was charged — try again in a moment.');
+  }
   if (existing === 'pending') {
     return err('Your payment for this event is still being checked — no need to pay again.');
   }

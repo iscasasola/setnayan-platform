@@ -132,6 +132,7 @@ import {
   vendorWaitlistTheAsk,
 } from './actions';
 import { readDayCheck } from '@/lib/day-check.server';
+import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
 import { TheTie } from '@/app/_components/signature/the-tie';
@@ -180,7 +181,11 @@ import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
 import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
 import { DetailsDecisions } from './_components/details-decisions';
-import { NextStepRow } from '@/app/_components/picked/next-step-row';
+import { ClientChatStrip } from './_components/client-chat-strip';
+import { chatStrip, nextDated, suggestedStep } from '@/lib/client-chat-strip';
+import { manilaDayAndTime } from '@/lib/schedule-days';
+import { readOpenFormCount } from '@/lib/vendor-forms.server';
+import { refundedTotalPhp } from '@/lib/client-refunds';
 import { clientNextStep, workColumnDefault } from '@/lib/client-next-step';
 import { hostRows } from './_components/hosts-rows';
 // 🗂 THE PICKED CLIENT (THE ONE BUILD, 8 Nov 2026) — the flag-ON shell, its nine page bodies and the page-id switch.
@@ -258,6 +263,7 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { manilaToday } from '@/lib/std-views';
+import { dealAskOf, quoteLinesOf, theirAskTotalCentavos, theirOpenAsk, type DealAskDbRow } from '@/lib/chat-deal';
 import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-payment-asks-read';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
@@ -1020,6 +1026,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         }),
         readDayCheck(supabase, lockRequest.event_vendor_id),
         heldServiceOfAsk(supabase, lockRequest.event_vendor_id),
+        piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
@@ -1111,9 +1118,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // rule the yes enforces (`vendor_day_check`), read beside the forecast — same moment, no extra wait.
   // 🧭 …and whether the asked-for service is on PLAN hold (owner 2026-11-06, SERVICES LIFE CYCLE) — then Agree gives way
   // to "Pick which stay on" and the card says why, naming the service.
-  const [feeForecast, dayCheck, heldService]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null] = lockRequest?.event_vendor_id
+  const [feeForecast, dayCheck, heldService, askPieces]: [FeeDisclosure | null, Awaited<ReturnType<typeof readDayCheck>> | null, string | null, PiecesAsk | null] = lockRequest?.event_vendor_id
     ? await askReadsP!
-    : [null, null, null];
+    : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
@@ -1257,6 +1264,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     bare landing opens Details. The full-screen thread route stays for the envelope doors (6 Nov ruling).
   */
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
+  // 💬 THE CHAT STRIP'S TWO OWN READS (19 Nov 2026) — flag ON only, started now and awaited at the shell: the hosts'
+  // newest open counter (the Deal box, before booking) and how many sent forms are still open (booked only — Forms is
+  // shut before). Everything else the strip says comes from reads this page already made.
+  const stripAsksP =
+    relationshipShellEnabled && !isBooked && threadId ? startRead(supabase.rpc('change_asks_read', { p_thread_id: threadId })) : null;
+  const stripFormsP =
+    relationshipShellEnabled && isBooked
+      ? startRead(readOpenFormCount(supabase, { eventId, vendorProfileId: profile.vendor_profile_id }).catch(() => ({ status: 'unread' as const })))
+      : null;
   const rawTab = typeof search.tab === 'string' ? search.tab : undefined;
 
   /*
@@ -1934,16 +1950,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // counts them with the Clients tile's own rule (`openMeetingsWindow`), never a hard-coded "none yet" over a real one.
   // A refused read is `null` ("couldn't load").
   let openMeetings: number | null = 0;
+  // 💬 The same read now keeps WHICH meetings (the chat strip's Next box, 19 Nov 2026) — still one request, the count
+  // is the rows it returned.
+  let openMeetingRows: { type: string; custom_label: string | null; scheduled_at: string | null; status: string }[] = [];
   if (!isBooked) {
-    const { count, error } = await supabase
+    const { data: meetingRows, error } = await supabase
       .from('event_appointments')
-      .select('appointment_id', { count: 'exact', head: true })
+      .select('appointment_id, type, custom_label, scheduled_at, status')
       .eq('event_id', eventId)
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .in('status', [...OPEN_MEETING_STATUSES])
       .or(openMeetingsWindow(manilaTodayIso()));
     if (error) logQueryError('vendorClientCard.openMeetings', error, { eventId }, 'graceful_degrade');
-    openMeetings = error ? null : (count ?? 0);
+    openMeetingRows = error ? [] : ((meetingRows ?? []) as typeof openMeetingRows);
+    openMeetings = error ? null : openMeetingRows.length;
   }
 
   clientTimer.flush();
@@ -2002,6 +2022,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          askPieces={askPieces}
         />
       ) : askOutcome ? (
         <BookingAskOutcomeLine outcome={askOutcome} />
@@ -2745,6 +2766,71 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     handoverSent: handoversMeasured ? handovers.some((h) => Boolean(h.delivered_at)) : undefined,
   });
 
+  // 💬 THE CHAT STRIP (owner 19 Nov 2026 — the client page is ONE chat that holds everything; `lib/client-chat-strip.ts`).
+  // Every input is a read above, plus its two own (`stripAsksP` · `stripFormsP`). A refused read reaches the strip as
+  // `null` and is SAID ("Couldn't load · tap to retry") — never ₱0, never "0 open".
+  const stripToday = manilaTodayIso();
+  const stripPay = isBooked
+    ? clientPaymentView({
+        steps: planStepRows?.steps ?? null,
+        clearedAt: planStepRows?.clearedAt ?? null,
+        ledgerMoney,
+        ledgerUnreadable,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+      })
+    : null;
+  const stripAsksRes = stripAsksP ? await stripAsksP : null;
+  const stripAsks = stripAsksRes && !stripAsksRes.error ? ((stripAsksRes.data ?? []) as DealAskDbRow[]).map(dealAskOf) : null;
+  if (stripAsksRes?.error) logQueryError('vendorClientCard.stripAsks', stripAsksRes.error, { eventId }, 'graceful_degrade');
+  // Their ask: ONE rule with Every version (`lib/chat-deal.ts`) — picked by `theirOpenAsk`, a one-line counter made a total.
+  const theirOpenAskRow = stripAsks ? theirOpenAsk(stripAsks, stripToday) : null;
+  const theirAskTotal =
+    theirOpenAskRow && sentQuote
+      ? theirAskTotalCentavos(theirOpenAskRow, { totalCentavos: sentQuote.total_centavos, lines: quoteLinesOf(sentQuote.line_items) })
+      : null;
+  const stripForms = stripFormsP ? await stripFormsP : null;
+  const stripMeetings = isBooked
+    ? appointmentsReadFailed
+      ? null
+      : appointmentViews.map((a) => ({ title: a.label, day: manilaDayAndTime(a.scheduled_at)?.day ?? null, status: a.status }))
+    : openMeetings === null
+      ? null
+      : openMeetingRows.map((a) => ({ title: resolveAppointmentLabel(a, {}), day: manilaDayAndTime(a.scheduled_at)?.day ?? null, status: a.status }));
+  const stripNext = nextDated({ todayIso: stripToday, eventDate: brief.event.event_date ?? null, meetings: stripMeetings });
+  const stripBoxes = chatStrip({
+    isBooked,
+    todayIso: stripToday,
+    peso: (php) => fmtPeso(php),
+    paid: stripPay && !(stripPay.partial && stripPay.paidPhp === null)
+      ? { paidPhp: stripPay.paidPhp, agreedPhp: stripPay.agreedPhp, next: stripPay.next }
+      : null,
+    quote: proposalRowsError ? null : sentQuote ? { totalPhp: sentQuote.total_centavos / 100, sentAt: sentQuote.sent_at ?? sentQuote.created_at ?? null, validUntil: sentQuote.valid_until ?? null } : undefined,
+    theirAsk: !threadId ? undefined : stripAsks === null ? null : theirAskTotal != null ? theirAskTotal / 100 : undefined,
+    next: stripNext,
+    forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
+    step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,
+  });
+  const stripSuggest = suggestedStep({
+    hasThread: Boolean(threadId),
+    isBooked,
+    peso: (php) => fmtPeso(php),
+    hasQuote: proposalRowsError ? null : Boolean(sentQuote),
+    hasMeetingAhead: stripMeetings === null ? null : stripMeetings.some((m) => m.day !== null && m.day >= stripToday),
+    nextDue: !stripPay || (stripPay.partial && stripPay.paidPhp === null) ? undefined : stripPay.next && !stripPay.next.check ? { amountPhp: stripPay.next.amountPhp } : null,
+  });
+  // 💬 The first inquiry, as a card (drawing screen 10): what the supplier may already see of the event. A fact the
+  // brief holds back until they book is `undefined` (said as "After they book"), never "Not given".
+  const paxAsked = thread?.pax_current ?? thread?.pax_at_inquiry ?? null;
+  const inquiryFacts = threadId
+    ? {
+        date: brief.event.event_date ?? null,
+        guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,
+        venue: brief.event.venue_name || brief.event.region || null,
+        budget: brief.budget_band ? `${fmtPesoCentavos(brief.budget_band.lo_centavos)} – ${fmtPesoCentavos(brief.budget_band.hi_centavos)}` : null,
+        hasQuote: Boolean(sentQuote),
+      }
+    : null;
+
   const bodies = pickedPageBodies({
     ctx: pickedCtx,
     // Decisions — the list in place (Build 2 #42), from the thread's one draw; no read of its own. After Forms on Details.
@@ -2837,7 +2923,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
-      nextStep={nextStep ? <NextStepRow step={nextStep} /> : null}
+      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} />}
+      suggest={stripSuggest}
+      inquiry={inquiryFacts}
       settingsLine={{
         // CHAT-28 (walk 16 Nov 2026): the line promised "Who looks after this client" — there is no per-client handler
         // (it is INVENTED, parts map C22; see `picked-client-settings.tsx`), so the sheet under it had no such picker.

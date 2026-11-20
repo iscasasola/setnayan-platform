@@ -357,8 +357,11 @@ export function SeatList({
   const emptyAll = units.reduce((n, u) => n + Math.max(0, u.capacity - u.seated), 0);
   /** The table (or "To seat") risen full screen — null = the cards. */
   const [sheet, setSheet] = useState<string | null>(null);
+  /* ⇔ The risen table's rows are one group too (Move · Seat fit as one — icon + word, word, or icon). */
+  const sheetRef = useRef<HTMLDivElement>(null);
   /** "Add a guest" open on the risen table — the names stay listed so they are tapped one after another (pick 5). */
   const [adding, setAdding] = useState(false);
+  useRowState(sheetRef, [sheet, units, unseated, canEdit, pickedId, adding]);
   /* A search, a count door or a drop that opens a table in the editor's `open` (goToFound · openUnseated) raises it here. */
   const seenOpen = useRef<ReadonlySet<string>>(open);
   useEffect(() => {
@@ -427,7 +430,7 @@ export function SeatList({
           {tally}
         </span>
       </span>
-      {faces.length ? <span className="flex min-w-0 flex-wrap gap-1.5">{faces}</span> : null}
+      {faces.length ? <span className="flex min-w-0 flex-wrap gap-1">{faces}</span> : null}
       {foot}
     </button>
   );
@@ -484,7 +487,15 @@ export function SeatList({
       }
       onClose={close}
     >
-      <div className="min-w-0 pb-4" data-seat-table-sheet={sheet}>
+      {/* The screen stands on <body> (a portal), outside the Guests screen — so it wears the Guest list's own `.screen`
+          (its tokens: the faces' discs, the lines, the dark ground) with the house 16 px gutters. */}
+      <div
+        ref={sheetRef}
+        className={`${gs.screen} min-w-0 px-4 pb-4`}
+        data-seat-table-sheet={sheet}
+        // The rows' swipe surface is the screen's own white, not the list's paper.
+        style={{ ['--gs-paper' as string]: 'rgb(var(--color-cream))' } as CSSProperties}
+      >
         {unit ? renaming(unit.key) : null}
         {unit ? (
           <>
@@ -585,7 +596,7 @@ export function SeatList({
     >
       {/* 📊 The counts, in words (drawing: "34 seated ⓘ · 0 to seat · 9 tables · 43 empty chairs" — no sofa, person or
           target icons; the top row's icon counts step aside on this view). */}
-      <div className="flex flex-col gap-1 pb-3 pt-1" data-seat-list-summary="">
+      <div className="flex flex-col gap-1.5 pb-3 pt-4" data-seat-list-summary="">
         <span className="inline-flex items-center gap-1.5 text-[15px] font-medium text-ink/70">
           <b className="text-[30px] font-bold leading-none tracking-[-0.01em] text-ink" data-seat-count-words="seated">
             {formatCount(seatedAll)}

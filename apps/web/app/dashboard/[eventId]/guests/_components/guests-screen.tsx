@@ -755,6 +755,10 @@ export function GuestsScreen(props: GuestsScreenProps) {
      rename it. this is the pencil icon. remove tha dd guests here."): the header tap folds and unfolds again (no select,
      no toolbar, no ＋ Add guest here); the ✎ on the row turns the row into the name box (`SectionRenameInPlace`). */
   const [renaming, setRenaming] = useState<string | null>(null);
+  /* ✎ PICKED = OPENED BY THE PERSON (Guests redesign, 20 Nov: every heading opens on arrival, and the drawing shows no
+     pencil at rest). A heading is picked when they open it themselves (or a search or filter opens it) — never by the
+     arrival default — so the 1 Nov rule "Edit icon only shows when the group is picked" still reads true. */
+  const [pickedHeads, setPickedHeads] = useState<ReadonlySet<string>>(() => new Set());
   /* ☑ ⚙ › Invitations' "Pick who", IN PLACE (owner 2026-10-28, "pick who … does not show anything"): the sheet closes,
      Select turns on, the list narrows to To invite — the carousel's own `toinvite` door. Nothing navigates. On the Map
      (no rows to pick) it opens the List the cold-load way, which lands in the same state (`initialSelect`).
@@ -1084,6 +1088,12 @@ export function GuestsScreen(props: GuestsScreenProps) {
     }
     const opening = !isOpen(key);
     foldSections([key], opening);
+    setPickedHeads((prev) => {
+      const next = new Set(prev);
+      if (opening) next.add(key);
+      else next.delete(key);
+      return next;
+    });
     if (opening) setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 80);
   };
 
@@ -1229,19 +1239,19 @@ export function GuestsScreen(props: GuestsScreenProps) {
         <i data-arc="none" />
         <i data-arc="no" />
       </span>
-      <p className={styles.sumWords} data-roster-replies="">
+      <div className={styles.sumWords} data-roster-replies="">
         {wordDoor('attending', stats.yes, 'gs-yes', RSVP_LIST_WORDS.attending.toLowerCase())}
         <span aria-hidden> · </span>
         {wordDoor('declined', stats.no, 'gs-no', RSVP_LIST_WORDS.declined.toLowerCase(), 'no')}
         <span aria-hidden> · </span>
         {wordDoor('none', stats.none, 'gs-none', RSVP_LIST_WORDS.pending.toLowerCase(), 'wait')}
-      </p>
+      </div>
       {/* One extra line, only when there is something to say (drawing: "+1s" and "Asking to join" stay in Show and sort). */}
       {plusAll > 0 || requests > 0 ? (
-        <p className={styles.sumWords} data-roster-extra="">
+        <div className={styles.sumWords} data-roster-extra="">
           {plusAll > 0 ? (
             <>
-              <span data-roster-plus-ones="">+1s:</span>{' '}
+              <span data-roster-plus-ones="">+1s ·</span>{' '}
               {(
                 [
                   ['named', plusTally.named, 'named', 'gs-plus-named'],
@@ -1283,7 +1293,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               <ChevronRight aria-hidden strokeWidth={2.2} className={styles.reqChev} />
             </Link>
           ) : null}
-        </p>
+        </div>
       ) : null}
     </div>
   );
@@ -1872,7 +1882,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
                   header that is PICKED — opened, its chip lit (owner 2026-11-01, verbatim: "Edit icon only shows when the
                   group is picked and highlighted"); never a pencil on every header at rest. A real button while shown, so
                   the keyboard and a screen reader reach it. 🔒 a-header-pencil-shows-only-when-picked.test.ts */}
-              {selectMode || writesOff || !(opened || renaming === sec.key) ? null : (
+              {selectMode || writesOff || !((opened && (narrowing !== null || pickedHeads.has(sec.key))) || renaming === sec.key) ? null : (
                 <SectionRenameInPlace
                   eventId={eventId}
                   section={{ key: sec.key, label: sec.label }}
@@ -2227,7 +2237,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
             ) : null}
             {/* 👉 DRAGGED RIGHT, WITH WORDS (Guests redesign §2, "dragged right, adding"): the other ways stay as two rows
                 above the box, then what Enter will add ("› Roman Atkinson · +1 · Groom’s side"). */}
-            {q && addMode === 'add' && gview === 'list' && !selectMode && !writesOff ? (
+            {q && !noMatch && addMode === 'add' && gview === 'list' && !selectMode && !writesOff ? (
               <div className={styles.emptyWays} data-adding-ways="" onPointerDown={holdFocus} onMouseDown={holdFocus}>
                 <TypedWays eventId={eventId} label="Add a guest" />
                 {typedPreview ? <AddPreviewLine text={typedPreview} className={styles.addNext} /> : null}
@@ -2573,7 +2583,7 @@ function GuestRowLine({
                   <span key="seat" data-row-table="">{table}</span>
                 ) : null,
                 /* 🖐 A reply the host set says so, quietly (owner 2026-10-21: "Marked by you"). */
-                replyMarkedByHost(g) && status === 'pill' ? <span key="marked" data-reply-marked="">marked</span> : null,
+                replyMarkedByHost(g) ? <span key="marked" data-reply-marked="">marked</span> : null,
                 inviteTag ? <span key="tag" data-row-invite-tag="">{inviteTag}</span> : null,
                 /* 🍽 Quiet: they come, and one booked service does not count them (owner 2026-11-02). */
                 notCounted ? <span key="nc" data-row-not-counted="">{notCounted}</span> : null,

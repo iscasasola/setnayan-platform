@@ -158,7 +158,7 @@ export function GuestsFilterPanel({
         <button
           type="button"
           onClick={fold.onToggle}
-          aria-expanded={fold.allOpen}
+          aria-pressed={fold.allOpen}
           className="sn-press flex min-h-11 w-full items-center gap-3 border-t border-ink/10 py-2.5 text-left text-[15px] text-ink"
           data-filter-fold=""
         >

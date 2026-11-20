@@ -62,3 +62,6 @@ lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, a
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 app/dashboard/(account)/billing/_components/billing-list.tsx :: amount :: TEXT — BillingRow's amount is a ReactNode every caller already built with formatPhp() or manilaDay() (billing-list Row, supplier-billing-sections); never a raw number
 app/admin/colours/_components/colours-editor.tsx :: firstRefusal :: TEXT — the first refusal sentence from judgeAppColours (lib/app-colours.ts), a whole sentence whose ratios are already printed by shownRatio; never a count
+app/_components/chat/cards/deal-sheet.tsx :: gap.amount :: TEXT — gapWords().amount is formatCentavosPhp's grouped "₱5,000" (lib/chat-deal.ts), not a number
+app/_components/chat-message-stream.tsx :: pay.amount :: TEXT — paymentLineOf().amount is the "₱9,000" text cut from the ledger's own line (lib/chat-kinds.ts), already grouped
+app/_components/chat-message-stream.tsx :: pay.amount :: TEXT — the second render of the same grouped string (Payment confirmed)

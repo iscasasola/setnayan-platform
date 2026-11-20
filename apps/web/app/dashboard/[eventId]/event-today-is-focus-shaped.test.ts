@@ -27,7 +27,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { fixtureControl, fixtureDay } from '@/lib/home-control-fixture';
 import { buildEventToday } from '@/lib/event-today';
-import { homeToday, homeWaiting } from './_components/home-control-faces';
+import { homeToday, homeWaiting, scheduleTile } from './_components/home-control-faces';
 import { count, drawHome, loadHome, slice } from './home-render.harness';
 
 test.before(loadHome);
@@ -154,4 +154,25 @@ test('5 · the day-of and after-the-day screens keep their Today lines', () => {
   assert.match(page, /\{afterActive \? todayAsks : null\}/, 'the after screen lost its Today lines');
   assert.match(page, /const todayRows = afterActive\s*\? \{ asks: \[\], bodies: \{\} \}/, 'after the day the list would repeat the lines above it');
   assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames\(guests\) \}\}/, 'the first screen is not handed the asks as rows');
+});
+
+/*
+ * 6 · DRAWING PARITY (controller review of #8066, 20 Nov): a plan task with no tick row still wears the drawing's
+ * tick circle (never the list icon), the "Needs you today" heading is the label and its count only (no ⓘ), and the
+ * Schedule card no longer carries "N to approve" — that item is always on Today already (Now or the list row
+ * `approve:schedule`). SABOTAGE (seen red, 20 Nov, then reverted): the ring branch removed from the row.
+ */
+test('6 · drawing parity: tick ring on every plan task, no ⓘ on the pinned row, no "to approve" chip on Schedule', () => {
+  const row = src('app', 'dashboard', '[eventId]', '_components', 'event-today-list.tsx');
+  assert.match(row, /\) : row\.task \? \(\s*<span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick="ring">/, 'a plan task with no tick falls back to the list icon');
+  const head = src('app', 'dashboard', '[eventId]', '_components', 'home-todo-list.tsx');
+  assert.doesNotMatch(head, /InfoTip/, 'the pinned "Needs you today" row grew an ⓘ the drawing does not have');
+  const control = fixtureControl('e1');
+  const input = { ...control, schedule: { chapters: 3, now: [], next: [], then: [], toApprove: 2, needYou: 0, oweTimes: 12, pro: false } } as typeof control;
+  const tile = scheduleTile(input, homeToday(input.next, input.guests, homeWaiting(input)));
+  const doors = JSON.stringify(tile?.doors ?? []);
+  assert.doesNotMatch(doors, /"id":"approve"|to approve/, 'the Schedule card repeats "N to approve" that Today already holds');
+  const list = buildEventToday({ control: input, today: homeToday(input.next, input.guests, homeWaiting(input)), asks: [], putOffs: null, todayIso: TODAY } as never);
+  const onToday = homeToday(input.next, input.guests, homeWaiting(input)).target === 'sched' || JSON.stringify(list).includes('approve:schedule');
+  assert.ok(onToday, 'with the chip gone, supplier changes to approve must be on Today (Now or the list)');
 });

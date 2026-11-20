@@ -184,6 +184,15 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
             <span className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick={red ? 'red' : ''}>
               <PlanningTick eventId={g.eventId} kind={tick.kind} id={tick.id} done={false} title={row.title} />
             </span>
+          ) : row.task ? (
+            /* A plan task with no table row to tick (a computed step) still wears the drawing's tick circle — never the
+               list icon (drawing v3 `.row .tick i`: a 24 px ring, red on a red row). The row's tap opens its card. */
+            <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center" data-event-today-tick="ring">
+              <i
+                className="block h-6 w-6 rounded-full border-2"
+                style={{ borderColor: red ? 'rgb(var(--color-danger))' : 'var(--sn-ink-500)', background: 'rgb(var(--sn-frame-bg))' }}
+              />
+            </span>
           ) : (
             <span
               aria-hidden

@@ -884,7 +884,7 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
 
 /** What the Schedule card's ⓘ says (the approved prototype's words). */
 export const SCHEDULE_TILE_INFO =
-  'Every chapter running now with its exact line, then what is next. The doors under it: supplier changes to approve, Release (one week out, Pro), clashes that need you, suppliers who owe their times.';
+  'Every chapter running now with its exact line, then what is next. The doors under it: Release (one week out, Pro), clashes that need you, suppliers who owe their times. Supplier changes to approve wait on Today.';
 
 /** Three lines a face, the rest on further faces — nothing cut (plan §5). */
 export const SCHEDULE_LINES_PER_FACE = 3;
@@ -926,8 +926,10 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
     );
   }
   const doors: HomeDoor[] = [];
-  // ✅ "N to approve" opens the supplier requests sheet — Approve one, Approve all (#7150) — with the Schedule.
-  if (s.toApprove > 0) doors.push({ id: 'approve', label: `${n(s.toApprove)} to approve`, href: schedulePageHref(e, { sheet: 'requests' }), main: true });
+  // 🔁 NO "N to approve" CHIP HERE ANY MORE (Event Today, Focus shape, drawing v3 — the Schedule card shows only "N
+  // suppliers without a time"): supplier changes to approve are ALWAYS on Today already — the card's Now strip when
+  // they are the first thing waiting, otherwise the list row "Answer N supplier changes in Schedule"
+  // (`lib/event-today.ts`, key `approve:schedule`). An item shows once ("Now never repeats below", widened to the list).
   if (releaseOpen(input.countdown.days)) doors.push({ id: 'release', label: 'Release', href: schedulePageHref(e, { announce: '1' }), main: true, pro: !s.pro });
   if (s.needYou > 0) doors.push({ id: 'needyou', label: `${n(s.needYou)} need you`, href: door });
   if (s.oweTimes > 0) doors.push({ id: 'owe', label: `${n(s.oweTimes)} ${s.oweTimes === 1 ? 'supplier' : 'suppliers'} without a time`, href: `/dashboard/${e}/vendors?tab=budget` });  // Booked › Team — each row says its call time

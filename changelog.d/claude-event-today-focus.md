@@ -47,4 +47,11 @@ there is vital or maybe you can make it look better"* · *"Yes, build it"*. Stac
 - Guards re-aimed on purpose (each still fails on the fault it was written for): see the commit message. New:
   `lib/event-today.test.ts`, `app/dashboard/[eventId]/event-today-is-focus-shaped.test.ts`.
 
+- **Drawing parity, the rest:** the Schedule card drops "N to approve" — supplier changes to approve are always on Today
+  already (the card's Now strip, or the row `approve:schedule`; the card's ⓘ says so), so an item shows once · a plan
+  task with no row to tick wears the drawing's 24 px ring, never the list icon · the lazy tick's loading slot is a
+  24 px circle, no longer a 128 px bar over the title. Guard: `event-today-is-focus-shaped.test.ts` 6;
+  `the-schedule-widget-reads-chapters.test.ts` 2/4 re-aimed. Gaps written up: specs
+  `prototypes/event_today_focus_2026-11-20/parity/README.md`.
+
 SPEC IMPACT: None — drawing + rulings already in specs (DECISION_LOG 2026-11-20 rows "EVENT TODAY …", prototypes/event_today_focus_2026-11-20/)

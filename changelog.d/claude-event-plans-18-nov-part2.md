@@ -46,3 +46,8 @@ CREDITS + THE WHOLE EVENT HUB" (specs DECISION_LOG 2026-11-20, `Pricing.md` §1.
 SPEC IMPACT: None in this PR — the rulings already live in the specs repo (`PLAN_RULINGS_2026-11-18.md` 34 · 36 · 38,
 DECISION_LOG 2026-11-19 "four calls" and 2026-11-20 "Event Plus = 1,000 Papic credits + the whole Event Hub",
 `Pricing.md` §1.1). Open for the owner: Event Pro's `gift_price_php` (₱5,190) was set against ₱5,690.
+
+### Event Plus's gift price is its list price (20 Nov, controller ruling on review)
+- Migration § 2c: `EVENT_PLUS.gift_price_php` = its own `retail_price_php` (₱2,690 → ₱2,990, read from the row, guarded to the old value). DECISION_LOG 14 Nov "EVERYONE PAYS THE REGULAR PRICE" and 16 Nov "every shop pays the list price for a bought gift".
+- DB test `every-plan-gift-is-its-list-price.db.test.ts`: red on the old line (₱2,690 ≠ ₱2,990), green on the fix (2/2).
+SPEC IMPACT: None (the rulings are already in DECISION_LOG).

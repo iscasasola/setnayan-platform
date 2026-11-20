@@ -114,6 +114,18 @@ UPDATE public.platform_retail_catalog_v2
  WHERE service_code = 'COUPLE_WEBSITE_PRO'
    AND gift_price_php = 5190;
 
+-- ── 2c · Event Plus's gift price = its LIST price, read from the row itself (controller ruling on PR #8004, 20 Nov;
+--         DECISION_LOG 2026-11-14 "EVERYONE PAYS THE REGULAR PRICE" — `gift_price_php` is not a price anywhere — and
+--         16 Nov "every shop pays the list price for a bought gift"). It was ₱2,690 against the ₱2,990 list
+--         (20271308555594), the last plan row still showing a discount nobody is charged. Guarded: only from that old
+--         value, so an admin-set gift price is left alone. Held by every-plan-gift-is-its-list-price.db.test.ts.
+UPDATE public.platform_retail_catalog_v2
+   SET gift_price_php = retail_price_php,
+       updated_at     = now()
+ WHERE service_code = 'EVENT_PLUS'
+   AND gift_price_php = 2690
+   AND gift_price_php IS DISTINCT FROM retail_price_php;
+
 -- ── 3b · Event Ultra's and Event Plus's descriptions (no typed count, no Patiktok, no AI on Plus) ──
 UPDATE public.platform_retail_catalog_v2
    SET description = 'Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months, canvas prints and the most Papic credits.',

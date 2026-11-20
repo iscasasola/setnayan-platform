@@ -93,8 +93,13 @@ test('1 · the headline is the approved one', async () => {
     'the v6 "Suppliers you can trust" part is gone or reworded',
   );
   // The gift row says only what is live (the card's Setnayan gift) — never "every booking" (#7823 is on hold).
-  assert.match(page, /A Setnayan gift\. Many bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
+  assert.match(page, /A Setnayan gift\. Some bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
   assert.doesNotMatch(page, /every booking (comes|carries) (with )?a gift/i, 'the page promises a gift on every booking, which is not built');
+  assert.doesNotMatch(page, /Many bookings come with/, '"many" is not measured — the gift row says "Some"');
+  // Badges are earned three ways (lib/card-badges.ts): bookings, replies (Quick Responder, Trending Now count
+  // inquiries) and checked papers (Setnayan Verified) — never "only from real bookings".
+  assert.match(page, /Badges are earned\. Every badge and seal is earned: real bookings, real replies, checked papers\./, 'the badges row is not the corrected wording');
+  assert.doesNotMatch(page, /comes only from real bookings/, 'the badges row says bookings only — Quick Responder, Trending Now and Verified are not booking-earned');
 });
 
 test('2 · no "never lose a photo" / "keep every photo" on the hero or the home <title>', async () => {

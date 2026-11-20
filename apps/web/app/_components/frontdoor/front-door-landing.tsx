@@ -1,13 +1,16 @@
 /**
  * front-door-landing.tsx — the signed-out front page below the first screen.
  *
- * BUILT FROM `prototypes/front_page_home_2026-11-19/` v5 (owner-approved 20 Nov 2026, specs ef5df0b5; brief
+ * BUILT FROM `prototypes/front_page_home_2026-11-20_usp/` v6 (owner "Approve v6", 20 Nov 2026, specs f29c85b3 — v5,
+ * `front_page_home_2026-11-19/`, plus the USP line, the Papic heading and "Suppliers you can trust"; brief
  * `FRONT_PAGES_BUILD_BRIEF_2026-11-20.md`): "the home of every Filipino celebration", redrawn in Discover's look.
  * The first screen (photo, headline, picker, chips) is `front-door-anchor.tsx`. Below it, in this order —
  *
  *   #live   Live it — the sample wedding as its guests see it, five screens on one shelf
- *           Live it · Papic — every guest's phone a camera, one album; their own QR pass; family abroad watch live
+ *           Live it · Papic — everyone you love and every photo of them, one album; their own QR pass; family abroad
+ *           watch live
  *   #plan   Plan it — six free tools on one shelf
+ *   #suppliers  Plan it · Suppliers — suppliers you can trust: four text rows, no data read
  *   #keep   Keep it — one person's debut, wedding and son's christening on one thread
  *           the three doors — I'm hosting · I'm a supplier · I'm a coordinator
  *   #plans  Plans — one line; Free · Event Plus · Event Pro · Event Ultra open on a tap
@@ -358,7 +361,7 @@ export function FrontDoorLanding({
         </div>
         <ul className="fl-also">
           <li>
-            <b>Badges are earned.</b> Every badge and seal comes only from real bookings.
+            <b>Badges are earned.</b> Every badge and seal is earned: real bookings, real replies, checked papers.
           </li>
           <li>
             <b>Nothing is a screenshot.</b> Every quote and payment is a card in your chat.
@@ -367,7 +370,7 @@ export function FrontDoorLanding({
             <b>You pay them directly.</b> 0% commission.
           </li>
           <li>
-            <b>A Setnayan gift.</b> Many bookings come with free Papic photos for your event.
+            <b>A Setnayan gift.</b> Some bookings come with free Papic photos for your event.
           </li>
         </ul>
       </section>

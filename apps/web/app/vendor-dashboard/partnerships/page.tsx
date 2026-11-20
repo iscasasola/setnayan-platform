@@ -42,6 +42,8 @@ import {
   type PartnershipOrigin,
 } from '@/lib/supplier-invite';
 import { readJoinedThroughLink } from '@/lib/supplier-invite.server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchQualifiedTrustedIds, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
 import { PreferredSupplierCard, type AddableShop } from './_components/preferred-supplier-card';
 import { PartnerRemoveRow } from './_components/partner-remove-row';
 
@@ -84,6 +86,9 @@ const RELATIONSHIP_LABELS_SHORT: Record<string, string> = PARTNERSHIP_VENDOR_LAB
 type Props = {
   searchParams: Promise<SearchParams>;
 };
+
+/** Owner 21 Nov 2026 ("A SHOP SHOWS AS YOUR TRUSTED SHOP ONLY AFTER ONE COMPLETED, PAID BOOKING"), verbatim copy. */
+const WAITING_FOR_FIRST_BOOKING = 'Waiting for their first completed booking';
 
 export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const sp = await searchParams;
@@ -187,10 +192,15 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   const shopName = (profile as { business_name?: string | null }).business_name?.trim() || 'Your shop';
   const invitePath = slug ? supplierInvitePath(slug) : null;
   const inviteUrl = invitePath ? `${siteOrigin()}${invitePath}` : null;
-  const [inviteSvg, joinedCount] = await Promise.all([
+  const [inviteSvg, joinedCount, qualifiedRead] = await Promise.all([
     inviteUrl ? renderUrlQrSvg(inviteUrl).catch(() => null) : Promise.resolve(null),
     readJoinedThroughLink(supabase, myId),
+    // 🤝 Owner 21 Nov 2026: a linked shop shows as TRUSTED only after its first completed, paid booking — the ONE reader
+    // (lib/vendor-trusted-by.ts). Before then its row here reads "Waiting for their first completed booking", and it
+    // shows nowhere public. A refused read (UNREADABLE) claims neither: no Live tag, no Waiting line.
+    accepted.length > 0 ? fetchQualifiedTrustedIds(createAdminClient(), myId) : Promise.resolve(new Set<string>()),
   ]);
+  const qualified: Set<string> | null = qualifiedRead === TRUSTED_BY_UNREADABLE ? null : qualifiedRead;
   const query = (sp.q ?? '').trim().slice(0, 60);
   let addResults: AddableShop[] | 'unreadable' | null = null;
   if (sp.add === '1' && query.length >= 2) {
@@ -339,6 +349,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <ul className="space-y-3">
             {accepted.map((p) => {
               const iProposed = p.recommending_vendor_id === myId;
+              const partnerId = iProposed ? p.recommended_vendor_id : p.recommending_vendor_id;
               const kindLabel = RELATIONSHIP_LABELS_SHORT[p.relationship_type] ?? p.relationship_type;
               return (
                 // 🤝 THE HOUSE ROW (coordinator 2026-11-06, from the 390 px proof): name + Live on one line, one quiet
@@ -352,14 +363,19 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     titleNode={
                       <>
                         {otherName(p)}{' '}
-                        <span className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-[10px] font-semibold text-success-700">
-                          Live
-                        </span>
+                        {qualified?.has(partnerId) ? (
+                          <span className="ml-1 inline-block rounded-full bg-success-50 px-2 py-0.5 align-middle text-[10px] font-semibold text-success-700">
+                            Live
+                          </span>
+                        ) : null}
                       </>
                     }
                     line={
-                      // 🤝 Invited and added ties say where they came from (v3); a worked-together tie keeps its kind.
-                      p.origin === 'worked_together'
+                      // 🤝 Owner 21 Nov 2026: linked, not yet trusted — never shown publicly until it qualifies.
+                      qualified && !qualified.has(partnerId)
+                        ? WAITING_FOR_FIRST_BOOKING
+                        : // 🤝 Invited and added ties say where they came from (v3); a worked-together tie keeps its kind.
+                          p.origin === 'worked_together'
                         ? `${partnerLine({ origin: p.origin, iProposed, at: p.accepted_at, events: eventsWith.get(iProposed ? p.recommended_vendor_id : p.recommending_vendor_id) ?? null })} · ${kindLabel}`
                         : partnerLine({ origin: p.origin, iProposed, at: p.accepted_at ?? p.created_at })
                     }

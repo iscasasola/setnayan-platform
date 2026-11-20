@@ -86,7 +86,12 @@ test('a partner row is the house row: name + Live, one quiet line, no buttons un
   assert.match(rows, /data="partner-accepted"/);
   // 🤝 Invite a supplier v3 (owner 16 Nov): the one quiet line says where the tie came from — "Invited · joined through
   // your link · 16 Nov", "Added by you", "Worked together · 2 events" — through the one wording, `partnerLine`.
-  assert.match(rows, /line=\{[\s\S]{0,400}partnerLine\(\{ origin: p\.origin, iProposed/);
+  assert.match(rows, /line=\{[\s\S]{0,800}partnerLine\(\{ origin: p\.origin, iProposed/);
+  // 🤝 Owner 21 Nov 2026: a linked shop that has not yet had a completed, paid booking reads the waiting line and no
+  // Live tag — from the ONE trust reader (lib/vendor-trusted-by.ts), never worked out here.
+  assert.match(rows, /qualified && !qualified\.has\(partnerId\)\s*\? WAITING_FOR_FIRST_BOOKING/);
+  assert.match(rows, /\{qualified\?\.has\(partnerId\) \? \(\s*<span[^>]*>\s*Live/);
+  assert.match(page, /const WAITING_FOR_FIRST_BOOKING = 'Waiting for their first completed booking';/);
   assert.match(rows, /<PartnerRemoveRow key=\{p\.id\} id=\{p\.id\}/, 'either side removes a partner by swiping the row left');
   // Nothing pressable before the Fold opens — the dropdown and Re-propose live INSIDE it.
   const closed = rows.slice(0, foldAt);

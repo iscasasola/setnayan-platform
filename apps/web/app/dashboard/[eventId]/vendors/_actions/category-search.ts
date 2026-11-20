@@ -108,6 +108,8 @@ import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { liveTierState } from '@/lib/vendor-tier-lapse';
+import { fetchQualifiedTrustCounts, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
+import { compareTrust } from '@/lib/trust-rank';
 
 export type CategoryVendorResult = {
   vendorProfileId: string;
@@ -1189,6 +1191,18 @@ export async function searchCategoryVendors(input: {
      *  fields. */
     _tier: LadderTier;
   };
+  // 🤝 TRUST, the search signal (owner 21 Nov 2026, "TRUSTED SHOPS RANK HIGHER IN SEARCH"): distinct QUALIFIED shops
+  // trusting each row, from the ONE reader (lib/vendor-trusted-by.ts). It is a key INSIDE each rung, right after that
+  // rung's fit keys (depth, the couple's facets) — it never moves a row across a rung, never adds a row (`recs` already
+  // passed every fit gate: kind of work, area/reach, date), and the busy-on-the-date down-rank below still runs after
+  // it. A refused read leaves every row at 0, so the ladder is exactly as before.
+  const trustRead = await fetchQualifiedTrustCounts(
+    admin,
+    recs.map((r) => r.vendor_profile_id),
+  );
+  const trustCounts = trustRead === TRUSTED_BY_UNREADABLE ? null : trustRead;
+  const byTrust = (a: { vendorProfileId: string }, b: { vendorProfileId: string }) =>
+    compareTrust(trustCounts, a.vendorProfileId, b.vendorProfileId);
   const shaped: Shaped[] = recs.map((r) => {
     const prof = profById.get(r.vendor_profile_id);
     const name = resolveVendorDisplayName({
@@ -1379,6 +1393,7 @@ export async function searchCategoryVendors(input: {
       (a, b) =>
         b._depth - a._depth ||
         (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+        byTrust(a, b) ||
         b._adRank - a._adRank ||
         b._reviews - a._reviews ||
         b._rating - a._rating,
@@ -1395,7 +1410,8 @@ export async function searchCategoryVendors(input: {
     .sort(
       (a, b) =>
         b._adRank - a._adRank ||
-        (facetSelected ? b._facetMatch - a._facetMatch : 0),
+        (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+        byTrust(a, b),
     );
   const rest0 = noRelationshipShaped.filter((s) => !s.boosted);
   // Tier 3 top-10 by review_count then rating. When the couple has an active
@@ -1404,6 +1420,7 @@ export async function searchCategoryVendors(input: {
   const byReview = [...rest0].sort(
     (a, b) =>
       (facetSelected ? b._facetMatch - a._facetMatch : 0) ||
+      byTrust(a, b) ||
       b._reviews - a._reviews ||
       b._rating - a._rating,
   );
@@ -1417,6 +1434,9 @@ export async function searchCategoryVendors(input: {
     if (facetSelected && b._facetMatch !== a._facetMatch) {
       return b._facetMatch - a._facetMatch;
     }
+    // 🤝 TRUST — right after fit (owner 21 Nov 2026), before price-fit, distance and reviews.
+    const trustDiff = byTrust(a, b);
+    if (trustDiff !== 0) return trustDiff;
     // Smart-sort SOFT price-fit re-rank (flag-gated · lib/smart-sort). Scoped to
     // the TAIL tier ONLY — the relationship / boosted / top-reviews tiers stay
     // exactly as the owner-locked ladder puts them, so this never reorders across

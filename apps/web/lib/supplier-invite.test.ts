@@ -84,10 +84,12 @@ test('"+ Add" is the shipped propose with origin added — one flow, not a secon
   assert.match(actions, /if \(!added\) \{\s*const servedTogether = await servedTogetherWith/);
 });
 
-test('Trusted by reads both directions, the adder’s pending adds, and the worked-with shops', () => {
+test('Trusted by reads the ONE qualified-trust reader (21 Nov), with the worked-with count as a caption only', () => {
+  // Owner 21 Nov 2026: a linked shop shows as trusted only after one completed, paid booking — so the pending hand add
+  // and the worked-together-only shop (16 Nov) are links now, not Trusted by rows. Both directions live in the SQL.
   const src = read('lib/vendor-trusted-by.ts');
-  assert.match(src, /\.or\(`recommending_vendor_id\.eq\.\$\{me\},recommended_vendor_id\.eq\.\$\{me\}`\)/);
-  assert.match(src, /if \(r\.status === 'proposed' && !iMade\) continue;/, 'a pending tie shows only on the adder’s page');
+  assert.match(src, /admin\.rpc\(QUALIFIED_TRUST_RPC, \{ p_vendor_profile_ids: \[me\] \}\)/);
+  assert.doesNotMatch(src, /\.from\('vendor_partnerships'\)/, 'no second derivation beside the one reader');
   assert.match(src, /rpc\('shop_worked_with_counts'/);
 });
 

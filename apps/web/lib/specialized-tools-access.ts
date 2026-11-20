@@ -185,6 +185,8 @@ export function specializedToolsUnlockFrom(
  * may not have them (controller, under owner delegation, same day), with GRANDFATHERING: what a shop already held
  * when it shipped runs to its end. The two tools below therefore leave the Specialized tools unlock, which keeps
  * opening every OTHER paid tool ({@link specializedToolsUnlockFrom} is unchanged).
+ * 💬 The CHATBOT half of that row was re-ruled on 21 Nov (owner: *"AI Chatbot is for verified and up but smarter chatbot
+ * is for pro and up"*) — its gate is `PLAN_CHATBOT_LEVEL` in lib/vendor-ai-level.ts, not this file.
  *
  * THE MIRROR of `vendor_pro_tools_included(shop, event)` (migration 20271356215288), held in step by
  * `tests/db/pro-tools-come-with-pro.db.test.ts`.

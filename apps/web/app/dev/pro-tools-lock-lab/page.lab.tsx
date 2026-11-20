@@ -8,13 +8,15 @@
  * gate `vendor_pro_tools_included`; this lab copies only their outer markup around the same lock component.
  */
 import { notFound } from 'next/navigation';
-import { Check, Store, Trophy } from 'lucide-react';
+import { Bot, Check, Store, Trophy } from 'lucide-react';
 
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Badge } from '@/app/_components/badge';
 import { ShopCard } from '@/app/vendor-dashboard/_components/kit';
 import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
+import { papersProgress } from '@/lib/locks';
+import { planTable, tableTierName, TABLE_TIERS } from '@/app/for-suppliers/_components/plan-table-data';
 
 const NEED = { kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' } as const;
 
@@ -70,6 +72,44 @@ function BoothCard({ pro }: { pro: boolean }) {
   );
 }
 
+/** 💬 Owner 21 Nov: "AI Chatbot is for verified and up but smarter chatbot is for pro and up". The locked view is an
+ *  unverified Free shop (the Clients ⚙ auto-reply section draws exactly this lock); both views show the plan table's row. */
+function ChatbotCard({ pro }: { pro: boolean }) {
+  const groups = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
+  const bot = groups.flatMap((g) => g.rows).find((r) => r.key === 'tool:chatbot');
+  return (
+    <ShopCard pad="roomy">
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
+        <Bot aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
+        AI chatbot
+        {pro ? <Badge tone="ok" data="chatbot-on">Smarter</Badge> : null}
+      </h3>
+      {pro ? (
+        <p className="mt-1 text-xs text-ink/55" data-chatbot-included="">
+          Comes with your plan — the smarter level: your voice, the couple&rsquo;s language.
+        </p>
+      ) : (
+        <div className="mt-3" data-chatbot-locked="">
+          <LockedFeature lock="chatbot" need={{ kind: 'verify', progress: papersProgress({ done: 1, of: 3 }) }} />
+        </div>
+      )}
+      {bot ? (
+        <dl className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4" data-chatbot-row="">
+          {TABLE_TIERS.map((t) => (
+            <div key={t} className="rounded-lg bg-cream px-2 py-1.5">
+              <dt className="font-semibold text-ink">{tableTierName(t)}</dt>
+              <dd className="text-ink/70">
+                {bot.cells[t].kind === 'lock' ? '🔒 ' : ''}
+                {bot.cells[t].text}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </ShopCard>
+  );
+}
+
 export default async function ProToolsLockLab({ searchParams }: { searchParams: Promise<{ pro?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const pro = (await searchParams).pro === '1';
@@ -81,6 +121,9 @@ export default async function ProToolsLockLab({ searchParams }: { searchParams: 
         </section>
         <section data-lab-card="booth">
           <BoothCard pro={pro} />
+        </section>
+        <section data-lab-card="chatbot">
+          <ChatbotCard pro={pro} />
         </section>
       </div>
     </main>

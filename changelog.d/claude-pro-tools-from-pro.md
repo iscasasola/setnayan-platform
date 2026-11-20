@@ -27,3 +27,23 @@ SPEC IMPACT: `DECISION_LOG.md` row 2026-11-20 (controller, under owner delegatio
 ### Ship review fixes (20 Nov)
 - The photo challenge card now asks the database's own gate (`vendor_papic_challenge_entitled`) instead of the old Specialized tools unlock read: a Plus or trial shop after the ship is no longer shown "On" for a submit the database refuses, opening the card no longer claims the one-time trial, and a failed read shows "couldn't check" instead of the upgrade lock.
 - Plan copy follows the ruling: the 3D booth logo line sits under Pro (anchored to `PRO_TOOLS_MIN_TIER`, "add-on" dropped); Plus's Specialized tools row and line no longer say "All"; features entry c43 says the two tools come with Pro.
+
+## 2026-11-21 · feat(supplier-plans): the AI chatbot is Verified and up; the smarter chatbot is Pro and up
+
+Owner, verbatim (21 Nov): *"AI Chatbot is for verified and up but smarter chatbot is for pro and up"* — replaces the
+14 Nov split (chatbot on Pro, smarter on Ultra only).
+
+- `PLAN_CHATBOT_LEVEL` (lib/vendor-ai-level.ts — the table the inbox gate reads): Verified and Plus → basic, Pro and
+  Ultra → advanced, Free → none. `planChatbotLevel` now reads `verification_state`, because approving a shop's papers
+  does not rewrite `tier_state` — a verified Free shop is answered. The inbox gate selects that column.
+- A new `chatbot` lock (lib/locks.ts, opens Verified, server = inbox-hook): the Clients ⚙ auto-reply section draws the
+  shared 🔒 for an unverified Free shop instead of a switch that does nothing.
+- Every surface that names who gets it: Plans table (Free cell "🔒 Opens once Verified"), For Suppliers + For
+  Coordinators Verified line, /pricing, /features plan columns, voice-match words (Pro and Ultra), the retired buy
+  action's message.
+- Paid chatbot windows still run to their end (unchanged). Neither level is sold on its own. No schema change; the
+  migration is byte-identical to 391132f618.
+- Tests: `lib/the-chatbot-is-verified-and-up.test.ts` (Verified/Plus basic, Pro/Ultra smarter, unverified Free 🔒),
+  plan-table cells. §4: `build-sessions/shots-pro-tools-lock/` gains the chatbot lock (closed + opened).
+
+SPEC IMPACT: DECISION_LOG 21 Nov row already logged by the controller; no further corpus edit.

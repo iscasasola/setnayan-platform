@@ -130,6 +130,8 @@ function chatbotCell(t: VendorTier): TableCell {
   const level = PLAN_CHATBOT_LEVEL[t] ?? 'none';
   if (level === 'advanced') return yes('Smarter level: your voice, the couple’s language');
   if (level === 'basic') return yes('Included');
+  // Verified joins Free (owner 21 Nov: "AI Chatbot is for verified and up"): the Free cell says where it opens.
+  if (t === 'free' && (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none') return { kind: 'lock', text: 'Opens once Verified' };
   return no('Not included');
 }
 

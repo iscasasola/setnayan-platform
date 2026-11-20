@@ -127,6 +127,13 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   yes('tool:specialized', (t) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(t));
   // 2026-11-14: the chatbot is the plan's (PLAN_CHATBOT_LEVEL — the inbox gate's own table), no longer a price.
   yes('tool:chatbot', (t) => (PLAN_CHATBOT_LEVEL[t] ?? 'none') !== 'none');
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up but smarter chatbot is for pro and up" — Free shows the 🔒 to
+  // Verified, Plus is included, Pro and Ultra name the smarter level.
+  const bot = row(g, 'tool:chatbot');
+  assert.deepEqual(bot.cells.free, { kind: 'lock', text: 'Opens once Verified' });
+  assert.equal(bot.cells.solo.text, 'Included');
+  assert.match(bot.cells.pro.text, /^Smarter level/);
+  assert.match(bot.cells.enterprise.text, /^Smarter level/);
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
   const gift = row(g, 'money:gift');
   // 📦 One price per gift on every plan (owner 2026-11-14) — no plan buys gifts for less; bundles are open to all.

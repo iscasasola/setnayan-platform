@@ -80,7 +80,9 @@ export function freeSpec(): string {
  * since 2026-11-19 (owner: *"unlock the range. not plan dependend anymore"*): verified, every plan sets its own.
  */
 export function verifiedSpec(): string {
-  return `${VERIFIED_REACH} · the Verified seal · get paid in the app`;
+  // 💬 Owner 21 Nov: "AI Chatbot is for verified and up" — read from the gate's own table, never typed.
+  const chatbot = (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none' ? ' · the AI chatbot' : '';
+  return `${VERIFIED_REACH} · the Verified seal · get paid in the app${chatbot}`;
 }
 
 /**
@@ -146,7 +148,8 @@ export type GrowLine = { text: string; tail?: string; lead: boolean };
  */
 export function foldedLines(t: GrowTier): GrowLine[] {
   const firstTools = GROW_TIERS.find((g) => SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(g)) ?? null;
-  const firstBasic = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
+  // Verified comes first: when the chatbot opens on Verified (21 Nov), `verifiedSpec` says it and no plan repeats it.
+  const firstBasic = (['verified', ...GROW_TIERS] as const).find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
   const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
   const out: GrowLine[] = [];
   if (firstTools === t) {

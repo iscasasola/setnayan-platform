@@ -372,10 +372,10 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
-  { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'Everything in Free'] },
+  { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'AI chatbot included', 'Everything in Free'] },
   { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly', 'All specialized tools included'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro', 'The smarter AI chatbot included'] },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'The smarter AI chatbot included'] },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro'] },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

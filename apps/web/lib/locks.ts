@@ -140,6 +140,16 @@ export const LOCKS = {
     server: 'app/vendor-dashboard/subscription/actions.ts',
     draft: true,
   },
+  // 💬 Owner 21 Nov, verbatim: "AI Chatbot is for verified and up but smarter chatbot is for pro and up". The inbox gate
+  // (`vendorAiBasicActive`, PLAN_CHATBOT_LEVEL) refuses an unverified Free shop's replies; a bought window still runs.
+  chatbot: {
+    name: 'AI chatbot',
+    problem: 'A couple messages at midnight and waits until morning for a price.',
+    solution: 'The AI chatbot answers price, dates and what’s included from your own catalogue, right away.',
+    opens: 'verified',
+    server: 'lib/vendor-autoreply/inbox-hook.ts',
+    draft: true,
+  },
   // 🎁 Owner 20 Nov: the photo challenge and the 3D booth come with Pro and up (DECISION_LOG "… INCLUDED IN PRO AND UP";
   // Free · Verified · Plus may not have them — controller under owner delegation, same day). The database is the gate
   // (`vendor_pro_tools_included`, migration 20271356215288); a shop that held them when it shipped keeps them to the end.

@@ -15,7 +15,7 @@ import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
 
 /*
  * 📐 PLAN ALLOWANCES ARE READ, NEVER TYPED (owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES" + "BRANCHES PER
- * PLAN"). Every reach / category / card / seat / branch / waitlist number below is a `TIER_CAPS` read, so the next
+ * PLAN"). Every category / card / seat / branch / waitlist number below is a `TIER_CAPS` read, so the next
  * ruling moves these lines with the table. Before this, "3 seats", "Three categories + 50 km", "Up to 10 team seats"
  * and "Reach up to 100 km" were typed here and went stale the day the owner moved them.
  */
@@ -85,6 +85,8 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Answer every couple', b: 'No weekly limit on answering, on any plan.' },
           { n: 'Take as many bookings a day as you set', b: 'Your own number, per calendar and per service card. No plan limit.' },
           { n: `${many(TIER_CAPS.verified.serviceCardsTotal, 'service card', 'service cards')} live`, b: `Make as many service cards as you like. Show ${many(TIER_CAPS.verified.serviceCardsTotal, 'card', 'cards')} to couples once you’re verified.` },
+          // 🔓 Reach is not a plan allowance (owner 2026-11-19): once verified, every plan sets its own.
+          { n: 'Set your own reach', b: 'Once you’re verified, you choose how far you go — on every plan. Until then couples reach you by your own link and QR.' },
           { n: `${PORTFOLIO_FREE_BASE} portfolio photos, free`, b: `Your first ${PORTFOLIO_FREE_BASE} portfolio photos are free on every plan.` },
           { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
@@ -144,7 +146,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     groups: [
       {
         items: [
-          { n: `${TIER_CAPS.solo.serviceRadiusKm} km reach`, b: 'Couples farther from you see you in their search.' },
           { n: `${many(TIER_CAPS.solo.parentCategories, 'category', 'categories')} · ${many(TIER_CAPS.solo.serviceCardsTotal, 'service card', 'service cards')} live`, b: `List under ${many(TIER_CAPS.solo.parentCategories, 'parent category', 'parent categories')}. Make as many service cards as you like, with up to ${many(TIER_CAPS.solo.serviceCardsTotal, 'card', 'cards')} live.` },
           { n: `${many(TIER_CAPS.solo.agentAccounts, 'team seat', 'team seats')}`, b: 'Give a helper their own login, scoped to their services.' },
           { n: 'Your own web address', b: 'Point your own domain at your Setnayan page.' },
@@ -162,14 +163,14 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    tagline: 'Grow: a premium page, a team, wider reach, and market intelligence. Everything in Plus, plus:',
+    tagline: 'Grow: a premium page, a team, and market intelligence. Everything in Plus, plus:',
     groups: [
       {
         items: [
           { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Stories.' },
           { n: `Team sub-accounts (${many(TIER_CAPS.pro.agentAccounts, 'seat', 'seats')})`, b: 'Give each crew member a login scoped to their services, no shared passwords.' },
           { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
-          { n: `${many(TIER_CAPS.pro.parentCategories, 'category', 'categories')} + ${TIER_CAPS.pro.serviceRadiusKm} km reach`, b: `List under ${many(TIER_CAPS.pro.parentCategories, 'parent category', 'parent categories')} and serve a wider radius.` },
+          { n: `${many(TIER_CAPS.pro.parentCategories, 'category', 'categories')}`, b: `List under ${many(TIER_CAPS.pro.parentCategories, 'parent category', 'parent categories')}.` },
           { n: `${many(TIER_CAPS.pro.serviceCardsTotal, 'service card', 'service cards')} live`, b: `Make as many as you like. Show up to ${many(TIER_CAPS.pro.serviceCardsTotal, 'card', 'cards')} across the categories you cover.` },
           { n: `${many(TIER_CAPS.pro.branchesIncluded, 'branch', 'branches')} included`, b: 'Run other locations under your one shop, with no branch fee.' },
           { n: 'Booked-out waitlist', b: 'Fully booked? Couples wait instead of bouncing — you choose how many to take off it per date, so a cancellation becomes a recovered booking.' },
@@ -198,7 +199,6 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
           { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Pro.' },
           { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
-          { n: 'Nationwide reach', b: 'Couples anywhere in the Philippines find you in their search.' },
           { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
           { n: `${many(TIER_CAPS.enterprise.serviceCardsTotal, 'service card', 'service cards')} live`, b: 'More live services than Pro. Make as many as you like.' },
           { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },

@@ -268,6 +268,9 @@ const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the 3D seat plan · the Pro unlock: a free couple’s all-in-one files in the shipped Details (2026-10-16) — the ticket zip’s own unlock link left on 2026-10-22, the zip is free' },
   /* maker-details.tsx: its one link out (Prints › Set up E-Gifts → /pabuya) became E-Gifts' own editor IN PLACE (owner 2026-10-08). */
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
+  /* 🚪 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"): the Maker is full screen, so the
+     app's nav is no longer on it — the top bar's ‹ is the one way out, back to the event. */
+  [`${L}/maker-shell.tsx`]: { count: 1, why: 'the top bar’s ‹ — the full-screen Maker’s one way out (20 Nov 2026)' },
 };
 const TOOL_FILES = [
   `${L}/maker-lower-third.tsx`,

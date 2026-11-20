@@ -451,3 +451,16 @@ export const MAKER_OPEN_GUESTS_SEE_EVENT = 'maker:open-guests-see';
  * always mounted) plays the reverse and falls back into the scene.
  */
 export const MAKER_EDITOR_CLOSE_EVENT = 'maker:editor-close';
+
+/**
+ * 🧰 THE ONE-TOOLBAR DOORS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"; the
+ * approved drawing `maker_one_toolbar_expand_2026-11-20_fable.html` v17). The toolbar (`stage-tools.tsx`) asks; the
+ * always-mounted stage pill (`stages-studio-parts.tsx`) and the shell answer:
+ *   · ≡ PAGES — this stage's pages and their scenes, to open, hide, move and add (`maker-pages-sheet.tsx`), detail
+ *     `{ stage, page }`;
+ *   · 🎨 LOOK — the Whole Event Hub: one theme, colours, font, buttons, background, music (the shell's `openLook`);
+ *   · 👁 PREVIEW — the top bar's one eye: the page as a guest gets it, with See as (`stage-tools.tsx` `enterPreview`).
+ */
+export const MAKER_OPEN_PAGES_EVENT = 'maker:open-pages';
+export const MAKER_OPEN_LOOK_EVENT = 'maker:open-look';
+export const MAKER_PREVIEW_EVENT = 'maker:preview';

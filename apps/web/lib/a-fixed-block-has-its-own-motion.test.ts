@@ -551,7 +551,10 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
   assert.equal(blockTakesGround(blockOfCanvas(MAKER_PARTS.myphotos.canvas)!), false);
   assert.equal(BLOCK_SAMPLE_WHY['f:photos_of_you'], undefined);
   assert.equal(makerPartToolWhy('myphotos', 'bg'), 'Background has nothing to change on this part.');
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1)): three TABS — Style holds Background's rows, so it
+     works when either does (`tabWorks`); every other tab is its tool's own answer, exactly as before. */
   assert.match(TOOLS, /aria-disabled=\{tabWorks\(t\) \? undefined : true\}/);
+  assert.match(TOOLS, /const tabWorks = \(t: MakerPartTab\) => \(t === 'style' \? toolWorks\('style'\) \|\| toolWorks\('bg'\) : toolWorks\(t\)\);/);
   assert.match(TOOLS, /const blockGround = open && groundBlock !== null && shownTool === 'bg';/);
   assert.match(TOOLS, /\{blockGround && groundBlock \? <BlockGroundRows key=\{groundBlock\} block=\{groundBlock\} \/> : null\}/);
   assert.doesNotMatch(TOOLS, /<BlockGroundRows key=\{block\}/, 'the Background rows are drawn for any block — one that only moves would get tiles');

@@ -93,7 +93,8 @@ import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { needsLandingStage } from '@/lib/event-needs';
 import { PRINTS_PAGE_LABEL, printsPageHref } from '@/lib/prints-page-href';
 import { usePrintsForward } from './prints-forward';
-import { type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
+import { MAKER_OPEN_LOOK_EVENT, MAKER_PREVIEW_EVENT, type MakerEventBar, type MakerProLine, type MakerTool } from './maker-context';
+import { useBackCloses } from '@/lib/use-back-closes';
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
@@ -596,8 +597,25 @@ export function MakerShell({
       {(close) => previewRows(close)}
     </ToolMenu>
   );
-  /* 🧭 A phone's top nav has no 👁 (`MAKER_TOOLBAR_STAGES_STUDIO`) — a desktop keeps it. */
-  const previewMenu = <span className="contents max-lg:hidden">{previewTool}</span>;
+  /* 👁 THE ONE PREVIEW, ON A PHONE TOO (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (5): ‹ · Stage ▾ ·
+     👁 · ✓ Apply · ⚙ — it replaces holding ▶). A phone's eye shows the page as a guest gets it, with "See as" and "Exit
+     preview" (`stage-tools.tsx`, `MAKER_PREVIEW_EVENT`); a desktop keeps its menu of how the page is seen. */
+  const previewMenu = (
+    <>
+      <span className="contents max-lg:hidden">{previewTool}</span>
+      {side === 'stages' ? (
+        <button
+          type="button"
+          aria-label="Preview as a guest"
+          data-maker-preview-phone=""
+          onClick={() => window.dispatchEvent(new Event(MAKER_PREVIEW_EVENT))}
+          className={`${MAKER_BAR_ICON} lg:hidden`}
+        >
+          <Eye aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+      ) : null}
+    </>
+  );
 
   const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
   /* 🧰 THE LOWER THIRD'S PICK (phone) — one of the menu's two groups: a stage,
@@ -838,6 +856,8 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
+  const openStudioRef = useRef(openStudio);
+  openStudioRef.current = openStudio;
   /* ⚙ LOOK, FROM THE HUB'S ⚙ (owner 2026-10-30 — DECISION_LOG 2026-10-27 "LOOK MOVES TO EVENT HUB SETTINGS"): the shipped
      Look editor, opened on the section picked — the same page its Studio card opened (`openStudio('look')`), on that
      section rather than the one last seen. */
@@ -904,6 +924,20 @@ export function MakerShell({
     if (selection?.kind === 'tool' && selection.key === 'details') return;
     select({ kind: 'tool', key: 'details' });
   }, [studioFull, printsPage, studioTile, selection, select]);
+  /* ← BACK CLOSES EXPAND FIRST (owner 20 Nov 2026, DECISION_LOG "MAKER · WAY BACK + BUILT-IN GUEST PAGES": *"phone Back
+     (closes Expand first, then the toolbar)"*). The risen editor takes over the toolbar's history entry (the app's one
+     mechanism, `useBackCloses`), so one Back returns to the part with its toolbar up, and the next lets the part go. */
+  useBackCloses(studioOn && !printsPage && !wide, () => {
+    setStudioFrom(null);
+    pickSide('stages');
+  });
+  /* 🎨 LOOK ON THE RESTING BAR (20 Nov) — the Whole Event Hub: the shipped Look editor (theme, colours, font, buttons,
+     background, music), the same page ⚙ › Look opens. */
+  useEffect(() => {
+    const on = () => openStudioRef.current('look');
+    window.addEventListener(MAKER_OPEN_LOOK_EVENT, on);
+    return () => window.removeEventListener(MAKER_OPEN_LOOK_EVENT, on);
+  }, []);
   /** Back to the stage (✕, a stage picked). Nothing leads to a Studio side of its own any more — an editor opens from
       its scene (`openStudio`). */
   const pickSide = (next: MakerSide) => {

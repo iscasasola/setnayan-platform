@@ -138,20 +138,17 @@ test('(4) the scenes keep their editors — ⤢ Expand opens them (a tap only se
   }
   assert.ok(doors > 10, 'anti-vacuity: no doors read');
   assert.equal(makerSceneDoorWords('Logo'), 'Open Logo');
-  // 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): the page
-  // tap never rises an editor; ⤢ Expand on the toolbar (`makerPartExpands`) is the one door to full screen.
-  for (const [k, tool] of [['logo', 'logo'], ['story', 'story'], ['schedule', 'schedule'], ['gifts', 'gifts']] as const) {
-    assert.equal(makerPartExpands(k), tool, `${k}: ⤢ does not open its editor`);
-  }
+  /* 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (2)): the page tap no longer
+     rises an editor — the toolbar comes up on the part, and ⤢ Expand (or the part's door row) rises it. */
+  for (const k of ['logo', 'story', 'schedule', 'gifts'] as MakerPartKey[]) assert.equal(makerPartExpands(k), true, `${k}: ⤢ does not open its editor`);
   // 🎨 Dress code lost ⤢ (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD" (2)): its door names where the colours are made.
-  for (const k of ['dress', 'coverscene', 'ename', 'names', 'date', 'place', 'countdown', 'message', 'rsvp'] as MakerPartKey[]) assert.equal(makerPartExpands(k), null, `${k} has ⤢ — it needs no room`);
+  for (const k of ['dress', 'coverscene', 'ename', 'names', 'date', 'place', 'countdown', 'message', 'rsvp'] as MakerPartKey[]) assert.equal(makerPartExpands(k), false, `${k} has ⤢ — it needs no room`);
   assert.equal(makerPartQuietRow('dress')?.words, 'Colours and mood board', 'Dress code’s door does not say where its colours are made');
   const tools = stripComments(read(`${L}/stage-tools.tsx`));
   const tap = tools.slice(tools.indexOf("if (d.t === 'edit' && typeof d.key === 'string') {"), tools.indexOf("} else if (d.t === 'type' && d.phase === 'start') {"));
-  assert.ok(tap.length > 500, 'anti-vacuity: the page tap was not found');
-  assert.doesNotMatch(tap, /riseRef\.current\(|makerPartRisesEditor|makerPartExpands/, 'a tap on the page rises an editor again — a tap only selects');
-  assert.match(tools, /data-stage-expand=""\s*onClick=\{\(\) => picked && riseRef\.current\(picked, expand\)\}/, '⤢ does not open the part’s editor');
-  assert.match(tools, /const expand = picked && !rsvpOpen \? makerPartExpands\(picked\) : null;/, '⤢ is not drawn from the one list');
+  assert.ok(tap.length > 300, 'anti-vacuity: the page tap was not found');
+  assert.doesNotMatch(tap, /makerPartRisesEditor|riseRef\.current/, 'a tap rises an editor again');
+  assert.match(tools, /const expand = \(\) => \{[\s\S]{0,200}riseRef\.current\(picked, expandTile\)/, '⤢ Expand does not rise the part’s editor');
 });
 
 test('(5) Prints is a row of the Hub’s ⚙ — it opens the shipped Prints page', () => {

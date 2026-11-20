@@ -117,7 +117,13 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   const cards = h('i', { 'data-look-cards': '' });
   setStageTool('style');
   const rows = renderToStaticMarkup(h(StageStyle, { look: cards, background: h('b'), rows: true }));
-  assert.match(rows, new RegExp(`^<div class="${SP_STYLE_PANE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}" data-stage-style="look" data-stage-style-rows="">`), 'the work area’s Style is not laid in rows');
+  const pane = SP_STYLE_PANE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  /* 🧰 BACKGROUND IS A ROW OF STYLE (20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1)): a part with a
+     background of its own gets the look's pane first, its four rows as they were, and the background one snap below —
+     the same `StageBackground` rows. A part with none: the look's pane alone, exactly as before. */
+  assert.match(rows, new RegExp(`^<div class="[^"]*snap-y[^"]*" data-stage-style-scroll=""><div class="${pane} h-full snap-start" data-stage-style="look" data-stage-style-rows="">`), 'the work area’s Style is not laid in rows');
+  assert.match(rows, /<section aria-label="Background"[^>]*data-stage-style-bg="">[\s\S]*<b><\/b>/, 'Background is not a row of Style');
+  assert.match(renderToStaticMarkup(h(StageStyle, { look: cards, background: null, rows: true })), new RegExp(`^<div class="${pane}" data-stage-style="look" data-stage-style-rows="">`), 'a part with no background lost its look pane');
   assert.doesNotMatch(renderToStaticMarkup(h(StageStyle, { look: cards, background: h('b') })), /data-stage-style-rows/, 'the Reveal’s / the Camera’s / a reply page’s own body was put in rows');
   setStageTool('bg');
   assert.doesNotMatch(renderToStaticMarkup(h(StageStyle, { look: cards, background: h('b'), rows: true })), /data-stage-style-rows/, 'Background was put in Style’s rows before it is rebuilt');
@@ -288,7 +294,7 @@ test('(5) who draws what: the toolbar draws row 4, the work area’s tool stands
   /* …and only then the work area's tool is three rows, standing one row and one gap above the toolbar's foot. */
   assert.ok(
     tools.includes(
-      '`[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}`',
+      '`[data-maker-shell]:has([data-stage-tools][data-stage-row4]) [data-phone-chrome="panel"]{height:calc(3 * var(--sp-rh) + 2 * var(--sp-rg))!important;bottom:calc(${STAGE_BAR_FOOT_CSS} + ${STAGE_BAR_BAND_PX}px + var(--sp-rh) + var(--sp-rg) + var(--maker-lift,0px))!important}`',
     ),
     'with Colour + Size on, the work area’s tool still covers row 4',
   );

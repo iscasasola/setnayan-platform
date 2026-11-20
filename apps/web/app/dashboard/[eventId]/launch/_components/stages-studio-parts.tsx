@@ -12,7 +12,8 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { GuestsSeeSheet } from './guests-see-sheet';
-import { MAKER_EDITOR_CLOSE_EVENT, MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { MAKER_EDITOR_CLOSE_EVENT, MAKER_OPEN_GUESTS_SEE_EVENT, MAKER_OPEN_PAGES_EVENT, useMaker } from './maker-context';
+import { MakerPagesSheet, type MakerPagesAsk } from './maker-pages-sheet';
 import { MakerDesk } from './maker-desk';
 import { riseEditorIn, riseEditorOut } from '@/lib/maker-editor-rise';
 
@@ -121,6 +122,9 @@ export function StageSwitch({
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-sheet],[role="dialog"][aria-modal="true"]')) return;
+      /* ⌨ never from a field being typed in */
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       ask();
     };
     window.addEventListener('popstate', onPop);
@@ -134,6 +138,13 @@ export function StageSwitch({
   }, [risen]);
   const requestClose = () => (risen ? window.dispatchEvent(new Event(MAKER_EDITOR_CLOSE_EVENT)) : close());
   const [list, setList] = useState(false);
+  /* ≡ PAGES (20 Nov) — asked by the toolbar's name ▾ and the resting bar's Pages; this pill, always mounted, draws it. */
+  const [pagesAsk, setPagesAsk] = useState<MakerPagesAsk | null>(null);
+  useEffect(() => {
+    const open = (e: Event) => setPagesAsk(((e as CustomEvent<MakerPagesAsk>).detail ?? null) as MakerPagesAsk | null);
+    window.addEventListener(MAKER_OPEN_PAGES_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_PAGES_EVENT, open);
+  }, []);
   /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, opened from the Hub's ⚙ Event Hub settings with an event; this
      pill — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
@@ -191,6 +202,7 @@ export function StageSwitch({
         onRsvpScreen={() => {}}
       />
       {guestsSee && typeof document !== 'undefined' ? createPortal(<GuestsSeeSheet onClose={() => setGuestsSee(false)} />, document.body) : null}
+      {pagesAsk && typeof document !== 'undefined' ? createPortal(<MakerPagesSheet ask={pagesAsk} onClose={() => setPagesAsk(null)} />, document.body) : null}
     </>
   );
 }

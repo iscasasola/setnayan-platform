@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import Link from 'next/link';
@@ -123,9 +124,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const nextPath = `/vendor/fit/${encodeURIComponent(ref)}`;
 

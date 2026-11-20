@@ -98,6 +98,6 @@ export const GIFT_PAYMENT_SENT = { lead: 'Payment sent.', rest: ' We’re checki
  */
 export const GIFT_HOLD_RULE = '1 is held for each service card on a quote.';
 /** Behind the hold rule's ⓘ (controller, 21 Nov). */
-export const GIFT_AT_LEAST_ONE = 'Every booking needs at least 1 gift.';
+export const GIFT_AT_LEAST_ONE = 'Every booking needs at least 1 gift. Bought gifts go on your gift bill.';
 /** A gift with none left, where it is picked for a booking: the tap opens this store (owner 21 Nov). */
 export const GIFT_ZERO_LEFT = '0 left · Buy more ›';

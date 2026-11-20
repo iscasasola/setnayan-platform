@@ -23,9 +23,9 @@
  * WHAT IS KEPT FROM THE OLD PAGE, to the letter: the stage is the one the event's
  * own page composes (a host's `?phase=` preview, else the couple's pin, else the
  * venue's clock — `the-day-hub-follows-the-stage.test.ts`), and a signed-in host
- * before the day still rehearses The Day (`dayHubDoor`). The visibility gate is
- * the destination's own: this route only ever sends a visitor to `/[slug]`,
- * which applies it, so it reads nothing private and shows nothing at all.
+ * before the day still rehearses The Day (`dayHubDoor`). It still asks the
+ * visibility question every guest door asks (`canViewSlugEvent`) before anything
+ * else — a stranger on a private celebration goes to its page, the lock screen.
  */
 
 import { notFound, redirect } from 'next/navigation';
@@ -36,7 +36,8 @@ import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { solemnAdjustedPhase } from '../_lib/event-words';
 import { dayHubDoor, dayHubOpens, dayHubTail } from '../_lib/day-hub';
-import { isSignedInEventHost } from '@/lib/slug-access';
+import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
+import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { getLifecyclePhase, manualLaunchPhase, type LifecyclePhase } from '@/lib/invitation-widgets';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
@@ -64,7 +65,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       .from('events')
       .select(
         // The clock's own column list (the pin, the last day, the venue's zone) — never a hand-typed near-copy.
-        `event_id, slug, display_name, event_type, ${EVENT_CLOCK_COLUMNS}`,
+        `event_id, slug, display_name, event_type, landing_page_visibility, scheduled_launch_at, ${EVENT_CLOCK_COLUMNS}`,
       )
       .ilike('slug', slug)
       .maybeSingle(),
@@ -74,6 +75,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   // Same surface gate as /[slug]: a profile with no Event Hub has no `/hub` either.
   const eventTypeProfile = await resolveProfile(event.event_type);
   if (!surfaceEnabled(eventTypeProfile, 'website')) notFound();
+
+  // 🔒 The same question every guest door asks first (`the-venue-respects-privacy.test.ts`), even though this one only
+  // forwards: a stranger on a private celebration is sent to its page — the lock screen — before anything else is read.
+  if (!(await canViewSlugEvent(event.event_id, resolveEffectiveVisibility(event)))) {
+    redirect(`/${encodeURIComponent(event.slug ?? slug)}`);
+  }
 
   // A host's (or a demo event's) `?phase=` preview — the same one /[slug] honours, kept on the way through.
   const isDemoEvent =

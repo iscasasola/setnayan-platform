@@ -28,7 +28,8 @@ const COMPOSER = read('app/_components/chat-send-form.tsx');
 const STREAM = read('app/_components/chat-message-stream.tsx');
 const DRAFT = read('app/_components/chat/plus-draft.tsx');
 const CARD = read('app/_components/chat/chat-step-card.tsx');
-const CSS = readFileSync(join(HERE, '..', 'app/globals.css'), 'utf8');
+const CSS = readFileSync(join(HERE, '..', 'app/_components/chat-tools.css'), 'utf8');
+const GLOBALS = readFileSync(join(HERE, '..', 'app/globals.css'), 'utf8'); // the motion tokens the chat's sheet reads
 
 test('1 · one draft, one place: the composer draws the card, the stream only its toast — and the card sits OUTSIDE the send form', () => {
   assert.match(COMPOSER, /patchPlus\(threadId, \{ inBox: true \}\)/, 'the composer no longer says it holds the tool');
@@ -64,8 +65,8 @@ test('3 · a computer: the tiles and the tool are a third column on the chat’s
   // In: Move (320 ms). Out: 80 % of it (256 ms). On Settle.
   assert.match(CSS, /\.sn-chat-toolwrap \{[^}]*transition: grid-template-rows calc\(var\(--sn-m-move\) \* 0\.8\) var\(--sn-m-settle\);/);
   assert.match(CSS, /\.sn-chat-toolwrap\[data-chat-tool-wrap='open'\] \{ grid-template-rows: 1fr; transition-duration: var\(--sn-m-move\); \}/);
-  assert.match(CSS, /--sn-m-move:\s*320ms;/);
-  assert.match(CSS, /--sn-m-settle:\s*cubic-bezier\(\.2,\.8,\.2,1\);/);
+  assert.match(GLOBALS, /--sn-m-move:\s*320ms;/);
+  assert.match(GLOBALS, /--sn-m-settle:\s*cubic-bezier\(\.2,\.8,\.2,1\);/);
 });
 
 test('4 · the chips float (they push nothing up), hold Chat and Private, and typing lands back on All — never out of Private', () => {

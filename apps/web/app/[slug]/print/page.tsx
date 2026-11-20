@@ -18,6 +18,7 @@
 //     page), but anonymous visitors are blocked until the event is past.
 // ============================================================================
 
+import { getCurrentUser } from '@/lib/auth';
 import { venueTimezone } from '@/lib/event-clock.server';
 import { clockRowOf } from '@/lib/event-clock';
 import { cache } from 'react';
@@ -39,7 +40,6 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { eventWordsFor } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
-import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
 import {
   resolveEventMonogram,
@@ -197,10 +197,7 @@ export default async function EditorialPrintPage({
   // pass already admits them, and a stranger costs nothing to refuse.
   let isBookedSupplier = false;
   if (!holdsGuestPass) {
-    const viewerClient = await createClient();
-    const {
-      data: { user },
-    } = await viewerClient.auth.getUser();
+    const user = await getCurrentUser();
     if (user) {
       isBookedSupplier = await viewerIsBookedSupplier(event.event_id, user.id);
     }

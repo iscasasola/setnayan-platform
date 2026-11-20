@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Check, ChevronDown, ChevronUp, CircleOff, Clock, Plus, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -47,9 +48,7 @@ export default async function VendorActivitiesPage({
 }) {
   const sp = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=/vendor-dashboard/activities');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard/verify');

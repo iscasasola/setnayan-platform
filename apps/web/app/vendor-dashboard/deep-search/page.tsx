@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -64,9 +65,7 @@ type DossierRow = {
 
 export default async function VendorDeepSearchPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

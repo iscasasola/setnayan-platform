@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { loginRedirectPath } from '@/lib/auth';
+import { loginRedirectPath, getCurrentUser } from '@/lib/auth';
 import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { ORDER_STATUS_LABEL, fetchOrderById, formatPhp, isVatInclusiveServiceKey } from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross, fetchReceiptByOrderId, formatPhpFromString } from '@/lib/receipts';
@@ -27,9 +27,7 @@ type Props = { params: Promise<{ orderId: string }> };
 export default async function OrderSlipPage({ params }: Props) {
   const { orderId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath(`/receipts/order/${orderId}`));
 
   const order = await fetchOrderById(supabase, orderId);

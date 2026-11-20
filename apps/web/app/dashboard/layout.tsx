@@ -1,3 +1,4 @@
+import { getUserRow } from '@/lib/user-row';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -64,44 +65,29 @@ export default async function DashboardLayout({
   };
   let profile: ProfileShape | null = null;
   try {
-    const fullRes = await supabase
-      .from('users')
-      .select('account_type, deleted_at, tour_seen_keys, display_name, terms_version')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (
-      fullRes.error &&
-      /column .* does not exist|undefined_column|42703/i.test(
-        (fullRes.error as { message?: string; code?: string }).message ??
-          (fullRes.error as { code?: string }).code ??
-          '',
-      )
-    ) {
-      // Column missing on prod → migration drift. Fall back to SELECT *.
-      const fallbackRes = await supabase
-        .from('users')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      profile = (fallbackRes.data as unknown as ProfileShape) ?? null;
-      if (fallbackRes.error) {
+    // ⚡ The render's one read of this row (`lib/user-row.ts`) — the account switcher below reads the same promise.
+    const row = await getUserRow(user.id);
+    if (row.fellBack) {
+      // Column missing on prod → migration drift. The row was read with SELECT *.
+      profile = (row.data as unknown as ProfileShape) ?? null;
+      if (row.error) {
         logQueryError(
           'DashboardLayout (users.profile fallback)',
-          fallbackRes.error,
+          row.error,
           { user_id: user.id },
           'graceful_degrade',
         );
       }
-    } else if (fullRes.error) {
+    } else if (row.error) {
       logQueryError(
         'DashboardLayout (users.profile)',
-        fullRes.error,
+        row.error,
         { user_id: user.id },
         'graceful_degrade',
       );
       profile = null;
     } else {
-      profile = (fullRes.data as unknown as ProfileShape) ?? null;
+      profile = (row.data as unknown as ProfileShape) ?? null;
     }
   } catch (caught) {
     logQueryError(

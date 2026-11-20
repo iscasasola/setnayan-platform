@@ -24,6 +24,7 @@ import { join } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, MIGRATIONS_DIR, type ReplayResult } from './replay-migrations';
 import { proToolsIncludedFrom, type ProToolsGrandfather } from '../../lib/specialized-tools-access';
+import { isVendor3dBoothActive } from '../../lib/vendor-3d-booth-pricing';
 
 const MIGRATION = readFileSync(join(MIGRATIONS_DIR, '20271356215288_pro_tools_come_with_pro.sql'), 'utf8');
 /** The snapshot statement exactly as the migration runs it. */
@@ -275,4 +276,23 @@ test('5 · the frozen columns live on a service-role-only table', async () => {
       WHERE table_schema = 'public' AND table_name = 'vendor_specialized_tools_access' AND grantee IN ('anon','authenticated')`,
   );
   assert.deepEqual(r.rows, []);
+});
+
+test('6 · a badge-reward window below Pro is time-boxed: it opens the tool, then ends — never a permanent grant (controller 20 Nov)', async () => {
+  // Decision: badge reward windows stay, time-boxed; the ruling covers bought access only. They write the same
+  // papic_challenge_expires_at / booth_addon_expires_at windows the legacy add-ons did.
+  const plus = await newShop({ tier: 'solo', tierExpires: FUTURE() });
+  const eventId = await newBooking(plus);
+  await spendTrial(plus);
+  await db.query(`UPDATE public.vendor_profiles SET papic_challenge_expires_at = $2 WHERE vendor_profile_id = $1`, [plus, FUTURE(28)]);
+  assert.equal(await challenge(plus, eventId), true, 'the reward window opens the photo challenge below Pro');
+  await db.query(
+    `UPDATE public.vendor_profiles SET papic_challenge_expires_at = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`,
+    [plus],
+  );
+  assert.equal(await challenge(plus, eventId), false, 'once it ends, the Pro gate applies');
+  assert.equal(await included(plus, eventId), false, 'and the window never became a grandfather');
+  // The booth's reward window is read by the same kind of clock, in TS.
+  assert.equal(isVendor3dBoothActive(FUTURE(28)), true);
+  assert.equal(isVendor3dBoothActive(PAST()), false);
 });

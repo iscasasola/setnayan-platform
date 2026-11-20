@@ -361,6 +361,12 @@ export type VendorOverviewData = {
    */
   deskIncomplete: boolean;
   /**
+   * The booked-events read (`roomRead`, the source of `upcoming` / `nextDay`) reached its end. False = refused or
+   * short: an event today or tomorrow may be missing from Today's list, so Today shows no count and never "done"
+   * (Today v3 part 1). Absent = an older fixture that predates it.
+   */
+  bookingsComplete?: boolean;
+  /**
    * New inquiries in the last 28 days — counted off the threads this read already holds (no query of its own):
    * Today's "How is business" line ("312 looked · 14 asked").
    */
@@ -1038,7 +1044,7 @@ export async function fetchVendorOverviewData(
       .map((b) => b.poolId as string);
   }
 
-  return { whatsNew, ongoing, upcoming, deskIncomplete, inquiries28, askDayHolds, nextDay, bookedThisMonth };
+  return { whatsNew, ongoing, upcoming, deskIncomplete, bookingsComplete, inquiries28, askDayHolds, nextDay, bookedThisMonth };
 }
 
 // ---------------------------------------------------------------------------

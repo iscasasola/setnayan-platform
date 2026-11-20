@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
@@ -63,16 +65,15 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
   const { eventId } = await params;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event, error: eventError } = await supabase
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'event_id, display_name', () =>
+      supabase
     .from('events')
     .select('event_id, display_name')
     .eq('event_id', eventId)
-    .maybeSingle();
+    .maybeSingle());
   // ⚠ the event record. Degrades rather than claiming.
   if (eventError) {
     logQueryError('PanoodPrintPage.event', eventError, { eventId }, 'graceful_degrade');

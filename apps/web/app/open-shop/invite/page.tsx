@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { Check, Clock } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { renderUrlQrSvg } from '@/lib/qr';
 import { siteOrigin } from '@/lib/site-origin';
@@ -27,12 +28,10 @@ export const metadata = { title: 'Invite shops you trust' };
 export default async function InviteShopsYouTrustPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   const { next } = await searchParams;
   const done = next ? shopConsolePath(next) : WELCOME_OPENED_PATH;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(INVITE_SHOPS_PATH)}&as=vendor`);
 
+  const supabase = await createClient();
   const shop = await resolveOwnedActiveShop(supabase, user.id);
   if (!shop.ok) redirect('/open-shop?as=coordinator');
   // The shop's own definer view (never the table — see app/open-shop/page.tsx). A refused read is not "no shop".

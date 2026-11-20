@@ -25,7 +25,8 @@ import { rosterSearchMatches, type RosterFacts } from '@/lib/guest-roster-view';
 import type { GuestRow } from '@/lib/guests';
 import { resolveHubStageSelection } from '@/lib/event-hub-control';
 import { YOUR_TEAM_BUDGET_PART } from '@/lib/pillar-parts';
-import { HOME_CONTROL_KEYS, HOME_CONTROL_PAGE, homeControlTiles, type HomeControlKey } from './_components/home-control-faces';
+import { HOME_CONTROL_KEYS, HOME_CONTROL_PAGE, homeControlTiles, homeToday, homeWaiting, type HomeControlKey } from './_components/home-control-faces';
+import { buildEventToday } from '@/lib/event-today';
 import { drawHome, loadHome, slice } from './home-render.harness';
 
 test.before(loadHome);
@@ -85,10 +86,20 @@ test('1 · every door inside a widget opens THAT widget’s one page — on the 
   // The card's countdown opens the Date Finder; the To do list's rows and line open Planning Stage.
   const card = slice(html, 'data-home-card-countdown', ['data-home-today=']);
   assert.deepEqual(hrefs(card).map(pageOf), ['Date Finder'], 'the card’s countdown opens another page');
+  // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the To do block became the one "Needs you today" list, whose
+  // rows are payments and asks as well as tasks. Each door in it is the door `lib/event-today.ts` names for a row —
+  // never a page of the list's own — and the plan's own doors (the "N more" row, the closing line) still open
+  // Planning Stage.
   const todo = slice(html, 'data-home-todo=""', ['data-home-your-event']);
-  const todoDoors = hrefs(todo);
-  assert.ok(todoDoors.length > 0, 'the To do list has no door');
-  for (const d of todoDoors) assert.equal(pageOf(d), 'Planning Stage', `the To do list opens ${d}`);
+  const todoDoors = hrefs(todo).map((d) => d.replace(/&amp;/g, '&'));
+  assert.ok(todoDoors.length > 0, 'the list has no door');
+  const c = fixtureControl('e1');
+  const list = buildEventToday({ control: c, today: homeToday(c.next, c.guests, homeWaiting(c)), putOffs: [], todayIso: '2026-11-20' });
+  const named = new Set([list.more?.href, list.foot?.href, ...list.list.flatMap((r) => [r.href, r.pay?.href, r.door?.href])].filter(Boolean));
+  for (const d of todoDoors) assert.ok(named.has(d), `the list opens ${d} — a door no row names`);
+  assert.equal(pageOf(list.foot!.href), 'Planning Stage', 'the plan’s closing line opens another page');
+  for (const r of list.list.filter((x) => x.kind === 'task')) assert.equal(pageOf(r.href!), 'Planning Stage', `the task "${r.title}" opens ${r.href}`);
+  assert.ok(todoDoors.includes(list.foot!.href), 'the list lost the plan’s closing line');
 });
 
 test('2 · each face opens the exact item the notes name', () => {

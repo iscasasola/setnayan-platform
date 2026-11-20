@@ -51,6 +51,9 @@ test('the answer line sums the free counts', () => {
   assert.equal(freeWords([countBarOf({ kind: 'pieces', name: 'x', noun: 'Chairs', taken: 499, total: 500 })]), '1 chair free');
   assert.equal(singularOf('tables'), 'table');
   assert.equal(singularOf('boxes'), 'box');
+  assert.equal(singularOf('buses'), 'bus');
+  assert.equal(singularOf('tour buses'), 'tour bus');
+  assert.equal(singularOf('vases'), 'vase');
   assert.equal(singularOf('parties'), 'party');
   assert.equal(singularOf('glass'), 'glass');
   assert.equal(singularOf('equipment'), 'equipment');

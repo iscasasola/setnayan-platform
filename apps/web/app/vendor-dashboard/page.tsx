@@ -100,6 +100,9 @@ import { forecastForBooking } from '@/lib/booking-fee-disclosure.server';
 import { TODAY_ASIDE_COOKIE, readTodayAside } from '@/lib/today-aside';
 import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
 import { buildTodayV2 } from './_components/today-v2-assemble';
+import { readStorySilenceDays, readWrapUpFacts } from '@/lib/today-wrap-up.server';
+import type { WrapUpFacts } from '@/lib/today-wrap-up';
+import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -721,7 +724,7 @@ export default async function VendorOverviewPage({
     quick rows answered on the row · rows that open ONE focused screen · the shop's own gaps (recommended, never
     counted) — plus Done today, the Next badge card, the grow stage and What's trending. 🔒 today-is-one-task.test.ts
   */
-  const [v2r, aside, feeForecasts] = await Promise.all([
+  const [v2r, aside, feeForecasts, wrapUps] = await Promise.all([
     v2ReadsP,
     asideP,
     Promise.all(
@@ -730,6 +733,22 @@ export default async function VendorOverviewPage({
         .slice(0, 5)
         .map(async (c) => [c.eventVendorId, await forecastForBooking(createAdminClient(), { vendorProfileId, eventVendorId: c.eventVendorId }).catch(() => null)] as const),
     ).then((pairs) => Object.fromEntries(pairs) as Record<string, FeeDisclosure | null>),
+    // ✓ Today v3 part 3 — each finished event's wrap-up facts (photos · reviews · plan · silence days). One guest-review
+    // read for the shop, filtered per event. Unread → null → that row keeps v2's quick "I delivered" (never "no photos").
+    (async (): Promise<Record<string, WrapUpFacts | null>> => {
+      const doneCards = needsAnswer.filter((c): c is Extract<typeof c, { kind: 'mark_complete' }> => c.kind === 'mark_complete').slice(0, 3);
+      if (doneCards.length === 0) return {};
+      const admin = createAdminClient();
+      const [guestReviews, silenceDays] = await Promise.all([
+        readGuestReviewsForVendor(admin, vendorProfileId, { limit: 100 }).catch(() => ({ state: 'refused' }) as const),
+        readStorySilenceDays(admin).catch(() => null),
+      ]);
+      const ultra = shopRow ? shopRow.tierState === 'enterprise' : null;
+      const pairs = await Promise.all(
+        doneCards.map(async (c) => [c.id, await readWrapUpFacts({ supabase, admin, vendorProfileId, card: c, guestReviews, ultra, silenceDays }).catch(() => null)] as const),
+      );
+      return Object.fromEntries(pairs);
+    })().catch(() => ({})),
   ]);
 
   // 🧩 The library door reads the live parts (③0-b) — the same snapshot the real upload gate reads.
@@ -744,6 +763,7 @@ export default async function VendorOverviewPage({
     reads: v2r,
     aside,
     feeForecasts,
+    wrapUps,
     payoutReadiness,
     setupDrawn: setup !== null,
     verified: shopRow ? shopRow.verified : firstSteps == null,

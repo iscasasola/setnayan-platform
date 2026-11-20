@@ -22,3 +22,5 @@ SPEC IMPACT: None — builds an approved drawing; no decision changed.
 - fix(copy): the badges row reads "Every badge and seal is earned: real bookings, real inquiries, checked papers." (Quick Responder and Trending Now count inquiries; Verified comes from checked papers); the gift row says "Some bookings", since "many" is not measured. Header now cites v6. Both guarded in `the-front-door-tells-the-truth.test.ts`.
 
 - fix: the gift row quotes `SETNAYAN_GIFT_PHOTOS`, now exported from `setnayan-gift-line.tsx` (the card copy is built from it), so the gift sentence is typed once (`the-gift-reaches-couples-while-choosing`).
+
+- fix: one reasoned `numbers-carry-commas` allowlist row — `SETNAYAN_GIFT_PHOTOS` is the gift words, not a number.

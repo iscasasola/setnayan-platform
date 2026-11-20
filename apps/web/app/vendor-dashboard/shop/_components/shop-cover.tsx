@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Camera, ChevronRight, ExternalLink, Gem, Gift, IdCard, Image as ImageIcon, Plus, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
+import { ExternalLink, Gem, Gift, IdCard, Printer, QrCode, Settings, ShieldCheck, Star, Share, type LucideIcon } from 'lucide-react';
 import { PRINTS_LINE } from '@/lib/prints-line';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import { actionButtonClass } from '@/components/action-button';
@@ -16,8 +16,9 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import type { LogoFrame } from '@/lib/open-shop-logo';
 import { shareShopLink, shopPhotoCardPath } from '@/lib/share-shop-link';
 import { ShopSettings } from './shop-settings';
-import { HERO_UPLOAD_PILL, SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
-import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import { SupplierHero, type SupplierHeroPicture } from '../../_components/supplier-hero';
+import { PhotoPickLabel, PortfolioUploadDoor } from '../../_components/portfolio-upload';
+import { PickedLogoFiles } from './photo-menus';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { YOUR_PAGE_HREF } from './shop-gear-sections';
 import { ImageBadge } from '@/app/_components/image-badge';
@@ -213,6 +214,7 @@ export function ShopCover({
   const closeSheet = (id: CoverSheet) => {
     setSheet(null);
     replaceAddressParam(SHEET_ADDRESS[id][0], null);
+    if (id === 'logo') setLogoFiles(null); // the picked photo belongs to that one opening
   };
   // The quick row's Your gifts: open the Promote sheet, then bring that section into view once it has drawn.
   const openPromoteAt = (section: 'gifts') => {
@@ -221,6 +223,19 @@ export function ShopCover({
   };
   // ⚙ The pinned row's `ShopSettings` owns the ONE settings sheet; the cover opens it through its address.
   const openGear = () => replaceAddressParam('gear', '1');
+  // 📷 THE LOGO IS THE BUTTON TOO (owner 19 Nov 2026, "same as the profile photo"): a tap opens the picker at once and the
+  // Logo screen rises with the picked photo in its framer. A VERIFIED shop's logo changes by request, so there the tap
+  // opens the Logo screen as before (its "Ask to change" row) — a picker whose save the server refuses would be a lie.
+  const [logoFiles, setLogoFiles] = useState<File[] | null>(null);
+  const logoPicks = !(d.verified.isVerified && d.logoUrl) && !d.logoUnavailable;
+  const avatar = (
+    <VendorAvatar
+      logoUrl={d.logoUrl}
+      frame={d.logoFrame}
+      initials={d.initials}
+      className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold ring-1 ring-ink/10"
+    />
+  );
   const counts = [d.rating ? `★ ${d.rating}` : null, d.events ?? EVENTS_UNREAD].filter(Boolean).join(' · ');
 
   return (
@@ -302,45 +317,54 @@ export function ShopCover({
                 </Link>
               ) : null}
               <span className="text-white/75" data-shop-events={d.events == null ? 'unread' : ''}>{d.events ?? EVENTS_UNREAD}</span>
-              <a href="#plan" className="sn-hit inline-flex items-center gap-0.5 text-white/75" data-shop-plan="">
-                {d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}
-                <ChevronRight aria-hidden className="h-3 w-3" strokeWidth={2} />
-              </a>
             </>
           }
           picture={d.hero ?? (d.coverUrl ? { url: d.coverUrl, kind: 'photo' } : null)}
           caption={d.heroCaption ?? null}
-          upload={
-            d.uploadFacts
-              ? {
-                  door: (
-                    <PortfolioUploadDoor facts={d.uploadFacts} coverPick className={HERO_UPLOAD_PILL} data="supplier-hero-upload">
-                      <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
-                      Upload
-                    </PortfolioUploadDoor>
-                  ),
-                }
-              : null
+          // 🖼 THE PHOTO IS THE BUTTON (owner 19 Nov 2026: "cover photo should not be an icon but the actual cover photo
+          // tap that"): a tap on the picture opens the device's picker at once, then the shipped Portfolio uploader
+          // with the new photo pre-picked as Your page's draft cover. No Upload pill and no Cover door beside it.
+          photoDoor={
+            d.uploadFacts ? (
+              <span className="absolute inset-0 block" data-tour="shop-cover-photo">
+                <PortfolioUploadDoor facts={d.uploadFacts} coverPick className="absolute inset-0 block" data="shop-cover-pick">
+                  <span className="sr-only">Change your cover photo</span>
+                </PortfolioUploadDoor>
+              </span>
+            ) : null
           }
           data={{ 'shop-hero': '' }}
         />
       </div>
       {d.logoUnavailable ? <p className="px-4 pt-2 text-[12px] text-ink/65">Couldn&rsquo;t load your logo just now.</p> : null}
 
-      {/* 🚪 The cover's doors, under the hero (they rode on the old cover band): the logo · View shop ↗ · Share · Promote ·
-          QR · Cover. Nothing was dropped when the band became the one hero. */}
-      <div className="space-y-2 px-4 pt-3" data-shop-cover-doors="">
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => openSheet('logo')} className="relative shrink-0 rounded-full" aria-label="Your logo — view or change" data-shop-logo="" data-tour="shop-logo">
-            <VendorAvatar
-              logoUrl={d.logoUrl}
-              frame={d.logoFrame}
-              initials={d.initials}
-              className="flex h-12 w-12 items-center justify-center rounded-full text-base font-semibold ring-1 ring-ink/10"
-            />
-            <span className="absolute -bottom-0.5 -right-0.5 grid h-5 w-5 place-items-center rounded-full bg-raised text-ink shadow">
-              <Camera aria-hidden className="h-3 w-3" strokeWidth={2} />
-            </span>
+      {/* 🚪 THE COVER'S DOORS, TWO LINES (owner 19 Nov 2026: "profile photo Share then view Shop / Then Promote, QR,
+          Prints, Gifts, Plan"; drawing `shop_final_with_spaces_2026-11-19`, Part 1). Line one: the logo (tap = the
+          picker) · Share · View shop. Line two: five EQUAL buttons. Every door opens the place it opened before. */}
+      <div className="space-y-2.5 px-4 pt-3" data-shop-cover-doors="">
+        <div className="flex items-center gap-2" data-shop-cover-line="one">
+          <span className="shrink-0" data-tour="shop-logo">
+          {logoPicks ? (
+            <PhotoPickLabel
+              className="relative block shrink-0 rounded-full"
+              data="shop-logo"
+              onPick={(files) => {
+                setLogoFiles(files);
+                openSheet('logo');
+              }}
+            >
+              <span className="sr-only">Change your logo</span>
+              {avatar}
+            </PhotoPickLabel>
+          ) : (
+            <button type="button" onClick={() => openSheet('logo')} className="relative shrink-0 rounded-full" aria-label="Your logo — view or change" data-shop-logo="">
+              {avatar}
+            </button>
+          )}
+          </span>
+          <button type="button" onClick={() => setShareOpen(true)} disabled={!d.shareUrl} className={SHARE_PILL} data-shop-cover-icon="share">
+            <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            Share
           </button>
           {d.publicPath ? (
             <button
@@ -349,11 +373,11 @@ export function ShopCover({
               className="flex min-h-[48px] min-w-0 flex-1 items-center justify-between gap-2 rounded-full bg-ink px-4 text-left text-[color:var(--m-paper)]"
               data-view-shop=""
             >
-              <b className="text-[14.5px] font-semibold">View shop</b>
-              <span className="inline-flex min-w-0 items-center gap-1 truncate text-[11.5px] opacity-75">
-                {d.websiteLive ? 'as couples see it' : 'a preview for your team'}
-                <ExternalLink aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2} />
+              <span className="min-w-0">
+                <b className="block truncate text-[14.5px] font-semibold leading-tight">View shop</b>
+                <span className="block truncate text-[11px] leading-tight opacity-75">{d.websiteLive ? 'as couples see it' : 'a preview for your team'}</span>
               </span>
+              <ExternalLink aria-hidden className="h-3.5 w-3.5 shrink-0 opacity-85" strokeWidth={2} />
             </button>
           ) : (
             <Link href="/vendor-dashboard/profile" className="flex min-h-[48px] min-w-0 flex-1 items-center rounded-full border border-ink/15 px-4 text-[13.5px] font-medium text-ink">
@@ -361,39 +385,32 @@ export function ShopCover({
             </Link>
           )}
         </div>
-        <div className="grid grid-cols-4 gap-2">
-          <CoverIcon label="Share" icon={<Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => setShareOpen(true)} disabled={!d.shareUrl} data="share" />
-          <CoverIcon label="Promote" icon={<Printer aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('promote')} data="promote" />
-          <CoverIcon label="QR" icon={<QrCode aria-hidden className="h-4 w-4" strokeWidth={1.9} />} onClick={() => openSheet('qr')} data="qr" />
-          <button type="button" onClick={() => openSheet('cover')} className={COVER_PILL} data-shop-cover-edit="" data-tour="shop-cover-photo">
-            <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-            Cover
+        {/* 🪪 THE FIVE (one row, equal widths — the Button Rule, owner 9 Nov): Promote · QR · Prints · Gifts · Plan.
+            Prints, Gifts and Plan are the 16 Nov quick row's own tiles and doors (Prints = the prints alone; Gifts =
+            the Promote sheet's `#gifts`; Plan = the ⚙ sheet's Plan and billing fold), drawn as icon + name so five
+            fit 390 px. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-five.test.ts */}
+        <div className="grid grid-cols-5 gap-1.5" data-shop-quick-row="">
+          <button type="button" onClick={() => openSheet('promote')} className={QUICK_TILE} data-shop-quick="promote">
+            <QuickIcon icon={Printer} />
+            <b className={QUICK_WORD}>Promote</b>
           </button>
-        </div>
-        {/* 🪪 THE QUICK ROW (drawing `supplier_shop_clean_2026-11-16`, `.quick`): three centred white tiles — Prints ·
-            Your gifts · Plan — each a 40 px icon square on the wash. Every tile opens a place that already ships:
-            Prints opens the prints ALONE (owner 17 Nov, superseding that morning's rename to Promote: *"then we should
-            just have promote button and find gifts there? That also means change Promote on Shop to Prints"*) — the
-            same `ShopPrintsSection`, no gifts, no stories; Your gifts is the Promote sheet's `#gifts` section, opened
-            and scrolled to;
-            Plan is the cover's `#plan` door (the ⚙ sheet's Plan and billing fold), with the plan name the cover already
-            read (`planLabel`). No new read. 🔒 app/vendor-dashboard/shop/the-quick-row-is-the-drawn-three.test.ts */}
-        <div className="grid grid-cols-3 gap-2.5 pt-1" data-shop-quick-row="">
+          <button type="button" onClick={() => openSheet('qr')} className={QUICK_TILE} data-shop-quick="qr">
+            <QuickIcon icon={QrCode} />
+            <b className={QUICK_WORD}>QR</b>
+          </button>
           <button type="button" onClick={() => openSheet('prints')} className={QUICK_TILE} data-shop-quick="prints">
             <QuickIcon icon={IdCard} />
-            <b className="text-[15px] font-semibold leading-tight text-ink">Prints</b>
-            <small className="text-[12px] leading-tight text-ink/60">{PRINTS_LINE}</small>
+            <b className={QUICK_WORD}>Prints</b>
+            <span className="sr-only">{PRINTS_LINE}</span>
           </button>
           <button type="button" onClick={() => openPromoteAt('gifts')} className={QUICK_TILE} data-shop-quick="gifts">
             <QuickIcon icon={Gift} />
-            <b className="text-[15px] font-semibold leading-tight text-ink">Your gifts</b>
-            {/* The words sell, so the iPhone app never shows them (App Store #5/#14; the Promote section gates its own Buy). */}
-            <small className="text-[12px] leading-tight text-ink/60" data-web-only="">Buy gifts</small>
+            <b className={QUICK_WORD}>Gifts</b>
           </button>
           <a href="#plan" className={QUICK_TILE} data-shop-quick="plan">
             <QuickIcon icon={Gem} />
-            <b className="text-[15px] font-semibold leading-tight text-ink">Plan</b>
-            <small className="text-[12px] leading-tight text-ink/60">{d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}</small>
+            <b className={QUICK_WORD}>Plan</b>
+            <span className="sr-only">{d.planLabel == null ? PLAN_UNREAD : `${d.planLabel} plan`}</span>
           </a>
         </div>
       </div>
@@ -403,37 +420,29 @@ export function ShopCover({
       <ParamSheet open={sheet === 'promote'} onClose={() => closeSheet('promote')} title="Promote" body={promoteBody} data="promote" />
       <ParamSheet open={sheet === 'prints'} onClose={() => closeSheet('prints')} title="Prints" body={printsBody} data="prints" />
       <ParamSheet open={sheet === 'qr'} onClose={() => closeSheet('qr')} title="QR · scan or tap" body={qrBody} data="qr" />
-      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody} data="logo" />
+      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" />
       <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
     </>
   );
 }
 
-/** The cover's equal-weight doors: one row, equal widths, a 40 px pill with an icon and a word (the house rule). */
-/** The quick row's tile (drawing `.qk`): centred, the frame's white with its lift, no line. */
+/** One of the five equal doors (drawing `.q5`): centred, the frame's white with its lift, no line. */
 const QUICK_TILE =
-  'sn-press relative flex min-h-[96px] min-w-0 flex-col items-center gap-0.5 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-1.5 pb-2.5 pt-3 text-center shadow-[var(--sn-frame-shadow-tile)]';
+  'sn-press relative flex min-h-[72px] min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--sn-frame-radius)] bg-[rgb(var(--sn-frame-bg))] px-0.5 py-2 text-center shadow-[var(--sn-frame-shadow-tile)]';
+const QUICK_WORD = 'whitespace-nowrap text-[12px] font-semibold leading-tight text-ink';
 
-/** The tile's 40 px icon square on the wash (drawing `.qi`), the icon in the link colour. */
+/** The tile's 32 px icon square on the wash, the icon in the link colour. */
 function QuickIcon({ icon: I }: { icon: LucideIcon }) {
   return (
-    <i aria-hidden className="mb-1 grid h-10 w-10 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
-      <I className="h-5 w-5" strokeWidth={1.8} />
+    <i aria-hidden className="grid h-8 w-8 flex-none place-items-center rounded-xl bg-[var(--surface-soft)] not-italic text-[rgb(var(--color-link))]">
+      <I className="h-[17px] w-[17px]" strokeWidth={1.8} />
     </i>
   );
 }
 
-const COVER_PILL =
-  'inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-raised px-2 text-[13px] font-medium text-ink disabled:opacity-40';
-
-function CoverIcon({ label, icon, onClick, disabled = false, data }: { label: string; icon: ReactNode; onClick: () => void; disabled?: boolean; data: string }) {
-  return (
-    <button type="button" onClick={onClick} disabled={disabled} className={COVER_PILL} data-shop-cover-icon={data}>
-      {icon}
-      {label}
-    </button>
-  );
-}
+/** Share, beside the logo on line one: a 48 px white pill, the same height as View shop. */
+const SHARE_PILL =
+  'sn-press inline-flex min-h-[48px] shrink-0 items-center justify-center gap-1.5 rounded-full bg-[rgb(var(--sn-frame-bg))] px-4 text-[14px] font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40';
 
 /**
  * The Share door's three presses — Copy · Save · Share — are ONE shape at ONE width (T19, the Button Rule: owner 9 Nov

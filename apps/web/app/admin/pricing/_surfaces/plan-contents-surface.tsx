@@ -51,7 +51,8 @@ function readOnlyLines(plan: VendorTier): [string, string][] {
   const c = TIER_CAPS[plan];
   const yes = (b: boolean) => (b ? 'Included' : 'Not included');
   return [
-    ['Service area', c.serviceRadiusKm === Infinity ? 'Nationwide' : c.serviceRadiusKm === 0 ? 'Own city' : `${c.serviceRadiusKm} km`],
+    // ⛔ No "Service area" row: reach is not a plan allowance since 2026-11-19 (owner, "unlock the range. not plan
+    // dependend anymore") — unverified 0 km, verified sets its own, on every plan.
     ['Free portfolio photos', planValueWords(Number.isFinite(c.portfolioPhotos) ? c.portfolioPhotos : null)],
     ['Search visibility', c.seoLevel],
     ['Own web address', yes(c.customWebsiteName)],

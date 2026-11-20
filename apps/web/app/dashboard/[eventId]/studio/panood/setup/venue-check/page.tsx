@@ -1,3 +1,5 @@
+import { eventRowOnce } from '@/lib/event-row-once';
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
@@ -16,12 +18,11 @@ export const metadata = { title: 'Venue connection check' };
 export default async function VenueCheckPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase.from('events').select('event_id').eq('event_id', eventId).maybeSingle();
+  const { data: event } = await eventRowOnce(supabase, eventId, 'event_id', () =>
+      supabase.from('events').select('event_id').eq('event_id', eventId).maybeSingle());
   if (!event) notFound();
 
   const setupHref = `/dashboard/${eventId}/studio/panood/setup`;

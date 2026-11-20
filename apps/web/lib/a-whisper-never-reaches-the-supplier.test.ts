@@ -83,7 +83,7 @@ test('2 · the core decides who hears a whisper and REFUSES one nobody can hear 
   assert.match(block, /if \(!team\.includes\(user\.id\)\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_TEAM_ONLY_MESSAGE/, 'someone off the shop’s team can team-whisper');
   assert.match(block, /if \(hasAttachment \|\| storedRef\) \{\s*return \{ ok: false, code: 'whisper_refused'/, 'a whisper can carry a file');
   assert.match(block, /readThreadHostPeople\(createAdminClient\(\), \{ threadId: thread\.thread_id, eventId: thread\.event_id \}\)/);
-  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*coordinatorIds: hostPeople\.coordinators,\s*shopUserIds: \[\.\.\.shop\.userIds, \.\.\.\(shop\.ownerUserId \? \[shop\.ownerUserId\] : \[\]\)\],\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
+  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*coordinatorIds: hostPeople\.coordinators,\s*shopUserIds: teamSideOf\(\{ teamUserIds: shop\.userIds, eventHostIds: hostPeople\.eventHosts \}\),\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
   assert.match(block, /whisperTo = teamWhisperRecipients\(\{ teamUserIds: team, senderUserId: user\.id \}\);/, 'the team whisper list is not the server’s');
   // 🛑 The fence, on BOTH sides: nobody to hear it → refused. (Sabotage: delete a return and that side's whisper goes to everyone.)
   assert.match(block, /if \(whisperTo\.length === 0\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE \};\s*\}/, 'a hosts’ whisper nobody can hear is not refused — it would be sent to everyone');
@@ -221,7 +221,8 @@ test('5 · the mis-send reminder: the line, and the one ask before the first Sen
   // Armed only when the box holds words as it leaves Whisper.
   assert.match(form, /setWhisper\(threadId, false\);\s*const typed = \(textareaRef\.current\?\.value \?\? ''\)\.trim\(\)\.length > 0;\s*setLeftWithWords\(typed\);/);
   // The ask stops the Send BEFORE the action runs (the words stay), once.
-  assert.match(form, /onSubmit=\{\(e\) => \{\s*if \(!leftWithWords \|\| askPassedRef\.current\) return;[\s\S]{0,160}e\.preventDefault\(\);\s*setAsking\(true\);/);
+  // (Unichat H1: a Send mid-edit saves the edit first and returns — the ask still precedes the action.)
+  assert.match(form, /onSubmit=\{\(e\) => \{(?:\s*\/\/[^\n]*)*\s*if \(editingRef\.current\) \{\s*e\.preventDefault\(\);\s*void saveEdit\(\);\s*return;\s*\}(?:\s*\/\/[^\n]*)*\s*if \(!leftWithWords \|\| askPassedRef\.current\) return;[\s\S]{0,160}e\.preventDefault\(\);\s*setAsking\(true\);/);
   assert.match(form, /title=\{LEFT_WHISPER_ASK\}[\s\S]{0,120}confirmLabel="Send"\s*cancelLabel="Cancel"/);
   // Cancel keeps the words: it sends nothing and clears nothing.
   const cancel = form.slice(form.indexOf('onCancel={() => {', form.indexOf('title={LEFT_WHISPER_ASK}')), form.indexOf('/>', form.indexOf('title={LEFT_WHISPER_ASK}')));

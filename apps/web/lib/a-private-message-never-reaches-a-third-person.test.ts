@@ -206,6 +206,8 @@ test('notices: the fan-out notifies every host, and a private line leaves before
       '...(whisperSide && privateTo ? { [CHAT_WHISPER_SIDE_COLUMN]: whisperSide } : {})',
       // 🏪 The screen's side (owner, 11 Nov) — `sent_as` only, never a recipient.
       '...sidePayload',
+      // 🎤 Unichat H1 (20 Nov): a voice note's length — `voice_seconds` only, never a recipient.
+      '...voicePayload',
     ],
     'sendChatMessageCore’s row changed — re-prove where a recipient can come from',
   );

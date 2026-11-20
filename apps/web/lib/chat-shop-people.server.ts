@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { shopChatPeopleFrom, threadHostPeopleFrom, type ShopMemberRow } from '@/lib/chat-shop-people';
+import { threadHostPeopleFrom } from '@/lib/chat-shop-people';
 
 /**
  * WHO ON EACH SIDE MAY CHAT IN ONE (event × shop) CONVERSATION — the app's mirror of the policies, never wider
@@ -12,11 +12,10 @@ import { shopChatPeopleFrom, threadHostPeopleFrom, type ShopMemberRow } from '@/
  * `chat_messages_member_insert` (20271330575424, unchanged here) admits on the shop side: the shop's OWNER
  * (`vendor_profiles.user_id`), an owner/admin team member (`current_vendor_profile_ids()`), and a team member below
  * admin on an event one of their ASSIGNED services serves (`current_vendor_ids('viewer')` ∧
- * `agent_customer_event_ids()`). `lib/chat-send.ts` used to admit only the owner, so an admin team member — whom the
- * policy admits — was told `not_member`. This reads the same three branches (service role, read-only, ONE trip per
- * table), so the send gate, the notice fan-out and the block check all agree with the database. A deactivated
- * member is left out, so this can only ever be NARROWER than RLS, never wider. The pure rule is
- * `lib/chat-shop-people.ts` (`shopChatPeopleFrom`) and its guard.
+ * `agent_customer_event_ids()`). Those three branches, with a deactivated member left out, are written ONCE as
+ * `chat_shop_team_user_ids(shop, event)` (migration 20271355512715) and this reads it (service role, one RPC) — so
+ * the send gate, the notice fan-out, the block check AND the whisper policies all use one rule. Narrower than RLS's
+ * shop arm (which never looks at `deactivated_at`), never wider.
  *
  * ── THE HOSTS' SIDE — `readThreadHostPeople` ────────────────────────────────
  * Since 20271330575424 a host reads a supplier chat only as its MEMBER (a live `chat_thread_members` row); every
@@ -27,50 +26,28 @@ export async function readShopChatPeople(
   admin: SupabaseClient,
   args: { vendorProfileId: string; eventId: string },
 ): Promise<{ ownerUserId: string | null; userIds: string[]; measured: boolean }> {
+  // 🧭 ONE DEFINITION OF "TEAM" (controller ruling on the #8060 review, 20 Nov): the rule is written ONCE, in the
+  // database — `chat_shop_team_user_ids(shop, event)` (migration 20271355512715) — and read here. The whisper
+  // policies judge by the same function, so the app and the database can no longer disagree about who is the team.
   const [ownerRes, teamRes] = await Promise.all([
     admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', args.vendorProfileId).maybeSingle(),
-    admin
-      .from('vendor_team_members')
-      .select('vendor_team_member_id, user_id, role, deactivated_at')
-      .eq('vendor_profile_id', args.vendorProfileId),
+    admin.rpc('chat_shop_team_user_ids', { p_vendor_profile_id: args.vendorProfileId, p_event_id: args.eventId }),
   ]);
   if (ownerRes.error) logQueryError('readShopChatPeople.owner', ownerRes.error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
-  if (teamRes.error) logQueryError('readShopChatPeople.team', teamRes.error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
+  if (teamRes.error) logQueryError('readShopChatPeople.team', teamRes.error, { vendor_profile_id: args.vendorProfileId, event_id: args.eventId }, 'graceful_degrade');
   const ownerUserId = ((ownerRes.data as { user_id?: string | null } | null)?.user_id ?? null) || null;
-  const team = (teamRes.data ?? []) as ShopMemberRow[];
-
-  // Below admin: which of them hold an assigned service THIS event booked. Asked only when there is somebody to ask.
-  const below = team.filter((m) => m.role !== 'owner' && m.role !== 'admin' && !m.deactivated_at);
-  let servingMemberIds: Set<string> = new Set();
+  // A SETOF uuid comes back as bare strings; tolerate a `{ chat_shop_team_user_ids }` row shape too.
+  const raw = (teamRes.data ?? []) as Array<string | { chat_shop_team_user_ids?: string | null } | null>;
+  const ids = raw.map((r) => (typeof r === 'string' ? r : (r?.chat_shop_team_user_ids ?? null))).filter((id): id is string => Boolean(id));
+  const userIds = [...new Set([...(ownerUserId ? [ownerUserId] : []), ...ids])];
   // ⚠ A FAILED READ IS NOT AN EMPTY TEAM (the whisper box says "couldn't load", never "no one" — Unichat part E).
-  let measured = !ownerRes.error && !teamRes.error;
-  if (below.length > 0) {
-    const assigned = await admin
-      .from('vendor_service_agents')
-      .select('vendor_team_member_id, vendor_service_id')
-      .in('vendor_team_member_id', below.map((m) => m.vendor_team_member_id));
-    if (assigned.error) logQueryError('readShopChatPeople.assigned', assigned.error, { event_id: args.eventId }, 'graceful_degrade');
-    if (assigned.error) measured = false;
-    const rows = (assigned.data ?? []) as Array<{ vendor_team_member_id: string; vendor_service_id: string }>;
-    if (rows.length > 0) {
-      const booked = await admin
-        .from('event_vendors')
-        .select('service_id')
-        .eq('event_id', args.eventId)
-        .in('service_id', [...new Set(rows.map((r) => r.vendor_service_id))]);
-      if (booked.error) logQueryError('readShopChatPeople.booked', booked.error, { event_id: args.eventId }, 'graceful_degrade');
-      if (booked.error) measured = false;
-      const bookedIds = new Set(((booked.data ?? []) as Array<{ service_id: string | null }>).map((b) => b.service_id));
-      servingMemberIds = new Set(rows.filter((r) => bookedIds.has(r.vendor_service_id)).map((r) => r.vendor_team_member_id));
-    }
-  }
-  return { ownerUserId, userIds: shopChatPeopleFrom({ ownerUserId, team, servingMemberIds }), measured };
+  return { ownerUserId, userIds, measured: !ownerRes.error && !teamRes.error };
 }
 
 export async function readThreadHostPeople(
   admin: SupabaseClient,
   args: { threadId: string; eventId: string },
-): Promise<{ members: string[]; coordinators: string[]; measured: boolean }> {
+): Promise<{ members: string[]; coordinators: string[]; eventHosts: string[]; measured: boolean }> {
   // 🔒 A SEAT COUNTS ONLY WHILE ITS PERSON IS STILL A HOST OF THE EVENT (20271352461498, owner 19 Nov "yes fix the
   // co-host leak today"). A removed co-host's row can outlive their membership; reading the event's 'couple' rows in
   // the same trip keeps this list exactly as narrow as `current_thread_ids()`.

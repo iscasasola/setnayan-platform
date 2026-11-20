@@ -32,6 +32,7 @@ import {
   WHISPER_TEAM_ONLY_MESSAGE,
   WHISPER_UNREAD_MESSAGE,
   WHISPER_WORDS_ONLY_MESSAGE,
+  teamSideOf,
   teamWhisperRecipients,
   whisperRecipients,
   type WhisperSide,
@@ -320,11 +321,16 @@ export async function sendChatMessageCore(
     if (senderRole === 'vendor') {
       // 🏪 THE TEAM'S WHISPER (owner, 19 Nov: "supplier whispers to co suppliers on the chat. and coordinators and hosts
       // do not see it"): the shop's own people who may chat here, the sender left out. Never a host or a coordinator.
-      const shop = await shopPeopleRead();
-      if (!shop.measured) {
+      const [shop, hostPeople] = await Promise.all([
+        shopPeopleRead(),
+        readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
+      ]);
+      if (!shop.measured || !hostPeople.measured) {
         return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
       }
-      const team = [...(shop.ownerUserId ? [shop.ownerUserId] : []), ...shop.userIds];
+      // 🧭 The ONE team rule, every host of the event taken out: a host whispers as a host, whatever their shop role
+      // (controller ruling on #8060, 20 Nov) — the order `chat_whisper_side_of` judges in.
+      const team = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
       if (!team.includes(user.id)) {
         return { ok: false, code: 'whisper_refused', message: WHISPER_TEAM_ONLY_MESSAGE };
       }
@@ -354,7 +360,7 @@ export async function sendChatMessageCore(
       whisperTo = whisperRecipients({
         hostMemberIds: hostPeople.members,
         coordinatorIds: hostPeople.coordinators,
-        shopUserIds: [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])],
+        shopUserIds: teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts }),
         senderUserId: user.id,
       });
       whisperSide = 'hosts';

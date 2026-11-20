@@ -30,6 +30,7 @@ import {
   hostsWhisperReach,
   WHISPER_COORDINATOR_REACH,
   leftWhisperAskBody,
+  teamSideOf,
   teamWhisperRecipients,
   whisperBlockedLine,
   whisperRecipients,
@@ -73,6 +74,10 @@ function stubClient(tables: Record<string, Res>): SupabaseClient {
       for (const m of ['select', 'eq', 'in', 'is', 'order', 'limit', 'maybeSingle']) b[m] = () => b;
       b.then = (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => Promise.resolve(result).then(resolve, reject);
       return b;
+    },
+    // The ONE team rule is an RPC (`chat_shop_team_user_ids`, migration 20271355512715): stubbed as `rpc:<name>`.
+    rpc(name: string) {
+      return Promise.resolve(tables[`rpc:${name}`] ?? { data: [], error: null });
     },
   } as unknown as SupabaseClient;
 }
@@ -140,7 +145,8 @@ test('5 · the page reads: a coordinator gets the hosts’ whisper; a team membe
   const { readHostsWhisper, readTeamWhisper } = await import('./chat-whisper.server');
   const SHOP_OK = {
     vendor_profiles: { data: { user_id: 'sol' }, error: null },
-    vendor_team_members: { data: [{ vendor_team_member_id: 'tm1', user_id: 'mara', role: 'admin', deactivated_at: null }, { vendor_team_member_id: 'tm2', user_id: 'gone', role: 'admin', deactivated_at: '2026-11-01T00:00:00Z' }], error: null },
+    // The ONE team rule answers from the database: a deactivated 'gone' is never in it.
+    'rpc:chat_shop_team_user_ids': { data: ['sol', 'mara'], error: null },
   };
   const HOSTS = {
     chat_thread_members: { data: [{ user_id: 'ana', left_at: null }, { user_id: 'ben', left_at: null }], error: null },
@@ -160,15 +166,39 @@ test('5 · the page reads: a coordinator gets the hosts’ whisper; a team membe
 
   assert.equal(await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS }), { ...at, viewerId: 'stranger' }), null);
   assert.equal(await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS }), { ...at, viewerId: 'sol' }), null, 'the shop gets the hosts’ whisper');
-  const hostsFailed = await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS, vendor_team_members: REFUSED }), { ...at, viewerId: 'ana' });
+  const hostsFailed = await readHostsWhisper(stubClient({ ...SHOP_OK, ...HOSTS, 'rpc:chat_shop_team_user_ids': REFUSED }), { ...at, viewerId: 'ana' });
   assert.equal(hostsFailed?.unread, true, 'a failed shop read on the hosts’ side is not said as a failure');
 
   const team = await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
   assert.deepEqual(team, { side: 'team', ids: ['mara'], unread: false, reach: 'Only your team', legacyCoHostIds: [] }, 'a deactivated member is on the team list');
   assert.equal(await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'gone' }), null, 'a deactivated member can team-whisper');
   assert.equal(await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'ana' }), null, 'a host gets the team’s whisper');
-  const teamFailed = await readTeamWhisper(stubClient({ ...SHOP_OK, vendor_team_members: REFUSED }), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
+  const teamFailed = await readTeamWhisper(stubClient({ ...SHOP_OK, 'rpc:chat_shop_team_user_ids': REFUSED }), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
   assert.deepEqual(teamFailed, { side: 'team', ids: [], unread: true, reach: null, legacyCoHostIds: [] }, 'a failed team read is said as "no one"');
+  const hostsReadFailed = await readTeamWhisper(stubClient({ ...SHOP_OK, event_members: REFUSED }), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
+  assert.equal(hostsReadFailed?.unread, true, 'a failed read of the event’s hosts is not said as a failure on the team’s side');
+});
+
+test('5b · ONE TEAM RULE: a host who is ALSO on the shop’s team whispers as a host (controller ruling on #8060, 20 Nov)', async () => {
+  const { readHostsWhisper, readTeamWhisper } = await import('./chat-whisper.server');
+  // Ana hosts the event AND is on the shop's team (a junior member serving it, or its admin — the DB rule says which).
+  const ANA_ON_TEAM = {
+    vendor_profiles: { data: { user_id: 'sol' }, error: null },
+    'rpc:chat_shop_team_user_ids': { data: ['sol', 'mara', 'ana'], error: null },
+    chat_thread_members: { data: [{ user_id: 'ana', left_at: null }, { user_id: 'ben', left_at: null }], error: null },
+    event_members: { data: [{ user_id: 'ana', member_type: 'couple' }, { user_id: 'ben', member_type: 'couple' }, { user_id: 'liza', member_type: 'coordinator' }], error: null },
+    users: { data: [{ user_id: 'ana', first_name: 'Ana', display_name: null }, { user_id: 'ben', first_name: 'Ben', display_name: null }], error: null },
+  };
+  const at = { threadId: 't', eventId: 'e', vendorProfileId: 'v' };
+  const ana = await readHostsWhisper(stubClient(ANA_ON_TEAM), { ...at, viewerId: 'ana' });
+  assert.deepEqual(ana?.ids, ['ben', 'liza'], 'a host on the shop’s team is refused the hosts’ whisper');
+  const ben = await readHostsWhisper(stubClient(ANA_ON_TEAM), { ...at, viewerId: 'ben' });
+  assert.deepEqual(ben?.ids, ['ana', 'liza'], 'a co-host on the shop’s team is left off the hosts’ whisper');
+  // …and never on the shop's side here: not offered the team's whisper, never on the team's list.
+  assert.equal(await readTeamWhisper(stubClient(ANA_ON_TEAM), { eventId: 'e', vendorProfileId: 'v', viewerId: 'ana' }), null, 'a host is offered the team’s whisper');
+  const sol = await readTeamWhisper(stubClient(ANA_ON_TEAM), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
+  assert.deepEqual(sol?.ids, ['mara'], 'a host is on the team’s whisper list');
+  assert.deepEqual(teamSideOf({ teamUserIds: ['sol', 'mara', 'ana', 'ana', ''], eventHostIds: ['ana', 'ben'] }), ['sol', 'mara']);
 });
 
 test('6 · the composer: the sky Private chip, who it reaches, and the dispute ⓘ — on both sides', async () => {

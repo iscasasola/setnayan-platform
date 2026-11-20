@@ -80,7 +80,8 @@ export function whisperFromForm(raw: FormDataEntryValue | null): boolean {
  * 🔒 WHO HEARS A WHISPER — decided on the server from the thread's own rows, never from the browser:
  * the hosts in this chat now (`chat_thread_members`, `left_at IS NULL`) AND the event's coordinators (owner, 20 Nov:
  * *"host and coordinator can whisper to each other"* — `coordinatorIds`), the sender left out, and ANYONE ON THE SHOP'S
- * SIDE left out (one login can be a host AND the shop's owner or team member — that login is the supplier here).
+ * TEAM SIDE left out (`shopUserIds` = `teamSideOf(…)`: a login that hosts the event is a host here, whatever its shop
+ * role — controller ruling on #8060, 20 Nov; a coordinator on the shop's team is the supplier here).
  * `[]` = nobody to hear it → the caller refuses the send.
  */
 export function whisperRecipients(input: {
@@ -115,14 +116,29 @@ export function whisperSideOf(raw: unknown): WhisperSide | null {
 }
 
 /**
- * 🔒 WHO HEARS A TEAM WHISPER — the shop's people who may chat here (`readShopChatPeople`: the owner, owner/admin
- * members, a member below admin on an event their service serves; a deactivated member never), the sender left out.
- * A login that is ALSO a host is still on the shop's side here, so it stays on the list. `[]` → refused.
+ * 🔒 WHO HEARS A TEAM WHISPER — the shop's team side (`teamSideOf`), the sender left out. `[]` → refused.
  */
 export function teamWhisperRecipients(input: { teamUserIds: readonly string[]; senderUserId: string }): string[] {
   const out: string[] = [];
   for (const id of input.teamUserIds) {
     if (!id || id === input.senderUserId || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * 🧭 THE SHOP'S TEAM SIDE IN ONE EVENT'S CHAT — the ONE team rule (`chat_shop_team_user_ids`, migration 20271355512715,
+ * read by `readShopChatPeople`: owner · live owner/admin · a live member serving THIS event) with every HOST OF THE EVENT
+ * taken out. Controller ruling on the #8060 review (20 Nov): a host acts on the hosts' side in that event's threads,
+ * whatever their shop role — the same order `chat_whisper_side_of` judges in. Pass this, never the raw team, as
+ * `shopUserIds` to `whisperRecipients` and as `teamUserIds` to `teamWhisperRecipients`.
+ */
+export function teamSideOf(input: { teamUserIds: readonly string[]; eventHostIds: readonly string[] }): string[] {
+  const hosts = new Set(input.eventHostIds);
+  const out: string[] = [];
+  for (const id of input.teamUserIds) {
+    if (!id || hosts.has(id) || out.includes(id)) continue;
     out.push(id);
   }
   return out;

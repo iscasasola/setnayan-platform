@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
-import { WHISPER_TEAM_REACH, hostsWhisperReach, teamWhisperRecipients, whisperRecipients, type WhisperSide } from './chat-whisper';
+import { WHISPER_TEAM_REACH, hostsWhisperReach, teamSideOf, teamWhisperRecipients, whisperRecipients, type WhisperSide } from './chat-whisper';
 
 /**
  * 🤫 WHO A WHISPER WOULD REACH, for the thread pages (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"; Unichat
@@ -67,9 +67,10 @@ export async function readHostsWhisper(
   const isHost = hostPeople.members.includes(args.viewerId);
   const isCoordinator = hostPeople.coordinators.includes(args.viewerId);
   if (!isHost && !isCoordinator) return null;
-  const shopUserIds = [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])];
-  // One login can host the event AND run the shop: on this page it is a host, but it never whispers past itself.
-  if (shopUserIds.includes(args.viewerId)) return null;
+  // 🧭 A host of the event is on the hosts' side here, whatever their shop role (controller ruling on #8060, 20 Nov):
+  // the shop's team side never holds a host. A COORDINATOR on the shop's team is the supplier here — no hosts' whisper.
+  const shopUserIds = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
+  if (!isHost && shopUserIds.includes(args.viewerId)) return null;
   const ids = whisperRecipients({
     hostMemberIds: hostPeople.members,
     coordinatorIds: hostPeople.coordinators,
@@ -88,14 +89,20 @@ export async function readHostsWhisper(
   };
 }
 
-/** The shop's side: its own people who may chat here (owner + live members). Hosts and coordinators never. */
+/** The shop's side: the ONE team rule (`chat_shop_team_user_ids`) minus every host of the event. Hosts and coordinators never. */
 export async function readTeamWhisper(
   admin: SupabaseClient,
   args: { eventId: string; vendorProfileId: string; viewerId: string },
 ): Promise<WhisperAudience> {
-  const shop = await readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId });
-  if (!shop.measured) return WHISPER_AUDIENCE_UNREAD('team');
-  const team = [...new Set([...(shop.ownerUserId ? [shop.ownerUserId] : []), ...shop.userIds])];
+  const [shop, hostsRes] = await Promise.all([
+    readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId }),
+    admin.from('event_members').select('user_id').eq('event_id', args.eventId).eq('member_type', 'couple'),
+  ]);
+  if (hostsRes.error) logQueryError('readTeamWhisper.hosts', hostsRes.error, { event_id: args.eventId }, 'graceful_degrade');
+  if (!shop.measured || hostsRes.error) return WHISPER_AUDIENCE_UNREAD('team');
+  // 🧭 The ONE team rule, every host of the event taken out — a host whispers as a host (controller ruling, 20 Nov).
+  const eventHostIds = ((hostsRes.data ?? []) as Array<{ user_id: string | null }>).map((r) => r.user_id ?? '').filter(Boolean);
+  const team = teamSideOf({ teamUserIds: shop.userIds, eventHostIds });
   if (!team.includes(args.viewerId)) return null;
   const ids = teamWhisperRecipients({ teamUserIds: team, senderUserId: args.viewerId });
   return { side: 'team', ids, unread: false, reach: ids.length > 0 ? WHISPER_TEAM_REACH : null, legacyCoHostIds: [] };

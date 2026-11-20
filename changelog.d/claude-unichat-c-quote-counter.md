@@ -25,6 +25,17 @@ shipped writer (`sendCustomProposalFromChat`, `ask_for_a_change`).
 - **A custom payment plan must balance** — Propose a payment plan gains **Custom**: typed payments, each with its due,
   "Fill the rest" on the last one, a segment bar, and "Placed ₱X of ₱Y ✓". Send stays grey until the payments add up
   to the quote. A paid payment is drawn fixed and cannot be changed or removed.
+- **The counter card's face is the drawing** (controller ruling 20 Nov) — `NegotiationCard` in `negotiate-cards.tsx`:
+  ~~old price~~ → new price, ONE line under it ("Under your lowest" in the warn colour on the supplier's side, or the
+  gap · until), an ⓘ, and **Decline · Counter · Accept** (Accept now says just "Accept", as drawn). Everything the card
+  printed before — the amount, "instead of", the gap pill, their words, Good until, what Accept makes (the plan
+  re-split, paid rows fixed, money owed back) and the lowest — moved into an **ⓘ sheet** built on the app's one
+  `Sheet` (`app/_components/sheet.tsx`), with the state in words ("Waiting for the hosts", "The hosts answer this
+  one", expired, the quote changed). A settled counter folds to the drawing's one line ("₱40,000 · accepted") whose
+  press opens the same details. `KindCard` (`card-bits.tsx`) gained two optional props for it — `info` (the ⓘ slot)
+  and `warn` (the kicker in the warn colour); every other card renders as before. The payment-plan card is unchanged.
+  🔒 `app/_components/chat/cards/the-counter-face-is-the-drawing.test.ts`. Lab: `/dev/chat-cards-c-lab?m=counterface`
+  (the drawing's own scene; `&v=host`, `&s=accepted|declined`). Shots: `build-sessions/shots-unichat-c/`.
 - **Hosted two ways** — `EditorShell` in `card-bits.tsx`: `frame="card"` is today's (+) card; `frame="bare"` drops the
   shell so the composer can host the same editor inside the text box (Unichat part B mounts it).
 - Rules in `apps/web/lib/chat-deal.ts`: `suggestedCounterCentavos`, `counterContext`, `openCounterBy`, `planBalance`,

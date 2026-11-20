@@ -54,6 +54,8 @@ export function KindCard({
   chip,
   tone = 'auto',
   anchorId,
+  info,
+  warn = false,
   children,
 }: {
   kind: CardKind;
@@ -69,6 +71,10 @@ export function KindCard({
   chip?: ReactNode;
   tone?: 'mine' | 'theirs' | 'auto';
   anchorId?: string;
+  /** ⓘ at the right of the title (the drawing's `.cinfo`) — the card's details live behind it (Unichat part C). */
+  info?: ReactNode;
+  /** The kicker is a warning (the counter's "Under your lowest") — the warn colour, one weight up. */
+  warn?: boolean;
   children?: ReactNode;
 }) {
   const Icon = TOPIC_ICON[topic];
@@ -107,7 +113,7 @@ export function KindCard({
       data-card-kind={kind}
       data-card-turn={turn}
       aria-label={label}
-      className={`my-2 grid scroll-mt-3 grid-cols-[36px_minmax(0,1fr)] items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
+      className={`my-2 grid scroll-mt-3 ${info ? 'grid-cols-[36px_minmax(0,1fr)_auto]' : 'grid-cols-[36px_minmax(0,1fr)]'} items-center gap-3 rounded-[var(--sn-frame-radius)] border-l-[length:var(--sn-border-w-edge)] bg-frame p-3 ${k.edge} ${turn === 'me' ? 'shadow-sn-frame' : 'shadow-sn-hair'} ${HOT} ${place(tone)}`}
     >
       {chip ?? (
         <span aria-hidden className={`grid h-9 w-9 place-items-center rounded-md ${k.chip}`}>
@@ -123,9 +129,12 @@ export function KindCard({
               Your turn
             </span>
           ) : null}
-          <span className="truncate">{kicker}</span>
+          <span className={warn ? 'truncate font-semibold' : 'truncate'} style={warn ? { color: 'rgb(var(--color-warn))' } : undefined} data-card-warn={warn ? '' : undefined}>
+            {kicker}
+          </span>
         </span>
       </span>
+      {info ?? null}
       {children ? <div className="col-span-full min-w-0 text-[15px] text-ink">{children}</div> : null}
     </section>
   );

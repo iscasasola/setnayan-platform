@@ -15,7 +15,7 @@
  *   "Expired · ask again" is derived from Good until — no job, no stored state.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowRight, Check, Info, Lock, MessageCircleQuestion, Plus, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { TypedRow } from '@/app/_components/form-row';
@@ -45,9 +45,10 @@ import {
   type ChangeAskRow,
   type NegotiationQuote,
 } from './card-calls';
-import { CouldNotLoad, EditorShell, EmptyLine, EqualRow, KindCard, KindTag, Loading, Problem, SegBar, type EditorFrame, type Read } from './card-bits';
+import { CouldNotLoad, EditorShell, EmptyLine, EqualRow, KindCard, KindTag, Loading, Problem, SegBar, type CardTurn, type EditorFrame, type Read } from './card-bits';
+import { Sheet } from '@/app/_components/sheet';
 import { UnderLowestLine } from './lowest-price';
-import { loadLowest, useLowestState } from './lowest-calls';
+import { isUnderLowest, loadLowest, useLowestState } from './lowest-calls';
 
 export type NegotiateKind = 'ask' | 'counter' | 'plan';
 type Viewer = 'vendor' | 'couple';
@@ -698,7 +699,7 @@ export function NegotiationCard({
   askedAt: string;
   viewer: Viewer;
   /** Lab only. */
-  seed?: { ask: ChangeAskRow; quote: NegotiationQuote | null; today?: string };
+  seed?: { ask: ChangeAskRow; quote: NegotiationQuote | null; today?: string; lowestCentavos?: number | null };
 }) {
   const [read, setRead] = useState<Read<{ ask: ChangeAskRow | null; quote: NegotiationQuote | null; asks: ChangeAskRow[] }>>(
     seed ? { at: 'ok', data: { ask: seed.ask, quote: seed.quote, asks: [seed.ask] } } : { at: 'loading' },
@@ -706,6 +707,12 @@ export function NegotiationCard({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [countering, setCountering] = useState(false);
+  const [info, setInfo] = useState(false);
+  // 🔒 The lowest is read ONLY on the supplier's side, only for a counter (the hosts' session never asks).
+  const lowestState = useLowestState(threadId);
+  useEffect(() => {
+    if (viewer === 'vendor' && kind === 'counter' && seed?.lowestCentavos === undefined) void loadLowest(threadId);
+  }, [viewer, kind, threadId, seed?.lowestCentavos]);
   const load = useCallback(() => {
     setRead({ at: 'loading' });
     void Promise.all([loadChangeAsks(threadId), loadNegotiation(threadId)]).then(([a, q]) => {
@@ -754,112 +761,242 @@ export function NegotiationCard({
     setRead({ at: 'ok', data: { ask: { ...ask, status: a }, quote, asks } });
   };
   const title = kind === 'counter' ? `Counter · ${ask?.scopeLabel ?? 'the total'}` : 'Payment plan · counter';
+  const turn: CardTurn = !ask
+    ? 'wait'
+    : ask.status === 'accepted'
+      ? 'done'
+      : ask.status === 'declined' || ask.status === 'countered'
+        ? 'old'
+        : ask.status === 'open' && !until.expired && onLiveQuote && !ask.moneyHidden && !mine
+          ? 'me'
+          : 'wait';
+  // 🔒 "Under your lowest" — the supplier's own private number, read on the supplier's side only (the hosts' session
+  // never asks; RLS would answer nothing — migration 20271351728770). An unread lowest says nothing.
+  const lowestOf = seed?.lowestCentavos !== undefined ? seed.lowestCentavos : lowestState.at === 'ok' ? lowestState.centavos : null;
+  const lowest = viewer === 'vendor' && kind === 'counter' && !mine ? lowestOf : null;
+  const underLowest = !!ask && ask.status === 'open' && !until.expired && !!outcome && isUnderLowest(lowest, outcome.newTotalCentavos);
+
+  // What the card held before the face (amount · gap · their words · Good until · what Accept makes · the lowest).
+  // On the counter it lives behind ⓘ (open) or inside the settled line (settled); the plan still shows it on the card.
+  const details =
+    read.at === 'ok' && ask ? (
+      <div className="grid gap-2" data-negotiation-details={kind}>
+        {kind === 'counter' ? (
+          <p className="text-[20px] font-semibold tabular-nums text-ink">
+            {ask.moneyHidden ? HOSTS_ONLY : pesos(ask.amountCentavos ?? 0)}{' '}
+            {outcome ? (
+              <span className="text-[14px] font-normal text-ink/60">
+                {ask.scopeLabel ? `for ${ask.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}
+              </span>
+            ) : null}
+            {/* The counter kind's signature: the gap, as the kind's own pill. */}
+            {outcome && !ask.moneyHidden && ask.amountCentavos != null && ask.amountCentavos !== outcome.wasCentavos ? (
+              <span className="ml-1 align-middle">
+                <KindTag kind="counter">
+                  {ask.amountCentavos < outcome.wasCentavos ? '−' : '+'}
+                  {pesos(Math.abs(outcome.wasCentavos - ask.amountCentavos))}
+                </KindTag>
+              </span>
+            ) : null}
+          </p>
+        ) : ask.moneyHidden ? (
+          <p className="text-[15px] text-ink/60">{HOSTS_ONLY}</p>
+        ) : (
+          <>
+            {/* The plan's signature: one segment per payment, as wide as its share. */}
+            <SegBar amounts={(ask.proposedPlan ?? []).map((r) => r.amount_centavos)} />
+            <PlanRows rows={ask.proposedPlan ?? []} paid={paid} />
+          </>
+        )}
+        {ask.note.trim() ? <p className="text-[15px] text-ink/80">&ldquo;{ask.note}&rdquo;</p> : null}
+        {ask.status === 'open' && !until.expired && until.words ? <p className="text-[13px] text-ink/55">{until.words}</p> : null}
+        {/* What Accept would make — the plan re-split, paid rows fixed, and any money owed back (owner 12 Nov). */}
+        {ask.status === 'open' && !until.expired && outcome?.rows ? <PlanRows rows={outcome.rows} paid={paid} owedBack={outcome.owedBackCentavos} /> : null}
+        {/* 🤝 Their counter is under the supplier's own lowest: said before Accept, never blocking it. */}
+        {underLowest && lowest != null ? (
+          <p className="text-[13px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }} role="status" data-under-lowest="">
+            Under your lowest, {pesos(lowest)}. Only your shop sees that.
+          </p>
+        ) : null}
+      </div>
+    ) : null;
+  const status = (textOnly: boolean) =>
+    ask ? (
+      <Status
+        ask={ask}
+        mine={mine}
+        expired={until.expired}
+        expiredWords={until.words}
+        viewer={viewer}
+        busy={busy}
+        stale={!onLiveQuote}
+        blocked={outcome?.refusal ?? null}
+        onAnswer={(a) => void answer(a)}
+        onCounter={kind === 'counter' ? () => setCountering(true) : null}
+        textOnly={textOnly}
+      />
+    ) : null;
+  const counterEditor =
+    countering && quote && ask ? (
+      <div className="mt-1 grid gap-2 border-t border-ink/10 pt-3" data-counter-back="">
+        <CounterBody
+          threadId={threadId}
+          quote={quote}
+          supplierName="The supplier"
+          today={today}
+          asks={asks}
+          initialScope={ask.scopeLabel ?? null}
+          // On the total the price opens on the suggested counter (their ask · your quote, never under the
+          // supplier's lowest — `counterContext`). On ONE line: halfway between their price and the line's.
+          initialAmount={ask.scopeLabel ? lineHalfway(ask.amountCentavos ?? 0, outcome?.wasCentavos ?? 0) : undefined}
+          counters={ask.askId}
+          viewer={viewer}
+          onClose={() => setCountering(false)}
+          onSent={() => {
+            setCountering(false);
+            setRead({ at: 'ok', data: { ask: { ...ask, status: 'countered' }, quote, asks } });
+          }}
+        />
+      </div>
+    ) : null;
+  const settled =
+    ask && (ask.status === 'accepted' || ask.status === 'declined' || ask.status === 'countered')
+      ? kind === 'counter'
+        ? `${counterWords(ask)} · ${ask.status === 'accepted' ? 'accepted' : ask.status === 'declined' ? 'declined' : 'answered'}`
+        : `${title} · ${ask.status === 'accepted' ? 'Accepted' : ask.status === 'declined' ? 'Declined' : 'Countered'}`
+      : undefined;
+  const negotiationStatus = ask ? (until.expired && ask.status === 'open' ? 'expired' : ask.status) : undefined;
+
+  // ── The plan (unchanged): the whole body on the card ──
+  if (kind === 'plan' || read.at !== 'ok' || !ask || settled !== undefined) {
+    return (
+      <KindCard kind={kind === 'counter' ? 'counter' : 'payment'} topic="payment" kicker={ask ? who : '…'} title={title} tone={mine ? 'mine' : 'theirs'} turn={turn} settled={settled}>
+        {read.at === 'loading' ? (
+          <Loading />
+        ) : read.at === 'failed' ? (
+          <CouldNotLoad what="this counter" onRetry={load} />
+        ) : (
+          <div className="grid gap-2" data-negotiation={kind} data-negotiation-status={negotiationStatus}>
+            {details}
+            {status(false)}
+            {counterEditor}
+            <Problem text={problem} />
+          </div>
+        )}
+      </KindCard>
+    );
+  }
+
+  // ── 🤝 THE COUNTER'S FACE (Unichat part C, controller ruling 20 Nov — drawing UNICHAT-LIVE-2026-11-19 `cardHTML`
+  // counter): old price → new price, ONE line under it ("Under your lowest", or the gap · until), ⓘ, and
+  // Decline · Counter · Accept. Everything else the card used to print is in the ⓘ sheet — nothing is lost.
+  const answers = turn === 'me';
+  const words = ask.moneyHidden
+    ? 'The hosts answer this one'
+    : until.expired
+      ? (until.words ?? 'Expired · ask again')
+      : !onLiveQuote
+        ? 'The quote changed · counter again'
+        : underLowest && answers
+          ? 'Under your lowest'
+          : [gapShort(ask, outcome), untilShort(ask.goodUntil)].filter(Boolean).join(' · ') || who;
+  const sheetTitle = `counter-sheet-${ask.askId}`;
   return (
-    <KindCard
-      kind={kind === 'counter' ? 'counter' : 'payment'}
-      topic="payment"
-      kicker={`${ask ? who : '…'}${until.words && ask?.status === 'open' ? '' : ''}`}
-      title={title}
-      tone={mine ? 'mine' : 'theirs'}
-      turn={
-        !ask
-          ? 'wait'
-          : ask.status === 'accepted'
-            ? 'done'
-            : ask.status === 'declined' || ask.status === 'countered'
-              ? 'old'
-              : ask.status === 'open' && !until.expired && onLiveQuote && !ask.moneyHidden && !mine
-                ? 'me'
-                : 'wait'
-      }
-      settled={
-        ask && (ask.status === 'accepted' || ask.status === 'declined' || ask.status === 'countered')
-          ? `${title}${kind === 'counter' && !ask.moneyHidden ? ` · ${pesos(ask.amountCentavos ?? 0)}` : ''} · ${ask.status === 'accepted' ? 'Accepted' : ask.status === 'declined' ? 'Declined' : 'Countered'}`
-          : undefined
-      }
-    >
-      {read.at === 'loading' ? (
-        <Loading />
-      ) : read.at === 'failed' ? (
-        <CouldNotLoad what="this counter" onRetry={load} />
-      ) : (
-        <div className="grid gap-2" data-negotiation={kind} data-negotiation-status={until.expired && ask!.status === 'open' ? 'expired' : ask!.status}>
-          {kind === 'counter' ? (
-            <p className="text-[20px] font-semibold tabular-nums text-ink">
-              {ask!.moneyHidden ? HOSTS_ONLY : pesos(ask!.amountCentavos ?? 0)}{' '}
-              {outcome ? (
-                <span className="text-[14px] font-normal text-ink/60">
-                  {ask!.scopeLabel ? `for ${ask!.scopeLabel} · was ${pesos(outcome.wasCentavos)}` : `instead of ${pesos(outcome.wasCentavos)}`}
-                </span>
-              ) : null}
-              {/* The counter kind's signature: the gap, as the kind's own pill. */}
-              {outcome && !ask!.moneyHidden && ask!.amountCentavos != null && ask!.amountCentavos !== outcome.wasCentavos ? (
-                <span className="ml-1 align-middle">
-                  <KindTag kind="counter">
-                    {ask!.amountCentavos < outcome.wasCentavos ? '−' : '+'}
-                    {pesos(Math.abs(outcome.wasCentavos - ask!.amountCentavos))}
-                  </KindTag>
-                </span>
-              ) : null}
+    <>
+      <KindCard
+        kind="counter"
+        topic="payment"
+        kicker={words}
+        warn={underLowest && answers}
+        title={<CounterTitle ask={ask} wasCentavos={outcome?.wasCentavos ?? null} />}
+        hero={!ask.scopeLabel}
+        tone={mine ? 'mine' : 'theirs'}
+        turn={turn}
+        // The drawing's counter chip: ⇄ (its `KIC.counter`), in the counter kind's own colours.
+        chip={
+          <span aria-hidden className="grid h-9 w-9 place-items-center rounded-md bg-kind-counter-bg text-kind-counter">
+            <ArrowLeftRight className="h-[18px] w-[18px]" strokeWidth={1.9} />
+          </span>
+        }
+        info={
+          <button
+            type="button"
+            className="sn-press -m-2 grid h-11 w-11 place-items-center rounded-full text-ink/70"
+            aria-label="Details"
+            aria-haspopup="dialog"
+            onClick={() => setInfo(true)}
+            data-counter-info=""
+            data-negotiation={kind}
+            data-negotiation-status={negotiationStatus}
+          >
+            <Info aria-hidden className="h-5 w-5" strokeWidth={1.9} />
+          </button>
+        }
+      >
+        {answers || counterEditor || problem ? (
+          <div className="grid gap-2" data-counter-face="">
+            {answers && !countering ? status(false) : null}
+            {counterEditor}
+            <Problem text={problem} />
+          </div>
+        ) : null}
+      </KindCard>
+      <Sheet open={info} onClose={() => setInfo(false)} labelledById={sheetTitle} rise>
+        <div className="grid gap-3 px-4 pb-5 pt-1" data-counter-sheet="">
+          <div>
+            <p id={sheetTitle} className="text-base font-semibold text-ink">
+              {title}
             </p>
-          ) : (
-            ask!.moneyHidden ? (
-              <p className="text-[15px] text-ink/60">{HOSTS_ONLY}</p>
-            ) : (
-              <>
-                {/* The plan's signature: one segment per payment, as wide as its share. */}
-                <SegBar amounts={(ask!.proposedPlan ?? []).map((r) => r.amount_centavos)} />
-                <PlanRows rows={ask!.proposedPlan ?? []} paid={paid} />
-              </>
-            )
-          )}
-          {ask!.note.trim() ? <p className="text-[15px] text-ink/80">&ldquo;{ask!.note}&rdquo;</p> : null}
-          {ask!.status === 'open' && !until.expired && until.words ? <p className="text-[13px] text-ink/55">{until.words}</p> : null}
-          {/* What Accept would make — the plan re-split, paid rows fixed, and any money owed back (owner 12 Nov). */}
-          {ask!.status === 'open' && !until.expired && outcome?.rows ? <PlanRows rows={outcome.rows} paid={paid} owedBack={outcome.owedBackCentavos} /> : null}
-          {/* 🤝 Their counter is under the supplier's own lowest: said before Accept, never blocking it. */}
-          {viewer === 'vendor' && !mine && ask!.status === 'open' && !until.expired && outcome ? (
-            <UnderLowestLine threadId={threadId} totalCentavos={outcome.newTotalCentavos} />
-          ) : null}
-          <Status
-            ask={ask!}
-            mine={mine}
-            expired={until.expired}
-            expiredWords={until.words}
-            viewer={viewer}
-            busy={busy}
-            stale={!onLiveQuote}
-            blocked={outcome?.refusal ?? null}
-            onAnswer={(a) => void answer(a)}
-            onCounter={kind === 'counter' ? () => setCountering(true) : null}
-          />
-          {countering && quote && ask ? (
-            <div className="mt-1 grid gap-2 border-t border-ink/10 pt-3" data-counter-back="">
-              <CounterBody
-                threadId={threadId}
-                quote={quote}
-                supplierName="The supplier"
-                today={today}
-                asks={asks}
-                initialScope={ask.scopeLabel ?? null}
-                // On the total the price opens on the suggested counter (their ask · your quote, never under the
-                // supplier's lowest — `counterContext`). On ONE line: halfway between their price and the line's.
-                initialAmount={ask.scopeLabel ? lineHalfway(ask.amountCentavos ?? 0, outcome?.wasCentavos ?? 0) : undefined}
-                counters={ask.askId}
-                viewer={viewer}
-                onClose={() => setCountering(false)}
-                onSent={() => {
-                  setCountering(false);
-                  setRead({ at: 'ok', data: { ask: { ...ask, status: 'countered' }, quote, asks } });
-                }}
-              />
-            </div>
-          ) : null}
-          <Problem text={problem} />
+            <p className="mt-0.5 text-[13px] text-ink/70">Counter from {mine ? 'you' : who === 'The hosts' ? 'the hosts' : 'the supplier'}.</p>
+          </div>
+          {details}
+          {status(true)}
         </div>
-      )}
-    </KindCard>
+      </Sheet>
+    </>
   );
+}
+
+/** The face's title: ~~₱was~~ → ₱new on the total; "Line → ₱new" on one line; the hosts-only words when money is hidden. */
+function CounterTitle({ ask, wasCentavos }: { ask: ChangeAskRow; wasCentavos: number | null }) {
+  if (ask.moneyHidden) return <>{HOSTS_ONLY}</>;
+  const now = pesos(ask.amountCentavos ?? 0);
+  const arrow = <ArrowRight aria-label="to" className="mx-1 inline h-3.5 w-3.5 align-[-2px] text-ink/70" strokeWidth={2} />;
+  if (ask.scopeLabel) {
+    return (
+      <span data-counter-title="line">
+        {ask.scopeLabel}
+        {arrow}
+        {now}
+      </span>
+    );
+  }
+  return (
+    <span data-counter-title="total">
+      {wasCentavos != null ? <s className="text-[13px] font-normal text-ink/70">{pesos(wasCentavos)}</s> : null}
+      {wasCentavos != null ? arrow : null}
+      {now}
+    </span>
+  );
+}
+
+/** "₱55,000" / "Second shooter → ₱8,000" — the settled line's words (the drawing's `tc`). */
+function counterWords(ask: ChangeAskRow): string {
+  if (ask.moneyHidden) return 'Counter';
+  return ask.scopeLabel ? `${ask.scopeLabel} → ${pesos(ask.amountCentavos ?? 0)}` : pesos(ask.amountCentavos ?? 0);
+}
+
+/** "−₱5,000" — the gap on the total, signed; nothing on one line or when it is the same price. */
+function gapShort(ask: ChangeAskRow, outcome: { wasCentavos: number } | null): string | null {
+  if (ask.scopeLabel || !outcome || ask.amountCentavos == null || ask.amountCentavos === outcome.wasCentavos) return null;
+  return `${ask.amountCentavos < outcome.wasCentavos ? '−' : '+'}${pesos(Math.abs(outcome.wasCentavos - ask.amountCentavos))}`;
+}
+
+/** "until 18 Nov" — the Good until on the face, short (the whole words are in ⓘ). */
+function untilShort(goodUntil: string | null | undefined): string | null {
+  if (!goodUntil) return null;
+  const label = new Date(`${goodUntil.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-PH', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `until ${label}`;
 }
 
 function Status({
@@ -873,6 +1010,7 @@ function Status({
   blocked,
   onAnswer,
   onCounter,
+  textOnly = false,
 }: {
   ask: ChangeAskRow;
   mine: boolean;
@@ -884,6 +1022,8 @@ function Status({
   blocked: string | null;
   onAnswer: (a: 'accepted' | 'declined') => void;
   onCounter: (() => void) | null;
+  /** The ⓘ sheet: the state in words, never a second set of buttons (they live on the card's face). */
+  textOnly?: boolean;
 }) {
   const line = (text: string, ok = false) => (
     <p className={`rounded-lg px-3 py-2 text-[13px] font-medium ${ok ? 'bg-success-50 text-success-700' : 'bg-ink/[0.05] text-ink/65'}`}>{text}</p>
@@ -897,6 +1037,7 @@ function Status({
   // 💰 Money withheld from this reader: they cannot weigh the price, so they do not answer it — the hosts do.
   if (ask.moneyHidden) return line('The hosts answer this one');
   if (mine) return line(`Waiting for ${viewer === 'vendor' ? 'the hosts' : 'the supplier'}`);
+  if (textOnly) return line(blocked ? `Your turn · ${blocked}` : 'Your turn · Decline, Counter or Accept on the card');
   return (
     <>
       {blocked ? <Problem text={blocked} /> : null}
@@ -907,7 +1048,7 @@ function Status({
           tone="brand"
           main
           icon={Check}
-          label={ask.amountCentavos != null ? `Accept ${pesos(ask.amountCentavos)}` : 'Accept'}
+          label="Accept"
           onClick={() => onAnswer('accepted')}
           waiting={busy}
           disabled={!!blocked}

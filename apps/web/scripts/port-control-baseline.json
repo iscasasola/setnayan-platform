@@ -354,6 +354,7 @@
       ],
       "actions": [],
       "blocks": [
+        "CardBadgeRow",
         "ClaimSwitches",
         "CoordinatorPrices",
         "Facts",
@@ -362,6 +363,7 @@
         "Head",
         "Image",
         "Link",
+        "ServiceFace",
         "T"
       ]
     },
@@ -9480,7 +9482,8 @@
         "SubmitButton",
         "Suspense",
         "ThreadInterestChips",
-        "ThreadToolPanel"
+        "ThreadToolPanel",
+        "WhisperCoHosts"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -17371,7 +17374,6 @@
         "CouplePhotoShareReply",
         "CouplePhotosList",
         "CouplePhotosToAnswer",
-        "CoverIcon",
         "CoverPhotoMenu",
         "CoverSheet",
         "DatesRow",
@@ -17437,6 +17439,8 @@
         "PhotoPickLabel",
         "PhotoViewer",
         "PickMenu",
+        "PickedIcon",
+        "PickedLogoFiles.Provider",
         "PictureFrameControl",
         "Pin",
         "PinFigures",

@@ -43,3 +43,5 @@ differences are listed in the PR.
 - fix: the sample service card is the live `ServiceFace` + `CardBadgeRow`, exactly as main draws it, instead of a hand-drawn copy (controller, 20 Nov: use the live card; card 14 is held by the scope freeze). The hand card's CSS and its three medal images are removed; guarded in `for-coordinators-says-what-ships.test.ts`.
 
 - fix: the page guard names the old Hub plan without spelling it, so the whole-tree old-name guard stays green.
+
+- merge: main (#8014 reach is not a plan allowance). The Your shop ⓘ now reads "No plan limits bookings or reach. Only a Verified shop is shown in search: …", quoting `reachLadderSentence` as main does; the generated files are regenerated.

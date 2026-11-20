@@ -27,7 +27,7 @@
  *     `/open-shop?as=coordinator`, which opens step 2 on the coordination services; the three steps say that.
  *   · WHEN AN INVITE COUNTS — the live rule is the supplier's first COMPLETED booking: the ⓘ reads `INVITE_INFO`.
  *   · THE PLANS behind the Your shop ⓘ — the five live plans, each paid price read from the catalogue; the reach
- *     line is the live plan-by-plan reach (`reachLadderSentence`), because "reach isn't tied to a plan" is not live.
+ *     line quotes `reachLadderSentence` — reach has not been a plan allowance since 19 Nov (#8014), as the drawing says.
  *     The fee is the LIVE schedule; unreadable → no rate is named.
  *   · The Invites badge (Bronze → Black Diamond, each step pays once — lib/badge-rewards.ts) and Invite a supplier
  *     (`/i/<shop>`, its QR, "N joined through your link" — Shop › Partnerships) ARE live. No count, no peso.
@@ -424,7 +424,7 @@ export default async function ForCoordinatorsPage() {
                     {PLAN_LINE[t]}
                   </p>
                 ))}
-                <p>No plan limits bookings. Search reach: {reachLadderSentence()}.</p>
+                <p>No plan limits bookings or reach. Only a Verified shop is shown in search: {reachLadderSentence()}.</p>
               </>
             }
           />

@@ -3229,6 +3229,21 @@ export async function SiteBody({
               formalName={placeCardName(guest, eventNameStyle)}
               nameStyle={hubElementInlineStyle(heroCanvas.elements?.names)}
             />
+            {/* 🧭 "See the venue map →" — the walk from the door to this table (`/find-my-table`). It lived only on
+                `/[slug]/hub`'s seat tile; one bar per stage (20 Nov 2026) took that screen away, so the door moves
+                here, beside the same table, rather than leaving the map unreachable. Not on the Maker's canvas, and
+                only behind the seat rule (`seatPassActive` — `guestsMaySeeSeatsFor`), never a door to a "not yet" page. */}
+            {isEditorCanvas || !seatPassActive ? null : (
+              <p className="mt-2 text-center">
+                <Link
+                  href={`/${event.slug}/find-my-table`}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-ink/80 underline decoration-ink/30 underline-offset-4 hover:text-ink"
+                >
+                  See the venue map
+                  <span aria-hidden>→</span>
+                </Link>
+              </p>
+            )}
           </>
     ) : null;
     /** 🎒 What to bring follows the entourage on the Invitation (`splitAroundEntourage`). */

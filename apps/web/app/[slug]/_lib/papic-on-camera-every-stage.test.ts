@@ -15,6 +15,12 @@
  *   3. THE PAGE TELLS THE BAR — both bars are handed the one count, asked with the grid's own filters, and a
  *      stranger never asks it. The day's consent card still mounts only where the stage lists the Camera.
  *
+ * 🧭 NARROWED 20 Nov 2026 (controller under owner delegation — DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL
+ * SCREEN, APPROVED", its last sentence: *"Post Event is Recap · Film · Memories · Me · Suppliers, with Camera leaving
+ * after the day"*): point 1's Post Event arm is retired. Papic on still adds the Camera on Save the Date, the
+ * Invitation and The Day; after the day NO bar carries one, and Suppliers keeps its slot. The camera's address is
+ * untouched — only its tab leaves Post Event.
+ *
  * Executed against the resolver; the page's wiring read with comments stripped (`stripComments`).
  */
 import test from 'node:test';
@@ -56,8 +62,8 @@ const barOn = (stage: LifecyclePhase, over: Partial<NavInput> = {}): NavSlot[] =
   });
 const keys = (s: NavSlot[]) => s.map((x) => x.key);
 
-test('1 · Papic ON: a guest\'s bar carries a LIVE Camera on EVERY stage, to the camera button\'s address', () => {
-  for (const stage of STAGES) {
+test('1 · Papic ON: a guest\'s bar carries a LIVE Camera on every stage BEFORE and ON the day, to the camera button\'s address', () => {
+  for (const stage of STAGES.filter((st) => st !== 'editorial')) {
     const bar = barOn(stage);
     console.log(`  ${stage} (Papic on): ${bar.map((s) => s.label).join(' · ')}`);
     const cam = bar.find((s) => s.key === 'camera');
@@ -70,8 +76,11 @@ test('1 · Papic ON: a guest\'s bar carries a LIVE Camera on EVERY stage, to the
   // The shapes, in the stages' own words.
   assert.deepEqual(keys(barOn('save_the_date')), ['home', 'story', 'camera', 'me']);
   assert.deepEqual(keys(barOn('rsvp')), ['home', 'details', 'story', 'camera', 'me']);
-  // Post Event: five slots still — Suppliers, a scroll within the Recap, yields first (the couple's precedent).
-  assert.deepEqual(keys(barOn('editorial', { anyChapterPublic: true })), ['home', 'film', 'camera', 'gallery', 'me']);
+  // 🧭 Post Event (20 Nov 2026): Camera leaves after the day, Papic on or not — Suppliers keeps its slot, Me last.
+  const after = barOn('editorial', { anyChapterPublic: true });
+  console.log(`  editorial (Papic on): ${after.map((s) => s.label).join(' · ')}`);
+  assert.deepEqual(keys(after), ['home', 'film', 'suppliers', 'gallery', 'me']);
+  assert.ok(!barOn('editorial').some((s) => s.key === 'camera'), 'editorial: Papic is on and the guest\'s bar has a Camera after the day');
   // …the one-page stages (`tabbed: 'one-page'`) keep the Camera's own address; it never becomes a jump mark.
   assert.equal(barOn('rsvp', { tabbed: 'one-page' }).find((s) => s.key === 'camera')?.href, CAMERA);
 });

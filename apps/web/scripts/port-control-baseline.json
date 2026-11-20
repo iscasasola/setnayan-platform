@@ -1404,8 +1404,8 @@
       "destinations": [
         "/",
         "/[seg]",
+        "/[seg]/find-my-table",
         "/[seg]/find-seat",
-        "/[seg]/hub",
         "/[seg]/invite",
         "/[seg]/print",
         "/[seg]/recap",
@@ -1631,7 +1631,6 @@
         "HubCoverHold",
         "HubDraft",
         "HubLook",
-        "HubMenuButton",
         "HubOwnership",
         "HubPageFrame",
         "HubPageHold",
@@ -1641,7 +1640,6 @@
         "HubScrub",
         "HubSeenBeacon",
         "HubShell",
-        "HubStageFrame",
         "HubSuppliersMadeThisDay",
         "Icon",
         "InfoTip",
@@ -1740,7 +1738,6 @@
         "PairRow",
         "PaletteLookList",
         "Panel",
-        "PanelFade",
         "PapicGuestCapture",
         "ParishDrawingFigure",
         "PartHead",
@@ -2142,23 +2139,9 @@
       "files": [
         "[slug]/hub/page.tsx"
       ],
-      "destinations": [
-        "/[seg]",
-        "/[seg]/find-my-table",
-        "/[seg]/hub",
-        "/papic/me/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DirectionsMenu",
-        "GuestCodeKeepers",
-        "HubShell",
-        "Link",
-        "LiveWallBlock",
-        "ScheduleWidget",
-        "WatchLiveBlock",
-        "WhatsHappeningCard"
-      ]
+      "blocks": []
     },
     "/[slug]/invite": {
       "files": [
@@ -17588,6 +17571,7 @@
         "Bridge",
         "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
+        "CouldNotLoad",
         "Counter",
         "DatesRow",
         "DockFace",

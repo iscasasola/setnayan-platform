@@ -19,12 +19,10 @@ app/(shell)/explore/compare/page.tsx "View full profile →" → /v/[slug]	# fir
 app/(shell)/papic/page.tsx "See every amount →" → /pricing	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/pricing/page.tsx "See everything Setnayan does →" → /features	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/(shell)/pricing/plan/_plan-quiz.tsx "What each one does" → /pricing	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/[slug]/_lib/room-links.ts "Happening now" → /[slug]/hub	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "The album" → /[slug]/recap	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/_lib/room-links.ts "Walk the room" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/avatar/_components/avatar-maker.tsx "See me in the room →" → /[slug]/venue	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/[slug]/find-seat/_components/seat-frame.tsx "Confirm your Booking" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
-app/[slug]/hub/page.tsx "See the venue map →" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/creators/_components/creator-story-hero.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/creators/_components/creator-story-sections.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/_components/secure-account-banner.tsx "Secure my plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster

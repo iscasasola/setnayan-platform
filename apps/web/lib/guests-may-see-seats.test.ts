@@ -100,7 +100,8 @@ const READERS = [
   'app/[slug]/find-seat/page.tsx',
   'app/[slug]/seat/page.tsx',
   'app/[slug]/find-my-table/page.tsx',
-  'app/[slug]/hub/page.tsx',
+  // (No `hub/page.tsx`: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab
+  //  (`dayHubLanding`), so it reads no seat. The event page's seat readers — `loaders.ts`, `your-own-day.server.ts` — stay.)
   'app/[slug]/_lib/loaders.ts',
   'app/[slug]/_lib/your-own-day.server.ts',
   'lib/print-set.server.ts',
@@ -141,11 +142,11 @@ test('the hub card’s table label is read only behind the rule (loaders.ts)', (
   assert.match(code, /if \(doorway\.seatingPublished\) try \{\s*const \{ data: assignmentRow \} = await admin\s*\.from\('event_seat_assignments'\)/);
 });
 
-test('the hub seat tile names the table only behind the rule (hub/page.tsx)', () => {
+// (The hub's own seat tile went with its screen — one bar per stage, 20 Nov 2026. The hub may not read a seat at all:)
+test('the hub reads no seat at all — it only sends the visitor to the event page (hub/page.tsx)', () => {
   const code = stripComments(src('app/[slug]/hub/page.tsx'));
-  assert.match(code, /const seatLabel = seatingPublished \? tableLabel : null;/);
-  const tile = code.slice(code.indexOf("'You’ve arrived'") - 800, code.indexOf("'You’ve arrived'") + 800);
-  assert.ok(!/\btableLabel\b/.test(tile), 'the tile reads seatLabel, never the raw tableLabel');
+  assert.doesNotMatch(code, /event_seat_assignments|event_tables|tableLabel|seatLabel/, 'the hub reads a seat again — it draws nothing of its own');
+  assert.match(code, /redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(/);
 });
 
 test('a reminder email names the table only behind the rule', () => {

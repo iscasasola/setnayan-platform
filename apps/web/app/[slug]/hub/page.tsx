@@ -35,10 +35,11 @@ import { guestRead } from '@/lib/guest-read';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { solemnAdjustedPhase } from '../_lib/event-words';
-import { dayHubDoor, dayHubLanding, dayHubOpens } from '../_lib/day-hub';
+import { dayHubDoor, dayHubOpens, dayHubTail } from '../_lib/day-hub';
 import { isSignedInEventHost } from '@/lib/slug-access';
 import { getLifecyclePhase, manualLaunchPhase, type LifecyclePhase } from '@/lib/invitation-widgets';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -62,7 +63,8 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     admin
       .from('events')
       .select(
-        `event_id, slug, display_name, event_type, event_date, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, std_invitation_launch_date`,
+        // The clock's own column list (the pin, the last day, the venue's zone) — never a hand-typed near-copy.
+        `event_id, slug, display_name, event_type, ${EVENT_CLOCK_COLUMNS}`,
       )
       .ilike('slug', slug)
       .maybeSingle(),
@@ -107,13 +109,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     !dayHubOpens(pageStage) && !phaseOverride ? await isSignedInEventHost(event.event_id) : false,
   );
 
+  // The event's own address, then where on it (`dayHubTail` — the old tab's new home).
   redirect(
-    dayHubLanding({
-      slug: event.slug ?? slug,
+    `/${encodeURIComponent(event.slug ?? slug)}${dayHubTail({
       door,
       stage: pageStage,
       tab: search.tab,
       phaseOverride,
-    }),
+    })}`,
   );
 }

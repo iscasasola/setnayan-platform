@@ -110,17 +110,26 @@ function oldHubTabHome(raw: unknown): { tab: 'live' | 'gallery' | 'me'; mark: st
  *
  * `slug` must already be the event's checked slug; it is encoded here all the same.
  */
-export function dayHubLanding(input: {
-  slug: string;
+export function dayHubLanding(input: { slug: string } & DayHubTailInput): string {
+  return `/${encodeURIComponent(input.slug)}${dayHubTail(input)}`;
+}
+
+type DayHubTailInput = {
   door: DayHubDoor;
   stage: LifecyclePhase;
   /** The `?tab=` the visitor arrived with. */
   tab: unknown;
   /** A host's honoured `?phase=` preview, kept on the way through. */
   phaseOverride?: LifecyclePhase | null;
-}): string {
-  const base = `/${encodeURIComponent(input.slug)}`;
-  if (input.door === 'leave') return input.phaseOverride ? `${base}?phase=${input.phaseOverride}` : base;
+};
+
+/**
+ * Everything after the event's own address — `''`, `?phase=…&tab=…` or `#site-…`. The page writes the address itself
+ * (`redirect(\`/${slug}${dayHubTail(…)}\`)`), so the root map reads `/hub` as what it is: a page that draws nothing and
+ * forwards to the event page (`lib/ugat/scan-screens.ts`, a legacy stub).
+ */
+export function dayHubTail(input: DayHubTailInput): string {
+  if (input.door === 'leave') return input.phaseOverride ? `?phase=${input.phaseOverride}` : '';
   const home = oldHubTabHome(input.tab);
   const theDay = input.door === 'rehearsal' || input.stage === 'event';
   const params = new URLSearchParams();
@@ -129,5 +138,5 @@ export function dayHubLanding(input: {
   if (theDay) params.set('tab', home.tab);
   const query = params.toString();
   const mark = !theDay && home.mark ? `#${home.mark}` : '';
-  return `${base}${query ? `?${query}` : ''}${mark}`;
+  return `${query ? `?${query}` : ''}${mark}`;
 }

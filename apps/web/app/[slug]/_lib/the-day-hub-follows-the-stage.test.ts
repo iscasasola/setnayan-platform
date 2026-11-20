@@ -43,6 +43,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import { HUB_TAB_HOME, OLD_HUB_TABS, dayHubDoor, dayHubLanding, dayHubOpens } from './day-hub';
 import { getDayOfPhase } from '@/lib/day-of-mode';
 import { STAGE_BAR } from './stage-bar';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (rel: string) => stripComments(readFileSync(join(HERE, '..', rel), 'utf8'));
@@ -127,8 +128,10 @@ test('the hub page asks the stage exactly as the event’s page does — preview
   // …with the columns the pin and a several-day event are read from.
   const select = /\.from\('events'\)\s*\.select\(\s*(?:\/\/[^\n]*\n\s*)*`([^`]*)`/.exec(readFileSync(join(HERE, '..', 'hub/page.tsx'), 'utf8'));
   assert.ok(select, 'could not find the hub’s events select — update this guard, do not delete it');
-  for (const col of ['launch_mode', 'manual_phase', 'event_end_date', 'event_date']) {
-    assert.ok(select![1]!.split(',').map((c) => c.trim()).includes(col), `the hub no longer selects ${col}; the stage would be read from nothing`);
+  // The clock's own list counts as its columns (`EVENT_CLOCK_COLUMNS`, 20 Nov 2026 — the dup-rule guard's canonical list).
+  const cols = select![1]!.replace('${EVENT_CLOCK_COLUMNS}', EVENT_CLOCK_COLUMNS).split(',').map((c) => c.trim());
+  for (const col of ['launch_mode', 'manual_phase', 'event_end_date', 'event_date', 'std_invitation_launch_date', 'venue_latitude', 'venue_longitude']) {
+    assert.ok(cols.includes(col), `the hub no longer selects ${col}; the stage would be read from nothing`);
   }
   // The day-of phase follows a forced stage on the event's page; the hub has no day-of phase of its own now — it
   // draws nothing, it only decides where the visitor goes (20 Nov 2026).
@@ -146,7 +149,7 @@ test('the hub draws nothing at all: it decides the door from the PAGE’s stage,
     'the hub decides its door some other way — a guest may be let in early, or a host turned away',
   );
   const door = HUB.search(/const door = dayHubDoor\(/);
-  const sent = HUB.search(/redirect\(\s*dayHubLanding\(\{/);
+  const sent = HUB.search(/redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(\{/);
   assert.ok(door > 0 && sent > door, 'the hub no longer sends its visitor on once the door is decided');
   // 🧭 ONE BAR PER STAGE: no panel, no shell, no bar of its own — every one of these drew the second bar.
   for (const gone of ['<HubShell', 'HubStageFrame', 'MenuButton', 'WatchLiveBlock', 'ScheduleWidget', 'LiveWallBlock', 'STAGE_BAR', 'return (']) {
@@ -188,4 +191,15 @@ test('every old /hub tab still lands — on the event page’s matching tab, nev
   // A host's honoured preview rides through on an open door too.
   assert.equal(dayHubLanding({ slug: 'maria-and-jose', door: 'open', stage: 'editorial', tab: 'photos', phaseOverride: 'editorial' }), '/maria-and-jose?phase=editorial#site-gallery');
   assert.equal(dayHubLanding({ slug: 'maria-and-jose', door: 'open', stage: 'event', tab: 'watch', phaseOverride: 'event' }), '/maria-and-jose?phase=event&tab=live');
+});
+
+test('nothing the hub alone opened is lost: the venue map’s door now stands by the event page’s own seat block', () => {
+  // `/find-my-table` (the walk from the door to your table) was linked ONLY from the hub's seat tile — the screen map
+  // (`lib/ugat/screens.generated.json`) listed no other guest door. With the hub drawing nothing, it moved beside
+  // the event page's `YourSeatBlock`, which shows the same table; without it the map would be unreachable.
+  const BODY = read('_components/site-body.tsx');
+  const block = BODY.indexOf('<YourSeatBlock');
+  const door = BODY.indexOf('href={`/${event.slug}/find-my-table`}');
+  assert.ok(block > 0, 'could not find the event page’s seat block — update this guard, do not delete it');
+  assert.ok(door > block && door - block < 1500, 'the venue map lost its door beside the seat block');
 });

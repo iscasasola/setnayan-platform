@@ -55,13 +55,25 @@ export async function unsendChatMessage(messageId: string): Promise<UnsendChatMe
   return { ok: true, unsentAt: row?.unsent_at ?? new Date().toISOString() };
 }
 
-export type SetChatReminderResult = { ok: true; remindAt: string } | { ok: false; message: string };
+/** `remindAt` is `null` only for `intent: 'clear'` (the reminder came off). */
+export type SetChatReminderResult = { ok: true; remindAt: string | null } | { ok: false; message: string };
 
 /**
  * "Remind me" on one message: later today · tomorrow · a date. The time is worked out HERE, on the server's clock.
  * One reminder per person per message — setting again moves it (remove, then set: there is no end-user UPDATE).
  */
-export async function setChatReminder(input: { messageId: string; choice: string; date?: string | null; side: string }): Promise<SetChatReminderResult> {
+export async function setChatReminder(input: {
+  messageId: string;
+  choice: string;
+  date?: string | null;
+  side: string;
+  /** 'clear' takes your reminder off instead (one route for both — every `use server` export is a Vercel route). */
+  intent?: 'set' | 'clear';
+}): Promise<SetChatReminderResult> {
+  if (input?.intent === 'clear') {
+    const out = await clearMyChatReminder(input.messageId);
+    return out.ok ? { ok: true, remindAt: null } : out;
+  }
   const { messageId, choice, date, side } = input ?? ({} as typeof input);
   if (typeof messageId !== 'string' || !UUID.test(messageId) || !isReminderChoice(choice) || (side !== 'couple' && side !== 'vendor')) {
     return { ok: false, message: CHAT_REMINDER_NOT_SET };
@@ -101,10 +113,10 @@ export async function setChatReminder(input: { messageId: string; choice: string
   return { ok: true, remindAt };
 }
 
-export type ClearChatReminderResult = { ok: true } | { ok: false; message: string };
+type ClearChatReminderResult = { ok: true } | { ok: false; message: string };
 
-/** Take your own reminder off a message. */
-export async function clearChatReminder(messageId: string): Promise<ClearChatReminderResult> {
+/** Take your own reminder off a message — reached through `setChatReminder({ intent: 'clear' })`, never its own route. */
+async function clearMyChatReminder(messageId: string): Promise<ClearChatReminderResult> {
   if (typeof messageId !== 'string' || !UUID.test(messageId)) return { ok: false, message: CHAT_REMINDER_NOT_REMOVED };
   const supabase = await createClient();
   const {
@@ -113,7 +125,7 @@ export async function clearChatReminder(messageId: string): Promise<ClearChatRem
   if (!user) return { ok: false, message: CHAT_REMINDER_NOT_REMOVED };
   const { error } = await supabase.from('chat_message_reminders').delete().eq('message_id', messageId).eq('user_id', user.id);
   if (error) {
-    console.error('[clearChatReminder] failed:', error.message);
+    console.error('[setChatReminder · clear] failed:', error.message);
     return { ok: false, message: CHAT_REMINDER_NOT_REMOVED };
   }
   return { ok: true };

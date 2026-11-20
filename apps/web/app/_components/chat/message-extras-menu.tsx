@@ -20,7 +20,7 @@ import { Bell, BellOff, ChevronLeft, Clock, Pencil, Sunrise, Undo2 } from 'lucid
 
 import { createClient } from '@/lib/supabase/client';
 import { formatChatTimestamp } from '@/lib/chat';
-import { clearChatReminder, setChatReminder, unsendChatMessage } from '@/lib/chat-message-actions';
+import { setChatReminder, unsendChatMessage } from '@/lib/chat-message-actions';
 import { DateRow } from '@/app/_components/form-row-date';
 import {
   CHAT_REMINDERS_NOT_LOADED,
@@ -118,7 +118,7 @@ export function MessageExtrasMenu({
       setRefused(out.message);
       return false;
     }
-    onLine(`Reminder set · ${formatChatTimestamp(out.remindAt)}`);
+    onLine(out.remindAt ? `Reminder set · ${formatChatTimestamp(out.remindAt)}` : 'Reminder set');
     onClose();
     return true;
   };
@@ -126,7 +126,7 @@ export function MessageExtrasMenu({
   const removeReminder = async () => {
     setBusy(true);
     setRefused(null);
-    const out = await clearChatReminder(messageId);
+    const out = await setChatReminder({ messageId, choice: 'later', side, intent: 'clear' });
     setBusy(false);
     if (!out.ok) {
       setRefused(out.message);

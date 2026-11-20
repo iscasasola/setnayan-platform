@@ -148,7 +148,7 @@ export function ShopMakers({
     ...(formsOn ? [{ k: 'forms' as const, title: 'Forms Maker', sub: formsSub(formsSaved), icon: ClipboardList, head: 'Sent to couples as a chat card' }] : []),
     ...(offers ? [{ k: 'offers' as const, title: 'Offer Maker', sub: offersSub(offers), icon: Tag, head: 'Couples get the single best offer' }] : []),
     ...(templatesBody !== false && templatesBody !== undefined
-      ? [{ k: 'templates' as const, title: 'Saved templates', sub: 'Saved once', icon: FolderOpen, head: 'Saved once, used on any card' }]
+      ? [{ k: 'templates' as const, title: 'Templates', sub: 'Saved once', icon: FolderOpen, head: 'Saved once, used on any card' }]
       : []),
   ];
   const picked = tool ? (tools.find((t) => t.tool.key === tool)?.tool ?? null) : null;

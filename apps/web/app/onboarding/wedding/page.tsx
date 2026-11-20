@@ -23,7 +23,7 @@ import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
-import { safeNext } from '@/lib/auth';
+import { safeNext, getCurrentUser } from '@/lib/auth';
 import { getSelfPersonalization } from '@/lib/self-personalization';
 import { fetchActiveCeremonyTypes } from '@/lib/religion-readiness';
 import { fetchV2CustomerCatalog, fetchV2BundleCatalog } from '@/lib/v2-catalog';
@@ -107,9 +107,7 @@ export default async function OnboardingWeddingPage({
   // this notice instead. Signed-out visitors are unaffected (getInPlanningWedding
   // is only ever called with a real user id). Same rule, same helper the
   // create-event picker uses — see wedding-guard.ts (owner-locked 2026-07-12).
-  const {
-    data: { user: earlyUser },
-  } = await supabase.auth.getUser();
+  const earlyUser = await getCurrentUser();
   const inPlanningWedding = earlyUser
     ? await getInPlanningWedding(supabase, earlyUser.id)
     : null;

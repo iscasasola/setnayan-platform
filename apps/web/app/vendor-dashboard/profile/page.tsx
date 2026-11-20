@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { BackButton } from '@/app/_components/back-button';
 import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
@@ -31,9 +32,7 @@ export default async function YourDetailsPage({
   searchParams: Promise<{ msg?: string; error?: string; gear?: string; gsec?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   // No shop resolved (or the read failed): back to the dashboard, whose layout tells the two apart — never to

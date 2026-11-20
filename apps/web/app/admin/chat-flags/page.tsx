@@ -1,5 +1,7 @@
 import { InfoTip } from '@/app/_components/info-tip';
-import { PillLink, PillTrack } from '@/app/_components/pill-track';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
+import { TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { Check, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -140,7 +142,7 @@ export default async function AdminChatFlagsPage({
   const openCount = rows.filter((r) => r.status === 'open').length;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content.
           ⚖ The sentence survives, and this is the clearest case in the whole
           console: it says Setnayan staff do NOT read chats, that this queue
@@ -148,7 +150,10 @@ export default async function AdminChatFlagsPage({
           anybody. Somebody reviewing a flag without those three facts would
           reasonably think they were about to read a private conversation. */}
       <PageMasthead title="Chat contact flags" />
-      <div className="mb-6">
+      {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the status chips are ONE dropdown (the
+          Repost watch shape), the per-row "never reached the other person" note sits behind its ⓘ. Same read, same
+          two actions. */}
+      <div className="mb-2">
         <div>
           <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             Couple↔supplier chat messages <strong>blocked</strong> for sharing
@@ -163,14 +168,22 @@ export default async function AdminChatFlagsPage({
         </div>
       </div>
 
-      <PillTrack className="mb-4">
-        {STATUS_FILTERS.map((f) => (
-          <PillLink key={f.value} on={status === f.value} href={`/admin/chat-flags?status=${f.value}`} aria-current={status === f.value ? 'page' : undefined} className="px-3">
-            {f.label}
-            {f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}
-          </PillLink>
-        ))}
-      </PillTrack>
+      <TemplateSection
+        label="Chat flags"
+        data="chat-flags"
+        right={
+          <LinkPickMenu
+            label="Status"
+            value={status}
+            dataAttr="data-chat-flag-status"
+            options={STATUS_FILTERS.map((f) => ({
+              key: f.value,
+              label: `${f.label}${f.value === 'open' && openCount > 0 ? ` · ${formatCount(openCount)}` : ''}`,
+              href: `/admin/chat-flags?status=${f.value}`,
+            }))}
+          />
+        }
+      >
 
       {listError && (
         <FormFlash tone="error">
@@ -180,9 +193,7 @@ export default async function AdminChatFlagsPage({
       )}
 
       {listError ? null : rows.length === 0 ? (
-        <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
-          No flags in this view.
-        </p>
+        <TemplateEmpty data="chat-flags">No flags in this view.</TemplateEmpty>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {
@@ -211,7 +222,7 @@ export default async function AdminChatFlagsPage({
                   <span className="text-[12px] text-ink/45 tabular-nums">{r.public_id}</span>
                 </div>
 
-                <p className="text-sm text-ink/80">
+                <div className="text-sm text-ink/80">
                   <span className="font-medium">{who}</span> was blocked from sharing{' '}
                   {(r.hit_count ?? 0) > 1 ? `${formatCount(r.hit_count)} pieces of ` : ''}off-platform
                   contact info
@@ -229,13 +240,15 @@ export default async function AdminChatFlagsPage({
                   ) : null}
                   {' · '}
                   <span className="text-ink/50">{relativeTime(r.created_at)}</span>
-                </p>
+                </div>
 
-                <p className="rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/60">
-                  The message was blocked — it never reached the other person.
-                  Its text is not shown here (Setnayan staff don&apos;t read chats);
-                  only the rule categories above are recorded.
-                </p>
+                <div className="text-xs text-ink/60">
+                  <InfoTip label="The message was blocked — it never reached the other person." align="start" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
+                    The message was blocked — it never reached the other person.
+                    Its text is not shown here (Setnayan staff don&apos;t read chats);
+                    only the rule categories above are recorded.
+                  </InfoTip>
+                </div>
 
                 {r.status !== 'open' && r.action_taken && (
                   <p className="text-xs text-ink/55">
@@ -250,7 +263,7 @@ export default async function AdminChatFlagsPage({
                       <input type="hidden" name="flag_id" value={r.flag_id} />
                       <input type="hidden" name="action" value="reviewed" />
                       <SubmitButton
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-white/70 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-ink/[0.04]"
+                        className={actionButtonClass('ok')}
                         pendingLabel="Marking…"
                       >
                         <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Mark reviewed
@@ -260,7 +273,7 @@ export default async function AdminChatFlagsPage({
                       <input type="hidden" name="flag_id" value={r.flag_id} />
                       <input type="hidden" name="action" value="dismiss" />
                       <SubmitButton
-                        className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/60 hover:bg-ink/[0.04]"
+                        className={actionButtonClass('neutral')}
                         pendingLabel="Dismissing…"
                       >
                         <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Dismiss
@@ -273,8 +286,7 @@ export default async function AdminChatFlagsPage({
           })}
         </ul>
       )}
-
-      
+      </TemplateSection>
     </div>
   );
 }

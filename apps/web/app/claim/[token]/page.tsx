@@ -13,6 +13,7 @@
  * to the row pre-claim); the redemption itself is the atomic UPDATE in
  * ./actions. None of that moved.
  */
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -65,9 +66,7 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
 
   const isClaim = row.claim_token_purpose === 'claim';
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (user && user.id === row.owner_user_id) {
     return (

@@ -543,7 +543,7 @@ export default async function ForCoordinatorsPage() {
               </div>
               <InfoToggle id="fc-i1" label="How the fee works">
                 <p>
-                  Free to join and free to run your bookings. Your first booking through Setnayan is free too. Couples pay
+                  Free to join and free to run your bookings. {FEE_FREE_CHIP}. Couples pay
                   you straight to your GCash or bank; Setnayan never takes a cut of the deal.{' '}
                   {feeRates
                     ? `You pay a booking fee of ${feeRates.head} on the first ${feeRates.band} of a booking and ${feeRates.tail} after.`
@@ -629,7 +629,7 @@ export default async function ForCoordinatorsPage() {
             <div className="fc-rows">
               <div className="fc-row">
                 <h3>Starting?</h3>
-                <p>Open your shop in two steps. Your first booking through Setnayan is free.</p>
+                <p>Open your shop in two steps. {FEE_FREE_CHIP}.</p>
                 <div className="fc-meta">
                   <Pill kind="free">Free</Pill>
                 </div>

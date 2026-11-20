@@ -1,5 +1,6 @@
 'use client';
 
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Heart, LogIn, Mail, MailCheck, Plus, Tag, Trash2, X } from 'lucide-react';
 
@@ -947,7 +948,7 @@ export function ClaimDoor({
       />
     ) : (
       <p className="max-w-[620px] text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-claim-door-plan-fits="">
-        <b style={{ color: 'var(--m-ink)' }}>{split.free.name}</b> holds it — {split.free.caps}. Your first booking is free, so you can experience Setnayan.
+        <b style={{ color: 'var(--m-ink)' }}>{split.free.name}</b> holds it — {split.free.caps}. {FEE_FREE_CHIP}.
       </p>
     );
     if (holdsMoreThanFree(meter)) primary = null; // the plan body carries its own Continue

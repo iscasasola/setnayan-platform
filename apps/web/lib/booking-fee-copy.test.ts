@@ -24,6 +24,7 @@
  * than the rate it replaced. That lineage is load-bearing; deleting it would
  * destroy the record of WHY the taper exists.
  */
+import { BOOKING_FEE } from './booking-fee';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -88,7 +89,9 @@ for (const rel of SWEPT_FILES) {
       retired from `public-price-literals.ts` in the same commit, matching the
       2026-08-13 precedent recorded there.
     */
-    const statesLiteral = /1\s*%[^\n]*₱100,000/.test(src);
+    // 20 Nov: the tail is 3% — the literal is read from BOOKING_FEE, never typed (it said 1% until the ruling).
+    const tailPct = `${Math.round(BOOKING_FEE.tailRate * 100)}%`;
+    const statesLiteral = src.split('\n').some((l) => l.includes(tailPct) && l.includes('₱100,000'));
     // 2026-11-04: `bookingFeeBandsLine()` and `<BookingFeeLine>` (the owner's
     // reworded fee line) derive the same bands from the same schedule.
     // 2026-11-06: `bookingFeeFigures()` hands the approved /for-suppliers page the same schedule's head rate, band
@@ -101,7 +104,7 @@ for (const rel of SWEPT_FILES) {
       /supplierCommission(Promise|Short)\(/.test(src);
     assert.ok(
       statesLiteral || derivesIt,
-      `${rel} must still name the 1% tail beyond ₱100,000 — the taper is half the claim. ` +
+      `${rel} must still name the tail rate beyond ₱100,000 — the taper is half the claim. ` +
         'State it, or derive it with bookingFeeScheduleSummary(); an empty page satisfies neither.',
     );
   });

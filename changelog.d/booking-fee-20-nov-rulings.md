@@ -36,3 +36,17 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
 - **An amendment re-prices on the schedule the booking was locked on.** Each primary charge stores `fee_basis` (flat or taper, head/tail rate, band, lock), stamped at insert by `booking_fee_charges_stamp_basis`. Charges made before this change are backfilled from their `schedule_version` and the settings as they stood before the 3% update. `booking_fee_rederive_lock_fee` prices with `booking_fee_centavos_on_basis`. DB test 7: a verified ₱1M booking locked at ₱32,000, verification lapsed and the tail moved to 4%, then a ₱1,000 change → a ₱30 top-up. The old line gave ₱18,050 (shown red once).
 - "First booking is free" is removed from the help row (`SUPPLIER_HELP_ROWS`), the suppliers feature page (EN + TL) and the invite door (`DOOR_FEE_LINE`). Guard 3 is widened to cover them (shown red once).
 - The forecast now names a "free booking fee ticket", not a "badge reward" (DECISION_LOG 20 Nov "FREE BOOKING FEE TICKETS ARE AUTO-CLAIMED").
+
+### Ship re-review fixes (20 Nov, FIX-FIRST 2)
+- **The free-first-booking promise is retired at its source.** `FIRST_BOOKING_ON_US`, `FIRST_BOOKING_ON_US_CLAUSE`,
+  `FIRST_BOOKING_FREE` (`booking-fee-lock.ts`) and `FIRST_BOOKING_FREE_LABEL` (`open-shop-more-services.ts`) are
+  DELETED. Every page that read them now says the owner's free rule from `booking-fee-who-words.ts`: the home fee
+  line, For Suppliers (page, fee ⓘ, how-we-earn block, meta description), the claim promise (`commission-promise.ts`
+  → pricing, suppliers landing, home vendor benefits, `vendor/claim`), the invite message, open-shop (service cards,
+  plan sheet lead, claim door), For Coordinators, help (two articles — "is my first booking free?" now answers No),
+  llms.txt, the AI answers, the Papic quote row and the December post.
+- **Guard 3 walks all of `app/` and `lib/`** (comments stripped) for the retired constant names AND the sentence
+  (EN + TL). Three files may still say it, each for a stated reason (the frozen-place receipt sentence, the help
+  question, a dev lab); a listed file that stops saying it fails until its line is removed. Shown red on a planted
+  `PLAN_LEAD`.
+- ⚠ Open PRs that import the deleted constants (#8050 For Suppliers) must take the who-words instead when they rebase.

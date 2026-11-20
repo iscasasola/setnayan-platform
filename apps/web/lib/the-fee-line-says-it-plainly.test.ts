@@ -36,7 +36,7 @@ import {
   bookingFeeMinimumAmount,
   bookingFeePhp,
 } from './booking-fee';
-import { FIRST_BOOKING_FREE, FREE_BOOKING_LIMIT } from './booking-fee-lock';
+import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -52,9 +52,8 @@ const FOR_SUPPLIERS = [
 test('the bands line and the minimum render the CURRENT schedule in the owner’s words', () => {
   assert.equal(bookingFeeBandsLine(BOOKING_FEE), '5% up to ₱100,000, 3% above');
   assert.equal(bookingFeeMinimumAmount(BOOKING_FEE), '₱50');
-  assert.equal(FIRST_BOOKING_FREE, 'Your first booking through Setnayan is free.');
-  // ⚖ 20 NOV: no booking takes a free first place (FREE_BOOKING_LIMIT 0). The sentence above is RETIRED copy kept only
-  // for the public pages being rewritten in their own PRs; no fee surface may use it (the-20-nov-fee-rulings.test.ts).
+  // ⚖ 20 NOV: no booking takes a free first place (FREE_BOOKING_LIMIT 0), and the "first booking is free" sentence is
+  // deleted (the-20-nov-fee-rulings.test.ts scans the whole tree for it).
   assert.equal(FREE_BOOKING_LIMIT, 0);
 });
 

@@ -20,7 +20,6 @@
 import Image from 'next/image';
 import type { ReactNode } from 'react';
 import { bookingFeeFigures, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '@/lib/vendor-deep-search-addon';
 import {
   BADGE_FIRST,
@@ -872,8 +871,7 @@ export function SupplierFrontPage({
               <p>Climb a badge, and we reward you, free.</p>
               <Info label="Fees, badges and rewards">
                 <p>
-                  {FEE_FREE_RULE} Every other booking carries the fee.{' '}
-                  {FIRST_BOOKING_FREE}
+                  {FEE_FREE_RULE} Every other booking carries the fee.
                 </p>
                 <p>
                   Badges climb at {BADGE_STEPS} finished events; stars come from trusted reviews; years count from the year you

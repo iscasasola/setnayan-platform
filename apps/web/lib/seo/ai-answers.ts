@@ -20,7 +20,6 @@
  * PURE: no I/O, no clock, no env read outside the helpers it reuses.
  */
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { mobileAppAnswer } from '@/lib/where-setnayan-runs';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
@@ -67,7 +66,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
   }
   return (
     `Couples pay no commission: they pay suppliers directly and Setnayan adds nothing to the price. ` +
-    `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD} — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}. ` +
+    `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD}. ` +
     `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
     (ctx.bookingFee ? '' : ' The current rate is on the For Suppliers page.')

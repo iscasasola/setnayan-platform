@@ -40,7 +40,6 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { bookingFeePhp, BOOKING_FEE } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 import {
   BOOKING_FEE_BILL_SURFACES,
@@ -379,7 +378,7 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
   const noSchedule = bookingFeeJoinDisclosure(null);
   // ⚖ 20 NOV: sign-up names who books free (the 16 Nov import rule), never a free first booking.
   assert.ok(noSchedule.detail.includes(FEE_FREE_RULE), 'sign-up lost who books free');
-  assert.ok(!noSchedule.detail.includes(FIRST_BOOKING_ON_US_CLAUSE), 'sign-up still promises a free first booking');
+  assert.ok(!/first booking[^.]*\b(on us|free)\b/i.test(noSchedule.detail), 'sign-up still promises a free first booking');
   assert.doesNotMatch(noSchedule.detail, /%/, 'sign-up printed a rate it could not load');
   assert.match(bookingFeeJoinDisclosure(BOOKING_FEE).detail, /5% of the first/);
 });

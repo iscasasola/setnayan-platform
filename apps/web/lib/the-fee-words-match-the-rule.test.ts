@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { BOOKING_FEE_CHARGED_WHEN, FIRST_BOOKING_ON_US } from './booking-fee-lock';
+import { BOOKING_FEE_CHARGED_WHEN } from './booking-fee-lock';
 import { TOURS } from './tours';
 import { vendorDayOfFreeUntilLabel } from './vendor-dayof-free-until';
 import { stripComments } from './strip-comments';

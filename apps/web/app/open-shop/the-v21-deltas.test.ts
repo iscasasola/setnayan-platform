@@ -101,7 +101,9 @@ test('v19 ④ · two columns — what stays Free (the main) and the plan that ho
   assert.match(SHEET, /data-open-shop-plan-split=""/);
   assert.match(SHEET, /data-open-shop-plan-free=""[\s\S]{0,400}\{split\.free\.name\}[\s\S]{0,300}\{main\}/);
   assert.match(SHEET, /data-open-shop-plan-held=""[\s\S]{0,300}\{split\.held\.name\}[\s\S]{0,300}rest\.map\(/);
-  assert.match(SHEET, /Your first booking is free, so you can experience Setnayan\./);
+  // 20 Nov: the free first booking is retired — the lead is the owner's free rule, read from who-words.
+  assert.match(SHEET, /export const PLAN_LEAD = `\$\{FEE_FREE_CHIP\}\.`;/);
+  assert.doesNotMatch(SHEET, /first booking is free/i);
   assert.match(WIZARD, /split: planSplit\(/);
   assert.doesNotMatch(SHEET, /₱|PHP\s*\d|\b\d+ (categories|per category|services?)\b/, 'a price or a cap is typed into the sheet');
 });

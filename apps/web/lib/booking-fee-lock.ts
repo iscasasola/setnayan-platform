@@ -42,25 +42,16 @@ export const BOOKING_FEE_LOCK_SERVICE_PREFIX = 'vendor_booking_fee__';
  * `tests/db/the-first-booking-is-on-us.db.test.ts` fails the moment they
  * disagree. Change the SQL function first, then this.
  *
- * ⚠ The copy is written for ONE ("Your first booking from Setnayan is on us"),
- * so `the-first-booking-is-on-us.test.ts` pins this to 1 as well: a change here
- * is a change of every sentence below, not of a number.
+ * `the-first-booking-is-on-us.test.ts` pins this to 0 (20 Nov): there is no
+ * free first booking, and no sentence may promise one.
  */
 export const FREE_BOOKING_LIMIT = 0;
 
-/**
- * ⚠ RETIRED RULE (20 Nov). The four sentences below promise a free first
- * booking, which billing no longer gives. They are kept ONLY because public
- * pages still import them and those pages are being rewritten in their own PRs
- * (front page #8049, For Suppliers #8050, search/AI/help text #8041). No fee
- * surface, bill or receipt may use them — `the-20-nov-fee-rulings.test.ts`
- * fails if one does.
- *
- * THE SENTENCE (owner 2026-10-23). Every supplier surface that names the free
- * booking says this, or a lower-cased clause of it — never a count of free
- * bookings, which is how "your first 5" outlived the rule on twelve pages.
+/*
+ * 20 Nov: the three "first booking free" sentences (FIRST_BOOKING_ON_US, _CLAUSE, FIRST_BOOKING_FREE) are DELETED, not
+ * kept — billing gives no free first booking. The free rule is said in lib/booking-fee-who-words.ts.
+ * `the-20-nov-fee-rulings.test.ts` fails if a shipped file says the old sentence or names the old constants again.
  */
-export const FIRST_BOOKING_ON_US = 'Your first booking from Setnayan is on us.';
 
 /**
  * 💳 WHEN THE FEE IS CHARGED — the lock's rule in one sentence (the fee TRIGGER is the lock: a couple Setnayan brought
@@ -68,19 +59,6 @@ export const FIRST_BOOKING_ON_US = 'Your first booking from Setnayan is on us.';
  * "due after the day", which no code does).
  */
 export const BOOKING_FEE_CHARGED_WHEN = 'Setnayan charges this once a couple we brought you agrees to book.';
-
-/** The same sentence as a mid-sentence clause, without the full stop. */
-export const FIRST_BOOKING_ON_US_CLAUSE = 'your first booking from Setnayan is on us';
-
-/**
- * THE PUBLIC FEE LINE'S LEAD (owner 2026-11-04, rewording the /for-suppliers
- * line "Your first booking from Setnayan is on us — after that 5% of the first
- * ₱100,000, then 1%, minimum ₱50, only on couples we source"). Same fact as
- * `FIRST_BOOKING_ON_US` — one free booking — said where the fee line itself is
- * drawn: `<BookingFeeLine>` (`app/_components/booking-fee-line.tsx`) and the
- * front door's supplier card. Receipts, tours and help keep the sentence above.
- */
-export const FIRST_BOOKING_FREE = 'Your first booking through Setnayan is free.';
 
 /** Build the order service_key for a lock booking-fee charge. */
 export function bookingFeeLockServiceKey(chargeId: string): string {

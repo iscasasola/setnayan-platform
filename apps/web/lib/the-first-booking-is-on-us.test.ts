@@ -31,7 +31,6 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import {
-  FIRST_BOOKING_ON_US,
   FREE_BOOKING_LIMIT,
   decideLockFee,
   isFreeBooking,
@@ -127,7 +126,7 @@ test('3 · no shipped string names a count of free bookings', () => {
       }
     });
   }
-  assert.deepEqual(hits, [], `copy still counts free bookings — say "${FIRST_BOOKING_ON_US}":\n${hits.join('\n')}`);
+  assert.deepEqual(hits, [], `copy still counts free bookings — there is no free first booking (20 Nov):\n${hits.join('\n')}`);
 });
 
 test('3b · the scan can hit (each pattern convicts the line it was written for)', () => {
@@ -150,7 +149,7 @@ test('3b · the scan can hit (each pattern convicts the line it was written for)
   for (const s of [
     'Engaged over Christmas? Your first five steps',
     'Your five main colours',
-    FIRST_BOOKING_ON_US,
+    'Your first booking from Setnayan is on us.',
     'Your first 5★ review from a booked couple',
     'Your first five-star review from a booked couple',
   ]) {
@@ -158,9 +157,7 @@ test('3b · the scan can hit (each pattern convicts the line it was written for)
   }
 });
 
-test('4 · 20 Nov: the limit is 0 — "first booking on us" is retired copy, kept only for pages being rewritten', () => {
+test('4 · 20 Nov: the limit is 0 — the "first booking on us" sentence is deleted, not kept', () => {
   assert.equal(FREE_BOOKING_LIMIT, 0, 'a free first booking is back');
-  // Still exported for the public pages whose rewrites are in flight (#8049 · #8050 · #8041); no fee surface may use
-  // it — the-20-nov-fee-rulings.test.ts holds that.
-  assert.equal(FIRST_BOOKING_ON_US, 'Your first booking from Setnayan is on us.');
+  // The constants are gone; the-20-nov-fee-rulings.test.ts scans app/ and lib/ for the sentence and the names.
 });

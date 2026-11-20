@@ -6,9 +6,8 @@
  *       ₱100,000, ₱250,000, a ₱10M booking locked at ₱100,000, an unverified shop's flat rate.
  *   2 · A TICKET is auto-claimed and the copy never says "redeem"; SETNAYAN'S EVERY-NTH booking fee is named, with
  *       what it would have cost, on the forecast and on the receipt.
- *   3 · NO FEE SURFACE PROMISES A FREE FIRST BOOKING. The "first booking is on us" sentences are retired copy, kept
- *       exported only for public pages being rewritten in their own PRs; the bill, the receipt, the forecast, the Plan
- *       row and the Booking fees page may not use them.
+ *   3 · NOTHING SHIPPED PROMISES A FREE FIRST BOOKING. The "first booking is on us" constants are deleted and the
+ *       whole of app/ and lib/ is scanned for the sentence; three files may say it, each for a stated reason.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -82,31 +81,49 @@ test('2b · no shipped string tells a supplier to "redeem" a booking fee ticket'
   assert.deepEqual(hits, [], 'owner 2026-11-20: tickets are auto-claimed, never redeemed at will');
 });
 
-test('3 · no fee surface uses the retired "first booking is on us" sentences', () => {
-  const FEE_SURFACES = [
-    'lib/booking-fee-disclosure.ts',
-    'lib/booking-fee-disclosure.server.ts',
-    'lib/booking-fee-lock.server.ts',
-    'lib/vendor-plan-rows.ts',
-    'app/vendor-dashboard/booking-fees/page.tsx',
-    'app/vendor-dashboard/customers/_components/money-segment.tsx',
-  ];
-  for (const rel of FEE_SURFACES) {
-    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
-    assert.doesNotMatch(code, /FIRST_BOOKING_(ON_US|ON_US_CLAUSE|FREE)\b/, `${rel} still uses a retired free-first-booking sentence`);
-  }
-  // Ship review 20 Nov: the help row, the feature page (EN + TL) and the invite door said it in their own words.
-  const COPY_SURFACES = [
-    ...FEE_SURFACES,
-    'app/vendor-dashboard/settings/settings-rows.ts',
-    'lib/feature-pages/suppliers-b.ts',
-    'lib/personal-invite-offer.ts',
-  ];
-  const RETIRED = /first booking (from|through) Setnayan is (on us|free)|first booking is (on us|free)|libre ang una mong booking/i;
-  for (const rel of COPY_SURFACES) {
-    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
-    assert.doesNotMatch(code, RETIRED, `${rel} still tells a supplier the first booking is free`);
-  }
+/**
+ * 3 · THE RETIRED PROMISE, EVERYWHERE (ship re-review, 20 Nov: "make guard 3 walk all of app/ and lib/ … for both the
+ * retired wording and the constant names"). The three constants are DELETED; every shipped file in app/ and lib/ is
+ * scanned with comments stripped. Only the files on ALLOWED may still say it, each with the reason it is true — and a
+ * listed file that stops saying it fails until its line is removed, so the list can only shrink.
+ */
+const RETIRED_NAME = /\bFIRST_BOOKING_(ON_US|ON_US_CLAUSE|FREE|FREE_LABEL)\b/;
+const RETIRED_WORDS =
+  /first booking[^.'"`\n]{0,40}\b(on us|is free|free)\b|unang booking[^.'"`\n]{0,40}libre|libre ang una mong booking/i;
+const ALLOWED: Record<string, string> = {
+  'lib/booking-fee-disclosure.ts': 'freeBookingSentence — said only of a ledger place FROZEN free before 20 Nov, which stays free',
+  'lib/help/supplier-1.ts': 'the help question "is my first booking free?" — its answer now says No',
+  'app/dev/open-shop-lab/page.lab.tsx': 'a dev lab page, never shown to a supplier',
+};
+
+test('3 · the retired "first booking free" — no constant, no sentence — anywhere in app/ or lib/', () => {
+  const names: string[] = [];
+  const words = new Set<string>();
+  let scanned = 0;
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+        scanned += 1;
+        const rel = relative(WEB, p);
+        const code = stripComments(readFileSync(p, 'utf8'));
+        if (RETIRED_NAME.test(code)) names.push(rel);
+        if (RETIRED_WORDS.test(code)) words.add(rel);
+      }
+    }
+  };
+  walk(join(WEB, 'app'));
+  walk(join(WEB, 'lib'));
+  assert.ok(scanned > 1000, `the walk read only ${scanned} files — it is broken, not clean`);
+  assert.deepEqual(names, [], `a retired free-first-booking constant is used again:\n${names.join('\n')}`);
+  const off = [...words].filter((f) => !(f in ALLOWED)).sort();
+  assert.deepEqual(off, [], `a supplier is promised a free first booking that billing no longer gives:\n${off.join('\n')}`);
+  const stale = Object.keys(ALLOWED).filter((f) => !words.has(f));
+  assert.deepEqual(stale, [], `these no longer say it — delete their lines from ALLOWED:\n${stale.join('\n')}`);
+
+  // The sentence is false only for NEW bookings: a ledger place frozen free keeps it (and only that path says it).
   const join_ = bookingFeeJoinDisclosure(BOOKING_FEE);
   assert.doesNotMatch(join_.detail, /first booking/i);
   assert.doesNotMatch(join_.detail, /always free/i, 'the 16 Nov rule: a supplier-brought client is not always free');

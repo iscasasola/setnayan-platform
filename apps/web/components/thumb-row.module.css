@@ -107,6 +107,12 @@
 .row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) input[type='search'] {
   position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
 }
+/* ⊙ THE MAGNIFIER IS DEAD CENTRE IN ITS ROUND (owner 21 Nov 2026: "Search icon is not centered properly inside the
+   circle"). At rest the ✕ takes no width, but it kept the −6 px it pulls toward the words with — so the round centred
+   16 − 6 = 10 px of contents and the magnifier sat 3 px right (measured on Today at 390). At rest it pulls nothing.
+   🔒 lib/search-grows-is-one-shared-part.test.ts */
+.row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) > .clearIn,
+.row[data-search-force='rest'] > [data-thumb-seat='field']:has(input[type='search']) > .clearIn { margin: 0; }
 /* Search on the LEFT, the rest on the right (owner 18 Nov: "search on left show and sort on right"): the seat after a
    resting search takes the free room before it. */
 .row:not([data-search-force='open']) > [data-thumb-seat='field']:not(:focus-within):has(input[type='search']:placeholder-shown) + [data-thumb-seat],
@@ -146,3 +152,20 @@
   background: rgb(var(--color-mulberry) / 0.08); color: rgb(var(--color-mulberry)); font-size: 13px; font-weight: 600; white-space: nowrap;
 }
 @media (prefers-reduced-motion: reduce) { .field[data-drag-add] { transition: none; } }
+/* 🎞 FROM JUST THE ICON TO THE WHOLE ROW (owner 21 Nov 2026; Fable's drawing `search_icon_grows_2026-11-21_fable.html`,
+   played by `app/_components/search-grows.ts`):
+   · the pill's glass turns to the open field's cream and accent ring in Quick on Settle, not at once;
+   · the words wait Tap 100 (`data-search-words-wait`, set for that long by the part), then fade in Quick on Settle;
+   · a round the field takes the row from stays drawn at its old place, under the pill, while it gives way
+     (`data-search-gives-way`, its place written by the part) — its `display: none` waits for the fade. */
+.row[data-thumb-row] > [data-thumb-seat='field'] {
+  transition: background-color var(--sn-m-quick) var(--sn-m-settle), box-shadow var(--sn-m-quick) var(--sn-m-settle), translate var(--sn-m-quick) var(--sn-m-settle);
+}
+.input::placeholder { transition: color var(--sn-m-quick) var(--sn-m-settle); }
+[data-search-words-wait] .input::placeholder { color: transparent; transition: none; }
+.row:has(> [data-search-gives-way]) { position: relative; }
+.row:has(> [data-search-gives-way]) > [data-thumb-seat='field'] { position: relative; z-index: 1; }
+.row > [data-search-gives-way] { display: inline-flex !important; position: absolute; margin: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .row[data-thumb-row] > [data-thumb-seat='field'], .input::placeholder { transition: none; }
+}

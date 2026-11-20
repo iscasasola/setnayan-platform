@@ -403,6 +403,28 @@ const config: Config = {
           asked: 'rgb(var(--sn-cat-asked) / <alpha-value>)',
           collect: 'rgb(var(--sn-cat-collect) / <alpha-value>)',
         },
+        // 🎨 The nine chat-card kind colours (Unichat part A, 20 Nov 2026): `text-kind-quote`, `bg-kind-quote-bg`,
+        // `border-kind-quote`. Values + dark pairs live in globals.css (`--sn-kind-*`); `card-bits.tsx` is the one reader.
+        kind: {
+          quote: 'rgb(var(--sn-kind-quote) / <alpha-value>)',
+          'quote-bg': 'rgb(var(--sn-kind-quote-bg) / <alpha-value>)',
+          counter: 'rgb(var(--sn-kind-counter) / <alpha-value>)',
+          'counter-bg': 'rgb(var(--sn-kind-counter-bg) / <alpha-value>)',
+          offer: 'rgb(var(--sn-kind-offer) / <alpha-value>)',
+          'offer-bg': 'rgb(var(--sn-kind-offer-bg) / <alpha-value>)',
+          meeting: 'rgb(var(--sn-kind-meeting) / <alpha-value>)',
+          'meeting-bg': 'rgb(var(--sn-kind-meeting-bg) / <alpha-value>)',
+          decision: 'rgb(var(--sn-kind-decision) / <alpha-value>)',
+          'decision-bg': 'rgb(var(--sn-kind-decision-bg) / <alpha-value>)',
+          payment: 'rgb(var(--sn-kind-payment) / <alpha-value>)',
+          'payment-bg': 'rgb(var(--sn-kind-payment-bg) / <alpha-value>)',
+          form: 'rgb(var(--sn-kind-form) / <alpha-value>)',
+          'form-bg': 'rgb(var(--sn-kind-form-bg) / <alpha-value>)',
+          file: 'rgb(var(--sn-kind-file) / <alpha-value>)',
+          'file-bg': 'rgb(var(--sn-kind-file-bg) / <alpha-value>)',
+          plain: 'rgb(var(--sn-kind-plain) / <alpha-value>)',
+          'plain-bg': 'rgb(var(--sn-kind-plain-bg) / <alpha-value>)',
+        },
         'surface-soft': 'var(--surface-soft)',
         // ─────────────────────────────────────────────────────────────────
         // SEMANTIC STATUS FAMILIES (Wave-3 token swap · 2026-06-19)

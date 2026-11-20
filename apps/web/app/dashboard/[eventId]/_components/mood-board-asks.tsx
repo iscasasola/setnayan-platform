@@ -57,6 +57,7 @@ export function MoodBoardAsks({
   changes,
   actions,
   now,
+  inline,
 }: {
   eventId: string;
   suggestions: HomeSuggestion[];
@@ -65,6 +66,12 @@ export function MoodBoardAsks({
   actions?: Partial<MoodBoardAsksActions>;
   /** The lab's fixed clock (the screenshot's "23 h left"); the app passes nothing. */
   now?: string;
+  /**
+   * 🃏 IN THE OPEN CARD OF ITS ROW (Event Today, Focus shape — owner 20 Nov 2026): draw ONE list in place — the photos
+   * to Keep · Decline, or the changes to Undo — with no Today line and no Sheet. The writes, the toast and the words are
+   * the Sheet's own.
+   */
+  inline?: 'approve' | 'changes';
 }) {
   const act: MoodBoardAsksActions = { ...REAL, ...actions };
   const [gone, setGone] = useState<Set<string>>(new Set());
@@ -145,6 +152,79 @@ export function MoodBoardAsks({
         )
       : null;
 
+  const approveList = waiting.length === 0 ? (
+      <p className="mt-4 text-sm text-ink/75">Nothing waiting.</p>
+    ) : (
+      <ul className="mt-3 divide-y divide-ink/10">
+        {waiting.map((s) => (
+          <li key={s.suggestionId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-suggestion="">
+            {s.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- a supplier's screened photo URL, shown as the Studio shows it
+              <img src={s.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+            ) : (
+              <span aria-hidden className="h-14 w-14 shrink-0 rounded-xl bg-ink/5" />
+            )}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">From {s.shopLabel}</span>
+              <span className="block text-[13px] text-ink/75">{s.partLabel}</span>
+            </span>
+            {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 3): the shared pills — red declines, green keeps (44 px). */}
+            <ActionButton
+              tone="danger"
+              iconOnly
+              icon={X}
+              label="Decline"
+              name={`Decline the photo from ${s.shopLabel}`}
+              onClick={() => decline(s)}
+              disabled={busy}
+            />
+            <ActionButton
+              tone="ok"
+              icon={Check}
+              label="Keep"
+              onClick={() => keep(s)}
+              disabled={busy}
+              data-testid="mood-board-keep"
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  const changesList = undoable.length === 0 ? (
+      <p className="mt-4 text-sm text-ink/75">Nothing left to undo.</p>
+    ) : (
+      <ul className="mt-3 divide-y divide-ink/10">
+        {undoable.map((c) => (
+          <li key={c.changeId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-change="">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{changeTitle(c)}</span>
+              <span className="block text-[13px] text-ink/75">
+                {changeWhat(c)} · {undoLeft(c.undoUntil, clock)}
+              </span>
+            </span>
+            <ActionButton
+              tone="neutral"
+              icon={RotateCcw}
+              label="Undo"
+              onClick={() => undo(c)}
+              disabled={busy}
+              data-testid="mood-board-undo"
+            />
+          </li>
+        ))}
+      </ul>
+    );
+
+  if (inline) {
+    return (
+      <div data-mood-board-asks-inline={inline}>
+        <p className="text-[14px] text-ink/75">{inline === 'approve' ? 'Suppliers’ photos for your Mood Board.' : 'You have 24 hours to undo each one.'}</p>
+        {inline === 'approve' ? approveList : changesList}
+        {toast}
+      </div>
+    );
+  }
+
   return (
     <>
       {waiting.length > 0 ? (
@@ -181,44 +261,7 @@ export function MoodBoardAsks({
             </InfoTip>
             <p className="text-sm text-ink/75">Suppliers’ photos for your Mood Board.</p>
           </div>
-          {waiting.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/75">Nothing waiting.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-ink/10">
-              {waiting.map((s) => (
-                <li key={s.suggestionId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-suggestion="">
-                  {s.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- a supplier's screened photo URL, shown as the Studio shows it
-                    <img src={s.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
-                  ) : (
-                    <span aria-hidden className="h-14 w-14 shrink-0 rounded-xl bg-ink/5" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">From {s.shopLabel}</span>
-                    <span className="block text-[13px] text-ink/75">{s.partLabel}</span>
-                  </span>
-                  {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rule 3): the shared pills — red declines, green keeps (44 px). */}
-                  <ActionButton
-                    tone="danger"
-                    iconOnly
-                    icon={X}
-                    label="Decline"
-                    name={`Decline the photo from ${s.shopLabel}`}
-                    onClick={() => decline(s)}
-                    disabled={busy}
-                  />
-                  <ActionButton
-                    tone="ok"
-                    icon={Check}
-                    label="Keep"
-                    onClick={() => keep(s)}
-                    disabled={busy}
-                    data-testid="mood-board-keep"
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          {approveList}
         </div>
       </Sheet>
 
@@ -238,30 +281,7 @@ export function MoodBoardAsks({
             </InfoTip>
             <p className="text-sm text-ink/75">You have 24 hours to undo each one.</p>
           </div>
-          {undoable.length === 0 ? (
-            <p className="mt-4 text-sm text-ink/75">Nothing left to undo.</p>
-          ) : (
-            <ul className="mt-3 divide-y divide-ink/10">
-              {undoable.map((c) => (
-                <li key={c.changeId} className="flex min-h-14 items-center gap-3 py-3" data-mood-board-change="">
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold leading-snug text-ink [overflow-wrap:anywhere]">{changeTitle(c)}</span>
-                    <span className="block text-[13px] text-ink/75">
-                      {changeWhat(c)} · {undoLeft(c.undoUntil, clock)}
-                    </span>
-                  </span>
-                  <ActionButton
-                    tone="neutral"
-                    icon={RotateCcw}
-                    label="Undo"
-                    onClick={() => undo(c)}
-                    disabled={busy}
-                    data-testid="mood-board-undo"
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+          {changesList}
         </div>
       </Sheet>
       {toast}

@@ -44,6 +44,11 @@ const QUOTE: QuoteForCard = {
     { key: 'l1', label: 'Second shooter', detail: null, amountCentavos: C(9_000) },
     { key: 'l2', label: 'Guest portrait prints', detail: `150 × 40`, amountCentavos: C(6_000) },
   ],
+  items: [
+    { label: 'Full-day coverage', detail: null, amount_centavos: C(45_000) },
+    { label: 'Second shooter', detail: null, amount_centavos: C(9_000) },
+    { label: 'Guest portrait prints', detail: `150 × 40`, amount_centavos: C(6_000) },
+  ],
   validUntil: null,
   paymentMethodIds: [],
   gift: null,
@@ -87,6 +92,28 @@ const COUNTER = (over: Partial<ChangeAskRow>): ChangeAskRow => ({
   proposalId: QUOTE.proposalId, amountCentavos: C(55_000), scopeLabel: null, goodUntil: '2026-11-18', raisedBy: 'host', ...over,
 });
 
+// 🤝 Part C · the counter's face — the drawing's own scene (UNICHAT-LIVE-2026-11-19 `fresh()`): the hosts ask ₱40,000
+// against v2's ₱51,000, good until 24 Nov; the supplier's private lowest is ₱42,500. Made-up lab figures, not SKUs.
+const FACE_TODAY = '2026-11-20';
+const FACE_QUOTE: NegotiationQuote = {
+  ...NEGO,
+  totalCentavos: C(51_000),
+  lines: [
+    { key: 'f0', label: 'Lighting package', detail: null, amountCentavos: C(28_000) },
+    { key: 'f1', label: 'Sound system', detail: null, amountCentavos: C(12_500) },
+    { key: 'f2', label: 'LED wall 3×2 m', detail: null, amountCentavos: C(7_500) },
+    { key: 'f3', label: 'Extra moving heads', detail: null, amountCentavos: C(3_000) },
+  ],
+  planRows: [
+    { seq: 0, label: 'On booking', amount_centavos: C(15_000) },
+    { seq: 1, label: 'Final balance', amount_centavos: C(36_000), is_auto_balance: true },
+  ],
+  floorCentavos: null,
+  paidSeqs: [],
+};
+const FACE_ASK = (over: Partial<ChangeAskRow>): ChangeAskRow =>
+  COUNTER({ note: 'Can you do this? Our budget is tight.', askedAt: `${FACE_TODAY}T02:00:00Z`, amountCentavos: C(40_000), goodUntil: '2026-11-24', ...over });
+
 const FORMS = [
   { formId: 'f1', title: 'Wedding day details', questions: ['Where do you get ready?', 'Who are the VIPs we must not miss?', 'Any family to keep apart in photos?'] },
   { formId: 'f2', title: 'Shot list', questions: ['Must-have shots?', 'Anything you do not want?'] },
@@ -110,7 +137,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             seed={
               empty
                 ? { quote: null }
-                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, step, edits: step >= 3 ? [{ op: 'add', key: 'n1', label: 'Drone coverage', amountCentavos: C(5_000) }, { op: 'edit', key: 'l1', amountCentavos: C(9_800) }] : [] }
+                : { quote: sp.requote === 'deal_locked' ? { ...QUOTE, requote: 'deal_locked' } : QUOTE, target: step >= 3 ? C(62_000) : undefined }
             }
           />
         );
@@ -200,6 +227,24 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="vendor" seed={{ ask: COUNTER({}), quote: NEGO, today: TODAY }} />
             <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="couple" seed={{ ask: COUNTER({ status: 'accepted' }), quote: NEGO, today: TODAY }} />
             <NegotiationCard threadId={THREAD} kind="counter" askedAt={`${TODAY}T02:00:00Z`} viewer="vendor" seed={{ ask: COUNTER({ goodUntil: '2026-11-10', askedAt: '2026-11-04T02:00:00Z' }), quote: NEGO, today: TODAY }} />
+          </div>
+        );
+      case 'counterface':
+        // ?v=host — the hosts' own counter, waiting · ?s=accepted|declined — settled · default: the supplier answers it.
+        return (
+          <div className="grid gap-3" data-lab-counter-face="">
+            <NegotiationCard
+              threadId={THREAD}
+              kind="counter"
+              askedAt={`${FACE_TODAY}T02:00:00Z`}
+              viewer={sp.v === 'host' ? 'couple' : 'vendor'}
+              seed={{
+                ask: FACE_ASK(sp.s === 'accepted' || sp.s === 'declined' ? { status: sp.s } : {}),
+                quote: FACE_QUOTE,
+                today: FACE_TODAY,
+                lowestCentavos: sp.v === 'host' ? undefined : C(42_500),
+              }}
+            />
           </div>
         );
       case 'plancard':

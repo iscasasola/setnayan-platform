@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
@@ -114,9 +115,7 @@ type Props = {
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Anon-draft: a not-yet-secured (anonymous) account has no password and no

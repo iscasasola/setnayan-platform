@@ -1,3 +1,4 @@
+import { eventRowOnce } from '@/lib/event-row-once';
 import Link from 'next/link';
 import { QuietStart } from '@/app/_components/states/quiet-start';
 import { notFound, redirect } from 'next/navigation';
@@ -22,11 +23,12 @@ export default async function EventActivityPage({
   const supabase = await createClient();
 
   const [eventRes, activity, locale] = await Promise.all([
-    supabase
+    eventRowOnce(supabase, eventId, 'event_id, display_name', () =>
+      supabase
       .from('events')
       .select('event_id, display_name')
       .eq('event_id', eventId)
-      .maybeSingle(),
+      .maybeSingle()),
     fetchEventActivity(supabase, eventId, 500),
     getLocale(),
   ]);

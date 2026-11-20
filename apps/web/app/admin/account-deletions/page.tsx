@@ -1,4 +1,4 @@
-import { UserX, Trash2, Ban, Inbox } from 'lucide-react';
+import { UserX, Trash2, Ban } from 'lucide-react';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -6,7 +6,9 @@ import { relativeTime } from '@/lib/activity';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { EmptyState } from '@/app/_components/states/empty-state';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateFail, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import {
@@ -130,36 +132,37 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
+      {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): template sections and hairline rows, the
+          internal-account warning behind its ⓘ. Same reads, same three decisions per request, same posted names. */}
       <PageMasthead
         title="Account deletions"
       />
 
       {accountsUnresolved ? (
-        <p
-          role="alert"
-          className="mb-6 rounded-md border border-warn-200/60 bg-warn-50/60 px-4 py-3 text-sm text-warn-900"
-        >
+        <TemplateFail retryHref="/admin/account-deletions" data="accounts">
           The accounts behind these requests could not be looked up, so every
           email and account type below reads as a dash. The requests are real —
           only the names are missing. Do not approve a deletion from this screen
           until it reloads cleanly.
-        </p>
+        </TemplateFail>
       ) : null}
 
       {actioned ? (
         <p
           role="status"
-          className="mb-6 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-800"
+          className="mb-2 text-sm text-success-800"
         >
           {ACTIONED_WORDS[actioned] ?? 'Done.'} The queue is updated below.
         </p>
       ) : null}
 
-      <section className="mb-10">
-        <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-          Pending {pending ? `(${pending.length})` : '(not measured)'}
-        </h2>
+      <TemplateSection
+        label="Pending"
+        first
+        data="pending"
+        right={pending ? `(${pending.length})` : '(not measured)'}
+      >
         {/* The pending queue is a card list, not a table — ConsoleTable does not
             apply — but it owes the same distinction, so it resolves against the
             same two primitives by hand: a refused read reports, and only a read
@@ -176,27 +179,24 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
             todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
           />
         ) : pending.length === 0 ? (
-          <EmptyState
-            Icon={Inbox}
-            readPermitted
-            title="No pending deletion requests"
-            blurb="New requests show up here within seconds of someone filing one from Profile → Privacy & data."
-          />
+          <TemplateEmpty data="pending">
+            No pending deletion requests. New requests show up here within seconds of someone filing one from Profile → Privacy &amp; data.
+          </TemplateEmpty>
         ) : (
           <>
             {pending.length >= PENDING_LIMIT ? (
-              <p className="mb-3 text-xs text-ink/70">
+              <p className={`pb-1 ${TEMPLATE_SUBLINE}`}>
                 Showing the first {PENDING_LIMIT.toLocaleString()}. There are more — this is not
                 the whole queue.
               </p>
             ) : null}
-          <ul className="space-y-4">
+          <TemplateRows label="Pending deletion requests">
             {pending.map((req) => {
               const u = usersById.get(req.user_id);
               return (
                 <li
                   key={req.request_id}
-                  className="space-y-3 border-danger-200/60 bg-danger-50/40 py-4 border-t border-ink/10"
+                  className="space-y-3 py-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 space-y-1">
@@ -217,11 +217,13 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                   </div>
 
                   {u?.is_internal ? (
-                    <p className="rounded-md border border-[color:var(--sn-info)]/30 bg-[var(--sn-info-soft)] px-3 py-2 text-xs text-[color:var(--sn-info)]">
-                      This is an internal account (§ 10a) — the delete actions block internal
-                      accounts. Reject this request or clear the internal flag first via the Users
-                      surface.
-                    </p>
+                    <div className="text-xs text-[color:var(--sn-info)]">
+                      <InfoTip label="This is an internal account (§ 10a)" align="start" labelClassName="text-[13px] font-semibold">
+                        This is an internal account (§ 10a) — the delete actions block internal
+                        accounts. Reject this request or clear the internal flag first via the Users
+                        surface.
+                      </InfoTip>
+                    </div>
                   ) : null}
 
                   <div className="flex flex-wrap items-center gap-2">
@@ -234,7 +236,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
                       <SubmitButton
-                        className="inline-flex items-center gap-1 rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-60"
+                        className={actionButtonClass('danger', { main: true })}
                         pendingLabel="Deleting…"
                       >
                         <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
@@ -251,7 +253,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     >
                       <input type="hidden" name="request_id" value={req.request_id} />
                       <SubmitButton
-                        className="inline-flex items-center gap-1 rounded-md bg-ink/10 px-3 py-1.5 text-xs font-medium text-ink/80 hover:bg-danger-200 hover:text-danger-900 disabled:opacity-60"
+                        className={actionButtonClass('danger')}
                         pendingLabel="…"
                       >
                         <Ban className="h-3.5 w-3.5" strokeWidth={2} />
@@ -277,7 +279,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                       />
                     </label>
                     <SubmitButton
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:opacity-60"
+                      className={actionButtonClass('neutral')}
                       pendingLabel="…"
                     >
                       Reject (keep account)
@@ -286,15 +288,12 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                 </li>
               );
             })}
-          </ul>
+          </TemplateRows>
           </>
         )}
-      </section>
+      </TemplateSection>
 
-      <section>
-        <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-          Recently reviewed
-        </h2>
+      <TemplateSection label="Recently reviewed" data="recent">
         <ConsoleTable
           rows={recent}
           readPermitted
@@ -327,7 +326,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
               header: 'Status',
               cell: (req) => (
                 <span
-                  className={`whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
+                  className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[12px] font-semibold ${
                     req.status === 'approved'
                       ? 'bg-danger-100 text-danger-800'
                       : req.status === 'rejected'
@@ -373,7 +372,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                     <input type="hidden" name="intent" value="rerun" />
                     <input type="hidden" name="request_id" value={req.request_id} />
                     <SubmitButton
-                      className="inline-flex min-h-[44px] items-center rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-60"
+                      className={actionButtonClass('danger')}
                       pendingLabel="Erasing…"
                     >
                       Run erasure again
@@ -384,7 +383,7 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
             },
           ]}
         />
-      </section>
+      </TemplateSection>
     </div>
   );
 }

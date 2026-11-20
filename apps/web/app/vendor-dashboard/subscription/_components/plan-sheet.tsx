@@ -140,6 +140,7 @@ export function PlanSheet({
   papersProgress,
   gift = null,
   offer = null,
+  pricesUnread = false,
 }: {
   /** `sheetPlans(...)` order — the shop's own first. */
   plans: readonly SheetPlan[];
@@ -157,6 +158,8 @@ export function PlanSheet({
   gift?: { untilShort: string; untilFull: string; endsSoon?: boolean; startsShort?: string } | null;
   /** W1-B21: the plan picked on /for-suppliers (`supplierPlanTier`) — its row opens too, offering its own button. */
   offer?: string | null;
+  /** L-2: the catalogue read was REFUSED — a missing price is "Couldn't load", never "Not sold on this cycle". */
+  pricesUnread?: boolean;
 }) {
   const [cycle, setCycle] = useState<Cycle>(startCycle);
   const anyPaid = plans.some((p) => p.paid);
@@ -312,6 +315,8 @@ export function PlanSheet({
                       <div className="pt-2">
                         {!p.paid ? (
                           <PayRow title="Nothing to pay" line={p.pickLine} pesos={null} />
+                        ) : price === undefined && pricesUnread ? (
+                          <PayRow title="Couldn’t load the price" line="Refresh in a moment to try again" pesos={null} />
                         ) : price === undefined ? (
                           <PayRow title="Not sold on this cycle right now" line="Pick the other one above" pesos={null} />
                         ) : tooShort ? (

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Users, Banknote, BadgeCheck, Clock } from 'lucide-react';
@@ -79,9 +80,7 @@ export default async function HostManpowerPage({
   const sp = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   // Verify host access via event_members. RLS on event_members will gate

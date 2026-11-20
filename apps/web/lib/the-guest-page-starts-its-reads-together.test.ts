@@ -229,7 +229,9 @@ test('the landing starts its body\'s reads together — only reads, only past th
     aheadCalls(ENTER).sort(),
     [
       'resolveProfile', 'resolveEventOwnerSlug', 'resolveEventQrLook', 'eventWordsFor', 'plusOneSeatsFor',
-      'passCardEligibilityFor', 'plusOnePassCardIds', 'createClient', 'readSeatHolder', 'readTicketSeats',
+      // `getCurrentUser` (2026-11-18): the viewer's account is the render's one cached read (`lib/auth.ts`), no longer a
+      // client of its own asking `auth.getUser()` (`lib/pages-ask-the-account-once.test.ts`).
+      'passCardEligibilityFor', 'plusOnePassCardIds', 'getCurrentUser', 'readSeatHolder', 'readTicketSeats',
     ].sort(),
   );
   // Never the tile code (a write) and never the ceremony time (one screen's read).
@@ -245,7 +247,7 @@ test('the landing starts its body\'s reads together — only reads, only past th
   }
   assert.match(BODY, /await Promise\.all\(\[passCardAhead, plusOneTicketIdsAhead\]\)/);
   // …and each read is asked once (the started call is the only call).
-  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'auth.getUser(']) {
+  for (const call of ['resolveEventOwnerSlug(', 'resolveEventQrLook(', 'plusOneSeatsFor(', 'passCardEligibilityFor(', 'plusOnePassCardIds(', 'readSeatHolder(', 'readTicketSeats(', 'getCurrentUser(']) {
     assert.equal(count(BODY, call), 1, `${call} is asked twice in the landing's body`);
   }
   // The canvas skips what it always skipped: the sample has no seats, holder, QR look or table.

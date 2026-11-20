@@ -22,7 +22,7 @@ import { InfoTip } from '@/app/_components/info-tip';
  */
 
 import { displayAccountEmail } from '@/lib/erasure/display-email';
-import { AlertTriangle, ShieldAlert, ShieldCheck, Users as UsersIcon } from 'lucide-react';
+import { Users as UsersIcon } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -42,6 +42,8 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../_components/read-failed';
 import { AbuseTabs } from './_components/abuse-tabs';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateRows } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { formatCount } from '@/lib/format-number';
 export const metadata = { title: "Setnayan AI enforcement · Admin" };
 
@@ -168,7 +170,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
   const confirmedCount = recentConfirmedRes.count ?? 0;
 
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
       {/* The page starts at its content.
           ⚖ Both blocks survive. The first is the enforcement LADDER (strike 1
           warning, 2 trial banned, 3+ full banned) — the rule a single admin
@@ -177,7 +179,7 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
           appeal. Neither is orientation; a fast decision without either is the
           exact harm this desk&apos;s no-buttons rule exists to prevent. */}
       <PageMasthead title="Today’s Focus enforcement" />
-      <div className="mb-6 space-y-2">
+      <div className="mb-3 space-y-1">
         <div>
           <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
             People opening extra accounts to get another free trial. Tiered enforcement
@@ -236,26 +238,25 @@ export default async function ConciergeAbusePage({ searchParams }: Props) {
       ) : null}
 
       {/* Metrics chips */}
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* 📐 One numbers frame (never a card per number) — the TemplateNums shape, kept local so each value keeps its
+          own refused-read dash. */}
+      <dl className="sn-frame my-2.5 grid grid-cols-3 gap-1 px-2 py-3 text-center">
         <Metric
           label="Pending review"
           value={pendingUnread ? '—' : pendingFlags.length.toString()}
-          tone="bg-danger-50 text-danger-900 border-danger-200/60"
-          icon={<AlertTriangle aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          tone="danger"
         />
         <Metric
           label="Cleared (last 7d)"
           value={clearedUnread ? '—' : clearedCount.toString()}
-          tone="bg-success-50 text-success-900 border-success-200/60"
-          icon={<ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          tone="success"
         />
         <Metric
           label="Confirmed (last 7d)"
           value={confirmedUnread ? '—' : confirmedCount.toString()}
-          tone="bg-warn-50 text-warn-900 border-warn-200/60"
-          icon={<ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
+          tone="warn"
         />
-      </div>
+      </dl>
 
       {tab === 'queue' ? (
         pendingUnread ? (
@@ -276,20 +277,17 @@ function Metric({
   label,
   value,
   tone,
-  icon,
 }: {
   label: string;
   value: string;
-  tone: string;
-  icon: React.ReactNode;
+  tone: 'danger' | 'success' | 'warn';
 }) {
   return (
-    <div className={`flex items-center justify-between rounded-xl border bg-white/70 px-4 py-3 ${tone}`}>
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">{label}</span>
-      </div>
-      <span className="text-xl font-semibold">{value}</span>
+    <div className="grid min-h-11 content-center gap-0.5">
+      <dt className="order-2 text-[12px] text-[color:var(--m-slate-2)]">{label}</dt>
+      <dd className="order-1 text-[24px] font-bold leading-none tabular-nums" style={{ color: `rgb(var(--color-${tone}))` }}>
+        {value}
+      </dd>
     </div>
   );
 }
@@ -303,28 +301,26 @@ function QueueTab({
 }) {
   if (flags.length === 0) {
     return (
-      <p className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
-        No pending flags. The queue is clear.
-      </p>
+      <TemplateEmpty data="queue">No pending flags. The queue is clear.</TemplateEmpty>
     );
   }
   return (
-    <ul className="space-y-4">
+    <TemplateRows label="Pending review">
       {flags.map((f) => {
         const flaggedUser = usersById.get(f.flagged_user_id);
         const matchedUsers = (f.matched_user_ids ?? [])
           .map((id) => usersById.get(id))
           .filter((u): u is UserBrief => !!u);
         return (
-          <li key={f.flag_id} className="sn-tile p-4">
+          <li key={f.flag_id} className="py-4">
             <header className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                <p className={TEMPLATE_SUBLINE}>
                   Flagged · {new Date(f.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
                 </p>
-                <h2 className="text-lg font-semibold tracking-tight text-ink">
+                <p className="text-[15px] font-semibold leading-tight text-ink">
                   {flaggedUser?.display_name ?? flaggedUser?.email ?? f.flagged_user_id.slice(0, 8)}
-                </h2>
+                </p>
                 {flaggedUser?.email ? (
                   <p className="text-xs text-ink/55">{displayAccountEmail(flaggedUser.email)}</p>
                 ) : null}
@@ -344,12 +340,12 @@ function QueueTab({
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <form
                 action={adminClearConciergeFlag}
-                className="space-y-2 rounded-md border border-success-200/60 bg-success-50/50 p-3"
+                className="space-y-2"
               >
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`clear-${f.flag_id}`}
-                  className="block text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
+                  className={`block ${TEMPLATE_SUBLINE}`}
                 >
                   Clear as false positive (notes ≥ 10 chars)
                 </label>
@@ -363,7 +359,7 @@ function QueueTab({
                   placeholder="Different couple, same Tagaytay venue / signal mismatch / etc."
                 />
                 <SubmitButton
-                  className="rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
+                  className={actionButtonClass('ok')}
                   pendingLabel="Clearing…"
                 >
                   Clear (false positive)
@@ -372,12 +368,12 @@ function QueueTab({
 
               <form
                 action={adminConfirmConciergeAbuse}
-                className="space-y-2 rounded-md border border-danger-200/60 bg-danger-50/50 p-3"
+                className="space-y-2"
               >
                 <input type="hidden" name="flag_id" value={f.flag_id} />
                 <label
                   htmlFor={`confirm-${f.flag_id}`}
-                  className="block text-danger-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
+                  className={`block ${TEMPLATE_SUBLINE}`}
                 >
                   Confirm abuse (notes ≥ 20 chars)
                 </label>
@@ -391,7 +387,7 @@ function QueueTab({
                   placeholder="Same phone number across N accounts with identical wedding profiles — multi-account trial cycling."
                 />
                 <SubmitButton
-                  className="rounded-md bg-danger-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-danger-800 disabled:opacity-70"
+                  className={actionButtonClass('danger')}
                   pendingLabel="Confirming…"
                 >
                   Confirm abuse (+1 strike)
@@ -401,27 +397,25 @@ function QueueTab({
           </li>
         );
       })}
-    </ul>
+    </TemplateRows>
   );
 }
 
 function EnforcementTab({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <p className="border-dashed py-8 text-center text-sm text-ink/55 border-t border-ink/10">
-        No accounts under enforcement.
-      </p>
+      <TemplateEmpty data="enforcement">No accounts under enforcement.</TemplateEmpty>
     );
   }
   return (
-    <ul className="space-y-4">
+    <TemplateRows label="Enforcement decisions">
       {users.map((u) => (
-        <li key={u.user_id} className="sn-tile p-4">
+        <li key={u.user_id} className="py-4">
           <header className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <h2 className="text-lg font-semibold tracking-tight text-ink">
+              <p className="text-[15px] font-semibold leading-tight text-ink">
                 {u.display_name ?? u.email ?? u.user_id.slice(0, 8)}
-              </h2>
+              </p>
               {u.email ? <p className="text-xs text-ink/55">{displayAccountEmail(u.email)}</p> : null}
               {u.phone ? <p className="text-xs text-ink/55">Phone: {u.phone}</p> : null}
               <StrikePill count={u.concierge_abuse_strike_count} level={u.concierge_enforcement_level} />
@@ -433,18 +427,18 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
             </div>
           </header>
           {u.concierge_enforcement_reason ? (
-            <p className="mt-3 rounded-md border border-ink/10 bg-ink/[0.03] px-3 py-2 text-xs text-ink/65">
+            <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
               Reason: {u.concierge_enforcement_reason}
             </p>
           ) : null}
           <form
             action={adminLiftConciergeEnforcement}
-            className="mt-4 space-y-2 rounded-md border border-success-200/60 bg-success-50/50 p-3"
+            className="mt-4 space-y-2"
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <label
               htmlFor={`lift-${u.user_id}`}
-              className="block text-success-900 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
+              className={`block ${TEMPLATE_SUBLINE}`}
             >
               Lift enforcement — appeal reversal (notes ≥ 10 chars). Decrements strike by 1.
             </label>
@@ -458,7 +452,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
               placeholder="User submitted appeal ticket #1234 with valid clarification. Lifting one strike."
             />
             <SubmitButton
-              className="rounded-md bg-success-700 px-3 py-1.5 text-xs font-medium text-cream hover:bg-success-800 disabled:opacity-70"
+              className={actionButtonClass('ok')}
               pendingLabel="Lifting…"
             >
               Lift enforcement (−1 strike)
@@ -466,7 +460,7 @@ function EnforcementTab({ users }: { users: UserBrief[] }) {
           </form>
         </li>
       ))}
-    </ul>
+    </TemplateRows>
   );
 }
 
@@ -480,7 +474,7 @@ function SimilarityBar({ score }: { score: number }) {
         : 'bg-success-500';
   return (
     <div className="flex flex-col items-end gap-1">
-      <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+      <span className={TEMPLATE_SUBLINE}>
         Similarity
       </span>
       <div className="flex items-center gap-2">
@@ -500,14 +494,14 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
   const entries = Object.entries(signals ?? {});
   if (entries.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-white/70 p-3 text-xs text-ink/55">
+      <div className={TEMPLATE_SUBLINE}>
         No signal details recorded.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+    <div>
+      <p className={`mb-2 ${TEMPLATE_SUBLINE}`}>
         Signals fired
       </p>
       <ul className="space-y-1 text-xs">
@@ -533,14 +527,14 @@ function SignalsTable({ signals }: { signals: Record<string, unknown> }) {
 function MatchedAccounts({ users }: { users: UserBrief[] }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-md border border-ink/10 bg-white/70 p-3 text-xs text-ink/55">
+      <div className={TEMPLATE_SUBLINE}>
         No matched accounts resolved.
       </div>
     );
   }
   return (
-    <div className="rounded-md border border-ink/10 bg-white/70 p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+    <div>
+      <p className={`mb-2 flex items-center gap-1.5 ${TEMPLATE_SUBLINE}`}>
         <UsersIcon aria-hidden className="h-3 w-3" strokeWidth={1.75} />
         Matched accounts ({users.length})
       </p>
@@ -568,7 +562,7 @@ function StrikePill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${ENFORCEMENT_LEVEL_TONE[level]}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-semibold ${ENFORCEMENT_LEVEL_TONE[level]}`}
     >
       {formatCount(count)} {count === 1 ? 'strike' : 'strikes'} · {ENFORCEMENT_LEVEL_LABEL[level]}
     </span>

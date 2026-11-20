@@ -26,7 +26,7 @@
  * 🔒 app/dashboard/[eventId]/schedule/chapters-live-on-the-schedule.test.ts
  */
 import { VenueWindowBar } from '@/app/_components/venue-window-bar';
-import { venueWindowOf, venueWindowWords } from '@/lib/venue-window';
+import { venueWindowOf, venueWindowWords, windowSetByWords } from '@/lib/venue-window';
 import type { ChapterCount } from '@/lib/invitation-chapters';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -907,7 +907,14 @@ function ChapterPage({
       {venueWin && (venueWin.hasIngress || venueWin.hasEgress) ? (
         <div data-venue-window={c.block_id} className="mt-2 grid gap-1">
           <VenueWindowBar window={venueWin} ticks={moments.filter((m) => m.start_at).map((m) => ({ start: m.start_at, end: m.end_at ?? null }))} />
-          <p className="text-[13px] font-semibold text-ink">{venueWindowWords(venueWin)}</p>
+          {/* The drawing's two lines: the hours in bold, then who set them ("Set by Fernwood Gardens · confirmed by the hosts"). */}
+          <p className="text-[13px] text-ink/70">
+            <b className="font-semibold text-ink">{venueWindowWords(venueWin)}</b>
+            <br />
+            <span data-window-set-by="">
+              {windowSetByWords(c.hours_vendor_id ? suppliers.find((x) => x.id === c.hours_vendor_id)?.name : null)}
+            </span>
+          </p>
         </div>
       ) : null}
 

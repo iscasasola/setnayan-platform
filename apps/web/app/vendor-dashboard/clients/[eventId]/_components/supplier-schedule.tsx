@@ -25,7 +25,7 @@ import {
 import { suggestScheduleChange, type SupplierScheduleAnswer } from '../actions';
 import { askerWords, type ScheduleAsk } from '@/lib/schedule-ask';
 import { markDay } from '@/lib/supplier-schedule-marks';
-import { OUTSIDE_WORDS, VERDICT_WORDS, backstageVerdict, venueWindowOf, venueWindowWords } from '@/lib/venue-window';
+import { OUTSIDE_WORDS, VERDICT_WORDS, backstageVerdict, venueWindowOf, venueWindowWords, windowSetByWords } from '@/lib/venue-window';
 import { VenueWindowBar } from '@/app/_components/venue-window-bar';
 import { SUPPLIER_WHERE_WORDS, whereAskVerdict, type SupplierOwnWhere, type WhereOption } from '@/lib/supplier-where';
 import type { CrewClash } from '@/lib/crew-elsewhere';
@@ -542,7 +542,12 @@ function ChapterWindow({ c }: { c: SupplierChapter }) {
   return (
     <div data-venue-window={c.block_id} className="mt-2 grid gap-1">
       <VenueWindowBar window={w} ticks={mine} />
-      <p className="text-[13px] font-semibold text-ink">{venueWindowWords(w)}</p>
+      {/* The drawing's two lines: the hours in bold, then who set them ("Set by Fernwood Gardens · confirmed by the hosts"). */}
+      <p className="text-[13px] text-ink/70">
+        <b className="font-semibold text-ink">{venueWindowWords(w)}</b>
+        <br />
+        <span data-window-set-by="">{windowSetByWords(c.hoursHeldBy)}</span>
+      </p>
     </div>
   );
 }

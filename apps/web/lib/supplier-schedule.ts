@@ -223,6 +223,9 @@ export type SupplierChapter = {
   egress_minutes_after: number | null;
   /** Their hours, sent and waiting for the host. */
   hoursWaiting: SupplierRequestRow | null;
+  /** 🏛 Who set the window (Unichat F, drawing "Set by Fernwood Gardens · confirmed by the hosts"): the holding venue's
+   *  name; `undefined` = a venue holds it but its name was not read; `null` = no venue holds it (the hosts set it). */
+  hoursHeldBy: string | null | undefined;
 };
 
 export type SupplierDay = {
@@ -255,6 +258,8 @@ export function buildSupplierDay(input: {
   contacts?: readonly SupplierContactRow[];
   /** 🏛 Their bookings that are VENUES — a venue sets the hours of the chapters it is booked to. */
   venueBookingIds?: readonly string[];
+  /** 🏛 Every venue booking on the event, by name (to say who set a chapter's hours). null = the read was refused. */
+  venueNames?: readonly { vendor_id: string; vendor_name: string | null }[] | null;
 }): SupplierDay {
   const venueIds = new Set(input.venueBookingIds ?? []);
   const contactsByBlock = new Map<string, TaskContact[]>();
@@ -324,6 +329,9 @@ export function buildSupplierDay(input: {
       ingress_minutes_before: c.ingress_minutes_before ?? null,
       egress_minutes_after: c.egress_minutes_after ?? null,
       hoursWaiting: open.find((r) => r.kind === 'hours' && r.block_id === c.block_id) ?? null,
+      hoursHeldBy: c.hours_vendor_id
+        ? (input.venueNames?.find((v) => v.vendor_id === c.hours_vendor_id)?.vendor_name?.trim() || undefined)
+        : null,
     };
   });
 

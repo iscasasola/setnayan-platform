@@ -31,6 +31,7 @@ import {
   venueWindowOf,
   venueWindowWords,
   windowAxis,
+  windowSetByWords,
   windowBands,
   type WindowChapter,
 } from '@/lib/venue-window';
@@ -57,8 +58,12 @@ test('1 · the window is the chapter’s own hours, in the drawing’s words', (
 test('1 · the bar: three bands in order, inside 0–100, ends in words', () => {
   const w = venueWindowOf(FERNWOOD)!;
   const axis = windowAxis(w);
-  assert.equal(axisEndWords(axis.lo), '11 AM');
+  // The drawing's fixed ruler: 10 AM … midnight, whatever the hours (ruled 20 Nov).
+  assert.equal(axisEndWords(axis.lo), '10 AM');
   assert.equal(axisEndWords(axis.hi), 'midnight');
+  assert.deepEqual(windowAxis(w, [T('08:00'), T('23:30')]), axis, 'a moment moved the fixed axis');
+  const early = venueWindowOf({ ...FERNWOOD, start_at: T('09:00'), end_at: T('11:00'), ingress_minutes_before: 150, egress_minutes_after: null })!;
+  assert.equal(axisEndWords(windowAxis(early).lo), '6 AM', 'a window before 10 AM was cut off');
   const bands = windowBands(w, axis);
   assert.deepEqual(bands.map((b) => b.kind), ['ingress', 'event', 'egress']);
   for (const b of bands) assert.ok(b.left >= 0 && b.width > 0 && b.left + b.width <= 100.0001, `band ${b.kind} off the bar`);
@@ -164,4 +169,10 @@ test('5 · the wiring: rows decide on the server; the screen draws the bar and s
   assert.match(view, /<VenueWindowBar window=\{venueWin\} live=\{startIso\}/, 'the moment sheet does not show the typed time on the bar');
   assert.match(view, /atOnce \? 'Set my moment' : 'Ask the host'/, 'the sheet does not say which of the two will happen');
   assert.match(view, /data-outside-venue-hours/, 'a moment outside the hours is not marked');
+});
+
+test('5 · who set the window: the venue by name, confirmed by the hosts — never a blank name', () => {
+  assert.equal(windowSetByWords('Fernwood Gardens'), 'Set by Fernwood Gardens · confirmed by the hosts');
+  assert.equal(windowSetByWords(undefined), 'Set by the venue · confirmed by the hosts', 'an unread name was drawn blank');
+  assert.equal(windowSetByWords(null), 'Set by the hosts');
 });

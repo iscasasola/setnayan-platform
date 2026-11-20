@@ -898,6 +898,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
+        // 🏛 Unichat F: the VENUE bookings on this event, by name — the one that holds a chapter's hours is said under
+        // its bar ("Set by Fernwood Gardens · confirmed by the hosts"). Only that name is passed on (`hoursHeldBy`).
+        admin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .eq('event_id', eventId)
+          .in('category', [...VENUE_CATEGORIES])
+          .is('archived_at', null),
       ]),
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
       // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
@@ -1583,7 +1591,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
-  const [factsEvent, factsBookings] = myScheduleFacts;
+  const [factsEvent, factsBookings, factsVenues] = myScheduleFacts;
   const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
   if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
   const supplierDay = liveBlocks
@@ -1614,6 +1622,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
           .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
           .map((b) => b.vendor_id),
+        // A refused read gives no names — the line then says "Set by the venue", never a wrong or blank name.
+        venueNames: factsVenues.error ? null : ((factsVenues.data ?? []) as { vendor_id: string; vendor_name: string | null }[]),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),

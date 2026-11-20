@@ -9,7 +9,7 @@ import { axisEndWords, axisPercent, insideWindow, venueWindowWords, windowAxis, 
  * (`venueWindowWords`), so the bar is one `role="img"` with those words as its name.
  *
  * No hooks, no state: drawn by server and client parents alike. Colours are the app's own tokens
- * (`--sn-cat-schedule`, the warn ramp, `--sn-hair`), so it follows light, dark and a recoloured app.
+ * (`--sn-kind-meeting` — the drawing's teal —, the warn ramp, `--sn-hair`), so it follows light, dark and a recoloured app.
  */
 export function VenueWindowBar({
   window: w,
@@ -29,8 +29,10 @@ export function VenueWindowBar({
 }) {
   const axis = windowAxis(w, [...ticks.map((t) => t.start), live]);
   const bands = windowBands(w, axis);
+  // The drawing's `.vbar` in its meeting teal (`.k-meeting` → the app's `--sn-kind-meeting` ramp, light + dark):
+  // hatch = the tint, striped with 40% teal over the tint; the event = solid teal.
   const hatch =
-    'repeating-linear-gradient(135deg, rgb(var(--sn-cat-schedule) / 0.14) 0 4px, rgb(var(--sn-cat-schedule) / 0.42) 4px 6px)';
+    'repeating-linear-gradient(135deg, rgb(var(--sn-kind-meeting-bg)) 0 4px, color-mix(in srgb, rgb(var(--sn-kind-meeting)) 40%, rgb(var(--sn-kind-meeting-bg))) 4px 6px)';
   return (
     <div data-venue-window-bar="">
       <div
@@ -47,7 +49,7 @@ export function VenueWindowBar({
             style={{
               left: `${b.left}%`,
               width: `${b.width}%`,
-              background: b.kind === 'event' ? 'rgb(var(--sn-cat-schedule))' : hatch,
+              background: b.kind === 'event' ? 'rgb(var(--sn-kind-meeting))' : hatch,
             }}
           />
         ))}

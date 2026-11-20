@@ -141,16 +141,41 @@ export function backstageAppliesAtOnce(input: {
   return backstageVerdict(chapter, start, end) === 'at_once';
 }
 
+/**
+ * 🏛 Who set the window, in the drawing's words: "Set by Fernwood Gardens · confirmed by the hosts". A venue holds the
+ * hours only after the hosts approved them (`apply_venue_hours`), so "confirmed by the hosts" is a fact, not a hope.
+ * `heldBy`: the venue's name · `undefined` = a venue holds it, name unread (never a blank, never a guess) · `null` = no
+ * venue holds the chapter, so the hosts set the hours themselves.
+ */
+export function windowSetByWords(heldBy: string | null | undefined): string {
+  if (heldBy === null) return 'Set by the hosts';
+  return `Set by ${heldBy ?? 'the venue'} · confirmed by the hosts`;
+}
+
 /* ── The bar ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 const HOUR = 3_600_000;
 
-/** The bar's time axis: the window padded to whole hours, an hour of air each side (drawing: 10 AM … midnight). */
-export function windowAxis(w: VenueWindow, also: readonly (string | null | undefined)[] = []): { lo: number; hi: number } {
-  const times = [w.open, w.close, ...also].map((s) => (s ? Date.parse(s) : NaN)).filter((n) => Number.isFinite(n));
-  const lo = Math.floor((Math.min(...times) - HOUR) / HOUR) * HOUR;
-  const hi = Math.ceil((Math.max(...times) + HOUR) / HOUR) * HOUR;
-  return { lo, hi: hi > lo ? hi : lo + HOUR };
+/** The drawing's fixed axis on the event day: 10 AM … midnight (`VEN.lo = 600`, `VEN.hi = 1440`, in minutes). */
+export const AXIS_FROM_MIN = 10 * 60;
+export const AXIS_TO_MIN = 24 * 60;
+
+/**
+ * The bar's time axis: FIXED at 10 AM … midnight of the event's day (drawing `venueBar`, ruled 20 Nov: "a fixed
+ * 10 AM–midnight axis"), so every chapter's bar reads on the same ruler. It widens to whole hours ONLY when the venue's
+ * own window falls outside those hours (a 7 AM breakfast, an after-midnight pack-up) — a band is never cut off. A
+ * moment (`_also`) outside the axis is clamped to its edge, as the drawing clamps it; its words still say the time.
+ */
+export function windowAxis(w: VenueWindow, _also: readonly (string | null | undefined)[] = []): { lo: number; hi: number } {
+  const start = Date.parse(w.start);
+  const day = Math.floor(start / (24 * HOUR)) * 24 * HOUR;
+  let lo = day + AXIS_FROM_MIN * 60_000;
+  let hi = day + AXIS_TO_MIN * 60_000;
+  const open = Date.parse(w.open);
+  const close = Date.parse(w.close);
+  if (Number.isFinite(open) && open < lo) lo = Math.floor(open / HOUR) * HOUR;
+  if (Number.isFinite(close) && close > hi) hi = Math.ceil(close / HOUR) * HOUR;
+  return { lo, hi };
 }
 
 /** 0–100 along the axis, clamped. */

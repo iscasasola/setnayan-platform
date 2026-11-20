@@ -65,4 +65,5 @@ SPEC IMPACT: None beyond the ruling already in the PR's STATUS (Decisions).
 - Refunds out of order: refunding the first of two renewals now takes its 28 days back (the add-on ends at or after that renewal's mark) and moves every later renewal's mark of the same add-on down by 28 days, so each can still be undone exactly. An add-on that already ends before the mark is left alone. The add-on's reminder lock is cleared when its end moves back.
 - The migration sets `SET LOCAL lock_timeout = '5s'` after `BEGIN` (it ALTERs `vendor_billing_catalog` and UPDATEs `orders`).
 - DB test `renewing-an-ultra-addon-extends-that-one.db.test.ts`: 9/9 (3 new; the two defect tests were shown red first).
+- Plan page: a held add-on row reads "Ultra Add-on 2 · Until Thu 17 Dec 2026" (the number moved to the title) — at 375 px the end date was cut off. §4 shots: `build-sessions/shots-plan-numbers/renew-*`.
 SPEC IMPACT: None.

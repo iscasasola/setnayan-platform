@@ -1001,6 +1001,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             viewerRole="couple"
             {...(hosts !== undefined ? { hosts } : {})}
             whisperCoHostIds={whisperCoHostIds}
+            privateFilterWho={whisperCoHosts ? { who: whisperCoHosts.filterWho, unread: whisperCoHosts.unread } : null}
             counterpartyLabel={vendorLabel}
             shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}

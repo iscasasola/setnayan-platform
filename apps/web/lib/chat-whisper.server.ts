@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
-import { WHISPER_TEAM_REACH, hostsWhisperReach, teamSideOf, teamWhisperRecipients, whisperRecipients, type WhisperSide } from './chat-whisper';
+import { WHISPER_TEAM_REACH, hostsWhisperReach, isOnHostsSide, teamSideOf, whisperFilterWho, teamWhisperRecipients, whisperRecipients, type WhisperSide } from './chat-whisper';
 
 /**
  * 🤫 WHO A WHISPER WOULD REACH, for the thread pages (DECISION_LOG 2026-11-19 "MESSAGE ⇄ WHISPER APPROVED"; Unichat
@@ -28,6 +28,8 @@ export type WhisperAudience = {
   unread: boolean;
   /** The line the composer shows while whispering. `null` when there is nobody (or the read failed — `unread` says so). */
   reach: string | null;
+  /** Who sees this side's whispers, for the Private filter line ("the hosts and Liza only" · "your team only"). */
+  filterWho: string | null;
   /** The OTHER hosts only (no coordinator) — for labelling a whisper written before `whisper_side` existed. */
   legacyCoHostIds: string[];
 } | null;
@@ -37,20 +39,27 @@ export const WHISPER_AUDIENCE_UNREAD = (side: WhisperSide): NonNullable<WhisperA
   ids: [],
   unread: true,
   reach: null,
+  filterWho: null,
   legacyCoHostIds: [],
 });
 
-/** First names for the reach line; a failed read says "your co-host(s)" rather than inventing or dropping anyone. */
-async function readFirstNames(admin: SupabaseClient, ids: readonly string[]): Promise<string[]> {
-  if (ids.length === 0) return [];
+/** First names by id, in ONE read — `null` when the read failed (the callers then say "your co-host(s)" / "your coordinator(s)"). */
+async function readFirstNamesById(admin: SupabaseClient, ids: readonly string[]): Promise<Map<string, string> | null> {
+  if (ids.length === 0) return new Map();
   const res = await admin.from('users').select('user_id, first_name, display_name').in('user_id', [...ids]);
   if (res.error) {
     logQueryError('readWhisperAudience.names', res.error, { count: ids.length }, 'graceful_degrade');
-    return [ids.length === 1 ? 'your co-host' : 'your co-hosts'];
+    return null;
   }
   const rows = (res.data ?? []) as Array<{ user_id: string; first_name: string | null; display_name: string | null }>;
-  const byId = new Map(rows.map((r) => [r.user_id, (r.first_name ?? '').trim() || (r.display_name ?? '').trim().split(/\s+/)[0] || '']));
-  return ids.map((id) => byId.get(id) || 'a co-host');
+  return new Map(rows.map((r) => [r.user_id, (r.first_name ?? '').trim() || (r.display_name ?? '').trim().split(/\s+/)[0] || '']));
+}
+
+/** Names for the reach and filter lines; a failed read says "your co-host(s)" rather than inventing or dropping anyone. */
+function namesFor(byId: Map<string, string> | null, ids: readonly string[], one: string, many: string, each: string): string[] {
+  if (ids.length === 0) return [];
+  if (!byId) return [ids.length === 1 ? one : many];
+  return ids.map((id) => byId.get(id) || each);
 }
 
 /** The hosts' side: the hosts seated in this chat + the event's coordinators; a coordinator may whisper too (20 Nov). */
@@ -66,11 +75,11 @@ export async function readHostsWhisper(
   if (!hostPeople.measured || !shop.measured) return WHISPER_AUDIENCE_UNREAD('hosts');
   const isHost = hostPeople.members.includes(args.viewerId);
   const isCoordinator = hostPeople.coordinators.includes(args.viewerId);
-  if (!isHost && !isCoordinator) return null;
   // 🧭 A host of the event is on the hosts' side here, whatever their shop role (controller ruling on #8060, 20 Nov):
-  // the shop's team side never holds a host. A COORDINATOR on the shop's team is the supplier here — no hosts' whisper.
+  // the shop's team side never holds a host. A COORDINATOR on the shop's team is the supplier here — never OFFERED a
+  // hosts' whisper they cannot send (#8071 ruling): the same `isOnHostsSide` the send core refuses by.
   const shopUserIds = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
-  if (!isHost && shopUserIds.includes(args.viewerId)) return null;
+  if (!isOnHostsSide({ viewerId: args.viewerId, hostMemberIds: hostPeople.members, coordinatorIds: hostPeople.coordinators, teamSideIds: shopUserIds })) return null;
   const ids = whisperRecipients({
     hostMemberIds: hostPeople.members,
     coordinatorIds: hostPeople.coordinators,
@@ -78,13 +87,21 @@ export async function readHostsWhisper(
     senderUserId: args.viewerId,
   });
   const hostIds = ids.filter((id) => hostPeople.members.includes(id));
-  const coordinatorCount = ids.filter((id) => !hostPeople.members.includes(id)).length;
-  const names = await readFirstNames(admin, hostIds);
+  const coordinatorIds = ids.filter((id) => !hostPeople.members.includes(id));
+  const byId = await readFirstNamesById(admin, ids);
+  const names = namesFor(byId, hostIds, 'your co-host', 'your co-hosts', 'a co-host');
+  const viewerIsCoordinator = isCoordinator && !isHost;
   return {
     side: 'hosts',
     ids,
     unread: false,
-    reach: hostsWhisperReach({ names, coordinators: coordinatorCount, viewerIsCoordinator: isCoordinator && !isHost }),
+    reach: hostsWhisperReach({ names, coordinators: coordinatorIds.length, viewerIsCoordinator }),
+    // 🔎 The Private filter's "the hosts and Liza only" — the same list, the same read.
+    filterWho: whisperFilterWho({
+      side: 'hosts',
+      coordinatorNames: namesFor(byId, coordinatorIds, 'your coordinator', 'your coordinators', 'your coordinator'),
+      viewerIsCoordinator,
+    }),
     legacyCoHostIds: whisperRecipients({ hostMemberIds: hostPeople.members, shopUserIds, senderUserId: args.viewerId }),
   };
 }
@@ -105,7 +122,7 @@ export async function readTeamWhisper(
   const team = teamSideOf({ teamUserIds: shop.userIds, eventHostIds });
   if (!team.includes(args.viewerId)) return null;
   const ids = teamWhisperRecipients({ teamUserIds: team, senderUserId: args.viewerId });
-  return { side: 'team', ids, unread: false, reach: ids.length > 0 ? WHISPER_TEAM_REACH : null, legacyCoHostIds: [] };
+  return { side: 'team', ids, unread: false, reach: ids.length > 0 ? WHISPER_TEAM_REACH : null, filterWho: whisperFilterWho({ side: 'team' }), legacyCoHostIds: [] };
 }
 
 /** The 19 Nov shape (ids + unread), kept for its callers and guard: the hosts' side, coordinators now included. */

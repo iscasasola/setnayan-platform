@@ -16,6 +16,7 @@ import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
 import type { ChatHost } from '@/lib/chat-hosts';
+import { whisperFilterWho } from '@/lib/chat-whisper';
 
 /** Sample hosts (nobody real) — the first is the fixture couple sender. `?hosts=fail` in a lab hands `null` instead:
  * the shipped strip's "Couldn't load" line. */
@@ -233,6 +234,14 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           currentUserId={viewer}
           viewerRole={side}
           hosts={hosts}
+          // 🔎 The Private filter line's who — sample people, as the pages pass it from their whisper read.
+          privateFilterWho={
+            whisper === 'fail'
+              ? { who: null, unread: true }
+              : side === 'couple'
+                ? { who: whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza'] }), unread: false }
+                : { who: whisperFilterWho({ side: 'team' }), unread: false }
+          }
           // 🏪 The supplier lab's shop name (the real page passes `profile.business_name`).
           {...(side === 'vendor' ? { shopLabel: SHOP.name } : {})}
           // 📞 The picked page's head calls, as the two thread pages pass them. A LAB stand-in: a booked sample with a

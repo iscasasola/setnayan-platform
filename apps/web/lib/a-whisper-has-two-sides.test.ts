@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -30,8 +31,15 @@ import {
   hostsWhisperReach,
   WHISPER_COORDINATOR_REACH,
   leftWhisperAskBody,
+  PRIVATE_FILTER_UNREAD,
+  WHISPER_SIDE_REFUSED_HOSTS,
+  WHISPER_SIDE_REFUSED_TEAM,
+  isOnHostsSide,
+  privateFilterLine,
   teamSideOf,
   teamWhisperRecipients,
+  whisperFilterWho,
+  whisperSideRefusal,
   whisperBlockedLine,
   whisperRecipients,
   whisperSideOf,
@@ -170,11 +178,11 @@ test('5 · the page reads: a coordinator gets the hosts’ whisper; a team membe
   assert.equal(hostsFailed?.unread, true, 'a failed shop read on the hosts’ side is not said as a failure');
 
   const team = await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
-  assert.deepEqual(team, { side: 'team', ids: ['mara'], unread: false, reach: 'Only your team', legacyCoHostIds: [] }, 'a deactivated member is on the team list');
+  assert.deepEqual(team, { side: 'team', ids: ['mara'], unread: false, reach: 'Only your team', filterWho: 'your team only', legacyCoHostIds: [] }, 'a deactivated member is on the team list');
   assert.equal(await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'gone' }), null, 'a deactivated member can team-whisper');
   assert.equal(await readTeamWhisper(stubClient(SHOP_OK), { eventId: 'e', vendorProfileId: 'v', viewerId: 'ana' }), null, 'a host gets the team’s whisper');
   const teamFailed = await readTeamWhisper(stubClient({ ...SHOP_OK, 'rpc:chat_shop_team_user_ids': REFUSED }), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
-  assert.deepEqual(teamFailed, { side: 'team', ids: [], unread: true, reach: null, legacyCoHostIds: [] }, 'a failed team read is said as "no one"');
+  assert.deepEqual(teamFailed, { side: 'team', ids: [], unread: true, reach: null, filterWho: null, legacyCoHostIds: [] }, 'a failed team read is said as "no one"');
   const hostsReadFailed = await readTeamWhisper(stubClient({ ...SHOP_OK, event_members: REFUSED }), { eventId: 'e', vendorProfileId: 'v', viewerId: 'sol' });
   assert.equal(hostsReadFailed?.unread, true, 'a failed read of the event’s hosts is not said as a failure on the team’s side');
 });
@@ -226,4 +234,66 @@ test('6 · the composer: the sky Private chip, who it reaches, and the dispute �
     assert.match(m, /data-chat-private-chip=""[^>]*><svg[^>]*lucide-lock[^>]*>[\s\S]*?<\/svg>Private<\/span>/, `${name}: no lock on Private`);
   }
   assert.match(team, /Whisper to your team only/);
+});
+
+test('8 · #8071: a coordinator on the shop’s team is never OFFERED a hosts’ whisper — the page and Send share one test', async () => {
+  const { readHostsWhisper } = await import('./chat-whisper.server');
+  // The one test: a seated host → yes whatever the shop role; a coordinator → only when not on the team side.
+  assert.equal(isOnHostsSide({ viewerId: 'ana', hostMemberIds: ['ana'], coordinatorIds: [], teamSideIds: [] }), true);
+  assert.equal(isOnHostsSide({ viewerId: 'liza', hostMemberIds: ['ana'], coordinatorIds: ['liza'], teamSideIds: [] }), true);
+  assert.equal(isOnHostsSide({ viewerId: 'liza', hostMemberIds: ['ana'], coordinatorIds: ['liza'], teamSideIds: ['sol', 'liza'] }), false, 'a coordinator on the team may whisper with the hosts');
+  assert.equal(isOnHostsSide({ viewerId: 'gus', hostMemberIds: ['ana'], coordinatorIds: ['liza'], teamSideIds: [] }), false);
+  // The page offers nothing to that coordinator (no audience → no hosts' whisper in the box).
+  const LIZA_ON_TEAM = {
+    vendor_profiles: { data: { user_id: 'sol' }, error: null },
+    'rpc:chat_shop_team_user_ids': { data: ['sol', 'liza'], error: null },
+    chat_thread_members: { data: [{ user_id: 'ana', left_at: null }], error: null },
+    event_members: { data: [{ user_id: 'ana', member_type: 'couple' }, { user_id: 'liza', member_type: 'coordinator' }], error: null },
+  };
+  assert.equal(await readHostsWhisper(stubClient(LIZA_ON_TEAM), { threadId: 't', eventId: 'e', vendorProfileId: 'v', viewerId: 'liza' }), null, 'the coordinator on the team is offered a hosts’ whisper');
+  // And Send asks the same test — never a second one.
+  const send = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), 'chat-send.ts'), 'utf8');
+  assert.match(send, /const onHostsSide =\s*\(senderIsCoordinator \|\| Boolean\(coupleCheck\.data\)\) &&\s*isOnHostsSide\(\{/);
+  const server = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), 'chat-whisper.server.ts'), 'utf8');
+  assert.match(server, /if \(!isOnHostsSide\(\{ viewerId: args\.viewerId,/);
+});
+
+test('9 · #8071: a refused side reads in plain words — never the raw WHISPER_* code', () => {
+  assert.equal(WHISPER_SIDE_REFUSED_HOSTS, 'Only the hosts can see this whisper');
+  assert.equal(whisperSideRefusal('chat_messages: WHISPER_NOT_YOUR_SIDE — you can only whisper on your own side of the chat', 'hosts'), WHISPER_SIDE_REFUSED_HOSTS);
+  assert.equal(whisperSideRefusal('chat_messages: WHISPER_CROSSES_SIDES — a whisper reaches only people on its own side', 'hosts'), WHISPER_SIDE_REFUSED_HOSTS);
+  assert.equal(whisperSideRefusal('chat_messages: WHISPER_NOT_YOUR_SIDE', 'team'), WHISPER_SIDE_REFUSED_TEAM);
+  assert.equal(whisperSideRefusal('some other refusal', 'hosts'), null);
+  assert.equal(whisperSideRefusal('chat_messages: WHISPER_NOT_YOUR_SIDE', null), null, 'a plain line got whisper words');
+  for (const words of [WHISPER_SIDE_REFUSED_HOSTS, WHISPER_SIDE_REFUSED_TEAM]) assert.doesNotMatch(words, /WHISPER_|_/);
+  // The send core maps the database's refusal BEFORE its generic "couldn't send".
+  const send = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), 'chat-send.ts'), 'utf8');
+  const at = send.indexOf('const sideRefused = whisperSideRefusal(error.message, whisperSide);');
+  assert.ok(at > 0, 'the insert refusal is not mapped');
+  assert.ok(at < send.indexOf("code: 'insert_failed'"), 'the generic refusal comes first');
+  assert.match(send.slice(at, at + 400), /return \{ ok: false, code: 'whisper_refused', message: sideRefused \};/);
+});
+
+test('10 · #8071: the Private filter line is the drawing’s — "Private · N whispers · who it reaches"', () => {
+  // Hosts and names — from the same read as the reach line.
+  assert.equal(whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza'] }), 'the hosts and Liza only');
+  assert.equal(whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza', 'Ramon'] }), 'the hosts and Liza and Ramon only');
+  assert.equal(whisperFilterWho({ side: 'hosts', coordinatorNames: [] }), 'the hosts only');
+  assert.equal(whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza'], viewerIsCoordinator: true }), 'you and the hosts only');
+  assert.equal(privateFilterLine(3, { who: whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza'] }), unread: false }), 'Private · 3 whispers · the hosts and Liza only');
+  assert.equal(privateFilterLine(1, { who: 'the hosts and Liza only', unread: false }), 'Private · 1 whisper · the hosts and Liza only');
+  // The team.
+  assert.equal(privateFilterLine(2, { who: whisperFilterWho({ side: 'team' }), unread: false }), 'Private · 2 whispers · your team only');
+  // The count carries its commas (formatCount).
+  assert.equal(privateFilterLine(1234, { who: 'your team only', unread: false }), 'Private · 1,234 whispers · your team only');
+  // A failed read says so — never "no one", and never the same words as a read that worked.
+  const failed = privateFilterLine(3, { who: null, unread: true });
+  assert.equal(failed, `Private · 3 whispers · ${PRIVATE_FILTER_UNREAD}`);
+  assert.doesNotMatch(failed, /no one|nobody/i);
+  assert.notEqual(failed, privateFilterLine(3, null));
+  assert.equal(privateFilterLine(3, null), 'Private · 3 whispers');
+  assert.equal(privateFilterLine(0, { who: 'your team only', unread: false }), 'Nothing private here yet');
+  // The stream shows it on the Private chip, with the page's read.
+  const stream = fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'app', '_components', 'chat-message-stream.tsx'), 'utf8');
+  assert.match(stream, /talkView === 'private' \? privateFilterLine\(talkCounts\.private, privateFilterWho\)/);
 });

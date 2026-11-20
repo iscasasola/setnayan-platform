@@ -130,7 +130,7 @@ import { applyHeart, HEART_SELECT, heartsFrom, tapMeansHeart, type HeartRow, typ
 import { hostFirstName, hostForMessage, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { latestPrivateReply, privateOtherIds } from '@/lib/chat-private';
 import { PRIVATE_BUBBLE_FILL, PrivateMark, PrivateTime } from '@/app/_components/chat/private-message';
-import { WHISPER_TYPING_WINDOW_EVENT, whisperSideOfLine, whisperStrip, whisperingLine, type WhisperTyping } from '@/lib/chat-whisper';
+import { WHISPER_TYPING_WINDOW_EVENT, privateFilterLine, whisperSideOfLine, whisperStrip, whisperingLine, type PrivateFilterWho, type WhisperTyping } from '@/lib/chat-whisper';
 import { readWhisper, sendWhisperTyping, subscribeWhisper } from '@/app/_components/chat/whisper-mode';
 import { ChatHostStrip, type ChatHostAdd } from './chat/chat-host-strip';
 import { MessageHeart } from './chat/message-heart';
@@ -243,6 +243,12 @@ type Props = {
    * (`whisper_side`) and needs no list; this labels only a whisper written BEFORE that column (exactly the co-hosts).
    */
   whisperCoHostIds?: readonly string[] | null;
+  /**
+   * 🔎 Who sees this side's whispers, for the Private filter line ("Private · 3 whispers · the hosts and Liza only") —
+   * the page's whisper read (`readHostsWhisper` · `readTeamWhisper`); `unread` = that read failed. Absent → the line
+   * stops after the count.
+   */
+  privateFilterWho?: PrivateFilterWho;
   /**
    * 🏪 Supplier side: the shop's own name, for the strip — a viewer who is ALSO a host of this event sees the shop's
    * face first and "You" as the host (owner, 11 Nov). Absent → the strip as before.
@@ -526,6 +532,7 @@ export function ChatMessageStream({
   fileExpiry = null,
   hosts,
   whisperCoHostIds,
+  privateFilterWho = null,
   shopLogoUrl = null,
   shopLabel = null,
   memberAdd = null,
@@ -2293,7 +2300,7 @@ export function ChatMessageStream({
       {talkView ? (
         // 💬 Chat or Private picked: only what people typed; the cards are hidden, and the line says so.
         <li className="pb-1 pt-1 text-center text-[13px] text-[color:var(--m-slate-2)]" role="status" data-chat-filter-line={talkView}>
-          {talkLine(talkView, talkCounts[talkView])}
+          {talkView === 'private' ? privateFilterLine(talkCounts.private, privateFilterWho) : talkLine(talkView, talkCounts[talkView])}
         </li>
       ) : null}
       {messages.length === 0 ? (

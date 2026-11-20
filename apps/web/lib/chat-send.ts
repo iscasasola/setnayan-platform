@@ -32,9 +32,11 @@ import {
   WHISPER_TEAM_ONLY_MESSAGE,
   WHISPER_UNREAD_MESSAGE,
   WHISPER_WORDS_ONLY_MESSAGE,
+  isOnHostsSide,
   teamSideOf,
   teamWhisperRecipients,
   whisperRecipients,
+  whisperSideRefusal,
   type WhisperSide,
 } from './chat-whisper';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
@@ -351,16 +353,18 @@ export async function sendChatMessageCore(
       if (!hostPeople.measured || !shop.measured) {
         return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
       }
-      const onHostsSide = senderIsCoordinator
-        ? hostPeople.coordinators.includes(user.id)
-        : Boolean(coupleCheck.data) && hostPeople.members.includes(user.id);
+      const teamSide = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
+      // 🧭 The page's own test (`isOnHostsSide`), so the box never offers what this refuses.
+      const onHostsSide =
+        (senderIsCoordinator || Boolean(coupleCheck.data)) &&
+        isOnHostsSide({ viewerId: user.id, hostMemberIds: hostPeople.members, coordinatorIds: hostPeople.coordinators, teamSideIds: teamSide });
       if (!onHostsSide) {
         return { ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE };
       }
       whisperTo = whisperRecipients({
         hostMemberIds: hostPeople.members,
         coordinatorIds: hostPeople.coordinators,
-        shopUserIds: teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts }),
+        shopUserIds: teamSide,
         senderUserId: user.id,
       });
       whisperSide = 'hosts';
@@ -679,6 +683,13 @@ export async function sendChatMessageCore(
     // the words that tell them what to change, not "try again".
     if (error.message.includes(CHAT_CONTACT_REFUSAL_MARKER)) {
       return { ok: false, code: 'contact_blocked', message: CONTACT_BLOCK_MESSAGE };
+    }
+    // 🤫 The database refused a whisper's SIDE (the people changed between the page and Send): plain words, never the
+    // raw WHISPER_* code (#8071 ruling).
+    const sideRefused = whisperSideRefusal(error.message, whisperSide);
+    if (sideRefused) {
+      console.error('[sendChatMessageCore] whisper side refused:', error.message);
+      return { ok: false, code: 'whisper_refused', message: sideRefused };
     }
     // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
     // internals). Log it server-side for observability; return friendly copy.

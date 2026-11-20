@@ -23,6 +23,19 @@ Stacked on #8047 and #8060 (Unichat part E, merged in).
   `WHISPER_NOT_YOUR_SIDE` path, then `function chat_shop_team_user_ids does not exist` ×2), 3/3 with it. E's five DB
   suites stay green.
 
+**#8071 review fixes (controller, 20 Nov)**
+
+- Migration `20271354347259` now waits at most 5 s for a lock (`SET LOCAL lock_timeout = '5s'` after `BEGIN;`) — it
+  ALTERs `chat_messages` five times, one an ACCESS EXCLUSIVE CHECK swap.
+- **A coordinator on the shop's team is never offered a hosts' whisper they cannot send**: the page's offer
+  (`readHostsWhisper`) and the send core's refusal share ONE test, `isOnHostsSide` (built on `teamSideOf` → the one
+  team rule). If the database still refuses a side (`WHISPER_NOT_YOUR_SIDE` · `WHISPER_CROSSES_SIDES`), the sender
+  reads **"Only the hosts can see this whisper"** (or "Only your team can see this whisper") — never the raw code.
+- **The Private filter line is the drawing's**: "Private · N whispers · the hosts and Liza only" / "· your team only",
+  N through `formatCount`, the names from the same read as the who-it-reaches line; a failed read says
+  "couldn't load who sees these", never "no one" (`privateFilterLine`, `whisperFilterWho`).
+- Merged #8047 at c63218614e (its ONE Private chip, `there-is-one-private-chip.test.ts` green).
+
 **Edit and unsend**
 
 - Hold your own bubble (touch), right-click it, or press the ⋯ beside it (pointer and keyboard): **Edit · Unsend ·

@@ -48,6 +48,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 -- ── §0 · the markers on the message itself ──────────────────────────────────
 ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;

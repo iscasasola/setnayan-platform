@@ -15,6 +15,7 @@
  * PURE — no React, no I/O. 🔒 lib/a-whisper-never-reaches-the-supplier.test.ts
  */
 import { privateRecipientIds } from './chat-private';
+import { formatCount } from './format-number';
 import { MOVE_MS, QUICK_MS, RISE_MS_STANDARD, TAP_MS } from './motion-table';
 
 /** The form field the host's composer posts while whisper is on. Its VALUE is never read as a list of people. */
@@ -142,6 +143,68 @@ export function teamSideOf(input: { teamUserIds: readonly string[]; eventHostIds
     out.push(id);
   }
   return out;
+}
+
+/**
+ * 🧭 MAY THIS PERSON WHISPER ON THE HOSTS' SIDE HERE — the one test the page (offer) and the send core (refuse) share,
+ * in `chat_whisper_side_of`'s order: a host seated in this chat → yes, whatever their shop role; a coordinator → yes
+ * only when NOT on the shop's team side (`teamSideIds` = `teamSideOf(…)`, the ONE team rule). Controller ruling on the
+ * #8071 review (20 Nov): a coordinator on the shop's team is never OFFERED a hosts' whisper they cannot send.
+ */
+export function isOnHostsSide(input: {
+  viewerId: string;
+  hostMemberIds: readonly string[];
+  coordinatorIds: readonly string[];
+  teamSideIds: readonly string[];
+}): boolean {
+  if (!input.viewerId) return false;
+  if (input.hostMemberIds.includes(input.viewerId)) return true;
+  return input.coordinatorIds.includes(input.viewerId) && !input.teamSideIds.includes(input.viewerId);
+}
+
+/**
+ * The words when the DATABASE refuses a whisper's side (`WHISPER_NOT_YOUR_SIDE` · `WHISPER_CROSSES_SIDES`, the trigger
+ * `tg_chat_messages_whisper_stays_on_its_side`) — plain words, never the raw code.
+ */
+export const WHISPER_SIDE_REFUSED_HOSTS = 'Only the hosts can see this whisper';
+export const WHISPER_SIDE_REFUSED_TEAM = 'Only your team can see this whisper';
+/** Which plain words a refused insert gets — `null` when the refusal is not about a whisper's side. */
+export function whisperSideRefusal(errorMessage: string, side: WhisperSide | null): string | null {
+  if (!side) return null;
+  if (!/WHISPER_NOT_YOUR_SIDE|WHISPER_CROSSES_SIDES/.test(errorMessage)) return null;
+  return side === 'team' ? WHISPER_SIDE_REFUSED_TEAM : WHISPER_SIDE_REFUSED_HOSTS;
+}
+
+/**
+ * 🔎 WHO SEES THE PRIVATE FILTER'S WHISPERS — the drawing's words ("the hosts and Liza only"), built by the SAME read
+ * as the who-it-reaches line (`readHostsWhisper` · `readTeamWhisper`, the ONE team rule): the hosts' side names its
+ * coordinators (a coordinator reading it: "you and the hosts only"); the team's side is "your team only".
+ */
+export function whisperFilterWho(input: { side: WhisperSide; coordinatorNames?: readonly string[]; viewerIsCoordinator?: boolean }): string {
+  if (input.side === 'team') return 'your team only';
+  // A coordinator reading it: the drawing's own coordinator words, "You and the hosts".
+  if (input.viewerIsCoordinator) return 'you and the hosts only';
+  const names = (input.coordinatorNames ?? []).filter((n) => n.trim().length > 0);
+  if (names.length === 0) return 'the hosts only';
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `the hosts and ${list} only`;
+}
+
+/** What the stream knows about who sees its whispers: the words, or that the read failed (never "no one"). */
+export type PrivateFilterWho = { who: string | null; unread: boolean } | null;
+export const PRIVATE_FILTER_UNREAD = 'couldn’t load who sees these';
+
+/**
+ * The line over a chat showing only Private — the drawing's "Private · N whispers · {who it reaches}" (controller ruling
+ * on #8071, 20 Nov). N goes through `formatCount`; a failed read says so in plain words; with no side to name (a
+ * private line between people, not a whisper side) the line stops after the count — it never says "no one".
+ */
+export function privateFilterLine(n: number, audience: PrivateFilterWho): string {
+  if (n === 0) return 'Nothing private here yet';
+  const head = `Private · ${formatCount(n)} ${n === 1 ? 'whisper' : 'whispers'}`;
+  if (audience?.unread) return `${head} · ${PRIVATE_FILTER_UNREAD}`;
+  if (audience?.who) return `${head} · ${audience.who}`;
+  return head;
 }
 
 /** Only the people on the shop's side whisper to the team. */

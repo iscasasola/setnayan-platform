@@ -2410,6 +2410,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             initialMessages={initialMessages}
             currentUserId={user.id}
             viewerRole="vendor"
+            // 🔎 The Private filter line names who sees the team's whispers — the same read as the box's reach line.
+            privateFilterWho={await teamWhisperRead.then((t) => (t ? { who: t.filterWho, unread: t.unread } : null))}
             counterpartyLabel={coupleLabel}
             eventDate={event?.event_date ?? null}
             standing={threadStanding}

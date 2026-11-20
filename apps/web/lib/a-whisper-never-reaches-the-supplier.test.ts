@@ -79,11 +79,13 @@ test('2 · the core decides who hears a whisper and REFUSES one nobody can hear 
   // Only someone on a side, only words, and the list comes from the thread's own rows. (Unichat part E, 19–20 Nov: the
   // hosts' side is a host seated here OR the event's coordinator; the shop's side whispers to its own team.)
   assert.match(block, /if \(!onHostsSide\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE/, 'someone who is not on the hosts’ side can whisper there');
-  assert.match(block, /: Boolean\(coupleCheck\.data\) && hostPeople\.members\.includes\(user\.id\);/, 'a host who is not seated in this chat can whisper');
+  // #8071: one test for the page and Send — `isOnHostsSide` (a seated host; a coordinator not on the team side).
+  assert.match(block, /\(senderIsCoordinator \|\| Boolean\(coupleCheck\.data\)\) &&\s*isOnHostsSide\(\{ viewerId: user\.id, hostMemberIds: hostPeople\.members, coordinatorIds: hostPeople\.coordinators, teamSideIds: teamSide \}\)/, 'a host who is not seated in this chat can whisper');
   assert.match(block, /if \(!team\.includes\(user\.id\)\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_TEAM_ONLY_MESSAGE/, 'someone off the shop’s team can team-whisper');
   assert.match(block, /if \(hasAttachment \|\| storedRef\) \{\s*return \{ ok: false, code: 'whisper_refused'/, 'a whisper can carry a file');
   assert.match(block, /readThreadHostPeople\(createAdminClient\(\), \{ threadId: thread\.thread_id, eventId: thread\.event_id \}\)/);
-  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*coordinatorIds: hostPeople\.coordinators,\s*shopUserIds: teamSideOf\(\{ teamUserIds: shop\.userIds, eventHostIds: hostPeople\.eventHosts \}\),\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
+  assert.match(block, /const teamSide = teamSideOf\(\{ teamUserIds: shop\.userIds, eventHostIds: hostPeople\.eventHosts \}\);/, 'the hosts’ whisper does not take the ONE team side');
+  assert.match(block, /whisperTo = whisperRecipients\(\{\s*hostMemberIds: hostPeople\.members,\s*coordinatorIds: hostPeople\.coordinators,\s*shopUserIds: teamSide,\s*senderUserId: user\.id,/, 'the whisper list is not the server’s');
   assert.match(block, /whisperTo = teamWhisperRecipients\(\{ teamUserIds: team, senderUserId: user\.id \}\);/, 'the team whisper list is not the server’s');
   // 🛑 The fence, on BOTH sides: nobody to hear it → refused. (Sabotage: delete a return and that side's whisper goes to everyone.)
   assert.match(block, /if \(whisperTo\.length === 0\) \{\s*return \{ ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE \};\s*\}/, 'a hosts’ whisper nobody can hear is not refused — it would be sent to everyone');

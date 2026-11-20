@@ -62,9 +62,9 @@ test('the client card says the owner-approved sentence', () => {
 /**
  * 19 Nov (DECISION_LOG "PROMOTION PAGES", item 4; controller ruling 20 Nov): no number of months on a public page. The
  * public pages say SUPPLIER_FREE_BOOKING_LINE; FEE_FREE_RULE ("…free for a year") is the in-app client card's only.
- * /for-coordinators joins this list in its own PR (#8051), which moves that page onto the same line.
+ * Both public pages (/for-suppliers #8050, /for-coordinators #8051) are on the line.
  */
-const PUBLIC_PAGES = ['app/for-suppliers/_components/supplier-front-page.tsx'];
+const PUBLIC_PAGES = ['app/for-suppliers/_components/supplier-front-page.tsx', 'app/(shell)/for-coordinators/page.tsx'];
 
 test('the public pages say the 19 Nov free-booking line, and never a number of months', () => {
   assert.equal(SUPPLIER_FREE_BOOKING_LINE, "New to Setnayan, or you're the first to bring their event? They book you free.");

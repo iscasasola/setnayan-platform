@@ -178,10 +178,10 @@ test('a public page has at most ONE endless loop, and none at 640 px or narrower
  *     Release · Move · Rise · Settle · Spring …), or is `linear` (a scroll-driven motion, whose length is the scroll);
  *   · the ONE exception is an endless loop, which must be a Drift: 20 s or longer, `ease-in-out` — or the Sheen token.
  * Where it sits (desktop only, off under reduced motion, one a page) is the test above.
- * ⏳ /for-coordinators' CURRENT sheet predates the tokens; its redraw (PR #8051) moves it onto them and removes it from
- * TOKENS_LATER. Nothing else may be added there to go green.
+ * Both redraws (/for-suppliers #8050, /for-coordinators #8051) are on the tokens, so TOKENS_LATER is empty. Nothing may
+ * be added here to go green.
  */
-const TOKENS_LATER = new Set(['app/(shell)/for-coordinators/_for-coordinators.css']);
+const TOKENS_LATER = new Set<string>([]);
 /** Strip every `var(--sn-…)` (with any fallback, however nested) — what is left is what the sheet typed itself. */
 function untokened(v: string): string {
   let out = v;
@@ -202,6 +202,10 @@ export function offStandard(sheet: string, rules: Rule[]): string[] {
     for (const { prop, value } of motionValues(r.body)) {
       if (/^none\b/.test(value)) continue;
       const left = untokened(value);
+      // A page's own alias (`var(--sf-ease)`) is a typed easing with a name on it. A stagger counter — a var with a plain
+      // number for its fallback (`var(--i, 0)`) — is a multiplier, not a speed.
+      const bare = left.replace(/var\(\s*--[\w-]+\s*,\s*-?\d*\.?\d+\s*\)/g, ' N ');
+      if (/var\(\s*--/.test(bare)) bad.push(`${sheet} → ${r.selector}: ${prop} reads a page alias, not a --sn-* token — "${value}"`);
       const times = [...left.matchAll(RAW_TIME)].map((m) => Number(m[1]) * (m[2] === 's' ? 1000 : 1));
       const eases = [...left.matchAll(RAW_EASE)].map((m) => m[1]!);
       const endless = prop === 'animation' && /\binfinite\b/.test(value);
@@ -235,6 +239,8 @@ test('every motion on a public page reads the standard’s tokens, and its one l
   assert.equal(offStandard('t', [r('animation: sn-w-drift 20s linear infinite')]).length, 1, 'a linear loop passed as a Drift');
   assert.equal(offStandard('t', [r('transition: transform .2s ease-out')]).length, 2, 'a typed duration and easing passed');
   assert.equal(offStandard('t', [r('animation: x var(--sn-m-move) cubic-bezier(.3,0,.3,1) backwards')]).length, 1, 'a typed curve passed');
+  assert.equal(offStandard('t', [r('transition: transform var(--sn-m-quick) var(--fc-ease)')]).length, 1, 'a page alias passed as a token');
+  assert.deepEqual(offStandard('t', [r('animation: sn-w-reveal var(--sn-m-move) var(--sn-m-settle) calc(min(var(--i, 0), 5) * var(--sn-w-hero-gap)) backwards')]), []);
   assert.deepEqual(offStandard('t', [r('animation: sn-w-drift 20s ease-in-out infinite alternate')]), []);
   assert.deepEqual(offStandard('t', [r('transition: transform var(--sn-m-release, .2s) var(--sn-m-settle, cubic-bezier(.2,.8,.2,1))')]), []);
   assert.deepEqual(offStandard('t', [r('animation: sn-w-reveal linear backwards')]), []);

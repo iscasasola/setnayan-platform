@@ -314,6 +314,12 @@ function MarchMakerBody({
     if (marchQTimer.current) clearTimeout(marchQTimer.current);
   }, []);
   const marchFound = useMemo(() => (lens && marchQ ? lens.find(marchQ) : null), [lens, marchQ]);
+  /* 🎚 Guests redesign § 8 (20 Nov): the place menu's "10 walks" is this march's own count, told up — never guessed. */
+  const walkTotal = shown.reduce((n, s) => n + s.rows.length, 0);
+  const reportWalks = lens?.reportWalks;
+  useEffect(() => {
+    reportWalks?.(walkTotal);
+  }, [reportWalks, walkTotal]);
   const [heard, setHeard] = useState('');
   /* 🪪 The person whose guest card is open over the march (a tap on their name). */
   const [card, setCard] = useState<GuestCardPerson | null>(null);

@@ -248,7 +248,8 @@ test('6 · Guests draws List · Map · Seats · March — the shipped maker unde
   assert.match(page, /bodies=\{bodies\}/);
   // …and a switch is a client switch: the view row's press is handled in place, the address follows (`replaceState`).
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /onPick=\{\(k\) => \{\s*if \(k === 'march'\) pickView\('march'\);\s*else if \(k\.startsWith\('seats:'\)\) chooseSeat\(k\.slice\(6\) as SeatMode\);\s*else pickView\(k\.slice\(7\) as GuestsView\);/, 'a ▾ pick navigates (a server round trip) instead of switching in place');
+  // 🎚 20 Nov (Guests redesign § 8): the ▾ picks a PLACE, which opens on its last look — still in place, never a navigation.
+  assert.match(screen, /onPick=\{\(k\) => \{\s*if \(k === 'march'\) pickView\('march'\);\s*else if \(k === 'seats'\) chooseSeat\(seatMode\);\s*else pickView\(/, 'a ▾ pick navigates (a server round trip) instead of switching in place');
   // ⇅ …carrying the shared Show · Group by · Sort with it (lib/guests-filter.ts), so a switch keeps what is shown.
   assert.match(screen, /const at = guestsViewHref\(eventId, v, \{ seat: v === 'seats' \? seatOfMode\(seat \?\? seatMode\) : null \}\);\s*window\.history\.replaceState\(window\.history\.state, '', hrefWithGuestsFilter\(at, filterRef\.current\)\);/);
   assert.match(page, /<GuestsMarch eventId=\{eventId\} \/>/);
@@ -282,7 +283,8 @@ test('7 · Seats and March follow the Guests screen: the summary row, ONE mode d
   // mode's ONE state stays the plan's (`lens.registerSeats`). No desk segment in Guests.
   const scr = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(scr, /const seatModes: PickOption\[\] = SEAT_MODES\.filter\(\(m\) => m !== '3d' \|\| seatShow3D\)/, 'Seats ▾ does not list List · 2D · 3D');
-  assert.match(scr, /\.\.\.\(tops\.includes\('seats'\) \? seatModes\.map\(/, 'the ▾ does not list Seats’ modes');
+  // 🎚 20 Nov (§ 8): Seats' modes are the look round at the thumb (the lens's `lookRound`), not lines of the ▾.
+  assert.match(scr, /const lookKeys = gview === 'seats' \? seatModes\.map\(/, 'the look round does not list Seats’ modes');
   assert.match(ed, /const studioHead = studioSeat && !inGuests \?/, 'Guests draws the old "Seat plan · 2D ▾" head');
   assert.match(ed, /createPortal\(<SeatPlanToolRounds more=\{phoneMore\} trailing=\{phoneTrailing\} \/>, lens\.toolsSlot\)/, 'Seats’ Edit · ⋯ have no home in the top row');
   assert.match(ed, /registerSeats\(\{ mode: studioView, setMode: \(m\) => onSelectViewRef\.current\(m\), show3D \}\)/, 'the plan does not tell the top row its mode');

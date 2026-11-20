@@ -7583,6 +7583,8 @@ export function SeatingEditor({
                 },
               }}
               right={[
+                /* 🎚 Guests redesign § 8: the look round (List · 2D floor plan · 3D room), opening upward, before Show. */
+                ...(lens.lookRound ? [lens.lookRound] : []),
                 guestsFilterMenu({
                   view: 'seats',
                   filter: lens.filter,

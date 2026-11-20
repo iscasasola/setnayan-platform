@@ -205,7 +205,7 @@ export function TodayWrapUpBody({ facts }: { facts: WrapUpFacts }) {
               )}
             </div>
           ))}
-          <div className="mt-2 rounded-xl border-[1.5px] border-dashed border-ink/15 px-3 py-2.5 text-[13.5px] text-[color:var(--m-slate-2)]" data-today-wrap-hosts="">
+          <div className="mt-2 border-t border-ink/10 pt-2.5 text-[13.5px] text-[color:var(--m-slate-2)]" data-today-wrap-hosts="">
             <b className="block font-bold text-ink">From the hosts · Not yet</b>
             Their review opens after you confirm and they say they received your service.
           </div>

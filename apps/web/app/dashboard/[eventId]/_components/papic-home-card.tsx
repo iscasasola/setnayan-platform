@@ -173,7 +173,7 @@ export function PapicHomeCard({
           ) : null}
 
           {/* 🔢 ONE BIG NUMBER — the credits left; Total · Taken live in its ⓘ. */}
-          {counts ? <PapicCredits total={counts.total} left={counts.left} /> : null}
+          {counts ? <PapicCounts total={counts.total} left={counts.left} /> : null}
 
           {/* Add photos (main) · Add more — two equal buttons, each a press of its own. */}
           {add || buy ? (
@@ -227,7 +227,7 @@ export function PapicHomeCard({
 }
 
 /** "N credits left", big — Total · Taken in its ⓘ. A field that was not measured is "—", never 0. */
-function PapicCredits({ total, left }: { total: number | null; left: number | null }) {
+function PapicCounts({ total, left }: { total: number | null; left: number | null }) {
   const words = papicCountsWords(total, left);
   if (!words) {
     return (
@@ -246,8 +246,7 @@ function PapicCredits({ total, left }: { total: number | null; left: number | nu
         {formatCount(rest)}
       </span>
       <InfoTip label={rest === 1 ? 'credit left' : 'credits left'} labelClassName="text-[15px] font-medium text-ink/65" align="start">
-        Total <b data-papic-card-count="total">{formatCount(all)}</b> · Taken <b data-papic-card-count="taken">{formatCount(taken)}</b>. One credit is one
-        camera photo; a short clip uses a little more.
+        Total <b data-papic-card-count="total">{formatCount(all)}</b> · Taken <b data-papic-card-count="taken">{formatCount(taken)}</b>
       </InfoTip>
     </div>
   );

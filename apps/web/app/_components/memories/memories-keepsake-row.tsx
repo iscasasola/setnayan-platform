@@ -41,7 +41,7 @@ const ICONS: Record<KeepsakeKey, LucideIcon> = {
 export type KeepsakeCards = Partial<Record<KeepsakeKey, ReactNode>>;
 
 const CELL =
-  'flex min-h-[58px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-[14px] px-1 py-2 text-[12.5px] font-medium leading-none';
+  'flex min-h-[58px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--m-r-md)] px-1 py-2 text-[12.5px] font-medium leading-none';
 
 export function MemoriesKeepsakeRow({ doors, cards }: { doors: KeepsakeDoor[]; cards: KeepsakeCards }) {
   const [open, setOpen] = useState<KeepsakeKey | null>(null);

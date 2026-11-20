@@ -44,17 +44,20 @@ const DETAIL = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page
 const GUEST_ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'actions.ts'), 'utf8'));
 const GROUP_ACTIONS = stripComments(readFileSync(resolve(HERE, '..', 'groups-actions.ts'), 'utf8'));
 
-/* RE-AIMED 2026-10-26: the last group is "Reset · Delete" (owner: "So at the bottom, have (RESET) (DELETE)") — the same
+/* RE-AIMED 2026-10-26: the last group is "Reset · Delete" (owner: "So at the bottom, have (RESET) (DELETE)") — and again
+   2026-11-20 (the approved drawing § 3): it is the last ROW of "More", one dropdown ("Reset or delete · Choose ▾"). The same
    property: Delete is offered for a guest, never for the couple's own rows; and Reset is never offered for them either. */
-test('the card can delete its guest — from its own Reset · Delete group, never for the couple', () => {
-  assert.ok(BODY.indexOf("summary={canReset ? 'Reset · Delete' : 'Delete'}") > 0, 'the card has no Reset · Delete group');
-  assert.match(BODY, /\{isCouple \? \(\s*<K\.Fold summary="Delete"[^>]*>\s*<p[^>]*>Foundation of the event[\s\S]*?\) : DeleteControl \? \([\s\S]*?<K\.Fold\s+summary=\{canReset \? 'Reset · Delete' : 'Delete'\}[\s\S]*?<DeleteControl\b/, 'the Delete group offers Delete to the couple (or none to a guest)');
-  /* The couple's branch draws no Delete control and no Reset — only the sentence. */
-  const coupleBranch = BODY.slice(BODY.indexOf('{isCouple ? (\n          <K.Fold summary="Delete"'), BODY.indexOf(') : DeleteControl ? ('));
+test('the card can delete its guest — from its own Reset or delete row, never for the couple', () => {
+  const rowAt = BODY.indexOf("name={seatWithNoName ? 'Release seat' : canReset ? 'Reset or delete' : 'Delete'}");
+  assert.ok(rowAt > 0, 'the card has no Reset or delete row');
+  assert.match(BODY, /\{isCouple \? \(\s*<FormRow name="Reset or delete"[^>]*>\s*<span[^>]*>Can’t be removed<\/span>\s*<\/FormRow>\s*\) : DeleteControl \? \([\s\S]*?<DeleteControl\b/, 'the Delete row offers Delete to the couple (or none to a guest)');
+  /* The couple's branch draws no Delete control and no Reset — only the words. */
+  const coupleBranch = BODY.slice(BODY.indexOf('{isCouple ? (\n          <FormRow name="Reset or delete"'), BODY.indexOf(') : DeleteControl ? ('));
   assert.ok(coupleBranch.length > 0, 'the couple’s branch moved');
   assert.doesNotMatch(coupleBranch, /DeleteControl|GuestResetFlow|resettable/, 'the couple’s rows are offered Delete or Reset');
   assert.match(BODY, /const canReset = !isCouple && !guest\.plus_one_of_guest_id;/, 'Reset is offered for the couple’s rows');
   assert.match(MENU, /<span data-guest-delete="">\s*<ActionButton tone="danger" icon=\{Trash2\} label="Delete guest" onClick=\{\(\) => setConfirmDelete\(true\)\} \/>/, 'the Delete group has no Delete guest button');
+  assert.match(MENU, /onPick=\{\(k\) => \(k === 'reset' \? setConfirmReset\(true\) : setConfirmDelete\(true\)\)\}/, 'the dropdown’s Delete guest does not open the warning');
   // THE card hands in its Delete for every surface (2026-10-24, one card everywhere).
   assert.match(stripComments(readFileSync(resolve(HERE, 'guest-card.tsx'), 'utf8')), /DeleteControl=\{GuestDeleteControl\}/, 'the card is drawn without its Delete');
   assert.match(MENU, /<DeleteGuestFlow\b/, 'the card’s Delete does not go through the one delete flow');

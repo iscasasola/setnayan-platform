@@ -41,7 +41,7 @@ import {
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import type { HubDraftPatch } from '@/lib/hub-draft';
-import { ChevronsDownUp, ChevronsUpDown, Play, RotateCcw, Square } from 'lucide-react';
+import { ChevronsDownUp, ChevronsUpDown, GripVertical, Play, RotateCcw, Square } from 'lucide-react';
 import { MARCH_PREVIEW_END_MS, MARCH_PREVIEW_STEP_MS, marchPreviewEnd, marchPreviewSteps, type MarchPreviewStep } from '@/lib/march-preview';
 import { useGuestsLens } from '../../guests/_components/guests-lens';
 import { guestsFilterMenu } from '../../guests/_components/guests-filter-menu';
@@ -53,8 +53,6 @@ import { plainRefusal } from '../../guests/_components/plain-refusal';
 import { formatCount } from '@/lib/format-number';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { MarchTray } from './details-march-tray';
-/* 🗂 R4: the Guests summary row loads with Guests › March only — never with the Maker's march (`view-summary-lazy.tsx`). */
-import { ViewCountRow } from './view-summary-lazy';
 import { GuestCardSheet, SHIPPED_GUEST_CARD, type GuestCardPerson } from '../../guests/_components/guest-card-sheet';
 import type { GuestCardResult } from '../../guests/_components/guest-card';
 
@@ -100,6 +98,8 @@ export type MarchSectionData = MarchSection;
 const DID_NOT_GO = 'That did not go through — nothing was changed.';
 // no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
 const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-sn-micro [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
+/** 🚶 § 7 — the processional line (Guests › March): a hairline through the step circles' centre, behind them. */
+const MARCH_LINE = 'before:pointer-events-none before:absolute before:bottom-0 before:left-4 before:top-0 before:w-px before:bg-terracotta-700/30';
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
 /** The lab's save: it lands — or, with `?refuse=1`, throws with the database's own words, so the toast can be seen saying its own sentence instead. */
 const labStep = (): Promise<MarchResult> =>
@@ -1023,36 +1023,51 @@ function MarchMakerBody({
       className={`${guests ? 'min-w-0 ' : 'mx-auto max-w-2xl '}flex w-full select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
       {guests ? (
-        /* 🗂 R4 · the fixed count row (owner 2026-10-29): Walks · Walking · Not walking (opens the tray) · ▶ Preview —
-           which plays the march (`lib/march-preview.ts`); while it plays the tile is Stop. */
+        /* 🚶 GUESTS REDESIGN § 7 (owner 20 Nov 2026, "Yes, build it"): the three count tiles are ONE line of words —
+           "10 walks · 14 walking · 0 not walking"; "not walking" still opens the Not walking tray on a tap. ▶ Preview
+           stays the one terracotta button, now in the Guests TOP ROW (a portal into `lens.toolsSlot`, the seat left of
+           the ⚙); while it plays it reads Stop. 🔒 guests/the-march-is-a-numbered-line.test.ts */
         <>
-        <ViewCountRow
-          view="march"
-          tiles={[
-            { key: 'walks', word: walks === 1 ? 'walk' : 'walks', value: walks },
-            { key: 'walking', word: 'walking', value: people },
-            {
-              key: 'out',
-              word: 'not walking',
-              value: outUnread ? null : shownOut.length,
-              onPress: () => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-            },
-            {
-              key: 'preview',
-              word: play === null ? 'Preview' : 'Stop',
-              main: true,
-              icon: play === null ? <Play aria-hidden strokeWidth={2} /> : <Square aria-hidden strokeWidth={2} />,
-              disabled: walks === 0,
-              about: walks === 0 ? 'Nobody walks yet' : play === null ? 'Play the march, one walk at a time' : 'Stop the preview',
-              onPress: () => {
-                if (play !== null) return setPlay(null);
-                playSteps.current = marchPreviewSteps(shown);
-                setFolded(new Set());
-                setPlay(0);
-              },
-            },
-          ]}
-        />
+        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 px-1 text-[13.5px] text-ink/70" data-march-count-line="">
+          <span>
+            <b className="font-semibold text-ink">{formatCount(walks)}</b> {walks === 1 ? 'walk' : 'walks'}
+          </span>
+          <span aria-hidden>·</span>
+          <span>
+            <b className="font-semibold text-ink">{formatCount(people)}</b> walking
+          </span>
+          <span aria-hidden>·</span>
+          <button
+            type="button"
+            data-march-count-out=""
+            className="sn-press inline-flex min-h-11 items-center gap-1 text-ink/70 underline decoration-ink/25 underline-offset-4"
+            onClick={() => document.querySelector('[data-march-tray-slot]')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            <b className="font-semibold text-ink">{outUnread ? '—' : formatCount(shownOut.length)}</b> not walking
+          </button>
+        </p>
+        {lens?.toolsSlot
+          ? createPortal(
+              <span data-march-preview="" className="inline-flex shrink-0">
+                <ActionButton
+                  tone="brand"
+                  filled
+                  icon={play === null ? Play : Square}
+                  label={play === null ? 'Preview' : 'Stop'}
+                  name={walks === 0 ? 'Preview — nobody walks yet' : play === null ? 'Play the march, one walk at a time' : 'Stop the preview'}
+                  waiting={walks === 0}
+                  onClick={() => {
+                    if (walks === 0) return;
+                    if (play !== null) return setPlay(null);
+                    playSteps.current = marchPreviewSteps(shown);
+                    setFolded(new Set());
+                    setPlay(0);
+                  }}
+                />
+              </span>,
+              lens.toolsSlot,
+            )
+          : null}
         {/* ▶ The preview's bar floats under the pinned row (prototype `.playbar`): no room taken, slides in and out. */}
         <div className="sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[6] h-0" data-march-play-slot="">
           <div
@@ -1112,7 +1127,13 @@ function MarchMakerBody({
         const fixed = isMarchOnlyGroup(sec.key);
         const sectionKey = `section:${sec.key}`;
         return (
-        <div key={sec.key} data-march-section={sec.key} className={`flex flex-col transition-opacity ${lifted === sectionKey ? 'opacity-30' : ''}`}>
+        <div
+          key={sec.key}
+          data-march-section={sec.key}
+          /* 🚶 § 7 — ONE LINE DOWN THE PAGE (Guests): each section draws its stretch of it, at the step circles' centre. */
+          data-march-line={guests ? '' : undefined}
+          className={`flex flex-col transition-opacity ${guests ? `relative ${MARCH_LINE} ` : ''}${lifted === sectionKey ? 'opacity-30' : ''}`}
+        >
           <p
             data-march-drag={fixed ? undefined : `section|${sec.key}`}
             data-march-drop={fixed ? undefined : `section|${sec.key}`}
@@ -1132,15 +1153,18 @@ function MarchMakerBody({
             className={`${
               /* 📌 R4 slice 4 — in Guests, a walk group's header sticks under the pinned row while its walks pass (the
                  prototype's `.acc-h` sticky); the Maker's own march keeps its plain line. */
-              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] bg-[var(--gs-paper,rgb(var(--color-cream)))] ' : ''
+              guests ? 'sticky top-[calc(var(--gs-top,0px)+var(--gs-stick-h,60px))] z-[5] ml-10 bg-[var(--gs-paper,rgb(var(--color-cream)))] font-semibold ' : ''
             }${marchSel === sec.key ? 'text-terracotta-800 underline decoration-2 underline-offset-4' : 'text-ink/70'} mt-3 flex min-h-11 items-baseline gap-2 rounded-lg px-1 pt-1 text-[12px] uppercase tracking-[0.18em] ${
               fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
             }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
           >
             {sec.label}
-            <small className="font-sans text-[12px] normal-case tracking-normal text-ink/70">
-              {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
-            </small>
+            {/* § 7: in Guests the step numbers on the line already say how many walks — no count beside the heading. */}
+            {guests ? null : (
+              <small className="font-sans text-[12px] normal-case tracking-normal text-ink/70">
+                {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
+              </small>
+            )}
           </p>
           {folded.has(sec.key) ? null : sec.rows.length === 0 ? (
             /* 🏷 A group of the couple's own with nobody in it yet: the whole box is where a name lands. */
@@ -1168,28 +1192,49 @@ function MarchMakerBody({
                be dropped beside them — and closes again after. Both pills of a walk share one height (stretch). */
             const solo = guests && (laid[0] === null) !== (laid[1] === null);
             const hideEmpty = solo && !dragging && !carried;
+            /* The walk's own handle — the number in the Maker, the grip at the right in Guests: ONE set of drag marks. */
+            const walkHandle = {
+              'data-march-drag': `walk|${sec.key}|${lead}`,
+              'data-march-key': walkKey,
+              'data-march-name': row.filter((x) => x !== null).map((x) => x!.name).join(' and '),
+              tabIndex: 0,
+              role: 'button',
+              'aria-pressed': carried?.key === walkKey,
+              'aria-label': `Step ${step} — drag to move this walk`,
+            } as const;
             return (
               <div key={lead || i} className="flex flex-col">
                 <div
                   data-march-flip={walkKey}
                   data-march-walk={step}
                   data-march-walk-now={play !== null && playSteps.current[play]?.no === step ? '' : undefined}
-                  className={`grid ${guests ? 'grid-cols-[2rem_minmax(0,1fr)]' : 'grid-cols-[2rem_1fr_1fr]'} items-stretch gap-1.5 rounded-xl bg-white p-1.5 dark:bg-raised transition-[opacity,box-shadow] ${
-                    play !== null && playSteps.current[play]?.no === step ? 'ring-2 ring-sn-accent' : 'ring-1 ring-ink/10'
+                  /* 🚶 § 7 (Guests): NO box around the walk — its step number is a circle on the line, each name keeps
+                     its own frame, and the grip at the right moves the whole walk. The Maker's own march keeps its box. */
+                  className={`grid ${
+                    guests
+                      ? 'grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-2 py-0.5 transition-opacity'
+                      : `grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 dark:bg-raised transition-[opacity,box-shadow] ${
+                          play !== null && playSteps.current[play]?.no === step ? 'ring-2 ring-sn-accent' : 'ring-1 ring-ink/10'
+                        }`
                   } ${lifted === walkKey ? 'opacity-30' : ''}`}
                 >
-                  <span
-                    data-march-drag={`walk|${sec.key}|${lead}`}
-                    data-march-key={walkKey}
-                    data-march-name={row.filter((x) => x !== null).map((x) => x!.name).join(' and ')}
-                    tabIndex={0}
-                    role="button"
-                    aria-pressed={carried?.key === walkKey}
-                    aria-label={`Step ${step} — drag to move this walk`}
-                    className="flex min-h-11 cursor-grab touch-pan-y select-none items-center justify-center font-serif text-xl text-terracotta-800 [-webkit-touch-callout:none]"
-                  >
-                    {step}
-                  </span>
+                  {guests ? (
+                    <span
+                      aria-hidden
+                      data-march-no=""
+                      className={`relative z-[1] mx-auto flex h-7 w-7 items-center justify-center rounded-full border-[1.5px] text-[13px] font-semibold ${
+                        play !== null && playSteps.current[play]?.no === step
+                          ? 'border-terracotta-700 bg-terracotta-700 text-white'
+                          : 'border-terracotta-700/45 bg-[var(--gs-paper,rgb(var(--color-cream)))] text-terracotta-800'
+                      }`}
+                    >
+                      {step}
+                    </span>
+                  ) : (
+                    <span {...walkHandle} className="flex min-h-11 cursor-grab touch-pan-y select-none items-center justify-center font-serif text-xl text-terracotta-800 [-webkit-touch-callout:none]">
+                      {step}
+                    </span>
+                  )}
                   <PairBox guests={guests}>
                   {[0, 1].map((c) => {
                     const p = laid[c as 0 | 1];
@@ -1221,7 +1266,8 @@ function MarchMakerBody({
                             {guests ? <GuestNick nick={p.nick} /> : null}
                           </span>
                           {p.tag ? (
-                            <span className="mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
+                            /* § 7: in Guests the role is a small caption under the name, in sentence case. */
+                            <span data-march-role="" className={guests ? 'mt-0.5 text-[12px] leading-tight text-ink/70' : 'mt-0.5 text-[12px] uppercase tracking-[0.18em] text-terracotta-800'}>{p.tag}</span>
                           ) : null}
                         </div>
                       );
@@ -1250,6 +1296,15 @@ function MarchMakerBody({
                     );
                   })}
                   </PairBox>
+                  {guests ? (
+                    <span
+                      {...walkHandle}
+                      data-march-grip=""
+                      className={`flex min-h-11 cursor-grab touch-pan-y select-none items-center justify-center rounded-lg text-ink/45 [-webkit-touch-callout:none]${carried?.key === walkKey ? ' ring-2 ring-ink' : ''}`}
+                    >
+                      <GripVertical aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                    </span>
+                  ) : null}
                 </div>
                 <Gap zone={`gap|${sec.key}|${i + 1}`} on={over?.zone === `gap|${sec.key}|${i + 1}`} ok={over?.ok ?? true} />
               </div>

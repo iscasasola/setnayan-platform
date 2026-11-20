@@ -26,3 +26,5 @@ drafted (from `20271351531329`) it dropped the three Availability columns and pu
 which would have undone #8011 (live) and #8012 on merge. DB test: a branch copy keeps all three and a schedule of 300.
 #8012 merged in (merge commit); the card maker's "How clients book" group (HYBRID layout) carries #8011's Availability
 block, the Made to order rows and the style-aware day count; main's 701 px `tab:` breakpoint wins.
+
+**Folded in from the #8012 re-review (20 Nov, non-blocking):** the supplier-yes comment in `vendorAgreeToLock` now says the supplier gives the number (owner Q2: no couple picker), and `singularOf` reads "buses" as "bus" (not "buse") while "vases" stays "vase".

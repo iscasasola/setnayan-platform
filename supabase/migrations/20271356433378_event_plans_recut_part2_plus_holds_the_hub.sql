@@ -106,10 +106,11 @@ UPDATE public.platform_retail_catalog_v2
    AND fullres_extra_keep_days IS DISTINCT FROM 92;
 
 -- ── 2b · Event Pro's supplier-gift price follows ₱5,490 (controller relay on PR #8004, 20 Nov: "Pro gift_price_php
---         = 5490"). It was ₱5,190 against the old ₱5,690 (20271308555594). Guarded: only from that old value, so an
---         admin-set gift price is left alone.
+--         = 5490"). It was ₱5,190 against the old ₱5,690 (20271308555594). Read from the row's own list price (step 0
+--         has already moved it to ₱5,490), like 2c — never typed. Guarded: only from that old value, so an admin-set
+--         gift price is left alone.
 UPDATE public.platform_retail_catalog_v2
-   SET gift_price_php = 5490,
+   SET gift_price_php = retail_price_php,
        updated_at     = now()
  WHERE service_code = 'COUPLE_WEBSITE_PRO'
    AND gift_price_php = 5190;

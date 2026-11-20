@@ -209,7 +209,8 @@ test('(H) eventHubOwnership: Event Plus, Pro and Ultra are the whole Hub; the op
   assert.match(step1, /eventSkuLinesFor\(supabase, eventId, \[EVENT_PLUS_SKU\]\)/, 'the Plus payment is not read');
   assert.match(step1, /counts\(r\.status\)/, 'the Plus payment is not read in the gate’s own mode');
   assert.match(step1, /if \(!plusPaidHere\) return everyHubPartHeld\(false\);/, 'a gifted / comped Plus earns a credit, or gets the Pro plan');
-  assert.match(step1, /fullHeld: true,[\s\S]{0,200}plusPaid: true,/, 'a paid Plus is not carried as paid toward Pro and Ultra');
+  assert.match(step1, /fullHeld: true,[\s\S]{0,600}plusPaid: true,/, 'a paid Plus is not carried as paid toward Pro and Ultra');
+  assert.match(step1, /eventSkuLinesFor\(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY\)/, 'Hub parts paid before the Plus no longer count toward Pro and Ultra');
   assert.doesNotMatch(step1, /proPlan/, 'a Plus was handed the Pro plan');
   assert.match(src, /holds\(STD_PREMIUM_OPENINGS_SKU\)/, 'the openings’ own unlock is not read for gate 1');
   assert.match(src, /if \(openingsHeld\) gates\.push\('1'\);/);

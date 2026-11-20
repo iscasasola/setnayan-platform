@@ -164,14 +164,22 @@ export function eventHubOwnership(
       //    basket line in a status that counts in this mode, never a comp or a gift (not paid). Without it a Plus event
       //    was refused Pro (`hubPartsCharge` saw everything held) and charged Ultra in full. The price is read only when
       //    the Plus was paid, so a gifted or comped Plus costs no extra read.
-      const plusLines = await eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU]);
+      //    …and Hub parts paid before the Plus count too, at their web value, exactly as they did toward Pro on main
+      //    (#8004 review: crediting Plus alone dropped them). Read beside the Plus lines — no extra step.
+      const [plusLines, partLines] = await Promise.all([
+        eventSkuLinesFor(supabase, eventId, [EVENT_PLUS_SKU]),
+        eventSkuLinesFor(supabase, eventId, HUB_PART_PAID_CODES, HUB_PARTS_ORDER_KEY),
+      ]);
       const plusPaidHere = plusLines.some((r) => r.service_key === EVENT_PLUS_SKU && counts(r.status));
       if (!plusPaidHere) return everyHubPartHeld(false);
       const plusPrices = await hubPartPrices(supabase);
       return hubOwnershipFrom({
         fullHeld: true,
         partHeld: () => true,
-        paidParts: [],
+        paidParts: partLines
+          .filter((r) => counts(r.status))
+          .map((r) => hubPartOfPaidCode(r.service_key))
+          .filter((p): p is HubPartId => p !== null),
         prices: withPlanPrices(plusPrices),
         fullPrice: plusPrices.everything,
         plusPaid: true,

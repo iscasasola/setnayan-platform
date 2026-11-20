@@ -30,3 +30,9 @@ SPEC IMPACT: Billing now matches DECISION_LOG 2026-11-20 rows "BOOKING FEE: 5%�
 BOOKING FEE TICKETS ARE AUTO-CLAIMED", "EVERY 100,000TH BOOKING FEE IS FREE", "…COUNTED ACROSS ALL OF SETNAYAN" and
 "BILLING MUST FOLLOW THE RETIRED COPY" — each of which says "Not built"; the corpus rows should be marked built when
 this merges. Open for the owner: whether the add-on free window follows the fee to zero.
+
+### Ship review fixes (20 Nov, FIX-FIRST)
+- origin/main merged; the migration is re-allocated to `20271356196197` with `SET LOCAL lock_timeout = '5s'`.
+- **An amendment re-prices on the schedule the booking was locked on.** Each primary charge stores `fee_basis` (flat or taper, head/tail rate, band, lock), stamped at insert by `booking_fee_charges_stamp_basis`. Charges made before this change are backfilled from their `schedule_version` and the settings as they stood before the 3% update. `booking_fee_rederive_lock_fee` prices with `booking_fee_centavos_on_basis`. DB test 7: a verified ₱1M booking locked at ₱32,000, verification lapsed and the tail moved to 4%, then a ₱1,000 change → a ₱30 top-up. The old line gave ₱18,050 (shown red once).
+- "First booking is free" is removed from the help row (`SUPPLIER_HELP_ROWS`), the suppliers feature page (EN + TL) and the invite door (`DOOR_FEE_LINE`). Guard 3 is widened to cover them (shown red once).
+- The forecast now names a "free booking fee ticket", not a "badge reward" (DECISION_LOG 20 Nov "FREE BOOKING FEE TICKETS ARE AUTO-CLAIMED").

@@ -20,7 +20,11 @@ import {
   QuoteDraftBody,
   ReviewBody,
 } from './overview-sections';
-import { TodayAsideButton, TodayQuickGroup, TodayQuickRow } from './today-v2-client';
+import { TodayAsideButton, TodayQuickGroup, TodayQuickRow, TodayTomorrowLink } from './today-v2-client';
+import { PUT_OFF_WORDS } from '@/lib/today-put-off';
+import { THIS_WEEK_HREF } from '@/lib/supplier-today-v2';
+import { wrapUpApplies, type WrapUpFacts } from '@/lib/today-wrap-up';
+import { TodayWrapUpBody } from './today-wrap-up';
 import { formatCount } from '@/lib/format-number';
 import {
   BILLS_UNREAD_LINE,
@@ -110,11 +114,12 @@ export type TodayV2Answers = {
   payoutReadiness: PayoutReadiness;
   /** What agreeing to each booking ask costs, keyed by `event_vendors.vendor_id` (`forecastForBooking`), read before Agree. */
   feeForecasts: Record<string, FeeDisclosure | null>;
+  /** ✓ v3 part 3 — each finished event's wrap-up facts, keyed by its desk card id; null/absent = unread → v2's quick row. */
+  wrapUps?: Record<string, WrapUpFacts | null>;
 };
 
 /** The shipped form for a QUICK kind — the same one the desk's row opened to before 8 Nov. */
 function QuickBody({ card, a }: { card: WhatsNewCard; a: TodayV2Answers }) {
-  void a;
   switch (card.kind) {
     case 'review':
       return <ReviewBody card={card} postReviewReply={postVendorReply} />;
@@ -122,8 +127,11 @@ function QuickBody({ card, a }: { card: WhatsNewCard; a: TodayV2Answers }) {
       return <LockBody card={card} confirmLock={vendorAcknowledgeDeposit} rejectLock={vendorRejectDeposit} />;
     case 'date_change':
       return <DateChangeBody card={card} answerDateChange={vendorAnswerDateChange} />;
-    case 'mark_complete':
-      return <MarkCompleteBody card={card} markServiceComplete={vendorMarkServiceComplete} />;
+    case 'mark_complete': {
+      // ✓ The wrap-up card when the event has photos or reviews to check; otherwise v2's quick "I delivered" row.
+      const w = a.wrapUps?.[card.id] ?? null;
+      return w && wrapUpApplies(w) ? <TodayWrapUpBody facts={w} /> : <MarkCompleteBody card={card} markServiceComplete={vendorMarkServiceComplete} />;
+    }
     case 'meeting':
       return <MeetingBody card={card} respondMeeting={respondAppointment} />;
     default:
@@ -170,12 +178,19 @@ function ScreenBody({ card, a, todayIso, onDesk }: { card: WhatsNewCard; a: Toda
   }
 }
 
-/** The open card's one small link: the task's own page (drawing V3 · 0 — "Open in page ›", the same on every card). */
-function CardFoot({ href }: { href: string }) {
+/**
+ * The open card's small links (drawing V3 · 0): "Open in page ›" — the same place as a drag right — and, beside it,
+ * "Do it tomorrow" — the same as a drag left — except on a red card (ruled 19 Nov: the links stay, for people who do
+ * not swipe).
+ */
+function CardFoot({ href, rowKey, level }: { href: string; rowKey: string; level: 'red' | 'amber' | null }) {
   return (
-    <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
-      Open in page ›
-    </a>
+    <>
+      <a href={href} data-today-open-in-page="" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-sn-accent">
+        Open in page ›
+      </a>
+      <TodayTomorrowLink rowKey={rowKey} level={level} />
+    </>
   );
 }
 
@@ -192,7 +207,8 @@ function TaskRow({ r, a, todayIso, onDesk }: { r: TodayTaskRow; a: TodayV2Answer
       line={r.urgency ? `${r.urgency.word} · ${r.line}` : r.line}
       lead={<RowIcon name={r.icon} />}
       urgency={r.urgency?.level ?? null}
-      foot={<CardFoot href={nextHref(r.target)} />}
+      href={nextHref(r.target)}
+      foot={<CardFoot href={nextHref(r.target)} rowKey={r.key} level={r.urgency?.level ?? null} />}
       aside={r.pill ? <Badge tone={r.pill.tone} data="today-need">{r.pill.word}</Badge> : null}
       below={r.tag ? <TodayBadgeTagChip tag={r.tag} /> : null}
     >
@@ -225,7 +241,8 @@ function BillRow({ bill, urgency, copy, todayIso, lockLine }: { bill: DueFeeBill
         lead={<RowIcon name="peso" />}
         urgency={urgency.level}
         attrs={{ 'data-fee-bill-today': '', 'data-testid': 'booking-fee-bill' }}
-        foot={<CardFoot href={pay} />}
+        href={pay}
+      foot={<CardFoot href={pay} rowKey={`fee-${bill.orderId}`} level={urgency.level} />}
         aside={null}
       >
         <div data-today-task-kind="fee">
@@ -252,7 +269,8 @@ function PermitRow({ need, urgency }: { need: TodayNeed; urgency: TodayUrgency }
       lead={<RowIcon name={need.icon} />}
       urgency={urgency.level}
       attrs={{ 'data-today-permit': '' }}
-      foot={<CardFoot href={href} />}
+      href={href}
+      foot={<CardFoot href={href} rowKey={need.key} level={urgency.level} />}
       aside={null}
       below={<TodayBadgeTagChip tag={RECOMMENDED_TAG.renewal ?? null} />}
     >
@@ -277,7 +295,8 @@ function EventRow({ event, urgency }: { event: TodayEventDay; urgency: TodayUrge
       lead={<RowIcon name="calendar" />}
       urgency={urgency.level}
       attrs={{ 'data-today-event-day': event.id }}
-      foot={<CardFoot href={event.href} />}
+      href={event.href}
+      foot={<CardFoot href={event.href} rowKey={`event-${event.id}`} level={urgency.level} />}
       aside={null}
     >
       <div data-today-task-kind="event">
@@ -293,6 +312,8 @@ function EventRow({ event, urgency }: { event: TodayEventDay; urgency: TodayUrge
 export function TodayV2Needs({
   split,
   list,
+  tomorrowMore = [],
+  thisWeek = null,
   billCopy,
   lockLine = null,
   answers,
@@ -304,6 +325,10 @@ export function TodayV2Needs({
   done,
   allDone,
 }: {
+  /** 📅 "This week: N events" — one line that opens the calendar (`thisWeekLine`); null = none or not set. */
+  thisWeek?: { label: string; count: number } | null;
+  /** ⏭ v3 part 2 — the bills, permit and events put off with "Do it tomorrow" (`holdOffEntries`). */
+  tomorrowMore?: ReadonlyArray<{ key: string; label: string; icon: Parameters<typeof RowIcon>[0]['name'] }>;
   split: TodaySplit;
   /** v3: the ONE list, already in its order (`todayOneList`) — tasks, each fee bill, the permit, today's events. */
   list: ReadonlyArray<TodayListEntry<DueFeeBill>>;
@@ -344,6 +369,23 @@ export function TodayV2Needs({
               ),
             )}
           </TodayQuickGroup>
+        </div>
+      ) : null}
+      {/* 📅 THIS WEEK (DECISION_LOG 2026-11-20 item 3): the events beyond tomorrow, one line, opens the calendar. */}
+      {thisWeek ? (
+        <div data-today-this-week={thisWeek.count} className="border-t border-ink/10">
+          <TodayRow href={THIS_WEEK_HREF} label={thisWeek.label} line="Open your calendar" rowIcon="calendar" marker="this-week" />
+        </div>
+      ) : null}
+      {/* ⏭ TOMORROW (v3 part 2, drawing V3 · 2 frame D): what was put off — not counted today, back by itself tomorrow. */}
+      {split.tomorrow.length + tomorrowMore.length > 0 ? (
+        <div data-today-tomorrow="">
+          <TodayEyebrow>
+            {PUT_OFF_WORDS.heading} {formatCount(split.tomorrow.length + tomorrowMore.length)}
+          </TodayEyebrow>
+          {[...split.tomorrow, ...tomorrowMore].map((r) => (
+            <TodayNoteRow key={r.key} label={r.label} line={PUT_OFF_WORDS.back} rowIcon={r.icon} marker={`tomorrow-${r.key}`} />
+          ))}
         </div>
       ) : null}
       {split.unread ? (
@@ -475,7 +517,9 @@ export function TodayRecommended({
           tag={r.tag}
           button={r.button}
           href={r.href}
-          end={r.notNow ? <TodayAsideButton rowKey={r.key} how="notNow" label="Not now" onDesk={onDesk} todayIso={todayIso} /> : null}
+          // ⏭ v3: a credit or gift row is a task — its "Not now" is "Do it tomorrow" (it lapses at Manila midnight, so it IS
+          // back tomorrow). The shop's own room-to-grow rows are not tasks and keep "Not now".
+          end={r.notNow ? <TodayAsideButton rowKey={r.key} how="notNow" label={r.key === 'door-credit' || r.key === 'door-gift' ? PUT_OFF_WORDS.link : 'Not now'} onDesk={onDesk} todayIso={todayIso} /> : null}
         />
       ))}
       <p className="py-1 text-[13px]">

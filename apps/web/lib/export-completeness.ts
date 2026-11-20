@@ -64,6 +64,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
+  { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',

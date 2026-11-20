@@ -510,22 +510,33 @@ export async function fetchDriveSpeed(supabase: SupabaseClient): Promise<DriveSp
 // `read: false` = it could not be read, which is NOT "not set": the admin fields are then locked, as drive speed is.
 // ---------------------------------------------------------------------------
 
-export type GrowLines = { read: true; fewInquiries: number | null; fewBookings: number | null } | { read: false };
+// ⚙ Today v3 part 5 (migration 20271355746081): the same row also holds Today's three other owner numbers — the days of
+// silence before a shared photo counts as accepted, and the two "Soon" windows. Same rule: NULL = not set = off.
+export type GrowLines =
+  | { read: true; fewInquiries: number | null; fewBookings: number | null; silenceDays: number | null; soonAskHours: number | null; soonEventDays: number | null }
+  | { read: false };
 
 export async function fetchGrowLines(supabase: SupabaseClient): Promise<GrowLines> {
   try {
     const { data, error } = await supabase
       .from('platform_settings')
-      .select('grow_few_inquiries_28d, grow_few_bookings_month')
+      .select('grow_few_inquiries_28d, grow_few_bookings_month, story_photo_silence_days, today_soon_ask_hours, today_soon_event_days')
       .eq('id', 1)
       .maybeSingle();
     if (error) {
       logQueryError('platform-settings: fetchGrowLines', error);
       return { read: false };
     }
-    const row = (data ?? {}) as { grow_few_inquiries_28d?: number | string | null; grow_few_bookings_month?: number | string | null };
+    const row = (data ?? {}) as Record<string, number | string | null | undefined>;
     const n = (v: number | string | null | undefined) => (v === null || v === undefined || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Math.trunc(Number(v)));
-    return { read: true, fewInquiries: n(row.grow_few_inquiries_28d), fewBookings: n(row.grow_few_bookings_month) };
+    return {
+      read: true,
+      fewInquiries: n(row.grow_few_inquiries_28d),
+      fewBookings: n(row.grow_few_bookings_month),
+      silenceDays: n(row.story_photo_silence_days),
+      soonAskHours: n(row.today_soon_ask_hours),
+      soonEventDays: n(row.today_soon_event_days),
+    };
   } catch (e) {
     logQueryError('platform-settings: fetchGrowLines (threw)', e);
     return { read: false };

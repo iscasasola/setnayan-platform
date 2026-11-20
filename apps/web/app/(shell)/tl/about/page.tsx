@@ -220,8 +220,7 @@ export default async function AboutPageTaglish() {
               seating, budget, at schedule; free mood board; marketplace ng
               verified Pinoy wedding suppliers na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
-              mong YouTube (Live Watch), candid photo capture (Papic), custom
-              wedding song (Music Maker), at bespoke monograms. Libre ang simula
+              mong YouTube (Live Watch), candid photo capture (Papic), at bespoke monograms. Libre ang simula
               ng ilan, gaya ng isang Papic camera sa bawat event at single-camera
               stream; nasa Pricing page ang presyo ng iba. Kayo ng supplier ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.

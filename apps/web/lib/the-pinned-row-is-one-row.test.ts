@@ -80,7 +80,10 @@ test('Guests — ONE row on every view, pinned from the start: the one menu · �
   assert.match(face, /data-guests-pin-menu=""[^>]*>[^]*?Guests · List/, 'the pinned menu does not say where you are ("Guests · List")');
   assert.doesNotMatch(face, />Settings<|data-guests-seg="share"/, 'Settings rides in the pinned row');
   const doors = [...face.matchAll(/data-reply-filter="(\w+)"/g)].map((m) => m[1]);
-  assert.deepEqual(doors, ['attending', 'declined', 'none'], 'the pinned row lost a reply door (or grew one)');
+  // 👥 Guests redesign (owner 20 Nov 2026, drawing §1: "Top row holds three things: the view picker, Select, Settings")
+  // — the List's ✓ ✕ ? left the row for the summary IN WORDS under it (the same doors, `data-reply-filter`).
+  assert.deepEqual(doors, [], 'the List’s ✓ ✕ ? icons are back in the pinned row — they are words under it now');
+  assert.ok(html.slice(stripAt).includes('data-reply-filter="attending"'), 'the reply doors are gone from the List altogether');
   assert.equal(count(face, /<(a|button)\b/g), 1 + doors.length, 'the pinned face holds a control besides its menu and ✓ ✕ ?');
 
   // ⚙ THE ROW ENDS WITH ITS ⚙ — exactly one in the pinned block, not in the face, the first row's last control.

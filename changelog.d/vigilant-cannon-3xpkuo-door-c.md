@@ -27,3 +27,9 @@ FEATURE_REGISTER row in the corpus (flagged).
 - **PC7 the /i door:** "<shop> invited you" · "You'll show on their page as a trusted partner." · the shop card · "Joining makes you partners at once" · "Free. Tools for your own clients." · I already have a shop · Create my free shop → Door B.
 - **Reverted:** the Shop › "Partnerships" tab keeps its shipped word (title, masthead, Shop tile). "Trusted partners" stays for the tie and the page section, as ruled.
 SPEC IMPACT: None — builds the approved 19 Nov drawing.
+
+## 2026-11-21 · fix(onboarding): caught up with #8028's 375 px fix
+
+Caught up with #8028 + `main` (merge only); PB4's Approve keeps Door C's "Approve page" label. Shot: `build-sessions/shots-onboarding-375/c1-start-375.jpg`.
+
+SPEC IMPACT: None.

@@ -39,6 +39,9 @@
 
 BEGIN;
 
+-- Catalogue rows are read on every checkout: never wait more than 5 s for a lock (ship-controller review, PR #8004).
+SET LOCAL lock_timeout = '5s';
+
 -- ── 3a · Event Pro's description: what the re-cut made untrue (FIRST — see above) ──
 -- 💎 Owner 2026-11-19 (4) + 20 Nov: Event Pro is "Everything in Plus · Setnayan AI · no Setnayan mark", and Plus is the
 -- whole Event Hub. No number in the text — the credits are the row's own column.
@@ -101,6 +104,15 @@ UPDATE public.platform_retail_catalog_v2
        updated_at              = now()
  WHERE service_code = 'COUPLE_WEBSITE_PRO'
    AND fullres_extra_keep_days IS DISTINCT FROM 92;
+
+-- ── 2b · Event Pro's supplier-gift price follows ₱5,490 (controller relay on PR #8004, 20 Nov: "Pro gift_price_php
+--         = 5490"). It was ₱5,190 against the old ₱5,690 (20271308555594). Guarded: only from that old value, so an
+--         admin-set gift price is left alone.
+UPDATE public.platform_retail_catalog_v2
+   SET gift_price_php = 5490,
+       updated_at     = now()
+ WHERE service_code = 'COUPLE_WEBSITE_PRO'
+   AND gift_price_php = 5190;
 
 -- ── 3b · Event Ultra's and Event Plus's descriptions (no typed count, no Patiktok, no AI on Plus) ──
 UPDATE public.platform_retail_catalog_v2

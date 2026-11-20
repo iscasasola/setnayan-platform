@@ -31,6 +31,10 @@ CREDITS + THE WHOLE EVENT HUB" (specs DECISION_LOG 2026-11-20, `Pricing.md` §1.
   event-plans-recut-part2; the store-shell paid-name net now also knows "Event Plus" and "Event Ultra"; the Prints golden
   re-recorded with its reason; a DB test pins Pro at ₱5,490 after the replay and no plan description selling Patiktok.
 
+- **Review fixes (20 Nov, stand-in).** The migration sets `lock_timeout = '5s'`; Event Pro's
+  supplier-gift price moves ₱5,190 → ₱5,490 (guarded: only from ₱5,190). The DB test now pins Pro's
+  3,000 credits and ₱5,490 gift price on the catalogue row (Ultra's 6,000 was already pinned).
+
 SPEC IMPACT: None in this PR — the rulings already live in the specs repo (`PLAN_RULINGS_2026-11-18.md` 34 · 36 · 38,
 DECISION_LOG 2026-11-19 "four calls" and 2026-11-20 "Event Plus = 1,000 Papic credits + the whole Event Hub",
 `Pricing.md` §1.1). Open for the owner: Event Pro's `gift_price_php` (₱5,190) was set against ₱5,690.

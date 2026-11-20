@@ -82,12 +82,18 @@ test('the eleven parts keep the owner’s prices but are OFF SALE — Event Pro 
 });
 
 test('Event Pro is ₱5,490, with no sign-up override (owner 20 Nov 2026; was ₱5,690)', async () => {
-  const r = await db.query<{ php: string; signup: string | null }>(
-    `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup FROM public.platform_retail_catalog_v2
+  const r = await db.query<{ php: string; signup: string | null; gift: string | null; credits: number | null }>(
+    `SELECT retail_price_php::text AS php, onboarding_price_php::text AS signup, gift_price_php::text AS gift,
+            included_papic_credits AS credits
+       FROM public.platform_retail_catalog_v2
       WHERE service_code = 'COUPLE_WEBSITE_PRO'`,
   );
   assert.equal(Number(r.rows[0]!.php), 5490);
   assert.equal(r.rows[0]!.signup, null);
+  // Ruling 36: Event Pro = 3,000 Papic credits — pinned on the catalogue row the activation hook reads.
+  assert.equal(r.rows[0]!.credits, 3000, 'Event Pro carries 3,000 Papic credits');
+  // Controller relay, PR #8004 (20 Nov): Pro's supplier-gift price follows ₱5,490.
+  assert.equal(Number(r.rows[0]!.gift), 5490, 'Event Pro gift price is ₱5,490');
 });
 
 /** A fresh event with these part orders. */

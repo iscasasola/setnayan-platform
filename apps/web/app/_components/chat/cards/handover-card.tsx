@@ -131,14 +131,15 @@ export function ReviewAskCard({
   const got = read.at === 'ok' ? read.data : null;
   const stars = got?.review ? starWords(got.review.rating) : null;
   return (
+    // The drawing's review card wears the quote kind's colour (`KCLS.review = 'k-quote'`); the icon stays the topic's own.
     <KindCard
-      kind="decision"
+      kind="quote"
       topic="decision"
       kicker={stars ? (got!.review!.body ? `“${got!.review!.body}”` : 'Review posted') : mine ? 'Stars and one line' : 'The hosts review'}
       title={
         stars ? (
           <span role="img" aria-label={stars.label} data-review-stars="">
-            <span className="text-kind-decision">{stars.on}</span>
+            <span className="text-kind-quote">{stars.on}</span>
             <span className="text-ink/20">{stars.off}</span>
           </span>
         ) : mine ? (

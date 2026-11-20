@@ -320,7 +320,7 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
           // &f=1 — the hosts' cards with NO seed: each read really goes out, and the lab's dummy database refuses it,
           // so every card draws its honest "Couldn't load" face (never an empty card, never ₱0).
           return (
-            <div className="grid gap-1" data-dealend-lab="failed">
+            <div className="grid grid-cols-1 gap-1" data-dealend-lab="failed">
               <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">
                 <p className="text-[15px] font-bold text-ink">{formatPhp(51_000)} · v2</p>
                 <QuoteTermsLine proposalId={QUOTE.proposalId} supplierName="Lumina Studio" />
@@ -337,11 +337,11 @@ export default async function LaneCLab({ searchParams }: { searchParams: Promise
             ? { handover: null, eventId: EVENT }
             : { eventId: EVENT, handover: { handover_id: 'h1', event_vendor_id: 'v1', kind: 'gallery_link' as const, label: 'Lighting photos · 24', payload: 'https://example.com/album', status, created_at: at, couple_acknowledged_at: status === 'acknowledged' ? at : null } };
         return (
-          <div className="grid gap-4">
+          <div className="grid grid-cols-1 gap-4">
             {(['couple', 'vendor'] as const).map((v) => {
               const name = v === 'couple' ? 'Lumina Studio' : 'you';
               return (
-                <div key={v} className="grid gap-1">
+                <div key={v} className="grid grid-cols-1 gap-1">
                   <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/50">{v === 'couple' ? 'The hosts’ chat' : 'The supplier’s chat'}</p>
                   {v === 'couple' ? (
                     <div className="rounded-[var(--sn-frame-radius)] bg-frame p-3 shadow-sn-hair">

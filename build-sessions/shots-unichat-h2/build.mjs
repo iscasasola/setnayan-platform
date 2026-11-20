@@ -22,6 +22,7 @@ const CARDS = {
   handover: 'section[data-chat-card="files"]',
   review: 'section[data-chat-card="decision"]',
 };
+const ONLY_FAILED = process.env.ONLY_FAILED === '1';
 const MODES = [
   { tag: '375-light', w: 375, h: 812, dark: false },
   { tag: '375-dark', w: 375, h: 812, dark: true },
@@ -42,7 +43,7 @@ async function open(mode, q = '') {
 }
 
 const gutters = [];
-for (const mode of MODES) {
+for (const mode of ONLY_FAILED ? [] : MODES) {
   const { ctx, page } = await open(mode);
   await page.screenshot({ path: `${HERE}/build-all-${mode.tag}.png`, fullPage: true });
   // Gutters: every hosts'-side card's left and right distance to the viewport edge.
@@ -62,9 +63,10 @@ for (const mode of MODES) {
 for (const [q, tag] of [['&e=1', 'empty-375-light'], ['&f=1', 'failed-375-light'], ['&f=1', 'failed-375-dark']]) {
   const mode = { w: 375, h: 812, dark: tag.endsWith('dark') };
   const { ctx, page } = await open(mode, q);
-  await page.waitForTimeout(q === '&f=1' ? 4000 : 0);
+  // The refused reads must have ANSWERED (each card's "Couldn't load"), not merely be loading.
+  if (q === '&f=1') await page.waitForFunction(() => document.querySelectorAll('[data-card-read="failed"]').length >= 4 && document.querySelector('[data-quote-terms="failed"]'), null, { timeout: 120000 }).catch((e) => console.log('failed-wait', e.message.slice(0, 120)));
   await page.screenshot({ path: `${HERE}/build-${tag}.png`, fullPage: true });
-  if (q === '&f=1') console.log(tag, JSON.stringify(await page.locator('[role="alert"]').allInnerTexts()));
+  if (q === '&f=1') console.log(tag, JSON.stringify(await page.locator('[data-card-read="failed"] [role="alert"], [data-quote-terms="failed"]').allInnerTexts()));
   await ctx.close();
 }
 console.log('GUTTERS', JSON.stringify(gutters, null, 1));

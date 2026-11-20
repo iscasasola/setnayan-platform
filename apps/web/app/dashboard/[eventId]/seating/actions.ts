@@ -53,6 +53,7 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
+import { seatingFloorOf, seatingGridLayout } from '@/lib/plan-maker';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -2585,6 +2586,27 @@ export async function buildSeatingDraft(
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
+  /* ↩ UNDO THE DRAFT (owner 2026-11-20: the draft's message is ONE line with Undo) — an intent of this action (the
+     server-action ceiling), never a second one. It takes back exactly the tables the draft made (the ids the screen
+     saw arrive), for this event only, in ONE statement; their seats go with them (ON DELETE CASCADE). */
+  const undoRaw = formData.get('undo_table_ids');
+  if (typeof undoRaw === 'string' && undoRaw.length > 0) {
+    let ids: string[] = [];
+    try {
+      const parsed = JSON.parse(undoRaw);
+      if (Array.isArray(parsed)) ids = parsed.filter((x): x is string => typeof x === 'string').slice(0, 200);
+    } catch {
+      ids = [];
+    }
+    if (ids.length > 0) {
+      const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', ids);
+      if (error) throw new Error(error.message);
+    }
+    await refreshSeatingLock(supabase, lockId);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { tables: 0, seated: 0 };
+  }
+
   const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
     fetchTables(supabase, eventId),
     guestsOrStop(supabase, eventId),
@@ -2633,12 +2655,23 @@ export async function buildSeatingDraft(
   // percent of the canvas, so a nominal server-side rect renders correctly at
   // any real canvas size — the same stub-rect path the unit tests exercise.
   const tables = await fetchTables(supabase, eventId);
-  const layout = computeAutoLayout({
-    tables,
-    floorPlan,
-    rect: { width: 1000, height: 680 },
-    footprintOf: (t) => tableGeometry(shapeHintFor(t.table_type), t.capacity).box,
-  });
+  /* 🪑 THE DRAFT USES THE GRID (owner 2026-11-20, "Tables that line up"): rows facing the stage, each centred on the
+     stage line, the couple's table alone on the line — the shared core's `seatingGridLayout`, the SAME rows a table
+     added by hand joins. (It used to lay raw drawing boxes on a nominal canvas, so a row of two was never either side
+     of the line.) A table the room has no line for keeps the old layout's spot rather than no spot. */
+  const grid = seatingGridLayout(
+    seatingFloorOf(floorPlan),
+    tables.map((t) => ({ id: t.table_id, table_type: t.table_type, capacity: t.capacity })),
+  );
+  const spill = tables.some((t) => !grid[t.table_id])
+    ? computeAutoLayout({
+        tables,
+        floorPlan,
+        rect: { width: 1000, height: 680 },
+        footprintOf: (t) => tableGeometry(shapeHintFor(t.table_type), t.capacity).box,
+      })
+    : {};
+  const layout: Record<string, { x: number; y: number }> = { ...spill, ...grid };
   for (const t of tables) {
     const p = layout[t.table_id];
     if (!p) continue;

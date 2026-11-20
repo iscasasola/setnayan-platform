@@ -9,6 +9,11 @@
  */
 
 import dynamic from 'next/dynamic';
+import { useCallback, useState } from 'react';
+import { PlanPoster } from '@/app/_components/plan-maker/plan-maker';
+import { isCoupleTableType, snapDoor, type Plan } from '@/lib/plan-maker';
+import { DEFAULT_ROOM_M } from '@/lib/seating';
+import { formatCount } from '@/lib/format-number';
 import type {
   Lab3DTable,
   Lab3DFloor,
@@ -27,18 +32,11 @@ import type { ReceptionDesign } from '@/lib/reception-scene';
 import type { MoodboardStyleFamily } from '@/lib/moodboard-templates';
 import type { GhostBooth3D } from '@/lib/ghost-booths';
 
-const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="flex h-[80vh] w-full items-center justify-center rounded-2xl bg-ink/[0.03] text-sm text-ink/70"
-      role="status"
-      aria-live="polite"
-    >
-      Loading the 3D room…
-    </div>
-  ),
-});
+/* 🖼 NEVER A BLANK SCREEN (owner 2026-11-20, drawing § 6; the fault, live: 15–20 s of black while the room loaded). The
+   room's code and its scene take that long on a phone; the couple's own floor plan is already known. So the plan is
+   drawn AT ONCE as a poster, with "Building your room…" over it, and it lifts when the room has drawn its first frames
+   (`onRoomReady`). The bundle's own placeholder is therefore nothing — the poster is what shows. */
+const SeatingLab3D = dynamic(() => import('./seating-lab-3d'), { ssr: false, loading: () => null });
 
 type Props = {
   eventId: string;
@@ -98,5 +96,48 @@ type Props = {
 };
 
 export function SeatingLabLoader(props: Props) {
-  return <SeatingLab3D {...props} />;
+  const [ready, setReady] = useState(false);
+  const onRoomReady = useCallback(() => setReady(true), []);
+  return (
+    <>
+      <SeatingLab3D {...props} onRoomReady={onRoomReady} />
+      {ready ? null : <RoomBuilding tables={props.tables} floor={props.floor} guests={props.guests} />}
+    </>
+  );
+}
+
+/** The plan as a poster while the 3D room builds — the shared core's drawing (`PlanPoster`), nothing of its own. */
+export function RoomBuilding({ tables, floor, guests }: Pick<Props, 'tables' | 'floor' | 'guests'>) {
+  const plan: Plan = {
+    room: { widthM: floor.venueWidthM, depthM: floor.venueLengthM },
+    doors: floor.entrance.enabled ? [{ id: 'entrance', kind: 'main', ...snapDoor(floor.entrance.xPct, floor.entrance.yPct) }] : [],
+    tables: tables.map((t) => ({
+      id: t.id,
+      label: t.label.match(/\d+/)?.[0] ?? t.label,
+      kind: isCoupleTableType(t.type) ? t.type : 'round',
+      chairs: t.capacity,
+      x: t.xPct,
+      y: t.yPct,
+      rotationDeg: t.rotationDeg,
+      removedSeats: t.removedSeats,
+      linked: t.linkGroupId != null,
+    })),
+  };
+  // The couple's unsized board is 20 × 30 m (the plan core's own default is a shop's landscape room).
+  if (plan.room.widthM === null || plan.room.depthM === null) plan.room = { widthM: DEFAULT_ROOM_M.w, depthM: DEFAULT_ROOM_M.d };
+  const seated = guests.filter((g) => g.seatedTableId).length;
+  return (
+    <div data-room-building="" role="status" aria-live="polite" className="absolute inset-0 z-40 flex items-center justify-center bg-[#13151c] p-6 text-white">
+      <PlanPoster plan={plan} className="max-h-full max-w-full opacity-40" />
+      <div className="absolute left-1/2 top-1/2 w-[min(18rem,80%)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/15 bg-black/60 p-4 backdrop-blur-md">
+        <p className="text-[15px] font-semibold">Building your room…</p>
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/20" aria-hidden>
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-champagne" />
+        </div>
+        <p className="mt-2 text-[13px] text-white/75">
+          {formatCount(tables.length)} {tables.length === 1 ? 'table' : 'tables'}, {formatCount(seated)} of {formatCount(guests.length)} guests seated. Your floor plan shows meanwhile.
+        </p>
+      </div>
+    </div>
+  );
 }

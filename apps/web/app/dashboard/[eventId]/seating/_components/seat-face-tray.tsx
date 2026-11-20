@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { UsersRound, X } from 'lucide-react';
 import { dragEdgeStep } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
@@ -81,6 +81,8 @@ export function SeatFaceTray({
   groups,
   canEdit,
   hasTables = true,
+  title,
+  foot,
   onTapFace,
   onMore,
   onDrop,
@@ -94,6 +96,10 @@ export function SeatFaceTray({
   canEdit: boolean;
   /** The floor has at least one table. With none there is no chair to drag to, so the line says so (#7906 walker). */
   hasTables?: boolean;
+  /** The card's own heading in place of "To seat · N" — the empty floor's "8 guests to seat ⓘ" (`seat-floor-start.tsx`). */
+  title?: ReactNode;
+  /** Drawn under the faces, inside the card — the empty floor's first-step buttons. The card then says no hint line. */
+  foot?: ReactNode;
   /** A tap on a face (no hold): the shipped "Move Tess to…". */
   onTapFace: (guestId: string) => void;
   /** "+6": the rest of the people still to seat. */
@@ -291,7 +297,7 @@ export function SeatFaceTray({
     [moveL, upL, cancelL],
   );
 
-  if (total === 0 && groups.length === 0) return null;
+  if (total === 0 && groups.length === 0 && !foot) return null;
   return (
     <div ref={trayRef} data-seat-tray={held ? 'held' : ''} className="flex flex-col gap-2">
       {held ? (
@@ -315,14 +321,16 @@ export function SeatFaceTray({
       ) : null}
       <div className="sn-frame px-3.5 py-3">
         <p className="flex items-baseline gap-2">
-          <b className="shrink-0 text-[13.5px] font-semibold text-ink">To seat · {formatCount(total)}</b>
-          <small className="min-w-0 text-xs text-ink/70" data-seat-tray-hint="">
-            {!canEdit
-              ? 'Tap Edit first to seat them.'
-              : hasTables
-                ? 'Press and hold a face, then drag it to a chair. Or tap · move.'
-                : 'No tables yet — Build my seating draft, or Add your first table.'}
-          </small>
+          {title ?? <b className="shrink-0 text-[13.5px] font-semibold text-ink">To seat · {formatCount(total)}</b>}
+          {foot ? null : (
+            <small className="min-w-0 text-xs text-ink/70" data-seat-tray-hint="">
+              {!canEdit
+                ? 'Tap Edit first to seat them.'
+                : hasTables
+                  ? 'Tap a table, or hold a face and drop it.'
+                  : 'No tables yet — Seat everyone for me, or Add a table.'}
+            </small>
+          )}
         </p>
         <div ref={rowRef} className="mt-2 flex flex-wrap items-center gap-2" style={NO_CALLOUT}>
           {shown.map((f) => {
@@ -386,6 +394,7 @@ export function SeatFaceTray({
             );
           })}
         </div>
+        {foot ? <div className="mt-3" data-seat-tray-foot="">{foot}</div> : null}
       </div>
     </div>
   );

@@ -30,6 +30,7 @@
  */
 import {
   CHAIR_PX,
+  DEFAULT_ROOM_M,
   TABLE_FOOTPRINT_M,
   TABLE_TYPE_CATALOG,
   computeAutoLayout,
@@ -898,4 +899,70 @@ export function planRoomWords(room: PlanRoom, name?: string | null): { name: str
   const r = planRoomM(room);
   const n = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(1));
   return { name: name?.trim() || 'Your room', size: `${n(r.widthM)} × ${n(r.depthM)} m` };
+}
+
+// ── The couple's floor on the grid (event tables, filled from the guest list) ────────────────────────────────────────
+
+/** A couple's floor as the grid reads it: the room in metres, the stage, and the areas no table stands on. */
+export type SeatingFloor = { roomM: { w: number; d: number }; stage: GridArea; areas: GridArea[] };
+
+type FloorPlanForGrid = Pick<
+  FloorPlanRow,
+  | 'venue_width_m' | 'venue_length_m'
+  | 'stage_x' | 'stage_y' | 'stage_w' | 'stage_h'
+  | 'dance_enabled' | 'dance_x' | 'dance_y' | 'dance_w' | 'dance_h'
+  | 'cocktail_enabled' | 'cocktail_x' | 'cocktail_y' | 'cocktail_w' | 'cocktail_h'
+>;
+
+/** The couple's saved floor plan as a `SeatingFloor` — an unsized room is the couple's default 20 × 30 m board. */
+export function seatingFloorOf(fp: FloorPlanForGrid): SeatingFloor {
+  const sized = fp.venue_width_m !== null && fp.venue_length_m !== null && fp.venue_width_m > 0 && fp.venue_length_m > 0;
+  return {
+    roomM: sized ? { w: fp.venue_width_m!, d: fp.venue_length_m! } : { ...DEFAULT_ROOM_M },
+    stage: { x: fp.stage_x, y: fp.stage_y, w: fp.stage_w, h: fp.stage_h },
+    areas: [
+      ...(fp.dance_enabled ? [{ x: fp.dance_x, y: fp.dance_y, w: fp.dance_w, h: fp.dance_h }] : []),
+      ...(fp.cocktail_enabled ? [{ x: fp.cocktail_x, y: fp.cocktail_y, w: fp.cocktail_w, h: fp.cocktail_h }] : []),
+    ],
+  };
+}
+
+type SeatingTableLike = Pick<EventTableRow, 'table_type' | 'capacity'>;
+
+/** A couple table's real footprint, chairs included, as percent of the room — what the floor draws it at. */
+export function seatingBoxPct(t: SeatingTableLike, roomM: { w: number; d: number }): { w: number; h: number } {
+  const g = tableGeometry(shapeHintFor(t.table_type), t.capacity);
+  const wM = TABLE_FOOTPRINT_M[t.table_type];
+  return { w: (wM / roomM.w) * 100, h: (((g.box.h / g.box.w) * wM) / roomM.d) * 100 };
+}
+
+/** The couple's own table keeps its row to itself, on the stage line. */
+const keepsItsRow = (t: SeatingTableLike) => shapeHintFor(t.table_type) === 'sweetheart';
+
+/** Where a NEW couple table lands on this floor (`joinRow`), given every table already placed. */
+export function seatingJoinRow(
+  floor: SeatingFloor,
+  placed: ReadonlyArray<SeatingTableLike & { id: string; x: number; y: number }>,
+  add: SeatingTableLike,
+): JoinRowResult | null {
+  return joinRow({
+    boxes: placed.map((t) => ({ id: t.id, x: t.x, y: t.y, ...seatingBoxPct(t, floor.roomM) })),
+    add: seatingBoxPct(add, floor.roomM),
+    addAlone: keepsItsRow(add),
+    alone: new Set(placed.filter(keepsItsRow).map((t) => t.id)),
+    stage: floor.stage,
+    areas: floor.areas,
+  });
+}
+
+/** A whole couple floor on the grid, tables in the order given (`gridLayout`) — "Seat everyone for me". */
+export function seatingGridLayout(
+  floor: SeatingFloor,
+  tables: ReadonlyArray<SeatingTableLike & { id: string }>,
+): Record<string, { x: number; y: number }> {
+  return gridLayout({
+    stage: floor.stage,
+    areas: floor.areas,
+    tables: tables.map((t) => ({ id: t.id, ...seatingBoxPct(t, floor.roomM), alone: keepsItsRow(t) })),
+  });
 }

@@ -23,6 +23,8 @@ const CARDS = {
   review: 'section[data-chat-card="decision"]',
 };
 const ONLY_FAILED = process.env.ONLY_FAILED === '1';
+// CARDS=handover,review — reshoot only the cards whose look changed (full pages, gutters and pairs still refresh).
+const ONLY_CARDS = process.env.CARDS ? process.env.CARDS.split(',') : null;
 const MODES = [
   { tag: '375-light', w: 375, h: 812, dark: false },
   { tag: '375-dark', w: 375, h: 812, dark: true },
@@ -53,6 +55,7 @@ for (const mode of ONLY_FAILED ? [] : MODES) {
   await page.click('[data-crew-day-card="ok"] summary');
   await page.waitForTimeout(400);
   for (const [name, sel] of Object.entries(CARDS)) {
+    if (ONLY_CARDS && !ONLY_CARDS.includes(name)) continue;
     const el = page.locator(sel).first();
     await el.scrollIntoViewIfNeeded();
     await el.screenshot({ path: `${HERE}/build-${name}-${mode.tag}.png` });
@@ -78,6 +81,7 @@ const pp = await pageCtx.newPage();
 const uri = (f) => 'data:image/png;base64,' + readFileSync(f).toString('base64');
 for (const mode of MODES) {
   for (const [name, scene] of Object.entries(SCENE)) {
+    if (ONLY_CARDS && !ONLY_CARDS.includes(name)) continue;
     const d = `${HERE}/drawing-${scene}-${mode.tag}.png`, b = `${HERE}/build-${name}-${mode.tag}.png`;
     if (!existsSync(d) || !existsSync(b)) continue;
     const bg = mode.dark ? '#121110' : '#F7F4EE', ink = mode.dark ? '#F7F4EE' : '#1B1A17';

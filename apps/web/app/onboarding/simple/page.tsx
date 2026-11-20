@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { EVENT_DATE_FLOOR_MESSAGE, eventDateMinFor } from '@/lib/event-date-floor';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
@@ -55,9 +56,7 @@ export default async function SimpleOnboardingPage({
   searchParams: SearchParams;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=/onboarding/simple');
 
   // If the type isn't live in the create-roster, send them back to the picker.

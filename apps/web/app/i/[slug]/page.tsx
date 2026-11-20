@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { LogIn, Handshake } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { ActionButton } from '@/components/action-button';
@@ -45,9 +46,7 @@ export default async function SupplierInvitePage({
   if (!inviter) notFound();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const own = user ? await fetchOwnVendorProfile(supabase, user.id) : null;
   const hasShop = Boolean((own as { business_name?: string | null } | null)?.business_name?.trim());
   const isSelf = own?.vendor_profile_id === inviter.vendorProfileId;

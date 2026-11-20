@@ -89,7 +89,8 @@ export function EventTodayGroup({ eventId, children }: { eventId: string; childr
       // one-render: keep (navigation) — a drag right opens the row's own page, like "Open in page ›"
       go: (href) => (router ? router.push(href) : window.location.assign(href)),
       // one-render: keep (retry) — a row whose read failed, pressed by the person; no write came before it.
-      reload: () => (router ? router.refresh() : window.location.reload()),
+      // Never a whole-page reload (a-save-never-resets-the-screen): the reads run again in place.
+      reload: () => router?.refresh(),
     }),
     [eventId, openKey, run, say, router],
   );
@@ -241,6 +242,11 @@ export function EventTodayRowItem({ row, children }: { row: EventTodayRow; child
           ) : null}
           {row.task ? <p className="text-[14px] text-[color:var(--sn-ink-500)]">{tick ? 'Tap the circle when it is done.' : 'Open it in your plan to finish it.'}</p> : null}
           {row.say ? <p className="text-[14px] text-[color:var(--sn-ink-500)]">{row.say}</p> : null}
+          {row.names && row.names.length > 0 ? (
+            <p className="text-[15px] font-semibold text-[color:var(--sn-ink-900)] [overflow-wrap:anywhere]" data-event-today-names="">
+              {row.names.join(' · ')}
+            </p>
+          ) : null}
           {children}
           {row.door && !children ? (
             <span className="mt-1 self-start">

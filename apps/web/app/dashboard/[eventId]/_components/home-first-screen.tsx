@@ -121,7 +121,7 @@ export type HomeFirstScreenProps = {
    * null = they could not be read — then nothing is held off), and Manila's day. Nothing renders above the cover: the
    * cover is the top of Home. Absent = no asks, no records (a lab).
    */
-  todayList?: { asks?: readonly EventTodayAsk[]; bodies?: Record<string, ReactNode>; putOffs: readonly PutOffRecord[] | null; todayIso: string };
+  todayList?: { asks?: readonly EventTodayAsk[]; bodies?: Record<string, ReactNode>; putOffs: readonly PutOffRecord[] | null; todayIso: string; inviteNames?: readonly string[] };
   /** Papic · Setnayan AI · … with their status — already filtered (store shell). */
   services: HomeService[];
   /**
@@ -223,7 +223,7 @@ export function HomeFirstScreen({
   const c = control.countdown;
   // ☀ The event's Today as ONE list (owner 20 Nov 2026): what Home already read, ordered by urgency; the strip's item
   // is left out, and this person's put-offs sit under "Tomorrow".
-  const list = buildEventToday({ control, today, asks: todayList?.asks, putOffs: todayList ? todayList.putOffs : [], todayIso: todayList?.todayIso ?? manilaToday() });
+  const list = buildEventToday({ control, today, asks: todayList?.asks, putOffs: todayList ? todayList.putOffs : [], todayIso: todayList?.todayIso ?? manilaToday(), inviteNames: todayList?.inviteNames });
   return (
     /* 📅 "Later" beside a widget's verb folds Now for today, on this device (owner 2026-10-23). */
     <HomeTodayFold eventId={eventId} kind={next.kind}>

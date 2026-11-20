@@ -110,7 +110,7 @@ import { DATE_FINDER_VALUE } from '@/lib/home-date-finder';
    work". This side-effect import puts the action, and so the editors it draws, in Home's server graph.
    🔒 `_components/the-settings-sheet-is-in-homes-graph.test.ts`. */
 import './_components/open-event-settings';
-import { rosterStats } from '@/lib/guest-roster-view';
+import { rosterStats, toInviteNames } from '@/lib/guest-roster-view';
 import { homeCoverFor } from '@/lib/home-cover.server';
 import { DateChangeDoorway, readDateChange, type DateChangeRead } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
@@ -1220,7 +1220,7 @@ export default async function EventHomePage({
     <HomeFirstScreen
       eventId={eventId}
       cover={homeCover0}
-      todayList={{ asks: todayRows.asks, bodies: todayRows.bodies, putOffs: todayPutOffs, todayIso }}
+      todayList={{ asks: todayRows.asks, bodies: todayRows.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames(guests) }}
       /* ⚙ Event Settings on the cover — the couple's, who change the event's own facts (owner 2026-10-29). */
       eventSettings={viewerMemberType === 'couple'}
       /* 🪪 …and a helper's (a coordinator or limited helper — every non-host seat is a `coordinator` member): the same ⚙,

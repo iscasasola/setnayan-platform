@@ -74,6 +74,8 @@ export type EventTodayRow = {
   reload?: boolean;
   /** An offer, not a task (“Prepare for event day”): listed, never counted. */
   offer?: boolean;
+  /** "Send the invitations": who has not been sent theirs (`toInviteNames`), drawn in the open card. */
+  names?: string[];
 };
 
 /** An ask the page already read (an access request, a coordinator's level, the Mood Board, a date change …). */
@@ -170,6 +172,8 @@ export function buildEventToday(i: {
   putOffs: readonly PutOffRecord[] | null;
   /** Manila's day, `YYYY-MM-DD`. */
   todayIso: string;
+  /** The guests not yet sent their invitation, by name (`toInviteNames` — the rows `toInvite` counts). */
+  inviteNames?: readonly string[];
 }): EventToday {
   const { control, today } = i;
   const e = control.eventId;
@@ -325,6 +329,7 @@ export function buildEventToday(i: {
         putOff: true,
         door: { label: invite ? 'Send the invitations' : action.verb, href: action.href },
         ...(invite && guests ? { say: `${n(guests.toInvite)} ${guests.toInvite === 1 ? 'guest has' : 'guests have'} not been sent their invitation.` } : {}),
+        ...(invite && i.inviteNames && i.inviteNames.length > 0 ? { names: [...i.inviteNames] } : {}),
       });
     }
   }
@@ -335,7 +340,7 @@ export function buildEventToday(i: {
   const tomorrow: EventTodayRow[] = [];
   for (const raw of orderByUrgency(rows)) {
     // A red row can never go to tomorrow, and neither can a "couldn't load" row or a key the record cannot hold.
-    const putOff = raw.kind !== 'unread' && EVENT_PUT_OFF_KEY.test(raw.key);
+    const putOff = raw.kind !== 'unread' && canPutOff(raw.urgency?.level) && EVENT_PUT_OFF_KEY.test(raw.key);
     const row = { ...raw, putOff };
     if (putOff && held.has(row.key)) tomorrow.push(row);
     else list.push(row);

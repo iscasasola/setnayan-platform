@@ -9,7 +9,8 @@
  *   4 · "Do it tomorrow" moves a row under Tomorrow and out of the count — never a red row, and never on an unread
  *       record list;
  *   5 · a failed read is a "couldn't load" row, never "nothing needs you";
- *   6 · the Budget card leaves out the strip's payment and every red payment row — a due-soon one stays.
+ *   6 · the Budget card leaves out the strip's payment and every red payment row — a due-soon one stays;
+ *   7 · the invitations card names exactly the guests `toInvite` counts.
  *
  * SABOTAGE (each seen red once, 2026-11-20, then reverted): `orderByUrgency(rows)` → `rows` (2 red) · the
  * `p.id === today.holds?.pay` skip removed (2 red) · `canPutOff(raw.urgency?.level)` dropped from the split (4 red) ·
@@ -20,6 +21,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fixtureControl, fixtureControlUnread, fixtureDay } from './home-control-fixture';
 import { homeToday, homeWaiting, type HomeControlInput } from '@/app/dashboard/[eventId]/_components/home-control-faces';
+import { rosterStats, toInviteNames } from './guest-roster-view';
+import type { GuestRow } from './guests';
 import { buildEventToday, deadlineUrgency, eventTodayNeedWords, paysHeldByToday, payUrgency, taskUrgency, type EventTodayAsk } from './event-today';
 
 const TODAY = '2026-11-20';
@@ -145,4 +148,15 @@ test('6 · the Budget card leaves out the strip’s payment and every red paymen
   assert.deepEqual(paysHeldByToday(two, 'li-1').sort(), ['li-1', 'li-3']);
   assert.ok(!paysHeldByToday(two, 'li-1').includes('li-2'), 'a due-soon payment left the Budget card');
   assert.deepEqual(paysHeldByToday('unread', null), []);
+});
+
+test('7 · the invitations card names who has not been sent theirs — the same rows the count counts', () => {
+  const g = (first: string, over: Record<string, unknown> = {}) =>
+    ({ first_name: first, last_name: 'Cruz', display_name: null, role: 'guest', rsvp_status: 'pending', entry_source: 'host', passed_away: false, represented_by_guest_id: null, invitation_sent_at: null, ...over }) as unknown as GuestRow;
+  const guests = [g('Remedios'), g('Ben'), g('Sent', { invitation_sent_at: '2026-11-01' }), g('Gone', { passed_away: true }), g('Said yes', { rsvp_status: 'attending' })];
+  assert.deepEqual(toInviteNames(guests), ['Remedios Cruz', 'Ben Cruz']);
+  assert.equal(toInviteNames(guests).length, rosterStats(guests).toInvite, 'the names and the count read two rules');
+  const t = buildEventToday({ control: fixtureControl('e1'), today: homeToday(fixtureControl('e1').next, fixtureControl('e1').guests, homeWaiting(fixtureControl('e1'))), putOffs: [], todayIso: TODAY, inviteNames: ['Remedios Cruz', 'Ben Cruz'] });
+  assert.deepEqual(t.list.find((r) => r.key === 'setup:invite')?.names, ['Remedios Cruz', 'Ben Cruz']);
+  assert.equal(build(fixtureControl('e1')).list.find((r) => r.key === 'setup:invite')?.names, undefined, 'names drawn from nowhere');
 });

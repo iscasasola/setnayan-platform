@@ -154,7 +154,7 @@ export function HomeCoverBand({
               {/* 📏 ONE LINE (owner 20 Nov 2026, "make it look better" — the card about 40% less tall): "21 days to go ·
                   Sat 12 Dec". The full date and the place stay in the door's name; the place stays on the line. */}
               <span aria-hidden className="hc-ecard-w">
-                <span>{countdown.label}</span>
+                {countdown.label}
                 {cardDate ? (
                   <>
                     {countdown.label ? ' · ' : ''}

@@ -96,7 +96,7 @@ test('2 · Home draws nothing above the cover; the four prompts live only in tod
   // RE-AIMED 20 Nov 2026: before the day the SAME asks are rows of the first screen's one list — worded from the very
   // reads the doorways above take (`eventTodayAsks`), handed in as `todayList`; the lines themselves are drawn only
   // where there is no cover.
-  assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso \}\}/, 'the asks are not handed to the first screen as rows');
+  assert.match(page, /todayList=\{\{ asks: todayRows\.asks, bodies: todayRows\.bodies, putOffs: todayPutOffs, todayIso, inviteNames: toInviteNames\(guests\) \}\}/, 'the asks are not handed to the first screen as rows');
   assert.match(page, /eventTodayAsks\(\{\s*eventId,\s*access: accessAsks,\s*coordinator: coordinatorAsks,\s*mood: moodAsks,\s*dateChange,/, 'the list’s asks are not the doorways’ own reads');
   for (const [door, read] of [['CoordinatorLevelCard', 'coordinatorAsks'], ['AccessRequestsDoorway', 'accessAsks'], ['MoodBoardAsksDoorway', 'moodAsks'], ['DateChangeDoorway', 'dateChange']] as const) {
     assert.match(block, new RegExp(`<${door} [^>]*read=\\{${read}\\}`), `<${door}> reads again instead of taking the page's one read`);

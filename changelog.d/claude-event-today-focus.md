@@ -28,6 +28,8 @@ there is vital or maybe you can make it look better"* · *"Yes, build it"*. Stac
   as drawn.
 - After the plan's three tasks, ONE row "N more plan tasks this week ›" (the plan's own figure less what is on
   screen), then the kept line "N% of the plan done · All N this week ›".
+- The open "Send the invitations" card names who has not been sent theirs (`toInviteNames` in
+  `lib/guest-roster-view.ts` — the very rows `rosterStats().toInvite` counts, from the guest read Home already makes).
 - A read that failed is a "couldn't load" row — never folded into "Nothing needs you today".
 - The asks are read once by the page (`readCoordinatorLevelAsks`, `readMoodBoardAsks`, `readDateChange` — the reads
   their doorways ran) and handed both to the list and to the doorways. The day-of console and the after-the-day

@@ -60,10 +60,10 @@ test('a bundle: one photo from each of its services in turn, each named by its s
   );
 });
 
-test("the beat is the front door hero's five seconds", () => {
+test('the beat is five seconds', () => {
+  // The 4 Nov front-door hero turned its photos every 5 s and the card took the same beat. That hero retired with the
+  // 20 Nov front page (one still photo — prototypes/front_page_home_2026-11-19 v5); the card keeps the 5 s beat.
   assert.equal(COVER_BEAT_MS, 5000);
-  const hero = src('app/_components/frontdoor/front-door-hero.tsx');
-  assert.match(hero, /LOOP_MS\s*=\s*5000\b/, 'the front door hero changed its beat — say whether the card follows');
   assert.match(SHOW, /setInterval\([\s\S]{0,120}COVER_BEAT_MS\)/);
 });
 

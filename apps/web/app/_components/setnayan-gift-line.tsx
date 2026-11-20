@@ -26,8 +26,10 @@ import { SETNAYAN_PHOTO_GIFT_RETIRED } from '@/lib/setnayan-gift';
  * maker and the couple's card use two different palettes, and the WORDS are the
  * part that must not differ.
  */
-export const SETNAYAN_GIFT_CARD_COPY =
-  'Includes a Setnayan gift — free Papic photos for your event, sized to the booking';
+/** What the gift IS, in the one wording — quoted by the card line below and by the front page's gift row. */
+export const SETNAYAN_GIFT_PHOTOS = 'free Papic photos for your event';
+
+export const SETNAYAN_GIFT_CARD_COPY = `Includes a Setnayan gift — ${SETNAYAN_GIFT_PHOTOS}, sized to the booking`;
 
 export function SetnayanGiftLine({
   className,

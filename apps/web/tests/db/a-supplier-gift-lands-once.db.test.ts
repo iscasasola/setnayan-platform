@@ -720,3 +720,134 @@ test('10 · 🏅 badge-reward Papic is kept PER PACK — a Gold reward is one Pa
     /permission denied/,
   );
 });
+
+type OwnGive = { status: string; own_gift_id?: string; pack_code?: string; wanted?: number; free?: number };
+async function ownGive(shop: string, eventId: string, lines: unknown[]): Promise<OwnGive> {
+  return one<OwnGive>(`SELECT public.own_client_gift_give($1, $2, 'own_link', NULL, $3::jsonb, NULL, 'none') AS v`, [shop, eventId, JSON.stringify(lines)]);
+}
+const line150 = { service_code: 'PAPIC_GUEST_150', title: 'Papic 150', kind: 'papic', credits: 150 };
+const line1k = { service_code: P1K, title: 'Papic 1000', kind: 'papic', credits: 1000 };
+async function bareEvent(): Promise<string> {
+  n += 1;
+  return one<string>(`INSERT INTO public.events (display_name, event_type) VALUES ($1, 'birthday') RETURNING event_id AS v`, [`own client pack ${n}`]);
+}
+
+// Review of #7678 (19 Nov 2026). Main's own-client door wrote its Papic row with no pack; the pack ledger and the quote
+// door read only SUM(packs) — so the pack stayed in "Your gifts" and was given AGAIN on a quote.
+// Sabotage: drop `pack_code, packs` from the door's own_client INSERT → the pack count stays 1 and the quote gift lands.
+test('11 · 🚨 a pack given to an OWN CLIENT leaves the pack count — it cannot be given again, on a quote or to another own client', async () => {
+  const uH = await newUser('shop-h-gifts@test.test', 'vendor');
+  const shopH = await shopOf(uH, 'Gift Shop H');
+  await stockIn(shopH, 1, await giftOrder(uH, shopH), 'PAPIC_GUEST_150', 150);
+  assert.deepEqual(await packStatus(shopH, 'PAPIC_GUEST_150'), { balance: 1, held: 0 });
+
+  const first = await ownGive(shopH, await bareEvent(), [line150]);
+  assert.equal(first.status, 'ok');
+  assert.deepEqual(await packStatus(shopH, 'PAPIC_GUEST_150'), { balance: 0, held: 0 }, 'the given pack is still in "Your gifts"');
+  const row = await db.query<{ pack_code: string | null; packs: number | null; delta: number }>(
+    `SELECT pack_code, packs, delta FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND kind = 'own_client'`,
+    [shopH],
+  );
+  assert.deepEqual(row.rows.map((r) => [r.pack_code, Number(r.packs), Number(r.delta)]), [['PAPIC_GUEST_150', -1, -150]]);
+
+  // …so the SAME pack cannot go out on a quote:
+  const quote = await bookingWithQuote(shopH, 'accepted', 1, 'PAPIC_GUEST_150', 150);
+  await pay(quote.eventVendorId);
+  const onQuote = await deliver(quote.eventVendorId);
+  assert.equal(onQuote.status, 'short', 'the pack an own client already received was given again on a quote');
+  const pool = await one<number>(`SELECT COALESCE(SUM(points), 0)::int AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'shop_gift'`, [quote.eventId]);
+  assert.equal(pool, 0, 'credits reached the quote couple from a pack that was gone');
+
+  // …nor to a second own client:
+  const second = await ownGive(shopH, await bareEvent(), [line150]);
+  assert.equal(second.status, 'short');
+  assert.equal(second.pack_code, 'PAPIC_GUEST_150');
+  assert.equal(second.wanted, 1);
+  assert.equal(second.free, 0);
+});
+
+test('12 · 📦 the own-client door counts PER PACK: the credits of another pack never cover it; one row per pack; a line must name its pack; a pack a live quote holds is not free', async () => {
+  const uI = await newUser('shop-i-gifts@test.test', 'vendor');
+  const shopI = await shopOf(uI, 'Gift Shop I');
+  // 20 × Papic 150 = 3,000 credits, and still not one Papic 1000.
+  await stockIn(shopI, 20, await giftOrder(uI, shopI), 'PAPIC_GUEST_150', 150);
+  const wrongPack = await ownGive(shopI, await bareEvent(), [line1k]);
+  assert.equal(wrongPack.status, 'short', 'a Papic 1000 was given out of Papic 150 stock');
+  assert.equal(wrongPack.pack_code, P1K);
+  assert.equal((await status(shopI)).balance, 3000, 'a refused gift moved the stock');
+
+  const noPack = await ownGive(shopI, await bareEvent(), [{ title: 'Papic 150', kind: 'papic', credits: 150 }]);
+  assert.equal(noPack.status, 'bad_input', 'a Papic line that names no pack was taken from the stock');
+
+  // Two packs of one size and one of another: one row per pack, the credits of each.
+  await stockIn(shopI, 1, await giftOrder(uI, shopI));
+  const eventId = await bareEvent();
+  const mixed = await ownGive(shopI, eventId, [line150, line1k, line150]);
+  assert.equal(mixed.status, 'ok');
+  const rows = await db.query<{ pack_code: string; packs: number; delta: number }>(
+    `SELECT pack_code, packs, delta FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND event_id = $2 AND kind = 'own_client' ORDER BY pack_code`,
+    [shopI, eventId],
+  );
+  assert.deepEqual(rows.rows.map((r) => [r.pack_code, Number(r.packs), Number(r.delta)]), [['PAPIC_GUEST_150', -2, -300], [P1K, -1, -1000]]);
+  assert.deepEqual(await packStatus(shopI, 'PAPIC_GUEST_150'), { balance: 18, held: 0 });
+  assert.deepEqual(await packStatus(shopI, P1K), { balance: 0, held: 0 });
+  const pool = await one<number>(`SELECT COALESCE(SUM(points), 0)::int AS v FROM public.papic_event_point_grants WHERE event_id = $1 AND source = 'shop_gift'`, [eventId]);
+  assert.equal(pool, 1300, 'the couple receives the credits of every pack');
+
+  // A pack a live quote already promises is not free for an own client (free = balance − held, in packs).
+  const uJ = await newUser('shop-j-gifts@test.test', 'vendor');
+  const shopJ = await shopOf(uJ, 'Gift Shop J');
+  await stockIn(shopJ, 1, await giftOrder(uJ, shopJ), 'PAPIC_GUEST_150', 150);
+  await bookingWithQuote(shopJ, 'sent', 1, 'PAPIC_GUEST_150', 150);
+  const held = await ownGive(shopJ, await bareEvent(), [line150]);
+  assert.equal(held.status, 'short', 'a pack promised on a live quote was given to an own client');
+});
+
+test('13 · 🧹 the backfill names the pack on own-client rows written before packs were counted — in place for one pack, split for several', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sql = readFileSync(new URL('../../../../supabase/migrations/20271351048946_gift_bundles_for_every_gift_and_papic_packs.sql', import.meta.url), 'utf8');
+  const block = sql.slice(sql.indexOf('⟦own-client-pack-backfill:begin⟧'), sql.indexOf('⟦own-client-pack-backfill:end⟧'));
+  assert.ok(block.length > 500, 'the backfill block left the migration');
+  const backfill = block.slice(block.indexOf('\n') + 1, block.lastIndexOf('\n'));
+
+  const uK = await newUser('shop-k-gifts@test.test', 'vendor');
+  const shopK = await shopOf(uK, 'Gift Shop K');
+  await stockIn(shopK, 5, await giftOrder(uK, shopK), 'PAPIC_GUEST_150', 150);
+  await stockIn(shopK, 2, await giftOrder(uK, shopK));
+  /** What main's door wrote: one own_client row of the credits, no pack. */
+  async function legacy(lines: unknown[], credits: number): Promise<string> {
+    const eventId = await bareEvent();
+    const gift = await one<string>(
+      `INSERT INTO public.own_client_gifts (vendor_profile_id, event_id, via, gift_lines, credits) VALUES ($1, $2, 'own_link', $3::jsonb, $4) RETURNING own_gift_id AS v`,
+      [shopK, eventId, JSON.stringify(lines), credits],
+    );
+    await db.query(
+      `INSERT INTO public.shop_gift_stock_entries (vendor_profile_id, gift_kind, delta, kind, event_id, own_client_gift_id, note) VALUES ($1, 'papic', $2, 'own_client', $3, $4, 'legacy own-client row')`,
+      [shopK, -credits, eventId, gift],
+    );
+    return eventId;
+  }
+  const onePack = await legacy([line150, line150], 300);
+  const twoPacks = await legacy([line150, line1k], 1150);
+  const unnamed = await legacy([{ title: 'Papic 150', kind: 'papic', credits: 150 }], 150);
+  // Before: the pack count has not heard of any of them.
+  assert.deepEqual(await packStatus(shopK, 'PAPIC_GUEST_150'), { balance: 5, held: 0 });
+  const creditsBefore = (await status(shopK)).balance;
+
+  await db.exec(backfill);
+  await db.exec(backfill); // idempotent: a re-apply changes nothing
+
+  const of = async (eventId: string) =>
+    (
+      await db.query<{ pack_code: string | null; packs: number | null; delta: number }>(
+        `SELECT pack_code, packs, delta FROM public.shop_gift_stock_entries WHERE vendor_profile_id = $1 AND event_id = $2 AND kind = 'own_client' ORDER BY pack_code`,
+        [shopK, eventId],
+      )
+    ).rows.map((r) => [r.pack_code, r.packs === null ? null : Number(r.packs), Number(r.delta)]);
+  assert.deepEqual(await of(onePack), [['PAPIC_GUEST_150', -2, -300]]);
+  assert.deepEqual(await of(twoPacks), [['PAPIC_GUEST_150', -1, -150], [P1K, -1, -1000]]);
+  assert.deepEqual(await of(unnamed), [[null, null, -150]], 'a line that names no pack was guessed');
+  assert.deepEqual(await packStatus(shopK, 'PAPIC_GUEST_150'), { balance: 2, held: 0 });
+  assert.deepEqual(await packStatus(shopK, P1K), { balance: 1, held: 0 });
+  assert.equal((await status(shopK)).balance, creditsBefore, 'the backfill changed how many credits the shop holds');
+});

@@ -28,13 +28,15 @@ import {
 } from 'react';
 import { Check, X } from 'lucide-react';
 import { ActionButton, EqualRow } from '@/components/action-button';
+// 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
+// (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
 import {
   TABLE_TYPE_CATALOG,
   TABLE_TYPE_LABEL,
   shapeHintFor,
   type TableShapeHint,
   type TableType,
-} from '@/lib/seating';
+} from '@/lib/seat-plan-engine';
 import { formatCount } from '@/lib/format-number';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;

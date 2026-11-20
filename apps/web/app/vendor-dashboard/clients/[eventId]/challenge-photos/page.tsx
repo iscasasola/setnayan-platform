@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { formatCount } from '@/lib/format-number';
 import { BackButton } from '@/app/_components/back-button';
 import { redirect } from 'next/navigation';
@@ -38,9 +39,7 @@ export default async function VendorChallengePhotosPage({
   if (!papicGamesEnabled()) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

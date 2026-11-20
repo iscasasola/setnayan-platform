@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
@@ -325,9 +326,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     }) ?? lockDeclineNotice(sp?.lock_decline);
   const giftOutcome = agreeGiftOutcomeLine(sp?.gift);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { loginRedirectPath } from '@/lib/auth';
+import { loginRedirectPath, getCurrentUser } from '@/lib/auth';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { fetchOrderById, fetchPaymentsForOrder, formatPhp, isVatInclusiveServiceKey, type OrderRow, type PaymentRow } from '@/lib/orders';
 import { fetchReceiptById, formatReceiptNumber, formatPhpFromString } from '@/lib/receipts';
@@ -21,9 +21,7 @@ type Props = { params: Promise<{ receiptId: string }> };
 export default async function ReceiptPageRoute({ params }: Props) {
   const { receiptId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   // Receipts are deep-linked from emails. Without preserving `next=`,
   // a click from an unauthed tab lands the user on `/` after login
   // and they have to dig the email back up.

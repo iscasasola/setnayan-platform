@@ -55,6 +55,8 @@ import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
+import { phTodayIso } from '@/lib/vendor-day-picker';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
 import { triggerVendorActivityRecompute } from '@/lib/vendor-activity';
@@ -162,6 +164,7 @@ import { geocodeAddressWithCity } from '@/lib/geo';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 import { bookingCostWrite } from '@/lib/booking-cost-write';
+import { pieceBookingIdsOf } from '@/lib/piece-seats';
 import {
   AGREED_COUNT_FIELD,
   PRICE_BASIS_FIELD,
@@ -726,6 +729,10 @@ export type FinalizeVendorResult =
       vendorName: string;
       /** ISO. Mirrors the deadline the trigger materialized on the row. */
       expiresAt: string;
+      /** 🪑 The card rents by the piece (owner Q2, 20 Nov: no couple picker) — the ask went with no number and the
+       *  supplier says how many they can give. FALSE when not, or when the read was refused (logged; the plain
+       *  "sent" line is still true). */
+      byThePiece?: boolean;
     }
   // Locking this vendor narrows the couple's remaining candidate dates to a
   // single day — so confirming the lock also finalizes the wedding date. The
@@ -1722,6 +1729,10 @@ export async function finalizeVendor(
       .eq('vendor_service_id', targetVendor.service_id)
       .eq('is_active', true);
 
+    // 🪑 RENTED BY THE PIECE (owner Q2, 20 Nov: NO): the couple's ask carries no number — the supplier says how many
+    // they can give at the yes (`vendor_agree_to_lock` refuses a piece yes with no number: `pieces_needed`). A couple
+    // never sees, and never states against, the stock.
+
     let useSlotPath = false;
     if ((slotCount ?? 0) > 0) {
       // Only enforce/assign a slot on a day-precise event (verifier C4).
@@ -1876,6 +1887,20 @@ export async function finalizeVendor(
           })) === 'closed'
         ) {
           return { status: 'error', message: CLOSED_DAY_COUPLE_MESSAGE };
+        }
+        // 🗓 MADE TO ORDER — "Order at least N days before the date they need it" (Availability plan step 3, owner
+        // 2026-11-19). A hard rule, asked of ONE server-only definer (`service_card_order_lead_days`, NULL unless the card
+        // is Made to order with a rule). Day-precise events only, like the closed day. A refused read degrades OPEN,
+        // like every capacity read here — never silently.
+        if (d?.event_date_precision === 'day' && d.event_date) {
+          const { data: leadRaw, error: leadErr } = await createAdminClient().rpc('service_card_order_lead_days', {
+            p_service_id: targetVendor.service_id,
+          });
+          if (leadErr) console.error('[finalizeVendor] order-lead read failed', leadErr.message);
+          const lead = typeof leadRaw === 'number' ? leadRaw : null;
+          if (lead !== null && orderIsTooSoon(phTodayIso(), d.event_date, lead)) {
+            return { status: 'error', message: orderTooSoonMessage(lead) };
+          }
         }
       }
       // The card's own "Bookings per day" INSIDE its plan (owner 2026-11-06, "BOOKINGS PER DATE PER SERVICE IS A PLAN
@@ -2228,12 +2253,16 @@ export async function finalizeVendor(
       );
     }
 
+    const piece = await pieceBookingIdsOf(supabase, [vendorId]);
+    if (piece.error) console.error('[finalizeVendor] piece-card read failed', piece.error.message);
+
     revalidatePath(`/dashboard/${eventId}/vendors`);
     return {
       status: 'lock_requested',
       vendorId,
       vendorName: targetVendor.vendor_name as string,
       expiresAt,
+      byThePiece: piece.ids?.has(vendorId) ?? false,
     };
   }
 

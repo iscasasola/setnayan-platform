@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
+  isVerifiedForReach,
   validateServiceRadiusPair,
   type ServiceRadiusPair,
 } from '@/lib/vendor-service-radius';
@@ -15,19 +16,18 @@ import { revalidateShopPage } from '@/lib/shop-page-cache';
  *
  * Owner-locked 2026-07-27 · Explore_Replan_BUILD_SPEC_2026-07-27.md §17.
  *
- * ── THE TIER CAP IS RE-READ HERE, NOT TRUSTED FROM THE FORM ─────────────────
- * The cap check reads `tier_state` from the database inside this action. It is
- * never taken from a hidden input or a client prop, because those are whatever
- * the browser says they are — a vendor could otherwise post `tier=enterprise`
- * and buy 100 km of reach for free. The client-side ceiling on the card is
- * ergonomics; THIS is the enforcement.
+ * ── 🔓 NO PLAN CEILING — VERIFICATION IS RE-READ HERE (owner 2026-11-19) ─────
+ * *"ok unlock the range. not plan dependend anymore."* · *"Free Unverified
+ * account will have a range of 0km."* So the only ceiling is the shop's
+ * verification, read from the database inside this action — never from a hidden
+ * input or a client prop, because those are whatever the browser says they are.
+ * A verified shop on ANY plan may save up to `MAX_DECLARABLE_RADIUS_KM` (the
+ * typo guard, unchanged); an unverified shop may only clear its rings.
  *
- * That said, write-time enforcement alone would still be insufficient: it can't
- * see the future. A vendor who legitimately declares 50 km while on Pro and
- * later lapses to Verified leaves a stale 50 in the column. The read path
- * (`effectiveOuterRadiusKm`) re-clamps on every read, so the stale value is
- * never believed above the current cap. Both halves are needed; neither alone
- * is enough.
+ * Write-time enforcement alone would still be insufficient: a shop that saves
+ * 50 km while verified and is later un-verified leaves a stale 50 in the column.
+ * The read path (`effectiveOuterRadiusKm`) re-clamps on every read, so the stale
+ * value reads 0. Both halves are needed; neither alone is enough.
  *
  * Writes through the vendor's OWN authenticated client so `vendor_profiles`'
  * existing write policy re-asserts ownership — a viewer/agent team member gets
@@ -53,21 +53,24 @@ export async function updateServiceRadius(
   if (!profile) return { ok: false, error: 'No shop found for this account.' };
   const vendorProfileId = profile.vendor_profile_id as string;
 
-  // Server-side tier read. Never the form's word for it.
-  const { data: tierRow, error: tierError } = await supabase
+  // Server-side verification read. Never the form's word for it. The plan is NOT read: reach is not a plan
+  // allowance (owner 2026-11-19).
+  const { data: verifyRow, error: verifyError } = await supabase
     .from('vendor_profiles')
-    .select('tier_state')
+    .select('verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (tierError) {
-    return { ok: false, error: 'Couldn’t check your plan just now — please try again.' };
+  if (verifyError) {
+    return { ok: false, error: 'Couldn’t check your verification just now — please try again.' };
   }
-  const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
+  const verified = isVerifiedForReach(
+    (verifyRow as { verification_state?: string | null } | null)?.verification_state ?? null,
+  );
 
   const parsed = validateServiceRadiusPair({
     inner: formData.get('inner_radius_km'),
     outer: formData.get('outer_radius_km'),
-    tier,
+    verified,
   });
   if (!parsed.ok) return parsed;
 

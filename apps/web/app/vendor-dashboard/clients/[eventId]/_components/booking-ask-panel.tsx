@@ -45,6 +45,8 @@ import { WaitlistForm } from './waitlist-form';
 import { TopUpCarryOver, type CarryOverTopUp } from './top-up-carry-over';
 import { AgreeGiftPicker } from './agree-gift-picker';
 import type { AgreeGiftBasis } from '@/lib/agree-gifts';
+import type { PiecesAsk } from '@/lib/pieces-ask.server';
+import { shopInputClass } from '@/app/vendor-dashboard/_components/kit';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
 
@@ -78,6 +80,7 @@ export function LockRequestAnswer({
   layout = 'panel',
   carryOver = null,
   giftBasis = null,
+  askPieces = null,
 }: {
   eventVendorId: string;
   expiresAt: string | null;
@@ -126,6 +129,11 @@ export function LockRequestAnswer({
    * bill (free, promo, badge reward) or a read failed — then Agree looks exactly as before.
    */
   giftBasis?: AgreeGiftBasis | null;
+  /**
+   * 🪑 Rented by the piece (Availability step 4, ruling 2): the yes says how many pieces (`booked_quantity`), taken all
+   * or nothing by `set_booked_quantity`. Null → Agree as always. Set → the panel layout, so the field is beside Agree.
+   */
+  askPieces?: PiecesAsk | null;
 }) {
   // The deadline is the one the DATABASE stamped and the sweep enforces —
   // never a window recomputed here.
@@ -156,7 +164,7 @@ export function LockRequestAnswer({
       <BookingFeeNotice disclosure={feeForecast} />
       {/* The day under the ask — ABOVE the button, like the fee: a full day is known before the tap, never after. */}
       <DayCheckLine read={dayCheck} />
-      {layout === 'blocker' && !heldService && !(dayFull && waitlistAsk) && !carryOver ? (
+      {layout === 'blocker' && !askPieces && !heldService && !(dayFull && waitlistAsk) && !carryOver ? (
         <BlockerAskRow eventVendorId={eventVendorId} returnTo={returnTo} agreeLock={agreeLock} declineLock={declineLock} />
       ) : (
         <>
@@ -187,7 +195,31 @@ export function LockRequestAnswer({
             <input type="hidden" name="vendor_id" value={eventVendorId} />
             <input type="hidden" name="return_to" value={returnTo} />
             {giftBasis ? <AgreeGiftPicker basis={giftBasis} /> : null}
+            <div className={askPieces ? 'flex flex-wrap items-end gap-2' : 'contents'}>
+            {askPieces ? (
+              <label className="flex flex-col text-[13px] text-ink/70" data-booking-ask-pieces="">
+                How many {askPieces.cardName} they need
+                <input
+                  type="number"
+                  name="booked_quantity"
+                  required={askPieces.asked === null}
+                  defaultValue={askPieces.asked ?? undefined}
+                  min={1}
+                  max={askPieces.have ?? undefined}
+                  step={1}
+                  inputMode="numeric"
+                  className={`${shopInputClass} mt-1 h-11 w-32`}
+                  aria-describedby={askPieces.have !== null ? 'booking-ask-pieces-have' : undefined}
+                />
+                {askPieces.have !== null ? (
+                  <small id="booking-ask-pieces-have" className="mt-0.5 text-[12px] text-ink/60">
+                    You have {askPieces.have.toLocaleString('en-US')}
+                  </small>
+                ) : null}
+              </label>
+            ) : null}
             <AskSubmit tone="brand" main icon={<Check {...ico} />} label="Agree to this booking" pendingLabel="Agreeing…" />
+            </div>
           </form>
         )}
           </>

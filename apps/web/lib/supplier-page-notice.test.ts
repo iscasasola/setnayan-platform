@@ -154,7 +154,9 @@ test('8 · the guest sees the line in the Event Hub whenever a notice exists —
   const before = body.slice(Math.max(0, at - 160), at);
   assert.doesNotMatch(before, /isLive \|\| isPost \?/, 'the notice is gated on the day — a photo put up months later is never seen');
   const page = src('app/[slug]/page.tsx');
-  assert.match(page, /await readGuestSupplierPageNotices\(event\.event_id\)/);
+  // ⚡ Started ahead beside the guest's other reads (speed pass 2026-11-18), awaited where it always was.
+  assert.match(page, /startAhead\(readGuestSupplierPageNotices\(event\.event_id\)\)/);
+  assert.match(page, /const supplierPageNotices = supplierPageNoticesAhead \? await supplierPageNoticesAhead : \[\];/);
   const line = src('app/[slug]/_components/supplier-page-notice-line.tsx');
   assert.match(line, /return askToTakeMyPhotoDown\(eventId, 'vendor_papic_portfolio_photos', photoId, fd\);/);
   assert.match(line, /remove = removeFromSupplierPage,/, 'the Event Hub no longer defaults to the real takedown door');

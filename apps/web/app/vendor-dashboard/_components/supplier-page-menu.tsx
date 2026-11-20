@@ -22,7 +22,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PinWord } from '@/app/_components/pinned-row/pin-door';
 import { CUSTOMER_SEGMENTS, CUSTOMER_SEGMENT_HREFS, CUSTOMER_SEGMENT_LABEL, customersSegmentOf } from '../customers/segments';
-import { SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER } from '../shop/_components/shop-sections';
+import { SHOP_SEGMENT_ALL, SHOP_SEGMENT_HREF, SHOP_SEGMENT_LABEL, SHOP_SEGMENT_ORDER } from '../shop/_components/shop-sections';
 import { VENDOR_CLIENTS_EXTRA_MATCH, VENDOR_PORTFOLIO_EXTRA_MATCH, VENDOR_SHOP_EXTRA_MATCH } from './vendor-nav-destinations';
 
 type MenuSection = { key: string; label: string; href: string };
@@ -55,7 +55,8 @@ export function supplierPageMenuOf(path: string, seg: string | null): SupplierPa
   if (startsWith(path, '/vendor-dashboard/collections') || VENDOR_PORTFOLIO_EXTRA_MATCH.some((p) => startsWith(path, p))) {
     return { tab: 'Portfolio', section: null, sections: null };
   }
-  const shopOn = SHOP_SEGMENT_ORDER.find((s) => path === SHOP_SEGMENT_HREF[s]) ?? null;
+  // Page and Promote left the menu (owner 19 Nov) but their screens are still Shop's: found among ALL, listed from ORDER.
+  const shopOn = SHOP_SEGMENT_ALL.find((s) => path === SHOP_SEGMENT_HREF[s]) ?? null;
   if (shopOn || startsWith(path, '/vendor-dashboard/shop') || VENDOR_SHOP_EXTRA_MATCH.some((p) => startsWith(path, p))) {
     return {
       tab: 'Shop',

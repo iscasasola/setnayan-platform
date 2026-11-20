@@ -42,6 +42,7 @@ import type { CoverageParent } from '@/lib/vendor-coverages';
 import { liveKindGroups } from '@/lib/service-card-kind-groups';
 import { CanvasMaker, type CategoryGroup, type MakerEditing, type MakerSchedule } from '@/app/vendor-dashboard/services/_components/canvas-maker';
 import type { CanvasInitial } from '@/lib/canvas-initial';
+import { isAvailabilityStyle } from '@/lib/availability-styles';
 import type { SupplierType } from '@/lib/service-card-maker';
 import { SetupOfferFold } from '@/app/vendor-dashboard/_components/setup-offer-fold';
 import type { FreeByKind, ShopGiftPack } from '@/lib/shop-gifts';
@@ -229,6 +230,9 @@ function editFixture(shop: Shop): { initial: CanvasInitial; editing: MakerEditin
       coverUrl: null,
       coverKey: 'r2://media/lab/cover.jpg',
       dailyCapacity: '',
+      availabilityStyle: null,
+      orderLeadDays: '',
+      usualPrepDays: '',
       branchId: '',
       schedule: [
         {
@@ -323,6 +327,11 @@ export default async function CardMakerLabPage({
     fx.initial.showcasePhotoR2Keys = refs.slice(1);
     fx.initial.mediaDisplayUrls = Object.fromEntries(refs.map((r, i) => [r, `/realstories/${pics[i]}.jpg`]));
   }
+  // 🗓 `&av=order|piece|none|day|hour` — the service's recommended Availability style (step 2) for every kind on show;
+  // `&avcard=` — the saved card's own style (edit only). LAB FIXTURES.
+  const labAv = isAvailabilityStyle(sp.av) ? sp.av : null;
+  const availabilityOf = labAv ? Object.fromEntries([shop.edit.kind, ...shop.covered.map((c) => c.value)].map((k) => [k, labAv])) : {};
+  if (fx && isAvailabilityStyle(sp.avcard)) fx.editing.availabilityStyle = sp.avcard;
   const inToday = sp.host === 'today';
   const withChecks = sp.checks === '1';
   const labTrades = FAKE_TREE.flatMap((p) =>
@@ -402,6 +411,7 @@ export default async function CardMakerLabPage({
         unread={s === 'unread' ? ['add-ons'] : []}
         returnTo="/dev/card-maker-lab"
         checkRules={checkRules}
+        availabilityOf={availabilityOf}
         photoCheck={withChecks ? labPhotoCheck : undefined}
       />
   );

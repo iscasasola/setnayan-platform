@@ -47,17 +47,30 @@ export async function BoothEventSection({
   if (await isStoreShellRequest()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [gateRow, orderState, eventPricePhp, cyclePricePhp, settings] = await Promise.all([
+  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings] = await Promise.all([
     supabase
       .from('vendor_profiles')
       .select('tier_state, verification_state, booth_addon_expires_at')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle()
-      .then((r) => r.data as {
-        tier_state?: string | null;
-        verification_state?: string | null;
-        booth_addon_expires_at?: string | null;
-      } | null),
+      .then(
+        (r) => {
+          // C-1: a REFUSED plan read is not "no paid plan" — `gateUnread` stops the card telling a paying shop to upgrade.
+          if (r.error) console.error('[supabase-error] booth-event-section: plan read', r.error);
+          return {
+            unread: !!r.error,
+            row: r.data as {
+              tier_state?: string | null;
+              verification_state?: string | null;
+              booth_addon_expires_at?: string | null;
+            } | null,
+          };
+        },
+        (err: unknown) => {
+          console.error('[supabase-error] booth-event-section: plan read', err);
+          return { unread: true, row: null };
+        },
+      ),
     fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId),
     fetchVendor3dBoothEventPricePhp(supabase),
     fetchVendor3dBoothPricePhp(supabase),
@@ -66,6 +79,8 @@ export async function BoothEventSection({
   // The rails the owner has left ON — the buy form offers only these.
   const openRails = openRailOptions(settings);
 
+  const gateRow = gateRead.row;
+  const gateUnread = gateRead.unread;
   const tierOk = isTierAtLeast(gateRow?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER);
   const verified = gateRow?.verification_state === 'verified';
   const cycleActive = isVendor3dBoothActive(gateRow?.booth_addon_expires_at ?? null);
@@ -96,6 +111,12 @@ export async function BoothEventSection({
         <p className="mt-1 text-xs text-ink/55">
           Branded at this event — your logo and poster stay in the couple&rsquo;s room for as long as
           they keep it up. One-time; nothing renews.
+        </p>
+      ) : orderState === 'unread' || gateUnread ? (
+        /* C-1 (supplier audit 2026-11-17): a refused read is said — never the buy form (they may have paid already)
+           and never "comes with a paid plan" (they may be paying). */
+        <p className="mt-1 text-xs text-ink/55" data-booth-event-unread="">
+          We couldn&rsquo;t load whether your booth is branded at this event. Refresh in a moment to try again.
         </p>
       ) : orderState === 'pending' ? (
         <p className="mt-1 text-xs text-ink/55">

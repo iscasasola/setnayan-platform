@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { FileText, Pencil } from 'lucide-react';
@@ -98,9 +99,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 export default async function ComplianceDataSheetPage() {
   await requireAdmin();
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const { data: me } = await supabase
     .from('users')

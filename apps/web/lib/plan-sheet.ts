@@ -40,7 +40,8 @@ export const PLAN_LIMITS = [
   { key: 'mainCategories', title: 'Main categories', thing: 'main categories' },
   { key: 'teamSeats', title: 'Team seats', thing: 'team seats' },
   { key: 'branches', title: 'Branches', thing: 'branches' },
-  { key: 'reach', title: 'Reach', thing: 'km of reach' },
+  // ⛔ No "Reach" row since 2026-11-19 (owner: "unlock the range. not plan dependend anymore"): reach is not a plan
+  // limit — an unverified shop reaches 0 km, a verified one sets its own on every plan (`reachCeilingKm`).
 ] as const;
 export type PlanLimitKey = (typeof PLAN_LIMITS)[number]['key'];
 
@@ -56,17 +57,11 @@ export function limitOf(tierRaw: string | null | undefined, key: PlanLimitKey, p
       return allowance(c.agentAccounts, 'agentAccounts', paywallOn);
     case 'branches':
       return c.branchesIncluded;
-    case 'reach':
-      return c.serviceRadiusKm;
   }
 }
 
-/** A limit's value in words: "3" · "No limit" · reach "30 km" · "Nationwide" · "Not in search". */
-export function limitWords(key: PlanLimitKey, v: number): string {
-  if (key === 'reach') {
-    if (!Number.isFinite(v)) return 'Nationwide';
-    return v > 0 ? `${formatCount(v)} km` : 'Not in search';
-  }
+/** A limit's value in words: "3" · "No limit". */
+export function limitWords(_key: PlanLimitKey, v: number): string {
   return Number.isFinite(v) ? formatCount(v) : 'No limit';
 }
 
@@ -99,7 +94,7 @@ export type PlanChanges = {
 };
 
 // "gives you" lines already shown as a limit row above — not repeated under "Also".
-const COVERED_BY_LIMITS = new Set(['services', 'helpers', 'reach', 'branches']);
+const COVERED_BY_LIMITS = new Set(['services', 'helpers', 'branches']);
 
 /** What moving from one plan to another changes — every number read from the plan table. */
 export function planChanges(fromRaw: string | null | undefined, toRaw: string | null | undefined, paywallOn: boolean): PlanChanges {
@@ -133,7 +128,7 @@ export function lowestPlanAllowing(
 export type LimitAsk = {
   /** The plan to offer; null = no plan takes that many (the sheet says so, with no Upgrade). */
   plan: VendorTier | null;
-  /** "Upgrade to Pro to take up to 3 bookings a day for a service" · "Get verified to take up to 20 km of reach". */
+  /** "Upgrade to Pro to take up to 5 team seats". */
   headline: string;
   /** The other limits that plan raises, "Main categories 2 → 8" — the "see other features that will unlock" part. */
   alsoUnlocks: string[];
@@ -164,10 +159,7 @@ export function limitAsk(
   }
   const upTo = limitWords(key, limitOf(plan, key, paywallOn));
   const verb = plan === 'verified' ? 'Get verified' : `Upgrade to ${planWord(plan)}`;
-  const headline =
-    key === 'reach'
-      ? `${verb} to reach ${upTo === 'Nationwide' ? 'nationwide' : upTo}`
-      : `${verb} to take up to ${upTo} ${meta.thing}`;
+  const headline = `${verb} to take up to ${upTo} ${meta.thing}`;
   const ch = planChanges(current, plan, paywallOn);
   const alsoUnlocks = [
     ...ch.limits.filter((l) => l.changed && l.key !== key).map((l) => `${l.title} ${l.now} → ${l.after}`),
@@ -234,7 +226,7 @@ export function payToday(input: {
 }
 
 /**
- * A plan row's one line while it is shut. Another plan: "20 service cards · 100 km · 5 team seats" (the
+ * A plan row's one line while it is shut. Another plan: "20 service cards · 5 team seats" (the
  * prototype's row line), read from the table; a lower plan while a paid one runs: "Lower plan · starts after 8 Dec 2026".
  */
 export function planRowLine(
@@ -246,10 +238,8 @@ export function planRowLine(
   const to = asVendorTier(toRaw);
   if (planDirection(currentRaw, to) === 'down' && expiresOn) return `Lower plan · starts after ${expiresOn}`;
   const a = limitOf(to, 'serviceCards', paywallOn);
-  const reach = limitWords('reach', limitOf(to, 'reach', paywallOn));
   const seats = limitOf(to, 'teamSeats', paywallOn);
   const seatWords = Number.isFinite(seats) ? `${formatCount(seats)} team ${seats === 1 ? 'seat' : 'seats'}` : 'team seats with no limit';
-  const reachWords = reach === 'Not in search' ? 'not in search' : reach === 'Nationwide' ? 'nationwide' : reach;
   const cardWords = Number.isFinite(a) ? `${formatCount(a)} service ${a === 1 ? 'card' : 'cards'}` : 'service cards with no limit';
-  return `${cardWords} · ${reachWords} · ${seatWords}`;
+  return `${cardWords} · ${seatWords}`;
 }

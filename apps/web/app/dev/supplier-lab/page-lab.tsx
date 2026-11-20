@@ -31,6 +31,7 @@ import { formatPhp } from '@/lib/php';
 import { DetailsScreen } from '@/app/vendor-dashboard/profile/_components/details-screen';
 import type { DetailsData } from '@/app/vendor-dashboard/profile/details-data';
 import { BranchPanel } from '@/app/vendor-dashboard/shop/_components/branch-panel';
+import { reachCeilingKm } from '@/lib/vendor-service-radius';
 import { ShopSegments } from '@/app/vendor-dashboard/shop/_components/shop-segments';
 import { ShopServiceRows } from '@/app/vendor-dashboard/shop/_components/shop-service-rows';
 import { servicesFigures, shopServiceRows, type ShopCardLite } from '@/lib/shop-services-summary';
@@ -340,8 +341,8 @@ function detailsFixture(who: Who): DetailsData {
       tier: f.tier,
       hqLat: 14.5547,
       hqLng: 121.0244,
-      // The plan's own reach (Free 0 · Supplier Plus 30 · Pro 50) — the lab draws what the shop's plan really allows.
-      reachKm: tierCaps(f.tier).serviceRadiusKm,
+      // The verification ceiling (∞ verified · 0 unverified) — reach is not a plan allowance (owner 2026-11-19).
+      reachKm: reachCeilingKm(f.verified),
       innerRadiusKm: f.outerKm ? 10 : null,
       outerRadiusKm: f.outerKm,
       isVerified: f.verified,

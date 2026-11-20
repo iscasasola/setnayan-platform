@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Martini } from 'lucide-react';
@@ -24,9 +25,7 @@ type Props = { params: Promise<{ eventId: string }> };
 export default async function VendorCocktailPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

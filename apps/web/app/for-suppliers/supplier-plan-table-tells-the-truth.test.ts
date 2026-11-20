@@ -30,6 +30,7 @@ import { EVENT_PLUS_SKU, HUB_PART_IDS, hubOwnershipFrom } from '@/lib/hub-parts'
 import {
   APPLIED_LOCKS,
   FREE_FINDABLE,
+  PLAN_TABLE_REACH,
   TABLE_TIERS,
   UNAPPLIED_LOCKS,
   addonLines,
@@ -86,7 +87,7 @@ test('every limit cell is the entitlement code — in both states of the plan pa
       const r = row(g, `limit:${l.key}`);
       for (const t of TABLE_TIERS) {
         const v = limitOf(t, l.key, paywallOn);
-        const say = (n: number) => (l.key === 'reach' && n === 0 ? FREE_FINDABLE.replace(/^f/, 'F') : n === 0 ? 'None' : limitWords(l.key, n));
+        const say = (n: number) => (n === 0 ? 'None' : limitWords(l.key, n));
         // 2026-11-14 "Verified joins Free": where the verified step differs, the Free cell says both — each through the
         // same entitlement reader.
         const ver = limitOf('verified', l.key, paywallOn);
@@ -234,4 +235,14 @@ test('/features: a light "no select" on the sections, and nothing more', () => {
   }
   const robots = code('app/robots.ts');
   assert.doesNotMatch(robots, /disallow[^\n]*['"`]\/features/i, 'robots blocks /features');
+});
+
+test('reach is ONE cell, the same on every plan — no km per plan (owner 2026-11-19)', () => {
+  // *"ok unlock the range. not plan dependend anymore."* · *"Free Unverified account will have a range of 0km."*
+  for (const paywallOn of [false, true]) {
+    const r = row(planTable({ paywallOn, prices: PRICES }), 'limit:reach');
+    for (const t of TABLE_TIERS) assert.equal(r.cells[t].text, PLAN_TABLE_REACH, `${t} · paywall ${paywallOn}`);
+  }
+  assert.doesNotMatch(PLAN_TABLE_REACH, /\bkm\b|nationwide/i);
+  assert.ok(!PLAN_LIMITS.some((l) => (l.key as string) === 'reach'), 'reach came back as a plan limit');
 });

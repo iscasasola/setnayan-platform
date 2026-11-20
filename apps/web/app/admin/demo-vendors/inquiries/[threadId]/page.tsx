@@ -7,9 +7,7 @@
  * get nothing for an admin under RLS); each action triggers a route refresh.
  */
 
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchThreadById, fetchMessages, formatChatTimestamp } from '@/lib/chat';
 
@@ -19,6 +17,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../../../_components/read-failed';
+import { RECORD_SUBLINE, RecordBack } from '../../../_components/record-kit';
+import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = { title: 'Demo inquiry · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -42,14 +42,8 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
   if (vendorError) {
     logQueryError('DemoInquiryThreadPage (supplier)', vendorError);
     return (
-      <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-        <Link
-          href="/admin/demo-vendors/inquiries"
-          className="inline-flex items-center gap-1 hover:text-mulberry text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Demo inquiries
-        </Link>
+      <section className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 pb-8 pt-2 sm:px-6">
+        <RecordBack href="/admin/demo-vendors/inquiries" label="Demo inquiries" />
         <ReadFailed what="this thread’s supplier" />
       </section>
     );
@@ -84,18 +78,12 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
   const coupleLabel = event?.display_name ?? 'Couple';
 
   return (
-    <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="space-y-1 py-4 border-t border-ink/10">
-        <Link
-          href="/admin/demo-vendors/inquiries"
-          className="inline-flex items-center gap-1 hover:text-mulberry text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70"
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Demo inquiries
-        </Link>
+    <section className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 pb-8 pt-2 sm:px-6">
+      <header className="space-y-1">
+        <RecordBack href="/admin/demo-vendors/inquiries" label="Demo inquiries" />
         <p className="text-base font-semibold text-ink">{coupleLabel}</p>
         {event?.event_date ? (
-          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+          <p className={RECORD_SUBLINE}>
             {event.event_date}
           </p>
         ) : null}
@@ -125,7 +113,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
                 >
                   <span className="whitespace-pre-wrap break-words">{m.body}</span>
                 </div>
-                <span className="mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+                <span className={`mt-1 ${RECORD_SUBLINE}`}>
                   {isVendor ? vendorName : coupleLabel} · {formatChatTimestamp(m.created_at)}
                 </span>
               </div>
@@ -150,7 +138,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
             className="input-field min-h-[60px] flex-1 py-2"
           />
           <SubmitButton
-            className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+            className={actionButtonClass('brand', { main: true })}
             pendingLabel="Sending…"
           >
             Send
@@ -166,7 +154,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
             <form action={adminAcceptInquiry}>
               <input type="hidden" name="thread_id" value={threadId} />
               <SubmitButton
-                className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
+                className={actionButtonClass('ok', { main: true })}
                 pendingLabel="Accepting…"
               >
                 Accept inquiry
@@ -182,7 +170,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
                 className="input-field h-11 w-56 py-2 text-sm"
               />
               <SubmitButton
-                className="inline-flex h-11 items-center rounded-md border border-ink/20 px-5 text-sm font-semibold text-ink hover:bg-ink/5"
+                className={actionButtonClass('danger')}
                 pendingLabel="Declining…"
               >
                 Decline

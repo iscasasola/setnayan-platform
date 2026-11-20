@@ -197,14 +197,19 @@ export function isProIncludedTool(tool: string): boolean {
   return (PRO_INCLUDED_TOOLS as readonly string[]).includes(tool);
 }
 
-/** The one snapshot row (`vendor_pro_tools_grandfather`), or null when the shop held nothing at ship time. */
+/**
+ * The frozen grandfather columns on `vendor_specialized_tools_access` (null = held nothing that way at ship time).
+ * `pro_tools_plus_until = 'infinity'` is a Plus plan with no end date. `trial_event_id` is the row's own, never
+ * changed once set.
+ */
 export type ProToolsGrandfather = {
-  plus_term_ends_at: string | null;
-  plus_open_ended: boolean;
-  unlock_expires_at: string | null;
+  pro_tools_plus_until: string | null;
+  pro_tools_unlock_until: string | null;
+  pro_tools_trial_until: string | null;
   trial_event_id: string | null;
-  trial_ends_at: string | null;
 };
+
+const OPEN_ENDED = 'infinity';
 
 export function proToolsIncludedFrom(
   facts: Pick<SpecializedToolsFacts, 'tier_state' | 'tier_expires_at' | 'verification_state'> | null | undefined,
@@ -218,12 +223,15 @@ export function proToolsIncludedFrom(
   if ((tier === 'pro' || tier === 'enterprise') && planLiveNow) return true;
   const g = grandfather;
   if (!g) return false;
-  if (liveAt(g.plus_term_ends_at, nowMs)) return true;
-  if (g.plus_open_ended && tier === 'solo' && !facts.tier_expires_at) return true;
+  if (g.pro_tools_plus_until === OPEN_ENDED) {
+    if (tier === 'solo' && !facts.tier_expires_at) return true;
+  } else if (liveAt(g.pro_tools_plus_until, nowMs)) {
+    return true;
+  }
   if (facts.verification_state !== 'verified') return false;
   if (!isTierAtLeast(tier, SPECIALIZED_TOOLS_MIN_TIER)) return false;
-  if (liveAt(g.unlock_expires_at, nowMs)) return true;
-  return !!eventId && g.trial_event_id === eventId && liveAt(g.trial_ends_at, nowMs);
+  if (liveAt(g.pro_tools_unlock_until, nowMs)) return true;
+  return !!eventId && g.trial_event_id === eventId && liveAt(g.pro_tools_trial_until, nowMs);
 }
 
 // ── MAY THIS SHOP BUY IT? ────────────────────────────────────────────────────

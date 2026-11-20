@@ -4,9 +4,10 @@ Owner, 20 Nov (specs 6c891356): *"the AI chatbot / the 3D booth / the photo chal
 Controller, same day, under owner delegation: Free · Verified · Plus may not have them; whatever a shop already held runs to its end.
 
 - **New gate `vendor_pro_tools_included(shop, event)`** (migration `20271356215288`): a live Pro or Ultra plan, or a shop
-  grandfathered in the new one-time snapshot `vendor_pro_tools_grandfather` (a live Plus term → to its end, a renewal never
-  shortens it; an open-ended Plus → while it stays so; a live Specialized tools window; a claimed trial on its event).
-  The snapshot is written once — the table COMMENT is the marker, so a re-apply grandfathers nobody new.
+  grandfathered by three columns frozen once on `vendor_specialized_tools_access` — `pro_tools_plus_until` (the Plus term
+  running at ship time, to its end; a renewal never shortens it; `infinity` = an open-ended Plus, kept while it stays so),
+  `pro_tools_unlock_until` (a live Specialized tools window), `pro_tools_trial_until` (a claimed trial on its event).
+  The snapshot writes once — the column COMMENT is the marker, so a re-apply grandfathers nobody new.
 - `vendor_papic_challenge_entitled` and `event_branded_booth_vendor_ids` now call it instead of
   `vendor_specialized_tools_unlocked`. Their legacy arms (a live 28-day photo-challenge window, a paid per-event booth
   order) are unchanged. The Specialized tools unlock keeps opening every other paid tool.

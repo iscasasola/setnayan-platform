@@ -14,7 +14,7 @@
  *       Free and a lapsed Plus; and with the table's COMMENT set (any re-apply) it grandfathers nobody new.
  *   4 · the TS mirror `proToolsIncludedFrom` agrees with the SQL on every case.
  *
- * Sabotage (each turns this file RED): drop the Pro arm · drop the plus_term arm · switch the two gates back to
+ * Sabotage (each turns this file RED): drop the Pro arm · drop the pro_tools_plus_until arm · switch the two gates back to
  * vendor_specialized_tools_unlocked · drop the COMMENT guard from the INSERT.
  */
 import { test, before, after } from 'node:test';
@@ -25,17 +25,17 @@ import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, MIGRATIONS_DIR, type ReplayResult } from './replay-migrations';
 import { proToolsIncludedFrom, type ProToolsGrandfather } from '../../lib/specialized-tools-access';
 
-const MIGRATION = readFileSync(
-  join(MIGRATIONS_DIR, '20271356215288_pro_tools_come_with_pro.sql'),
-  'utf8',
-);
+const MIGRATION = readFileSync(join(MIGRATIONS_DIR, '20271356215288_pro_tools_come_with_pro.sql'), 'utf8');
 /** The snapshot statement exactly as the migration runs it. */
 const SNAPSHOT_SQL = (() => {
-  const from = MIGRATION.indexOf('INSERT INTO public.vendor_pro_tools_grandfather');
-  const to = MIGRATION.indexOf('ON CONFLICT (vendor_profile_id) DO NOTHING;', from);
+  const from = MIGRATION.indexOf('INSERT INTO public.vendor_specialized_tools_access\n  (vendor_profile_id, pro_tools_plus_until');
+  const end = 'pro_tools_trial_until  = EXCLUDED.pro_tools_trial_until;';
+  const to = MIGRATION.indexOf(end, from);
   assert.ok(from > 0 && to > from, 'the snapshot INSERT is in the migration');
-  return MIGRATION.slice(from, to + 'ON CONFLICT (vendor_profile_id) DO NOTHING;'.length);
+  return MIGRATION.slice(from, to + end.length);
 })();
+const MARKER_COL = `col_description('public.vendor_specialized_tools_access'::regclass,
+  (SELECT attnum FROM pg_attribute WHERE attrelid = 'public.vendor_specialized_tools_access'::regclass AND attname = 'pro_tools_plus_until'))`;
 
 let replay: ReplayResult;
 let db: PGlite;
@@ -129,30 +129,29 @@ async function branded(eventId: string): Promise<string[]> {
 
 /** Run the migration's snapshot as on a FIRST apply (no COMMENT yet), then put the marker back. */
 async function runFirstApplySnapshot() {
-  const comment = (
-    await db.query<{ c: string | null }>(`SELECT obj_description('public.vendor_pro_tools_grandfather'::regclass, 'pg_class') AS c`)
-  ).rows[0]!.c;
+  const comment = (await db.query<{ c: string | null }>(`SELECT ${MARKER_COL} AS c`)).rows[0]!.c;
   assert.ok(comment, 'the replay applied the migration, so the marker is set');
-  await db.exec(`COMMENT ON TABLE public.vendor_pro_tools_grandfather IS NULL`);
+  await db.exec(`COMMENT ON COLUMN public.vendor_specialized_tools_access.pro_tools_plus_until IS NULL`);
   await db.exec(SNAPSHOT_SQL);
-  await db.exec(`COMMENT ON TABLE public.vendor_pro_tools_grandfather IS '${comment.replace(/'/g, "''")}'`);
+  await db.exec(
+    `COMMENT ON COLUMN public.vendor_specialized_tools_access.pro_tools_plus_until IS '${comment.replace(/'/g, "''")}'`,
+  );
 }
 
 async function grandfather(vpid: string): Promise<ProToolsGrandfather | null> {
-  const r = await db.query<ProToolsGrandfather>(
-    `SELECT plus_term_ends_at, plus_open_ended, unlock_expires_at, trial_event_id, trial_ends_at
-       FROM public.vendor_pro_tools_grandfather WHERE vendor_profile_id = $1`,
+  const r = await db.query<Record<string, unknown>>(
+    `SELECT pro_tools_plus_until::text AS p, pro_tools_unlock_until AS u, pro_tools_trial_until AS t, trial_event_id
+       FROM public.vendor_specialized_tools_access WHERE vendor_profile_id = $1`,
     [vpid],
   );
   const g = r.rows[0];
-  if (!g) return null;
+  if (!g || (g.p == null && g.u == null && g.t == null)) return null;
   const iso = (v: unknown) => (v == null ? null : new Date(v as string).toISOString());
   return {
-    plus_term_ends_at: iso(g.plus_term_ends_at),
-    plus_open_ended: g.plus_open_ended,
-    unlock_expires_at: iso(g.unlock_expires_at),
-    trial_event_id: g.trial_event_id,
-    trial_ends_at: iso(g.trial_ends_at),
+    pro_tools_plus_until: g.p === 'infinity' ? 'infinity' : iso(g.p),
+    pro_tools_unlock_until: iso(g.u),
+    pro_tools_trial_until: iso(g.t),
+    trial_event_id: (g.trial_event_id as string | null) ?? null,
   };
 }
 
@@ -199,7 +198,8 @@ test('3 · the snapshot grandfathers what was held at ship time, to its end — 
   await runFirstApplySnapshot();
 
   const gDated = await grandfather(plusDated);
-  assert.ok(gDated?.plus_term_ends_at, 'a live Plus term is kept');
+  assert.ok(gDated?.pro_tools_plus_until, 'a live Plus term is kept');
+  assert.equal((await grandfather(plusOpen))?.pro_tools_plus_until, 'infinity');
   assert.equal(await included(plusDated, null), true);
   assert.equal(await included(plusOpen, null), true, 'an open-ended Plus is kept');
   assert.equal(await grandfather(plusLapsed), null, 'a lapsed Plus held nothing');
@@ -215,7 +215,7 @@ test('3 · the snapshot grandfathers what was held at ship time, to its end — 
   assert.equal(await included(plusDated, null), true);
   // … and once that term has ended, the gate applies.
   await db.query(
-    `UPDATE public.vendor_pro_tools_grandfather SET plus_term_ends_at = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`,
+    `UPDATE public.vendor_specialized_tools_access SET pro_tools_plus_until = NOW() - INTERVAL '1 minute' WHERE vendor_profile_id = $1`,
     [plusDated],
   );
   assert.equal(await included(plusDated, null), false, 'the term ended: Plus no longer includes them');
@@ -230,32 +230,31 @@ test('3 · the snapshot grandfathers what was held at ship time, to its end — 
 });
 
 test('4 · the TS mirror agrees with the SQL on every case', async () => {
-  const gShapes: Array<Partial<ProToolsGrandfather> | null> = [
+  const shapes: Array<Partial<ProToolsGrandfather> | null> = [
     null,
-    { plus_term_ends_at: FUTURE() },
-    { plus_term_ends_at: PAST() },
-    { plus_open_ended: true },
-    { unlock_expires_at: FUTURE() },
-    { unlock_expires_at: PAST() },
+    { pro_tools_plus_until: FUTURE() },
+    { pro_tools_plus_until: PAST() },
+    { pro_tools_plus_until: 'infinity' },
+    { pro_tools_unlock_until: FUTURE() },
+    { pro_tools_unlock_until: PAST() },
   ];
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise']) {
     for (const verified of [true, false]) {
       for (const tierExpires of [null, PAST(), FUTURE()]) {
-        for (const shape of gShapes) {
+        for (const shape of shapes) {
           const vpid = await newShop({ tier, verified, tierExpires });
           let g: ProToolsGrandfather | null = null;
           if (shape) {
             g = {
-              plus_term_ends_at: shape.plus_term_ends_at ?? null,
-              plus_open_ended: shape.plus_open_ended ?? false,
-              unlock_expires_at: shape.unlock_expires_at ?? null,
+              pro_tools_plus_until: shape.pro_tools_plus_until ?? null,
+              pro_tools_unlock_until: shape.pro_tools_unlock_until ?? null,
+              pro_tools_trial_until: null,
               trial_event_id: null,
-              trial_ends_at: null,
             };
             await db.query(
-              `INSERT INTO public.vendor_pro_tools_grandfather (vendor_profile_id, plus_term_ends_at, plus_open_ended, unlock_expires_at)
-               VALUES ($1, $2, $3, $4)`,
-              [vpid, g.plus_term_ends_at, g.plus_open_ended, g.unlock_expires_at],
+              `INSERT INTO public.vendor_specialized_tools_access (vendor_profile_id, pro_tools_plus_until, pro_tools_unlock_until)
+               VALUES ($1, $2::timestamptz, $3)`,
+              [vpid, g.pro_tools_plus_until, g.pro_tools_unlock_until],
             );
           }
           const facts = { tier_state: tier, tier_expires_at: tierExpires, verification_state: verified ? 'verified' : 'unverified' };
@@ -270,14 +269,10 @@ test('4 · the TS mirror agrees with the SQL on every case', async () => {
   }
 });
 
-test('5 · the grandfather table is service-role only', async () => {
+test('5 · the frozen columns live on a service-role-only table', async () => {
   const r = await db.query<{ grantee: string }>(
     `SELECT DISTINCT grantee FROM information_schema.role_table_grants
-      WHERE table_schema = 'public' AND table_name = 'vendor_pro_tools_grandfather' AND grantee IN ('anon','authenticated')`,
+      WHERE table_schema = 'public' AND table_name = 'vendor_specialized_tools_access' AND grantee IN ('anon','authenticated')`,
   );
   assert.deepEqual(r.rows, []);
-  const rls = await db.query<{ on: boolean }>(
-    `SELECT relrowsecurity AS on FROM pg_class WHERE oid = 'public.vendor_pro_tools_grandfather'::regclass`,
-  );
-  assert.equal(rls.rows[0]!.on, true);
 });

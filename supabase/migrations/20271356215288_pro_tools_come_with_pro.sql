@@ -16,61 +16,60 @@
 --   3 · `vendor_specialized_tools_unlocked` is NOT changed. The Specialized tools unlock (Plus, the ₱499 window, the
 --       trial) keeps opening every OTHER paid tool (custom tools, the Tools Maker, future tools).
 --
--- GRANDFATHERING — `vendor_pro_tools_grandfather`, a snapshot taken ONCE, when this file is applied:
---   · a shop on a live Plus plan keeps both tools until the END OF THAT TERM (`plus_term_ends_at`, the
---     `tier_expires_at` it had at apply time). A renewal never shortens it; after it ends, the gate applies.
---     A Plus plan with no end date keeps them while it stays that same open-ended Plus plan.
---   · a live ₱499 / ₱4,990 Specialized tools window keeps them until that window ends.
---   · a claimed first-booking trial keeps them on its event until the trial ends.
---   The snapshot is written only on the FIRST apply: the table's COMMENT is the marker, so a re-apply never
+-- GRANDFATHERING — three columns on vendor_specialized_tools_access, frozen ONCE when this file is applied:
+--   · pro_tools_plus_until: a live Plus term keeps both tools until the END OF THAT TERM (a renewal never shortens it);
+--     'infinity' = a Plus plan with no end date, kept while it stays that same open-ended Plus plan.
+--   · pro_tools_unlock_until: a live ₱499 / ₱4,990 Specialized tools window keeps them until that window ends.
+--   · pro_tools_trial_until: a claimed first-booking trial keeps them on its event until the trial ends.
+--   The snapshot writes only on the FIRST apply: pro_tools_plus_until's COMMENT is the marker, so a re-apply never
 --   grandfathers a shop that joined Plus after this shipped.
 --
 -- 🛑 NEVER APPLIED BY HAND. The pipeline pushes this file (CLAUDE.md), on the controller's go.
--- Idempotent: IF NOT EXISTS / CREATE OR REPLACE / the COMMENT marker.
+-- Idempotent: IF NOT EXISTS / CREATE OR REPLACE / ON CONFLICT / the COMMENT marker.
 -- ============================================================================
 
 BEGIN;
 
 -- ── 1 · THE SNAPSHOT ────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.vendor_pro_tools_grandfather (
-  vendor_profile_id UUID PRIMARY KEY
-                      REFERENCES public.vendor_profiles(vendor_profile_id) ON DELETE CASCADE,
-  plus_term_ends_at TIMESTAMPTZ,
-  plus_open_ended   BOOLEAN NOT NULL DEFAULT FALSE,
-  unlock_expires_at TIMESTAMPTZ,
-  trial_event_id    UUID REFERENCES public.events(event_id) ON DELETE SET NULL,
-  trial_ends_at     TIMESTAMPTZ,
-  taken_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-ALTER TABLE public.vendor_pro_tools_grandfather ENABLE ROW LEVEL SECURITY;
+-- Three columns on the shop's existing Specialized tools row, frozen once (NULL = held nothing that way at ship time):
+--   pro_tools_plus_until   — the end of the Plus term running then; 'infinity' = a Plus plan with no end date
+--   pro_tools_unlock_until — the end of the Specialized tools window running then
+--   pro_tools_trial_until  — the end of the claimed trial running then (on trial_event_id, which never changes once set)
+ALTER TABLE public.vendor_specialized_tools_access
+  ADD COLUMN IF NOT EXISTS pro_tools_plus_until   TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS pro_tools_unlock_until TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS pro_tools_trial_until  TIMESTAMPTZ;
 
--- RLS on, NO policy and NO grant for anon / authenticated: service_role only (the vendor_specialized_tools_access
--- shape). Every reader is the SECURITY DEFINER gate below.
-REVOKE ALL ON public.vendor_pro_tools_grandfather FROM PUBLIC, anon, authenticated;
-GRANT ALL ON public.vendor_pro_tools_grandfather TO service_role;
-
--- Taken only while the table carries no COMMENT (i.e. the first apply).
-INSERT INTO public.vendor_pro_tools_grandfather
-  (vendor_profile_id, plus_term_ends_at, plus_open_ended, unlock_expires_at, trial_event_id, trial_ends_at)
+-- Taken only while pro_tools_plus_until carries no COMMENT, i.e. on the first apply (the COMMENT is set right after).
+INSERT INTO public.vendor_specialized_tools_access
+  (vendor_profile_id, pro_tools_plus_until, pro_tools_unlock_until, pro_tools_trial_until)
 SELECT
   vp.vendor_profile_id,
-  CASE WHEN vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at > NOW() THEN vp.tier_expires_at END,
-  (vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at IS NULL),
+  CASE WHEN vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at IS NULL THEN 'infinity'::TIMESTAMPTZ
+       WHEN vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at > NOW() THEN vp.tier_expires_at END,
   CASE WHEN a.unlock_expires_at > NOW() THEN a.unlock_expires_at END,
-  CASE WHEN a.trial_ends_at > NOW() THEN a.trial_event_id END,
-  CASE WHEN a.trial_ends_at > NOW() THEN a.trial_ends_at END
+  CASE WHEN a.trial_event_id IS NOT NULL AND a.trial_ends_at > NOW() THEN a.trial_ends_at END
 FROM public.vendor_profiles vp
 LEFT JOIN public.vendor_specialized_tools_access a ON a.vendor_profile_id = vp.vendor_profile_id
-WHERE obj_description('public.vendor_pro_tools_grandfather'::regclass, 'pg_class') IS NULL
+WHERE col_description('public.vendor_specialized_tools_access'::regclass,
+        (SELECT attnum FROM pg_attribute
+          WHERE attrelid = 'public.vendor_specialized_tools_access'::regclass AND attname = 'pro_tools_plus_until')) IS NULL
   AND (
     (vp.tier_state::TEXT = 'solo' AND (vp.tier_expires_at IS NULL OR vp.tier_expires_at > NOW()))
     OR a.unlock_expires_at > NOW()
     OR (a.trial_event_id IS NOT NULL AND a.trial_ends_at > NOW())
   )
-ON CONFLICT (vendor_profile_id) DO NOTHING;
+ON CONFLICT (vendor_profile_id) DO UPDATE SET
+  pro_tools_plus_until   = EXCLUDED.pro_tools_plus_until,
+  pro_tools_unlock_until = EXCLUDED.pro_tools_unlock_until,
+  pro_tools_trial_until  = EXCLUDED.pro_tools_trial_until;
 
-COMMENT ON TABLE public.vendor_pro_tools_grandfather IS
-  'Owner 20 Nov 2026: the photo challenge and the 3D booth come with Pro and up. ONE snapshot, taken when migration 20271356215288 was first applied, of every shop that already had them another way: plus_term_ends_at = the end of the live Plus term then (kept until it ends; a renewal never shortens it), plus_open_ended = a Plus plan with no end date (kept while it stays so), unlock_expires_at = a live Specialized tools window, trial_* = a claimed first-booking trial. Read only by vendor_pro_tools_included(). Never written again: this COMMENT is the marker that stops a re-apply from snapshotting anew. service_role only.';
+COMMENT ON COLUMN public.vendor_specialized_tools_access.pro_tools_plus_until IS
+  'Owner 20 Nov 2026: the photo challenge and the 3D booth come with Pro and up. GRANDFATHER, frozen once when migration 20271356215288 was first applied: the end of the Plus term then running (kept until it ends; a renewal never shortens it), or ''infinity'' for a Plus plan with no end date (kept while it stays so). This COMMENT is the marker that stops a re-apply from snapshotting anew. Read only by vendor_pro_tools_included().';
+COMMENT ON COLUMN public.vendor_specialized_tools_access.pro_tools_unlock_until IS
+  'GRANDFATHER (owner 20 Nov 2026), frozen once: the end of the Specialized tools window running when 20271356215288 was applied — the photo challenge and the 3D booth stay open until then. Read only by vendor_pro_tools_included().';
+COMMENT ON COLUMN public.vendor_specialized_tools_access.pro_tools_trial_until IS
+  'GRANDFATHER (owner 20 Nov 2026), frozen once: the end of the trial (on trial_event_id) that was running when 20271356215288 was applied. Read only by vendor_pro_tools_included().';
 
 -- ── 2 · THE ONE ANSWER ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.vendor_pro_tools_included(
@@ -89,29 +88,31 @@ AS $$
       (vp.tier_state::TEXT IN ('pro', 'enterprise')
          AND (vp.tier_expires_at IS NULL OR vp.tier_expires_at > NOW()))
       -- Grandfathered: the Plus term that was running when this shipped …
-      OR (g.plus_term_ends_at IS NOT NULL AND g.plus_term_ends_at > NOW())
-      OR (COALESCE(g.plus_open_ended, FALSE) AND vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at IS NULL)
+      OR (g.pro_tools_plus_until IS NOT NULL AND g.pro_tools_plus_until <> 'infinity'::TIMESTAMPTZ
+          AND g.pro_tools_plus_until > NOW())
+      OR (g.pro_tools_plus_until = 'infinity'::TIMESTAMPTZ
+          AND vp.tier_state::TEXT = 'solo' AND vp.tier_expires_at IS NULL)
       -- … and a Specialized tools window or trial already held (the unlock's own verified floor, unchanged).
       OR (
         vp.verification_state::TEXT = 'verified'
         AND vp.tier_state::TEXT IN ('verified', 'solo', 'pro', 'enterprise')
         AND (
-          (g.unlock_expires_at IS NOT NULL AND g.unlock_expires_at > NOW())
+          (g.pro_tools_unlock_until IS NOT NULL AND g.pro_tools_unlock_until > NOW())
           OR (p_event_id IS NOT NULL
               AND g.trial_event_id = p_event_id
-              AND g.trial_ends_at IS NOT NULL
-              AND g.trial_ends_at > NOW())
+              AND g.pro_tools_trial_until IS NOT NULL
+              AND g.pro_tools_trial_until > NOW())
         )
       )
     FROM public.vendor_profiles vp
-    LEFT JOIN public.vendor_pro_tools_grandfather g
+    LEFT JOIN public.vendor_specialized_tools_access g
       ON g.vendor_profile_id = vp.vendor_profile_id
     WHERE vp.vendor_profile_id = p_vendor_profile_id
   ), FALSE);
 $$;
 
 COMMENT ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) IS
-  'May this shop use the photo challenge and brand its 3D booth at this event? TRUE for a live Pro or Ultra plan (owner 20 Nov 2026: "part of Pro and Up"), or a shop grandfathered in vendor_pro_tools_grandfather (a Plus term, a Specialized tools window or a trial that was running when this shipped, until it ends). Called by vendor_papic_challenge_entitled and event_branded_booth_vendor_ids. Mirror: proToolsIncludedFrom (apps/web/lib/specialized-tools-access.ts). service_role only.';
+  'May this shop use the photo challenge and brand its 3D booth at this event? TRUE for a live Pro or Ultra plan (owner 20 Nov 2026: "part of Pro and Up"), or a shop grandfathered by the frozen vendor_specialized_tools_access.pro_tools_* columns (a Plus term, a Specialized tools window or a trial that was running when this shipped, until it ends). Called by vendor_papic_challenge_entitled and event_branded_booth_vendor_ids. Mirror: proToolsIncludedFrom (apps/web/lib/specialized-tools-access.ts). service_role only.';
 
 REVOKE ALL ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.vendor_pro_tools_included(UUID, UUID) TO service_role;

@@ -146,10 +146,10 @@ name: deploy-prod
 # schedules are in-pattern here; deploy-drift-monitor.yml already uses one.
 on:
   schedule:
-    # 6×/day. :07 rather than :00 — the top of the hour is when every scheduled
+    # 12×/day, every 2 hours (owner 2026-11-20, was 6×/day every 4 hours). :07 rather than :00 — the top of the hour is when every scheduled
     # workflow on GitHub queues at once. Also off deploy-drift-monitor's :17, so
     # the monitor never samples a deploy still in flight.
-    - cron: '7 */4 * * *'
+    - cron: '7 */2 * * *'
   workflow_dispatch:
 
 # Share the supabase-migrations concurrency group so this and the legacy

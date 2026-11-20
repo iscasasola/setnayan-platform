@@ -103,6 +103,16 @@ import {
   registerRetry,
   type PendingSend,
 } from '@/lib/chat-optimistic';
+import { VoiceMic, canRecordVoice } from '@/app/_components/chat/voice-mic';
+import { editChatMessage } from '@/lib/chat-message-actions';
+import {
+  CHAT_EDITED_EVENT,
+  CHAT_EDIT_START_EVENT,
+  CHAT_VOICE_SECONDS_FIELD,
+  voiceLength,
+  type ChatEditStart,
+  type ChatEdited,
+} from '@/lib/chat-message-extras';
 
 /**
  * 🧰 The (+) card drawn inside the box — asked for only when a tool opens (the stream already carries the same module on
@@ -162,6 +172,12 @@ type Props = {
    * button in the box, the kind chips above it, and the one suggested step. Absent → the box exactly as before.
    */
   kinds?: boolean;
+  /**
+   * 🎤 VOICE NOTES (Unichat H1, approved prototype v3 — 20 Nov 2026): an empty box turns Send into a mic. Passed by the
+   * two supplier-chat pages (the host's and the supplier's), where a chat file may be sent. Absent → no mic: a group
+   * chat takes no files yet (`GROUP_FILES_NOT_YET`), and a voice note is a chat file.
+   */
+  voice?: boolean;
 };
 
 // The picker's list and the size ceilings are DERIVED from the one shared
@@ -170,7 +186,7 @@ type Props = {
 // which is how a picker comes to offer a type the server refuses, with a file
 // that simply will not send as the only symptom.
 
-export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null, whisper = null, kinds = false }: Props) {
+export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId, sentAs, wordsOnly = null, whisper = null, kinds = false, voice = false }: Props) {
   /* 💬 The chips (19 Nov 2026). The picked kind is the chat's own (`chat-kind-store`): the stream filters by it and
      publishes each kind's count; this box only shows and picks. The sliders button opens the chips; pressed again — or
      All — it shows everything. */
@@ -347,6 +363,19 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   // the sender edits without a server round-trip. The server re-checks
   // authoritatively (no-JS + native paths), so this is UX, not the gate.
   const [blockError, setBlockError] = useState<string | null>(null);
+  /* 🎤 UNICHAT H1 — THE MIC IN THE BOX (approved prototype v3, 20 Nov: "Empty box: the arrow is a mic. Hold to record,
+     slide left to cancel."). Asked after mount, so the server render and the first paint agree (Send). */
+  const [voiceOk, setVoiceOk] = useState(false);
+  useEffect(() => setVoiceOk(canRecordVoice()), []);
+  const [voiceHint, setVoiceHint] = useState<string | null>(null);
+  const [messageBoxEl, setMessageBoxEl] = useState<HTMLDivElement | null>(null);
+  /* ✏️ UNICHAT H1 — EDITING YOUR OWN MESSAGE happens HERE, in the one box (the drawing: the words go back into the box
+     and Send saves them). The stream hands them over (`CHAT_EDIT_START_EVENT`); the database decides whether the edit
+     stands (`edit_my_chat_message`). */
+  const [editing, setEditing] = useState<{ messageId: string; original: string } | null>(null);
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+  const [savingEdit, setSavingEdit] = useState(false);
   /* ⌨ THE COMPOSER RIDES WITH NO BAND (owner 2026-10-24, on the band's "Typing · …" + ✓ Done: *"can this be gone? just
      tap away and keyboard should disappear"*). The row stays whole (＋ · message · Send): Send is its verb and the
      phone's Enter is a new line; a tap or a drag on the thread — or Escape — leaves the box (`useTapAway`), so the
@@ -357,6 +386,35 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   useEffect(() => {
     setChatBoxEl(formRef.current?.closest<HTMLElement>('[data-chat-box]') ?? null);
   }, []);
+  const stopEditing = (keepWords = false) => {
+    setEditing(null);
+    setBlockError(null);
+    if (keepWords) return;
+    if (textareaRef.current) {
+      textareaRef.current.value = '';
+      textareaRef.current.style.height = '';
+    }
+    setHasDraft(false);
+  };
+  useEffect(() => {
+    const onStart = (e: Event) => {
+      const d = (e as CustomEvent<ChatEditStart & { taken?: boolean }>).detail;
+      const el = textareaRef.current;
+      if (!d || d.threadId !== threadId || !el) return;
+      d.taken = true; // tells the stream a box took the words
+      setEditing({ messageId: d.messageId, original: d.body });
+      setBlockError(null);
+      setVoiceHint(null);
+      el.value = d.body;
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
+      setHasDraft(d.body.trim().length > 0);
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    };
+    window.addEventListener(CHAT_EDIT_START_EVENT, onStart);
+    return () => window.removeEventListener(CHAT_EDIT_START_EVENT, onStart);
+  }, [threadId]);
   // 💬 While the chips float over the foot of the conversation, the conversation makes room for them (globals.css).
   useEffect(() => {
     if (!chatBoxEl || !chipsShown) return;
@@ -621,6 +679,34 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     settle(true);
   };
 
+  /** 🎤 One finished recording → a message, down the same road as every chat file (prepare → upload → the send action). */
+  const sendVoice = (file: File, seconds: number) => {
+    const formData = new FormData();
+    formData.set('thread_id', threadId);
+    formData.set('body', '');
+    if (sentAs) formData.set(CHAT_SENT_AS_FIELD, sentAs);
+    formData.set('attachment', file);
+    formData.set(CHAT_VOICE_SECONDS_FIELD, String(seconds));
+    const pending: PendingSend = {
+      tempId: newTempId(),
+      threadId,
+      body: '',
+      fileName: `Voice note · ${voiceLength(seconds)}`,
+      at: Date.now(),
+      state: 'sending',
+      privateTo: null,
+      whisper: false,
+    };
+    setVoiceHint(null);
+    window.dispatchEvent(new CustomEvent(CHAT_PENDING_EVENT, { detail: pending }));
+    backToAll();
+    window.dispatchEvent(new CustomEvent('chat-stream:sent', { detail: { threadId } }));
+    void deliver(formData, pending, true);
+  };
+  // The mic stands in for Send only while there is nothing to send and a file may be sent: an empty box, no picked
+  // file, no tool in the box, not private / whisper / words-only (those are words only), and not mid-edit.
+  const micShown = voice && voiceOk && Boolean(userId) && !hasDraft && !fileName && !toolInBox && !wordsMode && !feeWordsOnly && !editing;
+
   const toolTitle = tool ? PLUS_CARD_TITLE[tool.kind] : 'Add to chat';
   const toolCard =
     tool && toolHost ? (
@@ -701,6 +787,40 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         // Realtime stream is now the source of truth for the painted UI.
         // The action still runs the insert + notification flow.
         formData.delete('return_to');
+
+        // ✏️ Mid-edit, Send SAVES the edit — it never sends a second message. Words only; the same words again just
+        // put the box back. A refusal keeps the words in the box and says why.
+        const edit = editingRef.current;
+        if (edit) {
+          const words = (formData.get('body') as string | null)?.trim() ?? '';
+          if (!words || savingEdit) return;
+          if (words === edit.original.trim()) {
+            stopEditing();
+            return;
+          }
+          if (chatContactFilterEnabled() && evaluateMessage(words).blocked) {
+            setBlockError(CONTACT_BLOCK_MESSAGE);
+            return;
+          }
+          setBlockError(null);
+          setSavingEdit(true);
+          let out: Awaited<ReturnType<typeof editChatMessage>>;
+          try {
+            out = await editChatMessage(edit.messageId, words);
+          } catch (err) {
+            console.error('editChatMessage failed', err);
+            out = { ok: false, message: 'Couldn’t save your edit. Try again.' };
+          }
+          setSavingEdit(false);
+          if (!out.ok) {
+            setBlockError(out.message);
+            return;
+          }
+          const detail: ChatEdited = { threadId, messageId: edit.messageId, body: out.body, editedAt: out.editedAt ?? new Date().toISOString() };
+          window.dispatchEvent(new CustomEvent(CHAT_EDITED_EVENT, { detail }));
+          stopEditing();
+          return;
+        }
 
         // A message needs SOMETHING — text or a file. Bail on a truly-empty
         // submit so we don't round-trip a no-op (the server no-ops too).
@@ -818,6 +938,21 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         <p className="self-start text-[13px]" style={{ color: 'rgb(var(--color-danger))' }} role="alert">
           {fileError}
         </p>
+      ) : null}
+      {voiceHint && !editing ? (
+        <p role="status" className="self-stretch px-1 text-[13px] text-[color:var(--m-slate-2)]" data-chat-voice-hint="">
+          {voiceHint}
+        </p>
+      ) : null}
+      {editing ? (
+        <div role="status" className="flex items-center gap-2 self-stretch px-1 text-[13.5px] text-[color:var(--m-slate-2)]" data-chat-editing="">
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold text-ink">Editing your message</b> · Send saves it
+          </span>
+          <button type="button" onClick={() => stopEditing()} className="sn-press min-h-11 shrink-0 px-2 font-semibold text-sn-accent" data-chat-editing-cancel="">
+            Cancel
+          </button>
+        </div>
       ) : null}
       {slashOn ? (
         <SlashList
@@ -1007,6 +1142,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             (everyone). The wrapper is always drawn, so the field is never re-mounted and a draft survives the switch. */}
         <div
           className={`sn-composer-box relative my-[3px] min-w-0 flex-1 rounded-2xl ${toolInBox ? 'hidden' : 'flex'} ${toolsAway ? 'ml-0 mr-1' : 'mx-1'} ${privateTo ? PRIVATE_BOX_OUTLINE : ''}`}
+          ref={setMessageBoxEl}
           data-chat-message-box=""
           {...(privateTo ? { 'data-chat-private-box': '' } : {})}
           // 💸 Words only while a top-up is overdue: a pasted file is refused, in the lock's own words.
@@ -1077,6 +1213,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             el.style.height = 'auto';
             el.style.height = `${Math.min(el.scrollHeight, 144)}px`;
             if (blockError) setBlockError(null);
+            if (voiceHint) setVoiceHint(null);
             window.dispatchEvent(
               new CustomEvent('chat-stream:input', { detail: { threadId } }),
             );
@@ -1102,6 +1239,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
                 if (row && slashPick(slashList, at)) pickSlash(row);
                 return;
               }
+            }
+            // ✏️ Escape leaves an edit, and the box is empty again (the message itself is untouched).
+            if (editingRef.current && e.key === 'Escape' && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              stopEditing();
+              return;
             }
             // Enter sends, Shift+Enter starts a new line — the standard chat
             // convention. shouldSendOnEnter also holds back for IME
@@ -1164,11 +1307,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         <SubmitButton
           aria-label="Send"
           pendingLabel=""
-          className={`sn-whisper-send h-11 w-11 shrink-0 items-center justify-center rounded-full ${toolInBox ? 'hidden' : 'inline-flex'} ${wordsMode ? PRIVATE_MARK : 'text-ink'} hover:bg-ink/[0.05] disabled:opacity-60`}
+          className={`sn-whisper-send h-11 w-11 shrink-0 items-center justify-center rounded-full ${toolInBox || micShown ? 'hidden' : 'inline-flex'} ${wordsMode ? PRIVATE_MARK : 'text-ink'} hover:bg-ink/[0.05] disabled:opacity-60`}
           {...(privateTo ? { 'data-chat-private-send': '' } : {})}
         >
           <WhisperSendIcon on={whisperOn} className="h-6 w-6" />
         </SubmitButton>
+        {/* 🎤 An empty box: Send is a mic. Hold to record, slide left to cancel, release to send. */}
+        {micShown ? <VoiceMic onSend={sendVoice} onHint={setVoiceHint} overlayHost={messageBoxEl} className="inline-flex" /> : null}
       </div>
       {whisper ? (
         <ConfirmDialog

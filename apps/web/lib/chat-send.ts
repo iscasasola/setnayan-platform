@@ -27,6 +27,7 @@ import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.ser
 import { WHISPER_HOSTS_ONLY_MESSAGE, WHISPER_NO_COHOSTS_MESSAGE, WHISPER_WORDS_ONLY_MESSAGE, whisperRecipients } from './chat-whisper';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 import type { ChatSentAs } from './chat-sent-as';
+import { voiceLength } from './chat-message-extras';
 
 /**
  * The allowlist and the size ceilings now live in `lib/chat-attachment-limits.ts`
@@ -143,6 +144,12 @@ export async function sendChatMessageCore(
      * (couple first). The database re-checks it (`chat_messages.sent_as`, migration 20271338442002).
      */
     asSide?: ChatSentAs | null;
+    /**
+     * 🎤 A VOICE NOTE's length in seconds (Unichat H1), as the recording phone measured it — display only, clamped by
+     * the caller (`voiceSecondsFromForm`) and again by the column's CHECK. It is stored ONLY when the file that
+     * arrived is audio; an audio file with no length is not a voice note and is refused like any unsupported type.
+     */
+    voiceSeconds?: number | null;
   },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
@@ -536,6 +543,27 @@ export async function sendChatMessageCore(
     attachment = verdict.attachment;
   }
 
+  // 🎤 An audio file is a voice note or it is nothing: the recorder in the text box always sends its length with it.
+  const isAudio = (attachment?.attachment_mime ?? '').startsWith('audio/');
+  const voiceSeconds = isAudio && typeof input.voiceSeconds === 'number' && input.voiceSeconds >= 1 ? Math.round(input.voiceSeconds) : null;
+  if (isAudio && voiceSeconds === null) {
+    if (attachment) {
+      try {
+        await cleanupDelete(attachment.attachment_r2_key, chatAttachmentScope(thread.thread_id));
+      } catch (caught) {
+        console.error('[sendChatMessageCore] refused audio file could not be removed:', caught instanceof Error ? caught.message : String(caught));
+      }
+    }
+    return { ok: false, code: 'attachment_invalid', message: CHAT_FILE_TYPE_REFUSAL };
+  }
+  // Its own literal, like the side below, so the send path's column scan still sees what is written.
+  const voicePayload =
+    voiceSeconds !== null
+      ? {
+          voice_seconds: voiceSeconds,
+        }
+      : {};
+
   // sender_user_id / sender_role are NOT sent. This insert runs under the
   // caller's own RLS-scoped session, and `authenticated` holds no INSERT
   // privilege on either column — naming one is a hard permission failure, not
@@ -561,6 +589,7 @@ export async function sendChatMessageCore(
     // One person keeps the shipped column; several go in the list (recipient_user_id = its first, set by the database).
     ...(privateTo ? (privateTo.length === 1 ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo[0] } : { [CHAT_PRIVATE_RECIPIENTS_COLUMN]: privateTo }) : {}),
     ...sidePayload,
+    ...voicePayload,
   });
   if (error) {
     // The database screens the text with the same rules as the check above
@@ -628,7 +657,7 @@ export async function sendChatMessageCore(
     // Attachment-only messages have no text — give the notification a sensible
     // preview instead of an empty string. (A message that reaches this point has
     // already passed the contact filter, so trimmed is safe to preview.)
-    body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
+    body: trimmed || (voiceSeconds !== null ? `🎤 Voice note · ${voiceLength(voiceSeconds)}` : attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage: isFirstMessage && !privateTo,
     whisper: whisperTo !== null,
     privateTo,

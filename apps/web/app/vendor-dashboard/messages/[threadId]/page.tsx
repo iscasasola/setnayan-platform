@@ -2185,6 +2185,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   wordsOnly={await feeWordsOnlyRead}
                   // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
                   kinds={embedded}
+                  // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
+                  voice
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (

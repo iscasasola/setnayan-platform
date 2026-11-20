@@ -27,7 +27,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { ArrowDown, ChevronDown, ChevronUp, Paperclip, Search, X } from 'lucide-react';
+import { ArrowDown, ChevronDown, ChevronUp, MoreHorizontal, Paperclip, Search, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
@@ -137,6 +137,18 @@ import { MessageHeart } from './chat/message-heart';
 import { FiledChip, FileToDecisionMenu, type FilingDone } from './chat/file-to-decision-menu';
 import { attachmentTap, bubbleTap, NO_TAP, type LastTap } from '@/lib/chat-double-tap';
 import { AttachmentBlock } from './chat/attachment-block';
+import { VoiceNote } from './chat/voice-note';
+import { MessageExtrasMenu } from './chat/message-extras-menu';
+import {
+  CHAT_EDITED_EVENT,
+  CHAT_EDIT_START_EVENT,
+  canOfferEdit,
+  canOfferUnsend,
+  isVoiceNote,
+  unsentLine,
+  type ChatEditStart,
+  type ChatEdited,
+} from '@/lib/chat-message-extras';
 import { MaybeChatFileSwipe, routeRemoveIO, type ChatFileRemoveIO, type ChatFileRemoved } from './chat/chat-file-swipe';
 import {
   CHAT_FILE_REMOVED_FOR_ME,
@@ -718,6 +730,72 @@ export function ChatMessageStream({
     [currentUserId],
   );
   const [filePick, setFilePick] = useState<string | null>(null);
+  // ⋯ UNICHAT H1 — Edit · Unsend · Remind me on one message (approved prototype v3, 20 Nov: "Hold your own new
+  // message: Edit or Unsend."). Opened by holding a bubble (touch), a right-click, or the ⋯ beside it. A tap is still
+  // a heart, and the 🔒 beside the message box is still the one private door — this menu carries neither.
+  const [extrasFor, setExtrasFor] = useState<string | null>(null);
+  const [extrasLine, setExtrasLine] = useState<{ messageId: string; text: string } | null>(null);
+  const extrasTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extrasFrom = useRef<{ x: number; y: number } | null>(null);
+  // The hold opened the menu: the click that ends the same press must not also heart the bubble.
+  const extrasHeld = useRef(false);
+  const extrasPress = (messageId: string) => {
+    const stop = () => {
+      if (extrasTimer.current) clearTimeout(extrasTimer.current);
+      extrasTimer.current = null;
+      extrasFrom.current = null;
+    };
+    return {
+      onPointerDown: (e: React.PointerEvent) => {
+        extrasHeld.current = false;
+        if (e.pointerType === 'mouse') return; // a mouse right-clicks, or uses the ⋯
+        stop();
+        extrasFrom.current = { x: e.clientX, y: e.clientY };
+        extrasTimer.current = setTimeout(() => {
+          extrasTimer.current = null;
+          extrasHeld.current = true;
+          setExtrasLine(null);
+          setExtrasFor(messageId);
+        }, 450);
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        const from = extrasFrom.current;
+        // A scroll or a swipe is not a hold.
+        if (from && (Math.abs(e.clientX - from.x) > 10 || Math.abs(e.clientY - from.y) > 10)) stop();
+      },
+      onPointerUp: stop,
+      onPointerCancel: stop,
+      onPointerLeave: stop,
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault();
+        stop();
+        setExtrasLine(null);
+        setExtrasFor(messageId);
+      },
+    };
+  };
+  useEffect(
+    () => () => {
+      if (extrasTimer.current) clearTimeout(extrasTimer.current);
+    },
+    [],
+  );
+  // ✏️ The message box saved an edit: the bubble changes now; the row's own realtime UPDATE says the same after.
+  useEffect(() => {
+    const onEdited = (e: Event) => {
+      const d = (e as CustomEvent<ChatEdited>).detail;
+      if (!d || d.threadId !== threadId) return;
+      setMessages((prev) => prev.map((m) => (m.message_id === d.messageId ? { ...m, body: d.body, edited_at: d.editedAt } : m)));
+    };
+    window.addEventListener(CHAT_EDITED_EVENT, onEdited);
+    return () => window.removeEventListener(CHAT_EDITED_EVENT, onEdited);
+  }, [threadId]);
+  /** Hand a message's words to the message box. `false` = no box took them. */
+  const startEdit = (m: ChatMessageRow): boolean => {
+    const detail: ChatEditStart & { taken?: boolean } = { threadId, messageId: m.message_id, body: m.body ?? '' };
+    window.dispatchEvent(new CustomEvent(CHAT_EDIT_START_EVENT, { detail }));
+    return detail.taken === true;
+  };
   const [fileLine, setFileLine] = useState<{ messageId: string; text: string; undo?: () => Promise<unknown> } | null>(null);
   const lastTap = useRef<LastTap>(NO_TAP);
   // 📎 A single tap on a file waits DOUBLE_TAP_MS to see if a second one files it instead (attachmentTap).
@@ -2799,9 +2877,39 @@ export function ChatMessageStream({
             : removal?.mine
               ? `${CHAT_FILE_REMOVED_FOR_ME} · ${formatChatTimestamp(removal.mine.at)}`
               : null;
+          // ↩ UNSENT (Unichat H1): the row stays, its words and voice note gone — everyone who could read it reads this
+          // quiet line in its place (the drawing's words). Before every file rule below: nothing of it is left to draw.
+          if (m.unsent_at) {
+            return (
+              <li key={m.message_id} className="flex justify-center py-1">
+                <p className="text-center text-[13px] text-[color:var(--m-slate-2)]" data-chat-unsent="">
+                  {unsentLine(mine ? 'you' : m.sender_user_id ? personName(m.sender_user_id) : counterpartyLabel)}
+                </p>
+              </li>
+            );
+          }
           const hasWords = (m.body ?? '').trim() !== '';
           const hasFile = !hiddenForMe && !!(m.attachment_r2_key || m.attachment_url);
-          const ownFile = mine && privateWith === null && hasFile;
+          // 🎤 A voice note plays in the bubble; it is unsent from the ⋯ (15 min), not swiped away like a photo.
+          const voice = hasFile && isVoiceNote(m);
+          const ownFile = mine && privateWith === null && hasFile && !voice;
+          const extrasOpen = extrasFor === m.message_id;
+          const moreButton = (
+            <button
+              type="button"
+              aria-label="More for this message"
+              aria-haspopup="dialog"
+              aria-expanded={extrasOpen}
+              onClick={() => {
+                setExtrasLine(null);
+                setExtrasFor(extrasOpen ? null : m.message_id);
+              }}
+              className="sn-press hidden h-11 w-11 shrink-0 place-items-center self-center rounded-full text-[color:var(--m-slate-2)] hover:bg-ink/[0.05] md:grid md:opacity-0 md:focus-visible:opacity-100 md:group-hover/msg:opacity-100 md:aria-expanded:opacity-100"
+              data-chat-more=""
+            >
+              <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={2} />
+            </button>
+          );
           // The ring's undo (marked, no for-everyone line): nothing is drawn — the approved "no line". With words, the
           // words stay as an ordinary bubble.
           if (!hasWords && m.file_removed_at && !removedLine) return null;
@@ -2822,7 +2930,7 @@ export function ChatMessageStream({
           return (
             <li
               key={m.message_id}
-              className={`flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
+              className={`group/msg flex flex-col ${mine ? 'items-end' : 'items-start'} ${run.first ? 'pt-1.5' : ''}`}
               data-chat-bubble={mine ? 'mine' : 'theirs'}
             >
               {staffName ? (
@@ -2876,11 +2984,17 @@ export function ChatMessageStream({
                   <span aria-hidden className="w-7 shrink-0" />
                 )
               ) : null}
+              {mine ? moreButton : null}
               <div
                 // ♥ ONE TAP on the bubble toggles your heart (v111) — never on a link, button or player inside it.
-                // 🔒 Holding a bubble opens nothing: the 🔒 beside the message box is the ONE door to a private
-                // message (owner-approved prototype, 11 Nov 2026 — the hold menu's "Reply privately" removed).
+                // 🔒 The 🔒 beside the message box is the ONE door to a private message (owner-approved prototype,
+                // 11 Nov 2026). ⋯ Holding a bubble opens Edit · Unsend · Remind me only (Unichat H1, 20 Nov).
+                {...extrasPress(m.message_id)}
                 onClick={(e) => {
+                  if (extrasHeld.current) {
+                    extrasHeld.current = false;
+                    return;
+                  }
                   if (tapMeansHeart(e.target as Element)) {
                     const tap = bubbleTap(lastTap.current, m.message_id, performance.now());
                     lastTap.current = tap.next;
@@ -2890,7 +3004,7 @@ export function ChatMessageStream({
                 }}
                 data-chat-heartable=""
                 // Your own file bubble's 75% lives on its swipe (`OwnFileRow`), so the ↺ ring sits right beside it.
-                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug ${corner} ${whisper ? 'overflow-hidden ' : ''}${
+                className={`${ownFile ? 'max-w-full' : 'max-w-[75%]'} rounded-2xl px-3 py-2 text-[15px] leading-snug [-webkit-touch-callout:none] [@media(pointer:coarse)]:select-none ${corner} ${whisper ? 'overflow-hidden ' : ''}${
                   privateWith !== null
                     ? PRIVATE_BUBBLE_FILL
                     : mine
@@ -2901,7 +3015,14 @@ export function ChatMessageStream({
               >
                 <PrivateMark privateWith={privateWith} whisper={whisper} />
                 {m.body ? (
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {m.body}
+                    {m.edited_at ? (
+                      <span className={`ml-1.5 whitespace-nowrap text-[12px] ${mine || privateWith !== null ? 'opacity-80' : 'text-[color:var(--m-slate-2)]'}`} data-chat-edited="">
+                        edited
+                      </span>
+                    ) : null}
+                  </p>
                 ) : null}
                 {/* 🔒 NEVER THE STORED VALUE. Since 2026-09-09 the row carries a
                     PRIVATE stored-asset ref, not a public URL, so the file is
@@ -2910,7 +3031,10 @@ export function ChatMessageStream({
                     the legacy public column — no writer has set it since, and
                     prod never had a row that used it, but a stored value there
                     is still somebody's file, so it keeps a way in. */}
-                {hasFile ? (
+                {voice ? (
+                  // 🎤 The same private route as every chat file; nothing is fetched until Play.
+                  <VoiceNote url={`/api/chat/attachment/${m.message_id}`} seconds={m.voice_seconds ?? null} mine={mine && privateWith === null} />
+                ) : hasFile ? (
                   <AttachmentBlock
                     url={`/api/chat/attachment/${m.message_id}`}
                     name={m.attachment_name ?? null}
@@ -2954,8 +3078,35 @@ export function ChatMessageStream({
                   {mine ? 'You' : counterpartyLabel} · {formatChatTimestamp(m.created_at)}
                 </span>
               </div>
+              {!mine ? moreButton : null}
               </div>
               </MaybeChatFileSwipe>
+              {extrasOpen ? (
+                <MessageExtrasMenu
+                  messageId={m.message_id}
+                  side={viewerRole}
+                  alignEnd={mine}
+                  canEdit={mine && privateWith === null && canOfferEdit(m, currentUserId, Date.now())}
+                  canUnsend={mine && canOfferUnsend(m, currentUserId, Date.now())}
+                  onClose={() => setExtrasFor(null)}
+                  onEdit={() => startEdit(m)}
+                  onUnsent={(unsentAt) =>
+                    setMessages((prev) =>
+                      prev.map((x) =>
+                        x.message_id === m.message_id
+                          ? { ...x, body: '', unsent_at: unsentAt, attachment_r2_key: null, attachment_name: null, attachment_mime: null, attachment_size_bytes: null, voice_seconds: null }
+                          : x,
+                      ),
+                    )
+                  }
+                  onLine={(text) => setExtrasLine({ messageId: m.message_id, text })}
+                />
+              ) : null}
+              {extrasLine?.messageId === m.message_id ? (
+                <p role="status" className={`mt-1 text-[13px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-extras-line="">
+                  {extrasLine.text}
+                </p>
+              ) : null}
               {removedLine ? (
                 <p className={`mt-0.5 text-[12px] text-[color:var(--m-slate-2)] ${mine ? 'self-end' : 'self-start pl-[38px]'}`} data-chat-file-removed="">
                   {removedLine}

@@ -897,6 +897,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                   userId={user.id}
                   // 🤫 Drag the box right to whisper to the co-hosts — a host in this chat only (19 Nov).
                   whisper={whisperCoHostIds ? { supplierName: vendorLabel, coHosts: whisperCoHostIds.length } : null}
+                  // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
+                  voice
                 />
               </div>
             ) : thread.inquiry_status === 'pending' ? (

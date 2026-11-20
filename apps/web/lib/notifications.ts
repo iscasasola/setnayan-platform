@@ -634,7 +634,12 @@ export type NotificationType =
      earned a CARD BADGE (sender: J3). In-app + push only — NOT on EMAIL_ENABLED_TYPES (the owner ruled email for
      badge_earned only). ⚠ ENUM values in their own migration (notification_types_seal_and_card_badge). */
   | 'seal_awarded'
-  | 'card_badge_earned';
+  | 'card_badge_earned'
+  /** ⏰ Unichat H1 (approved prototype v3, DECISION_LOG 2026-11-20): a "Remind me" the person THEMSELVES set on a chat
+     message came due — sent to them alone by `lib/chat-reminders.server.ts`, and only if they can still read the
+     message. ⚠ IN-APP ONLY (owner rule 2026-10-11, no new emails): NOT on EMAIL_ENABLED_TYPES —
+     `a-chat-reminder-stays-in-the-app.test.ts`. ⚠ ENUM value in its own migration (notification_type_chat_reminder). */
+  | 'chat_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -785,6 +790,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   badge_earned: 'You earned a badge',
   seal_awarded: 'You were given a seal',
   card_badge_earned: 'A service card earned a badge',
+  chat_reminder: 'Reminder',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -1048,6 +1054,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   badge_earned: 'bg-success-200 text-success-900',
   seal_awarded: 'bg-success-200 text-success-900',
   card_badge_earned: 'bg-success-200 text-success-900',
+  // A reminder you set yourself on a chat message → sky, the chat_message register.
+  chat_reminder: 'bg-sky-100 text-sky-800',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1370,6 +1378,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   badge_earned: 'gift',
   seal_awarded: 'gift',
   card_badge_earned: 'gift',
+  chat_reminder: 'message',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',

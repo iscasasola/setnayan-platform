@@ -31,6 +31,7 @@ import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
 import { CHAT_WHISPER_FIELD, whisperFromForm } from '@/lib/chat-whisper';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
+import { CHAT_VOICE_SECONDS_FIELD, voiceSecondsFromForm } from '@/lib/chat-message-extras';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -125,7 +126,10 @@ export async function sendChatMessage(formData: FormData) {
   // 🤫 A whisper (the host's box, dragged right): the core decides who hears it — the posted list is not read for it.
   const whisper = whisperFromForm(formData.get(CHAT_WHISPER_FIELD));
 
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide });
+  // 🎤 A voice note's length, when the mic in the text box sent this (Unichat H1) — only stored with an audio file.
+  const voiceSeconds = voiceSecondsFromForm(formData.get(CHAT_VOICE_SECONDS_FIELD));
+
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide, voiceSeconds });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {

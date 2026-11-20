@@ -228,6 +228,18 @@ export type ChatMessageRow = {
    */
   file_removed_at?: string | null;
   /**
+   * ✏️ When its sender last edited the words (Unichat H1 — migration 20271354347259, `edit_my_chat_message`). The bubble
+   * wears a small "edited". Optional so a read before the migration degrades to "never edited".
+   */
+  edited_at?: string | null;
+  /**
+   * ↩ When its sender unsent it (`unsend_my_chat_message`). The words and a voice note's file are already gone from
+   * the row; everyone draws the quiet "… unsent a message" line in its place.
+   */
+  unsent_at?: string | null;
+  /** 🎤 A VOICE NOTE's length in seconds — set with an audio attachment, NULL on every other message. */
+  voice_seconds?: number | null;
+  /**
    * 🔒 Set on a PRIVATE message (DECISION_LOG 2026-11-09 🔒): the one person, besides its sender, who can read it — RLS
    * on `chat_messages` returns it to nobody else. NULL = everyone in the thread. The column name lives in ONE place,
    * `CHAT_PRIVATE_RECIPIENT_COLUMN` (lib/chat-private.ts).
@@ -711,6 +723,9 @@ export async function fetchThreadById(
 const MESSAGE_SELECT =
   'message_id,thread_id,event_id,vendor_profile_id,sender_user_id,sender_role,body,created_at,proposal_id,attachment_url,attachment_r2_key,attachment_name,attachment_mime,attachment_size_bytes';
 
+/** ✏️ Unichat H1's three markers on a message (migration 20271354347259) — one string, so both readers ask alike. */
+const CHAT_MESSAGE_EXTRAS_SELECT = 'edited_at,unsent_at,voice_seconds';
+
 export async function fetchMessages(
   supabase: SupabaseClient,
   threadId: string,
@@ -725,6 +740,16 @@ export async function fetchMessages(
   // errors and the next one — exactly today's — answers, so a thread never breaks ahead of the column.
   // 👥 …and the recipient LIST (migration 20271340374819, a private line to several people) rides before that; until it
   // is live the next select — the one-recipient read — answers.
+  // ✏️ …and the message extras (Unichat H1, migration 20271354347259: edited · unsent · a voice note's length) ride
+  // first of all; until that migration is live the next select — exactly the one before it — answers.
+  const withExtras = await supabase
+    .from('chat_messages')
+    .select(
+      `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,${CHAT_PRIVATE_RECIPIENT_COLUMN},${CHAT_PRIVATE_RECIPIENTS_COLUMN},file_removed_at,vendor_offer_id,offer_good_until,${CHAT_MESSAGE_EXTRAS_SELECT}`,
+    )
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  if (!withExtras.error) return (withExtras.data ?? []) as unknown as ChatMessageRow[];
   const withSeveral = await supabase
     .from('chat_messages')
     .select(
@@ -766,9 +791,11 @@ export async function fetchMessages(
  * "₱ — hosts only" when it leaves the database. Same columns as `fetchMessages`; a refusal throws the same way.
  */
 export async function fetchMessagesMasked(supabase: SupabaseClient, threadId: string): Promise<ChatMessageRow[]> {
-  const { data, error } = await supabase
-    .rpc('chat_thread_messages_read', { p_thread_id: threadId })
-    .select(`${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,file_removed_at`);
+  const base = `${MESSAGE_SELECT},is_bot,appointment_id,change_order_id,amendment_id,offered_service_id,file_removed_at`;
+  // ✏️ The message extras ride first; before their migration is live the read as it was answers.
+  const withExtras = await supabase.rpc('chat_thread_messages_read', { p_thread_id: threadId }).select(`${base},${CHAT_MESSAGE_EXTRAS_SELECT}`);
+  if (!withExtras.error) return (withExtras.data ?? []) as unknown as ChatMessageRow[];
+  const { data, error } = await supabase.rpc('chat_thread_messages_read', { p_thread_id: threadId }).select(base);
   if (error) throw new Error(`fetchMessagesMasked failed: ${error.message}`);
   return (data ?? []) as ChatMessageRow[];
 }

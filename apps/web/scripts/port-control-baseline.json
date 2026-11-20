@@ -9490,7 +9490,8 @@
         "SubmitButton",
         "Suspense",
         "ThreadInterestChips",
-        "ThreadToolPanel"
+        "ThreadToolPanel",
+        "WhisperCoHosts"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -15600,6 +15601,7 @@
         "vendor-dashboard/customers/_components/clients-search.tsx",
         "vendor-dashboard/customers/_components/clients-show-sort.tsx",
         "vendor-dashboard/customers/_components/clients-tile-lists.tsx",
+        "vendor-dashboard/customers/_components/count-bar.tsx",
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-figures.tsx",
         "vendor-dashboard/customers/_components/customers-pick.tsx",
@@ -15675,6 +15677,7 @@
         "ClientsShowSort",
         "ContractsSurface",
         "Count",
+        "CountBarView",
         "CustomerCalendarMonth",
         "CustomerSectionBody",
         "CustomersCalendar",
@@ -15706,6 +15709,7 @@
         "FormRow",
         "FormRows",
         "GearUp",
+        "GroupHeading",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -17092,6 +17096,7 @@
         "SwitchTrack",
         "TypedRow",
         "UndoToastHost",
+        "UsualPrepRow",
         "VendorTier",
         "YourCoverage"
       ]

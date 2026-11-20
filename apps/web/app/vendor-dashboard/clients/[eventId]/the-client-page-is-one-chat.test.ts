@@ -112,7 +112,8 @@ test('5 · ONE switch, in the text box: the sliders raise the chips; the old �
   assert.match(SEND, /import \{ ArrowLeft, Camera, ImageIcon, Lock, Paperclip, Plus, SlidersHorizontal, X \} from 'lucide-react';/, 'the show control is not the app’s one sliders icon');
   const box = SEND.slice(SEND.indexOf('data-chat-one-box=""'));
   const sliders = box.indexOf('data-chat-kind-open=');
-  const send = box.indexOf('aria-label="Send"');
+  // Unichat H1: mid-edit the same button says "Save your edit" — still the one Send, after the sliders.
+  const send = box.indexOf("aria-label={editing ? 'Save your edit' : 'Send'}");
   const field = box.indexOf('<textarea');
   assert.ok(field >= 0 && field < sliders && sliders < send, 'the sliders button is not inside the box, between the field and Send');
   assert.ok(SEND.indexOf('data-chat-kind-chips=') < SEND.indexOf('data-chat-one-box=""'), 'the chips are not raised above the box');
@@ -140,7 +141,7 @@ test('6 · only the supplier’s client page: the routed thread and the host’s
   assert.doesNotMatch(HOST_THREAD, /\boneChat\b|\bkinds=/, 'the host’s chat picked up the supplier’s one-chat parts before its own build');
   assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
   assert.match(STREAM, /oneChat = false,/);
-  assert.match(SEND, /kinds = false \}: Props\)/);
+  assert.match(SEND, /kinds = false(?:, voice = false)? \}: Props\)/);
   // A chat without the chips keeps its three shipped thirds.
   assert.match(STREAM, /useState<ThreadView>\(initialView === 'decisions' \? 'all' : legacyThreadView\(initialView\)\)/);
 });

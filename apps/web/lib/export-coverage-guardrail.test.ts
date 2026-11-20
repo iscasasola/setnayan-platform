@@ -358,6 +358,10 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'Which shared chat message is filed under which decision topic (2026-11-11) — the conversation\'s filing, moved and removed by either side; added_by_user_id only stamps who filed it. The message is exported to its sender as chat_messages_authored; erasure nulls the stamp (lib/erasure/coverage.ts).',
   chat_polls:
     'A chat\'s shared poll (2026-11-11) — a question and its choices both sides vote on; asked_by_user_id / closed_by_user_id only stamp who pressed (same call as chat_decision_topics). The subject\'s own act is their vote, exported as chat_poll_votes; erasure nulls both stamps.',
+  chat_message_revisions:
+    'What a chat message said before its sender edited or unsent it (Unichat H1, 2026-11-20) — the conversation\'s record, read by nobody in the chat; changed_by_user_id only stamps who pressed. The message as it stands is exported to its sender as chat_messages_authored. Whether the earlier words belong in the access export is an open owner call (H1 PR).',
+  chat_message_reminders:
+    'The subject\'s own "Remind me" timer on a chat message (Unichat H1, 2026-11-20): which message and when — no content of its own; a delivered reminder is already in notifications_received. Goes with the account (CASCADE).',
   chat_file_removals:
     'Which chat file was taken back (2026-11-13) — a removal mark on a shared message, by its sender for everyone or by either side for themselves; user_id only stamps who pressed (same call as chat_decision_messages). The file\'s message is exported to its sender as chat_messages_authored; rows cascade away with the account (ON DELETE CASCADE).',
   chat_message_flags:

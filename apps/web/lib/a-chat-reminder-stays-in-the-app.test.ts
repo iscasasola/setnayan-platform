@@ -12,8 +12,8 @@
  *   • the delivery tells a person about a message it could not read for them;
  *   • the signed-in shells stop calling it (a reminder nobody delivers looks exactly like one that was never set).
  *
- * SABOTAGE (each seen red, restored): add 'chat_reminder' to EMAIL_ENABLED_TYPES · move the claim above the message
- * read · drop `if (!m || m.unsent_at) continue` · remove the call from lib/dashboard-shell.ts.
+ * SABOTAGE (each seen red, restored): add 'chat_reminder' to EMAIL_ENABLED_TYPES · weaken `if (!m || m.unsent_at)
+ * continue` to skip only unsent · remove the call from lib/dashboard-shell.ts.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

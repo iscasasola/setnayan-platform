@@ -10,11 +10,11 @@
  *   • the menu is Edit · Unsend · Remind me only — the 🔒 is still the one private door (11 Nov), a tap still a heart;
  *   • the mic stands in for Send only where a file may be sent — never in private / whisper / words-only, never
  *     mid-edit, and never in a group chat (which takes no files yet);
- *   • mid-edit, Send SAVES the edit and returns before the send path — it must never also send a new message;
+ *   • mid-edit, Send SAVES the edit with the submit prevented — it must never also send a new message;
  *   • the writes go through the two database functions, never an UPDATE from the app.
  *
- * SABOTAGE (each seen red, restored): move the `m.unsent_at` branch below `hasWords` · drop `&& !voice` from ownFile ·
- * add `voice` to the group composer · delete the `return;` that ends the edit branch.
+ * SABOTAGE (each seen red, restored): drop `&& !voice` from ownFile · add `voice` to the group composer · delete the
+ * `e.preventDefault(); … return;` that keeps an edit out of the send action.
  *
  * Run from apps/web: tsx --test app/_components/chat/a-message-has-its-extras.test.ts
  */
@@ -92,14 +92,19 @@ test('everything that stops a recording says so', () => {
 });
 
 test('mid-edit, Send saves the edit and never sends a second message', () => {
-  const edit = FORM.indexOf('const edit = editingRef.current;');
-  const send = FORM.indexOf('sendPendingRef.current = true;', edit);
-  assert.ok(edit > -1 && send > edit, 'the composer moved — this guard is blind');
-  const branch = FORM.slice(edit, send);
-  assert.match(branch, /await editChatMessage\(edit\.messageId, words\)/);
-  assert.match(branch, /stopEditing\(\);\s*return;\s*\}\s*$|stopEditing\(\);\s*return;\s*\}/, 'the edit branch falls through to the send');
+  // Decided in onSubmit, FIRST, with the submit prevented: a prevented submit runs no form action — so nothing is
+  // sent, and React does not reset the box under a refusal.
+  assert.match(
+    FORM,
+    /onSubmit=\{\(e\) => \{\s*if \(editingRef\.current\) \{\s*e\.preventDefault\(\);\s*void saveEdit\(\);\s*return;\s*\}/,
+    'an edit reaches the send action — it would also send a new message',
+  );
+  const save = FORM.slice(FORM.indexOf('const saveEdit = async () => {'), FORM.indexOf('const sendVoice = '));
+  assert.ok(save.length > 100, 'the composer moved — this guard is blind');
+  assert.match(save, /await editChatMessage\(edit\.messageId, words\)/);
+  assert.doesNotMatch(save, /sendAction|deliver\(/, 'saving an edit sends a message');
   // A refusal keeps the words in the box and says why.
-  assert.match(branch, /if \(!out\.ok\) \{\s*setBlockError\(out\.message\);\s*return;\s*\}/);
+  assert.match(save, /if \(!out\.ok\) \{\s*setBlockError\(out\.message\);\s*return;\s*\}/);
 });
 
 test('the app writes through the two database functions — never an UPDATE of its own', () => {

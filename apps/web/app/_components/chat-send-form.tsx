@@ -679,6 +679,40 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     settle(true);
   };
 
+  /** ✏️ Save the words in the box onto the message being edited. A refusal keeps the words and says why. */
+  const saveEdit = async () => {
+    const edit = editingRef.current;
+    if (!edit || savingEdit) return;
+    const words = (textareaRef.current?.value ?? '').trim();
+    if (!words) return;
+    // The same words again: nothing to save — the box goes back to "Message".
+    if (words === edit.original.trim()) {
+      stopEditing();
+      return;
+    }
+    if (chatContactFilterEnabled() && evaluateMessage(words).blocked) {
+      setBlockError(CONTACT_BLOCK_MESSAGE);
+      return;
+    }
+    setBlockError(null);
+    setSavingEdit(true);
+    let out: Awaited<ReturnType<typeof editChatMessage>>;
+    try {
+      out = await editChatMessage(edit.messageId, words);
+    } catch (err) {
+      console.error('editChatMessage failed', err);
+      out = { ok: false, message: 'Couldn’t save your edit. Try again.' };
+    }
+    setSavingEdit(false);
+    if (!out.ok) {
+      setBlockError(out.message);
+      return;
+    }
+    const detail: ChatEdited = { threadId, messageId: edit.messageId, body: out.body, editedAt: out.editedAt ?? new Date().toISOString() };
+    window.dispatchEvent(new CustomEvent(CHAT_EDITED_EVENT, { detail }));
+    stopEditing();
+  };
+
   /** 🎤 One finished recording → a message, down the same road as every chat file (prepare → upload → the send action). */
   const sendVoice = (file: File, seconds: number) => {
     const formData = new FormData();
@@ -775,6 +809,13 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         takeDropped(dt.files);
       }}
       onSubmit={(e) => {
+        // ✏️ Mid-edit, Send SAVES the edit — it never sends a second message. Decided HERE, before the form's action:
+        // a prevented submit runs no action, so nothing is sent and React does not clear the box under a refusal.
+        if (editingRef.current) {
+          e.preventDefault();
+          void saveEdit();
+          return;
+        }
         // 🤫 THE ONE ASK (owner, 19 Nov "Yes, add it"): the first Send after leaving Whisper with words typed stops
         // here — before the action, so the words stay in the box whatever is answered.
         if (!leftWithWords || askPassedRef.current) return;
@@ -787,40 +828,6 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
         // Realtime stream is now the source of truth for the painted UI.
         // The action still runs the insert + notification flow.
         formData.delete('return_to');
-
-        // ✏️ Mid-edit, Send SAVES the edit — it never sends a second message. Words only; the same words again just
-        // put the box back. A refusal keeps the words in the box and says why.
-        const edit = editingRef.current;
-        if (edit) {
-          const words = (formData.get('body') as string | null)?.trim() ?? '';
-          if (!words || savingEdit) return;
-          if (words === edit.original.trim()) {
-            stopEditing();
-            return;
-          }
-          if (chatContactFilterEnabled() && evaluateMessage(words).blocked) {
-            setBlockError(CONTACT_BLOCK_MESSAGE);
-            return;
-          }
-          setBlockError(null);
-          setSavingEdit(true);
-          let out: Awaited<ReturnType<typeof editChatMessage>>;
-          try {
-            out = await editChatMessage(edit.messageId, words);
-          } catch (err) {
-            console.error('editChatMessage failed', err);
-            out = { ok: false, message: 'Couldn’t save your edit. Try again.' };
-          }
-          setSavingEdit(false);
-          if (!out.ok) {
-            setBlockError(out.message);
-            return;
-          }
-          const detail: ChatEdited = { threadId, messageId: edit.messageId, body: out.body, editedAt: out.editedAt ?? new Date().toISOString() };
-          window.dispatchEvent(new CustomEvent(CHAT_EDITED_EVENT, { detail }));
-          stopEditing();
-          return;
-        }
 
         // A message needs SOMETHING — text or a file. Bail on a truly-empty
         // submit so we don't round-trip a no-op (the server no-ops too).
@@ -1305,7 +1312,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           </button>
         ) : null}
         <SubmitButton
-          aria-label="Send"
+          aria-label={editing ? 'Save your edit' : 'Send'}
+          pending={savingEdit ? true : undefined}
           pendingLabel=""
           className={`sn-whisper-send h-11 w-11 shrink-0 items-center justify-center rounded-full ${toolInBox || micShown ? 'hidden' : 'inline-flex'} ${wordsMode ? PRIVATE_MARK : 'text-ink'} hover:bg-ink/[0.05] disabled:opacity-60`}
           {...(privateTo ? { 'data-chat-private-send': '' } : {})}

@@ -195,6 +195,11 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
  * "not looked at yet".
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-11-20 with the tables (Unichat H1, migration 20271354347259) ──
+  chat_message_revisions:
+    'What a chat message held before its sender edited or unsent it. It has no life of its own: message_id is NOT NULL ON DELETE CASCADE, so when erasure deletes the subject\'s authored chat_messages rows (purge.ts) every revision of them goes in the same statement; changed_by is nullable ON DELETE SET NULL and only ever names the message\'s own sender.',
+  chat_message_reminders:
+    'A person\'s own "Remind me" timer on a chat message. user_id is NOT NULL ON DELETE CASCADE, so the rows go with the account on their own; the row holds no content (a message id and a time).',
   // ── added 2026-11-13 with the table (migration 20271342335343) ──
   chat_file_removals:
     'A removal mark on a chat file. user_id is NOT NULL ON DELETE CASCADE, so the account holder\'s rows go with their account on their own; the mark holds no content (the file and its message are erased with chat_messages).',

@@ -34,13 +34,13 @@ test('a crawler reads no aggregateRating the page does not show', () => {
   assert.ok(at > 0);
   const cond = PAGE.slice(PAGE.lastIndexOf('if (', at), at);
   // The REAL paper state — not the content gate, which a demo shop and a team preview also pass — and never a demo shop.
-  assert.match(cond, /^if \(\s*vendor\.verification_state === 'verified' &&\s*!isDemoVendor &&/, 'the JSON-LD rating is emitted for an unverified or a demo shop');
+  assert.match(cond, /^if \(\s*vendor\.verification_state === 'verified' &&\s*!renewing &&\s*!isDemoVendor &&/, 'the JSON-LD rating is emitted for an unverified or a demo shop');
   assert.doesNotMatch(cond, /isVerifiedShop/, 'the JSON-LD rating reads the content gate');
   assert.equal((PAGE.match(/aggregateRating\s*=/g) ?? []).length, 1, 'a second, ungated aggregateRating');
 });
 
 test('a demo shop and a team preview keep the full page: the exclusion is made once, in the gate itself', () => {
-  assert.match(PAGE, /const isVerifiedShop = vendor\.verification_state === 'verified' \|\| isDemoVendor \|\| teamPreview !== null;/);
+  assert.match(PAGE, /const isVerifiedShop = \(vendor\.verification_state === 'verified' && !renewing\) \|\| isDemoVendor \|\| teamPreview !== null;/);
   // Every "not verified" marking reads the ONE gate — none asks `verification_state` on its own and forgets the demo.
   for (const mark of ['data-shop-not-verified-band=""', 'data-shop-not-verified-slot=""', 'data-shop-footer-not-verified=""', 'data-shop-what-verified-adds=""', 'data-shop-held-services=""']) {
     const at = PAGE.indexOf(mark);
@@ -49,19 +49,20 @@ test('a demo shop and a team preview keep the full page: the exclusion is made o
     assert.match(before, /\{!?isVerifiedShop\b[^{}]*$/, `${mark} is not behind isVerifiedShop`);
     assert.doesNotMatch(before.slice(before.lastIndexOf('{')), /verification_state/, `${mark} asks verification_state itself`);
   }
-  assert.match(PAGE, /marker=\{isVerifiedShop \? undefined : <NotYetVerifiedTag \/>\}/);
-  assert.match(PAGE, /notVerified=\{!isVerifiedShop\}/);
-  assert.match(PAGE, /\{isVerifiedShop \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}/);
+  assert.match(PAGE, /marker=\{isVerifiedShop \|\| renewing \? undefined : <NotYetVerifiedTag \/>\}/);
+  assert.match(PAGE, /notVerified=\{!isVerifiedShop && !renewing\}/);
+  assert.match(PAGE, /\{isVerifiedShop \|\| renewing \? null : \(\s*<NotYetVerifiedTag>\{NOT_YET_VERIFIED_PHOTOS_NOTE\}/);
   // The held-services READ is behind it too: a demo shop asks for no count.
   assert.match(PAGE, /if \(!isVerifiedShop\) \{\s*const \{ count, error: heldError \}/);
   // The blue check is NOT lifted by the exclusion: Verified is still read from the paper state.
-  assert.match(PAGE, /\{vendor\.verification_state === 'verified' \? \(/);
+  // Papers renewal §4 (#7875): the paper state is "verified AND its papers have not lapsed" — still never the gate.
+  assert.match(PAGE, /\{vendor\.verification_state === 'verified' && !renewing \? \(/);
 });
 
 test('"Setnayan Verified" is a claim: the side card reads the paper state, never the content gate', () => {
   // An unverified demo shop, or a pending shop in team preview, passes `isVerifiedShop` — and must not wear the line.
   const lines = PAGE.match(/verifiedLine=\{[^\n]*/g) ?? [];
   assert.equal(lines.length, 1, 'the side card is handed its Verified line once');
-  assert.match(lines[0]!, /^verifiedLine=\{vendor\.verification_state === 'verified' \? sideCardVerifiedLine\(/, `the line reads: ${lines[0]}`);
+  assert.match(lines[0]!, /^verifiedLine=\{vendor\.verification_state === 'verified' && !renewing \? sideCardVerifiedLine\(/, `the line reads: ${lines[0]}`);
   assert.doesNotMatch(lines[0]!, /isVerifiedShop/);
 });

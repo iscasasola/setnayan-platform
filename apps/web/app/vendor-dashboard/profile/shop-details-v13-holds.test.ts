@@ -1,9 +1,10 @@
 /**
  * SHOP › DETAILS, AS APPROVED (Supplier dashboard v13, owner 2026-10-29 "Approved.") — the four notes stay true.
  *
- *   1 · WHERE YOU WORK never goes silent: an unverified shop's 0 km says why with the ONE Get-verified line (it used to
- *       `return null`), the distances are −/＋ that save in place (no "Save distances" button), and ＋ past the plan's
- *       farthest names the next plan's reach — read from the plan table, never typed;
+ *   1 · WHERE YOU WORK never goes silent: an unverified shop's 0 km is ONE locked row, "Coverage reach · Get verified to
+ *       be found" (it used to `return null`; until 2026-11-19 it was a greyed map), the distances are −/＋ that save in
+ *       place (no "Save distances" button), and there is NO plan upsell — reach is not a plan allowance (owner
+ *       2026-11-19, "unlock the range. not plan dependend anymore");
  *   2 · GET VERIFIED is one component, and [Get verified] lands on the papers with the FIRST missing one marked;
  *   3 · "SINCE" IS TWO LINES — "In business since" (their year) and "On Setnayan since" (read-only);
  *   4 · DEEP SEARCH is explained by the five findings the result and its PDF carry, priced from the one source the run
@@ -20,7 +21,7 @@ import { PDFDocument, PDFName, PDFRawStream } from 'pdf-lib';
 import { stripComments } from '@/lib/strip-comments';
 import { BUSINESS_PROFILE_LABELS } from '@/lib/vendor-profile';
 import { inBusinessSinceLine, onSetnayanSinceLine } from '@/lib/in-business-since';
-import { nextPlanReach, reachLadderWords, TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { COVERAGE_REACH_LOCKED_LINE, COVERAGE_REACH_TITLE } from '@/app/vendor-dashboard/_components/get-verified-line';
 import {
   DEEP_SEARCH_FINDINGS,
   DEEP_SEARCH_KEEP_DAYS,
@@ -40,23 +41,28 @@ const SCREEN = 'app/vendor-dashboard/profile/_components/details-screen.tsx';
 const DATA = 'app/vendor-dashboard/profile/details-data.ts';
 const ROUTE = 'app/api/vendor/deep-search-pdf/route.ts';
 
-test('1 · Where you work says WHY at 0 km, saves in place, and names the next plan from the plan table', () => {
+test('1 · Where you work: an unverified shop gets ONE locked row; a verified one saves in place, with no plan upsell', () => {
   const s = src(RADIUS);
   assert.doesNotMatch(s, /if \(!hasCap\) return null/, 'Where you work went silent again for an unverified shop (the old `return null`)');
-  assert.match(s, /unverifiedZero \? \(\s*<GetVerifiedLine title=\{UNVERIFIED_REACH_TITLE\}/, 'an unverified 0 km does not show the Get-verified line');
-  assert.match(s, /muted=\{!hasCap\}/, 'the rings are not greyed while the reach is 0');
+  // 🔒 Unverified: the one locked row, and it returns BEFORE the map, rings and steppers are drawn.
+  assert.match(
+    s,
+    /if \(!isVerified\) \{\s*return \(\s*<div[^>]*>\s*<GetVerifiedLine title=\{COVERAGE_REACH_TITLE\} line=\{COVERAGE_REACH_LOCKED_LINE\}/,
+    'an unverified shop does not get the ONE locked "Coverage reach" row',
+  );
+  assert.equal(COVERAGE_REACH_TITLE, 'Coverage reach');
+  assert.equal(COVERAGE_REACH_LOCKED_LINE, 'Get verified to be found');
+  const at = s.indexOf('if (!isVerified) {');
+  const unverifiedBranch = s.slice(at, s.indexOf('\n  }\n', at));
+  assert.doesNotMatch(unverifiedBranch, /<ReachMap|<KmStepper/, 'the unverified row still draws a map or a stepper');
+  // 🔓 No plan upsell, no plan ladder (owner 2026-11-19).
+  assert.doesNotMatch(s, /nextReach|ladder|planName|reaches \$\{/, 'the card names a plan’s reach again');
   assert.doesNotMatch(s, /Save distances/, 'the distances grew a Save button — they save in place');
   assert.equal((s.match(/<KmStepper\b/g) ?? []).length, 2, 'both distances are −/＋ steppers');
   assert.match(s, /await updateServiceRadius\(null, fd\)/, 'the steppers left the shipped save (`updateServiceRadius`)');
-  // An unread plan is said, never drawn as Free's 0 km.
-  assert.match(s, /!tierMeasured \? \(/, 'an unread plan is not told apart from a 0 km plan');
-  assert.doesNotMatch(s, /\b(20|30|50|100) km\b/, 'a plan reach is typed into the component');
-
-  // Ultra is nationwide (`Infinity`) since owner 2026-11-04 — said in words, never "Infinity".
-  assert.equal(reachLadderWords(), `Verified ${TIER_CAPS.verified.serviceRadiusKm} km · Plus ${TIER_CAPS.solo.serviceRadiusKm} · Pro ${TIER_CAPS.pro.serviceRadiusKm} · Ultra nationwide`);
-  assert.deepEqual(nextPlanReach('free'), { plan: 'Verified', km: TIER_CAPS.verified.serviceRadiusKm });
-  assert.deepEqual(nextPlanReach('solo'), { plan: 'Pro', km: TIER_CAPS.pro.serviceRadiusKm });
-  assert.equal(nextPlanReach('enterprise'), null, 'the top plan has no farther plan to name');
+  // An unread shop is said, never drawn as an unverified 0 km.
+  assert.match(s, /if \(!measured\) \{/, 'an unread shop is not told apart from an unverified one');
+  assert.doesNotMatch(s, /\b(20|30|50|100) km\b/, 'a reach is typed into the component');
 });
 
 test('2 · Get verified is ONE line, used wherever being unverified holds something back, and lands on the first missing paper', () => {

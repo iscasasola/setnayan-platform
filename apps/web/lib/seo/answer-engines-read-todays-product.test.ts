@@ -67,6 +67,7 @@ test('the stale-claims list is live — every entry still catches the words it w
     'AI Proposal Builder',
     'a read API',
     'buy Setnayan AI on its own',
+    'Event Plus adds Setnayan AI',
     '**Does Setnayan take a commission?** No.',
   ];
   for (const c of STALE_CLAIMS) {

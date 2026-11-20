@@ -1576,7 +1576,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         {
           anchor: 'shop-cover-photo',
           title: 'Add your cover photo',
-          body: 'The big photo at the top of your page. Pick one that shows your best work.',
+          body: 'The big photo at the top of your page. Tap it to pick one that shows your best work.',
         },
         {
           anchor: 'shop-services',

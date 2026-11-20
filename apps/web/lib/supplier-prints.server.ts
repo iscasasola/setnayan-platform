@@ -110,7 +110,7 @@ export async function readPrintShopExtras(
   const caps = tierCaps(tier);
   const microsite = micrositeFromRow(plan);
   const verified = plan?.verification_state === 'verified';
-  const reach = shopReach({ verified, tier, declaredOuterKm: (plan?.outer_radius_km as number | null) ?? null });
+  const reach = shopReach({ verified, declaredOuterKm: (plan?.outer_radius_km as number | null) ?? null });
 
   let ownDomain: string | null = null;
   if (plan && caps.customWebsiteName && ['card', 'tarp', 'rollup', 'backdrop'].includes(opts.piece)) {

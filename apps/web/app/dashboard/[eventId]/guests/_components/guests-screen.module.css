@@ -1927,14 +1927,14 @@ button.countsDoor[aria-pressed='true'] {
   display: flex;
   gap: 2px;
   height: 6px;
-  border-radius: 3px;
+  border-radius: var(--m-r-full);
   overflow: hidden;
   background: var(--gs-line);
 }
 .sumBar > i {
   display: block;
-  border-radius: 3px;
-  transition: flex-basis var(--sn-m-move, 280ms) var(--gs-ease);
+  border-radius: var(--m-r-full);
+  transition: flex-basis var(--sn-m-move) var(--sn-m-settle);
 }
 .sumBar > i[data-arc='yes'] {
   flex: 0 0 calc(var(--gs-yes, 0) * 1%);

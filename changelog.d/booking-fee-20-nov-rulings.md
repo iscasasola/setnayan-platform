@@ -44,7 +44,7 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
   line, For Suppliers (page, fee ⓘ, how-we-earn block, meta description), the claim promise (`commission-promise.ts`
   → pricing, suppliers landing, home vendor benefits, `vendor/claim`), the invite message, open-shop (service cards,
   plan sheet lead, claim door), For Coordinators, help (two articles — "is my first booking free?" now answers No),
-  llms.txt, the AI answers, the Papic quote row and the December post.
+  llms.txt, the AI answers, the Papic quote row.
 - **Guard 3 walks all of `app/` and `lib/`** (comments stripped) for the retired constant names AND the sentence
   (EN + TL). Three files may still say it, each for a stated reason (the frozen-place receipt sentence, the help
   question, a dev lab); a listed file that stops saying it fails until its line is removed. Shown red on a planted

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -32,9 +33,7 @@ export default async function MoodBoardPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const notice = readSaveNotice(await searchParams);
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: membership, error } = await supabase

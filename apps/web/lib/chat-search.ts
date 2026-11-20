@@ -11,6 +11,8 @@
  * 🔒 lib/chat-search.test.ts
  */
 
+import { formatCount } from '@/lib/format-number';
+
 /** The attribute the line holding the current match wears — the fallback's outline, and the scroll target. */
 export const CHAT_SEARCH_HIT = 'data-chat-search-hit';
 export const CHAT_SEARCH_HIGHLIGHT = 'sn-chat-search';
@@ -37,7 +39,7 @@ export function stepHit(i: number, n: number): number {
 /** "3 of 7" · "No matches" · nothing while the box is empty. */
 export function searchCountLine(q: string, i: number, n: number): string {
   if (!q.trim()) return '';
-  return n > 0 ? `${stepHit(i, n) + 1} of ${n}` : 'No matches';
+  return n > 0 ? `${formatCount(stepHit(i, n) + 1)} of ${formatCount(n)}` : 'No matches';
 }
 
 /** Each match as a Range inside `root`, in reading order. */

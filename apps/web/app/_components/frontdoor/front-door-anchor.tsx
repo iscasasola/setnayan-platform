@@ -60,7 +60,10 @@ export function FrontDoorAnchor({
             <span className="fl-kick">Setnayan</span>
             <span className="fl-h1">{HOME_BRAND_LINE}</span>
           </h1>
-          <p className="fl-sub">Plan it free. Every guest&rsquo;s photos in one album. Yours to keep for life.</p>
+          <p className="fl-sub">
+            One link for your whole event: your guests, your suppliers, your photos{' '}
+            <span>&mdash; from the first idea to the memories.</span>
+          </p>
         </figcaption>
       </figure>
 

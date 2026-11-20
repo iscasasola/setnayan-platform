@@ -252,6 +252,13 @@
   line-height: 1.35;
   opacity: 0.92;
 }
+/* v6: the drawing breaks the line before the dash. */
+.fd .fl-sub span {
+  display: block;
+}
+.fd .fl-sup .fl-lede {
+  margin-bottom: 4px;
+}
 .fd .fl-front-head {
   padding-top: 22px;
 }

@@ -277,9 +277,9 @@ export function FrontDoorLanding({
         <div className="fl-rv">
           <p className="fl-kick">Live it · Papic</p>
           <h2 className="fd-sechead fl-sechead" id="h-papic">
-            <span>Every guest&rsquo;s phone, a camera.</span>
+            <span>Everyone you love, in one place. And every photo of them.</span>
           </h2>
-          <p className="fl-lede">Every photo they take lands in one album.</p>
+          <p className="fl-lede">Every guest&rsquo;s phone is a camera. Every photo they take lands in one album.</p>
         </div>
         <div className="fl-pile" aria-hidden="true">
           {PILE.map((p) => (
@@ -345,6 +345,31 @@ export function FrontDoorLanding({
             </figure>
           ))}
         </div>
+      </section>
+
+      {/* ════ PLAN IT · SUPPLIERS — v6 (owner "Approve v6", 20 Nov): text only, Papic's own parts, no data read ════ */}
+      <section className="fl-sec fl-sup" id="suppliers" aria-labelledby="h-sup">
+        <div className="fl-rv">
+          <p className="fl-kick">Plan it · Suppliers</p>
+          <h2 className="fd-sechead fl-sechead" id="h-sup">
+            <span>Suppliers you can trust.</span>
+          </h2>
+          <p className="fl-lede">No fake reviews. No paid stars. Ever.</p>
+        </div>
+        <ul className="fl-also">
+          <li>
+            <b>Badges are earned.</b> Every badge and seal comes only from real bookings.
+          </li>
+          <li>
+            <b>Nothing is a screenshot.</b> Every quote and payment is a card in your chat.
+          </li>
+          <li>
+            <b>You pay them directly.</b> 0% commission.
+          </li>
+          <li>
+            <b>A Setnayan gift.</b> Many bookings come with free Papic photos for your event.
+          </li>
+        </ul>
       </section>
 
       {/* ════ KEEP IT — one life on one thread ════ */}

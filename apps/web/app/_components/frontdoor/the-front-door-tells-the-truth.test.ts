@@ -81,10 +81,20 @@ test('1 · the headline is the approved one', async () => {
   );
   assert.match(
     textOf(await hero()),
-    /Every guest’s photos in one album\./,
-    'The hero no longer says photos land in ONE ALBUM. Owner 2026-10-25: the promise is one album ' +
+    /One link for your whole event: your guests, your suppliers, your photos — from the first idea to the memories\./,
+    'The hero line is not the v6 one (owner "Approve v6", 20 Nov). The one-album promise now sits on Papic. Owner 2026-10-25: the promise is one album ' +
       '(not "Keep every photo" — photos use Papic credits).',
   );
+  const page = textOf(await landing());
+  assert.match(page, /Every guest’s phone is a camera\. Every photo they take lands in one album\./, 'Papic lost the one-album line (v6)');
+  assert.match(
+    page,
+    /Plan it · Suppliers Suppliers you can trust\. No fake reviews\. No paid stars\. Ever\./,
+    'the v6 "Suppliers you can trust" part is gone or reworded',
+  );
+  // The gift row says only what is live (the card's Setnayan gift) — never "every booking" (#7823 is on hold).
+  assert.match(page, /A Setnayan gift\. Many bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
+  assert.doesNotMatch(page, /every booking (comes|carries) (with )?a gift/i, 'the page promises a gift on every booking, which is not built');
 });
 
 test('2 · no "never lose a photo" / "keep every photo" on the hero or the home <title>', async () => {

@@ -63,6 +63,7 @@ import { setPrivateTo, useChatPeople, usePrivateReply, usePrivateTo } from '@/ap
 import { PrivatePeopleList } from '@/app/_components/chat/private-people';
 import { setWhisper, useWhisper } from '@/app/_components/chat/whisper-mode';
 import { WhisperSendIcon } from '@/app/_components/chat/whisper-send-icon';
+import { PrivateChip } from '@/app/_components/chat/private-chip';
 import { ConfirmDialog } from '@/app/_components/confirm-dialog';
 import {
   CHAT_WHISPER_FIELD,
@@ -70,7 +71,6 @@ import {
   MESSAGE_PLACEHOLDER,
   WHISPER_OFF_LINE,
   WHISPER_OFF_LINE_STAY_MS,
-  WHISPER_DISPUTE_NOTE,
   WHISPER_ON_LINE,
   WHISPER_PLACEHOLDER,
   WHISPER_WORDS_ONLY_MESSAGE,
@@ -82,7 +82,6 @@ import {
   whisperBlockedLine,
   type WhisperSide,
 } from '@/lib/chat-whisper';
-import { InfoTip } from './info-tip';
 import { SubmitButton } from './submit-button';
 import { pressMs } from './press-feel';
 import { useIsDesktop, usePrefersReducedMotion } from '@/lib/use-responsive';
@@ -502,7 +501,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     }
     if (key === 'private') {
       pickKind(threadId, 'private');
-      if (canWhisper && !whisperOn) {
+      // Nobody to whisper to, or the read failed: the Private chip's own line says why (`privateStatus`), and stays.
+      if (canWhisper && !whisperOn && whisper && !whisperBlockedLine(whisper)) {
         if (tool) closeTool();
         switchWhisper();
       }
@@ -511,6 +511,15 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
     if (kindState.view === 'private' && whisperOn) switchWhisper();
     pickKind(threadId, key);
   };
+  /* 🔒 What the ONE Private chip says over the box: who a whisper reaches while whispering; with Private picked where a
+     whisper cannot start, why — a failed read in its own words ("Couldn't load…"), never "no one". */
+  const privateBlocked = whisper && canWhisper && kinds && kindState.view === 'private' && !whisperOn ? whisperBlockedLine(whisper) : null;
+  const privateStatus: { kind: 'reach' | 'failed' | 'nobody'; text: string } | null =
+    whisper && whisperOn && whisper.reach
+      ? { kind: 'reach', text: whisper.reach }
+      : privateBlocked && whisper
+        ? { kind: whisper.unread ? 'failed' : 'nobody', text: privateBlocked }
+        : null;
   // Whisper switched off by the drag while Private is the picked chip: the chat shows everything again.
   const wasWhisperRef = useRef(whisperOn);
   useEffect(() => {
@@ -865,16 +874,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {whisperOn ? WHISPER_ON_LINE : leftWithWords ? everyoneWillSeeLine(whisper.supplierName) : switchLine}
         </p>
       ) : null}
-      {/* 🔒 THE PRIVATE CHIP (Unichat part E, prototype UNICHAT-LIVE 19 Nov): while whispering, the sky chip says the box is
-          private and the line beside it says WHO it reaches; the ⓘ says staff read it only inside an open dispute. */}
-      {whisper && whisperOn && whisper.reach ? (
-        <div role="status" className="flex items-center justify-center gap-1.5 px-1 text-[12px] font-semibold text-[rgb(var(--color-private-text))]" data-chat-whisper-line="on" data-chat-whisper-reach={whisper.side ?? 'hosts'}>
-          {/* 🔒 The lock on Private: the 20 Nov drawing's icon before the word (controller, owner delegation 20 Nov). */}
-          <span className="inline-flex items-center gap-1 rounded-full bg-[rgb(var(--color-private-tint))] px-2.5 py-0.5 text-[12px] font-bold text-[rgb(var(--color-private-text))] ring-1 ring-inset ring-[rgb(var(--color-private)/0.45)]" data-chat-private-chip=""><Lock aria-hidden className="h-3 w-3 shrink-0" strokeWidth={2.2} />Private</span>
-          <InfoTip label={whisper.reach} ariaLabel="Who sees this" align="end">
-            {WHISPER_DISPUTE_NOTE}
-          </InfoTip>
-        </div>
+      {/* 🔒 THE ONE PRIVATE CHIP (`chat/private-chip.tsx`; Parts D + E folded, 20 Nov): while whispering it says the box is
+          private and WHO it reaches (the ⓘ: staff read it only inside an open dispute). With the chips out, the row's own
+          Private chip is the chip on screen and only the line stays. Private picked where a whisper cannot start: why,
+          and a failed read is said as a failure — never as "no one". */}
+      {privateStatus ? (
+        <PrivateChip side={whisper?.side ?? 'hosts'} line={privateStatus} lineOnly={chipsShown} />
       ) : null}
       {/* ⌨ The same switch without a drag (a keyboard, a switch control, a screen reader) — out of sight until focused. */}
       {whisper && canWhisper ? (
@@ -913,6 +918,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           {KIND_CHIPS.map((c, i) => {
             const on = kindState.view === c.key;
             const n = c.key === 'all' ? null : c.key === 'chat' || c.key === 'private' ? (kindState.talk?.[c.key] ?? null) : (kindState.counts?.[c.key] ?? null);
+            // 🔒 Private is the ONE Private chip (lock + sky), the same component the whisper's status draws.
+            if (c.key === 'private') return <PrivateChip key={c.key} onPress={() => pickChip(c.key)} pressed={on} count={n} style={{ '--i': i } as CSSProperties} />;
             return (
               <button
                 key={c.key}

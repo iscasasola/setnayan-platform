@@ -135,7 +135,8 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
   const parts = stripComments(readFileSync(join(HERE, '..', '..', '..', 'disputes', '_components', 'dispute-parts.tsx'), 'utf8'));
   assert.match(parts, /action=\{fileForceMajeureFlag\}/, 'the form no longer files through the shipped action');
   assert.match(parts, /<input type="hidden" name="event_vendor_id" value=\{supplier\.id\} \/>/, 'the report is not pinned to the supplier');
-  // The host's (+) rows sit under pages of THIS menu, in its order, Report last.
+  // The host's (+) rows sit under pages of THIS menu, in its order, Photos & files last — Report left the (+) for the
+  // head's ⋯ (Unichat part G, 20 Nov: `HOST_MORE` in picked-supplier-shell.tsx), still the last page of the menu above.
   const order = PICKED_SUPPLIER_PAGES.map((p) => p.id as string);
   for (const canLogPayment of [true, false]) {
     // 🤝 The Negotiate group (12 Nov) heads the (+) above every page — it is not a page of this menu (chat-plus.test 8 holds it first).
@@ -144,7 +145,8 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
       .map((r) => order.indexOf(PLUS_ROW_PAGE[r.key] as string));
     assert.ok(ranks.every((r) => r >= 0), 'a host (+) row sits under a page the picked supplier does not have');
     for (let i = 1; i < ranks.length; i++) assert.ok(ranks[i]! >= ranks[i - 1]!, 'the host’s (+) runs against its menu’s order');
-    assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'report');
+    assert.equal(hostPlusRows({ canLogPayment }).at(-1)!.key, 'file');
+    assert.ok(!hostPlusRows({ canLogPayment }).some((r) => r.key === 'report'), 'Report a problem is back in the host’s (+) — it lives under ⋯');
   }
 });
 

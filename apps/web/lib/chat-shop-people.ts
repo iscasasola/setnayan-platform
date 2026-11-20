@@ -76,3 +76,31 @@ export function shopSideIds(owner: string | null, team: ReadonlyArray<string | n
   for (const id of [owner, ...team]) if (id && !out.includes(id)) out.push(id);
   return out;
 }
+
+/**
+ * THE HOSTS' SIDE OF ONE SUPPLIER CONVERSATION — the pure rule `readThreadHostPeople` reads into.
+ *
+ * Mirrors `current_thread_ids()` (20271352461498): a live `chat_thread_members` seat counts only while its person is
+ * still a host ('couple') of the event — a removed co-host is never listed, so is never told about a message they
+ * could not open. Every coordinator of the event is in every supplier conversation (no seat needed). If the event's
+ * people could not be read, nobody is listed — narrower than the database, never wider.
+ */
+export function threadHostPeopleFrom(args: {
+  seats: ReadonlyArray<{ user_id: string | null; left_at: string | null }>;
+  eventPeople: ReadonlyArray<{ user_id: string | null; member_type: string }>;
+}): { members: string[]; coordinators: string[] } {
+  const hosts = new Set<string>();
+  const coordinatorIds = new Set<string>();
+  for (const p of args.eventPeople) {
+    if (!p.user_id) continue;
+    if (p.member_type === 'couple') hosts.add(p.user_id);
+    else if (p.member_type === 'coordinator') coordinatorIds.add(p.user_id);
+  }
+  const members = new Set<string>();
+  for (const m of args.seats) {
+    if (m.user_id && !m.left_at && hosts.has(m.user_id)) members.add(m.user_id);
+  }
+  const coordinators = new Set<string>();
+  for (const id of coordinatorIds) if (!members.has(id)) coordinators.add(id);
+  return { members: [...members], coordinators: [...coordinators] };
+}

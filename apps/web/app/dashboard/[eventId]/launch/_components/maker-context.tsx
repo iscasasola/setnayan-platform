@@ -308,6 +308,8 @@ export type MakerDraftDoor = {
    * the bar no longer draws ↺, so the draft bar hands the ⚙ its list and its one step back. `recent`: the newest edits
    * waiting for ✓ Apply, newest first (at most four); null where the history could not be read (said, never empty).
    */
+  /** ◆ This event does not own Event Pro — the toolbar marks its Pro rows (20 Nov: ◆ for a Free couple only, never a lock). */
+  proMarks?: boolean;
   history?: {
     recent: readonly string[] | null;
     open: () => void;
@@ -443,3 +445,9 @@ export const MAKER_STAGE_SAY_EVENT = 'maker:stage-say';
  * is always mounted and draws it, opens it.
  */
 export const MAKER_OPEN_GUESTS_SEE_EVENT = 'maker:open-guests-see';
+/**
+ * ⤡ CLOSE THE FULL-SCREEN EDITOR (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): ✓ Done
+ * on top, ⤡ Minimize where ⤢ was, Esc and the browser's Back all close it the same way — the Stage pill (`StageSwitch`,
+ * always mounted) plays the reverse and falls back into the scene.
+ */
+export const MAKER_EDITOR_CLOSE_EVENT = 'maker:editor-close';

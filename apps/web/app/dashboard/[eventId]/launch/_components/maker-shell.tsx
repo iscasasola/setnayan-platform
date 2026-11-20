@@ -6,7 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 import type { MakerLate } from '@/lib/maker-late';
 import { MakerLateBridge } from './maker-late';
 import { TimelineRowsLoading } from '@/app/_components/timeline-states';
-import { Check, ChevronLeft, Eye } from 'lucide-react';
+import { Check, ChevronLeft, Eye, Minimize2 } from 'lucide-react';
 import { useChromeAway } from '@/app/_components/nav/use-chrome-away';
 import Link from 'next/link';
 import type { TourKey } from '@/lib/tours';
@@ -36,6 +36,7 @@ import {
 import {
   MakerContext,
   MAKER_MORE_ROWS_ID,
+  MAKER_EDITOR_CLOSE_EVENT,
   MAKER_OPEN_GUESTS_SEE_EVENT,
   type MakerAddScene,
   type MakerDevice,
@@ -1079,7 +1080,10 @@ export function MakerShell({
           'html.sn-maker-open .sn-vt-page,.sn-vt-page:has([data-maker-shell]){view-transition-name:none}' +
           MAKER_IN_THE_APP_CSS +
           /* 🧭 A Studio tool full screen: its editor takes the whole width — no lower-third column beside it. */
-          '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}'}
+          '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}' +
+          /* ⤢ AN EXPANDED EDITOR'S BAR IS ITS OWN HEAD (20 Nov (2), the drawing's full screen): its name and ✓ Done — ‹, ✓ Apply
+             and ⚙ step aside until it is minimized (they never move; they are the same bar's). */
+          '@media (max-width:1023.98px){[data-maker-expanded] [data-maker-toolbar]>:is([data-maker-tool="leave"],[data-maker-apply-slot],[data-maker-tool="settings"]){display:none}}'}
       </style>
       <div
         ref={shellRef}
@@ -1092,6 +1096,7 @@ export function MakerShell({
         className="fixed z-[40] flex flex-col bg-cream text-ink"
         data-maker-shell=""
         data-maker-studio-full={studioFull ? '' : undefined}
+        data-maker-expanded={studioFull && !printsPage && studioTile ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */
         style={{ ['--maker-lt-h' as string]: studioFull ? MAKER_LT_HALF : ltPx !== null ? `${ltPx}px` : MAKER_LT_HEIGHT }}
@@ -1282,6 +1287,19 @@ export function MakerShell({
           ) : null}
         </div>
 
+        {/* ⤡ MINIMIZE — where ⤢ was, in the thumb's reach (20 Nov (2)): the same close as ✓ Done, Esc and Back. */}
+        {studioFull && !printsPage && studioTile ? (
+          <button
+            type="button"
+            aria-label={`Minimize ${studioFrom?.label ?? studioTile.label}`}
+            data-maker-minimize=""
+            onClick={() => window.dispatchEvent(new Event(MAKER_EDITOR_CLOSE_EVENT))}
+            className="sn-press absolute bottom-[calc(var(--maker-safe-b,env(safe-area-inset-bottom))+8px)] right-3 z-[45] inline-flex h-11 items-center gap-1.5 rounded-full bg-ink/[0.06] px-4 text-[13px] font-semibold text-ink lg:hidden"
+          >
+            <Minimize2 aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Minimize
+          </button>
+        ) : null}
         {/* 🎯 Opened from a part's Style bar: the way back, in the thumb's reach, just above the editor. */}
         {studioFrom && studioOn ? <EditorFieldFocus focus={studioFrom.focus} at={studioAt} /> : null}
         {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool

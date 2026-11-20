@@ -495,6 +495,7 @@ export function HubDraftToolbar({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
       count: applyCount,
+      proMarks: !ownsPro,
       history: {
         recent: historyRecent,
         open: () => openHistoryRef.current(null),
@@ -504,7 +505,7 @@ export function HubDraftToolbar({
       },
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore, applyCount, historyRecent, canUndo, historyBusy]);
+  }, [setDraftDoor, canRestore, applyCount, ownsPro, historyRecent, canUndo, historyBusy]);
   /* ✓ APPLY IS AN ICON NOW (owner 2026-10-04, *"apply icon · undo icon · exit
      icon"*): its name says the count — "Apply 3 changes" — and its FIRST tap
      opens the Apply sheet; only the sheet's labelled Apply publishes, so a

@@ -551,7 +551,7 @@ test('5 · the toolbar: Animate is live on the real blocks; the samples stay gre
   assert.equal(blockTakesGround(blockOfCanvas(MAKER_PARTS.myphotos.canvas)!), false);
   assert.equal(BLOCK_SAMPLE_WHY['f:photos_of_you'], undefined);
   assert.equal(makerPartToolWhy('myphotos', 'bg'), 'Background has nothing to change on this part.');
-  assert.match(TOOLS, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
+  assert.match(TOOLS, /aria-disabled=\{tabWorks\(t\) \? undefined : true\}/);
   assert.match(TOOLS, /const blockGround = open && groundBlock !== null && shownTool === 'bg';/);
   assert.match(TOOLS, /\{blockGround && groundBlock \? <BlockGroundRows key=\{groundBlock\} block=\{groundBlock\} \/> : null\}/);
   assert.doesNotMatch(TOOLS, /<BlockGroundRows key=\{block\}/, 'the Background rows are drawn for any block — one that only moves would get tiles');

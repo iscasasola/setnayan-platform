@@ -238,7 +238,9 @@ test('every part with a Studio bar has a door; every focused field exists in the
   const shell = read(`${LAUNCH}/maker-shell.tsx`);
   /* ⚡ The focusing lives in the lazy chunk (`EditorFieldFocus`) — the Maker's first load was 0.4 KB over its budget on
      #6413. 🔁 2026-11-11 (Build 6 Lane F): the way back is the bar's ✕, which names the part it closes. */
-  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /label=\{`Close \$\{editor\.label\}`\}/, 'the way back does not name the part');
+  /* 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): the way back is ✓ Done on top (and ⤡
+     Minimize at the foot, Esc, Back) — it names the part it returns to. */
+  assert.match(read(`${LAUNCH}/stages-studio-parts.tsx`), /label="Done" name=\{`Done — back to \$\{editor\.label\} on the page`\}/, 'the way back does not name the part');
   assert.match(shell, /\{studioFrom && studioOn \? <EditorFieldFocus focus=\{studioFrom\.focus\} at=\{studioAt\} \/> : null\}/, 'the shell mounts it for a jump');
   assert.match(read(`${LAUNCH}/details-lazy.tsx`), /export const EditorFieldFocus = dynamic\(\(\) => import\(\/\* webpackChunkName: "maker-details" \*\/ '\.\/stages-studio-parts'\)/, 'lazily');
   /* The top "✓ Done" band is gone (owner 2026-10-08: no row over a Studio page). The way back to the part is the bar's ✕;
@@ -314,7 +316,7 @@ test('picking the Digital pass never replaces the canvas in Stages — it is pic
      picked thing is grey too (`emptyHere`: on the reply pages Style has a row only for a line with a look and for the
      When-yes card). The claim this pin holds — a live tool is one with something to set — is the same, and stricter. */
   assert.match(tools, /const toolWorks = \(t: MakerPartTool\) => !picked \|\| ownTool\(t\) \|\| \(\(t === 'edit' \|\| t === 'style' \|\| !styleOnly\) && makerPartToolWorks\(picked, t\) && !emptyHere\(t\)\);/);
-  assert.match(tools, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/);
+  assert.match(tools, /aria-disabled=\{tabWorks\(t\) \? undefined : true\}/);
   const edges = read(`${LAUNCH}/add-part-sheet.tsx`);
   assert.match(edges, /clipPath: `inset\(/, 'the frame is clipped to the canvas');
 });

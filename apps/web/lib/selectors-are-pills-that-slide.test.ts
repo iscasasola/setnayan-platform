@@ -407,13 +407,15 @@ test('(5) the four Maker selectors wear the ONE thumb — Stages | Studio, Look�
   assert.equal(STAGE_TOOL_INSET, 3);
   assert.ok(has(STAGE_TOOL_BUTTON, `border-[${STAGE_TOOL_INSET}px]`) && has(STAGE_TOOL_BUTTON, 'border-transparent'), 'the thumb’s inset is not the tool’s own clear margin');
   const tools = read(`${L}/stage-tools.tsx`);
-  const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
-  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_PART_TOOLS\.map\(\(t\) => \(\s*<button\s+key=\{t\}/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
-  assert.doesNotMatch(group, /className="contents"|<Fragment|<span/, 'a wrapper hides the tools from the thumb');
+  /* The tabs alone (20 Nov: Style's Background toggle and ▶ follow the track, outside it). */
+  const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-bg-toggle=""'));
+  assert.match(group, /^data-stage-tpill="">\s*(?:\{\s*\}\s*)?<PillThumb \/>\s*\{MAKER_TOOLBAR_TABS\.map\(\(t\) => \(\s*<button\s+key=\{t\}/, 'the tool group does not wear the thumb, or its tools are not the track’s direct children');
+  /* A wrapper AROUND a tool hides it from the thumb; the ◆ inside Animate's own button (20 Nov) is no wrapper. */
+  assert.doesNotMatch(group, /className="contents"|<Fragment|<span\b[^>]*>\s*<button/, 'a wrapper hides the tools from the thumb');
   assert.doesNotMatch(group, /data-seg-fill|--sp-ink\)/, 'the tool group still has a colour of its own');
   assert.match(group, /data-seg-inset=\{STAGE_TOOL_INSET\}/, 'the thumb fills the whole 44-px button, not the 38-px pill inside it');
   // WORDS, never icons (owner 2026-10-09) — the word is the name a screen reader hears too.
-  assert.match(group, />\s*\{MAKER_PART_TOOL_LABEL\[t\]\}\s*<\/button>/);
+  assert.match(group, />\s*\{MAKER_PART_TOOL_LABEL\[t\]\}[\s{}]*\{t === 'animate' && proMarks \? [\s\S]{0,240}?: null\}\s*<\/button>/);
   assert.doesNotMatch(group, /<SwatchBook\b|<ALargeSmall\b|<Orbit\b|<Brush\b|<Diamond\b|<Zap\b|>Aa</, 'a tool icon is still drawn');
 
   // A row where several may be on at once is not an either-or: no thumb.

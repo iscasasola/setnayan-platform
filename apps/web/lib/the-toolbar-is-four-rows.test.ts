@@ -22,6 +22,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { MAKER_TOOLBAR_TABS, makerToolbarTabOf } from './maker-parts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
@@ -115,16 +116,23 @@ test('(1) one fixed height: 330 px on a tall phone, ≈ 284 on a short one, neve
   assert.match(tools, /\[data-phone-chrome="panel"\]\{left:0!important;right:0!important;bottom:calc\(\$\{STAGE_BAR_FOOT_CSS\} \+ var\(--maker-lift,0px\)\)!important;height:\$\{STAGE_BAR_GRID_CSS\}!important;/);
 });
 
-test('(2) four tools — Edit | Style | Background | Animate — words only, each as wide as its word', () => {
+test('(2) three tabs — Edit | Style | Animate ◆ — words only, each as wide as its word; Background is Style’s', () => {
+  /* The toolbar's four TOOLS stay its vocabulary (the work area is asked for each)… */
   assert.deepEqual([...MAKER_PART_TOOLS], ['edit', 'style', 'bg', 'animate']);
   assert.deepEqual(MAKER_PART_TOOLS.map((t) => MAKER_PART_TOOL_LABEL[t]), ['Edit', 'Style', 'Background', 'Animate']);
+  /* …but a couple SEES three tabs (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (1)):
+     Background is a row of Style (its toggle beside the tabs while Style is on), ▶ is Animate's. */
+  assert.deepEqual([...MAKER_TOOLBAR_TABS], ['edit', 'style', 'animate']);
+  assert.equal(makerToolbarTabOf('bg'), 'style', 'Background is not Style’s');
 
   const tools = read(`${L}/stage-tools.tsx`);
-  const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
+  const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-bg-toggle=""')); // the tabs alone — Style's Background toggle and ▶ follow, with their icons
   assert.ok(group.length > 300, 'anti-vacuity: the selector was not found');
   /* One button a tool, from the list — and what it draws is the tool's WORD, nothing else. */
-  assert.match(group, /\{MAKER_PART_TOOLS\.map\(\(t\) => \(\s*<button/);
-  assert.match(group, /className=\{STAGE_TOOL_BUTTON\}\s*>\s*\{MAKER_PART_TOOL_LABEL\[t\]\}\s*<\/button>/, 'a tool is not drawn as its word');
+  assert.match(group, /\{MAKER_TOOLBAR_TABS\.map\(\(t\) => \(\s*<button/);
+  /* Its word — and on Animate, for a couple without Event Pro, the ◆ (marked, never locked). */
+  assert.match(group, /className=\{STAGE_TOOL_BUTTON\}\s*>\s*\{MAKER_PART_TOOL_LABEL\[t\]\}[\s{}]*\{t === 'animate' && proMarks \? \(\s*<span[^>]*data-stage-tool-pro=""[^>]*>\s*◆\s*<\/span>\s*\) : null\}\s*<\/button>/, 'a tool is not drawn as its word (and ◆ on Animate)');
+  assert.match(tools, /data-stage-bg-toggle=""/, 'Background has no way in from Style');
   assert.doesNotMatch(group, /<svg|<[A-Z][A-Za-z]+ aria-hidden|strokeWidth/, 'a tool wears an icon again');
   assert.match(group, /<PillThumb \/>/, 'the thumb does not slide');
   assert.match(group, /data-seg-inset=\{STAGE_TOOL_INSET\}/);

@@ -117,15 +117,19 @@ test('(4) the pill: grey and `aria-disabled` (never `disabled`), never pressed w
   const tools = read(`${L}/stage-tools.tsx`);
   const group = tools.slice(tools.indexOf('data-stage-tpill=""'), tools.indexOf('data-stage-play=""'));
   assert.ok(group.length > 300, 'anti-vacuity: the tool group was not found');
-  assert.match(group, /aria-disabled=\{toolWorks\(t\) \? undefined : true\}/, 'a tool with nothing to set is not marked');
+  /* 🧰 Three tabs since 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (1)): a TAB works when its
+     tool does — Style also when only its Background row has something (`tabWorks`). */
+  assert.match(group, /aria-disabled=\{tabWorks\(t\) \? undefined : true\}/, 'a tool with nothing to set is not marked');
+  assert.match(tools, /const tabWorks = \(t: MakerToolbarTabKey\) => toolWorks\(t\) \|\| \(t === 'style' && toolWorks\('bg'\) && !cameraOpen\);/, 'a tab is not grey off its own tool');
   assert.doesNotMatch(group, /(?<![-\w])disabled=\{/, 'a tool is `disabled` — its tap is dead and silent');
   /* (Re-aimed: the toolbar is one height and always up, so the thumb always rests on a tool — the one whose rows are
      on screen, `shownTool`, which is never a tool with nothing to set here.) */
   /* 🔁 RE-AIMED 2026-11-13 (Maker Edit shell v3): the thumb rests on the tool whose rows are on screen — and a LOCKED
      tab's rows are its own Problem → Solution (`lockShown`), so the thumb goes there with them. Still never pressed
      over another tool's panel. */
-  assert.match(group, /aria-pressed=\{\(lockShown \?\? shownTool\) === t\}/, 'a pill can be pressed over another tool’s panel');
-  assert.match(group, /onClick=\{\(\) => pickTool\(t\)\}/);
+  assert.match(group, /aria-pressed=\{makerToolbarTabOf\(lockShown \?\? shownTool\) === t\}/, 'a pill can be pressed over another tool’s panel');
+  assert.match(group, /onClick=\{\(\) => pickTab\(t\)\}/);
+  assert.match(tools, /const pickTab = \(t: MakerToolbarTabKey\) => \{\s*if \(t === 'style' && !toolWorks\('style'\) && toolWorks\('bg'\) && !cameraOpen\) return pickTool\('bg'\);\s*pickTool\(t\);/, 'a tab’s tap does not go through pickTool (the lock and the why)');
   /* Grey by the same class a disabled pill wore. */
   assert.ok(STAGE_TOOL_BUTTON.split(' ').includes('aria-disabled:opacity-40'), 'an inactive tool is not grey');
   assert.ok(!STAGE_TOOL_BUTTON.split(' ').some((c) => c.startsWith('disabled:')), 'the pill still styles a state it never has');

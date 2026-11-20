@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { PillThumb } from '@/app/_components/pill-selector';
 import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { createPortal } from 'react-dom';
-import { Check, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
+import { Check, ImageIcon, Maximize2, Play, Reply, RotateCw, Square, X, type LucideIcon } from 'lucide-react';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { RSVP_STAGE_SCENES, isRsvpStageScene, type RsvpStageScene } from '@/lib/rsvp-stage';
 import {
@@ -37,7 +37,7 @@ import {
 } from '@/lib/maker-parts';
 import { STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE, STAGE_BAR_LINE_ABOUT, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, stageEditingLine, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
-import { makerCanvasKeyOf, makerOwnSceneType, makerPartRisesEditor, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
+import { type MakerToolbarTab as MakerToolbarTabKey, makerCanvasKeyOf, makerOwnSceneType, makerPartExpands, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType, MAKER_TOOLBAR_TABS, makerToolbarTabOf } from '@/lib/maker-parts';
 import { STAGE_NOTHING_PICKED_WORDS, stageRowOneLine } from '@/lib/maker-edit-owns-content';
 import { elementCanvasOwner } from '@/lib/closing-line';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
@@ -751,16 +751,10 @@ export function StageTools({
         }
         setPicked(k);
         setTapped(typeof d.el === 'string' ? d.el : null);
-        /* 👆 A SCENE WHOSE PAGE USED TO BE STUDIO'S RISES ITS EDITOR ON A TAP (Build 6 Lane F, owner 2026-11-10: the ring →
-           the Logo Maker, Dress code → Palette + Dress Code, Love Story → its chapters; `makerPartRisesEditor`). The
-           part stays picked underneath, so ✕ comes back to it. Every other part is selected, as before — the rest of
-           the cover opens the cover's own tools. Never on the RSVP stage (its screens carry their own tools). */
-        const rises = rsvpOpenRef.current ? null : makerPartRisesEditor(k);
-        if (rises) {
-          setSlotAsk(null);
-          riseRef.current(k, rises);
-          return;
-        }
+        /* 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): the
+           Logo, Love Story, Schedule, Dress code and E-Gifts used to RISE their editor full screen on a tap (Build 6 Lane
+           F) — with only a small ✕ to get back (owner: E-Gifts "goes full screen and no way back"). Now they are picked
+           like every part, and ⤢ Expand on the toolbar (`makerPartExpands`) is the one door to full screen. */
         /* 🖼 A tap on one of a template scene's pictures (the bridge names its slot): Edit, with that picture's sheet
            open — `ScenePhotoRow` (owner 2026-10-18, "just make them work"). */
         const slot = (d as { slot?: unknown }).slot;
@@ -1425,7 +1419,22 @@ export function StageTools({
   const lockShown: MakerPartTool | null = picked !== null && lockTool !== null && !toolWorks(lockTool) ? lockTool : null;
   const lock = lockShown ? makerPartToolLock(picked, lockShown, whyNot(lockShown)) : null;
   /** 📷 The Camera keeps ONE style (owner 2026-11-13): its Style is a locked tab too — drawn by `CameraPartNote`. */
-  const tabLocked = (t: MakerPartTool) => !toolWorks(t) || (t === 'style' && cameraOpen);
+  /* 🧰 THE THREE TABS (20 Nov): Style stands for Style and Background — a part with only a background (no looks to pick)
+     opens straight on it; a part with both keeps the Background toggle beside the tabs. */
+  const tabWorks = (t: MakerToolbarTabKey) => toolWorks(t) || (t === 'style' && toolWorks('bg') && !cameraOpen);
+  const tabLocked = (t: MakerPartTool) => !tabWorks(makerToolbarTabOf(t)) || (t === 'style' && cameraOpen);
+  const pickTab = (t: MakerToolbarTabKey) => {
+    if (t === 'style' && !toolWorks('style') && toolWorks('bg') && !cameraOpen) return pickTool('bg');
+    pickTool(t);
+  };
+  const styleTab = makerToolbarTabOf(lockShown ?? shownTool) === 'style' && picked !== null && !lockShown;
+  const bgToggle = toolWorks('bg') && toolWorks('style') && !cameraOpen;
+  /* ▶ is Animate's — and the stage's own Play while nothing is picked (the whole page, as guests get it). */
+  const showPlay = playing || !picked || shownTool === 'animate';
+  /* ⤢ only on the parts whose editor needs the room, never on the RSVP stage (its screens carry their own tools). */
+  const expand = picked && !rsvpOpen ? makerPartExpands(picked) : null;
+  /* ◆ for a couple without Event Pro (the draft bar knows — `MakerDraftDoor.proMarks`). */
+  const proMarks = maker?.draft?.proMarks === true;
   const pickTool = (t: MakerPartTool) => {
     /* 🔒 A LOCKED TAB OPENS ITS PROBLEM → SOLUTION IN THE ROWS (Maker Edit shell v3, owner-approved 2026-11-13) — it
        was a toast over rows left blank. With nothing picked every tool is live, so this is always a part's. */
@@ -1932,32 +1941,58 @@ export function StageTools({
           Done is a tap outside the field, which KEEPS (the typed row's own rule) — the app's main button. ══ */}
       <TypingBand inline data-stage-keys="" className="-mx-[10px] rounded-t-2xl !border-t-0 !bg-transparent" place={picked ? makerPartLabelOn(stageKey, picked) : ''} />
 
-      {/* ══ THE SELECTOR — [ Edit | Style | Background | Animate ] · ▶ ══ */}
+      {/* ══ THE SELECTOR — [ Edit | Style | Animate ◆ ] · the tab's own button · ⤢ (owner 20 Nov 2026, DECISION_LOG "EVENT
+          HUB MAKER — ONE TOOLBAR, FULL SCREEN" (1)(2)): the same three tabs on every scene. Background is Style's — its
+          toggle stands beside the tabs while Style is on; ▶ is Animate's; ⤢ Expand opens the part's full-screen editor,
+          only where the work needs room (`makerPartExpands`). ══ */}
       <div className={STAGE_ROW} data-stage-row="">
         <span role="group" aria-label="Edit with" className={STAGE_TOOL_PILL} data-stage-tpill="">
           {/* 🎚 ONE thumb that TRAVELS from tool to tool (owner 2026-10-08: "apply the same pill selector") — the app's
               thumb, in the selector's one accent, lying 3 px inside the picked tool's box and as wide as its word. The
               tools are the track's DIRECT children, so the thumb can find the picked one. */}
           <PillThumb />
-          {MAKER_PART_TOOLS.map((t) => (
+          {MAKER_TOOLBAR_TABS.map((t) => (
             <button
               key={t}
               type="button"
-              /* The thumb rests on the tool whose rows are on screen — never on one with nothing to set here. */
-              aria-pressed={(lockShown ?? shownTool) === t}
-              /* Grey, and it still hears a tap — the tap says why (`pickTool`). Never `disabled`: that is a dead tap. */
-              aria-disabled={toolWorks(t) ? undefined : true}
+              /* The thumb rests on the tab whose rows are on screen — Background's rows are Style's. */
+              aria-pressed={makerToolbarTabOf(lockShown ?? shownTool) === t}
+              /* Grey, and it still hears a tap — the tap says why (`pickTab`). Never `disabled`: that is a dead tap. */
+              aria-disabled={tabWorks(t) ? undefined : true}
               data-stage-tool={t}
               /* 🔒 A locked tab wears the lock before its word (the rule set draws it — the button stays its word). */
               data-stage-tool-locked={tabLocked(t) ? '' : undefined}
               data-seg-inset={STAGE_TOOL_INSET}
-              onClick={() => pickTool(t)}
+              onClick={() => pickTab(t)}
               className={STAGE_TOOL_BUTTON}
             >
               {MAKER_PART_TOOL_LABEL[t]}
+              {/* ◆ Animate is Event Pro — marked for a couple without it, never locked: they try it, ✓ Apply asks. */}
+              {t === 'animate' && proMarks ? (
+                <span aria-label=" (Event Pro)" data-stage-tool-pro="" className="ml-1 text-[11px] leading-none">
+                  ◆
+                </span>
+              ) : null}
             </button>
           ))}
         </span>
+        {/* 🖼 STYLE › BACKGROUND — the part's background, a row of Style (20 Nov (1)): pressed, Style's rows are the
+            background's; pressed again (or Style), the looks come back. Only where the part takes a background. */}
+        {styleTab && bgToggle ? (
+          <button
+            type="button"
+            aria-pressed={shownTool === 'bg'}
+            aria-label={shownTool === 'bg' ? 'Background — back to the looks' : 'Background'}
+            data-stage-bg-toggle=""
+            onClick={() => pickTool(shownTool === 'bg' ? 'style' : 'bg')}
+            className={`${STAGE_ICON_BUTTON} group/bg`}
+          >
+            <span className={`${STAGE_ICON_FACE} group-aria-pressed/bg:border-sn-accent group-aria-pressed/bg:bg-sn-accent group-aria-pressed/bg:text-sn-on-accent`}>
+              <ImageIcon aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+          </button>
+        ) : null}
+        {showPlay ? (
         <button
           type="button"
           aria-label={playing ? 'Stop' : `${picked ? 'Play this scene' : 'Play the stage as guests see it'} — hold, or press Shift and Enter, to preview the whole page`}
@@ -1987,6 +2022,21 @@ export function StageTools({
             {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />}
           </span>
         </button>
+        ) : null}
+        {/* ⤢ EXPAND — the one door to full screen (20 Nov (2)); full screen shows ✓ Done on top and ⤡ Minimize here. */}
+        {expand ? (
+          <button
+            type="button"
+            aria-label={`See ${picked ? makerPartLabelOn(stageKey, picked) : ''} full screen`}
+            data-stage-expand=""
+            onClick={() => picked && riseRef.current(picked, expand)}
+            className={STAGE_ICON_BUTTON}
+          >
+            <span className={STAGE_ICON_FACE}>
+              <Maximize2 aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
+            </span>
+          </button>
+        ) : null}
       </div>
 
       {/* ══ 🖥 A desktop's ‹ Previous · Next › · ✕ Done and the part's caption (the phone swipes) ══ */}

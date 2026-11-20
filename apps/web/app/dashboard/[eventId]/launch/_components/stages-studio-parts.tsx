@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
@@ -11,7 +11,7 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { GuestsSeeSheet } from './guests-see-sheet';
-import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { MAKER_EDITOR_CLOSE_EVENT, MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
 import { MakerDesk } from './maker-desk';
 import { riseEditorIn, riseEditorOut } from '@/lib/maker-editor-rise';
 
@@ -85,6 +85,43 @@ export function StageSwitch({
     if (editor?.full) void riseEditorOut().then(() => onClose?.());
     else onClose?.();
   };
+  /* ⤡ ONE WAY BACK, FOUR DOORS (20 Nov (2)): ✓ Done here, ⤡ Minimize at the foot (`MAKER_EDITOR_CLOSE_EVENT`), Esc, and
+     the browser's Back. Opening pushes one history entry, so Back closes the editor instead of leaving the Maker; every
+     other door steps back over that entry, and its popstate is what closes — one path, never two. */
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  const pushed = useRef(false);
+  useEffect(() => {
+    if (!risen) return;
+    try {
+      window.history.pushState({ ...(window.history.state ?? {}), snMakerEditor: risen }, '');
+      pushed.current = true;
+    } catch {
+      pushed.current = false;
+    }
+    const onPop = () => {
+      if (!pushed.current) return;
+      pushed.current = false;
+      closeRef.current();
+    };
+    const ask = () => {
+      if (pushed.current && (window.history.state as { snMakerEditor?: string } | null)?.snMakerEditor === risen) window.history.back();
+      else closeRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-sheet],[role="dialog"][aria-modal="true"]')) return;
+      ask();
+    };
+    window.addEventListener('popstate', onPop);
+    window.addEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [risen]);
+  const requestClose = () => (risen ? window.dispatchEvent(new Event(MAKER_EDITOR_CLOSE_EVENT)) : close());
   const [list, setList] = useState(false);
   /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, opened from the Hub's ⚙ Event Hub settings with an event; this
      pill — always mounted — draws it. */
@@ -120,11 +157,13 @@ export function StageSwitch({
           <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-sn-elem motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
         </button>
       ) : (
-        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2">
-          <ActionButton tone="neutral" iconOnly icon={X} label={`Close ${editor.label}`} onClick={close} data-stage-editor-close="" className="shrink-0" />
-          <h1 data-stage-editor-title="" className="min-w-0 truncate text-[16px] font-semibold text-ink">
+        /* ✓ DONE ON TOP (20 Nov (2)): the editor's name, and Done — the house main button, never a small grey ✕ (owner:
+           E-Gifts "goes full screen and no way back"). ⤡ Minimize, Esc and Back close it the same way. */
+        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2 pl-2">
+          <h1 data-stage-editor-title="" className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">
             {editor.label}
           </h1>
+          <ActionButton tone="brand" main icon={Check} label="Done" name={`Done — back to ${editor.label} on the page`} onClick={requestClose} data-stage-editor-close="" className="shrink-0" />
         </span>
       )}
       {/* THE FIVE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}

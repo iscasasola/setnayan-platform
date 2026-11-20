@@ -216,6 +216,12 @@ export const WHISPER_TEAM_UNREAD_LINE = "Couldn't load your team for this chat. 
 
 /** The team whisper reaches — the composer's line (the prototype's words). */
 export const WHISPER_TEAM_REACH = 'Only your team';
+/** The switch in the box on the shop's side (only the shop's own staff ever see it). */
+export const WHISPER_TEAM_SWITCH = 'Whisper to your team only';
+/** The notification title a shop's teammate gets for a team whisper. */
+export function teamWhisperTitle(vendorName: string): string {
+  return `Whisper from your team · ${vendorName}`;
+}
 /**
  * 🛡 What the ⓘ beside the line says (safety review F7, 19 Nov): staff can read a private line inside an open dispute,
  * so "only" must say so — the database's own arm (`chat_private_in_dispute`).

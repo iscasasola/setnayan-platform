@@ -73,6 +73,7 @@ import {
   WHISPER_OFF_LINE_STAY_MS,
   WHISPER_ON_LINE,
   WHISPER_PLACEHOLDER,
+  WHISPER_TEAM_SWITCH,
   WHISPER_WORDS_ONLY_MESSAGE,
   dragFollowPx,
   dragSwitches,
@@ -1033,7 +1034,7 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           className="sr-only focus-visible:not-sr-only focus-visible:self-center focus-visible:rounded-full focus-visible:px-3 focus-visible:py-2 focus-visible:text-[13px] focus-visible:font-semibold focus-visible:text-[rgb(var(--color-private-text))]"
           data-chat-whisper-switch=""
         >
-          {whisper.side === 'team' ? 'Whisper to your team only' : 'Whisper to co-hosts only'}
+          {whisper.side === 'team' ? WHISPER_TEAM_SWITCH : 'Whisper to co-hosts only'}
         </button>
       ) : null}
       {/* 💬 A TYPED PRICE OR DAY OFFERS ITS TOOL — one line above the box; it opens the card, it never sends. */}

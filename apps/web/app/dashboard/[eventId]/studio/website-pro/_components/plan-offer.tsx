@@ -78,8 +78,8 @@ export function PlanOffer({
           data-event-plan-state={facts.plus}
         >
           <p className="flex items-baseline justify-between gap-3">
-            {/* 🏛 Event Plus is the whole Event Hub (owner 20 Nov) — the page's "Everything" card. */}
-            <span className="text-lg font-semibold text-ink">Event Plus · the whole Event Hub</span>
+            {/* 🏛 Event Plus is the whole Event Hub (owner 20 Nov) — the page's "Everything" card; its first line says so. */}
+            <span className="text-lg font-semibold text-ink">Event Plus</span>
             {facts.plus === 'buy' && facts.plusPhp !== null ? (
               <span className="font-mono text-lg font-bold text-ink">{formatPhp(facts.plusPhp)}</span>
             ) : null}

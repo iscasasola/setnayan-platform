@@ -134,6 +134,8 @@ function swallowTapClick(): void {
 
 /** The thumb row's ＋ ▾ pick that makes a group (never a guest id — those are UUIDs). */
 const NEW_GROUP = 'new-group';
+/** ⇕ The Show menu's last line: fold or open every heading at once (§ 7 March; the List's "Fold all headings"). */
+const MARCH_FOLD_ALL = 'march:fold-all';
 
 /** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
 type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;
@@ -848,19 +850,6 @@ function MarchMakerBody({
       ? createPortal(
           <lens.ThumbRow
             name="guests-march"
-            left={
-              shown.length > 0
-                ? [
-                    {
-                      icon: allOpen ? ChevronsDownUp : ChevronsUpDown,
-                      label: allOpen ? 'Collapse all' : 'Expand all',
-                      expanded: allOpen,
-                      onClick: () => setFolded(allOpen ? new Set(shown.map((x) => x.key)) : new Set()),
-                      testId: 'march-expand',
-                    },
-                  ]
-                : []
-            }
             field={{
               placeholder: 'Search guests',
               input: {
@@ -886,7 +875,36 @@ function MarchMakerBody({
                 setMarchQ('');
               },
             }}
-            right={[guestsFilterMenu({ view: 'march', filter: lens.filter, onFilter: lens.setFilter, hasSides: lens.hasSides, label: 'Show' })]}
+            /* ⇕ FOLD ALL IS SHOW'S LAST LINE (Guests redesign § 7 March, owner 20 Nov "Yes, build it": *"Lines filter icon,
+               ⇕ → the sliders icon (Show; Fold all)"*; § 2: *"⇕ Fold all → last line of Show and sort"*) — the List's own
+               words (`guests-filter-panel.tsx`). Each heading still folds on its own. */
+            right={[
+              guestsFilterMenu({
+                view: 'march',
+                filter: lens.filter,
+                onFilter: lens.setFilter,
+                hasSides: lens.hasSides,
+                label: 'Show',
+                extras:
+                  shown.length > 0
+                    ? [
+                        {
+                          key: MARCH_FOLD_ALL,
+                          label: allOpen ? 'Fold all headings' : 'Open all headings',
+                          group: 'Headings',
+                          icon: allOpen ? (
+                            <ChevronsDownUp aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                          ) : (
+                            <ChevronsUpDown aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                          ),
+                        },
+                      ]
+                    : [],
+                onExtra: (k) => {
+                  if (k === MARCH_FOLD_ALL) setFolded(allOpen ? new Set(shown.map((x) => x.key)) : new Set());
+                },
+              }),
+            ]}
             action={
               /* 🏷 ＋ ▾ = Add walk · New group (prototype v13 `thWalk`): a group of the couple's own, first; then the
                  "Not walking" names. A walk to add needs a name, so with nobody out the menu holds New group alone. */

@@ -187,12 +187,15 @@ test('5 · missing things show in colour, filled things stay grey', async () => 
   assert.ok(missing.slice(missing.indexOf('data-fold="card-basic-info"'), missing.indexOf('data-fold="card-basic-info"') + 900).includes('>Add a mobile<'));
   const filled = await paint({ mobile: '+639171234567' });
   assert.doesNotMatch(filled, /data-card-row-missing=/, 'a filled row is still marked missing');
-  const css = stripComments(readFileSync(join(WEB, 'app', 'globals.css'), 'utf8'));
+  const css = read('guest-card.css');
   assert.match(css, /\[data-card-row-missing\] > \[data-fold\] > \[data-fold-pinbox\] \[data-fold-sub\][\s\S]{0,200}?\{\s*color: rgb\(var\(--sn-accent\)\);/, 'the missing mark draws no colour');
 });
 
 test('6 · on a phone the card rises full screen from the bottom — scoped to the guest card, the side peek untouched', () => {
-  const css = stripComments(readFileSync(join(WEB, 'app', 'globals.css'), 'utf8'));
+  // The card's rules are its own surface stylesheet (2026-11-20: moved out of globals.css, which is at its byte ceiling);
+  // the side peek's own rule is still globals.css's.
+  const css = read('guest-card.css');
+  const globals = stripComments(readFileSync(join(WEB, 'app', 'globals.css'), 'utf8'));
   const SCOPE = ".sn-inspector-sheet:has([data-guest-card-avatar='head'], [data-guest-card-sheet])";
   const at = css.indexOf(`${SCOPE} {`);
   assert.ok(at > 0, 'the rise rule is gone, or no longer scoped to a sheet that holds a guest card');
@@ -205,7 +208,11 @@ test('6 · on a phone the card rises full screen from the bottom — scoped to t
   assert.match(css, new RegExp(`${SCOPE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\[data-closing\\] \\{\\s*animation: sn-guest-card-fall `), 'it does not fall back down on close');
   assert.match(css, /\.sn-inspector-peek:has\(\+ \.sn-inspector-sheet \[data-guest-card-avatar='head'\]\),[\s\S]{0,120}?\{\s*background: transparent;\s*backdrop-filter: none;/, 'the list behind it is still dimmed and blurred');
   // The side peek's own rule is exactly as the motion standard holds it (the other quick views).
-  assert.match(css, /\n\.sn-inspector-sheet \{[\s\S]*?animation: sn-side-peek-in var\(--sn-m-move\) var\(--sn-m-spring\) backwards;/);
+  assert.match(globals, /\n\.sn-inspector-sheet \{[\s\S]*?animation: sn-side-peek-in var\(--sn-m-move\) var\(--sn-m-spring\) backwards;/);
+  // The stylesheet is on every event page the card opens from (the event layout loads it), and in the guests lab.
+  assert.match(stripComments(readFileSync(join(WEB, 'app', 'dashboard', '[eventId]', 'layout.tsx'), 'utf8')), /^import '\.\/guests\/_components\/guest-card\.css';$/m, 'the event layout no longer loads the card’s rules');
+  assert.match(stripComments(readFileSync(join(WEB, 'app', 'dev', 'guests-lab', 'page.lab.tsx'), 'utf8')), /^import '@\/app\/dashboard\/\[eventId\]\/guests\/_components\/guest-card\.css';$/m);
+  assert.doesNotMatch(globals, /sn-guest-card-rise|data-card-row-missing|sn-guest-side-dot/, 'the card’s rules came back into globals.css');
   // The marks the scope reads are really drawn: the face in the card's head, and the in-place sheet's own.
   const card = read('guest-card.tsx');
   assert.match(card, /<GuestCardAvatar\s+guest=\{guest\}\s+photoDisplayUrl=\{photoDisplayUrl\}\s+size="head"/);

@@ -7,7 +7,7 @@
  *
  * The card stays the ONE card in the ONE sheet (`InspectorColumn` in the inspector's sheet — nothing here is a second
  * card or a second sheet). The rise itself is CSS, scoped to a sheet that holds a guest card and to phone widths
- * (globals.css "THE GUEST CARD RISES"); from 701 up it is the shipped side panel, untouched.
+ * (guest-card.css "THE GUEST CARD RISES"); from 701 up it is the shipped side panel, untouched.
  *
  * This is only the gesture: a finger that starts on the card's sticky head (never on ✕ or another control), while the
  * card is at its top, and travels down past `CLOSE_AT` closes it through the sheet's own close (`ctx.close()` — the same
@@ -20,7 +20,7 @@ import { useInspectorContext } from '@/app/_components/inspector/inspector-colum
 
 /** How far down, in px, the finger must travel for the card to close. */
 export const GUEST_CARD_DRAG_CLOSE_PX = 96;
-/** Only below this width is the card a risen full screen (the sheet's own breakpoint, globals.css). */
+/** Only below this width is the card a risen full screen (the sheet's own breakpoint, guest-card.css). */
 const PHONE_MAX = 700.98;
 
 export function GuestCardRise() {

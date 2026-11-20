@@ -79,7 +79,7 @@ export function GuestCardAvatar({
   return (
     <span className="relative inline-flex shrink-0" data-guest-card-side={sideDot}>
       {face}
-      {/* The colours are the list's own (`.sn-guest-side-dot`, globals.css — one place, beside the card's other rules). */}
+      {/* The colours are the list's own (`.sn-guest-side-dot`, guest-card.css — one place, beside the card's other rules). */}
       <span aria-hidden className="sn-guest-side-dot" data-side={sideDot} />
     </span>
   );

@@ -113,7 +113,7 @@ export function CardDoor({ label, value, href, action, data }: CardDoorProps) {
 export function CardFold({ summary, value, emptyValue, open = false, last = false, danger = false, tip, handle, missing = false, children }: CardFoldProps) {
   const data = `card-${(handle ?? summary).toLowerCase().replace(/\W+/g, '-')}`;
   return (
-    /* 🎨 The mark the missing colour reads (globals.css `[data-card-row-missing]`). Always the same box — a save that fills
+    /* 🎨 The mark the missing colour reads (guest-card.css `[data-card-row-missing]`). Always the same box — a save that fills
        the row only drops the mark, it never re-makes the fold under the finger. */
     <div className="contents" data-card-row={data} data-card-row-missing={missing ? '' : undefined}>
     <Fold title={summary}

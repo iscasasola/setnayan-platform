@@ -10,20 +10,21 @@
  *
  * WHAT IT HOLDS, read from the RENDERED hero (renderToStaticMarkup — the HTML a stranger
  * and a crawler get), not from the source text:
- *   1. the headline is the 4 Nov front page's — "Your wedding, beautifully handled on
- *      Setnayan." (prototypes/front_page_2026-11-04.html; DECISION_LOG 2026-10-28 "THE FRONT
- *      DOOR'S PREMIUM PITCH" + 2026-11-04) — and the photo promise under it is still ONE
- *      ALBUM, not free photos (it moved from the old headline into the "Setnayan is …" line);
+ *   1. the headline is the 20 Nov front page's (prototypes/front_page_home_2026-11-19 v5, approved 20 Nov,
+ *      specs ef5df0b5) — "Setnayan" over "The home of every Filipino celebration." — and the photo promise
+ *      under it is still ONE ALBUM, not free photos;
  *   2. neither the hero nor the home <title>/description says "never lose a photo" or
  *      "keep every photo" (both overpromise: photos use Papic credits);
- *   3. the Papic line is there and carries NO number (free credits are first-event only;
- *      an amount on the front door reads as per event);
- *   4. the main button opens `/start` — the public event-type picker, before sign-up
- *      (owner 2026-10-25) — which draws the SHIPPED create-event grid and routes each
- *      type by the same rule as the signed-in picker; "How it works" opens /features.
+ *   3. the Papic line is there (it moved from the hero to Live it · Papic with the 20 Nov page) and carries NO
+ *      number (free credits are first-event only; an amount on the front door reads as per event);
+ *   4. every way in opens the public type picker before sign-up (owner 2026-10-25): "All N kinds", the close and
+ *      the thumb-zone bar open `/start` — which draws the SHIPPED create-event grid and routes each type by the
+ *      same rule as the signed-in picker — and each tile goes straight to its own onboarding by that rule.
+ *      (The 4 Nov "How it works" link left with the 4 Nov hero; the 20 Nov drawing has none — Plan it's
+ *      "See all →" opens /features.)
  *      There is no sample or demo button, open or closed (owner, CLOUD_BOARD 5 Nov: "just do
  *      not add buttons") — 4e;
- *   5. the main button wears the house terracotta token (`--m-mulberry`), not the gold.
+ *   5. the buttons wear the house terracotta token (`--m-mulberry`), not the gold.
  *
  * 🛡 Comments are stripped before any source match (`lib/strip-comments.ts`).
  */
@@ -55,6 +56,17 @@ async function hero(): Promise<string> {
   return renderToStaticMarkup(React.createElement(FrontDoorAnchor));
 }
 
+async function landing(): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { FrontDoorLanding } = await import('./front-door-landing');
+  return renderToStaticMarkup(
+    React.createElement(FrontDoorLanding, {
+      planPrices: { plus: null, pro: null, ultra: null },
+      planFacts: { plusCredits: null, proCredits: null, freePapic: null },
+    }),
+  );
+}
+
 const OVERPROMISE = /never lose (a|any|every)? ?photos?|keep every photo/i;
 
 test('1 · the headline is the approved one', async () => {
@@ -63,20 +75,36 @@ test('1 · the headline is the approved one', async () => {
   const text = textOf(h1[1] ?? '');
   assert.match(
     text,
-    /^Your wedding ?, beautifully handled on Setnayan\.$/,
-    `The front-door headline reads "${text}". The 4 Nov front page (prototypes/front_page_2026-11-04.html): ` +
-      '"Your wedding, beautifully handled on Setnayan." — the turning word starts on "wedding".',
+    /^Setnayan The home of every Filipino celebration\.$/,
+    `The front-door headline reads "${text}". The 20 Nov front page (prototypes/front_page_home_2026-11-19 v5): ` +
+      '"The home of every Filipino celebration.", with the name "Setnayan" as its small line (Google matches the name).',
   );
   assert.match(
     textOf(await hero()),
-    /every photo your guests take, in one album\./,
-    'The hero no longer says photos land in ONE ALBUM. Owner 2026-10-25: the promise is one album ' +
+    /One link for your whole event: your guests, your suppliers, your photos — from the first idea to the memories\./,
+    'The hero line is not the v6 one (owner "Approve v6", 20 Nov). The one-album promise now sits on Papic. Owner 2026-10-25: the promise is one album ' +
       '(not "Keep every photo" — photos use Papic credits).',
   );
+  const page = textOf(await landing());
+  assert.match(page, /Every guest’s phone is a camera\. Every photo they take lands in one album\./, 'Papic lost the one-album line (v6)');
+  assert.match(
+    page,
+    /Plan it · Suppliers Suppliers you can trust\. No fake reviews\. No paid stars\. Ever\./,
+    'the v6 "Suppliers you can trust" part is gone or reworded',
+  );
+  // The gift row says only what is live (the card's Setnayan gift) — never "every booking" (#7823 is on hold).
+  assert.match(page, /A Setnayan gift\. Some bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
+  assert.doesNotMatch(page, /every booking (comes|carries) (with )?a gift/i, 'the page promises a gift on every booking, which is not built');
+  assert.doesNotMatch(page, /Many bookings come with/, '"many" is not measured — the gift row says "Some"');
+  // Badges are earned three ways (lib/card-badges.ts): bookings, inquiries (Quick Responder, Trending Now count
+  // inquiries) and checked papers (Setnayan Verified) — never "only from real bookings".
+  assert.match(page, /Badges are earned\. Every badge and seal is earned: real bookings, real inquiries, checked papers\./, 'the badges row is not the corrected wording');
+  assert.doesNotMatch(page, /comes only from real bookings/, 'the badges row says bookings only — Quick Responder, Trending Now and Verified are not booking-earned');
 });
 
 test('2 · no "never lose a photo" / "keep every photo" on the hero or the home <title>', async () => {
   assert.doesNotMatch(textOf(await hero()), OVERPROMISE, 'the hero overpromises the photos again');
+  assert.doesNotMatch(textOf(await landing()), OVERPROMISE, 'the front page overpromises the photos again');
   const home = stripComments(readFileSync(path.join(APP, '(hub)', 'page.tsx'), 'utf8'));
   for (const name of ['HOME_TITLE', 'HOME_DESCRIPTION']) {
     const m = new RegExp(`const ${name}\\s*=\\s*'([^']+)'`).exec(home);
@@ -86,33 +114,39 @@ test('2 · no "never lose a photo" / "keep every photo" on the hero or the home 
 });
 
 test('3 · the Papic line is there, and states no number', async () => {
-  const html = await hero();
-  const line = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)]
-    .map((m) => textOf(m[1] ?? ''))
-    .find((p) => /Papic credits/.test(p));
-  assert.ok(line, 'the hero lost "Unlimited cameras · photos use Papic credits."');
-  assert.match(line, /Unlimited cameras/);
+  const page = await landing();
+  assert.match(textOf(page), /Unlimited cameras · photos use Papic credits/, 'the front page lost "Unlimited cameras · photos use Papic credits"');
   assert.doesNotMatch(
-    textOf(html),
+    textOf(await hero()),
     /\d+\s*(free\s*)?credits?/i,
     'the hero states a credit amount — free credits are first-event only (owner 2026-10-25); say no number here',
   );
+  const papic = /<section\b[^>]*class="[^"]*fl-papic[^"]*"[^>]*>([\s\S]*?)<\/section>/.exec(page);
+  assert.ok(papic, 'the Papic section is gone');
+  assert.doesNotMatch(textOf(papic[1] ?? ''), /\d+\s*(free\s*)?credits?/i, 'the Papic section states a credit amount');
 });
 
-function mainButton(html: string): { href: string; cls: string } {
-  const a = /<a\b(?=[^>]*\bclass="([^"]*\bfd-opening-cta\b[^"]*)")(?=[^>]*\bhref="([^"]*)")[^>]*>/.exec(html);
-  assert.ok(a, 'the hero has no main button (.fd-opening-cta)');
-  return { cls: a[1] ?? '', href: (a[2] ?? '').replace(/&amp;/g, '&') };
+function buttonsTo(html: string, cls: RegExp): { href: string; cls: string }[] {
+  return [...html.matchAll(/<a\b(?=[^>]*\bclass="([^"]*)")(?=[^>]*\bhref="([^"]*)")[^>]*>/g)]
+    .map((m) => ({ cls: m[1] ?? '', href: (m[2] ?? '').replace(/&amp;/g, '&') }))
+    .filter((a) => cls.test(a.cls));
 }
 
-test('4 · the main button opens the public type picker, which is the shipped grid and routes by the shared rule', async () => {
-  const { href } = mainButton(await hero());
-  assert.equal(
-    href,
-    '/start',
-    `"Start your event — free" goes to ${href}. Owner 2026-10-25: it opens the public event-type picker ` +
-      '(/start) BEFORE sign-up — never /onboarding/wedding alone, never a sign-up wall first.',
+test('4 · every way in opens the public type picker, which is the shipped grid and routes by the shared rule', async () => {
+  const kinds = /<a\b[^>]*\bhref="([^"]*)"[^>]*>All 19 kinds/.exec(
+    (await (async () => {
+      const { renderToStaticMarkup } = await import('react-dom/server');
+      const { FrontDoorAnchor } = await import('./front-door-anchor');
+      return renderToStaticMarkup(React.createElement(FrontDoorAnchor, { tiles: [], kinds: 19 }));
+    })()).replace(/<!-- -->/g, ''),
   );
+  assert.ok(kinds, 'the picker lost its "All N kinds" link');
+  assert.equal(kinds[1], '/start', `"All N kinds" goes to ${kinds[1]} — it opens the public picker, /start`);
+  const pills = buttonsTo(await landing(), /\bfd-btn-terra\b/);
+  assert.ok(pills.length >= 2, `the close and the thumb-zone bar lost their buttons (${pills.length} found)`);
+  for (const p of pills) {
+    assert.equal(p.href, '/start', `a front-page button goes to ${p.href}. Owner 2026-10-25: it opens the public event-type picker (/start) BEFORE sign-up`);
+  }
   const page = stripComments(readFileSync(path.join(APP, '(shell)/start/page.tsx'), 'utf8'));
   const grid = stripComments(readFileSync(path.join(APP, '(shell)/start/_components/start-type-grid.tsx'), 'utf8'));
   assert.match(page, /getCreatableEventTypes\(\)/, '/start must read the same roster as /dashboard/create-event');
@@ -123,6 +157,15 @@ test('4 · the main button opens the public type picker, which is the shipped gr
     readFileSync(path.join(APP, 'dashboard/(account)/create-event/_components/event-type-picker.tsx'), 'utf8'),
   );
   assert.match(picker, /onboardingRouteFor\(/, 'the signed-in picker stopped using the shared route rule');
+  const { frontPageTiles } = await import('./front-door-landing');
+  const tiles = frontPageTiles(
+    [
+      { key: 'wedding', label: 'Wedding', heroPhotoUrl: null, onboardingHref: '/onboarding/wedding' },
+      { key: 'debut', label: 'Debut', heroPhotoUrl: null, onboardingHref: null },
+    ],
+    true,
+  );
+  assert.deepEqual(tiles.map((t) => t.href), ['/onboarding/wedding', '/onboarding/debut'], 'a front-page tile must go straight to its own onboarding');
 });
 
 test('4b · a type goes straight to its own onboarding (the shared rule, executed)', async () => {
@@ -160,16 +203,11 @@ test('4e · no sample or demo button anywhere on the front page', async () => {
   }
 });
 
-test('4c · "How it works" opens the Features hub', async () => {
-  const a = /<a\b(?=[^>]*\bclass="[^"]*\bfd-opening-alt\b)(?=[^>]*\bhref="([^"]*)")[^>]*>/.exec(await hero());
-  assert.ok(a, 'the hero lost its "How it works" link');
-  assert.equal(a[1], '/features', `"How it works" goes to ${a[1]} — owner 2026-10-25: the Features hub`);
-});
-
-test('5 · the main button is terracotta (the house token), not the gold', async () => {
-  const { cls } = mainButton(await hero());
-  assert.match(cls, /\bfd-btn-terra\b/, `the main button's class is "${cls}" — it must be .fd-btn-terra`);
-  assert.doesNotMatch(cls, /\bfd-btn-gold\b/, 'the main button still wears the gold');
+test('5 · the buttons are terracotta (the house token), not the gold', async () => {
+  for (const { cls } of buttonsTo(await landing(), /\bfl-btn\b/)) {
+    assert.match(cls, /\bfd-btn-terra\b/, `a front-page button's class is "${cls}" — it must be .fd-btn-terra`);
+    assert.doesNotMatch(cls, /\bfd-btn-gold\b/, 'a front-page button still wears the gold');
+  }
   const css = readFileSync(path.join(HERE, 'front-door.css'), 'utf8');
   const rule = /^\.fd-btn-terra\s*\{([^}]*)\}/m.exec(css);
   assert.ok(rule, '.fd-btn-terra is gone from front-door.css');

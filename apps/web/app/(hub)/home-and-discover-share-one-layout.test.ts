@@ -115,7 +115,8 @@ test('4 · signed out, `/` is the public front door exactly as before', () => {
   const shellBranch = fd.slice(fd.indexOf('<FrontDoorShell'));
   // The stranger's shell: the front-door variant (the default — no `variant=`), its anchor heading, edge to edge.
   assert.doesNotMatch(shellBranch.slice(0, shellBranch.indexOf('>\n')), /variant=/);
-  assert.match(shellBranch, /heading=\{account\.signedIn \? undefined : <FrontDoorAnchor \/>\}/);
+  // Main's front page v5 (#8049, 20 Nov) hands the anchor its tiles; what this guard holds is WHO gets it: a stranger only.
+  assert.match(shellBranch, /heading=\{account\.signedIn \? undefined : <FrontDoorAnchor\b[^>]*\/>\}/);
   assert.match(shellBranch, /bleed=\{signedOut\}/);
   assert.match(fd, /<FrontDoorLanding\b/);
   // The page keeps its metadata and its cron-free jobs (held in detail by their own guards).

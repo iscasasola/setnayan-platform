@@ -117,6 +117,18 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
   },
 
   {
+    file: 'app/_components/frontdoor/front-door-anchor.tsx',
+    phrase: /The home of every Filipino celebration\./,
+    why:
+      'The brand headline (owner 19 Nov: brand lines say "celebration", every heading and button says "event"; ' +
+      'front page v5 approved 20 Nov, specs ef5df0b5). Exactly this line, nowhere else in the file.',
+  },
+  {
+    file: 'app/_components/frontdoor/front-door-landing.tsx',
+    phrase: /Every celebration, all in one place, for life\./,
+    why: 'The closing brand tagline under "Set na ’yan." (same 19 Nov ruling, same approved drawing). Exactly this line.',
+  },
+  {
     file: /^app\/\(shell\)\/pawebsite\//,
     phrase: /\bweb ?sites?\b|\bwedding sites\b/i,
     why:

@@ -29,7 +29,7 @@ import {
 } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { BOOKINGS_UNREAD, openBookingsRefusal, readCardBookings, refuseEditOfBookedCard, CARD_EDIT_UNREAD } from '@/lib/service-open-bookings';
 import { cardCountHasNoCap, isCardPickableStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import {
   deriveBranchStatus,
@@ -1132,6 +1132,9 @@ export async function updateVendorService(formData: FormData) {
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
     return redirect(`${await servicesReturnBase()}?error=Missing+service+id`);
   }
+  // 🔒 A booked client is using this card → refused before anything is parsed or written (owner 19 Nov 2026).
+  const lockedUpdate = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, idRaw);
+  if (lockedUpdate) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedUpdate)}`);
 
   let pricing: ReturnType<typeof parsePricingFields>;
   let transport_flat_fee_php: number | null = null;
@@ -1401,6 +1404,9 @@ export async function setServiceLinks(formData: FormData) {
   if (!anchor) {
     return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
+  // 🔒 A booked client is using this card → its "comes with" links stay as booked (owner 19 Nov 2026).
+  const lockedLinks = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, anchorId);
+  if (lockedLinks) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedLinks)}`);
   const offeredCategories = new Set(
     own.map((r) => r.category).filter((c) => c !== anchor.category),
   );
@@ -1485,6 +1491,9 @@ export async function setServicePaymentSchedule(formData: FormData) {
   if (!svc) {
     return redirect(`${await servicesReturnBase()}?error=Service+not+found`);
   }
+  // 🔒 A booked client is using this card → its payment schedule stays as booked (owner 19 Nov 2026).
+  const lockedSchedule = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId);
+  if (lockedSchedule) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedSchedule)}`);
 
   // Parse the parallel arrays — the SAME parser the maker's one save uses (`parsePaymentScheduleForm`, 2026-10-14),
   // no-show terms on the first payment included. Any malformed row aborts the whole save.
@@ -1800,6 +1809,13 @@ export async function commitVendorService(formData: FormData) {
     };
   } catch (e) {
     return back((e as Error).message);
+  }
+
+  // 🔒 A BOOKED CLIENT IS USING THIS CARD → IT IS NOT EDITED (owner 19 Nov 2026). Asked before ANY write — the gift
+  // clear and the `save_vendor_service` RPC below are both reachable only past this line. Fails closed on a refused read.
+  if (!isCreate) {
+    const locked = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId as string);
+    if (locked) return back(locked);
   }
 
   // ---- 🎁 THE GIFT ROW'S SHOP PACK (makers prototype 7 Nov 2026 § 3) ------
@@ -2671,6 +2687,9 @@ export async function addServiceTimeSlot(formData: FormData) {
     if (!svc) {
       throw new Error('Service not found.');
     }
+    // 🔒 A booked client is using this card → no new time slot on it (owner 19 Nov 2026).
+    const lockedSlot = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId);
+    if (lockedSlot) throw new Error(lockedSlot);
 
     const { error } = await supabase.from('vendor_service_time_slots').insert({
       vendor_profile_id: profile.vendor_profile_id, // stamped server-side
@@ -2697,6 +2716,21 @@ export async function deleteServiceTimeSlot(formData: FormData) {
   const slotId = String(formData.get('slot_id') ?? '');
   if (!slotId) {
     return redirect(`${await servicesReturnBase()}?error=Missing+slot+id`);
+  }
+
+  // 🔒 A booked client is using the slot's card → the slot stays (owner 19 Nov 2026). The slot names its card; a slot
+  // that cannot be read refuses (nothing is changed on no evidence).
+  const { data: slotRow, error: slotReadErr } = await supabase
+    .from('vendor_service_time_slots')
+    .select('vendor_service_id')
+    .eq('slot_id', slotId)
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (slotReadErr) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(CARD_EDIT_UNREAD)}`);
+  const slotCard = (slotRow as { vendor_service_id?: string | null } | null)?.vendor_service_id ?? null;
+  if (slotCard) {
+    const lockedSlot = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, slotCard);
+    if (lockedSlot) return redirect(`${await servicesReturnBase()}?error=${encodeURIComponent(lockedSlot)}`);
   }
 
   const { error } = await supabase

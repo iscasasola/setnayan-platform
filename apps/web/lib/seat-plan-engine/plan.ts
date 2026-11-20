@@ -36,7 +36,7 @@ import { GRID_GAP, centredRun } from './rows';
 
 // ── The plan ─────────────────────────────────────────────────────────────────
 
-/** The three shapes a supplier picks from (Rooms & seating). Same words as `lib/rooms-seating.ts` `TableShape`. */
+/** The three shapes a supplier picks from (a hall's tables, Shop › Spaces). Same words as `lib/space-tables.ts` `TableShape`. */
 export type PlanTableShape = 'round' | 'long' | 'half_moon';
 /** A table is either a supplier shape or one of the couple's 11 locked types — the couple's own set is kept whole. */
 export type PlanTableKind = PlanTableShape | TableType;
@@ -83,7 +83,7 @@ export type PlanView = 'grid' | 'floor';
 /** The room an unsized plan is drawn as — the couple's own free board (`DEFAULT_ROOM_M`, 20 × 30 m), so an unsized
  *  supplier area and an unsized event room are the same shape. */
 export const DEFAULT_ROOM = { widthM: DEFAULT_ROOM_M.w, depthM: DEFAULT_ROOM_M.d } as const;
-/** Limits, matched to the supplier storage's CHECKs (`lib/rooms-seating.ts`: MAX_CHAIRS 60, MAX_SIDE_M 500). */
+/** Limits, matched to the supplier storage's CHECKs (`lib/space-tables.ts`: MAX_CHAIRS 60, MAX_SIDE_M 500). */
 export const PLAN_MAX_CHAIRS = 60;
 export const PLAN_MAX_SIDE_M = 500;
 
@@ -156,7 +156,7 @@ export function planTableGeometry(t: PlanTable): TableGeometry {
   return longWithEndsGeometry(n);
 }
 
-/** ≤ 4 chairs, one to a side: top · right · bottom · left (the supplier tile's order in `lib/rooms-seating.ts`). */
+/** ≤ 4 chairs, one to a side: top · right · bottom · left (the supplier tile's order in `lib/space-tables.ts`). */
 function squareGeometry(n: number): TableGeometry {
   const hub = 60;
   const off = hub / 2 + 26;
@@ -305,7 +305,7 @@ export function doorPoint(d: Pick<PlanDoor, 'wall' | 'at'>): { x: number; y: num
   return { x: 100, y: d.at };
 }
 
-/** The supplier storage's words (`lib/rooms-seating.ts`): front = the wall you walk in by (bottom), back = top. */
+/** The supplier storage's words (`lib/space-tables.ts`): front = the wall you walk in by (bottom), back = top. */
 export const SHOP_WALL_TO_PLAN: Record<'front' | 'back' | 'left' | 'right', PlanWall> = {
   front: 'bottom',
   back: 'top',
@@ -552,7 +552,7 @@ export type ShopAreaPlan = {
 };
 
 /**
- * One dining area of a shop (`shopPlanOf` in `lib/rooms-seating.ts`) as a Plan: its tables keep their shape, one chair
+ * One hall or room of a shop (`shopPlanOf` in `lib/space-tables.ts`) as a Plan: its tables keep their shape, one chair
  * count, "at the ends" and their saved spot; its doors land on their wall (front = the bottom wall, the storage's
  * left / middle / right → a point along it). No guest is ever on it.
  */

@@ -8035,7 +8035,6 @@
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
-        "GuestInviteCell",
         "GuestJumpRow",
         "GuestListHasSidesContext.Provider",
         "GuestListStatus",
@@ -10064,7 +10063,6 @@
         "GuestSeatView",
         "HTMLDivElement",
         "HTMLElement",
-        "Head",
         "HoldButton",
         "Icon",
         "InfoTip",
@@ -10093,6 +10091,7 @@
         "PresenceMeta",
         "PriorityOrder",
         "ReadRefusedNotice",
+        "RiseScreen",
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
@@ -10129,7 +10128,8 @@
         "TypedRow",
         "UndoToastHost",
         "VipMark",
-        "VipPlusOneSeating"
+        "VipPlusOneSeating",
+        "WithRiseClose"
       ]
     },
     "/dashboard/[eventId]/seating/chart": {

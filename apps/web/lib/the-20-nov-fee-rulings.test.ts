@@ -88,12 +88,17 @@ test('2b · no shipped string tells a supplier to "redeem" a booking fee ticket'
  * listed file that stops saying it fails until its line is removed, so the list can only shrink.
  */
 const RETIRED_NAME = /\bFIRST_BOOKING_(ON_US|ON_US_CLAUSE|FREE|FREE_LABEL)\b/;
+// Matched against the code with every run of whitespace collapsed to one space, so a sentence wrapped across JSX lines
+// ("…are\n free.") is still one sentence. Re-review 20 Nov: also the plural and "the first one (is) free".
 const RETIRED_WORDS =
-  /first booking[^.'"`\n]{0,40}\b(on us|is free|free)\b|unang booking[^.'"`\n]{0,40}libre|libre ang una mong booking/i;
+  /first bookings?[^.'"`]{0,40}\b(on us|is free|are free|free)\b|first one,? (is )?free|unang booking[^.'"`]{0,40}libre|libre ang una mong booking/i;
+const oneLine = (code: string) => code.replace(/\s+/g, ' ');
 const ALLOWED: Record<string, string> = {
   'lib/booking-fee-disclosure.ts': 'freeBookingSentence — said only of a ledger place FROZEN free before 20 Nov, which stays free',
   'lib/help/supplier-1.ts': 'the help question "is my first booking free?" — its answer now says No',
   'app/dev/open-shop-lab/page.lab.tsx': 'a dev lab page, never shown to a supplier',
+  'app/admin/verify/_components/free-booking-match-note.tsx':
+    'admin only, PAST tense — a shop that had a free first booking before 20 Nov keeps it; never says one is waiting',
 };
 
 test('3 · the retired "first booking free" — no constant, no sentence — anywhere in app/ or lib/', () => {
@@ -110,7 +115,7 @@ test('3 · the retired "first booking free" — no constant, no sentence — any
         const rel = relative(WEB, p);
         const code = stripComments(readFileSync(p, 'utf8'));
         if (RETIRED_NAME.test(code)) names.push(rel);
-        if (RETIRED_WORDS.test(code)) words.add(rel);
+        if (RETIRED_WORDS.test(oneLine(code))) words.add(rel);
       }
     }
   };

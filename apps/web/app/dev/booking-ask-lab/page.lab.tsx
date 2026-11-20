@@ -15,6 +15,7 @@
  *   ?s=declined     the ask closed: you said no (with your words)
  *   ?s=expired      …you did not answer in 48 hours
  *   ?s=cancelled    …they took it back
+ *   &fee=unverified|ticket|platform|import   the 20 Nov fee notice above Agree (default: a verified shop, billed)
  *
  * The forms post the REAL actions; pressing them here needs a supplier's
  * session (the lab draws, it does not book). Names are samples: nobody real.
@@ -29,7 +30,7 @@ import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '@/ap
 import { parseDayCheck, type DayCheckRead } from '@/lib/day-check';
 import { supplierAskOutcomeOf } from '@/lib/booking-ask-words';
 import { BOOKING_FEE } from '@/lib/booking-fee';
-import { bookingFeeForecast } from '@/lib/booking-fee-disclosure';
+import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
@@ -38,6 +39,27 @@ const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 const LAB_HELD_SERVICE = 'Same-Day Edit';
 /** The lab's "now" — the fuse reads against it, so every picture says the same. */
 const NOW = new Date('2026-10-12T04:00:00Z');
+
+/**
+ * ⚖ 20 Nov fee states for the notice above Agree (no free first booking any more):
+ *   default verified, billable · &fee=unverified (flat 5%, locked) · &fee=ticket (a held ticket pays it) ·
+ *   &fee=platform (Setnayan's every-Nth fee, free) · &fee=import (a couple you brought — no fee).
+ */
+function feeStandingFor(sp: Record<string, string | string[] | undefined>): BookingFeeStanding {
+  const base = { kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const;
+  switch (sp.fee) {
+    case 'unverified':
+      return { ...base, unverified: true };
+    case 'ticket':
+      return { ...base, badgeReward: 'this' };
+    case 'platform':
+      return { ...base, platformFree: 100_000 };
+    case 'import':
+      return { kind: 'not_sourced' };
+    default:
+      return base;
+  }
+}
 
 const ENDED = {
   declined: {
@@ -112,7 +134,7 @@ export default async function BookingAskLabPage({
           eventVendorId={LAB_EVENT_VENDOR}
           expiresAt="2026-10-13T20:00:00Z"
           payoutReadiness="ready"
-          feeForecast={bookingFeeForecast({ kind: 'free', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 171_000)}
+          feeForecast={bookingFeeForecast(feeStandingFor(sp), 171_000)}
           returnTo={`/vendor-dashboard/clients/${LAB_EVENT}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}

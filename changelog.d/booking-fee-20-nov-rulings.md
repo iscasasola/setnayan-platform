@@ -50,3 +50,16 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
   question, a dev lab); a listed file that stops saying it fails until its line is removed. Shown red on a planted
   `PLAN_LEAD`.
 - ⚠ Open PRs that import the deleted constants (#8050 For Suppliers) must take the who-words instead when they rebase.
+
+### Ship re-review fixes (20 Nov, FIX-FIRST 3)
+- The last three live "first booking free" lines are gone: For Coordinators' "Fees, badges and rewards" ⓘ, and the
+  suppliers hero line and the C25 "solution" on `/features` (now "a booking fee on each booking, unless you are the
+  first to bring the event", from `FEE_SCOPE`).
+- **Admin › Verify:** `FreeBookingMatchNote` no longer says a free first booking is "still unused — whichever books first
+  takes it". A shop that had one before 20 Nov is named in the past tense ("stays free"); otherwise it says there is no
+  free first booking since 20 Nov.
+- **Guard 3 is wider:** whitespace is collapsed before matching (a sentence wrapped across JSX lines is caught), and it
+  catches "first bookings" and "first one (is) free". Each new pattern was shown red on a planted line, then green.
+- **Labs for the §4 shots:** new `/dev/fee-rulings-lab` (Booking fees with the waived list · Admin › Pricing fee form);
+  `supplier-plan-lab` and `booking-ask-lab` fixtures moved off the retired free first booking (`&ticket=1`,
+  `&fee=unverified|ticket|platform|import`). Labs never compile in production.

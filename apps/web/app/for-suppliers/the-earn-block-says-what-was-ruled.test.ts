@@ -3,12 +3,14 @@
  * 16 Nov 2026 rulings (DECISION_LOG e5d166cd, "1a 2a 3a") and says only what ships.
  *
  *   · (1) the paid-spot promise is the ruled sentence, word for word;
- *   · the Free row reads "All your own clients, no limit";
- *   · (3) the badge reward ("a free booking fee from 1,000 events") stays in the Badges ⓘ only — never in this block;
+ *   · own clients are said only in the 19 Nov words, SUPPLIER_FREE_BOOKING_LINE (DECISION_LOG 2026-11-19 "PROMOTION
+ *     PAGES", item 4): the retired "All your own clients, no limit… free for a year" line is gone, and no months are named;
+ *   · (3) the badge reward ("a free booking fee from 1,000 events") is never in this block — and, since no badge earns a
+ *     new free fee (15 Nov ladder, `FIRST_FREE_FEE_STEP` = 0), nowhere on the page;
  *   · every ₱ is a prop read from the catalogue or the live fee schedule — none is typed; the gift row shows Papic 150's
  *     LIST price and "Buy 10, get 1 free." (14 Nov / 16 Nov 03e465e1), never the withheld gift column;
  *   · Deep Search is sold to Plus, Pro and Ultra only, so the block never says "every plan";
- *   · the block is mounted inside `#model`, and the hero's "How the fee works" ⓘ links to it;
+ *   · the block is mounted inside `#model` (the fees section), and the hero's "How the fee works" ⓘ links to it;
  *   · it adds no server action and no form.
  */
 import { test } from 'node:test';
@@ -16,7 +18,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { EARN_FREE_ROWS, EARN_PROMISES, GIFT_BUNDLE_WORDS, PAID_SPOT_PROMISE } from './_components/supplier-how-we-earn-data';
+import {
+  EARN_FREE_ROWS,
+  EARN_PROMISES,
+  GIFT_BUNDLE_WORDS,
+  PAID_SPOT_PROMISE,
+  SUPPLIER_FREE_BOOKING_LINE,
+} from './_components/supplier-how-we-earn-data';
+import { FIRST_FREE_FEE_STEP } from '@/lib/badge-rewards';
 
 const DIR = join(__dirname, '_components');
 const block = stripComments(readFileSync(join(DIR, 'supplier-how-we-earn.tsx'), 'utf8'));
@@ -33,23 +42,31 @@ test('(1) the paid-spot promise is the ruled sentence, and it is one of the prom
   assert.doesNotMatch(block + words, /no paid spots today/i, 'the drawing’s superseded wording came back');
 });
 
-test('the Free row says all your own clients, no limit', () => {
+test('the Free row says own clients book free in the 19 Nov words', () => {
+  assert.equal(SUPPLIER_FREE_BOOKING_LINE, "New to Setnayan, or you're the first to bring their event? They book you free.");
   const own = EARN_FREE_ROWS.find((r) => r.title === 'Your own clients');
   assert.ok(own, 'the "Your own clients" row is gone');
-  assert.ok(own.body.startsWith('All your own clients, no limit'), own.body);
+  assert.ok(own.body.includes(SUPPLIER_FREE_BOOKING_LINE), own.body);
   assert.match(block, /EARN_FREE_ROWS\.map\(/, 'the block does not render its Free rows');
 });
 
-test('own clients follow the 16 Nov import-fee ruling — free for a year, never "free for life"', () => {
+test('own clients follow the 19 Nov ruling — the retired line is gone, no months are named, never "free for life"', () => {
   assert.doesNotMatch(block + words, /free for life/i, 'the retired "free for life" rule came back');
   assert.match(words, /title: OWN_CLIENT_PROMISE,/, 'the own-client promise is not main\u2019s shipped line');
-  const own = EARN_FREE_ROWS.find((r) => r.title === 'Your own clients');
-  assert.match(own?.body ?? '', /free for a year/, 'anti-vacuity: the Free row no longer states the one-year rule');
+  const own = EARN_PROMISES.find((p) => p.title !== PAID_SPOT_PROMISE.title && p.body.includes(SUPPLIER_FREE_BOOKING_LINE));
+  assert.ok(own, 'anti-vacuity: the own-client promise no longer says the 19 Nov line');
+  // The retired 16 Nov line, in any of the shapes it shipped in — on the block, its words and the page around it.
+  for (const src of [block, words, page]) {
+    assert.doesNotMatch(src, /All your own clients, no limit/i, 'the retired own-clients line came back');
+    assert.doesNotMatch(src, /free for a year|for 12 months|\bFEE_FREE_RULE\b/i, 'a number of months is named again');
+  }
 });
 
-test('(3) the badge reward is not repeated in this block', () => {
+test('(3) the badge reward is not repeated in this block — nor anywhere, while no badge earns a new free fee', () => {
   assert.doesNotMatch(block + words, /1,000 events|free booking fee from/i, 'the badge reward is repeated outside the Badges ⓘ');
-  assert.match(page, /a free booking fee from 1,000 events/, 'anti-vacuity: the Badges ⓘ no longer carries the reward');
+  // The 15 Nov ladder pays Event Plus at 1,000 events; no step earns a new free fee. The page may not promise one.
+  assert.equal(FIRST_FREE_FEE_STEP, 0, 'a badge step earns a free fee again — say it in the fees section, then update this');
+  assert.doesNotMatch(page, /free booking fee from|badge steps? gives? you a ticket/i, 'the page promises a fee ticket no badge pays');
 });
 
 test('every peso is read, never typed — the gift row shows the list price and the bundle, never the gift column', () => {

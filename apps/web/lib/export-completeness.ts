@@ -123,6 +123,7 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'couple_event_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'couple_wedding_type_notify_signups', decision: 'exported', as: 'notify_me_signups' },
   { table: 'creator_chapters', decision: 'exported', as: 'creator_chapters' },
+  { table: 'creator_chapter_replies', decision: 'exported', as: 'article_replies' },
   { table: 'discount_code_eligible_users', decision: 'exported', as: 'vouchers_you_were_offered' },
   { table: 'event_moderators', decision: 'exported', as: 'cohost_roles' },
   { table: 'event_preparation_items', decision: 'exported', as: 'prep_items_added' },
@@ -286,6 +287,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
       'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_order_lines',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-store order, one row per item (which gift, how many, at what catalogue price), keyed to the ' +
+      'shop (vendor_profile_id), not to a person (gift store, 2026-11-17). `created_by` is an actor stamp on who ' +
+      'pressed Buy now; the order and payment it belongs to are exported with `orders` / `payments`, and erasure ' +
+      'clears the stamp (lib/erasure/coverage.ts).',
   },
   {
     table: 'event_supplier_files',

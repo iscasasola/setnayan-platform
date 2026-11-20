@@ -166,7 +166,7 @@ import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-a
 import { fetchAgreeGiftBasis } from '@/lib/agree-gifts.server';
 import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
-import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { Badge } from '@/app/_components/badge';
@@ -2211,6 +2211,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
                   wordsOnly={await feeWordsOnlyRead}
+                  // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
+                  kinds={embedded}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2424,6 +2426,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             decisionPayments={decisionPayments}
             decisionGuestCounts={decisionGuestCounts}
             initialView={initialView}
+            // 💬 ONE CHAT THAT HOLDS EVERYTHING (owner 19 Nov 2026) — only inside the client page: the strip on top, the
+            // chips' filter, quiet step lines, the inquiry card (once the inquiry is answered — while it is pending the
+            // shipped "Their ask" above carries it with Accept · Ask · Decline) and Every version behind the Deal box.
+            oneChat={embedded}
+            inquiryPending={thread.inquiry_status === 'pending'}
+            inquiryCalendar={dayAnswer === null || dayAnswer.kind === 'no_date' || dayAnswer.kind === 'not_set' || dayAnswer.kind === 'booked' ? null : threadDayIsOpen(dayAnswer) ? 'open' : 'busy'}
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.

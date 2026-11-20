@@ -40,6 +40,8 @@ test('the approved page draws no invite button, and every CTA opens a shop', () 
   const front = readFileSync('app/for-suppliers/_components/supplier-front-page.tsx', 'utf8');
   assert.doesNotMatch(front, /Get your invite link/);
   assert.match(front, /const OPEN_SHOP = '\/open-shop';/);
-  assert.match(front, /const CTA = 'Create your shop free';/);
+  // 2026-11-20 (approved drawing `prototypes/for_suppliers_2026-11-20/`): the CTA's words moved to "Open your shop
+  // free" — moved, not loosened: still one constant, still at least three doors to /open-shop.
+  assert.match(front, /const CTA = 'Open your shop free';/);
   assert.ok((front.match(/href=\{OPEN_SHOP\}/g) ?? []).length >= 3, 'the hero, Plans and the close each carry the CTA');
 });

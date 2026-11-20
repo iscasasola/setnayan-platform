@@ -51,7 +51,7 @@ test('2 · search is an icon until tapped — and the tap itself raises the keyb
 test('3 · what is found is tinted by the browser’s highlight — no node of the conversation is written', () => {
   assert.match(SEARCH, /CSS as unknown as \{ highlights\?: HighlightRegistry \}/);
   assert.ok(!/innerHTML|splitText|replaceChild|createElement\(/.test(SEARCH), 'the search edits the conversation’s own nodes');
-  const css = readFileSync(join(HERE, '..', 'app/globals.css'), 'utf8');
+  const css = readFileSync(join(HERE, '..', 'app/_components/chat-tools.css'), 'utf8');
   assert.match(css, /::highlight\(sn-chat-search\)/);
   assert.match(css, /::highlight\(sn-chat-search-cur\)/);
 });

@@ -51,3 +51,5 @@ Guards: `lib/chat-plus.test.ts` (3 · 9 · 10), `lib/chat-kinds.test.ts` (2 · 2
 `lib/the-tool-lives-in-the-text-box.test.ts`; five older guards updated to the 20 Nov rules.
 
 SPEC IMPACT: None
+
+**The chat's styles are its own sheet (2026-11-21).** The parts B + D rules moved out of `globals.css` (which has ~270 B left under its 645,000 B ceiling) into `app/_components/chat-tools.css`, loaded once from `app/layout.tsx` beside `fold.css`; `globals.css` is byte-identical to main. The guards read the new sheet (`the-tool-lives-in-the-text-box`, `chat-search`).

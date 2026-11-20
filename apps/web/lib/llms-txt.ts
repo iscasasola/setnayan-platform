@@ -54,6 +54,7 @@ import {
   tableTierName,
   type PlanTablePrices,
 } from '@/app/for-suppliers/_components/plan-table-data';
+import { FEE_FREE_RULE_THIRD, FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 
 export type RetailRow = {
   service_code: string;
@@ -577,7 +578,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // Derived from the same sources the bill uses — never hand-typed — and gated
   // on the same flag that decides whether anyone is billed.
   const supplierFee = isBookingFeeEnabled()
-    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, only on couples Setnayan introduces — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}, and a supplier's own clients are always free: a couple the supplier brings through their own invite, their own booking QR or their own link never carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
+    ? `Separately, suppliers pay Setnayan a booking fee${input.bookingFee ? ` of ${bookingFeeScheduleSummary(input.bookingFee)}` : ''}, ${FEE_SCOPE_THIRD} — ${FIRST_BOOKING_ON_US_CLAUSE.replace(/^your/, "a supplier's")}. ${FEE_FREE_RULE_THIRD} That holds whether the supplier brings the couple through their own invite, their own booking QR or their own link; every other booking carries the fee. It is billed to the supplier, never added to what a couple pays.${launchOfferSentence(input.launchOfferCap ?? null)}`
     : 'No booking fee is charged while it is switched off.';
 
   return `# Setnayan
@@ -678,7 +679,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside all three. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee only on couples Setnayan introduces (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside all three. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; ${TIER_LABEL.solo} ${V('solo_vendor_annual')}/year (or ${V('solo_vendor_monthly')} every 4 weeks), ${TIER_LABEL.pro} ${V('pro_vendor_annual')}/year (or ${V('pro_vendor_monthly')}), ${TIER_LABEL.enterprise} ${V('enterprise_vendor_annual')}/year (or ${V('enterprise_vendor_monthly')}). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with Event Pro ${R('COUPLE_WEBSITE_PRO')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It is not sold on its own: it comes with Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}).
 - **What is Papic?** Guests' phones become a coordinated capture crew. You buy credits once — 50 free ${PAPIC_FREE_CREDIT_CONDITION}, then ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.

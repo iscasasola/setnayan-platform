@@ -9,8 +9,9 @@
  *
  * Two halves:
  *  1. BEHAVIOUR — every reader says the months.
- *  2. SOURCE — every caller of the shared date words passes `months`, and every select that feeds one of these
- *     readers names `date_months`. The file list is DERIVED (every non-test file whose select names both
+ *  2. SOURCE — every caller of the shared date words passes `months`, every select that feeds one of these
+ *     readers names `date_months`, and every date-options object built from a row carries the row's months
+ *     (that last scan also caught the supplier side: the customer list, the inquiry and the event lines). The file list is DERIVED (every non-test file whose select names both
  *     `date_mode` and `date_window_end`), so a seventh reader is caught without editing this test.
  */
 import test from 'node:test';
@@ -24,6 +25,7 @@ import { describeEventDate } from '@/lib/event-details-sheet';
 import { yourEventDateDisplay } from '@/lib/details-your-event';
 import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
 import { eventDateWords } from '@/lib/agreed-now';
+import { eventDateOptionWords } from '@/lib/event-chat-title';
 
 const MONTHS = ['2027-02-01', '2027-04-01', '2027-05-01'];
 const SAID = 'Feb · Apr · May 2027';
@@ -90,6 +92,12 @@ test("a supplier's What-is-agreed card says the months, never \"No date set yet\
   assert.equal(words, `Not settled · in ${SAID}`);
 });
 
+test("a supplier's customer list, inquiry and event lines say the months", () => {
+  assert.equal(eventDateOptionWords({ eventDate: null, precision: null, candidates: null, windowStart: null, windowEnd: null, months: MONTHS }), `${SAID} · months`);
+  // A real date, a candidate or a window still wins — months are said only when nothing else is.
+  assert.equal(eventDateOptionWords({ eventDate: null, precision: null, candidates: ['2027-05-22'], windowStart: null, windowEnd: null, months: MONTHS }), 'May 22, 2027 · option');
+});
+
 test('a dropped months value stays honest: no months → nothing invented', () => {
   assert.equal(openDateWords({ mode: 'months', candidates: null, windowStart: null, windowEnd: null, months: null }), null);
   assert.equal(
@@ -154,6 +162,31 @@ test('every call of the shared date words passes months', () => {
   }
   assert.ok(calls.length >= 3, `only ${calls.length} calls found — the scan is broken`);
   assert.deepEqual(missing, [], `these calls drop the months:\n  ${missing.join('\n  ')}`);
+});
+
+/* The call scan above only sees the two shared functions by name. The Suppliers line passes its options through
+   `suppliersDateFact` and the chat card through `dateOptions` — a sabotage there stayed GREEN on the first cut. So:
+   every options object built from a database row's `date_window_end` must carry the row's months as well. */
+/** Row-built date options that FILTER and never say a date — each with its reason. Add a line only with one. */
+const FILTERS_NOT_WORDS: Readonly<Record<string, string>> = {
+  'app/(shell)/explore/_lib/marketplace-view.tsx':
+    "`coupleFitDates` feeds Find's free-on-your-date filter (`fitDateScope`); months would be a new filter rule, not words",
+};
+
+test('every date-options object built from a row carries the months', () => {
+  const objects: string[] = [];
+  const missing: string[] = [];
+  for (const f of FILES) {
+    if (WRITERS.test(f)) continue;
+    if (FILTERS_NOT_WORDS[path.relative(WEB, f).split(path.sep).join('/')]) continue;
+    const src = code(fs.readFileSync(f, 'utf8'));
+    for (const m of src.matchAll(/\{[^{}]*\bwindowEnd:\s*\w+\.date_window_end\b[^{}]*\}/g)) {
+      objects.push(path.relative(WEB, f));
+      if (!/\bmonths:[^,}]*\bdate_months\b/.test(m[0])) missing.push(path.relative(WEB, f));
+    }
+  }
+  assert.ok(objects.length >= 9, `only ${objects.length} row-built date options found — the scan is broken: ${objects.join(', ')}`);
+  assert.deepEqual(missing, [], `these build date options from a row without its months:\n  ${missing.join('\n  ')}`);
 });
 
 test('the Suppliers date sheet keeps a months event as months', () => {

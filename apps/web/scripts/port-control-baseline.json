@@ -413,16 +413,13 @@
       "files": [
         "(shell)/for-suppliers/loading.tsx",
         "(shell)/for-suppliers/page.tsx",
-        "for-suppliers/_components/plan-page-preview.tsx",
-        "for-suppliers/_components/plan-table-chips.tsx",
         "for-suppliers/_components/plan-table-data.ts",
         "for-suppliers/_components/supplier-front-client.tsx",
         "for-suppliers/_components/supplier-front-data.ts",
         "for-suppliers/_components/supplier-front-info.tsx",
         "for-suppliers/_components/supplier-front-page.tsx",
         "for-suppliers/_components/supplier-how-we-earn-data.ts",
-        "for-suppliers/_components/supplier-how-we-earn.tsx",
-        "for-suppliers/_components/supplier-plan-table.tsx"
+        "for-suppliers/_components/supplier-how-we-earn.tsx"
       ],
       "destinations": [
         "/pricing"
@@ -430,18 +427,14 @@
       "actions": [],
       "blocks": [
         "CardBadgeRow",
-        "Cell",
         "FeeRuler",
         "HTMLButtonElement",
         "HTMLDivElement",
-        "HTMLElement",
         "Image",
         "Info",
         "Lede",
         "Link",
-        "PlanPageSheet",
         "PlanRows",
-        "PlanTableChips",
         "SecHead",
         "ServiceFace",
         "SupplierFrontPage",

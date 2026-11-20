@@ -240,9 +240,8 @@
 /* The website's named motion — a copy of the `sn-w-*` block in globals.css (🔒 lib/the-website-moves-by-the-standard.test.ts). */
 @keyframes sn-w-reveal { from { opacity: 0; transform: translateY(var(--sn-w-rise)); } }
 
-/* ══ KEPT, NOT REDRAWN: the shared plan table and shop-page miniature (supplier-plan-table.tsx, plan-table-chips.tsx,
-   plan-page-preview.tsx). /for-coordinators draws them from this sheet; the 20 Nov /for-suppliers page does not. Each
-   carries its own tokens, so it reads nothing from .root. Moved here verbatim from the 6 Nov sheet. ══ */
+/* ══ The shared plan table and shop-page miniature were retired with the 20 Nov /for-suppliers and /for-coordinators
+   pages (neither draws them; ship batch 2026-11-20-a removed the components). The rules below are their leftovers. ══ */
 
 /* ruling 5735 — each plan card's foot: a 3:4 miniature of that plan's shop page (plan-page-preview.tsx). The drawing is
    laid out at phone width (390 px) and scaled to the 112-px thumb; a tap lifts the SAME drawing full screen. */

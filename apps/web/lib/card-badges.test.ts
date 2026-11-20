@@ -204,7 +204,7 @@ test('8 · the page, the gallery and the row keep their promises', () => {
   const page = strip(read('app/v/[slug]/page.tsx'));
   assert.match(
     page,
-    /const shopVerified = vendor\.verification_state === 'verified';[\s\S]{0,600}readCardBadges\(admin, \{\s*vendorProfileId: vendor\.vendor_profile_id,\s*shopVerified,/,
+    /const shopVerified = vendor\.verification_state === 'verified' && !renewing;[\s\S]{0,600}readCardBadges\(admin, \{\s*vendorProfileId: vendor\.vendor_profile_id,\s*shopVerified,/,
     'Verified on the card is the SAME fact as the blue check by the name',
   );
   // Verified Partner comes from the ONE seals read (J2), never typed — and a failed seals read is a failed badge read.

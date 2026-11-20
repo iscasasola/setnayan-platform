@@ -71,6 +71,7 @@ function vendor(p: Partial<ShortlistVendor> & { vendorId: string }): ShortlistVe
     // An ordinary card — not a supplier's "also covers" copy.
     includedWith: null,
     notYetVerified: false,
+    papersRenewing: false,
     marketplaceVendorId: null,
     threadId: null,
     inquiryStatus: null,

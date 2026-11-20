@@ -156,8 +156,10 @@ test('(5) Prints is a row of the Hub’s ⚙ — it opens the shipped Prints pag
   assert.match(hub, /\{doors\.prints \? \(\s*<FormRows data="hub-prints">\s*<FormRow data="prints" name=\{PRINTS_PAGE_LABEL\} line=\{HUB_SETTINGS_PRINTS_LINE\}/);
   assert.match(hub, /<ActionButton tone="neutral" iconOnly icon=\{Printer\} label=\{`Open \$\{PRINTS_PAGE_LABEL\}`\} href=\{doors\.prints\.href\} \/>/);
   // Under Your Event Hub (the prototype's frame H4), before What guests see.
-  assert.ok(hub.indexOf('data="hub-prints"') > hub.indexOf('data-hub-settings-group="your-event-hub"'));
-  assert.ok(hub.indexOf('data="hub-prints"') < hub.indexOf('data-hub-settings-group="guests-see"'));
+  /* 20 Nov 2026 ("EVENT HUB SETTINGS REGROUPED" (1)): Prints closes Share and print — right after the shipped rows,
+     before History. */
+  assert.ok(hub.indexOf('data="hub-prints"') > hub.indexOf('{doors.hub ??'));
+  assert.ok(hub.indexOf('data="hub-prints"') < hub.indexOf('data-hub-settings-group="history"'));
   assert.match(SHELL, /prints: \{ href: printsPageHref\(eventId\) \},/, 'the ⚙ is not handed the Prints page');
 });
 

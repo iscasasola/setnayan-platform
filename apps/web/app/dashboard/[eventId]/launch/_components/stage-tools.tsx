@@ -95,7 +95,7 @@ import { guestsSettingsHref } from '@/lib/event-settings-record';
 import { guestsViewHref } from '@/lib/guests-views';
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { MAKER_OPEN_LOOK_EVENT, MAKER_OPEN_PAGES_EVENT, MAKER_OPEN_PART_EVENT, MAKER_PREVIEW_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_LOOK_EVENT, MAKER_OPEN_PAGES_EVENT, MAKER_OPEN_PART_EVENT, MAKER_PLAY_PICKED_EVENT, MAKER_PREVIEW_EVENT, MAKER_STAGE_PICK_EVENT, MAKER_STAGE_SAY_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import type { StagePageOption } from './stage-item-menu';
 /* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
@@ -468,8 +468,8 @@ export function StageTools({
      on the editing canvas (it plays over the cover), so its tile is the page map's own. ＋ A
      part the couple ADDED is a tile of the page it was added to (`makerPartsWithAdded`). */
   const revealStage = rsvpOpen ? null : revealStageOf(stage);
-  const tappableOn = useCallback(
-    (page: string | null): MakerPartKey[] => {
+  const tappableWith = useCallback(
+    (page: string | null, present: Set<string>): MakerPartKey[] => {
       /* …and only the parts the page DREW (`makerPartIsDrawn`): a cover with no invite line has no "Invite line". */
       const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present], filed }).filter((k) => makerPartIsDrawn(k, present));
       const withReveal = revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? (['reveal', ...drawnHere] as MakerPartKey[]) : drawnHere;
@@ -477,8 +477,9 @@ export function StageTools({
          tile is the page map's, and its rows are this panel's own (`CameraPartNote`). */
       return page && makerPartsOnPage(stage, page).includes('camera') && !withReveal.includes('camera') ? [...withReveal, 'camera'] : withReveal;
     },
-    [filed, pages, present, revealStage, stage],
+    [filed, pages, revealStage, stage],
   );
+  const tappableOn = useCallback((page: string | null): MakerPartKey[] => tappableWith(page, present), [present, tappableWith]);
   /** 🗳 The frame the stage's page is drawn in: the shown canvas — or, on the RSVP stage, the screen on show. */
   const frameSel = rsvpOpen ? rsvpStageFrameSelector(screen) : SHOWN_FRAME;
   /* 🗳 The RSVP stage's parts are the ones its screen DREW (its markers, and the masthead's named parts) — never a
@@ -1139,6 +1140,16 @@ export function StageTools({
     window.addEventListener(MAKER_PREVIEW_EVENT, on);
     return () => window.removeEventListener(MAKER_PREVIEW_EVENT, on);
   }, [enterPreview]);
+  /* ▶ PICKING A MOTION PLAYS IT AT ONCE (owner 20 Nov 2026, DECISION_LOG "MAKER TABS REVISITED" (3)): Animate asks
+     (`MAKER_PLAY_PICKED_EVENT`) and the picked part plays from where it is; ▶ Play stays a button beside the tabs. */
+  const playRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const on = () => {
+      if (!previewingRef.current) playRef.current();
+    };
+    window.addEventListener(MAKER_PLAY_PICKED_EVENT, on);
+    return () => window.removeEventListener(MAKER_PLAY_PICKED_EVENT, on);
+  }, []);
   const play = () => {
     if (playing) return stopPlay();
     setPlayRested(false);
@@ -1172,6 +1183,10 @@ export function StageTools({
     postToCanvas({ source: 'setnayan-editor', t: 'playStage' });
     setPlaying(true);
   };
+  playRef.current = () => {
+    if (!playing) play();
+  };
+
   /* While the stage plays — and while ▶ holds its end — one tap anywhere in the Maker stops it and returns to editing;
      a tap on the page lands on the catch laid over it (`data-stage-play-catch`, below), and Esc does the same. */
   useEffect(() => {
@@ -1460,13 +1475,18 @@ export function StageTools({
   /* ≡ PAGES — this stage's pages, each with the scenes it draws, and the two doors the sheet needs: go to a page, and
      pick a scene on it (the same `goToPage` / `askPage` / `pickPart` the desktop's parts column uses). */
   const openPages = () => {
+    /* 🔎 The canvas read FRESH as Pages opens: on a phone's resting bar nothing is picked, and the last reading can be
+       one from before the page was laid out — the sheet then said "Nothing on this page yet" over a full Home (seen on
+       the lab, 20 Nov). A failure never reads like emptiness. */
+    const fresh = readPresent(frameSel);
+    setPresent(fresh);
     const detail: MakerPagesAsk = {
       stage: stageKey,
       page: rsvpOpen ? screen : shownPage,
       pages: pages.map((p) => ({
         key: p.key,
         label: p.label,
-        scenes: (rsvpOpen ? makerPartsTappable(RSVP_STAGE_KEY, p.key, present) : tappableOn(p.key))
+        scenes: (rsvpOpen ? makerPartsTappable(RSVP_STAGE_KEY, p.key, fresh) : tappableWith(p.key, fresh))
           .filter((k) => k !== 'closing')
           .map((k) => ({ key: k, label: makerPartLabelOn(stageKey, k) })),
       })),

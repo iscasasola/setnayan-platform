@@ -1224,6 +1224,7 @@ export function MakerShell({
               <HubSettingsGear
                 open={moreOpen}
                 onOpenChange={setMoreOpen}
+                eventId={eventId}
                 doors={{
                   look: openLook,
                   hub: hubSettings,

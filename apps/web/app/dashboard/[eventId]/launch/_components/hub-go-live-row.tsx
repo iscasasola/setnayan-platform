@@ -28,6 +28,10 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
  *     beside it, so the two never disagree on screen.
  * The panel's "Preview your Event Hub" link is not drawn here: this sheet sits on the Maker, whose ▶ is the preview.
  */
+/** The row's name and its two lines — the approved drawing v17 `gearSheet`. */
+export const HUB_LIVE_FOR_GUESTS = 'Live for guests';
+export const HUB_LIVE_FOR_GUESTS_LINE = { on: 'Guests can open it now', off: 'Hidden from guests' } as const;
+
 export function HubGoLiveRow({
   eventId,
   initialLaunched,
@@ -124,11 +128,8 @@ export function HubGoLiveRow({
     setError(null);
   }
 
-  const line = launched
-    ? 'Live — Who can view decides who opens it'
-    : scheduledAt
-      ? `Goes live ${formatManila(scheduledAt)} · Manila`
-      : 'Not yet — private until you launch';
+  /* "Live for guests" (20 Nov "EVENT HUB SETTINGS REGROUPED" (1)): its line says where it stands. */
+  const line = launched ? HUB_LIVE_FOR_GUESTS_LINE.on : scheduledAt ? `Goes live ${formatManila(scheduledAt)} · Manila` : HUB_LIVE_FOR_GUESTS_LINE.off;
 
   const below = launched ? null : picking ? (
     <div className="pb-3" data-hub-go-live="picking">
@@ -163,7 +164,7 @@ export function HubGoLiveRow({
   return (
     <SwitchRow
       data="go-live"
-      name="Go live"
+      name={HUB_LIVE_FOR_GUESTS}
       line={line}
       about={{
         words: launched

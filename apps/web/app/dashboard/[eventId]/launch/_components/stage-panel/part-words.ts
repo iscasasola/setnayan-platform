@@ -157,10 +157,20 @@ export function ownSceneFields(key: string, marked: readonly PartWordsField[], o
   );
 }
 
-/** *"it can both adapt to whichever is edited"*: the text last tapped on the page comes first; the rest keep the page's order. */
+/**
+ * 📋 EDIT ROWS RUN BY IMPORTANCE, THE HEADING LAST (owner 20 Nov 2026, DECISION_LOG "MAKER EDIT ROWS RUN BY IMPORTANCE"
+ * (1): *"please fix all the arrangement from importantness of content on edit"*): what guests need first, then the
+ * couple's own words, the heading last. A scene's heading is its `title` field. Pure.
+ */
+export function byImportance(fields: readonly PartWordsField[]): PartWordsField[] {
+  return [...fields.filter((f) => f.field !== 'title'), ...fields.filter((f) => f.field === 'title')];
+}
+
+/** *"it can both adapt to whichever is edited"*: the text last tapped on the page comes first; the rest run by importance. */
 export function orderPartWords(fields: readonly PartWordsField[], tapped: string | null): PartWordsField[] {
-  const at = tapped ? fields.findIndex((f) => partWordsId(f) === tapped || f.el === tapped) : -1;
-  return at > 0 ? [fields[at]!, ...fields.slice(0, at), ...fields.slice(at + 1)] : [...fields];
+  const ranked = byImportance(fields);
+  const at = tapped ? ranked.findIndex((f) => partWordsId(f) === tapped || f.el === tapped) : -1;
+  return at > 0 ? [ranked[at]!, ...ranked.slice(0, at), ...ranked.slice(at + 1)] : ranked;
 }
 
 /** The work area's own, as it lends them (`maker-part-ops.ts`). */

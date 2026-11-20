@@ -136,7 +136,8 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
 
   /* A part of TWO texts (a scene of their own): two rows, in the page's order… */
   const own = [field({ key: 'w:custom_1', el: 'heading', field: 'title', label: 'Heading', text: 'Our pets' }), field({ key: 'w:custom_1', el: 'body', field: 'body', label: 'Words', text: 'Two dogs.', long: true })];
-  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
+  // 📋 20 Nov 2026 ("MAKER EDIT ROWS RUN BY IMPORTANCE" (1)): the couple's words first, the heading last.
+  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title']);
   /* …and "adapt to whichever is edited": the words tapped on the page come first. */
   assert.deepEqual(rowsOf(draw(own, 'body')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title']);
   assert.deepEqual(rowsOf(draw(own, 'heading')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
@@ -213,9 +214,11 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   assert.equal(PART_WORDS_MAX, 3);
   const a = field({ el: 'heading', field: 'title' });
   const b = field({ el: 'body', field: 'body' });
-  assert.deepEqual(orderPartWords([a, b], null), [a, b]);
+  /* 📋 20 Nov 2026 ("MAKER EDIT ROWS RUN BY IMPORTANCE" (1)): the heading (`title`) runs last; a tap still brings its row first. */
+  assert.deepEqual(orderPartWords([a, b], null), [b, a], 'the heading is not last');
   assert.deepEqual(orderPartWords([a, b], 'body'), [b, a]);
-  assert.deepEqual(orderPartWords([a, b], 'not-there'), [a, b], 'a tap on something else reorders the rows');
+  assert.deepEqual(orderPartWords([a, b], 'heading'), [a, b], 'the tapped heading does not come first');
+  assert.deepEqual(orderPartWords([a, b], 'not-there'), [b, a], 'a tap on something else reorders the rows');
 
   const words = read(`${L}/stage-panel/part-words.ts`);
   /* Read with the canvas's OWN readers, only where the shipped typing door could put a caret. */

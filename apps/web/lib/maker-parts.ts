@@ -136,9 +136,9 @@ export const MAKER_PART_TEXT_ROW: Record<MakerPartTextTool, string> = { font: 'f
  * named them. Words only: the controls under each are the shipped ones.
  */
 export const MAKER_PART_ANIMATE_STEPS = [
-  { step: 'in', label: 'Build in' },
-  { step: 'during', label: 'Action' },
-  { step: 'out', label: 'Build out' },
+  { step: 'in', label: 'Arrives' },
+  { step: 'during', label: 'While showing' },
+  { step: 'out', label: 'Leaves' },
 ] as const;
 
 /**
@@ -156,6 +156,13 @@ export const MAKER_MOOD_BOARD_DOOR_WORDS = 'Colours and mood board';
 /** The five stages, in the order a guest meets them (Save the Date · RSVP · Invitation · The Day · Post Event). */
 export type MakerStageKey = HubStage | typeof RSVP_STAGE_KEY;
 export const MAKER_STAGE_KEYS: readonly MakerStageKey[] = ['save_the_date', RSVP_STAGE_KEY, 'rsvp', 'event', 'editorial'];
+/**
+ * 📖 STAGE ▾ IS FOUR STAGES (owner 20 Nov 2026, DECISION_LOG "POST EVENT LEAVES THE EVENT HUB" (1): *"i think post event
+ * doesn't live here anymore"*): Save the Date · RSVP · Invitation · The Day. Post Event becomes the Event's Story, its own
+ * page and editor (the shipped Story Maker), opened when everything is settled — nothing in the Maker's stage list leads
+ * there. `MAKER_STAGE_KEYS` keeps Post Event as a key the canvas still knows (a deep link draws it), never a pick.
+ */
+export const MAKER_STAGE_MENU_KEYS: readonly MakerStageKey[] = MAKER_STAGE_KEYS.filter((k) => k !== 'editorial');
 
 /* ── the parts ────────────────────────────────────────────────────────────── */
 

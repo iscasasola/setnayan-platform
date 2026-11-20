@@ -270,7 +270,9 @@ const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
   /* 🚪 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"): the Maker is full screen, so the
      app's nav is no longer on it — the top bar's ‹ is the one way out, back to the event. */
-  [`${L}/maker-shell.tsx`]: { count: 1, why: 'the top bar’s ‹ — the full-screen Maker’s one way out (20 Nov 2026)' },
+  /* …and since 9b465bca6 that ‹ is the house back (`MakerLeave` → `BackButton`, stages-studio-parts.tsx), not a link
+     the shell draws: the shell links out nowhere. */
+  [`${L}/maker-shell.tsx`]: { count: 0, why: 'none — the top bar’s ‹ is the house BackButton (`MakerLeave`), 20 Nov 2026' },
 };
 const TOOL_FILES = [
   `${L}/maker-lower-third.tsx`,

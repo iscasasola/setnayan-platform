@@ -97,29 +97,14 @@ export function StageSwitch({
     if (editor?.full) void riseEditorOut().then(() => onClose?.());
     else onClose?.();
   };
-  /* ⤡ ONE WAY BACK, FOUR DOORS (20 Nov (2)): ✓ Done here, ⤡ Minimize at the foot (`MAKER_EDITOR_CLOSE_EVENT`), Esc, and
-     the browser's Back. Opening pushes one history entry, so Back closes the editor instead of leaving the Maker; every
-     other door steps back over that entry, and its popstate is what closes — one path, never two. */
+  /* ⤡ ONE WAY BACK, FOUR DOORS (20 Nov (2)): ✓ Done here, ⤡ Minimize (`MAKER_EDITOR_CLOSE_EVENT`), Esc, and the phone's
+     Back. Back is the shell's: the risen editor holds the Maker's one history entry (`useBackCloses`, maker-shell.tsx),
+     so Back closes it first, then the toolbar; every other door closes here and the shell steps back through that entry. */
   const closeRef = useRef(close);
   closeRef.current = close;
-  const pushed = useRef(false);
   useEffect(() => {
     if (!risen) return;
-    try {
-      window.history.pushState({ ...(window.history.state ?? {}), snMakerEditor: risen }, '');
-      pushed.current = true;
-    } catch {
-      pushed.current = false;
-    }
-    const onPop = () => {
-      if (!pushed.current) return;
-      pushed.current = false;
-      closeRef.current();
-    };
-    const ask = () => {
-      if (pushed.current && (window.history.state as { snMakerEditor?: string } | null)?.snMakerEditor === risen) window.history.back();
-      else closeRef.current();
-    };
+    const ask = () => closeRef.current();
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-sheet],[role="dialog"][aria-modal="true"]')) return;
       /* ⌨ never from a field being typed in */
@@ -127,16 +112,14 @@ export function StageSwitch({
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
       ask();
     };
-    window.addEventListener('popstate', onPop);
     window.addEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('popstate', onPop);
       window.removeEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
       window.removeEventListener('keydown', onKey);
     };
   }, [risen]);
-  const requestClose = () => (risen ? window.dispatchEvent(new Event(MAKER_EDITOR_CLOSE_EVENT)) : close());
+  const requestClose = () => close();
   const [list, setList] = useState(false);
   /* ≡ PAGES (20 Nov) — asked by the toolbar's name ▾ and the resting bar's Pages; this pill, always mounted, draws it. */
   const [pagesAsk, setPagesAsk] = useState<MakerPagesAsk | null>(null);

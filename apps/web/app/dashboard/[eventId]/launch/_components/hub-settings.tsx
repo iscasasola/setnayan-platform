@@ -1,16 +1,15 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { ChevronRight, Eye, Gift, History, Printer, Undo2 } from 'lucide-react';
+import { ChevronRight, History, Lock, Printer, Undo2 } from 'lucide-react';
 import type { MakerDraftDoor } from './maker-context';
 import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { FormRow, FormRows } from '@/app/_components/form-row';
 import { ActionButton } from '@/components/action-button';
-import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
-import { GUESTS_SEE_WORDS } from '@/lib/guests-see-table';
-import { STUDIO_LIVE_LINE } from './studio-tools';
-import { guestsSeeWorkArea } from './guests-see-sheet';
+import type { LookSection } from '@/lib/maker-look-sections';
+import { HUB_SETTINGS_GROUP } from './studio-tools';
+import { guestsSettingsHref } from '@/lib/event-settings-record';
 import { PRINTS_PAGE_LABEL } from '@/lib/prints-page-href';
 
 /**
@@ -63,29 +62,38 @@ export type HubSettingsDoors = {
 /** The Prints row's line — the prototype's words (frame H4). */
 export const HUB_SETTINGS_PRINTS_LINE = 'The six · one settings sheet · a download per piece';
 
-/** What each Look section holds, in the words of the Look restudy (DECISION_LOG 2026-10-08, `lib/maker-look-sections.ts`). */
-const LOOK_SECTION_LINE: Readonly<Record<LookSection, string>> = {
-  background: 'Behind every scene · the page colour',
-  elements: 'Colours · font · buttons',
-  music: 'The song, and whether it plays',
-};
-
-const GROUP = 'px-1 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink/55';
+/**
+ * 🔒 EVENT INFO — what the app runs on (the approved drawing v17 `gearSheet`): names, date, venues and parents are set in
+ * Today › Event settings; the guest list, RSVP questions and seats in Guests; the Mood Board and dress colours in Event ›
+ * Mood Board. Shown here, edited in their one home.
+ */
+export const HUB_EVENT_INFO = [
+  {
+    key: 'facts',
+    name: 'Names, date, venues, parents',
+    line: 'Today › Event settings',
+    why: 'Reminders, the countdown, maps and the guest pass all read these. Set once, so every page agrees.',
+    href: (id: string) => `/dashboard/${id}?settings=1`,
+  },
+  { key: 'guests', name: 'Guest list, RSVP questions, seats', line: 'In Guests', why: '', href: (id: string) => guestsSettingsHref(id) },
+  { key: 'mood', name: 'Mood Board and dress colours', line: 'In Event › Mood Board', why: '', href: (id: string) => `/dashboard/${id}/studio/mood-board` },
+] as const;
 
 export function HubSettingsGear({
   open,
   onOpenChange,
   doors,
+  eventId,
   children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   doors: HubSettingsDoors;
-  /** The work area's own extras (the Event Pro line), drawn after the groups. */
+  /** The event — Event info's rows open its own homes (Today › Event settings, Guests, Mood Board). */
+  eventId: string;
+  /** The work area's own extras (the full Event Hub line), drawn after the groups. */
   children?: ReactNode;
 }) {
-  /* Asked only while the sheet is open: the work area's table says whether "What guests see" can be offered. */
-  const guestsSeeShown = open && guestsSeeWorkArea() !== null;
   const go = (act: () => void) => () => {
     onOpenChange(false);
     act();
@@ -93,55 +101,31 @@ export function HubSettingsGear({
   return (
     <MenuSettingsButton menu="hub" open={open} onOpenChange={onOpenChange}>
       <div className="flex flex-col px-3 pb-4 lg:px-4" data-hub-settings="">
-        {/* ── LOOK ── */}
-        <section data-hub-settings-group="look">
-          <p className={GROUP}>
-            <InfoTip label="Look" align="start">
-              How the whole Event Hub looks — its background, its elements (colours, font, buttons) and its music. Each opens the
-              Look editor in the Maker; what you change waits for ✓ Apply.
-            </InfoTip>
+        {/* ── SHARING · ON EVERY PAGE · SHARE AND PRINT — the shipped rows, grouped (`StudioHubSettings bare`) ── */}
+        {doors.hub ?? (
+          <p
+            role={doors.pending ? 'status' : 'alert'}
+            className={`py-3 text-[13px] ${doors.pending ? 'text-ink/60' : 'text-danger-700'}`}
+            data-hub-settings-hub={doors.pending ? 'pending' : 'unread'}
+          >
+            {doors.pending
+              ? 'Loading your Event Hub’s address, who can view it and its QR…'
+              : 'Your Event Hub settings could not be loaded just now. Nothing was changed — please reopen this in a moment.'}
           </p>
-          <FormRows data="hub-look">
-            {LOOK_SECTIONS.map((k) => (
-              <FormRow key={k} data={`look-${k}`} name={LOOK_SECTION_LABEL[k]} line={LOOK_SECTION_LINE[k]} attrs={{ 'data-hub-settings-look': k }}>
-                <ActionButton tone="neutral" iconOnly icon={ChevronRight} label={`Open ${LOOK_SECTION_LABEL[k]}`} onClick={go(() => doors.look(k))} />
-              </FormRow>
-            ))}
+        )}
+        {/* 🖨 PRINTS — the last row of Share and print (Build 6 Lane F pick B; v17 `gearSheet`): the shipped Prints page. */}
+        {doors.prints ? (
+          <FormRows data="hub-prints">
+            <FormRow data="prints" name={PRINTS_PAGE_LABEL} line={HUB_SETTINGS_PRINTS_LINE} attrs={{ 'data-hub-settings-row': 'prints' }}>
+              <ActionButton tone="neutral" iconOnly icon={Printer} label={`Open ${PRINTS_PAGE_LABEL}`} href={doors.prints.href} />
+            </FormRow>
           </FormRows>
-        </section>
-
-        {/* ── YOUR EVENT HUB ── */}
-        <section data-hub-settings-group="your-event-hub">
-          <p className={GROUP}>
-            <InfoTip label="Your Event Hub" align="start">
-              {STUDIO_LIVE_LINE} Everything else waits for ✓ Apply.
-            </InfoTip>
-          </p>
-          {doors.hub ?? (
-            <p
-              role={doors.pending ? 'status' : 'alert'}
-              className={`py-3 text-[13px] ${doors.pending ? 'text-ink/60' : 'text-danger-700'}`}
-              data-hub-settings-hub={doors.pending ? 'pending' : 'unread'}
-            >
-              {doors.pending
-                ? 'Loading your Event Hub’s address, who can view it and its QR…'
-                : 'Your Event Hub settings could not be loaded just now. Nothing was changed — please reopen this in a moment.'}
-            </p>
-          )}
-          {/* 🖨 PRINTS MOVED IN (Build 6 Lane F, pick B) — a row under Your Event Hub; it opens the shipped Prints page. */}
-          {doors.prints ? (
-            <FormRows data="hub-prints">
-              <FormRow data="prints" name={PRINTS_PAGE_LABEL} line={HUB_SETTINGS_PRINTS_LINE} attrs={{ 'data-hub-settings-row': 'prints' }}>
-                <ActionButton tone="neutral" iconOnly icon={Printer} label={`Open ${PRINTS_PAGE_LABEL}`} href={doors.prints.href} />
-              </FormRow>
-            </FormRows>
-          ) : null}
-        </section>
+        ) : null}
 
         {/* ── HISTORY · waiting for ✓ Apply ── after the rows that change right away (20 Nov, "EVENT HUB SETTINGS REGROUPED"). */}
         {doors.history ? (
           <section data-hub-settings-group="history">
-            <p className={GROUP}>
+            <p className={HUB_SETTINGS_GROUP}>
               <InfoTip label="History · waiting for ✓ Apply" align="start">
                 Every edit saves to your draft by itself. Guests see nothing until ✓ Apply.
               </InfoTip>
@@ -153,7 +137,7 @@ export function HubSettingsGear({
             ) : doors.history.recent.length === 0 ? (
               <p className="py-3 text-[13px] text-ink/60" data-hub-settings-history="none">
                 <span className="block font-semibold text-ink/80">Nothing waiting</span>
-                Your changes collect here until ✓ Apply.
+                Your changes collect here until ✓ Apply
               </p>
             ) : (
               <FormRows data="hub-history">
@@ -162,59 +146,45 @@ export function HubSettingsGear({
                 ))}
               </FormRows>
             )}
-            <div className="flex gap-2 pt-2" data-hub-settings-history-actions="">
-              <ActionButton
-                tone="neutral"
-                icon={Undo2}
-                label="Undo last change"
-                disabled={!doors.history.canUndo}
-                waiting={doors.history.busy}
-                onClick={go(doors.history.undo)}
-              />
-              {doors.history.recent !== null ? (
+            {doors.history.recent !== null && doors.history.recent.length > 0 ? (
+              <div className="flex gap-2 pt-2" data-hub-settings-history-actions="">
+                <ActionButton
+                  tone="neutral"
+                  icon={Undo2}
+                  label="Undo last change"
+                  disabled={!doors.history.canUndo}
+                  waiting={doors.history.busy}
+                  onClick={go(doors.history.undo)}
+                />
                 <ActionButton tone="neutral" icon={History} label="All changes" onClick={go(doors.history.open)} />
-              ) : null}
-            </div>
-          </section>
-        ) : null}
-
-        {/* ── WHAT GUESTS SEE ── */}
-        {guestsSeeShown ? (
-          <section data-hub-settings-group="guests-see">
-            <p className={GROUP}>
-              <InfoTip label={GUESTS_SEE_WORDS.title} align="start">
-                Which parts show at each stage. Our picks are the defaults; what you changed is marked.
-              </InfoTip>
-            </p>
-            <FormRows data="hub-guests-see">
-              <FormRow data="guests-see" name={GUESTS_SEE_WORDS.menuLine} attrs={{ 'data-hub-settings-row': 'guests-see' }}>
-                <ActionButton tone="neutral" iconOnly icon={Eye} label={`Open ${GUESTS_SEE_WORDS.title}`} onClick={go(doors.guestsSee)} />
-              </FormRow>
-            </FormRows>
-          </section>
-        ) : null}
-
-        {/* ── E-GIFTS ── */}
-        {doors.gifts ? (
-          <section data-hub-settings-group="gifts">
-            <p className={GROUP}>
-              <InfoTip label="E-Gifts" align="start">
-                How guests can give — GCash · Maya · bank · PayPal. It waits for ✓ Apply like the page.
-              </InfoTip>
-            </p>
-            <FormRows data="hub-gifts">
-              <FormRow data="gifts" name="Ways to give" line={doors.gifts.line} attrs={{ 'data-hub-settings-row': 'gifts' }}>
-                <ActionButton tone="neutral" iconOnly icon={Gift} label="Open E-Gifts" onClick={go(doors.gifts.open)} />
-              </FormRow>
-            </FormRows>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
         {children}
 
-        <p className="pt-4 text-[12.5px] leading-snug text-ink/55" data-hub-settings-elsewhere="">
-          Names, date, venues and parents are in Today › Event settings.
-        </p>
+        {/* ── 🔒 EVENT INFO · the app runs on these (20 Nov "ONE LOOK HOME" (3)): shown, never edited in the Maker. Each
+            has one home outside it. ── */}
+        <section data-hub-settings-group="event-info">
+          <p className={HUB_SETTINGS_GROUP}>Event info · the app runs on these</p>
+          <FormRows data="hub-event-info">
+            {HUB_EVENT_INFO.map((row) => (
+              <FormRow key={row.key} data={`event-info-${row.key}`} name={row.name} line={row.line} attrs={{ 'data-hub-settings-info': row.key }}>
+                {row.key === 'facts' ? (
+                  <span className="inline-flex items-center gap-1 text-ink/55">
+                    <Lock aria-hidden className="h-4 w-4" strokeWidth={2} />
+                    <InfoTip label="" ariaLabel={`Why ${row.name.toLowerCase()} are set in Today`} align="end">
+                      {row.why}
+                    </InfoTip>
+                  </span>
+                ) : (
+                  <ActionButton tone="neutral" iconOnly icon={ChevronRight} label={`Open ${row.line.replace(/^In /, '')}`} href={row.href(eventId)} />
+                )}
+              </FormRow>
+            ))}
+          </FormRows>
+        </section>
       </div>
     </MenuSettingsButton>
   );

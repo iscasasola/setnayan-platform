@@ -132,7 +132,7 @@ export { HubDraftField } from './hub-draft-field';
 export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
-  needs_pro: 'needs Event Pro — it stays in your draft',
+  needs_pro: 'needs the full Event Hub — it stays in your draft',
   waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
@@ -770,18 +770,18 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Pro" size="xs" />
+                <PaidMark state="try" bare label="the full Event Hub" size="xs" />
                 {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
-                Apply needs Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'the full Event Hub')} className="mr-1 align-middle" />
+                Apply needs the full Event Hub{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Pro
+                      Get the full Event Hub
                     </Link>
                   </>
                 )}

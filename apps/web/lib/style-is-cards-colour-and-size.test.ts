@@ -121,7 +121,8 @@ test('(1) the cards take the rows left to them, nothing scrolls up and down, and
   /* 🧰 BACKGROUND IS A ROW OF STYLE (20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1)): a part with a
      background of its own gets the look's pane first, its four rows as they were, and the background one snap below —
      the same `StageBackground` rows. A part with none: the look's pane alone, exactly as before. */
-  assert.match(rows, new RegExp(`^<div class="[^"]*snap-y[^"]*" data-stage-style-scroll=""><div class="${pane} h-full snap-start" data-stage-style="look" data-stage-style-rows="">`), 'the work area’s Style is not laid in rows');
+  /* 🧰 …in the four groups' order (20 Nov "MAKER TABS REVISITED" (2)): Layout first, its name over it, then Background. */
+  assert.match(rows, new RegExp(`^<div class="[^"]*snap-y[^"]*" data-stage-style-scroll=""><section aria-label="Layout" class="h-full snap-start" data-stage-style-group="layout"><p class="[^"]*">Layout</p><div class="${pane} h-\\[calc\\(100%-28px\\)\\]" data-stage-style="look" data-stage-style-rows="">`), 'the work area’s Style is not laid in rows');
   assert.match(rows, /<section aria-label="Background"[^>]*data-stage-style-bg="">[\s\S]*<b><\/b>/, 'Background is not a row of Style');
   assert.match(renderToStaticMarkup(h(StageStyle, { look: cards, background: null, rows: true })), new RegExp(`^<div class="${pane}" data-stage-style="look" data-stage-style-rows="">`), 'a part with no background lost its look pane');
   assert.doesNotMatch(renderToStaticMarkup(h(StageStyle, { look: cards, background: h('b') })), /data-stage-style-rows/, 'the Reveal’s / the Camera’s / a reply page’s own body was put in rows');

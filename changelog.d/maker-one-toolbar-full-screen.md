@@ -1,48 +1,39 @@
-## 2026-11-20 · feat(maker): the Event Hub Maker — one toolbar, full screen, a way back
+## 2026-11-20 · feat(maker): the Event Hub Maker — one toolbar, full screen, a way back (drawing v17)
 
-Owner, 20 Nov: *"Yes, build it"* on `prototypes/maker_one_toolbar_expand_2026-11-20_fable.html` v17
-(DECISION_LOG rows "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED", "MAKER EDIT ROWS RUN BY
-IMPORTANCE", "MAKER · WAY BACK + BUILT-IN GUEST PAGES").
+Owner, 20 Nov: *"Yes, build it"* on `prototypes/maker_one_toolbar_expand_2026-11-20_fable.html`, final at v17
+("build with opus 5.5"). DECISION_LOG rows of 20 Nov: "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" ·
+"MAKER EDIT ROWS RUN BY IMPORTANCE" · "ONE LOOK HOME" · "MAKER TABS REVISITED" · "POST EVENT LEAVES THE EVENT HUB" ·
+"MAKER PAYWALL" · "EVENT HUB SETTINGS REGROUPED; UPLOAD YOUR OWN SONG IS ◆" · "MAKER · WAY BACK + BUILT-IN GUEST
+PAGES" · "OWN TEN THEMES — PARKED" (the themes stay as shipped).
 
-- The Maker is full screen; ‹ leaves; ↺ History is ⚙'s first group; "Event name"; E-Gifts has a visible Back.
-- Every scene has ONE toolbar: head ‹ · name ▾ · › · ✕, body, foot Edit · Style · Animate ◆ and ⤢ Expand
-  (only on Logo, Love Story, Schedule, E-Gifts — the parts with an editor to expand into; never Dress code).
-  Background is a row of Style, not a tab. ▶ plays from the Animate tab.
-- A tap always SELECTS (no editor rises from the tap); nothing is auto-picked on arrival.
-- The way back: ✕, phone Back (closes Expand first, then the toolbar — `useBackCloses`), swipe the toolbar
-  down, a tap outside a scene, Esc. With nothing selected the resting bar reads "Tap any scene to edit it"
-  with Look and Pages.
-- Full screen editors: ✓ Done in the head and ⤡ Minimize; Esc and Back close them.
-- 👁 is on the phone's top bar (it replaces holding ▶).
-- New Pages sheet (`maker-pages-sheet.tsx`): Whole Event Hub (Look) first, then this stage's pages with
-  their scenes (tap goes there and selects), 👁 opens the shipped "What guests see", built-in pages say
-  words only.
+PR #8072 merges `rd/maker-one-toolbar-opus-parallel` (the parallel build of the same toolbar) and `main`.
 
-- **Full screen.** While the Maker is open the app's top bar and bottom nav step away — the app's one
-  mechanism, `useChromeAway` (the picked client's) — and the shell follows them as they slide. The bar is
-  ‹ · Stage ▾ · ✓ Apply · ⚙ (a desktop keeps its 👁 Preview menu); ‹ goes to the event's Home. Amends 30 Oct's
-  "THE APP'S NAV STAYS".
-- **↺ History is ⚙'s first group**, with "Undo last change" and "All changes" (the shipped list). The draft bar
-  hands it over through `MakerDraftDoor.history`; an unread history is said, never shown as "nothing waiting".
-- **One toolbar on every scene: Edit · Style · Animate ◆.** Background is Style's own toggle beside the tabs; ▶ is
-  Animate's (and the stage's while nothing is picked); ◆ marks Animate for a couple without the full Event Hub.
-- **A tap always selects.** Logo, Love Story, Schedule, Dress code and E-Gifts no longer jump full screen on a tap;
-  ⤢ Expand on the toolbar opens the editor of Logo, Love Story, Schedule and E-Gifts. Full screen has its name, ⤡ Minimize and ✓ Done on top; Esc and the
-  browser's Back close it too (one close path, one pushed history entry). Fixes E-Gifts' "no way back".
-- **The guest E-Gifts page** (`/[slug]/pabuya`) has a labelled 44-px ‹ Back.
-- **"Event name"** labels the title's field (it writes `events.display_name`).
+- **Full screen.** The app's bars step away while the Maker is open (`useChromeAway`); ‹ (the house BackButton) leaves
+  to the event's Today. Top bar: ‹ · Stage ▾ · 👁 · ✓ Apply · ⚙ — 👁 is on a phone too and replaces holding ▶.
+- **One toolbar on every scene.** Head ‹ · name · page ▾ (opens Pages) · › · ✕; foot Edit · Style · Animate ◆ and a
+  worded ⤢ Expand (Logo, Love Story, Schedule, E-Gifts — never Dress code). ◆ shows only to a couple without the full
+  Event Hub. ▶ sits inside Animate.
+- **A tap always selects; nothing is picked on arriving.** The resting bar: "Tap any scene to edit it · Look · Pages".
+- **The way back:** ✕, the phone's Back (closes Expand first, then the toolbar — the one `useBackCloses` entry; the
+  risen editor no longer pushes a second one), drag the handle down, a tap outside a scene, Esc. Full screen: ✓ Done,
+  ⤡ Minimize, Esc, Back.
+- **⚙ Event Hub settings in v17's order:** Sharing · changes right away (Live for guests — "Guests can open it now" /
+  "Hidden from guests" — · Address · Who can view · Which version guests see) · On every page (Event Bar) · Share and
+  print (Event QR · Prints) · History · waiting for ✓ Apply ("Nothing waiting") · Event info 🔒 (names, date, venues,
+  parents in Today › Event settings; guest list, RSVP questions, seats in Guests; Mood Board in Event › Mood Board).
+  Look, "What guests see" and E-Gifts left the ⚙ (Look has its own button; the eye lives on each page of Pages;
+  E-Gifts is a part on the page).
+- **Stage ▾ is four stages** — Save the Date · RSVP · Invitation · The Day (`MAKER_STAGE_MENU_KEYS`).
+- **Pages** lists Whole Event Hub first, "Before they come in" (Login · the door, Plus-one welcome, Waiting for you to
+  accept — 🔒, each with its ⓘ), then the stage's pages; Me · Live · Camera say what they do.
+- **Animate reads Arrives · While showing · Leaves · With the scroll**, and picking a motion plays it at once.
+- **Style is named in groups** (Layout, then Background); **Edit runs by importance**, the heading last.
+- **✓ Apply:** "◆ Get the full Event Hub and apply" · "Comes with Event Plus, Pro and Ultra." · "Apply without the ◆
+  changes"; every ◆ mark in the Maker reads "the full Event Hub", never "Event Pro". Prices are untouched (catalogue).
+- **Look › Music:** "Upload your own song ◆ · MP3 or M4A from your phone or computer" — the shipped upload, no new store.
+- **"Event name"** labels the title's field; the guest E-Gifts page has a visible Back.
 
-Controller review @a25ac75f5 (drawing v17): Dress code has no ⤢ — its door is "Colours and mood board"
-("DRESS COLOURS STAY IN MOOD BOARD"); ⚙'s History group reads "History · waiting for ✓ Apply" (empty: "Nothing
-waiting · Your changes collect here until ✓ Apply") and sits after the rows that change right away; ◆ is "part of the
-full Event Hub", never "Event Pro". Proof re-taken against v17 at 375 px light/dark plus desktop, with a gaps list that
-names the part carrying each remaining v17 ruling (`build-sessions/shots-maker-one-toolbar/README.md`).
+Proof: `build-sessions/shots-maker-v17/` (drawing beside build, 375 light/dark, desktop 1280) and its README's gaps.
+Guards re-aimed to the rulings, each saying so; new guard `lib/the-maker-is-drawing-v17.test.ts`.
 
-Not in this PR, named: ⤢ on Wedding March and Memories (no full-screen editor for either in the Maker yet);
-👁 on the phone's bar (part 5); the v17 toolbar redraw, Pages, Look, ⚙ regroup and Stage ▾ without Post Event (part 4);
-Style/Animate/Edit rows (part 4b); ◆ on every Style choice and the Apply sheet's words (part 6).
-
-Guards re-aimed to the ruling, each citing it; port and root-map baselines regenerated (one deliberate removal: the
-↺ anchor on the bar).
-
-SPEC IMPACT: None (the rulings are already in `DECISION_LOG.md`, 20 Nov).
+SPEC IMPACT: None (every ruling is already in `DECISION_LOG.md`, 20 Nov).

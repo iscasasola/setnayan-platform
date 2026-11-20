@@ -464,3 +464,5 @@ export const MAKER_EDITOR_CLOSE_EVENT = 'maker:editor-close';
 export const MAKER_OPEN_PAGES_EVENT = 'maker:open-pages';
 export const MAKER_OPEN_LOOK_EVENT = 'maker:open-look';
 export const MAKER_PREVIEW_EVENT = 'maker:preview';
+/** ▶ Animate picked a motion — the toolbar plays the picked part at once (`lib/maker-animate-rows.ts` `playPickedSoon`). */
+export const MAKER_PLAY_PICKED_EVENT = 'maker:play-picked';

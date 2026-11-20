@@ -1595,9 +1595,9 @@ export function CanvasMaker({
                 </FormRow>
                 <FormRow name="Last-minute" line="ends · surcharge" data="last-minute">
                   <span className="flex flex-none items-center gap-1.5">
-                    <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} aria-label="Last-minute ends (months)" placeholder="mo" className="input-field !h-11 w-[72px] text-right tabular-nums" />
+                    <input id="last_minute_end_months" name="last_minute_end_months" type="number" min={0} step={1} defaultValue={initial?.lastMinuteEndMonths ?? ''} aria-label="Last-minute ends (months)" placeholder="mo" className="input-field !h-11 w-[68px] text-right tabular-nums" />
                     <span className="text-[13px] text-ink/60">mo ·</span>
-                    <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} aria-label="Last-minute surcharge (%)" placeholder="+%" className="input-field !h-11 w-[72px] text-right tabular-nums" />
+                    <input id="last_minute_surcharge_pct" name="last_minute_surcharge_pct" type="number" min={0} max={100} step={1} defaultValue={initial?.lastMinuteSurchargePct ?? ''} aria-label="Last-minute surcharge (%)" placeholder="+%" className="input-field !h-11 w-[68px] text-right tabular-nums" />
                     <span className="text-[13px] text-ink/60">%</span>
                   </span>
                 </FormRow>

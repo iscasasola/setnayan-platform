@@ -17,3 +17,8 @@ records what the batch itself changed.
 - ⚠ #8010 carries #8012 (Availability step 4) whole, including migration `20271352068061`.
 
 SPEC IMPACT: None — merges approved parts and fixes parity with the HYBRID drawing; no ruling changed.
+
+### 2026-11-20 · ship-controller review fixes
+- **Last-minute boxes widened, 56 → 68 px:** the `mo` and `+%` placeholders were clipped (parity gap 9).
+- **"Price covers" on One price is kept, on purpose (parity gap 5).** It is `base_pax`; with "Each extra guest" it prices the quote's added-guests line. Removing the row stops it posting, so the next save nulls `base_pax` and silently drops that pricing on any card using it. The drawing moves that pricing to Per pax ("Starting pax"), which needs a data move from fixed + `base_pax` to `per_pax`. That is a money call for the owner, not a parity fix.
+- Drawing-vs-build pairs for every view are in `build-sessions/shots-card-maker-batch-2026-11-21/pairs/`.

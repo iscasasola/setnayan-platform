@@ -35,7 +35,7 @@ let db: PGlite;
 before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
-  // ⚖ 20 NOV: the free first place is RETIRED (`booking_fee_free_booking_limit()` → 0, migration 20271354437946), so
+  // ⚖ 20 NOV: the free first place is RETIRED (`booking_fee_free_booking_limit()` → 0, migration 20271356196197), so
   // a booking made today never reaches the mechanism this file tests. The mechanism still lives in the lock RPC (it is
   // what keeps places frozen before the change honest), so it is exercised here with the limit set back to ONE in this
   // throwaway database only — the shape the RPC reads, not a second rule.

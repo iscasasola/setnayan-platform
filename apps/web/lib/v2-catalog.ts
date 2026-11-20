@@ -329,12 +329,21 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
 }
 
 export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
+  return (await fetchV2VendorCatalogRead()).rows;
+}
+
+/**
+ * The same read with its outcome kept: `ok: false` = REFUSED (or no admin client), NOT "nothing on sale". The supplier
+ * Plan page reads this, because an empty list there removed a Plus shop's OWN "Plus · your plan" row and said "Not sold
+ * on this cycle" on Pro and Ultra (supplier audit 2026-11-17, L-2).
+ */
+export async function fetchV2VendorCatalogRead(): Promise<{ rows: V2VendorSku[]; ok: boolean }> {
   // Same build-time tolerance as fetchV2CustomerCatalog above — see WHY there.
   let admin;
   try {
     admin = createAdminClient();
   } catch {
-    return [];
+    return { rows: [], ok: false };
   }
   const { data, error } = await admin
     .from('vendor_billing_catalog')
@@ -344,11 +353,11 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
 
   if (error) {
     console.error('[supabase-error] v2-catalog: vendor_billing_catalog', error);
-    return [];
+    return { rows: [], ok: false };
   }
-  if (!data) return [];
+  if (!data) return { rows: [], ok: true };
 
-  return data.map((row) => ({
+  const rows = data.map((row) => ({
     sku_code: row.sku_code as string,
     title: row.title as string,
     price_php: Number(row.price_php),
@@ -358,6 +367,7 @@ export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
     max_sub_seats: (row.max_sub_seats as number | null) ?? null,
     display_order: Number(row.display_order ?? 0),
   }));
+  return { rows, ok: true };
 }
 
 /**

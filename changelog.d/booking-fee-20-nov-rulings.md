@@ -1,6 +1,6 @@
 ## 2026-11-20 · fix(fees): supplier booking-fee billing follows the owner's 20 Nov rulings
 
-Migration `20271354437946_the_20_nov_booking_fee_rulings.sql` + the TypeScript twins.
+Migration `20271356196197_the_20_nov_booking_fee_rulings.sql` + the TypeScript twins.
 
 - **The schedule.** 5% of the first ₱100,000, **3%** after (was 1%), **locked at ₱100,000** (new
   `platform_settings.booking_fee_cap_php`). An **unverified** shop pays the head rate on the whole booking, locked

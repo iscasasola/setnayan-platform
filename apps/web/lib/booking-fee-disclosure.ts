@@ -377,15 +377,16 @@ export function bookingFeeForecast(
             `and that one is free, so you are not billed. A free booking fee ticket you hold was not used. ${position}`,
         };
       }
-      // 🏅 A free booking fee (badge reward). The amount is still named — "₱0 · Badge reward" after it.
+      // 🏅 A free booking fee ticket — the owner's own name for it (DECISION_LOG 20 Nov "FREE BOOKING FEE TICKETS ARE
+      // AUTO-CLAIMED": *"booking fee tickets … auto claimed on your next event booking"*). The amount is still named.
       if (standing.kind === 'billable' && standing.badgeReward) {
         return {
           tone: 'good',
-          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Badge reward.`,
+          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Free booking fee ticket.`,
           detail:
             standing.badgeReward === 'this'
-              ? `Your free booking fee — a badge reward — paid this one. ${position}`
-              : `You have a free booking fee waiting — a badge reward. It is used by itself on your next booking with a fee, so if this one is agreed first it costs you nothing. ${position}`,
+              ? `Your free booking fee ticket paid this one. ${position}`
+              : `You have a free booking fee ticket. It is used by itself on your next booking with a fee, so if this one is agreed first it costs you nothing. ${position}`,
         };
       }
       if (promo) {

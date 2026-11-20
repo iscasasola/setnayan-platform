@@ -208,7 +208,7 @@ export type LockFeeDecision = {
 };
 
 /**
- * The pure LOCK-fee decision — the mirror of `booking_fee_open_lock_charge` (migration 20271354437946), arm for arm
+ * The pure LOCK-fee decision — the mirror of `booking_fee_open_lock_charge` (migration 20271356196197), arm for arm
  * and in the same order. Deterministic, no I/O. Every number arrives as an argument (the schedule and N come from
  * `platform_settings`); nothing here types a rate, a band, a lock or a count.
  *

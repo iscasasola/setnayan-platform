@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -81,9 +82,7 @@ type Props = { params: Promise<{ eventId: string }> };
 export default async function PanoodProgramOutputPage({ params }: Props) {
   const { eventId } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: event } = await supabase

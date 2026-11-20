@@ -195,8 +195,9 @@ export function offerFromInvite(row: StoredInviteOffer): PersonalInviteOffer {
   return { tier: tier && untilDay ? tier : null, untilDay: tier && untilDay ? untilDay : null, photos };
 }
 
-/** The short fee line on the door's offer rows (owner 2026-10-23: one free booking). */
-export const DOOR_FEE_LINE = 'Your first booking is on us';
+/** The short fee line on the door's offer rows. The free first booking is retired (DECISION_LOG 20 Nov "BILLING MUST FOLLOW
+ * THE RETIRED COPY"); the only free booking is the one you bring first (16 Nov import rule). */
+export const DOOR_FEE_LINE = 'No fee when you bring the event first';
 
 /**
  * The door's **Your offer** rows (frame B1), or null when the invite carries no offer. The note under them is said

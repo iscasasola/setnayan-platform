@@ -56,7 +56,7 @@ import { TermsFirst } from '@/app/_components/auth/terms-first';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
-import { safeNext } from '@/lib/auth';
+import { safeNext, getCurrentUser } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
@@ -122,9 +122,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   // signed-in person to /vendor-dashboard; otherwise their account home.
   {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (user) {
       if (next !== '/') {
         redirect(next);

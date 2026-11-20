@@ -53,12 +53,6 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
   const seats = allowance(c.agentAccounts, 'agentAccounts', paywallOn);
   const waitlist = allowance(c.waitlistAcceptances, 'waitlistAcceptances', paywallOn);
   const free = FREE_HELPER_SEATS > 0 ? ` + ${formatCount(FREE_HELPER_SEATS)} free Helper` : '';
-  // Nationwide is Ultra's `Infinity` (owner 2026-11-04) — never a km threshold: Pro reaches 100 km and is not nationwide.
-  const reach = !Number.isFinite(c.serviceRadiusKm)
-    ? 'Nationwide'
-    : c.serviceRadiusKm > 0
-      ? `${formatCount(c.serviceRadiusKm)} km around you`
-      : 'Not in couples’ search on this plan';
   const webPlan = firstPlanWith((x) => x.customWebsiteName);
   const branches = c.branchesIncluded > 0
     ? `${formatCount(c.branchesIncluded)} included${canBuyMoreBranches(tier) ? ' · more can be added' : ''}`
@@ -96,7 +90,8 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
       title: 'Asking for a date · couples at once',
       line: `${n(c.whitelistPerDate)} a date`,
     },
-    { key: 'reach', title: 'How far you reach', line: reach },
+    // ⛔ No "How far you reach" line since 2026-11-19 — reach is not a plan allowance (owner: "unlock the range. not plan
+    // dependend anymore"); once verified, every plan sets its own.
     { key: 'branches', title: 'Branches beyond your main shop', line: branches },
     {
       // 💾 Owner 2026-11-13 "plan storage": Supplier Plus 5 GB · Pro 10 GB · Ultra 15 GB. Free · Verified were given none and keep

@@ -95,6 +95,18 @@ test('3 · no fee surface uses the retired "first booking is on us" sentences', 
     const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
     assert.doesNotMatch(code, /FIRST_BOOKING_(ON_US|ON_US_CLAUSE|FREE)\b/, `${rel} still uses a retired free-first-booking sentence`);
   }
+  // Ship review 20 Nov: the help row, the feature page (EN + TL) and the invite door said it in their own words.
+  const COPY_SURFACES = [
+    ...FEE_SURFACES,
+    'app/vendor-dashboard/settings/settings-rows.ts',
+    'lib/feature-pages/suppliers-b.ts',
+    'lib/personal-invite-offer.ts',
+  ];
+  const RETIRED = /first booking (from|through) Setnayan is (on us|free)|first booking is (on us|free)|libre ang una mong booking/i;
+  for (const rel of COPY_SURFACES) {
+    const code = stripComments(readFileSync(join(WEB, rel), 'utf8'));
+    assert.doesNotMatch(code, RETIRED, `${rel} still tells a supplier the first booking is free`);
+  }
   const join_ = bookingFeeJoinDisclosure(BOOKING_FEE);
   assert.doesNotMatch(join_.detail, /first booking/i);
   assert.doesNotMatch(join_.detail, /always free/i, 'the 16 Nov rule: a supplier-brought client is not always free');

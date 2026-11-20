@@ -17,7 +17,7 @@
  *     Services · Reviews · Where, the pin-only map under Where; no date check, no web address.
  * Plus the card pieces it always mounted — `ShopReachLine` + `ShopReachMap`, `ShopAddresses`, `ShopBranchesLine`,
  * `PinnedReviewCard`. What still differs by plan is decided with the page's own primitives, never typed:
- *   · reach            → `shopReach` (lib/shop-page-plan.ts over `serviceRadiusKm`, lib/vendor-tier-caps.ts);
+ *   · reach            → `shopReach` (lib/shop-page-plan.ts — verification + the shop's own ring, never the plan);
  *   · own web address  → `ownWebAddress` over `tierCaps(tier).customWebsiteName` (Solo+);
  *   · pinned review    → `tierCaps(tier).premiumPage` (Pro+);
  *   · About + accent colour → `micrositeCan(tier).canPersonalize` (Solo+) and `micrositeAccentVars` (the page's own);

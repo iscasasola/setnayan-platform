@@ -42,6 +42,19 @@
 
 BEGIN;
 
+-- A busy platform_settings row must not hold the deploy: give up after 5 s rather than queue behind it.
+SET LOCAL lock_timeout = '5s';
+
+-- ── 0 · The schedule each charge was locked on (ship review, 20 Nov) ─────────────────────────────────────────────────
+-- An amendment must re-price on the schedule its booking was LOCKED on — flat or taper, and the rates, band and lock
+-- in force then — never the shop's verification today or today's rates (a verified ₱1M booking locked at ₱32,000 whose
+-- verification lapses must top up ~₱30 on a ₱1,000 change, not ₱18,050). Every primary charge carries that basis in
+-- `fee_basis`; charges made before this file are backfilled (section 4b) from the settings captured HERE, before
+-- section 1 moves the tail rate to 3%.
+CREATE TEMP TABLE _fee_settings_before_20_nov ON COMMIT DROP AS
+  SELECT booking_fee_rate_pct AS head_pct, booking_fee_tail_rate_pct AS tail_pct, booking_fee_tier1_limit_php AS band_php
+    FROM public.platform_settings WHERE id = 1;
+
 -- ── 1 · The settings ────────────────────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.platform_settings
   ADD COLUMN IF NOT EXISTS booking_fee_cap_php NUMERIC(12, 2) NOT NULL DEFAULT 100000
@@ -205,6 +218,101 @@ ALTER TABLE public.booking_fee_charges
   ADD COLUMN IF NOT EXISTS platform_fee_number BIGINT;
 ALTER TABLE public.booking_fee_charges
   ADD COLUMN IF NOT EXISTS free_by_platform_count BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.booking_fee_charges
+  ADD COLUMN IF NOT EXISTS fee_basis JSONB;
+COMMENT ON COLUMN public.booking_fee_charges.fee_basis IS
+  'The schedule this PRIMARY charge was locked on: {flat, head_pct, tail_pct, band_php, cap_php} (cap_php null = no '
+  'lock). Stamped at insert by booking_fee_charges_stamp_basis; read by booking_fee_rederive_lock_fee so an amendment '
+  're-prices on the booking''s own schedule, never the shop''s verification today or today''s rates (ship review 20 Nov).';
+
+-- The basis a charge made NOW is locked on (plpgsql: its body is checked at call time, after section 1's columns exist).
+CREATE OR REPLACE FUNCTION public.booking_fee_basis_now(p_vendor_profile_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+BEGIN
+  RETURN (
+    SELECT jsonb_build_object(
+      'flat',     public.booking_fee_shop_verified_since(p_vendor_profile_id) IS NULL,
+      'head_pct', COALESCE(s.booking_fee_rate_pct, 5.00),
+      'tail_pct', COALESCE(s.booking_fee_tail_rate_pct, 3.00),
+      'band_php', COALESCE(s.booking_fee_tier1_limit_php, 100000),
+      'cap_php',  COALESCE(s.booking_fee_cap_php, 100000))
+    FROM (SELECT 1) one LEFT JOIN public.platform_settings s ON s.id = 1
+  );
+END;
+$$;
+
+-- The fee on an amount, on a stored basis. The same arithmetic as booking_fee_centavos / booking_fee_flat_centavos
+-- (₱50 floor, then the lock), with the numbers taken from the basis instead of today's settings.
+CREATE OR REPLACE FUNCTION public.booking_fee_centavos_on_basis(p_amount_centavos BIGINT, p_basis JSONB)
+RETURNS BIGINT
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  WITH b AS (
+    SELECT COALESCE((p_basis->>'flat')::BOOLEAN, FALSE)          AS flat,
+           COALESCE((p_basis->>'head_pct')::NUMERIC, 5.00)       AS head_pct,
+           COALESCE((p_basis->>'tail_pct')::NUMERIC, 3.00)       AS tail_pct,
+           COALESCE((p_basis->>'band_php')::NUMERIC, 100000)     AS band_php,
+           (p_basis->>'cap_php')::NUMERIC                        AS cap_php
+  ), f AS (
+    SELECT b.cap_php,
+           GREATEST(
+             CASE WHEN b.flat THEN round(p_amount_centavos * (b.head_pct / 100.0))::BIGINT
+                  ELSE round(
+                         LEAST(p_amount_centavos, (b.band_php * 100)::BIGINT) * (b.head_pct / 100.0)
+                         + GREATEST(p_amount_centavos - (b.band_php * 100)::BIGINT, 0::BIGINT) * (b.tail_pct / 100.0)
+                       )::BIGINT
+             END,
+             5000::BIGINT) AS fee
+      FROM b
+  )
+  SELECT CASE
+    WHEN p_amount_centavos IS NULL OR p_amount_centavos <= 0 THEN 0::BIGINT
+    WHEN f.cap_php IS NULL THEN f.fee
+    ELSE LEAST(f.fee, round(f.cap_php * 100)::BIGINT)
+  END
+  FROM f;
+$$;
+
+CREATE OR REPLACE FUNCTION public.booking_fee_charges_stamp_basis()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.kind = 'primary' AND NEW.fee_basis IS NULL THEN
+    NEW.fee_basis := public.booking_fee_basis_now(NEW.vendor_profile_id);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS booking_fee_charges_stamp_basis ON public.booking_fee_charges;
+CREATE TRIGGER booking_fee_charges_stamp_basis
+  BEFORE INSERT ON public.booking_fee_charges
+  FOR EACH ROW EXECUTE FUNCTION public.booking_fee_charges_stamp_basis();
+
+REVOKE ALL ON FUNCTION public.booking_fee_basis_now(UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_fee_basis_now(UUID) TO service_role;
+REVOKE ALL ON FUNCTION public.booking_fee_centavos_on_basis(BIGINT, JSONB) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_fee_centavos_on_basis(BIGINT, JSONB) TO service_role;
+REVOKE ALL ON FUNCTION public.booking_fee_charges_stamp_basis() FROM PUBLIC, anon, authenticated;
+
+-- 4b · Primary charges made before this file: the schedule their version names, with the settings as they were
+-- (captured in section 0) and no lock — the 2026-07-25 taper never had one.
+UPDATE public.booking_fee_charges c
+   SET fee_basis = CASE c.schedule_version
+         WHEN '2026-07-23-flat2'       THEN jsonb_build_object('flat', true, 'head_pct', 2.00, 'tail_pct', 2.00, 'band_php', 100000, 'cap_php', 4000)
+         WHEN '2026-07-24-flat5-nocap' THEN jsonb_build_object('flat', true, 'head_pct', 5.00, 'tail_pct', 5.00, 'band_php', 100000, 'cap_php', NULL)
+         ELSE jsonb_build_object('flat', false, 'head_pct', b.head_pct, 'tail_pct', b.tail_pct, 'band_php', b.band_php, 'cap_php', NULL)
+       END
+  FROM _fee_settings_before_20_nov b
+ WHERE c.kind = 'primary' AND c.fee_basis IS NULL;
+
 CREATE UNIQUE INDEX IF NOT EXISTS booking_fee_charges_platform_fee_number_once
   ON public.booking_fee_charges (platform_fee_number)
   WHERE platform_fee_number IS NOT NULL;
@@ -663,7 +771,8 @@ BEGIN
   IF NOT FOUND THEN RETURN jsonb_build_object('action', 'no_booking'); END IF;
 
   SELECT charge_id, ledger_id, status, amount_charged_centavos, proposal_amount_centavos,
-         badge_reward_id, free_by_platform_count, vendor_profile_id   -- ⟵ 20 NOV
+         badge_reward_id, free_by_platform_count, vendor_profile_id,  -- ⟵ 20 NOV
+         fee_basis                                                     -- ⟵ 20 NOV ship review
     INTO v_primary
     FROM public.booking_fee_charges
     WHERE event_vendor_id = p_event_vendor_id AND kind = 'primary'
@@ -697,8 +806,12 @@ BEGIN
   END IF;
 
   v_new_total := v_ev.amount_centavos;
-  -- ⟵ 20 NOV: the same schedule the lock used for this shop (taper or flat), locked at the cap.
-  v_new_fee   := public.booking_fee_centavos_for(v_new_total, COALESCE(v_ev.vpid, v_primary.vendor_profile_id));
+  -- ⟵ 20 NOV ship review: the schedule this booking was LOCKED on (fee_basis, stamped at insert) — never the shop's
+  -- verification today or today's rates. A charge with no basis (none should exist after 4b) reads today's.
+  v_new_fee   := public.booking_fee_centavos_on_basis(
+                   v_new_total,
+                   COALESCE(v_primary.fee_basis,
+                            public.booking_fee_basis_now(COALESCE(v_ev.vpid, v_primary.vendor_profile_id))));
 
   UPDATE public.booking_fee_ledger
     SET highest_declared_centavos =

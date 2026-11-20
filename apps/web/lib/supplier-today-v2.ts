@@ -118,8 +118,24 @@ export function isRecommendedKey(key: string): boolean {
  */
 export type TodayUrgency = { level: 'red' | 'amber'; word: 'Overdue' | 'Today' | 'Soon' };
 
-/** A desk card's level, from its own deadline. `null` = normal. */
-export function taskUrgency(card: WhatsNewCard | null, now: number): TodayUrgency | null {
+/**
+ * A desk card's level, from its own deadline. `null` = normal.
+ * v3 part 5: a booking ask (`lock_request`) wears amber "Soon" when its window (`expiresAt`, enforced by the guard
+ * trigger) closes within the owner's `soonAskHours` (Admin › Settings). Not set → never coloured.
+ */
+export function taskUrgency(card: WhatsNewCard | null, now: number, soonAskHours: number | null = null): TodayUrgency | null {
+  // ⚖ DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3: an UNANSWERED inquiry turns amber once it has waited the
+  // owner's hours (Admin › Settings, ruled 24). It has only its arrival time, so that is what is counted from.
+  if (card?.kind === 'inquiry') {
+    if (soonAskHours === null) return null;
+    const waited = now - new Date(card.createdAt).getTime();
+    return Number.isFinite(waited) && waited >= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
+  if (card?.kind === 'lock_request') {
+    if (soonAskHours === null || !card.expiresAt) return null;
+    const left = new Date(card.expiresAt).getTime() - now;
+    return Number.isFinite(left) && left > 0 && left <= soonAskHours * 3_600_000 ? { level: 'amber', word: 'Soon' } : null;
+  }
   if (!card || card.kind !== 'date_change') return null;
   const ms = new Date(card.dueAt).getTime() - now;
   if (!Number.isFinite(ms)) return null;
@@ -176,6 +192,19 @@ export function eventUrgency(inDays: number): TodayUrgency | null {
   return null;
 }
 
+/**
+ * 📅 "This week: N events" (DECISION_LOG 2026-11-20 "SEVEN CONTROLLER PICKS" item 3): the booked events beyond tomorrow
+ * and within the owner's days (Admin › Settings, ruled 7) are ONE line that opens the calendar — never a row each, never
+ * counted. Today's and tomorrow's events are rows of their own (`eventUrgency`). Not set → no line.
+ */
+export function thisWeekLine(events: ReadonlyArray<{ inDays: number }>, soonEventDays: number | null): { label: string; count: number } | null {
+  if (soonEventDays === null || !Number.isFinite(soonEventDays)) return null;
+  const n = events.filter((e) => Number.isFinite(e.inDays) && e.inDays >= 2 && e.inDays <= soonEventDays).length;
+  return n > 0 ? { count: n, label: `This week: ${formatCount(n)} ${n === 1 ? 'event' : 'events'}` } : null;
+}
+
+export const THIS_WEEK_HREF = '/vendor-dashboard/calendar';
+
 /** A booked event on today's list (the page's `upcoming`, `lib/vendor-overview.ts`). */
 export type TodayEventDay = { id: string; eventName: string; date: string; inDays: number; place: string | null; href: string };
 
@@ -202,6 +231,13 @@ export type TodaySplit = {
   screen: TodayTaskRow[];
   /** v3: EVERY task in ONE list, most urgent first (no Quick / Longer groups). `quick` + `screen` are the same rows. */
   list: TodayTaskRow[];
+  /**
+   * ⏭ v3 part 2 — the tasks put off with "Do it tomorrow" (`lib/today-put-off.ts`): listed under "Tomorrow", NOT in
+   * `list`, not counted today. A red row is never here — an urgent task ignores its record and stays on Today.
+   */
+  tomorrow: TodayTaskRow[];
+  /** v3 part 2 — the put-off keys this split was made with, so the one list holds off a bill, the permit or an event too. */
+  putOff?: ReadonlySet<string> | null;
   /** "Some answers couldn’t load" — never a task, never counted. */
   unread: TodayNeed | null;
   /**
@@ -223,9 +259,13 @@ export function splitTodayNeeds(args: {
   aside: ReadonlySet<string>;
   /** v3: the clock the deadlines are read against. Absent → no row wears a level (the list keeps the desk's order). */
   now?: number;
+  /** v3 part 2: the keys put off until a later day ("Do it tomorrow"). Absent/unread → nothing is held off. */
+  putOff?: ReadonlySet<string>;
+  /** v3 part 5: the owner's "Soon" window for a booking ask, in hours (null = not set). */
+  soonAskHours?: number | null;
 }): TodaySplit {
   const byId = new Map(args.cards.map((c) => [c.id, c] as const));
-  const out: TodaySplit = { quick: [], screen: [], list: [], unread: null, permit: null, recommended: [] };
+  const out: TodaySplit = { quick: [], screen: [], list: [], tomorrow: [], putOff: args.putOff ?? null, unread: null, permit: null, recommended: [] };
   const arrived: TodayTaskRow[] = [];
   for (const n of args.needs) {
     if (args.aside.has(n.key)) continue;
@@ -244,7 +284,12 @@ export function splitTodayNeeds(args: {
     }
     const card = byId.get(n.key) ?? null;
     const mode = card ? TODAY_TASK_MODE[card.kind] : 'screen';
-    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    const row: TodayTaskRow = { ...n, mode, urgency: args.now === undefined ? null : taskUrgency(card, args.now, args.soonAskHours ?? null), tag: card ? todayBadgeTag(card.kind, args.completedToGo) : null, card };
+    // ⏭ Put off to tomorrow — unless it is red now: an urgent task is never hidden (ruled 19 Nov "yes. except urgent").
+    if (args.putOff?.has(n.key) && row.urgency?.level !== 'red') {
+      out.tomorrow.push(row);
+      continue;
+    }
     (mode === 'quick' ? out.quick : out.screen).push(row);
     arrived.push(row);
   }
@@ -264,11 +309,21 @@ export type TodayListEntry<B> =
   | { type: 'event'; key: string; urgency: TodayUrgency; event: TodayEventDay };
 
 export function todayOneList<B extends { orderId: string; dueOn: string | null }>(args: {
-  split: Pick<TodaySplit, 'list' | 'permit'>;
+  split: Pick<TodaySplit, 'list' | 'permit'> & { putOff?: ReadonlySet<string> | null };
   bills: readonly B[];
   events: readonly TodayEventDay[];
   todayIso: string;
 }): Array<TodayListEntry<B>> {
+  // ⏭ v3 part 2: a bill, the permit or an event put off with "Do it tomorrow" is not in the list (a red one always is).
+  return holdOffEntries(allTodayEntries(args), args.split.putOff ?? null).now;
+}
+
+/** What "Tomorrow" lists beside the put-off tasks: the bills, the permit and the events held off (`holdOffEntries`). */
+export function todayHeldOff<B extends { orderId: string; dueOn: string | null }>(args: Parameters<typeof todayOneList<B>>[0]): Array<{ key: string; label: string; icon: TodayRowIcon }> {
+  return holdOffEntries(allTodayEntries(args), args.split.putOff ?? null).later;
+}
+
+function allTodayEntries<B extends { orderId: string; dueOn: string | null }>(args: Parameters<typeof todayOneList<B>>[0]): Array<TodayListEntry<B>> {
   const entries: Array<TodayListEntry<B>> = [
     ...args.split.list.map((row) => ({ type: 'task' as const, key: row.key, urgency: row.urgency, row })),
     ...args.bills.map((bill) => ({ type: 'bill' as const, key: `fee-${bill.orderId}`, urgency: feeUrgency(bill.dueOn, args.todayIso), bill })),
@@ -279,6 +334,29 @@ export function todayOneList<B extends { orderId: string; dueOn: string | null }
     }),
   ];
   return orderByUrgency(entries);
+}
+
+/**
+ * ⏭ v3 part 2, on the one list: a fee bill, the permit and a booked event can go to tomorrow too (drawing V3 · 2's
+ * table: "Do it tomorrow · red: can't") — each held off by its own record, a RED one never. Tasks are already held off
+ * in `splitTodayNeeds`; this does the rest. `later` is what the "Tomorrow" block lists.
+ */
+export function holdOffEntries<B>(entries: ReadonlyArray<TodayListEntry<B>>, putOff: ReadonlySet<string> | null): {
+  now: Array<TodayListEntry<B>>;
+  later: Array<{ key: string; label: string; icon: TodayRowIcon }>;
+} {
+  const now: Array<TodayListEntry<B>> = [];
+  const later: Array<{ key: string; label: string; icon: TodayRowIcon }> = [];
+  for (const e of entries) {
+    if (e.type === 'task' || !putOff?.has(e.key) || e.urgency.level === 'red') {
+      now.push(e);
+      continue;
+    }
+    if (e.type === 'bill') later.push({ key: e.key, label: 'Booking fee', icon: 'peso' });
+    else if (e.type === 'permit') later.push({ key: e.key, label: e.need.label, icon: e.need.icon });
+    else later.push({ key: e.key, label: eventRowWords(e.event).label, icon: 'calendar' });
+  }
+  return { now, later };
 }
 
 /* ─── DONE TODAY ──────────────────────────────────────────────────────────────────────────────────────────────── */

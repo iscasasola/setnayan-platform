@@ -1,6 +1,6 @@
 /**
  * ⚖ SUPERSEDED 2026-11-20 — the free first booking is RETIRED (specs DECISION_LOG "BILLING MUST FOLLOW THE RETIRED
- * COPY", migration 20271354437946: `booking_fee_free_booking_limit()` → 0). The file keeps its name so its history
+ * COPY", migration 20271356196197: `booking_fee_free_booking_limit()` → 0). The file keeps its name so its history
  * reads in one place; its assertions now pin the 20 Nov rule: no booking takes a free place, a place frozen free stays
  * free, and the launch offer still waives inside its cap.
  *

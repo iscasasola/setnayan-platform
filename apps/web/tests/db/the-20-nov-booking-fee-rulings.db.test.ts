@@ -1,5 +1,5 @@
 /**
- * THE 20 NOV BOOKING-FEE RULINGS, executed against the replayed migrations (20271354437946).
+ * THE 20 NOV BOOKING-FEE RULINGS, executed against the replayed migrations (20271356196197).
  *
  * Specs DECISION_LOG, 2026-11-20:
  *   💰 "BOOKING FEE: 5% OF THE FIRST ₱100,000, 3% AFTER, LOCKED AT ₱100,000" — and unverified shops pay the flat 5% of
@@ -321,4 +321,44 @@ test('6 · an amendment keeps Setnayan’s free booking free, and prices an unve
     [billed.charge_id],
   );
   assert.equal(Number(up.a), 15_000 * 100, 'an unverified shop’s amended fee used the taper, not the flat 5%');
+});
+
+test('7 · an amendment re-prices on the schedule the booking was LOCKED on — not the shop’s verification today, not today’s rates (ship review 20 Nov)', async () => {
+  await db.query(`UPDATE public.platform_settings SET booking_fee_free_every_nth = 100000 WHERE id = 1`);
+  const shop = await newShop(true);
+  const b = await sourcedBooking(shop, 1_000_000);
+  const opened = await lock(b.eventVendorId);
+  assert.equal(opened.status, 'pending');
+  assert.equal(Number(opened.amount_charged_centavos), 32_000 * 100, '₱1M verified = ₱5,000 + 3% of ₱900,000');
+  const basis = await one<{ b: { flat: boolean; tail_pct: number } }>(
+    `SELECT fee_basis AS b FROM public.booking_fee_charges WHERE charge_id = $1`,
+    [opened.charge_id],
+  );
+  assert.equal(basis.b.flat, false, 'the basis is stamped at the lock');
+  await db.query(
+    `UPDATE public.booking_fee_charges SET status = 'paid', paid_at = NOW() WHERE charge_id = $1`,
+    [opened.charge_id],
+  );
+
+  // After the lock: the shop's verification lapses AND the admin moves the tail rate.
+  await db.query(`UPDATE public.vendor_profiles SET verification_state = 'unverified' WHERE vendor_profile_id = $1`, [shop]);
+  await db.query(`UPDATE public.platform_settings SET booking_fee_tail_rate_pct = 4.00 WHERE id = 1`);
+  try {
+    // A ₱1,000 change.
+    await db.query(`UPDATE public.event_vendors SET total_cost_php = 1001000 WHERE vendor_id = $1`, [b.eventVendorId]);
+    await db.query(`SELECT public.booking_fee_rederive_lock_fee($1)`, [b.eventVendorId]);
+    const delta = await one<{ a: string; n: string }>(
+      `SELECT COALESCE(SUM(amount_charged_centavos), 0) AS a, count(*) AS n FROM public.booking_fee_charges
+        WHERE event_vendor_id = $1 AND kind = 'amendment_delta' AND status = 'pending'`,
+      [b.eventVendorId],
+    );
+    assert.equal(Number(delta.n), 1);
+    assert.equal(
+      Number(delta.a),
+      30 * 100,
+      `the top-up must be ₱30 (3% of ₱1,000 on the locked taper), got ₱${Number(delta.a) / 100} — ₱18,050 is the flat rate on today's verification`,
+    );
+  } finally {
+    await db.query(`UPDATE public.platform_settings SET booking_fee_tail_rate_pct = 3.00 WHERE id = 1`);
+  }
 });

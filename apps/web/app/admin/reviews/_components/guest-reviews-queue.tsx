@@ -1,5 +1,5 @@
-import { InfoTip } from '@/app/_components/info-tip';
-import { ShieldCheck } from 'lucide-react';
+import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
+import { actionButtonClass } from '@/components/action-button-class';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ReadFailed } from '../../_components/read-failed';
 import type { AdminGuestReviewRow, AdminGuestReviewsRead } from '@/lib/guest-reviews';
@@ -11,23 +11,21 @@ import { dismissReviewFlag } from '../actions';
  */
 export function GuestReviewsQueue({ read }: { read: AdminGuestReviewsRead }) {
   return (
-    <section className="mb-10 space-y-4" aria-labelledby="guest-reviews-heading" data-admin-guest-reviews>
-      <header className="space-y-0.5">
-        <h2 id="guest-reviews-heading" className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <ShieldCheck aria-hidden className="h-4 w-4 text-link" strokeWidth={1.75} />
-          Guest reviews
-        </h2>
-        <div>
-          <InfoTip label="About guest reviews" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
+    <div data-admin-guest-reviews>
+      <TemplateSection
+        label="Guest reviews"
+        data="guest-reviews"
+        tip={
+          <>
             Public the moment a checked-in guest sends one. Hide one to take it off the shop&rsquo;s page, the shop&rsquo;s
-          list and the guests&rsquo; line. Guest stars never move a shop&rsquo;s overall.
-          </InfoTip>
-        </div>
-      </header>
+            list and the guests&rsquo; line. Guest stars never move a shop&rsquo;s overall.
+          </>
+        }
+      >
       {read.state === 'refused' ? (
         <ReadFailed what="the guest reviews" />
       ) : read.state === 'none' ? (
-        <p className="py-2 text-sm text-ink/55">No guest reviews yet.</p>
+        <TemplateEmpty data="guest-reviews">No guest reviews yet.</TemplateEmpty>
       ) : (
         <ul className="divide-y divide-ink/10">
           {read.rows.map((r) => (
@@ -35,7 +33,8 @@ export function GuestReviewsQueue({ read }: { read: AdminGuestReviewsRead }) {
           ))}
         </ul>
       )}
-    </section>
+      </TemplateSection>
+    </div>
   );
 }
 
@@ -47,7 +46,7 @@ function GuestReviewAdminRow({ row }: { row: AdminGuestReviewRow }) {
       data-guest-review-admin={hidden ? 'hidden' : 'shown'}
     >
       <div className="min-w-0 space-y-1">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
+        <p className={TEMPLATE_SUBLINE}>
           {row.rating_overall}★ · {row.vendor_name ?? 'A shop'} · {row.shown_name} · {row.created_at.slice(0, 10)}
           {hidden ? ' · hidden' : ''}
         </p>
@@ -59,7 +58,7 @@ function GuestReviewAdminRow({ row }: { row: AdminGuestReviewRow }) {
         <input type="hidden" name="kind" value="guest_visibility" />
         <input type="hidden" name="review_id" value={row.review_id} />
         <input type="hidden" name="hide" value={hidden ? '0' : '1'} />
-        <SubmitButton className="button-secondary inline-flex min-h-11 items-center px-3 text-xs" pendingLabel="Saving…">
+        <SubmitButton className={actionButtonClass('neutral')} pendingLabel="Saving…">
           {hidden ? 'Show' : 'Hide'}
         </SubmitButton>
       </form>

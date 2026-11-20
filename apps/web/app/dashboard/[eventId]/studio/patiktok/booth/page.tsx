@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -70,9 +71,7 @@ export default async function PatiktokBoothDashboard({
   const { primary, backup, saved } = await searchParams;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const { data: event, error: eventError } = await supabase

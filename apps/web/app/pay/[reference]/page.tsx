@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
@@ -59,9 +60,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   const { reference } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login?next=' + encodeURIComponent(`/pay/${reference}`));
   // An anonymous draft session is not an account. Couple checkout already
   // refuses one before it will mint an order (it sends them to sign up), and a

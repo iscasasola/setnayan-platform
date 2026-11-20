@@ -27,6 +27,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { HomeNext } from '@/lib/home-first-screen';
 import type { MoneyLine } from '@/lib/budget-truth';
+import type { TodayUrgency } from '@/lib/supplier-today-v2';
 import { planningTodoHref } from '@/lib/checklist-anchor';
 import { dateFinderHref } from '@/lib/home-date-finder';
 import { budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
@@ -248,6 +249,8 @@ export type HomeControlInput = {
     long: string | null;
     /** The card's ONE page — absent = the Date Finder on Home (`countdownDoor`). */
     door?: string;
+    /** "Sat 12 Dec" — the day beside the countdown on the event card (drawing 20 Nov 2026); absent = no firm day. */
+    short?: string | null;
   };
   /** null = this event keeps no guest list (the need is off) — the widget is ABSENT; 'unread' = the read failed. */
   guests: HomeGuestsCounts | 'unread' | null;
@@ -320,6 +323,31 @@ export function paymentsToSettle(pays: readonly HomePayLine[]): HomePayLine[] {
       if (b.dueDate) return 1;
       return a.who.localeCompare(b.who);
     });
+}
+
+/**
+ * A payment's level on Today, from the ledger's own band (`MoneyLine.dueState` · `daysUntilDue`): past due → red
+ * Overdue · due today → red Today · inside the shipped payment window (`due_soon`) → amber Soon. Anything else is NOT
+ * a Today row — it stays in Budget. No number of its own.
+ */
+export function payUrgency(p: Pick<HomePayLine, 'state' | 'days'>): TodayUrgency | null {
+  if (p.state === 'overdue' || (p.days !== null && p.days < 0)) return { level: 'red', word: 'Overdue' };
+  if (p.days === 0) return { level: 'red', word: 'Today' };
+  if (p.state === 'due_soon') return { level: 'amber', word: 'Soon' };
+  return null;
+}
+
+/**
+ * 🔁 NOW NEVER REPEATS BELOW, WIDENED TO EVERY ROW (owner 20 Nov 2026, Event Today drawing part C · 3: *"The late
+ * payment on the Budget card when the card's strip or the list already holds it"*): the payments the Budget card
+ * leaves out — the one the strip holds, and every payment that is a RED row of Today's list. A payment that is only
+ * due soon stays on the Budget card, as drawn.
+ */
+export function paysHeldByToday(pays: readonly HomePayLine[] | 'unread' | null | undefined, holdsPay: string | null | undefined): string[] {
+  const out = new Set<string>();
+  if (holdsPay) out.add(holdsPay);
+  if (pays && pays !== 'unread') for (const p of paymentsToSettle(pays)) if (payUrgency(p)?.level === 'red') out.add(p.id);
+  return [...out];
 }
 
 /** The Budget's face count rule (notes): more than five → the fifth face is "+N more to settle". */
@@ -810,8 +838,10 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
   const pct = agreed > 0 ? Math.round((b.paidPhp / agreed) * 100) : null;
   const faces: HomeFace[] = [];
   if (b.pays !== 'unread') {
-    // 🔁 The payment Now holds is not repeated here (round 3, "Now never repeats below").
-    const pays = paymentsToSettle(b.pays).filter((p) => p.id !== today.holds?.pay);
+    // 🔁 The payment Now holds is not repeated here (round 3, "Now never repeats below") — and neither is a payment
+    // Today's list already shows as a red row (owner 20 Nov 2026, `paysHeldByToday`).
+    const onToday = new Set(paysHeldByToday(b.pays, today.holds?.pay));
+    const pays = paymentsToSettle(b.pays).filter((p) => !onToday.has(p.id));
     const shown = pays.length > BUDGET_MAX_PAY_FACES ? pays.slice(0, BUDGET_MAX_PAY_FACES - 1) : pays;
     shown.forEach((p, i) => {
       const late = p.state === 'overdue' || (p.days !== null && p.days < 0);
@@ -967,6 +997,13 @@ function longDay(iso: string | null, firm: boolean): string | null {
   return d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : null;
 }
 
+/** "Sat 12 Dec" — the day beside the card's countdown (drawing 20 Nov 2026); a firm day only. */
+export function cardDay(iso: string | null, firm: boolean): string | null {
+  const d = iso && firm ? dayOf(iso) : null;
+  if (!d) return null;
+  return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getDate()} ${d.toLocaleDateString('en-US', { month: 'short' })}`;
+}
+
 /**
  * THE PAGE'S FACTS, WORDED INTO THE CONTROL ROW'S INPUT — pure, so the page and the guards run the very same chain.
  *
@@ -1005,7 +1042,7 @@ export function composeHomeControl(i: {
   return {
     eventId: i.eventId,
     next: i.next,
-    countdown: { value: i.days.value, label: i.days.label, days: i.daysN, hasDate, long: longDay(i.eventDate, hasDate), placeLine: i.venueName?.trim() || null, ...(i.countdownDoor ? { door: i.countdownDoor } : {}) },
+    countdown: { value: i.days.value, label: i.days.label, days: i.daysN, hasDate, long: longDay(i.eventDate, hasDate), short: cardDay(i.eventDate, hasDate), placeLine: i.venueName?.trim() || null, ...(i.countdownDoor ? { door: i.countdownDoor } : {}) },
     guests:
       i.needs.guestList === false
         ? null

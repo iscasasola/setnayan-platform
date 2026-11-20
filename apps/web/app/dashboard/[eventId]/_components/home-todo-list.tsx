@@ -1,92 +1,108 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { SAMPLE_TODO } from '@/lib/empty-look-samples';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, List } from 'lucide-react';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
-import { planningTodoHref } from '@/lib/checklist-anchor';
-import { PlanningTick } from '../schedule/_components/schedule-lazy';
-import { HomeTodayItem } from './home-parts';
-import { shortDay, type HomeChecklistFacts } from './home-control-faces';
+import { EVENT_TODAY_TASK_ROWS, type EventToday } from '@/lib/event-today';
+import { EventTodayGroup, EventTodayRowItem, EventTodayTomorrow, EventTodayUnreadRow } from './event-today-list';
 
-/** What the To do list's ⓘ says (the approved prototype's words, `TIPS.todo`). */
+/** What the list's ⓘ says. */
 export const HOME_TODO_INFO =
-  'Your next tasks, soonest first — tick one when it is done. Your whole plan is in Schedule.';
+  'What needs you, most urgent first. Tap a row to answer it here. Drag right to open its page, drag left to do it tomorrow. Your whole plan is in Schedule.';
 
-/** How many tasks the list shows (round 3: "the three soonest tasks with their tick"). */
-export const HOME_TODO_ROWS = 3;
+/** How many plan tasks the list shows (round 3: "the three soonest tasks with their tick"). */
+export const HOME_TODO_ROWS = EVENT_TODAY_TASK_ROWS;
 
 /**
- * ✅ HOME'S ONE TO DO — UNDER THE EVENT CARD (owner-approved Home redraw 2026-11-02, round 3,
- * `prototypes/home_controller_2026-11-02/` `nextList()`): *"ONE To do under the event card (the three soonest tasks with
- * their tick, then 'N% of the plan done · All N this week ›'); the To do widget is gone."*
+ * ☀ HOME'S ONE LIST — "NEEDS YOU TODAY", UNDER THE EVENT CARD (owner 20 Nov 2026: *"make the Today of the event
+ * dashboard run like the Focus of Admin and Today of Suppliers Dashboard"*; drawing
+ * `prototypes/event_today_focus_2026-11-20/` v3). It REPLACES the "To do · soonest first" block and the Today pill
+ * lines for asks (drawing part C): the plan's tasks, the payments that are late or due soon, and every ask are rows of
+ * ONE list, ordered by urgency (`lib/event-today.ts`).
  *
- *   · each row is the plan's own row — Planning Stage's tick (`PlanningTick` → `planningRowAction`), saved in place; a
- *     row with no table row to tick (a computed step) opens its exact row in Planning Stage instead;
- *   · the task Now holds is left out (`holds`) — Now never repeats below;
- *   · the closing line is the plan's state and the door to the whole plan (Schedule › Planning Stage's To do filter).
+ *   · the rows and their order are the lib's — this only draws them; the client part (`event-today-list.tsx`) holds
+ *     the tap-to-open card and the two drags;
+ *   · `bodies` = the shipped answer of an ask, drawn on the server and handed in by row key;
+ *   · then ONE row "N more plan tasks this week ›" (Planning Stage), the plan's own closing line — "N% of the plan done
+ *     · All N this week ›" — and the "Tomorrow N" fold;
+ *   · the item the card's strip holds is not here ("Now never repeats below").
  *
- * `null` = the plan was never seeded: no list. `'unread'` = the read failed: said, with ⟳ — never an empty list.
+ * A read that failed is a row that SAYS so, with ⟳ — never an empty list.
  */
-export function HomeTodoList({ eventId, checklist, holds = null }: { eventId: string; checklist: HomeChecklistFacts | 'unread' | null; holds?: string | null }) {
-  if (checklist === null) return null;
-  const head = (
-    <p className="hc-k2" data-home-todo-head="">
-      <InfoTip label="To do" labelClassName="hc-k2-name" align="start">
-        {HOME_TODO_INFO}
-      </InfoTip>
-      <em>soonest first</em>
-    </p>
-  );
-  if (checklist === 'unread') {
-    return (
-      <div role="group" aria-label="To do" data-home-todo="unread" className="flex flex-col">
-        {head}
-        <HomeTodayItem kicker="To do" tone="warn" words="Your plan couldn’t load" tail="not empty — unread · tap to try again" reload dataAttr={['data-home-todo-reload', '']} />
-      </div>
-    );
-  }
-  const rows = checklist.next.filter((t) => t.id !== holds).slice(0, HOME_TODO_ROWS);
-  const pct = checklist.total > 0 ? Math.round((checklist.done / checklist.total) * 100) : null;
+export function HomeTodayList({
+  eventId,
+  today,
+  bodies = {},
+}: {
+  eventId: string;
+  today: EventToday;
+  bodies?: Record<string, ReactNode>;
+}) {
+  const planUnread = today.list.some((r) => r.key === 'unread:plan');
+  const nothing = today.list.length === 0 && !today.more;
   return (
-    <div role="group" aria-label="To do" data-home-todo="" className="flex flex-col">
-      {head}
-      {rows.length > 0 ? (
-        <ul className="hc-todo">
-          {rows.map((t) => {
-            const late = t.daysUntilDue !== null && t.daysUntilDue < 0;
-            const when = [t.dueDate ? `due ${shortDay(t.dueDate)}` : 'no date yet', late ? 'overdue' : null].filter(Boolean).join(' · ');
-            return (
-              <li key={t.id} className="hc-todo-row" data-home-todo-row={t.id}>
-                {t.tick ? (
-                  <PlanningTick eventId={eventId} kind={t.tick.kind} id={t.tick.id} done={false} title={t.title} />
-                ) : (
-                  <span className="hc-todo-dot" aria-hidden />
-                )}
-                <Link href={planningTodoHref(eventId, t.id)} className="hc-todo-words">
-                  <span className="hc-todo-k">{t.title}</span>
-                  <span className={`hc-todo-v${late ? ' hc-todo-late' : ''}`}>{when}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
-      <Link href={planningTodoHref(eventId)} className="hc-todoline" data-home-todo-line="">
-        <span>
-          {pct !== null ? (
-            <>
-              <b>{formatCount(pct)}%</b> of the plan done ·{' '}
-            </>
+    <div role="group" aria-label="Needs you today" data-home-todo={planUnread ? 'unread' : ''} data-event-today="" className="flex flex-col">
+      <p className="hc-k2 min-h-11" data-home-todo-head="" data-event-today-head="">
+        <InfoTip label="Needs you today" labelClassName="hc-k2-name" align="start">
+          {HOME_TODO_INFO}
+        </InfoTip>
+        {/* Only a real count: nothing waiting draws no "0" (the line under it says so). */}
+        {today.listCount > 0 ? <em data-event-today-count="">{formatCount(today.listCount)}</em> : null}
+      </p>
+      <EventTodayGroup eventId={eventId}>
+        <ul className="m-0 flex flex-col p-0" data-event-today-list="">
+          {today.list.map((row) =>
+            row.kind === 'unread' ? (
+              <EventTodayUnreadRow key={row.key} row={row} />
+            ) : (
+              <EventTodayRowItem key={row.key} row={row}>
+                {bodies[row.key] ?? null}
+              </EventTodayRowItem>
+            ),
+          )}
+          {today.more ? (
+            <li className="list-none" data-event-today-more="">
+              <Link href={today.more.href} className="et-more flex min-h-16 items-center gap-3 py-2.5">
+                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-ink/5 text-ink">
+                  <List className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                </span>
+                <span className="grid min-w-0 flex-1">
+                  <span className="text-[15px] font-semibold leading-[1.3] text-ink">
+                    {formatCount(today.more.count)} more plan {today.more.count === 1 ? 'task' : 'tasks'} this week
+                  </span>
+                  <span className="text-[13px] text-ink/60">Opens your plan in Schedule</span>
+                </span>
+                <ChevronRight aria-hidden className="h-[18px] w-[18px] shrink-0 text-sn-accent" strokeWidth={2} />
+              </Link>
+            </li>
           ) : null}
-          All <b>{formatCount(checklist.dueThisWeek)}</b> this week
-        </span>
-        <ChevronRight aria-hidden className="hc-todoline-chev" strokeWidth={1.9} />
-      </Link>
+          {nothing && !today.unread ? (
+            <li className="list-none py-3 text-[14px] text-ink/60" data-event-today-none="" role="status">
+              {today.tomorrow.length > 0 ? 'Nothing else needs you today.' : 'Nothing needs you today.'}
+            </li>
+          ) : null}
+        </ul>
+        {today.foot ? (
+          <Link href={today.foot.href} className="hc-todoline" data-home-todo-line="">
+            <span>
+              {today.foot.pct !== null ? (
+                <>
+                  <b>{formatCount(today.foot.pct)}%</b> of the plan done ·{' '}
+                </>
+              ) : null}
+              All <b>{formatCount(today.foot.week)}</b> this week
+            </span>
+            <ChevronRight aria-hidden className="hc-todoline-chev" strokeWidth={1.9} />
+          </Link>
+        ) : null}
+        <EventTodayTomorrow rows={today.tomorrow} />
+      </EventTodayGroup>
       {/* 👻 THE EMPTY LOOK (Build 5 Lane H): an empty plan — the read answered, nothing in it — shows the list's own rows
           on three sample tasks, greyed under "Example". Gone the moment the plan has one task. */}
-      {checklist.total === 0 && rows.length === 0 ? (
+      {today.planEmpty ? (
         <ExamplePreview>
           <ul className="hc-todo">
             {SAMPLE_TODO.map((t) => (

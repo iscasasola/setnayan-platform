@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8026
+# facts: 8033
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     652
-#   col       5776
-#   policy    1179
+#   tpriv     653
+#   col       5781
+#   policy    1180
 #   view      10
 #   func      405
 #
@@ -207,6 +207,7 @@ tpriv	public.event_supplier_schedule_marks|authenticated	S
 tpriv	public.event_supplier_story_shares|authenticated	S
 tpriv	public.event_tables|anon	SIUD
 tpriv	public.event_tables|authenticated	SIUD
+tpriv	public.event_today_put_offs|authenticated	SIUD
 tpriv	public.event_type_onboarding|anon	SIUD
 tpriv	public.event_type_onboarding|authenticated	SIUD
 tpriv	public.event_type_profiles|anon	SIUD
@@ -2213,6 +2214,11 @@ col	public.event_tables.updated_at	anon=SIU authenticated=SIU
 col	public.event_tables.walkthrough_zone_id	anon=SIU authenticated=SIU
 col	public.event_tables.x_pos	anon=SIU authenticated=SIU
 col	public.event_tables.y_pos	anon=SIU authenticated=SIU
+col	public.event_today_put_offs.event_id	anon=- authenticated=SIU
+col	public.event_today_put_offs.put_off_at	anon=- authenticated=SIU
+col	public.event_today_put_offs.task_key	anon=- authenticated=SIU
+col	public.event_today_put_offs.until_day	anon=- authenticated=SIU
+col	public.event_today_put_offs.user_id	anon=- authenticated=SIU
 col	public.event_type_onboarding.axis_overrides	anon=SIU authenticated=SIU
 col	public.event_type_onboarding.created_at	anon=SIU authenticated=SIU
 col	public.event_type_onboarding.event_type	anon=SIU authenticated=SIU
@@ -6842,6 +6848,7 @@ policy	public.event_tables|event_tables_couple_read	mode=PERMISSIVE cmd=SELECT r
 policy	public.event_tables|event_tables_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_tables|event_tables_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.event_tables|event_tables_moderator_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level = 'edit'::text))) check=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('seat_plan'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))
+policy	public.event_today_put_offs|event_today_put_offs_own	mode=PERMISSIVE cmd=ALL roles=authenticated using=((user_id = ( SELECT auth.uid() AS uid)) AND (event_id IN ( SELECT current_event_ids() AS current_event_ids))) check=((user_id = ( SELECT auth.uid() AS uid)) AND (event_id IN ( SELECT current_event_ids() AS current_event_ids)))
 policy	public.event_type_onboarding|event_type_onboarding_select	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=true check=NULL
 policy	public.event_type_onboarding|event_type_onboarding_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.event_type_profiles|event_type_profiles_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

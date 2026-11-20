@@ -321,6 +321,7 @@ export async function buildPersonalDataExport(
     ownFeeDisputesRes,
     ownPollVotesRes,
     ownFocusPutOffsRes,
+    ownEventPutOffsRes,
   ] = await Promise.all([
     supabase.from('users').select('*').eq('user_id', user.id).maybeSingle(),
     supabase
@@ -895,6 +896,13 @@ export async function buildPersonalDataExport(
       .select('item_key, until_day, put_off_at')
       .eq('user_id', user.id)
       .order('put_off_at', { ascending: true }),
+    // RA 10173 (2026-11-20) — the subject's OWN "Do it tomorrow" on an event's Today (migration 20271354816762).
+    // Owner-scoped on user_id: which event, which Today row, until which day. No other host's record is in it.
+    supabase
+      .from('event_today_put_offs')
+      .select('event_id, task_key, until_day, put_off_at')
+      .eq('user_id', user.id)
+      .order('put_off_at', { ascending: true }),
   ]);
 
   /*
@@ -1217,6 +1225,7 @@ export async function buildPersonalDataExport(
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
   const ownFocusPutOffs = listOutcome('admin_focus_put_offs', ownFocusPutOffsRes);
+  const ownEventPutOffs = listOutcome('event_today_put_offs', ownEventPutOffsRes);
   const workingNotes = listOutcome(
     'vendor_working_notes_authored',
     workingNotesRes,
@@ -1375,6 +1384,7 @@ export async function buildPersonalDataExport(
     ownFeeDisputes,
     ownPollVotes,
     ownFocusPutOffs,
+    ownEventPutOffs,
     // ⚠ These ten were read and shipped but missing from this list until
     // 2026-11-05, so a failed read rendered `[]` under export_complete: TRUE —
     // the silent empty this file exists to prevent. Now pinned by
@@ -1549,6 +1559,8 @@ export async function buildPersonalDataExport(
     chat_poll_votes: ownPollVotes.rows,
     // ⏭ An admin's own Focus items put off with "Do it tomorrow". Owner-scoped.
     admin_focus_put_offs: ownFocusPutOffs.rows,
+    // ⏭ The subject's own event Today rows put off with "Do it tomorrow". Owner-scoped.
+    event_today_put_offs: ownEventPutOffs.rows,
     // The years the subject grouped their own celebrations into, owner-scoped.
     years_you_grouped: eventClusters.rows,
     // RA 10173 (2026-09-11) — the payments this couple logged on events they

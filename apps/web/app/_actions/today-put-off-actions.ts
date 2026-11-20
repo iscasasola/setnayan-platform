@@ -9,6 +9,9 @@
  *   { op: 'undo', key }   the toast's Undo: the record is deleted and the task is back on Today
  *   { ..., scope: 'admin' } v3 part 4 — the same on admin Focus, for THAT admin only (`admin_focus_put_offs`, ruled
  *                         19 Nov); the key is the Focus row's `<queue>:<item>`
+ *   { ..., scope: 'event', eventId } the event's Today (owner 20 Nov 2026, "Event Today, Focus shape"), for THAT person
+ *                         only on THAT event (`event_today_put_offs`): *"one host may choose to do it tomorrow but the
+ *                         other host hasn't"* — every other host still sees the task on Today
  *
  * 🔢 ONE EXPORT ON PURPOSE: every exported server action is a Vercel route and the budget
  * (`scripts/lint-server-action-budget.mjs`) had exactly one left.
@@ -24,15 +27,19 @@ import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveActiveShopId } from '@/lib/active-shop';
 import { manilaToday } from '@/lib/chat-cards';
-import { FOCUS_PUT_OFF_KEY, PUT_OFF_KEY, PUT_OFF_WORDS, tomorrowOf } from '@/lib/today-put-off';
+import { EVENT_PUT_OFF_KEY, FOCUS_PUT_OFF_KEY, PUT_OFF_KEY, PUT_OFF_WORDS, tomorrowOf } from '@/lib/today-put-off';
+import { isUuid } from '@/lib/is-uuid';
 
 export type TodayPutOffResult = { ok: boolean; message: string };
 
-export async function todayPutOff(input: { op: 'put' | 'undo'; key: string; scope?: 'shop' | 'admin' }): Promise<TodayPutOffResult> {
+export async function todayPutOff(input: { op: 'put' | 'undo'; key: string; scope?: 'shop' | 'admin' | 'event'; eventId?: string }): Promise<TodayPutOffResult> {
   const op = input?.op;
-  const scope = input?.scope === 'admin' ? 'admin' : 'shop';
+  const scope = input?.scope === 'admin' ? 'admin' : input?.scope === 'event' ? 'event' : 'shop';
   const key = typeof input?.key === 'string' ? input.key : '';
-  if ((op !== 'put' && op !== 'undo') || !(scope === 'admin' ? FOCUS_PUT_OFF_KEY : PUT_OFF_KEY).test(key)) return { ok: false, message: 'That task was not found.' };
+  const keyShape = scope === 'admin' ? FOCUS_PUT_OFF_KEY : scope === 'event' ? EVENT_PUT_OFF_KEY : PUT_OFF_KEY;
+  if ((op !== 'put' && op !== 'undo') || !keyShape.test(key)) return { ok: false, message: 'That task was not found.' };
+  const eventId = scope === 'event' && isUuid(input?.eventId) ? input.eventId : null;
+  if (scope === 'event' && !eventId) return { ok: false, message: 'That event was not found.' };
   const supabase = await createClient();
   const {
     data: { user },
@@ -53,6 +60,22 @@ export async function todayPutOff(input: { op: 'put' | 'undo'; key: string; scop
     }
     revalidatePath('/admin');
     return { ok: true, message: op === 'put' ? PUT_OFF_WORDS.moved : 'Back in Focus.' };
+  }
+  if (scope === 'event' && eventId) {
+    // This PERSON'S own record on this event (RLS: user_id = auth.uid() and the event is one of theirs) — every other
+    // host still sees the task on Today (owner 20 Nov: "they have independent tasks").
+    const write =
+      op === 'put'
+        ? await supabase
+            .from('event_today_put_offs')
+            .upsert({ event_id: eventId, user_id: user.id, task_key: key, until_day: tomorrowOf(manilaToday()), put_off_at: new Date().toISOString() }, { onConflict: 'event_id,user_id,task_key' })
+        : await supabase.from('event_today_put_offs').delete().eq('event_id', eventId).eq('user_id', user.id).eq('task_key', key);
+    if (write.error) {
+      logQueryError(`todayPutOff.event.${op}`, write.error, { event_id: eventId }, 'graceful_degrade');
+      return { ok: false, message: PUT_OFF_WORDS.failed };
+    }
+    revalidatePath(`/dashboard/${eventId}`);
+    return { ok: true, message: op === 'put' ? PUT_OFF_WORDS.moved : 'Back on Today.' };
   }
   const vendorProfileId = await resolveActiveShopId(supabase, user.id).catch(() => null);
   if (!vendorProfileId) return { ok: false, message: 'Only a shop’s team can do that.' };

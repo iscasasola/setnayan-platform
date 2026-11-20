@@ -60,7 +60,18 @@ export type HomeCardCountdown = {
   href: string;
   /** 🕯 The event whose days are COUNTING DOWN (a day still ahead) — Day turns plays for it; absent = it never does. */
   turnFor?: string;
+  /** "Sat 12 Dec" — the day on the countdown's ONE line (owner 20 Nov 2026, the card redrawn shorter); absent = `line`. */
+  short?: string | null;
+  /** The place, kept on that one line after the day — null when the event has none. */
+  place?: string | null;
 };
+
+/**
+ * 🎴 THE CARD'S COUNT LINE (owner 20 Nov 2026, Event Today drawing — "The count joins the card: '8 things need you'"):
+ * the strip's item + the rows still on Today's list (`lib/event-today.ts` `eventTodayNeedWords`). Never a number of
+ * its own; a read that failed is said here, never "nothing".
+ */
+export type HomeCardNeed = { figure: string | null; words: string };
 
 export function HomeCoverBand({
   cover,
@@ -71,7 +82,10 @@ export function HomeCoverBand({
   settingsHelper = false,
   countdown = null,
   now = null,
+  need = null,
 }: {
+  /** 🎴 "N things need you" — absent on the loading screen and where the list is not drawn. */
+  need?: HomeCardNeed | null;
   /** 🎴 The card's countdown — absent on the loading screen (it has not read the date's facts). */
   countdown?: HomeCardCountdown | null;
   /** ☀ The card's Now row (`HomeToday`) — absent on the loading screen. */
@@ -90,6 +104,8 @@ export function HomeCoverBand({
   const gear = Boolean(settingsFor);
   // 🎴 The full card (countdown · Now) — the ⚙ sits by the name at rest and rides the pinned line once stuck.
   const card = countdown !== null || now !== null;
+  // The countdown's day, on its one line: "Sat 12 Dec" (then the place), or the long line where no short day was handed in.
+  const cardDate = countdown ? (countdown.short ? [countdown.short, countdown.place].filter(Boolean).join(' · ') : countdown.line) : null;
   return (
       <div
         data-home-cover={ground?.kind ?? 'colour'}
@@ -135,11 +151,25 @@ export function HomeCoverBand({
                   )
                 ) : countdown.value}
               </span>
+              {/* 📏 ONE LINE (owner 20 Nov 2026, "make it look better" — the card about 40% less tall): "21 days to go ·
+                  Sat 12 Dec". The full date and the place stay in the door's name; the place stays on the line. */}
               <span aria-hidden className="hc-ecard-w">
-                {countdown.label}
-                {countdown.line ? <span className="hc-ecard-d">{countdown.line}</span> : null}
+                <span>{countdown.label}</span>
+                {cardDate ? (
+                  <>
+                    {countdown.label ? ' · ' : ''}
+                    <span className="hc-ecard-d">{cardDate}</span>
+                  </>
+                ) : null}
               </span>
             </Link>
+          ) : null}
+          {need ? (
+            <p className="hc-ecard-need" data-home-card-need="">
+              {need.figure ? <b>{need.figure}</b> : null}
+              {need.figure ? ' ' : ''}
+              {need.words}
+            </p>
           ) : null}
           {now}
         </div>

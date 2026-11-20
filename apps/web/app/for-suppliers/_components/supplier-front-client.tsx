@@ -16,6 +16,7 @@
  */
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { SWITCH_TRACK } from '@/app/_components/switch-track';
 import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_STOPS, FEE_STOP_START } from './supplier-front-data';
 import s from './supplier-front.module.css';
@@ -127,10 +128,11 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
                 <input
                   type="checkbox"
                   role="switch"
+                  className="peer sr-only"
                   checked={on[i] ?? false}
                   onChange={(e) => setOn((o) => o.map((x, j) => (j === i ? e.target.checked : x)))}
                 />
-                <i aria-hidden="true" />
+                <span aria-hidden="true" className={SWITCH_TRACK} />
               </label>
             ))}
           </div>

@@ -80,7 +80,7 @@ export async function buildCanvasInitialFromCard(
   const { data, error } = await supabase
     .from('vendor_services')
     .select(
-      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys',
+      'vendor_service_id,category,title,pricing_basis,starting_price_php,base_pax,added_pax_price_php,per_pax_price_php,min_pax,hour_base_php,min_hours,extra_hour_php,unit_word,unit_base_php,initial_units,extra_unit_php,price_max,crew_size,crew_meal_included,transport_included,transport_flat_fee_php,recommended_lead_time_months,last_minute_end_months,last_minute_surcharge_pct,includes_setnayan_gift,gift_pack_code,coverage_id,primary_photo_r2_key,showcase_video_r2_key,showcase_photo_r2_keys,description,video_url',
     )
     .eq('vendor_service_id', sourceServiceId)
     .eq('vendor_profile_id', vendorProfileId)
@@ -107,6 +107,11 @@ export async function buildCanvasInitialFromCard(
     | 'hour_base_php'
     | 'min_hours'
     | 'extra_hour_php'
+    | 'unit_word'
+    | 'unit_base_php'
+    | 'initial_units'
+    | 'extra_unit_php'
+    | 'price_max'
     | 'crew_size'
     | 'crew_meal_included'
     | 'transport_included'
@@ -163,6 +168,8 @@ export async function buildCanvasInitialFromCard(
     sourceTitle: src.title?.trim() || null,
     sourceWasOtherCategory: !sameCategory,
     title: src.title?.trim() || '',
+    description: (src as unknown as { description?: string | null }).description ?? '',
+    videoUrl: (src as unknown as { video_url?: string | null }).video_url ?? '',
     includesSetnayanGift: src.includes_setnayan_gift === true,
     // The card's shop gift pack copies like its Setnayan-gift yes/no — an offer the new card's owner sees and can change.
     giftPackCode: (() => {
@@ -189,6 +196,12 @@ export async function buildCanvasInitialFromCard(
       hour_base_php: src.hour_base_php,
       min_hours: src.min_hours,
       extra_hour_php: src.extra_hour_php,
+      // 📦 Part 7: a copied per-unit card keeps its word, base, starting number, each extra and Max.
+      unit_word: src.unit_word ?? null,
+      unit_base_php: src.unit_base_php ?? null,
+      initial_units: src.initial_units ?? null,
+      extra_unit_php: src.extra_unit_php ?? null,
+      price_max: src.price_max ?? null,
     },
     included: {
       crew_meal_included: src.crew_meal_included,

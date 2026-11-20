@@ -174,30 +174,39 @@ export async function reviewVendorChallenge(
 }
 
 // A booked vendor reads their OWN custom challenges for an event + status +
-// completion count. Returns [] when the flag is off / on failure.
+// completion count. Returns [] when the flag is off; NULL on a refused read (C-4, supplier audit 2026-11-17 — a
+// refusal drawn as [] said "No challenges yet — write your first one", inviting a duplicate).
 export async function fetchVendorChallenges(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<VendorChallengeRow[]> {
+): Promise<VendorChallengeRow[] | null> {
   if (!papicGamesEnabled()) return [];
   const { data, error } = await supabase.rpc('papic_vendor_challenges' as never, {
     p_event_id: eventId,
   } as never);
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] papic-games: papic_vendor_challenges', error);
+    return null;
+  }
+  if (!data) return [];
   return data as unknown as VendorChallengeRow[];
 }
 
 // A booked, SPONSORED vendor collects the CONSENTED guest photos from their
 // challenges (Phase 5). The RPC applies the consent + strict-moderation gates and
-// returns web-copy refs only. Returns [] when the flag is off / on failure.
+// returns web-copy refs only. Returns [] when the flag is off; NULL on a refused read (C-4 — never "No shared photos").
 export async function fetchVendorChallengePhotos(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<VendorChallengePhotoRow[]> {
+): Promise<VendorChallengePhotoRow[] | null> {
   if (!papicGamesEnabled()) return [];
   const { data, error } = await supabase.rpc('papic_vendor_challenge_photos' as never, {
     p_event_id: eventId,
   } as never);
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] papic-games: papic_vendor_challenge_photos', error);
+    return null;
+  }
+  if (!data) return [];
   return data as unknown as VendorChallengePhotoRow[];
 }

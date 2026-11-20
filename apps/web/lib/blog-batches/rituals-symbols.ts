@@ -4,7 +4,7 @@ import type { BlogArticle } from '@/lib/blog';
 // explainers on the meaning, history, and lived practice of Filipino wedding
 // customs. Culture pieces lead with meaning, then the practical "how to include
 // it". Benefits only — never implementation detail; durable Setnayan facts only
-// (free planning workspace, 0% commission, free wedding website), no SKU prices.
+// (free planning workspace, 0% commission, free Event Hub), no SKU prices.
 
 export const ARTICLES_RITUALS: BlogArticle[] = [
   {
@@ -131,7 +131,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Tell your host and your band or DJ in advance, and pick a song with a good long runtime — or a medley — so the line never outruns the music. Assign two reliable people to manage the pinning and the collecting so neither the couple nor the gown gets fussed over, and so the money is gathered and kept safe rather than left in someone\'s pocket. A small heads-up on your wedding website or from the host helps guests come prepared, since not everyone carries cash these days. Above all, keep it light: the money dance is meant to feel like a party, not a transaction.',
+        text: 'Tell your host and your band or DJ in advance, and pick a song with a good long runtime — or a medley — so the line never outruns the music. Assign two reliable people to manage the pinning and the collecting so neither the couple nor the gown gets fussed over, and so the money is gathered and kept safe rather than left in someone\'s pocket. A small heads-up on your Event Hub or from the host helps guests come prepared, since not everyone carries cash these days. Above all, keep it light: the money dance is meant to feel like a party, not a transaction.',
       },
       {
         type: 'p',
@@ -523,7 +523,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'You may hear the term abuloy used loosely for any monetary contribution, but it is worth a careful note. Strictly, abuloy most often refers to a donation given to help with funeral expenses, so many families instinctively avoid it for a happy occasion like a wedding. For a wedding, "cash gift," "monetary gift," or simply a gift envelope is the safer and warmer phrasing. When in doubt, follow the couple\'s own wording on the invitation or wedding website — if they have asked for help toward their honeymoon, use the words they used.',
+        text: 'You may hear the term abuloy used loosely for any monetary contribution, but it is worth a careful note. Strictly, abuloy most often refers to a donation given to help with funeral expenses, so many families instinctively avoid it for a happy occasion like a wedding. For a wedding, "cash gift," "monetary gift," or simply a gift envelope is the safer and warmer phrasing. When in doubt, follow the couple\'s own wording on the invitation or Event Hub — if they have asked for help toward their honeymoon, use the words they used.',
       },
       {
         type: 'h2',
@@ -548,11 +548,11 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Make it easy and gracious for your guests. A simple, well-placed gift box or a discreet, kindly worded line on your wedding website saves everyone the guessing and the last-minute scramble. Assign a trusted, level-headed person to safekeep envelopes during the reception, so nothing is lost in the happy chaos of the night. And whatever comes in, thank every guest personally afterward — a short, specific note matters far more than the amount, and it is the part guests actually remember. Generosity given well deserves gratitude given well in return.',
+        text: 'Make it easy and gracious for your guests. A simple, well-placed gift box or a discreet, kindly worded line on your Event Hub saves everyone the guessing and the last-minute scramble. Assign a trusted, level-headed person to safekeep envelopes during the reception, so nothing is lost in the happy chaos of the night. And whatever comes in, thank every guest personally afterward — a short, specific note matters far more than the amount, and it is the part guests actually remember. Generosity given well deserves gratitude given well in return.',
       },
       {
         type: 'cta',
-        text: 'A free Setnayan wedding website lets you share gift details gracefully and collect RSVPs in one place.',
+        text: 'A free Setnayan Event Hub lets you share gift details gracefully and collect RSVPs in one place.',
         href: '/signup',
         label: 'Start planning free',
       },

@@ -131,6 +131,48 @@
         "RevealList"
       ]
     },
+    "/(shell)/articles/(list)": {
+      "files": [
+        "(shell)/articles/(list)/loading.tsx",
+        "(shell)/articles/(list)/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ArticlesFeedView"
+      ]
+    },
+    "/(shell)/articles/[slug]": {
+      "files": [
+        "(shell)/articles/[slug]/article-view.tsx",
+        "(shell)/articles/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "Article",
+        "ArticleParagraph",
+        "ArticleView",
+        "BackButton",
+        "BylineName",
+        "LinkCardView",
+        "Metadata",
+        "ReplyBox",
+        "ReportPageButton",
+        "TagChips"
+      ]
+    },
+    "/(shell)/articles/write": {
+      "files": [
+        "(shell)/articles/write/loading.tsx",
+        "(shell)/articles/write/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "WriteSheet"
+      ]
+    },
     "/(shell)/budget": {
       "files": [
         "(shell)/budget/loading.tsx",
@@ -2450,6 +2492,7 @@
         "admin/_components/focus-home.tsx",
         "admin/_components/focus-received.tsx",
         "admin/_components/focus-recents.tsx",
+        "admin/_components/focus-row.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/merged-view.ts",
         "admin/_components/mobile-landing-grid.tsx",
@@ -2584,11 +2627,15 @@
         "ErrorState",
         "FocusCardSheet",
         "FocusHome",
+        "FocusList",
+        "FocusListCtx.Provider",
         "FocusReceived",
         "FocusRecents",
+        "FocusRow",
         "Fold",
         "Fragment",
         "GuidedTour",
+        "HTMLAnchorElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -2602,6 +2649,7 @@
         "OverlayBackdrop",
         "P",
         "PageMasthead",
+        "PeekToast",
         "PeopleShowSort",
         "PickMenu",
         "PinnedRow",
@@ -2617,6 +2665,7 @@
         "TermsReacceptSheet",
         "ThumbDock",
         "ThumbRow",
+        "TwoWayPanes",
         "TypedRow",
         "UnreadBellBadge"
       ]
@@ -11769,6 +11818,8 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares-card.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/deposit-reservation.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/forms-from-shop-list.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/handover-inbox.tsx",
@@ -11806,6 +11857,7 @@
         "/proposals/[seg]"
       ],
       "actions": [
+        "act",
         "action",
         "addWorkingNoteAction",
         "coupleConfirmReceived",
@@ -11835,6 +11887,8 @@
         "CoordinatorGrantChips",
         "CouplePhotoApprovals",
         "CouplePhotoApprovalsSheet",
+        "CoupleStoryShares",
+        "CoupleStorySharesCard",
         "CoupleThreadBody",
         "DepositReservation",
         "DetailPageSkeleton",
@@ -14431,6 +14485,7 @@
         "vendor-dashboard/_components/today-v2-assemble.tsx",
         "vendor-dashboard/_components/today-v2-client.tsx",
         "vendor-dashboard/_components/today-v2.tsx",
+        "vendor-dashboard/_components/today-wrap-up.tsx",
         "vendor-dashboard/_components/undoable-answers.tsx",
         "vendor-dashboard/_components/use-hero-pin.ts",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
@@ -14474,6 +14529,7 @@
       ],
       "actions": [
         "acceptInquiry",
+        "act",
         "agreeDeletion",
         "agreeLock",
         "answerDateChange",
@@ -14486,6 +14542,7 @@
         "formAction",
         "markServiceComplete",
         "postReviewReply",
+        "postVendorReply",
         "rejectLock",
         "renewAction",
         "respondMeeting",
@@ -14552,6 +14609,7 @@
         "Group",
         "GrowthWindow",
         "GrowthWindowCtx.Provider",
+        "GuestReply",
         "GuidedTour",
         "HTMLButtonElement",
         "HTMLDivElement",
@@ -14569,6 +14627,7 @@
         "InquiryBody",
         "KeepAnswer",
         "LatLng",
+        "Line",
         "Link",
         "LockBody",
         "LockRequestBody",
@@ -14643,6 +14702,7 @@
         "Spotlight",
         "SpotlightMount",
         "StageBadge",
+        "Stars",
         "State",
         "StayOnTodayLine",
         "StayOnTodayLineView",
@@ -14686,10 +14746,13 @@
         "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
+        "TodayTomorrowLink",
         "TodayTrending",
         "TodayV2Needs",
         "TodayV2Sub",
+        "TodayWrapUpBody",
         "TrackRecordRow",
+        "TwoWayPanes",
         "TypedRow",
         "UndoableAnswers",
         "Unread",

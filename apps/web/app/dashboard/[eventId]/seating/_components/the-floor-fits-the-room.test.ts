@@ -41,7 +41,8 @@ test('2 · the draft says one line with Undo, in the thumb row’s toast — not
   assert.doesNotMatch(ed, /Built a starting floor/, 'the three-line notice is back');
   assert.match(draft, /seated at \$\{formatCount\(res\.tables\)\}/);
   assert.match(draft, /setFloorNote\(\{ text, undo: null \}\);/);
-  assert.match(ed, /const seatToast = floorNote\s*\? \{ text: floorNote\.text, onUndo: floorNote\.undo, onDismiss: \(\) => setFloorNote\(null\) \}/, 'the floor’s line is not the toast');
+  assert.match(ed, /: floorNote\s*\? \{ text: floorNote\.text, onUndo: floorNote\.undo, onDismiss: \(\) => setFloorNote\(null\) \}/, 'the floor’s line is not the toast');
+  assert.match(ed, /if \(floorNote\) setMoveNote\(null\);/, 'an older seat-move line hides the floor’s newer one');
   assert.match(ed, /: !inGuests && \(notice \|\| \(autoRun && !isPhone\)\) \? 'notice'/, 'a notice strip can cover the zoom in Guests again');
   assert.match(ed, /: inGuests && notice\s*\? \{ text: notice, onUndo: null, onDismiss: \(\) => setNotice\(null\) \}/, 'a plain notice is lost in Guests');
 });
@@ -50,11 +51,12 @@ test('3 · the draft uses the grid, and its Undo takes back exactly its own tabl
   const draft = actions.slice(actions.indexOf('export async function buildSeatingDraft('), actions.indexOf('export async function saveReceptionDesign('));
   assert.match(draft, /const grid = seatingGridLayout\(\s*seatingFloorOf\(floorPlan\),/, 'the draft is not laid out by the shared core');
   assert.match(draft, /const layout: Record<string, \{ x: number; y: number \}> = \{ \.\.\.spill, \.\.\.grid \};/, 'the grid does not win over the old layout');
-  const undo = draft.slice(draft.indexOf("formData.get('undo_table_ids')"), draft.indexOf('const [existing, guests'));
+  const undo = draft.slice(draft.indexOf("formData.get('undo_table_ids')"), draft.indexOf('if (existing.length > 0)'));
   assert.ok(undo.length > 0, 'the Undo intent is gone');
   assert.ok(draft.indexOf('await assertSeatingLockHeld(supabase, eventId, lockId);') < draft.indexOf("formData.get('undo_table_ids')"), 'Undo runs before the lock is checked');
+  assert.ok(draft.indexOf('guestsOrStop(supabase, eventId)') < draft.indexOf("formData.get('undo_table_ids')"), 'Undo writes before the stop-readers');
   assert.match(undo, /\.delete\(\)\.eq\('event_id', eventId\)\.in\('table_id', ids\)/, 'Undo is not scoped to this event and these tables');
-  assert.match(ed, /const ids = tables\.map\(\(t\) => t\.table_id\);\s*setFloorNote\(\(n\) => \(n && n\.text === waiting\.text \? \{ text: n\.text, undo: \(\) => undoDraft\(ids\) \} : n\)\);/);
+  assert.match(ed, /const ids = tables\.map\(\(t\) => t\.table_id\);\s*setFloorNote\(\{ text: waiting\.text, undo: \(\) => undoDraft\(ids\) \}\);[\s\S]{0,200}\}, \[tables\.length, floorNote\]\);/, 'the draft’s Undo is not armed with exactly its own tables, whichever arrives first');
 });
 
 test('4 · names come on a tap until they can be read', async () => {

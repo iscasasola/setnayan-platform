@@ -1746,14 +1746,16 @@ export function SeatingEditor({
       await runGated(() => (floorWrites?.buildSeatingDraft ?? buildSeatingDraft)(fd));
     });
   };
+  /* The Undo is armed once BOTH are here — the draft's answer (the line) and its tables. They arrive in either order
+     (the page's fresh tables can land before the action's answer does), so this waits on the two of them. */
   useEffect(() => {
     const waiting = draftUndoRef.current;
-    if (!waiting || tables.length === 0) return;
+    if (!waiting || tables.length === 0 || !floorNote || floorNote.text !== waiting.text) return;
     draftUndoRef.current = null;
     const ids = tables.map((t) => t.table_id);
-    setFloorNote((n) => (n && n.text === waiting.text ? { text: n.text, undo: () => undoDraft(ids) } : n));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- armed once, when the draft's tables arrive
-  }, [tables.length]);
+    setFloorNote({ text: waiting.text, undo: () => undoDraft(ids) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- armed once, when the line and the tables are both here
+  }, [tables.length, floorNote]);
 
   // Tap the P-chip to cycle a guest's explicit priority override: from the
   // derived tier it starts an override at 1, then 2→3→4, then back to derived
@@ -4521,7 +4523,7 @@ export function SeatingEditor({
       });
     }
     const region = regionRef.current;
-    const cell = inGuests && region ? region.getBoundingClientRect() : null;
+    const cell = inGuests ? regionRef.current?.getBoundingClientRect() : null;
     const px = (name: string) => (region ? parseFloat(getComputedStyle(region).getPropertyValue(name)) || 0 : 0);
     const v = fitRoom({
       room: { left: cell ? rect.left - cell.left : 0, top: cell ? rect.top - cell.top : 0, width: rect.width, height: rect.height },
@@ -6977,6 +6979,14 @@ export function SeatingEditor({
      there is something to say. Done → one line with Undo (swap again / put back). */
   const [askMove, setAskMove] = useState<{ moverId: string; otherId: string | null; tableId: string; seat: number | null; a: MoveAssessment; on: Record<string, boolean> } | null>(null);
   const [moveNote, setMoveNote] = useState<{ text: string; undo: (() => void) | null } | null>(null);
+  /* 🔔 One line at a time: the newest wins. A seat move's line replaces the floor's ("Table 2 added…"), and the floor's
+     replaces a move's — never an older line coming back when the newer one leaves. */
+  useEffect(() => {
+    if (moveNote) setFloorNote(null);
+  }, [moveNote]);
+  useEffect(() => {
+    if (floorNote) setMoveNote(null);
+  }, [floorNote]);
   /* ↩ ONE UNDO FOR EVERY GUEST DROP (owner 2026-11-16, batch 2 "Seat plan (drag-first)": *"every guest drop shows one
      Undo line (trades have none today)"*). An Undo is pressed a render or more after its move, so it calls the LATEST
      shipped moves (`seatOps`): the move's own render still holds the seats as they were BEFORE it — a swap "again" from
@@ -7627,10 +7637,10 @@ export function SeatingEditor({
   /* 🔔 ONE toast line at a time, in the thumb row's own toast — never a strip across the floor's foot, where it covered
      the zoom (owner 2026-11-20, live: the draft's three-line notice sat on Zoom in / Zoom out). In Guests the plan's
      plain notices ride it too (`notice`), so the foot of the floor carries no strip at all. */
-  const seatToast = floorNote
-    ? { text: floorNote.text, onUndo: floorNote.undo, onDismiss: () => setFloorNote(null) }
-    : moveNote
+  const seatToast = moveNote
     ? { text: moveNote.text, onUndo: moveNote.undo, onDismiss: () => setMoveNote(null) }
+    : floorNote
+    ? { text: floorNote.text, onUndo: floorNote.undo, onDismiss: () => setFloorNote(null) }
     : inGuests && notice
     ? { text: notice, onUndo: null, onDismiss: () => setNotice(null) }
     : autoRun

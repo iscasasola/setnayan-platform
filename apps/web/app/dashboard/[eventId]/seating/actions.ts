@@ -2586,9 +2586,22 @@ export async function buildSeatingDraft(
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
+  const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
+    fetchTables(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
+    supabase
+      .from('events')
+      .select('ceremony_type, secondary_ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+  ]);
+
   /* ↩ UNDO THE DRAFT (owner 2026-11-20: the draft's message is ONE line with Undo) — an intent of this action (the
      server-action ceiling), never a second one. It takes back exactly the tables the draft made (the ids the screen
-     saw arrive), for this event only, in ONE statement; their seats go with them (ON DELETE CASCADE). */
+     saw arrive), for this event only, in ONE statement; their seats go with them (ON DELETE CASCADE). It stands AFTER
+     the stop-readers above like every write in this file — a refused read stops it too. */
   const undoRaw = formData.get('undo_table_ids');
   if (typeof undoRaw === 'string' && undoRaw.length > 0) {
     let ids: string[] = [];
@@ -2606,18 +2619,6 @@ export async function buildSeatingDraft(
     revalidatePath(`/dashboard/${eventId}/seating`);
     return { tables: 0, seated: 0 };
   }
-
-  const [existing, guests, floorPlan, memberships, eventRow] = await Promise.all([
-    fetchTables(supabase, eventId),
-    guestsOrStop(supabase, eventId),
-    floorPlanOrStop(supabase, eventId),
-    membershipsOrStop(supabase, eventId),
-    supabase
-      .from('events')
-      .select('ceremony_type, secondary_ceremony_type')
-      .eq('event_id', eventId)
-      .maybeSingle(),
-  ]);
 
   // Guard: only ever build onto a blank floor — never clobber existing tables.
   if (existing.length > 0) {

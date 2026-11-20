@@ -48,7 +48,7 @@ test('one line, in the section and on the Shop\'s Prints tile', () => {
   assert.match(COVER, /data-shop-quick="prints"[\s\S]{0,700}\{PRINTS_LINE\}/, 'the Shop tile does not wear the line');
   assert.doesNotMatch(COVER, /Marketing materials, printed out/, 'the tile types its own copy of the line');
   assert.match(COVER, /data-shop-quick="prints"/); // "Prints" again (owner 17 Nov, later): it opens the prints alone
-  // The tile is one of the quick row's three (`the-quick-row-is-the-drawn-three.test.ts`); it opens the prints alone.
+  // The tile is one of the five-button row (`the-quick-row-is-the-drawn-five.test.ts`); it opens the prints alone.
   assert.match(COVER, /onClick=\{\(\) => openSheet\('prints'\)\}[^>]*data-shop-quick="prints"/, 'the tile does not open the prints');
 });
 

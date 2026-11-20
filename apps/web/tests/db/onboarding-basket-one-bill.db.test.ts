@@ -317,7 +317,8 @@ test('reversal knows a bill can be the thing that granted Setnayan AI', () => {
   assert.match(
     tail.slice(0, 1200),
     // 2026-11-04: a basket line of Event Plus / Event Pro grants Setnayan AI too, so it reverses it too.
-    /basketItems\.some\(\(i\) => i\.serviceCode === 'SETNAYAN_AI' \|\| AI_INCLUDED_PLAN_SKUS\.includes\(i\.serviceCode\)\)/,
+    // 2026-11-18 (the re-cut): `mayCarryAi` = AI_INCLUDED_PLAN_SKUS + the grandfathered Event Plus.
+    /basketItems\.some\(\(i\) => i\.serviceCode === 'SETNAYAN_AI' \|\| mayCarryAi\(i\.serviceCode\)\)/,
     'a refunded basket would keep Setnayan AI switched on',
   );
 });

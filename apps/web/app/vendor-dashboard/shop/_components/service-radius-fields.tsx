@@ -7,7 +7,7 @@ import { useToast } from '@/app/_components/toast/toast-provider';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ActionButton } from '@/components/action-button';
 import { MAX_DECLARABLE_RADIUS_KM } from '@/lib/vendor-service-radius';
-import { GetVerifiedLine, UNVERIFIED_REACH_TITLE } from '../../_components/get-verified-line';
+import { COVERAGE_REACH_LOCKED_LINE, COVERAGE_REACH_TITLE, GetVerifiedLine } from '../../_components/get-verified-line';
 import { updateServiceRadius } from '../radius-actions';
 import { ReachMap } from './reach-map';
 
@@ -33,19 +33,22 @@ import { ReachMap } from './reach-map';
  *     pin picker), never a second pin editor;
  *   · the two number fields + "Save distances" became −/＋ steppers that SAVE IN PLACE (a save never resets the screen
  *     — the same `updateServiceRadius` action, debounced; the screen keeps every value it shows);
- *   · ＋ past the plan's farthest does not save: it says how far the NEXT plan reaches, and the ⓘ carries the ladder;
- *   · an unverified Free shop reaches 0 km. Until 2026-10-29 this returned `null` there — the panel went silent. Now it
- *     says why and offers the one step (`GetVerifiedLine`: "Couples can't find you by distance yet · You show up once
- *     you're verified · [Get verified]"), with the map and the rings greyed until approved.
+ *
+ * 🔓 REACH IS NOT A PLAN ALLOWANCE (owner 2026-11-19: *"ok unlock the range. not plan dependend anymore."* ·
+ * *"Free Unverified account will have a range of 0km."*). So:
+ *   · a VERIFIED shop on any plan sets its own two distances up to `MAX_DECLARABLE_RADIUS_KM` (the typo guard). There
+ *     is no "next plan reaches X km" upsell and no plan ladder in the ⓘ any more;
+ *   · an UNVERIFIED shop reaches 0 km and sees ONE locked row in place of the map, the rings and the steppers —
+ *     "Coverage reach · Get verified to be found · [Get verified]" (`GetVerifiedLine`). Never silent (the pre-2026-10-29
+ *     `return null`), never a greyed map that looks like it might work.
  *
  * COPY DISCIPLINE: no jargon on screen. Not "inner/outer radius" — "Free transpo within" and "You cover up to". The
  * words "inner" and "outer" appear nowhere a vendor can see them.
  *
- * The tier ceiling is ergonomics only here — the real cap check runs server-side in `updateServiceRadius`, which
- * re-reads `tier_state` from the database.
+ * The ceiling is ergonomics only here — the real check runs server-side in `updateServiceRadius`, which re-reads
+ * `verification_state` from the database.
  *
- * A BLANK IS A VALID STATE and is never nagged about: undeclared ("—") means the couple's bench keeps its existing
- * tier-derived reach read.
+ * A BLANK IS A VALID STATE and is never nagged about: undeclared ("—") means no distance limit of the shop's own.
  */
 
 /** One press moves a distance this far. */
@@ -59,47 +62,38 @@ const downFrom = (v: number) => Math.ceil(v / STEP_KM) * STEP_KM - STEP_KM;
 export function ServiceRadiusFields({
   initialInnerKm,
   initialOuterKm,
-  tierCapKm,
+  reachCeilingKm,
   lat = null,
   lng = null,
   city = null,
   isVerified = true,
-  tierMeasured = true,
-  planName = null,
-  nextReach = null,
-  ladder = null,
+  measured = true,
   reachNote = null,
 }: {
   initialInnerKm: number | null;
   initialOuterKm: number | null;
-  /** The vendor's plan ceiling in km. Non-finite / 0 = no reach on this plan. */
-  tierCapKm: number;
+  /** `reachCeilingKm(isVerified)` — ∞ verified, 0 unverified. Never a plan's number (owner 2026-11-19). */
+  reachCeilingKm: number;
   /** The HQ pin. Null → no map yet (the address row above sets it). */
   lat?: number | null;
   lng?: number | null;
   city?: string | null;
-  /** The shop is verified — an unverified shop's 0 km says why, with the one step that opens it. */
+  /** The shop is verified — an unverified shop gets the ONE locked "Coverage reach" row. */
   isVerified?: boolean;
-  /** The plan could be read. False → say so; never draw a plan's reach that was not read. */
-  tierMeasured?: boolean;
-  /** "Solo" — the plan's own name, for "Your plan's farthest · Solo 30 km". */
-  planName?: string | null;
-  /** The next plan up that reaches farther ("Pro", 50) — what ＋ past the cap says. Null at the top. */
-  nextReach?: { plan: string; km: number } | null;
-  /** "Verified 20 km · Solo 30 · Pro 50 · Ultra 100" — built from the plan table, for the ⓘ. */
-  ladder?: string | null;
-  /** The shipped sentence about how couples find you at this reach — moved into the ⓘ. */
+  /** The shop's row could be read. False → say so; never draw a reach that was not read. */
+  measured?: boolean;
+  /** The shipped sentence about how couples find you — in the ⓘ. */
   reachNote?: string | null;
 }) {
   const toast = useToast();
   const [, startTransition] = useTransition();
 
-  // Ultra reaches nationwide (`Infinity`, owner 2026-11-04) — still a cap to step under, bounded by the column's own
-  // MAX_DECLARABLE_RADIUS_KM, never "no cap at all".
-  const hasCap = tierMeasured && tierCapKm > 0;
-  const cap = hasCap ? Math.min(tierCapKm, MAX_DECLARABLE_RADIUS_KM) : 0;
-  // What couples are shown is the declaration CLAMPED to today's plan (`effectiveOuterRadiusKm` — a lapsed plan stops
-  // buying reach), so that is what the steppers start from; a stale wider number is never drawn as if it applied.
+  // A verified shop's ceiling is `Infinity` — still a cap to step under, bounded by MAX_DECLARABLE_RADIUS_KM (the typo
+  // guard, the same on every plan), never "no cap at all".
+  const hasCap = measured && isVerified && reachCeilingKm > 0;
+  const cap = hasCap ? Math.min(reachCeilingKm, MAX_DECLARABLE_RADIUS_KM) : 0;
+  // What couples are shown is the declaration CLAMPED to the ceiling (`effectiveOuterRadiusKm`), so that is what the
+  // steppers start from; a stale wider number is never drawn as if it applied.
   const startOuter = initialOuterKm === null || !hasCap ? initialOuterKm : Math.min(initialOuterKm, cap);
   const startInner = initialInnerKm === null || !hasCap ? initialInnerKm : Math.min(initialInnerKm, startOuter ?? cap);
   const [inner, setInner] = useState(startInner);
@@ -117,7 +111,6 @@ export function ServiceRadiusFields({
   );
 
   const hasMap = lat !== null && lng !== null;
-  const plan = planName ?? 'Your plan';
 
   function save(next: { inner: number | null; outer: number | null }) {
     setJustSaved(false);
@@ -143,12 +136,8 @@ export function ServiceRadiusFields({
     }, SAVE_AFTER_MS);
   }
 
-  /** ＋ past the plan's farthest: no save — how far the next plan reaches, in words. */
-  const kmWords = (km: number) => (Number.isFinite(km) ? `${km} km` : 'nationwide');
-  const pastCap = () =>
-    nextReach
-      ? `${plan} reaches ${cap} km · ${nextReach.plan} reaches ${kmWords(nextReach.km)}`
-      : `${cap} km is the farthest you can set`;
+  /** ＋ past the farthest: no save — the one limit, said plainly (no plan upsell: reach is not a plan allowance). */
+  const pastCap = () => `${cap.toLocaleString('en-PH')} km is the farthest you can set`;
 
   function stepOuter(dir: 1 | -1) {
     if (!hasCap) return;
@@ -197,15 +186,34 @@ export function ServiceRadiusFields({
     if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
   }
 
-  const unverifiedZero = tierMeasured && !hasCap && !isVerified;
   const info = [
     'Your pin is where trips start. Inside the green ring couples pay no transportation fee; the dashed ring is as far as you go.',
-    ladder ? `Your plan sets the farthest you can choose: ${ladder} — Free is 0 until you are verified.` : null,
+    'Every plan sets its own distances once your shop is verified.',
     reachNote,
     'Saves as you change it.',
   ]
     .filter(Boolean)
     .join(' ');
+
+  if (!measured) {
+    return (
+      <div className="space-y-1" data-where-you-work="">
+        <p className="text-sm font-semibold text-ink">How far you go</p>
+        <p role="status" className="text-sm text-warn-700" data-could-not-load="">
+          We couldn&rsquo;t read your shop just now — your distances are unchanged. Refresh in a moment.
+        </p>
+      </div>
+    );
+  }
+
+  // 🔒 UNVERIFIED = 0 km (owner 2026-11-19): ONE locked row, no map, no rings, no steppers.
+  if (!isVerified) {
+    return (
+      <div className="space-y-1" data-where-you-work="" data-reach-locked="">
+        <GetVerifiedLine title={COVERAGE_REACH_TITLE} line={COVERAGE_REACH_LOCKED_LINE} data="reach" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1" data-where-you-work="">
@@ -213,20 +221,8 @@ export function ServiceRadiusFields({
         {info}
       </InfoTip>
 
-      {!tierMeasured ? (
-        <p role="status" className="text-sm text-warn-700" data-could-not-load="">
-          We couldn&rsquo;t read your plan just now — your distances are unchanged. Refresh in a moment.
-        </p>
-      ) : unverifiedZero ? (
-        <GetVerifiedLine title={UNVERIFIED_REACH_TITLE} data="reach" />
-      ) : !hasCap ? (
-        <p className="py-2 text-sm text-[color:var(--m-slate-2)]" data-reach-none="">
-          Couples can&rsquo;t find you by distance yet — your plan has no distance reach.
-        </p>
-      ) : null}
-
       {hasMap ? (
-        <ReachMap lat={lat} lng={lng} radiusKm={cap} innerKm={hasCap ? inner : null} outerKm={hasCap ? outer : null} muted={!hasCap} />
+        <ReachMap lat={lat} lng={lng} radiusKm={cap} innerKm={inner} outerKm={outer} />
       ) : (
         <p className="py-2 text-sm text-[color:var(--m-slate-2)]">
           Add your HQ address above to see how far you cover on a map.
@@ -251,13 +247,7 @@ export function ServiceRadiusFields({
         </Row>
         <Row
           title="You cover up to"
-          line={
-            !hasCap
-              ? 'Free reaches 0 km until verified'
-              : outer !== null && outer >= cap
-                ? `Your plan's farthest · ${plan} ${cap} km`
-                : "Couples farther out can't book"
-          }
+          line={outer !== null && outer >= cap ? 'The farthest you can set' : "Couples farther out can't book"}
         >
           <KmStepper
             label="You cover up to"
@@ -301,7 +291,7 @@ function Row({ title, line, children }: { title: string; line: string; children:
 
 /**
  * − value ＋ for a distance. The value reads "—" until they say one (a blank is a real answer). ＋ stays pressable at
- * the plan's farthest so it can say how far the next plan reaches; − stops at what the other distance allows.
+ * the farthest so it can say so; − stops at what the other distance allows.
  */
 function KmStepper({
   label,

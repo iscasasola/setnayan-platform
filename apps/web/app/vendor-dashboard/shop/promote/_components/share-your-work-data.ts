@@ -29,9 +29,10 @@ export type ShareYourWorkData = {
   /**
    * 📖 ULTRA STORY PAGES (owner 2026-11-14, item 8) — null unless the shop is on Ultra (effective tier). Then each
    * story row gets its "In our words" note and a link to the shop's own page for it. `notes` is keyed by event id;
-   * a refused read is an empty map (the box opens empty — the page still shows nothing it should not).
+   * 🛑 a REFUSED notes read is `notes: null`, never an empty map: an empty box is SAVEABLE, and a blank save deletes
+   * the note — so a supplier could wipe a published note they never saw (supplier audit 2026-11-17, S-5).
    */
-  ultra?: { shopSlug: string; notes: Record<string, string> } | null;
+  ultra?: { shopSlug: string; notes: Record<string, string> | null } | null;
 };
 
 async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData['ultra']> {
@@ -47,7 +48,10 @@ async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: st
     .from('vendor_event_story_notes')
     .select('event_id, body')
     .eq('vendor_profile_id', vendorProfileId);
-  if (notesErr) logQueryError('ShareYourWork.notes', notesErr, { vendorProfileId }, 'graceful_degrade');
+  if (notesErr) {
+    logQueryError('ShareYourWork.notes', notesErr, { vendorProfileId }, 'graceful_degrade');
+    return { shopSlug: row.business_slug, notes: null };
+  }
   const notes: Record<string, string> = {};
   for (const n of (noteRows ?? []) as { event_id: string; body: string }[]) notes[n.event_id] = n.body;
   return { shopSlug: row.business_slug, notes };

@@ -23,6 +23,10 @@
 
 BEGIN;
 
+-- public.events is a hot table and these ALTERs take ACCESS EXCLUSIVE: never queue behind (or in front of) live
+-- traffic for more than 5 s. A push that cannot get the lock fails and is retried (ship-controller review, PR #7920).
+SET LOCAL lock_timeout = '5s';
+
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS date_months DATE[];
 
 ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_date_mode_check;

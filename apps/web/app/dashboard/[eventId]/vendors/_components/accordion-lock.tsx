@@ -1,6 +1,7 @@
 'use client';
 
 import { WithdrawAskButton } from './withdraw-ask-button';
+import { piecesAskSentLine } from '@/lib/pieces-ask-words';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import {
   AlertTriangle,
@@ -147,7 +148,7 @@ type LockState =
   // looked exactly like a press that did nothing — tolerable only on the
   // bench, whose own revalidation swaps Lock for Withdraw. In the chat card
   // (the second mount) nothing revalidated, so the ask was invisible.
-  | { kind: 'requested'; vendorName: string }
+  | { kind: 'requested'; vendorName: string; byThePiece: boolean }
   // Coordinator proposed the lock (spec § 4) — the couple confirms it.
   | { kind: 'proposed'; vendorName: string };
 
@@ -460,7 +461,7 @@ export function AccordionLockButton({
           // the row (the bench's Withdraw, the chat card's "you have asked them
           // to lock") catches up on the action's own answer (it revalidates).
           haptic('confirm');
-          setState({ kind: 'requested', vendorName: result.vendorName });
+          setState({ kind: 'requested', vendorName: result.vendorName, byThePiece: result.byThePiece === true });
           return;
         default: {
           // 🔴 A RESULT THIS SWITCH DOES NOT NAME MUST NEVER RENDER AS NOTHING.
@@ -497,7 +498,10 @@ export function AccordionLockButton({
     return (
       <div className={wrapperClassName}>
         <p role="status" className="text-xs text-ink/70">
-          Booking requested — waiting for {state.vendorName} to agree.{' '}
+          {/* 🪑 By the piece (owner Q2, 20 Nov): the ask carries no number — never the stock, only who says how many. */}
+          {state.byThePiece
+            ? piecesAskSentLine(state.vendorName)
+            : <>Booking requested — waiting for {state.vendorName} to agree.</>}{' '}
           {/* ↩ Undo — the shipped withdraw (`withdrawVendorLockRequest`), the same one the bench's "Take it back" uses. */}
           <WithdrawAskButton vendorId={vendorId} vendorName={state.vendorName} label="Undo" className="underline" />
         </p>

@@ -14,6 +14,7 @@
 
 # ── TEXT: a string property whose digits were grouped where it was built ──
 app/_components/photo-group-header.tsx :: count :: TEXT — a worded line the caller builds (Find: `findHeaderCount` in lib/supplier-find.ts, which groups through formatCount)
+app/(shell)/for-suppliers/page.tsx :: papic150 :: TEXT — getCustomerSkuPrice (lib/v2-catalog.ts) returns the catalog price already grouped by formatPeso, a string
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — a string built by formatCount(PORTFOLIO_FREE_BASE) in supplier-front-data.ts
 app/for-suppliers/_components/supplier-front-page.tsx :: FREE_PHOTOS :: TEXT — the second render of the same grouped string
 app/for-suppliers/_components/supplier-front-page.tsx :: BADGE_FIRST :: TEXT — a string built by formatCount(MILESTONE_THRESHOLDS[0]) in supplier-front-data.ts
@@ -61,3 +62,4 @@ lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, a
 lib/quote-versions.ts :: amount :: TEXT — quotePlanText's installment share, already a string from pct() ("30%") or peso() (toLocaleString, grouped); one row per use in the plan line
 app/dashboard/(account)/billing/_components/billing-list.tsx :: amount :: TEXT — BillingRow's amount is a ReactNode every caller already built with formatPhp() or manilaDay() (billing-list Row, supplier-billing-sections); never a raw number
 app/admin/colours/_components/colours-editor.tsx :: firstRefusal :: TEXT — the first refusal sentence from judgeAppColours (lib/app-colours.ts), a whole sentence whose ratios are already printed by shownRatio; never a count
+app/_components/frontdoor/front-door-landing.tsx :: SETNAYAN_GIFT_PHOTOS :: TEXT — the gift words ("free Papic photos for your event") from setnayan-gift-line.tsx, no number

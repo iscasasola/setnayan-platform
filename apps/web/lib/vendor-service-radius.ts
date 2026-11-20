@@ -262,11 +262,11 @@ export function travelFeeVerdictForVendor(input: {
   });
 }
 
-/** Plain-words label + tone for each verdict. One definition, so the bench card
- *  and the quickview inspector can never word the same fact differently. */
 /** The word on a card past its supplier's reach (owner 2026-11-17, drawing v15). */
 export const BEYOND_REACH = 'Beyond reach';
 
+/** Plain-words label + tone for each verdict. One definition, so the bench card
+ *  and the quickview inspector can never word the same fact differently. */
 export const TRAVEL_FEE_BADGE: Record<
   Exclude<TravelFeeVerdict, null>,
   { text: string; tone: 'ok' | 'warn' }

@@ -158,7 +158,9 @@ export function InclusionsEditor({
               label={`Remove ${r.label.trim() || `line ${i + 1}`}`}
               word="Remove"
               radiusClass="rounded-none"
-              surfaceClass="bg-cream"
+              /* The bare list sits inside the maker's framed group (HYBRID), so its face wears the frame's ground —
+                 the page's cream showed as a darker inset in dark mode. */
+              surfaceClass="bg-[rgb(var(--sn-frame-bg))]"
               onDelete={() => swipeOut(r)}
             >
               <div data-inclusion-line="">

@@ -240,7 +240,6 @@ const MORE_ANCHOR = 'maker-more-settings';
  * 📐 THE ONE RHYTHM (makers prototype 7 Nov 2026 § 3): a label · its 48 px box · a quiet hint; a topic after the first
  * opens with a divider, never a box around the group. Frames only on what you press (the boxes).
  */
-const LAB = 'mb-1.5 flex items-center gap-2 text-[14px] font-medium text-ink';
 const SMALL = 'text-[12px] font-normal text-ink/50';
 const BOX = 'h-12 w-full rounded-xl border border-ink/15 bg-raised px-4 text-[15px] text-ink outline-none focus:border-sn-accent'; // no-card-ok: the class of a text <input> (a field you type in, not a box)
 const HINT = 'mt-1.5 text-[12px] leading-snug text-ink/55';
@@ -2450,46 +2449,50 @@ function AvailabilityBlock({
   ];
   const current = style ? AVAILABILITY_STYLES.find((st) => st.value === style) : null;
   return (
-    <div className="space-y-2" data-maker-availability="">
+    <div data-maker-availability="">
       <input type="hidden" name="availability_present" value="1" />
       <input type="hidden" name="availability_style" value={style ?? ''} />
-      <p className={LAB}>Availability</p>
-      {recName ? (
-        <div className="flex min-h-11 items-center justify-between gap-3" data-maker-availability-recommended={recommended ?? ''}>
-          <span className="min-w-0 text-[14px] text-ink/75">
-            Recommended for <b className="font-semibold text-ink">{serviceLabel}</b>: {recName}
-          </span>
-          {recPickable ? (
-            <ActionButton
-              tone={using ? 'neutral' : 'brand'}
-              quiet={using}
-              icon={Check}
-              label={using ? 'Using it ✓' : 'Use it'}
-              disabled={using}
-              onClick={() => onPick(recommended)}
-              data-maker-availability-use=""
-            />
-          ) : (
-            <span className="flex-none text-[13px] text-ink/55" data-coming-soon="">Coming soon</span>
-          )}
-        </div>
-      ) : null}
-      <div className="flex min-h-11 items-center">
-        <PickMenu
+      {/* 🃏 Drawn as the group's own rows (HYBRID: framed group, name left · pill right), like Schedule and Exact
+          time slots below it — not a loose label over a bare dropdown. Same PickMenu, same posts. */}
+      <FormRows width="short" data="availability-rows">
+        {recName ? (
+          <div className="flex min-h-11 items-center justify-between gap-3 py-1" data-maker-availability-recommended={recommended ?? ''}>
+            <span className="min-w-0 text-[14px] text-ink/75">
+              Recommended for <b className="font-semibold text-ink">{serviceLabel}</b>: {recName}
+            </span>
+            {recPickable ? (
+              <ActionButton
+                tone={using ? 'neutral' : 'brand'}
+                quiet={using}
+                icon={Check}
+                label={using ? 'Using it ✓' : 'Use it'}
+                disabled={using}
+                onClick={() => onPick(recommended)}
+                data-maker-availability-use=""
+              />
+            ) : (
+              <span className="flex-none text-[13px] text-ink/55" data-coming-soon="">Coming soon</span>
+            )}
+          </div>
+        ) : null}
+        <ChosenRow
+          name="Availability"
           label="How this card books"
           value={style ?? 'unset'}
           buttonText={current ? current.name : AVAILABILITY_NOT_SET}
           options={options}
           onPick={(k) => onPick(k === 'unset' ? null : isCardPickableStyle(k) ? k : null)}
           dataAttr="data-maker-availability-style"
-          className="w-full"
+          data="availability"
+          below={
+            reads ? (
+              <p className={HINT} data-maker-availability-reads="">
+                {reads}
+              </p>
+            ) : undefined
+          }
         />
-      </div>
-      {reads ? (
-        <p className={HINT} data-maker-availability-reads="">
-          {reads}
-        </p>
-      ) : null}
+      </FormRows>
     </div>
   );
 }
@@ -2501,7 +2504,7 @@ function AvailabilityBlock({
  */
 function OrderLeadRow({ stored, onCount }: { stored: number | null; onCount: (n: number) => void }) {
   return (
-    <div data-maker-row="order-lead">
+    <div data-maker-row="order-lead" className="sn-rise">
       <FormRow
         name="Order at least"
         line="days before the date they need it"
@@ -2524,7 +2527,7 @@ function OrderLeadRow({ stored, onCount }: { stored: number | null; onCount: (n:
  */
 function UsualPrepRow({ stored }: { stored: number | null }) {
   return (
-    <div data-maker-row="usual-prep">
+    <div data-maker-row="usual-prep" className="sn-rise">
       <FormRow
         name="Usual preparation time"
         line="days to make one order"

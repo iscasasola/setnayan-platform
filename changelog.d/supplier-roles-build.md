@@ -32,3 +32,12 @@ Remove open in place under the card on a tap (rows: tap opens) instead of always
 note. Pairs at 375 light / dark and desktop in `build-sessions/shots-supplier-roles/pair-*.png`.
 
 SPEC IMPACT: None.
+
+## 2026-11-21 · fix(supplier-roles): ship-review fixes for #8036
+
+- The migration runs in one transaction (`BEGIN; SET LOCAL lock_timeout = '5s'; … COMMIT;`).
+- A Branch Manager can't point anyone's "Whole branch" keys at another branch. `vendor_team_duty_rank()` refuses it with `VENDOR_TEAM_OTHER_BRANCH`. The Shop Manager, platform admins and the server are unchanged.
+- Marketing edits a card's words and photos only. The new trigger `vendor_services_marketing_content_only_trg` refuses any change to price, branch, status or other columns (`VENDOR_SERVICE_MARKETING_CONTENT_ONLY`).
+- Team › change and remove now count the row they wrote. When RLS matched nothing, they say "You can't change this person" and sign nobody out. Before, they said "saved".
+
+SPEC IMPACT: None.

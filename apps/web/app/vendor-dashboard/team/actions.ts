@@ -281,6 +281,9 @@ export async function inviteVendorTeamMember(formData: FormData) {
  * Changing an *admin's* role is NOT done here — it needs a team vote (see
  * proposeAdminMotion). Enforced both in the UI and defensively here.
  */
+/** The words when the database refused a team change (RLS matched no row, or another branch). */
+const CANT_CHANGE_THIS_PERSON = 'You can’t change this person';
+
 export async function updateVendorTeamMember(formData: FormData) {
   const { supabase, ctx, currentUserId } = await ensureManager();
 
@@ -347,18 +350,25 @@ export async function updateVendorTeamMember(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  // 🔇 RLS that matches no row is not an error — it returns nothing. Ask for the row back and count it, so a change
+  // the database refused never reads "saved".
+  const { data: updated, error } = await supabase
     .from('vendor_team_members')
     .update({ role, duty, branch_id, team_label, updated_at: new Date().toISOString() })
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    .select('vendor_team_member_id');
   if (error) {
+    const m = error.message ?? '';
     return err(
-      (error.message ?? '').includes('VENDOR_TEAM_BRANCH_NOT_THIS_SHOP')
+      m.includes('VENDOR_TEAM_BRANCH_NOT_THIS_SHOP')
         ? 'That branch isn’t one of your shop’s. Pick a branch from the list.'
-        : error.message,
+        : m.includes('VENDOR_TEAM_OTHER_BRANCH')
+          ? CANT_CHANGE_THIS_PERSON
+          : m,
     );
   }
+  if (!updated || updated.length === 0) return err(CANT_CHANGE_THIS_PERSON);
 
   revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
@@ -391,12 +401,15 @@ export async function removeVendorTeamMember(formData: FormData) {
     return err('Removing an admin needs a team vote — start one below.');
   }
 
-  const { error } = await supabase
+  const { data: removed, error } = await supabase
     .from('vendor_team_members')
     .delete()
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    .select('vendor_team_member_id');
   if (error) return err(error.message);
+  // Nothing was deleted (RLS matched no row): say so, and leave their sessions alone.
+  if (!removed || removed.length === 0) return err(CANT_CHANGE_THIS_PERSON);
 
   const removedUserId = target.user_id as string;
   after(() => revokeAllSessions(removedUserId).catch(() => {}));

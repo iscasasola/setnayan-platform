@@ -7304,6 +7304,7 @@
         "ReviewsCard",
         "ReviewsHero",
         "RigidReveal",
+        "RiseScreen",
         "Rotor",
         "Row",
         "RsvpAskConfig",
@@ -9383,6 +9384,7 @@
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
+        "MemoriesAddPhotosButton",
         "MemoriesKeepsakeRow",
         "MemoriesSettings",
         "PapicBuySheet",
@@ -15053,6 +15055,7 @@
       "blocks": [
         "BookingFeeLine",
         "FeeGroup",
+        "InfoTip",
         "Link",
         "ListPageSkeleton",
         "PageMasthead",

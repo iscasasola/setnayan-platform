@@ -20,6 +20,8 @@ function world(opts: {
   maya?: MayaPaymentLike | null | 'error';
   env?: 'sandbox' | 'production';
   internal?: boolean;
+  /** The order's owning account; defaults to `internal` (the payer is the owner). */
+  ownerInternal?: boolean | 'error';
   createdAt?: string;
   owed?: OwedNow | null | 'error';
   approve?: { ok: true } | { ok: false; message: string };
@@ -69,6 +71,10 @@ function world(opts: {
     },
     async buyerIsInternal() {
       return opts.internal ?? false;
+    },
+    async ownerIsInternal() {
+      const o = opts.ownerInternal ?? opts.internal ?? false;
+      return o === 'error' ? false : o; // a refused read answers false, as orderOwnerIsInternal does
     },
   };
   return { deps, row, payments, log };
@@ -218,6 +224,19 @@ test('🔒 a SANDBOX "paid" never approves a real order — it waits for an admi
 
   const owner = world({ env: 'sandbox', internal: true });
   assert.equal((await settleMayaPayment(owner.deps, { mayaPaymentId: 'chk-1' })).outcome, 'approved');
+});
+
+test('🔒 SANDBOX: an internal payer on a NON-internal owner\'s order queues — and a refused owner read queues too', async () => {
+  for (const ownerInternal of [false, 'error'] as const) {
+    const w = world({ env: 'sandbox', internal: true, ownerInternal });
+    const r = await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1', claimedPaid: true });
+    assert.equal(r.outcome, 'queued', String(ownerInternal));
+    assert.match(r.outcome === 'queued' ? r.reason : '', /Sandbox payment/);
+    assert.equal(w.log.approves, 0, 'an internal tester marked a real couple\'s order paid');
+  }
+  // Live keys are unaffected: a real payment on any order approves.
+  const live = world({ env: 'production', internal: false, ownerInternal: false });
+  assert.equal((await settleMayaPayment(live.deps, { mayaPaymentId: 'chk-1', claimedPaid: true })).outcome, 'approved');
 });
 
 test('opened Maya, submitted nothing (PENDING_TOKEN / PENDING_PAYMENT) → "none", a fresh try — never "Checking…"', async () => {

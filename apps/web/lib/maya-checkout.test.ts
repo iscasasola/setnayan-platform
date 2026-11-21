@@ -19,6 +19,7 @@ import {
   mayaRailReasonLine,
   mayaRailState,
   mayaReturnLine,
+  MAYA_NOT_FINISHED_LINE,
   isMayaWebhookSource,
   MAYA_BUSY_LINE,
 } from '@/lib/maya-checkout';
@@ -121,6 +122,8 @@ test('the return lines are short and say nothing was charged', () => {
   assert.match(mayaReturnLine('failure') ?? '', /Nothing was charged/);
   assert.match(mayaReturnLine('cancel') ?? '', /Nothing was charged/);
   assert.equal(mayaReturnLine('success'), null);
+  // Back from Maya with nothing paid: the controller's exact words (21 Nov).
+  assert.equal(MAYA_NOT_FINISHED_LINE, 'Payment not finished. Nothing has been charged.');
 });
 
 test('create checkout: POST /checkout/v1/checkouts with the PUBLIC key', async () => {

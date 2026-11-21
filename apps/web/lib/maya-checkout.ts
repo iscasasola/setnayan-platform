@@ -305,6 +305,13 @@ export function isMayaWebhookSource(
 }
 
 /** The one line a payer reads on returning from Maya without paying. */
+/**
+ * The ONE quiet line when a payer opened Maya and came back with nothing paid — Back from Maya (PENDING_TOKEN /
+ * PENDING_PAYMENT) or `?maya=success` that settles to "none" (controller 21 Nov). Never drawn once anything is paid,
+ * pending, or queued: only the settle outcome `'none'` draws it.
+ */
+export const MAYA_NOT_FINISHED_LINE = 'Payment not finished. Nothing has been charged.';
+
 export function mayaReturnLine(outcome: string | undefined): string | null {
   if (outcome === 'failure') return 'Maya didn’t take the payment. Nothing was charged.';
   if (outcome === 'cancel') return 'You left Maya before paying. Nothing was charged.';

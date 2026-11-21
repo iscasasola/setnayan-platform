@@ -160,7 +160,7 @@ test('6 · the hosts see the ask on that helper’s row — read from their own 
   ]);
   assert.deepEqual([...asks.keys()], [seat], 'a link of another shape was read as an ask');
   assert.deepEqual(asks.get(seat), { areas: ['seat_plan', 'guest_list'], at: '2026-10-31T07:04:00Z' }, 'the newest ask, each part once');
-  assert.match(askedRowWords(asks.get(seat)!, new Date('2026-10-31T12:00:00Z')), /^Asked for more · Seat plan, Guest list · 3:04\s?(PM|pm)$/);
+  assert.match(askedRowWords(asks.get(seat)!, new Date('2026-10-31T12:00:00Z')), /^Asked for more · Seats, Guests · 3:04\s?(PM|pm)$/);
 
   const server = code('lib/people-with-access.server.ts');
   assert.match(

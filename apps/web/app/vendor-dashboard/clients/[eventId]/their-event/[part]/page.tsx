@@ -46,7 +46,7 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   if (!part) redirect(clientHref);
 
   const { data, error } = await supabase.rpc('get_vendor_event_brief', { p_event_id: eventId });
-  if (error || !data) redirect('/vendor-dashboard/clients');
+  if (error || !data) redirect('/vendor-dashboard/customers');
   const brief = data as Brief;
   if (brief.stage !== 'booked') redirect(clientHref);
   const services = (profile as { services?: string[] | null }).services ?? null;

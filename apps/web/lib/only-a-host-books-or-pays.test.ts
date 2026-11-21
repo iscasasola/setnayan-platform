@@ -129,6 +129,8 @@ test('every book / pay / log door asks the rule (server half)', () => {
     ['app/dashboard/[eventId]/orders/actions.ts', /coordinatorMoneyScopeAllowed\(/],
     ['app/dashboard/[eventId]/checkout/actions.ts', /coordinatorMoneyScopeAllowed\(/],
     ['app/pay/[reference]/actions.ts', /coordinatorMoneyScopeAllowed\(/],
+    // Maya (card / wallet) is a pay door too — refused in the same words as the proof form.
+    ['app/pay/[reference]/maya-start.ts', /coordinatorMoneyScopeAllowed\([\s\S]{0,400}if \(!allowed\) back\(ONLY_A_HOST_PAYS\)/],
     ['lib/iap/iap-actions.ts', /coordinatorMoneyScopeAllowed\(/],
   ];
   for (const [file, re] of doors) assert.match(src(file), re, `${file} no longer asks who may book or pay`);

@@ -129,7 +129,7 @@ import {
 } from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_BOOKS, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
-import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';
+import { BOOKED_EVENT_VENDOR_STATUSES, bookingIsACoordinators } from '@/lib/coordinator-trade';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
@@ -501,18 +501,22 @@ async function updateVendorStatus(formData: FormData) {
   if (
     !wasConsuming
     && willConsume
-    && prevRow?.category === 'planner_coordinator'
     // 🧭 A booked SHOP needs no contact email: its owner's account gets the seat, accepted (owner 2026-11-21).
     && (prevRow?.contact_email || prevRow?.marketplace_vendor_id)
   ) {
     try {
-      await autoInviteCoordinator(createAdminClient(), {
+      // The DB's own rule for "a coordinator" (the shop's services), never the couple's category alone.
+      const coordinators = createAdminClient();
+      if (await bookingIsACoordinators(coordinators, { category: prevRow.category, marketplaceVendorId: prevRow.marketplace_vendor_id }))
+      await autoInviteCoordinator(coordinators, {
         eventId,
         email: prevRow.contact_email ?? '',
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
         // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
         shopProfileId: prevRow.marketplace_vendor_id ?? null,
+        // 🔒 The booking that opens the seat — the database closes that seat when this booking is cancelled.
+        eventVendorId: vendorId,
       });
     } catch {
       // best-effort — never block the booking-status write on the auto-invite.

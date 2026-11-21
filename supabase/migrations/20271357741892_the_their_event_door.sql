@@ -40,6 +40,7 @@
 -- Never applied by hand — the pipeline's `db push --include-all` applies it.
 -- ============================================================================
 
+BEGIN;
 SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · The cap ─────────────────────────────────────────────────────────────
@@ -366,3 +367,5 @@ $$;
 
 REVOKE ALL ON FUNCTION public.ask_hosts_for_more_access(UUID, TEXT, TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ask_hosts_for_more_access(UUID, TEXT, TEXT) TO authenticated;
+
+COMMIT;

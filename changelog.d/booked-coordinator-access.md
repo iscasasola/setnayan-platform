@@ -50,3 +50,13 @@ flow is its own drawing).
 
 SPEC IMPACT: None new — implements the 2026-11-21 DECISION_LOG rows above. Open for the owner/controller: Hub + Event
 Details write access for the booked coordinator (see ⚠ above).
+
+## 2026-11-22 · fix(coordinator): ship-review fixes for #8094
+
+- **Only a host books, at the database.** A new trigger on `event_vendors` refuses a browser writer who is not a host moving a supplier into booked, by UPDATE or INSERT (`ONLY_A_HOST_BOOKS`). Moving a booked row along stays allowed.
+- **A cancelled coordinator booking closes its seat.** The seat a booking opens now carries the booking (`event_moderators.opened_by_event_vendor_id`). When that booking leaves booked or is deleted, the database closes that seat and only that one; a seat a host added by hand stays. Booking again brings the closed seat back with the ruled grant.
+- **One rule for "a coordinator".** The automatic grant asks `bookingIsACoordinators`, which reads the shop's services exactly as the database does, not the couple's category alone.
+- **Maya is a pay door.** "Pay with card or Maya" refuses a non-host in the same words as the proof form (`ONLY_A_HOST_PAYS`).
+- The two migrations with `SET LOCAL lock_timeout` now run inside `BEGIN; … COMMIT;`.
+
+SPEC IMPACT: None. These enforce the 21 Nov rulings "BOOKED COORDINATOR — WHAT THEY MAY EDIT VS ONLY VIEW" and "BOOKED COORDINATOR ON BUILD: FIND + RECOMMEND + SHORTLIST, NO BOOKING, NO PAYING".

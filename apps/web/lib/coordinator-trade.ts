@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 /**
  * THE ONE ANSWER TO "IS THIS SHOP A COORDINATOR?" (2026-10-19).
  *
@@ -90,4 +91,28 @@ export function bookedSupplierFacts(
     }
   }
   return out;
+}
+
+/**
+ * 🧭 IS THIS BOOKING A COORDINATOR'S? — the ONE rule, the database's (`public.services_make_a_coordinator`, mirrored
+ * by `isCoordinatorTrade`; ship review 21 Nov 2026: the grant was keyed on `category` alone while the DB decides by
+ * the shop's services). A shop on Setnayan is a coordinator when its SERVICES are the coordinator trade — exactly what
+ * `is_booked_coordinator` reads. A supplier with no shop has only the couple's category, read through the same list.
+ * A shop whose services cannot be read is NOT a coordinator (said in the log): access is never opened on a guess.
+ */
+export async function bookingIsACoordinators(
+  admin: SupabaseClient,
+  row: { category: string | null | undefined; marketplaceVendorId: string | null | undefined },
+): Promise<boolean> {
+  if (!row.marketplaceVendorId) return isCoordinatorTrade(row.category ? [row.category] : []);
+  const { data, error } = await admin
+    .from('vendor_profiles')
+    .select('services')
+    .eq('vendor_profile_id', row.marketplaceVendorId)
+    .maybeSingle();
+  if (error) {
+    console.error('[bookingIsACoordinators] shop services unread — no seat opened:', error.message);
+    return false;
+  }
+  return isCoordinatorTrade((data as { services: string[] | null } | null)?.services ?? []);
 }

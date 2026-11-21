@@ -44,6 +44,11 @@ export async function autoInviteCoordinator(
     invitedByUserId: string;
     /** The booked shop (`event_vendors.marketplace_vendor_id`), when the coordinator is on Setnayan. */
     shopProfileId?: string | null;
+    /**
+     * 🔒 The booking itself (`event_vendors.vendor_id`). Written on the seat this call opens
+     * (`opened_by_event_vendor_id`), so the database closes THAT seat — and only it — when the booking is cancelled.
+     */
+    eventVendorId?: string | null;
   },
 ): Promise<{ created: boolean; told?: boolean }> {
   const email = params.email.trim().toLowerCase();
@@ -101,6 +106,7 @@ export async function autoInviteCoordinator(
     invitation_expires_at: new Date(now.getTime() + INVITE_TTL_DAYS * MS_PER_DAY).toISOString(),
     invitation_token: generateInvitationToken(),
     accepted_at: null,
+    opened_by_event_vendor_id: params.eventVendorId ?? null,
   }).select('invitation_token').maybeSingle();
   if (error || !made) {
     // Said, never silent: the booking-status write goes on, but a refused invite is logged with its reason.
@@ -161,7 +167,7 @@ async function tellTheCoordinator(
  */
 async function openForTheBookedShop(
   admin: SupabaseClient,
-  p: { eventId: string; email: string; displayLabel: string | null; invitedByUserId: string; shopProfileId: string },
+  p: { eventId: string; email: string; displayLabel: string | null; invitedByUserId: string; shopProfileId: string; eventVendorId?: string | null },
 ): Promise<'opened' | 'already' | 'no_owner' | 'refused'> {
   const { data: shop, error: shopError } = await admin
     .from('vendor_profiles')
@@ -190,8 +196,39 @@ async function openForTheBookedShop(
   const pending = rows.find(
     (r) => !r.accepted_at && (r.user_id === ownerId || r.invitation_email?.trim().toLowerCase() === p.email),
   );
+  const ruled = (): ModeratorPermissions => ({
+    ...PERMISSION_TEMPLATES.wedding_planner_external,
+    areas: { ...COORDINATOR_AREAS },
+  });
+  // 🔁 Booked again after a cancel: the seat that cancel closed (`removal_reason = 'booking_cancelled'`) comes back
+  // with the ruled grant. A seat a HOST removed is theirs to bring back — it is never revived here.
+  const { data: closed } = await admin
+    .from('event_moderators')
+    .select('moderator_id')
+    .eq('event_id', p.eventId)
+    .eq('user_id', ownerId)
+    .eq('role_subtype', 'wedding_planner_external')
+    .eq('removal_reason', 'booking_cancelled')
+    .not('removed_at', 'is', null)
+    .limit(1);
+  const revive = pending ? null : ((closed ?? [])[0] as { moderator_id: string } | undefined) ?? null;
   let wrote = false;
-  if (pending) {
+  if (revive) {
+    const { data, error } = await admin
+      .from('event_moderators')
+      .update({
+        removed_at: null,
+        removal_reason: null,
+        accepted_at: now,
+        permissions_json: ruled(),
+        opened_by_event_vendor_id: p.eventVendorId ?? null,
+        updated_at: now,
+      })
+      .eq('moderator_id', revive.moderator_id)
+      .select('moderator_id');
+    wrote = !error && (data ?? []).length > 0;
+    if (error) console.error('[autoInviteCoordinator] revive refused:', error.message, { event_id: p.eventId });
+  } else if (pending) {
     const { data, error } = await admin
       .from('event_moderators')
       .update({ user_id: ownerId, accepted_at: now, invitation_token: null, updated_at: now })
@@ -201,10 +238,7 @@ async function openForTheBookedShop(
     wrote = !error && (data ?? []).length > 0;
     if (error) console.error('[autoInviteCoordinator] activate refused:', error.message, { event_id: p.eventId });
   } else {
-    const permissions: ModeratorPermissions = {
-      ...PERMISSION_TEMPLATES.wedding_planner_external,
-      areas: { ...COORDINATOR_AREAS },
-    };
+    const permissions = ruled();
     const { data, error } = await admin
       .from('event_moderators')
       .insert({
@@ -220,6 +254,7 @@ async function openForTheBookedShop(
         invitation_expires_at: null,
         invitation_token: null,
         accepted_at: now,
+        opened_by_event_vendor_id: p.eventVendorId ?? null,
       })
       .select('moderator_id');
     wrote = !error && (data ?? []).length > 0;

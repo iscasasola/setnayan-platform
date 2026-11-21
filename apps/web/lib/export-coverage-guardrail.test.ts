@@ -406,6 +406,8 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'reason, not because the table exists.',
   reveal_studio_config: 'Platform Reveal Studio configuration — updated_by_admin_id is a staff actor.',
   site_widgets: 'Marketing site configuration — updated_by_admin_id is a staff actor.',
+  service_included_templates:
+    'Setnayan’s starting "What’s included" lists per service (Quick Forms) — updated_by is a staff actor; a template holds no user’s data.',
   form_templates:
     'Admin-authored "Suggested for your service" form templates — updated_by is a staff actor; a template holds no user’s data.',
   platform_compliance_facts:
@@ -520,6 +522,8 @@ const KNOWN_GAPS: Record<string, string> = {
   person_connections: 'TODO(RA10173-backlog): relationship edges the subject created.',
   person_stewardships: 'TODO(RA10173-backlog): stewardship grants held by the subject.',
   photo_delivery_jobs: 'TODO(RA10173-backlog): delivery jobs the subject requested.',
+  vendor_push_tokens:
+    'TODO(RA10173-backlog): the shop devices the subject registered (user_id since 2026-11-21) — same credential caveat as push_subscriptions.',
   push_subscriptions:
     'TODO(RA10173-backlog): the subject’s own push endpoints — export shape pending (device tokens are credentials, so metadata-only like face_enrollments).',
   referral_redemptions: 'TODO(RA10173-backlog): redemptions by or crediting the subject.',
@@ -623,7 +627,10 @@ const KNOWN_GAPS: Record<string, string> = {
 // Raised 68 → 69 on 2026-11-08, deliberately: event_vendor_refunds (Supplier Build 2
 // lane E) is a new couple-readable money record the export does not carry yet.
 // Lowered 69 → 68 on 2026-11-09: event_vendor_refunds moved into the export (supplier_refunds_received).
-const KNOWN_GAP_CEILING = 68;
+// Raised 68 → 69 on 2026-11-21, deliberately: vendor_push_tokens gained `user_id` (Mute this chat — whose phone a shop
+// device is), which makes it a subject table. Same decision as its twin push_subscriptions: device tokens are
+// credentials, export shape pending.
+const KNOWN_GAP_CEILING = 69;
 
 // ── Tests ────────────────────────────────────────────────────────────────────
 

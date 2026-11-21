@@ -3300,3 +3300,10 @@ a.fd-insp-shop:hover {
 .fd-insp-save:hover {
   text-decoration: underline;
 }
+
+/* 🃏 Card 14 on Discover (owner 20 Nov): two across on a phone at the drawing's 10 px gap. */
+@media (max-width: 700.98px) {
+  ul.fd-grid[data-discover-service-cards] {
+    gap: 10px;
+  }
+}

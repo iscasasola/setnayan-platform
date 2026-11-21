@@ -1,0 +1,147 @@
+/**
+ * 🎁 Setnayan gifts to a shop — the words the approved drawing (QSMD9BaefarMRNQAnMFiND) puts on the moment and on
+ * Today. The rules of who may press what are the database's (tests/db/a-setnayan-gift-is-claimed-once.db.test.ts).
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import {
+  claimedWords,
+  planGiftEndedLine,
+  planGiftEndingWords,
+  planGiftNoticeStage,
+  setnayanShopGiftMomentView,
+  shopGiftMomentWords,
+  shortPlanWord,
+  type RunningPlanGift,
+  type ShopGiftView,
+} from './setnayan-shop-gift';
+
+const DAY = 86_400_000;
+const NOW = Date.parse('2026-11-14T04:00:00Z');
+
+const plan = (over: Partial<ShopGiftView>): ShopGiftView => ({
+  giftId: 'g',
+  type: 'plan',
+  planTier: 'enterprise',
+  planDays: 28,
+  currentTier: null,
+  choices: [],
+  claimed: false,
+  ...over,
+});
+
+test('the short plan word drops "Supplier"', () => {
+  assert.equal(shortPlanWord('enterprise'), 'Ultra');
+  assert.equal(shortPlanWord('solo'), 'Plus');
+  assert.equal(shortPlanWord('verified'), 'Free');
+});
+
+test('gift stock: Add to my gifts (frame 4)', () => {
+  const w = shopGiftMomentWords({ ...plan({}), type: 'stock', stockLine: '3 × Papic 1000', choices: ['stock'] });
+  assert.equal(w.title, 'Setnayan sent you gifts');
+  assert.equal(w.what, '3 × Papic 1000 to give your couples');
+  assert.deepEqual(w.buttons.map((b) => b.label), ['Add to my gifts']);
+});
+
+test('no plan: one button, Start it (frame 5)', () => {
+  const w = shopGiftMomentWords(plan({ choices: ['start'] }));
+  assert.equal(w.title, 'Setnayan sent you Ultra');
+  assert.equal(w.what, 'Ultra on your own shop, for 28 days');
+  assert.deepEqual(w.buttons.map((b) => b.label), ['Start it']);
+});
+
+test('a lower plan: Upgrade now leads, Start it when my plan ends second', () => {
+  const w = shopGiftMomentWords(plan({ currentTier: 'pro', choices: ['now', 'after'] }));
+  assert.deepEqual(
+    w.buttons.map((b) => [b.label, b.main]),
+    [
+      ['Upgrade now', true],
+      ['Start it when my plan ends', false],
+    ],
+  );
+  assert.equal(w.lines[0], 'Try everything Ultra opens, on top of your Pro');
+  assert.equal(w.lines[1], 'You’re on Pro now. Upgrade today, or have it start when Pro ends.');
+});
+
+test('the same plan: 28 more days of Ultra', () => {
+  const w = shopGiftMomentWords(plan({ currentTier: 'enterprise', choices: ['extend'] }));
+  assert.equal(w.title, '28 more days of Ultra');
+  assert.deepEqual(w.buttons.map((b) => b.choice), ['extend']);
+});
+
+test('nothing to press yet: no button, says why', () => {
+  const w = shopGiftMomentWords(plan({ currentTier: 'pro', choices: [] }));
+  assert.equal(w.buttons.length, 0);
+  assert.match(w.lines[0]!, /opens when the gift you are on now ends/);
+});
+
+const running = (over: Partial<RunningPlanGift> = {}): RunningPlanGift => ({
+  giftId: 'g',
+  tier: 'enterprise',
+  startsAt: new Date(NOW - 7 * DAY).toISOString(),
+  endsAt: new Date(NOW + 21 * DAY).toISOString(),
+  returnTier: 'pro',
+  extend: false,
+  ...over,
+});
+
+test('no countdown: nothing before the last week, the 7-day stage in it, the 1-day stage on the last day', () => {
+  assert.equal(planGiftNoticeStage(running(), NOW), null, '21 days left — no notice');
+  const at = (daysLeft: number) => running({ endsAt: new Date(NOW + daysLeft * DAY).toISOString() });
+  assert.equal(planGiftNoticeStage(at(7), NOW), 7);
+  assert.equal(planGiftNoticeStage(at(2), NOW), 7);
+  assert.equal(planGiftNoticeStage(at(1), NOW), 1);
+  assert.equal(planGiftNoticeStage(at(0.1), NOW), 1);
+  assert.equal(planGiftNoticeStage(at(-0.1), NOW), null, 'over');
+  assert.equal(planGiftNoticeStage({ ...at(5), startsAt: new Date(NOW + DAY).toISOString() }, NOW), null, 'held, not started');
+});
+
+test('the ends-soon words: the end date in words, one Stay button, the catalogue price or none', () => {
+  // 2026-11-21T04:00Z is Saturday 21 November in Manila.
+  const g = running({ endsAt: '2026-11-21T04:00:00Z' });
+  const w = planGiftEndingWords(g, 10000);
+  assert.equal(w.title, 'Your Ultra gift ends Saturday 21 November');
+  assert.equal(w.stay, 'Stay on Ultra');
+  assert.equal(
+    w.body,
+    'Stay on Ultra for ₱10,000 every 28 days, or do nothing and your shop goes back to Pro that day, with nothing lost.',
+  );
+  assert.doesNotMatch(planGiftEndingWords(g, null).body, /₱/, 'no price read → no price, never a typed one');
+  assert.match(planGiftEndingWords({ ...g, returnTier: null }, null).body, /goes back to Free that day/);
+  assert.match(planGiftEndingWords({ ...g, extend: true }, null).body, /your Ultra ends then, as it would have/);
+});
+
+test('the day it ends: one plain line', () => {
+  assert.equal(planGiftEndedLine({ tier: 'enterprise', returnTier: 'pro' }), 'Your Ultra gift has ended. Your shop is back on Pro.');
+  assert.equal(planGiftEndedLine({ tier: 'pro', returnTier: null }), 'Your Pro gift has ended. Your shop is back on Free.');
+});
+
+test('what a press says', () => {
+  assert.equal(claimedWords('stock', null), 'Added to your gifts.');
+  assert.equal(claimedWords('now', 'enterprise'), 'You’re on Ultra now.');
+  assert.equal(claimedWords('after', 'pro'), 'Pro starts when your plan ends.');
+  assert.equal(claimedWords('extend', 'enterprise'), '28 days added to your Ultra.');
+});
+
+test('the moment G2 plays: Setnayan on the seal, the gift’s own words, where it landed', () => {
+  const v = setnayanShopGiftMomentView({ ...plan({ choices: ['start'] }), giftId: 'g1', sentAt: '2026-11-14T04:00:00Z' });
+  assert.equal(v.source, 'setnayan_gift');
+  assert.deepEqual(v.seal, { kind: 'setnayan' });
+  assert.equal(v.headline, 'Setnayan sent you Ultra');
+  assert.equal(v.received, 'Ultra on your own shop, for 28 days');
+  assert.equal(v.redeemHref, '/vendor-dashboard/subscription');
+  assert.equal(v.claimedAt, null);
+  const st = setnayanShopGiftMomentView({ ...plan({ choices: ['stock'] }), type: 'stock', stockLine: '3 × Papic 1000' });
+  assert.equal(st.redeemHref, '/vendor-dashboard/shop/promote#gifts');
+  assert.equal(st.received, '3 × Papic 1000 to give your couples');
+});
+
+test('an old extended gift never crowds a NEW waiting gift off Today (Opus review #7674, finding 2)', () => {
+  // `readShopGifts` reads at most 20 rows. A finished 'extend' gift keeps `finished_at` NULL for ever, so the running
+  // branch of the filter must also require days still on the clock, or old extends match forever.
+  const src = readFileSync(new URL('./setnayan-shop-gift.server.ts', import.meta.url), 'utf8');
+  const running = /and\(gift_type\.eq\.plan,finished_at\.is\.null,plan_starts_at\.not\.is\.null,([^)]*)\)/.exec(src);
+  assert.ok(running, 'the running branch of readShopGifts moved — re-anchor this test');
+  assert.match(running[1] ?? '', /plan_ends_at\.gt\./, 'the running branch must only match gifts whose days are still on the clock');
+});

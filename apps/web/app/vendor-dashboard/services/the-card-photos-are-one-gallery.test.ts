@@ -5,7 +5,7 @@
  * Held on the source and on a static render (the sheet needs a tap and the seed needs an effect, so the list rules
  * themselves are held in lib/card-photos.test.ts):
  *   · the maker mounts ONE gallery for the cover + the showcase photos — no second photo uploader, no "More photos" fold;
- *   · the gallery is the shipped FileUpload in `tiles` mode, capped at CARD_MAX_PHOTOS, with the shipped failed tile;
+ *   · the gallery is the shipped FileUpload in `tiles` mode, capped at the visit's limit (5 new; 6 on a card opened with 6), with the shipped failed tile;
  *   · FileUpload's add tile is the grid's last cell and is gated on `atCapacity` (gone at the limit);
  *   · the sheet: Set as primary photo (waits on the primary, its reason in an ⓘ) · Delete photo (danger) · Cancel;
  *   · the clip stays its own row;
@@ -43,7 +43,8 @@ test('the gallery is the shipped FileUpload in tiles mode, capped at the card li
   const mount = GALLERY.slice(GALLERY.indexOf('<FileUpload'), GALLERY.indexOf('/>', GALLERY.indexOf('<FileUpload')));
   assert.match(mount, /variant="gallery"/);
   assert.match(mount, /multiple/);
-  assert.match(mount, /maxFiles=\{CARD_MAX_PHOTOS\}/);
+  assert.match(mount, /maxFiles=\{limit\}/);
+  assert.match(GALLERY, /useState\(\(\) => cardPhotoLimit\(seed\.length\)\)/, 'the limit is fixed at open from what the card held');
   assert.match(mount, /failedSays=\{CARD_PHOTO_FAILED_SAYS\}/);
   assert.match(mount, /tiles=\{\{/);
   assert.doesNotMatch(mount, /\bname=/, 'the gallery posts the two fields itself, from its one list');
@@ -80,7 +81,8 @@ test('deleting the primary is said in one line with Undo, through the shipped Un
 });
 
 test('every help line is in the section ⓘ, none printed under the grid', () => {
-  assert.match(MAKER, /tip=\{[^}]*CARD_PHOTOS_FULL_TIP : CARD_PHOTOS_TIP\}/);
+  assert.match(MAKER, /tip=\{[^}]*>= photoLimit \? cardPhotosFullTip\(photoLimit\) : CARD_PHOTOS_TIP\}/);
+  assert.match(MAKER, /aside=\{`[^`]*of \$\{formatCount\(photoLimit\)\}`\}/, 'the group count reads against the same limit as the grid');
   assert.doesNotMatch(GALLERY, /\bhelp=/);
 });
 
@@ -99,6 +101,6 @@ test('a static render posts the primary first and the rest as the showcase, with
     ['showcase_photo_r2_keys', 'r2://media/a.jpg'],
     ['showcase_photo_r2_keys', 'r2://media/b.jpg'],
   ]);
-  assert.match(html, /3 of 6 photos/);
+  assert.match(html, /3 of 5 photos/);
   assert.match(html, /data-upload-add=""/, 'below the limit the add tile is drawn');
 });

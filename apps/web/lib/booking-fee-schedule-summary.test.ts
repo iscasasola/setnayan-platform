@@ -57,7 +57,9 @@ test('PIN: the summary agrees with bookingFeePhp at the band, the tail, and the 
 
   // 2. "then Y%" — above the edge, only the TAIL rate applies to the excess.
   //    (₱300,000 → ₱7,000 and ₱1,000,000 → ₱14,000 under today's constants.)
-  for (const multiple of [3, 10, 100]) {
+  // ⚖ Probes stay under the ceiling (owner 2026-11-17: the fee never exceeds
+  // max_payment_php, ₱100,000) — ×100 would be capped, which booking-fee.test.ts pins.
+  for (const multiple of [3, 10, 50]) {
     const proposal = tier1LimitPhp * multiple;
     const expected = tier1LimitPhp * rate + (proposal - tier1LimitPhp) * tailRate;
     assert.equal(

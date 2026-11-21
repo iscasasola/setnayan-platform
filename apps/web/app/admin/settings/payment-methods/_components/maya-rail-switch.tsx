@@ -3,7 +3,7 @@ import { CreditCard } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { readMayaGate } from '@/lib/maya-checkout.server';
-import { mayaEnvironment, mayaRailReasonLine } from '@/lib/maya-checkout';
+import { mayaEnvironment, mayaRailReasonLine, type MayaEnvironment } from '@/lib/maya-checkout';
 import { savePaymentInstruments } from '../../actions';
 
 /**
@@ -15,8 +15,31 @@ import { savePaymentInstruments } from '../../actions';
  */
 export async function MayaRailSwitch({ locked }: { locked: boolean }) {
   const { state, enabled, config } = await readMayaGate();
-  const env = mayaEnvironment(config.checkoutEndpoint);
-  const reason = state.open ? null : mayaRailReasonLine(state.reason);
+  return (
+    <MayaRailSwitchView
+      locked={locked}
+      enabled={enabled}
+      open={state.open}
+      reason={state.open ? null : mayaRailReasonLine(state.reason)}
+      env={mayaEnvironment(config.checkoutEndpoint)}
+    />
+  );
+}
+
+/** The card itself, from plain values — the page above and /dev/pay-maya-lab draw the same one. */
+export function MayaRailSwitchView({
+  locked,
+  enabled,
+  open,
+  reason,
+  env,
+}: {
+  locked: boolean;
+  enabled: boolean;
+  open: boolean;
+  reason: string | null;
+  env: MayaEnvironment;
+}) {
   return (
     <section className={`mt-6 space-y-3 sn-tile p-5 ${enabled ? '' : 'opacity-75'}`} aria-labelledby="maya-rail">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -25,7 +48,7 @@ export async function MayaRailSwitch({ locked }: { locked: boolean }) {
           Card or Maya{' '}
           <span className="font-normal text-ink/55">
             · {env === 'sandbox' ? 'Sandbox' : 'Production'}
-            {enabled ? (state.open ? '' : ' · Hidden') : ' · Off'}
+            {enabled ? (open ? '' : ' · Hidden') : ' · Off'}
           </span>
         </h3>
         <form action={savePaymentInstruments}>

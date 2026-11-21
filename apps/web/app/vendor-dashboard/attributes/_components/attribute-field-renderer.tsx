@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { AttributeFieldDef } from '@/lib/marketplaces/schemas';
+import { InfoTip } from '@/app/_components/info-tip';
 
 /**
  * Iteration 0044 — dynamic per-field input renderer for the vendor
@@ -46,18 +47,21 @@ export function AttributeFieldRenderer({
 }) {
   const inputName = `${FIELD_NAME_PREFIX}${fieldKey}`;
   const label = formatLabel(def, fieldKey);
+  // The redraw (v3, 21 Nov 2026): "Required" is the drawing's small blue chip beside the name; Filter and "required if"
+  // move into the field's ⓘ — every mark is kept, in fewer words on the row.
+  const about = [
+    isFacet ? 'Couples can filter the marketplace by this.' : null,
+    def.required_if ? `Required if ${def.required_if.replaceAll('_', ' ')}.` : null,
+  ].filter(Boolean);
   const hint = (
-    <span className="ml-2 inline-flex items-center gap-1">
+    <span className="ml-1.5 inline-flex items-center gap-1.5 align-middle">
       {def.required ? (
-        <span className="tabular-nums text-[12px] uppercase tracking-wider text-ink">required</span>
+        <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-px text-[11.5px] font-bold text-[rgb(var(--color-link))]">Required</span>
       ) : null}
-      {isFacet ? (
-        <span className="tabular-nums text-[12px] uppercase tracking-wider text-[color:var(--m-slate-2)]">filter</span>
-      ) : null}
-      {def.required_if ? (
-        <span className="tabular-nums text-[12px] text-[color:var(--m-slate-2)]">
-          required if {def.required_if.replaceAll('_', ' ')}
-        </span>
+      {about.length > 0 ? (
+        <InfoTip label={isFacet ? 'Filter' : 'Required if'} labelClassName="sr-only" align="start">
+          {about.join(' ')}
+        </InfoTip>
       ) : null}
     </span>
   );
@@ -84,7 +88,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'number' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
+        <label htmlFor={inputName} className="block text-[15px] text-ink">
           {label}
           {hint}
         </label>
@@ -109,7 +113,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
+        <label htmlFor={inputName} className="block text-[15px] text-ink">
           {label}
           {hint}
         </label>
@@ -130,7 +134,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
+        <label htmlFor={inputName} className="block text-[15px] text-ink">
           {label}
           {hint}
         </label>
@@ -152,7 +156,7 @@ export function AttributeFieldRenderer({
     const value = typeof initial === 'string' ? initial : '';
     return (
       <div className="space-y-1">
-        <label htmlFor={inputName} className="block text-sm font-medium text-ink">
+        <label htmlFor={inputName} className="block text-[15px] text-ink">
           {label}
           {hint}
         </label>
@@ -179,7 +183,7 @@ export function AttributeFieldRenderer({
     const initialArr = Array.isArray(initial) ? (initial as string[]) : [];
     return (
       <fieldset className="space-y-2">
-        <legend className="block text-sm font-medium text-ink">
+        <legend className="block text-[15px] text-ink">
           {label}
           {hint}
         </legend>
@@ -262,7 +266,7 @@ function MultiSelectOpen({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={`${inputName}__draft`} className="block text-sm font-medium text-ink">
+      <label htmlFor={`${inputName}__draft`} className="block text-[15px] text-ink">
         {label}
         {hint}
       </label>

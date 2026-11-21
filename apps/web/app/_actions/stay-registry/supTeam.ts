@@ -9,6 +9,7 @@ import {
   setVendorAgentServices,
   setVendorRoleNames,
   stepDownSelf,
+  supplierRolesAction,
   updateVendorTeamMember,
   voteAdminMotion,
 } from '@/app/vendor-dashboard/team/actions';
@@ -24,6 +25,10 @@ const supTeam = kind(SUP_TEAM_WORDS, false);
 /** Team › Roles (six supplier roles, 19 Nov 2026) — Save names lands back on `/vendor-dashboard/team/roles`. */
 const supTeamRoles = kind({ within: [supplierScreen('team/roles')], refuse: (q) => q.get('error') }, false);
 
+/** 👤 Supplier roles d–h — lands back on Clients or on Who gets new inquiries (its `return_to`), or Team. */
+const ROLES_WRITES_WITHIN = [supplierScreen('customers'), supplierScreen('team/roles/inquiries'), supplierScreen('team')];
+const supTeamRolesWrites = kind({ within: ROLES_WRITES_WITHIN, refuse: (q) => q.get('error') }, false);
+
 export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.inviteVendorTeamMember': supTeam(inviteVendorTeamMember),
   'supTeam.updateVendorTeamMember': supTeam(updateVendorTeamMember),
@@ -34,4 +39,5 @@ export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.cancelAdminMotion': supTeam(cancelAdminMotion),
   'supTeam.stepDownSelf': supTeam(stepDownSelf),
   'supTeam.setVendorRoleNames': supTeamRoles(setVendorRoleNames),
+  'supTeam.supplierRolesAction': supTeamRolesWrites(supplierRolesAction),
 };

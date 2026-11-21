@@ -12,10 +12,11 @@ import { roleNameOf } from '@/lib/vendor-duties';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import { blockWords, cutChoices, fairSplit, shareWords, MAX_ACCOUNT_MANAGERS_PER_CARD, type SplitBlock } from '@/lib/inquiry-split';
 import { splitCountsFor } from '@/lib/inquiry-routing.server';
-import { initialsOf } from '../../_components/member-card';
+import { initialsOf } from '@/lib/team-initials';
 import { ShopNotice } from '../../../_components/kit';
 import { RoleLock } from '../../../_components/role-lock';
 import { SupplierSubmit } from '../../../_components/supplier-submit';
+import { StayForm } from '@/app/_components/stay-form';
 import { supplierRolesAction } from '../../actions';
 
 /**
@@ -144,14 +145,11 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
       <BackButton route={ROUTE} className="mb-0" />
       <header className="space-y-1 pt-3">
         <h1 className="sn-h1">Who gets new inquiries</h1>
-        <p className="text-[14px] text-ink/65">
-          Each new inquiry goes to ONE Account Manager: by branch, then the card it came in on (only the people who cover
-          it), then event type, then last name.{' '}
-          <InfoTip label="How the branch and changes work" align="start">
-            The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a
-            split you change stays until you reset it.
-          </InfoTip>
-        </p>
+        <p className="text-[14px] text-ink/65">Each new inquiry goes to ONE Account Manager: by branch, card, event type, then last name.</p>
+        <InfoTip label="How the branch and changes work" align="start">
+          The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a split
+          you change stays until you reset it.
+        </InfoTip>
       </header>
 
       <div className="mt-3 space-y-2">
@@ -265,7 +263,7 @@ function AdjustPanel({
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {choices.map((c) => (
-          <form key={c.cut} action={supplierRolesAction}>
+          <StayForm key={c.cut} door="supTeam.supplierRolesAction" action={supplierRolesAction}>
             {hidden}
             <input type="hidden" name="op" value="split-adjust" />
             <input type="hidden" name="cut" value={c.cut} />
@@ -275,17 +273,17 @@ function AdjustPanel({
               label={`${blockWords({ from: c.cut, to: null }, counts).replace(/ – Z$/, '')} · ${shareWords(c.shares[0])} / ${shareWords(c.shares[1])}`}
               pendingLabel="Saving…"
             />
-          </form>
+          </StayForm>
         ))}
       </div>
       <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
-        Each choice shows the share of your past clients each person would get. A cut can fall inside a busy letter.
+        Each choice shows the share of past clients each person would get.
       </p>
-      <form action={supplierRolesAction} className="mt-3 flex justify-end">
+      <StayForm door="supTeam.supplierRolesAction" action={supplierRolesAction} className="mt-3 flex justify-end">
         {hidden}
         <input type="hidden" name="op" value="split-reset" />
         <SupplierSubmit tone="neutral" icon={<RotateCcw aria-hidden strokeWidth={1.9} />} label="Reset to fair split" pendingLabel="Resetting…" />
-      </form>
+      </StayForm>
     </section>
   );
 }

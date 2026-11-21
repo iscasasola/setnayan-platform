@@ -13,6 +13,7 @@ import { useRef } from 'react';
 import { ArrowRightLeft, Check } from 'lucide-react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SupplierSubmit } from '../../_components/supplier-submit';
+import { StayForm } from '@/app/_components/stay-form';
 
 export type ClientHandlingView = {
   threadId: string;
@@ -39,27 +40,27 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
       {view.handOver ? (
         <div className="grid gap-2" data-client-hand-over="">
           <p className="text-[13.5px] text-ink/80">
-            One client, one Account Manager. {view.handOver.keepFirst} had them first and keeps them until someone hands the
-            account over. Whoever gets it handles every booking, even on the card that isn&rsquo;t theirs.
+            One client, one Account Manager. {view.handOver.keepFirst} had them first and keeps them until handed over.
           </p>
+          <p className="text-[13px] text-[color:var(--m-slate-2)]">Whoever gets it handles every booking, even on the other card.</p>
           {view.mayAnswer ? (
             <div className="flex flex-wrap justify-end gap-2">
-              <form action={action}>
+              <StayForm door="supTeam.supplierRolesAction" action={action}>
                 {hidden}
                 <input type="hidden" name="op" value="keep" />
                 <SupplierSubmit tone="neutral" icon={<Check aria-hidden strokeWidth={1.9} />} label={`Keep with ${view.handOver.keepFirst}`} pendingLabel="Keeping…" />
-              </form>
-              <form action={action}>
+              </StayForm>
+              <StayForm door="supTeam.supplierRolesAction" action={action}>
                 {hidden}
                 <input type="hidden" name="op" value="give" />
                 <SupplierSubmit tone="ok" main icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label={`Give to ${view.handOver.giveFirst}`} pendingLabel="Handing over…" />
-              </form>
+              </StayForm>
             </div>
           ) : null}
         </div>
       ) : null}
       {view.moveTo && view.moveTo.options.length > 0 ? (
-        <form ref={form} action={action} className="flex flex-wrap items-center justify-between gap-2" data-client-handled-by="">
+        <StayForm ref={form} door="supTeam.supplierRolesAction" action={action} className="flex flex-wrap items-center justify-between gap-2" data-client-handled-by="">
           {hidden}
           <input type="hidden" name="op" value="move" />
           <input ref={target} type="hidden" name="move_to" defaultValue={view.moveTo.currentId ?? ''} />
@@ -77,7 +78,7 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
             compact
             className="!min-h-11"
           />
-        </form>
+        </StayForm>
       ) : view.handledByName ? (
         <p className="text-[13.5px] text-ink/70" data-client-handled-by-name="">
           Handled by {view.handledByName}

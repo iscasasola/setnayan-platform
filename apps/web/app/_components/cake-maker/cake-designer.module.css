@@ -574,3 +574,18 @@
   flex: 1;
   min-width: 12em;
 }
+
+/* The demo's calm bar (a shop below Pro): which plans have it, and Upgrade — in place of the total and Send. */
+.demoBar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  font-size: 13.5px;
+  color: var(--ink2);
+}
+.demoBar span {
+  flex: 1;
+  min-width: 0;
+}

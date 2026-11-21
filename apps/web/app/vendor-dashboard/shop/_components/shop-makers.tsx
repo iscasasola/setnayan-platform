@@ -18,6 +18,7 @@ import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 // 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
+const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
 const CakeMakerPanel = lazy(() => import('./cake-maker-panel').then((m) => ({ default: m.CakeMakerPanel })));
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
 
@@ -99,6 +100,9 @@ export function ShopMakers({
   const pathname = usePathname();
   const params = useSearchParams();
   const inUrl = params.get('maker');
+  // 🎂 Locked (below Pro after the start date): the tile opens the couple's designer as a DEMO — sample options, nothing
+  // saved or sent; the settings stay Pro and up (owner ruling "A LOCKED SPECIAL TOOL SHOWS ITS FRONT-END EXPERIENCE").
+  const [cakeDemo, setCakeDemo] = useState(false);
   const [open, setOpen] = useState<MakerKey | null>(
     inUrl === 'forms' ? 'forms' : inUrl === 'templates' && templatesBody !== false ? 'templates' : inUrl === 'offers' && offers?.verified ? 'offers' : null,
   );
@@ -221,8 +225,8 @@ export function ShopMakers({
                     toolTiles.current[t.key] = el;
                   }}
                   type="button"
-                  onClick={() => setTool(t.key)}
-                  aria-expanded={on}
+                  onClick={() => (t.door.kind === 'cake_tool' && specialToolsLocked ? setCakeDemo(true) : setTool(t.key))}
+                  aria-expanded={t.door.kind === 'cake_tool' && specialToolsLocked ? cakeDemo : on}
                   aria-haspopup="dialog"
                   className="sn-press flex h-full min-h-[148px] w-full flex-col items-start gap-1 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame px-3 py-3 text-left" // no-card-ok: a carousel tile is a <button>
                   data-tool-tile={t.key}
@@ -287,6 +291,11 @@ export function ShopMakers({
         </BodyPanel>
       ) : null}
 
+      {cakeDemo ? (
+        <Suspense fallback={null}>
+          <CakeDesigner threadId="" demo onClose={() => setCakeDemo(false)} />
+        </Suspense>
+      ) : null}
       {picked && PickedIcon ? (
         <BodyPanel
           origin={toolTiles.current[picked.key] ?? null}

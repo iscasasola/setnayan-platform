@@ -180,7 +180,9 @@ test('the purchase carries every gate, in order, and scopes the order to the eve
   const manage = i('canManageVendor(role)');
   const flag = i('seating3dEnabled()');
   const booked = i("rpc('get_vendor_event_brief'");
-  const floor = i('isTierAtLeast(gate?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER)');
+  // ⚖ specs 66ae2cce: Pro and up, on the effective plan (resolveVendorTier) — never Plus.
+  const floor = i('isTierAtLeast(await resolveVendorTier(supabase, vendorProfileId), PRO_TOOLS_MIN_TIER)');
+  assert.ok(!src.includes('BOOTH_BRANDING_MIN_TIER'), 'the purchase is back on the Plus floor');
   const verified = i("verification_state !== 'verified'");
   const price = i('fetchVendor3dBoothEventPricePhp(supabase)');
   const dup = i('fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId)');
@@ -221,6 +223,11 @@ test('the section stands in the retired slot, booked-only, and explains every st
   ]) {
     assert.ok(section.includes(state), `state branch present: ${state}`);
   }
+  // ⚖ specs 66ae2cce: a Plus shop never meets the buy form — the section's floor is Pro, on the effective plan.
+  assert.ok(section.includes('isTierAtLeast(planTier, PRO_TOOLS_MIN_TIER)'), 'the section floor is Pro and up');
+  assert.ok(section.includes('resolveVendorTier(supabase, vendorProfileId)'), 'the section reads the effective plan');
+  assert.ok(section.includes('line={`Included in ${planWord(PRO_TOOLS_MIN_TIER)} · Upgrade`}'), 'below Pro the lock says "Included in Pro · Upgrade" (66ae2cce)');
+  assert.ok(!section.includes('BOOTH_BRANDING_MIN_TIER'), 'the section is back on the Plus floor');
   assert.ok(section.includes('fetchVendorBoothEventOrderState(admin, vendorProfileId, eventId)'), 'order state read with ADMIN — a teammate\'s order has another user_id');
   assert.ok(section.includes('<BoothEventBuyForm eventId={eventId} pricePhp={eventPricePhp} openRails={openRails} />'), 'the buy form is reached only in the buyable state');
 });

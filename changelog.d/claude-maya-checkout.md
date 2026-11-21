@@ -16,5 +16,6 @@ Setnayan's Maya Business merchant account (cards + Maya QR). BDO QR stays the de
 - `app/api/webhooks/maya/route.ts` — receives Maya events, re-verifies, approves or queues; always 200.
 - Admin › Integrations › Maya: "Register webhooks", sandbox vs production label. Admin › Payments: "Paid via Maya" tag.
 - No Maya refund API in V1 — the existing admin refund records it; the owner refunds in the Maya dashboard.
+- A webhook saying PAID is always re-verified, even for a checkout already closed by the clock — a late bank clearing is settled, never dropped.
 
 SPEC IMPACT: None beyond the 2026-11-21 DECISION_LOG row already in the corpus (commit 85d26be7).

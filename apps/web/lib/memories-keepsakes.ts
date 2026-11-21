@@ -44,13 +44,15 @@ export type KeepsakeDoor = {
   ready: boolean;
   /** Why it is dimmed — the ⓘ's words. null when ready. */
   reason: string | null;
+  /** The Recap's PRIVATE / PUBLIC mark beside its sheet's title (2026-11-20); null for every other door. */
+  mark: 'private' | 'public' | null;
 };
 
 export type KeepsakeReads = {
   /** `readMagazineCard` — the card renders once there is a photo. */
   magazine: { photos: number };
   /** `loadRecapCoupleSummary` — the card renders once there is a photo or an approved message. */
-  recap: { privatePhotos: number; approvedKwentos: number; unreadable?: boolean };
+  recap: { privatePhotos: number; approvedKwentos: number; unreadable?: boolean; status?: string | null };
   /** `readLifeFlashCard` — null = the card says nothing here; `moments: null` = not measured. */
   flash: { moments: number | null } | null;
   /** The flash's threshold — `SCOPE_MIN_MOMENTS.event`, passed in so this file copies no number. */
@@ -59,8 +61,8 @@ export type KeepsakeReads = {
   thankYou: boolean;
 };
 
-function door(key: KeepsakeKey, reason: string | null): KeepsakeDoor {
-  return { key, ...KEEPSAKE_WORDS[key], ready: reason === null, reason };
+function door(key: KeepsakeKey, reason: string | null, mark: KeepsakeDoor['mark'] = null): KeepsakeDoor {
+  return { key, ...KEEPSAKE_WORDS[key], ready: reason === null, reason, mark };
 }
 
 export function keepsakeDoors(r: KeepsakeReads): KeepsakeDoor[] {
@@ -79,6 +81,8 @@ export function keepsakeDoors(r: KeepsakeReads): KeepsakeDoor[] {
         : r.recap.unreadable
           ? 'We couldn’t count this event’s photos and messages just now. Nothing has changed — refresh to try again.'
           : 'Your Recap is put together from your photos and your guests’ messages — it opens once the first one arrives.',
+      // The card's own mark, from the card's own read (`RecapCard` — published → Public, else Private).
+      r.recap.status === 'published' ? 'public' : 'private',
     ),
   );
   if (r.flash) {

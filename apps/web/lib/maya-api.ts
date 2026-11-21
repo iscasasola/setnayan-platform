@@ -115,7 +115,18 @@ export async function fetchMayaPaymentsByReference(
 
 export type RegisterWebhooksResult =
   | { ok: true; registered: string[]; kept: string[] }
-  | { ok: false; reason: 'no_secret_key' | 'bad_endpoint' | 'refused' };
+  | { ok: false; reason: 'no_secret_key' | 'bad_endpoint' | MayaFaultReason };
+
+/**
+ * Why a Maya call failed, kept apart so the admin can tell them apart (never with a key in it):
+ * 401/403 → the keys were refused for this endpoint · no HTTP answer → Maya did not answer · anything else → refused.
+ */
+export type MayaFaultReason = 'keys_refused' | 'no_answer' | 'refused';
+export function mayaFaultReason(status: number | null): MayaFaultReason {
+  if (status === null) return 'no_answer';
+  if (status === 401 || status === 403) return 'keys_refused';
+  return 'refused';
+}
 
 /**
  * Register our webhook for each PAYMENT_* event. An event already pointing at
@@ -131,8 +142,10 @@ export async function registerMayaWebhooks(
   const base = mayaApiBase(config.checkoutEndpoint);
   if (!base) return { ok: false, reason: 'bad_endpoint' };
   const list = await mayaCall(fetchImpl, `${base}/payments/v1/webhooks`, { method: 'GET', key: config.secretKey });
-  if (!list.ok) return { ok: false, reason: 'refused' };
-  const existing = (Array.isArray(list.json) ? list.json : []) as Array<{ id?: unknown; name?: unknown; callbackUrl?: unknown }>;
+  // Maya answers 404 when this account has no webhook yet — that is an empty list, not a refusal (same as the
+  // payment-rrns read above), so a first-ever registration goes on to the POSTs.
+  if (!list.ok && list.status !== 404) return { ok: false, reason: mayaFaultReason(list.status) };
+  const existing = (list.ok && Array.isArray(list.json) ? list.json : []) as Array<{ id?: unknown; name?: unknown; callbackUrl?: unknown }>;
   const registered: string[] = [];
   const kept: string[] = [];
   for (const name of MAYA_WEBHOOK_EVENTS) {
@@ -147,14 +160,14 @@ export async function registerMayaWebhooks(
         method: 'DELETE',
         key: config.secretKey,
       });
-      if (!del.ok) return { ok: false, reason: 'refused' };
+      if (!del.ok) return { ok: false, reason: mayaFaultReason(del.status) };
     }
     const add = await mayaCall(fetchImpl, `${base}/payments/v1/webhooks`, {
       method: 'POST',
       key: config.secretKey,
       body: { name, callbackUrl },
     });
-    if (!add.ok) return { ok: false, reason: 'refused' };
+    if (!add.ok) return { ok: false, reason: mayaFaultReason(add.status) };
     registered.push(name);
   }
   return { ok: true, registered, kept };

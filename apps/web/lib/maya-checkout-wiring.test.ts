@@ -128,6 +128,12 @@ test('Maya is asked only after the order is proven theirs, and an open checkout 
   assert.ok(ret.indexOf('hasOpenMayaCheckout(') < ret.indexOf('readMayaGate()'));
 });
 
+test('"Payment not finished" is drawn ONLY when the settle answers "none" — never for paid, pending or queued', () => {
+  const ret = code('app/pay/[reference]/maya-return.ts');
+  assert.match(ret, /else if \(result\.outcome === 'none'\) line = MAYA_NOT_FINISHED_LINE;/);
+  assert.equal((ret.match(/MAYA_NOT_FINISHED_LINE/g) ?? []).length, 2, 'the line is set somewhere other than the "none" branch');
+});
+
 test('a typed ?maya=busy changes nothing — only this order\'s busy fallback (its cookie) shows the BDO safety route', () => {
   const ret = code('app/pay/[reference]/maya-return.ts');
   assert.match(ret, /if \(param === 'busy' && args\.busyFor === orderId\)/);

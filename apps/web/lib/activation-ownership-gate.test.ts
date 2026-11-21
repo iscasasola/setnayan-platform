@@ -88,9 +88,17 @@ const HOOKS = [
     extract: 'const target = parseCountAddOnServiceKey(ctx.serviceKey);',
     firstEffect: 'recomputeVendorAddOnCount(ctx.admin',
   },
+  {
+    // Added 2026-11-18 with the gift STORE's cart (owner-approved v16): the order's lines name the buying shop, so the
+    // paying order must be that shop's before `shop_gift_grant_order_lines` lands anything. The line read above the gate
+    // is a read only.
+    name: 'shop gift cart',
+    extract: 'async function grantShopGiftCart(ctx: ActivationContext): Promise<void> {',
+    firstEffect: "rpc('shop_gift_grant_order_lines'",
+  },
 ] as const;
 
-test('every vendor-surface hook calls the ownership gate — seven today', () => {
+test('every vendor-surface hook calls the ownership gate — eight today', () => {
   const calls = SRC.split('await assertOrderOwnsVendorTarget(').length - 1;
   assert.equal(
     calls,

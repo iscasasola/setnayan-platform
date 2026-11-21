@@ -165,12 +165,23 @@ test('schedule: booking_fee_centavos is 5% then 3%, ₱50 floor, LOCKED at ₱10
   );
 
   // And the SQL agrees with the TS to the centavo, so the two can never drift.
-  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 10_000_000]) {
+  for (const php of [500, 10_000, 60_000, 100_000, 300_000, 1_000_000, 9_600_000, 10_000_000, 50_000_000]) {
     assert.equal(
       await q(php * 100),
       Math.round(bookingFeePhp(php) * 100),
       `SQL and TS disagree at ₱${php}`,
     );
+  }
+
+  // ⚖ The payment ceiling (owner 2026-11-17, max_payment_php) also bounds the fee: the lower of it and the lock wins.
+  await db.query(`UPDATE public.platform_settings SET max_payment_php = 50000 WHERE id = 1`);
+  try {
+    assert.equal(await q(10_000_000_00), 5_000_000, 'max_payment_php ₱50,000 holds the fee under the ₱100,000 lock');
+    const flat = await db.query<{ f: number }>(`SELECT public.booking_fee_flat_centavos($1)::int AS f`, [10_000_000_00]);
+    assert.equal(flat.rows[0]!.f, 5_000_000, 'the unverified flat fee is held to the ceiling too');
+    assert.equal(await q(300_000_00), 1_100_000, 'under the ceiling the taper is untouched');
+  } finally {
+    await db.query(`UPDATE public.platform_settings SET max_payment_php = 100000 WHERE id = 1`);
   }
 });
 

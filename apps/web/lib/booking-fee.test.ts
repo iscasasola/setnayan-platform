@@ -60,6 +60,19 @@ test('a schedule with no lock given is locked at the ruled default, never unlock
   assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, capPhp: 50_000 }), 50_000);
 });
 
+test('THE PAYMENT CEILING also bounds the fee — the lower of the lock and max_payment_php wins', () => {
+  // Owner 2026-11-17: "We do not allow transactions above 100,000." A fee is one payment.
+  assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, maxPhp: 50_000 }), 50_000);
+  assert.equal(unverifiedBookingFeePhp(10_000_000, { ...BOOKING_FEE, maxPhp: 50_000 }), 50_000);
+  // A lock above the ceiling is held to the ceiling; a lock below it wins.
+  assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, capPhp: 200_000, maxPhp: 150_000 }), 150_000);
+  assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, capPhp: 80_000, maxPhp: 150_000 }), 80_000);
+  // A schedule built WITHOUT the field still caps at the ruled default.
+  const { maxPhp: _drop, ...noMax } = BOOKING_FEE;
+  void _drop;
+  assert.equal(bookingFeePhp(10_000_000, { ...noMax, capPhp: 200_000 }), 100_000);
+});
+
 test('the 5% band applies in full below \u20b1100,000', () => {
   assert.equal(bookingFeePhp(10_000), 500);
   assert.equal(bookingFeePhp(50_000), 2_500);

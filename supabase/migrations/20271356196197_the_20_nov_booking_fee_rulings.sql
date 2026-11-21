@@ -92,7 +92,9 @@ AS $$
       COALESCE((SELECT booking_fee_rate_pct        FROM public.platform_settings WHERE id = 1),   5.00) AS head_pct,
       COALESCE((SELECT booking_fee_tail_rate_pct   FROM public.platform_settings WHERE id = 1),   3.00) AS tail_pct,
       COALESCE((SELECT booking_fee_tier1_limit_php FROM public.platform_settings WHERE id = 1), 100000) AS band_php,
-      COALESCE((SELECT booking_fee_cap_php         FROM public.platform_settings WHERE id = 1), 100000) AS cap_php
+      -- The lock (20 Nov) held to the payment ceiling (17 Nov, max_payment_php): a fee is one payment.
+      LEAST(COALESCE((SELECT booking_fee_cap_php   FROM public.platform_settings WHERE id = 1), 100000),
+            COALESCE((SELECT max_payment_php       FROM public.platform_settings WHERE id = 1), 100000)) AS cap_php
   )
   SELECT CASE
     WHEN p_amount_centavos IS NULL OR p_amount_centavos <= 0 THEN 0::BIGINT
@@ -111,8 +113,8 @@ AS $$
 $$;
 COMMENT ON FUNCTION public.booking_fee_centavos(BIGINT) IS
   'Vendor Booking Fee (centavos) for a VERIFIED shop: head rate on the first band, tail rate above it, PHP 50 floor, '
-  'locked at booking_fee_cap_php (owner 2026-11-20: 5% / PHP 100,000 / 3%, locked at PHP 100,000). All four numbers '
-  'come from platform_settings. Mirror of bookingFeePhp() in apps/web/lib/booking-fee.ts. Non-positive -> 0.';
+  'locked at booking_fee_cap_php (owner 2026-11-20: 5% / PHP 100,000 / 3%, locked at PHP 100,000), and never above '
+  'max_payment_php (owner 2026-11-17). All the numbers come from platform_settings. Mirror of bookingFeePhp() in apps/web/lib/booking-fee.ts. Non-positive -> 0.';
 
 CREATE OR REPLACE FUNCTION public.booking_fee_flat_centavos(p_amount_centavos BIGINT)
 RETURNS BIGINT
@@ -123,7 +125,8 @@ AS $$
   WITH s AS (
     SELECT
       COALESCE((SELECT booking_fee_rate_pct FROM public.platform_settings WHERE id = 1),   5.00) AS head_pct,
-      COALESCE((SELECT booking_fee_cap_php  FROM public.platform_settings WHERE id = 1), 100000) AS cap_php
+      LEAST(COALESCE((SELECT booking_fee_cap_php FROM public.platform_settings WHERE id = 1), 100000),
+            COALESCE((SELECT max_payment_php     FROM public.platform_settings WHERE id = 1), 100000)) AS cap_php
   )
   SELECT CASE
     WHEN p_amount_centavos IS NULL OR p_amount_centavos <= 0 THEN 0::BIGINT
@@ -180,7 +183,8 @@ AS $$
       || public.booking_fee_php_text(50)   -- the FIXED floor
       || ', never more than '              -- ⟵ 20 NOV: the lock
       || public.booking_fee_php_text(
-           COALESCE((SELECT booking_fee_cap_php FROM public.platform_settings WHERE id = 1), 100000));
+           LEAST(COALESCE((SELECT booking_fee_cap_php FROM public.platform_settings WHERE id = 1), 100000),
+                 COALESCE((SELECT max_payment_php     FROM public.platform_settings WHERE id = 1), 100000)));
 $$;
 
 -- ── 4 · No free first booking ───────────────────────────────────────────────────────────────────────────────────────
@@ -239,7 +243,7 @@ BEGIN
       'head_pct', COALESCE(s.booking_fee_rate_pct, 5.00),
       'tail_pct', COALESCE(s.booking_fee_tail_rate_pct, 3.00),
       'band_php', COALESCE(s.booking_fee_tier1_limit_php, 100000),
-      'cap_php',  COALESCE(s.booking_fee_cap_php, 100000))
+      'cap_php',  LEAST(COALESCE(s.booking_fee_cap_php, 100000), COALESCE(s.max_payment_php, 100000)))
     FROM (SELECT 1) one LEFT JOIN public.platform_settings s ON s.id = 1
   );
 END;

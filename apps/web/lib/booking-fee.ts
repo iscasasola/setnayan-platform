@@ -44,6 +44,8 @@
  * amount above, locked at ₱100,000.** Floor ₱50 survives. Supersedes the
  * 2026-07-25 taper (5% then 1%, no cap).
  */
+import { MAX_PAYMENT_PHP_DEFAULT, maxPaymentPhpOrDefault } from '@/lib/max-payment';
+
 /**
  * The three numbers the OWNER may set, plus the two he may not.
  *
@@ -73,6 +75,14 @@ export type BookingFeeSchedule = {
    * DEFAULT (`BOOKING_FEE.capPhp`), never "no lock".
    */
   capPhp?: number;
+  /**
+   * ⚖ THE CEILING (owner 2026-11-17): the booking fee can never exceed ₱100,000.
+   * It is the admin setting `platform_settings.max_payment_php` — the same number
+   * that bounds every payment to Setnayan — read by `getBookingFeeSchedule`.
+   * Optional so a schedule built anywhere else still caps: absent ⇒
+   * `MAX_PAYMENT_PHP_DEFAULT`. Mirrored in SQL by `public.booking_fee_centavos`.
+   */
+  maxPhp?: number;
 };
 
 /**
@@ -91,6 +101,8 @@ export const BOOKING_FEE: BookingFeeSchedule = {
   minPhp: 50,
   /** The lock (owner 2026-11-20): the fee never goes above ₱100,000. */
   capPhp: 100_000,
+  /** The payment ceiling (owner 2026-11-17) — the ruled default of `max_payment_php`. */
+  maxPhp: MAX_PAYMENT_PHP_DEFAULT,
 };
 
 /** The FIRST-BAND rate (5%). Exposed for display copy / callers. */
@@ -128,10 +140,16 @@ export function bookingFeePhp(
   return lockAndRound(Math.max(linear, schedule.minPhp), schedule);
 }
 
-/** The lock a schedule carries — absent ⇒ the ruled default, never "no lock". */
+/**
+ * The most one booking's fee can be: the fee LOCK (`booking_fee_cap_php`, owner 2026-11-20) or the PAYMENT CEILING
+ * (`max_payment_php`, owner 2026-11-17: "We do not allow transactions above 100,000"), whichever is lower — a fee is
+ * one payment, so it can never be more than any payment may be. Absent either ⇒ its ruled default, never "no lock".
+ * Twin of `LEAST(cap_php, max_php)` in `public.booking_fee_centavos`.
+ */
 export function bookingFeeCapPhp(schedule: BookingFeeSchedule = BOOKING_FEE): number {
   const cap = schedule.capPhp;
-  return typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : (BOOKING_FEE.capPhp as number);
+  const lock = typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : (BOOKING_FEE.capPhp as number);
+  return Math.min(lock, maxPaymentPhpOrDefault(schedule.maxPhp));
 }
 
 /**

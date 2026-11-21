@@ -19,6 +19,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { resolveMonogram } from '@/lib/monogram';
@@ -115,6 +116,11 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) return fail('Only a shop can do this.');
     const shop = profile.vendor_profile_id;
+    // 🔒 The shop's Cake Maker options are the Shop Manager's (owner · admin), like every shop write (ship review
+    // 22 Nov, HIGH): a helper seat never reads them as "not set up" and never overwrites them. A refused role read denies.
+    if ((op === 'options' || op === 'save') && !canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, shop))) {
+      return fail('Only the shop owner or an admin can change the Cake Maker.');
+    }
     const admin = createAdminClient();
     const allowed = await readShopSpecialToolsAllowed(admin, shop);
     if (allowed.status !== 'ok') return fail();
@@ -134,7 +140,9 @@ export async function runCakeAction(input: CakeActionInput): Promise<CakeActionR
     const threadId = String((input as { threadId?: string }).threadId ?? '');
     const [thread, options] = await Promise.all([
       supabase.from('chat_threads').select('thread_id').eq('thread_id', threadId).eq('vendor_profile_id', shop).maybeSingle(),
-      readShopCakeMaker(supabase, shop),
+      // Read with the service client: the chat (read under RLS above) proves this person works this client, and an
+      // Account Manager (role agent) cannot read the shop's options under RLS — they must still be able to invite.
+      readShopCakeMaker(admin, shop),
     ]);
     if (thread.error || options.status === 'unread') return fail();
     if (!thread.data) return fail('This chat is not your shop’s.');

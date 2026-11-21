@@ -268,7 +268,9 @@ function MakeQuoteForm({
               <li className="text-[12px] text-ink/55">Each one is its own line on the quote; your card’s line is the rest of your offer.</li>
             </ul>
           ) : null}
-          {chosen.length > 0 ? (
+          {/* Itemise builds the receipt from the cards alone, so with a cake design's lines on the offer it would drop them
+              silently (ship review 22 Nov). Those quotes stay as the offer with its own lines. */}
+          {chosen.length > 0 && extras.length === 0 ? (
             <div className="flex">
               {/* Same parts, your price: a typed offer under the cards' own prices opens as a Discount on the receipt. */}
               <ActionButton

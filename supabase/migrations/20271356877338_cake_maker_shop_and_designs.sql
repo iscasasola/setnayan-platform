@@ -79,6 +79,12 @@ CREATE POLICY cake_designs_member_read
       SELECT t.thread_id FROM public.chat_threads t
       WHERE t.event_id IN (SELECT public.current_couple_event_ids())
          OR t.vendor_profile_id IN (SELECT public.current_vendor_profile_ids())
+         -- An Account Manager (role agent) reads the cake cards in their OWN clients' chats — the same clause the
+         -- chat itself uses (ship review 22 Nov).
+         OR (
+           t.vendor_profile_id IN (SELECT public.current_vendor_ids('viewer'))
+           AND t.event_id IN (SELECT public.agent_customer_event_ids())
+         )
     )
   );
 

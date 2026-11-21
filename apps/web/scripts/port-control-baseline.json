@@ -13550,6 +13550,7 @@
       ],
       "destinations": [
         "/[seg]",
+        "/dashboard/[seg]/memories",
         "/papic/guest",
         "/papic/me/[seg]",
         "/terms"

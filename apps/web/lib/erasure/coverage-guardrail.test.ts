@@ -277,6 +277,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   // ── added 2026-10-18 with the table itself (Apple In-App Purchase, PR #6637) ──
   app_store_purchases:
     'Financial record — the Apple half of an order (its transaction id, environment and the price Apple charged), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Apple’s own refund notifications. No profile data: user_id is the buyer, the rest is the transaction.',
+  // ── added 2026-11-21 with the table itself (Maya Checkout, owner "MAYA CHECKOUT — BUILD IT") ──
+  maya_checkouts:
+    'Financial record — the Maya half of an order (Maya’s checkout and payment ids, sandbox/production, the amount asked, why a payment was queued), retained with the order it settled on the same BIR/bookkeeping basis, and needed to answer Maya refunds and disputes. No profile data: user_id is the payer, the rest is the transaction.',
   receipts: 'BIR Official Receipt. issued_to_name/email/tin are the statutory content of the document; erasing them destroys the receipt.',
   order_refunds: 'Reconciliation decision attached to a retained financial record.',
   supplies_orders: 'Purchase record; delivery_address is part of the fulfilment evidence.',

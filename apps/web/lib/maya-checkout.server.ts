@@ -37,9 +37,14 @@ export async function readMayaSwitch(client: SupabaseClient): Promise<boolean> {
       .select('maya_checkout_enabled')
       .eq('id', 1)
       .maybeSingle();
-    if (error) return false;
+    if (error) {
+      // Fail CLOSED (BDO stays as it is), but never silently: a refused read is a different fact from "off".
+      console.error('[maya] switch read refused — the rail reads as off', error.message);
+      return false;
+    }
     return (data as { maya_checkout_enabled?: boolean | null } | null)?.maya_checkout_enabled === true;
-  } catch {
+  } catch (e) {
+    console.error('[maya] switch read threw — the rail reads as off', e instanceof Error ? e.message : e);
     return false;
   }
 }

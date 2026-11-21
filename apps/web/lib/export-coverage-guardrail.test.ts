@@ -207,6 +207,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
     'beside the one-time token we minted for Apple to sign — an internal key, not ' +
     'information about the person — and is service-role only. Same decision as ' +
     'lib/export-completeness.ts.',
+  // ── added 2026-11-21 with the table itself (Maya Checkout) ──
+  maya_checkouts:
+    'The subject IS the payer, and every Maya payment is already in their export as an ' +
+    'ordinary `payments` row (channel maya, reference = Maya’s payment id, amount = what ' +
+    'Maya confirmed) on its `orders` row. This table repeats those facts beside Maya’s ' +
+    'checkout id and our queue reason — internal reconciliation keys, service-role only. ' +
+    'Same decision as lib/export-completeness.ts.',
   // ── added 2026-10-08 with the table itself (the E-Gifts wish list) ──
   event_wish_items:
     'What an EVENT’s hosts would love as a gift — a name, an optional ' +

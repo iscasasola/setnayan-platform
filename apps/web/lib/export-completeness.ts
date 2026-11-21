@@ -239,6 +239,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'is an internal key, not information about the person (migration 20271276386641).',
   },
   {
+    table: 'maya_checkouts',
+    decision: 'excluded',
+    why:
+      'Every Maya Checkout payment the subject made is ALREADY in their export as an ordinary ' +
+      'payments row (channel maya, reference = Maya\'s payment id, amount = what Maya confirmed) ' +
+      'on its orders row. This table holds the same facts plus Maya\'s checkout id and our queue ' +
+      'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
+  },
+  {
     table: 'admin_audit_log',
     decision: 'excluded',
     why:

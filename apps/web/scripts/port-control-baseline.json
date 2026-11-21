@@ -15876,6 +15876,7 @@
     "/vendor-dashboard/customers": {
       "files": [
         "vendor-dashboard/customers/_components/check-a-date.tsx",
+        "vendor-dashboard/customers/_components/client-handling.tsx",
         "vendor-dashboard/customers/_components/clients-search.tsx",
         "vendor-dashboard/customers/_components/clients-show-sort.tsx",
         "vendor-dashboard/customers/_components/clients-tile-lists.tsx",
@@ -15916,6 +15917,7 @@
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
@@ -15932,7 +15934,8 @@
         "importExternalClient",
         "moveAction",
         "removeBlock",
-        "saveAction"
+        "saveAction",
+        "setVendorRoleNames"
       ],
       "blocks": [
         "AccordionSkeleton",
@@ -15952,6 +15955,7 @@
         "CalendarSheet",
         "ChatOriginMark",
         "ChosenRow",
+        "ClientHandling",
         "ClientsEmptyAdd",
         "ClientsSearch",
         "ClientsShowSort",
@@ -16391,6 +16395,7 @@
         "BlockerChangeRow",
         "BookedCallButtons",
         "BookingFeeNotice",
+        "CakeDesignerFromPlus",
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
@@ -17731,10 +17736,12 @@
         "BranchManager",
         "BundlePreviewSample",
         "CakeArrangement",
+        "CakeDesigner",
         "CakeFigure",
         "CakeMakerEditor",
         "CakeMakerPanel",
         "CakeShopOptions",
+        "CakeSummary",
         "CallerVendorProfile",
         "CheckGroup",
         "ChosenRow",
@@ -18169,7 +18176,8 @@
         "vendor-dashboard/team/roles/roles-form.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/subscription"
+        "/vendor-dashboard/subscription",
+        "/vendor-dashboard/team/roles/inquiries"
       ],
       "actions": [
         "action",
@@ -18177,6 +18185,7 @@
       ],
       "blocks": [
         "BackButton",
+        "DatesRow",
         "FormPageSkeleton",
         "FormRows",
         "InfoTip",
@@ -18190,6 +18199,28 @@
         "SupplierSubmit",
         "TypedRow",
         "VendorRoleNames"
+      ]
+    },
+    "/vendor-dashboard/team/roles/inquiries": {
+      "files": [
+        "vendor-dashboard/team/roles/inquiries/loading.tsx",
+        "vendor-dashboard/team/roles/inquiries/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "setVendorRoleNames"
+      ],
+      "blocks": [
+        "AdjustPanel",
+        "BackButton",
+        "FormPageSkeleton",
+        "InfoTip",
+        "Link",
+        "RoleLock",
+        "Search",
+        "ShopNotice",
+        "StayForm",
+        "SupplierSubmit"
       ]
     },
     "/vendor-dashboard/theft-watch": {

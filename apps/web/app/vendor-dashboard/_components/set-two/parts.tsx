@@ -68,8 +68,14 @@ export function PartTop({
   kicker,
   title,
   end,
+  back,
+  heading = 2,
   children,
 }: {
+  /** 1 on a page with no pinned row (a part of their event): the block's title is the page's heading. */
+  heading?: 1 | 2;
+  /** A part of their event: the quiet round back that leads the title row from 701 (the dark line's Close on a phone). */
+  back?: { href: string; label: string } | null;
   kicker?: ReactNode;
   /** The block's own heading (a page under the dark line or a fee's facts); a pinned-row page passes none. */
   title?: ReactNode;
@@ -81,11 +87,16 @@ export function PartTop({
       {kicker ? <div className={s.kicker}>{kicker}</div> : null}
       {title ? (
         <div className={s.topRow}>
-          <h2 className={s.topTitle}>{title}</h2>
+          {back ? (
+            <Link href={back.href} aria-label={`Back to ${back.label}`} className={`${s.round} ${s.roundQuiet} ${s.topBack}`}>
+              <ArrowLeft aria-hidden strokeWidth={1.75} />
+            </Link>
+          ) : null}
+          {heading === 1 ? <h1 className={s.topTitle}>{title}</h1> : <h2 className={s.topTitle}>{title}</h2>}
           {end}
         </div>
       ) : null}
-      {children}
+      {typeof children === 'string' ? <p>{children}</p> : children}
     </div>
   );
 }
@@ -114,7 +125,10 @@ export function PartRow({
   top = false,
   go,
   mark,
+  dense = false,
 }: {
+  /** A count row (a label and a number): 40 px, the drawing's compact row. */
+  dense?: boolean;
   icon?: Icon;
   iconTone?: 'ok' | 'danger';
   title: ReactNode;
@@ -146,7 +160,7 @@ export function PartRow({
       {(go ?? Boolean(href)) ? <ChevronRight aria-hidden className={s.go} strokeWidth={1.75} /> : null}
     </>
   );
-  const cls = `${s.row} ${top ? s.rowTop : ''}`;
+  const cls = `${s.row} ${top ? s.rowTop : ''} ${dense ? s.rowDense : ''}`;
   return href ? (
     <Link href={href} className={cls} data-set-two-row={mark}>
       {inner}

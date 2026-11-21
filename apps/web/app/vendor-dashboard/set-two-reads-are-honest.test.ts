@@ -88,3 +88,41 @@ test('every read on a set-two page binds the error it may be refused with', () =
   }
   assert.deepEqual(offenders, [], `Bind the error and say it: ${offenders.join(' · ')}`);
 });
+
+/**
+ * Rule 3 · a part of their event says a read that did not answer — the RPC's gates still go back to the brief.
+ * Each page: `partReadOutcome` decides; 'failed' returns the honest frame BEFORE 'gate' redirects; the old
+ * `if (error || !data) redirect(…)` (a failure dressed as "not yours") is gone. 🛡 Sabotage (2026-11-21): the cocktail
+ * page's failed branch moved below the gate → RED; `if (error || !data) redirect(` restored on the seat plan → RED.
+ */
+const PARTS: ReadonlyArray<[page: string, failed: string, words: RegExp, body: string]> = [
+  ['clients/[eventId]/cocktail/page.tsx', 'CocktailReadFailed', /We couldn&rsquo;t load the cocktail area right now\./, 'clients/[eventId]/cocktail/cocktail-body.tsx'],
+  ['clients/[eventId]/seat-plan/page.tsx', 'SeatPlanReadFailed', /We couldn&rsquo;t load the couple&rsquo;s floor plan right now\./, 'clients/[eventId]/seat-plan/seat-plan-body.tsx'],
+  ['clients/[eventId]/production-sheet/page.tsx', 'ProductionSheetReadFailed', /We couldn&rsquo;t load the live counts right now\. Every number on this sheet comes from them, so none is shown\./, 'clients/[eventId]/production-sheet/production-sheet-body.tsx'],
+];
+
+test('rule 3 · a part of their event says a failed read in place; only a gate goes back to the brief', () => {
+  for (const [rel, failed, words, bodyRel] of PARTS) {
+    const page = read(rel);
+    assert.doesNotMatch(page, /if \(error \|\| !data\) redirect\(/, `${rel}: a failed read is redirected again`);
+    assert.match(page, /= partReadOutcome\(error, data\);/, `${rel}: the read must be classified by partReadOutcome`);
+    const failedAt = page.search(new RegExp(`=== 'failed'\\) \\{[\\s\\S]{0,200}return <${failed} `));
+    const gateAt = page.search(/=== 'gate'\) redirect\(/);
+    assert.ok(failedAt > -1, `${rel}: the failed read must return <${failed}>`);
+    assert.ok(gateAt > failedAt, `${rel}: the failed branch must be decided BEFORE the gate redirect`);
+    assert.match(read(bodyRel), words, `${bodyRel}: the honest words changed`);
+  }
+  const rule = readWeb('lib/vendor-part-read.ts');
+  assert.match(rule, /GATE_SQLSTATES: readonly string\[\] = \['42501', 'P0002'\]/, 'only the gates’ SQLSTATEs are answers');
+});
+
+test('rule 4 · challenge photos never says "0 shared" over an unread read, and a failed brief is said', () => {
+  const page = read('clients/[eventId]/challenge-photos/page.tsx');
+  assert.doesNotMatch(page, /if \(briefErr \|\| !brief\) redirect\(/, 'a failed brief read is redirected again');
+  assert.match(page, /briefRead === 'failed'[\s\S]{0,200}sections=\{null\}/);
+  const body = read('clients/[eventId]/challenge-photos/challenge-photos-body.tsx');
+  assert.match(body, /sections && total > 0 \? <ShopPill/, 'the count pill shows only over a read that answered');
+  const nullAt = body.indexOf('sections === null ?');
+  const emptyAt = body.indexOf('total === 0 ?');
+  assert.ok(nullAt > -1 && emptyAt > nullAt, 'the body must branch on the read before the count');
+});

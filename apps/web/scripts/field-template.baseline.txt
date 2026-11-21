@@ -276,7 +276,6 @@
 1 apps/web/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx
 9 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
-2 apps/web/app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx
 2 apps/web/app/vendor-dashboard/creators/page.tsx
 1 apps/web/app/vendor-dashboard/disputes/page.tsx
 6 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx

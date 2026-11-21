@@ -492,6 +492,8 @@ async function writeItems(
         ...(i.maxExtraHours != null ? { max_extra_hours: i.maxExtraHours } : {}),
         // 🔒 A card line names its card; the database refuses another shop's (trg_vendor_package_item_service_same_owner).
         ...(i.vendorServiceId ? { vendor_service_id: i.vendorServiceId } : {}),
+        // 🎂 The Cake Maker's part tag — written only on a cake line, so every other save is byte-identical.
+        ...(i.cakePart ? { cake_part: i.cakePart } : {}),
       };
     });
 
@@ -535,6 +537,8 @@ async function writeItems(
         is_default: o.is_default,
         is_available: o.is_available,
         display_order: oIdx,
+        // 🎂 A cake Design option's portfolio photo, re-checked against the shop's own portfolio by the caller.
+        ...(o.photoRef ? { photo_ref: o.photoRef } : {}),
         __ref: o.ref,
       }));
     });

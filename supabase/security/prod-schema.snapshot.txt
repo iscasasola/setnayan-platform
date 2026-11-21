@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1940
-# tables: 523
-# columns: 6270
-# notnull: 3783
+# ledger: 1945
+# tables: 526
+# columns: 6300
+# notnull: 3803
 [ledger]
 20260512000000
 20260513000000
@@ -1931,13 +1931,17 @@
 20271350627144
 20271350696878
 20271350875090
+20271350884376
 20271350937606
 20271351048946
 20271351451190
+20271351531329
 20271351728222
 20271351728770
+20271351904391
 20271352068061
 20271352180500
+20271352223098
 20271352461498
 20271352882666
 20271352968519
@@ -1952,6 +1956,7 @@
 20271355258231
 20271355746081
 20271355899662
+20271356173915
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3634,6 +3639,11 @@ event_tables.updated_at
 event_tables.walkthrough_zone_id
 event_tables.x_pos
 event_tables.y_pos
+event_today_put_offs.event_id
+event_today_put_offs.put_off_at
+event_today_put_offs.task_key
+event_today_put_offs.until_day
+event_today_put_offs.user_id
 event_type_onboarding.axis_overrides
 event_type_onboarding.created_at
 event_type_onboarding.event_type
@@ -6158,6 +6168,16 @@ service_categories.sort_order
 service_categories.status
 service_categories.tier
 service_categories.updated_at
+service_included_templates.canonical_service
+service_included_templates.created_at
+service_included_templates.is_proposal
+service_included_templates.name
+service_included_templates.rows
+service_included_templates.sort_order
+service_included_templates.source
+service_included_templates.template_id
+service_included_templates.updated_at
+service_included_templates.updated_by
 service_slot_day_state.created_at
 service_slot_day_state.reserved_date
 service_slot_day_state.seats_capacity
@@ -7369,6 +7389,13 @@ vendor_partnerships.recommended_vendor_id
 vendor_partnerships.recommending_vendor_id
 vendor_partnerships.relationship_type
 vendor_partnerships.status
+vendor_pay_plans.created_at
+vendor_pay_plans.items
+vendor_pay_plans.name
+vendor_pay_plans.pay_plan_id
+vendor_pay_plans.retired_at
+vendor_pay_plans.updated_at
+vendor_pay_plans.vendor_profile_id
 vendor_payment_asks.amount_php
 vendor_payment_asks.ask_id
 vendor_payment_asks.asked_by_user_id
@@ -7949,11 +7976,14 @@ vendor_services.crew_meal_required
 vendor_services.crew_size
 vendor_services.daily_capacity
 vendor_services.demo_batch_id
+vendor_services.description
 vendor_services.exclusive_perk_text
 vendor_services.extra_hour_php
+vendor_services.extra_unit_php
 vendor_services.gift_pack_code
 vendor_services.hour_base_php
 vendor_services.includes_setnayan_gift
+vendor_services.initial_units
 vendor_services.is_active
 vendor_services.is_demo
 vendor_services.is_linked_only
@@ -7963,12 +7993,14 @@ vendor_services.min_hours
 vendor_services.min_pax
 vendor_services.order_lead_days
 vendor_services.package_inclusions
+vendor_services.pay_plan_id
 vendor_services.per_pax_price_php
 vendor_services.plan_held_at
 vendor_services.plan_hold
 vendor_services.plan_hold_returns_on
 vendor_services.plan_hold_starts_on
 vendor_services.plan_hold_was_live
+vendor_services.price_max
 vendor_services.pricing_basis
 vendor_services.primary_photo_r2_key
 vendor_services.public_id
@@ -7982,10 +8014,13 @@ vendor_services.taken_down_reason
 vendor_services.title
 vendor_services.transport_flat_fee_php
 vendor_services.transport_included
+vendor_services.unit_base_php
+vendor_services.unit_word
 vendor_services.updated_at
 vendor_services.usual_prep_days
 vendor_services.vendor_profile_id
 vendor_services.vendor_service_id
+vendor_services.video_url
 vendor_songs.created_at
 vendor_songs.performance_url
 vendor_songs.song_id
@@ -9272,6 +9307,11 @@ event_tables.table_id
 event_tables.table_label
 event_tables.table_type
 event_tables.updated_at
+event_today_put_offs.event_id
+event_today_put_offs.put_off_at
+event_today_put_offs.task_key
+event_today_put_offs.until_day
+event_today_put_offs.user_id
 event_type_onboarding.created_at
 event_type_onboarding.event_type
 event_type_onboarding.updated_at
@@ -10724,6 +10764,15 @@ service_categories.sort_order
 service_categories.status
 service_categories.tier
 service_categories.updated_at
+service_included_templates.canonical_service
+service_included_templates.created_at
+service_included_templates.is_proposal
+service_included_templates.name
+service_included_templates.rows
+service_included_templates.sort_order
+service_included_templates.source
+service_included_templates.template_id
+service_included_templates.updated_at
 service_slot_day_state.created_at
 service_slot_day_state.reserved_date
 service_slot_day_state.seats_capacity
@@ -11511,6 +11560,12 @@ vendor_partnerships.recommended_vendor_id
 vendor_partnerships.recommending_vendor_id
 vendor_partnerships.relationship_type
 vendor_partnerships.status
+vendor_pay_plans.created_at
+vendor_pay_plans.items
+vendor_pay_plans.name
+vendor_pay_plans.pay_plan_id
+vendor_pay_plans.updated_at
+vendor_pay_plans.vendor_profile_id
 vendor_payment_asks.amount_php
 vendor_payment_asks.ask_id
 vendor_payment_asks.created_at

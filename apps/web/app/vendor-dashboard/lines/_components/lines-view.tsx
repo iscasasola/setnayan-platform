@@ -91,7 +91,7 @@ export function LinesView({
         <span>
           Editing a line here changes what future weddings start from. It never changes a script you have already
           written for a couple —{' '}
-          <Link href="/vendor-dashboard/clients" className="font-semibold text-[rgb(var(--color-link))] underline underline-offset-2">
+          <Link href="/vendor-dashboard/customers" className="font-semibold text-[rgb(var(--color-link))] underline underline-offset-2">
             those stay as you left them
           </Link>
           .

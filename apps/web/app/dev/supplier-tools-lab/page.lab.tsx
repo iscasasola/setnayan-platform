@@ -198,7 +198,7 @@ const MB_PHOTO = (id: string, label: string, state: 'live' | 'draft' | 'rejected
     approved_at: state === 'live' || state === 'retired' ? ago(5) : null, retired_at: state === 'retired' ? ago(1) : null,
     rejected_at: state === 'rejected' ? ago(2) : null, rejection_reason: state === 'rejected' ? 'This photo shows a phone number.' : null,
     created_at: ago(9), source_event_id: null, from_suggestion: false,
-    public_url: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9b38f"/><stop offset="1" stop-color="#7b8f6a"/></linearGradient></defs><rect width="10" height="10" fill="url(#g)"/></svg>`)}`,
+    public_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAATklEQVR4nGM4ubn/8IauvWtbt69q2Li8evWSsqULC+fPy2HAKjpzdjoDVtHJM5IYsIr2To1lwCraPimCAatoY38wA1bR6h4/BqyipZ2eAJONakGVs7jEAAAAAElFTkSuQmCC',
     color_ranges: {},
   }) as unknown as StylistAsset;
 const PHOTOS = [MB_PHOTO('p1', 'Garden arch, Tagaytay', 'live'), MB_PHOTO('p2', 'Sweetheart table', 'draft'), MB_PHOTO('p3', 'Reception aisle', 'live'), MB_PHOTO('p4', 'Welcome sign', 'rejected'), MB_PHOTO('p5', 'Centrepiece', 'draft'), MB_PHOTO('p6', 'Cake table', 'retired')];

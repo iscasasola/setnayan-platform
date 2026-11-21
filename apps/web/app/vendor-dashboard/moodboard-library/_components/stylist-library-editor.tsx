@@ -759,7 +759,7 @@ export function StylistLibraryEditor({
                       }}
                       aria-label={`${a.label || 'Moodboard photo'} · ${assetWhere(a, gallerySlots)}`}
                       aria-pressed={on}
-                      className={`sn-press absolute inset-0 overflow-hidden rounded-[10px] ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
+                      className={`sn-press absolute inset-0 overflow-hidden rounded-lg ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
                     >
                       <Image
                         src={a.public_url}

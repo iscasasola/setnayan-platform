@@ -14871,6 +14871,7 @@
     "/vendor-dashboard/activities": {
       "files": [
         "vendor-dashboard/activities/_components/activities-view.tsx",
+        "vendor-dashboard/activities/_components/segment-form.tsx",
         "vendor-dashboard/activities/actions.ts",
         "vendor-dashboard/activities/loading.tsx",
         "vendor-dashboard/activities/page.tsx",
@@ -14891,6 +14892,7 @@
         "ActionButton",
         "ActivitiesView",
         "ActivityRow",
+        "ChosenRow",
         "Fold",
         "Icon",
         "InfoTip",
@@ -14898,6 +14900,7 @@
         "MoveButton",
         "QuestionsSection",
         "QuestionsSectionBody",
+        "SegmentForm",
         "StarterQuestion",
         "StayForm",
         "TemplateEmpty",
@@ -14905,7 +14908,8 @@
         "ToolAddSheet",
         "ToolPage",
         "ToolPin",
-        "ToolSection"
+        "ToolSection",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/attributes": {
@@ -16066,27 +16070,41 @@
     },
     "/vendor-dashboard/lines": {
       "files": [
+        "vendor-dashboard/lines/_components/line-rows.tsx",
+        "vendor-dashboard/lines/_components/lines-view.tsx",
         "vendor-dashboard/lines/actions.ts",
         "vendor-dashboard/lines/loading.tsx",
         "vendor-dashboard/lines/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients"
+        "/vendor-dashboard/clients",
+        "/vendor-dashboard/lines"
       ],
       "actions": [
         "attachLineToActivity",
-        "deleteLine",
         "updateLine"
       ],
       "blocks": [
         "ActionButton",
-        "Badge",
+        "ChosenRow",
+        "Fold",
+        "LineEdit",
+        "LineRows",
+        "LineTie",
+        "LinesView",
         "Link",
         "ListPageSkeleton",
         "StayForm",
-        "TemplateEmpty",
-        "TemplateFail",
-        "TemplateSection"
+        "SwipeToDelete",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolLine",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection",
+        "TypedRow",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/locked-qr": {
@@ -16298,23 +16316,25 @@
         "vendor-dashboard/moodboard-library/loading.tsx",
         "vendor-dashboard/moodboard-library/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/collections"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ColorRangeManipulator",
         "GridPageSkeleton",
         "HTMLInputElement",
         "Image",
+        "InfoTip",
         "InspirationCardPick",
-        "Link",
         "PalettePreview",
         "PickMenu",
         "RejectionNotice",
+        "Sheet",
         "ShopNotice",
         "StylistLibraryActions",
         "StylistLibraryEditor",
+        "ToolAddSheet",
+        "ToolChip",
+        "ToolPin",
         "Uint8Array",
         "UploadStylistAssetResult"
       ]

@@ -111,10 +111,13 @@ const GOWNS: ResolvedSchema = {
 } as unknown as ResolvedSchema;
 const CATERING = { ...GOWNS, canonical_service: 'catering', display_name_en: 'Catering', display_name_tl: 'Handaan' } as ResolvedSchema;
 const PHOTO = { ...GOWNS, canonical_service: 'photo_video', display_name_en: 'Photo & video', display_name_tl: 'Larawan at bidyo' } as ResolvedSchema;
-const pay = (key: string, score: number, ok: boolean): VendorAttributePayload => ({
-  vendor_profile_id: 'lab', canonical_service: key, schema_version_at_fill: 3, completeness_score: score, meets_visibility_minimum: ok,
+// The gate's own column is NOT typed here: a lab is not a reader of it (tests/db/handles-have-gates.db.test.ts), so every
+// fixture row reads "Visibility gate not met".
+const pay = (key: string, score: number, _ok: boolean): VendorAttributePayload =>
+  ({
+  vendor_profile_id: 'lab', canonical_service: key, schema_version_at_fill: 3, completeness_score: score,
   updated_at: ago(2), attribute_payload: key === 'bridal_gowns' ? { silhouettes: ['ballgown', 'a_line'], lead_time_weeks: 8, made_to_measure: true, designers: ['Veluz', 'Mak Tumang'] } : {},
-});
+  }) as VendorAttributePayload;
 const ATTR_ROWS = [
   { schema: GOWNS, payload: pay('bridal_gowns', 62, false) },
   { schema: CATERING, payload: pay('catering', 88, true) },

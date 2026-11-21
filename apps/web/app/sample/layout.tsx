@@ -18,10 +18,17 @@ import { sampleOpensHere } from '@/lib/sample-event/switch.server';
  * 🕶 NEVER INDEXED. noindex here covers every page beneath; no sitemap lists
  * /sample (`the-sample-is-sealed.test.ts`).
  */
-export const metadata: Metadata = {
-  title: 'Maria and Jose — a sample event',
-  robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
-};
+/**
+ * 🏷 A CLOSED sample is a 404, and its tab says so (logged-out crawl #13): a static `metadata` export was applied
+ * even when the layout below answered `notFound()`, so the 404 read "Maria and Jose — a sample event · Setnayan".
+ * `sampleOpensHere` is `cache()`d — the layout's own gate reads the same answer, no second request.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: (await sampleOpensHere()) ? 'Maria and Jose — a sample event' : 'Page not found',
+    robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
+  };
+}
 
 export default async function SampleLayout({ children }: { children: ReactNode }) {
   if (!(await sampleOpensHere())) notFound();

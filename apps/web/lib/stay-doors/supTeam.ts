@@ -8,5 +8,7 @@ export const SUP_TEAM_STAY_DOORS = [
   'supTeam.voteAdminMotion',
   'supTeam.cancelAdminMotion',
   'supTeam.stepDownSelf',
+  // Team › Roles — Save names (six supplier roles, 19 Nov 2026).
+  'supTeam.setVendorRoleNames',
 ] as const;
 export type SupTeamStayDoor = (typeof SUP_TEAM_STAY_DOORS)[number];

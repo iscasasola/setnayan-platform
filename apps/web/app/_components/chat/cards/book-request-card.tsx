@@ -8,7 +8,7 @@
  * those exact words (`bookRequestFromLine`) and adds nothing to them: the answer itself (Agree · Turn it down) stays
  * the shipped one on the quote card and Today, so there is one way to answer.
  */
-import { ChatCardShell } from '../chat-step-card';
+import { KindCard } from './card-bits';
 import type { BookRequestState } from '@/lib/chat-cards';
 
 const WORDS: Record<BookRequestState, { title: string; line: (who: string) => string; tone: string }> = {
@@ -45,15 +45,29 @@ export function BookRequestCard({
 }) {
   const w = WORDS[state];
   const answered = state === 'asked' && answeredAs && answeredAs !== 'asked' ? ANSWERED[answeredAs] : null;
+  const words = answered ?? (state === 'not_available' && reason ? reason : w.line(supplierName));
+  // An ask still open is a card (the supplier's turn); anything answered or ended is one settled line.
+  if (state !== 'asked' || answered) {
+    return (
+      <KindCard
+        kind="plain"
+        topic="details"
+        kicker={`Setnayan · ${at}`}
+        title={w.title}
+        turn={state === 'booked' || answeredAs === 'booked' ? 'done' : 'old'}
+        settled={
+          <>
+            {w.title.replace(/ ✓$/, '')} · <span data-book-request={state} data-book-request-answered={answered ? answeredAs : undefined}>{words}</span>
+          </>
+        }
+      />
+    );
+  }
   return (
-    <ChatCardShell topic="details" kicker={`Setnayan · ${at}`} title={w.title} tone="auto">
-      <p
-        className={`text-[15px] font-medium ${answered ? 'text-ink/60' : w.tone}`}
-        data-book-request={state}
-        data-book-request-answered={answered ? answeredAs : undefined}
-      >
-        {answered ?? (state === 'not_available' && reason ? reason : w.line(supplierName))}
+    <KindCard kind="plain" topic="details" kicker={`Setnayan · ${at}`} title={w.title} turn={supplierName === 'you' ? 'me' : 'wait'}>
+      <p className={`text-[15px] font-medium ${w.tone}`} data-book-request={state}>
+        {words}
       </p>
-    </ChatCardShell>
+    </KindCard>
   );
 }

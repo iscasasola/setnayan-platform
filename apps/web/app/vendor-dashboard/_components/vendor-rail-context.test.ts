@@ -471,6 +471,12 @@ test('all nine cron-free sweeps still ride on this layout', () => {
       counting until some unrelated review happens to refresh the stars.
     */
     'maybeRunTopUpUnlist',
+    /*
+      🎁 A gifted supplier plan says "ends soon" 7 days and 1 day before it ends (owner 14 Nov 2026). Fleet-wide, like
+      the credit warning: the shop that needs telling is the one not opening this page. Drop it and no notice or email
+      goes, and the gift ends with nothing said.
+    */
+    'maybeSweepPlanGiftEndingNotices',
   ]) {
     assert.ok(
       new RegExp(`\\b${sweep}\\b`).test(src),
@@ -492,7 +498,8 @@ test('all nine cron-free sweeps still ride on this layout', () => {
     // at the yes; named in the list above).
     // 12 since 2026-10-28: `maybeRunSupplierPagePublish` (the 7-day guest notice; named above).
     // 13 since 2026-11-12: `maybeRunTopUpUnlist` (the booking-fee top-up unlist; named above).
-    13,
+    // 14 since 2026-11-14: `maybeSweepPlanGiftEndingNotices` (a gifted plan's "ends soon"; named above).
+    14,
     'the count of post-response jobs changed',
   );
 });

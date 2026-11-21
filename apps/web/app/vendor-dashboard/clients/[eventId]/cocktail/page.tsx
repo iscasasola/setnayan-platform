@@ -1,10 +1,12 @@
 import { getCurrentUser } from '@/lib/auth';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Martini } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { CocktailEditor, type CocktailEditorData } from './cocktail-editor';
+import type { CocktailEditorData } from './cocktail-editor';
+import { CocktailBody, CocktailReadFailed } from './cocktail-body';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { partReadOutcome } from '@/lib/vendor-part-read';
+import { readTheirEventName } from '@/app/vendor-dashboard/_components/set-two/their-event-line';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
@@ -40,36 +42,18 @@ export default async function VendorCocktailPage({ params }: Props) {
     return <EventLockedPage eventId={eventId} gate={feeGate} />;
   }
 
-  // not_a_vendor / not_booked / category_not_cocktail / vendor_edit_off all
-  // land here → the brief is the right fallback.
-  const { data, error } = await supabase.rpc('get_vendor_cocktail_editor', {
-    p_event_id: eventId,
-  });
-  if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
-  const plan = data as CocktailEditorData;
-
-  return (
-    <section className="mx-auto w-full tab:max-w-3xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
-      <Link
-        href={`/vendor-dashboard/clients/${eventId}?tab=details`}
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief
-      </Link>
-
-      <header className="space-y-2">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
-          <Martini aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        </span>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{plan.cocktail.label}</h1>
-        <p className="max-w-prose text-base text-ink/65">
-          {plan.can_arrange
-            ? 'Arrange the cocktail / waiting area — drag the room to fit the space and place the booths. The couple sees your changes on their blueprint.'
-            : 'Place and move your booth inside the couple’s cocktail / waiting area. The reception is shown for reference only — counts, never guest names.'}
-        </p>
-      </header>
-
-      <CocktailEditor eventId={eventId} data={plan} />
-    </section>
-  );
+  // not_a_vendor / not_booked / category_not_cocktail / vendor_edit_off are the RPC's GATES — an answer, and the brief is
+  // the right place for it, as always. Any other error is a read that did not happen: it is SAID, in place (supplier
+  // pages set two, Honest state · new) — never a redirect that makes a failure look like "this page is not yours".
+  const [{ data, error }, eventName] = await Promise.all([
+    supabase.rpc('get_vendor_cocktail_editor', { p_event_id: eventId }),
+    readTheirEventName(supabase, eventId),
+  ]);
+  const outcome = partReadOutcome(error, data);
+  if (outcome === 'failed') {
+    logQueryError('VendorCocktailPage.editor', error!, { eventId }, 'graceful_degrade');
+    return <CocktailReadFailed eventId={eventId} eventName={eventName} />;
+  }
+  if (outcome === 'gate') redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
+  return <CocktailBody eventId={eventId} eventName={eventName} plan={data as CocktailEditorData} />;
 }

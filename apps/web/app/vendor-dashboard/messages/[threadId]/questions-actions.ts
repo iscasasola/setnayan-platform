@@ -31,7 +31,7 @@ import { supplierQuestionsHref } from '@/lib/supplier-questions-href';
 
 export type SendQuestionsState =
   | { status: 'idle' }
-  | { status: 'sent'; count: number }
+  | { status: 'sent'; count: number; chatLine: boolean }
   | { status: 'error'; message: string };
 
 export async function sendQuestionsToEvent(
@@ -95,6 +95,8 @@ export async function sendQuestionsToEvent(
     vendor_profile_id: thread.vendor_profile_id,
     body: `A few questions so we plan this right — ${questions} for you to answer in your event.`,
   });
+  // The ask above IS saved (they find the questions in their event); only the chat note can be missing — and the
+  // button says so, never a plain "Sent" over a line that never posted.
   if (msgError) console.error('[sendQuestionsToEvent] line failed:', msgError.message);
 
   // 3 · tell the hosts, in the app only.
@@ -130,5 +132,5 @@ export async function sendQuestionsToEvent(
   }
 
   revalidatePath(supplierThreadPageHref(threadId));
-  return { status: 'sent', count };
+  return { status: 'sent', count, chatLine: !msgError };
 }

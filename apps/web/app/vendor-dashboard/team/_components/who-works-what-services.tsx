@@ -66,7 +66,7 @@ export function AgentServiceAssignment({
                   return (
                     <label
                       key={l.key}
-                      className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30"
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-raised/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30"
                     >
                       <input
                         type="checkbox"
@@ -107,7 +107,7 @@ export function AgentServiceAssignment({
                   return (
                     <label
                       key={s.id}
-                      className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-white/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30"
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 bg-raised/70 px-3 py-1 text-[13px] text-ink/80 hover:border-ink/30"
                     >
                       <input type="checkbox" name="service_ids" value={s.id} defaultChecked={assignedSet.has(s.id)} className="h-3.5 w-3.5 accent-success-600" />
                       {s.name}
@@ -120,7 +120,7 @@ export function AgentServiceAssignment({
             </div>
           ))}
           <SubmitButton
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-success-300 bg-white/70 px-4 text-[13px] font-medium text-success-900 hover:border-success-500"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-success-300 bg-raised/70 px-4 text-[13px] font-medium text-success-900 hover:border-success-500"
             pendingLabel="Saving…"
           >
             Save their services

@@ -143,8 +143,8 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   // under an event — Suppliers, the Maker, the Studio, the website editor, seating, the routes below Guests — and the
   // Events board itself stay Light until they are swept and walked (review of #7993, 19 Nov 2026).
   const E = '/dashboard/7f3a9c1e-2b4d-4c6e-8a10-3f5b7d9e1c2a';
-  const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/billing', '/dashboard/search', `${E}/vendors`, `${E}/launch`, `${E}/studio`, `${E}/website/editor`, `${E}/seating`, `${E}/guests/checkin`, `${E}/budget/x`, '/vendor-dashboard', '/vendor-dashboard/clients', '/admin', '/marco-marga', '/papic/abc'];
-  const SHIPPED_DARK = [E, `${E}/`, `${E}/budget`, `${E}/guests`, `${E}/schedule`, '/dashboard/S89E-4KQ7M2XW9T', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
+  const SHIPPED_LIGHT = ['/', '/dashboard', '/dashboard/billing', '/dashboard/search', `${E}/vendors`, `${E}/launch`, `${E}/studio`, `${E}/website/editor`, `${E}/seating`, `${E}/guests/checkin`, `${E}/budget/x`, '/vendor-dashboard', '/vendor-dashboard/shop', '/vendor-dashboard/clients/7f3a9c1e', '/admin', '/marco-marga', '/papic/abc'];
+  const SHIPPED_DARK = [E, `${E}/`, `${E}/budget`, `${E}/guests`, `${E}/schedule`, '/dashboard/S89E-4KQ7M2XW9T', '/vendor-dashboard/clients', '/vendor-dashboard/customers', '/dashboard/people', '/dashboard/profile', '/dashboard/library/photos', '/dashboard/samahan/c1', '/login', '/signup/you'];
   for (const prefersDark of [false, true]) {
     for (const [who, cookie] of Object.entries(COOKIES)) {
       const chose = darkApplies({ pathname: '/dashboard/profile', cookie, appRoutes: ROUTE_RESERVED_SLUGS, prefersDark });
@@ -165,7 +165,8 @@ test('(c) as shipped — dark reaches ONLY the couple’s /dashboard area + the 
   const statics = ['(account)', '(launcher)'].flatMap((g) => readdirSync(join(WEB, 'app/dashboard', g), { withFileTypes: true }).filter((d) => d.isDirectory() && !/^[_@(]/.test(d.name)).map((d) => d.name));
   assert.ok(statics.length >= 10, 'anti-vacuity: the static dashboard folders were not read');
   assert.deepEqual(statics.filter((n) => /\d/.test(n)), [], 'a static /dashboard folder holds a digit — `*` in DARK_READY would match it');
-  assert.ok(!DARK_READY.some((p) => p.startsWith('/vendor-dashboard') || p.startsWith('/admin')), 'the supplier tree and admin open in their own batch');
+  assert.ok(!DARK_READY.includes('/vendor-dashboard'), 'the whole supplier tree is on the ready-list — only its walked screens may be');
+  assert.ok(!DARK_READY.some((p) => p.startsWith('/admin')), 'admin opens in its own batch');
 });
 
 test('(d) a ready-list entry is always an app route, never a couple’s slug', () => {

@@ -23,6 +23,7 @@
 import { createContext, useActionState, useContext, useMemo, useState } from 'react';
 import { Calculator, Save, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { ChosenRow, FormRows } from '@/app/_components/form-row';
 import { savePricingFormula } from '@/app/admin/pricing/price-control-actions';
 import { applyFormulaPrices, type ApplyFormulaState, type RowActionState } from '@/app/admin/pricing/actions';
 import {
@@ -36,8 +37,9 @@ import {
   type PricingFormulaSettings,
 } from '@/lib/pricing-formula';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/php';
 
-const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+const peso = (n: number) => formatPhp(n);
 
 /** Null = the settings could not be read; rows then suggest nothing. */
 export const PricingFormulaContext = createContext<PricingFormulaSettings | null>(null);
@@ -70,6 +72,7 @@ export function FormulaLine({ cost, price }: { cost: number; price: number }) {
 export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
   const settings = usePricingFormula();
   const [editing, setEditing] = useState(false);
+  const [step, setStep] = useState(String(settings?.roundStepPhp ?? 1));
   const [confirming, setConfirming] = useState(false);
   const [saveState, saveAction] = useActionState<RowActionState, FormData>(savePricingFormula, {
     ok: false,
@@ -125,21 +128,18 @@ export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
               step="0.0001"
               max="1"
             />
-            <label className="block">
-              <span className="mb-1 block text-[12.5px] font-medium text-ink">Round up to</span>
-              <select
-                name="pricing_round_step_php"
-                defaultValue={String(settings.roundStepPhp)}
-                className="input-field h-9 w-full text-sm"
-              >
-                {PRICING_ROUND_STEPS.map((s) => (
-                  <option key={s} value={s}>
-                    ₱{s}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
+          <FormRows data="pricing-round-step">
+            <ChosenRow
+              data="pricing-round-step"
+              name="Round up to"
+              value={step}
+              options={PRICING_ROUND_STEPS.map((s) => ({ key: String(s), label: peso(s) }))}
+              onPick={setStep}
+              dataAttr="data-pricing-round-step"
+            />
+          </FormRows>
+          <input type="hidden" name="pricing_round_step_php" value={step} />
           <div className="flex flex-wrap items-center gap-2">
             <ActionButton tone="brand" main type="submit" icon={<Save aria-hidden strokeWidth={1.9} />} label="Save formula" />
             <ActionButton tone="neutral" quiet icon={<X aria-hidden strokeWidth={1.9} />} label="Close" onClick={() => setEditing(false)} />

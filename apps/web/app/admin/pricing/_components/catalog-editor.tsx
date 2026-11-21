@@ -981,8 +981,11 @@ function SaveSection({ row }: { row: PriceRowProp }) {
           {formulaFor != null && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink/60" data-formula-use="">
               <span className="tabular-nums">
-                Formula price <b className="font-mono text-ink">₱{formulaFor.toLocaleString('en-PH')}</b>
+                Formula price <b className="text-ink">₱{formulaFor.toLocaleString('en-PH')}</b>
               </span>
+              {String(formulaFor) === price && String(row.price) !== price && (
+                <span className="text-[12px] text-ink/55">In the Price box — press Save this price to send it.</span>
+              )}
               {String(formulaFor) !== price && (
                 <button
                   type="button"

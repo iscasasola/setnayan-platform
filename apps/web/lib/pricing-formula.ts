@@ -27,6 +27,8 @@
  * Pure: no Supabase, no request context — testable on its own.
  */
 
+import { formatPhp } from '@/lib/php';
+
 export type PricingFormulaSettings = {
   opexFactor: number;
   marginFactor: number;
@@ -75,7 +77,7 @@ function plain(n: number): string {
 
 /** "Price = base cost × 10 × 4.5 ÷ 0.73, rounded up to ₱1" */
 export function formulaSentence(s: PricingFormulaSettings): string {
-  return `Price = base cost × ${plain(s.opexFactor)} × ${plain(s.marginFactor)} ÷ ${plain(s.feeTaxCover)}, rounded up to ₱${s.roundStepPhp}`;
+  return `Price = base cost × ${plain(s.opexFactor)} × ${plain(s.marginFactor)} ÷ ${plain(s.feeTaxCover)}, rounded up to ${formatPhp(s.roundStepPhp)}`;
 }
 
 /** "+₱24" · "−₱300" · "same" — the gap between the formula and the price on sale. */
@@ -142,7 +144,10 @@ export function validatePricingFormulaFields(raw: {
   if (cover == null || cover <= 0 || cover > 1) {
     return { ok: false, message: 'The fee-and-tax cover must be more than 0 and no more than 1 (0.73 keeps 73% after Maya fees and tax).' };
   }
-  if (step == null || !isRoundStep(step)) return { ok: false, message: 'Round up to ₱1, ₱5 or ₱10.' };
+  if (step == null || !isRoundStep(step)) {
+    const steps = PRICING_ROUND_STEPS.map((n) => formatPhp(n));
+    return { ok: false, message: `Round up to ${steps.slice(0, -1).join(', ')} or ${steps[steps.length - 1]}.` };
+  }
   return {
     ok: true,
     next: {

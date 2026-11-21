@@ -332,8 +332,15 @@ export function mayaWebhookNotice(code: string | undefined): { ok: boolean; text
       return { ok: false, text: 'Add the secret key first.' };
     case 'bad_endpoint':
       return { ok: false, text: 'The checkout endpoint is not a valid address.' };
+    case 'keys_refused':
+      return {
+        ok: false,
+        text: 'Maya refused these keys — check they match the endpoint (sandbox keys → pg-sandbox, Business Manager keys → pg.maya.ph).',
+      };
+    case 'no_answer':
+      return { ok: false, text: 'Maya did not answer — try again.' };
     case 'refused':
-      return { ok: false, text: 'Maya refused or did not answer. Check the keys and try again.' };
+      return { ok: false, text: 'Maya turned the request down. Try again; if it repeats, check the keys and the endpoint.' };
     default:
       return null;
   }

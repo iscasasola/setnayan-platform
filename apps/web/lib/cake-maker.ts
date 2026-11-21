@@ -518,11 +518,11 @@ export function cakeQuoteNote(d: CakeDesign): string {
 export function servesWords(o: CakeShopOptions, count: number, guests: number | null): string | null {
   const s = o.sizes.find((x) => x.count === count)?.serves;
   if (!s) return null;
-  const head = `${tierLabel(count)} ${count === 1 ? 'serves' : 'serve'} about ${s}`;
+  const head = `${tierLabel(count)} ${count === 1 ? 'serves' : 'serve'} about ${formatCount(s)}`;
   if (!guests || guests <= 0) return head;
-  if (s >= guests) return `${head} · fits your ${guests} guests`;
+  if (s >= guests) return `${head} · fits your ${formatCount(guests)} guests`;
   const enough = o.sizes.find((x) => (x.serves ?? 0) >= guests);
-  return enough ? `${head} · for your ${guests} guests, pick ${enough.count} or more` : `${head} · your ${guests} guests need more than the biggest size`;
+  return enough ? `${head} · for your ${formatCount(guests)} guests, pick ${formatCount(enough.count)} or more` : `${head} · your ${formatCount(guests)} guests need more than the biggest size`;
 }
 
 /** The extra a pick adds, as the designer shows it: "in the price" or "+₱1,000". */

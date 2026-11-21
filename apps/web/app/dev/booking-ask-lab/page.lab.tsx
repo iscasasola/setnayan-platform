@@ -15,6 +15,11 @@
  *   ?s=declined     the ask closed: you said no (with your words)
  *   ?s=expired      …you did not answer in 48 hours
  *   ?s=cancelled    …they took it back
+ *   &fee=unverified|ticket|platform|import   the 20 Nov fee notice above Agree (default: a verified shop, billed)
+ *
+ *   &gift=stock|empty|sent  the Agree step's gift (#7823): in stock · none left ("0 left · Buy more ›") · a store
+ *                   payment sent, waiting for approval. &gift=needed draws an AGREED booking whose gift was cleared.
+ *                   SAMPLE prices — fixtures for the drawing, never the catalogue.
  *
  * The forms post the REAL actions; pressing them here needs a supplier's
  * session (the lab draws, it does not book). Names are samples: nobody real.
@@ -29,8 +34,27 @@ import { vendorAgreeToLock, vendorDeclineLock, vendorWaitlistTheAsk } from '@/ap
 import { parseDayCheck, type DayCheckRead } from '@/lib/day-check';
 import { supplierAskOutcomeOf } from '@/lib/booking-ask-words';
 import { BOOKING_FEE } from '@/lib/booking-fee';
-import { bookingFeeForecast } from '@/lib/booking-fee-disclosure';
+import { bookingFeeForecast, type BookingFeeStanding } from '@/lib/booking-fee-disclosure';
 import { lockAgreeNotice } from '@/lib/lock-answer-notice';
+import type { AgreeGiftBasis } from '@/lib/agree-gifts';
+import type { ShopGiftPack } from '@/lib/shop-gifts';
+import { GiftNeededRow } from '@/app/vendor-dashboard/clients/[eventId]/_components/gift-needed-row';
+
+/** SAMPLE packs for the drawing only (#7823) — the real ones are read from the catalogue. */
+const LAB_PACKS: ShopGiftPack[] = [
+  { code: 'PAPIC_GUEST_150', title: 'Papic 150', kind: 'papic', credits: 150, srpCentavos: 9_900 },
+  { code: 'PAPIC_GUEST_1K', title: 'Papic 1000', kind: 'papic', credits: 1_000, srpCentavos: 49_900 },
+  { code: 'PAPIC_GUEST', title: 'Papic 3000', kind: 'papic', credits: 3_000, srpCentavos: 99_900 },
+  { code: 'EVENT_PLUS', title: 'Event Plus', kind: 'event_plus', credits: 1, srpCentavos: 299_000 },
+];
+function labGift(key: string | undefined): AgreeGiftBasis | null {
+  if (!key) return null;
+  const none = { papic: 0, event_plus: 0, event_pro: 0, event_ultra: 0, packs: {} as Record<string, number> };
+  const base = { packs: LAB_PACKS, feeCentavos: 571_000, billCentavos: 0, limitPct: 40, eventHas: 'none' as const };
+  if (key === 'stock') return { ...base, free: { ...none, papic: 1150, packs: { PAPIC_GUEST_150: 1, PAPIC_GUEST_1K: 1 } }, sent: {} };
+  if (key === 'sent') return { ...base, free: none, sent: { PAPIC_GUEST_150: 1 } };
+  return { ...base, free: none, sent: {} };
+}
 
 const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
@@ -38,6 +62,27 @@ const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 const LAB_HELD_SERVICE = 'Same-Day Edit';
 /** The lab's "now" — the fuse reads against it, so every picture says the same. */
 const NOW = new Date('2026-10-12T04:00:00Z');
+
+/**
+ * ⚖ 20 Nov fee states for the notice above Agree (no free first booking any more):
+ *   default verified, billable · &fee=unverified (flat 5%, locked) · &fee=ticket (a held ticket pays it) ·
+ *   &fee=platform (Setnayan's every-Nth fee, free) · &fee=import (a couple you brought — no fee).
+ */
+function feeStandingFor(sp: Record<string, string | string[] | undefined>): BookingFeeStanding {
+  const base = { kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const;
+  switch (sp.fee) {
+    case 'unverified':
+      return { ...base, unverified: true };
+    case 'ticket':
+      return { ...base, badgeReward: 'this' };
+    case 'platform':
+      return { ...base, platformFree: 100_000 };
+    case 'import':
+      return { kind: 'not_sourced' };
+    default:
+      return base;
+  }
+}
 
 const ENDED = {
   declined: {
@@ -107,18 +152,27 @@ export default async function BookingAskLabPage({
       <h1 className="font-display text-[22px] font-medium leading-tight text-ink">Ana &amp; Paolo</h1>
       <p className="mt-0.5 text-sm text-ink/55">Dec 12, 2026 · Quezon City</p>
       {notice ? <LockAnswerLine notice={notice} /> : null}
+      {sp.gift === 'needed' ? (
+        <GiftNeededRow
+          eventVendorId={LAB_EVENT_VENDOR}
+          basis={labGift('empty')!}
+          returnTo={`/vendor-dashboard/clients/${LAB_EVENT}`}
+          action={vendorAgreeToLock}
+        />
+      ) : null}
       {open ? (
         <LockRequestAnswer
           eventVendorId={LAB_EVENT_VENDOR}
           expiresAt="2026-10-13T20:00:00Z"
           payoutReadiness="ready"
-          feeForecast={bookingFeeForecast({ kind: 'free', ordinal: 2, ordinalIsFrozen: false, schedule: BOOKING_FEE }, 171_000)}
+          feeForecast={bookingFeeForecast(feeStandingFor(sp), 171_000)}
           returnTo={`/vendor-dashboard/clients/${LAB_EVENT}`}
           agreeLock={vendorAgreeToLock}
           declineLock={vendorDeclineLock}
           dayCheck={typeof sp.day === 'string' ? labDay(sp.day) : null}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={s === 'on_hold' ? LAB_HELD_SERVICE : null}
+          giftBasis={typeof sp.gift === 'string' && sp.gift !== 'needed' ? labGift(sp.gift) : null}
           now={NOW}
         />
       ) : ended ? (

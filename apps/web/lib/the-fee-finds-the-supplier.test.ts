@@ -40,7 +40,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { bookingFeePhp, BOOKING_FEE } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
+import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
 import {
   BOOKING_FEE_BILL_SURFACES,
   billsForSurface,
@@ -338,8 +338,10 @@ test('every Agree button names the fee ABOVE itself, not after', () => {
 // SABOTAGE: hard-code '5%' into bookingFeeForecast instead of the summary → RED.
 test('every printed fee comes from bookingFeePhp — no surface types a rate', () => {
   const disclosure = read('lib/booking-fee-disclosure.ts');
-  assert.match(disclosure, /bookingFeePhp\(total, standing\.schedule\)/);
-  assert.match(disclosure, /bookingFeeScheduleSummary\(standing\.schedule\)/);
+  // ⚖ 20 NOV: one quoter for both schedules — `feeFor` → `bookingFeePhpFor` (taper when verified, flat when not).
+  assert.match(disclosure, /feeFor\(total, standing\.schedule, standing\.unverified\)/);
+  assert.match(disclosure, /bookingFeePhpFor\(total, schedule, \{ verified: !unverified \}\)/);
+  assert.match(disclosure, /scheduleLineFor\(standing\.schedule, standing\.unverified\)/);
 
   // The composers price off the SAME pure function, never a local estimate.
   for (const file of [
@@ -374,7 +376,9 @@ test('an uncomputable fee says so — it never guesses a rate', () => {
 
   // Same rule at sign-up: no schedule ⇒ no rate on screen, but still a warning.
   const noSchedule = bookingFeeJoinDisclosure(null);
-  assert.ok(noSchedule.detail.includes(FIRST_BOOKING_ON_US_CLAUSE), 'sign-up lost the free first booking');
+  // ⚖ 20 NOV: sign-up names who books free (the 16 Nov import rule), never a free first booking.
+  assert.ok(noSchedule.detail.includes(FEE_FREE_RULE), 'sign-up lost who books free');
+  assert.ok(!/first booking[^.]*\b(on us|free)\b/i.test(noSchedule.detail), 'sign-up still promises a free first booking');
   assert.doesNotMatch(noSchedule.detail, /%/, 'sign-up printed a rate it could not load');
   assert.match(bookingFeeJoinDisclosure(BOOKING_FEE).detail, /5% of the first/);
 });
@@ -441,7 +445,7 @@ test('a waived booking names the amount it would have cost, and why it is free',
     { kind: 'billable', ordinal: 3, ordinalIsFrozen: false, schedule: BOOKING_FEE },
     10_170,
   )!;
-  assert.match(projectedBill.detail, /would be number 3/);
+  assert.match(projectedBill.detail, /would be booking 3/);
 
   // No amount ⇒ no number, and still no bare "Free".
   const noTotal = bookingFeeForecast(

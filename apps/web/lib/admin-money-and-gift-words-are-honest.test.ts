@@ -177,10 +177,8 @@ test('every gift surface asks giftIsMoneyDance, and the other arm names E-Gifts'
       'app/[slug]/_components/guest-doorway-strip.tsx',
       /words\.solemn\s*\?\s*`A gift of sympathy[^`]*`\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*`The digital money dance[^`]*`\s*:\s*`Send E-Gifts straight to \$\{words\.theOrganizer\}\.`/,
     ],
-    [
-      'app/[slug]/hub/page.tsx',
-      /words\.solemn\s*\?\s*<>A gift of sympathy[^<]*<\/>\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*<>The digital money dance[^<]*<\/>\s*:\s*<>Send E-Gifts straight to \{words\.theOrganizer\}\.<\/>/,
-    ],
+    // (`app/[slug]/hub/page.tsx` left this list: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to
+    // the event page's tab (`dayHubLanding`). Its gift door's home is the event page's doorway strip, first above.)
     [
       'app/[slug]/pabuya/page.tsx',
       /words\.solemn\s*\?\s*'A gift of sympathy'\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*'The pabuya · digital money dance'\s*:\s*'The pabuya · E-Gifts'/,

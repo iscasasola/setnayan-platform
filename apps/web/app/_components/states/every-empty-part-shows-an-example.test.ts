@@ -195,7 +195,10 @@ const PARTS: Part[] = [
     render: async () => React.createElement('div'),
     file: 'app/dashboard/[eventId]/_components/home-todo-list.tsx',
     mount: /<ExamplePreview>/,
-    gate: /checklist\.total === 0 && rows\.length === 0 \? \(\s*<ExamplePreview>/,
+    // RE-AIMED 20 Nov 2026 (Event Today, Focus shape): the To do block became the one "Needs you today" list, and its
+    // gate is the list's own `planEmpty` — true only when the plan was READ and holds nothing (`lib/event-today.ts`,
+    // held by `lib/event-today.test.ts` test 5: false on a refused read).
+    gate: /today\.planEmpty \? \(\s*<ExamplePreview>/,
   },
   {
     name: "Event · Who's here",

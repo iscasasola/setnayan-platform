@@ -341,7 +341,7 @@ export function MakerRevealPicker({
         </InfoTip>
         {mark ? (
           <span className="pointer-events-none relative">
-            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} tone="auto" />
+            <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} tone="auto" />
           </span>
         ) : null}
         {on ? <Check aria-hidden className="pointer-events-none relative h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
@@ -781,7 +781,7 @@ function RevealStagePart({
                   {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
                   {id !== REVEAL_NONE_ID && mark ? (
                     <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">
-                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" />
+                      <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" />
                     </span>
                   ) : null}
                 </>

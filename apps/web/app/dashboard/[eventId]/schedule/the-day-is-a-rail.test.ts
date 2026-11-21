@@ -328,10 +328,13 @@ test('9 · the guest-facing schedule scene reads the rows the rail writes', () =
   assert.match(pub.slice(0, pub.indexOf('\n}\n')), /onlyWhatGuestsMaySee\(\s*supabase\.from\('event_schedule_blocks'\)/);
   const fence = lib.slice(lib.indexOf('export function onlyWhatGuestsMaySee'));
   assert.match(fence.slice(0, fence.indexOf('\n}\n')), /\.eq\('is_public', true\)/);
-  // The Event Hub scene mounts on that read…
-  const hub = readWeb('app/[slug]/hub/page.tsx');
-  assert.match(hub, /const scheduleBlocks = await fetchPublicScheduleBlocks\(/);
-  assert.match(hub, /<ScheduleWidget[\s\S]*?blocks=\{scheduleBlocks\}/);
+  // The Event Hub scene mounts on that read… (🧭 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to
+  // the event page's tab, `dayHubLanding`; The Day's programme is the event page's Live tab, so the pin moved there.)
+  const loaders = readWeb('app/[slug]/_lib/loaders.ts');
+  const readPublic = loaders.slice(loaders.indexOf('async function readPublicSchedule('));
+  assert.match(readPublic.slice(0, readPublic.indexOf('\n}\n')), /return fetchPublicScheduleBlocks\(admin, eventId,/);
+  assert.match(readWeb('app/[slug]/_components/site-body.tsx'), /<ScheduleWidget[\s\S]*?blocks=\{scheduleBlocks\}/);
+  assert.doesNotMatch(readWeb('app/[slug]/hub/page.tsx'), /ScheduleWidget|fetchPublicScheduleBlocks/, 'the hub draws a programme of its own again');
   // …and the rail's eye is the write that flips exactly that column.
   const actions = readWeb('app/dashboard/[eventId]/schedule/actions.ts');
   const toggle = actions.slice(actions.indexOf('export async function toggleBlockVisibility'));

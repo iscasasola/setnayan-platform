@@ -101,7 +101,7 @@ export async function activateVendorAiAddon(
   // longer bought — Pro includes it, Ultra includes the smarter level, and Plus cannot buy it. Its catalogue rows are
   // retired (migration 20271346711828). A window a shop already bought keeps running until it ends. Refused BEFORE
   // the free first cycle below, so no new window — paid or trial — is opened here.
-  if (!AI_CHATBOT_SOLD_ON_ITS_OWN) return err(`The AI chatbot is included on ${TIER_LABEL.pro}, and the smarter level on ${TIER_LABEL.enterprise}. It is not bought on its own.`);
+  if (!AI_CHATBOT_SOLD_ON_ITS_OWN) return err(`The AI chatbot is included once your shop is Verified, and the smarter level on ${TIER_LABEL.pro} and ${TIER_LABEL.enterprise}. It is not bought on its own.`);
 
   // ── Feature-availability gate (defence in depth) ───────────────────────────
   // Vendor AI is a MASTER-FLAG-DARK feature: the assistant only answers couples

@@ -30,8 +30,12 @@
  *   1. DECISION — the resolver draws each door only under the destination's own
  *                 conditions, and carries the personal token that makes the 3D
  *                 room show THIS guest's seat.
- *   2. WIRING   — the hub actually mounts both doors AND reads each gate fact
- *                 from the same source the destination reads it from.
+ *   2. WIRING   — the event page actually mounts both doors AND reads each gate
+ *                 fact from the same source the destination reads it from.
+ *                 (Until 20 Nov 2026 this was asserted on the day-of hub; one bar
+ *                 per stage — /hub draws nothing, it redirects to the event
+ *                 page's tab (`dayHubLanding`) — so the event page is the one
+ *                 surface that draws them, and the checks moved there.)
  *   3. NO DEAD  — the editorial has no `href="#"` left anywhere in it.
  *      LINKS
  *
@@ -140,59 +144,71 @@ test('no slug means no doors — we will not build `/null/venue`', () => {
 
 // ── 2 · WIRING ──────────────────────────────────────────────────────────────
 //
-// The hub page is an async server component that reads the database on every
+// The event page is an async server component that reads the database on every
 // render, so it is asserted as SOURCE. What matters is not that the strings are
 // present but that each gate fact comes from the reader the destination itself
 // uses — the failure mode here is a doorway drawn from a cheaper, differently-
 // permitted query that disagrees with the page behind it.
+//
+// 🧭 One bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`).
+// These checks were the hub's; they now read the event page's three pieces: the body that resolves and mounts the
+// doors (`site-body.tsx`), the loader that reads their facts (`loaders.ts` `loadDoorwayFacts`) and the strip that
+// draws them (`guest-doorway-strip.tsx`).
 
-const HUB = '../app/[slug]/hub/page.tsx';
+const BODY = '../app/[slug]/_components/site-body.tsx';
+const LOADERS = '../app/[slug]/_lib/loaders.ts';
+const STRIP = '../app/[slug]/_components/guest-doorway-strip.tsx';
 /** Comments are not wiring. Read the code, not the prose describing it. */
-const hubSource = () => stripComments(read(HUB));
+const code = (rel: string) => stripComments(read(rel));
 
-test('WIRING — the hub mounts BOTH doors, each gated on its OWN resolved href', () => {
-  const hub = hubSource();
-  assert.ok(hub.includes('resolveGuestDoorways('), 'the hub stopped resolving the doorways');
-  // Presence of the string is not enough — a door whose href is still read but
-  // whose condition has been swapped for anything else is a door nobody sees.
-  // Assert the CONDITION and the HREF are the same resolved value.
-  for (const key of ['venueWalk', 'pabuya'] as const) {
-    assert.ok(
-      new RegExp(`\\{doorways\\.${key} \\? \\(`).test(hub),
-      `the ${key} door is not rendered under its own condition`,
-    );
-    assert.ok(
-      new RegExp(`href=\\{doorways\\.${key}\\}`).test(hub),
-      `the ${key} door does not link to its resolved destination`,
-    );
+test('WIRING — the hub draws no door of its own any more (it would have to come back under these checks)', () => {
+  const hub = code('../app/[slug]/hub/page.tsx');
+  assert.match(hub, /redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(\{/, 'the hub no longer sends its visitor to the event page');
+  for (const door of ['resolveGuestDoorways(', 'doorways.', 'venueWalk', 'pabuya']) {
+    assert.ok(!hub.includes(door), `the hub draws a doorway again (${door}) — wire it under the checks below`);
   }
 });
 
+test('WIRING — the event page mounts BOTH doors, each gated on its OWN resolved href', () => {
+  const body = code(BODY);
+  assert.ok(body.includes('resolveGuestDoorways({ slug: event.slug, guestToken, ...doorwayFacts })'), 'the page stopped resolving the doorways');
+  // Presence of the string is not enough — a door whose href is still read but
+  // whose condition has been swapped for anything else is a door nobody sees.
+  // Assert the CONDITION and the HREF are the same resolved value.
+  assert.match(body, /<GuestDoorwayStrip[\s\S]*?venueWalk=\{pageStage === 'event' \? doorways\.venueWalk : null\}/, 'the 3D door is not handed its own resolved destination');
+  assert.match(body, /<GuestDoorwayStrip[\s\S]*?pabuya=\{[\s\S]*?: doorways\.pabuya\s*\}/, 'the gift door is not handed its own resolved destination');
+  const strip = code(STRIP);
+  for (const key of ['venueWalk', 'pabuya'] as const) {
+    assert.ok(new RegExp(`\\{${key} \\? `).test(strip), `the ${key} door is not rendered under its own condition`);
+  }
+  assert.match(strip, /href=\{venueWalk\}/, 'the 3D door does not link to its resolved destination');
+  assert.match(strip, /<GiftDoorCard href=\{pabuya\}/, 'the gift door does not link to its resolved destination');
+});
+
 test('WIRING — the 3D door is gated on the one seat rule (the day, or shown early)', () => {
-  const hub = hubSource();
+  const loaders = code(LOADERS);
   assert.ok(
-    hub.includes('guestsMaySeeSeatsFor('),
-    'the hub must ask whether guests may see their seats — the RPC own gate (guests_may_see_seats)',
+    /seatingSurfaceEnabled \? guestsMaySeeSeatsFor\(admin, eventId\)/.test(loaders),
+    'the page must ask whether guests may see their seats — the RPC own gate (guests_may_see_seats)',
   );
   assert.ok(
-    /surfaceEnabled\(eventTypeProfile, 'seating'\)/.test(hub),
-    "the hub must ask whether this event type has seating at all",
+    /surfaceEnabled\(\s*await resolveProfile\(eventType \?\? 'wedding'\),\s*'seating',?\s*\)/.test(loaders),
+    "the page must ask whether this event type has seating at all",
   );
 });
 
 test('WIRING — the money-gift door is gated on the switch AND on enabled rows', () => {
-  const hub = hubSource();
-  assert.ok(hub.includes('isPabuyaPublicRouteEnabled('), 'the rollout switch is not consulted');
+  const loaders = code(LOADERS);
+  assert.ok(loaders.includes('isPabuyaPublicRouteEnabled('), 'the rollout switch is not consulted');
   assert.ok(
-    /fetchEgiftMethods\(\s*admin,\s*event\.event_id,\s*\{\s*enabledOnly:\s*true\s*\}\s*\)/.test(hub),
+    /fetchEgiftMethods\(\s*admin,\s*eventId,\s*\{\s*enabledOnly:\s*true\s*\}\s*\)/.test(loaders),
     'the count must come from the SAME reader + filter the public page uses',
   );
 });
 
 test('WIRING — the personal token is handed to the 3D room', () => {
-  const hub = hubSource();
   assert.ok(
-    /guestToken:\s*guest\?\.qr_token/.test(hub),
+    /const guestToken = identity\.kind === 'guest' \? identity\.guest\.qr_token : null;/.test(code(BODY)),
     'without the token the 3D room cannot show this guest their own seat',
   );
 });
@@ -241,7 +257,9 @@ test('the editorial cross-phase links point at destinations that exist', () => {
   // No "The Invitation (RSVP)" link since 2026-10-03: after the day `/[slug]` IS
   // the editorial — the link pointed at itself (owner: one place per control).
   assert.ok(!editorial.includes('href={`/${slug}`}'), 'a link from the story to its own address is back');
-  assert.ok(editorial.includes('href={`/${slug}/hub`}'), 'the wedding-day link lost its destination');
+  // 🧭 No "The day as it happened" → /[slug]/hub since 20 Nov 2026 (one bar per stage): after the day /hub redirects
+  // to `/[slug]`, which IS this page — the same link-to-itself the RSVP link above was removed for.
+  assert.ok(!editorial.includes('/hub`}'), 'a link from the story to /hub is back — after the day that is this page');
   // The third link's destination was never missing — "Watch the Film" is a
   // SECTION OF THIS PAGE (the Live Studio broadcast replay). It had no id to
   // aim at, so the anchor and the section must be named from ONE constant;
@@ -265,8 +283,9 @@ test('each editorial footer link is drawn only when its destination is really th
   // A curated sample has no event row ⇒ no slug ⇒ no route links. An edition
   // where the couple never broadcast has no film section ⇒ no film link. The
   // footer getting shorter is the correct behaviour; a dead link is not.
+  // (Only the film link is left in that row since 20 Nov 2026, so the row is guarded by the film alone.)
   assert.ok(
-    /\{slug \|\| watchFilmShown \?/.test(editorial),
+    /\{watchFilmShown \?\s*\(\s*<div className="flex flex-wrap/.test(editorial),
     'the footer link row must not render when nothing in it has a destination',
   );
   // 🪤 Checking that the CONDITION appears somewhere is not checking that the
@@ -279,10 +298,6 @@ test('each editorial footer link is drawn only when its destination is really th
   assert.ok(
     guardedBy('watchFilmShown', '`#\\$\\{WATCH_FILM_ANCHOR_ID\\}`'),
     'the film link is not guarded by the film section actually rendering',
-  );
-  assert.ok(
-    guardedBy('slug', '`/\\$\\{slug\\}/hub`'),
-    'the wedding-day link is not guarded by the slug',
   );
   // ONE resolution of "did the film section render", shared by the section and
   // the link. Deriving it twice is how a footer link scrolls to nothing.

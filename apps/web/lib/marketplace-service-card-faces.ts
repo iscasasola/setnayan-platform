@@ -36,6 +36,15 @@ import { buildServesLine } from '@/lib/service-serves-line';
 import { fetchVendorsHidingPricesPublicly } from '@/lib/vendor-service-attributes';
 import { displayServiceLabel } from '@/lib/vendors';
 import { displayLogoUrl, publicUrlForStoredAsset } from '@/lib/uploads';
+import { aboutKmLine, mallPrice, nearestKm, perGuestPriceOf, type LatLng, type MallPrice } from '@/lib/mall-card';
+import { readBranchPins } from '@/lib/supplier-places.server';
+
+/**
+ * 🃏 What card 14 knows about the couple's event (owner 20 Nov). Absent → a stranger's view: no distance, no total.
+ *   venue  — `events.venue_latitude/longitude` ONLY (never the region centroid: "from your venue" must be the venue).
+ *   guests — `events.estimated_pax`.
+ */
+export type MallCardEvent = { venue: LatLng | null; guests: number | null };
 
 /** The `ServiceCardView` props for one marketplace card (minus `detailsEnabled`, which is the caller's). */
 export type MarketplaceCardFace = {
@@ -51,6 +60,8 @@ export type MarketplaceCardFace = {
     isDemo: boolean;
     verified?: boolean;
   };
+  /** 🃏 Card 14's price band, distance line and venue ask (`ServiceCardView` `mall`). */
+  mall: { price: MallPrice | null; distance: string | null; askVenue: boolean };
 };
 
 /**
@@ -62,6 +73,7 @@ export async function readMarketplaceCardFaces(
   cards: readonly MarketplaceServiceCard[],
   eventTypeLabel: ReadonlyMap<string, string>,
   now: Date,
+  event: MallCardEvent | null = null,
 ): Promise<(c: MarketplaceServiceCard) => MarketplaceCardFace> {
   const serviceIds = cards.map((c) => c.row.vendor_service_id);
   const shopIds = [...new Set(cards.map((c) => c.vendorProfileId))];
@@ -90,6 +102,9 @@ export async function readMarketplaceCardFaces(
         new Set<string>(),
       ];
 
+  // 📍 Branches only matter when there is a venue to measure from — no venue, no read.
+  const branchPins = event?.venue && cards.length ? await readBranchPins(admin, shopIds) : new Map<string, LatLng[]>();
+
   // ═ THE LOGO, ONCE PER SHOP — `logo_url` holds `r2://`, never a URL; `displayLogoUrl` is its one resolver. ═
   const byShop = new Map<string, string | null>();
   for (const c of cards) if (!byShop.has(c.vendorProfileId)) byShop.set(c.vendorProfileId, c.businessLogoRef);
@@ -115,8 +130,7 @@ export async function readMarketplaceCardFaces(
 
   return (c) => {
     const coverUrl = publicUrlForStoredAsset(c.row.primary_photo_r2_key);
-    return {
-      card: toServiceCard(
+    const card = toServiceCard(
         c.row,
         serviceCardInclusions.get(c.row.vendor_service_id),
         serviceCardDiscounts.get(c.row.vendor_service_id),
@@ -129,7 +143,23 @@ export async function readMarketplaceCardFaces(
         cardRecordRatingFromTrusted(shopStats.get(c.vendorProfileId)),
         false,
         coverUrl,
-      ),
+      );
+    const hides = serviceCardHidingPrices.has(c.vendorProfileId);
+    return {
+      card,
+      mall: {
+        price: mallPrice({
+          perGuest: perGuestPriceOf(c.row, hides),
+          guests: event?.guests ?? null,
+          // "Price on request" is not a price — the face says it in the band's quiet voice instead (`priceMissing`).
+          price: !hides && (c.row.starting_price_php ?? 0) > 0 ? card.priceLabel : null,
+          priceNote: card.priceDetail,
+        }),
+        distance: event?.venue
+          ? aboutKmLine(nearestKm(event.venue, [c.hqPin ?? null, ...(branchPins.get(c.vendorProfileId) ?? [])]))
+          : null,
+        askVenue: event !== null && event.venue === null,
+      },
       detailsHref: serviceCardAddress(c),
       path: displayServiceLabel(c.row.category),
       coverUrl,

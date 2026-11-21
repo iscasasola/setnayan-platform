@@ -254,8 +254,11 @@ test('2 · only the Chat view marks the conversation read — and only once it i
   // (19 Nov 2026 — one chat that holds everything: a page RISEN over the chat is the third mount. It is never the chat
   // itself, and while it is up the chat under it is told it is covered, so mounted-but-covered never marks read.)
   assert.equal((shell.match(/\{bodies\[/g) ?? []).length, 3, 'a body is mounted somewhere other than the shown page, the side Chat column and the risen page');
+  // (Part G, 20 Nov 2026: the same risen page has a second seat — its own column beside the chat on a computer. It and
+  // the risen screen are never both drawn: `paneOn` picks one, held by `the-more-menu-holds-places-to-go.test.ts` 4.)
+  assert.equal((shell.match(/bodies\[risenPage\]/g) ?? []).length, 2, 'the risen page is mounted somewhere other than the risen screen and its column');
   assert.match(shell, /const risenPage: P \| null = rises && page !== homePage \? page : null;/, 'the risen page could be the chat itself — the chat would be mounted twice');
-  assert.match(shell, /<PickedCoveredContext\.Provider value=\{risenPage !== null\}>\{bodies\[workPage\]\}<\/PickedCoveredContext\.Provider>/, 'the chat under a risen page is not told it is covered');
+  assert.match(shell, /<PickedCoveredContext\.Provider value=\{!paneOn && \(risenPage !== null \|\| extra !== null\)\}>\{bodies\[workPage\]\}<\/PickedCoveredContext\.Provider>/, 'the chat under a risen page is not told it is covered');
   assert.match(shell, /\{split \? \(\s*<aside[\s\S]{0,2400}\{bodies\[sideChat!\.page\]\}/, 'the side Chat column is mounted when it is not shown');
   const marker = readFileSync(join(__dirname, '..', '..', 'messages', '[threadId]', '_components', 'mark-read-when-shown.tsx'), 'utf8');
   assert.match(marker, /useEffect\(\(\) => \{\s*if \(covered\) return;\s*void markThreadRead\(threadId\)/, 'the marker does not write on mount — or writes while the chat is covered by a risen page');

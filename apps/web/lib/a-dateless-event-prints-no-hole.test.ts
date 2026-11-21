@@ -15,8 +15,8 @@
  *       followed by one plain sentence when there is none.
  *   (3) EVERY PLACE a guest page formats the event's date is one of the shapes that cannot print an empty date
  *       into a sentence — a new call site that interpolates `formatEventDate(…)` bare goes red here, by name.
- *   (4) The waiting states that say "on the day" each complete it for an event with no date: the 3D room and the
- *       hub's seat line through `withDayNote`; the three seat pages through their ONE shared state (N20).
+ *   (4) The waiting states that say "on the day" each complete it for an event with no date: the 3D room
+ *       (and, before 20 Nov 2026, the hub's seat line) through `withDayNote`; the three seat pages through their ONE shared state (N20).
  *
  * SABOTAGE RUN 2026-10-11 (committed first, put back by `git checkout`, re-checked):
  *   · the greeting in `site-body.tsx` put back to the unconditional "…with you on" + the date → (1) red (the page
@@ -192,8 +192,10 @@ test('(3) every place a guest page formats the event’s date is a shape that ca
 });
 
 test('(4) the waiting states that say "on the day" each complete it for an event with no date', () => {
-  /* The 3D room and the hub's seat line pass their own sentence through `withDayNote`. */
-  for (const rel of ['app/[slug]/venue/page.tsx', 'app/[slug]/hub/page.tsx']) {
+  /* The 3D room passes its own sentence through `withDayNote`. (The hub's seat line left with the hub — one bar per
+     stage, 20 Nov 2026: /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`); a seat line on
+     the event page is the shared waiting state below.) */
+  for (const rel of ['app/[slug]/venue/page.tsx']) {
     const src = stripComments(readFileSync(join(WEB, rel), 'utf8'));
     const calls = [...src.matchAll(/withDayNote\(([\s\S]{0,420}?)\)\s*[,})]/g)].map((m) => m[1]!);
     assert.ok(calls.length >= 1, `${rel} no longer completes its "on the day" line for an event with no date`);

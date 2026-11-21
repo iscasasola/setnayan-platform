@@ -1,9 +1,9 @@
 /**
  * GUARD — every surface that shows a guest their code offers a way to keep it.
  *
- * 🪤 THE TRAP. Three separate screens draw the guest's invitation QR: the
+ * 🪤 THE TRAP. Three separate screens drew the guest's invitation QR: the
  * invitation QR card on the event page, the My QR modal in the guest hub bar,
- * and the Me panel of the day-of hub. They were built at different times by
+ * and the Me panel of the day-of hub (gone since 20 Nov 2026 — one bar per stage). They were built at different times by
  * different hands, none of them imports the others, and all three independently
  * ended up showing a code with no way to save it — one of them while printing
  * the words "Save this to your phone."
@@ -74,9 +74,12 @@ test('every guest-facing QR surface renders GuestCodeKeepers', () => {
 
   // The count is asserted so this can never quietly become a test of nothing —
   // a refactor that renames qrSvg would otherwise sweep zero files and pass.
+  // 🧭 3 → 2 on 20 Nov 2026 (one bar per stage): the day-of hub's Me panel is gone —
+  // `/hub` draws nothing and sends a guest to the event page's own Me, which is the
+  // My QR modal above. The two left are the invitation QR card and that modal.
   assert.ok(
-    surfacesChecked >= 3,
-    `expected at least 3 guest QR surfaces, found ${surfacesChecked} — has the detection drifted?`,
+    surfacesChecked >= 2,
+    `expected at least 2 guest QR surfaces, found ${surfacesChecked} — has the detection drifted?`,
   );
   assert.deepEqual(
     offenders,

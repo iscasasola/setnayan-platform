@@ -48,6 +48,7 @@ test('3 · it is not one of the four default chapters', () => {
 test('4 · a production sheet still counts its portions', () => {
   const actions = code('app/vendor-dashboard/clients/[eventId]/production-sheet/actions.ts');
   assert.match(actions, /const BLOCKS = \[[^\]]*'rehearsal_dinner'[^\]]*\];/, `${OPEN} — a portion rule can no longer name it`);
-  const page = code('app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx');
+  // Set two (21 Nov 2026): the labels moved, unchanged, into the sheet's model module.
+  const page = code('app/vendor-dashboard/clients/[eventId]/production-sheet/production-sheet-model.ts');
   assert.match(page, /rehearsal_dinner: 'Rehearsal dinner',/, `${OPEN} — the production sheet no longer names it`);
 });

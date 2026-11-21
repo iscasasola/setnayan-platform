@@ -302,7 +302,8 @@ test('Find and Discover hand the hide the event\'s whole date picture', () => {
   // The calendar-block down-rank reads the same days, one call per day.
   assert.match(search, /days\.map\(\(day\) =>\s*supabase\.rpc\('vendors_blocked_on_date', \{\s*p_vendor_ids: ids,\s*p_event_date: day,/);
   const discover = read(DISCOVER);
-  assert.match(discover, /event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region'/);
+  // The date columns are what this pins; a column read after them (card 14's `estimated_pax`) does not change them.
+  assert.match(discover, /event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region(?:, [a-z_]+)*'/);
   assert.match(discover, /dates: coupleFitDates \?\? \{ eventDate: coupleEventDate, precision: coupleEventDatePrecision \},/);
   assert.match(discover, /dateHideScope,\s*known,\s*\(c\) => c\.row\.category,/);
 });

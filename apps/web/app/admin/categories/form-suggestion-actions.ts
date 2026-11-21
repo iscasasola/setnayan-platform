@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FORM_ANSWER_TYPES } from '@/lib/vendor-forms';
+import { cleanTemplateName, parseTemplateText, TEMPLATE_NAME_MAX } from '@/lib/included-templates';
 import { CATEGORIES_PATH } from './_components/back';
 
 /**
@@ -115,6 +116,76 @@ export async function formSuggestionsAction(_prev: FormSuggestionsState, formDat
     if (auditErr) console.error('[formSuggestionsAction] audit row not written:', auditErr.message);
     revalidatePath(CATEGORIES_PATH);
     return { status: 'ok', message: op === 'suggest_add' ? 'Suggested here.' : 'No longer suggested here.' };
+  }
+
+  // ── 📋 QUICK FORMS — Setnayan's starting "What's included" templates for ONE service (DECISION_LOG 2026-11-17,
+  // 4906a9a8 + 7596f63a: "allow us to add and delete templates for each"). Same dispatcher (the budget), same
+  // service-role write, same audit. A supplier's Load COPIES the rows onto a card, so an edit or a delete here never
+  // rewrites a card. Rows carry no price — refused here and by the table's CHECK.
+  if (op === 'included_new' || op === 'included_save' || op === 'included_delete') {
+    const canonical = String(formData.get('canonical_service') ?? '');
+    if (!/^[a-z][a-z0-9_]{0,79}$/.test(canonical)) return { status: 'error', message: 'Missing service.' };
+    const templateId = String(formData.get('template_id') ?? '');
+    if (op !== 'included_new' && !/^[0-9a-f-]{36}$/i.test(templateId)) return { status: 'error', message: 'Missing template.' };
+
+    if (op === 'included_delete') {
+      const { data: gone, error } = await admin
+        .from('service_included_templates')
+        .delete()
+        .eq('template_id', templateId)
+        .eq('canonical_service', canonical)
+        .select('name, rows')
+        .maybeSingle();
+      if (error) return { status: 'error', message: error.message };
+      if (!gone) return { status: 'error', message: 'That template is already gone.' };
+      const { error: auditErr } = await admin.from('admin_audit_log').insert({
+        action: 'quick_forms.delete',
+        target_table: 'service_included_templates',
+        target_id: templateId,
+        before_json: { canonical_service: canonical, ...(gone as Record<string, unknown>) },
+        after_json: null,
+        actor_user_id: user.userId,
+      });
+      if (auditErr) console.error('[formSuggestionsAction] audit row not written:', auditErr.message);
+      revalidatePath(CATEGORIES_PATH);
+      return { status: 'ok', message: `Deleted “${(gone as { name: string }).name}”. Cards that used it keep their lines.` };
+    }
+
+    const name = cleanTemplateName(formData.get('name'));
+    if (!name) return { status: 'error', message: `Name the template in up to ${TEMPLATE_NAME_MAX} characters.` };
+    const parsed = parseTemplateText(String(formData.get('rows') ?? ''));
+    if (!parsed.ok) return { status: 'error', message: parsed.error };
+    const now = new Date().toISOString();
+    const write =
+      op === 'included_new'
+        ? admin
+            .from('service_included_templates')
+            .insert({ canonical_service: canonical, name, rows: parsed.rows, source: 'admin', is_proposal: false, updated_by: user.userId, updated_at: now })
+            .select('template_id')
+            .single()
+        : // An admin's edit makes it Setnayan's own: it is no longer a proposal waiting for review.
+          admin
+            .from('service_included_templates')
+            .update({ name, rows: parsed.rows, is_proposal: false, updated_by: user.userId, updated_at: now })
+            .eq('template_id', templateId)
+            .eq('canonical_service', canonical)
+            .select('template_id')
+            .single();
+    const { data: saved, error } = await write;
+    if (error) {
+      return { status: 'error', message: error.code === '23505' ? `“${name}” is already a template of this service.` : error.message };
+    }
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: op === 'included_new' ? 'quick_forms.new' : 'quick_forms.save',
+      target_table: 'service_included_templates',
+      target_id: (saved as { template_id: string }).template_id,
+      before_json: null,
+      after_json: { canonical_service: canonical, name, rows: parsed.rows.length },
+      actor_user_id: user.userId,
+    });
+    if (auditErr) console.error('[formSuggestionsAction] audit row not written:', auditErr.message);
+    revalidatePath(CATEGORIES_PATH);
+    return { status: 'ok', message: op === 'included_new' ? `Added “${name}”.` : `Saved “${name}”.` };
   }
 
   return { status: 'error', message: 'Unknown action.' };

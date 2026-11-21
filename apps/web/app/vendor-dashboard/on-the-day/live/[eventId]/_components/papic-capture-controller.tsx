@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, Loader2, RefreshCw, ShieldCheck, Video } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Camera, Check, Eye, Images, Loader2, Lock, SwitchCamera, Trash2 } from 'lucide-react';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
@@ -12,7 +13,7 @@ import { VENDOR_PAPIC_POINTS, type VendorPapicTier,
 } from '@/lib/vendor-papic-tier';
 import { formatCount } from '@/lib/format-number';
 import { ActionButton } from '@/components/action-button';
-import { TEMPLATE_MONEY } from '@/app/_components/template-rows';
+import { PartFoot, PartTop, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 
 // The vendor on-the-day Papic capture controller (owner-locked 2026-07-18).
 // A consent gate → the live camera → gesture shutter (tap = photo · press-and-
@@ -30,6 +31,13 @@ import { TEMPLATE_MONEY } from '@/app/_components/template-rows';
 // bytes (Vercel refuses bodies over 4.5 MB; a supplier clip was allowed 25 MB).
 // A refusal that waiting can never fix (video not allowed, consent, the day is
 // over) rolls back the optimistic spend and says so.
+//
+// THE NOVEMBER LOOK (supplier pages set two, page 8, owner-approved 21 Nov 2026):
+// the consent's four lines are rows, each with its mark (check · eye · trash ·
+// lock), and "Agree & open camera" is the one button in the thumb zone; the
+// camera is full black with its controls ON the frame — what you shot · the
+// shutter · Flip — and the tier and "N left" on the frame too (the separate grey
+// meter is gone). Every word, gate and gesture is as it was.
 
 const HOLD_MS = 260; // press longer than this → start recording
 const CLIP_MAX_MS = 10000; // 10-SECOND CLIP CAP — owner 2026-07-22 · §0
@@ -48,6 +56,12 @@ function pickClipMime(): string {
 }
 
 type Props = {
+  /** The page's pinned row (round back · "Papic capture" over "Back to the floor") — drawn over the consent; the
+   *  camera carries its own back on the frame. */
+  pin?: ReactNode;
+  /** Where the camera's own back goes, and what it says to a screen reader. */
+  backHref: string;
+  backLabel: string;
   eventId: string;
   /** This supplier's owner tag at this event (lib/papic-upload/owner-tag.server.ts):
    *  a shot queued here never records as another supplier signed in later. */
@@ -67,6 +81,9 @@ const TIER_LABEL: Record<VendorPapicTier, string> = {
 };
 
 export function PapicCaptureController({
+  pin,
+  backHref,
+  backLabel,
   eventId,
   uploadOwner,
   coupleName,
@@ -272,111 +289,105 @@ export function PapicCaptureController({
   // ── Consent gate (RA 10173) — shown before the camera ever mounts ──────────
   if (!accepted) {
     return (
-      <div className="mx-auto max-w-md space-y-5 py-6">
-        <div className="flex items-center gap-2">
-          <ShieldCheck aria-hidden className="h-5 w-5" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-          <h1 className="text-lg font-semibold" style={{ color: 'var(--m-ink)' }}>
-            Before you shoot
-          </h1>
-        </div>
-        <div className="space-y-3 rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-[14px]" style={{ color: 'var(--m-slate-2)' }}>
+      <>
+        {pin}
+        <PartTop title="Before you shoot">
           <p>
             You’re capturing guests at <strong>{coupleName}</strong>. By continuing you confirm:
           </p>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>You have the couple’s go-ahead to shoot at this event.</li>
-            <li>Only candid event moments — no nudity, harassment, or anything a guest hasn’t agreed to.</li>
-            <li>Guests can ask you to delete a shot; the always-on filter also removes explicit content.</li>
-            <li>Your captures stay in your shop’s event photos; location is never stored.</li>
-          </ul>
-        </div>
-        <span className="block [&_.ab]:w-full">
-          <ActionButton tone="brand" main icon={Camera} label="Agree & open camera" onClick={() => setAccepted(true)} />
-        </span>
-      </div>
+        </PartTop>
+        <ul className={setTwo.list} data-papic-consent="">
+          {CONSENT.map(({ icon: Mark, line }) => (
+            <li key={line} className={`${setTwo.row} ${setTwo.rowTop}`}>
+              <span aria-hidden className={setTwo.rowIcon}>
+                <Mark strokeWidth={1.75} />
+              </span>
+              <span className={setTwo.rowBody}>
+                <span className={setTwo.rowLine}>{line}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        <PartFoot mark="papic-consent" label="Before you shoot">
+          <ActionButton
+            tone="brand"
+            main
+            icon={Camera}
+            label="Agree & open camera"
+            onClick={() => setAccepted(true)}
+            className="w-full tab:w-auto"
+          />
+        </PartFoot>
+      </>
     );
   }
 
-  // ── The camera ─────────────────────────────────────────────────────────────
+  // ── The camera — full black, the controls on the frame ─────────────────────
   return (
-    <div className="mx-auto max-w-md space-y-4 py-4">
-      <TierMeter
-        tier={tier}
-        pointsLeft={pointsLeft}
-        pointsCap={pointsCap}
-        spent={spent}
-        allowVideo={allowVideo}
+    <div className={setTwo.cam} data-papic-camera="">
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <video
+        ref={cam.videoRef}
+        playsInline
+        muted
+        autoPlay
+        className={setTwo.camVideo}
+        style={{ transform: cam.mirrored ? 'scaleX(-1)' : undefined }}
       />
+      <canvas ref={canvasRef} className="hidden" />
 
-      <div className="relative overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: '3 / 4' }}>
-        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-        <video
-          ref={cam.videoRef}
-          playsInline
-          muted
-          autoPlay
-          className="h-full w-full object-cover"
-          style={{ transform: cam.mirrored ? 'scaleX(-1)' : undefined }}
-        />
-        <canvas ref={canvasRef} className="hidden" />
-
-        {!cam.ready && !cam.camError ? (
-          <div className="absolute inset-0 grid place-items-center text-white/80">
-            <Loader2 aria-hidden className="h-6 w-6 animate-spin" strokeWidth={1.75} />
-          </div>
-        ) : null}
-        {cam.camError ? (
-          <div className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-white/85">
-            Camera unavailable. Allow camera access, then reopen this tool.
-          </div>
-        ) : null}
-        {recording ? (
-          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px] font-semibold text-white" style={{ background: 'rgb(var(--color-danger))' }}>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-raised" /> REC
-          </div>
-        ) : null}
-        {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
-        <div className="absolute right-3 top-3">
-          <PapicUploadChip surface="bg-black/55 text-white" />
+      {!cam.ready && !cam.camError ? (
+        <div className={setTwo.camCover}>
+          <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
         </div>
-        {toast ? (
-          <div className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-black/65 px-3 py-1.5 text-[13px] font-medium text-white">
-            {toast}
-          </div>
-        ) : null}
+      ) : null}
+      {cam.camError ? (
+        <div className={setTwo.camCover}>Camera unavailable. Allow camera access, then reopen this tool.</div>
+      ) : null}
 
-        {/* Camera controls */}
-        <div className="absolute right-3 bottom-24 flex flex-col gap-2">
-          {cam.canFlip ? (
-            <button
-              type="button"
-              onClick={cam.flip}
-              disabled={cam.switching}
-              aria-label="Flip camera"
-              className="grid h-11 w-11 place-items-center rounded-full bg-black/45 text-white backdrop-blur"
-            >
-              <RefreshCw aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+      {/* On the frame, top: back · the tier · what is left. */}
+      <div className={setTwo.camTop}>
+        <Link href={backHref} aria-label={backLabel} className={setTwo.camRound}>
+          <ArrowLeft aria-hidden strokeWidth={1.75} />
+        </Link>
+        <span className={setTwo.camPill} data-papic-tier={tier}>
+          {TIER_LABEL[tier]}
+          <small>· {allowVideo ? 'photos + video' : 'photos only'}</small>
+        </span>
+        <span className={`${setTwo.camPill} ${setTwo.camEnd}`} data-papic-left="">
+          {pointsCap == null ? 'Unlimited' : `${formatCount(pointsLeft)} left`}
+        </span>
+      </div>
+      {/* 📡 Save first, send later — the uploader's one line (details in ⓘ). */}
+      <div className={setTwo.camChip}>
+        <PapicUploadChip surface="bg-black/55 text-white" />
+      </div>
+      {recording ? (
+        <div className={setTwo.camRec}>
+          <i aria-hidden className="animate-pulse" /> REC
+        </div>
+      ) : null}
+      {toast ? (
+        <div role="status" className={setTwo.camToast}>
+          {toast}
+        </div>
+      ) : null}
+      {cam.lensOptions.length > 1 ? (
+        <div className={setTwo.camLens}>
+          {cam.lensOptions.map((f) => (
+            <button key={f} type="button" onClick={() => cam.selectLens(f)} style={{ opacity: cam.lens === f ? 1 : 0.55 }}>
+              {f}×
             </button>
-          ) : null}
-          {cam.lensOptions.length > 1 ? (
-            <div className="flex flex-col overflow-hidden rounded-full bg-black/45 text-white backdrop-blur">
-              {cam.lensOptions.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => cam.selectLens(f)}
-                  className="min-h-11 px-2.5 py-1.5 text-[13px] font-semibold"
-                  style={{ opacity: cam.lens === f ? 1 : 0.55 }}
-                >
-                  {f}×
-                </button>
-              ))}
-            </div>
-          ) : null}
+          ))}
         </div>
+      ) : null}
 
-        {/* Shutter */}
-        <div className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-1">
+      {/* On the frame, in the thumb's reach: what you shot · the shutter · Flip camera. */}
+      <div className={setTwo.camBottom}>
+        <div className={setTwo.camControls}>
+          <a href="#what-you-shot" aria-label="What you shot" className={setTwo.camRound}>
+            <Images aria-hidden strokeWidth={1.75} />
+          </a>
           <button
             type="button"
             aria-label={canClip ? 'Tap for photo, hold for video' : 'Take photo'}
@@ -390,81 +401,43 @@ export function PapicCaptureController({
               }
               if (recording) stopClip();
             }}
-            className="grid h-16 w-16 place-items-center rounded-full border-4 border-white disabled:opacity-40"
-            style={{
-              background: recording ? 'rgb(var(--color-danger))' : 'rgba(255,255,255,0.25)',
-              touchAction: 'manipulation',
-              WebkitUserSelect: 'none',
-              WebkitTouchCallout: 'none',
-            }}
+            className={`${setTwo.shutter} ${recording ? setTwo.shutterRec : ''}`}
+            data-papic-shutter=""
           >
-            <span
-              className="rounded-full bg-raised transition-all"
-              style={{ width: recording ? 22 : 48, height: recording ? 22 : 48, borderRadius: recording ? 6 : 999 }}
-            />
+            <i aria-hidden />
           </button>
-          <span className="text-[13px] font-medium text-white">
-            {canClip
-              ? 'Tap photo · hold for a 10s clip'
-              : allowVideo
-                ? ''
-                : /* ⚠ THE REASON IS THE CREDIT THRESHOLD, NOT THE TIER. This
-                     read "Photos only on Papic Lite" until 2026-08-26, when
-                     video moved from an always-true tier flag onto the
-                     allowance (owner: "800 credits will allow them to take
-                     videos"). Left alone it named the wrong tier to a Ltd
-                     supplier AND the wrong reason to everyone — a refusal that
-                     misdescribes itself sends somebody to fix the wrong thing.
-                     The number is DERIVED, never re-typed. */
-                  `Photos only — video unlocks at ${formatCount(VENDOR_PAPIC_VIDEO_MIN_POINTS)} credits`}
-          </span>
+          {cam.canFlip ? (
+            <button type="button" onClick={cam.flip} disabled={cam.switching} aria-label="Flip camera" className={setTwo.camRound}>
+              <SwitchCamera aria-hidden strokeWidth={1.75} />
+            </button>
+          ) : (
+            <span aria-hidden className={setTwo.camSpacer} />
+          )}
         </div>
+        <p className={setTwo.camHint}>
+          {canClip
+            ? 'Tap photo · hold for a 10s clip'
+            : allowVideo
+              ? ''
+              : /* ⚠ THE REASON IS THE CREDIT THRESHOLD, NOT THE TIER. This
+                   read "Photos only on Papic Lite" until 2026-08-26, when
+                   video moved from an always-true tier flag onto the
+                   allowance (owner: "800 credits will allow them to take
+                   videos"). Left alone it named the wrong tier to a Ltd
+                   supplier AND the wrong reason to everyone — a refusal that
+                   misdescribes itself sends somebody to fix the wrong thing.
+                   The number is DERIVED, never re-typed. */
+                `Photos only — video unlocks at ${formatCount(VENDOR_PAPIC_VIDEO_MIN_POINTS)} credits`}
+        </p>
       </div>
     </div>
   );
 }
 
-function TierMeter({
-  tier,
-  pointsLeft,
-  pointsCap,
-  spent,
-  allowVideo,
-}: {
-  tier: VendorPapicTier;
-  pointsLeft: number | null;
-  pointsCap: number | null;
-  spent: number;
-  allowVideo: boolean;
-}) {
-  const pct = pointsCap != null ? Math.min(100, Math.round((spent / pointsCap) * 100)) : 0;
-  return (
-    <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Camera aria-hidden className="h-4 w-4" style={{ color: 'var(--m-orange-2)' }} strokeWidth={1.75} />
-          <span className="text-[15px] font-semibold" style={{ color: 'var(--m-ink)' }}>
-            {TIER_LABEL[tier]}
-          </span>
-          {allowVideo ? (
-            <span className="inline-flex items-center gap-1 text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
-              <Video aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> photos + video
-            </span>
-          ) : (
-            <span className="text-[13px]" style={{ color: 'var(--m-slate-2)' }}>
-              photos only
-            </span>
-          )}
-        </div>
-        <span className={`text-[15px] ${TEMPLATE_MONEY}`}>
-          {pointsCap == null ? 'Unlimited' : `${formatCount(pointsLeft)} left`}
-        </span>
-      </div>
-      {pointsCap != null ? (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--m-line)' }}>
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--m-ink)' }} />
-        </div>
-      ) : null}
-    </div>
-  );
-}
+/** The four lines the supplier confirms, each with the mark that says what it is about. */
+const CONSENT = [
+  { icon: Check, line: 'You have the couple’s go-ahead to shoot at this event.' },
+  { icon: Eye, line: 'Only candid event moments — no nudity, harassment, or anything a guest hasn’t agreed to.' },
+  { icon: Trash2, line: 'Guests can ask you to delete a shot; the always-on filter also removes explicit content.' },
+  { icon: Lock, line: 'Your captures stay in your shop’s event photos; location is never stored.' },
+] as const;

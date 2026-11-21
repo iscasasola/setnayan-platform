@@ -43,6 +43,7 @@
 /dev/empty-looks-lab	# first run 2026-11-10 · internal (dev, prototypes) · Build 5 Lane H empty-look lab; 404 in production, reached only by typing its address
 /dev/event-group-chat-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — event group chats on fixture data, 404 in production
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/fee-rulings-lab	# 2026-11-20 · internal (dev lab, 404 in production) · the 20 Nov booking-fee screens on fixtures for the §4 shots; reached by typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/files-lab	# first run 2026-11-12 · internal (dev lab, Piece 3b) · a page nobody can reach without typing its address
@@ -56,6 +57,7 @@
 /dev/maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/mall-card-lab	# 2026-11-20 · internal (dev lab, 404 in production) · card 14 on Discover's grid with Save on the photo; reached by typing its address
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/memories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/notifications-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -91,6 +93,8 @@
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-print-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-set-two-day-lab	# 2026-11-21 · internal (dev lab, 404 in production) · supplier pages set two, page 8 (the event day + the Papic desk) on fixtures; reached by typing its address
+/dev/supplier-set-two-lab	# 2026-11-21 · internal (dev lab, 404 in production) · supplier pages set two on fixtures inside the real supplier shell; reached by typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/clients	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/on-the-day	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -99,6 +103,7 @@
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/unichat-a-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/verify-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -112,3 +117,5 @@
 /dev/motion-screens-lab/deeper	# first run 2026-11-18 · internal (dev, prototypes) · the lab's one deeper page — reached from the lab itself by a built address; 404 in production
 /dev/signature-lab	# first run 2026-11-19 · internal (dev, prototypes) · the motion standard's six signature moments on the shipped parts (§ 9); 404 in production
 /dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/pro-tools-lock-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the photo challenge + 3D booth Pro locks on fixtures for the §4 shots; reached by typing its address
+/dev/supplier-tools-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the supplier tool pages redraw (v3) on fixtures, for its screenshots; reached by typing its address

@@ -31,7 +31,8 @@ import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
-import { canManageVendor, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
+import { canManageVendor, navKeyVisibleTo, VENDOR_SCOPED_BOTTOM_NAV_KEYS } from '@/lib/vendor-role';
+import type { VendorDuty } from '@/lib/vendor-duties';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
 import { HOME_HREF } from '@/lib/home-segments';
@@ -137,20 +138,26 @@ export const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
  */
 export function vendorBarItems({
   role,
+  duty = null,
   navSlots,
   bookingsBadge,
   threadsBadge,
 }: {
   role: VendorTeamRole | null;
+  /** The person's supplier role (six roles, owner 19 Nov 2026). Null = the rank rule below. */
+  duty?: VendorDuty | null;
   navSlots?: Record<string, NavSlotLite>;
   bookingsBadge?: number | null;
   threadsBadge?: number | null;
 }): BottomNavItem[] {
   // Role-aware: owner/admin get the four; agent/viewer get Today · Clients, every day. FAILS CLOSED — a role that
   // could not be read is not an owner.
-  const base = canManageVendor(role)
-    ? VENDOR_BOTTOM_NAV_ITEMS
-    : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
+  // 🧑‍🤝‍🧑 With the six roles read, each role's own destinations (the same rule as the rail, `navKeyVisibleTo`).
+  const base = duty
+    ? VENDOR_BOTTOM_NAV_ITEMS.filter((i) => navKeyVisibleTo(i.key, role, duty))
+    : canManageVendor(role)
+      ? VENDOR_BOTTOM_NAV_ITEMS
+      : VENDOR_BOTTOM_NAV_ITEMS.filter((i) => VENDOR_SCOPED_BOTTOM_NAV_KEYS.has(i.key));
   // Nav registry overlay: label + icon per tab from its vendor.bottom-nav.<key>
   // slot (Today keeps key 'profile' for localStorage continuity but maps to the
   // 'home' slot). Fallback = the word in the code; a hidden slot drops the tab;
@@ -174,11 +181,13 @@ export function vendorBarItems({
 /** The supplier's phone bar. Renders nothing on lg+ (the rail takes over). */
 export function VendorBottomNav({
   role,
+  duty = null,
   navSlots,
   bookingsBadge,
   threadsBadge,
 }: {
   role: VendorTeamRole | null;
+  duty?: VendorDuty | null;
   navSlots?: Record<string, NavSlotLite>;
   /**
    * Inquiries still awaiting Accept/Decline, and unread chat threads. Both are
@@ -189,5 +198,5 @@ export function VendorBottomNav({
   bookingsBadge?: number | null;
   threadsBadge?: number | null;
 }) {
-  return <BottomNav items={vendorBarItems({ role, navSlots, bookingsBadge, threadsBadge })} />;
+  return <BottomNav items={vendorBarItems({ role, duty, navSlots, bookingsBadge, threadsBadge })} />;
 }

@@ -1,7 +1,10 @@
 'use client';
 
 import { useId, useRef, useState } from 'react';
-import { Check, ChevronDown, Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
+import { TypedRow, FormRows } from '@/app/_components/form-row';
+import { PartNote, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
+import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
+import { Check, ChevronDown, Info, Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -65,8 +68,11 @@ const nearestEdge = (px: number, py: number, rm: Room) => ({
 type Drag =
   | { kind: 'room'; sx: number; sy: number; ox: number; oy: number; prev: Room }
   | { kind: 'resize'; sx: number; sy: number; ow: number; oh: number; ox: number; oy: number; prev: Room }
-  | { kind: 'booth'; id: string; sx: number; sy: number; ox: number; oy: number; prevX: number; prevY: number }
-  | { kind: 'sign'; id: string; sx: number; sy: number; ox: number; oy: number; prevX: number; prevY: number };
+  | { kind: 'booth'; id: string; sx: number; sy: number; ox: number; oy: number; prevX: number; prevY: number; moved?: boolean }
+  | { kind: 'sign'; id: string; sx: number; sy: number; ox: number; oy: number; prevX: number; prevY: number; moved?: boolean };
+
+/** A press that travels less than this is a TAP — it opens the booth's or the sign's sheet instead of moving it. */
+const TAP_SLOP_PX = 4;
 
 export function CocktailEditor({ eventId, data }: { eventId: string; data: CocktailEditorData }) {
   const [room, setRoom] = useState<Room>(data.cocktail);
@@ -75,6 +81,8 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
   const [notice, setNotice] = useState<string | null>(null);
   // The booth whose offerings copy is being edited (inline panel), + its draft.
   const [editingBooth, setEditingBooth] = useState<string | null>(null);
+  const [editingSign, setEditingSign] = useState<string | null>(null);
+  const signTitleId = useId();
   const [offeringsDraft, setOfferingsDraft] = useState('');
   const offeringsTitleId = useId();
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -105,6 +113,10 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     if (!d) return;
     const p = rectPct(e.clientX, e.clientY);
     if (!p) return;
+    if ((d.kind === 'booth' || d.kind === 'sign') && !d.moved) {
+      if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < TAP_SLOP_PX) return;
+      d.moved = true;
+    }
     const dx = ((e.clientX - d.sx) / p.r.width) * 100;
     const dy = ((e.clientY - d.sy) / p.r.height) * 100;
     if (d.kind === 'room') {
@@ -140,6 +152,11 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     } else if (d.kind === 'sign') {
       const s = signsRef.current.find((x) => x.sign_id === d.id);
       if (!s) return;
+      // A tap, not a drag: the sign's sheet (its name, Rotate, Remove) — the drawing's "a sign opens the same small sheet".
+      if (!d.moved) {
+        setEditingSign(s.sign_id);
+        return;
+      }
       const res = await moveSign(eventId, d.id, s.x, s.y, s.rotation_deg);
       if (!res.ok) {
         setSigns((ss) => ss.map((x) => (x.sign_id === d.id ? { ...x, x: d.prevX, y: d.prevY } : x)));
@@ -148,6 +165,11 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     } else {
       const b = booths.find((x) => x.booth_id === d.id);
       if (!b) return;
+      // A tap, not a drag: the booth's sheet (what it serves, Save, Remove at the bottom).
+      if (!d.moved) {
+        openOfferings(b);
+        return;
+      }
       const res = await moveCocktailBooth(eventId, d.id, b.x, b.y);
       if (!res.ok) {
         setBooths((bs) => bs.map((x) => (x.booth_id === d.id ? { ...x, x: d.prevX, y: d.prevY } : x)));
@@ -255,9 +277,9 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     }
   };
 
-  const relabelSign = async (s: Sign) => {
+  const relabelSign = async (s: Sign, typed: string) => {
     if (!canArrange) return;
-    const label = window.prompt('Sign label', s.label)?.trim();
+    const label = typed.trim();
     if (!label || label === s.label) return;
     setSigns((ss) => ss.map((x) => (x.sign_id === s.sign_id ? { ...x, label } : x)));
     const res = await upsertSign(eventId, s.sign_id, label, s.x, s.y, s.rotation_deg);
@@ -291,44 +313,20 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
     setSigns((ss) => [...ss, { sign_id: res.signId!, label: 'Restrooms', x, y, rotation_deg: 0 }]);
   };
 
-  return (
-    <div className="space-y-4">
-      {notice ? (
-        <div role="alert" className="flex min-h-11 items-center justify-between gap-3 text-[14px]" style={{ color: 'rgb(var(--color-danger))' }}>
-          <span>{notice}</span>
-          <ActionButton tone="neutral" quiet iconOnly icon={X} label="Dismiss" onClick={() => setNotice(null)} />
-        </div>
-      ) : null}
+  const signOpen = signs.find((x) => x.sign_id === editingSign);
 
-      {/* Add-booth toolbar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <PickMenu
-          label="Add booth"
-          value=""
-          buttonText="Add booth"
-          options={BOOTH_CATALOG.map((c) => ({ key: c.type, label: c.label }))}
-          onPick={(key) => {
-            const c = BOOTH_CATALOG.find((x) => x.type === key);
-            if (c) void addBooth(c.type, c.label);
-          }}
-          className={actionButtonClass('brand')}
-          trigger={
-            <>
-              <Plus aria-hidden strokeWidth={1.9} />
-              <span className="lbl">Add booth</span>
-              <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-            </>
-          }
-        />
-        {canArrange ? (
-          <ActionButton tone="brand" icon={Signpost} label="Add sign" onClick={addSign} />
-        ) : null}
-        <p className="text-[13px] text-[color:var(--m-slate-2)]">
-          {canArrange
-            ? 'Drag the room, the corner grip to resize, booths to place them, and signs to point guests.'
-            : 'Drag your booth to place it inside the room.'}
-        </p>
-      </div>
+  return (
+    <div data-cocktail-editor="">
+      {notice ? (
+        <PartNote
+          tone="danger"
+          icon={Info}
+          role="alert"
+          end={<ActionButton tone="neutral" quiet iconOnly icon={X} label="Dismiss" onClick={() => setNotice(null)} />}
+        >
+          {notice}
+        </PartNote>
+      ) : null}
 
       {/* Blueprint canvas — one shared plan; reception is read-only context */}
       <div
@@ -336,7 +334,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        className="relative w-full touch-none overflow-hidden rounded-2xl border border-ink/15 bg-raised/70"
+        className="relative mx-3 mt-2 w-auto touch-none overflow-hidden rounded-[var(--m-r-md)] bg-[rgb(var(--sn-frame-bg))] shadow-[var(--sn-frame-shadow-tile)] tab:mx-0"
         style={{ aspectRatio: `${aspect}` }}
       >
         {/* read-only doorway connector — only when the couple has docked this room
@@ -356,7 +354,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   y1={data.entrance.y}
                   x2={edge.x}
                   y2={edge.y}
-                  stroke="rgb(var(--color-terracotta))"
+                  stroke="rgb(var(--sn-accent))"
                   strokeWidth={0.6}
                   strokeDasharray="2 1.5"
                   strokeOpacity={0.55}
@@ -370,7 +368,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         {room.linked && data.entrance ? (
           <div
             aria-hidden
-            className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 rounded-full border border-terracotta/40 bg-terracotta/[0.08] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-terracotta-700"
+            className="pointer-events-none absolute z-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgb(var(--sn-frame-bg))] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-sn-accent shadow-sm"
             style={{ left: `${data.entrance.x}%`, top: `${data.entrance.y}%` }}
           >
             Entrance
@@ -378,7 +376,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
         ) : null}
         {/* stage */}
         <div
-          className="absolute flex items-center justify-center rounded-md bg-ink/[0.06] text-[11px] font-semibold uppercase tracking-wider text-[color:var(--m-slate-2)]"
+          className="absolute flex items-center justify-center rounded-lg bg-[color:var(--surface-soft)] text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--color-link))]"
           style={{
             left: `${data.stage.x - data.stage.w / 2}%`,
             top: `${data.stage.y - data.stage.h / 2}%`,
@@ -405,7 +403,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           .map((t) => (
             <div
               key={t.table_id}
-              className={`absolute flex h-[7%] min-h-7 w-[7%] min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center border border-ink/15 bg-white/70 text-[11px] text-[color:var(--m-slate-2)] ${
+              className={`absolute flex h-[7%] min-h-7 w-[7%] min-w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center bg-[color:var(--m-paper-2)] text-[10px] font-bold text-[color:var(--m-slate-2)] ${
                 isRound(t.table_type) ? 'rounded-full' : 'rounded'
               }`}
               style={{ left: `${t.x}%`, top: `${t.y}%` }}
@@ -425,10 +423,10 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             height: `${room.h}%`,
           }}
         >
-          <div className="h-full w-full rounded-xl border-2 border-dashed border-terracotta/50 bg-terracotta/[0.05]" />
+          <div className="h-full w-full rounded-[var(--m-r-md)] border-2 border-dashed border-sn-accent bg-[color:var(--surface-soft)] opacity-95" />
           <span
             onPointerDown={startRoom}
-            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-terracotta-700 shadow-sm ${
+            className={`pointer-events-auto absolute left-1.5 top-1.5 inline-flex select-none items-center gap-1 rounded-[var(--m-r-sm)] bg-[rgb(var(--sn-frame-bg))] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-sn-accent ${
               canArrange ? 'cursor-grab' : ''
             }`}
           >
@@ -440,14 +438,14 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               type="button"
               onPointerDown={startResize}
               aria-label="Resize cocktail area"
-              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-raised/70 text-terracotta shadow-sm"
+              className="sn-hit-2d pointer-events-auto absolute -bottom-2 -right-2 flex h-[22px] !min-h-0 w-[22px] !min-w-0 cursor-nwse-resize items-center justify-center rounded-full border-[3px] border-[rgb(var(--sn-frame-bg))] bg-sn-accent text-sn-on-accent"
             >
-              <Maximize2 className="h-3 w-3 rotate-90" />
+              <Maximize2 className="h-2.5 w-2.5 rotate-90" />
             </button>
           ) : null}
         </div>
 
-        {/* booths */}
+        {/* booths — yours wears the accent and the pen; a tap opens its sheet, a drag places it */}
         {booths.map((b) => {
           const editable = b.is_mine || canArrange;
           return (
@@ -458,45 +456,25 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             >
               <span
                 onPointerDown={startBooth(b)}
-                title={
-                  [b.label, b.vendor_name, b.offerings].filter(Boolean).join(' · ') || b.label
-                }
-                className={`flex select-none items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold shadow-sm ${
+                role={editable ? 'button' : undefined}
+                tabIndex={editable ? 0 : undefined}
+                aria-label={editable ? `${b.label} — open its sheet` : undefined}
+                onKeyDown={editable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openOfferings(b); } } : undefined}
+                title={[b.label, b.vendor_name, b.offerings].filter(Boolean).join(' · ') || b.label}
+                className={`flex select-none items-center gap-1 whitespace-nowrap rounded-[var(--m-r-sm)] px-2 py-1 text-[11px] font-bold ${
                   b.is_mine
-                    ? 'border-terracotta bg-terracotta text-cream'
-                    : 'border-ink/25 bg-raised/90 text-ink'
+                    ? 'bg-sn-accent text-sn-on-accent shadow-[0_0_0_3px_var(--surface-soft)]'
+                    : 'bg-[rgb(var(--sn-frame-bg))] text-ink shadow-[var(--sn-frame-shadow-tile),0_0_0_1px_var(--m-line)]'
                 } ${editable ? 'cursor-grab' : ''}`}
               >
                 {b.label}
+                {b.is_mine ? <Pencil aria-hidden className="h-3 w-3" /> : null}
               </span>
-              {editable ? (
-                <>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => openOfferings(b)}
-                    aria-label={`Edit what ${b.label} serves`}
-                    className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-raised/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-terracotta-700"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => removeBooth(b)}
-                    aria-label={`Remove ${b.label}`}
-                    className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-raised/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-danger-600"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </>
-              ) : null}
-
             </div>
           );
         })}
 
-        {/* wayfinding signs — ARRANGE-tier editable; booth-tier sees them read-only */}
+        {/* wayfinding signs — ARRANGE-tier editable (a tap opens its sheet); booth-tier sees them read-only */}
         {signs.map((s) => (
           <div
             key={s.sign_id}
@@ -505,43 +483,54 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
           >
             <span
               onPointerDown={canArrange ? startSign(s) : undefined}
-              onDoubleClick={canArrange ? () => relabelSign(s) : undefined}
-              title={canArrange ? `${s.label} · double-click to rename` : s.label}
-              className={`flex select-none items-center gap-1 rounded-md border border-terracotta/40 bg-white/70 px-2 py-1 text-[11px] font-semibold text-terracotta-700 shadow-sm ${
+              role={canArrange ? 'button' : undefined}
+              tabIndex={canArrange ? 0 : undefined}
+              aria-label={canArrange ? `${s.label} — open its sheet` : undefined}
+              onKeyDown={canArrange ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditingSign(s.sign_id); } } : undefined}
+              title={s.label}
+              className={`flex select-none items-center gap-1 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-bold ${setTwo.mapPill} ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >
-              <Navigation
-                className="h-3 w-3"
-                style={{ transform: `rotate(${s.rotation_deg}deg)` }}
-              />
+              <Navigation className="h-3 w-3" style={{ transform: `rotate(${s.rotation_deg}deg)` }} />
               {s.label}
             </span>
-            {canArrange ? (
-              <>
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => rotateSign(s)}
-                  aria-label={`Rotate ${s.label}`}
-                  className="absolute -left-2 -top-2 rounded-full border border-ink/15 bg-raised/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-terracotta-700"
-                >
-                  <RotateCw className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => removeSign(s)}
-                  aria-label={`Remove ${s.label}`}
-                  className="absolute -right-2 -top-2 rounded-full border border-ink/15 bg-raised/70 p-0.5 text-[color:var(--m-slate-2)] shadow-sm hover:text-danger-600"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </>
-            ) : null}
           </div>
         ))}
       </div>
+
+      <p className="px-4 pt-2 text-[13px] text-[color:var(--m-slate-2)] tab:px-1">
+        {canArrange
+          ? 'Drag the room, the corner grip to resize, booths to place them, and signs to point guests.'
+          : 'Drag your booth to place it inside the room.'}
+      </p>
+      <p className="px-4 pt-2 text-[13px] text-[color:var(--m-slate-2)] tab:px-1">
+        Changes save as you go. The couple can turn supplier editing off at any time, and the reception layout is theirs
+        alone — you only touch the cocktail area.
+      </p>
+
+      {/* Add booth · Add sign — the thumb row (the shell's pinned bar from 701) */}
+      <SupplierThumbRow name="cocktail" label="Cocktail area actions">
+        <PickMenu
+          label="Add booth"
+          value=""
+          buttonText="Add booth"
+          options={BOOTH_CATALOG.map((c) => ({ key: c.type, label: c.label }))}
+          onPick={(key) => {
+            const c = BOOTH_CATALOG.find((x) => x.type === key);
+            if (c) void addBooth(c.type, c.label);
+          }}
+          className={actionButtonClass('brand', { main: true })}
+          trigger={
+            <>
+              <Plus aria-hidden strokeWidth={1.9} />
+              <span className="lbl">Add booth</span>
+              <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            </>
+          }
+        />
+        {canArrange ? <ActionButton tone="neutral" icon={Signpost} label="Add sign" onClick={addSign} /> : null}
+      </SupplierThumbRow>
 
       {(() => {
         const b = booths.find((x) => x.booth_id === editingBooth);
@@ -550,10 +539,10 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
             {b ? (
               <div className="px-4 pb-5 pt-1">
                 <div className="flex items-center gap-2">
-                  <h2 id={offeringsTitleId} className="flex-1 text-[19px] font-extrabold text-ink">
+                  <h2 id={offeringsTitleId} className="flex-1 text-[17px] font-bold text-ink">
                     What does {b.label} serve?
                   </h2>
-                  <ActionButton tone="neutral" icon={X} label="Close" iconOnly onClick={() => setEditingBooth(null)} />
+                  <ActionButton tone="neutral" quiet icon={X} label="Close" iconOnly onClick={() => setEditingBooth(null)} />
                 </div>
                 <label htmlFor={`v-booth-offerings-${b.booth_id}`} className="sr-only">
                   What does this booth serve?
@@ -566,7 +555,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   rows={3}
                   autoFocus
                   placeholder="e.g. Espresso martinis & mocktails"
-                  className="mt-3 w-full resize-none rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink focus:border-mulberry focus:outline-none"
+                  className="mt-3 w-full resize-none rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-[14px] py-[10px] text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-sn-accent"
                 />
                 <div className="mt-1 flex items-center justify-between text-[13px] text-[color:var(--m-slate-2)]">
                   <span>Guests see this when they tap your booth in the 3D venue walk.</span>
@@ -576,16 +565,57 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   <ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setEditingBooth(null)} />
                   <ActionButton tone="brand" main icon={Check} label="Save" onClick={() => saveOfferings(b)} />
                 </div>
+                <div className="mt-3 [&_.ab]:w-full">
+                  <ActionButton
+                    tone="danger"
+                    icon={Trash2}
+                    label={`Remove ${b.label}`}
+                    onClick={() => {
+                      setEditingBooth(null);
+                      void removeBooth(b);
+                    }}
+                  />
+                </div>
               </div>
             ) : null}
           </Sheet>
         );
       })()}
 
-      <p className="text-[13px] text-[color:var(--m-slate-2)]">
-        Changes save as you go. The couple can turn supplier editing off at any time, and the
-        reception layout is theirs alone — you only touch the cocktail area.
-      </p>
+      <Sheet open={signOpen !== undefined} onClose={() => setEditingSign(null)} labelledById={signTitleId} rise>
+        {signOpen ? (
+          <div className="px-4 pb-5 pt-1">
+            <div className="flex items-center gap-2">
+              <h2 id={signTitleId} className="flex-1 text-[17px] font-bold text-ink">
+                {signOpen.label}
+              </h2>
+              <ActionButton tone="neutral" quiet icon={X} label="Close" iconOnly onClick={() => setEditingSign(null)} />
+            </div>
+            <FormRows width="wide" className="mt-2">
+              <TypedRow
+                name="Sign label"
+                value={signOpen.label}
+                required
+                maxLength={60}
+                onKeep={(t) => void relabelSign(signOpen, t)}
+                data="cocktail-sign-label"
+              />
+            </FormRows>
+            <div className="mt-4 grid grid-cols-2 gap-2 [&_.ab]:w-full">
+              <ActionButton tone="neutral" icon={RotateCw} label="Rotate" onClick={() => void rotateSign(signOpen)} />
+              <ActionButton
+                tone="danger"
+                icon={Trash2}
+                label="Remove"
+                onClick={() => {
+                  setEditingSign(null);
+                  void removeSign(signOpen);
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+      </Sheet>
     </div>
   );
 }

@@ -14,7 +14,6 @@
   "app/[slug]/avatar/page.tsx": 1,
   "app/[slug]/everyone/page.tsx": 1,
   "app/[slug]/find-my-table/page.tsx": 1,
-  "app/[slug]/hub/page.tsx": 1,
   "app/[slug]/invite/reply/page.tsx": 1,
   "app/[slug]/seat/page.tsx": 1,
   "app/[slug]/venue/page.tsx": 2,

@@ -39,7 +39,6 @@ app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/icon-pill.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/maker-play-menu.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx  # menu-like
-app/dashboard/[eventId]/launch/_components/stage-tools.tsx  # menu-like
 app/dashboard/[eventId]/monogram/animate-rows.tsx  # fold
 app/dashboard/[eventId]/schedule/_components/chapters-host.tsx  # menu-like
 app/dashboard/[eventId]/schedule/_components/day-ui.tsx  # menu-like

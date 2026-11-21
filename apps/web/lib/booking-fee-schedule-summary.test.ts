@@ -21,7 +21,7 @@ import { BOOKING_FEE, bookingFeePhp, bookingFeeScheduleSummary } from './booking
 test('renders the schedule for the CURRENT constants', () => {
   assert.equal(
     bookingFeeScheduleSummary(),
-    '5% of the first ₱100,000, then 1%, minimum ₱50',
+    '5% of the first ₱100,000, then 3%, minimum ₱50, never more than ₱100,000',
   );
 });
 
@@ -46,6 +46,7 @@ test('every amount carries the ₱ sign and thousands separators', () => {
  */
 test('PIN: the summary agrees with bookingFeePhp at the band, the tail, and the floor', () => {
   const { rate, tailRate, tier1LimitPhp, minPhp } = BOOKING_FEE;
+  const capPhp = BOOKING_FEE.capPhp as number;
   const summary = bookingFeeScheduleSummary();
 
   // 1. "X% of the first ₱N" — the head rate holds exactly AT the band edge.
@@ -56,12 +57,11 @@ test('PIN: the summary agrees with bookingFeePhp at the band, the tail, and the 
   );
 
   // 2. "then Y%" — above the edge, only the TAIL rate applies to the excess.
-  //    (₱300,000 → ₱7,000 and ₱1,000,000 → ₱14,000 under today's constants.)
-  // ⚖ Probes stay under the ceiling (owner 2026-11-17: the fee never exceeds
-  // max_payment_php, ₱100,000) — ×100 would be capped, which booking-fee.test.ts pins.
-  for (const multiple of [3, 10, 50]) {
+  //    (₱300,000 → ₱11,000 and ₱1,000,000 → ₱32,000 under today's constants;
+  //    ₱10,000,000 would be ₱302,000 and is LOCKED at the cap — "never more than".)
+  for (const multiple of [3, 10, 100]) {
     const proposal = tier1LimitPhp * multiple;
-    const expected = tier1LimitPhp * rate + (proposal - tier1LimitPhp) * tailRate;
+    const expected = Math.min(tier1LimitPhp * rate + (proposal - tier1LimitPhp) * tailRate, capPhp);
     assert.equal(
       bookingFeePhp(proposal),
       expected,
@@ -85,7 +85,7 @@ test('PIN: the summary agrees with bookingFeePhp at the band, the tail, and the 
   );
 
   // 4. And the string actually names all four constants it is claiming.
-  for (const token of ['5%', '1%', '₱100,000', '₱50']) {
+  for (const token of ['5%', '3%', '₱100,000', '₱50', 'never more than']) {
     assert.ok(summary.includes(token), `summary must name ${token}`);
   }
 });

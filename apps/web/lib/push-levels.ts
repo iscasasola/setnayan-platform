@@ -65,6 +65,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   badge_earned: 'normal', // a supplier earned a badge — its reward is already in their gifts (owner 2026-11-15)
   seal_awarded: 'normal', // a shop was given a seal (badge build J2 sends it)
   card_badge_earned: 'normal', // a service card earned a card badge (badge build J3 sends it)
+  chat_reminder: 'normal', // a "Remind me" the person set on a chat message came due (Unichat H1) — theirs alone
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)
   chat_message: 'normal',
   chat_message_in_app: 'normal', // the same message, to a shop's team · another co-host · a coordinator (8 Nov 2026)

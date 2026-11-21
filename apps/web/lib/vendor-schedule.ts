@@ -396,6 +396,18 @@ export async function fetchVendorPoolBookings(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<PoolBookingEntry[]> {
+  return (await fetchVendorPoolBookingsDetailed(supabase, vendorProfileId)).bookings;
+}
+
+/**
+ * `fetchVendorPoolBookings`, plus whether the pool read reached the server's exact count (`complete`). A refused or
+ * short read keeps the rows it got and says `complete: false` — so a caller asking "is this shop booked HERE?" can
+ * tell "not booked" from "we could not look" (the Papic desk, supplier pages set two, 21 Nov 2026).
+ */
+export async function fetchVendorPoolBookingsDetailed(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<{ bookings: PoolBookingEntry[]; complete: boolean }> {
   // ⚠ PAGED TO THE SERVER'S COUNT, NOT ONE UN-RANGED SELECT. PostgREST caps a
   // single response (Supabase default 1000), so a busy shop's later bookings
   // fell off the calendar and the roster's booked floor with `error: null`.
@@ -430,7 +442,7 @@ export async function fetchVendorPoolBookings(
     booked_date: string;
     event_vendor_id?: string | null;
   }[];
-  if (bookings.length === 0) return [];
+  if (bookings.length === 0) return { bookings: [], complete: read.complete };
 
   const eventIds = [...new Set(bookings.map((b) => b.event_id))];
   const admin = createAdminClient();
@@ -465,7 +477,7 @@ export async function fetchVendorPoolBookings(
     ]),
   );
 
-  return bookings.map((b) => ({
+  const entries = bookings.map((b) => ({
     poolBookingId: b.pool_booking_id,
     poolId: b.pool_id,
     eventId: b.event_id,
@@ -475,6 +487,7 @@ export async function fetchVendorPoolBookings(
     eventVendorId: b.event_vendor_id ?? null,
     ...(b.event_vendor_id && pieceIds.has(b.event_vendor_id) ? { seat: false } : {}),
   }));
+  return { bookings: entries, complete: read.complete };
 }
 
 /** All calendar blocks for the vendor, normalized to PH civil-day ranges. */

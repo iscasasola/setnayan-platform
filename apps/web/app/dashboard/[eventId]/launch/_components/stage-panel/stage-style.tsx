@@ -31,6 +31,15 @@ const SP_FRAME_BOX = 'h-full min-h-0 px-[10px] [&>*]:h-full [&>*]:min-h-0 [&>*]:
  * this only shows the one the toolbar is on. A part with no background of its own never gets here on Background
  * (the tool is grey — `makerPartToolWorks`); if it does, its look is shown rather than a blank.
  */
+/**
+ * 🧰 STYLE IN FOUR GROUPS ON EVERY SCENE (owner 20 Nov 2026, DECISION_LOG "MAKER TABS REVISITED" (2)): Layout ·
+ * Background · Words (Colours · Font · Text size) · Extras ◆ (Accent · Effect). Layout and Background are named here,
+ * one scroll apart; Words is the toolbar's own row (Colour · Size, `StageLookRow`). ⏭ Font per scene and Extras ◆ as a
+ * group of their own are named in PR #8072's STATUS as parity gaps.
+ */
+export const STAGE_STYLE_GROUPS = ['Layout', 'Background', 'Words', 'Extras ◆'] as const;
+const STAGE_STYLE_GROUP_HEAD = 'px-[12px] pb-1 pt-2 text-[13px] font-semibold text-[var(--sp-ink)]';
+
 export function StageStyle({ look, background, rows = false, frame = false }: { look: ReactNode; background: ReactNode; arrange?: ReactNode; rows?: boolean; frame?: boolean }) {
   const tool = useStageTool();
   const on = tool === 'bg' && background ? 'bg' : 'look';
@@ -51,6 +60,27 @@ export function StageStyle({ look, background, rows = false, frame = false }: { 
      toolbar's own, `stage-tools.tsx`, on `data-stage-style-rows`). The bodies that are not the work area's (the
      Reveal, the Camera, the reply pages) keep their own pane. */
   if (rows && on === 'look') {
+    /* 🧰 BACKGROUND IS A ROW OF STYLE (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (1): *"Background
+       joins Style"*; the drawing's Style is one list). The look comes first, its four rows as they were; the background
+       follows under its own heading, one scroll down — the same `StageBackground` rows, never a second copy. */
+    if (background) {
+      return (
+        <div className="h-full min-h-0 snap-y snap-proximity overflow-y-auto overscroll-contain [scrollbar-width:none]" data-stage-style-scroll="">
+          <section aria-label={STAGE_STYLE_GROUPS[0]} className="h-full snap-start" data-stage-style-group="layout">
+            <p className={STAGE_STYLE_GROUP_HEAD}>{STAGE_STYLE_GROUPS[0]}</p>
+            <div className={`${SP_STYLE_PANE} h-[calc(100%-28px)]`} data-stage-style={on} data-stage-style-rows="">
+              {look}
+            </div>
+          </section>
+          <section aria-label={STAGE_STYLE_GROUPS[1]} className="h-full snap-start" data-stage-style-group="background" data-stage-style-bg="">
+            <p className={STAGE_STYLE_GROUP_HEAD}>{STAGE_STYLE_GROUPS[1]}</p>
+            <div className={`${SP_ROWS} h-[calc(100%-28px)] px-[10px]`} data-stage-bg-rows="">
+              {background}
+            </div>
+          </section>
+        </div>
+      );
+    }
     return (
       <div className={SP_STYLE_PANE} data-stage-style={on} data-stage-style-rows="">
         {look}

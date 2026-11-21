@@ -58,7 +58,7 @@ export const OPEN_SHOP_ACCOUNT_ERRORS = {
 export type OpenShopAccountDecision =
   | { kind: 'existing' }
   | { kind: 'create'; email: string; password: string }
-  | { kind: 'refuse'; step: 5; error: string };
+  | { kind: 'refuse'; step: 2; error: string };
 
 export type OpenShopAccountInput = {
   /** A signed-in user exists for this request. */
@@ -81,11 +81,11 @@ export type OpenShopAccountInput = {
  */
 export function decideOpenShopAccount(input: OpenShopAccountInput): OpenShopAccountDecision {
   if (input.hasSession) return { kind: 'existing' };
-  if (!input.email) return { kind: 'refuse', step: 5, error: OPEN_SHOP_ERRORS.contactEmail };
+  if (!input.email) return { kind: 'refuse', step: 2, error: OPEN_SHOP_ERRORS.contactEmail };
   if (input.password.length < OPEN_SHOP_PASSWORD_MIN) {
-    return { kind: 'refuse', step: 5, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
+    return { kind: 'refuse', step: 2, error: OPEN_SHOP_ACCOUNT_ERRORS.password };
   }
-  if (!input.termsAgreed) return { kind: 'refuse', step: 5, error: input.termsError };
+  if (!input.termsAgreed) return { kind: 'refuse', step: 2, error: input.termsError };
   return { kind: 'create', email: input.email, password: input.password };
 }
 

@@ -28,7 +28,7 @@ export const TOOLS_COUPLES_SEE: ShopTool[] = [
 
 export const TOOLS_WITH_OTHERS: ShopTool[] = [
   { href: '/vendor-dashboard/recommendations', label: 'Recommend', sub: 'Add-ons you’d recommend to your couples.' }, // controller 21 Nov (tools redraw v3): the old line described Partnerships
-  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Preferred-partner ties with other suppliers.' },
+  { href: '/vendor-dashboard/partnerships', label: 'Partnerships', sub: 'Your trusted partners — the shops you work with.' },
   { href: '/vendor-dashboard/creators', label: 'Creators', sub: 'Offer discounts to creators for a credited feature in their story.' },
   // Branches removed 2026-07-16 — the Branch tile above (ManageTiles, inline
   // BranchManager) is the canonical branch surface; the standalone /branches

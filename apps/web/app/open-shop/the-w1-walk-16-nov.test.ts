@@ -114,7 +114,7 @@ test('W1-B21 · the plan picked on /for-suppliers rides through the door and is 
   assert.match(actions, /const plan = parseSupplierPlan\(formData\.get\('plan'\)\);/);
   // 🚪 19 Nov: the logo screen is no longer forced in between — the plan's offer comes first, Today's welcome otherwise
   // (and Edit on the first card opens the Card Maker, the plan reachable from Today after it).
-  assert.match(actions, /redirect\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\);/);
+  assert.match(actions, /redirect\(viaInvite\(planOfferPath\(plan\) \?\? firstCardLanding\(\{ choice: cardChoice, cardId, category: cardCategory \}\)\)\);/);
   const logo = read('app/open-shop/logo/page.tsx');
   assert.match(logo, /doneHref=\{offer \?\? '\/vendor-dashboard'\}/);
   const card = read('app/open-shop/logo/_components/add-your-logo.tsx');

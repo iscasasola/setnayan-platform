@@ -108,7 +108,10 @@ test('five screens in the approved order, the account SECOND (supplier onboardin
   for (const name of ['contact_email', 'password']) assert.match(account, new RegExp(`name="${name}"`));
   assert.match(account, /name=\{TERMS_FIELD\}/);
   // Gone from the door: the logo upload, "In business since", any role LIST (none exists to reuse).
-  assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year|<PickMenu\b/);
+  assert.doesNotMatch(WIZARD, /<FileUpload\b|in_business_since_year/);
+  // No role LIST either: the ONE dropdown on the door is Door C's coordination service (owner 19 Nov).
+  assert.equal((WIZARD.match(/<PickMenu\b/g) ?? []).length, 1, 'a second dropdown appeared on the door');
+  assert.match(WIZARD, /data-onboarding-coordination="">\s*<PickMenu\s+label="Your main coordination service"/);
   assert.match(WIZARD, /contact: 'Who couples will talk to\.'/);
   assert.match(WIZARD, /2: guest \? ONBOARDING_HEADS\.account : \['Your shop’s email', 'Where couples and Setnayan reach your shop\.'\]/);
   // Five segments in the step bar.
@@ -186,7 +189,7 @@ test('"Is this your address?" — the full address, a full-width "Yes, that’s 
 /* ── step 2, v14 → v16: one card per category, the plan explained on Continue, events per service ─────────────── */
 
 test('v16 ① · one plain card per CATEGORY; a blank "Also do …?" row; a dashed "Another category" frame → tile → row', () => {
-  assert.match(WIZARD, /\{service \? 'Your services' : 'Main service'\}/);
+  assert.match(WIZARD, /\{service && !\(coordinating && step === 1\) \? 'Your services' : 'Main service'\}/);
   // The card is the tier-2 category (the tree's branch), never the group.
   assert.match(CARDS, /categoryId: b\.tileId,\s*categoryLabel: b\.label,/);
   assert.match(CARDS, /buttonText=\{`Also do \$\{remain\.map\(\(x\) => x\.label\)\.join\(', '\)\}\?`\}/);

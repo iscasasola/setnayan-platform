@@ -16,7 +16,7 @@ export function HostsKeepThis({ title, kicker, why }: { title: string; kicker: s
   return (
     <section className="sn-col space-y-6" data-hosts-keep-this="">
       <PageMasthead title={title} />
-      <div className="sn-tile p-5">
+      <div className="py-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{kicker}</p>
         <p className="mt-2 text-base font-semibold text-ink">{HOSTS_KEEP_THIS}</p>
         <p className="mt-1 text-sm text-ink/70">{why}</p>

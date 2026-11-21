@@ -161,7 +161,7 @@ test('7 · "Events you run" rows carry Dashboard · Chats · Hub', () => {
   assert.equal(e.chatsHref, '/vendor-dashboard/clients/e1?tab=chat');
   assert.equal(e.hubHref, '/dashboard/e1/launch');
   const rows = code('app/vendor-dashboard/_components/events-you-run-rows.tsx');
-  for (const [label, href] of [['Dashboard', 'e.href'], ['Chats', 'e.chatsHref'], ['Hub', 'e.hubHref']]) {
+  for (const [label, href] of [['Dashboard', 'e.href'], ['Chats', 'e.chatsHref'], ['Hub', 'e.hubHref']] as const) {
     assert.match(rows, new RegExp(`<RunButton href=\\{${href.replace('.', '\\.')}\\} label="${label}"`), `the row lost its ${label} button`);
   }
 });

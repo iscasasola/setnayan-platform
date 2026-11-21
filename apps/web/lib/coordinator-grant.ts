@@ -169,6 +169,7 @@ async function openForTheBookedShop(
     .eq('vendor_profile_id', p.shopProfileId)
     .maybeSingle();
   const ownerId = (shop as { user_id: string | null } | null)?.user_id ?? null;
+  if (shopError) console.error('[autoInviteCoordinator] shop owner unread:', shopError.message, { event_id: p.eventId });
   if (shopError || !ownerId) return 'no_owner';
 
   const { data: seats, error: seatsError } = await admin

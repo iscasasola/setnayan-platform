@@ -75,6 +75,15 @@
  *      Papic OFF → before the day and after it there is no Camera (the stage's
  *      list decides, as before); on the day ruling 2's LOCKED camera stands.
  *      Strangers and suppliers are unchanged: no camera.
+ *
+ * ── ONE BAR ON THE DAY (controller under owner delegation, 20 Nov 2026 —
+ *    DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED") ────
+ *
+ *  C2. The Day keeps ONE bar, Live · Home · Camera · Memories · Me: the
+ *      `/[slug]/hub` second bar is gone (`hub/page.tsx` sends its visitor to the
+ *      matching tab here) and Watch lives inside Live. The Post Event bar is left
+ *      as shipped (DECISION_LOG "POST EVENT LEAVES THE EVENT HUB" (2)).
+ *
  *  P2. "when there is already existing papic shots or uploaded photos via
  *      papic, the memories will be available" → `memoriesHasPhotos` (the
  *      event's Papic frames, `countGalleryFrames` — shots AND uploads, with the
@@ -527,8 +536,8 @@ function vendorSlotLabel(kits: readonly VendorKit[]): string {
  *
  * ── WHY THEY ARE NOT TABS ───────────────────────────────────────────────────
  * The bar above holds FIVE slots and both the pre-day and the live-broadcast
- * bars are already full (Home · Details · Story · Camera · Me, and Now · Watch ·
- * Camera · Gallery · Me). A sixth tab is not a small addition — it is a redesign
+ * bars are already full (Home · Details · Story · Camera · Me, and Live · Home ·
+ * Camera · Memories · Me). A sixth tab is not a small addition — it is a redesign
  * of an owner-locked shape, and a tab that appears only when the bar happens to
  * have room teaches people the bar is unreliable, which is the exact failure
  * this file's rulings exist to prevent. So these two are CARDS on a surface a

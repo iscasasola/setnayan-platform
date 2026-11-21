@@ -171,7 +171,9 @@ test('the widget drops the directions row when withheld — it searches BY NAME 
 });
 
 test('every caller passes the VENUE’s timezone — forgetting it IS the bug', () => {
-  for (const rel of [['app', '[slug]', 'page.tsx'], ['app', '[slug]', 'hub', 'page.tsx']]) {
+  // (No `hub/page.tsx`: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab
+  //  (`dayHubLanding`); the next test holds that it reads no venue at all.)
+  for (const rel of [['app', '[slug]', 'page.tsx']]) {
     const src = readFileSync(join(__dirname, '..', ...rel), 'utf8');
     const call = src.slice(src.indexOf('venueIsOpen({'));
     const head = call.slice(0, call.indexOf('});') + 3);
@@ -179,11 +181,13 @@ test('every caller passes the VENUE’s timezone — forgetting it IS the bug', 
   }
 });
 
-test('the day-of hub asks the same rule, and its address branch cannot bypass it', () => {
+test('the day-of hub reads no venue at all — its directions are the event page’s, behind the one rule', () => {
+  // 🧭 One bar per stage (20 Nov 2026): /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`).
+  // Directions live on The Day's Live tab, which the event page gates with `venueIsOpen` (the test above). So the
+  // hub must hold no venue it could leak without asking: no address, no pin, no directions of its own.
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', 'hub', 'page.tsx'), 'utf8');
-  assert.match(src, /import \{ venueIsOpen \}/, 'one rule, imported — never a second copy');
-  const line = src.match(/const hasDirections =.*/)?.[0] ?? '';
-  assert.match(line, /venueOpen && \(/, `the gate wraps BOTH branches, not just the pin: ${line}`);
+  assert.doesNotMatch(src, /venue_address|venue_latitude, venue_longitude, std|ceremony_venue_|DirectionsMenu|loadVenueBookings|hasDirections/, 'the hub reads or draws a venue again');
+  assert.match(src, /redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(/);
 });
 
 // ── A withheld venue never says "to be confirmed" (owner 2026-09-26, cale-ice) ──

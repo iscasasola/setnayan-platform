@@ -5,6 +5,7 @@ import { ScanTrailForm } from '@/app/[slug]/_components/scan-trail-notice';
 import { PLATE } from '@/app/[slug]/_lib/measures';
 import { YourScheduleCard } from '@/app/[slug]/_components/your-schedule-card';
 import type { YourScheduleRead } from '@/app/[slug]/_lib/your-schedule.server';
+import { SeatDoorLine } from '@/app/[slug]/_components/seat-door-line';
 
 /**
  * 👤 ME, AS A STAGE — Invitation › Me drawn the way the guest page draws it (`data-me-stage` → `GuestMeSection` →
@@ -14,8 +15,22 @@ import type { YourScheduleRead } from '@/app/[slug]/_lib/your-schedule.server';
  * server action for a lab (`lint-server-action-budget`). `?stage=1&dark=1` = the couple's Candlelight look with Shade ▾
  * Darker; `&guests=2` adds a second plus-one ("jose de los santos"). `&schedule=bridesmaid|guest` adds 📅 Your schedule
  * (`./lab-your-schedule` — `&released=1` after Release, `&free=1` without Pro, `&tba=1` a chapter with no time).
+ * `&seat=none|unreadable|<table>` draws Me's seat line (`SeatDoorLine`, as `page.tsx` mounts it above Me) for a guest
+ * with no table, a guest whose seat read FAILED ("Couldn't load your seat — Reload"), or a seated guest
+ * (`&seat=Table 3`). Absent: no seat line, as on an event that does not seat people.
  */
-export function MeStageLab({ dark, two, schedule = null }: { dark: boolean; two: boolean; schedule?: YourScheduleRead | null }) {
+export function MeStageLab({
+  dark,
+  two,
+  schedule = null,
+  seat = null,
+}: {
+  dark: boolean;
+  two: boolean;
+  schedule?: YourScheduleRead | null;
+  /** `null` = no line · `'none'` = not seated · `'unreadable'` = the seat read failed · anything else = that table. */
+  seat?: string | null;
+}) {
   const typed = two ? ['pamela labriaga', 'jose de los santos'] : ['pamela labriaga'];
   const guests = typed.map((name, i) => ({ guestId: `p${i + 1}`, name, inviteUrl: `https://setnayan.com/me-lab?invite=lab-${i + 1}` }));
   const ticket = (name: string) => `/dev/me-lab/ticket?name=${encodeURIComponent(name)}`;
@@ -33,6 +48,15 @@ export function MeStageLab({ dark, two, schedule = null }: { dark: boolean; two:
             asTab
             galleryCount={0}
             meSlot={
+              <>
+              {seat ? (
+                <SeatDoorLine
+                  slug="me-lab"
+                  tableLabel={seat === 'none' || seat === 'unreadable' ? null : seat}
+                  unreadable={seat === 'unreadable'}
+                  className="mb-3"
+                />
+              ) : null}
               <GuestMe
                 name="Pam"
                 slug="me-lab"
@@ -51,6 +75,7 @@ export function MeStageLab({ dark, two, schedule = null }: { dark: boolean; two:
                 faceTagging={{ on: false, open: false, faceMode: 'mode_a', wish: true, turnOff: withdrawFaceConsent.bind(null, 'e-lab', 'g-pam') }}
                 yourSchedule={<YourScheduleCard read={schedule} eventName="Indalecio & Claire" />}
               />
+              </>
             }
           />
           <ScanTrailForm

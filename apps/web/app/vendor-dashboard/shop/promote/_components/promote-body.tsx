@@ -180,7 +180,7 @@ export async function PromoteBody({
         </PromoteBridge>
       ) : (
         <PromoteBridge>
-          <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} facts={printFacts} />
+          <ShopPrintsSection canShare={canShare} setupHref="/vendor-dashboard/shop" member={member} facts={printFacts} backTo={part === 'prints' ? 'Prints' : 'Promote'} />
         </PromoteBridge>
       )}
       {gifts ? <ShopGiftsSection data={gifts} /> : null}

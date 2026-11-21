@@ -271,8 +271,10 @@ test('(4) the ceremony’s typed address reaches maps — and closes until the g
   assert.equal(shut.venue_address, null);
   assert.equal(shut.venues?.[0]?.address, null);
   assert.equal(shut.venues?.[0]?.name, 'Santuario de San Vicente', 'the name stays, as it always has');
-  // …and every guest-facing read that resolves venues asks for the column.
-  for (const f of ['app/[slug]/_lib/loaders.ts', 'app/[slug]/hub/page.tsx', 'lib/guest-reminder-emails.ts']) {
+  // …and every guest-facing read that resolves venues asks for the column. (`app/[slug]/hub/page.tsx` left this list:
+  // one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`), so
+  // it resolves no venue; the event page's read is `loaders.ts`.)
+  for (const f of ['app/[slug]/_lib/loaders.ts', 'lib/guest-reminder-emails.ts']) {
     assert.match(read(f), /ceremony_venue_address/, `${f} does not read the ceremony address`);
   }
 });

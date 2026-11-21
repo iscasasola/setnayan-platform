@@ -116,6 +116,12 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     asserts NON-membership for exactly that reason.
   */
   'vendor_credit_expiring',
+  /*
+    🎁 A SETNAYAN PLAN GIFT ENDS IN 7 DAYS / 1 DAY. OWNER'S WORD, 14 Nov 2026 (DECISION_LOG "A GIFTED SUPPLIER PLAN
+    SAYS 'ENDS SOON' 7 DAYS BEFORE AND AGAIN 1 DAY BEFORE": "an in-app notice + email 7 days before … and again 1
+    day before"). Transactional — the shop's own plan — so NOT marketing-gated. Two per gift, ever.
+  */
+  'vendor_plan_gift_ending',
   // Payment lifecycle (Phase 2 PR-B, 2026-06-20). The transactional money
   // signals the couple should get an email for: their payment plan is ready
   // (info_sent), a payment was confirmed by the vendor, and the plan cleared.
@@ -410,6 +416,12 @@ export type EmitNotificationArgs = {
    * bell and on the phone and is never emailed (owner 2026-11-15, `lib/admin/admin-notices-stay-in-the-app.ts`).
    */
   adminNotice?: boolean;
+  /**
+   * 🔕 The bell row lands; the PHONE notice does not. Set only by the chat notice sender for a person who muted that
+   * chat (`chatNoticeSilentFor`, lib/chat-mutes.ts — Unichat "Mute this chat", controller ruling 21 Nov 2026). The row
+   * still counts as unread, so the chat's counts stay true.
+   */
+  silent?: boolean;
 };
 
 export type NotificationEmailParts = {
@@ -650,6 +662,8 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
   // (lib/push-schedule.server.ts). A push failure never affects the bell row or
   // the email that already landed.
   if (isAnyPushConfigured() && pushDecision(type, Date.now()) === 'send') {
+    // 🔕 A muted chat (lib/chat-mutes.ts): the bell row above has landed; the phone stays quiet.
+    if (args.silent === true) return;
     try {
       // A reply counts the host's unread replies for its event and replaces the
       // last one on the lock screen; everything else is the bell row's twin.

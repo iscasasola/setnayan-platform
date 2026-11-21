@@ -21,6 +21,7 @@ export function MayaChecking() {
   useEffect(() => {
     if (tries >= TRIES) return;
     const t = window.setTimeout(() => {
+      // one-render: keep (retry) — a timed re-ask: each refresh re-renders the pay page, whose server render re-verifies with Maya; no server action runs here.
       router.refresh();
       setTries((n) => n + 1);
     }, EVERY_MS);

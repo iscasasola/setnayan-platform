@@ -109,7 +109,7 @@ test('no server action was added — the presses are intents on existing actions
 
 test('the payer pays the total exactly — no fee or surcharge words on the Maya stage', () => {
   const stage = code('app/pay/[reference]/_components/maya-pay-stage.tsx');
-  assert.match(stage, /Pay \{amount\}/);
+  assert.match(stage, /Pay \{payAmount\(amountPhp\)\}/);
   assert.match(stage, /Secured by Maya · Your receipt arrives here the moment it&rsquo;s paid\./);
   assert.equal(/\bfee\b|surcharge|\+\s*₱|%\s*\+/i.test(stage), false, 'the Maya stage mentions a fee');
   const marks = code('app/pay/[reference]/_components/maya-marks.tsx');

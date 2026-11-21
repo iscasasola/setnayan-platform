@@ -38,11 +38,10 @@ export function MayaPayStage({
   /** One line above the summary after a cancelled or failed try ("…Nothing was charged."). */
   line: string | null;
 }) {
-  const amount = payAmount(amountPhp);
   return (
     <section id="payCard" data-pay-maya-stage="" className="mt-5 scroll-mt-4 pb-40 md:pb-0">
       <p className="sn-eye">Pay this exact amount</p>
-      <p className="mt-2 text-[44px] font-bold leading-none tracking-tight tabular-nums text-ink">{amount}</p>
+      <p className="mt-2 text-[44px] font-bold leading-none tracking-tight tabular-nums text-ink">{payAmount(amountPhp)}</p>
       {line ? (
         <p role="status" data-pay-maya-line="" className="mt-4 text-sm text-ink/75">
           {line}
@@ -58,7 +57,7 @@ export function MayaPayStage({
               <p className="text-ink">{title}</p>
               {who ? <p className="mt-0.5 text-xs text-ink/60">{who}</p> : null}
             </div>
-            <p className="shrink-0 tabular-nums text-ink">{amount}</p>
+            <p className="shrink-0 tabular-nums text-ink">{payAmount(amountPhp)}</p>
           </div>
           <div className="mt-4 flex items-center justify-between gap-3 text-sm">
             <span className="text-ink/60">Reference</span>
@@ -78,7 +77,7 @@ export function MayaPayStage({
           ) : null}
           <div className="mt-4 flex items-baseline justify-between border-t border-ink/10 pt-3">
             <span className="text-sm font-semibold text-ink">Total</span>
-            <span className="text-base font-bold tabular-nums text-ink">{amount}</span>
+            <span className="text-base font-bold tabular-nums text-ink">{payAmount(amountPhp)}</span>
           </div>
         </div>
 
@@ -107,7 +106,7 @@ export function MayaPayStage({
                 Secured by Maya · Your receipt arrives here the moment it&rsquo;s paid.
               </p>
               <SubmitButton className="button-primary h-11 w-full justify-center" pendingLabel="Opening Maya…">
-                Pay {amount}
+                Pay {payAmount(amountPhp)}
               </SubmitButton>
               <p className="mt-2 hidden text-xs text-ink/55 md:block">Opens Maya&rsquo;s secure page in this tab.</p>
             </div>

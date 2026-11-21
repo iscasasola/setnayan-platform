@@ -6,13 +6,14 @@
  * this chunk fetched. Anything else stays the plain Setnayan line it always was.
  */
 import { bookRequestFromLine, changeAskFromLine, guestCountFromLine, type BookRequestState } from '@/lib/chat-cards';
-import { negotiationFromLine, pollFromLine, quoteFallFromLine, quoteRiseFromLine, scheduleChangeFromLine } from '@/lib/chat-card-lines';
+import { negotiationFromLine, pollFromLine, quoteFallFromLine, quoteRiseFromLine, scheduleChangeFromLine, timeAskFromLine } from '@/lib/chat-card-lines';
 import { PollCard } from './poll-card';
 import { BookRequestCard } from './book-request-card';
 import { ChangeAskCard } from './ask-change-card';
 import { GuestRecountCard, QuoteFellCard, QuoteRoseCard } from './guest-recount-card';
 import { NegotiationCard } from './negotiate-cards';
 import { ScheduleChangeCard } from './schedule-change-card';
+import { ScheduleTimeAskCard } from './schedule-time-ask-card';
 
 export function StreamLineCard({
   body,
@@ -67,5 +68,9 @@ export function StreamLineCard({
   // 🗓 A host's chapter move (SCHEDULES HAND-IN-HAND part (b)): pinned on the supplier's side until Seen.
   const sched = scheduleChangeFromLine(body);
   if (sched) return <ScheduleChangeCard threadId={threadId} createdAt={createdAt} {...sched} viewer={viewer} supplierName={supplierName} />;
+  // 🗓 A time-change ASK, either way (Unichat part F): the supplier's request the hosts answer, or the hosts' ask the
+  // supplier answers — the row's own state, read back by the card.
+  const timeAsk = timeAskFromLine(body);
+  if (timeAsk) return <ScheduleTimeAskCard threadId={threadId} createdAt={createdAt} line={timeAsk} viewer={viewer} supplierName={supplierName} />;
   return null;
 }

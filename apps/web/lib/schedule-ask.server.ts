@@ -7,6 +7,8 @@ import { fromDatetimeLocalValue } from './schedule-datetime-local';
 import { clockWords } from './schedule-chapters';
 import { decideSuggestion, NOTHING_CHANGED } from './schedule-suggestion-decide.server';
 import { answerNote, askedAsFor, askNote } from './schedule-ask';
+import { postThreadSystemLine } from './chat-system-line.server';
+import { timeAskLine } from './schedule-time-ask';
 
 /**
  * 🗓 THE HOST — OR THE COORDINATOR — ASKS A BOOKED SUPPLIER TO CHANGE THEIR TIMES; THE SUPPLIER ANSWERS (owner
@@ -49,7 +51,7 @@ export async function askSupplierToChange(
       .maybeSingle(),
     supabase.from('event_members').select('user_id').eq('event_id', eventId).eq('user_id', userId).eq('member_type', 'couple').maybeSingle(),
     admin.from('users').select('display_name').eq('user_id', userId).maybeSingle(),
-    supabase.from('event_schedule_blocks').select('label').eq('block_id', blockId).eq('event_id', eventId).maybeSingle(),
+    supabase.from('event_schedule_blocks').select('label, start_at').eq('block_id', blockId).eq('event_id', eventId).maybeSingle(),
   ]);
   if (bookingRes.error) {
     logQueryError('askSupplierToChange.booking', bookingRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -111,6 +113,19 @@ export async function askSupplierToChange(
     }
   } catch (e) {
     console.error('[askSupplierToChange] notify failed:', e);
+  }
+  // 🗓 THE TIME-CHANGE CARD, THE OTHER WAY (Unichat part F): the ask is one line in the supplier's conversation, drawn as
+  // the card they Accept or Decline from (`lib/schedule-time-ask.ts`). Best-effort: the ask is already written.
+  try {
+    const body = timeAskLine({
+      by: 'host',
+      label: moment,
+      fromIso: (blockRes.data as { start_at?: string | null } | null)?.start_at ?? null,
+      toIso: start,
+    });
+    if (body) await postThreadSystemLine(admin, { eventId, vendorProfileId: booking.marketplace_vendor_id, body });
+  } catch (e) {
+    console.error('[askSupplierToChange] time-ask line failed:', e);
   }
   // `<ask id>:<shop id>` — the sheet keys its "latest ask per supplier" on the shop, which only the server knows.
   return { ok: true, value: `${(data as { suggestion_id: string }).suggestion_id}:${booking.marketplace_vendor_id}` };

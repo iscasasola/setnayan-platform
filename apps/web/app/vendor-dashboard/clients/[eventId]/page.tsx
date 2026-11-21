@@ -191,7 +191,8 @@ import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
 import { ScheduleDays } from './_components/schedule-days';
-import { clientScheduleDays, scheduleDaysUnread } from '@/lib/schedule-days';
+import { clientScheduleDays, scheduleDaysUnread, unreadDaysLine } from '@/lib/schedule-days';
+import { clientAgenda, dayMonthWords } from '@/lib/client-agenda';
 import { DetailsDecisions } from './_components/details-decisions';
 import { ClientChatStrip } from './_components/client-chat-strip';
 import { chatStrip, nextDated, suggestedStep } from '@/lib/client-chat-strip';
@@ -924,6 +925,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           .eq('event_id', eventId)
           .eq('marketplace_vendor_id', profile.vendor_profile_id)
           .is('archived_at', null),
+        // 🏛 Unichat F: the VENUE bookings on this event, by name — the one that holds a chapter's hours is said under
+        // its bar ("Set by Fernwood Gardens · confirmed by the hosts"). Only that name is passed on (`hoursHeldBy`).
+        admin
+          .from('event_vendors')
+          .select('vendor_id, vendor_name')
+          .eq('event_id', eventId)
+          .in('category', [...VENUE_CATEGORIES])
+          .is('archived_at', null),
       ]),
       // 📇 Task contacts (4 additions (3), migration 20271303218631): RLS hands a supplier ONLY those on moments they
       // are on — the bridal-car driver's phone reaches the photographer on that moment, never the florist.
@@ -1623,7 +1632,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       }));
 
   // 🤝 Their part of the day (Step 4b) — one pass over the reads above (`lib/supplier-schedule.ts`).
-  const [factsEvent, factsBookings] = myScheduleFacts;
+  const [factsEvent, factsBookings, factsVenues] = myScheduleFacts;
   const myBookingIds = ((factsBookings.data ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
   if (eventVendorId && !myBookingIds.includes(eventVendorId)) myBookingIds.push(eventVendorId);
   const supplierDay = liveBlocks
@@ -1654,6 +1663,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         venueBookingIds: ((factsBookings.data ?? []) as { vendor_id: string; category: string | null }[])
           .filter((b) => VENUE_CATEGORIES.has(b.category ?? ''))
           .map((b) => b.vendor_id),
+        // A refused read gives no names — the line then says "Set by the venue", never a wrong or blank name.
+        venueNames: factsVenues.error ? null : ((factsVenues.data ?? []) as { vendor_id: string; vendor_name: string | null }[]),
         tasks: (myTasksRes.data ?? []) as SupplierTaskRow[],
         requests: suggestions,
         contacts: myContactsRes.error ? [] : ((myContactsRes.data ?? []) as SupplierContactRow[]),
@@ -2887,6 +2898,35 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     forms: stripForms && stripForms.status === 'ok' ? { open: stripForms.open, sent: stripForms.sent } : null,
     step: nextStep ? { line: nextStep.line, page: nextStep.page } : null,
   });
+  // 📅 Unichat F — the dated list the Next box raises: the same days the Schedule's strip draws (meetings, payment due
+  // days), plus the live quote's good-until until booking locks it. Its version is its place among this shop's SENT
+  // quotes for the event, oldest first (`orderQuoteVersions`' rule). A refused read is said on the list, never hidden.
+  const agendaQuoteVersion = sentQuote
+    ? [...proposals]
+        .filter((p) => p.status !== 'draft')
+        .sort((a, b) => {
+          const ta = Date.parse(a.sent_at ?? a.created_at ?? '') || 0;
+          const tb = Date.parse(b.sent_at ?? b.created_at ?? '') || 0;
+          return ta !== tb ? ta - tb : a.proposal_id < b.proposal_id ? -1 : 1;
+        })
+        .findIndex((p) => p.proposal_id === sentQuote.proposal_id) + 1
+    : 0;
+  const agendaEventDate = brief.event.event_date ?? null;
+  const stripAgenda = {
+    eventId,
+    eventDate: agendaEventDate,
+    eventDayWords: dayMonthWords(agendaEventDate),
+    unreadLine: unreadDaysLine(scheduleDaysUnread({ meetingsRead: !appointmentsReadFailed, paymentsRead: planReadComplete })),
+    agenda: clientAgenda({
+      todayIso: stripToday,
+      eventDate: agendaEventDate,
+      days: clientScheduleDays({ eventDate: agendaEventDate, chapters: [], meetings: appointmentViews, payments: planRowsAll.flatMap((p) => p.steps ?? []) }),
+      quote: isBooked || proposalRowsError || !sentQuote ? null : { version: agendaQuoteVersion || null, validUntil: sentQuote.valid_until ?? null },
+    }),
+    day: supplierPart.day,
+    autoAgree: supplierPart.autoAgree,
+    tasksRead: supplierPart.tasksRead,
+  };
   const stripSuggest = suggestedStep({
     hasThread: Boolean(threadId),
     isBooked,
@@ -3003,7 +3043,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       bodies={bodies}
       landAt={wantsScriptFold(rawTab) ? (showScript ? SCRIPT_FOLD_ID : null) : pickedAnchorOf(rawTab)}
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: brief.event.event_date ?? null, isBooked })}
-      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} />}
+      strip={<ClientChatStrip boxes={stripBoxes} threadId={threadId} agenda={stripAgenda} />}
       suggest={stripSuggest}
       inquiry={inquiryFacts}
       settingsLine={{

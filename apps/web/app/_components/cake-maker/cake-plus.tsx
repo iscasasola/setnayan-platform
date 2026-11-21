@@ -46,10 +46,20 @@ export function useCakeTile(threadId: string | undefined, side: 'couple' | 'vend
 /** The couple's designer, opened from the ＋ tile. */
 export function CakeDesignerFromPlus({ threadId, onClose }: { threadId: string; onClose: () => void }) {
   const router = useRouter();
+  // On the panel layer (≥ --sn-z-pop), so the designer floats over a picked client's full-screen page too.
   return createPortal(
-    <Suspense fallback={null}>
-      <CakeDesignerSheet threadId={threadId} onClose={onClose} onSent={() => router.refresh()} />
-    </Suspense>,
+    <div className="relative z-[var(--sn-z-panel)]" data-cake-plus-layer="">
+      <Suspense fallback={null}>
+        <CakeDesignerSheet
+          threadId={threadId}
+          onClose={onClose}
+          onSent={() => {
+            // one-render: keep (no-revalidate) — the cake op revalidates nothing; the sent design card must appear.
+            router.refresh();
+          }}
+        />
+      </Suspense>
+    </div>,
     document.body,
   );
 }

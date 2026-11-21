@@ -415,6 +415,7 @@ export function ToolsSheetButton({
                 }
                 setAsk({ s: 'idle' });
                 close();
+                // one-render: keep (no-revalidate) — the cake op revalidates nothing; the posted invite card must appear.
                 router.refresh();
               }}
             >

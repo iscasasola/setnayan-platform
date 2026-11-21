@@ -44,7 +44,8 @@ test('the couple’s "Design a cake" is full width at the end of Ask and opens t
   assert.match(tile, /afterSheetStepsBack\(\(\) => setCakeOpen\(true\), holds\)/, 'the tile does not open the designer');
   assert.match(SHEET, /=== 'files'\);/, 'the tile is not placed before Share (the end of Ask)');
   assert.match(SHEET, /\{cakeOpen && threadId \? <CakeDesignerFromPlus threadId=\{threadId\} onClose=\{\(\) => setCakeOpen\(false\)\} \/> : null\}/);
-  assert.match(PLUS, /<CakeDesignerSheet threadId=\{threadId\} onClose=\{onClose\} onSent=\{\(\) => router\.refresh\(\)\} \/>/);
+  assert.match(PLUS, /<CakeDesignerSheet\s+threadId=\{threadId\}\s+onClose=\{onClose\}\s+onSent=\{\(\) => \{[\s\S]*?router\.refresh\(\);/);
+  assert.match(PLUS, /createPortal\(\s*<div className="relative z-\[var\(--sn-z-panel\)\]"/, 'the designer must float over a picked client');
   assert.equal(INDEX.match(/CAKE_TILE_WORDS = \{ couple: '([^']+)'/)?.[1], 'Design a cake');
 });
 

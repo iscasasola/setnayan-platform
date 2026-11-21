@@ -1574,6 +1574,14 @@ export const OWN_ROW_DELETES: ReadonlyArray<{
       'person are another account’s private list — left, and never shown to them.',
   },
   {
+    table: 'chat_thread_mutes',
+    column: 'user_id',
+    why:
+      'The subject’s own "Mute this chat" rows (Unichat, controller ruling 2026-11-21; migration ' +
+      '20271356402294) — their private phone-notice preference per chat, keyed to them. Nobody else ' +
+      'reads it. Deleted with the subject (also ON DELETE CASCADE from public.users).',
+  },
+  {
     table: 'user_unfollows',
     column: 'follower_user_id',
     why:
@@ -1725,7 +1733,8 @@ export const ERASURE_ROW_DELETES: Readonly<Record<string, readonly string[]>> = 
   chat_messages: ['sender_user_id'],
   user_face_profiles: ['user_id'],
   push_subscriptions: ['user_id'],
-  vendor_push_tokens: ['vendor_profile_id'],
+  // By the subject's own shop, AND (since 2026-11-21) every device the subject registered on any shop (`user_id`).
+  vendor_push_tokens: ['vendor_profile_id', 'user_id'],
   // Purged inline in purge.ts through the subject's vendor profile — it has NO
   // user column, so the generic .eq(column, targetUserId) loop cannot reach it.
   vendor_ig_connections: ['vendor_profile_id'],

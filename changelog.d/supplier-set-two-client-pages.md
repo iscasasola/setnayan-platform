@@ -1,0 +1,14 @@
+## 2026-11-21 · feat(supplier): set two, part 2 — the parts of their event (cocktail · From your camera · production sheet · challenge photos · seats) under the dark line, with honest failed reads
+
+Owner-approved drawing `prototypes/supplier_pages_set2_2026-11-21/supplier_pages_set2_v2_fable.html` (DECISION_LOG 2026-11-21 "STOP ADDING AFTER THE CAKE MAKER", point 2), pages 3–7, and the locked-parts drawing frame d for Seats. A look change plus honest failed reads: every word, field, action and server action stays.
+
+- **The dark line** `TheirEventLine` ("Their event · <couple> · ✕ Close", tokens only, phone; from 701 the part's top row leads with a quiet round back) and `TheirEventPart` (page + line + top block) in `_components/set-two/their-event-line.tsx`. Close reads the one back map.
+- **Cocktail area:** the title in the top block with "Yours: edit" / "Your booth"; a tap on a booth opens its sheet (what it serves · Save · Remove), a tap on a sign opens its sheet (its name as a house typed row · Rotate · Remove) — the ✎/✕ dots and the browser prompt are gone; Add booth · Add sign ride the thumb row. A drag still places; a press under 4 px is a tap.
+- **From your camera:** "editorial" is "Story" in the supplier's words (decided 2 — no route or table rename); the first line of the intro stays, the rest is the ⓘ word for word; tiles carry their pill and a small trash; Add photos · Add a clip at equal width and Submit in the thumb row; the not-yet states are notes.
+- **Production sheet:** the three counts lead; each rule is one row on a phone (swipe to delete, the shipped `SwipeToDelete`) and the five columns on a computer (Delete on hover); the add-rule fold is a sheet with chips and two dropdowns; Print is a round printer on a phone. Model moved to `production-sheet-model.ts` unchanged.
+- **Challenge photos:** the count is a pill beside the title, never over an unread read; sections per challenge; still behind `NEXT_PUBLIC_PAPIC_GAMES_V1` (decided 3).
+- **Seats** to frame d: "View only", "You can look, not move.", your pins in the accent (pin only — decided 4), every landmark, the cocktail window under the map, the tables as rows with covers.
+- **Honest states · new:** the cocktail area, the live counts and the floor plan each say "We couldn’t load … right now." with Try again in place. New `lib/vendor-part-read.ts` tells the RPCs' gates (SQLSTATE 42501 / P0002, or no payload — still back to the brief, as always) from a read that did not answer. Challenge photos' failed brief read is said too.
+- Guards: `set-two-reads-are-honest.test.ts` rules 3–4 (sabotage-checked), `lib/vendor-part-read.test.ts`; `reads-are-honest`, `the-columns-are-the-system` and `the-caterer-sees-the-crew-meals` follow the bodies. `PrintButton` gains an optional `round` look (default unchanged).
+
+SPEC IMPACT: None — builds an approved drawing; no decision changed.

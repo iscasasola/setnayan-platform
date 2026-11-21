@@ -29,7 +29,8 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
   const { next } = await searchParams;
   const done = next ? shopConsolePath(next) : WELCOME_OPENED_PATH;
   const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(INVITE_SHOPS_PATH)}&as=vendor`);
+  // ship review 21 Nov: keep the first card's landing (`?next=`) through the sign-in.
+  if (!user) redirect(`/login?next=${encodeURIComponent(next ? `${INVITE_SHOPS_PATH}?next=${encodeURIComponent(next)}` : INVITE_SHOPS_PATH)}&as=vendor`);
 
   const supabase = await createClient();
   const shop = await resolveOwnedActiveShop(supabase, user.id);
@@ -73,7 +74,7 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
         />
       ) : (
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          Your invite QR is ready once your shop name is approved. {INVITE_SHOPS_LINE}
+          Your invite QR is ready once your shop name is approved.
         </p>
       )}
       <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }} data-onboarding-invite-line="">

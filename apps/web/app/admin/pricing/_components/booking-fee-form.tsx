@@ -36,6 +36,7 @@ export function BookingFeeForm({
   tier1LimitPhp,
   capPhp,
   freeEveryNth,
+  newClientFreeMonths = null,
   minPhp,
   isFromDb,
   enabled,
@@ -48,6 +49,11 @@ export function BookingFeeForm({
   capPhp: number | null;
   /** `platform_settings.booking_fee_free_every_nth` — every Nth fee on Setnayan is free. Null = could not be read. */
   freeEveryNth: number | null;
+  /**
+   * `platform_settings.booking_fee_new_client_free_months` — a client whose account a shop's import made books that
+   * shop free this many months (owner 2026-11-16). Null = could not be read.
+   */
+  newClientFreeMonths?: number | null;
   minPhp: number;
   isFromDb: boolean;
   enabled: boolean;
@@ -201,6 +207,19 @@ export function BookingFeeForm({
             <>Every <strong>{freeEveryNth.toLocaleString('en-PH')}th</strong> booking fee on Setnayan is free.</>
           ) : (
             'The every-Nth free booking fee count could not be read just now.'
+          )}
+        </li>
+        <li>
+          {newClientFreeMonths != null ? (
+            <>
+              A client new to Setnayan through a shop books it free for{' '}
+              <strong>
+                {newClientFreeMonths} {newClientFreeMonths === 1 ? 'month' : 'months'}
+              </strong>
+              .
+            </>
+          ) : (
+            'The new-client free window could not be read just now.'
           )}
         </li>
         <li>Unverified shops pay the first rate on the whole booking.</li>

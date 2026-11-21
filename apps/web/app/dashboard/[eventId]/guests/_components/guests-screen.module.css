@@ -1511,13 +1511,13 @@ button.node {
 .fresh {
   animation: gs-slidein 420ms var(--gs-ease) both;
 }
+/* 👻 NOTHING FADES ON ARRIVAL (Guests redesign "On every view", owner 20 Nov): a section and the summary arrive at full
+   colour and only settle into place — the old opacity 0 → 1 drew every view washed out for its first second. */
 @keyframes gs-up {
   from {
-    opacity: 0;
     transform: translateY(10px);
   }
   to {
-    opacity: 1;
     transform: none;
   }
 }

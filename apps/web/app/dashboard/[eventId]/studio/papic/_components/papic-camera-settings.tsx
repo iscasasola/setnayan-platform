@@ -29,6 +29,7 @@ import { GuestAllotmentsChoice } from './guest-allotments-choice';
 import { PhoneUploadsChoice } from './phone-uploads-choice';
 import type { PapicCardSeat } from '@/lib/papic-home-href';
 import { papicWaitsForTheDayWords } from '@/lib/papic-waits-for-the-day';
+import { CAMERAS_UNREAD, papicGuestCamerasLine, papicHeadHints } from '@/lib/papic-guest-cameras-line';
 
 /**
  * papic-camera-settings.tsx — PAPIC, THE CAMERA, IN THE OWNER'S ORDER (owner 2026-10-23: *"Papic holds: Filter,
@@ -236,11 +237,15 @@ export async function PapicCameraSettings({
  */
 export async function PapicHeadControl({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
   const head = await readPapicHead(eventId, papicOn);
-  return <PapicHeadPicker eventId={eventId} live={head.live} draftOn={head.draftOn} early={head.early} />;
+  return <PapicHeadPicker eventId={eventId} live={head.live} draftOn={head.draftOn} early={head.early} hints={papicHeadHints(head.dates, Date.now())} />;
 }
 
-/** The line under the card's title — the head's current position, honestly ("… after you Apply" while it waits). */
+/**
+ * The line under the card's title — since 2026-11-20 (owner, "memories approved") the ONE state line: what the guest gate
+ * answers for the head's position ("Guests’ cameras open Fri 18 Dec" · "… are open now" · "… are off"), honestly ("… after
+ * you Apply" while the draft waits; "Couldn’t check just now" when a fact is unread). `lib/papic-guest-cameras-line.ts`.
+ */
 export async function PapicHeadLine({ eventId, papicOn }: { eventId: string; papicOn: boolean | null }) {
   const head = await readPapicHead(eventId, papicOn);
-  return <>{head.line}</>;
+  return <>{head.dates ? papicGuestCamerasLine(head, head.dates, Date.now()) : CAMERAS_UNREAD}</>;
 }

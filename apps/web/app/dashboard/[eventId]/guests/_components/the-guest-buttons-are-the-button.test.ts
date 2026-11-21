@@ -168,13 +168,15 @@ test('a row\'s Invite is NAMED for its guest (and the day it went) — the word 
   assert.match(el!, /name=\{sentAt \? `Invite \$\{guest\.fullName\} — sent \$\{sentDay\}` : `Invite \$\{guest\.fullName\}`\}/, 'Invite is not named for its guest');
 });
 
-test('the ⋯ opener is the neutral icon button and keeps its name, menu and open state', () => {
-  const el = actionButtonWith(read('guest-ticket-parts.tsx'), /More for \$\{guestName\}/);
-  assert.ok(el, 'the ⋯ is not an ActionButton');
-  assert.match(el!, /tone="neutral"/);
-  assert.match(el!, /iconOnly/);
-  assert.match(el!, /aria-haspopup="menu"/);
-  assert.match(el!, /aria-expanded=\{open\}/);
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3): the ⋯ and its one-line list are
+   gone — Unlink account is a labelled button inside the opened ticket. Still THE BUTTON, in the tone of what it does. */
+test('Unlink account is THE BUTTON with its word, in the danger tone, and it asks first', () => {
+  const el = actionButtonWith(read('guest-ticket-parts.tsx'), /label="Unlink account"/);
+  assert.ok(el, 'Unlink account is not an ActionButton');
+  assert.match(el!, /tone="danger"/);
+  assert.doesNotMatch(el!, /iconOnly/, 'Unlink account lost its word');
+  assert.match(el!, /onClick=\{\(\) => setConfirm\('unlink'\)\}/, 'Unlink does not ask first');
+  assert.match(el!, /aria-haspopup="dialog"/);
 });
 
 test('quick add: Side · Role · Group are the PickMenu dropdown — no native <select> is left', () => {

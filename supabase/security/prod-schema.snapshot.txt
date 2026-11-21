@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1945
-# tables: 526
-# columns: 6300
-# notnull: 3803
+# ledger: 1948
+# tables: 527
+# columns: 6323
+# notnull: 3819
 [ledger]
 20260512000000
 20260513000000
@@ -1939,9 +1939,12 @@
 20271351728222
 20271351728770
 20271351904391
+20271351935140
 20271352068061
 20271352180500
 20271352223098
+20271352263623
+20271352394900
 20271352461498
 20271352882666
 20271352968519
@@ -2002,6 +2005,7 @@ admin_focus_put_offs.put_off_at
 admin_focus_put_offs.until_day
 admin_focus_put_offs.user_id
 admin_received_transactions.amount_php
+admin_received_transactions.auto_undone_at
 admin_received_transactions.channel
 admin_received_transactions.created_at
 admin_received_transactions.created_by
@@ -2015,6 +2019,7 @@ admin_received_transactions.received_at
 admin_received_transactions.received_id
 admin_received_transactions.reference
 admin_received_transactions.reference_norm
+admin_received_transactions.released_at
 admin_search_phrases.created_at
 admin_search_phrases.href
 admin_search_phrases.id
@@ -5542,6 +5547,8 @@ payment_receipt_reads.model
 payment_receipt_reads.payment_id
 payment_receipt_reads.reference_matches
 payment_receipt_reads.seen_amounts
+payment_receipt_reads.seen_paid_on
+payment_receipt_reads.seen_paid_time
 payment_receipt_reads.seen_references
 payment_receipt_reads.status
 payment_receipt_reads.summary
@@ -5855,9 +5862,11 @@ platform_settings.firstlook_boost_weight
 platform_settings.firstlook_sla_hours
 platform_settings.fraud_cluster_sweep_last_run_at
 platform_settings.gcash_account_name
+platform_settings.gcash_allowance_php
 platform_settings.gcash_available_as_of
 platform_settings.gcash_available_php
 platform_settings.gcash_enabled
+platform_settings.gcash_max_php
 platform_settings.gcash_monthly_cap_php
 platform_settings.gcash_number
 platform_settings.gcash_qr_payload
@@ -5883,6 +5892,7 @@ platform_settings.loader_pop_enabled
 platform_settings.loader_step_interval_ms
 platform_settings.loader_variant
 platform_settings.loader_veil_opacity
+platform_settings.max_payment_php
 platform_settings.maya_checkout_endpoint
 platform_settings.meta_page_id
 platform_settings.onboarding_bg_music_enabled
@@ -6259,6 +6269,21 @@ shop_badge_upgrades.started_choice
 shop_badge_upgrades.started_period_days
 shop_badge_upgrades.upgrade_id
 shop_badge_upgrades.vendor_profile_id
+shop_gift_order_lines.bundle_code
+shop_gift_order_lines.created_at
+shop_gift_order_lines.created_by
+shop_gift_order_lines.credits_per_pack
+shop_gift_order_lines.gift_kind
+shop_gift_order_lines.line_id
+shop_gift_order_lines.line_no
+shop_gift_order_lines.line_total_php
+shop_gift_order_lines.order_id
+shop_gift_order_lines.packs_each
+shop_gift_order_lines.price_basis
+shop_gift_order_lines.quantity
+shop_gift_order_lines.service_code
+shop_gift_order_lines.unit_price_php
+shop_gift_order_lines.vendor_profile_id
 shop_gift_purchases.bundle_code
 shop_gift_purchases.created_at
 shop_gift_purchases.created_by
@@ -6286,6 +6311,7 @@ shop_gift_stock_entries.pack_code
 shop_gift_stock_entries.packs
 shop_gift_stock_entries.pool_grant_id
 shop_gift_stock_entries.proposal_id
+shop_gift_stock_entries.purchase_line_no
 shop_gift_stock_entries.unlocks_sku
 shop_gift_stock_entries.vendor_profile_id
 shop_papic_wallet_entries.clips
@@ -10556,7 +10582,9 @@ platform_settings.default_vat_rate_pct
 platform_settings.fee_leak_price_tolerance
 platform_settings.firstlook_boost_weight
 platform_settings.firstlook_sla_hours
+platform_settings.gcash_allowance_php
 platform_settings.gcash_enabled
+platform_settings.gcash_max_php
 platform_settings.gift_limit_pct
 platform_settings.id
 platform_settings.load_time_targets
@@ -10564,6 +10592,7 @@ platform_settings.loader_pop_enabled
 platform_settings.loader_step_interval_ms
 platform_settings.loader_variant
 platform_settings.loader_veil_opacity
+platform_settings.max_payment_php
 platform_settings.onboarding_bg_music_enabled
 platform_settings.onboarding_bg_music_r2_keys
 platform_settings.onboarding_discount_pct
@@ -10827,6 +10856,18 @@ shop_badge_upgrades.granted_at
 shop_badge_upgrades.reward_key
 shop_badge_upgrades.upgrade_id
 shop_badge_upgrades.vendor_profile_id
+shop_gift_order_lines.created_at
+shop_gift_order_lines.credits_per_pack
+shop_gift_order_lines.gift_kind
+shop_gift_order_lines.line_id
+shop_gift_order_lines.line_no
+shop_gift_order_lines.order_id
+shop_gift_order_lines.packs_each
+shop_gift_order_lines.price_basis
+shop_gift_order_lines.quantity
+shop_gift_order_lines.service_code
+shop_gift_order_lines.unit_price_php
+shop_gift_order_lines.vendor_profile_id
 shop_gift_purchases.created_at
 shop_gift_purchases.credits_each
 shop_gift_purchases.gift_kind
@@ -10841,6 +10882,7 @@ shop_gift_stock_entries.delta
 shop_gift_stock_entries.entry_id
 shop_gift_stock_entries.gift_kind
 shop_gift_stock_entries.kind
+shop_gift_stock_entries.purchase_line_no
 shop_gift_stock_entries.vendor_profile_id
 shop_papic_wallet_entries.created_at
 shop_papic_wallet_entries.delta

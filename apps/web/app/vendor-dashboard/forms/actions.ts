@@ -17,6 +17,8 @@ import {
   type FormDraft,
   type FormItemDraft,
 } from '@/lib/vendor-forms';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 
 /**
  * 📋 THE FORM MAKER'S WRITES — ONE dispatcher (THE ONE BUILD · C3 Forms; B2 §2.7).
@@ -224,6 +226,9 @@ export async function formsAction(_prev: FormsActionState, formData: FormData): 
     const eventId = String(formData.get('event_id') ?? '');
     const again = formData.get('again') === '1';
     if (!formId || !eventId) return { status: 'error', message: 'Missing form.' };
+    // 🪪 A ＋ tool needs a verified shop — asked before the form reaches the chat; a refused read refuses too.
+    const unverified = plusGateRefusal(await shopPlusGate(supabase, shop));
+    if (unverified) return { status: 'error', message: unverified };
     const sent = await sendFormIntoEvent(supabase, { shop, shopName: profile.business_name, formId, eventId, again });
     if ('error' in sent) return { status: 'error', message: sent.error };
     if (path.startsWith('/vendor-dashboard/')) revalidatePath(path);

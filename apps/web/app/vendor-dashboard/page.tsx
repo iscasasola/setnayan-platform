@@ -80,7 +80,8 @@ import {
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
-import { firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
+import { FIRST_CARD_EDIT_UNREAD, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -250,6 +251,8 @@ export default async function VendorOverviewPage({
     card_price?: string;
     card_category?: string;
     card_why?: string;
+    /** `unread` — Door A: Edit was picked on the first card, but the card could not be found to open (ship review 21 Nov). */
+    card_edit?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -349,6 +352,8 @@ export default async function VendorOverviewPage({
   const eventsYouRunP = readEventsYouRunWithNeeds(supabase, user.id).catch(() => ({ events: [], measured: false }));
   // 🔗 Joined from a couple's link and still waiting for their Approve (audit G3) — said on Today, never silent.
   const claimWaitsP = readClaimWaits(user.id).catch(() => ({ ok: false }) as const);
+  // 🚪 P6: the claimed welcome names the couple — read only on `?claimed=1`, null on any refusal.
+  const claimedWelcomeP = welcome === 'claimed' ? readClaimedWelcome(createAdminClient(), user.id).catch(() => null) : Promise.resolve(null);
   const todayIso = manilaToday();
   const vendorProfileId = profile.vendor_profile_id;
   // 🎁 Setnayan's gifts to this shop (owner 14 Nov 2026) — waiting to be opened, or a plan gift running; the Stay
@@ -825,7 +830,9 @@ export default async function VendorOverviewPage({
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
           cardState={firstCardStateFrom(search)}
+          claimed={await claimedWelcomeP}
           shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
+          editUnread={search.card_edit === FIRST_CARD_EDIT_UNREAD}
         />
       ) : null}
       {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}

@@ -127,7 +127,7 @@ test('1b · the details slide’s Price is the supplier’s word on the bundle �
   assert.equal(parseClaimDoorAnswers(JSON.stringify({ price: 'abc' }))?.price, null);
   assert.equal(parseClaimDoorAnswers(JSON.stringify({}))?.price, null);
   const door = read('app/open-shop/_components/claim-door.tsx');
-  assert.match(door, /const answers: ClaimDoorAnswers = \{[\s\S]*?\n    price: Number\(digits\(d\.price\)\) \|\| null,\n  \};/, 'the door must post the Price field');
+  assert.match(door, /const answers: ClaimDoorAnswers = \{[\s\S]*?\n    price: Number\(digits\(d\.price\)\) \|\| null,\n(?:    \.\.\.\(d\.firstCard \? \{ firstCard: d\.firstCard \} : \{\}\),\n)?  \};/, 'the door must post the Price field');
 });
 
 test('2 · a service the supplier ADDED to their own shop never asks the couple', () => {

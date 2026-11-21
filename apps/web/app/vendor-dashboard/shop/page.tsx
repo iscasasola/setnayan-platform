@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { readLogoFrame, type LogoFrame } from '@/lib/open-shop-logo';
 import { redirect } from 'next/navigation';
@@ -53,6 +54,7 @@ import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { ShopCover, type CoverData } from './_components/shop-cover';
 import { ShopBadgeRow } from './_components/shop-badge-row';
 import { ShopMakers, type BookedDay, type OfferTileFacts, type ScannerLine } from './_components/shop-makers';
+import { shopTemplatesBody } from './_components/shop-templates-body';
 import { blankOffer, offerStatus, type OfferWho } from '@/lib/offers';
 import { heroPlaceholderUrl } from '@/lib/supplier-hero.server';
 import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
@@ -94,12 +96,15 @@ type ShopData = {
   coverUrl: string | null;
   slug: string | null;
   city: string | null;
-  tier: string | null;
+  /** The plan word for the cover — `null` = the shop's own row was REFUSED, said as "Couldn't load", never "Free". */
+  planLabel: string | null;
   isVerified: boolean;
   websiteLive: boolean;
   /* Set when the read FAILED, as opposed to legitimately returning nothing. */
   logoUnavailable: boolean;
   verify: {
+    /** True when the latest application read was REFUSED — the cover never reads "Get verified · 0 of 3" then. */
+    unread: boolean;
     status: VerifyStatus;
     requiredDocsIn: boolean;
     /** How many of the required papers are in (the cover's "n of 3 papers"). */
@@ -158,9 +163,7 @@ type VerifyStatus = 'draft' | 'pending_review' | 'in_review' | 'approved' | 'rej
 
 async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
@@ -406,6 +409,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       : null;
 
   const completion = businessProfileChecklist(profile);
+  // S-3: a REFUSED application read and "no application" both arrive as null — only the log tells them apart.
+  const verifyUnread = soft.broke('latestApplication');
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
   const trusted = facts?.trusted ?? null;
   const avg = trusted?.trusted_avg_rating ?? null;
@@ -428,11 +433,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     coverUrl,
     slug: profile.business_slug ?? null,
     city: profile.location_city ?? null,
-    tier: own?.tier_state ?? null,
+    // 💳 S-2 (supplier audit 2026-11-17): `own` is null ONLY when the shop's own row was refused (the profile above
+    // was read, so the row exists). `planWord(null)` is "Free" — a refused read must never tell a paying shop that.
+    planLabel: own ? planWord(own.tier_state ?? null) : null,
     isVerified: profile.public_visibility === 'verified',
     websiteLive: Boolean(profile.business_slug) && isPubliclyVisible(profile.public_visibility),
     logoUnavailable,
     verify: {
+      unread: verifyUnread,
       status: (verifyApp?.status as VerifyStatus) ?? null,
       requiredDocsIn: requiredDocsComplete(verifyUploads),
       requiredIn: countCompleteRequiredSlots(verifyUploads),
@@ -471,13 +479,14 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     uploadFacts,
     formsSaved: own && Array.isArray(own.vendor_forms) ? own.vendor_forms.length : null,
     offerTile: {
-      verified: own?.verification_state === 'verified',
+      // S-4: an unread own row falls back to the profile's measured visibility — never a lock on a verified shop.
+      verified: own ? own.verification_state === 'verified' : profile.public_visibility === 'verified',
       total: own && Array.isArray(own.vendor_offers) ? own.vendor_offers.length : null,
       running:
         own && Array.isArray(own.vendor_offers)
           ? own.vendor_offers.filter((o) => offerStatus({ ...blankOffer(), isOn: o.is_on, untilDate: o.until_date, who: (o.who as OfferWho) ?? 'everyone', firstNCap: o.first_n_cap, firstNTaken: o.first_n_taken ?? 0 }, phTodayIso()).k === 'run').length
           : null,
-      papers: papersProgress({ done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
+      papers: papersProgress(verifyUnread ? null : { done: countCompleteRequiredSlots(verifyUploads), of: REQUIRED_DOC_SLOT_KEYS.size }),
     },
     fairSweep: { vendorId, shopName: profile.business_name ?? null, tagline: profile.tagline ?? null },
   };
@@ -617,6 +626,7 @@ async function ShopHome({
       isVerified: data.isVerified,
       inReview: data.verify.status === 'pending_review' || data.verify.status === 'in_review',
       papersIn: data.verify.requiredIn,
+      unread: data.verify.unread,
       papersOf: REQUIRED_DOC_COUNT,
     },
     rating: data.rating,
@@ -624,7 +634,7 @@ async function ShopHome({
     events: data.events,
     earned: data.earned,
     nextBadge: data.nextBadge,
-    planLabel: planWord(data.tier),
+    planLabel: data.planLabel,
     publicPath,
     websiteLive: data.websiteLive,
     slug: data.slug,
@@ -709,6 +719,19 @@ async function ShopHome({
             (`display: contents`) — the phone is unchanged. The grid lives in `_components/supplier-frame.css`. */}
         <div data-shop-desk="">
         <div data-shop-desk-side="">
+        {/* 📋🧰 TEMPLATES, THEN SPECIALIZED TOOLS — ABOVE the numbers (owner 19 Nov 2026, "Yes, all three": what you set up comes
+            before what you read). Templates = Forms Maker · Offer Maker; Specialized tools = its own open row. */}
+        <ShopMakers
+          scanners={scanners}
+          formsBody={shopFormsBody(sp)}
+          templatesBody={shopTemplatesBody(sp)}
+          formsSaved={data.formsSaved}
+          categories={(data.serviceRows ?? []).map((r) => r.label)}
+          services={data.services}
+          booked={data.booked}
+          offers={data.offerTile}
+        />
+
         {/* 📊🎠 ANALYTICS — THE CAROUSEL, AND THE ONLY ANALYTICS (owner 11 Nov 2026: "Analytics should be the carousel" ·
             "one long carousel" · the window "inside each card"). Every graph once, each card with its own 30 days / 12
             months switch; tap = it rises with ONE recommendation. Owners and admins only. Streamed: the cover draws
@@ -719,17 +742,6 @@ async function ShopHome({
 
         {/* 🏅 BADGES — ONE row of the approved v84 badges: completed first, then in progress, then not yet (Lane E item 2). */}
         <ShopBadgeRow tiles={data.badges} shopName={data.businessName} />
-
-        {/* 🛠 MAKERS — one row of tiles (Forms Maker · Specialized tools, Lane E item 13), each opening into the body. */}
-        <ShopMakers
-          scanners={scanners}
-          formsBody={shopFormsBody(sp)}
-          formsSaved={data.formsSaved}
-          categories={(data.serviceRows ?? []).map((r) => r.label)}
-          services={data.services}
-          booked={data.booked}
-          offers={data.offerTile}
-        />
         </div>
 
         {/* 🧰 YOUR SERVICES — ONE list (Build 3 Lane E items 5–7; owner: *"Bundles should be first and the services grouped

@@ -10,7 +10,7 @@ import { hallGuests } from '@/lib/vendor-halls';
 import { formatCount } from '@/lib/format-number';
 import { SupplierSubmit } from '../../_components/supplier-submit';
 import { DatesRow, RowTile } from './dates-row';
-import { CalendarSheet, HallSheet, ShareTeamPick, type DatesService } from './dates-sheets';
+import { BookingWindowRows, CalendarSheet, HallSheet, ShareTeamPick, type DatesService } from './dates-sheets';
 import { StayConfirmForm, StayForm } from '@/app/_components/stay-form';
 
 /**
@@ -68,6 +68,8 @@ export type DatesWaitlist = {
   settingsMeasured: boolean;
   /** The picked counts were read. Unread, a date says "—", never 0. */
   pickedMeasured: boolean;
+  /** D-4: the waiting couples were read. Unread, the fold says so — never "Nobody waiting." */
+  datesMeasured?: boolean;
   dates: { requestedDate: string; pendingCount: number; picked: number }[];
 };
 
@@ -239,7 +241,11 @@ export function DatesFolds({
               </>
             )}
 
-            {waitlist.dates.length === 0 ? (
+            {waitlist.dates.length === 0 && waitlist.datesMeasured === false ? (
+              <p className="border-t border-ink/10 py-3 text-[13px] text-[color:var(--m-slate-2)]" data-waitlist-unread="">
+                Couldn&rsquo;t load who&rsquo;s waiting. Refresh in a moment to try again.
+              </p>
+            ) : waitlist.dates.length === 0 ? (
               waitlist.settingsMeasured && waitlist.tierCap > 0 ? <p className="border-t border-ink/10 py-3 text-[13px] text-[color:var(--m-slate-2)]">Nobody waiting.</p> : null
             ) : (
               waitlist.dates.map((w) => (
@@ -302,11 +308,17 @@ export function DaysSettings({
   icsHref,
   approveFirst,
   venue = false,
+  bookingWindow,
   actions,
 }: {
   month: string;
   /** The view the ⚙ was opened on — a save comes back to it. */
   seg: string;
+  /**
+   * 📅 How far away the shop takes bookings (owner 2026-11-19, drawing §5 — the first rows of Teams and days). `null`
+   * = the setting could not be read: the rows say so instead of showing picks that would read as "Same day · 3 years".
+   */
+  bookingWindow: { minDays: number; maxMonths: number } | null;
   calendars: DatesCalendar[];
   ceiling: number;
   namedCalendars: boolean;
@@ -334,6 +346,14 @@ export function DaysSettings({
   const schedules = calendars.filter((c) => !c.isHall);
   return (
     <div className="border-t border-ink/10" data-days-settings="">
+      {/* ── HOW FAR AWAY YOU TAKE BOOKINGS (drawing §5 "Finalized": above Your halls; every card) ── */}
+      <div className="border-b border-ink/10" data-dates-fold="booking-window">
+        {bookingWindow ? (
+          <BookingWindowRows minDays={bookingWindow.minDays} maxMonths={bookingWindow.maxMonths} saveAction={actions.updatePoolCapacity} month={month} returnSeg={seg} />
+        ) : (
+          <DatesRow data="booking-window-unread" title="How far away you take bookings" line="Couldn’t load this setting — reload in a moment" />
+        )}
+      </div>
       {/* ── YOUR HALLS (prototype section 9 "Halls setup") — each hall its own schedule with its guests; free on every
           plan; a card says which halls it uses. ── */}
       {venue ? (

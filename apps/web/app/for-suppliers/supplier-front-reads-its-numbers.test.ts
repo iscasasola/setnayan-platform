@@ -38,7 +38,8 @@ const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
   'app/for-suppliers/_components/supplier-front-info.tsx',
-  'app/for-suppliers/_components/supplier-badge-shelf.tsx',
+  'app/for-suppliers/_components/supplier-how-we-earn.tsx',
+  'app/for-suppliers/_components/supplier-how-we-earn-data.ts',
   'app/(shell)/for-suppliers/page.tsx',
 ];
 
@@ -63,7 +64,8 @@ test('each plan spec is its caps', () => {
   for (const t of GROW_TIERS) {
     const c = TIER_CAPS[t];
     const spec = growSpec(t);
-    assert.ok(spec.includes(Number.isFinite(c.serviceRadiusKm) ? `${formatCount(c.serviceRadiusKm)} km` : 'Nationwide'), `${t}: ${spec}`);
+    // 🔓 Reach is not a plan allowance (owner 2026-11-19): no km and no "Nationwide" on any plan's spec.
+    assert.doesNotMatch(spec, /\bkm\b|nationwide/i, `${t} still prints a reach: ${spec}`);
     assert.ok(spec.includes(`${formatCount(c.parentCategories)} categor`), `${t}: ${spec}`);
     assert.ok(spec.includes(`${formatCount(c.serviceCardsTotal)} service card`), `${t}: ${spec}`);
     assert.ok(spec.includes(`${formatCount(c.agentAccounts)} team seat`), `${t}: ${spec}`);

@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -13,9 +14,11 @@ import { cardPortfolioAlbums } from '@/lib/card-portfolio-albums.server';
 import { readAlbumTags } from '@/lib/inspiration-tags.server';
 import { portfolioSummary, toAlbumViews, workAlbumAnchor } from '@/lib/card-portfolio-albums';
 import { loadCardForEdit, loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
+import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
+import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { BOOKINGS_UNREAD, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
+import { BOOKINGS_UNREAD, cardEditLockOf, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
 
 export const metadata = { title: 'Your service' };
@@ -39,9 +42,7 @@ export default async function EditServiceCardPage({
   const { serviceId } = await params;
   const { error } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
@@ -59,7 +60,7 @@ export default async function EditServiceCardPage({
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
   // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
   const recordOn = cardRecordEnabled();
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums] = await Promise.all([
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
@@ -77,15 +78,17 @@ export default async function EditServiceCardPage({
               if (r.error) console.error('[supabase-error] service card halls read', r.error);
               return r;
             },
-            () => ({ data: null }),
+            (err: unknown) => ({ data: null, error: err }),
           )
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     readCardBookedCount(supabase, serviceId),
     readCardBookings(createAdminClient(), [serviceId]),
     // The card is proved this shop's own just above (`loadCardForEdit`).
     recordOn
       ? cardPortfolioAlbums(createAdminClient(), { vendorProfileId: profile.vendor_profile_id, serviceId }).catch(() => null)
       : Promise.resolve(undefined),
+    // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
+    loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(card.category)),
   ]);
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
   const albumTags = albums
@@ -100,6 +103,8 @@ export default async function EditServiceCardPage({
     refusal: thisCardBookings ? openBookingsRefusal(thisCardBookings.open) : BOOKINGS_UNREAD,
     lines: deleteWarningLines(thisCardBookings?.picked ?? 0),
   };
+  // V-6 (supplier audit 2026-11-17): a refused halls read made the venue's "Uses" row vanish — said instead.
+  const hallsUnread = Boolean((hallsRes as { error?: unknown }).error);
   const hallRows = ((hallsRes as { data: unknown }).data ?? []) as {
     pool_id: string;
     pool_label: string;
@@ -133,8 +138,10 @@ export default async function EditServiceCardPage({
         </Link>
       </div>
       <CanvasMaker
+        library={library}
         categoryValue={card.category}
         categoryLabel={kindName}
+        categoryPath={ctx.kindPath(card.category)}
         otherCategories={ctx.otherCategories}
         coverages={ctx.coverages}
         vendorProfileId={profile.vendor_profile_id}
@@ -177,12 +184,17 @@ export default async function EditServiceCardPage({
         editing={card.editing}
         bookedNow={bookedNow}
         deleteGate={deleteGate}
+        editLock={cardEditLockOf(thisCardBookings)}
         unread={card.unread}
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}
       />
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
-      {venueHalls.length > 0 ? (
+      {hallsUnread ? (
+        <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-card-halls-unread="">
+          Couldn&rsquo;t load which halls this card uses. Refresh in a moment to try again.
+        </p>
+      ) : venueHalls.length > 0 ? (
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
       ) : null}
     </div>

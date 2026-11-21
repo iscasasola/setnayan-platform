@@ -1,5 +1,7 @@
 'use server';
 
+import { normalizePostingName, normalizeTags } from '@/lib/article-links';
+import { articleHref } from '@/lib/journal-move';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -21,9 +23,12 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 
 const SURFACE = '/dashboard/creator';
 
-function fail(message: string): never {
-  redirect(`${SURFACE}?error=${encodeURIComponent(message)}`);
+function fail(message: string, surface: string = SURFACE): never {
+  redirect(`${surface}?error=${encodeURIComponent(message)}`);
 }
+
+/** The Write sheet (drawing v15 "Write a post") posts through createChapter too; its refusals come back to it. */
+const WRITE_SHEET = '/articles/write';
 
 /**
  * Turn a database refusal into a sentence a person can act on.
@@ -222,21 +227,64 @@ async function readEventLink(
   return picked;
 }
 
+/**
+ * 📰 POST AN ARTICLE — the Write sheet's path through this same action (Build 2; no new server action).
+ * Text and links only (the sheet has no video or teaser field and none is read). Goes live at once (Q6 ruled:
+ * "new posts show at once"; Report takes one down) — as an ARTICLE, which is public at its own address under
+ * the writer's posting name, so it never switches on their personal profile page. The first post asks for the
+ * posting name; an account tied to a shop skips it, because it always posts as the shop (the database stamps
+ * that, not this code).
+ */
+async function postArticle(formData: FormData, supabase: Awaited<ReturnType<typeof requireUser>>['supabase'], userId: string) {
+  const rawTitle = formData.get('title');
+  const title = typeof rawTitle === 'string' ? rawTitle.trim().slice(0, 160) : '';
+  if (!title) fail('Your post needs a title.', WRITE_SHEET);
+  const body = normalizeChapterBody(formData.get('body'));
+  if (!body) fail('Write your post first.', WRITE_SHEET);
+  const tags = normalizeTags(formData.getAll('tags').flatMap((t) => (typeof t === 'string' ? t.split(',') : [])));
+
+  const wantsName = formData.get('posting_name');
+  if (typeof wantsName === 'string' && wantsName.trim()) {
+    const name = normalizePostingName(wantsName);
+    if (!name) fail('Pick a name of 3–30 letters, numbers, dots or underscores.', WRITE_SHEET);
+    const { error: nameError } = await supabase.from('users').update({ posting_name: name }).eq('user_id', userId);
+    if (nameError) {
+      fail(/duplicate|unique/i.test(nameError.message) ? 'That name is taken — try another.' : 'We couldn’t save your name. Please try again.', WRITE_SHEET);
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('creator_chapters')
+    .insert({
+      user_id: userId,
+      title,
+      kind: 'lifestyle',
+      body,
+      tags,
+      status: 'published',
+      published_at: new Date().toISOString(),
+    })
+    .select('slug')
+    .single();
+  if (error || !data?.slug) fail('That didn’t post. Please try again.', WRITE_SHEET);
+  clearHomeShelf('stories');
+  revalidatePath('/articles');
+  redirect(articleHref(data.slug as string));
+}
+
 export async function createChapter(formData: FormData) {
   const { supabase, userId } = await requireUser();
+  if (formData.get('surface') === 'articles') return postArticle(formData, supabase, userId);
   const title = readTitle(formData);
   const kind = readKind(formData);
-  const embed = readEmbed(formData, { allowEmpty: true });
   const eventId = await readEventLink(formData, supabase, userId);
   const substrate = readSubstrate(formData, eventId);
 
   const body = readBody(formData);
 
+  // 📝 TEXT AND LINKS ONLY (owner 2026-11-17, DECISION_LOG "DISCOVER ARTICLES ARE OUR REDDIT"): a NEW post
+  // carries no video and no teaser. `embed_url` is never read here, so a crafted form cannot add one either.
   const insert: Record<string, unknown> = { user_id: userId, title, kind };
-  if (embed) {
-    insert.embed_url = embed.embed_url;
-    insert.embed_provider = embed.embed_provider;
-  }
   if (body !== undefined) insert.body = body;
   const happenedOn = readHappenedOn(formData);
   if (happenedOn !== undefined) insert.happened_on = happenedOn;
@@ -270,6 +318,10 @@ export async function updateChapter(formData: FormData) {
     update.embed_url = embed.embed_url;
     update.embed_provider = embed.embed_provider;
   }
+  // 📝 TEXT AND LINKS ONLY (2026-11-17): an older chapter that already carries a video keeps it — it may
+  // be replaced or removed — but a chapter without one can no longer gain one. Held by the row filter
+  // below, never by the form alone.
+  const addsVideo = !!embed && embed.embed_url !== null;
   const body = readBody(formData);
   if (body !== undefined) update.body = body;
   // Clearing the day is a real answer, so `null` must be written, not skipped.
@@ -282,14 +334,19 @@ export async function updateChapter(formData: FormData) {
   const substrate = readSubstrate(formData, eventId);
   if (substrate) update.substrate = substrate;
 
-  const { error } = await supabase
+  let write = supabase
     .from('creator_chapters')
     .update(update)
     .eq('chapter_id', chapterId)
     .eq('user_id', userId);
+  if (addsVideo) write = write.not('embed_url', 'is', null);
+  const { data: written, error } = await write.select('chapter_id');
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('stories');
   if (error) failWithDbMessage(error.message);
+  if (addsVideo && (written ?? []).length === 0) {
+    fail('Posts are text and links now — a video can only stay on a chapter that already had one.');
+  }
 
   revalidatePath(SURFACE);
   redirect(`${SURFACE}?saved=1`);

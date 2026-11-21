@@ -357,6 +357,11 @@ test('10 · the page does not grow: one shop-row read for three, the schedules i
   // The renewal date (A9) is NOT on the table read — a session may not SELECT it there; it is its own read off the
   // shop's self view, started beside the shop row.
   assert.doesNotMatch(server, /\.from\('vendor_profiles'\)[\s\S]{0,400}next_renewal_due_at/, 'the renewal date is on the table read — Postgres refuses the whole row for a session');
-  assert.match(server, /\.from\('vendor_profiles_self'\)\s*\.select\('next_renewal_due_at'\)/);
-  assert.match(page, /const renewalP = readTodayRenewal\(supabase, vendorProfileId\);/);
+  // 📄 Since the papers-renewal build the date is read by the renewal notice itself (`PapersRenewalLine` →
+  // `readRenewalView`), off the same self view — the old permit row and its read are gone, so Today did not grow one.
+  const renewal = readFileSync(join(WEB, 'lib', 'papers-renewal.server.ts'), 'utf8');
+  assert.match(renewal, /\.from\('vendor_profiles_self'\)\s*\.select\('verification_state, next_renewal_due_at, papers_lapsed_at, last_verified_at'\)/);
+  assert.doesNotMatch(renewal, /\.from\('vendor_profiles'\)[\s\S]{0,400}next_renewal_due_at/, 'the renewal date is on the table read');
+  assert.match(page, /<PapersRenewalLine supabase=\{supabase\} vendorProfileId=\{vendorProfileId\} \/>/);
+  assert.doesNotMatch(page, /readTodayRenewal\(/, 'the old permit row read is back beside the renewal notice — the date read twice');
 });

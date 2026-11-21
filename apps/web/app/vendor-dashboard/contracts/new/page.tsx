@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, X } from 'lucide-react';
@@ -20,9 +21,7 @@ type Props = { searchParams: Promise<{ event?: string }> };
 export default async function NewVendorContractPage({ searchParams }: Props) {
   const { event: prefillEventId } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Archive, ArchiveRestore, Ban, CalendarDays, ClipboardList, Flag, FolderOpen, MoreVertical, Receipt, RotateCcw, UserRound, Wallet, X, type LucideIcon } from 'lucide-react';
+import { Archive, ArchiveRestore, Ban, CalendarDays, ClipboardList, Flag, FolderOpen, MoreVertical, Receipt, RotateCcw, TriangleAlert, UserRound, Wallet, X, type LucideIcon } from 'lucide-react';
 import { archiveThread, blockUser, reportUser, unarchiveThread, unblockUser } from '@/lib/chat-actions';
 import { StayForm } from '@/app/_components/stay-form';
 import { useOneOpen } from '@/lib/one-open';
@@ -36,6 +36,9 @@ export const CHAT_MENU_ICONS = {
   schedule: CalendarDays,
   details: ClipboardList,
   customer: UserRound,
+  /** 🚩 Report a problem — the booking's Report page (Unichat part G: it left the (+) for ⋯). Not the Flag of "Report
+   *  this conversation", which reports a person to the safety queue. */
+  problem: TriangleAlert,
 } as const satisfies Record<string, LucideIcon>;
 export type ChatMenuIcon = keyof typeof CHAT_MENU_ICONS;
 

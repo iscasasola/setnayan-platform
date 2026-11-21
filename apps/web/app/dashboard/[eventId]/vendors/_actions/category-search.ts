@@ -27,6 +27,7 @@
 
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { savedGoesFirst } from '@/lib/saved-first';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readNearAnchors } from '@/lib/find-near-anchors.server';
@@ -34,7 +35,8 @@ import type { EventVenueColumns } from '@/lib/event-venues';
 import { demoScopeFor } from '@/lib/demo-scope';
 import { resolveVendorDisplayName, isShopNameWithheld } from '@/lib/vendors';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
-import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
+import { isTrueNameTier } from '@/lib/vendor-tier-caps';
+import { effectiveOuterRadiusKm, isVerifiedForReach, reachAdmits } from '@/lib/vendor-service-radius';
 // The ladder's own vocabulary lives in the PURE module that enforces the
 // boundary, so "which rung is protected?" has one answer in the codebase.
 import type { LadderTier } from '@/lib/inline-more-order';
@@ -166,13 +168,15 @@ export type CategoryVendorResult = {
    * Used to float known vendors to the top and render a contextual badge.
    */
   relationshipDepth: 0 | 1 | 2 | 3;
-  /** Service-radius coverage (vendor-tier-caps · serviceRadiusKm vs the
-   *  reception anchor). TRUE = the vendor's tier radius reaches this reception
-   *  ("✓ Serves your area"); FALSE = out of range ("travel fee likely"). Always
-   *  TRUE when distance is unknown / the vendor is unscoped (fail-open). */
+  /** Service-radius coverage (`reachAdmits`: the shop's own declared outer ring vs
+   *  the reception anchor). TRUE = in reach ("✓ Serves your area"); FALSE = out of
+   *  range. TRUE when distance is unknown / the shop declared no ring / it is
+   *  unverified (unscoped; kept out of search by `is_findable`). No plan sets a
+   *  radius since 2026-11-19 — "verified sets its own range". */
   withinRadius: boolean;
-  /** The vendor's tier service radius in km (20 verified · 50 pro). null =
-   *  unscoped (Free 0) or nationwide (Enterprise ∞) — no finite range to show. */
+  /** A finite service radius in km — a verified shop's own declared outer
+   *  ring — or null = unscoped (no ring declared, or not verified). Never a
+   *  plan allowance since 2026-11-19. */
   serviceRadiusKm: number | null;
   /** Facet refinement (lib/vendor-facets · vendor_service_attributes ⋈ the
    *  couple's facet picks/seed). How many of the selected facet dimensions this
@@ -759,11 +763,10 @@ export async function searchCategoryVendors(input: {
     // onboarding-only (the dashboard stores just the coarse venue_setting).
     eventType: (ev.event_type as string | null) ?? null,
     pax: (ev.estimated_pax as number | null) ?? null,
-    // Phase C service-radius gate (vendor-tier-caps · serviceRadiusKm). The
-    // dashboard Services surface is the ONLY caller that passes anchor coords,
-    // so the radius cut applies here but NOT on /vendors browse / onboarding.
-    // Verified vendors drop beyond 20km of the event, Pro beyond 50km;
-    // Enterprise (∞) + Free (0 = unscoped) + unknown tier are admitted.
+    // Service-radius gate (`reachAdmits`, lib/vendor-service-radius.ts).
+    // The dashboard Services surface is the ONLY caller that passes anchor coords.
+    // Since 2026-11-19 no plan sets a radius; a verified shop's own declared
+    // outer ring still limits who finds it ("verified sets its own range").
     // Null coords (event has no venue lat/lng) → radius scope off (fail-open).
     anchorLat: lat,
     anchorLng: lng,
@@ -861,7 +864,7 @@ export async function searchCategoryVendors(input: {
 
   const { data: profRows } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state')
+    .select('vendor_profile_id, screen_name, name_revealed_at, services, tier_state, tier_expires_at, verification_state, outer_radius_km')
     .in('vendor_profile_id', ids);
   const profById = new Map<
     string,
@@ -870,6 +873,7 @@ export async function searchCategoryVendors(input: {
       name_revealed_at: string | null;
       services: string[] | null;
       tier_state: string | null;
+      outer_radius_km: number | null;
     }
   >();
   for (const p of profRows ?? []) {
@@ -881,6 +885,7 @@ export async function searchCategoryVendors(input: {
       tier_state: string | null;
       tier_expires_at?: string | null;
       verification_state?: string | null;
+      outer_radius_km?: number | null;
     };
     profById.set(row.vendor_profile_id, {
       screen_name: row.screen_name,
@@ -888,6 +893,8 @@ export async function searchCategoryVendors(input: {
       services: row.services,
       // A plan whose paid days ended reads as the sweep will write it — never its old reach (`liveTierState`).
       tier_state: liveTierState(row, Date.now()),
+      // The shop's own declared outer ring — it limits who finds a verified shop (owner 2026-11-19).
+      outer_radius_km: row.outer_radius_km ?? null,
     });
   }
 
@@ -1210,12 +1217,14 @@ export async function searchCategoryVendors(input: {
       anchors.ceremony && vLat !== null && vLng !== null
         ? Math.round(distanceKm(anchors.ceremony.latitude, anchors.ceremony.longitude, vLat, vLng) * 10) / 10
         : null;
-    // Service-radius coverage — same fail-open as the recs radiusOk gate
-    // (vendor-tier-caps): unknown/Free tier → 0 (unscoped → within), Enterprise
-    // → ∞ (within), Verified 20 / Pro 50 → within iff distance ≤ radius.
-    const radiusKm = tierCaps(asVendorTier(prof?.tier_state ?? null)).serviceRadiusKm;
-    const withinRadius =
-      dKm === null || !Number.isFinite(radiusKm) || radiusKm <= 0 || dKm <= radiusKm;
+    // Service-radius coverage — the same rule as the recs radiusOk gate (`reachAdmits`). Since 2026-11-19 no PLAN sets
+    // a radius (owner: "unlock the range. not plan dependend anymore"), but "verified sets its own range": a verified
+    // shop is within only inside its own declared outer ring (∞ when it declared none); unverified reads 0 = unscoped.
+    const radiusKm = effectiveOuterRadiusKm(
+      profById.get(r.vendor_profile_id)?.outer_radius_km ?? null,
+      isVerifiedForReach((r.verification_state as string | null) ?? null),
+    );
+    const withinRadius = reachAdmits(dKm, radiusKm);
     const serviceRadiusKm =
       Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : null;
     const adRank = (r.ad_rank as number | null) ?? 0;
@@ -1365,8 +1374,21 @@ export async function searchCategoryVendors(input: {
   // Relationship-depth tier: vendors this couple already knows float above
   // everything else, sorted depth-DESC then by the normal ad/review order.
   // Depth 0 vendors fall through to the original tier ladder below unchanged.
+  //
+  // 🔖 Saved first (owner 20 Nov, `lib/saved-first.ts`): a supplier only SAVED to this event (depth 1) leads only when
+  // the venue is in their reach (a KNOWN distance inside their radius) AND the calendar check ran on a date and found
+  // them free. Otherwise it falls into the ladder below like anyone else. Depth 2-3 (talking, booked) are unchanged.
   const withRelationship = searchableShaped
-    .filter((s) => s._depth > 0)
+    .filter(
+      (s) =>
+        s._depth > 1 ||
+        (s._depth === 1 &&
+          savedGoesFirst({
+            saved: true,
+            inReach: s.distanceKm !== null ? s.withinRadius : null,
+            freeOnDate: fitScope !== null ? s.serviceDateAvailable : null,
+          })),
+    )
     .sort(
       (a, b) =>
         b._depth - a._depth ||

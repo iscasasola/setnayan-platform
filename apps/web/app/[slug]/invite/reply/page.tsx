@@ -261,9 +261,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
   // would: the animation is owned AND not switched to "Use Static Image".
   const markPlays = animationOwned && !markAnimationSwitchedOff(event.monogram_studio_config);
-  const {
-    data: { user: signedIn },
-  } = await supabase.auth.getUser();
+  const signedIn = await getCurrentUser();
   // The host looking at the sample is not the guest — never prefill from them.
   const user = canvas ? null : signedIn;
 

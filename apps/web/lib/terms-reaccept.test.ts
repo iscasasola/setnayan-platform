@@ -97,11 +97,19 @@ test('the sheet mounts in exactly the couple, supplier and admin layouts — nev
 });
 
 // SABOTAGE: drop terms_version from a layout's select → RED (the predicate would fail open for everyone).
+// SABOTAGE: drop terms_version from USER_ROW_CARRIES in lib/user-row.ts → RED (the same, through the shared read).
 // SABOTAGE: render the sheet unconditionally → RED.
 test('each layout reads the version, asks the predicate, and mounts the sheet over the page — never a redirect', () => {
   for (const m of MOUNTS) {
     const src = read(m);
-    assert.match(src, /from\('users'\)\s*\.select\(\s*'[^']*\bterms_version\b[^']*'/, `${m} must select terms_version`);
+    // The layout reads the row itself, or through the render's one shared read (`lib/user-row.ts`), whose column
+    // list is checked below — either way the predicate is handed a row that carries terms_version.
+    const ownSelect = /from\('users'\)\s*\.select\(\s*'[^']*\bterms_version\b[^']*'/.test(src);
+    const sharedRead = /import \{ getUserRow \} from '@\/lib\/user-row';/.test(src) && /getUserRow\(user\.id\)/.test(src);
+    assert.ok(ownSelect || sharedRead, `${m} must select terms_version`);
+    if (!ownSelect) {
+      assert.match(read('lib/user-row.ts'), /export const USER_ROW_CARRIES =\s*'[^']*\bterms_version\b[^']*'/, `${m} reads through getUserRow, which must select terms_version`);
+    }
     assert.match(src, /const termsAsk = needsTermsAgreement\(profile, \{ isAnonymous: !!user\.is_anonymous \}\);/, m);
     assert.match(src, /\{termsAsk \? <TermsReacceptSheet \/> : null\}/, `${m} must mount the sheet only when asked`);
     assert.doesNotMatch(src, /redirect\([^)]*terms/i, `${m}: a redirect can loop`);

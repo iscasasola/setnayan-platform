@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { MessageSquare, Mail, Heart, Briefcase, Mailbox, HelpCircle } from 'lucide-react';
 import { HELP_TOPICS, HELP_ROLES, PUBLIC_HELP_ROLES, helpTopicsFor, type HelpRole } from '@/lib/help';
@@ -106,9 +107,7 @@ export default async function HelpPage({ searchParams }: Props) {
 
   // Pre-fill the contact form with the signed-in user's email if available.
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const prefilledEmail = user?.email ?? '';
   // …and their own name (owner 2026-11-08: a form asking for YOUR details starts filled, stays editable).
   const prefilledName = user ? (await getSelfPersonalization()).displayName ?? '' : '';

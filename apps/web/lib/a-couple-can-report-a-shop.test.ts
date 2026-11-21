@@ -56,7 +56,8 @@ test('the re-listed CHECK keeps every value it already had, and adds exactly one
 // SABOTAGE: accept any vendor id without checking it is live → RED.
 test('a shop report is accepted, and only for a shop a couple could have met', () => {
   const src = readCode('lib/reports.ts');
-  assert.match(src, /PUBLIC_TARGETS = \['event', 'user_profile', 'chapter', 'vendor'\]/, 'the filing path must accept it');
+  // Targets added AFTER 'vendor' (2026-11-17: 'chapter_reply', an article's reply) leave this one standing.
+  assert.match(src, /PUBLIC_TARGETS = \['event', 'user_profile', 'chapter', 'vendor'(, '[a-z_]+')*\]/, 'the filing path must accept it');
   // 🪤 SIZE THESE WINDOWS TO THE BRANCH, NOT TO A GUESS. `stripComments`
   // replaces a comment with WHITESPACE rather than removing it, so a
   // well-documented branch pushes its own code hundreds of characters apart —

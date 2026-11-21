@@ -108,6 +108,31 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
     });
   }
 
+  // ✓ Today v3 part 3 — the couple answers a wrap-up share for THEIR story (frame 5): Approve all, or Hide some. A hidden
+  // photo leaves their story only — the supplier's shop and files are untouched (owner 19 Nov: "only on couple's").
+  // The rule is in SQL (`couple_decide_story_photos`, SECURITY DEFINER, couples of this event only).
+  if (op === 'storydecide') {
+    const decision = String(fd.get('decision') ?? '');
+    const shopId = String(fd.get('vendor_profile_id') ?? '');
+    if ((decision !== 'approved' && decision !== 'hidden') || !UUID.test(shopId)) return { status: 'error', message: 'Approve or hide.' };
+    let fileIds: string[] | null = null;
+    if (fd.has('file_ids')) {
+      try {
+        fileIds = (JSON.parse(String(fd.get('file_ids'))) as unknown[]).filter((x): x is string => typeof x === 'string' && UUID.test(x)).slice(0, 200);
+      } catch {
+        fileIds = [];
+      }
+      if (fileIds.length === 0) return { status: 'error', message: 'Pick a photo first.' };
+    }
+    const { data: n, error } = await supabase.rpc('couple_decide_story_photos', { p_event_id: eventId, p_vendor_profile_id: shopId, p_decision: decision, p_file_ids: fileIds });
+    if (error) {
+      logQueryError('eventFilesAction.storydecide', error, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'error', message: 'We couldn’t save that. Nothing changed — please try again.' };
+    }
+    const count = typeof n === 'number' ? n : 0;
+    return done({ status: 'done', count, message: decision === 'approved' ? `In your story · ${formatCount(count)}` : 'Hidden from your story' });
+  }
+
   // ── the supplier's ops ──────────────────────────────────────────────────
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { status: 'error', message: 'Only a shop files for an event.' };
@@ -370,6 +395,65 @@ export async function eventFilesAction(_prev: EventFilesState, fd: FormData): Pr
       return { status: 'error', message: 'We couldn’t change sharing just now. Nothing changed — please try again.' };
     }
     return done({ status: 'done', message: want === 'on' ? 'Shared to the event’s story' : 'Your album is private again' });
+  }
+
+  // ── ✓ THE WRAP-UP (Today v3 part 3, owner 19 Nov 2026, drawing V3 · 1): ONE tap does it all — the ticked photos to
+  // the couple's story (kept on every plan; shown only on Supplier Ultra), the starred ones to Inspiration, the event
+  // recorded as wrapped up, and the service marked delivered (the shipped `vendorMarkServiceComplete`, last, which
+  // redirects to Today). Nothing is removed. A failure before the delivered step is said, and nothing is marked.
+  if (op === 'wrapup') {
+    if (!canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, shop))) {
+      return { status: 'error', message: 'Only the shop’s owner can confirm this event.' };
+    }
+    const ids = (k: string) => {
+      try {
+        return [...new Set((JSON.parse(String(fd.get(k) ?? '[]')) as unknown[]).filter((x): x is string => typeof x === 'string' && UUID.test(x)))].slice(0, 201);
+      } catch {
+        return [];
+      }
+    };
+    const ticked = ids('file_ids');
+    const starred = ids('star_ids').filter((id) => ticked.includes(id));
+    if (ticked.length > 200) return { status: 'error', message: 'Up to 200 photos at a time.' };
+    if (ticked.length) {
+      const { data: mine, error: mineErr } = await supabase
+        .from('event_supplier_files')
+        .select('file_id')
+        .eq('event_id', eventId)
+        .eq('vendor_profile_id', shop)
+        .eq('kind', 'photo')
+        .in('file_id', ticked);
+      if (mineErr || !mine || mine.length !== ticked.length) return { status: 'error', message: 'A photo is not in this event’s Files. Nothing was shared.' };
+      const share = await supabase
+        .from('event_supplier_story_shares')
+        .upsert(ticked.map((file_id) => ({ file_id, event_id: eventId, vendor_profile_id: shop, shared_by: user.id })), { onConflict: 'file_id', ignoreDuplicates: true });
+      if (share.error) {
+        logQueryError('eventFilesAction.wrapup share', share.error, { event_id: eventId }, 'graceful_degrade');
+        return { status: 'error', message: 'We couldn’t share the photos just now. Nothing was marked — please try again.' };
+      }
+    }
+    const slot = String(fd.get('slot') ?? '');
+    if (starred.length && /^[a-z0-9_]{1,60}$/.test(slot)) {
+      const { importEditorialMediaToGallery } = await import('@/app/vendor-dashboard/moodboard-library/actions');
+      const rights = String(fd.get('rights') ?? '') === '1';
+      for (const fileId of starred.slice(0, TAG_MAX_PHOTOS)) {
+        // A refused tag never blocks the wrap-up — the photo still goes to the event; its tag says why on Files.
+        await importEditorialMediaToGallery({ eventFileId: fileId, slotKey: slot, rightsWarranted: rights }).catch(() => undefined);
+      }
+    }
+    const wrap = await supabase
+      .from('supplier_event_wrap_ups')
+      .upsert({ event_id: eventId, vendor_profile_id: shop, wrapped_by: user.id, photos_shared: ticked.length }, { onConflict: 'event_id,vendor_profile_id', ignoreDuplicates: true });
+    if (wrap.error) {
+      logQueryError('eventFilesAction.wrapup record', wrap.error, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'error', message: 'Your photos are shared, but we couldn’t finish. Please press Confirm again.' };
+    }
+    const complete = new FormData();
+    complete.set('event_id', eventId);
+    complete.set('return_to', '/vendor-dashboard');
+    const { vendorMarkServiceComplete } = await import('@/app/vendor-dashboard/clients/[eventId]/actions');
+    await vendorMarkServiceComplete(complete);
+    return done({ status: 'done', message: 'Delivered · photos shared' });
   }
 
   // ── 🏷 Inspiration tags (DECISION_LOG 2026-11-14) — a filed photo tagged to the parts its card offers ──────────

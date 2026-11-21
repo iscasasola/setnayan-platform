@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
 import { feedsCrews } from '@/lib/crew-meals';
@@ -162,6 +163,7 @@ import { ShotListCard, type ShotListCardState } from './_components/shot-list-ca
 import { SupplierQuestionsCard } from './_components/supplier-questions-card';
 import { SupplierFormsCard } from './_components/supplier-forms-card';
 import { CouplePhotoApprovals } from './_components/couple-photo-approvals';
+import { CoupleStoryShares } from './_components/couple-story-shares';
 import type { ShotRow } from '@/lib/shot-list';
 import { fetchVendorBudgetSummary } from '@/lib/budget';
 import { agreedTotalNow } from '@/lib/agreed-total-and-its-changes';
@@ -357,9 +359,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const { eventId, vendorId } = await params;
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const relationshipShellEnabled = isRelationshipWorkspaceEnabled();
@@ -3075,7 +3075,11 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       <div className="space-y-6" data-picked-supplier-page="files">
         {/* 📸 Piece 3b: the shop asks to show photos as from your day — only with your yes (FIVE GUARDS 4). */}
         {ev.marketplace_vendor_id ? (
-          <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          <>
+            <CouplePhotoApprovals eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+            {/* ✓ Today v3 part 3: the photos the shop sent for your story at its wrap-up — Approve all · Hide some. */}
+            <CoupleStoryShares eventId={eventId} vendorProfileId={ev.marketplace_vendor_id} shopName={displayName} />
+          </>
         ) : null}
         {/*
           📦 Delivery Handover — the vendor posted finished work (gallery link / proof image / note / sign-off); the couple

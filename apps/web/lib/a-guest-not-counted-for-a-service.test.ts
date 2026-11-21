@@ -136,7 +136,10 @@ test('4 · the Guest List row carries the quiet note', () => {
   assert.match(page, /notCountedByGuest=\{notCountedByGuest\}/);
   const screen = read('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /notCounted=\{notCountedByGuest\[g\.guest_id\] \?\? null\}/);
-  assert.match(screen, /\{notCounted \? <span className=\{styles\.mute\} data-row-not-counted="">\{` · \$\{notCounted\}`\}<\/span> : null\}/);
+  // 👥 Guests redesign (20 Nov): the second line is one plain, muted line ("role · table · …") joined by `joinMeta` —
+  // the note is one of its parts, as quiet as the rest of it.
+  assert.match(screen, /notCounted \? <span key="nc" data-row-not-counted="">\{notCounted\}<\/span> : null,/);
+  assert.match(screen, /<div className=\{styles\.meta\}>/, 'the second line is not the muted meta line');
 });
 
 test('5 · the supplier sees the NUMBER only — nothing a supplier reaches selects who', () => {

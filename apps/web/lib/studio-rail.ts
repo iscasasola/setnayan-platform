@@ -14,6 +14,7 @@ import { STUDIO_HUB_ALL_LABEL, studioHubHref } from './studio-hub';
 import type { EventTypeProfile } from './event-type-profile';
 import { addOnOfferedForEvent } from './add-on-event-scope';
 import { STUDIO_APPS } from './studio-apps';
+import { RETIRED_ADD_ON_KEYS } from './retired-products';
 
 import type { RailTool } from '@/app/_components/frontdoor/front-door-shell';
 
@@ -96,6 +97,8 @@ export function railToolsSignedIn(
       page that explains the tool — see `StudioApp.doorwayOnly`.
     */
     if (eventId && a.doorwayOnly) return false;
+    // 🪦 A retired product (lib/retired-products.ts, owner 2026-11-20) has no row.
+    if (RETIRED_ADD_ON_KEYS.has(a.key)) return false;
     // Nothing is gated until we know WHICH event — the surface list is a
     // property of the event type, and without one there is nothing to ask.
     if (!eventId || !profile) return true;

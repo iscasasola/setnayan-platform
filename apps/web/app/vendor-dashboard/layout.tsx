@@ -1,3 +1,4 @@
+import { getUserRow } from '@/lib/user-row';
 import Link from 'next/link';
 import { bookedEventIdsOf } from '@/lib/new-inquiry';
 import { NoticeSlot } from '@/app/_components/notices/notices';
@@ -252,11 +253,8 @@ export default async function VendorDashboardLayout({
     bookingsPending,
   ] =
     await timer.track('chrome', () => Promise.all([
-      supabase
-        .from('users')
-        .select('account_type, email, display_name, deleted_at, tour_seen_keys, terms_version')
-        .eq('user_id', user.id)
-        .maybeSingle(),
+      // ⚡ The render's one read of this row (`lib/user-row.ts`) — the account switcher beside it reads the same promise.
+      getUserRow(user.id),
       countUnread(supabase, user.id),
       getSwitcherData(user.id).catch((err: unknown) => {
         logQueryError(

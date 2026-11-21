@@ -31,7 +31,10 @@ import { ArrowDown, Paperclip, X } from 'lucide-react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { BADGE_CLASS, badgeStyle } from '@/app/_components/badge';
-import { PickedHeadContext } from '@/app/_components/picked/picked-nav';
+import { PickedHeadContext, PickedNavContext } from '@/app/_components/picked/picked-nav';
+import { ChatHomeTop, useChatHome } from './chat/chat-home';
+import { chatKindOf, countKinds, filterLine, memberLineOf, paymentLineOf, KIND_LABEL } from '@/lib/chat-kinds';
+import { patchKinds, useKinds } from '@/lib/chat-kind-store';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -96,7 +99,7 @@ import { HOSTS_ONLY } from '@/lib/money-mask';
 import { PLUS_CARD_TITLE, RISING_DRAFTS, type RunningTopic } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { withThreadView, type ThreadView } from '@/lib/thread-view';
+import { legacyThreadView, parseThreadView, withThreadView, type ThreadKind, type ThreadView } from '@/lib/thread-view';
 import { ProofImage } from '@/app/_components/proof-image';
 import {
   buildThreadDecisions,
@@ -155,7 +158,7 @@ import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
 import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, FormAnswerCard, StreamLineCard } from './chat/cards/lazy-cards';
+import { AskChangeDoor, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -353,6 +356,22 @@ type Props = {
   /** Where a (+) card's Send lands (`return_to`) and the event its full-page doors open. */
   plus?: { eventId: string; returnPath: string } | null;
   /**
+   * 💬 THIS CHAT HOLDS EVERYTHING (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS EVERYTHING";
+   * drawing S9ScH2Ps v3) — passed ONLY by the supplier's thread page when it is drawn inside the picked client:
+   *   · the chips in the text box filter the stream to ONE kind (`chat-kind-store`; `?view=` names it) — so the head's
+   *     📎 and its Files panel are not drawn (Files is a chip);
+   *   · the page's summary strip is drawn first in the pinned stack (`ChatHomeTop`);
+   *   · the database's plain lines draw quiet and unframed (a payment logged, someone joined), an accepted quote
+   *     leaves its line, and each version says when it was sent;
+   *   · the couple's first inquiry draws as a card, and the strip's Deal box raises Every version here.
+   * Absent → the chat exactly as shipped (the routed thread page, the host's side until its own build).
+   */
+  oneChat?: boolean;
+  /** 💬 The inquiry card's last line: is their date open on the shop's calendar? null = unknown (says nothing). */
+  inquiryCalendar?: 'open' | 'busy' | null;
+  /** 💬 The inquiry is not answered yet: the page's own "Their ask" (Accept · Ask · Decline) carries it — no second card. */
+  inquiryPending?: boolean;
+  /**
    * 🔒 THE SERVER SAYS THIS READER'S AMOUNTS ARE HIDDEN (`chat_money_hidden` — a coordinator without Budget &
    * payments, owner 2026-11-09 "₱ — hosts only" everywhere). The stream then reads messages, quotes and amendments
    * ONLY through the masking readers (migration 20271333348826), so the amounts never arrive from those reads, and a
@@ -509,6 +528,9 @@ export function ChatMessageStream({
   blocker = null,
   plus = null,
   moneyHidden = false,
+  oneChat = false,
+  inquiryCalendar = null,
+  inquiryPending = false,
 }: Props) {
   // Single Supabase client instance per mount — createClient is cheap but
   // the channel objects we attach to it must outlive each render.
@@ -1057,7 +1079,8 @@ export function ChatMessageStream({
   // All · Decisions · Files
   // ---------------------------------------------------------------------------
   // Decisions left the stream (Build 3): open ones are pins, closed ones Details › Decisions.
-  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : initialView);
+  // A chat without the chips keeps its three shipped thirds: a chip-only kind in the address is the chat there.
+  const [view, setViewState] = useState<ThreadView>(initialView === 'decisions' ? 'all' : legacyThreadView(initialView));
   /**
    * 📌 INSIDE A PICKED SHELL (v8.3, approved 9 Nov) there is no Chat · Decisions · Files row: the head's 📎 opens Files
    * and Decisions as ONE panel inside the pinned stack, and the conversation stays under it. A link that names
@@ -1065,7 +1088,30 @@ export function ChatMessageStream({
    */
   const headSlot = useContext(PickedHeadContext);
   const inPicked = headSlot !== null;
-  const [filesOpen, setFilesOpen] = useState(initialView !== 'all');
+  const [filesPanel, setFilesOpen] = useState(initialView !== 'all');
+  // 💬 With the chips (`oneChat`) Files is a chip, never a panel in the pinned stack.
+  const filesOpen = filesPanel && !oneChat;
+  /* 💬 THE CHIPS' KIND (19 Nov 2026). The picked chip lives in the chat's own store (the chips are in the composer, a
+     sibling subtree); the address names it (`?view=`), so the page hands the first one in and a reload reopens it. */
+  const kinds = useKinds(threadId);
+  const [kindSeeded, setKindSeeded] = useState(false);
+  useEffect(() => {
+    // The page inside a client hands no `view` on (only notice params cross that boundary), so the address is read here.
+    let named: ThreadView = initialView;
+    try {
+      if (oneChat && named === 'all') named = parseThreadView(new URLSearchParams(window.location.search).get('view'));
+    } catch {
+      /* the chat shows everything */
+    }
+    if (oneChat && named !== 'all') patchKinds(threadId, { view: named });
+    setKindSeeded(true);
+    // Once: the address names the first chip; after that the chips do.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const kindNow: ThreadView = kindSeeded ? kinds.view : initialView;
+  const kindView: ThreadKind | null = oneChat && kindNow !== 'all' ? (kindNow as ThreadKind) : null;
+  const chatHome = useChatHome();
+  const pickedNav = useContext(PickedNavContext);
   const privateNow = usePrivateTo(threadId);
   // 🔭 The 📎 panel is a fold like any other: a press that opens it glides it into view (app-wide reveal-on-open).
   const filesPanelRef = useRef<HTMLElement | null>(null);
@@ -1188,6 +1234,29 @@ export function ChatMessageStream({
     },
     [extraPins, decisions, counterpartyLabel],
   );
+  /* 💬 WHAT THE CHIPS AND THE STRIP COUNT (19 Nov 2026) — published from the SAME rows and the SAME merge the stream
+     draws, so a chip's number is the cards it shows and the strip's Decisions is the list it opens. A message filed
+     under a pinned decision counts as that decision's. Cards that could not be loaded make the waiting count UNKNOWN
+     (null → "Couldn't load"), never 0. */
+  const kindCounts = useMemo(() => countKinds(messages, (m) => Boolean(filings?.byMessage.get((m as ChatMessageRow).message_id))), [messages, filings]);
+  const waitingOnYou = useMemo(() => {
+    const keys = new Set(decisions.filter((d) => d.now.needsYou).map((d) => d.key));
+    for (const p of pinFacts) if (p.kind === 'decision' && p.answerer === 'you') keys.add(p.key);
+    return keys.size;
+  }, [decisions, pinFacts]);
+  useEffect(() => {
+    if (oneChat) patchKinds(threadId, { counts: kindCounts, waiting: cardsDegraded ? null : waitingOnYou });
+  }, [oneChat, threadId, kindCounts, waitingOnYou, cardsDegraded]);
+  // 🤝 The strip's Deal box raises Every version here (a tick in the store — the strip is another subtree).
+  const [dealOpen, setDealOpen] = useState(false);
+  const dealTick = useRef(kinds.deal);
+  useEffect(() => {
+    if (kinds.deal !== dealTick.current) {
+      dealTick.current = kinds.deal;
+      setDealOpen(true);
+    }
+  }, [kinds.deal]);
+
   const allPinBodies = useMemo(() => {
     const out: Record<string, React.ReactNode> = { ...(pinBodies ?? {}) };
     for (const e of decisions) {
@@ -1471,6 +1540,35 @@ export function ChatMessageStream({
     off-screen.
   */
   // 📮 A booking ask a later line answered reads its answer, never "Waiting for your answer" (owner, 17 Nov).
+  /* 💬 STEP LINES THE DATABASE DOES NOT WRITE (19 Nov 2026, drawing S9ScH2Ps screen 12 — "every step leaves a line"): an
+     accepted quote posts no line of its own (`respond_vendor_proposal` writes none), so the chat says it from the
+     quote's own row — who, which version, at the moment it was accepted — placed in time order. Money lines: they
+     follow the Money chip. Only with `oneChat`. */
+  const stepLines = useMemo(() => {
+    const before = new Map<string, { key: string; text: string }[]>();
+    const end: { key: string; text: string }[] = [];
+    if (!oneChat) return { before, end };
+    for (const m of messages) {
+      if (!m.proposal_id) continue;
+      const card = proposalCards[m.proposal_id];
+      if (!card || card.status !== 'accepted' || !card.resolvedAt) continue;
+      const at = Date.parse(card.resolvedAt);
+      if (!Number.isFinite(at)) continue;
+      const v = quoteVersions?.find((x) => x.proposalId === m.proposal_id)?.version ?? null;
+      const line = { key: `accepted:${m.proposal_id}`, text: `${viewerRole === 'vendor' ? counterpartyLabel : 'You'} accepted ${v ? `version ${v}` : 'the quote'}` };
+      const next = messages.find((x) => Date.parse(x.created_at) > at);
+      if (next) before.set(next.message_id, [...(before.get(next.message_id) ?? []), line]);
+      else end.push(line);
+    }
+    return { before, end };
+  }, [oneChat, messages, proposalCards, quoteVersions, viewerRole, counterpartyLabel]);
+  // 💬 The couple's first inquiry: the first words in the chat, when the hosts wrote them (drawing screen 10).
+  const inquiryMessageId = useMemo(() => {
+    if (!oneChat || inquiryPending) return null;
+    const first = messages.find((m) => m.sender_role !== 'system');
+    return first && first.sender_role === 'couple' ? first.message_id : null;
+  }, [oneChat, inquiryPending, messages]);
+
   const bookAskAnswers = useMemo(
     () => answeredBookAsks(messages.map((m) => ({ id: m.message_id, body: m.body, role: m.sender_role }))),
     [messages],
@@ -1819,6 +1917,8 @@ export function ChatMessageStream({
       <ChatPinnedStack
         fixed={
           <>
+            {/* 💬 The page's summary strip — FIRST in the one pinned stack, above the who's-here strip and the pins. */}
+            {oneChat ? <ChatHomeTop /> : null}
             {hosts !== undefined ? <ChatHostStrip hosts={hosts} presentIds={presentIds} youId={currentUserId} threadId={threadId} addable={memberAdd} leave={memberLeave} {...(stripWord ? { word: stripWord } : {})} viewerSide={viewerRole === 'vendor' ? 'vendor' : 'couple'} shopLabel={shopLabel} calls={inPicked ? null : headCalls} note={headNote} /> : null}
             {/*
               📌 SUPPLIER BUILD 3 — the shipped "Chat · Decisions · Files" strip resolves as the approved prototype draws it:
@@ -1903,6 +2003,8 @@ export function ChatMessageStream({
         ? createPortal(
             <>
               {headCalls}
+              {/* 💬 With the chips, Files is a chip in the text box — the head keeps the calls only. */}
+              {oneChat ? null : (
               <ActionButton
                 tone="neutral"
                 iconOnly
@@ -1916,6 +2018,7 @@ export function ChatMessageStream({
                 }}
                 data-testid="picked-files-open"
               />
+              )}
             </>,
             headSlot,
           )
@@ -1971,6 +2074,12 @@ export function ChatMessageStream({
           — reload to see them.
         </li>
       ) : null}
+      {kindView ? (
+        // 💬 One chip picked: only that kind's cards and lines; the chatter is hidden, and the line says so.
+        <li className="pb-1 pt-1 text-center text-[13px] text-[color:var(--m-slate-2)]" role="status" data-chat-filter-line={kindView}>
+          {kindCounts[kindView] > 0 ? filterLine(kindView, kindCounts[kindView]) : `Nothing under ${KIND_LABEL[kindView]} yet`}
+        </li>
+      ) : null}
       {messages.length === 0 ? (
         // Rule 6 · empty is one plain line, no dashed box.
         <li className="px-1 py-6 text-center text-[14px] text-[color:var(--m-slate-2)]">
@@ -1978,6 +2087,16 @@ export function ChatMessageStream({
         </li>
       ) : (
         messages.map((m, i) => {
+          // 💬 The chips (`oneChat`): a row of another kind is not drawn; a step line follows the Money chip.
+          const preLines = (stepLines.before.get(m.message_id) ?? []).filter(() => !kindView || kindView === 'money');
+          const preNodes = preLines.map((l) => (
+            <li key={l.key} className={STEP_LINE} data-step-line="accepted">
+              {l.text}
+            </li>
+          ));
+          if (kindView && chatKindOf(m, Boolean(filings?.byMessage.get(m.message_id))) !== kindView) {
+            return preNodes.length > 0 ? <Fragment key={m.message_id}>{preNodes}</Fragment> : null;
+          }
           const node = (() => {
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
@@ -2168,6 +2287,7 @@ export function ChatMessageStream({
                               vendorId={lockTarget.vendorId}
                               vendorName={counterpartyLabel}
                               isVerified={lockTarget.notYetVerified ? false : undefined}
+                              papersRenewing={lockTarget.papersRenewing === true}
                               label={
                                 isLockHandshakeEnabled()
                                   ? `Ask ${counterpartyLabel} to confirm your booking`
@@ -2389,6 +2509,19 @@ export function ChatMessageStream({
           // would leave the old chip-row behaviour live in production. The card
           // component fetches its own data and draws the message body until it
           // arrives, so a slow or refused resolve still reads as an offer.
+          // 🏷 A DROPPED OFFER is the card the hosts apply with one tap (PR-4's `DroppedOfferCard`, reachable since
+          // 19 Nov 2026) — on BOTH sides: the supplier sees where it stands, the hosts see Not now · Apply to my quote.
+          if (m.vendor_offer_id != null || m.offer_good_until) {
+            return (
+              <li key={m.message_id} data-offer-drop-card="">
+                <DroppedOfferCard
+                  messageId={m.message_id}
+                  viewer={viewerRole === 'vendor' ? 'supplier' : 'couple'}
+                  kicker={`${ownsBubble(m, viewerRole, currentUserId) ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
+                />
+              </li>
+            );
+          }
           if (m.offered_service_id) {
             /* A quote REPLACES an offer (owner 2026-09-22) — and the offer is
                kept as history rather than removed. One rule, in
@@ -2441,6 +2574,36 @@ export function ChatMessageStream({
                     nameOf={personName}
                     answeredAs={bookAskAnswers.get(m.message_id) ?? null}
                   />
+                </li>
+              );
+            }
+            // 💬 A STEP LEAVES A QUIET LINE (19 Nov 2026, drawing screen 12): centred, no frame — nothing here is a
+            // press except a payment's Receipt. The payment trigger's long line is said short; the rest keep their words.
+            if (oneChat) {
+              const pay = paymentLineOf(m.body);
+              const member = pay ? null : memberLineOf(m.body);
+              const words = pay
+                ? pay.verb === 'logged'
+                  ? `Payment logged${pay.amount ? ` · ${pay.amount}` : ''}`
+                  : pay.verb === 'confirmed'
+                    ? viewerRole === 'vendor'
+                      ? 'You confirmed it reached you'
+                      : `Payment confirmed${pay.amount ? ` · ${pay.amount}` : ''}`
+                    : (m.body ?? '').split(' · ').slice(0, 2).join(' · ')
+                : member
+                  ? `${member.name} ${member.verb === 'joined' ? 'joined' : 'left'}`
+                  : null;
+              return (
+                <li key={m.message_id} className={STEP_LINE} data-step-line={pay ? 'payment' : member ? 'member' : 'line'}>
+                  {words ?? renderPerkUnlock(m.body ?? '')}
+                  {pay?.hasProof && pickedNav ? (
+                    <>
+                      {' · '}
+                      <button type="button" onClick={() => pickedNav.select('payments')} className="sn-press -my-3 inline-flex min-h-11 items-center font-semibold text-sn-accent" data-step-line-receipt="">
+                        Receipt ›
+                      </button>
+                    </>
+                  ) : null}
                 </li>
               );
             }
@@ -2761,9 +2924,36 @@ export function ChatMessageStream({
             <Fragment key={m.message_id}>
               {/* The Running-topic pin's jump target (Build 3). */}
               <li id={`msg-${m.message_id}`} aria-hidden className="h-0 scroll-mt-3" />
+              {preNodes}
               {brk ? (
                 <li aria-hidden className="pb-1 pt-3 text-center text-[12px] tabular-nums text-[color:var(--m-slate-2)]" data-chat-time="">
                   {formatChatTimestamp(m.created_at)}
+                </li>
+              ) : null}
+              {/* 💬 Each version says when it was sent (drawing screen 12: "Version 2 sent · ₱45,000") — above its card. */}
+              {oneChat && m.proposal_id
+                ? (() => {
+                    const v = quoteVersions?.find((x) => x.proposalId === m.proposal_id)?.version ?? null;
+                    const total = proposalCards[m.proposal_id]?.totalCentavos ?? null;
+                    return (
+                      <li className={STEP_LINE} data-step-line="version">
+                        {v ? `Version ${v} sent` : 'Quote sent'}
+                        {total != null && total > 0 ? ` · ${formatCentavos(total)}` : ''}
+                      </li>
+                    );
+                  })()
+                : null}
+              {/* 💬 The first inquiry is a card: what they asked for, and one button (drawing screen 10). */}
+              {inquiryMessageId === m.message_id && chatHome?.inquiry ? (
+                <li data-inquiry-card="">
+                  <InquiryCard
+                    threadId={threadId}
+                    body={m.body ?? ''}
+                    from={m.sender_user_id ? personName(m.sender_user_id) : counterpartyLabel}
+                    at={formatChatTimestamp(m.created_at)}
+                    facts={chatHome.inquiry}
+                    calendar={inquiryCalendar}
+                  />
                 </li>
               ) : null}
               {node}
@@ -2776,6 +2966,11 @@ export function ChatMessageStream({
           );
         })
       )}
+      {(!kindView || kindView === 'money' ? stepLines.end : []).map((l) => (
+        <li key={l.key} className={STEP_LINE} data-step-line="accepted">
+          {l.text}
+        </li>
+      ))}
       {/* ⚡ Sent, not yet stored — your words at once, faded (prototype frame B). */}
       {pendings.map((p) => (
         <li key={p.tempId} className="sn-m-chat-send flex flex-col items-end" data-chat-pending={p.state}>
@@ -2856,6 +3051,10 @@ export function ChatMessageStream({
         </li>
       ) : null}
     </ol>
+      {/* 🤝 Every version, their ask beside it (drawing screen 7) — raised by the strip's Deal box. */}
+      {oneChat && dealOpen ? (
+        <DealSheet threadId={threadId} versions={quoteVersions} counterpartyLabel={counterpartyLabel} onClose={() => setDealOpen(false)} />
+      ) : null}
 
       {/*
         ⤓ THE JUMP ROW (DECISION_LOG 2026-11-16 CHAT-09). "Jump to the quote" and "Latest messages" left the overlay over
@@ -2894,6 +3093,9 @@ export function ChatMessageStream({
     </div>
   );
 }
+
+/** 💬 A step's quiet line: centred, the dark grey, no frame (drawing S9ScH2Ps screen 12). */
+const STEP_LINE = 'px-3 py-1 text-center text-[13px] leading-snug text-[color:var(--m-slate-2)]';
 
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

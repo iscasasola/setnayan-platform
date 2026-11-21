@@ -13,6 +13,9 @@
  * simplified face, the tab the complete one ("two faces of one record"). The doors are keys of `VENDOR_THREAD_TOOLS`
  * (supplier) so the reachability guard still sees every shipped panel reached.
  *
+ * 💬 SINCE 19 NOV 2026 THE SUPPLIER'S SHEET IS GROUPED BY PLAIN WORDS, NOT TABS (`PLUS_ROW_SECTION`, below): the
+ * supplier's client page is one chat with no tab row. What follows is the HOST's rule, unchanged until its own build.
+ *
  * 🧭 THE (+) FOLLOWS THE MENU (owner 11 Nov 2026, DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE
  * ORDER" — *"Rearrange it as well as we rearrange the menu. Align them both."*). Every row belongs to ONE page of the
  * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — since the seven tabs (owner 18 Nov 2026)
@@ -45,12 +48,16 @@ export type PlusCardKind =
   // payment plan either side proposes — each answered by the other side with Accept · Counter · Decline.
   | 'ask'
   | 'counter'
-  | 'plan';
+  | 'plan'
+  // 🏷 Drop an offer (PR-4's card, reachable since 19 Nov 2026): the supplier drops one of the shop's own offers; the
+  // hosts apply it to their quote with one tap.
+  | 'offer';
 
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
 export type PlusRowKey = PlusCardKind | 'report' | 'camera' | 'photo' | 'versions';
+// ('offer' is a card kind, so it is a row key too.)
 
 /**
  * 🤝 THE NEGOTIATE GROUP — FIRST IN BOTH (+) MENUS (approved design `quote-maker-polish.html`, 12 Nov: the (+) shows
@@ -95,6 +102,7 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   ask: NEGOTIATE_GROUP,
   counter: NEGOTIATE_GROUP,
   plan: NEGOTIATE_GROUP,
+  offer: NEGOTIATE_GROUP,
   versions: NEGOTIATE_GROUP,
   decision: 'chat',
   poll: 'chat',
@@ -103,6 +111,49 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   payment: 'quote',
   logpay: 'quote',
   meeting: 'schedule',
+  camera: 'files',
+  photo: 'files',
+  photos: 'files',
+  file: 'files',
+  report: 'report',
+};
+
+/**
+ * 💬 THE SUPPLIER'S (+) HAS PLAIN GROUP WORDS (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS
+ * EVERYTHING"; drawing S9ScH2Ps v3, screen 6). The supplier's client page has no tab row any more, so a heading named
+ * after a tab ("Book & Budget", "Schedule") names nothing. The groups are the chips' own words — Negotiate · Ask &
+ * decide · Money · Dates · Files — and Report a problem stays last, under a bare line (no word).
+ * The HOST's (+) still mirrors the host's seven tabs (`PLUS_ROW_PAGE`) until the host's own build.
+ */
+export type PlusSection = 'negotiate' | 'ask' | 'money' | 'dates' | 'files' | 'report';
+
+/** The supplier sheet's sections, in the order they are drawn. */
+export const PLUS_SECTIONS: readonly PlusSection[] = ['negotiate', 'ask', 'money', 'dates', 'files', 'report'];
+
+/** The word over each section; null = a bare line (Report a problem stands alone, last). */
+export const PLUS_SECTION_WORD: Record<PlusSection, string | null> = {
+  negotiate: 'Negotiate',
+  ask: 'Ask & decide',
+  money: 'Money',
+  dates: 'Dates',
+  files: 'Files',
+  report: null,
+};
+
+export const PLUS_ROW_SECTION: Record<PlusRowKey, PlusSection> = {
+  quote: 'negotiate',
+  offer: 'negotiate',
+  ask: 'negotiate',
+  counter: 'negotiate',
+  plan: 'negotiate',
+  versions: 'negotiate',
+  decision: 'ask',
+  poll: 'ask',
+  form: 'ask',
+  access: 'ask',
+  payment: 'money',
+  logpay: 'money',
+  meeting: 'dates',
   camera: 'files',
   photo: 'files',
   photos: 'files',
@@ -154,6 +205,9 @@ export const MAKE_A_QUOTE_LABEL = 'Make a quote';
 export function supplierChangeOrderHref(eventId: string): string {
   return `/vendor-dashboard/clients/${eventId}?tab=schedule`;
 }
+
+/** 🏷 The supplier's Negotiate row that drops one of the shop's own offers (drawing S9ScH2Ps v3, screen 6). */
+export const DROP_AN_OFFER_LABEL = 'Drop an offer';
 
 /** See every version — both sides, last in Negotiate. */
 const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
@@ -208,10 +262,32 @@ export function supplierPlusRows(opts: {
                 ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
               } as PlusRow),
         ],
+    // 🏷 Drop an offer (19 Nov 2026 — PR-4's card, now reachable): one of the shop's own offers, applied by the hosts
+    // with one tap. It changes a quote, so it is not drawn before one exists, and it is shut once they booked at it.
+    ...(noQuoteYet
+      ? []
+      : [
+          {
+            key: 'offer',
+            label: DROP_AN_OFFER_LABEL,
+            line: 'They apply it with one tap',
+            card: 'offer',
+            door: null,
+            ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
+          } as PlusRow,
+        ]),
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
     ...(noQuoteYet ? [] : [VERSIONS_ROW]),
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
+    {
+      key: 'form',
+      label: 'Form',
+      line: 'A saved question set, answered one at a time',
+      card: 'form',
+      door: 'questions-for-couple',
+      shutUntilAgreement: { reason: 'Opens once they book you' },
+    },
     // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
     // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
     {
@@ -220,14 +296,6 @@ export function supplierPlusRows(opts: {
       line: 'Seat plan, schedule, guest list… · the host decides',
       card: 'access',
       door: null,
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    {
-      key: 'form',
-      label: 'Form',
-      line: 'A saved question set, answered one at a time',
-      card: 'form',
-      door: 'questions-for-couple',
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     {
@@ -243,7 +311,8 @@ export function supplierPlusRows(opts: {
     // ONE phone picker (owner 11 Nov, "dupes"): the card's "From your phone" is the composer's own input — photo, video
     // or PDF — and its Portfolio source is drawn shut with its reason until the album build.
     { key: 'photos', label: 'Photos & files', line: 'From your phone or your portfolio', card: 'photos', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This couple or this booking', card: null, door: 'report-problem' },
+    // 🚩 Report a problem LEFT the (+) (Unichat part G, owner 20 Nov — supersedes 9 Nov "last row of (+)"): it lives
+    // under the head's ⋯ only (`picked-client-more.ts`), so the (+) holds things you SEND.
   ];
 }
 
@@ -295,7 +364,7 @@ export function hostPlusRows(opts: {
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
     { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
+    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`HOST_MORE`).
   );
   return rows;
 }
@@ -359,6 +428,7 @@ export const PLUS_CARD_TITLE: Record<PlusCardKind, string> = {
   ask: 'Ask for a change',
   counter: 'Counter with a price',
   plan: 'Propose a payment plan',
+  offer: 'Drop an offer',
 };
 
 /** The topic each card wears — its icon is `TOPIC_ICON[topic]`, the same as its tab's. */
@@ -376,6 +446,7 @@ export const PLUS_CARD_TOPIC: Record<PlusCardKind, ChatTopic> = {
   ask: 'quote',
   counter: 'payment',
   plan: 'payment',
+  offer: 'quote',
 };
 
 // ── ⌨ SLASH SHORTCUTS (owner 11 Nov 2026, DECISION_LOG "… SLASH SHORTCUTS"; plan row M14) ──────────────────────────────
@@ -398,6 +469,7 @@ export const SLASH_WORD: Record<PlusCardKind, string> = {
   ask: 'ask',
   counter: 'counter',
   plan: 'plan',
+  offer: 'offer',
 };
 
 export type SlashRow = {

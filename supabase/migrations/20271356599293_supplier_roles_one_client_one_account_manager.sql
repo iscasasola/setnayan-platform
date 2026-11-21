@@ -23,6 +23,7 @@
 --      removal deletes the row. The six-roles helpers already skip it; the two older canonical helpers did not, so a
 --      soft-locked member still passed every policy. They now skip it too (bodies copied exactly + one line).
 
+BEGIN;
 SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · the client's Account Manager ─────────────────────────────────────────────────────────────────────────────
@@ -272,3 +273,5 @@ DROP TRIGGER IF EXISTS vendor_team_members_plan_pause_is_the_servers ON public.v
 CREATE TRIGGER vendor_team_members_plan_pause_is_the_servers
   BEFORE INSERT OR UPDATE ON public.vendor_team_members
   FOR EACH ROW EXECUTE FUNCTION public.tg_vendor_team_members_plan_pause_is_the_servers();
+
+COMMIT;

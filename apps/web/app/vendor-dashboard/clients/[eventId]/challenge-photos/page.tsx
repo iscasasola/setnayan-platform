@@ -1,10 +1,10 @@
 import { getCurrentUser } from '@/lib/auth';
-import { formatCount } from '@/lib/format-number';
-import { BackButton } from '@/app/_components/back-button';
 import { redirect } from 'next/navigation';
-import { PlayCircle } from 'lucide-react';
-import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { partReadOutcome } from '@/lib/vendor-part-read';
+import { readTheirEventName } from '@/app/vendor-dashboard/_components/set-two/their-event-line';
+import { ChallengePhotosBody, type ChallengeTile } from './challenge-photos-body';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
@@ -23,12 +23,7 @@ export const dynamic = 'force-dynamic';
 // sponsored + consent_to_share + moderation clean + not hidden — and returns
 // web-copy refs only; this page just presigns them (short TTL) into a grid.
 
-type Tile = {
-  captureId: string;
-  isClip: boolean;
-  tileUrl: string;
-  openUrl: string;
-};
+type Tile = ChallengeTile;
 
 export default async function VendorChallengePhotosPage({
   params,
@@ -56,10 +51,17 @@ export default async function VendorChallengePhotosPage({
 
   // Booked-gate via the canonical vendor↔event brief RPC (also what the parent
   // client card uses); the photo RPC additionally requires a paid sponsorship.
-  const { data: brief, error: briefErr } = await supabase.rpc('get_vendor_event_brief', {
-    p_event_id: eventId,
-  });
-  if (briefErr || !brief) redirect('/vendor-dashboard/clients');
+  const [{ data: brief, error: briefErr }, eventName] = await Promise.all([
+    supabase.rpc('get_vendor_event_brief', { p_event_id: eventId }),
+    readTheirEventName(supabase, eventId),
+  ]);
+  // The brief's gates (not booked …) are an answer — back to Clients, as always. A brief that did not answer is SAID.
+  const briefRead = partReadOutcome(briefErr, brief);
+  if (briefRead === 'failed') {
+    logQueryError('VendorChallengePhotos.brief', briefErr!, { eventId }, 'graceful_degrade');
+    return <ChallengePhotosBody eventId={eventId} eventName={eventName} sections={null} />;
+  }
+  if (briefRead === 'gate') redirect('/vendor-dashboard/clients');
 
   // C-4: null = REFUSED (or thrown) — said, never "No shared photos yet".
   const photosRead = await fetchVendorChallengePhotos(supabase, eventId).catch(() => null);
@@ -85,67 +87,12 @@ export default async function VendorChallengePhotosPage({
     groups.set(p.mission_id, g);
   }
   const sections = [...groups.values()];
-  const total = sections.reduce((n, s) => n + s.tiles.length, 0);
 
   return (
-    <section className="mx-auto w-full max-w-5xl space-y-2 px-4 py-4 sm:px-6">
-      {/* The app's ONE back (rule 1 "way out"; `lib/every-back-goes-home.test.ts`): it lands on this page's home. */}
-      <BackButton route="/vendor-dashboard/clients/[eventId]/challenge-photos" params={{ eventId }} label="Back to client" />
-
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Challenge photos</h1>
-
-      <TemplateSection
-        label="Challenge photos"
-        first
-        tip="Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you. Yours to use."
-        right={total > 0 ? `${formatCount(total)} shared` : undefined}
-      >
-        {photosRead === null ? (
-          <TemplateEmpty data="challenge-photos-unread">
-            Couldn&rsquo;t load the shared photos. Refresh in a moment to try again.
-          </TemplateEmpty>
-        ) : total === 0 ? (
-          <TemplateEmpty data="challenge-photos">
-            No shared photos yet — they arrive as guests finish your challenges and tap “share”.
-          </TemplateEmpty>
-        ) : (
-          <div className="space-y-6">
-            {sections.map((s, i) => (
-              <div key={i} className="border-t border-[color:var(--m-line)] pt-3 first:border-t-0 first:pt-1">
-                <p className="text-[15px] font-semibold leading-tight text-ink">{displayChallengePrompt(s.prompt)}</p>
-                <p className={`mt-0.5 ${TEMPLATE_SUBLINE}`}>
-                  {s.tiles.length} shared {s.tiles.length === 1 ? 'shot' : 'shots'}
-                </p>
-                <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {s.tiles.map((t) => (
-                    <a
-                      key={t.captureId}
-                      href={t.openUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative block aspect-square overflow-hidden rounded-xl bg-[color:var(--m-paper-2)]"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={t.tileUrl}
-                        alt="Shared guest photo"
-                        className="h-full w-full object-cover transition group-hover:opacity-90"
-                        loading="lazy"
-                      />
-                      {t.isClip ? (
-                        <span className="absolute inset-0 flex items-center justify-center bg-ink/20">
-                          <PlayCircle aria-hidden className="h-8 w-8 text-white" strokeWidth={1.75} />
-                        </span>
-                      ) : null}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </TemplateSection>
-    </section>
+    <ChallengePhotosBody
+      eventId={eventId}
+      eventName={eventName}
+      sections={photosRead === null ? null : sections.map((sec) => ({ prompt: displayChallengePrompt(sec.prompt), tiles: sec.tiles }))}
+    />
   );
 }

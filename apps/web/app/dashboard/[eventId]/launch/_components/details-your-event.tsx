@@ -885,7 +885,7 @@ function VenuePhotoPicker({
     ownRef,
     drawing,
     mark,
-    markLabel: (m) => paidMarkLabel(m, 'Event Pro'),
+    markLabel: (m) => paidMarkLabel(m, 'the full Event Hub'),
     url,
   });
   const shown = drawingOn ? null : url(current);

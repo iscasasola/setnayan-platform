@@ -167,7 +167,8 @@ test('3 · the maker never waits on the gift — it says "optional", starts at N
   );
   const row = read(join(WEB, 'app', '_components', 'gift-pick.tsx'));
   assert.match(row, /Gift <span[^>]*>optional<\/span>/, 'the Gift row stopped saying it is optional — a new shop would read it as required');
-  assert.match(read(join(WEB, 'lib', 'gift-pick.ts')), /\{ key: GIFT_NONE, label: 'No gift' \},\s*\{ key: GIFT_SETNAYAN/, 'No gift is no longer the first answer');
+  // 🎁 The photo gift retired 2026-11-15; No gift is still the FIRST answer of the menu.
+  assert.match(read(join(WEB, 'lib', 'gift-pick.ts')), /const out: GiftOption\[\] = \[\s*\{ key: GIFT_NONE, label: 'No gift' \},/, 'No gift is no longer the first answer');
   assert.match(maker, /giftPickOf\(\{ includes_setnayan_gift: initial\?\.includesSetnayanGift \?\? false/, 'a new card no longer starts with no gift');
   const facts = maker.slice(maker.indexOf('const facts = {'), maker.indexOf('};', maker.indexOf('const facts = {')));
   assert.ok(facts.length > 20, 'the facts Create asks the gate with could not be read');

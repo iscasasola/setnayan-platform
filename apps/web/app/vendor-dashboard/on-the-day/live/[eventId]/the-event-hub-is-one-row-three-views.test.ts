@@ -20,10 +20,16 @@ import { EVENT_HUB_VIEWS, eventHubViewHref, eventHubViewOf } from '@/lib/event-h
 const HERE = import.meta.dirname;
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 const PAGE = read('page.tsx');
+/* The November look (supplier pages set two, page 8, 21 Nov 2026): the page READS, `_components/event-day-body.tsx`
+   DRAWS (so the lab draws it from fixtures). Every rule below holds over the two together. */
+const BODY = read('_components/event-day-body.tsx');
+const DRAWN = `${PAGE}\n${BODY}\n${read('_components/day-run-of-show.tsx')}`;
 
 test('1 · one row and the count row; the ▾ is the three views, each its own address', () => {
-  assert.match(PAGE, /<EventHubBar[\s\S]*?exitHref=\{hubHref\(eventId\)\}[\s\S]*?chatHref=\{booking\.threadId \? supplierChatHref\(eventId, booking\.threadId\) : null\}/);
-  assert.match(PAGE, /<EventHubCounts tiles=\{counts\} \/>/);
+  assert.match(PAGE, /<EventDayBody[\s\S]*?bar=\{\{[\s\S]*?exitHref: hubHref\(eventId\),\s*chatHref: booking\.threadId \? supplierChatHref\(eventId, booking\.threadId\) : null,/);
+  assert.match(BODY, /<EventHubBar \{\.\.\.bar\} \/>/);
+  assert.match(BODY, /<EventHubCounts tiles=\{shownCounts\} \/>/);
+  assert.match(PAGE, /counts=\{counts\}/);
   assert.deepEqual([...EVENT_HUB_VIEWS], ['day', 'scanner', 'announce']);
   assert.equal(eventHubViewHref('e1', 'day'), '/vendor-dashboard/on-the-day/live/e1');
   assert.equal(eventHubViewHref('e1', 'scanner'), '/vendor-dashboard/on-the-day/live/e1?view=scanner');
@@ -34,10 +40,22 @@ test('1 · one row and the count row; the ▾ is the three views, each its own a
 });
 
 test('2 · The Day keeps every shipped part of the console', () => {
-  const day = PAGE.slice(PAGE.indexOf(") : view === 'announce' ? ("));
-  for (const part of ['<FloorClock blocks={blocks} />', '<RunOfShowHeader eventId={eventId} initial={blocks} />', '<MarchRead', "has('pax_headcount')", 'linkModules.map', '<LiveReviews', '<SpecializationSlot']) {
-    assert.ok(day.includes(part), `The Day lost ${part}`);
+  for (const part of [
+    '<FloorClock blocks={blocks} />',
+    '<RunOfShowHeader eventId={eventId} initial={blocks}',
+    '<DayRunOfShow eventId={eventId} blocks={blocks} />',
+    '<MarchRead',
+    "has('pax_headcount')",
+    'linkModules.map',
+    'tools.map((t) =>',
+    '<LiveReviews',
+    '<SpecializationSlot',
+    '<SupplierSavedStrip',
+  ]) {
+    assert.ok(DRAWN.includes(part), `The Day lost ${part}`);
   }
+  // The Day is the body's own branch — Scanner and Announce draw in its place, never under it.
+  assert.ok(BODY.indexOf("view !== 'day' ?") < BODY.indexOf('<FloorClock blocks={blocks} />'), 'The Day is drawn under another view');
 });
 
 test('3 · Scanner and Announce are doors into shipped tools', () => {

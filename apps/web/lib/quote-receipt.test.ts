@@ -9,12 +9,14 @@
  *      a discount doubled, "Quoted after site check" turned into a free line, a stored credit added twice);
  *   3. the receipt invents a number (a new line with a price, a crew charge with a default crew);
  *   4. opening AT an agreed price does not land on it;
- *   5. a plan choice that moves a paid payment is offered.
+ *   5. a plan choice that moves a paid payment is offered;
+ *   6. a line nobody priced reads "₱0" or is sent at ₱0 (21 Nov: "amount not set", never ₱0) — while a stored ₱0 line
+ *      reopened as it was (a free-transport line) still sends untouched.
  *
  * SABOTAGE (20 Nov 2026, each seen RED then restored): `transportChargeCentavos` swapped for the typed fee when the
  * mode is 'included' (1) · `li.push(l.src)` → always rebuild the line (2) · `newReceiptLine` priced at 5000 (3) ·
  * `open.net -` → `open.subtotal -` in `fitReceiptToTarget` with a credit on the quote (4) · `if (stored && hasPaid)
- * return keep` removed (5).
+ * return keep` removed (5) · `receiptLineUnpriced` → `false` and the "Amount not set" word swapped for `pesos(…)` (6).
  *
  * Run: cd apps/web && npx tsx --test lib/quote-receipt.test.ts
  */
@@ -23,9 +25,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fitReceiptToTarget, newReceiptLine, receiptFromCards, receiptFromStored, receiptMoney, receiptPlanChoices, receiptRefusal, RECEIPT_WORDS } from './quote-receipt';
+import { fitReceiptToTarget, newReceiptLine, receiptFromCards, receiptFromStored, receiptLineUnpriced, receiptMoney, receiptPlanChoices, receiptRefusal, RECEIPT_WORDS } from './quote-receipt';
 import { DEFAULT_QUOTE_PLAN } from './proposal-payment-schedule';
-import { QUOTED_AFTER_SITE_CHECK } from './quote-line-price-words';
+import { QUOTE_LINE_AMOUNT_NOT_SET, QUOTED_AFTER_SITE_CHECK, quoteExtraPriceWords } from './quote-line-price-words';
 import type { ProposalLineItem } from './vendor-proposals';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -183,4 +185,60 @@ test('the receipt reaches the server only through the shipped writer, and is hos
   // A line wears its OWN card's style; a card with none wears no tag.
   assert.match(card('quote-receipt.tsx'), /const style = l\.cardId && tags \? \(tags\[l\.cardId\] \?\? null\) : null;/);
   assert.match(card('card-calls.ts'), /if \(isAvailabilityStyle\(r\.availability_style\)\) byCard\[r\.vendor_service_id\] = r\.availability_style;/);
+});
+
+test('6 · a line nobody priced says "Amount not set", never ₱0, and is not sent until it has a price or is Free', () => {
+  // A card with no "from" price, picked into a quote.
+  const d = receiptFromCards([
+    { id: 'c1', name: 'Lights', fromCentavos: 3_000_000 },
+    { id: 'c2', name: 'Fog machine', fromCentavos: null },
+  ]);
+  const fog = d.lines.find((l) => l.cardId === 'c2')!;
+  assert.equal(receiptLineUnpriced(fog), true, 'a card with no price opened as a priced line');
+  assert.equal(receiptLineUnpriced(d.lines.find((l) => l.cardId === 'c1')!), false);
+  assert.equal(receiptRefusal(d, receiptMoney(d)), 'Price every line, or switch it to Free.', 'an unpriced line was sent at ₱0');
+  // Priced, or switched to Free — either answers it.
+  const priced = { ...d, lines: d.lines.map((l) => (l.key === fog.key ? { ...l, pricePhp: 2500 } : l)) };
+  assert.equal(receiptRefusal(priced, receiptMoney(priced)), null);
+  const free = { ...d, lines: d.lines.map((l) => (l.key === fog.key ? { ...l, free: true } : l)) };
+  assert.equal(receiptRefusal(free, receiptMoney(free)), null);
+  assert.equal(receiptLineUnpriced(free.lines.find((l) => l.key === fog.key)!), false, 'a Free line reads as unpriced');
+  // A line the supplier added and named but has not priced.
+  const added = { ...priced, lines: [...priced.lines, { ...newReceiptLine(), label: 'Extra hour' }] };
+  assert.equal(receiptRefusal(added, receiptMoney(added)), 'Price every line, or switch it to Free.');
+  // A stored ₱0 line (free transport) reopened as it was is the supplier's earlier choice — it sends untouched.
+  const stored = receiptFromStored([
+    { label: 'Lights', amount_centavos: 3_000_000 },
+    { label: 'Transportation', detail: 'Free within the ring', amount_centavos: 0 },
+  ]);
+  assert.equal(stored.lines.some(receiptLineUnpriced), false, 'a stored ₱0 line was read as unpriced');
+  assert.equal(receiptRefusal(stored, receiptMoney(stored)), null);
+});
+
+test('6 · the receipt draws the unpriced line\'s words, not a peso amount', () => {
+  const ui = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'quote-receipt.tsx'), 'utf8');
+  assert.equal(QUOTE_LINE_AMOUNT_NOT_SET, 'Amount not set');
+  assert.match(ui, /receiptLineUnpriced\(l\) \? QUOTE_LINE_AMOUNT_NOT_SET : pesos\(receiptLineCentavos\(l\)\)/);
+});
+
+test('7 · a stored line is priced only while it says what was stored; a free catalogue extra stays free (ship review 21 Nov)', () => {
+  const stored = receiptFromStored([
+    { label: 'Lights', amount_centavos: 3_000_000 },
+    { label: 'Ribbons', amount_centavos: null },
+  ]);
+  const lights = stored.lines.find((l) => l.label === 'Lights')!;
+  const ribbons = stored.lines.find((l) => l.label === 'Ribbons')!;
+  assert.equal(receiptLineUnpriced({ ...lights, pricePhp: 0 }), true, 'a stored line edited to ₱0 still read as priced');
+  assert.equal(receiptLineUnpriced({ ...ribbons, free: false }), true, 'a stored Free turned off still read as priced');
+  assert.equal(receiptLineUnpriced(ribbons), false, 'a stored Free line read as unpriced');
+
+  // The catalogue picker passes `free` through, and says "Free" / "Amount not set" — never ₱0.
+  const step = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'quote-step-card.tsx'), 'utf8');
+  assert.match(step, /pricePhp: x\.pricePhp, qty: Math\.max\(1, Math\.round\(x\.qty\)\), free: x\.free,/);
+  const calls = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'card-calls.ts'), 'utf8');
+  assert.match(calls, /free: !perPax && Boolean\(x\.line\.free\)/);
+  assert.equal(quoteExtraPriceWords({ qty: 1, pricePhp: 0, free: true }), 'Free');
+  assert.equal(quoteExtraPriceWords({ qty: 1, pricePhp: 0, free: false }), QUOTE_LINE_AMOUNT_NOT_SET);
+  assert.notEqual(quoteExtraPriceWords({ qty: 2, pricePhp: 1500, free: false }), QUOTE_LINE_AMOUNT_NOT_SET);
+  assert.match(step, /label: `\$\{x\.label\} · \$\{quoteExtraPriceWords\(x\)\}`/);
 });

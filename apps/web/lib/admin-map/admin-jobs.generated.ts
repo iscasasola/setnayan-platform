@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 332 jobs, 218 of them form-driven, as of 0d8a5c5005.
+// that performs it. 332 jobs, 218 of them form-driven, as of 7524ac43ac.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2658,6 +2658,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/integrations",
     "resolvedPath": "/admin/integrations",
     "fields": [
+      "intent",
+      "enabled",
       "maya_checkout_endpoint",
       "maya_public_api_key",
       "maya_secret_api_key"
@@ -3524,6 +3526,7 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/vendors",
     "resolvedPath": "/admin/vendors",
     "fields": [
+      "op",
       "vendor_id",
       "tier_state",
       "reason",

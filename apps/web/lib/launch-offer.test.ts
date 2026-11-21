@@ -107,7 +107,7 @@ test('the receipt and the forecast name the fee, the offer and the credits — n
   });
   assert.match(receipt.title, /₱2,500\.00 — waived for Rosa & Ben/);
   assert.match(receipt.body, /booking 12 of the Setnayan launch offer/);
-  assert.match(receipt.body, /did not use up any of your free bookings/);
+  assert.match(receipt.body, /did not use a free booking fee ticket you hold/);
   assert.match(receipt.body, /50 Papic credits/);
   assert.doesNotMatch(receipt.body, /booking \d+ of your first/);
 

@@ -92,10 +92,10 @@ test('1 · the headline is the approved one', async () => {
     /Plan it · Suppliers Suppliers you can trust\. No fake reviews\. No paid stars\. Ever\./,
     'the v6 "Suppliers you can trust" part is gone or reworded',
   );
-  // The gift row says only what is live (the card's Setnayan gift) — never "every booking" (#7823 is on hold).
-  assert.match(page, /A Setnayan gift\. Some bookings come with free Papic photos for your event\./, 'the v6 gift row is gone');
-  assert.doesNotMatch(page, /every booking (comes|carries) (with )?a gift/i, 'the page promises a gift on every booking, which is not built');
-  assert.doesNotMatch(page, /Many bookings come with/, '"many" is not measured — the gift row says "Some"');
+  // 🎁 The gift row, exactly (owner, #7823 off hold — DECISION_LOG a0b95202): every booking carries at least one
+  // gift, enforced server-side by #7823 (Agree refuses zero gifts, imported and free-fee bookings included).
+  assert.match(page, /An exclusive Setnayan gift with every booking\./, 'the gift row is not the owner’s exact line');
+  assert.doesNotMatch(page, /Some bookings come with|Many bookings come with/, 'the gift row went back to "some" — every booking carries one now');
   // Badges are earned three ways (lib/card-badges.ts): bookings, inquiries (Quick Responder, Trending Now count
   // inquiries) and checked papers (Setnayan Verified) — never "only from real bookings".
   assert.match(page, /Badges are earned\. Every badge and seal is earned: real bookings, real inquiries, checked papers\./, 'the badges row is not the corrected wording');

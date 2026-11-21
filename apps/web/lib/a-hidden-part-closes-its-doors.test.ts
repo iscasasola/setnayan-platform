@@ -6,7 +6,8 @@
  *
  *   · the page's own frame — the Me slot's seat line, the Event Bar's camera and photos (`app/[slug]/page.tsx`);
  *   · the part's own page, for a guest who kept the address (`/pabuya`, `/find-seat`, `/find-my-table`, `/everyone`);
- *   · the Day hub, which draws its own seat, gift, live and camera doors (`/hub`);
+ *   · ~~the Day hub, which draws its own seat, gift, live and camera doors (`/hub`)~~ — since 20 Nov 2026 (one bar per
+ *     stage) `/hub` draws nothing and sends the guest to the event page's tab; test 4 holds that it stays door-less;
  *   · the rail of doors every sub-page carries (`_lib/room-links.server.ts`), and the live wall's data (`/live-wall`).
  *
  * Every one of them asks the ONE reading (`partsHiddenOn`, lib/what-guests-see.ts) — through
@@ -104,19 +105,15 @@ test("3 · the part's own page takes the exit it already had", () => {
   assert.match(WALL, /const NOT_FOUND: WallAnswer = \{ status: 404, body: \{ error: 'not_found' \} \};/);
 });
 
-test('4 · the Day hub: its seat card, gift door, stream, wall and camera ask — at the stage the hub resolved', () => {
+test('4 · the Day hub draws no door of its own any more — it sends the guest to the event page, whose doors ask', () => {
+  // 🧭 One bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`).
+  // Its seat card, gift door, stream, wall and camera were the hub's OWN copies; the event page's are the ones a guest
+  // meets now, and `fixed-rows-are-real-boxes.test.ts` flips each of them there. So the hub must stay door-less: a
+  // door drawn here again would need its own `partsOff` reading, and this test would have to come back.
   const HUB = src('app/[slug]/hub/page.tsx');
-  assert.match(HUB, /const partsOff = await hiddenPartDoors\(createAdminClient\(\), event\.event_id, lifecyclePhase\);/);
-  assert.match(HUB, /const seatingPublished = seatingSurfaceOn && !partsOff\.has\('seat'\)/);
-  assert.match(HUB, /\{guest && partsOff\.has\('seat'\) \? null : guest \? \(/);
-  assert.match(HUB, /enabledEgiftCount: partsOff\.has\('gifts'\) \? 0 : enabledEgiftCount,/);
-  assert.match(HUB, /if \(partsOff\.has\('live'\)\) watchEmbed = null;/);
-  assert.match(HUB, /if \(partsOff\.has\('live'\)\) liveWall = null;/);
-  assert.match(HUB, /const candidActive = !partsOff\.has\('camera'\) && \(guest \? papicGuestOwned : isLive && papicGuestOwned\);/);
-  // The reading is taken before any of the facts it withholds is computed.
-  const at = HUB.indexOf('const partsOff = await hiddenPartDoors(');
-  for (const fact of ['let watchEmbed', 'const candidActive', 'const seatingPublished', 'const doorways = resolveGuestDoorways(']) {
-    assert.ok(at > 0 && at < HUB.indexOf(fact), `the hub computes ${fact} before it asks`);
+  assert.match(HUB, /redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(\{/, 'the hub no longer sends its visitor to the event page');
+  for (const door of ['resolveGuestDoorways', 'WatchLiveBlock', 'LiveWallBlock', 'candidActive', 'seatingPublished', 'pabuya', '<Link']) {
+    assert.ok(!HUB.includes(door), `the hub draws a door of its own again (${door}) — it must ask \`hiddenPartDoors\` first`);
   }
 });
 

@@ -9,16 +9,18 @@
  *     never the code default; the stops themselves are example booking prices (`FEE_STOPS`), not prices;
  *   · each plan's price → the catalog (`getVendorPrices`), handed in by the page; one that could not be read shows "—".
  *
- * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. The drawing locks the fee at a ceiling and frees "every 100,000th fee" and
- * "the first supplier on an event". None of those is built (2026-11-20): the live fee has a floor and no ceiling, so
- * the ruler draws no lock, and the switches are only the free bookings the app actually gives — handed in by the page
- * (`freeWhen`), never typed here.
+ * 🎚 THE DRAWING'S RULER, ON WHAT IS LIVE. 🔒 The ₱100,000 lock is live (PR #8061, `platform_settings.booking_fee_cap_php`),
+ * so the ruler draws it as the drawing does: a stop where the fee first reaches the lock (`feeRulerStops`, from the
+ * schedule), a tick on the bar there, a "₱100,000 lock" flag (`bookingFeeCapAmount`) and a lock on every stop at the cap.
+ * The switches are only the free bookings the app actually gives — handed in by the page (`freeWhen`), never typed here;
+ * "every 100,000th fee" is live in billing but its N is not read by this page yet, so it is not a switch.
  */
 import Link from 'next/link';
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { SWITCH_TRACK } from '@/app/_components/switch-track';
-import { bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FEE_STOPS, FEE_STOP_START } from './supplier-front-data';
+import { Lock } from 'lucide-react';
+import { bookingFeeCapAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { FEE_STOP_START, feeRulerStops } from './supplier-front-data';
 import s from './supplier-front.module.css';
 
 const PESO = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -29,7 +31,12 @@ const peso = (n: number) => PESO.format(n);
 export type FreeWhen = { label: string; hint: string };
 
 export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule; freeWhen: readonly FreeWhen[] }) {
-  const stops = useMemo(() => FEE_STOPS.map((v) => ({ v, fee: bookingFeePhp(v, schedule) })), [schedule]);
+  const stops = useMemo(() => feeRulerStops(schedule), [schedule]);
+  /** Where the lock sits on the bar (0–1), or null when no stop reaches it. */
+  const lockAt = useMemo(() => {
+    const i = stops.findIndex((p) => p.lockPoint);
+    return i < 0 ? null : i / Math.max(1, stops.length - 1);
+  }, [stops]);
   const [at, setAt] = useState<number>(FEE_STOP_START);
   const [on, setOn] = useState<readonly boolean[]>(() => freeWhen.map(() => false));
   const sc = useRef<HTMLDivElement>(null);
@@ -126,7 +133,15 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
           onPointerMove={onPointerMove}
           onKeyDown={onKeyDown}
         >
-          {free ? <span className={s.fxFree}>Free · no booking fee</span> : null}
+          {free ? (
+            <span className={s.fxFree}>Free · no booking fee</span>
+          ) : lockAt !== null ? (
+            <span className={s.fxFlag}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              {bookingFeeCapAmount(schedule)} lock
+            </span>
+          ) : null}
+          {!free && lockAt !== null ? <i className={s.fxTick} style={{ left: `${lockAt * 100}%` }} aria-hidden="true" /> : null}
           <i className={s.fxTrack}>
             <i className={s.fxFill} style={{ transform: `scaleX(${share})` }} />
           </i>
@@ -162,6 +177,7 @@ export function FeeRuler({ schedule, freeWhen }: { schedule: BookingFeeSchedule;
                 <>
                   <span className={s.fxF}>
                     <small>Fee</small>
+                    {p.locked ? <Lock aria-label="locked" className={s.fxLk} strokeWidth={2.2} /> : null}
                     <b>{peso(p.fee)}</b>
                   </span>
                   <span className={s.fxPc}>

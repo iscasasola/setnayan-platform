@@ -58,6 +58,11 @@ test('the tappable mark in each shared piece wears the accent — not a grey, no
  */
 const GUEST_EXEMPT: Readonly<Record<string, string>> = {
   'app/[slug]/_components/discover-arrival-back.tsx': 'app/_components/back-button.tsx',
+  /* 🎁 The E-Gifts page (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN": E-Gifts "goes full
+     screen and no way back"): it is drawn in SETNAYAN's look, not the couple's theme — the cream page, the Setnayan logo,
+     "Kept safe on Setnayan" — so its one ‹ Event Hub is the house back (every-back-goes-home asks exactly that), in the
+     same accent as the page around it. */
+  'app/[slug]/pabuya/page.tsx': 'app/_components/back-button.tsx',
 };
 
 test('none of those shared pieces is drawn on a guest page', () => {

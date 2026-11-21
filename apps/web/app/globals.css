@@ -3910,6 +3910,9 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
   --sn-ink-700:    rgb(var(--color-ink-2));
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
+  /* The side a guest is on (guest card dots): identity colours, the same in both themes. */
+  --sn-side-bride: #b86f8a;
+  --sn-side-groom: #5b7fb8;
 
   /* ── THE GALLERY'S OBSIDIAN SURFACE (archetype 02, owner-approved 2026-08-04)
      ────────────────────────────────────────────────────────────────────────
@@ -4246,6 +4249,9 @@ html.dark {
   --sn-ink-500:    var(--m-slate-2);     /* #B3AEA3 */
   --sn-ink-700:    rgb(var(--color-ink-2));
   --sn-ink-900:    rgb(var(--color-ink));
+  /* Identity colours: the same on dark, written out on purpose. */
+  --sn-side-bride: #b86f8a;
+  --sn-side-groom: #5b7fb8;
   /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */
   --sn-ink-black:  #17160F;
 

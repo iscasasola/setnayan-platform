@@ -63,6 +63,7 @@ export const PUSH_LEVEL: Record<NotificationType, PushLevel> = {
   account_suspended: 'normal', // an admin put the account on hold (the person is signed out, so this mostly waits for the lift)
   account_unsuspended: 'normal', // the hold was lifted — they can sign in again
   badge_earned: 'normal', // a supplier earned a badge — its reward is already in their gifts (owner 2026-11-15)
+  payment_rail_down: 'urgent', // Maya would not open; payers are on the BDO QR (one notice per outage)
   seal_awarded: 'normal', // a shop was given a seal (badge build J2 sends it)
   card_badge_earned: 'normal', // a service card earned a card badge (badge build J3 sends it)
   schedule_released: 'normal', // a guest's own full schedule and call time are on Me (Release)

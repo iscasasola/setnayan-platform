@@ -166,3 +166,12 @@ test('approvePaymentCore refusing (duplicate, shortfall) → queued with its mes
   assert.equal(r.outcome, 'queued');
   assert.equal(w.row.status, 'queued');
 });
+
+test('the verdict is cached on the row: an approved checkout is not asked about again', async () => {
+  const w = world();
+  await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1' });
+  const asked = w.log.verifies;
+  w.row.verified_at = new Date().toISOString();
+  assert.equal((await settleMayaPayment(w.deps, { reference: REF })).outcome, 'already');
+  assert.equal(w.log.verifies, asked, 'a reload of ?maya=success called Maya again');
+});

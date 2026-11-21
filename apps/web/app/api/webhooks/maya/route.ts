@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { settleMaya } from '@/app/admin/payments/maya';
+import { isMayaWebhookSource } from '@/lib/maya-checkout';
 
 /**
  * 💳 Maya webhooks — the URL "Register webhooks" (Admin › Integrations › Maya)
@@ -14,12 +15,18 @@ import { settleMaya } from '@/app/admin/payments/maya';
  * answer alone (lib/maya-settle.ts). A forged body naming a real checkout can
  * at worst make us ask Maya again — it cannot approve anything.
  *
+ * 🔒 ONLY MAYA'S ADDRESSES ARE HEARD (ship review 21 Nov, item 6). A request from
+ * anywhere but Maya's published webhook IPs (`MAYA_WEBHOOK_SOURCE_IPS`,
+ * developers.maya.ph/reference/api-environments) gets the same silent 200 and
+ * nothing else — not even a question to Maya. If Maya adds an address, its
+ * webhooks are dropped here until the list is updated. The payer's return
+ * (`?maya=success`) and their next visit to the pay page re-verify on their own,
+ * but a payer who closes Maya's tab and never comes back waits until somebody
+ * opens that order — so keep this list current.
+ *
  * ⚠ Maya also documents an RSA "Webhook Signature Version 1"
  * (developers.maya.ph/reference/webhook-security). It is not checked in V1:
- * the server-side re-verify is the security, and a signature failing closed
- * would only drop real payments. Maya's published source IPs are recorded in
- * `MAYA_WEBHOOK_SOURCE_IPS` (lib/maya-checkout.ts) for the owner's reference;
- * they are not a gate either.
+ * the server-side re-verify is what approves money.
  *
  * Maya wants 200 within 5 seconds and retries non-2xx at 5 · 15 · 45 minutes
  * (developers.maya.ph/reference/configuring-your-webhook-for-maya-checkout).
@@ -34,6 +41,9 @@ const text = (v: unknown, max: number): string | null =>
   typeof v === 'string' && v.trim() && v.trim().length <= max ? v.trim() : null;
 
 export async function POST(req: NextRequest) {
+  if (!isMayaWebhookSource(req.headers.get('x-forwarded-for'), req.headers.get('x-real-ip'))) {
+    return NextResponse.json({ ok: true });
+  }
   let body: unknown = null;
   try {
     body = await req.json();

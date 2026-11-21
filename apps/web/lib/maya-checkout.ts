@@ -54,8 +54,9 @@ export const MAYA_WEBHOOK_EVENTS = [
 
 /**
  * Maya's published webhook source addresses (developers.maya.ph/reference/api-environments,
- * read 2026-11-21). DOCUMENTATION ONLY — they are not used as a gate, because the
- * security of the webhook is the server-side re-verify, never who sent the body.
+ * read 2026-11-21). The webhook route answers anything else with a silent 200 and does
+ * nothing (`isMayaWebhookSource`, ship review 21 Nov). The server-side re-verify is still
+ * what approves money; the IPs only keep strangers from making us ask Maya.
  */
 export const MAYA_WEBHOOK_SOURCE_IPS = {
   sandbox: ['13.229.160.234', '3.1.199.75'],
@@ -136,7 +137,9 @@ export function toCentavos(raw: unknown): number | null {
 
 /** The pay page's return address for one outcome. */
 export function mayaReturnUrl(origin: string, reference: string, outcome: 'success' | 'failure' | 'cancel'): string {
-  return `${origin.replace(/\/+$/, '')}/pay/${encodeURIComponent(reference)}?maya=${outcome}`;
+  // A cancel or fail lands back ON the pay stage (v3: "back on the same choices with one line").
+  const step = outcome === 'success' ? '' : '&step=2';
+  return `${origin.replace(/\/+$/, '')}/pay/${encodeURIComponent(reference)}?maya=${outcome}${step}`;
 }
 
 /**
@@ -171,6 +174,8 @@ export type MayaPaymentLike = {
   amount?: unknown;
   currency?: unknown;
   requestReferenceNumber?: unknown;
+  /** How it was paid (Maya's own words) — read only for the payer's receipt row, never for the verdict. */
+  fundSource?: { type?: unknown; description?: unknown } | null;
 };
 
 const FAILED: Record<string, 'failed' | 'expired' | 'cancelled'> = {
@@ -187,7 +192,7 @@ const FAILED: Record<string, 'failed' | 'expired' | 'cancelled'> = {
 
 export type MayaVerdict =
   /** Paid, for this reference, this amount, in PHP — the ONLY verdict that may approve. */
-  | { kind: 'paid'; mayaPaymentId: string; amountPhp: number }
+  | { kind: 'paid'; mayaPaymentId: string; amountPhp: number; paidWith: string | null }
   /** Maya says it is paid, but something does not agree — the admin decides. */
   | { kind: 'mismatch'; mayaPaymentId: string | null; amountPhp: number | null; reason: string }
   /** Not paid and never will be. */
@@ -232,7 +237,7 @@ export function judgeMayaPayment(
   if (amountC !== expectedC) {
     return mismatch(`Maya received ${formatPhp(amountC / 100)}; the order is ${formatPhp(expectedC / 100)}.`);
   }
-  return { kind: 'paid', mayaPaymentId: id, amountPhp: amountC / 100 };
+  return { kind: 'paid', mayaPaymentId: id, amountPhp: amountC / 100, paidWith: mayaPaidWith(payment) };
 }
 
 /**
@@ -251,6 +256,34 @@ export function judgeMayaPayments(
     verdicts.find((v) => v.kind === 'pending') ??
     verdicts.find((v) => v.kind === 'closed') ?? { kind: 'pending', mayaPaymentId: null }
   );
+}
+
+/**
+ * How the payer paid, in Maya's own words, for the receipt row ("Paid with … · through Maya"). Maya's `fundSource`
+ * carries a description and a type; neither is mapped to a label of ours (no guessed method names) — the description
+ * wins, else the type, else nothing and the row reads "through Maya" alone.
+ */
+export function mayaPaidWith(payment: MayaPaymentLike): string | null {
+  const fs = payment.fundSource;
+  if (!fs || typeof fs !== 'object') return null;
+  return (str(fs.description) ?? str(fs.type))?.slice(0, 80) ?? null;
+}
+
+/**
+ * The line on the BDO safety route when Maya would not open (v3 drawing, verbatim). Never an error, never a retry
+ * button, never a link back to Maya.
+ */
+export const MAYA_BUSY_LINE = 'Maya is busy — pay by BDO QR. Nothing has been charged.';
+
+/**
+ * Is this request from one of Maya's published webhook addresses? (Ship review 21 Nov: the IPs are the gate on the
+ * webhook route, on top of the API re-verify.) The client address is the FIRST entry of `x-forwarded-for`, which
+ * Vercel's edge sets; anything unreadable is "no".
+ */
+export function isMayaWebhookSource(forwardedFor: string | null, realIp: string | null = null): boolean {
+  const ip = (forwardedFor?.split(',')[0] ?? realIp ?? '').trim();
+  if (!ip) return false;
+  return ([...MAYA_WEBHOOK_SOURCE_IPS.sandbox, ...MAYA_WEBHOOK_SOURCE_IPS.production] as string[]).includes(ip);
 }
 
 /** The one line a payer reads on returning from Maya without paying. */

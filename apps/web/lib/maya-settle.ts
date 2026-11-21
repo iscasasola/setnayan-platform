@@ -44,6 +44,8 @@ export type MayaCheckoutRow = {
   status: string;
   maya_payment_id: string | null;
   payment_id: string | null;
+  /** Set once Maya's API has given a verdict on this checkout (never by an unverifiable queue). */
+  verified_at?: string | null;
 };
 
 /** What the order is owed NOW — read through the same resolver the pay page uses. */
@@ -75,7 +77,10 @@ export type MayaSettleDeps = {
     mayaPaymentId: string;
     note: string;
   }): Promise<{ paymentId: string; status: string } | 'error'>;
-  updateCheckout(checkoutId: string, patch: Partial<MayaCheckoutRow> & { outcome_reason?: string | null; verified_at?: string }): Promise<void>;
+  updateCheckout(
+    checkoutId: string,
+    patch: Partial<MayaCheckoutRow> & { outcome_reason?: string | null; paid_with?: string | null },
+  ): Promise<void>;
   approve(args: { paymentId: string; buyerUserId: string; note: string }): Promise<ApproveOutcome>;
   /** The admins are told whenever money is waiting for them (approved or queued). */
   notifyAdmins(args: { orderId: string; amountPhp: number }): Promise<void>;
@@ -117,6 +122,14 @@ export async function settleMayaPayment(
   const row = await deps.findCheckout({ checkoutId: mayaId, mayaPaymentId: mayaId, reference });
   if (row === 'error') return { outcome: 'unverifiable', queued: false };
   if (!row) return { outcome: 'unknown' };
+
+  // 1b · THE VERDICT IS CACHED ON THE ROW (ship review 21 Nov, item 8). Approved, or queued AFTER Maya answered,
+  // is final for this checkout: a reload of `?maya=success` or a repeated webhook does not ask Maya again. A queue
+  // made because Maya could NOT be reached has no `verified_at`, so it is asked again — that is how it clears.
+  const sameMayaPayment = !mayaId || mayaId === row.maya_payment_id || mayaId === row.checkout_id;
+  if (sameMayaPayment && row.payment_id && (row.status === 'approved' || (row.status === 'queued' && row.verified_at))) {
+    return { outcome: 'already', paymentId: row.payment_id };
+  }
 
   // 2 · Ask Maya. By the id when we have one, else by our reference.
   let verdict: MayaVerdict | 'error';
@@ -196,7 +209,12 @@ export async function settleMayaPayment(
     return { outcome: 'already', paymentId: pay.paymentId };
   }
 
-  const stamp = { maya_payment_id: id, payment_id: pay.paymentId, verified_at: new Date().toISOString() };
+  const stamp = {
+    maya_payment_id: id,
+    payment_id: pay.paymentId,
+    verified_at: new Date().toISOString(),
+    paid_with: verdict.kind === 'paid' ? verdict.paidWith : null,
+  };
   if (reason) {
     await deps.updateCheckout(row.checkout_id, { ...stamp, status: 'queued', outcome_reason: reason });
     await deps.notifyAdmins({ orderId: row.order_id, amountPhp });

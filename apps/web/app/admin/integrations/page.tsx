@@ -34,6 +34,7 @@ import { PasswordField } from '@/app/_components/password-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { routes } from '@/lib/routes';
 import { mayaWebhookNotice } from '@/lib/maya-checkout';
+import { readMayaSwitch } from '@/lib/maya-checkout.server';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -454,6 +455,7 @@ export default async function AdminIntegrationsPage({
           }
           webhookUrl={`${siteOrigin()}${routes.api.webhooks.maya()}`}
           webhookNotice={mayaWebhookNotice(mayaWebhooks)}
+          payersSeeMaya={await readMayaSwitch(createAdminClient())}
         />
       </section>
 

@@ -225,6 +225,7 @@ const GATEWAY_GATES = [
   'app/admin/payments/maya.ts', // the ONE gateway caller of approvePaymentCore
   'app/api/webhooks/maya/route.ts', // hints only
   'app/pay/[reference]/maya-return.ts', // hints only
+  'app/pay/[reference]/maya-start.ts', // re-settles the previous checkout before opening a new one — hints only
 ] as const;
 
 /** The one file allowed to pass `gateway:` to approvePaymentCore. */
@@ -266,7 +267,7 @@ test('the gateway caller approves only through the settle path, which asks Maya 
   assert.ok(verify > 0 && judge > 0 && approve > 0, 'verify, judge and approve must all be in the settle path');
   assert.ok(verify < approve && judge < approve, 'settle approves before it has asked Maya and judged the answer');
   // The webhook and the return pass hints, never a verdict, and never reach the core themselves.
-  for (const door of ['app/api/webhooks/maya/route.ts', 'app/pay/[reference]/maya-return.ts']) {
+  for (const door of ['app/api/webhooks/maya/route.ts', 'app/pay/[reference]/maya-return.ts', 'app/pay/[reference]/maya-start.ts']) {
     const src = stripComments(read(door));
     assert.equal(/approvePaymentCore/.test(src), false, `${door} calls approvePaymentCore directly`);
     assert.match(src, /settleMaya\(/, `${door} no longer goes through settleMaya`);

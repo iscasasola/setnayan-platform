@@ -26,7 +26,11 @@ import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
-import { MayaPayButton } from './_components/maya-pay-button';
+import { MayaPayStage } from './_components/maya-pay-stage';
+import { MayaChecking } from './_components/maya-checking';
+import { mayaReceiptFor } from '@/lib/maya-checkout.server';
+import { isMayaPayment } from '@/lib/maya-checkout';
+import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
 
 /**
@@ -152,7 +156,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   // is whether THEY have told us something: a picture, or a number.
   const { data: paymentRows, error: paymentsError } = await supabase
     .from('payments')
-    .select('payment_id,status,admin_resubmit_notice,screenshot_url,reference_number,created_at')
+    .select('payment_id,status,admin_resubmit_notice,screenshot_url,reference_number,created_at,channel')
     .eq('order_id', payable.orderId)
     .order('created_at', { ascending: false })
     .limit(1);
@@ -366,6 +370,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   );
 
 
+  const mayaReceipt = payable.status === 'settled' ? await mayaReceiptFor(payable.orderId) : null;
   if (payable.status !== 'awaiting_payment') {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6">
@@ -384,6 +389,26 @@ export default async function PayPage({ params, searchParams }: Props) {
               ? "This one is settled — there's nothing left to send. Thank you."
               : 'This order was cancelled, so please don’t send anything for it.'}
           </p>
+          {/* 💳 Paid through Maya: the receipt rows under the shipped line (v3 drawing). */}
+          {mayaReceipt ? (
+            <dl data-pay-maya-receipt="" className="mt-6 border-t border-ink/10 pt-4 text-left text-sm [&>div+div]:border-t [&>div+div]:border-ink/10">
+              <p className="mb-2 font-semibold text-ink">Receipt</p>
+              {(
+                [
+                  ['Amount', payAmount(mayaReceipt.amountPhp)],
+                  ['Paid with', mayaReceipt.paidWith ? `${mayaReceipt.paidWith} · through Maya` : 'Through Maya'],
+                  ['Reference', payable.reference],
+                  ['Paid on', formatManilaDateTime(mayaReceipt.paidAt)],
+                  ['Confirmed by', 'Maya · automatically'],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="flex items-baseline justify-between gap-3 py-2">
+                  <dt className="text-ink/60">{k}</dt>
+                  <dd className="text-right tabular-nums text-ink">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
           {payable.back && (
             <Link
               href={payable.back.href}
@@ -406,8 +431,36 @@ export default async function PayPage({ params, searchParams }: Props) {
    */
   const justSent = search.sent === '1' && !needsBetterProof;
 
+  /**
+   * 💳 MAYA (owner 2026-11-21: "Maya is the main way to pay"; "BDO QR is not an option — only the safety route when
+   * Maya is off"). `checking` = back from Maya and not confirmed yet. `mayaOpen` = Maya IS the pay stage: switch on,
+   * both keys, within the ceiling, not busy. Otherwise the shipped BDO page, untouched.
+   */
+  const byMaya = isMayaPayment((latestRow as { channel?: string | null } | null)?.channel);
+
+  // 💳 BACK FROM MAYA, NOT CONFIRMED YET: what they bought and "Checking your payment…" — and NOTHING to pay with.
+  // Never a live QR beside a started payment (ship review 21 Nov, item 5). Its own early return, like "Couldn't
+  // check" above, so the shipped render below stays exactly as it is.
+  if (maya.phase === 'checking' && !waiting) {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
+        {summary}
+        <MayaChecking />
+      </main>
+    );
+  }
+  const mayaOpen = !waiting && !overCeiling && (await maya.railOpenFor(payable.amountPhp));
+  const meta = (user.user_metadata ?? {}) as { full_name?: unknown; name?: unknown };
+  const billedToName =
+    typeof meta.full_name === 'string' && meta.full_name.trim()
+      ? meta.full_name.trim()
+      : typeof meta.name === 'string' && meta.name.trim()
+        ? meta.name.trim()
+        : null;
+
   return (
-    <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
+    // On a computer the Maya pay stage splits the way hosted checkouts do (v3); every other stage keeps one column.
+    <main className={`mx-auto max-w-[560px] px-4 pb-32 pt-6 ${mayaOpen ? 'md:max-w-3xl' : ''}`}>
       {justSent && (
         <SentScreen
           homeHref={payable.home}
@@ -443,7 +496,8 @@ export default async function PayPage({ params, searchParams }: Props) {
       {waiting && (
         <section className="mt-5 rounded-card bg-[color:var(--m-paper-2)] p-6 text-center">
           <h2 className="text-lg font-semibold text-ink">
-            We&rsquo;re verifying your purchase
+            {/* 💳 A Maya payment that did not match waits here for a person (v3: "We're checking this by hand"). */}
+            {byMaya ? <>We&rsquo;re checking this by hand</> : <>We&rsquo;re verifying your purchase</>}
           </h2>
           <p className="mx-auto mt-2 max-w-sm text-sm text-ink/70">
             Please allow up to 24 hours.{' '}
@@ -451,6 +505,9 @@ export default async function PayPage({ params, searchParams }: Props) {
               You&rsquo;ll get an email the moment it&rsquo;s confirmed — there&rsquo;s nothing else for you to do.
             </InfoTip>
           </p>
+          {byMaya ? (
+            <p className="mt-3 text-sm text-ink/70">Your money is safe — nothing is lost while we check.</p>
+          ) : null}
           <p className="mt-4 text-xs text-ink/70">
             {activates}
           </p>
@@ -460,7 +517,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       {search.error && (
         <p role="alert" className="mt-4 text-sm font-medium text-danger-700">{search.error}</p>
       )}
-      {maya.line && !waiting && (
+      {maya.line && !waiting && !mayaOpen && (
         <p role="status" data-pay-maya-line="" className="mt-4 text-sm text-ink/75">{maya.line}</p>
       )}
 
@@ -601,7 +658,19 @@ export default async function PayPage({ params, searchParams }: Props) {
           error: search.error,
           recheck: search.recheck,
         }}
-        maya={(await maya.railOpenFor(payable.amountPhp)) ? <MayaPayButton reference={payable.reference} /> : null}
+        maya={
+          mayaOpen ? (
+            <MayaPayStage
+              reference={payable.reference}
+              amountPhp={payable.amountPhp}
+              title={payable.title}
+              who={payable.who ?? null}
+              billedToName={billedToName}
+              billedToEmail={user.email ?? null}
+              line={maya.line}
+            />
+          ) : null
+        }
       />
       )}
     </main>

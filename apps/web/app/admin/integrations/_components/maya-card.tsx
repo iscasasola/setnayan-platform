@@ -11,8 +11,9 @@ import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 // 💳 2026-11-21 (owner, "MAYA CHECKOUT — BUILD IT"): the build-time
 // NEXT_PUBLIC_MAYA_STATUS gate is RETIRED. The rail is on when the admin switch
 // (Settings › Payment methods) is ON and both keys here are set. This card adds
-// "Register webhooks" (an `intent` on saveMayaConfig — no new server action) and
-// says whether the saved endpoint is SANDBOX or PRODUCTION.
+// "Register webhooks" and, at its top, the "Payers see Maya" switch — its one
+// home (DECISION_LOG v2/v3 drawing rows) — both `intent`s on saveMayaConfig, no
+// new server action; and says whether the saved endpoint is SANDBOX or PRODUCTION.
 
 export function MayaCard({
   publicInDb,
@@ -23,6 +24,7 @@ export function MayaCard({
   endpointFromEnv,
   webhookUrl,
   webhookNotice,
+  payersSeeMaya,
 }: {
   publicInDb: boolean;
   secretInDb: boolean;
@@ -34,6 +36,8 @@ export function MayaCard({
   webhookUrl: string;
   /** The result of the last "Register webhooks" press, from the redirect. */
   webhookNotice: { ok: boolean; text: string } | null;
+  /** The "Payers see Maya" switch (`maya_checkout_enabled`), read fail-closed. */
+  payersSeeMaya: boolean;
 }) {
   const keysReady = (publicInDb || publicInEnv) && (secretInDb || secretInEnv);
   const secretReady = secretInDb || secretInEnv;
@@ -56,9 +60,42 @@ export function MayaCard({
         </span>
       </div>
 
+      {/* 💳 PAYERS SEE MAYA — the switch's one home (v3 drawing). One tap saves it; next page load takes it. */}
+      <form action={saveMayaConfig} className="flex items-center justify-between gap-3 border-b border-ink/10 pb-4" data-maya-switch="">
+        <input type="hidden" name="intent" value="payers_see_maya" />
+        <input type="hidden" name="enabled" value={payersSeeMaya ? '0' : '1'} />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-ink">Payers see Maya</p>
+          <p className="text-xs text-ink/60">
+            {payersSeeMaya
+              ? keysReady
+                ? 'On — QR Ph, wallet, card and ShopeePay lead the pay page.'
+                : 'On, but hidden — a Maya key is missing. Payers see the BDO QR.'
+              : 'Off — every payer sees only the BDO QR.'}
+          </p>
+        </div>
+        <SubmitButton
+          role="switch"
+          aria-checked={payersSeeMaya}
+          aria-label="Payers see Maya"
+          pendingLabel=""
+          overlay={false}
+          className="inline-flex h-11 w-14 shrink-0 items-center justify-center"
+        >
+          {/* A 44-px press around the track. */}
+          <span
+            aria-hidden
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${payersSeeMaya ? 'bg-success-600' : 'bg-ink/20'}`}
+          >
+            <span
+              className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${payersSeeMaya ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </span>
+        </SubmitButton>
+      </form>
+
       <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-        Both keys form the Basic-auth pair. Payers see Maya once the switch in
-        Settings › Payment methods is on.
+        Both keys form the Basic-auth pair.
       </p>
       <p className="text-xs text-ink/60" data-maya-env={env}>
         {env === 'sandbox'

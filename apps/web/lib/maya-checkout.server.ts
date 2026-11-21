@@ -56,7 +56,7 @@ export async function readMayaGate(): Promise<{ state: MayaRailState; config: Ma
 }
 
 const CHECKOUT_COLS =
-  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id';
+  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id, verified_at';
 
 /** Record a checkout we just created, so the webhook and the return can find its order. */
 export async function recordMayaCheckout(row: {
@@ -201,4 +201,32 @@ export function mayaSettleDeps(
       await notifyAdminsPaymentProofSubmitted({ orderId, eventId: '', amountPhp, channel: MAYA_CHANNEL });
     },
   };
+}
+
+export type MayaReceipt = { amountPhp: number; paidWith: string | null; paidAt: string | null };
+
+/**
+ * The receipt rows on the Paid page for an order Maya paid (v3 drawing: Amount · Paid with … · through Maya ·
+ * Reference · Paid on · Confirmed by Maya · automatically). Read with the service client — `maya_checkouts` is
+ * service-role only — and ONLY for an order the page already proved belongs to the viewer. Null = not a Maya payment
+ * (or unreadable): the shipped Paid page, unchanged.
+ */
+export async function mayaReceiptFor(orderId: string): Promise<MayaReceipt | null> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('maya_checkouts')
+      .select('amount_php, paid_with, verified_at')
+      .eq('order_id', orderId)
+      .eq('status', 'approved')
+      .order('verified_at', { ascending: false })
+      .limit(1);
+    if (error) {
+      console.error('[maya] receipt read refused', error.message);
+      return null;
+    }
+    const row = (data ?? [])[0] as { amount_php: number | string; paid_with: string | null; verified_at: string | null } | undefined;
+    return row ? { amountPhp: Number(row.amount_php), paidWith: row.paid_with, paidAt: row.verified_at } : null;
+  } catch {
+    return null;
+  }
 }

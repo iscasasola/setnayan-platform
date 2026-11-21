@@ -236,6 +236,8 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
   const { userId: adminUserId } = await requireAdmin();
   // 💳 "Register webhooks" on the same card (owner 2026-11-21) — an intent, not a new server action.
   if (formData.get('intent') === 'register_webhooks') return registerMayaWebhooksFromCard(adminUserId);
+  // 💳 "Payers see Maya" — one tap at the top of this card, its one home (DECISION_LOG v2 drawing row, 21 Nov).
+  if (formData.get('intent') === 'payers_see_maya') return savePayersSeeMaya(adminUserId, formData.get('enabled') === '1');
   const admin = createAdminClient();
 
   // Non-secret config → platform_settings. Written UNCONDITIONALLY each save
@@ -275,6 +277,30 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
   const res = await writeIntegrationSecretColumns(secretPatch, CONSOLE_SAVE_NOTE);
   if (!res.ok) redirect('/admin/integrations?error=secret_write');
 
+  revalidatePath('/admin/integrations');
+  redirect('/admin/integrations?saved=1');
+}
+
+/**
+ * 💳 "Payers see Maya" (`platform_settings.maya_checkout_enabled`, migration 20271356998019). On + both keys = Maya is
+ * the pay page; off = every payer sees only the BDO QR. One tap saves it (no Save button) and it takes effect on the
+ * next page load. Not a destination change — the money lands in the owner's own Maya account either way — so it never
+ * waits on a second admin. Audited.
+ */
+async function savePayersSeeMaya(adminUserId: string, enabled: boolean): Promise<never> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ maya_checkout_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) redirect('/admin/integrations?error=save_failed');
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: enabled ? 'maya_checkout_enabled' : 'maya_checkout_disabled',
+    actor_user_id: adminUserId,
+    metadata: { maya_checkout_enabled: enabled },
+  });
+  if (auditErr) console.error('[savePayersSeeMaya] audit insert failed (non-fatal):', auditErr);
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');
 }

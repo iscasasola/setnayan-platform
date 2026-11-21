@@ -19,6 +19,8 @@ import {
   mayaRailReasonLine,
   mayaRailState,
   mayaReturnLine,
+  isMayaWebhookSource,
+  MAYA_BUSY_LINE,
 } from '@/lib/maya-checkout';
 import {
   createMayaCheckout,
@@ -80,14 +82,17 @@ test('the checkout asks for the order total exactly — one line, no fee, no sur
   assert.equal(items[0]!.totalAmount.value, '1499.50');
   assert.deepEqual(body.redirectUrl, {
     success: 'https://www.setnayan.com/pay/SN12345678?maya=success',
-    failure: 'https://www.setnayan.com/pay/SN12345678?maya=failure',
-    cancel: 'https://www.setnayan.com/pay/SN12345678?maya=cancel',
+    failure: 'https://www.setnayan.com/pay/SN12345678?maya=failure&step=2',
+    cancel: 'https://www.setnayan.com/pay/SN12345678?maya=cancel&step=2',
   });
   assert.doesNotMatch(JSON.stringify(body), /fee|surcharge|serviceCharge/i);
 });
 
 test('only PAYMENT_SUCCESS + PHP + our reference + the exact amount is "paid"', () => {
-  assert.deepEqual(judgeMayaPayment(paid, expected), { kind: 'paid', mayaPaymentId: 'pay-1', amountPhp: 1499.5 });
+  assert.deepEqual(judgeMayaPayment(paid, expected), { kind: 'paid', mayaPaymentId: 'pay-1', amountPhp: 1499.5, paidWith: null });
+  // How it was paid is Maya's own words, for the receipt only — it never changes the verdict.
+  const viaQr = judgeMayaPayment({ ...paid, fundSource: { type: 'qrph', description: 'QR Ph' } }, expected);
+  assert.equal(viaQr.kind === 'paid' ? viaQr.paidWith : 'x', 'QR Ph');
   const kinds = (p: object) => judgeMayaPayment({ ...paid, ...p }, expected).kind;
   assert.equal(kinds({ amount: 1499.49 }), 'mismatch', 'a centavo short is not paid');
   assert.equal(kinds({ amount: '1499.50' }), 'paid', 'a string amount is read');
@@ -170,4 +175,17 @@ test('register webhooks: keeps ours, replaces a stale one, adds the missing — 
   ]);
   assert.deepEqual(calls[2]!.body, { name: 'PAYMENT_FAILED', callbackUrl: url });
   assert.deepEqual(await registerMayaWebhooks({ ...config, secretKey: '' }, url, impl), { ok: false, reason: 'no_secret_key' });
+});
+
+test('the webhook gate: only Maya\'s published addresses, read from the first x-forwarded-for entry', () => {
+  assert.equal(isMayaWebhookSource('18.138.50.235'), true);
+  assert.equal(isMayaWebhookSource('3.1.199.75, 10.0.0.1'), true);
+  assert.equal(isMayaWebhookSource('10.0.0.1, 18.138.50.235'), false, 'a forged later hop is not the client');
+  assert.equal(isMayaWebhookSource(null, '13.229.160.234'), true);
+  assert.equal(isMayaWebhookSource(null), false);
+  assert.equal(isMayaWebhookSource('203.0.113.9'), false);
+});
+
+test('the busy line is the drawing\'s, verbatim', () => {
+  assert.equal(MAYA_BUSY_LINE, 'Maya is busy — pay by BDO QR. Nothing has been charged.');
 });

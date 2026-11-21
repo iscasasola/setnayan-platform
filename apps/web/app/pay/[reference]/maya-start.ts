@@ -9,6 +9,8 @@ import { siteOrigin } from '@/lib/site-origin';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { createMayaCheckout, readMayaGate, recordMayaCheckout } from '@/lib/maya-checkout.server';
+import { noteMayaBusy } from '@/lib/maya-busy.server';
+import { settleMaya } from '@/app/admin/payments/maya';
 
 /**
  * "Pay with card or Maya" — the press under the BDO QR on /pay/[reference].
@@ -54,11 +56,27 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
   }
 
   const { state, config } = await readMayaGate();
-  if (!state.open) back('Card and Maya payments are off right now. Please use the QR.');
+  // Off, or a key missing: the page is the BDO page (the safety route) — send them back to it, no error.
+  if (!state.open) redirect(`/pay/${encodeURIComponent(reference)}?step=2`);
   // ⚖ Owner 2026-11-17: no single payment to Setnayan above the admin's `max_payment_php` (₱100,000 ruled).
   if (!paymentWithinCeiling(payable.amountPhp, await getMaxPaymentPhp(supabase))) {
     back('This bill is above the most we take in one payment. Please message us.');
   }
+
+  // 🔒 NEVER PAY TWICE (ship review 21 Nov, item 5). A payer who already went to Maya for this order may have paid
+  // and closed the tab before coming back. Ask Maya about that checkout BEFORE opening a new one: paid → the Paid
+  // page; still in progress → "Checking your payment…"; anything else is a fresh try.
+  const prior = await settleMaya({ reference: payable.reference });
+  if (prior.outcome === 'approved' || prior.outcome === 'already' || prior.outcome === 'queued') {
+    redirect(`/pay/${encodeURIComponent(reference)}`);
+  }
+  if (prior.outcome === 'pending') redirect(`/pay/${encodeURIComponent(reference)}?maya=success`);
+
+  // Maya would not open (refused, too slow, an odd answer) → the BDO QR at once, one calm line, ONE admin notice.
+  const busy = async (why: string): Promise<never> => {
+    await noteMayaBusy(why, payable.orderId);
+    redirect(`/pay/${encodeURIComponent(reference)}?maya=busy&step=2`);
+  };
 
   const created = await createMayaCheckout(config, {
     amountPhp: payable.amountPhp,
@@ -66,7 +84,7 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
     description: payable.title,
     origin: siteOrigin(),
   });
-  if (!created.ok) back('We couldn’t open Maya just now. Nothing was charged — try again or use the QR.');
+  if (!created.ok) return busy(`create checkout: ${created.reason}`);
 
   // The payer must be able to come back to this order from Maya's side; if we
   // could not record the checkout we do not send them.
@@ -80,7 +98,7 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
     amountPhp: payable.amountPhp,
     environment: created.environment,
   });
-  if (!recorded) back('We couldn’t open Maya just now. Nothing was charged — try again or use the QR.');
+  if (!recorded) return busy('the checkout could not be recorded');
 
   redirect(created.redirectUrl);
 }

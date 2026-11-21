@@ -1,32 +1,50 @@
 /**
- * /dev/pay-maya-lab — the Maya Checkout rail (owner 2026-11-21) on fixtures: no sign-in, no database. DEV-ONLY:
+ * /dev/pay-maya-lab — the Maya pay page (owner 2026-11-21, approved v3 drawing
+ * `Setnayan-specs/prototypes/pay_maya_2026-11-21/pay_maya_fable.html`) on fixtures: no sign-in, no database. DEV-ONLY:
  * production builds 404 it, the same kill-switch as every `/dev/*` lab.
  *
- * Draws the REAL pay panel (`app/pay/[reference]/_components/pay-panel.tsx`) at stage 2 with the REAL Maya button,
- * and the REAL admin cards, so a walk can screenshot Now beside Proposed at 390 px, light and dark:
+ * Draws the REAL pay panel (`app/pay/[reference]/_components/pay-panel.tsx`) with the REAL Maya stage, checking card
+ * and admin card, so a walk can screenshot Now beside Proposed at 390 px and on a computer, light and dark:
  *
- *   ?v=now        the pay page as shipped — the BDO QR alone (the rail is off)
- *   ?v=proposed   the same page with "Pay with card or Maya" under the QR (switch on + keys + within the ceiling)
- *   ?v=back       back from Maya without paying — the one honest line
- *   ?v=admin      Settings › Payment methods: the switch off · on but hidden (no secret key) · on and live;
- *                 Integrations › Maya card with Register webhooks
+ *   ?v=now        Maya off / no keys — the shipped BDO page (stage 2), untouched
+ *   ?v=proposed   Maya on — the Maya pay stage: amount · order summary · Pay with · pinned "Pay ₱X"
+ *   ?v=back       back from Maya without paying — the same stage with one line
+ *   ?v=busy       Maya would not open — the BDO QR with "Maya is busy — pay by BDO QR. Nothing has been charged."
+ *   ?v=checking   back from Maya, not confirmed yet — "Checking your payment…", no pay controls
+ *   ?v=admin      Integrations › Maya: "Payers see Maya" on, on-but-no-key, off
  *
  * Buttons post to the real server actions, which refuse without a session — a lab press changes nothing.
  */
 import { notFound } from 'next/navigation';
 import { PayPanel, type ChannelInfo } from '@/app/pay/[reference]/_components/pay-panel';
-import { MayaPayButton } from '@/app/pay/[reference]/_components/maya-pay-button';
-import { MayaRailSwitchView } from '@/app/admin/settings/payment-methods/_components/maya-rail-switch';
+import { MayaPayStage } from '@/app/pay/[reference]/_components/maya-pay-stage';
+import { MayaChecking } from '@/app/pay/[reference]/_components/maya-checking';
 import { MayaCard } from '@/app/admin/integrations/_components/maya-card';
 import { mintedQrImage } from '@/lib/qr-image.server';
 import { payAmount } from '@/lib/pay-amount';
-import { mayaReturnLine, mayaRailReasonLine, mayaWebhookNotice } from '@/lib/maya-checkout';
+import { MAYA_BUSY_LINE, mayaReturnLine, mayaWebhookNotice } from '@/lib/maya-checkout';
 
 const REF = 'SNLAB2611';
-const AMOUNT = 1499;
+const AMOUNT = 2499;
 // A real QR Ph payload (the gift-QR fixture), re-minted with the amount like the page does.
 const PAYLOAD =
   '00020101021127830012com.p2pqrpay0111GXCHPHM2XXX02089996440303152170200000006560417DWQM4TK3JDNWIWRDY5204601653036085802PH5908Setnayan6011Holy Spirit6104123463045E2D';
+
+function adminCard(on: boolean, keys: boolean) {
+  return (
+    <MayaCard
+      publicInDb={keys}
+      secretInDb={keys}
+      publicInEnv={false}
+      secretInEnv={false}
+      endpointValue="https://pg.maya.ph/checkout/v1/checkouts"
+      endpointFromEnv={false}
+      webhookUrl="https://www.setnayan.com/api/webhooks/maya"
+      webhookNotice={on && keys ? mayaWebhookNotice('ok') : null}
+      payersSeeMaya={on}
+    />
+  );
+}
 
 export default async function PayMayaLabPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -34,22 +52,28 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
 
   if (v === 'admin') {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
-        <p className="sn-eye mb-2 block">Settings › Payment methods</p>
-        <MayaRailSwitchView locked={false} enabled={false} open={false} reason={null} env="sandbox" />
-        <MayaRailSwitchView locked={false} enabled open={false} reason={mayaRailReasonLine('missing_secret_key')} env="sandbox" />
-        <MayaRailSwitchView locked={false} enabled open reason={null} env="production" />
-        <p className="sn-eye mb-2 mt-8 block">Integrations › Maya</p>
-        <MayaCard
-          publicInDb
-          secretInDb
-          publicInEnv={false}
-          secretInEnv={false}
-          endpointValue="https://pg-sandbox.paymaya.com/checkout/v1/checkouts"
-          endpointFromEnv={false}
-          webhookUrl="https://www.setnayan.com/api/webhooks/maya"
-          webhookNotice={mayaWebhookNotice('ok')}
-        />
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-8">
+        {adminCard(true, true)}
+        {adminCard(true, false)}
+        {adminCard(false, true)}
+      </main>
+    );
+  }
+
+  const summary = (
+    <section className="rounded-card bg-[color:var(--m-paper-2)] p-6">
+      <p className="sn-eye">What you bought</p>
+      <h1 className="mt-2 text-2xl font-semibold leading-tight text-ink">Papic · Thank-you add-on</h1>
+      <p className="mt-1 text-sm text-ink/70">For Ana &amp; Migs · Wedding · 19 Dec</p>
+      <p className="mt-4 text-[40px] font-bold leading-none tracking-tight tabular-nums text-ink">{payAmount(AMOUNT)}</p>
+    </section>
+  );
+
+  if (v === 'checking') {
+    return (
+      <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
+        {summary}
+        <MayaChecking />
       </main>
     );
   }
@@ -66,17 +90,11 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
       name: 'Setnayan',
     },
   ];
-  const summary = (
-    <section className="rounded-card bg-[color:var(--m-paper-2)] p-6">
-      <h1 className="text-2xl font-semibold leading-tight text-ink">Event Pro</h1>
-      <p className="mt-4 text-[40px] font-bold leading-none tracking-tight tabular-nums text-ink">{payAmount(AMOUNT)}</p>
-    </section>
-  );
-  const line = v === 'back' ? mayaReturnLine('cancel') : null;
+  const mayaOn = v === 'proposed' || v === 'back';
 
   return (
-    <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
-      {line ? <p role="status" className="mt-4 text-sm text-ink/75">{line}</p> : null}
+    <main className={`mx-auto px-4 pb-32 pt-6 ${mayaOn ? 'max-w-[560px] md:max-w-3xl' : 'max-w-[560px]'}`}>
+      {v === 'busy' ? <p role="status" className="mt-4 text-sm text-ink/75">{MAYA_BUSY_LINE}</p> : null}
       <PayPanel
         rechecked={false}
         setup={false}
@@ -90,7 +108,19 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
         summary={summary}
         initialStage={2}
         carryQuery={{}}
-        maya={v === 'now' ? null : <MayaPayButton reference={REF} />}
+        maya={
+          mayaOn ? (
+            <MayaPayStage
+              reference={REF}
+              amountPhp={AMOUNT}
+              title="Papic · Thank-you add-on"
+              who="For Ana & Migs · Wedding · 19 Dec"
+              billedToName="Ana Reyes"
+              billedToEmail="ana.reyes@example.com"
+              line={v === 'back' ? mayaReturnLine('cancel') : null}
+            />
+          ) : null
+        }
       />
     </main>
   );

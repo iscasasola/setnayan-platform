@@ -446,6 +446,9 @@ export function readCakeCard(pkg: VendorPackageWithItems): CakeCard | null {
   return { tiersLine, sizes, finish: top('finish'), colours: top('colours'), design: top('design'), topper: top('topper') };
 }
 
+/** One of the couple's own Mood Board colours, named, with the board part it is (lib/cake-mood-colours.ts). */
+export type MoodCakeColour = { hex: string; name: string; slot: string; setByYou: boolean };
+
 /** A colour the couple picked: one of the shop's options, or one of their own Mood Board colours (ruling 6). */
 export type CakeColourPick = { kind: 'shop'; optionId: string } | { kind: 'mood'; name: string; hex: string };
 

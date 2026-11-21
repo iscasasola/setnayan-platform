@@ -14503,6 +14503,7 @@
         "vendor-dashboard/_components/today-v2-client.tsx",
         "vendor-dashboard/_components/today-v2.tsx",
         "vendor-dashboard/_components/today-wrap-up.tsx",
+        "vendor-dashboard/_components/tool-add-sheet.tsx",
         "vendor-dashboard/_components/tool-page.tsx",
         "vendor-dashboard/_components/undoable-answers.tsx",
         "vendor-dashboard/_components/use-hero-pin.ts",
@@ -14869,6 +14870,7 @@
     },
     "/vendor-dashboard/activities": {
       "files": [
+        "vendor-dashboard/activities/_components/activities-view.tsx",
         "vendor-dashboard/activities/actions.ts",
         "vendor-dashboard/activities/loading.tsx",
         "vendor-dashboard/activities/page.tsx",
@@ -14887,7 +14889,9 @@
       ],
       "blocks": [
         "ActionButton",
+        "ActivitiesView",
         "ActivityRow",
+        "Fold",
         "Icon",
         "InfoTip",
         "ListPageSkeleton",
@@ -14898,34 +14902,58 @@
         "StayForm",
         "TemplateEmpty",
         "TemplateFail",
-        "TemplateSection"
+        "ToolAddSheet",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection"
       ]
     },
     "/vendor-dashboard/attributes": {
       "files": [
+        "vendor-dashboard/attributes/_components/add-service.tsx",
         "vendor-dashboard/attributes/_components/attribute-field-renderer.tsx",
+        "vendor-dashboard/attributes/_components/attributes-view.tsx",
+        "vendor-dashboard/attributes/_components/missing-labels.ts",
+        "vendor-dashboard/attributes/_components/service-rows.tsx",
         "vendor-dashboard/attributes/actions.ts",
         "vendor-dashboard/attributes/loading.tsx",
         "vendor-dashboard/attributes/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard"
+        "/vendor-dashboard",
+        "/vendor-dashboard/attributes?add=[seg]"
       ],
       "actions": [
-        "removeVendorServiceAttribute",
         "saveVendorServiceAttribute"
       ],
       "blocks": [
+        "ActionButton",
+        "AddService",
         "AttributeFieldRenderer",
-        "CompletenessBadge",
+        "AttributesUnread",
+        "AttributesView",
+        "Fold",
         "FormPageSkeleton",
+        "InfoTip",
         "Link",
         "MultiSelectOpen",
-        "RemoveServiceButton",
-        "ServiceForm",
-        "ShopNotice",
+        "ServiceFold",
+        "ServiceRows",
+        "Sheet",
         "StayForm",
-        "SubmitButton"
+        "SubmitButton",
+        "SupplierThumbRow",
+        "SupplierToast",
+        "SwipeToDelete",
+        "ThumbRow",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolLead",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection",
+        "UndoToastHost"
       ]
     },
     "/vendor-dashboard/booking-fees": {
@@ -16948,21 +16976,31 @@
         "suggestToCouple"
       ],
       "blocks": [
-        "ActiveRecCard",
+        "ActionButton",
+        "Fold",
+        "InfoTip",
         "LeafSection",
         "NotAFitControl",
-        "OptInOfferCard",
+        "RecRow",
         "RecommendationsPanel",
-        "ShopEmpty",
-        "ShopNotice",
+        "Sheet",
         "StayForm",
         "SubmitButton",
         "SuggestControl",
-        "SuggestToCoupleControl"
+        "SuggestToCoupleControl",
+        "SupplierToast",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection"
       ]
     },
     "/vendor-dashboard/repertoire": {
       "files": [
+        "vendor-dashboard/repertoire/_components/repertoire-tools.tsx",
+        "vendor-dashboard/repertoire/_components/repertoire-view.tsx",
         "vendor-dashboard/repertoire/_components/set-list.tsx",
         "vendor-dashboard/repertoire/actions.ts",
         "vendor-dashboard/repertoire/loading.tsx",
@@ -16974,14 +17012,31 @@
         "setPerformanceLink"
       ],
       "blocks": [
+        "AddOwnSong",
+        "Fold",
         "GridPageSkeleton",
+        "InfoTip",
         "Link",
-        "PerformanceLinkForm",
+        "RepertoireNotMusic",
+        "RepertoireSearch",
+        "RepertoireView",
         "SetList",
-        "ShopNotice",
+        "SongLinkForm",
         "StayForm",
         "SubmitButton",
+        "SupplierThumbRow",
+        "SupplierToast",
         "SwipeToDelete",
+        "TemplateRows",
+        "ThumbRow",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolRow",
+        "ToolSection",
+        "TypedRow",
         "UndoToastHost"
       ]
     },

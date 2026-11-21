@@ -71,16 +71,14 @@ test('no file under the supplier dashboard runs the old slab (xl:max-w-7xl · 2x
 const READING = [
   'bookings/surface.tsx',
   'proposals/surface.tsx',
-  'recommendations/_panel.tsx',
   'manpower/surface.tsx',
   'payment-options/surface.tsx',
-  // The tool pages redraw (v3, 21 Nov 2026): Disputes · Track record · Creators · Theft Watch draw their column through
+  // The tool pages redraw (v3, 21 Nov 2026): Disputes · Track record · Creators · Theft Watch · Attributes · Repertoire ·
+  // Recommend · Your segments draw their column through
   // the shared `ToolPage` — the column is read there, once.
   '_components/tool-page.tsx',
   'partnerships/page.tsx',
-  'attributes/page.tsx',
   'moodboard-library/page.tsx',
-  'repertoire/page.tsx',
   'contracts/[contractId]/page.tsx',
   'clients/[eventId]/cocktail/page.tsx',
   'clients/[eventId]/editorial-media/page.tsx',

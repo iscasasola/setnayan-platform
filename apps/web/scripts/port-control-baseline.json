@@ -4173,6 +4173,7 @@
         "clearMayaSecrets",
         "clearOAuthSecret",
         "clearResendKey",
+        "routes.api.webhooks.maya",
         "saveIntegrationSecret",
         "saveMayaConfig",
         "saveOAuthConfig",
@@ -4191,6 +4192,7 @@
         "PasswordField",
         "SecretCard",
         "SubmitButton",
+        "SwitchTrack",
         "TestResendButton"
       ]
     },
@@ -4576,6 +4578,7 @@
         "admin/payments/_components/reread-on-this-phone.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
+        "admin/payments/maya.ts",
         "admin/payments/page.tsx",
         "admin/payments/received-auto.ts",
         "admin/payments/received.ts"
@@ -4596,6 +4599,7 @@
       ],
       "blocks": [
         "ApproveCore",
+        "ApproveOutcome",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -4619,6 +4623,7 @@
         "InfoTip",
         "Link",
         "LinkPickMenu",
+        "MayaSettleResult",
         "OpenedPayment",
         "OrderEventInfoResult",
         "OrdersNeedingQuote",
@@ -13698,9 +13703,14 @@
     },
     "/pay/[reference]": {
       "files": [
+        "pay/[reference]/_components/maya-checking.tsx",
+        "pay/[reference]/_components/maya-marks.tsx",
+        "pay/[reference]/_components/maya-pay-stage.tsx",
         "pay/[reference]/_components/pay-panel.tsx",
         "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
+        "pay/[reference]/maya-return.ts",
+        "pay/[reference]/maya-start.ts",
         "pay/[reference]/page.tsx"
       ],
       "destinations": [
@@ -13721,6 +13731,9 @@
         "HTMLDivElement",
         "InfoTip",
         "Link",
+        "MayaChecking",
+        "MayaMarks",
+        "MayaPayStage",
         "OverlayBackdrop",
         "PayPanel",
         "PayStage",
@@ -13733,7 +13746,8 @@
         "Step",
         "StepHead",
         "StickyBar",
-        "SubmitButton"
+        "SubmitButton",
+        "Wallet"
       ]
     },
     "/proposals/[publicId]": {

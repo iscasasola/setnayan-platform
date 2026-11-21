@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { paymentOverCeilingMessage, paymentWithinCeiling } from './payment-ceiling';
 import { stripComments } from './strip-comments';
@@ -59,11 +59,24 @@ test('the couple checkout refuses an over-ceiling basket before it mints an orde
 });
 
 test('the booking fee is capped in BOTH mirrors (TS and SQL)', () => {
-  assert.match(read('lib/booking-fee.ts'), /Math\.min\(floored, maxPaymentPhpOrDefault\(schedule\.maxPhp\)\)/);
+  // 20 Nov: the fee has its own lock (booking_fee_cap_php) — the ceiling still bounds it: the lower of the two wins.
+  assert.match(read('lib/booking-fee.ts'), /Math\.min\(lock, maxPaymentPhpOrDefault\(schedule\.maxPhp\)\)/);
   assert.match(read('lib/booking-fee-settings.server.ts'), /maxPhp: maxPaymentPhpOrDefault\(row\.max_payment_php\)/);
-  const sql = read('../../supabase/migrations/20271352263623_bdo_only_pay_flow_and_the_payment_max.sql');
-  assert.match(sql, /round\(s\.max_php \* 100\)::BIGINT/);
-  assert.match(sql, /ADD COLUMN IF NOT EXISTS max_payment_php NUMERIC\(12,2\) NOT NULL DEFAULT 100000/);
+  assert.match(
+    read('../../supabase/migrations/20271352263623_bdo_only_pay_flow_and_the_payment_max.sql'),
+    /ADD COLUMN IF NOT EXISTS max_payment_php NUMERIC\(12,2\) NOT NULL DEFAULT 100000/,
+  );
+  // The NEWEST migration that (re)defines each fee function is the one prod runs — it must still read the ceiling.
+  const dir = join(process.cwd(), '../../supabase/migrations');
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  for (const fn of ['booking_fee_centavos', 'booking_fee_flat_centavos']) {
+    const head = new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}\\(p_amount_centavos BIGINT\\)`);
+    const last = files.filter((f) => head.test(readFileSync(join(dir, f), 'utf8'))).pop();
+    assert.ok(last, `no migration defines ${fn}`);
+    const sql = readFileSync(join(dir, last), 'utf8');
+    const body = sql.slice(sql.search(head)).split('$$;')[0]!.replace(/--[^\n]*/g, ''); // code only, never a comment
+    assert.match(body, /max_payment_php/, `${last}: ${fn} no longer reads max_payment_php — the ceiling is dropped`);
+  }
 });
 
 test('no surface types the ceiling', () => {

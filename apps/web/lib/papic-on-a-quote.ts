@@ -392,8 +392,7 @@ export function papicTopUpForQuote(
         headline: 'Papic deal · none — and nothing to pay.',
         detail:
           'Your exclusive Papic deal is a share of the booking fee you actually pay, and this ' +
-          `booking's fee is waived — your first booking from Setnayan is on us. Your first ` +
-          'billed booking can carry one.',
+          "booking's fee is waived. A billed booking can carry one.",
       };
 
     case 'fee_waived':

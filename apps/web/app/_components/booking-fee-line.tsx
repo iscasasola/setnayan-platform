@@ -21,11 +21,11 @@ import type { CSSProperties } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   bookingFeeBandsLine,
+  bookingFeeCapAmount,
   bookingFeeMinimumAmount,
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
-import { FIRST_BOOKING_FREE } from '@/lib/booking-fee-lock';
-import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
+import { FEE_FREE_CHIP, FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /** Who the fee applies to — the visible label the ⓘ sits beside. */
 export const FEE_LINE_WHO = `${FEE_SCOPE}.`;
@@ -43,8 +43,9 @@ export function BookingFeeLine({
 }) {
   return (
     <>
-      <b style={leadStyle}>{FIRST_BOOKING_FREE}</b> After that:{' '}
-      {fee ? bookingFeeBandsLine(fee) : 'a booking fee'} —{' '}
+      {/* ⚖ 20 Nov: the lead is the owner's own free rule (F1), not a free first booking — that rule is retired. */}
+      <b style={leadStyle}>{FEE_FREE_CHIP}.</b> Otherwise:{' '}
+      {fee ? `${bookingFeeBandsLine(fee)}, never more than ${bookingFeeCapAmount(fee)}` : 'a booking fee'} —{' '}
       <InfoTip label={FEE_LINE_WHO} ariaLabel="About the booking fee" align="end">
         {fee
           ? `The smallest fee is ${bookingFeeMinimumAmount(fee)} a booking.`

@@ -31,6 +31,7 @@
  */
 import type { FeatureSlug } from '@/lib/feature-pages/types';
 import type { CatalogueRow } from '@/lib/feature-pages/price';
+import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 
@@ -174,7 +175,7 @@ export const FEATURE_ROWS = {
   c33: F({ icon: 'palette', name: 'Inspiration library', line: 'Your photos in couples’ mood boards, with your seal.', price: 'free', status: 'live', reg: ['C33'], problem: 'Your photos travel without your name.', solution: 'Inspiration photos carry your seal and link back to you.', why: 'Credit that brings clients.' }),
   c37: F({ icon: 'gift', name: 'Gift a product to a couple', line: 'Papic credits or a plan, at the gift price.', price: 'free', status: 'live', reg: ['C37'], problem: 'A discount is forgotten; a gift is remembered.', solution: 'Give a couple a Setnayan gift from your offer or quote.', why: 'A reason to book you.' }),
   c35: F({ icon: 'music', name: 'Repertoire, lines and program segments', line: 'For performers and hosts: songs, scripts, segments.', price: 'free', status: 'live', reg: ['C35'], problem: 'The emcee’s script is on paper.', solution: 'Repertoire, lines and segments on the event.', why: 'The show runs.' }),
-  c43: F({ icon: 'wave', name: 'Specialized tools', line: 'Six free: Scanner + Headcount, Run of show, Emcee script, Song Desk, Floor Command + March, Live Watch. One unlock for the rest.', price: 'free-plus', status: 'coming', reg: ['C43'], plan: 'Build 4; Tools Maker after', problem: 'Day-of tools cost per tool, or do not exist.', solution: 'Six tools free for every supplier; one unlock opens Papic challenge, the 3D plan and every future tool.', why: 'Run the day from your phone.' }),
+  c43: F({ icon: 'wave', name: 'Specialized tools', line: 'Six free: Scanner + Headcount, Run of show, Emcee script, Song Desk, Floor Command + March, Live Watch. One unlock for the rest.', price: 'free-plus', status: 'coming', reg: ['C43'], plan: 'Build 4; Tools Maker after', problem: 'Day-of tools cost per tool, or do not exist.', solution: 'Six tools free for every supplier; one unlock opens the rest. Papic Challenges and the branded 3D booth come with Pro.', why: 'Run the day from your phone.' }),
   c38: F({ icon: 'badge', name: 'Your seal on every upload', line: 'The approved seal-and-plate, old photos re-marked.', price: 'free', status: 'coming', reg: ['C38'], plan: 'Build 6 · Lane L', problem: 'Your photos are reposted without you.', solution: 'Every upload carries your mark.', why: 'Credit travels with the work.' }),
   c21: F({ icon: 'chat', name: 'Messages, like Messenger', line: 'One row per event, unread on top.', price: 'free', status: 'live', reg: ['C21'], problem: 'A supplier with many events cannot see who is waiting.', solution: 'One row per event, unread pinned, then most recent.', why: 'Nobody left on “seen”.' }),
   c10: F({ icon: 'door', name: 'The client card', line: 'Details · Chat · Schedule · Quotation · Payment · Forms · Files · Hub · Report; every row rises into it.', price: 'free', status: 'live', reg: ['C10'], problem: 'A client is a calendar entry, a chat and a quote in three places.', solution: 'One picked-client card with every tab; a new request opens the same card.', why: 'One place per client.' }),
@@ -186,7 +187,7 @@ export const FEATURE_ROWS = {
   c32: F({ icon: 'link', name: 'Demand, recommendations, partnerships, creators', line: 'Where the inquiries are; who to partner with.', price: 'free', status: 'live', reg: ['C32'], problem: 'You guess where demand is.', solution: 'Demand by month and city, recommended add-ons, partnerships and creators.', why: 'Decide with numbers.' }),
   c23: F({ icon: 'wave', name: 'The Day console', line: 'Live view and Papic live, for the crew.', price: 'free', status: 'live', reg: ['C23'], problem: 'On the day, the plan is on paper.', solution: 'One console for the live day and Papic.', why: 'Run it from a phone.' }),
   c24: F({ icon: 'users', name: 'Manpower, team and branches', line: 'Staff per service; branches by city.', price: 'free', status: 'live', reg: ['C24'], problem: 'The team is a group chat.', solution: 'Staff per service, team seats and branches.', why: 'The right crew on the right day.' }),
-  c25: F({ icon: 'coins', name: 'Earnings, Money in, booking fees, payment options', line: 'What is paid, what is due; fees only on clients we bring.', price: 'free', status: 'live', reg: ['C25'], problem: 'Payments in a notebook; platforms take a cut of everything.', solution: 'Every payment card lands in your earnings; a fee only on clients Setnayan brings, the first one free.', why: 'Clean books; pay when we deliver.' }),
+  c25: F({ icon: 'coins', name: 'Earnings, Money in, booking fees, payment options', line: 'What is paid, what is due; fees only on clients we bring.', price: 'free', status: 'live', reg: ['C25'], problem: 'Payments in a notebook; platforms take a cut of everything.', solution: `Every payment card lands in your earnings; a booking fee on each booking, ${FEE_SCOPE}.`, why: 'Clean books; pay when we deliver.' }),
   c26: F({ icon: 'quote', name: 'Tax documents (BIR)', line: 'Your documents, ready for filing.', price: 'free', status: 'live', reg: ['C26'], problem: 'Tax season is a scramble.', solution: 'BIR documents from your earnings.', why: 'Filing without fear.' }),
   c34: F({ icon: 'shield', name: 'Disputes, single-use QR, Theft Watch', line: 'A neutral review; QRs that cannot be reused.', price: 'free', status: 'live', reg: ['C34'], problem: 'A dispute is your word against theirs; a QR gets copied.', solution: 'Setnayan reviews with the chat as the record; booking QRs work once; Theft Watch flags reuse.', why: 'Protected on both sides.' }),
   c42: F({ icon: 'shield', name: 'Your shop’s standing', line: 'Hidden, suspended or banned reads honestly; a lapsed plan lapses.', price: 'free', status: 'live', reg: ['C42'], problem: 'A shop did not know it was hidden.', solution: 'The booking gate says which it is; an ended plan never reads as current.', why: 'No silent states.' }),
@@ -285,7 +286,7 @@ export const PERSONAS: readonly Persona[] = [
     key: 'suppliers',
     label: 'Suppliers',
     heroTitle: 'Open your shop. Get booked in writing. Get paid.',
-    heroLine: 'Free to join, full dashboard free. A fee only on clients Setnayan brings you, and the first one is free.',
+    heroLine: `Free to join, full dashboard free. A booking fee on each booking, ${FEE_SCOPE}.`,
     chapters: [
       { eye: 'Open', title: 'A shop page Google can read, in two steps.', line: 'Your services, photos and reviews on a page written for search engines and AI. Verified once by Setnayan’s team; every limit explains itself.', moment: 'shop',
         groups: [['Open and verify', ['c01', 'c02', 'c03', 'c04']], ['Your plan', ['c05', 'c06', 'c40']], ['Your page', ['c11', 'c13', 'c12', 'c41']]] },
@@ -372,10 +373,10 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
 
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
-  { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'Everything in Free'] },
+  { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'AI chatbot included', 'Everything in Free'] },
   { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly', 'All specialized tools included'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro', 'The smarter AI chatbot included'] },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'The smarter AI chatbot included'] },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro'] },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

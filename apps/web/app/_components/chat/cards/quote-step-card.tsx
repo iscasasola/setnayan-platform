@@ -25,6 +25,7 @@ import { TypedRow } from '@/app/_components/form-row';
 import { DateRow } from '@/app/_components/form-row-date';
 import { sendCustomProposalFromChat } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { formatCentavosPhp } from '@/lib/php';
+import { quoteExtraPriceWords } from '@/lib/quote-line-price-words';
 import { deltaWords, floorRefusal } from '@/lib/chat-cards';
 import { addDaysIso, manilaTodayIsoFor, validUntilRefusal } from '@/lib/quote-valid-until';
 import { goodUntilWords, makeQuoteGoodUntil } from '@/lib/make-a-quote';
@@ -181,10 +182,10 @@ function QuoteReceiptForm({
           <PickMenu
             label="Add from your catalogue"
             value={null}
-            options={q.extras.map((x) => ({ key: x.id, label: `${x.label} · ${formatCentavosPhp(Math.round(x.qty * x.pricePhp * 100))}` }))}
+            options={q.extras.map((x) => ({ key: x.id, label: `${x.label} · ${quoteExtraPriceWords(x)}` }))}
             onPick={(k) => {
               const x = q.extras.find((e) => e.id === k);
-              if (x) setDraft((d) => ({ ...d, lines: [...d.lines, { key: receiptKey(), label: x.label, pricePhp: x.pricePhp, qty: Math.max(1, Math.round(x.qty)), free: false, cardId: null, src: null }] }));
+              if (x) setDraft((d) => ({ ...d, lines: [...d.lines, { key: receiptKey(), label: x.label, pricePhp: x.pricePhp, qty: Math.max(1, Math.round(x.qty)), free: x.free, cardId: null, src: null }] }));
             }}
             buttonText="Add from your catalogue"
             dataAttr="data-quote-add"

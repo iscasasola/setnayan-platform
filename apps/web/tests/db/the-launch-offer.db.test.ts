@@ -159,7 +159,8 @@ test('1 · the owner’s numbers are seeded and the offer is OFF until started',
   const vpid = await newVendor();
   const b = await newBooking(vpid);
   const o = await openCharge(b.eventVendorId);
-  assert.equal(o.status, 'waived_free5', 'with the offer off, a first booking is the shop’s own free one');
+  // ⚖ 20 Nov: no free first booking — with the offer off, a first booking is billed.
+  assert.equal(o.status, 'pending', 'with the offer off, a first booking is billed (20 Nov)');
   const open = await db.query<{ o: boolean }>(`SELECT public.booking_fee_launch_offer_open() AS o`);
   assert.equal(open.rows[0]!.o, false);
 });
@@ -212,11 +213,11 @@ test('3 · the cap-th booking is free and closes the offer; the next is normal; 
   assert.ok(s.pro, 'closing did not stamp free Pro’s end date');
   assert.ok(new Date(s.pro!).getTime() > new Date(s.closed!).getTime(), 'free Pro ends before the offer closed');
 
-  // The next booking is decided as normal — and since launch bookings took no
-  // place, this shop's NEXT sourced booking is the FIRST of its five.
+  // The next booking is decided as normal — launch bookings took no place, so it is the shop's FIRST place, and
+  // (20 Nov) a first place is billed.
   const d = await openCharge((await newBooking(shop)).eventVendorId);
-  assert.equal(d.status, 'waived_free5', `after the offer, the shop's next booking was ${d.status}`);
-  assert.equal(d.booking_ordinal, 1, 'the launch bookings used up the shop’s free five');
+  assert.equal(d.status, 'pending', `after the offer, the shop's next booking was ${d.status}`);
+  assert.equal(d.booking_ordinal, 1, 'a launch booking took a place');
 });
 
 /* ── 4 ────────────────────────────────────────────────────────────────── */

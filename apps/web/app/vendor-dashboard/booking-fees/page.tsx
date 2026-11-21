@@ -1,26 +1,13 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowRight, ReceiptText, ArrowLeft } from 'lucide-react';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
-import {
-  ORDER_STATUS_LABEL,
-  ORDER_STATUS_TONE,
-  formatPhp,
-  type OrderRow,
-} from '@/lib/orders';
 import {
   fetchVendorFeeOrders,
   bucketFeeOrders,
   FEE_ORDERS_UNREADABLE,
 } from '@/lib/vendor-booking-fees.server';
-import {
-  feeOrderDescriptionNow,
-  feeOrderTotalPhp,
-  sumFeeOrderTotalsPhp,
-  vendorBookingFeePayPath,
-} from '@/lib/vendor-booking-fees';
+import { sumFeeOrderTotalsPhp } from '@/lib/vendor-booking-fees';
+import { BookingFeesBody } from './booking-fees-body';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import {
@@ -28,21 +15,11 @@ import {
   FEE_BILLS_UNREADABLE,
 } from '@/lib/booking-fee-disclosure.server';
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
-import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
-import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferFeesLine } from '@/lib/launch-offer';
 
 export const metadata = { title: 'Booking fees · Supplier' };
-
-function fmtDate(s: string) {
-  return new Date(s).toLocaleDateString('en-PH', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
@@ -90,166 +67,15 @@ export default async function VendorBookingFeesPage() {
   const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <Link
-        href="/vendor-dashboard/subscription"
-        className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to Plan
-      </Link>
-
-      <PageMasthead
-        title="Booking fees"
-      />
-
-      {launchLine ? (
-        <p className="mt-3 text-sm text-ink/70" data-fees-launch-offer="">
-          {launchLine}
-        </p>
-      ) : null}
-
-      {due.length > 0 ? (
-        <div className="mt-4 rounded-lg border border-warn-300/60 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-          You have{' '}
-          <span className="font-semibold">
-            {due.length} unpaid {due.length === 1 ? 'fee' : 'fees'}
-          </span>
-          {totalDue === null ? (
-            <>
-              {' '}
-              — we couldn&rsquo;t load the total. Open each one below for the exact
-              amount.
-            </>
-          ) : (
-            <>
-              {' '}
-              totalling{' '}
-              <span className="font-mono font-semibold">{formatPhp(totalDue)}</span>.
-            </>
-          )}
-        </div>
-      ) : null}
-
-      {unreadable ? (
-        <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
-          <ReceiptText
-            className="mx-auto h-8 w-8 text-ink/30"
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          <p className="mt-3 text-sm font-medium text-ink">
-            We couldn&rsquo;t load your booking fees right now.
-          </p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-            This is on our side, not a sign you owe nothing. Refresh in a moment.
-          </p>
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
-          <ReceiptText
-            className="mx-auto h-8 w-8 text-ink/30"
-            strokeWidth={1.5}
-            aria-hidden
-          />
-          <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
-          <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
-            {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
-            {/* Owner 2026-11-10: "messages that needs to be reworded" — plainer words. */}
-            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> A free booking fee ticket
-            pays your next fee by itself.
-          </p>
-        </div>
-      ) : (
-        <div className="mt-6 space-y-8 sm:mt-8">
-          {due.length > 0 ? (
-            <FeeGroup title="Due" tone="warn" orders={due} />
-          ) : null}
-          {settled.length > 0 ? (
-            <FeeGroup title="Paid" tone="good" orders={settled} />
-          ) : null}
-          {closed.length > 0 ? (
-            <FeeGroup title="Closed" tone="muted" orders={closed} />
-          ) : null}
-        </div>
-      )}
-
-      {/* THE FREE BOOKINGS, PRICED. Outside the orders branch on purpose: a shop
-          with no bill at all still has free bookings worth naming, and the
-          "Nothing to pay yet" empty state above is about ORDERS, not about
-          whether any fee has ever been computed for this shop. */}
-      {waived.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="sn-eye">Waived — nothing owed</h2>
-          <WaivedFeeRows charges={waived} />
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
-function FeeGroup({
-  title,
-  tone,
-  orders,
-}: {
-  title: string;
-  tone: 'warn' | 'good' | 'muted';
-  orders: OrderRow[];
-}) {
-  return (
-    <section className="space-y-3">
-      <p
-        className={
-          'sn-eye ' +
-          (tone === 'warn'
-            ? 'text-terracotta-700'
-            : tone === 'good'
-              ? 'text-success-700'
-              : 'text-ink/50')
-        }
-      >
-        {title}
-      </p>
-      <ul className="space-y-2">
-        {orders.map((o) => {
-          // `null` → `formatPhp` prints `—`. A fee whose amount we could not
-          // read must never read ₱0 on the row a supplier taps to pay it.
-          const amount = feeOrderTotalPhp(o);
-          return (
-            <li key={o.order_id}>
-              <Link
-                href={vendorBookingFeePayPath(o.order_id)}
-                className="sn-card sn-press flex items-center gap-4 p-4"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">
-                    {formatPhp(amount)}
-                    <span className="ml-2 font-mono text-[11px] font-normal text-terracotta-700">
-                      {o.reference_code}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-ink/55">
-                    {feeOrderDescriptionNow(o.description, o.status) || 'Setnayan booking fee'} · {fmtDate(o.created_at)}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
-                    ORDER_STATUS_TONE[o.status]
-                  }`}
-                >
-                  {ORDER_STATUS_LABEL[o.status]}
-                </span>
-                <ArrowRight
-                  className="h-4 w-4 shrink-0 text-ink/40"
-                  strokeWidth={2}
-                  aria-hidden
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <BookingFeesBody
+      orders={unreadable ? null : orders}
+      due={due}
+      settled={settled}
+      closed={closed}
+      totalDue={totalDue}
+      waived={waivedRead === FEE_BILLS_UNREADABLE ? null : waived}
+      schedule={feeSchedule}
+      launchLine={launchLine}
+    />
   );
 }

@@ -33,7 +33,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import { makerDoorLanding } from './maker-resume';
 import { STUDIO_TILE_ITEM, STUDIO_TILE_KEYS, studioTileOfItem } from './studio-tile-defs';
-import { MAKER_PARTS, makerPartQuietRow, makerPartRisesEditor, makerSceneDoorWords, type MakerPartKey } from './maker-parts';
+import { MAKER_PARTS, makerPartExpands, makerPartQuietRow, makerPartRisesEditor, makerSceneDoorWords, type MakerPartKey } from './maker-parts';
 import { detailsItemHref } from './maker-details-items';
 
 /* tsx compiles the components to the classic runtime: React must be global before they are imported (as in
@@ -71,7 +71,9 @@ test('(1) the bar is one stage pill — no Studio half, no Studio pages, nothing
   const head = renderToStaticMarkup(
     React.createElement(StageSwitch, { side: 'studio', stage: 'rsvp', editor: { key: 'mood', label: 'Dress code', full: true }, onClose: () => {} }),
   );
-  assert.match(head, /<button(?=[^>]*aria-label="Close Dress code")(?=[^>]*data-stage-editor-close="")/, 'a risen editor has no ✕ that names it');
+  /* ✓ DONE ON TOP (20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (2)): never the small ✕. */
+  assert.match(head, /<button(?=[^>]*aria-label="Done — back to Dress code on the page")(?=[^>]*data-stage-editor-close="")/, 'a risen editor has no ✓ Done that names it');
+  assert.doesNotMatch(head, /aria-label="Close Dress code"/, 'the small ✕ is back as the only way out of a full-screen editor');
   assert.match(head, /data-stage-editor-title=""[^>]*>Dress code<\/h1>/);
   assert.doesNotMatch(head, /Studio|data-stage-pill=""/, 'a risen editor’s bar says Studio, or keeps the pill');
   // The pill is drawn first in the bar, by the shell, on every width (the Prints page names itself instead).
@@ -119,7 +121,7 @@ test('(3) every old door lands on the new place — the editor its item names, o
   assert.match(SHELL, /const land = makerDoorLanding\(back, studio\?\.tiles\.map\(\(t\) => t\.key\) \?\? \[\], back \? null : studioTileOfItem\(named \?\? detailsItem\)\);/);
 });
 
-test('(4) the scenes are the doors — the ring, Dress code and Love Story rise their editors; no door says Studio', () => {
+test('(4) the scenes keep their editors — ⤢ Expand opens them (a tap only selects, 20 Nov); no door says Studio', () => {
   assert.equal(makerPartRisesEditor('logo'), 'logo', 'the ring does not open the Logo Maker');
   assert.equal(makerPartRisesEditor('dress'), 'mood', 'Dress code does not open Palette + Dress Code');
   assert.equal(makerPartRisesEditor('story'), 'story', 'Love Story does not open its chapters');
@@ -136,12 +138,17 @@ test('(4) the scenes are the doors — the ring, Dress code and Love Story rise 
   }
   assert.ok(doors > 10, 'anti-vacuity: no doors read');
   assert.equal(makerSceneDoorWords('Logo'), 'Open Logo');
-  // The canvas tap rises the editor (not only the door row): wired in the page-tap branch, before any other tool is asked.
+  /* 👆 A TAP ALWAYS SELECTS (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" (2)): the page tap no longer
+     rises an editor — the toolbar comes up on the part, and ⤢ Expand (or the part's door row) rises it. */
+  for (const k of ['logo', 'story', 'schedule', 'gifts'] as MakerPartKey[]) assert.equal(makerPartExpands(k), true, `${k}: ⤢ does not open its editor`);
+  // 🎨 Dress code lost ⤢ (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD" (2)): its door names where the colours are made.
+  for (const k of ['dress', 'coverscene', 'ename', 'names', 'date', 'place', 'countdown', 'message', 'rsvp'] as MakerPartKey[]) assert.equal(makerPartExpands(k), false, `${k} has ⤢ — it needs no room`);
+  assert.equal(makerPartQuietRow('dress')?.words, 'Colours and mood board', 'Dress code’s door does not say where its colours are made');
   const tools = stripComments(read(`${L}/stage-tools.tsx`));
   const tap = tools.slice(tools.indexOf("if (d.t === 'edit' && typeof d.key === 'string') {"), tools.indexOf("} else if (d.t === 'type' && d.phase === 'start') {"));
-  assert.ok(tap.length > 500, 'anti-vacuity: the page tap was not found');
-  assert.match(tap, /const rises = rsvpOpenRef\.current \? null : makerPartRisesEditor\(k\);\s*if \(rises\) \{\s*setSlotAsk\(null\);\s*riseRef\.current\(k, rises\);\s*return;\s*\}/);
-  assert.ok(tap.indexOf('riseRef.current(k, rises)') < tap.indexOf('askTool(toolFor(k), k)'), 'the tool is asked before the editor rises');
+  assert.ok(tap.length > 300, 'anti-vacuity: the page tap was not found');
+  assert.doesNotMatch(tap, /makerPartRisesEditor|riseRef\.current/, 'a tap rises an editor again');
+  assert.match(tools, /const expand = \(\) => \{[\s\S]{0,200}riseRef\.current\(picked, expandTile\)/, '⤢ Expand does not rise the part’s editor');
 });
 
 test('(5) Prints is a row of the Hub’s ⚙ — it opens the shipped Prints page', () => {
@@ -149,8 +156,10 @@ test('(5) Prints is a row of the Hub’s ⚙ — it opens the shipped Prints pag
   assert.match(hub, /\{doors\.prints \? \(\s*<FormRows data="hub-prints">\s*<FormRow data="prints" name=\{PRINTS_PAGE_LABEL\} line=\{HUB_SETTINGS_PRINTS_LINE\}/);
   assert.match(hub, /<ActionButton tone="neutral" iconOnly icon=\{Printer\} label=\{`Open \$\{PRINTS_PAGE_LABEL\}`\} href=\{doors\.prints\.href\} \/>/);
   // Under Your Event Hub (the prototype's frame H4), before What guests see.
-  assert.ok(hub.indexOf('data="hub-prints"') > hub.indexOf('data-hub-settings-group="your-event-hub"'));
-  assert.ok(hub.indexOf('data="hub-prints"') < hub.indexOf('data-hub-settings-group="guests-see"'));
+  /* 20 Nov 2026 ("EVENT HUB SETTINGS REGROUPED" (1)): Prints closes Share and print — right after the shipped rows,
+     before History. */
+  assert.ok(hub.indexOf('data="hub-prints"') > hub.indexOf('{doors.hub ??'));
+  assert.ok(hub.indexOf('data="hub-prints"') < hub.indexOf('data-hub-settings-group="history"'));
   assert.match(SHELL, /prints: \{ href: printsPageHref\(eventId\) \},/, 'the ⚙ is not handed the Prints page');
 });
 

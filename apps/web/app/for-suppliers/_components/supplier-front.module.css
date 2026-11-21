@@ -174,7 +174,7 @@
 .fxFree { position: absolute; right: 0; top: 0; padding: 5px 10px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--sf-ok) 14%, transparent); color: var(--sf-ok); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
 .fxFlag { position: absolute; right: 0; top: 0; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--m-r-full); background: var(--sf-wash); color: var(--sf-acc); font-size: 12.5px; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .fxLk { flex: none; width: 13px; height: 13px; color: var(--sf-acc); align-self: center; }
-.fxTick { position: absolute; top: 33px; width: 2px; height: 24px; margin-left: -1px; border-radius: 2px; background: var(--sf-acc); pointer-events: none; z-index: 1; }
+.fxTick { position: absolute; top: 33px; width: 2px; height: 24px; margin-left: -1px; border-radius: var(--m-r-full); background: var(--sf-acc); pointer-events: none; z-index: 1; }
 .fxBar .fxThumb { z-index: 2; }
 .feeLock { margin-top: 14px !important; display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--m-r-md); background: var(--sf-wash); font-size: 14px; font-weight: 500; }
 .feeLock .fxLk { width: 16px; height: 16px; }

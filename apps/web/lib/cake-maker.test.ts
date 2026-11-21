@@ -78,6 +78,10 @@ test('the shop’s options are refused, never repaired', () => {
   no((o) => (o.colourPick = 4), /1 to 3/);
   no((o) => (o.colours = [{ name: 'Rose', hex: 'pink' }]), /colour/i);
   no((o) => (o.messageMax = 61), /0 to 60/);
+  // A negative extra is refused, never clamped to ₱0 (a discount is the shop's quote, not a pick).
+  no((o) => (o.sizes = o.sizes.map((s) => (s.count === 4 ? { ...s, extraCentavos: -K } : s))), /below ₱0/);
+  no((o) => (o.flavours = o.flavours.map((f, i) => (i === 1 ? { ...f, extraCentavos: -1 } : f))), /below ₱0/);
+  no((o) => (o.display = { extraCentavos: -K }), /below ₱0/);
   no((o) => ((o as { v: number }).v = 2), /older Cake Maker/);
 });
 

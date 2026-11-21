@@ -52,16 +52,50 @@
   --stage: #221f1a;
   --shadow: none;
 }
+/* The designer rises over the chat (MOTION_STANDARD: Move 320, Settle); reduced motion is a 120 ms fade. No fill-mode:
+   a held transform would become the containing block for the fixed sheets inside. */
+@keyframes cakeRise {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes cakeFade {
+  from {
+    opacity: 0;
+  }
+}
+.root {
+  animation: cakeRise var(--sn-dur-rise) var(--sn-ease-rise);
+}
+@media (prefers-reduced-motion: reduce) {
+  .root {
+    animation: cakeFade var(--sn-dur-rise-reduced) linear;
+  }
+}
+.wideOnly {
+  display: none;
+}
+/* A computer: the designer opens in the right column with a back arrow; the chat stays on the left (approved split view
+   v2, DECISION_LOG 2026-11-21 "DESKTOP SPLIT VIEW"). Nothing dims the chat. */
 @media (min-width: 900px) {
   .over {
-    align-items: center;
-    padding: 24px;
+    justify-content: flex-end;
+    background: transparent;
+    pointer-events: none;
   }
   .root {
-    max-width: 1120px;
-    height: min(820px, 100%);
-    border-radius: var(--m-r-lg);
-    box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.5);
+    pointer-events: auto;
+    width: min(880px, 58vw);
+    flex: none;
+    border-left: 1px solid rgb(0 0 0 / 0.08);
+    box-shadow: -24px 0 48px -32px rgb(0 0 0 / 0.35);
+  }
+  .phoneOnly {
+    display: none;
+  }
+  .wideOnly {
+    display: inline-grid;
   }
 }
 
@@ -85,6 +119,20 @@
 .headT small {
   font-size: 13px;
   color: var(--ink2);
+}
+.reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--m-r-full);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
 }
 .iconBtn {
   display: inline-grid;
@@ -156,7 +204,7 @@
   display: flex;
   flex-direction: column;
 }
-@media (min-width: 900px) {
+@media (min-width: 1400px) {
   .split {
     flex-direction: row;
   }

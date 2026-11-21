@@ -1,5 +1,6 @@
 'use client';
 
+import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -69,6 +70,7 @@ export function ShopMakers({
   services = [],
   booked = null,
   offers = null,
+  specialToolsLocked = false,
 }: {
   /** One line per service; null = the scanner settings could not be read (said so, never "Off"). */
   scanners: ScannerLine[] | null;
@@ -90,6 +92,8 @@ export function ShopMakers({
   booked?: readonly BookedDay[] | null;
   /** 🏷 The Offer Maker tile (Build 6 Lane D). null = not drawn (the lab rows that predate it). */
   offers?: OfferTileFacts | null;
+  /** 🎂 Special tools are Pro and up after the admin's start date — the Cake Maker tile then reads "Included in Pro". */
+  specialToolsLocked?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -227,9 +231,12 @@ export function ShopMakers({
                   <span aria-hidden className="grid h-9 w-9 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
-                  <b className="pt-1 text-sm font-semibold leading-tight text-ink">{t.title}</b>
+                  <b className="inline-flex items-center gap-1 pt-1 text-sm font-semibold leading-tight text-ink">
+                    {t.title}
+                    {t.door.kind === 'cake_tool' && specialToolsLocked ? <Lock aria-label="Locked" className="h-3.5 w-3.5 flex-none text-ink/70" strokeWidth={2} /> : null}
+                  </b>
                   <small className="text-xs leading-snug text-ink/70">{t.line}</small>
-                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{toolFoot(t, suggested, scannerSub, booked)}</small>
+                  <small className="mt-auto pt-1 text-xs font-semibold leading-tight text-ink/75">{t.door.kind === 'cake_tool' && specialToolsLocked ? SPECIAL_TOOLS_LOCKED_WORDS : toolFoot(t, suggested, scannerSub, booked)}</small>
                 </button>
               </li>
             );

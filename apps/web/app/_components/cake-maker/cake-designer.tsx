@@ -21,7 +21,7 @@
  * A design that did not go across says so and offers Send again — it is never shown as sent.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Clock, ImageIcon, MessageCircle, Pencil, RotateCw, Send, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Clock, ImageIcon, MessageCircle, Pencil, RotateCcw, RotateCw, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
@@ -114,21 +114,27 @@ export function CakeDesigner({
   );
 }
 
-function Head({ shop, onClose, onBack }: { shop: string | null; onClose: () => void; onBack?: () => void }) {
+function Head({ shop, onClose, onReset }: { shop: string | null; onClose: () => void; onReset?: () => void }) {
+  // v6 pinned row: ✕ on a phone (full screen) · a back arrow on a computer (the right column, the chat on the left) ·
+  // the title · "Start over" (back to the shop's standard cake).
   return (
     <header className={css.head}>
-      {onBack ? (
-        <button type="button" className={css.iconBtn} aria-label="Start over" onClick={onBack}>
-          <ArrowLeft aria-hidden className="h-5 w-5" />
-        </button>
-      ) : null}
+      <button type="button" className={`${css.iconBtn} ${css.phoneOnly}`} aria-label="Close" onClick={onClose}>
+        <X aria-hidden className="h-5 w-5" />
+      </button>
+      <button type="button" className={`${css.iconBtn} ${css.wideOnly}`} aria-label="Back to the chat" onClick={onClose}>
+        <ArrowLeft aria-hidden className="h-5 w-5" />
+      </button>
       <span className={css.headT}>
         <h2 id="cake-designer-h">Design a cake</h2>
         {shop ? <small>{shop} · from your chat</small> : null}
       </span>
-      <button type="button" className={css.iconBtn} aria-label="Close" onClick={onClose}>
-        <X aria-hidden className="h-5 w-5" />
-      </button>
+      {onReset ? (
+        <button type="button" className={css.reset} onClick={onReset} data-cake-reset="">
+          <RotateCcw aria-hidden className="h-4 w-4" />
+          Start over
+        </button>
+      ) : null}
     </header>
   );
 }
@@ -142,7 +148,8 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
   );
   const [phase, setPhase] = useState<'start' | 'design'>(start ? 'design' : 'start');
   const [config, setConfig] = useState<CakeConfig>(() => start?.config ?? fresh());
-  const [cardId, setCardId] = useState<string | null>(start?.cardId ?? data.cards[0]?.id ?? null);
+  // The one price: the shop's priced cake card (the first one, if it has several) — no picker (v6 draws none).
+  const cardId = start?.cardId ?? (data.cards.find((c) => c.oneCentavos != null) ?? data.cards[0])?.id ?? null;
   const [step, setStep] = useState<Step>('shape');
   const [tier, setTier] = useState<number>(() => (start?.config ?? fresh()).tiers.length - 1);
   const [capHit, setCapHit] = useState(false);
@@ -165,6 +172,7 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
       <StartScreen
         shop={data.shopName}
         photos={data.photos}
+        plainTiers={o.standardSize}
         onClose={onClose}
         onStart={(inspirationRef) => {
           setConfig({ ...fresh(), inspirationRef });
@@ -191,7 +199,17 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
 
   return (
     <>
-      <Head shop={data.shopName} onClose={onClose} onBack={start ? undefined : () => setPhase('start')} />
+      <Head
+        shop={data.shopName}
+        onClose={onClose}
+        onReset={() => {
+          const c = { ...fresh(), inspirationRef: config.inspirationRef };
+          setConfig(c);
+          setTier(c.tiers.length - 1);
+          setStep('shape');
+          setSend({ s: 'idle' });
+        }}
+      />
       <div className={css.split}>
         <div className={css.stageCol}>
           {photo ? (
@@ -413,11 +431,6 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
               </>
             ) : null}
 
-            {data.cards.length > 1 ? (
-              <Sec title="Priced from">
-                <PickMenu label="Their cake" value={cardId ?? ''} options={data.cards.map((c) => ({ key: c.id, label: c.oneCentavos != null ? `${c.name} · ${formatCentavosPhp(c.oneCentavos)}` : c.name }))} onPick={(k) => setCardId(k)} />
-              </Sec>
-            ) : null}
             {card?.usualPrepDays ? (
               <p className={css.prep}>
                 <Clock aria-hidden className="h-4 w-4 flex-none" />
@@ -457,7 +470,7 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
 
 /* ── the two starts ────────────────────────────────────────────────────── */
 
-function StartScreen({ shop, photos, onClose, onStart }: { shop: string; photos: CakePhoto[]; onClose: () => void; onStart: (inspirationRef: string | null) => void }) {
+function StartScreen({ shop, photos, plainTiers, onClose, onStart }: { shop: string; photos: CakePhoto[]; plainTiers: number; onClose: () => void; onStart: (inspirationRef: string | null) => void }) {
   const [way, setWay] = useState<'own' | 'photo' | null>(null);
   const [pick, setPick] = useState<string | null>(null);
   const shopPhotos = photos.filter((p) => p.from === 'shop');
@@ -471,7 +484,7 @@ function StartScreen({ shop, photos, onClose, onStart }: { shop: string; photos:
           <button type="button" role="radio" aria-checked={way === 'own'} className={css.way} onClick={() => setWay('own')}>
             <Pencil aria-hidden className="h-5 w-5" />
             <b>Design your own</b>
-            <small>Start from a plain cake and choose every part.</small>
+            <small>Start from a plain {formatCount(plainTiers)}-tier cake and choose every part.</small>
           </button>
           <button type="button" role="radio" aria-checked={way === 'photo'} className={css.way} onClick={() => setWay('photo')} disabled={photos.length === 0}>
             <ImageIcon aria-hidden className="h-5 w-5" />

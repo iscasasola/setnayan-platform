@@ -63,19 +63,20 @@ export default function CakeFigure3D({
   const { lost, retry, attempt, onCreated } = useWebglContextLost();
   const midY = (spec.height * S) / 2;
   // It turns once into place on open, then stops (v6 motion: nothing loops).
-  const [turning, setTurning] = useState(!still);
+  // Reduced motion: no turn at all. After the turn the canvas renders on demand (a drag or a pick), never every frame.
+  const [turning, setTurning] = useState(() => !still && !(typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches));
   useEffect(() => {
-    if (still) return;
+    if (!turning) return;
     const id = window.setTimeout(() => setTurning(false), 2600);
     return () => window.clearTimeout(id);
-  }, [still]);
+  }, [turning]);
   if (lost) return <ContextLostNotice onShow2d={onShow2d} onRetry={retry} />;
   const far = Math.max(2.4, Math.max(spec.height, spec.width * 0.8) * S * 2.1);
   return (
     <Canvas
       key={attempt}
       dpr={canvasDpr(phone, 2)}
-      frameloop={still ? 'demand' : 'always'}
+      frameloop={turning ? 'always' : 'demand'}
       camera={{ position: [0, midY + 0.5, far], fov: 35 }}
       onCreated={onCreated}
       gl={{ antialias: !phone, powerPreference: phone ? 'low-power' : 'default', preserveDrawingBuffer: still }}

@@ -98,25 +98,50 @@ export function CakeMakerPanel({ seed }: { seed?: { options: CakeShopOptions; sa
       </div>
     );
   }
-  if (load.locked) return <LockedCakeMaker saved={load.saved} />;
+  if (load.locked) return <LockedCakeMaker saved={load.saved} options={load.options} />;
   return <CakeMakerEditor start={load.options} saved={load.saved} />;
 }
 
-/** Below Pro after the start date: one quiet row, and nothing saved — saved options are kept. */
-function LockedCakeMaker({ saved }: { saved: boolean }) {
+/** Below Pro after the start date (v6 "Included in Pro"): the drawing's words, Upgrade, and what was saved — read-only,
+ *  kept just as it is. Nothing here writes. */
+function LockedCakeMaker({ saved, options }: { saved: boolean; options: CakeShopOptions }) {
   return (
     <div className={styles.root} data-cake-maker="locked">
       <div className={`${styles.frame} ${styles.lockRow}`}>
         <Lock aria-hidden className="h-4 w-4 flex-none" />
         <span className={styles.st}>
           <b>{SPECIAL_TOOLS_LOCKED_WORDS}</b>
-          <small>{saved ? 'Your saved cake options are kept, just as they are.' : 'Couples design their cake in your chat.'}</small>
+          <small>Couples design their cake in your chat — tiers, shapes, accents, the 3D cake, cupcakes. Your cards don’t change.</small>
         </span>
         <Link href={SPECIAL_TOOLS_UPGRADE_HREF} className={styles.pill} data-web-only="">
           Upgrade
         </Link>
       </div>
+      {saved ? (
+        <>
+          <h3 className={styles.lab}>Your saved options · kept as they are</h3>
+          <CakeSummary o={options} />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+/** "What couples see" — the one summary of a shop's options (the editor's foot; read-only on the locked panel). */
+function CakeSummary({ o }: { o: CakeShopOptions }) {
+  const std = o.sizes.find((s) => s.count === o.standardSize);
+  const sizesLine = `${formatCount(o.sizes[0]?.count ?? 1)} to ${formatCount(o.sizes[o.sizes.length - 1]?.count ?? 1)} · ${formatCount(o.standardSize)} in the price`;
+  const shapesLine = [...o.shapes.map((s) => label(CAKE_SHAPES, s.id)), ...(o.tall ? ['Tall'] : [])].join(' · ');
+  return (
+    <dl className={`${styles.frame} ${styles.sum}`} data-cake-summary="">
+      <SumRow k="Shape" v={o.arrangements.map((a) => label(CAKE_ARRANGEMENTS, a.id)).join(' · ')} />
+      <SumRow k="Tiers" v={`${sizesLine}${std?.serves ? ` · serves about ${formatCount(std.serves)}` : ''}`} />
+      <SumRow k="Each tier" v={`${o.flavours.length ? 'a flavour, ' : ''}${shapesLine.toLowerCase()}`} />
+      <SumRow k="Finish" v={o.finishes.map((f) => label(CAKE_FINISHES, f.id)).join(' · ')} />
+      {o.display ? <SumRow k="Display tiers" v="The cut tier stays real" /> : null}
+      {o.monogram ? <SumRow k="Monogram" v="From their event" /> : null}
+      {o.cupcakes ? <SumRow k="Cupcakes" v={o.cupcakes.packs.map((p) => formatCount(p.count)).join(' · ')} /> : null}
+    </dl>
   );
 }
 
@@ -147,9 +172,6 @@ function CakeMakerEditor({ start, saved: savedAtStart }: { start: CakeShopOption
     }
   };
 
-  const std = o.sizes.find((s) => s.count === o.standardSize);
-  const sizesLine = `${formatCount(o.sizes[0]?.count ?? 1)} to ${formatCount(o.sizes[o.sizes.length - 1]?.count ?? 1)} · ${formatCount(o.standardSize)} in the price`;
-  const shapesLine = [...o.shapes.map((s) => label(CAKE_SHAPES, s.id)), ...(o.tall ? ['Tall'] : [])].join(' · ');
 
   return (
     <div className={styles.root} data-cake-maker="">
@@ -254,15 +276,7 @@ function CakeMakerEditor({ start, saved: savedAtStart }: { start: CakeShopOption
       </div>
 
       <h3 className={styles.lab}>What couples see</h3>
-      <dl className={`${styles.frame} ${styles.sum}`} data-cake-summary="">
-        <SumRow k="Shape" v={o.arrangements.map((a) => label(CAKE_ARRANGEMENTS, a.id)).join(' · ')} />
-        <SumRow k="Tiers" v={`${sizesLine}${std?.serves ? ` · serves about ${formatCount(std.serves)}` : ''}`} />
-        <SumRow k="Each tier" v={`${o.flavours.length ? 'a flavour, ' : ''}${shapesLine.toLowerCase()}`} />
-        <SumRow k="Finish" v={o.finishes.map((f) => label(CAKE_FINISHES, f.id)).join(' · ')} />
-        {o.display ? <SumRow k="Display tiers" v="The cut tier stays real" /> : null}
-        {o.monogram ? <SumRow k="Monogram" v="From their event" /> : null}
-        {o.cupcakes ? <SumRow k="Cupcakes" v={o.cupcakes.packs.map((p) => formatCount(p.count)).join(' · ')} /> : null}
-      </dl>
+      <CakeSummary o={o} />
 
       <div className={styles.saveRow}>
         {state.s === 'refused' ? (

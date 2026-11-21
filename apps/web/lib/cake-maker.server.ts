@@ -14,8 +14,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { moodCakeColours } from '@/lib/cake-mood-colours';
 import { specialToolsAllowed } from '@/lib/special-tools';
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
-import { asVendorTier } from '@/lib/vendor-tier-caps';
+import { readShopTierWithDeals, readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 import { CAKE_MESSAGE_MAX, fullCakeOffer, sanitizeCakeConfig, type CakeConfig, type CakeConfigRefusal } from '@/lib/cake-config';
 import { cakeDesignOf, cakeOfferOf, isCakeKind, sanitizeCakeShopOptions, type CakeDesign, type CakeShopOptions, type MoodCakeColour } from '@/lib/cake-maker';
 
@@ -39,17 +38,11 @@ export async function readShopCakeMaker(client: SupabaseClient, vendorProfileId:
 
 /** Is the shop's plan allowed the special tools now (Pro and up, or before the admin's start date)? */
 export async function readShopSpecialToolsAllowed(admin: SupabaseClient, vendorProfileId: string): Promise<Read<boolean>> {
-  const [paid, shop] = await Promise.all([
-    readSpecialToolsPaidFrom(admin),
-    admin.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
-  ]);
-  if (paid.status !== 'ok' || shop.error) {
-    if (shop.error) logQueryError('readShopSpecialToolsAllowed', shop.error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
-    return { status: 'unread' };
-  }
-  if (!shop.data) return { status: 'none' };
-  const tier = asVendorTier((shop.data as { tier_state?: string | null }).tier_state ?? 'free');
-  return { status: 'ok', data: specialToolsAllowed(tier, paid.paidFrom, Date.now()) };
+  // The plan as it acts — promo deals included (a shop on a free-Pro deal is Pro here too).
+  const [paid, shop] = await Promise.all([readSpecialToolsPaidFrom(admin), readShopTierWithDeals(admin, vendorProfileId)]);
+  if (paid.status !== 'ok' || shop.status === 'unread') return { status: 'unread' };
+  if (shop.status === 'none') return { status: 'none' };
+  return { status: 'ok', data: specialToolsAllowed(shop.tier, paid.paidFrom, Date.now()) };
 }
 
 export type ShopCakeCard = { id: string; name: string; oneCentavos: number | null; usualPrepDays: number | null };

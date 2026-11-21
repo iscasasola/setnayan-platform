@@ -97,7 +97,6 @@ export function CakeDesignCard({
   const { viewer, design, config, cupcakeCount, monogramText, inspirationUrl, cardId, usualPrepDays, replaced } = read.data;
   const couple = viewer === 'couple';
   const spec = cakeFigureSpec(config, (ref) => design.flavourLabels[ref] ?? null, cupcakeCount);
-  const prepNote = usualPrepDays ? `\nMaking time: your usual ${usualPrepDays} ${usualPrepDays === 1 ? 'day' : 'days'} — confirm it for this design.` : '';
 
   if (quoting && place === 'chat' && !couple) {
     const lines = cakeQuoteLines(design);
@@ -110,7 +109,7 @@ export function CakeDesignCard({
         prefill={{
           picked: cardId ? [cardId] : [],
           offerCentavos: design.estimateCentavos ?? 0,
-          note: `${cakeQuoteNote(design)}${prepNote}`.slice(0, 500),
+          note: cakeQuoteNote(design).slice(0, 500),
           lines: extras,
         }}
       />

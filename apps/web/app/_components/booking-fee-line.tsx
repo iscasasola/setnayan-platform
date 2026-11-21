@@ -35,11 +35,17 @@ export const FEE_LINE_OWN_CLIENTS = FEE_FREE_RULE;
 export function BookingFeeLine({
   fee,
   leadStyle,
+  freeRule = FEE_LINE_OWN_CLIENTS,
 }: {
   /** The LIVE schedule, or null when it could not be read. */
   fee: BookingFeeSchedule | null;
   /** Style for the bold lead sentence (a page's own ink colour). */
   leadStyle?: CSSProperties;
+  /**
+   * Who books free, behind the ⓘ. Defaults to the PUBLIC words (no duration). The supplier's own pages pass
+   * `feeFreeRuleInApp(fee?.newClientFreeMonths)`, which names the new-client window's length from settings.
+   */
+  freeRule?: string;
 }) {
   return (
     <>
@@ -50,7 +56,7 @@ export function BookingFeeLine({
         {fee
           ? `The smallest fee is ${bookingFeeMinimumAmount(fee)} a booking.`
           : 'Its rate is shown in full before you agree to any booking.'}{' '}
-        {FEE_LINE_OWN_CLIENTS}
+        {freeRule}
       </InfoTip>
     </>
   );

@@ -305,6 +305,13 @@ export function isMayaWebhookSource(
 }
 
 /** The one line a payer reads on returning from Maya without paying. */
+/**
+ * The ONE quiet line when a payer opened Maya and came back with nothing paid — Back from Maya (PENDING_TOKEN /
+ * PENDING_PAYMENT) or `?maya=success` that settles to "none" (controller 21 Nov). Never drawn once anything is paid,
+ * pending, or queued: only the settle outcome `'none'` draws it.
+ */
+export const MAYA_NOT_FINISHED_LINE = 'Payment not finished. Nothing has been charged.';
+
 export function mayaReturnLine(outcome: string | undefined): string | null {
   if (outcome === 'failure') return 'Maya didn’t take the payment. Nothing was charged.';
   if (outcome === 'cancel') return 'You left Maya before paying. Nothing was charged.';
@@ -332,8 +339,15 @@ export function mayaWebhookNotice(code: string | undefined): { ok: boolean; text
       return { ok: false, text: 'Add the secret key first.' };
     case 'bad_endpoint':
       return { ok: false, text: 'The checkout endpoint is not a valid address.' };
+    case 'keys_refused':
+      return {
+        ok: false,
+        text: 'Maya refused these keys — check they match the endpoint (sandbox keys → pg-sandbox, Business Manager keys → pg.maya.ph).',
+      };
+    case 'no_answer':
+      return { ok: false, text: 'Maya did not answer — try again.' };
     case 'refused':
-      return { ok: false, text: 'Maya refused or did not answer. Check the keys and try again.' };
+      return { ok: false, text: 'Maya turned the request down. Try again; if it repeats, check the keys and the endpoint.' };
     default:
       return null;
   }

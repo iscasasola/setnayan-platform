@@ -143,7 +143,9 @@ test('② the card round-trips the note: a changed box is written, an untouched 
   // The card draws the box, beside the private note, in both kits' words.
   const card = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
   /* RE-AIMED 2026-10-23: one group, two fields, as the owner wrote it ("Note for them · Private note"); each field says who reads it. */
-  assert.match(card, /<K\.Fold summary="Note for them · Private note"/);
+  /* RE-WORDED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3: "Note for them · Private note →
+     Notes"): the group reads "Notes" and keeps its handle; each field inside still says who reads it (below). */
+  assert.match(card, /<K\.Fold summary="Notes" handle="Note for them · Private note"/);
   assert.match(card, /label="Note for them · they see it"/);
   assert.match(card, /label="Private note · only you"/);
   assert.match(card, /id="host_note_for_guest"[\s\S]{0,80}maxLength=\{HOST_NOTE_MAX\}/);

@@ -7,6 +7,7 @@ import { recordSeatCapture } from '@/app/papic/actions';
 import { startAddingPhotos } from '@/app/dashboard/[eventId]/studio/papic/actions';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { useHandedFiles } from '@/app/_components/memories/memories-add-photos';
 import type { UploadOutcome } from '@/lib/upload-send';
 import {
   costInfoLine,
@@ -213,7 +214,7 @@ export function AddToLibrary({
   );
 
   const onPick = useCallback(
-    async (files: FileList | null) => {
+    async (files: FileList | readonly File[] | null) => {
       if (!files || files.length === 0) return;
       const stamp = Date.now();
       const picked = Array.from(files).map((file, i) => ({ file, id: `${stamp}-${i}` }));
@@ -351,6 +352,16 @@ export function AddToLibrary({
     },
     [send, record, patch, pot, router, eventId],
   );
+
+  /* ＋ THE PAPIC BLOCK'S "Add photos" (owner 2026-11-20, "memories approved"): that press opened the phone's picker at
+     once, then opened this sheet — the files it picked run through THIS `onPick`, once, exactly as "Choose photos" does
+     (`memories-add-photos.tsx`). Absent outside Memories' gallery. */
+  const handed = useHandedFiles();
+  useEffect(() => {
+    const files = handed?.take() ?? null;
+    if (files) void onPick(files);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when new files are handed, once each
+  }, [handed?.files]);
 
   return (
     <div className="space-y-3" data-add-photos="">

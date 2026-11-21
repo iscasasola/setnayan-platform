@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1963
+# ledger: 1964
 # tables: 535
-# columns: 6426
-# notnull: 3873
+# columns: 6427
+# notnull: 3874
 [ledger]
 20260512000000
 20260513000000
@@ -1971,6 +1971,7 @@
 20271356196197
 20271356215288
 20271356402294
+20271356623783
 20271356665317
 20271356969132
 20271356998019
@@ -5916,6 +5917,7 @@ platform_settings.booking_fee_free_every_nth
 platform_settings.booking_fee_free_from
 platform_settings.booking_fee_free_until
 platform_settings.booking_fee_minting_live
+platform_settings.booking_fee_new_client_free_months
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php
@@ -10733,6 +10735,7 @@ platform_settings.ai_signup_discount_pct
 platform_settings.bdo_enabled
 platform_settings.booking_fee_cap_php
 platform_settings.booking_fee_free_every_nth
+platform_settings.booking_fee_new_client_free_months
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php

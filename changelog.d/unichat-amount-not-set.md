@@ -13,3 +13,8 @@
 - guard: `lib/quote-receipt.test.ts` § 6, checked with sabotage
 
 SPEC IMPACT: None. This implements the controller's 21 Nov F-backlog item (a).
+
+**Ship review fixes (21 Nov):** a free catalogue extra is added FREE (`extras[].free` carried from the catalogue line),
+not as a ₱0 line that blocked sending · a stored line counts as priced only while its amount still equals what was
+stored (edited to ₱0, or Free turned off → "Amount not set") · the catalogue picker says "Free" / "Amount not set",
+never "₱0" (`quoteExtraPriceWords`). Test 7 in `lib/quote-receipt.test.ts`.

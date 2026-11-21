@@ -85,7 +85,10 @@ export function newReceiptLine(): ReceiptLine {
  * `QUOTE_LINE_AMOUNT_NOT_SET`, never "₱0".
  */
 export function receiptLineUnpriced(l: ReceiptLine): boolean {
-  return !l.free && l.src == null && toCentavos(l.pricePhp) === 0;
+  if (l.free || toCentavos(l.pricePhp) !== 0) return false;
+  // A stored line counts as priced only while it still says what was stored — one edited to ₱0, or a stored Free
+  // turned off, is unpriced like any new line (ship review 21 Nov).
+  return !(l.src != null && amountOf(l.src) === receiptLineCentavos(l));
 }
 
 /** What one line comes to (a free line is ₱0 and is stored with no amount — "Complimentary"). */

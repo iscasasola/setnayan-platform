@@ -29,3 +29,13 @@ export function quoteLineDetailWords(li: { detail?: string | null; amount_centav
   if (!d) return null;
   return typeof li.amount_centavos !== 'number' && d === QUOTED_AFTER_SITE_CHECK ? null : d;
 }
+
+/**
+ * 📋 What the "Add from your catalogue" picker says beside an extra (ship review 21 Nov): "Free" for a free extra,
+ * `QUOTE_LINE_AMOUNT_NOT_SET` for one with no price — never "₱0" — else the amount for its quantity.
+ */
+export function quoteExtraPriceWords(x: { qty: number; pricePhp: number; free: boolean }): string {
+  if (x.free) return 'Free';
+  const centavos = Math.round((Number(x.qty) || 1) * (Number(x.pricePhp) || 0) * 100);
+  return centavos === 0 ? QUOTE_LINE_AMOUNT_NOT_SET : formatCentavos(centavos);
+}

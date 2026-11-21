@@ -27,7 +27,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fitReceiptToTarget, newReceiptLine, receiptFromCards, receiptFromStored, receiptLineUnpriced, receiptMoney, receiptPlanChoices, receiptRefusal, RECEIPT_WORDS } from './quote-receipt';
 import { DEFAULT_QUOTE_PLAN } from './proposal-payment-schedule';
-import { QUOTE_LINE_AMOUNT_NOT_SET, QUOTED_AFTER_SITE_CHECK } from './quote-line-price-words';
+import { QUOTE_LINE_AMOUNT_NOT_SET, QUOTED_AFTER_SITE_CHECK, quoteExtraPriceWords } from './quote-line-price-words';
 import type { ProposalLineItem } from './vendor-proposals';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -219,4 +219,26 @@ test('6 · the receipt draws the unpriced line\'s words, not a peso amount', () 
   const ui = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'quote-receipt.tsx'), 'utf8');
   assert.equal(QUOTE_LINE_AMOUNT_NOT_SET, 'Amount not set');
   assert.match(ui, /receiptLineUnpriced\(l\) \? QUOTE_LINE_AMOUNT_NOT_SET : pesos\(receiptLineCentavos\(l\)\)/);
+});
+
+test('7 · a stored line is priced only while it says what was stored; a free catalogue extra stays free (ship review 21 Nov)', () => {
+  const stored = receiptFromStored([
+    { label: 'Lights', amount_centavos: 3_000_000 },
+    { label: 'Ribbons', amount_centavos: null },
+  ]);
+  const lights = stored.lines.find((l) => l.label === 'Lights')!;
+  const ribbons = stored.lines.find((l) => l.label === 'Ribbons')!;
+  assert.equal(receiptLineUnpriced({ ...lights, pricePhp: 0 }), true, 'a stored line edited to ₱0 still read as priced');
+  assert.equal(receiptLineUnpriced({ ...ribbons, free: false }), true, 'a stored Free turned off still read as priced');
+  assert.equal(receiptLineUnpriced(ribbons), false, 'a stored Free line read as unpriced');
+
+  // The catalogue picker passes `free` through, and says "Free" / "Amount not set" — never ₱0.
+  const step = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'quote-step-card.tsx'), 'utf8');
+  assert.match(step, /pricePhp: x\.pricePhp, qty: Math\.max\(1, Math\.round\(x\.qty\)\), free: x\.free,/);
+  const calls = readFileSync(join(HERE, '..', 'app', '_components', 'chat', 'cards', 'card-calls.ts'), 'utf8');
+  assert.match(calls, /free: !perPax && Boolean\(x\.line\.free\)/);
+  assert.equal(quoteExtraPriceWords({ qty: 1, pricePhp: 0, free: true }), 'Free');
+  assert.equal(quoteExtraPriceWords({ qty: 1, pricePhp: 0, free: false }), QUOTE_LINE_AMOUNT_NOT_SET);
+  assert.notEqual(quoteExtraPriceWords({ qty: 2, pricePhp: 1500, free: false }), QUOTE_LINE_AMOUNT_NOT_SET);
+  assert.match(step, /label: `\$\{x\.label\} · \$\{quoteExtraPriceWords\(x\)\}`/);
 });

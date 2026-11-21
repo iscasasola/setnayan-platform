@@ -66,7 +66,9 @@ test('C-4 · a refused challenges / photos read never says "No challenges yet" o
   assert.match(lib, /papic_vendor_challenges', error\);\s*return null;/);
   assert.match(lib, /papic_vendor_challenge_photos', error\);\s*return null;/);
   assert.match(dash('clients/[eventId]/_components/vendor-challenge-section.tsx'), /\{challengesRead === null \? \([\s\S]{0,300}\) : challenges\.length > 0 \? \(/);
-  assert.match(dash('clients/[eventId]/challenge-photos/page.tsx'), /\{photosRead === null \? \([\s\S]{0,300}\) : total === 0 \? \(/);
+  // Set two (21 Nov 2026): the page reads (an unread read is handed on as `sections={null}`), the body draws it.
+  assert.match(dash('clients/[eventId]/challenge-photos/page.tsx'), /sections=\{photosRead === null \? null :/);
+  assert.match(dash('clients/[eventId]/challenge-photos/challenge-photos-body.tsx'), /\{sections === null \? \([\s\S]{0,300}\) : total === 0 \? \(/);
 });
 
 test('C-5 · a refused own-submissions read never shows the full allowance', () => {

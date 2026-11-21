@@ -1,8 +1,8 @@
 import { CalendarHeart, Star } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatCount } from '@/lib/format-number';
-import { Badge } from '@/app/_components/badge';
-import { TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { TemplateRows } from '@/app/_components/template-rows';
+import { ToolChip, ToolLead, ToolRow, ToolSection } from './tool-page';
 
 /**
  * vendor-track-record-panel.tsx — "One profile, every life event."
@@ -46,21 +46,23 @@ export type VendorTrackRecordRow = {
 };
 
 /**
- * Fetch the calling vendor's completed-events breakdown by event type. Returns
- * [] on any error or when the vendor has no completed events yet — the panel
- * then renders nothing (no misleading zero-state clutter on the home page).
+ * Fetch the calling vendor's completed-events breakdown by event type.
+ *
+ * 🔴 NULL MEANS "COULD NOT READ", NEVER "NONE" (controller 21 Nov 2026, the tool pages redraw v3). This returned [] when
+ * its RPC errored, and the page then said "No completed events yet" to a supplier with a real record. A refused read is
+ * `null`; only a read that ran returns rows (or [] for a shop with none yet).
+ * 🔒 app/vendor-dashboard/a-failed-tool-read-is-never-clean.test.ts
  */
 export async function fetchVendorTrackRecord(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<VendorTrackRecordRow[]> {
+): Promise<VendorTrackRecordRow[] | null> {
   const { data, error } = await supabase.rpc(
     'vendor_track_record_by_event_type',
     { p_vendor_profile_id: vendorProfileId },
   );
   if (error || !Array.isArray(data)) {
-    // Non-fatal: a stale deploy without the RPC, or a fresh vendor. Log for
-    // Sentry capture but never crash the page.
+    // Logged for Sentry, and said on the page (`ToolFail`) — a log line never changed a pixel.
     if (error) {
       // eslint-disable-next-line no-console
       console.error('[VendorTrackRecordPanel] RPC failed', {
@@ -68,7 +70,7 @@ export async function fetchVendorTrackRecord(
         error: error.message,
       });
     }
-    return [];
+    return null;
   }
   return (data as VendorTrackRecordRow[]).filter(
     (r) => r.completed_count > 0,
@@ -102,17 +104,15 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
   const label = pluralizeLabel(row.event_type_label, row.completed_count);
   const hasRating = row.avg_rating !== null && row.review_count > 0;
   return (
-    <TemplateRow
+    <ToolRow
+      data={row.event_type}
       lead={
-        <span
-          aria-hidden
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-ink"
-        >
+        <ToolLead>
           <CalendarHeart className="h-[18px] w-[18px]" strokeWidth={1.75} />
-        </span>
+        </ToolLead>
       }
       title={label}
-      line={
+      lines={[
         <>
           {formatCount(row.completed_count)} completed
           {hasRating ? (
@@ -121,17 +121,21 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
               {formatCount(row.review_count)} review{row.review_count === 1 ? '' : 's'}
             </>
           ) : null}
-        </>
-      }
+        </>,
+        hasRating ? null : (
+          <span key="n" className="mt-1 inline-flex">
+            <ToolChip tone="quiet">No reviews yet</ToolChip>
+          </span>
+        ),
+      ]}
       right={
         hasRating ? (
           <span className="inline-flex items-center gap-1 text-[15px] font-bold tabular-nums text-ink">
-            <Star className="h-3.5 w-3.5 fill-current text-terracotta" strokeWidth={0} aria-hidden />
+            {/* Gold is the rating star only — never words (the drawing's one gold). */}
+            <Star className="h-3.5 w-3.5 fill-current" style={{ color: 'var(--sn-gold-500)' }} strokeWidth={0} aria-hidden />
             {(row.avg_rating ?? 0).toFixed(1)}
           </span>
-        ) : (
-          <Badge tone="quiet">No reviews yet</Badge>
-        )
+        ) : null
       }
     />
   );
@@ -142,43 +146,31 @@ function TrackRecordRow({ row }: { row: VendorTrackRecordRow }) {
 // ---------------------------------------------------------------------------
 
 /**
- * "Your track record across life events" panel. Renders nothing when the vendor
- * has no completed events (so it stays invisible on brand-new profiles). Pass an
- * already-loaded rows array to skip the query, or let it fetch.
+ * "Across life events" — the redraw's label (v3, 21 Nov 2026): the old "Your track record across life events" is the ⓘ's
+ * name. Renders nothing when the vendor has no completed events (so it stays invisible on brand-new profiles); the page
+ * says the empty line and the failed read itself. Hand it the rows the page already read.
  */
-export async function VendorTrackRecordPanel({
-  supabase,
-  vendorProfileId,
-  rows: passedRows,
-}: {
-  supabase: SupabaseClient;
-  vendorProfileId: string;
-  /** Optional pre-loaded rows (avoids a duplicate query when the parent page
-   *  already fetched them). Falls back to fetching. */
-  rows?: VendorTrackRecordRow[];
-}) {
-  const rows =
-    passedRows ?? (await fetchVendorTrackRecord(supabase, vendorProfileId));
-
+export function VendorTrackRecordPanel({ rows }: { rows: VendorTrackRecordRow[] }) {
   if (rows.length === 0) return null;
 
   const total = totalCompleted(rows);
 
   return (
-    <TemplateSection
-      label="Your track record across life events"
-      tip="Counts include only real, delivered bookings from couples — never your own or your team’s events. Ratings average the reviews left on those events."
+    <ToolSection
+      label="Across life events"
+      tip="Your track record across life events. Counts include only real, delivered bookings from couples — never your own or your team’s events. Ratings average the reviews left on those events."
       right={
         <span className="tabular-nums">
-          {formatCount(total)} completed · {formatCount(rows.length)} event type{rows.length === 1 ? '' : 's'}
+          {formatCount(total)} completed · {formatCount(rows.length)} type{rows.length === 1 ? '' : 's'}
         </span>
       }
+      data="track-record"
     >
       <TemplateRows label="Your track record across life events">
         {rows.map((row) => (
           <TrackRecordRow key={row.event_type} row={row} />
         ))}
       </TemplateRows>
-    </TemplateSection>
+    </ToolSection>
   );
 }

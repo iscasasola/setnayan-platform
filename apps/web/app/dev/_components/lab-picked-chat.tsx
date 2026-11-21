@@ -10,11 +10,13 @@ import { ChatPrivacyTip } from '@/app/_components/chat-privacy-notice';
 import { ComposerPlusSheet, CoupleThreadToolsSheet } from '@/app/vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet';
 import { ChatMessageStream } from '@/app/_components/chat-message-stream';
 import { ChatSendForm } from '@/app/_components/chat-send-form';
+import { LabWhisperOn } from '@/app/dev/_components/lab-whisper-on';
 import { BookedCallButtons } from '@/app/_components/chat/booked-call-buttons';
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { LAB_MESSAGES, LAB_STAFF, LAB_USER } from '@/app/dev/chat-lab/fixtures';
 import type { ChatHost } from '@/lib/chat-hosts';
+import { whisperFilterWho } from '@/lib/chat-whisper';
 
 /** Sample hosts (nobody real) — the first is the fixture couple sender. `?hosts=fail` in a lab hands `null` instead:
  * the shipped strip's "Couldn't load" line. */
@@ -83,7 +85,30 @@ export type LabChatMode = {
    * confirmed, someone joining). `asking` = not booked yet (the inquiry leads); anything else = a booked client.
    */
   oneChat?: 'booked' | 'asking' | 'failed';
+  /**
+   * 🤫 `&whisper=1` — Unichat part E: the box opens on Whisper with its Private chip and who it reaches, and the stream
+   * carries one whisper of THIS side (hosts + their coordinator · the shop's own team). `fail` = the read of who it
+   * reaches failed (the box must say it could not load, never "no one"). Sample words, nobody real.
+   */
+  whisper?: 'on' | 'fail';
 };
+
+/** 🤫 One stored whisper of the viewer's side (`whisper_side` set), from the OTHER person on that side. */
+function labWhisper(threadId: string, side: 'couple' | 'vendor') {
+  const base = LAB_MESSAGES[0]!;
+  return {
+    ...base,
+    message_id: '00000000-0000-4000-8000-000000000801',
+    thread_id: threadId,
+    sender_user_id: side === 'couple' ? JOSE.userId : '00000000-0000-4000-8000-0000000000f1',
+    sender_role: side === 'couple' ? 'couple' : 'vendor',
+    body: side === 'couple' ? 'Let’s not go above ₱42,000.' : 'Boss, okay to go down to ₱42,500?',
+    recipient_user_id: side === 'couple' ? LAB_USER : LAB_STAFF,
+    recipient_user_ids: side === 'couple' ? [LAB_USER, PIA.userId] : [LAB_STAFF],
+    whisper_side: side === 'couple' ? 'hosts' : 'team',
+    created_at: new Date(Date.UTC(2026, 10, 20, 2, 0)).toISOString(),
+  } as (typeof LAB_MESSAGES)[number];
+}
 
 /** 💬 The one-chat sample deal: the hosts' inquiry first, then the steps a deal leaves behind. Sample words, nobody real. */
 function oneChatMessages(threadId: string, stage: 'booked' | 'asking' | 'failed') {
@@ -139,7 +164,7 @@ function LabPins() {
   );
 }
 
-export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop, shopLogoUrl, oneChat }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
+export function LabPickedChat({ threadId, side, counterpartyLabel, actions, hostsFail = false, noMessages = false, solo = false, tallPins = false, selfShop, shopLogoUrl, oneChat, whisper }: { threadId: string; side: 'couple' | 'vendor'; counterpartyLabel: string; actions: LabChatActions } & LabChatMode) {
   // 👥 The shipped `ChatHostStrip` under the pinned row on BOTH sides (the stream draws it when `hosts` is given). The
   // supplier sees the event's side; a host sees the shop too (as the real host embed does). "You" is the strip's own.
   // Order is the strip's own (`stripOrder`): Supplier · coordinator · You · the other hosts.
@@ -167,9 +192,18 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
       ? oneChatMessages(threadId, oneChat)
     : selfShop
       ? selfShopMessages(threadId, selfShop)
-      : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side)];
+      : [...LAB_MESSAGES.map((m) => ({ ...m, thread_id: threadId })), labPrivate(threadId, side), ...(whisper ? [labWhisper(threadId, side)] : [])];
+  // 🤫 What the two thread pages hand the box (readHostsWhisper · readTeamWhisper), on sample people.
+  const whisperProp = !whisper
+    ? null
+    : whisper === 'fail'
+      ? { supplierName: side === 'couple' ? counterpartyLabel : 'the hosts', coHosts: 0, unread: true, side: side === 'couple' ? ('hosts' as const) : ('team' as const), reach: null }
+      : side === 'couple'
+        ? { supplierName: counterpartyLabel, coHosts: 2, side: 'hosts' as const, reach: 'Only you, Jose and your coordinator' }
+        : { supplierName: 'the hosts', coHosts: 1, side: 'team' as const, reach: 'Only your team' };
   return (
     <div data-picked-lab-chat={side} className="flex min-h-0 flex-1 flex-col">
+      {whisper === 'on' ? <LabWhisperOn threadId={threadId} /> : null}
       <ChatBox
         header={null}
         // v8.3: no notice row in a picked chat — the words sit behind the strip's ⓘ (`headNote` below).
@@ -186,6 +220,7 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
             {...(side === 'vendor' ? { sentAs: 'vendor' as const } : {})}
             // 💬 The chips + the suggested step (the real supplier page passes `kinds={embedded}`).
             kinds={Boolean(oneChat) && side === 'vendor'}
+            whisper={whisperProp}
           />
         }
       >
@@ -199,6 +234,14 @@ export function LabPickedChat({ threadId, side, counterpartyLabel, actions, host
           currentUserId={viewer}
           viewerRole={side}
           hosts={hosts}
+          // 🔎 The Private filter line's who — sample people, as the pages pass it from their whisper read.
+          privateFilterWho={
+            whisper === 'fail'
+              ? { who: null, unread: true }
+              : side === 'couple'
+                ? { who: whisperFilterWho({ side: 'hosts', coordinatorNames: ['Liza'] }), unread: false }
+                : { who: whisperFilterWho({ side: 'team' }), unread: false }
+          }
           // 🏪 The supplier lab's shop name (the real page passes `profile.business_name`).
           {...(side === 'vendor' ? { shopLabel: SHOP.name } : {})}
           // 📞 The picked page's head calls, as the two thread pages pass them. A LAB stand-in: a booked sample with a

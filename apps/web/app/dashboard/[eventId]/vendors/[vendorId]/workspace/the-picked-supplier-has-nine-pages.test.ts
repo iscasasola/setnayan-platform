@@ -136,7 +136,7 @@ test('3 · Report is on every menu, and it is the shipped Report a problem about
   assert.match(parts, /action=\{fileForceMajeureFlag\}/, 'the form no longer files through the shipped action');
   assert.match(parts, /<input type="hidden" name="event_vendor_id" value=\{supplier\.id\} \/>/, 'the report is not pinned to the supplier');
   // The host's (+) rows sit under pages of THIS menu, in its order, Photos & files last — Report left the (+) for the
-  // head's ⋯ (Unichat part G, 20 Nov: `HOST_MORE` in picked-supplier-shell.tsx), still the last page of the menu above.
+  // head's ⋯ (Unichat part G, 20 Nov: `hostMoreRows` in picked-supplier-shell.tsx), still the last page of the menu above.
   const order = PICKED_SUPPLIER_PAGES.map((p) => p.id as string);
   for (const canLogPayment of [true, false]) {
     // 🤝 The Negotiate group (12 Nov) heads the (+) above every page — it is not a page of this menu (chat-plus.test 8 holds it first).

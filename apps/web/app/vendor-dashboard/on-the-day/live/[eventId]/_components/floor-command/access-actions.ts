@@ -26,6 +26,8 @@ import type { DelegateArea } from '@/lib/event-moderators';
 // them directly; this file keeps the one thing a browser presses — the ask.
 import { fetchMyAreaGrants } from '@/lib/my-area-grants.server';
 import { eventFeeBlocksAction } from '@/lib/vendor-event-fee-access.server';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 
 export type AskAccessResult = { ok: boolean; error?: string; asked?: DelegateArea[] };
 
@@ -47,6 +49,9 @@ export async function askHostForAccess(
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, error: 'No supplier profile.' };
+  // 🪪 A ＋ tool needs a verified shop (a refused read refuses too — "couldn't check").
+  const unverified = plusGateRefusal(await shopPlusGate(supabase, profile.vendor_profile_id));
+  if (unverified) return { ok: false, error: unverified };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {

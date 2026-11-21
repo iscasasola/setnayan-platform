@@ -4,6 +4,9 @@ import { formatPapicDayInWords } from '@/lib/papic-window';
 import { Camera } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { hostCameraDoor } from '@/lib/papic-host-door.server';
+import { hostCameraHref } from '@/lib/papic-host-door';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestAccess, fetchGuestQuota } from '@/lib/papic-guest';
@@ -80,6 +83,33 @@ export default async function PapicGuestPage({
   const session = await readGuestSession();
 
   if (!session) {
+    // 📷 A HOST GETS THEIR OWN CAMERA (owner 2026-11-22, live fix — `lib/papic-host-door.ts`): the Hub's bar sends the
+    // couple here, and a host carries no guest session. Their own host camera is the one they already have; a refusal
+    // says why and where to go. Anyone else falls through to the guest's door below, unchanged.
+    const host = backSlug ? await hostCameraDoor(backSlug) : ({ kind: 'not_host' } as const);
+    if (host.kind === 'camera') redirect(hostCameraHref(host.token));
+    if (host.kind === 'refused') {
+      return (
+        <DoorShell
+          tone="dead_end"
+          eyebrow={
+            <>
+              <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Your camera
+            </>
+          }
+          title={host.title}
+          sub={host.words}
+        >
+          <Link href={`/dashboard/${host.eventId}/memories`} className="button-primary">
+            Open Memories
+          </Link>
+          <Link href={`/${backSlug}`} className="button-secondary">
+            Back to the Event Hub
+          </Link>
+        </DoorShell>
+      );
+    }
     return (
       <DoorShell
         tone="dead_end"

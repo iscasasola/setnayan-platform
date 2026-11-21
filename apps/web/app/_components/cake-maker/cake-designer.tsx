@@ -238,7 +238,7 @@ function Designer({ data, threadId, start, onClose, onSent, demo = false }: { da
             </div>
           ) : null}
           <div className={css.stage}>
-            <CakeView
+            <CakeView fill
               spec={spec}
               monogramText={data.monogramText}
               title={`Your cake — ${design.sizeWords}`}

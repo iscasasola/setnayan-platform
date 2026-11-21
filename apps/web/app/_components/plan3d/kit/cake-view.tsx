@@ -35,18 +35,21 @@ export function CakeView({
   monogramText = null,
   title,
   onTierTap,
+  fill = false,
 }: {
   spec: CakeFigureSpec;
   monogramText?: string | null;
   title?: string;
   onTierTap?: (index: number) => void;
+  /** Fill the parent's height instead of keeping 4:3 (the designer's stage sizes itself). */
+  fill?: boolean;
 }) {
   // 3D unless this browser cannot draw it (decided after mount, so the server and first paint agree on the 2D cake).
   const [mode, setMode] = useState<'2d' | '3d' | null>(null);
   useEffect(() => setMode(canWebgl() ? '3d' : '2d'), []);
   return (
     <div className={css.view} data-cake-view={mode ?? 'starting'}>
-      <div className={css.stage}>
+      <div className={fill ? `${css.stage} ${css.fill}` : css.stage}>
         {mode === '3d' ? (
           <CakeFigure3D spec={spec} onShow2d={() => setMode('2d')} onTierTap={onTierTap} />
         ) : (

@@ -73,7 +73,7 @@
     animation: cakeFade var(--sn-dur-rise-reduced) linear;
   }
 }
-.wideOnly {
+.iconBtn.wideOnly {
   display: none;
 }
 /* A computer: the designer opens in the right column with a back arrow; the chat stays on the left (approved split view
@@ -91,10 +91,10 @@
     border-left: 1px solid rgb(0 0 0 / 0.08);
     box-shadow: -24px 0 48px -32px rgb(0 0 0 / 0.35);
   }
-  .phoneOnly {
+  .iconBtn.phoneOnly {
     display: none;
   }
-  .wideOnly {
+  .iconBtn.wideOnly {
     display: inline-grid;
   }
 }

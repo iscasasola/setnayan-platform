@@ -5,6 +5,8 @@ import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { BookingFeeLine } from '@/app/_components/booking-fee-line';
+import { InfoTip } from '@/app/_components/info-tip';
+import { FEE_NEW_CLIENT_DETAIL } from '@/lib/booking-fee-who-words';
 import { ShopPill, type ShopPillTone } from '../_components/kit';
 import { PartList, PartNote, PartPage, PartPin, PartRef, PartRow, PartSec, PartText } from '../_components/set-two/parts';
 import { MONEY_NOT_OWED, ReadFailedNote } from '../_components/set-two/read-failed';
@@ -40,6 +42,8 @@ export function BookingFeesBody({
   waived,
   schedule,
   launchLine,
+  newClientLine = null,
+  freeRule,
 }: {
   orders: readonly OrderRow[] | null;
   due: readonly OrderRow[];
@@ -50,6 +54,10 @@ export function BookingFeesBody({
   waived: readonly WaivedFeeCharge[] | null;
   schedule: BookingFeeSchedule | null;
   launchLine: string | null;
+  /** 📅 #8086: the new-client free window, from settings. null = unread or unset → no line. */
+  newClientLine?: string | null;
+  /** #8086: the in-app free rule the empty state's fee line carries. */
+  freeRule?: string;
 }) {
   return (
     <PartPage column="mx-auto w-full tab:max-w-3xl" mark="booking-fees">
@@ -58,6 +66,16 @@ export function BookingFeesBody({
       {launchLine ? (
         <PartText>
           <span data-fees-launch-offer="">{launchLine}</span>
+        </PartText>
+      ) : null}
+
+      {newClientLine ? (
+        <PartText>
+          <span data-fees-new-client-window="">
+            <InfoTip label={newClientLine} ariaLabel="About free bookings for new clients">
+              {FEE_NEW_CLIENT_DETAIL}
+            </InfoTip>
+          </span>
         </PartText>
       ) : null}
 
@@ -85,7 +103,7 @@ export function BookingFeesBody({
       ) : orders.length === 0 ? (
         <PartNote tone="plain" icon={ReceiptText}>
           <strong>Nothing to pay yet.</strong>{' '}
-          <BookingFeeLine fee={schedule} leadStyle={{ color: 'rgb(var(--color-ink))' }} /> A free booking fee ticket pays
+          <BookingFeeLine fee={schedule} leadStyle={{ color: 'rgb(var(--color-ink))' }} freeRule={freeRule} /> A free booking fee ticket pays
           your next fee by itself.
         </PartNote>
       ) : (

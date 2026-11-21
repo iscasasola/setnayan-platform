@@ -50,17 +50,14 @@ test('at 375 px the ⋯ list is wholly on screen wherever its button sits', () =
   });
 });
 
-test('the ⋯ list and the popovers both place through placeMenu, by their LEFT edge', () => {
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3): the card's ⋯ list is gone — its
+   lines are labelled buttons inside the opened ticket — so there is no ⋯ list left to place. The one rule still places every
+   popover (the Invite list, the table popovers), and no private copy of it may come back with a new menu. */
+test('the popovers place through placeMenu — and the ticket’s buttons bring no private placement back', () => {
   const dir = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components');
   const parts = stripComments(readFileSync(join(dir, 'guest-ticket-parts.tsx'), 'utf8'));
-  const menu = parts.slice(parts.indexOf('export function GuestMoreMenu('));
-  assert.match(menu, /placeMenuIn\(\s*r,/, 'the ⋯ list no longer uses the one placement rule');
-  // On a guest-list row (no box to stay in) it still lines up by its right edge;
-  // inside the guest card it opens below the card's row (the-card-reads-in-one-voice.test.ts).
-  assert.match(menu, /room \? 'start' : 'end',/, 'the ⋯ list no longer lines up with the ⋯ by its right edge when it fits');
-  assert.doesNotMatch(menu, /innerWidth - r\.right|right: at\.right/, 'the ⋯ list is pinned by its right edge again — it runs off a phone');
-  assert.match(menu, /top: at\.top,\s*left: at\.left,/, 'the ⋯ list is not drawn at its placed left edge');
-  assert.match(menu, /maxWidth: 'calc\(100vw - 16px\)'/, 'the ⋯ list can be wider than the phone');
+  const menu = parts.slice(parts.indexOf('export function GuestMoreMenu('), parts.indexOf('export function GuestDeleteControl('));
+  assert.doesNotMatch(menu, /role="menu"|getBoundingClientRect|innerWidth - r\.right|right: at\.right/, 'a hand-placed list is back in the ticket’s buttons');
   const overlay = stripComments(readFileSync(join(dir, 'overlay-primitives.tsx'), 'utf8'));
   assert.match(overlay, /= placeMenuIn\(\s*anchor\.getBoundingClientRect\(\)/, 'the table popovers keep a private placement rule');
 });

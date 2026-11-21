@@ -16,6 +16,7 @@
  *   ?s=expired      …you did not answer in 48 hours
  *   ?s=cancelled    …they took it back
  *   &fee=unverified|ticket|platform|import   the 20 Nov fee notice above Agree (default: a verified shop, billed)
+ *   &fee=import&months=unread                 …a couple you brought, with the window's length unread (no months named)
  *
  *   &gift=stock|empty|sent  the Agree step's gift (#7823): in stock · none left ("0 left · Buy more ›") · a store
  *                   payment sent, waiting for approval. &gift=needed draws an AGREED booking whose gift was cleared.
@@ -60,6 +61,8 @@ const LAB_EVENT = '00000000-0000-4000-8000-000000000000';
 const LAB_EVENT_VENDOR = '00000000-0000-4000-8000-0000000000bb';
 /** The asked-for service on plan hold in `?s=on_hold` (a sample name). */
 const LAB_HELD_SERVICE = 'Same-Day Edit';
+/** A sample of `platform_settings.booking_fee_new_client_free_months` (its migration default) — dev lab only. */
+const LAB_NEW_CLIENT_FREE_MONTHS = 12;
 /** The lab's "now" — the fuse reads against it, so every picture says the same. */
 const NOW = new Date('2026-10-12T04:00:00Z');
 
@@ -78,7 +81,9 @@ function feeStandingFor(sp: Record<string, string | string[] | undefined>): Book
     case 'platform':
       return { ...base, platformFree: 100_000 };
     case 'import':
-      return { kind: 'not_sourced' };
+      // 📅 The new-client window's length as the settings read hands it over (`&months=unread`: the read failed, so
+      // the notice names no months). LAB_NEW_CLIENT_FREE_MONTHS is a SAMPLE — the bill reads platform_settings.
+      return sp.months === 'unread' ? { kind: 'not_sourced' } : { kind: 'not_sourced', newClientFreeMonths: LAB_NEW_CLIENT_FREE_MONTHS };
     default:
       return base;
   }

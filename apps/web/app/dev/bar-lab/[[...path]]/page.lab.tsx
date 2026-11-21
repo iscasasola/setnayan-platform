@@ -40,6 +40,11 @@
  *                                        ?who=tagged|all — ⚙ draws the REAL Who sees what (owner 2026-10-30) at that
  *                                        choice (the lab's ⚙ holds that rule only; the server-read rows need a session)
  *                                        · with ?guest=1&coord=1 — the event's coordinator: no host tools, ⚙ = the rules.
+ *                                        📷 THE PAPIC BLOCK ON TOP (owner 2026-11-20, "memories approved"): the REAL card on
+ *                                        fixtures — the head picker (stand-in saves), the state line from the gate, the
+ *                                        credits, Add photos · Add more — ?papic=open rises its settings (the chapter row on
+ *                                        fixtures; the camera settings need a database, so the lab draws Setup & help) ·
+ *                                        ?papic=0 drops it · ?pot=x the unread pot ("—").
  *
  *
  * An event of ANY type (owner 22 Oct 2026, "this might be an issue on other events as well") — the
@@ -79,6 +84,12 @@ import { addCellWords } from '@/lib/memories-add-cell';
 import { SCOPE_MIN_MOMENTS } from '@/lib/life-story-moment-graph';
 import type { RecapCoupleSummary } from '@/lib/auto-recap';
 import { appStoreDetailHref } from '@/lib/add-ons-catalog';
+import { PapicCard } from '@/app/dashboard/[eventId]/_components/home-first-screen';
+import { PapicChapterRow } from '@/app/dashboard/[eventId]/_components/papic-chapter-row';
+import { PapicHeadPicker } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-head-picker';
+import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
+import { MemoriesAddPhotosButton } from '@/app/_components/memories/memories-add-photos';
+import { papicGuestCamerasLines, papicHeadHints } from '@/lib/papic-guest-cameras-line';
 
 export const dynamic = 'force-dynamic';
 
@@ -263,13 +274,38 @@ export default async function BarLab({
     const flash = none ? { moments: 1 } : { moments: 9 };
     const thankYou = { key: 'thank-you', name: 'Thank-You Video', line: 'A short film for everyone who came', href: appStoreDetailHref('thank-you', EVENT) };
     const cards: Record<KeepsakeKey, React.ReactNode> = {
-      magazine: <MagazineCard eventId={EVENT} state={magazine} />,
-      recap: <RecapCard eventId={EVENT} state={recap} />,
-      flash: <LifeFlashCard eventId={EVENT} state={flash} />,
-      'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} />,
+      magazine: <MagazineCard eventId={EVENT} state={magazine} seat="sheet" />,
+      recap: <RecapCard eventId={EVENT} state={recap} seat="sheet" />,
+      flash: <LifeFlashCard eventId={EVENT} state={flash} seat="sheet" />,
+      'thank-you': <ServiceParts eventId={EVENT} service="papic" door={thankYou} seat="sheet" />,
     };
     const doors = keepsakeDoors({ magazine, recap, flash, flashMin: SCOPE_MIN_MOMENTS.event, thankYou: true });
     const addState = sp.add === 'off' ? 'off' : 'open';
+    // 📷 THE PAPIC BLOCK (2026-11-20) — the real card on fixtures: a head on "On — event day" for Fri 18 Dec 2026.
+    const papicFacts = { live: true, draftOn: true, early: false };
+    const cameraDates = { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' };
+    const LAB_NOW = Date.parse('2026-11-20T10:00:00+08:00');
+    const cameras = papicGuestCamerasLines(papicFacts, cameraDates, LAB_NOW);
+    const papicLeft = sp.pot === 'x' ? null : 100137;
+    const papic =
+      sp.papic === '0' ? null : (
+        <PapicCard
+          key="papic"
+          card={{
+            phase: 'before',
+            thankYouHref: null,
+            headControl: <PapicHeadPicker eventId={EVENT} {...papicFacts} hints={papicHeadHints(cameraDates, LAB_NOW)} standIn="ok" />,
+            headLine: cameras.now,
+            lineFor: cameras.byHead,
+            counts: { total: papicLeft === null ? null : 100150, left: papicLeft },
+            buy: <PapicBuySheet eventId={EVENT} left={papicLeft} tone="neutral" label="Add more" />,
+            add: <MemoriesAddPhotosButton />,
+            chapter: <PapicChapterRow eventId={EVENT} chapters={[{ blockId: '00000000-0000-4000-8000-0000000c4a03', label: 'Ceremony', startAt: '2026-12-18T14:00:00Z', photoWho: 'everybody', opensAt: '2026-12-18T06:00:00Z', closesAt: '2026-12-18T07:30:00Z', openedEarlyAt: null, picked: false, captures: 0 }]} nowMs={Date.parse('2026-11-20T02:00:00Z')} standIn="ok" />,
+            defaultOpen: sp.papic === 'open',
+            settings: <PapicCameraHelp />,
+          }}
+        />
+      );
     return (
       <>
         <div className="sn-ambient min-h-screen">
@@ -302,6 +338,8 @@ export default async function BarLab({
                       )
                     }
                     addCell={addCellWords(addState, pot)}
+                    addPicksAtOnce={addState === 'open'}
+                    papic={papic}
                     keepsakes={<MemoriesKeepsakeRow key="keepsakes" doors={doors} cards={cards} />}
                     suppliers={[{ vendorProfileId: 'vp-lumen', vendorRowId: 'v-lumen', name: 'Lumen Studio', hidden: false }]}
                     canTag={sp.guest !== '1' || sp.coord === '1'}

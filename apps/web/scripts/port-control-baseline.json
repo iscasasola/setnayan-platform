@@ -14644,6 +14644,7 @@
         "FormRows",
         "Fragment",
         "GiftMoments",
+        "GiftReturnBanner",
         "Group",
         "GrowthWindow",
         "GrowthWindowCtx.Provider",
@@ -15065,6 +15066,7 @@
     },
     "/vendor-dashboard/clients/[eventId]": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/_components/agree-gift-picker.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
@@ -15086,6 +15088,7 @@
         "vendor-dashboard/clients/[eventId]/_components/details-numbers-row.tsx",
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
         "vendor-dashboard/clients/[eventId]/_components/event-files-board.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/gift-needed-row.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-rows.ts",
         "vendor-dashboard/clients/[eventId]/_components/lock-switch.tsx",
@@ -15165,6 +15168,7 @@
         "formAction",
         "toggleClientNoteDone",
         "vendorAcknowledgeDeposit",
+        "vendorAgreeToLock",
         "vendorAskForPayment",
         "vendorMarkServiceComplete",
         "vendorPostHandover",
@@ -15178,6 +15182,7 @@
       "blocks": [
         "ActionButton",
         "ActivityFeed",
+        "AgreeGiftPicker",
         "AgreedNow",
         "AppointmentsSection",
         "AskAccess",
@@ -15247,6 +15252,7 @@
         "FormRows",
         "FormsPage",
         "FormsPageBody",
+        "GiftNeededRow",
         "Grid",
         "HTMLDivElement",
         "HTMLElement",
@@ -15334,6 +15340,7 @@
         "SupplierLocksView",
         "SupplierSchedule",
         "SupplierScheduleAnswer",
+        "SupplierSubmit",
         "SupplierTaskRow",
         "SupplierThreadBody",
         "SupplierThumbRow",
@@ -17685,6 +17692,7 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/gift-return-banner.tsx",
         "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
         "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
         "vendor-dashboard/shop/promote/_components/gift-store.tsx",
@@ -17728,6 +17736,7 @@
         "FormRows",
         "GiftCart",
         "GiftHistory",
+        "GiftReturnBanner",
         "GiftStore",
         "GiftTicketArt",
         "GiftTicketPile",

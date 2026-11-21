@@ -78,7 +78,9 @@ export const STAGE_GUEST_TAB =
    phone's own safe area and never under 10 px (*"make sure we have space away from the switch screen line"*):
    14 + 20 + 52 + 210 + 34 = 330 on an iPhone. Nothing here is dragged, folded or scrolled up and down. */
 export const STAGE_BAR_HANDLE_PX = 14;
-export const STAGE_BAR_LINE_PX = 20;
+/* 🧰 THE HEAD IS A ROW (owner 20 Nov 2026, the approved one-toolbar drawing's `.lt-head`): ‹ · the part · its page ▾ ·
+   › · ✕ — 44 px, a whole tap; it was the 20-px "You're editing" line. So the toolbar is 354 on an iPhone. */
+export const STAGE_BAR_LINE_PX = 44;
 export const STAGE_BAR_BAND_PX = 52;
 /** Under this many px of screen height a phone is SHORT: 44-px rows, 4-px gaps. */
 export const STAGE_BAR_SHORT_PX = 740;
@@ -102,10 +104,17 @@ export function stageBarGridPx(viewportH: number): number {
  * four rows back — 44 px, a whole tap target. A phone's (and a tablet's) only; a desktop's tools column never stows.
  */
 export const STAGE_BAR_STOW_PX = STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + 10;
+/**
+ * 🛋 THE RESTING BAR (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" + "MAKER · WAY BACK"): nothing
+ * picked, the toolbar is one row — "Tap any scene to edit it" · 🎨 Look · ≡ Pages — over the handle. Every way back
+ * (✕, Back, the handle dragged down, a tap outside a scene, Esc) lands here.
+ */
+export const STAGE_REST_PX = STAGE_BAR_HANDLE_PX + 44 + 10;
+export const STAGE_REST_WORDS = 'Tap any scene to edit it';
 /** Its glide — the app's ONE pin motion (`pin-glide.css`: 300 ms, the Guests curve), so stowing reads as a pin. */
 export const STAGE_BAR_STOW_GLIDE = 'var(--sn-pin-glide-ms,300ms) var(--sn-pin-glide-ease,cubic-bezier(0.2,0.8,0.2,1))';
 /** The stowed head's one button — the whole strip (handle + line), over it, curved as the toolbar's top. */
-export const STAGE_BAR_STOW_BUTTON = 'sn-press absolute inset-x-0 top-0 z-[3] block h-11 w-full rounded-t-2xl';
+export const STAGE_BAR_STOW_BUTTON = 'sn-press absolute inset-x-0 top-0 z-[3] block h-[58px] w-full rounded-t-2xl';
 /** How far a finger drags the toolbar down before it stows (the prototype's swipe, 40 px). */
 export const STAGE_BAR_SWIPE_PX = 40;
 /** The whole toolbar, from its curved top to the screen's edge — `safeBottom`: the phone's `env(safe-area-inset-bottom)` in px. */
@@ -128,21 +137,16 @@ export const STAGE_BAR_HANDLE = 'flex h-[14px] shrink-0 items-center justify-cen
 /** "You're editing · Stage › Page › Part" — one line of small caps, never wrapped (prototype `.edit`). */
 export const STAGE_BAR_LINE =
   'h-5 shrink-0 truncate px-2 pb-2 pt-0.5 text-center text-[9.5px] font-semibold uppercase leading-none tracking-[0.16em] text-[var(--sp-mute)]';
-/** …kept clear of the ⓘ when the picked part has one — on both sides, so its words stay in the middle. */
-export const STAGE_BAR_LINE_ABOUT = '!px-11';
 /** The words that open the line. */
 export const STAGE_BAR_LINE_LEAD = 'You’re editing';
 /**
- * ✂ THE LINE IS SHORTENED FROM THE FRONT — THE PART'S NAME IS ALWAYS WHOLE (owner's review, 2026-10-09: at 375 it
- * read "YOU'RE EDITING · INVITATION › WELCOME › N…" — the one word that matters was the one cut). `pieces` are the
- * stage, the page and the part, in that order (those there are). Level 0 is the whole line; each level after drops
- * one thing from the FRONT: first "You're editing ·", then the stage, then the page — the last piece is never
- * dropped. The toolbar steps a level down while the line does not fit (`stage-tools.tsx`).
+ * 🧰 THE HEAD'S NAME (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR"; drawing `.lt-head`): the part's
+ * name, its page small after it, and ▾ — one 44 px button that opens Pages. It takes the room between ‹ and › and its
+ * words are cut at their END inside it (`min-w-0 truncate` on the words), never under the ⓘ or ✕. It replaced the
+ * "You're editing · Stage › Page › Part" line, which was shortened from the front (2026-10-09).
  */
-export function stageEditingLine(pieces: readonly string[], level: number): { lead: boolean; words: string } {
-  const l = Math.max(0, Math.min(pieces.length, Math.floor(level)));
-  return l === 0 ? { lead: true, words: pieces.join(' › ') } : { lead: false, words: pieces.slice(l - 1).join(' › ') };
-}
+export const STAGE_HEAD_NAME =
+  'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[15px] font-semibold text-[var(--sp-ink)]';
 /**
  * ⓘ The toolbar's ONE explanation: at the right end of the "You're editing" line, over the handle and the line (38 px
  * of the toolbar's top — it stops where the selector's band begins, so its tap never lies on ▶), 44 px wide.
@@ -385,6 +389,7 @@ export const SP_KEY_DONE = 'sn-press inline-flex h-11 items-center px-1';
 /** Every class string a tap lands on, by name — the guard walks them all. */
 export const STAGE_TAP_TARGETS = {
   STAGE_ROW,
+  STAGE_HEAD_NAME,
   STAGE_ICON_BUTTON,
   STAGE_ITEM_BUTTON,
   STAGE_TOOL_PILL,

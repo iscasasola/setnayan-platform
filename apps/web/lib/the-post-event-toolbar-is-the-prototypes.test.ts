@@ -345,15 +345,9 @@ test('(6) what the scene is sits behind the toolbar’s one ⓘ — the panel’
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /const story = !rsvpOpen && picked && canvasOfScene \? postEventAbout\(postEventSceneNow\(canvasOfScene\), POST_EVENT_ABOUT\) : null;/);
   assert.match(tools, /\?\? story;\s*setStagePanelNow\(\{ picked, quiet, about(?:, line: rsvpLine)? \}\);/);
-  /* …AND THE SCENE'S NAME STAYS WHOLE BESIDE IT. With the ⓘ the line has 88 px less room; "You're editing · Post Event ›
-     Photo Notes" was 0.16 px too wide for it — under the browser's whole-pixel `scrollWidth`, so the line never stepped
-     down and was drawn "PHOTO NOTE…" (measured on the lab, 2026-10-10: words 267.16 px, room 267). The words are
-     measured to the fraction, against the room left inside the line's own padding. */
-  assert.match(
-    tools,
-    /const words = el\?\.querySelector<HTMLElement>\('span\[aria-hidden\]'\);\s*if \(!el \|\| !words \|\| lineLevel >= linePieces\.length \|\| el\.scrollWidth > el\.clientWidth \+ 0\.5\) return;\s*const cs = getComputedStyle\(el\);\s*const room = el\.clientWidth - \(Number\.parseFloat\(cs\.paddingLeft\) \|\| 0\) - \(Number\.parseFloat\(cs\.paddingRight\) \|\| 0\);\s*if \(words\.getBoundingClientRect\(\)\.width > room \+ 0\.05\) setLineAt\(\(l\) => \(\{ key: lineKey, level: lineLevel \+ 1, n: l\.n \}\)\);\s*\}, \[lineKey, lineLevel, linePieces\.length, lineAt\.n\]\);/,
-    'a line too wide by less than a pixel is cut again',
-  );
+  /* …AND THE SCENE'S NAME STAYS WHOLE BESIDE IT. Since 20 Nov 2026 the line is the toolbar's head: the ⓘ has its own
+     44 px cell beside ✕, so the name never shares room with it (`lib/the-toolbar-is-four-rows.test.ts` (7)). */
+  assert.match(tools, /<span className="relative h-11 w-11 shrink-0 empty:hidden[^"]*">\s*<StageAbout \/>/, 'the ⓘ shares the name’s room again');
 });
 
 /* ── (7) every scene the story can draw is a part ─────────────────────── */

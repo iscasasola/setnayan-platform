@@ -11,3 +11,5 @@ Owner-approved drawing `prototypes/supplier_pages_set2_2026-11-21/supplier_pages
 ⏭ **Follows #8086** (the new-client free window as a setting): it adds a window line under the title and an in-app ⓘ on the empty state — merged in by hand when it lands.
 
 SPEC IMPACT: None — builds an approved drawing; no decision changed.
+
+- 22 Nov: built on #8086, which merged. The new-client free window line (from settings, with its InfoTip) and the in-app free rule on the empty state's fee line now sit in the redrawn body (`booking-fees-body.tsx`), passed from the page. Nothing is typed.

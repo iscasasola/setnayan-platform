@@ -169,7 +169,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_settings')
       .select(
-        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php',
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_free_every_nth',
       )
       .eq('id', 1)
       .maybeSingle(),
@@ -231,6 +231,8 @@ export async function PricingSurface(_props: Props) {
     booking_fee_rate_pct?: number | string | null;
     booking_fee_tail_rate_pct?: number | string | null;
     booking_fee_tier1_limit_php?: number | string | null;
+    booking_fee_cap_php?: number | string | null;
+    booking_fee_free_every_nth?: number | string | null;
   } | null;
   const bfFromDb =
     bfRow?.booking_fee_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_rate_pct));
@@ -244,6 +246,15 @@ export async function PricingSurface(_props: Props) {
       bfRow?.booking_fee_tier1_limit_php != null && Number.isFinite(Number(bfRow.booking_fee_tier1_limit_php))
         ? Number(bfRow.booking_fee_tier1_limit_php)
         : BOOKING_FEE.tier1LimitPhp,
+    // The lock and the every-Nth count (owner 2026-11-20). Null = unread: the form says so rather than print a default.
+    capPhp:
+      bfRow?.booking_fee_cap_php != null && Number.isFinite(Number(bfRow.booking_fee_cap_php))
+        ? Number(bfRow.booking_fee_cap_php)
+        : null,
+    freeEveryNth:
+      bfRow?.booking_fee_free_every_nth != null && Number.isFinite(Number(bfRow.booking_fee_free_every_nth))
+        ? Number(bfRow.booking_fee_free_every_nth)
+        : null,
     isFromDb: bfFromDb,
   };
 
@@ -450,14 +461,16 @@ export async function PricingSurface(_props: Props) {
         <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
         <p className="mb-3 max-w-prose text-sm text-ink/60">
           What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
-          the rate below the threshold, the threshold itself, and the rate above it. The minimum
-          and the no-cap rule are fixed.
+          the rate below the threshold, the threshold itself, and the rate above it. The minimum is
+          fixed; the lock and the every-Nth free booking fee are shown under the form.
         </p>
         <BookingFeeForm
           action={saveBookingFeeSchedule}
           ratePct={bookingFee.ratePct}
           tailRatePct={bookingFee.tailRatePct}
           tier1LimitPhp={bookingFee.tier1LimitPhp}
+          capPhp={bookingFee.capPhp}
+          freeEveryNth={bookingFee.freeEveryNth}
           minPhp={BOOKING_FEE.minPhp}
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}

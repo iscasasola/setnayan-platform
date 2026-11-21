@@ -246,6 +246,11 @@ export function HelpersView({
                     <Badge tone="ok" data="helpers-role">
                       Owner
                     </Badge>
+                  ) : m.paused_by_plan_at ? (
+                    // 👤 d–h (g), drawing (b): a seat a smaller plan paused — on the team, can't sign in to the shop.
+                    <Badge tone="wait" data="helpers-waiting-for-plan">
+                      Added · waiting for plan
+                    </Badge>
                   ) : null
                 }
               />

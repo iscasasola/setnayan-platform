@@ -793,6 +793,11 @@ export async function purgeUserOwnedRecords(
   await step('push-subscriptions-delete', () =>
     admin.from('push_subscriptions').delete().eq('user_id', targetUserId),
   );
+  // vendor_push_tokens the subject registered on SOMEONE ELSE'S shop (a team member's own phone — the column exists
+  // since 2026-11-21, migration 20271356402294). Their own shop's tokens go below, through the shop.
+  await step('vendor-push-tokens-own-devices-delete', () =>
+    admin.from('vendor_push_tokens').delete().eq('user_id', targetUserId),
+  );
 
   // dependents / godparents — the user's PRIVATE family records (owner-scoped;
   // no other data subject can reach them; may hold a minor's sensitive PI).

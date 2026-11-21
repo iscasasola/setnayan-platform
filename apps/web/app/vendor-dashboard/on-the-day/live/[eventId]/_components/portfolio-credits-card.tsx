@@ -13,7 +13,7 @@ import {
 } from '../papic/portfolio-pack-actions';
 import { formatCount } from '@/lib/format-number';
 import { actionButtonClass } from '@/components/action-button';
-import { TemplateRow, TemplateRows, TemplateSection } from '@/app/_components/template-rows';
+import { PartCard, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import type { ShopPapicPack } from '@/lib/vendor-papic-credits';
 
 const IDLE: BuyVendorPapicPortfolioPackState = { status: 'idle' };
@@ -30,6 +30,10 @@ const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
  * The buy CTA only renders when `offerPack` is true (owner + Fable, 2026-09-05:
  * the pack is the call-to-action beside a grant UNDER a pack's worth) — a
  * supplier who already holds a pack's worth is not sold to.
+ *
+ * 🧾 The November look (supplier pages set two, page 8, 21 Nov 2026): a card — "Papic credits" with what is left at
+ * its right, then Pack and Pay with as form rows (names and prices from the catalogue, never typed in), then Buy. A
+ * balance that could not be read says "Couldn’t load your balance right now." and shows no number — never 0.
  */
 export function PortfolioCreditsCard({
   eventId,
@@ -68,64 +72,75 @@ export function PortfolioCreditsCard({
   const rail = openRails.find((r) => r.id === channel) ?? openRails[0] ?? null;
 
   return (
-    <TemplateSection label="Papic credits" data="portfolio-credits">
-      <TemplateRows label="Papic credits">
-        <TemplateRow
-          data="portfolio-credits"
-          title={
-            credits == null ? (
-              <span style={{ color: 'rgb(var(--color-warn))' }}>Couldn’t load your balance right now.</span>
-            ) : left == null ? (
-              `${formatCount(credits)} earned · unlimited to spend`
-            ) : (
-              `${left} left to spend`
-            )
-          }
-        />
-      </TemplateRows>
+    <PartCard>
+      <section aria-label="Papic credits" data-portfolio-credits-card="">
+        <h2 className={setTwo.cardHead}>
+          Papic credits
+          {credits == null ? null : (
+            <span className={setTwo.cardHeadEnd} data-portfolio-credits="">
+              {left == null ? `${formatCount(credits)} earned · unlimited to spend` : `${left} left to spend`}
+            </span>
+          )}
+        </h2>
+        {credits == null ? (
+          <p role="alert" className={setTwo.cardHeadWarn} data-portfolio-credits="unread">
+            Couldn’t load your balance right now.
+          </p>
+        ) : null}
 
-      {offerPack && openRails.length === 0 ? (
-        <PaymentsPausedNote />
-      ) : offerPack ? (
-        <form action={formAction} className="flex flex-wrap items-center gap-2 py-2">
-          <input type="hidden" name="event_id" value={eventId} />
-          {/* Only the rails the owner has left open (lib/payment-channels.ts). One dropdown — PickMenu, never a raw <select>. */}
-          <input type="hidden" name="channel" value={rail?.id ?? ''} />
-          <PickMenu
-            label="Pay with"
-            value={rail?.id ?? ''}
-            compact
-            options={openRails.map((r) => ({ key: r.id, label: r.label }))}
-            onPick={(key) => setChannel(key)}
-            dataAttr="data-portfolio-credits-channel"
-          />
-          {packs && packs.length > 0 && pack ? (
-            <>
-              {/* The pack: the couple's three (owner 2026-11-04). One dropdown — PickMenu, never a raw <select>. */}
-              <input type="hidden" name="pack" value={pack.code} />
-              <PickMenu
-                label="Pack"
-                value={pack.code}
-                compact
-                options={packs.map((p) => ({
-                  key: p.code,
-                  label: `${p.title} · ${formatCount(p.credits)} credits · ${peso(p.pricePhp)}`,
-                }))}
-                onPick={(key) => setPackCode(key)}
-                dataAttr="data-portfolio-credits-pack"
-              />
-            </>
-          ) : null}
-          <SubmitButton
-            className={actionButtonClass('brand')}
-            pendingLabel="Starting…"
-            disabled={!packs || packs.length === 0}
-          >
-            <ShoppingBag aria-hidden strokeWidth={1.75} />
-            <span className="lbl">{!packs || packs.length === 0 ? 'Pack unavailable' : 'Buy'}</span>
-          </SubmitButton>
-        </form>
-      ) : null}
-    </TemplateSection>
+        {offerPack && openRails.length === 0 ? (
+          <PaymentsPausedNote />
+        ) : offerPack ? (
+          <form action={formAction}>
+            <input type="hidden" name="event_id" value={eventId} />
+            {packs && packs.length > 0 && pack ? (
+              <div className={setTwo.fld}>
+                <span className={setTwo.fldLabel}>Pack</span>
+                <span className="flex min-w-0 flex-1 justify-end">
+                  {/* The pack: the couple's three (owner 2026-11-04). One dropdown — PickMenu, never a raw <select>. */}
+                  <input type="hidden" name="pack" value={pack.code} />
+                  <PickMenu
+                    label="Pack"
+                    value={pack.code}
+                    compact
+                    options={packs.map((p) => ({
+                      key: p.code,
+                      label: `${p.title} · ${formatCount(p.credits)} credits · ${peso(p.pricePhp)}`,
+                    }))}
+                    onPick={(key) => setPackCode(key)}
+                    dataAttr="data-portfolio-credits-pack"
+                  />
+                </span>
+              </div>
+            ) : null}
+            <div className={setTwo.fld}>
+              <span className={setTwo.fldLabel}>Pay with</span>
+              <span className="flex min-w-0 flex-1 justify-end">
+                {/* Only the rails the owner has left open (lib/payment-channels.ts). One dropdown — PickMenu, never a raw <select>. */}
+                <input type="hidden" name="channel" value={rail?.id ?? ''} />
+                <PickMenu
+                  label="Pay with"
+                  value={rail?.id ?? ''}
+                  compact
+                  options={openRails.map((r) => ({ key: r.id, label: r.label }))}
+                  onPick={(key) => setChannel(key)}
+                  dataAttr="data-portfolio-credits-channel"
+                />
+              </span>
+            </div>
+            <div className="flex justify-end pt-1">
+              <SubmitButton
+                className={actionButtonClass('brand')}
+                pendingLabel="Starting…"
+                disabled={!packs || packs.length === 0}
+              >
+                <ShoppingBag aria-hidden strokeWidth={1.75} />
+                <span className="lbl">{!packs || packs.length === 0 ? 'Pack unavailable' : 'Buy'}</span>
+              </SubmitButton>
+            </div>
+          </form>
+        ) : null}
+      </section>
+    </PartCard>
   );
 }

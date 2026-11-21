@@ -21,12 +21,27 @@ import { vendorAutoReplyEnabled } from '@/lib/vendor-autoreply-flag';
 import { runVendorAutoReply } from '@/lib/vendor-autoreply/inbox-hook';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage, CONTACT_BLOCK_MESSAGE } from '@/lib/chat-contact-filter';
-import { fetchThreadById, countCoupleMessages } from './chat';
+import { fetchThreadById, countCoupleMessages, countCoordinatorMessages } from './chat';
 import { notifyOtherParty } from './chat-actions';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
-import { WHISPER_HOSTS_ONLY_MESSAGE, WHISPER_NO_COHOSTS_MESSAGE, WHISPER_UNREAD_MESSAGE, WHISPER_WORDS_ONLY_MESSAGE, whisperRecipients } from './chat-whisper';
+import {
+  CHAT_WHISPER_SIDE_COLUMN,
+  WHISPER_HOSTS_ONLY_MESSAGE,
+  WHISPER_NO_COHOSTS_MESSAGE,
+  WHISPER_NO_TEAM_MESSAGE,
+  WHISPER_TEAM_ONLY_MESSAGE,
+  WHISPER_UNREAD_MESSAGE,
+  WHISPER_WORDS_ONLY_MESSAGE,
+  isOnHostsSide,
+  teamSideOf,
+  teamWhisperRecipients,
+  whisperRecipients,
+  whisperSideRefusal,
+  type WhisperSide,
+} from './chat-whisper';
 import { CHAT_PRIVATE_RECIPIENT_COLUMN, CHAT_PRIVATE_RECIPIENTS_COLUMN, PRIVATE_WORDS_ONLY_MESSAGE } from './chat-private';
 import type { ChatSentAs } from './chat-sent-as';
+import { voiceLength } from './chat-message-extras';
 
 /**
  * The allowlist and the size ceilings now live in `lib/chat-attachment-limits.ts`
@@ -48,6 +63,23 @@ const CHAT_ATTACHMENT_MIME_SET = new Set<string>(CHAT_ATTACHMENT_MIME);
  * refusal really contains it.
  */
 const CHAT_CONTACT_REFUSAL_MARKER = 'CONTACT_BLOCKED';
+
+/**
+ * 🗣 Is this login a coordinator of the event? A coordinator posts like a host (DECISION_LOG 9 Nov, held by the controller
+ * under owner delegation 20 Nov) and whispers with the hosts (owner, 20 Nov). A refused read is "no" — the line is then
+ * refused as not-a-member, never sent as anyone.
+ */
+async function readIsCoordinator(supabase: SupabaseClient, eventId: string, userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('member_type', 'coordinator')
+    .maybeSingle();
+  if (error) console.error('[sendChatMessageCore] coordinator read failed:', error.message);
+  return Boolean(data);
+}
 
 /** Is this an R2 bucket, or the local dev fallback? See the note at the ref. */
 function isR2Bucket(bucket: string): bucket is R2BucketName {
@@ -143,6 +175,12 @@ export async function sendChatMessageCore(
      * (couple first). The database re-checks it (`chat_messages.sent_as`, migration 20271338442002).
      */
     asSide?: ChatSentAs | null;
+    /**
+     * 🎤 A VOICE NOTE's length in seconds (Unichat H1), as the recording phone measured it — display only, clamped by
+     * the caller (`voiceSecondsFromForm`) and again by the column's CHECK. It is stored ONLY when the file that
+     * arrived is audio; an audio file with no length is not a voice note and is refused like any unsupported type.
+     */
+    voiceSeconds?: number | null;
   },
 ): Promise<SendMessageResult> {
   const trimmed = input.body.trim();
@@ -219,7 +257,7 @@ export async function sendChatMessageCore(
   // side is asked of the SAME three branches `chat_messages_member_insert` admits (owner/admin team members, and a
   // member below admin on an event their assigned service serves) — `readShopChatPeople`, never wider than RLS. The
   // block guard (`chat_pair_is_blocked`) already counts the whole team, and the database still has the final say.
-  let shopPeople: { ownerUserId: string | null; userIds: string[] } | null = null;
+  let shopPeople: { ownerUserId: string | null; userIds: string[]; measured: boolean } | null = null;
   const shopPeopleRead = async () => {
     shopPeople ??= await readShopChatPeople(createAdminClient(), {
       vendorProfileId: thread.vendor_profile_id,
@@ -228,6 +266,7 @@ export async function sendChatMessageCore(
     return shopPeople;
   };
   let senderRole: 'couple' | 'vendor';
+  let senderIsCoordinator = false;
   const asSide = input.asSide ?? null;
   if (asSide === 'vendor') {
     // 🏪 Typed in the shop's chat: the shop speaks — never the host this same login also is.
@@ -242,6 +281,13 @@ export async function sendChatMessageCore(
     senderRole = 'vendor';
   } else if ((await shopPeopleRead()).userIds.includes(user.id)) {
     senderRole = 'vendor';
+  } else if (await readIsCoordinator(supabase, thread.event_id, user.id)) {
+    // 🗣 The event's coordinator posts like a host (9 Nov ruling, upheld 20 Nov) and whispers WITH the hosts (owner,
+    // 20 Nov: "host and coordinator can whisper to each other") — on the hosts' side, so the gates below treat the line
+    // as that side's. The database stamps the row 'coordinator' (tg_chat_messages_derive_sender), admits it only while
+    // they ARE a coordinator here (chat_messages_member_insert → current_thread_ids), and re-judges a whisper's side.
+    senderRole = 'couple';
+    senderIsCoordinator = true;
   } else {
     return { ok: false, code: 'not_member', message: 'Not a member of this thread' };
   }
@@ -269,29 +315,63 @@ export async function sendChatMessageCore(
   // 🤫 A WHISPER names nobody itself: the list is the hosts in this chat now, the sender and every shop login left out.
   // It runs BEFORE the private list is read, and replaces it — so no posted `private_to` can widen a whisper.
   let whisperTo: string[] | null = null;
+  let whisperSide: WhisperSide | null = null;
   if (input.whisper) {
-    if (senderRole !== 'couple' || !coupleCheck.data) {
-      return { ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE };
-    }
     if (hasAttachment || storedRef) {
       return { ok: false, code: 'whisper_refused', message: WHISPER_WORDS_ONLY_MESSAGE };
     }
-    const [hostPeople, shop] = await Promise.all([
-      readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
-      shopPeopleRead(),
-    ]);
-    // ⚠ The read of who is here FAILED: say so. Never "no co-host is in this chat" — that is a failure shown as emptiness.
-    if (!hostPeople.measured) {
-      return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
-    }
-    whisperTo = whisperRecipients({
-      hostMemberIds: hostPeople.members,
-      shopUserIds: [...shop.userIds, ...(shop.ownerUserId ? [shop.ownerUserId] : [])],
-      senderUserId: user.id,
-    });
-    // 🛑 Nobody to hear it is a REFUSAL. Falling through would send a whisper to everyone, the supplier included.
-    if (whisperTo.length === 0) {
-      return { ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE };
+    if (senderRole === 'vendor') {
+      // 🏪 THE TEAM'S WHISPER (owner, 19 Nov: "supplier whispers to co suppliers on the chat. and coordinators and hosts
+      // do not see it"): the shop's own people who may chat here, the sender left out. Never a host or a coordinator.
+      const [shop, hostPeople] = await Promise.all([
+        shopPeopleRead(),
+        readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
+      ]);
+      if (!shop.measured || !hostPeople.measured) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
+      }
+      // 🧭 The ONE team rule, every host of the event taken out: a host whispers as a host, whatever their shop role
+      // (controller ruling on #8060, 20 Nov) — the order `chat_whisper_side_of` judges in.
+      const team = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
+      if (!team.includes(user.id)) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_TEAM_ONLY_MESSAGE };
+      }
+      whisperTo = teamWhisperRecipients({ teamUserIds: team, senderUserId: user.id });
+      whisperSide = 'team';
+      // 🛑 Nobody to hear it is a REFUSAL — never a line to everyone, the hosts included.
+      if (whisperTo.length === 0) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_NO_TEAM_MESSAGE };
+      }
+    } else {
+      // 🤫 THE HOSTS' WHISPER: the hosts in this chat now AND the event's coordinators (owner, 20 Nov), the sender and
+      // every shop login left out. A host must hold a seat here; a coordinator is in every supplier chat of the event.
+      const [hostPeople, shop] = await Promise.all([
+        readThreadHostPeople(createAdminClient(), { threadId: thread.thread_id, eventId: thread.event_id }),
+        shopPeopleRead(),
+      ]);
+      // ⚠ The read of who is here FAILED: say so. Never "no co-host is in this chat" — that is a failure shown as emptiness.
+      if (!hostPeople.measured || !shop.measured) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_UNREAD_MESSAGE };
+      }
+      const teamSide = teamSideOf({ teamUserIds: shop.userIds, eventHostIds: hostPeople.eventHosts });
+      // 🧭 The page's own test (`isOnHostsSide`), so the box never offers what this refuses.
+      const onHostsSide =
+        (senderIsCoordinator || Boolean(coupleCheck.data)) &&
+        isOnHostsSide({ viewerId: user.id, hostMemberIds: hostPeople.members, coordinatorIds: hostPeople.coordinators, teamSideIds: teamSide });
+      if (!onHostsSide) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_HOSTS_ONLY_MESSAGE };
+      }
+      whisperTo = whisperRecipients({
+        hostMemberIds: hostPeople.members,
+        coordinatorIds: hostPeople.coordinators,
+        shopUserIds: teamSide,
+        senderUserId: user.id,
+      });
+      whisperSide = 'hosts';
+      // 🛑 Nobody to hear it is a REFUSAL. Falling through would send a whisper to everyone, the supplier included.
+      if (whisperTo.length === 0) {
+        return { ok: false, code: 'whisper_refused', message: WHISPER_NO_COHOSTS_MESSAGE };
+      }
     }
   }
   const privateList = (
@@ -342,7 +422,12 @@ export async function sendChatMessageCore(
   // countCoupleMessages' docstring for the full reasoning.)
   let priorMessageCount = 0;
   if (senderRole === 'couple') {
-    priorMessageCount = await countCoupleMessages(admin, thread.thread_id);
+    // 🗣 The hosts' side shares ONE allowance: the couple's lines and the coordinator's (Unichat part E, 20 Nov).
+    const [coupleLines, coordinatorLines] = await Promise.all([
+      countCoupleMessages(admin, thread.thread_id),
+      countCoordinatorMessages(admin, thread.thread_id),
+    ]);
+    priorMessageCount = coupleLines + coordinatorLines;
     isFirstMessage = priorMessageCount === 0;
   }
 
@@ -540,6 +625,27 @@ export async function sendChatMessageCore(
     attachment = verdict.attachment;
   }
 
+  // 🎤 An audio file is a voice note or it is nothing: the recorder in the text box always sends its length with it.
+  const isAudio = (attachment?.attachment_mime ?? '').startsWith('audio/');
+  const voiceSeconds = isAudio && typeof input.voiceSeconds === 'number' && input.voiceSeconds >= 1 ? Math.round(input.voiceSeconds) : null;
+  if (isAudio && voiceSeconds === null) {
+    if (attachment) {
+      try {
+        await cleanupDelete(attachment.attachment_r2_key, chatAttachmentScope(thread.thread_id));
+      } catch (caught) {
+        console.error('[sendChatMessageCore] refused audio file could not be removed:', caught instanceof Error ? caught.message : String(caught));
+      }
+    }
+    return { ok: false, code: 'attachment_invalid', message: CHAT_FILE_TYPE_REFUSAL };
+  }
+  // Its own literal, like the side below, so the send path's column scan still sees what is written.
+  const voicePayload =
+    voiceSeconds !== null
+      ? {
+          voice_seconds: voiceSeconds,
+        }
+      : {};
+
   // sender_user_id / sender_role are NOT sent. This insert runs under the
   // caller's own RLS-scoped session, and `authenticated` holds no INSERT
   // privilege on either column — naming one is a hard permission failure, not
@@ -551,7 +657,8 @@ export async function sendChatMessageCore(
   // branch on it; it just no longer decides what lands in the row.
   // 🏪 The screen's side (owner, 11 Nov) — the database honours it only if this sender holds it, and never names a
   // recipient. Written as its own literal so the send path's column scan (chat-sender-not-forgeable) still sees it.
-  const sidePayload = asSide
+  // 🗣 A coordinator holds no side to ask for — the database names them 'coordinator' (a 'couple' ask would be refused).
+  const sidePayload = asSide && !senderIsCoordinator
     ? {
         sent_as: asSide,
       }
@@ -564,7 +671,10 @@ export async function sendChatMessageCore(
     ...(attachment ?? {}),
     // One person keeps the shipped column; several go in the list (recipient_user_id = its first, set by the database).
     ...(privateTo ? (privateTo.length === 1 ? { [CHAT_PRIVATE_RECIPIENT_COLUMN]: privateTo[0] } : { [CHAT_PRIVATE_RECIPIENTS_COLUMN]: privateTo }) : {}),
+    // 🤫 The side rides WITH the line, so its label never drops off (the database re-judges it).
+    ...(whisperSide && privateTo ? { [CHAT_WHISPER_SIDE_COLUMN]: whisperSide } : {}),
     ...sidePayload,
+    ...voicePayload,
   });
   if (error) {
     // The database screens the text with the same rules as the check above
@@ -573,6 +683,13 @@ export async function sendChatMessageCore(
     // the words that tell them what to change, not "try again".
     if (error.message.includes(CHAT_CONTACT_REFUSAL_MARKER)) {
       return { ok: false, code: 'contact_blocked', message: CONTACT_BLOCK_MESSAGE };
+    }
+    // 🤫 The database refused a whisper's SIDE (the people changed between the page and Send): plain words, never the
+    // raw WHISPER_* code (#8071 ruling).
+    const sideRefused = whisperSideRefusal(error.message, whisperSide);
+    if (sideRefused) {
+      console.error('[sendChatMessageCore] whisper side refused:', error.message);
+      return { ok: false, code: 'whisper_refused', message: sideRefused };
     }
     // Never surface raw Postgres/PostgREST text to the client (constraint/RLS
     // internals). Log it server-side for observability; return friendly copy.
@@ -632,9 +749,10 @@ export async function sendChatMessageCore(
     // Attachment-only messages have no text — give the notification a sensible
     // preview instead of an empty string. (A message that reaches this point has
     // already passed the contact filter, so trimmed is safe to preview.)
-    body: trimmed || (attachment ? '📎 Sent an attachment' : ''),
+    body: trimmed || (voiceSeconds !== null ? `🎤 Voice note · ${voiceLength(voiceSeconds)}` : attachment ? '📎 Sent an attachment' : ''),
     isFirstMessage: isFirstMessage && !privateTo,
     whisper: whisperTo !== null,
+    whisperSide,
     privateTo,
   });
 

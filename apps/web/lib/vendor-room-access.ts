@@ -3,7 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
+import { fetchVendorPoolBookingsDetailed } from '@/lib/vendor-schedule';
 import {
   readClaimedQrEventVendorIds,
   readRoomBookingCandidates,
@@ -149,15 +149,17 @@ export async function fetchVendorRoomEvents(
 }
 
 /**
- * `fetchVendorRoomEvents`, plus whether every read behind arms 2 and 3 reached
+ * `fetchVendorRoomEvents`, plus whether every read behind arms 1, 2 and 3 reached
  * the end. `complete: false` means some real bookings may be missing — a list
  * that shows booked/not-booked says so on screen instead of reading as fewer.
+ * (Arm 1, the pool, counts since 21 Nov 2026: a refused pool read was logged and
+ * folded into "not booked" — the Papic desk then sent its supplier away unsaid.)
  */
 export async function fetchVendorRoomEventsDetailed(
   client: SupabaseClient,
   vendorProfileId: string,
 ): Promise<{ events: VendorRoomEvent[]; complete: boolean }> {
-  const pool = await fetchVendorPoolBookings(client, vendorProfileId);
+  const { bookings: pool, complete: poolComplete } = await fetchVendorPoolBookingsDetailed(client, vendorProfileId);
   const entries: VendorRoomEvent[] = pool.map((b) => ({
     ...b,
     via: 'schedule_pool' as const,
@@ -188,7 +190,7 @@ export async function fetchVendorRoomEventsDetailed(
     // Refused: arm 1 only, as before. Short: the rows read still stand.
     if (candidateRead.error) return { events: dedupe(entries), complete: false };
   }
-  let complete = candidateRead.complete;
+  let complete = poolComplete && candidateRead.complete;
 
   const candidates: BookingRow[] = candidateRead.rows;
   if (candidates.length === 0) return { events: dedupe(entries), complete };

@@ -71,12 +71,12 @@ test('CHAT-19 · "use a change order" opens the shipped change orders', () => {
 
 test('CHAT-20 · a row that leaves the sheet waits for the sheet to step back first', () => {
   const sheet = read('vendor-dashboard/messages/[threadId]/_components/thread-tools-sheet.tsx');
-  assert.ok(!/setTimeout\(\(\) => door\.click\(\), 0\)/.test(sheet), 'the versions press is not raced against the step back');
-  assert.match(sheet, /afterSheetStepsBack\(\(\) => \{\s*const door = document\.querySelector/);
-  assert.match(sheet, /afterSheetStepsBack\(\(\) => router\.push\(href\), holds\)/, 'Report a problem (a link) waits too');
+  // 20 Nov 2026 (Unichat part B): "See every version" and "Report a problem" left the (+) — it holds only things you
+  // send — so the two rows this walk found are gone from it. The rule they taught stays for every row that still
+  // leaves the sheet: a link, and a panel revealed in the tray, both wait for the sheet's own step back.
+  assert.ok(!/data-quote-every-version/.test(sheet), 'the (+) presses the versions row again — it is the strip’s Deal box and the quote card’s own');
+  assert.match(sheet, /afterSheetStepsBack\(\(\) => router\.push\(href\), holds\)/, 'a link row waits for the step back');
   assert.match(sheet, /afterSheetStepsBack\(\(\) => revealThreadTool\(reveal\), holds\)/);
-  // With one version, the row is shut with its reason instead of pressing into nothing.
-  assert.match(sheet, /r\.act === 'versions' && !r\.shut && !versionsDoor/);
 });
 
 test('CHAT-25 · a jump centres the card, and the page scrolls when no conversation scroller does', () => {

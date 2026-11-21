@@ -206,6 +206,9 @@ a.row:active {
 .rowTop {
   align-items: flex-start;
 }
+.rowDense {
+  min-height: 40px;
+}
 .rowIcon {
   display: grid;
   place-items: center;
@@ -568,4 +571,529 @@ a.row:active {
   .fold .foldChevron {
     transition: transform var(--sn-m-move) var(--sn-m-settle);
   }
+}
+
+/* ── the dark line: "Their event · <couple> · ✕ Close" (dark in both themes, for the part's page) ──────────────── */
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  font-size: 13px;
+  background: rgb(var(--color-ink));
+  color: rgb(var(--sn-frame-bg));
+}
+:global(html.dark) .line {
+  background: rgb(var(--sn-page-bg));
+  color: rgb(var(--color-ink));
+  box-shadow: inset 0 -1px 0 var(--m-line);
+}
+.line > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+.lineName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lineClose {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  flex: none;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.lineClose > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.lineClose svg {
+  width: 14px;
+  height: 14px;
+}
+@media (min-width: 701px) {
+  .line {
+    display: none;
+  }
+}
+/* from 701 the dark line steps aside; the part's top row leads with a quiet round back (the drawing's computer frame) */
+.topBack {
+  display: none;
+}
+@media (min-width: 701px) {
+  .topBack {
+    display: grid;
+  }
+}
+
+/* ── a dark map pill (a sign, the Entrance): dark in both themes, as the drawing's map draws it ─────────────── */
+.mapPill {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--sn-frame-bg));
+}
+:global(html.dark) .mapPill {
+  background: rgb(var(--sn-page-bg));
+  color: rgb(var(--color-ink));
+}
+
+/* ── page 8 · the event day: the console beside its tools ────────────────────────────────────────── */
+/* A phone stacks counts · clock · jump · tools · desk; a computer puts the counts, the clock and the desk on the left
+   and the tools on the right (the drawing's "two-col"). */
+.day {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dayCounts,
+.dayClockSlot,
+.dayTools,
+.dayDesk {
+  min-width: 0;
+}
+@media (min-width: 701px) {
+  .day {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      'counts tools'
+      'clock tools'
+      'desk tools';
+    column-gap: 16px;
+    align-items: start;
+  }
+  .dayCounts {
+    grid-area: counts;
+  }
+  .dayClockSlot {
+    grid-area: clock;
+  }
+  .dayTools {
+    grid-area: tools;
+  }
+  .dayDesk {
+    grid-area: desk;
+  }
+  .dayTools > .sec:first-child {
+    padding-top: 8px;
+  }
+}
+/* The floor clock stays dark for glare (`.sn-tile-dark` keeps its own island tokens); here it takes the drawing's
+   measure, without the hairline. */
+.dayClock {
+  margin: 8px 12px 0;
+  border-radius: var(--m-r-lg);
+  padding: 14px 16px;
+  border-color: transparent;
+}
+/* The dark set gives the island a hairline (globals "DARK ISLANDS STAY DARK"); the drawing draws none. */
+:global(html.dark) .dayClockSlot .dayClock {
+  border-color: transparent;
+}
+@media (min-width: 701px) {
+  .dayClock {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.dayClockName {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dayClockPlace {
+  font-size: 13px;
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dayClockLine {
+  margin-top: 12px;
+}
+/* The phone's jump bar — pills, no rule above or below; a computer shows both sections at once. */
+.jump {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 0;
+  overflow-x: auto;
+}
+.jump a {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--m-r-full);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--m-slate-2);
+  text-decoration: none;
+}
+.jump a:first-child {
+  background: var(--m-paper-2);
+  color: rgb(var(--color-ink));
+}
+@media (min-width: 701px) {
+  .jump {
+    display: none;
+  }
+}
+/* A count tile that opens (#schedule) is the tile itself, pressable. */
+a.tile {
+  color: inherit;
+  text-decoration: none;
+}
+a.tile:active {
+  background: var(--m-paper-2);
+}
+.tilesOne {
+  grid-template-columns: minmax(0, 1fr);
+}
+/* "● Live · watching" — the dot breathes on the shared live loop (`.sn-live-dot`). */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--color-ok));
+}
+.live i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--m-r-full);
+  background: currentColor;
+}
+.liveOff {
+  color: var(--m-slate-2);
+}
+/* Now · Up next — the two boxes of the run of show. */
+.now2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.now2 > div {
+  background: var(--m-paper-2);
+  border-radius: var(--m-r-md);
+  padding: 10px;
+  min-width: 0;
+}
+.now2 small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgb(var(--sn-accent));
+}
+.now2 b {
+  display: block;
+  font-size: 15px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.now2 span {
+  display: block;
+  font-size: 13px;
+  color: var(--m-slate-2);
+}
+.cardLine {
+  font-size: 13px;
+  color: var(--m-slate-2);
+  margin: 0;
+}
+.cardLine b,
+.cardLine strong {
+  color: rgb(var(--color-ink));
+}
+
+/* ── page 8 · the Papic desk ─────────────────────────────────────────────────────────────────────── */
+/* A consent line is a sentence, in ink, under its mark. */
+.rowLine {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgb(var(--color-ink));
+  white-space: normal;
+}
+/* The camera: full black, the controls on the frame. The frame is ALWAYS dark (a viewfinder) in both themes —
+   `--sn-ink-black` stays dark in both — so its words are light in both: the band's ink in light (`--sn-on-band`,
+   white), the dark set's lightest ink in dark (`--sn-ink-900`, which the dark set turns light). */
+.cam {
+  --cam-ink: rgb(var(--sn-on-band));
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: min(78svh, 760px);
+  min-height: 420px;
+  padding: 12px;
+  overflow: hidden;
+  background: var(--sn-ink-black);
+  color: var(--cam-ink);
+}
+:global(html.dark) .cam {
+  --cam-ink: var(--sn-ink-900);
+}
+@media (min-width: 701px) {
+  .cam {
+    width: 100%;
+    max-width: 28rem;
+    margin: 8px auto 0;
+    border-radius: var(--m-r-lg);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cam {
+    animation: camRise var(--sn-m-rise) var(--sn-m-settle) both;
+  }
+}
+@keyframes camRise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+.camVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.camCover {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+}
+.camCover svg {
+  width: 24px;
+  height: 24px;
+}
+.camTop {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.camPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 10px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, var(--sn-ink-black) 55%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.camPill small {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.camEnd {
+  margin-left: auto;
+  flex: none;
+}
+.camChip {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.camRec {
+  position: absolute;
+  left: 50%;
+  top: 64px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-danger));
+  font-size: 13px;
+  font-weight: 700;
+}
+.camRec i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--m-r-full);
+  background: currentColor;
+}
+.camRound {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, var(--cam-ink) 16%, transparent);
+  color: var(--cam-ink);
+  text-decoration: none;
+  border: 0;
+}
+.camRound svg {
+  width: 20px;
+  height: 20px;
+}
+.camRound:disabled {
+  opacity: 0.5;
+}
+.camSpacer {
+  flex: none;
+  width: 44px;
+  height: 44px;
+}
+.camLens {
+  position: absolute;
+  right: 12px;
+  bottom: 140px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, var(--sn-ink-black) 55%, transparent);
+}
+.camLens button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cam-ink);
+  background: transparent;
+  border: 0;
+}
+.camToast {
+  position: absolute;
+  left: 50%;
+  bottom: 132px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  width: max-content;
+  padding: 6px 12px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, var(--sn-ink-black) 70%, transparent);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .camToast {
+    animation: camToastIn var(--sn-m-quick) var(--sn-m-settle) both;
+  }
+}
+@keyframes camToastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+}
+.camBottom {
+  position: relative;
+}
+.camControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 8px;
+}
+.shutter {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--m-r-full);
+  border: 4px solid var(--cam-ink);
+  background: color-mix(in srgb, var(--cam-ink) 25%, transparent);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.shutter:disabled {
+  opacity: 0.4;
+}
+.shutter i {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--m-r-full);
+  background: var(--cam-ink);
+}
+.shutterRec {
+  background: rgb(var(--color-danger));
+}
+.shutterRec i {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--m-r-sm);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .shutter {
+    transition: transform var(--sn-m-tap) var(--sn-m-settle);
+  }
+  .shutter:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+  .shutter i {
+    transition:
+      width var(--sn-m-quick) var(--sn-m-settle),
+      height var(--sn-m-quick) var(--sn-m-settle),
+      border-radius var(--sn-m-quick) var(--sn-m-settle);
+  }
+}
+.camHint {
+  min-height: 18px;
+  margin: 6px 0 0;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.85;
+}
+/* A card's head: the name, its figure at the right. */
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.cardHeadEnd {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--m-slate-2);
+  text-align: right;
+}
+.cardHeadWarn {
+  color: rgb(var(--color-warn));
 }

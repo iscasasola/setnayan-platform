@@ -40,11 +40,24 @@ export const FREE_HELPER_SEATS = 1;
 /** The role that rides free — "Helper · sees the schedule" (read-only). */
 export const FREE_HELPER_ROLE: VendorTeamRole = 'viewer';
 
+/**
+ * 🧑‍🤝‍🧑 SIX ROLES (owner 19 Nov 2026): the free seat is the HELPER ROLE (`duty = 'helper'`). Marketing and Event Crew
+ * share the Helper's read-only RANK (`viewer`) but are paid seats — so when a row carries its role, the role decides;
+ * a row without one (an older read) falls back to the rank, exactly as before.
+ */
+export const FREE_HELPER_DUTY = 'helper';
+
 export type SeatMember = {
   user_id: string;
   role: VendorTeamRole | string;
+  duty?: string | null;
   vendor_team_member_id?: string;
 };
+
+/** Does this seat ride on the free Helper allowance? */
+export function isFreeHelperSeat(m: { role: VendorTeamRole | string; duty?: string | null }): boolean {
+  return m.duty ? m.duty === FREE_HELPER_DUTY : m.role === FREE_HELPER_ROLE;
+}
 
 export type TeamSeats = {
   /** Members beyond the founding admin — everybody on the team who is not the founder. */
@@ -58,7 +71,7 @@ export type TeamSeats = {
 /** Where a team stands against its plan. The founding admin is always free and never counted. */
 export function teamSeats(members: readonly SeatMember[], founderUserId: string | null): TeamSeats {
   const others = members.filter((m) => m.user_id !== founderUserId);
-  const helpers = others.filter((m) => m.role === FREE_HELPER_ROLE).length;
+  const helpers = others.filter(isFreeHelperSeat).length;
   const freeHelpers = Math.min(helpers, Math.max(0, Math.floor(FREE_HELPER_SEATS)));
   return { people: others.length, freeHelpers, counted: others.length - freeHelpers };
 }
@@ -76,16 +89,20 @@ export function canSeat(args: {
   members: readonly SeatMember[];
   founderUserId: string | null;
   cap: number;
-  change: { kind: 'invite'; role: VendorTeamRole | string } | { kind: 'role'; memberId: string; role: VendorTeamRole | string };
+  change:
+    | { kind: 'invite'; role: VendorTeamRole | string; duty?: string | null }
+    | { kind: 'role'; memberId: string; role: VendorTeamRole | string; duty?: string | null };
 }): boolean {
   const { members, founderUserId, cap, change } = args;
   if (!Number.isFinite(cap)) return true;
   const before = teamSeats(members, founderUserId).counted;
   const after =
     change.kind === 'invite'
-      ? teamSeats([...members, { user_id: '\u0000new', role: change.role }], founderUserId).counted
+      ? teamSeats([...members, { user_id: '\u0000new', role: change.role, duty: change.duty ?? null }], founderUserId).counted
       : teamSeats(
-          members.map((m) => (m.vendor_team_member_id === change.memberId ? { ...m, role: change.role } : m)),
+          members.map((m) =>
+            m.vendor_team_member_id === change.memberId ? { ...m, role: change.role, duty: change.duty ?? null } : m,
+          ),
           founderUserId,
         ).counted;
   return after <= cap || after <= before;

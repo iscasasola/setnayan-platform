@@ -24,6 +24,7 @@ import { TypedRow } from '@/app/_components/form-row';
 import { patchPlus } from '@/lib/chat-plus-store';
 import { askForAChange, askNoteWithPart, askPartWords, ASK_SUBJECT_WORD, type AskPart, type AskSubject } from '@/lib/chat-cards';
 import { QuoteCardLines, type QuoteCardLine } from '@/app/_components/quote-card-lines';
+import { QuoteTermsLine } from './quote-terms-line';
 import { ChatStepCard, type ChatCardStep } from '../chat-step-card';
 import { answerChangeAskFromChat, askForAChangeFromChat, loadChangeAsks, type ChangeAskRow } from './card-calls';
 import { CouldNotLoad, EqualRow, KindCard, Loading, Problem, type Read } from './card-bits';
@@ -56,7 +57,13 @@ export function AskChangeDoor({
   const quoteOpen = offered.includes('quote');
   const planOpen = offered.includes('plan');
   // The quote's lines are drawn HERE on the hosts' live quote (the stream hands them over instead of drawing them).
-  const lineList = lines ? <QuoteCardLines items={lines} onAsk={quoteOpen && !part && !sent ? (name) => setPart({ subject: 'quote', name }) : undefined} /> : null;
+  // 📜 Terms at Accept (Unichat part H2): the quote's own terms sit under its lines, above the Accept, on every face.
+  const lineList = lines ? (
+    <>
+      <QuoteCardLines items={lines} onAsk={quoteOpen && !part && !sent ? (name) => setPart({ subject: 'quote', name }) : undefined} />
+      {proposalId ? <QuoteTermsLine proposalId={proposalId} supplierName={supplierName} /> : null}
+    </>
+  ) : null;
   if (offered.length === 0) {
     return (
       <>

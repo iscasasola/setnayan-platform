@@ -720,6 +720,12 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             Accepting tells {businessName} you&rsquo;re going with this — it doesn&rsquo;t
             charge you anything.
           </p>
+          {/* 📜 Terms at Accept (Unichat part H2, 20 Nov 2026): said beside the press, only when this quote states terms. */}
+          {proposal.rendered_terms.trim() ? (
+            <p className="w-full text-xs font-medium text-ink/70" data-quote-terms-at-accept="">
+              Accepting means you agree to {businessName}&rsquo;s terms above.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

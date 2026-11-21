@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1959
-# tables: 533
-# columns: 6398
-# notnull: 3857
+# ledger: 1961
+# tables: 534
+# columns: 6409
+# notnull: 3863
 [ledger]
 20260512000000
 20260513000000
@@ -1968,6 +1968,8 @@
 20271355746081
 20271355899662
 20271356173915
+20271356196197
+20271356215288
 20271356402294
 20271356665317
 20271356969132
@@ -2195,6 +2197,8 @@ booking_fee_charges.event_id
 booking_fee_charges.event_vendor_id
 booking_fee_charges.expires_at
 booking_fee_charges.failed_reason
+booking_fee_charges.fee_basis
+booking_fee_charges.free_by_platform_count
 booking_fee_charges.gateway
 booking_fee_charges.gift_centavos
 booking_fee_charges.gift_credits
@@ -2203,6 +2207,7 @@ booking_fee_charges.ledger_id
 booking_fee_charges.paid_at
 booking_fee_charges.parent_charge_id
 booking_fee_charges.payment_ref
+booking_fee_charges.platform_fee_number
 booking_fee_charges.proposal_amount_centavos
 booking_fee_charges.proposal_detached_at
 booking_fee_charges.proposal_id
@@ -2244,6 +2249,9 @@ booking_fee_ledger.ledger_id
 booking_fee_ledger.source
 booking_fee_ledger.updated_at
 booking_fee_ledger.vendor_profile_id
+booking_fee_platform_counter.fee_bookings_counted
+booking_fee_platform_counter.id
+booking_fee_platform_counter.updated_at
 booking_gift_lines.cleared_at
 booking_gift_lines.cleared_reason
 booking_gift_lines.created_at
@@ -5886,6 +5894,8 @@ platform_settings.bir_authorized_rep_title
 platform_settings.bir_payor_address
 platform_settings.bir_payor_name
 platform_settings.bir_payor_zip
+platform_settings.booking_fee_cap_php
+platform_settings.booking_fee_free_every_nth
 platform_settings.booking_fee_free_from
 platform_settings.booking_fee_free_until
 platform_settings.booking_fee_minting_live
@@ -8136,6 +8146,9 @@ vendor_songs.performance_url
 vendor_songs.song_id
 vendor_songs.vendor_profile_id
 vendor_specialized_tools_access.created_at
+vendor_specialized_tools_access.pro_tools_plus_until
+vendor_specialized_tools_access.pro_tools_trial_until
+vendor_specialized_tools_access.pro_tools_unlock_until
 vendor_specialized_tools_access.trial_ends_at
 vendor_specialized_tools_access.trial_event_id
 vendor_specialized_tools_access.trial_event_vendor_id
@@ -8495,6 +8508,7 @@ booking_fee_charges.amount_charged_centavos
 booking_fee_charges.charge_id
 booking_fee_charges.computed_fee_centavos
 booking_fee_charges.created_at
+booking_fee_charges.free_by_platform_count
 booking_fee_charges.gift_centavos
 booking_fee_charges.gift_credits
 booking_fee_charges.kind
@@ -8524,6 +8538,9 @@ booking_fee_ledger.ledger_id
 booking_fee_ledger.source
 booking_fee_ledger.updated_at
 booking_fee_ledger.vendor_profile_id
+booking_fee_platform_counter.fee_bookings_counted
+booking_fee_platform_counter.id
+booking_fee_platform_counter.updated_at
 booking_gift_lines.created_at
 booking_gift_lines.credits
 booking_gift_lines.event_id
@@ -10686,6 +10703,8 @@ platform_secret_rotations.updated_at
 platform_settings.admin_digest_enabled
 platform_settings.ai_signup_discount_pct
 platform_settings.bdo_enabled
+platform_settings.booking_fee_cap_php
+platform_settings.booking_fee_free_every_nth
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php

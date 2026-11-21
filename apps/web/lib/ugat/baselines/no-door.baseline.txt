@@ -116,3 +116,4 @@
 /dev/signature-lab	# first run 2026-11-19 · internal (dev, prototypes) · the motion standard's six signature moments on the shipped parts (§ 9); 404 in production
 /dev/story-suppliers-lab	# first run 2026-11-13 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/pro-tools-lock-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the photo challenge + 3D booth Pro locks on fixtures for the §4 shots; reached by typing its address
+/dev/supplier-tools-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the supplier tool pages redraw (v3) on fixtures, for its screenshots; reached by typing its address

@@ -17,7 +17,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway, accessAsksWaiting, readAccessAsks } from './_components/access-requests-doorway';
 import { MoodBoardAsksDoorway, readMoodBoardAsks, type MoodBoardAsksRead } from './_components/mood-board-asks-doorway';
-import { CoordinatorLevelCard, readCoordinatorLevelAsks, type CoordinatorLevelRead } from './_components/coordinator-level-card';
 import { eventTodayAsks, readEventTodayPutOffs } from './_components/event-today-asks';
 import { isInPrepWindow } from '@/lib/event-day-prep-window';
 import { manilaToday } from '@/lib/chat-cards';
@@ -255,7 +254,6 @@ export default async function EventHomePage({
   const accessAsksRead = startAhead(readAccessAsks(eventId).catch((): Awaited<ReturnType<typeof readAccessAsks>> => ({ ok: false })));
   // ☀ The other asks — each read ONCE here (they were read inside their own doorway): Home's Today list words each as a
   // row and counts it (owner 20 Nov 2026), and the doorways the day-of and after screens draw take the same answer.
-  const coordinatorAsksRead = startAhead(readCoordinatorLevelAsks(eventId, user.id).catch((): CoordinatorLevelRead => ({ unread: true, asks: [] })));
   const moodAsksRead = startAhead(readMoodBoardAsks(eventId).catch((): MoodBoardAsksRead => ({ ok: false })));
   const dateChangeRead = startAhead(readDateChange(eventId).catch((): DateChangeRead => ({ ok: false })));
   // ⏭ THIS PERSON'S "Do it tomorrow" records on this event (`event_today_put_offs`, RLS: own rows); null = unread.
@@ -1168,19 +1166,15 @@ export default async function EventHomePage({
     ☀ THE TODAY ASKS — every prompt that waits on the hosts (owner 2026-10-29, verbatim: *"The popup for the access and
     other popups above the header can be presented better"*). They used to stack ABOVE the cover band; NOTHING renders
     above Home's cover now — the cover is the top of Home — and each is a line of the Today list under it
-    (`HomeTodayItem`), in this order: what waits on the hosts first (the coordinator's access, then access requests),
+    (`HomeTodayItem`), in this order: what waits on the hosts first (access requests),
     then what is under way (a date change), then the event-day offer. Each self-hides and says a refused read. Held by
     `the-cover-is-the-top-of-home.test.ts`.
   */
-  const coordinatorAsks = await coordinatorAsksRead;
   const moodAsks = await moodAsksRead;
   const dateChange = await dateChangeRead;
   const todayPutOffs = await todayPutOffsRead;
   const todayAsks = (
     <>
-      {/* 🔑 "<shop> joined as your coordinator · Pick their access" — once, for a connected coordinator the hosts have
-          not answered for (owner 2026-10-29). Owners only; the press opens the house Sheet. */}
-      <CoordinatorLevelCard eventId={eventId} userId={user.id} read={coordinatorAsks} />
       {/* Self-hiding: renders nothing unless someone is waiting on an answer (owner ruling 2026-07-27 — the host
           decides what to share). */}
       <AccessRequestsDoorway eventId={eventId} read={accessAsks} />
@@ -1205,7 +1199,6 @@ export default async function EventHomePage({
     : eventTodayAsks({
         eventId,
         access: accessAsks,
-        coordinator: coordinatorAsks,
         mood: moodAsks,
         dateChange,
         prep: isInPrepWindow(event.event_date, new Date()) ? { eventDate: event.event_date } : null,

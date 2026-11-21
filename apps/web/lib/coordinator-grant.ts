@@ -7,7 +7,12 @@ import {
 } from './event-moderators';
 import { isCoordinatorConsentGateEnabled } from './coordinator-consent-gate';
 import { emitNotification } from './notification-emit';
-import { coordinatorInviteNotice, coordinatorInviteRecipient, type AccountRow } from './coordinator-invite-notice';
+import {
+  coordinatorInviteNotice,
+  coordinatorInviteRecipient,
+  coordinatorOpenedNotice,
+  type AccountRow,
+} from './coordinator-invite-notice';
 
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
@@ -42,7 +47,7 @@ export async function autoInviteCoordinator(
   },
 ): Promise<{ created: boolean; told?: boolean }> {
   const email = params.email.trim().toLowerCase();
-  if (!email) return { created: false };
+  if (!email && !params.shopProfileId) return { created: false };
 
   // RA 10173 consent gate (corpus Coordinator_Role_Feature_Spec § 3a). Unlike
   // the manual "Promote your coordinator" flow (inviteHost), this path fires as
@@ -56,6 +61,15 @@ export async function autoInviteCoordinator(
   // writes coordinator_access_consents. INACTIVE (default) = exact prior
   // behavior (auto-grant as before; no consent system is live anyway).
   if (await isCoordinatorConsentGateEnabled()) return { created: false };
+
+  // 🧭 AUTOMATIC ON BOOKING (owner 2026-11-21): a booked shop whose owner account is known gets the seat ALREADY
+  // ACCEPTED — no link to copy, nothing to accept. Only a coordinator who is not on Setnayan yet (no shop) still gets
+  // the 7-day emailed invite below.
+  if (params.shopProfileId) {
+    const opened = await openForTheBookedShop(admin, { ...params, shopProfileId: params.shopProfileId, email });
+    if (opened !== 'no_owner') return { created: opened === 'opened', told: opened === 'opened' };
+  }
+  if (!email) return { created: false };
 
   // Dedupe against any active wedding-planner delegate already covering this email.
   const { data: existing } = await admin
@@ -134,4 +148,93 @@ async function tellTheCoordinator(
     console.error('[autoInviteCoordinator] notice failed:', e instanceof Error ? e.message : e);
     return false;
   }
+}
+
+/**
+ * 🧭 The booked shop's owner gets the coordinator's seat, ACCEPTED, with the ruled grant (`COORDINATOR_AREAS`). Pure
+ * outcomes:
+ *   · 'opened'   — a seat was written (or a pending invite for this shop was activated) and the owner was told;
+ *   · 'already'  — they already hold a live seat here: NOTHING is rewritten, so the hosts' one switch is never undone
+ *                  by a re-marked payment;
+ *   · 'no_owner' — no owner account could be read; the caller falls back to the emailed invite;
+ *   · 'refused'  — the write was refused; said in the log, never retried as "done".
+ */
+async function openForTheBookedShop(
+  admin: SupabaseClient,
+  p: { eventId: string; email: string; displayLabel: string | null; invitedByUserId: string; shopProfileId: string },
+): Promise<'opened' | 'already' | 'no_owner' | 'refused'> {
+  const { data: shop, error: shopError } = await admin
+    .from('vendor_profiles')
+    .select('user_id')
+    .eq('vendor_profile_id', p.shopProfileId)
+    .maybeSingle();
+  const ownerId = (shop as { user_id: string | null } | null)?.user_id ?? null;
+  if (shopError || !ownerId) return 'no_owner';
+
+  const { data: seats, error: seatsError } = await admin
+    .from('event_moderators')
+    .select('moderator_id, user_id, accepted_at, invitation_email')
+    .eq('event_id', p.eventId)
+    .eq('role_subtype', 'wedding_planner_external')
+    .is('removed_at', null);
+  if (seatsError) {
+    console.error('[autoInviteCoordinator] seats unread:', seatsError.message, { event_id: p.eventId });
+    return 'refused';
+  }
+  type Seat = { moderator_id: string; user_id: string | null; accepted_at: string | null; invitation_email: string | null };
+  const rows = (seats ?? []) as Seat[];
+  if (rows.some((r) => r.user_id === ownerId && r.accepted_at)) return 'already';
+
+  const now = new Date().toISOString();
+  const pending = rows.find(
+    (r) => !r.accepted_at && (r.user_id === ownerId || r.invitation_email?.trim().toLowerCase() === p.email),
+  );
+  let wrote = false;
+  if (pending) {
+    const { data, error } = await admin
+      .from('event_moderators')
+      .update({ user_id: ownerId, accepted_at: now, invitation_token: null, updated_at: now })
+      .eq('moderator_id', pending.moderator_id)
+      .is('accepted_at', null)
+      .select('moderator_id');
+    wrote = !error && (data ?? []).length > 0;
+    if (error) console.error('[autoInviteCoordinator] activate refused:', error.message, { event_id: p.eventId });
+  } else {
+    const permissions: ModeratorPermissions = {
+      ...PERMISSION_TEMPLATES.wedding_planner_external,
+      areas: { ...COORDINATOR_AREAS },
+    };
+    const { data, error } = await admin
+      .from('event_moderators')
+      .insert({
+        event_id: p.eventId,
+        user_id: ownerId,
+        role_subtype: 'wedding_planner_external',
+        display_label: p.displayLabel,
+        permissions_json: permissions,
+        invited_by_user_id: p.invitedByUserId,
+        invitation_email: p.email,
+        invitation_phone: null,
+        invitation_sent_at: now,
+        invitation_expires_at: null,
+        invitation_token: null,
+        accepted_at: now,
+      })
+      .select('moderator_id');
+    wrote = !error && (data ?? []).length > 0;
+    if (error) console.error('[autoInviteCoordinator] seat refused:', error.message, { event_id: p.eventId });
+  }
+  if (!wrote) return 'refused';
+
+  try {
+    const { data: ev } = await admin.from('events').select('display_name').eq('event_id', p.eventId).maybeSingle();
+    const notice = coordinatorOpenedNotice({
+      eventId: p.eventId,
+      eventName: (ev as { display_name: string | null } | null)?.display_name ?? null,
+    });
+    await emitNotification({ userId: ownerId, type: 'coordinator_invited', eventId: p.eventId, ...notice });
+  } catch (e) {
+    console.error('[autoInviteCoordinator] notice failed:', e instanceof Error ? e.message : e);
+  }
+  return 'opened';
 }

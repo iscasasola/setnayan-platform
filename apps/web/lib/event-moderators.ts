@@ -65,7 +65,7 @@ export const ROLE_SUBTYPE_HINT: Readonly<Record<RoleSubtype, string>> = {
   man_of_honor: 'Edit. No checkout — couple controls the wallet.',
   best_man: 'Edit. No checkout — couple controls the wallet.',
   best_woman: 'Edit. No checkout — couple controls the wallet.',
-  wedding_planner_external: 'Edit + checkout. Hired planner not on the Setnayan supplier side.',
+  wedding_planner_external: 'Edit. Never books or pays — the hosts do. Hired planner not on the Setnayan supplier side.',
   ninong: 'Edit. Filipino principal sponsor (godfather).',
   ninang: 'Edit. Filipino principal sponsor (godmother).',
   family_helper: "Limited edit. Tita Lita helping out — no payments, no host invites.",
@@ -108,7 +108,8 @@ export const PERMISSION_TEMPLATES: Readonly<Record<RoleSubtype, _ModeratorPermis
   man_of_honor: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
   best_man: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
   best_woman: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
-  wedding_planner_external: { edit_all: true, checkout: true, invite_hosts: true, remove_hosts: false },
+  // 🔒 checkout FALSE (owner 2026-11-21, *"no booking, no paying"*): the hosts' checkout opt-in is retired.
+  wedding_planner_external: { edit_all: true, checkout: false, invite_hosts: true, remove_hosts: false },
   ninong: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
   ninang: { edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false },
   family_helper: { edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false },

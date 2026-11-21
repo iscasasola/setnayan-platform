@@ -45,6 +45,7 @@ export type DelegateArea =
   | 'invitations'
   | 'mood_board'
   | 'budget'
+  | 'payments'
   | 'photos';
 
 export type AreaLevel = 'edit' | 'view' | null;
@@ -65,14 +66,20 @@ export const DELEGATE_AREAS: readonly DelegateArea[] = [
   'invitations',
   'mood_board',
   'budget',
+  'payments',
   'photos',
 ] as const;
 
 /**
  * The area names a person reads (owner 2026-10-03, "People with access"):
  * Guest list · Seat plan · The Day (schedule + emcee script + songs) ·
- * Suppliers · Event Hub · Mood Board (its photos) · Budget &
- * payments · Photos. The KEYS are the database's and never change.
+ * Suppliers · Event Hub · Mood Board (its photos) · Budget · Payments ·
+ * Photos. The KEYS are the database's and never change.
+ *
+ * 💸 "Budget & payments" SPLIT IN TWO (owner 2026-11-21, DECISION_LOG "A BOOKED COORDINATOR OPENS EVERYTHING EXCEPT
+ * MEDIA FILES AND PAYMENTS" · "COORDINATOR: DUE PAYMENTS VIEWABLE + 'REMIND THE HOSTS', NOT LOGGABLE"): Budget is the
+ * plan (View at most, locked D1); Payments is what is due — View at most, and View means SEE what is due and remind
+ * the hosts. Nobody but a host ever logs or pays (`coordinatorMoneyScopeAllowed`).
  */
 export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   guest_list: 'Guest list',
@@ -81,7 +88,8 @@ export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   vendors: 'Suppliers',
   invitations: 'Event Hub',
   mood_board: 'Mood Board',
-  budget: 'Budget & payments',
+  budget: 'Budget',
+  payments: 'Payments',
   photos: 'Photos',
 };
 
@@ -97,7 +105,8 @@ export const DELEGATE_AREA_DOES: Readonly<Record<DelegateArea, string>> = {
   vendors: 'Your suppliers — their details, milestones and status.',
   invitations: 'Your Event Hub — what your guests see.',
   mood_board: 'Add, replace, move and remove the board’s photos. The palette and the dress code stay with you.',
-  budget: 'Your budget and payments. Never Edit — View at most.',
+  budget: 'Your budget plan. Never Edit — View at most.',
+  payments: 'What is due to your suppliers, to remind you. Never logs or pays.',
   photos: 'The event’s photos. View at most.',
 };
 
@@ -144,6 +153,7 @@ export function areaChoices(area: DelegateArea): readonly AreaChoice[] | null {
     case 'mood_board':
       return ['edit', 'view'];
     case 'budget':
+    case 'payments':
     case 'photos':
       return ['view', 'off'];
     case 'invitations':
@@ -166,23 +176,44 @@ export function levelOfChoice(choice: AreaChoice): AreaLevel {
   return choice === 'off' ? null : choice;
 }
 
-// The coordinator's default grants — locked § 3 table: planning areas Edit,
-// mood board View (aesthetic direction stays the couple's), budget OFF
-// (locked D1 — couple-raiseable to View, never Edit in V1). Seat-plan
-// publish + first invitation deploy remain couple-confirmed regardless
-// (DB trigger + locked D4).
-export const COORDINATOR_AREAS: Readonly<Partial<Record<DelegateArea, AreaLevel>>> = {
+// 🧭 THE BOOKED COORDINATOR'S GRANT (owner 2026-11-21, DECISION_LOG "BOOKED COORDINATOR — WHAT THEY MAY EDIT VS
+// ONLY VIEW" · "COORDINATOR: DUE PAYMENTS VIEWABLE" · "THEIR WHOLE DASHBOARD MINUS THE MEMORIES"): the hosts' own
+// dashboard, every planning part at Edit — Guests · Seats · Schedule (March lives in it) · Suppliers (find, recommend,
+// shortlist — never book or pay) · Event Hub · Mood Board (controller call (1), 21 Nov) — Budget and Payments at View
+// (locked D1; due payments with "Remind the hosts", never Log or Pay), Memories (`photos`) closed: "The hosts keep this".
+// Written on booking, automatically (`autoInviteCoordinator`); the hosts' ONE switch takes it to
+// `COORDINATOR_OFF_AREAS` and back. Seat-plan publish + first invitation deploy remain couple-confirmed regardless (DB
+// trigger + locked D4).
+export const COORDINATOR_AREAS: Readonly<Record<DelegateArea, AreaLevel>> = {
   guest_list: 'edit',
   seat_plan: 'edit',
   schedule: 'edit',
   vendors: 'edit',
   invitations: 'edit',
+  mood_board: 'edit',
+  budget: 'view',
+  payments: 'view',
+  // Memories are the hosts' (owner 2026-11-21: *"the only part they do not have access to is the media files"*). An
+  // explicit null, so the intent is visible rather than inferred from absence.
+  photos: null,
+};
+
+/**
+ * The hosts' ONE switch, Off (owner 2026-10-07: *"Off only provides them the initial information they received"*):
+ * every area a host can set at its lowest — Off where it has one, View where it has none (Mood Board: every delegate
+ * reads the board). Event Hub is not settable and stays what every delegate has. The migration that retires
+ * Limited · Full (20271356900000-series, `the_booked_coordinator_is_automatic`) writes exactly this map for a seat the
+ * hosts had answered "Limited" — the safe direction: it never hands over more than the hosts chose.
+ */
+export const COORDINATOR_OFF_AREAS: Readonly<Record<DelegateArea, AreaLevel>> = {
+  guest_list: null,
+  seat_plan: null,
+  schedule: null,
+  vendors: null,
+  invitations: 'view',
   mood_board: 'view',
   budget: null,
-  // Photos are OFF by default and the couple raises them per coordinator
-  // (owner 2026-08-06: "they can. but only upon approval"). Written as an
-  // explicit null, like budget, so the intent is visible rather than inferred
-  // from absence.
+  payments: null,
   photos: null,
 };
 
@@ -293,6 +324,9 @@ export function resolveAreaLevel(
   // for them would lock a groom out of his own wedding.
   if (perms.areas) return null;
   if (area === 'budget') return perms.checkout ? 'view' : null;
+  // 💸 Payments is new (2026-11-21) and nothing in the database asks for it on a row with no map — the SQL twin's
+  // `ELSE NULL`. Closed, never inherited from `edit_all`.
+  if (area === 'payments') return null;
   if (area === 'mood_board') return 'view';
   // 🚨 NON-OPTIONAL. The tail below still FAILS OPEN — but only now for a row
   // with NO `areas` map at all (the couple's own host rows), because the guard

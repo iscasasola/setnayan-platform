@@ -128,7 +128,8 @@ import {
   type ChangeLineRow,
 } from '@/lib/agreed-total-and-its-changes';
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_BOOKS, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { addOwnContactError } from '@/lib/add-your-own';
@@ -344,6 +345,9 @@ export async function updateVendorCosts(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
 }
 
+/** The statuses a row becomes when it is BOOKED (`BOOKED_EVENT_VENDOR_STATUSES`) — reaching one is a booking. */
+const BOOKING_STATUSES: ReadonlySet<string> = new Set(BOOKED_EVENT_VENDOR_STATUSES);
+
 async function updateVendorStatus(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
@@ -389,6 +393,18 @@ async function updateVendorStatus(formData: FormData) {
     ? DOWNPAID_STATUSES.has(prevRow.status)
     : false;
   const willConsume = DOWNPAID_STATUSES.has(status);
+
+  // 🔒 ONLY A HOST BOOKS (owner 2026-11-21, *"no booking, no paying"*). `event_vendors_moderator_write` lets a
+  // coordinator change a supplier row, so the status flip INTO booked — contracted or downpaid, from a row that was not
+  // booked — is refused here for anybody who is not a host. Moving a booked row along (delivered, complete) or back is
+  // not booking and stays theirs.
+  if (
+    BOOKING_STATUSES.has(status)
+    && !(prevRow?.status && BOOKING_STATUSES.has(prevRow.status))
+    && !(await coordinatorMoneyScopeAllowed(createAdminClient(), eventId, user.id, 'vendor_lock'))
+  ) {
+    throw new Error(ONLY_A_HOST_BOOKS);
+  }
   if (
     !wasConsuming
     && willConsume
@@ -486,12 +502,13 @@ async function updateVendorStatus(formData: FormData) {
     !wasConsuming
     && willConsume
     && prevRow?.category === 'planner_coordinator'
-    && prevRow?.contact_email
+    // 🧭 A booked SHOP needs no contact email: its owner's account gets the seat, accepted (owner 2026-11-21).
+    && (prevRow?.contact_email || prevRow?.marketplace_vendor_id)
   ) {
     try {
       await autoInviteCoordinator(createAdminClient(), {
         eventId,
-        email: prevRow.contact_email,
+        email: prevRow.contact_email ?? '',
         displayLabel: prevRow.vendor_name ?? null,
         invitedByUserId: user.id,
         // 🤝 E1: the booked shop, so its owner's account is told the invite is waiting (in the app only).
@@ -1218,14 +1235,10 @@ export async function finalizeVendor(
     }
   }
 
-  // Consent-scoped coordinator vendor lock (owner 2026-07-19 #5). A direct
-  // lock from here commits the couple to a vendor and seeds the payment
-  // schedule. Behind NEXT_PUBLIC_COORDINATOR_CONSENT_GATE_ENABLED, a
-  // non-couple caller may lock directly only when the couple granted the
-  // 'vendor_lock' scope at invite time (coordinator_access_consents.scopes).
-  // Runs AFTER the propose-lock branch so that flag (if ever ON) keeps its
-  // propose path untouched; flag OFF = exact current behavior (helper returns
-  // true without reading).
+  // 🔒 ONLY A HOST BOOKS (owner 2026-11-21, *"no booking, no paying"*). A direct lock commits the couple to a supplier
+  // and seeds the payment schedule; a coordinator finds, recommends and shortlists instead. No opt-in scope, no
+  // control: `coordinatorMoneyScopeAllowed` is true for a host alone. Runs AFTER the propose-lock branch, so that flag
+  // (if ever ON) keeps its propose path — a proposal books nothing.
   {
     const lockAllowed = await coordinatorMoneyScopeAllowed(
       createAdminClient(),
@@ -1237,7 +1250,7 @@ export async function finalizeVendor(
       return {
         status: 'error',
         message:
-          'The couple has not approved supplier booking for your coordinator access — ask them to re-invite you with vendor-booking permission.',
+          ONLY_A_HOST_BOOKS,
       };
     }
   }
@@ -4799,7 +4812,7 @@ export async function recordDeposit(
       return {
         status: 'error',
         message:
-          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+          ONLY_A_HOST_PAYS,
       };
     }
   }

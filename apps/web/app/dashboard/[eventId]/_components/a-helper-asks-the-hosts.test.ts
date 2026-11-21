@@ -22,7 +22,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React, { createElement } from 'react';
@@ -40,7 +40,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '../../../..');
 const REPO = join(WEB, '../..');
 const code = (f: string) => stripComments(readFileSync(join(WEB, f), 'utf8'));
-const DOOR = 'supabase/migrations/20271299854365_a_helper_asks_the_hosts_for_more.sql';
+/** The NEWEST migration that defines the door (20271299854365 first; 20271357113669 split "Budget & payments"). */
+const DOOR = (() => {
+  const dir = join(REPO, 'supabase/migrations');
+  const hits = readdirSync(dir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort()
+    .filter((f) => readFileSync(join(dir, f), 'utf8').includes('FUNCTION public.ask_hosts_for_more_access('));
+  return `supabase/migrations/${hits[hits.length - 1]}`;
+})();
 const perms = (areas: ModeratorPermissions['areas']): ModeratorPermissions =>
   ({ edit_all: false, checkout: false, invite_hosts: false, remove_hosts: false, areas }) as ModeratorPermissions;
 const DAY = { eventDate: '2026-12-18', eventEndDate: null, precision: 'day' } as const;

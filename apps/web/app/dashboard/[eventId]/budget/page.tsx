@@ -35,6 +35,10 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { BudgetFileActions } from './_components/budget-file-actions';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
+import { fetchEventViewer } from '@/lib/event-viewer.server';
+import { resolveAreaLevel } from '@/lib/delegate-areas';
+import { pickDuePayments } from '@/lib/budget-page-view';
+import { PaymentsDue, type DueRow } from './_components/payments-due';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { TraditionNotes } from './_components/tradition-notes';
@@ -433,6 +437,18 @@ export default async function BudgetPage({ params, searchParams }: Props) {
   /* 📤 Share (the budget as a PDF) · the spreadsheet · the calendar file — `BudgetFileActions`. Share and the
      spreadsheet only when the resolver answered: with no `money` the route can only say "try again". */
   const fileActions = <BudgetFileActions eventId={eventId} fileSlug={budgetFileSlug} moneyAnswered={money !== null} />;
+  /* 💸 PAYMENTS DUE + "REMIND THE HOSTS" (owner 2026-11-21) — for a viewer who is NOT a host and whose seat opens
+     Payments (the booked coordinator: View). From the resolver's own lines; a refused ledger is said (`null`), never
+     "nothing is due". The hosts see the same money in the screen below and pay it there. */
+  const dueFor: DueRow[] | null | 'closed' = budgetAccess.mayEdit
+    ? 'closed'
+    : await (async (): Promise<DueRow[] | null | 'closed'> => {
+        const viewer = await fetchEventViewer(supabase, eventId, user.id);
+        if (viewer.isCouple || resolveAreaLevel(viewer.delegatePermissions, 'payments') === null) return 'closed';
+        if (ledgerRefused) return null;
+        if (money) return pickDuePayments(money.lines);
+        return nextPayment?.vendorId ? [{ ...nextPayment, vendorId: nextPayment.vendorId }] : [];
+      })();
   return (
     <section className="sn-col max-w-3xl space-y-6" data-budget-page="">
       {/* id target for a `#budget-overview` link. scroll-mt keeps the title clear of the top edge on smooth-scroll. */}
@@ -454,6 +470,7 @@ export default async function BudgetPage({ params, searchParams }: Props) {
        *  🔒 WRITING money is the couple's alone — locked D1, "budget never
        *  exceeds view in V1". A delegate who may READ sees the same rows; the
        *  Target is a figure, not a field, and no sheet offers a verb. */}
+      {dueFor === 'closed' ? null : <PaymentsDue eventId={eventId} rows={dueFor} />}
       <BudgetScreen
         eventId={eventId}
         canEdit={budgetAccess.mayEdit}

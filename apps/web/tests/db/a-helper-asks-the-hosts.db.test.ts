@@ -159,7 +159,7 @@ test('1 · a limited helper’s ask reaches EVERY host, in the app, landed on th
   assert.equal(c.r?.status, 'ok', `the coordinator was refused: ${JSON.stringify(c)}`);
   const coordinatorRows = (await asks()).filter((n) => n.related_url.endsWith('&part=budget'));
   assert.equal(coordinatorRows.length, 2);
-  assert.equal(coordinatorRows[0]!.title, 'Coordinator Ana asks for more access · Budget & payments');
+  assert.equal(coordinatorRows[0]!.title, 'Coordinator Ana asks for more access · Budget');
   assert.equal(coordinatorRows[0]!.body, 'Open People with access to change what they can open.', 'an ask with no words invents some');
 });
 

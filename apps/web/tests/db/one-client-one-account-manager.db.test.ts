@@ -217,3 +217,24 @@ test('the fair-split counts: Setnayan only, names folded as written, one per cli
   });
   assert.match(err, /permission denied/);
 });
+
+test('a seat the plan paused: a browser cannot set the mark or bring the seat back; the server can', async () => {
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = now(), paused_by_plan_at = now() WHERE vendor_team_member_id = $1`, [F.amSeat]);
+  const refused = async (sql: string) => {
+    let err = '';
+    await as(F.owner, async () => {
+      try {
+        await db.query(sql, [F.amSeat]);
+      } catch (e) {
+        err = String(e);
+      }
+    });
+    return err;
+  };
+  assert.match(await refused(`UPDATE public.vendor_team_members SET deactivated_at = NULL WHERE vendor_team_member_id = $1`), /TEAM_SEAT_PAUSE_REFUSED: this seat comes back/);
+  assert.match(await refused(`UPDATE public.vendor_team_members SET paused_by_plan_at = NULL WHERE vendor_team_member_id = $1`), /TEAM_SEAT_PAUSE_REFUSED: a plan pause/);
+  const still = await db.query<{ d: string | null }>(`SELECT deactivated_at AS d FROM public.vendor_team_members WHERE vendor_team_member_id = $1`, [F.amSeat]);
+  assert.notEqual(still.rows[0]!.d, null);
+  await db.query(`UPDATE public.vendor_team_members SET deactivated_at = NULL, paused_by_plan_at = NULL WHERE vendor_team_member_id = $1`, [F.amSeat]);
+  assert.deepEqual(await myShops(F.am).then((s) => s.includes(F.shop)), true);
+});

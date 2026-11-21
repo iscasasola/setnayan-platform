@@ -373,6 +373,17 @@ export default async function VendorDashboardLayout({
     });
   }
 
+  // 👤 A SMALLER PLAN PAUSES THE EXTRA SEATS (supplier roles d–h (g), owner 21 Nov — overturns ruling 5683) — the same
+  // cron-free, post-response, idempotent shape as the lapse sweep above: the visiting shop's seats are set against its
+  // LIVE plan (newest pause first; a plan with room brings them back), and a paused seat's clients move for now.
+  if (tierProbe.vendorId) {
+    const shopId = tierProbe.vendorId;
+    after(async () => {
+      const { maybeReconcileSeatPauses } = await import('@/lib/seat-pause.server');
+      await maybeReconcileSeatPauses(shopId);
+    });
+  }
+
   if (profile?.deleted_at) {
     await supabase.auth.signOut();
     redirect('/login?error=Account+deleted');

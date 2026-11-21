@@ -16,7 +16,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { postThreadSystemLine } from '@/lib/chat-system-line.server';
 import { fetchVendorRoleNames } from '@/lib/vendor-team';
 import { isVendorDuty, roleNameOf } from '@/lib/vendor-duties';
-import { decideHandler, type AdjustedCut, type RoutingMember } from '@/lib/inquiry-routing';
+import { decideHandler, type AdjustedCut, type RoutingInput, type RoutingMember } from '@/lib/inquiry-routing';
 import { handledByLine } from '@/lib/handled-by-lines';
 
 type Args = { eventId: string; vendorProfileId: string; serviceId: string | null; senderUserId: string };
@@ -53,71 +53,73 @@ export async function memberChatName(admin: SupabaseClient, vendorProfileId: str
   return `${person}, ${roleNameOf(names, row.duty)}`;
 }
 
-/**
- * Give the client their ONE Account Manager (or mark "Hand over"). Returns what happened, for tests and logs.
- */
-export async function routeInquiry(admin: SupabaseClient, args: Args): Promise<'assigned' | 'kept' | 'hand-over' | 'nobody' | 'failed'> {
-  try {
-    const [threadRead, cardRead, teamRead, eventRead, senderRead, settingRead] = await Promise.all([
-      admin.from('chat_threads').select('thread_id, handled_by_member_id').eq('event_id', args.eventId).eq('vendor_profile_id', args.vendorProfileId).maybeSingle(),
-      args.serviceId
-        ? admin.from('vendor_services').select('branch_id').eq('vendor_service_id', args.serviceId).maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
-      admin.from('vendor_team_members').select('vendor_team_member_id, duty, branch_id, deactivated_at, created_at').eq('vendor_profile_id', args.vendorProfileId),
-      admin.from('events').select('event_type').eq('event_id', args.eventId).maybeSingle(),
-      admin.from('users').select('last_name').eq('user_id', args.senderUserId).maybeSingle(),
-      admin.from('platform_settings').select('inquiry_split_own_enough').eq('id', 1).maybeSingle(),
-    ]);
-    for (const [name, r] of [['thread', threadRead], ['card', cardRead], ['team', teamRead], ['event', eventRead]] as const) {
-      if (r.error) {
-        logQueryError(`inquiry-routing: ${name}`, r.error, { event_id: args.eventId }, 'graceful_degrade');
-        return 'failed';
-      }
+/** Everything the decision needs for one client of one shop. `null` = a read failed (logged); never a guess. */
+export async function readRoutingInput(
+  admin: SupabaseClient,
+  args: Args,
+): Promise<{ thread: { thread_id: string; handled_by_member_id: string | null }; input: RoutingInput } | null> {
+  const [threadRead, cardRead, teamRead, eventRead, senderRead, settingRead] = await Promise.all([
+    admin.from('chat_threads').select('thread_id, handled_by_member_id').eq('event_id', args.eventId).eq('vendor_profile_id', args.vendorProfileId).maybeSingle(),
+    args.serviceId
+      ? admin.from('vendor_services').select('branch_id').eq('vendor_service_id', args.serviceId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    admin.from('vendor_team_members').select('vendor_team_member_id, duty, branch_id, deactivated_at, created_at').eq('vendor_profile_id', args.vendorProfileId),
+    admin.from('events').select('event_type').eq('event_id', args.eventId).maybeSingle(),
+    admin.from('users').select('last_name').eq('user_id', args.senderUserId).maybeSingle(),
+    admin.from('platform_settings').select('inquiry_split_own_enough').eq('id', 1).maybeSingle(),
+  ]);
+  for (const [name, r] of [['thread', threadRead], ['card', cardRead], ['team', teamRead], ['event', eventRead]] as const) {
+    if (r.error) {
+      logQueryError(`inquiry-routing: ${name}`, r.error, { event_id: args.eventId }, 'graceful_degrade');
+      return null;
     }
-    const thread = threadRead.data as { thread_id: string; handled_by_member_id: string | null } | null;
-    if (!thread) return 'failed';
-    const cardBranchId = (cardRead.data as { branch_id: string | null } | null)?.branch_id ?? null;
-    const eventType = ((eventRead.data as { event_type: string | null } | null)?.event_type ?? null) || null;
-    const team: RoutingMember[] = ((teamRead.data ?? []) as Array<{ vendor_team_member_id: string; duty: string; branch_id: string | null; deactivated_at: string | null; created_at: string }>).map((r) => ({
-      memberId: r.vendor_team_member_id,
-      duty: r.duty,
-      branchId: r.branch_id,
-      paused: !!r.deactivated_at,
-      createdAt: r.created_at,
+  }
+  const thread = threadRead.data as { thread_id: string; handled_by_member_id: string | null } | null;
+  if (!thread) return null;
+  const cardBranchId = (cardRead.data as { branch_id: string | null } | null)?.branch_id ?? null;
+  const eventType = ((eventRead.data as { event_type: string | null } | null)?.event_type ?? null) || null;
+  const team: RoutingMember[] = ((teamRead.data ?? []) as Array<{ vendor_team_member_id: string; duty: string; branch_id: string | null; deactivated_at: string | null; created_at: string }>).map((r) => ({
+    memberId: r.vendor_team_member_id,
+    duty: r.duty,
+    branchId: r.branch_id,
+    paused: !!r.deactivated_at,
+    createdAt: r.created_at,
+  }));
+
+  let cardCoverIds: string[] = [];
+  let adjusted: AdjustedCut[] = [];
+  let counts = new Map<string, number>();
+  if (args.serviceId) {
+    const [coverRead, cutsRead] = await Promise.all([
+      admin.from('vendor_service_agents').select('vendor_team_member_id').eq('vendor_service_id', args.serviceId),
+      admin
+        .from('vendor_inquiry_split_cuts')
+        .select('vendor_team_member_id, from_prefix, to_prefix, event_type, branch_id')
+        .eq('vendor_service_id', args.serviceId),
+    ]);
+    if (coverRead.error) {
+      logQueryError('inquiry-routing: card cover', coverRead.error, { service: args.serviceId }, 'graceful_degrade');
+      return null;
+    }
+    cardCoverIds = ((coverRead.data ?? []) as Array<{ vendor_team_member_id: string }>).map((r) => r.vendor_team_member_id);
+    const cuts = cutsRead.error ? [] : ((cutsRead.data ?? []) as Array<{ vendor_team_member_id: string; from_prefix: string; to_prefix: string | null; event_type: string | null; branch_id: string | null }>);
+    if (cutsRead.error) logQueryError('inquiry-routing: adjusted cuts', cutsRead.error, { service: args.serviceId }, 'graceful_degrade');
+    const onBranch = cuts.filter((c) => (c.branch_id ?? null) === cardBranchId);
+    const forType = onBranch.filter((c) => c.event_type === eventType);
+    adjusted = (forType.length > 0 ? forType : onBranch.filter((c) => c.event_type === null)).map((c) => ({
+      memberId: c.vendor_team_member_id,
+      from: c.from_prefix,
+      to: c.to_prefix,
     }));
 
-    let cardCoverIds: string[] = [];
-    let adjusted: AdjustedCut[] = [];
-    let counts = new Map<string, number>();
-    if (args.serviceId) {
-      const [coverRead, cutsRead] = await Promise.all([
-        admin.from('vendor_service_agents').select('vendor_team_member_id').eq('vendor_service_id', args.serviceId),
-        admin
-          .from('vendor_inquiry_split_cuts')
-          .select('vendor_team_member_id, from_prefix, to_prefix, event_type, branch_id')
-          .eq('vendor_service_id', args.serviceId),
-      ]);
-      if (coverRead.error) {
-        logQueryError('inquiry-routing: card cover', coverRead.error, { service: args.serviceId }, 'graceful_degrade');
-        return 'failed';
-      }
-      cardCoverIds = ((coverRead.data ?? []) as Array<{ vendor_team_member_id: string }>).map((r) => r.vendor_team_member_id);
-      const cuts = cutsRead.error ? [] : ((cutsRead.data ?? []) as Array<{ vendor_team_member_id: string; from_prefix: string; to_prefix: string | null; event_type: string | null; branch_id: string | null }>);
-      if (cutsRead.error) logQueryError('inquiry-routing: adjusted cuts', cutsRead.error, { service: args.serviceId }, 'graceful_degrade');
-      const onBranch = cuts.filter((c) => (c.branch_id ?? null) === cardBranchId);
-      const forType = onBranch.filter((c) => c.event_type === eventType);
-      adjusted = (forType.length > 0 ? forType : onBranch.filter((c) => c.event_type === null)).map((c) => ({
-        memberId: c.vendor_team_member_id,
-        from: c.from_prefix,
-        to: c.to_prefix,
-      }));
+    const enough = Number((settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough) || null;
+    const own = enough ? await prefixCounts(admin, args.serviceId, eventType) : null;
+    counts = own && total(own) >= (enough ?? Infinity) ? own : ((await prefixCounts(admin, null, eventType)) ?? new Map());
+  }
 
-      const enough = Number((settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough) || null;
-      const own = enough ? await prefixCounts(admin, args.serviceId, eventType) : null;
-      counts = own && total(own) >= (enough ?? Infinity) ? own : ((await prefixCounts(admin, null, eventType)) ?? new Map());
-    }
-
-    const decision = decideHandler({
+  return {
+    thread,
+    input: {
       cardBranchId,
       cardCoverIds,
       team,
@@ -125,7 +127,19 @@ export async function routeInquiry(admin: SupabaseClient, args: Args): Promise<'
       counts,
       lastName: (senderRead.data as { last_name: string | null } | null)?.last_name ?? null,
       currentHandlerId: thread.handled_by_member_id,
-    });
+    },
+  };
+}
+
+/**
+ * Give the client their ONE Account Manager (or mark "Hand over"). Returns what happened, for tests and logs.
+ */
+export async function routeInquiry(admin: SupabaseClient, args: Args): Promise<'assigned' | 'kept' | 'hand-over' | 'nobody' | 'failed'> {
+  try {
+    const read = await readRoutingInput(admin, args);
+    if (!read) return 'failed';
+    const { thread, input } = read;
+    const decision = decideHandler(input);
 
     if (decision.kind === 'keep') return 'kept';
     if (decision.kind === 'nobody') return 'nobody';

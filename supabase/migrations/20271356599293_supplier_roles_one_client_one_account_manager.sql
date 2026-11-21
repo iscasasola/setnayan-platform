@@ -229,3 +229,46 @@ $$;
 
 REVOKE ALL ON FUNCTION public.inquiry_last_name_prefix_counts(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.inquiry_last_name_prefix_counts(UUID, TEXT) TO service_role;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- §6 · A SEAT THE PLAN PAUSED (owner 21 Nov, DECISION_LOG "YES TO ALL" item 3 — overturns ruling 5683)
+--
+-- On a smaller plan the extra staff accounts PAUSE: `deactivated_at` (the existing soft-lock, controller row 13) is
+-- set, nothing is deleted, and they come back when a plan covers them. `paused_by_plan_at` tells a plan pause apart
+-- from a seat a manager locked by hand, so an upgrade brings back ONLY what the plan paused.
+-- Only Setnayan's server sets or lifts it, and a browser may not un-pause a seat the plan paused (that would grow the
+-- team past its plan).
+-- ═══════════════════════════════════════════════════════════════════════════
+ALTER TABLE public.vendor_team_members ADD COLUMN IF NOT EXISTS paused_by_plan_at TIMESTAMPTZ;
+COMMENT ON COLUMN public.vendor_team_members.paused_by_plan_at IS
+  'Set (with deactivated_at) when a smaller plan paused this seat — newest seats first, the founder and the free Helper always stay. Cleared, with deactivated_at, when a plan covers the seat again. NULL = not paused by the plan. Server-written only (trigger vendor_team_members_plan_pause_is_the_servers).';
+
+CREATE OR REPLACE FUNCTION public.tg_vendor_team_members_plan_pause_is_the_servers()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') OR public.is_admin() THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.paused_by_plan_at IS NOT NULL THEN
+      RAISE EXCEPTION 'TEAM_SEAT_PAUSE_REFUSED: a plan pause is set by Setnayan, not written from a browser';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.paused_by_plan_at IS DISTINCT FROM OLD.paused_by_plan_at THEN
+    RAISE EXCEPTION 'TEAM_SEAT_PAUSE_REFUSED: a plan pause is set by Setnayan, not written from a browser';
+  END IF;
+  IF OLD.paused_by_plan_at IS NOT NULL AND NEW.deactivated_at IS NULL THEN
+    RAISE EXCEPTION 'TEAM_SEAT_PAUSE_REFUSED: this seat comes back when a plan that covers it is active';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS vendor_team_members_plan_pause_is_the_servers ON public.vendor_team_members;
+CREATE TRIGGER vendor_team_members_plan_pause_is_the_servers
+  BEFORE INSERT OR UPDATE ON public.vendor_team_members
+  FOR EACH ROW EXECUTE FUNCTION public.tg_vendor_team_members_plan_pause_is_the_servers();

@@ -28,7 +28,7 @@
  *     this bucket, unconditionally.
  */
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
 import { UploadCloud } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
@@ -76,6 +76,10 @@ import { RejectionNotice } from './rejection-notice';
 import { InspirationCardPick } from '@/app/_components/inspiration-card-pick';
 import { preselectedCard, type CardChoice } from '@/lib/inspiration-card-link';
 import { formatCount } from '@/lib/format-number';
+import { Sheet } from '@/app/_components/sheet';
+import { InfoTip } from '@/app/_components/info-tip';
+import { ToolChip } from '../../_components/tool-page';
+import { ToolAddSheet } from '../../_components/tool-add-sheet';
 
 export type StylistAsset = {
   asset_id: string;
@@ -186,6 +190,11 @@ export function StylistLibraryEditor({
   // 📎 The file picked into the drop box — its name and a local preview, so the box says what it holds.
   const [pickedFile, setPickedFile] = useState<{ name: string; url: string } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
+  // 📱 The redraw (v3): on a phone a tapped photo RISES the editor full screen (a sheet), and the upload form is the thumb
+  // row's ＋; from 1024 the shipped two panes stay. Read after the first paint, so the server's render and the first
+  // client render agree (phone first).
+  const wide = useWideLibrary();
+  const [editorOpen, setEditorOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [localMaps, setLocalMaps] = useState<Record<string, ColorRangeMap>>(() =>
     Object.fromEntries(initialAssets.map((a) => [a.asset_id, a.color_ranges])),
@@ -374,42 +383,9 @@ export function StylistLibraryEditor({
     });
   }
 
-  return (
-    <>
-      {dialog}
-      {notice ? (
-        <ShopNotice tone="success" role="status" className="mb-4 flex items-start justify-between gap-3">
-          <span>{notice}</span>
-          <button
-            type="button"
-            onClick={() => setNotice(null)}
-            className={actionButtonClass('neutral', { quiet: true })}
-            aria-label="Dismiss message"
-          >
-            Dismiss
-          </button>
-        </ShopNotice>
-      ) : null}
-      {actionError ? (
-        <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
-          <span>{actionError}</span>
-          <button
-            type="button"
-            onClick={() => setActionError(null)}
-            className={actionButtonClass('neutral', { quiet: true })}
-            aria-label="Dismiss error"
-          >
-            Dismiss
-          </button>
-        </ShopNotice>
-      ) : null}
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      {/* LEFT: upload + own-asset grid */}
-      <div className="space-y-4">
-        <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
-          <p className="mb-3 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
-            Upload your design
-          </p>
+  const uploadSection = (
+        <section>
+          {wide ? <h3 className="hc-k2 mb-2 min-h-9">Upload your design</h3> : null}
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -634,134 +610,12 @@ export function StylistLibraryEditor({
             </p>
           </form>
         </section>
-
-        {/* ── THE EVENT-LINKED ROUTE ───────────────────────────────────────
-            The shop's own day-of photos from `editorial_vendor_media` — a
-            table built in June 2026 and standing at zero rows since. They are
-            already the couple's, already NSFW-screened, and already curated by
-            the couple (a photo they hid on their own story never appears
-            here). Promoting one re-checks `selection_match_rank = 1` server
-            side rather than trusting the gate that let it be submitted, and
-            the result is EVENT-LINKED — so it never touches the
-            back-catalogue allowance, at any tier. */}
-        {importableEditorialFailed ? (
-          <ShopNotice tone="warn" role="status" className="text-sm">
-            We couldn’t load your photos from events you worked just now.
-            They aren’t gone — reload in a moment, or upload from your own files
-            below.
-          </ShopNotice>
-        ) : null}
-
-        {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
-          <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
-            <p className="mb-1 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
-              From events you worked
-            </p>
-            <p className="mb-3 text-[12px] text-[color:var(--m-slate-2)]">
-              Your day-of photos from couples who picked you. These never count
-              against your back-catalogue allowance.
-            </p>
-            <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-              <span className="shrink-0 tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">Add to</span>
-              <PickMenu
-                label="Add these photos to"
-                value={importSlot}
-                options={slotOptions(gallerySlots)}
-                onPick={setImportSlot}
-                dataAttr="data-library-import-part"
-                stickyGroups
-                className="!min-h-11"
-              />
-            </div>
-            <div className="mb-3">
-              <InspirationCardPick
-                choices={choicesFor(importSlot)}
-                value={cardFor(importSlot)}
-                onChange={(id) => pickCard(importSlot, id)}
-                dataAttr="data-library-import-card"
-                withHiddenField={false}
-              />
-            </div>
-            <ul className="space-y-2">
-              {importableEditorial.map((photo) => (
-                <li
-                  key={photo.mediaId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-ink/10 p-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {photo.caption?.trim() || 'Day-of photo'}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isPending || photo.alreadyImported}
-                    onClick={() => handleImport(photo.mediaId)}
-                    className={actionButtonClass('brand', { extra: 'flex-shrink-0 disabled:opacity-50' })}
-                  >
-                    {photo.alreadyImported ? 'Added' : 'Add to Inspiration'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section className="border-t border-[color:var(--m-line)] pt-4 first:border-t-0 first:pt-0">
-          <p className="mb-3 tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
-            My uploads ({assets.length})
-          </p>
-          {assets.length === 0 ? (
-            <p className="text-sm text-[color:var(--m-slate-2)]">
-              No uploads yet — pick a file above to start.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {assets.map((a) => (
-                <li key={a.asset_id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(a.asset_id)}
-                    className={`flex w-full items-center gap-3 rounded-md border p-2 text-left transition ${
-                      selectedId === a.asset_id
-                        ? 'border-terracotta bg-terracotta/5'
-                        : 'border-ink/10 hover:border-ink/30'
-                    }`}
-                  >
-                    <Image
-                      src={a.public_url}
-                      alt={a.label ? `Moodboard photo: ${a.label}` : 'Moodboard photo thumbnail'}
-                      width={48}
-                      height={48}
-                      loading="lazy"
-                      className="h-12 w-12 flex-shrink-0 rounded object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-ink">{a.label}</p>
-                      <p className="tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">
-                        {assetWhere(a, gallerySlots)}
-                        {' · '}
-                        {a.rejected_at
-                          ? '✕ not published'
-                          : a.approved_at
-                            ? '✓ live'
-                            : 'draft'}
-                        {a.retired_at && !a.rejected_at ? ' · retired' : ''}
-                      </p>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      {/* RIGHT: editor */}
-      <div className="space-y-4">
-        {selected ? (
+  );
+  const editorPane = selected ? (
           <>
             <header className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
-                <h2 className="text-lg font-semibold text-ink">{selected.label}</h2>
+                <h2 id="moodboard-editor-title" className="text-lg font-semibold text-ink">{selected.label}</h2>
                 <p className="tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
                   {assetWhere(selected, gallerySlots)} ·{' '}
                   {selected.rejected_at
@@ -842,9 +696,183 @@ export function StylistLibraryEditor({
           <div className="flex h-64 items-center justify-center text-[14px] text-[color:var(--m-slate-2)]">
             Upload a photo or pick one from your library to start tagging.
           </div>
-        )}
+        );
+
+  return (
+    <>
+      {dialog}
+      {notice ? (
+        <ShopNotice tone="success" role="status" className="mb-4 flex items-start justify-between gap-3">
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className={actionButtonClass('neutral', { quiet: true })}
+            aria-label="Dismiss message"
+          >
+            Dismiss
+          </button>
+        </ShopNotice>
+      ) : null}
+      {actionError ? (
+        <ShopNotice tone="gold" role="alert" className="mb-4 flex items-start justify-between gap-3">
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className={actionButtonClass('neutral', { quiet: true })}
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </button>
+        </ShopNotice>
+      ) : null}
+    {/* The redraw (v3, 21 Nov 2026): uploads first, as the house photo grid; then the photos from events you worked. On a
+        phone the upload form is the thumb row's ＋ (a sheet) and a tapped photo rises the editor full screen; from 1024
+        the shipped two panes stay — the upload form and the grid on the left, the editor on the right. */}
+    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+      <div className="space-y-4">
+        <section>
+          <h3 className="hc-k2 mb-2 min-h-9">
+            <span className="inline-flex items-center gap-2">
+              My uploads
+              {assets.length > 0 ? <em className="tabular-nums">{assets.length}</em> : null}
+            </span>
+          </h3>
+          {assets.length === 0 ? (
+            <p className="px-0.5 py-3 text-[15px] text-[color:var(--m-slate-2)]">
+              {wide ? 'No uploads yet — pick a file to start.' : 'No uploads yet — tap ＋ to start.'}
+            </p>
+          ) : (
+            // The house photo grid (the drawing's `.pgrid`): 3 across, the state on each photo; a tap opens the editor.
+            <ul className="grid grid-cols-3 gap-1.5" aria-label="My uploads">
+              {assets.map((a) => {
+                const on = wide && selectedId === a.asset_id;
+                const state = a.rejected_at ? 'rejected' : a.approved_at ? (a.retired_at ? 'retired' : 'live') : 'draft';
+                return (
+                  <li key={a.asset_id} className="relative aspect-square">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId(a.asset_id);
+                        if (!wide) setEditorOpen(true);
+                      }}
+                      aria-label={`${a.label || 'Moodboard photo'} · ${assetWhere(a, gallerySlots)}`}
+                      aria-pressed={on}
+                      className={`sn-press absolute inset-0 overflow-hidden rounded-lg ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
+                    >
+                      <Image
+                        src={a.public_url}
+                        alt={a.label ? `Moodboard photo: ${a.label}` : 'Moodboard photo thumbnail'}
+                        fill
+                        sizes="(min-width: 1024px) 100px, 33vw"
+                        loading="lazy"
+                        className="object-cover"
+                      />
+                      <span className="absolute bottom-1.5 left-1.5">
+                        {state === 'rejected' ? (
+                          <ToolChip tone="no">✕ Not published</ToolChip>
+                        ) : state === 'live' ? (
+                          <ToolChip tone="ok">✓ Live</ToolChip>
+                        ) : state === 'retired' ? (
+                          <ToolChip tone="quiet">Retired</ToolChip>
+                        ) : (
+                          <ToolChip tone="quiet">Draft</ToolChip>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* ── THE EVENT-LINKED ROUTE ───────────────────────────────────────
+            The shop's own day-of photos from `editorial_vendor_media` — a
+            table built in June 2026 and standing at zero rows since. They are
+            already the couple's, already NSFW-screened, and already curated by
+            the couple (a photo they hid on their own story never appears
+            here). Promoting one re-checks `selection_match_rank = 1` server
+            side rather than trusting the gate that let it be submitted, and
+            the result is EVENT-LINKED — so it never touches the
+            back-catalogue allowance, at any tier. */}
+        {importableEditorialFailed ? (
+          <ShopNotice tone="warn" role="status" className="text-sm">
+            We couldn’t load your photos from events you worked just now.
+            They aren’t gone — reload in a moment, or upload from your own files
+            below.
+          </ShopNotice>
+        ) : null}
+
+        {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
+          <section className="mt-[18px]">
+            <h3 className="hc-k2 mb-2 min-h-9">
+              <InfoTip label="From events you worked" align="start">
+                Your day-of photos from couples who picked you. These never count against your back-catalogue allowance.
+              </InfoTip>
+            </h3>
+            <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+              <span className="shrink-0 tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">Add to</span>
+              <PickMenu
+                label="Add these photos to"
+                value={importSlot}
+                options={slotOptions(gallerySlots)}
+                onPick={setImportSlot}
+                dataAttr="data-library-import-part"
+                stickyGroups
+                className="!min-h-11"
+              />
+            </div>
+            <div className="mb-3">
+              <InspirationCardPick
+                choices={choicesFor(importSlot)}
+                value={cardFor(importSlot)}
+                onChange={(id) => pickCard(importSlot, id)}
+                dataAttr="data-library-import-card"
+                withHiddenField={false}
+              />
+            </div>
+            <ul className="space-y-2">
+              {importableEditorial.map((photo) => (
+                <li
+                  key={photo.mediaId}
+                  className="flex items-center justify-between gap-3 rounded-md border border-ink/10 p-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                    {photo.caption?.trim() || 'Day-of photo'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isPending || photo.alreadyImported}
+                    onClick={() => handleImport(photo.mediaId)}
+                    className={actionButtonClass('brand', { extra: 'flex-shrink-0 disabled:opacity-50' })}
+                  >
+                    {photo.alreadyImported ? 'Added' : 'Add to Inspiration'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {wide ? uploadSection : null}
       </div>
+
+      {wide ? <div className="space-y-4">{editorPane}</div> : null}
     </div>
+    {!wide ? (
+      <>
+        <ToolAddSheet name="moodboard-library" label="Upload a photo" title="Upload your design">
+          {uploadSection}
+        </ToolAddSheet>
+        <Sheet open={editorOpen && Boolean(selected)} onClose={() => setEditorOpen(false)} labelledById="moodboard-editor-title" full>
+          <div className="space-y-4 px-5 pb-6 pt-5">
+            {editorPane}
+          </div>
+        </Sheet>
+      </>
+    ) : null}
     </>
   );
 }
@@ -881,4 +909,18 @@ function assetWhere(a: StylistAsset, slots: StylistLibraryEditorProps['gallerySl
     return part ? `Inspiration · ${part}` : `Inspiration${a.asset_subtype ? ` · ${a.asset_subtype}` : ''}`;
   }
   return `${a.asset_type}${a.asset_subtype ? ` · ${a.asset_subtype}` : ''}`;
+}
+
+/** True from 1024 (the shipped two panes' line, `lg:`) — after the first paint. */
+function useWideLibrary(): boolean {
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return wide;
 }

@@ -11,6 +11,8 @@
  *                    work is clean. We'll keep watching."* — a supplier told they are safe when nothing was checked.
  *   Track record ... `fetchVendorTrackRecord` returned [] when its RPC errored, and the page said "No completed events
  *                    yet" to a supplier with a real record.
+ *   My lines ....... only the lines read was checked; a refused SEGMENTS read made the "Tied to" picker vanish in
+ *                    silence. Its place now says "Couldn't load your segments" with Try again.
  *
  * ── What it holds, per page ─────────────────────────────────────────────────
  *   1 · THE READ SAYS IT FAILED: the fetcher's failure branches return `null` — never `[]`.
@@ -108,3 +110,17 @@ for (const p of PAGES) {
     assert.ok(src.includes(p.retry), `${p.page}'s failed read has no Try again`);
   });
 }
+
+test('My lines · a refused segments read is said in the "Tied to" picker’s place, never hidden', () => {
+  // SABOTAGE (run once, red, restored): `activitiesRes.error ? null :` dropped from the page → 1; the `activities === null`
+  // branch moved after `activities.length > 0` → 2.
+  const page = read('app/vendor-dashboard/lines/page.tsx');
+  assert.match(page, /const activities = activitiesRes\.error \? null :/, 'the page no longer hands a refused segments read on as null');
+  const rows = read('app/vendor-dashboard/lines/_components/line-rows.tsx');
+  const asked = rows.indexOf('activities === null');
+  const picker = rows.indexOf('activities.length > 0');
+  assert.ok(asked >= 0 && picker >= 0, 'anti-vacuity: the picker branches are gone');
+  assert.ok(asked < picker, 'the picker is drawn before the page asks whether the segments were read');
+  assert.ok(rows.includes('Couldn’t load your segments'), 'the approved words are gone');
+  assert.match(rows, /label="Try again" href="\/vendor-dashboard\/lines"/, 'the failed segments read has no Try again');
+});

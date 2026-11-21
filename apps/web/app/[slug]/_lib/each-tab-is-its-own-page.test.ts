@@ -22,7 +22,7 @@
  *   4 · the day's Welcome: their look + the reminders + the walk + the venue +
  *       E-Gifts (their table is Me's since 2026-10-08 — prototype: Me · seats);
  *       the day's Live leads with Directions until the programme begins.
- *   5 · ONE shell (hub-shell.tsx, both frames), ONE bar (SiteMenuBar), ONE
+ *   5 · ONE shell (hub-shell.tsx, the page frame — the stage frame went 20 Nov 2026), ONE bar (SiteMenuBar), ONE
  *       state (the address) — and never in the Maker's editing canvas.
  *
  * 📜 RE-AIMED 2026-10-15 — THE DAY ONLY. The owner returned the Invitation and
@@ -264,11 +264,14 @@ test('5 · a tabbed stage always has the ordinary body (page.tsx relies on it fo
       }
 });
 
-test('5 · ONE shell: hub-shell.tsx carries both frames over one address; nothing else pushes a tab', () => {
+test('5 · ONE shell: hub-shell.tsx carries the one frame over one address; nothing else pushes a tab', () => {
   const SHELL = stripComments(read('_components', 'hub', 'hub-shell.tsx'));
   assert.equal(SHELL.match(/export function HubShell\(/g)?.length, 1);
-  assert.match(SHELL, /props\.frame === 'page' \? <HubPageFrame \{\.\.\.props\} \/> : <HubStageFrame \{\.\.\.props\} \/>/);
-  assert.equal(SHELL.match(/useTabAddress\(/g)?.length, 3, 'the one mechanism, used by both frames');
+  // 🧭 One bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`),
+  // so the stage frame (the second bar) is gone and the shell is the page frame alone.
+  assert.match(SHELL, /export function HubShell\(props: HubPageProps\) \{\s*return <HubPageFrame \{\.\.\.props\} \/>;/);
+  assert.doesNotMatch(SHELL, /HubStageFrame/, 'the second frame (and its bar) is back');
+  assert.equal(SHELL.match(/useTabAddress\(/g)?.length, 2, 'the one mechanism: its definition and the page frame (recounted 20 Nov 2026)');
   assert.match(SHELL, /activeHubTab\(params\?\.get\(HUB_TAB_PARAM\) \?\? null, keys\)/, 'the tab IS the address');
   // No second shell: nobody else in the guest tree writes a tab into the
   // address (a sheet or an overlay that only moves the #hash is not a tab).

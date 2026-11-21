@@ -97,7 +97,7 @@ export function MayaPayStage({
           <form
             action={submitPaymentProof}
             data-pay-maya=""
-            className="sn-glass-row fixed inset-x-0 bottom-0 z-40 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:static md:mt-6 md:bg-transparent md:p-0"
+            className="sn-glass-row fixed inset-x-0 bottom-0 z-40 pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:static md:mt-6 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-none"
           >
             <input type="hidden" name="intent" value="maya_checkout" />
             <input type="hidden" name="reference" value={reference} />

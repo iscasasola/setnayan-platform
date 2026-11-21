@@ -62,8 +62,9 @@ export function MayaMarks() {
         <li
           key={m}
           // No box on light (v3: "no boxes around the marks"); the white ground keeps them on white in dark, as the
-          // brands' marks require.
-          className="rounded bg-white px-2 py-1 text-[12px] font-semibold text-ink-on-light/60 transition-colors hover:text-ink-on-light"
+          // brands' marks require — so the words take the ink for a surface that STAYS light, falling back to House's
+          // espresso where a theme does not set it (the plain `text-ink-on-light` falls back to `--color-ink`, light in dark).
+          className="rounded bg-white px-2 py-1 text-[12px] font-semibold text-[rgb(var(--color-ink-on-light,44_42_41)/0.6)] transition-colors hover:text-[rgb(var(--color-ink-on-light,44_42_41))]"
           // MOTION_STANDARD: the marks warm from grey on hover at Quick.
           style={{ transitionDuration: 'var(--sn-m-quick)' }}
         >

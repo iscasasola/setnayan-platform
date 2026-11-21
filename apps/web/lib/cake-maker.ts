@@ -105,6 +105,8 @@ export type CakeChoice = {
   standard: boolean;
   /** Design only — one photo from the shop's own portfolio (a readPortfolioPicks ref). */
   photoRef?: string | null;
+  /** Display only — the photo's signed URL for the editor. Never posted, never stored. */
+  photoUrl?: string | null;
 };
 
 export type CakeOptions = {
@@ -343,7 +345,8 @@ export function cakePhotoRefs(cake: CakeOptions): string[] {
 export const CAKE_OPTIONS_FIELD = 'cake_options';
 
 export function serializeCakeOptions(cake: CakeOptions): string {
-  return JSON.stringify({ v: 1, cake });
+  // A photo's URL is the editor's to draw, never the save's to store — the server re-reads the ref.
+  return JSON.stringify({ v: 1, cake }, (k, v) => (k === 'photoUrl' ? undefined : v));
 }
 
 /** Total: never throws. Absent/blank → `{ ok: true, cake: null }` (no cake options on this form). */

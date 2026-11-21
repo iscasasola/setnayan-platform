@@ -259,7 +259,14 @@ export async function readCakeOptionsForEdit(
   if (!draft.ok) return draft.reason === 'not_found' ? { status: 'none' } : { status: 'unread' };
   if (msg.status === 'unread') return { status: 'unread' };
   const cake = cakeOptionsFromDraftItems(draft.loaded.draft.items, msg.status === 'ok' ? { maxLetters: msg.data.maxLetters } : null);
-  return cake ? { status: 'ok', data: { packageId, cake } } : { status: 'none' };
+  if (!cake) return { status: 'none' };
+  // The editor draws each Design photo; the ref stays the only thing saved.
+  if (cake.design) {
+    cake.design = await Promise.all(
+      cake.design.map(async (d) => ({ ...d, photoUrl: d.photoRef ? await signStoredRef(d.photoRef, args.vendorProfileId) : null })),
+    );
+  }
+  return { status: 'ok', data: { packageId, cake } };
 }
 
 /** The Design photos the supplier may pick from: their own portfolio and this card's own photos. */

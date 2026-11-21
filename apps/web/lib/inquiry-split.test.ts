@@ -130,3 +130,14 @@ test('no usable last name → the first person on the card who is in', () => {
 test('a card nobody covers is left to the caller (an open owner rule) — never guessed here', () => {
   assert.deepEqual(pickAccountManager({ ...base, split: [], lastName: 'Tan' }), { memberId: null, why: 'nobody' });
 });
+
+test('Adjust offers the fair cut and the letter starts around it, each with its two shares', async () => {
+  const { cutChoices, twoWayShares } = await import('./inquiry-split');
+  const counts = new Map([['DE', 2], ['MA', 1], ['ME', 1], ['SA', 4]]);
+  const [a, b] = twoWayShares(counts, 'ME');
+  assert.equal(Math.round(a * 100), 38); // DE 2 + MA 1 of 8
+  assert.equal(Math.round(b * 100), 63);
+  const choices = cutChoices(counts, 'ME').map((c) => c.cut);
+  assert.deepEqual(choices, ['LA', 'MA', 'ME', 'NA']);
+  assert.deepEqual(cutChoices(counts, 'AA'), []);
+});

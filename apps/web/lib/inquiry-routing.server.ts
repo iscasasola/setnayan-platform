@@ -37,6 +37,23 @@ async function prefixCounts(admin: SupabaseClient, serviceId: string | null, eve
 
 const total = (c: ReadonlyMap<string, number>) => [...c.values()].reduce((a, b) => a + b, 0);
 
+/**
+ * The counts the fair split is cut from: the shop's own past clients on this card + event type once it has
+ * `inquiry_split_own_enough` of them (an owner number, Admin › Settings); while that is blank, or the shop has fewer,
+ * every Setnayan inquiry of that event type (controller row 4). One rule for the routing and the screen that shows it.
+ */
+export async function splitCountsFor(
+  admin: SupabaseClient,
+  serviceId: string,
+  eventType: string | null,
+  ownEnough: number | null,
+): Promise<{ counts: Map<string, number>; source: 'own' | 'all' }> {
+  const enough = Number(ownEnough) || null;
+  const own = enough ? await prefixCounts(admin, serviceId, eventType) : null;
+  if (own && total(own) >= (enough ?? Infinity)) return { counts: own, source: 'own' };
+  return { counts: (await prefixCounts(admin, null, eventType)) ?? new Map(), source: 'all' };
+}
+
 /** The words a member goes by in the chat: "Joy Tan, Lead Stylist". */
 export async function memberChatName(admin: SupabaseClient, vendorProfileId: string, memberId: string): Promise<string | null> {
   const { data, error } = await admin.from('vendor_team_members').select('duty, user_id').eq('vendor_team_member_id', memberId).maybeSingle();
@@ -112,9 +129,7 @@ export async function readRoutingInput(
       to: c.to_prefix,
     }));
 
-    const enough = Number((settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough) || null;
-    const own = enough ? await prefixCounts(admin, args.serviceId, eventType) : null;
-    counts = own && total(own) >= (enough ?? Infinity) ? own : ((await prefixCounts(admin, null, eventType)) ?? new Map());
+    counts = (await splitCountsFor(admin, args.serviceId, eventType, (settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough ?? null)).counts;
   }
 
   return {

@@ -17,7 +17,7 @@ import { handoverWrite, mayAnswerHandOver, mayMoveClient, type HandoverCaller, t
 
 export type HandoverResult = { ok: true } | { ok: false; message: string };
 
-async function callerIn(admin: SupabaseClient, shopId: string, userId: string): Promise<HandoverCaller | null> {
+export async function callerIn(admin: SupabaseClient, shopId: string, userId: string): Promise<HandoverCaller | null> {
   const [{ data: shop }, { data: seat, error }] = await Promise.all([
     admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', shopId).maybeSingle(),
     admin

@@ -758,6 +758,7 @@ export async function setVendorRoleNames(formData: FormData) {
 // it is never raised. `op` names the write; each op checks its own caller on the server.
 
 const ROLES_RETURN = ['/vendor-dashboard/customers', '/vendor-dashboard/team'];
+const INQUIRIES = '/vendor-dashboard/team/roles/inquiries';
 
 export async function supplierRolesAction(formData: FormData) {
   const supabase = await createClient();
@@ -777,6 +778,17 @@ export async function supplierRolesAction(formData: FormData) {
     const { answerClientHandling } = await import('@/lib/client-handover.server');
     const r = await answerClientHandling(createAdminClient(), user.id, { threadId, op, moveTo });
     revalidatePath('/vendor-dashboard/customers');
+    return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
+  }
+  if (op === 'split-adjust' || op === 'split-reset') {
+    const serviceId = String(formData.get('service_id') ?? '');
+    if (!serviceId) return done(`error=${encodeURIComponent('Missing card')}`);
+    const eventType = String(formData.get('event_type') ?? '') || null;
+    const cut = op === 'split-adjust' ? String(formData.get('cut') ?? '') || null : null;
+    if (op === 'split-adjust' && !cut) return done(`error=${encodeURIComponent('Pick one of the cuts shown.')}`);
+    const { writeSplitCut } = await import('@/lib/inquiry-split-cuts.server');
+    const r = await writeSplitCut(createAdminClient(), user.id, { serviceId, eventType, cut });
+    revalidatePath(INQUIRIES);
     return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
   }
   return done(`error=${encodeURIComponent('Unknown change')}`);

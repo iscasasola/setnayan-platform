@@ -195,3 +195,34 @@ export function pickAccountManager(input: PickInput): PickResult {
   }
   return { memberId: null, why: 'nobody' };
 }
+
+// ── Adjust (drawing (e) "Adjust · Wedding") ────────────────────────────────────────────────────────────────────
+
+/** The share each side gets for one cut between two people: everything before `cut`, and the rest. */
+export function twoWayShares(counts: ReadonlyMap<string, number>, cut: string): [number, number] {
+  const at = PREFIXES.indexOf(cut);
+  const raw = PREFIXES.map((p) => Math.max(0, counts.get(p) ?? 0));
+  const counted = raw.reduce((a, b) => a + b, 0);
+  const w = counted === 0 ? PREFIXES.map(() => 1) : raw;
+  const total = counted === 0 ? END : counted;
+  let before = 0;
+  for (let i = 0; i < Math.max(0, at); i++) before += w[i]!;
+  return [before / total, 1 - before / total];
+}
+
+/**
+ * The cuts a manager may pick between two people: the fair cut, and the letter starts around it ("L · Ma | Me · N" —
+ * a cut may fall inside a busy letter). Ordered A → Z, never the very first prefix (each person keeps a block).
+ */
+export function cutChoices(counts: ReadonlyMap<string, number>, fairCut: string): Array<{ cut: string; shares: [number, number] }> {
+  const i = PREFIXES.indexOf(fairCut);
+  if (i <= 0) return [];
+  const letter = (k: number) => LETTERS.indexOf(PREFIXES[k]!.charAt(0));
+  const startOf = (l: number) => (l >= 0 && l < LETTERS.length ? LETTERS[l]! + 'A' : null);
+  const set = new Set<string>([fairCut]);
+  for (const l of [letter(i) - 1, letter(i), letter(i) + 1]) {
+    const p = startOf(l);
+    if (p && p !== 'AA') set.add(p);
+  }
+  return [...set].sort((a, b) => PREFIXES.indexOf(a) - PREFIXES.indexOf(b)).map((cut) => ({ cut, shares: twoWayShares(counts, cut) }));
+}

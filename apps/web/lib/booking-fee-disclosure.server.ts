@@ -88,7 +88,11 @@ export async function resolveBookingFeeStanding(
       logQueryError('booking-fee-disclosure: attribution', aErr);
       return { kind: 'unreadable' };
     }
-    if (attribution === 'import') return { kind: 'not_sourced' };
+    if (attribution === 'import') {
+      // 📅 The window's length for the notice's words — the same remembered settings read every fee screen makes.
+      const months = (await getBookingFeeSchedule(admin)).newClientFreeMonths;
+      return months ? { kind: 'not_sourced', newClientFreeMonths: months } : { kind: 'not_sourced' };
+    }
   }
 
   // The frozen ordinal for THIS booking, if the ledger already holds one.

@@ -268,6 +268,11 @@ const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
   [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the 3D seat plan · the Pro unlock: a free couple’s all-in-one files in the shipped Details (2026-10-16) — the ticket zip’s own unlock link left on 2026-10-22, the zip is free' },
   /* maker-details.tsx: its one link out (Prints › Set up E-Gifts → /pabuya) became E-Gifts' own editor IN PLACE (owner 2026-10-08). */
   [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
+  /* 🚪 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"): the Maker is full screen, so the
+     app's nav is no longer on it — the top bar's ‹ is the one way out, back to the event. */
+  /* …and since 9b465bca6 that ‹ is the house back (`MakerLeave` → `BackButton`, stages-studio-parts.tsx), not a link
+     the shell draws: the shell links out nowhere. */
+  [`${L}/maker-shell.tsx`]: { count: 0, why: 'none — the top bar’s ‹ is the house BackButton (`MakerLeave`), 20 Nov 2026' },
 };
 const TOOL_FILES = [
   `${L}/maker-lower-third.tsx`,
@@ -310,9 +315,9 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
     assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
   }
   assert.ok(scanned >= 15, 'the scan is blind');
-  // The Maker's way out is the app's nav (30 Oct) — the shell draws no link of its own (`the-hub-is-left-by-the-apps-nav.test.ts`).
+  // The full-screen Maker's way out is ‹ (20 Nov) — the house BackButton, lazy (`MakerLeave`); the shell draws no link itself.
   const shell = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
-  assert.equal((shell.match(/<Link\b/g) ?? []).length, 0, 'the shell links out of the Maker again');
+  assert.equal((shell.match(/<Link\b/g) ?? []).length, 0, 'the shell links out of the Maker by hand again');
   // 🖨 The R8 forward is no tool: an item crossing to the Prints page (or back) — `prints-forward.ts`, held by
   // `prints-has-its-own-page.test.ts`. The shell itself loads no page.
   assert.equal((shell.match(/window\.location\.(?:assign|replace)\(/g) ?? []).length, 0, 'the shell loads another page itself');

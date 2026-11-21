@@ -71,7 +71,8 @@ const MOUNTS = [
   'app/[slug]/_components/site-body.tsx',
   'app/[slug]/_components/public-hideable-widget.tsx',
   'app/[slug]/_components/hideable-widget-render.tsx',
-  'app/[slug]/hub/page.tsx',
+  // (`app/[slug]/hub/page.tsx` left this list: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to
+  // the event page's tab (`dayHubLanding`). Its ScheduleWidget's home is The Day's Live tab, in site-body.tsx.)
 ];
 test('every guest-site ScheduleWidget mount passes the event type', () => {
   let total = 0;
@@ -83,7 +84,8 @@ test('every guest-site ScheduleWidget mount passes the event type', () => {
     assert.equal(passing, mounts.length, f);
     total += mounts.length;
   }
-  assert.equal(total, 4);
+  // 4 → 3 (20 Nov 2026): the hub's one mount left with the hub; the event page's own mounts are all still counted.
+  assert.equal(total, 3);
 });
 
 test('the host schedule threads eventType from the page to every child that prints a type', () => {

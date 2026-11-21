@@ -2582,7 +2582,7 @@ async function invitationBody({
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (
-      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
+      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} unreadable={guestHubData.seatUnreadable} className="mb-3" />
     ) : null}
     {/* 🎟 The same "Your number" card Live carries, on Me (supplier scan prototype frame E). */}
     <YourNumberCard eventId={event.event_id} guestId={guest.guest_id} className="mb-6" />
@@ -2779,12 +2779,7 @@ async function invitationBody({
         papicGuestActive={papicGuestActive && !partsOffHere.has('camera')}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={galleryCountHere}
-        hubHref={
-          // 📱 A page whose tabs ARE the day needs no door to a second hub.
-          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-            ? `/${event.slug}/hub`
-            : null
-        }
+        // 🧭 No "Live hub" chip (20 Nov 2026, one bar per stage): `/hub` sends a guest to this page's Live.
         selfRotateEnabled={envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)}
         dayOfLive={dayOfPhase === 'live'}
         slug={event.slug ?? slug}

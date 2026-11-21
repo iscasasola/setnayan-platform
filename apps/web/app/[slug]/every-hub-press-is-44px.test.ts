@@ -214,7 +214,8 @@ const DIRECTION_SURFACES = [
   'app/[slug]/_components/venue-widget.tsx',
   'app/[slug]/_components/venue-styles.tsx',
   'app/[slug]/_components/day-directions.tsx',
-  'app/[slug]/hub/page.tsx',
+  // (`app/[slug]/hub/page.tsx` left 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to the event
+  // page's tab, `dayHubLanding`; The Day's directions are `day-directions.tsx`, above.)
   'app/v/[slug]/page.tsx',
 ];
 

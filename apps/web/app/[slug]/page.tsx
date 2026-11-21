@@ -2779,12 +2779,7 @@ async function invitationBody({
         papicGuestActive={papicGuestActive && !partsOffHere.has('camera')}
         hasAccount={Boolean(viewerAccount)}
         galleryCount={galleryCountHere}
-        hubHref={
-          // 📱 A page whose tabs ARE the day needs no door to a second hub.
-          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
-            ? `/${event.slug}/hub`
-            : null
-        }
+        // 🧭 No "Live hub" chip (20 Nov 2026, one bar per stage): `/hub` sends a guest to this page's Live.
         selfRotateEnabled={envFlagEnabled(process.env.GUEST_QR_SELF_ROTATE)}
         dayOfLive={dayOfPhase === 'live'}
         slug={event.slug ?? slug}

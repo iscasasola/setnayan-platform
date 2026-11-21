@@ -138,7 +138,7 @@ test('every guest-facing seat reader asks guestsMaySeeSeatsFor', () => {
 
 test('the hub card’s table label is read only behind the rule (loaders.ts)', () => {
   const code = stripComments(src('app/[slug]/_lib/loaders.ts'));
-  assert.match(code, /if \(doorway\.seatingPublished\) try \{\s*const \{ data: assignmentRow \} = await admin\s*\.from\('event_seat_assignments'\)/);
+  assert.match(code, /if \(doorway\.seatingPublished\) try \{\s*const \{ data: assignmentRow, error: seatAssignmentErr \} = await admin\s*\.from\('event_seat_assignments'\)/);
 });
 
 test('the hub seat tile names the table only behind the rule (hub/page.tsx)', () => {

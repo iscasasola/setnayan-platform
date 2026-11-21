@@ -96,3 +96,10 @@ SPEC IMPACT: None (implements the approved drawing).
   ₱100,000, so no number moves. ⚠ Migration `20271356196197` changed for this.
 - `no-payment-to-setnayan-above-the-ceiling.test.ts` now checks the newest migration defining each fee function
   still reads `max_payment_php` (red on sabotage of either function).
+- Ship review 21 Nov: the shown fee is the billed fee. `bookingFeePhp` / `unverifiedBookingFeePhp` compute in whole
+  centavos × hundredths of a percent (BigInt), round ONCE half away from zero, then floor and lock — exactly
+  `booking_fee_centavos` (₱100,003.50 → ₱5,000.11; the float sum said ₱5,000.10). Property tests: 3,800 amounts
+  against an exact reference, 2,000 amounts against the SQL.
+- For Coordinators' fee ⓘ says the lock: "locked at ₱100,000: never more, however big the booking."
+- Guard 3: `lib/journal-edits-after-import.ts` is allowed (the record of the removal); the December post's line is
+  gone from ALLOWED because main corrected its source.

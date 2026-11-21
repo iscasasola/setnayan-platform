@@ -15627,7 +15627,6 @@
         "vendor-dashboard/contracts/new/upload-form.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/contracts",
         "/vendor-dashboard/messages"
       ],
       "actions": [

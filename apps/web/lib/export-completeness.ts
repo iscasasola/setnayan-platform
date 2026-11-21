@@ -65,6 +65,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
   { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
+  // ⏭ This subject's own "Do it tomorrow" on an event's Today (2026-11-20) — read on `user_id`.
+  { table: 'event_today_put_offs', decision: 'exported', as: 'event_today_put_offs' },
   {
     table: 'vendor_crew_codes',
     decision: 'excluded',
@@ -287,6 +289,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
       'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_order_lines',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-store order, one row per item (which gift, how many, at what catalogue price), keyed to the ' +
+      'shop (vendor_profile_id), not to a person (gift store, 2026-11-17). `created_by` is an actor stamp on who ' +
+      'pressed Buy now; the order and payment it belongs to are exported with `orders` / `payments`, and erasure ' +
+      'clears the stamp (lib/erasure/coverage.ts).',
   },
   {
     table: 'event_supplier_files',

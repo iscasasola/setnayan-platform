@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 294 single-column FKs onto auth.users / public.users
-# CASCADE=78  RESTRICT=1  SET NULL=215
+# 293 single-column FKs onto auth.users / public.users
+# CASCADE=79  RESTRICT=1  SET NULL=213
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -35,7 +35,6 @@ booking_fee_disputes.decided_by_user_id                   SET NULL     nullable 
 booking_fee_disputes.opened_by_user_id                    SET NULL     nullable  -> users
 budget_allocation_decisions.recorded_by                   SET NULL     nullable  -> auth.users
 budget_builds.created_by                                  SET NULL     nullable  -> auth.users
-cake_designs.created_by                                   SET NULL     nullable  -> auth.users
 canonical_service_aliases.reviewed_by                     SET NULL     nullable  -> auth.users
 card_claim_word_allowances.granted_by                     SET NULL     nullable  -> users
 card_claim_words.created_by                               SET NULL     nullable  -> users
@@ -130,6 +129,7 @@ event_schedule_tasks.created_by                           SET NULL     nullable 
 event_sponsors.created_by_user_id                         SET NULL     nullable  -> auth.users
 event_stage_notes.author_user_id                          SET NULL     nullable  -> auth.users
 event_supplier_story_shares.shared_by                     SET NULL     nullable  -> auth.users
+event_today_put_offs.user_id                              CASCADE      NOT NULL  -> auth.users
 event_type_requests.user_id                               CASCADE      NOT NULL  -> users
 event_vendor_booth_posters.updated_by                     SET NULL     nullable  -> auth.users
 event_vendors.deposit_declined_by_user_id                 SET NULL     nullable  -> auth.users
@@ -261,7 +261,6 @@ vendor_admin_motion_votes.voter_user_id                   CASCADE      NOT NULL 
 vendor_admin_motions.proposed_by                          SET NULL     nullable  -> auth.users
 vendor_admin_motions.target_user_id                       CASCADE      NOT NULL  -> auth.users
 vendor_billing_catalog.retired_by_admin_id                SET NULL     nullable  -> auth.users
-vendor_cake_makers.updated_by                             SET NULL     nullable  -> auth.users
 vendor_contracts.cancelled_by_user_id                     SET NULL     nullable  -> users
 vendor_contracts.uploaded_by_user_id                      SET NULL     nullable  -> users
 vendor_correction_requests.resolved_by                    SET NULL     nullable  -> users

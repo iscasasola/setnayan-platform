@@ -113,7 +113,7 @@ test('the screens that state an absence carry a measured flag, not just a log li
     'invite/page.tsx+invite/_components/qr-codes.tsx',
     'partnerships/page.tsx',
     'activities/page.tsx',
-    'clients/[eventId]/production-sheet/page.tsx',
+    'clients/[eventId]/production-sheet/page.tsx+clients/[eventId]/production-sheet/production-sheet-body.tsx',
     'website/page.tsx',
   ];
   const missing = mustGate.filter((rel) => {

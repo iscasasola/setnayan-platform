@@ -54,8 +54,13 @@ export function FormViewSheet({
       fd.set('form_id', form.formId);
       fd.set('event_id', eventId);
       fd.set('return_path', returnPath);
-      const r = await formsAction({ status: 'idle' }, fd);
-      setSaid(r.status === 'error' ? { ok: false, words: r.message } : 'message' in r ? { ok: true, words: r.message } : null);
+      // A THROWN call still says so in place — never a quiet sheet or the error page.
+      try {
+        const r = await formsAction({ status: 'idle' }, fd);
+        setSaid(r.status === 'error' ? { ok: false, words: r.message } : 'message' in r ? { ok: true, words: r.message } : null);
+      } catch {
+        setSaid({ ok: false, words: 'That didn’t go through. Reload and try again.' });
+      }
     });
 
   return (

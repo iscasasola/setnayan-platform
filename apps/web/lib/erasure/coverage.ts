@@ -837,6 +837,11 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     why: 'Who caused a gift-stock entry (a buy, a delivery, a reversal). The ledger is the SHOP’s and stays; the stamp goes.',
   },
   {
+    table: 'shop_gift_order_lines',
+    column: 'created_by',
+    why: 'Who pressed Buy now on a gift-store order. The lines are the SHOP’s money record and stay; the stamp goes.',
+  },
+  {
     table: 'shop_badge_rewards',
     column: 'revoked_by',
     why: 'Which admin took back a shop’s free booking fee (badge rewards, 2026-11-05). The reward is the SHOP’s record and stays — its key keeps the badge step from paying twice; the stamp goes.',
@@ -1032,6 +1037,11 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
     table: 'admin_focus_put_offs',
     column: 'user_id',
     why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',
+  },
+  {
+    table: 'event_today_put_offs',
+    column: 'user_id',
+    why: '⏭ CASCADE + NOT NULL — one person\u2019s own "Do it tomorrow" on an event\u2019s Today (Event Today, Focus shape, migration 20271356173915). It is about that person\u2019s day and nobody else reads it; it goes with them, and the task stays on every other host\u2019s Today.',
   },
   {
     table: 'chat_poll_votes',

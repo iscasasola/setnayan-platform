@@ -4580,12 +4580,16 @@
         "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
         "admin/payments/_components/received-drop-tile.tsx",
+        "admin/payments/_components/received-held-toast.tsx",
+        "admin/payments/_components/received-held.tsx",
         "admin/payments/_components/received-match-pick.tsx",
         "admin/payments/_components/received-pile.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
+        "admin/payments/_components/reread-on-this-phone.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
         "admin/payments/page.tsx",
+        "admin/payments/received-auto.ts",
         "admin/payments/received.ts"
       ],
       "destinations": [
@@ -4603,6 +4607,7 @@
         "rereadPaymentReceipt"
       ],
       "blocks": [
+        "ApproveCore",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -4619,8 +4624,11 @@
         "FormPick",
         "FormRows",
         "Fragment",
+        "HTMLFormElement",
         "HTMLInputElement",
+        "HeldToast",
         "InboxMatcher",
+        "InfoTip",
         "Link",
         "LinkPickMenu",
         "OpenedPayment",
@@ -4633,10 +4641,12 @@
         "PickMenu",
         "PileRow",
         "ProofImage",
+        "Read",
         "ReadFailedNotice",
         "ReceiptReadCard",
         "ReceivedCard",
         "ReceivedDropTile",
+        "ReceivedHeldList",
         "ReceivedMatchPick",
         "ReceivedPile",
         "ReceivedTileBlock",
@@ -4644,6 +4654,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "RereadOnThisPhone",
         "SearchParamsRecord",
         "ServiceRemedyForms",
         "Sheet",
@@ -5171,6 +5182,7 @@
         "ConsoleTable",
         "Field",
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "QrUploadForm",
         "SubmitButton"
@@ -6836,6 +6848,8 @@
         "dashboard/[eventId]/_components/event-settings-rows.tsx",
         "dashboard/[eventId]/_components/event-team-presence-join.ts",
         "dashboard/[eventId]/_components/event-team-presence.tsx",
+        "dashboard/[eventId]/_components/event-today-asks.tsx",
+        "dashboard/[eventId]/_components/event-today-list.tsx",
         "dashboard/[eventId]/_components/expand-card.tsx",
         "dashboard/[eventId]/_components/feature-us-card.tsx",
         "dashboard/[eventId]/_components/guest-setup/guest-setup-lazy.tsx",
@@ -7031,8 +7045,10 @@
         "CoordinatingLine",
         "CoordinatorBroadcastCard",
         "CoordinatorBroadcastStub",
+        "CoordinatorLevelAnswer",
         "CoordinatorLevelAsk",
         "CoordinatorLevelCard",
+        "CoordinatorLevelRead",
         "CopyButton",
         "CopyRow",
         "Count",
@@ -7040,7 +7056,9 @@
         "CoverWords.Provider",
         "Ctx.Provider",
         "CustomerBottomNav",
+        "DateChangeBody",
         "DateChangeDoorway",
+        "DateChangeRead",
         "DateRow",
         "DatedPlanRows",
         "DatedRow",
@@ -7072,6 +7090,10 @@
         "EventStudioRow",
         "EventTeamPresence",
         "EventTeamPresenceState",
+        "EventTodayGroup",
+        "EventTodayRowItem",
+        "EventTodayTomorrow",
+        "EventTodayUnreadRow",
         "EventVendorRowInput",
         "ExamplePreview",
         "ExpandCard",
@@ -7113,6 +7135,7 @@
         "GuestsGetIn",
         "GuestsSeeWrites",
         "HTMLAnchorElement",
+        "HTMLButtonElement",
         "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -7152,7 +7175,7 @@
         "HomeToday",
         "HomeTodayFold",
         "HomeTodayItem",
-        "HomeTodoList",
+        "HomeTodayList",
         "HomeWhosHereCard",
         "HubDraftDock",
         "HubDraftSwitch",
@@ -7180,6 +7203,8 @@
         "LastSeenScope",
         "LatLng",
         "LevelAsk",
+        "LevelChoices",
+        "LevelLine",
         "LevelSeat",
         "LifecyclePhase",
         "LineGrip",
@@ -7187,6 +7212,7 @@
         "Link",
         "LinkBody",
         "LinkedVendorConfirmation",
+        "ListCtx",
         "LiveAirButton",
         "LiveBroadcastCard",
         "LivePhotoWallCard",
@@ -7210,6 +7236,7 @@
         "MoodBoardAsks",
         "MoodBoardAsksActions",
         "MoodBoardAsksDoorway",
+        "MoodBoardAsksRead",
         "Notice",
         "NoticeSlot",
         "OneCodeUnderGetIn",
@@ -7267,6 +7294,7 @@
         "ReadRefusedNotice",
         "Ready",
         "ReadyForNoSignal",
+        "ReceiptReadFields",
         "RecordCardFolds",
         "RecordLinkBlock",
         "ReleaseScheduleResult",
@@ -7339,6 +7367,7 @@
         "TinyAction",
         "TodayFold.Provider",
         "TodaySheetItem",
+        "TwoWayPanes",
         "TypedRow",
         "UndoToastHost",
         "UnreadBellBadge",
@@ -11614,6 +11643,9 @@
         "LockState",
         "LockTile",
         "Logo",
+        "MallEvent",
+        "MallEventCtx.Provider",
+        "MallFaceBody",
         "ManualVendorInviteResult",
         "ManualVendorResult",
         "ManualVenuePin",
@@ -13669,6 +13701,7 @@
     "/pay/[reference]": {
       "files": [
         "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/page.tsx"
       ],
@@ -13685,6 +13718,7 @@
         "Channel",
         "ChannelToggle",
         "CopyButton",
+        "File",
         "FileUpload",
         "HTMLDivElement",
         "InfoTip",
@@ -13694,6 +13728,8 @@
         "PayStage",
         "PaymentDetailsBlock",
         "ProofForm",
+        "ReceiptReadFields",
+        "SentScreen",
         "StageLink",
         "StageRail",
         "Step",
@@ -13846,7 +13882,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "Metadata"
       ]
     },
     "/sample/[...rest]": {
@@ -14455,6 +14492,10 @@
         "vendor-dashboard/_components/portfolio-upload.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/row-icon.tsx",
+        "vendor-dashboard/_components/set-two/parts.tsx",
+        "vendor-dashboard/_components/set-two/read-failed.tsx",
+        "vendor-dashboard/_components/set-two/their-event-line.tsx",
+        "vendor-dashboard/_components/set-two/try-again.tsx",
         "vendor-dashboard/_components/setup-days-off-row.tsx",
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
@@ -14638,6 +14679,7 @@
         "MessageBody",
         "NewServiceMaker",
         "NotConnected",
+        "NoteIc",
         "Notice",
         "NoticeSlot",
         "OfflineViewerScript",
@@ -14650,6 +14692,11 @@
         "PaperUploadPlace",
         "PapersRenewalLine",
         "PapersRenewalLineView",
+        "PartFoot",
+        "PartNote",
+        "PartPage",
+        "PartText",
+        "PartTop",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PayoutReadiness",
@@ -14677,6 +14724,7 @@
         "RiseScreen",
         "RowDoor",
         "RowHead",
+        "RowIc",
         "RowIcon",
         "RowSkeleton",
         "SVGSVGElement",
@@ -14725,6 +14773,7 @@
         "TemplateRows",
         "TemplateSection",
         "TermsReacceptSheet",
+        "TheirEventLine",
         "ThumbFit",
         "ThumbLayer",
         "ThumbRow",
@@ -14751,6 +14800,7 @@
         "TodayV2Sub",
         "TodayWrapUpBody",
         "TrackRecordRow",
+        "TryAgain",
         "TwoWayPanes",
         "TypedRow",
         "UndoableAnswers",
@@ -15048,6 +15098,7 @@
         "vendor-dashboard/clients/[eventId]/_components/open-their-event.tsx",
         "vendor-dashboard/clients/[eventId]/_components/payment-asks-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-menu.ts",
+        "vendor-dashboard/clients/[eventId]/_components/picked-client-more.ts",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-motion.ts",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-nav.tsx",
         "vendor-dashboard/clients/[eventId]/_components/picked-client-settings.tsx",
@@ -15279,6 +15330,7 @@
         "Sheet",
         "ShopCard",
         "Show",
+        "SongDesk",
         "Sort",
         "StayForm",
         "StudioPopup",
@@ -15322,59 +15374,74 @@
     },
     "/vendor-dashboard/clients/[eventId]/challenge-photos": {
       "files": [
+        "vendor-dashboard/clients/[eventId]/challenge-photos/challenge-photos-body.tsx",
         "vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "BackButton",
+        "ChallengePhotosBody",
         "EventLockedPage",
-        "TemplateEmpty",
-        "TemplateSection"
+        "PartNote",
+        "PartSec",
+        "PartText",
+        "ShopPill",
+        "TheirEventPart"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/cocktail": {
       "files": [
         "vendor-dashboard/clients/[eventId]/cocktail/actions.ts",
+        "vendor-dashboard/clients/[eventId]/cocktail/cocktail-body.tsx",
         "vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx",
         "vendor-dashboard/clients/[eventId]/cocktail/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
+        "CocktailBody",
         "CocktailEditor",
+        "CocktailReadFailed",
         "Drag",
         "EventLockedPage",
+        "FormRows",
         "HTMLDivElement",
-        "Link",
+        "PartNote",
         "PickMenu",
+        "ReadFailedBody",
         "Result",
         "Room",
-        "Sheet"
+        "Sheet",
+        "ShopPill",
+        "SupplierThumbRow",
+        "TheirEventPart",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/editorial-media": {
       "files": [
         "vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx",
         "vendor-dashboard/clients/[eventId]/editorial-media/actions.ts",
+        "vendor-dashboard/clients/[eventId]/editorial-media/editorial-media-body.tsx",
         "vendor-dashboard/clients/[eventId]/editorial-media/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
         "Badge",
+        "EditorialMediaBody",
         "EditorialMediaStudio",
+        "EqualRow",
         "EventLockedPage",
         "HTMLInputElement",
-        "Link",
+        "InfoTip",
+        "PartNote",
+        "PartSec",
         "StatusBadge",
-        "TemplateSection"
+        "SupplierThumbRow",
+        "TheirEventPart"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/mood-board": {
@@ -15403,10 +15470,13 @@
     "/vendor-dashboard/clients/[eventId]/production-sheet": {
       "files": [
         "vendor-dashboard/clients/[eventId]/production-sheet/actions.ts",
-        "vendor-dashboard/clients/[eventId]/production-sheet/page.tsx"
+        "vendor-dashboard/clients/[eventId]/production-sheet/add-rule-sheet.tsx",
+        "vendor-dashboard/clients/[eventId]/production-sheet/page.tsx",
+        "vendor-dashboard/clients/[eventId]/production-sheet/production-sheet-body.tsx",
+        "vendor-dashboard/clients/[eventId]/production-sheet/production-sheet-model.ts",
+        "vendor-dashboard/clients/[eventId]/production-sheet/rule-rows.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients/[seg]",
         "/vendor-dashboard/clients/[seg]/production-sheet"
       ],
       "actions": [
@@ -15414,25 +15484,55 @@
         "deletePortionRule"
       ],
       "blocks": [
+        "ActionButton",
+        "AddRuleSheet",
+        "ChosenRow",
         "EventLockedPage",
-        "Link",
+        "FormRows",
+        "HTMLFormElement",
+        "InfoTip",
+        "PartCard",
+        "PartList",
+        "PartNote",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "PartTiles",
         "PrintButton",
+        "ProductionSheetBody",
+        "ProductionSheetReadFailed",
+        "ReadFailedBody",
+        "RuleRowItem",
+        "RuleRows",
+        "Sheet",
+        "ShopPill",
         "StayForm",
-        "SubmitButton"
+        "SubmitButton",
+        "SwipeToDelete",
+        "TheirEventPart",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/clients/[eventId]/seat-plan": {
       "files": [
-        "vendor-dashboard/clients/[eventId]/seat-plan/page.tsx"
+        "vendor-dashboard/clients/[eventId]/seat-plan/page.tsx",
+        "vendor-dashboard/clients/[eventId]/seat-plan/seat-plan-body.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/clients/[seg]?tab=details"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "EventLockedPage",
-        "Link",
-        "PinMarker"
+        "PartList",
+        "PartNote",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "PinMarker",
+        "ReadFailedBody",
+        "SeatPlanBody",
+        "SeatPlanReadFailed",
+        "ShopPill",
+        "TheirEventPart"
       ]
     },
     "/vendor-dashboard/collections": {
@@ -15563,20 +15663,32 @@
     },
     "/vendor-dashboard/contracts/[contractId]": {
       "files": [
+        "vendor-dashboard/contracts/[contractId]/contract-body.tsx",
         "vendor-dashboard/contracts/[contractId]/loading.tsx",
         "vendor-dashboard/contracts/[contractId]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/contracts"
-      ],
+      "destinations": [],
       "actions": [
         "cancelContract",
         "publishContractToCouple"
       ],
       "blocks": [
+        "ContractBody",
+        "ContractReadFailed",
         "DetailPageSkeleton",
-        "Link",
         "OpenFileLink",
+        "PartFoot",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "PartTop",
+        "PostedFieldRow",
+        "ReadFailedBody",
+        "ShopPill",
         "StayForm",
         "SubmitButton"
       ]
@@ -15584,21 +15696,36 @@
     "/vendor-dashboard/contracts/new": {
       "files": [
         "vendor-dashboard/contracts/new/loading.tsx",
-        "vendor-dashboard/contracts/new/page.tsx"
+        "vendor-dashboard/contracts/new/page.tsx",
+        "vendor-dashboard/contracts/new/upload-body.tsx",
+        "vendor-dashboard/contracts/new/upload-form.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/contracts",
         "/vendor-dashboard/messages"
       ],
       "actions": [
+        "action",
         "uploadVendorContract"
       ],
       "blocks": [
-        "CardPick",
+        "ActionButton",
+        "ChosenRow",
+        "ContractUploadForm",
+        "EqualRow",
         "FormPageSkeleton",
+        "FormRow",
+        "FormRows",
         "InfoTip",
         "Link",
-        "SubmitButton"
+        "PartFoot",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "ReadFailedBody",
+        "SubmitButton",
+        "TypedRow",
+        "UploadContractBody"
       ]
     },
     "/vendor-dashboard/creators": {
@@ -16109,6 +16236,7 @@
         "/vendor-dashboard/clients/[seg]?tab=details",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=quote",
+        "/vendor-dashboard/clients/[seg]?tab=report",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers"
       ],
@@ -17638,6 +17766,10 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
+        "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
+        "vendor-dashboard/shop/promote/_components/gift-store.tsx",
+        "vendor-dashboard/shop/promote/_components/gift-ticket-art.tsx",
         "vendor-dashboard/shop/promote/_components/promote-body.tsx",
         "vendor-dashboard/shop/promote/_components/promote-bridge.tsx",
         "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
@@ -17655,6 +17787,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AddButton",
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
@@ -17664,18 +17797,27 @@
         "BigPiece",
         "BigScene",
         "Bridge",
-        "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
         "CouldNotLoad",
         "Counter",
         "DatesRow",
         "DockFace",
+        "FactPending",
         "FactRow",
         "FactSwitch",
         "Fold",
         "FormRows",
+        "GiftCart",
+        "GiftHistory",
+        "GiftStore",
+        "GiftTicketArt",
+        "GiftTicketPile",
+        "GiftTicketSheet",
         "HTMLDivElement",
+        "HTMLElement",
         "Hidden.Provider",
+        "HistoryFilter",
+        "HistoryItem",
         "InfoTip",
         "Link",
         "NfcTapTest",

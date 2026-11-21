@@ -27,6 +27,7 @@ export function DetailsPage({ ctx, shipped }: PickedPageProps) {
           viewerUserId={ctx.viewerUserId}
           threadId={ctx.threadId}
           isBooked={ctx.isBooked}
+          facts={ctx.agreedFacts}
         />
       </div>
       {/* 🎂 The couple's cake design from the chat, and the order's making time (Cake Maker §03). Nothing when none. */}

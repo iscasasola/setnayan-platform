@@ -100,7 +100,9 @@ test('NO redirect anywhere lands a supplier on the client page by hand', () => {
 test('every client-page redirect in the clients tree goes through the rule', () => {
   const files = walk(CLIENTS_DIR).filter((f) => {
     const src = readFileSync(f, 'utf8');
-    return src.includes('redirect(') && src.includes('/vendor-dashboard/clients/');
+    // 2026-11-21 (supplier pages set two): the parts' pages lost their hand-typed `/vendor-dashboard/clients/` links (the
+    // back now reads the map), so a file that redirects THROUGH the rule is counted by the rule's own name too.
+    return src.includes('redirect(') && (src.includes('/vendor-dashboard/clients/') || src.includes('vendorClientSurfaceHref('));
   });
   let calls = 0;
   for (const file of files) {

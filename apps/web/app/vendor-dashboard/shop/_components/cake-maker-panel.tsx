@@ -127,11 +127,16 @@ function LockedCakeMaker({ saved, options }: { saved: boolean; options: CakeShop
   );
 }
 
+/** "1 to 10 · 3 in the price" — the sizes line (the Tiers part and the summary). */
+const sizesLineOf = (o: CakeShopOptions) => `${formatCount(o.sizes[0]?.count ?? 1)} to ${formatCount(o.sizes[o.sizes.length - 1]?.count ?? 1)} · ${formatCount(o.standardSize)} in the price`;
+/** "Round · Square · Tall" — the shapes and heights line. */
+const shapesLineOf = (o: CakeShopOptions) => [...o.shapes.map((s) => label(CAKE_SHAPES, s.id)), ...(o.tall ? ['Tall'] : [])].join(' · ');
+
 /** "What couples see" — the one summary of a shop's options (the editor's foot; read-only on the locked panel). */
 function CakeSummary({ o }: { o: CakeShopOptions }) {
   const std = o.sizes.find((s) => s.count === o.standardSize);
-  const sizesLine = `${formatCount(o.sizes[0]?.count ?? 1)} to ${formatCount(o.sizes[o.sizes.length - 1]?.count ?? 1)} · ${formatCount(o.standardSize)} in the price`;
-  const shapesLine = [...o.shapes.map((s) => label(CAKE_SHAPES, s.id)), ...(o.tall ? ['Tall'] : [])].join(' · ');
+  const sizesLine = sizesLineOf(o);
+  const shapesLine = shapesLineOf(o);
   return (
     <dl className={`${styles.frame} ${styles.sum}`} data-cake-summary="">
       <SumRow k="Shape" v={o.arrangements.map((a) => label(CAKE_ARRANGEMENTS, a.id)).join(' · ')} />
@@ -182,14 +187,14 @@ function CakeMakerEditor({ start, saved: savedAtStart }: { start: CakeShopOption
         <Part id="arrangements" title="Arrangements" line={`${formatCount(o.arrangements.length)} ways the tiers sit · Stacked in the price`} chip="They pick" open={open === 'arrangements'} onToggle={() => toggle('arrangements')}>
           <ArrangementsBody o={o} onChange={(arrangements) => patch({ arrangements })} />
         </Part>
-        <Part id="tiers" title="Tiers" line={sizesLine} chip="They pick" open={open === 'tiers'} onToggle={() => toggle('tiers')}>
+        <Part id="tiers" title="Tiers" line={sizesLineOf(o)} chip="They pick" open={open === 'tiers'} onToggle={() => toggle('tiers')}>
           <TiersBody o={o} patch={patch} />
         </Part>
         <Part id="flavours" title="Flavour" line={`${formatCount(o.flavours.length)} flavours · one for each tier`} chip="They pick" open={open === 'flavours'} onToggle={() => toggle('flavours')}>
           <p className={styles.ol}>Couples pick one for each tier</p>
           <FlavourList o={o} patch={patch} />
         </Part>
-        <Part id="shapes" title="Shapes and heights" line={`${shapesLine} · each tier`} chip="They pick" open={open === 'shapes'} onToggle={() => toggle('shapes')}>
+        <Part id="shapes" title="Shapes and heights" line={`${shapesLineOf(o)} · each tier`} chip="They pick" open={open === 'shapes'} onToggle={() => toggle('shapes')}>
           <p className={styles.ol}>Shapes you make · couples pick one for each tier</p>
           <TickList catalog={CAKE_SHAPES} list={o.shapes} plain="round" per="a tier" onChange={(shapes) => patch({ shapes })} />
           <p className={styles.ol}>Heights</p>

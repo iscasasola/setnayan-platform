@@ -81,12 +81,14 @@ const READING = [
   'moodboard-library/page.tsx',
   'creators/page.tsx',
   'repertoire/page.tsx',
-  'contracts/[contractId]/page.tsx',
-  'clients/[eventId]/cocktail/page.tsx',
-  'clients/[eventId]/editorial-media/page.tsx',
+  'contracts/[contractId]/contract-body.tsx',
+  'contracts/new/upload-body.tsx',
+  'clients/[eventId]/cocktail/cocktail-body.tsx',
+  'clients/[eventId]/editorial-media/editorial-media-body.tsx',
+  'clients/[eventId]/challenge-photos/challenge-photos-body.tsx',
   'loading.tsx',
 ];
-const WIDE = ['clients/[eventId]/seat-plan/page.tsx', 'clients/[eventId]/production-sheet/page.tsx', 'services/[serviceId]/page.tsx'];
+const WIDE = ['clients/[eventId]/seat-plan/seat-plan-body.tsx', 'clients/[eventId]/production-sheet/production-sheet-body.tsx', 'services/[serviceId]/page.tsx'];
 
 test('the secondary pages read (48 rem); the seat plan, the production sheet and the maker take the wide stage (64 rem)', () => {
   for (const [list, cap] of [[READING, 'tab:max-w-3xl'], [WIDE, 'tab:max-w-5xl']] as const) {

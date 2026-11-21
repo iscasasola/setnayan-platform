@@ -52,6 +52,11 @@ type Props = {
   icon?: 'bookmark' | 'heart';
   /** Only the icon on screen (the shop page's top bar); the label stays as the button's name for a screen reader. */
   iconOnly?: boolean;
+  /**
+   * 🔖 Card 14 (owner 20 Nov): the bookmark ON the card's photo, top-right, 44×44 — its own look in EVERY state,
+   * including the "Save to…" picker with two or more events ahead. Saved = the bookmark filled.
+   */
+  onPhoto?: { className: string; savedClassName: string };
 };
 
 /**
@@ -79,6 +84,7 @@ export function SaveVendorButton({
   className,
   icon = 'bookmark',
   iconOnly = false,
+  onPhoto,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -153,7 +159,7 @@ export function SaveVendorButton({
   }
 
   const Icon = icon === 'heart' ? Heart : Bookmark;
-  const iconSize = variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+  const iconSize = onPhoto ? 'h-[17px] w-[17px]' : variant === 'profile' ? 'h-4 w-4' : 'h-3.5 w-3.5';
   /** The words beside the icon — read aloud only, when the button is icon-only. */
   const words = (t: string) => (iconOnly ? <span className="sr-only">{t}</span> : t);
 
@@ -188,7 +194,7 @@ export function SaveVendorButton({
       <>
         <Link
           href="/dashboard"
-          className={`${baseClasses} border-terracotta/40 bg-cream text-terracotta hover:border-terracotta`}
+          className={onPhoto ? onPhoto.className : `${baseClasses} border-terracotta/40 bg-cream text-terracotta hover:border-terracotta`}
           title="Start an event, then save suppliers to it"
         >
           <Icon aria-hidden className={iconSize} strokeWidth={1.75} />
@@ -208,7 +214,7 @@ export function SaveVendorButton({
           value={null}
           compact={variant === 'card'}
           dataAttr="data-save-to-event"
-          className={pickButtonClass(variant === 'card')}
+          className={onPhoto ? onPhoto.className : pickButtonClass(variant === 'card')}
           trigger={
             <>
               <Icon aria-hidden className={iconSize} strokeWidth={1.75} />
@@ -264,12 +270,18 @@ export function SaveVendorButton({
               ? state.message
               : 'Save this supplier to your event picks'
         }
-        className={`${baseClasses} ${stateClasses} disabled:cursor-default disabled:opacity-90`}
+        className={
+          onPhoto
+            ? `${isSaved ? onPhoto.savedClassName : onPhoto.className} disabled:cursor-default`
+            : `${baseClasses} ${stateClasses} disabled:cursor-default disabled:opacity-90`
+        }
       >
         {isSaved ? (
           <>
             {icon === 'heart' ? (
               <Heart aria-hidden className={`${iconSize} fill-current`} strokeWidth={2} />
+            ) : onPhoto ? (
+              <Bookmark aria-hidden className={`${iconSize} fill-current`} strokeWidth={2} />
             ) : (
               <Check aria-hidden className={iconSize} strokeWidth={2} />
             )}

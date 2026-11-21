@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { readMayaGate, hasOpenMayaCheckout } from '@/lib/maya-checkout.server';
-import { MAYA_BUSY_LINE, mayaReturnLine } from '@/lib/maya-checkout';
+import { readMayaGate, hasOpenMayaCheckout, isInternalUser } from '@/lib/maya-checkout.server';
+import { MAYA_BUSY_LINE, mayaEnvironment, mayaReturnLine } from '@/lib/maya-checkout';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -29,6 +29,8 @@ export async function mayaPayState(args: {
   param: string | undefined;
   /** The order id in the busy-fallback cookie, if any (`MAYA_BUSY_COOKIE`). */
   busyFor: string | null;
+  /** Who is looking — on SANDBOX keys only an internal account is offered Maya. */
+  viewerId: string;
 }): Promise<{
   phase: MayaPhase;
   line: string | null;
@@ -57,8 +59,10 @@ export async function mayaPayState(args: {
     // Maya is the pay stage only while the switch is on with both keys, within the one-payment ceiling, and not busy.
     railOpenFor: async (amountPhp: number) => {
       if (phase === 'busy') return false;
-      const { state } = await readMayaGate();
+      const { state, config } = await readMayaGate();
       if (!state.open) return false;
+      // 🔒 SANDBOX KEYS ARE FOR THE OWNER'S TESTS (ship review @019beef4a, HIGH): payers never see a test checkout.
+      if (mayaEnvironment(config.checkoutEndpoint) === 'sandbox' && !(await isInternalUser(args.viewerId))) return false;
       // The admin setting `max_payment_php` (owner 2026-11-17: nothing above ₱100,000), the same read the buy action makes.
       return paymentWithinCeiling(amountPhp, await getMaxPaymentPhp(createAdminClient()));
     },

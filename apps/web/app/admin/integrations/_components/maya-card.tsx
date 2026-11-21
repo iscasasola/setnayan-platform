@@ -26,6 +26,7 @@ export function MayaCard({
   webhookUrl,
   webhookNotice,
   payersSeeMaya,
+  payersSeeMayaUnread,
 }: {
   publicInDb: boolean;
   secretInDb: boolean;
@@ -37,8 +38,10 @@ export function MayaCard({
   webhookUrl: string;
   /** The result of the last "Register webhooks" press, from the redirect. */
   webhookNotice: { ok: boolean; text: string } | null;
-  /** The "Payers see Maya" switch (`maya_checkout_enabled`), read fail-closed. */
+  /** The "Payers see Maya" switch (`maya_checkout_enabled`). */
   payersSeeMaya: boolean;
+  /** TRUE when the switch could not be read — the card says so and the switch is not pressable. */
+  payersSeeMayaUnread: boolean;
 }) {
   const keysReady = (publicInDb || publicInEnv) && (secretInDb || secretInEnv);
   const secretReady = secretInDb || secretInEnv;
@@ -68,7 +71,9 @@ export function MayaCard({
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Payers see Maya</p>
           <p className="text-xs text-ink/60">
-            {payersSeeMaya
+            {payersSeeMayaUnread
+              ? 'Couldn’t read this switch just now — refresh to see it.'
+              : payersSeeMaya
               ? keysReady
                 ? 'On — QR Ph, wallet, card and ShopeePay lead the pay page.'
                 : 'On, but hidden — a Maya key is missing. Payers see the BDO QR.'
@@ -81,6 +86,7 @@ export function MayaCard({
           aria-label="Payers see Maya"
           pendingLabel=""
           overlay={false}
+          disabled={payersSeeMayaUnread}
           className={SWITCH_BUTTON}
         >
           {/* The house switch — one drawing everywhere (app/_components/switch-track.tsx). */}

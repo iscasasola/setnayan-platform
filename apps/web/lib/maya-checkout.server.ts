@@ -56,7 +56,7 @@ export async function readMayaGate(): Promise<{ state: MayaRailState; config: Ma
 }
 
 const CHECKOUT_COLS =
-  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id, verified_at, last_checked_at';
+  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id, verified_at, last_checked_at, created_at';
 
 /** Record a checkout we just created, so the webhook and the return can find its order. */
 export async function recordMayaCheckout(row: {
@@ -197,6 +197,7 @@ export function mayaSettleDeps(
       if (error) console.error('[maya] checkout row update failed (non-fatal)', { checkoutId, error: error.message });
     },
     approve,
+    buyerIsInternal: (userId) => isInternalUser(userId),
     async notifyAdmins({ orderId, amountPhp }) {
       await notifyAdminsPaymentProofSubmitted({ orderId, eventId: '', amountPhp, channel: MAYA_CHANNEL });
     },
@@ -231,12 +232,11 @@ export async function mayaReceiptFor(orderId: string): Promise<MayaReceipt | nul
   }
 }
 
-/** Maya keeps a checkout open for an hour (developers.maya.ph, "a checkout session is valid for 1 hour"); a little over. */
-const MAYA_CHECKOUT_OPEN_MS = 70 * 60 * 1000;
-
 /**
- * Does this order have a Maya checkout still open (created within Maya's session lifetime, no verdict yet)? Read on
- * every pay-page visit so that a payment in flight is re-verified even after the switch went off (ship review item 1).
+ * Does this order have a Maya checkout with no verdict yet? Read on every pay-page visit so that a payment in flight is
+ * re-verified even after the switch went off (ship review item 1) — with NO time window (ship review @019beef4a, item
+ * 5: a lost webhook past an hour must still not put a BDO QR beside a paid Maya checkout). It stays bounded because
+ * settle closes a checkout Maya never saw submitted once it is past Maya's session lifetime (`MAYA_CHECKOUT_OPEN_MS`).
  * A refused read answers "no": the page then shows what it would have anyway.
  */
 export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
@@ -246,7 +246,6 @@ export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
       .select('checkout_id')
       .eq('order_id', orderId)
       .eq('status', 'created')
-      .gte('created_at', new Date(Date.now() - MAYA_CHECKOUT_OPEN_MS).toISOString())
       .limit(1);
     if (error) {
       console.error('[maya] open-checkout read refused', error.message);
@@ -255,5 +254,36 @@ export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
     return (data ?? []).length > 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Is this account internal (`users.is_internal` — the owner and the team, § 10a)? On SANDBOX keys only they see Maya
+ * and only their test payments approve themselves (ship review @019beef4a, HIGH). A refused read answers "no".
+ */
+export async function isInternalUser(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await createAdminClient().from('users').select('is_internal').eq('user_id', userId).maybeSingle();
+    if (error) {
+      console.error('[maya] internal read refused', error.message);
+      return false;
+    }
+    return (data as { is_internal?: boolean | null } | null)?.is_internal === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The switch as the ADMIN card reads it: on, off, or "could not be read" — never a refused read drawn as Off (ship
+ * review @019beef4a, item 4). The pay page keeps `readMayaSwitch`, which fails closed.
+ */
+export async function readMayaSwitchMeasured(client: SupabaseClient): Promise<{ enabled: boolean; readFailed: boolean }> {
+  try {
+    const { data, error } = await client.from('platform_settings').select('maya_checkout_enabled').eq('id', 1).maybeSingle();
+    if (error || !data) return { enabled: false, readFailed: true };
+    return { enabled: (data as { maya_checkout_enabled?: boolean | null }).maya_checkout_enabled === true, readFailed: false };
+  } catch {
+    return { enabled: false, readFailed: true };
   }
 }

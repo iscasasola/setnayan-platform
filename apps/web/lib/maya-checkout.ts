@@ -198,7 +198,9 @@ export type MayaVerdict =
   /** Not paid and never will be. */
   | { kind: 'closed'; mayaPaymentId: string | null; status: 'failed' | 'expired' | 'cancelled' }
   /** Not settled yet (processing, awaiting authentication, …). */
-  | { kind: 'pending'; mayaPaymentId: string | null };
+  | { kind: 'pending'; mayaPaymentId: string | null }
+  /** Opened, nothing submitted yet (PENDING_TOKEN / PENDING_PAYMENT) — they came back without paying; a fresh try. */
+  | { kind: 'unstarted'; mayaPaymentId: string | null };
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
 
@@ -218,6 +220,9 @@ export function judgeMayaPayment(
   const status = str(payment.status)?.toUpperCase() ?? '';
   const closed = FAILED[status];
   if (closed) return { kind: 'closed', mayaPaymentId: id, status: closed };
+  // Not yet submitted (ship review 21 Nov @019beef4a, item 2): a payer who opened Maya and came back without paying
+  // must get a fresh try, never "Checking…" with no way to pay.
+  if (status === 'PENDING_TOKEN' || status === 'PENDING_PAYMENT') return { kind: 'unstarted', mayaPaymentId: id };
   if (status !== 'PAYMENT_SUCCESS') return { kind: 'pending', mayaPaymentId: id };
 
   const amountC = toCentavos(payment.amount);
@@ -254,7 +259,8 @@ export function judgeMayaPayments(
     verdicts.find((v) => v.kind === 'paid') ??
     verdicts.find((v) => v.kind === 'mismatch') ??
     verdicts.find((v) => v.kind === 'pending') ??
-    verdicts.find((v) => v.kind === 'closed') ?? { kind: 'pending', mayaPaymentId: null }
+    verdicts.find((v) => v.kind === 'unstarted') ??
+    verdicts.find((v) => v.kind === 'closed') ?? { kind: 'unstarted', mayaPaymentId: null }
   );
 }
 

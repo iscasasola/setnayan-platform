@@ -34,7 +34,7 @@ import { PasswordField } from '@/app/_components/password-field';
 import { siteOrigin } from '@/lib/site-origin';
 import { routes } from '@/lib/routes';
 import { mayaWebhookNotice } from '@/lib/maya-checkout';
-import { readMayaSwitch } from '@/lib/maya-checkout.server';
+import { readMayaSwitchMeasured } from '@/lib/maya-checkout.server';
 // Integration Activation Console.
 //
 // Lets an admin turn integrations on WITHOUT a Vercel redeploy: secrets stored
@@ -67,6 +67,8 @@ export default async function AdminIntegrationsPage({
   }
 
   const admin = createAdminClient();
+  // 💳 "Payers see Maya" — read honestly: a refused read is said on the card, never drawn as Off.
+  const mayaSwitch = await readMayaSwitchMeasured(admin);
   const [secretRes, settingsRes, presence, knownHashStatus] = await Promise.all([
     admin
       .from('platform_integration_secrets')
@@ -455,7 +457,8 @@ export default async function AdminIntegrationsPage({
           }
           webhookUrl={`${siteOrigin()}${routes.api.webhooks.maya()}`}
           webhookNotice={mayaWebhookNotice(mayaWebhooks)}
-          payersSeeMaya={await readMayaSwitch(createAdminClient())}
+          payersSeeMaya={mayaSwitch.enabled}
+          payersSeeMayaUnread={mayaSwitch.readFailed}
         />
       </section>
 

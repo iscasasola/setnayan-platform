@@ -42,6 +42,7 @@ function adminCard(on: boolean, keys: boolean) {
       webhookUrl="https://www.setnayan.com/api/webhooks/maya"
       webhookNotice={on && keys ? mayaWebhookNotice('ok') : null}
       payersSeeMaya={on}
+      payersSeeMayaUnread={false}
     />
   );
 }

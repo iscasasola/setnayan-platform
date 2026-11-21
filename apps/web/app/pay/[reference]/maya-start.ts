@@ -8,10 +8,10 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { siteOrigin } from '@/lib/site-origin';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
-import { createMayaCheckout, readMayaGate, recordMayaCheckout } from '@/lib/maya-checkout.server';
+import { createMayaCheckout, isInternalUser, readMayaGate, recordMayaCheckout } from '@/lib/maya-checkout.server';
 import { noteMayaBusy } from '@/lib/maya-busy.server';
 import { cookies } from 'next/headers';
-import { MAYA_BUSY_COOKIE, MAYA_BUSY_COOKIE_SECONDS } from '@/lib/maya-checkout';
+import { MAYA_BUSY_COOKIE, MAYA_BUSY_COOKIE_SECONDS, mayaEnvironment } from '@/lib/maya-checkout';
 import { settleMaya } from '@/app/admin/payments/maya';
 
 /**
@@ -60,6 +60,10 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
   const { state, config } = await readMayaGate();
   // Off, or a key missing: the page is the BDO page (the safety route) — send them back to it, no error.
   if (!state.open) redirect(`/pay/${encodeURIComponent(reference)}?step=2`);
+  // 🔒 Sandbox keys: only an internal account may open a (test) Maya checkout — the same rule the page draws by.
+  if (mayaEnvironment(config.checkoutEndpoint) === 'sandbox' && !(await isInternalUser(user.id))) {
+    redirect(`/pay/${encodeURIComponent(reference)}?step=2`);
+  }
   // ⚖ Owner 2026-11-17: no single payment to Setnayan above the admin's `max_payment_php` (₱100,000 ruled).
   if (!paymentWithinCeiling(payable.amountPhp, await getMaxPaymentPhp(supabase))) {
     back('This bill is above the most we take in one payment. Please message us.');

@@ -104,6 +104,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     orderId: payable.orderId,
     param: search.maya,
     busyFor: (await cookies()).get(MAYA_BUSY_COOKIE)?.value ?? null,
+    viewerId: user.id,
   });
   if (maya.settledNow) {
     payable = (await fetchPayableByReference(supabase, decodeURIComponent(reference), user.id)) ?? payable;

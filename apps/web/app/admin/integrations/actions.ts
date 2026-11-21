@@ -289,12 +289,14 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
  */
 async function savePayersSeeMaya(adminUserId: string, enabled: boolean): Promise<never> {
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: changed, error } = await admin
     .from('platform_settings')
     .update({ maya_checkout_enabled: enabled, updated_at: new Date().toISOString() })
-    .eq('id', 1);
+    .eq('id', 1)
+    .select('id');
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
-  if (error) redirect('/admin/integrations?error=save_failed');
+  // "Saved" only when a row actually changed — a zero-row update is success-shaped (ship review @019beef4a, item 4).
+  if (error || (changed ?? []).length === 0) redirect('/admin/integrations?error=save_failed');
   const { error: auditErr } = await admin.from('admin_audit_log').insert({
     action: enabled ? 'maya_checkout_enabled' : 'maya_checkout_disabled',
     actor_user_id: adminUserId,

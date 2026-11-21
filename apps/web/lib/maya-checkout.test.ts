@@ -103,6 +103,8 @@ test('only PAYMENT_SUCCESS + PHP + our reference + the exact amount is "paid"', 
   assert.equal(kinds({ amount: undefined }), 'mismatch');
   assert.equal(kinds({ status: 'PAYMENT_PROCESSING' }), 'pending');
   assert.equal(kinds({ status: 'AUTHORIZED' }), 'pending', 'an authorisation is not a capture');
+  assert.equal(kinds({ status: 'PENDING_TOKEN' }), 'unstarted', 'nothing submitted yet is a fresh try');
+  assert.equal(kinds({ status: 'PENDING_PAYMENT' }), 'unstarted');
   assert.equal(kinds({ status: 'PAYMENT_EXPIRED' }), 'closed');
   assert.equal(kinds({ status: 'PAYMENT_FAILED' }), 'closed');
   assert.equal(kinds({ status: 'REFUNDED' }), 'closed');
@@ -112,7 +114,7 @@ test('among payments on one reference, a paid one wins, then a wrong one the adm
   const failed = { ...paid, id: 'pay-0', status: 'PAYMENT_FAILED' };
   assert.equal(judgeMayaPayments([failed, paid], expected).kind, 'paid');
   assert.equal(judgeMayaPayments([failed, { ...paid, amount: 1 }], expected).kind, 'mismatch');
-  assert.equal(judgeMayaPayments([], expected).kind, 'pending');
+  assert.equal(judgeMayaPayments([], expected).kind, 'unstarted');
 });
 
 test('the return lines are short and say nothing was charged', () => {

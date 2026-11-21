@@ -18,12 +18,16 @@ const PAID: MayaPaymentLike = { id: 'chk-1', status: 'PAYMENT_SUCCESS', isPaid: 
 
 function world(opts: {
   maya?: MayaPaymentLike | null | 'error';
+  env?: 'sandbox' | 'production';
+  internal?: boolean;
+  createdAt?: string;
   owed?: OwedNow | null | 'error';
   approve?: { ok: true } | { ok: false; message: string };
 } = {}) {
   const row: MayaCheckoutRow = {
     checkout_id: 'chk-1', order_id: 'ord-1', user_id: 'usr-1', request_reference_number: REF,
-    amount_php: 1499.5, environment: 'sandbox', status: 'created', maya_payment_id: null, payment_id: null,
+    amount_php: 1499.5, environment: opts.env ?? 'production', status: 'created', maya_payment_id: null, payment_id: null,
+    created_at: opts.createdAt ?? new Date().toISOString(),
   };
   const payments = new Map<string, { paymentId: string; status: string; note: string; amountPhp: number }>();
   const log = { approves: 0, notices: 0, verifies: 0 };
@@ -62,6 +66,9 @@ function world(opts: {
     },
     async notifyAdmins() {
       log.notices++;
+    },
+    async buyerIsInternal() {
+      return opts.internal ?? false;
     },
   };
   return { deps, row, payments, log };
@@ -200,4 +207,40 @@ test('no payment at Maya for this reference → "none": they opened Maya and cam
   const w = world({ maya: null });
   assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'none' });
   assert.equal(w.payments.size, 0);
+});
+
+test('🔒 a SANDBOX "paid" never approves a real order — it waits for an admin; only an internal test approves', async () => {
+  const payer = world({ env: 'sandbox', internal: false });
+  const r = await settleMayaPayment(payer.deps, { mayaPaymentId: 'chk-1', claimedPaid: true });
+  assert.equal(r.outcome, 'queued');
+  assert.match(r.outcome === 'queued' ? r.reason : '', /Sandbox payment/);
+  assert.equal(payer.log.approves, 0, 'a test card activated a real order');
+
+  const owner = world({ env: 'sandbox', internal: true });
+  assert.equal((await settleMayaPayment(owner.deps, { mayaPaymentId: 'chk-1' })).outcome, 'approved');
+});
+
+test('opened Maya, submitted nothing (PENDING_TOKEN / PENDING_PAYMENT) → "none", a fresh try — never "Checking…"', async () => {
+  for (const status of ['PENDING_TOKEN', 'PENDING_PAYMENT']) {
+    const w = world({ maya: { ...PAID, status } });
+    assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'none' }, status);
+    assert.equal(w.payments.size, 0);
+  }
+});
+
+test('"none" is not throttled — a quick reload asks again rather than flipping to "Checking…"', async () => {
+  const w = world({ maya: { ...PAID, status: 'PENDING_TOKEN' } });
+  await settleMayaPayment(w.deps, { reference: REF });
+  const asked = w.log.verifies;
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'none' });
+  assert.equal(w.log.verifies, asked + 1);
+});
+
+test('a checkout Maya never saw submitted, past Maya\'s session lifetime, is closed — not asked about forever', async () => {
+  const w = world({ maya: null, createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() });
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'none' });
+  assert.equal(w.row.status, 'expired');
+  const asked = w.log.verifies;
+  assert.equal((await settleMayaPayment(w.deps, { reference: REF })).outcome, 'closed');
+  assert.equal(w.log.verifies, asked);
 });

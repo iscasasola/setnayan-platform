@@ -46,8 +46,9 @@ export type MayaCheckoutRow = {
   payment_id: string | null;
   /** Set once Maya's API has given a verdict on this checkout (never by an unverifiable queue). */
   verified_at?: string | null;
-  /** When Maya's API was last asked about this checkout (any answer). */
+  /** When Maya's API last answered "not yet" (a real pending) about this checkout. */
   last_checked_at?: string | null;
+  created_at?: string | null;
 };
 
 /** What the order is owed NOW — read through the same resolver the pay page uses. */
@@ -84,6 +85,8 @@ export type MayaSettleDeps = {
     patch: Partial<MayaCheckoutRow> & { outcome_reason?: string | null; paid_with?: string | null; last_checked_at?: string },
   ): Promise<void>;
   approve(args: { paymentId: string; buyerUserId: string; note: string }): Promise<ApproveOutcome>;
+  /** Is this account internal (`users.is_internal`)? Only they may be approved on SANDBOX keys. */
+  buyerIsInternal(userId: string): Promise<boolean>;
   /** The admins are told whenever money is waiting for them (approved or queued). */
   notifyAdmins(args: { orderId: string; amountPhp: number }): Promise<void>;
 };
@@ -151,14 +154,10 @@ export async function settleMayaPayment(
   const expected = { reference: row.request_reference_number, amountPhp: Number(row.amount_php) };
   if (mayaId) {
     const p = await deps.verifyById(mayaId);
-    verdict = p === 'error' ? 'error' : p ? judgeMayaPayment(p, expected) : { kind: 'pending', mayaPaymentId: null };
+    verdict = p === 'error' ? 'error' : p ? judgeMayaPayment(p, expected) : { kind: 'unstarted', mayaPaymentId: null };
   } else {
     const list = await deps.verifyByReference(row.request_reference_number);
-    if (list !== 'error' && list.length === 0) {
-      if (row.status === 'created') await deps.updateCheckout(row.checkout_id, { last_checked_at: new Date().toISOString() });
-      return { outcome: 'none' };
-    }
-    verdict = list === 'error' ? 'error' : judgeMayaPayments(list, expected);
+    verdict = list === 'error' ? 'error' : list.length === 0 ? { kind: 'unstarted', mayaPaymentId: null } : judgeMayaPayments(list, expected);
   }
 
   if (verdict === 'error') {
@@ -180,8 +179,19 @@ export async function settleMayaPayment(
     return { outcome: 'unverifiable', queued: true };
   }
 
-  if (row.status === 'created') await deps.updateCheckout(row.checkout_id, { last_checked_at: new Date().toISOString() });
-  if (verdict.kind === 'pending') return { outcome: 'pending' };
+  // Nothing submitted at Maya: a fresh try. A checkout older than Maya's session lifetime will never be paid, so it
+  // is closed here (expired) and not asked about again — this is what bounds the open-checkout re-check (item 5).
+  if (verdict.kind === 'unstarted') {
+    if (row.status === 'created' && row.created_at && Date.now() - Date.parse(row.created_at) > MAYA_CHECKOUT_OPEN_MS) {
+      await deps.updateCheckout(row.checkout_id, { status: 'expired', verified_at: new Date().toISOString() });
+    }
+    return { outcome: 'none' };
+  }
+  // Only a REAL "not yet" is remembered for the throttle (item 3).
+  if (verdict.kind === 'pending') {
+    if (row.status === 'created') await deps.updateCheckout(row.checkout_id, { last_checked_at: new Date().toISOString() });
+    return { outcome: 'pending' };
+  }
   if (verdict.kind === 'closed') {
     if (row.status === 'created') {
       await deps.updateCheckout(row.checkout_id, {
@@ -205,6 +215,10 @@ export async function settleMayaPayment(
       reason = `Maya confirmed ${formatPhp(Number(row.amount_php))}, but the order now owes ${formatPhp(owed.amountPhp)}.`;
     } else if (owed.needsAdminToActivate) {
       reason = 'Paid and confirmed by Maya. A supplier plan needs an admin’s press to switch on.';
+    } else if (row.environment === 'sandbox' && !(await deps.buyerIsInternal(row.user_id))) {
+      // 🔒 A SANDBOX "PAID" MOVED NO MONEY (ship review @019beef4a, HIGH). Only an internal account's test may approve
+      // itself; anyone else's order waits for an admin — never activated, receipted or paid out on a test card.
+      reason = 'Sandbox payment — Maya test keys, no money moved. Approve only if this was a test.';
     }
   }
 
@@ -255,6 +269,9 @@ export async function settleMayaPayment(
   await deps.notifyAdmins({ orderId: row.order_id, amountPhp });
   return { outcome: 'approved', paymentId: pay.paymentId };
 }
+
+/** Maya keeps a checkout open for an hour (developers.maya.ph); a little over, after which an unsubmitted one is dead. */
+export const MAYA_CHECKOUT_OPEN_MS = 70 * 60 * 1000;
 
 /** How long a "not yet" from Maya is reused for one checkout before Maya is asked again. */
 export const MAYA_RECHECK_MS = 10_000;

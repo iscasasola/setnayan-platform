@@ -779,6 +779,14 @@ export function ChatMessageStream({
         setExtrasLine(null);
         setExtrasFor(messageId);
       },
+      // The click that ENDS a hold is swallowed here, in the capture phase, before the bubble's own tap sees it — so
+      // the bubble's onClick stays exactly the heart (lib/a-bubble-is-not-a-decision.test.ts) and a hold never hearts.
+      onClickCapture: (e: React.MouseEvent) => {
+        if (!extrasHeld.current) return;
+        extrasHeld.current = false;
+        e.stopPropagation();
+        e.preventDefault();
+      },
     };
   };
   useEffect(
@@ -3002,10 +3010,6 @@ export function ChatMessageStream({
                 // 11 Nov 2026). ⋯ Holding a bubble opens Edit · Unsend · Remind me only (Unichat H1, 20 Nov).
                 {...extrasPress(m.message_id)}
                 onClick={(e) => {
-                  if (extrasHeld.current) {
-                    extrasHeld.current = false;
-                    return;
-                  }
                   if (tapMeansHeart(e.target as Element)) {
                     const tap = bubbleTap(lastTap.current, m.message_id, performance.now());
                     lastTap.current = tap.next;

@@ -98,7 +98,7 @@
 .sn-chat-col3-body { animation: sn-chat-col3-swap var(--sn-m-quick) var(--sn-m-settle); }
 ::highlight(sn-chat-search) { background-color: #fbe9a8; color: #2c2a29; }
 ::highlight(sn-chat-search-cur) { background-color: #f2c94c; color: #2c2a29; }
-[data-chat-search-hit='cur'] { border-radius: 14px; outline: 2px solid #f2c94c; outline-offset: 2px; }
+[data-chat-search-hit='cur'] { border-radius: var(--m-r-md); outline: 2px solid #f2c94c; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .sn-chat-toolwrap,
   .sn-chat-toolin,

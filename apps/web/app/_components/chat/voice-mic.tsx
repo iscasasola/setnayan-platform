@@ -26,11 +26,14 @@ import {
   voiceLength,
   voiceMimeOf,
 } from '@/lib/chat-message-extras';
+import type { StreamLike } from '@/lib/camera-comes-back';
+import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
 
 export const VOICE_HOLD_HINT = 'Hold the mic to record a voice note.';
 export const VOICE_MIC_REFUSED = 'Allow the microphone for Setnayan to record a voice note.';
 export const VOICE_NOT_SUPPORTED = 'This browser can’t record a voice note.';
 export const VOICE_NOT_RECORDED = 'Couldn’t record that. Try again.';
+export const VOICE_MIC_TAKEN = 'The microphone stopped. Hold the mic to record again.';
 
 /** Can this browser record at all? Asked after mount (never during the server render). */
 export function canRecordVoice(): boolean {
@@ -202,6 +205,27 @@ export function VoiceMic({
     },
     [],
   );
+
+  // 🎙 THE MIC THAT IS TAKEN AWAY SAYS SO (lib/every-camera-comes-back.test.ts). iOS, a call or a trip to the home
+  // screen can end or mute the microphone mid-note; recorded on, the note would be silence that reads as sent. The
+  // shared watch reads the MIC's track (it watches `getVideoTracks`, so the adapter hands it the audio ones). A
+  // voice note cannot be "reopened" mid-hold, so its restart ends the note unsent and tells the person; the next
+  // hold opens the mic afresh. A window resize is not the mic's business and is ignored.
+  const micStream = useRef<StreamLike | null>(null);
+  micStream.current = rec.current ? { getVideoTracks: () => rec.current?.stream.getAudioTracks() ?? [] } : null;
+  useCameraThatComesBack({
+    streamRef: micStream,
+    live: seconds !== null,
+    restart: (reason) => {
+      if (reason === 'resize') return;
+      holding.current = false;
+      const r = rec.current;
+      if (!r) return;
+      r.cancel = true;
+      end(false);
+      hintRef.current(VOICE_MIC_TAKEN);
+    },
+  });
 
   const recording = seconds !== null;
   const pointer = {

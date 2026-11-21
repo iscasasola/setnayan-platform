@@ -60,7 +60,9 @@ test('the menu is Edit · Unsend · Remind me — offered by the shared rule, an
   assert.deepEqual(kinds, ['edit', 'unsend', 'remind']);
   assert.doesNotMatch(MENU, /private|Private|whisper/i, 'the menu grew a private door — the 🔒 beside the box is the one');
   // Holding opens the menu and must not ALSO heart the bubble.
-  assert.match(STREAM, /if \(extrasHeld\.current\) \{\s*extrasHeld\.current = false;\s*return;\s*\}\s*if \(tapMeansHeart/);
+  // The hold's own click is swallowed in the CAPTURE phase, before the bubble's tap runs — so the
+  // bubble's onClick keeps its pinned shape (lib/a-bubble-is-not-a-decision.test.ts) and never hearts a hold.
+  assert.match(STREAM, /onClickCapture: \(e: React\.MouseEvent\) => \{\s*if \(!extrasHeld\.current\) return;\s*extrasHeld\.current = false;\s*e\.stopPropagation\(\);/);
   // Reachable without a hold: a real button.
   assert.match(STREAM, /aria-label="More for this message"/);
 });

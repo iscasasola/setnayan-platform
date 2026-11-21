@@ -41,6 +41,7 @@ export function MakeQuoteCard({
   onClose,
   onSent,
   seed,
+  prefill,
 }: {
   threadId: string;
   eventDate: string | null;
@@ -48,6 +49,11 @@ export function MakeQuoteCard({
   onSent?: () => void;
   /** Labs only — the shop's cards to draw without a read. */
   seed?: { cards: MakeQuoteCardOption[]; picked?: string[] };
+  /**
+   * 🎂 Opened from a couple's "Cake design" (Cake Maker ruling 8): the card it was made on, the estimate as the offer
+   * and the design as the note. Every field stays the supplier's to change before Send quote.
+   */
+  prefill?: { picked: string[]; offerCentavos: number; note: string };
 }) {
   const [read, setRead] = useState<Read<MakeQuoteCardOption[]>>(seed ? { at: 'ok', data: seed.cards } : { at: 'loading' });
   const load = useCallback(() => {
@@ -72,7 +78,16 @@ export function MakeQuoteCard({
         <FullQuotation onClose={onClose} />
       </div>
     ) : (
-      <MakeQuoteForm cards={read.data} threadId={threadId} eventDate={eventDate} onClose={onClose} onSent={onSent} startPicked={seed?.picked} />
+      <MakeQuoteForm
+        cards={read.data}
+        threadId={threadId}
+        eventDate={eventDate}
+        onClose={onClose}
+        onSent={onSent}
+        startPicked={prefill ? prefill.picked.filter((id) => read.data.some((c) => c.id === id)) : seed?.picked}
+        startOffer={prefill && prefill.offerCentavos > 0 ? prefill.offerCentavos : null}
+        startNote={prefill?.note ?? ''}
+      />
     ),
   );
 }
@@ -100,6 +115,8 @@ function MakeQuoteForm({
   onClose,
   onSent,
   startPicked,
+  startOffer = null,
+  startNote = '',
 }: {
   cards: MakeQuoteCardOption[];
   threadId: string;
@@ -107,6 +124,8 @@ function MakeQuoteForm({
   onClose?: () => void;
   onSent?: () => void;
   startPicked?: string[];
+  startOffer?: number | null;
+  startNote?: string;
 }) {
   const formId = useId();
   const today = manilaTodayIsoFor(Date.now());
@@ -114,10 +133,10 @@ function MakeQuoteForm({
   const [picked, setPicked] = useState<string[]>(startPicked ?? (cards.length === 1 ? [cards[0]!.id] : []));
   const chosen = cards.filter((c) => picked.includes(c.id));
   // The offer follows the picked cards until the supplier types their own.
-  const [typed, setTyped] = useState<string | null>(null);
+  const [typed, setTyped] = useState<string | null>(startOffer != null ? String(startOffer / 100) : null);
   const offerC = typed == null ? makeQuoteOfferStart(chosen) : Math.round(Number(typed.replace(/[^\d.]/g, '')) * 100) || 0;
   const [validUntil, setValidUntil] = useState<string | null>(() => makeQuoteGoodUntil(today, eventDate));
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(startNote.slice(0, 500));
   const [sending, setSending] = useState(false);
   const refusal = makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate });
 

@@ -119,6 +119,8 @@ import {
   VENDOR_PACKAGE_ITEM_SELECT,
 } from '@/lib/vendor-packages';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
+import { readShopCakeExtras } from '@/lib/cake-maker.server';
+import type { CakeExtras } from '@/lib/cake-maker';
 import { ShareButton } from './_components/share-button';
 import { ShopTopBar } from './_components/shop-top-bar';
 import { awardFact, awardsRowItems } from '@/lib/shop-award-fact';
@@ -2065,6 +2067,22 @@ export async function renderVendorBySlug({
     }
   }
 
+  // 🎂 THE CAKE MAKER (DECISION_LOG 2026-11-21 "CAKE MAKER — APPROVED TO BUILD"): a cake card's own package opens
+  // "Design your cake" instead of the plain line list. Its main button sends the design to the shop (ruling 7), so the
+  // inquiry is filed under the CARD the package belongs to — never a category match that could pick another cake card.
+  const cakeExtras =
+    bookable && coupleEventId && vendorPackages.length > 0
+      ? await readShopCakeExtras(admin, supabase, { vendorProfileId: vendor.vendor_profile_id, packages: vendorPackages, eventId: coupleEventId })
+      : new Map<string, CakeExtras>();
+  for (const [packageId, cake] of cakeExtras) {
+    packageAskTargets.set(packageId, {
+      vendorProfileId: vendor.vendor_profile_id,
+      vendorLabel: displayLabel,
+      vendorServiceId: cake.cardId,
+      categoryKey: activeServices.find((s) => s.vendor_service_id === cake.cardId)?.category ?? null,
+    });
+  }
+
   // ── Booked-Out Waitlist (Wave 4 vendor benefit) ──────────────────────────
   // When a signed-in couple's intended date is unavailable on this vendor, offer
   // a "join the waitlist" CTA. "Unavailable" = a business-wide closure (pool_id
@@ -3380,6 +3398,7 @@ export async function renderVendorBySlug({
                vendor as a question instead of locking it. Empty ⇒ the modal is
                byte-identical to today. */
             askTargets={packageAskTargets}
+            cakeExtras={cakeExtras}
             shopName={displayLabel}
           />
         ) : null}
@@ -4885,9 +4904,12 @@ function VendorPackagesSection({
   hidePrices,
   paxCount,
   askTargets,
+  cakeExtras,
   shopName,
 }: {
   packages: ReadonlyArray<ShopPagePackage>;
+  /** package_id → what "Design your cake" needs, for a cake card's own package (lib/cake-maker.server.ts). */
+  cakeExtras: ReadonlyMap<string, CakeExtras>;
   /** The name this page shows for the shop — the gift line says "Gift from <it>", as a quote does. */
   shopName: string | null;
   coupleEventId: string | null;
@@ -4939,6 +4961,7 @@ function VendorPackagesSection({
                 pkg={pkg}
                 paxCount={paxCount}
                 ask={askTargets.get(pkg.package_id) ?? null}
+                cake={cakeExtras.get(pkg.package_id) ?? null}
               />
             );
           } else {

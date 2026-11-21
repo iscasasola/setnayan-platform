@@ -158,3 +158,19 @@ export function streamLineKind(body: string | null | undefined): 'book' | 'ask' 
   if (scheduleChangeFromLine(body)) return 'schedule';
   return null;
 }
+
+// ── 🎂 The Cake Maker's design (DECISION_LOG 2026-11-21) ─────────────────────────────────────────────────────────
+
+/** The head line of a couple's "Cake design" block — the SAME words as `CAKE_DESIGN_HEAD` (lib/cake-maker.ts, pinned by its test). */
+export const CAKE_DESIGN_HEAD_WORDS = '🎂 Cake design · ';
+
+/**
+ * Where a message's cake design block starts (the index of its head line), or -1 when the message carries none. The
+ * words before it are the couple's own lead-in, which stays a bubble; the block itself is drawn as the design card.
+ */
+export function cakeDesignAt(body: string | null | undefined): number {
+  const b = body ?? '';
+  if (b.startsWith(CAKE_DESIGN_HEAD_WORDS)) return 0;
+  const i = b.indexOf(`\n${CAKE_DESIGN_HEAD_WORDS}`);
+  return i < 0 ? -1 : i;
+}

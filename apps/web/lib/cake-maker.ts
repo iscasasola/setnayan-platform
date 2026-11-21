@@ -26,6 +26,7 @@
 import { formatCentavosPhp, type VendorPackageItemOptionRow, type VendorPackageItemRow, type VendorPackageWithItems } from './vendor-packages';
 import type { DraftItem, DraftOption } from './package-authoring';
 import { choiceTotals, type ChoiceSelection } from './package-choice-tree';
+import { packageCreditEnabled } from './package-credit-flag';
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Which cards are cakes (ruling 10: cakes only)                            */
@@ -452,6 +453,24 @@ export function readCakeCard(pkg: VendorPackageWithItems): CakeCard | null {
 /** One of the couple's own Mood Board colours, named, with the board part it is (lib/cake-mood-colours.ts). */
 export type MoodCakeColour = { hex: string; name: string; slot: string; setByYou: boolean };
 
+/**
+ * What the shop page hands "Design your cake" beside the package: the card it was made on, the shop's photos for the
+ * Design options (signed), the message's letter cap (0 = the shop asks no message), the usual time, and the couple's
+ * own Mood Board colours — `null` when that read FAILED (the sheet says so; never an empty board).
+ */
+/** Said when a sent design cannot be re-read against the card (an option gone, a read failed): nothing was created. */
+export const CAKE_DESIGN_UNREADABLE =
+  "We couldn't check your design against the shop's card, so nothing was sent. Reload the page and try again.";
+
+export type CakeExtras = {
+  cardId: string;
+  cardName: string;
+  messageMax: number;
+  prepDays: number | null;
+  photoUrls: Record<string, string>;
+  mood: MoodCakeColour[] | null;
+};
+
 /** A colour the couple picked: one of the shop's options, or one of their own Mood Board colours (ruling 6). */
 export type CakeColourPick = { kind: 'shop'; optionId: string } | { kind: 'mood'; name: string; hex: string };
 
@@ -551,9 +570,16 @@ export function cakeSelection(card: CakeCard, state: CakeDesignState): { selecti
 }
 
 /** The live total — the SHIPPED `choiceTotals`. Null when the pricer refuses (the sheet then blocks Send and Book). */
-export function cakeTotalCentavos(pkg: VendorPackageWithItems, card: CakeCard, state: CakeDesignState, paxCount: number): number | null {
+export function cakeTotalCentavos(
+  pkg: VendorPackageWithItems,
+  card: CakeCard,
+  state: CakeDesignState,
+  paxCount: number,
+  // The SAME pricing model Book commits with (lock-modal + lockPackage both read packageCreditEnabled()).
+  creditEnabled: boolean = packageCreditEnabled(),
+): number | null {
   const { selection, removedItemIds } = cakeSelection(card, state);
-  return choiceTotals({ pkg, removedItemIds, selection, creditEnabled: false, paxCount })?.bookingTotalCentavos ?? null;
+  return choiceTotals({ pkg, removedItemIds, selection, creditEnabled, paxCount })?.bookingTotalCentavos ?? null;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */

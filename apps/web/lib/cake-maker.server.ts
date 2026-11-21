@@ -28,9 +28,11 @@ import {
   cakeOptionsFromDraftItems,
   cakePhotoRefs,
   formatCakeDesignBlock,
+  isCakeKind,
   readCakeCard,
   type CakeCard,
   type CakeDesignState,
+  type CakeExtras,
   type CakeOptions,
   type MoodCakeColour,
 } from '@/lib/cake-maker';
@@ -208,7 +210,8 @@ export async function buildCakeDesignBlock(
   args: { vendorProfileId: string; vendorServiceId: string; eventId: string; cardName: string; design: CakeDesignState; paxCount: number },
 ): Promise<string | null> {
   const [cake, mood] = await Promise.all([
-    readCakePackage(supabase, { vendorProfileId: args.vendorProfileId, vendorServiceId: args.vendorServiceId }, admin),
+    // The package is the shop's public offer — read it the way the shop page does (admin, scoped by shop + card).
+    readCakePackage(admin, { vendorProfileId: args.vendorProfileId, vendorServiceId: args.vendorServiceId }, admin),
     readMoodCakeColours(supabase, args.eventId),
   ]);
   if (cake.status !== 'ok') return null;
@@ -364,4 +367,75 @@ export async function cardPackageId(
     return { status: 'unread' };
   }
   return data ? { status: 'ok', data: (data as { package_id: string }).package_id } : { status: 'none' };
+}
+
+/* ──────────────────────────────────────────────────────────────────────── */
+/* The shop page — which packages are cakes, and what their sheet needs      */
+/* ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * package_id → {@link CakeExtras} for every package on the shop page that is a cake card's own package. A package whose
+ * card cannot be read is LEFT OUT (its Book sheet draws as shipped), never drawn as a cake with missing parts.
+ * Three reads for the page (the packages' cards, the cards, the couple's board), then one message read per cake card.
+ */
+export async function readShopCakeExtras(
+  admin: SupabaseClient,
+  supabase: SupabaseClient,
+  args: { vendorProfileId: string; packages: ReadonlyArray<VendorPackageWithItems>; eventId: string | null },
+): Promise<Map<string, CakeExtras>> {
+  const out = new Map<string, CakeExtras>();
+  const cakes = args.packages.map((pkg) => ({ pkg, card: readCakeCard(pkg) })).filter((x): x is { pkg: VendorPackageWithItems; card: CakeCard } => x.card !== null);
+  if (cakes.length === 0) return out;
+  const { data: links, error: linkErr } = await admin
+    .from('vendor_packages')
+    .select('package_id, vendor_service_id')
+    .eq('vendor_profile_id', args.vendorProfileId)
+    .in('package_id', cakes.map((c) => c.pkg.package_id));
+  if (linkErr) {
+    logQueryError('readShopCakeExtras.links', linkErr, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
+    return out;
+  }
+  const cardOf = new Map<string, string>();
+  for (const l of (links ?? []) as { package_id: string; vendor_service_id: string | null }[]) if (l.vendor_service_id) cardOf.set(l.package_id, l.vendor_service_id);
+  const cardIds = [...new Set(cardOf.values())];
+  if (cardIds.length === 0) return out;
+  const [cardsRes, moodRead] = await Promise.all([
+    admin
+      .from('vendor_services')
+      .select('vendor_service_id, title, category, usual_prep_days, is_active')
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .in('vendor_service_id', cardIds),
+    args.eventId ? readMoodCakeColours(supabase, args.eventId) : Promise.resolve({ status: 'none' } as Read<MoodCakeColour[]>),
+  ]);
+  if (cardsRes.error) {
+    logQueryError('readShopCakeExtras.cards', cardsRes.error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
+    return out;
+  }
+  const cards = new Map(
+    ((cardsRes.data ?? []) as { vendor_service_id: string; title: string | null; category: string | null; usual_prep_days: number | null; is_active: boolean }[])
+      .filter((c) => c.is_active && isCakeKind(c.category))
+      .map((c) => [c.vendor_service_id, c]),
+  );
+  const mood = moodRead.status === 'ok' ? moodRead.data : moodRead.status === 'none' ? [] : null;
+  await Promise.all(
+    cakes.map(async ({ pkg, card }) => {
+      const cardId = cardOf.get(pkg.package_id);
+      const row = cardId ? cards.get(cardId) : undefined;
+      if (!cardId || !row) return;
+      const [msg, photoUrls] = await Promise.all([
+        readCakeMessageQuestion(admin, { vendorProfileId: args.vendorProfileId, vendorServiceId: cardId }),
+        cakeDesignPhotoUrls(card, args.vendorProfileId),
+      ]);
+      if (msg.status === 'unread') return;
+      out.set(pkg.package_id, {
+        cardId,
+        cardName: (row.title ?? '').trim() || pkg.package_name,
+        messageMax: msg.status === 'ok' ? msg.data.maxLetters : 0,
+        prepDays: row.usual_prep_days,
+        photoUrls,
+        mood,
+      });
+    }),
+  );
+  return out;
 }

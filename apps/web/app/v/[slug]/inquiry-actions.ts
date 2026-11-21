@@ -36,6 +36,8 @@ import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
+import { buildCakeDesignBlock, sanitizeCakeDesignInput } from '@/lib/cake-maker.server';
+import { CAKE_DESIGN_UNREADABLE } from '@/lib/cake-maker';
 import { setEventPreference } from '@/lib/event-preferences';
 import {
   buildRequirementsBlock,
@@ -79,6 +81,9 @@ import {
 const PACKAGE_ASK_BODY =
   'We put together a version of your package — could you take a look and let ' +
   'us know if this works?';
+
+/** The cake design's lead-in on a conversation already in progress (Cake Maker drawing §02). */
+const CAKE_ASK_BODY = 'Hi! We designed our cake on your card 🙂';
 
 export type StartServiceInquiryResult =
   | { status: 'ok'; threadId: string; eventId: string; isExisting: boolean }
@@ -238,6 +243,12 @@ export async function startServiceInquiry(input: {
      * so it is validated at the door rather than trusted by its declaration.
      */
     packagePicks?: unknown;
+    /**
+     * 🎂 "Design your cake" (Cake Maker, DECISION_LOG 2026-11-21): the couple's picks as IDS (`CakeDesignState`) plus
+     * their message. Re-read and re-priced on the server (`buildCakeDesignBlock`); typed `unknown` for the same reason
+     * as `packagePicks`. When present and it cannot be built, nothing is created and the couple is told.
+     */
+    cakeDesign?: unknown;
   };
   /**
    * Creator Economy PR-C — CTA-click attribution. The chapter public_id
@@ -431,6 +442,37 @@ export async function startServiceInquiry(input: {
     sanitizePackagePicks(input.requirements?.packagePicks),
   );
 
+  // Live pax to snapshot onto this inquiry (Adaptive Pax Pricing Phase 3).
+  const livePax = await resolveLivePax(supabase, eventId);
+
+  // 🎂 THE CAKE DESIGN (Cake Maker ruling 7 — "Send to [shop]" is the cake sheet's main button). The browser sends ids
+  // and the couple's own words only; the block is re-read here from the card's own package and the couple's own Mood
+  // Board, and priced by the shipped pricer. A design that cannot be built honestly is REFUSED before anything is
+  // created — never sent as a thinner design, never as a thread with no design in it.
+  let cakeDesignBlock = '';
+  if (input.requirements?.cakeDesign !== undefined) {
+    const design = sanitizeCakeDesignInput(input.requirements.cakeDesign);
+    const cardTitle = ((ownedServices ?? []).find((s) => s.vendor_service_id === initialServiceId)?.title ?? '').trim();
+    const block =
+      design && !general && ownedById.has(initialServiceId)
+        ? await buildCakeDesignBlock(supabase, admin, {
+            vendorProfileId,
+            vendorServiceId: initialServiceId,
+            eventId,
+            cardName: cardTitle,
+            design,
+            paxCount: livePax ?? 0,
+          })
+        : null;
+    if (!block) {
+      return { status: 'error', message: CAKE_DESIGN_UNREADABLE };
+    }
+    cakeDesignBlock = `\n\n${block}`;
+  }
+  // The deliverable that rides this inquiry, if any: the package build or the cake design (never both — the cake sheet
+  // replaces the build list for a cake card).
+  const buildBlock = `${packagePicksBlock}${cakeDesignBlock}`;
+
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
   try {
@@ -439,8 +481,6 @@ export async function startServiceInquiry(input: {
     /* follow is the gate; the upsert below also passes for an existing thread */
   }
 
-  // Live pax to snapshot onto this inquiry (Adaptive Pax Pricing Phase 3).
-  const livePax = await resolveLivePax(supabase, eventId);
 
   const { data: thread, error: threadErr } = await supabase
     .from('chat_threads')
@@ -574,12 +614,12 @@ export async function startServiceInquiry(input: {
         dated: Boolean(theEvent?.event_date),
         // 📅 No date yet, but candidate day(s) → the message names them (walk 13 Nov 2026).
         candidateDays: theEvent?.event_date ? null : eventCandidateDays({ eventDate: null, precision: null, candidates: theEvent?.date_candidates }),
-      })}${servicesLine}${requirementsBlock}${packagePicksBlock}${bundleAsk}`,
+      })}${servicesLine}${requirementsBlock}${buildBlock}${bundleAsk}`,
     );
     // Reported only when the build was inside that message; otherwise the note
     // stays best-effort exactly as it has always been.
-    if (packagePicksBlock) buildDelivery = delivery;
-  } else if (packagePicksBlock) {
+    if (buildBlock) buildDelivery = delivery;
+  } else if (buildBlock) {
     // ── The build, on a thread that already has messages ──────────────────
     // The rule above ("only post the inquiry note on a brand-new thread") is
     // what stops a couple re-inquiring from double-posting the SAME canned
@@ -596,7 +636,7 @@ export async function startServiceInquiry(input: {
     buildDelivery = await postThreadMessage(
       supabase,
       threadId,
-      `${PACKAGE_ASK_BODY}${packagePicksBlock}`,
+      `${cakeDesignBlock ? CAKE_ASK_BODY : PACKAGE_ASK_BODY}${buildBlock}`,
     );
   }
 

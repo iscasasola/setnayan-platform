@@ -34,6 +34,9 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { bookedTelHref, bookedViberHref } from '@/lib/booked-handoff';
+import { readMyMute } from '@/lib/chat-mutes';
 import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
@@ -528,6 +531,18 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     pax_quote_base?: number | null;
   };
 
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started here beside the page's other reads; the
+  // shop's number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const shopId = ev.marketplace_vendor_id;
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = shopId
+    ? shopIsBookedOnEvent(eventId, shopId)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'couple', eventId, vendorProfileId: shopId }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
+
   // 👥 AFTER THE CLAIM (20271343652941): a booking the couple priced per guest, now a claimed shop's, follows the
   // guest list. The one line under its Price says why the total is what it is. A refused read draws no line.
   const guestFollow =
@@ -1006,6 +1021,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = chatThread ? readMyMute(supabase, chatThread.thread_id, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -3131,6 +3148,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     handoverWaiting: handoverRowsError ? undefined : handovers.some((h) => h.status === 'delivered' && !h.couple_acknowledged_at),
   });
 
+  const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
+
   return (
     <PickedSupplierShell
       eventId={eventId}
@@ -3145,6 +3165,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       workDefault={workColumnDefault({ todayIso: manilaTodayIso(), eventDate: deliverEventDate, isBooked: stage !== null })}
       nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
+      call={{ tel: bookedTelHref(bookedCall.booked, bookedCall.phone), viber: bookedViberHref(bookedCall.booked, bookedCall.phone) }}
+      mute={chatThread && myMute !== null ? { threadId: chatThread.thread_id, muted: myMute } : null}
     />
   );
 }

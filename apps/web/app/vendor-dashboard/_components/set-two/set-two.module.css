@@ -206,6 +206,9 @@ a.row:active {
 .rowTop {
   align-items: flex-start;
 }
+.rowDense {
+  min-height: 40px;
+}
 .rowIcon {
   display: grid;
   place-items: center;
@@ -568,4 +571,79 @@ a.row:active {
   .fold .foldChevron {
     transition: transform var(--sn-m-move) var(--sn-m-settle);
   }
+}
+
+/* ── the dark line: "Their event · <couple> · ✕ Close" (dark in both themes, for the part's page) ──────────────── */
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  font-size: 13px;
+  background: rgb(var(--color-ink));
+  color: rgb(var(--sn-frame-bg));
+}
+:global(html.dark) .line {
+  background: rgb(var(--sn-page-bg));
+  color: rgb(var(--color-ink));
+  box-shadow: inset 0 -1px 0 var(--m-line);
+}
+.line > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  opacity: 0.8;
+}
+.lineName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.lineClose {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  flex: none;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+.lineClose > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  border-radius: var(--m-r-full);
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.lineClose svg {
+  width: 14px;
+  height: 14px;
+}
+@media (min-width: 701px) {
+  .line {
+    display: none;
+  }
+}
+/* from 701 the dark line steps aside; the part's top row leads with a quiet round back (the drawing's computer frame) */
+.topBack {
+  display: none;
+}
+@media (min-width: 701px) {
+  .topBack {
+    display: grid;
+  }
+}
+
+/* ── a dark map pill (a sign, the Entrance): dark in both themes, as the drawing's map draws it ─────────────── */
+.mapPill {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--sn-frame-bg));
+}
+:global(html.dark) .mapPill {
+  background: rgb(var(--sn-page-bg));
+  color: rgb(var(--color-ink));
 }

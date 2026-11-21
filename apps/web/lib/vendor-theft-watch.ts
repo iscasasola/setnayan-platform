@@ -43,17 +43,21 @@ type FlagRow = {
 /**
  * Reposts of THIS vendor's portfolio, newest first. Admin-client read (the
  * table is RLS-blocked from vendors); the caller must pass the session vendor's
- * own profile id — never a caller-supplied one. Returns [] on any error / when
- * the service-role key is unavailable (CI), matching the app's read-safe pattern.
+ * own profile id — never a caller-supplied one.
+ *
+ * 🔴 NULL MEANS "NOT CHECKED", NEVER "CLEAN" (controller 21 Nov 2026, the tool pages redraw v3). This returned [] on a
+ * refused read — and the page then told the supplier *"No reposts flagged — your work is clean"* when nothing had been
+ * checked. A refused read, or no service-role key at all (CI), is `null`; only a read that ran returns rows (or []).
+ * 🔒 app/vendor-dashboard/a-failed-tool-read-is-never-clean.test.ts
  */
 export async function fetchVendorReposts(
   vendorProfileId: string,
-): Promise<VendorRepostFlag[]> {
+): Promise<VendorRepostFlag[] | null> {
   let admin;
   try {
     admin = createAdminClient();
   } catch {
-    return [];
+    return null;
   }
   const { data, error } = await admin
     .from('vendor_image_flags')
@@ -63,9 +67,9 @@ export async function fetchVendorReposts(
     .limit(100);
   if (error) {
     console.error('[supabase-error] lib/vendor-theft-watch.ts · from:vendor_image_flags.select', error);
-    return [];
+    return null;
   }
-  if (!data) return [];
+  if (!data) return null;
   return (data as FlagRow[]).map((r) => ({
     publicId: r.public_id,
     surface: r.source_surface,

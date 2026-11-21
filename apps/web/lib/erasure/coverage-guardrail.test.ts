@@ -43,11 +43,11 @@
  *      `lib/erasure/coverage.ts`. A key typed inline into a `.update({ … })`
  *      literal in `purge.ts` is INVISIBLE here — the db test is the backstop.
  *   3. ⚠ THE ENFORCED TIER IS NOT A SUPERSET OF WHAT ERASURE MUST COVER.
- *      Seven tables this purge reaches carry NO subject column at all and are
+ *      Six tables this purge reaches carry NO subject column at all and are
  *      therefore invisible to the detector: guest_face_enrollments,
- *      vendor_push_tokens, vendor_verification_applications and the four
- *      *_oauth_state tables (couple_waitlist_signups was an eighth until it was
- *      DROPPED on 2026-09-18). They are keyed by event_id / vendor_profile_id /
+ *      vendor_verification_applications and the four *_oauth_state tables
+ *      (couple_waitlist_signups was an eighth until it was DROPPED on 2026-09-18;
+ *      vendor_push_tokens left the list on 2026-11-21 when it gained `user_id`). They are keyed by event_id / vendor_profile_id /
  *      guest_id / email. So a future table
  *      shaped like the old `oauth_grants` — personal data hung off an event with
  *      no user FK — will NOT be flagged by G3. That is the residual blind spot,
@@ -138,7 +138,6 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // Keyed by guest_id — when a guest last opened the Event Hub with their own pass (Who's here, 2026-10-29). No user
   // column, so the detector cannot see it; erasure deletes it through the subject's guest ids.
   'hub_guest_views',
-  'vendor_push_tokens', // keyed by vendor_profile_id
   // Keyed by (vendor_profile_id, event_id) — the shop's crew QR (2026-10-29). Its one person column is `created_by`
   // (the issuing admin, nulled as an actor stamp in AUTHOR_UUID_NULLS), which the `*_user_id` detector cannot see.
   'vendor_crew_codes',

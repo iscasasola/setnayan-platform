@@ -10,6 +10,8 @@
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
  *   ?s=helpers         Helpers (who=parish: owner + a free Helper · studio: admins, team members, an open vote)
+ *   ?s=team            🧑‍🤝‍🧑 Team with the SIX ROLES (owner 19 Nov 2026) — a three-location styling shop, renamed roles
+ *                      &bm=1 (as its Makati Branch Manager) · ?s=roles Team › Roles (&bm=1 read-only) · ?s=rolelock a 🔒
  *   ?s=settings        Settings (&staff=1 — a scoped team member)
  *   ?s=notifs          Notifications › Recent (incl. "Someone else was booked")      &empty=1
  *   ?s=help            Help
@@ -29,6 +31,9 @@ import { verifiedV84Svg } from '@/lib/verified-v84-art';
 import { badgeArtSrc } from '@/lib/shop-badge-shelf';
 import { GIFT_LIMIT_PCT_DEFAULT } from '@/lib/setnayan-gift';
 import { notFound } from 'next/navigation';
+import { dutyOfRank, type VendorDuty, type VendorRoleNames } from '@/lib/vendor-duties';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
+import { RolesForm } from '@/app/vendor-dashboard/team/roles/roles-form';
 import { PlanRows } from '@/app/vendor-dashboard/subscription/_components/plan-rows';
 import { PlanSheet, type PlanPick, type SheetPlan } from '@/app/vendor-dashboard/subscription/_components/plan-sheet';
 import { changeKind, limitAsk, payToday, planChanges, planDirection, planRowLine, sheetPlans, type PlanLimitKey } from '@/lib/plan-sheet';
@@ -48,6 +53,7 @@ import {
   proposeAdminMotion,
   removeVendorTeamMember,
   setVendorAgentServices,
+  setVendorRoleNames,
   stepDownSelf,
   updateVendorTeamMember,
   voteAdminMotion,
@@ -299,18 +305,99 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
 }
 
 const ME = 'u-owner';
-const member = (id: string, name: string, role: VendorTeamMemberWithUser['role'], label: string | null = null): VendorTeamMemberWithUser => ({
+const member = (
+  id: string,
+  name: string,
+  role: VendorTeamMemberWithUser['role'],
+  label: string | null = null,
+  duty: VendorDuty = dutyOfRank(role),
+  branchId: string | null = null,
+): VendorTeamMemberWithUser => ({
   vendor_team_member_id: id,
   public_id: id,
   vendor_profile_id: 'vp',
   user_id: id === 'm0' ? ME : `u-${id}`,
   role,
+  duty,
+  branch_id: branchId,
   team_label: label,
   created_at: '2026-09-01',
   updated_at: '2026-09-01',
   email: `${name.split(' ')[0]!.toLowerCase()}@example.com`,
   display_name: name,
 });
+
+/** 🧑‍🤝‍🧑 The six-role shop of the #8013 drawing: Blooms & Co. Styling — Main · Quezon City, Makati, Cebu. */
+const SIX_ROLE_NAMES: VendorRoleNames = { shop_manager: 'COO', account_manager: 'Lead Stylist', marketing: 'CMO', branch_manager: 'Branch Head' };
+
+function sixRolesFixture(asBranchManager: boolean) {
+  const team = [
+    member('m0', 'Ana Reyes', 'admin', null, 'shop_manager'),
+    member('m1', 'Bea Santos', 'agent', 'Front desk', 'account_manager', 'b-makati'),
+    member('m2', 'Dina Lim', 'viewer', null, 'marketing'),
+    member('m3', 'Rico Garcia', 'agent', null, 'branch_manager', 'b-makati'),
+    member('m4', 'Carlo Cruz', 'viewer', null, 'helper', 'b-cebu'),
+    member('m5', 'Joy Tan', 'viewer', null, 'event_crew', 'b-makati'),
+  ];
+  const me = asBranchManager ? 'u-m3' : ME;
+  const visible = asBranchManager ? team.filter((m) => m.user_id === me || (m.branch_id === 'b-makati' && ['account_manager', 'event_crew', 'helper'].includes(m.duty))) : team;
+  return (
+    <HelpersView
+      userId={me}
+      founderUserId={ME}
+      enriched={visible}
+      motionData={{ motions: [], votes: [] }}
+      services={[
+        { vendor_service_id: 's1', category: 'styling', is_active: true, title: 'Wedding Styling', branch_id: 'b-makati' },
+        { vendor_service_id: 's2', category: 'styling', is_active: true, title: 'Debut Styling', branch_id: 'b-makati' },
+        { vendor_service_id: 's3', category: 'styling', is_active: true, title: 'Corporate Stage Design', branch_id: null },
+      ]}
+      assignments={{ m1: ['s1', 's2'], m3: ['s1', 's2'] }}
+      branchScope={{
+        locations: [
+          { key: 'main', label: 'Main · Quezon City' },
+          { key: 'b-makati', label: 'Makati branch' },
+          { key: 'b-cebu', label: 'Cebu branch' },
+        ],
+        wholeKeys: { m3: ['b-makati'] },
+      }}
+      seatsLine={seatLine(teamSeats(team, ME), 5)}
+      canBuySeats={false}
+      storeShell={false}
+      extraSeats={0}
+      seatFeePhp={0}
+      search={{}}
+      manager={asBranchManager ? { duty: 'branch_manager', branchId: 'b-makati' } : { duty: 'shop_manager', branchId: null }}
+      roleNames={SIX_ROLE_NAMES}
+      actions={{
+        update: updateVendorTeamMember,
+        remove: removeVendorTeamMember,
+        buySeat: buyExtraSeat,
+        vote: voteAdminMotion,
+        cancelMotion: cancelAdminMotion,
+        propose: proposeAdminMotion,
+        stepDown: stepDownSelf,
+        invite: inviteVendorTeamMember,
+        setServices: setVendorAgentServices,
+      }}
+    />
+  );
+}
+
+function rolesFixture(asBranchManager: boolean) {
+  return (
+    <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-team-roles="">
+      <h1 className="sn-h1">Roles</h1>
+      <p className="text-[14px] text-ink/65">What each role can do. Give it your shop’s own name — it shows on every card of that role.</p>
+      <p className="mt-3 text-[13.5px] text-[color:var(--m-slate-2)]">Pro · Main · Quezon City + Makati branch + Cebu branch · 1 Helper free</p>
+      {asBranchManager ? (
+        <RoleLock duty="branch_manager" names={SIX_ROLE_NAMES} capability="role_names" className="mt-4" />
+      ) : (
+        <RolesForm names={SIX_ROLE_NAMES} action={setVendorRoleNames} />
+      )}
+    </section>
+  );
+}
 
 function helpersFixture(who: Who) {
   const team =
@@ -478,6 +565,15 @@ export default async function SupplierPlanLabPage({
     );
   }
   else if (s === 'helpers') return helpersFixture(who);
+  else if (s === 'team') return sixRolesFixture(sp.bm === '1');
+  else if (s === 'roles') return rolesFixture(sp.bm === '1');
+  else if (s === 'rolelock')
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6">
+        <h1 className="sn-h1">Your plan</h1>
+        <RoleLock duty="account_manager" names={SIX_ROLE_NAMES} capability="plan" className="mt-4" />
+      </section>
+    );
   else if (s === 'settings')
     body = (
       <SettingsView

@@ -88,3 +88,11 @@ Owner 20 Nov: *"return the booking fee line bar … show them the 100,000 lock"*
 - Not built: the "every 100,000th fee" switch — live in billing, but this page does not read its N yet.
 
 SPEC IMPACT: None (implements the approved drawing).
+
+### 2026-11-21 · catch-up after batch D — the lock and the payment ceiling, both kept
+- #8035's ceiling (`max_payment_php`, owner 17 Nov) went live while this PR waited. The fee is now held to the LOWER of
+  its own lock (`booking_fee_cap_php`, 20 Nov) and that ceiling — in `bookingFeeCapPhp` and, in SQL, in
+  `booking_fee_centavos`, `booking_fee_flat_centavos`, the summary and the stored basis. At the ruled values both are
+  ₱100,000, so no number moves. ⚠ Migration `20271356196197` changed for this.
+- `no-payment-to-setnayan-above-the-ceiling.test.ts` now checks the newest migration defining each fee function
+  still reads `max_payment_php` (red on sabotage of either function).

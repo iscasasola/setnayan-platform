@@ -35,7 +35,23 @@ test('the TAPER — the owner\u2019s own worked examples', () => {
   assert.equal(bookingFeePhp(60_000), 3_000);      // all inside the 5% band
   assert.equal(bookingFeePhp(300_000), 7_000);     // 5,000 + 1% of 200,000
   assert.equal(bookingFeePhp(1_000_000), 14_000);  // 5,000 + 1% of 900,000
-  assert.equal(bookingFeePhp(10_000_000), 104_000);// 5,000 + 1% of 9,900,000
+  // ⚖ The fourth example is superseded by the ceiling (owner 2026-11-17: the
+  // booking fee can never exceed ₱100,000): 5,000 + 1% of 9,900,000 → capped.
+  assert.equal(bookingFeePhp(10_000_000), 100_000);
+});
+
+test('THE CEILING — the fee never exceeds max_payment_php, and exactly it is allowed', () => {
+  // Owner 2026-11-17: "can never exceed ₱100,000" — exactly ₱100,000 is allowed.
+  assert.equal(bookingFeePhp(9_600_000), 100_000); // 5,000 + 95,000 — exactly the ceiling
+  assert.equal(bookingFeePhp(9_600_100), 100_000); // one peso over is capped, not refused
+  assert.equal(bookingFeePhp(50_000_000), 100_000);
+  assert.equal(bookingFeePhp(9_500_000), 99_000); // under the ceiling: the taper untouched
+  // The admin setting moves it (a schedule read from platform_settings).
+  assert.equal(bookingFeePhp(10_000_000, { ...BOOKING_FEE, maxPhp: 50_000 }), 50_000);
+  // A schedule built WITHOUT the field still caps at the ruled default.
+  const { maxPhp: _drop, ...noMax } = BOOKING_FEE;
+  void _drop;
+  assert.equal(bookingFeePhp(10_000_000, noMax), 100_000);
 });
 
 test('the 5% band applies in full below \u20b1100,000', () => {

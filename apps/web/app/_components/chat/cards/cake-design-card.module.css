@@ -3,35 +3,35 @@
  * The supplier blue and its navy dark pair. The cake keeps its real colours in both themes; only its stage follows.
  */
 .rcard {
-  --card: #ffffff;
-  --tile: #dce6f2;
-  --ghost: #e8f0fa;
-  --ink: #101b30;
-  --ink2: #566275;
-  --acc: #2272e6;
-  --accw: #175ab9;
-  --onacc: #ffffff;
-  --danger: #b3261e;
-  --stage: #eef2f8;
-  --shadow: 0 10px 26px -14px rgb(16 27 48 / 0.18);
+  --cake-card: #ffffff;
+  --cake-tile: #dce6f2;
+  --cake-ghost: #e8f0fa;
+  --cake-ink: #101b30;
+  --cake-ink2: #566275;
+  --cake-acc: #2272e6;
+  --cake-accw: #175ab9;
+  --cake-onacc: #ffffff;
+  --cake-danger: #b3261e;
+  --cake-stage: #eef2f8;
+  --cake-shadow: 0 10px 26px -14px rgb(16 27 48 / 0.18);
   max-width: 420px;
   margin: 8px 0;
-  background: var(--card);
-  color: var(--ink);
+  background: var(--cake-card);
+  color: var(--cake-ink);
   border-radius: var(--m-r-md);
   padding: 14px;
-  box-shadow: var(--shadow), 0 0 0 1px rgb(16 27 48 / 0.06);
+  box-shadow: var(--cake-shadow), 0 0 0 1px rgb(16 27 48 / 0.06);
 }
 :global(html.dark) .rcard {
-  --card: #172338;
-  --tile: #1f2f4a;
-  --ghost: #283a58;
-  --ink: #eef2f8;
-  --ink2: #b4bece;
-  --accw: #7db1ff;
-  --danger: #ff8a80;
-  --stage: #0d1626;
-  --shadow: none;
+  --cake-card: #172338;
+  --cake-tile: #1f2f4a;
+  --cake-ghost: #283a58;
+  --cake-ink: #eef2f8;
+  --cake-ink2: #b4bece;
+  --cake-accw: #7db1ff;
+  --cake-danger: #ff8a80;
+  --cake-stage: #0d1626;
+  --cake-shadow: none;
 }
 .rh {
   display: flex;
@@ -44,10 +44,10 @@
   font-size: 16px;
 }
 .ic {
-  color: var(--accw);
+  color: var(--cake-accw);
 }
 .icFail {
-  color: var(--danger);
+  color: var(--cake-danger);
 }
 .chip {
   display: inline-flex;
@@ -56,8 +56,8 @@
   font-weight: 700;
   border-radius: var(--m-r-full);
   padding: 3px 10px;
-  background: var(--ghost);
-  color: var(--accw);
+  background: var(--cake-ghost);
+  color: var(--cake-accw);
 }
 .stage {
   margin: 4px 0 8px;
@@ -71,14 +71,14 @@
 .rr > span {
   flex: none;
   width: 76px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .rr b {
   font-weight: 600;
   min-width: 0;
 }
 .rr small {
-  color: var(--ink2);
+  color: var(--cake-ink2);
   font-weight: 500;
 }
 .dots {
@@ -98,11 +98,11 @@
   justify-content: space-between;
   margin: 8px 2px 2px;
   padding-top: 8px;
-  border-top: 1px solid var(--tile);
+  border-top: 1px solid var(--cake-tile);
 }
 .rt span {
   font-size: 13px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .rt b {
   font-size: 20px;
@@ -114,7 +114,7 @@
   gap: 6px;
   align-items: flex-start;
   font-size: 13px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .lline svg {
   flex: none;
@@ -128,7 +128,7 @@
 }
 .meta {
   font-size: 12px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   margin: 8px 2px 0;
 }
 .ghost {

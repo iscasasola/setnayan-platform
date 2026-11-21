@@ -14,43 +14,43 @@
   background: var(--sn-scrim);
 }
 .root {
-  --page: #f7f5f4;
-  --card: #ffffff;
-  --ghost: #f1ece8;
-  --ink: #2c2a29;
-  --ink2: #6b6560;
-  --acc: #c24e25;
-  --accw: #a8431f;
-  --warn: #8a5a00;
-  --warnt: #fbf0dc;
-  --ok: #2b744a;
-  --stage: #f1e9e2;
-  --shadow: 0 10px 26px -14px rgb(44 42 41 / 0.18);
+  --cake-page: #f7f5f4;
+  --cake-card: #ffffff;
+  --cake-ghost: #f1ece8;
+  --cake-ink: #2c2a29;
+  --cake-ink2: #6b6560;
+  --cake-acc: #c24e25;
+  --cake-accw: #a8431f;
+  --cake-warn: #8a5a00;
+  --cake-warnt: #fbf0dc;
+  --cake-ok: #2b744a;
+  --cake-stage: #f1e9e2;
+  --cake-shadow: 0 10px 26px -14px rgb(44 42 41 / 0.18);
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--page);
-  color: var(--ink);
+  background: var(--cake-page);
+  color: var(--cake-ink);
 }
 .root:focus {
   outline: none;
 }
 :global(html.dark) .root {
-  --page: #121110;
-  --card: #1c1a16;
-  --ghost: #2b2722;
-  --ink: #f3eee9;
-  --ink2: #b9b0a6;
-  --acc: #ee8456;
-  --accw: #f2a07d;
-  --warn: #f2a93b;
-  --warnt: rgb(242 169 59 / 0.15);
-  --ok: #6fd29b;
-  --stage: #221f1a;
-  --shadow: none;
+  --cake-page: #121110;
+  --cake-card: #1c1a16;
+  --cake-ghost: #2b2722;
+  --cake-ink: #f3eee9;
+  --cake-ink2: #b9b0a6;
+  --cake-acc: #ee8456;
+  --cake-accw: #f2a07d;
+  --cake-warn: #f2a93b;
+  --cake-warnt: rgb(242 169 59 / 0.15);
+  --cake-ok: #6fd29b;
+  --cake-stage: #221f1a;
+  --cake-shadow: none;
 }
 /* The designer rises over the chat (MOTION_STANDARD: Move 320, Settle); reduced motion is a 120 ms fade. No fill-mode:
    a held transform would become the containing block for the fixed sheets inside. */
@@ -118,7 +118,7 @@
 }
 .headT small {
   font-size: 13px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .reset {
   display: inline-flex;
@@ -128,11 +128,11 @@
   min-height: 36px;
   padding: 0 12px;
   border-radius: var(--m-r-full);
-  background: var(--card);
-  color: var(--ink);
+  background: var(--cake-card);
+  color: var(--cake-ink);
   font-size: 13px;
   font-weight: 700;
-  box-shadow: var(--shadow);
+  box-shadow: var(--cake-shadow);
 }
 .iconBtn {
   display: inline-grid;
@@ -141,7 +141,7 @@
   height: 44px;
   flex: none;
   border-radius: var(--m-r-full);
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 
 /* phone: one column, the cake on top; computer: side by side */
@@ -153,7 +153,7 @@
 }
 .stageCol {
   flex: none;
-  background: var(--stage);
+  background: var(--cake-stage);
   padding: 6px 0 8px;
 }
 .stage {
@@ -168,7 +168,7 @@
   text-align: center;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .insp {
   display: flex;
@@ -177,8 +177,8 @@
   margin: 0 12px 6px;
   padding: 6px;
   border-radius: var(--m-r-md);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  background: var(--cake-card);
+  box-shadow: var(--cake-shadow);
 }
 .insp img {
   width: 48px;
@@ -196,7 +196,7 @@
 }
 .insp small {
   font-size: 12px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .panel {
   flex: 1;
@@ -238,13 +238,13 @@
   min-height: 36px;
   padding: 0 14px;
   border-radius: var(--m-r-full);
-  background: var(--ghost);
+  background: var(--cake-ghost);
   font-size: 13.5px;
   font-weight: 600;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .stepBtn[aria-pressed='true'] {
-  background: var(--acc);
+  background: var(--cake-acc);
   color: #ffffff;
 }
 :global(html.dark) .stepBtn[aria-pressed='true'] {
@@ -276,17 +276,17 @@
 .hint {
   font-size: 13px;
   font-weight: 500;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .sub {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   margin: 12px 2px 6px;
 }
 .note {
   font-size: 12.5px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   margin: 8px 2px 0;
 }
 .warn {
@@ -296,8 +296,8 @@
   margin: 8px 0 0;
   padding: 8px 12px;
   border-radius: var(--m-r-md);
-  background: var(--warnt);
-  color: var(--warn);
+  background: var(--cake-warnt);
+  color: var(--cake-warn);
   font-size: 13px;
   font-weight: 600;
   flex-basis: 100%;
@@ -327,8 +327,8 @@
   justify-content: center;
   gap: 1px;
   border-radius: var(--m-r-md);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  background: var(--cake-card);
+  box-shadow: var(--cake-shadow);
   text-align: center;
 }
 .pill b {
@@ -337,14 +337,14 @@
 }
 .pill small {
   font-size: 11.5px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   line-height: 1.15;
 }
 .pill[aria-checked='true'] {
-  box-shadow: inset 0 0 0 2px var(--acc);
+  box-shadow: inset 0 0 0 2px var(--cake-acc);
 }
 .pill[aria-checked='true'] b {
-  color: var(--accw);
+  color: var(--cake-accw);
 }
 .pill:disabled {
   opacity: 0.45;
@@ -353,20 +353,20 @@
   min-height: 36px;
   padding: 0 12px;
   border-radius: var(--m-r-full);
-  background: var(--ghost);
+  background: var(--cake-ghost);
   font-size: 13px;
   font-weight: 600;
 }
 .chipBtn[aria-checked='true'] {
-  background: var(--card);
-  box-shadow: inset 0 0 0 2px var(--acc);
-  color: var(--accw);
+  background: var(--cake-card);
+  box-shadow: inset 0 0 0 2px var(--cake-acc);
+  color: var(--cake-accw);
 }
 .tier {
   margin-top: 10px;
   padding: 12px;
   border-radius: var(--m-r-md);
-  background: var(--ghost);
+  background: var(--cake-ghost);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -390,8 +390,8 @@
   gap: 6px;
   padding: 10px;
   border-radius: var(--m-r-md);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  background: var(--cake-card);
+  box-shadow: var(--cake-shadow);
 }
 .swl .sub,
 .swl .note {
@@ -418,14 +418,14 @@
 }
 .sw small {
   font-size: 10.5px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   line-height: 1.1;
 }
 .sw[aria-checked='true'] {
-  background: var(--ghost);
+  background: var(--cake-ghost);
 }
 .sw[aria-checked='true'] i {
-  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc);
+  box-shadow: 0 0 0 2px var(--cake-card), 0 0 0 4px var(--cake-acc);
 }
 
 /* message + notes */
@@ -436,8 +436,8 @@
   align-items: center;
   padding: 8px 14px;
   border-radius: var(--m-r-md);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  background: var(--cake-card);
+  box-shadow: var(--cake-shadow);
 }
 .area {
   flex-direction: column;
@@ -462,13 +462,13 @@
 .box small,
 .area small {
   font-size: 12px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .prep {
   display: flex;
   gap: 8px;
   font-size: 13px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   margin: 18px 2px 8px;
 }
 
@@ -489,21 +489,21 @@
   gap: 4px;
   padding: 16px;
   border-radius: var(--m-r-md);
-  background: var(--card);
-  box-shadow: var(--shadow);
+  background: var(--cake-card);
+  box-shadow: var(--cake-shadow);
   text-align: left;
-  color: var(--accw);
+  color: var(--cake-accw);
 }
 .way b {
   font-size: 16px;
-  color: var(--ink);
+  color: var(--cake-ink);
 }
 .way small {
   font-size: 13px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .way[aria-checked='true'] {
-  box-shadow: inset 0 0 0 2px var(--acc);
+  box-shadow: inset 0 0 0 2px var(--cake-acc);
 }
 .way:disabled {
   opacity: 0.55;
@@ -528,11 +528,11 @@
 }
 .photo small {
   font-size: 12px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
   padding: 0 2px;
 }
 .photo[aria-checked='true'] img {
-  box-shadow: 0 0 0 2px var(--page), 0 0 0 4px var(--acc);
+  box-shadow: 0 0 0 2px var(--cake-page), 0 0 0 4px var(--cake-acc);
 }
 
 /* the total bar */
@@ -543,7 +543,7 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
-  background: var(--card);
+  background: var(--cake-card);
   box-shadow: 0 -8px 20px -16px rgb(0 0 0 / 0.3);
 }
 .tot {
@@ -554,7 +554,7 @@
 }
 .tot small {
   font-size: 11.5px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .tot b {
   font-size: 20px;
@@ -566,7 +566,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  color: var(--ok);
+  color: var(--cake-ok);
   font-size: 13.5px;
   font-weight: 600;
 }
@@ -583,7 +583,7 @@
   gap: 8px;
   min-height: 48px;
   font-size: 13.5px;
-  color: var(--ink2);
+  color: var(--cake-ink2);
 }
 .demoBar span {
   flex: 1;

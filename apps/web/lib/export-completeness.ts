@@ -64,6 +64,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_message_hearts', decision: 'exported', as: 'chat_message_hearts' },
   // 🗳 The votes this subject cast on chat polls (2026-11-11) — read on `voter_user_id`.
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
+  // 🎂 The couple's own cake design, sent from the chat (Cake Maker v6) — their picks, their words, its estimate.
+  { table: 'cake_designs', decision: 'exported', as: 'cake_designs_sent' },
   { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
   // ⏭ This subject's own "Do it tomorrow" on an event's Today (2026-11-20) — read on `user_id`.
   { table: 'event_today_put_offs', decision: 'exported', as: 'event_today_put_offs' },

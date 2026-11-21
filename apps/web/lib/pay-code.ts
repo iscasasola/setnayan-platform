@@ -53,24 +53,3 @@ export function payCodeBoxShown(p: {
 }): boolean {
   return p.awaitingPayment && !p.sentOrWaiting && p.mayaCheckout === 'none' && !p.codeApplied && !p.quoted;
 }
-
-/**
- * Step 1's "What happens next" — it follows the route the page is about to show. Maya open: pay on Maya's page, come
- * straight back, it switches on when paid. Maya closed or fallen back: the shipped BDO words (scan · upload · confirmed).
- */
-export function payNextSteps(o: { mayaOpen: boolean; scanStep: string; activates: string }): {
-  steps: [string, string, string];
-  /** The "Put SN… in the transfer note" line — a bank transfer only; Maya carries the reference itself. */
-  showTransferNote: boolean;
-} {
-  if (o.mayaOpen) {
-    return {
-      steps: ['Pay on Maya’s secure page', 'Come straight back for your receipt — nothing to upload', 'It switches on the moment it’s paid'],
-      showTransferNote: false,
-    };
-  }
-  return {
-    steps: [o.scanStep, 'Upload the screenshot of your payment receipt — nothing to type.', o.activates],
-    showTransferNote: true,
-  };
-}

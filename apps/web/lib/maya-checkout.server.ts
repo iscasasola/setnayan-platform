@@ -131,12 +131,7 @@ export function mayaSettleDeps(
       // A supplier plan switches on through `approve_vendor_subscription`, which
       // needs an admin's OWN session (lib/sku-activation.ts) — a gateway has
       // none, so the plan would be paid and stay off. Those wait for a press.
-      return {
-        amountPhp: payable.amountPhp,
-        status: payable.status,
-        needsAdminToActivate: payable.isVendorPlan,
-        ownerUserId: payable.ownerUserId,
-      };
+      return { amountPhp: payable.amountPhp, status: payable.status, needsAdminToActivate: payable.isVendorPlan };
     },
     verifyById: (id) => fetchMayaPayment(config, id, fetchImpl),
     verifyByReference: (ref) => fetchMayaPaymentsByReference(config, ref, fetchImpl),
@@ -203,6 +198,7 @@ export function mayaSettleDeps(
     },
     approve,
     buyerIsInternal: (userId) => isInternalUser(userId),
+    ownerIsInternal: (orderId) => orderOwnerIsInternal(orderId),
     async notifyAdmins({ orderId, amountPhp }) {
       await notifyAdminsPaymentProofSubmitted({ orderId, eventId: '', amountPhp, channel: MAYA_CHANNEL });
     },
@@ -266,6 +262,21 @@ export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
  * Is this account internal (`users.is_internal` — the owner and the team, § 10a)? On SANDBOX keys only they see Maya
  * and only their test payments approve themselves (ship review @019beef4a, HIGH). A refused read answers "no".
  */
+/** The ORDER's owning account (`orders.user_id`) is internal. Fails closed: a refused read or no row is false. */
+export async function orderOwnerIsInternal(orderId: string): Promise<boolean> {
+  try {
+    const { data, error } = await createAdminClient().from('orders').select('user_id').eq('order_id', orderId).maybeSingle();
+    if (error) {
+      console.error('[maya] order owner read refused', error.message);
+      return false;
+    }
+    const owner = (data as { user_id?: string | null } | null)?.user_id;
+    return owner ? await isInternalUser(owner) : false;
+  } catch {
+    return false;
+  }
+}
+
 export async function isInternalUser(userId: string): Promise<boolean> {
   try {
     const { data, error } = await createAdminClient().from('users').select('is_internal').eq('user_id', userId).maybeSingle();

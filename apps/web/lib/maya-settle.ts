@@ -58,8 +58,6 @@ export type OwedNow = {
   status: string;
   /** A supplier plan's activation needs an admin's own session (see sku-activation). */
   needsAdminToActivate: boolean;
-  /** Whose order it is (`orders.user_id`) — on SANDBOX keys the owner must be internal too, not only the payer. */
-  ownerUserId: string | null;
 };
 
 export type ApproveOutcome = { ok: true } | { ok: false; message: string };
@@ -89,6 +87,12 @@ export type MayaSettleDeps = {
   approve(args: { paymentId: string; buyerUserId: string; note: string }): Promise<ApproveOutcome>;
   /** Is this account internal (`users.is_internal`)? Only they may be approved on SANDBOX keys. */
   buyerIsInternal(userId: string): Promise<boolean>;
+  /**
+   * Is the ORDER's owning account (`orders.user_id`) internal? Read server-side; any failure answers false (queue).
+   * On SANDBOX keys BOTH the payer and the owner must be internal, so an internal tester paying on a real couple's
+   * order never marks it paid (controller 21 Nov).
+   */
+  ownerIsInternal(orderId: string): Promise<boolean>;
   /** The admins are told whenever money is waiting for them (approved or queued). */
   notifyAdmins(args: { orderId: string; amountPhp: number }): Promise<void>;
 };
@@ -222,12 +226,10 @@ export async function settleMayaPayment(
       reason = 'Paid and confirmed by Maya. A supplier plan needs an admin’s press to switch on.';
     } else if (
       row.environment === 'sandbox' &&
-      !(owed.ownerUserId && (await deps.buyerIsInternal(row.user_id)) && (await deps.buyerIsInternal(owed.ownerUserId)))
+      !((await deps.buyerIsInternal(row.user_id)) && (await deps.ownerIsInternal(row.order_id)))
     ) {
-      // 🔒 A SANDBOX "PAID" MOVED NO MONEY (ship review @019beef4a, HIGH). Only an internal account's test, on an
-      // internal account's OWN order, may approve itself (ship review @3ca46aa6e, item 3: an internal coordinator paying
-      // a real couple's order is still a test card). Anyone else's order — or an owner we could not read — waits for an
-      // admin: never activated, receipted or paid out on a test card.
+      // 🔒 A SANDBOX "PAID" MOVED NO MONEY (ship review @019beef4a, HIGH). Only an internal account's test may approve
+      // itself; anyone else's order waits for an admin — never activated, receipted or paid out on a test card.
       reason = 'Sandbox payment — Maya test keys, no money moved. Approve only if this was a test.';
     }
   }

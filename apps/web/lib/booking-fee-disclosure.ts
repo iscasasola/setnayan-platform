@@ -49,7 +49,7 @@ import { monthDay } from '@/lib/format-date';
 import { feeEnforcementSentence } from '@/lib/event-access-stage';
 import { freeWindowEndsLabel } from './booking-fee-free-window';
 import { TOP_UP_WORDS, topUpStage } from './booking-fee-top-up';
-import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
+import { FEE_FREE_RULE, feeFreeRuleInApp } from '@/lib/booking-fee-who-words';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    1 · WHERE A SUPPLIER STANDS WITH THE FEE, ON ONE BOOKING
@@ -70,7 +70,11 @@ import { FEE_FREE_RULE } from '@/lib/booking-fee-who-words';
  */
 export type BookingFeeStanding =
   | { kind: 'silent' }
-  | { kind: 'not_sourced' }
+  /**
+   * `newClientFreeMonths` — the new-client window's length (`platform_settings.booking_fee_new_client_free_months`),
+   * so the notice before Agree can name it in the supplier's own app. Absent = not read: the words name no months.
+   */
+  | { kind: 'not_sourced'; newClientFreeMonths?: number }
   /**
    * Inside the free-5. ⚠ CARRIES THE SCHEDULE, like `billable` — owner,
    * 2026-09-20: *"still tell them that there should be a booking fee. but this
@@ -304,7 +308,9 @@ export function bookingFeeForecast(
           // every repeat, so the old line (every returning client is free) was untrue. Say who is free, by how they found you.
           // ⟲ 16 Nov (d4899cd5 · 9fe95ebe · answer 3): a free booking is now one of the three free cases, not "found
           // outside Setnayan" — say the rule, from the one place the words live.
-          'This booking is one of your free ones. ' + FEE_FREE_RULE,
+          // 📅 The supplier's own app: the new-client window is named with its length, read from settings
+          // (2026-11-16 "A NEW ACCOUNT IS FREE FOR ONE YEAR"; never on a public page — 2026-11-19 PROMOTION PAGES (4)).
+          'This booking is one of your free ones. ' + feeFreeRuleInApp(standing.newClientFreeMonths),
       };
 
     /*

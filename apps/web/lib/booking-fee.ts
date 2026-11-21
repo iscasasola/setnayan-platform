@@ -76,6 +76,14 @@ export type BookingFeeSchedule = {
    */
   capPhp?: number;
   /**
+   * THE NEW-CLIENT FREE WINDOW (owner 2026-11-16): months a client whose Setnayan account a shop's import created books
+   * THAT shop free, from the import. `platform_settings.booking_fee_new_client_free_months`, the column
+   * `booking_fee_new_client_window_covers` reads. ⚠ DELIBERATELY NOT IN `BOOKING_FEE`: absent means "not read", and
+   * the copy then names no number of months (`feeFreeRuleInApp`) — never a default dressed as today's figure. Named
+   * only in the supplier's own app and receipts, never on a public page (2026-11-19 PROMOTION PAGES (4)).
+   */
+  newClientFreeMonths?: number;
+  /**
    * ⚖ THE CEILING (owner 2026-11-17): the booking fee can never exceed ₱100,000.
    * It is the admin setting `platform_settings.max_payment_php` — the same number
    * that bounds every payment to Setnayan — read by `getBookingFeeSchedule`.

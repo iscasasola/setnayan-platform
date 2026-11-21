@@ -25,7 +25,7 @@ export const PAPIC_HEAD_LABEL = 'Papic';
 /** The three positions, in order — the dropdown's options. `short` is the head's compact button. */
 export const PAPIC_HEAD_OPTIONS: ReadonlyArray<{ key: PapicHeadPosition; label: string; short: string }> = [
   { key: 'off', label: 'Off', short: 'Off' },
-  { key: 'eventday', label: 'On — event day', short: 'Event day' },
+  { key: 'eventday', label: 'On — event day', short: 'On — event day' }, // controller 21 Nov: the head pill reads the drawing's words
   { key: 'now', label: 'On — everyone, now', short: 'Now' },
 ];
 

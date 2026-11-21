@@ -35,7 +35,8 @@ function PlanBody({
   split,
   backLabel = 'Back to my services',
   inSheet = false,
-}: PlanProps & { headingId: string; inSheet?: boolean }) {
+  noButtons = false,
+}: PlanProps & { headingId: string; inSheet?: boolean; noButtons?: boolean }) {
   const tip = whatEachPlanHolds();
   return (
     <div className="grid gap-3" data-open-shop-plan-sheet="">
@@ -99,54 +100,25 @@ function PlanBody({
       <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
         All of it stays on until that booking is done. Then {main} stays free; {split.held.name} keeps the rest.
       </p>
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={agreed}
-        onClick={() => onAgree(!agreed)}
-        className="flex min-h-11 items-center gap-2 text-left text-[13.5px]"
-        style={{ color: 'var(--m-ink)' }}
-        aria-describedby={error ? 'open-shop-err-plan' : undefined}
-        data-open-shop-plan-agree=""
-      >
-        <span
-          aria-hidden
-          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-          style={{
-            borderColor: agreed ? 'var(--m-mulberry)' : 'var(--m-slate-3)',
-            background: agreed ? 'var(--m-mulberry)' : 'var(--m-paper)',
-            color: 'var(--m-paper)',
-          }}
-        >
-          {agreed ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
-        </span>
-        <span>I understand how this works.</span>
-      </button>
-      {error ? (
-        <span
-          id="open-shop-err-plan"
-          className="flex items-start gap-1.5 text-xs"
-          style={{ color: 'var(--m-mulberry-deep)' }}
-          role="alert"
-          data-open-shop-field-error="plan"
-        >
-          <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-          <span>{error}</span>
-        </span>
-      ) : null}
-      <button
-        type="button"
-        onClick={onContinue}
-        className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
-        data-open-shop-plan-continue=""
-      >
-        Continue
-        <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-      </button>
-      {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
-      <span className="flex justify-center">
-        <ActionButton tone="neutral" icon={ArrowLeft} label={backLabel} onClick={onBack} />
-      </span>
+      <PlanAgree agreed={agreed} onAgree={onAgree} error={error} />
+      {/* On the onboarding's last screen ("You're all set") the screen's own bar carries the action — no second pair. */}
+      {noButtons ? null : (
+        <>
+          <button
+            type="button"
+            onClick={onContinue}
+            className="button-primary inline-flex h-12 w-full items-center justify-center gap-2 rounded-full text-sm"
+            data-open-shop-plan-continue=""
+          >
+            Continue
+            <ArrowRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+          </button>
+          {/* BUTTON_RULE (v18): an action is a pill, grey for going back. */}
+          <span className="flex justify-center">
+            <ActionButton tone="neutral" icon={ArrowLeft} label={backLabel} onClick={onBack} />
+          </span>
+        </>
+      )}
     </div>
   );
 }
@@ -201,6 +173,64 @@ export function PlanInline(p: PlanProps) {
   return (
     <div className="os-in-r max-w-[620px] py-1" data-claim-door-plan="">
       <PlanBody {...p} headingId="claim-door-plan-title" />
+    </div>
+  );
+}
+
+/**
+ * 🚪 "YOU'RE ALL SET" — THE PLAN SITS ON THE LAST SCREEN (owner 2026-11-19, supplier onboarding v3/v4). The same body
+ * as the sheet and the claim slide; the screen's own bar opens the shop, so it draws no Continue / Back of its own.
+ */
+export function PlanOnLastScreen(p: Omit<PlanProps, 'onContinue' | 'onBack'>) {
+  return (
+    <div className="max-w-[620px] py-1" data-onboarding-plan="">
+      <PlanBody {...p} onContinue={() => undefined} onBack={() => undefined} headingId="onboarding-plan-title" noButtons />
+    </div>
+  );
+}
+
+/**
+ * "I understand how this works." — the plan's tick. PB5 draws it on the last screen for EVERY new shop; with picks over
+ * Free's limit it sits inside the plan (`PlanBody`), otherwise on its own. One tick, one refusal sentence.
+ */
+export function PlanAgree({ agreed, onAgree, error }: { agreed: boolean; onAgree: (a: boolean) => void; error: string | null }) {
+  return (
+    <div className="grid gap-1" data-open-shop-plan-tick="">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={agreed}
+          onClick={() => onAgree(!agreed)}
+          className="flex min-h-11 items-center gap-2 text-left text-[13.5px]"
+          style={{ color: 'var(--m-ink)' }}
+          aria-describedby={error ? 'open-shop-err-plan' : undefined}
+          data-open-shop-plan-agree=""
+        >
+          <span
+            aria-hidden
+            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
+            style={{
+              borderColor: agreed ? 'var(--m-mulberry)' : 'var(--m-slate-3)',
+              background: agreed ? 'var(--m-mulberry)' : 'var(--m-paper)',
+              color: 'var(--m-paper)',
+            }}
+          >
+            {agreed ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+          </span>
+          <span>I understand how this works.</span>
+        </button>
+        {error ? (
+          <span
+            id="open-shop-err-plan"
+            className="flex items-start gap-1.5 text-xs"
+            style={{ color: 'var(--m-mulberry-deep)' }}
+            role="alert"
+            data-open-shop-field-error="plan"
+          >
+            <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+            <span>{error}</span>
+          </span>
+        ) : null}
     </div>
   );
 }

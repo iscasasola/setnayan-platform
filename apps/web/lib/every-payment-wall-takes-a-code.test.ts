@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PAY_CODE_COVERS_ALL, PAY_CODE_UNCHECKED, payCodeBoxShown, payCodeOpenFor, payNextSteps } from './pay-code';
+import { PAY_CODE_COVERS_ALL, PAY_CODE_UNCHECKED, payCodeBoxShown, payCodeOpenFor } from './pay-code';
 import { orderGrossOwed } from './orders';
 
 const WEB = join(__dirname, '..');
@@ -69,18 +69,24 @@ test('₱0 — a code that covers the whole price is refused before anything is 
   assert.match(PAY_CODE_COVERS_ALL, /message us/);
 });
 
-test('step 1 follows the route: Maya open → Maya’s words; Maya closed or fallen back → the BDO words', () => {
-  const maya = payNextSteps({ mayaOpen: true, scanStep: 'Scan the code', activates: 'It switches on when confirmed.' });
-  assert.deepEqual(maya.steps, ['Pay on Maya’s secure page', 'Come straight back for your receipt — nothing to upload', 'It switches on the moment it’s paid']);
-  assert.equal(maya.showTransferNote, false, 'the “Put SN… in the transfer note” line under a Maya payment');
-  const bdo = payNextSteps({ mayaOpen: false, scanStep: 'Scan the code', activates: 'It switches on when confirmed.' });
-  assert.deepEqual(bdo.steps, ['Scan the code', 'Upload the screenshot of your payment receipt — nothing to type.', 'It switches on when confirmed.']);
-  assert.equal(bdo.showTransferNote, true);
-  assert.match(PAGE, /const next = payNextSteps\(\{ mayaOpen, scanStep: words\.scanStep, activates \}\);/);
-  assert.match(PAGE, /\{next\.showTransferNote \? <p className="mt-2 text-xs text-ink\/70">\{words\.note\}<\/p> : null\}/);
-  // mayaOpen is decided BEFORE step 1 is built, and only once.
-  assert.ok(PAGE.indexOf('const mayaOpen =') < PAGE.indexOf('const summary = ('));
-  assert.equal(PAGE.match(/const mayaOpen =/g)?.length, 1);
+test('MAYA IN TWO TAPS: with Maya open the first render is the v3 pay page — no step 1, no Continue, no stepper', () => {
+  const MAYA_STAGE = read('app/pay/[reference]/_components/maya-pay-stage.tsx');
+  const mayaBlock = PAGE.slice(PAGE.indexOf('{!waiting && !overCeiling && mayaOpen && ('), PAGE.indexOf('{!waiting && !overCeiling && !mayaOpen && ('));
+  assert.ok(mayaBlock.length > 100, 'the Maya route no longer renders its own page');
+  assert.match(mayaBlock, /<MayaPayStage/);
+  assert.match(mayaBlock, /code=\{codeBlock\}/, 'the code box is not on the Maya page');
+  // Nothing of step 1 on that route: no PayPanel (it owns the stepper and the Continue), no summary, no StageLink.
+  assert.doesNotMatch(mayaBlock, /<PayPanel|summaryFor|StageLink|Continue|StageRail/);
+  assert.doesNotMatch(MAYA_STAGE, /Continue|StageRail|StageLink/);
+  // The BDO route keeps its stages, and is the only one that does.
+  assert.match(PAGE, /\{!waiting && !overCeiling && !mayaOpen && \(\s*<PayPanel/);
+  assert.doesNotMatch(PAGE, /maya=\{\s*mayaOpen/, 'the Maya page must not be stage 2 behind a Continue any more');
+  // v3 order, top to bottom: the amount → Order summary → Have a code? → Pay with → the pinned Pay ₱X.
+  const at = (needle: string) => MAYA_STAGE.indexOf(needle);
+  assert.ok(at('>Pay this exact amount<') < at('>Order summary<'));
+  assert.ok(at('>Order summary<') < at('data-pay-maya-code'));
+  assert.ok(at('data-pay-maya-code') < at('>Pay with<'));
+  assert.ok(at('>Pay with<') < at('intent" value="maya_checkout"'));
 });
 
 test('reads are honest: a failed check says “We couldn’t check that code”, never “invalid”', () => {

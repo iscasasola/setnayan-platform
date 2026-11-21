@@ -31,9 +31,12 @@ test('Maya closed (off, no keys, busy, above the ceiling): the shipped BDO words
   assert.equal(n.note, bdo.note);
 });
 
-test('the page decides step 1 with the SAME mayaOpen it hands the pay panel', () => {
+test('step 1 is the BDO route’s alone; the Maya words live on the page back from Maya (MAYA IN TWO TAPS)', () => {
   const src = readFileSync(join(process.cwd(), 'app/pay/[reference]/page.tsx'), 'utf8');
-  assert.match(src, /summary=\{summaryFor\(mayaOpen\)\}/, 'the pay panel gets step 1 for the route mayaOpen picked');
+  // Since MAYA IN TWO TAPS (2026-11-22) an open Maya route skips step 1 entirely, so the pay panel — and its step 1 —
+  // is drawn only when Maya is closed, and always with the BDO words.
+  assert.match(src, /\{!waiting && !overCeiling && !mayaOpen && \(\s*<PayPanel/, 'the pay panel (step 1) is drawn on the Maya route');
+  assert.match(src, /summary=\{summaryFor\(false\)\}/, 'the BDO route’s step 1 must carry the BDO words');
   assert.match(src, /data-pay-maya-checking-page="">\s*\{summaryFor\(true\)\}/, 'back from Maya: the Maya words');
   assert.doesNotMatch(src, /<Step n=\{2\}>Upload the screenshot/, 'the upload line is not typed into the page any more');
   assert.doesNotMatch(src, /\{words\.note\}/, 'the transfer note is drawn only through payNextSteps');

@@ -48,7 +48,9 @@ test('the /pay page shows no code for an over-ceiling bill', () => {
   const page = read('app/pay/[reference]/page.tsx');
   assert.match(page, /const overCeiling = !paymentWithinCeiling\(payable\.amountPhp, maxPaymentPhp\);/);
   assert.match(page, /const open = overCeiling \? \[\] : payerAccountsFor\(settings, railPick\);/, 'a code is still minted above the ceiling');
-  assert.match(page, /\{!waiting && !overCeiling && \(\s*<PayPanel/);
+  // Both pay routes (MAYA IN TWO TAPS, 2026-11-22: BDO's pay panel and Maya's page) are drawn only within the ceiling.
+  assert.match(page, /\{!waiting && !overCeiling && !mayaOpen && \(\s*<PayPanel/);
+  assert.match(page, /\{!waiting && !overCeiling && mayaOpen && \(\s*<MayaPayStage/);
 });
 
 test('the couple checkout refuses an over-ceiling basket before it mints an order', () => {

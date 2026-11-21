@@ -160,5 +160,5 @@ export async function applyPayCode(formData: FormData): Promise<never> {
     },
   });
 
-  to('code', result.code_normalized!);
+  return to('code', result.code_normalized!);
 }

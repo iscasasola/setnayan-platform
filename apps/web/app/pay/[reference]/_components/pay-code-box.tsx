@@ -19,7 +19,7 @@ export function PayCodeBox({
 }) {
   if (applied) {
     return (
-      <div className="mt-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3" data-pay-code-applied="">
+      <div className="mt-4 px-1" data-pay-code-applied="">
         <p className="flex items-center gap-2 text-xs font-semibold text-success-900">
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           Code applied · {applied.code}
@@ -41,7 +41,7 @@ export function PayCodeBox({
           Enter your code
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input
+          <input // field-ok: the inline-checkout drawer's own voucher field, reused as the ruling asks (one code box, one look)
             id="pay-code"
             name="code"
             type="text"

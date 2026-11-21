@@ -668,7 +668,26 @@ export default async function PayPage({ params, searchParams }: Props) {
         </p>
       )}
 
-      {!waiting && !overCeiling && (
+      {/*
+        💳 MAYA IN TWO TAPS (owner 2026-11-22: *"why does it take 3 pay to enter maya. we want it quick and simple"*;
+        DECISION_LOG "MAYA IN TWO TAPS"). With Maya open the page OPENS on the approved v3 pay page — the amount, Order
+        summary, "Have a code?", Pay with, the pinned Pay ₱X — so it is buy → Pay ₱X → Maya's page. No step 1, no
+        Continue, no 1/2 stepper. Step 1 (and its BDO next steps) stays for the BDO route and the fallback only.
+      */}
+      {!waiting && !overCeiling && mayaOpen && (
+        <MayaPayStage
+          reference={payable.reference}
+          amountPhp={payable.amountPhp}
+          title={payable.title}
+          who={payable.who ?? null}
+          billedToName={billedToName}
+          billedToEmail={user.email ?? null}
+          line={maya.line}
+          code={codeBlock}
+        />
+      )}
+
+      {!waiting && !overCeiling && !mayaOpen && (
       <PayPanel
         /*
           Their second attempt carries `rechecked`, which tells the action to
@@ -691,7 +710,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         orderId={payable.orderId}
         rails={rails}
         activatesLine={activates}
-        summary={summaryFor(mayaOpen)}
+        summary={summaryFor(false)}
         initialStage={parseStage(search.step)}
         /*
           ⚠ EVERY OTHER PARAMETER RIDES ALONG. `?setup=1` is what tells this
@@ -707,19 +726,6 @@ export default async function PayPage({ params, searchParams }: Props) {
           error: search.error,
           recheck: search.recheck,
         }}
-        maya={
-          mayaOpen ? (
-            <MayaPayStage
-              reference={payable.reference}
-              amountPhp={payable.amountPhp}
-              title={payable.title}
-              who={payable.who ?? null}
-              billedToName={billedToName}
-              billedToEmail={user.email ?? null}
-              line={maya.line}
-            />
-          ) : null
-        }
       />
       )}
     </main>

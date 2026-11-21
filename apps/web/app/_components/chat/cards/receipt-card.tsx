@@ -14,13 +14,14 @@
  * table, which a supplier does not read.
  */
 import { useCallback, useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { formatCentavosPhp } from '@/lib/php';
 import { dayMonth } from '@/lib/format-date';
 import type { Receipt } from '@/lib/deal-end';
 import { loadReceipt } from './deal-end-calls';
 import { CouldNotLoad, KindCard, Loading, type Read } from './card-bits';
 
-type Got = { receipt: Receipt | null };
+type Got = { receipt: Receipt | null; isHost?: boolean };
 
 export function ReceiptCard({
   threadId,
@@ -45,7 +46,7 @@ export function ReceiptCard({
   const [read, setRead] = useState<Read<Got>>(seed ? { at: 'ok', data: seed } : { at: 'loading' });
   const load = useCallback(() => {
     setRead({ at: 'loading' });
-    void loadReceipt({ threadId, lineAt: createdAt, amountWords, first }).then((r) => setRead(r.ok ? { at: 'ok', data: { receipt: r.receipt } } : { at: 'failed' }));
+    void loadReceipt({ threadId, lineAt: createdAt, amountWords, first }).then((r) => setRead(r.ok ? { at: 'ok', data: { receipt: r.receipt, isHost: r.isHost } } : { at: 'failed' }));
   }, [threadId, createdAt, amountWords, first]);
   useEffect(() => {
     if (!seed && viewer === 'couple') load();
@@ -59,6 +60,9 @@ export function ReceiptCard({
     );
   }
   const r = read.at === 'ok' ? read.data.receipt : null;
+  // 🧾 "PDF" opens the receipt document (`/receipts/payment/[paymentId]`) — hosts only, as drawn, and only for a payment
+  // that was found: a card that could not find its payment has nowhere to send it.
+  const pdf = r && read.at === 'ok' && read.data.isHost ? { label: 'PDF', href: `/receipts/payment/${r.paymentId}`, icon: FileText } : undefined;
   // The drawing's receipt (`c.type==='receipt'`): the amount as the hero with "Receipt" beside it, and one line under
   // it — how it was paid · the day · its number (here the payment's own reference, when the hosts gave one).
   const sub = r ? [r.method, r.paidOn ? dayMonth(r.paidOn) : null, r.reference ? `ref ${r.reference}` : null].filter(Boolean).join(' · ') : '';
@@ -78,6 +82,7 @@ export function ReceiptCard({
         )
       }
       turn="wait"
+      action={pdf}
     >
       {read.at === 'loading' ? (
         <Loading />

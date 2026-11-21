@@ -119,10 +119,28 @@ export function receiptFor(input: {
     }
   }
   if (!best) return null;
+  return receiptOfRow(best, confirmed, input.agreedCentavos);
+}
+
+/**
+ * 🧾 THE RECEIPT DOCUMENT'S READ (`/receipts/payment/[paymentId]`): the same receipt, found by its own id instead of by
+ * a chat line. Only a CONFIRMED, unrefused payment has one — anything else is null, and the page is not found.
+ */
+export function receiptOfPayment(input: {
+  payments: readonly PaymentRow[];
+  paymentId: string;
+  agreedCentavos: number | null;
+}): Receipt | null {
+  const confirmed = input.payments.filter((p) => p.vendor_confirmed_at && !p.payment_refused_at);
+  const row = confirmed.find((p) => p.payment_id === input.paymentId);
+  return row ? receiptOfRow(row, confirmed, input.agreedCentavos) : null;
+}
+
+function receiptOfRow(best: PaymentRow, confirmed: readonly PaymentRow[], agreedCentavos: number | null): Receipt {
   const upTo = Date.parse(best.vendor_confirmed_at!);
   // "What is left" as it stood WHEN this payment was confirmed — an older receipt does not change when a later one lands.
   const paid = confirmed.filter((p) => Date.parse(p.vendor_confirmed_at!) <= upTo).reduce((n, p) => n + centavos(p.amount_php), 0);
-  const agreed = input.agreedCentavos != null && input.agreedCentavos > 0 ? Math.round(input.agreedCentavos) : null;
+  const agreed = agreedCentavos != null && agreedCentavos > 0 ? Math.round(agreedCentavos) : null;
   return {
     paymentId: best.payment_id,
     amountCentavos: centavos(best.amount_php),

@@ -427,8 +427,7 @@ export function ToolsSheetButton({
     if (at < 0) items.push(tile);
     else items.splice(at, 0, tile);
   }
-  // 🪪 An unverified shop has every ＋ tile locked (＋ FINAL) — its cake tile is not drawn either.
-  if (cakeOn && threadId && cake === 'vendor' && !unverified) {
+  if (cakeOn && threadId && cake === 'vendor') {
     items.push(
       <li key="for-your-service" data-thread-tool-row="for-your-service" data-cake-plus="service">
         <button type="button" title="Asks only your shop can make" className={`sn-press ${tileClass}`} onClick={() => setLevel('service')}>
@@ -441,7 +440,7 @@ export function ToolsSheetButton({
   }
   // 🎂 For your service — the supplier's second level: Ask for a cake design posts the invite card.
   const serviceLevel =
-    cakeOn && threadId && cake === 'vendor' && !unverified ? (
+    cakeOn && threadId && cake === 'vendor' ? (
       <div data-plus-level="service">
         <button type="button" onClick={() => setLevel('top')} className="sn-press -ml-1 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-ink">
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -641,7 +640,8 @@ export function ThreadToolsSheet({
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
   const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement, verified }), 'vendor', eventId, state.hasAgreement);
-  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} cake="vendor" unverified={verified === false} />;
+  // 🪪 An unverified shop has every ＋ tile locked (＋ FINAL) — it is not handed the cake tile either.
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} cake={verified === false ? undefined : 'vendor'} unverified={verified === false} />;
 }
 
 /**

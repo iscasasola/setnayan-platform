@@ -118,8 +118,8 @@ export function RequestCard({
                   aria-pressed={v === 'granted'}
                   className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition disabled:opacity-40 ${
                     v === 'granted'
-                      ? 'border-success-400 bg-success-500 text-white'
-                      : 'border-ink/15 bg-white text-ink/70 hover:border-success-400'
+                      ? 'border-success-400 bg-success-500 text-cream'
+                      : 'border-ink/15 bg-raised text-ink/70 hover:border-success-400'
                   }`}
                   disabled={!mayShare(area)}
                   title={mayShare(area) ? undefined : 'Only the host can share this — you do not hold it.'}
@@ -132,8 +132,8 @@ export function RequestCard({
                   aria-pressed={v === 'declined'}
                   className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm transition ${
                     v === 'declined'
-                      ? 'border-warn-600 bg-warn-600 text-white'
-                      : 'border-ink/15 bg-white text-ink/70 hover:border-warn-600'
+                      ? 'border-warn-600 bg-warn-600 text-cream'
+                      : 'border-ink/15 bg-raised text-ink/70 hover:border-warn-600'
                   }`}
                 >
                   <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2.5} /> Decline

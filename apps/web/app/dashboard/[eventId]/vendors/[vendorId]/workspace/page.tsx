@@ -1701,7 +1701,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       packageIncludedItems.length > 0 ? (
         <section
           aria-labelledby="included-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2
             id="included-heading"
@@ -2523,7 +2523,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const quoteCostingSection = acceptedQuote ? (
         <section
           aria-labelledby="costing-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2 id="costing-heading" className="mb-1 font-display text-lg italic text-ink">
             Costing
@@ -2552,7 +2552,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             {crewFields}
             {paidSoFarRow}
             {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
             )}
           </form>
         </section>
@@ -2561,7 +2561,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const paymentModeSection = !showManualCosting ? quoteCostingSection : (
         <section
           aria-labelledby="costing-heading"
-          className="rounded-2xl border border-ink/10 bg-white/60 p-5 sm:p-6"
+          className="rounded-2xl border border-ink/10 bg-raised/60 p-5 sm:p-6"
         >
           <h2
             id="costing-heading"
@@ -2644,7 +2644,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
+          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
         </form>
         </section>
       );
@@ -2854,7 +2854,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             <SubmitButton
               pendingLabel="Confirming…"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               Yes, I got everything
             </SubmitButton>
@@ -2928,7 +2928,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </p>
         <Link
           href={reviewHref}
-          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-white dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           Leave a review
         </Link>

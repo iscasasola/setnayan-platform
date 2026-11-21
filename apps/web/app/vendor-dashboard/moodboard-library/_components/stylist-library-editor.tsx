@@ -514,7 +514,7 @@ export function StylistLibraryEditor({
               type="text"
               aria-label="Label (optional — left empty, it uses the card’s name)"
               placeholder={isGalleryUpload ? 'Label · optional' : "Label (e.g. 'Tagaytay garden setup')"}
-              className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
+              className="w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
             />
             {isGalleryUpload ? (
               <p className="-mt-2 text-[11px] text-ink/55" data-library-label-fill="">
@@ -563,7 +563,7 @@ export function StylistLibraryEditor({
                   name="assetSubtype"
                   type="text"
                   placeholder="Subtype (e.g. 'reception')"
-                  className="min-h-11 w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                  className="min-h-11 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm"
                 />
               )}
             </div>

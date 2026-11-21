@@ -294,7 +294,7 @@ export function MakerSheet({
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-sn-md ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
+        className={`absolute inset-x-0 bottom-0 flex ${tall ? 'h-[92dvh]' : 'max-h-[62dvh]'} flex-col rounded-t-3xl bg-raised px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-sn-md ring-1 ring-ink/10 focus:outline-none lg:mx-auto lg:max-w-md`}
       >
         <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
         <p className="flex shrink-0 items-baseline gap-2 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/70">

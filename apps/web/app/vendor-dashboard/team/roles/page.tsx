@@ -23,6 +23,7 @@ import { ShopNotice } from '../../_components/kit';
 import { RoleLock } from '../../_components/role-lock';
 import { setVendorRoleNames } from '../actions';
 import { RolesForm } from './roles-form';
+import { DatesRow } from '../../customers/_components/dates-row';
 
 /**
  * /vendor-dashboard/team/roles — ROLES (six supplier roles, owner 19 Nov 2026; drawing (a) in
@@ -110,6 +111,14 @@ export default async function TeamRolesPage({ searchParams }: { searchParams: Pr
           </ShopNotice>
         ) : null}
       </div>
+
+      {/* 👤 d–h (e): the inquiry split lives one tap under Roles (drawing: "‹ Roles · Who gets new inquiries"). */}
+      <DatesRow
+        data="team-roles-inquiries"
+        title="Who gets new inquiries"
+        line="Each new client goes to one Account Manager — by branch, card, event type and last name"
+        href="/vendor-dashboard/team/roles/inquiries"
+      />
 
       {canRename ? <RolesForm names={names} action={setVendorRoleNames} /> : <RolesList names={names} />}
 

@@ -167,7 +167,7 @@ export function NamesEditor({
           autoCapitalize="words"
           placeholder="First name"
           aria-label={`${label} — first name`}
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+          className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink"
         />
         <input
           value={v.last}
@@ -178,7 +178,7 @@ export function NamesEditor({
           autoCapitalize="words"
           placeholder="Last name"
           aria-label={`${label} — last name`}
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+          className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink"
         />
       </div>
     </fieldset>
@@ -301,7 +301,7 @@ export function OneNameEditor({ eventId, initial }: { eventId: string; initial: 
           aria-label="Name, as guests read it"
           /* 🔗 The Event Name the page types into too (`lib/maker-parts.ts` `info:display_name`) — one value. */
           data-same-field="display_name"
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+          className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink"
         />
       </label>
       <AutoDraft watch={name} pending={pending} error={error} onSave={save} />
@@ -515,7 +515,7 @@ function CeremonyTimeEditor({ eventId, initial, tba = false, hasDay }: { eventId
           value={time}
           onChange={(e) => setTime(e.target.value)}
           aria-label="Ceremony time"
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+          className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink"
         />
       </label>
       <AutoDraft watch={time} pending={pending} error={error} onSave={save} />
@@ -745,7 +745,7 @@ export function VenuesEditor({
             </div>
             {!own && s.booked ? (
               <div className="flex items-start gap-3 rounded-md bg-ink/[0.03] px-3 py-2" data-venue-booked="">
-                <span aria-hidden className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-terracotta-700">
+                <span aria-hidden className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-raised text-terracotta-700">
                   <MapPin className="h-4 w-4" strokeWidth={1.9} />
                 </span>
                 <div className="min-w-0">
@@ -777,7 +777,7 @@ export function VenuesEditor({
                   maxLength={160}
                   placeholder="Name of the place"
                   aria-label={`${s.label} — name of the place`}
-                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+                  className="min-h-11 rounded-md border border-ink/15 bg-raised px-3 text-[16px] text-ink"
                 />
                 <AddressPinField
                   id={`venue-address-${s.slot}`}

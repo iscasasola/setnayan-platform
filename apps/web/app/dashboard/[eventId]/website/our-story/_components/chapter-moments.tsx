@@ -61,7 +61,7 @@ export function ChapterMoments({
                 type="button"
                 data-panel-moment={m.id}
                 onClick={() => ask({ target: m.id })}
-                className="sn-press flex min-h-11 w-full items-baseline gap-2 rounded-md bg-white/80 px-3 py-2 text-left hover:bg-white"
+                className="sn-press flex min-h-11 w-full items-baseline gap-2 rounded-md bg-raised/80 px-3 py-2 text-left hover:bg-raised"
               >
                 <span className="shrink-0 text-[12px] font-semibold text-ink/70">{m.when || 'Undated'}</span>
                 <span className={`min-w-0 flex-1 truncate text-[13.5px] ${m.hidden ? 'text-ink/45' : 'text-ink'}`}>

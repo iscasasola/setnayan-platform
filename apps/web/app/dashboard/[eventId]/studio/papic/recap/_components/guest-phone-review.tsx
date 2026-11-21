@@ -121,7 +121,7 @@ export function GuestPhoneReview({ eventId, waiting }: { eventId: string; waitin
                   aria-pressed={d === 'keep'}
                   disabled={busy !== null || d !== undefined}
                   onClick={() => void decide(w.captureId, 'keep')}
-                  className="min-h-11 flex-1 rounded-full border border-success-700/40 px-1 text-[12.5px] font-semibold text-success-700 aria-pressed:bg-success-700 aria-pressed:text-white"
+                  className="min-h-11 flex-1 rounded-full border border-success-700/40 px-1 text-[12.5px] font-semibold text-success-700 aria-pressed:bg-success-700 aria-pressed:text-cream"
                 >
                   ✓ Keep
                 </button>

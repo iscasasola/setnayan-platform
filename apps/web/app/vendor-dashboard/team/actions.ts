@@ -728,6 +728,9 @@ const ROLES = '/vendor-dashboard/team/roles';
  * `current_vendor_ids('admin')`). A refused write is said, never shown as saved.
  */
 export async function setVendorRoleNames(formData: FormData) {
+  // 👤 The d–h roles writes ride this action (an `op` field): the server-action budget is at its ceiling, so they add
+  // no action of their own. Each op checks its own caller — an Account Manager may Keep/Give, so it is NOT ensureAdmin.
+  if (formData.get('op') !== null) return runSupplierRolesOp(formData);
   const { supabase, ctx, currentUserId } = await ensureAdmin();
   const now = new Date().toISOString();
   const keep: { vendor_profile_id: string; duty: VendorDuty; display_name: string; updated_by: string; updated_at: string }[] = [];
@@ -763,4 +766,46 @@ export async function setVendorRoleNames(formData: FormData) {
   revalidatePath(ROLES);
   revalidatePath(TEAM);
   return back('saved=1');
+}
+
+// ── 👤 Supplier roles d–h — every write the roles screens make (#8013 (e)(f)(g)) ────────────────────────────────────
+//
+// NOT an exported action: the server-action budget is a ceiling (`lint-server-action-budget.mjs`) and main sits on it,
+// so these ride `setVendorRoleNames` (a form with an `op` field). `op` names the write; each op checks its own caller.
+
+const ROLES_RETURN = ['/vendor-dashboard/customers', '/vendor-dashboard/team'];
+const INQUIRIES = '/vendor-dashboard/team/roles/inquiries';
+
+async function runSupplierRolesOp(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const rawReturn = String(formData.get('return_to') ?? '');
+  const returnTo = ROLES_RETURN.some((p) => rawReturn === p || rawReturn.startsWith(`${p}?`) || rawReturn.startsWith(`${p}/`)) ? rawReturn : TEAM;
+  const done = (status: string): never => redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}${status}`);
+  const op = String(formData.get('op') ?? '');
+
+  if (op === 'keep' || op === 'give' || op === 'move') {
+    const threadId = String(formData.get('thread_id') ?? '');
+    if (!threadId) return done(`error=${encodeURIComponent('Missing client')}`);
+    const moveTo = String(formData.get('move_to') ?? '') || null;
+    const { answerClientHandling } = await import('@/lib/client-handover.server');
+    const r = await answerClientHandling(createAdminClient(), user.id, { threadId, op, moveTo });
+    revalidatePath('/vendor-dashboard/customers');
+    return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
+  }
+  if (op === 'split-adjust' || op === 'split-reset') {
+    const serviceId = String(formData.get('service_id') ?? '');
+    if (!serviceId) return done(`error=${encodeURIComponent('Missing card')}`);
+    const eventType = String(formData.get('event_type') ?? '') || null;
+    const cut = op === 'split-adjust' ? String(formData.get('cut') ?? '') || null : null;
+    if (op === 'split-adjust' && !cut) return done(`error=${encodeURIComponent('Pick one of the cuts shown.')}`);
+    const { writeSplitCut } = await import('@/lib/inquiry-split-cuts.server');
+    const r = await writeSplitCut(createAdminClient(), user.id, { serviceId, eventType, cut });
+    revalidatePath(INQUIRIES);
+    return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
+  }
+  return done(`error=${encodeURIComponent('Unknown change')}`);
 }

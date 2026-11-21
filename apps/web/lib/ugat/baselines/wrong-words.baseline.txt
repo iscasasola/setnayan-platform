@@ -92,6 +92,7 @@ app/dashboard/[eventId]/guests/_components/guests-screen.tsx "asking to join" �
 app/dashboard/[eventId]/guests/invite/_components/share-link-panel.tsx "waiting for you to confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/page.tsx "Who came" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-pro-offer.tsx "What s included" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/launch/_components/hub-settings.tsx "Names, date, venues, parents" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-stage.tsx "Open the live page" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/page.tsx "Merkado" → /marketplace	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/page.tsx "The page itself" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -112,7 +113,7 @@ app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx "Up
 app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx "Upload a photo or clip" → /dashboard/[eventId]/studio/website-pro	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/editor/page.tsx "Reminders" → /dashboard/[eventId]/website/widgets	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/privacy/page.tsx "Discover" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
-app/i/[slug]/page.tsx "I already have a Setnayan shop" → /login	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
+app/i/[slug]/page.tsx "I already have a shop" → /login	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/papic/me/[token]/page.tsx "Open my camera" → /papic/seat/[token]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/pay/[reference]/page.tsx "Finish setting up" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/samahan/join/[token]/page.tsx "No thanks" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -126,8 +127,11 @@ app/u/[userSlug]/c/[chapterId]/page.tsx "Made with Setnayan" → /	# first run 2
 app/u/[userSlug]/page.tsx "Made with Setnayan" → /	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/v/[slug]/page.tsx "Philippines" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/vendor-dashboard/_components/supplier-today-first-screen.tsx "How is business" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/_components/today-welcome.tsx "Edit in the Card Maker" → /vendor-dashboard/services	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/_components/today-welcome.tsx "Edit in the Card Maker" → /vendor-dashboard/services/[serviceId]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/_components/today-welcome.tsx "Edit in the Card Maker" → /vendor-dashboard/services/new/[category]	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
+app/vendor-dashboard/_components/today-welcome.tsx "Open your cards" → /vendor-dashboard/services	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/attributes/page.tsx "Set up profile" → /vendor-dashboard	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
-app/vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx "Turn on Papic Challenges" → /vendor-dashboard/subscription	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/collections/_components/collections-list.tsx "Add a cover" → /vendor-dashboard/shop	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/collections/_components/collections-list.tsx "Stories couples published" → /vendor-dashboard/shop/promote	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster
 app/vendor-dashboard/collections/_components/portfolio-settings.tsx "— Apply on Your page" → /vendor-dashboard/website	# first run 2026-10-02 · supplier app · a "Messages" row that opens the roster

@@ -21,6 +21,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { StayForm } from '@/app/_components/stay-form';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { TypedRow } from '@/app/_components/form-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { sendCreatorOffer } from '../actions';
 
@@ -88,6 +89,8 @@ export function SendOfferButton({
   sendNeedsPro: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [rate, setRate] = useState('');
+  const [audience, setAudience] = useState('');
   const headId = useId();
   return (
     <>
@@ -101,22 +104,35 @@ export function SendOfferButton({
             <p className="text-[14px] text-[color:var(--m-slate-2)]">To {creatorName}</p>
           </div>
           <input type="hidden" name="creator_user_id" value={creatorUserId} />
-          <label className="flex flex-col gap-1.5">
-            <span className="inline-flex items-center gap-1.5 text-[15px] text-ink">
-              Creator rate (their own booking)
-              <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-px text-[11.5px] font-bold text-[rgb(var(--color-link))]">Required</span>
-            </span>
-            <input name="creator_rate_terms" required maxLength={280} placeholder="e.g. 20% off any package for you" className={FIELD} />
-          </label>
-          <label className="flex flex-col gap-1.5">
-            {/* LIVE as of PR-C: the Book CTA on chapters that credit you shows these terms to viewers, and quoting an
-                attributed inquiry pre-labels the discount line "Viewer promo". */}
-            <InfoTip label="Audience rate (your viewers)" labelClassName="text-[15px] text-ink" align="start">
-              Optional. Viewer promo — shown at the Book CTA on chapters that credit you; anyone booking through the
-              chapter sees these terms.
-            </InfoTip>
-            <input name="audience_rate_terms" maxLength={280} placeholder="e.g. 10% off for anyone booking through your chapter" className={FIELD} />
-          </label>
+          <TypedRow
+            name="Creator rate (their own booking)"
+            value={rate}
+            empty="e.g. 20% off any package for you"
+            boxed
+            required
+            maxLength={280}
+            fieldName="creator_rate_terms"
+            onType={setRate}
+            onKeep={(t) => setRate(t)}
+            data="creator-rate"
+          />
+          {/* LIVE as of PR-C: the Book CTA on chapters that credit you shows these terms to viewers, and quoting an
+              attributed inquiry pre-labels the discount line "Viewer promo". */}
+          <TypedRow
+            name="Audience rate (your viewers)"
+            about={{
+              title: 'Audience rate (your viewers)',
+              words: 'Optional. Viewer promo — shown at the Book CTA on chapters that credit you; anyone booking through the chapter sees these terms.',
+            }}
+            value={audience}
+            empty="e.g. 10% off for anyone booking through your chapter"
+            boxed
+            maxLength={280}
+            fieldName="audience_rate_terms"
+            onType={setAudience}
+            onKeep={(t) => setAudience(t)}
+            data="creator-audience-rate"
+          />
           <InfoTip label="Free to send; it expires if they don’t reply within 14 days." labelClassName="text-[14px] text-[color:var(--m-slate-2)]" align="start">
             Free to send; the offer expires if they don&rsquo;t reply within 14 days. Discounts settle off-platform —
             Setnayan never touches the money.

@@ -28,10 +28,11 @@ import { BADGE_CLASS, badgeStyle, type BadgeTone } from '@/app/_components/badge
 import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 
-/** The page column: the phone's 16 gutter, one 760 reading column on a computer (the drawing's `.dcol`). */
+/** The page column: the phone's 16 gutter, the system's 48-rem reading column on a computer (the drawing's 760 `.dcol`;
+ *  `the-columns-are-the-system.test.ts`). */
 export function ToolPage({ name, children }: { name: string; children: ReactNode }) {
   return (
-    <div className="mx-auto w-full max-w-[760px] px-4 pb-16 sm:px-6" data-tool-page={name}>
+    <div className="mx-auto w-full tab:max-w-3xl px-4 pb-16 sm:px-6" data-tool-page={name}>
       {children}
     </div>
   );

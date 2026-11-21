@@ -4,10 +4,9 @@ import { formatCount } from '@/lib/format-number';
 import type { Paged } from '@/lib/paginate';
 import { Fold } from '@/app/_components/fold';
 import { InfoTip } from '@/app/_components/info-tip';
-import { SubmitButton } from '@/app/_components/submit-button';
 import { ListPager } from '../../_components/list-pager';
 import { ToolChip, ToolEmpty, ToolFail, ToolPage, ToolPin, ToolSection, type ToolChipTone } from '../../_components/tool-page';
-import { submitDisputeContest } from '../actions';
+import { DisputeContestForm } from './dispute-contest-form';
 
 /**
  * Disputes — the screen (owner-approved redraw v3, 21 Nov 2026 · `supplier_tools_redraw_v3_fable.html` § 06). Look only:
@@ -181,35 +180,11 @@ function DisputeRowItem({ row }: { row: DisputeRow }) {
 
           {/* Contest form — only while the dispute is open; the box holds your response so far */}
           {isOpen ? (
-            <form action={submitDisputeContest} className="flex flex-col gap-2.5">
-              <input type="hidden" name="dispute_id" value={row.dispute_id} />
-              <label className="block">
-                <span className="mb-1.5 block text-[15px] font-bold text-ink">
-                  Your response
-                  {row.vendor_contested_at ? (
-                    <span className="text-[13px] font-normal text-[color:var(--m-slate-2)]"> · {relativeTime(row.vendor_contested_at)}</span>
-                  ) : null}
-                </span>
-                <textarea
-                  name="vendor_contest"
-                  rows={4}
-                  required
-                  maxLength={2000}
-                  defaultValue={row.vendor_contest ?? ''}
-                  placeholder="Explain what happened from your side. The Setnayan team reads this before making any decision — attach dates, messages, or delivery proof you can reference."
-                  className="input-field w-full rounded-[22px] text-[15px]"
-                  aria-label="Your response to this dispute"
-                />
-              </label>
-              <p className="text-[14px] text-[color:var(--m-slate-2)]">
-                The team reads this before deciding. You can edit it until they rule.
-              </p>
-              <div>
-                <SubmitButton pendingLabel="Submitting…" className="button-primary text-sm">
-                  {row.vendor_contest ? 'Update my response' : 'Submit my response'}
-                </SubmitButton>
-              </div>
-            </form>
+            <DisputeContestForm
+              disputeId={row.dispute_id}
+              contest={row.vendor_contest ?? ''}
+              contestedAgo={row.vendor_contested_at ? relativeTime(row.vendor_contested_at) : null}
+            />
           ) : null}
         </div>
       </Fold>

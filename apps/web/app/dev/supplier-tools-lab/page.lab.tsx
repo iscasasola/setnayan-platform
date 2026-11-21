@@ -28,9 +28,9 @@ const NOW = Date.UTC(2026, 10, 21, 2, 0);
 const ago = (d: number) => new Date(NOW - d * DAY).toISOString();
 
 const REPOSTS: VendorRepostFlag[] = [
-  { publicId: 'S89F-LAB0000001', surface: 'portfolio', r2Ref: null, status: 'open', hammingDistance: 3, createdAt: ago(9) },
-  { publicId: 'S89F-LAB0000002', surface: 'service_primary', r2Ref: null, status: 'confirmed_theft', hammingDistance: 1, createdAt: ago(19) },
-  { publicId: 'S89F-LAB0000003', surface: 'moodboard_library', r2Ref: null, status: 'dismissed', hammingDistance: 6, createdAt: ago(34) },
+  { publicId: 'S89F-LAB0000001', surface: 'portfolio', r2Ref: '', status: 'open', hammingDistance: 3, createdAt: ago(9) },
+  { publicId: 'S89F-LAB0000002', surface: 'service_primary', r2Ref: '', status: 'confirmed_theft', hammingDistance: 1, createdAt: ago(19) },
+  { publicId: 'S89F-LAB0000003', surface: 'moodboard_library', r2Ref: '', status: 'dismissed', hammingDistance: 6, createdAt: ago(34) },
 ];
 
 const TRACK: VendorTrackRecordRow[] = [

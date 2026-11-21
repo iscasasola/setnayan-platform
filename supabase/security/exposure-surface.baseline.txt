@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8113
+# facts: 8127
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     658
-#   col       5836
-#   policy    1192
+#   tpriv     659
+#   col       5848
+#   policy    1193
 #   view      10
 #   func      413
 #
@@ -452,6 +452,7 @@ tpriv	public.shared_attribute_groups|authenticated	SIUD
 tpriv	public.shop_award_flow_progress|authenticated	S
 tpriv	public.shop_badge_rewards|authenticated	S
 tpriv	public.shop_badge_upgrades|authenticated	S
+tpriv	public.shop_gift_order_lines|authenticated	S
 tpriv	public.shop_gift_purchases|authenticated	S
 tpriv	public.shop_gift_stock_entries|authenticated	S
 tpriv	public.shop_papic_wallet_entries|authenticated	S
@@ -725,7 +726,6 @@ col	public.admin_focus_put_offs.put_off_at	anon=- authenticated=SIU
 col	public.admin_focus_put_offs.until_day	anon=- authenticated=SIU
 col	public.admin_focus_put_offs.user_id	anon=- authenticated=SIU
 col	public.admin_received_transactions.amount_php	anon=- authenticated=S
-col	public.admin_received_transactions.auto_undone_at	anon=- authenticated=S
 col	public.admin_received_transactions.channel	anon=- authenticated=S
 col	public.admin_received_transactions.created_at	anon=- authenticated=S
 col	public.admin_received_transactions.created_by	anon=- authenticated=S
@@ -739,7 +739,6 @@ col	public.admin_received_transactions.received_at	anon=- authenticated=S
 col	public.admin_received_transactions.received_id	anon=- authenticated=S
 col	public.admin_received_transactions.reference	anon=- authenticated=S
 col	public.admin_received_transactions.reference_norm	anon=- authenticated=S
-col	public.admin_received_transactions.released_at	anon=- authenticated=S
 col	public.anniversary_email_log.anniversary_year	anon=- authenticated=SIU
 col	public.anniversary_email_log.event_id	anon=- authenticated=SIU
 col	public.anniversary_email_log.resend_id	anon=- authenticated=SIU
@@ -4178,11 +4177,9 @@ col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.gcash_account_name	anon=- authenticated=S
-col	public.platform_settings.gcash_allowance_php	anon=- authenticated=S
 col	public.platform_settings.gcash_available_as_of	anon=- authenticated=S
 col	public.platform_settings.gcash_available_php	anon=- authenticated=S
 col	public.platform_settings.gcash_enabled	anon=- authenticated=S
-col	public.platform_settings.gcash_max_php	anon=- authenticated=S
 col	public.platform_settings.gcash_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.gcash_number	anon=- authenticated=S
 col	public.platform_settings.gcash_qr_payload	anon=- authenticated=S
@@ -4579,6 +4576,21 @@ col	public.shop_badge_upgrades.started_choice	anon=- authenticated=S
 col	public.shop_badge_upgrades.started_period_days	anon=- authenticated=S
 col	public.shop_badge_upgrades.upgrade_id	anon=- authenticated=S
 col	public.shop_badge_upgrades.vendor_profile_id	anon=- authenticated=S
+col	public.shop_gift_order_lines.bundle_code	anon=- authenticated=S
+col	public.shop_gift_order_lines.created_at	anon=- authenticated=S
+col	public.shop_gift_order_lines.created_by	anon=- authenticated=S
+col	public.shop_gift_order_lines.credits_per_pack	anon=- authenticated=S
+col	public.shop_gift_order_lines.gift_kind	anon=- authenticated=S
+col	public.shop_gift_order_lines.line_id	anon=- authenticated=S
+col	public.shop_gift_order_lines.line_no	anon=- authenticated=S
+col	public.shop_gift_order_lines.line_total_php	anon=- authenticated=S
+col	public.shop_gift_order_lines.order_id	anon=- authenticated=S
+col	public.shop_gift_order_lines.packs_each	anon=- authenticated=S
+col	public.shop_gift_order_lines.price_basis	anon=- authenticated=S
+col	public.shop_gift_order_lines.quantity	anon=- authenticated=S
+col	public.shop_gift_order_lines.service_code	anon=- authenticated=S
+col	public.shop_gift_order_lines.unit_price_php	anon=- authenticated=S
+col	public.shop_gift_order_lines.vendor_profile_id	anon=- authenticated=S
 col	public.shop_gift_purchases.bundle_code	anon=- authenticated=S
 col	public.shop_gift_purchases.created_at	anon=- authenticated=S
 col	public.shop_gift_purchases.created_by	anon=- authenticated=S
@@ -4606,6 +4618,7 @@ col	public.shop_gift_stock_entries.pack_code	anon=- authenticated=S
 col	public.shop_gift_stock_entries.packs	anon=- authenticated=S
 col	public.shop_gift_stock_entries.pool_grant_id	anon=- authenticated=S
 col	public.shop_gift_stock_entries.proposal_id	anon=- authenticated=S
+col	public.shop_gift_stock_entries.purchase_line_no	anon=- authenticated=S
 col	public.shop_gift_stock_entries.unlocks_sku	anon=- authenticated=S
 col	public.shop_gift_stock_entries.vendor_profile_id	anon=- authenticated=S
 col	public.shop_papic_wallet_entries.clips	anon=- authenticated=S
@@ -7325,6 +7338,7 @@ policy	public.shared_attribute_groups|shared_attribute_groups_read_all	mode=PERM
 policy	public.shop_award_flow_progress|shop_award_flow_progress_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_badge_rewards|shop_badge_rewards_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_badge_upgrades|shop_badge_upgrades_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
+policy	public.shop_gift_order_lines|shop_gift_order_lines_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_purchases|shop_gift_purchases_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_gift_stock_entries|shop_gift_stock_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.shop_papic_wallet_entries|shop_papic_wallet_entries_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL

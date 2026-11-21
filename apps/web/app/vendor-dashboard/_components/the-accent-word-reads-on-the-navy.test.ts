@@ -5,7 +5,8 @@
  * `--sn-accent-word` / `--color-mulberry-word` (#7DB1FF) and the Tailwind text utilities read them first
  * (`the-navy-is-readable.test.ts`). A hand-written `color: rgb(var(--sn-accent))` in a module or a style object skips
  * that and draws the unreadable blue: four did (Clients pin + "Add", Performance's "draft" link and legend), found in
- * the #7997 review, 21 Nov 2026. Fills, borders and backgrounds are not words and stay on the accent itself.
+ * the #7997 review, 21 Nov 2026 — and five more
+ * in main's newer `set-two.module.css` the moment the two met. Fills, borders and backgrounds are not words and stay on the accent itself.
  *
  * SABOTAGE (run once, went red): put `color: rgb(var(--sn-accent));` back into clients-search.module.css → 2.
  */

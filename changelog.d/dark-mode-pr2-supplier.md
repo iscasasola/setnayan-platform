@@ -40,3 +40,5 @@ The contrast lint judges dark with the app's warm dark tokens, not the navy scop
 held by `the-navy-is-readable.test.ts`, token against token, not per class use.
 
 SPEC IMPACT: None new — the navy and the approval are already in the corpus (16 Nov and 18 Nov rows).
+
+- 21 Nov: Words painted in the accent now read the navy word token: `--sn-accent-word` and `--color-mulberry-word` (#7DB1FF, readable on the navy). Before, these spots used the bare blue (3.46:1). There are nine: the four from review (Clients pin and "Add", Performance draft link and legend) and five in main's `set-two.module.css`. The guard `the-accent-word-reads-on-the-navy.test.ts` fails on any new one.

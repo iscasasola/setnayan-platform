@@ -34,6 +34,7 @@ import { CLIENTS_LIST_HREF } from '@/lib/picked-client-close';
 import type { PickedClientPage } from './picked-client-menu';
 import { pickedAnchorOf, pickedPageNamed } from './picked-client-menu';
 import { clientMoreRows, type ClientMoreFacts } from './picked-client-more';
+import { MutedMark } from '@/app/_components/chat/mute-chat-row';
 import { warmPickedPages } from '../_pages/lazy';
 import { warmThreadParts } from '../../../messages/[threadId]/_components/on-demand';
 import { warmHubParts } from '../../../on-the-day/_components/on-demand';
@@ -86,6 +87,7 @@ export function PickedClientShell({
   chatUnread = null,
   closeHref = CLIENTS_LIST_HREF,
   more = NO_MORE_FACTS,
+  muted = false,
 }: {
   eventId: string;
   eventName: string;
@@ -114,6 +116,8 @@ export function PickedClientShell({
   closeHref?: string;
   /** ⋯ The rows that depend on this shop and this event (`clientMoreRows`): the trade page, Crew, the calendar file. */
   more?: ClientMoreFacts;
+  /** 🔕 This chat is muted for the viewer — the bell-off after the name (drawing v3). */
+  muted?: boolean;
 }) {
   const home = useMemo<ChatHome>(() => ({ top: strip, suggest, inquiry }), [strip, suggest, inquiry]);
   const chatHome = useMemo(
@@ -129,6 +133,7 @@ export function PickedClientShell({
       chatHome={chatHome}
       pickedId={eventId}
       title={eventName}
+      titleMark={muted ? <MutedMark /> : null}
       menu={menu}
       icons={PAGE_ICON}
       initialPage={initialPage}

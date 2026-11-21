@@ -158,7 +158,7 @@ test('6 · the host has Report a problem under ⋯ too — without becoming a on
   assert.deepEqual(host.map(hostIdOf), ['report']);
   const report = host[0]!;
   assert.ok(typeof report !== 'string' && report.label === 'Report a problem' && 'page' in report && report.page === 'report');
-  assert.match(HOST_SHELL, /more=\{hostMoreRows\(call\)\}/);
+  assert.match(HOST_SHELL, /more=\{hostMoreRows\(call, mute \? <MuteChatRow threadId=\{mute\.threadId\} muted=\{mute\.muted\} \/> : null\)\}/);
   assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
   // The shell draws ⋯ from either list, hides a row whose page the menu lacks, and never offers a page of its own
   // (`body`) where there is no chat-as-home for it to open over.

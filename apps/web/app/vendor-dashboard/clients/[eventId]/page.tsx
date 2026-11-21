@@ -93,6 +93,8 @@ import { agreedFacts } from '@/lib/agreed-facts';
 import { hubHref } from '@/lib/hub-events';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { BookedCallChoices, bookedCallReachable } from '@/app/_components/chat/booked-call-choices';
+import { MuteChatRow } from '@/app/_components/chat/mute-chat-row';
+import { readMyMute } from '@/lib/chat-mutes';
 import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
@@ -1270,6 +1272,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const threadId = thread?.thread_id ?? null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = threadId ? readThreadUnreadCount(supabase, user.id, threadId) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = threadId ? readMyMute(supabase, threadId, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18: "why did the chatbox never change?") ──
@@ -2985,11 +2989,13 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ) : null,
   });
   const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
 
   return (
     <PickedClientShell
       eventId={eventId}
       eventName={eventName}
+      muted={myMute === true}
       chatUnread={await chatUnreadP}
       closeHref={pickedClientCloseHref(search.from)}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
@@ -3022,6 +3028,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         call: bookedCallReachable(bookedCall.booked, bookedCall.phone) ? (
           <BookedCallChoices booked={bookedCall.booked} phone={bookedCall.phone} who={eventName} />
         ) : null,
+        mute: threadId && myMute !== null ? <MuteChatRow threadId={threadId} muted={myMute} /> : null,
         calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
       }}
     />

@@ -51,57 +51,100 @@ export type TrustedByVendor = {
 export const TRUSTED_BY_UNREADABLE = 'unreadable' as const;
 
 /**
- * "Trusted by" — the suppliers THIS shop works with (owner 16 Nov 2026, Invite a supplier v3): every accepted
- * `vendor_partnerships` tie in either direction (peer consent stays the public gate, owner-locked 2026-07-02 — the
- * other shop accepted, or joined through this shop's link), this shop's own pending hand adds, and the shops it served
- * a past event with. Each carries its origin, the ⓘ tag (Worked together · Added · Invited).
+ * 🤝 THE ONE READER OF TRUST (owner 21 Nov 2026, specs DECISION_LOG "A SHOP SHOWS AS YOUR TRUSTED SHOP ONLY AFTER ONE
+ * COMPLETED, PAID BOOKING" + "TRUSTED SHOPS RANK HIGHER IN SEARCH"). Every surface that shows or counts trust reads the
+ * SQL function `shop_qualified_trust` (migration 20271356577600) through THIS module, and nothing else derives it:
+ *   · "Trusted by" on the public shop page — {@link fetchTrustedByVendors};
+ *   · the supplier's Partners list ("Waiting for their first completed booking") — {@link fetchQualifiedTrustedIds};
+ *   · the search / Explore / Find trust count — {@link fetchQualifiedTrustCounts}.
+ * `lib/trust-has-one-reader.test.ts` fails if a second derivation appears.
+ *
+ * A shop QUALIFIES (the SQL says it once): a live two-way partnership (accepted + active, either direction); the other
+ * shop verified, published, papers current, not demo, owner not internal; not the same business (its own branches) or
+ * the same people; and at least one completed booking with its payment received through Setnayan (never refunded,
+ * cancelled, internal or test). Each shop once. Mutual: each side is answered by the same rule.
+ */
+export const QUALIFIED_TRUST_RPC = 'shop_qualified_trust' as const;
+export const QUALIFIED_TRUST_COUNTS_RPC = 'shop_qualified_trust_counts' as const;
+
+type QualifiedTrustRow = {
+  vendor_profile_id: string;
+  trusting_vendor_profile_id: string;
+  relationship_types: string[] | null;
+  origins: string[] | null;
+  made_by_this_shop: boolean | null;
+};
+
+/**
+ * The QUALIFIED shops trusting `shopId` — the set the Partners list compares its linked shops against. A linked shop
+ * not in this set reads "Waiting for their first completed booking" (and is never shown publicly). A refused read is
+ * {@link TRUSTED_BY_UNREADABLE}, never an empty set (an empty set would mark every partner as waiting).
+ */
+export async function fetchQualifiedTrustedIds(
+  admin: SupabaseClient,
+  shopId: string,
+): Promise<Set<string> | typeof TRUSTED_BY_UNREADABLE> {
+  const { data, error } = await admin.rpc(QUALIFIED_TRUST_RPC, { p_vendor_profile_ids: [shopId] });
+  if (error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_qualified_trust', error);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  return new Set(((data ?? []) as QualifiedTrustRow[]).map((r) => r.trusting_vendor_profile_id));
+}
+
+/**
+ * The search trust signal: per shop, how many DISTINCT qualified shops trust it (counted by
+ * `shop_qualified_trust_counts`, which reads `shop_qualified_trust` — never beside it). A shop with none is absent from
+ * the map (0). A refused read is {@link TRUSTED_BY_UNREADABLE}: the caller leaves its order exactly as it was (no shop
+ * is lifted and none is sunk by a count nobody read).
+ */
+export async function fetchQualifiedTrustCounts(
+  admin: SupabaseClient,
+  shopIds: readonly string[],
+): Promise<Map<string, number> | typeof TRUSTED_BY_UNREADABLE> {
+  const ids = [...new Set(shopIds.filter(Boolean))];
+  if (ids.length === 0) return new Map();
+  const { data, error } = await admin.rpc(QUALIFIED_TRUST_COUNTS_RPC, { p_vendor_profile_ids: ids });
+  if (error) {
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_qualified_trust_counts', error);
+    return TRUSTED_BY_UNREADABLE;
+  }
+  const out = new Map<string, number>();
+  for (const r of (data ?? []) as { vendor_profile_id: string; trusted_by: number | string }[]) {
+    const n = Number(r.trusted_by);
+    if (r.vendor_profile_id && Number.isFinite(n) && n > 0) out.set(r.vendor_profile_id, n);
+  }
+  return out;
+}
+
+/**
+ * "Trusted by" — the QUALIFIED shops that trust this one ({@link QUALIFIED_TRUST_RPC}). Since 21 Nov 2026 a linked
+ * shop shows here only once it has a completed, paid booking; a pending hand add or a shop only served with is a link,
+ * not trust, and is not drawn. Each row carries its origin, the ⓘ tag (Worked together · Added · Invited), and the
+ * events served together (`shop_worked_with_counts`, a caption only — it never adds a shop).
  *
  * Names respect hybrid-anonymity via the shared resolveVendorDisplayName: a
  * still-hidden endorsing vendor shows its taxonomy+city placeholder and is not
  * linked. Founder-only marketplace → this returns [] today (honest empty state;
- * the section is hidden) until other vendors publish + endorse.
+ * the section is hidden) until other vendors publish, book and endorse.
  */
 export async function fetchTrustedByVendors(
   admin: SupabaseClient,
   recommendedVendorProfileId: string,
 ): Promise<TrustedByVendor[] | typeof TRUSTED_BY_UNREADABLE> {
   const me = recommendedVendorProfileId;
-  // 🤝 TRUSTED BY GATHERS EVERY SUPPLIER TIE (owner 16 Nov, "INVITE A SUPPLIER — THREE ANSWERS" (1) + v3 APPROVED):
-  //   · every ACCEPTED tie, in EITHER direction — a handshake is a two-way recommendation (owner 15 Nov), and the
-  //     schema holds one row per pair (vendor_partnerships_unordered_pair_uidx), so both pages read that one row;
-  //   · this shop's OWN pending hand adds ("on the adder's own Trusted by at once"; the other shop's page only after
-  //     Accept; a decline removes it from both);
-  //   · and, automatically, every shop it served a past event with (`shop_worked_with_counts`).
   const [{ data: rows, error }, worked, hiddenRead] = await Promise.all([
-    admin
-      .from('vendor_partnerships')
-      .select('recommending_vendor_id, recommended_vendor_id, relationship_type, status, origin')
-      .or(`recommending_vendor_id.eq.${me},recommended_vendor_id.eq.${me}`)
-      .in('status', ['accepted', 'proposed'])
-      .eq('is_active', true)
-      // Stable read order only. The BADGE choice is made in code below, by
-      // PARTNERSHIP_RANK — not by this ORDER BY.
-      //
-      // ⚠ It used to be made here, alphabetically, which meant `accredited` always
-      // won. A directed pair (A→B) can hold two accepted+active rows of different
-      // kinds (the UNIQUE is keyed with relationship_type), so a vendor who was
-      // BOTH accredited and included-in-package showed the weaker badge here while
-      // Explore ranked them by the stronger one. Same four kinds, two files,
-      // opposite orders.
-      .order('recommending_vendor_id', { ascending: true })
-      .order('relationship_type', { ascending: true }),
+    admin.rpc(QUALIFIED_TRUST_RPC, { p_vendor_profile_ids: [me] }),
     admin.rpc('shop_worked_with_counts', { p_vendor: me }),
     // 🙈 Owner Q5 (16 Nov): the rows this shop has hidden from its own Trusted by.
     admin.from('vendor_trusted_by_hidden').select('hidden_vendor_profile_id').eq('vendor_profile_id', me),
   ]);
   if (error) {
-    console.error('[supabase-error] lib/vendor-trusted-by.ts · from:vendor_partnerships.select', error);
+    console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_qualified_trust', error);
     return TRUSTED_BY_UNREADABLE;
   }
-  // ⚠ THE AUTOMATIC HALF REFUSED IS NOT "NOBODY WORKED WITH THEM" (reads-are-honest, S41). Logged alone, a shop whose
-  // only ties are worked-together ones would fall through to `relByVendor.size === 0 → []` and the page would draw
-  // the list as empty — byte-identical to a shop nobody has ever worked with. A list missing a whole kind cannot be
-  // told apart from a complete one either, so any refused half answers UNREADABLE and the page says it couldn't load.
+  // ⚠ A REFUSED CAPTION READ IS NOT "NEVER WORKED TOGETHER" (reads-are-honest, S41): the ⓘ line would say a different
+  // thing than the truth, so a refused half answers UNREADABLE and the page says it couldn't load.
   if (worked.error) {
     console.error('[supabase-error] lib/vendor-trusted-by.ts · rpc:shop_worked_with_counts', worked.error);
     return TRUSTED_BY_UNREADABLE;
@@ -122,44 +165,19 @@ export async function fetchTrustedByVendors(
 
   // One badge per partner: the STRONGEST kind they hold, ranked by what the couple actually gets (shared with Explore,
   // so the two agree). The tag is the tie's own origin; an invite or a hand add says so over a worked-together one.
-  const kindsByVendor = new Map<string, string[]>();
-  const tieByVendor = new Map<string, { origin: PartnershipOrigin; direction: 'this_shop' | 'partner' }>();
   const ORIGIN_WEIGHT: Record<PartnershipOrigin, number> = { invited: 3, added: 2, worked_together: 1 };
-  for (const r of (rows ?? []) as {
-    recommending_vendor_id: string;
-    recommended_vendor_id: string;
-    relationship_type: string;
-    status?: string;
-    origin?: string;
-  }[]) {
-    const iMade = r.recommending_vendor_id === me;
-    // A pending tie shows only on the page of the shop that made it.
-    if (r.status === 'proposed' && !iMade) continue;
-    const vid = iMade ? r.recommended_vendor_id : r.recommending_vendor_id;
-    if (!vid || vid === me) continue;
-    const list = kindsByVendor.get(vid);
-    if (list) list.push(r.relationship_type);
-    else kindsByVendor.set(vid, [r.relationship_type]);
-    const origin = originOf(r.origin);
-    const had = tieByVendor.get(vid);
-    if (!had || ORIGIN_WEIGHT[origin] > ORIGIN_WEIGHT[had.origin]) {
-      tieByVendor.set(vid, { origin, direction: iMade ? 'this_shop' : 'partner' });
-    }
-  }
   const relByVendor = new Map<string, TrustedByRelationship>();
-  for (const [vid, kinds] of kindsByVendor) {
-    const best = strongestPartnershipKind(kinds);
-    if (best) relByVendor.set(vid, best);
-  }
-  // Worked together, automatically: a shop served with and not already tied.
-  for (const vid of eventsWith.keys()) {
-    if (vid === me || relByVendor.has(vid)) continue;
-    relByVendor.set(vid, 'general');
-    tieByVendor.set(vid, { origin: 'worked_together', direction: 'partner' });
-  }
-  for (const vid of hidden) {
-    relByVendor.delete(vid);
-    tieByVendor.delete(vid);
+  const tieByVendor = new Map<string, { origin: PartnershipOrigin; direction: 'this_shop' | 'partner' }>();
+  for (const r of (rows ?? []) as QualifiedTrustRow[]) {
+    const vid = r.trusting_vendor_profile_id;
+    if (!vid || vid === me || hidden.has(vid)) continue;
+    relByVendor.set(vid, strongestPartnershipKind(r.relationship_types ?? []) ?? 'general');
+    let origin: PartnershipOrigin = 'worked_together';
+    for (const o of r.origins ?? []) {
+      const oo = originOf(o);
+      if (ORIGIN_WEIGHT[oo] > ORIGIN_WEIGHT[origin]) origin = oo;
+    }
+    tieByVendor.set(vid, { origin, direction: r.made_by_this_shop ? 'this_shop' : 'partner' });
   }
   if (relByVendor.size === 0) return [];
 

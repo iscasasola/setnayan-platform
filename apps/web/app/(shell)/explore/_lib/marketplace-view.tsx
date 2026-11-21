@@ -174,6 +174,8 @@ import {
 import { discoverSupplierHref } from '@/lib/discover-suppliers';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { fetchQualifiedTrustCounts, TRUSTED_BY_UNREADABLE } from '@/lib/vendor-trusted-by';
+import { compareTrust } from '@/lib/trust-rank';
 
 /** Where the view is drawn — see `MarketplaceView`. */
 export type MarketplaceSurface = 'explore' | 'discover';
@@ -2424,6 +2426,10 @@ export async function MarketplaceView({
   // page load.
   // ---------------------------------------------------------------------
   const visibleVendorIds = visible.map((v) => v.vendor_profile_id);
+  // 🤝 TRUST, the search signal (owner 21 Nov 2026, "TRUSTED SHOPS RANK HIGHER IN SEARCH"): distinct QUALIFIED shops
+  // trusting each card, from the ONE reader (lib/vendor-trusted-by.ts). Started here so it runs beside the batch below.
+  // It only reorders the cards already on this page — every card here already passed the fit filters above.
+  const trustCountsRead = fetchQualifiedTrustCounts(createAdminClient(), visibleVendorIds);
   const [
     verificationByVendorId,
     servicesByVendorId,
@@ -2970,6 +2976,11 @@ export async function MarketplaceView({
     v.partnership_badge = partnershipBadgeByVendorId.get(v.vendor_profile_id) ?? null;
   }
 
+  // 🤝 A refused trust read leaves every card at 0 — the order stays exactly as it was (logged in the reader).
+  const trustRead = await trustCountsRead;
+  const trustCounts = trustRead === TRUSTED_BY_UNREADABLE ? null : trustRead;
+  const hasTrust = trustCounts !== null && trustCounts.size > 0;
+
   // ── Relationship-depth sort (runs before the phase-C rating/review re-sort) ─
   // Vendors the couple already knows float to the top of any category/search
   // results page regardless of sort mode (depth wins the first tiebreak).
@@ -2997,7 +3008,7 @@ export async function MarketplaceView({
   // rating/review pass below can still re-rank within ties).
   const hasPartnership = visible.some((v) => v.partnership_badge !== null);
   const hasQualityData = visible.some((v) => v.quality_score !== null);
-  if (hasPartnership || hasQualityData) {
+  if (hasPartnership || hasQualityData || hasTrust) {
     const partnershipPriority = (v: VendorCardRow): number => {
       const type = v.partnership_badge?.relationship_type;
       if (type === 'included_in_package') return 4;
@@ -3012,6 +3023,9 @@ export async function MarketplaceView({
       // 0. Preserve existing relationship-depth precedence (depth wins all).
       const depthDiff = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
       if (depthDiff !== 0) return depthDiff;
+      // 0b. 🤝 TRUST — right after fit, before every other key (owner 21 Nov 2026). Doubling steps (lib/trust-rank.ts).
+      const trustDiff = compareTrust(trustCounts, a.vendor_profile_id, b.vendor_profile_id);
+      if (trustDiff !== 0) return trustDiff;
       // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
       //    first-party rows are filtered out of the query entirely, so this
       //    tiebreak could only ever compare false-to-false.
@@ -3045,6 +3059,10 @@ export async function MarketplaceView({
     const ratingOf = (v: VendorCardRow): number => Number(v.avg_rating_overall ?? 0);
     const reviewsOf = (v: VendorCardRow): number => v.review_count ?? 0;
     visible = [...visible].sort((a, b) => {
+      // 0. 🤝 TRUST — right after fit, before every other key (owner 21 Nov 2026). `most_reviews` is the DEFAULT sort,
+      //    so without this key the pass above would be undone on every unsorted page. Doubling steps (lib/trust-rank.ts).
+      const trustDiff = compareTrust(trustCounts, a.vendor_profile_id, b.vendor_profile_id);
+      if (trustDiff !== 0) return trustDiff;
       // 1. ~~is_setnayan_service DESC (first-party float)~~ REMOVED 2026-07-26 —
       //    first-party rows never reach this array (filtered in the query).
       // 2. Rating / review sort — merit only, never tier-adjusted.
@@ -3147,6 +3165,9 @@ export async function MarketplaceView({
     visible = [...visible].sort((a, b) => {
       const depth = (b.relationship_depth ?? 0) - (a.relationship_depth ?? 0);
       if (depth !== 0) return depth;
+      // 🤝 TRUST, right after fit (owner 21 Nov 2026) — the lens orders within a trust step.
+      const trustDiff = compareTrust(trustCounts, a.vendor_profile_id, b.vendor_profile_id);
+      if (trustDiff !== 0) return trustDiff;
       return (scoreOf.get(b.vendor_profile_id) ?? 0) - (scoreOf.get(a.vendor_profile_id) ?? 0);
     });
   }

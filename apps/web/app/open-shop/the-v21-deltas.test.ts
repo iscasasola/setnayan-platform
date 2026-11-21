@@ -125,9 +125,12 @@ test('v19 ⑤ · the quiet field draws ONE rule line, only when the box is not e
 
 /* ── ⑥ v19 · choosing Email hides Google / Apple; one grey "✕ Use another way" brings them back ─────────────────── */
 
-test('v19 ⑥ · Email hides the other ways; "Use another way" is a grey pill that brings them back', () => {
-  assert.match(WIZARD, /<ActionButton\s+tone="neutral"\s+icon=\{X\}\s+label="Use another way"\s+onClick=\{\(\) => setAcctEmail\(false\)\}/);
-  assert.match(WIZARD, /\{waysShown && !taken && !acctEmail \? \(/);
+test('v19 ⑥ → 19 Nov · the email boxes show at once beside Google / Apple — nothing to fold, nothing to bring back', () => {
+  // 🚪 SUPERSEDED (owner "approve!" on P2/PB2, 19 Nov — "Email boxes show at once"): the 7 Nov "Email hides the other
+  // ways" + "Use another way" pill is gone; Google · Apple · "or" · Email · Password are one screen.
+  assert.doesNotMatch(WIZARD, /label="Use another way"/);
+  assert.doesNotMatch(WIZARD, /acctEmail/);
+  assert.match(WIZARD, /\{waysShown && !taken \? \(/);
 });
 
 /* ── ⑦ v19 · motion — slides on a step change, cards rise once, numbers count, bars grow; reduced motion off ───── */

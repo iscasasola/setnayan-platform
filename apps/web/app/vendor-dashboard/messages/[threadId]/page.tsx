@@ -9,6 +9,7 @@ import { CalendarDays, CircleCheck, MessageCircle, Send, Undo2, Wallet, X } from
 import { createClient } from '@/lib/supabase/server';
 import { ServerTimer } from '@/lib/server-timing';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { WHISPER_AUDIENCE_UNREAD, readTeamWhisper, type WhisperAudience } from '@/lib/chat-whisper.server';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -108,7 +109,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import { customerCardHref, supplierThreadForward, supplierThreadNoticeSearch, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -163,8 +164,10 @@ import { QuickReplies, quickRepliesFor, ThreadAnswerLine, ThreadAskRow } from '.
 import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
+import { fetchAgreeGiftBasis } from '@/lib/agree-gifts.server';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
-import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { Badge } from '@/app/_components/badge';
@@ -204,6 +207,10 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -318,8 +325,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(sp?.taken, sp?.free),
+      halls: lockAgreeHalls(sp?.taken, sp?.free), giftBuy: lockAgreeGiftBuy(sp?.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(sp?.lock_decline);
+  const giftOutcome = agreeGiftOutcomeLine(sp?.gift);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -411,6 +419,18 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   const feeWordsOnlyRead = readWordsOnlyTopUp(profile.vendor_profile_id, thread.event_id, manilaTodayYmd()).then((o) =>
     o ? TOP_UP_WORDS.toolGated(o.amountPhp) : null,
   );
+  // 🤫 THE TEAM'S WHISPER (Unichat part E — owner 19 Nov: "supplier whispers to co suppliers on the chat. and
+  // coordinators and hosts do not see it"; "Own shop team"). Who a whisper from this box reaches: the shop's own people
+  // who may chat here, this login left out. NULL = this login is not on the team here → no whisper offered. A FAILED
+  // read is `unread` — the box says it could not load, never "no one". The send core reads again; the database decides.
+  const teamWhisperRead: Promise<WhisperAudience> = readTeamWhisper(createAdminClient(), {
+    eventId: thread.event_id,
+    vendorProfileId: profile.vendor_profile_id,
+    viewerId: user.id,
+  }).catch((e: unknown) => {
+    console.error('[supplier thread] team whisper read failed', e);
+    return WHISPER_AUDIENCE_UNREAD('team');
+  });
   const composerFeeStandingRead = resolveBookingFeeStanding(createAdminClient(), {
     vendorProfileId: profile.vendor_profile_id,
     eventId: thread.event_id,
@@ -620,6 +640,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             .select('status, category')
             .eq('event_id', thread.event_id),
         ]);
+        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
+        // H-4 (supplier audit 2026-11-17): a refused suppliers read drew "None yet" on the Customer card for an event
+        // with booked suppliers. Refused = unread (null), the same as the thrown path below — never zero.
+        if (vendors.error) {
+          logQueryError('vendorThread.eventVendors', vendors.error, { eventId: thread.event_id }, 'graceful_degrade');
+          const hosts = members.error ? null : chatHostsFrom(members.data);
+          return { hostName: hosts?.[0]?.name ?? null, hosts, locked: null, total: null, lockedCategories: [] };
+        }
         const rows = (vendors.data ?? []) as Array<{
           status: string | null;
           category: string | null;
@@ -634,7 +662,6 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         const lockedCategories = lockedRows
           .map((r) => (r.category ? displayServiceLabel(r.category) : null))
           .filter((c): c is string => !!c);
-        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
         const hosts = members.error ? null : chatHostsFrom(members.data);
         const hostName = hosts?.[0]?.name ?? null;
         return { hostName, hosts, locked, total: rows.length, lockedCategories };
@@ -874,6 +901,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       : null;
   })();
 
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree, read beside the forecast. Null when no bill.
+  const agreeGiftBasisRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.eventVendorId
+      ? await fetchAgreeGiftBasis(paxAdmin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockHandshake.eventVendorId,
+        })
+      : null;
+  })();
+
   // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
   // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
   // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
@@ -953,7 +991,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
      already started above, so it never costs a read the answer does not need. */
   const todayIso = manilaDate(new Date().toISOString());
   const dayAnswerRead: Promise<ThreadDayAnswer | null> = (async () => {
-    const [{ data: ev }, stage] = await Promise.all([eventRead, railStageRead]);
+    const [{ data: ev, error: evErr }, stage] = await Promise.all([eventRead, railStageRead]);
+    // H-5 (supplier audit 2026-11-17): a REFUSED event read is not "No date yet" — no answer line is drawn instead.
+    if (evErr) {
+      logQueryError('vendorThread.event', evErr, { eventId: thread.event_id }, 'graceful_degrade');
+      return null;
+    }
     if (!ev?.event_date) return { kind: 'no_date' };
     if (THREAD_STAGE_HAS_AGREEMENT[stage]) return { kind: 'booked' };
     return readThreadDayAnswer(supabase, {
@@ -1172,6 +1215,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     eventFileDayRead,
   ]);
   const heldAskService = await heldServiceRead;
+  const agreeGiftBasis = await agreeGiftBasisRead;
   const chatPins = await chatPinsRead;
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1503,6 +1547,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldAskService}
+          giftBasis={agreeGiftBasis}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
@@ -1947,6 +1992,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
+                    // 🚩 Report a problem left the (+) for the head's ⋯ (Unichat part G, 20 Nov). This page still draws on its
+                    // own (the inbox pane, a return with a notice), so ⋮ keeps the way in — only where the client page opens.
+                    ...(clientAdmits ? [{ href: `/vendor-dashboard/clients/${thread.event_id}?tab=report`, label: 'Report a problem', icon: 'problem' as const }] : []),
                   ]}
                 />
                 </>
@@ -1982,6 +2030,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                       </Link>
                     </>
                   ) : null}
+                </p>
+              ) : null}
+              {giftOutcome ? (
+                <p
+                  role={giftOutcome.tone === 'refused' ? 'alert' : 'status'}
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    giftOutcome.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-agree-gift-outcome=""
+                >
+                  {giftOutcome.text}
                 </p>
               ) : null}
               {embedded ? <PickedHeadLine>{answerInHead(true)}</PickedHeadLine> : null}
@@ -2182,6 +2241,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
                   wordsOnly={await feeWordsOnlyRead}
+                  // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
+                  kinds={embedded}
+                  // 🤫 Drag the box right to whisper to your own team — the hosts and the coordinator never see it (19 Nov).
+                  whisper={await teamWhisperRead.then((t) =>
+                    t ? { supplierName: 'the hosts', coHosts: t.ids.length, unread: t.unread, side: 'team' as const, reach: t.reach } : null,
+                  )}
+                  // 🎤 An empty box: Send is a mic — hold to record a voice note (Unichat H1, 20 Nov).
+                  voice
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2389,12 +2456,20 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             initialMessages={initialMessages}
             currentUserId={user.id}
             viewerRole="vendor"
+            // 🔎 The Private filter line names who sees the team's whispers — the same read as the box's reach line.
+            privateFilterWho={await teamWhisperRead.then((t) => (t ? { who: t.filterWho, unread: t.unread } : null))}
             counterpartyLabel={coupleLabel}
             eventDate={event?.event_date ?? null}
             standing={threadStanding}
             decisionPayments={decisionPayments}
             decisionGuestCounts={decisionGuestCounts}
             initialView={initialView}
+            // 💬 ONE CHAT THAT HOLDS EVERYTHING (owner 19 Nov 2026) — only inside the client page: the strip on top, the
+            // chips' filter, quiet step lines, the inquiry card (once the inquiry is answered — while it is pending the
+            // shipped "Their ask" above carries it with Accept · Ask · Decline) and Every version behind the Deal box.
+            oneChat={embedded}
+            inquiryPending={thread.inquiry_status === 'pending'}
+            inquiryCalendar={dayAnswer === null || dayAnswer.kind === 'no_date' || dayAnswer.kind === 'not_set' || dayAnswer.kind === 'booked' ? null : threadDayIsOpen(dayAnswer) ? 'open' : 'busy'}
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.

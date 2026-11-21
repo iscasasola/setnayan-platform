@@ -2,13 +2,15 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VendorAddonSku } from './vendor-addon-tier-pricing';
 
 /**
- * ⚠ 20 NOV: DECOUPLED FROM THE BOOKING FEE. This window used to read the fee's
- * `FREE_BOOKING_LIMIT`. The fee's free first booking is gone (specs DECISION_LOG
- * 2026-11-20 "BILLING MUST FOLLOW THE RETIRED COPY"), which would have silently
- * repriced these add-ons too — a money change nobody ruled on. So the window
- * keeps its own value, unchanged at ONE booking, until the owner rules on it.
+ * ⚖ 21 NOV — OWNER: *"Make it 0"* (DECISION_LOG 21 Nov, answering "Is the add-on's free window 0?"). There is NO free
+ * add-on window: the add-on's first booking is billed like every other. On 20 Nov this was decoupled from the booking
+ * fee's `FREE_BOOKING_LIMIT` (the fee's free first booking was retired, which would have repriced these add-ons with
+ * nobody ruling) and held at one booking until the owner ruled; he has. It stays its own number — the add-on window is
+ * not the fee's — and it is a code constant because no setting or catalogue row has ever held it.
+ *
+ * 0 means NO window at all ({@link vendorInFirst5Window} answers false for every count), never "free until the first".
  */
-const FREE_BOOKING_LIMIT = 1;
+const FREE_BOOKING_LIMIT = 0;
 
 /**
  * vendor-addon-first5-free.ts — "free until your 6th booking" for the two
@@ -90,6 +92,8 @@ export function isAddonFreeDuringFirst5(sku: VendorAddonSku): boolean {
  * the DB, and a read that went wrong must never mint a free entitlement.
  */
 export function vendorInFirst5Window(committedBookingCount: number): boolean {
+  // A window of 0 is no window (owner 21 Nov "Make it 0") — not "free while nothing is booked yet".
+  if (FREE_BOOKING_LIMIT <= 0) return false;
   if (!Number.isFinite(committedBookingCount) || committedBookingCount < 0) return false;
   return committedBookingCount <= FREE_BOOKING_LIMIT;
 }

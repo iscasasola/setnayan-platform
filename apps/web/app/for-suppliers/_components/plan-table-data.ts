@@ -130,6 +130,8 @@ function chatbotCell(t: VendorTier): TableCell {
   const level = PLAN_CHATBOT_LEVEL[t] ?? 'none';
   if (level === 'advanced') return yes('Smarter level: your voice, the couple’s language');
   if (level === 'basic') return yes('Included');
+  // Verified joins Free (owner 21 Nov: "AI Chatbot is for verified and up"): the Free cell says where it opens.
+  if (t === 'free' && (PLAN_CHATBOT_LEVEL.verified ?? 'none') !== 'none') return { kind: 'lock', text: 'Opens once Verified' };
   return no('Not included');
 }
 
@@ -245,7 +247,7 @@ export function addonLines(bySku: Readonly<Record<string, string | null>>): { ki
 /** Ultra's add-ons as the table names them — the add-on module's own purchase labels. */
 const ULTRA_ADDON_LABEL: Record<UltraAddOnKind, string> = {
   category: '+1 category',
-  service_card: '+1 service card per category',
+  service_card: '+1 service card',
   seat: '+1 team seat',
   branch: '+1 branch',
   waitlist: '+1 waiting-list place per date',

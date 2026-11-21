@@ -18,6 +18,7 @@
  * A refused read returns `{ ok: false }` and the card says "Couldn't load" — never an empty list dressed as "none yet".
  */
 import { createClient } from '@/lib/supabase/client';
+import { askKindOf, quoteLinesOf } from '@/lib/chat-deal';
 import { logPayment } from '@/app/dashboard/[eventId]/budget/actions';
 import { loadCatalogueExtrasForQuote } from '@/app/vendor-dashboard/messages/[threadId]/proposal-actions';
 import { vendorAskForPayment, type PaymentAskOutcome } from '@/app/vendor-dashboard/clients/[eventId]/actions';
@@ -37,6 +38,8 @@ import type { AutoBalanceMeta, InstallmentDraft } from '@/lib/proposal-payment-s
 import { openDecision } from '@/lib/chat-decisions';
 import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
+import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
+import type { ProposalLineItem } from '@/lib/vendor-proposals';
 
 type Fail = { ok: false };
 
@@ -59,6 +62,8 @@ export type QuoteForCard = {
   status: string;
   totalCentavos: number;
   lines: CardLine[];
+  /** The stored `line_items`, as stored — the receipt opens from these so a line keeps its card, basis and offer. */
+  items: ProposalLineItem[];
   validUntil: string | null;
   paymentMethodIds: string[];
   gift: boolean | null;
@@ -71,7 +76,7 @@ export type QuoteForCard = {
   /** The plan rows a confirmed payment is attributed to — frozen on every face. */
   paidSeqs: number[];
   locks: ItemLocks;
-  extras: { id: string; label: string; qty: number; pricePhp: number }[];
+  extras: { id: string; label: string; qty: number; pricePhp: number; free: boolean }[];
   pax: number | null;
   /**
    * The shipped S5 gate (`vendor_may_requote`): a confirmed booking or an open lock request refuses a new version.
@@ -85,20 +90,6 @@ export type QuoteForCard = {
 
 const QUOTE_COLS =
   'proposal_id, public_id, title, total_centavos, status, sent_at, valid_until, line_items, payment_method_ids, payment_schedule, includes_setnayan_gift, service_card_ids, changes_locked, plan_locked';
-
-function cardLinesOf(raw: unknown): CardLine[] {
-  const arr = Array.isArray(raw) ? raw : [];
-  return arr.map((l, i) => {
-    const r = (l ?? {}) as { label?: unknown; detail?: unknown; amount_centavos?: unknown };
-    const amt = r.amount_centavos == null ? null : Math.round(Number(r.amount_centavos));
-    return {
-      key: `l${i}`,
-      label: String(r.label ?? '').trim() || 'Line item',
-      detail: r.detail == null ? null : String(r.detail),
-      amountCentavos: amt == null || !Number.isFinite(amt) ? null : amt,
-    };
-  });
-}
 
 async function liveQuote(supabase: ReturnType<typeof createClient>, eventId: string, shop: string) {
   return supabase
@@ -171,7 +162,8 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
     title: String(row.title ?? 'Quote'),
     status: String(row.status),
     totalCentavos: Math.round(Number(row.total_centavos) || 0),
-    lines: cardLinesOf(row.line_items),
+    lines: quoteLinesOf(row.line_items),
+    items: Array.isArray(row.line_items) ? (row.line_items as ProposalLineItem[]) : [],
     validUntil: (row.valid_until as string | null) ?? null,
     paymentMethodIds: Array.isArray(row.payment_method_ids) ? (row.payment_method_ids as string[]) : [],
     gift: typeof row.includes_setnayan_gift === 'boolean' ? row.includes_setnayan_gift : null,
@@ -188,6 +180,8 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
         label: x.label,
         qty: perPax ? Math.max(pax ?? 0, x.line.minPax || 0) || 1 : 1,
         pricePhp: perPax ? x.line.ratePhp : x.line.free ? 0 : x.line.basis === 'per_hour' ? x.line.basePhp : x.line.flatPhp,
+        // A free catalogue extra stays FREE on the quote — never a ₱0 line that reads "Amount not set".
+        free: !perPax && Boolean(x.line.free),
       };
     }),
     pax,
@@ -219,6 +213,30 @@ export async function loadCardsForMakeQuote(threadId: string): Promise<{ ok: tru
       fromCentavos: r.starting_price_php == null ? null : Math.round(Number(r.starting_price_php) * 100),
     })),
   };
+}
+
+// ── 🗓 How each line books · the card's own availability style (Unichat part C, 20 Nov 2026) ─────────────────────
+
+/**
+ * The availability style of each of the shop's service cards, by card id — the tag a quote line wears (its `card_id`).
+ * Read with the reader's own session (a shop reads its own cards; anyone signed in reads a public shop's). A card with
+ * no style is NOT in the map: "Not set" is never dressed as one of the seven (`lib/availability-styles.ts`).
+ * A refused read is `{ ok: false }` — the lines then wear no tag at all.
+ */
+export async function loadCardAvailability(threadId: string): Promise<{ ok: true; byCard: Record<string, AvailabilityStyle> } | Fail> {
+  const supabase = createClient();
+  const { data: thread, error: tErr } = await supabase.from('chat_threads').select('vendor_profile_id').eq('thread_id', threadId).maybeSingle();
+  if (tErr || !thread) return refused('availability · thread', tErr);
+  const { data, error } = await supabase
+    .from('vendor_services')
+    .select('vendor_service_id, availability_style')
+    .eq('vendor_profile_id', (thread as { vendor_profile_id: string }).vendor_profile_id);
+  if (error) return refused('availability · cards', error);
+  const byCard: Record<string, AvailabilityStyle> = {};
+  for (const r of (data ?? []) as { vendor_service_id: string; availability_style: string | null }[]) {
+    if (isAvailabilityStyle(r.availability_style)) byCard[r.vendor_service_id] = r.availability_style;
+  }
+  return { ok: true, byCard };
 }
 
 // ── Guest-count recount · only the quote's per-guest lines ───────────────────
@@ -325,7 +343,7 @@ function askOf(r: AskDbRow): ChangeAskRow {
     goodUntil: r.good_until,
     raisedBy: r.raised_by ?? 'host',
     answerProposalId: r.answer_proposal_id,
-    kind: r.kind ?? (r.amount_centavos != null ? 'counter' : r.proposed_plan != null ? 'plan' : 'words'),
+    kind: askKindOf(r),
     moneyHidden: r.money_hidden === true,
   };
 }
@@ -397,7 +415,7 @@ export async function loadNegotiation(threadId: string): Promise<{ ok: true; quo
       title: String(row.title ?? 'Quote'),
       status: String(row.status),
       totalCentavos: Math.round(Number(row.total_centavos) || 0),
-      lines: cardLinesOf(row.line_items),
+      lines: quoteLinesOf(row.line_items),
       planRows: Array.isArray(sched.installments) ? sched.installments.map((r) => ({ ...r, seq: Number(r.seq), amount_centavos: Math.round(Number(r.amount_centavos) || 0) })) : [],
       creditCentavos: Math.max(0, Math.round(Number(sched.credit_centavos) || 0)),
       floorCentavos: floorRes.data == null ? null : Math.round(Number(floorRes.data)),

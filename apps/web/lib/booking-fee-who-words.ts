@@ -20,13 +20,19 @@
  */
 
 /**
- * The full rule, to a supplier (second person). Since 20 Nov (#8061) public pages read it too — help, llms.txt, the
- * invite message, /features — so it names NO duration: the owner's words verbatim (19 Nov PROMOTION PAGES (4)), then the
- * verified-only fact (99b6ab50). The in-app screens that may name the length use `feeFreeRuleInApp`.
- * ⤳ main (batch A, #8078) holds the same sentence as `SUPPLIER_FREE_BOOKING_LINE`; when this branch meets main, this
- *   becomes `${SUPPLIER_FREE_BOOKING_LINE} Verified shops only.` — one sentence, one home.
+ * 🔑 THE FREE BOOKING ON THE PUBLIC PAGES, in the owner's 19 Nov words (DECISION_LOG 2026-11-19 "PROMOTION PAGES — SEVEN
+ * ANSWERS", item 4): no number of months on any public page. /for-suppliers and /for-coordinators say this.
+ * Open PR #8041 exports the same sentence from `lib/seo/ai-answers.ts` — whichever lands second imports this one.
+ * 🔒 lib/no-fee-wording.test.ts
  */
-export const FEE_FREE_RULE = "New to Setnayan, or you're the first to bring their event? They book you free. Verified shops only.";
+export const SUPPLIER_FREE_BOOKING_LINE = "New to Setnayan, or you're the first to bring their event? They book you free.";
+
+/**
+ * The full rule, to a supplier (second person): the public line, then the verified-only fact (99b6ab50). Public pages
+ * read it too — help, llms.txt, the invite message, /features — so it names NO duration. The in-app screens that may
+ * name the window's length use `feeFreeRuleInApp`, which reads it from the admin setting (never typed).
+ */
+export const FEE_FREE_RULE = `${SUPPLIER_FREE_BOOKING_LINE} Verified shops only.`;
 
 /** The same rule in Tagalog, for the Tagalog feature pages. No duration. */
 export const FEE_FREE_RULE_TL =

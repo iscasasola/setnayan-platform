@@ -55,31 +55,30 @@ test('the paid-from-day-one add-ons are NEVER free under this perk', () => {
   }
 });
 
-// ── THE BOUNDARY — free through 1, paying from 2 ────────────────────────────
-// ⚖ The fee window is ONE booking since 2026-10-23 ("Your first booking is on
-// us. Not 5."), and this window is defined as that same window.
+// ── THE WINDOW IS 0 — owner 21 Nov: "Make it 0" ──────────────────────────
+// There is no free add-on window: the first booking is billed. 0 is NO window, not "free before the first booking".
 
-test('boundary: free at 0-1 committed bookings, charged from 2', () => {
-  for (const n of [0, 1]) {
-    assert.equal(vendorInFirst5Window(n), true, `count ${n} should be inside`);
-  }
-  for (const n of [2, 5, 6, 50]) {
-    assert.equal(vendorInFirst5Window(n), false, `count ${n} should be outside`);
+test('21 Nov: no committed-booking count is inside the window — the window is 0', () => {
+  for (const n of [0, 1, 2, 5, 6, 50]) {
+    assert.equal(vendorInFirst5Window(n), false, `count ${n} must be outside`);
   }
 });
 
-test('20 Nov: the add-on window is DECOUPLED from the fee — the fee has no free booking, the add-on window keeps one', () => {
-  // The fee's free first booking is retired (FREE_BOOKING_LIMIT 0). Following it would have repriced these add-ons —
-  // a money change nobody ruled on — so the window keeps its own value of one booking until the owner rules.
-  assert.equal(FREE_BOOKING_LIMIT, 0);
-  assert.equal(vendorInFirst5Window(1), true);
-  assert.equal(vendorInFirst5Window(2), false);
-});
-
-test('end to end at the boundary, policy on', () => {
+test("21 Nov: the add-on's first booking is billed (policy on, before and at the first booking)", () => {
   const on = { sku: 'ads_3d_plan' as const, enabled: true };
-  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 1 }), true);
-  assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount: 2 }), false);
+  for (const committedBookingCount of [0, 1]) {
+    assert.equal(addonIsFreeUnderFirst5({ ...on, committedBookingCount }), false, `count ${committedBookingCount}`);
+    assert.equal(
+      addonIsFreeUnderFirst5({ sku: 'papic_challenge', committedBookingCount, enabled: true }),
+      false,
+      `papic_challenge count ${committedBookingCount}`,
+    );
+  }
+});
+
+test('the add-on window stays its own number — the fee also has no free booking (both 0, decided separately)', () => {
+  assert.equal(FREE_BOOKING_LIMIT, 0);
+  assert.equal(vendorInFirst5Window(0), false);
 });
 
 // ── fail CLOSED: a bad count must never mint a free entitlement ─────────────
@@ -97,8 +96,8 @@ test('a garbage booking count is treated as OUTSIDE the window', () => {
 
 // ── the "bookings remaining" counter behind the UI copy ─────────────────────
 
-test('bookings remaining counts down and floors at 0', () => {
-  assert.equal(first5BookingsRemaining(0), 1);
+test('bookings remaining is 0 for every count — there is no window to count down (21 Nov)', () => {
+  assert.equal(first5BookingsRemaining(0), 0);
   assert.equal(first5BookingsRemaining(1), 0);
   assert.equal(first5BookingsRemaining(5), 0);
   assert.equal(first5BookingsRemaining(9), 0);

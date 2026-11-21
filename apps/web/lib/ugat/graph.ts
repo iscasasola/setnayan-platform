@@ -1734,6 +1734,14 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // vendor_profile_id, NOT vendor_id — the obvious guess is wrong here.
       { kind: 'column', table: 'vendor_team_members', column: 'vendor_profile_id' },
       { kind: 'column', table: 'vendor_team_members', column: 'user_id' },
+      // 🧑‍🤝‍🧑 2026-11-19 SIX SUPPLIER ROLES (migration supplier_six_roles): the role beside the rank, where it works,
+      // and the shop's own word for each role.
+      { kind: 'column', table: 'vendor_team_members', column: 'duty' },
+      { kind: 'column', table: 'vendor_team_members', column: 'branch_id' },
+      { kind: 'fk', table: 'vendor_team_members', column: 'branch_id', references: 'vendor_branches' },
+      { kind: 'table', table: 'vendor_role_names' },
+      { kind: 'fk', table: 'vendor_role_names', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'vendor_role_names', column: 'display_name' },
     ],
     chain: 4,
     pair: ['TYPE-USERS', 'TYPE-VENDORS'],
@@ -1741,10 +1749,10 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'vendor_team_members',
     cardinality: 'Many-to-many · UNIQUE(org_id, user_id) — one membership row per (person, org)',
     implementedBy:
-      'vendor_profiles.user_id is the founder FK (nullable — admin can pre-stage an unclaimed shop). Team roster is the joint: vendor_team_members, roles admin / agent / viewer.',
+      'vendor_profiles.user_id is the founder FK (nullable — admin can pre-stage an unclaimed shop). Team roster is the joint: vendor_team_members. 🧑‍🤝‍🧑 2026-11-19: each seat holds ONE of six roles in `duty` (shop_manager · branch_manager · account_manager · marketing · event_crew · helper) and works at `branch_id` (NULL = main; always NULL for shop_manager / marketing). The rank in `role` (admin / agent / viewer) is DERIVED from duty by vendor_team_duty_rank_trg (shop_manager→admin, branch/account_manager→agent, the rest→viewer), so every current_vendor_ids(min_role) policy is unchanged. vendor_role_names holds the shop\'s own word for each role (per role per shop — not team_label, which is per person). A Branch Manager runs their branch\'s team (vendor_team_members_branch_manager_manage, via current_vendor_branch_manager_scopes()) and holds its cards (vendor_team_branch_manager_cards_trg); current_vendor_dayof_grant_event_ids() admits a client\'s Account / Branch Manager to its event day without a grant.',
     writtenBy: 'Team invite accept flow · founder auto-insert on vendor registration',
     guardedBy: 'current_vendor_ids() — the vendor-side RLS spine',
-    traps: 'A DB trigger enforces an ≥1-admin floor — you cannot remove the last admin row without first promoting someone else.',
+    traps: 'A DB trigger enforces an ≥1-admin floor — you cannot remove the last admin row without first promoting someone else. Never write `role` by hand to change what someone can do — write `duty`; the rank follows it (a legacy write of `role` alone moves duty to that rank\'s nearest role).',
   },
   {
     id: 'J5',
@@ -1778,6 +1786,21 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'chat_decision_messages' },
       { kind: 'fk', table: 'chat_decision_messages', column: 'topic_id', references: 'chat_decision_topics' },
       { kind: 'fk', table: 'chat_decision_messages', column: 'message_id', references: 'chat_messages' },
+      // 💬 2026-11-20 — Unichat H1 (20271354347259): a sender edits or unsends their own message (the words before are
+      // kept in chat_message_revisions, read by nobody in the chat); a voice note is a chat file with its length; and a
+      // person sets their own "Remind me" on a message — one per person per message.
+      { kind: 'column', table: 'chat_messages', column: 'edited_at' },
+      { kind: 'column', table: 'chat_messages', column: 'unsent_at' },
+      { kind: 'column', table: 'chat_messages', column: 'voice_seconds' },
+      { kind: 'table', table: 'chat_message_revisions' },
+      { kind: 'fk', table: 'chat_message_revisions', column: 'message_id', references: 'chat_messages' },
+      { kind: 'fk', table: 'chat_message_revisions', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'column', table: 'chat_message_revisions', column: 'body_before' },
+      { kind: 'table', table: 'chat_message_reminders' },
+      { kind: 'fk', table: 'chat_message_reminders', column: 'message_id', references: 'chat_messages' },
+      { kind: 'fk', table: 'chat_message_reminders', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'unique', table: 'chat_message_reminders', columns: ['message_id', 'user_id'] },
+      { kind: 'column', table: 'chat_message_reminders', column: 'delivered_at' },
       { kind: 'table', table: 'chat_polls' },
       { kind: 'fk', table: 'chat_polls', column: 'thread_id', references: 'chat_threads' },
       { kind: 'fk', table: 'chat_polls', column: 'saved_decision_id', references: 'chat_decision_topics' },
@@ -2364,8 +2387,49 @@ export const UGAT_JOINTS: UgatJoint[] = [
       },
       { kind: 'column', table: 'shop_gift_purchases', column: 'packs_each' },
       { kind: 'column', table: 'shop_gift_purchases', column: 'bundle_code' },
+      // 🛒 THE GIFT STORE (prototype v16, 2026-11-17): one order may carry many gifts — singles and 10 + 1 bundles —
+      // paid once. Each item is a shop_gift_order_lines row (its catalogue price snapshotted; the line total is worked
+      // out by the database); shop_gift_grant_order_lines lands each line ONCE as a bought stock row keyed
+      // (order_id, kind, purchase_line_no) — the old single-gift path is line 0 — and shop_gift_reverse_order_lines
+      // takes each back once. No order passes platform_settings.max_payment_php (owner: "We do not allow transactions
+      // above 100,000.").
+      { kind: 'table', table: 'shop_gift_order_lines' },
+      { kind: 'fk', table: 'shop_gift_order_lines', column: 'order_id', references: 'orders' },
+      { kind: 'fk', table: 'shop_gift_order_lines', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'shop_gift_order_lines', column: 'unit_price_php' },
+      { kind: 'column', table: 'shop_gift_order_lines', column: 'line_total_php' },
+      { kind: 'unique', table: 'shop_gift_order_lines', columns: ['order_id', 'line_no'] },
+      {
+        kind: 'check',
+        table: 'shop_gift_order_lines',
+        name: 'shop_gift_order_lines_bundle_matches_basis',
+        mentions: 'bundle_code',
+      },
+      { kind: 'column', table: 'shop_gift_stock_entries', column: 'purchase_line_no' },
+      { kind: 'column', table: 'platform_settings', column: 'max_payment_php' },
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_of_service_code' },
       { kind: 'column', table: 'platform_retail_catalog_v2', column: 'bundle_quantity' },
+      // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the gifts a supplier PICKS for the couple's event when they agree to
+      // a booking — one row per Papic pack or plan, its list price frozen at the yes; every booking carries at least one
+      // (20 Nov). NEVER on the booking-fee bill (16 Nov): a line is from stock (held, given at the couple's first
+      // payment) or covered by ONE sent gift-store order line (gift_order_line_id, 21 Nov) — approved, it becomes a stock
+      // hold; refused or refunded, it is cleared (cleared_at), never deleted. Written only by booking_gift_pick and the
+      // order-line followers.
+      { kind: 'table', table: 'booking_gift_lines' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'event_vendor_id', references: 'event_vendors' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'event_id', references: 'events' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'booking_gift_lines', column: 'gift_order_line_id', references: 'shop_gift_order_lines' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'from_stock' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'price_centavos' },
+      { kind: 'column', table: 'booking_gift_lines', column: 'cleared_at' },
+      { kind: 'no_column', table: 'booking_gift_lines', column: 'charge_id' },
+      {
+        kind: 'check',
+        table: 'booking_gift_lines',
+        name: 'booking_gift_lines_stock_or_sent',
+        mentions: 'gift_order_line_id',
+      },
       { kind: 'table', table: 'vendor_proposal_shop_gifts' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'proposal_id', references: 'vendor_proposals' },
       { kind: 'fk', table: 'vendor_proposal_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
@@ -2391,6 +2455,16 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'column', table: 'shop_badge_upgrades', column: 'reward_key' },
       { kind: 'check', table: 'shop_badge_upgrades', name: 'shop_badge_upgrades_started_together', mentions: 'ends_at' },
       { kind: 'no_column', table: 'shop_badge_upgrades', column: 'price_php' },
+      // 🎁 SETNAYAN GIFTS TO A SHOP (owner 2026-11-14) — gift stock (lands through shop_badge_reward_grant, key
+      // 'setnayan_gift:<gift_id>', outside the 40% limit) or one 28-day block of the shop's own plan, which pauses the
+      // plan it was on and hands it back (sweep_vendor_tier_expiry · setnayan_plan_gift_return). Claimed once:
+      // claimed_at is set only while NULL. A count and a plan, never a price.
+      { kind: 'table', table: 'setnayan_shop_gifts' },
+      { kind: 'fk', table: 'setnayan_shop_gifts', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'column', table: 'setnayan_shop_gifts', column: 'claimed_at' },
+      { kind: 'column', table: 'setnayan_shop_gifts', column: 'return_tier' },
+      { kind: 'check', table: 'setnayan_shop_gifts', name: 'setnayan_shop_gifts_claim_whole', mentions: 'claim_choice' },
+      { kind: 'no_column', table: 'setnayan_shop_gifts', column: 'price_php' },
     ],
     chain: 18,
     pair: ['TYPE-PAPIC', 'TYPE-VENDORS'],
@@ -2401,7 +2475,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     implementedBy:
       'vendor_papic_portfolio_credit_grants.(vendor_profile_id, event_id) → vendor_profiles + events, order_id → orders for the purchase; allowance = MAX(tier gift, SUM(grants.credits)) − points(vendor_papic_captures) − credits(vendor_papic_portfolio_photos), computed only by allowancePointsFor / captureAllowance in lib/vendor-papic-tier.ts plus the portfolio-spend fold in fetchVendorPapicPortfolioCredits (lib/vendor-papic-grants.ts)',
     writtenBy:
-      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by the request door GET /api/vendor/badges?view=facts, fetched after Today, Shop and Performance draw (never inside a page render, since 2026-11-08), by the admin’s manual award, and since 2026-11-15 from after() where a count moves (booking delivered/complete, review posted, partnership accepted, gift given) plus the daily badge-reward-sweep backstop, all through lib/badge-earned.server.ts, which tells the shop once per new grant (badge_earned); the one reward table is lib/badge-rewards.ts — since 2026-11-15 ONE tier ladder, four Papic packs (read from the catalogue) · Event Plus · Event Pro · Event Ultra (the real plan: an earned-only event_ultra gift, delivered like Event Pro, migration 20271348181787); a claim is a gift_moment_claims row, never stock) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
+      'lib/sku-activation.ts on admin payment approval — grantVendorPapicCreditsForBookingFee inside the vendor_booking_fee__ hook (floor(fee × 5%), cap 1,000, no floor; only a status=paid charge earns) and grantVendorPapicPortfolioPack for vendor_papic_portfolio_pack (25→100 since 2026-09-06; since 2026-10-23 into shop_papic_wallet_entries, the SHOP wallet, not an event); since 2026-11-04 grantShopPapicPack for vendor_papic_pack__<PAPIC_GUEST code> (the couple’s packs, credits from papic_pass_tiers) — the ₱500 pack is retired — SHIPPED 2026-09-05; since 2026-11-04 grantShopGiftPurchase for vendor_gift__<PAPIC_GUEST code> (quantity × credits from shop_gift_purchases into shop_gift_stock_entries, reversed by reverseShopGiftPurchase) and since 2026-11-17 grantShopGiftCart for vendor_gift__GIFT_CART (the gift store: every shop_gift_order_lines row landed once by shop_gift_grant_order_lines, reversed by reverseShopGiftCart through shop_gift_reverse_order_lines), the quote lines by writeQuoteShopGifts inside sendCustomProposalCore (re-judged on send), and the gift into the event pool by shop_gift_deliver_for_booking from runDepositAcknowledgedEffects; since 2026-11-05 badge rewards by shop_badge_reward_grant (grantOwedBadgeRewards in lib/badge-rewards.server.ts — run by the request door GET /api/vendor/badges?view=facts, fetched after Today, Shop and Performance draw (never inside a page render, since 2026-11-08), by the admin’s manual award, and since 2026-11-15 from after() where a count moves (booking delivered/complete, review posted, partnership accepted, gift given) plus the daily badge-reward-sweep backstop, all through lib/badge-earned.server.ts, which tells the shop once per new grant (badge_earned); the one reward table is lib/badge-rewards.ts — since 2026-11-15 ONE tier ladder, four Papic packs (read from the catalogue) · Event Plus · Event Pro · Event Ultra (the real plan: an earned-only event_ultra gift, delivered like Event Pro, migration 20271348181787); a claim is a gift_moment_claims row, never stock) into shop_badge_rewards plus a badge_reward stock row, and since 2026-11-06 the badge’s 4-week personal upgrade by shop_badge_upgrade_grant in the same sweep (grantOwedBadgeUpgrades, lib/badge-upgrades.server.ts) into shop_badge_upgrades, started by the supplier through shop_badge_upgrade_start (startBadgeUpgrade, Shop › Promote › Your upgrades), and a free booking fee is spent by booking_fee_open_lock_charge on the shop’s next fee-bearing booking; the tier row by admin comp; captures by /api/vendor/papic-capture; portfolio imports by /api/vendor/papic-portfolio-import (G3, SHIPPED 2026-09-06) — the vendor’s OWN RLS client mints the row (booked-event insert policy), the credit check happens in the route, and the background NSFW screen runs on the service-role admin client so a session can never rewrite its own screen result',
     guardedBy:
       'ledger: SELECT for the owning vendor (current_vendor_profile_ids) or admin, NO write policy, anon revoked, authenticated holds SELECT only; partial UNIQUE (order_id, source) WHERE order_id IS NOT NULL; the couple has no read on it at all — a supplier’s credits are not the host’s to see. Portfolio album: SELECT + INSERT for the owning vendor on a BOOKED event (current_vendor_booked_event_ids), no UPDATE/DELETE for authenticated, anon revoked — pinned by tests/db/vendor-papic-portfolio-is-not-the-host-gallery.db.test.ts',
     traps:
@@ -4322,7 +4396,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     cardinality:
       'One plan order per event (EVENT_PLUS · COUPLE_WEBSITE_PRO · EVENT_ULTRA); each refused once owned (order-charge-authority, iap-actions). A higher plan includes the lower one.',
     implementedBy:
-      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO, PATIKTOK_COMPILER and the Pro alias lists) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order, or — since 2026-11-15 — of a plan a SUPPLIER GAVE the event (a given shop_gift_stock_entries row’s unlocks_sku), so a supplier-gifted Ultra is full Ultra; an admin comp keeps the plain 3 months) · lib/event-ultra-gates.ts (canvas prints)',
+      'platform_retail_catalog_v2 rows (price · included_papic_credits · fullres_extra_keep_days, admin-managed) · lib/sku-activation.ts activateEventPlan (Setnayan AI + credits topped up to the row) · lib/entitlements.ts SKU_OWNERSHIP_ALIASES (an EVENT_ULTRA order confers COUPLE_WEBSITE_PRO, LIVE_STUDIO and the Pro alias lists; PATIKTOK_COMPILER left 2026-11-20, retired) · papic_events_past_fullres_clock (adds the largest fullres_extra_keep_days of any paid/fulfilled order, or — since 2026-11-15 — of a plan a SUPPLIER GAVE the event (a given shop_gift_stock_entries row’s unlocks_sku), so a supplier-gifted Ultra is full Ultra; an admin comp keeps the plain 3 months) · lib/event-ultra-gates.ts (canvas prints)',
     writtenBy:
       'the couple checkout and the App Store purchase (`com.setnayan.app.event_plus` · `event_pro` · `event_ultra`) → admin approval runs the activation hook; migration 20271344860040 adds the Ultra row',
     guardedBy:

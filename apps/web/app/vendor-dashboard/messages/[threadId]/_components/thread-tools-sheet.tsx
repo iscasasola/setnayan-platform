@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  ArrowLeft,
   BadgeCheck,
   Camera,
   ImageIcon,
   CalendarPlus,
-  ChevronRight,
   Handshake,
+  Lock,
   Plus,
   Star,
   Store,
@@ -31,10 +32,11 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, hostPlusRows, plusGate, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow } from '@/lib/chat-plus';
+import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, PLUS_ROW_SECTION, PLUS_SECTION_WORD, hostPlusRows, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow, type PlusSection } from '@/lib/chat-plus';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
-import { PLUS_CARD_TITLE, PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
+import { PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
+import { useIsDesktop } from '@/lib/use-responsive';
 import { pickedPageLabel } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
 /**
@@ -121,41 +123,39 @@ export type SheetRow = {
    * 🤝 'negotiate' (12 Nov) is the one group above the mirror — drawn first, labelled NEGOTIATE.
    */
   page?: PlusGroup;
-  /** Presses a shipped control in the chat instead of a card or a door (See every version). */
-  act?: PlusRow['act'];
+  /**
+   * 💬 The supplier's plain group (19 Nov 2026 — the client page is one chat, so no tab names a group): Negotiate ·
+   * Ask & decide · Money · Dates · Files, and Report a problem under a bare line. Where set, it heads the row instead
+   * of `page`'s tab word.
+   */
+  section?: PlusSection;
 };
 
 /**
  * THE ＋ AND ITS SHEET, drawn once for both sides (chat prototype 2026-10-28, frames C and D). Rows have no frames — the
  * icon round and the words (frames only on what you press: the row itself is the press).
  *
- * 🧭 THE SHEET IS THE MENU'S MIRROR (owner 11 Nov 2026 — *"Align them both"*): the rows come down in the picked client's
- * menu order (`lib/chat-plus.ts`), and where a row's `page` changes the sheet draws the tab's own word — CHAT · DETAILS ·
- * QUOTATION · … — as a quiet small-caps label on a hairline (the divider between topics carries the label, so nine rows
- * and eight topics still fit a 390 × 844 phone without scrolling). The older registry `group` headings (Money · Plan ·
- * Talk & files · Just you) are still drawn for a row that carries one. The sentence that used to sit under the title
- * lives in the title's ⓘ (house rule: details go inside the ⓘ).
+ * 🔲 SINCE 20 NOV 2026 THE ROWS ARE TILES (Unichat part B; approved drawing `UNICHAT-LIVE-2026-11-19.html`, "(+) picker:
+ * tiles"): two across, a round icon and the row's own words, no heading between groups (the drawing has none). The
+ * tiles still come down in the order `lib/chat-plus.ts` gives — the supplier's plain groups, the host's menu order —
+ * and each wears its group (`data-plus-group`). A registry `group` heading (Money · Plan · Talk & files · Just you) is
+ * still drawn for a row that carries one. On a computer the tiles are the chat's third column, not a sheet.
  */
 const SHORTCUT_ROWS: readonly SheetRow[] = [
   { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', icon: 'camera', shut: null, attach: 'camera', page: 'files' },
   { key: 'photo', label: 'Photo', line: 'A photo or a video from your phone', icon: 'photo', shut: null, attach: 'photo', page: 'files' },
 ];
 
-/** The tab's word over a topic's rows, on a hairline — `pb` tight so the row under it still reads as the label's own. */
-function PageLabel({ page, first }: { page: PlusGroup; first: boolean }) {
-  return (
-    <li aria-hidden className={`flex items-center gap-2.5 pb-0.5 ${first ? 'pt-1' : 'pt-2'}`} data-plus-page={page}>
-      {/* The template's section label (rule 2 · 13): small grey capitals at the dark grey, never ink at part strength. */}
-      <span className="text-[11.5px] font-bold uppercase leading-none tracking-[0.1em] text-[color:var(--m-slate-2)]">
-        {page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(page)}
-      </span>
-      <span className="h-px flex-1 bg-[color:var(--m-line)]" />
-    </li>
-  );
+/**
+ * The group a tile belongs to: the supplier's plain group, else the tab its page mirrors (the host's). Since the tiles
+ * (20 Nov 2026) no heading is DRAWN — the approved drawing has none — but the tiles still come down group by group, and
+ * each wears its group (`data-plus-group`) so the order can be read off the page.
+ */
+function headOf(row: SheetRow): { key: string; word: string | null } | null {
+  if (row.section) return { key: row.section, word: PLUS_SECTION_WORD[row.section] };
+  if (row.page) return { key: row.page, word: row.page === NEGOTIATE_GROUP ? 'Negotiate' : pickedPageLabel(row.page) };
+  return null;
 }
-
-/** "See every version" with one version in the chat — the same words the row's toast used to say after the fact. */
-export const ONE_VERSION_REASON = 'One version so far · a change or an accepted counter makes the next';
 
 /**
  * ⏭ CHAT-20 (walk 16 Nov 2026) — "See every version" and "Report a problem" opened NOTHING. The sheet holds a history
@@ -185,23 +185,23 @@ export function afterSheetStepsBack(fn: () => void, holdsEntry: boolean = Boolea
   const safety = window.setTimeout(go, 1200);
 }
 
-export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  // 🧾 CHAT-20: "See every version" presses the live quote card's own versions row, which exists only once a second
-  // version does. Looked for when the sheet opens: absent, the row is drawn shut with its reason (never a dead press).
-  const [versionsDoor, setVersionsDoor] = useState(true);
-  useEffect(() => {
-    if (open) setVersionsDoor(Boolean(document.querySelector('[data-quote-every-version]')));
-  }, [open]);
-  const rows = givenRows.map((r) => (r.act === 'versions' && !r.shut && !versionsDoor ? { ...r, shut: { reason: ONE_VERSION_REASON } } : r));
   const plus = usePlus(threadId ?? '');
-  // 📌 ONE (+) AT A TIME (owner 8 Nov): while the reader's card is open — a draft, or one they sent that waits for an
-  // answer — the (+) is shut; a tap says which and jumps to it.
-  const running = plus.draft
-    ? { key: 'draft', card: plus.draft.kind, title: PLUS_CARD_TITLE[plus.draft.kind], by: 'you' as const, status: 'draft' as const, anchorId: PLUS_DRAFT_ANCHOR }
-    : plus.sent;
-  const gate = plusGate(running ?? null);
+  /* 🧰 ＋ ⇄ ← (Unichat part B, 20 Nov 2026 — approved drawing: "The + turns into ←. Tap it to go back; your text
+     stays"). While a tool is open in the text box — or, on a computer, while the tiles or the tool hold the third
+     column — this button is the way back to the plain message box. SEVERAL CARDS MAY BE OPEN AT ONCE since that
+     approval (it supersedes the 8 Nov "one (+) at a time"): a card that waits for its answer no longer shuts the (+). */
+  const wide = useIsDesktop();
+  const toolOpen = Boolean(plus.inBox && plus.host && plus.draft && !RISING_DRAFTS.has(plus.draft.kind));
+  // 🖥 On a computer the tiles are the third column (the composer owns the column and hands over where to draw them).
+  const pickerOpen = wide && plus.inBox && plus.picker;
+  const back = toolOpen || pickerOpen;
+  const close = () => {
+    setOpen(false);
+    if (threadId && plus.picker) patchPlus(threadId, { picker: false });
+  };
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const headingId = useId();
@@ -213,18 +213,18 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
     if (threadId) patchPlus(threadId, { slash: JSON.parse(slashSig) });
   }, [threadId, slashSig]);
 
-  let lastGroup: ThreadToolGroup | undefined;
-  let lastPage: PlusGroup | undefined;
+  /* 🔲 TILES (approved drawing, "(+) picker: tiles"): two across, each a round icon in its topic's glyph and the row's
+     own words. A shut tile is drawn, never hidden — greyed, with a lock and its reason under the name. */
+  const tileClass = 'flex min-h-[56px] w-full min-w-0 items-center gap-2 rounded-2xl bg-[color:var(--m-paper-2)] py-2 pl-2 pr-3 text-left';
   const items: ReactNode[] = [];
+  let lastGroup: ThreadToolGroup | undefined;
   for (const row of rows) {
-    if (row.page && row.page !== lastPage) {
-      items.push(<PageLabel key={`page-${row.page}`} page={row.page} first={items.length === 0} />);
-      lastPage = row.page;
-    }
+    const group = headOf(row)?.key;
+    // A row that still carries a registry group (Money · Plan · Talk & files · Just you) keeps its word, across both tiles.
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
       items.push(
-        <li key={`group-${row.group}`} aria-hidden className="pb-1 pt-3 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" data-thread-tool-group={row.group}>
+        <li key={`group-${row.group}`} aria-hidden className="col-span-2 pt-1 text-[11.5px] font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]" data-thread-tool-group={row.group}>
           {g?.label}
         </li>,
       );
@@ -232,95 +232,70 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
     }
     const Icon = row.card ? TOPIC_ICON[PLUS_CARD_TOPIC[row.card]] : SHEET_ICON[row.icon];
     const shut = row.shut;
-    // 🔇 A shut row is drawn, never hidden — and CALM (owner 11 Nov): its round, word and reason all step back to the same
-    // quiet grey, so the eye reads the rows it can press and the shut ones say why without shouting.
     const lead = (
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${
-          shut
-            ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-4)]'
-            : row.primary
-              ? 'bg-sn-accent/10 text-sn-accent'
-              : 'bg-[color:var(--m-paper-2)] text-sn-accent'
+          shut ? 'bg-[color:var(--m-paper)] text-[color:var(--m-slate-4)]' : row.primary ? 'bg-sn-accent/10 text-sn-accent' : 'bg-[color:var(--m-paper)] text-sn-accent'
         }`}
       >
         <Icon className="h-[17px] w-[17px]" strokeWidth={1.75} />
       </span>
     );
-    const words = (
-      <span className="min-w-0 flex-1">
-        <span className={`block truncate text-[15px] font-semibold leading-tight ${shut ? 'text-[color:var(--m-slate-3)]' : 'text-ink'}`}>
-          {row.label}
-        </span>
-        <span className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-2)]">{row.line}</span>
-      </span>
-    );
-    // 48 px tall (the 44-px press floor, with 2 px of air each side) — nine rows and eight topic labels fit a 390 × 844
-    // phone without the sheet scrolling.
-    const rowClass = 'flex min-h-[48px] w-full items-center gap-3 py-1 text-left';
     if (shut) {
       const reasonId = `${headingId}-shut-${row.key}`;
       items.push(
-        <li key={row.key} data-thread-tool-row={row.key} data-shut="">
-          <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={rowClass}>
+        <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group} data-shut="" className="col-span-2">
+          <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={tileClass}>
             {lead}
             <span className="min-w-0 flex-1">
               {/* Shut = the mid grey, at 13 px or larger only (rule 13). */}
-              <span className="block truncate text-[15px] font-semibold leading-tight text-[color:var(--m-slate-3)]">{row.label}</span>
+              <span className="block truncate text-[14px] font-bold leading-tight text-[color:var(--m-slate-3)]">{row.label}</span>
               <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-3)]">
                 {shut.reason}
               </span>
             </span>
+            <Lock aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-3)]" strokeWidth={1.9} />
           </span>
         </li>,
       );
       continue;
     }
+    const words = <span className="min-w-0 flex-1 text-[14px] font-bold leading-tight text-ink">{row.label}</span>;
     items.push(
-      <li key={row.key} data-thread-tool-row={row.key}>
+      <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group}>
         {row.href ? (
           <Link
             href={row.href}
-            className={`sn-press ${rowClass}`}
+            title={row.line}
+            className={`sn-press ${tileClass}`}
             onClick={(e) => {
               // A new tab / window keeps the browser's own way; this tab waits for the sheet's step back (CHAT-20).
               if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
               e.preventDefault();
               const href = row.href!;
-              const holds = Boolean(layerHolder(window.history.state));
-              setOpen(false);
+              const holds = open && Boolean(layerHolder(window.history.state));
+              close();
               afterSheetStepsBack(() => router.push(href), holds);
             }}
           >
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </Link>
         ) : (
           <button
             type="button"
-            className={`sn-press ${rowClass}`}
+            title={row.line}
+            className={`sn-press ${tileClass}`}
             onClick={() => {
-              if (row.act === 'versions') {
-                // The shipped versions sheet on the live quote's card (`quote-versions-sheet.tsx`) — the one place
-                // every version is listed. Only drawn once a second version exists; until then, say so.
-                // CHAT-20: pressed only after the sheet's own history entry is gone, or the step back closed it again.
-                const holds = Boolean(layerHolder(window.history.state));
-                setOpen(false);
-                afterSheetStepsBack(() => {
-                  const door = document.querySelector<HTMLElement>('[data-quote-every-version]');
-                  if (door) door.click();
-                  else if (threadId) patchPlus(threadId, { toast: { text: ONE_VERSION_REASON, at: Date.now() } });
-                }, holds);
-                return;
-              }
               if (row.card && threadId) {
-                const holds = Boolean(layerHolder(window.history.state));
+                const holds = open && Boolean(layerHolder(window.history.state));
                 setOpen(false);
-                patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() } });
-                // ⤴ A poll or decision rises full screen (CHAT-09) — the chat under it stays where it was.
-                if (!RISING_DRAFTS.has(row.card)) {
+                // The tile becomes the tool: in the text box (a phone) or in the same third column (a computer).
+                patchPlus(threadId, { draft: { kind: row.card, startedAt: Date.now() }, picker: false });
+                // ⤴ A poll or decision rises full screen (CHAT-09); a card the composer holds is already in the thumb
+                // zone. Only a card drawn at the foot of the conversation is brought into view.
+                if (!RISING_DRAFTS.has(row.card) && !plus.inBox) {
                   window.setTimeout(() => jumpTo(PLUS_DRAFT_ANCHOR), 60);
                   // 📍 CHAT-25: the sheet's step back is a history traversal, and the browser restores the PAGE's scroll
                   // on it — which put the couple's new card back below the screen. Jump again once it has settled.
@@ -331,11 +306,11 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
               if (row.attach) {
                 // Inside the tap: a phone only opens a file picker from a user gesture.
                 document.getElementById(ATTACH_INPUT[row.attach === true ? 'file' : row.attach])?.click();
-                setOpen(false);
+                close();
                 return;
               }
-              const holds = Boolean(layerHolder(window.history.state));
-              setOpen(false);
+              const holds = open && Boolean(layerHolder(window.history.state));
+              close();
               // After the sheet has gone — and its history step with it (CHAT-20) — so the opened panel stays open.
               const reveal = row.reveal;
               if (reveal) afterSheetStepsBack(() => revealThreadTool(reveal), holds);
@@ -343,22 +318,25 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
           >
             {lead}
             {words}
-            <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={2.2} />
           </button>
         )}
       </li>,
     );
   }
+  const tiles = (
+    <ul className="grid grid-cols-2 gap-2" data-plus-tiles="">
+      {items}
+    </ul>
+  );
 
   const sheet = (
     <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
-      <div className="px-5 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
+      <div className="px-4 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
         {/* ⓘ beside the title (house rule: title + one line visible, the rest in the ⓘ); `pr-12` keeps clear of the ✕. */}
-        <InfoTip label="Add to the chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
-          A card lands in the chat. They fill their part there. One at a time. Each row sits under the page it belongs to —
-          the same order as the menu above.
+        <InfoTip label="Add to chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
+          Pick one and the text box becomes that tool. Fill it there, then send. The arrow takes you back to your message.
         </InfoTip>
-        <ul className="mt-2">{items}</ul>
+        <div className="mt-3">{pickerOpen ? null : tiles}</div>
       </div>
     </Sheet>
   );
@@ -367,32 +345,37 @@ export function ToolsSheetButton({ rows: givenRows, sheetMark, threadId }: { row
     <>
       <button
         type="button"
-        onClick={() => {
-          if (gate.shut) {
-            if (threadId) patchPlus(threadId, { toast: { text: gate.message, at: Date.now() } });
-            if (running) jumpTo(running.anchorId);
+        onClick={(e) => {
+          if (back) {
+            // ← Back to the message: the tool (or the tiles) goes; what was typed is still in the box.
+            if (threadId) patchPlus(threadId, { draft: toolOpen ? null : plus.draft, picker: false, toast: null });
             return;
           }
-          setOpen(true);
+          // 🖥 A computer, inside the chat's own frame, with a composer that holds the tool → the third column.
+          if (wide && plus.inBox && threadId && e.currentTarget.closest('[data-chat-box]')) patchPlus(threadId, { picker: true });
+          else setOpen(true);
         }}
-        aria-label={gate.shut ? gate.message : 'Add to the chat'}
+        aria-label={back ? 'Back to message' : 'Add to the chat'}
         aria-haspopup="dialog"
-        title={gate.shut ? gate.message : 'Add to the chat'}
+        title={back ? 'Back to message' : 'Add to the chat'}
         data-thread-tools-open=""
-        data-plus-shut={gate.shut ? '' : undefined}
-        // ＋ v8.3: a FILLED 40-px circle — the brand fill with a white ＋; shut, it greys (the card it waits on is named).
-        // The 44-px target is the button; the circle is drawn inside it.
-        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+        data-plus-back={back ? '' : undefined}
+        // ＋ v8.3: a FILLED 40-px circle — the brand fill with its own ink for the ＋. As ← it is quiet (the tool is the
+        // main thing on screen). The 44-px target is the button; the circle is drawn inside it.
+        className="sn-press sn-chat-plus inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
       >
         <span
           aria-hidden
           data-plus-circle=""
-          className={`grid h-10 w-10 place-items-center rounded-full ${gate.shut ? 'bg-[color:var(--m-paper-2)] text-[color:var(--m-slate-3)]' : 'bg-sn-accent text-white'}`}
+          className={`relative grid h-10 w-10 place-items-center rounded-full ${back ? 'bg-transparent text-ink' : 'bg-sn-accent text-sn-on-accent'}`}
         >
-          <Plus aria-hidden className="h-5 w-5" strokeWidth={2.2} />
+          <Plus aria-hidden className="sn-chat-plus-a h-5 w-5" strokeWidth={2.2} />
+          <ArrowLeft aria-hidden className="sn-chat-plus-b h-5 w-5" strokeWidth={2.2} />
         </span>
       </button>
       {mounted ? createPortal(sheet, document.body) : null}
+      {/* 🖥 The tiles in the third column — drawn where the composer says (`tilesSlot`), by the (+) that owns the rows. */}
+      {mounted && pickerOpen && plus.tilesSlot ? createPortal(tiles, plus.tilesSlot) : null}
     </>
   );
 }
@@ -444,7 +427,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'versions' || r.key === 'quote' ? 'quote' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
@@ -452,7 +435,8 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       // The row's own composer input (Camera · Photo) beats a door's paperclip.
       attach: r.attach ?? d?.attach,
       page: PLUS_ROW_PAGE[r.key],
-      act: r.act,
+      // 💬 The supplier's sheet is grouped by plain words (19 Nov 2026); the host's still mirrors its tabs.
+      ...(side === 'vendor' ? { section: PLUS_ROW_SECTION[r.key] } : {}),
       // 🤝 Negotiate's rows wear the brand round (the design's `pri`) — the money moves of this chat.
       primary: PLUS_ROW_PAGE[r.key] === NEGOTIATE_GROUP,
     };

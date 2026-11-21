@@ -97,6 +97,8 @@ const ALLOWED: Record<string, string> = {
   'lib/booking-fee-disclosure.ts': 'freeBookingSentence — said only of a ledger place FROZEN free before 20 Nov, which stays free',
   'lib/help/supplier-1.ts': 'the help question "is my first booking free?" — its answer now says No',
   'app/dev/open-shop-lab/page.lab.tsx': 'a dev lab page, never shown to a supplier',
+  'lib/journal-edits-after-import.ts':
+    'the RECORD of the removal — its `from` is the retired sentence the Journal import wrote, kept on purpose so journal-move.test can undo the edit and prove its UPDATE migration; never rendered',
   'app/admin/verify/_components/free-booking-match-note.tsx':
     'admin only, PAST tense — a shop that had a free first booking before 20 Nov keeps it; never says one is waiting',
 };

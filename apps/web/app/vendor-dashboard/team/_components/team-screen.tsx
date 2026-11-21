@@ -12,7 +12,8 @@ import {
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import {
   enrichTeamWithUsers,
-  fetchAdminVendorContext,
+  fetchTeamManagerContext,
+  fetchVendorRoleNames,
   fetchAgentServiceAssignments,
   fetchAssignableServices,
   fetchOpenAdminMotions,
@@ -61,18 +62,21 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   // ADMIN-gated: any admin of the store may manage the team (multi-admin org
   // model, 2026-07-01). Non-admin members are bounced. The admin-client email
   // enrichment below bypasses RLS, so confirming admin first is load-bearing.
-  const ctx = await fetchAdminVendorContext(supabase, user.id);
+  // 🧑‍🤝‍🧑 Six roles (owner 19 Nov 2026): a Shop Manager runs the whole team; a Branch Manager, their branch's.
+  const ctx = await fetchTeamManagerContext(supabase, user.id);
   if (!ctx) redirect('/vendor-dashboard');
   const vendorProfileId = ctx.vendorProfileId;
 
   const rows = await fetchVendorTeam(supabase, vendorProfileId);
   const admin = createAdminClient();
   const enriched = await enrichTeamWithUsers(admin, rows);
-  const [services, assignments, motionData, branchScope] = await Promise.all([
+  const [services, assignments, motionData, branchScope, roleNames] = await Promise.all([
     fetchAssignableServices(supabase, vendorProfileId),
     fetchAgentServiceAssignments(supabase, vendorProfileId),
     fetchOpenAdminMotions(supabase, vendorProfileId),
     readBranchScope(supabase, admin, vendorProfileId),
+    // A refused read throws — the page then says it couldn't load, never the fixed names for a shop that renamed them.
+    fetchVendorRoleNames(supabase, vendorProfileId),
   ]);
 
 
@@ -109,12 +113,15 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
       services={services}
       assignments={assignments}
       seatsLine={seatsLine}
-      canBuySeats={canBuySeats}
+      // A Branch Manager runs the branch's team, never the plan — no seat to buy.
+      canBuySeats={canBuySeats && ctx.duty === 'shop_manager'}
       storeShell={storeShell}
       extraSeats={extraSeats}
       seatFeePhp={seatFeePhp}
       search={search}
       embedded={embedded}
+      manager={{ duty: ctx.duty, branchId: ctx.branchId }}
+      roleNames={roleNames}
       actions={{
         update: updateVendorTeamMember,
         remove: removeVendorTeamMember,

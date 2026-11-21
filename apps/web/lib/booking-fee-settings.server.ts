@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { BOOKING_FEE, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
+import { maxPaymentPhpOrDefault } from '@/lib/max-payment';
 
 type BookingFeeRow = {
   booking_fee_rate_pct?: number | string | null;
@@ -11,6 +12,7 @@ type BookingFeeRow = {
   booking_fee_tier1_limit_php?: number | string | null;
   booking_fee_cap_php?: number | string | null;
   booking_fee_new_client_free_months?: number | string | null;
+  max_payment_php?: number | string | null;
 };
 
 /**
@@ -53,7 +55,7 @@ export async function getBookingFeeSchedule(
       const res = await admin
         .from('platform_settings')
         .select(
-          'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_new_client_free_months',
+          'booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, max_payment_php, booking_fee_new_client_free_months',
         )
         .eq('id', 1)
         .maybeSingle();
@@ -81,6 +83,9 @@ export async function getBookingFeeSchedule(
       // THE NEW-CLIENT FREE WINDOW (owner 2026-11-16) — the column `booking_fee_new_client_window_covers` reads. No
       // fallback number: unread or nonsense leaves it absent, and the words then name no months.
       ...wholeMonths(row.booking_fee_new_client_free_months),
+      // ⚖ The ceiling (owner 2026-11-17) — the one admin setting every payment
+      // to Setnayan is bounded by; the SQL mirror reads the same column.
+      maxPhp: maxPaymentPhpOrDefault(row.max_payment_php),
     };
   } catch {
     return BOOKING_FEE;

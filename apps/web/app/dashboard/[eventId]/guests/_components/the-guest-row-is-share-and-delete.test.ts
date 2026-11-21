@@ -62,40 +62,36 @@ function rowButtons(html: string, guestId: string): string[] {
   return [...chunk.matchAll(/<(?:button|a)\b[^>]*aria-label="([^"]+)"/g)].map((m) => m[1]!);
 }
 
-test('2 · RENDERED: a guest row shows Share alone, Delete is its swipe — no Edit, no Message — and still opens the card', async () => {
+test('2 · RENDERED: a guest row draws NO button — its state at the end, Remove is its swipe — and still opens the card', async () => {
+  // 👥 Guests redesign pick 3 (owner 20 Nov 2026): "No share button on guest rows" — "Send invite" is on the guest card,
+  // "Send N invites" in the list's summary. Supersedes the 27 Oct "GUEST ROW = SHARE + DELETE".
   const ana = guestRow({ guest_id: 'ana', first_name: 'Ana', last_name: 'Cruz', invitation_sent_at: null });
   const ben = guestRow({ guest_id: 'ben', first_name: 'Ben', last_name: 'Lim' });
-  const html = await renderGuestsScreen({
-    guests: [ana, ben],
-    initialQuery: '',
-    invite: { base: 'https://setnayan.com/x', tokens: { ana: 'tok-a' }, facts: {}, template: null },
-  });
-  assert.deepEqual(rowButtons(html, 'ana'), ['Share Ana Cruz’s invitation'], 'Ana’s row is not exactly Share');
-  // No token handed in for Ben → no Share at all.
-  assert.deepEqual(rowButtons(html, 'ben'), [], 'Ben’s row draws Share with no link of his own');
-  // 👈 Delete is each row's swipe (and hover) Delete — named for its guest, never a visible button on the row.
+  const html = await renderGuestsScreen({ guests: [ana, ben], initialQuery: '' });
+  for (const id of ['ana', 'ben']) {
+    const at = html.indexOf(`data-guest-id="${id}"`);
+    assert.ok(at > 0, `row ${id} not drawn`);
+    assert.equal(html.indexOf('data-row-acts=""', at) < 0 || html.indexOf('data-row-acts=""', at) > html.indexOf('data-guest-row=""', at + 1), true, `row ${id} draws a buttons span again`);
+  }
+  assert.doesNotMatch(html, /aria-label="Share [^"]*invitation"/, 'a row draws Share again');
+  // 👈 Remove is each row's swipe (and hover) button — named for its guest, never a visible button on the row.
   for (const who of ['Ana Cruz', 'Ben Lim']) {
-    assert.match(html, new RegExp(`<button[^>]*aria-label="Delete ${who}"[^>]*data-swipe-delete=""`), `${who}’s row has no swipe Delete`);
-    assert.match(html, new RegExp(`<button[^>]*aria-label="Delete ${who}"[^>]*data-swipe-hover-delete=""`), `${who}’s row has no hover Delete`);
+    assert.match(html, new RegExp(`<button[^>]*aria-label="Remove ${who}"[^>]*data-swipe-delete=""`), `${who}’s row has no swipe Remove`);
+    assert.match(html, new RegExp(`<button[^>]*aria-label="Remove ${who}"[^>]*data-swipe-hover-delete=""`), `${who}’s row has no hover Remove`);
   }
   assert.doesNotMatch(html, /aria-label="(Edit|Message) /, 'a row draws Edit or Message again');
   // The row itself is the way into the card.
   assert.match(html, /aria-label="Open Ana Cruz"/, 'the row no longer opens the card');
 });
 
-test('3 · ONE SENDER: Share is the shipped Invite cell as one icon; its press reaches the one share, never a new one', () => {
-  const row = SCREEN.slice(SCREEN.indexOf('function GuestRowLine('));
-  const acts = row.slice(row.indexOf('className={styles.acts}'));
-  const body = acts.slice(0, acts.indexOf('</span>'));
-  assert.doesNotMatch(body, /\bPencil\b|label="Edit"|MessageCircle|label="Message"/, 'the pencil or Message is back on the row');
-  assert.match(body, /verbs\.includes\('share'\) && share \? \(\s*<GuestInviteCell\b[^>]*layout="icon"/, 'Share is not the shipped Invite cell');
-  // Exactly one control on the row: the cell. Delete / Release seat are the row's swipe — the same handlers.
-  assert.equal((body.match(/<GuestInviteCell\b/g) ?? []).length, 1);
-  assert.equal((body.match(/<ActionButton\b/g) ?? []).length, 0, 'a visible Delete is back on the row (owner 2026-11-03: swipe)');
+test('3 · ONE SENDER: no Share on a row; the card’s Send invite is the shipped Invite cell, reaching the one share', () => {
+  const row = SCREEN.slice(SCREEN.indexOf('function GuestRowLine('), SCREEN.indexOf('function GuestJumpRow('));
+  assert.doesNotMatch(row, /<GuestInviteCell\b|\bPencil\b|label="Edit"|MessageCircle|label="Message"/, 'Share, the pencil or Message is back on the row');
+  assert.equal((row.match(/<ActionButton\b/g) ?? []).length, 0, 'a visible button is back on the row (owner 2026-11-03: swipe)');
   const swipe = row.slice(row.indexOf('<SwipeToDelete'));
   assert.ok(swipe.length > 0 && row.indexOf('<SwipeToDelete') > 0, 'the row has no swipe');
   assert.match(swipe, /onDelete=\{del === 'remove' \? onRemove : onRelease\}/, 'the swipe is not the shipped remove / release');
-  assert.match(swipe, /label=\{del === 'remove' \? `Delete \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe is not named for its guest');
+  assert.match(swipe, /label=\{del === 'remove' \? `Remove \$\{name\}` : `Release seat \$\{name\}`\}/, 'the swipe is not named for its guest');
 
   const icon = CELL.slice(CELL.indexOf("if (layout === 'icon') {"));
   assert.ok(icon.length > 100, "the cell's icon layout is gone");
@@ -114,11 +110,8 @@ test('3 · ONE SENDER: Share is the shipped Invite cell as one icon; its press r
   assert.doesNotMatch(CELL, /\bnav(?:igator)?\.share\(/, 'the cell calls navigator.share itself — a second sender');
 });
 
-test('4 · THE PAGE: Share only for guests the run would hold, never for a look-only viewer', () => {
-  const at = PAGE.indexOf('const rowInvite');
-  assert.ok(at > 0, 'the page hands the rows no Share');
-  const block = PAGE.slice(at, PAGE.indexOf('const guestsScreen', at));
-  assert.match(block, /!guestsViewOnly && invitationBase/, 'a look-only viewer is handed Share');
-  assert.match(block, /mayBeInvited\(g\)/, 'tokens are handed for guests the run would never hold');
-  assert.match(PAGE, /invite=\{rowInvite\}/);
+test('4 · THE PAGE: the list is handed no tokens — nothing on a row shares', () => {
+  // 👥 Pick 3 (20 Nov): the rows' Share is gone, so the page no longer sends every guest's token to the list.
+  assert.doesNotMatch(PAGE, /const rowInvite\b|invite=\{rowInvite\}/, 'the page hands the rows Share again');
+  assert.doesNotMatch(SCREEN, /\binvite\?: RowInvite\b|tokens: Record<string, string>/, 'the list takes tokens again');
 });

@@ -13,6 +13,9 @@
  * simplified face, the tab the complete one ("two faces of one record"). The doors are keys of `VENDOR_THREAD_TOOLS`
  * (supplier) so the reachability guard still sees every shipped panel reached.
  *
+ * 💬 SINCE 19 NOV 2026 THE SUPPLIER'S SHEET IS GROUPED BY PLAIN WORDS, NOT TABS (`PLUS_ROW_SECTION`, below): the
+ * supplier's client page is one chat with no tab row. What follows is the HOST's rule, unchanged until its own build.
+ *
  * 🧭 THE (+) FOLLOWS THE MENU (owner 11 Nov 2026, DECISION_LOG "THE PICKED-CLIENT MENU AND THE CHAT (+) FOLLOW ONE
  * ORDER" — *"Rearrange it as well as we rearrange the menu. Align them both."*). Every row belongs to ONE page of the
  * picked client (`PLUS_ROW_PAGE`), and the rows are listed in the menu's order — since the seven tabs (owner 18 Nov 2026)
@@ -26,6 +29,17 @@
  * row now — Photos & files, "From your phone or your portfolio" — whose phone path is the composer's own picker (photo ·
  * video · PDF, in place; owner 9 Nov "upload opens the picker, not a page"). Camera stays: taking a picture NOW is a
  * different act from choosing one.
+ *
+ * 🧰 SINCE 20 NOV 2026 — UNICHAT PART B (owner, on the approved live drawing `UNICHAT-LIVE-2026-11-19.html`: *"build it
+ * now, I am happy with the design"*; build plan `UNICHAT-BUILD-PLAN-2026-11-20.md`, conflicts 1 and 2 settled by that
+ * approval). Three things the approved drawing changes here, each superseding the earlier ruling it names:
+ *   1. SEVERAL (+) CARDS MAY BE OPEN AT ONCE (supersedes the 8 Nov "We can only have 1 (+) at a time"). A card you sent
+ *      that still waits for its answer no longer shuts the (+): `plusGate` never shuts. The tool being filled lives
+ *      INSIDE THE TEXT BOX (＋ turns into ←), so there is one editor at a time by construction, not by a gate.
+ *   2. THE (+) HOLDS ONLY THINGS YOU SEND — no row lives in both the (+) and the ⋯ menu or the pinned strip. "Report a
+ *      problem" left for the ⋯ (supersedes the 9 Nov "one door, out of the ⋯"); "See every version" left too (it is
+ *      the strip's Deal box and the quote card's own row — a place to go, not a thing you send).
+ *   3. A TYPED PRICE OR DAY OFFERS ITS TOOL (`typedOffer`, below) — the box says "Make this a counter, ₱38,000?".
  */
 import type { PickedClientPage } from './upcoming-schedule-door';
 import type { ChatTopic } from './topic-icons';
@@ -45,12 +59,17 @@ export type PlusCardKind =
   // payment plan either side proposes — each answered by the other side with Accept · Counter · Decline.
   | 'ask'
   | 'counter'
-  | 'plan';
+  | 'plan'
+  // 🏷 Drop an offer (PR-4's card, reachable since 19 Nov 2026): the supplier drops one of the shop's own offers; the
+  // hosts apply it to their quote with one tap.
+  | 'offer';
 
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
-export type PlusRowKey = PlusCardKind | 'report' | 'camera' | 'photo' | 'versions';
+export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report';
+// ('offer' is a card kind, so it is a row key too. 'versions' left on 20 Nov 2026 and Report a problem moved to the ⋯
+// (part G, `picked-client-more.ts`); the (+) holds only things you send.)
 
 /**
  * 🤝 THE NEGOTIATE GROUP — FIRST IN BOTH (+) MENUS (approved design `quote-maker-polish.html`, 12 Nov: the (+) shows
@@ -60,11 +79,6 @@ export type PlusRowKey = PlusCardKind | 'report' | 'camera' | 'photo' | 'version
 export const NEGOTIATE_GROUP = 'negotiate' as const;
 export type PlusGroup = PickedClientPage | typeof NEGOTIATE_GROUP;
 
-/**
- * "See every version" — not a card: it opens the shipped versions sheet on the live quote's card in the chat
- * (`quote-versions-sheet.tsx`, `data-quote-every-version`). Shut until a second version exists.
- */
-export const VERSIONS_ROW_ACT = 'versions' as const;
 
 export type PlusRow = {
   key: PlusRowKey;
@@ -80,8 +94,6 @@ export type PlusRow = {
   shutUntilAgreement?: { reason: string };
   /** Shut by the chat's own state right now (one open poll at a time) — drawn greyed with the reason, never hidden. */
   shutNow?: { reason: string };
-  /** A row that is neither a card nor a door: it presses a shipped control in the chat (See every version). */
-  act?: typeof VERSIONS_ROW_ACT;
 };
 
 /**
@@ -95,7 +107,7 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   ask: NEGOTIATE_GROUP,
   counter: NEGOTIATE_GROUP,
   plan: NEGOTIATE_GROUP,
-  versions: NEGOTIATE_GROUP,
+  offer: NEGOTIATE_GROUP,
   decision: 'chat',
   poll: 'chat',
   access: 'details',
@@ -103,6 +115,48 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   payment: 'quote',
   logpay: 'quote',
   meeting: 'schedule',
+  camera: 'files',
+  photo: 'files',
+  photos: 'files',
+  file: 'files',
+  report: 'report',
+};
+
+/**
+ * 💬 THE SUPPLIER'S (+) HAS PLAIN GROUP WORDS (owner 19 Nov 2026, DECISION_LOG "THE CLIENT PAGE IS ONE CHAT THAT HOLDS
+ * EVERYTHING"; drawing S9ScH2Ps v3, screen 6). The supplier's client page has no tab row any more, so a heading named
+ * after a tab ("Book & Budget", "Schedule") names nothing. The groups are the chips' own words — Negotiate · Ask &
+ * decide · Money · Dates · Files. Report a problem lives under the head's ⋯ (part G).
+ * The HOST's (+) still mirrors the host's seven tabs (`PLUS_ROW_PAGE`) until the host's own build.
+ */
+export type PlusSection = 'negotiate' | 'ask' | 'money' | 'dates' | 'files' | 'report';
+
+/** The supplier's groups, in the order their tiles are drawn. */
+export const PLUS_SECTIONS: readonly PlusSection[] = ['negotiate', 'ask', 'money', 'dates', 'files', 'report'];
+
+/** The word of each group; null = a bare line (Report a problem stands alone, last). */
+export const PLUS_SECTION_WORD: Record<PlusSection, string | null> = {
+  negotiate: 'Negotiate',
+  ask: 'Ask & decide',
+  money: 'Money',
+  dates: 'Dates',
+  files: 'Files',
+  report: null,
+};
+
+export const PLUS_ROW_SECTION: Record<PlusRowKey, PlusSection> = {
+  quote: 'negotiate',
+  offer: 'negotiate',
+  ask: 'negotiate',
+  counter: 'negotiate',
+  plan: 'negotiate',
+  decision: 'ask',
+  poll: 'ask',
+  form: 'ask',
+  access: 'ask',
+  payment: 'money',
+  logpay: 'money',
+  meeting: 'dates',
   camera: 'files',
   photo: 'files',
   photos: 'files',
@@ -155,8 +209,8 @@ export function supplierChangeOrderHref(eventId: string): string {
   return `/vendor-dashboard/clients/${eventId}?tab=schedule`;
 }
 
-/** See every version — both sides, last in Negotiate. */
-const VERSIONS_ROW: PlusRow = { key: 'versions', label: 'See every version', line: 'Side by side · what changed', card: null, door: null, act: VERSIONS_ROW_ACT };
+/** 🏷 The supplier's Negotiate row that drops one of the shop's own offers (drawing S9ScH2Ps v3, screen 6). */
+export const DROP_AN_OFFER_LABEL = 'Drop an offer';
 
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
 const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
@@ -168,8 +222,8 @@ export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change o
 /**
  * Supplier · and a coordinator with the hosts (they are the hosts' supplier). NEGOTIATE first (12 Nov): Change quote ·
  * Propose a payment plan · See every version; then the menu's order (seven tabs, 18 Nov): Decision · Poll (Chat) · Ask
- * for access · Form (Details) · Payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) · Report a
- * problem (LAST).
+ * for access · Form (Details) · Payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files). Report a
+ * problem lives under ⋯ (part G); See every version left on 20 Nov 2026.
  */
 export function supplierPlusRows(opts: {
   paid: boolean;
@@ -208,10 +262,31 @@ export function supplierPlusRows(opts: {
                 ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
               } as PlusRow),
         ],
+    // 🏷 Drop an offer (19 Nov 2026 — PR-4's card, now reachable): one of the shop's own offers, applied by the hosts
+    // with one tap. It changes a quote, so it is not drawn before one exists, and it is shut once they booked at it.
+    ...(noQuoteYet
+      ? []
+      : [
+          {
+            key: 'offer',
+            label: DROP_AN_OFFER_LABEL,
+            line: 'They apply it with one tap',
+            card: 'offer',
+            door: null,
+            ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
+          } as PlusRow,
+        ]),
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
-    ...(noQuoteYet ? [] : [VERSIONS_ROW]),
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
+    {
+      key: 'form',
+      label: 'Form',
+      line: 'A saved question set, answered one at a time',
+      card: 'form',
+      door: 'questions-for-couple',
+      shutUntilAgreement: { reason: 'Opens once they book you' },
+    },
     // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
     // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
     {
@@ -220,14 +295,6 @@ export function supplierPlusRows(opts: {
       line: 'Seat plan, schedule, guest list… · the host decides',
       card: 'access',
       door: null,
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    {
-      key: 'form',
-      label: 'Form',
-      line: 'A saved question set, answered one at a time',
-      card: 'form',
-      door: 'questions-for-couple',
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
     {
@@ -243,15 +310,16 @@ export function supplierPlusRows(opts: {
     // ONE phone picker (owner 11 Nov, "dupes"): the card's "From your phone" is the composer's own input — photo, video
     // or PDF — and its Portfolio source is drawn shut with its reason until the album build.
     { key: 'photos', label: 'Photos & files', line: 'From your phone or your portfolio', card: 'photos', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This couple or this booking', card: null, door: 'report-problem' },
+    // 🚩 Report a problem LEFT the (+) (Unichat part G, owner 20 Nov — supersedes 9 Nov "last row of (+)"): it lives
+    // under the head's ⋯ only (`picked-client-more.ts`), so the (+) holds things you SEND.
   ];
 }
 
 /**
  * Host · and a coordinator with another supplier (who drops Log a payment — it is the hosts' money). The same relative
  * order as the supplier's (+) AND the host's own picked-supplier menu (`picked-supplier-menu.ts`, re-ordered 11 Nov to
- * mirror the supplier's; seven tabs 18 Nov): Decision (Chat) · Log a payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files) ·
- * Report a problem (Report — last).
+ * mirror the supplier's; seven tabs 18 Nov): Decision (Chat) · Log a payment (Book & Budget) · Meeting (Schedule) · Camera · Photos & files (Files).
+ * Report a problem lives under ⋯ (part G).
  *
  * 📷 ONE phone picker, as on the supplier's (+) (owner 11 Nov, *"The (+) has dupes?"*, built for the supplier in #7483,
  * mirrored here the same day — *"Clients side is not fixed also"*): "Photo — a photo or a video from your phone" and
@@ -284,7 +352,6 @@ export function hostPlusRows(opts: {
       ...(opts.booked ? { shutNow: { reason: BOOKED_COUNTER_REASON } } : {}),
     },
     { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
-    VERSIONS_ROW,
     { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
     pollRow(opts.pollOpen),
   ];
@@ -295,7 +362,7 @@ export function hostPlusRows(opts: {
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
     { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
+    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`hostMoreRows`).
   );
   return rows;
 }
@@ -338,10 +405,14 @@ export type RunningTopic = {
   anchorId: string;
 };
 
-/** The (+)'s gate: shut while the reader has a card open, with the words the tap shows. */
-export function plusGate(running: RunningTopic | null): { shut: false } | { shut: true; message: string } {
-  if (!running || running.by !== 'you') return { shut: false };
-  return { shut: true, message: `Finish or close: ${running.title}` };
+/**
+ * The (+)'s gate. SINCE 20 NOV 2026 IT NEVER SHUTS (owner, approving the live drawing — it supersedes the 8 Nov "one (+)
+ * at a time"): several cards may be open at once, so a card you sent that still waits for its answer does not stop the
+ * next one. The tool being filled sits inside the text box, where the ＋ is a ← (one editor, by construction). The
+ * function and its shape stay, so every caller keeps asking in one place and a later ruling has one line to change.
+ */
+export function plusGate(_running: RunningTopic | null): { shut: false } | { shut: true; message: string } {
+  return { shut: false };
 }
 
 /** The title a card carries on its pin and head. */
@@ -359,6 +430,7 @@ export const PLUS_CARD_TITLE: Record<PlusCardKind, string> = {
   ask: 'Ask for a change',
   counter: 'Counter with a price',
   plan: 'Propose a payment plan',
+  offer: 'Drop an offer',
 };
 
 /** The topic each card wears — its icon is `TOPIC_ICON[topic]`, the same as its tab's. */
@@ -376,6 +448,7 @@ export const PLUS_CARD_TOPIC: Record<PlusCardKind, ChatTopic> = {
   ask: 'quote',
   counter: 'payment',
   plan: 'payment',
+  offer: 'quote',
 };
 
 // ── ⌨ SLASH SHORTCUTS (owner 11 Nov 2026, DECISION_LOG "… SLASH SHORTCUTS"; plan row M14) ──────────────────────────────
@@ -398,6 +471,7 @@ export const SLASH_WORD: Record<PlusCardKind, string> = {
   ask: 'ask',
   counter: 'counter',
   plan: 'plan',
+  offer: 'offer',
 };
 
 export type SlashRow = {
@@ -459,4 +533,49 @@ export function filterSlash(rows: readonly SlashRow[], q: string): SlashRow[] {
 export function slashPick(rows: readonly SlashRow[], index: number): PlusCardKind | null {
   const r = rows[index];
   return r && !r.shut ? r.card : null;
+}
+
+// ── 💬 A TYPED PRICE OR DAY OFFERS ITS TOOL (Unichat part B, 20 Nov 2026; drawing `offerFor`) ─────────────────────────────
+// "Can you do ₱38,000?" → the box offers Counter (a host) or the quote (the supplier). "Fri 27 Nov" → it offers Meeting.
+// The offer names a card the (+) ALREADY has for this reader, as the (+) draws it now: a row that is absent or shut is
+// never offered (one rule for the (+), the "/" list and this). It only opens the tool — it never sends anything.
+
+/** ₱ then a real amount: 1,000 or more with its commas, or four digits and up. A bare "₱50" is talk, not a price. */
+const TYPED_PRICE = /₱\s?(\d{1,3}(?:,\d{3})+|\d{4,})/;
+/** "Fri 27 Nov" · "Friday 27 November" · "27 Nov" — a day and a month, the way people type one here. */
+const TYPED_DAY =
+  /\b((?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\.?\s+\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*|\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)\b/i;
+
+export type TypedOffer = {
+  card: PlusCardKind;
+  /** The words before the figure: "Make this a counter," · "Set a meeting,". */
+  lead: string;
+  /** The figure itself, drawn bold: "₱38,000" · "Fri 27 Nov". */
+  figure: string;
+  /** The button — the (+) row's own label. */
+  button: string;
+};
+
+/**
+ * What the typed words offer, or null. `rows` is the "/" list the (+) on this chat published (`sheetSlashRows`): the
+ * money card is the first of counter (the hosts never edit a price) or quote (the supplier's) that is there and open.
+ * A price wins over a day when both are typed.
+ */
+export function typedOffer(text: string, rows: readonly SlashRow[]): TypedOffer | null {
+  const open = (card: PlusCardKind) => rows.find((r) => r.card === card && !r.shut) ?? null;
+  const price = TYPED_PRICE.exec(text);
+  if (price) {
+    const figure = `₱${Number(price[1]!.replace(/,/g, '')).toLocaleString('en-PH')}`;
+    const counter = open('counter');
+    if (counter) return { card: 'counter', lead: 'Make this a counter,', figure, button: counter.label };
+    const quote = open('quote');
+    if (quote) return { card: 'quote', lead: 'Make this a new quote,', figure, button: quote.label };
+    return null;
+  }
+  const day = TYPED_DAY.exec(text);
+  if (day) {
+    const meeting = open('meeting');
+    if (meeting) return { card: 'meeting', lead: 'Set a meeting,', figure: day[1]!.replace(/\s+/g, ' '), button: meeting.label };
+  }
+  return null;
 }

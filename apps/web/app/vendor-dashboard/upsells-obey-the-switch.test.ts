@@ -74,7 +74,8 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.
   'creators/actions.ts': 'maps the database’s own Pro floor (TIER_BELOW_PRO_NO_REACH) at Send',
-  'creators/page.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
+  // The ◆ note moved into the Send offer sheet with the tool pages redraw (v3, 21 Nov 2026) — the same words.
+  'creators/_components/creators-tools.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':
@@ -85,6 +86,9 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // THE ONE BUILD (C4): Shop's one badge row draws the same reward lines (`row.reward.upgrade`) in its sheet.
   'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
   'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
+  // 🎁 Setnayan gifts to a shop (owner 14 Nov 2026): "Upgrade now" STARTS a plan Setnayan gave — nothing is bought and
+  // nothing is locked. What the shop may press is the database's (`setnayan_shop_gift_choices`), not the paywall.
+  '_components/setnayan-shop-gift-moment.tsx': 'a Setnayan gift’s Start / Upgrade now — a gift opened, not a plan paywall',
 };
 
 // Supplier-visible paywall copy. Words only as whole words: `upgradeHref` is

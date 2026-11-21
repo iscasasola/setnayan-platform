@@ -44,7 +44,7 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
   line, For Suppliers (page, fee ⓘ, how-we-earn block, meta description), the claim promise (`commission-promise.ts`
   → pricing, suppliers landing, home vendor benefits, `vendor/claim`), the invite message, open-shop (service cards,
   plan sheet lead, claim door), For Coordinators, help (two articles — "is my first booking free?" now answers No),
-  llms.txt, the AI answers, the Papic quote row and the December post.
+  llms.txt, the AI answers, the Papic quote row.
 - **Guard 3 walks all of `app/` and `lib/`** (comments stripped) for the retired constant names AND the sentence
   (EN + TL). Three files may still say it, each for a stated reason (the frozen-place receipt sentence, the help
   question, a dev lab); a listed file that stops saying it fails until its line is removed. Shown red on a planted
@@ -63,3 +63,43 @@ this merges. Open for the owner: whether the add-on free window follows the fee 
 - **Labs for the §4 shots:** new `/dev/fee-rulings-lab` (Booking fees with the waived list · Admin › Pricing fee form);
   `supplier-plan-lab` and `booking-ask-lab` fixtures moved off the retired free first booking (`&ticket=1`,
   `&fee=unverified|ticket|platform|import`). Labs never compile in production.
+
+## 2026-11-21 · fix(fees): the add-on free window is 0 — the add-on's first booking is billed
+
+Owner, 21 Nov, answering "Is the add-on's free window 0?": *"Make it 0"*. `lib/vendor-addon-first5-free.ts`
+`FREE_BOOKING_LIMIT` 1 → 0, and 0 now means NO window (`vendorInFirst5Window` answers false for every count) — not
+"free while nothing is booked yet". It stays the add-on's own number (a code constant: no setting or catalogue row
+has ever held it), separate from the fee's. Tests in `lib/vendor-addon-first5-free.test.ts` were shown red on the
+old value first. No copy promised the window.
+
+SPEC IMPACT: DECISION_LOG 21 Nov row logged by the controller; no further corpus edit.
+
+## 2026-11-21 · feat(for-suppliers): the fee ruler shows the ₱100,000 lock
+
+Owner 20 Nov: *"return the booking fee line bar … show them the 100,000 lock"* (drawing
+`prototypes/for_suppliers_2026-11-20/`). Now that the lock is live in this PR, For Suppliers draws it:
+- `bookingFeeLockPointPhp(schedule)` (lib/booking-fee.ts) — the smallest booking whose fee reaches the cap
+  (₱3,266,667 on the live schedule), computed, never typed; `feeRulerStops(schedule)` adds it to the drawing's 25
+  example prices, so it lands at 80% of the bar.
+- The ruler: a "₱100,000 lock" flag, a tick at the lock point, a lock on every stop at the cap — all hidden while a
+  "Free when" switch is on. The fee block gains "Never more than ₱100,000"; the lede says the fee locks there.
+- Tests: `the-fee-ruler-shows-the-lock.test.ts` (red first, 0/3 → 3/3); the "never typed" guard follows the fee
+  computation into `feeRulerStops`. Lab: `/dev/fee-rulings-lab?screen=ruler`. §4: `build-sessions/shots-fee-ruler-lock/`.
+- Not built: the "every 100,000th fee" switch — live in billing, but this page does not read its N yet.
+
+SPEC IMPACT: None (implements the approved drawing).
+
+### 2026-11-21 · catch-up after batch D — the lock and the payment ceiling, both kept
+- #8035's ceiling (`max_payment_php`, owner 17 Nov) went live while this PR waited. The fee is now held to the LOWER of
+  its own lock (`booking_fee_cap_php`, 20 Nov) and that ceiling — in `bookingFeeCapPhp` and, in SQL, in
+  `booking_fee_centavos`, `booking_fee_flat_centavos`, the summary and the stored basis. At the ruled values both are
+  ₱100,000, so no number moves. ⚠ Migration `20271356196197` changed for this.
+- `no-payment-to-setnayan-above-the-ceiling.test.ts` now checks the newest migration defining each fee function
+  still reads `max_payment_php` (red on sabotage of either function).
+- Ship review 21 Nov: the shown fee is the billed fee. `bookingFeePhp` / `unverifiedBookingFeePhp` compute in whole
+  centavos × hundredths of a percent (BigInt), round ONCE half away from zero, then floor and lock — exactly
+  `booking_fee_centavos` (₱100,003.50 → ₱5,000.11; the float sum said ₱5,000.10). Property tests: 3,800 amounts
+  against an exact reference, 2,000 amounts against the SQL.
+- For Coordinators' fee ⓘ says the lock: "locked at ₱100,000: never more, however big the booking."
+- Guard 3: `lib/journal-edits-after-import.ts` is allowed (the record of the removal); the December post's line is
+  gone from ALLOWED because main corrected its source.

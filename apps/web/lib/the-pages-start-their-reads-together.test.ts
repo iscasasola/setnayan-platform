@@ -30,9 +30,8 @@ const CASES: Array<[string, string, string, string]> = [
   ['app/vendor-dashboard/customers/page.tsx', 'monthPartRead', 'startAhead(customersMonth(', 'const monthPart = await monthPartRead;'],
   ['app/_components/frontdoor/front-door.tsx', 'shelvesRead', 'loadDiscoverServiceCards(', '= await shelvesRead;'],
   ['app/_components/frontdoor/front-door.tsx', 'landingRead', 'getCreatableEventTypes(', 'const landingReads = landing ? await landingRead : null;'],
-  ['app/[slug]/hub/page.tsx', 'prepReleaseAhead', 'isCoordinatorPrepReleaseEnabled(', 'await prepReleaseAhead,'],
-  ['app/[slug]/hub/page.tsx', 'checkinAhead', ".from('guest_checkins')", 'await checkinAhead!;'],
-  ['app/[slug]/hub/page.tsx', 'venueBookingsAhead', 'loadVenueBookings(', 'await venueBookingsAhead!'],
+  // (No `app/[slug]/hub/page.tsx` rows: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event
+  //  page's tab (`dayHubLanding`) after one event read, so it has no reads to start together.)
 ];
 
 for (const [file, name, call, awaitLine] of CASES) {

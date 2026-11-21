@@ -25,7 +25,7 @@ on:
 # THE SHAPE NOW. The same steps run as SEPARATE JOBS, side by side, and none of
 # them can stop another:
 #
-#     guards · typecheck · eslint · unit tests (3 shards) · DB replay (6 shards)
+#     guards · typecheck · eslint · unit tests (3 shards) · DB replay (10 shards)
 #                                ──►  "typecheck + lint"  (the gate, at the bottom)
 #
 # (2026-11-18: the old `source guards` job and the eight seconds-long REQUIRED
@@ -1109,17 +1109,18 @@ jobs:
         run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "unit tests ${{ matrix.shard }}/3"
 
   db-replay:
-    name: DB replay (${{ matrix.shard }}/6)
+    name: DB replay (${{ matrix.shard }}/10)
     if: ${{ github.event.pull_request.draft != true }}
     runs-on: ubuntu-latest
-    # Six shards, because this is the long one: every one of the ~380 DB tests
+    # Ten shards, because this is the long one: every one of the ~380 DB tests
     # replays ALL the migrations into its own PGlite, and as a single step it
-    # measured 41–52 minutes. See the unit-tests job for how shards work and
+    # measured 41–52 minutes. (Six until 21 Nov 2026, when a 6-shard slice hit the
+    # 60-min job timeout on batch B #8085; owner: "split it now so it doesn't time out".) See the unit-tests job for how shards work and
     # for the two traps (flag position, `shell: bash`).
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@v4
 
@@ -1149,12 +1150,12 @@ jobs:
       - name: Data-layer guards (DB replay)
         shell: bash
         env:
-          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/6
+          TEST_SHARD_FLAG: --test-shard=${{ matrix.shard }}/10
         run: pnpm --filter @setnayan/web test:db:ci 2>&1 | tee "$RUNNER_TEMP/tests.log"
 
       - name: Name every failure
         if: ${{ !cancelled() }}
-        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "DB replay ${{ matrix.shard }}/6"
+        run: node scripts/ci-test-summary.mjs "$RUNNER_TEMP/tests.log" "DB replay ${{ matrix.shard }}/10"
 
   # ═══ THE REQUIRED CHECK ═════════════════════════════════════════════════
   #

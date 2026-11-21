@@ -38,7 +38,7 @@ export function ProQuietLine({ part }: { part?: HubPartId }) {
     <InlineNotice
       kind="offer"
       noticeKey={`hub-pro:${part ?? 'sheet'}`}
-      mark={<PaidMark state={owned ? 'unlocked' : 'try'} bare label="Event Pro" size="xs" />}
+      mark={<PaidMark state={owned ? 'unlocked' : 'try'} bare label="the full Event Hub" size="xs" />}
       title={title}
       actions={
         <Link href={line.href} className={NOTICE_ACTION} data-pro-quiet-line={mine ? 'yours' : line.paidPhp > 0 ? 'paid' : 'free'}>

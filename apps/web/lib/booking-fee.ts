@@ -44,6 +44,8 @@
  * amount above, locked at ₱100,000.** Floor ₱50 survives. Supersedes the
  * 2026-07-25 taper (5% then 1%, no cap).
  */
+import { MAX_PAYMENT_PHP_DEFAULT, maxPaymentPhpOrDefault } from '@/lib/max-payment';
+
 /**
  * The three numbers the OWNER may set, plus the two he may not.
  *
@@ -81,6 +83,14 @@ export type BookingFeeSchedule = {
    * only in the supplier's own app and receipts, never on a public page (2026-11-19 PROMOTION PAGES (4)).
    */
   newClientFreeMonths?: number;
+  /**
+   * ⚖ THE CEILING (owner 2026-11-17): the booking fee can never exceed ₱100,000.
+   * It is the admin setting `platform_settings.max_payment_php` — the same number
+   * that bounds every payment to Setnayan — read by `getBookingFeeSchedule`.
+   * Optional so a schedule built anywhere else still caps: absent ⇒
+   * `MAX_PAYMENT_PHP_DEFAULT`. Mirrored in SQL by `public.booking_fee_centavos`.
+   */
+  maxPhp?: number;
 };
 
 /**
@@ -99,6 +109,8 @@ export const BOOKING_FEE: BookingFeeSchedule = {
   minPhp: 50,
   /** The lock (owner 2026-11-20): the fee never goes above ₱100,000. */
   capPhp: 100_000,
+  /** The payment ceiling (owner 2026-11-17) — the ruled default of `max_payment_php`. */
+  maxPhp: MAX_PAYMENT_PHP_DEFAULT,
 };
 
 /** The FIRST-BAND rate (5%). Exposed for display copy / callers. */
@@ -129,22 +141,60 @@ export function bookingFeePhp(
   schedule: BookingFeeSchedule = BOOKING_FEE,
 ): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  const tier1 = Math.min(proposalPhp, schedule.tier1LimitPhp);
-  const tier2 = Math.max(0, proposalPhp - schedule.tier1LimitPhp);
-  const linear = tier1 * schedule.rate + tier2 * schedule.tailRate;
-  // Floor at ₱50, then the lock (owner 2026-11-20) — the same order as the SQL.
-  return lockAndRound(Math.max(linear, schedule.minPhp), schedule);
+  const amount = centavos(proposalPhp);
+  const band = centavos(schedule.tier1LimitPhp);
+  const head = (amount < band ? amount : band) * pctHundredths(schedule.rate);
+  const tail = (amount > band ? amount - band : 0n) * pctHundredths(schedule.tailRate);
+  // ONE round of the sum, then the ₱50 floor, then the lock — exactly `public.booking_fee_centavos`.
+  return floorAndLock(roundHalfUp(head + tail), schedule);
 }
 
-/** The lock a schedule carries — absent ⇒ the ruled default, never "no lock". */
+/*
+ * ⚖ THE SHOWN FEE IS THE BILLED FEE (ship review 21 Nov: ₱100,003.50 showed ₱5,000.10 while SQL billed ₱5,000.11).
+ * Floats cannot hold 5,000.105, so the fee is computed the way Postgres NUMERIC does it: whole centavos × the rate in
+ * hundredths of a percent (5% = 500, as `head_pct / 100.0` on a NUMERIC(5,2) is exact), in BigInt, rounded ONCE,
+ * half away from zero (`round()` on NUMERIC), then floored and locked in whole centavos.
+ */
+function centavos(php: number): bigint {
+  return BigInt(Math.round(php * 100)); // `(x * 100)::BIGINT` rounds half away from zero too (positive inputs)
+}
+function pctHundredths(rate: number): bigint {
+  return BigInt(Math.round(rate * 10_000)); // 0.05 → 500 (= 5.00%)
+}
+function roundHalfUp(units: bigint): bigint {
+  // `units` is centavos × 10,000; every input is non-negative, so half-up IS half-away-from-zero.
+  return (units + 5_000n) / 10_000n;
+}
+function floorAndLock(feeCentavos: bigint, schedule: BookingFeeSchedule): number {
+  const floored = feeCentavos > centavos(schedule.minPhp) ? feeCentavos : centavos(schedule.minPhp);
+  const lock = centavos(bookingFeeCapPhp(schedule));
+  return Number(floored < lock ? floored : lock) / 100;
+}
+
+/**
+ * The most one booking's fee can be: the fee LOCK (`booking_fee_cap_php`, owner 2026-11-20) or the PAYMENT CEILING
+ * (`max_payment_php`, owner 2026-11-17: "We do not allow transactions above 100,000"), whichever is lower — a fee is
+ * one payment, so it can never be more than any payment may be. Absent either ⇒ its ruled default, never "no lock".
+ * Twin of `LEAST(cap_php, max_php)` in `public.booking_fee_centavos`.
+ */
 export function bookingFeeCapPhp(schedule: BookingFeeSchedule = BOOKING_FEE): number {
   const cap = schedule.capPhp;
-  return typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : (BOOKING_FEE.capPhp as number);
+  const lock = typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : (BOOKING_FEE.capPhp as number);
+  return Math.min(lock, maxPaymentPhpOrDefault(schedule.maxPhp));
 }
 
-function lockAndRound(feePhp: number, schedule: BookingFeeSchedule): number {
-  // Centavo precision on both sides of the lock, as `round(x)` then `LEAST(…, cap)` in SQL.
-  return Math.min(Math.round(feePhp * 100) / 100, Math.round(bookingFeeCapPhp(schedule) * 100) / 100);
+/**
+ * The smallest whole-peso booking price whose fee reaches the lock (₱3,266,667 on 5% · ₱100,000 · 3% · ₱100,000) — the
+ * stop the For Suppliers ruler draws its lock at. PURE, from the schedule; null when no booking ever reaches it (a 0% tail).
+ */
+export function bookingFeeLockPointPhp(schedule: BookingFeeSchedule = BOOKING_FEE): number | null {
+  const cap = bookingFeeCapPhp(schedule);
+  const head = schedule.rate * schedule.tier1LimitPhp;
+  if (cap <= head) return schedule.rate > 0 ? Math.ceil(cap / schedule.rate) : null;
+  if (!(schedule.tailRate > 0)) return null;
+  const at = Math.ceil(schedule.tier1LimitPhp + (cap - head) / schedule.tailRate);
+  // Centavo rounding can land a peso early; step back while the peso before still reaches the lock.
+  return bookingFeePhp(at - 1, schedule) >= cap ? at - 1 : at;
 }
 
 /**
@@ -158,7 +208,8 @@ export function unverifiedBookingFeePhp(
   schedule: BookingFeeSchedule = BOOKING_FEE,
 ): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  return lockAndRound(Math.max(proposalPhp * schedule.rate, schedule.minPhp), schedule);
+  // `public.booking_fee_flat_centavos`: round(amount × head rate), then the floor, then the lock.
+  return floorAndLock(roundHalfUp(centavos(proposalPhp) * pctHundredths(schedule.rate)), schedule);
 }
 
 /** The fee a shop pays on an amount: the taper when verified, the flat rate when not (`booking_fee_centavos_for`). */

@@ -1,8 +1,7 @@
 'use client';
 
-import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Heart, LogIn, Mail, MailCheck, Plus, Tag, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Heart, LogIn, Mail, MailCheck, PenLine, Plus, SkipForward, Tag, Trash2, X } from 'lucide-react';
 
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -13,12 +12,14 @@ import { OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
 import { OAUTH_VERB } from '@/lib/oauth-words';
 import { PasswordField } from '@/app/_components/password-field';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
-import { TERMS_FIELD } from '@/lib/terms-agreement';
-import { OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
+import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
+import { OPEN_SHOP_ERRORS, isValidOpenShopEmail } from '@/lib/open-shop-validation';
+import { OPEN_SHOP_ACCOUNT_ERRORS, OPEN_SHOP_PASSWORD_MIN } from '@/lib/open-shop-account';
 import { TakenSignIn } from './taken-sign-in';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { formatCount } from '@/lib/format-number';
+import { FirstCardDraft } from './first-card-draft';
 import { formatPhoneDigits, maxDigitsFor } from '@/lib/open-shop-phone';
 import { planSplit, holdsMoreThanFree } from '@/lib/open-shop-more-services';
 import {
@@ -40,7 +41,11 @@ import { basisLabel, claimPricePrefill, claimStaysLine, countWords, type SelfAdd
 import { PAY_WAY_PROVIDERS } from '@/lib/self-added-pay-ways';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ServicePicker, type PickerParentView } from '@/app/_components/service-picker';
-import { PlanInline } from './plan-sheet';
+import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
+import { Sheet } from '@/app/_components/sheet';
+import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, FIRST_CARD_PRICED_LINE, CLAIM_CHECK_HEAD, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
+// 🔵 The supplier blue look (owner 19 Nov) — the dashboard's own token scope, re-used.
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 import type { SpecialtyField } from './service-cards';
 import { finishClaimDoor } from '../claim-actions';
 
@@ -62,7 +67,14 @@ import { finishClaimDoor } from '../claim-actions';
  * loses nothing. The finish is `finishClaimDoor`, which hands the consent to the shipped finalize.
  */
 
-type Screen = 'invite' | 'details' | `ed:${ClaimDetailKey}` | `card:${number}` | 'pay' | 'bundle' | 'plan' | 'account';
+/**
+ * 🚪 SINCE 19 NOV 2026 THIS IS DOOR A OF THE ONE SUPPLIER ONBOARDING (owner "approve!", drawing `36jmQMWrANcgd2HxihAUw5`;
+ * the vocabulary is `lib/supplier-onboarding.ts`). The screens, in order: `invite` (Accept, "<couple> invited you") ·
+ * `account` (SECOND) · `details` (Check your shop — ONE list, a sheet per fact; SUPERSEDES the 7 Nov "let it flow step
+ * by step") · `card:0` (the first card — Approve · Edit · Skip) · `plan` (You're all set — the plan, then Open my shop).
+ * `ed:*`, `pay`, `bundle` and `package` are the SHEETS the list opens — the same bodies the old slides drew.
+ */
+type Screen = 'invite' | 'details' | `ed:${ClaimDetailKey}` | `card:${number}` | 'pay' | 'bundle' | 'package' | 'plan' | 'account';
 
 type Picked = { category: string; leaf: string | null; label: string; tileId: string | null; fromRecord: boolean };
 type Card = {
@@ -90,6 +102,8 @@ type Card = {
 type PayDraft = { keep: boolean; provider: string; accountName: string; accountNumber: string; keepQr: boolean };
 /** What pressing Claim it fills "Your role at the shop" with (owner 10 Nov: "If that is pressed, this should be owner"). */
 export const CLAIM_OWNER_ROLE = 'Owner';
+/** The screens of the flow (the rest are sheets) — a kept draft on any other comes back on the list. */
+const FLOW_SCREENS = new Set<string>(['invite', 'account', 'details', 'card:0', 'plan']);
 
 type Draft = {
   screen: Screen;
@@ -112,6 +126,8 @@ type Draft = {
   email: string;
   /** 🏦 "Your payment details, as <couple> recorded" — absent on a draft kept before it. */
   payWays?: PayDraft[];
+  /** 🚪 The first card's way (19 Nov) — absent until picked. */
+  firstCard?: FirstCardChoice | null;
 };
 
 const peso = (n: number | string | null | undefined) =>
@@ -160,7 +176,6 @@ export function ClaimDoor({
   error,
   startOnAccount = false,
   declineAction,
-  startOnEmail = false,
   taken = false,
   sentTo = null,
 }: {
@@ -249,9 +264,20 @@ export function ClaimDoor({
   /** The card slide's one refusal — per hour with no price for an extra hour (v2: it is the supplier's to set). */
   const [cardErr, setCardErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  /** The account screen's refusal (the email way) — said before they move on, not at the very end. */
+  const [acctErr, setAcctErr] = useState<string | null>(null);
+  const accountRefusal = (): string | null => {
+    if (!isValidOpenShopEmail(d.email.trim().toLowerCase())) return OPEN_SHOP_ERRORS.contactEmail;
+    const pw = (document.getElementById('claim-door-password') as HTMLInputElement | null)?.value ?? '';
+    if (pw.length < OPEN_SHOP_PASSWORD_MIN) return OPEN_SHOP_ACCOUNT_ERRORS.password;
+    if (!(document.getElementById('claim-door-terms') as HTMLInputElement | null)?.checked) return TERMS_REQUIRED_MESSAGE;
+    return null;
+  };
   // Google / Apple are drawn on this shell (the wizard's own rule); with neither, Email is the only way and starts open.
   const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
-  const [emailWay, setEmailWay] = useState(!waysShown || startOnEmail || taken);
+  // P2 (drawing v4, 19 Nov — newer than v19's 7 Nov "Email chosen → the ways go"): Google · Apple, then "or", then the
+  // email boxes, all at once — as Door B's PB2. `startOnEmail` (the lab's `&way=email`) now matches the default.
+  const [emailWay, setEmailWay] = useState(true);
 
   // The draft survives signing in with Google / Apple (they leave the page) AND the email link (which can open in a
   // NEW tab — so localStorage, not sessionStorage) — this browser only, this link only. The password is never in it.
@@ -260,7 +286,9 @@ export function ClaimDoor({
       const raw = localStorage.getItem(claimDraftKey(record.token));
       if (raw) {
         const saved = JSON.parse(raw) as Draft;
-        setD({ ...saved, email: saved.email ?? record.inviteEmail ?? '', screen: startOnAccount ? 'account' : saved.screen });
+        // A draft kept before 19 Nov may sit on a slide that is now a sheet — it comes back on the list instead.
+        const screen: Screen = startOnAccount ? 'account' : FLOW_SCREENS.has(saved.screen) ? saved.screen : 'details';
+        setD({ ...saved, email: saved.email ?? record.inviteEmail ?? '', screen });
       }
     } catch {
       /* no storage — the door works from the record */
@@ -282,18 +310,11 @@ export function ClaimDoor({
   // its words name the Setnayan team, it shows the offer, and it has no bundle slide.
   const team = record.from === 'setnayan';
   const detailKeys = claimDetailKeysOf(record);
-  const editKeys = detailKeys.filter((k) => d.ticked.includes(k));
-  const order: Screen[] = [
-    'invite',
-    'details',
-    ...editKeys.map((k) => `ed:${k}` as Screen),
-    ...d.cards.map((_, i) => `card:${i}` as Screen),
-    // 🏦 The couple recorded how to pay them — the supplier confirms or fixes it (owner 2026-11-13).
-    ...(!team && (record.payWays?.length ?? 0) > 0 ? (['pay'] as Screen[]) : []),
-    ...(team ? [] : (['bundle'] as Screen[])),
-    'plan',
-    'account',
-  ];
+  // 🚪 THE FIVE SCREENS (owner 19 Nov): Accept · Create account (SECOND) · Check your shop · the first card · You're all
+  // set. Every old slide is one of the list's sheets now (`sheet`), so nothing the door asked is dropped.
+  const order: Screen[] = ['invite', 'account', 'details', ...(d.cards.length ? (['card:0'] as Screen[]) : []), 'plan'];
+  /** The fact sheet open over "Check your shop", or null. Not kept in the draft — the list is where they come back. */
+  const [sheet, setSheet] = useState<Screen | null>(null);
   const at = Math.max(0, order.indexOf(d.screen));
   const go = (s: Screen) => set({ screen: s });
   const next = () => go(order[Math.min(order.length - 1, at + 1)]!);
@@ -348,12 +369,12 @@ export function ClaimDoor({
     ),
     // The details slide's bundle price — a change here is a change to what the couple bought (sent to them to approve).
     price: Number(digits(d.price)) || null,
+    ...(d.firstCard ? { firstCard: d.firstCard } : {}),
   };
 
   // ── the shared frame pieces ────────────────────────────────────────────────────────────────────────────────────
-  const stepOf = d.screen === 'invite' ? 1 : d.screen === 'details' || d.screen.startsWith('ed:') ? 2 : d.screen.startsWith('card:') || d.screen === 'pay' ? 3 : d.screen === 'bundle' ? 4 : d.screen === 'plan' ? 5 : 6;
-  // Setnayan's door has no bundle step: plan and account move up one.
-  const step = team && stepOf > 4 ? stepOf - 1 : stepOf;
+  // Done is always step 5, with or without a card screen before it — the names under the bars never skip.
+  const step = d.screen === 'plan' ? ONBOARDING_SCREENS.length : at + 1;
   const fromHint = (extra = '') => (
     <p className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
       <Heart aria-hidden className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
@@ -402,17 +423,39 @@ export function ClaimDoor({
   );
 
   // ── the slides ─────────────────────────────────────────────────────────────────────────────────────────────────
+  // Accept was pressed → the role reads Owner, plain ink, still editable, with the hint saying why (owner 10 Nov).
+  const roleHint =
+    d.roleFromClaim && d.role.trim() === CLAIM_OWNER_ROLE ? (
+      <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-role-why="">
+        You pressed Accept, so you run this business. Change it if you are not the owner.
+      </span>
+    ) : undefined;
+  const roleBox = field(
+    'Your role at the shop',
+    <Box
+      value={d.role}
+      maxLength={64}
+      placeholder="e.g. Owner"
+      autoComplete="organization-title"
+      onChange={(e) => set({ role: e.target.value, roleFromClaim: false })}
+    />,
+    roleHint,
+    d.roleFromClaim ? undefined : 'optional',
+  );
+  const slide = (view: Screen): { title: string; line: string; body: React.ReactNode; primary: { label: string; onClick: () => void } | null } => {
   let title = '';
   let line = '';
   let body: React.ReactNode = null;
   let primary: { label: string; onClick: () => void } | null = { label: 'Continue', onClick: next };
 
-  if (d.screen === 'invite') {
+  if (view === 'invite') {
     // 🎁 Setnayan's invite says what the claim page's TeamInviteDoor says (frame B1): your shop is ready, set up for you.
-    title = team ? `Your shop is ready, ${record.business}.` : `You’re invited by ${record.inviterName}.`;
+    // 🚪 19 Nov: "<couple> invited you" — the main button says Accept (never "Claim it").
+    // 🚪 P1 (19 Nov): "<couple> added you." · "For their wedding · Sat, Dec 19, 2026."
+    title = team ? `Your shop is ready, ${record.business}.` : `${record.inviterName} added you.`;
     line = team
       ? `Set up for you by the Setnayan team${record.services[0] ? ` as a ${record.services[0].label}` : ''}.`
-      : `For their ${record.eventWord}${record.datePhrase ? ` ${record.datePhrase}` : ''}.`;
+      : `For their ${record.eventWord}${record.datePhrase ? ` · ${record.datePhrase.replace(/^(on|in) /, '')}` : ''}.`;
     const offer = team ? record.offer : null;
     body = (
       <div className="grid max-w-[620px] gap-3" data-claim-door-invite="">
@@ -420,7 +463,8 @@ export function ClaimDoor({
           // The claim page's own offer rows (TeamInviteDoor, `doorOffer`) — kept on the door, and applied on the finish
           // by the shipped `claim_ready_the_invited_shop`. Rows with dividers, nothing boxed.
           <section data-claim-door-offer="">
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
+            {/* A plain section label, not a mono caption (the template sheet's rule) — paying for the P1 shop card's point. */}
+            <p className="text-[13px] font-semibold" style={{ color: 'var(--m-ink)' }}>
               Your offer
             </p>
             <dl className="mt-1.5 divide-y border-y text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
@@ -454,6 +498,38 @@ export function ClaimDoor({
             ) : null}
           </section>
         ) : null}
+        {team ? null : (
+          // 🚪 P1 — the shop as the couple typed it: name and what it covers, the contact, what they booked. Rows on
+          // white, nothing boxed but the one shop card.
+          <section className="grid gap-2 rounded-2xl border p-4" style={{ borderColor: 'var(--m-line)' }} data-claim-door-shop="">{/* no-card-ok: the owner-approved P1 shop card (drawing 36jmQMWrANcgd2HxihAUw5, 19 Nov) — the shop as the couple typed it */}
+            <b className="text-[15px] font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+              {record.business}
+            </b>
+            {record.services.length ? (
+              <span className="flex flex-wrap gap-1.5" data-claim-door-shop-covers="">
+                {record.services.map((sv) => (
+                  <span key={`${sv.category}:${sv.label}`} className="rounded-full px-2.5 py-0.5 text-xs" style={{ background: 'var(--m-line)', color: 'var(--m-ink)' }}>
+                    {sv.label}
+                  </span>
+                ))}
+              </span>
+            ) : null}
+            <dl className="grid gap-1 text-[13.5px]">
+              {record.contactPerson ? (
+                <div className="flex gap-3" data-claim-door-shop-row="contact">
+                  <dt className="w-20 shrink-0" style={{ color: 'var(--m-slate-3)' }}>Contact</dt>
+                  <dd className="min-w-0 [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>{record.contactPerson}</dd>
+                </div>
+              ) : null}
+              {record.price ? (
+                <div className="flex gap-3" data-claim-door-shop-row="booked">
+                  <dt className="w-20 shrink-0" style={{ color: 'var(--m-slate-3)' }}>Booked</dt>
+                  <dd className="min-w-0" style={{ color: 'var(--m-ink)' }}>{peso(record.price)} package</dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
+        )}
         <p className="flex items-center gap-1 text-sm" style={{ color: 'var(--m-slate)' }}>
           <span>
             {team ? (
@@ -461,49 +537,50 @@ export function ClaimDoor({
                 Claim <b style={{ color: 'var(--m-ink)' }}>{record.business}</b> to add your photos, services and prices.
               </>
             ) : (
-              <>
-                They added <b style={{ color: 'var(--m-ink)' }}>{record.business}</b>
-                {record.services[0] ? ` as their ${record.services[0].label}` : ''}.
-              </>
+              ACCEPT_LINE
             )}
           </span>
           <InfoTip label="" ariaLabel="What you get" align="start">
             <span className="block space-y-1">
               <b className="block">What you get</b>
-              <span className="block">A free supplier profile and marketplace listing</span>
+              {/* 19 Nov fix: no "free marketplace listing" — an unverified Free shop is found by its own link and QR. */}
+              <span className="block">A free supplier page, found by your own link and QR</span>
               <span className="block">{team ? 'Chat with couples in-app' : `Chat with ${record.inviterName} in-app`}</span>
               <span className="block">Calendar, payments and contracts in one place</span>
               <span className="block">No upfront cost · no card needed</span>
             </span>
           </InfoTip>
         </p>
-        {/* 🔘 Owner 10 Nov, "Button designs" (T19): the two equal-weight choices sit in ONE row at EQUAL widths, both
-            neutral, and change state as one (`useFitRow`). Claim it is the main verb — the bar's filled button. */}
-        <div ref={inviteRowRef} className={`grid gap-2 [&_.ab]:w-full [&_.ab]:justify-center ${signedInAs ? 'grid-cols-1' : 'grid-cols-2'}`} data-claim-door-choices="">
-          {signedInAs ? null : <ActionButton tone="neutral" icon={LogIn} label="Sign in & claim" href={signInHref} />}
+        {/* 🔘 P1 (19 Nov): "the two grey pills → two quiet links" — I have an account · Not my business. Accept is the
+            bar's one filled button. */}
+        <div ref={inviteRowRef} className="flex flex-wrap items-center gap-2" data-claim-door-choices="">
+          {signedInAs ? null : <ActionButton tone="neutral" quiet icon={LogIn} label="I have an account" href={signInHref} />}
           {declineAction ? (
             <form action={declineAction} className="contents">
               <input type="hidden" name="claim_token" value={record.token} />
-              <ActionButton tone="neutral" type="submit" icon={<X aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label="I’m not this supplier" />
+              <ActionButton tone="neutral" quiet type="submit" icon={<X aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label={NOT_MY_BUSINESS} />
             </form>
           ) : (
-            <ActionButton tone="neutral" icon={X} label="I’m not this supplier" onClick={() => undefined} />
+            <ActionButton tone="neutral" quiet icon={X} label={NOT_MY_BUSINESS} onClick={() => undefined} />
           )}
         </div>
       </div>
     );
-    // "Claim it" (owner 10 Nov): pressing it says "I run this business" — so "Your role at the shop" on the account
-    // slide is filled Owner (never over a role they already typed), and the draft carries it through Google / Apple.
+    // Accept (was "Claim it", owner 10 Nov → 19 Nov): pressing it says "I run this business" — so "Your role at the
+    // shop" (the Contact person sheet) is filled Owner (never over a role they already typed), and the draft keeps it.
     primary = {
-      label: 'Claim it',
+      label: ACCEPT_LABEL,
       onClick: () => {
         if (!d.role.trim()) set({ role: CLAIM_OWNER_ROLE, roleFromClaim: true });
         next();
       },
     };
-  } else if (d.screen === 'details') {
-    title = 'These are your business details.';
-    line = `Tick what is wrong. The rest stays as ${record.inviterName} ${team ? 'set it up' : 'entered it'}.`;
+  } else if (view === 'details') {
+    // 🚪 CHECK YOUR SHOP (19 Nov) — ONE list, a sheet per fact, filled from what they entered.
+    // P3 (drawing v4): the claim door's list is "Check your shop" — the couple's facts, to correct. Door B's is "Your shop".
+    title = CLAIM_CHECK_HEAD;
+    // P3: "Change anything <couple> got wrong."
+    line = team ? `Filled from what the Setnayan team set up. Tap a line to fix it.` : claimCheckLine(record.inviterName);
     const value = (k: ClaimDetailKey): React.ReactNode => {
       switch (k) {
         case 'name':
@@ -522,56 +599,118 @@ export function ClaimDoor({
           return d.plan.map((p) => `${p.label} ${peso(p.amount)}`).join(' · ');
       }
     };
+    // P3's order (19 Nov): Shop name · Contact · Number · Covers · Booked · Pays · They pay you. Events and the map pin
+    // are not on this door's record (the couple's event type is ticked on the shop by the finish) — Today asks for the pin.
+    const has = (k: ClaimDetailKey) => detailKeys.includes(k);
+    const keptPay = (d.payWays ?? []).filter((w) => w.keep);
+    // "Changed" — the row now differs from what the couple typed (P3 · Contact "Changed").
+    const was = (a: string | null | undefined, b: string | null | undefined) => (a ?? '').trim() !== (b ?? '').trim();
+    const claimFactRows: { fact: ClaimCheckRow; sheet: Screen; value: React.ReactNode; changed?: boolean }[] = [
+      ...(has('name') ? [{ fact: 'name' as const, sheet: 'ed:name' as Screen, value: d.name.trim() ? value('name') : null, changed: was(d.name, record.business) }] : []),
+      { fact: 'contact', sheet: 'ed:who', value: d.who.trim() || null, changed: !!record.contactPerson && was(d.who, record.contactPerson) },
+      { fact: 'number', sheet: 'ed:phone', value: d.phone ? value('phone') : null, changed: !!record.contactPhone && digits(record.contactPhone).slice(-10) !== d.phone.slice(-10) },
+      ...(has('service')
+        ? [
+            {
+              fact: 'categories' as const,
+              sheet: 'ed:service' as Screen,
+              value: d.services.length ? value('service') : null,
+              changed: d.services.map((x) => x.label).join('|') !== record.services.map((x) => x.label).join('|'),
+            },
+          ]
+        : []),
+      ...(has('price') || has('incl') || !team
+        ? [
+            {
+              fact: 'package' as const,
+              sheet: 'package' as Screen,
+              value: d.price ? `${peso(d.price)} package` : d.inclusions.length ? words(d.inclusions.length, 'line', 'lines') : null,
+              changed: !!record.price && Number(digits(d.price)) !== record.price,
+            },
+          ]
+        : []),
+      ...(has('plan') && d.plan.length
+        ? [{ fact: 'plan' as const, sheet: 'ed:plan' as Screen, value: d.plan.map((p, n) => `${n ? 'then ' : ''}${peso(p.amount)}`).join(' · ') }]
+        : []),
+      ...(!team && (record.payWays?.length ?? 0) > 0
+        ? [
+            {
+              fact: 'pay' as const,
+              sheet: 'pay' as Screen,
+              value: keptPay.length ? keptPay.map((w) => [w.provider, w.accountName.trim()].filter(Boolean).join(' · ')).join(' · ') : 'Not on my shop',
+            },
+          ]
+        : []),
+    ];
     body = (
-      <ul className="grid max-w-[620px] divide-y border-y" style={{ borderColor: 'var(--m-line)' }} data-claim-door-ticks="">
-        {detailKeys.map((k) => {
-          const on = d.ticked.includes(k);
-          return (
-            <li key={k}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={on}
-                aria-label={`${CLAIM_DETAIL_LABEL[k]} is wrong`}
-                onClick={() => set({ ticked: on ? d.ticked.filter((x) => x !== k) : [...d.ticked, k] })}
-                className="flex min-h-12 w-full items-start gap-3 py-2.5 text-left text-[13.5px]"
+      // Rows on white, like the self-serve door's list — space and lines, not a box.
+      <ul className="grid max-w-[620px] divide-y border-y" style={{ borderColor: 'var(--m-line)' }} data-claim-door-check="">
+        {claimFactRows.map((r) => (
+          <li key={r.fact}>
+            <button /* button-ok: a line of the "Check your shop" list — the whole row opens its fact's sheet */
+              type="button"
+              onClick={() => setSheet(r.sheet)}
+              aria-haspopup="dialog"
+              className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
+              data-claim-door-row={r.fact}
+            >
+              <span
+                aria-hidden
+                className="grid h-6 w-6 shrink-0 place-items-center rounded-full border"
+                style={
+                  r.value
+                    ? { borderColor: 'rgb(var(--color-ok))', background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }
+                    : { borderColor: 'var(--m-line)', color: 'var(--m-slate-3)' }
+                }
               >
-                <span
-                  aria-hidden
-                  className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border"
-                  style={{ borderColor: on ? 'var(--m-mulberry)' : 'var(--m-slate-3)', background: on ? 'var(--m-mulberry)' : 'var(--m-paper)', color: 'var(--m-paper)' }}
-                >
-                  {on ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+                {r.value ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+              </span>
+              <span className="grid min-w-0 flex-1">
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  {CLAIM_CHECK_LABEL[r.fact]}
                 </span>
-                <span className="w-32 shrink-0" style={{ color: 'var(--m-slate-3)' }}>
-                  {CLAIM_DETAIL_LABEL[k]}
+                <span className="truncate text-[14.5px] font-medium" style={{ color: r.value ? 'var(--m-ink)' : 'var(--m-slate)' }}>
+                  {r.value || 'Add'}
                 </span>
-                <span className="min-w-0 [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
-                  {value(k)}
+              </span>
+              {r.changed ? (
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }} data-claim-door-changed="">
+                  Changed
                 </span>
-              </button>
-            </li>
-          );
-        })}
+              ) : null}
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+            </button>
+          </li>
+        ))}
       </ul>
     );
-    primary = editKeys.length
-      ? { label: `Edit ${words(editKeys.length, 'detail', 'details')}`, onClick: next }
-      : { label: 'All correct — continue', onClick: next };
-  } else if (d.screen.startsWith('ed:')) {
-    const k = d.screen.slice(3) as ClaimDetailKey;
-    const i = editKeys.indexOf(k) + 1;
-    const n = editKeys.length;
+    // P3's two lines under the list — a contact change is only seen; a price or service change waits for their yes.
+    if (!team)
+      body = (
+        <>
+          {body}
+          <p className="grid max-w-[620px] gap-0.5 text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-check-notes="">
+            {CLAIM_CHECK_NOTES.map((n) => (
+              <span key={n}>{n}</span>
+            ))}
+          </p>
+        </>
+      );
+    primary = { label: LOOKS_RIGHT, onClick: next };
+  } else if (view.startsWith('ed:')) {
+    const k = view.slice(3) as ClaimDetailKey;
     title = CLAIM_DETAIL_LABEL[k];
-    line = n > 1 ? 'One at a time. The rest stays as they entered it.' : 'The rest stays as they entered it.';
-    const head = (
-      <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-edit-head="">
-        {formatCount(i)} of {formatCount(n)} to change · {n - i ? `${formatCount(n - i)} more after this` : 'last one'}
-      </p>
-    );
+    line = 'The rest stays as they entered it.';
+    const head = null;
     let part: React.ReactNode = null;
     if (k === 'name') part = field('Shop name', <Box value={d.name} maxLength={50} onChange={(e) => set({ name: e.target.value })} autoComplete="organization" />, fromHint());
-    if (k === 'who') part = field('Contact person', <Box value={d.who} maxLength={80} onChange={(e) => set({ who: e.target.value })} placeholder="Your full name" />, fromHint());
+    if (k === 'who')
+      part = (
+        <div className="grid gap-4">
+          {field('Contact person', <Box value={d.who} maxLength={80} onChange={(e) => set({ who: e.target.value })} placeholder="Your full name" />, fromHint())}
+          {roleBox}
+        </div>
+      );
     if (k === 'phone')
       part = field(
         'Contact number',
@@ -668,8 +807,8 @@ export function ClaimDoor({
         {part}
       </div>
     );
-  } else if (d.screen.startsWith('card:')) {
-    const i = Number(d.screen.slice(5));
+  } else if (view.startsWith('card:')) {
+    const i = Number(view.slice(5));
     const c = d.cards[i]!;
     const s = d.services[i];
     const first = d.cards.find((x, m) => !x.bundled && d.services[m]?.fromRecord === true);
@@ -682,75 +821,61 @@ export function ClaimDoor({
     const kinds = s?.tileId ? leavesOfTile.get(s.tileId) ?? [] : [];
     const setLeaf = (leaf: string | null) =>
       set({ services: d.services.map((x, m) => (m === i ? { ...x, leaf } : x)), cards: d.cards.map((x, m) => (m === i ? { ...x, specialties: {} } : x)) });
-    const setCard = (patch: Partial<Card>) => set({ cards: d.cards.map((x, m) => (m === i ? { ...x, ...patch } : x)) });
-    title = c.name || s?.label || 'Service card';
-    line = inBundle
+    // 🚪 The couple's priced first card IS their booking's price: a new price here is the bundle price changed — it goes
+    // to them to approve (`claimChangeQuote` on the finish, `lib/supplier-purchase-change.ts`), exactly as the Package
+    // sheet's price does.
+    const pricesTheBooking = i === 0 && !team && s?.fromRecord === true && !!record.price && !c.basis;
+    const setCard = (patch: Partial<Card>) =>
+      set({
+        cards: d.cards.map((x, m) => (m === i ? { ...x, ...patch } : x)),
+        ...(pricesTheBooking && patch.price !== undefined ? { price: patch.price } : {}),
+      });
+    const priceChanged = pricesTheBooking && Number(digits(c.price)) !== record.price;
+    // 🚪 19 Nov: the first card (Approve · Edit · Skip), drafted from the couple's category, the service they booked
+    // and the price they logged.
+    title = i === 0 ? ONBOARDING_HEADS.card[0] : c.name || s?.label || 'Service card';
+    // P4 / P4·b (drawing v4): the couple's own first card is DRAFTED — the card as couples will see it, then "Built
+    // from what <couple> recorded" — the same piece Door B's PB4 draws (`FirstCardDraft`). Its lines are changed in the
+    // Card Maker (Edit), not here. The Setnayan team's door and a service the supplier added are not drawn this way.
+    const drafted = i === 0 && !team && !added && !inBundle;
+    const cardPriceNum = Number(digits(c.price)) || 0;
+    line = drafted
+      ? cardPriceNum
+        ? `We drafted it. ${FIRST_CARD_PRICED_LINE}`
+        : ONBOARDING_HEADS.card[1]
+      : inBundle
       ? 'Part of their booking — nothing else is needed here.'
       : added
         ? `Your own service — on your shop, priced on its own. Not part of ${team ? 'your invite' : `${record.inviterName}’s booking`}.`
         : team
         ? 'Your service card — add your starting price and what’s included.'
         : 'Your service card — their confirmed price and lines, already in.';
-    body = (
-      <div className="grid gap-4" data-claim-door-card={i}>
-        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          Card {formatCount(i + 1)} of {formatCount(d.cards.length)}
-          {team ? '' : ` · for ${record.inviterName}`}
-        </p>
-        {team || added
-          ? null
-          : inBundle
-          ? band(
-              <>
-                Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
-              </>,
-            )
-          : band(
-              <>
-                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)}
-                {c.basisFromRecord && c.basis && c.basis !== 'fixed' && record.agreedCount ? ` · ${countWords(c.basis, record.agreedCount)} agreed` : ''} ·{' '}
-                {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
-              </>,
-            )}
-        {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
-        {inBundle ? (
-          <span>
-            <ActionButton tone="neutral" icon={Tag} label="Price it on its own" onClick={() => setCard({ bundled: false })} />
+    const priceBox = c.basis ? (
+      <CardPricing
+        c={c}
+        inviter={record.inviterName}
+        agreedCount={record.agreedCount ?? null}
+        error={cardErr}
+        onChange={(patch) => {
+          setCardErr(null);
+          setCard(patch);
+        }}
+      />
+    ) : (
+      field(
+        drafted ? 'From (PHP)' : 'Price',
+        <span className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+            ₱
           </span>
-        ) : (
-          <>
-            {c.basis ? (
-              <CardPricing
-                c={c}
-                inviter={record.inviterName}
-                agreedCount={record.agreedCount ?? null}
-                error={cardErr}
-                onChange={(patch) => {
-                  setCardErr(null);
-                  setCard(patch);
-                }}
-              />
-            ) : (
-              field(
-                'Price',
-                <span className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
-                    ₱
-                  </span>
-                  <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
-                </span>,
-                undefined,
-                'shown as “from”',
-              )
-            )}
-            <div className="grid gap-1">
-              <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                What’s included
-              </span>
-              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'e.g. Same-day highlight reel', 'Inclusion')}
-            </div>
-          </>
-        )}
+          <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
+        </span>,
+        undefined,
+        drafted ? undefined : 'shown as “from”',
+      )
+    );
+    const extras = (
+      <>
         {kinds.length > 1
           ? field(
               'Which one?',
@@ -802,21 +927,129 @@ export function ClaimDoor({
             ))}
           </div>
         ) : null}
+      </>
+    );
+    const loggedPrice = record.price ?? null;
+    const draftedBody = drafted ? (
+      <div className="grid gap-4" data-claim-door-card={i} data-claim-door-card-drafted="">
+        <FirstCardDraft
+          category={s?.label ?? 'Your service'}
+          name={c.name.trim() || s?.label || 'Your service'}
+          price={cardPriceNum || null}
+          lines={c.inclusions.map((l) => l.trim()).filter(Boolean)}
+          sourceHead={`Built from what ${record.inviterName} recorded`}
+          sources={[
+            ['Category', s?.label ?? '—', 'they picked it'],
+            ['Service', c.name.trim() || s?.label || '—', 'they booked you for'],
+            [
+              'Price',
+              cardPriceNum ? peso(c.price) : 'Not logged',
+              !cardPriceNum ? 'add yours' : loggedPrice && cardPriceNum === loggedPrice ? 'they logged it' : loggedPrice ? 'you changed it' : 'you typed it',
+            ],
+          ]}
+          faceAttr="data-claim-door-card-face"
+          sourceAttr="data-claim-door-card-source"
+        />
+        {priceBox}
+        {extras}
+      </div>
+    ) : null;
+    body = (
+      <div className="grid gap-4" data-claim-door-card={i}>
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+          {c.name || s?.label}
+          {team ? '' : ` · for ${record.inviterName}`}
+        </p>
+        {team || added
+          ? null
+          : inBundle
+          ? band(
+              <>
+                Part of the <b>{peso(d.price)}</b> bundle {record.inviterName} confirmed — priced on the <b>{first?.name ?? 'first'}</b> card.
+              </>,
+            )
+          : band(
+              <>
+                Filled from <b>{record.inviterName}</b>’s confirmed record — {peso(c.price)}
+                {c.basisFromRecord && c.basis && c.basis !== 'fixed' && record.agreedCount ? ` · ${countWords(c.basis, record.agreedCount)} agreed` : ''} ·{' '}
+                {words(c.inclusions.length, 'line', 'lines')}. Change only what’s wrong.
+              </>,
+            )}
+        {field('Service name', <Box value={c.name} maxLength={80} onChange={(e) => setCard({ name: e.target.value })} />, <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>Written for you · change it if you like</p>)}
+        {inBundle ? (
+          <span>
+            <ActionButton tone="neutral" icon={Tag} label="Price it on its own" onClick={() => setCard({ bundled: false })} />
+          </span>
+        ) : (
+          <>
+            {priceBox}
+            <div className="grid gap-1">
+              <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                What’s included
+              </span>
+              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'e.g. Same-day highlight reel', 'Inclusion')}
+            </div>
+          </>
+        )}
+        {extras}
       </div>
     );
-    primary = {
-      label: order[at + 1]?.startsWith('card:') ? 'Next card' : 'Continue',
-      // Per hour: the price for each extra hour is theirs to set, and the door asks for it (v2).
-      onClick: () => {
-        if (!inBundle && c.basis && claimPricingMissing(cardPricing(c))) {
-          setCardErr('Add your price for each extra hour.');
+    if (draftedBody) body = draftedBody;
+    // Per hour: the price for each extra hour is theirs to set, and the door asks for it (v2).
+    const pricingOk = () => {
+      if (!inBundle && c.basis && claimPricingMissing(cardPricing(c))) {
+        setCardErr('Add your price for each extra hour.');
+        return false;
+      }
+      return true;
+    };
+    const choose = (way: FirstCardChoice) => {
+      if (way === 'approve') {
+        if (!inBundle && !c.basis && !Number(digits(c.price))) {
+          setCardErr('Type a price to approve this card — or Edit it, or Skip.');
           return;
         }
-        setCardErr(null);
-        next();
-      },
+        if (!pricingOk()) return;
+      }
+      setCardErr(null);
+      set({ firstCard: way });
+      next();
     };
-  } else if (d.screen === 'pay') {
+    body = (
+      <>
+        {body}
+        {priceChanged ? (
+          <p className="max-w-[620px] text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-price-to-couple="">
+            A new price goes to {record.inviterName} to approve. Their booking keeps {peso(record.price)} until they say yes.
+          </p>
+        ) : null}
+        {cardErr && !c.basis ? (
+          <p role="alert" className="text-xs" style={{ color: 'var(--m-mulberry-deep)' }}>
+            {cardErr}
+          </p>
+        ) : null}
+        {i === 0 ? (
+          // P4 (19 Nov): Edit · Skip for now · Approve card. 🎁 The Setnayan team's door has NO Edit: its finish lands
+          // on Shop › Your details (`finishClaimDoor`), never the Card Maker hand-off — so it must not promise it.
+          // As drawn (P4 · PB4): Approve full width on top, the quieter ways under it — three in one row ran past the
+          // right gutter at 375 px.
+          <div className={`grid max-w-[620px] gap-2 [&>.ab]:w-full [&>.ab]:justify-center ${team ? 'grid-cols-1' : 'grid-cols-2'}`} data-claim-door-card-ways="">
+            <ActionButton tone="brand" main icon={Check} label="Approve card" className={team ? undefined : 'col-span-2'} onClick={() => choose('approve')} data-testid="claim-door-card-approve" />
+            {team ? null : <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => choose('edit')} data-testid="claim-door-card-edit" />}
+            <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => choose('skip')} data-testid="claim-door-card-skip" />
+          </div>
+        ) : null}
+        {i === 0 ? (
+          <p className="max-w-[620px] text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-card-note="">
+            {team
+              ? 'Skip makes no card — add one from Today.'
+              : 'Edit opens the Card Maker once your shop is open. Skip makes no card — the booking stays in Clients.'}
+          </p>
+        ) : null}
+      </>
+    );
+    primary = i === 0 ? null : { label: 'Continue', onClick: () => (pricingOk() ? (setCardErr(null), next()) : undefined) };
+  } else if (view === 'pay') {
     title = 'Your payment details';
     line = `As ${record.inviterName} recorded — confirm or fix them.`;
     const ways = d.payWays ?? [];
@@ -884,7 +1117,7 @@ export function ClaimDoor({
         </p>
       </div>
     );
-  } else if (d.screen === 'bundle') {
+  } else if (view === 'bundle') {
     const theirCards = d.cards.filter((_, i) => d.services[i]?.fromRecord === true);
     const ownCards = d.cards.filter((_, i) => d.services[i]?.fromRecord !== true);
     title = 'Your bundle';
@@ -928,58 +1161,90 @@ export function ClaimDoor({
         </div>
       </div>
     );
-  } else if (d.screen === 'plan') {
-    title = 'Which plan fits';
-    line = `${words(cats, 'category', 'categories')} · ${words(d.services.length, 'service', 'services')} from ${team ? 'your invite' : `${record.inviterName}’s record`}.`;
-    body = holdsMoreThanFree(meter) ? (
-      <PlanInline
-        agreed={d.planAgreed}
-        onAgree={(a) => {
-          set({ planAgreed: a });
-          setPlanErr(null);
-        }}
-        error={planErr}
-        onContinue={() => (d.planAgreed ? next() : setPlanErr('Tick the box to continue.'))}
-        onBack={back}
-        backLabel="Back to your bundle"
-        main={d.services[0]?.label ?? ''}
-        rest={d.services.slice(1).map((s) => s.label)}
-        split={split}
-      />
-    ) : (
-      <p className="max-w-[620px] text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-claim-door-plan-fits="">
-        <b style={{ color: 'var(--m-ink)' }}>{split.free.name}</b> holds it — {split.free.caps}. {FEE_FREE_CHIP}.
-      </p>
+  } else if (view === 'package') {
+    // 🚪 THE PACKAGE SHEET (19 Nov) — what the old price · what's included · payment plan slides and the bundle slide
+    // asked, on one sheet of "Check your shop". The same bodies; a new price still goes to the couple to approve.
+    title = CHECK_FACT_LABEL.package;
+    line = team ? 'As the Setnayan team set it up.' : `What ${record.inviterName} booked.`;
+    const parts = (['price', 'incl', 'plan'] as const).filter((k) => detailKeys.includes(k)).map((k) => slide(`ed:${k}`).body);
+    body = (
+      <div className="grid gap-6" data-claim-door-package="">
+        {parts.map((p, n) => (
+          <div key={n}>{p}</div>
+        ))}
+        {team ? null : slide('bundle').body}
+      </div>
     );
-    if (holdsMoreThanFree(meter)) primary = null; // the plan body carries its own Continue
+  } else if (view === 'plan') {
+    // 🚪 YOU'RE ALL SET (19 Nov) — the plan sits on this last screen, then Open my shop.
+    [title] = ONBOARDING_HEADS.done;
+    line = ONBOARDING_HEADS.done[1];
+    // 🚪 P5's rows (19 Nov): Shop ✓ · Cards ✓ · Client ✓ · the Free row · its line · the tick. Cards names what the
+    // finish makes — every unbundled card, less the first when Skip was picked (`finishClaimDoor`).
+    const cardNames = d.cards
+      .filter((c, n) => !c.bundled && !(n === 0 && d.firstCard === 'skip'))
+      .map((c, n) => (n === 0 && d.firstCard === 'edit' ? `${c.name} · opens in the Card Maker` : c.name))
+      .filter(Boolean);
+    const doneRows: { key: string; name: string; value: string; ok: boolean }[] = [
+      { key: 'shop', name: 'Shop', value: d.name.trim() || record.business, ok: true },
+      { key: 'cards', name: 'Cards', value: cardNames.length ? cardNames.join(' · ') : team ? 'None yet — add one from Today' : 'None yet — the booking stays in Clients', ok: cardNames.length > 0 },
+      ...(team ? [] : [{ key: 'client', name: 'Client', value: record.inviterName, ok: true }]),
+    ];
+    body = (
+      <div className="grid max-w-[620px] gap-3" data-claim-door-done="">
+        <dl className="grid divide-y border-y text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
+          {doneRows.map((r) => (
+            <div key={r.key} className="flex min-h-11 items-center gap-3 py-2" data-claim-door-done-row={r.key}>
+              <dt className="w-16 shrink-0" style={{ color: 'var(--m-slate-3)' }}>{r.name}</dt>
+              <dd className="min-w-0 flex-1 [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>{r.value}</dd>
+              {r.ok ? <Check aria-label="Done" className="h-4 w-4 shrink-0" strokeWidth={2.5} style={{ color: 'rgb(var(--color-ok))' }} /> : null}
+            </div>
+          ))}
+          <div className="flex min-h-11 items-center gap-3 py-2" data-claim-door-done-row="free">
+            <dt className="w-16 shrink-0 font-semibold" style={{ color: 'rgb(var(--color-ok))' }}>{DONE_FREE_ROW.name}</dt>
+            <dd className="min-w-0 flex-1" style={{ color: 'var(--m-ink)' }}>{DONE_FREE_ROW.line}</dd>
+          </div>
+        </dl>
+        <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-done-line="">
+          {DONE_FREE_LINE}
+        </p>
+        {holdsMoreThanFree(meter) ? (
+          <PlanOnLastScreen
+            agreed={d.planAgreed}
+            onAgree={(a) => {
+              set({ planAgreed: a });
+              setPlanErr(null);
+            }}
+            error={planErr}
+            main={d.services[0]?.label ?? ''}
+            rest={d.services.slice(1).map((sv) => sv.label)}
+            split={split}
+          />
+        ) : (
+          // P5: the tick sits on the last screen for EVERY claim, as PB5 — not only when the picks are over Free.
+          <PlanAgree
+            agreed={d.planAgreed}
+            onAgree={(a) => {
+              set({ planAgreed: a });
+              setPlanErr(null);
+            }}
+            error={planErr}
+          />
+        )}
+      </div>
+    );
+    primary = null; // the bar's Open my shop is the submit
   } else {
-    title = 'Your account';
-    line = signedInAs ? `Signed in as ${signedInAs}.` : 'This creates your Setnayan account.';
+    // 🚪 CREATE YOUR ACCOUNT — SECOND (owner 19 Nov). Google / Apple / Sign in finish here and come back signed in; the
+    // email way's boxes are typed here and stay MOUNTED inside the finish form, which posts on You're all set.
+    [title] = ONBOARDING_HEADS.account;
+    line = signedInAs ? `Signed in as ${signedInAs}.` : ONBOARDING_HEADS.account[1];
     const returnTo = claimDoorHref(record.token) + '&step=account';
-    // Claim it was pressed → the role reads Owner, plain ink, still editable, with the hint saying why (owner 10 Nov).
-    const roleHint =
-      d.roleFromClaim && d.role.trim() === CLAIM_OWNER_ROLE ? (
-        <span className="block text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-role-why="">
-          You pressed Claim it, so you run this business. Change it if you are not the owner.
-        </span>
-      ) : undefined;
-    const roleBox = field(
-      'Your role at the shop',
-      <Box
-        value={d.role}
-        maxLength={64}
-        placeholder="e.g. Owner"
-        autoComplete="organization-title"
-        onChange={(e) => set({ role: e.target.value, roleFromClaim: false })}
-      />,
-      roleHint,
-      d.roleFromClaim ? undefined : 'optional',
-    );
     if (signedInAs) {
       body = (
-        <div className="grid gap-4" data-claim-door-account="">
-          {roleBox}
-        </div>
+        <p className="max-w-[620px] text-[13.5px]" style={{ color: 'var(--m-slate)' }} data-claim-door-account="">
+          Your shop will be opened on this account.
+        </p>
       );
     } else if (sentTo) {
       line = 'One more tap.';
@@ -990,7 +1255,7 @@ export function ClaimDoor({
             <span>We sent a link to {sentTo} — tap it to finish.</span>
           </p>
           <p className="text-[13.5px]" style={{ color: 'var(--m-slate)' }}>
-            It signs you in and brings you back here, with everything you confirmed, to press “Claim it”.
+            It signs you in and brings you back here, with everything you confirmed, to open your shop.
           </p>
         </div>
       );
@@ -1008,11 +1273,6 @@ export function ClaimDoor({
       // ONE grey "✕ Use another way" brings them back. Drawn INSIDE the finish form (below), so the boxes post.
       body = (
         <div className="grid max-w-[620px] gap-4" data-claim-door-account="" data-claim-door-email="">
-          {waysShown ? (
-            <span className="flex">
-              <ActionButton tone="neutral" icon={X} label="Use another way" onClick={() => setEmailWay(false)} data-testid="claim-door-another-way" />
-            </span>
-          ) : null}
           <label className="block max-w-[620px] space-y-1">
             <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
               Email{' '}
@@ -1059,7 +1319,6 @@ export function ClaimDoor({
               className="input-field"
             />
           </label>
-          {roleBox}
           <label className="flex max-w-[620px] cursor-pointer items-start gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
             <input id="claim-door-terms" type="checkbox" name={TERMS_FIELD} required className="mt-0.5 h-4 w-4 shrink-0" style={{ accentColor: 'var(--m-mulberry)' }} />
             <span>
@@ -1107,14 +1366,36 @@ export function ClaimDoor({
         </div>
       );
     }
-    primary = null;
+    primary =
+      signedInAs || (emailWay && !taken && !sentTo)
+        ? {
+            label: 'Continue',
+            onClick: () => {
+              const err = signedInAs ? null : accountRefusal();
+              setAcctErr(err);
+              if (!err) next();
+            },
+          }
+        : null;
   }
+  return { title, line, body, primary };
+  };
 
-  /** The account slide's email way, signed out — the only body drawn inside the finish form. */
-  const emailForm = d.screen === 'account' && !signedInAs && !sentTo && emailWay && !taken;
-  const total = team ? 5 : 6;
+  const main = slide(d.screen);
+  const { title, line, body, primary } = main;
+  const sheetView = sheet ? slide(sheet) : null;
+  /**
+   * The email way's boxes (email · password · Terms), signed out. Typed on the account screen (SECOND) and kept
+   * MOUNTED inside the finish form — hidden — on every screen after it, so they post with Open my shop. The password
+   * is never in the draft.
+   */
+  const emailMounted = !signedInAs && !sentTo && emailWay && !taken;
+  const emailBody = emailMounted ? (d.screen === 'account' ? body : slide('account').body) : null;
+  const last = d.screen === 'plan';
+  const canSubmit = last && (!!signedInAs || emailMounted);
+  const total = ONBOARDING_SCREENS.length;
   return (
-    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-claim-door="" data-claim-door-screen={d.screen}>
+    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-claim-door="" data-claim-door-screen={d.screen} data-supplier-look="">
       <div className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8" style={{ borderColor: 'var(--m-line)' }}>
         <FirstRunBrand color="var(--m-ink)" size={13} />
       </div>
@@ -1124,9 +1405,17 @@ export function ClaimDoor({
             <FirstRunBrand className="md:hidden" color="var(--m-ink)" size={13} />
             <div className="flex gap-1.5 md:sr-only" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={step} aria-label={`Step ${step} of ${total}`}>
               {Array.from({ length: total }, (_, n) => (
-                <div key={n} className="h-1 flex-1 rounded-full" style={{ background: n < step ? 'var(--m-orange-deep)' : 'var(--m-line)' }} />
+                <div key={n} className="h-1 flex-1 rounded-full" style={{ background: n < step ? 'rgb(var(--color-mulberry))' : 'var(--m-line)' }} />
               ))}
             </div>
+            {/* The step names under the bars (19 Nov): Accept · Account · Your shop · Your card · Done. */}
+            <ol className="grid grid-cols-5 gap-1.5 text-[11px] md:hidden" aria-hidden data-onboarding-step-names="">
+              {ONBOARDING_STEP_NAMES.claim.map((name, n) => (
+                <li key={name} className="truncate" style={{ color: n + 1 <= step ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
+                  {name}
+                </li>
+              ))}
+            </ol>
           </div>
           <div key={d.screen} className="os-in-r grid gap-[3px]">
             <span className="font-mono text-[10.5px] uppercase tracking-[0.16em]" style={{ color: 'var(--m-slate-3)' }}>
@@ -1141,48 +1430,96 @@ export function ClaimDoor({
               </p>
             ) : null}
           </div>
-          {error ? (
+          {error || acctErr ? (
             <p role="alert" className="text-sm" style={{ color: 'var(--m-mulberry-deep)' }}>
-              {error}
+              {acctErr ?? error}
             </p>
           ) : null}
-          {/* The finish form is a layout-free wrapper (`contents`). It holds the BAR always, and the BODY only on the
-              account slide's email way, so the email + password + Terms post with it. Every other body stays outside:
-              the decline and the Google / Apple row are forms of their own (forms never nest). The plan slide's body
-              carries its own Continue + "Back to your bundle" (PlanInline), so the bar steps aside there — never two backs. */}
-          {emailForm ? null : (
-            <div key={`b-${d.screen}`} className="os-in-r">
+          {/* Every body but the email way's stays OUTSIDE the finish form: the decline and the Google / Apple row are
+              forms of their own (forms never nest). The email way's boxes live inside it, hidden off the account screen. */}
+          {d.screen === 'account' && emailMounted && waysShown ? (
+            <div key="ways-above" className="os-in-r grid max-w-[620px] gap-2" data-claim-door-ways="">
+              {oauth.desktop ? (
+                <DesktopOAuthButtons next={claimDoorHref(record.token) + '&step=account'} />
+              ) : oauth.native ? (
+                <NativeOAuthButtons next={claimDoorHref(record.token) + '&step=account'} accountType="vendor" />
+              ) : (
+                <OAuthButtonRow next={claimDoorHref(record.token) + '&step=account'} withAccountType defaultAccountType="vendor" />
+              )}
+              <span className="flex items-center gap-3 text-xs" style={{ color: 'var(--m-slate-3)' }} data-claim-door-or="">
+                <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                or
+                <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+              </span>
+            </div>
+          ) : null}
+          {d.screen === 'account' && emailMounted ? null : (
+            <div key={`b-${d.screen}`} className="os-in-r grid gap-4">
               {body}
             </div>
           )}
-          {d.screen === 'plan' && !primary ? null : (
-            <form action={finishClaimDoor} className="contents" data-claim-door-finish="">
-              {emailForm ? (
-                <div key={`b-${d.screen}`} className="os-in-r">
-                  {body}
-                </div>
-              ) : null}
-              {emailForm ? <TurnstileField action="signup" /> : null}
-              <div
-                className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
-                style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
-                data-claim-door-bar=""
-              >
-                <input type="hidden" name="claim_token" value={record.token} />
-                <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
-                {at > 0 ? (
-                  <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="claim-door-back" />
-                ) : null}
-                {d.screen === 'account' && (signedInAs || emailForm) ? (
-                  <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
-                    Claim it — open my shop
-                  </SubmitButton>
-                ) : primary ? (
-                  <ActionButton tone="brand" main icon={ArrowRight} label={primary.label} className="ml-auto" onClick={primary.onClick} data-testid="claim-door-continue" />
-                ) : null}
+          <form action={finishClaimDoor} className="contents" data-claim-door-finish="">
+            {emailMounted ? (
+              <div key="email-way" className={d.screen === 'account' ? 'os-in-r' : 'hidden'}>
+                {emailBody}
               </div>
-            </form>
-          )}
+            ) : null}
+            {/* The bot check is drawn only as the form is about to post — a token minted on the account screen could
+                expire while they check the shop. */}
+            {emailMounted && last ? <TurnstileField action="signup" /> : null}
+            <div
+              className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              data-claim-door-bar=""
+            >
+              <input type="hidden" name="claim_token" value={record.token} />
+              <input type="hidden" name={CLAIM_DOOR_FIELD} value={JSON.stringify(answers)} />
+              {at > 0 ? (
+                <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="claim-door-back" />
+              ) : null}
+              {canSubmit ? (
+                !d.planAgreed ? (
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={ArrowRight}
+                    label="Open my shop"
+                    className="ml-auto"
+                    onClick={() => setPlanErr(PLAN_AGREE_ERROR)}
+                    data-testid="claim-door-plan-first"
+                  />
+                ) : (
+                  <SubmitButton className="button-primary ml-auto inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
+                    Open my shop
+                  </SubmitButton>
+                )
+              ) : primary ? (
+                <ActionButton tone="brand" main icon={ArrowRight} label={primary.label} className="ml-auto" onClick={primary.onClick} data-testid="claim-door-continue" />
+              ) : null}
+            </div>
+          </form>
+          {/* ③ The fact sheet over "Check your shop" — the shipped house Sheet (this door keeps its answers in state, so
+              a portalled sheet loses nothing). Done returns to the list. */}
+          <Sheet
+            open={!!sheetView}
+            onClose={() => setSheet(null)}
+            labelledById="claim-door-sheet-title"
+            title={sheetView?.title}
+            foot={
+              <div className="flex justify-end px-4 pb-4">
+                <ActionButton tone="brand" icon={Check} label="Done" onClick={() => setSheet(null)} data-testid="claim-door-sheet-done" />
+              </div>
+            }
+          >
+            <div className="grid gap-4 px-4 pb-4" data-claim-door-sheet={sheet ?? ''}>
+              {sheetView?.line ? (
+                <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
+                  {sheetView.line}
+                </p>
+              ) : null}
+              {sheetView?.body}
+            </div>
+          </Sheet>
         </div>
         <aside className="hidden md:block">
           <div className="sticky top-5 grid gap-3 rounded-2xl p-[18px]" style={{ background: 'var(--m-paper)' }} data-claim-door-glance="">

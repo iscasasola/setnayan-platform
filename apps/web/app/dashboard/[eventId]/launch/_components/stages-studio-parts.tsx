@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { Check, ChevronDown, Minimize2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { BackButton } from '@/app/_components/back-button';
 import { createPortal } from 'react-dom';
 import { inertBehind, popupClearRect, popupHolePath } from '@/lib/popup-behind';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -11,7 +12,8 @@ import { MAKER_STAGE_KEYS, type MakerStageKey } from '@/lib/maker-parts';
 import { MAKER_SIDE_LABEL, makerStageLabel, type MakerSide } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
 import { GuestsSeeSheet } from './guests-see-sheet';
-import { MAKER_OPEN_GUESTS_SEE_EVENT, useMaker } from './maker-context';
+import { MAKER_EDITOR_CLOSE_EVENT, MAKER_OPEN_GUESTS_SEE_EVENT, MAKER_OPEN_PAGES_EVENT, useMaker } from './maker-context';
+import { MakerPagesSheet, type MakerPagesAsk } from './maker-pages-sheet';
 import { MakerDesk } from './maker-desk';
 import { riseEditorIn, riseEditorOut } from '@/lib/maker-editor-rise';
 
@@ -55,6 +57,16 @@ export function stagePillLabel(name: string | null): string {
   return name ? `Stage: ${name} — choose a stage` : 'Stages — choose a stage';
 }
 
+/**
+ * ‹ THE FULL-SCREEN MAKER'S WAY OUT (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (6)): the
+ * app's bars step away while the Maker is open, so the bar leads out itself — the house back (`BackButton`, its chat
+ * ‹), to where the page map sends the Hub tab now (`FULL_SCREEN_TABS`, lib/page-home.ts: the event's Today). Lazy with
+ * the rest of the bar's chrome — never the Maker's first load.
+ */
+export function MakerLeave({ eventId }: { eventId: string }) {
+  return <BackButton route="/dashboard/[eventId]/launch" params={{ eventId }} variant="chat" />;
+}
+
 export function StageSwitch({
   side,
   stage,
@@ -85,7 +97,37 @@ export function StageSwitch({
     if (editor?.full) void riseEditorOut().then(() => onClose?.());
     else onClose?.();
   };
+  /* ⤡ ONE WAY BACK, FOUR DOORS (20 Nov (2)): ✓ Done here, ⤡ Minimize (`MAKER_EDITOR_CLOSE_EVENT`), Esc, and the phone's
+     Back. Back is the shell's: the risen editor holds the Maker's one history entry (`useBackCloses`, maker-shell.tsx),
+     so Back closes it first, then the toolbar; every other door closes here and the shell steps back through that entry. */
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!risen) return;
+    const ask = () => closeRef.current();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-sheet],[role="dialog"][aria-modal="true"]')) return;
+      /* ⌨ never from a field being typed in */
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      ask();
+    };
+    window.addEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener(MAKER_EDITOR_CLOSE_EVENT, ask);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [risen]);
+  const requestClose = () => close();
   const [list, setList] = useState(false);
+  /* ≡ PAGES (20 Nov) — asked by the toolbar's name ▾ and the resting bar's Pages; this pill, always mounted, draws it. */
+  const [pagesAsk, setPagesAsk] = useState<MakerPagesAsk | null>(null);
+  useEffect(() => {
+    const open = (e: Event) => setPagesAsk(((e as CustomEvent<MakerPagesAsk>).detail ?? null) as MakerPagesAsk | null);
+    window.addEventListener(MAKER_OPEN_PAGES_EVENT, open);
+    return () => window.removeEventListener(MAKER_OPEN_PAGES_EVENT, open);
+  }, []);
   /* 🗂 "What guests see" (owner 2026-10-10) — a sheet, opened from the Hub's ⚙ Event Hub settings with an event; this
      pill — always mounted — draws it. */
   const [guestsSee, setGuestsSee] = useState(false);
@@ -120,11 +162,16 @@ export function StageSwitch({
           <ChevronDown aria-hidden className={`h-3 w-3 shrink-0 transition-transform duration-sn-elem motion-reduce:transition-none ${list ? 'rotate-180' : ''}`} strokeWidth={2.4} />
         </button>
       ) : (
-        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2">
-          <ActionButton tone="neutral" iconOnly icon={X} label={`Close ${editor.label}`} onClick={close} data-stage-editor-close="" className="shrink-0" />
-          <h1 data-stage-editor-title="" className="min-w-0 truncate text-[16px] font-semibold text-ink">
+        /* ✓ DONE ON TOP (20 Nov (2)): the editor's name, ⤡ Minimize and Done — the house main button, never a small grey ✕
+           (owner: E-Gifts "goes full screen and no way back"). Esc and Back close it the same way. */
+        <span data-stage-editor-head="" className="flex min-w-0 flex-1 items-center gap-2 pl-2">
+          <h1 data-stage-editor-title="" className="min-w-0 flex-1 truncate text-[17px] font-semibold text-ink">
             {editor.label}
           </h1>
+          {/* ⤡ Minimize — beside Done, never over the editor's own controls (a floating one covered the Logo editor's
+              Spacing slider at 390, measured in the Maker lab 20 Nov). */}
+          <ActionButton tone="neutral" iconOnly icon={Minimize2} label={`Minimize ${editor.label}`} onClick={requestClose} data-stage-editor-minimize="" className="shrink-0" />
+          <ActionButton tone="brand" main icon={Check} label="Done" name={`Done — back to ${editor.label} on the page`} onClick={requestClose} data-stage-editor-close="" className="shrink-0" />
         </span>
       )}
       {/* THE FIVE STAGES — the Stages panel's own list and sheet, with no button of its own here. */}
@@ -138,6 +185,7 @@ export function StageSwitch({
         onRsvpScreen={() => {}}
       />
       {guestsSee && typeof document !== 'undefined' ? createPortal(<GuestsSeeSheet onClose={() => setGuestsSee(false)} />, document.body) : null}
+      {pagesAsk && typeof document !== 'undefined' ? createPortal(<MakerPagesSheet ask={pagesAsk} onClose={() => setPagesAsk(null)} />, document.body) : null}
     </>
   );
 }

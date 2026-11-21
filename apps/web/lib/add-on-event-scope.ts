@@ -3,6 +3,7 @@ import { papicGuestPassAccess } from '@/lib/papic-event-access';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import type { AddOnEntry } from '@/lib/add-ons-catalog';
 import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
+import { isRetiredAddOn } from '@/lib/retired-products';
 
 /**
  * add-on-event-scope.ts — IS THIS ADD-ON OFFERED FOR THIS EVENT?
@@ -110,9 +111,13 @@ export function addOnOfferedForEvent(
  * `getMenuLifecyclePhase`, the ONE resolver — and pass it in.
  */
 export function addOnSellableNow(
-  entry: Pick<AddOnEntry, 'dayOfOnly'>,
+  entry: Pick<AddOnEntry, 'dayOfOnly'> & Partial<Pick<AddOnEntry, 'key' | 'serviceKey'>>,
   phase: MenuLifecyclePhase,
 ): boolean {
+  // 🪦 A RETIRED product (lib/retired-products.ts — owner 2026-11-20: Patiktok
+  // and Music Maker) is never sold again, in any phase. Like the day-of rule
+  // below this closes only the BUY path: an event that already has it keeps it.
+  if (entry.key != null && isRetiredAddOn({ key: entry.key, serviceKey: entry.serviceKey })) return false;
   // The only rule: a thing that can only happen DURING the celebration stops
   // being sellable once the celebration is over. Everything else — the
   // editorial maker, the thank-you film, photo preservation, the song — is

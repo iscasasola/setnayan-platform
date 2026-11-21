@@ -118,7 +118,11 @@ test('(2) the frame draws its outline, its name tag — the menu’s door — an
   assert.match(tools, /\[data-setnayan-editor-bound\],\[data-setnayan-editor-bound\] \*\{outline:none!important\}/);
 });
 
-test('(3) something is always picked on arriving: the first part the page DRAWS, once per arrival', () => {
+test('(3) NOTHING is picked on arriving (20 Nov 2026 — the resting bar); a part held from another page is let go, once per arrival', () => {
+  /* 🛋 RE-AIMED 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR" + the approved drawing's resting bar "Tap any
+     scene to edit it · Look · Pages"): the toolbar used to pick the page's first drawn part on arriving. It no longer
+     picks anything — the couple taps what to edit. What is kept: the arrival is still found once, and a part held
+     from another page is still let go (never left showing a part of the page before). */
   /* The order is the page's, measured — not the map's: a page that draws the date above the names picks the date. */
   const tops: Record<string, number> = { names: 140, date: 80, place: 220 };
   assert.deepEqual(partsInPageOrder(['names', 'date', 'place', 'countdown'] as const, (k) => tops[k] ?? null)[0], 'date');
@@ -159,15 +163,16 @@ test('(3) something is always picked on arriving: the first part the page DRAWS,
   assert.match(tools, /makerPartsWithAdded\(\{[^}]*\}\)\.filter\(\(k\) => makerPartIsDrawn\(k, present\)\);/, 'a part the page did not draw can be picked');
   assert.deepEqual(makerPartsTappable('rsvp', 'home', lab).filter((k) => !makerPartIsDrawn(k, lab)), []);
   assert.doesNotMatch(arrive, /parts\[0\]|makerPartsOnPage/, 'the arrival picks by the map’s order');
-  /* It stands back for a part already picked (a tap, a return from Studio) and for a step into the page. */
-  assert.match(arrive, /if \(!keeps && pendingStep\.current === null\) pickPartRef\.current\(first\);/);
-  /* …and it picks the way a tap does (the one door), so the frame, the tools and the centring are the shipped ones. */
-  assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 1);
+  /* It stands back for a part of this page (a tap, a return from an editor) and for a step into the page; a part held
+     from elsewhere is let go — and NOTHING is picked in its place. */
+  assert.match(arrive, /if \(!keeps && pendingStep\.current === null && pickedRef\.current !== null\) deselectRef\.current\(\);/);
+  assert.equal((arrive.match(/pickPartRef\.current\(/g) ?? []).length, 0, 'the arrival picks a part again — the resting bar is the way in');
   assert.match(tools, /const ordered = useCallback\(\(\) => partsInPageOrder\(parts, \(k\) => makerPartTopOnScreen\(stageKey, k, frameSel\)\), \[frameSel, parts, stageKey\]\);/);
   /* A tap on the page's ground still lets go. */
-  /* 🫥 2026-10-30 (DECISION_LOG "EVENT PRO (look redesign)"): a tap on the page's ground puts the toolbar away and
-     KEEPS the part — something stays picked, as the rule above says. */
-  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\)/);
+  /* 🛋 RE-AIMED 20 Nov 2026 (DECISION_LOG "MAKER · WAY BACK + BUILT-IN GUEST PAGES": *"tap outside a scene"* is a way
+     back): a tap on the page's ground lets the part go and returns to the resting bar — through the toolbar's own
+     history entry (`closeRef`), so Back is never pressed twice. */
+  assert.match(tools, /d\.t === 'tapOutside' && !previewingRef\.current\) closeRef\.current\(\)/);
 });
 
 test('(4) the last-used tool is remembered; a part opens on it where it works, else on the first of the four that does', () => {
@@ -266,11 +271,12 @@ test('(3b) a page change never ends on nothing: the held part is replaced when i
   /* The part is let go when the canvas HAS switched its tab and the part is not on the new page — at once. */
   /* 🔁 RE-AIMED 2026-10-09 (commit 9): …except in the whole-page preview, where Exit puts the part back. */
   assert.match(tools, /if \(tab && held && !previewingRef\.current && !partsRef\.current\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);\s*\}, \[canvasTab, stage\]\);/);
-  /* A canvas that did not switch: shortly after, that page's first part Edit has a row for is picked where it is drawn. */
+  /* A canvas that did not switch: shortly after, a part held from another page is let go — nothing is picked (20 Nov). */
   const ask = tools.slice(tools.indexOf('const askPage = useCallback((key: string) => {'), tools.indexOf('}, STAGE_PAGE_ASK_MS);'));
   assert.ok(ask.length > 200, 'anti-vacuity: the page ask was not found');
   assert.match(ask, /if \(where\.current\.shownPage === key\) return;/, 'the fallback also picks when the canvas DID switch (the arrival already does)');
-  assert.match(ask, /const on = tappableOnRef\.current\(key\);\s*const first = makerArrivalPart\(partsInPageOrder\(on, [^;]*\), hasEditRowRef\.current\);\s*if \(first && pendingStep\.current === null\) pickPartRef\.current\(first\);/);
+  assert.match(ask, /const on = tappableOnRef\.current\(key\);[\s\S]{0,300}if \(held && !on\.includes\(held\) && pendingStep\.current === null\) deselectRef\.current\(\);/);
+  assert.doesNotMatch(ask, /pickPartRef/, 'the page ask picks a part again');
   assert.match(tools, /const STAGE_PAGE_ASK_MS = (\d+);/);
   const ms = Number(/const STAGE_PAGE_ASK_MS = (\d+);/.exec(tools)?.[1]);
   assert.ok(ms >= 300 && ms <= 800, `the canvas is given ${ms} ms to switch — too short to be heard, or too long to be left on nothing`);

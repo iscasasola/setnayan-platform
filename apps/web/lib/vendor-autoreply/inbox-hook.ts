@@ -127,15 +127,21 @@ export async function runVendorAutoReply(
     // gate that makes the add-on real (no fake door). Read is soft — a
     // pre-migration column / unreadable row degrades to "not entitled", which
     // fail-closes the assistant (the inbox itself still works by hand).
-    // 💳 2026-11-14 ("SIMPLER SUPPLIER PLANS"): Pro and Ultra INCLUDE the chatbot — the plan grants it as well as a
-    // bought window (kept until it runs out). `vendorAiBasicActive` reads both; a run-out plan reads as Free.
+    // 💳 2026-11-21 (owner: "AI Chatbot is for verified and up"): Verified and every plan above INCLUDE the chatbot — the
+    // plan grants it as well as a bought window (kept until it runs out). `vendorAiBasicActive` reads both; a run-out
+    // plan reads as Free, and a Free shop whose papers are approved reads as Verified (`verification_state`).
     const { data: addonRow } = await admin
       .from('vendor_profiles')
-      .select('ai_addon_expires_at, tier_state, tier_expires_at')
+      .select('ai_addon_expires_at, tier_state, tier_expires_at, verification_state')
       .eq('vendor_profile_id', vendorId)
       .maybeSingle();
     const addonFields = addonRow as
-      | { ai_addon_expires_at?: string | null; tier_state?: string | null; tier_expires_at?: string | null }
+      | {
+          ai_addon_expires_at?: string | null;
+          tier_state?: string | null;
+          tier_expires_at?: string | null;
+          verification_state?: string | null;
+        }
       | null;
     const addonActive = vendorAiBasicActive({
       level: null,

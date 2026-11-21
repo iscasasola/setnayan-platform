@@ -1,7 +1,8 @@
 'use client';
 
 import { CheckADateOverShopView } from '@/app/v/[slug]/_components/check-a-date-over-shop-view';
-import { checkDateWindow } from '@/lib/check-a-date';
+import { checkDateWindowFor } from '@/lib/check-a-date';
+import { OPEN_BOOKING_WINDOW } from '@/lib/booking-window';
 
 const TODAY = '2026-11-14';
 const NOT_BOOKABLE = ['2026-11-21', '2026-11-28', '2026-12-05', '2026-12-06', '2026-12-19', '2026-12-24', '2026-12-25', '2026-12-31', '2027-01-01', '2027-01-02'];
@@ -27,7 +28,7 @@ export function CheckADateLabClient() {
           { serviceId: 'c', label: 'Mobile bar', price: '', category: null },
         ]}
         today={TODAY}
-        to={checkDateWindow(TODAY).to}
+        to={checkDateWindowFor(TODAY, OPEN_BOOKING_WINDOW).to}
         notBookable={NOT_BOOKABLE}
         perService={{ c: ['2026-11-22', '2026-11-29'] }}
         signedIn={false}

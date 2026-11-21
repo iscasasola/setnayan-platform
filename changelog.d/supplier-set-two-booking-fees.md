@@ -13,3 +13,5 @@ Owner-approved drawing `prototypes/supplier_pages_set2_2026-11-21/supplier_pages
 SPEC IMPACT: None — builds an approved drawing; no decision changed.
 
 - 22 Nov: built on #8086, which merged. The new-client free window line (from settings, with its InfoTip) and the in-app free rule on the empty state's fee line now sit in the redrawn body (`booking-fees-body.tsx`), passed from the page. Nothing is typed.
+
+- 22 Nov (ship review): the skeleton guard now reads set two's pinned row (`<PartPin end={…}>`) as a page head with a button, like `<PageMasthead actions={…}>`. That brings the count of pages with header buttons back above the floor; the floor itself is unchanged. The scan then found the Contract page draws a status pill its loading screen did not reserve; that loader now reserves it.

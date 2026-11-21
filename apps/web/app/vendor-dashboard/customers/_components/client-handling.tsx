@@ -45,12 +45,12 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
           <p className="text-[13px] text-[color:var(--m-slate-2)]">Whoever gets it handles every booking, even on the other card.</p>
           {view.mayAnswer ? (
             <div className="flex flex-wrap justify-end gap-2">
-              <StayForm door="supTeam.supplierRolesAction" action={action}>
+              <StayForm door="supTeam.setVendorRoleNames" action={action}>
                 {hidden}
                 <input type="hidden" name="op" value="keep" />
                 <SupplierSubmit tone="neutral" icon={<Check aria-hidden strokeWidth={1.9} />} label={`Keep with ${view.handOver.keepFirst}`} pendingLabel="Keeping…" />
               </StayForm>
-              <StayForm door="supTeam.supplierRolesAction" action={action}>
+              <StayForm door="supTeam.setVendorRoleNames" action={action}>
                 {hidden}
                 <input type="hidden" name="op" value="give" />
                 <SupplierSubmit tone="ok" main icon={<ArrowRightLeft aria-hidden strokeWidth={1.9} />} label={`Give to ${view.handOver.giveFirst}`} pendingLabel="Handing over…" />
@@ -60,7 +60,7 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
         </div>
       ) : null}
       {view.moveTo && view.moveTo.options.length > 0 ? (
-        <StayForm ref={form} door="supTeam.supplierRolesAction" action={action} className="flex flex-wrap items-center justify-between gap-2" data-client-handled-by="">
+        <StayForm ref={form} door="supTeam.setVendorRoleNames" action={action} className="flex flex-wrap items-center justify-between gap-2" data-client-handled-by="">
           {hidden}
           <input type="hidden" name="op" value="move" />
           <input ref={target} type="hidden" name="move_to" defaultValue={view.moveTo.currentId ?? ''} />

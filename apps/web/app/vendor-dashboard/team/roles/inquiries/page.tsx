@@ -17,7 +17,7 @@ import { ShopNotice } from '../../../_components/kit';
 import { RoleLock } from '../../../_components/role-lock';
 import { SupplierSubmit } from '../../../_components/supplier-submit';
 import { StayForm } from '@/app/_components/stay-form';
-import { supplierRolesAction } from '../../actions';
+import { setVendorRoleNames } from '../../actions';
 
 /**
  * /vendor-dashboard/team/roles/inquiries — WHO GETS NEW INQUIRIES (supplier roles d–h, the #8013 drawing (e)).
@@ -263,7 +263,7 @@ function AdjustPanel({
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         {choices.map((c) => (
-          <StayForm key={c.cut} door="supTeam.supplierRolesAction" action={supplierRolesAction}>
+          <StayForm key={c.cut} door="supTeam.setVendorRoleNames" action={setVendorRoleNames}>
             {hidden}
             <input type="hidden" name="op" value="split-adjust" />
             <input type="hidden" name="cut" value={c.cut} />
@@ -279,7 +279,7 @@ function AdjustPanel({
       <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]">
         Each choice shows the share of past clients each person would get.
       </p>
-      <StayForm door="supTeam.supplierRolesAction" action={supplierRolesAction} className="mt-3 flex justify-end">
+      <StayForm door="supTeam.setVendorRoleNames" action={setVendorRoleNames} className="mt-3 flex justify-end">
         {hidden}
         <input type="hidden" name="op" value="split-reset" />
         <SupplierSubmit tone="neutral" icon={<RotateCcw aria-hidden strokeWidth={1.9} />} label="Reset to fair split" pendingLabel="Resetting…" />

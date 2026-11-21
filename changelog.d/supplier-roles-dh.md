@@ -20,7 +20,7 @@ Builds the #8013 drawing's (d)–(h), stacked on #8036 (a–c). Ships in the SAM
   server-written) · `vendor_team_members.paused_by_plan_at` (guard trigger) · `platform_settings.inquiry_split_own_enough`
   · `inquiry_last_name_prefix_counts()` (service role only) · `current_vendor_ids()` and
   `agent_assigned_service_ids()` now skip a paused seat (canonical helpers — flagged for sign-off).
-- All writes fold into ONE server action (`supplierRolesAction`): the budget is 1251 of 1251, not raised.
+- All writes ride the existing `setVendorRoleNames` action (a form with an `op` field), so d–h adds ZERO server actions — main sits at the 1251 ceiling.
 
 SPEC IMPACT: Corpus already holds the rulings (DECISION_LOG 19–21 Nov: "Supplier roles drawing OK + build", "YES TO
 ALL" item 3). The overturn of ruling 5683 and the canonical-helper change to `current_vendor_ids()` are surfaced in

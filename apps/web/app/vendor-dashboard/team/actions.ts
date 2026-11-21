@@ -728,6 +728,9 @@ const ROLES = '/vendor-dashboard/team/roles';
  * `current_vendor_ids('admin')`). A refused write is said, never shown as saved.
  */
 export async function setVendorRoleNames(formData: FormData) {
+  // 👤 The d–h roles writes ride this action (an `op` field): the server-action budget is at its ceiling, so they add
+  // no action of their own. Each op checks its own caller — an Account Manager may Keep/Give, so it is NOT ensureAdmin.
+  if (formData.get('op') !== null) return runSupplierRolesOp(formData);
   const { supabase, ctx, currentUserId } = await ensureAdmin();
   const now = new Date().toISOString();
   const keep: { vendor_profile_id: string; duty: VendorDuty; display_name: string; updated_by: string; updated_at: string }[] = [];
@@ -765,15 +768,15 @@ export async function setVendorRoleNames(formData: FormData) {
   return back('saved=1');
 }
 
-// ── 👤 Supplier roles d–h — ONE action for every write the roles screens make (#8013 (e)(f)(g)) ─────────────────────
+// ── 👤 Supplier roles d–h — every write the roles screens make (#8013 (e)(f)(g)) ────────────────────────────────────
 //
-// Folded into one dispatcher on purpose: the server-action budget is a ceiling (`lint-server-action-budget.mjs`), and
-// it is never raised. `op` names the write; each op checks its own caller on the server.
+// NOT an exported action: the server-action budget is a ceiling (`lint-server-action-budget.mjs`) and main sits on it,
+// so these ride `setVendorRoleNames` (a form with an `op` field). `op` names the write; each op checks its own caller.
 
 const ROLES_RETURN = ['/vendor-dashboard/customers', '/vendor-dashboard/team'];
 const INQUIRIES = '/vendor-dashboard/team/roles/inquiries';
 
-export async function supplierRolesAction(formData: FormData) {
+async function runSupplierRolesOp(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },

@@ -4,7 +4,7 @@ import { startAhead } from '@/lib/start-ahead';
 import { readHandledByForShop, currentHandlerOf } from '@/lib/handled-by.server';
 import { mayAnswerHandOver, mayMoveClient, type HandoverCaller } from '@/lib/client-handover';
 import { ClientHandling, type ClientHandlingView } from './_components/client-handling';
-import { supplierRolesAction } from '../team/actions';
+import { setVendorRoleNames } from '../team/actions';
 import { dutyWorksAtABranch, roleNameOf, type VendorRoleNames } from '@/lib/vendor-duties';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
@@ -721,7 +721,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   }
   const handlingSlots: Record<string, ReactNode> = {};
   for (const [eventId, view] of Object.entries(handlingViews)) {
-    handlingSlots[eventId] = <ClientHandling view={view} action={supplierRolesAction} returnTo="/vendor-dashboard/customers" />;
+    handlingSlots[eventId] = <ClientHandling view={view} action={setVendorRoleNames} returnTo="/vendor-dashboard/customers" />;
   }
   const handling = { views: handlingViews, slots: handlingSlots };
   /*

@@ -11,6 +11,7 @@
  *                    work is clean. We'll keep watching."* — a supplier told they are safe when nothing was checked.
  *   Track record ... `fetchVendorTrackRecord` returned [] when its RPC errored, and the page said "No completed events
  *                    yet" to a supplier with a real record.
+ *   Manpower ....... a refused "my gigs" read made Accepted and Wrapped say "You haven't accepted any gigs yet."
  *
  * ── What it holds, per page ─────────────────────────────────────────────────
  *   1 · THE READ SAYS IT FAILED: the fetcher's failure branches return `null` — never `[]`.
@@ -108,3 +109,15 @@ for (const p of PAGES) {
     assert.ok(src.includes(p.retry), `${p.page}'s failed read has no Try again`);
   });
 }
+
+test('Manpower · a refused "my gigs" read is said in Accepted and Wrapped, never "none"', () => {
+  // SABOTAGE (run once, red, restored): `myGigsError ? null :` dropped from the surface → 1; Accepted's
+  // `unread={mine === null ? unread : null}` removed → 2.
+  const surface = read('app/vendor-dashboard/manpower/surface.tsx');
+  assert.match(surface, /const mine = myGigsError \? null :/, 'the surface no longer hands a refused read on as null');
+  const view = read('app/vendor-dashboard/manpower/_components/manpower-view.tsx');
+  assert.equal((view.match(/unread=\{mine === null \? unread : null\}/g) ?? []).length, 2, 'Accepted and Wrapped must both say a refused read');
+  assert.ok(view.includes('We couldn’t read your gigs just now.'), 'the approved words are gone');
+  assert.ok(view.includes('retryHref="/vendor-dashboard/manpower"'), 'the failed read has no Try again');
+  assert.match(view, /\{unread \? unread : children\.length > 0/, 'a group draws its rows or its empty line before asking whether the read failed');
+});

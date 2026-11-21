@@ -11,6 +11,7 @@ import {
   type ManpowerGigRow,
 } from '../actions';
 import { useSaveLoader } from '@/components/sd-loader';
+import { ToolChip, type ToolChipTone } from '../../_components/tool-page';
 
 /**
  * V2 Phase F · GigCard
@@ -49,12 +50,12 @@ export function GigCard({
   gig,
   mode,
   statusLabel,
-  statusStyle,
+  statusTone,
 }: {
   gig: ManpowerGigRow;
   mode: Mode;
   statusLabel: string;
-  statusStyle: string;
+  statusTone: ToolChipTone;
 }) {
   const [banner, setBanner] = useState<
     | { kind: 'success'; msg: string }
@@ -143,7 +144,7 @@ export function GigCard({
   }
 
   return (
-    <article className="border-t border-[color:var(--m-line)] py-3 first:border-t-0">
+    <div className="py-2.5" data-gig-row={mode}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[15px] font-semibold text-ink">{gig.gig_label}</p>
@@ -174,11 +175,7 @@ export function GigCard({
             </p>
           ) : null}
         </div>
-        <span
-          className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[13px] ring-1 ${statusStyle}`}
-        >
-          {statusLabel}
-        </span>
+        <ToolChip tone={statusTone}>{statusLabel}</ToolChip>
       </div>
 
       {banner && 'msg' in banner ? (
@@ -256,6 +253,6 @@ export function GigCard({
           )}
         </div>
       ) : null}
-    </article>
+    </div>
   );
 }

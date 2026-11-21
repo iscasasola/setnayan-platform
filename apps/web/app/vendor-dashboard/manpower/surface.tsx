@@ -1,12 +1,10 @@
 import { redirect } from 'next/navigation';
-import { HardHat, Clock, BadgeCheck } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { resolveActiveShopId } from '@/lib/active-shop';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { GigCard } from './_components/gig-card';
-import type { ManpowerGigRow, ManpowerGigStatus } from './actions';
+import { ManpowerView } from './_components/manpower-view';
+import type { ManpowerGigRow } from './actions';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   GIG_COLUMNS,
   readBookedEventIdsForGigs,
@@ -36,20 +34,6 @@ import {
  *      in this PR alongside existing tab pattern).
  *   2. Direct URL.
  */
-
-const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
-  pending: 'Open',
-  accepted: 'Accepted',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
-
-const STATUS_STYLE: Record<ManpowerGigStatus, string> = {
-  pending: 'bg-warn-50 text-warn-900 ring-warn-300/40',
-  accepted: 'bg-success-50 text-success-900 ring-success-300/40',
-  completed: 'bg-slate-100 text-slate-800 ring-slate-300/40',
-  cancelled: 'bg-danger-50 text-danger-900 ring-danger-300/40',
-};
 
 export default async function VendorManpowerPage() {
   const supabase = await createClient();
@@ -175,138 +159,25 @@ export default async function VendorManpowerPage() {
     openGigs = openGigsRaw;
   }
 
-  const accepted = (myGigs ?? []).filter(
-    (g) => g.status === 'accepted',
-  ) as ManpowerGigRow[];
-  const wrapped = (myGigs ?? []).filter(
-    (g) => g.status === 'completed' || g.status === 'cancelled',
-  ) as ManpowerGigRow[];
+  // 🔴 null = the "my gigs" read was refused — Accepted and Wrapped say so, never "none" (controller 21 Nov).
+  const mine = myGigsError ? null : ((myGigs ?? []) as ManpowerGigRow[]);
 
   return (
-    // Glass PR-7: the opaque `--m-paper` page wrapper is dropped — the wash
-    // shows through; eyebrows/headings move to the kit (`.sn-eye`/`.sn-sec`).
-    <div className="min-h-screen" style={{ color: 'var(--m-ink)' }}>
-      <div className="mx-auto w-full tab:max-w-3xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
-        <PageMasthead
-          title="Manpower gigs"
-        />
-
-        {/* BIR-exempt note · surfaced prominently per spec */}
-        <aside className="sn-tile mt-6 p-4">
-          <p className="sn-eye">Setnayan note</p>
-          <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
-            Setnayan doesn&apos;t touch a gig&apos;s cash — the amount on each
-            gig flows direct from the host to your crew. You handle your own Form 2307 on this. Accepting a
-            gig is free · it stamps your business as the gig owner for event
-            rewards.
-          </p>
-        </aside>
-
-        <section className="mt-10 space-y-10">
-          <Group
-            title="Open gigs · ready to claim"
-            icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
-            empty={
-              !openGigsMeasured
-                ? 'We couldn’t read the open gigs just now — this is not a statement that there are none. Reload in a moment.'
-                : eligibleEventIds.length === 0
-                  ? 'No gigs yet · open gigs appear here once a host you serve posts one.'
-                  : 'No open gigs right now. Check back later.'
-            }
-            gigs={openGigs}
-            note={
-              !openGigsMeasured && openGigs.length > 0
-                ? 'Some open gigs couldn’t load just now, so this list may be missing some. Reload in a moment.'
-                : null
-            }
-          >
-            {openGigs.map((gig) => (
-              <li key={gig.gig_id}>
-                <GigCard
-                  gig={gig}
-                  mode="open"
-                  statusLabel={STATUS_LABEL[gig.status]}
-                  statusStyle={STATUS_STYLE[gig.status]}
-                />
-              </li>
-            ))}
-          </Group>
-
-          <Group
-            title="Accepted"
-            icon={<BadgeCheck className="h-4 w-4" strokeWidth={1.75} />}
-            empty="You haven't accepted any gigs yet."
-            gigs={accepted}
-          >
-            {accepted.map((gig) => (
-              <li key={gig.gig_id}>
-                <GigCard
-                  gig={gig}
-                  mode="accepted"
-                  statusLabel={STATUS_LABEL[gig.status]}
-                  statusStyle={STATUS_STYLE[gig.status]}
-                />
-              </li>
-            ))}
-          </Group>
-
-          <Group
-            title="Wrapped"
-            icon={<HardHat className="h-4 w-4" strokeWidth={1.75} />}
-            empty="Completed + cancelled gigs will show here."
-            gigs={wrapped}
-          >
-            {wrapped.map((gig) => (
-              <li key={gig.gig_id}>
-                <GigCard
-                  gig={gig}
-                  mode="wrapped"
-                  statusLabel={STATUS_LABEL[gig.status]}
-                  statusStyle={STATUS_STYLE[gig.status]}
-                />
-              </li>
-            ))}
-          </Group>
-        </section>
-      </div>
-    </div>
-  );
-}
-
-function Group({
-  title,
-  icon,
-  empty,
-  gigs,
-  note = null,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  empty: string;
-  gigs: ManpowerGigRow[];
-  /** Said above a list that is shown but did not fully load. */
-  note?: string | null;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <h2 className="flex items-center gap-2 text-xl font-extrabold tracking-[-0.015em]">
-        {icon}
-        {title}
-      </h2>
-      <div className="mt-3">
-        {note ? (
-          <p role="status" className="mb-3 text-sm text-slate-700">
-            {note}
-          </p>
-        ) : null}
-        {gigs.length > 0 ? (
-          <ul className="space-y-3">{children}</ul>
-        ) : (
-          <p className="text-sm text-slate-500">{empty}</p>
-        )}
-      </div>
-    </div>
+    <ManpowerView
+      openGigs={openGigs}
+      openEmpty={
+        !openGigsMeasured
+          ? 'We couldn’t read the open gigs just now — this is not a statement that there are none. Reload in a moment.'
+          : eligibleEventIds.length === 0
+            ? 'No gigs yet · open gigs appear here once a host you serve posts one.'
+            : 'No open gigs right now. Check back later.'
+      }
+      openNote={
+        !openGigsMeasured && openGigs.length > 0
+          ? 'Some open gigs couldn’t load just now, so this list may be missing some. Reload in a moment.'
+          : null
+      }
+      mine={mine}
+    />
   );
 }

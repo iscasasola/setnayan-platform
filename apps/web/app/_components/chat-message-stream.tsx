@@ -157,8 +157,8 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { answeredBookAsks, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
+import { answeredBookAsks, cakeDesignAt, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, CakeDesignCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -2097,6 +2097,8 @@ export function ChatMessageStream({
           if (kindView && chatKindOf(m, Boolean(filings?.byMessage.get(m.message_id))) !== kindView) {
             return preNodes.length > 0 ? <Fragment key={m.message_id}>{preNodes}</Fragment> : null;
           }
+          // 🎂 A couple's cake design, read by the shop: the lead-in stays a bubble, the block is drawn as its card below.
+          const cakeAt = viewerRole === 'vendor' && m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
           const node = (() => {
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
@@ -2762,7 +2764,7 @@ export function ChatMessageStream({
               >
                 <PrivateMark privateWith={privateWith} whisper={whisper} />
                 {m.body ? (
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <p className="whitespace-pre-wrap break-words">{cakeAt > 0 ? m.body.slice(0, cakeAt).trimEnd() : m.body}</p>
                 ) : null}
                 {/* 🔒 NEVER THE STORED VALUE. Since 2026-09-09 the row carries a
                     PRIVATE stored-asset ref, not a public URL, so the file is
@@ -2957,6 +2959,17 @@ export function ChatMessageStream({
                 </li>
               ) : null}
               {node}
+              {cakeAt >= 0 ? (
+                <li data-cake-design-card="">
+                  <CakeDesignCard
+                    threadId={threadId}
+                    messageId={m.message_id}
+                    place="chat"
+                    eventDate={eventDate}
+                    stamp={`Sent from “Design your cake” · ${formatChatTimestamp(m.created_at)}`}
+                  />
+                </li>
+              ) : null}
               {formTitle ? (
                 <li data-form-answer-card="">
                   <FormAnswerCard threadId={threadId} title={formTitle} returnPath={returnPathFor(m)} />

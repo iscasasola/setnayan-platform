@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8101
+# facts: 8104
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     657
-#   col       5826
+#   col       5829
 #   policy    1191
 #   view      10
 #   func      413
@@ -5558,9 +5558,11 @@ col	public.vendor_package_item_options.option_description	anon=SIU authenticated
 col	public.vendor_package_item_options.option_id	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.option_label	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.per_pax_delta_centavos	anon=SIU authenticated=SIU
+col	public.vendor_package_item_options.photo_ref	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.price_delta_centavos	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.pricing_basis	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.updated_at	anon=SIU authenticated=SIU
+col	public.vendor_package_items.cake_part	anon=SIU authenticated=SIU
 col	public.vendor_package_items.canonical_service	anon=SIU authenticated=SIU
 col	public.vendor_package_items.created_at	anon=SIU authenticated=SIU
 col	public.vendor_package_items.crew_meal_mode	anon=SIU authenticated=SIU
@@ -5980,6 +5982,7 @@ col	public.vendor_questions.hint	anon=- authenticated=SIU
 col	public.vendor_questions.is_asked	anon=- authenticated=SIU
 col	public.vendor_questions.is_required	anon=- authenticated=SIU
 col	public.vendor_questions.item_kind	anon=- authenticated=SIU
+col	public.vendor_questions.max_letters	anon=- authenticated=SIU
 col	public.vendor_questions.media_keys	anon=- authenticated=SIU
 col	public.vendor_questions.options	anon=- authenticated=SIU
 col	public.vendor_questions.prompt	anon=- authenticated=SIU

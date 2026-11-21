@@ -211,3 +211,33 @@ test('the design message round-trips, its estimate is the pricer’s, and plain 
   assert.equal(parseCakeDesignBlock('Hi! Do you make wedding cakes?'), null);
   assert.equal(parseCakeDesignBlock('🎂 Cake design · Wedding cake\nTiers: 3 tiers'), null, 'no estimate → not a design');
 });
+
+test('the chat finds the design after the couple’s lead-in, by the same head words the block is written with', async () => {
+  const { CAKE_DESIGN_HEAD } = await import('./cake-maker');
+  const { CAKE_DESIGN_HEAD_WORDS, cakeDesignAt } = await import('./chat-card-lines');
+  assert.equal(CAKE_DESIGN_HEAD_WORDS, CAKE_DESIGN_HEAD, 'the import-free chat copy drifted from the block’s head');
+  const lead = 'Hi! We designed our cake on your card 🙂';
+  const body = `${lead}\n\n${CAKE_DESIGN_HEAD}Wedding cake\nTiers: 3 tiers`;
+  assert.equal(body.slice(0, cakeDesignAt(body)).trimEnd(), lead);
+  assert.equal(cakeDesignAt(`${CAKE_DESIGN_HEAD}Wedding cake`), 0);
+  assert.equal(cakeDesignAt('Do you make 🎂 Cake design · cakes?'), -1, 'the words mid-line are not a block');
+  assert.equal(cakeDesignAt(null), -1);
+});
+
+test('the inquiry re-reads the design on the server and refuses one it cannot build — before anything is created', () => {
+  const src = readFileSync(join(__dirname, '..', 'app', 'v', '[slug]', 'inquiry-actions.ts'), 'utf8');
+  const at = src.indexOf('if (input.requirements?.cakeDesign !== undefined)');
+  const upsert = src.indexOf(".from('chat_threads')\n    .upsert(");
+  assert.ok(at > 0 && upsert > at, 'the cake design must be built before the thread is upserted');
+  assert.match(src.slice(at, upsert), /sanitizeCakeDesignInput\(input\.requirements\.cakeDesign\)/);
+  assert.match(src.slice(at, upsert), /if \(!block\) \{\s*return \{ status: 'error', message: CAKE_DESIGN_UNREADABLE \};/);
+  assert.match(src, /if \(buildBlock\) buildDelivery = delivery;/, 'a design that did not post must be reported, never "sent"');
+});
+
+test('the shown total is the one Book commits: the cake sheet prices with the same flag and selection lockPackage reads', () => {
+  const sheet = readFileSync(join(__dirname, '..', 'app', '_components', 'vendor-packages', 'cake-designer.tsx'), 'utf8');
+  assert.match(sheet, /const creditEnabled = packageCreditEnabled\(\);/);
+  assert.match(sheet, /choiceTotals\(\{ pkg, removedItemIds, selection, creditEnabled, paxCount \}\)/);
+  assert.match(sheet, /removed_item_ids: removedItemIds,\s*\.\.\.\(creditEnabled && totals\.chargeableOptionIds\.length > 0/);
+  assert.match(sheet, /requirements: \{ cakeDesign: state \}/, 'Send must carry ids, never labels or prices');
+});

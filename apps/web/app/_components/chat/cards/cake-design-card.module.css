@@ -1,0 +1,182 @@
+/*
+ * cake-design-card.module.css — "A design arrives" (Cake Maker §03, prototypes/cake_maker_2026-11-21/cake_maker_fable.html).
+ * The supplier blue and its navy dark pair. The cake keeps its real colours in both themes; only its stage follows.
+ */
+.rcard {
+  --card: #ffffff;
+  --tile: #dce6f2;
+  --ghost: #e8f0fa;
+  --ink: #101b30;
+  --ink2: #566275;
+  --acc: #2272e6;
+  --accw: #175ab9;
+  --onacc: #ffffff;
+  --danger: #b3261e;
+  --stage: #eef2f8;
+  --shadow: 0 10px 26px -14px rgb(16 27 48 / 0.18);
+  max-width: 420px;
+  margin: 8px 0;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: var(--shadow), 0 0 0 1px rgb(16 27 48 / 0.06);
+}
+:global(html.dark) .rcard {
+  --card: #172338;
+  --tile: #1f2f4a;
+  --ghost: #283a58;
+  --ink: #eef2f8;
+  --ink2: #b4bece;
+  --accw: #7db1ff;
+  --danger: #ff8a80;
+  --stage: #0d1626;
+  --shadow: none;
+}
+.rh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.rh b {
+  flex: 1;
+  font-size: 16px;
+}
+.ic {
+  color: var(--accw);
+}
+.icFail {
+  color: var(--danger);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: var(--ghost);
+  color: var(--accw);
+}
+.stage {
+  margin: 4px 0 8px;
+  padding: 10px 0 6px;
+  height: 186px;
+  border-radius: 22px;
+  background: var(--stage);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: hidden;
+}
+.pic {
+  zoom: 0.66;
+}
+.rr {
+  display: flex;
+  gap: 10px;
+  padding: 6px 2px;
+  font-size: 14px;
+}
+.rr > span {
+  flex: none;
+  width: 76px;
+  color: var(--ink2);
+}
+.rr b {
+  font-weight: 600;
+  min-width: 0;
+}
+.rr small {
+  color: var(--ink2);
+  font-weight: 500;
+}
+.dots {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: -2px;
+}
+.dots i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12);
+}
+.rt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 8px 2px 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--tile);
+}
+.rt span {
+  font-size: 13px;
+  color: var(--ink2);
+}
+.rt b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.lline {
+  margin: 2px 2px 4px;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: var(--ink2);
+}
+.lline svg {
+  flex: none;
+  margin-top: 2px;
+}
+.ra {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.main {
+  flex: 1;
+  background: var(--acc);
+  color: var(--onacc);
+}
+.ghostBtn {
+  background: var(--ghost);
+  color: var(--ink);
+}
+.meta {
+  font-size: 12px;
+  color: var(--ink2);
+  margin: 8px 2px 0;
+}
+.ghost {
+  height: 186px;
+  border-radius: 22px;
+  background: var(--ghost);
+  animation: cakeCardGhost 1.2s ease-in-out infinite;
+}
+@keyframes cakeCardGhost {
+  50% {
+    opacity: 0.55;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ghost {
+    animation: none;
+  }
+}

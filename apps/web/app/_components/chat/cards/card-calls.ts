@@ -40,6 +40,7 @@ import { formsAction } from '@/app/vendor-dashboard/forms/actions';
 import type { MakeQuoteCardOption } from '@/lib/make-a-quote';
 import { isAvailabilityStyle, type AvailabilityStyle } from '@/lib/availability-styles';
 import type { ProposalLineItem } from '@/lib/vendor-proposals';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 type Fail = { ok: false };
 
@@ -672,6 +673,8 @@ const ASK_PAYMENT_WORDS: Record<string, string> = {
   notbooked: 'Opens once they book you.',
   signin: 'Please sign in again.',
   shop: "Couldn't find your shop.",
+  unverified: PLUS_NEEDS_VERIFIED,
+  unknown: PLUS_GATE_UNKNOWN,
   event: "Couldn't send that. Try again.",
   error: "Couldn't send that. Try again.",
 };

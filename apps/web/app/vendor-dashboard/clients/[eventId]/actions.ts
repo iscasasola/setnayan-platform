@@ -47,6 +47,7 @@ import { shiftWall } from '@/lib/schedule-chapters';
 import { crewFromText, momentMinutes, momentStartIn, timesRequests } from '@/lib/supplier-schedule';
 import { isOwnClock, supplierTimesNotice } from '@/lib/supplier-own-times';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { shopPlusGate } from '@/lib/shop-plus-gate.server';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -2064,7 +2065,9 @@ export async function vendorAskForPayment(formData: FormData): Promise<void> {
 }
 
 /** What a payment ask came to — every refusal NAMED. */
-export type PaymentAskOutcome = { ok: true } | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'error' };
+export type PaymentAskOutcome =
+  | { ok: true }
+  | { ok: false; code: 'event' | 'amount' | 'signin' | 'shop' | 'notbooked' | 'unverified' | 'unknown' | 'error' };
 
 /**
  * The ask itself, with no redirect. NOT exported (each export is a Vercel route): `vendorAskForPayment` above is this
@@ -2086,6 +2089,12 @@ async function askForPaymentCore(formData: FormData): Promise<PaymentAskOutcome>
   if (!user) return { ok: false, code: 'signin' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, code: 'shop' };
+  // 🪪 From the CHAT (`inline=1`) this is a ＋ tool, and a ＋ tool needs a verified shop (UNICHAT ＋ P1). The client
+  // page's own ask is not the ＋ and is not gated here. A refused read refuses ('unknown'), never lets it through.
+  if (formData.get('inline') === '1') {
+    const gate = await shopPlusGate(supabase, profile.vendor_profile_id);
+    if (gate !== 'open') return { ok: false, code: gate };
+  }
 
   const eventVendorId = await resolveOwnBookingId(eventId, profile.vendor_profile_id);
   if (!eventVendorId) return { ok: false, code: 'notbooked' };

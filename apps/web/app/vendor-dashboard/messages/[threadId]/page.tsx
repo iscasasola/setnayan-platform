@@ -192,6 +192,7 @@ import {
 } from '@/lib/inquiry-attribution';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { formatCount } from '@/lib/format-number';
+import { PLUS_GATE_UNKNOWN, PLUS_NEEDS_VERIFIED } from '@/lib/shop-plus-gate';
 
 export const metadata = { title: 'Thread · Supplier' };
 
@@ -245,6 +246,9 @@ const PROPOSAL_NOTICE: Record<string, string> = {
   // 🧪 The demo rule (lib/demo-scope.ts) — the same sentences the rule itself uses, plus "nothing was sent".
   proposal_demo_shop: `${DEMO_SHOP_CANNOT_BE_BOOKED} Quotes from a demo shop go only to demo events — nothing was sent.`,
   proposal_demo_event: `${DEMO_EVENT_BOOKS_DEMO_SHOPS_ONLY} Nothing was sent.`,
+  // 🪪 UNICHAT ＋ P1 — a ＋ tool needs a verified shop (lib/shop-plus-gate.ts).
+  proposal_plus_unverified: `${PLUS_NEEDS_VERIFIED} Nothing was sent.`,
+  proposal_plus_unknown: `${PLUS_GATE_UNKNOWN} Nothing was sent.`,
   proposal_lock_requested:
     'The couple has asked to lock at the quote they accepted. Agree or decline that request on your Today page first — a new quote can’t replace it while it’s open.',
   // Won & Lost Reasons capture (Wave 6) — its words live in `_lib/outcome-notice.ts`, shared with the stay door.

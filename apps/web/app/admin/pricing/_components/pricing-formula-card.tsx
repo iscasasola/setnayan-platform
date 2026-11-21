@@ -24,8 +24,7 @@ import { createContext, useActionState, useContext, useMemo, useState } from 're
 import { Calculator, Save, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows } from '@/app/_components/form-row';
-import { savePricingFormula } from '@/app/admin/pricing/price-control-actions';
-import { applyFormulaPrices, type ApplyFormulaState, type RowActionState } from '@/app/admin/pricing/actions';
+import { pricingFormula, type PricingFormulaState } from '@/app/admin/pricing/actions';
 import {
   PRICING_ROUND_STEPS,
   formulaAppliesTo,
@@ -74,13 +73,14 @@ export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState(String(settings?.roundStepPhp ?? 1));
   const [confirming, setConfirming] = useState(false);
-  const [saveState, saveAction] = useActionState<RowActionState, FormData>(savePricingFormula, {
+  const [saveState, saveAction] = useActionState<PricingFormulaState, FormData>(pricingFormula, {
     ok: false,
     message: null,
+    sent: 0,
   });
-  const [applyState, applyAction, applying] = useActionState<ApplyFormulaState, FormData>(
+  const [applyState, applyAction, applying] = useActionState<PricingFormulaState, FormData>(
     async (prev, fd) => {
-      const r = await applyFormulaPrices(prev, fd);
+      const r = await pricingFormula(prev, fd);
       setConfirming(false);
       return r;
     },
@@ -118,6 +118,7 @@ export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
 
       {editing ? (
         <form action={saveAction} className="mt-3 space-y-3" data-pricing-formula-form="">
+          <input type="hidden" name="op" value="save" />
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <NumberBox name="pricing_opex_factor" label="OPEX ×" defaultValue={settings.opexFactor} step="0.001" />
             <NumberBox name="pricing_margin_factor" label="Margin ×" defaultValue={settings.marginFactor} step="0.001" />
@@ -152,6 +153,7 @@ export function PricingFormulaCard({ rows }: { rows: FormulaCandidateRow[] }) {
 
       {confirming ? (
         <form action={applyAction} className="mt-3 rounded-xl bg-danger-700/[0.05] p-3" data-pricing-formula-confirm="">
+          <input type="hidden" name="op" value="apply" />
           <p className="text-[13px] font-bold text-danger-700">
             {formatCount(changes.length)} price{changes.length === 1 ? '' : 's'} would change
           </p>

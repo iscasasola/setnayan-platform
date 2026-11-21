@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import {
   MAX_ONBOARDING_DISCOUNT_PCT,
   DEFAULT_ONBOARDING_DISCOUNT_PCT,
@@ -15,7 +15,13 @@ import {
   CUSTOMER_PRICE_FIELDS,
 } from '@/lib/retail-price-change';
 import { revalidateAllShopPages } from '@/lib/shop-page-cache';
-import { formulaCandidates, readPricingFormulaSettings } from '@/lib/pricing-formula';
+import {
+  formulaCandidates,
+  formulaSentence,
+  readPricingFormulaSettings,
+  validatePricingFormulaFields,
+} from '@/lib/pricing-formula';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -57,7 +63,7 @@ function round2(n: number): number {
 export type RowActionState = {
   ok: boolean;
   message: string | null;
-  /** Set only by `saveRetailRow` when a price change was parked for a second admin (§ 9.1) — read by `applyFormulaPrices`. */
+  /** Set only by `saveRetailRow` when a price change was parked for a second admin (§ 9.1) — read by `pricingFormula` (op=apply). */
   approvalOpened?: true;
 };
 
@@ -238,7 +244,94 @@ export async function saveRetailRow(
   return { ok: true, message: `Saved — ₱${nextRow.retail_price_php.toLocaleString('en-PH')}.` };
 }
 
-export type ApplyFormulaState = { ok: boolean; message: string | null; sent: number };
+export type PricingFormulaState = { ok: boolean; message: string | null; sent: number };
+
+/**
+ * The 2026-11-21 price formula's ONE server action — `op=save` stores the four
+ * numbers, `op=apply` is "Apply to all rows with a cost". One dispatcher, not
+ * two exports: every exported 'use server' function is a Vercel route, and the
+ * budget (scripts/lint-server-action-budget.mjs) had exactly one left.
+ */
+export async function pricingFormula(
+  prev: PricingFormulaState,
+  formData: FormData,
+): Promise<PricingFormulaState> {
+  const { userId: adminUserId } = await requireAdminAction();
+  const op = String(formData.get('op') ?? '');
+  if (op === 'save') {
+    const r = await savePricingFormulaSettings(adminUserId, {
+      opexFactor: String(formData.get('pricing_opex_factor') ?? ''),
+      marginFactor: String(formData.get('pricing_margin_factor') ?? ''),
+      feeTaxCover: String(formData.get('pricing_fee_tax_cover') ?? ''),
+      roundStepPhp: String(formData.get('pricing_round_step_php') ?? ''),
+    });
+    return { ...r, sent: 0 };
+  }
+  if (op === 'apply') {
+    const codes = [...new Set(formData.getAll('service_code').map((v) => String(v).trim()).filter(Boolean))];
+    const shown = new Map(codes.map((c) => [c, Number(formData.get(`shown_price_${c}`))]));
+    return applyFormulaPrices(codes, shown);
+  }
+  return { ...prev, ok: false, message: 'Unknown formula action.' };
+}
+
+/**
+ * Saves `price = base cost × opex × margin ÷ cover`, rounded up to a step.
+ *
+ * 🔒 THIS MOVES NO PRICE. The four numbers only change the "Formula ₱X" shown
+ * beside each catalog row. Validation is `validatePricingFormulaFields`
+ * (a blank box is refused, never read as 0). Audited as `pricing_formula_edit`.
+ */
+async function savePricingFormulaSettings(
+  adminUserId: string,
+  raw: { opexFactor: string; marginFactor: string; feeTaxCover: string; roundStepPhp: string },
+): Promise<RowActionState> {
+  const admin = createAdminClient();
+  const validated = validatePricingFormulaFields(raw);
+  if (!validated.ok) return { ok: false, message: validated.message };
+  const next = validated.next;
+
+  const { data: prior, error: readErr } = await admin
+    .from('platform_settings')
+    .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+    .eq('id', 1)
+    .maybeSingle();
+  if (readErr) return { ok: false, message: `Couldn't read the formula — ${readErr.message}` };
+  const before = readPricingFormulaSettings(prior);
+  if (
+    before &&
+    before.opexFactor === next.opexFactor &&
+    before.marginFactor === next.marginFactor &&
+    before.feeTaxCover === next.feeTaxCover &&
+    before.roundStepPhp === next.roundStepPhp
+  ) {
+    return { ok: true, message: 'No changes to save.' };
+  }
+
+  const { error } = await admin
+    .from('platform_settings')
+    .update({
+      pricing_opex_factor: next.opexFactor,
+      pricing_margin_factor: next.marginFactor,
+      pricing_fee_tax_cover: next.feeTaxCover,
+      pricing_round_step_php: next.roundStepPhp,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'pricing_formula_edit',
+    target_id: 'pricing_formula',
+    actor_user_id: adminUserId,
+    metadata: { table: 'platform_settings', before, after: next },
+  });
+  if (auditErr) console.error('[pricingFormula save] audit insert failed (non-fatal):', auditErr);
+
+  revalidatePath('/admin/pricing');
+  return { ok: true, message: `Saved — ${formulaSentence(next)}. No price has changed.` };
+}
 
 /**
  * "Apply to all rows with a cost" — the 2026-11-21 formula price, saved by
@@ -258,16 +351,12 @@ export type ApplyFormulaState = { ok: boolean; message: string | null; sent: num
  * that drew the list. A row whose fresh formula price is not what the admin was
  * shown is SKIPPED and named, never written at a figure nobody saw.
  */
-export async function applyFormulaPrices(
-  _prev: ApplyFormulaState,
-  formData: FormData,
-): Promise<ApplyFormulaState> {
-  await requireAdminAction();
+async function applyFormulaPrices(
+  shownCodes: string[],
+  shown: Map<string, number>,
+): Promise<PricingFormulaState> {
   const admin = createAdminClient();
-
-  const shownCodes = [...new Set(formData.getAll('service_code').map((v) => String(v).trim()).filter(Boolean))];
   if (shownCodes.length === 0) return { ok: false, message: 'Nothing to apply.', sent: 0 };
-  const shown = new Map(shownCodes.map((c) => [c, Number(formData.get(`shown_price_${c}`))]));
 
   const [settingsRes, rowsRes] = await Promise.all([
     admin

@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 334 jobs, 219 of them form-driven, as of 7de3da82d.
+// that performs it. 333 jobs, 219 of them form-driven, as of 02d5c52c5.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -249,15 +249,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "refusedWhenEmpty": [
       "request_id"
     ],
-    "destructive": false
-  },
-  {
-    "name": "applyFormulaPrices",
-    "phrase": "apply formula prices",
-    "ownerPath": "/admin/pricing",
-    "resolvedPath": "/admin/pricing",
-    "fields": [],
-    "refusedWhenEmpty": [],
     "destructive": false
   },
   {
@@ -1453,6 +1444,21 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "ownerPath": "/admin/social-queue",
     "resolvedPath": "/admin/social-queue",
     "fields": [],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "pricingFormula",
+    "phrase": "pricing formula",
+    "ownerPath": "/admin/pricing",
+    "resolvedPath": "/admin/pricing",
+    "fields": [
+      "op",
+      "pricing_opex_factor",
+      "pricing_margin_factor",
+      "pricing_fee_tax_cover",
+      "pricing_round_step_php"
+    ],
     "refusedWhenEmpty": [],
     "destructive": false
   },
@@ -2746,20 +2752,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "bdo_monthly_cap_php",
       "gcash_max_php",
       "gcash_allowance_php"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "savePricingFormula",
-    "phrase": "save pricing formula",
-    "ownerPath": "/admin/pricing",
-    "resolvedPath": "/admin/pricing",
-    "fields": [
-      "pricing_opex_factor",
-      "pricing_margin_factor",
-      "pricing_fee_tax_cover",
-      "pricing_round_step_php"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

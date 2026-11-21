@@ -8,7 +8,7 @@ price = base cost × 10 (OPEX) × 4.5 ÷ 0.73 (Maya fees + tax), rounded up.
 - **Four settings** on `platform_settings` (migration `the_price_formula_is_an_admin_setting`):
   `pricing_opex_factor` 10 · `pricing_margin_factor` 4.5 · `pricing_fee_tax_cover` 0.73
   (CHECK > 0 and ≤ 1) · `pricing_round_step_php` 1 (1, 5 or 10). Same access as the other
-  pricing settings on that row; written only by `savePricingFormula`, audited as
+  pricing settings on that row; written only by `pricingFormula` (op=save), audited as
   `pricing_formula_edit`.
 - **`lib/pricing-formula.ts`** — `formulaPrice(cost, settings)` rounds UP to the step and
   returns null when there is no cost; `formulaCandidates` is the one rule for which rows the
@@ -21,6 +21,9 @@ price = base cost × 10 (OPEX) × 4.5 ÷ 0.73 (Maya fees + tax), rounded up.
   save (`validateRetailRowFields` → the § 9.1 second-admin approval). No trigger, no cron, no
   save-on-cost-edit; the migration writes no price. Main price (`retail_price_php`) only —
   per-head, sign-up, yearly and gift-bundle prices are left alone, and the card says so.
+
+The save and the apply are ONE server action, `pricingFormula` (`op=save` | `op=apply`), not two: every exported
+`'use server'` function is a Vercel route and `lint-server-action-budget.mjs` had exactly one left (1250 / 1251).
 
 SPEC IMPACT: None — implements the 2026-11-21 DECISION_LOG row as ruled (commit 19430f52 in
 Setnayan-specs); no corpus edit needed.

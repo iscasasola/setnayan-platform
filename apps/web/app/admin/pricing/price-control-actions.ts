@@ -21,11 +21,6 @@ import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 import type { RowActionState } from './actions';
 import { formatCount } from '@/lib/format-number';
-import {
-  formulaSentence,
-  readPricingFormulaSettings,
-  validatePricingFormulaFields,
-} from '@/lib/pricing-formula';
 
 /**
  * /admin/pricing — the three OWNER-SET controls added 2026-08-28.
@@ -849,74 +844,4 @@ export async function recomputePapicPoolLearning(
         ? 'Nothing changed — no event type has enough finished events yet.'
         : `${changed} event type${changed === 1 ? '' : 's'} updated.`,
   };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// THE PRICE FORMULA (owner 2026-11-21) — four numbers that SUGGEST a price
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Saves `price = base cost × opex × margin ÷ cover`, rounded up to a step.
- *
- * 🔒 THIS MOVES NO PRICE. The four numbers only change the "Formula ₱X" shown
- * beside each catalog row. A price changes only through "Use formula price" /
- * "Apply to all rows with a cost", which go through the per-row save in
- * actions.ts. Validation is `validatePricingFormulaFields` (blank ≠ 0).
- */
-export async function savePricingFormula(
-  _prev: RowActionState,
-  formData: FormData,
-): Promise<RowActionState> {
-  const { userId: adminUserId } = await requireAdminAction();
-  const admin = createAdminClient();
-
-  const validated = validatePricingFormulaFields({
-    opexFactor: String(formData.get('pricing_opex_factor') ?? ''),
-    marginFactor: String(formData.get('pricing_margin_factor') ?? ''),
-    feeTaxCover: String(formData.get('pricing_fee_tax_cover') ?? ''),
-    roundStepPhp: String(formData.get('pricing_round_step_php') ?? ''),
-  });
-  if (!validated.ok) return { ok: false, message: validated.message };
-  const next = validated.next;
-
-  const { data: prior, error: readErr } = await admin
-    .from('platform_settings')
-    .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
-    .eq('id', 1)
-    .maybeSingle();
-  if (readErr) return { ok: false, message: `Couldn't read the formula — ${readErr.message}` };
-  const before = readPricingFormulaSettings(prior);
-  if (
-    before &&
-    before.opexFactor === next.opexFactor &&
-    before.marginFactor === next.marginFactor &&
-    before.feeTaxCover === next.feeTaxCover &&
-    before.roundStepPhp === next.roundStepPhp
-  ) {
-    return { ok: true, message: 'No changes to save.' };
-  }
-
-  const { error } = await admin
-    .from('platform_settings')
-    .update({
-      pricing_opex_factor: next.opexFactor,
-      pricing_margin_factor: next.marginFactor,
-      pricing_fee_tax_cover: next.feeTaxCover,
-      pricing_round_step_php: next.roundStepPhp,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
-  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
-  if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
-
-  const { error: auditErr } = await admin.from('admin_audit_log').insert({
-    action: 'pricing_formula_edit',
-    target_id: 'pricing_formula',
-    actor_user_id: adminUserId,
-    metadata: { table: 'platform_settings', before, after: next },
-  });
-  if (auditErr) console.error('[savePricingFormula] audit insert failed (non-fatal):', auditErr);
-
-  revalidatePath('/admin/pricing');
-  return { ok: true, message: `Saved — ${formulaSentence(next)}. No price has changed.` };
 }

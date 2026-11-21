@@ -23,6 +23,7 @@ export function TryAgain({ main = false }: { main?: boolean }) {
       icon={<RefreshCw aria-hidden />}
       label="Try again"
       waiting={pending}
+      // one-render: keep (retry) — Try again re-runs a read that failed; nothing was written, so no action rendered it.
       onClick={() => start(() => router.refresh())}
       className={main ? 'w-full tab:w-auto' : undefined}
       data-try-again=""

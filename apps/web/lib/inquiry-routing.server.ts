@@ -47,11 +47,13 @@ export async function splitCountsFor(
   serviceId: string,
   eventType: string | null,
   ownEnough: number | null,
-): Promise<{ counts: Map<string, number>; source: 'own' | 'all' }> {
+): Promise<{ counts: Map<string, number>; source: 'own' | 'all'; measured: boolean }> {
   const enough = Number(ownEnough) || null;
   const own = enough ? await prefixCounts(admin, serviceId, eventType) : null;
-  if (own && total(own) >= (enough ?? Infinity)) return { counts: own, source: 'own' };
-  return { counts: (await prefixCounts(admin, null, eventType)) ?? new Map(), source: 'all' };
+  if (own && total(own) >= (enough ?? Infinity)) return { counts: own, source: 'own', measured: true };
+  const all = await prefixCounts(admin, null, eventType);
+  // `measured: false` = the counts could not be read; routing must not cut a split from an empty map (ship review 22 Nov).
+  return { counts: all ?? new Map(), source: 'all', measured: all !== null };
 }
 
 /** The words a member goes by in the chat: "Joy Tan, Lead Stylist". */
@@ -85,7 +87,8 @@ export async function readRoutingInput(
     admin.from('users').select('last_name').eq('user_id', args.senderUserId).maybeSingle(),
     admin.from('platform_settings').select('inquiry_split_own_enough').eq('id', 1).maybeSingle(),
   ]);
-  for (const [name, r] of [['thread', threadRead], ['card', cardRead], ['team', teamRead], ['event', eventRead]] as const) {
+  // Every read the pick depends on must have worked — an unknown is never turned into a pick (ship review 22 Nov).
+  for (const [name, r] of [['thread', threadRead], ['card', cardRead], ['team', teamRead], ['event', eventRead], ['sender', senderRead], ['setting', settingRead]] as const) {
     if (r.error) {
       logQueryError(`inquiry-routing: ${name}`, r.error, { event_id: args.eventId }, 'graceful_degrade');
       return null;
@@ -119,8 +122,12 @@ export async function readRoutingInput(
       return null;
     }
     cardCoverIds = ((coverRead.data ?? []) as Array<{ vendor_team_member_id: string }>).map((r) => r.vendor_team_member_id);
-    const cuts = cutsRead.error ? [] : ((cutsRead.data ?? []) as Array<{ vendor_team_member_id: string; from_prefix: string; to_prefix: string | null; event_type: string | null; branch_id: string | null }>);
-    if (cutsRead.error) logQueryError('inquiry-routing: adjusted cuts', cutsRead.error, { service: args.serviceId }, 'graceful_degrade');
+    if (cutsRead.error) {
+      // The manager's adjusted split could not be read: picking without it would ignore their cut.
+      logQueryError('inquiry-routing: adjusted cuts', cutsRead.error, { service: args.serviceId }, 'graceful_degrade');
+      return null;
+    }
+    const cuts = (cutsRead.data ?? []) as Array<{ vendor_team_member_id: string; from_prefix: string; to_prefix: string | null; event_type: string | null; branch_id: string | null }>;
     const onBranch = cuts.filter((c) => (c.branch_id ?? null) === cardBranchId);
     const forType = onBranch.filter((c) => c.event_type === eventType);
     adjusted = (forType.length > 0 ? forType : onBranch.filter((c) => c.event_type === null)).map((c) => ({
@@ -129,7 +136,9 @@ export async function readRoutingInput(
       to: c.to_prefix,
     }));
 
-    counts = (await splitCountsFor(admin, args.serviceId, eventType, (settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough ?? null)).counts;
+    const split = await splitCountsFor(admin, args.serviceId, eventType, (settingRead.data as { inquiry_split_own_enough: number | null } | null)?.inquiry_split_own_enough ?? null);
+    if (!split.measured) return null;
+    counts = split.counts;
   }
 
   return {
@@ -166,15 +175,18 @@ export async function routeInquiry(admin: SupabaseClient, args: Args): Promise<'
       }
       return 'hand-over';
     }
-    const { error } = await admin
+    const { data: assigned, error } = await admin
       .from('chat_threads')
       .update({ handled_by_member_id: decision.memberId, handled_by_set_at: new Date().toISOString() })
       .eq('thread_id', thread.thread_id)
-      .is('handled_by_member_id', null);
+      .is('handled_by_member_id', null)
+      .select('thread_id');
     if (error) {
       logQueryError('inquiry-routing: assign', error, { thread: thread.thread_id }, 'graceful_degrade');
       return 'failed';
     }
+    // Another request assigned it first: the couple is never told a name that is not their Account Manager.
+    if (!assigned || assigned.length === 0) return 'kept';
     const who = await memberChatName(admin, args.vendorProfileId, decision.memberId);
     if (who) await postThreadSystemLine(admin, { eventId: args.eventId, vendorProfileId: args.vendorProfileId, body: handledByLine({ kind: 'first', who }) });
     return 'assigned';

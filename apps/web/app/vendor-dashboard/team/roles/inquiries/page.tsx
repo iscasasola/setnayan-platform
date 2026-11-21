@@ -113,7 +113,7 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
       const types = [null, ...new Set(cardCuts.map((c) => c.event_type).filter((t): t is string => !!t))];
       const groups = await Promise.all(
         types.map(async (type) => {
-          const { counts, source } = await splitCountsFor(admin, card.vendor_service_id, type, ownEnough);
+          const { counts, source, measured } = await splitCountsFor(admin, card.vendor_service_id, type, ownEnough);
           const fair = fairSplit(counts, on.length);
           const mine = cardCuts.filter((c) => c.event_type === type);
           const fits = mine.length === on.length && mine.every((c) => on.some((m) => m.vendor_team_member_id === c.vendor_team_member_id));
@@ -124,7 +124,12 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
           return {
             type,
             label: `${type ? eventTypeLabel(type) : types.length > 1 ? 'Every other event' : 'Every event'} · ${fits ? 'adjusted' : on.length > 1 ? `fair split, ${from}` : 'one Account Manager'}`,
-            note: mine.length > 0 && !fits ? 'Someone joined or left, so the fair split runs again. Reset to fair split?' : null,
+            // A refused count read is said, never drawn as an even split of nothing (ship review 22 Nov).
+            note: !measured
+              ? 'We couldn’t load the inquiry counts just now, so this split is not measured. Try again in a moment.'
+              : mine.length > 0 && !fits
+                ? 'Someone joined or left, so the fair split runs again. Reset to fair split?'
+                : null,
             rows,
             adjustable: on.length === 2,
             fair,

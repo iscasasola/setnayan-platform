@@ -17,9 +17,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { liveTierState } from '@/lib/vendor-tier-lapse';
 import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
-import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
+import { applyPlanContents, type PlanContentRow } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
-import { effectiveSeatCap, fetchExtraAgentSeats } from '@/lib/vendor-seats';
+import { effectiveSeatCap } from '@/lib/vendor-seats';
 import { seatsToPauseAndResume, type PauseMember } from '@/lib/seat-pause';
 import { pickForCard } from '@/lib/inquiry-routing';
 import { memberChatName, readRoutingInput } from '@/lib/inquiry-routing.server';
@@ -47,7 +47,7 @@ const firstName = async (admin: SupabaseClient, shopId: string, memberId: string
 export async function reconcileSeatPauses(admin: SupabaseClient, shopId: string): Promise<{ paused: number; resumed: number } | null> {
   try {
     const [{ data: shop, error: shopErr }, { data: rows, error: teamErr }] = await Promise.all([
-      admin.from('vendor_profiles').select('user_id, tier_state, tier_expires_at, verification_state').eq('vendor_profile_id', shopId).maybeSingle(),
+      admin.from('vendor_profiles').select('user_id, tier_state, tier_expires_at, verification_state, extra_agent_seats').eq('vendor_profile_id', shopId).maybeSingle(),
       admin
         .from('vendor_team_members')
         .select('vendor_team_member_id, user_id, role, duty, created_at, deactivated_at, paused_by_plan_at')
@@ -57,11 +57,21 @@ export async function reconcileSeatPauses(admin: SupabaseClient, shopId: string)
       if (shopErr || teamErr) logQueryError('seat-pause: read', (shopErr ?? teamErr)!, { shop: shopId }, 'graceful_degrade');
       return null;
     }
-    const s = shop as { user_id: string; tier_state: string | null; tier_expires_at: string | null; verification_state: string | null };
+    const s = shop as { user_id: string; tier_state: string | null; tier_expires_at: string | null; verification_state: string | null; extra_agent_seats: number | null };
     const tier = asVendorTier(liveTierState(s, Date.now()) ?? 'free');
-    const planCaps = await fetchLiveTierCaps(admin, tier);
+    // 🛑 A REFUSED READ NEVER PAUSES ANYONE (ship review 22 Nov, HIGH). Pausing is a destructive write that locks people
+    // out, so the cap it uses must be MEASURED: the plan's contents and the paid extra seats both come from reads that
+    // succeeded. Any failure aborts the reconcile — nobody is paused or resumed on a guess (fetchLiveTierCaps falls back
+    // to the code values and fetchExtraAgentSeats answers 0 on a failure, so neither is used here).
+    const { data: planRows, error: planErr } = await admin.from('vendor_plan_contents').select('plan, key, value').eq('plan', tier);
+    if (planErr) {
+      logQueryError('seat-pause: plan read', planErr, { shop: shopId }, 'graceful_degrade');
+      return null;
+    }
+    const planCaps = applyPlanContents(tier, (planRows ?? []) as PlanContentRow[]);
     const base = vendorAllowance(planCaps.agentAccounts, entryTierAllowance('agentAccounts'));
-    const extra = canBuyExtraSeats(tier) ? await fetchExtraAgentSeats(admin, shopId) : 0;
+    const bought = Number(s.extra_agent_seats);
+    const extra = canBuyExtraSeats(tier) ? (Number.isFinite(bought) && bought > 0 ? Math.floor(bought) : 0) : 0;
     const cap = effectiveSeatCap(base, extra);
     const members: PauseMember[] = ((rows ?? []) as Array<{ vendor_team_member_id: string; user_id: string; role: string; duty: string | null; created_at: string; deactivated_at: string | null; paused_by_plan_at: string | null }>).map((r) => ({
       memberId: r.vendor_team_member_id,
@@ -101,11 +111,18 @@ export async function reconcileSeatPauses(admin: SupabaseClient, shopId: string)
         });
         const cover = read ? pickForCard(read.input) : null;
         if (!cover) continue;
-        const { error: covErr } = await admin.from('chat_threads').update({ covering_member_id: cover.memberId }).eq('thread_id', t.thread_id).is('covering_member_id', null);
+        const { data: covered, error: covErr } = await admin
+          .from('chat_threads')
+          .update({ covering_member_id: cover.memberId })
+          .eq('thread_id', t.thread_id)
+          .is('covering_member_id', null)
+          .select('thread_id');
         if (covErr) {
           logQueryError('seat-pause: cover', covErr, { thread: t.thread_id }, 'graceful_degrade');
           continue;
         }
+        // Someone else covered it first: the couple is not told a name that is not true.
+        if (!covered || covered.length === 0) continue;
         const [away, who] = await Promise.all([firstName(admin, shopId, t.handled_by_member_id), memberChatName(admin, shopId, cover.memberId)]);
         if (away && who) await postThreadSystemLine(admin, { eventId: t.event_id, vendorProfileId: shopId, body: handledByLine({ kind: 'paused', awayFirstName: away, who }) });
       }

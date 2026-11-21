@@ -47,6 +47,20 @@ export async function writeSplitCut(
   const caller = await callerIn(admin, card.shopId, userId);
   if (!caller || !mayMoveClient(caller, card.branchId)) return { ok: false, message: 'Only a Shop or Branch Manager can change who gets new inquiries.' };
 
+  // Check the cut BEFORE clearing anything, so a refused cut never deletes the manager's current one (ship review 22 Nov).
+  if (input.cut !== null) {
+    if (card.people.length !== 2) return { ok: false, message: 'A cut is set between two Account Managers on a card.' };
+    if (!PREFIXES.includes(input.cut) || input.cut === 'AA') return { ok: false, message: 'Pick one of the cuts shown.' };
+  }
+  // Keep what is there now, so a failed insert can put it back (the delete and the insert are two statements).
+  let read = admin.from('vendor_inquiry_split_cuts').select('*').eq('vendor_service_id', input.serviceId);
+  read = card.branchId ? read.eq('branch_id', card.branchId) : read.is('branch_id', null);
+  read = input.eventType ? read.eq('event_type', input.eventType) : read.is('event_type', null);
+  const { data: before, error: readErr } = await read;
+  if (readErr) {
+    logQueryError('split-cuts: read before', readErr, { service: input.serviceId }, 'graceful_degrade');
+    return { ok: false, message: 'That change didn’t save. Try again.' };
+  }
   let del = admin.from('vendor_inquiry_split_cuts').delete().eq('vendor_service_id', input.serviceId);
   del = card.branchId ? del.eq('branch_id', card.branchId) : del.is('branch_id', null);
   del = input.eventType ? del.eq('event_type', input.eventType) : del.is('event_type', null);
@@ -57,8 +71,6 @@ export async function writeSplitCut(
   }
   if (input.cut === null) return { ok: true }; // Reset to fair split — no rows means the fair split runs.
 
-  if (card.people.length !== 2) return { ok: false, message: 'A cut is set between two Account Managers on a card.' };
-  if (!PREFIXES.includes(input.cut) || input.cut === 'AA') return { ok: false, message: 'Pick one of the cuts shown.' };
   const base = { vendor_profile_id: card.shopId, branch_id: card.branchId, vendor_service_id: input.serviceId, event_type: input.eventType, adjusted_by: userId };
   const { error } = await admin.from('vendor_inquiry_split_cuts').insert([
     { ...base, vendor_team_member_id: card.people[0]!, from_prefix: 'AA', to_prefix: input.cut },
@@ -66,6 +78,10 @@ export async function writeSplitCut(
   ]);
   if (error) {
     logQueryError('split-cuts: write', error, { service: input.serviceId }, 'graceful_degrade');
+    if (before && before.length > 0) {
+      const { error: backErr } = await admin.from('vendor_inquiry_split_cuts').insert(before);
+      if (backErr) logQueryError('split-cuts: restore', backErr, { service: input.serviceId }, 'graceful_degrade');
+    }
     return { ok: false, message: 'That change didn’t save. Try again.' };
   }
   return { ok: true };

@@ -36,6 +36,7 @@ export function MuteChatRow({ threadId, muted }: { threadId: string; muted: bool
           return;
         }
         toast.success(muteToast(next));
+        // one-render: keep (no-revalidate) — muteChat in lib/push-actions.ts writes the mute row and revalidates nothing, so this refresh is the only redraw of the row's label and the bell-off mark.
         router.refresh();
       }}
     >

@@ -275,6 +275,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'that device. Disclose that it is held; do not hand over the keys.',
   },
   {
+    table: 'vendor_push_tokens',
+    decision: 'excluded',
+    why:
+      'A device push token (FCM, APNs or Web Push) for a shop device; since the Mute this chat migration ' +
+      '(20271356402294) it also names WHO registered the device. Same reason as push_subscriptions: the token is ' +
+      'a live delivery credential, and exporting it lets anyone holding the file push to that device. Disclose ' +
+      'that it is held; do not hand over the token.',
+  },
+  {
     table: 'shop_papic_wallet_entries',
     decision: 'excluded',
     why:

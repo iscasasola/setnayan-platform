@@ -4048,6 +4048,7 @@
         "admin/gifts/_components/badge-rewards-ledger.tsx",
         "admin/gifts/_components/badge-upgrades-ledger.tsx",
         "admin/gifts/_components/gift-limit-form.tsx",
+        "admin/gifts/_components/setnayan-gift-picks.tsx",
         "admin/gifts/_components/shop-gifts-ledger.tsx",
         "admin/gifts/_components/take-back-reason-field.tsx",
         "admin/gifts/badge-reward-actions.ts",
@@ -4083,7 +4084,9 @@
         "InfoTip",
         "Link",
         "PageMasthead",
+        "PickMenu",
         "RowActionState",
+        "SetnayanGiftPicks",
         "ShopGiftHoldRow",
         "ShopGiftLedgerRow",
         "ShopGiftsLedger",
@@ -11940,6 +11943,8 @@
         "Link",
         "ManualVenuePinResult",
         "MoveSupplierResult",
+        "MuteChatRow",
+        "MutedMark",
         "NewFlagForm",
         "NextStepRow",
         "PaymentAsksCard",
@@ -14490,10 +14495,13 @@
         "vendor-dashboard/_components/pipeline-pressure-line.tsx",
         "vendor-dashboard/_components/portfolio-upload.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
+        "vendor-dashboard/_components/role-lock.tsx",
         "vendor-dashboard/_components/row-icon.tsx",
         "vendor-dashboard/_components/set-two/parts.tsx",
         "vendor-dashboard/_components/set-two/read-failed.tsx",
         "vendor-dashboard/_components/set-two/try-again.tsx",
+        "vendor-dashboard/_components/setnayan-shop-gift-lines.tsx",
+        "vendor-dashboard/_components/setnayan-shop-gift-moment.tsx",
         "vendor-dashboard/_components/setup-days-off-row.tsx",
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
@@ -14645,6 +14653,7 @@
         "FormRow",
         "FormRows",
         "Fragment",
+        "GiftMoment",
         "GiftMoments",
         "GiftReturnBanner",
         "Group",
@@ -14732,6 +14741,9 @@
         "Screen",
         "ScreenBody",
         "Section",
+        "SetnayanShopGiftLines",
+        "SetnayanShopGiftMoment",
+        "SetnayanShopGiftNotices",
         "SetupDaysOffRow",
         "SetupFoldKey",
         "SetupOfferFold",
@@ -15195,6 +15207,7 @@
         "Badge",
         "BlockerAskRow",
         "BoardPart",
+        "BookedCallChoices",
         "BookingAskOutcomeLine",
         "BookingFeeBills",
         "BookingFeeNotice",
@@ -15275,6 +15288,8 @@
         "LockAnswerLine",
         "LockRequestAnswer",
         "MomentLine",
+        "MuteChatRow",
+        "MutedMark",
         "MyMomentSheet",
         "MyTimesSheet",
         "NamedColourDot",
@@ -16884,6 +16899,7 @@
         "RecBox",
         "ReplyGauge",
         "ReplyVsPic",
+        "RoleLock",
         "RowView",
         "Rows",
         "ShopDoorScreen",
@@ -17902,13 +17918,16 @@
       "files": [
         "vendor-dashboard/team/_components/helpers-controls.tsx",
         "vendor-dashboard/team/_components/helpers-view.tsx",
+        "vendor-dashboard/team/_components/member-card.tsx",
         "vendor-dashboard/team/_components/team-screen.tsx",
         "vendor-dashboard/team/_components/who-works-what-services.tsx",
         "vendor-dashboard/team/actions.ts",
         "vendor-dashboard/team/loading.tsx",
         "vendor-dashboard/team/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/vendor-dashboard/team/roles"
+      ],
       "actions": [
         "action"
       ],
@@ -17928,6 +17947,7 @@
         "HTMLInputElement",
         "HTMLSpanElement",
         "HelpersView",
+        "InfoTip",
         "InviteHelperSheet",
         "PickMenu",
         "RolePick",
@@ -17937,9 +17957,40 @@
         "SubmitButton",
         "SupplierSubmit",
         "SupplierThumbRow",
+        "TeamMemberCard",
         "TeamScreen",
         "TeamSearch",
         "TypedRow"
+      ]
+    },
+    "/vendor-dashboard/team/roles": {
+      "files": [
+        "vendor-dashboard/team/roles/loading.tsx",
+        "vendor-dashboard/team/roles/page.tsx",
+        "vendor-dashboard/team/roles/roles-form.tsx"
+      ],
+      "destinations": [
+        "/vendor-dashboard/subscription"
+      ],
+      "actions": [
+        "action",
+        "setVendorRoleNames"
+      ],
+      "blocks": [
+        "BackButton",
+        "FormPageSkeleton",
+        "FormRows",
+        "InfoTip",
+        "Link",
+        "RoleLock",
+        "RolesForm",
+        "RolesList",
+        "Search",
+        "ShopNotice",
+        "StayForm",
+        "SupplierSubmit",
+        "TypedRow",
+        "VendorRoleNames"
       ]
     },
     "/vendor-dashboard/theft-watch": {
@@ -17953,6 +18004,7 @@
       "blocks": [
         "Image",
         "ListPageSkeleton",
+        "RoleLock",
         "TemplateRows",
         "TheftWatchView",
         "ToolChip",
@@ -17977,6 +18029,7 @@
       "actions": [],
       "blocks": [
         "ActionButton",
+        "RoleLock",
         "ToolEmpty",
         "ToolFail",
         "ToolPage",

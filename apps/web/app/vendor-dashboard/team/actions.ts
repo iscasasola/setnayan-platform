@@ -751,3 +751,33 @@ export async function setVendorRoleNames(formData: FormData) {
   revalidatePath(TEAM);
   return back('saved=1');
 }
+
+// ── 👤 Supplier roles d–h — ONE action for every write the roles screens make (#8013 (e)(f)(g)) ─────────────────────
+//
+// Folded into one dispatcher on purpose: the server-action budget is a ceiling (`lint-server-action-budget.mjs`), and
+// it is never raised. `op` names the write; each op checks its own caller on the server.
+
+const ROLES_RETURN = ['/vendor-dashboard/customers', '/vendor-dashboard/team'];
+
+export async function supplierRolesAction(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const rawReturn = String(formData.get('return_to') ?? '');
+  const returnTo = ROLES_RETURN.some((p) => rawReturn === p || rawReturn.startsWith(`${p}?`) || rawReturn.startsWith(`${p}/`)) ? rawReturn : TEAM;
+  const done = (status: string): never => redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}${status}`);
+  const op = String(formData.get('op') ?? '');
+
+  if (op === 'keep' || op === 'give' || op === 'move') {
+    const threadId = String(formData.get('thread_id') ?? '');
+    if (!threadId) return done(`error=${encodeURIComponent('Missing client')}`);
+    const moveTo = String(formData.get('move_to') ?? '') || null;
+    const { answerClientHandling } = await import('@/lib/client-handover.server');
+    const r = await answerClientHandling(createAdminClient(), user.id, { threadId, op, moveTo });
+    revalidatePath('/vendor-dashboard/customers');
+    return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
+  }
+  return done(`error=${encodeURIComponent('Unknown change')}`);
+}

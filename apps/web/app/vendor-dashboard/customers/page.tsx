@@ -1,6 +1,11 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { startAhead } from '@/lib/start-ahead';
+import { readHandledByForShop, currentHandlerOf } from '@/lib/handled-by.server';
+import { mayAnswerHandOver, mayMoveClient, type HandoverCaller } from '@/lib/client-handover';
+import type { ClientHandlingView } from './_components/client-handling';
+import { supplierRolesAction } from '../team/actions';
+import { dutyWorksAtABranch, roleNameOf, type VendorRoleNames } from '@/lib/vendor-duties';
 import { redirect } from 'next/navigation';
 import { Suspense, type ReactNode } from 'react';
 import { ClipboardList, FileSignature, FileText } from 'lucide-react';
@@ -46,6 +51,7 @@ import {
   fetchVendorTeam,
   enrichTeamWithUsers,
   fetchAgentServiceAssignments,
+  fetchVendorRoleNames,
 } from '@/lib/vendor-team';
 import { manilaTodayIso } from '@/lib/vendor-cashflow';
 import { readVendorPaydayInstallments } from '@/lib/vendor-payday-read';
@@ -322,6 +328,14 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     },
     { pageSize: 1000 },
   ));
+  // 👤 Who handles each client (d–h (f)) — the server's columns, started beside the roster read.
+  const handledByRead = startAhead(readHandledByForShop(rosterAdmin, vendorProfileId));
+  const rolesWhereRead = startAhead(
+    Promise.all([
+      rosterAdmin.from('vendor_branches').select('branch_id, branch_label').eq('parent_vendor_profile_id', vendorProfileId).is('cancelled_at', null),
+      fetchVendorRoleNames(rosterAdmin, vendorProfileId).catch(() => ({}) as VendorRoleNames),
+    ]),
+  );
   const [poolsRead, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
     // The schedules an outside client can hold a date on (the Add sheet). D-5: the HONEST read — null when refused.
     fetchVendorPoolsOrNull(supabase, vendorProfileId),
@@ -626,6 +640,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const choice = clientsChoiceOf(search as Record<string, string | undefined>);
   const meRow = teamRead?.find((m) => m.user_id === user.id) ?? null;
   const viewerIsAgent = meRow?.role === 'agent';
+  const handledBy = await handledByRead;
   const seatsByService = new Map<string, string[]>();
   for (const [memberId, serviceIds] of Object.entries(assignmentsRead ?? {})) {
     for (const sid of serviceIds) seatsByService.set(sid, [...(seatsByService.get(sid) ?? []), memberId]);
@@ -638,7 +653,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   };
   const clientsCtx: ClientsContext = {
     serviceOf: (eventId) => bookingByEvent.get(eventId)?.service_id ?? null,
+    // One client, one Account Manager (d–h (f)): the person handling the client, when known; else the card's people.
     seatsOf: (eventId) => {
+      const handler = currentHandlerOf(handledBy?.get(eventId));
+      if (handler) return [handler];
       const sid = bookingByEvent.get(eventId)?.service_id;
       return sid ? (seatsByService.get(sid) ?? []) : [];
     },
@@ -649,8 +667,59 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     today: todayIso,
   };
   const narrowed = teamKnown || !choice.who ? narrowClients(listed, choice, clientsCtx) : narrowClients(listed, { ...choice, who: null }, clientsCtx);
-  const groupKey = groupKeyOf(choice.group, clientsCtx, seatName);
+  // 👤 d–h (f): a Handled by heading is the role in the shop's own words, the person and their branch —
+  // "Lead Stylist · Bea Santos · Makati"; Branch and Card group by where the client's card is filed.
+  const [branchesRes, roleNames] = await rolesWhereRead;
+  const branchLabel = new Map(((branchesRes.data ?? []) as { branch_id: string; branch_label: string | null }[]).map((b) => [b.branch_id, b.branch_label?.trim() || 'Branch']));
+  const hasBranches = branchLabel.size > 0;
+  const whereOf = (branchId: string | null) => (branchId ? (branchLabel.get(branchId) ?? 'Branch') : 'Main');
+  const cardById = new Map((servicesRead ?? []).map((sv) => [sv.vendor_service_id, sv]));
+  const seatHeading = (id: string) => {
+    const m = teamRead?.find((t) => t.vendor_team_member_id === id);
+    if (!m) return seatName(id);
+    return [roleNameOf(roleNames, m.duty), seatName(id), hasBranches && dutyWorksAtABranch(m.duty) ? whereOf(m.branch_id) : null].filter(Boolean).join(' · ');
+  };
+  const cardOfEvent = (eventId: string) => {
+    const sid = bookingByEvent.get(eventId)?.service_id;
+    return sid ? (cardById.get(sid) ?? null) : null;
+  };
+  const groupKey = groupKeyOf(choice.group, clientsCtx, seatHeading, {
+    branchOf: (eventId) => {
+      const c = cardOfEvent(eventId);
+      return c ? whereOf((c as { branch_id?: string | null }).branch_id ?? null) : null;
+    },
+    cardOf: (eventId) => cardOfEvent(eventId)?.title?.trim() || null,
+  });
   const lanes = groupByLane(narrowed);
+  /*
+    👤 ONE CLIENT, ONE ACCOUNT MANAGER (d–h (f)) — each client's Hand over mark and "Handled by ▾". The caller is checked
+    again on the server; here it only decides which doors draw. Move-to lists the ACTIVE people of the card's branch.
+  */
+  const viewer: HandoverCaller | null = meRow ? { memberId: meRow.vendor_team_member_id, duty: meRow.duty, branchId: meRow.branch_id } : null;
+  const firstOf = (id: string) => seatName(id).split(/\s+/)[0] ?? seatName(id);
+  const handlingViews: Record<string, ClientHandlingView> = {};
+  for (const r of listed) {
+    if (!r.threadId || !handledBy || !teamRead) continue;
+    const h = handledBy.get(r.eventId);
+    const current = currentHandlerOf(h);
+    const card = cardOfEvent(r.eventId) as { branch_id?: string | null } | null;
+    const cardBranch = card?.branch_id ?? null;
+    const mayMove = viewer ? mayMoveClient(viewer, cardBranch) : false;
+    if (!current && !h?.handOver && !mayMove) continue;
+    const movable = teamRead.filter(
+      (m) =>
+        !m.deactivated_at &&
+        (m.duty === 'shop_manager' || ((m.duty === 'account_manager' || m.duty === 'branch_manager') && (m.branch_id ?? null) === cardBranch)),
+    );
+    handlingViews[r.eventId] = {
+      threadId: r.threadId,
+      handledByName: current ? seatHeading(current) : null,
+      handOver: h?.handOver && h.handledBy ? { keepFirst: firstOf(h.handledBy), giveFirst: firstOf(h.handOver) } : null,
+      mayAnswer: viewer ? mayAnswerHandOver(viewer, h?.handledBy ?? null, cardBranch) : false,
+      moveTo: mayMove ? { currentId: current, options: movable.map((m) => ({ key: m.vendor_team_member_id, label: seatHeading(m.vendor_team_member_id) })) } : null,
+    };
+  }
+  const handling = { views: handlingViews, action: supplierRolesAction, returnTo: '/vendor-dashboard/customers' };
   /*
     Computed over EVERY listed customer, never over the door on screen —
     filtering to a door must not make a date clash disappear. That is the
@@ -886,6 +955,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             lines={lines}
             list={k === 'all' ? null : k}
             groupOf={groupKey}
+            handling={handling}
           />
           {isBooked ? (
             <OutsideClientRows
@@ -1112,6 +1182,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                     clients={listed.map((r) => ({ key: r.eventId, label: r.title }))}
                     seats={teamKnown && seatNames ? teamRead.filter((m) => m.vendor_team_member_id !== meRow?.vendor_team_member_id).map((m) => ({ key: m.vendor_team_member_id, label: seatName(m.vendor_team_member_id) })) : null}
                     agent={clientsCtx.agent}
+                    hasBranches={hasBranches}
                     shown={narrowed.length}
                     keep={keepParamsFrom(sp, ['svc', 'st', 'client', 'who', 'group', 'sort', 'page', 'notice', 'add', 'gear'])}
                     schedules={scheduleScopeOptions(monthPart.month)}

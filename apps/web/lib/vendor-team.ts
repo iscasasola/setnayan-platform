@@ -65,6 +65,8 @@ export type VendorTeamMemberRow = {
   team_label: string | null;
   created_at: string;
   updated_at: string;
+  /** Paused (a smaller plan, owner 21 Nov) — on the team, out of the shop until a plan covers them. NULL = active. */
+  deactivated_at?: string | null;
 };
 
 export type VendorTeamMemberWithUser = VendorTeamMemberRow & {
@@ -73,7 +75,7 @@ export type VendorTeamMemberWithUser = VendorTeamMemberRow & {
 };
 
 const SELECT =
-  'vendor_team_member_id,public_id,vendor_profile_id,user_id,role,duty,branch_id,team_label,created_at,updated_at';
+  'vendor_team_member_id,public_id,vendor_profile_id,user_id,role,duty,branch_id,team_label,created_at,updated_at,deactivated_at';
 
 export async function fetchVendorTeam(
   supabase: SupabaseClient,

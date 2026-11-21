@@ -17,6 +17,7 @@ import {
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import { normalizeSearchText } from '@/lib/paginate';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
+import { ClientHandling, type ClientHandlingView } from './client-handling';
 import { ListPager } from '../../_components/list-pager';
 import type { Paged } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
@@ -266,6 +267,7 @@ export function RosterRowView({
   query,
   lines = null,
   list = null,
+  handling = null,
 }: {
   /**
    * Which of the page's lists draws this row (`asking` · `booked` · `done`) — null on the every-event list. The same
@@ -278,6 +280,8 @@ export function RosterRowView({
   query: string;
   /** The event's fixed lines, from the page's one batched read. Null → said, never blank. */
   lines?: EventLines | null;
+  /** 👤 Who handles this client (d–h (f)) — the Hand over mark and "Handled by ▾". Absent = drawn as before. */
+  handling?: { view: ClientHandlingView; action: (fd: FormData) => Promise<void>; returnTo: string } | null;
 }) {
   const today = new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10);
   const href = hrefFor(r, today);
@@ -315,9 +319,16 @@ export function RosterRowView({
         opensTo={href}
         lead={avatar}
         aside={
-          <Badge tone={badge.tone} data="customer-stage">
-            {badge.word}
-          </Badge>
+          <>
+            {handling?.view.handOver ? (
+              <Badge tone="wait" data="customer-hand-over">
+                Hand over
+              </Badge>
+            ) : null}
+            <Badge tone={badge.tone} data="customer-stage">
+              {badge.word}
+            </Badge>
+          </>
         }
       >
         <div className="pb-3" data-customer-opened={r.lane}>
@@ -328,6 +339,7 @@ export function RosterRowView({
               This event&rsquo;s details couldn&rsquo;t load. Refresh to try again — the chat still opens.
             </p>
           )}
+          {handling ? <ClientHandling view={handling.view} action={handling.action} returnTo={handling.returnTo} /> : null}
           {href ? (
             <div className="flex flex-wrap items-center justify-end gap-2 border-t border-ink/10 pt-3">
               {/* 💬 The chat is always one press away (CHAT-15, W1 walk 16 Nov 2026: a booked card offered "Open their Hub"
@@ -390,7 +402,10 @@ export function CustomersRoster({
   lines = {},
   list = null,
   groupOf = null,
+  handling = null,
 }: {
+  /** 👤 d–h (f): each client's Hand over / Handled by view, keyed by event id, and the one action it posts to. */
+  handling?: { views: Readonly<Record<string, ClientHandlingView>>; action: (fd: FormData) => Promise<void>; returnTo: string } | null;
   /**
    * ⇅ Show & sort's Group by (Day · Handled by) — each row's heading; a new heading is drawn where it changes, and it
    * PINS under the row while its rows scroll (v113 sticky day headings). Null = the shipped list, no headings.
@@ -520,7 +535,7 @@ export function CustomersRoster({
                     {/^\d{4}-\d{2}-\d{2}$/.test(head) ? dayHeadWords(head, new Date(nowMs + 8 * 3_600_000).toISOString().slice(0, 10)) : head}
                   </p>
                 ) : null}
-                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} list={list} />
+                <RosterRowView r={r} nowMs={nowMs} query={q} lines={lines[r.eventId] ?? null} list={list} handling={handling?.views[r.eventId] ? { view: handling.views[r.eventId]!, action: handling.action, returnTo: handling.returnTo } : null} />
               </li>
             );
           })}

@@ -1742,6 +1742,13 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'table', table: 'vendor_role_names' },
       { kind: 'fk', table: 'vendor_role_names', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'column', table: 'vendor_role_names', column: 'display_name' },
+      // 🧑‍💼 2026-11-21 SUPPLIER ROLES d–h (migration supplier_roles_one_client_one_account_manager): a paused seat
+      // (a smaller plan, owner 21 Nov — overturns ruling 5683) and the inquiry cuts a manager adjusted.
+      { kind: 'column', table: 'vendor_team_members', column: 'deactivated_at' },
+      { kind: 'column', table: 'vendor_team_members', column: 'paused_by_plan_at' },
+      { kind: 'table', table: 'vendor_inquiry_split_cuts' },
+      { kind: 'fk', table: 'vendor_inquiry_split_cuts', column: 'vendor_team_member_id', references: 'vendor_team_members' },
+      { kind: 'fk', table: 'vendor_inquiry_split_cuts', column: 'vendor_service_id', references: 'vendor_services' },
     ],
     chain: 4,
     pair: ['TYPE-USERS', 'TYPE-VENDORS'],
@@ -1749,7 +1756,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
     joint: 'vendor_team_members',
     cardinality: 'Many-to-many · UNIQUE(org_id, user_id) — one membership row per (person, org)',
     implementedBy:
-      'vendor_profiles.user_id is the founder FK (nullable — admin can pre-stage an unclaimed shop). Team roster is the joint: vendor_team_members. 🧑‍🤝‍🧑 2026-11-19: each seat holds ONE of six roles in `duty` (shop_manager · branch_manager · account_manager · marketing · event_crew · helper) and works at `branch_id` (NULL = main; always NULL for shop_manager / marketing). The rank in `role` (admin / agent / viewer) is DERIVED from duty by vendor_team_duty_rank_trg (shop_manager→admin, branch/account_manager→agent, the rest→viewer), so every current_vendor_ids(min_role) policy is unchanged. vendor_role_names holds the shop\'s own word for each role (per role per shop — not team_label, which is per person). A Branch Manager runs their branch\'s team (vendor_team_members_branch_manager_manage, via current_vendor_branch_manager_scopes()) and holds its cards (vendor_team_branch_manager_cards_trg); current_vendor_dayof_grant_event_ids() admits a client\'s Account / Branch Manager to its event day without a grant.',
+      'vendor_profiles.user_id is the founder FK (nullable — admin can pre-stage an unclaimed shop). Team roster is the joint: vendor_team_members. 🧑‍🤝‍🧑 2026-11-19: each seat holds ONE of six roles in `duty` (shop_manager · branch_manager · account_manager · marketing · event_crew · helper) and works at `branch_id` (NULL = main; always NULL for shop_manager / marketing). The rank in `role` (admin / agent / viewer) is DERIVED from duty by vendor_team_duty_rank_trg (shop_manager→admin, branch/account_manager→agent, the rest→viewer), so every current_vendor_ids(min_role) policy is unchanged. vendor_role_names holds the shop\'s own word for each role (per role per shop — not team_label, which is per person). A Branch Manager runs their branch\'s team (vendor_team_members_branch_manager_manage, via current_vendor_branch_manager_scopes()) and holds its cards (vendor_team_branch_manager_cards_trg); current_vendor_dayof_grant_event_ids() admits a client\'s Account / Branch Manager to its event day without a grant. 🧑‍💼 2026-11-21: a PAUSED seat is `deactivated_at` set (a smaller plan — the newest seats pause, the founder and the free Helper always stay; nothing is deleted); `paused_by_plan_at` marks a PLAN pause apart from a hand lock, so an upgrade brings back only those (server-only; lib/seat-pause.server.ts reconciles on each supplier visit). current_vendor_ids() and agent_assigned_service_ids() skip it, so a paused person cannot come into the shop until the plan has room; clearing it returns them. vendor_inquiry_split_cuts holds ONLY the inquiry cuts a manager adjusted (lib/inquiry-split.ts computes the rest from the shop\'s past clients); read by the shop, written by the server only.',
     writtenBy: 'Team invite accept flow · founder auto-insert on vendor registration',
     guardedBy: 'current_vendor_ids() — the vendor-side RLS spine',
     traps: 'A DB trigger enforces an ≥1-admin floor — you cannot remove the last admin row without first promoting someone else. Never write `role` by hand to change what someone can do — write `duty`; the rank follows it (a legacy write of `role` alone moves duty to that rank\'s nearest role).',
@@ -1763,6 +1770,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
       // Still present, but NO LONGER the reveal gate — see F5. The column
       // outliving its meaning is why the trap prose needed correcting.
       { kind: 'column', table: 'chat_threads', column: 'vendor_first_reply_at' },
+      // 🧑‍💼 2026-11-21 — ONE client = ONE chat_threads row, so its ONE Account Manager lives here (roles d–h).
+      { kind: 'fk', table: 'chat_threads', column: 'handled_by_member_id', references: 'vendor_team_members' },
+      { kind: 'column', table: 'chat_threads', column: 'covering_member_id' },
       // 👥 2026-11-09 — the hosts' side of ONE conversation is stored as rows
       // (migration 20271330575424); current_thread_ids() reads it.
       { kind: 'table', table: 'chat_thread_members' },

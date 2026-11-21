@@ -176,4 +176,20 @@ REVOKE ALL ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) FROM anon;
 REVOKE ALL ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.booking_fee_attribution_for(UUID, UUID) TO service_role;
 
+-- ── The published Journal post names no length (2026-11-19 PROMOTION PAGES (4): "No number of months is named on any
+-- page"). `what-zero-commission-means-for-couples` was imported by 20271355899662 (applied) and still says "for a
+-- year"; an applied migration is never edited, so this UPDATE makes the one edit `lib/blog-batches/december-news.ts`
+-- carries (listed in lib/journal-edits-after-import.ts, proven by lib/journal-move.test.ts 6b). Idempotent: the WHERE
+-- matches only while the old clause is present.
+UPDATE public.creator_chapters
+   SET body = replace(
+         body,
+         $old$books it free, and a couple a supplier brings onto Setnayan books them free for a year. Every other booking$old$,
+         $new$books it free, and a couple new to Setnayan through a supplier books them free. Every other booking$new$
+       ),
+       updated_at = now()
+ WHERE is_journal IS TRUE
+   AND slug = 'what-zero-commission-means-for-couples'
+   AND position($old$books them free for a year.$old$ IN body) > 0;
+
 COMMIT;

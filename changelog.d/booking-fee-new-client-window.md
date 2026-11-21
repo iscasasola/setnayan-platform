@@ -25,3 +25,10 @@ SPEC IMPACT: None — implements specs DECISION_LOG 2026-11-16 "IMPORTED CLIENTS
 2026-11-20 "BILLING MUST FOLLOW THE RETIRED COPY" and 2026-11-19 "PROMOTION PAGES" (4) as ruled. Not changed (flagged
 on the PR): the Add a client sheet's words in `lib/own-clients.ts` still type "12 months" / "for a year" (in-app,
 pinned byte-for-byte to its drawing).
+
+### 2026-11-21 · catch-up after #8061 went live (batch I)
+- Main merged; #8061's NUMERIC-exact fee, the ₱100,000 cap (LEAST of the lock and `max_payment_php`) and its wording
+  kept. `FEE_FREE_RULE` = main's `SUPPLIER_FREE_BOOKING_LINE` + "Verified shops only." — one sentence, one home.
+- The published Journal post `what-zero-commission-means-for-couples` dropped "for a year" in its source; an applied
+  import is never edited, so migration `20271356623783` now also carries the one UPDATE that makes the same edit in
+  production, listed in `lib/journal-edits-after-import.ts` (journal-move.test 6/6b green).

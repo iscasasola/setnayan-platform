@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Radio, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -8,6 +8,28 @@ import {
   driftLabel,
   type RunOfShowBlock,
 } from '@/lib/run-of-show';
+
+/**
+ * What a caller that draws the header ITSELF is handed (`draw`) — the same run-state and the same realtime channel;
+ * only the drawing is the caller's (the supplier's event day, supplier pages
+ * set two, 21 Nov 2026). `empty` is the couple's program with no moment in it. It carries no advance press: the
+ * one caller never runs the timeline — a caller that would must be handed `onAdvance` here first.
+ */
+export type RunOfShowDraw = {
+  current: RunOfShowBlock | null;
+  next: RunOfShowBlock | null;
+  allDone: boolean;
+  notStarted: boolean;
+  /** The realtime channel is keeping up ("Live · watching") — false = "Syncing". */
+  live: boolean;
+  ahead: boolean;
+  startsOnWords: string | null;
+  drift: string | null;
+  driftMinutes: number | null;
+  empty: boolean;
+  /** A moment's wall-clock time, as the couple wrote it (`fmtTime`). */
+  time: (iso: string | null) => string;
+};
 import { advanceScheduleBlock, fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { applyGuestBlockChange, type BlockChange } from '@/lib/run-of-show-live';
 import { herdDelay, jittered } from '@/lib/live-day-timing';
@@ -56,6 +78,7 @@ export function RunOfShowHeader({
   compact = false,
   variant = 'card',
   forGuests = false,
+  draw,
   startsOnWords = null,
 }: {
   /**
@@ -83,6 +106,8 @@ export function RunOfShowHeader({
    * drawing differs. Every other caller keeps the card, byte-identically.
    */
   variant?: 'card' | 'strip';
+  /** The caller draws it (see `RunOfShowDraw`); every other caller keeps the card or the strip, byte-identically. */
+  draw?: (run: RunOfShowDraw) => ReactNode;
 }) {
   const [blocks, setBlocks] = useState<RunOfShowBlock[]>(initial);
   /*
@@ -247,8 +272,8 @@ export function RunOfShowHeader({
     DEFAULT_EVENT_TZ,
   );
 
-  // Nothing to show if the couple hasn't built a timeline.
-  if (blocks.length === 0) return null;
+  // Nothing to show if the couple hasn't built a timeline (a caller that draws it is told so, below).
+  if (blocks.length === 0 && !draw) return null;
 
   // 🔑 THE RESULT IS THE POINT — DO NOT DISCARD IT AGAIN.
   //
@@ -294,6 +319,27 @@ export function RunOfShowHeader({
       await refetch().catch(() => undefined);
     });
   };
+
+  // A caller that draws the header itself is handed the run-state (and told when it is empty) — the card and the strip never run.
+  if (draw) {
+    return (
+      <>
+        {draw({
+          current: current ?? null,
+          next: next ?? null,
+          allDone,
+          notStarted,
+          live,
+          ahead,
+          startsOnWords: startsOnWords ?? null,
+          drift: driftLabel(driftMinutes),
+          driftMinutes: driftMinutes ?? null,
+          empty: blocks.length === 0,
+          time: fmtTime,
+        })}
+      </>
+    );
+  }
 
   // advance_schedule_block handles both START (target upcoming + nothing live →
   // light it) and ADVANCE (target live → done + next live), so the control calls

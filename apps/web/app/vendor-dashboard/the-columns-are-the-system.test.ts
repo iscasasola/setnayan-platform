@@ -86,9 +86,16 @@ const READING = [
   'clients/[eventId]/cocktail/cocktail-body.tsx',
   'clients/[eventId]/editorial-media/editorial-media-body.tsx',
   'clients/[eventId]/challenge-photos/challenge-photos-body.tsx',
+  'on-the-day/live/[eventId]/_components/papic-desk-body.tsx',
   'loading.tsx',
 ];
-const WIDE = ['clients/[eventId]/seat-plan/seat-plan-body.tsx', 'clients/[eventId]/production-sheet/production-sheet-body.tsx', 'services/[serviceId]/page.tsx'];
+// The event day (supplier pages set two, page 8): the console beside its tools takes the wide stage.
+const WIDE = [
+  'clients/[eventId]/seat-plan/seat-plan-body.tsx',
+  'clients/[eventId]/production-sheet/production-sheet-body.tsx',
+  'services/[serviceId]/page.tsx',
+  'on-the-day/live/[eventId]/_components/event-day-body.tsx',
+];
 
 test('the secondary pages read (48 rem); the seat plan, the production sheet and the maker take the wide stage (64 rem)', () => {
   for (const [list, cap] of [[READING, 'tab:max-w-3xl'], [WIDE, 'tab:max-w-5xl']] as const) {

@@ -95,7 +95,6 @@ test('3a · the unlock read has a closed list of callers in the app', () => {
   assert.deepEqual(callers, [
     'lib/entitlements.ts', // the re-export
     'lib/specialized-tools-access.ts', // the definitions
-    'lib/vendor-photo-challenge.ts', // Papic challenge — a PAID tool
   ]);
 });
 

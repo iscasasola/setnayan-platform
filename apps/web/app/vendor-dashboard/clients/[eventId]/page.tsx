@@ -91,6 +91,10 @@ import { ScriptTab } from './_components/script-tab';
 import { SongDesk } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk';
 import { agreedFacts } from '@/lib/agreed-facts';
 import { hubHref } from '@/lib/hub-events';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { BookedCallChoices, bookedCallReachable } from '@/app/_components/chat/booked-call-choices';
+import { MuteChatRow } from '@/app/_components/chat/mute-chat-row';
+import { readMyMute } from '@/lib/chat-mutes';
 import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
@@ -139,6 +143,9 @@ import { readDayCheck } from '@/lib/day-check.server';
 import { piecesAskOf, type PiecesAsk } from '@/lib/pieces-ask.server';
 import { heldServiceOfAsk } from '@/lib/service-plan-hold.server';
 import { BookingAskOutcomeLine, LockAnswerLine, LockRequestAnswer } from './_components/booking-ask-panel';
+import { fetchAgreeGiftBasis, fetchGiftNeeded } from '@/lib/agree-gifts.server';
+import { GiftNeededRow } from './_components/gift-needed-row';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { TheTie } from '@/app/_components/signature/the-tie';
 import type { CarryOverTopUp } from './_components/top-up-carry-over';
 import { overdueTopUps, topUpOwedPhp, topUpStage } from '@/lib/booking-fee-top-up';
@@ -148,7 +155,8 @@ import type { SettlePay } from '@/app/_components/payment/settle-pay-by';
 import { TopUpSettleSheet } from '@/app/_components/top-up-settle-sheet';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
 import { ASKED, supplierAskOutcomeOf, type SupplierAskRow } from '@/lib/booking-ask-words';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { PaymentAsksPanel } from './_components/payment-asks-panel';
 import { clientPaymentView } from '@/lib/client-payment-view';
@@ -613,6 +621,10 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -653,6 +665,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (error || !data) redirect('/vendor-dashboard/clients');
   const rawBrief = data as Brief;
   const isBooked = rawBrief.stage === 'booked';
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started now beside the page's other reads; the
+  // hosts' number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = isBooked
+    ? shopIsBookedOnEvent(eventId, profile.vendor_profile_id)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId, vendorProfileId: profile.vendor_profile_id }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
 
   // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
   // Flag OFF ⇒ the stage is 'unlocked' for everybody and `redactBriefForStage`
@@ -966,7 +988,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     isBooked || lockRequest ? null : supplierAskOutcomeOf(completionRow, isLockHandshakeEnabled());
   // The answer to Agree / Decline pressed HERE lands back here (`return_to`).
   const lockNotice =
-    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free) }) ??
+    lockAgreeNotice(search.lock_agree, { competing: Number(search.competing) || null, feeHeld: lockAgreeFeeHeld(search.fee), feeLocksEvent: lockAgreeFeeHeld(search.fee) ? await resolveFeeEnforcement() : false, halls: lockAgreeHalls(search.taken, search.free), giftBuy: lockAgreeGiftBuy(search.gift_buy), storeShell: await isStoreShellRequest() }) ??
     lockDeclineNotice(search.lock_decline);
   // 🔒 The couple's deposit receipt is a PRIVATE file. What reaches the card is
   // a short-lived link scoped to THIS event's deposit folder — never the stored
@@ -1049,6 +1071,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         piecesAskOf(supabase, lockRequest.event_vendor_id),
       ]))
     : null;
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree — read beside the forecast, null when no bill.
+  const giftBasisP = lockRequest?.event_vendor_id
+    ? startRead(fetchAgreeGiftBasis(admin, {
+        vendorProfileId: profile.vendor_profile_id,
+        eventVendorId: lockRequest.event_vendor_id,
+      }))
+    : null;
+  // 🎁 An agreed booking whose gift was cleared (its store payment refused or refunded): "Needs at least 1 gift."
+  const giftNeededP = startRead(fetchGiftNeeded(admin, { vendorProfileId: profile.vendor_profile_id, eventId }));
   const feeBillsP = startRead(fetchDueFeeBills(supabase, user.id).catch(() => FEE_BILLS_UNREADABLE));
   const clientWaivedP = startRead(fetchWaivedFeeCharges(
     admin,
@@ -1142,6 +1173,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     ? await askReadsP!
     : [null, null, null, null];
   const heldNotice = heldService ? lockAgreeNotice('service_on_hold', { heldService }) : null;
+  const giftBasis = giftBasisP ? await giftBasisP : null;
+  const giftNeeded = await giftNeededP;
+  const giftOutcome = agreeGiftOutcomeLine(typeof search.gift === 'string' ? search.gift : null);
   // Third of the three BOOKING_FEE_BILL_SURFACES — scoped to THIS event, so one
   // couple's fee can never appear on another couple's page.
   // The overdue sentence states the lock's TRUE state — the gate's own answer (batch-5 walk F).
@@ -1254,6 +1288,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const threadId = thread?.thread_id ?? null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = threadId ? readThreadUnreadCount(supabase, user.id, threadId) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = threadId ? readMyMute(supabase, threadId, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18: "why did the chatbox never change?") ──
@@ -2029,6 +2065,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       ) : null}
       {lockNotice && !(heldNotice && search.lock_agree === 'service_on_hold') ? <LockAnswerLine notice={lockNotice} /> : null}
       {heldNotice ? <LockAnswerLine notice={heldNotice} /> : null}
+      {giftOutcome ? <LockAnswerLine notice={giftOutcome} /> : null}
+      {giftNeeded ? (
+        <GiftNeededRow
+          eventVendorId={giftNeeded.eventVendorId}
+          basis={giftNeeded.basis}
+          returnTo={`/vendor-dashboard/clients/${eventId}`}
+          action={vendorAgreeToLock}
+        />
+      ) : null}
       {lockRequest ? (
         <LockRequestAnswer
           eventVendorId={lockRequest.event_vendor_id}
@@ -2042,6 +2087,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldService}
           carryOver={carryOver}
+          giftBasis={giftBasis}
           askPieces={askPieces}
         />
       ) : askOutcome ? (
@@ -2960,11 +3006,14 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       />
     ) : null,
   });
+  const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
 
   return (
     <PickedClientShell
       eventId={eventId}
       eventName={eventName}
+      muted={myMute === true}
       chatUnread={await chatUnreadP}
       closeHref={pickedClientCloseHref(search.from)}
       menu={pickedMenuFor(isBooked).map((m) => ({ id: m.id, label: m.label }))}
@@ -2994,6 +3043,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         script: showScript ? gated(scriptNode) : null,
         crewHref: isBooked ? hubHref(eventId, 'crew') : null,
         crewDay: dayMonth(brief.event.event_date),
+        call: bookedCallReachable(bookedCall.booked, bookedCall.phone) ? (
+          <BookedCallChoices booked={bookedCall.booked} phone={bookedCall.phone} who={eventName} />
+        ) : null,
+        mute: threadId && myMute !== null ? <MuteChatRow threadId={threadId} muted={myMute} /> : null,
         calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
       }}
     />

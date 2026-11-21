@@ -172,13 +172,13 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     different: {
       en: [
         'Couples pay you directly to your GCash or bank; Setnayan never takes a cut of the deal.',
-        `The booking fee applies to every booking, ${FEE_SCOPE}, and your first booking from Setnayan is on us.`,
+        `The booking fee applies to every booking, ${FEE_SCOPE}.`,
         FEE_FREE_RULE,
         'Nothing renews by itself: skip a payment and you are back on Free.',
       ],
       tl: [
         'Direkta kang binabayaran ng couples sa GCash o bank mo; hindi kumukuha ang Setnayan ng parte sa deal.',
-        'May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event, at libre ang una mong booking mula sa Setnayan.',
+        'May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event.',
         FEE_FREE_RULE_TL,
         'Walang kusang nagre-renew: lumaktaw ng bayad at babalik ka sa Free.',
       ],
@@ -191,13 +191,13 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free and Verified cost nothing, for good, and include the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
-        { q: 'Does Setnayan take a commission?', a: `Setnayan never takes a cut of the deal. It bills a booking fee on a booking, ${FEE_SCOPE}; your first booking from Setnayan is on us. ${FEE_FREE_RULE} The current rate is on the For Suppliers page.` },
+        { q: 'Does Setnayan take a commission?', a: `Setnayan never takes a cut of the deal. It bills a booking fee on a booking, ${FEE_SCOPE}. ${FEE_FREE_RULE} The current rate is on the For Suppliers page.` },
         { q: 'Do paid plans renew automatically?', a: 'No. Supplier Plus, Supplier Pro and Supplier Ultra are prepaid blocks of four weeks or a year. Skip the next payment and you are on Free.' },
         { q: 'What do the paid plans add?', a: 'More categories and service cards, team seats and branches, and your own web address. Reach is not a plan: it comes from getting Verified, free.' },
       ],
       tl: [
         { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free at Verified, habambuhay, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
-        { q: 'Kumukuha ba ng commission ang Setnayan?', a: `Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event; libre ang una mong booking mula sa Setnayan. ${FEE_FREE_RULE_TL} Nasa For Suppliers page ang kasalukuyang rate.` },
+        { q: 'Kumukuha ba ng commission ang Setnayan?', a: `Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event. ${FEE_FREE_RULE_TL} Nasa For Suppliers page ang kasalukuyang rate.` },
         { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Supplier Plus, Supplier Pro at Supplier Ultra, apat na linggo o isang taon. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
         { q: 'Ano ang idinadagdag ng paid plans?', a: 'Mas maraming categories at service cards, team seats at branches, at sariling web address. Hindi plan ang abot: sa pagpa-Verified ito nanggagaling, libre.' },
       ],

@@ -76,7 +76,7 @@ export type QuoteForCard = {
   /** The plan rows a confirmed payment is attributed to — frozen on every face. */
   paidSeqs: number[];
   locks: ItemLocks;
-  extras: { id: string; label: string; qty: number; pricePhp: number }[];
+  extras: { id: string; label: string; qty: number; pricePhp: number; free: boolean }[];
   pax: number | null;
   /**
    * The shipped S5 gate (`vendor_may_requote`): a confirmed booking or an open lock request refuses a new version.
@@ -180,6 +180,8 @@ export async function loadQuoteForCard(threadId: string): Promise<QuoteRead> {
         label: x.label,
         qty: perPax ? Math.max(pax ?? 0, x.line.minPax || 0) || 1 : 1,
         pricePhp: perPax ? x.line.ratePhp : x.line.free ? 0 : x.line.basis === 'per_hour' ? x.line.basePhp : x.line.flatPhp,
+        // A free catalogue extra stays FREE on the quote — never a ₱0 line that reads "Amount not set".
+        free: !perPax && Boolean(x.line.free),
       };
     }),
     pax,

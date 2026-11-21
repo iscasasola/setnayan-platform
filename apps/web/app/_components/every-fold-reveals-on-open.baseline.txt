@@ -25,7 +25,6 @@ app/dashboard/(launcher)/_components/year-moments-list.tsx  # fold
 app/dashboard/(launcher)/page.tsx  # menu-like
 app/dashboard/[eventId]/_components/event-rail-context.tsx  # menu-like
 app/dashboard/[eventId]/_components/expand-card.tsx  # menu-like
-app/dashboard/[eventId]/_components/papic-home-card.tsx  # menu-like
 app/dashboard/[eventId]/details/_components/people-with-access.tsx  # menu-like
 app/dashboard/[eventId]/details/_components/record-fold.tsx  # menu-like
 app/dashboard/[eventId]/details/_components/record-row-link.tsx  # menu-like
@@ -39,7 +38,6 @@ app/dashboard/[eventId]/launch/_components/guests-see-sheet.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/icon-pill.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/maker-play-menu.tsx  # menu-like
 app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx  # menu-like
-app/dashboard/[eventId]/launch/_components/stage-tools.tsx  # menu-like
 app/dashboard/[eventId]/monogram/animate-rows.tsx  # fold
 app/dashboard/[eventId]/schedule/_components/chapters-host.tsx  # menu-like
 app/dashboard/[eventId]/schedule/_components/day-ui.tsx  # menu-like

@@ -49,6 +49,17 @@ import { bookingFeePhp, type BookingFeeSchedule } from './booking-fee';
 export const GIFT_LIMIT_PCT_DEFAULT = 40;
 
 /**
+ * 🎁 THE PHOTO GIFT IS RETIRED (owner 2026-11-15, DECISION_LOG "GIFT FOR SERVICES DESIGN — DECISIONS": "the old 'N free
+ * Papic photos' gift retires (gifts already given stay)"). The supplier now PICKS the couple's gift when they agree —
+ * Papic packs or an Event plan (`lib/agree-gifts.ts`). So no surface may PROMISE the photo gift any more: the quote
+ * readers (`quoteSetnayanGift`, `resolvePapicQuoteStanding`) answer "say nothing", and the card's line is not drawn.
+ * The database stopped offering it to a new charge in the same change (`booking_fee_charges_size_the_gift`), and a bill
+ * that already carries it keeps it. The arithmetic below stays — it still prices those bills, and the SQL mirror is
+ * still asserted equal to it.
+ */
+export const SETNAYAN_PHOTO_GIFT_RETIRED = true;
+
+/**
  * A gift-limit percent as the sizing uses it: a whole number 0–100. Anything else (absent, NaN, out of range)
  * falls back to the ruled default — never to 0 (no gift) and never above 100.
  */

@@ -47,7 +47,11 @@ const STUB = join(process.cwd(), '__server_only_stub_ticket_blank__.js');
   };
 }
 
-test('(1) the first paint is the ticket’s shape with their name — not a blank box', async () => {
+/* RE-AIMED 2026-11-20 (the approved drawing `guests_redesign_2026-11-20_fable.html` § 3: "the ticket is one row you tap to
+   view"): the ticket on the card is a small mark at the left of its ROW now (36 px wide — too small for a name), and the row
+   says "Their ticket" beside it. The property is the same: the box is the ticket's own shape with its QR mark from the first
+   paint, never a blank white rectangle. */
+test('(1) the first paint is the ticket’s shape, in a row that says what it is — not a blank box', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GuestTicketThumb } = await import('./guest-ticket-parts');
   const html = renderToStaticMarkup(
@@ -55,8 +59,9 @@ test('(1) the first paint is the ticket’s shape with their name — not a blan
   );
   assert.match(html, /data-guest-ticket-waiting=""/, 'no placeholder on the first paint');
   const waiting = html.slice(html.indexOf('data-guest-ticket-waiting'));
-  assert.match(waiting, /Daniel Ramos/, 'the placeholder does not carry the guest’s name');
   assert.match(waiting, /<svg/, 'the placeholder lost its QR mark');
+  assert.match(html, />Their ticket</, 'the row does not say what the mark is');
+  assert.match(html, /aria-label="View Daniel Ramos(?:'|&#x27;)s ticket"/, 'the row is not named for its guest');
   assert.doesNotMatch(html, /bg-white/, 'something paints the ticket box white again');
 });
 
@@ -67,7 +72,7 @@ test('(2) the picture is hidden until it LOADS, and the placeholder holds the bo
       'utf8',
     ),
   );
-  const thumb = src.slice(src.indexOf('export function GuestTicketThumb('), src.indexOf('const MORE_MENU_WIDTH'));
+  const thumb = src.slice(src.indexOf('export function GuestTicketThumb('), src.indexOf('export function GuestMoreMenu('));
   assert.ok(thumb.length > 0, 'GuestTicketThumb moved — re-anchor this guard');
   const img = /<img\b[\s\S]*?\/>/.exec(thumb)?.[0] ?? '';
   assert.ok(img, 'the thumb lost its <img>');
@@ -76,7 +81,7 @@ test('(2) the picture is hidden until it LOADS, and the placeholder holds the bo
   assert.doesNotMatch(img, /bg-white/, 'the empty picture paints a white box');
   // The placeholder is UNDER the picture, always — so neither the wait nor the
   // fade-in ever shows an empty box — and the picture is drawn after it.
-  const ph = thumb.indexOf('<TicketPlaceholder name={name} waiting={!loaded} />');
+  const ph = thumb.indexOf('<TicketPlaceholder name={null} waiting={has && !loaded} />');
   assert.ok(ph > -1, 'the placeholder does not hold the box');
   assert.ok(ph < thumb.indexOf('<img'), 'the placeholder must sit UNDER the picture (drawn before it)');
   assert.doesNotMatch(thumb, /loaded \? null : <TicketPlaceholder/, 'the placeholder leaves before the fade-in ends — an empty box for 300 ms');

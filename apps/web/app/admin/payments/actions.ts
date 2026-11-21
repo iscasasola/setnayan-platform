@@ -15,8 +15,8 @@ import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { receivingAccounts } from '@/lib/payment-channels';
-import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
+import { undoAutoMatch } from './received-auto';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
@@ -188,6 +188,15 @@ export async function approvePayment(formData: FormData) {
   // A card opened from Focus carries `next` — the following card ("after you
   // act, the next one opens", v5 drawing). Only an /admin address is followed.
   const next = focusNext(formData.get('next'));
+  // ⏳ Phase 2: Undo on a match that happened by itself, inside its 30 minutes.
+  // The payment was never touched by the hold; the received row goes back.
+  if (intent === 'received-undo') {
+    const res = await undoAutoMatch(userId, formData);
+    revalidatePath('/admin/payments');
+    revalidatePath('/admin');
+    if (next && !res.warn) redirect(next);
+    redirect(deskUrl(q, res.notice, res.warn));
+  }
   if (intent === 'received-leave') {
     await leaveReceived(formData);
     revalidatePath('/admin/payments');
@@ -436,6 +445,15 @@ export async function approvePaymentCore(args: {
    * one bill — and the shortfall guard would happily add it up.
    */
   acknowledgeDuplicate?: boolean;
+  /**
+   * 💳 A PAYMENT GATEWAY CONFIRMED IT, NOT AN ADMIN (owner 2026-11-21, Maya Checkout).
+   * Set ONLY by lib/maya-settle.ts's callers, after Maya's API — asked with our secret
+   * key — said PAYMENT_SUCCESS for this order's exact reference and amount. `userId` is
+   * then the BUYER (the ledger's actor, as the App Store path records it), the ledger
+   * role is 'system', no reviewer is stamped, and activation gets no admin session.
+   * 🔒 lib/an-ai-may-not-approve-money.test.ts pins who may pass it.
+   */
+  gateway?: 'maya';
 }): Promise<
   | { ok: true }
   | { ok: false; shortfall: true; message: string }
@@ -448,6 +466,7 @@ export async function approvePaymentCore(args: {
   | { ok: false; notPromotable: true; message: string }
 > {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
+  const byGateway = args.gateway === 'maya';
 
   // ---- DUPLICATE REFERENCE (owner, 2026-08-05) ---------------------------
   // Runs BEFORE the flip to 'matched', because after it this row would be its
@@ -576,7 +595,7 @@ export async function approvePaymentCore(args: {
     .update({
       status: 'matched',
       admin_notes: adminNotes,
-      reviewed_by_user_id: userId,
+      reviewed_by_user_id: byGateway ? null : userId,
       reviewed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -625,7 +644,7 @@ export async function approvePaymentCore(args: {
     order_id: payment.order_id,
     event_type: 'payment_approved',
     actor_user_id: userId,
-    actor_role: 'admin',
+    actor_role: byGateway ? 'system' : 'admin',
     amount_centavos: Math.round(Number(payment.amount_php) * 100),
     payment_id: paymentId,
     metadata: {
@@ -867,7 +886,7 @@ export async function approvePaymentCore(args: {
       // rather than inside the hook so the dependency is visible at the call
       // site. `createClient()` reads this request's cookies, so it is the
       // admin who just clicked Approve.
-      sessionClient: await createClient(),
+      sessionClient: byGateway ? undefined : await createClient(),
       orderId: payment.order_id,
       eventId: order.event_id ?? null,
       serviceKey: order.service_key ?? '',
@@ -2055,22 +2074,20 @@ export async function releasePayoutHoldAction(formData: FormData) {
 }
 
 /**
- * Read this payment's screenshot again.
+ * Read this payment's screenshot again — ON THE ADMIN'S PHONE.
  *
  * Owner, 2026-08-28: *"can we assign an AI to verify if that last 6 digits do
- * exist on the photo?"* The buyer's own submission already triggers a read; this
- * is the button for the payments that predate it, and for retrying one that came
- * back 'failed' because a key or a network was down for a minute.
+ * exist on the photo?"*; then 19 Nov 2026 (specs DECISION_LOG): "BDO buyer
+ * receipts are read on the phone; the outside AI call is removed". The button
+ * (`_components/reread-on-this-phone.tsx`) opens the picture the admin's screen
+ * already holds (signed under `paymentProofPolicy` in page.tsx), reads it with
+ * the in-app reader (Tesseract, lib/on-phone-reader.ts) and posts only the TEXT
+ * here. No picture is fetched by the server and nothing is sent to an outside AI.
  *
  * ⛔ IT MOVES NOTHING. No status, no promotion, no notification — it writes one
  * advisory row and re-renders the page. The one-person admin plan (2026-07-11)
  * is the rule it obeys: the machine may prepare and may hold back, it may never
  * be the thing that lets money through.
- *
- * ⚠ `after()`, not awaited, for the same reason the buyer's path uses it: a
- * model call takes seconds and an admin pressing a button should not watch a
- * spinner. The consequence is honest and worth stating — the page they land on
- * still shows the OLD card, and the new one appears on their next refresh.
  */
 export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -2081,48 +2098,26 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   const admin = createAdminClient();
   const { data, error: readError } = await admin
     .from('payments')
-    .select('payment_id,order_id,user_id,screenshot_url,reference_number,amount_php')
+    .select('payment_id,screenshot_url,reference_number,amount_php,channel')
     .eq('payment_id', paymentId)
     .maybeSingle();
   if (readError) console.error('[rereadPaymentReceipt] payment read failed', readError.message);
 
   const row = data as {
-    order_id: string;
-    user_id: string | null;
     screenshot_url: string | null;
     reference_number: string | null;
     amount_php: number | string | null;
+    channel: string | null;
   } | null;
 
-  // 🔒 The reader opens only this payment's OWN proof folders — the same scope
-  // the admin's own screen signs the picture with (page.tsx, paymentProofPolicy),
-  // built from the ORDER row, never from the stored value (N5 · part B).
-  let orderEventId: string | null = null;
   if (row?.screenshot_url) {
-    const { data: order, error: orderError } = await admin
-      .from('orders')
-      .select('event_id')
-      .eq('order_id', row.order_id)
-      .maybeSingle();
-    if (orderError) console.error('[rereadPaymentReceipt] order read failed', orderError.message);
-    orderEventId = (order as { event_id: string | null } | null)?.event_id ?? null;
-  }
-
-  if (row?.screenshot_url) {
-    const proofPolicy = paymentProofPolicy({ orderId: row.order_id, eventId: orderEventId, userId: row.user_id });
-    after(async () => {
-      const { runPaymentReceiptRead } = await import('@/lib/payment-receipt-read.server');
-      await runPaymentReceiptRead({
-        admin,
-        paymentId,
-        screenshotRef: row.screenshot_url,
-        proofPolicy,
-        typedReference: row.reference_number,
-        // The amount ON THE PAYMENT ROW, which is the order's own figure — the
-        // pay page stamps it and the form cannot influence it. Reading the
-        // order again here would be a second source for one number.
-        expectedPhp: row.amount_php == null ? null : Number(row.amount_php),
-      });
+    const { recordPhoneReceiptRead } = await import('@/lib/payment-receipt-read.server');
+    await recordPhoneReceiptRead(admin, paymentId, {
+      form: formData,
+      typed: row.reference_number,
+      // The amount ON THE PAYMENT ROW, which is the order's own figure.
+      expectedPhp: row.amount_php == null ? null : Number(row.amount_php),
+      channel: row.channel,
     });
   }
 

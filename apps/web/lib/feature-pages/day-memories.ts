@@ -65,14 +65,14 @@ export const DAY_MEMORIES_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         { q: 'Do guests need an app?', a: 'No app and no account. A code and a browser is the whole thing.' },
         { q: 'Will we get all the photos?', a: 'Always, tagged or not, and whether or not the person in it asked to be blurred.' },
-        { q: 'What do we pay for?', a: 'Only credits — one per photo, a little more for a video. Cameras, Memories and keeping your photos are free, credits never expire, and the price is read from our live catalogue.' },
+        { q: 'What do we pay for?', a: 'Only credits — one per photo, a little more for a video. Cameras, Memories and keeping your photos are free, credits never expire, and today’s price is on our Pricing page.' },
         { q: 'What if the venue has no signal?', a: 'Shooting still works. Photos are held on the phone and send themselves when the signal returns.' },
         { q: 'Will this upset our photographer?', a: 'It should not. Your photographer composes the shots that matter and Papic covers the rest of the room. Nobody is replaced.' },
       ],
       tl: [
         { q: 'Kailangan ba ng app ng mga bisita?', a: 'Walang app at walang account. Code at browser lang ang kailangan.' },
         { q: 'Makukuha ba namin ang lahat ng litrato?', a: 'Lagi, naka-tag man o hindi, at humiling man o hindi ang nasa litrato na i-blur.' },
-        { q: 'Ano ang babayaran namin?', a: 'Credits lang — isa bawat litrato, medyo higit para sa video. Libre ang cameras, Memories at pagtatago ng litrato, hindi nag-e-expire ang credits, at binabasa ang presyo mula sa live catalogue namin.' },
+        { q: 'Ano ang babayaran namin?', a: 'Credits lang — isa bawat litrato, medyo higit para sa video. Libre ang cameras, Memories at pagtatago ng litrato, hindi nag-e-expire ang credits, at nasa Pricing page namin ang presyo ngayon.' },
         { q: 'Paano kung walang signal sa venue?', a: 'Gumagana pa rin ang pagkuha. Hawak ng telepono ang mga litrato at kusang ipapadala kapag bumalik ang signal.' },
         { q: 'Magagalit ba ang photographer namin?', a: 'Hindi dapat. Binubuo ng photographer ang mahahalagang kuha at sinasaklaw ng Papic ang natitirang bahagi ng kuwarto. Walang pinapalitan.' },
       ],

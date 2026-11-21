@@ -13735,12 +13735,14 @@
         "pay/[reference]/_components/maya-checking.tsx",
         "pay/[reference]/_components/maya-marks.tsx",
         "pay/[reference]/_components/maya-pay-stage.tsx",
+        "pay/[reference]/_components/pay-code-box.tsx",
         "pay/[reference]/_components/pay-panel.tsx",
         "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/maya-return.ts",
         "pay/[reference]/maya-start.ts",
-        "pay/[reference]/page.tsx"
+        "pay/[reference]/page.tsx",
+        "pay/[reference]/pay-code.ts"
       ],
       "destinations": [
         "/dashboard/[seg]"
@@ -13764,6 +13766,7 @@
         "MayaMarks",
         "MayaPayStage",
         "OverlayBackdrop",
+        "PayCodeBox",
         "PayPanel",
         "PayStage",
         "PaymentDetailsBlock",

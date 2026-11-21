@@ -43,8 +43,6 @@ app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/reviews	# first r
 app/vendor-dashboard/calendar/actions.ts → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/clients/[eventId]/challenge-photos/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/clients/[eventId]/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/contracts/[contractId]/page.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/vendor-dashboard/contracts/new/page.tsx → /vendor-dashboard/contracts	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/lines/page.tsx → /vendor-dashboard/clients	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/lines/page.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/vendor-dashboard/manpower/surface.tsx → /vendor-dashboard/verify	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one

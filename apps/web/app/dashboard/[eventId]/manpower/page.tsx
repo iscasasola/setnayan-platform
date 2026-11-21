@@ -49,7 +49,7 @@ const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
 const STATUS_STYLE: Record<ManpowerGigStatus, string> = {
   pending: 'bg-warn-50 text-warn-900 ring-warn-300/40',
   accepted: 'bg-success-50 text-success-900 ring-success-300/40',
-  completed: 'bg-slate-100 text-slate-800 ring-slate-300/40',
+  completed: 'bg-slate-100 dark:bg-ink/[0.06] text-slate-800 dark:text-ink ring-slate-300/40 dark:ring-ink/20',
   cancelled: 'bg-danger-50 text-danger-900 ring-danger-300/40',
 };
 
@@ -276,7 +276,7 @@ function GigGroup({
         {title}
       </h2>
       {gigs.length === 0 ? (
-        <p className="mt-3 text-sm text-slate-500">{empty}</p>
+        <p className="mt-3 text-sm text-slate-500 dark:text-ink/60">{empty}</p>
       ) : (
         <ul className="mt-3 space-y-3">
           {gigs.map((gig) => (
@@ -287,19 +287,19 @@ function GigGroup({
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-ink">
                     {gig.gig_label}
                   </p>
-                  <p className="mt-1 text-sm text-slate-600">
+                  <p className="mt-1 text-sm text-slate-600 dark:text-ink/80">
                     <Banknote
-                      className="-mt-0.5 mr-1 inline-block h-4 w-4 text-slate-500"
+                      className="-mt-0.5 mr-1 inline-block h-4 w-4 text-slate-500 dark:text-ink/60"
                       strokeWidth={1.75}
                     />
                     {formatPhp(gig.cash_amount_php_centavos)} · paid directly to
                     crew
                   </p>
                   {gig.vendor_profile_id ? (
-                    <p className="mt-1 text-sm text-slate-700">
+                    <p className="mt-1 text-sm text-slate-700 dark:text-ink/80">
                       Accepted by{' '}
                       <span className="font-medium">
                         {vendorNames.get(gig.vendor_profile_id) ?? 'Supplier'}
@@ -308,7 +308,7 @@ function GigGroup({
                     </p>
                   ) : null}
                   {gig.notes ? (
-                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
+                    <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-ink/80">
                       {gig.notes}
                     </p>
                   ) : null}
@@ -343,12 +343,12 @@ function GigGroup({
                       minLength={4}
                       maxLength={500}
                       required
-                      className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
+                      className="w-full rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-sm text-slate-900 dark:text-ink placeholder:text-slate-400 dark:placeholder:text-ink/50 focus:border-slate-500 dark:focus:border-ink/35 focus:outline-none"
                     />
                   </label>
                   <SubmitButton
                     pendingLabel="Cancelling…"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-danger-700 hover:bg-danger-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-ink/20 bg-raised px-3 py-2 text-xs font-medium text-danger-700 hover:bg-danger-50"
                   >
                     Cancel gig
                   </SubmitButton>

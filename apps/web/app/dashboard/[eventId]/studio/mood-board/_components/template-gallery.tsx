@@ -172,7 +172,7 @@ function ChoiceButton({
       className={
         primary
           ? 'sn-press rounded-2xl border border-terracotta/40 bg-terracotta/[0.06] px-5 py-4 text-left text-sm font-semibold text-ink transition hover:bg-terracotta/10'
-          : 'sn-press rounded-2xl border border-ink/12 bg-white px-5 py-4 text-left text-sm font-medium text-ink/80 transition hover:border-terracotta/40 hover:text-ink'
+          : 'sn-press rounded-2xl border border-ink/12 bg-raised px-5 py-4 text-left text-sm font-medium text-ink/80 transition hover:border-terracotta/40 hover:text-ink'
       }
     >
       {label}

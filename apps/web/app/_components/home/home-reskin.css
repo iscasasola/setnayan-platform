@@ -3389,23 +3389,23 @@ html.hr-snap {
    The greige card shipped with no dark rule, so on a dark page it would have stayed a light panel. It now
    follows the app's approved dark set — card #2B2821, inputs #232019, ink #FBFAF7, lines at 16 % — and keeps
    the locked terracotta Done (the top edge went 2026-10-22, owner "do both"). Words that act (eyebrow, links) take the dark CTA #E5794E; quiet
-   words #B3AEA3. INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
+   words #B3AEA3 (today: the ink-3 token). INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
    set on a ready route, and none is. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
 html.dark .home-reskin-ov:has(.sn-signin-terra) {
   /* The dark is the scrim token's own dark-mode value (`--sn-scrim`, flipped on html.dark). */
-  --hr-bg: #2b2821;
-  --hr-ink: #fbfaf7;
-  --hr-grey: #b3aea3;
-  --hr-grey-2: #b3aea3;
-  --hr-line: rgba(251, 250, 247, 0.16);
-  color: #fbfaf7;
+  --hr-bg: rgb(var(--color-raised-2));
+  --hr-ink: rgb(var(--color-ink));
+  --hr-grey: rgb(var(--color-ink-3));
+  --hr-grey-2: rgb(var(--color-ink-3));
+  --hr-line: rgb(var(--color-ink) / 0.16);
+  color: rgb(var(--color-ink));
 }
 html.dark .home-reskin-ov .hr-ov-card.sn-signin-terra {
   border-color: rgba(255, 255, 255, 0.08);
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-input {
-  background: #232019;
-  color: #fbfaf7;
+  background: rgb(var(--color-raised));
+  color: rgb(var(--color-ink));
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-input::placeholder {
   color: #9a958c;
@@ -3415,11 +3415,11 @@ html.dark .home-reskin-ov .sn-signin-terra .hr-si-or span,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-hint,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-remember,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-foot {
-  color: #b3aea3;
+  color: rgb(var(--color-ink-3));
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-ov-eyebrow,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-link {
-  color: #e5794e;
+  color: rgb(var(--color-mulberry));
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
   color: #f3b59a;
@@ -3428,9 +3428,9 @@ html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
    ink — and the card's ink turns near-white in dark: a white × on a white disc, invisible (the audit reads
    words, not glyphs; dark_mode_rollout_2026-10-22 §3). The disc takes the raised card, the × the ink. */
 html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x {
-  background: #232019;
-  border-color: rgba(251, 250, 247, 0.16);
-  color: #fbfaf7;
+  background: rgb(var(--color-raised));
+  border-color: rgb(var(--color-ink) / 0.16);
+  color: rgb(var(--color-ink));
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x:hover {
   background: #34322b;
@@ -3450,7 +3450,7 @@ html.dark .home-reskin-ov .sn-signin-terra #hr-you-slug-verdict[data-tone='no'] 
    no screen is on DARK_READY (the signed-out home is always Light — call 4); written so the day the home
    goes dark, these read. Light is untouched: every rule here needs `html.dark`. */
 html.dark .home-reskin .hr-pw-bar .hr-u {
-  background: #232019;
+  background: rgb(var(--color-raised));
 }
 html.dark .home-reskin .hr-mchip.hr-warn {
   color: #c7bce9;
@@ -3459,22 +3459,22 @@ html.dark .home-reskin .hr-mchip.hr-warn {
 }
 html.dark .home-reskin .hr-mcal .hr-on {
   background: #cba766;
-  color: #17160f;
+  color: rgb(var(--color-page));
 }
 html.dark .home-reskin-ov .hr-vd-card .hr-ic {
-  background: #2b2821;
+  background: rgb(var(--color-raised-2));
   color: #e2c98b;
 }
 html.dark .home-reskin-ov .hr-tier-free {
-  color: #b3aea3;
-  background: #2b2821;
+  color: rgb(var(--color-ink-3));
+  background: rgb(var(--color-raised-2));
 }
 html.dark .home-reskin-ov .hr-tier-pro {
   color: #f0b45a;
   background: #403522;
 }
 html.dark .home-reskin-ov .hr-vb-legend {
-  background: #2b2821;
+  background: rgb(var(--color-raised-2));
 }
 
 /* The first-run brand line (`FirstRunBrand`, owner 2026-10-21 "make sure there is Setnayan"): the shipped

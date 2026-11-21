@@ -21,6 +21,8 @@ import {
   Heart,
   Info,
   MessageSquare,
+  Phone,
+  Video,
   ReceiptText,
   Wallet,
   type LucideIcon,
@@ -44,10 +46,20 @@ const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
 
 /**
  * ⋯ THE HOST'S MORE (Unichat part G, owner 20 Nov 2026 — "Report a problem" left the (+) and lives under ⋯ on BOTH
- * sides). One row: the shipped Report page under its drawn words. Report stays a tab too until the host's own one-chat
+ * sides). The shipped Report page under its drawn words, LAST. Report stays a tab too until the host's own one-chat
  * build takes the tab row away — the row is the place the (+) used to offer, not a second page.
+ *
+ * 📞 **Call · Viber** before it (drawing v3: "Call · Viber moved under ⋯"), as the two hand-offs themselves: this ⋯ has
+ * no chat-as-home to open a page of its own over (the shell drops a `body` row here), so each is a plain link. The hrefs
+ * come ONLY from `lib/booked-handoff.ts` (null without the booking or a saved number) — null, no row; never a dead one.
  */
-const HOST_MORE: readonly PickedMoreRow<PickedSupplierPage>[] = [{ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' }];
+export function hostMoreRows(call: { tel: string | null; viber: string | null } = { tel: null, viber: null }): PickedMoreRow<PickedSupplierPage>[] {
+  const rows: PickedMoreRow<PickedSupplierPage>[] = [];
+  if (call.tel) rows.push({ id: 'call', label: 'Call', icon: Phone, href: call.tel });
+  if (call.viber) rows.push({ id: 'viber', label: 'Video call on Viber', icon: Video, href: call.viber });
+  rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });
+  return rows;
+}
 
 export function PickedSupplierShell({
   eventId,
@@ -60,6 +72,7 @@ export function PickedSupplierShell({
   workDefault = 'details',
   landAt = null,
   nextStep = null,
+  call = { tel: null, viber: null },
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -76,6 +89,8 @@ export function PickedSupplierShell({
   landAt?: string | null;
   /** ➡ The Next step row pinned on top of Chat (`NextStepRow`), or null when nothing needs the host. */
   nextStep?: ReactNode;
+  /** 📞 The ⋯ hand-offs (`bookedTelHref` · `bookedViberHref`), each null when the shop is not booked or saved no number. */
+  call?: { tel: string | null; viber: string | null };
 }) {
   return (
     <PickedShell<PickedSupplierPage>
@@ -100,7 +115,7 @@ export function PickedSupplierShell({
       // when there is a conversation — without one Chat is not in the menu and the page stays one column.
       sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
       chatTop={nextStep}
-      more={HOST_MORE}
+      more={hostMoreRows(call)}
     />
   );
 }

@@ -131,7 +131,12 @@ export function mayaSettleDeps(
       // A supplier plan switches on through `approve_vendor_subscription`, which
       // needs an admin's OWN session (lib/sku-activation.ts) — a gateway has
       // none, so the plan would be paid and stay off. Those wait for a press.
-      return { amountPhp: payable.amountPhp, status: payable.status, needsAdminToActivate: payable.isVendorPlan };
+      return {
+        amountPhp: payable.amountPhp,
+        status: payable.status,
+        needsAdminToActivate: payable.isVendorPlan,
+        ownerUserId: payable.ownerUserId,
+      };
     },
     verifyById: (id) => fetchMayaPayment(config, id, fetchImpl),
     verifyByReference: (ref) => fetchMayaPaymentsByReference(config, ref, fetchImpl),

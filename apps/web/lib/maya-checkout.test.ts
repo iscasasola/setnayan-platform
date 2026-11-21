@@ -194,3 +194,9 @@ test('the webhook gate: only Maya\'s published addresses, read from the first x-
 test('the busy line is the drawing\'s, verbatim', () => {
   assert.equal(MAYA_BUSY_LINE, 'Maya is busy — pay by BDO QR. Nothing has been charged.');
 });
+
+test('"Payment not finished" is its own line, not a return-param line', async () => {
+  const { MAYA_NOT_FINISHED_LINE, mayaReturnLine } = await import('@/lib/maya-checkout');
+  assert.equal(MAYA_NOT_FINISHED_LINE, 'Payment not finished. Nothing has been charged.');
+  assert.equal(mayaReturnLine('success'), null, 'a success return draws no line by itself — the settle outcome decides');
+});

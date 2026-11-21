@@ -20,6 +20,10 @@ function world(opts: {
   maya?: MayaPaymentLike | null | 'error';
   env?: 'sandbox' | 'production';
   internal?: boolean;
+  /** The order's owner (`orders.user_id`); default the payer. `null` = the owner could not be read. */
+  owner?: string | null;
+  /** Is the owner internal, when the owner is not the payer. */
+  ownerInternal?: boolean;
   createdAt?: string;
   owed?: OwedNow | null | 'error';
   approve?: { ok: true } | { ok: false; message: string };
@@ -36,7 +40,9 @@ function world(opts: {
       return h.checkoutId === row.checkout_id || h.mayaPaymentId === row.maya_payment_id || h.reference === REF ? row : null;
     },
     async owedNow() {
-      return opts.owed === undefined ? { amountPhp: 1499.5, status: 'awaiting_payment', needsAdminToActivate: false } : opts.owed;
+      return opts.owed === undefined
+        ? { amountPhp: 1499.5, status: 'awaiting_payment', needsAdminToActivate: false, ownerUserId: opts.owner === undefined ? 'usr-1' : opts.owner }
+        : opts.owed;
     },
     async verifyById() {
       log.verifies++;
@@ -67,8 +73,8 @@ function world(opts: {
     async notifyAdmins() {
       log.notices++;
     },
-    async buyerIsInternal() {
-      return opts.internal ?? false;
+    async buyerIsInternal(userId) {
+      return userId === 'usr-1' ? (opts.internal ?? false) : (opts.ownerInternal ?? false);
     },
   };
   return { deps, row, payments, log };
@@ -112,14 +118,14 @@ test('reference or currency mismatch → queued', async () => {
 });
 
 test('the order now owes something else → queued, even though Maya matches the checkout', async () => {
-  const w = world({ owed: { amountPhp: 2000, status: 'awaiting_payment', needsAdminToActivate: false } });
+  const w = world({ owed: { amountPhp: 2000, status: 'awaiting_payment', needsAdminToActivate: false, ownerUserId: 'usr-1' } });
   const r = await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1' });
   assert.equal(r.outcome, 'queued');
   assert.equal(w.log.approves, 0);
 });
 
 test('a supplier plan → queued for an admin press (activation needs an admin session)', async () => {
-  const w = world({ owed: { amountPhp: 1499.5, status: 'awaiting_payment', needsAdminToActivate: true } });
+  const w = world({ owed: { amountPhp: 1499.5, status: 'awaiting_payment', needsAdminToActivate: true, ownerUserId: 'usr-1' } });
   assert.equal((await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1' })).outcome, 'queued');
   assert.equal(w.log.approves, 0);
 });
@@ -218,6 +224,27 @@ test('🔒 a SANDBOX "paid" never approves a real order — it waits for an admi
 
   const owner = world({ env: 'sandbox', internal: true });
   assert.equal((await settleMayaPayment(owner.deps, { mayaPaymentId: 'chk-1' })).outcome, 'approved');
+});
+
+test('🔒 sandbox: an INTERNAL payer on a real couple\'s order is still queued — the order owner must be internal too', async () => {
+  const coordinator = world({ env: 'sandbox', internal: true, owner: 'usr-2', ownerInternal: false });
+  const r = await settleMayaPayment(coordinator.deps, { mayaPaymentId: 'chk-1', claimedPaid: true });
+  assert.equal(r.outcome, 'queued');
+  assert.match(r.outcome === 'queued' ? r.reason : '', /Sandbox payment/);
+  assert.equal(coordinator.log.approves, 0);
+
+  // An owner we could not read fails closed — queued, never approved.
+  const unread = world({ env: 'sandbox', internal: true, owner: null });
+  assert.equal((await settleMayaPayment(unread.deps, { mayaPaymentId: 'chk-1' })).outcome, 'queued');
+  assert.equal(unread.log.approves, 0);
+
+  // Both internal (the owner testing on a team-mate's order) → approved.
+  const team = world({ env: 'sandbox', internal: true, owner: 'usr-2', ownerInternal: true });
+  assert.equal((await settleMayaPayment(team.deps, { mayaPaymentId: 'chk-1' })).outcome, 'approved');
+
+  // Production keys: the owner is never consulted.
+  const live = world({ internal: false, owner: 'usr-2', ownerInternal: false });
+  assert.equal((await settleMayaPayment(live.deps, { mayaPaymentId: 'chk-1' })).outcome, 'approved');
 });
 
 test('opened Maya, submitted nothing (PENDING_TOKEN / PENDING_PAYMENT) → "none", a fresh try — never "Checking…"', async () => {

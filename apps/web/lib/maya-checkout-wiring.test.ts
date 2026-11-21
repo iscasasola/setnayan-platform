@@ -135,3 +135,21 @@ test('a typed ?maya=busy changes nothing — only this order\'s busy fallback (i
   assert.match(start, /\.set\(MAYA_BUSY_COOKIE, payable\.orderId,/);
   assert.match(code(PAGE), /stage2Notice=\{maya\.phase === 'busy' \? maya\.line : null\}/, 'the busy line left stage 2');
 });
+
+test('back from Maya with nothing paid: "Payment not finished." — only for ?maya=success with no payment at Maya', () => {
+  const ret = code('app/pay/[reference]/maya-return.ts');
+  // The one line is drawn on `none` + success only — never on pending, approved, queued or already.
+  assert.match(ret, /else if \(result\.outcome === 'none' && param === 'success'\) line = MAYA_NOT_FINISHED_LINE;/);
+  assert.equal((ret.match(/MAYA_NOT_FINISHED_LINE/g) ?? []).length, 2, 'the line is imported and drawn in exactly one place');
+  // …and the stage shows it beside the same Maya choices.
+  assert.match(code(PAGE), /line=\{maya\.line\}/);
+});
+
+test('🔒 sandbox keys: only internal accounts are offered Maya, on the page AND at the start', () => {
+  const ret = code('app/pay/[reference]/maya-return.ts');
+  assert.match(ret, /mayaEnvironment\(config\.checkoutEndpoint\) === 'sandbox' && !\(await isInternalUser\(args\.viewerId\)\)\) return false;/);
+  const start = code('app/pay/[reference]/maya-start.ts');
+  assert.match(start, /mayaEnvironment\(config\.checkoutEndpoint\) === 'sandbox' && !\(await isInternalUser\(user\.id\)\)/);
+  // The start check comes before Maya is asked to open a checkout.
+  assert.ok(start.indexOf('isInternalUser(user.id)') < start.indexOf('createMayaCheckout('));
+});

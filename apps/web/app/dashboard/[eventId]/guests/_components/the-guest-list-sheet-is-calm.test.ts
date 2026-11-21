@@ -67,9 +67,11 @@ test('4 · the doors are ONE dropdown in ONE row — "Guests · List ▾" listin
   const menu = SCREEN.slice(menuAt, SCREEN.indexOf('\n  );', menuAt));
   assert.match(menu, /<PickMenu\b[^]*dataAttr="data-guests-pin-menu"[^]*buttonText=\{pinnedMenuWords\(gview, seatMode\)\}/, 'the doors are not the one shared dropdown naming the view');
   // Its groups are the TOPS this event has, each in its one word (`lib/guests-views.ts`).
-  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.guests/);
-  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.seats/);
-  assert.match(SCREEN, /group: GUESTS_TOP_LABEL\.march/);
+  // ⚠ AMENDED 20 Nov 2026 (Guests redesign § 8, owner "Yes, your picks"): the ▾ lists the three PLACES as lines (no group
+  // headings); the looks moved to the thumb row's look round (guests/the-view-menu-is-places-and-looks.test.ts).
+  assert.match(SCREEN, /key: 'guests', label: GUESTS_TOP_LABEL\.guests/);
+  assert.match(SCREEN, /key: 'seats', label: GUESTS_TOP_LABEL\.seats/);
+  assert.match(SCREEN, /key: 'march', label: GUESTS_TOP_LABEL\.march/);
   const words = Object.values(GUESTS_TOP_LABEL);
   assert.deepEqual(words, ['Guests', 'Seats', 'March'], `the groups read ${words.join(' · ')}`);
   assert.ok(words.every((w) => !/\s/.test(w)), 'a group says more than one word');

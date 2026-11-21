@@ -6,7 +6,8 @@
  * The PROPERTIES:
  *   1. The steps are every walk, section by section, numbered as the march numbers them, named "N. A & B", the line the
  *      section (+ "walks alone" for one walker); an empty walk says "—"; the closing card counts the walks.
- *   2. The tile is live (disabled only when nobody walks), turns into Stop while playing, opens every section first.
+ *   2. Preview is live (waiting only when nobody walks), turns into Stop while playing, opens every section first.
+ *      Since 20 Nov 2026 (Guests redesign § 7) it is the one terracotta BUTTON in the Guests top row, not a tile.
  *   3. The bar floats under the pinned row (h-0 sticky slot — it takes no room), slides in and out, still under reduced
  *      motion; the walk being played is ringed (`data-march-walk-now`) and scrolled to the middle.
  *   4. The timer is cleared on every step and when the march leaves (the effect's cleanup) — a preview never keeps
@@ -47,11 +48,13 @@ test('1 · every walk, in the march’s order and numbering, named and placed', 
   assert.equal(MARCH_PREVIEW_END_MS, 1800);
 });
 
-test('2 · the tile plays (Stop while playing), disabled only when nobody walks, every section opened first', () => {
-  const tile = MARCH.slice(MARCH.indexOf("key: 'preview'"), MARCH.indexOf("key: 'preview'") + 900);
-  assert.doesNotMatch(tile, /disabled: true/, 'the Preview tile is disabled again');
-  assert.match(tile, /disabled: walks === 0/);
-  assert.match(tile, /word: play === null \? 'Preview' : 'Stop'/);
+test('2 · Preview plays (Stop while playing), waiting only when nobody walks, every section opened first', () => {
+  const at = MARCH.indexOf('data-march-preview=""');
+  assert.notEqual(at, -1, 'the Preview button moved — re-aim this guard');
+  const tile = MARCH.slice(at, at + 900);
+  assert.doesNotMatch(tile, /disabled(: true|=\{true\}|\s*\/?>)|waiting(=\{true\}|\s*\/?>)/, 'Preview is switched off again');
+  assert.match(tile, /waiting=\{walks === 0\}/);
+  assert.match(tile, /label=\{play === null \? 'Preview' : 'Stop'\}/);
   assert.match(tile, /playSteps\.current = marchPreviewSteps\(shown\);\s*setFolded\(new Set\(\)\);\s*setPlay\(0\);/, 'the preview does not open every section first');
   assert.doesNotMatch(MARCH, /The walk preview is coming/);
 });

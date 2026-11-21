@@ -132,7 +132,8 @@ function checkOneControl(picker: string, settings: string, card: string): void {
   assert.match(picker, /options=\{PAPIC_HEAD_OPTIONS\.map/, 'the dropdown does not offer the three positions');
   assert.match(
     fn(settings, 'PapicHeadControl'),
-    /return <PapicHeadPicker eventId=\{eventId\} live=\{head\.live\} draftOn=\{head\.draftOn\} early=\{head\.early\} \/>;/,
+    // UPDATED ON PURPOSE 2026-11-20 (the approved Memories drawing, "the switch, opened"): + each choice's sub-line, from the gate.
+    /return <PapicHeadPicker eventId=\{eventId\} live=\{head\.live\} draftOn=\{head\.draftOn\} early=\{head\.early\} hints=\{papicHeadHints\(head\.dates, Date\.now\(\)\)\} \/>;/,
   );
   assert.equal(count(card, /<PapicHeadControl eventId=\{eventId\} papicOn=\{/), 1, 'Home does not mount the head control once');
   assert.equal(count(card, /<PapicHeadLine eventId=\{eventId\}/), 1, "the line under the title is not the head's position");

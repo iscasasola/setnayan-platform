@@ -81,6 +81,7 @@ import {
   FIRST_CARD_FIELD,
   FIRST_CARD_PARAM,
   FIRST_CARD_TITLE_MAX,
+  INVITE_SHOPS_PATH,
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
   firstCardCarryPath,
@@ -435,7 +436,12 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   const cardCategory = pickedLeaf ?? coarseService ?? null;
   const cardDrafted = cardChoice && cardChoice !== 'skip' && cardTitle && cardPrice && cardCategory ? true : false;
   const plan = parseSupplierPlan(formData.get('plan'));
-  const afterConfirm =
+  // 🚪 DOOR C (owner 19 Nov): a coordinator's door goes through "Invite shops you trust" — their own QR — wherever it
+  // lands next, on EVERY way: the session path, a refused card, and the Email way's confirm link (review 19 Nov: an
+  // Email-way coordinator never reached the invite).
+  const coordinating = formData.get('as') === 'coordinator';
+  const viaInvite = (path: string) => (coordinating ? `${INVITE_SHOPS_PATH}?next=${encodeURIComponent(path)}` : path);
+  const afterConfirm = viaInvite(
     cardDrafted
       ? firstCardCarryPath(WELCOME_OPENED_PATH, {
           state: 'waiting',
@@ -443,7 +449,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
           price: cardPrice as number,
           category: cardCategory as string,
         })
-      : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId: null, category: cardCategory }));
+      : (planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId: null, category: cardCategory })),
+  );
 
   let user: { id: string; email?: string | null } | null = sessionUser;
   let checkEmail: string | null = null;
@@ -855,9 +862,10 @@ export async function becomeVendor(formData: FormData): Promise<void> {
       })
     : null;
   // Made or not, live or not — the welcome is told the truth (`firstCardOutcomePath`). Edit opens the Card Maker on it.
+  // A coordinator goes by the invite screen first (`viaInvite`), as on every other landing.
   if (made && (made.ok === false || cardChoice !== 'edit')) {
     const landing = firstCardOutcomePath(WELCOME_OPENED_PATH, { title: cardTitle, price: cardPrice as number, category: cardCategory as string }, made);
-    redirect(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing);
+    redirect(viaInvite(made.ok && made.live ? (planOfferPath(plan) ?? landing) : landing));
   }
   const cardId = made && made.ok ? made.id : null;
 
@@ -866,8 +874,8 @@ export async function becomeVendor(formData: FormData): Promise<void> {
   // welcome's second step. Edit lands in the shipped Card Maker instead (`firstCardLanding`).
   // W1-B21 (walk 2, 16 Nov 2026): "Start on Plus / Pro / Ultra" carried `?plan=` here — the shop opens, then the
   // plan it came for is offered (the plan sheet, that row open).
-  if (cardChoice === 'edit') redirect(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
-  redirect(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory }));
+  if (cardChoice === 'edit') redirect(viaInvite(firstCardLanding({ choice: cardChoice, cardId, category: cardCategory })));
+  redirect(viaInvite(planOfferPath(plan) ?? firstCardLanding({ choice: cardChoice, cardId, category: cardCategory })));
 }
 
 /**

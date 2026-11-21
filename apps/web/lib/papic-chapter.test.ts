@@ -154,10 +154,13 @@ async function renderCard(chapters: PapicChapter[] | null) {
   const { PapicHomeCard } = await import('@/app/dashboard/[eventId]/_components/papic-home-card');
   const { PapicChapterRow } = await import('@/app/dashboard/[eventId]/_components/papic-chapter-row');
   const ROUTER = { push() {}, replace() {}, refresh() {}, prefetch() {}, back() {}, forward() {} };
+  // Since 2026-11-20 (owner, "memories approved") "Shooting into" is the FIRST row of the risen settings — drawn when they
+  // are open, so the card is rendered open (the shared RiseScreen draws in place where there is no <body>).
   const card = React.createElement(PapicHomeCard, {
     name: 'Papic',
     icon: null,
     phase: null,
+    defaultOpen: true,
     settings: null,
     counts: { total: 2000, left: 1240 },
     chapter: React.createElement(PapicChapterRow, { eventId: '00000000-0000-4000-8000-00000000e1ab', chapters, nowMs: NOW, standIn: 'ok' }),

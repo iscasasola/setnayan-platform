@@ -61,7 +61,11 @@ test('the thumbnail, the full view and Save ticket point at the SAME route, from
 
 test('the card never draws a ticket a guest does not have — it says so instead', () => {
   const src = stripComments(read(DRAWER));
-  assert.match(src, /if \(!available \|\| broken\) \{/, 'no guard before the ticket is drawn');
+  /* (20 Nov 2026: the ticket is one ROW on the card — it is always there, so the guard is no longer an early return: both
+     pictures, the row's small one and the full view's, are drawn only behind the one decision `has`.) */
+  assert.match(src, /const has = available && !broken;/, 'no guard before the ticket is drawn');
+  assert.match(src, /\{has && mounted && tv\.ready \? \(/, 'the row draws a ticket a guest does not have');
+  assert.match(src, /\{has \? \(\s*<>[\s\S]{0,400}?<img\s+src=\{src\}/, 'the opened view draws a ticket a guest does not have');
   assert.match(src, /No ticket/, 'no honest fallback for a guest without a ticket');
   const card = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
   // ⤷ 2026-10-03: the rule moved to ONE helper (`guestHasTicket`, lib/guests.ts)

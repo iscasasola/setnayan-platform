@@ -43,6 +43,7 @@ export function PapicHeadPicker({
   live,
   draftOn,
   early,
+  hints,
   standIn,
 }: {
   eventId: string;
@@ -52,6 +53,8 @@ export function PapicHeadPicker({
   draftOn: boolean | null;
   /** `events.papic_guest_capture_early`. */
   early: boolean | null;
+  /** Each choice's sub-line, from the gate (`papicHeadHints`) — the drawing's "cameras open Fri 18 Dec". */
+  hints?: Partial<Record<PapicHeadPosition, string>>;
   standIn?: 'ok' | 'fail';
 }) {
   const say = usePapicHead();
@@ -136,10 +139,13 @@ export function PapicHeadPicker({
       <PickMenu
         label={PAPIC_HEAD_LABEL}
         value={at}
-        options={PAPIC_HEAD_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
-        buttonText={PAPIC_HEAD_OPTIONS.find((o) => o.key === at)?.short}
+        options={PAPIC_HEAD_OPTIONS.map((o) => ({ key: o.key, label: o.label, hint: hints?.[o.key] }))}
+        // The pill says the choice in full ("On — event day"), as the approved Memories drawing draws it (20 Nov).
+        buttonText={PAPIC_HEAD_OPTIONS.find((o) => o.key === at)?.label}
         onPick={pick}
         compact
+        // The drawn pill's frame in light too (the shared pick sets it only in dark) — it sits on the white block.
+        className="border border-ink/15"
         menuMinWidth={PAPIC_HEAD_MENU_MIN_WIDTH}
         dataAttr="data-papic-head-button"
       />

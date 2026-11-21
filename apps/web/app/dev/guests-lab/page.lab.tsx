@@ -14,6 +14,7 @@
  * the way it shows on a phone.
  *
  *   ?part=seatview  Seats S1d — the guest's seat page for `&view=both|2d|3d` + the guest card's preview of each
+ *   ?part=loading   Guests' own loading screen (`guests/loading.tsx`) — the List's shape in Ghost rows, nothing fades
  *   ?part=notices   the Notifications list, scrolled under the account thumb bar
  *   ?part=head      (retired with the phone title + ⋯ — redirects to part=screen)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯; &plusone=1 a +1's seat (TBA), &named=1 a named +1;
@@ -117,6 +118,9 @@ import { LabGuestActions } from './lab-guest-actions';
 import { LabShell } from '@/app/dev/_components/lab-shell';
 import { RoleNamesProvider } from '@/app/dashboard/[eventId]/guests/_components/role-names-context';
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
+import GuestsLoading from '@/app/dashboard/[eventId]/guests/loading';
+// The guest card's own rules — the event layout loads them on the real pages; a lab has no event layout.
+import '@/app/dashboard/[eventId]/guests/_components/guest-card.css';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 /** 👥 `&sides=1` — cale-ice's own groups as measured in prod 2026-10-20 (names + sides only), plus one both-sides group;
@@ -604,6 +608,15 @@ export default async function GuestsLabPage({
   }
   const part = typeof sp.part === 'string' ? sp.part : 'head';
 
+  /* 👻 `?part=loading` — Guests' own loading screen (`guests/loading.tsx`), as a phone sees it before the list arrives: the
+     List's shape in Ghost rows, the top and thumb rows at full colour (Guests redesign "On every view", 20 Nov). */
+  if (part === 'loading') {
+    return (
+      <main className="sn-vt-page mx-auto min-h-dvh w-full max-w-3xl px-4 pt-4">
+        <GuestsLoading />
+      </main>
+    );
+  }
   if (part === 'seatview') {
     /* 🪑 Seats S1d — the guest's seat page (`YourSeat`) for the Seats ⚙ choice in `&view=` (both · 2d · 3d), and the
        host's guest-card preview of each choice. Fake data, no database. */

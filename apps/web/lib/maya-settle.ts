@@ -87,6 +87,12 @@ export type MayaSettleDeps = {
   approve(args: { paymentId: string; buyerUserId: string; note: string }): Promise<ApproveOutcome>;
   /** Is this account internal (`users.is_internal`)? Only they may be approved on SANDBOX keys. */
   buyerIsInternal(userId: string): Promise<boolean>;
+  /**
+   * Is the ORDER's owning account (`orders.user_id`) internal? Read server-side; any failure answers false (queue).
+   * On SANDBOX keys BOTH the payer and the owner must be internal, so an internal tester paying on a real couple's
+   * order never marks it paid (controller 21 Nov).
+   */
+  ownerIsInternal(orderId: string): Promise<boolean>;
   /** The admins are told whenever money is waiting for them (approved or queued). */
   notifyAdmins(args: { orderId: string; amountPhp: number }): Promise<void>;
 };
@@ -137,8 +143,11 @@ export async function settleMayaPayment(
   if (sameMayaPayment && row.payment_id && (row.status === 'approved' || (row.status === 'queued' && row.verified_at))) {
     return { outcome: 'already', paymentId: row.payment_id };
   }
-  // A closed checkout (failed / expired / cancelled, as Maya said) stays closed — not asked again.
-  if (sameMayaPayment && row.verified_at && (row.status === 'failed' || row.status === 'expired' || row.status === 'cancelled')) {
+  // A closed checkout (failed / expired / cancelled) stays closed — not asked again on a page visit. A WEBHOOK saying
+  // paid is always asked about (ship review @56bc3a26f, item 5): a checkout we expired by the clock may still be paid
+  // at Maya, and "closed" there would take the money with nothing recorded and nobody told.
+  if (!hint.claimedPaid && sameMayaPayment && row.verified_at &&
+      (row.status === 'failed' || row.status === 'expired' || row.status === 'cancelled')) {
     return { outcome: 'closed', status: row.status as 'failed' | 'expired' | 'cancelled' };
   }
   // 🧊 THROTTLE (ship review 21 Nov, item 5): a checkout Maya called "not yet" a few seconds ago is "not yet" again —
@@ -215,7 +224,10 @@ export async function settleMayaPayment(
       reason = `Maya confirmed ${formatPhp(Number(row.amount_php))}, but the order now owes ${formatPhp(owed.amountPhp)}.`;
     } else if (owed.needsAdminToActivate) {
       reason = 'Paid and confirmed by Maya. A supplier plan needs an admin’s press to switch on.';
-    } else if (row.environment === 'sandbox' && !(await deps.buyerIsInternal(row.user_id))) {
+    } else if (
+      row.environment === 'sandbox' &&
+      !((await deps.buyerIsInternal(row.user_id)) && (await deps.ownerIsInternal(row.order_id)))
+    ) {
       // 🔒 A SANDBOX "PAID" MOVED NO MONEY (ship review @019beef4a, HIGH). Only an internal account's test may approve
       // itself; anyone else's order waits for an admin — never activated, receipted or paid out on a test card.
       reason = 'Sandbox payment — Maya test keys, no money moved. Approve only if this was a test.';

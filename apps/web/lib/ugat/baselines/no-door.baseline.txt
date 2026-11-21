@@ -22,6 +22,7 @@
 /dev/avatar-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bar-lab/[[...path]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/billing-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/booked-coordinator-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the booked coordinator's new parts (Events you run buttons, Payments due, Suppliers line, Memories shut) on fixtures; reached by typing its address
 /dev/booking-ask-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

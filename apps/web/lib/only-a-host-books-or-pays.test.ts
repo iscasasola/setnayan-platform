@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { stripComments } from './strip-comments';
 
 import { coordinatorMoneyScopeGranted } from './coordinator-money-scope';
 
@@ -115,7 +116,7 @@ const src = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
 
 test('the rule answers on its own — no Data Privacy control short-circuits it to "allowed"', () => {
   // Comments removed: a guard that matches the comment explaining it cannot fail.
-  const s = src('lib/coordinator-money-scope.ts').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const s = stripComments(src('lib/coordinator-money-scope.ts'));
   assert.doesNotMatch(s, /isCoordinatorConsentGateEnabled/, 'the default-INACTIVE control is back in front of the money rule');
   assert.doesNotMatch(s, /coordinator_access_consents/, 'the retired opt-in scopes are read again');
   assert.match(s, /member_type === 'couple'/);

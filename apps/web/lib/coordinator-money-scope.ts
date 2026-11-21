@@ -55,7 +55,10 @@ export async function coordinatorMoneyScopeGranted(
     .eq('event_id', eventId)
     .eq('user_id', userId)
     .maybeSingle();
-  // A refused read is never a host (fail-closed: money).
-  if (error) return false;
+  // A refused read is never a host (fail-closed: money) — and the reason is said in the log, never swallowed.
+  if (error) {
+    console.error('[coordinatorMoneyScope] membership unread — refusing:', error.message, { event_id: eventId });
+    return false;
+  }
   return (member as { member_type?: string } | null)?.member_type === 'couple';
 }

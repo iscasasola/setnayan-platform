@@ -39,6 +39,7 @@ import { fetchEventViewer } from '@/lib/event-viewer.server';
 import { resolveAreaLevel } from '@/lib/delegate-areas';
 import { pickDuePayments } from '@/lib/budget-page-view';
 import { PaymentsDue, type DueRow } from './_components/payments-due';
+import { remindLandingVendor } from '@/lib/remind-the-hosts';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER } from '@/lib/host-page-tours';
 import { TraditionNotes } from './_components/tradition-notes';
@@ -51,6 +52,8 @@ type Props = {
   /** `pay=<line_item_id>` = open that payment's sheet (Home's Budget widget, `budgetPageHref`). */
   searchParams?: Promise<{
     pay?: string;
+    /** `remind=<event_vendors.vendor_id>` — a coordinator's "Remind the hosts" notice (2026-11-21). */
+    remind?: string;
   }>;
 };
 
@@ -487,7 +490,13 @@ export default async function BudgetPage({ params, searchParams }: Props) {
         }}
         list={list}
         /* 🔗 `?pay=<line_item_id>` (Home's Budget widget): the Pay sheet of that payment's supplier, open on arrival. */
-        initialPayVendorId={payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers)}
+        initialPayVendorId={
+          payTargetVendor(moneyRead?.lines ?? [], (await searchParams)?.pay, list.suppliers) ??
+          /* 💸 a coordinator's "Remind the hosts" notice lands a HOST on that supplier's Pay sheet (2026-11-21) */
+          (budgetAccess.mayEdit
+            ? remindLandingVendor((await searchParams)?.remind, new Set((list.suppliers ?? []).map((r) => r.vendorId)))
+            : null)
+        }
         // Where the event has suppliers, a supplier's row opens the Pay sheet their Booked › Team row opens — one
         // plan, one door (owner 2026-10-29). It is what this page drew inside Booked; moving home did not change it.
         supplierOpens={profile.marketplaceEnabled === true ? 'plan' : 'ledger'}

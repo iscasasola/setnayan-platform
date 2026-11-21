@@ -12,7 +12,7 @@ export const HELP_THE_HOSTS_CHOOSE = 'Help the hosts choose. They book and pay.'
 export function HelpTheHostsChoose({ eventId }: { eventId: string }) {
   const row = 'flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2 first:border-t-0';
   return (
-    <div className="sn-tile p-4" data-help-the-hosts-choose="">
+    <div className="py-2" data-help-the-hosts-choose="">
       <p className="text-sm font-medium text-ink">{HELP_THE_HOSTS_CHOOSE}</p>
       <div className="mt-2">
         <Link href={`/dashboard/${eventId}/vendors?tab=shortlist`} className={row} data-coordinator-supplier-verb="find">

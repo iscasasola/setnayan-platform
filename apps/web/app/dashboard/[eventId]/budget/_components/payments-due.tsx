@@ -16,7 +16,7 @@ export type DueRow = { vendorId: string; name: string; amountPhp: number; dueDat
  */
 export function PaymentsDue({ eventId, rows }: { eventId: string; rows: DueRow[] | null }) {
   return (
-    <section className="sn-tile p-4" data-payments-due="" aria-labelledby="payments-due-title">
+    <section className="py-2" data-payments-due="" aria-labelledby="payments-due-title">
       <h2 id="payments-due-title" className="text-xs font-semibold uppercase tracking-wide text-ink/55">
         Payments due
       </h2>
@@ -75,7 +75,7 @@ function DueLine({ eventId, row }: { eventId: string; row: DueRow }) {
     <li className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-ink/10 py-2 first:border-t-0" data-due-row={row.vendorId}>
       <span className="min-w-0">
         <span className="block truncate text-[15px] text-ink">
-          {row.name} · {formatPhp(row.amountPhp)}
+          {row.name} · <span className="tabular-nums">{formatPhp(row.amountPhp)}</span>
         </span>
         <span className="block text-[13px] text-ink/60">{dueWord(row.dueDate)}</span>
         {said ? (

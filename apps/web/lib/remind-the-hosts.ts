@@ -34,3 +34,15 @@ export function dueWord(iso: string): string {
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   return `Due ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}`;
 }
+
+/**
+ * The notice the door writes, and where it lands: every host gets `coordinator_reminded_payment` opening
+ * `/dashboard/<event>/budget?remind=<event_vendors.vendor_id>&from=<seat>` — the hosts' Budget page opens THAT
+ * supplier's Pay sheet (`remindLandingVendor`), so the reminder is one tap from paying.
+ */
+export const REMINDER_NOTICE_TYPE = 'coordinator_reminded_payment' as const;
+
+/** The supplier a reminder's link names, when it is one of the page's own suppliers — else null (never trusted blind). */
+export function remindLandingVendor(remind: unknown, supplierIds: ReadonlySet<string>): string | null {
+  return typeof remind === 'string' && supplierIds.has(remind) ? remind : null;
+}

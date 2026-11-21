@@ -6,7 +6,8 @@
  *   · a whole-shop role carries no branch; a branch of ANOTHER shop is refused;
  *   · a Branch Manager holds their branch's cards; manages only their branch, only below them; cannot promote;
  *   · the shop's own role names: members read, only a Shop Manager writes;
- *   · Marketing may edit a card but not open one;
+ *   · Marketing may edit a card's words but not open one, nor change its price, branch or status;
+ *   · a Branch Manager holds nobody whole at another branch;
  *   · event day: the client's Account Manager reaches it with no grant; a Helper does not.
  * Every case asserts a VALUE, never only a row count.
  */
@@ -196,6 +197,56 @@ test('a Branch Manager adds below them at their branch — never above, never el
   assert.equal(seen.rows[0]!.n, 0);
 });
 
+test('a Branch Manager cannot hold anyone whole at another branch — the Shop Manager still can', async () => {
+  const qc = (
+    await db.query<{ b: string }>(
+      `INSERT INTO public.vendor_branches (parent_vendor_profile_id, branch_label, branch_city, branch_radius_km)
+       VALUES ($1, 'Quezon City', 'Quezon City', 20) RETURNING branch_id AS b`,
+      [F.shop],
+    )
+  ).rows[0]!.b;
+  for (const keys of [[qc], ['main'], [F.makati, qc]]) {
+    let err = '';
+    try {
+      await as(F.bm, () =>
+        db.query(`UPDATE public.vendor_team_members SET whole_branch_keys = $2 WHERE vendor_team_member_id = $1`, [F.amSeat, keys]),
+      );
+    } catch (e) {
+      err = (e as Error).message;
+    }
+    assert.match(err, /VENDOR_TEAM_OTHER_BRANCH/, `a Branch Manager must not hold ${keys.join(',')} whole`);
+  }
+  assert.deepEqual((await row(F.amSeat)).whole_branch_keys, [], 'nothing moved');
+
+  // Their own branch is theirs to give.
+  await as(F.bm, () =>
+    db.query(`UPDATE public.vendor_team_members SET whole_branch_keys = $2 WHERE vendor_team_member_id = $1`, [F.amSeat, [F.makati]]),
+  );
+  assert.deepEqual((await row(F.amSeat)).whole_branch_keys, [F.makati]);
+
+  // A new seat written by a Branch Manager is pinned the same way.
+  let err = '';
+  try {
+    await as(F.bm, () =>
+      db.query(
+        `INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty, branch_id, whole_branch_keys)
+         VALUES ($1, $2, 'viewer', 'account_manager', $3, $4)`,
+        [F.shop, F.other, F.makati, [qc]],
+      ),
+    );
+  } catch (e) {
+    err = (e as Error).message;
+  }
+  assert.match(err, /VENDOR_TEAM_OTHER_BRANCH/);
+
+  // The Shop Manager may still file a seat across branches (the shipped Whole branch picker).
+  await as(F.owner, () =>
+    db.query(`UPDATE public.vendor_team_members SET whole_branch_keys = $2 WHERE vendor_team_member_id = $1`, [F.amSeat, [F.makati, qc]]),
+  );
+  assert.deepEqual((await row(F.amSeat)).whole_branch_keys, [F.makati, qc]);
+  await db.query(`UPDATE public.vendor_team_members SET whole_branch_keys = '{}' WHERE vendor_team_member_id = $1`, [F.amSeat]);
+});
+
 test('role names: the team reads them, only a Shop Manager writes them', async () => {
   await as(F.owner, () =>
     db.query(`INSERT INTO public.vendor_role_names (vendor_profile_id, duty, display_name, updated_by) VALUES ($1, 'account_manager', 'Lead Stylist', $2)`, [F.shop, F.owner]),
@@ -226,6 +277,48 @@ test('Marketing edits a card’s words, and opens no card', async () => {
   // A Helper's update matches nothing.
   await as(F.helper, () => db.query(`UPDATE public.vendor_services SET title = 'hijack' WHERE vendor_service_id = $1`, [F.mainCard]));
   assert.equal((await db.query<{ title: string }>(`SELECT title FROM public.vendor_services WHERE vendor_service_id = $1`, [F.mainCard])).rows[0]!.title, 'Wedding Styling · Signature');
+});
+
+test('Marketing cannot change a card’s money, branch or status — the Shop Manager can', async () => {
+  const before = (
+    await db.query<{ p: number; b: string | null; a: boolean }>(
+      `SELECT starting_price_php AS p, branch_id AS b, is_active AS a FROM public.vendor_services WHERE vendor_service_id = $1`,
+      [F.mainCard],
+    )
+  ).rows[0]!;
+  for (const [set, why] of [
+    [`starting_price_php = 1`, 'drop the price'],
+    [`branch_id = '${F.makati}'`, 'move the card to a branch'],
+    [`is_active = NOT is_active`, 'take the card down or put it up'],
+    [`title = 'Fine', starting_price_php = 2`, 'slip a price change in with a word change'],
+  ] as const) {
+    let err = '';
+    try {
+      await as(F.mkt, () => db.query(`UPDATE public.vendor_services SET ${set} WHERE vendor_service_id = $1`, [F.mainCard]));
+    } catch (e) {
+      err = (e as Error).message;
+    }
+    assert.match(err, /VENDOR_SERVICE_MARKETING_CONTENT_ONLY/, `Marketing must not ${why}`);
+  }
+  const after_ = (
+    await db.query<{ p: number; b: string | null; a: boolean; t: string }>(
+      `SELECT starting_price_php AS p, branch_id AS b, is_active AS a, title AS t FROM public.vendor_services WHERE vendor_service_id = $1`,
+      [F.mainCard],
+    )
+  ).rows[0]!;
+  assert.deepEqual({ p: after_.p, b: after_.b, a: after_.a }, before, 'nothing moved');
+  assert.equal(after_.t, 'Wedding Styling · Signature');
+
+  // Words and photos still save for Marketing…
+  await as(F.mkt, () =>
+    db.query(`UPDATE public.vendor_services SET description = 'Full-day styling', updated_at = now() WHERE vendor_service_id = $1`, [F.mainCard]),
+  );
+  // …and the Shop Manager still sets the price.
+  await as(F.owner, () => db.query(`UPDATE public.vendor_services SET starting_price_php = 35000 WHERE vendor_service_id = $1`, [F.mainCard]));
+  const done = (
+    await db.query<{ p: number; d: string }>(`SELECT starting_price_php AS p, description AS d FROM public.vendor_services WHERE vendor_service_id = $1`, [F.mainCard])
+  ).rows[0]!;
+  assert.deepEqual({ p: Number(done.p), d: done.d }, { p: 35000, d: 'Full-day styling' });
 });
 
 test('event day: the client’s Account Manager is in with no grant; a Helper is not', async () => {

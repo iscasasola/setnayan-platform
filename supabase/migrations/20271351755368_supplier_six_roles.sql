@@ -17,6 +17,7 @@
 -- WHAT IS NEW, AND WHERE (each is named so a reader can find it):
 --   1. vendor_team_members.duty + .branch_id (+ backfill, NOT NULL)            — the role and where it works
 --   2. vendor_team_duty_rank_trg (BEFORE)                                        — rank from duty, duty from a legacy rank
+--                                                                                + a Branch Manager holds nobody whole at another branch
 --   3. vendor_team_branch_manager_cards_trg (AFTER)                              — a Branch Manager holds their branch's cards
 --   4. vendor_role_names                                                         — the shop's own name for each role
 --   5. current_vendor_duty_ids(duty) · current_vendor_branch_manager_scopes()    — two helpers (owner sign-off: new pattern)
@@ -24,8 +25,12 @@
 --                                                                                — a Branch Manager runs their branch's team
 --   7. vendor_branches_member_read                                               — the team can read branch names (cards)
 --   8. vendor_services_marketing_read · vendor_services_marketing_update           — Marketing edits the shop's cards
+--      vendor_services_marketing_content_only_trg                               — …their words and photos only, never money/branch/status
 --   9. current_vendor_dayof_grant_event_ids()                                    — event day: a client's Account / Branch
 --                                                                                   Manager without a separate grant
+
+BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 -- ── 1 · duty + branch_id ─────────────────────────────────────────────────────────────────────────────────────────────
 ALTER TABLE public.vendor_team_members
@@ -148,6 +153,20 @@ BEGIN
     NEW.whole_branch_keys := ARRAY[COALESCE(NEW.branch_id::text, 'main')];
   ELSIF TG_OP = 'UPDATE' AND OLD.duty = 'branch_manager' THEN
     NEW.whole_branch_keys := '{}'::text[];
+  END IF;
+
+  -- A Branch Manager works inside their own branch (owner: "Can't: other branches"). Below a Shop Manager, a browser
+  -- writer may hold a seat whole only at that seat's own branch — so a Branch Manager cannot point an Account
+  -- Manager's whole_branch_keys at another branch. The Shop Manager, a platform admin and the server are unchanged.
+  -- Checked on the row as written (after the keys above are derived), and only when the keys or the branch move, so an
+  -- unrelated edit to a seat a Shop Manager filed across branches still saves.
+  IF current_user IN ('authenticated', 'anon')
+     AND (TG_OP = 'INSERT' OR NEW.whole_branch_keys IS DISTINCT FROM OLD.whole_branch_keys OR NEW.branch_id IS DISTINCT FROM OLD.branch_id)
+     AND NOT COALESCE(public.is_admin(), false)
+     AND NEW.vendor_profile_id NOT IN (SELECT public.current_vendor_profile_ids())
+     AND NOT (COALESCE(NEW.whole_branch_keys, '{}'::text[]) <@ ARRAY[COALESCE(NEW.branch_id::text, 'main')])
+  THEN
+    RAISE EXCEPTION 'VENDOR_TEAM_OTHER_BRANCH: a Branch Manager works inside their own branch' USING ERRCODE = '42501';
   END IF;
 
   RETURN NEW;
@@ -364,6 +383,40 @@ CREATE POLICY vendor_services_marketing_update
   USING (vendor_profile_id IN (SELECT public.current_vendor_duty_ids('marketing')))
   WITH CHECK (vendor_profile_id IN (SELECT public.current_vendor_duty_ids('marketing')));
 
+-- Marketing changes a card's WORDS and PICTURES — never its money, its branch or whether it is live. The policy above
+-- is row-shaped, so this trigger holds the columns: for a Marketing writer (not a Shop Manager / platform admin / the
+-- server), every column outside the content list must come out of the UPDATE unchanged.
+CREATE OR REPLACE FUNCTION public.vendor_services_marketing_content_only()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  content CONSTANT text[] := ARRAY[
+    'title', 'description', 'package_inclusions', 'exclusive_perk_text',
+    'primary_photo_r2_key', 'showcase_photo_r2_keys', 'showcase_video_r2_key', 'video_url', 'updated_at'
+  ];
+BEGIN
+  IF current_user IN ('authenticated', 'anon')
+     AND NOT COALESCE(public.is_admin(), false)
+     AND NEW.vendor_profile_id NOT IN (SELECT public.current_vendor_profile_ids())
+     AND NEW.vendor_profile_id IN (SELECT public.current_vendor_duty_ids('marketing'))
+     AND (to_jsonb(NEW) - content) IS DISTINCT FROM (to_jsonb(OLD) - content)
+  THEN
+    RAISE EXCEPTION 'VENDOR_SERVICE_MARKETING_CONTENT_ONLY: Marketing edits a card''s words and photos, not its price, branch or status'
+      USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.vendor_services_marketing_content_only() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS vendor_services_marketing_content_only_trg ON public.vendor_services;
+CREATE TRIGGER vendor_services_marketing_content_only_trg
+  BEFORE UPDATE ON public.vendor_services
+  FOR EACH ROW EXECUTE FUNCTION public.vendor_services_marketing_content_only();
+
 -- ── 9 · event day: four ways in (owner 19 Nov: "event can also be handled by agent and branch admin and admin") ─────
 -- Shop Manager (rank admin — unchanged), Event Crew (a grant — unchanged), and now the client's Account Manager and
 -- the Branch Manager of the card's branch: the celebration booked a card they hold, so no separate grant is needed.
@@ -389,3 +442,5 @@ AS $$
     AND ev.status IN ('contracted', 'deposit_paid', 'delivered', 'complete');
 $$;
 GRANT EXECUTE ON FUNCTION public.current_vendor_dayof_grant_event_ids() TO authenticated;
+
+COMMIT;

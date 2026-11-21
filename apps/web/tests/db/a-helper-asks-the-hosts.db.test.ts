@@ -149,7 +149,7 @@ test('1 · a limited helper’s ask reaches EVERY host, in the app, landed on th
   for (const n of rows) {
     assert.equal(n.event_id, W.eventId);
     assert.equal(n.related_url, `/dashboard/${W.eventId}?settings=1&row=access&person=${W.helperSeat}&part=seat_plan`, 'the notice does not open People with access on that helper');
-    assert.equal(n.title, 'Helper Tita Lorna asks for more access · Seat plan');
+    assert.equal(n.title, 'Helper Tita Lorna asks for more access · Seats');
     assert.match(n.body, /^“I’m doing the seats with Claire” — /, 'the helper’s own words are not carried (trimmed)');
   }
   assert.equal(await emails(), emailsBefore, 'an ask queued an email');

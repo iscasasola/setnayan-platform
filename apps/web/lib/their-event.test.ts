@@ -129,9 +129,9 @@ test('6 · ONE list, mounted on the customer page and in the chat; Guests read o
   assert.ok(part.indexOf("if (!open)") > 0 && part.indexOf("if (!open)") < part.indexOf("part === 'guests'"), 'a shut part draws its content');
   assert.doesNotMatch(part, /\.from\('guests'\)/, 'the part page reads the guest list directly');
   assert.match(code('lib/their-event.server.ts'), /\.rpc\('supplier_booking_group'/);
-  for (const f of ['seat-plan/page.tsx', 'mood-board/page.tsx']) {
-    assert.match(code(`app/vendor-dashboard/clients/[eventId]/${f}`), /fromTheirEvent \? \(\s*<TheirEventLine /, `${f} opens without the Their event line`);
-  }
+  assert.match(code('app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx'), /fromTheirEvent \? \(\s*<TheirEventLine /, 'mood-board/page.tsx opens without the Their event line');
+  // Seats is drawn by supplier pages set two (main, 21 Nov): EVERY visit opens under the line, door or not.
+  assert.match(code('app/vendor-dashboard/clients/[eventId]/seat-plan/seat-plan-body.tsx'), /<TheirEventPart\b/, 'the seat plan opens without the Their event line');
 });
 
 test('7 · a supplier’s edit to their OWN item applies at once; anything else waits', () => {

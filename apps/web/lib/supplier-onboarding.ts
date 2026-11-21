@@ -62,6 +62,35 @@ export const OPEN_YOUR_SHOP_FREE_LINE = 'Free gives you the tools. Couples find 
 
 /** The main button on an invite door. Owner: the button says "Accept", never "Claim it". */
 export const ACCEPT_LABEL = 'Accept';
+/** P1's line over the button — what Accept does, and that it is free. */
+export const ACCEPT_LINE = 'Accept to run this booking on Setnayan. Free.';
+/** P1's quiet decline link (was the grey pill "I'm not this supplier"). */
+export const NOT_MY_BUSINESS = 'Not my business';
+
+/** P3's title (drawing v4): on the claim door the list is the couple's record to correct. Door B keeps `ONBOARDING_HEADS.check`. */
+export const CLAIM_CHECK_HEAD = 'Check your shop';
+
+/**
+ * 🚪 P3 — DOOR A'S ROW NAMES (owner 19 Nov drawing). The couple's record names a booking, so its rows read Covers ·
+ * Booked · Pays · They pay you where the self-serve list says Services · Booked · They pay you. `plan` (the payment
+ * plan) is Door A's alone.
+ */
+export const CLAIM_CHECK_LABEL = {
+  name: 'Shop name',
+  contact: 'Contact',
+  number: 'Number',
+  categories: 'Covers',
+  package: 'Booked',
+  plan: 'Pays',
+  pay: 'They pay you',
+} as const;
+export type ClaimCheckRow = keyof typeof CLAIM_CHECK_LABEL;
+/** P3's line under the head — whatever the couple got wrong is theirs to change. */
+export const claimCheckLine = (couple: string) => `Change anything ${couple} got wrong.`;
+/** P3's two lines under the list — who sees a change, and who approves one. */
+export const CLAIM_CHECK_NOTES = ['Contact changes: they just see them.', 'Price or service changes: they approve.'] as const;
+/** P3's button — the list is right as it stands. */
+export const LOOKS_RIGHT = 'Looks right';
 
 /* ───────────────────────── ② Check your shop — one list, a sheet per fact ───────────────────────── */
 
@@ -359,6 +388,15 @@ export function todayWelcomeLine(shop: WelcomeShop): string {
 export function todayWelcomeSteps(shop: WelcomeShop) {
   return TODAY_WELCOME_STEPS.filter((s) => s.key !== 'verify' || (shop !== null && !shop.verified));
 }
+/** P6 — the claimed welcome's line: where the couple who invited them now is. */
+/**
+ * Door A: Edit was picked on the first card, but the card could not be found to open (not made, or the lookup failed —
+ * ship review 21 Nov). Carried as `?edit=unread` to finalize and `card_edit=unread` to Today, where it is SAID.
+ */
+export const FIRST_CARD_EDIT_UNREAD = 'unread';
+export const FIRST_CARD_EDIT_UNREAD_LINE = 'You picked Edit, but we couldn’t find your card just now. Open your cards to edit it.';
+export const welcomeEditUnreadPath = (welcome: string) => `${welcome}&card_edit=${FIRST_CARD_EDIT_UNREAD}`;
+export const claimedWelcomeLine = (couple: string, eventWord: string) => `${couple}’s ${eventWord} is in Clients.`;
 
 /** PB6's first, already-ticked row: what the door made. */
 export const TODAY_WELCOME_DONE = { withCard: 'Your shop and first card', shopOnly: 'Your shop' } as const;

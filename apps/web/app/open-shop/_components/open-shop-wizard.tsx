@@ -86,6 +86,7 @@ import {
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
+import { FirstCardDraft } from './first-card-draft';
 import { PasswordField } from '@/app/_components/password-field';
 import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
@@ -1813,42 +1814,22 @@ export function OpenShopWizard({
               <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
               {/* The card's name is drafted from the main service (PB4); the Card Maker renames it. */}
               <input type="hidden" name={FIRST_CARD_FIELD.title} value={cardTitle} />
-              {/* PB4 — the drafted card, as couples will see it: its category, its name, its price or "No price yet". */}
-              <div className="grid gap-1.5 border-y py-4" style={{ borderColor: 'var(--m-line)' }} data-onboarding-card-face="">
-                <span className="text-xs font-medium" style={{ color: 'var(--m-mulberry)' }}>
-                  {categoryLabels[0] ?? serviceLabel ?? 'Your service'}
-                </span>
-                <b className="text-[17px] font-semibold" style={{ color: 'var(--m-ink)' }}>
-                  {cardTitle.trim() || serviceLabel || 'Your service'}
-                </b>
-                <span className="text-sm tabular-nums" style={{ color: cardPriceNumber ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
-                  {cardPriceNumber ? `From ₱${formatCount(cardPriceNumber)}` : 'No price yet'}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Add what&rsquo;s included in the Card Maker.
-                </span>
-              </div>
-              {/* "Built from what you typed" — where each part of the draft came from. */}
-              <div className="grid gap-1.5 text-[13.5px]" data-onboarding-card-source="">
-                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
-                  Built from what you typed
-                </span>
-                {[
+              {/* PB4 — the drafted card, as couples will see it (its category, its name, its price or "No price yet"),
+                  then "Built from what you typed": where each part of the draft came from. Shared with Door A's P4. */}
+              <FirstCardDraft
+                category={categoryLabels[0] ?? serviceLabel ?? 'Your service'}
+                name={cardTitle.trim() || serviceLabel || 'Your service'}
+                price={cardPriceNumber || null}
+                lines={[]}
+                sourceHead="Built from what you typed"
+                sources={[
                   ['Category', categoryLabels[0] ?? '—', 'you picked it'],
                   ['Service', serviceLabel ?? '—', 'you named it'],
                   ['Price', cardPriceNumber ? `₱${formatCount(cardPriceNumber)}` : 'Not set', cardPriceNumber ? 'you typed it' : 'type yours'],
-                ].map(([k, v, why]) => (
-                  <span key={k} className="flex items-baseline gap-2">
-                    <span className="w-[72px] shrink-0" style={{ color: 'var(--m-slate-3)' }}>
-                      {k}
-                    </span>
-                    <span className="min-w-0 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
-                      {v}
-                    </span>
-                    <small style={{ color: 'var(--m-slate-3)' }}>{why}</small>
-                  </span>
-                ))}
-              </div>
+                ]}
+                faceAttr="data-onboarding-card-face"
+                sourceAttr="data-onboarding-card-source"
+              />
               <label className="block space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   From (PHP)

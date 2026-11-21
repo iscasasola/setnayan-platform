@@ -253,6 +253,29 @@ test('11 · "on your page" only when the shipped switch said yes — a refusal i
   assert.match(TODAY, /cardState=\{firstCardStateFrom\(search\)\}/);
 });
 
+test('9 · Door A (P1 · P3 · P5 · P6) speaks the drawing’s words, and the team door promises no Card Maker', async () => {
+  const { readFileSync } = await import('node:fs');
+  const door = readFileSync(new URL('../app/open-shop/_components/claim-door.tsx', import.meta.url), 'utf8');
+  const mod = await import('./supplier-onboarding');
+  // P1
+  assert.equal(mod.ACCEPT_LINE, 'Accept to run this booking on Setnayan. Free.');
+  assert.match(door, /`\$\{record\.inviterName\} added you\.`/);
+  assert.match(door, /data-claim-door-shop=""/);
+  // P3 — the claim door's own row names, its two notes, Looks right
+  assert.deepEqual(Object.values(mod.CLAIM_CHECK_LABEL), ['Shop name', 'Contact', 'Number', 'Covers', 'Booked', 'Pays', 'They pay you']);
+  assert.equal(mod.claimCheckLine('Ana & Ben'), 'Change anything Ana & Ben got wrong.');
+  assert.match(door, /\{CLAIM_CHECK_LABEL\[r\.fact\]\}/);
+  assert.match(door, /primary = \{ label: LOOKS_RIGHT, onClick: next \};/);
+  // P4 — the Setnayan team's finish never reaches the Card Maker hand-off, so its door draws no Edit and says none.
+  assert.match(door, /\{team \? null : <ActionButton tone="neutral" icon=\{PenLine\} label="Edit"/);
+  assert.match(door, /\? 'Skip makes no card — add one from Today\.'/);
+  // P5 — the tick on every claim's last screen; Open my shop waits for it
+  assert.match(door, /<PlanAgree\b/);
+  assert.match(door, /!d\.planAgreed \? \(/);
+  // P6
+  assert.equal(mod.claimedWelcomeLine('Ana & Ben', 'wedding'), 'Ana & Ben’s wedding is in Clients.');
+});
+
 test('11b · ship review 21 Nov — the welcome says what is TRUE of this shop: its plan, and "Get verified" only when it is not', async () => {
   // `?claimed=1` also lands ESTABLISHED shops (main's claim finalize page and the services action), so nothing fixed.
   assert.equal(todayWelcomeLine({ tierState: 'free', verified: false }), 'Your shop is open on Free.');
@@ -269,7 +292,8 @@ test('11b · ship review 21 Nov — the welcome says what is TRUE of this shop: 
   assert.deepEqual(keys(null), ['clients', 'logo'], 'a failed read asks for verification it cannot know is missing');
   // Today hands the welcome its one shop read; the welcome draws only from it.
   assert.match(TODAY, /shop=\{shopRow \? \{ tierState: shopRow\.tierState \?\? null, verified: shopRow\.verified \} : null\}/);
-  assert.match(WELCOME, /\{todayWelcomeLine\(shop\)\}/);
+  // Door A (P6): the couple's line when that read worked, else this shop's own truth — never a fixed Free.
+  assert.match(WELCOME, /claimedWelcomeLine\(claimed\.couple, claimed\.eventWord\) : todayWelcomeLine\(shop\)\}/);
   assert.doesNotMatch(WELCOME, /['"`][^'"`\n]*open on Free/, 'the welcome hard-codes "open on Free" again');
 });
 

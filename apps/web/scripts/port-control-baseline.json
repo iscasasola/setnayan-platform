@@ -15083,6 +15083,9 @@
         "vendor-dashboard/clients/[eventId]/_components/supplier-suggest-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/suppliers-rows.ts",
+        "vendor-dashboard/clients/[eventId]/_components/their-event-line.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/their-event-list.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/their-event-parts.tsx",
         "vendor-dashboard/clients/[eventId]/_components/top-up-carry-over.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-challenge-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/vendor-part-signoff.tsx",
@@ -15122,6 +15125,7 @@
         "/vendor-dashboard/clients/[seg]/mood-board",
         "/vendor-dashboard/clients/[seg]/production-sheet",
         "/vendor-dashboard/clients/[seg]/seat-plan",
+        "/vendor-dashboard/clients/[seg]?tab=chat",
         "/vendor-dashboard/clients/[seg]?tab=files",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
@@ -15320,6 +15324,7 @@
         "TagPicker",
         "TemplateSection",
         "TheTie",
+        "TheirEventList",
         "TheyToldYou",
         "ThumbRow",
         "TimeRow",
@@ -15415,6 +15420,7 @@
         "TemplateRow",
         "TemplateRows",
         "TemplateSection",
+        "TheirEventLine",
         "VendorPartSignoff"
       ]
     },
@@ -15450,7 +15456,23 @@
       "blocks": [
         "EventLockedPage",
         "Link",
-        "PinMarker"
+        "PinMarker",
+        "TheirEventLine"
+      ]
+    },
+    "/vendor-dashboard/clients/[eventId]/their-event/[part]": {
+      "files": [
+        "vendor-dashboard/clients/[eventId]/their-event/[part]/page.tsx"
+      ],
+      "destinations": [
+        "/[seg]"
+      ],
+      "actions": [],
+      "blocks": [
+        "GuestsPart",
+        "Link",
+        "NumbersPart",
+        "TheirEventLine"
       ]
     },
     "/vendor-dashboard/collections": {

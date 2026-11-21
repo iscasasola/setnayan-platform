@@ -398,3 +398,21 @@ export function waitingWords(r: Pick<SupplierRequestRow, 'kind' | 'proposed_labe
   if (r.kind === 'adjust') return momentLabel ? `Change “${momentLabel}”` : 'A suggestion';
   return r.proposed_label ?? 'A new moment';
 }
+
+/**
+ * ✏️ AN EDIT TO THE SUPPLIER'S OWN ITEM (owner 2026-11-21, DECISION_LOG "'THEIR EVENT' DOOR SHAPE + SCHEDULE RULE":
+ * *"they can view all the schedules, but they cannot edit schedules not attributed to their service"* — and the
+ * controller call on the drawing: *"Their edit applies at once. The hosts get a notice and can undo it."*). True only
+ * for a change to an EXISTING moment ('adjust') whose `responsible_vendor_ids` hold one of this supplier's own bookings
+ * on the event. Adding, removing, or touching anybody else's moment still waits for the hosts.
+ */
+export function editsOwnItem(i: {
+  kind: string | null | undefined;
+  blockId: string | null | undefined;
+  responsibleVendorIds: readonly string[] | null | undefined;
+  myBookingIds: readonly string[];
+}): boolean {
+  if (i.kind !== 'adjust' || !i.blockId) return false;
+  const mine = new Set(i.myBookingIds);
+  return (i.responsibleVendorIds ?? []).some((id) => mine.has(id));
+}

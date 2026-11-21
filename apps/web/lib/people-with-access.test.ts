@@ -53,7 +53,7 @@ const seat = (over: Partial<SeatInput>): SeatInput => ({
 test('the owner’s area names, in the owner’s order', () => {
   assert.deepEqual(
     DELEGATE_AREAS.map((a) => DELEGATE_AREA_LABEL[a]),
-    ['Guest list', 'Seat plan', 'The Day', 'Suppliers', 'Event Hub', 'Mood Board', 'Budget', 'Payments', 'Photos'],
+    ['Guests', 'Seats', 'Schedule', 'Suppliers', 'Hub', 'Mood Board', 'Budget', 'Payments', 'Memories'],
   );
 });
 

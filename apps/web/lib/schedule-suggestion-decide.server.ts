@@ -4,7 +4,7 @@ import { createAdminClient } from './supabase/admin';
 import { emitNotification } from './notification-emit';
 import { logQueryError } from './supabase/error-detect';
 import { isNoteOnlySuggestion } from './schedule-ros';
-import { settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
+import { editsOwnItem, settleSupplierRequest, type SettleOutcome } from './supplier-schedule';
 import { directionOf, proposedPatch, sideMayDecide } from './schedule-ask';
 import { whereAskRefusalWords } from './supplier-where';
 import { changeTheSchedule } from './change-the-schedule.server';
@@ -364,6 +364,9 @@ export async function settleAfterAsking(eventId: string, suggestionId: string): 
   const admin = createAdminClient();
   return settleSupplierRequest(
     async () => {
+      // ✏️ Their OWN item applies at once, whatever the event's switch (owner 2026-11-21 — `editsOwnItem`). Read from the
+      // request row the database wrote (its block, its shop), never from the form.
+      if (await requestEditsOwnItem(admin, eventId, suggestionId)) return true;
       const { data, error } = await admin
         .from('events')
         .select('supplier_requests_auto_agree')
@@ -388,4 +391,31 @@ export async function settleAfterAsking(eventId: string, suggestionId: string): 
       }
     },
   );
+}
+
+/** Does this open request change a moment that is the asking supplier's own? Any failed read = no (it waits). */
+async function requestEditsOwnItem(admin: Db, eventId: string, suggestionId: string): Promise<boolean> {
+  try {
+    const { data: s } = await admin
+      .from('event_schedule_suggestions')
+      .select('kind, block_id, vendor_profile_id, direction, status')
+      .eq('suggestion_id', suggestionId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    const row = s as { kind: string; block_id: string | null; vendor_profile_id: string | null; direction: string | null; status: string } | null;
+    if (!row || row.status !== 'open' || !row.block_id || !row.vendor_profile_id || row.direction === 'to_supplier') return false;
+    const [blockRes, mineRes] = await Promise.all([
+      admin.from('event_schedule_blocks').select('responsible_vendor_ids').eq('block_id', row.block_id).eq('event_id', eventId).maybeSingle(),
+      admin.from('event_vendors').select('vendor_id').eq('event_id', eventId).eq('marketplace_vendor_id', row.vendor_profile_id),
+    ]);
+    if (blockRes.error || mineRes.error) return false;
+    return editsOwnItem({
+      kind: row.kind,
+      blockId: row.block_id,
+      responsibleVendorIds: (blockRes.data as { responsible_vendor_ids: string[] | null } | null)?.responsible_vendor_ids ?? null,
+      myBookingIds: ((mineRes.data ?? []) as Array<{ vendor_id: string }>).map((r) => r.vendor_id),
+    });
+  } catch {
+    return false;
+  }
 }

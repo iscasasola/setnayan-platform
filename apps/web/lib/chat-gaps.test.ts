@@ -232,12 +232,9 @@ test('5 · a payment ask posts one plain line (no free-text note in it)', () => 
 
 // ── 6 · ASK FOR ACCESS IN THE SUPPLIER (+) ──────────────────────────────────
 
-test('6 · every supplier (and the coordinator) has the row; it waits for the booking, like the shipped ask', () => {
+test('6 · Ask for access LEFT the supplier (+) (owner 21 Nov: one door for asking — the Their event list)', () => {
   for (const paid of [false, true]) {
-    const row = supplierPlusRows({ paid }).find((r) => r.key === 'access');
-    assert.ok(row, 'the supplier (+) has no Ask for access');
-    assert.equal(row.card, 'access');
-    assert.ok(row.shutUntilAgreement?.reason, 'the row is hidden rather than shut with its reason');
+    assert.ok(!supplierPlusRows({ paid }).some((r) => r.key === 'access'), 'Ask for access is back under the supplier (+)');
   }
   assert.ok(!hostPlusRows({ canLogPayment: true }).some((r) => r.key === 'access'), 'the hosts were given an ask for access');
   assert.equal(PLUS_CARD_TOPIC.access, 'access');
@@ -256,6 +253,6 @@ test('6 · the card is the SHIPPED ask, one dropdown — and the ask posts a pla
   assert.equal((ask.match(/^export async function /gm) ?? []).length, 1);
   assert.equal(
     accessAskedLine({ shopName: 'Sol Studio', areas: ['seat_plan', 'guest_list'] }),
-    'Sol Studio asked to open: Seat plan, Guest list — the hosts answer in Access requests.',
+    'Sol Studio asked to open: Seats, Guests — the hosts answer in Access requests.',
   );
 });

@@ -16077,7 +16077,7 @@
         "vendor-dashboard/lines/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/clients",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/lines"
       ],
       "actions": [

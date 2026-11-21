@@ -7,6 +7,7 @@ import {
   proposeAdminMotion,
   removeVendorTeamMember,
   setVendorAgentServices,
+  setVendorRoleNames,
   stepDownSelf,
   updateVendorTeamMember,
   voteAdminMotion,
@@ -20,6 +21,8 @@ import { kind, type Door } from './_door';
  */
 const SUP_TEAM_WORDS: StayWords = { within: [supplierScreen('team'), supplierScreen('shop')], refuse: (q) => q.get('error') };
 const supTeam = kind(SUP_TEAM_WORDS, false);
+/** Team › Roles (six supplier roles, 19 Nov 2026) — Save names lands back on `/vendor-dashboard/team/roles`. */
+const supTeamRoles = kind({ within: [supplierScreen('team/roles')], refuse: (q) => q.get('error') }, false);
 
 export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.inviteVendorTeamMember': supTeam(inviteVendorTeamMember),
@@ -30,4 +33,5 @@ export const SUP_TEAM: Readonly<Record<SupTeamStayDoor, Door>> = {
   'supTeam.voteAdminMotion': supTeam(voteAdminMotion),
   'supTeam.cancelAdminMotion': supTeam(cancelAdminMotion),
   'supTeam.stepDownSelf': supTeam(stepDownSelf),
+  'supTeam.setVendorRoleNames': supTeamRoles(setVendorRoleNames),
 };

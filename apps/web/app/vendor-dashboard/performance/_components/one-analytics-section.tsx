@@ -2,7 +2,8 @@ import { after } from 'next/server';
 import { Gauge, TrendingUp, Radar } from 'lucide-react';
 import { replyTimeVerdict } from '@/lib/vendor-reply-time';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
 import {
   buildVendorHealthComposite,
   unmeasuredVendorHealthComposite,
@@ -173,10 +174,13 @@ export async function OneAnalyticsSection({
   // owner/admin is TOLD so (the section's own line), never shown an empty carousel.
   const role = await resolveVendorRole(supabase, userId);
   if (!canManageVendor(role)) {
+    // 🔒 Six roles (owner 19 Nov 2026): Marketing now opens the Shop tab — the numbers stay the Shop Manager's, and the
+    // lock says so with the Problem and the Solution.
+    const standing = await resolveVendorStanding(supabase, userId).catch(() => null);
     return (
-      <p className="px-4 pt-5 text-[13.5px] text-ink/70" data-shop-analytics-owner-only="">
-        Analytics are for the shop&rsquo;s owner and admins.
-      </p>
+      <div className="px-4 pt-5" data-shop-analytics-owner-only="">
+        <RoleLock duty={standing?.duty ?? null} capability="insights" />
+      </div>
     );
   }
 

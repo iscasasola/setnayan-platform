@@ -8,6 +8,7 @@ import { AlbumShareSwitch } from './album-share-switch';
 import { STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
 import { PutOnMyPageButton } from '@/app/vendor-dashboard/collections/_components/put-on-my-page-button';
 import { InfoTip } from '@/app/_components/info-tip';
+import { PartCard, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { SUPPLIER_PAGE_NOTICE_DAYS, supplierPageNoticeState, type SupplierPageNoticeRow, type SupplierPageNoticeState } from '@/lib/supplier-page-notice';
 
 /**
@@ -57,16 +58,7 @@ export async function PortfolioAlbumSection({
 
   // A read failure must not read as "you've imported nothing" — same posture
   // as own-captures-strip.tsx.
-  if (error) {
-    return (
-      <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
-        <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
-          Couldn&rsquo;t load your portfolio just now. Your photos are safe — this is only
-          the view.
-        </p>
-      </section>
-    );
-  }
+  if (error) return <PortfolioAlbumView unread eventId={eventId} />;
 
   const photos = visiblePortfolioPhotos(data ?? []);
 
@@ -120,77 +112,131 @@ export async function PortfolioAlbumSection({
     }),
   );
 
+  return (
+    <PortfolioAlbumView
+      eventId={eventId}
+      summary={portfolioAlbumSummary(photos)}
+      share={share}
+      canPutOnPage={canPutOnPage}
+      eventEnded={eventEnded}
+      coupleName={coupleName}
+      creditsLeft={creditsLeft}
+      vendorProfileId={vendorProfileId ?? null}
+      tiles={tiles}
+      noticeByPhoto={noticeByPhoto}
+    />
+  );
+}
+
+type AlbumTile = { photo: ReturnType<typeof visiblePortfolioPhotos>[number]; url: string | null };
+type AlbumShare = { ready: boolean; isUltra: boolean; shared: boolean; asked: boolean };
+
+/**
+ * The album DRAWN — no reads (`PortfolioAlbumSection` above reads and signs; the lab hands fixtures). The November look
+ * (supplier pages set two, page 8, 21 Nov 2026): a card, its name in sentence case with the count at the right, and the
+ * private line as a lock note — no mono capitals, no rule above it.
+ */
+export function PortfolioAlbumView(
+  props:
+    | { unread: true; eventId: string }
+    | {
+        unread?: false;
+        eventId: string;
+        summary: string;
+        share: AlbumShare;
+        canPutOnPage: boolean;
+        eventEnded: boolean;
+        coupleName: string;
+        creditsLeft: number | null;
+        vendorProfileId: string | null;
+        tiles: readonly AlbumTile[];
+        noticeByPhoto: ReadonlyMap<string, { state: SupplierPageNoticeState; publicFrom: string }>;
+      },
+) {
+  if (props.unread) {
+    return (
+      <PartCard className="scroll-mt-24">
+        <section id="portfolio" aria-label="Your private portfolio">
+          <h2 className={setTwo.cardHead}>Your private portfolio</h2>
+          <p role="alert" className={setTwo.cardLine}>
+            Couldn&rsquo;t load your portfolio just now. Your photos are safe — this is only the view.
+          </p>
+        </section>
+      </PartCard>
+    );
+  }
+  const { eventId, summary, share, canPutOnPage, eventEnded, coupleName, creditsLeft, vendorProfileId, tiles, noticeByPhoto } = props;
   const canImport = creditsLeft == null || creditsLeft >= 1;
 
   return (
-    <section id="portfolio" className="mt-8 scroll-mt-24 border-t pt-6" style={{ borderColor: 'var(--m-line)' }}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em]" style={{ color: 'var(--m-slate-3)' }}>
+    <PartCard className="scroll-mt-24">
+      <section id="portfolio" aria-label="Your private portfolio">
+        <h2 className={setTwo.cardHead}>
           Your private portfolio
+          <span className={setTwo.cardHeadEnd}>{summary}</span>
         </h2>
-        <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
-          {portfolioAlbumSummary(photos)}
-        </p>
-      </div>
-      <div className="mt-1 flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-        <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-        {/* Title + one short line; the rest in the ⓘ (house rule). The old line said "never their guests" — no longer
-            true of a photo you put on your page: the event's guests are shown it first (owner 2026-10-03). */}
-        <InfoTip
-          label={
-            share.isUltra && share.shared
-              ? 'Shared to this event’s story. Switch it off to keep it private.'
-              : 'Only you see this album. A photo you put on your page goes up after the guests’ notice.'
-          }
-          labelClassName="text-xs"
-          align="start"
-        >
-          Each photo you import spends one Papic credit. When you put one on your page, everyone at this event is told
-          on their guests’ page and has {SUPPLIER_PAGE_NOTICE_DAYS} days to remove it. If nobody does, it goes up on your
-          page by itself. A guest can still remove it later, and a photo taken down at a guest&rsquo;s request comes
-          off your page too.
-        </InfoTip>
-      </div>
+        <div className={`${setTwo.note} ${setTwo.noteAccent}`} style={{ marginLeft: 0, marginRight: 0 }}>
+          <Lock aria-hidden strokeWidth={1.75} />
+          <div className={setTwo.noteBody}>
+            {/* Title + one short line; the rest in the ⓘ (house rule). The old line said "never their guests" — no longer
+                true of a photo you put on your page: the event's guests are shown it first (owner 2026-10-03). */}
+            <InfoTip
+              label={
+                share.isUltra && share.shared
+                  ? 'Shared to this event’s story. Switch it off to keep it private.'
+                  : 'Only you see this album. A photo you put on your page goes up after the guests’ notice.'
+              }
+              labelClassName="text-[13px]"
+              align="start"
+            >
+              Each photo you import spends one Papic credit. When you put one on your page, everyone at this event is told
+              on their guests’ page and has {SUPPLIER_PAGE_NOTICE_DAYS} days to remove it. If nobody does, it goes up on
+              your page by itself. A guest can still remove it later, and a photo taken down at a guest&rsquo;s request
+              comes off your page too.
+            </InfoTip>
+          </div>
+        </div>
 
-      {share.ready ? (
-        <AlbumShareSwitch
+        {share.ready ? (
+          <AlbumShareSwitch
+            eventId={eventId}
+            shared={share.shared}
+            isUltra={share.isUltra}
+            canManage={canPutOnPage}
+            askNow={eventEnded && share.isUltra && !share.asked && !share.shared}
+            coupleName={coupleName}
+            returnPath={`/vendor-dashboard/on-the-day/live/${eventId}/papic`}
+            upgradeHref={STORAGE_UPGRADE_HREF}
+          />
+        ) : null}
+
+        <PortfolioImportForm
           eventId={eventId}
-          shared={share.shared}
-          isUltra={share.isUltra}
-          canManage={canPutOnPage}
-          askNow={eventEnded && share.isUltra && !share.asked && !share.shared}
-          coupleName={coupleName}
-          returnPath={`/vendor-dashboard/on-the-day/live/${eventId}/papic`}
-          upgradeHref={STORAGE_UPGRADE_HREF}
+          canImport={canImport}
+          creditsLeft={creditsLeft}
+          // 🎬 Videos go into the album a Supplier Ultra can share (owner 2026-11-13); other plans import photos.
+          vendorProfileId={share.ready && share.isUltra ? vendorProfileId : null}
         />
-      ) : null}
 
-      <PortfolioImportForm
-        eventId={eventId}
-        canImport={canImport}
-        creditsLeft={creditsLeft}
-        // 🎬 Videos go into the album a Supplier Ultra can share (owner 2026-11-13); other plans import photos.
-        vendorProfileId={share.ready && share.isUltra ? (vendorProfileId ?? null) : null}
-      />
-
-      {tiles.length > 0 ? (
-        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {tiles.map(({ photo, url }) => (
-            <li key={photo.photoId} className="flex flex-col gap-1">
-              <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/10">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                ) : null}
-                {photo.isVideo ? <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">▶</span> : null}
-              </div>
-              {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — after the guests'
-                  7-day notice (owner 2026-10-03); a copy in your page's gallery, the album keeps its private one. */}
-              {canPutOnPage ? <PutOnMyPageButton photoId={photo.photoId} notice={noticeByPhoto.get(photo.photoId) ?? null} /> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
+        {tiles.length > 0 ? (
+          <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {tiles.map(({ photo, url }) => (
+              <li key={photo.photoId} className="flex flex-col gap-1">
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-ink/10">
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  ) : null}
+                  {photo.isVideo ? <span aria-label="Video" className="absolute bottom-1.5 left-1.5 rounded-full bg-ink/70 px-1.5 text-xs text-cream">▶</span> : null}
+                </div>
+                {/* One tap puts THIS photo on your page (owner 2026-10-15, "SIX OWNER ANSWERS" (3)) — after the guests'
+                    7-day notice (owner 2026-10-03); a copy in your page's gallery, the album keeps its private one. */}
+                {canPutOnPage ? <PutOnMyPageButton photoId={photo.photoId} notice={noticeByPhoto.get(photo.photoId) ?? null} /> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+    </PartCard>
   );
 }

@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 310 files · 733 boxes
+# 305 files · 721 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -263,7 +263,6 @@
 2 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
 2 apps/web/app/vendor-dashboard/_components/overview-sections.tsx
 1 apps/web/app/vendor-dashboard/_components/video-links-editor.tsx
-4 apps/web/app/vendor-dashboard/activities/page.tsx
 4 apps/web/app/vendor-dashboard/activities/questions-section.tsx
 3 apps/web/app/vendor-dashboard/attributes/_components/attribute-field-renderer.tsx
 2 apps/web/app/vendor-dashboard/bookings/_components/vendor-prep-add.tsx
@@ -276,8 +275,6 @@
 1 apps/web/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx
 1 apps/web/app/vendor-dashboard/clients/[eventId]/editorial-media/_components/editorial-media-studio.tsx
 9 apps/web/app/vendor-dashboard/clients/[eventId]/page.tsx
-2 apps/web/app/vendor-dashboard/creators/page.tsx
-1 apps/web/app/vendor-dashboard/disputes/page.tsx
 6 apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx
 1 apps/web/app/vendor-dashboard/lines/page.tsx
 1 apps/web/app/vendor-dashboard/manpower/_components/gig-card.tsx
@@ -295,7 +292,6 @@
 6 apps/web/app/vendor-dashboard/payment-options/_components/add-payment-method.tsx
 4 apps/web/app/vendor-dashboard/proposals/surface.tsx
 3 apps/web/app/vendor-dashboard/recommendations/_panel.tsx
-3 apps/web/app/vendor-dashboard/repertoire/page.tsx
 1 apps/web/app/vendor-dashboard/services/_components/addons-editor.tsx
 1 apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx
 3 apps/web/app/vendor-dashboard/services/_components/customization-step.tsx

@@ -14,16 +14,18 @@ import { useState } from 'react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import type { ReactNode } from 'react';
+import { Play } from 'lucide-react';
+import { Fold } from '@/app/_components/fold';
+import { SongLinkForm } from './repertoire-tools';
 import { removeRepertoireSong } from '../actions';
 
 export type SetListSong = { song_id: number; title: string; artist: string | null; performance_url: string | null };
 
 /**
- * `links` — each song's "link a video of you playing it" form, drawn by the server page (it stays where the Field
- * template's count for it lives) and placed under the song here.
+ * The redraw (v3, 21 Nov 2026): one white frame, a song a row; a song OPENS IN PLACE (the shared `Fold`, one at a time)
+ * to edit its video link (`SongLinkForm`); "Watch" opens the video beside the row.
  */
-export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonly<Record<number, ReactNode>> }) {
+export function SetList({ songs, query }: { songs: SetListSong[]; query: string }) {
   const [hidden, setHidden] = useState<ReadonlySet<number>>(() => new Set());
   const shown = songs.filter((s) => !hidden.has(s.song_id));
 
@@ -43,7 +45,7 @@ export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonl
 
   return (
     <>
-      <ul className="[&>li+li]:border-t [&>li+li]:border-[color:var(--m-line)]">
+      <ul className="sn-frame px-4 py-1">
         {shown.map((song) => (
           <SwipeToDelete
             key={song.song_id}
@@ -52,14 +54,29 @@ export function SetList({ songs, links }: { songs: SetListSong[]; links: Readonl
             word="Remove"
             onDelete={() => remove(song)}
             radiusClass=""
-            surfaceClass="bg-[var(--m-paper)]"
+            surfaceClass="bg-[rgb(var(--sn-frame-bg))]"
           >
-            <div className="flex min-h-14 items-center justify-between gap-2 px-2 py-2" data-set-list-song="">
-              <span className="min-w-0">
-                <span className="block truncate text-[15px] font-semibold text-ink">{song.title}</span>
-                {song.artist ? <span className="block truncate text-[13px] text-[color:var(--m-slate-2)]">{song.artist}</span> : null}
-              </span>
-              {links[song.song_id]}
+            <div data-set-list-song="">
+              <Fold
+                title={song.title}
+                line={song.artist ?? undefined}
+                aside={song.performance_url ? undefined : <span className="text-[13px] font-semibold text-[color:var(--m-slate-2)]">Video</span>}
+                endPress={
+                  song.performance_url ? (
+                    <a
+                      href={song.performance_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="sn-press inline-flex min-h-11 items-center gap-1 px-1 text-[13px] font-semibold text-[rgb(var(--color-link))]"
+                    >
+                      <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Watch
+                    </a>
+                  ) : undefined
+                }
+                data="set-list-song"
+              >
+                <SongLinkForm song={song} query={query} />
+              </Fold>
             </div>
           </SwipeToDelete>
         ))}

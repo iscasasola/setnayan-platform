@@ -298,6 +298,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaimsRes,
     userUnfollowsRes,
     inviteMutesRes,
+    chatMutesRes,
     eventTypeAsksRes,
     vendorReuseRequestsRes,
     workingNotesRes,
@@ -594,6 +595,13 @@ export async function buildPersonalDataExport(
       .select('muted_user_id, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-21) — 🔕 "Mute this chat" (migration 20271356402294): the chats the subject muted, keyed to
+    // them (user_id), private (Pattern A) — their own stated preference; the other side is never told.
+    supabase
+      .from('chat_thread_mutes')
+      .select('thread_id, muted_at')
+      .eq('user_id', user.id)
+      .order('muted_at', { ascending: true }),
     // RA 10173 (2026-10-28) — the event types the subject ASKED us to add ("Can't find yours? Ask us to add
     // it", migration 20271294233183): their own words, keyed to them (user_id), readable under their own RLS.
     supabase
@@ -1232,6 +1240,7 @@ export async function buildPersonalDataExport(
   const papicFreeGrantClaims = listOutcome('papic_free_grant_claims', papicFreeGrantClaimsRes);
   const userUnfollows = listOutcome('user_unfollows', userUnfollowsRes);
   const inviteMutes = listOutcome('invite_mutes', inviteMutesRes);
+  const chatMutes = listOutcome('chat_thread_mutes', chatMutesRes);
   const eventTypeAsks = listOutcome('event_type_requests', eventTypeAsksRes);
   const vendorReuseRequests = listOutcome('vendor_reuse_requests', vendorReuseRequestsRes);
   const ownSuggestions = listOutcome('event_inspiration_suggestions', ownSuggestionsRes);
@@ -1414,6 +1423,7 @@ export async function buildPersonalDataExport(
     papicFreeGrantClaims,
     userUnfollows,
     inviteMutes,
+    chatMutes,
     eventTypeAsks,
     vendorReuseRequests,
     ownSuggestions,
@@ -1540,6 +1550,7 @@ export async function buildPersonalDataExport(
     papic_free_grant_claims: papicFreeGrantClaims.rows,
     user_unfollows: userUnfollows.rows,
     invite_mutes: inviteMutes.rows,
+    chats_you_muted: chatMutes.rows,
     event_type_requests: eventTypeAsks.rows,
     vendor_reuse_requests: vendorReuseRequests.rows,
     // 🤝🖼 Photos the subject suggested to couples' boards as a booked supplier (author-scoped).

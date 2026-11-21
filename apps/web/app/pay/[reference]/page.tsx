@@ -34,6 +34,7 @@ import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
 import { cookies } from 'next/headers';
 import { MAYA_BUSY_COOKIE } from '@/lib/maya-checkout';
+import { payNextSteps } from '@/lib/pay-next-steps';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -284,7 +285,15 @@ export default async function PayPage({ params, searchParams }: Props) {
    * ⚠ In the waiting state there are no stages at all — the page is the wait
    * (owner 2026-08-28) — so this is rendered directly instead.
    */
-  const summary = (
+  // 💳 Step 1 follows the route stage 2 will take (lib/pay-next-steps.ts): `mayaRoute` is the page's own `mayaOpen`
+  // (or the Maya "checking" page, which only a Maya payer reaches) — the BDO words only when Maya is closed.
+  const summaryFor = (mayaRoute: boolean) => {
+    const next = payNextSteps({
+      maya: mayaRoute,
+      isVendorPlan: payable.isVendorPlan,
+      bdo: { scanStep: words.scanStep, note: words.note, activates },
+    });
+    return (
     /* ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ──────────────
     Owner, 2026-08-28: *"After I paid, it should say we are currently
     verifying your purchase. kindly wait within 24 hours. (1) and (2) must
@@ -368,18 +377,20 @@ export default async function PayPage({ params, searchParams }: Props) {
         <CopyButton value={payable.reference} label="Copy" />
       </div>
     </div>
-    <p className="mt-2 text-xs text-ink/70">{words.note}</p>
+    {next.note ? <p className="mt-2 text-xs text-ink/70">{next.note}</p> : null}
 
     {!waiting && (
       <div className="mt-5 border-t border-ink/10 pt-4">
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
-        <Step n={1}>{words.scanStep}</Step>
-        <Step n={2}>Upload the screenshot of your payment receipt — nothing to type.</Step>
-        <Step n={3}>{activates}</Step>
+        <Step n={1}>{next.steps[0]}</Step>
+        <Step n={2}>{next.steps[1]}</Step>
+        <Step n={3}>{next.steps[2]}</Step>
       </div>
     )}
   </section>
-  );
+    );
+  };
+  const summary = summaryFor(false);
 
 
   const mayaReceipt = payable.status === 'settled' ? await mayaReceiptFor(payable.orderId) : null;
@@ -458,7 +469,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   if (maya.phase === 'checking' && !waiting) {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
-        {summary}
+        {summaryFor(true)}
         <MayaChecking />
       </main>
     );
@@ -657,7 +668,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         orderId={payable.orderId}
         rails={rails}
         activatesLine={activates}
-        summary={summary}
+        summary={summaryFor(mayaOpen)}
         initialStage={parseStage(search.step)}
         /*
           ⚠ EVERY OTHER PARAMETER RIDES ALONG. `?setup=1` is what tells this

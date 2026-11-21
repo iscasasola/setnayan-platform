@@ -640,7 +640,12 @@ export type NotificationType =
   /** 💳 Maya would not open, so payers were sent to the BDO QR (owner 2026-11-21). ONE admin notice per outage window
      (lib/maya-busy.server.ts). Admin-only, in-app + push. ⚠ ENUM value in its own migration
      (notification_type_payment_rail_down). */
-  | 'payment_rail_down';
+  | 'payment_rail_down'
+  /** ⏰ Unichat H1 (approved prototype v3, DECISION_LOG 2026-11-20): a "Remind me" the person THEMSELVES set on a chat
+     message came due — sent to them alone by `lib/chat-reminders.server.ts`, and only if they can still read the
+     message. ⚠ IN-APP ONLY (owner rule 2026-10-11, no new emails): NOT on EMAIL_ENABLED_TYPES —
+     `a-chat-reminder-stays-in-the-app.test.ts`. ⚠ ENUM value in its own migration (notification_type_chat_reminder). */
+  | 'chat_reminder';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -793,6 +798,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   seal_awarded: 'You were given a seal',
   card_badge_earned: 'A service card earned a badge',
   payment_rail_down: 'Maya is not opening',
+  chat_reminder: 'Reminder',
   supplier_part_changed: 'Your part changed',
   schedule_released: 'Your full schedule is ready',
 };
@@ -1058,6 +1064,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   seal_awarded: 'bg-success-200 text-success-900',
   card_badge_earned: 'bg-success-200 text-success-900',
   payment_rail_down: 'bg-danger-100 text-danger-800',
+  // A reminder you set yourself on a chat message → sky, the chat_message register.
+  chat_reminder: 'bg-sky-100 text-sky-800',
   // The supplier is waiting on to answer yes or no → the action-needed amber, like every other ask.
   schedule_ask: 'bg-warn-100 text-warn-900',
   // An answer, already settled → the informational sky.
@@ -1381,6 +1389,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   seal_awarded: 'gift',
   card_badge_earned: 'gift',
   payment_rail_down: 'shield',
+  chat_reminder: 'message',
   vendor_review_reply: 'star',
   security_alert: 'shield',
   gift: 'gift',

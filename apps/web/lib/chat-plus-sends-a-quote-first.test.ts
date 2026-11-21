@@ -21,18 +21,19 @@ test('no quote yet → "Make a quote", the short card (its door still the builde
   assert.equal(quote.card, 'quote', 'Make a quote left the chat again');
   assert.equal(quote.door, 'build-quote', 'Full quotation lost its builder');
   assert.equal(VENDOR_THREAD_TOOLS.find((t) => t.key === 'build-quote')?.label, SEND_A_QUOTE_LABEL, 'the builder was renamed');
-  assert.equal(rows.some((r) => r.key === 'versions'), false);
+  assert.equal(rows.some((r) => /every version/i.test(r.label)), false);
   /* The card a no-quote chat opens is the Make a quote card, never the dead "No quote in this chat yet". */
   const card = stripComments(readFileSync(join(import.meta.dirname, '..', 'app/_components/chat/cards/quote-step-card.tsx'), 'utf8'));
   assert.match(card, /if \(!q\) return <MakeQuoteCard /);
   assert.doesNotMatch(card, /No quote in this chat yet/);
 });
 
-test('a quote out → "Change quote" and "See every version", as before (also when the rung is not handed in)', () => {
+test('a quote out → "Change quote", as before (also when the rung is not handed in); "See every version" is no (+) row since 20 Nov 2026', () => {
   for (const rows of [supplierPlusRows({ paid: false, hasQuote: true }), supplierPlusRows({ paid: false })]) {
     assert.equal(rows.find((r) => r.key === 'quote')?.label, 'Change quote');
     assert.equal(rows.find((r) => r.key === 'quote')?.card, 'quote');
-    assert.ok(rows.some((r) => r.key === 'versions'));
+    // The (+) holds only things you send: every version is the strip's Deal box and the quote card's own row.
+    assert.ok(!rows.some((r) => /every version/i.test(r.label)));
   }
 });
 

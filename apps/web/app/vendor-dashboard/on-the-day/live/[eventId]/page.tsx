@@ -1,9 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { supplierChatHref } from '@/lib/upcoming-schedule-door';
-import Link from 'next/link';
 import { eventTilesForBooking } from '@/lib/vendor-event-roles';
 import { redirect } from 'next/navigation';
-import { ChevronRight, Users } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -18,8 +16,6 @@ import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 import { buildDayOfFrame } from '@/lib/vendor-dayof-frame';
 import { vendorDayOfFreeUntilIso, isVendorDayOfStillFree } from '@/lib/vendor-dayof-free-until';
-import { RunOfShowHeader } from '@/app/_components/run-of-show-header';
-import { FloorClock } from './_components/floor-clock';
 import { LiveReviews } from '../../_components/live-reviews';
 import { SpecializationSlot } from './_components/specialization-slot';
 import { registeredSpecializationSets } from './_components/specialization-registry';
@@ -30,8 +26,7 @@ import { loadMarch } from '@/app/[slug]/_lib/loaders';
 import { marchSections } from '@/lib/march-sections';
 import { marchWalkCount, supplierSeesMarch } from '@/lib/supplier-march';
 import { MarchRead } from './_components/march-read';
-import { EventHubBar, EventHubCounts } from './_components/event-hub-bar';
-import { SupplierSavedStrip } from '@/app/_components/offline-ready/supplier-saved-strip';
+import { EventDayBody } from './_components/event-day-body';
 import { EventHubAnnounce, EventHubScanner } from './_components/event-hub-views';
 import { eventHubViewOf } from '@/lib/event-hub-views';
 import { readEventScanServices } from '@/lib/supplier-scan.server';
@@ -71,20 +66,14 @@ export const metadata = { title: 'Live · Hub' };
  * a tool they had yesterday. Pinned by the identity tests in
  * `lib/vendor-dayof-frame.test.ts`.
  *
- * ── STYLING (Pahina materials) ─────────────────────────────────────────────
+ * ── THE LOOK (supplier pages set two, page 8, owner-approved 21 Nov 2026) ──
  *
- * Dressed in the same Pahina language as the guest site, but WITHOUT the
- * `.pahina-*` classes — those are `.sn-editorial`-scoped and unreachable from a
- * dashboard by design (owner-locked guest-tree ↔ chrome separation). The
- * recipes are recomposed from the `:root`-level palette tokens in
- * `_components/pahina-console.tsx`; see that file's header for the full
- * reasoning and the two contrast traps it handles.
- *
- * The obsidian FOCAL is deliberately kept on `.sn-tile-dark` — the ONE framed
- * thing on this screen (design template rule 2): a day-of clock wants to be the
- * one glare-legible thing on a venue floor, and `SupplierSavedStrip` inside it
- * draws light-on-dark. Every other block is a plain section on the page:
- * a small grey capitals label and hairline rows (design template 2026-11-14).
+ * This file READS; `_components/event-day-body.tsx` DRAWS (the lab draws the
+ * same body from fixtures). The Hub bar stays one row; under it the shared count
+ * tiles, the obsidian FOCAL kept on `.sn-tile-dark` (a day-of clock wants to be
+ * the one glare-legible thing on a venue floor, and `SupplierSavedStrip` inside
+ * it draws light-on-dark), the phone's jump bar, and the tools as one list of
+ * rows. On a computer the clock and the desk sit left, the tools right.
  */
 
 /** PH wall-clock today (UTC+8) as 'YYYY-MM-DD'. */
@@ -219,6 +208,11 @@ export default async function VendorOnTheDayLivePage({
     fetchDayOfOverride(supabase, profile.vendor_profile_id, eventId),
     fetchReviewsForVendorWithCouple(supabase, profile.vendor_profile_id, { limit: 20 }),
   ]);
+  /* 🔒 THE COUPLE'S PROGRAM IS READ OR SAID UNREAD (supplier pages set two, page 8, 21 Nov 2026: "The couple’s program
+     could not be read"). `fetchRunOfShowBlocks` answers `null` for a refused read and `[]` for a program with no moment
+     in it — until now both became `[]` here, so the now/next tiles read "—" and the clock read as if nothing was on.
+     The measured flag rides to the body, which draws the warn note in place of everything that reads the program. */
+  const programUnread = blocksRaw === null;
   const blocks = blocksRaw ?? [];
 
   // WHICH ROLES THEY WERE BOOKED FOR — read from what they were booked to DO,
@@ -314,132 +308,52 @@ export default async function VendorOnTheDayLivePage({
   const scanServices = view === 'scanner' ? await readEventScanServices(supabase, eventId) : [];
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6" data-event-hub-view={view}>
-      <div>
-        <EventHubBar
-          eventId={eventId}
-          name={coupleName}
-          dayWords={dayWords}
-          view={view}
-          exitHref={hubHref(eventId)}
-          chatHref={booking.threadId ? supplierChatHref(eventId, booking.threadId) : null}
-          about={[place, brief ? `${formatCount(attending)} of ${formatCount(invited)} guests coming` : null, 'Your tools for the day — only this event.'].filter(Boolean).join(' · ')}
-        />
-        <EventHubCounts tiles={counts} />
-      </div>
-
-      {view === 'scanner' ? (
-        <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} scan={scanServices} />
-      ) : view === 'announce' ? (
-        <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
-      ) : (
-      <>
-
-      {/* Obsidian focal — couple + live clock. Kept dark on purpose (see the
-          page doc): it is the one glare-legible anchor on a venue floor.
-          `id="schedule"`: where a "Schedule moved" notice lands (lib/schedule-shift-notice.ts) — the clock's
-          now/next, with the run of show under it. On a block that ALWAYS renders, so the link never misses. */}
-      <div id="schedule" className="scroll-mt-4">
-        <div className="sn-tile-dark sn-bloom relative">
-          {/* 📶 The offline copy's mark (EV3) — this phone's own copy of the Event Hub, for a venue without signal. */}
-          <SupplierSavedStrip viewer={user.id} eventId={eventId} eventDate={booking.bookedDate} checkin={run != null} />
-          <p className="truncate text-lg font-semibold leading-snug">{coupleName}</p>
-          {place ? (
-            <p className="mt-0.5 truncate text-sm" style={{ color: 'color-mix(in srgb, var(--sn-gold-100) 72%, transparent)' }}>
-              {place}
-            </p>
-          ) : null}
-          <div className="mt-4">
-            <FloorClock blocks={blocks} />
-          </div>
-        </div>
-      </div>
-
-      {/* Jump nav — only when there are two sections to move between. Every
-          href anchors a section this same render produces (no dead links). */}
-      {frame.nav.length > 0 ? (
-        <nav
-          aria-label="Console sections"
-          className="flex items-center gap-1 overflow-x-auto border-y border-[color:var(--m-line)]"
-        >
-          {frame.nav.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-sm font-semibold text-[color:var(--m-slate-2)] transition-colors duration-sn-control ease-sn hover:bg-[color:var(--m-paper-2)] hover:text-ink"
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-      ) : null}
-
-      {/* ── THE GENERIC KIT — every vendor, every tier, unchanged ─────────── */}
-      <section id={frame.genericDomId} className="scroll-mt-4 space-y-4">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Your tools</h2>
-
-        {/* Run of show (reused realtime header) */}
-        {has('run_of_show') ? <RunOfShowHeader eventId={eventId} initial={blocks} /> : null}
-
-        {/* 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks. */}
-        {march && (march.unread || marchWalkCount(marchShown) > 0) ? (
-          <div className="border-b border-[color:var(--m-line)] pb-3">
-            <MarchRead sections={marchShown} unread={march.unread === true} />
-          </div>
-        ) : null}
-
-        {/* Headcount */}
-        {has('pax_headcount') ? (
-          <div className="border-b border-[color:var(--m-line)] pb-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[color:var(--m-slate-2)]">Headcount</h3>
-            <div className="flex min-h-14 items-center gap-3">
-              <Users aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={1.75} />
-              <div className="min-w-0">
-                <span className="block text-2xl font-bold tabular-nums text-ink">
-                  {formatCount(attending)} / {formatCount(invited)}
-                </span>
-                <span className="block text-sm text-[color:var(--m-slate-2)]">attending · pulled live from RSVPs</span>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Enabled-module quick links — one hairline row each; the whole row opens. */}
-        {linkModules.length > 0 ? (
-          <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)]">
-            {linkModules.map(({ mod, href }) => (
-              <li key={mod.id}>
-                <Link href={href} className="sn-press flex min-h-14 items-center justify-between gap-3 py-2.5">
-                  <span className="min-w-0">
-                    <span className="block text-base font-semibold leading-snug text-ink">{mod.label}</span>
-                    <span className="mt-0.5 block text-sm leading-snug text-[color:var(--m-slate-2)]">{mod.blurb}</span>
-                  </span>
-                  <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-terracotta" strokeWidth={2} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-
-        {/* Live reviews */}
-        {has('live_reviews') ? (
-          <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} />
-        ) : null}
-      </section>
-
-      {/* ── THE SPECIALIZATION SLOT — the only gated section on this page ─── */}
-      <SpecializationSlot
-        model={frame}
-        eventId={eventId}
-        vendorProfileId={profile.vendor_profile_id}
-        coupleName={coupleName}
-        // Already read above for the floor clock + run-of-show header — passed
-        // down rather than re-queried.
-        blocks={blocks}
-        bookedCategories={brief?.booked_categories ?? null}
-      />
-      </>
-      )}
-    </section>
+    <EventDayBody
+      eventId={eventId}
+      view={view}
+      bar={{
+        eventId,
+        name: coupleName,
+        dayWords,
+        view,
+        exitHref: hubHref(eventId),
+        chatHref: booking.threadId ? supplierChatHref(eventId, booking.threadId) : null,
+        about: [place, brief ? `${formatCount(attending)} of ${formatCount(invited)} guests coming` : null, 'Your tools for the day — only this event.'].filter(Boolean).join(' · '),
+      }}
+      counts={counts}
+      programUnread={programUnread}
+      focal={{ coupleName, place, viewer: user.id, eventDate: booking.bookedDate, checkin: run != null }}
+      blocks={blocks}
+      nav={frame.nav}
+      genericDomId={frame.genericDomId}
+      showRunOfShow={has('run_of_show')}
+      // 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks.
+      march={march && (march.unread || marchWalkCount(marchShown) > 0) ? <MarchRead sections={marchShown} unread={march.unread === true} /> : null}
+      headcount={has('pax_headcount') ? { attending, invited } : null}
+      // Enabled-module quick links — one row each; the whole row opens.
+      tools={linkModules.map(({ mod, href }) => ({ id: mod.id, label: mod.label, blurb: mod.blurb, href }))}
+      reviews={has('live_reviews') ? <LiveReviews vendorProfileId={profile.vendor_profile_id} initial={reviews} /> : null}
+      // ── THE SPECIALIZATION SLOT — the only gated section on this page ───
+      desk={
+        frame.specialization ? (
+          <SpecializationSlot
+            model={frame}
+            eventId={eventId}
+            vendorProfileId={profile.vendor_profile_id}
+            coupleName={coupleName}
+            // Already read above for the floor clock + run-of-show header — passed down rather than re-queried.
+            blocks={blocks}
+            bookedCategories={brief?.booked_categories ?? null}
+          />
+        ) : null
+      }
+      otherView={
+        view === 'scanner' ? (
+          <EventHubScanner eventId={eventId} run={run} floorIsYours={frame.specialization?.set === 'floor_command'} scan={scanServices} />
+        ) : view === 'announce' ? (
+          <EventHubAnnounce eventId={eventId} run={run} enabled={announceOn} recent={recent} />
+        ) : null
+      }
+    />
   );
 }

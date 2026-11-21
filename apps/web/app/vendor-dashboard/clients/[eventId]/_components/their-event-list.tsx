@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { ASK_FOR_MORE, askForMoreHref, type TheirEventRow } from '@/lib/their-event';
 
 /**
@@ -11,7 +12,7 @@ import { ASK_FOR_MORE, askForMoreHref, type TheirEventRow } from '@/lib/their-ev
 export function TheirEventList({ eventId, rows }: { eventId: string; rows: readonly TheirEventRow[] }) {
   const cls = 'flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2 first:border-t-0';
   return (
-    <section className="sn-tile p-4" data-their-event="" aria-labelledby={`their-event-${eventId}`}>
+    <section className="py-2" data-their-event="" aria-labelledby={`their-event-${eventId}`}>
       <h2 id={`their-event-${eventId}`} className="text-xs font-semibold uppercase tracking-wide text-ink/55">
         Their event
       </h2>
@@ -30,9 +31,9 @@ export function TheirEventList({ eventId, rows }: { eventId: string; rows: reado
             <li key={r.part} data-their-event-part={r.part}>
               {r.href ? (
                 r.download ? (
-                  <a href={r.href} download="logo.svg" className={cls}>
+                  <SaveFileLink href={r.href} filename="logo.svg" className={cls}>
                     {body}
-                  </a>
+                  </SaveFileLink>
                 ) : (
                   <Link href={r.href} className={cls}>
                     {body}

@@ -262,6 +262,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/booking-fees': { home: '/vendor-dashboard/subscription', label: 'Plan' },
   // Clients and Messages became folds of Customers; both old rooms are redirect stubs (audit ❌ ×2, fixed).
   '/vendor-dashboard/clients/[eventId]': { home: '/vendor-dashboard/customers' },
+  // 🚪 One part of "Their event" (2026-11-21) — its ✕ Close goes back to the supplier's chat with the hosts.
+  '/vendor-dashboard/clients/[eventId]/their-event/[part]': { home: '/vendor-dashboard/clients/[eventId]' },
   // A supplier's chat is ONE EVENT's chat. ‹ returns IN PLACE to whichever list opened it (Chats or Customers › Events —
   // `ReturnInPlace`, chat-back.tsx); a deep link with nothing behind it goes to Chats, the supplier's full-screen inbox
   // (owner 2026-11-06: "Why is it still jumping to customer events"). `/vendor-dashboard/messages` itself needs no line:

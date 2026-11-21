@@ -126,9 +126,9 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl" data-their-event-part={part}>
+    <div className="mx-auto w-full max-w-2xl" data-their-event-part={part}>
       <TheirEventLine eventId={eventId} eventName={name} />
       {body}
-    </main>
+    </div>
   );
 }

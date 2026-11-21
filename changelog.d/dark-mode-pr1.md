@@ -61,3 +61,4 @@ table called the frame `--color-frame` and the decision `--color-decision`; the 
 and `--color-mulberry` for exactly those jobs, so those names stand (owner 14 Nov, "keep house names").
 
 - 21 Nov: 22 pointer lines in `globals.css` lose a trailing comment that only repeated the colour they point at (−332 B; 705 B headroom under the 645,000 ceiling).
+- 21 Nov: `GLOBALS_CSS_CEILING` raised 645,000 → 650,000 (owner pick). With main's Unichat kind colours merged in, the colour set measures 647,781 B; these are :root / html.dark tokens, so they cannot move into a surface module.

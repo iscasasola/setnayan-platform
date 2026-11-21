@@ -1,7 +1,8 @@
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { formatPapicDayInWords } from '@/lib/papic-window';
-import { Camera } from 'lucide-react';
+import { Camera, Images } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -101,12 +102,8 @@ export default async function PapicGuestPage({
           title={host.title}
           sub={host.words}
         >
-          <Link href={`/dashboard/${host.eventId}/memories`} className="button-primary">
-            Open Memories
-          </Link>
-          <Link href={`/${backSlug}`} className="button-secondary">
-            Back to the Event Hub
-          </Link>
+          {/* The shared button, and ONE way on: Memories is where each refusal is fixed (no hand-drawn back link). */}
+          <ActionButton tone="brand" main icon={<Images aria-hidden strokeWidth={1.9} />} label="Open Memories" href={`/dashboard/${host.eventId}/memories`} />
         </DoorShell>
       );
     }

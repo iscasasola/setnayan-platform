@@ -20,7 +20,7 @@ import {
   planMenuNote,
 } from './personal-invite-offer';
 import { personalInviteCardSvg } from './personal-invite-card';
-import { FIRST_BOOKING_ON_US } from './booking-fee-lock';
+import { FEE_FREE_RULE } from './booking-fee-who-words';
 import { PORTFOLIO_FREE_BASE } from './vendor-tier-caps';
 import { stripComments } from './strip-comments';
 
@@ -101,7 +101,8 @@ test('the message: the offer, the live free-booking sentence, the launch offer o
   assert.match(open, /^Hi Tita Nena’s Catering — your Setnayan shop is set up\./);
   assert.match(open, /Your offer: Pro, free until 31 Jan 2027, and 100 portfolio photos, yours to keep\./);
   assert.match(open, /Free, Plus ₱1,000, Pro ₱2,500 or Ultra ₱8,000 \/ 28 days\. Nothing renews by itself\./);
-  assert.ok(open.includes(FIRST_BOOKING_ON_US), 'the free booking is not the live sentence');
+  assert.ok(open.includes(FEE_FREE_RULE), 'the free rule is not the live sentence');
+  assert.doesNotMatch(open, /first booking/i, '20 Nov: no free first booking');
   assert.match(open, /While Setnayan's first 2,000 bookings run, there is no booking fee at all\./);
   assert.ok(open.trimEnd().endsWith(base.claimUrl));
   const closed = personalInviteMessage({ ...base, launchCapWords: null });

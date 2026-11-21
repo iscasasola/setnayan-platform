@@ -15321,6 +15321,7 @@
         "Link",
         "LockAnswerLine",
         "LockRequestAnswer",
+        "LockedFeature",
         "MomentLine",
         "MuteChatRow",
         "MutedMark",

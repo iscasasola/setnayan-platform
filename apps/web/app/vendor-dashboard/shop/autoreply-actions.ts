@@ -163,7 +163,7 @@ async function voiceGate(): Promise<VoiceGate> {
   const levelFields = (levelRow ?? null) as
     | { ai_addon_level?: string | null; ai_addon_expires_at?: string | null; tier_state?: string | null; tier_expires_at?: string | null }
     | null;
-  // Ultra includes the smarter level (2026-11-14 "SIMPLER SUPPLIER PLANS"); a bought Advanced window counts until it ends.
+  // Pro and Ultra include the smarter level (owner 2026-11-21); a bought Advanced window counts until it ends.
   const advanced = vendorAiAdvancedActive({
     level: levelFields?.ai_addon_level ?? null,
     windowActive: isVendorAiAddonActive(levelFields?.ai_addon_expires_at ?? null),
@@ -172,7 +172,7 @@ async function voiceGate(): Promise<VoiceGate> {
   if (!advanced) {
     return {
       ok: false,
-      error: 'Voice-match comes with the smarter AI chatbot on Ultra.',
+      error: 'Voice-match comes with the smarter AI chatbot, on Pro and Ultra.',
     };
   }
 

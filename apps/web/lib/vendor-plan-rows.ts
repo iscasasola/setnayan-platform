@@ -18,7 +18,7 @@ import { FREE_HELPER_SEATS } from './vendor-free-helper';
 import { formatCount } from './format-number';
 import { STORAGE_GB, TIER_CAPS, TIER_LABEL, VENDOR_TIERS, WAITLIST_SETTING_MAX, asVendorTier, firstPlanWith, type VendorTier } from './vendor-tier-caps';
 import { planWord } from './vendor-plan-change-words';
-import { SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
+import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from './specialized-tools-access';
 import { PLAN_CHATBOT_LEVEL } from './vendor-ai-level';
 
 export type PlanRowBadge = { tone: 'ok' | 'wait' | 'no' | 'quiet'; word: string };
@@ -110,12 +110,21 @@ export function planGivesLines(tierRaw: string | null | undefined, paywallOn: bo
     {
       key: 'tools',
       title: 'Specialized tools',
+      // 🎁 Owner 20 Nov: Papic Challenges and the branded 3D booth left the unlock for Pro and up — so a plan below
+      // Pro that includes the unlock must not say "All included".
       line: SPECIALIZED_TOOLS_INCLUDED_TIERS.includes(tier)
-        ? 'All included'
+        ? isTierAtLeastPro(tier)
+          ? 'All included'
+          : `Included · Papic Challenges and the 3D booth come with ${TIER_LABEL[PRO_TOOLS_MIN_TIER]}`
         : `The free set · all of them from ${TIER_LABEL[SPECIALIZED_TOOLS_INCLUDED_TIERS[0] ?? 'solo']}`,
     },
     { key: 'chatbot', title: 'AI chatbot', line: chatbotLine(tier) },
   ];
+}
+
+/** Is this plan at or above the tier the Pro-only tools open on? Order = `VENDOR_TIERS`. */
+function isTierAtLeastPro(tier: VendorTier): boolean {
+  return VENDOR_TIERS.indexOf(tier) >= VENDOR_TIERS.indexOf(PRO_TOOLS_MIN_TIER);
 }
 
 /** The chatbot a plan includes, in words — `PLAN_CHATBOT_LEVEL`, the table the inbox's gate reads. */

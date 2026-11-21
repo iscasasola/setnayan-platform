@@ -13,6 +13,7 @@ import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
+import { startMayaCheckout } from './maya-start';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { GCASH_PROOF_REFUSED_MESSAGE, isGcashRail, pickPayerRail } from '@/lib/gcash-allowance';
 import { getGcashGate } from '@/lib/gcash-allowance.server';
@@ -64,6 +65,8 @@ function normaliseReference(raw: FormDataEntryValue | null): string | null {
 }
 
 export async function submitPaymentProof(formData: FormData): Promise<void> {
+  // 💳 "Pay with card or Maya" rides this form action (no new server action) — ./maya-start.ts.
+  if (formData.get('intent') === 'maya_checkout') return startMayaCheckout(formData);
   const referenceRaw = formData.get('reference');
   if (typeof referenceRaw !== 'string' || referenceRaw.trim().length === 0) {
     redirect('/dashboard');

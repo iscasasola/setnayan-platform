@@ -99,6 +99,8 @@ export function PayPanel({
   summary,
   initialStage,
   carryQuery,
+  maya,
+  stage2Notice,
 }: {
   /**
    * TRUE on the render right after we asked them to check their reference
@@ -132,6 +134,15 @@ export function PayPanel({
   initialStage: PayStage;
   /** Every other query parameter this page was opened with — see `stageHref`. */
   carryQuery: Record<string, string | undefined>;
+  /**
+   * 💳 MAYA IS THE PAY STAGE WHEN IT IS ON (owner 2026-11-21, DECISION_LOG "BDO QR is not an option — only the
+   * safety route when Maya is off"; v3 drawing `prototypes/pay_maya_2026-11-21/pay_maya_fable.html`). Given, it
+   * REPLACES stage 2 — no BDO card, no QR — and there is no proof stage: two dots, not three. Null = the shipped
+   * BDO page, untouched (Maya off, no keys, busy, or above the ceiling).
+   */
+  maya?: ReactNode;
+  /** One calm line under "Pay this exact amount" — "Maya is busy — pay by BDO QR. Nothing has been charged." (v3). */
+  stage2Notice?: string | null;
 }) {
   // The first OPEN account in the admin's order — BDO, the only rail a payer is
   // offered (owner 2026-11-17: "we will make all our transactions enter BDO
@@ -141,7 +152,9 @@ export function PayPanel({
   const info = rails.find((r) => r.id === chosen) ?? rails[0] ?? null;
   const channel: Channel = info?.id ?? '';
 
-  const [stage, setStage] = useState<PayStage>(initialStage);
+  const mayaMode = maya != null;
+  // On the Maya path there is no stage 3 to land on — an old `?step=3` address reads as the pay stage.
+  const [stage, setStage] = useState<PayStage>(mayaMode && initialStage === PROOF_STAGE ? 2 : initialStage);
   /**
    * Has the proof stage ever been on screen in this visit?
    *
@@ -150,7 +163,7 @@ export function PayPanel({
    * code — losing the file they had picked and the digits they had typed, with
    * nothing on screen to say it had happened.
    */
-  const [reachedProof, setReachedProof] = useState(initialStage === PROOF_STAGE);
+  const [reachedProof, setReachedProof] = useState(!mayaMode && initialStage === PROOF_STAGE);
   const proofMounted = shouldMountProof(stage, reachedProof);
 
   /**
@@ -163,13 +176,13 @@ export function PayPanel({
     const onPop = () => {
       const url = new URL(window.location.href);
       const raw = url.searchParams.get('step');
-      const to: PayStage = raw === '3' ? 3 : raw === '2' ? 2 : 1;
+      const to: PayStage = raw === '3' && !mayaMode ? 3 : raw === '2' || raw === '3' ? 2 : 1;
       setStage(to);
       if (to === PROOF_STAGE) setReachedProof(true);
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  }, [mayaMode]);
 
   const go = (to: PayStage) => {
     setStage(to);
@@ -187,7 +200,7 @@ export function PayPanel({
 
   return (
     <>
-      <StageRail stage={stage} reference={reference} carryQuery={carryQuery} onGo={go} />
+      <StageRail stage={stage} reference={reference} carryQuery={carryQuery} onGo={go} last={mayaMode ? 2 : PROOF_STAGE} />
 
       {/* ── STAGE 1 ─────────────────────────────────────────────────────────
           The summary is the server's; the way onward is this component's.
@@ -210,6 +223,8 @@ export function PayPanel({
             only wants the account details — because they already know how they
             are paying, or they are on a desktop copying into a banking app —
             gets them here without leaving stage 1. */}
+        {/* BDO is not an option while Maya is on (owner 2026-11-21) — its numbers are not printed either. */}
+        {!mayaMode && (
         <details className="mt-4 rounded-lg border border-ink/12 bg-ink/[0.02] px-4 py-3">
           <summary className="cursor-pointer text-sm font-medium text-ink">
             Show all the payment details
@@ -242,12 +257,21 @@ export function PayPanel({
             )}
           </div>
         </details>
+        )}
       </div>
 
+      {/* ── STAGE 2 · MAYA (when on) — the server's Maya stage, in place of everything below ── */}
+      {mayaMode && <div hidden={stage !== 2}>{maya}</div>}
+
       {/* ── STAGE 2 ──────────────────────────────────────────────────────── */}
-      <div hidden={stage !== 2}>
+      <div hidden={stage !== 2 || mayaMode}>
         <section id="payCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
           <StepHead n={2} title="Pay this exact amount" />
+          {stage2Notice ? (
+            <p role="status" data-pay-maya-busy="" className="mb-4 text-sm text-ink/75">
+              {stage2Notice}
+            </p>
+          ) : null}
           {/*
             🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
             receiving cap and the owner switched them off — a transfer now
@@ -334,7 +358,7 @@ export function PayPanel({
       {/* ── STAGE 3 ──────────────────────────────────────────────────────────
           ⛔ ABSENT, NOT HIDDEN, UNTIL ITS STAGE IS REACHED — and never
           unmounted afterwards. See `shouldMountProof`. */}
-      {proofMounted && (
+      {proofMounted && !mayaMode && (
         <div hidden={stage !== PROOF_STAGE}>
           <section id="proofCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
             <StepHead n={3} title="Send your proof" />
@@ -376,6 +400,8 @@ export function PayPanel({
         </div>
       )}
 
+      {/* On the Maya pay stage the Maya stage pins its own Pay button (v3); a second bar would be a second Pay. */}
+      {!(mayaMode && stage === 2) && (
       <StickyBar
         amountPhp={amountPhp}
         activatesLine={activatesLine}
@@ -385,6 +411,7 @@ export function PayPanel({
         carryQuery={carryQuery}
         onGo={go}
       />
+      )}
     </>
   );
 }
@@ -434,15 +461,18 @@ function StageRail({
   reference,
   carryQuery,
   onGo,
+  last,
 }: {
   stage: PayStage;
   reference: string;
   carryQuery: Record<string, string | undefined>;
   onGo: (s: PayStage) => void;
+  /** The last stage drawn: 3 on the BDO route, 2 on the Maya path (no proof to send). */
+  last: PayStage;
 }) {
   return (
     <nav aria-label="Paying, step by step" className="mb-4 flex items-center gap-2">
-      {PAY_STAGES.map(({ n, title }) => {
+      {PAY_STAGES.filter(({ n }) => n <= last).map(({ n, title }) => {
         const done = n < stage;
         const here = n === stage;
         const dot = (

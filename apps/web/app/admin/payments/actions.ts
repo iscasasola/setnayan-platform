@@ -445,6 +445,15 @@ export async function approvePaymentCore(args: {
    * one bill — and the shortfall guard would happily add it up.
    */
   acknowledgeDuplicate?: boolean;
+  /**
+   * 💳 A PAYMENT GATEWAY CONFIRMED IT, NOT AN ADMIN (owner 2026-11-21, Maya Checkout).
+   * Set ONLY by lib/maya-settle.ts's callers, after Maya's API — asked with our secret
+   * key — said PAYMENT_SUCCESS for this order's exact reference and amount. `userId` is
+   * then the BUYER (the ledger's actor, as the App Store path records it), the ledger
+   * role is 'system', no reviewer is stamped, and activation gets no admin session.
+   * 🔒 lib/an-ai-may-not-approve-money.test.ts pins who may pass it.
+   */
+  gateway?: 'maya';
 }): Promise<
   | { ok: true }
   | { ok: false; shortfall: true; message: string }
@@ -457,6 +466,7 @@ export async function approvePaymentCore(args: {
   | { ok: false; notPromotable: true; message: string }
 > {
   const { admin, userId, paymentId, adminNotes, promoteOrder } = args;
+  const byGateway = args.gateway === 'maya';
 
   // ---- DUPLICATE REFERENCE (owner, 2026-08-05) ---------------------------
   // Runs BEFORE the flip to 'matched', because after it this row would be its
@@ -585,7 +595,7 @@ export async function approvePaymentCore(args: {
     .update({
       status: 'matched',
       admin_notes: adminNotes,
-      reviewed_by_user_id: userId,
+      reviewed_by_user_id: byGateway ? null : userId,
       reviewed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
@@ -634,7 +644,7 @@ export async function approvePaymentCore(args: {
     order_id: payment.order_id,
     event_type: 'payment_approved',
     actor_user_id: userId,
-    actor_role: 'admin',
+    actor_role: byGateway ? 'system' : 'admin',
     amount_centavos: Math.round(Number(payment.amount_php) * 100),
     payment_id: paymentId,
     metadata: {
@@ -876,7 +886,7 @@ export async function approvePaymentCore(args: {
       // rather than inside the hook so the dependency is visible at the call
       // site. `createClient()` reads this request's cookies, so it is the
       // admin who just clicked Approve.
-      sessionClient: await createClient(),
+      sessionClient: byGateway ? undefined : await createClient(),
       orderId: payment.order_id,
       eventId: order.event_id ?? null,
       serviceKey: order.service_key ?? '',

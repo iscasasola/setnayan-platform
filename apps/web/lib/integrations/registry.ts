@@ -337,8 +337,9 @@ export function getOAuthIntegration(id: string): OAuthIntegrationDef | undefined
 // Maya breaks the single-secret card shape: it needs TWO secrets (the public +
 // secret key form one HTTP Basic-auth pair) + one config (checkout endpoint), so
 // it has a bespoke card (MayaCard) + action (saveMayaConfig). This metadata is
-// the column allowlist for that action + the presence map. The build-time
-// activation gate (NEXT_PUBLIC_MAYA_STATUS) is NOT here — it stays redeploy-gated.
+// the column allowlist for that action + the presence map. The old build-time
+// gate NEXT_PUBLIC_MAYA_STATUS is retired (owner 2026-11-21) — the rail's switch
+// is `platform_settings.maya_checkout_enabled` (lib/maya-checkout.ts).
 export const MAYA_INTEGRATION = {
   id: 'maya',
   label: 'Maya — automated checkout',

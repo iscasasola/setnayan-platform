@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { startAhead } from '@/lib/start-ahead';
 import { readHandledByForShop, currentHandlerOf } from '@/lib/handled-by.server';
 import { mayAnswerHandOver, mayMoveClient, type HandoverCaller } from '@/lib/client-handover';
-import type { ClientHandlingView } from './_components/client-handling';
+import { ClientHandling, type ClientHandlingView } from './_components/client-handling';
 import { supplierRolesAction } from '../team/actions';
 import { dutyWorksAtABranch, roleNameOf, type VendorRoleNames } from '@/lib/vendor-duties';
 import { redirect } from 'next/navigation';
@@ -719,7 +719,11 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
       moveTo: mayMove ? { currentId: current, options: movable.map((m) => ({ key: m.vendor_team_member_id, label: seatHeading(m.vendor_team_member_id) })) } : null,
     };
   }
-  const handling = { views: handlingViews, action: supplierRolesAction, returnTo: '/vendor-dashboard/customers' };
+  const handlingSlots: Record<string, ReactNode> = {};
+  for (const [eventId, view] of Object.entries(handlingViews)) {
+    handlingSlots[eventId] = <ClientHandling view={view} action={supplierRolesAction} returnTo="/vendor-dashboard/customers" />;
+  }
+  const handling = { views: handlingViews, slots: handlingSlots };
   /*
     Computed over EVERY listed customer, never over the door on screen —
     filtering to a door must not make a date clash disappear. That is the

@@ -1,0 +1,571 @@
+/*
+ * set-two.module.css — the November supplier look for the eight pages of "supplier pages, set two"
+ * (owner-approved 21 Nov 2026, DECISION_LOG "STOP ADDING AFTER THE CAKE MAKER — BUILD AND FIX ONLY" point 2; drawing
+ * `prototypes/supplier_pages_set2_2026-11-21/supplier_pages_set2_v2_fable.html`). Booking fees · contracts · cocktail
+ * area · from your camera · production sheet · challenge photos · seat plan · the event day + Papic.
+ *
+ * TOKENS ONLY — every colour reads a token the supplier blue look (`supplier-look.css`) re-points in light and the dark
+ * set re-points in dark, so the navy dark (#7997) lands here with no edit. A surface module, never `globals.css`.
+ * The drawing's scale: spacing 4 8 12 16 24 · radii 8 14 22 36 full · presses 44 · type 11 13 15 17 22 30.
+ */
+
+/* ── the page: phone full bleed, a computer's 760 column ─────────────────────────────────────────── */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 16px;
+  color: rgb(var(--color-ink));
+}
+@media (min-width: 701px) {
+  .page {
+    padding: 8px 32px 32px;
+  }
+}
+
+/* ── the pinned row: round back · the title over "Back to …" · ⓘ / a pill / the main button ───────── */
+.pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 6px 12px;
+  min-width: 0;
+}
+@media (min-width: 701px) {
+  .pin {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+.round {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--m-r-full);
+  background: var(--m-paper-2);
+  color: rgb(var(--color-ink));
+}
+.round svg {
+  width: 18px;
+  height: 18px;
+}
+.roundQuiet {
+  background: transparent;
+  color: var(--m-slate-2);
+}
+.pinTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+.pinTitle small {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--m-slate-2);
+}
+
+/* ── the top block: the facts of the page, the glow lives here only ───────────────────────────────── */
+.top {
+  background: linear-gradient(180deg, var(--surface-soft), rgb(var(--sn-frame-bg)));
+  padding: 16px 16px 12px;
+}
+@media (min-width: 701px) {
+  .top {
+    border-radius: var(--m-r-lg);
+    margin-top: 8px;
+  }
+}
+.kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--color-link));
+}
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.topTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 2px 0;
+  text-wrap: balance;
+}
+.top p {
+  font-size: 13px;
+  color: var(--m-slate-2);
+  margin: 0;
+}
+.big {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── a section head ──────────────────────────────────────────────────────────────────────────────── */
+.sec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--m-slate-2);
+  padding: 16px 16px 4px;
+  margin: 0;
+}
+@media (min-width: 701px) {
+  .sec {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+.secEnd {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.secWarn {
+  color: rgb(var(--color-warn));
+}
+.secOk {
+  color: rgb(var(--color-ok));
+}
+
+/* ── cards and lists of rows ─────────────────────────────────────────────────────────────────────── */
+.list,
+.card {
+  background: rgb(var(--sn-frame-bg));
+  border-radius: var(--m-r-md);
+  box-shadow: var(--sn-frame-shadow-tile);
+  margin: 8px 12px 0;
+  min-width: 0;
+}
+.list {
+  padding: 4px 0;
+  list-style: none;
+}
+.card {
+  padding: 14px;
+}
+@media (min-width: 701px) {
+  .list,
+  .card {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.card h2,
+.card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.card p {
+  font-size: 13px;
+  color: var(--m-slate-2);
+  margin: 0 0 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 6px 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+a.row:active {
+  background: var(--m-paper-2);
+}
+.rowTop {
+  align-items: flex-start;
+}
+.rowIcon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--m-r-sm);
+  background: var(--surface-soft);
+  color: rgb(var(--color-link));
+}
+.rowIcon svg {
+  width: 18px;
+  height: 18px;
+}
+.rowIconOk {
+  background: rgb(var(--color-ok) / 0.12);
+  color: rgb(var(--color-ok));
+}
+.rowIconDanger {
+  background: rgb(var(--color-danger) / 0.12);
+  color: rgb(var(--color-danger));
+}
+.rowBody {
+  flex: 1;
+  min-width: 0;
+}
+.rowTitle {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.rowSub {
+  display: block;
+  font-size: 13px;
+  color: var(--m-slate-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wrap .rowTitle,
+.wrap .rowSub {
+  white-space: normal;
+}
+.rowEnd {
+  flex: none;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rowEnd small {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--m-slate-2);
+}
+.go {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--m-slate-2);
+}
+.ref {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--m-slate-2);
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+}
+
+/* ── a note: warn · ok · danger · accent · plain ─────────────────────────────────────────────────── */
+.note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 12px 12px 0;
+  padding: 12px;
+  border-radius: var(--m-r-md);
+  font-size: 13px;
+  color: var(--m-slate-2);
+  background: var(--m-paper-2);
+}
+@media (min-width: 701px) {
+  .note {
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.note > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+.note b,
+.note strong {
+  color: rgb(var(--color-ink));
+}
+.noteBody {
+  flex: 1;
+  min-width: 0;
+}
+.noteWarn {
+  background: color-mix(in srgb, rgb(var(--color-warn)) 11%, rgb(var(--sn-frame-bg)));
+}
+.noteWarn > svg {
+  color: rgb(var(--color-warn));
+}
+.noteOk {
+  background: color-mix(in srgb, rgb(var(--color-ok)) 11%, rgb(var(--sn-frame-bg)));
+}
+.noteOk > svg {
+  color: rgb(var(--color-ok));
+}
+.noteDanger {
+  background: color-mix(in srgb, rgb(var(--color-danger)) 11%, rgb(var(--sn-frame-bg)));
+}
+.noteDanger > svg {
+  color: rgb(var(--color-danger));
+}
+.noteAccent {
+  background: var(--surface-soft);
+}
+.noteAccent > svg {
+  color: rgb(var(--sn-accent));
+}
+.notePlain {
+  background: transparent;
+  padding: 4px 4px 0;
+}
+
+/* ── words under a head ──────────────────────────────────────────────────────────────────────────── */
+.txt {
+  padding: 8px 16px 0;
+  font-size: 13px;
+  color: var(--m-slate-2);
+  margin: 0;
+}
+.txt b,
+.txt strong {
+  color: rgb(var(--color-ink));
+}
+@media (min-width: 701px) {
+  .txt {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+}
+
+/* ── three count tiles ───────────────────────────────────────────────────────────────────────────── */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 12px 0;
+}
+@media (min-width: 701px) {
+  .tiles {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+.tile {
+  background: rgb(var(--sn-frame-bg));
+  border-radius: var(--m-r-md);
+  box-shadow: var(--sn-frame-shadow-tile);
+  padding: 10px 8px;
+  text-align: center;
+  min-width: 0;
+}
+.tile b {
+  display: block;
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tileHot b {
+  color: rgb(var(--sn-accent));
+}
+.tile em {
+  display: block;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+}
+.tile span,
+.tile small {
+  display: block;
+  font-size: 11px;
+  color: var(--m-slate-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── a form row: the label left, the answer's pill right ─────────────────────────────────────────── */
+.fld {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 12px;
+  min-width: 0;
+}
+.fldCol {
+  flex-direction: column;
+  align-items: stretch;
+}
+.fldLabel {
+  flex: none;
+  max-width: 44%;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.fldCol .fldLabel {
+  max-width: none;
+}
+.fldLabel small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgb(var(--sn-accent));
+}
+.fldVal {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--m-r-full);
+  background: var(--m-paper-2);
+  font: inherit;
+  font-size: 15px;
+  color: rgb(var(--color-ink));
+  border: 0;
+  outline: none;
+}
+.fldVal::placeholder {
+  color: var(--m-slate-2);
+}
+.fldVal:focus-visible,
+.area:focus-visible {
+  box-shadow: inset 0 0 0 2px rgb(var(--sn-accent));
+  background: rgb(var(--sn-frame-bg));
+}
+.area {
+  display: block;
+  width: 100%;
+  min-height: 72px;
+  border-radius: var(--m-r-lg);
+  background: var(--m-paper-2);
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 15px;
+  color: rgb(var(--color-ink));
+  border: 0;
+  outline: none;
+  resize: vertical;
+}
+.area::placeholder {
+  color: var(--m-slate-2);
+}
+.fldSub {
+  font-size: 13px;
+  color: var(--m-slate-2);
+  padding: 0 12px 8px;
+  margin: 0;
+}
+.fileRow {
+  position: relative;
+  cursor: pointer;
+  justify-content: flex-end;
+  color: var(--m-slate-2);
+  background: rgb(var(--sn-frame-bg));
+  box-shadow: inset 0 0 0 1px var(--m-line);
+}
+.fileRow svg {
+  width: 16px;
+  height: 16px;
+  color: rgb(var(--sn-accent));
+  flex: none;
+}
+.fileRow span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fileRow input[type='file'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.fileRow:focus-within {
+  box-shadow: inset 0 0 0 2px rgb(var(--sn-accent));
+}
+
+/* ── a fold that opens in place (Cancel this contract) ───────────────────────────────────────────── */
+.fold summary {
+  list-style: none;
+  cursor: pointer;
+}
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+.fold[open] .foldChevron {
+  transform: rotate(180deg);
+}
+.foldBody {
+  padding: 0 12px 12px;
+}
+.danger {
+  color: rgb(var(--color-danger));
+}
+
+/* ── two columns on a computer ───────────────────────────────────────────────────────────────────── */
+.twoCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+@media (min-width: 701px) {
+  .twoCol {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+@media (min-width: 701px) {
+  .phoneOnly {
+    display: none;
+  }
+}
+.wideOnly {
+  display: none;
+}
+@media (min-width: 701px) {
+  .wideOnly {
+    display: initial;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fold .foldChevron {
+    transition: transform var(--sn-m-move) var(--sn-m-settle);
+  }
+}

@@ -43,6 +43,17 @@ const MONEY_GATES = [
   // Received BDO screenshots (2026-11-17): the model transcribes them through
   // the .server seam; a HUMAN press on Match approves via approvePaymentCore.
   'app/admin/payments/received.ts',
+  // ⚠ AMENDED DELIBERATELY, CITING THE RULING (owner 2026-11-17, specs
+  // DECISION_LOG "Admin payment batch match: limits APPROVED, undo 30 minutes
+  // (closes the open conditions on 0f332b2f)": "an-ai-may-not-approve-money.test.ts
+  // is amended citing this row, never weakened silently"). The ONE exception to
+  // "the reader may prepare, never approve": the owner's OWN received BDO
+  // screenshots, matched by plain code (whole reference + exact amount + exactly
+  // one unpaid payment), held 30 minutes with Undo, then paid through the same
+  // approvePaymentCore. Both files join the gates, so every rule above still
+  // holds for them: no receipt reader, no advisory table, no model verdict.
+  'app/admin/payments/received-auto.ts',
+  'lib/admin/received-auto-match.ts',
 ] as const;
 
 test('no money gate imports the receipt reader', () => {
@@ -128,18 +139,13 @@ test('a mismatch is never the default — every verdict field can be null', () =
   );
 });
 
-test('the pay form does not silently truncate a pasted reference', () => {
-  // The field invites "paste the whole thing" and the server keeps 64
-  // characters. A small maxLength here throws the rest away with no error —
-  // it shipped that way once.
+test('the pay form asks for no typed reference — so nothing can truncate one', () => {
+  // ✏️ 2026-11-17: this guarded a maxLength that silently cut a pasted
+  // reference. The field itself is gone (owner: "the don't have to type") — the
+  // reference is read off the receipt and stored, advisory, for the admin. If a
+  // typed field ever returns, so must the maxLength ≥ 32 rule this held.
   const src = read('app/pay/[reference]/_components/pay-panel.tsx');
-  const field = src.slice(src.indexOf("name=\"reference_last6\""));
-  const maxLength = /maxLength=\{(\d+)\}/.exec(field.slice(0, 400));
-  assert.ok(maxLength, 'the reference field lost its maxLength entirely');
-  assert.ok(
-    Number(maxLength[1]) >= 32,
-    `the reference field truncates at ${maxLength[1]} while the copy invites a full paste`,
-  );
+  assert.doesNotMatch(src, /name="reference_last6"/, 'a typed reference field is back — restore the maxLength guard with it');
 });
 
 test('the buyer is asked at most once, and a "not sure" never asks', () => {

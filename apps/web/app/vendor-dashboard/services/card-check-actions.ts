@@ -53,8 +53,15 @@ async function checkCardPhotosAction(input: {
   showcase: string[];
 }): Promise<CardPhotoVerdict[]> {
   const shop = await ownShop(input?.serviceId ?? null);
-  if (!shop) return [];
   const { cover, showcase } = cleanRefs(input?.cover, input?.showcase);
+  // 🔎 An unresolved shop (signed out, or the profile read refused) has checked NOTHING — every photo is said
+  // 'unchecked' (amber, "Create checks again"), never [] — which the maker reads as "no photo problems".
+  if (!shop) {
+    return [
+      ...(cover ? [{ ref: cover, where: 'cover' as const, verdict: 'unchecked' as const }] : []),
+      ...showcase.map((ref) => ({ ref, where: 'showcase' as const, verdict: 'unchecked' as const })),
+    ];
+  }
   return checkCardPhotos({ vendorProfileId: shop.vendorProfileId, serviceId: shop.serviceId, cover, showcase });
 }
 

@@ -82,15 +82,16 @@ export const DELEGATE_AREAS: readonly DelegateArea[] = [
  * the hosts. Nobody but a host ever logs or pays (`coordinatorMoneyScopeAllowed`).
  */
 export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
-  guest_list: 'Guest list',
-  seat_plan: 'Seat plan',
-  schedule: 'The Day',
+  // 🏷 ONE SET OF NAMES (controller call (6), 21 Nov 2026): the hosts' dashboard tab names, everywhere.
+  guest_list: 'Guests',
+  seat_plan: 'Seats',
+  schedule: 'Schedule',
   vendors: 'Suppliers',
-  invitations: 'Event Hub',
+  invitations: 'Hub',
   mood_board: 'Mood Board',
   budget: 'Budget',
   payments: 'Payments',
-  photos: 'Photos',
+  photos: 'Memories',
 };
 
 /**
@@ -294,6 +295,9 @@ export function seatAreaLevel(
   proposesOnly: boolean,
 ): AreaLevel {
   const level = resolveAreaLevel(perms, area);
+  // 🔒 THE CAP (controller call (3), 21 Nov 2026): a supplier never opens Payments or Memories (`photos`), whatever the
+  // seat says — the supplier branch of `moderator_area_level` (migration 20271357741892).
+  if (proposesOnly && (area === 'payments' || area === 'photos')) return null;
   return proposesOnly && level === 'edit' ? 'view' : level;
 }
 

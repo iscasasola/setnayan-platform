@@ -179,6 +179,8 @@ import { detailsNumbers } from './_components/details-numbers';
 import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
+import { TheirEventList } from './_components/their-event-list';
+import { readTheirEvent } from '@/lib/their-event.server';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';
@@ -762,6 +764,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // Only what the host has not already shared — asking for what you hold
   // spends the host's attention on nothing.
   const askableAreas = FLOOR_REQUESTABLE_AREAS.filter((a) => !myGrants[a]) as DelegateArea[];
+  // 🚪 "THEIR EVENT" (owner 2026-11-21): a booked supplier who is NOT the coordinator gets a short list of links to only
+  // their parts — here and in the chat. The coordinator has the hosts' dashboard instead ("Open their event").
+  const theirEvent =
+    isBooked && !theBookedCoordinator && feeGate.stage === 'unlocked'
+      ? await readTheirEvent(supabase, {
+          eventId,
+          vendorProfileId: profile.vendor_profile_id,
+          services: (profile as { services?: string[] | null }).services ?? null,
+          grants: myGrants,
+          monogramSvg: brief.monogram?.custom_svg ?? null,
+          tables: brief.seat_plan?.table_count ?? null,
+        })
+      : null;
+  const theirEventNode = theirEvent ? <TheirEventList eventId={eventId} rows={theirEvent.rows} /> : null;
 
   const admin = createAdminClient();
   const clientTimer = new ServerTimer('vendor-dashboard/customer-card');
@@ -2188,7 +2204,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
    * drift again.
    */
   const askBlock = isBooked ? (
-    <div className="mt-4 space-y-4">
+    <div id="ask-access" className="mt-4 scroll-mt-20 space-y-4">
       <AskAccess
         eventId={eventId}
         askable={askableAreas}
@@ -2364,6 +2380,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     feeUnlocked,
     eventVendorId,
     eventDate: brief.event.event_date,
+    theirEventRows: theirEvent?.rows ?? null,
     threadSearch: supplierThreadNoticeSearch(search as Readonly<Record<string, string | string[] | undefined>>),
     // 🧾 Details › Agreed now, as drawn (part G, 20 Nov): Venue · Hosts · Coordinator · Supplier · Stage — every one a
     // fact this page already read; the Event row is the card's own (it reads the event's type). No new read here.
@@ -2559,6 +2576,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
             {/* Item 2 of the ruling — "the request to access features". The
                 panel above already says why, so this withholds rather than
                 repeating it. */}
+            {tab === 'overview' && feeUnlocked ? theirEventNode : null}
             {tab === 'overview' && feeUnlocked ? askBlock : null}
             {/* Item 1 — the brief itself. Rendered at every stage, but from the
                 REDACTED payload: a quoting supplier still prices the job. */}

@@ -288,16 +288,9 @@ export function supplierPlusRows(opts: {
       door: 'questions-for-couple',
       shutUntilAgreement: { reason: 'Opens once they book you' },
     },
-    // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
-    // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
-    {
-      key: 'access',
-      label: 'Ask for access',
-      line: 'Seat plan, schedule, guest list… · the host decides',
-      card: 'access',
-      door: null,
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
+    // ➖ "Ask for access" LEFT the (+) (owner 21 Nov, DECISION_LOG "NO 'ASK FOR ACCESS' TILE ON THE CHAT ＋": *"this means
+    // we do not need access request on +"*). Asking lives in ONE place: the "Their event" list's last row, "Ask for
+    // access to more" (lib/their-event.ts) — the shipped Ask the host for access on the customer page.
     {
       key: 'payment',
       label: 'Payment',

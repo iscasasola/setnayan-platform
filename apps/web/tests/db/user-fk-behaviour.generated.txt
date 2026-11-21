@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 293 single-column FKs onto auth.users / public.users
-# CASCADE=79  RESTRICT=1  SET NULL=213
+# 299 single-column FKs onto auth.users / public.users
+# CASCADE=82  RESTRICT=1  SET NULL=216
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -47,6 +47,8 @@ chat_file_removals.user_id                                CASCADE      NOT NULL 
 chat_message_flags.reviewed_by                            SET NULL     nullable  -> users
 chat_message_flags.sender_user_id                         SET NULL     nullable  -> users
 chat_message_hearts.user_id                               CASCADE      NOT NULL  -> auth.users
+chat_message_reminders.user_id                            CASCADE      NOT NULL  -> auth.users
+chat_message_revisions.changed_by                         SET NULL     nullable  -> auth.users
 chat_messages.recipient_user_id                           CASCADE      nullable  -> users
 chat_messages.sender_user_id                              SET NULL     nullable  -> users
 chat_poll_votes.voter_user_id                             CASCADE      NOT NULL  -> auth.users
@@ -54,6 +56,7 @@ chat_polls.asked_by_user_id                               SET NULL     nullable 
 chat_polls.closed_by_user_id                              SET NULL     nullable  -> auth.users
 chat_thread_members.added_by_user_id                      SET NULL     nullable  -> users
 chat_thread_members.user_id                               CASCADE      NOT NULL  -> users
+chat_thread_mutes.user_id                                 CASCADE      NOT NULL  -> users
 chat_thread_reads.user_id                                 CASCADE      NOT NULL  -> users
 chat_threads.created_by_user_id                           SET NULL     nullable  -> users
 communities.created_by                                    SET NULL     nullable  -> auth.users
@@ -173,6 +176,7 @@ live_studio_encoder_claims.requested_by                   CASCADE      NOT NULL 
 live_studio_encoder_tokens.requested_by                   CASCADE      NOT NULL  -> auth.users
 manpower_gigs.posted_by_user_id                           SET NULL     nullable  -> users
 marketing_share_consents.customer_id                      CASCADE      NOT NULL  -> users
+maya_checkouts.user_id                                    CASCADE      NOT NULL  -> users
 media_web_copies.made_by                                  SET NULL     nullable  -> auth.users
 moodboard_library_assets.uploaded_by                      SET NULL     nullable  -> users
 moodboard_part_finalizations.answered_by_user_id          SET NULL     nullable  -> users
@@ -291,6 +295,7 @@ vendor_plan_contents.confirmed_by                         SET NULL     nullable 
 vendor_profiles.created_by_admin_user_id                  SET NULL     nullable  -> users
 vendor_profiles.user_id                                   CASCADE      nullable  -> users
 vendor_proposal_lowest.updated_by                         SET NULL     nullable  -> auth.users
+vendor_push_tokens.user_id                                SET NULL     nullable  -> users
 vendor_qr_media_flags.reviewed_by                         SET NULL     nullable  -> users
 vendor_recommendations.recommended_by_user_id             SET NULL     nullable  -> auth.users
 vendor_reuse_requests.requested_by_user_id                SET NULL     nullable  -> users
@@ -299,6 +304,7 @@ vendor_review_appeals.reviewer_user_id                    CASCADE      NOT NULL 
 vendor_review_flags.reviewed_by_admin_id                  SET NULL     nullable  -> auth.users
 vendor_reviews.couple_user_id                             SET NULL     nullable  -> auth.users
 vendor_reviews.override_admin_id                          SET NULL     nullable  -> users
+vendor_role_names.updated_by                              SET NULL     nullable  -> auth.users
 vendor_subscriptions.holder_user_id                       SET NULL     nullable  -> auth.users
 vendor_team_members.user_id                               CASCADE      NOT NULL  -> auth.users
 vendor_tier_history.admin_user_id                         SET NULL     nullable  -> users

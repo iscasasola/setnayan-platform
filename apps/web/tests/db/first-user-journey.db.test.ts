@@ -253,7 +253,7 @@ test('4 · the couple can lock the package and the money is right', async () => 
 test('5 · the fee is charged ONCE, on the whole package, via the anchor', async () => {
   // §6.4. Until this landed, lockPackage never called the fee collector at all,
   // so a package booked for ₱0 in fees no matter its size.
-  assert.equal(bookingFeePhp(145000), 5450, 'the taper on the agreed package total');
+  assert.equal(bookingFeePhp(145000), 6350, 'the taper on the agreed package total (5% of ₱100k + 3% of ₱45k)');
 
   // Push this vendor past their five free bookings so a real charge computes.
   for (let i = 1; i <= 5; i++) {
@@ -284,7 +284,7 @@ test('5 · the fee is charged ONCE, on the whole package, via the anchor', async
   assert.equal(r.status, 'pending', 'the 6th booking bills');
   assert.equal(
     Number(r.computed_fee_centavos),
-    545000,
+    635000,
     'the fee is the taper on ₱145,000 — the number the couple agreed to, not one line',
   );
 

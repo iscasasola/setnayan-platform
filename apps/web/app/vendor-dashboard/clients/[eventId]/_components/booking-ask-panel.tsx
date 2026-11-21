@@ -24,6 +24,7 @@
  * Server-rendered; the two actions are props so the dev lab
  * (`/dev/booking-ask-lab`) draws the same panel without a session.
  */
+import Link from 'next/link';
 import { ArrowRight, Check, X } from 'lucide-react';
 import { BookingFeeNotice } from '@/app/_components/booking-fee-notice';
 import { BlockerAskRow } from '@/app/_components/chat/blocker-ask-row';
@@ -43,6 +44,8 @@ import type { DayCheckRead } from '@/lib/day-check';
 import { DayCheckLine } from './day-check-line';
 import { WaitlistForm } from './waitlist-form';
 import { TopUpCarryOver, type CarryOverTopUp } from './top-up-carry-over';
+import { AgreeGiftPicker } from './agree-gift-picker';
+import type { AgreeGiftBasis } from '@/lib/agree-gifts';
 import type { PiecesAsk } from '@/lib/pieces-ask.server';
 import { shopInputClass } from '@/app/vendor-dashboard/_components/kit';
 
@@ -77,6 +80,7 @@ export function LockRequestAnswer({
   now = new Date(),
   layout = 'panel',
   carryOver = null,
+  giftBasis = null,
   askPieces = null,
 }: {
   eventVendorId: string;
@@ -120,6 +124,12 @@ export function LockRequestAnswer({
    * held service keep their shipped single answer. `panel` (default) is the shipped layout, unchanged.
    */
   layout?: 'panel' | 'blocker';
+  /**
+   * 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree — fee · gift · "You pay if you agree" — whose picks
+   * post with the yes (`gift`, one per pack) to `vendorAgreeToLock`. `fetchAgreeGiftBasis`; null when the yes raises no
+   * bill (free, promo, badge reward) or a read failed — then Agree looks exactly as before.
+   */
+  giftBasis?: AgreeGiftBasis | null;
   /**
    * 🪑 Rented by the piece (Availability step 4, ruling 2): the yes says how many pieces (`booked_quantity`), taken all
    * or nothing by `set_booked_quantity`. Null → Agree as always. Set → the panel layout, so the field is beside Agree.
@@ -185,6 +195,7 @@ export function LockRequestAnswer({
           <form action={agreeLock}>
             <input type="hidden" name="vendor_id" value={eventVendorId} />
             <input type="hidden" name="return_to" value={returnTo} />
+            {giftBasis ? <AgreeGiftPicker basis={giftBasis} /> : null}
             <div className={askPieces ? 'flex flex-wrap items-end gap-2' : 'contents'}>
             {askPieces ? (
               <label className="flex flex-col text-[13px] text-ink/70" data-booking-ask-pieces="">
@@ -250,6 +261,14 @@ export function LockAnswerLine({ notice }: { notice: LockAnswerNotice }) {
       }`}
     >
       {notice.text}
+      {notice.door && notice.doorEverywhere ? (
+        <>
+          {' '}
+          <Link href={notice.door.href} className="font-semibold underline underline-offset-2" data-lock-answer-door="">
+            {notice.door.label}
+          </Link>
+        </>
+      ) : null}
     </p>
   );
 }

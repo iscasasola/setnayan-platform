@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { stripComments } from './strip-comments';
-import { STAGE_BAR_HANDLE_PX, STAGE_BAR_LINE_PX, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX } from './maker-stage-room';
+import { STAGE_BAR_HANDLE_PX, STAGE_BAR_LINE_PX, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX } from './maker-stage-room';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -30,7 +30,9 @@ const TOOLS = read('app/dashboard/[eventId]/launch/_components/stage-tools.tsx')
 const BRIDGE = read('app/[slug]/_components/editor-bridge.tsx');
 
 test('1 · it hides on a tap on the empty page, a scroll of the page, a swipe down — never held, previewing or on a desktop', () => {
-  assert.match(TOOLS, /d\.t === 'tapOutside' && !previewingRef\.current\) stowRef\.current\(\);/, 'a tap on the page’s ground does not put it away');
+  /* 🛋 20 Nov 2026 (DECISION_LOG "MAKER · WAY BACK"): a tap on the page's ground is a way BACK — it lets the part go to
+     the resting bar (`closeRef`, the toolbar's history entry), where it used to stow the toolbar and keep the part. */
+  assert.match(TOOLS, /d\.t === 'tapOutside' && !previewingRef\.current\) closeRef\.current\(\);/, 'a tap on the page’s ground does not go back');
   assert.match(TOOLS, /d\.t === 'pageScroll' && !previewingRef\.current\) stowRef\.current\(\);/, 'a scroll of the page does not put it away');
   assert.match(TOOLS, /d\.t === RSVP_GROUND_MESSAGE\) stowRef\.current\(\);/, 'the RSVP stage’s ground does not put it away');
   assert.match(TOOLS, /stowRef\.current = \(\) => \{\s*if \(!desk && !held\) setStowed\(true\);\s*\};/, 'it may stow on a desktop, or while a scene is held');
@@ -62,10 +64,12 @@ test('2 · it shows on arrival and comes back for a part, a tool, or its head', 
 
 test('3 · stowed, its head is left — the handle and the line, one named button — and the part stays picked', () => {
   assert.equal(STAGE_BAR_STOW_PX, STAGE_BAR_HANDLE_PX + STAGE_BAR_LINE_PX + 10, 'the head is not the handle and the line');
-  assert.equal(STAGE_BAR_STOW_PX, 44, 'the head is not one whole tap target');
+  /* 🧰 20 Nov 2026: the line became the 44 px HEAD (‹ · name ▾ · › · ⓘ · ✕), so stowed the toolbar keeps 68 px — and the
+     whole strip (handle + head, 58 px) is the one button that brings it back; the drawing has no ▴. */
+  assert.equal(STAGE_BAR_STOW_PX, 68, 'the stowed head is not the handle and the head');
+  assert.ok(STAGE_BAR_STOW_BUTTON.split(' ').includes('h-[58px]'), 'the stowed head is not one whole tap target');
   assert.match(TOOLS, /if \(stowed && !desk\) \{\s*onPx\(STAGE_BAR_STOW_PX\);\s*return;\s*\}/, 'stowed, the lower third keeps more than its head');
   assert.match(TOOLS, /aria-label=\{`Show the editing tools — \$\{linePieces\.join\(' › '\)\}`\}/, 'the head’s button is not named for what it brings back');
-  assert.match(TOOLS, /\[data-stage-tools\]\[data-stage-stow="away"\] \[data-stage-caption\]>span\[aria-hidden\]::after\{content:"\\\\25B4";/, 'the line does not say ▴');
   assert.match(TOOLS, /\[data-stage-tools\]\[data-stage-stow="away"\]>:not\(\[data-stage-handle\],\[data-stage-caption\],\[data-stage-show\]\)\{visibility:hidden;/, 'what the head does not show stays reachable');
   // The part is not let go: stowing never calls deselect.
   const stowBody = /stowRef\.current = \(\) => \{([\s\S]*?)\};/.exec(TOOLS)?.[1] ?? '';

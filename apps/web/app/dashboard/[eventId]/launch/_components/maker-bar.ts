@@ -36,7 +36,10 @@ import type { MakerDevice } from './maker-context';
  */
 /* ↺ 'history' (owner 2026-11-09, "↺ BECOMES A HISTORY LIST"; Build 6 Lane F ruling 5): the same ↺ place, which now
    opens the list of this draft's edits instead of taking one step back (`hub-history-sheet.tsx`). */
-export const MAKER_TOOLBAR_STAGES_STUDIO = ['side', 'history', 'apply', 'settings'] as const;
+/* ‹ 'leave' · ↺ LEFT THE BAR (owner 20 Nov 2026, DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED"
+   (5)(6)): the app's bars step away while the Maker is open, so ‹ leads out; ↺ History is ⚙'s first group. The phone's
+   👁 joins in part 5 (the one preview); a desktop keeps its Preview menu between the stage and ✓. */
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['leave', 'side', 'apply', 'settings'] as const;
 export type MakerSide = 'stages' | 'studio';
 export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
 

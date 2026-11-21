@@ -102,7 +102,7 @@ test('THE SENTENCE FOLLOWS THE SETTINGS — this is what makes it owner-editable
     const { rows } = await db.query<{ s: string }>(
       `SELECT public.booking_fee_schedule_summary() AS s`,
     );
-    assert.equal(rows[0]!.s, '7.5% of the first ₱250,000, then 2%, minimum ₱50');
+    assert.equal(rows[0]!.s, '7.5% of the first ₱250,000, then 2%, minimum ₱50, never more than ₱100,000');
 
     // …and so does the arithmetic, against the TS half told the same schedule.
     const schedule = { rate: 0.075, tailRate: 0.02, tier1LimitPhp: 250_000, minPhp: BOOKING_FEE.minPhp };
@@ -122,7 +122,7 @@ test('THE SENTENCE FOLLOWS THE SETTINGS — this is what makes it owner-editable
       `UPDATE public.platform_settings
           SET booking_fee_rate_pct = 5.00,
               booking_fee_tier1_limit_php = 100000,
-              booking_fee_tail_rate_pct = 1.00
+              booking_fee_tail_rate_pct = 3.00
         WHERE id = 1`,
     );
   }

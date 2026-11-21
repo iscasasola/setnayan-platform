@@ -32,6 +32,8 @@ import {
 import { bump, canAdd, type GiftCart } from '@/lib/shop-gift-cart';
 import type { GiftHistoryRow } from '@/lib/shop-gift-history';
 import { GiftHistory, GiftStore, GiftTicketSheet } from './gift-store';
+import { GiftReturnBanner } from './gift-return-banner';
+import { useSearchParams } from 'next/navigation';
 import { GiftTicketArt } from './gift-ticket-art';
 import { GIFT_PAYMENT_SENT, bundleShape } from './gift-store-copy';
 import {
@@ -215,6 +217,17 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
   const sent = (history ?? []).some((r) => r.kind === 'bought' && r.state === 'sent');
   const sheetTile = list.find((t) => t.pack.code === sheetCode) ?? null;
   const bundleOf = (code: string) => bundles.find((b) => b.pack.code === code) ?? null;
+  // 🎁 Sent here from a booking's Agree step ("0 left · Buy more ›", #7823): the store opens with THAT gift in the order.
+  const askedGift = useSearchParams().get('gift');
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || !askedGift || !canOffer) return;
+    opened.current = true;
+    if (canAdd({}, askedGift, buyPacks, bundles, data.maxPaymentPhp) !== 'ok') return;
+    setCart(bump({}, askedGift, 1));
+    setFlash({ code: askedGift, n: 1 });
+    setView('store');
+  }, [askedGift, canOffer, buyPacks, bundles, data.maxPaymentPhp]);
 
   /** Add from a ticket's sheet: into the order, then the store opens on THAT row (prototype v16 — no "Just added" box). */
   const addFromSheet = (code: string) => {
@@ -246,6 +259,7 @@ export function ShopGiftsSection({ data }: { data: ShopGiftsSectionData }) {
         itself on your next booking that would carry a fee.
       </InfoTip>
 
+      <GiftReturnBanner className="mt-2" />
       <div className="mt-2">
         {/* 🔢 One card, five cells (prototype v16): Total (available + held) · Available · Held · Given · History. */}
         <div

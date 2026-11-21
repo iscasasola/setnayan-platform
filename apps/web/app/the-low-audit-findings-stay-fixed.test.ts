@@ -31,10 +31,20 @@ test('D-9 · the Dates "Try again" under unread hours presses at 44 (sn-hit) wit
 });
 
 test('C-8 · the picked client\'s "Event brief" back links and the cocktail resize handle press at 44', () => {
-  for (const page of ['production-sheet', 'editorial-media', 'cocktail', 'seat-plan']) {
-    const src = read(`app/vendor-dashboard/clients/[eventId]/${page}/page.tsx`);
-    assert.match(src, /className="sn-hit inline-flex items-center gap-1\.5 [^"]*"\s*>\s*<ArrowLeft aria-hidden className="h-4 w-4" \/> Event brief/, `C-8: ${page} "Event brief" lost its halo`);
+  // Supplier pages set two (21 Nov 2026): the "Event brief" link above each part is gone — the part opens under the dark
+  // line, whose Close (a phone) and the top row's round back (a computer) are the way out. Both press at 44.
+  for (const [page, body] of [
+    ['production-sheet', 'production-sheet-body'],
+    ['editorial-media', 'editorial-media-body'],
+    ['cocktail', 'cocktail-body'],
+    ['seat-plan', 'seat-plan-body'],
+  ] as const) {
+    const src = read(`app/vendor-dashboard/clients/[eventId]/${page}/${body}.tsx`);
+    assert.match(src, /<TheirEventPart\b/, `C-8: ${page} no longer opens under the dark line with its Close`);
   }
+  const css = read('app/vendor-dashboard/_components/set-two/set-two.module.css');
+  assert.match(css, /\.lineClose \{[^}]*min-height: 44px;/, 'C-8: the dark line\'s Close lost its 44-px press');
+  assert.match(css, /\.round \{[^}]*width: 44px;[^}]*height: 44px;/, 'C-8: the round back lost its 44-px press');
   const cocktail = read('app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor.tsx');
   assert.match(cocktail, /aria-label="Resize cocktail area"\s*className="sn-hit-2d /, 'C-8: the 20-px resize handle lost its both-ways halo');
 });

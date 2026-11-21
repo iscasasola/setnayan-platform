@@ -49,11 +49,14 @@ test('#13 · the invite and join doors: a refused read throws to the error page,
   before(read, 'if (eventError) {\n    throw new Error(', 'return <InvalidTokenScreen />;', 'refused → error page, before Invalid');
 });
 
-test('#34 · the Hub seat tile: a refused seat read says "Couldn’t load your seat", never "Not yet assigned"', () => {
+test('#34 · the Hub seat tile: gone with the hub — it can no longer say "Not yet assigned" for a refused read', () => {
+  // 🧭 20 Nov 2026 — one bar per stage: /hub draws nothing, it redirects to the event page's tab (`dayHubLanding`), so
+  // its seat tile (and that tile's honest "Couldn’t load your seat") went with it. Pinned: the hub reads no seat and
+  // draws no seat sentence at all. ⚠ The event page's own seat read (`_lib/loaders.ts`, `guestTableLabel`) still
+  // discards its error — named on the PR as open work, not fixed here.
   const hub = src('app/[slug]/hub/page.tsx');
-  assert.match(hub, /if \(assignmentErr\) \{\s*seatUnreadable = true;/);
-  assert.match(hub, /if \(tableErr\) \{\s*seatUnreadable = true;/);
-  assert.match(hub, /seatUnreadable \? 'Couldn’t load your seat' : 'Not yet assigned'/);
+  assert.doesNotMatch(hub, /event_seat_assignments|event_tables/, 'the hub reads seats again — it draws nothing of its own');
+  assert.doesNotMatch(hub, /Not yet assigned/, 'the hub draws a seat sentence again');
 });
 
 test('#14 · prints, exports and the seat plan never build from an unmeasured guest list', () => {

@@ -94,9 +94,12 @@ test('every site that picks the face composes the pin', () => {
   // that was not (`app/[slug]/_lib/the-day-hub-follows-the-stage.test.ts`).
   const hub = src('app/[slug]/hub/page.tsx');
   assert.match(hub, /manualLaunchPhase\(event\.launch_mode, event\.manual_phase\)/);
-  // (A host rehearsing the day before the day is forced to 'event'; everyone else takes the preview, then the pin.)
-  assert.match(hub, /forcedPhase: LifecyclePhase \| null = door === 'rehearsal' \? 'event' : \(phaseOverride \?\? pinnedPhase\)/);
-  assert.match(hub, /const dayOfPhase: DayOfPhase = forcedPhase/);
+  // 🧭 One bar per stage (20 Nov 2026): /hub draws nothing — it redirects to the event page's tab (`dayHubLanding`),
+  // so it no longer forces a day-of phase of its own. It still picks WHERE to send a visitor from the pinned stage:
+  // the preview, then the pin, then the clock — and a host rehearsing before the day lands on `?phase=event`.
+  assert.match(hub, /phaseOverride \?\?\s*pinnedPhase \?\?\s*getLifecyclePhase\(/, 'the hub picks its landing without the pin');
+  assert.match(hub, /redirect\(\s*`\/\$\{encodeURIComponent\([^`]*?\)\}\$\{dayHubTail\(\{[\s\S]*?stage: pageStage,/, 'the hub sends a visitor somewhere other than the pinned stage’s page');
+  assert.doesNotMatch(hub, /const dayOfPhase/, 'the hub computes a day-of phase again — it is drawing a page of its own');
 });
 
 test('every loader feeding a face selects the two columns', () => {

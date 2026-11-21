@@ -22,7 +22,7 @@ pieces. Look only: every page keeps what it does, its words and the same server 
   opens in place; "Add a segment" is the thumb row's ＋ (a sheet); Not offering / Not asking are folds; segments |
   questions side by side on a computer. The questions block stays the ONE shared component.
 - Guards that read the moved code now read the screen files (`the-columns-are-the-system`, `service-picker-anchor`,
-  the set-list swipe guard). Field-template baseline: Segments' four boxes MOVED to `activities-view.tsx` (net 0);
+  the set-list swipe guard). Field-template baseline: Segments' four boxes became the house form rows (`TypedRow` · `ChosenRow`, −4);
   Repertoire's three became TypedRows (−3).
 
 SPEC IMPACT: None — builds an approved drawing; the shelf line is the controller's ruling already in the DECISION_LOG row.

@@ -46,8 +46,8 @@ function fmtDate(s: string) {
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (5% of a booked total, then 1% beyond ₱100,000, minimum ₱50,
- * past their free-5 — owner-ruled 2026-07-27; NOT a flat rate). Each row links to
+ * booking-fee orders (5% of a booked total, then 3% beyond ₱100,000, never more than ₱100,000, minimum ₱50,
+ * owner 2026-11-20; NOT a flat rate). Each row links to
  * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).
@@ -156,8 +156,8 @@ export default async function VendorBookingFeesPage() {
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
             {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
             {/* Owner 2026-11-10: "messages that needs to be reworded" — plainer words. */}
-            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> Your free booking
-            still shows what its fee would have been, so you know what the next one costs.
+            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> A free booking fee ticket
+            pays your next fee by itself.
           </p>
         </div>
       ) : (

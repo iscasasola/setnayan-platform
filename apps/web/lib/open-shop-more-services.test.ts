@@ -3,6 +3,7 @@
  * `coverLine` / `LADDER` / `zXEv`): a "category" is the tier-2 Category, each plan holds categories × services per
  * category, every number read from TIER_CAPS.
  */
+import { FEE_FREE_CHIP } from './booking-fee-who-words';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,6 @@ import { stripComments } from '@/lib/strip-comments';
 
 import { TIER_CAPS, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import {
-  FIRST_BOOKING_FREE_LABEL,
   carriesFirstBookingLabel,
   coverageLine,
   eventsForAddedService,
@@ -58,7 +58,6 @@ test('past what Free holds, the explainer is due — and its line is the v16 one
   assert.equal(holdsMoreThanFree(rec(2)), true);
   assert.equal(holdsMoreThanFree([...rec(1), acc]), true);
   assert.equal(holdsMoreThanFree([]), false);
-  assert.equal(FIRST_BOOKING_FREE_LABEL, 'Your first booking is free once you’re verified');
 });
 
 test('the plan is the FIRST where categories AND services in total both fit — read from TIER_CAPS', () => {
@@ -105,7 +104,7 @@ test('the ladder (Free · Verified → Plus → Pro → Ultra adds) is composed 
   const t = whatEachPlanHolds();
   assert.equal(t.title, 'What each plan adds');
   assert.deepEqual(t.ladder, l);
-  assert.equal(t.firstBooking, 'Your first booking is free once you’re verified.');
+  assert.equal(t.firstBooking, `${FEE_FREE_CHIP}.`, '20 Nov: the free first booking is retired — the free rule leads');
 });
 
 test('④ a service is on for the ticked events it is offered at, minus the ones unticked under that event', () => {

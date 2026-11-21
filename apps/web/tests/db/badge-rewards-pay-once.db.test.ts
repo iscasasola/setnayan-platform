@@ -178,14 +178,12 @@ test('1 · a reward pays exactly once — a re-run and a re-earn after a revoke 
   assert.equal((await grant(shop, 'x:1', 'fee_waiver', 2, null)).status, 'bad_input', 'two free fees in one row');
 });
 
-test('2 · the free booking fee pays the next billed booking — never the free one, one per booking', async () => {
+test('2 · the free booking fee pays the next billed booking — auto-claimed, one per booking', async () => {
   const { shop } = await newShop();
   const fw = await grant(shop, 'events:1000', 'fee_waiver', 1, null);
 
-  const firstBooking = await openCharge((await newBooking(shop)).eventVendorId);
-  assert.equal(firstBooking.status, 'waived_free5', 'the first booking is free on its own');
-  assert.equal((await waiver(fw.reward_id!)).used_on_charge_id, null, 'the free first booking spent the badge reward');
-
+  // ⚖ 20 Nov: no free first booking, so the shop's FIRST booking with a fee is the one the ticket pays — auto-claimed
+  // ("tickets that is auto claimed on your next event booking"), never chosen.
   const b2 = await newBooking(shop);
   const second = await openCharge(b2.eventVendorId);
   assert.equal(second.status, 'paid', `the badge-paid booking is ${second.status}`);

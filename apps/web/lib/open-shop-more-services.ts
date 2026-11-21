@@ -1,4 +1,5 @@
 import { formatCount } from '@/lib/format-number';
+import { FEE_FREE_CHIP } from './booking-fee-who-words';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /**
@@ -19,11 +20,6 @@ import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
  * 10", and cards per `vendor_services.category`) — reconciling the two belongs to the hold build, not this file.
  */
 
-/**
- * The unlock line (the prototype's `UNLOCK_LABEL`, verbatim — v16, owner 6 Nov: *"their first booking free once
- * verified"*). Said once under the cards when the picks are more than Free holds, and as the lead of the plan sheet.
- */
-export const FIRST_BOOKING_FREE_LABEL = 'Your first booking is free once you’re verified';
 
 /** The plans the meter walks, smallest first. Verified holds more than Free since 2026-11-18 (3 service cards to 1). */
 const METER_PLANS: readonly VendorTier[] = ['free', 'verified', 'solo', 'pro', 'enterprise'];
@@ -146,7 +142,7 @@ export function whatEachPlanHolds(): {
       'Each service is its own listing in its category — more services means you appear in more couples’ searches. Reach is how far from you couples search.',
     after:
       'Everything you add stays on until your first booking on Setnayan is done. Then keep one free, or pick a plan to keep them all. Nothing is deleted.',
-    firstBooking: `${FIRST_BOOKING_FREE_LABEL}.`,
+    firstBooking: `${FEE_FREE_CHIP}.`, // 20 Nov: the free first booking is retired — the owner's free rule leads
     fine: 'No booking fee on it. One per business — checked when Setnayan verifies you.',
   };
 }

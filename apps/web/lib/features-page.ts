@@ -31,6 +31,7 @@
  */
 import type { FeatureSlug } from '@/lib/feature-pages/types';
 import type { CatalogueRow } from '@/lib/feature-pages/price';
+import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 
@@ -186,7 +187,7 @@ export const FEATURE_ROWS = {
   c32: F({ icon: 'link', name: 'Demand, recommendations, partnerships, creators', line: 'Where the inquiries are; who to partner with.', price: 'free', status: 'live', reg: ['C32'], problem: 'You guess where demand is.', solution: 'Demand by month and city, recommended add-ons, partnerships and creators.', why: 'Decide with numbers.' }),
   c23: F({ icon: 'wave', name: 'The Day console', line: 'Live view and Papic live, for the crew.', price: 'free', status: 'live', reg: ['C23'], problem: 'On the day, the plan is on paper.', solution: 'One console for the live day and Papic.', why: 'Run it from a phone.' }),
   c24: F({ icon: 'users', name: 'Manpower, team and branches', line: 'Staff per service; branches by city.', price: 'free', status: 'live', reg: ['C24'], problem: 'The team is a group chat.', solution: 'Staff per service, team seats and branches.', why: 'The right crew on the right day.' }),
-  c25: F({ icon: 'coins', name: 'Earnings, Money in, booking fees, payment options', line: 'What is paid, what is due; fees only on clients we bring.', price: 'free', status: 'live', reg: ['C25'], problem: 'Payments in a notebook; platforms take a cut of everything.', solution: 'Every payment card lands in your earnings; a fee only on clients Setnayan brings, the first one free.', why: 'Clean books; pay when we deliver.' }),
+  c25: F({ icon: 'coins', name: 'Earnings, Money in, booking fees, payment options', line: 'What is paid, what is due; fees only on clients we bring.', price: 'free', status: 'live', reg: ['C25'], problem: 'Payments in a notebook; platforms take a cut of everything.', solution: `Every payment card lands in your earnings; a booking fee on each booking, ${FEE_SCOPE}.`, why: 'Clean books; pay when we deliver.' }),
   c26: F({ icon: 'quote', name: 'Tax documents (BIR)', line: 'Your documents, ready for filing.', price: 'free', status: 'live', reg: ['C26'], problem: 'Tax season is a scramble.', solution: 'BIR documents from your earnings.', why: 'Filing without fear.' }),
   c34: F({ icon: 'shield', name: 'Disputes, single-use QR, Theft Watch', line: 'A neutral review; QRs that cannot be reused.', price: 'free', status: 'live', reg: ['C34'], problem: 'A dispute is your word against theirs; a QR gets copied.', solution: 'Setnayan reviews with the chat as the record; booking QRs work once; Theft Watch flags reuse.', why: 'Protected on both sides.' }),
   c42: F({ icon: 'shield', name: 'Your shop’s standing', line: 'Hidden, suspended or banned reads honestly; a lapsed plan lapses.', price: 'free', status: 'live', reg: ['C42'], problem: 'A shop did not know it was hidden.', solution: 'The booking gate says which it is; an ended plan never reads as current.', why: 'No silent states.' }),
@@ -285,7 +286,7 @@ export const PERSONAS: readonly Persona[] = [
     key: 'suppliers',
     label: 'Suppliers',
     heroTitle: 'Open your shop. Get booked in writing. Get paid.',
-    heroLine: 'Free to join, full dashboard free. A fee only on clients Setnayan brings you, and the first one is free.',
+    heroLine: `Free to join, full dashboard free. A booking fee on each booking, ${FEE_SCOPE}.`,
     chapters: [
       { eye: 'Open', title: 'A shop page Google can read, in two steps.', line: 'Your services, photos and reviews on a page written for search engines and AI. Verified once by Setnayan’s team; every limit explains itself.', moment: 'shop',
         groups: [['Open and verify', ['c01', 'c02', 'c03', 'c04']], ['Your plan', ['c05', 'c06', 'c40']], ['Your page', ['c11', 'c13', 'c12', 'c41']]] },

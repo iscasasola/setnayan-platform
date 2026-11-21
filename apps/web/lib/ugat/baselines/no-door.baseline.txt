@@ -43,6 +43,7 @@
 /dev/empty-looks-lab	# first run 2026-11-10 · internal (dev, prototypes) · Build 5 Lane H empty-look lab; 404 in production, reached only by typing its address
 /dev/event-group-chat-lab	# 2026-11-12 · internal (dev, prototypes) · a page nobody can reach without typing its address — event group chats on fixture data, 404 in production
 /dev/favorites-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/fee-rulings-lab	# 2026-11-20 · internal (dev lab, 404 in production) · the 20 Nov booking-fee screens on fixtures for the §4 shots; reached by typing its address
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/files-lab	# first run 2026-11-12 · internal (dev lab, Piece 3b) · a page nobody can reach without typing its address

@@ -33,7 +33,6 @@
  * went stale here, twice.
  */
 import { bookingFeeScheduleSummary, type BookingFeeSchedule } from '@/lib/booking-fee';
-import { FIRST_BOOKING_ON_US_CLAUSE } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
@@ -81,7 +80,7 @@ export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): 
   const rate = schedule ? ` of ${bookingFeeScheduleSummary(schedule)}` : '';
   return (
     `${base} Setnayan bills you a booking fee${rate}, ` +
-    `${FEE_SCOPE} — ${FIRST_BOOKING_ON_US_CLAUSE}. ` +
+    `${FEE_SCOPE}. ` +
     `${FEE_FREE_RULE} It is charged to you, never added to what a couple pays.` +
     (schedule ? '' : ' The rate is shown in full before you agree to any booking.')
   );

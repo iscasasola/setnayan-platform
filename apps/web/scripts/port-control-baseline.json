@@ -4579,12 +4579,16 @@
         "admin/payments/_components/form-date.tsx",
         "admin/payments/_components/inbox-matcher.tsx",
         "admin/payments/_components/received-drop-tile.tsx",
+        "admin/payments/_components/received-held-toast.tsx",
+        "admin/payments/_components/received-held.tsx",
         "admin/payments/_components/received-match-pick.tsx",
         "admin/payments/_components/received-pile.tsx",
         "admin/payments/_components/remedy-reason-row.tsx",
+        "admin/payments/_components/reread-on-this-phone.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
         "admin/payments/page.tsx",
+        "admin/payments/received-auto.ts",
         "admin/payments/received.ts"
       ],
       "destinations": [
@@ -4602,6 +4606,7 @@
         "rereadPaymentReceipt"
       ],
       "blocks": [
+        "ApproveCore",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -4618,8 +4623,11 @@
         "FormPick",
         "FormRows",
         "Fragment",
+        "HTMLFormElement",
         "HTMLInputElement",
+        "HeldToast",
         "InboxMatcher",
+        "InfoTip",
         "Link",
         "LinkPickMenu",
         "OpenedPayment",
@@ -4632,10 +4640,12 @@
         "PickMenu",
         "PileRow",
         "ProofImage",
+        "Read",
         "ReadFailedNotice",
         "ReceiptReadCard",
         "ReceivedCard",
         "ReceivedDropTile",
+        "ReceivedHeldList",
         "ReceivedMatchPick",
         "ReceivedPile",
         "ReceivedTileBlock",
@@ -4643,6 +4653,7 @@
         "RecordTarget",
         "RefundForm",
         "RemedyReasonRow",
+        "RereadOnThisPhone",
         "SearchParamsRecord",
         "ServiceRemedyForms",
         "Sheet",
@@ -5170,6 +5181,7 @@
         "ConsoleTable",
         "Field",
         "FormFlash",
+        "InfoTip",
         "PageMasthead",
         "QrUploadForm",
         "SubmitButton"
@@ -7281,6 +7293,7 @@
         "ReadRefusedNotice",
         "Ready",
         "ReadyForNoSignal",
+        "ReceiptReadFields",
         "RecordCardFolds",
         "RecordLinkBlock",
         "ReleaseScheduleResult",
@@ -13687,6 +13700,7 @@
     "/pay/[reference]": {
       "files": [
         "pay/[reference]/_components/pay-panel.tsx",
+        "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/page.tsx"
       ],
@@ -13703,6 +13717,7 @@
         "Channel",
         "ChannelToggle",
         "CopyButton",
+        "File",
         "FileUpload",
         "HTMLDivElement",
         "InfoTip",
@@ -13712,6 +13727,8 @@
         "PayStage",
         "PaymentDetailsBlock",
         "ProofForm",
+        "ReceiptReadFields",
+        "SentScreen",
         "StageLink",
         "StageRail",
         "Step",
@@ -13864,7 +13881,8 @@
       ],
       "actions": [],
       "blocks": [
-        "Link"
+        "Link",
+        "Metadata"
       ]
     },
     "/sample/[...rest]": {
@@ -17719,6 +17737,10 @@
     },
     "/vendor-dashboard/shop/promote": {
       "files": [
+        "vendor-dashboard/shop/promote/_components/gift-store-copy.ts",
+        "vendor-dashboard/shop/promote/_components/gift-store-sizes.ts",
+        "vendor-dashboard/shop/promote/_components/gift-store.tsx",
+        "vendor-dashboard/shop/promote/_components/gift-ticket-art.tsx",
         "vendor-dashboard/shop/promote/_components/promote-body.tsx",
         "vendor-dashboard/shop/promote/_components/promote-bridge.tsx",
         "vendor-dashboard/shop/promote/_components/share-your-work-data.ts",
@@ -17736,6 +17758,7 @@
       ],
       "blocks": [
         "ActionButton",
+        "AddButton",
         "Art",
         "ArtBase.Provider",
         "BadgeRead",
@@ -17745,7 +17768,6 @@
         "BigPiece",
         "BigScene",
         "Bridge",
-        "BuyGiftsSheet",
         "BuyVendorPapicPortfolioPackState",
         "CouldNotLoad",
         "Counter",
@@ -17756,8 +17778,17 @@
         "FactSwitch",
         "Fold",
         "FormRows",
+        "GiftCart",
+        "GiftHistory",
+        "GiftStore",
+        "GiftTicketArt",
+        "GiftTicketPile",
+        "GiftTicketSheet",
         "HTMLDivElement",
+        "HTMLElement",
         "Hidden.Provider",
+        "HistoryFilter",
+        "HistoryItem",
         "InfoTip",
         "Link",
         "NfcTapTest",

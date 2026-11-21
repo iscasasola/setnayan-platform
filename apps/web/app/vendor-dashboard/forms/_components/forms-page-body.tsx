@@ -208,7 +208,7 @@ export function FormsPageBody({
       {eventId ? (
         <section className="space-y-3" aria-labelledby="forms-event-h" data-forms-this-event>
           <h2 id="forms-event-h" className={H2}>
-            This event&rsquo;s forms · {formatCount(eventForms?.length ?? 0)}
+            This event&rsquo;s forms{eventForms === null ? null : <> · {formatCount(eventForms.length)}</>}
           </h2>
           {eventForms === null ? (
             <Unread what="this event’s forms" />

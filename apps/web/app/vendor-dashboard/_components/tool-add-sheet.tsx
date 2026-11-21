@@ -19,8 +19,8 @@ export function ToolAddSheet({ name, label, title, children }: { name: string; l
     <>
       <SupplierThumbRow name={name} label={`${title} actions`} row={<ThumbRow name={name} action={{ icon: Plus, label, onClick: () => setOpen(true) }} />} />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
-        <div className="flex flex-col gap-2.5 pb-2">
-          <h2 id={headId} className="sn-sheet-name text-ink">
+        <div className="flex flex-col gap-2.5 px-5 pb-6 pt-5">
+          <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
             {title}
           </h2>
           {children}

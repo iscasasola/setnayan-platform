@@ -32,8 +32,8 @@ export function AddService({ addable }: { addable: readonly AddableService[] }) 
         row={<ThumbRow name="attributes" action={{ icon: Plus, label: 'Add service', onClick: () => setOpen(true) }} />}
       />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
-        <div className="flex flex-col gap-2.5 pb-2">
-          <h2 id={headId} className="sn-sheet-name text-ink">
+        <div className="flex flex-col gap-2.5 px-5 pb-6 pt-5">
+          <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
             Add another service
           </h2>
           <label className="sr-only" htmlFor={`${headId}-q`}>

@@ -295,11 +295,11 @@ function SuggestToCoupleControl({
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
           <form
             action={suggestToCouple}
-            className="flex flex-col gap-2.5 pb-2"
+            className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
           >
             <input type="hidden" name="addon_key" value={addonKey} />
             <div>
-              <h2 id={headId} className="sn-sheet-name text-ink">
+              <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
                 Suggest to a couple
               </h2>
               <p className="text-[14px] text-[color:var(--m-slate-2)]">{title} · they see it in their Studio</p>
@@ -366,13 +366,13 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
         <StayForm
           door="svRecommendations.flagFeedback"
           action={flagFeedback}
-          className="flex flex-col gap-2.5 pb-2"
+          className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
         >
           <input type="hidden" name="feedback_type" value="not_a_fit" />
           <input type="hidden" name="tile_id" value={rec.tileId} />
           <input type="hidden" name="service_code" value={rec.serviceCode} />
           <div>
-            <h2 id={headId} className="sn-sheet-name text-ink">
+            <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
               Not a fit for me
             </h2>
             <p className="text-[14px] text-[color:var(--m-slate-2)]">{rec.title} · Tell us why this doesn&rsquo;t fit (optional)</p>
@@ -425,11 +425,11 @@ function SuggestControl({
         <StayForm
           door="svRecommendations.flagFeedback"
           action={flagFeedback}
-          className="flex flex-col gap-2.5 pb-2"
+          className="flex flex-col gap-2.5 px-5 pb-6 pt-5"
         >
           <input type="hidden" name="feedback_type" value="suggest_add" />
           <input type="hidden" name="tile_id" value={tileId} />
-          <h2 id={headId} className="sn-sheet-name text-ink">
+          <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
             Suggest a service we should recommend here
           </h2>
           <div className="relative">

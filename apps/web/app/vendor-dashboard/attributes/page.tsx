@@ -78,7 +78,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
             per-category attributes.
           </p>
           <div className="mt-4">
-            <ActionButton tone="brand" main icon={Store} label="Set up profile" href="/vendor-dashboard" />
+            <ActionButton tone="brand" main icon={<Store aria-hidden />} label="Set up profile" href="/vendor-dashboard" />
           </div>
         </ToolPage>
       );

@@ -83,6 +83,7 @@ const ANCHORS: Record<string, RegExp> = {
   vendor_crew_passes: eqUid('crew_user_id'),
   chat_message_hearts: eqUid('user_id'),
   chat_poll_votes: eqUid('voter_user_id'),
+  cake_designs: eqUid('created_by'),
   admin_focus_put_offs: eqUid('user_id'),
   event_today_put_offs: eqUid('user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),

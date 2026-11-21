@@ -42,7 +42,7 @@ test('CHAT-19 · a booked chat shows "Change quote" SHUT with its reason to the 
 test('CHAT-19 · a booked chat shows "Counter with a price" SHUT with its reason to the hosts — never hidden', () => {
   const open = hostPlusRows({ canLogPayment: true });
   const booked = hostPlusRows({ canLogPayment: true, booked: true });
-  const c = (rows: typeof open) => rows.find((r) => r.label === 'Counter with a price');
+  const c = (rows: typeof open) => rows.find((r) => r.key === 'counter');
   assert.ok(c(open) && !c(open)?.shutNow);
   assert.deepEqual(c(booked)?.shutNow, { reason: BOOKED_COUNTER_REASON });
   assert.match(BOOKED_COUNTER_REASON, /change order/);

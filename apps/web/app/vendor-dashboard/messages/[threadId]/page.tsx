@@ -50,6 +50,7 @@ import {
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { displayServiceLabel } from '@/lib/vendors';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { fetchShopVerified } from '@/lib/own-clients.server';
 import { readSupplierEventLines } from '@/lib/supplier-event-lines.server';
 import { EventLinesBody, InquiryAnswers } from '../../_components/event-lines';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -338,6 +339,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
+  // 🪪 ＋ FINAL: is this shop verified? Started here and awaited where the ＋ is drawn — never a waterfall. Null = the
+  // read failed: the tray draws open and the server's gate (`lib/shop-plus-gate.server.ts`) still decides each send.
+  const shopVerifiedRead = fetchShopVerified(supabase, profile.vendor_profile_id);
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) notFound();
@@ -1788,6 +1792,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     read from the STAGE VALUE through the exhaustive map, never from the stage pill's label beside it: the pill is
     display text, and "Your call time" / "Ask for a payment" open only once they book you.
   */
+  const shopVerified = await shopVerifiedRead;
   const toolsState = {
     hasAgreement: THREAD_STAGE_HAS_AGREEMENT[railStage],
     askOpen,
@@ -2239,7 +2244,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                 <ChatSendForm
                   threadId={threadId}
                   sendAction={sendChatMessage}
-                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} />}
+                  lead={<ThreadToolsSheet eventId={thread.event_id} state={toolsState} threadId={threadId} hasQuote={dealEntry.offerDeal} verified={shopVerified} />}
                   attachInputId={CHAT_ATTACH_INPUT_ID}
                   userId={user.id}
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.

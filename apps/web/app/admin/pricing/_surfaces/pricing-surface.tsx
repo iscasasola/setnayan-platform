@@ -169,7 +169,7 @@ export async function PricingSurface(_props: Props) {
     admin
       .from('platform_settings')
       .select(
-        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_free_every_nth',
+        'setnayan_pay_fee_pct, onboarding_discount_pct, booking_fee_rate_pct, booking_fee_tail_rate_pct, booking_fee_tier1_limit_php, booking_fee_cap_php, booking_fee_free_every_nth, booking_fee_new_client_free_months',
       )
       .eq('id', 1)
       .maybeSingle(),
@@ -233,6 +233,7 @@ export async function PricingSurface(_props: Props) {
     booking_fee_tier1_limit_php?: number | string | null;
     booking_fee_cap_php?: number | string | null;
     booking_fee_free_every_nth?: number | string | null;
+    booking_fee_new_client_free_months?: number | string | null;
   } | null;
   const bfFromDb =
     bfRow?.booking_fee_rate_pct != null && Number.isFinite(Number(bfRow.booking_fee_rate_pct));
@@ -254,6 +255,12 @@ export async function PricingSurface(_props: Props) {
     freeEveryNth:
       bfRow?.booking_fee_free_every_nth != null && Number.isFinite(Number(bfRow.booking_fee_free_every_nth))
         ? Number(bfRow.booking_fee_free_every_nth)
+        : null,
+    // The new-client free window (owner 2026-11-16). Null = unread: said, never a default.
+    newClientFreeMonths:
+      bfRow?.booking_fee_new_client_free_months != null &&
+      Number.isInteger(Number(bfRow.booking_fee_new_client_free_months))
+        ? Number(bfRow.booking_fee_new_client_free_months)
         : null,
     isFromDb: bfFromDb,
   };
@@ -462,7 +469,7 @@ export async function PricingSurface(_props: Props) {
         <p className="mb-3 max-w-prose text-sm text-ink/60">
           What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set:
           the rate below the threshold, the threshold itself, and the rate above it. The minimum is
-          fixed; the lock and the every-Nth free booking fee are shown under the form.
+          fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form.
         </p>
         <BookingFeeForm
           action={saveBookingFeeSchedule}
@@ -471,6 +478,7 @@ export async function PricingSurface(_props: Props) {
           tier1LimitPhp={bookingFee.tier1LimitPhp}
           capPhp={bookingFee.capPhp}
           freeEveryNth={bookingFee.freeEveryNth}
+          newClientFreeMonths={bookingFee.newClientFreeMonths}
           minPhp={BOOKING_FEE.minPhp}
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}

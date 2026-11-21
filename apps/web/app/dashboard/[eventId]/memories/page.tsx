@@ -45,6 +45,9 @@ import { PapicCameraSettings, PapicHeadControl, PapicHeadLine } from '@/app/dash
 import { PAPIC_OUTCOME_KEYS, PapicOutcomeBanners, hasPapicOutcome, type PapicOutcomes } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-outcome-banners';
 import { PapicSelfHeal } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-self-heal';
 import { PapicCameraHelp } from '@/app/dashboard/[eventId]/studio/papic/_components/papic-camera-help';
+import { readPapicHead } from '@/app/dashboard/[eventId]/studio/papic/_components/guest-cameras-choice';
+import { papicGuestCamerasLines } from '@/lib/papic-guest-cameras-line';
+import { MemoriesAddPhotosButton } from '@/app/_components/memories/memories-add-photos';
 /* 🛑 KEEP. The Papic card moved here from Home (THE ONE BUILD, v113), and its settings open Event Settings with the
    server action `openEventSettings`, which RETURNS RENDERED ROWS (the Maker's editors). Next can only send those when
    THIS ROUTE's server files reach them — the same crash Home fixed on 2026-10-29 (see the matching import in
@@ -161,6 +164,8 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
   // fix it"): "Choose photos" opens the picker at once, and the camera is claimed on the way (`startAddingPhotos`).
   let addPhotos: React.ReactNode = null;
   let addCell: { line: string; tip: string } | null = null;
+  // ＋ The Papic block's "Add photos" opens the picker in the same tap where the uploader is the door (adding is open).
+  let addPicksAtOnce = false;
   let keepsakes: React.ReactNode = null;
   let papicCard: React.ReactNode = null;
   if (host) {
@@ -230,15 +235,17 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     );
     // ＋ The grid's Add cell — the SAME door's words, from the same three faces (`lib/memories-add-cell.ts`).
     addCell = addCellWords(!uploadsOpen ? 'off' : 'open', pot);
+    addPicksAtOnce = uploadsOpen;
 
     const [magazine, recap, flash, thankYou] = await keepsakeReads;
-    // Each door opens its SHIPPED card, unchanged, handed the read above — the stack that sat at the page's foot.
+    // Each door opens its SHIPPED card, handed the read above, in its sheet seat (2026-11-20: the sheet's head says the
+    // title once; the card gives its one line + ⓘ and one main button).
     const cards: Record<KeepsakeKey, React.ReactNode> = {
-      magazine: <MagazineCard eventId={eventId} state={magazine} />,
-      recap: <RecapCard eventId={eventId} state={recap} />,
-      flash: <LifeFlashCard eventId={eventId} state={flash} />,
+      magazine: <MagazineCard eventId={eventId} state={magazine} seat="sheet" />,
+      recap: <RecapCard eventId={eventId} state={recap} seat="sheet" />,
+      flash: <LifeFlashCard eventId={eventId} state={flash} seat="sheet" />,
       // 🎬 The Thank-You Video door — out of the ⚙, ONE home: this row (owner 2026-10-31).
-      'thank-you': <ServiceParts eventId={eventId} service="papic" door={thankYou} />,
+      'thank-you': <ServiceParts eventId={eventId} service="papic" door={thankYou} seat="sheet" />,
     };
     const doors = keepsakeDoors({
       magazine,
@@ -253,15 +260,20 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
 
     /*
       📷 PAPIC — ONE CARD, IN MEMORIES (THE ONE BUILD, owner 8 Nov 2026: *"Papic + Thank You into Memories"*; supersedes
-      2026-10-26 "THE PAPIC CARD LIVES ON HOME › TODAY"). The card Today drew, moved whole: the head switch, Total ·
-      Taken · Remaining, Add more, the chapter row, and every Papic setting in place under its › (`seat="memories"`,
-      so each save lands back HERE). Thank You is already this page's keepsake door — never two doors (`thankYouHref:
-      null`). Old links (`/studio/papic…`, `/dashboard/<id>?papic=open…`) forward here (`lib/legacy-redirects.ts`).
+      2026-10-26 "THE PAPIC CARD LIVES ON HOME › TODAY"), FIRST ON THE PAGE since 20 Nov (owner, "memories approved":
+      `prototypes/memories_redesign_2026-11-20/`): the head switch, ONE state line (the gate's answer —
+      `papicGuestCamerasLines`), ONE big "credits left" (Total · Taken in its ⓘ), Add photos · Add more, and every Papic
+      setting RISEN full screen from the block ("Shooting into" first; `seat="memories"`, so each save lands back HERE).
+      Thank You is already this page's keepsake door — never two doors (`thankYouHref: null`). Old links
+      (`/studio/papic…`, `/dashboard/<id>?papic=open…`) forward here (`lib/legacy-redirects.ts`).
     */
     if (papicCardShown) {
-      const tile = papicTileRead ? await papicTileRead : 'failed';
       const papicSwitch = ev?.papic_on;
       const papicOn = papicSwitch === undefined ? null : papicIsOn(papicSwitch);
+      // The head's facts — the SAME cached read the head's control and its line make (`readPapicHead`), so the line the
+      // switch says on a pick and the line the server draws are one wording (`lineFor`).
+      const [tile, head] = await Promise.all([papicTileRead ?? ('failed' as const), readPapicHead(eventId, papicOn)]);
+      const cameras = head.dates ? papicGuestCamerasLines(head, head.dates, Date.now()) : null;
       const now = papicGlance({
         permitted: true,
         tile,
@@ -276,15 +288,14 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       }
       const poolError = typeof search.papic_pool_error === 'string' ? search.papic_pool_error : null;
       // The Add more is this page's own, exactly: Apple's sheet in the app · the web's sheet on the web — opened on
-      // arrival when a purchase answered with an error or `?buy=1`.
+      // arrival when a purchase answered with an error or `?buy=1`. Beside "Add photos" (the main button) since 20 Nov.
       const cardBuy = iap.iap ? (
         <IapPapicSheet eventId={eventId} left={now.count} label="Add more" />
       ) : (
         <PapicBuySheet
           eventId={eventId}
           left={now.count}
-          tone="brand"
-          main
+          tone="neutral"
           label="Add more"
           defaultOpen={Boolean(poolError) || search.buy === '1'}
           error={poolError}
@@ -303,8 +314,10 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
             <PapicHeadLine eventId={eventId} papicOn={papicOn} />
           </Suspense>
         ),
+        lineFor: cameras?.byHead ?? null,
         counts: { total: now.total, left: now.count },
         buy: cardBuy,
+        add: addPhotos ? <MemoriesAddPhotosButton /> : null,
         chapter: (
           <Suspense fallback={null}>
             <PapicChapterRead eventId={eventId} />
@@ -382,6 +395,7 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
       }
       addPhotos={addPhotos}
       addCell={addCell}
+      addPicksAtOnce={addPicksAtOnce}
       keepsakes={keepsakes}
       papic={papicCard}
       blockedGuests={read.blockedGuests}

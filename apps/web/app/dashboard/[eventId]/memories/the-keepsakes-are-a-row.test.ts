@@ -14,6 +14,10 @@
  *   6 · hosts only — the page builds both inside its host branch, and the gallery draws both only for a host.
  *
  * Source is read with comments stripped (this fix's own notes name what was removed).
+ *
+ * 🔁 UPDATED ON PURPOSE 2026-11-20 (owner, "memories approved" — DECISION_LOG "EVENT › MEMORIES — PAPIC ON TOP + FIVE
+ * OPENED PAGES, APPROVED" (1) and (4)): each card is handed `seat="sheet"` (the sheet's head says its title once), and
+ * the row sits under the Papic block, ABOVE the top row (it was directly under it). Same cards, same one read.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -77,10 +81,10 @@ test('1 · a card whose own rule says NOTHING draws no door (Flash flag off / no
 
 test('2 · each door opens the SHIPPED card, handed the page’s one read — in the house sheet', () => {
   for (const [key, re] of [
-    ['magazine', /magazine:\s*<MagazineCard eventId=\{eventId\} state=\{magazine\} \/>/],
-    ['recap', /recap:\s*<RecapCard eventId=\{eventId\} state=\{recap\} \/>/],
-    ['flash', /flash:\s*<LifeFlashCard eventId=\{eventId\} state=\{flash\} \/>/],
-    ['thank-you', /'thank-you':\s*<ServiceParts eventId=\{eventId\} service="papic" door=\{thankYou\} \/>/],
+    ['magazine', /magazine:\s*<MagazineCard eventId=\{eventId\} state=\{magazine\} seat="sheet" \/>/],
+    ['recap', /recap:\s*<RecapCard eventId=\{eventId\} state=\{recap\} seat="sheet" \/>/],
+    ['flash', /flash:\s*<LifeFlashCard eventId=\{eventId\} state=\{flash\} seat="sheet" \/>/],
+    ['thank-you', /'thank-you':\s*<ServiceParts eventId=\{eventId\} service="papic" door=\{thankYou\} seat="sheet" \/>/],
   ] as const) {
     assert.match(PAGE, re, `the ${key} door no longer opens its shipped card with the page's read`);
   }
@@ -113,9 +117,10 @@ test('3 · the bottom stack is gone — each card is mounted ONCE, in the row', 
   for (const tag of ['MagazineCard', 'RecapCard', 'LifeFlashCard', 'ServiceParts']) {
     assert.equal(count(PAGE, new RegExp(`<${tag}\\b`)), 1, `<${tag}> is mounted other than once on Memories`);
   }
-  // …and the row is the gallery's, under its top row.
+  // …and the row is the gallery's, under the Papic block and ABOVE its top row (2026-11-20).
   assert.match(PAGE, /keepsakes=\{keepsakes\}/, 'the page no longer hands the row to the gallery');
-  assert.match(GALLERY, /data-memories-top=""[\s\S]*?<\/div>\s*(?:\{\s*\}\s*)?\{host \? keepsakes : null\}/, 'the row is not directly under the top row');
+  assert.match(GALLERY, /\{host && papic \? <div data-tour="memories-papic">\{papic\}<\/div> : null\}\s*(?:\{\s*\}\s*)*\{host \? keepsakes : null\}/, 'the row is not directly under the Papic block');
+  assert.ok(GALLERY.indexOf('{host ? keepsakes : null}') < GALLERY.indexOf('data-memories-top=""'), 'the row is under the top row again');
 });
 
 test('4 · Thank You has ONE home — the row, not the ⚙', () => {

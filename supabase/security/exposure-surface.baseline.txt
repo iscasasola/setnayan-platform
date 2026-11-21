@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8237
+# facts: 8238
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     664
-#   col       5926
+#   col       5927
 #   policy    1211
 #   view      10
 #   func      422
@@ -4193,6 +4193,7 @@ col	public.platform_settings.booking_fee_free_every_nth	anon=- authenticated=S
 col	public.platform_settings.booking_fee_free_from	anon=- authenticated=S
 col	public.platform_settings.booking_fee_free_until	anon=- authenticated=S
 col	public.platform_settings.booking_fee_minting_live	anon=- authenticated=S
+col	public.platform_settings.booking_fee_new_client_free_months	anon=- authenticated=S
 col	public.platform_settings.booking_fee_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tail_rate_pct	anon=- authenticated=S
 col	public.platform_settings.booking_fee_tier1_limit_php	anon=- authenticated=S

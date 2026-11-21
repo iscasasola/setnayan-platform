@@ -25,4 +25,11 @@ export const JOURNAL_EDITS_AFTER_IMPORT: readonly JournalEditAfterImport[] = [
     to: 'unless the supplier is the first to bring the event: a supplier who is the first',
     migration: '20271356969132_the_zero_commission_post_drops_the_first_booking_promise.sql',
   },
+  {
+    // Owner 2026-11-19 PROMOTION PAGES (4): no number of months on any public page (#8086).
+    slug: 'what-zero-commission-means-for-couples',
+    from: 'books it free, and a couple a supplier brings onto Setnayan books them free for a year. Every other booking',
+    to: 'books it free, and a couple new to Setnayan through a supplier books them free. Every other booking',
+    migration: '20271356623783_the_new_client_free_window_is_a_setting.sql',
+  },
 ];

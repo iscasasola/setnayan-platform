@@ -141,7 +141,7 @@ export function ThemeStep({
               className={`rounded-xl border px-4 py-3 text-left transition ${
                 chosen
                   ? 'border-burgundy/40 bg-burgundy/5'
-                  : 'border-ink/10 bg-white hover:border-ink/25'
+                  : 'border-ink/10 bg-raised hover:border-ink/25'
               }`}
             >
               <span className="block text-sm font-medium text-ink">{m.label}</span>
@@ -171,7 +171,7 @@ export function ThemeStep({
             than described — a host told "no palette found" and shown nothing
             cannot tell whether their story is broken or simply plain.
           */
-          <div className="rounded-xl border border-dashed border-ink/20 bg-white/60 px-4 py-3">
+          <div className="rounded-xl border border-dashed border-ink/20 bg-raised/60 px-4 py-3">
             <p className="text-sm text-ink/70">
               You haven&rsquo;t saved a palette on your mood board yet, so your story
               is set in warm paper and ink for now. Save one and it will follow.

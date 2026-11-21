@@ -124,7 +124,7 @@ export async function HostQuestions({
               defaultValue={answer ?? ''}
               rows={3}
               maxLength={ANSWER_MAX}
-              className="w-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/40"
+              className="w-full border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/40"
             />
           </label>
         ))}

@@ -321,7 +321,7 @@ function VenuesSeen({ venues, single }: { venues: readonly EventVenue[]; single:
   return (
     <ul className="flex w-full max-w-md flex-col gap-2" data-details-venues-seen="">
       {venues.map((v) => (
-        <li key={v.role} className="rounded-md bg-white/80 px-4 py-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <li key={v.role} className="rounded-md bg-raised/80 px-4 py-3 shadow-[0_1px_2px_rgba(40,34,24,.06)]">
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{single ? 'Venue' : VENUE_ROLE_LABEL[v.role]}</p>
           <p className="font-serif text-lg text-ink">{v.name ?? '—'}</p>
           {v.address ? <p className="text-xs text-ink/65">{v.address}</p> : null}

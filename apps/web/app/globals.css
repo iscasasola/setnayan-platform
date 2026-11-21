@@ -147,6 +147,25 @@
      *                            --color-terracotta-700 #8C6932, 5.02:1 AA,
      *                            when gold must carry real text)
      */
+    /* ══ 🎨 THE ONE COLOUR SET, BY JOB (owner 18 Nov 2026: "dark mode. YES :D" · "all picks"). ══
+     * Every job has ONE `--color-*` token, Light here and Dark under `html.dark`; `--m-*` · `--sn-*` · `--fd-*` ·
+     * `--surface*` POINT at it, never a second copy. House names kept (14 Nov). Light moves no pixel. The job → token
+     * → pointer table lives in `docs/design-token-map.md` (moved out of this sheet: every page parses it, and
+     * `lib/the-stylesheet-stays-in-budget.test.ts` holds its size). 🔒 lib/the-colour-set-is-one.test.ts */
+    --color-page: 247 245 244; /* #F7F5F4 — the page (owner 16 Nov, "netural background color f7f5f4") */
+    --color-raised-2: 244 242 236; /* #F4F2EC — a tile inside a card */
+    --color-wash: 237 234 224; /* #EDEAE0 — the quietest fill */
+    --color-ink-2: 58 56 47; /* #3A382F — body words */
+    --color-ink-3: 110 106 98; /* #6E6A62 — the quiet line */
+    --color-on-accent: 255 255 255; /* words on the decision / toggle fill → white · 4.76:1 on #C24E25 */
+    --color-toggle: var(--color-mulberry); /* a switch that is on, a picked pill — the decision colour (owner 18 Nov, pick 4) */
+    --color-band-from: 250 224 209; /* #FAE0D1 — pale peach */
+    --color-band-to: 255 255 255; /* #FFFFFF */
+    --color-band-glow: none; /* Light has no glow; Dark lights one corner of the hero */
+    --color-cat-booked: 22 107 74; /* #166B4A */
+    --color-cat-schedule: 47 109 181; /* #2F6DB5 */
+    --color-cat-asked: 201 71 26; /* #C9471A */
+    --color-cat-collect: 162 69 126; /* #A2457E */
     --color-cream: 255 255 255;        /* page + card → WHITE #FFFFFF (owner 2026-08-20, reversing the 2026-07-13 move to cream #FDFBF7). Token NAME kept: renaming it would churn every `bg-cream`/`text-cream` call site in the app for no behaviour change — the same reason `mulberry` and `terracotta` kept theirs. */
     --color-ink: 44 42 41;             /* primary text → espresso #2C2A29 · 13.82:1 AAA */
     --color-terracotta: 169 131 75;    /* accent → Atelier gold #A9834B (kit gold-500) — UNCHANGED */
@@ -184,8 +203,8 @@
      * Today it is the terracotta `--color-mulberry` holds. `mulberry` and its classes are NOT renamed or repointed:
      * hundreds of pages not yet moved onto the templates still read them. Never read inside the guest's Event Hub
      * (`.sn-editorial`), which wears the couple's own colours (`--hub-accent*`). */
-    --sn-accent: var(--color-mulberry);
-    --sn-on-accent: 255 255 255;         /* words on the accent → white · 4.76:1 on #C24E25 */
+    --sn-accent: var(--color-toggle);
+    --sn-on-accent: var(--color-on-accent); /* white · 4.76:1 on #C24E25 */
     /* ── DECISION IS ITS OWN JOB, SPLIT FROM TOGGLE (Admin › Colours, owner 12 Nov 2026 — corpus
      * Design_App_Colours_2026-11-12, map/01_shared_templates.md "Answer 1"). `--sn-accent` above is now ONLY the
      * toggle "on" (a switch, a picked pill); the forward-step BUTTON (`.ab-brand`, `.button-primary`) reads
@@ -205,11 +224,11 @@
      * frame is pure white with the soft lift and no line. `.sn-band`, `.sn-frame`, `.sn-tile`, `.sn-row`, `.home-card`
      * and the bottom bar read them, so one value here changes every screen that wears them. Admin › Colours
      * (`lib/app-colours.ts` APP_COLOURS_DEFAULT) holds the same values as its "Current" set. */
-    --sn-band-from: 250 224 209;        /* #FAE0D1 — pale peach (was #C24E25 flat terracotta) */
-    --sn-band-to: 255 255 255;          /* #FFFFFF */
+    --sn-band-from: var(--color-band-from); /* #FAE0D1 — pale peach (was #C24E25 flat terracotta) */
+    --sn-band-to: var(--color-band-to);
     --sn-band-angle: 180deg;            /* top to bottom */
-    --sn-on-band: 44 42 41;             /* ink #2C2A29 — 11.3:1 on #FAE0D1, 14.3:1 on white. The gate picks ink on a pale band */
-    --sn-frame-bg: 255 255 255;         /* = --m-paper — the white card */
+    --sn-on-band: var(--color-ink); /* ink #2C2A29 — 11.3:1 on #FAE0D1, 14.3:1 on white. The gate picks ink on a pale band */
+    --sn-frame-bg: var(--color-raised); /* = --m-paper — the white card */
     --sn-frame-radius: 14px;            /* = --m-r-md */
     --sn-frame-shadow: var(--m-shadow-md); /* the soft lift — one value for tile, row and card (was none: a line) */
     /* Links + secondary buttons — NEW SLOT 2026-08-01. The app had no link
@@ -249,8 +268,8 @@
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: #ffffff;                /* card = page (see the block comment above) */
-    --surface-soft: #f4f2ec;           /* Warm card surface */
+    --surface: rgb(var(--color-raised));
+    --surface-soft: rgb(var(--color-raised-2));
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
     /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
      * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
@@ -264,15 +283,15 @@
      * Measured on the #F0F2F5 trial (lighter values only raise these): ink 12.74:1 · link 7.58:1 · gold 3.10:1 (UI only) ·
      * terracotta as TEXT straight on the page 4.25:1 — under 4.5, so it stays a fill/large-text colour (the CTA label
      * sits on the fill and is unchanged). */
-    --sn-page-bg: 247 245 244;            /* #F7F5F4 — owner 16 Nov: "netural background color f7f5f4 / so framed can be white. ffffff" (supersedes 12 Nov "keep the background white"; DECISION_LOG 2026-11-16 "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Ink on it 13.1:1 · terracotta-700 words 6.1:1 · terracotta as TEXT 4.38:1 (stays a fill/large-text colour) */
+    --sn-page-bg: var(--color-page); /* #F7F5F4 — owner 16 Nov: "netural background color f7f5f4 / so framed can be white. ffffff" (supersedes 12 Nov "keep the background white"; DECISION_LOG 2026-11-16 "PAGE BACKGROUND = NEUTRAL #F7F5F4"). Ink on it 13.1:1 · terracotta-700 words 6.1:1 · terracotta as TEXT 4.38:1 (stays a fill/large-text colour) */
     /* 🎨 THE FOUR CATEGORY COLOURS (owner, THE ONE BUILD item 13, 8 Nov 2026 — supplier-menu-r2.v113 `--c-ev/--c-sch/
      * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
      * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
      * Dark pairs below (the v111/v112 prototype's `html.dark` block). 🔒 lib/category-colours-are-tokens.test.ts */
-    --sn-cat-booked: 22 107 74;        /* #166B4A */
-    --sn-cat-schedule: 47 109 181;     /* #2F6DB5 */
-    --sn-cat-asked: 201 71 26;         /* #C9471A */
-    --sn-cat-collect: 162 69 126;      /* #A2457E */
+    --sn-cat-booked: var(--color-cat-booked);
+    --sn-cat-schedule: var(--color-cat-schedule);
+    --sn-cat-asked: var(--color-cat-asked);
+    --sn-cat-collect: var(--color-cat-collect);
     /* 🎨 Chat-card kind colours (Unichat A, drawing UNICHAT-LIVE-2026-11-19): ink + pale fill, RGB triples; inks ≥ 4.5:1. Read by card-bits.tsx. */
     --sn-kind-quote: 116 87 42;
     --sn-kind-quote-bg: 244 236 221;
@@ -328,7 +347,7 @@
     --sn-btn-secondary-bg: rgb(44 42 41 / 0.06);   /* ink 6 % → #F0EFEF on white; ink on it 12.4:1 */
     --sn-btn-secondary-bg-hover: rgb(44 42 41 / 0.1);
     --sn-btn-secondary-border: transparent;
-    --sn-btn-secondary-fg: 44 42 41;    /* ink (was link slate on .button-secondary) */
+    --sn-btn-secondary-fg: var(--color-ink); /* = 44 42 41 (was link slate) */
     /* the sheet — the one floating surface */
     --sn-sheet-radius: var(--m-r-lg);   /* rounded-t-2xl */
     --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
@@ -385,8 +404,25 @@
      * (The light values #C75026 / #3B4E67 score 3.98:1 / 2.13:1 here — the
      * link one FAILS outright — which is why both are lightened, not reused.)
      */
-    --color-cream: 23 22 15;           /* page bg → Atelier ink-black #17160F */
-    --color-ink: 251 250 247;          /* primary text → Atelier paper #FBFAF7 */
+    /* 🌙 THE ONE COLOUR SET IN DARK (owner 18 Nov 2026, the drawing's values): page → frame → raised → wash, each a
+     * step lighter; depth from LIGHT (`--sn-frame-shadow`), never a border. Measured ratios: docs/design-token-map.md. */
+    --color-page: 18 17 16; /* #121110 */
+    --color-raised-2: 38 35 30; /* #26231E */
+    --color-wash: 48 44 38; /* #302C26 */
+    --color-ink-2: 210 204 193; /* #D2CCC1 */
+    --color-ink-3: 164 158 147; /* #A49E93 */
+    --color-on-accent: 26 18 12; /* #1A120C on #EE8456 — 7.11:1 (white reads 2.6:1 there) */
+    --color-band-from: 36 31 26; /* #241F1A — the hero is a dark card … */
+    --color-band-to: 28 26 22; /* #1C1A16 — … falling to the frame */
+    --color-band-glow: radial-gradient(120% 95% at 88% -8%, rgb(var(--color-mulberry) / 0.4) 0%, rgb(var(--color-mulberry) / 0) 58%), radial-gradient(90% 70% at -10% 110%, rgb(var(--color-terracotta) / 0.16) 0%, rgb(var(--color-terracotta) / 0) 60%); /* lit from one corner */
+    --color-cat-booked: 79 191 138; /* #4FBF8A */
+    --color-cat-schedule: 127 175 232; /* #7FAFE8 */
+    --color-cat-asked: 240 130 90; /* #F0825A */
+    --color-cat-collect: 217 138 192; /* #D98AC0 */
+    --sn-band-angle: 160deg;
+    --sn-frame-shadow: inset 0 1px 0 rgb(255 244 228 / 0.06), 0 14px 30px -14px rgb(0 0 0 / 0.85), 0 2px 6px -2px rgb(0 0 0 / 0.5); /* depth from light */
+    --color-cream: var(--color-page); /* the page (and the dark words on a light fill) → #121110 */
+    --color-ink: 247 244 238; /* primary text → #F7F4EE */
     /* Words on the PLATE paper (`bg-paper-deep`), which never darkens with the page: they keep the light ink #2C2A29
      * (batch 7 join, 2026-10-16 — the Maker's look-sample card read cream on its light plate, 1.08:1). Every hub
      * theme pins its own `--color-ink-on-plate`; candlelight, which paints a dark plate, is handed its own ink back
@@ -395,10 +431,10 @@
     --color-terracotta: 203 167 102;   /* accent → kit gold-300 #CBA766 (reads on dark) */
     --color-terracotta-600: 197 160 89; /* hover → #C5A059 */
     --color-terracotta-700: 168 131 64; /* deepest → #A88340 */
-    --color-mulberry: 229 121 78;        /* CTA → lightened terracotta #E5794E · 6.20:1 AA on the dark page */
-    --color-mulberry-600: 236 138 95;   /* CTA hover lighter → #EC8A5F (7.22:1 AAA) */
+    --color-mulberry: 238 132 86; /* decision → #EE8456 */
+    --color-mulberry-600: 242 149 107; /* decision hover, lighter → #F2956B (8.34:1 on the page; its words 8.18) */
     --color-mulberry-700: 242 160 125;   /* words that act → #F2A07D · 8.5:1 on the page (dark 3a, 2026-10-23: it was the light-mode #C24E25 — 3.81:1, "Buy more" / "8 to invite" / "Download as Excel") */
-    --sn-on-accent: 23 22 15;            /* words on the accent, dark (inert like the rest of this block): the page's ink-black on #E5794E — white reads 2.9:1 there */
+    --sn-on-accent: var(--color-on-accent); /* #1A120C — white reads 2.6:1 here */
     --color-link: 157 178 206;         /* link → lightened slate indigo #9DB2CE · 8.37:1 AAA */
     --color-link-600: 175 194 218;     /* link hover → #AFC2DA (9.97:1) */
     /* Button-rule tones, dark (inert like the rest of this block). Against the
@@ -415,23 +451,23 @@
      * the tint is sky at 14% over the card (#263638), paper ink on it 12.07. */
     --color-private: 56 189 248;       /* #38BDF8 */
     --color-private-text: 56 189 248;  /* #38BDF8 */
-    --color-private-tint: 38 54 56;    /* #263638 */
+    --color-private-tint: 32 49 54; /* #203136 — sky at 14% over the frame */
     --accent: #e0cca0;
     --accent-deep: #c5a059;
     /* 🌗 WARM, NOT COOL (owner "approve all" 2026-10-13, call 6): the dark set is the approved template
      * gallery's (control_templates_round2_2026-10-12.html) — page #17160F, card #232019, paper #1E1C15 —
      * replacing the cool obsidian #1E2229 / #2A2E36 / #22262C this block carried while it was unreachable. */
-    --accent-soft: #413827;            /* the gallery's gold-soft (gold at 18%) over the card */
-    --surface: #232019;                /* the approved card */
-    --surface-soft: #2b2821;           /* one step above the card — a wash, lighter in dark as the gallery's pill is */
-    --ink-soft: 182 185 190;            /* Slate-3 #B6B9BE */
-    --color-raised: 35 32 25;           /* the approved card #232019 */
-    --sn-page-bg: 23 22 15;               /* dark keeps the page it had — #17160F, same as --color-cream here */
-    --sn-frame-bg: 35 32 25;              /* the approved dark card #232019 (= --color-raised); nothing reads it before wave 2 */
-    --sn-cat-booked: 79 191 138;       /* #4FBF8A */
-    --sn-cat-schedule: 127 175 232;    /* #7FAFE8 */
-    --sn-cat-asked: 240 130 90;        /* #F0825A */
-    --sn-cat-collect: 217 138 192;     /* #D98AC0 */
+    --accent-soft: #3C3324; /* gold at 18% over the frame #1C1A16 */
+    --surface: rgb(var(--color-raised)); /* the frame */
+    --surface-soft: rgb(var(--color-raised-2)); /* one step above the frame */
+    --ink-soft: var(--color-ink-2); /* body words → #D2CCC1 */
+    --color-raised: 28 26 22; /* the frame #1C1A16 (owner 18 Nov, pick 2) */
+    --sn-page-bg: var(--color-page);
+    --sn-frame-bg: var(--color-raised);
+    --sn-cat-booked: var(--color-cat-booked);
+    --sn-cat-schedule: var(--color-cat-schedule);
+    --sn-cat-asked: var(--color-cat-asked);
+    --sn-cat-collect: var(--color-cat-collect);
     --sn-kind-quote: 203 167 102;
     --sn-kind-quote-bg: 56 49 35;
     --sn-kind-counter: 242 160 125;
@@ -450,13 +486,13 @@
     --sn-kind-file-bg: 52 50 44;
     --sn-kind-plain: 201 203 206;
     --sn-kind-plain-bg: 56 54 51;
-    --sn-hair: rgb(251 250 247 / 0.1);
+    --sn-hair: rgb(var(--color-ink) / 0.1);
     /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
        (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */
     --sn-frame-shadow-tile: var(--sn-frame-shadow);
-    --sn-btn-secondary-bg: rgb(251 250 247 / 0.08);
-    --sn-btn-secondary-bg-hover: rgb(251 250 247 / 0.12);
-    --sn-btn-secondary-fg: 251 250 247;
+    --sn-btn-secondary-bg: rgb(var(--color-wash));
+    --sn-btn-secondary-bg-hover: rgb(var(--color-ink) / 0.16);
+    --sn-btn-secondary-fg: var(--color-ink);
     --sn-sheet-shadow: 0 -30px 80px -40px rgba(26, 26, 26, 0.4);
     --sn-sheet-shadow-side: -30px 0 80px -40px rgba(26, 26, 26, 0.4);
     --sn-sh-hair: 0 1px 2px rgba(40, 34, 24, 0.06);
@@ -511,6 +547,7 @@
     --sn-band-from: 194 78 37;
     --sn-band-to: 194 78 37;
     --sn-band-angle: 135deg;
+    --color-band-glow: none; /* the couple's band never wears the app's dark glow */
     --sn-on-band: 255 255 255;
     --sn-frame-shadow: none;
     --sn-frame-shadow-tile: 0 1px 3px rgba(30, 26, 18, 0.06);
@@ -1620,26 +1657,26 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
    * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
    * --color-cream above; the two families must not drift. */
-  --m-paper:      #FFFFFF;
-  --m-paper-2:    #F4F2EC;
-  --m-ivory:      #EDEAE0;
+  --m-paper:      rgb(var(--color-raised));
+  --m-paper-2:    rgb(var(--color-raised-2));
+  --m-ivory:      rgb(var(--color-wash));
   --m-line:       #E1DCD1;
   --m-line-soft:  #EDE8DE;
 
   /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
    * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
-  --m-ink:        #2C2A29;
+  --m-ink:        rgb(var(--color-ink));
   /* 🖼 The SAME espresso, but it never flips: what a photo band (the supplier hero) sits on, and the ink of a white
    * pill drawn over a photo. `--m-ink` turns paper-light in dark mode (#FBFAF7), which made the hero's band light and
    * its white Upload pill's word white-on-white (Build 3 integration, 9 Nov). Defined once here; html.dark leaves it. */
   --m-espresso:   #2C2A29;
-  --m-slate:      #3A382F;
-  --m-slate-2:    #6E6A62;
+  --m-slate:      rgb(var(--color-ink-2));
+  --m-slate-2:    rgb(var(--color-ink-3));
   --m-slate-3:    #8A857B;
   --m-slate-4:    #B5AF9E;
 
   /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
-  --m-orange:     #A9834B;
+  --m-orange:     rgb(var(--color-terracotta));
   --m-orange-2:   #8A6B39;
   --m-orange-3:   #CBA766;
   --m-orange-4:   #F3ECDF;
@@ -1687,8 +1724,8 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    * over a dark band, as the old /for-suppliers sections did until 2026-11-06),
    * plus the disabled-button fill. Making them orange would put terracotta
    * body copy on the vendor pages. Left neutral on purpose. */
-  --m-mulberry:    #C24E25;
-  --m-mulberry-2:  #B04722;
+  --m-mulberry:    rgb(var(--color-mulberry));
+  --m-mulberry-2:  rgb(var(--color-mulberry-600));
   --m-mulberry-deep: #974930; /* text on a mulberry WASH (5.38:1; the plain CTA on it is 4.04:1) */
   --m-mulberry-3:  #C9CBCE;  /* neutral — light text on dark + disabled fill (see above) */
   --m-mulberry-4:  #ECEDEE;  /* neutral — pairs with -3 */
@@ -1797,30 +1834,30 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
  * almost every read is a panel, tile or row fill. The page is `--color-cream` / `.sn-ambient`.
  */
 html.dark {
-  --m-paper:      #232019;   /* the card */
-  --m-paper-2:    #2B2821;   /* a wash one step above the card */
-  --m-ivory:      #332F27;   /* a deeper wash */
-  --m-line:       rgba(251,250,247,.16);
-  --m-line-soft:  rgba(251,250,247,.10);
+  --m-paper:      rgb(var(--color-raised)); /* the frame */
+  --m-paper-2:    rgb(var(--color-raised-2)); /* one step above the frame */
+  --m-ivory:      rgb(var(--color-wash)); /* the wash */
+  --m-line:       rgb(var(--color-ink) / .16);
+  --m-line-soft:  rgb(var(--color-ink) / .10);
 
-  --m-ink:        #FBFAF7;
+  --m-ink:        rgb(var(--color-ink));
   --m-espresso:   #2C2A29; /* the SAME on purpose: the photo band under the hero stays espresso in dark */
-  --m-slate:      #D6D1C7;
-  --m-slate-2:    #B3AEA3;
+  --m-slate:      rgb(var(--color-ink-2));
+  --m-slate-2:    rgb(var(--color-ink-3));
   --m-slate-3:    #9A958C;
   --m-slate-4:    #6A665E;   /* decorative only, as in light */
 
-  --m-orange:     #CBA766;
+  --m-orange:     rgb(var(--color-terracotta));
   --m-orange-2:   #E2C98B;
   --m-orange-3:   #A9834B;
-  --m-orange-4:   #413827;   /* gold at 18 % over the card */
+  --m-orange-4:   #3C3324; /* gold at 18 % over the frame */
   --m-orange-deep: #ECD9AE;  /* text on the gold wash — 8.3:1 on #413827 */
 
   --m-nav-active:      #CBA766;
-  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 14%, #232019);
+  --m-nav-active-soft: color-mix(in srgb, var(--m-nav-active) 14%, rgb(var(--color-raised)));
 
-  --m-mulberry:    #E5794E;  /* = dark --color-mulberry */
-  --m-mulberry-2:  #EC8A5F;
+  --m-mulberry:    rgb(var(--color-mulberry));
+  --m-mulberry-2:  rgb(var(--color-mulberry-600));
   --m-mulberry-deep: #F2A585; /* text on a mulberry wash */
   /* -3 / -4 are the NEUTRAL "muted words on the --m-ink band + disabled fill" pair (see above). The band
    * itself turns light in dark, so the muted words on it turn dark. */
@@ -1839,13 +1876,13 @@ html.dark {
   --m-shadow-md: 0 8px 24px -10px rgba(0,0,0,.6), 0 2px 6px -2px rgba(0,0,0,.35);
   --m-shadow-lg: 0 40px 80px -30px rgba(0,0,0,.75), 0 10px 30px -8px rgba(0,0,0,.4);
 
-  --m-sidebar-bg:        rgba(35,32,25,.55);
-  --m-sidebar-bg-2:      rgba(251,250,247,.08);
-  --m-sidebar-fg:        #FBFAF7;
-  --m-sidebar-fg-soft:   #D6D1C7;
-  --m-sidebar-fg-muted:  #B3AEA3;
-  --m-sidebar-line:      rgba(251,250,247,.14);
-  --m-sidebar-hover:     rgba(251,250,247,.08);
+  --m-sidebar-bg:        rgb(var(--color-raised) / .55);
+  --m-sidebar-bg-2:      rgb(var(--color-ink) / .08);
+  --m-sidebar-fg:        rgb(var(--color-ink));
+  --m-sidebar-fg-soft:   rgb(var(--color-ink-2));
+  --m-sidebar-fg-muted:  rgb(var(--color-ink-3));
+  --m-sidebar-line:      rgb(var(--color-ink) / .14);
+  --m-sidebar-hover:     rgb(var(--color-ink) / .08);
   --m-sidebar-accent:      #CBA766;
   --m-sidebar-accent-fg:   #CBA766;
   --m-sidebar-accent-soft: color-mix(in srgb, var(--m-sidebar-accent) 18%, transparent);
@@ -3870,7 +3907,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
   --sn-line:       var(--m-line);
   --sn-ink-300:    #A09A8E;
   --sn-ink-500:    var(--m-slate-2);
-  --sn-ink-700:    #3A382F;
+  --sn-ink-700:    rgb(var(--color-ink-2));
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
 
@@ -4200,21 +4237,21 @@ html.dark {
      #1E1C15, card #232019). Left OUT on purpose, and allowlisted with reasons in
      `lib/every-colour-token-has-a-dark-pair.test.ts`: the `--sn-ob-*` obsidian
      surface (dark in both themes) and the `--sn-glass-dark-*` glass over photos. */
-  --sn-paper:      #1E1C15;
+  --sn-paper:      #171512;
   --sn-surface:    var(--m-paper);       /* #232019 in dark */
   --sn-hairline:   var(--m-line-soft);   /* rgba(251,250,247,.10) */
   --sn-line:       var(--m-line);        /* rgba(251,250,247,.16) */
   --sn-ink-300:    #7E796F;
   --sn-ink-400:    #9A958C;
   --sn-ink-500:    var(--m-slate-2);     /* #B3AEA3 */
-  --sn-ink-700:    #D6D1C7;
-  --sn-ink-900:    #FBFAF7;
+  --sn-ink-700:    rgb(var(--color-ink-2));
+  --sn-ink-900:    rgb(var(--color-ink));
   /* The ink ON a light-gold fill (`.sn-btn-on-ink`): the gold stays light in dark, so this stays dark. */
   --sn-ink-black:  #17160F;
 
   /* gold: the wash goes dark, the text golds go light, the fills brighten. 300 is already the
      gold for a dark surface (= --sn-ob-gold), so it stays. */
-  --sn-gold-100:   #413827;
+  --sn-gold-100:   #3C3324;
   --sn-gold-300:   #CBA766;
   --sn-gold-500:   #CBA766;
   --sn-gold-600:   #D4B47A;
@@ -4236,7 +4273,7 @@ html.dark {
   --seat-out: #2A2620;  --seat-out-line: #4A443B;
   --sn-info:       #9DB2CE;  --sn-info-soft:    #373736;
 
-  --sn-glass-bg:   rgba(35,32,25,.5);
+  --sn-glass-bg:   rgb(var(--color-raised) / .5);
 
   /* shadows: black, deeper — a warm-brown shadow is invisible on the dark page */
   --sn-sh-sm: 0 1px 2px rgba(0,0,0,.35);
@@ -4250,15 +4287,15 @@ html.dark {
                 0 -30px 60px -30px rgba(0,0,0,.55);
   --sn-sh-panel: -2px 0 8px -4px rgba(0,0,0,.4), -30px 0 70px -30px rgba(0,0,0,.7);
 
-  --sn-canvas: #17160F;
-  --sn-glass-bg-raised: rgba(35,32,25,.86);
+  --sn-canvas: rgb(var(--color-page));
+  --sn-glass-bg-raised: rgb(var(--color-raised) / .86);
   /* The dock: the card #232019 frosted at the same 92 %, the pill = ink #FBFAF7 @ 15 %,
      and a softer press-light (a 95 % white bloom is a flashbulb on the dark page). */
-  --sn-dock-bg:    rgb(35 32 25);
-  --sn-dock-pill:  rgb(229 121 78);
-  --sn-dock-on-pill: rgb(23 22 15);
+  --sn-dock-bg:    rgb(var(--color-raised-2) / 0.94);
+  --sn-dock-pill:  rgb(var(--color-wash)); /* the active tab is a GREY pill in dark (owner 18 Nov, pick 3) */
+  --sn-dock-on-pill: rgb(var(--color-ink));
   --sn-dock-lift:  0 12px 32px -10px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
-  --sn-dock-press: rgba(251, 250, 247, 0.28);
+  --sn-dock-press: rgb(var(--color-ink) / 0.28);
   /* The row's paper is `--color-cream` and its edge `--sn-glass-line`; both
      flip under html.dark themselves, so dark keeps the same alpha and blur. */
   --sn-glass-row-alpha: 62%;
@@ -6809,7 +6846,7 @@ body {
    not left as a trap for whoever turns dark mode on.) Matches the dark
    `--color-cream` (#17160F) the body already uses. */
 html.dark .sn-ambient {
-  background: #17160F;
+  background: rgb(var(--color-page));
 }
 
 /* 🎨 THE FORWARD STEP'S LIFT — a token (owner 17 Nov, "no per-component overrides"): unset = no shadow, exactly as before.
@@ -6858,8 +6895,8 @@ html.dark :is(.sn-glass-dark, .sn-tile-obsidian, .sn-tile-dark) {
   color: #F3ECDF;
 }
 html.dark .sn-tile-dark {
-  background: #2B2821;
-  border-color: rgba(251, 250, 247, 0.12);
+  background: rgb(var(--color-raised-2));
+  border-color: rgb(var(--color-ink) / 0.12);
 }
 
 /* ---------- DESIGN FOUNDATION (owner 2026-09-24) ----------------------------
@@ -7518,7 +7555,7 @@ div:has(> [data-apply-pro-sheet]),
   .sn-frame-flush { padding: 0; overflow: hidden; }
   /* ✨ THE HEADER BAND — pale peach into white, top to bottom, ink words (16 Nov). Reads the band tokens only. */
   .sn-band {
-    background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%);
+    background: var(--color-band-glow, none), linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%);
     color: rgb(var(--sn-on-band));
   }
   /* The ONE screen title — 30 px / 700 (16 Nov). */
@@ -7526,8 +7563,8 @@ div:has(> [data-apply-pro-sheet]),
   /* The opaque fill above is a light-mode value, so it needs its dark pair or
      dark mode gets white rows on a black page. */
   html.dark .sn-row {
-    background: #2B2821;   /* warm, one step above the card (was the cool #2A2E36 — 2026-10-13, call 6) */
-    border-color: rgba(251, 250, 247, 0.12);
+    background: rgb(var(--color-raised-2)); /* one step above the frame */
+    border-color: rgb(var(--color-ink) / 0.12);
   }
 
   /* Tile eyebrow — replaces every font-mono/ALL-CAPS hand-roll. Gold-700 on
@@ -9332,7 +9369,7 @@ html[data-ride-reserve] body { padding-bottom: calc(var(--sn-keyboard-h, 0px) + 
 /* The typing band's neutrals outside the Maker (inside it, the Maker's own `STAGE_PANEL_VARS`): its cream plate, its
  * hairline and its words — with a dark pair (`typing-band.tsx`). */
 [data-typing-band='app'] { --tb-plate: #F3F0EA; --sp-line: #E6E1D8; --sp-ink2: #5A5755; }
-html.dark [data-typing-band='app'] { --tb-plate: #232019; --sp-line: rgba(251, 250, 247, 0.16); --sp-ink2: #B3AEA3; }
+html.dark [data-typing-band='app'] { --tb-plate: rgb(var(--color-raised)); --sp-line: rgb(var(--color-ink) / 0.16); --sp-ink2: rgb(var(--color-ink-3)); }
 /* Rise on load, staggered — once (the prototype's `up`). */
 @keyframes home-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 /* `backwards`, not `both`: nothing keeps a transform after the rise (an identity transform
@@ -9385,8 +9422,8 @@ html.dark :is(.hc-today, .hc-tile) { background: rgb(var(--color-raised)); }
 .hc-now.hc-calm { padding-right: 14px; }
 /* The card with no Hub background (prototype `.ecard`, the GCash balance-card shape): the warm dark ground, light words,
    the name in its blush — the same in light and dark, so the filled verb (the brand colour) always reads on it. */
-.hc-ecard-plain { background: linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%); color: rgb(var(--sn-on-band)); } /* ✨ the header band (16 Nov) — was a dark gradient */
-html.dark .hc-ecard-plain { background: linear-gradient(180deg, #1f1d1a 0%, #2b2721 100%); color: rgb(var(--color-ink)); } /* 🌙 the dark ground wears the dark theme's light ink — it kept the light band's espresso, unreadable (Event Today drawing: "dark in both themes", light words) */
+.hc-ecard-plain { background: var(--color-band-glow, none), linear-gradient(var(--sn-band-angle), rgb(var(--sn-band-from)) 0%, rgb(var(--sn-band-to)) 100%); color: rgb(var(--sn-on-band)); } /* ✨ the header band (16 Nov) — was a dark gradient */
+/* No `html.dark .hc-ecard-plain` rule: the band tokens carry their own dark (18 Nov). */
 .hc-ecard-plain .hc-ecard-name { color: inherit; }
 .hc-ecard-plain .hc-now-k:not(.hc-now-lv) { color: rgb(var(--color-mulberry-700)); opacity: 1; }
 .hc-now.hc-today-later { gap: 8px; font-size: 13px; }

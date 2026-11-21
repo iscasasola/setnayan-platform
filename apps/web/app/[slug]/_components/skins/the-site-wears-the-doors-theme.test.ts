@@ -73,7 +73,10 @@ const DOORS: string[] = [...new Set(PAINTED.map((id) => INVITE_THEMES[id].door))
 /** Every `[data-hub-theme='id'] { … }` body — the SITE's reading of a material. */
 function cssBlocksFor(id: string): string[] {
   const out: string[] = [];
-  for (const m of CSS.matchAll(new RegExp(`\\[data-hub-theme='${id}'\\][^{]*\\{([^}]*)\\}`, 'g'))) {
+  // Anchored to the start of a selector line. Unanchored, a mention of `[data-hub-theme='abaca']` INSIDE another rule's
+  // value or note ran on to the next `{` and read that unrelated block (the `html.dark` token block) as the theme's —
+  // harmless while that block held plain numbers, wrong the day it held a pointer (the one colour set, 18 Nov 2026).
+  for (const m of CSS.matchAll(new RegExp(`^[ \\t]*\\[data-hub-theme='${id}'\\][^{;]*\\{([^}]*)\\}`, 'gm'))) {
     out.push(m[1] ?? '');
   }
   return out;

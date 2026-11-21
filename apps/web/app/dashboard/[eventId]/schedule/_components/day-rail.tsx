@@ -1271,7 +1271,7 @@ export function ScheduleDay({
                           m.staged
                             ? 'bg-ink/[0.03] outline-dashed outline-[1.5px] -outline-offset-2 outline-terracotta'
                             : m.is_public
-                              ? 'bg-white shadow-[0_1px_2px_rgba(40,34,24,0.05),0_18px_40px_-26px_rgba(30,26,18,0.4)]'
+                              ? 'bg-raised shadow-[0_1px_2px_rgba(40,34,24,0.05),0_18px_40px_-26px_rgba(30,26,18,0.4)]'
                               : 'bg-ink/[0.03] ring-1 ring-inset ring-ink/[0.07]'
                         } ${isSel || isDragging ? 'z-[5] translate-x-0.5 ring-2 ring-terracotta' : ''} ${
                           isDragging ? 'cursor-grabbing shadow-2xl' : canEdit ? 'cursor-pointer' : ''
@@ -1659,7 +1659,7 @@ function EmptyRail({
     );
   }
   return (
-    <div className="absolute left-2.5 right-0 top-[4.5rem] z-[8] max-w-[520px] rounded-2xl bg-white/90 px-5 pb-4 pt-5 shadow-[0_28px_54px_-30px_rgba(30,26,18,0.5)] backdrop-blur lg:left-3.5 lg:px-7">
+    <div className="absolute left-2.5 right-0 top-[4.5rem] z-[8] max-w-[520px] rounded-2xl bg-raised/90 px-5 pb-4 pt-5 shadow-[0_28px_54px_-30px_rgba(30,26,18,0.5)] backdrop-blur lg:left-3.5 lg:px-7">
       {templates.length > 0 ? (
         <>
           <div className="flex items-center gap-2">

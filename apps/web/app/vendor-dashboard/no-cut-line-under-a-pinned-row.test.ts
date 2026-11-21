@@ -82,5 +82,5 @@ test('sn-pin-hair is the hairline as a shadow; the token has light and dark valu
   const css = read('app/globals.css');
   assert.match(css, /\.sn-pin-hair \{\s*box-shadow: 0 1px 0 var\(--sn-hair\);\s*\}/);
   assert.match(css, /--sn-hair: rgb\(44 42 41 \/ 0\.08\);/, 'light hairline is not ink at 8 %');
-  assert.match(css, /--sn-hair: rgb\(251 250 247 \/ 0\.1\);/, 'dark hairline is not paper at 10 %');
+  assert.match(css, /--sn-hair: rgb\(var\(--color-ink\) \/ 0\.1\);/, 'dark hairline is not the ink at 10 %');
 });

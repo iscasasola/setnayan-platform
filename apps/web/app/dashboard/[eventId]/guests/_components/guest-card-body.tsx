@@ -512,7 +512,7 @@ export function GuestCardBody({
         width={92}
         height={123}
         loading="lazy"
-        className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-white object-cover ring-1 ring-ink/10"
+        className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-raised object-cover ring-1 ring-ink/10"
       />
     ) : null;
 

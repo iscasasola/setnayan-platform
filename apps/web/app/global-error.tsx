@@ -35,7 +35,8 @@ export default function GlobalError({ error, reset }: Props) {
     // is serving perfectly. The owner hit exactly this twice in one day and
     // both times reasonably concluded we were down.
     //
-    // One reload picks up the current build. Guarded to fire ONCE per session:
+    // One reload picks up the current build. Guarded to fire ONCE per build (lib/stale-bundle.ts
+    // `reloadBudgetSpent`, 22 Nov 2026 — two deploys minutes apart each get their own reload):
     // if the new build throws too, reloading every time is an infinite refresh
     // on a page nobody can read or escape, which is worse than the message it
     // replaces.

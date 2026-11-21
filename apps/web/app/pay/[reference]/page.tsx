@@ -28,12 +28,15 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
 import { MayaPayStage } from './_components/maya-pay-stage';
 import { MayaChecking } from './_components/maya-checking';
-import { mayaReceiptFor } from '@/lib/maya-checkout.server';
+import { mayaReceiptFor, readOpenMayaCheckout } from '@/lib/maya-checkout.server';
+import { PayCodeBox } from './_components/pay-code-box';
+import { payCodeBoxShown } from '@/lib/pay-code';
 import { isMayaPayment } from '@/lib/maya-checkout';
 import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
 import { cookies } from 'next/headers';
 import { MAYA_BUSY_COOKIE } from '@/lib/maya-checkout';
+import { payNextSteps } from '@/lib/pay-next-steps';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -68,6 +71,9 @@ type Props = {
     step?: string;
     /** 💳 Back from Maya's hosted page: success | failure | cancel. */
     maya?: string;
+    /** 🎟 The code box's answer: the code just applied, or why it was not. */
+    code?: string;
+    code_error?: string;
   }>;
 };
 
@@ -284,7 +290,31 @@ export default async function PayPage({ params, searchParams }: Props) {
    * ⚠ In the waiting state there are no stages at all — the page is the wait
    * (owner 2026-08-28) — so this is rendered directly instead.
    */
-  const summary = (
+  // 💳 Step 1 follows the route stage 2 will take (lib/pay-next-steps.ts): `mayaRoute` is the page's own `mayaOpen`
+  // (or the Maya "checking" page, which only a Maya payer reaches) — the BDO words only when Maya is closed.
+  /*
+   * 🎟 "Have a code?" (EVERY PAYMENT WALL TAKES A CODE, owner 2026-11-22) — only on an unpaid bill nobody has started
+   * paying, and never beside a Maya checkout already open at this price (an unread answer hides it too).
+   */
+  const codeBox = payCodeBoxShown({
+    awaitingPayment: payable.status === 'awaiting_payment',
+    sentOrWaiting: waiting || Boolean(latestPayment) || Boolean(paymentsError),
+    mayaCheckout: waiting ? 'none' : await readOpenMayaCheckout(payable.orderId),
+    codeApplied: Boolean(payable.code),
+    quoted: Boolean(payable.quoted),
+  });
+  const codeBlock =
+    !waiting && (codeBox || payable.code) ? (
+      <PayCodeBox reference={payable.reference} applied={payable.code ?? null} error={codeBox ? (search.code_error ?? null) : null} />
+    ) : null;
+
+  const summaryFor = (mayaRoute: boolean) => {
+    const next = payNextSteps({
+      maya: mayaRoute,
+      isVendorPlan: payable.isVendorPlan,
+      bdo: { scanStep: words.scanStep, note: words.note, activates },
+    });
+    return (
     /* ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ──────────────
     Owner, 2026-08-28: *"After I paid, it should say we are currently
     verifying your purchase. kindly wait within 24 hours. (1) and (2) must
@@ -368,18 +398,22 @@ export default async function PayPage({ params, searchParams }: Props) {
         <CopyButton value={payable.reference} label="Copy" />
       </div>
     </div>
-    <p className="mt-2 text-xs text-ink/70">{words.note}</p>
+    {next.note ? <p className="mt-2 text-xs text-ink/70">{next.note}</p> : null}
+
+    {codeBlock}
 
     {!waiting && (
       <div className="mt-5 border-t border-ink/10 pt-4">
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
-        <Step n={1}>{words.scanStep}</Step>
-        <Step n={2}>Upload the screenshot of your payment receipt — nothing to type.</Step>
-        <Step n={3}>{activates}</Step>
+        <Step n={1}>{next.steps[0]}</Step>
+        <Step n={2}>{next.steps[1]}</Step>
+        <Step n={3}>{next.steps[2]}</Step>
       </div>
     )}
   </section>
-  );
+    );
+  };
+  const summary = summaryFor(false);
 
 
   const mayaReceipt = payable.status === 'settled' ? await mayaReceiptFor(payable.orderId) : null;
@@ -458,7 +492,7 @@ export default async function PayPage({ params, searchParams }: Props) {
   if (maya.phase === 'checking' && !waiting) {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
-        {summary}
+        {summaryFor(true)}
         <MayaChecking />
       </main>
     );
@@ -634,7 +668,26 @@ export default async function PayPage({ params, searchParams }: Props) {
         </p>
       )}
 
-      {!waiting && !overCeiling && (
+      {/*
+        💳 MAYA IN TWO TAPS (owner 2026-11-22: *"why does it take 3 pay to enter maya. we want it quick and simple"*;
+        DECISION_LOG "MAYA IN TWO TAPS"). With Maya open the page OPENS on the approved v3 pay page — the amount, Order
+        summary, "Have a code?", Pay with, the pinned Pay ₱X — so it is buy → Pay ₱X → Maya's page. No step 1, no
+        Continue, no 1/2 stepper. Step 1 (and its BDO next steps) stays for the BDO route and the fallback only.
+      */}
+      {!waiting && !overCeiling && mayaOpen && (
+        <MayaPayStage
+          reference={payable.reference}
+          amountPhp={payable.amountPhp}
+          title={payable.title}
+          who={payable.who ?? null}
+          billedToName={billedToName}
+          billedToEmail={user.email ?? null}
+          line={maya.line}
+          code={codeBlock}
+        />
+      )}
+
+      {!waiting && !overCeiling && !mayaOpen && (
       <PayPanel
         /*
           Their second attempt carries `rechecked`, which tells the action to
@@ -657,7 +710,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         orderId={payable.orderId}
         rails={rails}
         activatesLine={activates}
-        summary={summary}
+        summary={summaryFor(false)}
         initialStage={parseStage(search.step)}
         /*
           ⚠ EVERY OTHER PARAMETER RIDES ALONG. `?setup=1` is what tells this
@@ -673,19 +726,6 @@ export default async function PayPage({ params, searchParams }: Props) {
           error: search.error,
           recheck: search.recheck,
         }}
-        maya={
-          mayaOpen ? (
-            <MayaPayStage
-              reference={payable.reference}
-              amountPhp={payable.amountPhp}
-              title={payable.title}
-              who={payable.who ?? null}
-              billedToName={billedToName}
-              billedToEmail={user.email ?? null}
-              line={maya.line}
-            />
-          ) : null
-        }
       />
       )}
     </main>

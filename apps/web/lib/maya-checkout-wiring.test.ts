@@ -37,7 +37,8 @@ test('Maya on → no BDO while Maya is on: the BDO stage, the proof stage and th
 test('the page offers Maya only when the gate says open, within the ceiling, not busy and not checking', () => {
   const page = code(PAGE);
   assert.match(page, /const mayaOpen = !waiting && !overCeiling && \(await maya\.railOpenFor\(payable\.amountPhp\)\);/);
-  assert.match(page, /mayaOpen \? \(\s*<MayaPayStage/);
+  // MAYA IN TWO TAPS (2026-11-22): the Maya page is drawn on its own when mayaOpen — not as stage 2 of the pay panel.
+  assert.match(page, /\{!waiting && !overCeiling && mayaOpen && \(\s*<MayaPayStage/);
   const ret = code('app/pay/[reference]/maya-return.ts');
   assert.match(ret, /if \(phase === 'busy'\) return false;/);
   assert.match(ret, /if \(!state\.open\) return false;/);

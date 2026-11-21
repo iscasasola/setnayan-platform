@@ -282,7 +282,7 @@ export default async function BarLab({
     const doors = keepsakeDoors({ magazine, recap, flash, flashMin: SCOPE_MIN_MOMENTS.event, thankYou: true });
     const addState = sp.add === 'off' ? 'off' : 'open';
     // 📷 THE PAPIC BLOCK (2026-11-20) — the real card on fixtures: a head on "On — event day" for Fri 18 Dec 2026.
-    const papicFacts = { live: true, draftOn: true, early: false };
+    const papicFacts = { live: true, early: false };
     const cameraDates = { eventDate: '2026-12-18', windowStart: '2026-09-23T00:00:00+08:00', windowEnd: '2026-12-19T11:59:00+08:00' };
     const LAB_NOW = Date.parse('2026-11-20T10:00:00+08:00');
     const cameras = papicGuestCamerasLines(papicFacts, cameraDates, LAB_NOW);

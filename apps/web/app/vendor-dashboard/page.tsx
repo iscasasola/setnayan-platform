@@ -791,6 +791,7 @@ export default async function VendorOverviewPage({
           shopName={profile.business_name ?? null}
           card={firstCardFrom(search)}
           cardState={firstCardStateFrom(search)}
+          shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
         />
       ) : null}
       <ClaimWaitLines read={await claimWaitsP} />

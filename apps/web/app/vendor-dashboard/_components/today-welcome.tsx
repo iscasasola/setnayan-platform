@@ -3,18 +3,20 @@ import { BadgeCheck, Check, ChevronRight, ImagePlus, Info, PenLine, Users } from
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { approveFirstCard } from '@/app/open-shop/actions';
+import { firstCardWhySentence } from '@/lib/first-card-why';
 import { formatCount } from '@/lib/format-number';
 import {
   FIRST_CARD_CARRY_LINE,
   FIRST_CARD_DRAFTS_LINE,
   FIRST_CARD_FIELD,
   FIRST_CARD_RETRY,
-  TODAY_WELCOME_LINE,
-  TODAY_WELCOME_STEPS,
   WELCOME_CLAIMED_PATH,
   WELCOME_OPENED_PATH,
   welcomeDoneRow,
+  todayWelcomeLine,
+  todayWelcomeSteps,
   welcomeTitle,
+  type WelcomeShop,
   type FirstCardCarry,
   type firstCardStateFrom,
 } from '@/lib/supplier-onboarding';
@@ -24,7 +26,7 @@ const ICON = { clients: Users, logo: ImagePlus, verify: BadgeCheck } as const;
 /**
  * 🚪 TODAY'S WELCOME — THE LAST STOP OF EVERY SUPPLIER ONBOARDING DOOR (owner 2026-11-19, drawing `36jmQMWrANcgd2HxihAUw5`
  * PB6 / P6). Drawn when Today is opened with `?opened=1` (the self-serve and coordinator doors) or `?claimed=1` (a couple's
- * invite accepted — before 19 Nov nothing read it). "Welcome, <shop>" · "Your shop is open on Free." · the ticked row of
+ * invite accepted — before 19 Nov nothing read it). "Welcome, <shop>" · "Your shop is open on <its plan>." · the ticked row of
  * what the door made · three next steps in the owner's order: Add the clients you already have · Add your logo
  * (`/open-shop/logo` stays reachable from here) · Get verified to be found. No leads are promised.
  *
@@ -39,8 +41,15 @@ export function TodayWelcome({
   shopName,
   card = null,
   cardState = null,
+  shop,
 }: {
   kind: 'claimed' | 'opened';
+  /**
+   * The shop's plan and verification, off Today's one shop read (`readTodayShopRow`); null when that read failed.
+   * Ship review 21 Nov: `?claimed=1` also lands ESTABLISHED shops, so the line and the "Get verified" step are drawn
+   * from what is true of THIS shop — never a fixed Free line.
+   */
+  shop: WelcomeShop;
   shopName: string | null;
   card?: FirstCardCarry | null;
   /** `?card=` — the ticked row names the card ONLY when it is `live` (`welcomeDoneRow`); a bare welcome names the shop. */
@@ -53,7 +62,7 @@ export function TodayWelcome({
         <h2 id="today-welcome-title" className="text-lg font-semibold text-ink">
           {welcomeTitle(kind, shopName)}
         </h2>
-        <p className="text-sm text-ink/70">{TODAY_WELCOME_LINE}</p>
+        <p className="text-sm text-ink/70" data-today-welcome-line="">{todayWelcomeLine(shop)}</p>
       </div>
       {card ? (
         <form
@@ -70,7 +79,8 @@ export function TodayWelcome({
             <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <span>
               {FIRST_CARD_CARRY_LINE[card.state]}
-              {card.why ? ` ${card.why}` : null}
+              {/* The reason is a KEY on the address; its sentence comes from code (`lib/first-card-why.ts`). */}
+              {firstCardWhySentence(card.why) ? ` ${firstCardWhySentence(card.why)}` : null}
             </span>
           </p>
           <p className="text-[14.5px] font-medium text-ink">
@@ -78,7 +88,13 @@ export function TodayWelcome({
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={card.id ? `/vendor-dashboard/services/${card.id}` : `/vendor-dashboard/services/new/${encodeURIComponent(card.category)}`}
+              href={
+                card.id
+                  ? `/vendor-dashboard/services/${card.id}`
+                  : card.why === 'made-unread'
+                    ? '/vendor-dashboard/services'
+                    : `/vendor-dashboard/services/new/${encodeURIComponent(card.category)}`
+              }
               className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-ink hover:bg-ink/5"
               data-today-welcome-card-edit=""
             >
@@ -109,7 +125,7 @@ export function TodayWelcome({
           </span>
           <span className="flex-1">{welcomeDoneRow(cardState)}</span>
         </li>
-        {TODAY_WELCOME_STEPS.map((s) => {
+        {todayWelcomeSteps(shop).map((s) => {
           const Icon = ICON[s.key];
           return (
             <li key={s.key}>

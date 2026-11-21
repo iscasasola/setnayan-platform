@@ -1,5 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -18,6 +17,10 @@ import { listShopOwnPhotos } from '@/lib/shop-own-photos.server';
 import { shopCardChoices } from '@/lib/inspiration-card-link.server';
 import { getInspirationParts } from '@/lib/inspiration-parts-db';
 import { settledValue } from '@/lib/settled-read';
+
+import { InfoTip } from '@/app/_components/info-tip';
+import { formatCount } from '@/lib/format-number';
+import { ToolPin } from '../_components/tool-page';
 
 export const metadata = { title: 'Moodboard Library · My Designs' };
 export const dynamic = 'force-dynamic';
@@ -152,34 +155,25 @@ export default async function StylistMoodboardLibraryPage() {
   const [shopPhotos, cardsByPart] = settledValue(shopRead);
 
   return (
-    <div className="mx-auto w-full tab:max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* ‹ Portfolio — the library lights Portfolio's tab (THE ONE BUILD, 8 Nov 2026), so its back goes there too. */}
-      <Link
-        href="/vendor-dashboard/collections"
-        className="mb-4 inline-block font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta-700"
-      >
-        ‹ Back to Portfolio
-      </Link>
-
-      <header className="mb-6 space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          My moodboard designs
-        </h1>
-        <p className="max-w-prose text-base text-ink/65">
-          Upload photos of your real work, tag the color regions, and Setnayan
-          will review them for the shared inspiration library. Once approved,
-          couples browsing that part of their mood board see your photo with
-          your shop credited underneath — and can walk straight from it to you.
-        </p>
-        <p className="max-w-prose text-xs text-ink/50">
-          Every photo is watermarked with SETNAYAN on our side before it is
-          stored, and screened for QR codes, web addresses, social handles,
-          email addresses and your own contact details — those would take
-          couples around Setnayan rather than through it, and your shop is
-          already named under every photo. Names on a backdrop or a welcome sign
-          are fine; we just look at those ourselves before they go live.
-        </p>
-      </header>
+    <div className="mx-auto w-full tab:max-w-3xl px-4 pb-16 sm:px-6" data-tool-page="moodboard-library">
+      {/* The redraw (v3, 21 Nov 2026): the pinned row's ‹ goes to Portfolio (the library lights Portfolio's tab — THE ONE
+          BUILD, 8 Nov), so the "‹ Back to Portfolio" link above the title is gone; both intro paragraphs live in the ⓘ. */}
+      <ToolPin
+        route="/vendor-dashboard/moodboard-library"
+        title="Moodboard library"
+        right={assets.length > 0 ? formatCount(assets.length) : undefined}
+        sub={
+          <InfoTip label="Your real work, credited, on couples’ mood boards." align="start">
+            Upload photos of your real work, tag the color regions, and Setnayan will review them for the shared
+            inspiration library. Once approved, couples browsing that part of their mood board see your photo with your
+            shop credited underneath — and can walk straight from it to you. Every photo is watermarked with SETNAYAN on
+            our side before it is stored, and screened for QR codes, web addresses, social handles, email addresses and
+            your own contact details — those would take couples around Setnayan rather than through it, and your shop is
+            already named under every photo. Names on a backdrop or a welcome sign are fine; we just look at those
+            ourselves before they go live.
+          </InfoTip>
+        }
+      />
 
       <StylistLibraryEditor
         initialAssets={assets}

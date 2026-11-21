@@ -12,6 +12,8 @@
  *   ?p=repertoire    &s=rows | search | notmusic
  *   ?p=recommend     &s=rows | empty
  *   ?p=activities    &s=rows | fail
+ *   ?p=lines         &s=rows | segfail | fail | empty
+ *   ?p=moodboard     &s=rows | empty
  * The forms post the REAL actions; pressing them here needs a session (the lab draws, it does not save).
  * Names are samples: nobody real.
  */
@@ -35,6 +37,10 @@ import { TemplateFail } from '@/app/_components/template-rows';
 import type { ResolvedSchema, VendorAttributePayload } from '@/lib/vendor-service-attributes';
 import type { VendorActivity } from '@/lib/vendor-activities';
 import type { VendorQuestion } from '@/lib/emcee-questions';
+import { LinesView } from '@/app/vendor-dashboard/lines/_components/lines-view';
+import type { LineRow } from '@/app/vendor-dashboard/lines/_components/line-rows';
+import { StylistLibraryEditor, type StylistAsset } from '@/app/vendor-dashboard/moodboard-library/_components/stylist-library-editor';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 
 const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 10, 21, 2, 0);
@@ -175,6 +181,28 @@ const QUESTIONS: VendorQuestion[] = [
   { question_id: 'q4', vendor_profile_id: 'lab', prompt: 'Do you want a moment of silence?', hint: null, is_asked: false, display_order: 40 },
 ];
 
+const line = (id: string, body: string, extra: Partial<LineRow>): LineRow => ({
+  line_id: id, activity_id: null, label_key: null, block_type: null, body, is_private_note: false, use_count: 0, last_used_at: null, ...extra,
+});
+const LINES: LineRow[] = [
+  line('l1', 'Ladies and gentlemen, please rise as we welcome, for the very first time as husband and wife, ⟨couple⟩!', { activity_id: 'a2', use_count: 9 }),
+  line('l2', 'May we invite ⟨couple⟩ to the floor for their first dance.', { label_key: 'First dance', use_count: 6 }),
+  line('l3', 'Dinner is served — enjoy, everyone.', { block_type: 'dinner', use_count: 4 }),
+  line('l4', 'Thank you to ⟨venue⟩ for having us tonight.', {}),
+  line('l5', 'Check the mic battery before the march.', { is_private_note: true }),
+  line('l6', 'Groom’s lola is hard of hearing — face her side.', { is_private_note: true }),
+];
+const MB_PHOTO = (id: string, label: string, state: 'live' | 'draft' | 'rejected' | 'retired'): StylistAsset =>
+  ({
+    asset_id: id, asset_type: 'tablescapes', asset_subtype: null, label, storage_path: `lab/${id}.jpg`,
+    approved_at: state === 'live' || state === 'retired' ? ago(5) : null, retired_at: state === 'retired' ? ago(1) : null,
+    rejected_at: state === 'rejected' ? ago(2) : null, rejection_reason: state === 'rejected' ? 'This photo shows a phone number.' : null,
+    created_at: ago(9), source_event_id: null, from_suggestion: false,
+    public_url: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9b38f"/><stop offset="1" stop-color="#7b8f6a"/></linearGradient></defs><rect width="10" height="10" fill="url(#g)"/></svg>`)}`,
+    color_ranges: {},
+  }) as unknown as StylistAsset;
+const PHOTOS = [MB_PHOTO('p1', 'Garden arch, Tagaytay', 'live'), MB_PHOTO('p2', 'Sweetheart table', 'draft'), MB_PHOTO('p3', 'Reception aisle', 'live'), MB_PHOTO('p4', 'Welcome sign', 'rejected'), MB_PHOTO('p5', 'Centrepiece', 'draft'), MB_PHOTO('p6', 'Cake table', 'retired')];
+
 export default async function SupplierToolsLab({
   searchParams,
 }: {
@@ -264,6 +292,36 @@ export default async function SupplierToolsLab({
         }
         questions={<QuestionsSectionBody measured all={QUESTIONS} starters={[{ prompt: 'Should the host speak in Tagalog, English or both?', hint: '' }, { prompt: 'Any names that are hard to pronounce?', hint: '' }] as never} />}
       />
+    );
+  }
+
+  if (p === 'lines') {
+    screen = (
+      <LinesView
+        lines={s === 'empty' || s === 'fail' ? [] : LINES}
+        activities={s === 'segfail' ? null : [{ activity_id: 'a2', label: 'Grand entrance' }, { activity_id: 'a3', label: 'The shoe game' }]}
+        linesRead={s !== 'fail'}
+        error={null}
+      />
+    );
+  }
+  if (p === 'moodboard') {
+    const photos = s === 'empty' ? [] : PHOTOS;
+    screen = (
+      <div className="mx-auto w-full tab:max-w-3xl px-4 pb-16 sm:px-6">
+        <ToolPin route="/vendor-dashboard/moodboard-library" title="Moodboard library" right={photos.length > 0 ? String(photos.length) : undefined} sub={<span>Your real work, credited, on couples’ mood boards.</span>} />
+        <StylistLibraryEditor
+          initialAssets={photos}
+          gallerySlots={[{ key: 'tablescapes', label: 'Tablescapes' }, { key: 'arches', label: 'Arches' }]}
+          startSlot="tablescapes"
+          shopPhotos={[]}
+          shopPhotosFailed={false}
+          backCatalogueCap={5}
+          importableEditorial={s === 'empty' ? [] : ([{ mediaId: 'm1', caption: 'Day-of photo', alreadyImported: false }, { mediaId: 'm2', caption: 'Sweetheart table', alreadyImported: true }] as never)}
+          importableEditorialFailed={false}
+          cardsByPart={null}
+        />
+      </div>
     );
   }
 

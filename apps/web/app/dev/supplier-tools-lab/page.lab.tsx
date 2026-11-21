@@ -8,6 +8,10 @@
  *   ?p=track-record  &s=rows | empty | fail
  *   ?p=disputes      &s=rows | empty | partial
  *   ?p=creators      &s=rows | empty
+ *   ?p=attributes    &s=rows | saved | empty | fail
+ *   ?p=repertoire    &s=rows | search | notmusic
+ *   ?p=recommend     &s=rows | empty
+ *   ?p=activities    &s=rows | fail
  * The forms post the REAL actions; pressing them here needs a session (the lab draws, it does not save).
  * Names are samples: nobody real.
  */
@@ -22,6 +26,15 @@ import type { VendorRepostFlag } from '@/lib/vendor-theft-watch';
 import type { VendorTrackRecordRow } from '@/app/vendor-dashboard/_components/vendor-track-record-panel';
 import type { EligibleCreator, VendorSentOffer } from '@/lib/creator-offers';
 import type { VendorCreatorRoiRow } from '@/lib/creator-analytics';
+import { AttributesUnread, AttributesView } from '@/app/vendor-dashboard/attributes/_components/attributes-view';
+import { RepertoireNotMusic, RepertoireView } from '@/app/vendor-dashboard/repertoire/_components/repertoire-view';
+import { RecommendationsPanel, type LeafGroup } from '@/app/vendor-dashboard/recommendations/_panel';
+import { ActivitiesView } from '@/app/vendor-dashboard/activities/_components/activities-view';
+import { QuestionsSectionBody } from '@/app/vendor-dashboard/activities/questions-section';
+import { TemplateFail } from '@/app/_components/template-rows';
+import type { ResolvedSchema, VendorAttributePayload } from '@/lib/vendor-service-attributes';
+import type { VendorActivity } from '@/lib/vendor-activities';
+import type { VendorQuestion } from '@/lib/emcee-questions';
 
 const DAY = 86_400_000;
 const NOW = Date.UTC(2026, 10, 21, 2, 0);
@@ -83,6 +96,88 @@ const CREATORS = [
   { userId: 'lab-c3', displayName: 'Bea & Migs', slug: null, followersCount: 3800, viewCount: 21000, chapterCount: 11, inquiriesDriven: 31 },
 ] as unknown as EligibleCreator[];
 
+
+const GOWNS: ResolvedSchema = {
+  canonical_service: 'bridal_gowns', display_name_en: 'Bridal gowns', display_name_tl: 'Damit pangkasal', schema_version: 3,
+  fields: {
+    silhouettes: { type: 'multi_select', label: 'Silhouettes', required: true, options: ['ballgown', 'a_line', 'mermaid', 'sheath'] },
+    fabric_type: { type: 'enum', label: 'Fabric', options: ['tulle', 'satin', 'lace'] },
+    lead_time_weeks: { type: 'int', label: 'Lead time (weeks)', min: 1 },
+    made_to_measure: { type: 'boolean', label: 'Made to measure' },
+    designers: { type: 'multi_select_open', label: 'Designers you carry' },
+  },
+  filter_facets: ['fabric_type'],
+  required_for_visibility: { minimum_fields: ['silhouettes', 'fabric_type'] },
+} as unknown as ResolvedSchema;
+const CATERING = { ...GOWNS, canonical_service: 'catering', display_name_en: 'Catering', display_name_tl: 'Handaan' } as ResolvedSchema;
+const PHOTO = { ...GOWNS, canonical_service: 'photo_video', display_name_en: 'Photo & video', display_name_tl: 'Larawan at bidyo' } as ResolvedSchema;
+// The gate's own column is NOT typed here: a lab is not a reader of it (tests/db/handles-have-gates.db.test.ts), so every
+// fixture row reads "Visibility gate not met".
+const pay = (key: string, score: number, _ok: boolean): VendorAttributePayload =>
+  ({
+  vendor_profile_id: 'lab', canonical_service: key, schema_version_at_fill: 3, completeness_score: score,
+  updated_at: ago(2), attribute_payload: key === 'bridal_gowns' ? { silhouettes: ['ballgown', 'a_line'], lead_time_weeks: 8, made_to_measure: true, designers: ['Veluz', 'Mak Tumang'] } : {},
+  }) as VendorAttributePayload;
+const ATTR_ROWS = [
+  { schema: GOWNS, payload: pay('bridal_gowns', 62, false) },
+  { schema: CATERING, payload: pay('catering', 88, true) },
+  { schema: PHOTO, payload: pay('photo_video', 40, false) },
+];
+const ADDABLE = [
+  { key: 'hair_makeup', en: 'Hair & makeup', tl: 'Ayos at makeup' },
+  { key: 'lights_sound', en: 'Lights & sound', tl: 'Ilaw at tunog' },
+  { key: 'mobile_bar', en: 'Mobile bar', tl: 'Bar' },
+  { key: 'venue_styling', en: 'Venue styling', tl: 'Dekorasyon' },
+];
+
+const SONGS = [
+  { song_id: 1, title: 'Can’t Help Falling in Love', artist: 'Elvis Presley', performance_url: 'https://youtu.be/lab1' },
+  { song_id: 2, title: 'Perfect', artist: 'Ed Sheeran', performance_url: 'https://youtu.be/lab2' },
+  { song_id: 3, title: 'Ikaw', artist: 'Yeng Constantino', performance_url: null },
+  { song_id: 4, title: 'Beautiful in White', artist: 'Shane Filan', performance_url: null },
+  { song_id: 5, title: 'Tadhana', artist: 'Up Dharma Down', performance_url: 'https://youtu.be/lab5' },
+];
+const LIBRARY = [
+  { song_id: 11, title: 'A Thousand Years', artist: 'Christina Perri' },
+  { song_id: 12, title: 'Kahit Maputi Na ang Buhok Ko', artist: 'Rey Valera' },
+  { song_id: 13, title: 'Marry You', artist: 'Bruno Mars' },
+];
+
+const REC_GROUPS: LeafGroup[] = [
+  {
+    tileId: 'photo-video', leafLabel: 'Photo & video', suggestFlagged: false,
+    active: [
+      { tileId: 'photo-video', serviceCode: 'PAPIC', title: 'Guest photo album (Papic)', priceLabel: 'Price from the catalogue', rationale: 'Every guest’s photos in one album.', isOptIn: true, optInEnabled: true, flaggedNotAFit: false, addonKey: 'papic' },
+      { tileId: 'photo-video', serviceCode: 'LIVE', title: 'Live Watch', priceLabel: 'Price from the catalogue', rationale: null, isOptIn: false, optInEnabled: false, flaggedNotAFit: false, addonKey: null },
+    ],
+    offers: [
+      { tileId: 'photo-video', serviceCode: 'SDE', title: 'Same-day edit video', priceLabel: 'Price from the catalogue', rationale: 'Couples who book a same-day edit share your work the same night.', isOptIn: true, optInEnabled: false, flaggedNotAFit: false, addonKey: 'sde' },
+    ],
+  },
+  {
+    tileId: 'coordination', leafLabel: 'Coordination', suggestFlagged: true,
+    active: [{ tileId: 'coordination', serviceCode: 'AI', title: 'Setnayan AI planner', priceLabel: 'Price from the catalogue', rationale: null, isOptIn: false, optInEnabled: false, flaggedNotAFit: true, addonKey: null }],
+    offers: [],
+  },
+];
+
+const act = (id: string, label: string, min: number, block: string, offered = true, blurb: string | null = null): VendorActivity => ({
+  activity_id: id, vendor_profile_id: 'lab', label, blurb, duration_minutes: min, block_type: block, is_offered: offered, display_order: 0,
+});
+const ACTIVITIES = [
+  act('a1', 'Principal sponsors roll call', 15, 'ceremony'),
+  act('a2', 'Grand entrance', 5, 'reception'),
+  act('a3', 'The shoe game', 10, 'program', true, 'The couple sit back to back and raise a shoe for each question.'),
+  act('a4', 'Bouquet and garter toss', 10, 'program'),
+];
+const RETIRED = [act('a5', 'Money dance', 10, 'program', false), act('a6', 'Candle lighting', 5, 'ceremony', false)];
+const QUESTIONS: VendorQuestion[] = [
+  { question_id: 'q1', vendor_profile_id: 'lab', prompt: 'Which song should play as you enter the reception?', hint: 'the exact version, if it matters', is_asked: true, display_order: 10 },
+  { question_id: 'q2', vendor_profile_id: 'lab', prompt: 'Any guests we must not seat together?', hint: null, is_asked: true, display_order: 20 },
+  { question_id: 'q3', vendor_profile_id: 'lab', prompt: 'Who gives the toast?', hint: null, is_asked: true, display_order: 30 },
+  { question_id: 'q4', vendor_profile_id: 'lab', prompt: 'Do you want a moment of silence?', hint: null, is_asked: false, display_order: 40 },
+];
+
 export default async function SupplierToolsLab({
   searchParams,
 }: {
@@ -111,6 +206,66 @@ export default async function SupplierToolsLab({
         pendingCreatorIds={new Set(['lab-c1'])}
         sendNeedsPro
         flash={{ sent: false }}
+      />
+    );
+  }
+
+  if (p === 'attributes') {
+    screen =
+      s === 'fail' ? (
+        <AttributesUnread />
+      ) : (
+        <AttributesView
+          rows={s === 'empty' ? [] : ATTR_ROWS}
+          fresh={null}
+          addable={ADDABLE}
+          notices={{ error: null, savedService: s === 'saved' ? 'Bridal gowns' : null, savedKey: s === 'saved' ? 'bridal_gowns' : null, missing: s === 'saved' ? ['Silhouettes', 'Fabric'] : [], removed: false, unknownAdd: null }}
+        />
+      );
+  }
+  if (p === 'repertoire') {
+    screen =
+      s === 'notmusic' ? (
+        <RepertoireNotMusic />
+      ) : (
+        <RepertoireView
+          repertoire={SONGS}
+          results={s === 'search' ? [] : LIBRARY}
+          query={s === 'search' ? 'Sana’y Wala Nang Wakas' : ''}
+          own={false}
+          notice={{ error: null, saved: false }}
+        />
+      );
+  }
+  if (p === 'recommend') {
+    screen = (
+      <RecommendationsPanel
+        groups={s === 'empty' ? [] : REC_GROUPS}
+        suggestSkuOptions={[]}
+        connectedCouples={[{ eventId: 'lab-e1', label: 'Reyes & Santos wedding' } as never]}
+        suggestedKeys={[]}
+        savedFlash={false}
+        flaggedFlash={false}
+        suggestedFlash={false}
+        errorFlash={null}
+      />
+    );
+  }
+  if (p === 'activities') {
+    screen = (
+      <ActivitiesView
+        offered={s === 'fail' ? [] : ACTIVITIES}
+        retired={s === 'fail' ? [] : RETIRED}
+        minutes={40}
+        measured={s !== 'fail'}
+        sp={{}}
+        unread={
+          <TemplateFail data="activities">
+            <strong>We couldn&rsquo;t load your segments.</strong> Your list has not been emptied and couples can still pick
+            from it — reload before writing it out again.
+          </TemplateFail>
+        }
+        questions={<QuestionsSectionBody measured all={QUESTIONS} starters={[{ prompt: 'Should the host speak in Tagalog, English or both?', hint: '' }, { prompt: 'Any names that are hard to pronounce?', hint: '' }] as never} />}
       />
     );
   }

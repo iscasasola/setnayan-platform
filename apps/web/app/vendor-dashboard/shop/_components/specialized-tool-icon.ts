@@ -4,7 +4,7 @@ import type { SpecializedToolKey } from '@/lib/specialized-tools';
 /** Each Specialized tools tile's icon (kept out of `lib/specialized-tools.ts`, which stays free of UI imports). */
 const ICONS: Readonly<Record<SpecializedToolKey, LucideIcon>> = {
   scanner: ScanLine,
-  cake_maker: CakeSlice,
+  cake_tool: CakeSlice,
   song_bank: Music,
   song_desk: ListMusic,
   emcee_script: Megaphone,

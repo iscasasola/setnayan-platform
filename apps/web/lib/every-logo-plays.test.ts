@@ -421,6 +421,7 @@ const STILL_DRAWS: RegExp[] = [
 
 /** Still ON PURPOSE — each with the reason it is not a screen showing the saved logo. */
 const STILL: Record<string, string> = {
+  'app/dev/cake-maker-lab/lab.tsx': 'a dev lab’s placeholder inspiration PHOTOS (a drawn cake stand-in as an svg data URI) — no logo at all',
   'app/_components/bespoke-monogram-mark.tsx': 'the still renderer itself — every playing surface hands it in as its `still`',
   'app/_components/gold-monogram-reveal.tsx': 'a reveal animation of its own; the mark is its mask',
   'app/[slug]/_components/reveal/wax-seal.tsx': 'the mark PRESSED INTO wax (a canvas/WebGL die) — a material impression inside the reveal',

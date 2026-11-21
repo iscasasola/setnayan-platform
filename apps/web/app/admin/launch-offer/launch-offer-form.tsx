@@ -175,10 +175,10 @@ export function SpecialToolsDateForm({ from }: { from: string }) {
     message: null,
   });
   return (
-    <form action={formAction} className="sn-tile p-4">
+    <form action={formAction} className="border-t border-ink/10 pt-4">
       <input type="hidden" name="intent" value="special_tools" />
       <label className="block" htmlFor="special_tools_paid_from">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">Pro and up from (Manila time)</span>
+        <span className="text-xs font-medium text-ink/70">Pro and up from (Manila time)</span>
         <input
           id="special_tools_paid_from"
           name="special_tools_paid_from"

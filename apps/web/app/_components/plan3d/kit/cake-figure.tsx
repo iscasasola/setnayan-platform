@@ -8,14 +8,12 @@
  * accent · acrylic spacers or pillars · the topper as a line icon · the message in script on a plaque. The cake keeps
  * its real colours in dark mode; only the stage follows the theme. No downloads.
  */
+import { CAKE } from './cake-colours';
 import { useId } from 'react';
 import type { CakeFigureSpec, CakeFigureTier } from '@/lib/cake-config';
 import css from './cake-figure.module.css';
 
 const U = 100; // px per cake unit
-const IVORY = '#F7F0E4';
-const GOLD = '#C9A55C';
-const INK_LINE = '#6B5B4B';
 
 export function CakeFigure({
   spec,
@@ -61,7 +59,7 @@ export function CakeFigure({
         </linearGradient>
         <radialGradient id={`${uid}b`} cx="0.5" cy="0.4" r="0.6">
           <stop offset="0" stopColor="#fff" />
-          <stop offset="1" stopColor="#E9E1D4" />
+          <stop offset="1" stopColor={CAKE.boardShade} />
         </radialGradient>
         <pattern id={`${uid}bc`} width="14" height="9" patternUnits="userSpaceOnUse">
           <path d="M0 6 Q3.5 2 7 6 T14 6" fill="none" stroke="#000" strokeOpacity="0.06" strokeWidth="1.4" />
@@ -75,9 +73,9 @@ export function CakeFigure({
         const x = cx + st.x * U;
         return (
           <g key={`board${s}`}>
-            {st.y > 0 ? <rect x={x - 3} y={y + 4} width="6" height={st.y * U} fill={GOLD} opacity="0.55" /> : null}
+            {st.y > 0 ? <rect x={x - 3} y={y + 4} width="6" height={st.y * U} fill={CAKE.gold} opacity="0.55" /> : null}
             <ellipse cx={x} cy={y + 10} rx={r * 1.04} ry={r * 0.2} fill="#000" opacity="0.1" />
-            <ellipse cx={x} cy={y + 4} rx={r} ry={r * 0.19} fill={`url(#${uid}b)`} stroke="#D8CEC0" />
+            <ellipse cx={x} cy={y + 4} rx={r} ry={r * 0.19} fill={`url(#${uid}b)`} stroke={CAKE.boardEdge} />
           </g>
         );
       })}
@@ -90,7 +88,7 @@ export function CakeFigure({
         const top = topY(t);
         const bot = botY(t);
         const { body, face } = shapePaths(t.shape, X(t), top, bot, rx(t), ry(t));
-        const fill = spec.finish === 'semi_naked' ? t.sponge : IVORY;
+        const fill = spec.finish === 'semi_naked' ? t.sponge : CAKE.ivory;
         const accentColour = colour(t.index);
         return (
           <g key={t.index} className={css.tier}>
@@ -99,13 +97,13 @@ export function CakeFigure({
             {spec.finish === 'semi_naked' ? (
               <g opacity="0.75">
                 {[0.25, 0.5, 0.75].map((f) => (
-                  <rect key={f} x={left} y={top + (bot - top) * f - 3} width={right - left} height="6" fill={IVORY} opacity="0.85" />
+                  <rect key={f} x={left} y={top + (bot - top) * f - 3} width={right - left} height="6" fill={CAKE.ivory} opacity="0.85" />
                 ))}
               </g>
             ) : null}
             {spec.finish === 'buttercream' ? <path d={body} fill={`url(#${uid}bc)`} /> : null}
             <path d={body} fill={`url(#${uid}s)`} />
-            <path d={face} fill={spec.finish === 'semi_naked' ? '#FBF6EC' : '#FFFBF4'} data-cake-shape={t.shape} />
+            <path d={face} fill={spec.finish === 'semi_naked' ? CAKE.semiNaked : CAKE.icing} data-cake-shape={t.shape} />
             {t.shape === 'hexagon' ? <path d={`M${X(t) - rx(t) * 0.5} ${top + ry(t)} L${X(t) - rx(t) * 0.5} ${bot + ry(t)} M${X(t) + rx(t) * 0.5} ${top + ry(t)} L${X(t) + rx(t) * 0.5} ${bot + ry(t)}`} stroke="#000" strokeOpacity="0.07" /> : null}
             {spec.finish === 'fondant' ? (
               <ellipse cx={X(t) - rx(t) * 0.35} cy={top + (bot - top) * 0.45} rx={rx(t) * 0.12} ry={(bot - top) * 0.32} fill="#fff" opacity="0.28" />
@@ -125,8 +123,8 @@ export function CakeFigure({
 
       {spec.message.trim() && spec.topper?.kind !== 'names' ? (
         <g className={css.plaque}>
-          <rect x={cx - 0.62 * U} y={base + 0.05 * U} width={1.24 * U} height={0.28 * U} rx="8" fill="#FFFDF8" stroke="#D8CEC0" />
-          <text x={cx} y={base + 0.24 * U} textAnchor="middle" className={css.script} fill={INK_LINE}>
+          <rect x={cx - 0.62 * U} y={base + 0.05 * U} width={1.24 * U} height={0.28 * U} rx="8" fill={CAKE.board} stroke={CAKE.boardEdge} />
+          <text x={cx} y={base + 0.24 * U} textAnchor="middle" className={css.script} fill={CAKE.inkLine}>
             {spec.message.trim()}
           </text>
         </g>
@@ -171,7 +169,7 @@ function Gap({ t, spec, cx, bot, rx, ry }: TierDraw & { bot: number }) {
   const gapPx = t.gapBelow * U;
   if (spec.arrangement === 'pillars') {
     return (
-      <g fill="#FFFDF8" stroke="#D8CEC0">
+      <g fill={CAKE.board} stroke={CAKE.boardEdge}>
         {[-0.62, -0.2, 0.2, 0.62].map((f) => (
           <rect key={f} x={cx + rx * f - 3} y={bot} width="6" height={gapPx + ry * 0.4} rx="2" />
         ))}
@@ -179,7 +177,7 @@ function Gap({ t, spec, cx, bot, rx, ry }: TierDraw & { bot: number }) {
     );
   }
   // floating — a clear acrylic spacer
-  return <rect x={cx - rx * 0.55} y={bot} width={rx * 1.1} height={gapPx} rx="4" fill="#DCEBF2" opacity="0.55" stroke="#BCD3DE" />;
+  return <rect x={cx - rx * 0.55} y={bot} width={rx * 1.1} height={gapPx} rx="4" fill={CAKE.acrylic} opacity="0.55" stroke={CAKE.acrylicEdge} />;
 }
 
 function Accent({ t, colour, cx, top, bot, rx, ry }: TierDraw & { colour: string; top: number; bot: number }) {
@@ -196,7 +194,7 @@ function Accent({ t, colour, cx, top, bot, rx, ry }: TierDraw & { colour: string
     case 'pearls': {
       const n = Math.max(6, Math.round(rx / 9));
       return (
-        <g fill="#FFFDF7" stroke="#E2D7C6" strokeWidth="0.8">
+        <g fill={CAKE.pearl} stroke={CAKE.pearlEdge} strokeWidth="0.8">
           {Array.from({ length: n }, (_, i) => {
             const a = Math.PI * (0.06 + (0.88 * i) / (n - 1));
             return <circle key={i} cx={cx - Math.cos(a) * rx} cy={bot - 4 + Math.sin(a) * ry} r="3.4" />;
@@ -226,7 +224,7 @@ function Accent({ t, colour, cx, top, bot, rx, ry }: TierDraw & { colour: string
       );
     case 'gold_leaf':
       return (
-        <g fill={GOLD} opacity="0.9">
+        <g fill={CAKE.gold} opacity="0.9">
           {[
             [-0.4, 0.3],
             [-0.15, 0.55],
@@ -262,7 +260,7 @@ function Flower({ x, y, r, colour }: { x: number; y: number; r: number; colour: 
       {[0, 72, 144, 216, 288].map((a) => (
         <circle key={a} cx={x + Math.cos((a * Math.PI) / 180) * r * 0.55} cy={y + Math.sin((a * Math.PI) / 180) * r * 0.55} r={r * 0.5} fill={colour} />
       ))}
-      <circle cx={x} cy={y} r={r * 0.32} fill="#F4E3B5" />
+      <circle cx={x} cy={y} r={r * 0.32} fill={CAKE.flowerHeart} />
     </g>
   );
 }
@@ -291,7 +289,7 @@ function Flowing({
     return f.kind === 'ribbon_cascade' ? (
       <path d={d} fill="none" stroke={colour(0)} strokeWidth="7" strokeLinecap="round" opacity="0.9" />
     ) : (
-      <path d={d} fill="none" stroke="#6B4226" strokeWidth="6" strokeLinecap="round" opacity="0.85" />
+      <path d={d} fill="none" stroke={CAKE.drip} strokeWidth="6" strokeLinecap="round" opacity="0.85" />
     );
   }
   return (
@@ -324,8 +322,8 @@ function Monogram({
   const y = m.spot === 'board' ? base + 6 : (topY(t) + botY(t)) / 2;
   return (
     <g>
-      <circle cx={x} cy={y} r="15" fill="#FFFDF8" stroke={GOLD} strokeWidth="1.5" />
-      <text x={x} y={y + 4.5} textAnchor="middle" className={css.mono} fill={INK_LINE}>
+      <circle cx={x} cy={y} r="15" fill={CAKE.board} stroke={CAKE.gold} strokeWidth="1.5" />
+      <text x={x} y={y + 4.5} textAnchor="middle" className={css.mono} fill={CAKE.inkLine}>
         {text.slice(0, 4)}
       </text>
     </g>
@@ -349,13 +347,13 @@ function Topper({
   const t = spec.tiers.find((x) => x.index === tp.onTier) ?? spec.tiers[spec.tiers.length - 1]!;
   const x = X(t);
   const y = topY(t) - 4;
-  const line = { fill: 'none', stroke: INK_LINE, strokeWidth: 1.6, strokeLinecap: 'round' as const };
+  const line = { fill: 'none', stroke: CAKE.inkLine, strokeWidth: 1.6, strokeLinecap: 'round' as const };
   if (tp.kind === 'flowers') {
     return (
       <g data-cake-topper={tp.onTier}>
         <Flower x={x - 9} y={y - 6} r={9} colour={colour} />
         <Flower x={x + 9} y={y - 8} r={8} colour={colour} />
-        <Flower x={x} y={y - 16} r={8} colour="#F6EEE3" />
+        <Flower x={x} y={y - 16} r={8} colour={CAKE.petal} />
       </g>
     );
   }
@@ -373,7 +371,7 @@ function Topper({
   return (
     <g data-cake-topper={tp.onTier}>
       <path d={`M${x - 16} ${y} L${x - 16} ${y - 14} M${x + 16} ${y} L${x + 16} ${y - 14}`} {...line} />
-      <text x={x} y={y - 18} textAnchor="middle" className={tp.kind === 'monogram' ? css.mono : css.script} fill={INK_LINE}>
+      <text x={x} y={y - 18} textAnchor="middle" className={tp.kind === 'monogram' ? css.mono : css.script} fill={CAKE.inkLine}>
         {words}
       </text>
     </g>
@@ -383,7 +381,7 @@ function Topper({
 function Cupcake({ x, y, s, colour }: { x: number; y: number; s: number; colour: string }) {
   return (
     <g>
-      <path d={`M${x - 7 * s} ${y - 9 * s} L${x - 5 * s} ${y} L${x + 5 * s} ${y} L${x + 7 * s} ${y - 9 * s} Z`} fill="#E8D8C0" stroke="#D2BFA3" strokeWidth="0.6" />
+      <path d={`M${x - 7 * s} ${y - 9 * s} L${x - 5 * s} ${y} L${x + 5 * s} ${y} L${x + 7 * s} ${y - 9 * s} Z`} fill={CAKE.cupcakeLiner} stroke={CAKE.cupcakeLinerEdge} strokeWidth="0.6" />
       <ellipse cx={x} cy={y - 11 * s} rx={8 * s} ry={5 * s} fill={colour} />
       <circle cx={x} cy={y - 16 * s} r={2.2 * s} fill="#fff" opacity="0.8" />
     </g>
@@ -411,7 +409,7 @@ function CupcakeTower({ count, x, base, colour }: { count: number; x: number; ba
         const n = rows - row + 1;
         return (
           <g key={row}>
-            <rect x={x - n * 9} y={y} width={n * 18} height="3" rx="1.5" fill="#D8CEC0" />
+            <rect x={x - n * 9} y={y} width={n * 18} height="3" rx="1.5" fill={CAKE.boardEdge} />
             {Array.from({ length: n }, (_, k) => (
               <Cupcake key={k} x={x - (n - 1) * 9 + k * 18} y={y} s={0.75} colour={colour} />
             ))}

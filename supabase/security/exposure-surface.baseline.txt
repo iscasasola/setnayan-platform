@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8114
+# facts: 8118
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     658
-#   col       5837
-#   policy    1192
+#   tpriv     659
+#   col       5839
+#   policy    1193
 #   view      10
 #   func      413
 #
@@ -520,6 +520,7 @@ tpriv	public.vendor_bot_config|authenticated	SIUD
 tpriv	public.vendor_bot_replies|anon	SIUD
 tpriv	public.vendor_bot_replies|authenticated	SIUD
 tpriv	public.vendor_branches|authenticated	SIUD
+tpriv	public.vendor_cake_makers|authenticated	S
 tpriv	public.vendor_calendar_blocks|anon	SIUD
 tpriv	public.vendor_calendar_blocks|authenticated	SIUD
 tpriv	public.vendor_calendar_day_states|authenticated	SIUD
@@ -945,6 +946,7 @@ col	public.bundle_components.component_service_code	anon=SIU authenticated=SIU
 col	public.cake_designs.config	anon=- authenticated=S
 col	public.cake_designs.created_at	anon=- authenticated=S
 col	public.cake_designs.created_by	anon=- authenticated=S
+col	public.cake_designs.design	anon=- authenticated=S
 col	public.cake_designs.design_id	anon=- authenticated=S
 col	public.cake_designs.estimate_centavos	anon=- authenticated=S
 col	public.cake_designs.thread_id	anon=- authenticated=S
@@ -5115,6 +5117,10 @@ col	public.vendor_branches.cancelled_at	anon=- authenticated=SIU
 col	public.vendor_branches.created_at	anon=- authenticated=SIU
 col	public.vendor_branches.included_in_plan	anon=- authenticated=SIU
 col	public.vendor_branches.parent_vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_cake_makers.options	anon=- authenticated=S
+col	public.vendor_cake_makers.updated_at	anon=- authenticated=S
+col	public.vendor_cake_makers.updated_by	anon=- authenticated=S
+col	public.vendor_cake_makers.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_calendar_blocks.block_id	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.block_label	anon=SIU authenticated=SIU
 col	public.vendor_calendar_blocks.block_source	anon=SIU authenticated=SIU
@@ -5562,7 +5568,6 @@ col	public.vendor_package_item_options.display_order	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.is_available	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.is_default	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.item_id	anon=SIU authenticated=SIU
-col	public.vendor_package_item_options.look_key	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.min_pax	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.option_description	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.option_id	anon=SIU authenticated=SIU
@@ -5571,7 +5576,6 @@ col	public.vendor_package_item_options.per_pax_delta_centavos	anon=SIU authentic
 col	public.vendor_package_item_options.price_delta_centavos	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.pricing_basis	anon=SIU authenticated=SIU
 col	public.vendor_package_item_options.updated_at	anon=SIU authenticated=SIU
-col	public.vendor_package_items.cake_part	anon=SIU authenticated=SIU
 col	public.vendor_package_items.canonical_service	anon=SIU authenticated=SIU
 col	public.vendor_package_items.created_at	anon=SIU authenticated=SIU
 col	public.vendor_package_items.crew_meal_mode	anon=SIU authenticated=SIU
@@ -5991,7 +5995,6 @@ col	public.vendor_questions.hint	anon=- authenticated=SIU
 col	public.vendor_questions.is_asked	anon=- authenticated=SIU
 col	public.vendor_questions.is_required	anon=- authenticated=SIU
 col	public.vendor_questions.item_kind	anon=- authenticated=SIU
-col	public.vendor_questions.max_letters	anon=- authenticated=SIU
 col	public.vendor_questions.media_keys	anon=- authenticated=SIU
 col	public.vendor_questions.options	anon=- authenticated=SIU
 col	public.vendor_questions.prompt	anon=- authenticated=SIU
@@ -7423,6 +7426,7 @@ policy	public.vendor_bot_replies|vendor_bot_replies_admin	mode=PERMISSIVE cmd=AL
 policy	public.vendor_bot_replies|vendor_bot_replies_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_branches|vendor_branches_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_branches|vendor_branches_vendor_access	mode=PERMISSIVE cmd=ALL roles=authenticated using=(parent_vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(parent_vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_cake_makers|vendor_cake_makers_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_calendar_blocks|vendor_calendar_blocks_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
 policy	public.vendor_calendar_blocks|vendor_calendar_blocks_vendor_owner	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM vendor_profiles vp WHERE ((vp.vendor_profile_id = vendor_calendar_blocks.vendor_profile_id) AND (vp.user_id = ( SELECT users.user_id FROM users WHERE (users.user_id = ( SELECT auth.uid() AS uid))))))) check=NULL
 policy	public.vendor_calendar_day_states|vendor_calendar_day_states_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)

@@ -152,7 +152,7 @@ export default async function AdminLaunchOfferPage() {
 
       <h2 className="mb-2 mt-6 font-serif text-lg text-ink">Special tools · Pro and up</h2>
       {winErr ? (
-        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
+        <p className="text-sm text-warn-800" role="alert">
           Could not load the date right now — refresh to try again.
         </p>
       ) : (

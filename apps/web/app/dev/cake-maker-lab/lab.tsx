@@ -1,6 +1,7 @@
 'use client';
 
 /** The Cake Maker lab's body (see page.lab.tsx). Fixture data only — every amount is a SAMPLE, never a price. */
+import { LAB_HEX } from './lab-colours';
 import { useMemo, useState } from 'react';
 import { cakeDesignOf, cakeOfferOf, cakeShopTemplate, cupcakeCountOf, flavourLabelOf, type CakeShopOptions } from '@/lib/cake-maker';
 import { CAKE_ARRANGEMENTS, CAKE_SHAPES, cakeFigureSpec, resizeCakeTiers, sanitizeCakeConfig, startingCakeConfig, type CakeArrangement, type CakeConfig, type CakeShape } from '@/lib/cake-config';
@@ -36,10 +37,10 @@ function sampleShop(): CakeShopOptions {
     { id: 'semi_naked', extraCentavos: 0 },
   ];
   o.colours = [
-    { name: 'White', hex: '#FAF7F2' },
-    { name: 'Blush', hex: '#F2C4C4' },
-    { name: 'Burgundy', hex: '#7A1F2B' },
-    { name: 'Lilac', hex: '#C8B6E2' },
+    { name: 'White', hex: LAB_HEX.hFAF7F2 },
+    { name: 'Blush', hex: LAB_HEX.hF2C4C4 },
+    { name: 'Burgundy', hex: LAB_HEX.h7A1F2B },
+    { name: 'Lilac', hex: LAB_HEX.hC8B6E2 },
   ];
   o.accents = [
     { id: 'none', extraCentavos: 0 },
@@ -94,8 +95,8 @@ function sampleDesign(o: CakeShopOptions): CakeConfig {
       monogram: 'topper',
       monogramTier: 3,
       colours: [
-        { hex: '#C98B8B', name: 'Dusty rose' },
-        { hex: '#9CAF94', name: 'Sage' },
+        { hex: LAB_HEX.hC98B8B, name: 'Dusty rose' },
+        { hex: LAB_HEX.h9CAF94, name: 'Sage' },
       ],
       message: 'Ana & Migs',
       instructions: 'Less sweet frosting, please. The cutting tier faces the guests.',
@@ -118,11 +119,11 @@ function sampleOpen(o: CakeShopOptions): CakeOpenRead {
     options: o,
     cards: [{ id: 'lab-card', name: 'Wedding cake', oneCentavos: ONE, usualPrepDays: 5 }],
     mood: [
-      { hex: '#C98B8B', name: 'Dusty rose', slot: 'Cake', setByYou: true },
-      { hex: '#9CAF94', name: 'Sage', slot: 'Dominant', setByYou: false },
-      { hex: '#E8D9B5', name: 'Champagne', slot: 'Supporting', setByYou: false },
-      { hex: '#C46A4A', name: 'Terracotta', slot: 'Accent', setByYou: false },
-      { hex: '#F5EFE4', name: 'Ivory', slot: 'Neutral', setByYou: false },
+      { hex: LAB_HEX.hC98B8B, name: 'Dusty rose', slot: 'Cake', setByYou: true },
+      { hex: LAB_HEX.h9CAF94, name: 'Sage', slot: 'Dominant', setByYou: false },
+      { hex: LAB_HEX.hE8D9B5, name: 'Champagne', slot: 'Supporting', setByYou: false },
+      { hex: LAB_HEX.hC46A4A, name: 'Terracotta', slot: 'Accent', setByYou: false },
+      { hex: LAB_HEX.hF5EFE4, name: 'Ivory', slot: 'Neutral', setByYou: false },
     ],
     monogramText: 'A&M',
     guests: 180,
@@ -151,7 +152,7 @@ export default function CakeMakerLab({ view, fail, n }: { view: string; fail: bo
 
   if (view === 'figures') {
     const cfg = (count: number, arrangement: CakeArrangement, shape: CakeShape = 'round', tall = false): CakeConfig => {
-      const c = resizeCakeTiers({ ...startingCakeConfig(offer, 3), arrangement, topper: 'flowers', colours: [{ hex: '#C98B8B', name: 'Dusty rose' }] }, count);
+      const c = resizeCakeTiers({ ...startingCakeConfig(offer, 3), arrangement, topper: 'flowers', colours: [{ hex: LAB_HEX.hC98B8B, name: 'Dusty rose' }] }, count);
       return { ...c, tiers: c.tiers.map((t, i) => ({ ...t, shape, tall: tall && i === c.tiers.length - 1, accent: i % 3 === 1 ? 'ribbon' : 'none' })) };
     };
     const cell = 'rounded-xl bg-ink/[0.04] p-2 text-center text-[11px]';

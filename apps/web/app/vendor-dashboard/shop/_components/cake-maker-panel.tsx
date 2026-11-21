@@ -17,7 +17,8 @@
  *
  * Lazy-loaded from the tile (shop-makers.tsx), so none of it is in the Shop's first load.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronRight, Info, Lock, Minus, Plus, RotateCw, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -52,8 +53,7 @@ import {
   flavourRefAt,
   tierLabel,
   type CakePriced,
-  type CakeShopOptions,
-} from '@/lib/cake-maker';
+  type CakeShopOptions, CAKE_PICKER_START } from '@/lib/cake-maker';
 import { SPECIAL_TOOLS_LOCKED_WORDS, SPECIAL_TOOLS_UPGRADE_HREF } from '@/lib/special-tools';
 import { CakeFigure } from '@/app/_components/plan3d/kit/cake-figure';
 import { cakeAction } from '@/app/_components/cake-maker/cake-actions';
@@ -292,9 +292,21 @@ function CakeMakerEditor({ start, saved: savedAtStart }: { start: CakeShopOption
 /* ── one part: its row, and its body opened in place ───────────────────── */
 
 function Part({ id, title, line, chip, open, onToggle, children }: { id: PartKey; title: string; line: string; chip: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {
+  const head = useRef<HTMLButtonElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const intend = useRevealOnOpen(open, () => ({ head: head.current, end: body.current }));
   return (
     <div className={styles.sl} data-cake-part={id} data-open={open ? '' : undefined}>
-      <button type="button" className={styles.sh} aria-expanded={open} onClick={onToggle}>
+      <button
+        ref={head}
+        type="button"
+        className={styles.sh}
+        aria-expanded={open}
+        onClick={() => {
+          intend();
+          onToggle();
+        }}
+      >
         <span className={styles.st}>
           <b>{title}</b>
           <small>{line}</small>
@@ -305,7 +317,11 @@ function Part({ id, title, line, chip, open, onToggle, children }: { id: PartKey
         </span>
         <ChevronRight aria-hidden className={`${styles.chev} ${open ? styles.chevOpen : ''}`} />
       </button>
-      {open ? <div className={styles.so}>{children}</div> : null}
+      {open ? (
+        <div ref={body} className={styles.so}>
+          {children}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -543,7 +559,7 @@ function TickList<T extends string>({
 
 function ColoursBody({ o, patch }: { o: CakeShopOptions; patch: (p: Partial<CakeShopOptions>) => void }) {
   const [typed, setTyped] = useState('');
-  const [hex, setHex] = useState('#E3CFA6');
+  const [hex, setHex] = useState(CAKE_PICKER_START);
   const add = () => {
     const name = typed.trim().slice(0, CAKE_LABEL_MAX);
     if (!name || o.colours.some((c) => c.name.toLowerCase() === name.toLowerCase()) || o.colours.length >= CAKE_SHOP_COLOURS_MAX) return;

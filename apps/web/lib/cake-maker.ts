@@ -12,6 +12,7 @@
  *
  * Pure: no React, no database.
  */
+import { formatCount } from './format-number';
 import {
   CAKE_ACCENTS,
   CAKE_ARRANGEMENTS,
@@ -351,6 +352,9 @@ const extraOf = (list: readonly CakePriced<string>[], id: string) => list.find((
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A couple's own Mood Board colour as the designer lists it (lib/cake-mood-colours.ts). */
+/** Where the shop's colour picker starts — a champagne buttercream; the shop changes it before adding. */
+export const CAKE_PICKER_START = '#E3CFA6';
+
 export type MoodCakeColour = { hex: string; name: string; slot: string; setByYou: boolean };
 
 export type CakeQuoteLine = { label: string; centavos: number };
@@ -442,8 +446,8 @@ export function cakeDesignOf(o: CakeShopOptions, config: CakeConfig, card: { nam
     const count = packCountOf(config.cupcakes.packRef) ?? 0;
     const price = o.cupcakes?.packs.find((p) => p.count === count)?.priceCentavos ?? 0;
     const flavour = config.cupcakes.match ? 'matching' : (flavourLabelOf(o, config.cupcakes.flavourRef)?.toLowerCase() ?? null);
-    const words = [String(count), flavour, placementLabel(config.cupcakes.placement).toLowerCase()].filter(Boolean).join(' · ');
-    row('Cupcakes', words, price, `Cupcakes · ${count}, ${placementLabel(config.cupcakes.placement).toLowerCase()}`);
+    const words = [formatCount(count), flavour, placementLabel(config.cupcakes.placement).toLowerCase()].filter(Boolean).join(' · ');
+    row('Cupcakes', words, price, `Cupcakes · ${formatCount(count)}, ${placementLabel(config.cupcakes.placement).toLowerCase()}`);
   }
   const extrasCentavos = quoteLines.reduce((a, l) => a + l.centavos, 0);
   return {

@@ -2970,7 +2970,10 @@ export function ChatMessageStream({
                     place="chat"
                     eventDate={eventDate}
                     stamp={`${viewerRole === 'vendor' ? 'Sent from the Cake Maker' : 'You · sent from the Cake Maker'} · ${formatChatTimestamp(m.created_at)}`}
-                    onChanged={() => router.refresh()}
+                    onChanged={() => {
+                      // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the new design message must appear.
+                      router.refresh();
+                    }}
                   />
                 </li>
               ) : null}
@@ -2981,7 +2984,10 @@ export function ChatMessageStream({
                     viewer={viewerRole === 'vendor' ? 'vendor' : 'couple'}
                     shopName={viewerRole === 'vendor' ? 'Your shop' : counterpartyLabel}
                     stamp={`${viewerRole === 'vendor' ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
-                    onSent={() => router.refresh()}
+                    onSent={() => {
+                      // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the sent design must appear.
+                      router.refresh();
+                    }}
                   />
                 </li>
               ) : null}

@@ -9,6 +9,7 @@
  * fetched (names and the monogram are shapes — the 2D picture carries the words). A phone gets the phone budget
  * (`usePhoneGpu` → fewer pearls and petals, capped DPR); a lost WebGL context falls back to the 2D picture.
  */
+import { CAKE } from './cake-colours';
 import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
@@ -18,8 +19,6 @@ import { canvasDpr } from '@/lib/phone-gpu-budget';
 import { ContextLostNotice, usePhoneGpu, useWebglContextLost } from '@/app/_components/plan3d/phone-gpu-budget';
 
 const S = 0.5; // scene metres per cake unit
-const IVORY = '#F7F0E4';
-const GOLD = '#C9A55C';
 
 let buttercreamNormal: THREE.CanvasTexture | null = null;
 /** A soft swirled-buttercream normal map, drawn once on a canvas (no asset). */
@@ -83,12 +82,12 @@ export default function CakeFigure3D({
       data-cake-figure-3d={spec.tiers.length}
     >
       <Environment resolution={phone ? 32 : 64}>
-        <Lightformer form="rect" intensity={2.2} position={[0, 4, 2]} scale={[6, 3, 1]} color="#fff6ea" />
-        <Lightformer form="rect" intensity={0.8} position={[-4, 1, -1]} scale={[3, 4, 1]} color="#aebdd6" />
-        <Lightformer form="ring" intensity={1.2} position={[3, 2, 3]} scale={2} color="#fbe9d8" />
+        <Lightformer form="rect" intensity={2.2} position={[0, 4, 2]} scale={[6, 3, 1]} color={CAKE.lightKey} />
+        <Lightformer form="rect" intensity={0.8} position={[-4, 1, -1]} scale={[3, 4, 1]} color={CAKE.lightFill} />
+        <Lightformer form="ring" intensity={1.2} position={[3, 2, 3]} scale={2} color={CAKE.lightRing} />
       </Environment>
-      <directionalLight position={[-2, 4, 3]} intensity={0.9} color="#fff1df" />
-      <directionalLight position={[3, 2, -1]} intensity={0.35} color="#cfdcf2" />
+      <directionalLight position={[-2, 4, 3]} intensity={0.9} color={CAKE.lightSun} />
+      <directionalLight position={[3, 2, -1]} intensity={0.35} color={CAKE.lightBack} />
       <CakeModel spec={spec} phone={phone} onTierTap={onTierTap} />
       <ContactShadows position={[0, -0.001, 0]} opacity={0.35} scale={5} blur={2.4} far={1.5} frames={1} resolution={phone ? 256 : 512} />
       {still ? (
@@ -143,12 +142,12 @@ function CakeModel({ spec, phone, onTierTap }: { spec: CakeFigureSpec; phone: bo
           {st.y > 0 ? (
             <mesh position={[0, (st.y * S) / 2, 0]}>
               <cylinderGeometry args={[0.012, 0.016, st.y * S, 16]} />
-              <meshPhysicalMaterial color={GOLD} metalness={0.9} roughness={0.3} />
+              <meshPhysicalMaterial color={CAKE.gold} metalness={0.9} roughness={0.3} />
             </mesh>
           ) : null}
           <mesh position={[0, st.y * S + 0.012, 0]}>
             <cylinderGeometry args={[st.radius * S * 1.08, st.radius * S * 1.08, 0.024, 64]} />
-            <meshPhysicalMaterial color="#F2EEE8" roughness={0.35} clearcoat={0.6} />
+            <meshPhysicalMaterial color={CAKE.stand} roughness={0.35} clearcoat={0.6} />
           </mesh>
         </group>
       ))}
@@ -237,15 +236,15 @@ function Tier({ t, spec, colour, phone, onTap }: { t: CakeFigureTier; spec: Cake
         // a layered sponge: sponge bands with cream between, scraped thin
         [0, 1, 2, 3].map((k) => (
           <mesh key={k} position={[0, y0 + (h / 4) * (k + 0.5), 0]} geometry={tierGeometry(t.shape, r, h / 4)}>
-            <meshPhysicalMaterial color={k % 2 === 0 ? t.sponge : IVORY} roughness={0.9} transparent={k % 2 === 1} opacity={0.85} />
+            <meshPhysicalMaterial color={k % 2 === 0 ? t.sponge : CAKE.ivory} roughness={0.9} transparent={k % 2 === 1} opacity={0.85} />
           </mesh>
         ))
       ) : (
         <mesh position={[0, y0 + h / 2, 0]} geometry={tierGeometry(t.shape, r, h)}>
           {spec.finish === 'fondant' ? (
-            <meshPhysicalMaterial color={IVORY} roughness={0.42} sheen={0.6} sheenColor="#ffffff" clearcoat={0.25} clearcoatRoughness={0.5} />
+            <meshPhysicalMaterial color={CAKE.ivory} roughness={0.42} sheen={0.6} sheenColor={CAKE.white} clearcoat={0.25} clearcoatRoughness={0.5} />
           ) : (
-            <meshPhysicalMaterial color={IVORY} roughness={0.8} normalMap={normalMap ?? undefined} normalScale={new THREE.Vector2(0.5, 0.5)} sheen={0.3} />
+            <meshPhysicalMaterial color={CAKE.ivory} roughness={0.8} normalMap={normalMap ?? undefined} normalScale={new THREE.Vector2(0.5, 0.5)} sheen={0.3} />
           )}
         </mesh>
       )}
@@ -266,7 +265,7 @@ function Gap({ t, spec }: { t: CakeFigureTier; spec: CakeFigureSpec }) {
           return (
             <mesh key={k} position={[Math.cos(a) * r * 0.6, y0 + g / 2, Math.sin(a) * r * 0.6]}>
               <cylinderGeometry args={[0.012, 0.012, g, 16]} />
-              <meshPhysicalMaterial color="#FFFDF8" roughness={0.3} clearcoat={0.8} />
+              <meshPhysicalMaterial color={CAKE.board} roughness={0.3} clearcoat={0.8} />
             </mesh>
           );
         })}
@@ -276,7 +275,7 @@ function Gap({ t, spec }: { t: CakeFigureTier; spec: CakeFigureSpec }) {
   return (
     <mesh position={[0, y0 + g / 2, 0]}>
       <cylinderGeometry args={[r * 0.55, r * 0.55, g, 48]} />
-      <meshPhysicalMaterial color="#E6F2F7" roughness={0.05} transparent opacity={0.4} clearcoat={1} />
+      <meshPhysicalMaterial color={CAKE.glass} roughness={0.05} transparent opacity={0.4} clearcoat={1} />
     </mesh>
   );
 }
@@ -318,7 +317,7 @@ function TierAccent({ t, r, h, y0, colour, phone }: { t: CakeFigureTier; r: numb
       return (
         <instancedMesh args={[undefined, undefined, pearls!.length]} ref={(im) => pearls!.forEach((mx, i) => im?.setMatrixAt(i, mx))}>
           <sphereGeometry args={[0.012, 12, 12]} />
-          <meshPhysicalMaterial color="#FFFDF7" roughness={0.15} clearcoat={1} sheen={0.4} />
+          <meshPhysicalMaterial color={CAKE.pearl} roughness={0.15} clearcoat={1} sheen={0.4} />
         </instancedMesh>
       );
     case 'drip':
@@ -335,7 +334,7 @@ function TierAccent({ t, r, h, y0, colour, phone }: { t: CakeFigureTier; r: numb
             return (
               <mesh key={i} position={[Math.cos(a) * r * 1.004, y0 + h * (0.25 + ((i * 37) % 50) / 100), Math.sin(a) * r * 1.004]} rotation={[0, -a + Math.PI / 2, i]}>
                 <planeGeometry args={[0.03, 0.022]} />
-                <meshPhysicalMaterial color={GOLD} metalness={1} roughness={0.25} side={THREE.DoubleSide} />
+                <meshPhysicalMaterial color={CAKE.gold} metalness={1} roughness={0.25} side={THREE.DoubleSide} />
               </mesh>
             );
           })}
@@ -347,7 +346,7 @@ function TierAccent({ t, r, h, y0, colour, phone }: { t: CakeFigureTier; r: numb
           {[0.3, 0.55, 0.8].map((f) => (
             <mesh key={f} position={[0, y0 + h * f, 0]} rotation={[Math.PI / 2, 0, 0]}>
               <torusGeometry args={[r * 1.01, 0.008, 8, 72]} />
-              <meshPhysicalMaterial color="#FFFFFF" roughness={0.7} sheen={0.6} />
+              <meshPhysicalMaterial color={CAKE.white} roughness={0.7} sheen={0.6} />
             </mesh>
           ))}
         </group>
@@ -367,13 +366,13 @@ function FlowerCluster({ at, colour, count }: { at: [number, number, number]; co
         return (
           <mesh key={i} position={[Math.cos(a) * 0.02, Math.sin(a) * 0.02, Math.sin(a * 2) * 0.01]}>
             <sphereGeometry args={[0.022, 12, 10]} />
-            <meshPhysicalMaterial color={colour} roughness={0.55} sheen={0.8} sheenColor="#ffffff" />
+            <meshPhysicalMaterial color={colour} roughness={0.55} sheen={0.8} sheenColor={CAKE.white} />
           </mesh>
         );
       })}
       <mesh>
         <sphereGeometry args={[0.012, 10, 8]} />
-        <meshPhysicalMaterial color="#F4E3B5" roughness={0.6} />
+        <meshPhysicalMaterial color={CAKE.flowerHeart} roughness={0.6} />
       </mesh>
     </group>
   );
@@ -409,7 +408,7 @@ function Flowing({ spec, colour, phone }: { spec: CakeFigureSpec; colour: (i: nu
         return f.kind === 'pearl_strand' ? (
           <mesh key={i} position={p}>
             <sphereGeometry args={[0.01, 10, 10]} />
-            <meshPhysicalMaterial color="#FFFDF7" roughness={0.15} clearcoat={1} />
+            <meshPhysicalMaterial color={CAKE.pearl} roughness={0.15} clearcoat={1} />
           </mesh>
         ) : (
           <FlowerCluster key={i} at={[p.x, p.y, p.z]} colour={colour(i)} count={phone ? 3 : 5} />
@@ -432,11 +431,11 @@ function Topper({ spec, colour }: { spec: CakeFigureSpec; colour: string }) {
           <group key={x} position={[x, 0, 0]}>
             <mesh position={[0, 0.05, 0]}>
               <cylinderGeometry args={[0.012, 0.022, 0.1, 16]} />
-              <meshPhysicalMaterial color={x < 0 ? '#FFFFFF' : '#2B2B2B'} roughness={0.5} />
+              <meshPhysicalMaterial color={x < 0 ? CAKE.white : CAKE.black} roughness={0.5} />
             </mesh>
             <mesh position={[0, 0.115, 0]}>
               <sphereGeometry args={[0.014, 16, 12]} />
-              <meshPhysicalMaterial color="#E8C9A8" roughness={0.6} />
+              <meshPhysicalMaterial color={CAKE.skin} roughness={0.6} />
             </mesh>
           </group>
         ))}
@@ -449,12 +448,12 @@ function Topper({ spec, colour }: { spec: CakeFigureSpec; colour: string }) {
       {[-0.05, 0.05].map((x) => (
         <mesh key={x} position={[x, 0.03, 0]}>
           <cylinderGeometry args={[0.003, 0.003, 0.06, 8]} />
-          <meshPhysicalMaterial color={GOLD} metalness={1} roughness={0.3} />
+          <meshPhysicalMaterial color={CAKE.gold} metalness={1} roughness={0.3} />
         </mesh>
       ))}
       <mesh position={[0, 0.08, 0]}>
         <boxGeometry args={[0.16, 0.05, 0.004]} />
-        <meshPhysicalMaterial color={tp.kind === 'monogram' ? GOLD : '#FFFFFF'} metalness={tp.kind === 'monogram' ? 1 : 0} roughness={0.2} clearcoat={1} transparent opacity={0.9} />
+        <meshPhysicalMaterial color={tp.kind === 'monogram' ? CAKE.gold : CAKE.white} metalness={tp.kind === 'monogram' ? 1 : 0} roughness={0.2} clearcoat={1} transparent opacity={0.9} />
       </mesh>
     </group>
   );
@@ -494,7 +493,7 @@ function Cupcakes({ spec, colour, phone }: { spec: CakeFigureSpec; colour: strin
         <group key={i} position={p}>
           <mesh position={[0, 0.02, 0]}>
             <cylinderGeometry args={[0.022, 0.016, 0.04, 16]} />
-            <meshPhysicalMaterial color="#E8D8C0" roughness={0.8} />
+            <meshPhysicalMaterial color={CAKE.cupcakeLiner} roughness={0.8} />
           </mesh>
           <mesh position={[0, 0.048, 0]}>
             <sphereGeometry args={[0.024, 16, 10]} />

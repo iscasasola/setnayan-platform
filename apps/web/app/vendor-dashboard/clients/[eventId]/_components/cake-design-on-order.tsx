@@ -77,7 +77,7 @@ export async function CakeDesignOnOrder({ ctx }: { ctx: PickedPageContext }) {
         links={{ quoteHref: customerCardHref(ctx.eventId, 'quote'), chatHref: customerCardHref(ctx.eventId, 'chat') }}
       />
       <p className="home-k2 mb-2 mt-4">Making time</p>
-      <p className="text-[14px] text-ink" data-cake-making-time="">
+      <div className="text-[14px] text-ink" data-cake-making-time="">
         {prep != null && prep > 0 ? (
           <>
             {dayWords(prep)} for this order
@@ -88,7 +88,7 @@ export async function CakeDesignOnOrder({ ctx }: { ctx: PickedPageContext }) {
         ) : (
           <span className="text-ink/70">Not set for this order yet — confirm it on the quote.</span>
         )}
-      </p>
+      </div>
     </section>
   );
 }

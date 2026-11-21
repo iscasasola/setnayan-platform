@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8128
+# facts: 8144
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     659
-#   col       5838
-#   policy    1200
+#   tpriv     660
+#   col       5851
+#   policy    1202
 #   view      10
 #   func      417
 #
@@ -563,6 +563,7 @@ tpriv	public.vendor_ig_media|authenticated	SIUD
 tpriv	public.vendor_ig_oauth_state|authenticated	SIUD
 tpriv	public.vendor_image_flags|authenticated	SIUD
 tpriv	public.vendor_image_hashes|authenticated	SIUD
+tpriv	public.vendor_inquiry_split_cuts|authenticated	S
 tpriv	public.vendor_invites|anon	SIUD
 tpriv	public.vendor_invites|authenticated	SIUD
 tpriv	public.vendor_lines|authenticated	SIUD
@@ -1110,6 +1111,7 @@ col	public.chat_threads.agreed_price_centavos	anon=IU authenticated=IU
 col	public.chat_threads.archived_at	anon=SIU authenticated=SIU
 col	public.chat_threads.compat_reasons	anon=SIU authenticated=SIU
 col	public.chat_threads.compat_score_at_inquiry	anon=SIU authenticated=SIU
+col	public.chat_threads.covering_member_id	anon=IU authenticated=IU
 col	public.chat_threads.created_at	anon=SIU authenticated=SIU
 col	public.chat_threads.created_by_user_id	anon=SIU authenticated=SIU
 col	public.chat_threads.decline_reason	anon=SIU authenticated=SIU
@@ -1120,6 +1122,9 @@ col	public.chat_threads.group_key	anon=IU authenticated=SIU
 col	public.chat_threads.group_kind	anon=IU authenticated=SIU
 col	public.chat_threads.group_name	anon=IU authenticated=SIU
 col	public.chat_threads.group_roles	anon=IU authenticated=SIU
+col	public.chat_threads.hand_over_member_id	anon=IU authenticated=IU
+col	public.chat_threads.handled_by_member_id	anon=IU authenticated=IU
+col	public.chat_threads.handled_by_set_at	anon=IU authenticated=IU
 col	public.chat_threads.inquiry_source	anon=SIU authenticated=SIU
 col	public.chat_threads.inquiry_status	anon=SIU authenticated=SIU
 col	public.chat_threads.is_returning	anon=SIU authenticated=SIU
@@ -5447,6 +5452,15 @@ col	public.vendor_image_hashes.r2_ref	anon=- authenticated=SIU
 col	public.vendor_image_hashes.surface	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_profile_id	anon=- authenticated=SIU
 col	public.vendor_image_hashes.vendor_service_id	anon=- authenticated=SIU
+col	public.vendor_inquiry_split_cuts.adjusted_at	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.adjusted_by	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.branch_id	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.event_type	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.from_prefix	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.to_prefix	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.vendor_service_id	anon=- authenticated=S
+col	public.vendor_inquiry_split_cuts.vendor_team_member_id	anon=- authenticated=S
 col	public.vendor_invites.business_name	anon=SIU authenticated=SIU
 col	public.vendor_invites.claim_token	anon=SIU authenticated=SIU
 col	public.vendor_invites.claimed_at	anon=SIU authenticated=SIU
@@ -7518,6 +7532,8 @@ policy	public.vendor_ig_oauth_state|vendor_ig_oauth_state_admin_read	mode=PERMIS
 policy	public.vendor_image_flags|vendor_image_flags_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
 policy	public.vendor_image_flags|vendor_image_flags_admin_update	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_image_hashes|vendor_image_hashes_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_inquiry_split_cuts|vendor_inquiry_split_cuts_admin_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=( SELECT is_admin() AS is_admin) check=NULL
+policy	public.vendor_inquiry_split_cuts|vendor_inquiry_split_cuts_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) check=NULL
 policy	public.vendor_invites|vendor_invites_admin_write_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.vendor_invites|vendor_invites_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=NULL
 policy	public.vendor_invites|vendor_invites_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=(vendor_id IN ( SELECT event_vendors.vendor_id FROM event_vendors WHERE (event_vendors.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))))

@@ -79,6 +79,18 @@ export function newReceiptLine(): ReceiptLine {
   return { key: receiptKey(), label: '', pricePhp: 0, qty: 1, free: false, cardId: null, src: null };
 }
 
+/**
+ * 🏷 A line the supplier has not priced yet: not Free, at ₱0, and not a stored line reopened as it was (a stored ₱0 line —
+ * a free-transport line — is the supplier's own earlier choice and is sent back untouched). It reads
+ * `QUOTE_LINE_AMOUNT_NOT_SET`, never "₱0".
+ */
+export function receiptLineUnpriced(l: ReceiptLine): boolean {
+  if (l.free || toCentavos(l.pricePhp) !== 0) return false;
+  // A stored line counts as priced only while it still says what was stored — one edited to ₱0, or a stored Free
+  // turned off, is unpriced like any new line (ship review 21 Nov).
+  return !(l.src != null && amountOf(l.src) === receiptLineCentavos(l));
+}
+
 /** What one line comes to (a free line is ₱0 and is stored with no amount — "Complimentary"). */
 export function receiptLineCentavos(l: ReceiptLine): number {
   return l.free ? 0 : toCentavos(l.pricePhp) * Math.max(1, Math.round(l.qty) || 1);
@@ -91,7 +103,10 @@ function qtyDetail(l: ReceiptLine): string | null {
 }
 const QTY_DETAIL = /^₱[\d,]+(?:\.\d{1,2})? × (\d{1,4})$/;
 
-/** A new quote's draft: one line per picked card at its own "from" price (a card with none opens at ₱0, to be typed). */
+/**
+ * A new quote's draft: one line per picked card at its own "from" price. A card with none opens with its amount NOT
+ * SET (`receiptLineUnpriced`) — it reads "Amount not set", never ₱0, and the receipt asks for a price before it sends.
+ */
 export function receiptFromCards(cards: readonly { id: string; name: string; fromCentavos: number | null }[]): ReceiptDraft {
   return {
     lines: cards.map((c) => ({ key: receiptKey(), label: c.name.trim(), pricePhp: Math.max(0, c.fromCentavos ?? 0) / 100, qty: 1, free: false, cardId: c.id, src: null })),
@@ -231,6 +246,7 @@ export function receiptRefusal(d: ReceiptDraft, m: ReceiptMoney): string | null 
   const real = d.lines.filter((l) => l.label.trim() || l.free || receiptLineCentavos(l) > 0);
   if (real.length === 0) return 'Add at least one line.';
   if (real.some((l) => !l.label.trim())) return 'Name every line.';
+  if (real.some(receiptLineUnpriced)) return 'Price every line, or switch it to Free.';
   if (d.crew.mode !== 'included' && !(d.crew.size > 0 && d.crew.perHeadPhp > 0)) return 'Crew meal: type how many crew and how much per head.';
   if (d.transport.mode === 'flat' && !(d.transport.flatPhp > 0)) return 'Transport: type the fee.';
   if (toCentavos(d.discountPhp) > m.afterOffer) return 'The discount is more than the quote.';

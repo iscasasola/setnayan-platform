@@ -1,0 +1,140 @@
+/**
+ * /dev/fee-rulings-lab — the 20 Nov booking-fee rulings on two screens that had no lab, on fixture data, with no
+ * sign-in and no database. DEV-ONLY: production builds never compile `page.lab.tsx`, and app/dev/layout.lab.tsx
+ * 404s it as a second lock.
+ *
+ *   ?screen=fees            /vendor-dashboard/booking-fees, nothing due — the empty state with the live fee line
+ *   ?screen=fees&waived=1   …plus "Waived — nothing owed": Setnayan's every-Nth fee, a ticket, a place frozen free
+ *   ?screen=admin           Admin › Pricing › Supplier booking fee — the form with the lock and the every-Nth count
+ *
+ * The Plan row and the fee notice before Agree live in their own labs: /dev/supplier-plan-lab?s=plan (&unverified=1,
+ * &ticket=1) and /dev/booking-ask-lab (&fee=unverified|ticket|platform|import).
+ *
+ * The markup around each shipped component is copied from its page so the picture is the page's; the components are
+ * the shipped ones. Every number comes from `BOOKING_FEE` (the ruled schedule) — none is typed here. Names are samples.
+ */
+import { notFound } from 'next/navigation';
+import { Lock, ReceiptText } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
+import { BookingFeeLine } from '@/app/_components/booking-fee-line';
+import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form';
+import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
+import { BOOKING_FEE, bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp } from '@/lib/booking-fee';
+import { FeeRuler } from '@/app/for-suppliers/_components/supplier-front-client';
+import s from '@/app/for-suppliers/_components/supplier-front.module.css';
+import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
+
+const WAIVED: WaivedFeeCharge[] = [
+  {
+    chargeId: 'lab-platform',
+    reason: 'platform',
+    eventId: null,
+    coupleName: 'Rosa & Ben',
+    computedPhp: bookingFeePhp(100_000, BOOKING_FEE),
+    ordinal: 12,
+    waivedOn: '2026-11-21',
+    platformNumber: 100_000,
+  },
+  {
+    chargeId: 'lab-frozen',
+    reason: 'free5',
+    eventId: null,
+    coupleName: 'Ana & Paolo',
+    computedPhp: bookingFeePhp(250_000, BOOKING_FEE),
+    ordinal: 1,
+    waivedOn: '2026-11-02',
+  },
+];
+
+export default async function FeeRulingsLabPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  if (process.env.NODE_ENV === 'production') notFound();
+  const sp = await searchParams;
+  const screen = sp.screen === 'admin' ? 'admin' : sp.screen === 'ruler' ? 'ruler' : 'fees';
+
+  // 🔒 For Suppliers' fee block with the ₱100,000 lock (the live page reads the schedule from the database; this lab
+  // hands the ruled default so the ruler can be shot without one). ?screen=ruler
+  if (screen === 'ruler') {
+    const f = bookingFeeFigures(BOOKING_FEE);
+    return (
+      <main className={s.root} data-lab-fee-rulings="ruler">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6">
+          <div className={s.fee} data-lab-ruler="">
+            <p className={s.feeK}>On a booking that carries the fee</p>
+            <div className={s.feeRow}>
+              <b className={s.feeN}>{f.head}</b>
+              <p className={s.feeT}>
+                <span>of the first {f.band}</span>
+                <span className={s.feeCap}>{f.tail} after that</span>
+              </p>
+            </div>
+            <p className={s.feeLock}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              <span>
+                Never more than <b>{bookingFeeCapAmount(BOOKING_FEE)}</b>
+              </span>
+            </p>
+            <FeeRuler
+              schedule={BOOKING_FEE}
+              freeWhen={[
+                { label: 'You bring the event first', hint: 'You brought the event first: no booking fee.' },
+                { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
+              ]}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (screen === 'admin') {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6" data-lab-fee-rulings="admin">
+        <section>
+          <h2 className="mb-1 text-base font-semibold tracking-tight">Supplier booking fee</h2>
+          <p className="mb-3 max-w-prose text-sm text-ink/60">
+            What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set: the rate below the
+            threshold, the threshold itself, and the rate above it. The minimum is fixed; the cap and the every-Nth free
+            booking fee are shown under the form.
+          </p>
+          <BookingFeeForm
+            action={saveBookingFeeSchedule}
+            ratePct={BOOKING_FEE.rate * 100}
+            tailRatePct={BOOKING_FEE.tailRate * 100}
+            tier1LimitPhp={BOOKING_FEE.tier1LimitPhp}
+            capPhp={BOOKING_FEE.capPhp ?? null}
+            freeEveryNth={100_000}
+            minPhp={BOOKING_FEE.minPhp}
+            isFromDb
+            enabled
+          />
+        </section>
+      </main>
+    );
+  }
+
+  const waived = sp.waived === '1' ? WAIVED : [];
+  return (
+    <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6" data-lab-fee-rulings="fees">
+      <PageMasthead title="Booking fees" />
+      <div className="sn-tile mt-6 p-8 text-center sm:mt-8">
+        <ReceiptText className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} aria-hidden />
+        <p className="mt-3 text-sm font-medium text-ink">Nothing to pay yet.</p>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
+          <BookingFeeLine fee={BOOKING_FEE} leadStyle={{ color: 'var(--sn-ink-700)' }} /> A free booking fee ticket pays
+          your next fee by itself.
+        </p>
+      </div>
+      {waived.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="sn-eye">Waived — nothing owed</h2>
+          <WaivedFeeRows charges={waived} />
+        </section>
+      ) : null}
+    </div>
+  );
+}

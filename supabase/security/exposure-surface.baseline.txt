@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8226
+# facts: 8231
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     664
-#   col       5915
+#   col       5920
 #   policy    1211
 #   view      10
 #   func      422
@@ -835,6 +835,8 @@ col	public.booking_fee_charges.event_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.event_vendor_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.expires_at	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.failed_reason	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.fee_basis	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.free_by_platform_count	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.gateway	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.gift_centavos	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.gift_credits	anon=SIU authenticated=SIU
@@ -843,6 +845,7 @@ col	public.booking_fee_charges.ledger_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.paid_at	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.parent_charge_id	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.payment_ref	anon=SIU authenticated=SIU
+col	public.booking_fee_charges.platform_fee_number	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.proposal_amount_centavos	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.proposal_detached_at	anon=SIU authenticated=SIU
 col	public.booking_fee_charges.proposal_id	anon=SIU authenticated=SIU
@@ -4185,6 +4188,8 @@ col	public.platform_settings.bir_authorized_rep_title	anon=- authenticated=S
 col	public.platform_settings.bir_payor_address	anon=- authenticated=S
 col	public.platform_settings.bir_payor_name	anon=- authenticated=S
 col	public.platform_settings.bir_payor_zip	anon=- authenticated=S
+col	public.platform_settings.booking_fee_cap_php	anon=- authenticated=S
+col	public.platform_settings.booking_fee_free_every_nth	anon=- authenticated=S
 col	public.platform_settings.booking_fee_free_from	anon=- authenticated=S
 col	public.platform_settings.booking_fee_free_until	anon=- authenticated=S
 col	public.platform_settings.booking_fee_minting_live	anon=- authenticated=S

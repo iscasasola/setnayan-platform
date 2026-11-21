@@ -213,9 +213,11 @@ test('the section stands in the retired slot, booked-only, and explains every st
     'cycleActive ?',
     "orderState === 'active'",
     "orderState === 'pending'",
-    '!tierOk ?',
-    '!verified ?',
-    'eventPricePhp == null',
+    // 🎁 Owner 20 Nov: below Pro, unverified or unpriced is ONE state — the shared 🔒 pointing to Pro; Pro and up
+    // (or a grandfathered shop) is its own state, branded by the plan.
+    '!tierOk || !verified || eventPricePhp == null ?',
+    "included && !cycleActive && orderState !== 'active' ?",
+    'lock="boothBranding"',
   ]) {
     assert.ok(section.includes(state), `state branch present: ${state}`);
   }

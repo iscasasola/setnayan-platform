@@ -33,13 +33,13 @@
  */
 
 import {
-  bookingFeePhp,
+  bookingFeePhpFor,
   bookingFeeScheduleSummary,
+  unverifiedBookingFeeScheduleSummary,
   type BookingFeeSchedule,
 } from '@/lib/booking-fee';
 import {
   BOOKING_FEE_CHARGED_WHEN,
-  FIRST_BOOKING_ON_US_CLAUSE,
   FREE_BOOKING_LIMIT,
   freeHeldBackSentence,
   isFreeBooking,
@@ -79,7 +79,7 @@ export type BookingFeeStanding =
    * here that number cannot be computed, and the copy would fall back to a bare
    * "Free" — the exact thing the owner ruled against.
    */
-  | { kind: 'free'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule }
+  | { kind: 'free'; ordinal: number; ordinalIsFrozen: boolean; schedule: BookingFeeSchedule; unverified?: boolean }
   /**
    * A free-fee WINDOW is running (2026-09-22). Distinct from `free` above, and
    * the distinction is the supplier's to see: the free-5 is THEIR courtesy and
@@ -100,6 +100,8 @@ export type BookingFeeStanding =
       endsAt: string | null;
       /** Set when the shop's own free place was withheld (see `billable`). */
       freeHeldBack?: FreeHeldBack;
+      /** The shop is not verified now — it pays the flat rate on the whole booking (owner 2026-11-20). */
+      unverified?: boolean;
     }
   | {
       kind: 'billable';
@@ -118,6 +120,13 @@ export type BookingFeeStanding =
        * ('this', the charge reads ₱0) or is WAITING for the shop's next booking with a fee ('next').
        */
       badgeReward?: 'this' | 'next';
+      /** The shop is not verified now — it pays the flat rate on the whole booking (owner 2026-11-20). */
+      unverified?: boolean;
+      /**
+       * 🎁 SETNAYAN'S EVERY-NTH BOOKING FEE (owner 2026-11-20, counted across all of Setnayan). Set when THIS
+       * booking's charge was the Nth: its place in the count (`booking_fee_charges.platform_fee_number`).
+       */
+      platformFree?: number;
     }
   /**
    * THE LAUNCH OFFER (migration 20271268832636) — the booking is, or would be,
@@ -133,6 +142,8 @@ export type BookingFeeStanding =
       papicCredits: number | null;
       isFrozen: boolean;
       number: number | null;
+      /** The shop is not verified now — the waived amount is the flat rate's. */
+      unverified?: boolean;
     }
   | { kind: 'unreadable' };
 
@@ -170,7 +181,10 @@ export function freeBookingsLeftAfter(ordinal: number): number {
  * never re-derived), and it says so rather than counting a rule that is gone.
  */
 export function freeBookingSentence(ordinal: number, when: 'is' | 'would' | 'was'): string {
-  if (Number.isFinite(ordinal) && ordinal >= 1 && ordinal <= FREE_BOOKING_LIMIT) {
+  // ⚖ 20 NOV: no booking takes a free place now (`FREE_BOOKING_LIMIT` is 0), so this sentence is only ever said of a
+  // place FROZEN free under the earlier rules. A frozen booking 1 was that shop's free first booking — history, so it
+  // is named by its place, not by the (now zero) limit.
+  if (Number.isFinite(ordinal) && ordinal === 1) {
     if (when === 'was') return 'This was your first booking from Setnayan, which is on us.';
     return when === 'is'
       ? 'This is your first booking from Setnayan, which is on us.'
@@ -237,9 +251,28 @@ function feePositionSentence(
   // free one (owner 2026-11-06). "Your first booking was on us; this is number 1"
   // would contradict itself, so it says what actually happened.
   if (heldBack) return freeHeldBackSentence(heldBack, promo ? 'promo' : frozen ? 'is' : 'would');
+  // ⚖ 20 NOV: there is no free first booking any more, so the position is only a count — never "your first was on us".
   return frozen
-    ? `Your first booking from Setnayan was on us; this is number ${ordinal}.`
-    : `Your first booking from Setnayan was on us; this would be number ${ordinal}.`;
+    ? `This is booking ${ordinal} that Setnayan brought you.`
+    : `This would be booking ${ordinal} that Setnayan brought you.`;
+}
+
+/** The schedule line a shop is priced on: the taper when verified, the flat rate when not (owner 2026-11-20). */
+function scheduleLineFor(schedule: BookingFeeSchedule, unverified: boolean | undefined): string {
+  return unverified ? unverifiedBookingFeeScheduleSummary(schedule) : bookingFeeScheduleSummary(schedule);
+}
+
+/** The fee a shop pays on `total` — the one quoter, verified or not. */
+function feeFor(total: number, schedule: BookingFeeSchedule, unverified: boolean | undefined): number {
+  return bookingFeePhpFor(total, schedule, { verified: !unverified });
+}
+
+/** "100,000th" — an English ordinal for the every-Nth count. */
+export function ordinalWord(n: number): string {
+  const v = Math.floor(n);
+  const two = v % 100;
+  const suffix = two >= 11 && two <= 13 ? 'th' : v % 10 === 1 ? 'st' : v % 10 === 2 ? 'nd' : v % 10 === 3 ? 'rd' : 'th';
+  return `${new Intl.NumberFormat('en-PH').format(v)}${suffix}`;
 }
 
 /**
@@ -308,7 +341,7 @@ export function bookingFeeForecast(
     case 'billable': {
       const promo = standing.kind === 'promo_window';
       const free = standing.kind === 'free' || promo;
-      const summary = bookingFeeScheduleSummary(standing.schedule);
+      const summary = scheduleLineFor(standing.schedule, standing.unverified);
       // A promotion never decides a shop's FREE booking (it sits below it in the
       // RPC), so its position is the billed-era one, not the free sentence.
       const position = feePositionSentence(
@@ -332,17 +365,28 @@ export function bookingFeeForecast(
           detail: `${position} The fee is ${summary} of the agreed total; put a price on this quote and we will show you the exact figure.`,
         };
       }
-      const fee = bookingFeePhp(total, standing.schedule);
+      const fee = feeFor(total, standing.schedule, standing.unverified);
       const rate = effectiveRateText(fee, total);
-      // 🏅 A free booking fee (badge reward). The amount is still named — "₱0 · Badge reward" after it.
+      // 🎁 Setnayan's every-Nth booking fee (owner 2026-11-20). Named with the amount it would have cost.
+      if (standing.kind === 'billable' && typeof standing.platformFree === 'number') {
+        return {
+          tone: 'good',
+          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Setnayan's ${ordinalWord(standing.platformFree)} booking fee.`,
+          detail:
+            `This booking was booking fee number ${new Intl.NumberFormat('en-PH').format(standing.platformFree)} on Setnayan, ` +
+            `and that one is free, so you are not billed. A free booking fee ticket you hold was not used. ${position}`,
+        };
+      }
+      // 🏅 A free booking fee ticket — the owner's own name for it (DECISION_LOG 20 Nov "FREE BOOKING FEE TICKETS ARE
+      // AUTO-CLAIMED": *"booking fee tickets … auto claimed on your next event booking"*). The amount is still named.
       if (standing.kind === 'billable' && standing.badgeReward) {
         return {
           tone: 'good',
-          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Badge reward.`,
+          headline: `Booking fee ${feePesos(fee)} → ${feePesos(0)} · Free booking fee ticket.`,
           detail:
             standing.badgeReward === 'this'
-              ? `Your free booking fee — a badge reward — paid this one. ${position}`
-              : `You have a free booking fee waiting — a badge reward. It is used by itself on your next booking with a fee, so if this one is agreed first it costs you nothing. ${position}`,
+              ? `Your free booking fee ticket paid this one. ${position}`
+              : `You have a free booking fee ticket. It is used by itself on your next booking with a fee, so if this one is agreed first it costs you nothing. ${position}`,
         };
       }
       if (promo) {
@@ -379,7 +423,7 @@ export function bookingFeeForecast(
       const which = standing.isFrozen
         ? `This booking is one of Setnayan's first ${cap} bookings${standing.number ? ` (number ${new Intl.NumberFormat('en-PH').format(standing.number)})` : ''}, which are free — the launch offer.`
         : `Setnayan's first ${cap} bookings are free — the launch offer — and it is still open, so if this booking is agreed now it costs you nothing.`;
-      const tail = ` It does not use up your free first booking.${credits}`;
+      const tail = ` It does not use a free booking fee ticket you hold.${credits}`;
       if (!Number.isFinite(total) || total <= 0) {
         return {
           tone: 'good',
@@ -387,7 +431,7 @@ export function bookingFeeForecast(
           detail: `${which}${tail}`,
         };
       }
-      const fee = bookingFeePhp(total, standing.schedule);
+      const fee = feeFor(total, standing.schedule, standing.unverified);
       return {
         tone: 'good',
         headline: `Booking fee ${feePesos(fee)} — free with the launch offer.`,
@@ -449,9 +493,14 @@ export const WAIVED_FEE_RECEIPT_STATUSES: ReadonlySet<string> = new Set([
 ]);
 
 /** Why a waived charge was waived, from its status. */
-export type WaivedFeeReason = 'free5' | 'promo' | 'launch';
+export type WaivedFeeReason = 'free5' | 'promo' | 'launch' | 'platform';
 
-export function waivedFeeReasonOf(status: string | null | undefined): WaivedFeeReason {
+/**
+ * Why a waived charge was waived. `freeByPlatformCount` is `booking_fee_charges.free_by_platform_count`: Setnayan's
+ * every-Nth booking fee is a ₱0 `paid` charge (the badge reward's shape), so its status alone cannot say it.
+ */
+export function waivedFeeReasonOf(status: string | null | undefined, freeByPlatformCount = false): WaivedFeeReason {
+  if (freeByPlatformCount) return 'platform';
   if (status === 'waived_promo') return 'promo';
   if (status === 'waived_launch') return 'launch';
   return 'free5';
@@ -473,6 +522,8 @@ export type WaivedFeeCharge = {
   launchNumber?: number | null;
   /** Launch offer only: the Papic credits its grant row actually carries (null = none read). */
   launchCredits?: number | null;
+  /** Every-Nth only: `booking_fee_charges.platform_fee_number`, its place among Setnayan's booking fees. */
+  platformNumber?: number | null;
 };
 
 /**
@@ -498,14 +549,20 @@ export function waivedFeeCopy(charge: WaivedFeeCharge): FeeDisclosure {
       ? ` It also added ${new Intl.NumberFormat('en-PH').format(charge.launchCredits)} Papic credits for this event.`
       : '';
   const position =
-    charge.reason === 'launch'
+    charge.reason === 'platform'
+      ? `${
+          typeof charge.platformNumber === 'number' && Number.isFinite(charge.platformNumber)
+            ? `This was booking fee number ${new Intl.NumberFormat('en-PH').format(charge.platformNumber)} on Setnayan — Setnayan's ${ordinalWord(charge.platformNumber)}`
+            : 'This was one of Setnayan’s every-Nth booking fees'
+        }, and that one is free, so its fee is waived. It did not use a free booking fee ticket you hold.`
+      : charge.reason === 'launch'
       ? `${
           typeof charge.launchNumber === 'number' && Number.isFinite(charge.launchNumber)
             ? `This was booking ${new Intl.NumberFormat('en-PH').format(charge.launchNumber)} of the Setnayan launch offer`
             : 'This booking was part of the Setnayan launch offer'
-        }, so its fee is waived. It did not use up any of your free bookings.${credits}`
+        }, so its fee is waived. It did not use a free booking fee ticket you hold.${credits}`
       : charge.reason === 'promo'
-      ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use up any of your free bookings.'
+      ? 'A Setnayan free-fee promotion was running when this booking was made, so its fee is waived. It did not use a free booking fee ticket you hold.'
       : typeof charge.ordinal === 'number' && Number.isFinite(charge.ordinal)
         ? freeBookingSentence(charge.ordinal, 'was')
         : 'It was one of your free bookings from Setnayan.';
@@ -577,8 +634,8 @@ export function bookingFeeJoinDisclosure(
     tone: 'info',
     headline: 'Opening your shop is free, and running it stays free.',
     detail: schedule
-      ? `You only pay Setnayan when a couple books you THROUGH Setnayan — and ${FIRST_BOOKING_ON_US_CLAUSE}. After that the booking fee is ${bookingFeeScheduleSummary(schedule)} of the agreed total. Clients you bring yourself are always free.`
-      : `You only pay Setnayan when a couple books you THROUGH Setnayan — and ${FIRST_BOOKING_ON_US_CLAUSE}. We could not load today's booking-fee rate on this page; it is shown in full before you agree to any booking. Clients you bring yourself are always free.`,
+      ? `You only pay Setnayan a booking fee when a couple books you — ${bookingFeeScheduleSummary(schedule)} of the agreed total. ${FEE_FREE_RULE}`
+      : `You only pay Setnayan a booking fee when a couple books you. We could not load today's booking-fee rate on this page; it is shown in full before you agree to any booking. ${FEE_FREE_RULE}`,
   };
 }
 

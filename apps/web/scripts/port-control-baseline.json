@@ -15274,6 +15274,7 @@
         "Link",
         "LockAnswerLine",
         "LockRequestAnswer",
+        "LockedFeature",
         "MomentLine",
         "MyMomentSheet",
         "MyTimesSheet",

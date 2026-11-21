@@ -83,3 +83,10 @@ test('picking a plan says what happens, by the live ladder', () => {
   assert.equal(planPickLine('pro', 'free', '31 October 2026'), 'Nothing renews by itself · Pro ends 31 October 2026, then Free');
   assert.equal(planPickLine('free', 'free', null), 'You are on Free — nothing to pay');
 });
+
+test('owner 20 Nov: Plus does not say "All included" for Specialized tools — Papic Challenges and the 3D booth are Pro and up', () => {
+  assert.doesNotMatch(line('solo', 'tools') ?? '', /^All included$/);
+  assert.match(line('solo', 'tools') ?? '', /Papic Challenges and the 3D booth come with Pro/);
+  assert.equal(line('pro', 'tools'), 'All included');
+  assert.equal(line('enterprise', 'tools'), 'All included');
+});

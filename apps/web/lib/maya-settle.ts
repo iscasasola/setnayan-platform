@@ -32,6 +32,7 @@ import {
   type MayaPaymentLike,
   type MayaVerdict,
 } from '@/lib/maya-checkout';
+import { formatPhp } from '@/lib/php';
 
 export type MayaCheckoutRow = {
   checkout_id: string;
@@ -168,7 +169,7 @@ export async function settleMayaPayment(
     } else if (owed.status !== 'awaiting_payment') {
       reason = `Maya confirmed the payment, but the order is no longer waiting for one (${owed.status}).`;
     } else if (Math.round(owed.amountPhp * 100) !== Math.round(Number(row.amount_php) * 100)) {
-      reason = `Maya confirmed ₱${Number(row.amount_php).toFixed(2)}, but the order now owes ₱${owed.amountPhp.toFixed(2)}.`;
+      reason = `Maya confirmed ${formatPhp(Number(row.amount_php))}, but the order now owes ${formatPhp(owed.amountPhp)}.`;
     } else if (owed.needsAdminToActivate) {
       reason = 'Paid and confirmed by Maya. A supplier plan needs an admin’s press to switch on.';
     }

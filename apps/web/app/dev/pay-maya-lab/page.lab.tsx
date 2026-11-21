@@ -68,7 +68,7 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
   ];
   const summary = (
     <section className="rounded-card bg-[color:var(--m-paper-2)] p-6">
-      <h1 className="text-2xl font-semibold leading-tight text-ink">Event Hub Pro</h1>
+      <h1 className="text-2xl font-semibold leading-tight text-ink">Event Pro</h1>
       <p className="mt-4 text-[40px] font-bold leading-none tracking-tight tabular-nums text-ink">{payAmount(AMOUNT)}</p>
     </section>
   );

@@ -41,7 +41,7 @@ export function MayaRailSwitchView({
   env: MayaEnvironment;
 }) {
   return (
-    <section className={`mt-6 space-y-3 sn-tile p-5 ${enabled ? '' : 'opacity-75'}`} aria-labelledby="maya-rail">
+    <section className={`mt-10 space-y-3 border-t border-ink/10 pt-8 ${enabled ? '' : 'opacity-75'}`} aria-labelledby="maya-rail">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 id="maya-rail" className="flex items-center gap-2 text-sm font-semibold text-ink">
           <CreditCard aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -63,12 +63,12 @@ export function MayaRailSwitchView({
           </SubmitButton>
         </form>
       </div>
-      <p className="text-xs text-ink/60">
-        Payers see it under the QR and pay the exact total.{' '}
+      <div className="flex items-center gap-1 text-xs text-ink/60">
+        <span>Payers see it under the QR and pay the exact total.</span>
         <InfoTip label="" ariaLabel="About Maya fees and approval" align="start">
           Setnayan pays Maya&rsquo;s fee. A payment approves itself only after Maya confirms it.
         </InfoTip>
-      </p>
+      </div>
       {enabled && reason ? (
         <p role="status" className="rounded-md bg-[var(--sn-warning-soft)] px-3 py-2 text-xs text-[color:var(--sn-warning-deep)]">
           {reason}{' '}

@@ -131,7 +131,7 @@ export function MayaCard({
           {MAYA_WEBHOOK_SOURCE_IPS[env].join(' and ')}.
         </p>
         {webhookNotice ? (
-          <p role="status" className={`text-xs ${webhookNotice.ok ? 'text-emerald-800' : 'text-danger-700'}`}>
+          <p role="status" className={`text-xs ${webhookNotice.ok ? 'text-success-800' : 'text-danger-700'}`}>
             {webhookNotice.text}
           </p>
         ) : null}

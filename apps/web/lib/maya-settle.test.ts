@@ -86,7 +86,7 @@ test('amount mismatch → queued with the reason, never approved', async () => {
   const w = world({ maya: { ...PAID, amount: 1000 } });
   const r = await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1', claimedPaid: true });
   assert.equal(r.outcome, 'queued');
-  assert.match(r.outcome === 'queued' ? r.reason : '', /₱1000\.00/);
+  assert.match(r.outcome === 'queued' ? r.reason : '', /₱1,000/);
   assert.equal(w.log.approves, 0);
   assert.equal(w.row.status, 'queued');
   assert.equal([...w.payments.values()][0]!.status, 'pending', 'it waits in the admin queue');

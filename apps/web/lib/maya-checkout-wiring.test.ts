@@ -13,10 +13,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(process.cwd(), process.cwd().endsWith('apps/web') ? '' : 'apps/web');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
-const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+const code = (p: string) => stripComments(read(p));
 
 test('the pay page offers Maya only when the gate is open and the bill is within the ceiling', () => {
   const page = code('app/pay/[reference]/page.tsx');
@@ -24,7 +25,7 @@ test('the pay page offers Maya only when the gate is open and the bill is within
   const ret = code('app/pay/[reference]/maya-return.ts');
   assert.match(ret, /readMayaGate\(\)/);
   assert.match(ret, /if \(!state\.open\) return false;/);
-  assert.match(ret, /paymentWithinCeiling\(amountPhp, await getMaxPaymentPhp\(/);
+  assert.match(ret, /paymentWithinCeiling\(amountPhp, MAX_PAYMENT_PHP_DEFAULT\)/);
 });
 
 test('BDO stays the default: the Maya slot renders below the rails, not instead of them', () => {

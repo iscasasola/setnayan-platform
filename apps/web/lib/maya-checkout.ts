@@ -39,6 +39,8 @@
  *     (`mayaApiBase`).
  */
 
+import { formatPhp } from '@/lib/php';
+
 /** The `payments.channel` (and `client_idempotency_key` prefix) of a Maya payment. */
 export const MAYA_CHANNEL = 'maya';
 
@@ -228,7 +230,7 @@ export function judgeMayaPayment(
   const expectedC = Math.round(expected.amountPhp * 100);
   if (amountC == null) return mismatch('Maya gave no amount for this payment.');
   if (amountC !== expectedC) {
-    return mismatch(`Maya received ₱${(amountC / 100).toFixed(2)}; the order is ₱${(expectedC / 100).toFixed(2)}.`);
+    return mismatch(`Maya received ${formatPhp(amountC / 100)}; the order is ${formatPhp(expectedC / 100)}.`);
   }
   return { kind: 'paid', mayaPaymentId: id, amountPhp: amountC / 100 };
 }

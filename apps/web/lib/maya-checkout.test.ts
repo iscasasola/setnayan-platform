@@ -72,7 +72,7 @@ test('the rail is on only with the switch AND both keys — and says which is mi
 });
 
 test('the checkout asks for the order total exactly — one line, no fee, no surcharge', () => {
-  const body = mayaCheckoutBody({ amountPhp: 1499.5, reference: 'SN12345678', description: 'Event Hub Pro', origin: 'https://www.setnayan.com/' });
+  const body = mayaCheckoutBody({ amountPhp: 1499.5, reference: 'SN12345678', description: 'Event Pro', origin: 'https://www.setnayan.com/' });
   assert.deepEqual(body.totalAmount, { value: '1499.50', currency: 'PHP' });
   assert.equal(body.requestReferenceNumber, 'SN12345678');
   const items = body.items as Array<{ name: string; totalAmount: { value: string } }>;

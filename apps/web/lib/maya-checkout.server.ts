@@ -158,7 +158,7 @@ export function mayaSettleDeps(
         const inserted = data as { payment_id: string; status: string };
         // The bill's empty placeholder gives way to the real payment — the same
         // sweep the proof form runs (app/pay/[reference]/actions.ts).
-        await money
+        const { error: sweepError } = await money
           .from('payments')
           .delete()
           .eq('order_id', orderId)
@@ -166,6 +166,7 @@ export function mayaSettleDeps(
           .is('reference_number', null)
           .is('screenshot_url', null)
           .neq('payment_id', inserted.payment_id);
+        if (sweepError) console.error('[maya] placeholder payment row was not removed', { orderId, sweepError: sweepError.message });
         return { paymentId: inserted.payment_id, status: inserted.status };
       }
       if ((error as { code?: string } | null)?.code === '23505') {

@@ -25,6 +25,7 @@ import { after, NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { webhookSecretAuthorized } from '@/lib/webhook-secret-auth';
 import { chatSentence, pushMessage, pushWireBody, type PushMessage } from '@/lib/push-message';
+import { readThreadMutes, tokensToBuzz } from '@/lib/chat-mutes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -238,11 +239,18 @@ async function processPushNotification(record: ChatMessageRecord): Promise<void>
       .update({ last_push_notified_at: new Date().toISOString() })
       .eq('thread_id', thread_id);
 
-    const { data: tokens, error: tokensError } = await admin
-      .from('vendor_push_tokens')
-      .select('id, token, platform')
-      .eq('vendor_profile_id', vendor_profile_id)
-      .eq('is_active', true);
+    // 🔕 Mute this chat (Unichat, controller ruling 21 Nov 2026): the shop's devices, minus the devices of a member who
+    // muted THIS chat (`tokensToBuzz`). A token with no person yet (registered before the column) is still sent, and an
+    // unread mute list silences nobody — a missed message is worse than one unwanted buzz.
+    const [{ data: allTokens, error: tokensError }, mutes] = await Promise.all([
+      admin
+        .from('vendor_push_tokens')
+        .select('id, token, platform, user_id')
+        .eq('vendor_profile_id', vendor_profile_id)
+        .eq('is_active', true),
+      readThreadMutes(admin, thread_id),
+    ]);
+    const tokens = allTokens ? tokensToBuzz(allTokens as { id: number; token: string; platform: string; user_id: string | null }[], mutes) : null;
 
     if (tokensError || !tokens || tokens.length === 0) {
       if (tokensError) console.error('[notify] failed to read vendor_push_tokens', tokensError.message);

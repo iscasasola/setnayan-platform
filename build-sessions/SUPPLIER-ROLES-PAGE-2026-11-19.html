@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier Roles</title>
+<!--
+  SUPPLIER ROLES — the drawing for the owner's OK (2026-11-19). SCRIPT-FREE: no <script>, the ⓘ details are <details>.
+  Now = what /vendor-dashboard/team (HelpersView, helpers-controls.tsx) draws today, copied from the shipped copy.
+  Proposed = the delta only: a Roles page under Team, the card with the shop's own role name + branch, the invite with
+  role + branch. Tokens are the app's (globals.css: --m-paper, --m-ink, --m-slate-2, --m-line, --m-orange, mulberry CTA).
+  Map: build-sessions/SUPPLIER-ROLES-MAP-2026-11-19.md
+-->
+<style>
+  :root{
+    --paper:#FFFFFF; --paper-2:#F4F2EC; --ivory:#EDEAE0; --line:#E1DCD1; --line-soft:#EDE8DE;
+    --ink:#2C2A29; --slate-2:#6E6A62; --slate-3:#8A857B;
+    --gold:#A9834B; --gold-2:#8A6B39; --gold-4:#F3ECDF;
+    --cta:#C24E25; --ok:#2B744A; --ok-tint:#E6F1EA; --warn:#965A00; --warn-tint:#FBF1E0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper-2);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 16px 64px}
+  h1.doc{font-size:22px;margin:0 0 4px}
+  p.doc{color:var(--slate-2);margin:0 0 20px;font-size:14px}
+  .pair{margin:28px 0 8px}
+  .pair > h2{font-size:16px;margin:0 0 10px}
+  .cols{display:flex;gap:20px;flex-wrap:wrap}
+  .col{flex:0 0 390px;max-width:100%}
+  .tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;margin-bottom:6px}
+  .tag.now{background:var(--ivory);color:var(--slate-2)}
+  .tag.new{background:var(--gold-4);color:var(--gold-2)}
+  .phone{width:390px;max-width:100%;background:var(--paper);border:1px solid var(--line);border-radius:22px;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:8px;padding:14px 16px 6px;color:var(--slate-2);font-size:13px}
+  .scr{padding:8px 16px 18px}
+  .h1{font-size:24px;font-weight:650;margin:2px 0 4px}
+  .sub{font-size:14px;color:var(--slate-2);margin:0 0 10px}
+  .row{display:flex;align-items:center;gap:10px;min-height:60px;padding:10px 0;border-top:1px solid var(--line-soft)}
+  .row:first-child{border-top:0}
+  .grow{flex:1;min-width:0}
+  .t{font-size:15px;font-weight:600}
+  .l{font-size:13px;color:var(--slate-2)}
+  .badge{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--ivory);color:var(--slate-2);white-space:nowrap}
+  .badge.ok{background:var(--ok-tint);color:var(--ok)}
+  .pick{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:14px;white-space:nowrap}
+  .pick::after{content:"▾";color:var(--slate-3)}
+  .pick.btn::after{content:none}
+  select,input[type=text],input[type=email]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font:inherit;color:var(--ink)}
+  label.f{display:block;margin:10px 0 0}
+  label.f > span{display:block;font-size:13px;color:var(--slate-2);margin-bottom:4px}
+  .x{width:44px;height:44px;border:1px solid var(--line);border-radius:12px;display:grid;place-items:center;color:#B3261E}
+  .cta{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:14px;border-radius:14px;background:var(--cta);color:#fff;font-weight:600;font-size:15px}
+  .menu{border:1px solid var(--line);border-radius:12px;margin-top:6px;overflow:hidden}
+  .menu div{padding:10px 12px;border-top:1px solid var(--line-soft);font-size:14px}
+  .menu div:first-child{border-top:0}
+  .menu .on{background:var(--gold-4)}
+  .grow .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ava{flex:none;width:40px;height:40px;border-radius:50%;background:var(--gold-4);color:var(--gold-2);display:grid;place-items:center;font-weight:700;font-size:14px}
+  .rolename{font-size:14px;font-weight:600;color:var(--gold-2)}
+  details.i{display:inline}
+  details.i > summary{list-style:none;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);color:var(--slate-2);font-size:12px;cursor:pointer;vertical-align:middle}
+  details.i > summary::-webkit-details-marker{display:none}
+  details.i[open] > .pop{display:block}
+  .pop{display:none;margin:8px 0 2px;padding:10px 12px;background:var(--paper-2);border-radius:12px;font-size:13px;color:var(--slate-2)}
+  .pop b{color:var(--ink)}
+  .confirm{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.05em;padding:2px 7px;border-radius:999px;background:var(--warn-tint);color:var(--warn);vertical-align:middle}
+  .role{padding:12px 0;border-top:1px solid var(--line-soft)}
+  .role:first-of-type{border-top:0}
+  .role .top,.row{flex-wrap:wrap}
+  .role .top{display:flex;align-items:center;gap:8px}
+  .top > details.i[open], .row > details.i[open]{display:contents}
+  .top > details.i[open] > .pop, .row > details.i[open] > .pop{flex-basis:100%}
+  .role input{margin-top:8px}
+  .note{font-size:12.5px;color:var(--slate-3);margin-top:8px}
+  .legend{font-size:13px;color:var(--slate-2);background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .legend li{margin:3px 0}
+  .sys{margin:10px auto;max-width:90%;border:1px solid rgba(194,78,37,.2);background:rgba(194,78,37,.06);border-radius:12px;padding:8px 12px;text-align:center;font-size:14px}
+  .sys small{display:block;margin-top:4px;font-size:12px;color:var(--slate-2)}
+  .bub{max-width:78%;padding:8px 12px;border-radius:16px;font-size:14px;margin:6px 0}
+  .bub.them{background:var(--paper-2)}
+  .bub.me{background:var(--gold);color:#fff;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="doc">Supplier Roles — for your OK</h1>
+  <p class="doc">Now (what the app draws today) beside Proposed (only what changes). (a) Roles · (b) card · (c) invite · (d) plan → roles · (e) who gets new inquiries · (f) clients — who handles who · (g) when the plan ends · (h) in the chat. 390&nbsp;px phone. Tap any ⓘ for detail. Nothing here is built yet.</p>
+
+  <div class="legend">
+    <b>The six roles (your rulings, 19 Nov)</b>
+    <ul style="margin:6px 0 0;padding-left:18px">
+      <li><b>Shop Manager</b> — sees everything, including branches.</li>
+      <li><b>Branch Manager</b> — the same, for one branch.</li>
+      <li><b>Account Manager</b> — their own clients on a branch: bookings, chat, payments, event day.</li>
+      <li><b>Marketing</b> — shop page, cards, photos, promos, ads. No bookings, no money.</li>
+      <li><b>Event Crew</b> — Hub and photos for the events they're given.</li>
+      <li><b>Helper</b> — sees the schedule, changes nothing.</li>
+    </ul>
+    <p style="margin:8px 0 0"><span class="badge ok">Decided 19 Nov</span> Marketing covers the whole shop · ONE role per person · money changes need no second Shop Manager's yes.</p>
+  </div>
+
+  <!-- ═════════════ (a) THE ROLES PAGE ═════════════ -->
+  <section class="pair" id="a">
+    <h2>(a) A Roles page under Team</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Helpers</div>
+            <p class="sub">Helpers and team members see Today and Clients only. Admins run the shop with you.</p>
+            <p class="l" style="margin:14px 0 4px">There is no Roles page. The only place a role is named is each person's dropdown:</p>
+            <div class="menu">
+              <div>Admin · runs the shop</div>
+              <div class="on">Team member · own work</div>
+              <div>Helper · sees the schedule</div>
+            </div>
+            <p class="note">Three fixed names, the same in every shop. No branch. A shop cannot rename them.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Team</div>
+          <div class="scr">
+            <div class="h1">Roles</div>
+            <p class="sub">What each role can do. Give it your shop's own name — it shows on every card of that role.</p>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Shop Manager</div><div class="l">Sees everything, including branches</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> the team, the plan, branches, money settings, every client and every event day.</div></details></div>
+              <input type="text" value="COO" aria-label="Your name for Shop Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Branch Manager</div><div class="l">Runs one branch, like a Shop Manager</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> that branch's clients, bookings, payments, event days and team.<br><b>Can't:</b> the plan, other branches, shop-wide money settings.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Branch Head" aria-label="Your name for Branch Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Account Manager</div><div class="l">Their own clients, from booking to event day</div></div>
+                <details class="i" open><summary>i</summary><div class="pop"><b>Can:</b> take bookings, chat, log payments and run event day — for their own clients, on their branch.<br><b>Can't:</b> other people's clients, the shop page, the plan.</div></details></div>
+              <input type="text" value="Lead Stylist" aria-label="Your name for Account Manager">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Marketing <span class="badge">Whole shop</span></div><div class="l">Shop page, cards, photos, promos and ads</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> edit the shop page, cards, photos, promos, ads.<br><b>Can't:</b> bookings, clients, money.</div></details></div>
+              <input type="text" value="CMO" aria-label="Your name for Marketing">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Event Crew</div><div class="l">Hub and photos for the events they're given</div></div>
+                <details class="i"><summary>i</summary><div class="pop"><b>Can:</b> on the events you give them — the Hub and its photos.<br><b>Can't:</b> any other event, clients, money.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Coordinator" aria-label="Your name for Event Crew">
+            </div>
+
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Helper <span class="badge">1 free</span></div><div class="l">Sees the schedule, changes nothing</div></div>
+                <details class="i"><summary>i</summary><div class="pop">One Helper is free on every plan.</div></details></div>
+              <input type="text" placeholder="Your name for it — e.g. Runner" aria-label="Your name for Helper">
+            </div>
+
+            <p class="note">A blank box keeps the fixed name. Renaming changes only the words — what the role can do stays the same.</p>
+            <span class="cta">Save names</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (b) THE TEAM MEMBER CARD ═════════════ -->
+  <section class="pair" id="b">
+    <h2>(b) A team member's card</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Helpers</div>
+            <div class="row">
+              <div class="grow"><div class="t">Ana Reyes</div><div class="l">You</div></div>
+              <span class="badge ok">Owner</span>
+            </div>
+            <div class="row">
+              <div class="grow"><div class="t">Bea Santos</div><div class="l">Front desk · bea@example.com</div></div>
+              <span class="pick">Team member · own work</span>
+              <span class="x" aria-label="Remove">✕</span>
+            </div>
+            <div class="row">
+              <div class="grow"><div class="t">Carlo Cruz</div><div class="l">carlo@example.com</div></div>
+              <span class="pick">Helper · sees…</span>
+              <span class="x" aria-label="Remove">✕</span>
+            </div>
+            <p class="note">No branch on the card. The line under the name is a free-text "What they do".</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Team</div>
+            <div class="row">
+              <span class="ava">AR</span>
+              <div class="grow"><div class="t">Ana Reyes</div><div class="rolename">COO</div><div class="l">Whole shop · You</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <div class="row" style="flex-wrap:wrap">
+              <span class="ava">BS</span>
+              <div class="grow"><div class="t">Bea Santos</div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · 2 cards · Front desk</div></div>
+              <details class="i" open><summary>i</summary><div class="pop">Role: <b>Account Manager</b> — their own clients, from booking to event day. "Lead Stylist" is your shop's name for it.</div></details>
+            </div>
+            <div class="row">
+              <span class="ava">DL</span>
+              <div class="grow"><div class="t">Dina Lim</div><div class="rolename">CMO</div><div class="l">Whole shop</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <div class="row">
+              <span class="ava">CC</span>
+              <div class="grow"><div class="t">Carlo Cruz</div><div class="rolename">Helper</div><div class="l">Cebu branch</div></div>
+              <details class="i"><summary>i</summary></details>
+            </div>
+            <div class="row" style="flex-wrap:wrap">
+              <span class="ava">LO</span>
+              <div class="grow"><div class="t">Lia Ong <span class="badge" style="background:var(--warn-tint);color:var(--warn)">Added · waiting for plan</span></div><div class="rolename">Lead Stylist</div><div class="l">Makati branch · 1 card</div></div>
+              <details class="i"><summary>i</summary><div class="pop">Pro has 6 of 6 active. Lia is on the team but can't sign in to the shop until a plan that covers her is active. <u>See plans ›</u></div></details>
+            </div>
+            <p class="note">Your name for the role (gold) · the branch · the fixed role behind ⓘ. The same card shows wherever the person appears — Clients, a booking, event day. Tapping a card opens the same Role ▾ · Branch ▾ as the invite (c), and ✕ Remove.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (c) INVITING A PERSON ═════════════ -->
+  <section class="pair" id="c">
+    <h2>(c) Inviting a person — one role + branch</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="scr" style="padding-top:18px">
+            <div class="t" style="font-size:17px">Invite a helper</div>
+            <p class="l" style="margin:4px 0 0">They sign in on their own phone with their Setnayan account. 1 of 3 used · 1 Helper free on every plan.</p>
+            <label class="f"><span>Email</span><input type="email" placeholder="name@example.com"></label>
+            <label class="f"><span>They can</span>
+              <select><option>Helper · sees the schedule</option><option>Team member · own work</option><option>Admin · runs the shop</option></select></label>
+            <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
+            <span class="cta">Send invite</span>
+            <p class="note">No branch. One role.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="scr" style="padding-top:18px">
+            <div class="t" style="font-size:17px">Invite to your team</div>
+            <p class="l" style="margin:4px 0 0">They sign in on their own phone with their Setnayan account. 1 of 3 used · 1 Helper free on every plan.</p>
+            <label class="f"><span>Email</span><input type="email" placeholder="name@example.com"></label>
+            <label class="f"><span>Role <details class="i"><summary>i</summary><div class="pop">Shows your shop's name for each role, with the fixed role beside it. Rename them on Team › Roles.</div></details></span>
+              <select>
+                <option>COO · Shop Manager</option>
+                <option>Branch Manager</option>
+                <option selected>Lead Stylist · Account Manager</option>
+                <option>CMO · Marketing</option>
+                <option>Event Crew</option>
+                <option>Helper · sees the schedule</option>
+              </select></label>
+            <label class="f"><span>Branch <details class="i"><summary>i</summary><div class="pop">Asked only for Branch Manager, Account Manager, Event Crew and Helper, and only when your shop has two or more locations. Shop Manager and Marketing cover the whole shop.</div></details></span>
+              <select><option>Main · Quezon City</option><option selected>Makati branch</option><option>Cebu branch</option></select></label>
+            <label class="f"><span>Their service cards <details class="i"><summary>i</summary><div class="pop">An Account Manager is set to service cards — tick each card they handle. They see only these cards and those clients, and get new inquiries only from them. A card with 5 Account Managers is full.</div></details></span></label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+              <label class="pick btn" style="gap:6px"><input type="checkbox" checked> Wedding Styling</label>
+              <label class="pick btn" style="gap:6px"><input type="checkbox" checked> Debut Styling</label>
+              <label class="pick btn" style="gap:6px"><input type="checkbox"> Corporate Stage Design</label>
+              <span class="pick btn" style="gap:6px;color:var(--slate-3)"><input type="checkbox" disabled> Wedding Styling: Premium · full, 5 of 5</span>
+            </div>
+            <label class="f"><span>What they do</span><input type="text" placeholder="e.g. Front desk"></label>
+            <div class="pop" style="display:block"><b>Pro has 6 of 6 active.</b> You can still add them — they show as <b>Added · waiting for plan</b> and can't sign in to the shop until a plan that covers them is active. <u>See plans ›</u></div>
+            <span class="cta">Add · waits for the plan</span>
+            <p class="note">When the plan has room the button says "Send invite". One role per person. An Account Manager is set to the service cards you tick; they join the inquiry split for those cards straight away — see (e).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (d) PLAN → ROLES ═════════════ -->
+  <section class="pair" id="d">
+    <h2>(d) The plan sets the team — Plan page → Roles</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Your plan</div>
+            <div class="row"><div class="grow"><div class="t">Booking fee</div><div class="l">Your fee per booking</div></div></div>
+            <div class="row"><div class="grow"><div class="t">What Pro gives you</div><div class="l">Read from your plan</div></div><span style="color:var(--slate-3)">›</span></div>
+            <div class="row"><div class="grow"><div class="t">Storage</div><div class="l">10 GB on Pro</div></div></div>
+            <p class="note">The plan counts seats, but says nothing about roles. Team is a separate page; the only road between them is the "Extra seats and branches" row, which shows on Ultra only.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Your plan</div>
+            <p class="sub">① Pick the plan · ② it sets your seats and branches · ③ give each seat a role and where it works.</p>
+            <div class="row" style="flex-wrap:wrap">
+              <div class="grow"><div class="t">Members active</div><div class="l">6 of 6 with you · 1 Helper free · 2 added · waiting for plan</div></div>
+              <details class="i" open><summary>i</summary><div class="pop">
+                Owner 19 Nov: the plan limits ACTIVE members and cards — more can be added, and they come in when a plan that covers them is active. Read from the plan rows, counting you:<br>
+                Free 1 · Verified 1 · Plus 2 · Pro 6 · Ultra 12 seats.<br>
+                Branches besides the main shop: 0 · 0 · 0 · 2 · 5.<br>
+                One Helper rides free on every plan.<br>
+                Service cards active: 1 · 3 · 10 · 20 · 80.
+              </div></details>
+            </div>
+            <div class="row"><div class="grow"><div class="t">Service cards active</div><div class="l">5 of 20 · cards over the plan wait, like people</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Roles and who covers what</div><div class="l">4 of 6 seats given · Makati, Cebu</div></div><span style="color:var(--slate-3)">›</span></div>
+            <p class="note"><span class="badge ok">Decided 19 Nov</span> How many people a plan allows is the plan table's own seat number. Any mix of roles fills those seats. <span class="confirm">STILL OPEN: is any role kept off a plan?</span> (e.g. Branch Manager only on plans that have branches — drawn: no role is kept off).</p>
+
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+              <div class="l" style="margin-bottom:6px">→ Roles page, top line</div>
+              <div class="row"><div class="grow"><div class="t">Pro · 6 seats, 4 used</div><div class="l">Main + Makati + Cebu · 1 Helper free</div></div><span class="pick btn">Change plan</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (e) WHO GETS NEW INQUIRIES ═════════════ -->
+  <section class="pair" id="e">
+    <h2>(e) Who gets new inquiries — Branch → Card → Event type → Last name</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Back</div>
+          <div class="scr">
+            <div class="h1">Who works what</div>
+            <p class="sub" style="margin-top:-4px">Already ships: a team member gets the cards you tick (or a whole branch — kept for other roles, not offered for Account Managers).</p>
+            <div class="row"><div class="grow"><div class="t">Bea Santos</div><div class="l">Wedding Styling · Debut Styling</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Joy Tan</div><div class="l">Wedding Styling</div></div></div>
+            <p class="note">A Team member sees every inquiry on the services they're given. Two people on Wedding Styling both see every wedding inquiry — nothing says whose it is.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Roles</div>
+          <div class="scr">
+            <div class="h1" style="font-size:20px">Who gets new inquiries</div>
+            <p class="sub">Each new inquiry goes to ONE Account Manager: by branch, then the card it came in on (only the people who cover it), then event type, then last name.
+              <details class="i"><summary>i</summary><div class="pop">The branch is the one the service card is filed under. A Shop Manager or Branch Manager can change any split; a split you change stays until you reset it.</div></details></p>
+            <label class="f"><span>Branch</span><select><option selected>Makati branch · 2 Account Managers</option><option>Cebu branch · 1</option><option>Main · Quezon City · 3</option></select></label>
+
+            <label class="f"><span>Show by</span><select><option selected>Card, then event type</option><option>Account Manager</option></select></label>
+
+            <div class="role" style="margin-top:8px">
+              <div class="top"><div class="grow"><div class="t">Wedding Styling card</div><div class="l">Covered by Bea, Joy</div></div></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Wedding · fair split, from your past clients</div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Ma · 51%</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Lead Stylist · Joy Tan</div></div><span class="badge">Me – Z · 49%</span><span class="pick btn">Adjust</span></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Every other event · fair split, from your past clients</div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Bea Santos</div></div><span class="badge">A – K · 50%</span></div>
+              <div class="row" style="min-height:44px"><span class="ava">JT</span><div class="grow"><div class="rolename">Joy Tan</div></div><span class="badge">L – Z · 50%</span><span class="pick btn">Adjust</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Debut Styling card</div><div class="l">Covered by Bea only</div></div></div>
+              <div class="l" style="margin:6px 0 0;font-weight:600">Every event</div>
+              <div class="row" style="min-height:44px"><span class="ava">BS</span><div class="grow"><div class="rolename">Lead Stylist · Bea Santos</div></div><span class="badge">A – Z</span></div>
+            </div>
+            <div class="role">
+              <div class="top"><div class="grow"><div class="t">Corporate Stage Design card</div><div class="l">No Account Manager covers this card</div></div></div>
+              <div class="row" style="min-height:44px"><span class="ava">RG</span><div class="grow"><div class="rolename">Branch Head · Rico Garcia</div></div><span class="badge">A – Z</span></div>
+              <p class="note" style="margin-top:4px"><span class="confirm">STILL OPEN</span> drawn: a card nobody covers sends its inquiries to the Branch Manager, the same as the away rule.</p>
+            </div>
+
+            <div class="role">
+              <div class="t" style="font-size:14px">Adjust · Wedding</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:8px"><span class="grow l">Cut between Bea and Joy at</span><select style="width:auto"><option>L · 44% / 56%</option><option selected>Ma | Me · 51% / 49%</option><option>N · 58% / 42%</option></select></div>
+              <div class="l" style="margin-top:6px">Each choice shows the share of your past wedding clients each person would get. A cut can fall inside a busy letter (Ma | Me).</div>
+              <span class="pick btn" style="margin-top:8px">Reset to fair split</span>
+            </div>
+
+            <p class="note">
+              <span class="badge ok">Decided 19 Nov</span> Whose last name: the main celebrant's (the groom, for a wedding); if the inquiry doesn't say, the person who sent it.<br>
+              <span class="badge ok">Decided 19 Nov</span> When that Account Manager is away: the next Account Manager in the branch, then the Branch Manager.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cols" style="margin-top:20px">
+      <div class="col" style="flex-basis:100%">
+        <span class="tag new">Proposed · when the branch grows</span>
+        <div class="phone" style="width:100%;max-width:820px">
+          <div class="scr" style="padding-top:14px">
+            <div class="t">Makati branch · Wedding — the fair split re-works itself when an Account Manager joins or leaves</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px">
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">1 Account Manager</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – Z</span></div>
+              </div>
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">+ Joy joins → 2</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – Ma · 51%</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Joy</div><span class="badge">Me – Z · 49%</span></div>
+              </div>
+              <div style="flex:1 1 220px;border:1px solid var(--line);border-radius:14px;padding:10px 12px">
+                <div class="l">+ Mark joins → 3</div>
+                <div class="row" style="min-height:40px"><div class="grow">Bea</div><span class="badge">A – Da · 34%</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Joy</div><span class="badge">De – Ma · 33%</span></div>
+                <div class="row" style="min-height:40px"><div class="grow">Mark</div><span class="badge">Me – Z · 33%</span></div>
+              </div>
+            </div>
+            <div style="margin-top:14px;overflow-x:auto">
+              <div class="t" style="font-size:14px">The same rule from 1 up to 5 Account Managers on one card (the most per card, per branch)</div>
+              <table style="border-collapse:collapse;font-size:13px;margin-top:6px;width:100%">
+                <thead><tr style="text-align:left;color:var(--slate-2)"><th style="padding:4px 8px">People</th><th style="padding:4px 8px">Cuts</th><th style="padding:4px 8px">Cut where the running total reaches</th><th style="padding:4px 8px">Each gets</th></tr></thead>
+                <tbody><tr><td style="padding:4px 8px">1</td><td style="padding:4px 8px">0</td><td style="padding:4px 8px">— (A – Z)</td><td style="padding:4px 8px">≈ 100%</td></tr><tr><td style="padding:4px 8px">2</td><td style="padding:4px 8px">1</td><td style="padding:4px 8px">50%</td><td style="padding:4px 8px">≈ 50%</td></tr><tr><td style="padding:4px 8px">3</td><td style="padding:4px 8px">2</td><td style="padding:4px 8px">33.3% · 66.7%</td><td style="padding:4px 8px">≈ 33.3%</td></tr><tr><td style="padding:4px 8px">4</td><td style="padding:4px 8px">3</td><td style="padding:4px 8px">25% · 50% · 75%</td><td style="padding:4px 8px">≈ 25%</td></tr><tr><td style="padding:4px 8px">5</td><td style="padding:4px 8px">4</td><td style="padding:4px 8px">20% · 40% · 60% · 80%</td><td style="padding:4px 8px">≈ 20%</td></tr></tbody>
+              </table>
+              <p class="note">Every time someone joins or leaves, the cuts are worked out again from the counts, so 4 or 5 people each get about the same share of clients, not the same number of letters. <span class="badge ok">Decided 19 Nov</span> At most 5 Account Managers per card, per branch. A 6th cannot be added to that card — the invite offers another card or event type instead.</p>
+            </div>
+            <p class="note"><b>Fair, not alphabetical.</b> Busy letters (in the Philippines: D, R, M, S, C, G…) would overload whoever holds them, so the cut points come from counts, not from halving the alphabet:
+              ① count the shop's past clients on this card and event type by the first letter of the celebrant's last name · ② turn the counts into shares · ③ add them up A → Z · ④ cut where the running total reaches 1/2 (two people) or 1/3 and 2/3 (three people). A cut may fall inside a letter (Ma | Me). The letters stay in A–Z blocks so anyone can tell who has "Santos".<br>
+              Someone joining or leaving re-works it the same way. Inquiries already given out stay put. A split a manager adjusted is not re-worked — they get "Mark joined · Reset to fair split?".<br>
+              <b>The percentages here are SAMPLE numbers</b> to show the shape; the real cuts are worked out from each shop's own clients.<br>
+              <span class="confirm">STILL OPEN</span> too few past clients (a new shop): drawn — use the counts across all Setnayan inquiries until the shop has its own. How many is "enough" is yours to set.<br>
+              <span class="confirm">STILL OPEN</span> compound names (Dela Cruz, De Guzman): drawn — filed as written, under D; the counts already make D's share bigger, so the cut moves inside D (De | Di) by itself.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═════════════ (f) CLIENTS · WHO HANDLES WHO ═════════════ -->
+  <section class="pair" id="f">
+    <h2>(f) Clients — see and set who handles who</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">Clients</div>
+          <div class="scr">
+            <label class="f" style="margin-top:0"><span>Group by</span><select><option>Status</option><option>Day</option><option selected>Handled by</option></select></label>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Bea Santos · Joy Tan</div>
+            <div class="row"><div class="grow"><div class="t">Dela Cruz wedding</div><div class="l">Wedding Styling · Sat 12 Dec</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Tan &amp; Lim wedding</div><div class="l">Wedding Styling · Sun 17 Jan</div></div></div>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Bea Santos</div>
+            <div class="row"><div class="grow"><div class="t">Ramos debut</div><div class="l">Debut Styling · Sat 5 Dec</div></div></div>
+            <p class="note">"Handled by" is everyone on the card, so both people sit on every wedding client. Nobody can be set as THE person for one client.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">Clients</div>
+          <div class="scr">
+            <label class="f" style="margin-top:0"><span>Group by</span><select><option>Status</option><option>Day</option><option selected>Handled by</option><option>Branch</option><option>Card</option></select></label>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Lead Stylist · Bea Santos · Makati</div>
+            <div class="row"><div class="grow"><div class="t">Dela Cruz wedding</div><div class="l">Wedding Styling · Sat 12 Dec · by last name D</div></div><span class="pick">Bea</span></div>
+            <div class="row"><div class="grow"><div class="t">Ramos debut</div><div class="l">Debut Styling · Sat 5 Dec · only Bea covers it</div></div><span class="pick">Bea</span></div>
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Lead Stylist · Joy Tan · Makati</div>
+            <div class="row"><div class="grow"><div class="t">Tan &amp; Lim wedding</div><div class="l">Wedding Styling · Sun 17 Jan · by last name T</div></div><span class="pick">Joy</span></div>
+            <div class="row" style="flex-wrap:wrap"><div class="grow"><div class="t">Santiago <span class="badge" style="background:var(--warn-tint);color:var(--warn)">Hand over</span></div><div class="l">2 bookings · Wedding Styling (Joy's card) + Debut Styling (Bea's card)</div></div><span class="pick">Joy</span>
+              <div class="pop" style="display:block;flex-basis:100%">
+                <b>One client, one Account Manager.</b> Santiago booked two cards that belong to different people, so only one can handle them. Joy had Santiago first and keeps them until someone hands the account over.
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="pick btn">Keep with Joy</span><span class="pick btn">Give to Bea</span></div>
+                <div style="margin-top:6px">Whoever gets it handles both bookings, even on the card that isn't theirs. The other person is told, and the client is told who their person is now.</div>
+                <div style="margin-top:6px"><span class="confirm">STILL OPEN</span> who may hand over — drawn: the person who has the client, or a Shop / Branch Manager. The receiver doesn't have to accept.</div>
+              </div></div>
+            <p class="note"><span class="badge ok">Decided 19 Nov</span> Each client has ONE Account Manager, even across two cards. When a second booking lands on someone else's card, the client is marked <b>Hand over</b> until one of them gives the account to the other. A Shop or Branch Manager can also move any client with "Handled by ▾". An Account Manager sees only their own group.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (g) WHEN THE PLAN ENDS ═════════════ -->
+  <section class="pair" id="g">
+    <h2>(g) When the plan ends — paused seats, their chats move for now</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Your plan</div>
+          <div class="scr">
+            <div class="t" style="font-size:17px">Switch to Plus</div>
+            <p class="l" style="margin:4px 0 8px">What doesn't fit Plus</p>
+            <div class="row"><div class="grow"><div class="t">Team seats</div><div class="l">2 people with you · Plus holds 1 seat. Everyone stays; you can’t add more.</div></div></div>
+            <div class="row"><div class="grow"><div class="t">Services</div><div class="l">Go on hold when the plan starts — you pick which</div></div></div>
+            <p class="note">Shipped rule (ruling 5683): nobody is paused when a plan ends or drops. The team just can't grow.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="col">
+        <span class="tag new">Proposed</span>
+        <div class="phone">
+          <div class="bar">‹ Your plan</div>
+          <div class="scr">
+            <div class="t" style="font-size:17px">Switch to Plus <span class="badge ok">Owner 19 Nov · plan limits ACTIVE members</span></div>
+            <p class="l" style="margin:4px 0 8px">Plus holds 2 active with you. Pick who stays active — the others become <b>Added · waiting for plan</b> until a plan that covers them is active.</p>
+            <div class="row"><span class="ava">AR</span><div class="grow"><div class="t">Ana Reyes · COO</div><div class="l">You · always stays</div></div><input type="checkbox" checked disabled></div>
+            <div class="row"><span class="ava">BS</span><div class="grow"><div class="t">Bea Santos · Lead Stylist</div><div class="l">Makati · 2 cards · 14 clients</div></div><input type="checkbox" checked></div>
+            <div class="row"><span class="ava">JT</span><div class="grow"><div class="t">Joy Tan · Lead Stylist</div><div class="l">Makati · 1 card · 9 clients · will wait for plan</div></div><input type="checkbox"></div>
+            <div class="row"><span class="ava">CC</span><div class="grow"><div class="t">Carlo Cruz · Helper</div><div class="l">Free on every plan · stays</div></div><input type="checkbox" checked disabled></div>
+
+            <div class="role" style="margin-top:10px">
+              <div class="t" style="font-size:14px">Where a paused person's chats go</div>
+              <div class="l" style="margin-top:4px">Each client moves, for now, to the nearest person who stays:</div>
+              <div class="menu" style="margin-top:8px">
+                <div>① another Account Manager on the same card, same branch — by the fair split</div>
+                <div>② that branch's Branch Manager</div>
+                <div>③ the Shop Manager (always stays)</div>
+              </div>
+            </div>
+
+            <div class="l" style="margin:14px 0 2px;font-weight:600">Clients · after the switch</div>
+            <div class="row"><div class="grow"><div class="t">Tan &amp; Lim wedding <span class="badge" style="background:var(--warn-tint);color:var(--warn)">For now</span></div><div class="l">Joy is paused · with Bea until Joy is back</div></div><span class="pick">Bea</span></div>
+
+            <p class="note">The client keeps the same chat, with every message; they're told who is helping them for now. When a plan with room comes back, Joy un-pauses and her clients go back to her — unless a manager moved one meanwhile.<br>
+              <span class="confirm">STILL OPEN</span> who picks who stays — drawn: the Shop Manager, on this sheet; if nobody picks, the newest seats pause first.<br>
+              <span class="confirm">STILL OPEN</span> does "plan ends" also mean moving down a plan, as drawn, or only a plan that lapses unpaid?</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═════════════ (h) IN THE CHAT ═════════════ -->
+  <section class="pair" id="h">
+    <h2>(h) In the chat — the client is told who is handling them</h2>
+    <div class="cols">
+      <div class="col">
+        <span class="tag now">Now</span>
+        <div class="phone">
+          <div class="bar">‹ Blooms &amp; Co. Styling</div>
+          <div class="scr">
+            <div class="bub them">Hi! Sending you our wedding styling moodboard.</div>
+            <div class="bub me">Thank you!</div>
+            <p class="note">There is no "handled by" today, so no line in the chat tells the client which person at the shop is theirs, or that it changed.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <span class="tag new">Proposed · the client's chat</span>
+        <div class="phone">
+          <div class="bar">‹ Blooms &amp; Co. Styling</div>
+          <div class="scr">
+            <div class="sys">Your chat is being handled by <b>Joy Tan</b>, Lead Stylist.<small>Setnayan · Mon 2:14 PM</small></div>
+            <div class="bub them">Hi! I'm Joy — sending you our wedding styling moodboard.</div>
+            <div class="bub me">Thank you!</div>
+            <div class="sys">Your chat is now being handled by <b>Bea Santos</b>, Lead Stylist.<small>Setnayan · Thu 9:02 AM</small></div>
+            <div class="bub them">Hi, Bea here — I'll take it from here. Everything you sent Joy is right above.</div>
+            <div class="sys">Joy is away for now — <b>Bea Santos</b>, Lead Stylist, is handling your chat.<small>Setnayan · drawn for (g), a paused seat</small></div>
+            <div class="sys"><b>Joy Tan</b>, Lead Stylist, is handling your chat again.<small>Setnayan · drawn for (g), the seat is back</small></div>
+            <p class="note"><span class="badge ok">Decided 19 Nov</span> Every change posts one Setnayan line in the chat: a handover, a manager's "Handled by ▾", a paused seat (g) and its return. Same chat, every message kept. The name is the person's name plus the shop's own name for their role (a).<br>
+              The supplier side gets the same line, plus the shop's internal note ("Moved by Ana Reyes").</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier Roles Prototype</title>
+<!--
+  SUPPLIER ROLES — INTERACTIVE PROTOTYPE (2026-11-19). Companion to the script-free drawing
+  build-sessions/SUPPLIER-ROLES-PAGE-2026-11-19.html and the map SUPPLIER-ROLES-MAP-2026-11-19.md.
+  Everything is local, in-memory sample data. Seat and branch numbers are the plan table's (TIER_CAPS / max_sub_seats).
+  Last-name counts are SAMPLE numbers — the real split reads each shop's own past clients.
+-->
+<style>
+  :root{
+    --paper:#FFFFFF; --paper-2:#F4F2EC; --ivory:#EDEAE0; --line:#E1DCD1; --line-soft:#EDE8DE;
+    --ink:#2C2A29; --slate-2:#6E6A62; --slate-3:#8A857B;
+    --gold:#A9834B; --gold-2:#8A6B39; --gold-4:#F3ECDF;
+    --cta:#C24E25; --ok:#2B744A; --ok-tint:#E6F1EA; --warn:#965A00; --warn-tint:#FBF1E0; --danger:#B3261E;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper-2);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif}
+  .stage{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:20px 16px 48px;flex-wrap:wrap}
+  .phone{width:390px;max-width:100%;height:820px;background:var(--paper);border:1px solid var(--line);border-radius:26px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .top{padding:12px 16px 8px;border-bottom:1px solid var(--line-soft)}
+  .top .shop{font-weight:650;font-size:15px}
+  .top .as{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--slate-2);white-space:nowrap}
+  .top .as select{min-height:36px;font-size:13px}
+  .body{flex:1;overflow-y:auto;padding:12px 16px 24px}
+  .tabs{display:flex;border-top:1px solid var(--line);background:var(--paper)}
+  .tabs button{flex:1;min-height:56px;border:0;background:none;font:inherit;font-size:12.5px;color:var(--slate-2);cursor:pointer}
+  .tabs button.on{color:var(--gold-2);font-weight:650;box-shadow:inset 0 3px 0 var(--gold-2)}
+  .tabs button[hidden]{display:none}
+  h1{font-size:22px;margin:4px 0 4px}
+  .sub{font-size:13.5px;color:var(--slate-2);margin:0 0 10px}
+  .row{display:flex;align-items:center;gap:10px;min-height:56px;padding:8px 0;border-top:1px solid var(--line-soft)}
+  .row:first-child{border-top:0}
+  .grow{flex:1;min-width:0}
+  .t{font-size:15px;font-weight:600}
+  .l{font-size:13px;color:var(--slate-2)}
+  .ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rn{font-size:13.5px;font-weight:650;color:var(--gold-2)}
+  .ava{flex:none;width:38px;height:38px;border-radius:50%;background:var(--gold-4);color:var(--gold-2);display:grid;place-items:center;font-weight:700;font-size:13px}
+  .badge{display:inline-block;font-size:11.5px;font-weight:650;padding:2px 8px;border-radius:999px;background:var(--ivory);color:var(--slate-2);white-space:nowrap;vertical-align:middle}
+  .badge.ok{background:var(--ok-tint);color:var(--ok)} .badge.warn{background:var(--warn-tint);color:var(--warn)}
+  select,input[type=text]{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font:inherit;color:var(--ink)}
+  label.f{display:block;margin:10px 0 0} label.f>span{display:block;font-size:13px;color:var(--slate-2);margin-bottom:4px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font:inherit;font-size:14px;color:var(--ink);cursor:pointer}
+  .btn.main{background:var(--cta);border-color:var(--cta);color:#fff;font-weight:650;width:100%;margin-top:14px;min-height:48px}
+  .btn.danger{color:var(--danger)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .chip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:13.5px}
+  .chip.off{color:var(--slate-3);background:var(--paper-2)}
+  .card{border-top:1px solid var(--line);padding:12px 0}
+  .card:first-of-type{border-top:0}
+  .et{font-size:13px;font-weight:650;color:var(--slate-2);margin:8px 0 2px}
+  .note{font-size:12.5px;color:var(--slate-3);margin:8px 0 0}
+  .pop{margin:8px 0;padding:10px 12px;background:var(--paper-2);border-radius:12px;font-size:13px;color:var(--slate-2)}
+  .pop b{color:var(--ink)}
+  .bar{display:flex;height:8px;border-radius:999px;overflow:hidden;margin:6px 0 2px;background:var(--ivory)}
+  .bar i{display:block;height:100%}
+  .sheet{position:absolute;inset:0;background:rgba(44,42,41,.35);display:flex;align-items:flex-end}
+  .sheet .in{background:var(--paper);width:100%;max-height:88%;overflow-y:auto;border-radius:22px 22px 0 0;padding:16px 16px 22px}
+  .sheet .x{float:right;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--paper);font-size:16px;cursor:pointer}
+  .sys{margin:10px auto;max-width:92%;border:1px solid rgba(194,78,37,.2);background:rgba(194,78,37,.06);border-radius:12px;padding:8px 12px;text-align:center;font-size:13.5px}
+  .sys small{display:block;margin-top:3px;font-size:11.5px;color:var(--slate-2)}
+  .bub{max-width:80%;padding:8px 12px;border-radius:16px;font-size:14px;margin:6px 0}
+  .bub.them{background:var(--paper-2)} .bub.me{background:var(--gold);color:#fff;margin-left:auto}
+  .toast{position:absolute;left:16px;right:16px;bottom:70px;background:var(--ink);color:#fff;border-radius:12px;padding:10px 14px;font-size:13.5px}
+  .side{width:330px;max-width:100%;font-size:13.5px;color:var(--slate-2)}
+  .side h2{font-size:16px;color:var(--ink);margin:0 0 6px}
+  .side li{margin:5px 0}
+  .side .box{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:14px}
+  .sample{font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--warn);background:var(--warn-tint);padding:2px 7px;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="phone" id="phone">
+    <div class="top">
+      <div class="shop">Blooms &amp; Co. Styling</div>
+      <div class="as"><span>Viewing as</span><select id="viewer" aria-label="Viewing as"></select></div>
+    </div>
+    <div class="body" id="body"></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="team">Team</button>
+      <button data-tab="roles">Roles</button>
+      <button data-tab="routing">Inquiries</button>
+      <button data-tab="clients">Clients</button>
+      <button data-tab="plan">Plan</button>
+    </nav>
+    <div id="sheet"></div>
+    <div id="toast"></div>
+  </div>
+
+  <div class="side">
+    <div class="box">
+      <h2>Try it</h2>
+      <ul style="padding-left:18px;margin:0">
+        <li><b>Roles:</b> rename "Account Manager" → watch every card change.</li>
+        <li><b>Team:</b> Invite an Account Manager on Wedding Styling → the split re-works by itself. Pro is full after one more — the next ones are <b>Added · waiting for plan</b>. Switch Plan to Ultra and they come in. Up to 5 on one card; a full card can't be ticked.</li>
+        <li><b>Inquiries:</b> Adjust a cut; then add someone → "Reset to fair split?".</li>
+        <li><b>Clients:</b> + New inquiry (try "Santos", "Dela Cruz", "Zamora"). Open Santiago → Add a Debut booking → Hand over.</li>
+        <li><b>Team › a person:</b> mark them Away → their new inquiries go to the next person.</li>
+        <li><b>Plan:</b> switch to Plus → pick who stays active → the rest wait for the plan and their chats move "for now". Switch to Ultra → they come back in, oldest first.</li>
+        <li><b>Viewing as:</b> pick an Account Manager → they see only their own clients.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h2>What is real, what is sample</h2>
+      <ul style="padding-left:18px;margin:0">
+        <li>Members and cards ACTIVE per plan: the plan table (seats with the owner 1 · 1 · 2 · 6 · 12; cards 1 · 3 · 10 · 20 · 80; branches 0 · 0 · 0 · 2 · 5). Anyone or any card over it can be added and waits for the plan.</li>
+        <li>Last-name counts: <span class="sample">SAMPLE</span> — the real split reads each shop's own past clients.</li>
+        <li>People, cards and clients: made up.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h2>Still open (drawn with a default)</h2>
+      <ul style="padding-left:18px;margin:0" id="open"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────── DATA ───────────────────────── */
+const PLANS = [ // seats WITH the owner; branches beside the main shop — TIER_CAPS.agentAccounts + 1, plan table
+  {key:'free', name:'Free', seats:1, branches:0, cards:1},
+  {key:'verified', name:'Verified', seats:1, branches:0, cards:3},
+  {key:'solo', name:'Plus', seats:2, branches:0, cards:10},
+  {key:'pro', name:'Pro', seats:6, branches:2, cards:20},
+  {key:'enterprise', name:'Ultra', seats:12, branches:5, cards:80},
+];
+const ROLES = [
+  {key:'shop_manager', name:'Shop Manager', line:'Sees everything, including branches', can:'The team, the plan, branches, money settings, every client and every event day.', wholeShop:true},
+  {key:'branch_manager', name:'Branch Manager', line:'Runs one branch, like a Shop Manager', can:"That branch's clients, bookings, payments, event days and team. Not the plan or other branches."},
+  {key:'account_manager', name:'Account Manager', line:'Their own clients, from booking to event day', can:'Bookings, chat, payments and event day — for their own clients, on the service cards they are set to.'},
+  {key:'marketing', name:'Marketing', line:'Shop page, cards, photos, promos and ads', can:'Edit the shop page, cards, photos, promos, ads. No bookings, no clients, no money.', wholeShop:true},
+  {key:'event_crew', name:'Event Crew', line:"Hub and photos for the events they're given", can:'On the events you give them — the Hub and its photos. Nothing else.'},
+  {key:'helper', name:'Helper', line:'Sees the schedule, changes nothing', can:'One Helper is free on every plan.'},
+];
+const BRANCHES = [
+  {key:'main', name:'Main · Quezon City'},
+  {key:'makati', name:'Makati branch'},
+  {key:'cebu', name:'Cebu branch'},
+];
+const CARDS = [
+  {id:'ws', name:'Wedding Styling', branch:'makati', types:['Wedding']},
+  {id:'ds', name:'Debut Styling', branch:'makati', types:['Debut']},
+  {id:'cs', name:'Corporate Stage Design', branch:'makati', types:['Corporate']},
+  {id:'wq', name:'Wedding Styling', branch:'main', types:['Wedding']},
+  {id:'wc', name:'Wedding Styling', branch:'cebu', types:['Wedding']},
+];
+const OTHER = 'Every other event';
+const CAP = 5;
+
+/* SAMPLE first-letter shares (not measured). Busy letters are split in two so a cut can fall inside them. */
+const W = {A:4,B:6,C:9,D:9,E:3,F:3,G:6,H:2,I:1.5,J:2,K:1,L:5,M:8,N:2,O:2,P:5,Q:.6,R:7,S:7,T:4,U:.8,V:3,W:.5,X:.2,Y:1,Z:1};
+const HEAVY = new Set(['B','C','D','G','L','M','P','R','S']);
+const BUCKETS = [];
+for (const L of Object.keys(W)) {
+  if (HEAVY.has(L)) { BUCKETS.push({from:L+'a', to:L+'h', w:W[L]/2}); BUCKETS.push({from:L+'i', to:L+'z', w:W[L]/2}); }
+  else BUCKETS.push({from:L, to:L, w:W[L]});
+}
+const TOTAL = BUCKETS.reduce((a,b)=>a+b.w,0);
+function bucketOf(last){
+  const s = (last||'').trim(); if(!s) return 0;
+  const L = s[0].toUpperCase(), n = (s[1]||'a').toLowerCase();
+  const i = BUCKETS.findIndex(b => b.from[0]===L && (b.from.length===1 || (n>=b.from[1] && n<=b.to[1])));
+  return i<0 ? 0 : i;
+}
+
+let seq = 0;
+const S = {
+  plan:'pro', viewer:'ana', tab:'team',
+  names:{shop_manager:'COO', account_manager:'Lead Stylist', marketing:'CMO'},
+  members:[
+    {id:'ana', name:'Ana Reyes', duty:'shop_manager', branch:null, cards:[], owner:true, joined:seq++},
+    {id:'rico', name:'Rico Garcia', duty:'branch_manager', branch:'makati', cards:[], joined:seq++},
+    {id:'bea', name:'Bea Santos', duty:'account_manager', branch:'makati', cards:['ws','ds'], joined:seq++},
+    {id:'joy', name:'Joy Tan', duty:'account_manager', branch:'makati', cards:['ws'], joined:seq++},
+    {id:'dina', name:'Dina Lim', duty:'marketing', branch:null, cards:[], joined:seq++},
+    {id:'carlo', name:'Carlo Cruz', duty:'helper', branch:'cebu', cards:[], joined:seq++},
+  ],
+  manual:{},   // `${card}|${type}` → {ranges:{memberId:[i,j]}, ids:[...]}
+  clients:[],
+  stays:null,  // plan-switch picker
+};
+const OPEN = [
+  'Reach per plan: main still has 5 · 10 · 50 · 100 km · nationwide (18 Nov). Not drawn here either way.',
+  'Who picks who stays — drawn: the Shop Manager.',
+  'Moving down a plan too, or only a lapsed plan — drawn: both.',
+  'The added card\'s Account Manager sees the chat read-only? — drawn: no.',
+  'Who may hand over — drawn: the holder or a manager.',
+  'A card no Account Manager covers — drawn: the Branch Manager.',
+  'A new shop with few past clients — drawn: Setnayan-wide counts.',
+  'Compound names (Dela Cruz) — drawn: filed as written, under D.',
+];
+
+/* ───────────────────────── HELPERS ───────────────────────── */
+const $ = (s,r=document)=>r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const role = k => ROLES.find(r=>r.key===k);
+const roleName = k => (S.names[k]||'').trim() || role(k).name;
+const plan = () => PLANS.find(p=>p.key===S.plan);
+const mem = id => S.members.find(m=>m.id===id);
+const card = id => CARDS.find(c=>c.id===id);
+const branchName = k => k ? BRANCHES.find(b=>b.key===k).name : 'Whole shop';
+const initials = n => n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+const first = n => n.split(' ')[0];
+const pct = x => Math.round(x*100)+'%';
+const live = m => !m.paused; // paused = "Added · waiting for plan"
+const me = () => mem(S.viewer);
+const isManager = m => m && (m.duty==='shop_manager' || m.duty==='branch_manager');
+const now = () => { const d=new Date(); return d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); };
+
+function seatsUsed(){ // with the owner; one Helper rides free
+  let helperFree = 1, n = 0;
+  for (const m of S.members){ if (m.paused) continue; if (m.duty==='helper' && helperFree){ helperFree--; continue; } n++; }
+  return n;
+}
+function amsOn(cardId, includePaused=false){
+  return S.members.filter(m=>m.duty==='account_manager' && m.cards.includes(cardId) && (includePaused || live(m))).sort((a,b)=>a.joined-b.joined);
+}
+function branchManager(branch){ return S.members.find(m=>m.duty==='branch_manager' && m.branch===branch && live(m)) || null; }
+function shopManager(){ return S.members.find(m=>m.duty==='shop_manager' && live(m)); }
+
+/* Fair split: cumulative shares A→Z, cut where the running total reaches k/n. */
+function fairRanges(ids){
+  const n = ids.length, out = {}; if(!n) return out;
+  let start = 0, cum = 0, k = 1;
+  for (let i=0;i<BUCKETS.length;i++){
+    cum += BUCKETS[i].w;
+    const lastPerson = k===n;
+    if (!lastPerson && cum >= TOTAL*k/n - BUCKETS[i].w/2) { out[ids[k-1]] = [start,i]; start = i+1; k++; }
+  }
+  out[ids[n-1]] = [start, BUCKETS.length-1];
+  for (let j=k; j<n; j++) if(!out[ids[j-1]]) out[ids[j-1]] = [BUCKETS.length, BUCKETS.length-1];
+  return out;
+}
+function rangesFor(cardId, type){
+  const ids = amsOn(cardId).map(m=>m.id);
+  const key = cardId+'|'+type, man = S.manual[key];
+  if (!man) return {ranges:fairRanges(ids), manual:false, changed:false, ids};
+  // An adjusted split is never re-worked: a leaver's letters go to the person before them; a newcomer gets none.
+  const ranges = {}; const kept = Object.keys(man.ranges).filter(id=>ids.includes(id)).sort((a,b)=>man.ranges[a][0]-man.ranges[b][0]);
+  for (const id of kept) ranges[id] = [...man.ranges[id]];
+  if (kept.length){
+    ranges[kept[0]][0] = 0;
+    for (let i=1;i<kept.length;i++) ranges[kept[i]][0] = ranges[kept[i-1]][1]+1;
+    for (let i=0;i<kept.length-1;i++) ranges[kept[i]][1] = ranges[kept[i+1]][0]-1;
+    ranges[kept[kept.length-1]][1] = BUCKETS.length-1;
+  }
+  const changed = ids.length!==man.ids.length || ids.some(id=>!man.ids.includes(id));
+  return {ranges, manual:true, changed, ids, newcomers:ids.filter(id=>!kept.includes(id))};
+}
+function rangeLabel(r){ if(!r || r[0]>r[1]) return 'no letters'; return BUCKETS[r[0]].from+' – '+BUCKETS[r[1]].to; }
+function rangeShare(r){ if(!r || r[0]>r[1]) return 0; let w=0; for(let i=r[0];i<=r[1];i++) w+=BUCKETS[i].w; return w/TOTAL; }
+
+/* Route one booking → {to, why}. Branch → card → event type → last name; away → next AM, then Branch Manager. */
+function route(cardId, type, last){
+  const c = card(cardId), ams = amsOn(cardId);
+  const t = c.types.includes(type) ? type : OTHER;
+  if (!ams.length){
+    const bm = branchManager(c.branch);
+    return bm ? {to:bm.id, why:'no Account Manager on this card → Branch Manager'} : {to:shopManager().id, why:'no one on this card → Shop Manager'};
+  }
+  const {ranges} = rangesFor(cardId, t), b = bucketOf(last);
+  let target = ams.find(m=>{ const r=ranges[m.id]; return r && b>=r[0] && b<=r[1]; }) || ams[0];
+  let why = 'by last name '+(last||'?')[0].toUpperCase()+' ('+t+')';
+  if (target.away){
+    const next = ams.find(m=>m.id!==target.id && !m.away);
+    if (next){ why = first(target.name)+' is away → next Account Manager'; target = next; }
+    else { const bm = branchManager(c.branch); if (bm){ why = first(target.name)+' is away → Branch Manager'; target = bm; } }
+  }
+  return {to:target.id, why};
+}
+
+function sys(client, text){ client.chat.push({sys:true, text, t:now()}); }
+function handledLine(m){ return '<b>'+esc(m.name)+'</b>, '+esc(roleName(m.duty)); }
+function setHandler(client, id, kind){
+  const m = mem(id); client.handler = id;
+  if (kind==='temp') sys(client, esc(first(mem(client.temp).name))+' is away for now — '+handledLine(m)+', is handling your chat.');
+  else if (kind==='back') sys(client, handledLine(m)+', is handling your chat again.');
+  else sys(client, 'Your chat is now being handled by '+handledLine(m)+'.');
+}
+function newClient(name, celebrant, sender, cardId, type, date){
+  const last = celebrant || sender;
+  const r = route(cardId, type, last);
+  const c = {id:'c'+(seq++), name, celebrant, sender, bookings:[{card:cardId, type, date}], handler:r.to, why:r.why, temp:null, handover:null, chat:[]};
+  sys(c, 'Your chat is being handled by '+handledLine(mem(r.to))+'.');
+  c.chat.push({who:'them', text:'Hi! I\'m '+first(mem(r.to).name)+' — happy to help with your '+type.toLowerCase()+'.'});
+  S.clients.push(c); return c;
+}
+
+/* ───────────────────────── RENDER ───────────────────────── */
+function render(){
+  const v = me();
+  // viewer list
+  $('#viewer').innerHTML = S.members.filter(live).map(m=>`<option value="${m.id}" ${m.id===S.viewer?'selected':''}>${esc(first(m.name))} · ${esc(roleName(m.duty))}</option>`).join('');
+  const mgr = isManager(v);
+  const allowed = mgr ? (v.duty==='shop_manager' ? ['team','roles','routing','clients','plan'] : ['team','routing','clients'])
+                : v.duty==='account_manager' ? ['clients'] : v.duty==='marketing' ? ['team'] : ['clients'];
+  if (!allowed.includes(S.tab)) S.tab = allowed[0];
+  for (const b of $('#tabs').children){ b.hidden = !allowed.includes(b.dataset.tab); b.classList.toggle('on', b.dataset.tab===S.tab); }
+  $('#body').innerHTML = ({team:viewTeam, roles:viewRoles, routing:viewRouting, clients:viewClients, plan:viewPlan})[S.tab]();
+  $('#open').innerHTML = OPEN.map(o=>'<li>'+esc(o)+'</li>').join('');
+}
+
+function memberLine(m){
+  const parts = [branchName(m.branch)];
+  if (m.duty==='account_manager') parts.push(m.cards.length+' card'+(m.cards.length===1?'':'s'));
+  if (m.owner) parts.push('You');
+  return parts.join(' · ');
+}
+function viewTeam(){
+  const v = me(), p = plan();
+  const list = S.members.filter(m=> v.duty!=='branch_manager' || m.branch===v.branch || m.id===v.id);
+  const waiting = S.members.filter(m=>m.paused).length;
+  return `<h1>Team</h1><p class="sub">${esc(p.name)} · ${seatsUsed()} of ${p.seats} active with you · 1 Helper free</p>
+  ${waiting?`<div class="pop" data-act="goto" data-tab="plan" style="cursor:pointer"><b>${waiting} added · waiting for plan.</b> They can't sign in to the shop until a plan that covers them is active. <u>See plans ›</u></div>`:''}
+  ${list.map(m=>`<div class="row" data-act="member" data-id="${m.id}" style="cursor:pointer">
+     <span class="ava">${initials(m.name)}</span>
+     <div class="grow"><div class="t">${esc(m.name)} ${m.paused?'<span class="badge warn">Added · waiting for plan</span>':''} ${m.away?'<span class="badge">Away</span>':''}</div>
+       <div class="rn">${esc(roleName(m.duty))}</div><div class="l ell">${esc(memberLine(m))}</div></div>
+     <span class="l">›</span></div>`).join('')}
+  ${isManager(v)?`<button class="btn main" data-act="invite">Invite to your team</button>`:''}
+  <p class="note">Tap a person to change their role, branch or cards, or mark them away.</p>`;
+}
+function viewRoles(){
+  return `<h1>Roles</h1><p class="sub">What each role can do. Give it your shop's own name — it shows on every card of that role.</p>
+  ${ROLES.map(r=>`<div class="card">
+    <div class="t">${esc(r.name)} ${r.wholeShop?'<span class="badge">Whole shop</span>':''} ${r.key==='helper'?'<span class="badge">1 free</span>':''}</div>
+    <div class="l">${esc(r.line)}</div>
+    <details><summary class="l" style="cursor:pointer;margin-top:4px">ⓘ What they can do</summary><div class="pop">${esc(r.can)}</div></details>
+    <input type="text" data-act="rename" data-role="${r.key}" value="${esc(S.names[r.key]||'')}" placeholder="Your name for it — blank keeps “${esc(r.name)}”" style="margin-top:8px">
+  </div>`).join('')}
+  <p class="note">Renaming changes only the words — what the role can do stays the same. Saved as you type.</p>`;
+}
+function viewRouting(){
+  const v = me();
+  const br = S.routeBranch || (v.duty==='branch_manager' ? v.branch : 'makati');
+  const branchOpts = BRANCHES.filter(b=> v.duty!=='branch_manager' || b.key===v.branch);
+  const cards = CARDS.filter(c=>c.branch===br);
+  return `<h1>Who gets new inquiries</h1>
+  <p class="sub">Each new inquiry goes to ONE Account Manager: branch → the card it came in on → event type → last name. The split is fair by your past clients, not by halving the alphabet.</p>
+  <label class="f"><span>Branch</span><select data-act="routeBranch">${branchOpts.map(b=>`<option value="${b.key}" ${b.key===br?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+  ${cards.map(c=>{
+    const ams = amsOn(c.id);
+    if (!ams.length){ const bm = branchManager(c.branch); const to = bm||shopManager();
+      return `<div class="card"><div class="t">${esc(c.name)} card</div><div class="l">No Account Manager on this card</div>
+      <div class="row"><span class="ava">${initials(to.name)}</span><div class="grow"><div class="rn">${esc(roleName(to.duty))} · ${esc(to.name)}</div></div><span class="badge">A – Z</span></div></div>`; }
+    return `<div class="card"><div class="t">${esc(c.name)} card</div><div class="l">${ams.length} of ${CAP} Account Managers · ${ams.map(m=>esc(first(m.name))).join(', ')}</div>
+    ${[...c.types, OTHER].map(t=>splitBlock(c.id,t)).join('')}</div>`;
+  }).join('') || '<p class="l">No cards in this branch.</p>'}
+  <p class="note"><span class="sample">SAMPLE</span> shares — the real ones are counted from this shop's past clients (the celebrant's last name; the sender's if none).</p>`;
+}
+const COLORS = ['#A9834B','#3B4E67','#2B744A','#C24E25','#6E6A62'];
+function splitBlock(cardId, type){
+  const {ranges, manual, changed, ids, newcomers} = rangesFor(cardId, type);
+  const key = cardId+'|'+type, open = S.adjust===key;
+  const bar = ids.map((id,i)=>`<i style="width:${rangeShare(ranges[id])*100}%;background:${COLORS[i%5]}"></i>`).join('');
+  return `<div class="et">${esc(type)} · ${manual?'adjusted by you':'fair split'}</div>
+  <div class="bar">${bar}</div>
+  ${ids.map((id,i)=>{ const m=mem(id), r=ranges[id];
+    return `<div class="row" style="min-height:44px"><span class="ava" style="width:30px;height:30px;font-size:11px;background:${COLORS[i%5]};color:#fff">${initials(m.name)}</span>
+    <div class="grow"><div class="ell">${esc(m.name)} ${m.away?'<span class="badge">Away</span>':''}</div></div><span class="badge">${rangeLabel(r)} · ${pct(rangeShare(r))}</span></div>`; }).join('')}
+  ${changed?`<div class="pop">${newcomers&&newcomers.length?esc(newcomers.map(id=>first(mem(id).name)).join(', '))+' joined':'The team changed'} since you adjusted this. <button class="btn" data-act="reset" data-key="${key}">Reset to fair split?</button></div>`:''}
+  ${ids.length>1?`<div style="display:flex;gap:8px;margin-top:4px"><button class="btn" data-act="adjust" data-key="${key}">${open?'Done':'Adjust'}</button>${manual&&!changed?`<button class="btn" data-act="reset" data-key="${key}">Reset to fair split</button>`:''}</div>`:''}
+  ${open?adjustBlock(cardId,type,ranges,ids):''}`;
+}
+function adjustBlock(cardId, type, ranges, ids){
+  let html = '<div class="pop">';
+  for (let k=0;k<ids.length-1;k++){
+    const a = ids[k], b = ids[k+1], cur = ranges[a][1];
+    const lo = ranges[a][0], hi = ranges[b][1]-1;
+    let opts='';
+    for (let i=lo;i<=hi;i++){
+      const sa = rangeShare([ranges[a][0],i]), sb = rangeShare([i+1,ranges[b][1]]);
+      opts += `<option value="${i}" ${i===cur?'selected':''}>${BUCKETS[i].to} | ${BUCKETS[i+1].from} · ${pct(sa)} / ${pct(sb)}</option>`;
+    }
+    html += `<label class="f" style="margin-top:${k?10:0}px"><span>Cut between ${esc(first(mem(a).name))} and ${esc(first(mem(b).name))}</span>
+      <select data-act="cut" data-card="${cardId}" data-type="${esc(type)}" data-a="${a}">${opts}</select></label>`;
+  }
+  return html+'<p class="note" style="margin-top:6px">Each choice shows the share each person would get. A cut may fall inside a busy letter.</p></div>';
+}
+function viewClients(){
+  const v = me();
+  let list = S.clients;
+  if (v.duty==='account_manager') list = list.filter(c=>c.handler===v.id);
+  if (v.duty==='branch_manager') list = list.filter(c=>card(c.bookings[0].card).branch===v.branch);
+  const groups = {};
+  for (const c of list){ const k=c.handler; (groups[k] ||= []).push(c); }
+  return `<h1>Clients</h1><p class="sub">${v.duty==='account_manager'?'Your clients only.':'Group by: Handled by'}</p>
+  ${Object.keys(groups).map(id=>{ const m=mem(id); return `<div class="et" style="margin-top:14px">${esc(roleName(m.duty))} · ${esc(m.name)}${m.branch?' · '+esc(branchName(m.branch)):''}</div>
+    ${groups[id].map(c=>`<div class="row" data-act="client" data-id="${c.id}" style="cursor:pointer"><div class="grow">
+      <div class="t">${esc(c.name)} ${c.handover?'<span class="badge warn">Hand over</span>':''} ${c.temp?'<span class="badge warn">For now</span>':''}</div>
+      <div class="l ell">${c.bookings.map(b=>esc(card(b.card).name)).join(' + ')} · ${esc(c.why)}</div></div><span class="l">›</span></div>`).join('')}`; }).join('') || '<p class="l">No clients yet.</p>'}
+  ${v.duty!=='helper'?`<button class="btn main" data-act="inquiry">+ New inquiry</button>`:''}`;
+}
+function viewPlan(){
+  const p = plan();
+  const over = S.stays;
+  return `<h1>Your plan</h1><p class="sub">① Pick the plan · ② it sets your seats and branches · ③ give each seat a role.</p>
+  <label class="f"><span>Plan</span><select data-act="plan">${PLANS.map(x=>`<option value="${x.key}" ${x.key===(over?over.to:S.plan)?'selected':''}>${x.name} · ${x.seats} seat${x.seats>1?'s':''} with you · ${x.branches} branch${x.branches===1?'':'es'}</option>`).join('')}</select></label>
+  <div class="row" style="margin-top:8px"><div class="grow"><div class="t">Members active</div><div class="l">${seatsUsed()} of ${p.seats} with you · 1 Helper free · ${S.members.filter(m=>m.paused).length} waiting for plan</div></div></div>
+  <div class="row"><div class="grow"><div class="t">Service cards active</div><div class="l">${CARDS.length} of ${p.cards} · cards over the plan can be added, and go live when a plan that covers them is active</div></div></div>
+  <div class="row" data-act="goto" data-tab="team" style="cursor:pointer"><div class="grow"><div class="t">Roles and who covers what</div><div class="l">Team ›</div></div><span class="l">›</span></div>
+  ${over?staysBlock(over):''}
+  <p class="note">Branches limits on a smaller plan are not drawn here.</p>`;
+}
+function staysBlock(o){
+  const to = PLANS.find(x=>x.key===o.to);
+  const picked = S.members.filter(m=>o.keep.includes(m.id));
+  const counted = (()=>{ let h=1,n=0; for(const m of picked){ if(m.duty==='helper'&&h){h--;continue;} n++; } return n; })();
+  return `<div class="pop" style="margin-top:12px"><b>${esc(to.name)} holds ${to.seats} seat${to.seats>1?'s':''} with you.</b> Pick who stays active — the others become <b>Added · waiting for plan</b> and can't sign in until a plan that covers them is active.
+  ${S.members.filter(m=>!m.paused).map(m=>{ const fixed = m.owner || (m.duty==='helper');
+    return `<div class="row"><span class="ava">${initials(m.name)}</span><div class="grow"><div class="t">${esc(m.name)}</div><div class="l">${esc(roleName(m.duty))}${m.owner?' · always stays':m.duty==='helper'?' · free Helper · stays':''}</div></div>
+    <input type="checkbox" data-act="keep" data-id="${m.id}" ${o.keep.includes(m.id)?'checked':''} ${fixed?'disabled':''} style="width:22px;height:22px"></div>`; }).join('')}
+  <div class="l" style="margin-top:6px">${counted} of ${to.seats} seats picked</div>
+  <button class="btn main" data-act="applyPlan" ${counted>to.seats?'disabled':''}>Switch to ${esc(to.name)}</button>
+  <button class="btn" data-act="cancelPlan" style="width:100%;margin-top:8px">Cancel</button></div>`;
+}
+
+/* ───────────────────────── SHEETS ───────────────────────── */
+function sheet(html){ $('#sheet').innerHTML = `<div class="sheet" data-act="closeBg"><div class="in"><button class="x" data-act="close" aria-label="Close">✕</button>${html}</div></div>`; }
+function closeSheet(){ $('#sheet').innerHTML=''; }
+function toast(t){ $('#toast').innerHTML = `<div class="toast">${t}</div>`; clearTimeout(toast.h); toast.h=setTimeout(()=>$('#toast').innerHTML='',3200); }
+
+function memberForm(m){
+  const isNew = !m; m = m || {id:null, name:'', duty:'account_manager', branch:'makati', cards:[]};
+  const duty = S.formDuty || m.duty, branch = S.formBranch || m.branch || 'makati';
+  const needsBranch = !role(duty).wholeShop;
+  const cards = CARDS.filter(c=>c.branch===branch);
+  const p = plan(), helperFree = duty==='helper' && !S.members.some(x=>x.duty==='helper' && !x.paused && x.id!==m.id);
+  const full = isNew && seatsUsed() >= p.seats && !helperFree;
+  return `<h2 style="margin:4px 0 0">${isNew?'Invite to your team':esc(m.name)}</h2>
+  <p class="l">${isNew?`They sign in on their own phone with their Setnayan account. ${seatsUsed()} of ${p.seats} seats used · 1 Helper free.`:esc(roleName(m.duty))+' · '+esc(memberLine(m))}</p>
+  ${isNew?`<label class="f"><span>Name</span><input type="text" id="fName" placeholder="e.g. Mark Villanueva" value="${esc(S.formName||'')}"></label>`:''}
+  ${m.owner?'<p class="note">The shop owner is always the Shop Manager.</p>':`
+  <label class="f"><span>Role</span><select data-act="formDuty">${ROLES.map(r=>`<option value="${r.key}" ${r.key===duty?'selected':''}>${esc(roleName(r.key))}${S.names[r.key]?' · '+esc(r.name):''}</option>`).join('')}</select></label>
+  ${needsBranch?`<label class="f"><span>Branch</span><select data-act="formBranch">${BRANCHES.map(b=>`<option value="${b.key}" ${b.key===branch?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:'<p class="note">Covers the whole shop.</p>'}
+  ${duty==='account_manager'?`<label class="f"><span>Their service cards</span></label><div class="chips">${cards.map(c=>{
+     const n = amsOn(c.id, true).filter(x=>x.id!==m.id).length, on = m.cards.includes(c.id) && m.branch===branch, isFull = n>=CAP && !on;
+     return `<label class="chip ${isFull?'off':''}"><input type="checkbox" class="fCard" value="${c.id}" ${on?'checked':''} ${isFull?'disabled':''}> ${esc(c.name)} <span class="l">${isFull?'full, 5 of 5':(n+(on?1:0))+' of '+CAP}</span></label>`; }).join('') || '<span class="l">No cards in this branch.</span>'}</div>`:''}
+  `}
+  ${!isNew && !m.owner?`<label class="row" style="min-height:48px"><div class="grow"><div class="t">Away</div><div class="l">New inquiries skip them — next Account Manager, then the Branch Manager</div></div><input type="checkbox" id="fAway" ${m.away?'checked':''} style="width:22px;height:22px"></label>`:''}
+  ${full?`<div class="pop"><b>${esc(p.name)} has ${p.seats} of ${p.seats} active.</b> You can still add them — they show as <b>Added · waiting for plan</b> and can't sign in to the shop until a plan that covers them is active. <u data-act="goto" data-tab="plan" style="cursor:pointer">See plans ›</u></div>`:''}
+  ${m.owner?'':`<button class="btn main" data-act="${isNew?'sendInvite':'saveMember'}" data-id="${m.id||''}">${isNew?(full?'Add · waits for the plan':'Send invite'):'Save'}</button>`}
+  ${!isNew && !m.owner?`<button class="btn danger" data-act="removeMember" data-id="${m.id}" style="width:100%;margin-top:8px">Remove from the team</button>`:''}`;
+}
+function clientSheet(c){
+  const v = me(), mgr = isManager(v);
+  const people = S.members.filter(m=>live(m) && (m.duty==='account_manager'||m.duty==='branch_manager'||m.duty==='shop_manager'));
+  const h = mem(c.handler);
+  return `<h2 style="margin:4px 0 0">${esc(c.name)}</h2>
+  <p class="l">${c.bookings.map(b=>esc(card(b.card).name)+' · '+esc(b.type)).join(' + ')}</p>
+  <p class="l">Celebrant: ${esc(c.celebrant||'—')} · sent by ${esc(c.sender||'—')}</p>
+  ${mgr?`<label class="f"><span>Handled by</span><select data-act="handledBy" data-id="${c.id}">${people.map(m=>`<option value="${m.id}" ${m.id===c.handler?'selected':''}>${esc(m.name)} · ${esc(roleName(m.duty))}</option>`).join('')}</select></label>`:`<p class="t" style="margin-top:8px">Handled by ${esc(h.name)}</p>`}
+  ${c.handover?`<div class="pop"><b>One client, one Account Manager.</b> ${esc(c.name)} booked a card that belongs to ${esc(first(mem(c.handover).name))}. ${esc(first(h.name))} keeps them until someone hands the account over.
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn" data-act="keepWith" data-id="${c.id}">Keep with ${esc(first(h.name))}</button><button class="btn" data-act="giveTo" data-id="${c.id}">Give to ${esc(first(mem(c.handover).name))}</button></div></div>`:''}
+  ${c.temp?`<div class="pop">${esc(first(mem(c.temp).name))} is paused (plan). ${esc(first(h.name))} has this client for now; it goes back when the seat returns.</div>`:''}
+  <details style="margin-top:8px"><summary class="btn" style="list-style:none">+ Add a booking to this client</summary>
+    <label class="f"><span>Card</span><select id="bCard">${CARDS.filter(x=>!c.bookings.some(b=>b.card===x.id)).map(x=>`<option value="${x.id}">${esc(x.name)} · ${esc(branchName(x.branch))}</option>`).join('')}</select></label>
+    <button class="btn" data-act="addBooking" data-id="${c.id}" style="margin-top:8px">Add booking</button></details>
+  <div class="et" style="margin-top:14px">The client's chat</div>
+  <div style="background:var(--paper);border:1px solid var(--line-soft);border-radius:14px;padding:6px 10px">
+  ${c.chat.map(x=>x.sys?`<div class="sys">${x.text}<small>Setnayan · ${x.t}</small></div>`:`<div class="bub ${x.who}">${esc(x.text)}</div>`).join('')}</div>`;
+}
+function inquirySheet(){
+  return `<h2 style="margin:4px 0 0">New inquiry</h2><p class="l">Comes in on a card. Routed by branch → card → event type → last name.</p>
+  <label class="f"><span>Card</span><select id="iCard">${CARDS.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(branchName(c.branch))}</option>`).join('')}</select></label>
+  <label class="f"><span>Event type</span><select id="iType"><option>Wedding</option><option>Debut</option><option>Corporate</option><option>Birthday</option></select></label>
+  <label class="f"><span>Main celebrant's last name (groom, for a wedding)</span><input type="text" id="iCel" placeholder="e.g. Santos"></label>
+  <label class="f"><span>Sent by (last name)</span><input type="text" id="iSend" placeholder="used only if the celebrant's is blank"></label>
+  <button class="btn main" data-act="sendInquiry">Send inquiry</button>`;
+}
+
+/* ───────────────────────── ACTIONS ───────────────────────── */
+function pauseAndMove(keepIds){
+  const paused = S.members.filter(m=>!m.paused && !keepIds.includes(m.id) && !m.owner && !(m.duty==='helper'));
+  for (const m of paused) m.paused = true;
+  for (const c of S.clients){
+    const h = mem(c.handler); if (!h.paused) continue;
+    const b = c.bookings[0], cd = card(b.card);
+    const alt = amsOn(b.card); let to;
+    if (alt.length){ const r = route(b.card, b.type, c.celebrant||c.sender); to = r.to; }
+    else to = (branchManager(cd.branch)||shopManager()).id;
+    c.temp = h.id; c.whyBefore = c.why; c.why = 'for now — '+first(h.name)+' is paused'; setHandler(c, to, 'temp');
+  }
+  return paused;
+}
+/* A plan with room: people waiting come in, in the order they were added, until the seats are used. */
+function activateWaiting(){
+  const back = [];
+  for (const m of S.members.filter(x=>x.paused).sort((a,b)=>a.joined-b.joined)){
+    if (seatsUsed() >= plan().seats && !(m.duty==='helper' && !S.members.some(x=>x.duty==='helper'&&!x.paused))) break;
+    m.paused = false; back.push(m);
+  }
+  for (const c of S.clients) if (c.temp && !mem(c.temp).paused){ const id=c.temp; c.temp=null; if (c.handler!==id && !c.movedByManager){ setHandler(c, id, 'back'); c.why = c.whyBefore || c.why; } }
+  return back;
+}
+function unpause(){
+  const back = S.members.filter(m=>m.paused);
+  for (const m of back) m.paused = false;
+  for (const c of S.clients) if (c.temp){ const id=c.temp; c.temp=null; if (c.handler!==id && !c.movedByManager){ setHandler(c, id, 'back'); c.why = c.whyBefore || c.why; } }
+  return back;
+}
+
+document.addEventListener('click', e=>{
+  const el = e.target.closest('[data-act]'); if(!el) return;
+  const a = el.dataset.act, id = el.dataset.id;
+  if (a==='closeBg' && e.target!==el) return;
+  if (a==='close'||a==='closeBg'){ closeSheet(); S.formDuty=S.formBranch=null; return; }
+  if (a==='member'){ if(!isManager(me())) return; S.formDuty=S.formBranch=null; S.editing=id; sheet(memberForm(mem(id))); return; }
+  if (a==='invite'){ S.formDuty=S.formBranch=null; S.editing=null; sheet(memberForm(null)); return; }
+  if (a==='goto'){ S.tab=el.dataset.tab; render(); return; }
+  if (a==='sendInvite' || a==='saveMember'){
+    const duty = S.formDuty || (a==='saveMember'?mem(id).duty:'account_manager');
+    const branch = role(duty).wholeShop ? null : (S.formBranch || (a==='saveMember'?mem(id).branch:null) || 'makati');
+    const cards = duty==='account_manager' ? [...document.querySelectorAll('.fCard:checked')].map(x=>x.value) : [];
+    if (a==='sendInvite'){
+      const name = ($('#fName').value||'').trim() || 'New Person';
+      const p = plan(), helperFree = duty==='helper' && !S.members.some(x=>x.duty==='helper' && !x.paused);
+      const waits = seatsUsed() >= p.seats && !helperFree;
+      S.members.push({id:'m'+(seq++), name, duty, branch, cards, joined:seq++, paused:waits}); S.formName='';
+      if (waits){ closeSheet(); S.formDuty=S.formBranch=null; toast(esc(first(name))+' added · waiting for plan — they come in when a plan with room is active'); render(); return; }
+      toast(esc(first(name))+' joined as '+esc(roleName(duty))+(cards.length?' · the split on '+cards.length+' card'+(cards.length>1?'s':'')+' re-worked':''));
+    } else {
+      const m = mem(id); Object.assign(m, {duty, branch, cards}); m.away = $('#fAway')?.checked || false;
+      toast('Saved');
+    }
+    closeSheet(); S.formDuty=S.formBranch=null; render(); return;
+  }
+  if (a==='removeMember'){
+    const m = mem(id); S.members = S.members.filter(x=>x.id!==id);
+    for (const c of S.clients) if (c.handler===id){ const b=c.bookings[0]; const r=route(b.card,b.type,c.celebrant||c.sender); setHandler(c, r.to); c.why='moved — '+r.why; }
+    if (S.viewer===id) S.viewer='ana';
+    closeSheet(); toast(esc(m.name)+' removed · their clients moved'); render(); return;
+  }
+  if (a==='adjust'){ S.adjust = S.adjust===el.dataset.key ? null : el.dataset.key; render(); return; }
+  if (a==='reset'){ delete S.manual[el.dataset.key]; S.adjust=null; render(); return; }
+  if (a==='client'){ S.openClient=id; sheet(clientSheet(S.clients.find(c=>c.id===id))); return; }
+  if (a==='inquiry'){ sheet(inquirySheet()); return; }
+  if (a==='sendInquiry'){
+    const cel = $('#iCel').value.trim(), snd = $('#iSend').value.trim();
+    const last = cel || snd || 'Cruz';
+    const c = newClient(last+' '+$('#iType').value.toLowerCase(), cel, snd, $('#iCard').value, $('#iType').value, '');
+    closeSheet(); toast('Went to '+esc(mem(c.handler).name)+' — '+esc(c.why)); render(); return;
+  }
+  if (a==='addBooking'){
+    const c = S.clients.find(x=>x.id===id), cid = $('#bCard')?.value, cd = card(cid); if(!cd) return;
+    const type = cd.types[0]; c.bookings.push({card:cid, type, date:''});
+    const r = route(cid, type, c.celebrant||c.sender);
+    if (r.to!==c.handler){ c.handover = r.to; sys(c, 'You booked '+esc(cd.name)+'. '+handledLine(mem(c.handler))+', is still handling your chat.'); }
+    else sys(c, 'You booked '+esc(cd.name)+'. '+handledLine(mem(c.handler))+', is handling it too.');
+    sheet(clientSheet(c)); render(); return;
+  }
+  if (a==='keepWith'){ const c=S.clients.find(x=>x.id===id); c.handover=null; sheet(clientSheet(c)); render(); return; }
+  if (a==='giveTo'){ const c=S.clients.find(x=>x.id===id); const to=c.handover; c.handover=null; setHandler(c,to); c.why='handed over by '+first(me().name); sheet(clientSheet(c)); render(); return; }
+  if (a==='applyPlan'){
+    const o = S.stays; const paused = pauseAndMove(o.keep); S.plan = o.to; S.stays=null;
+    toast('Now on '+esc(plan().name)+(paused.length?' · '+paused.map(m=>esc(first(m.name))).join(', ')+' waiting for plan · their chats moved for now':'')); render(); return;
+  }
+  if (a==='cancelPlan'){ S.stays=null; render(); return; }
+});
+document.addEventListener('change', e=>{
+  const el = e.target, a = el.dataset.act;
+  if (el.id==='viewer'){ S.viewer = el.value; render(); return; }
+  if (a==='formDuty'||a==='formBranch'){ const n=$('#fName'); S.formName = n ? n.value : S.formName; }
+  if (a==='formDuty'){ S.formDuty = el.value; if(!S.formBranch) S.formBranch = null; $('#sheet .in').innerHTML = '<button class="x" data-act="close" aria-label="Close">✕</button>'+memberForm(S.editing?mem(S.editing):null); return; }
+  if (a==='formBranch'){ S.formBranch = el.value; $('#sheet .in').innerHTML = '<button class="x" data-act="close" aria-label="Close">✕</button>'+memberForm(S.editing?mem(S.editing):null); return; }
+  if (a==='routeBranch'){ S.routeBranch = el.value; render(); return; }
+  if (a==='cut'){
+    const {card:cid, type, a:aid} = el.dataset, key = cid+'|'+type, cur = rangesFor(cid,type);
+    const ranges = JSON.parse(JSON.stringify(cur.ranges)), ids = cur.ids, k = ids.indexOf(aid), i = +el.value;
+    ranges[aid][1] = i; ranges[ids[k+1]][0] = i+1;
+    S.manual[key] = {ranges, ids:[...ids]}; render(); return;
+  }
+  if (a==='handledBy'){ const c=S.clients.find(x=>x.id===el.dataset.id); c.handover=null; c.temp=null; c.movedByManager=true; setHandler(c, el.value); c.why='set by '+first(me().name); sheet(clientSheet(c)); render(); return; }
+  if (a==='plan'){
+    const to = PLANS.find(x=>x.key===el.value);
+    const need = (()=>{ let h=1,n=0; for(const m of S.members){ if(m.paused) continue; if(m.duty==='helper'&&h){h--;continue;} n++; } return n; })();
+    if (need > to.seats){ S.stays = {to:to.key, keep:S.members.filter(m=>m.owner||m.duty==='helper').map(m=>m.id)}; }
+    else { S.plan = to.key; S.stays=null; const back = activateWaiting(); toast('Now on '+esc(to.name)+(back.length?' · '+back.map(m=>esc(first(m.name))).join(', ')+' can now sign in':'')); }
+    render(); return;
+  }
+  if (a==='keep'){ const o=S.stays; if(el.checked) o.keep.push(el.dataset.id); else o.keep=o.keep.filter(x=>x!==el.dataset.id); render(); return; }
+});
+document.addEventListener('input', e=>{
+  const el = e.target;
+  if (el.dataset.act==='rename'){ S.names[el.dataset.role] = el.value; const pos = el.selectionStart, r = el.dataset.role; render(); const n = document.querySelector(`[data-role="${r}"]`); if(n){ n.focus(); n.setSelectionRange(pos,pos); } }
+});
+$('#tabs').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return; S.tab=b.dataset.tab; S.adjust=null; render(); });
+
+/* ───────────────────────── SAMPLE CLIENTS ───────────────────────── */
+newClient('Dela Cruz wedding', 'Dela Cruz', 'Reyes', 'ws', 'Wedding', 'Sat 12 Dec');
+newClient('Tan & Lim wedding', 'Tan', 'Lim', 'ws', 'Wedding', 'Sun 17 Jan');
+newClient('Ramos debut', 'Ramos', 'Ramos', 'ds', 'Debut', 'Sat 5 Dec');
+newClient('Santiago', 'Santiago', 'Santiago', 'ws', 'Wedding', 'Sat 6 Feb');
+newClient('Villanueva launch', 'Villanueva', 'Villanueva', 'cs', 'Corporate', 'Fri 22 Jan');
+render();
+</script>
+</body>
+</html>

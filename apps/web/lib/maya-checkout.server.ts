@@ -281,7 +281,11 @@ export async function isInternalUser(userId: string): Promise<boolean> {
 export async function readMayaSwitchMeasured(client: SupabaseClient): Promise<{ enabled: boolean; readFailed: boolean }> {
   try {
     const { data, error } = await client.from('platform_settings').select('maya_checkout_enabled').eq('id', 1).maybeSingle();
-    if (error || !data) return { enabled: false, readFailed: true };
+    if (error) {
+      console.error('[maya] admin switch read refused', error.message);
+      return { enabled: false, readFailed: true };
+    }
+    if (!data) return { enabled: false, readFailed: true };
     return { enabled: (data as { maya_checkout_enabled?: boolean | null }).maya_checkout_enabled === true, readFailed: false };
   } catch {
     return { enabled: false, readFailed: true };

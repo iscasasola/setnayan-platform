@@ -164,7 +164,7 @@ import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
-import type { ThreadDayAnswer } from '@/lib/thread-day-answer';
+import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
 import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-submit';
 import { Badge } from '@/app/_components/badge';
@@ -620,6 +620,14 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             .select('status, category')
             .eq('event_id', thread.event_id),
         ]);
+        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
+        // H-4 (supplier audit 2026-11-17): a refused suppliers read drew "None yet" on the Customer card for an event
+        // with booked suppliers. Refused = unread (null), the same as the thrown path below — never zero.
+        if (vendors.error) {
+          logQueryError('vendorThread.eventVendors', vendors.error, { eventId: thread.event_id }, 'graceful_degrade');
+          const hosts = members.error ? null : chatHostsFrom(members.data);
+          return { hostName: hosts?.[0]?.name ?? null, hosts, locked: null, total: null, lockedCategories: [] };
+        }
         const rows = (vendors.data ?? []) as Array<{
           status: string | null;
           category: string | null;
@@ -634,7 +642,6 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         const lockedCategories = lockedRows
           .map((r) => (r.category ? displayServiceLabel(r.category) : null))
           .filter((c): c is string => !!c);
-        if (members.error) logQueryError('vendorThread.chatHosts', members.error, { eventId: thread.event_id }, 'graceful_degrade');
         const hosts = members.error ? null : chatHostsFrom(members.data);
         const hostName = hosts?.[0]?.name ?? null;
         return { hostName, hosts, locked, total: rows.length, lockedCategories };
@@ -953,7 +960,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
      already started above, so it never costs a read the answer does not need. */
   const todayIso = manilaDate(new Date().toISOString());
   const dayAnswerRead: Promise<ThreadDayAnswer | null> = (async () => {
-    const [{ data: ev }, stage] = await Promise.all([eventRead, railStageRead]);
+    const [{ data: ev, error: evErr }, stage] = await Promise.all([eventRead, railStageRead]);
+    // H-5 (supplier audit 2026-11-17): a REFUSED event read is not "No date yet" — no answer line is drawn instead.
+    if (evErr) {
+      logQueryError('vendorThread.event', evErr, { eventId: thread.event_id }, 'graceful_degrade');
+      return null;
+    }
     if (!ev?.event_date) return { kind: 'no_date' };
     if (THREAD_STAGE_HAS_AGREEMENT[stage]) return { kind: 'booked' };
     return readThreadDayAnswer(supabase, {
@@ -1947,6 +1959,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=files`, label: 'Files & contracts', icon: 'files' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=schedule`, label: 'Schedule', icon: 'schedule' },
                     { href: `/vendor-dashboard/clients/${thread.event_id}?tab=details`, label: 'Full customer profile', icon: 'customer' },
+                    // 🚩 Report a problem left the (+) for the head's ⋯ (Unichat part G, 20 Nov). This page still draws on its
+                    // own (the inbox pane, a return with a notice), so ⋮ keeps the way in — only where the client page opens.
+                    ...(clientAdmits ? [{ href: `/vendor-dashboard/clients/${thread.event_id}?tab=report`, label: 'Report a problem', icon: 'problem' as const }] : []),
                   ]}
                 />
                 </>
@@ -2182,6 +2197,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   // 🏪 The shop's composer: this login may also host the event — here it speaks as the shop.
                   sentAs="vendor"
                   wordsOnly={await feeWordsOnlyRead}
+                  // 💬 Inside the client page the chat holds everything (19 Nov 2026): the chips and the suggested step.
+                  kinds={embedded}
                 />
               </div>
                   ) : thread.inquiry_status === 'pending' ? (
@@ -2395,6 +2412,12 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             decisionPayments={decisionPayments}
             decisionGuestCounts={decisionGuestCounts}
             initialView={initialView}
+            // 💬 ONE CHAT THAT HOLDS EVERYTHING (owner 19 Nov 2026) — only inside the client page: the strip on top, the
+            // chips' filter, quiet step lines, the inquiry card (once the inquiry is answered — while it is pending the
+            // shipped "Their ask" above carries it with Accept · Ask · Decline) and Every version behind the Deal box.
+            oneChat={embedded}
+            inquiryPending={thread.inquiry_status === 'pending'}
+            inquiryCalendar={dayAnswer === null || dayAnswer.kind === 'no_date' || dayAnswer.kind === 'not_set' || dayAnswer.kind === 'booked' ? null : threadDayIsOpen(dayAnswer) ? 'open' : 'busy'}
             // The SAME three actions this page's own sections post to — the
             // payment-confirm row and the guest-count surcharge card above. One
             // way to answer each request; Decisions is a second door to it.

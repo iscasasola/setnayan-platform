@@ -14,6 +14,7 @@
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/admin-people-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the four People records on fixtures; reached by typing its address
+/dev/articles-lab	# 2026-11-17 · internal (dev lab, 404 in production) · the articles feed, an article and the Write sheet on the drawing's sample rows; reached by typing its address
 /dev/admin-shell-lab	# 2026-11-13 · internal (dev lab, 404 in production) · the admin five-tab shell on fixtures; reached by typing its address
 /dev/admin-catalogue-lab	# 2026-11-14 · internal (dev lab, 404 in production) · the admin Catalogue screens on fixtures; reached by typing its address
 /dev/admin-money-lab	# 2026-11-14 · internal (dev lab, 404 in production) · Admin › Money's inner screens on fixtures; reached by typing its address
@@ -55,6 +56,7 @@
 /dev/maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/maker-lab/guest/scrub	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/mall-card-lab	# 2026-11-20 · internal (dev lab, 404 in production) · card 14 on Discover's grid with Save on the photo; reached by typing its address
 /dev/me-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/memories-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/notifications-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -98,6 +100,7 @@
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/unichat-a-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/verify-desk-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

@@ -89,10 +89,11 @@ const SITES: Record<string, Site> = {
     why: 'the My Events shelf ⓘ is a server-rendered <details> so it opens with JavaScript off, on a venue’s bad signal',
   },
   'app/onboarding/_shared/setup-card.tsx': { why: 'it opens its line IN the page under the title, not a hover note' },
-  'app/(shell)/for-coordinators/_fc-client.tsx': {
-    why: 'the /for-coordinators "ⓘ title" pill opens its panel IN the page beneath it (a disclosure), not a hover note',
+  'app/(shell)/for-coordinators/_fc-info.tsx': {
+    why: 'the /for-coordinators ⓘ (approved drawing 2026-11-20) is a server-rendered <details> that opens its words IN the page under the line — the page ships no script',
   },
   'app/[slug]/_components/selfie-capture.tsx': { why: 'a 44-px button that opens the face-step details sheet' },
+  'app/_components/chat/cards/card-bits.tsx': { why: 'a chat card’s 44-px ⓘ button that opens that card’s details sheet (Unichat part C)' },
   'app/for-suppliers/_components/supplier-front-info.tsx': {
     why: 'the approved /for-suppliers page (2026-11-06) opens its ⓘ words IN the page under the section, from a labelled pill — not a hover note or a popup',
     colours: 'template',

@@ -498,7 +498,7 @@ export default async function PricingPage() {
                   {prices.ultra != null ? (
                     <PriceRowShell
                       name="Event Ultra"
-                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, Patiktok and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
+                      tip={`Everything in Event Pro, plus Live Watch for one day, your full-size photos kept 12 months after the event instead of 3, and ${prices.planCredits.ultra != null ? `${formatCount(prices.planCredits.ultra)} Papic credits` : 'more Papic credits'}. One unlock covers everyone on the event.`}
                       what="Everything in Pro — and your day shared live and kept."
                       figure={<Figure php={prices.ultra} />}
                       action={<PlanBuyCta plan="ultra" />}

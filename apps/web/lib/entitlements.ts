@@ -341,11 +341,10 @@ async function readCompActiveSkus(supabase: SupabaseClient, eventId: string): Pr
 export const SKU_OWNERSHIP_ALIASES: Readonly<Record<string, ReadonlyArray<string>>> =
   Object.freeze({
     // 💎 EVENT ULTRA (owner 2026-11-13, "EVENT ULTRA APPROVED — BUILD IT"): everything in Event Pro + Live Watch (self-run)
-    // + Patiktok, conferred read side only by the one Ultra order (`EVENT_ULTRA_GRANTS`, lib/event-ultra.ts). Aliases are
+    // (Patiktok left 2026-11-20 — retired), conferred read side only by the one Ultra order (`EVENT_ULTRA_GRANTS`, lib/event-ultra.ts). Aliases are
     // NOT transitive, so every list below that names COUPLE_WEBSITE_PRO names EVENT_ULTRA too —
     // `event-ultra-grants.test.ts` fails if one is missed. One-directional: a Pro order never confers Ultra.
     COUPLE_WEBSITE_PRO: Object.freeze([EVENT_ULTRA_SKU]),
-    PATIKTOK_COMPILER: Object.freeze([EVENT_ULTRA_SKU]),
     EDITORIAL_PRO: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
     STD_PREMIUM_OPENINGS: Object.freeze(['COUPLE_WEBSITE_PRO', EVENT_ULTRA_SKU]),
     // ANIMATED_MONOGRAM ← COUPLE_WEBSITE_PRO (owner ruling 2026-09-24, "A

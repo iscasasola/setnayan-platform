@@ -63,7 +63,7 @@ export async function VendorChallengeSection({
 
   // The section is mounted only when the vendor is BOOKED on the event (the host
   // page gates it behind isBooked), so booked = true here.
-  const [challenges, entitled, papicActive] = await Promise.all([
+  const [challengesRead, entitled, papicActive] = await Promise.all([
     fetchVendorChallenges(supabase, eventId),
     // THE DATABASE'S OWN GATE (vendor_papic_challenge_entitled — Pro and up, a legacy paid window, or
     // grandfathered), so "On" here is exactly what the submit RPC allows. Admin client: service role only.
@@ -76,6 +76,8 @@ export async function VendorChallengeSection({
   // (booked is implied by mount).
   const unread = entitled === null;
   const ready = photoChallengeEventReady({ booked: true, papicActive, entitled: entitled === true });
+  // C-4: null = the challenges read was REFUSED — said, never "No challenges yet — write your first one".
+  const challenges = challengesRead ?? [];
 
   return (
     <ShopCard pad="roomy">
@@ -93,7 +95,11 @@ export async function VendorChallengeSection({
         </InfoTip>
       </div>
 
-      {challenges.length > 0 ? (
+      {challengesRead === null ? (
+        <p className="mt-4 text-sm text-ink/70" data-challenges-unread="">
+          Couldn&rsquo;t load your challenges. Refresh in a moment before you write another one.
+        </p>
+      ) : challenges.length > 0 ? (
         <ul className="mt-3">
           {challenges.map((c) => {
             const badge = STATUS_BADGE[vendorChallengeStatus(c)];

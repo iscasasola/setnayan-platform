@@ -17,6 +17,7 @@ import {
   fetchVendorMonthDayStates,
   fetchVendorPoolBookings,
   fetchVendorPools,
+  fetchVendorPoolsOrNull,
 } from '@/lib/vendor-schedule';
 import {
   asksByDate,
@@ -39,7 +40,7 @@ import { entryTierAllowance, tierCaps } from '@/lib/vendor-tier-caps';
 import { fetchCapsWithAddOns } from '@/lib/vendor-ultra-addons';
 import { datesBlocksForWire, datesBookingsForWire } from './dates-wire';
 import { readBookedDayHours } from '@/lib/booked-day-hours.server';
-import { fetchVendorWaitlist } from '@/lib/vendor-waitlist';
+import { fetchVendorWaitlist, fetchVendorWaitlistRead } from '@/lib/vendor-waitlist';
 import { fetchVendorServices } from '@/lib/vendor-services';
 import {
   fetchVendorTeam,
@@ -321,9 +322,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     },
     { pageSize: 1000 },
   ));
-  const [pools, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
-    // The schedules an outside client can hold a date on (the Add sheet).
-    fetchVendorPools(supabase, vendorProfileId),
+  const [poolsRead, bookings, blocksRead, threadsRead, paydayRes, meetingsRead, unreadRead] = await Promise.all([
+    // The schedules an outside client can hold a date on (the Add sheet). D-5: the HONEST read — null when refused.
+    fetchVendorPoolsOrNull(supabase, vendorProfileId),
     // LEFT ON THE POOL READ — CAPACITY, not the room: `poolBooked` below is the
     // floor that keeps a held date on the roster whatever else is missing.
     fetchVendorPoolBookings(supabase, vendorProfileId),
@@ -355,6 +356,10 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   const [teamRead, assignmentsRead, servicesRead] = await teamReads;
 
   const threads = threadsRead.threads;
+  // D-5 (supplier audit 2026-11-17): a refused pools read is not "no schedules" — it told a shop that already has
+  // schedules to "Set how many events you take a day".
+  const pools = poolsRead ?? [];
+  const poolsUnread = poolsRead === null;
   // ⚡ The month on top no longer holds the list back: started here, awaited just before the page is drawn.
   const monthPartRead = startAhead(customersMonth({
     supabase,
@@ -363,6 +368,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     month,
     openFold: search.open === 'availability' ? 'capacity' : (search.open ?? null),
     pools,
+    poolsUnread,
     bookings,
     blocksRead,
     threads,
@@ -1201,7 +1207,8 @@ function startMonthReads(
     fetchVendorMonthDayStates(supabase, vendorProfileId, month),
     // The month's waiting list (its marks) and every date ahead (the Waiting list fold).
     fetchVendorWaitlist(supabase, vendorProfileId, `${month}-01`),
-    fetchVendorWaitlist(supabase, vendorProfileId, todayIso),
+    // D-4: the fold's list keeps its outcome — a refused read is not "Nobody waiting."
+    fetchVendorWaitlistRead(supabase, vendorProfileId, todayIso),
     // ONE read for the plan and the waitlist settings (tier_state is excluded from the profile select).
     supabase
       .from('vendor_profiles')
@@ -1233,6 +1240,7 @@ async function customersMonth({
   month,
   openFold,
   pools,
+  poolsUnread = false,
   bookings,
   blocksRead,
   threads,
@@ -1246,6 +1254,8 @@ async function customersMonth({
   month: string;
   openFold: string | null;
   pools: Awaited<ReturnType<typeof fetchVendorPools>>;
+  /** D-5: the pools read was refused — say so, never "Set how many events you take a day". */
+  poolsUnread?: boolean;
   bookings: Awaited<ReturnType<typeof fetchVendorPoolBookings>>;
   blocksRead: Awaited<ReturnType<typeof fetchVendorBlocksDetailed>>;
   threads: Awaited<ReturnType<typeof fetchVendorThreadsDetailed>>['threads'];
@@ -1253,7 +1263,7 @@ async function customersMonth({
   teamRows: Awaited<ReturnType<typeof fetchVendorTeam>>;
   reads: ReturnType<typeof startMonthReads>;
 }) {
-  const [[monthDayStates, monthWaitlist, upcomingWaitlist, settingsRead, pickedRead], bookedHours] = await Promise.all([
+  const [[monthDayStates, monthWaitlist, upcomingWaitlistRead, settingsRead, pickedRead], bookedHours] = await Promise.all([
     reads,
     // 🗓 A booked day's hours and the shop's own times (part (b)) — a hall reads only its own chapter.
     readBookedDayHours(bookings, new Set(pools.filter((p) => p.isHall).map((p) => p.poolId)), todayIso),
@@ -1355,7 +1365,11 @@ async function customersMonth({
             here. Reload the page to try again.
           </p>
         ) : null}
-        {pools.length === 0 ? (
+        {poolsUnread ? (
+          <p className="mb-2 text-[13.5px] text-ink/70" data-dates-pools-unread="">
+            Couldn&rsquo;t load your schedules. Refresh in a moment to try again.
+          </p>
+        ) : pools.length === 0 ? (
           <p className="mb-2 text-[13.5px] text-ink/70" data-dates-no-calendar="">
             Set how many events you take a day so couples see if your date is open.{' '}
             <Link href={SET_HOW_MANY_A_DAY_HREF} className="font-semibold text-ink underline underline-offset-2" data-dates-set-it="">
@@ -1383,7 +1397,8 @@ async function customersMonth({
             grandfathered: !unlimited && storedCap > waitlistTierCap ? storedCap : 0,
             settingsMeasured: !settingsRead.error,
             pickedMeasured: !pickedRead.error,
-            dates: upcomingWaitlist.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
+            datesMeasured: upcomingWaitlistRead.ok,
+            dates: upcomingWaitlistRead.groups.map((w) => ({ ...w, picked: pickedByDate.get(w.requestedDate) ?? 0 })),
           }}
           qrHref="/vendor-dashboard/invite?mode=locked"
           blockAdd={<BlockDateAdd pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))} action={addManualBlock} today={todayIso} month={month} />}

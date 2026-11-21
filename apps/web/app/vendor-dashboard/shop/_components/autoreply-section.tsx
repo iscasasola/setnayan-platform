@@ -7,6 +7,7 @@ import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { AutoReplyCard } from './autoreply-card';
+import { CouldNotLoad } from './could-not-load';
 // Advanced voice-match panel — self-gating on NEXT_PUBLIC_VENDOR_AI_VOICE_MATCH (returns null, zero queries, when off).
 import { VoiceMatchSection } from './voice-match-section';
 
@@ -37,6 +38,9 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
   let enabled = false;
   let autoAcceptEnabled = false;
   let autoAcceptThreshold = AUTO_ACCEPT_THRESHOLD_DEFAULT;
+  // S-6 (supplier audit 2026-11-17): a REFUSED read drew both switches OFF, and a re-save then turned them off for
+  // real. Unread draws no switches at all — "Couldn't load" — so nothing can be saved over settings nobody saw.
+  let unread = false;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -54,6 +58,7 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
         { vendorProfileId },
         'graceful_degrade',
       );
+      unread = true;
     }
     const row = data as {
       enabled?: boolean;
@@ -67,17 +72,24 @@ export async function AutoReplySection({ vendorProfileId }: { vendorProfileId: s
         autoAcceptThreshold = row.auto_accept_threshold;
       }
     }
-  } catch {
-    // defaults above
+  } catch (err) {
+    logQueryError('VendorShopPage.botConfig', err, { vendorProfileId }, 'graceful_degrade');
+    unread = true;
   }
   return (
     // Mounted once, in the Clients ⚙ sheet (`customers-settings-body.tsx`, spec §9 #6) — no longer on Your page or Shop.
     <section aria-labelledby="auto-reply-heading">
-      <AutoReplyCard
-        initialEnabled={enabled}
-        initialAutoAcceptEnabled={autoAcceptEnabled}
-        initialAutoAcceptThreshold={autoAcceptThreshold}
-      />
+      {unread ? (
+        <div data-autoreply-unread="">
+          <CouldNotLoad what="your auto-reply settings" />
+        </div>
+      ) : (
+        <AutoReplyCard
+          initialEnabled={enabled}
+          initialAutoAcceptEnabled={autoAcceptEnabled}
+          initialAutoAcceptThreshold={autoAcceptThreshold}
+        />
+      )}
       <VoiceMatchSection vendorProfileId={vendorProfileId} />
     </section>
   );

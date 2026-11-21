@@ -25,7 +25,7 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
-import { PickedShell } from '@/app/_components/picked/picked-shell';
+import { PickedShell, type PickedMoreRow } from '@/app/_components/picked/picked-shell';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { pickedSupplierAnchorOf, pickedSupplierLists, pickedSupplierPageOf, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
 
@@ -41,6 +41,13 @@ const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
   // 🚩 The supplier's Report wears the same flag (`TOPIC_ICON.report`) — one glyph per topic, both sides.
   report: TOPIC_ICON.report,
 };
+
+/**
+ * ⋯ THE HOST'S MORE (Unichat part G, owner 20 Nov 2026 — "Report a problem" left the (+) and lives under ⋯ on BOTH
+ * sides). One row: the shipped Report page under its drawn words. Report stays a tab too until the host's own one-chat
+ * build takes the tab row away — the row is the place the (+) used to offer, not a second page.
+ */
+const HOST_MORE: readonly PickedMoreRow<PickedSupplierPage>[] = [{ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' }];
 
 export function PickedSupplierShell({
   eventId,
@@ -93,6 +100,7 @@ export function PickedSupplierShell({
       // when there is a conversation — without one Chat is not in the menu and the page stays one column.
       sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
       chatTop={nextStep}
+      more={HOST_MORE}
     />
   );
 }

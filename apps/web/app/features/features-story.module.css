@@ -1214,7 +1214,7 @@ button.btnFill {
    travels by transform, not `top`. 🔒 lib/the-website-moves-by-the-standard.test.ts */
 @media (min-width: 641px) and (prefers-reduced-motion: no-preference) {
   .mo[data-on] .ros .nowline {
-    animation: nowline 6s ease-in-out infinite alternate;
+    animation: nowline 20s ease-in-out infinite alternate; /* row 43: a Drift is 20 s+ */
   }
 }
 @keyframes nowline {

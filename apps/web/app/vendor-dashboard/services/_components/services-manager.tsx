@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readCardBadges } from '@/lib/card-badges.server';
 import { readShopSeals } from '@/lib/shop-seals.server';
 import { CardBadgeRow } from '@/app/_components/card-badges/card-badge-row';
+import { CardLockedMedals } from '@/app/_components/card-badges/card-locked-medals';
 import type { CardBadgesRead } from '@/lib/card-badges';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CardRecordSection } from '@/app/_components/card-record-section';
@@ -39,8 +40,8 @@ import {
 } from '@/lib/service-card-record';
 import {
   fetchVendorServices,
-  fetchDiscountsByService,
-  fetchInclusionsByService,
+  fetchDiscountsByServiceRead,
+  fetchInclusionsByServiceRead,
 } from '@/lib/vendor-services';
 import { fetchVendorBranches, branchIsUsable } from '@/lib/vendor-branches';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -307,11 +308,16 @@ export async function VendorServicesManager({
   // Child-table lists (multi-discount + free inclusions + Fixed pax brackets ·
   // migration 20270502342558), grouped by service for the off-peak nudge, row
   // badge, and the Phase 3b list editors on each form. Batched into one round-trip.
-  const [discountsByService, inclusionsByService] =
+  // V-4 (supplier audit 2026-11-17): the outcomes are kept — a refused read drew every card with no "What's included"
+  // and no discount, which reads as "you never added any". Unread is said once over the cards.
+  const [discountsRead, inclusionsRead] =
     await Promise.all([
-      fetchDiscountsByService(supabase, serviceIdList),
-      fetchInclusionsByService(supabase, serviceIdList),
+      fetchDiscountsByServiceRead(supabase, serviceIdList),
+      fetchInclusionsByServiceRead(supabase, serviceIdList),
     ]);
+  const discountsByService = discountsRead.byService;
+  const inclusionsByService = inclusionsRead.byService;
+  const cardExtrasUnread = !discountsRead.ok || !inclusionsRead.ok;
 
   // Presigned display URLs for existing showcase media (Phase 3c) so the edit
   // forms render thumbnails of what's already uploaded. Only refs that exist;
@@ -726,6 +732,12 @@ export async function VendorServicesManager({
           // 🧾 EMPTY LOOKS FINISHED (Lane E): one line + New service — the shared part (`services-empty-card.tsx`).
           <ServicesEmptyCard />
         ) : (
+          <>
+          {cardExtrasUnread ? (
+            <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-shop-card-extras-unread="">
+              Couldn&rsquo;t load your cards&rsquo; inclusions and discounts. Nothing changed — refresh to try again.
+            </p>
+          ) : null}
           <ul className="space-y-5" data-shop-card-list="">
             {listedServices.map((svc, i) => {
               const showCovHeader = i === 0 || groupLabelOf(listedServices[i - 1]!) !== groupLabelOf(svc);
@@ -883,6 +895,12 @@ export async function VendorServicesManager({
                         <CardBadgeRow badges={cardBadges.byCard[svc.vendor_service_id]!} cardName={cardName} shopName={null} now={badgesNow} />
                       </div>
                     ) : null}
+                    {/* 🔒 The medals this card can still earn, in their real art with a small lock (owner 18 Nov, v36).
+                        The supplier's own list only — never a couple's card. Only on an honest read: an unread badge
+                        set draws nothing, never "everything locked". */}
+                    {cardBadges.kind === 'ok' ? (
+                      <CardLockedMedals held={cardBadges.byCard[svc.vendor_service_id] ?? []} />
+                    ) : null}
                     {/* ONE meta line (owner 17 Nov, "i see so many spaces"): the price basis · the branch · the
                         coverage · the reach this card's price is earning — on the card itself, every time the shop
                         looks at the list, not in a report they would have to go and find.
@@ -942,6 +960,7 @@ export async function VendorServicesManager({
               );
             })}
           </ul>
+          </>
         )}
         {/* The one Undo toast for the cards' swipe-delete (`deleteWithUndo`); it dedupes, so once is enough. */}
         <UndoToastHost />

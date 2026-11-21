@@ -89,6 +89,10 @@ export async function sendProposalFromChat(formData: FormData) {
   const threadId = String(formData.get('thread_id') ?? '');
   const back = supplierThreadPageHref(threadId);
 
+  // 🪪 A ＋ tool needs a verified shop — a quote from a saved package too, asked BEFORE anything is written.
+  const plusGate = await threadPlusGate(supabase, threadId);
+  if (plusGate !== 'open') redirect(`${back}?notice=proposal_plus_${plusGate}`);
+
   const totalPhpRaw = Number(formData.get('total_php'));
   const result = await sendProposalCore(supabase, {
     threadId,

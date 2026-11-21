@@ -99,6 +99,7 @@ function bodyOf(file: string, name: string): string {
 
 /** [file, function, the first write the gate must come before] */
 const SENDS: Array<[string, string, string]> = [
+  ['app/vendor-dashboard/messages/[threadId]/proposal-actions.ts', 'sendProposalFromChat', 'sendProposalCore('],
   ['app/vendor-dashboard/messages/[threadId]/proposal-actions.ts', 'sendCustomProposalFromChat', 'sendCustomProposalCore('],
   ['app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/access-actions.ts', 'askHostForAccess', ".from('event_access_requests')"],
   ['app/_components/negotiation-actions.ts', 'createScheduleRequestFromChat', ".from('event_appointments')"],
@@ -126,4 +127,26 @@ describe('every shop-side ＋ send asks the gate before it writes', () => {
       assert.ok(g < w, `${fn} asks the gate AFTER it writes`);
     });
   }
+});
+
+/**
+ * The four ＋ tools that write from the BROWSER (no server action in front of them) are checked by the database:
+ * migration 20271357625672 puts one BEFORE INSERT trigger on each table they land in. Proved live in
+ * tests/db/every-plus-tool-needs-a-verified-shop.db.test.ts; this pins that the trigger stays on every table.
+ */
+it('every browser-written ＋ tool has its verified-shop trigger', () => {
+  const sql = readFileSync(path.join(process.cwd(), '../../supabase/migrations/20271357625672_every_plus_tool_needs_a_verified_shop.sql'), 'utf8');
+  for (const [table, trigger] of [
+    ['chat_polls', 'chat_polls_plus_needs_a_verified_shop'],
+    ['chat_decision_topics', 'chat_decision_topics_plus_needs_a_verified_shop'],
+    ['booking_change_asks', 'booking_change_asks_plus_needs_a_verified_shop'],
+    ['chat_messages', 'chat_messages_offer_needs_a_verified_shop'],
+  ]) {
+    assert.match(sql, new RegExp(`CREATE TRIGGER ${trigger}\\s+BEFORE INSERT ON public\\.${table}\\b`), `${table} lost its ＋ trigger`);
+  }
+});
+
+it('a plan / change ask refused by the trigger reads as the ＋ gate’s words, never a generic failure', async () => {
+  const { negotiateRefusalWords } = await import('./chat-cards');
+  assert.equal(negotiateRefusalWords('PLUS_NEEDS_VERIFIED: Chat tools open once your shop is verified.'), PLUS_NEEDS_VERIFIED);
 });

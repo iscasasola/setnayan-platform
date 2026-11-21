@@ -569,7 +569,7 @@ export async function openDecisionFromChat(formData: FormData): Promise<AskResul
   if (!threadId) return { ok: false, message: 'Name the topic first.' };
   const r = await openDecision(createClient(), threadId, topic);
   if (r.ok) return { ok: true };
-  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : "Couldn't open it. Try again." };
+  return { ok: false, message: r.reason === 'empty' ? 'Name the topic first.' : r.reason === 'not_allowed' ? 'You are not in this chat.' : r.reason === 'unverified' ? PLUS_NEEDS_VERIFIED : "Couldn't open it. Try again." };
 }
 
 // ── Form · the shop's library ────────────────────────────────────────────────

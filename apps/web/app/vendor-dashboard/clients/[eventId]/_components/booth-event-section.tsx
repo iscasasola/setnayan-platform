@@ -18,7 +18,8 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailOptions } from '@/lib/payment-channels';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
+import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { planWord } from '@/lib/vendor-plan-change-words';
 import { isVendor3dBoothActive, fetchVendor3dBoothPricePhp } from '@/lib/vendor-3d-booth-pricing';
 import {
   fetchVendor3dBoothEventPricePhp,
@@ -49,7 +50,7 @@ export async function BoothEventSection({
   if (await isStoreShellRequest()) return null;
   const supabase = await createClient();
   const admin = createAdminClient();
-  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings, includedRead] = await Promise.all([
+  const [gateRead, orderState, eventPricePhp, cyclePricePhp, settings, includedRead, planTier] = await Promise.all([
     supabase
       .from('vendor_profiles')
       .select('tier_state, verification_state, booth_addon_expires_at')
@@ -89,6 +90,9 @@ export async function BoothEventSection({
         return { unread: true, included: false };
       },
     ),
+    // ⚖ Owner 20/21 Nov (specs 66ae2cce): the branded booth is a Pro-and-up benefit, not sold below it — the same
+    // effective plan the Special tools gate on (promotions applied), so a Plus shop never meets the buy form.
+    resolveVendorTier(supabase, vendorProfileId),
   ]);
   // The rails the owner has left ON — the buy form offers only these.
   const openRails = openRailOptions(settings);
@@ -96,7 +100,7 @@ export async function BoothEventSection({
   const gateRow = gateRead.row;
   const gateUnread = gateRead.unread || includedRead.unread;
   const included = includedRead.included;
-  const tierOk = isTierAtLeast(gateRow?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER);
+  const tierOk = isTierAtLeast(planTier, PRO_TOOLS_MIN_TIER);
   const verified = gateRow?.verification_state === 'verified';
   const cycleActive = isVendor3dBoothActive(gateRow?.booth_addon_expires_at ?? null);
   const cycleUntil = gateRow?.booth_addon_expires_at
@@ -150,6 +154,7 @@ export async function BoothEventSection({
             <LockedFeature
               lock="boothBranding"
               need={{ kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' }}
+              line={`Included in ${planWord(PRO_TOOLS_MIN_TIER)} · Upgrade`}
             />
           </div>
         </>

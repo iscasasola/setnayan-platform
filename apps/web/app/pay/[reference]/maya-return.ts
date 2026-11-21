@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { readMayaGate, hasOpenMayaCheckout, isInternalUser } from '@/lib/maya-checkout.server';
-import { MAYA_BUSY_LINE, mayaEnvironment, mayaReturnLine } from '@/lib/maya-checkout';
+import { MAYA_BUSY_LINE, MAYA_NOT_FINISHED_LINE, mayaEnvironment, mayaReturnLine } from '@/lib/maya-checkout';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +50,8 @@ export async function mayaPayState(args: {
     if (result.outcome === 'approved' || result.outcome === 'queued' || result.outcome === 'already') settledNow = true;
     else if (result.outcome === 'closed') line = param === 'success' ? mayaReturnLine('failure') : line;
     else if (result.outcome === 'pending' || (result.outcome === 'unverifiable' && !result.queued)) phase = 'checking';
+    // Opened Maya, paid nothing (Back from Maya, or a success return Maya has no payment for): say so, quietly.
+    else if (result.outcome === 'none') line = MAYA_NOT_FINISHED_LINE;
   }
 
   return {

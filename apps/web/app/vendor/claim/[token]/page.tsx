@@ -210,8 +210,8 @@ export default async function VendorClaimPage({ params }: Props) {
               words — and the eyebrow stays the one doorway colour. */}
           <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] p-4 text-[14px] text-ink">
             <p className="leading-relaxed">
-              On connect, this engagement appears in your Clients pipeline at the Inquiry
-              stage. Chat unlocks immediately. <strong>No duplicate profile created.</strong>
+              Once connected, it shows in Clients as an Inquiry and chat opens.{' '}
+              <strong>No duplicate profile created.</strong>
             </p>
           </div>
 
@@ -293,10 +293,9 @@ export default async function VendorClaimPage({ params }: Props) {
             What you get
           </p>
           <ul className="divide-y divide-[color:var(--m-line)] border-y border-[color:var(--m-line)] text-[15px] text-ink">
-            <Perk>Free supplier profile + marketplace listing</Perk>
+            <Perk>A free supplier page, found by your own link and QR</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
-            <Perk>Marketplace exposure to other PH couples</Perk>
             <Perk>No upfront cost · no credit card required</Perk>
           </ul>
         </section>

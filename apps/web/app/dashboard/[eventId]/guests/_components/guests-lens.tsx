@@ -13,7 +13,7 @@
  */
 import { createContext, useContext } from 'react';
 import type { GuestsFilter } from '@/lib/guests-filter';
-import type { ThumbRow } from '@/components/thumb-row';
+import type { ThumbMenu, ThumbRow } from '@/components/thumb-row';
 import type { GuestsView, SeatMode } from '@/lib/guests-views';
 import type { SectionHeadToolbar } from './section-head-toolbar';
 
@@ -60,6 +60,14 @@ export type GuestsLens = {
    * door (`PinCountDoor`).
    */
   countsSlot?: HTMLElement | null;
+  /**
+   * 🎚 Guests redesign § 8 (20 Nov) — THE LOOK ROUND: the screen's one round that wears the current look and opens
+   * upward (Seats: List · 2D floor plan · 3D room). A maker seats it in its thumb row just before its Show round. Null =
+   * this place has one look (March never has one).
+   */
+  lookRound?: ThumbMenu | null;
+  /** 🎚 § 8 — the March tells the place menu how many walks it draws ("10 walks"), so the count is never guessed. */
+  reportWalks?: (walks: number) => void;
 };
 
 export type SeatsChannel = { mode: SeatMode; setMode: (mode: SeatMode) => void; show3D: boolean };

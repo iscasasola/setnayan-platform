@@ -15,6 +15,7 @@ import {
   FEE_BILLS_UNREADABLE,
 } from '@/lib/booking-fee-disclosure.server';
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
+import { feeFreeRuleInApp, feeNewClientLine } from '@/lib/booking-fee-who-words';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferFeesLine } from '@/lib/launch-offer';
@@ -65,6 +66,9 @@ export default async function VendorBookingFeesPage() {
   const feeSchedule = await getLiveBookingFeeSchedule();
   // 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings, never typed.
   const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
+  // 📅 The new-client window (owner 2026-11-16), named with its length from settings — the supplier's own app only.
+  // Unread → no line (never a guessed number).
+  const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);
 
   return (
     <BookingFeesBody
@@ -76,6 +80,8 @@ export default async function VendorBookingFeesPage() {
       waived={waivedRead === FEE_BILLS_UNREADABLE ? null : waived}
       schedule={feeSchedule}
       launchLine={launchLine}
+      newClientLine={newClientLine}
+      freeRule={feeFreeRuleInApp(feeSchedule?.newClientFreeMonths)}
     />
   );
 }

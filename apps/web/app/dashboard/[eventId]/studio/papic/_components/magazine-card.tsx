@@ -55,32 +55,61 @@ export async function readMagazineCard(eventId: string): Promise<MagazineCardSta
   return { photos: (seat ?? 0) + (guest ?? 0), kwentos: kwentos ?? 0 };
 }
 
-export async function MagazineCard({ eventId, state }: { eventId: string; state?: MagazineCardState }) {
+/**
+ * `seat="sheet"` (owner 2026-11-20, "memories approved"): drawn inside its keepsake sheet on Memories, whose head
+ * already says the title (and its ✕) — so the card gives the body only: one line + ⓘ, one main button, every word kept.
+ */
+export async function MagazineCard({ eventId, state, seat = 'page' }: { eventId: string; state?: MagazineCardState; seat?: 'page' | 'sheet' }) {
   const { photos, kwentos } = state ?? (await readMagazineCard(eventId));
   if (photos === 0) return null;
+  const inSheet = seat === 'sheet';
 
-  return (
-    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
-      <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
-        <BookHeart aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
-        Photo Notes Magazine
-      </h2>
-      <InfoTip labelAs="p" label="Your day as a keepsake magazine" labelClassName="text-sm text-ink/70" className="mt-1" align="start">
+  const body = (
+    <>
+      <InfoTip
+        labelAs="p"
+        label="Your day as a keepsake magazine"
+        labelClassName={inSheet ? 'text-[15px] text-ink/70' : 'text-sm text-ink/70'}
+        className={inSheet ? undefined : 'mt-1'}
+        align="start"
+      >
         {formatCount(photos)} {photos === 1 ? 'photo' : 'photos'}
         {kwentos ? ` and ${kwentos} ${kwentos === 1 ? 'kwento' : 'kwentos'} from your guests` : ''},
         in the order it all happened. Free, just for the two of you.
       </InfoTip>
       <a
         href={`/dashboard/${eventId}/studio/papic/magazine`}
-        className="ab ab-brand ab-main mt-4"
+        className={inSheet ? 'ab ab-brand ab-main h-12 w-full text-[15px]' : 'ab ab-brand ab-main mt-4'}
       >
         <BookHeart aria-hidden className="h-4 w-4" strokeWidth={2} />
         Download your magazine (PDF)
       </a>
-      <InfoTip labelAs="p" label="Para sa inyo lang" labelClassName="text-xs text-ink/70" className="mt-2" align="start">
+      <InfoTip
+        labelAs="p"
+        label="Para sa inyo lang"
+        labelClassName={inSheet ? 'text-[13.5px] text-ink/70' : 'text-xs text-ink/70'}
+        className={inSheet ? undefined : 'mt-2'}
+        align="start"
+      >
         this private edition shows your photos unblurred. A
         shareable edition arrives with the privacy-screened pipeline.
       </InfoTip>
+    </>
+  );
+  if (inSheet) {
+    return (
+      <div className="flex flex-col gap-3" data-keepsake-card="magazine">
+        {body}
+      </div>
+    );
+  }
+  return (
+    <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+        <BookHeart aria-hidden className="h-4.5 w-4.5 text-terracotta" strokeWidth={2} />
+        Photo Notes Magazine
+      </h2>
+      {body}
     </section>
   );
 }

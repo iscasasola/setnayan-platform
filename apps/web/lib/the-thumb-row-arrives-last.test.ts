@@ -42,8 +42,10 @@ test('reduced motion never waits; otherwise the one timing', () => {
   assert.equal(thumbRowDelay(false), THUMB_ROW_ENTERS_AFTER_MS);
 });
 
-test('Guests takes its row’s entrance from the one timing, not two animation frames', () => {
-  assert.match(SCREEN, /const barOn = useThumbRowArrivesLast\(gview\);/, 'Guests does not use the shared timing');
+test('Guests draws its row at once (20 Nov), never on two animation frames of its own', () => {
+  // ⚠ AMENDED 20 Nov 2026 (Guests redesign "On every view", owner "Yes, your picks"): Guests' row draws at full colour
+  // AT ONCE — no wait at all (guests/nothing-fades-on-arrival.test.ts). It must still never go back to a per-page timing.
+  assert.match(SCREEN, /const barOn = true;/, 'Guests waits again — or on a timing of its own');
   assert.doesNotMatch(SCREEN, /setBarOn/, 'the old per-page slide-in is back');
   assert.match(SCREEN, /data-on=\{barOn \? 'true' : 'false'\}/, 'the row no longer reads it');
 });

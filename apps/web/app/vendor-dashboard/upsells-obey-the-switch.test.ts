@@ -76,6 +76,11 @@ const NOT_THE_SWITCH: Record<string, string> = {
   'creators/actions.ts': 'maps the database’s own Pro floor (TIER_BELOW_PRO_NO_REACH) at Send',
   // The ◆ note moved into the Send offer sheet with the tool pages redraw (v3, 21 Nov 2026) — the same words.
   'creators/_components/creators-tools.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
+  // Enforced by the DATABASE unconditionally: the couple's room brands a booth only through
+  // event_branded_booth_vendor_ids → vendor_pro_tools_included (Pro and up, owner 20 Nov; specs 66ae2cce, 21 Nov),
+  // so the switch cannot lift it — the section says so ("Included in Pro · Upgrade") instead of selling it below Pro.
+  'clients/[eventId]/_components/booth-event-section.tsx': 'maps the database’s own Pro floor (vendor_pro_tools_included) for the branded booth',
+  'clients/[eventId]/booth-event-actions.ts': 'refuses the per-event booth below Pro — the database’s own floor (vendor_pro_tools_included) would never brand it',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.
   'on-the-day/page.tsx': 'a lapsed day-of purchase, not the plan tier',
   'team/actions.ts':

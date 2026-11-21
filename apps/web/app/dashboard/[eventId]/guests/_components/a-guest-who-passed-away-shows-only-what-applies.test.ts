@@ -121,16 +121,18 @@ const HIDDEN_WHEN_AWAY: Array<[string, RegExp]> = [
   ['Access › Give / Take back the seat', /data-seat-doors=""/],
   ['the ticket / QR', /data-guest-ticket-thumb=""|src="\/api\/pass-card[^"]*"|aria-label="[^"]*’s ticket"|alt="[^"]*(?:'|&#x27;)s ticket"/],
   ['the Invite pair', /data-guest-invite-pair=/],
-  /* Write to NFC is the ⋯ row's own button (`GuestMoreMenu`), drawn only in a browser that can write a tag — so it is held
-     through the row that holds it: New QR beside it, and the ⋯. */
-  ['⋯ row › New QR', /Make a new QR for/],
-  ['the ⋯', /data-guest-more-menu=""/],
+  /* Since the 20 Nov 2026 drawing (§ 3) Write to NFC · New QR · Unlink are labelled buttons INSIDE the opened ticket — they go
+     with the ticket row above (a ticket that is not drawn cannot be opened). The quick actions (Send invite · Call · Seat ·
+     Note) are the card's other new part, and they go too: nothing to send, seat or note for a guest who passed away. */
+  ['the quick actions', /data-guest-quick-actions=""/],
 ];
 const ALWAYS: Array<[string, RegExp]> = [
   ['Basic Info', /data-fold="card-basic-info"/],
   ['Details', /data-fold="card-details"/],
   ['Passed Away', /data-card-passed-away=""[\s\S]*data-card-field="passed_away"/],
-  ['Delete', /data-fold="card-(?:reset-)?delete"[\s\S]*data-guest-delete-control=""/],
+  /* Passed away and Delete are rows of "More" since 20 Nov 2026 — for a guest who passed away More opens by itself. */
+  ['More', /data-fold="card-more"/],
+  ['Delete', /data-form-row="card-(?:reset-)?delete"[\s\S]*data-guest-delete-control=""/],
 ];
 
 test('(a) a guest who passed away: the seven parts are not drawn — Basic Info, Details, Passed Away and Delete are', async () => {

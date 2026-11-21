@@ -4173,6 +4173,7 @@
         "clearMayaSecrets",
         "clearOAuthSecret",
         "clearResendKey",
+        "routes.api.webhooks.maya",
         "saveIntegrationSecret",
         "saveMayaConfig",
         "saveOAuthConfig",
@@ -4191,6 +4192,7 @@
         "PasswordField",
         "SecretCard",
         "SubmitButton",
+        "SwitchTrack",
         "TestResendButton"
       ]
     },
@@ -4576,6 +4578,7 @@
         "admin/payments/_components/reread-on-this-phone.tsx",
         "admin/payments/actions.ts",
         "admin/payments/loading.tsx",
+        "admin/payments/maya.ts",
         "admin/payments/page.tsx",
         "admin/payments/received-auto.ts",
         "admin/payments/received.ts"
@@ -4596,6 +4599,7 @@
       ],
       "blocks": [
         "ApproveCore",
+        "ApproveOutcome",
         "BatchApproveBar",
         "BatchApproveCheckbox",
         "CalendarDay",
@@ -4619,6 +4623,7 @@
         "InfoTip",
         "Link",
         "LinkPickMenu",
+        "MayaSettleResult",
         "OpenedPayment",
         "OrderEventInfoResult",
         "OrdersNeedingQuote",
@@ -7299,6 +7304,7 @@
         "ReviewsCard",
         "ReviewsHero",
         "RigidReveal",
+        "RiseScreen",
         "Rotor",
         "Row",
         "RsvpAskConfig",
@@ -7914,7 +7920,9 @@
         "dashboard/[eventId]/guests/_components/guest-card-head.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-in-place.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-kit.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-quick.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-read.ts",
+        "dashboard/[eventId]/guests/_components/guest-card-rise.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-rows.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-sheet.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-template-kit.ts",
@@ -8079,7 +8087,7 @@
         "FormRow",
         "FormRows",
         "G",
-        "GridPageSkeleton",
+        "Ghost",
         "GroupCountResult",
         "GroupEditResult",
         "GroupNameClash",
@@ -8089,14 +8097,19 @@
         "GuestActions",
         "GuestActionsContext.Provider",
         "GuestCallButtons",
+        "GuestCallQuick",
         "GuestCamera",
         "GuestCard",
         "GuestCardAvatar",
         "GuestCardBody",
         "GuestCardData",
+        "GuestCardFace",
+        "GuestCardOpenRow",
         "GuestCardOpened",
         "GuestCardRead",
+        "GuestCardReplyBadge",
         "GuestCardResult",
+        "GuestCardRise",
         "GuestConfirmActions",
         "GuestGroupPicker",
         "GuestHelperAccess",
@@ -8109,6 +8122,7 @@
         "GuestPapicState",
         "GuestPeek",
         "GuestPopup",
+        "GuestQuickRow",
         "GuestRemovalActions",
         "GuestResetFlow",
         "GuestRole",
@@ -8119,6 +8133,7 @@
         "GuestSeatPreview",
         "GuestSeatViewSaved",
         "GuestSide",
+        "GuestTicketStatusProvider",
         "GuestsExample",
         "GuestsExcelContext.Provider",
         "GuestsFilter",
@@ -8215,6 +8230,7 @@
         "QuickAddSheet",
         "QuickGroupResult",
         "QuickRoleResult",
+        "ReactNode",
         "RenameRoleResult",
         "ReplyAskMode",
         "ReplyPushAsk",
@@ -8225,6 +8241,7 @@
         "RoleNamesProvider",
         "Said",
         "SaveFileLink",
+        "Screen",
         "Scrim",
         "SearchAddRow",
         "SeatMode",
@@ -8237,6 +8254,8 @@
         "Sheet",
         "ShowSortSheet",
         "ShowSortTopic",
+        "Sk",
+        "SkCircle",
         "SnapCarousel",
         "SoftDeleteForUndoResult",
         "SortFace",
@@ -8248,8 +8267,10 @@
         "SwipeToDelete",
         "SwitchRow",
         "T",
+        "ThumbMenu",
         "ThumbRow",
         "TicketPlaceholder",
+        "TicketStatus.Provider",
         "TicketThumb",
         "TitleGenderResult",
         "TitlePicker",
@@ -8739,7 +8760,6 @@
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
-        "dashboard/[eventId]/launch/_components/view-summary-lazy.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
         "dashboard/[eventId]/launch/maker-page-reads.harness.ts",
         "dashboard/[eventId]/launch/page.tsx",
@@ -9276,7 +9296,6 @@
         "ViewAsFreeKeeper",
         "ViewAsFreeRow",
         "ViewAsFreeStrip",
-        "ViewCountRow",
         "ViewReport",
         "Waiting",
         "WebsiteEditorPage",
@@ -9365,6 +9384,7 @@
         "ListPageSkeleton",
         "LiveWallCard",
         "MagazineCard",
+        "MemoriesAddPhotosButton",
         "MemoriesKeepsakeRow",
         "MemoriesSettings",
         "PapicBuySheet",
@@ -13266,6 +13286,18 @@
         "UndoToastHost"
       ]
     },
+    "/open-shop/invite": {
+      "files": [
+        "open-shop/invite/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ActionButton",
+        "FirstRunBrand",
+        "QrCard"
+      ]
+    },
     "/open-shop/logo": {
       "files": [
         "open-shop/logo/_components/add-your-logo.tsx",
@@ -13698,9 +13730,14 @@
     },
     "/pay/[reference]": {
       "files": [
+        "pay/[reference]/_components/maya-checking.tsx",
+        "pay/[reference]/_components/maya-marks.tsx",
+        "pay/[reference]/_components/maya-pay-stage.tsx",
         "pay/[reference]/_components/pay-panel.tsx",
         "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
+        "pay/[reference]/maya-return.ts",
+        "pay/[reference]/maya-start.ts",
         "pay/[reference]/page.tsx"
       ],
       "destinations": [
@@ -13721,6 +13758,9 @@
         "HTMLDivElement",
         "InfoTip",
         "Link",
+        "MayaChecking",
+        "MayaMarks",
+        "MayaPayStage",
         "OverlayBackdrop",
         "PayPanel",
         "PayStage",
@@ -13733,7 +13773,8 @@
         "Step",
         "StepHead",
         "StickyBar",
-        "SubmitButton"
+        "SubmitButton",
+        "Wallet"
       ]
     },
     "/proposals/[publicId]": {
@@ -15014,6 +15055,7 @@
         "BookingFeeLine",
         "BookingFeesBody",
         "FeeGroup",
+        "InfoTip",
         "ListPageSkeleton",
         "PartList",
         "PartNote",

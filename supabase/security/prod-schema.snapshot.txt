@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1961
-# tables: 534
-# columns: 6409
-# notnull: 3863
+# ledger: 1964
+# tables: 535
+# columns: 6427
+# notnull: 3874
 [ledger]
 20260512000000
 20260513000000
@@ -1971,8 +1971,11 @@
 20271356196197
 20271356215288
 20271356402294
+20271356623783
 20271356665317
 20271356969132
+20271356998019
+20271357547732
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -4930,6 +4933,21 @@ marketing_share_consents.posted_at
 marketing_share_consents.revoked_at
 marketing_share_consents.taken_down_at
 marketing_share_consents.updated_at
+maya_checkouts.amount_php
+maya_checkouts.checkout_id
+maya_checkouts.created_at
+maya_checkouts.environment
+maya_checkouts.last_checked_at
+maya_checkouts.maya_payment_id
+maya_checkouts.order_id
+maya_checkouts.outcome_reason
+maya_checkouts.paid_with
+maya_checkouts.payment_id
+maya_checkouts.request_reference_number
+maya_checkouts.status
+maya_checkouts.updated_at
+maya_checkouts.user_id
+maya_checkouts.verified_at
 media_hash_checks.check_id
 media_hash_checks.checked_at
 media_hash_checks.event_id
@@ -5899,6 +5917,7 @@ platform_settings.booking_fee_free_every_nth
 platform_settings.booking_fee_free_from
 platform_settings.booking_fee_free_until
 platform_settings.booking_fee_minting_live
+platform_settings.booking_fee_new_client_free_months
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php
@@ -5955,6 +5974,8 @@ platform_settings.loader_step_interval_ms
 platform_settings.loader_variant
 platform_settings.loader_veil_opacity
 platform_settings.max_payment_php
+platform_settings.maya_busy_noticed_at
+platform_settings.maya_checkout_enabled
 platform_settings.maya_checkout_endpoint
 platform_settings.meta_page_id
 platform_settings.onboarding_bg_music_enabled
@@ -10147,6 +10168,15 @@ marketing_share_consents.credit_mode
 marketing_share_consents.customer_id
 marketing_share_consents.event_id
 marketing_share_consents.updated_at
+maya_checkouts.amount_php
+maya_checkouts.checkout_id
+maya_checkouts.created_at
+maya_checkouts.environment
+maya_checkouts.order_id
+maya_checkouts.request_reference_number
+maya_checkouts.status
+maya_checkouts.updated_at
+maya_checkouts.user_id
 media_hash_checks.check_id
 media_hash_checks.checked_at
 media_hash_checks.r2_object_key
@@ -10705,6 +10735,7 @@ platform_settings.ai_signup_discount_pct
 platform_settings.bdo_enabled
 platform_settings.booking_fee_cap_php
 platform_settings.booking_fee_free_every_nth
+platform_settings.booking_fee_new_client_free_months
 platform_settings.booking_fee_rate_pct
 platform_settings.booking_fee_tail_rate_pct
 platform_settings.booking_fee_tier1_limit_php
@@ -10725,6 +10756,7 @@ platform_settings.loader_step_interval_ms
 platform_settings.loader_variant
 platform_settings.loader_veil_opacity
 platform_settings.max_payment_php
+platform_settings.maya_checkout_enabled
 platform_settings.onboarding_bg_music_enabled
 platform_settings.onboarding_bg_music_r2_keys
 platform_settings.onboarding_discount_pct

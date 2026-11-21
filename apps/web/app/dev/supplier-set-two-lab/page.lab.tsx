@@ -16,6 +16,7 @@ import { SupplierLabShell } from '../_components/supplier-lab-shell';
 import { ContractBody, ContractReadFailed } from '@/app/vendor-dashboard/contracts/[contractId]/contract-body';
 import { UploadContractBody } from '@/app/vendor-dashboard/contracts/new/upload-body';
 import { BookingFeesBody } from '@/app/vendor-dashboard/booking-fees/booking-fees-body';
+import { feeFreeRuleInApp, feeNewClientLine } from '@/lib/booking-fee-who-words';
 import { BookingFeeBody, BookingFeeReadFailed } from '@/app/vendor-dashboard/booking-fees/[orderId]/fee-body';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { qrWords } from '@/lib/qr-amount-truth';
@@ -30,6 +31,9 @@ import { ChallengePhotosBody } from '@/app/vendor-dashboard/clients/[eventId]/ch
 import { SeatPlanBody, SeatPlanReadFailed, type Plan } from '@/app/vendor-dashboard/clients/[eventId]/seat-plan/seat-plan-body';
 import { ProductionSheetBody, ProductionSheetReadFailed } from '@/app/vendor-dashboard/clients/[eventId]/production-sheet/production-sheet-body';
 import type { Metrics, PortionRule } from '@/app/vendor-dashboard/clients/[eventId]/production-sheet/production-sheet-model';
+
+/** The labs' sample of the new-client window setting (as #8086's labs) — a fixture, never a price. */
+const LAB_FREE_MONTHS = 12;
 
 const CONTRACT: VendorContractRow = {
   contract_id: '00000000-0000-4000-8000-00000000c001',
@@ -186,11 +190,11 @@ const feeView = (order: OrderRow, extra: Partial<Parameters<typeof BookingFeeBod
 const STATES: Record<string, { label: string; draw: () => ReactNode }> = {
   'fees-list': {
     label: 'Booking fees · due, paid, waived',
-    draw: () => <BookingFeesBody orders={[FEE_DUE, FEE_PAID]} due={[FEE_DUE]} settled={[FEE_PAID]} closed={[]} totalDue={837.5} waived={WAIVED} schedule={BOOKING_FEE} launchLine={null} />,
+    draw: () => <BookingFeesBody orders={[FEE_DUE, FEE_PAID]} due={[FEE_DUE]} settled={[FEE_PAID]} closed={[]} totalDue={837.5} waived={WAIVED} schedule={BOOKING_FEE} launchLine={null} newClientLine={feeNewClientLine(LAB_FREE_MONTHS)} />,
   },
   'fees-empty': {
     label: 'Booking fees · nothing to pay yet',
-    draw: () => <BookingFeesBody orders={[]} due={[]} settled={[]} closed={[]} totalDue={0} waived={[]} schedule={BOOKING_FEE} launchLine={null} />,
+    draw: () => <BookingFeesBody orders={[]} due={[]} settled={[]} closed={[]} totalDue={0} waived={[]} schedule={BOOKING_FEE} launchLine={null} newClientLine={feeNewClientLine(LAB_FREE_MONTHS)} freeRule={feeFreeRuleInApp(LAB_FREE_MONTHS)} />,
   },
   'fees-unread': {
     label: 'Booking fees · the read failed (kept words)',

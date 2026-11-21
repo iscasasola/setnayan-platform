@@ -6,6 +6,7 @@
 import { Phone, Video } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { guestTelHref, guestViberHref } from '@/lib/guest-call-links';
+import { GuestCardOpenRow } from './guest-card-quick';
 
 export function GuestCallButtons({ mobile, name }: { mobile: string | null | undefined; name: string }) {
   const tel = guestTelHref(mobile);
@@ -17,4 +18,16 @@ export function GuestCallButtons({ mobile, name }: { mobile: string | null | und
       {viber ? <ActionButton href={viber} tone="neutral" iconOnly icon={<Video aria-hidden strokeWidth={1.75} />} label="Viber call" name={`Viber call ${name}`} /> : null}
     </div>
   );
+}
+
+/**
+ * 📞 THE CARD'S QUICK "CALL" (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3: *"Send invite · Call ·
+ * Seat · Note. No mobile yet, so Call reads 'Add mobile'."*). With a saved mobile it is the same hand-off to the phone's
+ * dialer as the Call under the number (`guestTelHref` — this file stays its only importer); with none it opens the Name
+ * and contact row on the mobile box (`GuestCardOpenRow`). Viber stays under the number, where it was.
+ */
+export function GuestCallQuick({ mobile, name }: { mobile: string | null | undefined; name: string }) {
+  const tel = guestTelHref(mobile);
+  if (!tel) return <GuestCardOpenRow row="mobile" name={name} />;
+  return <ActionButton href={tel} tone="neutral" icon={<Phone aria-hidden strokeWidth={1.75} />} label="Call" name={`Call ${name}`} data-guest-quick="call" />;
 }

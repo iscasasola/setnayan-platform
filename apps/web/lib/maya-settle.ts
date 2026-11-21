@@ -137,8 +137,11 @@ export async function settleMayaPayment(
   if (sameMayaPayment && row.payment_id && (row.status === 'approved' || (row.status === 'queued' && row.verified_at))) {
     return { outcome: 'already', paymentId: row.payment_id };
   }
-  // A closed checkout (failed / expired / cancelled, as Maya said) stays closed — not asked again.
-  if (sameMayaPayment && row.verified_at && (row.status === 'failed' || row.status === 'expired' || row.status === 'cancelled')) {
+  // A closed checkout (failed / expired / cancelled) stays closed — not asked again on a page visit. A WEBHOOK saying
+  // paid is always asked about (ship review @56bc3a26f, item 5): a checkout we expired by the clock may still be paid
+  // at Maya, and "closed" there would take the money with nothing recorded and nobody told.
+  if (!hint.claimedPaid && sameMayaPayment && row.verified_at &&
+      (row.status === 'failed' || row.status === 'expired' || row.status === 'cancelled')) {
     return { outcome: 'closed', status: row.status as 'failed' | 'expired' | 'cancelled' };
   }
   // 🧊 THROTTLE (ship review 21 Nov, item 5): a checkout Maya called "not yet" a few seconds ago is "not yet" again —

@@ -244,3 +244,23 @@ test('a checkout Maya never saw submitted, past Maya\'s session lifetime, is clo
   assert.equal((await settleMayaPayment(w.deps, { reference: REF })).outcome, 'closed');
   assert.equal(w.log.verifies, asked);
 });
+
+test('💸 a checkout closed by the clock that Maya later calls PAID is still settled — the webhook re-asks', async () => {
+  const opts: { maya?: MayaPaymentLike | null; createdAt: string } = {
+    maya: null,
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  };
+  const w = world(opts);
+  await settleMayaPayment(w.deps, { reference: REF });
+  assert.equal(w.row.status, 'expired');
+  opts.maya = PAID; // the payer's bank cleared late
+  const r = await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1', claimedPaid: true });
+  assert.equal(r.outcome, 'approved', 'money taken at Maya, nothing recorded here');
+  assert.equal(w.payments.size, 1);
+  // …a page visit on a Maya-closed checkout still does not ask.
+  const f = world({ maya: { ...PAID, status: 'PAYMENT_FAILED' } });
+  await settleMayaPayment(f.deps, { mayaPaymentId: 'chk-1' });
+  const asked = f.log.verifies;
+  await settleMayaPayment(f.deps, { reference: REF });
+  assert.equal(f.log.verifies, asked);
+});

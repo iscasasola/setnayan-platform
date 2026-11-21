@@ -22,7 +22,6 @@ const NAMES: readonly RetiredName[] = [
 
 const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/[slug]/_components/editorial/compose.ts', why: 'a sentence opener when the date is unknown ("On the day, …") — English, not the stage name' },
-  { prefix: 'app/[slug]/hub/page.tsx', text: /^On the day$/, why: 'the guest’s seat placeholder: the seat shows "on the day" — a time, not the stage' },
   { prefix: 'lib/face-tagging-wish.ts', why: 'a sentence fragment (" on the day") inside the face-tagging hint' },
   { prefix: 'app/dev/', why: 'internal lab pages — a toggle named for the day, never shown to a couple or supplier' },
 ];

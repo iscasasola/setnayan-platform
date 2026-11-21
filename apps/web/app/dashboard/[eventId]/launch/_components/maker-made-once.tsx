@@ -234,7 +234,7 @@ export async function MakerHeroPanel({
       ) : canUpload ? (
         <SafeForm action={uploadHeroPhoto} className="flex flex-col gap-2 rounded-md bg-white/70 px-3 py-3">
           {photoMark ? (
-            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'Event Pro')} text="Event Pro" size="xs" />
+            <PaidMark state={photoMark} label={paidMarkLabel(photoMark, 'the full Event Hub')} text="Full Event Hub" size="xs" />
           ) : null}
           <HubDraftField />
           <input type="hidden" name="event_id" value={eventId} />

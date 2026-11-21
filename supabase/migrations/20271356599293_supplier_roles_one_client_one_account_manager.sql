@@ -181,3 +181,51 @@ AS $$
   WHERE vtm.user_id = auth.uid()
     AND vtm.deactivated_at IS NULL;
 $$;
+
+-- ── 4 · "enough" past clients — an owner number, NOT SET (controller 21 Nov, row 4) ──────────────────────────────
+-- A shop splits by its OWN past clients only once it has this many on that card + event type; until then (and while
+-- this is NULL) every split reads the counts across all Setnayan inquiries. No number is seeded: rule 9, "don't guess".
+ALTER TABLE public.platform_settings
+  ADD COLUMN IF NOT EXISTS inquiry_split_own_enough INTEGER;
+ALTER TABLE public.platform_settings DROP CONSTRAINT IF EXISTS platform_settings_inquiry_split_own_enough_range;
+ALTER TABLE public.platform_settings
+  ADD CONSTRAINT platform_settings_inquiry_split_own_enough_range
+  CHECK (inquiry_split_own_enough IS NULL OR (inquiry_split_own_enough > 0 AND inquiry_split_own_enough <= 100000));
+COMMENT ON COLUMN public.platform_settings.inquiry_split_own_enough IS
+  'Supplier roles (e): how many of its own past clients (on one card + event type) a shop needs before its inquiry split reads its own counts. NULL = not set: every split reads the all-Setnayan counts. Editable on Admin › Settings. Migration 20271356599293.';
+
+-- ── 5 · the counts the fair split is cut from ────────────────────────────────────────────────────────────────────
+-- The filing key matches lib/inquiry-split.ts surnameKey(): letters only, accents folded, upper-cased, filed as
+-- written ("Dela Cruz" → DELACRUZ, under D); one letter pads with A. The last name is the SENDER's account last name —
+-- events store celebrants as free-text full names, and splitting a surname off one ("Juan Dela Cruz") would be a
+-- guess. p_vendor_service_id NULL = across all Setnayan inquiries of that event type. Numbers only, server only.
+CREATE OR REPLACE FUNCTION public.inquiry_last_name_prefix_counts(p_vendor_service_id UUID, p_event_type TEXT)
+RETURNS TABLE (prefix TEXT, n INTEGER)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  WITH people AS (
+    SELECT DISTINCT t.thread_id,
+           regexp_replace(
+             upper(translate(coalesce(u.last_name, ''), 'ñÑáéíóúÁÉÍÓÚüÜàèìòùÀÈÌÒÙ', 'nNaeiouAEIOUuUaeiouAEIOU')),
+             '[^A-Z]', '', 'g') AS k
+      FROM public.chat_threads t
+      JOIN public.events e ON e.event_id = t.event_id
+      JOIN public.users u ON u.user_id = t.created_by_user_id
+     WHERE t.kind = 'supplier'
+       AND (p_event_type IS NULL OR e.event_type::text = p_event_type)
+       AND (p_vendor_service_id IS NULL OR EXISTS (
+             SELECT 1 FROM public.event_vendors ev
+              WHERE ev.event_id = t.event_id
+                AND ev.service_id = p_vendor_service_id))
+  )
+  SELECT CASE WHEN length(k) = 1 THEN k || 'A' ELSE left(k, 2) END AS prefix, count(*)::int AS n
+    FROM people
+   WHERE k <> ''
+   GROUP BY 1;
+$$;
+
+REVOKE ALL ON FUNCTION public.inquiry_last_name_prefix_counts(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.inquiry_last_name_prefix_counts(UUID, TEXT) TO service_role;

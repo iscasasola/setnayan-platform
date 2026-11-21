@@ -184,3 +184,36 @@ test('only Setnayan sets who handles a client — the shop itself cannot write i
   const r = await db.query<{ m: string }>(`SELECT handled_by_member_id AS m FROM public.chat_threads WHERE thread_id = $1`, [thread]);
   assert.equal(r.rows[0]!.m, F.amSeat);
 });
+
+test('the fair-split counts: Setnayan only, names folded as written, one per client', async () => {
+  const mk = async (last: string, type: string) => {
+    const u = await mkUser(`${last.replace(/\W/g, '').toLowerCase()}-${type}@counts.test`);
+    await db.query(`UPDATE public.users SET last_name = $1 WHERE user_id = $2`, [last, u]);
+    const e = (await db.query<{ e: string }>(`INSERT INTO public.events (display_name, event_type) VALUES ('x', $1) RETURNING event_id AS e`, [type])).rows[0]!.e;
+    await db.query(`INSERT INTO public.chat_threads (event_id, vendor_profile_id, created_by_user_id) VALUES ($1, $2, $3)`, [e, F.otherShop, u]);
+  };
+  await mk('Ñañez', 'birthday');
+  await mk('Dela Cruz', 'birthday');
+  await mk('O', 'birthday');
+  await mk('Santos', 'celebration');
+  const counts = async (type: string | null) =>
+    Object.fromEntries(
+      (await db.query<{ prefix: string; n: number }>(`SELECT prefix, n FROM public.inquiry_last_name_prefix_counts(NULL, $1)`, [type])).rows.map(
+        (r) => [r.prefix, Number(r.n)],
+      ),
+    );
+  const bday = await counts('birthday');
+  assert.equal(bday.NA, 1); // Ñañez → NA (accent folded)
+  assert.equal(bday.DE, 1); // Dela Cruz filed as written, under D (controller row 5)
+  assert.equal(bday.OA, 1); // a one-letter name pads
+  assert.equal(bday.SA, undefined); // another event type is not counted
+  let err = '';
+  await as(F.owner, async () => {
+    try {
+      await db.query(`SELECT * FROM public.inquiry_last_name_prefix_counts(NULL, 'birthday')`);
+    } catch (e) {
+      err = String(e);
+    }
+  });
+  assert.match(err, /permission denied/);
+});

@@ -79,6 +79,8 @@ import {
   type DueFeeBill,
 } from '@/lib/booking-fee-disclosure';
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
+import { TodayWelcome } from './_components/today-welcome';
+import { firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -238,9 +240,20 @@ export default async function VendorOverviewPage({
     card_badge?: string;
     /** `1` — "I delivered this service" answered on a Today row (`vendorMarkServiceComplete`, Today v2). */
     completed?: string;
+    /** `1` — a couple's invite was accepted (Door A of the supplier onboarding): draw Today's welcome. */
+    claimed?: string;
+    /** `1` — the shop was just opened (Doors B and C): draw Today's welcome. */
+    opened?: string;
+    /** The door's first card when it is not made yet (`waiting` · `refused`) or was skipped — `lib/supplier-onboarding.ts`. */
+    card?: string;
+    card_title?: string;
+    card_price?: string;
+    card_category?: string;
+    card_why?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
+  const welcome = welcomeFrom(search);
   const depositAnswer = search.deposit_answer
     ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
     : null;
@@ -805,6 +818,16 @@ export default async function VendorOverviewPage({
           with no explanation. Its lasting status line is drawn by the screen, under the Next card. */}
       {outcome ? <SupplierToast text={outcome.text} tone={outcome.tone} retry={genericFailure.has(outcome.text)} line={false} /> : null}
 
+      {/* 🚪 The onboarding's last stop (owner 19 Nov): `?claimed=1` · `?opened=1` → the welcome and its three steps. */}
+      {welcome ? (
+        <TodayWelcome
+          kind={welcome}
+          shopName={profile.business_name ?? null}
+          card={firstCardFrom(search)}
+          cardState={firstCardStateFrom(search)}
+          shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
+        />
+      ) : null}
       {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}
       <GiftReturnBanner className="mb-3" />
       <SetnayanShopGiftLines read={shopGifts} now={renderNow} />

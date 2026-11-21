@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 334 jobs, 219 of them form-driven, as of 1da71594f.
+// that performs it. 334 jobs, 219 of them form-driven, as of 7c0bee1ff.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -2743,7 +2743,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "fields": [
       "intent",
       "gcash_monthly_cap_php",
-      "bdo_monthly_cap_php"
+      "bdo_monthly_cap_php",
+      "gcash_max_php",
+      "gcash_allowance_php"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

@@ -440,7 +440,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               type="button"
               onPointerDown={startResize}
               aria-label="Resize cocktail area"
-              className="pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-white/70 text-terracotta shadow-sm"
+              className="sn-hit-2d pointer-events-auto absolute -bottom-2 -right-2 flex h-5 w-5 cursor-nwse-resize items-center justify-center rounded-md border-2 border-terracotta bg-white/70 text-terracotta shadow-sm"
             >
               <Maximize2 className="h-3 w-3 rotate-90" />
             </button>

@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8127
+# facts: 8131
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     659
-#   col       5848
+#   col       5852
 #   policy    1193
 #   view      10
 #   func      413
@@ -726,6 +726,7 @@ col	public.admin_focus_put_offs.put_off_at	anon=- authenticated=SIU
 col	public.admin_focus_put_offs.until_day	anon=- authenticated=SIU
 col	public.admin_focus_put_offs.user_id	anon=- authenticated=SIU
 col	public.admin_received_transactions.amount_php	anon=- authenticated=S
+col	public.admin_received_transactions.auto_undone_at	anon=- authenticated=S
 col	public.admin_received_transactions.channel	anon=- authenticated=S
 col	public.admin_received_transactions.created_at	anon=- authenticated=S
 col	public.admin_received_transactions.created_by	anon=- authenticated=S
@@ -739,6 +740,7 @@ col	public.admin_received_transactions.received_at	anon=- authenticated=S
 col	public.admin_received_transactions.received_id	anon=- authenticated=S
 col	public.admin_received_transactions.reference	anon=- authenticated=S
 col	public.admin_received_transactions.reference_norm	anon=- authenticated=S
+col	public.admin_received_transactions.released_at	anon=- authenticated=S
 col	public.anniversary_email_log.anniversary_year	anon=- authenticated=SIU
 col	public.anniversary_email_log.event_id	anon=- authenticated=SIU
 col	public.anniversary_email_log.resend_id	anon=- authenticated=SIU
@@ -4177,9 +4179,11 @@ col	public.platform_settings.firstlook_boost_weight	anon=- authenticated=S
 col	public.platform_settings.firstlook_sla_hours	anon=- authenticated=S
 col	public.platform_settings.fraud_cluster_sweep_last_run_at	anon=- authenticated=S
 col	public.platform_settings.gcash_account_name	anon=- authenticated=S
+col	public.platform_settings.gcash_allowance_php	anon=- authenticated=S
 col	public.platform_settings.gcash_available_as_of	anon=- authenticated=S
 col	public.platform_settings.gcash_available_php	anon=- authenticated=S
 col	public.platform_settings.gcash_enabled	anon=- authenticated=S
+col	public.platform_settings.gcash_max_php	anon=- authenticated=S
 col	public.platform_settings.gcash_monthly_cap_php	anon=- authenticated=S
 col	public.platform_settings.gcash_number	anon=- authenticated=S
 col	public.platform_settings.gcash_qr_payload	anon=- authenticated=S

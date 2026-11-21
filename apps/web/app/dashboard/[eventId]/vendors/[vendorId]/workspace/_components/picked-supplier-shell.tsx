@@ -23,12 +23,14 @@ import {
   MessageSquare,
   Phone,
   Video,
+  BellOff,
   ReceiptText,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { PickedShell, type PickedMoreRow } from '@/app/_components/picked/picked-shell';
 import { TOPIC_ICON } from '@/lib/topic-icons';
+import { MuteChatRow, MutedMark } from '@/app/_components/chat/mute-chat-row';
 import { pickedSupplierAnchorOf, pickedSupplierLists, pickedSupplierPageOf, type PickedSupplierMenuEntry, type PickedSupplierPage } from './picked-supplier-menu';
 
 const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
@@ -53,10 +55,15 @@ const PAGE_ICON: Record<PickedSupplierPage, LucideIcon> = {
  * no chat-as-home to open a page of its own over (the shell drops a `body` row here), so each is a plain link. The hrefs
  * come ONLY from `lib/booked-handoff.ts` (null without the booking or a saved number) — null, no row; never a dead one.
  */
-export function hostMoreRows(call: { tel: string | null; viber: string | null } = { tel: null, viber: null }): PickedMoreRow<PickedSupplierPage>[] {
+export function hostMoreRows(
+  call: { tel: string | null; viber: string | null } = { tel: null, viber: null },
+  mute: ReactNode = null,
+): PickedMoreRow<PickedSupplierPage>[] {
   const rows: PickedMoreRow<PickedSupplierPage>[] = [];
   if (call.tel) rows.push({ id: 'call', label: 'Call', icon: Phone, href: call.tel });
   if (call.viber) rows.push({ id: 'viber', label: 'Video call on Viber', icon: Video, href: call.viber });
+  // 🔕 The host's own Mute this chat switch, before Report (drawing v3) — only when their mute was read.
+  if (mute) rows.push({ id: 'mute', label: 'Mute this chat', icon: BellOff, control: mute });
   rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });
   return rows;
 }
@@ -73,6 +80,7 @@ export function PickedSupplierShell({
   landAt = null,
   nextStep = null,
   call = { tel: null, viber: null },
+  mute = null,
 }: {
   eventId: string;
   /** `event_vendors.vendor_id` — the workspace's route key. */
@@ -91,6 +99,8 @@ export function PickedSupplierShell({
   nextStep?: ReactNode;
   /** 📞 The ⋯ hand-offs (`bookedTelHref` · `bookedViberHref`), each null when the shop is not booked or saved no number. */
   call?: { tel: string | null; viber: string | null };
+  /** 🔕 The viewer's own mute: `MuteChatRow` under ⋯ and the bell-off after the name. Null = no chat, or unread. */
+  mute?: { threadId: string; muted: boolean } | null;
 }) {
   return (
     <PickedShell<PickedSupplierPage>
@@ -99,6 +109,7 @@ export function PickedSupplierShell({
       badges={{ chat: chatUnread }}
       pickedId={eventVendorId}
       title={supplierName}
+      titleMark={mute?.muted ? <MutedMark /> : null}
       menu={menu}
       icons={PAGE_ICON}
       initialPage={initialPage}
@@ -115,7 +126,7 @@ export function PickedSupplierShell({
       // when there is a conversation — without one Chat is not in the menu and the page stays one column.
       sideChat={menu.some((m) => m.id === 'chat') ? { page: 'chat', workDefault } : null}
       chatTop={nextStep}
-      more={hostMoreRows(call)}
+      more={hostMoreRows(call, mute ? <MuteChatRow threadId={mute.threadId} muted={mute.muted} /> : null)}
     />
   );
 }

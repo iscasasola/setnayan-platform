@@ -9,6 +9,7 @@ import { fetchThreadById } from './chat';
 import { sendChatMessageCore } from './chat-send';
 import { resolveCounterpartyUserIds } from './chat-block';
 import { readShopChatPeople, readThreadHostPeople } from './chat-shop-people.server';
+import { chatNoticeSilentFor, readThreadMutes } from './chat-mutes';
 import { chatNoticeRecipients } from './chat-shop-people';
 import { emitNotification } from './notification-emit';
 import { returningClientLine } from '@/lib/client-words';
@@ -213,7 +214,10 @@ export async function notifyOtherParty(args: {
     const recipients = typeof args.privateTo === 'string' ? [args.privateTo] : [...args.privateTo];
     // The shop's people (the owner, or a team member who may chat here) read the thread at the supplier's door; a host
     // at the event's.
-    const shopPeople = (await readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId })).userIds;
+    const [shopPeople, privateMutes] = await Promise.all([
+      readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId }).then((r) => r.userIds),
+      readThreadMutes(admin, args.threadId),
+    ]);
     for (const to of recipients) {
       const toShop = vendorRes.data?.user_id === to || shopPeople.includes(to);
       await emitNotification({
@@ -225,6 +229,7 @@ export async function notifyOtherParty(args: {
         body: preview,
         eventId: args.eventId,
         relatedUrl: toShop ? supplierChatHref(args.eventId, args.threadId) : coupleChatHref(args.eventId, await coupleRow(), args.threadId),
+        silent: chatNoticeSilentFor(privateMutes, to),
       });
     }
     return;
@@ -233,10 +238,13 @@ export async function notifyOtherParty(args: {
   // WHO is on each side of this conversation (chat gaps, 8 Nov): the shop's people who may chat here
   // (`readShopChatPeople`, the policy's own three branches) and the hosts IN this thread (`readThreadHostPeople`: its
   // live members + the event's coordinators). Read only AFTER the private branch above has returned.
-  const [shop, hostSide] = await Promise.all([
+  // 🔕 …and who muted this chat (Unichat "Mute this chat"): their bell row lands, their phone stays quiet.
+  const [shop, hostSide, mutes] = await Promise.all([
     readShopChatPeople(admin, { vendorProfileId: args.vendorProfileId, eventId: args.eventId }),
     readThreadHostPeople(admin, { threadId: args.threadId, eventId: args.eventId }),
+    readThreadMutes(admin, args.threadId),
   ]);
+  const silent = (userId: string) => chatNoticeSilentFor(mutes, userId);
   const told = chatNoticeRecipients({
     senderRole: args.senderRole,
     senderUserId: args.senderUserId,
@@ -304,6 +312,7 @@ export async function notifyOtherParty(args: {
         emitNotification({
           userId,
           type: 'vendor_inquiry_received',
+          silent: silent(userId),
           title,
           body,
           // 🚪 The picked client on its Chat, where the ask is the top band (owner 11 Nov) — not the bare thread page.
@@ -316,6 +325,7 @@ export async function notifyOtherParty(args: {
           ? emitNotification({
               userId,
               type: 'chat_message',
+              silent: silent(userId),
               title: `New message from ${eventName}`,
               body: preview,
               relatedUrl: supplierChatHref(args.eventId, args.threadId),
@@ -323,6 +333,7 @@ export async function notifyOtherParty(args: {
           : emitNotification({
               userId,
               type: 'chat_message_in_app',
+              silent: silent(userId),
               title: `New message from ${eventName}`,
               body: preview,
               relatedUrl: supplierChatHref(args.eventId, args.threadId),
@@ -341,6 +352,7 @@ export async function notifyOtherParty(args: {
         await emitNotification({
           userId,
           type: 'chat_message_in_app',
+          silent: silent(userId),
           title: `${first} wrote to ${vendorName}`,
           body: preview,
           eventId: args.eventId,
@@ -357,6 +369,7 @@ export async function notifyOtherParty(args: {
     await emitNotification({
       userId,
       type: 'chat_message',
+      silent: silent(userId),
       title: `New message from ${vendorName}`,
       body: preview,
       eventId: args.eventId,
@@ -367,6 +380,7 @@ export async function notifyOtherParty(args: {
     await emitNotification({
       userId,
       type: 'chat_message_in_app',
+      silent: silent(userId),
       title: `New message from ${vendorName}`,
       body: preview,
       eventId: args.eventId,

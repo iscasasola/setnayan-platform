@@ -14491,6 +14491,9 @@
         "vendor-dashboard/_components/portfolio-upload.tsx",
         "vendor-dashboard/_components/push-notification-registrar.tsx",
         "vendor-dashboard/_components/row-icon.tsx",
+        "vendor-dashboard/_components/set-two/parts.tsx",
+        "vendor-dashboard/_components/set-two/read-failed.tsx",
+        "vendor-dashboard/_components/set-two/try-again.tsx",
         "vendor-dashboard/_components/setup-days-off-row.tsx",
         "vendor-dashboard/_components/setup-offer-fold.tsx",
         "vendor-dashboard/_components/setup-paper-place.tsx",
@@ -14674,6 +14677,7 @@
         "MessageBody",
         "NewServiceMaker",
         "NotConnected",
+        "NoteIc",
         "Notice",
         "NoticeSlot",
         "OfflineViewerScript",
@@ -14686,6 +14690,9 @@
         "PaperUploadPlace",
         "PapersRenewalLine",
         "PapersRenewalLineView",
+        "PartFoot",
+        "PartNote",
+        "PartText",
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PayoutReadiness",
@@ -14713,6 +14720,7 @@
         "RiseScreen",
         "RowDoor",
         "RowHead",
+        "RowIc",
         "RowIcon",
         "RowSkeleton",
         "SVGSVGElement",
@@ -14787,6 +14795,7 @@
         "TodayV2Sub",
         "TodayWrapUpBody",
         "TrackRecordRow",
+        "TryAgain",
         "TwoWayPanes",
         "TypedRow",
         "UndoableAnswers",
@@ -15598,20 +15607,32 @@
     },
     "/vendor-dashboard/contracts/[contractId]": {
       "files": [
+        "vendor-dashboard/contracts/[contractId]/contract-body.tsx",
         "vendor-dashboard/contracts/[contractId]/loading.tsx",
         "vendor-dashboard/contracts/[contractId]/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/contracts"
-      ],
+      "destinations": [],
       "actions": [
         "cancelContract",
         "publishContractToCouple"
       ],
       "blocks": [
+        "ContractBody",
+        "ContractReadFailed",
         "DetailPageSkeleton",
-        "Link",
         "OpenFileLink",
+        "PartFoot",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "PartRow",
+        "PartSec",
+        "PartText",
+        "PartTop",
+        "PostedFieldRow",
+        "ReadFailedBody",
+        "ShopPill",
         "StayForm",
         "SubmitButton"
       ]
@@ -15619,21 +15640,36 @@
     "/vendor-dashboard/contracts/new": {
       "files": [
         "vendor-dashboard/contracts/new/loading.tsx",
-        "vendor-dashboard/contracts/new/page.tsx"
+        "vendor-dashboard/contracts/new/page.tsx",
+        "vendor-dashboard/contracts/new/upload-body.tsx",
+        "vendor-dashboard/contracts/new/upload-form.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/contracts",
         "/vendor-dashboard/messages"
       ],
       "actions": [
+        "action",
         "uploadVendorContract"
       ],
       "blocks": [
-        "CardPick",
+        "ActionButton",
+        "ChosenRow",
+        "ContractUploadForm",
+        "EqualRow",
         "FormPageSkeleton",
+        "FormRow",
+        "FormRows",
         "InfoTip",
         "Link",
-        "SubmitButton"
+        "PartFoot",
+        "PartList",
+        "PartNote",
+        "PartPage",
+        "PartPin",
+        "ReadFailedBody",
+        "SubmitButton",
+        "TypedRow",
+        "UploadContractBody"
       ]
     },
     "/vendor-dashboard/creators": {

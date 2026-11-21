@@ -16,6 +16,9 @@
  *   7. the head's search door is turned on while nothing listens (a dead magnifier), or stops firing inside the tap.
  *   5. Details stops drawing the six agreed facts as drawn, or draws an unread one as empty.
  *   8. (parity pass, 20 Nov) ⋯ turns back into a bottom sheet, regains a Details row, or Crew loses its day.
+ *  10. (Unichat v3, 21 Nov) Call · Viber under ⋯ is drawn for an UNBOOKED shop or with no saved number (a dead row),
+ *      leaves its place (after Crew, before the calendar · before Report on the host), or its booking check stops being
+ *      the ONE `shopIsBookedOnEvent` read.
  *
  * SABOTAGE (20 Nov 2026, each seen RED then restored): `rows.push({ id: 'report'…` moved above `'details'` (1) ·
  * `if (songs)` → `if (true)` (2) · `'song_desk'` → `'stage_script'` in the page's `showSongs` (2) · `isBooked ?` dropped
@@ -32,6 +35,9 @@ import { stripComments } from '../../../../lib/strip-comments';
 import { agreedEventFact, agreedFacts } from '../../../../lib/agreed-facts';
 import { COORDINATOR_TRADE_SERVICES } from '../../../../lib/coordinator-trade';
 import { clientMoreRows } from './_components/picked-client-more';
+import { hostMoreRows } from '../../../dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-shell';
+import { bookedCallReachable } from '../../../_components/chat/booked-call-choices';
+import { bookedTelHref, bookedViberHref } from '../../../../lib/booked-handoff';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..', '..');
@@ -44,6 +50,7 @@ const HOST_SHELL = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_c
 const NAV = read('app/_components/picked/picked-nav.ts');
 
 const idOf = (r: ReturnType<typeof clientMoreRows>[number]) => (typeof r === 'string' ? r : r.id);
+const hostIdOf = (r: ReturnType<typeof hostMoreRows>[number]) => (typeof r === 'string' ? r : r.id);
 const BODY = 'a page body';
 
 test('1 · the rows, in the drawn order — Report a problem last, nothing the strip already opens, no Mute', () => {
@@ -147,8 +154,11 @@ test('5 · Details › Agreed now draws the six facts as drawn — and never an 
 });
 
 test('6 · the host has Report a problem under ⋯ too — without becoming a one-chat page before its own build', () => {
-  assert.match(HOST_SHELL, /const HOST_MORE: readonly PickedMoreRow<PickedSupplierPage>\[\] = \[\{ id: 'report', label: 'Report a problem', icon: TOPIC_ICON\.report, page: 'report' \}\];/);
-  assert.match(HOST_SHELL, /more=\{HOST_MORE\}/);
+  const host = hostMoreRows();
+  assert.deepEqual(host.map(hostIdOf), ['report']);
+  const report = host[0]!;
+  assert.ok(typeof report !== 'string' && report.label === 'Report a problem' && 'page' in report && report.page === 'report');
+  assert.match(HOST_SHELL, /more=\{hostMoreRows\(call\)\}/);
   assert.doesNotMatch(HOST_SHELL, /chatHome/, 'the host’s picked supplier lost its tabs before its own build');
   // The shell draws ⋯ from either list, hides a row whose page the menu lacks, and never offers a page of its own
   // (`body`) where there is no chat-as-home for it to open over.
@@ -186,4 +196,30 @@ test('9 · Report a problem left the (+) on both sides — and every chat still 
   const hostThread = read('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
   assert.match(hostThread, /\{ href: `\$\{workspaceHref\}\?tab=report`, label: 'Report a problem', icon: 'problem' \}/, 'the host’s thread lost its way to Report');
   assert.match(read('app/_components/chat-thread-menu.tsx'), /problem: TriangleAlert,/);
+});
+
+test('10 · Call · Viber under ⋯ only once booked and with a number — after Crew, before Report — on both sides', () => {
+  // Supplier: one row with its own page, in the drawn place.
+  const all = clientMoreRows({ crewHref: '/hub', crewDay: '18 Dec', call: BODY, calendar: { href: '/c.ics', filename: 'c.ics' } });
+  assert.deepEqual(all.map(idOf), ['files', 'hub', 'crew', 'call', 'calendar', 'report']);
+  const call = all.find((r) => idOf(r) === 'call')!;
+  assert.ok(typeof call !== 'string' && call.label === 'Call · Viber' && 'body' in call, 'the Call · Viber row lost its words or its page');
+  assert.ok(!clientMoreRows({ call: null }).some((r) => idOf(r) === 'call'), 'a Call row with nothing behind it');
+  // Host: the two hand-offs as links (its ⋯ has no chat-as-home to open a page over), before Report.
+  const tel = bookedTelHref(true, '0917 000 0000');
+  const viber = bookedViberHref(true, '0917 000 0000');
+  assert.ok(tel && viber);
+  assert.deepEqual(hostMoreRows({ tel, viber }).map(hostIdOf), ['call', 'viber', 'report']);
+  assert.deepEqual(hostMoreRows({ tel: null, viber: null }).map(hostIdOf), ['report']);
+  // The gate is the hand-off's own: unbooked or no number → no row, never a dead one.
+  assert.equal(bookedCallReachable(false, '0917 000 0000'), false);
+  assert.equal(bookedCallReachable(true, null), false);
+  assert.equal(bookedCallReachable(true, '0917 000 0000'), true);
+  assert.deepEqual(hostMoreRows({ tel: bookedTelHref(false, '0917 000 0000'), viber: bookedViberHref(false, '0917 000 0000') }).map(hostIdOf), ['report']);
+  // Both pages ask the ONE booking check, and hand the result through the hand-off's gate.
+  assert.match(PAGE, /shopIsBookedOnEvent\(eventId, profile\.vendor_profile_id\)[\s\S]{0,200}bookedCounterpartyPhone\(\{ booked, viewer: 'vendor', eventId, vendorProfileId: profile\.vendor_profile_id \}\)/);
+  assert.match(PAGE, /call: bookedCallReachable\(bookedCall\.booked, bookedCall\.phone\) \? \(\s*<BookedCallChoices booked=\{bookedCall\.booked\} phone=\{bookedCall\.phone\} who=\{eventName\} \/>/);
+  const HOST_PAGE = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx');
+  assert.match(HOST_PAGE, /shopIsBookedOnEvent\(eventId, shopId\)[\s\S]{0,200}bookedCounterpartyPhone\(\{ booked, viewer: 'couple', eventId, vendorProfileId: shopId \}\)/);
+  assert.match(HOST_PAGE, /call=\{\{ tel: bookedTelHref\(bookedCall\.booked, bookedCall\.phone\), viber: bookedViberHref\(bookedCall\.booked, bookedCall\.phone\) \}\}/);
 });

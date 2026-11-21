@@ -3,7 +3,7 @@
  * (`the-more-menu-holds-places-to-go.test.ts`). Drawn by the ONE picked shell (`app/_components/picked/picked-shell.tsx`).
  */
 import type { ReactNode } from 'react';
-import { CalendarPlus, ListMusic, ScrollText, Users } from 'lucide-react';
+import { CalendarPlus, ListMusic, Phone, ScrollText, Users } from 'lucide-react';
 import type { PickedMoreRow } from '@/app/_components/picked/picked-shell';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import type { PickedClientPage } from './picked-client-menu';
@@ -18,6 +18,8 @@ import type { PickedClientPage } from './picked-client-menu';
  *   **Files · Event Hub** — the pages with no box in the strip (Hub once booked). Not Details: the client's name in the
  *     head opens it, and the drawing has no second way in.
  *   **Crew for 18 Dec** — the shipped Hub › Crew for this event (booked only), named with the event's day when it has one.
+ *   **Call · Viber** — the booked hand-off (drawing v3: "Call · Viber moved under ⋯"), ONLY when the page hands its
+ *     body in — `BookedCallChoices` behind `bookedCallReachable` (booked AND a saved number). No body, no row.
  *   **Add to my calendar** — the shipped `calendar.ics`, only once the day has a timed moment (the file is a 404 before).
  *   **Report a problem** — LAST. Owner 20 Nov: the approved design moves it into ⋯, superseding 9 Nov "last row of (+)".
  *
@@ -33,16 +35,19 @@ export type ClientMoreFacts = {
   crewHref?: string | null;
   /** The event's day as the drawing words it ("18 Dec", `dayMonth`) — the Crew row's tail; null = no date yet. */
   crewDay?: string | null;
+  /** 📞 The Call · Viber page (`BookedCallChoices`) — handed in only when the shop is booked and the hosts saved a number. */
+  call?: ReactNode;
   /** The event's timeline file, or null while it has no timed moment. */
   calendar?: { href: string; filename: string } | null;
 };
 
-export function clientMoreRows({ songs, script, crewHref, crewDay, calendar }: ClientMoreFacts): PickedMoreRow<PickedClientPage>[] {
+export function clientMoreRows({ songs, script, crewHref, crewDay, call, calendar }: ClientMoreFacts): PickedMoreRow<PickedClientPage>[] {
   const rows: PickedMoreRow<PickedClientPage>[] = [];
   if (songs) rows.push({ id: 'songs', label: 'Song list', icon: ListMusic, heading: 'For your trade', body: songs });
   if (script) rows.push({ id: 'script', label: 'Script', icon: ScrollText, heading: songs ? undefined : 'For your trade', body: script });
   rows.push('files', { id: 'hub', label: 'Hub', icon: TOPIC_ICON.hub, page: 'hub' });
   if (crewHref) rows.push({ id: 'crew', label: crewDay ? `Crew for ${crewDay}` : 'Crew', icon: Users, href: crewHref });
+  if (call) rows.push({ id: 'call', label: 'Call · Viber', icon: Phone, body: call });
   if (calendar) rows.push({ id: 'calendar', label: 'Add to my calendar', icon: CalendarPlus, file: calendar });
   rows.push({ id: 'report', label: 'Report a problem', icon: TOPIC_ICON.report, page: 'report' });
   return rows;

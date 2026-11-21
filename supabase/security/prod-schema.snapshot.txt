@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1948
-# tables: 527
-# columns: 6323
-# notnull: 3819
+# ledger: 1954
+# tables: 531
+# columns: 6374
+# notnull: 3844
 [ledger]
 20260512000000
 20260513000000
@@ -1938,15 +1938,18 @@
 20271351531329
 20271351728222
 20271351728770
+20271351755368
 20271351904391
 20271351935140
 20271352068061
 20271352180500
+20271352202109
 20271352223098
 20271352263623
 20271352394900
 20271352461498
 20271352882666
+20271352914112
 20271352968519
 20271353093349
 20271353556136
@@ -1960,6 +1963,9 @@
 20271355746081
 20271355899662
 20271356173915
+20271356402294
+20271356665317
+20271356969132
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2233,6 +2239,20 @@ booking_fee_ledger.ledger_id
 booking_fee_ledger.source
 booking_fee_ledger.updated_at
 booking_fee_ledger.vendor_profile_id
+booking_gift_lines.cleared_at
+booking_gift_lines.cleared_reason
+booking_gift_lines.created_at
+booking_gift_lines.credits
+booking_gift_lines.event_id
+booking_gift_lines.event_vendor_id
+booking_gift_lines.from_stock
+booking_gift_lines.gift_kind
+booking_gift_lines.gift_order_line_id
+booking_gift_lines.line_id
+booking_gift_lines.price_centavos
+booking_gift_lines.service_code
+booking_gift_lines.title
+booking_gift_lines.vendor_profile_id
 booking_handovers.couple_acknowledged_at
 booking_handovers.created_at
 booking_handovers.delivered_at
@@ -2463,6 +2483,9 @@ chat_thread_members.left_by_removal
 chat_thread_members.left_note
 chat_thread_members.thread_id
 chat_thread_members.user_id
+chat_thread_mutes.muted_at
+chat_thread_mutes.thread_id
+chat_thread_mutes.user_id
 chat_thread_reads.archived_at
 chat_thread_reads.last_read_at
 chat_thread_reads.thread_id
@@ -6227,6 +6250,32 @@ setnayan_pay_methods.notes
 setnayan_pay_methods.setnayan_pay_pct
 setnayan_pay_methods.updated_at
 setnayan_pay_methods.updated_by_user_id
+setnayan_shop_gifts.claim_choice
+setnayan_shop_gifts.claimed_at
+setnayan_shop_gifts.claimed_by
+setnayan_shop_gifts.ends_soon_1_sent_at
+setnayan_shop_gifts.ends_soon_7_sent_at
+setnayan_shop_gifts.finish_reason
+setnayan_shop_gifts.finished_at
+setnayan_shop_gifts.gift_id
+setnayan_shop_gifts.gift_type
+setnayan_shop_gifts.held_until
+setnayan_shop_gifts.note
+setnayan_shop_gifts.plan_days
+setnayan_shop_gifts.plan_ends_at
+setnayan_shop_gifts.plan_starts_at
+setnayan_shop_gifts.plan_tier
+setnayan_shop_gifts.return_billing_cycle
+setnayan_shop_gifts.return_open_ended
+setnayan_shop_gifts.return_remaining
+setnayan_shop_gifts.return_source
+setnayan_shop_gifts.return_tier
+setnayan_shop_gifts.sent_at
+setnayan_shop_gifts.sent_by
+setnayan_shop_gifts.stock_credits_each
+setnayan_shop_gifts.stock_kind
+setnayan_shop_gifts.stock_units
+setnayan_shop_gifts.vendor_profile_id
 shared_attribute_groups.attributes
 shared_attribute_groups.created_at
 shared_attribute_groups.display_name_en
@@ -7712,6 +7761,7 @@ vendor_push_tokens.is_active
 vendor_push_tokens.last_registered_at
 vendor_push_tokens.platform
 vendor_push_tokens.token
+vendor_push_tokens.user_id
 vendor_push_tokens.vendor_profile_id
 vendor_qr_media_flags.created_at
 vendor_qr_media_flags.decoded_payload
@@ -7838,6 +7888,11 @@ vendor_reviews.vendor_reply
 vendor_reviews.vendor_reply_at
 vendor_reviews.via_vendor_import
 vendor_reviews.voided_by_fraud
+vendor_role_names.display_name
+vendor_role_names.duty
+vendor_role_names.updated_at
+vendor_role_names.updated_by
+vendor_role_names.vendor_profile_id
 vendor_schedule_calendar_services.created_at
 vendor_schedule_calendar_services.pool_id
 vendor_schedule_calendar_services.vendor_profile_id
@@ -8092,8 +8147,10 @@ vendor_subscriptions.sku_code
 vendor_subscriptions.status
 vendor_subscriptions.tier
 vendor_subscriptions.vendor_id
+vendor_team_members.branch_id
 vendor_team_members.created_at
 vendor_team_members.deactivated_at
+vendor_team_members.duty
 vendor_team_members.public_id
 vendor_team_members.role
 vendor_team_members.team_label
@@ -8438,6 +8495,17 @@ booking_fee_ledger.ledger_id
 booking_fee_ledger.source
 booking_fee_ledger.updated_at
 booking_fee_ledger.vendor_profile_id
+booking_gift_lines.created_at
+booking_gift_lines.credits
+booking_gift_lines.event_id
+booking_gift_lines.event_vendor_id
+booking_gift_lines.from_stock
+booking_gift_lines.gift_kind
+booking_gift_lines.line_id
+booking_gift_lines.price_centavos
+booking_gift_lines.service_code
+booking_gift_lines.title
+booking_gift_lines.vendor_profile_id
 booking_handovers.created_at
 booking_handovers.delivered_at
 booking_handovers.event_id
@@ -8589,6 +8657,9 @@ chat_thread_members.joined_at
 chat_thread_members.left_by_removal
 chat_thread_members.thread_id
 chat_thread_members.user_id
+chat_thread_mutes.muted_at
+chat_thread_mutes.thread_id
+chat_thread_mutes.user_id
 chat_thread_reads.last_read_at
 chat_thread_reads.thread_id
 chat_thread_reads.user_id
@@ -10833,6 +10904,12 @@ setnayan_pay_methods.method_code
 setnayan_pay_methods.min_fee_centavos
 setnayan_pay_methods.setnayan_pay_pct
 setnayan_pay_methods.updated_at
+setnayan_shop_gifts.gift_id
+setnayan_shop_gifts.gift_type
+setnayan_shop_gifts.plan_days
+setnayan_shop_gifts.return_open_ended
+setnayan_shop_gifts.sent_at
+setnayan_shop_gifts.vendor_profile_id
 shared_attribute_groups.attributes
 shared_attribute_groups.created_at
 shared_attribute_groups.display_name_en
@@ -11833,6 +11910,10 @@ vendor_reviews.updated_at
 vendor_reviews.vendor_profile_id
 vendor_reviews.via_vendor_import
 vendor_reviews.voided_by_fraud
+vendor_role_names.display_name
+vendor_role_names.duty
+vendor_role_names.updated_at
+vendor_role_names.vendor_profile_id
 vendor_schedule_calendar_services.created_at
 vendor_schedule_calendar_services.pool_id
 vendor_schedule_calendar_services.vendor_profile_id
@@ -11995,6 +12076,7 @@ vendor_subscriptions.status
 vendor_subscriptions.tier
 vendor_subscriptions.vendor_id
 vendor_team_members.created_at
+vendor_team_members.duty
 vendor_team_members.public_id
 vendor_team_members.role
 vendor_team_members.updated_at

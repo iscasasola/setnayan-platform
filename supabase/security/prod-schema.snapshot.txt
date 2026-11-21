@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1964
-# tables: 535
-# columns: 6427
-# notnull: 3874
+# ledger: 1966
+# tables: 538
+# columns: 6455
+# notnull: 3887
 [ledger]
 20260512000000
 20260513000000
@@ -1971,8 +1971,10 @@
 20271356196197
 20271356215288
 20271356402294
+20271356599293
 20271356623783
 20271356665317
+20271356877338
 20271356969132
 20271356998019
 20271357547732
@@ -2339,6 +2341,14 @@ build_requote_nudges.thread_id
 build_requote_nudges.vendor_profile_id
 bundle_components.bundle_sku_code
 bundle_components.component_service_code
+cake_designs.config
+cake_designs.created_at
+cake_designs.created_by
+cake_designs.design
+cake_designs.design_id
+cake_designs.estimate_centavos
+cake_designs.thread_id
+cake_designs.vendor_service_id
 canonical_service_aliases.canonical_service
 canonical_service_aliases.created_at
 canonical_service_aliases.id
@@ -2535,6 +2545,7 @@ chat_threads.agreed_price_centavos
 chat_threads.archived_at
 chat_threads.compat_reasons
 chat_threads.compat_score_at_inquiry
+chat_threads.covering_member_id
 chat_threads.created_at
 chat_threads.created_by_user_id
 chat_threads.decline_reason
@@ -2545,6 +2556,9 @@ chat_threads.group_key
 chat_threads.group_kind
 chat_threads.group_name
 chat_threads.group_roles
+chat_threads.hand_over_member_id
+chat_threads.handled_by_member_id
+chat_threads.handled_by_set_at
 chat_threads.inquiry_source
 chat_threads.inquiry_status
 chat_threads.is_returning
@@ -5960,6 +5974,7 @@ platform_settings.grow_few_bookings_month
 platform_settings.grow_few_inquiries_28d
 platform_settings.id
 platform_settings.ig_user_id
+platform_settings.inquiry_split_own_enough
 platform_settings.launch_offer_booking_cap
 platform_settings.launch_offer_closed_at
 platform_settings.launch_offer_cycle_days
@@ -5995,6 +6010,7 @@ platform_settings.sample_event_enabled
 platform_settings.setnayan_ai_paywall_enabled
 platform_settings.setnayan_ai_per_event_pricing_enabled
 platform_settings.setnayan_pay_fee_pct
+platform_settings.special_tools_paid_from
 platform_settings.spotlight_homepage_enabled
 platform_settings.story_photo_silence_days
 platform_settings.tiktok_client_key
@@ -6959,6 +6975,10 @@ vendor_branches.cancelled_at
 vendor_branches.created_at
 vendor_branches.included_in_plan
 vendor_branches.parent_vendor_profile_id
+vendor_cake_makers.options
+vendor_cake_makers.updated_at
+vendor_cake_makers.updated_by
+vendor_cake_makers.vendor_profile_id
 vendor_calendar_blocks.block_id
 vendor_calendar_blocks.block_label
 vendor_calendar_blocks.block_source
@@ -7294,6 +7314,15 @@ vendor_image_hashes.r2_ref
 vendor_image_hashes.surface
 vendor_image_hashes.vendor_profile_id
 vendor_image_hashes.vendor_service_id
+vendor_inquiry_split_cuts.adjusted_at
+vendor_inquiry_split_cuts.adjusted_by
+vendor_inquiry_split_cuts.branch_id
+vendor_inquiry_split_cuts.event_type
+vendor_inquiry_split_cuts.from_prefix
+vendor_inquiry_split_cuts.to_prefix
+vendor_inquiry_split_cuts.vendor_profile_id
+vendor_inquiry_split_cuts.vendor_service_id
+vendor_inquiry_split_cuts.vendor_team_member_id
 vendor_invites.business_name
 vendor_invites.claim_token
 vendor_invites.claimed_at
@@ -8214,6 +8243,7 @@ vendor_team_members.branch_id
 vendor_team_members.created_at
 vendor_team_members.deactivated_at
 vendor_team_members.duty
+vendor_team_members.paused_by_plan_at
 vendor_team_members.public_id
 vendor_team_members.role
 vendor_team_members.team_label
@@ -8620,6 +8650,11 @@ build_requote_nudges.thread_id
 build_requote_nudges.vendor_profile_id
 bundle_components.bundle_sku_code
 bundle_components.component_service_code
+cake_designs.config
+cake_designs.created_at
+cake_designs.design
+cake_designs.design_id
+cake_designs.thread_id
 canonical_service_aliases.canonical_service
 canonical_service_aliases.created_at
 canonical_service_aliases.id
@@ -11405,6 +11440,9 @@ vendor_branches.branch_subscription_active
 vendor_branches.created_at
 vendor_branches.included_in_plan
 vendor_branches.parent_vendor_profile_id
+vendor_cake_makers.options
+vendor_cake_makers.updated_at
+vendor_cake_makers.vendor_profile_id
 vendor_calendar_blocks.block_id
 vendor_calendar_blocks.block_label
 vendor_calendar_blocks.block_source
@@ -11632,6 +11670,11 @@ vendor_image_hashes.phash
 vendor_image_hashes.r2_ref
 vendor_image_hashes.surface
 vendor_image_hashes.vendor_profile_id
+vendor_inquiry_split_cuts.adjusted_at
+vendor_inquiry_split_cuts.from_prefix
+vendor_inquiry_split_cuts.vendor_profile_id
+vendor_inquiry_split_cuts.vendor_service_id
+vendor_inquiry_split_cuts.vendor_team_member_id
 vendor_invites.business_name
 vendor_invites.claim_token
 vendor_invites.created_at

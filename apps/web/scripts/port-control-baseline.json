@@ -16072,6 +16072,7 @@
     "/vendor-dashboard/manpower": {
       "files": [
         "vendor-dashboard/manpower/_components/gig-card.tsx",
+        "vendor-dashboard/manpower/_components/manpower-view.tsx",
         "vendor-dashboard/manpower/actions.ts",
         "vendor-dashboard/manpower/loading.tsx",
         "vendor-dashboard/manpower/page.tsx",
@@ -16086,9 +16087,16 @@
         "CompleteGigResult",
         "GigCard",
         "Group",
+        "InfoTip",
         "ManpowerGigRow",
         "ManpowerSurface",
-        "PageMasthead"
+        "ManpowerView",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection"
       ]
     },
     "/vendor-dashboard/messages": {

@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8108
+# facts: 8114
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     658
-#   col       5831
-#   policy    1192
+#   tpriv     659
+#   col       5835
+#   policy    1193
 #   view      10
 #   func      413
 #
@@ -81,6 +81,7 @@ tpriv	public.chat_messages|authenticated	SD
 tpriv	public.chat_poll_choices|authenticated	S
 tpriv	public.chat_poll_votes|authenticated	S
 tpriv	public.chat_polls|authenticated	S
+tpriv	public.chat_thread_mutes|authenticated	SID
 tpriv	public.chat_thread_reads|anon	SIUD
 tpriv	public.chat_thread_reads|authenticated	SIUD
 tpriv	public.chat_threads|anon	IUD
@@ -1100,6 +1101,9 @@ col	public.chat_thread_members.joined_at	anon=- authenticated=S
 col	public.chat_thread_members.left_at	anon=- authenticated=S
 col	public.chat_thread_members.thread_id	anon=- authenticated=S
 col	public.chat_thread_members.user_id	anon=- authenticated=S
+col	public.chat_thread_mutes.muted_at	anon=- authenticated=SI
+col	public.chat_thread_mutes.thread_id	anon=- authenticated=SI
+col	public.chat_thread_mutes.user_id	anon=- authenticated=SI
 col	public.chat_thread_reads.archived_at	anon=SIU authenticated=SIU
 col	public.chat_thread_reads.last_read_at	anon=SIU authenticated=SIU
 col	public.chat_thread_reads.thread_id	anon=SIU authenticated=SIU
@@ -5965,6 +5969,7 @@ col	public.vendor_push_tokens.is_active	anon=SIU authenticated=SIU
 col	public.vendor_push_tokens.last_registered_at	anon=SIU authenticated=SIU
 col	public.vendor_push_tokens.platform	anon=SIU authenticated=SIU
 col	public.vendor_push_tokens.token	anon=SIU authenticated=SIU
+col	public.vendor_push_tokens.user_id	anon=SIU authenticated=SIU
 col	public.vendor_push_tokens.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_qr_media_flags.created_at	anon=- authenticated=SIU
 col	public.vendor_qr_media_flags.decoded_payload	anon=- authenticated=SIU
@@ -6605,6 +6610,7 @@ policy	public.chat_poll_votes|chat_poll_votes_read	mode=PERMISSIVE cmd=SELECT ro
 policy	public.chat_polls|chat_polls_money_hosts_only	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=((NOT chat_text_has_money(question)) OR (asked_by_user_id = ( SELECT auth.uid() AS uid)) OR (NOT chat_thread_money_hidden(thread_id))) check=NULL
 policy	public.chat_polls|chat_polls_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids))))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
 policy	public.chat_thread_members|chat_thread_members_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((thread_id IN ( SELECT current_thread_ids() AS current_thread_ids)) OR (user_id = ( SELECT auth.uid() AS uid)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) OR (thread_id IN ( SELECT admin_disputed_thread_ids() AS admin_disputed_thread_ids))) check=NULL
+policy	public.chat_thread_mutes|chat_thread_mutes_own	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.chat_thread_reads|chat_thread_reads_self_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=(user_id = ( SELECT auth.uid() AS uid)) check=(user_id = ( SELECT auth.uid() AS uid))
 policy	public.chat_threads|chat_threads_follow_gate	mode=RESTRICTIVE cmd=INSERT roles=authenticated using=NULL check=(vendor_profile_id IN ( SELECT vendor_follows.vendor_profile_id FROM vendor_follows WHERE (vendor_follows.follower_user_id = ( SELECT auth.uid() AS uid))))
 policy	public.chat_threads|chat_threads_groups_read_through_functions	mode=RESTRICTIVE cmd=SELECT roles=authenticated using=(kind = 'supplier'::text) check=NULL

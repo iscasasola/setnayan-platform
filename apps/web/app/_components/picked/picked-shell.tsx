@@ -77,14 +77,21 @@ const PAGE_SWIPE_SKIP = '[data-picked-menu],[data-calendar],[data-dates-week-str
  * places to go"). A bare page id is that page under its tab's own word and icon. Anything else names its own word and
  * icon and is ONE of: a menu page under other words (`page`), a page of its own that is not a tab (`body` — a trade
  * page: the Song list, the Script), a place elsewhere in the app (`href`), or a file to keep (`file`). `heading` is the
- * small label drawn above the row ("For your trade").
+ * small label drawn above the row ("For your trade"). A `control` is a row that IS its own action — a switch that does
+ * something where you are (🔕 Mute this chat): the page hands in the control, the shell draws it in the row's look
+ * (`PICKED_MORE_ROW`) and closes the menu on its press. Its `label` and `icon` name it for the guards and the menu.
  */
 export type PickedMoreItem<P extends string> = { id: string; label: string; icon: LucideIcon; heading?: string } & (
   | { page: P }
   | { body: ReactNode }
   | { href: string }
   | { file: { href: string; filename: string } }
+  | { control: ReactNode }
 );
+
+/** One look for every ⋯ row (drawing `.li`: 18 px ink-2 icon, words) — a `control` row draws itself with it. */
+export const PICKED_MORE_ROW =
+  'flex min-h-11 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold text-ink hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:outline-none';
 export type PickedMoreRow<P extends string> = P | PickedMoreItem<P>;
 
 /** 🖥 The page column beside the chat on a computer (drawing: the third column, 420 px; the chat narrows, never covered). */
@@ -95,6 +102,8 @@ export type PickedShellProps<P extends string> = {
   pickedId: string;
   /** The pinned row's name. */
   title: string;
+  /** 🔕 A small mark after the name (drawing v3: the bell-off while this chat is muted), or null. */
+  titleMark?: ReactNode;
   /** The menu, in order. */
   menu: { id: P; label: string }[];
   /** One icon per page (lucide). */
@@ -247,6 +256,7 @@ const NO_MORE_ROWS: readonly never[] = [];
 export function PickedShell<P extends string>({
   pickedId,
   title,
+  titleMark = null,
   menu,
   icons,
   initialPage,
@@ -740,9 +750,13 @@ export function PickedShell<P extends string>({
                   data-tour={chatHome.titleTour}
                 >
                   <span className="truncate">{title}</span>
+                  {titleMark}
                 </button>
               ) : (
-                title
+                <>
+                  {title}
+                  {titleMark}
+                </>
               )}
             </h1>
             {/* 📅 The page's own line under the title (the supplier's Chat: their date · Free — CHAT-09); empty = gone. */}
@@ -799,7 +813,7 @@ export function PickedShell<P extends string>({
                     {moreMenu.map((m) => {
                       const Icon: LucideIcon = m.icon;
                       // One look for a page, a page of its own, a place and a file (drawing `.li`: 18 px ink-2 icon, words).
-                      const row = 'flex min-h-11 w-full items-center gap-3 px-4 text-left text-[15px] font-semibold text-ink hover:bg-ink/5 focus-visible:bg-ink/5 focus-visible:outline-none';
+                      const row = PICKED_MORE_ROW;
                       const inner = (
                         <>
                           <Icon aria-hidden className="h-[18px] w-[18px] shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
@@ -821,6 +835,11 @@ export function PickedShell<P extends string>({
                             <button type="button" role="menuitem" onClick={() => openExtra(m.id)} className={row} data-picked-more-row={m.id}>
                               {inner}
                             </button>
+                          ) : 'control' in m ? (
+                            // The control does its own work; a press anywhere on it also closes the menu (it keeps running).
+                            <div role="none" onClick={() => setMoreOpen(false)} data-picked-more-control={m.id}>
+                              {m.control}
+                            </div>
                           ) : 'href' in m ? (
                             <Link href={m.href} role="menuitem" onClick={() => setMoreOpen(false)} className={row} data-picked-more-row={m.id}>
                               {inner}

@@ -91,6 +91,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // "Don't show me invites from this person" (owner 2026-09-28, migration
   // 20271252896804) — the subject's own private mute list, keyed on user_id.
   { table: 'invite_mutes', decision: 'exported', as: 'invite_mutes' },
+  // 🔕 "Mute this chat" (2026-11-21, migration 20271356402294) — the chats the subject muted, keyed on user_id.
+  { table: 'chat_thread_mutes', decision: 'exported', as: 'chats_you_muted' },
   // 🖼⏱ The Mood Board photo changes the subject MADE under Mood Board Edit (2026-10-30, migration 20271299051148) —
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },

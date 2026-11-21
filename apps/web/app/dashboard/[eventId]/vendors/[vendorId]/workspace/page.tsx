@@ -36,6 +36,7 @@
 
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { bookedTelHref, bookedViberHref } from '@/lib/booked-handoff';
+import { readMyMute } from '@/lib/chat-mutes';
 import { getCurrentUser } from '@/lib/auth';
 import { manilaToday } from '@/lib/provisional-approval';
 import { bookingMoneyMoved } from '@/lib/booking-money-moved';
@@ -1020,6 +1021,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const chatThread = (chatThreadRes.data ?? null) as { thread_id: string } | null;
   // 🔴 The Chat tab's unread count (v8.3) — started now, awaited at the shell, so it waits on nothing below.
   const chatUnreadP = chatThread ? readThreadUnreadCount(supabase, user.id, chatThread.thread_id) : Promise.resolve(null);
+  // 🔕 Has the viewer muted this chat? Their own row (Pattern A). null = no chat, or the read failed → no ⋯ switch.
+  const myMuteP = chatThread ? readMyMute(supabase, chatThread.thread_id, user.id) : Promise.resolve(null);
 
   /*
     ── ONE CHAT BOX (owner, 2026-09-18) ────────────────────────────────────────
@@ -3146,6 +3149,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   });
 
   const bookedCall = await bookedCallP;
+  const myMute = await myMuteP;
 
   return (
     <PickedSupplierShell
@@ -3162,6 +3166,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       nextStep={hostNextStep ? <NextStepRow step={hostNextStep} /> : null}
       bodies={pickedPages}
       call={{ tel: bookedTelHref(bookedCall.booked, bookedCall.phone), viber: bookedViberHref(bookedCall.booked, bookedCall.phone) }}
+      mute={chatThread && myMute !== null ? { threadId: chatThread.thread_id, muted: myMute } : null}
     />
   );
 }

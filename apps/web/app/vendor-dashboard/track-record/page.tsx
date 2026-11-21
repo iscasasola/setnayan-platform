@@ -41,7 +41,7 @@ export default async function VendorTrackRecordPage() {
           delivered, your record across every kind of event shows up here.
         </p>
         <div className="mt-4">
-          <ActionButton tone="brand" main icon={Store} label="Go to my shop" href="/vendor-dashboard/shop" />
+          <ActionButton tone="brand" main icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
         </div>
       </ToolPage>
     );

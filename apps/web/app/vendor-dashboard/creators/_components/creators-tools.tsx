@@ -60,8 +60,8 @@ export function CreatorsReach({ minReach }: { minReach: number }) {
         }
       />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
-        <form method="GET" action={path} className="flex flex-col gap-3 pb-2">
-          <h2 id={headId} className="sn-sheet-name text-ink">
+        <form method="GET" action={path} className="flex flex-col gap-3 px-5 pb-6 pt-5">
+          <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
             Reach bar
           </h2>
           <label className="flex min-h-12 items-center justify-between gap-3">
@@ -96,9 +96,9 @@ export function SendOfferButton({
     <>
       <ActionButton tone="neutral" icon={Send} label="Send offer" onClick={() => setOpen(true)} />
       <Sheet open={open} onClose={() => setOpen(false)} labelledById={headId}>
-        <StayForm door="svCreators.sendCreatorOffer" action={sendCreatorOffer} onSaved={() => setOpen(false)} className="flex flex-col gap-2.5 pb-2">
+        <StayForm door="svCreators.sendCreatorOffer" action={sendCreatorOffer} onSaved={() => setOpen(false)} className="flex flex-col gap-2.5 px-5 pb-6 pt-5">
           <div>
-            <h2 id={headId} className="sn-sheet-name text-ink">
+            <h2 id={headId} className="sn-sheet-name pr-12 text-ink">
               Send a discount offer
             </h2>
             <p className="text-[14px] text-[color:var(--m-slate-2)]">To {creatorName}</p>

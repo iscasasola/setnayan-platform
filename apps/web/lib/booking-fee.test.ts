@@ -132,3 +132,31 @@ test('monotonic non-decreasing across the whole range', () => {
     prev = fee;
   }
 });
+
+test('THE SHOWN FEE IS THE BILLED FEE — NUMERIC rounding, never a float (ship review 21 Nov)', () => {
+  // ₱100,003.50 → 5,000 + 3% of 3.50 = 5,000.105 → SQL round() → ₱5,000.11. A float sum gave ₱5,000.10.
+  assert.equal(bookingFeePhp(100_003.5), 5_000.11);
+  // Property: against an exact reference in whole centavos × hundredths of a percent, over many amounts —
+  // every half-centavo edge in the tail, a sweep through the band, and pseudo-random prices to ₱5M.
+  const ref = (php: number, flat: boolean) => {
+    const a = BigInt(Math.round(php * 100));
+    const band = 10_000_000n; // ₱100,000
+    const units = flat ? a * 500n : (a < band ? a : band) * 500n + (a > band ? a - band : 0n) * 300n;
+    let fee = (units + 5_000n) / 10_000n; // half away from zero, once
+    if (fee < 5_000n) fee = 5_000n; // ₱50 floor
+    if (fee > 10_000_000n) fee = 10_000_000n; // ₱100,000 lock
+    return Number(fee) / 100;
+  };
+  const amounts: number[] = [];
+  for (let c = 1; c <= 400; c++) amounts.push(100_000 + c * 0.5); // every half-peso above the band edge
+  for (let c = 1; c <= 400; c++) amounts.push(c * 2.5 + 0.1); // through the floor
+  let seed = 7;
+  for (let i = 0; i < 3_000; i++) {
+    seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+    amounts.push(Math.round((seed / 2_147_483_648) * 500_000_000) / 100);
+  }
+  for (const php of amounts) {
+    assert.equal(bookingFeePhp(php), ref(php, false), `taper disagrees with NUMERIC at ₱${php}`);
+    assert.equal(unverifiedBookingFeePhp(php), ref(php, true), `flat disagrees with NUMERIC at ₱${php}`);
+  }
+});

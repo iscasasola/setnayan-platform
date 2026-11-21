@@ -10,7 +10,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { bookingFeePhp } from '../../lib/booking-fee';
+import { bookingFeePhp, unverifiedBookingFeePhp } from '../../lib/booking-fee';
 import { SOURCED_INQUIRY_SOURCES } from '../../lib/booking-fee-gate';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
@@ -171,6 +171,30 @@ test('schedule: booking_fee_centavos is 5% then 3%, ₱50 floor, LOCKED at ₱10
       Math.round(bookingFeePhp(php) * 100),
       `SQL and TS disagree at ₱${php}`,
     );
+  }
+
+  // ⚖ THE SHOWN FEE IS THE BILLED FEE (ship review 21 Nov): TS equals SQL to the centavo over many amounts,
+  // half-centavo edges included (₱100,003.50 → ₱5,000.11), for the taper AND the unverified flat fee.
+  {
+    const cs: number[] = [];
+    for (let c = 1; c <= 300; c++) cs.push(100_000_00 + c * 50); // every half-peso above the band edge
+    for (let c = 1; c <= 200; c++) cs.push(c * 251); // through the floor
+    let seed = 11;
+    for (let i = 0; i < 1_500; i++) {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      cs.push(1 + Math.floor((seed / 2_147_483_648) * 500_000_000));
+    }
+    const r = await db.query<{ c: string; t: string; f: string }>(
+      `SELECT c::text AS c, public.booking_fee_centavos(c)::text AS t, public.booking_fee_flat_centavos(c)::text AS f
+         FROM unnest($1::bigint[]) AS c`,
+      [cs],
+    );
+    assert.equal(r.rows.length, cs.length);
+    for (const row of r.rows) {
+      const php = Number(row.c) / 100;
+      assert.equal(Math.round(bookingFeePhp(php) * 100), Number(row.t), `taper: TS shows ≠ SQL bills at ₱${php}`);
+      assert.equal(Math.round(unverifiedBookingFeePhp(php) * 100), Number(row.f), `flat: TS shows ≠ SQL bills at ₱${php}`);
+    }
   }
 
   // ⚖ The payment ceiling (owner 2026-11-17, max_payment_php) also bounds the fee: the lower of it and the lock wins.

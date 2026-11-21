@@ -50,6 +50,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/lock-freeze-copy.ts', text: /couple can lock a price|Deal locked — price frozen/, why: 'the supplier’s lines of the deal card; the couple’s read "Booked — price frozen."' },
   { prefix: 'lib/deal-lock-readiness.ts', text: /couple can’t lock this deal|can’t lock it\./, why: 'the supplier’s variant of the same refusal; the couple’s says "booked"' },
   { prefix: 'app/for-suppliers/_components/supplier-front-client.tsx', why: "For Suppliers' fee ruler — the ₱100,000 fee cap the owner calls the lock (20 Nov: \"show them the 100,000 lock\"); a fee, not a booking, on a supplier-facing page" },
+  { prefix: 'app/(shell)/for-coordinators/page.tsx', why: "For Coordinators' fee ⓘ — \"locked at ₱100,000\" (the 20 Nov fee ruling's word, as ruled for this page); the fee cap, not a booking" },
   { prefix: 'app/for-suppliers/_components/supplier-front-page.tsx', why: "For Suppliers' fee lede — \"once the fee reaches ₱100,000 it locks there\" (the approved drawing's words); the fee cap, not a booking" },
   { prefix: 'lib/event-access-stage.ts', why: "the supplier's day-of fee screen — supplier side" },
   { prefix: 'lib/tours.ts', text: /booking locks/, why: "the supplier's schedule tour" },

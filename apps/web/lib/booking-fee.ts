@@ -133,11 +133,34 @@ export function bookingFeePhp(
   schedule: BookingFeeSchedule = BOOKING_FEE,
 ): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  const tier1 = Math.min(proposalPhp, schedule.tier1LimitPhp);
-  const tier2 = Math.max(0, proposalPhp - schedule.tier1LimitPhp);
-  const linear = tier1 * schedule.rate + tier2 * schedule.tailRate;
-  // Floor at ₱50, then the lock (owner 2026-11-20) — the same order as the SQL.
-  return lockAndRound(Math.max(linear, schedule.minPhp), schedule);
+  const amount = centavos(proposalPhp);
+  const band = centavos(schedule.tier1LimitPhp);
+  const head = (amount < band ? amount : band) * pctHundredths(schedule.rate);
+  const tail = (amount > band ? amount - band : 0n) * pctHundredths(schedule.tailRate);
+  // ONE round of the sum, then the ₱50 floor, then the lock — exactly `public.booking_fee_centavos`.
+  return floorAndLock(roundHalfUp(head + tail), schedule);
+}
+
+/*
+ * ⚖ THE SHOWN FEE IS THE BILLED FEE (ship review 21 Nov: ₱100,003.50 showed ₱5,000.10 while SQL billed ₱5,000.11).
+ * Floats cannot hold 5,000.105, so the fee is computed the way Postgres NUMERIC does it: whole centavos × the rate in
+ * hundredths of a percent (5% = 500, as `head_pct / 100.0` on a NUMERIC(5,2) is exact), in BigInt, rounded ONCE,
+ * half away from zero (`round()` on NUMERIC), then floored and locked in whole centavos.
+ */
+function centavos(php: number): bigint {
+  return BigInt(Math.round(php * 100)); // `(x * 100)::BIGINT` rounds half away from zero too (positive inputs)
+}
+function pctHundredths(rate: number): bigint {
+  return BigInt(Math.round(rate * 10_000)); // 0.05 → 500 (= 5.00%)
+}
+function roundHalfUp(units: bigint): bigint {
+  // `units` is centavos × 10,000; every input is non-negative, so half-up IS half-away-from-zero.
+  return (units + 5_000n) / 10_000n;
+}
+function floorAndLock(feeCentavos: bigint, schedule: BookingFeeSchedule): number {
+  const floored = feeCentavos > centavos(schedule.minPhp) ? feeCentavos : centavos(schedule.minPhp);
+  const lock = centavos(bookingFeeCapPhp(schedule));
+  return Number(floored < lock ? floored : lock) / 100;
 }
 
 /**
@@ -166,11 +189,6 @@ export function bookingFeeLockPointPhp(schedule: BookingFeeSchedule = BOOKING_FE
   return bookingFeePhp(at - 1, schedule) >= cap ? at - 1 : at;
 }
 
-function lockAndRound(feePhp: number, schedule: BookingFeeSchedule): number {
-  // Centavo precision on both sides of the lock, as `round(x)` then `LEAST(…, cap)` in SQL.
-  return Math.min(Math.round(feePhp * 100) / 100, Math.round(bookingFeeCapPhp(schedule) * 100) / 100);
-}
-
 /**
  * The fee an UNVERIFIED shop pays (owner 2026-11-20: "Unverified shops keep the
  * flat 5% of the whole booking, and it ALSO locks at ₱100,000"). The head rate
@@ -182,7 +200,8 @@ export function unverifiedBookingFeePhp(
   schedule: BookingFeeSchedule = BOOKING_FEE,
 ): number {
   if (!Number.isFinite(proposalPhp) || proposalPhp <= 0) return 0;
-  return lockAndRound(Math.max(proposalPhp * schedule.rate, schedule.minPhp), schedule);
+  // `public.booking_fee_flat_centavos`: round(amount × head rate), then the floor, then the lock.
+  return floorAndLock(roundHalfUp(centavos(proposalPhp) * pctHundredths(schedule.rate)), schedule);
 }
 
 /** The fee a shop pays on an amount: the taper when verified, the flat rate when not (`booking_fee_centavos_for`). */

@@ -613,7 +613,8 @@ test('screens: manpower pages the booked read and says when offers could not loa
   assert.match(src, /readOpenGigsForEvents<ManpowerGigRow>\(supabase, eligibleEventIds\)/);
   assert.match(src, /!openGigsMeasured\s*\?\s*'We couldn’t read the open gigs/);
   assert.match(src, /!openGigsMeasured && openGigs\.length > 0\s*\?\s*'Some open gigs couldn’t load/);
-  assert.match(src, /\{note \? \(\s*<p role="status"/);
+  // The tool pages redraw (v3, 21 Nov 2026): the groups are drawn by `manpower-view.tsx`; the surface still measures.
+  assert.match(read('app/vendor-dashboard/manpower/_components/manpower-view.tsx'), /\{note \? \(\s*<p role="status"/);
 });
 
 test('screens: disputes page every dispute through the shared pager', () => {

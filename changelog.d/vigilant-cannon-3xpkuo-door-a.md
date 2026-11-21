@@ -55,3 +55,22 @@ Owner's "Approved" on the controller questions (20 Nov), built to drawing `36jmQ
   one shared piece. Six sabotages, each red.
 
 SPEC IMPACT: None (builds the approved drawing; no new rule).
+
+## 2026-11-21 · fix(onboarding): Door A ship-review fixes · the "Couple invite" label and the drawing's date, pinned
+
+Ship review @ `066ffaa34f` (FIX-FIRST, inherits #8028) and the controller's go, 21 Nov:
+
+- **The claimed welcome never falls back to a fixed "open on Free"**: the couple's line ("Maria & Jose's wedding is in
+  Clients.") when that read worked, else #8028's line for THIS shop (its real plan, or "Your shop is open." on a failed
+  read).
+- **Edit picked but the card cannot be found is said**: the claim action sends `?edit=unread` to the shipped finalize,
+  which lands Today with `card_edit=unread`; the welcome says "You picked Edit, but we couldn't find your card just now.
+  Open your cards to edit it." with the link — never a silent welcome.
+- **"Couple invite" label**: kept over every Door A title (one header, the host noun capitalised) and pinned by a test.
+- **The drawing's date**: production already reads the couple's own date line ("Sat, Dec 19, 2026", `claimDatePhrase`);
+  the lab's sample had "12 December 2026" hand-typed — it now goes through the same formatter, and a test pins P1's
+  "For their wedding · Sat, Dec 19, 2026." and that the lab never hand-types a date.
+
+Seven sabotages, each red.
+
+SPEC IMPACT: None.

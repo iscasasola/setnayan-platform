@@ -244,7 +244,8 @@ test('1 · 🎁 Setnayan’s invite: pre-filled from the staged shop, the offer 
 test('4 · only the screens changed — the consent is the shipped finalize', () => {
   assert.doesNotMatch(ACT, /applyClaimAutoLink\(|seatClaimedCoupleAsCustomer\(|claim_ask_for_access/, 'the door grew its own consent');
   // 🚪 19 Nov: Edit on the first card rides through finalize as `?edit=` — the consent still comes first.
-  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize\$\{editId \? `\?edit=\$\{encodeURIComponent\(editId\)\}` : ''\}`\);\s*\}/, 'the finish no longer ends on the shipped finalize');
+  // (Ship review 21 Nov: an Edit whose card cannot be found rides as `?edit=unread`, said on Today — test 4 below.)
+  assert.match(ACT, /redirect\(`\/vendor\/claim\/\$\{encodeURIComponent\(token\)\}\/finalize\$\{editParam \? `\?edit=\$\{editParam\}` : ''\}`\);\s*\}/, 'the finish no longer ends on the shipped finalize');
   assert.match(ACT, /await createVendorService\(fd\)/, 'the cards are no longer made by the shipped card maker');
   assert.match(ACT, /await savePackage\(\{/, 'the bundle is no longer made by the shipped package maker');
 });
@@ -314,4 +315,44 @@ test('4 · P4 (drawing v4): the couple’s first card is DRAFTED — the card, t
   assert.ok(drafted.length > 300, 'the drafted body could not be found');
   assert.match(drafted, /\{priceBox\}\s*\{extras\}/);
   assert.match(DOOR, /if \(draftedBody\) body = draftedBody;/);
+});
+
+test('1 · P1 (controller 21 Nov): the "Couple invite" label sits over every Door A title, and the date reads as the drawing does — "Sat, Dec 19, 2026"', async () => {
+  // The label: ONE header every screen draws, the host noun capitalised ("couple" → "Couple invite"), right over the h1.
+  const head = DOOR.slice(DOOR.indexOf('<div key={d.screen} className="os-in-r grid gap-[3px]">'), DOOR.indexOf('</h1>', DOOR.indexOf('<div key={d.screen} className="os-in-r grid gap-[3px]">')));
+  assert.ok(head.length > 100 && head.length < 900, 'the screen header could not be found');
+  assert.match(head, /\{team \? 'Your invite' : `\$\{record\.hostNoun\.charAt\(0\)\.toUpperCase\(\) \+ record\.hostNoun\.slice\(1\)\} invite`\}/);
+  assert.match(head, /<h1\b[\s\S]*\{title\}\s*$/);
+  assert.equal((DOOR.match(/ invite`\}/g) ?? []).length, 1, 'a second, hand-placed invite label');
+  // The date: the record's phrase comes from the couple's own date line (`suppliersDateFact`) — weekday, short month,
+  // day, year — and P1 drops the preposition: "For their wedding · Sat, Dec 19, 2026."
+  const { claimDatePhrase } = await import('../../lib/claim-invite-words');
+  assert.deepEqual(claimDatePhrase('2026-12-19', 'day'), { preposition: 'on', label: 'Sat, Dec 19, 2026' });
+  assert.deepEqual(claimDatePhrase('2026-12-01', 'month'), { preposition: 'in', label: 'December 2026' });
+  assert.match(DOOR, /`For their \$\{record\.eventWord\}\$\{record\.datePhrase \? ` · \$\{record\.datePhrase\.replace\(\/\^\(on\|in\) \/, ''\)\}` : ''\}\.`/);
+  const SERVER = src('lib/claim-door.server.ts');
+  assert.match(SERVER, /const date = claimDatePhrase\(event\?\.event_date, event\?\.event_date_precision\);/);
+  assert.match(SERVER, /datePhrase: date \? `\$\{date\.preposition\} \$\{date\.label\}` : null,/);
+  // The lab draws its sample through the same formatter, so the shots show the real format — no hand-typed date.
+  const LAB = src('app/dev/open-shop-lab/page.lab.tsx');
+  assert.match(LAB, /const LAB_DATE = claimDatePhrase\('2026-12-12', 'day'\);/);
+  assert.doesNotMatch(LAB, /datePhrase: '(?:on|in) /, 'the lab hand-types a date again');
+});
+
+test('4 · ship review 21 Nov — Edit picked but the card cannot be found is SAID on Today, never a silent welcome', async () => {
+  const ACT = src('app/open-shop/claim-actions.ts');
+  const FIN = src('app/vendor/claim/[token]/finalize/page.tsx');
+  const WEL = src('app/vendor-dashboard/_components/today-welcome.tsx');
+  const TOD = src('app/vendor-dashboard/page.tsx');
+  const mod = await import('../../lib/supplier-onboarding');
+  // The action: Edit with no id found → `?edit=unread` to finalize.
+  assert.match(ACT, /const editParam = editId \? encodeURIComponent\(editId\) : answers\.firstCard === 'edit' \? FIRST_CARD_EDIT_UNREAD : null;/);
+  assert.match(ACT, /finalize\$\{editParam \? `\?edit=\$\{editParam\}` : ''\}/);
+  // Finalize: `?edit=unread` → the claimed welcome carrying `card_edit=unread`.
+  assert.equal(mod.welcomeEditUnreadPath(mod.WELCOME_CLAIMED_PATH), '/vendor-dashboard?claimed=1&card_edit=unread');
+  assert.match(FIN, /editCard === FIRST_CARD_EDIT_UNREAD\s*\?\s*welcomeEditUnreadPath\(WELCOME_CLAIMED_PATH\)/);
+  assert.match(FIN, /if \(v === FIRST_CARD_EDIT_UNREAD\) return FIRST_CARD_EDIT_UNREAD;/);
+  // Today: the flag reaches the welcome, which says it and links the cards.
+  assert.match(TOD, /editUnread=\{search\.card_edit === FIRST_CARD_EDIT_UNREAD\}/);
+  assert.match(WEL, /\{editUnread \? \([\s\S]{0,300}\{FIRST_CARD_EDIT_UNREAD_LINE\}[\s\S]{0,200}href="\/vendor-dashboard\/services"/);
 });

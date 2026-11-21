@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { WELCOME_CLAIMED_PATH, firstCardLanding } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -281,11 +281,19 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
   // (already-has-services).
   // 🚪 …and Today reads `?claimed=1` for its welcome (supplier onboarding, owner 19 Nov) — or, Edit picked on the
   // door's first card, the shipped Card Maker on that card.
-  redirect(editCard ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null }) : WELCOME_CLAIMED_PATH);
+  // Edit picked but the card could not be found (`?edit=unread`, ship review 21 Nov): the welcome SAYS it.
+  redirect(
+    editCard === FIRST_CARD_EDIT_UNREAD
+      ? welcomeEditUnreadPath(WELCOME_CLAIMED_PATH)
+      : editCard
+        ? firstCardLanding({ choice: 'edit', cardId: editCard, category: null })
+        : WELCOME_CLAIMED_PATH,
+  );
 }
 
 /** A card id the door handed over (`?edit=`) — a uuid, or nothing. The Card Maker re-checks it is this shop's. */
 function firstCardToEdit(v: string | undefined): string | null {
+  if (v === FIRST_CARD_EDIT_UNREAD) return FIRST_CARD_EDIT_UNREAD;
   return typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
 }
 

@@ -389,6 +389,13 @@ export function todayWelcomeSteps(shop: WelcomeShop) {
   return TODAY_WELCOME_STEPS.filter((s) => s.key !== 'verify' || (shop !== null && !shop.verified));
 }
 /** P6 — the claimed welcome's line: where the couple who invited them now is. */
+/**
+ * Door A: Edit was picked on the first card, but the card could not be found to open (not made, or the lookup failed —
+ * ship review 21 Nov). Carried as `?edit=unread` to finalize and `card_edit=unread` to Today, where it is SAID.
+ */
+export const FIRST_CARD_EDIT_UNREAD = 'unread';
+export const FIRST_CARD_EDIT_UNREAD_LINE = 'You picked Edit, but we couldn’t find your card just now. Open your cards to edit it.';
+export const welcomeEditUnreadPath = (welcome: string) => `${welcome}&card_edit=${FIRST_CARD_EDIT_UNREAD}`;
 export const claimedWelcomeLine = (couple: string, eventWord: string) => `${couple}’s ${eventWord} is in Clients.`;
 
 /** PB6's first, already-ticked row: what the door made. */

@@ -81,7 +81,7 @@ import {
 import { SupplierTodayScreen } from './_components/supplier-today-screen';
 import { TodayWelcome } from './_components/today-welcome';
 import { readClaimedWelcome } from '@/lib/claimed-welcome.server';
-import { firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
+import { FIRST_CARD_EDIT_UNREAD, firstCardFrom, firstCardStateFrom, welcomeFrom } from '@/lib/supplier-onboarding';
 import { SupplierToast } from './_components/supplier-toast';
 import { TodayNextEvents } from './_components/today-next-events';
 import { TodayThumbRow } from './_components/today-thumb-row';
@@ -251,6 +251,8 @@ export default async function VendorOverviewPage({
     card_price?: string;
     card_category?: string;
     card_why?: string;
+    /** `unread` — Door A: Edit was picked on the first card, but the card could not be found to open (ship review 21 Nov). */
+    card_edit?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
@@ -830,6 +832,7 @@ export default async function VendorOverviewPage({
           cardState={firstCardStateFrom(search)}
           claimed={await claimedWelcomeP}
           shop={shopRow ? { tierState: shopRow.tierState ?? null, verified: shopRow.verified } : null}
+          editUnread={search.card_edit === FIRST_CARD_EDIT_UNREAD}
         />
       ) : null}
       {/* 🎁 Back from buying a gift for a booking (#7823): the pay page's exit for a gift order lands here. */}

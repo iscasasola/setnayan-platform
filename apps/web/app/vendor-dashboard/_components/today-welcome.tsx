@@ -8,6 +8,7 @@ import { formatCount } from '@/lib/format-number';
 import {
   FIRST_CARD_CARRY_LINE,
   FIRST_CARD_DRAFTS_LINE,
+  FIRST_CARD_EDIT_UNREAD_LINE,
   FIRST_CARD_FIELD,
   FIRST_CARD_RETRY,
   WELCOME_CLAIMED_PATH,
@@ -44,6 +45,7 @@ export function TodayWelcome({
   cardState = null,
   claimed = null,
   shop,
+  editUnread = false,
 }: {
   kind: 'claimed' | 'opened';
   /**
@@ -58,6 +60,8 @@ export function TodayWelcome({
   cardState?: ReturnType<typeof firstCardStateFrom>;
   /** P6 — the couple whose invite this was, and their event's word; null names nobody. */
   claimed?: { couple: string; eventWord: string } | null;
+  /** Door A: Edit was picked on the first card but the card could not be found to open — said, with the way to the cards. */
+  editUnread?: boolean;
 }) {
   const welcome = kind === 'claimed' ? WELCOME_CLAIMED_PATH : WELCOME_OPENED_PATH;
   return (
@@ -72,6 +76,17 @@ export function TodayWelcome({
           {kind === 'claimed' && claimed ? claimedWelcomeLine(claimed.couple, claimed.eventWord) : todayWelcomeLine(shop)}
         </p>
       </div>
+      {editUnread ? (
+        <p className="flex items-start gap-1.5 border-y border-ink/10 py-3 text-sm text-ink" role="alert" data-today-welcome-card="edit-unread">
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <span>
+            {FIRST_CARD_EDIT_UNREAD_LINE}{' '}
+            <Link href="/vendor-dashboard/services" className="font-medium text-mulberry underline-offset-2 hover:underline">
+              Open your cards
+            </Link>
+          </span>
+        </p>
+      ) : null}
       {card ? (
         <form
           action={approveFirstCard}

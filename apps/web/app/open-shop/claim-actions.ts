@@ -31,6 +31,7 @@ import { isValidOpenShopEmail } from '@/lib/open-shop-validation';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { claimChangeQuote, purchaseChange } from '@/lib/supplier-purchase-change';
 import { stagePurchaseChange } from '@/lib/supplier-purchase-change.server';
+import { FIRST_CARD_EDIT_UNREAD } from '@/lib/supplier-onboarding';
 
 /**
  * THE CLAIM DOOR'S FINISH (controller A6, 7 Nov; owner 2026-11-06 "THE SAME DOOR, PRE-FILLED — THEN ONE SLIDE PER
@@ -379,11 +380,14 @@ export async function finishClaimDoor(formData: FormData): Promise<void> {
   if (fromSetnayan) redirect('/vendor-dashboard/profile');
   // ── THE CONSENT IS THE SHIPPED ONE ──────────────────────────────────────────────────────────────────────────────
   // Edit on the first card: finalize hands over to the shipped Card Maker on that card (`?edit=`), never past consent.
+  // Ship review 21 Nov: when Edit was picked but the card cannot be found (not made, or the lookup failed), say so —
+  // finalize lands the welcome with `card_edit=unread`, never silently on the welcome as if Edit had not been pressed.
   const editId =
     answers.firstCard === 'edit' && firstCardName && made.includes(firstCardName)
       ? await firstCardIdOf(admin, vendorProfileId, firstCardName)
       : null;
-  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editId ? `?edit=${encodeURIComponent(editId)}` : ''}`);
+  const editParam = editId ? encodeURIComponent(editId) : answers.firstCard === 'edit' ? FIRST_CARD_EDIT_UNREAD : null;
+  redirect(`/vendor/claim/${encodeURIComponent(token)}/finalize${editParam ? `?edit=${editParam}` : ''}`);
 }
 
 /** The id of the card the door just made under `title` on this shop (the newest), or null. */
@@ -396,6 +400,10 @@ async function firstCardIdOf(admin: ReturnType<typeof createAdminClient>, vendor
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+  if (error) {
+    // A failed lookup is not "no card": the caller says it (`card_edit=unread`) instead of landing as if nothing was asked.
+    console.error('[supabase-error] app/open-shop/claim-actions.ts · from:vendor_services.select', error.message);
+    return null;
+  }
   return (data as { vendor_service_id?: string } | null)?.vendor_service_id ?? null;
 }

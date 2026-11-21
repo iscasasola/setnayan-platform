@@ -141,11 +141,8 @@ export async function applyPayCode(formData: FormData): Promise<never> {
   }
 
   // 3 · The counter and the ledger — best-effort, exactly as the drawer does them.
-  try {
-    await createAdminClient().rpc('increment_discount_uses', { p_id: result.discount_code_id });
-  } catch (counterErr) {
-    console.warn('[pay-code] discount_codes uses_count bump failed:', counterErr);
-  }
+  const { error: counterErr } = await createAdminClient().rpc('increment_discount_uses', { p_id: result.discount_code_id });
+  if (counterErr) console.warn('[pay-code] discount_codes uses_count bump failed:', counterErr.message);
   await appendLedger(supabase, {
     order_id: payable.orderId,
     event_type: 'voucher_applied',

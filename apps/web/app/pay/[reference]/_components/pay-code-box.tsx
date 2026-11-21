@@ -1,5 +1,6 @@
 import { CheckCircle2, Tag } from 'lucide-react';
 import { submitPaymentProof } from '../actions';
+import { ActionButton } from '@/components/action-button';
 import { payAmount } from '@/lib/pay-amount';
 
 /**
@@ -50,14 +51,9 @@ export function PayCodeBox({
             autoComplete="off"
             autoCapitalize="characters"
             placeholder="ABCD1234"
-            className="input-field flex-1 font-mono uppercase tracking-widest"
+            className="input-field flex-1 uppercase tracking-widest"
           />
-          <button
-            type="submit"
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-ink px-4 py-2 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
-          >
-            Apply
-          </button>
+          <ActionButton type="submit" tone="neutral" filled icon={<Tag aria-hidden strokeWidth={1.9} />} label="Apply" />
         </div>
         {error ? (
           <p role="alert" className="text-xs text-danger-800" data-pay-code-error="">

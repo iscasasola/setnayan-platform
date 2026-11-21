@@ -62,8 +62,8 @@ const QUOTE: QuoteForCard = {
   paidSeqs: [0],
   locks: { quote: false, plan: false },
   extras: [
-    { id: 'x1', label: 'Drone coverage', qty: 1, pricePhp: 5_000 },
-    { id: 'x2', label: 'Same-day edit', qty: 1, pricePhp: 9_800 },
+    { id: 'x1', label: 'Drone coverage', qty: 1, pricePhp: 5_000, free: false },
+    { id: 'x2', label: 'Same-day edit', qty: 1, pricePhp: 9_800, free: false },
   ],
   pax: 150,
   requote: 'ok',

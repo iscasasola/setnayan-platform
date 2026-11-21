@@ -357,6 +357,7 @@ export default async function VendorMoodBoardPage({ params }: Props) {
             to answer. */}
         <VendorPartSignoff
           rows={signoffs}
+          unread={Boolean(signoffError)}
           agreeAction={vendorAgreeToPart}
           declineAction={vendorDeclinePart}
           answerReopenAction={vendorAnswerPartReopen}

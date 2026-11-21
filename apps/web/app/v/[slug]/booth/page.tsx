@@ -134,7 +134,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? `Step inside ${name}'s 3D booth — a walk-around preview on Setnayan.`
     : 'A 3D booth showcase on Setnayan.';
   return {
-    title,
+    // The document title goes through the root layout's `template: '%s · Setnayan'`, so it drops the brand here
+    // ("Supplier booth · Setnayan · Setnayan", logged-out crawl #20); the share cards keep the full `title`.
+    title: title.replace(/ · Setnayan$/, ''),
     description,
     openGraph: { title, description, type: 'website' },
     twitter: { card: 'summary_large_image', title, description },

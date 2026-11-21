@@ -311,7 +311,8 @@ export function supplierPlusRows(opts: {
     // ONE phone picker (owner 11 Nov, "dupes"): the card's "From your phone" is the composer's own input — photo, video
     // or PDF — and its Portfolio source is drawn shut with its reason until the album build.
     { key: 'photos', label: 'Photos & files', line: 'From your phone or your portfolio', card: 'photos', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This couple or this booking', card: null, door: 'report-problem' },
+    // 🚩 Report a problem LEFT the (+) (Unichat part G, owner 20 Nov — supersedes 9 Nov "last row of (+)"): it lives
+    // under the head's ⋯ only (`picked-client-more.ts`), so the (+) holds things you SEND.
   ];
 }
 
@@ -363,7 +364,7 @@ export function hostPlusRows(opts: {
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
     { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    { key: 'report', label: 'Report a problem', line: 'This supplier or this booking', card: null, door: 'host-report' },
+    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`hostMoreRows`).
   );
   return rows;
 }

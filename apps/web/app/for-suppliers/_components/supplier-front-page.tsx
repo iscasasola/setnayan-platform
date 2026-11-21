@@ -6,8 +6,9 @@
  *
  * 🚦 A LINE SHIPS ONLY WHEN ITS BUILD IS LIVE (owner, 20 Nov 2026). Where the drawing names something the app does
  * not do yet, this page says what the app does TODAY, and never "Coming":
- *   · the fee: the drawing's rates, its ceiling ("locks there") and "every 100,000th fee is on us" are NOT built — the
- *     page places the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) and draws no ceiling and no such switch;
+ *   · the fee: the LIVE schedule (`bookingFeeFigures`, `bookingFeePhp`) with its ₱100,000 lock (`bookingFeeCapAmount`,
+ *     PR #8061) — the lede, the "Never more than" line and the ruler's lock; "every 100,000th fee is on us" is live in
+ *     billing but this page does not read its N yet, so it is not a switch;
  *   · who books free: the switches are the free bookings that are live (you bring the event first; a client you brought
  *     onto Setnayan; a badge's free booking fee ticket). A first booking from Setnayan is NOT free since 20 Nov
  *     ("BILLING MUST FOLLOW THE RETIRED COPY", PR #8061);
@@ -26,7 +27,8 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
+import { Lock } from 'lucide-react';
+import { bookingFeeCapAmount, bookingFeeFigures, bookingFeeMinimumAmount, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { BOOKING_FEE_CHARGED_WHEN } from '@/lib/booking-fee-lock';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { TIER_CAPS, type VendorTier } from '@/lib/vendor-tier-caps';
@@ -368,7 +370,8 @@ export function SupplierFrontPage({
                 {bookingFeeMinimumAmount(fee.schedule)}.
               </p>
               <p>
-                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest.
+                <b>How much.</b> {f.head} of the first {f.band} of a booking, then {f.tail} of the rest. Once the fee
+                reaches {bookingFeeCapAmount(fee.schedule)} it locks there, however big the booking.
               </p>
             </>
           ) : (
@@ -399,6 +402,12 @@ export function SupplierFrontPage({
                 <span className={s.feeCap}>{f.tail} after that</span>
               </p>
             </div>
+            <p className={s.feeLock}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              <span>
+                Never more than <b>{bookingFeeCapAmount(fee.schedule)}</b>
+              </span>
+            </p>
             <FeeRuler schedule={fee.schedule} freeWhen={freeWhen} />
             {tapers ? <p className={s.fbSay}>The bigger you grow, the smaller our share.</p> : null}
             <p className={s.feeWhen}>{BOOKING_FEE_CHARGED_WHEN}</p>

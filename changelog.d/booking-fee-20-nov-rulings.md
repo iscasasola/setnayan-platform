@@ -73,3 +73,18 @@ has ever held it), separate from the fee's. Tests in `lib/vendor-addon-first5-fr
 old value first. No copy promised the window.
 
 SPEC IMPACT: DECISION_LOG 21 Nov row logged by the controller; no further corpus edit.
+
+## 2026-11-21 · feat(for-suppliers): the fee ruler shows the ₱100,000 lock
+
+Owner 20 Nov: *"return the booking fee line bar … show them the 100,000 lock"* (drawing
+`prototypes/for_suppliers_2026-11-20/`). Now that the lock is live in this PR, For Suppliers draws it:
+- `bookingFeeLockPointPhp(schedule)` (lib/booking-fee.ts) — the smallest booking whose fee reaches the cap
+  (₱3,266,667 on the live schedule), computed, never typed; `feeRulerStops(schedule)` adds it to the drawing's 25
+  example prices, so it lands at 80% of the bar.
+- The ruler: a "₱100,000 lock" flag, a tick at the lock point, a lock on every stop at the cap — all hidden while a
+  "Free when" switch is on. The fee block gains "Never more than ₱100,000"; the lede says the fee locks there.
+- Tests: `the-fee-ruler-shows-the-lock.test.ts` (red first, 0/3 → 3/3); the "never typed" guard follows the fee
+  computation into `feeRulerStops`. Lab: `/dev/fee-rulings-lab?screen=ruler`. §4: `build-sessions/shots-fee-ruler-lock/`.
+- Not built: the "every 100,000th fee" switch — live in billing, but this page does not read its N yet.
+
+SPEC IMPACT: None (implements the approved drawing).

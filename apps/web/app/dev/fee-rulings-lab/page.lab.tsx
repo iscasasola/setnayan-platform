@@ -14,13 +14,15 @@
  * the shipped ones. Every number comes from `BOOKING_FEE` (the ruled schedule) — none is typed here. Names are samples.
  */
 import { notFound } from 'next/navigation';
-import { ReceiptText } from 'lucide-react';
+import { Lock, ReceiptText } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { BookingFeeLine } from '@/app/_components/booking-fee-line';
 import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form';
 import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
-import { BOOKING_FEE, bookingFeePhp } from '@/lib/booking-fee';
+import { BOOKING_FEE, bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp } from '@/lib/booking-fee';
+import { FeeRuler } from '@/app/for-suppliers/_components/supplier-front-client';
+import s from '@/app/for-suppliers/_components/supplier-front.module.css';
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 
 const WAIVED: WaivedFeeCharge[] = [
@@ -52,7 +54,42 @@ export default async function FeeRulingsLabPage({
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
-  const screen = sp.screen === 'admin' ? 'admin' : 'fees';
+  const screen = sp.screen === 'admin' ? 'admin' : sp.screen === 'ruler' ? 'ruler' : 'fees';
+
+  // 🔒 For Suppliers' fee block with the ₱100,000 lock (the live page reads the schedule from the database; this lab
+  // hands the ruled default so the ruler can be shot without one). ?screen=ruler
+  if (screen === 'ruler') {
+    const f = bookingFeeFigures(BOOKING_FEE);
+    return (
+      <main className={s.root} data-lab-fee-rulings="ruler">
+        <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6">
+          <div className={s.fee} data-lab-ruler="">
+            <p className={s.feeK}>On a booking that carries the fee</p>
+            <div className={s.feeRow}>
+              <b className={s.feeN}>{f.head}</b>
+              <p className={s.feeT}>
+                <span>of the first {f.band}</span>
+                <span className={s.feeCap}>{f.tail} after that</span>
+              </p>
+            </div>
+            <p className={s.feeLock}>
+              <Lock aria-hidden className={s.fxLk} strokeWidth={2.2} />
+              <span>
+                Never more than <b>{bookingFeeCapAmount(BOOKING_FEE)}</b>
+              </span>
+            </p>
+            <FeeRuler
+              schedule={BOOKING_FEE}
+              freeWhen={[
+                { label: 'You bring the event first', hint: 'You brought the event first: no booking fee.' },
+                { label: 'You have a free booking fee ticket', hint: 'Your ticket is used on your next booking, automatically.' },
+              ]}
+            />
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (screen === 'admin') {
     return (

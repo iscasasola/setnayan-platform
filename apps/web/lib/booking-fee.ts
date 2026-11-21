@@ -134,6 +134,20 @@ export function bookingFeeCapPhp(schedule: BookingFeeSchedule = BOOKING_FEE): nu
   return typeof cap === 'number' && Number.isFinite(cap) && cap > 0 ? cap : (BOOKING_FEE.capPhp as number);
 }
 
+/**
+ * The smallest whole-peso booking price whose fee reaches the lock (₱3,266,667 on 5% · ₱100,000 · 3% · ₱100,000) — the
+ * stop the For Suppliers ruler draws its lock at. PURE, from the schedule; null when no booking ever reaches it (a 0% tail).
+ */
+export function bookingFeeLockPointPhp(schedule: BookingFeeSchedule = BOOKING_FEE): number | null {
+  const cap = bookingFeeCapPhp(schedule);
+  const head = schedule.rate * schedule.tier1LimitPhp;
+  if (cap <= head) return schedule.rate > 0 ? Math.ceil(cap / schedule.rate) : null;
+  if (!(schedule.tailRate > 0)) return null;
+  const at = Math.ceil(schedule.tier1LimitPhp + (cap - head) / schedule.tailRate);
+  // Centavo rounding can land a peso early; step back while the peso before still reaches the lock.
+  return bookingFeePhp(at - 1, schedule) >= cap ? at - 1 : at;
+}
+
 function lockAndRound(feePhp: number, schedule: BookingFeeSchedule): number {
   // Centavo precision on both sides of the lock, as `round(x)` then `LEAST(…, cap)` in SQL.
   return Math.min(Math.round(feePhp * 100) / 100, Math.round(bookingFeeCapPhp(schedule) * 100) / 100);

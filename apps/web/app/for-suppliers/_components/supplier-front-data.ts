@@ -16,6 +16,7 @@
  */
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
+import { bookingFeeCapPhp, bookingFeeLockPointPhp, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { FREE_FINDABLE } from './plan-table-data';
@@ -316,12 +317,30 @@ export const FEE_SLIDER = { min: 10000, max: 1000000, step: 5000, start: 300000 
 /**
  * The fee ruler's stops (approved drawing `prototypes/for_suppliers_2026-11-20/`, "Test it: drag the bar"): EXAMPLE
  * booking prices a visitor swipes through, not prices. Each stop's fee is computed from the LIVE schedule by
- * `bookingFeePhp` in the client — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ * `bookingFeePhp` — no fee is typed anywhere. The ruler opens on `FEE_STOP_START`.
+ *
+ * 🔒 The drawing's 26th stop — where the fee reaches the ₱100,000 lock — is NOT typed here: `feeRulerStops` adds it from
+ * the schedule (`bookingFeeLockPointPhp`), so an edited cap or rate moves it. On the live schedule it lands at 80%.
  */
 export const FEE_STOPS = [
-  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000,
+  50000, 75000, 100000, 150000, 200000, 250000, 300000, 400000, 500000, 600000, 750000, 1000000, 1250000, 1500000, 1750000,
+  2000000, 2250000, 2500000, 2750000, 3000000, 4000000, 5000000, 6000000, 8000000, 10000000,
 ] as const;
 export const FEE_STOP_START = 6;
+
+/** One ruler stop: the booking price, its fee, whether the fee sits at the lock, and whether it is the lock point. */
+export type FeeRulerStop = { v: number; fee: number; locked: boolean; lockPoint: boolean };
+
+/** The ruler's stops on a schedule — the example prices plus the lock point, in order, each with its LIVE fee. PURE. */
+export function feeRulerStops(schedule: BookingFeeSchedule): FeeRulerStop[] {
+  const cap = bookingFeeCapPhp(schedule);
+  const at = bookingFeeLockPointPhp(schedule);
+  const vs = [...new Set<number>([...FEE_STOPS, ...(at !== null ? [at] : [])])].sort((a, b) => a - b);
+  return vs.map((v) => {
+    const fee = bookingFeePhp(v, schedule);
+    return { v, fee, locked: fee >= cap, lockPoint: v === at };
+  });
+}
 
 /* ───────────────────────── small read facts the page prints ───────────────────────── */
 

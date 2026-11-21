@@ -69,9 +69,6 @@ export default async function VendorBookingFeesPage() {
   // 📅 The new-client window (owner 2026-11-16, #8086), named with its length from settings — the supplier's own app
   // only. Unread → no line (never a guessed number).
   const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);
-  // 📅 The new-client window (owner 2026-11-16), named with its length from settings — the supplier's own app only.
-  // Unread → no line (never a guessed number).
-  const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);
 
   return (
     <BookingFeesBody

@@ -28,7 +28,8 @@ import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { availabilityName, type AvailabilityStyle } from '@/lib/availability-styles';
 import { planLedger, type Ledger } from '@/lib/chat-cards';
-import { newReceiptLine, receiptLineCentavos, type ReceiptDraft, type ReceiptLine, type ReceiptMoney, type ReceiptPlan, type ReceiptPlanChoice } from '@/lib/quote-receipt';
+import { newReceiptLine, receiptLineCentavos, receiptLineUnpriced, type ReceiptDraft, type ReceiptLine, type ReceiptMoney, type ReceiptPlan, type ReceiptPlanChoice } from '@/lib/quote-receipt';
+import { QUOTE_LINE_AMOUNT_NOT_SET } from '@/lib/quote-line-price-words';
 import { KindTag, LedgerStrip } from './card-bits';
 
 const pesos = (centavos: number) => formatCentavosPhp(centavos);
@@ -98,7 +99,7 @@ export function QuoteReceipt({
                     <span className={`truncate text-[15px] ${l.label.trim() ? 'text-ink' : 'text-ink/70'}`}>{name}</span>
                     {qty > 1 || style ? (
                       <span className="flex min-w-0 items-center gap-1.5 text-[12px] tabular-nums text-ink/70">
-                        {qty > 1 && !l.free ? (
+                        {qty > 1 && !l.free && !receiptLineUnpriced(l) ? (
                           <span className="flex-none">
                             {pesos(Math.round(l.pricePhp * 100))} × {formatCount(qty)}
                           </span>
@@ -111,7 +112,9 @@ export function QuoteReceipt({
                       </span>
                     ) : null}
                   </span>
-                  <span className="flex-none text-[15px] tabular-nums text-ink">{l.free ? 'Free' : pesos(receiptLineCentavos(l))}</span>
+                  <span className={`flex-none text-[15px] tabular-nums ${receiptLineUnpriced(l) ? 'text-ink/70' : 'text-ink'}`} data-receipt-line-amount={receiptLineUnpriced(l) ? 'not-set' : undefined}>
+                    {l.free ? 'Free' : receiptLineUnpriced(l) ? QUOTE_LINE_AMOUNT_NOT_SET : pesos(receiptLineCentavos(l))}
+                  </span>
                   <ChevronDown aria-hidden className="h-4 w-4 flex-none text-ink/70 transition-transform duration-sn-pill ease-sn group-open:rotate-180" strokeWidth={2} />
                 </summary>
                 <div className="grid gap-1 pb-2">

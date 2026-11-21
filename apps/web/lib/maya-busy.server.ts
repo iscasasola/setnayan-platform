@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { revalidateTag } from 'next/cache';
+import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitAdminNotice } from '@/lib/notification-emit';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
@@ -37,6 +39,8 @@ export async function noteMayaBusy(reason: string, orderId: string): Promise<voi
       return;
     }
     if ((claimed ?? []).length === 0) return; // already told this window
+    // It wrote platform_settings, so the remembered copy goes (lib/global-settings-cache.test.ts).
+    revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
     const { data: admins, error: adminsError } = await admin
       .from('users')

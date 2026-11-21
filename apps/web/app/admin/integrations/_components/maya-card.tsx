@@ -2,6 +2,7 @@ import { KeyRound, ShieldAlert, Webhook } from 'lucide-react';
 import { saveMayaConfig, clearMayaSecrets } from '../actions';
 import { mayaEnvironment, MAYA_WEBHOOK_EVENTS, MAYA_WEBHOOK_SOURCE_IPS } from '@/lib/maya-checkout';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { SwitchTrack, SWITCH_BUTTON } from '@/app/_components/switch-track';
 import { PasswordField } from '@/app/_components/password-field';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 
@@ -80,17 +81,10 @@ export function MayaCard({
           aria-label="Payers see Maya"
           pendingLabel=""
           overlay={false}
-          className="inline-flex h-11 w-14 shrink-0 items-center justify-center"
+          className={SWITCH_BUTTON}
         >
-          {/* A 44-px press around the track. */}
-          <span
-            aria-hidden
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${payersSeeMaya ? 'bg-success-600' : 'bg-ink/20'}`}
-          >
-            <span
-              className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${payersSeeMaya ? 'translate-x-6' : 'translate-x-1'}`}
-            />
-          </span>
+          {/* The house switch — one drawing everywhere (app/_components/switch-track.tsx). */}
+          <SwitchTrack on={payersSeeMaya} />
         </SubmitButton>
       </form>
 

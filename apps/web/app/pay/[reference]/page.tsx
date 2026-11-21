@@ -28,7 +28,9 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
 import { MayaPayStage } from './_components/maya-pay-stage';
 import { MayaChecking } from './_components/maya-checking';
-import { mayaReceiptFor } from '@/lib/maya-checkout.server';
+import { mayaReceiptFor, readOpenMayaCheckout } from '@/lib/maya-checkout.server';
+import { PayCodeBox } from './_components/pay-code-box';
+import { payCodeBoxShown, payNextSteps } from '@/lib/pay-code';
 import { isMayaPayment } from '@/lib/maya-checkout';
 import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
@@ -68,6 +70,9 @@ type Props = {
     step?: string;
     /** 💳 Back from Maya's hosted page: success | failure | cancel. */
     maya?: string;
+    /** 🎟 The code box's answer: the code just applied, or why it was not. */
+    code?: string;
+    code_error?: string;
   }>;
 };
 
@@ -271,6 +276,24 @@ export default async function PayPage({ params, searchParams }: Props) {
     { reference: payable.reference },
   );
 
+  /*
+   * 💳 Maya IS the pay stage when it is open for this bill (switch on, both keys, within the ceiling, not busy).
+   * Computed before step 1 so its "What happens next" follows the route the page shows (owner 2026-11-22).
+   */
+  const mayaOpen = !waiting && !overCeiling && maya.phase === 'pay' && (await maya.railOpenFor(payable.amountPhp));
+
+  /*
+   * 🎟 "Have a code?" (EVERY PAYMENT WALL TAKES A CODE, owner 2026-11-22) — only on an unpaid bill nobody has started
+   * paying, and never beside a Maya checkout already open at this price (an unread answer hides it too).
+   */
+  const codeBox = payCodeBoxShown({
+    awaitingPayment: payable.status === 'awaiting_payment',
+    sentOrWaiting: waiting || Boolean(latestPayment) || Boolean(paymentsError),
+    mayaCheckout: waiting ? 'none' : await readOpenMayaCheckout(payable.orderId),
+    codeApplied: Boolean(payable.code),
+    quoted: Boolean(payable.quoted),
+  });
+
   const activates = payable.isVendorPlan
     ? 'Your plan switches on as soon as our team confirms the payment.'
     : 'It switches on as soon as our team confirms the payment.';
@@ -284,6 +307,8 @@ export default async function PayPage({ params, searchParams }: Props) {
    * ⚠ In the waiting state there are no stages at all — the page is the wait
    * (owner 2026-08-28) — so this is rendered directly instead.
    */
+  const next = payNextSteps({ mayaOpen, scanStep: words.scanStep, activates });
+
   const summary = (
     /* ── ONCE THE PROOF IS IN, THE INSTRUCTIONS ARE OVER ──────────────
     Owner, 2026-08-28: *"After I paid, it should say we are currently
@@ -368,14 +393,18 @@ export default async function PayPage({ params, searchParams }: Props) {
         <CopyButton value={payable.reference} label="Copy" />
       </div>
     </div>
-    <p className="mt-2 text-xs text-ink/70">{words.note}</p>
+    {next.showTransferNote ? <p className="mt-2 text-xs text-ink/70">{words.note}</p> : null}
+
+    {!waiting && (codeBox || payable.code) ? (
+      <PayCodeBox reference={payable.reference} applied={payable.code ?? null} error={codeBox ? (search.code_error ?? null) : null} />
+    ) : null}
 
     {!waiting && (
       <div className="mt-5 border-t border-ink/10 pt-4">
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
-        <Step n={1}>{words.scanStep}</Step>
-        <Step n={2}>Upload the screenshot of your payment receipt — nothing to type.</Step>
-        <Step n={3}>{activates}</Step>
+        <Step n={1}>{next.steps[0]}</Step>
+        <Step n={2}>{next.steps[1]}</Step>
+        <Step n={3}>{next.steps[2]}</Step>
       </div>
     )}
   </section>
@@ -463,7 +492,6 @@ export default async function PayPage({ params, searchParams }: Props) {
       </main>
     );
   }
-  const mayaOpen = !waiting && !overCeiling && (await maya.railOpenFor(payable.amountPhp));
   const meta = (user.user_metadata ?? {}) as { full_name?: unknown; name?: unknown };
   const billedToName =
     typeof meta.full_name === 'string' && meta.full_name.trim()

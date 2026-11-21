@@ -44,3 +44,9 @@ SPEC IMPACT: None — builds the approved v6 drawing and the controller's logged
 The chat's ＋ (`thread-tools-sheet.tsx`, after batch E's tray) now draws the Cake Maker's tiles when this chat's shop has its Cake Maker on, read once per chat through the existing `cakeAction` op `status` (no new server action). The couple's tile is full width at the end of Ask (before the Share/files tiles) and opens the designer for this chat. The supplier's For your service opens a second level whose "Ask for a cake design" posts the invite card; a refused invite says so. Held by `lib/the-cake-plus-tiles-open-the-designer.test.ts`.
 
 SPEC IMPACT: None (built to the approved v6 drawing).
+
+## 2026-11-21 · refactor(cake-maker): zero net server actions — cakeAction rides supplierScan
+
+Batch F fills the action budget (1251/1251), so `cake-actions.ts` is no longer a `'use server'` file: its body is `runCakeAction` (server-only), reached through the Specialized tools' existing dispatcher `supplierScan` as `{ op: 'cake_tool', input }`. The client door `cake-maker/cake-call.ts` keeps the `cakeAction(input)` call every caller used. Branch count 1250 = main's. Held by `lib/the-cake-plus-tiles-open-the-designer.test.ts`.
+
+SPEC IMPACT: None.

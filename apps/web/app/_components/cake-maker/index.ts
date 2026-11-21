@@ -10,7 +10,7 @@
  *     stream — import them from there, never statically, so the tray stays light.
  */
 import { lazy } from 'react';
-import { cakeAction } from './cake-actions';
+import { cakeAction } from './cake-call';
 
 export const CakeDesignerSheet = lazy(() => import('./cake-designer').then((m) => ({ default: m.CakeDesigner })));
 export const CAKE_TILE_WORDS = { couple: 'Design a cake', vendor: 'Ask for a cake design' } as const;

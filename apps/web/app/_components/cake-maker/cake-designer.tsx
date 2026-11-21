@@ -47,7 +47,8 @@ import {
 } from '@/lib/cake-config';
 import { cakeDesignOf, cakeOfferOf, cupcakeCountOf, extraWords, flavourLabelOf, packRef, servesWords, tierName, type CakePriced, type CakeShopOptions } from '@/lib/cake-maker';
 import { CakeView } from '@/app/_components/plan3d/kit/cake-view';
-import { cakeAction, type CakeOpenRead, type CakePhoto } from './cake-actions';
+import { cakeAction } from './cake-call';
+import type { CakeOpenRead, CakePhoto } from './cake-actions';
 import css from './cake-designer.module.css';
 
 type Step = 'shape' | 'tiers' | 'colours' | 'accents' | 'monogram' | 'cupcakes' | 'message';

@@ -56,7 +56,7 @@ import {
   type CakeShopOptions, CAKE_PICKER_START } from '@/lib/cake-maker';
 import { SPECIAL_TOOLS_LOCKED_WORDS, SPECIAL_TOOLS_UPGRADE_HREF } from '@/lib/special-tools';
 import { CakeFigure } from '@/app/_components/plan3d/kit/cake-figure';
-import { cakeAction } from '@/app/_components/cake-maker/cake-actions';
+import { cakeAction } from '@/app/_components/cake-maker/cake-call';
 import styles from './cake-maker-panel.module.css';
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; options: CakeShopOptions; saved: boolean; locked: boolean };

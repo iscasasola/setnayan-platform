@@ -60,3 +60,13 @@ test('the supplier’s For your service › "Ask for a cake design" posts the in
   // The invite's own button is the couple's way into the same designer.
   assert.match(INVITE, /<CakeDesigner threadId=\{threadId\} onClose=\{\(\) => setOpen\(false\)\} onSent=\{onSent\} \/>/);
 });
+
+test('the Cake Maker adds ZERO server actions — it rides supplierScan as op cake_tool', () => {
+  const actions = read('app/_components/cake-maker/cake-actions.ts');
+  assert.doesNotMatch(actions, /^\s*['"]use server['"]/m, 'cake-actions.ts became a server action file again (the budget is full)');
+  assert.match(actions, /^import 'server-only';/m);
+  const call = read('app/_components/cake-maker/cake-call.ts');
+  assert.match(call, /await supplierScan\(\{ op: 'cake_tool', input \}\)/);
+  const scan = read('app/_actions/supplier-scan-actions.ts');
+  assert.match(scan, /case 'cake_tool':\n\s+return \{ op: 'cake_tool', result: await runCakeAction\(req\.input\) \};/);
+});

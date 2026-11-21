@@ -1,7 +1,10 @@
-'use server';
+import 'server-only';
 
 /**
- * 🎂 THE CAKE MAKER'S ONE SERVER ACTION (the action budget is full, so every cake read and write rides one door).
+ * 🎂 THE CAKE MAKER'S SERVER SIDE — NOT an action of its own. The action budget is full (1251/1251 with batch F,
+ * 2026-11-21), so the Cake Maker adds ZERO routes: every cake read and write rides the Specialized tools' existing
+ * dispatcher, `supplierScan` (`app/_actions/supplier-scan-actions.ts`), as `{ op: 'cake_tool', input }` — the Scanner and
+ * the Cake Maker are the two tiles of Shop › Specialized tools. The client calls `cakeAction` from `./cake-call`.
  *
  *   · `design`  — one "Cake design" message, read for its card (both sides of the chat): the message names its stored
  *                 row ("Design ref:"), and the row (`cake_designs`, RLS: thread members) is the design.
@@ -99,7 +102,7 @@ export type CakeActionResult =
 const READ_FAILED = 'Couldn’t load this — try again.';
 const fail = (message = READ_FAILED) => ({ ok: false as const, message });
 
-export async function cakeAction(input: CakeActionInput): Promise<CakeActionResult> {
+export async function runCakeAction(input: CakeActionInput): Promise<CakeActionResult> {
   const supabase = await createClient();
   const {
     data: { user },

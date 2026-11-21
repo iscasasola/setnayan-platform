@@ -76,7 +76,9 @@ CREATE POLICY chat_messages_a_removed_member_reads_nothing
   USING (
     NOT public.chat_shop_seat_is_lost(vendor_profile_id)
     OR thread_id IN (SELECT public.current_thread_ids())
-    OR (SELECT public.is_admin())
+    -- An admin is waived ONLY inside an open dispute (20271341658320): a bare is_admin() here would let an admin whose
+    -- own team seat on this shop was removed read its chat through the shop arm, with no dispute at all.
+    OR ((SELECT public.is_admin()) AND public.chat_private_in_dispute(event_id, vendor_profile_id))
   );
 
 DROP POLICY IF EXISTS chat_messages_a_removed_member_writes_nothing ON public.chat_messages;
@@ -98,11 +100,13 @@ CREATE POLICY chat_threads_a_removed_member_reads_nothing
   USING (
     NOT public.chat_shop_seat_is_lost(vendor_profile_id)
     OR thread_id IN (SELECT public.current_thread_ids())
-    OR (SELECT public.is_admin())
+    -- An admin is waived ONLY inside an open dispute (20271341658320): a bare is_admin() here would let an admin whose
+    -- own team seat on this shop was removed read its chat through the shop arm, with no dispute at all.
+    OR ((SELECT public.is_admin()) AND public.chat_private_in_dispute(event_id, vendor_profile_id))
   );
 
 COMMENT ON POLICY chat_messages_a_removed_member_reads_nothing ON public.chat_messages IS
-  'RESTRICTIVE: a shop team member whose only seat is deactivated reads none of the shop''s chat lines — whispers or shared — unless they hold a seat on the people''s side (current_thread_ids) or are an admin. Controller under owner delegation 20 Nov. Migration 20271354552883.';
+  'RESTRICTIVE: a shop team member whose only seat is deactivated reads none of the shop''s chat lines — whispers or shared — unless they hold a seat on the people''s side (current_thread_ids) or are an admin inside an open dispute (chat_private_in_dispute). Controller under owner delegation 20 Nov. Migration 20271354552883.';
 COMMENT ON POLICY chat_messages_a_removed_member_writes_nothing ON public.chat_messages IS
   'RESTRICTIVE: the same person writes no line into the shop''s chats (the shop arm of _member_insert did not look at deactivated_at); still seated as a host or coordinator, they write as that, never as the shop. Migration 20271354552883.';
 COMMENT ON POLICY chat_threads_a_removed_member_reads_nothing ON public.chat_threads IS

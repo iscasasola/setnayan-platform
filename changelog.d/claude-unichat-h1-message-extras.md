@@ -109,3 +109,10 @@ SPEC IMPACT: `DECISION_LOG.md` — new 2026-11-20 row "ONE DEFINITION OF "TEAM" 
 HOST" (specs 638ce578), recording the controller's #8060-review ruling this PR builds. Everything else implements rulings
 already in DECISION_LOG (2026-11-20 "Unichat live prototype v3 APPROVED", "UNICHAT BUILD STARTS"). Two build choices
 are flagged above for the owner (reminder times; the 59 s voice cap).
+
+**CI round fix (2026-11-21):**
+- A held bubble's click is swallowed in the capture phase (`extrasPress().onClickCapture`), so the bubble's own tap keeps its pinned shape.
+- The voice mic uses `useCameraThatComesBack` on the mic's track. A mic that is ended or muted mid-note ends the note unsent and says so.
+- The search hit's corner uses `--m-r-md`.
+- 🔐 **Migration `20271354552883` changed.** The RESTRICTIVE "a removed member reads nothing" read policies on `chat_messages` and `chat_threads` waived the restriction for a bare `is_admin()`. Admins are now waived only inside an open dispute (`chat_private_in_dispute`). Before this, an admin whose own seat on the shop had been removed could read that shop's chat through the shop arm with no dispute.
+- The chat security pins gained reasoned audit lines for the new SECURITY DEFINER readers (edit and unsend your own message, the whisper trigger) and for the new `current_thread_ids` callers (the restrictive policies and `chat_message_caller_is_in_chat`).

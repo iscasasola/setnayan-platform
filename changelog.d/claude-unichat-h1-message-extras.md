@@ -116,3 +116,17 @@ are flagged above for the owner (reminder times; the 59 s voice cap).
 - The search hit's corner uses `--m-r-md`.
 - 🔐 **Migration `20271354552883` changed.** The RESTRICTIVE "a removed member reads nothing" read policies on `chat_messages` and `chat_threads` waived the restriction for a bare `is_admin()`. Admins are now waived only inside an open dispute (`chat_private_in_dispute`). Before this, an admin whose own seat on the shop had been removed could read that shop's chat through the shop arm with no dispute.
 - The chat security pins gained reasoned audit lines for the new SECURITY DEFINER readers (edit and unsend your own message, the whisper trigger) and for the new `current_thread_ids` callers (the restrictive policies and `chat_message_caller_is_in_chat`).
+
+### Fix-first (controller review, 21 Nov — PR comment 7057699043)
+- **No due reminder is lost.** The due read was capped at 20 while `claim_my_due_chat_reminders` claims EVERY due row,
+  so with 21+ due the rest were marked delivered and never told. The read now pages through every due row (still before
+  the claim, so a refused read eats nothing), and a row that falls due between the read and the claim is read after
+  it. `lib/no-due-reminder-is-lost.test.ts` drives the real function: 25 due → 25 told; 450 → 450; a late one → told; a
+  refused read → nothing claimed. Sabotage: skipping the late read turns it red; a `.limit(` on the due read turns
+  `lib/a-chat-reminder-stays-in-the-app.test.ts` red.
+- **No new server actions.** `editChatMessage` and `setChatReminder` move from `lib/chat-message-actions.ts`
+  (`use server`, +2 → 1,252 once batch D is live) to `lib/chat-message-calls.ts`, browser calls under the person's own
+  session — the `card-calls.ts` pattern. Every rule was already the database's (`edit_my_chat_message`,
+  `unsend_my_chat_message`, the reminders' own-row policies, which bound `remind_at` on the database's clock). Count:
+  1,249, two under the 1,251 ceiling.
+- **Migrations unchanged** — byte-identical to becec222d0; the GO stands. No baseline regenerated.

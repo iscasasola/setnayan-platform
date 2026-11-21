@@ -1,7 +1,7 @@
 /**
  * ⏰ UNICHAT PART H1 — "Remind me": what each choice means (approved Unichat prototype v3, DECISION_LOG 2026-11-20).
- * Later today = 3 hours on · tomorrow / a date = 9:00 AM Manila. The server's clock decides
- * (`lib/chat-message-actions.ts`); the menu prints the same function's answer before a choice is pressed.
+ * Later today = 3 hours on · tomorrow / a date = 9:00 AM Manila. `lib/chat-message-calls.ts` works it out when the
+ * choice is pressed and the database's insert policy re-checks it on its own clock; the menu prints the same answer.
  *
  * Run from apps/web: tsx --test lib/chat-reminders.test.ts
  */

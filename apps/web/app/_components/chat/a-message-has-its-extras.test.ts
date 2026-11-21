@@ -30,7 +30,7 @@ const STREAM = src('app', '_components', 'chat-message-stream.tsx');
 const FORM = src('app', '_components', 'chat-send-form.tsx');
 const MENU = src('app', '_components', 'chat', 'message-extras-menu.tsx');
 const MIC = src('app', '_components', 'chat', 'voice-mic.tsx');
-const ACTIONS = src('lib', 'chat-message-actions.ts');
+const ACTIONS = src('lib', 'chat-message-calls.ts');
 const GROUP = src('app', 'samahan', 'chat', '[threadId]', '_components', 'group-chat-view.tsx');
 
 test('an unsent message is its own quiet line, decided before any file rule', () => {

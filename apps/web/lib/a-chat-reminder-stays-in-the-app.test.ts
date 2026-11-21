@@ -55,16 +55,17 @@ test('it is a real notification kind: labelled, a push level, an enum value in i
 });
 
 test('the delivery reads the message under the person’s own session BEFORE it claims, and tells only what it read', () => {
-  const read = DELIVER.indexOf(".from('chat_messages')");
+  const read = DELIVER.indexOf("supabase.from('chat_messages')");
   const claim = DELIVER.indexOf("rpc('claim_my_due_chat_reminders')");
-  const emit = DELIVER.indexOf('emitNotification(');
+  const emit = DELIVER.indexOf('deps.notify(');
   assert.ok(read > -1 && claim > -1 && emit > -1, 'the delivery moved — this guard is blind');
   assert.ok(read < claim, 'the claim runs before the message read: a refused read would eat the reminder');
   assert.ok(claim < emit);
-  // The message read is the PERSON's client (their RLS), never the service role.
-  const readBlock = DELIVER.slice(DELIVER.lastIndexOf('await', read), read);
-  assert.match(readBlock, /await supabase\s*$/, 'the message is read with a client other than the caller’s own');
+  // The message read is the PERSON's client (their RLS), never the service role — and the real notifier is the default.
   assert.doesNotMatch(DELIVER, /admin\s*\.from\('chat_messages'\)/, 'the service role reads the message — RLS no longer decides');
+  assert.match(DELIVER, /const REAL_DEPS: ReminderDeps = \{ notify: emitNotification,/, 'the default notifier is no longer the real one');
+  // The claim takes every due row, so the due read is never capped (#8071 review — the 21st reminder was lost).
+  assert.doesNotMatch(DELIVER.slice(0, read), /\.limit\(/, 'the due read is capped again — the claim would eat the rest');
   // A failed read stops before the claim.
   const between = DELIVER.slice(read, claim);
   assert.match(between, /if \(read\.error\) \{[\s\S]*?return 0;/, 'a refused message read no longer stops the delivery');

@@ -1,12 +1,15 @@
-'use server';
-
 /**
- * 💬 UNICHAT PART H1 — the server half of EDIT · UNSEND · REMIND ME (approved Unichat prototype v3, DECISION_LOG
- * 2026-11-20). Every one runs under the CALLER's own session; the database decides who, what and when
- * (`edit_my_chat_message` · `unsend_my_chat_message` · the `chat_message_reminders` policies — migration
- * 20271354347259). Nothing here is the rule; this file turns a refusal into the words the person reads.
+ * 💬 UNICHAT PART H1 — EDIT · UNSEND · REMIND ME, called FROM THE BROWSER with the person's own session (approved
+ * Unichat prototype v3, DECISION_LOG 2026-11-20). The database decides who, what and when (`edit_my_chat_message` ·
+ * `unsend_my_chat_message` · the `chat_message_reminders` own-row policies, which also bound `remind_at` to the
+ * DATABASE's clock: not in the past, at most 366 days on — migration 20271354347259). Nothing here is the rule; this
+ * file turns a refusal into the words the person reads.
+ *
+ * 🔢 NOT SERVER ACTIONS (#8071 review, controller 21 Nov): these were two `use server` exports, which took the action
+ * count past the 1,251 ceiling once batch D is live. Every rule already lives in the database, so they run where
+ * `card-calls.ts` and `deal-end-calls.ts` run — the browser, under the caller's RLS — and add no route.
  */
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 import { chatContactFilterEnabled } from '@/lib/chat-contact-filter-flag';
 import { evaluateMessage } from '@/lib/chat-contact-filter';
 import { messageChangeRefusal, messageChangeWords } from '@/lib/chat-message-extras';
@@ -19,7 +22,7 @@ export type EditChatMessageResult =
   | { ok: false; message: string };
 
 /**
- * Change your own message — ONE server action, two intents (the action budget never rises; unsend is a mode of edit).
+ * Change your own message — one call, two intents (unsend is a mode of edit).
  * `'edit'` (default): save new words. The database re-checks it is yours, still new, words only, and clean.
  * `'unsend'`: unsend your own words or voice note. The row stays; everyone reads "… unsent a message". `body` is ignored.
  */
@@ -39,7 +42,7 @@ export async function editChatMessage(
   if (chatContactFilterEnabled() && evaluateMessage(trimmed).blocked) {
     return { ok: false, message: messageChangeWords('edit', 'contact_blocked') };
   }
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('edit_my_chat_message', { p_message_id: messageId, p_body: trimmed });
   if (error) {
     const why = messageChangeRefusal(error.message);
@@ -53,7 +56,7 @@ export async function editChatMessage(
 /** Not exported — the `'unsend'` intent of `editChatMessage`. */
 async function unsendOwnMessage(messageId: string): Promise<EditChatMessageResult> {
   if (typeof messageId !== 'string' || !UUID.test(messageId)) return { ok: false, message: messageChangeWords('unsend', 'failed') };
-  const supabase = await createClient();
+  const supabase = createClient();
   const { data, error } = await supabase.rpc('unsend_my_chat_message', { p_message_id: messageId });
   if (error) {
     const why = messageChangeRefusal(error.message);
@@ -68,7 +71,8 @@ async function unsendOwnMessage(messageId: string): Promise<EditChatMessageResul
 export type SetChatReminderResult = { ok: true; remindAt: string | null } | { ok: false; message: string };
 
 /**
- * "Remind me" on one message: later today · tomorrow · a date. The time is worked out HERE, on the server's clock.
+ * "Remind me" on one message: later today · tomorrow · a date. The time is worked out here; the database's insert
+ * policy re-checks it against its own clock.
  * One reminder per person per message — setting again moves it (remove, then set: there is no end-user UPDATE).
  */
 export async function setChatReminder(input: {
@@ -76,7 +80,7 @@ export async function setChatReminder(input: {
   choice: string;
   date?: string | null;
   side: string;
-  /** 'clear' takes your reminder off instead (one route for both — every `use server` export is a Vercel route). */
+  /** 'clear' takes your reminder off instead. */
   intent?: 'set' | 'clear';
 }): Promise<SetChatReminderResult> {
   if (input?.intent === 'clear') {
@@ -90,7 +94,7 @@ export async function setChatReminder(input: {
   const when = reminderWhen(choice, Date.now(), date);
   if (!when.ok) return { ok: false, message: when.message };
 
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -127,7 +131,7 @@ type ClearChatReminderResult = { ok: true } | { ok: false; message: string };
 /** Take your own reminder off a message — reached through `setChatReminder({ intent: 'clear' })`, never its own route. */
 async function clearMyChatReminder(messageId: string): Promise<ClearChatReminderResult> {
   if (typeof messageId !== 'string' || !UUID.test(messageId)) return { ok: false, message: CHAT_REMINDER_NOT_REMOVED };
-  const supabase = await createClient();
+  const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -9,7 +9,8 @@
  *   later today → 3 hours from now · tomorrow / a date → 9:00 AM, Manila (the product's zone, as in `formatChatTimestamp`).
  * They live here and only here, so a ruling changes one line. Asked of the owner in the PR.
  *
- * The clock that decides is the SERVER's (`lib/chat-message-actions.ts`); the menu calls the same function only to
+ * `lib/chat-message-calls.ts` works the time out with this function when the choice is pressed; the DATABASE's insert
+ * policy re-checks it on its own clock (not in the past, at most 366 days on). The menu calls the same function to
  * print what a choice means before it is pressed. Held by `lib/chat-reminders.test.ts`.
  */
 

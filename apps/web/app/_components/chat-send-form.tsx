@@ -107,7 +107,7 @@ import {
   type PendingSend,
 } from '@/lib/chat-optimistic';
 import { VoiceMic, canRecordVoice } from '@/app/_components/chat/voice-mic';
-import { editChatMessage } from '@/lib/chat-message-actions';
+import { editChatMessage } from '@/lib/chat-message-calls';
 import {
   CHAT_EDITED_EVENT,
   CHAT_EDIT_START_EVENT,

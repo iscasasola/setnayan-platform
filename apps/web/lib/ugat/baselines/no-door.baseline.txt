@@ -92,6 +92,7 @@
 /dev/supplier-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-plan-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/supplier-print-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/supplier-set-two-lab	# 2026-11-21 · internal (dev lab, 404 in production) · supplier pages set two on fixtures inside the real supplier shell; reached by typing its address
 /dev/supplier-tools-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the supplier tool pages redraw (v3) on fixtures, for its screenshots; reached by typing its address
 /dev/suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/clients	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

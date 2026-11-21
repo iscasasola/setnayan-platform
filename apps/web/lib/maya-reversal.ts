@@ -27,6 +27,7 @@
  * the account is switched on.
  */
 import { mayaAmountValue, toCentavos, type MayaPaymentLike } from '@/lib/maya-checkout';
+import { formatPhp } from '@/lib/php';
 
 export type MayaReversalKind = 'void' | 'refund';
 
@@ -172,7 +173,7 @@ export async function runMayaReversal(
   if (input.expectAmountPhp !== undefined && Math.round(input.expectAmountPhp * 100) !== Math.round(read.amountPhp * 100)) {
     return {
       ok: false,
-      line: `Maya’s payment is ₱${read.amountPhp.toFixed(2)}, not the ₱${input.expectAmountPhp.toFixed(2)} approved. Nothing was sent or recorded.`,
+      line: `Maya’s payment is ${formatPhp(read.amountPhp)}, not the ${formatPhp(input.expectAmountPhp)} approved. Nothing was sent or recorded.`,
     };
   }
   if (read.kind === 'already') return { ok: true, kind: 'already', amountPhp: read.amountPhp };

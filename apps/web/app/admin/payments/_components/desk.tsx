@@ -1445,18 +1445,8 @@ export function MayaReversalForm({
       >
         <input type="hidden" name="intent" value="maya_reverse" />
         <input type="hidden" name="order_id" value={orderId} />
-        <label className="block space-y-1">
-          <span className="block text-[14px] text-ink">Reason (at least 20 characters)</span>
-          <textarea
-            name="reason"
-            required
-            minLength={20}
-            maxLength={512}
-            placeholder="E.g. Couple paid twice through Maya on June 4 — returning the second payment."
-            rows={2}
-            className="sn-input min-h-[72px] w-full py-2"
-          />
-        </label>
+        {/* The ONE Field template, posting `reason` (the server checks the 20 characters again). */}
+        <RemedyReasonRow placeholder="E.g. Couple paid twice through Maya on June 4 — returning the second payment." />
         <SubmitButton className="ab ab-danger ab-main w-full" pendingLabel="Asking Maya…">
           {word}
         </SubmitButton>

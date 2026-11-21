@@ -46,6 +46,8 @@ export type MayaCheckoutRow = {
   payment_id: string | null;
   /** Set once Maya's API has given a verdict on this checkout (never by an unverifiable queue). */
   verified_at?: string | null;
+  /** When Maya's API was last asked about this checkout (any answer). */
+  last_checked_at?: string | null;
 };
 
 /** What the order is owed NOW — read through the same resolver the pay page uses. */
@@ -79,7 +81,7 @@ export type MayaSettleDeps = {
   }): Promise<{ paymentId: string; status: string } | 'error'>;
   updateCheckout(
     checkoutId: string,
-    patch: Partial<MayaCheckoutRow> & { outcome_reason?: string | null; paid_with?: string | null },
+    patch: Partial<MayaCheckoutRow> & { outcome_reason?: string | null; paid_with?: string | null; last_checked_at?: string },
   ): Promise<void>;
   approve(args: { paymentId: string; buyerUserId: string; note: string }): Promise<ApproveOutcome>;
   /** The admins are told whenever money is waiting for them (approved or queued). */
@@ -97,6 +99,8 @@ export type MayaSettleResult =
   | { outcome: 'closed'; status: 'failed' | 'expired' | 'cancelled' }
   /** Not settled at Maya yet. */
   | { outcome: 'pending' }
+  /** Maya has no payment for this reference at all — they opened Maya and came back without paying. */
+  | { outcome: 'none' }
   /** Not one of our checkouts. Nothing to do. */
   | { outcome: 'unknown' }
   /** We could not ask Maya or read our own rows. Nothing approved. */
@@ -130,6 +134,17 @@ export async function settleMayaPayment(
   if (sameMayaPayment && row.payment_id && (row.status === 'approved' || (row.status === 'queued' && row.verified_at))) {
     return { outcome: 'already', paymentId: row.payment_id };
   }
+  // A closed checkout (failed / expired / cancelled, as Maya said) stays closed — not asked again.
+  if (sameMayaPayment && row.verified_at && (row.status === 'failed' || row.status === 'expired' || row.status === 'cancelled')) {
+    return { outcome: 'closed', status: row.status as 'failed' | 'expired' | 'cancelled' };
+  }
+  // 🧊 THROTTLE (ship review 21 Nov, item 5): a checkout Maya called "not yet" a few seconds ago is "not yet" again —
+  // the "Checking…" page re-asks every 3 s, and a payer may reload; Maya is asked at most once per window per row.
+  // A webhook (claimedPaid) always asks: that is Maya telling us something changed.
+  if (!hint.claimedPaid && row.status === 'created' && row.last_checked_at &&
+      Date.now() - Date.parse(row.last_checked_at) < MAYA_RECHECK_MS) {
+    return { outcome: 'pending' };
+  }
 
   // 2 · Ask Maya. By the id when we have one, else by our reference.
   let verdict: MayaVerdict | 'error';
@@ -139,6 +154,10 @@ export async function settleMayaPayment(
     verdict = p === 'error' ? 'error' : p ? judgeMayaPayment(p, expected) : { kind: 'pending', mayaPaymentId: null };
   } else {
     const list = await deps.verifyByReference(row.request_reference_number);
+    if (list !== 'error' && list.length === 0) {
+      if (row.status === 'created') await deps.updateCheckout(row.checkout_id, { last_checked_at: new Date().toISOString() });
+      return { outcome: 'none' };
+    }
     verdict = list === 'error' ? 'error' : judgeMayaPayments(list, expected);
   }
 
@@ -161,6 +180,7 @@ export async function settleMayaPayment(
     return { outcome: 'unverifiable', queued: true };
   }
 
+  if (row.status === 'created') await deps.updateCheckout(row.checkout_id, { last_checked_at: new Date().toISOString() });
   if (verdict.kind === 'pending') return { outcome: 'pending' };
   if (verdict.kind === 'closed') {
     if (row.status === 'created') {
@@ -235,6 +255,9 @@ export async function settleMayaPayment(
   await deps.notifyAdmins({ orderId: row.order_id, amountPhp });
   return { outcome: 'approved', paymentId: pay.paymentId };
 }
+
+/** How long a "not yet" from Maya is reused for one checkout before Maya is asked again. */
+export const MAYA_RECHECK_MS = 10_000;
 
 /** The idempotency key a Maya payment row carries (UNIQUE per order with order_id). */
 export function mayaIdempotencyKey(mayaPaymentId: string): string {

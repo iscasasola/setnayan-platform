@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { settleMaya } from '@/app/admin/payments/maya';
-import { isMayaWebhookSource } from '@/lib/maya-checkout';
+import { isMayaWebhookSource, mayaEnvironment } from '@/lib/maya-checkout';
+import { resolveMayaConfig } from '@/lib/integration-config';
 
 /**
  * 💳 Maya webhooks — the URL "Register webhooks" (Admin › Integrations › Maya)
@@ -41,7 +42,9 @@ const text = (v: unknown, max: number): string | null =>
   typeof v === 'string' && v.trim() && v.trim().length <= max ? v.trim() : null;
 
 export async function POST(req: NextRequest) {
-  if (!isMayaWebhookSource(req.headers.get('x-forwarded-for'), req.headers.get('x-real-ip'))) {
+  // Production keys hear only production's addresses; sandbox keys only sandbox's.
+  const env = mayaEnvironment((await resolveMayaConfig()).checkoutEndpoint);
+  if (!isMayaWebhookSource(req.headers.get('x-forwarded-for'), req.headers.get('x-real-ip'), env)) {
     return NextResponse.json({ ok: true });
   }
   let body: unknown = null;

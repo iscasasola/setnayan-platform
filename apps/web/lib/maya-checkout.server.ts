@@ -56,7 +56,7 @@ export async function readMayaGate(): Promise<{ state: MayaRailState; config: Ma
 }
 
 const CHECKOUT_COLS =
-  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id, verified_at';
+  'checkout_id, order_id, user_id, request_reference_number, amount_php, environment, status, maya_payment_id, payment_id, verified_at, last_checked_at';
 
 /** Record a checkout we just created, so the webhook and the return can find its order. */
 export async function recordMayaCheckout(row: {
@@ -228,5 +228,32 @@ export async function mayaReceiptFor(orderId: string): Promise<MayaReceipt | nul
     return row ? { amountPhp: Number(row.amount_php), paidWith: row.paid_with, paidAt: row.verified_at } : null;
   } catch {
     return null;
+  }
+}
+
+/** Maya keeps a checkout open for an hour (developers.maya.ph, "a checkout session is valid for 1 hour"); a little over. */
+const MAYA_CHECKOUT_OPEN_MS = 70 * 60 * 1000;
+
+/**
+ * Does this order have a Maya checkout still open (created within Maya's session lifetime, no verdict yet)? Read on
+ * every pay-page visit so that a payment in flight is re-verified even after the switch went off (ship review item 1).
+ * A refused read answers "no": the page then shows what it would have anyway.
+ */
+export async function hasOpenMayaCheckout(orderId: string): Promise<boolean> {
+  try {
+    const { data, error } = await createAdminClient()
+      .from('maya_checkouts')
+      .select('checkout_id')
+      .eq('order_id', orderId)
+      .eq('status', 'created')
+      .gte('created_at', new Date(Date.now() - MAYA_CHECKOUT_OPEN_MS).toISOString())
+      .limit(1);
+    if (error) {
+      console.error('[maya] open-checkout read refused', error.message);
+      return false;
+    }
+    return (data ?? []).length > 0;
+  } catch {
+    return false;
   }
 }

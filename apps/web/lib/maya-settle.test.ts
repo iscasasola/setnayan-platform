@@ -175,3 +175,29 @@ test('the verdict is cached on the row: an approved checkout is not asked about 
   assert.equal((await settleMayaPayment(w.deps, { reference: REF })).outcome, 'already');
   assert.equal(w.log.verifies, asked, 'a reload of ?maya=success called Maya again');
 });
+
+test('a "not yet" is reused for a few seconds — Maya is not asked on every 3-second re-check', async () => {
+  const w = world({ maya: { ...PAID, status: 'PAYMENT_PROCESSING' } });
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'pending' });
+  const asked = w.log.verifies;
+  assert.ok(w.row.last_checked_at, 'the ask was not stamped');
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'pending' });
+  assert.equal(w.log.verifies, asked, 'Maya was asked again inside the window');
+  // …but a webhook saying "paid" always asks.
+  w.deps.verifyById = async () => PAID;
+  assert.equal((await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1', claimedPaid: true })).outcome, 'approved');
+});
+
+test('a closed checkout stays closed — not asked again', async () => {
+  const w = world({ maya: { ...PAID, status: 'PAYMENT_FAILED' } });
+  await settleMayaPayment(w.deps, { mayaPaymentId: 'chk-1' });
+  const asked = w.log.verifies;
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'closed', status: 'failed' });
+  assert.equal(w.log.verifies, asked);
+});
+
+test('no payment at Maya for this reference → "none": they opened Maya and came back without paying — a fresh try', async () => {
+  const w = world({ maya: null });
+  assert.deepEqual(await settleMayaPayment(w.deps, { reference: REF }), { outcome: 'none' });
+  assert.equal(w.payments.size, 0);
+});

@@ -77,6 +77,8 @@ CREATE TABLE IF NOT EXISTS public.maya_checkouts (
   -- Why a verified payment went to the admin queue instead of approving.
   outcome_reason           TEXT CHECK (outcome_reason IS NULL OR length(outcome_reason) <= 500),
   verified_at              TIMESTAMPTZ,
+  -- When Maya's API was last asked about this checkout — a reload within seconds reuses the answer.
+  last_checked_at          TIMESTAMPTZ,
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );

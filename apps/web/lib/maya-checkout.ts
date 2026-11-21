@@ -276,14 +276,26 @@ export function mayaPaidWith(payment: MayaPaymentLike): string | null {
 export const MAYA_BUSY_LINE = 'Maya is busy — pay by BDO QR. Nothing has been charged.';
 
 /**
+ * The short-lived cookie the busy fallback sets (value = the order id) — the only thing that makes `?maya=busy` show
+ * the BDO QR (ship review item 2: a typed `?maya=busy` must not route around Maya while Maya is up).
+ */
+export const MAYA_BUSY_COOKIE = 'sn_maya_busy';
+export const MAYA_BUSY_COOKIE_SECONDS = 15 * 60;
+
+/**
  * Is this request from one of Maya's published webhook addresses? (Ship review 21 Nov: the IPs are the gate on the
  * webhook route, on top of the API re-verify.) The client address is the FIRST entry of `x-forwarded-for`, which
  * Vercel's edge sets; anything unreadable is "no".
  */
-export function isMayaWebhookSource(forwardedFor: string | null, realIp: string | null = null): boolean {
+export function isMayaWebhookSource(
+  forwardedFor: string | null,
+  realIp: string | null,
+  /** The environment of the saved endpoint — production hears only production's addresses (ship review item 6). */
+  env: MayaEnvironment,
+): boolean {
   const ip = (forwardedFor?.split(',')[0] ?? realIp ?? '').trim();
   if (!ip) return false;
-  return ([...MAYA_WEBHOOK_SOURCE_IPS.sandbox, ...MAYA_WEBHOOK_SOURCE_IPS.production] as string[]).includes(ip);
+  return (MAYA_WEBHOOK_SOURCE_IPS[env] as readonly string[]).includes(ip);
 }
 
 /** The one line a payer reads on returning from Maya without paying. */

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { readMayaGate } from '@/lib/maya-checkout.server';
+import { readMayaGate, hasOpenMayaCheckout } from '@/lib/maya-checkout.server';
 import { MAYA_BUSY_LINE, mayaReturnLine } from '@/lib/maya-checkout';
 import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
@@ -8,35 +8,52 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { settleMaya } from '@/app/admin/payments/maya';
 
 /**
- * 💳 What /pay/[reference] needs from Maya, in one call (v3 drawing, `prototypes/pay_maya_2026-11-21`).
+ * 💳 What /pay/[reference] needs from Maya, in one call (v3 drawing, `prototypes/pay_maya_2026-11-21`). Called only
+ * AFTER the page has proven the order is the viewer's (ship review 21 Nov, item 3).
  *
- *   · `?maya=success` is an ADDRESS anyone can type, so it decides nothing: it asks `settleMaya` to re-verify with
- *     Maya's API (by our reference — the same path the webhook takes). Confirmed → approved there, and the page's own
- *     order read that follows paints Paid. Mismatch → queued, and the page's payment read paints "We're checking this
- *     by hand". Not settled yet → `checking`: "Checking your payment…", no pay controls (never a live QR beside a
- *     started payment — ship review item 5).
+ *   · Back from Maya (`?maya=success`), OR any visit while this order has a Maya checkout still open — whatever the
+ *     switch says now (item 1: turning Maya off must not put a BDO QR beside a Maya payment in flight) — asks
+ *     `settleMaya` to re-verify with Maya's API. Confirmed → approved there (`settledNow`: the page reads the order
+ *     again and paints Paid). Mismatch → queued (the page paints "We're checking this by hand"). A payment that exists
+ *     at Maya but is not settled → `checking`: "Checking your payment…", no pay controls. No payment at Maya at all
+ *     (they opened Maya and came back without paying) → a fresh try.
  *   · `?maya=cancel|failure` → back on the Maya choices with one line.
- *   · `?maya=busy` (Maya would not open) → `busy`: the BDO QR, as the safety route, with the drawing's one line.
+ *   · `?maya=busy` → the BDO QR as the safety route, with the drawing's line — honoured ONLY when this order's own
+ *     busy fallback set the short-lived cookie (item 2); a typed `?maya=busy` changes nothing.
  */
 export type MayaPhase = 'pay' | 'checking' | 'busy';
 
-export async function mayaPayState(
-  reference: string,
-  param: string | undefined,
-): Promise<{ phase: MayaPhase; line: string | null; railOpenFor: (amountPhp: number) => Promise<boolean> }> {
+export async function mayaPayState(args: {
+  reference: string;
+  orderId: string;
+  param: string | undefined;
+  /** The order id in the busy-fallback cookie, if any (`MAYA_BUSY_COOKIE`). */
+  busyFor: string | null;
+}): Promise<{
+  phase: MayaPhase;
+  line: string | null;
+  settledNow: boolean;
+  railOpenFor: (amountPhp: number) => Promise<boolean>;
+}> {
+  const { reference, orderId, param } = args;
   let phase: MayaPhase = 'pay';
   let line: string | null = mayaReturnLine(param);
-  if (param === 'busy') {
+  let settledNow = false;
+
+  if (param === 'busy' && args.busyFor === orderId) {
     phase = 'busy';
     line = MAYA_BUSY_LINE;
-  } else if (param === 'success') {
+  } else if (param === 'success' || (param !== 'cancel' && param !== 'failure' && (await hasOpenMayaCheckout(orderId)))) {
     const result = await settleMaya({ reference });
-    if (result.outcome === 'closed') line = mayaReturnLine('failure');
+    if (result.outcome === 'approved' || result.outcome === 'queued' || result.outcome === 'already') settledNow = true;
+    else if (result.outcome === 'closed') line = param === 'success' ? mayaReturnLine('failure') : line;
     else if (result.outcome === 'pending' || (result.outcome === 'unverifiable' && !result.queued)) phase = 'checking';
   }
+
   return {
     phase,
     line,
+    settledNow,
     // Maya is the pay stage only while the switch is on with both keys, within the one-payment ceiling, and not busy.
     railOpenFor: async (amountPhp: number) => {
       if (phase === 'busy') return false;

@@ -178,12 +178,15 @@ test('register webhooks: keeps ours, replaces a stale one, adds the missing — 
 });
 
 test('the webhook gate: only Maya\'s published addresses, read from the first x-forwarded-for entry', () => {
-  assert.equal(isMayaWebhookSource('18.138.50.235'), true);
-  assert.equal(isMayaWebhookSource('3.1.199.75, 10.0.0.1'), true);
-  assert.equal(isMayaWebhookSource('10.0.0.1, 18.138.50.235'), false, 'a forged later hop is not the client');
-  assert.equal(isMayaWebhookSource(null, '13.229.160.234'), true);
-  assert.equal(isMayaWebhookSource(null), false);
-  assert.equal(isMayaWebhookSource('203.0.113.9'), false);
+  assert.equal(isMayaWebhookSource('18.138.50.235', null, 'production'), true);
+  assert.equal(isMayaWebhookSource('3.1.199.75, 10.0.0.1', null, 'sandbox'), true);
+  assert.equal(isMayaWebhookSource('10.0.0.1, 18.138.50.235', null, 'production'), false, 'a forged later hop is not the client');
+  assert.equal(isMayaWebhookSource(null, '13.229.160.234', 'sandbox'), true);
+  assert.equal(isMayaWebhookSource(null, null, 'production'), false);
+  assert.equal(isMayaWebhookSource('203.0.113.9', null, 'production'), false);
+  // Production hears only production's addresses, and sandbox only sandbox's.
+  assert.equal(isMayaWebhookSource('13.229.160.234', null, 'production'), false, 'a sandbox address reached production');
+  assert.equal(isMayaWebhookSource('18.138.50.235', null, 'sandbox'), false);
 });
 
 test('the busy line is the drawing\'s, verbatim', () => {

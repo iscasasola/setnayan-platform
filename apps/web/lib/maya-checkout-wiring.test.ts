@@ -116,3 +116,22 @@ test('the payer pays the total exactly — no fee or surcharge words on the Maya
   assert.match(marks, /'QR Ph', wallet === 'apple' \? 'Apple Pay' : wallet === 'google' \? 'Google Pay' : null, 'Visa', 'Mastercard', 'ShopeePay'/, 'the ruled order moved');
   assert.equal(/Grab|install?ment/i.test(marks), false, 'no Grab, no installments');
 });
+
+test('Maya is asked only after the order is proven theirs, and an open checkout shows "Checking…" whatever the switch says', () => {
+  const page = code(PAGE);
+  const owns = page.indexOf('if (!payable) notFound();');
+  const asks = page.indexOf('await mayaPayState(');
+  assert.ok(owns > 0 && asks > owns, 'Maya is asked before ownership is checked');
+  const ret = code('app/pay/[reference]/maya-return.ts');
+  assert.match(ret, /await hasOpenMayaCheckout\(orderId\)/, 'an open Maya checkout no longer forces a re-check');
+  // The open-checkout re-check does not depend on the switch: it is decided before railOpenFor is ever asked.
+  assert.ok(ret.indexOf('hasOpenMayaCheckout(') < ret.indexOf('readMayaGate()'));
+});
+
+test('a typed ?maya=busy changes nothing — only this order\'s busy fallback (its cookie) shows the BDO safety route', () => {
+  const ret = code('app/pay/[reference]/maya-return.ts');
+  assert.match(ret, /if \(param === 'busy' && args\.busyFor === orderId\)/);
+  const start = code('app/pay/[reference]/maya-start.ts');
+  assert.match(start, /\.set\(MAYA_BUSY_COOKIE, payable\.orderId,/);
+  assert.match(code(PAGE), /stage2Notice=\{maya\.phase === 'busy' \? maya\.line : null\}/, 'the busy line left stage 2');
+});

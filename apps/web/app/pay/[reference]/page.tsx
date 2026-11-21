@@ -32,6 +32,8 @@ import { mayaReceiptFor } from '@/lib/maya-checkout.server';
 import { isMayaPayment } from '@/lib/maya-checkout';
 import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { mayaPayState } from './maya-return';
+import { cookies } from 'next/headers';
+import { MAYA_BUSY_COOKIE } from '@/lib/maya-checkout';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -83,12 +85,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
   }
 
-  // 💳 Back from Maya: on `success` the payment is re-verified with Maya's API
-  // BEFORE the order is read (the webhook may be late), so a confirmed payment
-  // paints as Paid on this very render. Hints only — see ./maya-return.ts.
-  const maya = await mayaPayState(decodeURIComponent(reference), search.maya);
-
-  const payable = await fetchPayableByReference(
+  let payable = await fetchPayableByReference(
     supabase,
     decodeURIComponent(reference),
     // Who is looking decides the way out — a shop paying its own booking fee
@@ -97,6 +94,20 @@ export default async function PayPage({ params, searchParams }: Props) {
   );
   // Not yours and not real are the same answer on purpose — see the resolver.
   if (!payable) notFound();
+
+  // 💳 MAYA, ONLY ONCE THE ORDER IS PROVEN THEIRS (ship review 21 Nov, item 3). Back from Maya — or any visit while
+  // this order has a Maya payment still open, whatever the switch says now (item 1) — the payment is re-verified
+  // with Maya's API (the webhook may be late). Confirmed → it was approved just now, so the order is read again and
+  // this very render paints Paid. Hints only — see ./maya-return.ts.
+  const maya = await mayaPayState({
+    reference: payable.reference,
+    orderId: payable.orderId,
+    param: search.maya,
+    busyFor: (await cookies()).get(MAYA_BUSY_COOKIE)?.value ?? null,
+  });
+  if (maya.settledNow) {
+    payable = (await fetchPayableByReference(supabase, decodeURIComponent(reference), user.id)) ?? payable;
+  }
 
   // 🔒 THE STORE SHELL PAYS ONLY FOR REAL-WORLD SERVICES. This page takes money
   // for every order — a supplier's booking fee AND every Setnayan digital SKU —
@@ -389,7 +400,8 @@ export default async function PayPage({ params, searchParams }: Props) {
               ? "This one is settled — there's nothing left to send. Thank you."
               : 'This order was cancelled, so please don’t send anything for it.'}
           </p>
-          {/* 💳 Paid through Maya: the receipt rows under the shipped line (v3 drawing). */}
+          {/* 💳 Paid through Maya: the receipt rows under the shipped line (v3 drawing); the order_paid notice is
+              on the email allowlist (lib/notification-emit.ts), so "a copy is in your email" is true. */}
           {mayaReceipt ? (
             <dl data-pay-maya-receipt="" className="mt-6 border-t border-ink/10 pt-4 text-left text-sm [&>div+div]:border-t [&>div+div]:border-ink/10">
               <p className="mb-2 font-semibold text-ink">Receipt</p>
@@ -409,6 +421,7 @@ export default async function PayPage({ params, searchParams }: Props) {
               ))}
             </dl>
           ) : null}
+          {mayaReceipt ? <p className="mt-3 text-left text-xs text-ink/60">A copy is in your email.</p> : null}
           {payable.back && (
             <Link
               href={payable.back.href}
@@ -517,7 +530,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       {search.error && (
         <p role="alert" className="mt-4 text-sm font-medium text-danger-700">{search.error}</p>
       )}
-      {maya.line && !waiting && !mayaOpen && (
+      {maya.line && !waiting && !mayaOpen && maya.phase !== 'busy' && (
         <p role="status" data-pay-maya-line="" className="mt-4 text-sm text-ink/75">{maya.line}</p>
       )}
 
@@ -652,6 +665,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           door and the set-up discount framing, and `?recheck=` is the only
           copy telling somebody what to fix.
         */
+        stage2Notice={maya.phase === 'busy' ? maya.line : null}
         carryQuery={{
           setup: search.setup,
           sent: search.sent,

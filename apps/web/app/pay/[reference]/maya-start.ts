@@ -10,6 +10,8 @@ import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { createMayaCheckout, readMayaGate, recordMayaCheckout } from '@/lib/maya-checkout.server';
 import { noteMayaBusy } from '@/lib/maya-busy.server';
+import { cookies } from 'next/headers';
+import { MAYA_BUSY_COOKIE, MAYA_BUSY_COOKIE_SECONDS } from '@/lib/maya-checkout';
 import { settleMaya } from '@/app/admin/payments/maya';
 
 /**
@@ -75,6 +77,14 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
   // Maya would not open (refused, too slow, an odd answer) → the BDO QR at once, one calm line, ONE admin notice.
   const busy = async (why: string): Promise<never> => {
     await noteMayaBusy(why, payable.orderId);
+    // Only this cookie makes `?maya=busy` show the BDO QR (a typed address changes nothing).
+    (await cookies()).set(MAYA_BUSY_COOKIE, payable.orderId, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: true,
+      path: '/pay',
+      maxAge: MAYA_BUSY_COOKIE_SECONDS,
+    });
     redirect(`/pay/${encodeURIComponent(reference)}?maya=busy&step=2`);
   };
 

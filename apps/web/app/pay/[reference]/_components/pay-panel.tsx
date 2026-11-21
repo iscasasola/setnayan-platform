@@ -100,6 +100,7 @@ export function PayPanel({
   initialStage,
   carryQuery,
   maya,
+  stage2Notice,
 }: {
   /**
    * TRUE on the render right after we asked them to check their reference
@@ -140,6 +141,8 @@ export function PayPanel({
    * BDO page, untouched (Maya off, no keys, busy, or above the ceiling).
    */
   maya?: ReactNode;
+  /** One calm line under "Pay this exact amount" — "Maya is busy — pay by BDO QR. Nothing has been charged." (v3). */
+  stage2Notice?: string | null;
 }) {
   // The first OPEN account in the admin's order — BDO, the only rail a payer is
   // offered (owner 2026-11-17: "we will make all our transactions enter BDO
@@ -264,6 +267,11 @@ export function PayPanel({
       <div hidden={stage !== 2 || mayaMode}>
         <section id="payCard" className="mt-5 scroll-mt-4 border-t border-ink/10 pt-6">
           <StepHead n={2} title="Pay this exact amount" />
+          {stage2Notice ? (
+            <p role="status" data-pay-maya-busy="" className="mb-4 text-sm text-ink/75">
+              {stage2Notice}
+            </p>
+          ) : null}
           {/*
             🔑 EVERY RAIL CLOSED. Both personal accounts are at their monthly
             receiving cap and the owner switched them off — a transfer now

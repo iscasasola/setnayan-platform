@@ -4,28 +4,18 @@
  * scoped to the panel so nothing leaks into the rest of the Shop.
  */
 .root {
-  --cake-s-card: #ffffff;
-  --cake-s-bg: #ffffff;
-  --cake-s-tile: #dce6f2;
-  --cake-s-ghost: #e8f0fa;
-  --cake-s-ink: #101b30;
-  --cake-s-ink2: #566275;
-  --cake-s-ink3: #6b7789;
-  --cake-s-acc: #2272e6;
-  --cake-s-accw: #175ab9;
-  --cake-s-danger: #b3261e;
+  /* the supplier look's own tokens (supplier-look.css) — light and navy dark follow the theme, no hex here */
+  --cake-s-card: rgb(var(--color-raised));
+  --cake-s-bg: rgb(var(--color-raised));
+  --cake-s-tile: rgb(var(--color-raised-2));
+  --cake-s-ghost: rgb(var(--color-wash));
+  --cake-s-ink: rgb(var(--color-ink));
+  --cake-s-ink2: rgb(var(--color-ink-2));
+  --cake-s-ink3: rgb(var(--color-ink-3));
+  --cake-s-acc: rgb(var(--sn-accent));
+  --cake-s-accw: rgb(var(--color-link));
+  --cake-s-danger: rgb(var(--color-danger));
   color: var(--cake-s-ink);
-}
-:global(html.dark) .root {
-  --cake-s-card: #172338;
-  --cake-s-bg: #172338;
-  --cake-s-tile: #1f2f4a;
-  --cake-s-ghost: #283a58;
-  --cake-s-ink: #eef2f8;
-  --cake-s-ink2: #b4bece;
-  --cake-s-ink3: #9aa6b9;
-  --cake-s-accw: #7db1ff;
-  --cake-s-danger: #ff8a80;
 }
 .lab {
   font-size: 17px;
@@ -159,7 +149,7 @@
 }
 .cc[aria-pressed='true'] {
   background: var(--cake-s-acc);
-  color: #ffffff;
+  color: rgb(var(--color-on-accent));
 }
 .or {
   display: flex;
@@ -374,10 +364,7 @@
   width: 100%;
   height: 84px;
   border-radius: var(--m-r-sm);
-  background: radial-gradient(120% 90% at 50% 30%, #fbf8f3, #efe9e0);
-}
-:global(html.dark) .arrFig {
-  background: radial-gradient(120% 90% at 50% 30%, #2a2622, #1a1816);
+  background: radial-gradient(120% 90% at 50% 30%, var(--cake-s-tile), var(--cake-s-ghost));
 }
 /* a tick row: the catalog choice the shop makes or not */
 .tick {

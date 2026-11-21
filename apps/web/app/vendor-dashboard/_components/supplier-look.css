@@ -276,13 +276,8 @@ html.dark:has([data-supplier-look]) {
   --sn-frame-shadow-tile: inset 0 1px 0 rgb(220 232 255 / 0.05), 0 8px 18px -12px rgb(0 0 0 / 0.7);
   --sn-cover-glow: transparent;
 
-  /* the ground: the same three soft lights, over the navy */
-  --sn-glow-soft: 125 177 255;
-  --sn-ambient-dark:
-    radial-gradient(900px 520px at 88% -8%, rgb(var(--color-mulberry) / 0.22), transparent 62%),
-    radial-gradient(720px 520px at -12% 34%, rgb(var(--sn-glow-soft) / 0.08), transparent 60%),
-    radial-gradient(800px 600px at 60% 108%, rgb(var(--color-mulberry) / 0.12), transparent 60%),
-    rgb(var(--color-page));
+  /* the ground: FLAT navy — no page-wide lights (DARK_MODE_STANDARD: the page is flat, the glow only on the band;
+     ship review 22 Nov). `.sn-ambient` falls back to rgb(var(--color-page)) when --sn-ambient-dark is unset. */
 
   /* the section label — the look's own, as in Light */
   --sn-label-size: 17px;

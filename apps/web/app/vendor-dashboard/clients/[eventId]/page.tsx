@@ -91,6 +91,8 @@ import { ScriptTab } from './_components/script-tab';
 import { SongDesk } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/song-desk';
 import { agreedFacts } from '@/lib/agreed-facts';
 import { hubHref } from '@/lib/hub-events';
+import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
+import { BookedCallChoices, bookedCallReachable } from '@/app/_components/chat/booked-call-choices';
 import { CoupleAnswers } from './_components/couple-answers';
 import { resolveVendorSpecializationAccessForVendor } from '@/lib/vendor-specialization-gate.server';
 // The coordinator's ask, reused exactly as the live floor console mounts it —
@@ -651,6 +653,16 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   if (error || !data) redirect('/vendor-dashboard/clients');
   const rawBrief = data as Brief;
   const isBooked = rawBrief.stage === 'booked';
+  // 📞 Call · Viber under ⋯ (Unichat v3) — the ONE booking check, started now beside the page's other reads; the
+  // hosts' number is read only once it says yes (`bookedCounterpartyPhone` answers null without it). Fails closed.
+  const bookedCallP: Promise<{ booked: boolean; phone: string | null }> = isBooked
+    ? shopIsBookedOnEvent(eventId, profile.vendor_profile_id)
+        .then(async (booked) => ({
+          booked,
+          phone: await bookedCounterpartyPhone({ booked, viewer: 'vendor', eventId, vendorProfileId: profile.vendor_profile_id }),
+        }))
+        .catch(() => ({ booked: false, phone: null }))
+    : Promise.resolve({ booked: false, phone: null });
 
   // ── THE BOOKING FEE UNLOCKS THE EVENT (owner, 2026-09-20) ────────────────
   // Flag OFF ⇒ the stage is 'unlocked' for everybody and `redactBriefForStage`
@@ -2942,6 +2954,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       />
     ) : null,
   });
+  const bookedCall = await bookedCallP;
 
   return (
     <PickedClientShell
@@ -2976,6 +2989,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         script: showScript ? gated(scriptNode) : null,
         crewHref: isBooked ? hubHref(eventId, 'crew') : null,
         crewDay: dayMonth(brief.event.event_date),
+        call: bookedCallReachable(bookedCall.booked, bookedCall.phone) ? (
+          <BookedCallChoices booked={bookedCall.booked} phone={bookedCall.phone} who={eventName} />
+        ) : null,
         calendar: feeUnlocked && allBlocks.length > 0 ? { href: `/vendor-dashboard/clients/${eventId}/calendar.ics`, filename: `schedule-${eventId}.ics` } : null,
       }}
     />

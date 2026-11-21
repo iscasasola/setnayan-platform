@@ -22,11 +22,14 @@ export function ContractUploadForm({
   events,
   initialEventId,
   maxSizeLabel,
+  cancelHref,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   events: ReadonlyArray<{ id: string; title: string }>;
   initialEventId: string;
   maxSizeLabel: string;
+  /** Where Cancel goes — the page's home on the one back map (Customers › Money › Contracts). */
+  cancelHref: string;
 }) {
   const [eventId, setEventId] = useState(initialEventId);
   const [title, setTitle] = useState('');
@@ -88,7 +91,7 @@ export function ContractUploadForm({
       </PartList>
       <PartFoot mark="contract-upload" label="Upload actions">
         <EqualRow className="w-full">
-          <ActionButton href="/vendor-dashboard/contracts" tone="neutral" icon={<X aria-hidden />} label="Cancel" />
+          <ActionButton href={cancelHref} tone="neutral" icon={<X aria-hidden />} label="Cancel" />
           <SubmitButton form={FORM} className={actionButtonClass('brand', { main: true })} pendingLabel="Uploading…">
             <Upload aria-hidden strokeWidth={1.9} />
             <span>Upload draft</span>

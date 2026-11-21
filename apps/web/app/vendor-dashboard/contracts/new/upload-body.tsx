@@ -6,6 +6,9 @@ import { formatFileSize, CONTRACT_MAX_BYTES } from '@/lib/contracts';
 import { PartNote, PartPage, PartPin } from '../../_components/set-two/parts';
 import { ReadFailedBody } from '../../_components/set-two/read-failed';
 import { ContractUploadForm } from './upload-form';
+import { pageBackLink } from '@/lib/page-home';
+
+const ROUTE = '/vendor-dashboard/contracts/new';
 
 /** Upload a contract, drawn from the page's reads (the lab draws it from fixtures). `eventOptions: null` = unread. */
 export function UploadContractBody({
@@ -18,7 +21,7 @@ export function UploadContractBody({
   return (
     <PartPage column="mx-auto w-full tab:max-w-3xl" mark="contract-upload">
       <PartPin
-        route="/vendor-dashboard/contracts/new"
+        route={ROUTE}
         title={
           <InfoTip label="Upload a contract" align="end">
             {`PDF only, up to ${formatFileSize(CONTRACT_MAX_BYTES)}. After upload you can review it.`}
@@ -45,6 +48,7 @@ export function UploadContractBody({
           events={eventOptions}
           initialEventId={defaultEventId}
           maxSizeLabel={formatFileSize(CONTRACT_MAX_BYTES)}
+          cancelHref={pageBackLink(ROUTE)?.href ?? '/vendor-dashboard'}
         />
       )}
     </PartPage>

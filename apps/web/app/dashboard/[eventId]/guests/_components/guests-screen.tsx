@@ -238,6 +238,8 @@ export type GuestsScreenProps = {
   groups: { group_id: string; label: string; team_side: 'bride' | 'groom' | 'both' }[];
   /** The seat plan's tables — Set… ▾ › Table. */
   tables: { tableId: string; label: string }[];
+  /** The tables read was measured — false/absent-on-failure keeps the view menu from saying "0 tables" (ship review 21 Nov). */
+  tablesMeasured?: boolean;
   /** guest_id → the table they are placed at. */
   tableByGuest: Record<string, string>;
   /** 🏷 A partial invite's tag — "After party only" · "Not at Ceremony" (owner 2026-11-02, "Invited to"). Absent = none. */
@@ -374,6 +376,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
         songsByGuest: {},
         groups: [],
         tables: [],
+        tablesMeasured: false,
         empty: null,
         initialQuery: '',
         initialSelect: false,
@@ -413,6 +416,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
     oneQr = false,
     empty,
     copy = null,
+    tablesMeasured = true,
     roleSetKey = null,
     viewOnly = false,
     filter: filterAsked = NO_GUESTS_FILTER,
@@ -1349,7 +1353,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const pinMenuOptions: PickOption[] = [
     { key: 'guests', label: GUESTS_TOP_LABEL.guests, icon: <Users className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: measured ? placeCount(stats.total, 'guest', 'guests') : undefined },
     ...(tops.includes('seats')
-      ? [{ key: 'seats', label: GUESTS_TOP_LABEL.seats, icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: placeCount(tables.length, 'table', 'tables') }]
+      ? [{ key: 'seats', label: GUESTS_TOP_LABEL.seats, icon: <Armchair className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: tablesMeasured ? placeCount(tables.length, 'table', 'tables') : undefined }]
       : []),
     ...(tops.includes('march') ? [{ key: 'march', label: GUESTS_TOP_LABEL.march, icon: <Footprints className="h-[18px] w-[18px]" strokeWidth={1.9} />, trail: placeCount(walkCount, 'walk', 'walks') }] : []),
   ];

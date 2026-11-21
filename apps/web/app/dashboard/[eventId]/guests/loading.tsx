@@ -20,7 +20,7 @@ export default function GuestsLoading() {
       <Screen className="space-y-4" label="Loading your guests">
         <div className="flex min-w-0 items-center gap-2" data-guests-skeleton-row="">
           <span className="inline-flex h-10 items-center rounded-full bg-ink/[0.06] px-3 dark:bg-white/[0.08]">
-            <Ghost known="Guests · List" textClassName="text-[14px] font-medium leading-10 text-ink" />
+            <Ghost textClassName="text-[14px] font-medium leading-10 text-ink" />
           </span>
           <span className="flex-1" />
           <SkCircle size="h-10 w-10" />

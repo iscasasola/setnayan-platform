@@ -104,7 +104,7 @@ export function EventDayBody({
   otherView: ReactNode;
 }) {
   const shownCounts = programUnread ? counts.filter((t) => t.key === 'coming') : counts;
-  const countsPiece = (
+  const tilesBlock = (
     <>
       {programUnread ? (
         <ReadFailedNote mark="program">We couldn&rsquo;t load the couple&rsquo;s program right now.</ReadFailedNote>
@@ -119,12 +119,12 @@ export function EventDayBody({
         <EventHubBar {...bar} />
         {view !== 'day' ? (
           <>
-            {countsPiece}
+            {tilesBlock}
             <div className="px-3 pt-2 tab:px-0">{otherView}</div>
           </>
         ) : (
           <div className={setTwo.day}>
-            <div className={setTwo.dayCounts}>{countsPiece}</div>
+            <div className={setTwo.dayCounts}>{tilesBlock}</div>
 
             {/* The obsidian focal — kept dark on purpose: the one glare-legible anchor on a venue floor.
                 `id="schedule"`: where a "Schedule moved" notice lands (lib/schedule-shift-notice.ts) — the clock's

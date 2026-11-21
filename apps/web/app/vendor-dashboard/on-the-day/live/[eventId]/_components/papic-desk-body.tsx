@@ -61,8 +61,8 @@ export function PapicDeskBody({
   backHref,
   coupleName,
   capture,
-  captures,
-  credits,
+  shotStrip,
+  walletCard,
   album,
   challenge,
 }: {
@@ -75,9 +75,9 @@ export function PapicDeskBody({
   /** The camera's allowance on the event day; null = the camera hides. */
   capture: PapicCapture | null;
   /** "What you've shot" — the strip under the shutter. */
-  captures: ReactNode;
+  shotStrip: ReactNode;
   /** Papic credits + the pack. */
-  credits: ReactNode;
+  walletCard: ReactNode;
   /** The private portfolio. */
   album: ReactNode;
   /** "From your challenge" — renders nothing when there is nothing. */
@@ -113,9 +113,9 @@ export function PapicDeskBody({
       {/* What they already shot, under the shutter — the question on a dark reception floor is "did that upload?",
           and the answer belongs on the same screen (the camera's "what you shot" press lands here). */}
       <div id="what-you-shot" className="scroll-mt-24 px-4 tab:px-1">
-        {captures}
+        {shotStrip}
       </div>
-      {credits}
+      {walletCard}
       {album}
       <div className="px-4 tab:px-1">{challenge}</div>
     </PartPage>

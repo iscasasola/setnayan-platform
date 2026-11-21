@@ -123,8 +123,8 @@ function papic({ isEventDay, coupleName = COUPLE }: { isEventDay: boolean; coupl
       backHref={isEventDay ? `/vendor-dashboard/on-the-day/live/${EVENT_ID}` : '/vendor-dashboard/on-the-day'}
       coupleName={coupleName}
       capture={capture}
-      captures={<OwnCapturesView tiles={[]} />}
-      credits={<PortfolioCreditsCard eventId={EVENT_ID} credits={60} left={48} offerPack packs={PACKS} openRails={RAILS} />}
+      shotStrip={<OwnCapturesView tiles={[]} />}
+      walletCard={<PortfolioCreditsCard eventId={EVENT_ID} credits={60} left={48} offerPack packs={PACKS} openRails={RAILS} />}
       album={
         <PortfolioAlbumView
           eventId={EVENT_ID}

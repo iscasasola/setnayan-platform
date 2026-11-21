@@ -152,10 +152,10 @@ export default async function VendorPapicCapturePage({
       }
       // What they already shot, under the shutter — read with the vendor's OWN client so the RLS policy stays the
       // boundary. After the day it is the whole point of the page.
-      captures={<OwnCapturesStrip supabase={supabase} eventId={eventId} />}
+      shotStrip={<OwnCapturesStrip supabase={supabase} eventId={eventId} />}
       // Papic credits + the pack upsell (G3) — reads the ONE-METER total, reduced by BOTH doors (on-the-day capture
       // above, portfolio import below), so this number never disagrees with either.
-      credits={
+      walletCard={
         <PortfolioCreditsCard
           eventId={eventId}
           credits={portfolioCredits.credits}

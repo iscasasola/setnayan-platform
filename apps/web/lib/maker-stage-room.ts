@@ -33,6 +33,19 @@ export const STAGE_PANEL_VARS =
   '--sp-gold-soft:#E6D8BE;--sp-gold-wash:#F8F3E9;--sp-cta:rgb(var(--sn-accent));--sp-cta-wash:rgb(var(--sn-accent) / .1);--sp-line:#E6E1D8;' +
   '--sp-line2:#D9D3C8;--sp-pill:#F1EEE8;--sp-pill-on:#D8D3CA;--sp-ok:#2F6B4F;--sp-bad:rgb(var(--color-danger))';
 
+/**
+ * 🌙 THE SAME THIRTEEN IN DARK (owner 18 Nov 2026: "dark mode. YES :D" — the couple's /dashboard, the Maker included).
+ * Each keeps its job and READS THE ONE COLOUR SET (`globals.css` "THE ONE COLOUR SET, BY JOB") — not one new colour is
+ * written here: page → the page, paper → the frame, the inks → text 1·2·3, lines → the ink at 14 % / 24 %, the pill →
+ * the wash, the gold → the accent. Emitted under `html.dark` beside every place `STAGE_PANEL_VARS` is set, so the
+ * Stages panel is never a light desk under the app's light ink. `--sp-cta` and `--sp-bad` already read tokens.
+ */
+export const STAGE_PANEL_VARS_DARK =
+  '--sp-page:rgb(var(--color-page));--sp-paper:rgb(var(--color-raised));--sp-ink:rgb(var(--color-ink));--sp-ink2:rgb(var(--color-ink-2));' +
+  '--sp-mute:rgb(var(--color-ink-3));--sp-gold:rgb(var(--color-terracotta));--sp-gold-soft:rgb(var(--color-terracotta) / .32);' +
+  '--sp-gold-wash:rgb(var(--color-terracotta) / .12);--sp-line:rgb(var(--color-ink) / .14);--sp-line2:rgb(var(--color-ink) / .24);' +
+  '--sp-pill:rgb(var(--color-wash));--sp-pill-on:rgb(var(--color-ink) / .26);--sp-ok:rgb(var(--color-ok))';
+
 /** The selector's band — [ Edit | Style | Background | Animate ] · ▶ (prototype `.tools`: 52 px, the 44-px pill and ▶ in its middle, 10 px apart). */
 export const STAGE_ROW = 'flex h-[52px] shrink-0 items-center gap-2.5';
 /** ▶ — a 44 px tap; the prototype's 40 px round is its inner `STAGE_ICON_FACE`. */

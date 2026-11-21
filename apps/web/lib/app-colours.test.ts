@@ -14,6 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tokenHex } from './css-colour-tokens';
 import {
   APP_COLOURS_DEFAULT,
   MOODS,
@@ -43,21 +44,34 @@ const mood = (id: string) => MOODS.find((m) => m.id === id)!.colours;
 
 test('(1) every default is what globals.css paints today', () => {
   const d = APP_COLOURS_DEFAULT;
-  assert.equal(rootVar('--sn-page-bg'), tripleOf(d.page));
+  // The page's ONE token is `--color-page`; `--sn-page-bg` points at it (the one colour set, 18 Nov 2026).
+  assert.equal(rootVar('--color-page'), tripleOf(d.page));
+  assert.equal(rootVar('--sn-page-bg'), 'var(--color-page)');
+  assert.equal(tokenHex('--sn-page-bg', 'light'), d.page.toLowerCase());
   assert.equal(rootVar('--color-ok'), tripleOf(d.money));
   assert.equal(rootVar('--color-mulberry'), tripleOf(d.decision));
   assert.equal(rootVar('--color-mulberry'), tripleOf(d.toggle), 'today the toggle IS the decision colour');
-  assert.equal(rootVar('--sn-accent'), 'var(--color-mulberry)');
+  assert.equal(rootVar('--sn-accent'), 'var(--color-toggle)');
+  assert.equal(rootVar('--color-toggle'), 'var(--color-mulberry)', 'the toggle is the decision colour (owner 18 Nov, pick 4)');
   assert.equal(rootVar('--color-private'), tripleOf(d.private));
   assert.equal(rootVar('--color-private-text'), tripleOf(derive.privateText(d.private)));
   assert.equal(rootVar('--color-private-tint'), tripleOf(derive.privateTint(d.private)));
   assert.equal(rootVar('--color-mulberry-600'), tripleOf(derive.decisionHover(d.decision)));
   assert.equal(rootVar('--color-mulberry-700'), tripleOf(derive.decisionWord(d.decision)));
-  for (const [k, hex] of Object.entries(d.tiles)) assert.equal(rootVar(`--sn-cat-${k}`), tripleOf(hex), `tile ${k}`);
+  // What a token PAINTS: its pointer followed to the colour (the one colour set, 18 Nov 2026 — `--sn-cat-*`, the band
+  // and the frame point at their `--color-*` token); a non-colour (an angle, a radius, a shadow) is read as written.
+  const paints = (k: string) => {
+    const hex = tokenHex(k, 'light');
+    return hex ? tripleOf(hex) : rootVar(k);
+  };
+  for (const [k, hex] of Object.entries(d.tiles)) {
+    assert.equal(rootVar(`--sn-cat-${k}`), `var(--color-cat-${k})`, `tile ${k} no longer points at its one token`);
+    assert.equal(rootVar(`--color-cat-${k}`), tripleOf(hex), `tile ${k}`);
+  }
   // The tokens a later wave reads are declared with the same defaults the setting holds.
   const t = appColourTokens(d);
   for (const k of ['--sn-band-from', '--sn-band-to', '--sn-band-angle', '--sn-on-band', '--sn-frame-bg', '--sn-frame-radius', '--sn-frame-shadow']) {
-    assert.equal(rootVar(k), t[k], k);
+    assert.equal(paints(k), t[k], k);
   }
 });
 

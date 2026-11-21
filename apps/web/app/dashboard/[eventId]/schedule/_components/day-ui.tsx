@@ -136,7 +136,7 @@ export function Switch({
         className="sn-switch sn-press-ring relative h-6 w-10 flex-none rounded-full"
       >
         <span
-          className={`sn-switch-knob absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : ''}`}
+          className={`sn-switch-knob absolute left-[3px] top-[3px] h-[18px] w-[18px] rounded-full bg-raised shadow transition-transform ${on ? 'translate-x-4' : ''}`}
         />
       </span>
     </button>
@@ -217,7 +217,7 @@ export function ToolButton({
     >
       {children}
       {badge && badge > 0 ? (
-        <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-mulberry px-0.5 text-xs font-bold text-white">
+        <span className="absolute right-1 top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-mulberry px-0.5 text-xs font-bold text-cream">
           {badge}
         </span>
       ) : null}

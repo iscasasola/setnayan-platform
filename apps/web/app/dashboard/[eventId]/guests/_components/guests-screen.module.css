@@ -15,7 +15,7 @@
   --gs-mute: rgb(var(--color-ink) / 0.6);
   --gs-line: rgb(var(--color-ink) / 0.1);
   /* the page ground (`.sn-ambient`), so the sticky pieces read as the page, not a white box */
-  --gs-paper: #f7f5f0;
+  --gs-paper: var(--sn-canvas); /* = #f7f5f0 */
   --gs-gild: var(--sn-gold-500, #a9834b);
   --gs-gild-soft: color-mix(in srgb, var(--sn-gold-500, #a9834b) 16%, transparent);
   --gs-brand: rgb(var(--color-mulberry));
@@ -53,7 +53,7 @@
 
 /* ═══ the sticky block: segmented · counts · meter ═══ */
 :global(html.dark) .screen {
-  --gs-paper: #17160f;
+  --gs-paper: rgb(var(--color-page));
 }
 /* The map has no background of its own (G39): the sticky block goes clear too. */
 .screen[data-guests-screen='map'] .stick {
@@ -1470,7 +1470,7 @@ button.node {
   font-size: 15px;
   font-weight: 600;
   background: var(--gs-brand);
-  color: #fff;
+  color: rgb(var(--sn-on-accent));
   border-color: var(--gs-brand);
 }
 .nodeSide {
@@ -1760,7 +1760,7 @@ button.countsDoor[aria-pressed='true'] {
   padding: 6px;
   border-radius: 50%;
   background: var(--gs-brand);
-  color: #fff;
+  color: rgb(var(--sn-on-accent));
   font-size: 11px;
   font-weight: 600;
   line-height: 1.15;

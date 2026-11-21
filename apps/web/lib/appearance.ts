@@ -48,7 +48,7 @@ export const APPEARANCE_COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;
 /** Keyed by what a screen PAINTS (light | dark) — Automatic is a choice, not a paint. */
 export const THEME_COLOR: Record<'light' | 'dark', string> = {
   light: '#FBFBFA',
-  dark: '#17160F', // the approved dark page (control_templates_round2_2026-10-12)
+  dark: '#121110', // the dark page — `--color-page` in globals.css (owner 18 Nov 2026, pick 2; was #17160F)
 };
 
 /**
@@ -66,10 +66,8 @@ export const THEME_COLOR: Record<'light' | 'dark', string> = {
  */
 export const DARK_READY: readonly string[] = [
   // B2 (2026-10-23, dark_mode_rollout_2026-10-22): the account spokes — the first area a person sees in dark is
-  // the one holding the switch (/dashboard/profile), so a pick changes the screen it was made on. NOT
-  // "/dashboard" itself: that prefix covers the whole event tree, which opens as one with B3 (no exception list).
-  // Not "/dashboard/year" either: it is a redirect to "/dashboard#worth-planning" and paints nothing of its own.
-  // Every route below was walked signed in, at 375 px, light and dark, before it was listed (2026-10-23).
+  // the one holding the switch (/dashboard/profile). Every route below was walked signed in, at 375 px, light and
+  // dark, before it was listed (2026-10-23).
   '/dashboard/people',
   '/dashboard/library',
   '/dashboard/life-flash',
@@ -77,6 +75,16 @@ export const DARK_READY: readonly string[] = [
   '/dashboard/notifications',
   '/dashboard/create-event',
   '/dashboard/samahan',
+  // B3, FIRST SLICE (18 Nov 2026 — owner: "dark mode. YES :D" · pick 5 "the couple's /dashboard goes dark first").
+  // ONLY THE FOUR EVENT SCREENS THAT WERE RENDERED IN DARK: the event Home, Budget, Guests and Schedule — each one
+  // EXACTLY (`$`), never the routes below it. The rest of the event tree (Suppliers, the Hub door, the Maker, the
+  // Studio, the website editor, seating …) still paints colours of its own and STAYS LIGHT until it is swept and
+  // walked: nobody may meet a half-dark screen (call 3, 2026-10-13; review of #7993, 19 Nov 2026). `*` is the event's
+  // id — one segment that holds a digit (see `isDarkReady`).
+  '/dashboard/*$',
+  '/dashboard/*/budget$',
+  '/dashboard/*/guests$',
+  '/dashboard/*/schedule$',
   // …and the sign-in cards, whose dark rules were written 21–22 Oct. Signed-out is always Light (call 4), so
   // these paint dark only for a signed-in person who chose Dark and lands here (a re-auth, an add-account).
   '/login',
@@ -124,9 +132,28 @@ export function isSessionCookieName(name: string): boolean {
   return /^sb-[A-Za-z0-9]+-auth-token(?:\.\d+)?$/.test(name);
 }
 
-/** Is `pathname` under a ready-list prefix? */
+/**
+ * Is `pathname` on the ready-list?
+ *
+ * An entry is a path PREFIX ("/dashboard/people" → itself and everything below it, never the sibling
+ * "/dashboard/peoplex"). Two marks narrow it, because an event's screens sit under a dynamic segment a plain prefix
+ * cannot name:
+ *   · `*`  one path segment that is an ID — it must hold a digit. Every event id does (a UUID, `S89E-…`); no static
+ *          folder under /dashboard does (`lib/appearance.test.ts` reads the folders and holds that), so
+ *          "/dashboard/*" can never match "/dashboard/billing".
+ *   · `$`  at the end: this route EXACTLY, not the routes below it.
+ * The inline <head> script (`theme-bootstrap-script.ts`) applies the same rule; the test runs both on one table.
+ */
 export function isDarkReady(pathname: string, ready: readonly string[] = DARK_READY): boolean {
-  return ready.some((p) => pathname === p || pathname.startsWith(p.endsWith('/') ? p : p + '/'));
+  const path = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  const have = path.split('/');
+  return ready.some((entry) => {
+    const exact = entry.endsWith('$');
+    const body = exact ? entry.slice(0, -1) : entry;
+    const want = (body.length > 1 && body.endsWith('/') ? body.slice(0, -1) : body).split('/');
+    if (exact ? have.length !== want.length : have.length < want.length) return false;
+    return want.every((seg, i) => (seg === '*' ? /\d/.test(have[i] ?? '') : seg === have[i]));
+  });
 }
 
 /**

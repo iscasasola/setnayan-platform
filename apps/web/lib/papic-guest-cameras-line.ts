@@ -7,12 +7,12 @@
  *
  * 🔑 COMPUTED FROM THE GATE, NEVER A FIXED DATE. Each line is what `guestCaptureGate` (the SAME resolver the guest page
  * renders by and the upload route refuses by) answers for the head's position — so the line can never promise a camera
- * the route would refuse. "Open <day>" names the instant the gate opens: the event day (switch off), or the capture
- * window's start (On — everyone, now, before the window starts).
+ * the route would refuse. "Open <day>" names the instant the gate opens: the event day (On — event day). On — everyone,
+ * now is open from the moment it is picked (2026-11-22).
  *
- * 🔑 NEVER LOOK APPLIED WHEN IT ISN'T (`lib/papic-shoot-now.ts`): `papic_on` reaches guests only on Apply, so while the
- * draft and the live value differ the line says what guests have NOW and what Apply will do. An unread fact is
- * "Couldn’t check just now" — never a position nobody measured.
+ * ⚡ LIVE (owner 2026-11-22, "THE PAPIC DROPDOWN IN MEMORIES IS LIVE — NO APPLY"): the head writes `papic_on` live, so the
+ * line is what guests have NOW and never says "after you Apply". An unread fact is "Couldn’t check just now" — never a
+ * position nobody measured.
  *
  * 🔁 THE HEAD'S PICKER SAYS ITS OWN WORDS (`papicHeadLine`) the moment it is pressed, and its behaviour is frozen. So the
  * server also hands the card `byHead` — the line for every position, keyed by the words the picker says — and the card
@@ -50,31 +50,28 @@ function gateLine(early: boolean, d: CamerasGateDates, nowMs: number): string {
   const gate = guestCaptureGate({ earlyAllowed: early, eventDate: d.eventDate, windowStart: d.windowStart, windowEnd: d.windowEnd, nowMs });
   if (gate.state === 'open') return 'Guests’ cameras are open now';
   if (gate.state === 'closed') return 'Guests’ cameras have closed';
-  // Not open yet: the instant the gate opens — the window's start when early, else the event day.
-  const opens = camerasDayWords(early ? d.windowStart : gate.eventDay, nowMs);
+  // Not open yet: only the event-day position can say this (early is open from now) — the event day.
+  const opens = camerasDayWords(gate.eventDay, nowMs);
   return opens ? `Guests’ cameras open ${opens}` : 'Guests’ cameras open on your event day';
 }
 
-/** The line for the head's facts. `live` is what guests have; `draftOn` what Apply will make live. */
+/** The line for the head's facts — what guests have now. */
 export function papicGuestCamerasLine(f: PapicHeadFacts, d: CamerasGateDates, nowMs: number): string {
   const at = papicHeadPosition(f);
   if (at === null) return CAMERAS_UNREAD;
-  const early = f.early === true;
-  if (!f.live) return at === 'off' ? 'Guests’ cameras are off' : 'Guests’ cameras are off · on after you Apply';
-  const now = gateLine(early, d, nowMs);
-  return at === 'off' ? `${now} · off after you Apply` : now;
+  if (at === 'off') return 'Guests’ cameras are off';
+  return gateLine(at === 'now', d, nowMs);
 }
 
 /**
  * The line now, and the line for every position the picker can say — keyed by the picker's own words
- * (`papicHeadLine`), so the card can follow a pick before the server answers. Two positions that say the same picker
- * words also have the same guests' line (both "On after you Apply": guests' cameras stay off until Apply).
+ * (`papicHeadLine`), so the card can follow a pick before the server answers. Each position says its own words.
  */
 export function papicGuestCamerasLines(f: PapicHeadFacts, d: CamerasGateDates, nowMs: number): { now: string; byHead: Record<string, string> } {
   const byHead: Record<string, string> = {};
-  if (f.live !== null && f.early !== null && f.draftOn !== null) {
+  if (f.live !== null && f.early !== null) {
     for (const o of PAPIC_HEAD_OPTIONS) {
-      const facts: PapicHeadFacts = { live: f.live, draftOn: o.key !== 'off', early: o.key === 'off' ? f.early : o.key === 'now' };
+      const facts: PapicHeadFacts = { live: o.key !== 'off', early: o.key === 'off' ? f.early : o.key === 'now' };
       byHead[papicHeadLine(facts)] = papicGuestCamerasLine(facts, d, nowMs);
     }
   }

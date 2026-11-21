@@ -9533,7 +9533,7 @@
         "Suspense",
         "ThreadInterestChips",
         "ThreadToolPanel",
-        "WhisperCoHosts"
+        "WhisperAudience"
       ]
     },
     "/dashboard/[eventId]/monogram": {
@@ -16361,7 +16361,6 @@
         "DetailsDecisionsList",
         "EventLinesBody",
         "Explain",
-        "HTMLElement",
         "Icon",
         "InfoTip",
         "InquiryAnswers",
@@ -16373,7 +16372,6 @@
         "NotReceivedForm",
         "OfferServiceResult",
         "OutcomeState",
-        "PageLabel",
         "PaymentPlanStepper",
         "PayoutReadiness",
         "PendingPaymentAnswer",
@@ -16419,7 +16417,8 @@
         "VendorEventDayPrepCta",
         "VendorOfferService",
         "VendorPaymentLive",
-        "VendorThreadPage"
+        "VendorThreadPage",
+        "WhisperAudience"
       ]
     },
     "/vendor-dashboard/moodboard-library": {

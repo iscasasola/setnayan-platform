@@ -10,9 +10,11 @@
  *   · `waiting`    decisions waiting on the reader — the strip's Decisions box. `undefined` = not counted yet;
  *                  `null` = some cards could not be loaded, so the count is not known (never drawn as 0).
  *   · `deal`       a tick: the strip's Deal box asks the chat to raise Every version.
+ *   · `talk`       how many typed messages (Chat) and private lines (Private) the reader sees — the two chips that are
+ *                  not a kind of card (20 Nov 2026). null until the stream has counted.
  */
 import { useSyncExternalStore } from 'react';
-import type { KindCounts } from './chat-kinds';
+import type { KindCounts, TalkCounts } from './chat-kinds';
 import { withThreadView, type ThreadView } from './thread-view';
 
 export type KindState = {
@@ -20,9 +22,10 @@ export type KindState = {
   counts: KindCounts | null;
   waiting: number | null | undefined;
   deal: number;
+  talk: TalkCounts | null;
 };
 
-const EMPTY: KindState = { view: 'all', counts: null, waiting: undefined, deal: 0 };
+const EMPTY: KindState = { view: 'all', counts: null, waiting: undefined, deal: 0, talk: null };
 const states = new Map<string, KindState>();
 const listeners = new Map<string, Set<() => void>>();
 
@@ -39,7 +42,8 @@ function sameCounts(a: KindCounts | null, b: KindCounts | null): boolean {
 export function patchKinds(threadId: string, patch: Partial<KindState>): void {
   const prev = readKinds(threadId);
   const next = { ...prev, ...patch };
-  if (next.view === prev.view && sameCounts(next.counts, prev.counts) && next.waiting === prev.waiting && next.deal === prev.deal) return;
+  const sameTalk = next.talk === prev.talk || (!!next.talk && !!prev.talk && next.talk.chat === prev.talk.chat && next.talk.private === prev.talk.private);
+  if (next.view === prev.view && sameCounts(next.counts, prev.counts) && next.waiting === prev.waiting && next.deal === prev.deal && sameTalk) return;
   states.set(threadId, next);
   listeners.get(threadId)?.forEach((l) => l());
 }

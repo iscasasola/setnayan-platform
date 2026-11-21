@@ -30,8 +30,9 @@ import {
 } from '@/lib/founder-seats';
 import { isSafeNext } from '@/lib/safe-next';
 import { CHAT_PRIVATE_FIELD, privateToListFromForm } from '@/lib/chat-private';
-import { CHAT_WHISPER_FIELD, whisperFromForm } from '@/lib/chat-whisper';
+import { CHAT_WHISPER_FIELD, teamWhisperTitle, whisperFromForm } from '@/lib/chat-whisper';
 import { CHAT_SENT_AS_FIELD, sentAsFromForm } from '@/lib/chat-sent-as';
+import { CHAT_VOICE_SECONDS_FIELD, voiceSecondsFromForm } from '@/lib/chat-message-extras';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -126,7 +127,10 @@ export async function sendChatMessage(formData: FormData) {
   // 🤫 A whisper (the host's box, dragged right): the core decides who hears it — the posted list is not read for it.
   const whisper = whisperFromForm(formData.get(CHAT_WHISPER_FIELD));
 
-  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide });
+  // 🎤 A voice note's length, when the mic in the text box sent this (Unichat H1) — only stored with an audio file.
+  const voiceSeconds = voiceSecondsFromForm(formData.get(CHAT_VOICE_SECONDS_FIELD));
+
+  const result = await sendChatMessageCore(supabase, { threadId, body, attachment, attachmentRef, privateTo, whisper, asSide, voiceSeconds });
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
@@ -183,6 +187,8 @@ export async function notifyOtherParty(args: {
   privateTo?: string | readonly string[] | null;
   /** 🤫 The private line is a WHISPER to the co-hosts — its notice says so, with no lock (it is a whisper, not a vault). */
   whisper?: boolean;
+  /** Which side the whisper is on (Unichat part E): the hosts' (with their coordinator) or the shop's own team. */
+  whisperSide?: 'hosts' | 'team' | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -224,7 +230,9 @@ export async function notifyOtherParty(args: {
         userId: to,
         type: 'chat_message',
         title: args.whisper
-          ? `Whisper from a co-host · ${eventName}`
+          ? args.whisperSide === 'team'
+            ? teamWhisperTitle(vendorName)
+            : `Whisper · ${eventName}`
           : `🔒 Private message from ${args.senderRole === 'vendor' ? vendorName : eventName}`,
         body: preview,
         eventId: args.eventId,

@@ -85,6 +85,9 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // THE ONE BUILD (C4): Shop's one badge row draws the same reward lines (`row.reward.upgrade`) in its sheet.
   'subscription/_components/badge-upgrades-section.tsx': 'Badge upgrades on the Plans page — the reward’s Start sheet',
   'subscription/badge-upgrade-actions.ts': 'Badge upgrades — Start; the plan rule is the database door’s own',
+  // 🎁 Setnayan gifts to a shop (owner 14 Nov 2026): "Upgrade now" STARTS a plan Setnayan gave — nothing is bought and
+  // nothing is locked. What the shop may press is the database's (`setnayan_shop_gift_choices`), not the paywall.
+  '_components/setnayan-shop-gift-moment.tsx': 'a Setnayan gift’s Start / Upgrade now — a gift opened, not a plan paywall',
 };
 
 // Supplier-visible paywall copy. Words only as whole words: `upgradeHref` is

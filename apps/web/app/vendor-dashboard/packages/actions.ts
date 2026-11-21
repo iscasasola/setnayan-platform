@@ -492,8 +492,6 @@ async function writeItems(
         ...(i.maxExtraHours != null ? { max_extra_hours: i.maxExtraHours } : {}),
         // 🔒 A card line names its card; the database refuses another shop's (trg_vendor_package_item_service_same_owner).
         ...(i.vendorServiceId ? { vendor_service_id: i.vendorServiceId } : {}),
-        // 🎂 The Cake Maker's part tag — written only on a cake line, so every other save is byte-identical.
-        ...(i.cakePart ? { cake_part: i.cakePart } : {}),
       };
     });
 
@@ -537,8 +535,6 @@ async function writeItems(
         is_default: o.is_default,
         is_available: o.is_available,
         display_order: oIdx,
-        // 🎂 A cake option's catalog key (lib/cake-maker.ts) — written only on a cake option.
-        ...(o.lookKey ? { look_key: o.lookKey } : {}),
         __ref: o.ref,
       }));
     });

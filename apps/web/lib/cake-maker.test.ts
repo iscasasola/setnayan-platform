@@ -1,193 +1,180 @@
 /**
- * 🎂 The Cake Maker's rules (lib/cake-maker.ts) against the SHIPPED pricer and validator — the estimate the couple
- * sees, the total `lockPackage` commits and the design the supplier reads are one computation over one package.
+ * 🎂 The Cake Maker's rules (lib/cake-maker.ts, v6 — DECISION_LOG 2026-11-21 "CAKE MAKER v6 = THE BUILD REFERENCE"):
+ * the shop's options set ONCE per shop, the design's estimate and its quote lines, and the chat message that names the
+ * stored design. The server checks with the same functions the screens use, so these pin both.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CAKE_PARTS,
-  cakeConfigSelection,
-  cakeConfigTotalCentavos,
+  CAKE_DESIGN_HEAD,
+  CAKE_INVITE_BODY,
   cakeDesignOf,
   cakeDesignRefOf,
   cakeOfferOf,
-  cakeOptionsFromDraftItems,
-  cakeOptionsProblem,
-  cakeOptionsToDraftItems,
-  cakeTemplate,
+  cakeQuoteLines,
+  cakeShopTemplate,
   formatCakeDesignBlock,
-  parseCakeOptions,
-  readCakeCard,
-  serializeCakeOptions,
-  type CakeOptions,
+  isCakeKind,
+  sanitizeCakeShopOptions,
+  servesWords,
+  tierName,
+  type CakeShopOptions,
 } from './cake-maker';
+import { CAKE_DESIGN_HEAD_WORDS, CAKE_INVITE_WORDS, cakeDesignAt, isCakeInvite } from './chat-card-lines';
 import { sanitizeCakeConfig, startingCakeConfig, type CakeConfig } from './cake-config';
-import { validatePackageDraft, type DraftItem } from './package-authoring';
-import { toPackageDraft } from './service-customization-draft';
-import type { VendorPackageItemRow, VendorPackageWithItems } from './vendor-packages';
 
-const ONE = 1_200_000; // the one price in this fixture, centavos
-const K = 100_000; // one thousand pesos, centavos
+const WEB = process.cwd();
+const K = 100_000; // ₱1,000 — a SAMPLE extra
+const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
-/** A template with extras, as a supplier would type them. */
-function priced(): CakeOptions {
-  const c = cakeTemplate();
-  c.tiers = { maxReal: 6, standard: 3, realExtraCentavos: 3 * K, display: { max: 2, extraCentavos: K } };
-  c.flavours = c.flavours!.map((f) => (f.label === 'Red velvet' ? { ...f, extraCentavos: K } : f));
-  c.finish = c.finish!.map((f) => (f.look === 'fondant' ? { ...f, extraCentavos: 2 * K } : f));
-  c.accents = c.accents!.map((f) => (f.look === 'drip' ? { ...f, extraCentavos: K } : f));
-  c.monogram = { extraCentavos: K };
-  c.cupcakes = { packs: [{ count: 24, priceCentavos: 3 * K }], tower: { extraCentavos: K } };
-  return c;
+function shop(): CakeShopOptions {
+  const o = cakeShopTemplate();
+  o.sizes = o.sizes.map((s) => (s.count === 4 ? { ...s, extraCentavos: 3 * K, serves: 140 } : s.count === 5 ? { ...s, extraCentavos: 6 * K, serves: 200 } : s.count === 3 ? { ...s, serves: 90 } : s));
+  o.display = { extraCentavos: K };
+  o.flavours = o.flavours.map((f) => (f.label === 'Red velvet' ? { ...f, extraCentavos: K } : f));
+  o.shapes = [
+    { id: 'round', extraCentavos: 0 },
+    { id: 'square', extraCentavos: K },
+  ];
+  o.tall = { extraCentavos: 2 * K };
+  o.arrangements = [
+    { id: 'stacked', extraCentavos: 0 },
+    { id: 'floating', extraCentavos: 2 * K },
+  ];
+  o.accents = [
+    { id: 'none', extraCentavos: 0 },
+    { id: 'ribbon', extraCentavos: 0 },
+    { id: 'pearls', extraCentavos: K },
+  ];
+  o.monogram = { extraCentavos: K };
+  o.cupcakes = { packs: [{ count: 24, priceCentavos: 4 * K }], tower: true };
+  return o;
 }
 
-function asPackage(items: DraftItem[]): VendorPackageWithItems {
-  const rows: VendorPackageItemRow[] = items.map((i, idx) => ({
-    item_id: i.ref,
-    package_id: 'pkg',
-    canonical_service: i.canonical_service,
-    service_description: i.service_description,
-    is_default_included: i.is_default_included,
-    is_required: i.is_required,
-    replacement_value_centavos: i.replacement_value_centavos,
-    display_order: idx,
-    created_at: '2026-11-21T00:00:00Z',
-    parent_option_id: null,
-    pick_min: i.pickMin ?? null,
-    pick_max: i.pickMax ?? null,
-    max_extra_hours: null,
-    extra_hour_centavos: null,
-    cake_part: i.cakePart ?? null,
-    options: i.options.map((o, oi) => ({
-      option_id: o.ref,
-      item_id: i.ref,
-      option_label: o.label,
-      price_delta_centavos: o.price_delta_centavos,
-      is_default: o.is_default,
-      is_available: o.is_available,
-      display_order: oi,
-      look_key: o.lookKey ?? null,
-    })),
-  }));
-  return { package_id: 'pkg', vendor_profile_id: 'v', package_name: 'Wedding cake', total_price_centavos: ONE, consumable_budget_centavos: 0, is_consumable_flexible: false, is_active: true, items: rows } as unknown as VendorPackageWithItems;
-}
+test('a fresh Cake Maker saves as it is, with every extra at ₱0 — nothing is priced for the shop', () => {
+  const t = cakeShopTemplate();
+  const r = sanitizeCakeShopOptions(t);
+  assert.ok(r.ok, r.ok ? '' : r.problem);
+  const extras = JSON.stringify(t).match(/"(extraCentavos|priceCentavos)":(\d+)/g) ?? [];
+  assert.ok(extras.length > 0 && extras.every((x) => x.endsWith(':0')), 'the template typed a peso figure');
+  assert.ok(sanitizeCakeShopOptions(shop()).ok);
+});
 
-const build = (c: CakeOptions = priced()) => {
-  const pkg = asPackage(cakeOptionsToDraftItems(c, 'wedding_cake'));
-  const card = readCakeCard(pkg)!;
-  return { pkg, card, offer: cakeOfferOf(card, 40) };
-};
-const design = (offer: ReturnType<typeof build>['offer'], over: Partial<CakeConfig>) => {
-  const r = sanitizeCakeConfig({ ...startingCakeConfig(offer), ...over }, offer);
-  assert.ok(r.ok, `sanitized: ${JSON.stringify(r)}`);
+test('the shop’s options are refused, never repaired', () => {
+  const no = (mut: (o: CakeShopOptions) => void, word: RegExp) => {
+    const o = shop();
+    mut(o);
+    const r = sanitizeCakeShopOptions(o);
+    assert.ok(!r.ok, `accepted: ${word}`);
+    if (!r.ok) assert.match(r.problem, word);
+  };
+  no((o) => (o.sizes = o.sizes.map((s) => (s.count === o.standardSize ? { ...s, extraCentavos: K } : s))), /Standard size has no extra/);
+  no((o) => (o.sizes = [...o.sizes, { count: 11, extraCentavos: 0, serves: null }]), /1 to 10/);
+  no((o) => (o.shapes = o.shapes.filter((s) => s.id !== 'round')), /plain choice/);
+  no((o) => (o.arrangements = [{ id: 'floating', extraCentavos: 0 }]), /plain choice/);
+  no((o) => (o.flavours = [...o.flavours, { ref: 'f99', label: 'Vanilla chiffon', extraCentavos: 0 }]), /twice/);
+  no((o) => (o.colourPick = 4), /1 to 3/);
+  no((o) => (o.colours = [{ name: 'Rose', hex: 'pink' }]), /colour/i);
+  no((o) => (o.messageMax = 61), /0 to 60/);
+  no((o) => ((o as { v: number }).v = 2), /older Cake Maker/);
+});
+
+test('isCakeKind: the shops whose chat gets “Design a cake”', () => {
+  assert.ok(isCakeKind('wedding_cake') && isCakeKind('cake'));
+  assert.ok(!isCakeKind('catering') && !isCakeKind(null));
+});
+
+function design(o: CakeShopOptions, over: Partial<CakeConfig>): CakeConfig {
+  const r = sanitizeCakeConfig({ ...startingCakeConfig(cakeOfferOf(o), o.standardSize, { flavourRef: o.standardFlavour }), ...over }, cakeOfferOf(o));
+  assert.ok(r.ok, r.ok ? '' : r.reason);
   return r.config;
-};
+}
 
-test('the parts are exactly the database CHECK', () => {
-  const sql = readFileSync(join(process.cwd(), '../../supabase/migrations/20271356877338_cake_maker_parts_and_designs.sql'), 'utf8');
-  const m = /cake_part IN \(([^)]*)\)/.exec(sql);
-  assert.ok(m, 'the CHECK lists the parts');
-  const inSql = m![1]!.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);
-  assert.deepEqual([...inSql].sort(), [...CAKE_PARTS].sort());
-});
-
-test('the template is a package the shipped validator accepts, with every extra at ₱0', () => {
-  const items = cakeOptionsToDraftItems(cakeTemplate(), 'wedding_cake');
-  assert.deepEqual(validatePackageDraft(toPackageDraft(items, { packageName: 'Cake', totalPriceCentavos: ONE })), []);
-  assert.ok(items.every((i) => i.options.every((o) => o.price_delta_centavos === 0)), 'nothing is guessed');
-  assert.equal(cakeOptionsProblem(priced()), null);
-  assert.deepEqual(validatePackageDraft(toPackageDraft(cakeOptionsToDraftItems(priced(), 'wedding_cake'), { packageName: 'Cake', totalPriceCentavos: ONE })), []);
-});
-
-test('flavour is written once and asked per real tier; accents are asked per tier, up to 10', () => {
-  const items = cakeOptionsToDraftItems(priced(), 'wedding_cake');
-  assert.equal(items.filter((i) => i.cakePart === 'flavour').length, 6, 'one flavour line per possible real tier');
-  assert.equal(items.filter((i) => i.cakePart === 'accent').length, 8, 'one accent line per possible tier (6 real + 2 display)');
-  const ten = cakeTemplate();
-  ten.tiers = { maxReal: 10, standard: 3, realExtraCentavos: 0, display: { max: 9, extraCentavos: 0 } };
-  assert.equal(cakeOptionsToDraftItems(ten, 'wedding_cake').filter((i) => i.cakePart === 'accent').length, 10, 'never more than 10');
-});
-
-test('the estimate is the shipped pricer: extra real tiers, display tiers, a flavour per tier, accents, monogram, cupcakes', () => {
-  const { pkg, card, offer } = build();
-  const base = design(offer, {});
-  assert.equal(cakeConfigTotalCentavos(pkg, card, base, 0, false), ONE, 'the Standard cake is the one price');
-  const big = design(offer, {
+test('the estimate is the cake card’s one price + every extra the shop typed — per tier where it is per tier', () => {
+  const o = shop();
+  const config = design(o, {
     tiers: [
-      { kind: 'display', flavourRef: null, accent: 'none' },
-      { kind: 'real', flavourRef: 'fl:5', accent: 'drip' },
-      { kind: 'real', flavourRef: 'fl:5', accent: 'none' },
-      { kind: 'real', flavourRef: null, accent: 'drip' },
-      { kind: 'real', flavourRef: null, accent: 'none' },
+      { kind: 'display', flavourRef: null, accent: 'pearls', shape: 'round', tall: false },
+      { kind: 'real', flavourRef: 'f5', accent: 'pearls', shape: 'round', tall: false },
+      { kind: 'real', flavourRef: 'f1', accent: 'none', shape: 'round', tall: false },
+      { kind: 'real', flavourRef: 'f1', accent: 'ribbon', shape: 'square', tall: true },
     ],
-    cuttingTier: 1,
-    finish: 'fondant',
-    monogram: 'front',
+    cuttingTier: 3,
+    arrangement: 'floating',
+    monogram: 'board',
     cupcakes: { packRef: 'pack:24', flavourRef: null, match: true, placement: 'tower' },
   });
-  // 4 real (1 above the 3 in the price) = 3K · 1 display = 1K · red velvet on 2 tiers = 2K · fondant 2K · drip on 2 layers
-  // = 2K · monogram 1K · 24 cupcakes 3K · tower 1K
-  assert.equal(cakeConfigTotalCentavos(pkg, card, big, 0, false), ONE + 15 * K);
+  const ONE = 18_000 * 100; // SAMPLE one price
+  const d = cakeDesignOf(o, config, { name: 'Wedding cake', oneCentavos: ONE });
+  // 4 tiers +3K · display +1K · red velvet +1K · square +1K · tall +2K · pearls ×2 +2K · floating +2K · monogram +1K · 24 cupcakes +4K
+  const extras = 3 * K + K + K + K + 2 * K + 2 * K + 2 * K + K + 4 * K;
+  assert.equal(d.extrasCentavos, extras);
+  assert.equal(d.estimateCentavos, ONE + extras);
+  const lines = cakeQuoteLines(d);
+  assert.equal(lines[0]!.label, 'Wedding cake · one price');
+  assert.equal(lines[0]!.centavos, ONE);
+  assert.equal(lines.reduce((a, l) => a + l.centavos, 0), d.estimateCentavos, 'the quote lines add up to the estimate');
+  assert.ok(lines.slice(1).every((l) => l.centavos > 0), 'a free pick is never a quote line');
+  assert.equal(d.tiers[3]!.name, 'Tier 4 · bottom');
+  assert.match(d.tiers[3]!.words, /real · vanilla chiffon · square · tall · cutting/);
 });
 
-test('a key the card no longer offers does not price — the design is refused, never thinned', () => {
-  const { pkg, card } = build();
-  const gone = { ...startingCakeConfig(cakeOfferOf(card, 40)), finish: 'semi_naked' as const };
-  const fewer = priced();
-  fewer.finish = fewer.finish!.filter((f) => f.look !== 'semi_naked');
-  const after = build(fewer);
-  assert.equal(cakeConfigSelection(after.card, gone), null);
-  assert.notEqual(cakeConfigSelection(card, gone), null);
-  assert.equal(cakeConfigTotalCentavos(after.pkg, after.card, gone, 0, false), null);
-  void pkg;
+test('no priced cake card → no estimate: the shop quotes the price (never a guessed one)', () => {
+  const o = shop();
+  const d = cakeDesignOf(o, design(o, {}), null);
+  assert.equal(d.estimateCentavos, null);
+  assert.equal(d.cardName, null);
+  assert.match(formatCakeDesignBlock(d, '00000000-0000-4000-8000-000000000000'), /the shop quotes the price/);
 });
 
-test('options round-trip through the stored lines (editing a saved card) and through the wire', () => {
-  const c = priced();
-  const back = cakeOptionsFromDraftItems(cakeOptionsToDraftItems(c, 'wedding_cake'), c.message);
-  assert.deepEqual(back?.tiers, c.tiers);
-  assert.deepEqual(back?.accents, c.accents);
-  assert.deepEqual(back?.monogram, c.monogram);
-  assert.deepEqual(back?.cupcakes, c.cupcakes);
-  assert.deepEqual(back?.flavours?.map((f) => [f.label, f.extraCentavos, f.standard]), c.flavours!.map((f) => [f.label, f.extraCentavos, f.standard]));
-  const wire = parseCakeOptions(serializeCakeOptions(c));
-  assert.ok(wire.ok && wire.cake);
-  assert.deepEqual(parseCakeOptions(''), { ok: true, cake: null });
-  assert.equal(parseCakeOptions('{"v":1,"cake":{}}').ok, false, 'an old wire is refused, never half-read');
+test('servings sit beside the couple’s own guest count', () => {
+  const o = shop();
+  assert.equal(servesWords(o, 3, 180), '3 tiers serve about 90 · for your 180 guests, pick 5 or more');
+  assert.equal(servesWords(o, 5, 180), '5 tiers serve about 200 · fits your 180 guests');
+  assert.equal(servesWords(o, 1, 180), null, 'no “serves” typed → nothing said');
+  assert.equal(tierName(0, 3), 'Tier 1');
 });
 
-test('the editor refuses what the save would refuse', () => {
-  const c = priced();
-  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, maxReal: 11 } }) ?? '', /1 to 10/);
-  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, standard: 7 } }) ?? '', /ones you make/);
-  assert.match(cakeOptionsProblem({ ...c, accents: c.accents!.filter((a) => a.look !== 'none') }) ?? '', /Plain/);
-  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, realExtraCentavos: -1 } }) ?? '', /below ₱0/);
-  assert.match(cakeOptionsProblem({ ...c, cupcakes: { packs: [], tower: null } }) ?? '', /pack/);
-});
-
-test('the design message names its stored row last, and plain text is not a design', () => {
-  const { pkg, card, offer } = build();
-  const cfg = design(offer, { message: 'Ana & Migs', instructions: 'Less sweet, please.' });
-  const est = cakeConfigTotalCentavos(pkg, card, cfg, 0, false)!;
-  const d = cakeDesignOf(card, cfg, { cardName: 'Wedding cake', oneCentavos: ONE, estimateCentavos: est });
-  const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
-  const block = formatCakeDesignBlock(d, id);
-  assert.match(block, /^🎂 Cake design · Wedding cake\n/);
-  assert.match(block, /Special instructions: Less sweet, please\./);
-  assert.equal(cakeDesignRefOf(`Hi!\n\n${block}`), id);
-  assert.equal(cakeDesignRefOf('Hi! We love your cakes'), null);
+test('the design message names its stored row last; the invite is its own words; plain text is neither', () => {
+  const o = shop();
+  const d = cakeDesignOf(o, design(o, {}), { name: 'Wedding cake', oneCentavos: 1_800_000 });
+  const id = '3f2b8c1e-9a4d-4e6b-8c2a-1d2e3f4a5b6c';
+  const body = formatCakeDesignBlock(d, id);
+  assert.ok(body.startsWith(CAKE_DESIGN_HEAD));
+  assert.equal(cakeDesignRefOf(body), id);
+  assert.equal(cakeDesignRefOf(`${body}\nP.S. thanks`), null, 'the ref is the LAST line');
   assert.equal(cakeDesignRefOf('Design ref: not-a-uuid'), null);
+  assert.equal(CAKE_DESIGN_HEAD.trimEnd(), CAKE_DESIGN_HEAD_WORDS.trimEnd(), 'the head words drifted from chat-card-lines');
+  assert.equal(cakeDesignAt(`Hi!\n${body}`), 3);
+  assert.ok(CAKE_INVITE_BODY.startsWith(CAKE_INVITE_WORDS), 'the invite words drifted from chat-card-lines');
+  assert.ok(isCakeInvite(CAKE_INVITE_BODY) && !isCakeInvite('Design your cake for us'));
 });
 
-test('the inquiry re-checks the design on the server and stores it before naming it — refused before anything is sent', () => {
-  const src = readFileSync(join(process.cwd(), 'app', 'v', '[slug]', 'inquiry-actions.ts'), 'utf8');
-  const at = src.indexOf('await buildCakeDesign(supabase, admin, {');
-  const upsert = src.indexOf(".from('chat_threads')\n    .upsert(");
-  assert.ok(at > 0 && upsert > at, 'the cake design is checked before the thread is upserted');
-  assert.match(src, /config: input\.requirements\.cakeDesign,/, 'the browser sends a config, never labels or prices');
-  assert.match(src, /cakeDesignId = await storeCakeDesign\(admin,/);
-  assert.match(src, /if \(!cakeDesignId\) return \{ status: 'error', message: CAKE_DESIGN_UNREADABLE \};/);
-  assert.match(src, /if \(cakeDesignId\) await dropCakeDesign\(admin, cakeDesignId\);/, 'a design whose message never posted is removed');
+test('one server action carries the whole Cake Maker; the send re-checks the design and stores it before naming it', () => {
+  const src = read('app/_components/cake-maker/cake-actions.ts');
+  assert.equal((src.match(/^export async function /gm) ?? []).length, 1, 'a second server action crept in (the cap is 1251)');
+  assert.match(src, /buildCakeDesign\(/);
+  const send = src.slice(src.indexOf("if (op === 'send')"));
+  assert.ok(send.indexOf('storeCakeDesign(') < send.indexOf('sendChatMessageCore('), 'the message must name a stored design');
+  assert.match(send, /dropCakeDesign\(/, 'a refused message leaves a stored design behind');
+});
+
+test('nothing on service cards: no cake part on the Card Maker, and Book at this total is gone', () => {
+  const maker = read('app/vendor-dashboard/services/_components/canvas-maker.tsx');
+  assert.doesNotMatch(maker, /CakeOptions|cake-options-step|CAKE_OPTIONS_FIELD/);
+  assert.match(maker, /<CustomFormAsk /, '“Need your own form?” left the customization part');
+  for (const f of ['app/_components/cake-maker/cake-designer.tsx', 'app/_components/chat/cards/cake-design-card.tsx']) assert.doesNotMatch(read(f), /Book at this total/);
+});
+
+test('the migration names the two tables and nothing on packages', () => {
+  const dir = join(WEB, '..', '..', 'supabase', 'migrations');
+  const file = readdirSync(dir).find((f) => f.endsWith('_cake_maker_shop_and_designs.sql'));
+  assert.ok(file, 'the Cake Maker migration is missing');
+  const sql = readFileSync(join(dir, file), 'utf8');
+  assert.match(sql, /create table if not exists public\.vendor_cake_makers/i);
+  assert.match(sql, /create table if not exists public\.cake_designs/i);
+  assert.match(sql, /enable row level security/i);
+  assert.doesNotMatch(sql, /alter table public\.vendor_package_items|cake_part|look_key/i, 'the v6 build adds nothing to packages');
 });

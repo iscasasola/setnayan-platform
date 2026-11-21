@@ -1,129 +1,183 @@
 'use client';
 
 /** The Cake Maker lab's body (see page.lab.tsx). Fixture data only — every amount is a SAMPLE, never a price. */
-import { useMemo } from 'react';
-import { cakeConfigTotalCentavos, cakeDesignOf, cakeOfferOf, cakeOptionsToDraftItems, cakeTemplate, cupcakeCountOf, readCakeCard, type CakeOptions } from '@/lib/cake-maker';
-import { CAKE_ARRANGEMENTS, cakeFigureSpec, sanitizeCakeConfig, startingCakeConfig, type CakeArrangement, type CakeConfig } from '@/lib/cake-config';
-import type { DraftItem } from '@/lib/package-authoring';
-import type { VendorPackageItemRow, VendorPackageWithItems } from '@/lib/vendor-packages';
-import { CakeOptionsStep } from '@/app/vendor-dashboard/services/_components/cake-options-step';
+import { useMemo, useState } from 'react';
+import { cakeDesignOf, cakeOfferOf, cakeShopTemplate, cupcakeCountOf, flavourLabelOf, type CakeShopOptions } from '@/lib/cake-maker';
+import { CAKE_ARRANGEMENTS, CAKE_SHAPES, cakeFigureSpec, resizeCakeTiers, sanitizeCakeConfig, startingCakeConfig, type CakeArrangement, type CakeConfig, type CakeShape } from '@/lib/cake-config';
+import type { CakeDesignRead, CakeOpenRead } from '@/app/_components/cake-maker/cake-actions';
+import { CakeMakerPanel } from '@/app/vendor-dashboard/shop/_components/cake-maker-panel';
+import { CakeDesigner } from '@/app/_components/cake-maker/cake-designer';
 import { CakeDesignCard } from '@/app/_components/chat/cards/cake-design-card';
+import { CakeInviteCard } from '@/app/_components/chat/cards/cake-invite-card';
 import { CakeFigure } from '@/app/_components/plan3d/kit/cake-figure';
 import { CakeView } from '@/app/_components/plan3d/kit/cake-view';
 
 const K = 100_000; // ₱1,000 in centavos — SAMPLE extras
-const ONE = 12_000 * 100; // a SAMPLE one price
+const ONE = 18_000 * 100; // a SAMPLE one price
 
-function sampleCake(): CakeOptions {
-  const c = cakeTemplate();
-  c.tiers = { maxReal: 6, standard: 3, realExtraCentavos: 3 * K, display: { max: 2, extraCentavos: K } };
-  c.flavours = c.flavours!.map((f) => (f.label === 'Red velvet' ? { ...f, extraCentavos: K } : f));
-  c.finish = c.finish!.map((f) => (f.look === 'fondant' ? { ...f, extraCentavos: 2 * K } : f));
-  c.accents = c.accents!.map((f) => (f.look === 'none' ? f : { ...f, extraCentavos: K }));
-  c.flowing = c.flowing!.map((f) => (f.look === 'none' ? f : { ...f, extraCentavos: 2 * K }));
-  c.monogram = { extraCentavos: K };
-  c.cupcakes = { packs: [{ count: 24, priceCentavos: 3 * K }, { count: 48, priceCentavos: 5 * K }], tower: { extraCentavos: K } };
-  return c;
+/** The drawing's sample shop (v6 §01) — every extra a SAMPLE. */
+function sampleShop(): CakeShopOptions {
+  const o = cakeShopTemplate();
+  const serves = [20, 50, 90, 140, 200, 260, 330, 400, 480, 560];
+  const extra = [0, 0, 0, 3, 6, 8, 10, 12, 14, 16];
+  o.sizes = serves.map((s, i) => ({ count: i + 1, extraCentavos: extra[i]! * K, serves: s }));
+  o.display = { extraCentavos: K };
+  o.flavours = o.flavours.map((f) => (f.label === 'Red velvet' ? { ...f, extraCentavos: K } : f));
+  o.shapes = [
+    { id: 'round', extraCentavos: 0 },
+    { id: 'square', extraCentavos: K },
+    { id: 'hexagon', extraCentavos: K },
+    { id: 'heart', extraCentavos: 2 * K },
+  ];
+  o.tall = { extraCentavos: 2 * K };
+  o.finishes = [
+    { id: 'buttercream', extraCentavos: 0 },
+    { id: 'fondant', extraCentavos: 2 * K },
+    { id: 'semi_naked', extraCentavos: 0 },
+  ];
+  o.colours = [
+    { name: 'White', hex: '#FAF7F2' },
+    { name: 'Blush', hex: '#F2C4C4' },
+    { name: 'Burgundy', hex: '#7A1F2B' },
+    { name: 'Lilac', hex: '#C8B6E2' },
+  ];
+  o.accents = [
+    { id: 'none', extraCentavos: 0 },
+    { id: 'ribbon', extraCentavos: 0 },
+    { id: 'flowers', extraCentavos: K },
+    { id: 'drip', extraCentavos: K },
+    { id: 'pearls', extraCentavos: K },
+    { id: 'gold_leaf', extraCentavos: K },
+    { id: 'ruffles', extraCentavos: K },
+  ];
+  o.standardAccent = 'ribbon';
+  o.arrangements = [
+    { id: 'stacked', extraCentavos: 0 },
+    { id: 'floating', extraCentavos: 2 * K },
+    { id: 'pillars', extraCentavos: K },
+    { id: 'offset', extraCentavos: K },
+    { id: 'staircase', extraCentavos: 3 * K },
+  ];
+  o.flowing = [
+    { id: 'floral_cascade', extraCentavos: 2 * K },
+    { id: 'ribbon_cascade', extraCentavos: K },
+    { id: 'pearl_strand', extraCentavos: K },
+  ];
+  o.monogram = { extraCentavos: K };
+  o.toppers = [
+    { id: 'flowers', extraCentavos: K },
+    { id: 'figurine', extraCentavos: 2 * K },
+    { id: 'names', extraCentavos: K },
+  ];
+  o.cupcakes = { packs: [{ count: 12, priceCentavos: 2 * K }, { count: 24, priceCentavos: 4 * K }, { count: 50, priceCentavos: 7 * K }], tower: true };
+  return o;
 }
 
-function asPackage(items: DraftItem[]): VendorPackageWithItems {
-  const rows = items.map((i, idx) => ({
-    item_id: i.ref,
-    package_id: 'lab-pkg',
-    canonical_service: i.canonical_service,
-    service_description: i.service_description,
-    is_default_included: i.is_default_included,
-    is_required: i.is_required,
-    replacement_value_centavos: i.replacement_value_centavos,
-    display_order: idx,
-    created_at: '2026-11-21T00:00:00Z',
-    parent_option_id: null,
-    pick_min: i.pickMin ?? null,
-    pick_max: i.pickMax ?? null,
-    max_extra_hours: null,
-    extra_hour_centavos: null,
-    cake_part: i.cakePart ?? null,
-    options: i.options.map((o, oi) => ({
-      option_id: o.ref,
-      item_id: i.ref,
-      option_label: o.label,
-      price_delta_centavos: o.price_delta_centavos,
-      is_default: o.is_default,
-      is_available: o.is_available,
-      display_order: oi,
-      look_key: o.lookKey ?? null,
-    })),
-  })) as unknown as VendorPackageItemRow[];
-  return { package_id: 'lab-pkg', vendor_profile_id: 'lab-shop', package_name: 'Wedding cake', total_price_centavos: ONE, is_active: true, items: rows } as unknown as VendorPackageWithItems;
-}
-
-/** A sample sent design: 4 tiers (one display), floral cascade, drip, the monogram, cupcakes on a tower. */
-function sampleDesign(offerOf: ReturnType<typeof cakeOfferOf>): CakeConfig {
+/** A sample sent design: 4 tiers (one display), square + tall bottom, floating, cascade, the monogram, cupcakes. */
+function sampleDesign(o: CakeShopOptions): CakeConfig {
+  const offer = cakeOfferOf(o);
   const r = sanitizeCakeConfig(
     {
-      ...startingCakeConfig(offerOf),
+      ...startingCakeConfig(offer),
       tiers: [
-        { kind: 'real', flavourRef: 'fl:3', accent: 'pearls' },
-        { kind: 'real', flavourRef: 'fl:2', accent: 'drip' },
-        { kind: 'real', flavourRef: 'fl:5', accent: 'none' },
-        { kind: 'display', flavourRef: null, accent: 'gold_leaf' },
+        { kind: 'display', flavourRef: null, accent: 'pearls', shape: 'round', tall: false },
+        { kind: 'real', flavourRef: 'f2', accent: 'flowers', shape: 'round', tall: false },
+        { kind: 'real', flavourRef: 'f3', accent: 'ribbon', shape: 'round', tall: false },
+        { kind: 'real', flavourRef: 'f5', accent: 'ribbon', shape: 'square', tall: true },
       ],
-      cuttingTier: 0,
-      finish: 'fondant',
+      cuttingTier: 3,
+      arrangement: 'floating',
+      finish: 'buttercream',
       flowing: 'floral_cascade',
-      topper: 'names',
-      monogram: 'front',
+      flowingFrom: 0,
+      flowingTo: 3,
+      monogram: 'topper',
+      monogramTier: 3,
       colours: [
         { hex: '#C98B8B', name: 'Dusty rose' },
         { hex: '#9CAF94', name: 'Sage' },
       ],
       message: 'Ana & Migs',
       instructions: 'Less sweet frosting, please. The cutting tier faces the guests.',
-      cupcakes: { packRef: 'pack:24', flavourRef: null, match: true, placement: 'tower' },
+      cupcakes: { packRef: 'pack:24', flavourRef: null, match: true, placement: 'base' },
     },
-    offerOf,
+    offer,
   );
   if (!r.ok) throw new Error(`lab sample refused: ${r.reason}`);
   return r.config;
 }
 
-export default function CakeMakerLab({ view, fail, n }: { view: string; fail: boolean; n: number }) {
-  const pkg = useMemo(() => asPackage(cakeOptionsToDraftItems(sampleCake(), 'wedding_cake')), []);
-  const card = useMemo(() => readCakeCard(pkg)!, [pkg]);
-  const offer = useMemo(() => cakeOfferOf(card, 40), [card]);
+const PHOTO = (seed: string, hue: number) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='hsl(${hue},40%,88%)'/><rect x='30' y='62' width='40' height='22' rx='3' fill='hsl(${hue},35%,72%)'/><rect x='36' y='44' width='28' height='18' rx='3' fill='hsl(${hue},35%,78%)'/><rect x='41' y='30' width='18' height='14' rx='3' fill='hsl(${hue},35%,84%)'/><text x='50' y='96' font-size='7' text-anchor='middle' fill='#555'>${seed}</text></svg>`)}`;
 
-  if (view === 'supplier' || view === 'locked') {
+function sampleOpen(o: CakeShopOptions): CakeOpenRead {
+  return {
+    ok: true,
+    op: 'open',
+    shopName: 'Dulce Cakes',
+    options: o,
+    cards: [{ id: 'lab-card', name: 'Wedding cake', oneCentavos: ONE, usualPrepDays: 5 }],
+    mood: [
+      { hex: '#C98B8B', name: 'Dusty rose', slot: 'Cake', setByYou: true },
+      { hex: '#9CAF94', name: 'Sage', slot: 'Dominant', setByYou: false },
+      { hex: '#E8D9B5', name: 'Champagne', slot: 'Supporting', setByYou: false },
+      { hex: '#C46A4A', name: 'Terracotta', slot: 'Accent', setByYou: false },
+      { hex: '#F5EFE4', name: 'Ivory', slot: 'Neutral', setByYou: false },
+    ],
+    monogramText: 'A&M',
+    guests: 180,
+    photos: [
+      { assetId: 'p1', url: PHOTO('Sage garden', 110), label: 'Sage garden', from: 'shop' },
+      { assetId: 'p2', url: PHOTO('Blush ruffles', 350), label: 'Blush ruffles', from: 'shop' },
+      { assetId: 'p3', url: PHOTO('Ivory and gold', 45), label: 'Ivory and gold', from: 'shop' },
+      { assetId: 'p4', url: PHOTO('Semi-naked drip', 25), label: 'Semi-naked drip', from: 'yours' },
+      { assetId: 'p5', url: PHOTO('Lilac floating', 270), label: 'Lilac floating', from: 'yours' },
+    ],
+  };
+}
+
+export default function CakeMakerLab({ view, fail, n }: { view: string; fail: boolean; n: number }) {
+  const shop = useMemo(() => sampleShop(), []);
+  const offer = useMemo(() => cakeOfferOf(shop), [shop]);
+  const [open, setOpen] = useState(true);
+
+  if (view === 'supplier' || view === 'locked' || view === 'fresh') {
     return (
-      <main className="mx-auto max-w-xl p-4">
-        <CakeOptionsStep seed={{ status: 'ok', cake: sampleCake(), saved: true, locked: view === 'locked' }} serviceId={null} priceWords="₱12,000" />
+      <main className="mx-auto max-w-xl p-4" data-lab-view={view}>
+        <CakeMakerPanel seed={{ options: view === 'fresh' ? cakeShopTemplate() : shop, saved: view !== 'fresh', locked: view === 'locked' }} />
       </main>
     );
   }
 
   if (view === 'figures') {
-    // Every count 1…10, and every arrangement — the ONE model, drawn in 2D.
-    const tierCfg = (count: number, arrangement: CakeArrangement): CakeConfig => ({
-      ...startingCakeConfig(offer),
-      tiers: Array.from({ length: count }, (_, i) => ({ kind: 'real' as const, flavourRef: null, accent: i % 3 === 1 ? ('ribbon' as const) : ('none' as const) })),
-      arrangement,
-      topper: 'flowers',
-      colours: [{ hex: '#C98B8B', name: 'Dusty rose' }],
-    });
+    const cfg = (count: number, arrangement: CakeArrangement, shape: CakeShape = 'round', tall = false): CakeConfig => {
+      const c = resizeCakeTiers({ ...startingCakeConfig(offer, 3), arrangement, topper: 'flowers', colours: [{ hex: '#C98B8B', name: 'Dusty rose' }] }, count);
+      return { ...c, tiers: c.tiers.map((t, i) => ({ ...t, shape, tall: tall && i === c.tiers.length - 1, accent: i % 3 === 1 ? 'ribbon' : 'none' })) };
+    };
+    const cell = 'rounded-xl bg-ink/[0.04] p-2 text-center text-[11px]';
     return (
       <main className="mx-auto max-w-3xl p-4">
         <div className="grid grid-cols-5 gap-2" data-lab-counts="">
           {Array.from({ length: 10 }, (_, i) => (
-            <div key={i} className="rounded-xl bg-ink/[0.04] p-2 text-center text-[11px]">
-              <CakeFigure spec={cakeFigureSpec(tierCfg(i + 1, 'stacked'))} />
+            <div key={i} className={cell}>
+              <CakeFigure spec={cakeFigureSpec(cfg(i + 1, 'stacked'))} />
               {i + 1}
             </div>
           ))}
         </div>
         <div className="mt-4 grid grid-cols-5 gap-2" data-lab-arrangements="">
           {CAKE_ARRANGEMENTS.map((a) => (
-            <div key={a.id} className="rounded-xl bg-ink/[0.04] p-2 text-center text-[11px]">
-              <CakeFigure spec={cakeFigureSpec(tierCfg(4, a.id))} />
+            <div key={a.id} className={cell}>
+              <CakeFigure spec={cakeFigureSpec(cfg(4, a.id))} />
               {a.label}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-4 gap-2" data-lab-shapes="">
+          {CAKE_SHAPES.map((s) => (
+            <div key={s.id} className={cell}>
+              <CakeFigure spec={cakeFigureSpec(cfg(3, 'stacked', s.id, true))} />
+              {s.label} · tall bottom
             </div>
           ))}
         </div>
@@ -131,36 +185,65 @@ export default function CakeMakerLab({ view, fail, n }: { view: string; fail: bo
     );
   }
 
-  const config = sampleDesign(offer);
-  const flavourLabels: Record<string, string> = { 'fl:1': 'Vanilla chiffon', 'fl:2': 'Chocolate', 'fl:3': 'Ube', 'fl:4': 'Mocha', 'fl:5': 'Red velvet' };
+  const config = sampleDesign(shop);
+  const spec = cakeFigureSpec(config, (r) => flavourLabelOf(shop, r), cupcakeCountOf(config));
 
   if (view === 'figure') {
     return (
       <main className="mx-auto max-w-md p-4">
-        <CakeView spec={cakeFigureSpec(config, (r) => flavourLabels[r] ?? null, cupcakeCountOf(config))} monogramText="A&M" title="Sample cake" />
+        <CakeView spec={spec} monogramText="A&M" title="Sample cake" />
         <p className="mt-2 text-[12px] text-ink/55">{n > 0 ? `n=${n}` : ''}</p>
       </main>
     );
   }
 
-  const estimate = cakeConfigTotalCentavos(pkg, card, config, 0, false) ?? ONE;
-  const design = cakeDesignOf(card, config, { cardName: 'Wedding cake', oneCentavos: ONE, estimateCentavos: estimate });
-  const seed = fail
-    ? ('failed' as const)
+  if (view === 'designer' || view === 'start') {
+    return (
+      <main className="min-h-dvh p-4" data-lab-view={view}>
+        {open ? (
+          <CakeDesigner
+            threadId="lab-thread"
+            seed={fail ? 'failed' : sampleOpen(shop)}
+            start={view === 'designer' ? { config, cardId: 'lab-card' } : null}
+            onClose={() => setOpen(false)}
+          />
+        ) : (
+          <button type="button" className="underline" onClick={() => setOpen(true)}>
+            Open the designer again
+          </button>
+        )}
+      </main>
+    );
+  }
+
+  if (view === 'invite' || view === 'invite-shop') {
+    return (
+      <main className="mx-auto max-w-md p-4">
+        <CakeInviteCard threadId="lab-thread" viewer={view === 'invite' ? 'couple' : 'vendor'} shopName="Dulce Cakes" stamp={view === 'invite' ? 'Dulce Cakes · 10:12' : 'You · 10:12'} />
+      </main>
+    );
+  }
+
+  const design = cakeDesignOf(shop, config, { name: 'Wedding cake', oneCentavos: ONE });
+  const couple = view === 'couple' || view === 'replaced';
+  const seed: CakeDesignRead | 'failed' = fail
+    ? 'failed'
     : {
-        ok: true as const,
-        op: 'design' as const,
+        ok: true,
+        op: 'design',
+        viewer: couple ? 'couple' : 'vendor',
         design,
         config,
-        flavourLabels,
         cupcakeCount: cupcakeCountOf(config),
         monogramText: 'A&M',
-        inspirationUrl: null,
+        inspirationUrl: PHOTO('Sage garden', 110),
         cardId: 'lab-card',
-        usualPrepDays: 3,
+        usualPrepDays: 5,
+        replaced: view === 'replaced',
+        sentAt: '2026-11-21T02:24:00Z',
       };
   return (
-    <main className="mx-auto max-w-md p-4">
+    <main className="mx-auto max-w-md p-4" data-lab-view={view}>
       {view === 'order' ? (
         <>
           <p className="home-k2 mb-2">
@@ -169,10 +252,13 @@ export default function CakeMakerLab({ view, fail, n }: { view: string; fail: bo
           <CakeDesignCard threadId="lab-thread" messageId="lab-msg" place="order" seed={seed} links={{ quoteHref: '#quote', chatHref: '#chat' }} />
         </>
       ) : (
-        <>
-          <p className="mb-2 w-fit rounded-2xl bg-ink/[0.06] px-3 py-2 text-sm">Hi! We designed our cake on your card 🙂</p>
-          <CakeDesignCard threadId="lab-thread" messageId="lab-msg" place="chat" seed={seed} stamp="Sent from “Design your cake” · 10:24" />
-        </>
+        <CakeDesignCard
+          threadId="lab-thread"
+          messageId="lab-msg"
+          place="chat"
+          seed={seed}
+          stamp={couple ? 'You · sent from the Cake Maker · 10:24' : 'Sent from the Cake Maker · 10:24'}
+        />
       )}
     </main>
   );

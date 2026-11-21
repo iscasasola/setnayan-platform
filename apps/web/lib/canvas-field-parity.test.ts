@@ -203,7 +203,6 @@ const MAKER_ONLY_FIELDS = [
   'card_specialties', // 🏷 the queued services' own specialties, carried to each one's card (lib/card-queue.ts)
   'about_present', 'description', 'video_url', // 📝 About this card (HYBRID Q3) — commitVendorService → readCardAbout (lib/card-about.ts)
   'pay_plan_present', 'pay_plan_id', 'pay_plan_edited', 'pay_plan_scope', 'pay_plan_save_name', 'pay_plan_apply_to', // 💳 Payment Strategies — readPlanIntent → writeCardPayPlan
-  '{CAKE_OPTIONS_FIELD}', // 🎂 Your cake options (Cake Maker, 2026-11-21) — commitVendorService → parseCakeOptions → the card's ★ Customization lines
   'op', 'branch', 'price_php', 'Price there', // 🏢 Copy to another branch (owner 2026-11-14, item 10) — its OWN sheet form (copy-to-branch.tsx) → supplierPlanExtra, never the card form
 ] as const;
 

@@ -18,10 +18,6 @@ import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
 import { canonicalServiceForVendorCategory } from '@/lib/service-customization-draft';
 import { HallsUsesPick } from '../_components/halls-uses-pick';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { isCakeKind } from '@/lib/cake-maker';
-import { readCakeOptionsForEdit } from '@/lib/cake-maker.server';
-import { readSpecialToolsLocked } from '@/lib/special-tools.server';
-import type { CakeSeed } from '../_components/cake-options-step';
 import { BOOKINGS_UNREAD, cardEditLockOf, deleteWarningLines, openBookingsRefusal, readCardBookings } from '@/lib/service-open-bookings';
 import { setServiceHalls } from '../../calendar/actions';
 
@@ -64,7 +60,7 @@ export default async function EditServiceCardPage({
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
   // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
   const recordOn = cardRecordEnabled();
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library, cakeRead, cakeLocked] = await Promise.all([
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
@@ -93,16 +89,7 @@ export default async function EditServiceCardPage({
       : Promise.resolve(undefined),
     // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
     loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(card.category)),
-    // 🎂 A cake card's own "Your cake options" (ruling 9: editable on a saved card). Only a cake card pays for it.
-    isCakeKind(card.category) ? readCakeOptionsForEdit(supabase, { vendorProfileId: profile.vendor_profile_id, vendorServiceId: serviceId }) : Promise.resolve(null),
-    isCakeKind(card.category) ? readSpecialToolsLocked(supabase, profile.vendor_profile_id) : Promise.resolve(false),
   ]);
-  const cakeSeed: CakeSeed | undefined =
-    cakeRead === null
-      ? undefined
-      : cakeRead.status === 'unread'
-        ? { status: 'unread' }
-        : { status: 'ok', cake: cakeRead.status === 'ok' ? cakeRead.data.cake : null, saved: cakeRead.status === 'ok', locked: cakeLocked };
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
   const albumTags = albums
     ? await readAlbumTags(
@@ -193,7 +180,6 @@ export default async function EditServiceCardPage({
         portfolioLine={albums === undefined ? null : portfolioSummary(albums)}
         initial={card.initial}
         editing={card.editing}
-        cakeSeed={cakeSeed}
         bookedNow={bookedNow}
         deleteGate={deleteGate}
         editLock={cardEditLockOf(thisCardBookings)}

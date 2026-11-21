@@ -187,3 +187,7 @@
   object-fit: cover;
   border-radius: var(--m-r-md);
 }
+/* a design the couple replaced with a newer one — kept, quieter */
+.old {
+  opacity: 0.72;
+}

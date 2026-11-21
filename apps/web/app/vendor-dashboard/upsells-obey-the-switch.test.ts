@@ -69,7 +69,7 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // Special tools (the Cake Maker) are governed by their OWN admin start date, platform_settings.special_tools_paid_from
   // (controller ruling 2026-11-21 "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP"; Admin › Launch offer): before it
   // every shop has them, after it Pro and up — the save (services/actions.ts) and the couple's send check the same date.
-  'services/_components/cake-options-step.tsx': 'special tools — gated by their own admin start date (special_tools_paid_from), not the paywall switch',
+  'shop/_components/cake-maker-panel.tsx': 'special tools — gated by their own admin start date (special_tools_paid_from), not the paywall switch',
   // The SAME numeric quota as services/actions.ts, applied after the first booking and at a downgrade (owner
   // 2026-11-06 SERVICES LIFE CYCLE · A DOWNGRADE PUTS EXTRA SERVICES ON HOLD): "upgrade or keep one" is the ruling.
   'services/_components/stay-on-picker.tsx': 'numeric quota (services per category, categories) — which services stay on',

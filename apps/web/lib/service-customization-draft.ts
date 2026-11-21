@@ -131,15 +131,11 @@ function normaliseItem(i: DraftItem): DraftItem {
       price_delta_centavos: o.price_delta_centavos,
       is_default: o.is_default,
       is_available: o.is_available,
-      // 🎂 A cake option's catalog key — carried only when set, so every other draft's wire is unchanged.
-      ...(o.lookKey ? { lookKey: o.lookKey } : {}),
     })),
     parentRef: i.parentRef ?? null,
     pickMin: i.pickMin ?? null,
     pickMax: i.pickMax ?? null,
     maxExtraHours: i.maxExtraHours ?? null,
-    // 🎂 The Cake Maker's part tag (lib/cake-maker.ts) — carried only when set.
-    ...(i.cakePart ? { cakePart: i.cakePart } : {}),
   };
 }
 

@@ -11,8 +11,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
 import { ServiceWizard } from '../../_components/service-wizard';
 import { CanvasMaker } from '../../_components/canvas-maker';
-import { readSpecialToolsLocked } from '@/lib/special-tools.server';
-import { isCakeKind } from '@/lib/cake-maker';
 import { getCoverageTaxonomy } from '@/lib/vendor-coverages';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
 import { loadCardMakerLibrary } from '@/lib/card-maker-library.server';
@@ -142,15 +140,13 @@ export default async function NewServicePage({
   // The vendor's OTHER offered categories → the "comes with" link options.
   // ONE loader for every door into the maker (lib/service-card-maker.server.ts). The kind is fixed by the address,
   // so the kind list is not read.
-  const [ctx, library, cakeLocked] = await Promise.all([
+  const [ctx, library] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, {
       fixedCategory: category,
       withKindList: false,
     }),
     // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
     loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(category)),
-    // 🔒 A cake card below Pro (after the admin's start date) opens its cake options locked.
-    isCakeKind(category) ? readSpecialToolsLocked(supabase, profile.vendor_profile_id) : Promise.resolve(false),
   ]);
   const otherCategories = ctx.otherCategories;
   const coverageOptions = ctx.coverages;
@@ -221,7 +217,6 @@ export default async function NewServicePage({
       ) : null}
       {canvas ? (
         <CanvasMaker
-          cakeLocked={cakeLocked}
           library={library}
           categoryValue={cat}
           categoryLabel={kindLabel(cat)}

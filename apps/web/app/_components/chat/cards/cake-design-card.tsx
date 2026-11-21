@@ -1,31 +1,36 @@
 'use client';
 
 /**
- * 🎂 A DESIGN ARRIVES — the supplier's "Cake design" card (Cake Maker drawing §03, DECISION_LOG 2026-11-21).
+ * 🎂 THE CAKE DESIGN CARD — one card in the chat for every design a couple sends (Cake Maker v6 §02/§03; DECISION_LOG
+ * 2026-11-21 "THE CAKE MAKER LIVES IN THE CHAT, NOT ON SERVICE CARDS" · "CAKE MAKER v6 = THE BUILD REFERENCE").
  *
- * One clean card: in the chat where the couple's design lands, and the same card on the order. It reads the couple's
- * own message through `cakeAction` (RLS: only the shop's own thread, only the couple's words) — never the browser's copy.
+ * It reads the stored design through `cakeAction({ op: 'design' })` (RLS: only a member of this chat) — never the
+ * browser's copy — and shows the face for whoever is looking:
  *
- *   · chat  → "Make a quote" opens the shipped Make a quote card, prefilled with the card, the estimate and the picks
- *             (ruling 8) · "Reply" goes to the message box.
- *   · order → "Open your quote" · "Open the chat".
+ *   · the couple → "Your cake design · Sent", the picture, the picks and the estimate · Change my design (opens the
+ *                  designer from this design; Send posts a NEW version) · a replaced design says so.
+ *   · the shop   → "Cake design · New" · Make a quote opens the shipped quote card PREFILLED: the card's one price,
+ *                  then one line per priced pick, the estimate as the total, the making time to confirm · Reply.
+ *   · the order  → the shop's face with "Open your quote" · "Open the chat".
  *
- * A failed read says so with Try again. It is never shown as an empty design.
+ * The picture is ONE 3D still rendered in the browser when the card scrolls into view (2D until then; nothing stored).
+ * A failed read says so with Try again — it is never shown as an empty design.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CakeSlice, Clock, FileText, MessageCircle, RotateCw } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { AlertCircle, CakeSlice, Clock, FileText, MessageCircle, Pencil, RotateCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { cakeAction, type CakeActionResult } from '@/app/vendor-dashboard/cake-actions';
-import { cakeQuoteNote, tiersWords, type CakeDesignLine } from '@/lib/cake-maker';
+import { cakeAction, type CakeDesignRead } from '@/app/_components/cake-maker/cake-actions';
+import { cakeQuoteLines, cakeQuoteNote } from '@/lib/cake-maker';
 import { cakeFigureSpec } from '@/lib/cake-config';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
-import { CakeView } from '@/app/_components/plan3d/kit/cake-view';
+import { CakeStill } from '@/app/_components/plan3d/kit/cake-view';
 import { MakeQuoteCard } from './make-quote-card';
 import css from './cake-design-card.module.css';
 
-export type CakeDesignLoaded = Extract<CakeActionResult, { op: 'design' }>;
-type Loaded = CakeDesignLoaded;
-type ReadState = { at: 'loading' } | { at: 'failed' } | { at: 'ok'; data: Loaded };
+const CakeDesigner = lazy(() => import('@/app/_components/cake-maker/cake-designer').then((m) => ({ default: m.CakeDesigner })));
+
+export type CakeDesignLoaded = CakeDesignRead;
+type ReadState = { at: 'loading' } | { at: 'failed' } | { at: 'ok'; data: CakeDesignRead };
 
 export function CakeDesignCard({
   threadId,
@@ -34,21 +39,25 @@ export function CakeDesignCard({
   eventDate = null,
   stamp = null,
   links = null,
+  onChanged,
   seed,
 }: {
   threadId: string;
   messageId: string;
   place: 'chat' | 'order';
   eventDate?: string | null;
-  /** "Sent from “Design your cake” · 10:24" under the card in the chat. */
+  /** "You · sent from the Cake Maker · 10:24" under the card in the chat. */
   stamp?: string | null;
   /** On the order: where the quote and the chat are. */
   links?: { quoteHref: string | null; chatHref: string } | null;
+  /** After "Change my design" posts a new version — the chat refreshes. */
+  onChanged?: () => void;
   /** Labs only — a design to draw without a read (or 'failed' to draw the refused read). */
-  seed?: Loaded | 'failed';
+  seed?: CakeDesignRead | 'failed';
 }) {
   const [read, setRead] = useState<ReadState>(seed === 'failed' ? { at: 'failed' } : seed ? { at: 'ok', data: seed } : { at: 'loading' });
   const [quoting, setQuoting] = useState(false);
+  const [changing, setChanging] = useState(false);
   const load = useCallback(() => {
     setRead({ at: 'loading' });
     void cakeAction({ op: 'design', threadId, messageId })
@@ -85,64 +94,78 @@ export function CakeDesignCard({
     );
   }
 
-  const { design, config, flavourLabels, cupcakeCount, monogramText, inspirationUrl, cardId, usualPrepDays } = read.data;
-  const spec = cakeFigureSpec(config, (ref) => flavourLabels[ref] ?? null, cupcakeCount);
-  if (quoting && place === 'chat') {
+  const { viewer, design, config, cupcakeCount, monogramText, inspirationUrl, cardId, usualPrepDays, replaced } = read.data;
+  const couple = viewer === 'couple';
+  const spec = cakeFigureSpec(config, (ref) => design.flavourLabels[ref] ?? null, cupcakeCount);
+  const prepNote = usualPrepDays ? `\nMaking time: your usual ${usualPrepDays} ${usualPrepDays === 1 ? 'day' : 'days'} — confirm it for this design.` : '';
+
+  if (quoting && place === 'chat' && !couple) {
+    const lines = cakeQuoteLines(design);
+    const extras = design.cardName && design.oneCentavos != null ? lines.slice(1) : lines;
     return (
       <MakeQuoteCard
         threadId={threadId}
         eventDate={eventDate}
         onClose={() => setQuoting(false)}
-        prefill={{ picked: cardId ? [cardId] : [], offerCentavos: design.estimateCentavos, note: cakeQuoteNote(design) }}
+        prefill={{
+          picked: cardId ? [cardId] : [],
+          offerCentavos: design.estimateCentavos ?? 0,
+          note: `${cakeQuoteNote(design)}${prepNote}`.slice(0, 500),
+          lines: extras,
+        }}
       />
     );
   }
+
   return (
-    <section className={css.rcard} aria-label="Cake design" data-cake-design="">
+    <section className={`${css.rcard} ${replaced ? css.old : ''}`} aria-label={couple ? 'Your cake design' : 'Cake design'} data-cake-design={viewer} data-cake-replaced={replaced ? '' : undefined}>
       <div className={css.rh}>
         <CakeSlice aria-hidden width={18} height={18} className={css.ic} />
-        <b>Cake design</b>
-        {place === 'chat' ? <span className={css.chip}>New</span> : null}
+        <b>{couple ? 'Your cake design' : 'Cake design'}</b>
+        {replaced ? <span className={css.chip}>Replaced</span> : couple ? <span className={css.chip}>Sent</span> : place === 'chat' ? <span className={css.chip}>New</span> : null}
       </div>
+      {replaced ? <p className={css.lline}>{couple ? 'You sent a newer design below — this one is kept for the record.' : 'They sent a newer design below — quote from that one.'}</p> : null}
       <div className={css.stage}>
-        <CakeView spec={spec} monogramText={monogramText} title={`${design.cardName} — ${tiersWords(design)}`} />
+        <CakeStill spec={spec} monogramText={monogramText} title={`${design.cardName ?? 'Cake'} — ${design.sizeWords}`} />
       </div>
-      <Row name="Tiers" value={tiersWords(design)} />
-      <ol className={css.tiers} aria-label="Each tier, bottom to top">
+      <Row name="Tiers" value={design.sizeWords} />
+      <ol className={css.tiers} aria-label="Each tier, top to bottom">
         {design.tiers.map((t, i) => (
           <li key={i}>
-            <span>
-              {t.name}
-              {t.kind === 'display' ? <small> · display</small> : null}
-              {t.cutting ? <small> · cutting tier</small> : null}
-            </span>
-            <b>{[t.flavour ? withExtra(t.flavour) : null, t.accent ? withExtra(t.accent) : null].filter(Boolean).join(' · ') || '—'}</b>
+            <span>{t.name}</span>
+            <b>
+              {t.words}
+              {t.extraCentavos > 0 ? <small> +{formatCentavosPhp(t.extraCentavos)}</small> : null}
+            </b>
           </li>
         ))}
       </ol>
-      {design.arrangement ? <PickRow name="Arrangement" line={design.arrangement} /> : null}
-      {design.finish ? <PickRow name="Finish" line={design.finish} /> : null}
-      {design.flowing ? <PickRow name="Flowing accent" line={design.flowing} /> : null}
-      {design.colours.length > 0 ? (
-        <div className={css.rr}>
-          <span>Colours</span>
-          <b>
-            <span className={css.dots} aria-hidden>
-              {design.colours.map((c, i) => (
-                <i key={i} style={{ background: c.hex }} />
-              ))}
-            </span>{' '}
-            {design.colours.map((c) => c.name).join(' · ')}
-          </b>
-        </div>
-      ) : null}
-      {design.topper ? <PickRow name="Topper" line={design.topper} /> : null}
-      {design.monogram ? <PickRow name="Monogram" line={design.monogram} /> : null}
-      {design.message ? <Row name="Message" value={`“${design.message}”`} /> : null}
-      {design.cupcakes ? <PickRow name="Cupcakes" line={{ label: design.cupcakes.words, extraCentavos: design.cupcakes.extraCentavos }} /> : null}
+      {design.rows.map((r) =>
+        r.label === 'Colours' ? (
+          <div key={r.label} className={css.rr}>
+            <span>Colours</span>
+            <b>
+              <span className={css.dots} aria-hidden>
+                {config.colours.map((c, i) => (
+                  <i key={i} style={{ background: c.hex }} />
+                ))}
+              </span>{' '}
+              {r.words}
+            </b>
+          </div>
+        ) : (
+          <div key={r.label} className={css.rr}>
+            <span>{r.label}</span>
+            <b>
+              {r.words}
+              {r.extraCentavos > 0 ? <small> +{formatCentavosPhp(r.extraCentavos)}</small> : null}
+            </b>
+          </div>
+        ),
+      )}
       {design.instructions ? (
         <div className={css.note}>
-          <span>Special instructions</span>
+          <span>Anything else</span>
           <p>{design.instructions}</p>
         </div>
       ) : null}
@@ -150,15 +173,23 @@ export function CakeDesignCard({
         <div className={css.rr}>
           <span>Inspiration</span>
           {/* eslint-disable-next-line @next/next/no-img-element -- a small library thumbnail, not a page image */}
-          <img src={inspirationUrl} alt="Their pinned inspiration photo" className={css.insp} loading="lazy" width={72} height={72} />
+          <img src={inspirationUrl} alt={couple ? 'Your pinned inspiration photo' : 'Their pinned inspiration photo'} className={css.insp} loading="lazy" width={72} height={72} />
         </div>
       ) : null}
       <div className={css.rt}>
-        <span>Estimate</span>
-        <b>{formatCentavosPhp(design.estimateCentavos)}</b>
+        <span>{design.estimateCentavos != null ? 'Estimate' : 'Extras picked'}</span>
+        <b>{formatCentavosPhp(design.estimateCentavos ?? design.extrasCentavos)}</b>
       </div>
-      <p className={css.lline}>From your one price and the extras they picked. Your quote decides.</p>
-      {usualPrepDays ? (
+      <p className={css.lline}>
+        {design.estimateCentavos != null
+          ? couple
+            ? 'From the one price and the extras you picked. Their quote decides.'
+            : 'From your one price and the extras they picked. Your quote decides.'
+          : couple
+            ? 'The shop quotes the price.'
+            : 'You have no priced cake card, so you quote the price.'}
+      </p>
+      {usualPrepDays && !couple ? (
         <p className={css.lline}>
           <Clock aria-hidden width={14} height={14} />
           <span>
@@ -166,55 +197,59 @@ export function CakeDesignCard({
           </span>
         </p>
       ) : null}
-      {place === 'chat' ? (
+      {place === 'chat' && couple && !replaced ? (
         <div className={css.ra}>
-          <ActionButton tone="brand" main icon={FileText} label="Make a quote" onClick={() => setQuoting(true)} />
-          <ActionButton
-            tone="neutral"
-            icon={MessageCircle}
-            label="Reply"
-            onClick={() => {
-              const box = document.querySelector<HTMLTextAreaElement>('[data-chat-composer-row] textarea');
-              box?.scrollIntoView({ block: 'nearest' });
-              box?.focus();
-            }}
-          />
+          <ActionButton tone="neutral" icon={Pencil} label="Change my design" onClick={() => setChanging(true)} data-cake-change="" />
         </div>
-      ) : links ? (
+      ) : place === 'chat' && !couple && !replaced ? (
         <div className={css.ra}>
-          {links.quoteHref ? (
-            <ActionButton tone="neutral" icon={FileText} label="Open your quote" href={links.quoteHref} />
-          ) : null}
+          <ActionButton tone="brand" main icon={FileText} label="Make a quote" onClick={() => setQuoting(true)} data-cake-quote="" />
+          <ReplyButton />
+        </div>
+      ) : place === 'order' && links ? (
+        <div className={css.ra}>
+          {links.quoteHref ? <ActionButton tone="neutral" icon={FileText} label="Open your quote" href={links.quoteHref} /> : null}
           <ActionButton tone="neutral" icon={MessageCircle} label="Open the chat" href={links.chatHref} />
         </div>
       ) : null}
       {stamp ? <p className={css.meta}>{stamp}</p> : null}
+      {changing ? (
+        <Suspense fallback={null}>
+          <CakeDesigner
+            threadId={threadId}
+            start={{ config, cardId }}
+            onClose={() => setChanging(false)}
+            onSent={() => {
+              onChanged?.();
+              load();
+            }}
+          />
+        </Suspense>
+      ) : null}
     </section>
   );
 }
 
-function Row({ name, value, small }: { name: string; value: string; small?: string }) {
+function ReplyButton() {
   return (
-    <div className={css.rr}>
-      <span>{name}</span>
-      <b>
-        {value}
-        {small ? <small> {small}</small> : null}
-      </b>
-    </div>
+    <ActionButton
+      tone="neutral"
+      icon={MessageCircle}
+      label="Reply"
+      onClick={() => {
+        const box = document.querySelector<HTMLTextAreaElement>('[data-chat-composer-row] textarea');
+        box?.scrollIntoView({ block: 'nearest' });
+        box?.focus();
+      }}
+    />
   );
 }
 
-function PickRow({ name, line }: { name: string; line: CakeDesignLine }) {
+function Row({ name, value }: { name: string; value: string }) {
   return (
     <div className={css.rr}>
       <span>{name}</span>
-      <b>
-        {line.label}
-        {line.extraCentavos > 0 ? <small> + {formatCentavosPhp(line.extraCentavos)}</small> : null}
-      </b>
+      <b>{value}</b>
     </div>
   );
 }
-
-const withExtra = (l: CakeDesignLine) => (l.extraCentavos > 0 ? `${l.label} (+${formatCentavosPhp(l.extraCentavos)})` : l.label);

@@ -19,10 +19,7 @@ export function NewServiceMaker({
   error,
   quoteReturn = null,
   picker = null,
-  cakeLocked = false,
 }: {
-  /** 🔒 Special tools are Pro and up after the admin's start date — a cake card below Pro opens its options locked. */
-  cakeLocked?: boolean;
   /**
    * ➕ THE ONE ADD-A-SERVICE PICKER (ruling 5820) — the tree `/open-shop` draws (`getServicePickerTree`). Given, the
    * page opens on the picker ("Make N cards"), the maker one press away; absent (Today's setup sheet), the maker as it was.
@@ -38,7 +35,6 @@ export function NewServiceMaker({
 }) {
   const maker = (
       <CanvasMaker
-        cakeLocked={cakeLocked}
         categoryValue=""
         categoryLabel=""
         categoryOptions={ctx.categoryOptions}

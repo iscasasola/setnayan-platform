@@ -24,6 +24,8 @@ import {
   goodUntilWords,
   makeQuoteGoodUntil,
   makeQuoteLines,
+  makeQuoteExtrasCentavos,
+  type MakeQuoteExtraLine,
   makeQuoteOfferStart,
   makeQuoteRefusal,
   type MakeQuoteCardOption,
@@ -51,9 +53,10 @@ export function MakeQuoteCard({
   seed?: { cards: MakeQuoteCardOption[]; picked?: string[] };
   /**
    * 🎂 Opened from a couple's "Cake design" (Cake Maker ruling 8): the card it was made on, the estimate as the offer
-   * and the design as the note. Every field stays the supplier's to change before Send quote.
+   * and the design as the note. Every field stays the supplier's to change before Send quote. v6 §03: `lines` are the
+   * design's priced picks, one quote line each after the card's own line (the card's line is the offer less them).
    */
-  prefill?: { picked: string[]; offerCentavos: number; note: string };
+  prefill?: { picked: string[]; offerCentavos: number; note: string; lines?: MakeQuoteExtraLine[] };
 }) {
   const [read, setRead] = useState<Read<MakeQuoteCardOption[]>>(seed ? { at: 'ok', data: seed.cards } : { at: 'loading' });
   const load = useCallback(() => {
@@ -87,6 +90,7 @@ export function MakeQuoteCard({
         startPicked={prefill ? prefill.picked.filter((id) => read.data.some((c) => c.id === id)) : seed?.picked}
         startOffer={prefill && prefill.offerCentavos > 0 ? prefill.offerCentavos : null}
         startNote={prefill?.note ?? ''}
+        extras={prefill?.lines ?? []}
       />
     ),
   );
@@ -117,6 +121,7 @@ function MakeQuoteForm({
   startPicked,
   startOffer = null,
   startNote = '',
+  extras = [],
 }: {
   cards: MakeQuoteCardOption[];
   threadId: string;
@@ -126,6 +131,8 @@ function MakeQuoteForm({
   startPicked?: string[];
   startOffer?: number | null;
   startNote?: string;
+  /** 🎂 A cake design's priced picks — listed under the offer and sent as their own lines. */
+  extras?: MakeQuoteExtraLine[];
 }) {
   const formId = useId();
   const today = manilaTodayIsoFor(Date.now());
@@ -138,10 +145,10 @@ function MakeQuoteForm({
   const [validUntil, setValidUntil] = useState<string | null>(() => makeQuoteGoodUntil(today, eventDate));
   const [note, setNote] = useState(startNote.slice(0, 500));
   const [sending, setSending] = useState(false);
-  const refusal = makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate });
+  const refusal = makeQuoteRefusal({ picked: chosen.length, offerCentavos: offerC, validUntil, todayIso: today, eventDate, extrasCentavos: makeQuoteExtrasCentavos(extras) });
 
   const payload = JSON.stringify({
-    lineItems: makeQuoteLines(chosen, offerC),
+    lineItems: makeQuoteLines(chosen, offerC, extras),
     validUntil,
     title: chosen.map((c) => c.name).join(' · ').slice(0, 120) || 'Quote',
     note: note.trim() || null,
@@ -192,6 +199,17 @@ function MakeQuoteForm({
         onKeep={(v) => setTyped(v)}
         data="make-quote-offer"
       />
+      {extras.length > 0 ? (
+        <ul className="grid gap-1 rounded-xl bg-ink/[0.04] px-3 py-2 text-[13px] text-ink/75" aria-label="In your offer" data-make-quote-extras="">
+          {extras.map((x, i) => (
+            <li key={i} className="flex items-baseline gap-2">
+              <span className="min-w-0 flex-1">{x.label}</span>
+              <span className="font-mono text-[12px]">+{formatCentavosPhp(x.centavos)}</span>
+            </li>
+          ))}
+          <li className="text-[12px] text-ink/55">Each one is its own line on the quote; your card’s line is the rest of your offer.</li>
+        </ul>
+      ) : null}
       {/* 🤝 Your lowest, private (19 Nov 2026): typed once here; an offer under it gets ONE quiet line — never a block. */}
       <UnderLowestLine threadId={threadId} totalCentavos={offerC} />
       <LowestRow threadId={threadId} />

@@ -157,8 +157,8 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { answeredBookAsks, cakeDesignAt, formLineTitle, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, CakeDesignCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
+import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard } from './chat/cards/lazy-cards';
 import { StayForm } from '@/app/_components/stay-form';
 
 /** Display data for the in-thread proposal card, fetched by proposal_id. */
@@ -2097,9 +2097,12 @@ export function ChatMessageStream({
           if (kindView && chatKindOf(m, Boolean(filings?.byMessage.get(m.message_id))) !== kindView) {
             return preNodes.length > 0 ? <Fragment key={m.message_id}>{preNodes}</Fragment> : null;
           }
-          // 🎂 A couple's cake design, read by the shop: the lead-in stays a bubble, the block is drawn as its card below.
-          const cakeAt = viewerRole === 'vendor' && m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
+          // 🎂 A couple's cake design (both sides see it — v6): the lead-in stays a bubble, the block is drawn as its card
+          // below. The shop's "Design your cake for us" invite is drawn as its card INSTEAD of a bubble.
+          const cakeAt = m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
+          const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
           const node = (() => {
+          if (cakeInvite) return null;
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -2966,7 +2969,19 @@ export function ChatMessageStream({
                     messageId={m.message_id}
                     place="chat"
                     eventDate={eventDate}
-                    stamp={`Sent from “Design your cake” · ${formatChatTimestamp(m.created_at)}`}
+                    stamp={`${viewerRole === 'vendor' ? 'Sent from the Cake Maker' : 'You · sent from the Cake Maker'} · ${formatChatTimestamp(m.created_at)}`}
+                    onChanged={() => router.refresh()}
+                  />
+                </li>
+              ) : null}
+              {cakeInvite ? (
+                <li data-cake-invite-card="">
+                  <CakeInviteCard
+                    threadId={threadId}
+                    viewer={viewerRole === 'vendor' ? 'vendor' : 'couple'}
+                    shopName={viewerRole === 'vendor' ? 'Your shop' : counterpartyLabel}
+                    stamp={`${viewerRole === 'vendor' ? 'You' : counterpartyLabel} · ${formatChatTimestamp(m.created_at)}`}
+                    onSent={() => router.refresh()}
                   />
                 </li>
               ) : null}

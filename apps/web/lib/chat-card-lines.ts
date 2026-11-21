@@ -164,6 +164,14 @@ export function streamLineKind(body: string | null | undefined): 'book' | 'ask' 
 /** The head line of a couple's "Cake design" block — the SAME words as `CAKE_DESIGN_HEAD` (lib/cake-maker.ts, pinned by its test). */
 export const CAKE_DESIGN_HEAD_WORDS = '🎂 Cake design · ';
 
+/** The supplier's "Ask for a cake design" invite — the SAME words as `CAKE_INVITE_BODY` (lib/cake-maker.ts, pinned). */
+export const CAKE_INVITE_WORDS = '🎂 Design your cake for us';
+
+/** Is this message the shop's Cake Maker invite? (Its card: "Design your cake for us" · Design your cake.) */
+export function isCakeInvite(body: string | null | undefined): boolean {
+  return (body ?? '').startsWith(CAKE_INVITE_WORDS);
+}
+
 /**
  * Where a message's cake design block starts (the index of its head line), or -1 when the message carries none. The
  * words before it are the couple's own lead-in, which stays a bubble; the block itself is drawn as the design card.

@@ -5,7 +5,6 @@ import { ChevronLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { NewServiceMaker } from './_components/new-service-maker';
-import { readSpecialToolsLocked } from '@/lib/special-tools.server';
 import { canvasMakerEnabled } from '@/lib/canvas-maker-flag';
 import { SERVICE_PICKER_HREF } from '@/lib/service-picker-anchor';
 import { loadKindDetails, loadMakerContext } from '@/lib/service-card-maker.server';
@@ -48,11 +47,9 @@ export default async function NewServiceCardPage({
   const [ctx, tree] = await Promise.all([loadMakerContext(supabase, profile.vendor_profile_id), getServicePickerTree()]);
   // A one-trade shop's kind is pre-picked — its details can be drawn now; any other kind's open once it is made.
   // 🏷 Each service's own specialties (the sign-up's chips, ONE read) — and the shop's one kind's Details, as before.
-  const [details, specialties, cakeLocked] = await Promise.all([
+  const [details, specialties] = await Promise.all([
     loadKindDetails(supabase, profile.vendor_profile_id, ctx.onlyKind),
     getServicePickerSpecialties(supabase, tree),
-    // 🔒 The kind is picked on the card, so a cake card's lock is read for the shop (two small reads).
-    readSpecialToolsLocked(supabase, profile.vendor_profile_id),
   ]);
 
   return (
@@ -72,7 +69,7 @@ export default async function NewServiceCardPage({
         {/* Rule 1 — the way out is the back arrow; the page's name stays for a screen reader only. */}
         <h1 className="sr-only">New service</h1>
       </div>
-      <NewServiceMaker cakeLocked={cakeLocked} vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} picker={{ tree, specialties }} />
+      <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} picker={{ tree, specialties }} />
     </div>
   );
 }

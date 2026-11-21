@@ -10,12 +10,13 @@
  * No money lives here — every extra is the supplier's own typed figure on a package line (`price_delta_centavos`).
  */
 
-export const CAKE_CONFIG_VERSION = 1;
+export const CAKE_CONFIG_VERSION = 2;
 /** The stored design is small: refuse anything bigger before parsing it further. */
 export const CAKE_CONFIG_MAX_BYTES = 4096;
 export const CAKE_MAX_TIERS = 10;
 export const CAKE_MAX_COLOURS = 3;
-export const CAKE_INSTRUCTIONS_MAX = 600;
+/** “Anything else the baker should know?” — v6: 500 letters. */
+export const CAKE_INSTRUCTIONS_MAX = 500;
 export const CAKE_MESSAGE_MAX = 60;
 
 export const CAKE_ARRANGEMENTS = [
@@ -23,7 +24,7 @@ export const CAKE_ARRANGEMENTS = [
   { id: 'floating', label: 'Floating' },
   { id: 'pillars', label: 'Pillars' },
   { id: 'offset', label: 'Offset' },
-  { id: 'side', label: 'Side by side' },
+  { id: 'staircase', label: 'Staircase' },
 ] as const;
 export type CakeArrangement = (typeof CAKE_ARRANGEMENTS)[number]['id'];
 
@@ -49,33 +50,42 @@ export type CakeAccent = (typeof CAKE_ACCENTS)[number]['id'];
 /** One accent that runs across layers, top to bottom. */
 export const CAKE_FLOWING = [
   { id: 'none', label: 'None' },
-  { id: 'floral_cascade', label: 'Floral cascade' },
-  { id: 'ribbon_cascade', label: 'Ribbon cascade' },
-  { id: 'pearl_strand', label: 'Pearl strand' },
+  { id: 'floral_cascade', label: 'Flower cascade' },
+  { id: 'ribbon_cascade', label: 'Ribbon spiral' },
+  { id: 'pearl_strand', label: 'Drip' },
 ] as const;
 export type CakeFlowing = (typeof CAKE_FLOWING)[number]['id'];
 
 export const CAKE_TOPPERS = [
   { id: 'none', label: 'None' },
-  { id: 'names', label: 'Names' },
   { id: 'flowers', label: 'Fresh flowers' },
   { id: 'figurine', label: 'Figurine' },
+  { id: 'names', label: 'Acrylic names' },
 ] as const;
 export type CakeTopper = (typeof CAKE_TOPPERS)[number]['id'];
 
 /** Where the event's shipped monogram sits when the shop offers it. */
 export const CAKE_MONOGRAM_SPOTS = [
-  { id: 'front', label: 'On a layer' },
+  { id: 'front', label: 'On a tier' },
   { id: 'topper', label: 'As the topper' },
-  { id: 'board', label: 'On the cake board' },
+  { id: 'board', label: 'On a plaque' },
 ] as const;
 export type CakeMonogramSpot = (typeof CAKE_MONOGRAM_SPOTS)[number]['id'];
 
 export const CUPCAKE_PLACEMENTS = [
   { id: 'base', label: 'Around the base' },
-  { id: 'tower', label: 'Cupcake tower' },
+  { id: 'tower', label: 'A tower beside it' },
 ] as const;
 export type CupcakePlacement = (typeof CUPCAKE_PLACEMENTS)[number]['id'];
+
+/** The shape a tier is cut in (v6). Round is the plain shape and always exists. */
+export const CAKE_SHAPES = [
+  { id: 'round', label: 'Round' },
+  { id: 'square', label: 'Square' },
+  { id: 'hexagon', label: 'Hexagon' },
+  { id: 'heart', label: 'Heart' },
+] as const;
+export type CakeShape = (typeof CAKE_SHAPES)[number]['id'];
 
 export type CakeTierKind = 'real' | 'display';
 export type CakeTierConfig = {
@@ -83,13 +93,16 @@ export type CakeTierConfig = {
   /** The shop's flavour option id — real tiers only. */
   flavourRef: string | null;
   accent: CakeAccent;
+  shape: CakeShape;
+  /** Tall · double barrel — twice the height. */
+  tall: boolean;
 };
 export type CakeColour = { hex: string; name: string };
 export type CakeCupcakes = { packRef: string; flavourRef: string | null; match: boolean; placement: CupcakePlacement };
 
 export type CakeConfig = {
   v: typeof CAKE_CONFIG_VERSION;
-  /** Bottom first. 1–10. */
+  /** Top first (Tier 1 = the top, as the drawing counts). 1–10. */
   tiers: CakeTierConfig[];
   /** The tier that is cut on the day — always a real tier. */
   cuttingTier: number;
@@ -97,7 +110,12 @@ export type CakeConfig = {
   finish: CakeFinish;
   colours: CakeColour[];
   flowing: CakeFlowing;
+  /** Where the flowing accent starts and ends (tier indexes, top first; from ≤ to). */
+  flowingFrom: number;
+  flowingTo: number;
   monogram: CakeMonogramSpot | null;
+  /** The tier the monogram sits on when it is "On a tier". */
+  monogramTier: number;
   topper: CakeTopper;
   message: string;
   instructions: string;
@@ -106,11 +124,14 @@ export type CakeConfig = {
   cupcakes: CakeCupcakes | null;
 };
 
-/** What one shop offers on one card — read from its own package lines. Every list holds catalog ids only. */
+/** What one shop offers — read from its Cake Maker options (lib/cake-maker.ts). Every list holds catalog ids only. */
 export type CakeOffer = {
-  maxRealTiers: number;
-  /** 0 = the shop's Display tiers switch is off. */
-  maxDisplayTiers: number;
+  /** The tier counts the shop makes (1–10). */
+  sizes: number[];
+  /** false = the shop's Display tiers switch is off. */
+  display: boolean;
+  shapes: CakeShape[];
+  tall: boolean;
   arrangements: CakeArrangement[];
   finishes: CakeFinish[];
   accents: CakeAccent[];
@@ -153,8 +174,10 @@ const HEX = /^#[0-9a-f]{6}$/i;
 /** Everything in the catalog — the lab and a fresh card read it. */
 export function fullCakeOffer(): CakeOffer {
   return {
-    maxRealTiers: CAKE_MAX_TIERS,
-    maxDisplayTiers: CAKE_MAX_TIERS - 1,
+    sizes: Array.from({ length: CAKE_MAX_TIERS }, (_, i) => i + 1),
+    display: true,
+    shapes: ids(CAKE_SHAPES),
+    tall: true,
     arrangements: ids(CAKE_ARRANGEMENTS),
     finishes: ids(CAKE_FINISHES),
     accents: ids(CAKE_ACCENTS),
@@ -199,15 +222,21 @@ export function sanitizeCakeConfig(
       if (typeof tt.flavourRef !== 'string' || !offer.flavourRefs.includes(tt.flavourRef)) return { ok: false, reason: 'not_offered' };
       flavourRef = tt.flavourRef;
     }
-    tiers.push({ kind: tt.kind, flavourRef, accent });
+    const shape = tt.shape ?? 'round';
+    if (!isOneOf(shape, ids(CAKE_SHAPES))) return { ok: false, reason: 'not_a_design' };
+    if (shape !== 'round' && !offer.shapes.includes(shape)) return { ok: false, reason: 'not_offered' };
+    if (tt.tall != null && typeof tt.tall !== 'boolean') return { ok: false, reason: 'not_a_design' };
+    const tall = tt.tall === true;
+    if (tall && !offer.tall) return { ok: false, reason: 'not_offered' };
+    tiers.push({ kind: tt.kind, flavourRef, accent, shape, tall });
   }
   const real = tiers.filter((t) => t.kind === 'real').length;
   const display = tiers.length - real;
   if (real === 0) return { ok: false, reason: 'no_real_tier' };
-  if (display > 0 && offer.maxDisplayTiers === 0) return { ok: false, reason: 'display_not_offered' };
-  if (real > offer.maxRealTiers || display > offer.maxDisplayTiers) return { ok: false, reason: 'tiers' };
+  if (display > 0 && !offer.display) return { ok: false, reason: 'display_not_offered' };
+  if (!offer.sizes.includes(tiers.length)) return { ok: false, reason: 'tiers' };
 
-  const cutting = r.cuttingTier ?? tiers.findIndex((t) => t.kind === 'real');
+  const cutting = r.cuttingTier ?? tiers.map((t) => t.kind).lastIndexOf('real');
   if (typeof cutting !== 'number' || !Number.isInteger(cutting) || cutting < 0 || cutting >= tiers.length) {
     return { ok: false, reason: 'not_a_design' };
   }
@@ -223,6 +252,15 @@ export function sanitizeCakeConfig(
   const flowing = pick(r.flowing, ids(CAKE_FLOWING), offer.flowing, 'none');
   const topper = pick(r.topper, ids(CAKE_TOPPERS), offer.toppers, 'none');
   if (!arrangement || !finish || !flowing || !topper) return { ok: false, reason: 'not_offered' };
+
+  const idx = (v: unknown, fallback: number): number | null => {
+    const x = v ?? fallback;
+    return typeof x === 'number' && Number.isInteger(x) && x >= 0 && x < tiers.length ? x : null;
+  };
+  const flowingFrom = idx(r.flowingFrom, 0);
+  const flowingTo = idx(r.flowingTo, tiers.length - 1);
+  const monogramTier = idx(r.monogramTier, cutting);
+  if (flowingFrom === null || flowingTo === null || monogramTier === null || flowingFrom > flowingTo) return { ok: false, reason: 'not_a_design' };
 
   let monogram: CakeMonogramSpot | null = null;
   if (r.monogram != null) {
@@ -286,7 +324,10 @@ export function sanitizeCakeConfig(
       finish,
       colours,
       flowing,
+      flowingFrom,
+      flowingTo,
       monogram,
+      monogramTier,
       topper: monogram === 'topper' ? 'none' : topper,
       message,
       instructions,
@@ -296,18 +337,27 @@ export function sanitizeCakeConfig(
   };
 }
 
-/** A fresh design: 3 real tiers, plain, stacked (the drawing starts on 3). */
-export function startingCakeConfig(offer: CakeOffer): CakeConfig {
-  const n = Math.max(1, Math.min(3, offer.maxRealTiers));
+/** A fresh design: the shop's Standard size (3 when it makes 3), plain, stacked; the bottom tier is cut. */
+export function startingCakeConfig(offer: CakeOffer, standardSize = 3, standard: { flavourRef?: string | null; accent?: CakeAccent; finish?: CakeFinish } = {}): CakeConfig {
+  const n = offer.sizes.includes(standardSize) ? standardSize : (offer.sizes.find((k) => k >= 3) ?? offer.sizes[0] ?? 1);
   return {
     v: CAKE_CONFIG_VERSION,
-    tiers: Array.from({ length: n }, () => ({ kind: 'real' as const, flavourRef: null, accent: 'none' as const })),
-    cuttingTier: 0,
+    tiers: Array.from({ length: n }, () => ({
+      kind: 'real' as const,
+      flavourRef: standard.flavourRef ?? null,
+      accent: standard.accent ?? ('none' as const),
+      shape: 'round' as const,
+      tall: false,
+    })),
+    cuttingTier: n - 1,
     arrangement: 'stacked',
-    finish: offer.finishes[0] ?? 'buttercream',
+    finish: standard.finish ?? offer.finishes[0] ?? 'buttercream',
     colours: [],
     flowing: 'none',
+    flowingFrom: 0,
+    flowingTo: n - 1,
     monogram: null,
+    monogramTier: n - 1,
     topper: 'none',
     message: '',
     instructions: '',
@@ -316,29 +366,59 @@ export function startingCakeConfig(offer: CakeOffer): CakeConfig {
   };
 }
 
+/**
+ * A new tier count, keeping the BOTTOM tiers the couple already set (the drawing builds up from the board). New tiers on
+ * top copy the current top tier; the cut tier, the flowing run and the monogram's tier are kept where they still exist,
+ * else moved to the bottom. The cut tier is always made real.
+ */
+export function resizeCakeTiers(config: CakeConfig, n: number): CakeConfig {
+  const count = Math.max(1, Math.min(CAKE_MAX_TIERS, Math.round(n)));
+  const old = config.tiers;
+  const shift = count - old.length; // old index i → new index i + shift
+  const top = old[0]!;
+  const tiers: CakeTierConfig[] = Array.from({ length: count }, (_, j) => {
+    const i = j - shift;
+    return i >= 0 && i < old.length ? { ...old[i]! } : { ...top, kind: 'real' as const };
+  });
+  const move = (i: number) => {
+    const j = i + shift;
+    return j >= 0 && j < count ? j : count - 1;
+  };
+  const cuttingTier = move(config.cuttingTier);
+  tiers[cuttingTier] = { ...tiers[cuttingTier]!, kind: 'real' };
+  let flowingFrom = Math.max(0, Math.min(count - 1, config.flowingFrom + shift));
+  const flowingTo = Math.max(0, Math.min(count - 1, config.flowingTo + shift));
+  if (flowingFrom > flowingTo) flowingFrom = flowingTo;
+  return { ...config, tiers, cuttingTier, flowingFrom, flowingTo, monogramTier: move(config.monogramTier) };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // The ONE figure model — 2D and 3D both draw exactly this.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type CakeFigureTier = {
+  /** The config's index (0 = the top tier). */
   index: number;
   kind: CakeTierKind;
-  /** Radius and height in cake units; the base tier's radius is 1. */
+  /** Radius and height in cake units; the bottom tier's radius is 1 (on its stand). */
   radius: number;
   height: number;
-  /** Bottom of the tier, and its centre across (side-by-side and offset move it). */
+  /** Bottom of the tier, and its centre across (offset and staircase move it). */
   y: number;
   x: number;
-  /** Which stand it sits on (side by side = one stand per group). */
+  /** Which stand it sits on (staircase = one stand per tier). */
   stand: number;
+  shape: CakeShape;
+  tall: boolean;
   accent: CakeAccent;
   sponge: string;
   cutting: boolean;
-  /** The gap below this tier (floating spacers or pillars), 0 when it rests on the one below. */
+  /** The gap below this tier (floating spacers or pillars), 0 when it rests on the one below or on its stand. */
   gapBelow: number;
 };
 
 export type CakeFigureSpec = {
+  /** Drawn bottom first: the last one is the top tier. */
   tiers: CakeFigureTier[];
   arrangement: CakeArrangement;
   finish: CakeFinish;
@@ -348,6 +428,8 @@ export type CakeFigureSpec = {
   monogram: { spot: CakeMonogramSpot; onTier: number } | null;
   message: string;
   cupcakes: { count: number; placement: CupcakePlacement } | null;
+  /** The stands under the cake (x and radius), for the board and plates. */
+  stands: { x: number; radius: number; y: number }[];
   /** The whole figure's extent, for fitting the view. */
   width: number;
   height: number;
@@ -373,59 +455,60 @@ export function spongeOf(label: string | null | undefined): string {
 }
 
 /**
- * N tiers → a complete N-tier cake: widest at the bottom, the top tier carries the topper, scaled so any count
- * from 1 to 10 fits the same frame. Side by side splits the tiers into two stands (widest first).
+ * N tiers → a complete N-tier cake: widest at the bottom, each tier above narrower, the top tier carries the topper —
+ * scaled so any count from 1 to 10 fits the same frame (6–10 get slimmer, never cut off). A tall tier is 1.9× its
+ * neighbours. Staircase puts each tier on its own stand, stepping up from the left (the biggest stays lowest).
  */
 export function cakeFigureSpec(config: CakeConfig, flavourLabel: (ref: string) => string | null = () => null, cupcakeCount = 0): CakeFigureSpec {
   const n = Math.max(1, Math.min(CAKE_MAX_TIERS, config.tiers.length));
-  const side = config.arrangement === 'side' && n > 1;
-  const groups = side ? [Math.ceil(n / 2), Math.floor(n / 2)] : [n];
-  const gap = config.arrangement === 'floating' ? 0.16 : config.arrangement === 'pillars' ? 0.32 : 0;
+  const stair = config.arrangement === 'staircase' && n > 1;
+  const gap = stair ? 0 : config.arrangement === 'floating' ? 0.16 : config.arrangement === 'pillars' ? 0.3 : 0;
+  // Bottom first: config index n-1 is the bottom tier.
+  const order = Array.from({ length: n }, (_, k) => n - 1 - k);
+  const units = order.reduce((a, i) => a + (config.tiers[i]!.tall ? 1.9 : 1), 0);
+  const unitH = stair ? Math.min(0.62, 1.5 / Math.max(1, Math.max(...order.map((i) => (config.tiers[i]!.tall ? 1.9 : 1))))) : Math.min(0.62, (3.3 - gap * (n - 1)) / units);
   const tiers: CakeFigureTier[] = [];
-  let i = 0;
+  const stands: CakeFigureSpec['stands'] = [];
+  let y = 0;
   let maxTop = 0;
-  groups.forEach((count, stand) => {
-    const scale = side ? (stand === 0 ? 0.62 : 0.5) : 1;
-    const standX = side ? (stand === 0 ? -0.72 : 0.78) : 0;
-    const h = Math.min(0.62, 3.4 / Math.max(count, 1)) * scale;
-    let y = 0;
-    for (let k = 0; k < count; k++, i++) {
-      const t = config.tiers[i]!;
-      const radius = scale * (count === 1 ? 1 : 1 - 0.58 * (k / (count - 1)));
-      const gapBelow = k === 0 ? 0 : gap * scale;
-      y += gapBelow;
-      const x = standX + (config.arrangement === 'offset' && k > 0 ? (k % 2 === 1 ? 0.12 : -0.12) * scale : 0);
-      tiers.push({
-        index: i,
-        kind: t.kind,
-        radius,
-        height: h,
-        y,
-        x,
-        stand,
-        accent: t.accent,
-        sponge: t.kind === 'display' ? DISPLAY_SPONGE : spongeOf(t.flavourRef ? flavourLabel(t.flavourRef) : null),
-        cutting: i === config.cuttingTier,
-        gapBelow,
-      });
-      y += h;
+  const stairScale = stair ? Math.max(0.3, 1.5 / n) : 1;
+  order.forEach((i, k) => {
+    const t = config.tiers[i]!;
+    const step = n === 1 ? 0 : k / (n - 1);
+    const height = unitH * (t.tall ? 1.9 : 1) * (stair ? 1 : 1);
+    if (stair) {
+      const radius = stairScale * (1 - 0.45 * step);
+      const x = -1.4 + (2.8 * k) / Math.max(1, n - 1);
+      const baseY = 0.35 * k * stairScale;
+      stands.push({ x, radius: radius * 1.08, y: baseY });
+      tiers.push({ index: i, kind: t.kind, radius, height, y: baseY, x, stand: k, shape: t.shape, tall: t.tall, accent: t.accent, sponge: t.kind === 'display' ? DISPLAY_SPONGE : spongeOf(t.flavourRef ? flavourLabel(t.flavourRef) : null), cutting: i === config.cuttingTier, gapBelow: 0 });
+      maxTop = Math.max(maxTop, baseY + height);
+      return;
     }
-    maxTop = Math.max(maxTop, y);
+    const radius = n === 1 ? 1 : 1 - (n > 5 ? 0.62 : 0.58) * step;
+    const gapBelow = k === 0 ? 0 : gap;
+    y += gapBelow;
+    const x = config.arrangement === 'offset' && k > 0 ? (k % 2 === 1 ? 0.12 : -0.12) : 0;
+    tiers.push({ index: i, kind: t.kind, radius, height, y, x, stand: 0, shape: t.shape, tall: t.tall, accent: t.accent, sponge: t.kind === 'display' ? DISPLAY_SPONGE : spongeOf(t.flavourRef ? flavourLabel(t.flavourRef) : null), cutting: i === config.cuttingTier, gapBelow });
+    y += height;
+    maxTop = y;
   });
+  if (!stair) stands.push({ x: 0, radius: 1.12, y: 0 });
   const top = tiers[tiers.length - 1]!;
   const topperKind = config.monogram === 'topper' ? 'monogram' : config.topper;
-  const monogramTier = config.monogram === 'front' ? (tiers.find((t) => t.kind === 'real' && t.index === config.cuttingTier)?.index ?? 0) : top.index;
+  const clampIdx = (v: number) => Math.max(0, Math.min(n - 1, v));
   return {
     tiers,
     arrangement: config.arrangement,
     finish: config.finish,
     colours: config.colours.length > 0 ? config.colours.map((c) => c.hex) : [CAKE_RESTING_COLOUR],
     topper: topperKind === 'none' ? null : { kind: topperKind, onTier: top.index, y: top.y + top.height },
-    flowing: config.flowing === 'none' ? null : { kind: config.flowing, fromTier: top.index, toTier: side ? groups[0]! - 1 : 0 },
-    monogram: config.monogram && config.monogram !== 'topper' ? { spot: config.monogram, onTier: monogramTier } : null,
+    flowing: config.flowing === 'none' ? null : { kind: config.flowing, fromTier: clampIdx(config.flowingFrom), toTier: clampIdx(config.flowingTo) },
+    monogram: config.monogram && config.monogram !== 'topper' ? { spot: config.monogram, onTier: clampIdx(config.monogramTier) } : null,
     message: config.message,
     cupcakes: config.cupcakes && cupcakeCount > 0 ? { count: cupcakeCount, placement: config.cupcakes.placement } : null,
-    width: (side ? 2.9 : 2.2) + (config.cupcakes?.placement === 'tower' && cupcakeCount > 0 ? 0.7 : 0),
+    stands,
+    width: (stair ? 3.4 : 2.2) + (config.cupcakes?.placement === 'tower' && cupcakeCount > 0 ? 0.7 : 0),
     height: maxTop + (topperKind === 'none' ? 0 : 0.5),
   };
 }

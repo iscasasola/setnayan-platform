@@ -22,9 +22,11 @@
  */
 import { HUB_TOOLS_SEED, nameKey } from '@/lib/hub-tools';
 import { isMusicToolCategory } from '@/lib/songs';
+import { isCakeKind } from '@/lib/cake-maker';
 
 export type SpecializedToolKey =
   | 'scanner'
+  | 'cake_maker'
   | 'song_bank'
   | 'song_desk'
   | 'emcee_script'
@@ -45,8 +47,9 @@ export type SpecializedTool = {
    *   scanner   → the Scanner lines, drawn in the panel (no page of its own)
    *   page      → one shipped page
    *   per_event → the event's on-the-day screen, one door per booked event
+   *   cake_maker → the shop's Cake Maker options, edited in the panel (set once per shop)
    */
-  door: { kind: 'scanner' } | { kind: 'page'; href: string } | { kind: 'per_event' };
+  door: { kind: 'scanner' } | { kind: 'cake_maker' } | { kind: 'page'; href: string } | { kind: 'per_event' };
   /** The `HUB_TOOL_LIBRARY` keys that make a category "suggested" for this tile (empty = see `suggestedFor`). */
   hubKeys: readonly string[];
 };
@@ -56,6 +59,8 @@ export const onTheDayHref = (eventId: string) => `/vendor-dashboard/on-the-day/l
 
 export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'scanner', title: 'Scanner', line: 'One per service · how each scan counts', door: { kind: 'scanner' }, hubKeys: [] },
+  // 🎂 DECISION_LOG 2026-11-21 "CAKE MAKER v6 = THE BUILD REFERENCE": options set ONCE per shop here; couples design in the chat.
+  { key: 'cake_maker', title: 'Cake Maker', line: 'Couples design their cake in your chat', door: { kind: 'cake_maker' }, hubKeys: [] },
   { key: 'song_bank', title: 'Song bank', line: 'The songs you play; couples request and preview', door: { kind: 'page', href: '/vendor-dashboard/repertoire' }, hubKeys: [] },
   { key: 'song_desk', title: 'Song Desk', line: 'Requests on the day', door: { kind: 'per_event' }, hubKeys: ['song_desk'] },
   { key: 'emcee_script', title: 'Emcee script', line: 'The host’s lines, live', door: { kind: 'per_event' }, hubKeys: ['emcee_script'] },
@@ -75,10 +80,11 @@ function hubToolsOf(categoryLabels: readonly string[]): Set<string> {
   return out;
 }
 
-/** Is this tile suggested for the shop? Scanner: every shop with a service. Song bank: music shops. Else the table. */
+/** Is this tile suggested for the shop? Scanner: every shop with a service. Song bank: music shops. Cake Maker: cake shops. Else the table. */
 export function suggestedFor(tool: SpecializedTool, categoryLabels: readonly string[], services: readonly string[]): boolean {
   if (tool.key === 'scanner') return categoryLabels.length > 0;
   if (tool.key === 'song_bank') return isMusicToolCategory(services);
+  if (tool.key === 'cake_maker') return services.some(isCakeKind);
   const have = hubToolsOf(categoryLabels);
   return tool.hubKeys.some((k) => have.has(k));
 }

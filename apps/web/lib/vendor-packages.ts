@@ -244,7 +244,7 @@ export const VENDOR_PACKAGE_SELECT =
  * should append it any more, because it is already here.
  */
 export const VENDOR_PACKAGE_ITEM_SELECT =
-  'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at, parent_option_id, pick_min, pick_max, max_extra_hours, extra_hour_centavos, cake_part';
+  'item_id, package_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, created_at, parent_option_id, pick_min, pick_max, max_extra_hours, extra_hour_centavos';
 
 /**
  * The columns of `vendor_package_items` the AUTHORING surface reads or writes.
@@ -275,13 +275,11 @@ export const PACKAGE_ITEM_AUTHORING_COLUMNS = [
   'max_extra_hours',
   // 🔒 The bundle maker's card lines (migration a_bundle_carries_its_cards_and_a_gift, 2026-11-07).
   'vendor_service_id',
-  // 🎂 The Cake Maker's part tag (migration cake_maker_parts_and_designs, 2026-11-21).
-  'cake_part',
 ] as const;
 
 /** The PostgREST select list the authoring loaders use. Never a literal. */
 export const PACKAGE_ITEM_AUTHORING_SELECT =
-  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours, vendor_service_id, cake_part';
+  'item_id, canonical_service, service_description, is_default_included, is_required, replacement_value_centavos, display_order, parent_option_id, pick_min, pick_max, max_extra_hours, vendor_service_id';
 
 /**
  * The five branching columns, by name.
@@ -384,12 +382,6 @@ export type VendorPackageItemRow = {
    * matters. Only fetch it where a couple can actually pick.
    */
   options?: ReadonlyArray<VendorPackageItemOptionRow>;
-  /**
-   * 🎂 THE CAKE MAKER (2026-11-21): which part of a cake card's "Your cake options" this line is. Absent / null =
-   * an ordinary line. One flavour line and one accent line per tier, bottom tier first.
-   * See lib/cake-maker.ts.
-   */
-  cake_part?: string | null;
 };
 
 /**
@@ -420,8 +412,6 @@ export type VendorPackageItemOptionRow = {
   pricing_basis?: 'fixed' | 'per_pax';
   per_pax_delta_centavos?: number;
   min_pax?: number;
-  /** 🎂 Cake Maker: which catalog look or tier count this option is (lib/cake-maker.ts). */
-  look_key?: string | null;
 };
 
 /**
@@ -443,12 +433,11 @@ export const PACKAGE_ITEM_OPTION_COLUMNS = [
   'pricing_basis',
   'per_pax_delta_centavos',
   'min_pax',
-  'look_key',
 ] as const;
 
 /** The PostgREST select list for a choice option. Use this, never a literal. */
 export const PACKAGE_ITEM_OPTION_SELECT =
-  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available, pricing_basis, per_pax_delta_centavos, min_pax, look_key';
+  'option_id, item_id, option_label, price_delta_centavos, is_default, is_available, pricing_basis, per_pax_delta_centavos, min_pax';
 
 export type VendorPackageWithItems = VendorPackageRow & {
   items: ReadonlyArray<VendorPackageItemRow>;

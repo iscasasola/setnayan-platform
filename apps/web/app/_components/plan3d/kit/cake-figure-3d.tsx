@@ -9,9 +9,9 @@
  * fetched (names and the monogram are shapes — the 2D picture carries the words). A phone gets the phone budget
  * (`usePhoneGpu` → fewer pearls and petals, capped DPR); a lost WebGL context falls back to the 2D picture.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import type { CakeFigureSpec, CakeFigureTier } from '@/lib/cake-config';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
@@ -45,18 +45,41 @@ function buttercreamMap(): THREE.CanvasTexture | null {
   return buttercreamNormal;
 }
 
-export default function CakeFigure3D({ spec, onShow2d }: { spec: CakeFigureSpec; onShow2d: () => void }) {
+export default function CakeFigure3D({
+  spec,
+  onShow2d,
+  onTierTap,
+  still = false,
+  onStill,
+}: {
+  spec: CakeFigureSpec;
+  onShow2d: () => void;
+  /** Tap a tier on the cake → that tier's index (0 = the top), so the designer opens it. */
+  onTierTap?: (index: number) => void;
+  /** One frame, no controls — the design card's 3D still. `onStill` receives it as an image. */
+  still?: boolean;
+  onStill?: (dataUrl: string) => void;
+}) {
   const phone = usePhoneGpu();
   const { lost, retry, attempt, onCreated } = useWebglContextLost();
   const midY = (spec.height * S) / 2;
+  // It turns once into place on open, then stops (v6 motion: nothing loops).
+  const [turning, setTurning] = useState(!still);
+  useEffect(() => {
+    if (still) return;
+    const id = window.setTimeout(() => setTurning(false), 2600);
+    return () => window.clearTimeout(id);
+  }, [still]);
   if (lost) return <ContextLostNotice onShow2d={onShow2d} onRetry={retry} />;
+  const far = Math.max(2.4, Math.max(spec.height, spec.width * 0.8) * S * 2.1);
   return (
     <Canvas
       key={attempt}
       dpr={canvasDpr(phone, 2)}
-      camera={{ position: [0, midY + 0.5, Math.max(2.4, spec.height * S * 2.1)], fov: 35 }}
+      frameloop={still ? 'demand' : 'always'}
+      camera={{ position: [0, midY + 0.5, far], fov: 35 }}
       onCreated={onCreated}
-      gl={{ antialias: !phone, powerPreference: phone ? 'low-power' : 'default' }}
+      gl={{ antialias: !phone, powerPreference: phone ? 'low-power' : 'default', preserveDrawingBuffer: still }}
       data-cake-figure-3d={spec.tiers.length}
     >
       <Environment resolution={phone ? 32 : 64}>
@@ -64,39 +87,73 @@ export default function CakeFigure3D({ spec, onShow2d }: { spec: CakeFigureSpec;
         <Lightformer form="rect" intensity={0.8} position={[-4, 1, -1]} scale={[3, 4, 1]} color="#aebdd6" />
         <Lightformer form="ring" intensity={1.2} position={[3, 2, 3]} scale={2} color="#fbe9d8" />
       </Environment>
-      <directionalLight position={[2, 4, 3]} intensity={0.9} />
-      <CakeModel spec={spec} phone={phone} />
-      <ContactShadows position={[0, -0.001, 0]} opacity={0.35} scale={4} blur={2.4} far={1.5} frames={1} resolution={phone ? 256 : 512} />
-      <OrbitControls
-        enablePan={false}
-        autoRotate
-        autoRotateSpeed={0.8}
-        minDistance={1.2}
-        maxDistance={6}
-        target={[0, midY, 0]}
-        minPolarAngle={Math.PI / 5}
-        maxPolarAngle={Math.PI / 2.05}
-      />
+      <directionalLight position={[-2, 4, 3]} intensity={0.9} color="#fff1df" />
+      <directionalLight position={[3, 2, -1]} intensity={0.35} color="#cfdcf2" />
+      <CakeModel spec={spec} phone={phone} onTierTap={onTierTap} />
+      <ContactShadows position={[0, -0.001, 0]} opacity={0.35} scale={5} blur={2.4} far={1.5} frames={1} resolution={phone ? 256 : 512} />
+      {still ? (
+        <StillCapture onStill={onStill} target={midY} />
+      ) : (
+        <OrbitControls
+          enablePan={false}
+          autoRotate={turning}
+          autoRotateSpeed={2.4}
+          minDistance={1.2}
+          maxDistance={7}
+          target={[0, midY, 0]}
+          minPolarAngle={Math.PI / 5}
+          maxPolarAngle={Math.PI / 2.05}
+        />
+      )}
     </Canvas>
   );
 }
 
-function CakeModel({ spec, phone }: { spec: CakeFigureSpec; phone: boolean }) {
-  const stands = [...new Set(spec.tiers.map((t) => t.stand))];
+/** Renders the still once (after the environment settles) and hands it out as an image; the canvas is then let go. */
+function StillCapture({ onStill, target }: { onStill?: (dataUrl: string) => void; target: number }) {
+  const { gl, scene, camera, invalidate } = useThree();
+  useEffect(() => {
+    camera.lookAt(0, target, 0);
+    let n = 0;
+    let raf = 0;
+    const tick = () => {
+      invalidate();
+      if (++n < 6) raf = requestAnimationFrame(tick);
+      else {
+        gl.render(scene, camera);
+        try {
+          onStill?.(gl.domElement.toDataURL('image/webp', 0.86));
+        } catch {
+          // A browser that refuses the read keeps the live canvas — the card still shows the cake.
+        }
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [gl, scene, camera, invalidate, onStill, target]);
+  return null;
+}
+
+function CakeModel({ spec, phone, onTierTap }: { spec: CakeFigureSpec; phone: boolean; onTierTap?: (index: number) => void }) {
   const colour = (i: number) => spec.colours[i % spec.colours.length]!;
   return (
     <group>
-      {stands.map((s) => {
-        const first = spec.tiers.find((t) => t.stand === s)!;
-        return (
-          <mesh key={s} position={[first.x * S, 0.012, 0]}>
-            <cylinderGeometry args={[first.radius * S * 1.18, first.radius * S * 1.18, 0.024, 64]} />
+      {spec.stands.map((st, s) => (
+        <group key={s} position={[st.x * S, 0, 0]}>
+          {st.y > 0 ? (
+            <mesh position={[0, (st.y * S) / 2, 0]}>
+              <cylinderGeometry args={[0.012, 0.016, st.y * S, 16]} />
+              <meshPhysicalMaterial color={GOLD} metalness={0.9} roughness={0.3} />
+            </mesh>
+          ) : null}
+          <mesh position={[0, st.y * S + 0.012, 0]}>
+            <cylinderGeometry args={[st.radius * S * 1.08, st.radius * S * 1.08, 0.024, 64]} />
             <meshPhysicalMaterial color="#F2EEE8" roughness={0.35} clearcoat={0.6} />
           </mesh>
-        );
-      })}
+        </group>
+      ))}
       {spec.tiers.map((t) => (
-        <Tier key={t.index} t={t} spec={spec} colour={colour(t.index)} phone={phone} />
+        <Tier key={t.index} t={t} spec={spec} colour={colour(t.index)} phone={phone} onTap={onTierTap} />
       ))}
       {spec.flowing ? <Flowing spec={spec} colour={colour} phone={phone} /> : null}
       {spec.topper ? <Topper spec={spec} colour={colour(0)} /> : null}
@@ -105,25 +162,86 @@ function CakeModel({ spec, phone }: { spec: CakeFigureSpec; phone: boolean }) {
   );
 }
 
-function Tier({ t, spec, colour, phone }: { t: CakeFigureTier; spec: CakeFigureSpec; colour: string; phone: boolean }) {
+const shapeCache = new Map<string, THREE.BufferGeometry>();
+/**
+ * A tier's body in its shape (v6): round = a cylinder; square (rounded corners), hexagon (flat side to the front) and
+ * heart (point to the front) are extruded outlines, stood upright. Cached per shape and size.
+ */
+function tierGeometry(shape: CakeFigureTier['shape'], r: number, h: number): THREE.BufferGeometry {
+  const key = `${shape}:${r.toFixed(4)}:${h.toFixed(4)}`;
+  const hit = shapeCache.get(key);
+  if (hit) return hit;
+  let g: THREE.BufferGeometry;
+  if (shape === 'round') g = new THREE.CylinderGeometry(r, r, h, 72, 1);
+  else {
+    const p = new THREE.Shape();
+    if (shape === 'square') {
+      const a = r * 0.9;
+      const c = r * 0.12;
+      p.moveTo(-a + c, -a);
+      p.lineTo(a - c, -a);
+      p.quadraticCurveTo(a, -a, a, -a + c);
+      p.lineTo(a, a - c);
+      p.quadraticCurveTo(a, a, a - c, a);
+      p.lineTo(-a + c, a);
+      p.quadraticCurveTo(-a, a, -a, a - c);
+      p.lineTo(-a, -a + c);
+      p.quadraticCurveTo(-a, -a, -a + c, -a);
+    } else if (shape === 'hexagon') {
+      for (let k = 0; k < 6; k++) {
+        const ang = (Math.PI / 3) * k; // a flat side faces the front (+z after the turn)
+        const x = r * Math.cos(ang);
+        const y = r * Math.sin(ang);
+        if (k === 0) p.moveTo(x, y);
+        else p.lineTo(x, y);
+      }
+      p.closePath();
+    } else {
+      // heart, its point toward the front
+      const k = r * 1.05;
+      p.moveTo(0, -k * 0.95);
+      p.bezierCurveTo(k * 0.55, -k * 0.45, k * 1.05, -k * 0.05, k * 0.9, k * 0.42);
+      p.bezierCurveTo(k * 0.75, k * 0.85, k * 0.2, k * 0.9, 0, k * 0.45);
+      p.bezierCurveTo(-k * 0.2, k * 0.9, -k * 0.75, k * 0.85, -k * 0.9, k * 0.42);
+      p.bezierCurveTo(-k * 1.05, -k * 0.05, -k * 0.55, -k * 0.45, 0, -k * 0.95);
+    }
+    const e = new THREE.ExtrudeGeometry(p, { depth: h, bevelEnabled: true, bevelThickness: Math.min(0.012, h * 0.1), bevelSize: 0.01, bevelSegments: 3, curveSegments: 24 });
+    // Extruded along +z → stand it up along +y, centred like the cylinder; the shape's −y (the point / a side) faces +z.
+    e.rotateX(-Math.PI / 2);
+    e.translate(0, -h / 2, 0);
+    g = e;
+  }
+  shapeCache.set(key, g);
+  return g;
+}
+
+function Tier({ t, spec, colour, phone, onTap }: { t: CakeFigureTier; spec: CakeFigureSpec; colour: string; phone: boolean; onTap?: (index: number) => void }) {
   const r = t.radius * S;
   const h = t.height * S;
   const y0 = 0.024 + t.y * S;
   const normalMap = spec.finish === 'buttercream' ? buttercreamMap() : null;
   return (
-    <group position={[t.x * S, 0, 0]}>
+    <group
+      position={[t.x * S, 0, 0]}
+      onClick={
+        onTap
+          ? (e) => {
+              e.stopPropagation();
+              onTap(t.index);
+            }
+          : undefined
+      }
+    >
       {t.gapBelow > 0 ? <Gap t={t} spec={spec} /> : null}
       {spec.finish === 'semi_naked' ? (
         // a layered sponge: sponge bands with cream between, scraped thin
         [0, 1, 2, 3].map((k) => (
-          <mesh key={k} position={[0, y0 + (h / 4) * (k + 0.5), 0]}>
-            <cylinderGeometry args={[r, r, h / 4, 64]} />
+          <mesh key={k} position={[0, y0 + (h / 4) * (k + 0.5), 0]} geometry={tierGeometry(t.shape, r, h / 4)}>
             <meshPhysicalMaterial color={k % 2 === 0 ? t.sponge : IVORY} roughness={0.9} transparent={k % 2 === 1} opacity={0.85} />
           </mesh>
         ))
       ) : (
-        <mesh position={[0, y0 + h / 2, 0]}>
-          <cylinderGeometry args={[r, r, h, 72, 1]} />
+        <mesh position={[0, y0 + h / 2, 0]} geometry={tierGeometry(t.shape, r, h)}>
           {spec.finish === 'fondant' ? (
             <meshPhysicalMaterial color={IVORY} roughness={0.42} sheen={0.6} sheenColor="#ffffff" clearcoat={0.25} clearcoatRoughness={0.5} />
           ) : (
@@ -263,7 +381,7 @@ function FlowerCluster({ at, colour, count }: { at: [number, number, number]; co
 
 function Flowing({ spec, colour, phone }: { spec: CakeFigureSpec; colour: (i: number) => string; phone: boolean }) {
   const f = spec.flowing!;
-  const run = spec.tiers.filter((t) => t.index >= f.toTier && t.index <= f.fromTier).reverse();
+  const run = spec.tiers.filter((t) => t.index >= f.fromTier && t.index <= f.toTier).sort((a, b) => a.index - b.index);
   const curve = useMemo(
     () =>
       new THREE.CatmullRomCurve3(
@@ -303,7 +421,7 @@ function Flowing({ spec, colour, phone }: { spec: CakeFigureSpec; colour: (i: nu
 
 function Topper({ spec, colour }: { spec: CakeFigureSpec; colour: string }) {
   const tp = spec.topper!;
-  const t = spec.tiers[tp.onTier]!;
+  const t = spec.tiers.find((x) => x.index === tp.onTier) ?? spec.tiers[spec.tiers.length - 1]!;
   const y = 0.024 + (t.y + t.height) * S;
   const at: [number, number, number] = [t.x * S, y, 0];
   if (tp.kind === 'flowers') return <FlowerCluster at={[at[0], y + 0.03, 0]} colour={colour} count={6} />;

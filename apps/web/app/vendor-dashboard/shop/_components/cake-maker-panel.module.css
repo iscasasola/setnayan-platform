@@ -1,7 +1,7 @@
 /*
- * cake-options.module.css — "Your cake options" (Cake Maker §01). The drawing's supplier maker rows
- * (prototypes/cake_maker_2026-11-21/cake_maker_fable.html · "supplier maker rows"), in the supplier blue and its navy
- * dark pair. Tokens are scoped to the part so nothing leaks into the rest of the Card Maker.
+ * cake-maker-panel.module.css — Shop › Specialized tools › Cake Maker (v6 "Cake Maker · set once";
+ * prototypes/cake_maker_2026-11-21/cake_maker_fable.html), in the supplier blue and its navy dark pair. Tokens are
+ * scoped to the panel so nothing leaks into the rest of the Shop.
  */
 .root {
   --cake-s-card: #ffffff;
@@ -58,9 +58,6 @@
   background: var(--cake-s-ghost);
   box-shadow: none;
   border-radius: var(--m-r-md);
-}
-.sl {
-  border-radius: 0;
 }
 .sl[data-open] {
   background: var(--cake-s-card);
@@ -178,6 +175,9 @@
   font-size: 14.5px;
   text-align: left;
   min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .name {
   flex: 1;
@@ -278,7 +278,7 @@
 .sw i {
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: var(--m-r-full);
   box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.14);
 }
 .sw button,
@@ -341,16 +341,137 @@
   cursor: default;
   opacity: 0.85;
 }
-/* the live picture of the cake the one price pays for */
-.preview {
-  max-width: 260px;
-  margin: 0 auto 10px;
-  padding: 10px 16px 4px;
+/* Arrangements: a small cake for each way the tiers sit */
+.arrs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+.arr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px 10px;
   border-radius: var(--m-r-md);
+  background: var(--cake-s-ghost);
+}
+.arr[data-on] {
+  box-shadow: inset 0 0 0 2px var(--cake-s-acc);
+}
+.arrPick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  font-size: 13.5px;
+}
+.arrPick:disabled {
+  cursor: default;
+}
+.arrFig {
+  width: 100%;
+  height: 84px;
+  border-radius: var(--m-r-sm);
   background: radial-gradient(120% 90% at 50% 30%, #fbf8f3, #efe9e0);
 }
-:global(html.dark) .preview {
+:global(html.dark) .arrFig {
   background: radial-gradient(120% 90% at 50% 30%, #2a2622, #1a1816);
+}
+/* a tick row: the catalog choice the shop makes or not */
+.tick {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14.5px;
+  text-align: left;
+}
+.tick::before {
+  content: '';
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--m-r-sm);
+  box-shadow: inset 0 0 0 2px var(--cake-s-ink3);
+}
+.tick[aria-pressed='true']::before {
+  background: var(--cake-s-acc);
+  box-shadow: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E");
+  background-size: 14px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.tick:disabled {
+  cursor: default;
+}
+.serves {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--cake-s-ink2);
+}
+.serves input {
+  width: 3.5em;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed var(--cake-s-ink3);
+  font: inherit;
+  color: var(--cake-s-ink);
+}
+.serves input:focus {
+  outline: none;
+  border-bottom-color: var(--cake-s-acc);
+}
+.swPick {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m-r-full);
+  background: transparent;
+  overflow: hidden;
+}
+/* What couples see */
+.sum {
+  padding: 6px 14px;
+}
+.sumRow {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: 13.5px;
+}
+.sumRow dt {
+  width: 96px;
+  flex: none;
+  color: var(--cake-s-ink2);
+}
+.sumRow dd {
+  margin: 0;
+  min-width: 0;
+}
+.saveRow {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(to top, rgb(var(--sn-frame-bg)) 70%, transparent);
+}
+.okLine {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cake-s-accw);
+}
+.failAct {
+  padding: 0 14px 12px;
 }
 /* locked: included in Pro */
 .lockRow {

@@ -87,9 +87,7 @@ import { ShowcaseClipField } from './showcase-media-fields';
 import { CARD_PHOTOS_TIP, CardPhotoGallery, cardPhotosFullTip } from './card-photo-gallery';
 import { cardPhotoLimit, cardPhotoOrder } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
-import dynamic from 'next/dynamic';
-import { isCakeKind } from '@/lib/cake-maker';
-import type { CakeSeed } from './cake-options-step';
+import { CustomFormAsk } from './custom-form-ask';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import type { CardMakerLibrary } from '@/lib/card-maker-library';
@@ -141,7 +139,6 @@ import {
   type MakerCheckRules,
   type PhotoCheckAsk,
 } from './card-checks';
-import { CustomFormAsk } from './custom-form-ask';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -229,9 +226,6 @@ export type MakerEditing = {
   legacyPromise: string | null;
 };
 
-/** 🎂 Your cake options (Cake Maker §01) — its own chunk, so none of it is in the Maker's first load. */
-const CakeOptionsStep = dynamic(() => import('./cake-options-step').then((m) => m.CakeOptionsStep), { ssr: false, loading: () => null });
-
 type SheetKey = 'kind' | 'audience' | 'ask' | 'delete';
 
 const line = 'var(--m-line)';
@@ -286,8 +280,6 @@ export function CanvasMaker({
   portfolioSlot = null,
   portfolioLine = null,
   editing = null,
-  cakeSeed,
-  cakeLocked = false,
   bookedNow,
   deleteGate = null,
   editLock = null,
@@ -373,13 +365,6 @@ export function CanvasMaker({
   portfolioSlot?: ReactNode;
   /** The Portfolio fold's summary when `portfolioSlot` is drawn (`portfolioSummary`). */
   portfolioLine?: string | null;
-  /**
-   * 🎂 A saved cake card's own "Your cake options" (`readCakeOptionsForEdit`). Absent on a new card → the cake template.
-   * `unread` → the part says so and posts nothing, so a refused read can never overwrite the saved options.
-   */
-  cakeSeed?: CakeSeed;
-  /** 🔒 Special tools are Pro and up after the admin's start date — a new cake card below Pro opens locked. */
-  cakeLocked?: boolean;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
   /**
@@ -1524,7 +1509,7 @@ export function CanvasMaker({
                 <FairNote hits={checks.fair} field="included" />
                 {/* ★ Options on each line (always · optional · they pick) — CREATE-ONLY in the save (one run mints one
                     package), so it stays reachable while the card is made; the saved card points to Your packages. */}
-                {customizationEnabled && !isEdit && !isCakeKind(category) ? (
+                {customizationEnabled && !isEdit ? (
                   <FormRows width="short">
                     <div data-maker-options="">
                       <OpensRow name="Options on each line" answer="" empty="None yet" defaultOpen={initial?.customization.status === 'copied'} data="options">
@@ -1539,8 +1524,9 @@ export function CanvasMaker({
                     </div>
                   </FormRows>
                 ) : null}
-                {/* ✍ The end of the customization part, on every card (a cake card's sits under Your cake options). */}
-                {!isCakeKind(category) ? <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} /> : null}
+                {/* ✍ "Need your own form? Tell us what you need" — the end of the customization part, on EVERY card (DECISION_LOG
+                    2026-11-21; the custom-form request, not the Cake Maker, which lives in the chat). */}
+                <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} />
               </div>
             </MakerGroup>
 
@@ -1621,18 +1607,6 @@ export function CanvasMaker({
                 </FormRow>
               </FormRows>
             </MakerGroup>
-            {/* ── 🎂 YOUR CAKE OPTIONS (Cake Maker §01, DECISION_LOG 2026-11-21) — a cake card's last part, on a new card AND a
-                saved one (ruling 9). Its lines are the card's own ★ Customization package (lib/cake-maker.ts). ── */}
-            {customizationEnabled && isCakeKind(category) ? (
-              <div data-maker-row="cake-options">
-                <CakeOptionsStep
-                  seed={cakeSeed ?? { status: 'ok', cake: null, saved: false, locked: cakeLocked }}
-                  serviceId={editing?.serviceId ?? null}
-                  priceWords={snap.hasPrice ? (snap.priceLine.split(' · ')[0] ?? null) : null}
-                />
-                <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} />
-              </div>
-            ) : null}
 
             {/* ═══ MORE SETTINGS — opens IN PLACE (cut 3, owner-approved 2026-11-14), its folds now FRAMED GROUPS (HYBRID
                 screen 4, "Every fold keeps its fields. Folds become framed groups"). Mounted while shut, so every default

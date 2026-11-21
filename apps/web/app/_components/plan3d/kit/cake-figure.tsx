@@ -42,7 +42,6 @@ export function CakeFigure({
   const botY = (t: CakeFigureTier) => base - t.y * U;
   const rx = (t: CakeFigureTier) => t.radius * U;
   const ry = (t: CakeFigureTier) => t.radius * U * 0.17;
-  const stands = [...new Set(spec.tiers.map((t) => t.stand))];
 
   return (
     <svg
@@ -69,14 +68,16 @@ export function CakeFigure({
         </pattern>
       </defs>
 
-      {/* the board under each stand, with a soft contact shadow */}
-      {stands.map((s) => {
-        const first = spec.tiers.find((t) => t.stand === s)!;
-        const r = rx(first) * 1.16;
+      {/* the board under each stand, with a soft contact shadow (staircase: one stand per tier, stepping up) */}
+      {spec.stands.map((st, s) => {
+        const r = st.radius * U;
+        const y = base - st.y * U;
+        const x = cx + st.x * U;
         return (
           <g key={`board${s}`}>
-            <ellipse cx={X(first)} cy={base + 10} rx={r * 1.04} ry={r * 0.2} fill="#000" opacity="0.1" />
-            <ellipse cx={X(first)} cy={base + 4} rx={r} ry={r * 0.19} fill={`url(#${uid}b)`} stroke="#D8CEC0" />
+            {st.y > 0 ? <rect x={x - 3} y={y + 4} width="6" height={st.y * U} fill={GOLD} opacity="0.55" /> : null}
+            <ellipse cx={x} cy={y + 10} rx={r * 1.04} ry={r * 0.2} fill="#000" opacity="0.1" />
+            <ellipse cx={x} cy={y + 4} rx={r} ry={r * 0.19} fill={`url(#${uid}b)`} stroke="#D8CEC0" />
           </g>
         );
       })}
@@ -88,7 +89,7 @@ export function CakeFigure({
         const right = X(t) + rx(t);
         const top = topY(t);
         const bot = botY(t);
-        const body = `M${left} ${top} L${left} ${bot} A${rx(t)} ${ry(t)} 0 0 0 ${right} ${bot} L${right} ${top} Z`;
+        const { body, face } = shapePaths(t.shape, X(t), top, bot, rx(t), ry(t));
         const fill = spec.finish === 'semi_naked' ? t.sponge : IVORY;
         const accentColour = colour(t.index);
         return (
@@ -104,7 +105,8 @@ export function CakeFigure({
             ) : null}
             {spec.finish === 'buttercream' ? <path d={body} fill={`url(#${uid}bc)`} /> : null}
             <path d={body} fill={`url(#${uid}s)`} />
-            <ellipse cx={X(t)} cy={top} rx={rx(t)} ry={ry(t)} fill={spec.finish === 'semi_naked' ? '#FBF6EC' : '#FFFBF4'} />
+            <path d={face} fill={spec.finish === 'semi_naked' ? '#FBF6EC' : '#FFFBF4'} data-cake-shape={t.shape} />
+            {t.shape === 'hexagon' ? <path d={`M${X(t) - rx(t) * 0.5} ${top + ry(t)} L${X(t) - rx(t) * 0.5} ${bot + ry(t)} M${X(t) + rx(t) * 0.5} ${top + ry(t)} L${X(t) + rx(t) * 0.5} ${bot + ry(t)}`} stroke="#000" strokeOpacity="0.07" /> : null}
             {spec.finish === 'fondant' ? (
               <ellipse cx={X(t) - rx(t) * 0.35} cy={top + (bot - top) * 0.45} rx={rx(t) * 0.12} ry={(bot - top) * 0.32} fill="#fff" opacity="0.28" />
             ) : null}
@@ -131,6 +133,36 @@ export function CakeFigure({
       ) : null}
     </svg>
   );
+}
+
+/**
+ * A tier's front view in its shape (v6): its body and its top face. Round = a cylinder · square = a box seen a little
+ * from above · hexagon = flat side to the front · heart = point to the front.
+ */
+function shapePaths(shape: CakeFigureTier['shape'], x: number, top: number, bot: number, rx: number, ry: number): { body: string; face: string } {
+  const l = x - rx;
+  const r = x + rx;
+  if (shape === 'square') {
+    const k = rx * 0.16;
+    return { body: `M${l} ${top} L${l} ${bot} L${r} ${bot} L${r} ${top} Z`, face: `M${l} ${top} L${r} ${top} L${r - k} ${top - ry * 1.5} L${l + k} ${top - ry * 1.5} Z` };
+  }
+  if (shape === 'hexagon') {
+    const h = rx * 0.5;
+    return {
+      body: `M${l} ${top} L${l} ${bot} L${x - h} ${bot + ry} L${x + h} ${bot + ry} L${r} ${bot} L${r} ${top} Z`,
+      face: `M${l} ${top} L${x - h} ${top + ry} L${x + h} ${top + ry} L${r} ${top} L${x + h} ${top - ry} L${x - h} ${top - ry} Z`,
+    };
+  }
+  if (shape === 'heart') {
+    return {
+      body: `M${l} ${top} L${l} ${bot} Q${l + rx * 0.2} ${bot + ry * 0.9} ${x} ${bot + ry * 1.6} Q${r - rx * 0.2} ${bot + ry * 0.9} ${r} ${bot} L${r} ${top} Z`,
+      face: `M${x} ${top + ry * 1.6} Q${l + rx * 0.2} ${top + ry * 0.9} ${l} ${top} Q${l + rx * 0.05} ${top - ry * 1.2} ${x - rx * 0.45} ${top - ry * 1.1} Q${x - rx * 0.1} ${top - ry} ${x} ${top - ry * 0.55} Q${x + rx * 0.1} ${top - ry} ${x + rx * 0.45} ${top - ry * 1.1} Q${r - rx * 0.05} ${top - ry * 1.2} ${r} ${top} Q${r - rx * 0.2} ${top + ry * 0.9} ${x} ${top + ry * 1.6} Z`,
+    };
+  }
+  return {
+    body: `M${l} ${top} L${l} ${bot} A${rx} ${ry} 0 0 0 ${r} ${bot} L${r} ${top} Z`,
+    face: `M${l} ${top} A${rx} ${ry} 0 1 0 ${r} ${top} A${rx} ${ry} 0 1 0 ${l} ${top} Z`,
+  };
 }
 
 type TierDraw = { t: CakeFigureTier; spec: CakeFigureSpec; cx: number; rx: number; ry: number };
@@ -251,7 +283,7 @@ function Flowing({
   colour: (i: number) => string;
 }) {
   const f = spec.flowing!;
-  const run = spec.tiers.filter((t) => t.index >= f.toTier && t.index <= f.fromTier).reverse();
+  const run = spec.tiers.filter((t) => t.index >= f.fromTier && t.index <= f.toTier).sort((a, b) => a.index - b.index);
   if (run.length === 0) return null;
   const pts = run.map((t, i) => ({ x: X(t) + rx(t) * (i % 2 === 0 ? 0.35 : -0.15), y: (topY(t) + botY(t)) / 2 }));
   if (f.kind === 'ribbon_cascade' || f.kind === 'pearl_strand') {
@@ -259,7 +291,7 @@ function Flowing({
     return f.kind === 'ribbon_cascade' ? (
       <path d={d} fill="none" stroke={colour(0)} strokeWidth="7" strokeLinecap="round" opacity="0.9" />
     ) : (
-      <path d={d} fill="none" stroke="#FFFDF7" strokeWidth="5" strokeDasharray="0.1 8" strokeLinecap="round" />
+      <path d={d} fill="none" stroke="#6B4226" strokeWidth="6" strokeLinecap="round" opacity="0.85" />
     );
   }
   return (
@@ -287,7 +319,7 @@ function Monogram({
   base: number;
 }) {
   const m = spec.monogram!;
-  const t = spec.tiers[m.onTier] ?? spec.tiers[0]!;
+  const t = spec.tiers.find((x) => x.index === m.onTier) ?? spec.tiers[0]!;
   const x = m.spot === 'board' ? X(spec.tiers[0]!) + spec.tiers[0]!.radius * U * 0.95 : X(t);
   const y = m.spot === 'board' ? base + 6 : (topY(t) + botY(t)) / 2;
   return (
@@ -314,7 +346,7 @@ function Topper({
   colour: string;
 }) {
   const tp = spec.topper!;
-  const t = spec.tiers[tp.onTier]!;
+  const t = spec.tiers.find((x) => x.index === tp.onTier) ?? spec.tiers[spec.tiers.length - 1]!;
   const x = X(t);
   const y = topY(t) - 4;
   const line = { fill: 'none', stroke: INK_LINE, strokeWidth: 1.6, strokeLinecap: 'round' as const };

@@ -161,7 +161,6 @@ export async function loadPackageDraft(
           pickMax: i.pick_max ?? null,
           maxExtraHours: i.max_extra_hours ?? null,
           vendorServiceId: i.vendor_service_id ?? null,
-          cakePart: i.cake_part ?? null,
           options: (options ?? [])
             .filter((o) => o.item_id === i.item_id)
             .map((o) => ({
@@ -170,7 +169,6 @@ export async function loadPackageDraft(
               price_delta_centavos: o.price_delta_centavos,
               is_default: o.is_default,
               is_available: o.is_available,
-              lookKey: o.look_key ?? null,
             })),
         })),
       },

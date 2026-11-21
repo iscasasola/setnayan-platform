@@ -16,6 +16,8 @@ import type { OfferMakerStart } from '../../offers/_components/offer-maker';
 import { TemplatesOffersContext } from './shop-templates';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
+// 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
+const CakeMakerPanel = lazy(() => import('./cake-maker-panel').then((m) => ({ default: m.CakeMakerPanel })));
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
 
 /**
@@ -283,7 +285,7 @@ export function ShopMakers({
           origin={toolTiles.current[picked.key] ?? null}
           frame={frame.current}
           title={picked.title}
-          sub={picked.line}
+          sub={picked.door.kind === 'cake_maker' ? 'Set once for your shop · Pro' : picked.line}
           lead={
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
               <PickedIcon className="h-5 w-5" strokeWidth={1.75} />
@@ -325,7 +327,7 @@ function OfferLockPreview() {
 /** The tile's last line: the Scanner's count, the tool's own place, or how many booked events it runs on. */
 function toolFoot(t: SpecializedTool, suggested: boolean, scannerSub: string, booked: readonly BookedDay[] | null): string {
   if (t.door.kind === 'scanner') return scannerSub;
-  if (t.door.kind === 'page') return suggested ? 'For your services' : 'Open';
+  if (t.door.kind === 'page' || t.door.kind === 'cake_maker') return suggested ? 'For your services' : 'Open';
   if (booked === null) return 'Couldn’t load your events';
   if (booked.length === 0) return 'Runs on your booked events';
   return `Runs on ${formatCount(booked.length)} booked ${booked.length === 1 ? 'event' : 'events'}`;
@@ -355,6 +357,19 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
           </ul>
         )}
       </div>
+    );
+  }
+  if (tool.door.kind === 'cake_maker') {
+    return (
+      <Suspense
+        fallback={
+          <p role="status" className="py-4 text-[13.5px] text-ink/70" data-cake-maker-loading="">
+            Opening your Cake Maker…
+          </p>
+        }
+      >
+        <CakeMakerPanel />
+      </Suspense>
     );
   }
   if (tool.door.kind === 'page') {

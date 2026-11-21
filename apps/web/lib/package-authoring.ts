@@ -53,8 +53,6 @@ export type DraftOption = {
   price_delta_centavos: number;
   is_default: boolean;
   is_available: boolean;
-  /** 🎂 Cake Maker: which catalog look or tier count this option is (lib/cake-maker.ts `cakeLookKey`). */
-  lookKey?: string | null;
 };
 
 /**
@@ -105,8 +103,6 @@ export type DraftItem = {
    * the card, never typed here. Maps to `vendor_package_items.vendor_service_id`. Absent / null = a typed line.
    */
   vendorServiceId?: string | null;
-  /** 🎂 Cake Maker: which part of the cake this line is (lib/cake-maker.ts). Absent / null = an ordinary line. */
-  cakePart?: string | null;
 };
 
 export type DraftPackage = {

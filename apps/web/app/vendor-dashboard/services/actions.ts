@@ -98,10 +98,6 @@ import {
   toPackageDraft,
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
-import { CAKE_OPTIONS_FIELD, cakeOptionsToDraftItems, isCakeKind, parseCakeOptions, type CakeOptions } from '@/lib/cake-maker';
-import { cardPackageId, saveCakeMessageQuestion } from '@/lib/cake-maker.server';
-import { specialToolsOpenToAll } from '@/lib/special-tools';
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, freeOfPack, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
@@ -2134,42 +2130,6 @@ export async function commitVendorService(formData: FormData) {
     if (first) return back(first.message);
   }
 
-  // ---- 🎂 YOUR CAKE OPTIONS (Cake Maker, DECISION_LOG 2026-11-21) — parsed and checked HERE, written late ----
-  // A cake card's choices are the card's own ★ Customization package lines (lib/cake-maker.ts), on create AND on edit
-  // (ruling 9). Every check that can refuse runs now, while a bounce still costs nothing.
-  let cakeOptions: CakeOptions | null = null;
-  let cakeItems: DraftItem[] = [];
-  if (packageAuthoringEnabled() && isCakeKind(category)) {
-    const parsedCake = parseCakeOptions(formData.get(CAKE_OPTIONS_FIELD));
-    if (!parsedCake.ok) return back(parsedCake.message);
-    cakeOptions = parsedCake.cake;
-  }
-  if (cakeOptions) {
-    // 🔒 SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP (owner, 2026-11-21) — the editor's lock, asked again here.
-    // A locked editor posts no options at all, so a plan below Pro still saves every other part of the card, and the
-    // saved cake options stay exactly as they are.
-    const paid = await readSpecialToolsPaidFrom(supabase);
-    if (paid.status !== 'ok') return back('We could not check your plan for Your cake options just now, so nothing was saved. Try again.');
-    if (!specialToolsOpenToAll(paid.paidFrom, Date.now()) && !caps.specialTools) {
-      return back('Your cake options are included in Pro. Upgrade to change them — the options you saved are kept.');
-    }
-    if (customizationItems.length > 0) {
-      return back('A cake card keeps its choices in Your cake options. Remove the lines under What’s included and save again.');
-    }
-    if (customizationPriceCentavos <= 0) {
-      return back('Your cake options add to your one price. Add the price, then save again.');
-    }
-    cakeItems = cakeOptionsToDraftItems(cakeOptions, canonicalServiceForVendorCategory(category));
-    const viol = findVendorTextViolation(
-      cakeItems.flatMap((item) => item.options.map((o) => ({ field: `${item.service_description} · ${o.label}`, value: o.label }))),
-    );
-    if (viol) return back(viol);
-    const cakeProblem = validatePackageDraft(
-      toPackageDraft(cakeItems, { packageName: (fields.title as string | null) ?? displayServiceLabel(category), totalPriceCentavos: customizationPriceCentavos }),
-    )[0];
-    if (cakeProblem) return back(cakeProblem.message);
-  }
-
   // (The cover-photo check that stood here — owner 2026-06-20, "the card needs
   // a photo" — moved INTO the shared publish gate above on 2026-09-11 (H2), so
   // the list's on/off switch and the database now ask it too. One rule, one
@@ -2506,41 +2466,6 @@ export async function commitVendorService(formData: FormData) {
           : res.status === 'error'
             ? res.message
             : `Customization options could not be saved (${res.status}).`;
-    }
-  }
-
-  // ---- 🎂 Your cake options → the card's own package (write LATE) ----
-  // Replaces the card's ★ Customization package when it has one (a saved card's edit, ruling 9) — `savePackage` keeps a
-  // booked package's lines as they are (`frozen`) and says so — or mints it on a new card. A failure is reported, never
-  // a bounce: the card itself is already saved.
-  if (cakeOptions && typeof savedId === 'string' && savedId.length > 0) {
-    const shop = profile.vendor_profile_id;
-    const existing = await cardPackageId(supabase, { vendorProfileId: shop, vendorServiceId: savedId });
-    if (existing.status === 'unread') {
-      customizationError = 'Your cake options could not be saved — open the card and save again.';
-    } else {
-      const res = await savePackage({
-        ...toPackageDraft(cakeItems, {
-          packageName: (fields.title as string | null) ?? displayServiceLabel(category),
-          totalPriceCentavos: customizationPriceCentavos,
-        }),
-        primary_canonical_service: canonicalServiceForVendorCategory(category),
-        vendorServiceId: savedId,
-        ...(existing.status === 'ok' ? { packageId: existing.data } : {}),
-      });
-      if (res.status === 'frozen') {
-        customizationError = 'Couples have booked this cake, so its options stay as they are. Make a new card for new options.';
-      } else if (res.status !== 'ok') {
-        customizationError =
-          res.status === 'invalid'
-            ? (res.problems[0]?.message ?? 'Some cake options need fixing.')
-            : res.status === 'error'
-              ? res.message
-              : `Your cake options could not be saved (${res.status}).`;
-      } else {
-        const msgErr = await saveCakeMessageQuestion(supabase, { vendorProfileId: shop, vendorServiceId: savedId, message: cakeOptions.message });
-        if (msgErr) customizationError = msgErr;
-      }
     }
   }
 

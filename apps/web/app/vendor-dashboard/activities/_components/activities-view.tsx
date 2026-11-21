@@ -4,11 +4,12 @@ import { ActionButton } from '@/components/action-button';
 import { TEMPLATE_SUBLINE, TemplateEmpty } from '@/app/_components/template-rows';
 import { Fold } from '@/app/_components/fold';
 import { StayForm } from '@/app/_components/stay-form';
-import { SCHEDULE_BLOCK_LABEL, SCHEDULE_BLOCK_TYPES } from '@/lib/schedule';
+import { SCHEDULE_BLOCK_LABEL } from '@/lib/schedule';
 import type { VendorActivity } from '@/lib/vendor-activities';
 import { ToolPage, ToolPin, ToolSection } from '../../_components/tool-page';
 import { ToolAddSheet } from '../../_components/tool-add-sheet';
-import { addActivity, reorderActivity, toggleActivityOffered, updateActivity } from '../actions';
+import { reorderActivity, toggleActivityOffered } from '../actions';
+import { SegmentForm } from './segment-form';
 
 /**
  * Your segments — the screen (owner-approved redraw v3, 21 Nov 2026 · `supplier_tools_redraw_v3_fable.html` § 08). Look
@@ -17,7 +18,6 @@ import { addActivity, reorderActivity, toggleActivityOffered, updateActivity } f
  * component) are the shipped page's. "Add a segment" is the thumb row's ＋ now. On a computer: segments | questions.
  * Presentational — the page and `/dev/supplier-tools-lab` mount it; the page measures the read and hands `unread`.
  */
-const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90] as const;
 
 export function ActivitiesView({
   offered,
@@ -120,59 +120,12 @@ export function ActivitiesView({
 
       {/* Add — the thumb row's ＋ rises the shipped form (it sat open at the top of the page). */}
       <ToolAddSheet name="activities" label="Add a segment" title="Add a segment">
-          <StayForm door="supActivities.addActivity" action={addActivity} className="space-y-2">
-            <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-              <label className="block">
-                <span className="sr-only">Segment name</span>
-                <input
-                  name="label"
-                  required
-                  maxLength={80}
-                  placeholder="e.g. Principal sponsors roll call"
-                  className={FIELD}
-                />
-              </label>
-              <label className="block">
-                <span className="sr-only">How long it takes</span>
-                <select name="duration_minutes" defaultValue={15} className={FIELD}>
-                  {DURATIONS.map((d) => (
-                    <option key={d} value={d}>
-                      {d} min
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="sr-only">Where in the day</span>
-                <select name="block_type" defaultValue="program" className={FIELD}>
-                  {SCHEDULE_BLOCK_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {SCHEDULE_BLOCK_LABEL[t]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="block">
-              <span className="sr-only">What it is</span>
-              <textarea
-                name="blurb"
-                rows={2}
-                maxLength={400}
-                placeholder="What happens, in your words — the couple reads this while choosing."
-                className={FIELD}
-              />
-            </label>
-            <ActionButton type="submit" tone="brand" main icon={<Plus aria-hidden />} label="Add segment" />
-          </StayForm>
+          <SegmentForm submit={<ActionButton type="submit" tone="brand" main icon={<Plus aria-hidden />} label="Add segment" />} />
       </ToolAddSheet>
     </ToolPage>
   );
 }
 
-/** A typed field — the template's 12-corner field, 44 high, on the page's own paper. */
-const FIELD =
-  'w-full min-h-11 rounded-xl border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-[15px] text-ink placeholder:text-[color:var(--m-slate-2)]'; // no-card-ok: a typed field's own outline (inputs / selects / textareas), not a box around content
 
 /** One segment: editable in place, movable, retirable. */
 function ActivityRow({
@@ -192,54 +145,7 @@ function ActivityRow({
         data="activity"
       >
       <div className="pb-4 pt-1">
-      <StayForm door="supActivities.updateActivity" action={updateActivity} className="space-y-2">
-        <input type="hidden" name="activity_id" value={activity.activity_id} />
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-          <input
-            name="label"
-            defaultValue={activity.label}
-            maxLength={80}
-            aria-label="Segment name"
-            className={`${FIELD} font-medium`}
-          />
-          <select
-            name="duration_minutes"
-            defaultValue={activity.duration_minutes}
-            aria-label="How long it takes"
-            className={FIELD}
-          >
-            {[...new Set([...DURATIONS, activity.duration_minutes])]
-              .sort((a, b) => a - b)
-              .map((d) => (
-                <option key={d} value={d}>
-                  {d} min
-                </option>
-              ))}
-          </select>
-          <select
-            name="block_type"
-            defaultValue={activity.block_type}
-            aria-label="Where in the day"
-            className={FIELD}
-          >
-            {SCHEDULE_BLOCK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {SCHEDULE_BLOCK_LABEL[t]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <textarea
-          name="blurb"
-          defaultValue={activity.blurb ?? ''}
-          rows={2}
-          maxLength={400}
-          aria-label="What it is"
-          placeholder="What happens, in your words."
-          className={FIELD}
-        />
-        <ActionButton type="submit" tone="brand" icon={<Check aria-hidden />} label="Save" />
-      </StayForm>
+      <SegmentForm activity={activity} submit={<div><ActionButton type="submit" tone="brand" icon={<Check aria-hidden />} label="Save" /></div>} />
 
       <div className="mt-2 flex items-center gap-2">
         <MoveButton activityId={activity.activity_id} direction="up" disabled={isFirst} />

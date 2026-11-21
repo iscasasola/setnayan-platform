@@ -309,7 +309,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     <input type="hidden" name="partnership_id" value={p.id} />
                     <SubmitButton
                       pendingLabel="Accepting…"
-                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-ink/90"
+                      className="rounded-md bg-ink px-3 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
                     >
                       Accept
                     </SubmitButton>
@@ -389,7 +389,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                             id={`kind-${p.id}`}
                             name="relationship_type"
                             defaultValue={p.relationship_type}
-                            className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                            className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm"
                           >
                             {PARTNERSHIP_KINDS.map((k) => (
                               <option key={k} value={k}>
@@ -515,7 +515,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                       <select
                         name="relationship_type"
                         required
-                        className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
+                        className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm"
                       >
                         <option value="">Select a type…</option>
                         {Object.entries(RELATIONSHIP_LABELS).map(([k, label]) => (
@@ -528,7 +528,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     <div>
                       <SubmitButton
                         pendingLabel="Sending…"
-                        className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
+                        className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-ink/90"
                       >
                         Send request
                       </SubmitButton>

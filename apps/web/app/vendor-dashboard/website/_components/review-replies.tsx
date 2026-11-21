@@ -273,7 +273,7 @@ function FlagForm({ reviewId }: { reviewId: string }) {
         <Flag aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         <span className="sr-only">Flag as fake</span>
       </summary>
-      <div className="absolute right-0 top-10 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-white p-3 shadow-lg">
+      <div className="absolute right-0 top-10 z-10 w-72 max-w-[calc(100vw-2rem)] rounded-xl bg-raised p-3 shadow-lg">
         <p className="home-k2 !mt-0 !mb-2">Flag review as fake</p>
         <form action={submitFlagAsFake} className="space-y-2">
           <input type="hidden" name="review_id" value={reviewId} />

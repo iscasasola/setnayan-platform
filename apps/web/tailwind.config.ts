@@ -105,6 +105,14 @@ const config: Config = {
         // Tailwind 3 accepts a function colour at runtime (withAlphaValue /
         // withAlphaVariable call it) but its Config type does not say so.
         ink: { DEFAULT: inkText as unknown as string },
+        // 🌙 THE ACCENT AS A WORD (supplier navy dark, owner 18 Nov 2026). On the navy the main button is a deep blue
+        // with white words (#2272E6, 4.55:1) — and that same blue written as a WORD on the navy card reads 3.46:1. No
+        // one blue can be both (white-on-it ≥ 4.5 needs it dark; it-on-navy ≥ 4.5 needs it light), so TEXT may read
+        // its own token: `--color-mulberry-word` / `--sn-accent-word`. Unset everywhere else, so each falls back to
+        // exactly the token it read before — no pixel moves in Light, or in the couple's dark. Text only: fills,
+        // rings and borders keep the accent itself (the `text-terracotta` precedent above).
+        mulberry: { DEFAULT: 'rgb(var(--color-mulberry-word, var(--color-mulberry)) / <alpha-value>)' },
+        sn: { accent: 'rgb(var(--sn-accent-word, var(--sn-accent)) / <alpha-value>)' },
       },
       // Single radius source of truth — every `rounded-*` class resolves to the
       // --m-r-* token scale in globals.css (Approach B "softer corners", owner-

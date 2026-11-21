@@ -8,7 +8,9 @@ import { createPortal } from 'react-dom';
 import {
   ArrowLeft,
   BadgeCheck,
+  CakeSlice,
   Camera,
+  ChevronRight,
   ImageIcon,
   CalendarPlus,
   Handshake,
@@ -38,6 +40,7 @@ import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
 import { useIsDesktop } from '@/lib/use-responsive';
 import { pickedPageLabel } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
+import { CAKE_TILE_LINES, CAKE_TILE_WORDS, CakeDesignerFromPlus, askForCakeDesign, useCakeTile } from '@/app/_components/cake-maker/cake-plus';
 
 /**
  * THE ＋ BESIDE THE MESSAGE FIELD — and the ONE sheet of every tool the conversation has (simpler supplier dashboard,
@@ -185,8 +188,27 @@ export function afterSheetStepsBack(fn: () => void, holdsEntry: boolean = Boolea
   const safety = window.setTimeout(go, 1200);
 }
 
-export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+export function ToolsSheetButton({
+  rows,
+  sheetMark,
+  threadId,
+  cake,
+}: {
+  rows: readonly SheetRow[];
+  sheetMark: string;
+  threadId?: string;
+  /**
+   * 🎂 Cake Maker v6 — the side whose cake tile this ＋ may draw: the couple's "Design a cake" (full width, at the end of
+   * Ask) or the supplier's For your service › "Ask for a cake design". Drawn only when this chat's shop has it on.
+   */
+  cake?: 'couple' | 'vendor';
+}) {
   const [open, setOpen] = useState(false);
+  const cakeOn = useCakeTile(cake ? threadId : undefined, cake ?? 'couple');
+  const [cakeOpen, setCakeOpen] = useState(false);
+  // The supplier's second level (For your service) and the invite's own state.
+  const [level, setLevel] = useState<'top' | 'service'>('top');
+  const [ask, setAsk] = useState<{ s: 'idle' | 'sending' } | { s: 'failed'; message: string }>({ s: 'idle' });
   const router = useRouter();
   const plus = usePlus(threadId ?? '');
   /* 🧰 ＋ ⇄ ← (Unichat part B, 20 Nov 2026 — approved drawing: "The + turns into ←. Tap it to go back; your text
@@ -200,6 +222,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
   const back = toolOpen || pickerOpen;
   const close = () => {
     setOpen(false);
+    setLevel('top');
     if (threadId && plus.picker) patchPlus(threadId, { picker: false });
   };
   const [mounted, setMounted] = useState(false);
@@ -323,14 +346,106 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
       </li>,
     );
   }
-  const tiles = (
-    <ul className="grid grid-cols-2 gap-2" data-plus-tiles="">
-      {items}
-    </ul>
+  // 🎂 The Cake Maker's tile (v6) — only when this chat's shop has its Cake Maker on.
+  const cakeLead = (
+    <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[color:var(--m-paper)] text-sn-accent">
+      <CakeSlice className="h-[17px] w-[17px]" strokeWidth={1.75} />
+    </span>
   );
+  if (cakeOn && threadId && cake === 'couple') {
+    // Full width, at the end of Ask: right before the first Share (files) tile, else last.
+    const at = items.findIndex((it) => (it as { props?: { 'data-plus-group'?: string } })?.props?.['data-plus-group'] === 'files');
+    const tile = (
+      <li key="cake-design" data-thread-tool-row="cake-design" data-cake-plus="couple" className="col-span-2">
+        <button
+          type="button"
+          title={CAKE_TILE_LINES.couple}
+          className={`sn-press ${tileClass}`}
+          onClick={() => {
+            const holds = open && Boolean(layerHolder(window.history.state));
+            close();
+            // After the sheet's own history step has gone (CHAT-20), so the designer's layer stays open.
+            afterSheetStepsBack(() => setCakeOpen(true), holds);
+          }}
+        >
+          {cakeLead}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-bold leading-tight text-ink">{CAKE_TILE_WORDS.couple}</span>
+            <span className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-2)]">{CAKE_TILE_LINES.couple}</span>
+          </span>
+        </button>
+      </li>
+    );
+    if (at < 0) items.push(tile);
+    else items.splice(at, 0, tile);
+  }
+  if (cakeOn && threadId && cake === 'vendor') {
+    items.push(
+      <li key="for-your-service" data-thread-tool-row="for-your-service" data-cake-plus="service">
+        <button type="button" title="Asks only your shop can make" className={`sn-press ${tileClass}`} onClick={() => setLevel('service')}>
+          {cakeLead}
+          <span className="min-w-0 flex-1 text-[14px] font-bold leading-tight text-ink">For your service</span>
+          <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
+        </button>
+      </li>,
+    );
+  }
+  // 🎂 For your service — the supplier's second level: Ask for a cake design posts the invite card.
+  const serviceLevel =
+    cakeOn && threadId && cake === 'vendor' ? (
+      <div data-plus-level="service">
+        <button type="button" onClick={() => setLevel('top')} className="sn-press -ml-1 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[14px] font-semibold text-ink">
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          For your service
+        </button>
+        <ul className="grid grid-cols-2 gap-2">
+          <li data-thread-tool-row="cake-ask" data-cake-plus="vendor" className="col-span-2">
+            <button
+              type="button"
+              aria-busy={ask.s === 'sending' || undefined}
+              title={CAKE_TILE_LINES.vendor}
+              className={`sn-press ${tileClass}`}
+              onClick={async () => {
+                if (ask.s === 'sending') return;
+                setAsk({ s: 'sending' });
+                const failed = await askForCakeDesign(threadId);
+                if (failed) {
+                  setAsk({ s: 'failed', message: failed });
+                  return;
+                }
+                setAsk({ s: 'idle' });
+                close();
+                router.refresh();
+              }}
+            >
+              {cakeLead}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-bold leading-tight text-ink">{CAKE_TILE_WORDS.vendor}</span>
+                <span className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-2)]">
+                  {ask.s === 'sending' ? 'Sending…' : CAKE_TILE_LINES.vendor}
+                </span>
+              </span>
+            </button>
+          </li>
+        </ul>
+        {ask.s === 'failed' ? (
+          <p role="alert" className="mt-2 text-[13px] text-danger-700" data-cake-ask-failed="">
+            {ask.message}
+          </p>
+        ) : null}
+      </div>
+    ) : null;
+  const tiles =
+    level === 'service' && serviceLevel ? (
+      serviceLevel
+    ) : (
+      <ul className="grid grid-cols-2 gap-2" data-plus-tiles="">
+        {items}
+      </ul>
+    );
 
   const sheet = (
-    <Sheet open={open} onClose={() => setOpen(false)} labelledById={headingId} rise>
+    <Sheet open={open} onClose={() => { setOpen(false); setLevel('top'); }} labelledById={headingId} rise>
       <div className="px-4 pb-5 pt-5" data-thread-tools-sheet={sheetMark}>
         {/* ⓘ beside the title (house rule: title + one line visible, the rest in the ⓘ); `pr-12` keeps clear of the ✕. */}
         <InfoTip label="Add to chat" labelAs="h2" labelId={headingId} labelClassName="text-[17px] font-semibold text-ink" align="start" className="pr-12">
@@ -376,6 +491,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
       {mounted ? createPortal(sheet, document.body) : null}
       {/* 🖥 The tiles in the third column — drawn where the composer says (`tilesSlot`), by the (+) that owns the rows. */}
       {mounted && pickerOpen && plus.tilesSlot ? createPortal(tiles, plus.tilesSlot) : null}
+      {cakeOpen && threadId ? <CakeDesignerFromPlus threadId={threadId} onClose={() => setCakeOpen(false)} /> : null}
     </>
   );
 }
@@ -469,7 +585,7 @@ export function ThreadToolsSheet({
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
   const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement }), 'vendor', eventId, state.hasAgreement);
-  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} cake="vendor" />;
 }
 
 /**
@@ -497,7 +613,7 @@ export function CoupleThreadToolsSheet({
   const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, true).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
-  return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;
+  return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} cake="couple" />;
 }
 
 /**

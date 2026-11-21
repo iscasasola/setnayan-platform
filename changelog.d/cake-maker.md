@@ -38,3 +38,9 @@ DECISION_LOG rows "THE CAKE MAKER LIVES IN THE CHAT, NOT ON SERVICE CARDS", "CAK
   `vendor_cake_makers` and `cake_designs` tables (RLS at create). Nothing is added to packages.
 
 SPEC IMPACT: None — builds the approved v6 drawing and the controller's logged rulings; no ruling changed.
+
+## 2026-11-21 · feat(cake-maker): the two ＋ tiles — the couple's "Design a cake" and the supplier's For your service › "Ask for a cake design"
+
+The chat's ＋ (`thread-tools-sheet.tsx`, after batch E's tray) now draws the Cake Maker's tiles when this chat's shop has its Cake Maker on, read once per chat through the existing `cakeAction` op `status` (no new server action). The couple's tile is full width at the end of Ask (before the Share/files tiles) and opens the designer for this chat. The supplier's For your service opens a second level whose "Ask for a cake design" posts the invite card; a refused invite says so. Held by `lib/the-cake-plus-tiles-open-the-designer.test.ts`.
+
+SPEC IMPACT: None (built to the approved v6 drawing).

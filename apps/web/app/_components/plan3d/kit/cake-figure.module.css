@@ -6,7 +6,7 @@
   overflow: visible;
 }
 .tier {
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1); /* MOTION_STANDARD short speed */
+  transition: transform var(--sn-m-quick) var(--sn-m-settle);
 }
 .script {
   font-family: var(--font-script), cursive;

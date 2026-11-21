@@ -771,7 +771,7 @@ export function GovernedFields({
                       type="button"
                       onClick={() => removeConflict(c.vendor_id)}
                       disabled={pending}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-red-300 hover:text-red-700 disabled:opacity-60"
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/70 transition-colors hover:border-red-300 dark:hover:border-[rgb(var(--color-danger)/0.4)] hover:text-red-700 dark:hover:text-[rgb(var(--color-danger))] disabled:opacity-60"
                     >
                       <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                       Remove
@@ -787,7 +787,7 @@ export function GovernedFields({
                   type="button"
                   onClick={() => commit(open, proposed.trim())}
                   disabled={pending}
-                  className="inline-flex items-center justify-center rounded-xl bg-mulberry px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-xl bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {pending ? 'Saving…' : conflicts.length === 0 ? 'Apply change' : 'Apply anyway'}
                 </button>
@@ -910,7 +910,7 @@ function LockedRow({ label, value }: { label: string; value: string | null }) {
 
 function ErrorNote({ message }: { message: string }) {
   return (
-    <p className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">
+    <p className="rounded-xl border border-red-300 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-xs text-red-700 dark:text-[rgb(var(--color-danger))]">
       {message}
     </p>
   );

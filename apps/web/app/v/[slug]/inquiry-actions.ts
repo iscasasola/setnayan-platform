@@ -57,6 +57,8 @@ import {
 } from '@/lib/inquiry-attribution';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { demoBookingRefusal, demoRefusalFromDbError } from '@/lib/demo-scope';
+import { after } from 'next/server';
+import { routeInquiry } from '@/lib/inquiry-routing.server';
 import { saveVendorToPicks } from '@/app/(shell)/explore/actions';
 import {
   eventVendorCategoryForCardKind,
@@ -473,6 +475,11 @@ export async function startServiceInquiry(input: {
       .update({ pax_at_inquiry: livePax })
       .eq('thread_id', threadId);
   }
+
+  // 👤 One client, one Account Manager (supplier roles d–h, #8013 (e)/(f)): a new client gets their person by the fair
+  // split; a returning one keeps theirs, or is marked "Hand over" when this card is someone else's. After the response,
+  // never blocking the inquiry; a failure leaves the client with the card's people, as before.
+  after(() => routeInquiry(admin, { eventId, vendorProfileId, serviceId: initialServiceId || null, senderUserId: user.id }).then(() => undefined));
 
   // ── Creator Economy PR-C · provenance stamp (brand-NEW threads only) ───────
   // CTA-click attribution lock: the chapter whose Book CTA STARTED the thread

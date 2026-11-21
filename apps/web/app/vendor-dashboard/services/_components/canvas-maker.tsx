@@ -87,6 +87,7 @@ import { ShowcaseClipField } from './showcase-media-fields';
 import { CARD_PHOTOS_TIP, CardPhotoGallery, cardPhotosFullTip } from './card-photo-gallery';
 import { cardPhotoLimit, cardPhotoOrder } from '@/lib/card-photos';
 import { CustomizationStep } from './customization-step';
+import { CustomFormAsk } from './custom-form-ask';
 import { AddonsEditor, type AddonDraft } from './addons-editor';
 import { PaymentScheduleEditor } from './payment-schedule-editor';
 import type { CardMakerLibrary } from '@/lib/card-maker-library';
@@ -1523,6 +1524,9 @@ export function CanvasMaker({
                     </div>
                   </FormRows>
                 ) : null}
+                {/* ✍ "Need your own form? Tell us what you need" — the end of the customization part, on EVERY card (DECISION_LOG
+                    2026-11-21; the custom-form request, not the Cake Maker, which lives in the chat). */}
+                <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} />
               </div>
             </MakerGroup>
 

@@ -42,7 +42,7 @@ import {
   type MakerPartTool,
   type MakerStageKey,
 } from '@/lib/maker-parts';
-import { STAGE_BAR_BAND_PX, STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, STAGE_HEAD_NAME,
+import { STAGE_BAR_BAND_PX, STAGE_BAR_FOOT_CSS, STAGE_BAR_GRID_CSS, STAGE_BAR_HANDLE, STAGE_BAR_LINE_LEAD, STAGE_BAR_STOW_BUTTON, STAGE_BAR_STOW_GLIDE, STAGE_BAR_STOW_PX, STAGE_BAR_SWIPE_PX, SP_ROWS, STAGE_BAR_ROW_VARS, STAGE_GUEST_TAB, STAGE_ICON_BUTTON, STAGE_ICON_FACE, STAGE_PANEL_MS, STAGE_PANEL_VARS, STAGE_PANEL_VARS_DARK, STAGE_ROW, STAGE_TOOL_BUTTON, STAGE_TOOL_INSET, STAGE_TOOL_PILL, stageBarPx, STAGE_HEAD_NAME,
   STAGE_REST_PX, STAGE_REST_WORDS, partPickScroll } from '@/lib/maker-stage-room';
 import { fixedOfKey, fixedScenePanel } from '@/lib/maker-selection';
 import { makerCanvasKeyOf, makerOwnSceneType, makerPartRisesEditor, type MakerStudioTool, makerPartStudioDoor, makerStagePickedAttr, makerStageMayType } from '@/lib/maker-parts';
@@ -1824,7 +1824,7 @@ export function StageTools({
           laid over exactly the FOUR ROWS: as tall as they are, standing on the room kept under the last row. On
           Edit the rows are this toolbar's own and the work area's tool waits under them, out of sight. */}
       <style>
-        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}` +
+        {`html:has([data-stage-tools]){${STAGE_PANEL_VARS}}html.dark:has([data-stage-tools]){${STAGE_PANEL_VARS_DARK}}` +
           STAGE_BAR_ROW_VARS +
           /* 🔒 A locked tab: "🔒 Background" (Maker Edit shell v3, owner-approved 2026-11-13) — at EVERY width, so it sits
              outside the phone-only block below (it was inside it, and the desktop's tabs lost their lock — W1, 2026-11-14). */
@@ -2223,7 +2223,7 @@ export function StageTools({
                     setWhyRef.current(seeAsDrawingLine(next));
                   }}
                   dataAttr="data-stage-see-as"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
               {/* 🎭 ROLE ▾ (owner 2026-10-17: "for example i want to view it as a father of the bride") — under See as,
@@ -2244,7 +2244,7 @@ export function StageTools({
                   }}
                   stickyGroups
                   dataAttr="data-stage-see-as-role"
-                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-white shadow-lg"
+                  className="pointer-events-auto min-h-11 max-w-[200px] border border-[var(--sp-line)] bg-raised shadow-lg"
                 />
               ) : null}
             </div>,
@@ -2294,7 +2294,7 @@ export function StageTools({
               data-stage-guest-bar=""
               /* A stage that is one page has no bar (its one line, "You're editing", is the toolbar's now). */
               hidden={pages.length <= 1}
-              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-white lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-white lg:hidden'}
+              className={rsvpOpen ? 'relative border-t border-[var(--sp-line)] bg-raised lg:hidden' : 'absolute inset-x-0 z-[25] border-t border-[var(--sp-line)] bg-raised lg:hidden'}
               /* It rides the toolbar's slide away and back (the same 240 ms), never across it. */
               style={rsvpOpen ? undefined : { bottom: 'calc(var(--maker-lt-h) + var(--maker-safe-b, env(safe-area-inset-bottom)))', transition: `bottom ${STAGE_PANEL_MS}ms cubic-bezier(.16,1,.3,1)` }}
             >

@@ -4260,7 +4260,8 @@
         "LaunchOfferActionState",
         "LaunchOfferNumbersForm",
         "PageMasthead",
-        "Result"
+        "Result",
+        "SpecialToolsDateForm"
       ]
     },
     "/admin/live-studio-channels": {
@@ -13550,6 +13551,7 @@
       ],
       "destinations": [
         "/[seg]",
+        "/dashboard/[seg]/memories",
         "/papic/guest",
         "/papic/me/[seg]",
         "/terms"
@@ -13733,12 +13735,14 @@
         "pay/[reference]/_components/maya-checking.tsx",
         "pay/[reference]/_components/maya-marks.tsx",
         "pay/[reference]/_components/maya-pay-stage.tsx",
+        "pay/[reference]/_components/pay-code-box.tsx",
         "pay/[reference]/_components/pay-panel.tsx",
         "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
         "pay/[reference]/maya-return.ts",
         "pay/[reference]/maya-start.ts",
-        "pay/[reference]/page.tsx"
+        "pay/[reference]/page.tsx",
+        "pay/[reference]/pay-code.ts"
       ],
       "destinations": [
         "/dashboard/[seg]"
@@ -13762,6 +13766,7 @@
         "MayaMarks",
         "MayaPayStage",
         "OverlayBackdrop",
+        "PayCodeBox",
         "PayPanel",
         "PayStage",
         "PaymentDetailsBlock",
@@ -15187,6 +15192,7 @@
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/cake-design-on-order.tsx",
         "vendor-dashboard/clients/[eventId]/_components/client-chat-strip.tsx",
         "vendor-dashboard/clients/[eventId]/_components/client-refunds.tsx",
         "vendor-dashboard/clients/[eventId]/_components/colour-lane-editor.tsx",
@@ -15318,6 +15324,8 @@
         "BudgetFigures",
         "BudgetLegendRight",
         "BudgetNextLink",
+        "CakeDesignCard",
+        "CakeDesignOnOrder",
         "Card",
         "CardTabs",
         "ChangeOp",
@@ -15894,6 +15902,7 @@
     "/vendor-dashboard/customers": {
       "files": [
         "vendor-dashboard/customers/_components/check-a-date.tsx",
+        "vendor-dashboard/customers/_components/client-handling.tsx",
         "vendor-dashboard/customers/_components/clients-search.tsx",
         "vendor-dashboard/customers/_components/clients-show-sort.tsx",
         "vendor-dashboard/customers/_components/clients-tile-lists.tsx",
@@ -15934,6 +15943,7 @@
       ],
       "destinations": [
         "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?door=asking",
         "/vendor-dashboard/customers?seg=dates&m=[seg]",
         "/vendor-dashboard/invite?mode=locked&date=[seg]&block=[seg]",
@@ -15950,7 +15960,8 @@
         "importExternalClient",
         "moveAction",
         "removeBlock",
-        "saveAction"
+        "saveAction",
+        "setVendorRoleNames"
       ],
       "blocks": [
         "AccordionSkeleton",
@@ -15970,6 +15981,7 @@
         "CalendarSheet",
         "ChatOriginMark",
         "ChosenRow",
+        "ClientHandling",
         "ClientsEmptyAdd",
         "ClientsSearch",
         "ClientsShowSort",
@@ -16409,6 +16421,7 @@
         "BlockerChangeRow",
         "BookedCallButtons",
         "BookingFeeNotice",
+        "CakeDesignerFromPlus",
         "ChatBox",
         "ChatInfoRailTrigger",
         "ChatMessageStream",
@@ -17272,6 +17285,7 @@
         "vendor-dashboard/services/_components/card-shop-offers.tsx",
         "vendor-dashboard/services/_components/copy-to-branch.tsx",
         "vendor-dashboard/services/_components/coverage-panel.tsx",
+        "vendor-dashboard/services/_components/custom-form-ask.tsx",
         "vendor-dashboard/services/_components/customization-step.tsx",
         "vendor-dashboard/services/_components/halls-uses-pick.tsx",
         "vendor-dashboard/services/_components/payment-schedule-editor.tsx",
@@ -17358,6 +17372,7 @@
         "CoveragePanel",
         "CoverageServesResult",
         "Crumb",
+        "CustomFormAsk",
         "CustomizationStep",
         "DecisionNotice",
         "DiscountBadge",
@@ -17649,6 +17664,7 @@
         "vendor-dashboard/shop/_components/badges/badge-page-model.ts",
         "vendor-dashboard/shop/_components/badges/badge-sources.ts",
         "vendor-dashboard/shop/_components/branch-panel.tsx",
+        "vendor-dashboard/shop/_components/cake-maker-panel.tsx",
         "vendor-dashboard/shop/_components/could-not-load.tsx",
         "vendor-dashboard/shop/_components/couple-photos-list.tsx",
         "vendor-dashboard/shop/_components/couple-photos.tsx",
@@ -17727,8 +17743,10 @@
       ],
       "blocks": [
         "ActionButton",
+        "Amount",
         "AnalyticsPlaceholder",
         "ApplicationStatus",
+        "ArrangementsBody",
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
@@ -17743,6 +17761,13 @@
         "BodyPanel",
         "BranchManager",
         "BundlePreviewSample",
+        "CakeArrangement",
+        "CakeDesigner",
+        "CakeFigure",
+        "CakeMakerEditor",
+        "CakeMakerPanel",
+        "CakeShopOptions",
+        "CakeSummary",
         "CallerVendorProfile",
         "CheckGroup",
         "ChosenRow",
@@ -17750,6 +17775,7 @@
         "ClientReference",
         "ClientReferencesInput",
         "Collapsible",
+        "ColoursBody",
         "CommitResult",
         "CopyButton",
         "CouldNotLoad",
@@ -17758,6 +17784,7 @@
         "CouplePhotosToAnswer",
         "CoverPhotoMenu",
         "CoverSheet",
+        "CupcakesBody",
         "DatesRow",
         "DocSlotCard",
         "DocSlotSaveResult",
@@ -17774,6 +17801,7 @@
         "FieldSaveResult",
         "FileUpload",
         "FittedArt",
+        "FlavourList",
         "Fold",
         "GalleryForm",
         "GetVerifiedLine",
@@ -17801,7 +17829,9 @@
         "LeafletMarker",
         "LeafletModule",
         "Link",
+        "Load",
         "LockExplainer",
+        "LockedCakeMaker",
         "LockedFeature",
         "LockedIdentityFieldKey",
         "LockedTile",
@@ -17811,6 +17841,7 @@
         "MakerKey",
         "MapCredit",
         "MenuSettingsButton",
+        "Note",
         "OfferLockPreview",
         "OfferMaker",
         "OffersDoor",
@@ -17818,6 +17849,8 @@
         "PaidMark",
         "PaperUploadPlace",
         "ParamSheet",
+        "Part",
+        "PartKey",
         "PermitPin",
         "PhotoPickLabel",
         "PhotoViewer",
@@ -17853,6 +17886,7 @@
         "SaveFileLink",
         "ScannerChoice",
         "SeeRow",
+        "ServesInput",
         "ServiceCardFace",
         "ServiceCardMenuRow",
         "ServiceCoverageRow",
@@ -17886,14 +17920,17 @@
         "Sort",
         "SortFace",
         "SpecializedToolKey",
+        "StandardChip",
         "StatusChip",
         "StatusIcon",
         "StepPill",
         "StepShell",
+        "Stepper",
         "SubmitBlock",
         "SubmitButton",
         "SubmitResult",
         "SuggestedCoverageActionResult",
+        "SumRow",
         "SupplierHero",
         "SupplierSubmit",
         "SupplierThumbRow",
@@ -17902,11 +17939,14 @@
         "SwipeToDelete",
         "Switch",
         "SwitchTrack",
+        "T",
         "TeamScreen",
         "TemplateKind",
         "TemplatesOffers",
         "TemplatesOffersContext.Provider",
         "ThumbRow",
+        "TickList",
+        "TiersBody",
         "ToggleRow",
         "ToolBody",
         "TrackerFacts",
@@ -18162,7 +18202,8 @@
         "vendor-dashboard/team/roles/roles-form.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/subscription"
+        "/vendor-dashboard/subscription",
+        "/vendor-dashboard/team/roles/inquiries"
       ],
       "actions": [
         "action",
@@ -18170,6 +18211,7 @@
       ],
       "blocks": [
         "BackButton",
+        "DatesRow",
         "FormPageSkeleton",
         "FormRows",
         "InfoTip",
@@ -18183,6 +18225,28 @@
         "SupplierSubmit",
         "TypedRow",
         "VendorRoleNames"
+      ]
+    },
+    "/vendor-dashboard/team/roles/inquiries": {
+      "files": [
+        "vendor-dashboard/team/roles/inquiries/loading.tsx",
+        "vendor-dashboard/team/roles/inquiries/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "setVendorRoleNames"
+      ],
+      "blocks": [
+        "AdjustPanel",
+        "BackButton",
+        "FormPageSkeleton",
+        "InfoTip",
+        "Link",
+        "RoleLock",
+        "Search",
+        "ShopNotice",
+        "StayForm",
+        "SupplierSubmit"
       ]
     },
     "/vendor-dashboard/theft-watch": {

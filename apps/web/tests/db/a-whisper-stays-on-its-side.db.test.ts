@@ -255,6 +255,17 @@ test('SABOTAGE: without the policy a deactivated team member reads the team whis
   await db.exec(`BEGIN`);
   await db.exec(`DROP POLICY chat_messages_whisper_stays_on_its_side ON public.chat_messages`);
   await db.exec(`DROP POLICY chat_messages_a_removed_member_reads_nothing ON public.chat_messages`);
+  // Since 20271356599293 `current_vendor_ids` ALSO leaves a deactivated seat out — a third lock on this door — so the
+  // helper's earlier body (20260514010000's, copied exactly) comes back too, or the sabotage would open nothing.
+  await db.exec(`
+    CREATE OR REPLACE FUNCTION public.current_vendor_ids(min_role TEXT DEFAULT 'viewer')
+    RETURNS SETOF UUID LANGUAGE SQL SECURITY DEFINER STABLE SET search_path = public AS $fn$
+      SELECT vendor_profile_id
+      FROM public.vendor_team_members
+      WHERE user_id = auth.uid()
+        AND CASE role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 WHEN 'viewer' THEN 1 END
+          >= CASE min_role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 WHEN 'viewer' THEN 1 ELSE 1 END;
+    $fn$`);
   const without = await reads(w.teammate, teamId);
   assert.equal(without, 1, 'the deactivated member reads nothing even without the policy — the test cannot see what the policy closes');
   const back = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pg_policies WHERE policyname = 'chat_messages_whisper_stays_on_its_side'`);

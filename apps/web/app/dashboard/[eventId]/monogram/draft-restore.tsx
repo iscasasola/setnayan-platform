@@ -61,7 +61,7 @@ export function MonogramDraftRestore({ eventId, hasCustomMark }: { eventId: stri
   return (
     <section className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-white p-3">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border border-ink/10 bg-raised p-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- inert data-URI preview; next/image can't optimise data-URIs */}
           <img src={dataUri} alt="The monogram you designed" className="max-h-full max-w-full" />
         </div>

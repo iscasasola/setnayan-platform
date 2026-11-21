@@ -1,5 +1,6 @@
 'use client';
 
+import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
 import { ArrowLeft, ArrowRight, Check, Info, LockOpen } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
@@ -10,8 +11,8 @@ import { whatEachPlanHolds, type planSplit } from '@/lib/open-shop-more-services
 /** The refusal under the box (the prototype's `plan-continue` sentence). */
 export const PLAN_AGREE_ERROR = 'Tick the box to continue.';
 
-/** The prototype v19 lead — the owner's own words (7 Nov: "Your first booking is free so you can experience our app"). */
-export const PLAN_LEAD = 'Your first booking is free, so you can experience Setnayan.';
+/** The plan sheet's lead. Was the 7 Nov "Your first booking is free…" — retired 20 Nov (no free first booking); the owner's free rule leads instead. */
+export const PLAN_LEAD = `${FEE_FREE_CHIP}.`;
 
 /**
  * ② "BEFORE YOU CONTINUE" — THE PLAN EXPLAINER, OPENED BY CONTINUE (prototype v16 → v19 `planSheetBody`). Shown only when

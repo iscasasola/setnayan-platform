@@ -325,7 +325,7 @@ test('billable lock → charge + vendor-payer ORDER + linked manual PAYMENT', as
   // (d) the returned status reflects success.
   assert.equal(res.status, 'ordered', 'a billable lock must MINT an order');
   assert.ok(res.status === 'ordered');
-  assert.equal(res.amountPhp, 6_000, '₱200,000 → 5% of 100k + 1% of 100k = ₱6,000');
+  assert.equal(res.amountPhp, 8_000, '₱200,000 → 5% of 100k + 3% of 100k = ₱8,000');
   assert.match(res.referenceCode, /^SN[0-9A-F]{8}$/, 'reference code keeps the shared SN+hex shape');
 
   // (a) the charge row.
@@ -333,7 +333,7 @@ test('billable lock → charge + vendor-payer ORDER + linked manual PAYMENT', as
   assert.equal(charges.length, 1, 'exactly one charge for the booking');
   assert.equal(charges[0]!.charge_id, res.chargeId);
   assert.equal(charges[0]!.status, 'pending');
-  assert.equal(charges[0]!.amount, 600_000, 'charge is ₱6,000 in centavos');
+  assert.equal(charges[0]!.amount, 800_000, 'charge is ₱8,000 in centavos');
 
   // (b) the order row — the thing the vendor is actually billed by.
   const orders = await ordersForCharge(res.chargeId);
@@ -347,7 +347,7 @@ test('billable lock → charge + vendor-payer ORDER + linked manual PAYMENT', as
   assert.equal(order.status, 'submitted');
   assert.ok(order.reference_code, 'reference_code is NOT NULL');
   assert.equal(order.reference_code, res.referenceCode, 'the returned code is the stored code');
-  assert.equal(Number(order.requested_total_php), 6_000, 'order asks for the charge amount in pesos');
+  assert.equal(Number(order.requested_total_php), 8_000, 'order asks for the charge amount in pesos');
   assert.equal(
     order.service_key,
     `vendor_booking_fee__${res.chargeId}`,
@@ -366,7 +366,7 @@ test('billable lock → charge + vendor-payer ORDER + linked manual PAYMENT', as
   const payments = await paymentsLinkedToChargeOrder(res.chargeId);
   assert.equal(payments.length, 1, 'exactly one payment, linked to the order');
   assert.equal(payments[0]!.order_id, order.order_id, 'ORDER ↔ PAYMENT link');
-  assert.equal(Number(payments[0]!.amount_php), 6_000);
+  assert.equal(Number(payments[0]!.amount_php), 8_000);
   assert.equal(payments[0]!.channel, 'manual', 'manual = the BDO/GCash QR rail');
   assert.equal(payments[0]!.user_id, vendorUserId, 'the payment is owed by the vendor');
   assert.equal(payments[0]!.status, 'pending', 'lands in /admin/payments awaiting reconciliation');
@@ -378,8 +378,8 @@ for (const c of [
   {
     label: 'taper-crossing ₱123,456.78 (sub-peso fee — the rounding case)',
     totalPhp: 123_456.78,
-    // 5% of ₱100,000 + 1% of ₱23,456.78 = ₱5,234.5678 → ₱5,234.57
-    expectCentavos: 523_457,
+    // 5% of ₱100,000 + 3% of ₱23,456.78 = ₱5,703.7034 → ₱5,703.70 (owner 2026-11-20 tail)
+    expectCentavos: 570_370,
   },
   {
     label: 'floor case ₱500 (5% = ₱25, floored to ₱50)',
@@ -451,7 +451,7 @@ test('unclaimed vendor profile → no_payer, and NEITHER money row is written', 
   assert.equal(charges.length, 1, 'the charge is still recorded for ops');
   assert.equal(charges[0]!.charge_id, res.chargeId);
   assert.equal(charges[0]!.status, 'pending');
-  assert.equal(charges[0]!.amount, 600_000);
+  assert.equal(charges[0]!.amount, 800_000);
 
   // …and the halves that MUST NOT be.
   assert.deepEqual(await ordersForCharge(res.chargeId), [], 'no order for an unpayable charge');
@@ -496,10 +496,18 @@ test('calling twice for the same (vendor,event) → exactly ONE order and ONE pa
 
 /* ── 5 · FREE-5 — a courtesy booking is audited, never billed ───────────────*/
 
-test('a booking inside the free-5 → waived charge, NO order, NO payment', async () => {
+// ⚖ 20 Nov: no booking takes a free place now; a place FROZEN free before the change keeps its waiver. The fixture
+// freezes that place on the ledger exactly as production holds one.
+test('a booking whose place was frozen free → waived charge, NO order, NO payment', async () => {
   const { vendorProfileId } = await newVendor('free5@postcond.test');
   const eventId = await newEvent('free5-1');
   const evId = await newContractedBooking(eventId, vendorProfileId, 200_000);
+  await db.query(
+    `INSERT INTO public.booking_fee_ledger
+       (vendor_profile_id, event_id, source, attribution, attribution_frozen_at, booking_ordinal, is_free_booking)
+     VALUES ($1, $2, 'lock', 'sourced', NOW(), 1, TRUE)`,
+    [vendorProfileId, eventId],
+  );
 
   const censusBefore = await moneyRowCensus();
   const res = await collect(evId);
@@ -589,7 +597,7 @@ test('package booking bills ONCE on the anchor; a covered row bills nothing', as
   const anchorRes = await collect(anchorId);
   assert.equal(anchorRes.status, 'ordered', 'the anchor takes the single package fee');
   assert.ok(anchorRes.status === 'ordered');
-  assert.equal(anchorRes.amountPhp, 6_000);
+  assert.equal(anchorRes.amountPhp, 8_000);
   const anchorOrders = await ordersForCharge(anchorRes.chargeId);
   assert.equal(anchorOrders.length, 1, 'exactly ONE order for the whole package');
   assert.equal(anchorOrders[0]!.user_id, userId);
@@ -651,7 +659,7 @@ test('payments insert fails → the just-created ORDER IS GONE, and the charge s
   // And the charge is left LIVE, so the next lock re-issues rather than
   // stranding the fee. Proved by actually retrying, not by reading a comment.
   assert.equal(charge.status, 'pending', 'the charge stays pending for a retry');
-  assert.equal(charge.amount, 600_000);
+  assert.equal(charge.amount, 800_000);
 
   const retry = await collect(evId);
   assert.equal(retry.status, 'ordered', 'the retry re-mints the bill cleanly');

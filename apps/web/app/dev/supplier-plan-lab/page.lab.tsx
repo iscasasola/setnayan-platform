@@ -5,7 +5,7 @@
  * `HelpersView`, `SettingsView`, `NotificationsView`, `BusinessDoing` and the Help rows — so what it shows
  * is what ships. Every write is the SHIPPED action; with no session each one refuses, nothing is written.
  *
- *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &fail=1 (receipts + fee unread)
+ *   ?s=plan            the Plan (who=parish · caterer · studio)       &unverified=1 · &ticket=1 · &fail=1 (receipts + fee unread)
  *   ?s=lock            🔒 the shared lock explainer (&lock=<key> · &plan=pro for a plan lock)
  *   ?s=plan&who=studio&limits=1   📉 the limits sheet on a lower plan (ruling 5683) · &floor=1 the storage floor (lab allowance)
  *   ?s=limit           ⤴ Door 1 — past a plan limit (&tier=solo &key=bookingsPerDate &want=2 · &unverified=1)
@@ -184,7 +184,7 @@ const LAB_STORAGE_ALLOWANCE = 5_000_000_000;
 const LAB_SHEET_NOW = Date.parse('2026-11-10T02:00:00Z');
 const LAB_EXPIRES_AT: Record<string, string | null> = { free: null, solo: '2026-12-08T15:59:59Z', pro: '2027-10-03T15:59:59Z' };
 
-function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null) {
+function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { floor: boolean } | null = null, ticket = false) {
   const shop = SHOPS[who];
   const plans: PlanPick[] = [
     { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(shop.tier, 'free', shop.expires) },
@@ -196,11 +196,18 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       pickLine: planPickLine(shop.tier, t, shop.expires),
     })),
   ];
+  // ⚖ 20 Nov: there is no free first booking — every new booking is billable (flat for an unverified shop). `&ticket=1`
+  // shows a held free booking fee ticket. A frozen free place is a ledger fact, not a Plan state, so it is not drawn here.
   const standing = fail
     ? ({ kind: 'unreadable' } as const)
-    : shop.feeKind === 'free'
-      ? ({ kind: 'free', ordinal: shop.used + 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const)
-      : ({ kind: 'billable', ordinal: 9, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const);
+    : ({
+        kind: 'billable',
+        ordinal: shop.feeKind === 'free' ? shop.used + 1 : 9,
+        ordinalIsFrozen: false,
+        schedule: BOOKING_FEE,
+        unverified,
+        ...(ticket ? { badgeReward: 'next' as const } : {}),
+      } as const);
   const price = shop.tier in LAB_PRICES ? LAB_PRICES[shop.tier]![shop.cycle] : null;
   return (
     <PlanRows
@@ -286,7 +293,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
           }
         />
       }
-      feeRow={bookingFeeRow({ kind: 'free', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
+      feeRow={bookingFeeRow({ kind: 'billable', ordinal: 1, ordinalIsFrozen: false, schedule: BOOKING_FEE } as const, 0)}
       gives={planGivesLines(tier, false)}
       receipts={[]}
       papicPackPrice={99}
@@ -530,7 +537,7 @@ export default async function SupplierPlanLabPage({
     body =
       sp.gift === 'running' || sp.gift === 'soon' || sp.gift === 'ended'
         ? giftPlanFixture(sp.gift, sp.photos === '100')
-        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null);
+        : planFixture(who, sp.unverified === '1', sp.fail === '1', sp.limits === '1' ? { floor: sp.floor === '1' } : null, sp.ticket === '1');
   }
   // 🔒 ?s=lock&lock=quotation (any key in lib/locks.ts) — the shared lock's explainer, risen; &plan=pro = a plan lock.
   else if (s === 'lock') {

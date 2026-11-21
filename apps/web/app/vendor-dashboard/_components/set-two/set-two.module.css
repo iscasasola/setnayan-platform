@@ -335,7 +335,7 @@ a.row:active {
   background: var(--surface-soft);
 }
 .noteAccent > svg {
-  color: rgb(var(--sn-accent));
+  color: rgb(var(--sn-accent-word, var(--sn-accent)));
 }
 .notePlain {
   background: transparent;
@@ -391,7 +391,7 @@ a.row:active {
   text-overflow: ellipsis;
 }
 .tileHot b {
-  color: rgb(var(--sn-accent));
+  color: rgb(var(--sn-accent-word, var(--sn-accent)));
 }
 .tile em {
   display: block;
@@ -436,7 +436,7 @@ a.row:active {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: rgb(var(--sn-accent));
+  color: rgb(var(--sn-accent-word, var(--sn-accent)));
 }
 .fldVal {
   flex: 1;
@@ -496,7 +496,7 @@ a.row:active {
 .fileRow svg {
   width: 16px;
   height: 16px;
-  color: rgb(var(--sn-accent));
+  color: rgb(var(--sn-accent-word, var(--sn-accent)));
   flex: none;
 }
 .fileRow span {
@@ -798,7 +798,7 @@ a.tile:active {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: rgb(var(--sn-accent));
+  color: rgb(var(--sn-accent-word, var(--sn-accent)));
 }
 .now2 b {
   display: block;

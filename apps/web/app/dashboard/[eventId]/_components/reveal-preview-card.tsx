@@ -47,7 +47,7 @@ function EffectToggle({
     >
       <span
         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
-          on ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/30 bg-white text-transparent'
+          on ? 'border-mulberry bg-mulberry text-cream' : 'border-ink/30 bg-raised text-transparent'
         }`}
       >
         <Check aria-hidden className="h-3 w-3" strokeWidth={3} />
@@ -325,7 +325,7 @@ export function RevealPreviewCard({
               className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                 effectOn
                   ? 'border-mulberry bg-mulberry text-cream'
-                  : 'border-ink/30 bg-white text-transparent'
+                  : 'border-ink/30 bg-raised text-transparent'
               }`}
             >
               <Check aria-hidden className="h-3 w-3" strokeWidth={3} />

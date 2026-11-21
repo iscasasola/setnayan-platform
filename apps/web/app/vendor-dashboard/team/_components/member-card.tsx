@@ -12,6 +12,7 @@ import {
   type VendorDuty,
   type VendorRoleNames,
 } from '@/lib/vendor-duties';
+import { initialsOf } from '@/lib/team-initials';
 
 /**
  * 🪪 A TEAM MEMBER'S CARD (six supplier roles, owner 19 Nov 2026 — drawing (b)). The person's name; under it the shop's
@@ -19,11 +20,7 @@ import {
  * for a person wherever the Team screen draws them — a role is never a free-text guess on one screen and a rank on
  * another. Not truncated: the ⓘ's popover must not be clipped.
  */
-export function initialsOf(name: string): string {
-  const parts = name.replace(/@.*$/, '').split(/[\s._-]+/).filter(Boolean);
-  const two = (parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts[parts.length - 1]?.[0] ?? '') : (parts[0]?.[1] ?? ''));
-  return two.toUpperCase() || '·';
-}
+export { initialsOf };
 
 export function TeamMemberCard({
   name,

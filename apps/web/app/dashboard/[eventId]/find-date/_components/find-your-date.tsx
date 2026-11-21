@@ -110,7 +110,7 @@ export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] })
   if (!cat.covered) {
     return (
       <li className="flex items-start gap-2 py-1.5 text-sm">
-        <X aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-red-500" strokeWidth={2} />
+        <X aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-red-500 dark:text-[rgb(var(--color-danger))]" strokeWidth={2} />
         <span>
           <span className="font-medium text-ink/85">{cat.label}</span>
           <span className="text-ink/70"> — no free option on this date</span>
@@ -150,7 +150,7 @@ export function CategoryLine({ cat }: { cat: MatrixDate['categories'][number] })
         <span className="font-medium text-ink/85">{cat.label}</span>
         <span className="text-ink/70"> — </span>
         <span className="text-ink/70 line-through">{top?.name}</span>
-        <span className="text-red-600"> booked</span>
+        <span className="text-red-600 dark:text-[rgb(var(--color-danger))]"> booked</span>
         <span className="text-ink/70"> → {firstFree?.name}</span>
         {swapUnknown ? (
           <span className="text-ink/70"> · confirm</span>

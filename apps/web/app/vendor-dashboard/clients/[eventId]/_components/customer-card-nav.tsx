@@ -76,7 +76,7 @@ export function CardTabs({
             className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition sm:rounded-none sm:border-x-0 sm:border-t-0 sm:border-b-2 sm:px-3 sm:py-2 ${
               on
                 ? 'border-ink bg-ink text-cream sm:border-terracotta sm:bg-transparent sm:text-ink'
-                : 'border-ink/15 bg-white text-ink/70 hover:text-ink sm:border-transparent sm:bg-transparent'
+                : 'border-ink/15 bg-raised text-ink/70 hover:text-ink sm:border-transparent sm:bg-transparent'
             }`}
           >
             {t.label}
@@ -141,8 +141,8 @@ export function PipelineStrip({
                   isCurrent
                     ? 'border-ink bg-ink text-cream ring-4 ring-ink/10'
                     : done
-                      ? 'border-success-600 bg-success-600 text-white'
-                      : 'border-ink/15 bg-white text-ink/70'
+                      ? 'border-success-600 bg-success-600 text-cream'
+                      : 'border-ink/15 bg-raised text-ink/70'
                 }`}
               >
                 {done && !isCurrent ? <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2.4} /> : i + 1}

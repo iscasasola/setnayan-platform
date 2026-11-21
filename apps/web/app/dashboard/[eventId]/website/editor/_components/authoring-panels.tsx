@@ -227,7 +227,7 @@ export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
         <li>Your thank-you note (Special message)</li>
         <li>Show, hide, move and restyle each scene — tap it in the scene list</li>
       </ul>
-      <p className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-amber-800">
+      <p className="mt-2 flex items-center gap-1 text-[12px] font-semibold text-amber-800 dark:text-[rgb(var(--color-warn))]">
         <PaidMark
           state={ownsPro ? 'unlocked' : 'try'}
           label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Pro')}

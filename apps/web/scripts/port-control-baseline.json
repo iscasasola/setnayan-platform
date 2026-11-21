@@ -14524,6 +14524,7 @@
         "vendor-dashboard/_components/today-v2-client.tsx",
         "vendor-dashboard/_components/today-v2.tsx",
         "vendor-dashboard/_components/today-wrap-up.tsx",
+        "vendor-dashboard/_components/tool-page.tsx",
         "vendor-dashboard/_components/undoable-answers.tsx",
         "vendor-dashboard/_components/use-hero-pin.ts",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
@@ -14595,6 +14596,7 @@
         "AgentHome",
         "AppPreload",
         "AppRailShell",
+        "BackButton",
         "Badge",
         "BadgeEarnedLine",
         "BasicSetupHold",
@@ -14766,9 +14768,7 @@
         "SyncResult",
         "T",
         "TaskRow",
-        "TemplateRow",
         "TemplateRows",
-        "TemplateSection",
         "TermsReacceptSheet",
         "ThumbFit",
         "ThumbLayer",
@@ -14795,6 +14795,10 @@
         "TodayV2Needs",
         "TodayV2Sub",
         "TodayWrapUpBody",
+        "ToolChip",
+        "ToolLead",
+        "ToolRow",
+        "ToolSection",
         "TrackRecordRow",
         "TryAgain",
         "TwoWayPanes",
@@ -15681,6 +15685,8 @@
     },
     "/vendor-dashboard/creators": {
       "files": [
+        "vendor-dashboard/creators/_components/creators-tools.tsx",
+        "vendor-dashboard/creators/_components/creators-view.tsx",
         "vendor-dashboard/creators/actions.ts",
         "vendor-dashboard/creators/loading.tsx",
         "vendor-dashboard/creators/page.tsx"
@@ -15689,20 +15695,38 @@
         "/u/[seg]"
       ],
       "actions": [
+        "path",
         "sendCreatorOffer"
       ],
       "blocks": [
-        "CreatorCard",
+        "ActionButton",
+        "CreatorRow",
         "CreatorTierChip",
+        "CreatorsReach",
+        "CreatorsView",
         "FormFlash",
+        "InfoTip",
         "Link",
         "ListPageSkeleton",
-        "PageMasthead",
         "PaidMark",
         "RoiRow",
         "SearchParams",
+        "SendOfferButton",
+        "Sheet",
+        "SortFace",
         "StayForm",
-        "SubmitButton"
+        "SubmitButton",
+        "SupplierThumbRow",
+        "TemplateRows",
+        "ThumbRow",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolLead",
+        "ToolPage",
+        "ToolPin",
+        "ToolRow",
+        "ToolSection",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/customers": {
@@ -15950,6 +15974,8 @@
     },
     "/vendor-dashboard/disputes": {
       "files": [
+        "vendor-dashboard/disputes/_components/dispute-contest-form.tsx",
+        "vendor-dashboard/disputes/_components/disputes-view.tsx",
         "vendor-dashboard/disputes/actions.ts",
         "vendor-dashboard/disputes/page.tsx"
       ],
@@ -15958,12 +15984,21 @@
         "submitDisputeContest"
       ],
       "blocks": [
-        "DisputeCard",
+        "DisputeContestForm",
         "DisputeRow",
+        "DisputeRowItem",
+        "DisputesView",
+        "Fold",
+        "InfoTip",
         "ListPager",
-        "ShopEmpty",
-        "ShopNotice",
-        "SubmitButton"
+        "SubmitButton",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection",
+        "TypedRow"
       ]
     },
     "/vendor-dashboard/earnings": {
@@ -17909,24 +17944,31 @@
     },
     "/vendor-dashboard/theft-watch": {
       "files": [
+        "vendor-dashboard/theft-watch/_components/theft-watch-view.tsx",
         "vendor-dashboard/theft-watch/loading.tsx",
         "vendor-dashboard/theft-watch/page.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Badge",
         "Image",
         "ListPageSkeleton",
-        "TemplateEmpty",
-        "TemplateRow",
         "TemplateRows",
-        "TemplateSection",
+        "TheftWatchView",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolLine",
+        "ToolPage",
+        "ToolPin",
+        "ToolRow",
+        "ToolSection",
         "VendorTierGate"
       ]
     },
     "/vendor-dashboard/track-record": {
       "files": [
+        "vendor-dashboard/track-record/_components/track-record-view.tsx",
         "vendor-dashboard/track-record/page.tsx"
       ],
       "destinations": [
@@ -17934,8 +17976,13 @@
       ],
       "actions": [],
       "blocks": [
-        "Link",
-        "PageMasthead",
+        "ActionButton",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolPage",
+        "ToolPin",
+        "ToolSection",
+        "TrackRecordView",
         "VendorTrackRecordPanel"
       ]
     },

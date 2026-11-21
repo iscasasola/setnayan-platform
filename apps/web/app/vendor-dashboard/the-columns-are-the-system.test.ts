@@ -74,12 +74,12 @@ const READING = [
   'recommendations/_panel.tsx',
   'manpower/surface.tsx',
   'payment-options/surface.tsx',
-  'disputes/page.tsx',
-  'track-record/page.tsx',
+  // The tool pages redraw (v3, 21 Nov 2026): Disputes · Track record · Creators · Theft Watch draw their column through
+  // the shared `ToolPage` — the column is read there, once.
+  '_components/tool-page.tsx',
   'partnerships/page.tsx',
   'attributes/page.tsx',
   'moodboard-library/page.tsx',
-  'creators/page.tsx',
   'repertoire/page.tsx',
   'contracts/[contractId]/contract-body.tsx',
   'contracts/new/upload-body.tsx',
@@ -124,10 +124,11 @@ test('the editors split on the frame’s line (701), never md:', () => {
 });
 
 test('Creators is rows — the phone’s row carried up, never a table', () => {
-  const src = read('creators/page.tsx');
+  // The tool pages redraw (v3, 21 Nov 2026): the screen is `creators-view.tsx`; each section is ONE frame of rows.
+  const src = read('creators/_components/creators-view.tsx');
   assert.doesNotMatch(src, /<table\b|<tr\b|<td\b/, 'Creators drew a table again');
-  assert.match(src, /<ul className="space-y-3" data-creator-roi="">/);
-  assert.match(src, /function RoiRow[\s\S]*?<li className="sn-row p-4">/);
+  assert.match(src, /<TemplateRows label="Your collab ROI">/);
+  assert.match(src, /function RoiRow[\s\S]*?<ToolRow\b/);
 });
 
 test('Today reads — every side path is the 48-rem column; the working Today fills the frame with its two columns', () => {

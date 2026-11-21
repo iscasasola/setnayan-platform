@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8109
+# facts: 8111
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     658
-#   col       5831
+#   col       5832
 #   policy    1192
 #   view      10
-#   func      414
+#   func      415
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -2916,6 +2916,7 @@ col	public.guest_group_memberships.group_id	anon=SIU authenticated=SIU
 col	public.guest_group_memberships.guest_id	anon=SIU authenticated=SIU
 col	public.guest_groups.created_at	anon=SIU authenticated=SIU
 col	public.guest_groups.event_id	anon=SIU authenticated=SIU
+col	public.guest_groups.event_vendor_id	anon=SIU authenticated=SIU
 col	public.guest_groups.group_id	anon=SIU authenticated=SIU
 col	public.guest_groups.label	anon=SIU authenticated=SIU
 col	public.guest_groups.public_id	anon=SIU authenticated=SIU
@@ -8036,6 +8037,7 @@ func	public.shop_portfolio_ref_credits(p_ref text)	secdef=no exec=authenticated 
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public
 func	public.supersede_prior_vendor_proposals(p_event_id uuid, p_vendor_profile_id uuid, p_keep_proposal_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_ask_where(p_vendor_id uuid, p_block_ids uuid[], p_note text)	secdef=yes exec=authenticated search_path=public, pg_temp
+func	public.supplier_booking_group(p_event_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.supplier_lock_refusal(p_kind text, p_id uuid, p_event_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.supplier_mark_schedule(p_event_id uuid, p_mark text)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.supplier_proposes_only(p_event_id uuid)	secdef=yes exec=authenticated search_path=public

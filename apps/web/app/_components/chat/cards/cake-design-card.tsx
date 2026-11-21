@@ -23,7 +23,8 @@ import { CakePicture, finishOf, lookOf, spongeOf, topperOf } from '@/app/_compon
 import { MakeQuoteCard } from './make-quote-card';
 import css from './cake-design-card.module.css';
 
-type Loaded = Extract<CakeActionResult, { op: 'design' }>;
+export type CakeDesignLoaded = Extract<CakeActionResult, { op: 'design' }>;
+type Loaded = CakeDesignLoaded;
 type ReadState = { at: 'loading' } | { at: 'failed' } | { at: 'ok'; data: Loaded };
 
 const COLOUR_FALLBACK = '#D9D2CA';
@@ -35,6 +36,7 @@ export function CakeDesignCard({
   eventDate = null,
   stamp = null,
   links = null,
+  seed,
 }: {
   threadId: string;
   messageId: string;
@@ -44,8 +46,10 @@ export function CakeDesignCard({
   stamp?: string | null;
   /** On the order: where the quote and the chat are. */
   links?: { quoteHref: string | null; chatHref: string } | null;
+  /** Labs only — a design to draw without a read (or 'failed' to draw the refused read). */
+  seed?: Loaded | 'failed';
 }) {
-  const [read, setRead] = useState<ReadState>({ at: 'loading' });
+  const [read, setRead] = useState<ReadState>(seed === 'failed' ? { at: 'failed' } : seed ? { at: 'ok', data: seed } : { at: 'loading' });
   const [quoting, setQuoting] = useState(false);
   const load = useCallback(() => {
     setRead({ at: 'loading' });
@@ -53,7 +57,9 @@ export function CakeDesignCard({
       .then((r) => setRead(r.ok && r.op === 'design' ? { at: 'ok', data: r } : { at: 'failed' }))
       .catch(() => setRead({ at: 'failed' }));
   }, [threadId, messageId]);
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    if (!seed) load();
+  }, [load, seed]);
 
   if (read.at === 'loading') {
     return (

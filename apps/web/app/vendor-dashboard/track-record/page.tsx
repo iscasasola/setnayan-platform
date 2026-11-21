@@ -4,7 +4,8 @@ import { redirect } from 'next/navigation';
 import { CalendarHeart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   VendorTrackRecordPanel,
@@ -29,8 +30,13 @@ export default async function VendorTrackRecordPage() {
 
   const role = await resolveVendorRole(supabase, user.id);
   if (!role || !canManageVendor(role)) {
-    // Agents/viewers: no aggregate reputation view. Send them home.
-    redirect('/vendor-dashboard');
+    // 🔒 Agents/viewers: no aggregate reputation view — said with the Problem and the Solution, never a silent bounce.
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6" data-role-locked-page="insights">
+        <h1 className="sn-h1">Track record</h1>
+        <RoleLock duty={(await resolveVendorStanding(supabase, user.id).catch(() => null))?.duty ?? null} capability="insights" className="mt-4" />
+      </section>
+    );
   }
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);

@@ -39,7 +39,7 @@ import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
 import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -245,6 +245,7 @@ export default async function VendorDashboardLayout({
     unreadCount,
     switcherData,
     vendorRole,
+    vendorStanding,
     vendorProfile,
     navSlots,
     tierProbe,
@@ -268,6 +269,9 @@ export default async function VendorDashboardLayout({
       // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
       // render from one source.
       resolveVendorRole(supabase, user.id),
+      // 🧑‍🤝‍🧑 The person's supplier role (six roles, owner 19 Nov 2026) — WHICH destinations each role gets. Null
+      // (unread) falls back to the rank rule above, which fails closed for everyone but a manager.
+      resolveVendorStanding(supabase, user.id).catch(() => null),
       // Vendor profile (own or via team membership) — drives service-aware nav:
       // Repertoire only exists for music acts (owner directive 2026-06-13).
       // Defensive .catch(): nav gating must never crash the layout.
@@ -614,6 +618,7 @@ export default async function VendorDashboardLayout({
           <VendorRailContext
             shopName={vendorSidebarName}
             role={vendorRole}
+            duty={vendorStanding?.duty ?? null}
             navSlots={navSlots}
             bookingsBadge={bookingsPending}
             threadsBadge={threadsUnread}
@@ -711,6 +716,7 @@ export default async function VendorDashboardLayout({
       <BottomDock boundary="tab">
         <VendorBottomNav
           role={vendorRole}
+          duty={vendorStanding?.duty ?? null}
           navSlots={navSlots}
           bookingsBadge={bookingsPending}
           threadsBadge={threadsUnread}

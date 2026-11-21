@@ -24,7 +24,8 @@ import {
   type TodaySchedules,
   type TodayShopRow,
 } from '@/lib/supplier-today.server';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
+import { VENDOR_DUTY_DETAIL, VENDOR_DUTY_LINE, VENDOR_DUTY_NAME, type VendorDuty } from '@/lib/vendor-duties';
 import {
   fetchVendorOverviewData,
   fetchVendorEarningsSummary,
@@ -135,19 +136,34 @@ import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
 
 export const metadata = { title: 'Today' };
 
-function AgentHome() {
+/**
+ * 🧑‍🤝‍🧑 A teammate's Today (six roles, owner 19 Nov 2026): which role they hold and what it opens — the same words as
+ * Team › Roles — so nobody lands on a page that only says "ask your owner". The per-role Today (each role's own tasks)
+ * is the later Today-scoping PR; this says what is true now. With the role unread, the shipped line.
+ */
+function AgentHome({ duty }: { duty: VendorDuty | null }) {
   return (
     <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
       <PageMasthead
         titleNode={
           <>
-            You&apos;re on the team
+            {duty ? `You’re on the team · ${VENDOR_DUTY_NAME[duty]}` : 'You’re on the team'}
           </>
         }
       />
-      <div className="sn-tile p-5 text-sm text-ink/65">
-        Need access to something now? Ask your supplier owner to assign you to the
-        services you&apos;ll be managing.
+      <div className="sn-tile p-5 text-sm text-ink/65" data-agent-home-duty={duty ?? ''}>
+        {duty ? (
+          <>
+            <p className="font-medium text-ink">{VENDOR_DUTY_LINE[duty]}.</p>
+            <p className="mt-1">{VENDOR_DUTY_DETAIL[duty]}</p>
+            <p className="mt-2">Need something your role doesn&apos;t open? Ask a Shop Manager — they can change your role on Team.</p>
+          </>
+        ) : (
+          <>
+            Need access to something now? Ask your supplier owner to assign you to the
+            services you&apos;ll be managing.
+          </>
+        )}
       </div>
     </div>
   );
@@ -261,7 +277,8 @@ export default async function VendorOverviewPage({
     fetchOwnVendorProfile(supabase, user.id),
   ]);
   if (vendorRole && !canManageVendor(vendorRole)) {
-    return <AgentHome />;
+    const standing = await resolveVendorStanding(supabase, user.id).catch(() => null);
+    return <AgentHome duty={standing?.duty ?? null} />;
   }
 
   // No profile yet (fresh team-member without an owned shop) — a light landing

@@ -7,8 +7,6 @@
   "app/dashboard/[eventId]/_components/coordinating-line.tsx | /vendor-dashboard → the map says no back here (bar-root)",
   "app/dashboard/[eventId]/studio/panood/setup/page.tsx | /dashboard/${eventId}/studio/panood → expected /dashboard/[eventId]",
   "app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx | /dashboard/${eventId} → expected /dashboard/[eventId]/vendors",
-  "app/vendor-dashboard/contracts/[contractId]/page.tsx | /vendor-dashboard/contracts → expected /vendor-dashboard/customers?seg=money&open=contracts#customer-tools",
-  "app/vendor-dashboard/contracts/new/page.tsx | /vendor-dashboard/contracts → expected /vendor-dashboard/customers?seg=money&open=contracts#customer-tools",
   "app/vendor-dashboard/services/new/[category]/page.tsx | /vendor-dashboard/services → expected /vendor-dashboard/services/new"
  ],
  "adHocBacks": {
@@ -81,8 +79,6 @@
   "app/vendor-dashboard/clients/[eventId]/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx": 1,
   "app/vendor-dashboard/clients/[eventId]/seat-plan/page.tsx": 1,
-  "app/vendor-dashboard/contracts/[contractId]/page.tsx": 1,
-  "app/vendor-dashboard/contracts/new/page.tsx": 1,
   "app/vendor-dashboard/services/[serviceId]/page.tsx": 1,
   "app/vendor-dashboard/services/new/[category]/page.tsx": 1,
   "app/vendor-dashboard/services/new/page.tsx": 1,

@@ -1,6 +1,7 @@
 'use client';
 
 import { createPortal } from 'react-dom';
+import { MAKER_ANIMATE_WORDS } from '@/lib/maker-animate-words';
 
 /**
  * ▶ WHAT IS PLAYING — Build in · Action · Build out, the one now in bold, and any phase the picked part has none
@@ -26,9 +27,9 @@ export function StagePlayStatus({ phase, skipped }: { phase: string; skipped: re
       <span className="block">
         {(
           [
-            ['in', 'Build in'],
-            ['act', 'Action'],
-            ['out', 'Build out'],
+            ['in', MAKER_ANIMATE_WORDS.in],
+            ['act', MAKER_ANIMATE_WORDS.act],
+            ['out', MAKER_ANIMATE_WORDS.out],
           ] as const
         ).map(([k, w], i) => (
           <span key={k} className={phase === k ? 'font-bold text-white' : 'text-white/60'}>

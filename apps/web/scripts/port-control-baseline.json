@@ -1265,6 +1265,7 @@
         "[slug]/_components/schedule-styles.tsx",
         "[slug]/_components/schedule-widget.tsx",
         "[slug]/_components/seat-door-line.tsx",
+        "[slug]/_components/seat-reload-button.tsx",
         "[slug]/_components/seats-show-on-the-day.tsx",
         "[slug]/_components/see-where-you-are.tsx",
         "[slug]/_components/selfie-capture.tsx",
@@ -1399,8 +1400,8 @@
       "destinations": [
         "/",
         "/[seg]",
+        "/[seg]/find-my-table",
         "/[seg]/find-seat",
-        "/[seg]/hub",
         "/[seg]/invite",
         "/[seg]/print",
         "/[seg]/recap",
@@ -1626,7 +1627,6 @@
         "HubCoverHold",
         "HubDraft",
         "HubLook",
-        "HubMenuButton",
         "HubOwnership",
         "HubPageFrame",
         "HubPageHold",
@@ -1636,7 +1636,6 @@
         "HubScrub",
         "HubSeenBeacon",
         "HubShell",
-        "HubStageFrame",
         "HubSuppliersMadeThisDay",
         "Icon",
         "InfoTip",
@@ -1735,7 +1734,6 @@
         "PairRow",
         "PaletteLookList",
         "Panel",
-        "PanelFade",
         "PapicGuestCapture",
         "ParishDrawingFigure",
         "PartHead",
@@ -1868,6 +1866,7 @@
         "SeatField",
         "SeatFloorPlan",
         "SeatPlaceCard",
+        "SeatReloadButton",
         "SeatTableNumber",
         "SeatTile",
         "SeatingScene",
@@ -2137,23 +2136,9 @@
       "files": [
         "[slug]/hub/page.tsx"
       ],
-      "destinations": [
-        "/[seg]",
-        "/[seg]/find-my-table",
-        "/[seg]/hub",
-        "/papic/me/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "DirectionsMenu",
-        "GuestCodeKeepers",
-        "HubShell",
-        "Link",
-        "LiveWallBlock",
-        "ScheduleWidget",
-        "WatchLiveBlock",
-        "WhatsHappeningCard"
-      ]
+      "blocks": []
     },
     "/[slug]/invite": {
       "files": [
@@ -2271,6 +2256,7 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "GiftPageBody",
         "GiftPageContent",
         "GiftRecordSheet",
@@ -8656,6 +8642,7 @@
         "dashboard/[eventId]/launch/_components/maker-lower-third.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
+        "dashboard/[eventId]/launch/_components/maker-pages-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-part-ops.ts",
         "dashboard/[eventId]/launch/_components/maker-play-menu.tsx",
         "dashboard/[eventId]/launch/_components/maker-preload-line.tsx",
@@ -8796,6 +8783,7 @@
         "AnswerPicker",
         "At",
         "AutoDraft",
+        "BackButton",
         "Badge",
         "Bar",
         "BeforeWeStartScreen",
@@ -8929,7 +8917,6 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "HTMLOListElement",
-        "HTMLParagraphElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -9002,6 +8989,7 @@
         "MakerHeroDesignPicker",
         "MakerLate",
         "MakerLateBridge",
+        "MakerLeave",
         "MakerLogoDoor",
         "MakerLookPages",
         "MakerLowerThird",
@@ -9010,6 +8998,8 @@
         "MakerPageFrame",
         "MakerPageJump",
         "MakerPageSwitch",
+        "MakerPagesAsk",
+        "MakerPagesSheet",
         "MakerPartKey",
         "MakerPartOps",
         "MakerPartTool",
@@ -12075,7 +12065,6 @@
         "DraftButton",
         "GoLive",
         "HTMLDivElement",
-        "HTMLSpanElement",
         "HistorySheetModule",
         "HubDraftActionResult",
         "HubDraftBarLive",

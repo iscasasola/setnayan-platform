@@ -1,22 +1,21 @@
 /**
- * 🧭 THE HUB IS LEFT BY THE APP'S OWN NAV — owner, 30 Oct, verbatim: *"i was thinking having the bottom nav still and
- * the bottom toolbar to show and hide when not needed?"*, then *"yes"* to the controller's call (1): drop the Maker's ✕
- * (DECISION_LOG 2026-10-30 "EVENT PRO (look redesign) — THE APP'S NAV STAYS"; amends Maker_Two_Bars_LOCKED's
- * "✕ left everywhere" for the Hub tab).
+ * 🧭 THE HUB IS FULL SCREEN, AND ‹ LEAVES IT — owner, 20 Nov 2026, verbatim: *"chat goes full screen. same to event
+ * hub"* and *"can our bottom nav hide when toolbar rises? or hide everything and use the full screen?"* (DECISION_LOG
+ * "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN, APPROVED" (6); prototype `maker_one_toolbar_expand_2026-11-20_fable.html`).
+ * It AMENDS 30 Oct's "EVENT PRO (look redesign) — THE APP'S NAV STAYS": the app's bars step away while the Maker is open,
+ * so the Maker's own bar carries the way out again — ‹, to the same door the ✕ and then the Home tab opened.
  *
- * This file replaces `the-maker-exit-goes-to-the-event.test.ts` (25 Oct), which held the ✕ as ONE link to
- * `/dashboard/<eventId>` (owner then: *"It just needs to go back to the event's dashboard"*). That destination is
- * unchanged — it is now the app's Home tab, on screen beside the Hub, instead of a red pill of the Maker's own.
- *
- *   1 · the Maker's bar draws no ✕ and no ‹ — nothing of its own leads out; the shell keeps no exit link;
- *   2 · the app's chrome stays on screen: the shell sits in the room the top bar, rail and bottom nav leave, never
- *       over them (`MAKER_IN_THE_APP_CSS`), and the event's Home tab is `/dashboard/<eventId>` — the ✕'s old door;
+ *   1 · the Maker's bar draws ONE way out — ‹ to `/dashboard/<eventId>` — and no ✕ Exit pill;
+ *   2 · the app's chrome steps away by the app's ONE mechanism (`useChromeAway`, the picked client's), and the shell
+ *       still sits in the room the bars leave (`MAKER_IN_THE_APP_CSS`, measured as they slide), so it fills the screen;
+ *       the event's Home tab is still `/dashboard/<eventId>` — ‹'s door;
  *   3 · no choice sheet exists (held since 25 Oct): the file is gone, nothing imports it, the lazy door is gone;
  *   4 · NOTHING OF THE MAKER STANDS ON THE NAV (owner, live iPhone 31 Oct: *"bottom nav of event hub is not fixed"* —
  *       the tab labels alone showed; the toolbar's rows covered the icons). The shell ends ON the nav's top, its whole
  *       height — never "less the home indicator", which put the shell's z-40 foot over the nav's icons; what stands IN
  *       the shell keeps `--maker-safe-b` (0 above the nav) where it kept `env(safe-area-inset-bottom)`; every `fixed`
- *       phone tool — placed from the SCREEN's foot, the shell being no containing block — adds `--maker-lift`;
+ *       phone tool — placed from the SCREEN's foot, the shell being no containing block — adds `--maker-lift`. (With
+ *       the nav stepped away it measures 0, and the same sums put the tools on the screen's foot.)
  *   5 · THE APP'S TOP BAR NEVER RIDES OFF ABOVE THE MAKER (same report: the bar gone, an empty band in its place). The
  *       document is the screen's height while the Maker is open, so a `scrollIntoView` inside it has no document to
  *       scroll (measured in /dev/maker-lab at 390: scrollY 39 — the bar's foot at 12, the shell's top at 51).
@@ -29,6 +28,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { MAKER_IN_THE_APP_CSS, MAKER_LT_TOOL } from './maker-phone-room';
 import { buildCustomerMenuTree } from './customer-menu';
+import { pageBackLink } from './page-home';
 
 const WEB = join(__dirname, '..');
 const LAUNCH = 'app/dashboard/[eventId]/launch/_components';
@@ -43,23 +43,31 @@ function bar(): string {
   return SHELL.slice(at, end);
 }
 
-test('1 · no ✕, no ‹ — nothing of the Maker’s own leads out of the Hub', () => {
+test('1 · one way out — ‹ (the house BackButton) to the event’s Today; no ✕ Exit pill', () => {
   const row = bar();
-  assert.doesNotMatch(row, /<IconPill tone="exit">|data-maker-tool="exit"|aria-label="Exit"|ICON_PILL_EXIT/, 'the ✕ Exit is back on the Hub’s pinned row');
-  assert.doesNotMatch(row, /<Link\b|href=\{`\/dashboard/, 'the pinned row leads out of the Maker by a link of its own again');
-  assert.doesNotMatch(SHELL, /^import Link from 'next\/link';$/m, 'the shell imports a link again — its only one was the ✕');
+  assert.doesNotMatch(row, /<IconPill tone="exit">|data-maker-tool="exit"|aria-label="Exit"|ICON_PILL_EXIT/, 'the ✕ Exit pill is back on the Hub’s pinned row');
+  assert.doesNotMatch(row, /<Link\b|href=\{`\/dashboard/, 'the bar draws a way out by hand — it is the house BackButton (`MakerLeave`)');
+  assert.match(row, /<span data-maker-tool="leave" data-bar-item="Leave"[^>]*>\s*<MakerLeave eventId=\{eventId\} \/>\s*<\/span>/, '‹ is not on the bar');
+  assert.ok(row.indexOf('data-maker-tool="leave"') < row.indexOf('data-maker-tool="side"'), '‹ is not before the Stage pill');
+  // ‹ is the house back, and the page map answers where the Hub tab goes now that it hides its bar (20 Nov).
+  assert.match(src(`${LAUNCH}/stages-studio-parts.tsx`), /export function MakerLeave\(\{ eventId \}: \{ eventId: string \}\) \{\s*return <BackButton route="\/dashboard\/\[eventId\]\/launch" params=\{\{ eventId \}\} variant="chat" \/>;/);
+  assert.deepEqual(pageBackLink('/dashboard/[eventId]/launch', { eventId: 'e1' }), { href: '/dashboard/e1', label: 'Today' }, '‹ does not go to the event’s Today');
 });
 
-test('2 · the app’s nav stays on screen — the shell sits in its room; Home is the event’s dashboard', () => {
-  assert.match(SHELL, /MAKER_IN_THE_APP_CSS \+/, 'the shell does not draw itself inside the app’s chrome');
+test('2 · the app’s chrome steps away (useChromeAway) — the shell fills the room it leaves; Home is the event’s dashboard', () => {
+  assert.match(SHELL, /\buseChromeAway\(true\);/, 'the Maker no longer steps the app’s bars away — it is not full screen');
+  assert.match(SHELL, /from '@\/app\/_components\/nav\/use-chrome-away'/, 'the Maker hides the bars by a mechanism of its own — reuse useChromeAway');
+  assert.match(SHELL, /MAKER_IN_THE_APP_CSS \+/, 'the shell does not draw itself inside the room the app’s chrome leaves');
   assert.match(MAKER_IN_THE_APP_CSS, /top:var\(--maker-app-top,/, 'the shell does not start under the app’s top bar');
   assert.match(MAKER_IN_THE_APP_CSS, /--maker-nav:var\(--maker-app-bottom,[^;]*;bottom:var\(--maker-nav\);/, 'the shell does not end above the app’s bottom nav');
   assert.doesNotMatch(MAKER_IN_THE_APP_CSS, /z-index/, 'the shell lifts itself over the app’s chrome');
+  // The bars slide away — the shell re-measures when <html> says so, and when the bar's WRAPPER finishes its slide.
+  assert.match(SHELL, /mo\.observe\(document\.documentElement, \{ attributes: true, attributeFilter: \['data-chrome-away', 'data-chrome-back'\] \}\)/, 'the shell does not follow the bars as they step away');
   // A sheet on <body> (⚙, the bell, the account panel) covers the Maker — the picked part's frame steps under it.
   assert.match(MAKER_IN_THE_APP_CSS, /html:has\(\[data-sheet\]\) \[data-part-edges\]\{visibility:hidden!important\}/, 'the part’s frame paints over an open sheet');
   const home = buildCustomerMenuTree('e1').find((m) => m.key === 'home');
-  assert.equal(home?.href, '/dashboard/e1', 'the app’s Home tab is not the event’s dashboard — the ✕’s old door is lost');
-  assert.ok(buildCustomerMenuTree('e1', { websiteEnabled: true }).some((m) => m.key === 'launch'), 'the bottom nav has no Hub tab to stand on');
+  assert.equal(home?.href, '/dashboard/e1', 'the app’s Home tab is not the event’s dashboard — ‹’s door is lost');
+  assert.ok(buildCustomerMenuTree('e1', { websiteEnabled: true }).some((m) => m.key === 'launch'), 'the bottom nav has no Hub tab');
 });
 
 test('3 · no choice sheet: the file, its lazy door and the shell’s open state are gone', () => {

@@ -40,7 +40,7 @@
   font-size: 12px;
   font-weight: 700;
   background: var(--cake-s-tile);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 1px 8px;
 }
 .lline {
@@ -50,14 +50,14 @@
 }
 .frame {
   background: var(--cake-s-card);
-  border-radius: 16px;
+  border-radius: var(--m-r-md);
   padding: 4px 0;
   box-shadow: 0 1px 2px rgb(16 27 48 / 0.06), 0 0 0 1px rgb(16 27 48 / 0.06);
 }
 .frame.in {
   background: var(--cake-s-ghost);
   box-shadow: none;
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
 }
 .sl {
   border-radius: 0;
@@ -97,7 +97,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 3px 10px;
   white-space: nowrap;
   background: var(--cake-s-ghost);
@@ -106,7 +106,7 @@
 .chip i {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: currentColor;
 }
 .chip.info {
@@ -117,7 +117,7 @@
   height: 16px;
   flex: none;
   color: var(--cake-s-ink3);
-  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--sn-m-quick) var(--sn-m-settle);
 }
 .chevOpen {
   transform: rotate(90deg);
@@ -153,7 +153,7 @@
 .cc {
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--cake-s-ghost);
   display: inline-flex;
   align-items: center;
@@ -211,7 +211,7 @@
   font-weight: 700;
   color: var(--cake-s-ink);
   background: var(--cake-s-card);
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 4px 10px;
   font-size: 13px;
 }
@@ -253,7 +253,7 @@
   align-items: center;
   min-height: 36px;
   padding: 0 12px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--cake-s-ghost);
   color: var(--cake-s-accw);
   font-size: 13px;
@@ -271,7 +271,7 @@
   gap: 6px;
   min-height: 36px;
   padding: 0 6px 0 8px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--cake-s-card);
   font-size: 13px;
 }
@@ -287,7 +287,7 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   color: var(--cake-s-ink3);
 }
 .swAdd input {
@@ -314,7 +314,7 @@
 .step button {
   width: 36px;
   height: 36px;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   background: var(--cake-s-ghost);
   display: inline-grid;
   place-items: center;
@@ -346,7 +346,7 @@
   max-width: 260px;
   margin: 0 auto 10px;
   padding: 10px 16px 4px;
-  border-radius: 18px;
+  border-radius: var(--m-r-md);
   background: radial-gradient(120% 90% at 50% 30%, #fbf8f3, #efe9e0);
 }
 :global(html.dark) .preview {
@@ -372,38 +372,6 @@
 }
 .switchRow .st {
   flex: 1;
-}
-.switch {
-  position: relative;
-  width: 44px;
-  height: 26px;
-  flex: none;
-  border-radius: 999px;
-  background: var(--cake-s-tile);
-  transition: background 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-.switch i {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
-  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
-}
-.switch[aria-checked='true'] {
-  background: var(--cake-s-acc);
-}
-.switch[aria-checked='true'] i {
-  transform: translateX(18px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .switch,
-  .switch i {
-    transition: none;
-  }
 }
 .problem {
   margin-top: 8px;

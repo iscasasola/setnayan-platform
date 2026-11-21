@@ -18,6 +18,7 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { ChevronRight, Info, Lock, Minus, Plus, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
@@ -111,7 +112,7 @@ function LockedCakeOptions({ saved }: { saved: boolean }) {
           <b>{SPECIAL_TOOLS_LOCKED_WORDS}</b>
           <small>{saved ? 'Your saved cake options are kept, just as they are.' : 'Couples design their cake on your card.'}</small>
         </span>
-        <Link href={SPECIAL_TOOLS_UPGRADE_HREF} className={styles.pill}>
+        <Link href={SPECIAL_TOOLS_UPGRADE_HREF} className={styles.pill} data-web-only="">
           Upgrade
         </Link>
       </div>
@@ -225,7 +226,7 @@ function CakeOptionsEditor({ start, priceWords }: { start: CakeOptions; priceWor
         ) : null}
         {cake.message ? (
           <Part id="message" title="Message on the cake" line={`Up to ${formatCount(cake.message.maxLetters)} letters`} chip="They write" open={open === 'message'} onToggle={() => toggle('message')} onRemove={() => removePart('message')}>
-            <Stepper name="Longest message" value={cake.message.maxLetters} min={1} max={CAKE_MESSAGE_LETTERS_MAX} unit="letters" step={5} onChange={(maxLetters) => patch({ message: { maxLetters } })} />
+            <Stepper label="Longest message" value={cake.message.maxLetters} min={1} max={CAKE_MESSAGE_LETTERS_MAX} unit="letters" step={5} onChange={(maxLetters) => patch({ message: { maxLetters } })} />
           </Part>
         ) : null}
         {cake.cupcakes ? (
@@ -314,8 +315,8 @@ function Part({
 function TiersBody({ tiers: t, onChange }: { tiers: CakeOptions['tiers']; onChange: (t: CakeOptions['tiers']) => void }) {
   return (
     <>
-      <Stepper name="Most real tiers you make" value={t.maxReal} min={1} max={CAKE_MAX_TIERS} onChange={(maxReal) => onChange({ ...t, maxReal, standard: Math.min(t.standard, maxReal) })} />
-      <Stepper name="Real tiers in your price" value={t.standard} min={1} max={t.maxReal} onChange={(standard) => onChange({ ...t, standard })} />
+      <Stepper label="Most real tiers you make" value={t.maxReal} min={1} max={CAKE_MAX_TIERS} onChange={(maxReal) => onChange({ ...t, maxReal, standard: Math.min(t.standard, maxReal) })} />
+      <Stepper label="Real tiers in your price" value={t.standard} min={1} max={t.maxReal} onChange={(standard) => onChange({ ...t, standard })} />
       {t.maxReal > t.standard ? (
         <div className={`${styles.frame} ${styles.in}`}>
           <div className={styles.or}>
@@ -334,7 +335,7 @@ function TiersBody({ tiers: t, onChange }: { tiers: CakeOptions['tiers']; onChan
       />
       {t.display ? (
         <>
-          <Stepper name="Most display tiers" value={t.display.max} min={1} max={CAKE_MAX_TIERS - 1} onChange={(max) => onChange({ ...t, display: { ...t.display!, max } })} />
+          <Stepper label="Most display tiers" value={t.display.max} min={1} max={CAKE_MAX_TIERS - 1} onChange={(max) => onChange({ ...t, display: { ...t.display!, max } })} />
           <div className={`${styles.frame} ${styles.in}`}>
             <div className={styles.or}>
               <span className={styles.on}>Each display tier</span>
@@ -371,7 +372,8 @@ function FlavourList({ list, onChange }: { list: CakeChoice[]; onChange: (next: 
       {list.map((c) => (
         <SwipeToDelete key={c.ref} label={`Remove ${c.label || 'this flavour'}`} word="Remove" onDelete={(close) => (close(), remove(c.ref))} radiusClass="rounded-none" surfaceClass="bg-[color:var(--cake-s-bg)]">
           <div className={styles.or}>
-            <input className={styles.name} value={c.label} maxLength={CAKE_LABEL_MAX} placeholder="Name this flavour" aria-label="Name of this flavour" onChange={(e) => set(c.ref, { label: e.target.value })} />
+            <input // field-ok: a list row's own name inside a swipe row, beside its extra — the Card Maker's inline line editor, not a form field
+              className={styles.name} value={c.label} maxLength={CAKE_LABEL_MAX} placeholder="Name this flavour" aria-label="Name of this flavour" onChange={(e) => set(c.ref, { label: e.target.value })} />
             <span className={styles.ov}>
               {c.standard ? (
                 <StandardChip />
@@ -464,7 +466,7 @@ function ColoursBody({ colours, onChange }: { colours: NonNullable<CakeOptions['
   };
   return (
     <>
-      <Stepper name="Couples pick" prefix="1 to" value={colours.max} min={1} max={CAKE_COLOURS_MAX} onChange={(max) => onChange({ ...colours, max })} />
+      <Stepper label="Couples pick" prefix="1 to" value={colours.max} min={1} max={CAKE_COLOURS_MAX} onChange={(max) => onChange({ ...colours, max })} />
       <p className={styles.ol}>Your colours</p>
       <div className={styles.sws}>
         {colours.names.map((n) => (
@@ -485,7 +487,7 @@ function ColoursBody({ colours, onChange }: { colours: NonNullable<CakeOptions['
           </span>
         ))}
         <span className={styles.swAdd}>
-          <input
+          <input // field-ok: the chip list's own "Add" chip — typing a new chip, not a form field
             value={typed}
             maxLength={CAKE_LABEL_MAX}
             placeholder="Add"
@@ -535,7 +537,7 @@ function CupcakesBody({ cupcakes, onChange }: { cupcakes: NonNullable<CakeOption
             surfaceClass="bg-[color:var(--cake-s-bg)]"
           >
             <div className={styles.or}>
-              <Stepper name="Cupcakes" value={p.count} min={1} max={CUPCAKE_PACK_MAX_COUNT} step={6} onChange={(count) => setPack(i, { count })} />
+              <Stepper label="Cupcakes" value={p.count} min={1} max={CUPCAKE_PACK_MAX_COUNT} step={6} onChange={(count) => setPack(i, { count })} />
               <span className={styles.ov}>
                 <Amount label={`Price of the ${formatCount(p.count)} pack`} centavos={p.priceCentavos} onChange={(priceCentavos) => setPack(i, { priceCentavos })} />
               </span>
@@ -590,8 +592,8 @@ function Switch({ label, hint, on, onChange }: { label: string; hint: string; on
         <b>{label}</b>
         <small>{hint}</small>
       </span>
-      <button type="button" role="switch" aria-checked={on} aria-label={label} className={styles.switch} onClick={() => onChange(!on)}>
-        <i aria-hidden />
+      <button type="button" role="switch" aria-checked={on} aria-label={label} className={SWITCH_BUTTON} onClick={() => onChange(!on)}>
+        <SwitchTrack on={on} />
       </button>
     </div>
   );
@@ -601,7 +603,7 @@ function Amount({ label, centavos, onChange }: { label: string; centavos: number
   return (
     <label className={styles.amt}>
       <span aria-hidden>+ ₱</span>
-      <input
+      <input // field-ok: the inline "+ ₱" extra beside a pick — a number box inside its chip row, not a form field
         inputMode="numeric"
         aria-label={label}
         value={centavos > 0 ? groupThousands(String(Math.round(centavos / 100))) : ''}
@@ -613,7 +615,7 @@ function Amount({ label, centavos, onChange }: { label: string; centavos: number
 }
 
 function Stepper({
-  name,
+  label,
   prefix,
   value,
   min,
@@ -622,7 +624,7 @@ function Stepper({
   step = 1,
   onChange,
 }: {
-  name: string;
+  label: string;
   prefix?: string;
   value: number;
   min: number;
@@ -633,8 +635,8 @@ function Stepper({
 }) {
   return (
     <div className={styles.step} data-cake-stepper="">
-      <span className={styles.stepName}>{name}</span>
-      <button type="button" aria-label={`Fewer — ${name}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>
+      <span className={styles.stepName}>{label}</span>
+      <button type="button" aria-label={`Fewer — ${label}`} disabled={value <= min} onClick={() => onChange(Math.max(min, value - step))}>
         <Minus aria-hidden className="h-4 w-4" />
       </button>
       <b>
@@ -642,7 +644,7 @@ function Stepper({
         {formatCount(value)}
         {unit ? ` ${unit}` : ''}
       </b>
-      <button type="button" aria-label={`More — ${name}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>
+      <button type="button" aria-label={`More — ${label}`} disabled={value >= max} onClick={() => onChange(Math.min(max, value + step))}>
         <Plus aria-hidden className="h-4 w-4" />
       </button>
     </div>

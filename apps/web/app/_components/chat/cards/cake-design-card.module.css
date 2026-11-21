@@ -18,7 +18,7 @@
   margin: 8px 0;
   background: var(--card);
   color: var(--ink);
-  border-radius: 18px;
+  border-radius: var(--m-r-md);
   padding: 14px;
   box-shadow: var(--shadow), 0 0 0 1px rgb(16 27 48 / 0.06);
 }
@@ -54,7 +54,7 @@
   align-items: center;
   font-size: 12px;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: var(--m-r-full);
   padding: 3px 10px;
   background: var(--ghost);
   color: var(--accw);
@@ -126,27 +126,6 @@
   margin-top: 10px;
   flex-wrap: wrap;
 }
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 16px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 15px;
-  white-space: nowrap;
-}
-.main {
-  flex: 1;
-  background: var(--acc);
-  color: var(--onacc);
-}
-.ghostBtn {
-  background: var(--ghost);
-  color: var(--ink);
-}
 .meta {
   font-size: 12px;
   color: var(--ink2);
@@ -154,19 +133,7 @@
 }
 .ghost {
   height: 186px;
-  border-radius: 22px;
-  background: var(--ghost);
-  animation: cakeCardGhost 1.2s ease-in-out infinite;
-}
-@keyframes cakeCardGhost {
-  50% {
-    opacity: 0.55;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ghost {
-    animation: none;
-  }
+  border-radius: var(--m-r-lg);
 }
 
 /* v2 — each tier, the special instructions and the pinned inspiration thumbnail */
@@ -218,5 +185,5 @@
   width: 72px;
   height: 72px;
   object-fit: cover;
-  border-radius: 12px;
+  border-radius: var(--m-r-md);
 }

@@ -19,6 +19,7 @@ import { readCakePackage, readStoredCakeDesign } from '@/lib/cake-maker.server';
 import { cakeDesignOf, cakeDesignRefOf, cupcakeCountOf, flavourLabelOn, type CakeDesign } from '@/lib/cake-maker';
 import type { CakeConfig } from '@/lib/cake-config';
 import { resolveMonogram } from '@/lib/monogram';
+import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-columns';
 import { galleryImageUrl } from '@/lib/moodboard-gallery';
 
 export type CakeActionResult =
@@ -73,7 +74,7 @@ export async function cakeAction(input: { op: 'design'; threadId: string; messag
     supabase.from('vendor_services').select('vendor_service_id, title, usual_prep_days').eq('vendor_service_id', vendorServiceId).eq('vendor_profile_id', shop).maybeSingle(),
     readCakePackage(supabase, { vendorProfileId: shop, vendorServiceId }),
     config.monogram && eventId
-      ? supabase.from('events').select('display_name, monogram_text, monogram_color').eq('event_id', eventId).maybeSingle()
+      ? supabase.from('events').select(HERO_MONOGRAM_COLUMNS).eq('event_id', eventId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     config.inspirationRef
       ? supabase.from('moodboard_library_assets').select('storage_path').eq('asset_id', config.inspirationRef).maybeSingle()

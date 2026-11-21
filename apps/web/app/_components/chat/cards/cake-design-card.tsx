@@ -13,8 +13,8 @@
  * A failed read says so with Try again. It is never shown as an empty design.
  */
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { AlertCircle, CakeSlice, Clock, MessageCircle, RotateCw } from 'lucide-react';
+import { AlertCircle, CakeSlice, Clock, FileText, MessageCircle, RotateCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { cakeAction, type CakeActionResult } from '@/app/vendor-dashboard/cake-actions';
 import { cakeQuoteNote, tiersWords, type CakeDesignLine } from '@/lib/cake-maker';
 import { cakeFigureSpec } from '@/lib/cake-config';
@@ -66,7 +66,7 @@ export function CakeDesignCard({
           <CakeSlice aria-hidden width={18} height={18} className={css.ic} />
           <b>Cake design</b>
         </div>
-        <div className={css.ghost} />
+        <div className={`skeleton ${css.ghost}`} />
       </section>
     );
   }
@@ -79,9 +79,7 @@ export function CakeDesignCard({
         </div>
         <p className={css.lline}>The design is saved; only this read failed. It is never shown as empty.</p>
         <div className={css.ra}>
-          <button type="button" className={`${css.btn} ${css.ghostBtn}`} onClick={load}>
-            <RotateCw aria-hidden width={16} height={16} /> Try again
-          </button>
+          <ActionButton tone="neutral" icon={RotateCw} label="Try again" onClick={load} />
         </div>
       </section>
     );
@@ -170,31 +168,24 @@ export function CakeDesignCard({
       ) : null}
       {place === 'chat' ? (
         <div className={css.ra}>
-          <button type="button" className={`${css.btn} ${css.main}`} onClick={() => setQuoting(true)}>
-            Make a quote
-          </button>
-          <button
-            type="button"
-            className={`${css.btn} ${css.ghostBtn}`}
+          <ActionButton tone="brand" main icon={FileText} label="Make a quote" onClick={() => setQuoting(true)} />
+          <ActionButton
+            tone="neutral"
+            icon={MessageCircle}
+            label="Reply"
             onClick={() => {
               const box = document.querySelector<HTMLTextAreaElement>('[data-chat-composer-row] textarea');
               box?.scrollIntoView({ block: 'nearest' });
               box?.focus();
             }}
-          >
-            <MessageCircle aria-hidden width={16} height={16} /> Reply
-          </button>
+          />
         </div>
       ) : links ? (
         <div className={css.ra}>
           {links.quoteHref ? (
-            <Link href={links.quoteHref} className={`${css.btn} ${css.ghostBtn}`}>
-              Open your quote
-            </Link>
+            <ActionButton tone="neutral" icon={FileText} label="Open your quote" href={links.quoteHref} />
           ) : null}
-          <Link href={links.chatHref} className={`${css.btn} ${css.ghostBtn}`}>
-            Open the chat
-          </Link>
+          <ActionButton tone="neutral" icon={MessageCircle} label="Open the chat" href={links.chatHref} />
         </div>
       ) : null}
       {stamp ? <p className={css.meta}>{stamp}</p> : null}

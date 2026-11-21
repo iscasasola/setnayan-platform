@@ -7,6 +7,7 @@
  */
 import { AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { CAKE_DESIGN_HEAD_WORDS } from '@/lib/chat-card-lines';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
@@ -35,8 +36,15 @@ export async function CakeDesignOnOrder({ ctx }: { ctx: PickedPageContext }) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // event_vendors has NO vendor SELECT policy (a-shop-cannot-read-its-own-booking.test.ts): the admin client,
+    // scoped to this shop's own row by the caller's own vendor_profile_id.
     ctx.eventVendorId
-      ? supabase.from('event_vendors').select('prep_days').eq('vendor_id', ctx.eventVendorId).maybeSingle()
+      ? createAdminClient()
+          .from('event_vendors')
+          .select('prep_days')
+          .eq('vendor_id', ctx.eventVendorId)
+          .eq('marketplace_vendor_id', ctx.vendorProfileId)
+          .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
   if (msgRes.error) {

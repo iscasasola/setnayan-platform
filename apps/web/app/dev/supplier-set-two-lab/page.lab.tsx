@@ -15,6 +15,14 @@ import '@/app/vendor-dashboard/_components/supplier-look.css';
 import { SupplierLabShell } from '../_components/supplier-lab-shell';
 import { ContractBody, ContractReadFailed } from '@/app/vendor-dashboard/contracts/[contractId]/contract-body';
 import { UploadContractBody } from '@/app/vendor-dashboard/contracts/new/upload-body';
+import { BookingFeesBody } from '@/app/vendor-dashboard/booking-fees/booking-fees-body';
+import { BookingFeeBody, BookingFeeReadFailed } from '@/app/vendor-dashboard/booking-fees/[orderId]/fee-body';
+import { BOOKING_FEE } from '@/lib/booking-fee';
+import { qrWords } from '@/lib/qr-amount-truth';
+import { payAmount } from '@/lib/pay-amount';
+import type { OrderRow, PaymentRow } from '@/lib/orders';
+import type { PlatformSettingsRow } from '@/lib/platform-settings';
+import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { CocktailBody, CocktailReadFailed } from '@/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-body';
 import type { CocktailEditorData } from '@/app/vendor-dashboard/clients/[eventId]/cocktail/cocktail-editor';
 import { EditorialMediaBody } from '@/app/vendor-dashboard/clients/[eventId]/editorial-media/editorial-media-body';
@@ -132,7 +140,76 @@ const CREW = [
   { name: 'Ilaw Lights', category: 'lights', meals: 5, fromListing: false },
 ];
 
+/* ── part 4 · booking fees ────────────────────────────────────────────────────────────────────── */
+const FEE_DUE: OrderRow = {
+  order_id: '00000000-0000-4000-8000-00000000f001',
+  public_id: 'S89O-7K2M9QX4TB',
+  event_id: null,
+  user_id: 'lab',
+  service_key: 'vendor_booking_fee_lock:00000000-0000-4000-8000-00000000c0f1',
+  description: 'Setnayan booking fee — up for verification, confirmation within 24 hrs',
+  requested_total_php: 837.5,
+  confirmed_total_php: null,
+  status: 'awaiting_payment',
+  reference_code: 'SNM51BN2RX',
+  admin_notes: null,
+  created_at: '2026-11-18T02:00:00Z',
+  updated_at: '2026-11-18T02:00:00Z',
+};
+const FEE_PAID: OrderRow = { ...FEE_DUE, order_id: '00000000-0000-4000-8000-00000000f002', public_id: 'S89O-2PAIDLAB01', status: 'paid', reference_code: 'SN7QK2M4TX', requested_total_php: 1250, description: 'Setnayan booking fee', created_at: '2026-10-02T02:00:00Z' };
+const WAIVED: WaivedFeeCharge[] = [
+  { chargeId: 'w1', reason: 'free5', eventId: null, coupleName: 'Reyes & Santos', computedPhp: 612.5, ordinal: 1, waivedOn: '2026-10-20' },
+];
+const SETTINGS = {} as PlatformSettingsRow;
+const LOGGED: PaymentRow[] = [];
+const feeView = (order: OrderRow, extra: Partial<Parameters<typeof BookingFeeBody>[0]> = {}) => (
+  <BookingFeeBody
+    orderId={order.order_id}
+    order={order}
+    headlineTotal={order.requested_total_php}
+    payable={order.status === 'awaiting_payment'}
+    foundLine="Found you on Setnayan · from Search, 3 Nov"
+    topUp={null}
+    pointer={qrWords(true, payAmount(order.requested_total_php), { reference: order.reference_code }).pointer}
+    settings={SETTINGS}
+    disputeStatus={null}
+    disputeViewCount={null}
+    decisionNote={null}
+    canDispute={order.status === 'awaiting_payment'}
+    loggedPayments={LOGGED}
+    screenshots={{}}
+    search={{}}
+    {...extra}
+  />
+);
+
 const STATES: Record<string, { label: string; draw: () => ReactNode }> = {
+  'fees-list': {
+    label: 'Booking fees · due, paid, waived',
+    draw: () => <BookingFeesBody orders={[FEE_DUE, FEE_PAID]} due={[FEE_DUE]} settled={[FEE_PAID]} closed={[]} totalDue={837.5} waived={WAIVED} schedule={BOOKING_FEE} launchLine={null} />,
+  },
+  'fees-empty': {
+    label: 'Booking fees · nothing to pay yet',
+    draw: () => <BookingFeesBody orders={[]} due={[]} settled={[]} closed={[]} totalDue={0} waived={[]} schedule={BOOKING_FEE} launchLine={null} />,
+  },
+  'fees-unread': {
+    label: 'Booking fees · the read failed (kept words)',
+    draw: () => <BookingFeesBody orders={null} due={[]} settled={[]} closed={[]} totalDue={0} waived={[]} schedule={BOOKING_FEE} launchLine={null} />,
+  },
+  'fees-waived-unread': {
+    label: 'Booking fees · the waived fees could not be read (honest state · new)',
+    draw: () => <BookingFeesBody orders={[FEE_DUE, FEE_PAID]} due={[FEE_DUE]} settled={[FEE_PAID]} closed={[]} totalDue={837.5} waived={null} schedule={BOOKING_FEE} launchLine={null} />,
+  },
+  fee: { label: 'Booking fee · one fee to pay', draw: () => feeView(FEE_DUE) },
+  'fee-top-up': {
+    label: 'Booking fee · a top-up, before the event day',
+    draw: () => feeView(FEE_DUE, { topUp: { stage: 'held', dueOn: '2026-12-12' } }),
+  },
+  'fee-paid': { label: 'Booking fee · paid', draw: () => feeView(FEE_PAID) },
+  'fee-failed': {
+    label: 'Booking fee · the fee could not be read (honest state · new)',
+    draw: () => <BookingFeeReadFailed orderId={FEE_DUE.order_id} />,
+  },
   upload: { label: 'Contracts › upload a contract', draw: () => <UploadContractBody eventOptions={EVENTS} defaultEventId="" /> },
   'upload-none': { label: 'Upload · no couple to pick yet', draw: () => <UploadContractBody eventOptions={[]} defaultEventId="" /> },
   'upload-failed': {
@@ -240,7 +317,7 @@ export default async function SupplierSetTwoLabPage({ searchParams }: { searchPa
   }
   return (
     <div data-supplier-look="" data-supplier-set-two-lab={s}>
-      <SupplierLabShell measure="own" page={s!.startsWith('contract') || s!.startsWith('upload') ? '/vendor-dashboard/contracts' : '/vendor-dashboard/customers'}>
+      <SupplierLabShell measure="own" page={s!.startsWith('fee') ? '/vendor-dashboard/booking-fees' : s!.startsWith('contract') || s!.startsWith('upload') ? '/vendor-dashboard/contracts' : '/vendor-dashboard/customers'}>
         {state.draw()}
       </SupplierLabShell>
     </div>

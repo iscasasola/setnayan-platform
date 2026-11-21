@@ -9,3 +9,5 @@ The approved drawing `unichat_live_v3_2026-11-20.html` moves "Call · Viber" int
 - **Not in this PR:** "Mute this chat". It needs a per-person store, a migration, and an answer on how mute applies to the shop's shared phone notifications.
 
 SPEC IMPACT: None. This builds the approved drawing; no ruling changed.
+
+**Head icons (controller ruling, 21 Nov):** following the approved drawing, the picked chat's head row no longer draws 📞 🎥, because the calls now live under ⋯. Outside a picked page, the host strip still draws them. The 9 Nov guard `every-chat-head-has-its-calls` was repointed, not deleted. It now holds three things: the head row draws no calls, the strip draws them only outside a picked page, and both picked pages give ⋯ its call rows using the one booking check. `the-picked-head-carries-the-chat-actions` test 2 follows the same change.

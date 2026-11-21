@@ -16,23 +16,24 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { loadPackageDraft } from '@/lib/package-draft-loader';
-import { readPortfolioPicks } from '@/lib/supplier-files.server';
-import { signStoredRef } from '@/lib/supplier-file-sign.server';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { moodCakeColours } from '@/lib/cake-mood-colours';
+import { hexForColorName } from '@/lib/color-names';
+import { specialToolsAllowed } from '@/lib/special-tools';
+import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
+import { asVendorTier } from '@/lib/vendor-tier-caps';
+import { CAKE_MESSAGE_MAX, fullCakeOffer, sanitizeCakeConfig, type CakeConfig, type CakeConfigRefusal } from '@/lib/cake-config';
 import {
   CAKE_MESSAGE_FORM_KEY,
   CAKE_MESSAGE_LETTERS,
   CAKE_MESSAGE_PROMPT,
+  cakeConfigTotalCentavos,
   cakeDesignOf,
+  cakeOfferOf,
   cakeOptionsFromDraftItems,
-  cakePhotoRefs,
-  formatCakeDesignBlock,
-  isCakeKind,
   readCakeCard,
   type CakeCard,
-  type CakeDesignState,
-  type CakeExtras,
+  type CakeDesign,
   type CakeOptions,
   type MoodCakeColour,
 } from '@/lib/cake-maker';
@@ -137,19 +138,6 @@ export async function readCakeMessageQuestion(
   return { status: 'ok', data: { formId, questionId: row.question_id, maxLetters: row.max_letters ?? CAKE_MESSAGE_LETTERS } };
 }
 
-/** The Design photos as URLs the couple's sheet can draw (each ref signed the way the shop's files are). */
-export async function cakeDesignPhotoUrls(card: CakeCard, vendorProfileId: string): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  await Promise.all(
-    (card.design?.options ?? []).map(async (o) => {
-      if (!o.photo_ref) return;
-      const url = await signStoredRef(o.photo_ref, vendorProfileId);
-      if (url) out[o.option_id] = url;
-    }),
-  );
-  return out;
-}
-
 /** The couple's own Mood Board colours for the cake (the Cake part, then the five main colours), from their event. */
 export async function readMoodCakeColours(supabase: SupabaseClient, eventId: string): Promise<Read<MoodCakeColour[]>> {
   const { data, error } = await supabase.from('events').select('role_palette').eq('event_id', eventId).maybeSingle();
@@ -162,76 +150,145 @@ export async function readMoodCakeColours(supabase: SupabaseClient, eventId: str
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* The design, as the inquiry's block                                       */
+/* The design a couple sends — checked, priced, stored                       */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-/** What the browser may send: ids and the couple's own words — never a label, never a price. */
-export function sanitizeCakeDesignInput(raw: unknown): CakeDesignState | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const r = raw as Record<string, unknown>;
-  const id = (v: unknown) => (typeof v === 'string' && v.length > 0 && v.length <= 64 ? v : null);
-  const sizeOptionId = id(r.sizeOptionId);
-  if (!sizeOptionId) return null;
-  const flavours: Record<string, string> = {};
-  if (r.flavours && typeof r.flavours === 'object') {
-    for (const [k, v] of Object.entries(r.flavours as Record<string, unknown>).slice(0, 12)) {
-      const kk = id(k);
-      const vv = id(v);
-      if (kk && vv) flavours[kk] = vv;
-    }
-  }
-  const colours: CakeDesignState['colours'] = [];
-  if (Array.isArray(r.colours)) {
-    for (const c of r.colours.slice(0, 6)) {
-      const cc = c as Record<string, unknown>;
-      if (cc?.kind === 'shop' && id(cc.optionId)) colours.push({ kind: 'shop', optionId: id(cc.optionId)! });
-      else if (cc?.kind === 'mood' && typeof cc.hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(cc.hex)) colours.push({ kind: 'mood', hex: cc.hex.toLowerCase(), name: '' });
-    }
-  }
-  return {
-    sizeOptionId,
-    flavours,
-    finishOptionId: id(r.finishOptionId),
-    colours,
-    designOptionId: id(r.designOptionId),
-    topperOptionId: id(r.topperOptionId),
-    message: typeof r.message === 'string' ? r.message.slice(0, 400) : '',
-  };
-}
+export type BuiltCakeDesign = { config: CakeConfig; design: CakeDesign; estimateCentavos: number };
 
 /**
- * The design block for the inquiry, re-read from the card's own package and the couple's own board: labels from the
- * rows, colour names from the board, the estimate from the shipped pricer. Null when it cannot be built honestly (the
- * card is not a cake, a read failed, a pick is gone, or a colour is not one of theirs) — the caller then says so.
+ * A design the browser sent, re-checked on the server against the card's OWN package (lib/cake-config.ts
+ * `sanitizeCakeConfig`, filtered to what this shop offers) and priced by the shipped pricer. Colours must be the
+ * couple's own Mood Board colours or the shop's own colours; the inspiration photo must be a live library photo.
+ * Refused — never thinned — when any of that fails; the caller says so and creates nothing.
  */
-export async function buildCakeDesignBlock(
+export async function buildCakeDesign(
   supabase: SupabaseClient,
   admin: SupabaseClient,
-  args: { vendorProfileId: string; vendorServiceId: string; eventId: string; cardName: string; design: CakeDesignState; paxCount: number },
-): Promise<string | null> {
-  const [cake, mood] = await Promise.all([
+  args: { vendorProfileId: string; vendorServiceId: string; eventId: string; cardName: string; config: unknown; paxCount: number },
+): Promise<{ ok: true; built: BuiltCakeDesign } | { ok: false; reason: CakeConfigRefusal | 'unread' }> {
+  const [cake, mood, paid, shopRes] = await Promise.all([
     // The package is the shop's public offer — read it the way the shop page does (admin, scoped by shop + card).
     readCakePackage(admin, { vendorProfileId: args.vendorProfileId, vendorServiceId: args.vendorServiceId }, admin),
     readMoodCakeColours(supabase, args.eventId),
+    readSpecialToolsPaidFrom(admin),
+    admin.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', args.vendorProfileId).maybeSingle(),
   ]);
-  if (cake.status !== 'ok') return null;
+  if (cake.status !== 'ok' || mood.status === 'unread' || paid.status !== 'ok' || shopRes.error) return { ok: false, reason: 'unread' };
+  // 🔒 The same plan rule the supplier's editor and save read: a shop below Pro after the start date takes no designs.
+  const tier = asVendorTier((shopRes.data as { tier_state?: string | null } | null)?.tier_state ?? 'free');
+  if (!specialToolsAllowed(tier, paid.paidFrom, Date.now())) return { ok: false, reason: 'not_offered' };
+  const { pkg, card, messageMax } = cake.data;
+  const checked = sanitizeCakeConfig(args.config, cakeOfferOf(card, messageMax));
+  if (!checked.ok) return { ok: false, reason: checked.reason };
+  const config = checked.config;
+
   const board = mood.status === 'ok' ? mood.data : [];
-  const colours: CakeDesignState['colours'] = [];
-  for (const c of args.design.colours) {
-    if (c.kind === 'shop') colours.push(c);
-    else {
-      const own = board.find((b) => b.hex.toLowerCase() === c.hex.toLowerCase());
-      // A colour that is not on their board is refused, never sent under a made-up name.
-      if (!own) return null;
-      colours.push({ kind: 'mood', hex: own.hex, name: own.name });
-    }
+  const shopColours = (card.colours?.options ?? []).filter((o) => o.is_available).map((o) => o.option_label);
+  for (const c of config.colours) {
+    const own = board.some((b) => b.hex.toUpperCase() === c.hex && b.name === c.name);
+    const shop = shopColours.some((n) => n === c.name && (hexForColorName(n) ?? '').toUpperCase() === c.hex);
+    if (!own && !shop) return { ok: false, reason: 'colours' };
   }
-  const design = cakeDesignOf(cake.data.pkg, cake.data.card, { ...args.design, colours }, {
-    cardName: args.cardName,
-    messageMax: cake.data.messageMax,
-    paxCount: args.paxCount,
+  if (config.inspirationRef) {
+    const { data, error } = await admin
+      .from('moodboard_library_assets')
+      .select('asset_id')
+      .eq('asset_id', config.inspirationRef)
+      .not('approved_at', 'is', null)
+      .is('retired_at', null)
+      .maybeSingle();
+    if (error) return { ok: false, reason: 'unread' };
+    if (!data) return { ok: false, reason: 'not_offered' };
+  }
+  const estimate = cakeConfigTotalCentavos(pkg, card, config, args.paxCount);
+  if (estimate === null) return { ok: false, reason: 'not_offered' };
+  return {
+    ok: true,
+    built: {
+      config,
+      estimateCentavos: estimate,
+      design: cakeDesignOf(card, config, { cardName: args.cardName, oneCentavos: pkg.total_price_centavos, estimateCentavos: estimate }),
+    },
+  };
+}
+
+/** Stores a checked design once (service role — no browser writes). Returns its id, or null when the write failed. */
+export async function storeCakeDesign(
+  admin: SupabaseClient,
+  args: { threadId: string; vendorServiceId: string; built: BuiltCakeDesign; userId: string | null },
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('cake_designs')
+    .insert({
+      thread_id: args.threadId,
+      vendor_service_id: args.vendorServiceId,
+      config: args.built.config,
+      estimate_centavos: args.built.estimateCentavos,
+      created_by: args.userId,
+    })
+    .select('design_id')
+    .single();
+  if (error || !data) {
+    if (error) logQueryError('storeCakeDesign', error, { thread_id: args.threadId }, 'graceful_degrade');
+    return null;
+  }
+  return (data as { design_id: string }).design_id;
+}
+
+/** Removes a stored design whose message never posted, so no design exists that nobody was sent. Best effort. */
+export async function dropCakeDesign(admin: SupabaseClient, designId: string): Promise<void> {
+  const { error } = await admin.from('cake_designs').delete().eq('design_id', designId);
+  if (error) logQueryError('dropCakeDesign', error, { design_id: designId }, 'graceful_degrade');
+}
+
+export type StoredCakeDesign = {
+  designId: string;
+  vendorServiceId: string | null;
+  config: CakeConfig;
+  estimateCentavos: number;
+  createdAt: string;
+};
+
+/**
+ * One stored design, read with the CALLER's client (RLS: only that thread's couple and shop). The row is re-checked
+ * through the sanitizer against the full catalog before it is drawn — a row that does not read is `unread`, never an
+ * empty design.
+ */
+export async function readStoredCakeDesign(
+  supabase: SupabaseClient,
+  args: { threadId: string; designId: string },
+): Promise<Read<StoredCakeDesign>> {
+  const { data, error } = await supabase
+    .from('cake_designs')
+    .select('design_id, vendor_service_id, config, estimate_centavos, created_at')
+    .eq('design_id', args.designId)
+    .eq('thread_id', args.threadId)
+    .maybeSingle();
+  if (error) {
+    logQueryError('readStoredCakeDesign', error, { design_id: args.designId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  if (!data) return { status: 'none' };
+  const row = data as { design_id: string; vendor_service_id: string | null; config: unknown; estimate_centavos: number; created_at: string };
+  // The shape is re-checked against the whole catalog (the shop's refs it carried are taken as they were stored —
+  // the send already checked them against the card). A row that does not read is `unread`, never an empty cake.
+  const c = (row.config ?? {}) as { tiers?: { flavourRef?: unknown }[]; cupcakes?: { packRef?: unknown; flavourRef?: unknown } | null };
+  const refs = (c.tiers ?? []).map((t) => t?.flavourRef).filter((r): r is string => typeof r === 'string');
+  const cup = c.cupcakes ?? null;
+  const checked = sanitizeCakeConfig(row.config, {
+    ...fullCakeOffer(),
+    flavourRefs: refs,
+    messageMax: CAKE_MESSAGE_MAX,
+    cupcakes: cup && typeof cup.packRef === 'string' ? { packRefs: [cup.packRef], flavourRefs: typeof cup.flavourRef === 'string' ? [cup.flavourRef] : [], tower: true } : null,
   });
-  return design ? formatCakeDesignBlock(design) : null;
+  if (!checked.ok) {
+    logQueryError('readStoredCakeDesign.shape', { message: checked.reason }, { design_id: args.designId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  return {
+    status: 'ok',
+    data: { designId: row.design_id, vendorServiceId: row.vendor_service_id, config: checked.config, estimateCentavos: Number(row.estimate_centavos), createdAt: row.created_at },
+  };
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
@@ -263,36 +320,7 @@ export async function readCakeOptionsForEdit(
   if (msg.status === 'unread') return { status: 'unread' };
   const cake = cakeOptionsFromDraftItems(draft.loaded.draft.items, msg.status === 'ok' ? { maxLetters: msg.data.maxLetters } : null);
   if (!cake) return { status: 'none' };
-  // The editor draws each Design photo; the ref stays the only thing saved.
-  if (cake.design) {
-    cake.design = await Promise.all(
-      cake.design.map(async (d) => ({ ...d, photoUrl: d.photoRef ? await signStoredRef(d.photoRef, args.vendorProfileId) : null })),
-    );
-  }
   return { status: 'ok', data: { packageId, cake } };
-}
-
-/** The Design photos the supplier may pick from: their own portfolio and this card's own photos. */
-export async function readCakePortfolio(
-  supabase: SupabaseClient,
-  args: { vendorProfileId: string; vendorServiceId: string | null },
-): Promise<Read<{ ref: string; url: string }[]>> {
-  const r = await readPortfolioPicks(supabase, { vendorProfileId: args.vendorProfileId, quotedIds: args.vendorServiceId ? [args.vendorServiceId] : [] });
-  if (r.status !== 'ok') return { status: 'unread' };
-  return { status: 'ok', data: r.picks.map((p) => ({ ref: p.ref, url: p.url })) };
-}
-
-/** Ruling 4: a Design photo must be one of the shop's own. Returns the first ref that is not, or null. */
-export async function foreignCakePhoto(
-  supabase: SupabaseClient,
-  args: { vendorProfileId: string; vendorServiceId: string | null; cake: CakeOptions },
-): Promise<string | 'unread' | null> {
-  const refs = cakePhotoRefs(args.cake);
-  if (refs.length === 0) return null;
-  const own = await readCakePortfolio(supabase, args);
-  if (own.status !== 'ok') return 'unread';
-  const mine = new Set(own.data.map((p) => p.ref));
-  return refs.find((r) => !mine.has(r)) ?? null;
 }
 
 /**
@@ -367,75 +395,4 @@ export async function cardPackageId(
     return { status: 'unread' };
   }
   return data ? { status: 'ok', data: (data as { package_id: string }).package_id } : { status: 'none' };
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/* The shop page — which packages are cakes, and what their sheet needs      */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-/**
- * package_id → {@link CakeExtras} for every package on the shop page that is a cake card's own package. A package whose
- * card cannot be read is LEFT OUT (its Book sheet draws as shipped), never drawn as a cake with missing parts.
- * Three reads for the page (the packages' cards, the cards, the couple's board), then one message read per cake card.
- */
-export async function readShopCakeExtras(
-  admin: SupabaseClient,
-  supabase: SupabaseClient,
-  args: { vendorProfileId: string; packages: ReadonlyArray<VendorPackageWithItems>; eventId: string | null },
-): Promise<Map<string, CakeExtras>> {
-  const out = new Map<string, CakeExtras>();
-  const cakes = args.packages.map((pkg) => ({ pkg, card: readCakeCard(pkg) })).filter((x): x is { pkg: VendorPackageWithItems; card: CakeCard } => x.card !== null);
-  if (cakes.length === 0) return out;
-  const { data: links, error: linkErr } = await admin
-    .from('vendor_packages')
-    .select('package_id, vendor_service_id')
-    .eq('vendor_profile_id', args.vendorProfileId)
-    .in('package_id', cakes.map((c) => c.pkg.package_id));
-  if (linkErr) {
-    logQueryError('readShopCakeExtras.links', linkErr, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
-    return out;
-  }
-  const cardOf = new Map<string, string>();
-  for (const l of (links ?? []) as { package_id: string; vendor_service_id: string | null }[]) if (l.vendor_service_id) cardOf.set(l.package_id, l.vendor_service_id);
-  const cardIds = [...new Set(cardOf.values())];
-  if (cardIds.length === 0) return out;
-  const [cardsRes, moodRead] = await Promise.all([
-    admin
-      .from('vendor_services')
-      .select('vendor_service_id, title, category, usual_prep_days, is_active')
-      .eq('vendor_profile_id', args.vendorProfileId)
-      .in('vendor_service_id', cardIds),
-    args.eventId ? readMoodCakeColours(supabase, args.eventId) : Promise.resolve({ status: 'none' } as Read<MoodCakeColour[]>),
-  ]);
-  if (cardsRes.error) {
-    logQueryError('readShopCakeExtras.cards', cardsRes.error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
-    return out;
-  }
-  const cards = new Map(
-    ((cardsRes.data ?? []) as { vendor_service_id: string; title: string | null; category: string | null; usual_prep_days: number | null; is_active: boolean }[])
-      .filter((c) => c.is_active && isCakeKind(c.category))
-      .map((c) => [c.vendor_service_id, c]),
-  );
-  const mood = moodRead.status === 'ok' ? moodRead.data : moodRead.status === 'none' ? [] : null;
-  await Promise.all(
-    cakes.map(async ({ pkg, card }) => {
-      const cardId = cardOf.get(pkg.package_id);
-      const row = cardId ? cards.get(cardId) : undefined;
-      if (!cardId || !row) return;
-      const [msg, photoUrls] = await Promise.all([
-        readCakeMessageQuestion(admin, { vendorProfileId: args.vendorProfileId, vendorServiceId: cardId }),
-        cakeDesignPhotoUrls(card, args.vendorProfileId),
-      ]);
-      if (msg.status === 'unread') return;
-      out.set(pkg.package_id, {
-        cardId,
-        cardName: (row.title ?? '').trim() || pkg.package_name,
-        messageMax: msg.status === 'ok' ? msg.data.maxLetters : 0,
-        prepDays: row.usual_prep_days,
-        photoUrls,
-        mood,
-      });
-    }),
-  );
-  return out;
 }

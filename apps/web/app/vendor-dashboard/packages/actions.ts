@@ -537,8 +537,8 @@ async function writeItems(
         is_default: o.is_default,
         is_available: o.is_available,
         display_order: oIdx,
-        // 🎂 A cake Design option's portfolio photo, re-checked against the shop's own portfolio by the caller.
-        ...(o.photoRef ? { photo_ref: o.photoRef } : {}),
+        // 🎂 A cake option's catalog key (lib/cake-maker.ts) — written only on a cake option.
+        ...(o.lookKey ? { look_key: o.lookKey } : {}),
         __ref: o.ref,
       }));
     });

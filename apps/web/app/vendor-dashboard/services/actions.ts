@@ -99,7 +99,9 @@ import {
 } from '@/lib/service-customization-draft';
 import { savePackage } from '../packages/actions';
 import { CAKE_OPTIONS_FIELD, cakeOptionsToDraftItems, isCakeKind, parseCakeOptions, type CakeOptions } from '@/lib/cake-maker';
-import { cardPackageId, foreignCakePhoto, saveCakeMessageQuestion } from '@/lib/cake-maker.server';
+import { cardPackageId, saveCakeMessageQuestion } from '@/lib/cake-maker.server';
+import { specialToolsOpenToAll } from '@/lib/special-tools';
+import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 import { SHOP_PACK_GIFTS_DELIVER, giftColumns } from '@/lib/gift-pick';
 import { freeByKind, freeOfPack, shopGiftKindOf } from '@/lib/shop-gifts';
 import { fetchShopGiftPacks, fetchShopGiftStock } from '@/lib/shop-gifts.server';
@@ -2143,6 +2145,14 @@ export async function commitVendorService(formData: FormData) {
     cakeOptions = parsedCake.cake;
   }
   if (cakeOptions) {
+    // 🔒 SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP (owner, 2026-11-21) — the editor's lock, asked again here.
+    // A locked editor posts no options at all, so a plan below Pro still saves every other part of the card, and the
+    // saved cake options stay exactly as they are.
+    const paid = await readSpecialToolsPaidFrom(supabase);
+    if (paid.status !== 'ok') return back('We could not check your plan for Your cake options just now, so nothing was saved. Try again.');
+    if (!specialToolsOpenToAll(paid.paidFrom, Date.now()) && !caps.specialTools) {
+      return back('Your cake options are included in Pro. Upgrade to change them — the options you saved are kept.');
+    }
     if (customizationItems.length > 0) {
       return back('A cake card keeps its choices in Your cake options. Remove the lines under What’s included and save again.');
     }
@@ -2158,10 +2168,6 @@ export async function commitVendorService(formData: FormData) {
       toPackageDraft(cakeItems, { packageName: (fields.title as string | null) ?? displayServiceLabel(category), totalPriceCentavos: customizationPriceCentavos }),
     )[0];
     if (cakeProblem) return back(cakeProblem.message);
-    // Ruling 4: a Design photo is one of the shop's OWN — re-checked here, never taken from the browser on trust.
-    const foreign = await foreignCakePhoto(supabase, { vendorProfileId: profile.vendor_profile_id, vendorServiceId: serviceId, cake: cakeOptions });
-    if (foreign === 'unread') return back('Your portfolio could not be read to check the design photos, so nothing was saved. Try again.');
-    if (foreign) return back('A design photo has to be one of your own — pick it from your portfolio.');
   }
 
   // (The cover-photo check that stood here — owner 2026-06-20, "the card needs

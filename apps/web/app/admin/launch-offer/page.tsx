@@ -11,7 +11,7 @@ import {
   launchOfferIsOpen,
   launchProEndsAtNow,
 } from '@/lib/launch-offer';
-import { FreeFeeWindowForm, LaunchOfferNumbersForm } from './launch-offer-form';
+import { FreeFeeWindowForm, LaunchOfferNumbersForm, SpecialToolsDateForm } from './launch-offer-form';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,11 +45,11 @@ export default async function AdminLaunchOfferPage() {
   const offer = await readLaunchOffer(admin);
   const { data: win, error: winErr } = await admin
     .from('platform_settings')
-    .select('booking_fee_free_from, booking_fee_free_until')
+    .select('booking_fee_free_from, booking_fee_free_until, special_tools_paid_from')
     .eq('id', 1)
     .maybeSingle();
   if (winErr) logQueryError('admin/launch-offer.window', winErr);
-  const w = (win ?? {}) as { booking_fee_free_from?: string | null; booking_fee_free_until?: string | null };
+  const w = (win ?? {}) as { booking_fee_free_from?: string | null; booking_fee_free_until?: string | null; special_tools_paid_from?: string | null };
   // The window's reason lives only in the admin-only audit log — the latest window edit's row.
   // A failed read just leaves the box empty: saving an open window still demands a reason.
   const { data: lastWindowEdit, error: reasonErr } = await admin
@@ -148,6 +148,15 @@ export default async function AdminLaunchOfferPage() {
           until={isoToManilaLocal(w.booking_fee_free_until ?? null)}
           reason={storedReason}
         />
+      )}
+
+      <h2 className="mb-2 mt-6 font-serif text-lg text-ink">Special tools · Pro and up</h2>
+      {winErr ? (
+        <p className="sn-tile p-4 text-sm" style={{ color: '#B54708' }}>
+          Could not load the date right now — refresh to try again.
+        </p>
+      ) : (
+        <SpecialToolsDateForm from={isoToManilaLocal(w.special_tools_paid_from ?? null)} />
       )}
     </div>
   );

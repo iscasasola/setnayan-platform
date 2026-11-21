@@ -141,6 +141,7 @@ import {
   type MakerCheckRules,
   type PhotoCheckAsk,
 } from './card-checks';
+import { CustomFormAsk } from './custom-form-ask';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -286,6 +287,7 @@ export function CanvasMaker({
   portfolioLine = null,
   editing = null,
   cakeSeed,
+  cakeLocked = false,
   bookedNow,
   deleteGate = null,
   editLock = null,
@@ -376,6 +378,8 @@ export function CanvasMaker({
    * `unread` → the part says so and posts nothing, so a refused read can never overwrite the saved options.
    */
   cakeSeed?: CakeSeed;
+  /** 🔒 Special tools are Pro and up after the admin's start date — a new cake card below Pro opens locked. */
+  cakeLocked?: boolean;
   /** An existing card → the edit sheet: Save, the Live switch, delete and copy. */
   editing?: MakerEditing | null;
   /**
@@ -1535,6 +1539,8 @@ export function CanvasMaker({
                     </div>
                   </FormRows>
                 ) : null}
+                {/* ✍ The end of the customization part, on every card (a cake card's sits under Your cake options). */}
+                {!isCakeKind(category) ? <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} /> : null}
               </div>
             </MakerGroup>
 
@@ -1620,10 +1626,11 @@ export function CanvasMaker({
             {customizationEnabled && isCakeKind(category) ? (
               <div data-maker-row="cake-options">
                 <CakeOptionsStep
-                  seed={cakeSeed ?? { status: 'ok', cake: null, saved: false }}
+                  seed={cakeSeed ?? { status: 'ok', cake: null, saved: false, locked: cakeLocked }}
                   serviceId={editing?.serviceId ?? null}
                   priceWords={snap.hasPrice ? (snap.priceLine.split(' · ')[0] ?? null) : null}
                 />
+                <CustomFormAsk cardName={title} categoryLabel={activeCategoryLabel ?? ''} />
               </div>
             ) : null}
 

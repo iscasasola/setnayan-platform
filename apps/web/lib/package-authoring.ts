@@ -53,8 +53,8 @@ export type DraftOption = {
   price_delta_centavos: number;
   is_default: boolean;
   is_available: boolean;
-  /** 🎂 Cake Maker: one photo from the shop's own portfolio on a Design option (a readPortfolioPicks ref). */
-  photoRef?: string | null;
+  /** 🎂 Cake Maker: which catalog look or tier count this option is (lib/cake-maker.ts `cakeLookKey`). */
+  lookKey?: string | null;
 };
 
 /**

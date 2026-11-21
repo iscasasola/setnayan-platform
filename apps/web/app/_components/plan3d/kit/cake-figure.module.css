@@ -1,0 +1,28 @@
+/* 🎂 <CakeFigure> — the cake keeps its real colours in light and dark; only text strokes and motion live here. */
+.fig {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.tier {
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1); /* MOTION_STANDARD short speed */
+}
+.script {
+  font-family: var(--font-script), cursive;
+  font-size: 15px;
+}
+.mono {
+  font-family: var(--font-serif, Georgia), serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.plaque {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.08));
+}
+@media (prefers-reduced-motion: reduce) {
+  .tier {
+    transition: none;
+  }
+}

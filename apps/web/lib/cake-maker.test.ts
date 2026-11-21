@@ -1,6 +1,6 @@
 /**
- * 🎂 The Cake Maker's rules (lib/cake-maker.ts) against the SHIPPED pricer and validator — the estimate on the couple's
- * screen, the total `lockPackage` commits and the message the supplier reads are all one computation.
+ * 🎂 The Cake Maker's rules (lib/cake-maker.ts) against the SHIPPED pricer and validator — the estimate the couple
+ * sees, the total `lockPackage` commits and the design the supplier reads are one computation over one package.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -8,27 +8,24 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CAKE_PARTS,
+  cakeConfigSelection,
+  cakeConfigTotalCentavos,
   cakeDesignOf,
+  cakeDesignRefOf,
+  cakeOfferOf,
   cakeOptionsFromDraftItems,
   cakeOptionsProblem,
   cakeOptionsToDraftItems,
-  cakeSelection,
   cakeTemplate,
-  cakeTotalCentavos,
-  coloursOverCap,
-  flavourLabelsByIndex,
-  flavoursFor,
   formatCakeDesignBlock,
-  parseCakeDesignBlock,
   parseCakeOptions,
   readCakeCard,
   serializeCakeOptions,
-  startingCakeDesign,
   type CakeOptions,
 } from './cake-maker';
+import { sanitizeCakeConfig, startingCakeConfig, type CakeConfig } from './cake-config';
 import { validatePackageDraft, type DraftItem } from './package-authoring';
 import { toPackageDraft } from './service-customization-draft';
-import { unfinishedChoiceLines } from './package-choice-tree';
 import type { VendorPackageItemRow, VendorPackageWithItems } from './vendor-packages';
 
 const ONE = 1_200_000; // the one price in this fixture, centavos
@@ -37,15 +34,15 @@ const K = 100_000; // one thousand pesos, centavos
 /** A template with extras, as a supplier would type them. */
 function priced(): CakeOptions {
   const c = cakeTemplate();
-  c.tiers.extraCentavos = { '4': 3 * K, '5': 6 * K };
+  c.tiers = { maxReal: 6, standard: 3, realExtraCentavos: 3 * K, display: { max: 2, extraCentavos: K } };
   c.flavours = c.flavours!.map((f) => (f.label === 'Red velvet' ? { ...f, extraCentavos: K } : f));
-  c.finish = c.finish!.map((f) => (f.label === 'Fondant' ? { ...f, extraCentavos: 2 * K } : f));
-  c.design = c.design!.map((f) => (f.label === 'Floral cascade' ? { ...f, extraCentavos: 2 * K } : f));
-  c.topper = c.topper!.map((f) => (f.label === 'Acrylic names' ? { ...f, extraCentavos: K } : f));
+  c.finish = c.finish!.map((f) => (f.look === 'fondant' ? { ...f, extraCentavos: 2 * K } : f));
+  c.accents = c.accents!.map((f) => (f.look === 'drip' ? { ...f, extraCentavos: K } : f));
+  c.monogram = { extraCentavos: K };
+  c.cupcakes = { packs: [{ count: 24, priceCentavos: 3 * K }], tower: { extraCentavos: K } };
   return c;
 }
 
-/** The draft lines as stored rows: refs become ids, a follow-up's parentRef becomes its parent option's id. */
 function asPackage(items: DraftItem[]): VendorPackageWithItems {
   const rows: VendorPackageItemRow[] = items.map((i, idx) => ({
     item_id: i.ref,
@@ -57,7 +54,7 @@ function asPackage(items: DraftItem[]): VendorPackageWithItems {
     replacement_value_centavos: i.replacement_value_centavos,
     display_order: idx,
     created_at: '2026-11-21T00:00:00Z',
-    parent_option_id: i.parentRef?.optionRef ?? null,
+    parent_option_id: null,
     pick_min: i.pickMin ?? null,
     pick_max: i.pickMax ?? null,
     max_extra_hours: null,
@@ -71,173 +68,126 @@ function asPackage(items: DraftItem[]): VendorPackageWithItems {
       is_default: o.is_default,
       is_available: o.is_available,
       display_order: oi,
-      photo_ref: o.photoRef ?? null,
+      look_key: o.lookKey ?? null,
     })),
   }));
-  return {
-    package_id: 'pkg',
-    vendor_profile_id: 'v',
-    package_name: 'Wedding cake',
-    total_price_centavos: ONE,
-    consumable_budget_centavos: 0,
-    is_consumable_flexible: false,
-    is_active: true,
-    items: rows,
-  } as unknown as VendorPackageWithItems;
+  return { package_id: 'pkg', vendor_profile_id: 'v', package_name: 'Wedding cake', total_price_centavos: ONE, consumable_budget_centavos: 0, is_consumable_flexible: false, is_active: true, items: rows } as unknown as VendorPackageWithItems;
 }
 
+const build = (c: CakeOptions = priced()) => {
+  const pkg = asPackage(cakeOptionsToDraftItems(c, 'wedding_cake'));
+  const card = readCakeCard(pkg)!;
+  return { pkg, card, offer: cakeOfferOf(card, 40) };
+};
+const design = (offer: ReturnType<typeof build>['offer'], over: Partial<CakeConfig>) => {
+  const r = sanitizeCakeConfig({ ...startingCakeConfig(offer), ...over }, offer);
+  assert.ok(r.ok, `sanitized: ${JSON.stringify(r)}`);
+  return r.config;
+};
+
 test('the parts are exactly the database CHECK', () => {
-  const sql = readFileSync(join(process.cwd(), '../../supabase/migrations/20271356877338_cake_maker_parts_photos_and_letters.sql'), 'utf8');
-  const m = /cake_part IN \(([^)]+)\)/.exec(sql);
-  assert.ok(m, 'the CHECK is in the migration');
-  const inSql = m![1]!.split(',').map((s) => s.trim().replace(/'/g, ''));
-  assert.deepEqual(inSql, [...CAKE_PARTS]);
+  const sql = readFileSync(join(process.cwd(), '../../supabase/migrations/20271356877338_cake_maker_parts_and_designs.sql'), 'utf8');
+  const m = /cake_part IN \(([^)]*)\)/.exec(sql);
+  assert.ok(m, 'the CHECK lists the parts');
+  const inSql = m![1]!.split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean);
+  assert.deepEqual([...inSql].sort(), [...CAKE_PARTS].sort());
 });
 
 test('the template is a package the shipped validator accepts, with every extra at ₱0', () => {
-  const items = cakeOptionsToDraftItems(cakeTemplate(), 'cake');
-  assert.equal(cakeOptionsProblem(cakeTemplate()), null);
-  const problems = validatePackageDraft(toPackageDraft(items, { packageName: 'Wedding cake', totalPriceCentavos: ONE }));
-  assert.deepEqual(problems, []);
-  for (const i of items) for (const o of i.options) assert.equal(o.price_delta_centavos, 0, `${i.service_description} · ${o.label} guessed a price`);
+  const items = cakeOptionsToDraftItems(cakeTemplate(), 'wedding_cake');
+  assert.deepEqual(validatePackageDraft(toPackageDraft(items, { packageName: 'Cake', totalPriceCentavos: ONE })), []);
+  assert.ok(items.every((i) => i.options.every((o) => o.price_delta_centavos === 0)), 'nothing is guessed');
+  assert.equal(cakeOptionsProblem(priced()), null);
+  assert.deepEqual(validatePackageDraft(toPackageDraft(cakeOptionsToDraftItems(priced(), 'wedding_cake'), { packageName: 'Cake', totalPriceCentavos: ONE })), []);
 });
 
-test('flavour is written once and asked for each tier: one follow-up line per tier under each size', () => {
-  const items = cakeOptionsToDraftItems(cakeTemplate(), 'cake');
-  const flavourLines = items.filter((i) => i.cakePart === 'flavour');
-  assert.equal(flavourLines.length, 1 + 2 + 3 + 4 + 5, 'sizes 1–5 → 15 tier lines');
-  const under3 = flavourLines.filter((i) => i.parentRef?.optionRef === 'cake-tiers-3').map((i) => i.service_description);
-  assert.deepEqual(under3, ['Flavour · bottom tier', 'Flavour · tier 2', 'Flavour · tier 3']);
-  for (const l of flavourLines) {
-    assert.equal(l.is_default_included, false, 'a follow-up is never inside the price');
-    assert.deepEqual(l.options.map((o) => o.label), ['Vanilla chiffon', 'Chocolate', 'Ube', 'Mocha', 'Red velvet']);
-  }
+test('flavour is written once and asked per real tier; accents are asked per tier, up to 10', () => {
+  const items = cakeOptionsToDraftItems(priced(), 'wedding_cake');
+  assert.equal(items.filter((i) => i.cakePart === 'flavour').length, 6, 'one flavour line per possible real tier');
+  assert.equal(items.filter((i) => i.cakePart === 'accent').length, 8, 'one accent line per possible tier (6 real + 2 display)');
+  const ten = cakeTemplate();
+  ten.tiers = { maxReal: 10, standard: 3, realExtraCentavos: 0, display: { max: 9, extraCentavos: 0 } };
+  assert.equal(cakeOptionsToDraftItems(ten, 'wedding_cake').filter((i) => i.cakePart === 'accent').length, 10, 'never more than 10');
 });
 
-test('a flavour extra is charged once for each tier it is picked for — by the shipped pricer', () => {
-  const pkg = asPackage(cakeOptionsToDraftItems(priced(), 'cake'));
-  const card = readCakeCard(pkg)!;
-  const start = startingCakeDesign(card);
-  assert.equal(card.sizes.find((s) => s.option.option_id === start.sizeOptionId)!.tiers, 3, 'starts on 3 tiers');
-  assert.equal(cakeTotalCentavos(pkg, card, start, 0), ONE, 'all Standard = the one price');
-
-  const size3 = card.sizes.find((s) => s.tiers === 3)!;
-  const redVelvet = (lineIdx: number) => size3.flavourLines[lineIdx]!.options!.find((o) => o.option_label === 'Red velvet')!.option_id;
-  const twoRed = { ...start, flavours: { ...start.flavours, [size3.flavourLines[0]!.item_id]: redVelvet(0), [size3.flavourLines[2]!.item_id]: redVelvet(2) } };
-  assert.equal(cakeTotalCentavos(pkg, card, twoRed, 0), ONE + 2 * K, 'Red velvet on two tiers = two extras');
-});
-
-test('a bigger size adds its extra; the flavours of the tiers below carry across', () => {
-  const pkg = asPackage(cakeOptionsToDraftItems(priced(), 'cake'));
-  const card = readCakeCard(pkg)!;
-  const start = startingCakeDesign(card);
-  const size3 = card.sizes.find((s) => s.tiers === 3)!;
-  const ube = size3.flavourLines[0]!.options!.find((o) => o.option_label === 'Ube')!.option_id;
-  const picked = { ...start, flavours: { ...start.flavours, [size3.flavourLines[0]!.item_id]: ube } };
-  const size4 = card.sizes.find((s) => s.tiers === 4)!;
-  const moved = { ...picked, sizeOptionId: size4.option.option_id, flavours: flavoursFor(size4, flavourLabelsByIndex(card, picked)) };
-  assert.equal(flavourLabelsByIndex(card, moved)[0], 'Ube', 'the bottom tier kept Ube');
-  assert.equal(flavourLabelsByIndex(card, moved)[3], 'Vanilla chiffon', 'the new top tier starts on Standard');
-  assert.equal(cakeTotalCentavos(pkg, card, moved, 0), ONE + 3 * K);
-});
-
-test('Mood Board colours only: the shop colours line is removed, the total does not move and nothing is unfinished', () => {
-  const pkg = asPackage(cakeOptionsToDraftItems(priced(), 'cake'));
-  const card = readCakeCard(pkg)!;
-  const state = { ...startingCakeDesign(card), colours: [{ kind: 'mood' as const, name: 'Sage', hex: '#9caf88' }] };
-  const { selection, removedItemIds } = cakeSelection(card, state);
-  assert.deepEqual(removedItemIds, [card.colours!.item_id]);
-  assert.deepEqual(unfinishedChoiceLines(pkg, removedItemIds, selection), []);
-  assert.equal(cakeTotalCentavos(pkg, card, state, 0), ONE);
-});
-
-test('a 4th colour is over the cap', () => {
-  const pkg = asPackage(cakeOptionsToDraftItems(cakeTemplate(), 'cake'));
-  const card = readCakeCard(pkg)!;
-  const opts = card.colours!.options!;
-  const three = opts.slice(0, 3).map((o) => ({ kind: 'shop' as const, optionId: o.option_id }));
-  const s = startingCakeDesign(card);
-  assert.equal(coloursOverCap(card, { ...s, colours: three }), false);
-  assert.equal(coloursOverCap(card, { ...s, colours: [...three, { kind: 'mood', name: 'Ivory', hex: '#fffff0' }] }), true);
-});
-
-test('options round-trip through the stored lines (editing a saved card)', () => {
-  const c = priced();
-  c.design = c.design!.map((d, i) => (i === 1 ? { ...d, photoRef: 'portfolio/abc.jpg' } : d));
-  const back = cakeOptionsFromDraftItems(cakeOptionsToDraftItems(c, 'cake'), c.message)!;
-  const strip = (x: CakeOptions) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'ref' ? undefined : v)));
-  assert.deepEqual(strip(back), strip({ ...c, design: c.design!.map((d) => ({ ...d, photoRef: d.photoRef ?? null })) }));
-});
-
-test('the wire parse refuses what the editor would refuse, and reads absent as no cake', () => {
-  assert.deepEqual(parseCakeOptions(''), { ok: true, cake: null });
-  assert.equal(parseCakeOptions('{').ok, false);
-  const bad = priced();
-  bad.tiers.made = [3];
-  assert.equal(parseCakeOptions(serializeCakeOptions(bad)).ok, false, 'one size is not a choice');
-  const neg = priced();
-  neg.finish![1]!.extraCentavos = -1;
-  assert.equal(parseCakeOptions(serializeCakeOptions(neg)).ok, false, 'never below ₱0');
-  const good = parseCakeOptions(serializeCakeOptions(priced()));
-  assert.ok(good.ok && good.cake);
-});
-
-test('the design message round-trips, its estimate is the pricer’s, and plain text is not a design', () => {
-  const pkg = asPackage(cakeOptionsToDraftItems(priced(), 'cake'));
-  const card = readCakeCard(pkg)!;
-  const s = startingCakeDesign(card);
-  const design = card.design!.options!.find((o) => o.option_label === 'Floral cascade')!.option_id;
-  const state = {
-    ...s,
-    designOptionId: design,
-    colours: [
-      { kind: 'mood' as const, name: 'Dusty rose', hex: '#d4a5a5' },
-      { kind: 'shop' as const, optionId: card.colours!.options![1]!.option_id },
+test('the estimate is the shipped pricer: extra real tiers, display tiers, a flavour per tier, accents, monogram, cupcakes', () => {
+  const { pkg, card, offer } = build();
+  const base = design(offer, {});
+  assert.equal(cakeConfigTotalCentavos(pkg, card, base, 0, false), ONE, 'the Standard cake is the one price');
+  const big = design(offer, {
+    tiers: [
+      { kind: 'display', flavourRef: null, accent: 'none' },
+      { kind: 'real', flavourRef: 'fl:5', accent: 'drip' },
+      { kind: 'real', flavourRef: 'fl:5', accent: 'none' },
+      { kind: 'real', flavourRef: null, accent: 'drip' },
+      { kind: 'real', flavourRef: null, accent: 'none' },
     ],
-    message: 'Ana & Migs · 12.19\nline two',
-  };
-  const d = cakeDesignOf(pkg, card, state, { cardName: 'Wedding cake', messageMax: 40, paxCount: 0 })!;
-  assert.equal(d.estimateCentavos, ONE + 2 * K);
-  const block = formatCakeDesignBlock(d);
-  assert.match(block, /^🎂 Cake design · Wedding cake\nTiers: 3 tiers\n/);
-  assert.match(block, /Colours: Dusty rose \(Mood Board\) · Sage/);
-  assert.match(block, /Design: Floral cascade \(\+₱2,000\)/);
-  const back = parseCakeDesignBlock(`Hi! We designed our cake on your card 🙂\n\n${block}\n\nService: Wedding cake`)!;
-  assert.equal(back.estimateCentavos, d.estimateCentavos);
-  assert.equal(back.oneCentavos, ONE);
-  assert.deepEqual(back.colours, [{ name: 'Dusty rose', mood: true }, { name: 'Sage', mood: false }]);
-  assert.equal(back.design?.extraCentavos, 2 * K);
-  assert.equal(back.message, 'Ana & Migs · 12.19 line two');
-  assert.equal(parseCakeDesignBlock('Hi! Do you make wedding cakes?'), null);
-  assert.equal(parseCakeDesignBlock('🎂 Cake design · Wedding cake\nTiers: 3 tiers'), null, 'no estimate → not a design');
+    cuttingTier: 1,
+    finish: 'fondant',
+    monogram: 'front',
+    cupcakes: { packRef: 'pack:24', flavourRef: null, match: true, placement: 'tower' },
+  });
+  // 4 real (1 above the 3 in the price) = 3K · 1 display = 1K · red velvet on 2 tiers = 2K · fondant 2K · drip on 2 layers
+  // = 2K · monogram 1K · 24 cupcakes 3K · tower 1K
+  assert.equal(cakeConfigTotalCentavos(pkg, card, big, 0, false), ONE + 15 * K);
 });
 
-test('the chat finds the design after the couple’s lead-in, by the same head words the block is written with', async () => {
-  const { CAKE_DESIGN_HEAD } = await import('./cake-maker');
-  const { CAKE_DESIGN_HEAD_WORDS, cakeDesignAt } = await import('./chat-card-lines');
-  assert.equal(CAKE_DESIGN_HEAD_WORDS, CAKE_DESIGN_HEAD, 'the import-free chat copy drifted from the block’s head');
-  const lead = 'Hi! We designed our cake on your card 🙂';
-  const body = `${lead}\n\n${CAKE_DESIGN_HEAD}Wedding cake\nTiers: 3 tiers`;
-  assert.equal(body.slice(0, cakeDesignAt(body)).trimEnd(), lead);
-  assert.equal(cakeDesignAt(`${CAKE_DESIGN_HEAD}Wedding cake`), 0);
-  assert.equal(cakeDesignAt('Do you make 🎂 Cake design · cakes?'), -1, 'the words mid-line are not a block');
-  assert.equal(cakeDesignAt(null), -1);
+test('a key the card no longer offers does not price — the design is refused, never thinned', () => {
+  const { pkg, card } = build();
+  const gone = { ...startingCakeConfig(cakeOfferOf(card, 40)), finish: 'semi_naked' as const };
+  const fewer = priced();
+  fewer.finish = fewer.finish!.filter((f) => f.look !== 'semi_naked');
+  const after = build(fewer);
+  assert.equal(cakeConfigSelection(after.card, gone), null);
+  assert.notEqual(cakeConfigSelection(card, gone), null);
+  assert.equal(cakeConfigTotalCentavos(after.pkg, after.card, gone, 0, false), null);
+  void pkg;
 });
 
-test('the inquiry re-reads the design on the server and refuses one it cannot build — before anything is created', () => {
-  const src = readFileSync(join(__dirname, '..', 'app', 'v', '[slug]', 'inquiry-actions.ts'), 'utf8');
-  const at = src.indexOf('if (input.requirements?.cakeDesign !== undefined)');
+test('options round-trip through the stored lines (editing a saved card) and through the wire', () => {
+  const c = priced();
+  const back = cakeOptionsFromDraftItems(cakeOptionsToDraftItems(c, 'wedding_cake'), c.message);
+  assert.deepEqual(back?.tiers, c.tiers);
+  assert.deepEqual(back?.accents, c.accents);
+  assert.deepEqual(back?.monogram, c.monogram);
+  assert.deepEqual(back?.cupcakes, c.cupcakes);
+  assert.deepEqual(back?.flavours?.map((f) => [f.label, f.extraCentavos, f.standard]), c.flavours!.map((f) => [f.label, f.extraCentavos, f.standard]));
+  const wire = parseCakeOptions(serializeCakeOptions(c));
+  assert.ok(wire.ok && wire.cake);
+  assert.deepEqual(parseCakeOptions(''), { ok: true, cake: null });
+  assert.equal(parseCakeOptions('{"v":1,"cake":{}}').ok, false, 'an old wire is refused, never half-read');
+});
+
+test('the editor refuses what the save would refuse', () => {
+  const c = priced();
+  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, maxReal: 11 } }) ?? '', /1 to 10/);
+  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, standard: 7 } }) ?? '', /ones you make/);
+  assert.match(cakeOptionsProblem({ ...c, accents: c.accents!.filter((a) => a.look !== 'none') }) ?? '', /Plain/);
+  assert.match(cakeOptionsProblem({ ...c, tiers: { ...c.tiers, realExtraCentavos: -1 } }) ?? '', /below ₱0/);
+  assert.match(cakeOptionsProblem({ ...c, cupcakes: { packs: [], tower: null } }) ?? '', /pack/);
+});
+
+test('the design message names its stored row last, and plain text is not a design', () => {
+  const { pkg, card, offer } = build();
+  const cfg = design(offer, { message: 'Ana & Migs', instructions: 'Less sweet, please.' });
+  const est = cakeConfigTotalCentavos(pkg, card, cfg, 0, false)!;
+  const d = cakeDesignOf(card, cfg, { cardName: 'Wedding cake', oneCentavos: ONE, estimateCentavos: est });
+  const id = '0f8fad5b-d9cb-469f-a165-70867728950e';
+  const block = formatCakeDesignBlock(d, id);
+  assert.match(block, /^🎂 Cake design · Wedding cake\n/);
+  assert.match(block, /Special instructions: Less sweet, please\./);
+  assert.equal(cakeDesignRefOf(`Hi!\n\n${block}`), id);
+  assert.equal(cakeDesignRefOf('Hi! We love your cakes'), null);
+  assert.equal(cakeDesignRefOf('Design ref: not-a-uuid'), null);
+});
+
+test('the inquiry re-checks the design on the server and stores it before naming it — refused before anything is sent', () => {
+  const src = readFileSync(join(process.cwd(), 'app', 'v', '[slug]', 'inquiry-actions.ts'), 'utf8');
+  const at = src.indexOf('await buildCakeDesign(supabase, admin, {');
   const upsert = src.indexOf(".from('chat_threads')\n    .upsert(");
-  assert.ok(at > 0 && upsert > at, 'the cake design must be built before the thread is upserted');
-  assert.match(src.slice(at, upsert), /sanitizeCakeDesignInput\(input\.requirements\.cakeDesign\)/);
-  assert.match(src.slice(at, upsert), /if \(!block\) \{\s*return \{ status: 'error', message: CAKE_DESIGN_UNREADABLE \};/);
-  assert.match(src, /if \(buildBlock\) buildDelivery = delivery;/, 'a design that did not post must be reported, never "sent"');
-});
-
-test('the shown total is the one Book commits: the cake sheet prices with the same flag and selection lockPackage reads', () => {
-  const sheet = readFileSync(join(__dirname, '..', 'app', '_components', 'vendor-packages', 'cake-designer.tsx'), 'utf8');
-  assert.match(sheet, /const creditEnabled = packageCreditEnabled\(\);/);
-  assert.match(sheet, /choiceTotals\(\{ pkg, removedItemIds, selection, creditEnabled, paxCount \}\)/);
-  assert.match(sheet, /removed_item_ids: removedItemIds,\s*\.\.\.\(creditEnabled && totals\.chargeableOptionIds\.length > 0/);
-  assert.match(sheet, /requirements: \{ cakeDesign: state \}/, 'Send must carry ids, never labels or prices');
+  assert.ok(at > 0 && upsert > at, 'the cake design is checked before the thread is upserted');
+  assert.match(src, /config: input\.requirements\.cakeDesign,/, 'the browser sends a config, never labels or prices');
+  assert.match(src, /cakeDesignId = await storeCakeDesign\(admin,/);
+  assert.match(src, /if \(!cakeDesignId\) return \{ status: 'error', message: CAKE_DESIGN_UNREADABLE \};/);
+  assert.match(src, /if \(cakeDesignId\) await dropCakeDesign\(admin, cakeDesignId\);/, 'a design whose message never posted is removed');
 });

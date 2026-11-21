@@ -131,8 +131,8 @@ function normaliseItem(i: DraftItem): DraftItem {
       price_delta_centavos: o.price_delta_centavos,
       is_default: o.is_default,
       is_available: o.is_available,
-      // 🎂 A cake Design option's photo — carried only when set, so every other draft's wire is unchanged.
-      ...(o.photoRef ? { photoRef: o.photoRef } : {}),
+      // 🎂 A cake option's catalog key — carried only when set, so every other draft's wire is unchanged.
+      ...(o.lookKey ? { lookKey: o.lookKey } : {}),
     })),
     parentRef: i.parentRef ?? null,
     pickMin: i.pickMin ?? null,

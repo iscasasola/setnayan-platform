@@ -36,8 +36,9 @@ import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
 import { resolveLivePax } from '@/lib/pax';
-import { buildCakeDesignBlock, sanitizeCakeDesignInput } from '@/lib/cake-maker.server';
-import { CAKE_DESIGN_UNREADABLE } from '@/lib/cake-maker';
+import { buildCakeDesign, dropCakeDesign, storeCakeDesign, type BuiltCakeDesign } from '@/lib/cake-maker.server';
+import { CAKE_DESIGN_UNREADABLE, formatCakeDesignBlock } from '@/lib/cake-maker';
+import { CAKE_CONFIG_REFUSAL_WORDS } from '@/lib/cake-config';
 import { setEventPreference } from '@/lib/event-preferences';
 import {
   buildRequirementsBlock,
@@ -445,33 +446,31 @@ export async function startServiceInquiry(input: {
   // Live pax to snapshot onto this inquiry (Adaptive Pax Pricing Phase 3).
   const livePax = await resolveLivePax(supabase, eventId);
 
-  // 🎂 THE CAKE DESIGN (Cake Maker ruling 7 — "Send to [shop]" is the cake sheet's main button). The browser sends ids
-  // and the couple's own words only; the block is re-read here from the card's own package and the couple's own Mood
-  // Board, and priced by the shipped pricer. A design that cannot be built honestly is REFUSED before anything is
-  // created — never sent as a thinner design, never as a thread with no design in it.
-  let cakeDesignBlock = '';
+  // 🎂 THE CAKE DESIGN (Cake Maker ruling 7 — "Send to [shop]" is the designer's main button). The browser sends the
+  // design's config only; it is re-checked here against the card's own package (lib/cake-config.ts sanitizeCakeConfig,
+  // filtered to what the shop offers), the couple's own Mood Board, and priced by the shipped pricer. A design that
+  // cannot be built honestly is REFUSED before anything is created — never sent as a thinner design.
+  let cakeBuilt: BuiltCakeDesign | null = null;
   if (input.requirements?.cakeDesign !== undefined) {
-    const design = sanitizeCakeDesignInput(input.requirements.cakeDesign);
     const cardTitle = ((ownedServices ?? []).find((s) => s.vendor_service_id === initialServiceId)?.title ?? '').trim();
-    const block =
-      design && !general && ownedById.has(initialServiceId)
-        ? await buildCakeDesignBlock(supabase, admin, {
+    const built =
+      !general && ownedById.has(initialServiceId)
+        ? await buildCakeDesign(supabase, admin, {
             vendorProfileId,
             vendorServiceId: initialServiceId,
             eventId,
             cardName: cardTitle,
-            design,
+            config: input.requirements.cakeDesign,
             paxCount: livePax ?? 0,
           })
-        : null;
-    if (!block) {
-      return { status: 'error', message: CAKE_DESIGN_UNREADABLE };
+        : ({ ok: false, reason: 'unread' } as const);
+    if (!built.ok) {
+      return { status: 'error', message: built.reason === 'unread' ? CAKE_DESIGN_UNREADABLE : CAKE_CONFIG_REFUSAL_WORDS[built.reason] };
     }
-    cakeDesignBlock = `\n\n${block}`;
+    cakeBuilt = built.built;
   }
-  // The deliverable that rides this inquiry, if any: the package build or the cake design (never both — the cake sheet
-  // replaces the build list for a cake card).
-  const buildBlock = `${packagePicksBlock}${cakeDesignBlock}`;
+  let cakeDesignBlock = '';
+  let cakeDesignId: string | null = null;
 
   // follow → upsert thread → first message (best-effort message). Mirrors the
   // canonical inquiry pattern in unlock-category.ts.
@@ -506,6 +505,17 @@ export async function startServiceInquiry(input: {
     };
   }
   const threadId = thread.thread_id as string;
+
+  // 🎂 The design is stored ONCE (cake_designs — RLS: thread members read, only the server writes) and the message names
+  // it, so the supplier's card reads the design itself, never a re-parse of the words. A failed store sends nothing.
+  if (cakeBuilt) {
+    cakeDesignId = await storeCakeDesign(admin, { threadId, vendorServiceId: initialServiceId, built: cakeBuilt, userId: user.id });
+    if (!cakeDesignId) return { status: 'error', message: CAKE_DESIGN_UNREADABLE };
+    cakeDesignBlock = `\n\n${formatCakeDesignBlock(cakeBuilt.design, cakeDesignId)}`;
+  }
+  // The deliverable that rides this inquiry, if any: the package build or the cake design (never both — the cake
+  // designer replaces the build list for a cake card).
+  const buildBlock = `${packagePicksBlock}${cakeDesignBlock}`;
   // Snapshot the count the vendor first quoted against, exactly once.
   if (livePax != null && thread.pax_at_inquiry == null) {
     await supabase
@@ -972,6 +982,8 @@ export async function startServiceInquiry(input: {
   // couple's BUILD reached the vendor. Say which — never claim a delivery that
   // did not happen.
   if (buildDelivery && !buildDelivery.ok) {
+    // 🎂 A design whose message never posted is removed — no stored design exists that nobody was sent.
+    if (cakeDesignId) await dropCakeDesign(admin, cakeDesignId);
     return {
       status: 'ok_build_not_sent',
       threadId,

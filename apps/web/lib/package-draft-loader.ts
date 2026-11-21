@@ -170,7 +170,7 @@ export async function loadPackageDraft(
               price_delta_centavos: o.price_delta_centavos,
               is_default: o.is_default,
               is_available: o.is_available,
-              photoRef: o.photo_ref ?? null,
+              lookKey: o.look_key ?? null,
             })),
         })),
       },

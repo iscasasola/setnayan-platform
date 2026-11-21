@@ -16,18 +16,16 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, CakeSlice, Clock, MessageCircle, RotateCw } from 'lucide-react';
 import { cakeAction, type CakeActionResult } from '@/app/vendor-dashboard/cake-actions';
-import { cakeQuoteNote, tierCountOf, type CakeDesign, type CakeDesignLine } from '@/lib/cake-maker';
+import { cakeQuoteNote, tiersWords, type CakeDesignLine } from '@/lib/cake-maker';
+import { cakeFigureSpec } from '@/lib/cake-config';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
-import { hexForColorName } from '@/lib/color-names';
-import { CakePicture, finishOf, lookOf, spongeOf, topperOf } from '@/app/_components/vendor-packages/cake-picture';
+import { CakeView } from '@/app/_components/plan3d/kit/cake-view';
 import { MakeQuoteCard } from './make-quote-card';
 import css from './cake-design-card.module.css';
 
 export type CakeDesignLoaded = Extract<CakeActionResult, { op: 'design' }>;
 type Loaded = CakeDesignLoaded;
 type ReadState = { at: 'loading' } | { at: 'failed' } | { at: 'ok'; data: Loaded };
-
-const COLOUR_FALLBACK = '#D9D2CA';
 
 export function CakeDesignCard({
   threadId,
@@ -89,7 +87,8 @@ export function CakeDesignCard({
     );
   }
 
-  const { design, cardId, usualPrepDays } = read.data;
+  const { design, config, flavourLabels, cupcakeCount, monogramText, inspirationUrl, cardId, usualPrepDays } = read.data;
+  const spec = cakeFigureSpec(config, (ref) => flavourLabels[ref] ?? null, cupcakeCount);
   if (quoting && place === 'chat') {
     return (
       <MakeQuoteCard
@@ -108,32 +107,54 @@ export function CakeDesignCard({
         {place === 'chat' ? <span className={css.chip}>New</span> : null}
       </div>
       <div className={css.stage}>
-        <CakePicture {...pictureOf(design)} className={css.pic} />
+        <CakeView spec={spec} monogramText={monogramText} title={`${design.cardName} — ${tiersWords(design)}`} />
       </div>
-      <Row name="Tiers" value={design.tiers} />
-      {design.flavours.length > 0 ? (
-        <Row name="Flavours" value={design.flavours.map(withExtra).join(' · ')} small="bottom → top" />
-      ) : null}
+      <Row name="Tiers" value={tiersWords(design)} />
+      <ol className={css.tiers} aria-label="Each tier, bottom to top">
+        {design.tiers.map((t, i) => (
+          <li key={i}>
+            <span>
+              {t.name}
+              {t.kind === 'display' ? <small> · display</small> : null}
+              {t.cutting ? <small> · cutting tier</small> : null}
+            </span>
+            <b>{[t.flavour ? withExtra(t.flavour) : null, t.accent ? withExtra(t.accent) : null].filter(Boolean).join(' · ') || '—'}</b>
+          </li>
+        ))}
+      </ol>
+      {design.arrangement ? <PickRow name="Arrangement" line={design.arrangement} /> : null}
       {design.finish ? <PickRow name="Finish" line={design.finish} /> : null}
+      {design.flowing ? <PickRow name="Flowing accent" line={design.flowing} /> : null}
       {design.colours.length > 0 ? (
         <div className={css.rr}>
           <span>Colours</span>
           <b>
             <span className={css.dots} aria-hidden>
               {design.colours.map((c, i) => (
-                <i key={i} style={{ background: hexForColorName(c.name) ?? COLOUR_FALLBACK }} />
+                <i key={i} style={{ background: c.hex }} />
               ))}
             </span>{' '}
             {design.colours.map((c) => c.name).join(' · ')}
-            {design.colours.some((c) => c.mood) ? (
-              <small> {design.colours.every((c) => c.mood) ? 'from their Mood Board' : '· some from their Mood Board'}</small>
-            ) : null}
           </b>
         </div>
       ) : null}
-      {design.design ? <PickRow name="Design" line={design.design} /> : null}
       {design.topper ? <PickRow name="Topper" line={design.topper} /> : null}
+      {design.monogram ? <PickRow name="Monogram" line={design.monogram} /> : null}
       {design.message ? <Row name="Message" value={`“${design.message}”`} /> : null}
+      {design.cupcakes ? <PickRow name="Cupcakes" line={{ label: design.cupcakes.words, extraCentavos: design.cupcakes.extraCentavos }} /> : null}
+      {design.instructions ? (
+        <div className={css.note}>
+          <span>Special instructions</span>
+          <p>{design.instructions}</p>
+        </div>
+      ) : null}
+      {inspirationUrl ? (
+        <div className={css.rr}>
+          <span>Inspiration</span>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a small library thumbnail, not a page image */}
+          <img src={inspirationUrl} alt="Their pinned inspiration photo" className={css.insp} loading="lazy" width={72} height={72} />
+        </div>
+      ) : null}
       <div className={css.rt}>
         <span>Estimate</span>
         <b>{formatCentavosPhp(design.estimateCentavos)}</b>
@@ -206,17 +227,3 @@ function PickRow({ name, line }: { name: string; line: CakeDesignLine }) {
 }
 
 const withExtra = (l: CakeDesignLine) => (l.extraCentavos > 0 ? `${l.label} (+${formatCentavosPhp(l.extraCentavos)})` : l.label);
-
-/** The picture, from the design's own words (the same keyword reading the couple's live picture uses). */
-function pictureOf(d: CakeDesign) {
-  const tiers = tierCountOf(d.tiers) ?? Math.max(1, d.flavours.length);
-  const sponges = Array.from({ length: tiers }, (_, i) => spongeOf(d.flavours[i]?.label ?? null));
-  return {
-    sponges,
-    finish: finishOf(d.finish?.label),
-    look: lookOf(d.design?.label),
-    topper: topperOf(d.topper?.label),
-    colours: d.colours.map((c) => hexForColorName(c.name) ?? COLOUR_FALLBACK),
-    message: d.message,
-  };
-}

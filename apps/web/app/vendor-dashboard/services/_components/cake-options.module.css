@@ -328,64 +328,81 @@
   min-width: 84px;
   text-align: center;
 }
-.designs {
-  display: grid;
-  gap: 6px;
-  padding: 6px;
+.ccWide {
+  width: auto;
+  min-width: 44px;
+  padding: 0 14px;
+  font-size: 14px;
 }
-.design {
+.ccWide b {
+  font-weight: 600;
+}
+.cc:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+/* the live picture of the cake the one price pays for */
+.preview {
+  max-width: 260px;
+  margin: 0 auto 10px;
+  padding: 10px 16px 4px;
+  border-radius: 18px;
+  background: radial-gradient(120% 90% at 50% 30%, #fbf8f3, #efe9e0);
+}
+:global(html.dark) .preview {
+  background: radial-gradient(120% 90% at 50% 30%, #2a2622, #1a1816);
+}
+/* locked: included in Pro */
+.lockRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--cake-s-ghost);
-  border-radius: 12px;
-  padding-left: 6px;
+  gap: 12px;
+  padding: 12px 14px;
+  color: var(--cake-s-ink2);
 }
-.design .or {
+.lockRow .st {
   flex: 1;
-  padding-left: 0;
 }
-.photo {
-  width: 56px;
-  height: 56px;
+/* an on/off part (Display tiers · Cupcake tower) */
+.switchRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+}
+.switchRow .st {
+  flex: 1;
+}
+.switch {
+  position: relative;
+  width: 44px;
+  height: 26px;
   flex: none;
-  border-radius: 10px;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-  background: var(--cake-s-card);
-  color: var(--cake-s-accw);
+  border-radius: 999px;
+  background: var(--cake-s-tile);
+  transition: background 160ms cubic-bezier(0.2, 0, 0, 1);
 }
-.photo img,
-.pick img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
 }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding: 4px 0 12px;
+.switch[aria-checked='true'] {
+  background: var(--cake-s-acc);
 }
-.pick,
-.ghost {
-  aspect-ratio: 1;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--cake-s-ghost);
-}
-.ghost {
-  animation: cakeGhost 1.2s ease-in-out infinite;
-}
-@keyframes cakeGhost {
-  50% {
-    opacity: 0.55;
-  }
+.switch[aria-checked='true'] i {
+  transform: translateX(18px);
 }
 @media (prefers-reduced-motion: reduce) {
-  .ghost {
-    animation: none;
+  .switch,
+  .switch i {
+    transition: none;
   }
 }
 .problem {

@@ -1,38 +1,50 @@
 /**
- * 🎂 THE CAKE MAKER — pure rules (DECISION_LOG 2026-11-21 "CAKE MAKER — APPROVED TO BUILD"; drawing
- * prototypes/cake_maker_2026-11-21/cake_maker_fable.html).
- *
- * One cake card: the supplier sets the choices once ("Your cake options"), the couple designs their cake on it
- * ("Design your cake"), and the design arrives as one card in the chat and on the order ("A design arrives").
+ * 🎂 THE CAKE MAKER — pure rules (DECISION_LOG 2026-11-21 "CAKE MAKER — APPROVED TO BUILD" + the controller's v2
+ * rulings: 10 layers · real vs display tiers · per-tier accents · arrangement · flowing accent · monogram · cupcakes).
  *
  * ── RULE 0: EVERY CHOICE IS A SHIPPED PACKAGE LINE ─────────────────────────────────────────────────────────────────
- * The cake's options live on the card's OWN ★ Customization package (`vendor_packages.vendor_service_id`) as ordinary
- * `vendor_package_items` + `vendor_package_item_options` rows — Standard option at +₱0, extras in
- * `price_delta_centavos` (never below ₱0), "Choose 1–3" = `pick_min`/`pick_max`. The only new storage is the part tag
- * (`cake_part`), the Design photo (`photo_ref`) and the message cap (`vendor_questions.max_letters`) — migration
- * cake_maker_parts_photos_and_letters, which says what was checked first.
+ * The cake's options live on the card's OWN ★ Customization package as ordinary `vendor_package_items` +
+ * `vendor_package_item_options` rows — the Standard option at +₱0, extras in `price_delta_centavos` (never below ₱0).
+ * The only new storage on a line is the part tag (`cake_part`) and, on an option, the catalog key (`look_key`) that
+ * says which look (lib/cake-config.ts) or how many tiers it is. Nothing here prices anything: the estimate is the
+ * shipped `choiceTotals`, the same call the Book sheet and `lockPackage` make.
  *
- * ── FLAVOUR "FOR EACH TIER" IS FOLLOW-UP LINES (rulings 2 + 3) ─────────────────────────────────────────────────────
- * The supplier writes the flavour list ONCE. On save it is written under each size as one follow-up line per tier
- * (`parent_option_id` → that size's option): "3 tiers" carries "Flavour · bottom tier", "Flavour · tier 2",
- * "Flavour · tier 3". Each tier is its own line with its own pick, so the SHIPPED pricer charges a flavour extra once
- * for each tier it is picked for — no second pricer, no change to `computePackageCredit` or `lockPackage`.
- *
- * 🚨 NOTHING HERE PRICES ANYTHING. The estimate is `choiceTotals` — the same call the Book sheet and `lockPackage`
- * make. Every ₱ figure in a design message is a number that call returned, formatted.
- *
- * Plain data in, plain data out — no client, no DOM, no clock.
+ * ── THE LINES (approved choice-line model) ─────────────────────────────────────────────────────────────────────────
+ *   Real tiers      1–10 · the one price pays for the Standard count; each real tier above it adds the shop's extra
+ *   Display tiers   0–9 behind the shop's switch · each adds the shop's display-tier extra
+ *   Flavour · tier k   one line per possible real tier (k = 1…10), the list written once · an extra charged per tier
+ *   Accent · tier k    one line per possible tier · Plain is Standard
+ *   Arrangement · Finish · Flowing accent · Topper · Monogram (Off / On) · Colours (Choose 1–3)
+ *   Cupcakes (None / the shop's packs at its typed price) · Cupcake flavour · Cupcake display (base / tower)
+ * Lines for tiers the couple did not pick stay on their Standard ₱0 option — they never charge.
  */
-import { formatCentavosPhp, type VendorPackageItemOptionRow, type VendorPackageItemRow, type VendorPackageWithItems } from './vendor-packages';
+import { formatCentavosPhp, type VendorPackageItemRow, type VendorPackageWithItems } from './vendor-packages';
 import type { DraftItem, DraftOption } from './package-authoring';
 import { choiceTotals, type ChoiceSelection } from './package-choice-tree';
 import { packageCreditEnabled } from './package-credit-flag';
+import {
+  CAKE_ACCENTS,
+  CAKE_ARRANGEMENTS,
+  CAKE_FINISHES,
+  CAKE_FLOWING,
+  CAKE_MAX_TIERS,
+  CAKE_TOPPERS,
+  CUPCAKE_PLACEMENTS,
+  type CakeAccent,
+  type CakeArrangement,
+  type CakeConfig,
+  type CakeFinish,
+  type CakeFlowing,
+  type CakeOffer,
+  type CakeTopper,
+} from './cake-config';
+
+export { CAKE_MAX_TIERS };
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* Which cards are cakes (ruling 10: cakes only)                            */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-/** The cake kinds: the code taxonomy's `wedding_cake` and the legacy `cake` category. A dessert table is not a cake. */
 export const CAKE_KINDS: ReadonlySet<string> = new Set(['wedding_cake', 'cake']);
 
 export function isCakeKind(kind: string | null | undefined): boolean {
@@ -40,104 +52,118 @@ export function isCakeKind(kind: string | null | undefined): boolean {
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* The parts                                                                */
+/* The parts — the DB CHECK holds exactly these (cake-maker.test.ts pins it) */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-/** The DB CHECK (`vendor_package_items_cake_part_ck`) holds exactly these — `cake-maker.test.ts` pins the two together. */
-export const CAKE_PARTS = ['tiers', 'flavour', 'finish', 'colours', 'design', 'topper'] as const;
+export const CAKE_PARTS = [
+  'real_tiers',
+  'display_tiers',
+  'flavour',
+  'accent',
+  'arrangement',
+  'finish',
+  'flowing',
+  'topper',
+  'monogram',
+  'colours',
+  'cupcakes',
+  'cupcake_flavour',
+  'cupcake_display',
+] as const;
 export type CakePart = (typeof CAKE_PARTS)[number];
 
 export function isCakePart(v: unknown): v is CakePart {
   return typeof v === 'string' && (CAKE_PARTS as readonly string[]).includes(v);
 }
 
-export const CAKE_MAX_TIERS = 6;
-/** "Choose 1–3": the most colours a couple may pick, across their Mood Board and the shop's list together. */
 export const CAKE_COLOURS_MAX = 3;
-/** The message's longest answer when the supplier has not changed it ("Up to 40 letters"). */
 export const CAKE_MESSAGE_LETTERS = 40;
-export const CAKE_MESSAGE_LETTERS_MAX = 80;
+export const CAKE_MESSAGE_LETTERS_MAX = 60;
 export const CAKE_LABEL_MAX = 60;
-/** A choice line needs two options (the shipped `choice_needs_two_options`); the editor holds at most this many. */
 export const CAKE_CHOICES_MAX = 12;
+export const CUPCAKE_PACKS_MAX = 6;
+export const CUPCAKE_PACK_MAX_COUNT = 500;
 
-/** The Form Maker template key of the cake's message question (ruling 5). */
 export const CAKE_MESSAGE_FORM_KEY = 'cake_message';
 export const CAKE_MESSAGE_PROMPT = 'Message on the cake';
 
-export const CAKE_LINE_NAME: Record<Exclude<CakePart, 'flavour'>, string> = {
-  tiers: 'Tiers',
+export const CAKE_LINE_NAME: Record<Exclude<CakePart, 'flavour' | 'accent'>, string> = {
+  real_tiers: 'Real tiers',
+  display_tiers: 'Display tiers',
+  arrangement: 'Arrangement',
   finish: 'Finish',
-  colours: 'Colours',
-  design: 'Design',
+  flowing: 'Flowing accent',
   topper: 'Topper',
+  monogram: 'Monogram',
+  colours: 'Colours',
+  cupcakes: 'Cupcakes',
+  cupcake_flavour: 'Cupcake flavour',
+  cupcake_display: 'Cupcake display',
 };
 
-export function tierLabel(n: number): string {
-  return n === 1 ? '1 tier' : `${n} tiers`;
-}
+export const tierLabel = (n: number) => (n === 1 ? '1 tier' : `${n} tiers`);
+export const displayTierLabel = (n: number) => (n === 0 ? 'No display tiers' : n === 1 ? '1 display tier' : `${n} display tiers`);
+/** "Bottom tier" · "Tier 2" · … — bottom first. */
+export const tierRowName = (index: number) => (index === 0 ? 'Bottom tier' : `Tier ${index + 1}`);
+export const flavourLineName = (index: number) => `Flavour · ${index === 0 ? 'bottom tier' : `tier ${index + 1}`}`;
+export const accentLineName = (index: number) => `Accent · ${index === 0 ? 'bottom tier' : `tier ${index + 1}`}`;
 
-/** "Bottom tier" · "Tier 2" · … — the couple's row names, bottom first (the drawing's order). */
-export function tierRowName(index: number): string {
-  return index === 0 ? 'Bottom tier' : `Tier ${index + 1}`;
-}
-
-/** The stored line name of a tier's flavour line. */
-export function flavourLineName(index: number): string {
-  return index === 0 ? 'Flavour · bottom tier' : `Flavour · tier ${index + 1}`;
-}
-
-/** A size option's tier count, read off the label this module wrote ("3 tiers"). Null = not a size label. */
-export function tierCountOf(label: string): number | null {
-  const m = /^([1-6]) tiers?$/.exec(label.trim());
+/* ── The catalog keys an option carries (`look_key`) ── */
+export const realKey = (n: number) => `real:${n}`;
+export const displayKey = (n: number) => `display:${n}`;
+export const flavourKey = (i: number) => `fl:${i + 1}`;
+export const packKey = (count: number) => `pack:${count}`;
+export const PACK_NONE = 'pack:0';
+export const MONOGRAM_OFF = 'off';
+export const MONOGRAM_ON = 'on';
+const countOf = (key: string | null | undefined, prefix: string): number | null => {
+  const m = new RegExp(`^${prefix}:(\\d{1,3})$`).exec(key ?? '');
   return m ? Number(m[1]) : null;
-}
+};
+export const packCountOf = (key: string | null | undefined) => countOf(key, 'pack');
 
 /* ──────────────────────────────────────────────────────────────────────── */
 /* The supplier's model — "Your cake options"                               */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-export type CakeChoice = {
-  /** Stable key while editing. */
-  ref: string;
-  label: string;
-  /** EXTRA over the one price, whole centavos, never below 0. The Standard choice is always 0. */
-  extraCentavos: number;
-  standard: boolean;
-  /** Design only — one photo from the shop's own portfolio (a readPortfolioPicks ref). */
-  photoRef?: string | null;
-  /** Display only — the photo's signed URL for the editor. Never posted, never stored. */
-  photoUrl?: string | null;
-};
+/** A choice the supplier names (flavours). */
+export type CakeChoice = { ref: string; label: string; extraCentavos: number; standard: boolean };
+/** A choice from the catalog (finish, accents, arrangement, flowing, topper): its look, its extra, Standard or not. */
+export type CakeLookChoice<T extends string = string> = { look: T; extraCentavos: number; standard: boolean };
 
 export type CakeOptions = {
   tiers: {
-    /** The sizes the shop makes, ascending, 1–6. At least two (one size is not a choice). */
-    made: number[];
-    /** The size the one price pays for — one of `made`. */
+    /** The most real tiers the shop makes, 1–10. */
+    maxReal: number;
+    /** The real tiers the one price pays for, 1…maxReal. */
     standard: number;
-    /** size → its extra in centavos. Missing = 0. The standard size is always 0. */
-    extraCentavos: Record<string, number>;
+    /** Each real tier above the Standard count adds this. */
+    realExtraCentavos: number;
+    /** The "Display tiers" switch: null = off. */
+    display: { max: number; extraCentavos: number } | null;
   };
-  /** Written once, asked for each tier. Null = the supplier swiped the part away. */
   flavours: CakeChoice[] | null;
-  finish: CakeChoice[] | null;
+  finish: CakeLookChoice<CakeFinish>[] | null;
+  accents: CakeLookChoice<CakeAccent>[] | null;
+  arrangements: CakeLookChoice<CakeArrangement>[] | null;
+  flowing: CakeLookChoice<CakeFlowing>[] | null;
+  topper: CakeLookChoice<CakeTopper>[] | null;
+  /** The event's monogram on the cake: null = not offered; otherwise its extra (≥ ₱0). */
+  monogram: { extraCentavos: number } | null;
   colours: { names: string[]; max: number } | null;
-  design: CakeChoice[] | null;
-  topper: CakeChoice[] | null;
-  /** The Form Maker text question (ruling 5). Null = no message. */
   message: { maxLetters: number } | null;
+  /** The cupcakes add-on: null = not sold. Packs at the shop's own typed price; flavours reuse the cake list. */
+  cupcakes: { packs: { count: number; priceCentavos: number }[]; tower: { extraCentavos: number } | null } | null;
 };
 
 const choice = (ref: string, label: string, standard = false): CakeChoice => ({ ref, label, extraCentavos: 0, standard });
+const looks = <T extends string>(list: readonly { id: T }[], standard: T, skip: T[] = []): CakeLookChoice<T>[] =>
+  list.filter((x) => !skip.includes(x.id)).map((x) => ({ look: x.id, extraCentavos: 0, standard: x.id === standard }));
 
-/**
- * The cake template a new cake card opens with (drawing §01: "opening with the 7 cake lines already filled"). Every
- * extra starts at ₱0 — the supplier types their own; this module never guesses a price.
- */
+/** A new cake card opens with every part filled and every extra at ₱0 — the supplier types their own; never guessed. */
 export function cakeTemplate(): CakeOptions {
   return {
-    tiers: { made: [1, 2, 3, 4, 5], standard: 3, extraCentavos: {} },
+    tiers: { maxReal: 5, standard: 3, realExtraCentavos: 0, display: null },
     flavours: [
       choice('fl-1', 'Vanilla chiffon', true),
       choice('fl-2', 'Chocolate'),
@@ -145,62 +171,92 @@ export function cakeTemplate(): CakeOptions {
       choice('fl-4', 'Mocha'),
       choice('fl-5', 'Red velvet'),
     ],
-    finish: [choice('fi-1', 'Buttercream', true), choice('fi-2', 'Fondant'), choice('fi-3', 'Semi-naked')],
+    finish: looks(CAKE_FINISHES, 'buttercream'),
+    accents: looks(CAKE_ACCENTS, 'none'),
+    arrangements: looks(CAKE_ARRANGEMENTS, 'stacked'),
+    flowing: looks(CAKE_FLOWING, 'none'),
+    topper: looks(CAKE_TOPPERS, 'none'),
+    monogram: null,
     colours: { names: ['Dusty rose', 'Sage', 'White', 'Blush', 'Burgundy', 'Lilac'], max: CAKE_COLOURS_MAX },
-    design: [choice('de-1', 'Classic ribbon', true), choice('de-2', 'Floral cascade'), choice('de-3', 'Drip'), choice('de-4', 'Pearls')],
-    topper: [choice('to-1', 'None', true), choice('to-2', 'Acrylic names'), choice('to-3', 'Fresh flowers'), choice('to-4', 'Figurine')],
     message: { maxLetters: CAKE_MESSAGE_LETTERS },
+    cupcakes: null,
   };
 }
 
-/** Strip what would break the design message's own separators: line breaks, the "·" divider and the "(…)" note. */
+const LOOK_LABEL: Record<string, string> = Object.fromEntries(
+  [...CAKE_FINISHES, ...CAKE_ACCENTS, ...CAKE_ARRANGEMENTS, ...CAKE_FLOWING, ...CAKE_TOPPERS, ...CUPCAKE_PLACEMENTS].map((x) => [x.id, x.label]),
+);
+/** A catalog look's words ("Floral cascade"). Pass the part's own catalog where one id means two things ("none"). */
+export const lookLabel = (look: string, catalog?: readonly { id: string; label: string }[]) =>
+  catalog?.find((x) => x.id === look)?.label ?? LOOK_LABEL[look] ?? look;
+
+/** Strip what would break the design message's separators: line breaks, the "·" divider, "(…)". */
 export function cleanCakeLabel(raw: string): string {
   return raw.replace(/[\r\n]+/g, ' ').replace(/·/g, '-').replace(/[()]/g, '').replace(/\s+/g, ' ').trim().slice(0, CAKE_LABEL_MAX);
 }
 
 const isWholeCentavos = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
 
+function lookListProblem(name: string, list: CakeLookChoice[] | null, catalog: readonly { id: string; label: string }[], plain?: string): string | null {
+  if (!list) return null;
+  // The plain look ("Plain", "None", "Stacked") is what a design that picks nothing is — it is always the Standard.
+  if (plain && !list.some((c) => c.look === plain && c.standard)) return `${name} keeps “${lookLabel(plain, catalog)}” as its Standard.`;
+  if (list.length < 2) return `${name} needs at least 2 choices — or swipe it away.`;
+  if (list.some((c) => !catalog.some((x) => x.id === c.look))) return `${name} has a choice this maker does not know.`;
+  if (new Set(list.map((c) => c.look)).size !== list.length) return `${name} has the same choice twice.`;
+  if (list.filter((c) => c.standard).length !== 1) return `Pick one ${name.toLowerCase()} as Standard.`;
+  if (list.some((c) => !isWholeCentavos(c.extraCentavos))) return `A ${name.toLowerCase()} extra can’t go below ₱0.`;
+  if (list.some((c) => c.standard && c.extraCentavos !== 0)) return `The Standard ${name.toLowerCase()} has no extra.`;
+  return null;
+}
+
 /** The first problem with a set of cake options, as a sentence for the supplier — or null when it can be saved. */
 export function cakeOptionsProblem(cake: CakeOptions): string | null {
-  const made = cake.tiers.made;
-  if (made.length < 2) return 'Tick at least 2 sizes you make.';
-  if (made.some((n) => !Number.isInteger(n) || n < 1 || n > CAKE_MAX_TIERS)) return 'Sizes go from 1 to 6 tiers.';
-  if (new Set(made).size !== made.length) return 'A size is ticked twice.';
-  if (!made.includes(cake.tiers.standard)) return 'The size in the price has to be one you make.';
-  for (const n of made) {
-    const extra = cake.tiers.extraCentavos[String(n)] ?? 0;
-    if (!isWholeCentavos(extra)) return `The extra for ${tierLabel(n)} can’t go below ₱0.`;
-    if (n === cake.tiers.standard && extra !== 0) return 'The size in the price has no extra.';
+  const t = cake.tiers;
+  if (!Number.isInteger(t.maxReal) || t.maxReal < 1 || t.maxReal > CAKE_MAX_TIERS) return `Real tiers go from 1 to ${CAKE_MAX_TIERS}.`;
+  if (!Number.isInteger(t.standard) || t.standard < 1 || t.standard > t.maxReal) return 'The tiers in your price have to be ones you make.';
+  if (!isWholeCentavos(t.realExtraCentavos)) return 'The extra for a real tier can’t go below ₱0.';
+  if (t.display) {
+    if (!Number.isInteger(t.display.max) || t.display.max < 1 || t.display.max > CAKE_MAX_TIERS - 1) return `Display tiers go from 1 to ${CAKE_MAX_TIERS - 1}.`;
+    if (!isWholeCentavos(t.display.extraCentavos)) return 'The extra for a display tier can’t go below ₱0.';
   }
-  const lists: [string, CakeChoice[] | null][] = [
-    ['Flavour', cake.flavours],
-    ['Finish', cake.finish],
-    ['Design', cake.design],
-    ['Topper', cake.topper],
-  ];
-  for (const [name, list] of lists) {
-    if (!list) continue;
-    if (list.length < 2) return `${name} needs at least 2 choices — or swipe it away.`;
-    if (list.length > CAKE_CHOICES_MAX) return `${name} holds at most ${CAKE_CHOICES_MAX} choices.`;
-    if (list.some((c) => !cleanCakeLabel(c.label))) return `Name every ${name.toLowerCase()} choice.`;
-    if (list.filter((c) => c.standard).length !== 1) return `Pick one ${name.toLowerCase()} as Standard.`;
-    if (list.some((c) => !isWholeCentavos(c.extraCentavos))) return `A ${name.toLowerCase()} extra can’t go below ₱0.`;
-    if (list.some((c) => c.standard && c.extraCentavos !== 0)) return `The Standard ${name.toLowerCase()} has no extra.`;
-    const seen = new Set(list.map((c) => cleanCakeLabel(c.label).toLowerCase()));
-    if (seen.size !== list.length) return `Two ${name.toLowerCase()} choices have the same name.`;
+  if (cake.flavours) {
+    const list = cake.flavours;
+    if (list.length < 2) return 'Flavour needs at least 2 choices — or swipe it away.';
+    if (list.length > CAKE_CHOICES_MAX) return `Flavour holds at most ${CAKE_CHOICES_MAX} choices.`;
+    if (list.some((c) => !cleanCakeLabel(c.label))) return 'Name every flavour.';
+    if (list.filter((c) => c.standard).length !== 1) return 'Pick one flavour as Standard.';
+    if (list.some((c) => !isWholeCentavos(c.extraCentavos))) return 'A flavour extra can’t go below ₱0.';
+    if (list.some((c) => c.standard && c.extraCentavos !== 0)) return 'The Standard flavour has no extra.';
+    if (new Set(list.map((c) => cleanCakeLabel(c.label).toLowerCase())).size !== list.length) return 'Two flavours have the same name.';
   }
+  const lookProblem =
+    lookListProblem('Finish', cake.finish, CAKE_FINISHES) ??
+    lookListProblem('Accents', cake.accents, CAKE_ACCENTS, 'none') ??
+    lookListProblem('Arrangement', cake.arrangements, CAKE_ARRANGEMENTS, 'stacked') ??
+    lookListProblem('Flowing accent', cake.flowing, CAKE_FLOWING, 'none') ??
+    lookListProblem('Topper', cake.topper, CAKE_TOPPERS, 'none');
+  if (lookProblem) return lookProblem;
+  if (cake.monogram && !isWholeCentavos(cake.monogram.extraCentavos)) return 'The monogram extra can’t go below ₱0.';
   if (cake.colours) {
     const names = cake.colours.names.map(cleanCakeLabel).filter(Boolean);
     if (names.length < 2) return 'Colours need at least 2 of your colours — or swipe it away.';
     if (names.length > CAKE_CHOICES_MAX) return `Colours hold at most ${CAKE_CHOICES_MAX} of your colours.`;
     if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) return 'Two of your colours have the same name.';
-    if (!Number.isInteger(cake.colours.max) || cake.colours.max < 1 || cake.colours.max > CAKE_COLOURS_MAX) {
-      return `Couples pick 1 to ${CAKE_COLOURS_MAX} colours.`;
-    }
+    if (!Number.isInteger(cake.colours.max) || cake.colours.max < 1 || cake.colours.max > CAKE_COLOURS_MAX) return `Couples pick 1 to ${CAKE_COLOURS_MAX} colours.`;
   }
   if (cake.message) {
     const m = cake.message.maxLetters;
     if (!Number.isInteger(m) || m < 1 || m > CAKE_MESSAGE_LETTERS_MAX) return `A message holds 1 to ${CAKE_MESSAGE_LETTERS_MAX} letters.`;
+  }
+  if (cake.cupcakes) {
+    const p = cake.cupcakes.packs;
+    if (p.length < 1) return 'Add at least one cupcake pack — or switch cupcakes off.';
+    if (p.length > CUPCAKE_PACKS_MAX) return `Cupcakes hold at most ${CUPCAKE_PACKS_MAX} packs.`;
+    if (p.some((x) => !Number.isInteger(x.count) || x.count < 1 || x.count > CUPCAKE_PACK_MAX_COUNT)) return `A pack holds 1 to ${CUPCAKE_PACK_MAX_COUNT} cupcakes.`;
+    if (new Set(p.map((x) => x.count)).size !== p.length) return 'Two cupcake packs have the same count.';
+    if (p.some((x) => !isWholeCentavos(x.priceCentavos))) return 'A cupcake pack’s price can’t go below ₱0.';
+    if (cake.cupcakes.tower && !isWholeCentavos(cake.cupcakes.tower.extraCentavos)) return 'The tower extra can’t go below ₱0.';
   }
   return null;
 }
@@ -209,21 +265,19 @@ export function cakeOptionsProblem(cake: CakeOptions): string | null {
 /* Cake options ⇄ package lines                                             */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-function toDraftOptions(lineRef: string, list: ReadonlyArray<CakeChoice>, withPhoto: boolean): DraftOption[] {
-  return list.map((c, i) => ({
-    ref: `${lineRef}-o${i + 1}`,
-    label: cleanCakeLabel(c.label),
-    price_delta_centavos: c.standard ? 0 : c.extraCentavos,
-    is_default: c.standard,
-    is_available: true,
-    ...(withPhoto && c.photoRef ? { photoRef: c.photoRef } : {}),
-  }));
-}
+const opt = (ref: string, label: string, delta: number, isDefault: boolean, lookKey: string): DraftOption => ({
+  ref,
+  label: cleanCakeLabel(label),
+  price_delta_centavos: isDefault ? 0 : delta,
+  is_default: isDefault,
+  is_available: true,
+  lookKey,
+});
 
-function topLine(ref: string, part: Exclude<CakePart, 'flavour'>, canonical: string, options: DraftOption[]): DraftItem {
+function line(ref: string, part: CakePart, name: string, canonical: string, options: DraftOption[], pick?: { min: number; max: number }): DraftItem {
   return {
     ref,
-    service_description: CAKE_LINE_NAME[part],
+    service_description: name,
     canonical_service: canonical,
     // A top-level choice is inside the price; its Standard option is what the one price already pays for.
     is_default_included: true,
@@ -231,126 +285,181 @@ function topLine(ref: string, part: Exclude<CakePart, 'flavour'>, canonical: str
     replacement_value_centavos: 0,
     options,
     parentRef: null,
-    pickMin: null,
-    pickMax: null,
+    pickMin: pick?.min ?? null,
+    pickMax: pick?.max ?? null,
     maxExtraHours: null,
     cakePart: part,
   };
 }
 
-/**
- * The cake options as the package lines `savePackage` writes, in the order the couple sees them. Call
- * {@link cakeOptionsProblem} first — this does not validate.
- */
-export function cakeOptionsToDraftItems(cake: CakeOptions, canonicalService: string): DraftItem[] {
-  const items: DraftItem[] = [];
-  const made = [...cake.tiers.made].sort((a, b) => a - b);
-  const sizeOptions: DraftOption[] = made.map((n) => ({
-    ref: `cake-tiers-${n}`,
-    label: tierLabel(n),
-    price_delta_centavos: n === cake.tiers.standard ? 0 : (cake.tiers.extraCentavos[String(n)] ?? 0),
-    is_default: n === cake.tiers.standard,
-    is_available: true,
-  }));
-  items.push(topLine('cake-tiers', 'tiers', canonicalService, sizeOptions));
+const lookOptions = (ref: string, list: CakeLookChoice[], catalog: readonly { id: string; label: string }[]) =>
+  list.map((c, i) => opt(`${ref}-o${i + 1}`, lookLabel(c.look, catalog), c.extraCentavos, c.standard, c.look));
 
+/** The cake options as the package lines `savePackage` writes. Call {@link cakeOptionsProblem} first. */
+export function cakeOptionsToDraftItems(cake: CakeOptions, canonical: string): DraftItem[] {
+  const items: DraftItem[] = [];
+  const t = cake.tiers;
+  // Real tiers: a count below the Standard is still the one price (extras never go below ₱0, never a discount).
+  items.push(
+    line(
+      'cake-real',
+      'real_tiers',
+      CAKE_LINE_NAME.real_tiers,
+      canonical,
+      Array.from({ length: t.maxReal }, (_, i) => i + 1).map((n) =>
+        opt(`cake-real-${n}`, tierLabel(n), Math.max(0, n - t.standard) * t.realExtraCentavos, n === t.standard, realKey(n)),
+      ),
+    ),
+  );
+  if (t.display) {
+    items.push(
+      line(
+        'cake-display',
+        'display_tiers',
+        CAKE_LINE_NAME.display_tiers,
+        canonical,
+        Array.from({ length: t.display.max + 1 }, (_, n) => opt(`cake-display-${n}`, displayTierLabel(n), n * t.display!.extraCentavos, n === 0, displayKey(n))),
+      ),
+    );
+  }
   if (cake.flavours) {
-    for (const n of made) {
-      for (let t = 0; t < n; t++) {
-        const ref = `cake-fl-${n}-${t + 1}`;
-        items.push({
-          ref,
-          service_description: flavourLineName(t),
-          canonical_service: canonicalService,
-          // A follow-up is never inside the price (DB-forced); its picked option's extra is real money.
-          is_default_included: false,
-          is_required: false,
-          replacement_value_centavos: 0,
-          options: toDraftOptions(ref, cake.flavours, false),
-          parentRef: { itemRef: 'cake-tiers', optionRef: `cake-tiers-${n}` },
-          pickMin: null,
-          pickMax: null,
-          maxExtraHours: null,
-          cakePart: 'flavour',
-        });
-      }
+    for (let k = 0; k < t.maxReal; k++) {
+      items.push(
+        line(
+          `cake-fl-${k + 1}`,
+          'flavour',
+          flavourLineName(k),
+          canonical,
+          cake.flavours.map((c, i) => opt(`cake-fl-${k + 1}-o${i + 1}`, c.label, c.extraCentavos, c.standard, flavourKey(i))),
+        ),
+      );
     }
   }
-  if (cake.finish) items.push(topLine('cake-finish', 'finish', canonicalService, toDraftOptions('cake-finish', cake.finish, false)));
+  if (cake.accents) {
+    const most = t.maxReal + (t.display?.max ?? 0);
+    for (let k = 0; k < Math.min(CAKE_MAX_TIERS, most); k++) {
+      items.push(line(`cake-ac-${k + 1}`, 'accent', accentLineName(k), canonical, lookOptions(`cake-ac-${k + 1}`, cake.accents, CAKE_ACCENTS)));
+    }
+  }
+  if (cake.arrangements) items.push(line('cake-arrangement', 'arrangement', CAKE_LINE_NAME.arrangement, canonical, lookOptions('cake-arrangement', cake.arrangements, CAKE_ARRANGEMENTS)));
+  if (cake.finish) items.push(line('cake-finish', 'finish', CAKE_LINE_NAME.finish, canonical, lookOptions('cake-finish', cake.finish, CAKE_FINISHES)));
+  if (cake.flowing) items.push(line('cake-flowing', 'flowing', CAKE_LINE_NAME.flowing, canonical, lookOptions('cake-flowing', cake.flowing, CAKE_FLOWING)));
+  if (cake.topper) items.push(line('cake-topper', 'topper', CAKE_LINE_NAME.topper, canonical, lookOptions('cake-topper', cake.topper, CAKE_TOPPERS)));
+  if (cake.monogram) {
+    items.push(
+      line('cake-monogram', 'monogram', CAKE_LINE_NAME.monogram, canonical, [
+        opt('cake-monogram-off', 'No monogram', 0, true, MONOGRAM_OFF),
+        opt('cake-monogram-on', 'Our monogram', cake.monogram.extraCentavos, false, MONOGRAM_ON),
+      ]),
+    );
+  }
   if (cake.colours) {
     const names = cake.colours.names.map(cleanCakeLabel).filter(Boolean);
-    const line = topLine(
-      'cake-colours',
-      'colours',
-      canonicalService,
-      names.map((label, i) => ({ ref: `cake-colours-o${i + 1}`, label, price_delta_centavos: 0, is_default: i === 0, is_available: true })),
+    items.push(
+      line(
+        'cake-colours',
+        'colours',
+        CAKE_LINE_NAME.colours,
+        canonical,
+        names.map((label, i) => opt(`cake-colours-o${i + 1}`, label, 0, i === 0, `col:${i + 1}`)),
+        { min: 1, max: Math.min(cake.colours.max, names.length) },
+      ),
     );
-    items.push({ ...line, pickMin: 1, pickMax: Math.min(cake.colours.max, names.length) });
   }
-  if (cake.design) items.push(topLine('cake-design', 'design', canonicalService, toDraftOptions('cake-design', cake.design, true)));
-  if (cake.topper) items.push(topLine('cake-topper', 'topper', canonicalService, toDraftOptions('cake-topper', cake.topper, false)));
+  if (cake.cupcakes) {
+    const packs = [...cake.cupcakes.packs].sort((a, b) => a.count - b.count);
+    items.push(
+      line('cake-cupcakes', 'cupcakes', CAKE_LINE_NAME.cupcakes, canonical, [
+        opt('cake-cupcakes-0', 'No cupcakes', 0, true, PACK_NONE),
+        ...packs.map((p) => opt(`cake-cupcakes-${p.count}`, `${p.count} cupcakes`, p.priceCentavos, false, packKey(p.count))),
+      ]),
+    );
+    if (cake.flavours) {
+      // The cake's own list, at ₱0 — the pack's price is the cupcakes' price (no second flavour charge).
+      items.push(
+        line(
+          'cake-cupcake-flavour',
+          'cupcake_flavour',
+          CAKE_LINE_NAME.cupcake_flavour,
+          canonical,
+          cake.flavours.map((c, i) => opt(`cake-cupcake-flavour-o${i + 1}`, c.label, 0, c.standard, flavourKey(i))),
+        ),
+      );
+    }
+    if (cake.cupcakes.tower) {
+      items.push(
+        line('cake-cupcake-display', 'cupcake_display', CAKE_LINE_NAME.cupcake_display, canonical, [
+          opt('cake-cupcake-display-base', lookLabel('base', CUPCAKE_PLACEMENTS), 0, true, 'base'),
+          opt('cake-cupcake-display-tower', lookLabel('tower', CUPCAKE_PLACEMENTS), cake.cupcakes.tower.extraCentavos, false, 'tower'),
+        ]),
+      );
+    }
+  }
   return items;
 }
 
-/** True when these lines are a cake card's options (they carry a tiers line). */
+/** True when these lines are a cake card's options (they carry a real-tiers line). */
 export function isCakeDraft(items: ReadonlyArray<DraftItem>): boolean {
-  return items.some((i) => i.cakePart === 'tiers' && !i.parentRef);
+  return items.some((i) => i.cakePart === 'real_tiers');
 }
 
-/**
- * The stored package lines back into "Your cake options" — the editor on a saved card (ruling 9). Null when the lines
- * are not a cake (no tiers line). Flavours come from the first tier's line: every tier carries the same list.
- */
+/** The stored lines back into "Your cake options" (ruling 9: editable on a saved card). Null = not a cake. */
 export function cakeOptionsFromDraftItems(items: ReadonlyArray<DraftItem>, message: { maxLetters: number } | null): CakeOptions | null {
-  const tiers = items.find((i) => i.cakePart === 'tiers' && !i.parentRef);
-  if (!tiers) return null;
-  const sizes = tiers.options
-    .map((o) => ({ o, n: tierCountOf(o.label) }))
-    .filter((x): x is { o: DraftOption; n: number } => x.n !== null)
-    .sort((a, b) => a.n - b.n);
-  if (sizes.length === 0) return null;
-  const standard = sizes.find((s) => s.o.is_default)?.n ?? sizes[0]!.n;
-  const extraCentavos: Record<string, number> = {};
-  for (const s of sizes) if (s.o.price_delta_centavos > 0) extraCentavos[String(s.n)] = s.o.price_delta_centavos;
-
-  const back = (line: DraftItem | undefined, prefix: string, withPhoto: boolean): CakeChoice[] | null =>
-    line
-      ? line.options.map((o, i) => ({
-          ref: `${prefix}-${i + 1}`,
-          label: o.label,
-          extraCentavos: o.is_default ? 0 : o.price_delta_centavos,
-          standard: o.is_default,
-          ...(withPhoto ? { photoRef: o.photoRef ?? null } : {}),
-        }))
-      : null;
-  const firstFlavour = items.find((i) => i.cakePart === 'flavour');
-  const top = (part: CakePart) => items.find((i) => i.cakePart === part && !i.parentRef);
-  const colours = top('colours');
+  const of = (part: CakePart) => items.find((i) => i.cakePart === part);
+  const real = of('real_tiers');
+  if (!real) return null;
+  const counts = real.options.map((o) => ({ o, n: countOf(o.lookKey, 'real') })).filter((x): x is { o: DraftOption; n: number } => x.n !== null);
+  if (counts.length === 0) return null;
+  const maxReal = Math.max(...counts.map((c) => c.n));
+  const standard = counts.find((c) => c.o.is_default)?.n ?? 1;
+  const above = counts.find((c) => c.n === standard + 1);
+  const display = of('display_tiers');
+  const displayCounts = (display?.options ?? []).map((o) => ({ o, n: countOf(o.lookKey, 'display') })).filter((x): x is { o: DraftOption; n: number } => x.n !== null);
+  const one = displayCounts.find((c) => c.n === 1);
+  const backLooks = <T extends string>(l: DraftItem | undefined): CakeLookChoice<T>[] | null =>
+    l ? l.options.map((o) => ({ look: (o.lookKey ?? '') as T, extraCentavos: o.is_default ? 0 : o.price_delta_centavos, standard: o.is_default })) : null;
+  const fl = of('flavour');
+  const colours = of('colours');
+  const monogram = of('monogram');
+  const cupcakes = of('cupcakes');
+  const cupDisplay = of('cupcake_display');
   return {
-    tiers: { made: sizes.map((s) => s.n), standard, extraCentavos },
-    flavours: back(firstFlavour, 'fl', false),
-    finish: back(top('finish'), 'fi', false),
+    tiers: {
+      maxReal,
+      standard,
+      realExtraCentavos: above ? above.o.price_delta_centavos : 0,
+      display: displayCounts.length > 1 ? { max: Math.max(...displayCounts.map((c) => c.n)), extraCentavos: one?.o.price_delta_centavos ?? 0 } : null,
+    },
+    flavours: fl
+      ? fl.options.map((o, i) => ({ ref: `fl-${i + 1}`, label: o.label, extraCentavos: o.is_default ? 0 : o.price_delta_centavos, standard: o.is_default }))
+      : null,
+    finish: backLooks<CakeFinish>(of('finish')),
+    accents: backLooks<CakeAccent>(of('accent')),
+    arrangements: backLooks<CakeArrangement>(of('arrangement')),
+    flowing: backLooks<CakeFlowing>(of('flowing')),
+    topper: backLooks<CakeTopper>(of('topper')),
+    monogram: monogram ? { extraCentavos: monogram.options.find((o) => o.lookKey === MONOGRAM_ON)?.price_delta_centavos ?? 0 } : null,
     colours: colours ? { names: colours.options.map((o) => o.label), max: Math.max(1, Math.min(CAKE_COLOURS_MAX, colours.pickMax ?? 1)) } : null,
-    design: back(top('design'), 'de', true),
-    topper: back(top('topper'), 'to', false),
     message,
+    cupcakes: cupcakes
+      ? {
+          packs: cupcakes.options
+            .map((o) => ({ count: packCountOf(o.lookKey) ?? 0, priceCentavos: o.price_delta_centavos }))
+            .filter((p) => p.count > 0),
+          tower: cupDisplay ? { extraCentavos: cupDisplay.options.find((o) => o.lookKey === 'tower')?.price_delta_centavos ?? 0 } : null,
+        }
+      : null,
   };
-}
-
-/** The photo refs a set of cake options carries — re-checked against the shop's own portfolio before a save. */
-export function cakePhotoRefs(cake: CakeOptions): string[] {
-  return (cake.design ?? []).map((c) => c.photoRef ?? '').filter((r) => r.length > 0);
 }
 
 /** The editor's wire format (one hidden field on the Card Maker's form). */
 export const CAKE_OPTIONS_FIELD = 'cake_options';
 
 export function serializeCakeOptions(cake: CakeOptions): string {
-  // A photo's URL is the editor's to draw, never the save's to store — the server re-reads the ref.
-  return JSON.stringify({ v: 1, cake }, (k, v) => (k === 'photoUrl' ? undefined : v));
+  return JSON.stringify({ v: 2, cake });
 }
 
-/** Total: never throws. Absent/blank → `{ ok: true, cake: null }` (no cake options on this form). */
+/** Total: never throws. Absent/blank → `{ ok: true, cake: null }`. Anything else is checked by cakeOptionsProblem. */
 export function parseCakeOptions(raw: unknown): { ok: true; cake: CakeOptions | null } | { ok: false; message: string } {
   if (raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '')) return { ok: true, cake: null };
   const unreadable = { ok: false as const, message: 'Your cake options could not be read. Open them and save again.' };
@@ -360,393 +469,368 @@ export function parseCakeOptions(raw: unknown): { ok: true; cake: CakeOptions | 
   } catch {
     return unreadable;
   }
-  const c = (parsed as { cake?: unknown } | null)?.cake as Record<string, unknown> | undefined;
-  if (!c || typeof c !== 'object') return unreadable;
-  const tiers = c.tiers as Record<string, unknown> | undefined;
-  if (!tiers || !Array.isArray(tiers.made) || typeof tiers.standard !== 'number' || typeof tiers.extraCentavos !== 'object' || !tiers.extraCentavos) {
-    return unreadable;
+  if (String(raw).length > 20_000) return unreadable;
+  const c = (parsed as { v?: unknown; cake?: unknown } | null)?.cake as Record<string, unknown> | undefined;
+  if (!c || typeof c !== 'object' || (parsed as { v?: unknown }).v !== 2) return unreadable;
+  const t = c.tiers as Record<string, unknown> | undefined;
+  if (!t || typeof t.maxReal !== 'number' || typeof t.standard !== 'number' || typeof t.realExtraCentavos !== 'number') return unreadable;
+  let display: CakeOptions['tiers']['display'] = null;
+  if (t.display != null) {
+    const d = t.display as Record<string, unknown>;
+    if (typeof d.max !== 'number' || typeof d.extraCentavos !== 'number') return unreadable;
+    display = { max: d.max, extraCentavos: d.extraCentavos };
   }
-  const readList = (v: unknown, withPhoto: boolean): CakeChoice[] | null | 'bad' => {
-    if (v === null || v === undefined) return null;
+  const readLooks = (v: unknown): CakeLookChoice[] | null | 'bad' => {
+    if (v == null) return null;
     if (!Array.isArray(v)) return 'bad';
-    const out: CakeChoice[] = [];
-    for (const [i, x] of v.entries()) {
-      const r = x as Record<string, unknown>;
-      if (!r || typeof r.label !== 'string' || !isWholeCentavos(r.extraCentavos) || typeof r.standard !== 'boolean') return 'bad';
-      const photo = withPhoto && typeof r.photoRef === 'string' && r.photoRef.length > 0 && r.photoRef.length <= 500 ? r.photoRef : null;
-      out.push({ ref: typeof r.ref === 'string' && r.ref ? r.ref.slice(0, 40) : `c${i + 1}`, label: r.label, extraCentavos: r.extraCentavos, standard: r.standard, ...(withPhoto ? { photoRef: photo } : {}) });
+    const out: CakeLookChoice[] = [];
+    for (const x of v) {
+      const r = (x ?? {}) as Record<string, unknown>;
+      if (typeof r.look !== 'string' || typeof r.extraCentavos !== 'number' || typeof r.standard !== 'boolean') return 'bad';
+      out.push({ look: r.look, extraCentavos: r.extraCentavos, standard: r.standard });
     }
     return out;
   };
-  const flavours = readList(c.flavours, false);
-  const finish = readList(c.finish, false);
-  const design = readList(c.design, true);
-  const topper = readList(c.topper, false);
-  if (flavours === 'bad' || finish === 'bad' || design === 'bad' || topper === 'bad') return unreadable;
+  let flavours: CakeChoice[] | null = null;
+  if (c.flavours != null) {
+    if (!Array.isArray(c.flavours)) return unreadable;
+    flavours = [];
+    for (const [i, x] of c.flavours.entries()) {
+      const r = (x ?? {}) as Record<string, unknown>;
+      if (typeof r.label !== 'string' || typeof r.extraCentavos !== 'number' || typeof r.standard !== 'boolean') return unreadable;
+      flavours.push({ ref: typeof r.ref === 'string' && r.ref ? r.ref.slice(0, 40) : `fl-${i + 1}`, label: r.label, extraCentavos: r.extraCentavos, standard: r.standard });
+    }
+  }
+  const finish = readLooks(c.finish);
+  const accents = readLooks(c.accents);
+  const arrangements = readLooks(c.arrangements);
+  const flowing = readLooks(c.flowing);
+  const topper = readLooks(c.topper);
+  if ([finish, accents, arrangements, flowing, topper].includes('bad')) return unreadable;
+  let monogram: CakeOptions['monogram'] = null;
+  if (c.monogram != null) {
+    const m = c.monogram as Record<string, unknown>;
+    if (typeof m.extraCentavos !== 'number') return unreadable;
+    monogram = { extraCentavos: m.extraCentavos };
+  }
   let colours: CakeOptions['colours'] = null;
-  if (c.colours !== null && c.colours !== undefined) {
+  if (c.colours != null) {
     const col = c.colours as Record<string, unknown>;
     if (!Array.isArray(col.names) || col.names.some((n) => typeof n !== 'string') || typeof col.max !== 'number') return unreadable;
     colours = { names: col.names as string[], max: col.max };
   }
   let message: CakeOptions['message'] = null;
-  if (c.message !== null && c.message !== undefined) {
+  if (c.message != null) {
     const m = c.message as Record<string, unknown>;
     if (typeof m.maxLetters !== 'number') return unreadable;
     message = { maxLetters: m.maxLetters };
   }
-  const extra: Record<string, number> = {};
-  for (const [k, v] of Object.entries(tiers.extraCentavos as Record<string, unknown>)) {
-    if (!isWholeCentavos(v)) return unreadable;
-    extra[k] = v;
+  let cupcakes: CakeOptions['cupcakes'] = null;
+  if (c.cupcakes != null) {
+    const cc = c.cupcakes as Record<string, unknown>;
+    if (!Array.isArray(cc.packs)) return unreadable;
+    const packs: { count: number; priceCentavos: number }[] = [];
+    for (const p of cc.packs) {
+      const r = (p ?? {}) as Record<string, unknown>;
+      if (typeof r.count !== 'number' || typeof r.priceCentavos !== 'number') return unreadable;
+      packs.push({ count: r.count, priceCentavos: r.priceCentavos });
+    }
+    let tower: { extraCentavos: number } | null = null;
+    if (cc.tower != null) {
+      const tw = cc.tower as Record<string, unknown>;
+      if (typeof tw.extraCentavos !== 'number') return unreadable;
+      tower = { extraCentavos: tw.extraCentavos };
+    }
+    cupcakes = { packs, tower };
   }
   const cake: CakeOptions = {
-    tiers: { made: (tiers.made as unknown[]).map(Number), standard: tiers.standard, extraCentavos: extra },
+    tiers: { maxReal: t.maxReal, standard: t.standard, realExtraCentavos: t.realExtraCentavos, display },
     flavours,
-    finish,
+    finish: finish as CakeLookChoice<CakeFinish>[] | null,
+    accents: accents as CakeLookChoice<CakeAccent>[] | null,
+    arrangements: arrangements as CakeLookChoice<CakeArrangement>[] | null,
+    flowing: flowing as CakeLookChoice<CakeFlowing>[] | null,
+    topper: topper as CakeLookChoice<CakeTopper>[] | null,
+    monogram,
     colours,
-    design,
-    topper,
     message,
+    cupcakes,
   };
   const problem = cakeOptionsProblem(cake);
   return problem ? { ok: false, message: problem } : { ok: true, cake };
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* The couple's side — "Design your cake"                                   */
+/* A stored card, read as a cake — what the couple may pick                 */
 /* ──────────────────────────────────────────────────────────────────────── */
 
-export type CakeSize = { option: VendorPackageItemOptionRow; tiers: number; flavourLines: VendorPackageItemRow[] };
-
 export type CakeCard = {
-  tiersLine: VendorPackageItemRow;
-  sizes: CakeSize[];
+  real: VendorPackageItemRow;
+  display: VendorPackageItemRow | null;
+  /** Bottom first, one per possible real tier. */
+  flavourLines: VendorPackageItemRow[];
+  /** Bottom first, one per possible tier. */
+  accentLines: VendorPackageItemRow[];
+  arrangement: VendorPackageItemRow | null;
   finish: VendorPackageItemRow | null;
-  colours: VendorPackageItemRow | null;
-  design: VendorPackageItemRow | null;
+  flowing: VendorPackageItemRow | null;
   topper: VendorPackageItemRow | null;
+  monogram: VendorPackageItemRow | null;
+  colours: VendorPackageItemRow | null;
+  cupcakes: VendorPackageItemRow | null;
+  cupcakeFlavour: VendorPackageItemRow | null;
+  cupcakeDisplay: VendorPackageItemRow | null;
 };
 
 const available = (item: VendorPackageItemRow | undefined | null) => (item?.options ?? []).filter((o) => o.is_available);
+const keysOf = (item: VendorPackageItemRow | null) => available(item).map((o) => o.look_key ?? '').filter(Boolean);
 
-/** The package read as a cake, or null when it is not one (no tiers line → the shipped Book sheet draws). */
+/** The package read as a cake, or null when it is not one. */
 export function readCakeCard(pkg: VendorPackageWithItems): CakeCard | null {
-  const items = pkg.items;
-  const tiersLine = items.find((i) => i.cake_part === 'tiers' && !i.parent_option_id);
-  if (!tiersLine) return null;
-  const sizes: CakeSize[] = available(tiersLine)
-    .map((option) => ({
-      option,
-      tiers: tierCountOf(option.option_label) ?? 0,
-      flavourLines: items
-        .filter((i) => i.cake_part === 'flavour' && i.parent_option_id === option.option_id)
-        .sort((a, b) => a.display_order - b.display_order),
-    }))
-    .filter((s) => s.tiers > 0)
-    .sort((a, b) => a.tiers - b.tiers);
-  if (sizes.length === 0) return null;
-  const top = (part: CakePart) => items.find((i) => i.cake_part === part && !i.parent_option_id) ?? null;
-  return { tiersLine, sizes, finish: top('finish'), colours: top('colours'), design: top('design'), topper: top('topper') };
+  const items = pkg.items.filter((i) => !i.parent_option_id);
+  const one = (part: CakePart) => items.find((i) => i.cake_part === part) ?? null;
+  const many = (part: CakePart) => items.filter((i) => i.cake_part === part).sort((a, b) => a.display_order - b.display_order);
+  const real = one('real_tiers');
+  if (!real || available(real).length === 0) return null;
+  return {
+    real,
+    display: one('display_tiers'),
+    flavourLines: many('flavour'),
+    accentLines: many('accent'),
+    arrangement: one('arrangement'),
+    finish: one('finish'),
+    flowing: one('flowing'),
+    topper: one('topper'),
+    monogram: one('monogram'),
+    colours: one('colours'),
+    cupcakes: one('cupcakes'),
+    cupcakeFlavour: one('cupcake_flavour'),
+    cupcakeDisplay: one('cupcake_display'),
+  };
 }
 
 /** One of the couple's own Mood Board colours, named, with the board part it is (lib/cake-mood-colours.ts). */
 export type MoodCakeColour = { hex: string; name: string; slot: string; setByYou: boolean };
 
-/**
- * What the shop page hands "Design your cake" beside the package: the card it was made on, the shop's photos for the
- * Design options (signed), the message's letter cap (0 = the shop asks no message), the usual time, and the couple's
- * own Mood Board colours — `null` when that read FAILED (the sheet says so; never an empty board).
- */
-/** Said when a sent design cannot be re-read against the card (an option gone, a read failed): nothing was created. */
-export const CAKE_DESIGN_UNREADABLE =
-  "We couldn't check your design against the shop's card, so nothing was sent. Reload the page and try again.";
-
-export type CakeExtras = {
-  cardId: string;
-  cardName: string;
-  messageMax: number;
-  prepDays: number | null;
-  photoUrls: Record<string, string>;
-  mood: MoodCakeColour[] | null;
-};
-
-/** A colour the couple picked: one of the shop's options, or one of their own Mood Board colours (ruling 6). */
-export type CakeColourPick = { kind: 'shop'; optionId: string } | { kind: 'mood'; name: string; hex: string };
-
-export type CakeDesignState = {
-  sizeOptionId: string;
-  /** Flavour line id → the option picked on it (one per tier of the chosen size). */
-  flavours: Record<string, string>;
-  finishOptionId: string | null;
-  colours: CakeColourPick[];
-  designOptionId: string | null;
-  topperOptionId: string | null;
-  message: string;
-};
-
-const defaultOf = (item: VendorPackageItemRow | null) => {
-  const opts = available(item);
-  return (opts.find((o) => o.is_default) ?? opts[0])?.option_id ?? null;
-};
-
-/** The design a couple starts on: 3 tiers when the shop makes it (the drawing), else the Standard size; every Standard. */
-export function startingCakeDesign(card: CakeCard): CakeDesignState {
-  const start = card.sizes.find((s) => s.tiers === 3) ?? card.sizes.find((s) => s.option.is_default) ?? card.sizes[0]!;
+/** What this card offers, in catalog ids — the sanitizer's whitelist (lib/cake-config.ts). */
+export function cakeOfferOf(card: CakeCard, messageMax: number): CakeOffer {
+  const counts = (item: VendorPackageItemRow | null, prefix: string) =>
+    keysOf(item)
+      .map((k) => countOf(k, prefix))
+      .filter((n): n is number => n !== null);
+  const realCounts = counts(card.real, 'real');
+  const packs = keysOf(card.cupcakes).filter((k) => k !== PACK_NONE && packCountOf(k) !== null);
   return {
-    sizeOptionId: start.option.option_id,
-    flavours: flavoursFor(start, {}),
-    finishOptionId: defaultOf(card.finish),
-    colours: [],
-    designOptionId: defaultOf(card.design),
-    topperOptionId: defaultOf(card.topper),
-    message: '',
+    maxRealTiers: Math.min(CAKE_MAX_TIERS, Math.max(1, ...realCounts), card.flavourLines.length || CAKE_MAX_TIERS),
+    maxDisplayTiers: Math.max(0, ...counts(card.display, 'display')),
+    arrangements: keysOf(card.arrangement) as CakeArrangement[],
+    finishes: keysOf(card.finish) as CakeFinish[],
+    accents: keysOf(card.accentLines[0] ?? null) as CakeAccent[],
+    flowing: keysOf(card.flowing) as CakeFlowing[],
+    monogram: keysOf(card.monogram).includes(MONOGRAM_ON),
+    toppers: keysOf(card.topper) as CakeTopper[],
+    flavourRefs: keysOf(card.flavourLines[0] ?? null),
+    messageMax,
+    cupcakes: packs.length > 0 ? { packRefs: packs, flavourRefs: keysOf(card.cupcakeFlavour), tower: keysOf(card.cupcakeDisplay).includes('tower') } : null,
   };
 }
 
-/**
- * The flavour picks for a size: each tier keeps the flavour the couple already gave the tier at the same height
- * (moving from 3 to 4 tiers keeps the bottom three), and a new tier starts on Standard.
- */
-export function flavoursFor(size: CakeSize, previousByIndex: Record<number, string>): Record<string, string> {
-  const out: Record<string, string> = {};
-  size.flavourLines.forEach((line, i) => {
-    const opts = available(line);
-    const wantLabel = previousByIndex[i];
-    const keep = wantLabel ? opts.find((o) => o.option_label === wantLabel) : undefined;
-    const pick = keep ?? opts.find((o) => o.is_default) ?? opts[0];
-    if (pick) out[line.item_id] = pick.option_id;
-  });
-  return out;
-}
-
-/** The flavour LABELS by tier height, bottom first — what {@link flavoursFor} carries across a size change. */
-export function flavourLabelsByIndex(card: CakeCard, state: CakeDesignState): Record<number, string> {
-  const size = card.sizes.find((s) => s.option.option_id === state.sizeOptionId);
-  const out: Record<number, string> = {};
-  size?.flavourLines.forEach((line, i) => {
-    const o = available(line).find((x) => x.option_id === state.flavours[line.item_id]);
-    if (o) out[i] = o.option_label;
-  });
-  return out;
-}
-
-export function sizeOf(card: CakeCard, state: CakeDesignState): CakeSize | null {
-  return card.sizes.find((s) => s.option.option_id === state.sizeOptionId) ?? null;
-}
-
-/** Over the colour cap — "Pick up to 3 — untick one to send your design." */
-export function coloursOverCap(card: CakeCard, state: CakeDesignState): boolean {
-  return state.colours.length > colourCapOf(card);
-}
-
-/** The colour cap: the shop's "Choose 1–N" (the colours line's pick_max), never over 3. */
-export function colourCapOf(card: CakeCard): number {
-  return Math.max(1, Math.min(CAKE_COLOURS_MAX, card.colours?.pick_max ?? CAKE_COLOURS_MAX));
-}
+const byKey = (item: VendorPackageItemRow | null, key: string | null | undefined) =>
+  key ? available(item).find((o) => o.look_key === key) ?? null : null;
+const standardOf = (item: VendorPackageItemRow | null) => {
+  const o = available(item);
+  return o.find((x) => x.is_default) ?? o[0] ?? null;
+};
 
 /**
- * The design as the SHIPPED selection the pricer and `lockPackage` read. The shop's colours are picks on the colours
- * line; when the couple picked only their own Mood Board colours, the colours line is REMOVED (its replacement value is
- * ₱0, so the total does not move) — otherwise its "pick at least 1" would refuse a design the couple finished.
+ * A sanitized design as the SHIPPED selection the pricer and `lockPackage` read. Lines for tiers the couple did not
+ * pick stay on their Standard (₱0). The colours line is removed: every colour is ₱0, and the design's colours (the
+ * couple's Mood Board ones included) are carried on the design itself, never as a pick.
+ * Null when a key on the design no longer has an option on this card.
  */
-export function cakeSelection(card: CakeCard, state: CakeDesignState): { selection: ChoiceSelection; removedItemIds: string[] } {
-  const picks: Record<string, string[]> = { [card.tiersLine.item_id]: [state.sizeOptionId] };
-  const size = sizeOf(card, state);
-  for (const line of size?.flavourLines ?? []) {
-    const id = state.flavours[line.item_id];
-    if (id) picks[line.item_id] = [id];
+export function cakeConfigSelection(card: CakeCard, config: CakeConfig): { selection: ChoiceSelection; removedItemIds: string[] } | null {
+  const picks: Record<string, string[]> = {};
+  const set = (item: VendorPackageItemRow | null, key: string | null | undefined): boolean => {
+    if (!item) return key == null || key === 'none' || key === 'stacked' || key === MONOGRAM_OFF || key === PACK_NONE || key === 'base';
+    const o = key != null ? byKey(item, key) : standardOf(item);
+    if (!o) return false;
+    picks[item.item_id] = [o.option_id];
+    return true;
+  };
+  const real = config.tiers.filter((t) => t.kind === 'real');
+  const displayCount = config.tiers.length - real.length;
+  if (!set(card.real, realKey(real.length))) return null;
+  if (card.display ? !set(card.display, displayKey(displayCount)) : displayCount > 0) return null;
+  for (const [k, lineRow] of card.flavourLines.entries()) {
+    if (!set(lineRow, real[k]?.flavourRef ?? null)) return null;
   }
-  if (card.finish && state.finishOptionId) picks[card.finish.item_id] = [state.finishOptionId];
-  if (card.design && state.designOptionId) picks[card.design.item_id] = [state.designOptionId];
-  if (card.topper && state.topperOptionId) picks[card.topper.item_id] = [state.topperOptionId];
-  const removed: string[] = [];
-  if (card.colours) {
-    const shop = state.colours.flatMap((c) => (c.kind === 'shop' ? [c.optionId] : []));
-    if (shop.length > 0) picks[card.colours.item_id] = shop;
-    else removed.push(card.colours.item_id);
+  for (const [k, lineRow] of card.accentLines.entries()) {
+    if (!set(lineRow, config.tiers[k]?.accent ?? 'none')) return null;
   }
-  return { selection: { picks }, removedItemIds: removed };
+  if (!set(card.arrangement, config.arrangement)) return null;
+  if (!set(card.finish, config.finish)) return null;
+  if (!set(card.flowing, config.flowing)) return null;
+  if (!set(card.topper, config.topper)) return null;
+  if (!set(card.monogram, config.monogram ? MONOGRAM_ON : MONOGRAM_OFF)) return null;
+  if (!set(card.cupcakes, config.cupcakes?.packRef ?? PACK_NONE)) return null;
+  if (card.cupcakeFlavour && !set(card.cupcakeFlavour, config.cupcakes?.match ? null : (config.cupcakes?.flavourRef ?? null))) return null;
+  if (!set(card.cupcakeDisplay, config.cupcakes?.placement ?? 'base')) return null;
+  return { selection: { picks }, removedItemIds: card.colours ? [card.colours.item_id] : [] };
 }
 
-/** The live total — the SHIPPED `choiceTotals`. Null when the pricer refuses (the sheet then blocks Send and Book). */
-export function cakeTotalCentavos(
+/** The design's total — the SHIPPED `choiceTotals`, with the flag `lockPackage` reads. Null when it does not price. */
+export function cakeConfigTotalCentavos(
   pkg: VendorPackageWithItems,
   card: CakeCard,
-  state: CakeDesignState,
+  config: CakeConfig,
   paxCount: number,
-  // The SAME pricing model Book commits with (lock-modal + lockPackage both read packageCreditEnabled()).
   creditEnabled: boolean = packageCreditEnabled(),
 ): number | null {
-  const { selection, removedItemIds } = cakeSelection(card, state);
-  return choiceTotals({ pkg, removedItemIds, selection, creditEnabled, paxCount })?.bookingTotalCentavos ?? null;
+  const sel = cakeConfigSelection(card, config);
+  if (!sel) return null;
+  return choiceTotals({ pkg, removedItemIds: sel.removedItemIds, selection: sel.selection, creditEnabled, paxCount })?.bookingTotalCentavos ?? null;
+}
+
+/** The cupcakes a design asks for (0 = none). */
+export const cupcakeCountOf = (config: CakeConfig) => packCountOf(config.cupcakes?.packRef) ?? 0;
+
+/** A flavour key's words on this card ("Ube"). */
+export function flavourLabelOn(card: CakeCard, key: string): string | null {
+  return byKey(card.flavourLines[0] ?? null, key)?.option_label ?? null;
 }
 
 /* ──────────────────────────────────────────────────────────────────────── */
-/* The design, as the message the supplier receives                         */
+/* The design, as the supplier reads it                                     */
 /* ──────────────────────────────────────────────────────────────────────── */
 
 export const CAKE_DESIGN_HEAD = '🎂 Cake design · ';
-export const CAKE_MOOD_NOTE = '(Mood Board)';
-const ESTIMATE_TAIL = ' — from the one price and the extras picked. The quote decides.';
+/** The design's stored row, named on the message's last line so the card reads the row — never re-parses the text. */
+export const CAKE_DESIGN_REF = 'Design ref: ';
+export const CAKE_DESIGN_UNREADABLE = "We couldn't check your design against the shop's card, so nothing was sent. Reload the page and try again.";
 
 export type CakeDesignLine = { label: string; extraCentavos: number };
+export type CakeDesignTier = { name: string; kind: 'real' | 'display'; flavour: CakeDesignLine | null; accent: CakeDesignLine | null; cutting: boolean };
 
+/** The design in words — what the received card and the order print beside the picture. */
 export type CakeDesign = {
   cardName: string;
-  tiers: string;
-  /** Bottom → top. */
-  flavours: CakeDesignLine[];
+  tiers: CakeDesignTier[];
+  realCount: number;
+  displayCount: number;
+  arrangement: CakeDesignLine | null;
   finish: CakeDesignLine | null;
-  colours: { name: string; mood: boolean }[];
-  design: CakeDesignLine | null;
+  flowing: CakeDesignLine | null;
   topper: CakeDesignLine | null;
+  monogram: CakeDesignLine | null;
+  colours: { name: string; hex: string }[];
   message: string;
+  instructions: string;
+  cupcakes: { words: string; extraCentavos: number } | null;
   oneCentavos: number;
   estimateCentavos: number;
 };
 
-const pickLine = (item: VendorPackageItemRow | null, optionId: string | null): CakeDesignLine | null => {
-  if (!item || !optionId) return null;
-  const o = available(item).find((x) => x.option_id === optionId);
+const lineOf = (item: VendorPackageItemRow | null, key: string | null | undefined): CakeDesignLine | null => {
+  const o = byKey(item, key);
   return o ? { label: cleanCakeLabel(o.option_label), extraCentavos: o.price_delta_centavos } : null;
 };
 
-/** Clean a couple-typed message: one line, no quote marks of ours, at most `max` letters. */
-export function cleanCakeMessage(raw: string, max: number): string {
-  return Array.from(raw.replace(/[\r\n]+/g, ' ').replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim()).slice(0, max).join('');
-}
-
-/**
- * The design, re-read from the package (never from the browser's words): labels from the rows, the estimate from the
- * shipped pricer. Null when the design does not price (an option gone, the pricer refused).
- */
-export function cakeDesignOf(
-  pkg: VendorPackageWithItems,
-  card: CakeCard,
-  state: CakeDesignState,
-  opts: { cardName: string; messageMax: number; paxCount: number },
-): CakeDesign | null {
-  const size = sizeOf(card, state);
-  if (!size) return null;
-  const estimate = cakeTotalCentavos(pkg, card, state, opts.paxCount);
-  if (estimate === null) return null;
-  const flavours = size.flavourLines.map((line) => pickLine(line, state.flavours[line.item_id] ?? null)).filter((x): x is CakeDesignLine => x !== null);
-  const colours = state.colours
-    .map((c) => {
-      if (c.kind === 'mood') return { name: cleanCakeLabel(c.name), mood: true };
-      const o = available(card.colours).find((x) => x.option_id === c.optionId);
-      return o ? { name: cleanCakeLabel(o.option_label), mood: false } : null;
-    })
-    .filter((x): x is { name: string; mood: boolean } => x !== null && x.name.length > 0)
-    .slice(0, colourCapOf(card));
+/** The design in the card's own words and prices. Pure — the estimate is passed in from the shipped pricer. */
+export function cakeDesignOf(card: CakeCard, config: CakeConfig, opts: { cardName: string; oneCentavos: number; estimateCentavos: number }): CakeDesign {
+  let realIndex = 0;
+  const tiers: CakeDesignTier[] = config.tiers.map((t, i) => {
+    const flavourLine = t.kind === 'real' ? card.flavourLines[realIndex++] ?? null : null;
+    return {
+      name: tierRowName(i),
+      kind: t.kind,
+      flavour: t.kind === 'real' ? lineOf(flavourLine, t.flavourRef) ?? (flavourLine ? lineOf(flavourLine, standardOf(flavourLine)?.look_key) : null) : null,
+      accent: t.accent !== 'none' ? lineOf(card.accentLines[i] ?? null, t.accent) : null,
+      cutting: i === config.cuttingTier,
+    };
+  });
+  const real = config.tiers.filter((t) => t.kind === 'real').length;
+  const pack = config.cupcakes ? byKey(card.cupcakes, config.cupcakes.packRef) : null;
+  const cupFlavour = config.cupcakes && !config.cupcakes.match ? lineOf(card.cupcakeFlavour, config.cupcakes.flavourRef) : null;
+  const tower = config.cupcakes?.placement === 'tower' ? lineOf(card.cupcakeDisplay, 'tower') : null;
   return {
     cardName: cleanCakeLabel(opts.cardName) || 'Cake',
-    tiers: size.option.option_label,
-    flavours,
-    finish: pickLine(card.finish, state.finishOptionId),
-    colours,
-    design: pickLine(card.design, state.designOptionId),
-    topper: pickLine(card.topper, state.topperOptionId),
-    message: cleanCakeMessage(state.message, opts.messageMax),
-    oneCentavos: pkg.total_price_centavos,
-    estimateCentavos: estimate,
+    tiers,
+    realCount: real,
+    displayCount: config.tiers.length - real,
+    arrangement: config.arrangement !== 'stacked' ? lineOf(card.arrangement, config.arrangement) : null,
+    finish: lineOf(card.finish, config.finish),
+    flowing: config.flowing !== 'none' ? lineOf(card.flowing, config.flowing) : null,
+    topper: config.topper !== 'none' ? lineOf(card.topper, config.topper) : null,
+    monogram: config.monogram
+      ? { label: `On ${config.monogram === 'front' ? 'a layer' : config.monogram === 'topper' ? 'the topper' : 'the cake board'}`, extraCentavos: lineOf(card.monogram, MONOGRAM_ON)?.extraCentavos ?? 0 }
+      : null,
+    colours: config.colours.map((c) => ({ name: cleanCakeLabel(c.name), hex: c.hex })),
+    message: config.message,
+    instructions: config.instructions,
+    cupcakes: pack
+      ? {
+          words: [
+            cleanCakeLabel(pack.option_label),
+            config.cupcakes!.match ? 'matching the cake' : cupFlavour?.label,
+            config.cupcakes!.placement === 'tower' ? 'on a tower' : 'around the base',
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          extraCentavos: pack.price_delta_centavos + (tower?.extraCentavos ?? 0),
+        }
+      : null,
+    oneCentavos: opts.oneCentavos,
+    estimateCentavos: opts.estimateCentavos,
   };
 }
 
 const withExtra = (l: CakeDesignLine) => (l.extraCentavos > 0 ? `${l.label} (+${formatCentavosPhp(l.extraCentavos)})` : l.label);
 
-/** The design as the lines of the inquiry message. Readable as plain text anywhere a message is shown. */
-export function formatCakeDesignBlock(d: CakeDesign): string {
-  const lines = [`${CAKE_DESIGN_HEAD}${d.cardName}`, `Tiers: ${d.tiers}`];
-  if (d.flavours.length > 0) lines.push(`Flavours, bottom → top: ${d.flavours.map(withExtra).join(' · ')}`);
+/** "3 real tiers + 1 display" */
+export function tiersWords(d: Pick<CakeDesign, 'realCount' | 'displayCount'>): string {
+  const real = d.realCount === 1 ? '1 real tier' : `${d.realCount} real tiers`;
+  return d.displayCount > 0 ? `${real} + ${d.displayCount} display` : real;
+}
+
+/** The design as plain lines — the message text every chat shows, and the prefilled quote's note (ruling 8). */
+export function cakeDesignLines(d: CakeDesign): string[] {
+  const lines = [`Tiers: ${tiersWords(d)}`];
+  const flavours = d.tiers.filter((t) => t.flavour).map((t) => withExtra(t.flavour!));
+  if (flavours.length) lines.push(`Flavours, bottom → top: ${flavours.join(' · ')}`);
+  const accents = d.tiers.filter((t) => t.accent).map((t) => `${t.name}: ${withExtra(t.accent!)}`);
+  if (accents.length) lines.push(`Accents: ${accents.join(' · ')}`);
+  if (d.arrangement) lines.push(`Arrangement: ${withExtra(d.arrangement)}`);
   if (d.finish) lines.push(`Finish: ${withExtra(d.finish)}`);
-  if (d.colours.length > 0) lines.push(`Colours: ${d.colours.map((c) => (c.mood ? `${c.name} ${CAKE_MOOD_NOTE}` : c.name)).join(' · ')}`);
-  if (d.design) lines.push(`Design: ${withExtra(d.design)}`);
+  if (d.flowing) lines.push(`Flowing accent: ${withExtra(d.flowing)}`);
+  if (d.colours.length) lines.push(`Colours: ${d.colours.map((c) => c.name).join(' · ')}`);
   if (d.topper) lines.push(`Topper: ${withExtra(d.topper)}`);
+  if (d.monogram) lines.push(`Monogram: ${withExtra(d.monogram)}`);
   if (d.message) lines.push(`Message: “${d.message}”`);
-  lines.push(`One price: ${formatCentavosPhp(d.oneCentavos)}`);
-  lines.push(`Estimate: ${formatCentavosPhp(d.estimateCentavos)}${ESTIMATE_TAIL}`);
-  return lines.join('\n');
+  if (d.cupcakes) lines.push(`Cupcakes: ${d.cupcakes.words}${d.cupcakes.extraCentavos > 0 ? ` (+${formatCentavosPhp(d.cupcakes.extraCentavos)})` : ''}`);
+  if (d.instructions) lines.push(`Special instructions: ${d.instructions.replace(/[\r\n]+/g, ' ')}`);
+  return lines;
 }
 
-/** "₱12,000" / "₱12,000.50" → centavos; anything else → null. */
-export function pesoWordsToCentavos(words: string): number | null {
-  const m = /^₱(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d{2}))?$/.exec(words.trim());
-  if (!m) return null;
-  return Number(m[1]!.replace(/,/g, '')) * 100 + (m[2] ? Number(m[2]) : 0);
+/** The inquiry message's design block: readable as plain text anywhere, and naming its stored row last. */
+export function formatCakeDesignBlock(d: CakeDesign, designId: string): string {
+  return [
+    `${CAKE_DESIGN_HEAD}${d.cardName}`,
+    ...cakeDesignLines(d),
+    `One price: ${formatCentavosPhp(d.oneCentavos)}`,
+    `Estimate: ${formatCentavosPhp(d.estimateCentavos)} — from the one price and the extras picked. The quote decides.`,
+    `${CAKE_DESIGN_REF}${designId}`,
+  ].join('\n');
 }
 
-function readPickWords(raw: string): CakeDesignLine | null {
-  const s = raw.trim();
-  if (!s) return null;
-  const m = /^(.*?) \(\+(₱[\d,]+(?:\.\d{2})?)\)$/.exec(s);
-  if (m) {
-    const c = pesoWordsToCentavos(m[2]!);
-    return c === null ? null : { label: m[1]!, extraCentavos: c };
-  }
-  return { label: s, extraCentavos: 0 };
+/** The stored row a design message names, or null (a message without a design, or a ref that is not a uuid). */
+export function cakeDesignRefOf(body: string | null | undefined): string | null {
+  const at = (body ?? '').lastIndexOf(CAKE_DESIGN_REF);
+  if (at < 0) return null;
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/i.exec((body ?? '').slice(at + CAKE_DESIGN_REF.length));
+  return m ? m[1]!.toLowerCase() : null;
 }
 
-/**
- * The design back out of a message body (the supplier's card, the order page, the prefilled quote). Exact words, never
- * guessed: a body without the head line, or whose block misses its tiers, one price or estimate, is NOT a design (null).
- */
-export function parseCakeDesignBlock(body: string | null | undefined): CakeDesign | null {
-  const all = (body ?? '').split('\n');
-  const start = all.findIndex((l) => l.startsWith(CAKE_DESIGN_HEAD));
-  if (start < 0) return null;
-  const d: CakeDesign = {
-    cardName: all[start]!.slice(CAKE_DESIGN_HEAD.length).trim(),
-    tiers: '',
-    flavours: [],
-    finish: null,
-    colours: [],
-    design: null,
-    topper: null,
-    message: '',
-    oneCentavos: -1,
-    estimateCentavos: -1,
-  };
-  for (const line of all.slice(start + 1)) {
-    const m = /^([A-Za-z ,→]+?): (.*)$/.exec(line);
-    if (!m) break;
-    const [, key, value] = m as unknown as [string, string, string];
-    if (key === 'Tiers') d.tiers = value.trim();
-    else if (key === 'Flavours, bottom → top') d.flavours = value.split(' · ').map(readPickWords).filter((x): x is CakeDesignLine => x !== null);
-    else if (key === 'Finish') d.finish = readPickWords(value);
-    else if (key === 'Colours')
-      d.colours = value
-        .split(' · ')
-        .map((c) => c.trim())
-        .filter(Boolean)
-        .map((c) => (c.endsWith(` ${CAKE_MOOD_NOTE}`) ? { name: c.slice(0, -CAKE_MOOD_NOTE.length - 1), mood: true } : { name: c, mood: false }));
-    else if (key === 'Design') d.design = readPickWords(value);
-    else if (key === 'Topper') d.topper = readPickWords(value);
-    else if (key === 'Message') d.message = value.replace(/^“|”$/g, '');
-    else if (key === 'One price') d.oneCentavos = pesoWordsToCentavos(value) ?? -1;
-    else if (key === 'Estimate') {
-      const words = value.endsWith(ESTIMATE_TAIL) ? value.slice(0, -ESTIMATE_TAIL.length) : value;
-      d.estimateCentavos = pesoWordsToCentavos(words) ?? -1;
-    } else break;
-  }
-  if (!d.cardName || !d.tiers || d.oneCentavos < 0 || d.estimateCentavos < 0) return null;
-  return d;
-}
-
-/** "Ube · Chocolate · Vanilla chiffon" — the supplier card's Flavours row (bottom → top). */
-export function flavoursWords(d: CakeDesign): string {
-  return d.flavours.map((f) => f.label).join(' · ');
-}
-
-/** The prefilled quote's note — the picks, in the card's order (ruling 8). */
+/** The prefilled quote's note — the picks in the card's order (ruling 8). */
 export function cakeQuoteNote(d: CakeDesign): string {
-  const parts = [`${d.cardName} · ${d.tiers}`];
-  if (d.flavours.length) parts.push(`Flavours, bottom → top: ${flavoursWords(d)}`);
-  if (d.finish) parts.push(`Finish: ${d.finish.label}`);
-  if (d.colours.length) parts.push(`Colours: ${d.colours.map((c) => c.name).join(' · ')}`);
-  if (d.design) parts.push(`Design: ${d.design.label}`);
-  if (d.topper) parts.push(`Topper: ${d.topper.label}`);
-  if (d.message) parts.push(`Message: “${d.message}”`);
-  return parts.join('\n').slice(0, 500);
+  return [d.cardName, ...cakeDesignLines(d)].join('\n').slice(0, 500);
 }

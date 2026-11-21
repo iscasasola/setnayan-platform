@@ -1,8 +1,6 @@
 'use client';
 
 import { useMemo, useRef, useState, useTransition } from 'react';
-import dynamic from 'next/dynamic';
-import { readCakeCard, type CakeCard, type CakeExtras } from '@/lib/cake-maker';
 import { useRouter } from 'next/navigation';
 import {
   Package as PackageIcon,
@@ -131,65 +129,7 @@ type AskState =
   | { kind: 'not_sent'; threadHref: string; message: string }
   | { kind: 'error'; message: string };
 
-type LockPackageModalProps = {
-  eventId: string;
-  pkg: VendorPackageWithItems;
-  paxCount?: number;
-  ask?: PackageAskTarget | null;
-  /**
-   * 🎂 A cake card's own package (Cake Maker, DECISION_LOG 2026-11-21): what "Design your cake" needs. With an ask
-   * target and a package that reads as a cake, the sheet below gives way to the designer — the same lines, grouped,
-   * under a live picture. null (the default) ⇒ this modal is byte-identical to what shipped.
-   */
-  cake?: CakeExtras | null;
-};
-
-/** "Design your cake" is loaded only when a couple opens it. */
-const CakeDesigner = dynamic(() => import('./cake-designer'), { ssr: false });
-
-export function LockPackageModal(props: LockPackageModalProps) {
-  const { pkg, cake = null, ask = null } = props;
-  const card = useMemo(() => (cake && ask ? readCakeCard(pkg) : null), [cake, ask, pkg]);
-  if (card && cake && ask) {
-    return <CakeDesignDoor eventId={props.eventId} pkg={pkg} card={card} cake={cake} ask={ask} paxCount={props.paxCount ?? 0} />;
-  }
-  return <PackageBookSheet {...props} />;
-}
-
-function CakeDesignDoor({
-  eventId,
-  pkg,
-  card,
-  cake,
-  ask,
-  paxCount,
-}: {
-  eventId: string;
-  pkg: VendorPackageWithItems;
-  card: CakeCard;
-  cake: CakeExtras;
-  ask: PackageAskTarget;
-  paxCount: number;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
-      >
-        <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Design your cake
-      </button>
-      {open ? (
-        <CakeDesigner eventId={eventId} pkg={pkg} card={card} cake={cake} ask={ask} paxCount={paxCount} onClose={() => setOpen(false)} />
-      ) : null}
-    </>
-  );
-}
-
-function PackageBookSheet({
+export function LockPackageModal({
   eventId,
   pkg,
   paxCount = 0,

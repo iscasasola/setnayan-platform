@@ -1,58 +1,93 @@
 'use client';
 
 /**
- * 🎂 YOUR CAKE OPTIONS — the cake card's own choices (Cake Maker §01, drawing
- * prototypes/cake_maker_2026-11-21/cake_maker_fable.html; DECISION_LOG 2026-11-21).
+ * 🎂 YOUR CAKE OPTIONS — the cake card's own choices (Cake Maker §01 + the controller's v2 rulings: up to 10 layers,
+ * real vs display tiers, accents per layer, arrangement, a flowing accent, the monogram, cupcakes).
  *
- * The card's LAST part, under How clients book. It opens with the cake template's lines already filled (Tiers · Flavour ·
- * Finish · Colours · Design · Topper · Message); the supplier edits any of them, or swipes one away (Undo, or "Add an
- * option" brings it back). Every line is a SHIPPED package line on the card's own ★ Customization package — see
- * lib/cake-maker.ts. This component only edits the model and posts it as ONE hidden field (`cake_options`), which
- * `commitVendorService` validates and saves, on a new card AND on a saved one (ruling 9).
+ * The card's LAST part, under How clients book. Every control is driven off ONE catalog (lib/cake-config.ts): the
+ * supplier ticks which looks they make and types their own extra for each — nothing is guessed, every extra starts at
+ * ₱0. Every choice is a SHIPPED package line on the card's own ★ Customization package (lib/cake-maker.ts). This
+ * component only edits the model and posts it as ONE hidden field (`cake_options`), which `commitVendorService`
+ * validates and saves, on a new card AND on a saved one (ruling 9).
+ *
+ * 🔒 SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP. Locked (a plan below Pro, after the admin's start date), the
+ * part shows "Included in Pro · Upgrade" and posts NOTHING — so the rest of the card still saves and the saved options
+ * stay exactly as they are.
  *
  * Lazy-loaded by the Card Maker, so none of it is in the Maker's first load.
  */
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { ChevronRight, ImagePlus, Info, Minus, Plus, X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { ChevronRight, Info, Lock, Minus, Plus, X } from 'lucide-react';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
-import { Sheet } from '@/app/_components/sheet';
 import { pushUndo } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
-import { cakeAction } from '@/app/vendor-dashboard/cake-actions';
 import { hexForColorName } from '@/lib/color-names';
 import { formatCount } from '@/lib/format-number';
 import { groupThousands, parseAmountInput } from '@/lib/service-customization-draft';
+import {
+  CAKE_ACCENTS,
+  CAKE_ARRANGEMENTS,
+  CAKE_FINISHES,
+  CAKE_FLOWING,
+  CAKE_TOPPERS,
+  cakeFigureSpec,
+  startingCakeConfig,
+  fullCakeOffer,
+  type CakeConfig,
+} from '@/lib/cake-config';
 import {
   CAKE_COLOURS_MAX,
   CAKE_LABEL_MAX,
   CAKE_MAX_TIERS,
   CAKE_MESSAGE_LETTERS_MAX,
   CAKE_OPTIONS_FIELD,
+  CUPCAKE_PACKS_MAX,
+  CUPCAKE_PACK_MAX_COUNT,
   cakeOptionsProblem,
   cakeTemplate,
+  lookLabel,
   serializeCakeOptions,
   tierLabel,
   type CakeChoice,
+  type CakeLookChoice,
   type CakeOptions,
 } from '@/lib/cake-maker';
+import { SPECIAL_TOOLS_LOCKED_WORDS, SPECIAL_TOOLS_UPGRADE_HREF } from '@/lib/special-tools';
+import { CakeFigure } from '@/app/_components/plan3d/kit/cake-figure';
 import styles from './cake-options.module.css';
 
 /** What the editor starts from. `unread` = a saved card whose options could not be read: nothing is posted. */
-export type CakeSeed = { status: 'ok'; cake: CakeOptions | null; saved: boolean } | { status: 'unread' };
+export type CakeSeed = { status: 'ok'; cake: CakeOptions | null; saved: boolean; locked?: boolean } | { status: 'unread' };
 
-type Open = 'tiers' | 'flavours' | 'finish' | 'colours' | 'design' | 'topper' | 'message' | null;
-type ListKey = 'flavours' | 'finish' | 'design' | 'topper';
+type PartKey = 'tiers' | 'flavours' | 'finish' | 'accents' | 'arrangements' | 'flowing' | 'topper' | 'monogram' | 'colours' | 'message' | 'cupcakes';
+type LookKey = 'finish' | 'accents' | 'arrangements' | 'flowing' | 'topper';
 
-const LIST_NAME: Record<ListKey, { title: string; one: string; add: string }> = {
-  flavours: { title: 'Flavour', one: 'flavour', add: 'Add a flavour' },
-  finish: { title: 'Finish', one: 'finish', add: 'Add a finish' },
-  design: { title: 'Design', one: 'design', add: 'Add a design' },
-  topper: { title: 'Topper', one: 'topper', add: 'Add a topper' },
+const PART_NAME: Record<PartKey, string> = {
+  tiers: 'Tiers',
+  flavours: 'Flavour',
+  finish: 'Finish',
+  accents: 'Accents',
+  arrangements: 'Arrangement',
+  flowing: 'Flowing accent',
+  topper: 'Topper',
+  monogram: 'Monogram',
+  colours: 'Colours',
+  message: 'Message on the cake',
+  cupcakes: 'Cupcakes',
+};
+
+const LOOK_CATALOG: Record<LookKey, { list: readonly { id: string; label: string }[]; plain: string | null; line: string }> = {
+  finish: { list: CAKE_FINISHES, plain: null, line: 'the whole cake' },
+  accents: { list: CAKE_ACCENTS, plain: 'none', line: 'one for each layer' },
+  arrangements: { list: CAKE_ARRANGEMENTS, plain: 'stacked', line: 'how the layers stand' },
+  flowing: { list: CAKE_FLOWING, plain: 'none', line: 'one that runs across the layers' },
+  topper: { list: CAKE_TOPPERS, plain: 'none', line: 'on the top tier' },
 };
 
 let refSeq = 0;
 const newRef = (p: string) => `${p}-n${Date.now().toString(36)}${(refSeq += 1)}`;
 
-export function CakeOptionsStep({ seed, serviceId, priceWords }: { seed: CakeSeed; serviceId: string | null; priceWords: string | null }) {
+export function CakeOptionsStep({ seed, priceWords }: { seed: CakeSeed; serviceId?: string | null; priceWords: string | null }) {
   if (seed.status === 'unread') {
     return (
       <div className={styles.frame} data-cake-options="unread" role="alert">
@@ -61,163 +96,141 @@ export function CakeOptionsStep({ seed, serviceId, priceWords }: { seed: CakeSee
       </div>
     );
   }
-  return <CakeOptionsEditor start={seed.cake ?? cakeTemplate()} serviceId={serviceId} priceWords={priceWords} />;
+  if (seed.locked) return <LockedCakeOptions saved={seed.saved} />;
+  return <CakeOptionsEditor start={seed.cake ?? cakeTemplate()} priceWords={priceWords} />;
 }
 
-function CakeOptionsEditor({ start, serviceId, priceWords }: { start: CakeOptions; serviceId: string | null; priceWords: string | null }) {
+/** Below Pro after the start date: one quiet row, and nothing posted — the saved options are kept. */
+function LockedCakeOptions({ saved }: { saved: boolean }) {
+  return (
+    <section className={styles.root} data-cake-options="locked">
+      <h3 className={styles.lab}>Your cake options</h3>
+      <div className={`${styles.frame} ${styles.lockRow}`}>
+        <Lock aria-hidden className="h-4 w-4 flex-none" />
+        <span className={styles.st}>
+          <b>{SPECIAL_TOOLS_LOCKED_WORDS}</b>
+          <small>{saved ? 'Your saved cake options are kept, just as they are.' : 'Couples design their cake on your card.'}</small>
+        </span>
+        <Link href={SPECIAL_TOOLS_UPGRADE_HREF} className={styles.pill}>
+          Upgrade
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function CakeOptionsEditor({ start, priceWords }: { start: CakeOptions; priceWords: string | null }) {
   const [cake, setCake] = useState<CakeOptions>(start);
-  const [open, setOpen] = useState<Open>('tiers');
-  const [tiersOn, setTiersOn] = useState(true);
-  const problem = tiersOn ? cakeOptionsProblem(cake) : null;
-  const count =
-    (tiersOn ? 1 : 0) + [cake.flavours, cake.finish, cake.colours, cake.design, cake.topper, cake.message].filter((x) => x !== null).length;
-
+  const [open, setOpen] = useState<PartKey | null>('tiers');
+  const problem = cakeOptionsProblem(cake);
   const patch = useCallback((over: Partial<CakeOptions>) => setCake((c) => ({ ...c, ...over })), []);
-
-  /** Swipe a part away — Undo puts it back as it was. */
-  const removePart = (key: Exclude<Open, null>) => {
-    const before = cake;
-    const wasTiers = tiersOn;
-    if (key === 'tiers') setTiersOn(false);
-    else patch({ [key]: null } as Partial<CakeOptions>);
-    if (open === key) setOpen(null);
-    pushUndo({
-      label: `${key === 'tiers' ? 'Tiers' : key === 'message' ? 'Message on the cake' : key === 'colours' ? 'Colours' : LIST_NAME[key].title} removed`,
-      undo: async () => {
-        setCake(before);
-        setTiersOn(wasTiers);
-      },
-    });
-  };
   const template = useMemo(() => cakeTemplate(), []);
-  const removed: { key: Exclude<Open, null>; label: string }[] = [
-    ...(!tiersOn ? [{ key: 'tiers' as const, label: 'Tiers' }] : []),
-    ...(cake.flavours === null ? [{ key: 'flavours' as const, label: 'Flavour' }] : []),
-    ...(cake.finish === null ? [{ key: 'finish' as const, label: 'Finish' }] : []),
-    ...(cake.colours === null ? [{ key: 'colours' as const, label: 'Colours' }] : []),
-    ...(cake.design === null ? [{ key: 'design' as const, label: 'Design' }] : []),
-    ...(cake.topper === null ? [{ key: 'topper' as const, label: 'Topper' }] : []),
-    ...(cake.message === null ? [{ key: 'message' as const, label: 'Message on the cake' }] : []),
-  ];
-  const addBack = (key: Exclude<Open, null>) => {
-    if (key === 'tiers') setTiersOn(true);
-    else patch({ [key]: template[key] } as Partial<CakeOptions>);
+  const optional: Exclude<PartKey, 'tiers'>[] = ['flavours', 'finish', 'accents', 'arrangements', 'flowing', 'topper', 'monogram', 'colours', 'message', 'cupcakes'];
+  const onCount = 1 + optional.filter((k) => cake[k] !== null).length;
+
+  const removePart = (key: Exclude<PartKey, 'tiers'>) => {
+    const before = cake;
+    patch({ [key]: null } as Partial<CakeOptions>);
+    if (open === key) setOpen(null);
+    pushUndo({ label: `${PART_NAME[key]} removed`, undo: async () => setCake(before) });
+  };
+  const addBack = (key: Exclude<PartKey, 'tiers'>) => {
+    const fresh: Partial<CakeOptions> =
+      key === 'monogram' ? { monogram: { extraCentavos: 0 } } : key === 'cupcakes' ? { cupcakes: { packs: [{ count: 24, priceCentavos: 0 }], tower: null } } : { [key]: template[key] };
+    patch(fresh);
     setOpen(key);
   };
+  const toggle = (key: PartKey) => setOpen(open === key ? null : key);
 
-  const sizes = [...cake.tiers.made].sort((a, b) => a - b);
-  const tiersLine = `${formatCount(sizes[0] ?? 1)} to ${formatCount(sizes[sizes.length - 1] ?? 1)} · ${formatCount(cake.tiers.standard)} in the price`;
+  // The picture of the cake the one price pays for — drawn from the shared model, the same as the couple's.
+  const spec = useMemo(() => {
+    const base: CakeConfig = startingCakeConfig(fullCakeOffer());
+    const n = Math.max(1, Math.min(CAKE_MAX_TIERS, cake.tiers.standard));
+    const accent = cake.accents?.find((a) => a.look !== 'none')?.look ?? 'none';
+    return cakeFigureSpec({
+      ...base,
+      tiers: Array.from({ length: n }, (_, i) => ({ kind: 'real' as const, flavourRef: null, accent: i === 0 ? accent : 'none' })),
+      finish: cake.finish?.find((f) => f.standard)?.look ?? 'buttercream',
+      arrangement: cake.arrangements?.find((a) => a.standard)?.look ?? 'stacked',
+      topper: cake.topper?.find((t) => t.standard)?.look ?? 'none',
+    });
+  }, [cake.tiers.standard, cake.accents, cake.finish, cake.arrangements, cake.topper]);
+
+  const t = cake.tiers;
+  const tiersLine = `Up to ${formatCount(t.maxReal)} · ${formatCount(t.standard)} in the price${t.display ? ` · up to ${formatCount(t.display.max)} display` : ''}`;
+  const removed = optional.filter((k) => cake[k] === null);
 
   return (
     <section className={styles.root} data-cake-options="">
-      {/* THE ONE FIELD THIS PART POSTS. No tiers = no cake options (the field is empty and nothing is saved). */}
-      <input type="hidden" name={CAKE_OPTIONS_FIELD} value={tiersOn && !problem ? serializeCakeOptions(cake) : ''} />
+      {/* THE ONE FIELD THIS PART POSTS. A problem posts nothing (the save then keeps what was saved). */}
+      <input type="hidden" name={CAKE_OPTIONS_FIELD} value={problem ? '' : serializeCakeOptions(cake)} />
       <h3 className={styles.lab}>
-        Your cake options <span className={styles.n}>{formatCount(count)}</span>
+        Your cake options <span className={styles.n}>{formatCount(onCount)}</span>
       </h3>
       <p className={styles.lline}>
         What couples choose in “Design your cake”. Extras add to your one price
         {priceWords ? ` (${priceWords})` : ''}.
       </p>
+      <div className={styles.preview} aria-hidden>
+        <CakeFigure spec={spec} />
+      </div>
       <div className={styles.frame}>
-        {tiersOn ? (
-          <Part
-            id="tiers"
-            title="Tiers"
-            line={tiersLine}
-            chip="They pick"
-            open={open === 'tiers'}
-            onToggle={() => setOpen(open === 'tiers' ? null : 'tiers')}
-            onRemove={() => removePart('tiers')}
-          >
-            <TiersBody cake={cake} onChange={(tiers) => patch({ tiers })} />
-          </Part>
-        ) : null}
+        <Part id="tiers" title="Tiers" line={tiersLine} chip="They pick" open={open === 'tiers'} onToggle={() => toggle('tiers')}>
+          <TiersBody tiers={t} onChange={(tiers) => patch({ tiers })} />
+        </Part>
         {cake.flavours ? (
-          <Part
-            id="flavours"
-            title="Flavour"
-            line={`${formatCount(cake.flavours.length)} flavours · one for each tier`}
-            chip="They pick"
-            open={open === 'flavours'}
-            onToggle={() => setOpen(open === 'flavours' ? null : 'flavours')}
-            onRemove={() => removePart('flavours')}
-          >
-            <p className={styles.ol}>Couples pick one for each tier</p>
-            <ChoiceList list={cake.flavours} kind="flavours" perTier onChange={(flavours) => patch({ flavours })} />
+          <Part id="flavours" title="Flavour" line={`${formatCount(cake.flavours.length)} flavours · one for each real tier`} chip="They pick" open={open === 'flavours'} onToggle={() => toggle('flavours')} onRemove={() => removePart('flavours')}>
+            <p className={styles.ol}>Couples pick one for each real tier</p>
+            <FlavourList list={cake.flavours} onChange={(flavours) => patch({ flavours })} />
           </Part>
         ) : null}
-        {cake.finish ? (
-          <Part
-            id="finish"
-            title="Finish"
-            line={cake.finish.map((c) => c.label || 'Unnamed').join(' · ')}
-            chip="They pick"
-            open={open === 'finish'}
-            onToggle={() => setOpen(open === 'finish' ? null : 'finish')}
-            onRemove={() => removePart('finish')}
-          >
-            <ChoiceList list={cake.finish} kind="finish" onChange={(finish) => patch({ finish })} />
+        {(['finish', 'accents', 'arrangements', 'flowing', 'topper'] as const).map((k) => {
+          const list = cake[k] as CakeLookChoice[] | null;
+          if (!list) return null;
+          return (
+            <Part
+              key={k}
+              id={k}
+              title={PART_NAME[k]}
+              line={`${list.map((c) => lookLabel(c.look, LOOK_CATALOG[k].list)).join(' · ')} · ${LOOK_CATALOG[k].line}`}
+              chip="They pick"
+              open={open === k}
+              onToggle={() => toggle(k)}
+              onRemove={() => removePart(k)}
+            >
+              <LookList kind={k} list={list} onChange={(next) => patch({ [k]: next } as Partial<CakeOptions>)} />
+            </Part>
+          );
+        })}
+        {cake.monogram ? (
+          <Part id="monogram" title="Monogram" line="The couple’s own monogram, on a layer, the topper or the board" chip="Optional" open={open === 'monogram'} onToggle={() => toggle('monogram')} onRemove={() => removePart('monogram')}>
+            <div className={`${styles.frame} ${styles.in}`}>
+              <div className={styles.or}>
+                <span className={styles.on}>Their monogram</span>
+                <span className={styles.ov}>
+                  <Amount label="Extra for the monogram" centavos={cake.monogram.extraCentavos} onChange={(extraCentavos) => patch({ monogram: { extraCentavos } })} />
+                </span>
+              </div>
+            </div>
+            <p className={styles.onote}>
+              <Info aria-hidden className="h-3.5 w-3.5 flex-none" />
+              It is the monogram they already made for their event — nothing for them to draw.
+            </p>
           </Part>
         ) : null}
         {cake.colours ? (
-          <Part
-            id="colours"
-            title="Colours"
-            line={`${formatCount(cake.colours.names.length)} colours · their Mood Board first`}
-            chip={`Choose 1–${formatCount(cake.colours.max)}`}
-            open={open === 'colours'}
-            onToggle={() => setOpen(open === 'colours' ? null : 'colours')}
-            onRemove={() => removePart('colours')}
-          >
+          <Part id="colours" title="Colours" line={`${formatCount(cake.colours.names.length)} colours · their Mood Board first`} chip={`Choose 1–${formatCount(cake.colours.max)}`} open={open === 'colours'} onToggle={() => toggle('colours')} onRemove={() => removePart('colours')}>
             <ColoursBody colours={cake.colours} onChange={(colours) => patch({ colours })} />
           </Part>
         ) : null}
-        {cake.design ? (
-          <Part
-            id="design"
-            title="Design"
-            line={`${formatCount(cake.design.filter((d) => d.photoRef).length)} photos from your work`}
-            chip="They pick"
-            open={open === 'design'}
-            onToggle={() => setOpen(open === 'design' ? null : 'design')}
-            onRemove={() => removePart('design')}
-          >
-            <ChoiceList list={cake.design} kind="design" serviceId={serviceId} onChange={(design) => patch({ design })} />
-          </Part>
-        ) : null}
-        {cake.topper ? (
-          <Part
-            id="topper"
-            title="Topper"
-            line={`${formatCount(cake.topper.filter((t) => !t.standard).length)} toppers · ${cake.topper.find((t) => t.standard)?.label === 'None' ? 'none in the price' : `${cake.topper.find((t) => t.standard)?.label ?? ''} in the price`}`}
-            chip="Optional"
-            open={open === 'topper'}
-            onToggle={() => setOpen(open === 'topper' ? null : 'topper')}
-            onRemove={() => removePart('topper')}
-          >
-            <ChoiceList list={cake.topper} kind="topper" onChange={(topper) => patch({ topper })} />
-          </Part>
-        ) : null}
         {cake.message ? (
-          <Part
-            id="message"
-            title="Message on the cake"
-            line={`Up to ${formatCount(cake.message.maxLetters)} letters`}
-            chip="They write"
-            open={open === 'message'}
-            onToggle={() => setOpen(open === 'message' ? null : 'message')}
-            onRemove={() => removePart('message')}
-          >
-            <Stepper
-              name="Longest message"
-              value={cake.message.maxLetters}
-              min={1}
-              max={CAKE_MESSAGE_LETTERS_MAX}
-              unit="letters"
-              step={5}
-              onChange={(maxLetters) => patch({ message: { maxLetters } })}
-            />
+          <Part id="message" title="Message on the cake" line={`Up to ${formatCount(cake.message.maxLetters)} letters`} chip="They write" open={open === 'message'} onToggle={() => toggle('message')} onRemove={() => removePart('message')}>
+            <Stepper name="Longest message" value={cake.message.maxLetters} min={1} max={CAKE_MESSAGE_LETTERS_MAX} unit="letters" step={5} onChange={(maxLetters) => patch({ message: { maxLetters } })} />
+          </Part>
+        ) : null}
+        {cake.cupcakes ? (
+          <Part id="cupcakes" title="Cupcakes" line={`${cake.cupcakes.packs.map((p) => formatCount(p.count)).join(' · ')} a pack${cake.cupcakes.tower ? ' · tower' : ''}`} chip="Add-on" open={open === 'cupcakes'} onToggle={() => toggle('cupcakes')} onRemove={() => removePart('cupcakes')}>
+            <CupcakesBody cupcakes={cake.cupcakes} onChange={(cupcakes) => patch({ cupcakes })} />
           </Part>
         ) : null}
         {removed.length > 0 ? (
@@ -225,15 +238,19 @@ function CakeOptionsEditor({ start, serviceId, priceWords }: { start: CakeOption
             <Plus aria-hidden className="h-4 w-4" />
             <span>Add an option</span>
             <span className={styles.addChips}>
-              {removed.map((r) => (
-                <button key={r.key} type="button" className={styles.pill} onClick={() => addBack(r.key)}>
-                  {r.label}
+              {removed.map((k) => (
+                <button key={k} type="button" className={styles.pill} onClick={() => addBack(k)}>
+                  {PART_NAME[k]}
                 </button>
               ))}
             </span>
           </div>
         ) : null}
       </div>
+      <p className={styles.onote}>
+        <Info aria-hidden className="h-3.5 w-3.5 flex-none" />
+        Couples also write special instructions and can pin one inspiration photo — both arrive with their design.
+      </p>
       {problem ? (
         <p role="alert" className={styles.problem} data-cake-problem="">
           {problem}
@@ -261,100 +278,84 @@ function Part({
   chip: string;
   open: boolean;
   onToggle: () => void;
-  onRemove: () => void;
+  /** Absent = a part that cannot be removed (Tiers). */
+  onRemove?: () => void;
   children: React.ReactNode;
 }) {
+  const head = (
+    <button type="button" className={styles.sh} aria-expanded={open} onClick={onToggle}>
+      <span className={styles.st}>
+        <b>{title}</b>
+        <small>{line}</small>
+      </span>
+      <span className={styles.chip}>
+        <i aria-hidden />
+        {chip}
+      </span>
+      <ChevronRight aria-hidden className={`${styles.chev} ${open ? styles.chevOpen : ''}`} />
+    </button>
+  );
   return (
     <div className={styles.sl} data-cake-part={id} data-open={open ? '' : undefined}>
-      <SwipeToDelete label={`Remove ${title}`} word="Remove" onDelete={(close) => (close(), onRemove())} radiusClass="rounded-none" surfaceClass="bg-[color:var(--cake-s-bg)]">
-        <button type="button" className={styles.sh} aria-expanded={open} onClick={onToggle}>
-          <span className={styles.st}>
-            <b>{title}</b>
-            <small>{line}</small>
-          </span>
-          <span className={styles.chip}>
-            <i aria-hidden />
-            {chip}
-          </span>
-          <ChevronRight aria-hidden className={`${styles.chev} ${open ? styles.chevOpen : ''}`} />
-        </button>
-      </SwipeToDelete>
+      {onRemove ? (
+        <SwipeToDelete label={`Remove ${title}`} word="Remove" onDelete={(close) => (close(), onRemove())} radiusClass="rounded-none" surfaceClass="bg-[color:var(--cake-s-bg)]">
+          {head}
+        </SwipeToDelete>
+      ) : (
+        head
+      )}
       {open ? <div className={styles.so}>{children}</div> : null}
     </div>
   );
 }
 
-/* ── Tiers ─────────────────────────────────────────────────────────────── */
+/* ── Tiers: real (1–10) and the Display tiers switch ───────────────────── */
 
-function TiersBody({ cake, onChange }: { cake: CakeOptions; onChange: (t: CakeOptions['tiers']) => void }) {
-  const t = cake.tiers;
-  const made = new Set(t.made);
-  const toggle = (n: number) => {
-    const next = made.has(n) ? t.made.filter((x) => x !== n) : [...t.made, n].sort((a, b) => a - b);
-    if (next.length === 0) return;
-    onChange({ ...t, made: next, standard: next.includes(t.standard) ? t.standard : next[0]! });
-  };
+function TiersBody({ tiers: t, onChange }: { tiers: CakeOptions['tiers']; onChange: (t: CakeOptions['tiers']) => void }) {
   return (
     <>
-      <p className={styles.ol}>Sizes you make</p>
-      <div className={styles.ccs} role="group" aria-label="Sizes you make">
-        {Array.from({ length: CAKE_MAX_TIERS }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" aria-pressed={made.has(n)} className={styles.cc} onClick={() => toggle(n)}>
-            <b>{n}</b>
-          </button>
-        ))}
-      </div>
-      <p className={styles.ol}>In the price · extras</p>
-      <div className={`${styles.frame} ${styles.in}`}>
-        {[...t.made]
-          .sort((a, b) => a - b)
-          .map((n) => (
-            <div key={n} className={styles.or}>
-              <button type="button" className={styles.on} onClick={() => onChange({ ...t, standard: n, extraCentavos: { ...t.extraCentavos, [String(n)]: 0 } })} aria-label={`Make ${tierLabel(n)} the size in the price`}>
-                {tierLabel(n)}
-              </button>
+      <Stepper name="Most real tiers you make" value={t.maxReal} min={1} max={CAKE_MAX_TIERS} onChange={(maxReal) => onChange({ ...t, maxReal, standard: Math.min(t.standard, maxReal) })} />
+      <Stepper name="Real tiers in your price" value={t.standard} min={1} max={t.maxReal} onChange={(standard) => onChange({ ...t, standard })} />
+      {t.maxReal > t.standard ? (
+        <div className={`${styles.frame} ${styles.in}`}>
+          <div className={styles.or}>
+            <span className={styles.on}>Each real tier above {tierLabel(t.standard)}</span>
+            <span className={styles.ov}>
+              <Amount label="Extra for each real tier" centavos={t.realExtraCentavos} onChange={(realExtraCentavos) => onChange({ ...t, realExtraCentavos })} />
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <Switch
+        label="Display tiers"
+        hint="Styled foam layers that look like cake — the cutting tier is always real cake."
+        on={t.display !== null}
+        onChange={(on) => onChange({ ...t, display: on ? { max: 2, extraCentavos: 0 } : null })}
+      />
+      {t.display ? (
+        <>
+          <Stepper name="Most display tiers" value={t.display.max} min={1} max={CAKE_MAX_TIERS - 1} onChange={(max) => onChange({ ...t, display: { ...t.display!, max } })} />
+          <div className={`${styles.frame} ${styles.in}`}>
+            <div className={styles.or}>
+              <span className={styles.on}>Each display tier</span>
               <span className={styles.ov}>
-                {n === t.standard ? (
-                  <span className={`${styles.chip} ${styles.info}`}>
-                    <i aria-hidden />
-                    Standard
-                  </span>
-                ) : (
-                  <Amount
-                    label={`Extra for ${tierLabel(n)}`}
-                    centavos={t.extraCentavos[String(n)] ?? 0}
-                    onChange={(c) => onChange({ ...t, extraCentavos: { ...t.extraCentavos, [String(n)]: c } })}
-                  />
-                )}
+                <Amount label="Extra for each display tier" centavos={t.display.extraCentavos} onChange={(extraCentavos) => onChange({ ...t, display: { ...t.display!, extraCentavos } })} />
               </span>
             </div>
-          ))}
-      </div>
+          </div>
+        </>
+      ) : null}
       <p className={styles.onote}>
         <Info aria-hidden className="h-3.5 w-3.5 flex-none" />
-        An extra can’t go below ₱0, so a size smaller than the one in the price costs the one price. Tap a size to put it in the price.
+        An extra can’t go below ₱0, so fewer tiers than your price still costs the one price. A cake holds up to {formatCount(CAKE_MAX_TIERS)} tiers in all.
       </p>
     </>
   );
 }
 
-/* ── a list of choices (Flavour · Finish · Design · Topper) ────────────── */
+/* ── Flavour: the supplier's own words, written once ───────────────────── */
 
-function ChoiceList({
-  list,
-  kind,
-  perTier = false,
-  serviceId = null,
-  onChange,
-}: {
-  list: CakeChoice[];
-  kind: ListKey;
-  perTier?: boolean;
-  serviceId?: string | null;
-  onChange: (next: CakeChoice[]) => void;
-}) {
-  const [photoFor, setPhotoFor] = useState<string | null>(null);
-  const names = LIST_NAME[kind];
+function FlavourList({ list, onChange }: { list: CakeChoice[]; onChange: (next: CakeChoice[]) => void }) {
   const set = (ref: string, over: Partial<CakeChoice>) => onChange(list.map((c) => (c.ref === ref ? { ...c, ...over } : c)));
   const makeStandard = (ref: string) => onChange(list.map((c) => ({ ...c, standard: c.ref === ref, extraCentavos: c.ref === ref ? 0 : c.extraCentavos })));
   const remove = (ref: string) => {
@@ -363,93 +364,91 @@ function ChoiceList({
     let next = list.filter((c) => c.ref !== ref);
     if (gone?.standard && next[0]) next = next.map((c, i) => (i === 0 ? { ...c, standard: true, extraCentavos: 0 } : c));
     onChange(next);
-    pushUndo({ label: `${gone?.label || names.title} removed`, undo: async () => onChange(before) });
+    pushUndo({ label: `${gone?.label || 'Flavour'} removed`, undo: async () => onChange(before) });
   };
   return (
-    <div className={`${styles.frame} ${styles.in}`} data-cake-list={kind}>
-      {kind === 'design' ? (
-        <div className={styles.designs}>
-          {list.map((c) => (
-            <SwipeToDelete key={c.ref} label={`Remove ${c.label || 'this design'}`} word="Remove" onDelete={(close) => (close(), remove(c.ref))} radiusClass="rounded-xl" surfaceClass="bg-[color:var(--cake-s-bg)]">
-              <div className={styles.design}>
-                <button type="button" className={styles.photo} onClick={() => setPhotoFor(c.ref)} aria-label={`Pick a photo for ${c.label || 'this design'}`}>
-                  {c.photoUrl ? <img src={c.photoUrl} alt="" /> : <ImagePlus aria-hidden className="h-5 w-5" />}
-                </button>
-                <ChoiceRow c={c} perTier={false} names={names} onSet={set} onStandard={makeStandard} />
-              </div>
-            </SwipeToDelete>
-          ))}
-          <p className={styles.onote}>From your portfolio — tap a photo to change it.</p>
-        </div>
-      ) : (
-        list.map((c) => (
-          <SwipeToDelete key={c.ref} label={`Remove ${c.label || `this ${names.one}`}`} word="Remove" onDelete={(close) => (close(), remove(c.ref))} radiusClass="rounded-none" surfaceClass="bg-[color:var(--cake-s-bg)]">
-            <ChoiceRow c={c} perTier={perTier} names={names} onSet={set} onStandard={makeStandard} />
-          </SwipeToDelete>
-        ))
-      )}
-      <button
-        type="button"
-        className={styles.addRow}
-        onClick={() => onChange([...list, { ref: newRef(kind), label: '', extraCentavos: 0, standard: list.length === 0 }])}
-      >
+    <div className={`${styles.frame} ${styles.in}`} data-cake-list="flavours">
+      {list.map((c) => (
+        <SwipeToDelete key={c.ref} label={`Remove ${c.label || 'this flavour'}`} word="Remove" onDelete={(close) => (close(), remove(c.ref))} radiusClass="rounded-none" surfaceClass="bg-[color:var(--cake-s-bg)]">
+          <div className={styles.or}>
+            <input className={styles.name} value={c.label} maxLength={CAKE_LABEL_MAX} placeholder="Name this flavour" aria-label="Name of this flavour" onChange={(e) => set(c.ref, { label: e.target.value })} />
+            <span className={styles.ov}>
+              {c.standard ? (
+                <StandardChip />
+              ) : (
+                <>
+                  <Amount label={`Extra for ${c.label || 'this flavour'}`} centavos={c.extraCentavos} onChange={(v) => set(c.ref, { extraCentavos: v })} />
+                  {c.extraCentavos > 0 ? <small className={styles.per}>a tier</small> : null}
+                  <button type="button" className={styles.mk} onClick={() => makeStandard(c.ref)}>
+                    Make standard
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+        </SwipeToDelete>
+      ))}
+      <button type="button" className={styles.addRow} onClick={() => onChange([...list, { ref: newRef('fl'), label: '', extraCentavos: 0, standard: list.length === 0 }])}>
         <Plus aria-hidden className="h-4 w-4" />
-        <span>{names.add}</span>
+        <span>Add a flavour</span>
       </button>
-      {photoFor ? (
-        <PortfolioSheet
-          serviceId={serviceId}
-          onClose={() => setPhotoFor(null)}
-          onPick={(ref, url) => {
-            set(photoFor, { photoRef: ref, photoUrl: url });
-            setPhotoFor(null);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
 
-function ChoiceRow({
-  c,
-  perTier,
-  names,
-  onSet,
-  onStandard,
-}: {
-  c: CakeChoice;
-  perTier: boolean;
-  names: { one: string };
-  onSet: (ref: string, over: Partial<CakeChoice>) => void;
-  onStandard: (ref: string) => void;
-}) {
+/* ── A catalog part: tick the looks you make, type each one's extra ────── */
+
+function LookList({ kind, list, onChange }: { kind: LookKey; list: CakeLookChoice[]; onChange: (next: CakeLookChoice[]) => void }) {
+  const cat = LOOK_CATALOG[kind];
+  const has = new Set(list.map((c) => c.look));
+  const tick = (look: string) => {
+    if (look === cat.plain) return; // the plain look is what "nothing picked" is — always offered
+    if (has.has(look)) {
+      const gone = list.find((c) => c.look === look);
+      let next = list.filter((c) => c.look !== look);
+      if (gone?.standard && next[0]) next = next.map((c, i) => (i === 0 ? { ...c, standard: true, extraCentavos: 0 } : c));
+      onChange(next);
+    } else {
+      const order = cat.list.map((x) => x.id);
+      onChange([...list, { look, extraCentavos: 0, standard: list.length === 0 }].sort((a, b) => order.indexOf(a.look) - order.indexOf(b.look)));
+    }
+  };
+  const set = (look: string, extraCentavos: number) => onChange(list.map((c) => (c.look === look ? { ...c, extraCentavos } : c)));
+  const makeStandard = (look: string) => onChange(list.map((c) => ({ ...c, standard: c.look === look, extraCentavos: c.look === look ? 0 : c.extraCentavos })));
   return (
-    <div className={styles.or}>
-      <input
-        className={styles.name}
-        value={c.label}
-        maxLength={CAKE_LABEL_MAX}
-        placeholder={`Name this ${names.one}`}
-        aria-label={`Name of this ${names.one}`}
-        onChange={(e) => onSet(c.ref, { label: e.target.value })}
-      />
-      <span className={styles.ov}>
-        {c.standard ? (
-          <span className={`${styles.chip} ${styles.info}`}>
-            <i aria-hidden />
-            Standard
-          </span>
-        ) : (
-          <>
-            <Amount label={`Extra for ${c.label || `this ${names.one}`}`} centavos={c.extraCentavos} onChange={(v) => onSet(c.ref, { extraCentavos: v })} />
-            {perTier && c.extraCentavos > 0 ? <small className={styles.per}>a tier</small> : null}
-            <button type="button" className={styles.mk} onClick={() => onStandard(c.ref)}>
-              Make standard
-            </button>
-          </>
-        )}
-      </span>
-    </div>
+    <>
+      <p className={styles.ol}>What you make</p>
+      <div className={styles.ccs} role="group" aria-label={`${PART_NAME[kind]} you make`} data-cake-looks={kind}>
+        {cat.list.map((x) => (
+          <button key={x.id} type="button" aria-pressed={has.has(x.id)} className={`${styles.cc} ${styles.ccWide}`} onClick={() => tick(x.id)} disabled={x.id === cat.plain}>
+            <b>{x.label}</b>
+          </button>
+        ))}
+      </div>
+      <p className={styles.ol}>In the price · extras</p>
+      <div className={`${styles.frame} ${styles.in}`}>
+        {list.map((c) => (
+          <div key={c.look} className={styles.or}>
+            <span className={styles.on}>{lookLabel(c.look, cat.list)}</span>
+            <span className={styles.ov}>
+              {c.standard ? (
+                <StandardChip />
+              ) : (
+                <>
+                  <Amount label={`Extra for ${lookLabel(c.look, cat.list)}`} centavos={c.extraCentavos} onChange={(v) => set(c.look, v)} />
+                  {kind === 'accents' && c.extraCentavos > 0 ? <small className={styles.per}>a layer</small> : null}
+                  {cat.plain === null ? (
+                    <button type="button" className={styles.mk} onClick={() => makeStandard(c.look)}>
+                      Make standard
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -512,7 +511,91 @@ function ColoursBody({ colours, onChange }: { colours: NonNullable<CakeOptions['
   );
 }
 
+/* ── Cupcakes: packs at your own price, the cake's flavours, a tower ───── */
+
+function CupcakesBody({ cupcakes, onChange }: { cupcakes: NonNullable<CakeOptions['cupcakes']>; onChange: (c: NonNullable<CakeOptions['cupcakes']>) => void }) {
+  const packs = cupcakes.packs;
+  const setPack = (i: number, over: Partial<{ count: number; priceCentavos: number }>) => onChange({ ...cupcakes, packs: packs.map((p, k) => (k === i ? { ...p, ...over } : p)) });
+  return (
+    <>
+      <p className={styles.ol}>Packs · your price for each</p>
+      <div className={`${styles.frame} ${styles.in}`} data-cake-list="cupcakes">
+        {packs.map((p, i) => (
+          <SwipeToDelete
+            key={i}
+            label={`Remove the ${formatCount(p.count)} pack`}
+            word="Remove"
+            onDelete={(close) => {
+              close();
+              const before = cupcakes;
+              onChange({ ...cupcakes, packs: packs.filter((_, k) => k !== i) });
+              pushUndo({ label: `${formatCount(p.count)} cupcakes removed`, undo: async () => onChange(before) });
+            }}
+            radiusClass="rounded-none"
+            surfaceClass="bg-[color:var(--cake-s-bg)]"
+          >
+            <div className={styles.or}>
+              <Stepper name="Cupcakes" value={p.count} min={1} max={CUPCAKE_PACK_MAX_COUNT} step={6} onChange={(count) => setPack(i, { count })} />
+              <span className={styles.ov}>
+                <Amount label={`Price of the ${formatCount(p.count)} pack`} centavos={p.priceCentavos} onChange={(priceCentavos) => setPack(i, { priceCentavos })} />
+              </span>
+            </div>
+          </SwipeToDelete>
+        ))}
+        {packs.length < CUPCAKE_PACKS_MAX ? (
+          <button
+            type="button"
+            className={styles.addRow}
+            onClick={() => onChange({ ...cupcakes, packs: [...packs, { count: Math.min(CUPCAKE_PACK_MAX_COUNT, (packs[packs.length - 1]?.count ?? 12) + 12), priceCentavos: 0 }] })}
+          >
+            <Plus aria-hidden className="h-4 w-4" />
+            <span>Add a pack</span>
+          </button>
+        ) : null}
+      </div>
+      <Switch label="Cupcake tower" hint="Couples pick around the base or a tower." on={cupcakes.tower !== null} onChange={(on) => onChange({ ...cupcakes, tower: on ? { extraCentavos: 0 } : null })} />
+      {cupcakes.tower ? (
+        <div className={`${styles.frame} ${styles.in}`}>
+          <div className={styles.or}>
+            <span className={styles.on}>Tower</span>
+            <span className={styles.ov}>
+              <Amount label="Extra for the tower" centavos={cupcakes.tower.extraCentavos} onChange={(extraCentavos) => onChange({ ...cupcakes, tower: { extraCentavos } })} />
+            </span>
+          </div>
+        </div>
+      ) : null}
+      <p className={styles.onote}>
+        <Info aria-hidden className="h-3.5 w-3.5 flex-none" />
+        Cupcakes use your cake flavours — couples match the cake or pick one.
+      </p>
+    </>
+  );
+}
+
 /* ── small parts ───────────────────────────────────────────────────────── */
+
+function StandardChip() {
+  return (
+    <span className={`${styles.chip} ${styles.info}`}>
+      <i aria-hidden />
+      Standard
+    </span>
+  );
+}
+
+function Switch({ label, hint, on, onChange }: { label: string; hint: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <div className={styles.switchRow}>
+      <span className={styles.st}>
+        <b>{label}</b>
+        <small>{hint}</small>
+      </span>
+      <button type="button" role="switch" aria-checked={on} aria-label={label} className={styles.switch} onClick={() => onChange(!on)}>
+        <i aria-hidden />
+      </button>
+    </div>
+  );
+}
 
 function Amount({ label, centavos, onChange }: { label: string; centavos: number; onChange: (c: number) => void }) {
   return (
@@ -563,47 +646,5 @@ function Stepper({
         <Plus aria-hidden className="h-4 w-4" />
       </button>
     </div>
-  );
-}
-
-/** "From your portfolio" — the shop's own photos (ruling 4). A refused read says so; it is never an empty portfolio. */
-function PortfolioSheet({ serviceId, onClose, onPick }: { serviceId: string | null; onClose: () => void; onPick: (ref: string, url: string) => void }) {
-  const [read, setRead] = useState<{ at: 'loading' } | { at: 'failed' } | { at: 'ok'; photos: { ref: string; url: string }[] }>({ at: 'loading' });
-  const load = useCallback(() => {
-    setRead({ at: 'loading' });
-    void cakeAction({ op: 'portfolio', serviceId })
-      .then((r) => setRead(r.ok && r.op === 'portfolio' ? { at: 'ok', photos: r.photos } : { at: 'failed' }))
-      .catch(() => setRead({ at: 'failed' }));
-  }, [serviceId]);
-  useEffect(load, [load]);
-  const headId = useId();
-  return (
-    <Sheet open onClose={onClose} labelledById={headId} title="From your portfolio">
-      {read.at === 'loading' ? (
-        <div className={styles.grid} aria-busy="true">
-          {Array.from({ length: 6 }, (_, i) => (
-            <span key={i} className={styles.ghost} />
-          ))}
-        </div>
-      ) : read.at === 'failed' ? (
-        <div role="alert" className="grid gap-2 py-2">
-          <p className={styles.failTitle}>Couldn’t load your portfolio</p>
-          <p className={styles.failLine}>Your photos are safe; only this read failed.</p>
-          <button type="button" className={styles.pill} onClick={load}>
-            Try again
-          </button>
-        </div>
-      ) : read.photos.length === 0 ? (
-        <p className={styles.failLine}>No photos in your portfolio yet — add some in Portfolio, then pick one here.</p>
-      ) : (
-        <div className={styles.grid}>
-          {read.photos.map((p) => (
-            <button key={p.ref} type="button" className={styles.pick} onClick={() => onPick(p.ref, p.url)}>
-              <img src={p.url} alt="" loading="lazy" />
-            </button>
-          ))}
-        </div>
-      )}
-    </Sheet>
   );
 }

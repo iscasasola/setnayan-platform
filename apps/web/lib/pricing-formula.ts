@@ -163,19 +163,30 @@ export type FormulaCandidateRow = {
   isActive: boolean;
   /** A supplier gift bundle (`bundle_of_service_code` set) — priced as whole packs, never by the formula. */
   isGiftBundle: boolean;
+  /** `per_year` rows are the yearly ×10 prices — set from the 28-day price, never by the formula. */
+  billingPeriod: string;
 };
+
+/**
+ * Whether the formula speaks for this row at all. Gift bundles and yearly ×10
+ * prices are derived from other rows, so a cost-based number would contradict
+ * them — the row shows no formula line and the bulk apply never touches it.
+ */
+export function formulaAppliesTo(r: Pick<FormulaCandidateRow, 'isGiftBundle' | 'billingPeriod'>): boolean {
+  return !r.isGiftBundle && r.billingPeriod !== 'per_year';
+}
 
 export type FormulaChange = { code: string; title: string; oldPrice: number; newPrice: number };
 
 /**
  * The rows "Apply to all rows with a cost" would change: on sale, not a gift
- * bundle, a cost above ₱0, and a formula price different from today's. Used by
+ * bundle or a yearly price, a cost above ₱0, and a formula price different from today's. Used by
  * BOTH the confirm list (client) and the write (server, from a fresh read).
  */
 export function formulaCandidates(rows: FormulaCandidateRow[], settings: PricingFormulaSettings): FormulaChange[] {
   const out: FormulaChange[] = [];
   for (const r of rows) {
-    if (!r.isActive || r.isGiftBundle) continue;
+    if (!r.isActive || !formulaAppliesTo(r)) continue;
     const next = formulaPrice(r.cost, settings);
     if (next == null || next === r.price) continue;
     out.push({ code: r.code, title: r.title, oldPrice: r.price, newPrice: next });

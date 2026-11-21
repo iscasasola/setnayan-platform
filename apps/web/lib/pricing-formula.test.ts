@@ -83,13 +83,18 @@ test('settings card: a blank box is refused, never read as 0', () => {
   assert.equal(validatePricingFormulaFields({ ...ok, roundStepPhp: '2' }).ok, false);
 });
 
-test('apply-to-all touches only on-sale, non-bundle rows with a cost whose price would move', () => {
+test('apply-to-all touches only on-sale, non-bundle, non-yearly rows with a cost whose price would move', () => {
   const rows = [
-    { code: 'A', title: 'A', price: 100, cost: 2, isActive: true, isGiftBundle: false }, // → 124
-    { code: 'B', title: 'B', price: 124, cost: 2, isActive: true, isGiftBundle: false }, // already there
-    { code: 'C', title: 'C', price: 100, cost: 0, isActive: true, isGiftBundle: false }, // no cost
-    { code: 'D', title: 'D', price: 100, cost: 2, isActive: false, isGiftBundle: false }, // switched off
-    { code: 'E', title: 'E', price: 100, cost: 2, isActive: true, isGiftBundle: true }, // gift bundle
+    { code: 'A', title: 'A', price: 100, cost: 2, isActive: true, isGiftBundle: false, billingPeriod: 'one_time' }, // → 124
+    { code: 'B', title: 'B', price: 124, cost: 2, isActive: true, isGiftBundle: false, billingPeriod: 'one_time' }, // already there
+    { code: 'C', title: 'C', price: 100, cost: 0, isActive: true, isGiftBundle: false, billingPeriod: 'one_time' }, // no cost
+    { code: 'D', title: 'D', price: 100, cost: 2, isActive: false, isGiftBundle: false, billingPeriod: 'one_time' }, // switched off
+    { code: 'E', title: 'E', price: 100, cost: 2, isActive: true, isGiftBundle: true, billingPeriod: 'one_time' }, // gift bundle
+    { code: 'F', title: 'F', price: 100, cost: 2, isActive: true, isGiftBundle: false, billingPeriod: 'per_year' }, // yearly ×10
+    { code: 'G', title: 'G', price: 100, cost: 2, isActive: true, isGiftBundle: false, billingPeriod: 'per_28d' }, // → 124
   ];
-  assert.deepEqual(formulaCandidates(rows, at(1)), [{ code: 'A', title: 'A', oldPrice: 100, newPrice: 124 }]);
+  assert.deepEqual(formulaCandidates(rows, at(1)), [
+    { code: 'A', title: 'A', oldPrice: 100, newPrice: 124 },
+    { code: 'G', title: 'G', oldPrice: 100, newPrice: 124 },
+  ]);
 });

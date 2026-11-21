@@ -15,6 +15,8 @@ import {
   CUSTOMER_PRICE_FIELDS,
 } from '@/lib/retail-price-change';
 import { revalidateAllShopPages } from '@/lib/shop-page-cache';
+import { formulaCandidates, readPricingFormulaSettings } from '@/lib/pricing-formula';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * /admin/pricing server actions · per-row catalog editor (2026-08-26 rebuild)
@@ -52,7 +54,12 @@ function round2(n: number): number {
 // `useActionState` initial values live in `_components/action-state.ts`, NOT
 // here — a `'use server'` file may export only async functions (Next fails
 // the production build on anything else); see that file's docblock.
-export type RowActionState = { ok: boolean; message: string | null };
+export type RowActionState = {
+  ok: boolean;
+  message: string | null;
+  /** Set only by `saveRetailRow` when a price change was parked for a second admin (§ 9.1) — read by `applyFormulaPrices`. */
+  approvalOpened?: true;
+};
 
 function revalidateCatalogSurfaces() {
   revalidatePath('/pricing');
@@ -201,6 +208,7 @@ export async function saveRetailRow(
     revalidateCatalogSurfaces();
     return {
       ok: false,
+      approvalOpened: true,
       message: `Everything except the price was saved. Changing what customers pay needs a second admin (Vendor Agreement § 9.1) — the request is open in /admin/approvals: ${summary}`,
     };
   }
@@ -228,6 +236,112 @@ export async function saveRetailRow(
 
   revalidateCatalogSurfaces();
   return { ok: true, message: `Saved — ₱${nextRow.retail_price_php.toLocaleString('en-PH')}.` };
+}
+
+export type ApplyFormulaState = { ok: boolean; message: string | null; sent: number };
+
+/**
+ * "Apply to all rows with a cost" — the 2026-11-21 formula price, saved by
+ * `saveRetailRow` ITSELF, once per row (owner: the formula suggests; nothing
+ * changes a price on its own).
+ *
+ * 🔑 THE SAME DOOR AS A TYPED EDIT, NOT A SECOND ONE. Each row is submitted to
+ * `saveRetailRow` as a form holding every field exactly as stored, with only
+ * `price` replaced — so it is validated by `validateRetailRowFields`
+ * (lib/admin/pricing-row-diff), parked behind the § 9.1 second-admin approval,
+ * and audited, exactly like a price typed into the row card. Only
+ * `retail_price_php` can move; on-sale state is never in the form.
+ *
+ * 🔒 THE SERVER DECIDES THE NUMBERS, NEVER THE FORM. The form carries only the
+ * codes the confirm list showed and the price it showed for each. Costs and
+ * settings are re-read here and the set is `formulaCandidates` — the function
+ * that drew the list. A row whose fresh formula price is not what the admin was
+ * shown is SKIPPED and named, never written at a figure nobody saw.
+ */
+export async function applyFormulaPrices(
+  _prev: ApplyFormulaState,
+  formData: FormData,
+): Promise<ApplyFormulaState> {
+  await requireAdminAction();
+  const admin = createAdminClient();
+
+  const shownCodes = [...new Set(formData.getAll('service_code').map((v) => String(v).trim()).filter(Boolean))];
+  if (shownCodes.length === 0) return { ok: false, message: 'Nothing to apply.', sent: 0 };
+  const shown = new Map(shownCodes.map((c) => [c, Number(formData.get(`shown_price_${c}`))]));
+
+  const [settingsRes, rowsRes] = await Promise.all([
+    admin
+      .from('platform_settings')
+      .select('pricing_opex_factor, pricing_margin_factor, pricing_fee_tax_cover, pricing_round_step_php')
+      .eq('id', 1)
+      .maybeSingle(),
+    admin
+      .from('platform_retail_catalog_v2')
+      .select(
+        'service_code,title,description,retail_price_php,saas_overhead_cost_php,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php,is_active,bundle_of_service_code',
+      )
+      .in('service_code', shownCodes),
+  ]);
+  const settings = settingsRes.error ? null : readPricingFormulaSettings(settingsRes.data);
+  if (!settings) return { ok: false, message: "Couldn't read the formula settings — nothing was changed.", sent: 0 };
+  if (rowsRes.error) return { ok: false, message: `Couldn't read the prices — ${rowsRes.error.message}`, sent: 0 };
+
+  const stored = new Map((rowsRes.data ?? []).map((r) => [r.service_code as string, r]));
+  const plan = new Map(
+    formulaCandidates(
+      [...stored.values()].map((r) => ({
+        code: r.service_code as string,
+        title: r.title as string,
+        price: Number(r.retail_price_php),
+        cost: Number(r.saas_overhead_cost_php),
+        isActive: r.is_active === true,
+        isGiftBundle: r.bundle_of_service_code != null,
+        billingPeriod: r.billing_period as string,
+      })),
+      settings,
+    ).map((p) => [p.code, p]),
+  );
+
+  const blank = (v: unknown) => (v == null ? '' : String(v));
+  let sent = 0;
+  const skipped: string[] = [];
+  for (const code of shownCodes) {
+    const p = plan.get(code);
+    const r = stored.get(code);
+    if (!p || !r || p.newPrice !== shown.get(code)) {
+      skipped.push(`${code} (changed since you looked)`);
+      continue;
+    }
+    const fd = new FormData();
+    fd.set('service_code', code);
+    fd.set('title', blank(r.title));
+    fd.set('desc', blank(r.description));
+    fd.set('price', String(p.newPrice));
+    fd.set('cost', blank(r.saas_overhead_cost_php));
+    fd.set('onboarding_price', blank(r.onboarding_price_php));
+    fd.set('billing_period', blank(r.billing_period));
+    if (r.is_pax_priced === true) fd.set('is_pax_priced', 'on');
+    fd.set('pax_floor', blank(r.pax_floor));
+    fd.set('pax_floor_price', blank(r.pax_floor_price_php));
+    fd.set('pax_increment_size', blank(r.pax_increment_size));
+    fd.set('pax_increment_price', blank(r.pax_increment_price_php));
+
+    const res = await saveRetailRow({ ok: false, message: null }, fd);
+    // A price change answers ok:false ON PURPOSE ("saved except the price — a second admin decides it"). An opened
+    // approval counts as sent; anything else is a real refusal and is named.
+    if (res.ok || res.approvalOpened) sent += 1;
+    else skipped.push(`${code} (${res.message ?? 'not saved'})`);
+  }
+
+  const head =
+    sent === 0
+      ? 'No price was sent.'
+      : `${formatCount(sent)} price change${sent === 1 ? '' : 's'} sent — each waits for a second admin in /admin/approvals.`;
+  return {
+    ok: skipped.length === 0 && sent > 0,
+    message: skipped.length > 0 ? `${head} Skipped: ${skipped.join('; ')}.` : head,
+    sent,
+  };
 }
 
 /**

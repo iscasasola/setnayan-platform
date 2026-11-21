@@ -51,6 +51,13 @@ import {
 import { INITIAL_ROW_STATE, INITIAL_REMOVE_ALL_STATE } from '@/app/admin/pricing/_components/action-state';
 import { formatCount } from '@/lib/format-number';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
+import { formulaAppliesTo, formulaPrice, type PricingFormulaSettings } from '@/lib/pricing-formula';
+import {
+  FormulaLine,
+  PricingFormulaCard,
+  PricingFormulaContext,
+  usePricingFormula,
+} from '@/app/admin/pricing/_components/pricing-formula-card';
 
 // ─── Shared row shape ──────────────────────────────────────────────────────
 
@@ -196,8 +203,11 @@ export function PriceCatalogBrowser({
   rows,
   retailTitlesForReplacement,
   freeCreditsPerEvent,
+  formula,
 }: {
   rows: PriceRowProp[];
+  /** The 2026-11-21 price formula, read from `platform_settings`; null when the read failed. */
+  formula: PricingFormulaSettings | null;
   /** Read from `papic_event_pool_config`; null when the read failed. */
   freeCreditsPerEvent: number | null;
   /** [code, title][] of active retail rows, for the "Replaced by" picker. */
@@ -247,8 +257,20 @@ export function PriceCatalogBrowser({
     });
   }, [rows, view, scope, q]);
 
+  const formulaRows = useMemo(
+    () =>
+      rows.flatMap((r) =>
+        r.kind === 'retail'
+          ? [{ code: r.code, title: r.title, price: r.price, cost: r.cost, isActive: r.isActive, isGiftBundle: !!r.giftBundle, billingPeriod: r.billingPeriod }]
+          : [],
+      ),
+    [rows],
+  );
+
   return (
+    <PricingFormulaContext.Provider value={formula}>
     <div>
+      <PricingFormulaCard rows={formulaRows} />
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] max-w-sm flex-1">
           <Search
@@ -332,6 +354,7 @@ export function PriceCatalogBrowser({
         />
       )}
     </div>
+    </PricingFormulaContext.Provider>
   );
 }
 
@@ -666,6 +689,9 @@ function RowCard(props: {
           {row.kind === 'retail' && row.onboardingPrice != null && (
             <span className="block text-[10.5px] text-gold-text">₱{row.onboardingPrice.toLocaleString('en-PH')} to sign up</span>
           )}
+          {row.kind === 'retail' && formulaAppliesTo({ isGiftBundle: !!row.giftBundle, billingPeriod: row.billingPeriod }) && (
+            <FormulaLine cost={row.cost} price={row.price} />
+          )}
           <span className="mt-0.5 flex items-center justify-end gap-1 text-[10.5px] font-semibold text-ink/0 transition group-hover:text-mulberry-600">
             {open ? 'Close' : 'Edit'}
           </span>
@@ -808,6 +834,14 @@ function SaveSection({ row }: { row: PriceRowProp }) {
   const [price, setPrice] = useState(String(row.price));
   const [paxOn, setPaxOn] = useState(row.kind === 'retail' ? row.isPaxPriced : false);
   const margin = row.kind === 'retail' ? marginPct(Number(price), Number(cost)) : null;
+  // 🧮 The 2026-11-21 formula, from the cost AS TYPED in this card. "Use formula price" only fills the Price box —
+  // the admin still presses "Save this price", so it goes through the same audited save as a typed price.
+  const formulaSettings = usePricingFormula();
+  const formulaFor =
+    row.kind === 'retail' && formulaSettings && formulaAppliesTo({ isGiftBundle: !!row.giftBundle, billingPeriod: row.billingPeriod })
+      ? formulaPrice(Number(cost), formulaSettings)
+      : null;
+  const [priceBoxKey, setPriceBoxKey] = useState(0);
 
   return (
     <form action={formAction} id={`form-save-${row.code}`}>
@@ -843,7 +877,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <FieldLabel>Price</FieldLabel>
-            <MoneyField name="price" defaultValue={String(row.price)} onChange={setPrice} />
+            <MoneyField key={priceBoxKey} name="price" defaultValue={price} onChange={setPrice} />
           </div>
           {row.kind === 'retail' && (
             <div>
@@ -932,7 +966,7 @@ function SaveSection({ row }: { row: PriceRowProp }) {
             What it costs us
           </h4>
           <div className="max-w-[230px]">
-            <FieldLabel>Our cost per event</FieldLabel>
+            <FieldLabel>Base cost (what it costs us)</FieldLabel>
             <MoneyField name="cost" defaultValue={cost} placeholder="blank" onChange={setCost} />
           </div>
           <p className="mt-2 text-[13px] text-ink/60">
@@ -944,6 +978,25 @@ function SaveSection({ row }: { row: PriceRowProp }) {
               "No cost recorded — no margin shown."
             )}
           </p>
+          {formulaFor != null && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink/60" data-formula-use="">
+              <span className="tabular-nums">
+                Formula price <b className="font-mono text-ink">₱{formulaFor.toLocaleString('en-PH')}</b>
+              </span>
+              {String(formulaFor) !== price && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice(String(formulaFor));
+                    setPriceBoxKey((k) => k + 1);
+                  }}
+                  className="rounded-md border border-ink/20 px-3 py-1 text-xs font-medium text-ink/70 transition hover:bg-ink/5"
+                >
+                  Use formula price
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

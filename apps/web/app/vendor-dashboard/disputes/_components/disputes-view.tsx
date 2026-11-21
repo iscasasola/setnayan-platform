@@ -142,8 +142,18 @@ function DisputeRowItem({ row }: { row: DisputeRow }) {
     <li>
       <Fold
         title={CATEGORY_LABEL[row.category]}
+        wrap
+        lineWrap
         line={`${row.public_id} · Filed ${relativeTime(row.created_at)}`}
-        aside={<ToolChip tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</ToolChip>}
+        aside={row.status === 'open' || row.status === 'withdrawn' ? <ToolChip tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</ToolChip> : undefined}
+        between={
+          row.status === 'open' || row.status === 'withdrawn' ? undefined : (
+            // The drawing's longer "Resolved · …" chips sit under the line (`.rs .chip`), never squeezing the row.
+            <span className="-mt-1 flex pb-2">
+              <ToolChip tone={STATUS_TONE[row.status]}>{STATUS_LABEL[row.status]}</ToolChip>
+            </span>
+          )
+        }
         data="dispute"
       >
         <div className="flex flex-col gap-2.5 pb-4 pt-1">

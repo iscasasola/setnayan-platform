@@ -52,6 +52,11 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- ── 1 · one row per gift picked at the yes ──────────────────────────────────
+BEGIN;
+
+-- A busy table: wait at most 5 s for its lock, then fail and let the pipeline retry, never queue every query behind it.
+SET LOCAL lock_timeout = '5s';
+
 CREATE TABLE IF NOT EXISTS public.booking_gift_lines (
   line_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_vendor_id   UUID NOT NULL
@@ -1065,3 +1070,5 @@ CREATE TRIGGER booking_gift_lines_on_store_order_closed
         AND OLD.status IS DISTINCT FROM NEW.status
         AND NEW.service_key = 'vendor_gift__GIFT_CART')
   EXECUTE FUNCTION public.booking_gift_lines_on_store_order_closed();
+
+COMMIT;

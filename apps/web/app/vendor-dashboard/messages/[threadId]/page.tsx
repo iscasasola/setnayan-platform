@@ -109,7 +109,7 @@ import {
   forecastForBooking,
   resolveBookingFeeStanding,
 } from '@/lib/booking-fee-disclosure.server';
-import { lockAgreeFeeHeld, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
+import { lockAgreeFeeHeld, lockAgreeGiftBuy, lockAgreeHalls, lockAgreeNotice, lockDeclineNotice } from '@/lib/lock-answer-notice';
 import { parseThreadView } from '@/lib/thread-view';
 import { VendorPaymentLive } from './_components/vendor-payment-live';
 import { customerCardHref, supplierThreadForward, supplierThreadNoticeSearch, supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
@@ -164,6 +164,8 @@ import { QuickReplies, quickRepliesFor, ThreadAnswerLine, ThreadAskRow } from '.
 import { PickedHeadLine } from '@/app/_components/picked/picked-head-line';
 import { BlockerChangeRow } from '@/app/_components/chat/blocker-change-row';
 import { LockRequestAnswer } from '../../clients/[eventId]/_components/booking-ask-panel';
+import { fetchAgreeGiftBasis } from '@/lib/agree-gifts.server';
+import { agreeGiftOutcomeLine } from '@/lib/agree-gifts';
 import { readThreadDayAnswer } from '@/lib/thread-day-answer.server';
 import { threadDayIsOpen, type ThreadDayAnswer } from '@/lib/thread-day-answer';
 import { manilaDate } from '@/lib/vendor-schedule';
@@ -206,6 +208,10 @@ type Props = {
     lock_agree?: string;
     /** `held` — the couple's news waits on the booking fee (`vendorAgreeToLock`). */
     fee?: string;
+    /** 🎁 What happened to the gift picked with the yes (`vendorAgreeToLock` → `booking_gift_pick`). */
+    gift?: string;
+    /** 🎁 `gift_needed` — the store door with the way back (`lockAgreeGiftBuy`). */
+    gift_buy?: string;
     lock_decline?: string;
     /** `hall_taken` — the card's taken halls and the free ones to offer (`lockAgreeHallsParam`). */
     taken?: string;
@@ -323,8 +329,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       feeHeld: lockAgreeFeeHeld(sp?.fee),
       // RW-38: the live gate, so the notice claims a gate only when there is one.
       feeLocksEvent: lockAgreeFeeHeld(sp?.fee) ? await resolveFeeEnforcement() : false,
-      halls: lockAgreeHalls(sp?.taken, sp?.free),
+      halls: lockAgreeHalls(sp?.taken, sp?.free), giftBuy: lockAgreeGiftBuy(sp?.gift_buy), storeShell: await isStoreShellRequest(),
     }) ?? lockDeclineNotice(sp?.lock_decline);
+  const giftOutcome = agreeGiftOutcomeLine(sp?.gift);
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -898,6 +905,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       : null;
   })();
 
+  // 🎁 GIFT FOR SERVICES (owner 2026-11-15): the picker above Agree, read beside the forecast. Null when no bill.
+  const agreeGiftBasisRead = (async () => {
+    const lockHandshake = await lockHandshakeRead;
+    return lockHandshake?.eventVendorId
+      ? await fetchAgreeGiftBasis(paxAdmin, {
+          vendorProfileId: profile.vendor_profile_id,
+          eventVendorId: lockHandshake.eventVendorId,
+        })
+      : null;
+  })();
+
   // THE DAY, BEFORE THE YES (owner 2026-11-04, `lib/day-check.ts`) — the ask's day read through the SAME capacity
   // rule the yes enforces (`vendor_day_check`). The supplier's own session: the RPC is DEFINER and carries the yes's
   // ownership gate. Read only while an ask is open; a refused read is `failed`, said on screen, never "0 booked".
@@ -1201,6 +1219,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     eventFileDayRead,
   ]);
   const heldAskService = await heldServiceRead;
+  const agreeGiftBasis = await agreeGiftBasisRead;
   const chatPins = await chatPinsRead;
 
   const composerGiftBasis = giftBasisFrom(composerPapicStanding);
@@ -1532,6 +1551,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           dayCheck={dayCheck}
           waitlistAsk={vendorWaitlistTheAsk}
           heldService={heldAskService}
+          giftBasis={agreeGiftBasis}
         />
       ) : null,
     'offer-service': <VendorOfferService threadId={threadId} options={offerOptions} />,
@@ -2014,6 +2034,17 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                       </Link>
                     </>
                   ) : null}
+                </p>
+              ) : null}
+              {giftOutcome ? (
+                <p
+                  role={giftOutcome.tone === 'refused' ? 'alert' : 'status'}
+                  className={`border-b border-ink/10 px-3.5 py-2 text-[13px] ${
+                    giftOutcome.tone === 'refused' ? 'bg-danger-50/60 text-danger-900' : 'bg-mulberry/[0.06] text-ink'
+                  }`}
+                  data-agree-gift-outcome=""
+                >
+                  {giftOutcome.text}
                 </p>
               ) : null}
               {embedded ? <PickedHeadLine>{answerInHead(true)}</PickedHeadLine> : null}

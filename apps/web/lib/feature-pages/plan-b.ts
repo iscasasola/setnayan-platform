@@ -334,12 +334,12 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         { q: 'Is Setnayan AI a chatbot?', a: 'No. A chatbot waits for you to ask. Setnayan AI watches your suppliers, budget and dates in the background and tells you what needs you.' },
         { q: 'Do I have to use it?', a: 'Never. The planning tools stay free and work on their own. Setnayan AI comes with the paid event plans and does the suggesting and watching.' },
-        { q: 'How is it priced?', a: 'It is not sold on its own. It comes with Event Pro and Event Ultra; one plan covers your event, and their current prices are read from our live catalogue and shown on this page.' },
+        { q: 'How is it priced?', a: 'It is not sold on its own. It comes with Event Pro and Event Ultra; one plan covers your event, and today’s price is on our Pricing page.' },
       ],
       tl: [
         { q: 'Chatbot ba ang Setnayan AI?', a: 'Hindi. Naghihintay ang chatbot ng tanong mo. Ang Setnayan AI ay nagbabantay sa suppliers, budget at petsa mo sa background at sinasabi kung ano ang kailangan mo.' },
         { q: 'Kailangan ko ba itong gamitin?', a: 'Hindi kailanman. Libre pa rin ang mga planning tool at gumagana nang mag-isa. Ang Setnayan AI ay kasama sa bayad na event plans at siya ang nagmumungkahi at nagbabantay.' },
-        { q: 'Paano ang presyo?', a: 'Hindi ito binebenta nang hiwalay. Kasama ito sa Event Pro at Event Ultra; isang plan para sa buong event mo, at binabasa ang kasalukuyang presyo nila mula sa live catalogue namin at ipinapakita sa page na ito.' },
+        { q: 'Paano ang presyo?', a: 'Hindi ito binebenta nang hiwalay. Kasama ito sa Event Pro at Event Ultra; isang plan para sa buong event mo, at nasa Pricing page namin ang presyo ngayon.' },
       ],
     },
     keywords: {

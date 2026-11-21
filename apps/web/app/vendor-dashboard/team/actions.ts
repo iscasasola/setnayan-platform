@@ -17,8 +17,20 @@ import {
   VENDOR_TEAM_ROLES,
   isVendorAdminRole,
   fetchAdminVendorContext,
+  fetchTeamManagerContext,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
+import {
+  BRANCH_MANAGER_MAY_GIVE,
+  VENDOR_DUTIES,
+  VENDOR_DUTY_NAME,
+  VENDOR_DUTY_RANK,
+  cleanRoleName,
+  dutyOfRank,
+  dutyWorksAtABranch,
+  isVendorDuty,
+  type VendorDuty,
+} from '@/lib/vendor-duties';
 import { asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
 import { fetchLiveTierCaps } from '@/lib/vendor-plan-contents';
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
@@ -51,6 +63,60 @@ function nullIfBlank(raw: FormDataEntryValue | null, max = 64): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim().slice(0, max);
   return t.length > 0 ? t : null;
+}
+
+/**
+ * 🧑‍🤝‍🧑 THE ROLE A FORM GIVES (six roles, owner 19 Nov 2026). A form names the role as `duty`; an older form that names
+ * only the rank (`role`) gives that rank's nearest role. Neither → refused.
+ */
+function parseDuty(formData: FormData): VendorDuty {
+  const raw = formData.get('duty');
+  if (isVendorDuty(raw)) return raw;
+  if (typeof raw === 'string' && raw.length > 0) throw new Error('Unknown role.');
+  return dutyOfRank(parseRole(formData.get('role')));
+}
+
+/** Where the role works: a branch id of THIS shop (the database re-checks it), or null = main. Whole-shop roles: null. */
+function parseBranch(formData: FormData, duty: VendorDuty): string | null {
+  if (!dutyWorksAtABranch(duty)) return null;
+  const raw = formData.get('branch_id');
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim();
+  return t.length === 0 || t === MAIN_BRANCH_KEY ? null : t;
+}
+
+/**
+ * A Branch Manager gives only the roles at or below theirs, and only at their own branch (the database holds the same
+ * line: `vendor_team_members_branch_manager_manage`). A Shop Manager may give any role anywhere. Null = allowed.
+ */
+function branchManagerRefusal(
+  ctx: { duty: 'shop_manager' | 'branch_manager'; branchId: string | null },
+  duty: VendorDuty,
+  branchId: string | null,
+): string | null {
+  if (ctx.duty === 'shop_manager') return null;
+  if (!BRANCH_MANAGER_MAY_GIVE.includes(duty)) {
+    return `A Branch Manager can give Account Manager, Event Crew or Helper. Ask a Shop Manager to make someone a ${VENDOR_DUTY_NAME[duty]}.`;
+  }
+  if ((branchId ?? null) !== (ctx.branchId ?? null)) {
+    return 'A Branch Manager adds people to their own branch only. Ask a Shop Manager for another branch.';
+  }
+  return null;
+}
+
+/**
+ * 🧑‍🤝‍🧑 Team management for a Shop Manager (the whole shop) or a Branch Manager (their branch) — owner 19 Nov 2026.
+ * Everyone else is bounced, as before. The admin-only motions (votes, seats, step down) keep `ensureAdmin`.
+ */
+async function ensureManager() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const ctx = await fetchTeamManagerContext(supabase, user.id);
+  if (!ctx) redirect('/vendor-dashboard');
+  return { supabase, ctx, currentUserId: user.id };
 }
 
 /**
@@ -91,7 +157,7 @@ async function readSeatMembers(
 ): Promise<SeatMember[] | null> {
   const { data, error } = await supabase
     .from('vendor_team_members')
-    .select('vendor_team_member_id,user_id,role')
+    .select('vendor_team_member_id,user_id,role,duty')
     .eq('vendor_profile_id', vendorProfileId);
   if (error) {
     logQueryError('team/actions: seat members', error, { vendor_profile_id: vendorProfileId });
@@ -106,7 +172,7 @@ async function readSeatMembers(
  * row. Any admin may add a member at admin / agent / viewer.
  */
 export async function inviteVendorTeamMember(formData: FormData) {
-  const { supabase, ctx } = await ensureAdmin();
+  const { supabase, ctx } = await ensureManager();
 
   // When invoked from the My Shop inline Team panel, stay on My Shop instead of
   // bouncing to the Team page (owner rule 2026-07 — no navigation off My Shop
@@ -118,22 +184,22 @@ export async function inviteVendorTeamMember(formData: FormData) {
 
   const emailRaw = formData.get('email');
   const labelRaw = formData.get('team_label');
-  let role: VendorTeamRole;
+  let duty: VendorDuty;
   try {
-    role = parseRole(formData.get('role'));
+    duty = parseDuty(formData);
   } catch (e) {
     return err((e as Error).message);
   }
+  const role: VendorTeamRole = VENDOR_DUTY_RANK[duty];
+  const branch_id = parseBranch(formData, duty);
+  const refusal = branchManagerRefusal(ctx, duty, branch_id);
+  if (refusal) return err(refusal);
   if (typeof emailRaw !== 'string' || emailRaw.trim().length === 0) {
     return err('Email is required');
   }
   const email = emailRaw.trim().toLowerCase();
   const team_label = nullIfBlank(labelRaw);
 
-  // `owner` is retired — admins promote each other to Admin, not Owner.
-  if (role === 'owner') {
-    return err('Owner role is retired — add this person as an Admin instead.');
-  }
 
   // Tier seat cap (Vendor_Tier_Capability_Matrix): count every member beyond
   // the founding admin (vendor_profiles.user_id) against the plan's seat
@@ -151,7 +217,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
   if (seatCap !== Infinity) {
     const members = await readSeatMembers(supabase, ctx.vendorProfileId);
     if (members === null) return err('We couldn’t check your team’s seats just now. Please try again.');
-    if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role } })) {
+    if (!canSeat({ members, founderUserId: ctx.founderUserId, cap: seatCap, change: { kind: 'invite', role, duty } })) {
       // The fee is the live catalogue price (`vendor_extra_seat`), read the same
       // way the buy-a-seat action and the Team page read it — never typed here.
       const seatFee = canBuyExtraSeats(ctx.tierState) ? await fetchSeatFeePhp(supabase) : null;
@@ -161,7 +227,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
           : 'Add a seat for more.'
         : 'Upgrade for more.';
       const helperHint =
-        role !== FREE_HELPER_ROLE && FREE_HELPER_SEATS > 0
+        duty !== 'helper' && FREE_HELPER_SEATS > 0
           ? ' A Helper (sees the schedule) is free on every plan.'
           : '';
       return err(
@@ -190,11 +256,17 @@ export async function inviteVendorTeamMember(formData: FormData) {
     vendor_profile_id: ctx.vendorProfileId,
     user_id: existing.user_id,
     role,
+    duty,
+    branch_id,
     team_label,
   });
   if (error) {
     return err(
-      error.code === '23505' ? 'That user is already on your team.' : error.message,
+      error.code === '23505'
+        ? 'That user is already on your team.'
+        : (error.message ?? '').includes('VENDOR_TEAM_BRANCH_NOT_THIS_SHOP')
+          ? 'That branch isn’t one of your shop’s. Pick a branch from the list.'
+          : error.message,
     );
   }
 
@@ -209,25 +281,22 @@ export async function inviteVendorTeamMember(formData: FormData) {
  * Changing an *admin's* role is NOT done here — it needs a team vote (see
  * proposeAdminMotion). Enforced both in the UI and defensively here.
  */
+/** The words when the database refused a team change (RLS matched no row, or another branch). */
+const CANT_CHANGE_THIS_PERSON = 'You can’t change this person';
+
 export async function updateVendorTeamMember(formData: FormData) {
-  const { supabase, ctx, currentUserId } = await ensureAdmin();
+  const { supabase, ctx, currentUserId } = await ensureManager();
 
   const idRaw = formData.get('vendor_team_member_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
     return err('Missing member id');
   }
 
-  let role: VendorTeamRole;
-  try {
-    role = parseRole(formData.get('role'));
-  } catch (e) {
-    return err((e as Error).message);
-  }
   const team_label = nullIfBlank(formData.get('team_label'));
 
   const { data: target, error: readErr } = await supabase
     .from('vendor_team_members')
-    .select('vendor_team_member_id,user_id,role')
+    .select('vendor_team_member_id,user_id,role,duty,branch_id')
     .eq('vendor_team_member_id', idRaw)
     .eq('vendor_profile_id', ctx.vendorProfileId)
     .maybeSingle();
@@ -236,17 +305,32 @@ export async function updateVendorTeamMember(formData: FormData) {
   if (target.user_id === currentUserId) {
     return err('Use “Step down” to change your own role.');
   }
-  if (role === 'owner') {
-    return err('Owner role is retired — use Admin instead.');
+  // 🧑‍🤝‍🧑 A form that names no role (the "What they do" label form) keeps the person's role and branch as they are.
+  const named = formData.has('duty') || formData.has('role');
+  let duty: VendorDuty;
+  try {
+    duty = named ? parseDuty(formData) : isVendorDuty(target.duty) ? target.duty : dutyOfRank(target.role as string);
+  } catch (e) {
+    return err((e as Error).message);
   }
-  if (isVendorAdminRole(target.role as VendorTeamRole)) {
-    return err('Changing an admin’s role needs a team vote — start one below.');
+  // A form that sends no branch keeps where they work (dropped only when the new role covers the whole shop).
+  const branch_id = formData.has('branch_id')
+    ? parseBranch(formData, duty)
+    : dutyWorksAtABranch(duty)
+      ? ((target.branch_id as string | null) ?? null)
+      : null;
+  const role: VendorTeamRole = VENDOR_DUTY_RANK[duty];
+  const refusal = branchManagerRefusal(ctx, duty, branch_id);
+  if (refusal) return err(refusal);
+  if (isVendorAdminRole(target.role as VendorTeamRole) && duty !== 'shop_manager') {
+    return err('Changing a Shop Manager’s role needs a team vote — start one below.');
   }
 
   // 🧑‍🤝‍🧑 The free Helper is free ONLY as a Helper. Moving them to a role that
   // counts asks the plan for a seat, exactly as inviting one would. Only this
   // move can grow the count, so only it pays the two extra reads.
-  if (target.role === FREE_HELPER_ROLE && role !== FREE_HELPER_ROLE) {
+  const wasHelper = isVendorDuty(target.duty) ? target.duty === 'helper' : target.role === FREE_HELPER_ROLE;
+  if (wasHelper && duty !== 'helper') {
     const seatCap = await seatCapFor(supabase, ctx);
     if (seatCap !== Infinity) {
       const members = await readSeatMembers(supabase, ctx.vendorProfileId);
@@ -256,22 +340,35 @@ export async function updateVendorTeamMember(formData: FormData) {
           members,
           founderUserId: ctx.founderUserId,
           cap: seatCap,
-          change: { kind: 'role', memberId: idRaw, role },
+          change: { kind: 'role', memberId: idRaw, role, duty },
         })
       ) {
         return err(
-          `Your plan has no seat for another ${role === 'agent' ? 'Team member' : 'Admin'} — this person is your free Helper. Add a seat or pick a plan with more.`,
+          `Your plan has no seat for another ${VENDOR_DUTY_NAME[duty]} — this person is your free Helper. Add a seat or pick a plan with more.`,
         );
       }
     }
   }
 
-  const { error } = await supabase
+  // 🔇 RLS that matches no row is not an error — it returns nothing. Ask for the row back and count it, so a change
+  // the database refused never reads "saved".
+  const { data: updated, error } = await supabase
     .from('vendor_team_members')
-    .update({ role, team_label, updated_at: new Date().toISOString() })
+    .update({ role, duty, branch_id, team_label, updated_at: new Date().toISOString() })
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
-  if (error) return err(error.message);
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    .select('vendor_team_member_id');
+  if (error) {
+    const m = error.message ?? '';
+    return err(
+      m.includes('VENDOR_TEAM_BRANCH_NOT_THIS_SHOP')
+        ? 'That branch isn’t one of your shop’s. Pick a branch from the list.'
+        : m.includes('VENDOR_TEAM_OTHER_BRANCH')
+          ? CANT_CHANGE_THIS_PERSON
+          : m,
+    );
+  }
+  if (!updated || updated.length === 0) return err(CANT_CHANGE_THIS_PERSON);
 
   revalidateShopPage(ctx.vendorProfileId);
   revalidatePath(TEAM);
@@ -283,7 +380,7 @@ export async function updateVendorTeamMember(formData: FormData) {
  * (proposeAdminMotion with kind='remove').
  */
 export async function removeVendorTeamMember(formData: FormData) {
-  const { supabase, ctx, currentUserId } = await ensureAdmin();
+  const { supabase, ctx, currentUserId } = await ensureManager();
 
   const idRaw = formData.get('vendor_team_member_id');
   if (typeof idRaw !== 'string' || idRaw.length === 0) {
@@ -304,12 +401,15 @@ export async function removeVendorTeamMember(formData: FormData) {
     return err('Removing an admin needs a team vote — start one below.');
   }
 
-  const { error } = await supabase
+  const { data: removed, error } = await supabase
     .from('vendor_team_members')
     .delete()
     .eq('vendor_team_member_id', idRaw)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
+    .eq('vendor_profile_id', ctx.vendorProfileId)
+    .select('vendor_team_member_id');
   if (error) return err(error.message);
+  // Nothing was deleted (RLS matched no row): say so, and leave their sessions alone.
+  if (!removed || removed.length === 0) return err(CANT_CHANGE_THIS_PERSON);
 
   const removedUserId = target.user_id as string;
   after(() => revokeAllSessions(removedUserId).catch(() => {}));
@@ -539,7 +639,8 @@ export async function stepDownSelf() {
  * also clamps the selection to the vendor's own services defensively.
  */
 export async function setVendorAgentServices(formData: FormData) {
-  const { supabase, ctx } = await ensureAdmin();
+  const { supabase, ctx } = await ensureManager();
+  const branchOnly = ctx.duty === 'branch_manager' ? keyOfBranchId(ctx.branchId) : null;
 
   const memberIdRaw = formData.get('vendor_team_member_id');
   if (typeof memberIdRaw !== 'string' || memberIdRaw.length === 0) {
@@ -558,7 +659,10 @@ export async function setVendorAgentServices(formData: FormData) {
     .from('vendor_services')
     .select('vendor_service_id,branch_id')
     .eq('vendor_profile_id', ctx.vendorProfileId);
-  const rows = (services ?? []) as { vendor_service_id: string; branch_id: string | null }[];
+  // 🧑‍🤝‍🧑 A Branch Manager ticks only their branch's cards (the database holds the same line).
+  const rows = ((services ?? []) as { vendor_service_id: string; branch_id: string | null }[]).filter(
+    (s) => branchOnly === null || keyOfBranchId(s.branch_id) === branchOnly,
+  );
   const valid = new Set(rows.map((s) => s.vendor_service_id));
 
   // 🏢 WHOLE BRANCH (owner 2026-11-14, SIMPLER SUPPLIER PLANS item 9): a ticked branch gives the person every service
@@ -580,18 +684,24 @@ export async function setVendorAgentServices(formData: FormData) {
     ]),
   );
 
-  const { error: keysErr } = await supabase
-    .from('vendor_team_members')
-    .update({ whole_branch_keys: wholeKeys })
-    .eq('vendor_team_member_id', memberIdRaw)
-    .eq('vendor_profile_id', ctx.vendorProfileId);
-  if (keysErr) return err(keysErr.message);
+  // "Whole branch" stays a Shop Manager's shortcut — a Branch Manager sets cards one by one.
+  if (branchOnly === null) {
+    const { error: keysErr } = await supabase
+      .from('vendor_team_members')
+      .update({ whole_branch_keys: wholeKeys })
+      .eq('vendor_team_member_id', memberIdRaw)
+      .eq('vendor_profile_id', ctx.vendorProfileId);
+    if (keysErr) return err(keysErr.message);
+  }
 
-  const { error: delErr } = await supabase
-    .from('vendor_service_agents')
-    .delete()
-    .eq('vendor_team_member_id', memberIdRaw);
-  if (delErr) return err(delErr.message);
+  if (valid.size > 0) {
+    const { error: delErr } = await supabase
+      .from('vendor_service_agents')
+      .delete()
+      .eq('vendor_team_member_id', memberIdRaw)
+      .in('vendor_service_id', [...valid]);
+    if (delErr) return err(delErr.message);
+  }
   if (selected.length > 0) {
     const { error: insErr } = await supabase.from('vendor_service_agents').insert(
       selected.map((vendor_service_id) => ({
@@ -604,6 +714,53 @@ export async function setVendorAgentServices(formData: FormData) {
 
   // It now writes `vendor_team_members` (whole_branch_keys), which the shop page tree reads — clear its cached copy.
   revalidateShopPage(ctx.vendorProfileId);
+  revalidatePath(TEAM);
+  return back('saved=1');
+}
+
+// ── 🏷 Team › Roles — the shop's own name for each role (owner 19 Nov 2026) ─────────────────────────────────────────
+
+const ROLES = '/vendor-dashboard/team/roles';
+
+/**
+ * Save the shop's names for the six roles. A blank box keeps the fixed name (its row is removed). Renaming changes
+ * only the words — what a role can do is `vendor_team_members.duty`. Shop Manager only (`vendor_role_names` RLS:
+ * `current_vendor_ids('admin')`). A refused write is said, never shown as saved.
+ */
+export async function setVendorRoleNames(formData: FormData) {
+  const { supabase, ctx, currentUserId } = await ensureAdmin();
+  const now = new Date().toISOString();
+  const keep: { vendor_profile_id: string; duty: VendorDuty; display_name: string; updated_by: string; updated_at: string }[] = [];
+  const clear: VendorDuty[] = [];
+  for (const duty of VENDOR_DUTIES) {
+    const name = cleanRoleName(formData.get(`name_${duty}`));
+    if (name && name !== VENDOR_DUTY_NAME[duty]) {
+      keep.push({ vendor_profile_id: ctx.vendorProfileId, duty, display_name: name, updated_by: currentUserId, updated_at: now });
+    } else {
+      clear.push(duty);
+    }
+  }
+  const back = (status: string): never => redirect(`${ROLES}?${status}`);
+  if (keep.length > 0) {
+    const { error } = await supabase.from('vendor_role_names').upsert(keep, { onConflict: 'vendor_profile_id,duty' });
+    if (error) {
+      logQueryError('team/actions: role names upsert', error, { vendor_profile_id: ctx.vendorProfileId });
+      return back(`error=${encodeURIComponent('Those names didn’t save. Nothing changed — please try again.')}`);
+    }
+  }
+  if (clear.length > 0) {
+    const { error } = await supabase
+      .from('vendor_role_names')
+      .delete()
+      .eq('vendor_profile_id', ctx.vendorProfileId)
+      .in('duty', clear);
+    if (error) {
+      logQueryError('team/actions: role names clear', error, { vendor_profile_id: ctx.vendorProfileId });
+      return back(`error=${encodeURIComponent('Some names didn’t go back to the fixed name. Please try again.')}`);
+    }
+  }
+  revalidateShopPage(ctx.vendorProfileId);
+  revalidatePath(ROLES);
   revalidatePath(TEAM);
   return back('saved=1');
 }

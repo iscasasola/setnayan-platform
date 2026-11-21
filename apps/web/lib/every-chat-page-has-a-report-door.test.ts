@@ -36,8 +36,9 @@ test('2 · the ⋯ of every chat page carries Report a problem', () => {
   const more = read('app/vendor-dashboard/clients/[eventId]/_components/picked-client-more.ts');
   assert.match(more, /rows\.push\(\{ id: 'report', label: 'Report a problem'[^}]*page: 'report' \}\)/, 'the supplier’s client-page ⋯ lost Report');
   const host = read('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/picked-supplier-shell.tsx');
-  assert.match(host, /const HOST_MORE[^=]*= \[\{ id: 'report', label: 'Report a problem'[^\]]*page: 'report' \}\]/, 'the host’s ⋯ lost Report');
-  assert.match(host, /more=\{HOST_MORE\}/, 'the host’s page no longer draws its ⋯');
+  // The host's ⋯ is built by `hostMoreRows` (Call · Viber and Mute this chat joined it, #8092/#8093); Report stays its last row.
+  assert.match(host, /rows\.push\(\{ id: 'report', label: 'Report a problem'[^}]*page: 'report' \}\)/, 'the host’s ⋯ lost Report');
+  assert.match(host, /more=\{hostMoreRows\(/, 'the host’s page no longer draws its ⋯');
   const hostThread = read('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
   assert.match(hostThread, /\{ href: `\$\{workspaceHref\}\?tab=report`, label: 'Report a problem', icon: 'problem' \}/, 'the host’s thread page lost its ⋯ Report');
   const supplierThread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');

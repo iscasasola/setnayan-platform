@@ -91,6 +91,8 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // "Don't show me invites from this person" (owner 2026-09-28, migration
   // 20271252896804) — the subject's own private mute list, keyed on user_id.
   { table: 'invite_mutes', decision: 'exported', as: 'invite_mutes' },
+  // 🔕 "Mute this chat" (2026-11-21, migration 20271356402294) — the chats the subject muted, keyed on user_id.
+  { table: 'chat_thread_mutes', decision: 'exported', as: 'chats_you_muted' },
   // 🖼⏱ The Mood Board photo changes the subject MADE under Mood Board Edit (2026-10-30, migration 20271299051148) —
   // author-scoped on actor_user_id, like event_colour_changes.
   { table: 'event_mood_board_changes', decision: 'exported', as: 'mood_board_changes_made' },
@@ -276,6 +278,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'that device. Disclose that it is held; do not hand over the keys.',
   },
   {
+    table: 'vendor_push_tokens',
+    decision: 'excluded',
+    why:
+      'A device push token (FCM, APNs or Web Push) for a shop device; since the Mute this chat migration ' +
+      '(20271356402294) it also names WHO registered the device. Same reason as push_subscriptions: the token is ' +
+      'a live delivery credential, and exporting it lets anyone holding the file push to that device. Disclose ' +
+      'that it is held; do not hand over the token.',
+  },
+  {
     table: 'shop_papic_wallet_entries',
     decision: 'excluded',
     why:
@@ -292,6 +303,15 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       '(vendor_profile_id), not to a person (supplier gifts, 2026-11-05). `created_by` is an actor stamp on who ' +
       'pressed Buy; the row says nothing about that person, the order and payment it belongs to are exported ' +
       'with `orders` / `payments`, and erasure clears the stamp (lib/erasure/coverage.ts).',
+  },
+  {
+    table: 'shop_gift_order_lines',
+    decision: 'excluded',
+    why:
+      'A SHOP\'s gift-store order, one row per item (which gift, how many, at what catalogue price), keyed to the ' +
+      'shop (vendor_profile_id), not to a person (gift store, 2026-11-17). `created_by` is an actor stamp on who ' +
+      'pressed Buy now; the order and payment it belongs to are exported with `orders` / `payments`, and erasure ' +
+      'clears the stamp (lib/erasure/coverage.ts).',
   },
   {
     table: 'event_supplier_files',

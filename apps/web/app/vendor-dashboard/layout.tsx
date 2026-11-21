@@ -13,6 +13,7 @@ import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { REQUEST_PATH_HEADER, shopConsolePath } from '@/lib/shop-console-path';
 import { runLoginGhostingCheck } from '@/lib/ghosting';
 import { maybeSweepExpiredCreatorOffers } from '@/lib/creator-offers';
+import { maybeSweepPlanGiftEndingNotices } from '@/lib/setnayan-shop-gift.server';
 import { maybeSweepVendorCreditWarnings } from '@/lib/vendor-credit-warning.server';
 import { maybeRunLockRequestExpiry } from '@/lib/lock-request-expiry';
 import { maybeRunDeletionRequestNudge } from '@/lib/deletion-request-nudge';
@@ -40,7 +41,7 @@ import { AppPreload } from '@/app/_components/app-preload';
 import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
-import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
+import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
 import { scopedMemberAvatarRows, supplierAvatarRows } from './_components/supplier-avatar-rows';
 import { getNavSlotMap } from '@/lib/nav-registry';
 import { PushNotificationRegistrar } from './_components/push-notification-registrar';
@@ -246,6 +247,7 @@ export default async function VendorDashboardLayout({
     unreadCount,
     switcherData,
     vendorRole,
+    vendorStanding,
     vendorProfile,
     navSlots,
     tierProbe,
@@ -270,6 +272,9 @@ export default async function VendorDashboardLayout({
       // agent/viewer = scoped). Resolved here so both the sidebar + bottom-nav
       // render from one source.
       resolveVendorRole(supabase, user.id),
+      // 🧑‍🤝‍🧑 The person's supplier role (six roles, owner 19 Nov 2026) — WHICH destinations each role gets. Null
+      // (unread) falls back to the rank rule above, which fails closed for everyone but a manager.
+      resolveVendorStanding(supabase, user.id).catch(() => null),
       // Vendor profile (own or via team membership) — drives service-aware nav:
       // Repertoire only exists for music acts (owner directive 2026-06-13).
       // Defensive .catch(): nav gating must never crash the layout.
@@ -392,6 +397,9 @@ export default async function VendorDashboardLayout({
   // It cannot live in sweep_vendor_tier_expiry: that runs on the first visit
   // AFTER a term ends, which is the same page load that takes the money.
   after(() => maybeSweepVendorCreditWarnings().catch(() => {}));
+  // 🎁 A gifted plan says "ends soon" 7 days and 1 day before it ends (owner 14 Nov 2026) — the same fleet-wide,
+  // cron-free shape: the shop that needs telling is the one not opening this page. Once per stage, claimed per gift.
+  after(() => maybeSweepPlanGiftEndingNotices().catch(() => {}));
   // PR-H · nudge at 24 hours, close at 48 (owner 2026-08-28). Mounted in BOTH layouts on purpose:
   // the DB compare-and-swap picks exactly one winner per gap window, and an
   // admin-only mount would wait for an admin page view — production is
@@ -616,6 +624,7 @@ export default async function VendorDashboardLayout({
           <VendorRailContext
             shopName={vendorSidebarName}
             role={vendorRole}
+            duty={vendorStanding?.duty ?? null}
             navSlots={navSlots}
             bookingsBadge={bookingsPending}
             threadsBadge={threadsUnread}
@@ -713,6 +722,7 @@ export default async function VendorDashboardLayout({
       <BottomDock boundary="tab">
         <VendorBottomNav
           role={vendorRole}
+          duty={vendorStanding?.duty ?? null}
           navSlots={navSlots}
           bookingsBadge={bookingsPending}
           threadsBadge={threadsUnread}

@@ -362,7 +362,7 @@ export function hostPlusRows(opts: {
     { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
     CAMERA_ROW,
     { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`HOST_MORE`).
+    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`hostMoreRows`).
   );
   return rows;
 }

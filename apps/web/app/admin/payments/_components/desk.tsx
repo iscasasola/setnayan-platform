@@ -55,8 +55,8 @@ import {
   refundOrder,
   rejectPayment,
   requestPaymentResubmit,
-  rereadPaymentReceipt,
 } from '../actions';
+import { RereadOnThisPhone } from './reread-on-this-phone';
 import {
   channelLabel,
   type ChannelSettings,
@@ -508,7 +508,10 @@ export function PaymentsList({
   query,
   received,
   receivedLastDrop = null,
+  receivedHeld,
 }: {
+  /** Phase 2: BDO payments that matched by themselves, Undo open. */
+  receivedHeld?: import('../received-auto').HeldRow[] | null;
   /** Received BDO screenshots (2026-11-17). Absent in the fixture lab → not drawn. */
   received?: ReceivedPileRead;
   /** The newest drop: how many rows one press read, and when. */
@@ -583,8 +586,9 @@ export function PaymentsList({
           read={received}
           lastDrop={receivedLastDrop}
           query={query}
+          held={receivedHeld}
           waiting={payments
-            .filter((p) => p.status === 'pending')
+            .filter((p) => p.status === 'pending' && !(receivedHeld ?? []).some((h) => h.matched_payment_id === p.payment_id))
             .map((p) => ({
               payment_id: p.payment_id,
               amount_php: Number(p.amount_php),
@@ -886,7 +890,12 @@ export function OpenedPayment({
         </div>
       ) : null}
 
-      <ReceiptReadCard read={receiptReads[p.payment_id]} paymentId={p.payment_id} hasScreenshot={Boolean(p.screenshot_url)} />
+      <ReceiptReadCard
+        read={receiptReads[p.payment_id]}
+        paymentId={p.payment_id}
+        hasScreenshot={Boolean(p.screenshot_url)}
+        imageUrl={screenshotUrlMap[p.payment_id] ?? null}
+      />
 
       <TemplateSection label="The payment" data="payment-facts">
         <dl className="text-[15px] [&>div+div]:border-t [&>div+div]:border-[color:var(--m-line)]">
@@ -1588,10 +1597,13 @@ export function ReceiptReadCard({
   read,
   paymentId,
   hasScreenshot,
+  imageUrl,
 }: {
   read: ReceiptReadRow | undefined;
   paymentId: string;
   hasScreenshot: boolean;
+  /** The signed link this screen already shows — the admin's phone reads it (no outside AI). */
+  imageUrl: string | null;
 }) {
   // No picture ⇒ nothing to read, and no card. A buyer may send a reference
   // number alone (the form allows it), and an empty "we could not read it" card
@@ -1612,14 +1624,9 @@ export function ReceiptReadCard({
   return (
     <TemplateSection
       label="Reading their screenshot"
-      tip="Advisory only — it gates nothing. The AI prepares; you press."
+      tip="Advisory only — it gates nothing. The in-app reader prepares; you press."
       right={
-        <form action={rereadPaymentReceipt}>
-          <input type="hidden" name="payment_id" value={paymentId} />
-          <SubmitButton className="ab ab-neutral" pendingLabel="Reading…">
-            {read ? 'Read it again' : 'Read it'}
-          </SubmitButton>
-        </form>
+        <RereadOnThisPhone paymentId={paymentId} imageUrl={imageUrl} label={read ? 'Read it again' : 'Read it'} />
       }
       data="payment-ai-read"
     >

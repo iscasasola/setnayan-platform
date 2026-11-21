@@ -2223,11 +2223,13 @@ export function ChatMessageStream({
       })()}
       </ChatPinnedStack>
 
-      {/* 📞 🎥 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private. */}
+      {/* 📎 — into the picked shell's head row (v8.3). Private messages are words only: the 📎 greys while private.
+          📞 🎥 are NOT here any more: the approved Unichat drawing v3 moves Call · Viber under the head's ⋯ (controller ruling
+          21 Nov 2026), so inside a picked shell the booked calls are ⋯ rows (`clientMoreRows` · `hostMoreRows`). Outside a
+          picked shell the strip still draws them (`calls={inPicked ? null : headCalls}`). */}
       {headSlot
         ? createPortal(
             <>
-              {headCalls}
               {/* 💬 With the chips, Files is a chip in the text box — the head keeps the calls only. */}
               {oneChat ? null : (
               <ActionButton

@@ -122,6 +122,7 @@ export type SendMessageError =
   | 'contact_blocked'
   | 'private_words_only'
   | 'fee_words_only'
+  | 'plus_unverified'
   | 'private_recipient'
   | 'whisper_refused'
   | 'insert_failed';
@@ -307,6 +308,12 @@ export async function sendChatMessageCore(
       const { TOP_UP_WORDS } = await import('./booking-fee-top-up');
       return { ok: false, code: 'fee_words_only', message: TOP_UP_WORDS.toolGated(owed.amountPhp) };
     }
+    // 🪪 A FILE FROM THE SHOP IS A ＋ TOOL (Photos & files) — it needs a verified shop (UNICHAT ＋ P1, owner 21 Nov).
+    // Plain words always send; a refused read refuses the file ("couldn't check"), never lets it through.
+    const { shopPlusGate } = await import('./shop-plus-gate.server');
+    const { plusGateRefusal } = await import('./shop-plus-gate');
+    const unverified = plusGateRefusal(await shopPlusGate(supabase, thread.vendor_profile_id));
+    if (unverified) return { ok: false, code: 'plus_unverified', message: unverified };
   }
 
   // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.

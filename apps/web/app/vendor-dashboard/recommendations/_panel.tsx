@@ -186,14 +186,16 @@ function RecRow({
   return (
     <Fold
       title={rec.title}
+      wrap
+      lineWrap
       line={rec.priceLabel ?? undefined}
-      aside={
-        rec.flaggedNotAFit ? (
-          <ToolChip tone="wait">Flagged — pending review</ToolChip>
-        ) : offer ? (
-          <ToolChip tone="info">Overlaps your work</ToolChip>
-        ) : on ? (
-          <ToolChip tone="ok">On</ToolChip>
+      aside={on && !rec.flaggedNotAFit ? <ToolChip tone="ok">On</ToolChip> : undefined}
+      between={
+        rec.flaggedNotAFit || offer ? (
+          // The drawing's longer chips sit under the price line (`.rs .chip`), never squeezing the add-on's name.
+          <span className="-mt-1 flex pb-2">
+            {rec.flaggedNotAFit ? <ToolChip tone="wait">Flagged — pending review</ToolChip> : <ToolChip tone="info">Overlaps your work</ToolChip>}
+          </span>
         ) : undefined
       }
       data="recommend-row"

@@ -135,19 +135,21 @@ function ServiceFold({
   return (
     <Fold
       title={schema.display_name_en}
+      wrap
+      lineWrap
       line={line || undefined}
       lead={
         <ToolLead>
           <Tag className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </ToolLead>
       }
-      aside={
-        isNew ? (
-          <ToolChip tone="info">New</ToolChip>
-        ) : meetsVisibility ? (
-          <ToolChip tone="ok">Listing-ready</ToolChip>
-        ) : (
-          <ToolChip tone="wait">Visibility gate not met</ToolChip>
+      aside={isNew ? <ToolChip tone="info">New</ToolChip> : undefined}
+      between={
+        isNew ? undefined : (
+          // The drawing's chip sits under the line (`.rs .chip`), never squeezing the service's name.
+          <span className="-mt-1 flex pb-2 pl-12">
+            {meetsVisibility ? <ToolChip tone="ok">Listing-ready</ToolChip> : <ToolChip tone="wait">Visibility gate not met</ToolChip>}
+          </span>
         )
       }
       defaultOpen={open}

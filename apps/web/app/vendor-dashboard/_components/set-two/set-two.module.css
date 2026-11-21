@@ -637,3 +637,13 @@ a.row:active {
     display: grid;
   }
 }
+
+/* ── a dark map pill (a sign, the Entrance): dark in both themes, as the drawing's map draws it ─────────────── */
+.mapPill {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--sn-frame-bg));
+}
+:global(html.dark) .mapPill {
+  background: rgb(var(--sn-page-bg));
+  color: rgb(var(--color-ink));
+}

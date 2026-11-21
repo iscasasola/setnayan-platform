@@ -7,6 +7,9 @@ import { TheirEventPart } from '@/app/vendor-dashboard/_components/set-two/their
 export type ChallengeTile = { captureId: string; isClip: boolean; tileUrl: string; openUrl: string };
 
 const ROUTE = '/vendor-dashboard/clients/[eventId]/challenge-photos';
+/** The shipped tip, word for word — the drawing keeps it as the top block's first line (supplier pages set two, page 6). */
+const TIP =
+  'Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you. Yours to use.';
 
 /**
  * Challenge photos, drawn from the page's reads (the lab draws it from fixtures). Supplier pages set two, page 6: the
@@ -33,12 +36,7 @@ export function ChallengePhotosBody({
       eventName={eventName}
       title="Challenge photos"
       end={sections && total > 0 ? <ShopPill tone="success">{formatCount(total)} shared</ShopPill> : null}
-      intro={
-        <p>
-          Guest photos and videos from the challenges you sponsored — only the ones a guest chose to share with you.
-          Yours to use.
-        </p>
-      }
+      intro={TIP}
     >
       {sections === null ? (
         <PartNote tone="warn" icon={Info} role="status" mark="challenge-photos-unread">

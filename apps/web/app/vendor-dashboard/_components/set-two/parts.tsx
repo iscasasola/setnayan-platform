@@ -96,7 +96,7 @@ export function PartTop({
           {end}
         </div>
       ) : null}
-      {children}
+      {typeof children === 'string' ? <p>{children}</p> : children}
     </div>
   );
 }

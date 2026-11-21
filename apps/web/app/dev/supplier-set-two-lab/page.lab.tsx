@@ -82,10 +82,9 @@ const COCKTAIL: CocktailEditorData = {
   ],
   signs: [{ sign_id: 's1', label: 'Restrooms', x: 47, y: 20, rotation_deg: 0 }],
 } as unknown as CocktailEditorData;
-const shot = (a: string, b: string) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 5"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="4" height="5" fill="url(#g)"/></svg>`)}`;
-const P1 = shot('#C9B9A3', '#8E7A64');
-const P2 = shot('#B7C4D6', '#5E6F86');
+/** Two flat sample photos (4×5 PNGs) — a warm one and a cool one, standing in for real shots. */
+const P1 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAFCAIAAADtz9qMAAAAFElEQVR4nGPcMK+NAQaYGJAAkRwAdNwB3i2pS2oAAAAASUVORK5CYII=';
+const P2 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAFCAIAAADtz9qMAAAAFElEQVR4nGNsmLSGAQaYGJAAkRwAbxwByKHL0xAAAAAASUVORK5CYII=';
 const SEAT: Plan = {
   published_at: '2026-11-18T00:00:00Z',
   venue: { width_m: 32, length_m: 24 },

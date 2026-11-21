@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from 'react';
 import { TypedRow, FormRows } from '@/app/_components/form-row';
-import { PartNote } from '@/app/vendor-dashboard/_components/set-two/parts';
+import { PartNote, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { SupplierThumbRow } from '@/app/vendor-dashboard/_components/supplier-thumb-row';
 import { Check, ChevronDown, Info, Martini, Maximize2, Navigation, Pencil, Plus, RotateCw, Signpost, Trash2, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
@@ -488,7 +488,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
               aria-label={canArrange ? `${s.label} — open its sheet` : undefined}
               onKeyDown={canArrange ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditingSign(s.sign_id); } } : undefined}
               title={s.label}
-              className={`flex select-none items-center gap-1 whitespace-nowrap rounded-full bg-ink px-2 py-[3px] text-[10px] font-bold text-[rgb(var(--sn-frame-bg))] dark:bg-[rgb(var(--sn-page-bg))] dark:text-ink ${
+              className={`flex select-none items-center gap-1 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-bold ${setTwo.mapPill} ${
                 canArrange ? 'cursor-grab' : ''
               }`}
             >

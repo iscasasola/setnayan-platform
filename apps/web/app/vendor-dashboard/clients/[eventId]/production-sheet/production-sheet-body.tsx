@@ -55,7 +55,7 @@ export function ProductionSheetBody({
       buffer: rule.waste_factor_pct > 0 ? `+${fmtQty(rule.waste_factor_pct)}%` : null,
       basisNote,
       count,
-      total: `${formatCount(total)} ${rule.unit}`,
+      yieldWords: `${formatCount(total)} ${rule.unit}`,
     };
   });
 

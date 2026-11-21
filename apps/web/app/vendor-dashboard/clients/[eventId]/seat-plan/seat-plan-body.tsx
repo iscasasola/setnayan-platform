@@ -2,7 +2,7 @@ import { Eye, Info, MapPin } from 'lucide-react';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import { ShopPill } from '@/app/vendor-dashboard/_components/kit';
-import { PartList, PartNote, PartRow, PartSec, PartText } from '@/app/vendor-dashboard/_components/set-two/parts';
+import { PartList, PartNote, PartRow, PartSec, PartText, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { ReadFailedBody } from '@/app/vendor-dashboard/_components/set-two/read-failed';
 import { TheirEventPart } from '@/app/vendor-dashboard/_components/set-two/their-event-line';
 
@@ -176,7 +176,7 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
           ) : null}
           {plan.entrance ? (
             <span
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-[rgb(var(--sn-frame-bg))] dark:bg-[rgb(var(--sn-page-bg))] dark:text-ink"
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${setTwo.mapPill}`}
               style={{ left: `${plan.entrance.x}%`, top: `${plan.entrance.y}%` }}
             >
               Entrance

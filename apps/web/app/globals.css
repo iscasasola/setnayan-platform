@@ -225,7 +225,7 @@
      * and the bottom bar read them, so one value here changes every screen that wears them. Admin › Colours
      * (`lib/app-colours.ts` APP_COLOURS_DEFAULT) holds the same values as its "Current" set. */
     --sn-band-from: var(--color-band-from); /* #FAE0D1 — pale peach (was #C24E25 flat terracotta) */
-    --sn-band-to: var(--color-band-to); /* #FFFFFF */
+    --sn-band-to: var(--color-band-to);
     --sn-band-angle: 180deg;            /* top to bottom */
     --sn-on-band: var(--color-ink); /* ink #2C2A29 — 11.3:1 on #FAE0D1, 14.3:1 on white. The gate picks ink on a pale band */
     --sn-frame-bg: var(--color-raised); /* = --m-paper — the white card */
@@ -268,8 +268,8 @@
     --accent: #c5a059;
     --accent-deep: #a88340;
     --accent-soft: #f4ecd8;            /* Light champagne wash */
-    --surface: rgb(var(--color-raised)); /* = #ffffff */
-    --surface-soft: rgb(var(--color-raised-2)); /* = #f4f2ec */
+    --surface: rgb(var(--color-raised));
+    --surface-soft: rgb(var(--color-raised-2));
     --ink-soft: 79 83 91;               /* Deep slate #4F535B */
     /* A CARD above the page (dark mode PR 1, 2026-10-13) — Tailwind `raised`. Light = white, exactly what
      * `bg-white` paints today, so swapping one for the other moves no light pixel. Dark = the approved card. */
@@ -288,10 +288,10 @@
      * --c-ask/--c-col`): what a supplier's Clients, Today and Shop mark by KIND — Booked · Schedules · Asked · To collect.
      * RGB triples so Tailwind alpha works (`text-cat-booked`, `bg-cat-asked/10`). Never a raw hex in a .tsx — read these.
      * Dark pairs below (the v111/v112 prototype's `html.dark` block). 🔒 lib/category-colours-are-tokens.test.ts */
-    --sn-cat-booked: var(--color-cat-booked); /* #166B4A */
-    --sn-cat-schedule: var(--color-cat-schedule); /* #2F6DB5 */
-    --sn-cat-asked: var(--color-cat-asked); /* #C9471A */
-    --sn-cat-collect: var(--color-cat-collect); /* #A2457E */
+    --sn-cat-booked: var(--color-cat-booked);
+    --sn-cat-schedule: var(--color-cat-schedule);
+    --sn-cat-asked: var(--color-cat-asked);
+    --sn-cat-collect: var(--color-cat-collect);
     /* ── THE SOFT HAIRLINE (v110 "No cut line"): what sits under a pinned row once the page scrolls under it — drawn as
      * `box-shadow: 0 1px 0 var(--sn-hair)` (class `sn-pin-hair`), never a `border-b`. 🔒
      * app/vendor-dashboard/no-cut-line-under-a-pinned-row.test.ts */
@@ -445,10 +445,10 @@
     --color-raised: 28 26 22; /* the frame #1C1A16 (owner 18 Nov, pick 2) */
     --sn-page-bg: var(--color-page);
     --sn-frame-bg: var(--color-raised);
-    --sn-cat-booked: var(--color-cat-booked); /* #4FBF8A */
-    --sn-cat-schedule: var(--color-cat-schedule); /* #7FAFE8 */
-    --sn-cat-asked: var(--color-cat-asked); /* #F0825A */
-    --sn-cat-collect: var(--color-cat-collect); /* #D98AC0 */
+    --sn-cat-booked: var(--color-cat-booked);
+    --sn-cat-schedule: var(--color-cat-schedule);
+    --sn-cat-asked: var(--color-cat-asked);
+    --sn-cat-collect: var(--color-cat-collect);
     --sn-hair: rgb(var(--color-ink) / 0.1);
     /* The token layer's shadows: the SAME as light, because the classes they name are not mode-aware today
        (pixel-identical). Giving dark its own shadow is a restyle call, not this one. */
@@ -1620,26 +1620,26 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
   /* Surfaces — Soft Cream (Warm Editorial Archive 2026-08-01 · was Warm
    * Alabaster #FBFAF7 · before that warm paper #FBF8F2). Kept in step with
    * --color-cream above; the two families must not drift. */
-  --m-paper:      rgb(var(--color-raised)); /* = #FFFFFF */
-  --m-paper-2:    rgb(var(--color-raised-2)); /* = #F4F2EC */
-  --m-ivory:      rgb(var(--color-wash)); /* = #EDEAE0 */
+  --m-paper:      rgb(var(--color-raised));
+  --m-paper-2:    rgb(var(--color-raised-2));
+  --m-ivory:      rgb(var(--color-wash));
   --m-line:       #E1DCD1;
   --m-line-soft:  #EDE8DE;
 
   /* Ink — Espresso (Warm Editorial Archive 2026-08-01 · was Atelier warm ink
    * #1B1A17 · before that slate #2D3038). 13.82:1 on #FDFBF7 — AAA. */
-  --m-ink:        rgb(var(--color-ink)); /* = #2C2A29 */
+  --m-ink:        rgb(var(--color-ink));
   /* 🖼 The SAME espresso, but it never flips: what a photo band (the supplier hero) sits on, and the ink of a white
    * pill drawn over a photo. `--m-ink` turns paper-light in dark mode (#FBFAF7), which made the hero's band light and
    * its white Upload pill's word white-on-white (Build 3 integration, 9 Nov). Defined once here; html.dark leaves it. */
   --m-espresso:   #2C2A29;
-  --m-slate:      rgb(var(--color-ink-2)); /* = #3A382F */
-  --m-slate-2:    rgb(var(--color-ink-3)); /* = #6E6A62 */
+  --m-slate:      rgb(var(--color-ink-2));
+  --m-slate-2:    rgb(var(--color-ink-3));
   --m-slate-3:    #8A857B;
   --m-slate-4:    #B5AF9E;
 
   /* Accent — Royal Champagne Gold (Clean Editorial · was burnt sienna #C96B3A) */
-  --m-orange:     rgb(var(--color-terracotta)); /* = #A9834B */
+  --m-orange:     rgb(var(--color-terracotta));
   --m-orange-2:   #8A6B39;
   --m-orange-3:   #CBA766;
   --m-orange-4:   #F3ECDF;
@@ -1687,8 +1687,8 @@ html [data-shell-main]:has([data-guests-row-surface]) > * {
    * over a dark band, as the old /for-suppliers sections did until 2026-11-06),
    * plus the disabled-button fill. Making them orange would put terracotta
    * body copy on the vendor pages. Left neutral on purpose. */
-  --m-mulberry:    rgb(var(--color-mulberry)); /* = #C24E25 */
-  --m-mulberry-2:  rgb(var(--color-mulberry-600)); /* = #B04722 */
+  --m-mulberry:    rgb(var(--color-mulberry));
+  --m-mulberry-2:  rgb(var(--color-mulberry-600));
   --m-mulberry-deep: #974930; /* text on a mulberry WASH (5.38:1; the plain CTA on it is 4.04:1) */
   --m-mulberry-3:  #C9CBCE;  /* neutral — light text on dark + disabled fill (see above) */
   --m-mulberry-4:  #ECEDEE;  /* neutral — pairs with -3 */
@@ -1810,7 +1810,7 @@ html.dark {
   --m-slate-3:    #9A958C;
   --m-slate-4:    #6A665E;   /* decorative only, as in light */
 
-  --m-orange:     rgb(var(--color-terracotta)); /* #CBA766 */
+  --m-orange:     rgb(var(--color-terracotta));
   --m-orange-2:   #E2C98B;
   --m-orange-3:   #A9834B;
   --m-orange-4:   #3C3324; /* gold at 18 % over the frame */
@@ -3870,7 +3870,7 @@ input[type='range'].sn-shake::-moz-range-thumb { animation: sn-m-shake var(--sn-
   --sn-line:       var(--m-line);
   --sn-ink-300:    #A09A8E;
   --sn-ink-500:    var(--m-slate-2);
-  --sn-ink-700:    rgb(var(--color-ink-2)); /* = #3A382F */
+  --sn-ink-700:    rgb(var(--color-ink-2));
   --sn-ink-900:    #1B1A17;
   --sn-ink-black:  #17160F;
 

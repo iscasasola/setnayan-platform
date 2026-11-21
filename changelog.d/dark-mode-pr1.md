@@ -59,3 +59,5 @@ SPEC IMPACT: None new — the approval and the drawing are already in the corpus
 row). `docs/design-token-map.md` carries the job → token table. One naming note for the corpus: the drawing's
 table called the frame `--color-frame` and the decision `--color-decision`; the app already had `--color-raised`
 and `--color-mulberry` for exactly those jobs, so those names stand (owner 14 Nov, "keep house names").
+
+- 21 Nov: 22 pointer lines in `globals.css` lose a trailing comment that only repeated the colour they point at (−332 B; 705 B headroom under the 645,000 ceiling).

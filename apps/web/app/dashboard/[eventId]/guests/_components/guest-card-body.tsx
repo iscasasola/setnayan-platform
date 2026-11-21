@@ -33,7 +33,8 @@ import {
 import { choicesOfTitle, genderOfTitle, needsWomanOrMan, titleButtonText, titleChoices, titleKey } from '@/lib/guest-title';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
-import { GuestCallButtons } from './guest-call-buttons';
+import { GuestCallButtons, GuestCallQuick } from './guest-call-buttons';
+import { GuestCardOpenRow, GuestQuickRow } from './guest-card-quick';
 import { FormPick, FormSplitPick } from './card-fields';
 import { GROUP_OWN_HEADING, GROUP_STANDARD_HEADING, ROLE_DONE_NOTE, rolePillWord } from '@/lib/guest-group-role-pick';
 import { groupLabelWithSide, sidesForNamesakes } from '@/lib/groups-for-side';
@@ -92,6 +93,20 @@ import { NotCountedResult } from './not-counted-result';
  * "Open full details" — a page navigation to change one RSVP. Owner, verbatim:
  * *"can we just open all of these in one pop up (mobile) and a window opens
  * from the right for desktop? so less clicks easier access."*
+ *
+ * ── THE 20 NOV 2026 CARD (owner: "Yes, build it"; drawing `guests_redesign_2026-11-20_fable.html` § 3) ──────────────
+ * The arrangement below was RE-DRAWN, nothing in it re-made:
+ *   TOP    four quick actions with words — Send invite (the card's ONE send) · Call ("Add mobile" until there is one) ·
+ *          Seat · Note — then "Their ticket", ONE row with its state in words; NFC · New QR · Unlink account are
+ *          labelled buttons inside the opened ticket (no ⋯).
+ *   then three short groups, in sentence case:
+ *     About          Name and contact (was Basic Info) · Role and group (Details) · Plus-ones (Additional Guests)
+ *     For the event  Reply (RSVP Status) · Seat (Seat Plan) · Photos (Papic) · Notes (Note for them · Private note) · Access
+ *     More           ONE row that opens: Not counted for · Passed away · Reset or delete — each with its ⓘ
+ *   Missing things show in colour ("Add a mobile"); filled things stay grey. EVERY FIELD INSIDE EACH ROW IS UNCHANGED —
+ *   the rows kept their handles (`handle`), open in place and save by themselves; the posted form is byte-for-byte the
+ *   golden (`the-card-posts-the-same-form.test.ts`). On a phone the card rises full screen (`guest-card-rise.tsx`).
+ *   🔒 the-guest-card-is-the-20-nov-card.test.ts. What follows is the history the rows came from.
  *
  * ── The arrangement (owner 2026-09-30, the approved Fable designs) ──────────
  * `Setnayan-specs/prototypes/guest_card_invite_simple_2026-09-30_fable.html` +
@@ -379,10 +394,11 @@ export function GuestCardBody({
   /* 📱 BASIC INFO IS CLOSED, AND STILL SAYS HOW TO REACH THEM (owner, live iPhone test 2026-10-02: "the guest's mobile number
      is hard to find on the guest card"): the mobile is the row's own summary, beside their title. */
   const basicSummary = [guest.name_prefix?.trim() ? titleText : null, guest.mobile?.trim() || null].filter(Boolean).join(' · ') || null;
+  /* "Best man · Friends" (drawing § 3): the role first, then their groups. The side left this line — it is in the card's
+     head, under the name, and still set inside this row. */
   const detailsSummary = [
-    hasSides ? SIDE_LABELS[guest.side] : null,
-    [GROUP_CATEGORY_LABELS[guest.group_category], ...customGroups.map((g) => g.label)].join(' · '),
     isCouple ? `${roleWord} · locked` : rolesWords,
+    [GROUP_CATEGORY_LABELS[guest.group_category], ...customGroups.map((g) => g.label)].join(' · '),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -467,8 +483,41 @@ export function GuestCardBody({
   const ownGroups = groupChoices ? groupChoices.options : null;
   const ownPicked = groupChoices ? groupChoices.options.map((g) => g.groupId).filter((id) => groupChoices.memberIds.includes(id)) : [];
 
+  /* ⚡ THE QUICK ACTIONS (drawing § 3, 20 Nov 2026) after Send invite: Call — "Add mobile" until there is one — · Seat · Note.
+     Each only opens the row that already holds it (`guest-card-quick.tsx`). None for a guest who passed away. */
+  const quick = away ? null : (
+    <>
+      <GuestCallQuick mobile={guest.mobile} name={name} />
+      <GuestCardOpenRow row="seat" name={name} />
+      <GuestCardOpenRow row="note" name={name} />
+    </>
+  );
+  /* 🎟 "Their ticket" — ONE row, its state in words; NFC · New QR · Unlink account are labelled buttons inside it (`more`). */
+  const ticketRow = (status?: string) =>
+    away ? null : TicketThumb ? (
+      <TicketThumb
+        guestId={guest.guest_id}
+        name={name}
+        available={hasTicket}
+        version={ticketVersion ?? undefined}
+        tools={more}
+        status={status}
+        about={isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
+      />
+    ) : hasTicket ? (
+      // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
+      <img
+        src={`${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guest.guest_id)}`}
+        alt={`${name}'s ticket`}
+        width={92}
+        height={123}
+        loading="lazy"
+        className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-white object-cover ring-1 ring-ink/10"
+      />
+    ) : null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-guest-card-root="">
       {errorMessage ? (
         <p
           role="alert"
@@ -538,47 +587,19 @@ export function GuestCardBody({
         </div>
       </div>
 
-      {/* ── TOP · their ticket, Invite · ⋯, the status line ─────────────────
-          Outside the autosave form: Invite and ⋯ bring their own actions.
-          `data-menus-open-below` (lib/menu-place.ts): the Invite and ⋯ lists
-          open UNDER this row and inside the card's edges, so neither covers
-          the ticket, "Tap to view" or the status line (owner 2026-10-04). */}
-      <section className="flex items-start gap-3.5 pb-1" data-guest-card-top="" data-menus-open-below="">
-        {/* 🕯 No ticket, no Invite, no ⋯ (Write to NFC · New QR) for a guest who passed away — the status line stays. */}
-        {away ? null : TicketThumb ? (
-          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} version={ticketVersion ?? undefined} />
-        ) : hasTicket ? (
-          // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
-          <img
-            src={`${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guest.guest_id)}`}
-            alt={`${name}'s ticket`}
-            width={92}
-            height={123}
-            loading="lazy"
-            className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-white object-cover ring-1 ring-ink/10"
-          />
-        ) : null}
-        <div className="min-w-0 flex-1 space-y-2">
-          {away ? null : (
-          <div>
-            {/* ⚖ ONE LABEL STYLE ON THE CARD (owner 2026-10-04): every section
-                label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
-                the guest's own tab on the Event Hub — a host reading this card
-                does not know that name, so it says where they see it. */}
-            {/* 🎟 "What they see on their phone" lives in the ⓘ beside the eyebrow now (owner 2026-10-27, prototype
-                `send_run_simple_2026-10-27` frame card) — the row under it is Share · NFC · New QR · ⋯. */}
-            <InfoTip label="Their ticket" labelAs="p" labelClassName="sn-eye" align="start">
-              {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
-            </InfoTip>
-          </div>
-          )}
+      {/* ── TOP · WHAT YOU DO MOST (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes, build it" 20 Nov
+          2026): four quick actions with words — Send invite · Call · Seat · Note — then "Their ticket", ONE row you tap to
+          view, with its state in words. Outside the autosave form: Send invite and the ticket's buttons bring their own
+          actions. `data-menus-open-below` (lib/menu-place.ts): the invite list opens UNDER this block, inside the card. */}
+      <section className="space-y-3 pb-1" data-guest-card-top="" data-menus-open-below="">
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
               do not invite themselves. */}
           {inviteSetup && SendInvite && !guest.passed_away && !isCouple ? (
             <SendInvite
               eventId={eventId}
               layout="card"
-              more={more}
+              quick={quick}
+              ticket={ticketRow()}
               linked={linked}
               guest={{
                 guestId: guest.guest_id,
@@ -594,29 +615,43 @@ export function GuestCardBody({
               template={inviteSetup.template}
             />
           ) : (
-            <div className="space-y-1">
-              {away ? null : more}
-              <p className="text-xs text-ink/60" data-guest-invite-status="">
-                {[
+            (() => {
+              const words =
+                [
                   linked === null ? null : linked ? '✓ Linked' : 'Not linked',
                   isCouple ? hostWord : guest.passed_away ? 'Not sent · passed away' : null,
                 ]
                   .filter(Boolean)
-                  .join(' · ') || '—'}
-              </p>
-              {/* 🪪 The creator's own unlinked bride / groom row (owner 2026-10-04):
-                  one action, in place — it attaches the creator's membership to
-                  this row (claim_my_couple_row re-checks everything). */}
-              {offersThisIsMe ? (
-                <form action={releaseAction} data-this-is-me="">
-                  <input type="hidden" name="this_is_me" value="1" />
-                  <input type="hidden" name="return_to" value={returnTo} />
-                  <K.Submit pendingLabel="Saving…">This is me</K.Submit>
-                </form>
-              ) : null}
-            </div>
+                  .join(' · ') || '—';
+              const row = ticketRow(words);
+              return (
+                <div className="space-y-3">
+                  {/* No Send invite here (a host — nothing to send): the other quick actions keep the row. */}
+                  {quick ? <GuestQuickRow>{quick}</GuestQuickRow> : null}
+                  {row}
+                  {/* With no ticket row to hold them (🕯 or a surface that hands no ticket), the words stand as a line. */}
+                  {row && TicketThumb ? null : (
+                    <div className="space-y-1">
+                      {away || TicketThumb ? null : more}
+                      <p className="text-xs text-ink/60" data-guest-invite-status="">
+                        {words}
+                      </p>
+                    </div>
+                  )}
+                  {/* 🪪 The creator's own unlinked bride / groom row (owner 2026-10-04):
+                      one action, in place — it attaches the creator's membership to
+                      this row (claim_my_couple_row re-checks everything). */}
+                  {offersThisIsMe ? (
+                    <form action={releaseAction} data-this-is-me="">
+                      <input type="hidden" name="this_is_me" value="1" />
+                      <input type="hidden" name="return_to" value={returnTo} />
+                      <K.Submit pendingLabel="Saving…">This is me</K.Submit>
+                    </form>
+                  ) : null}
+                </div>
+              );
+            })()
           )}
-        </div>
       </section>
 
       {/* ══ THE GROUPS — ONE list, a divider between them, no box around any (owner's order, 2026-10-23) ════════════════
@@ -632,7 +667,15 @@ export function GuestCardBody({
         {isCouple ? <input type="hidden" name="plus_one_count" value={String(seats)} /> : null}
         <div className="border-t border-ink/10">
           {/* ── BASIC INFO — the name and the mobile, CLOSED (owner 2026-10-23); the mobile is its summary ──────── */}
-          <K.Fold summary="Basic Info" value={basicSummary} emptyValue="Add a mobile">
+          {/* 🗂 THREE SHORT GROUPS — About · For the event · More (drawing § 3, 20 Nov 2026), in plain sentence case. The rows
+              kept their handles (`handle`) and every field inside them; only their words changed: Basic Info → Name and
+              contact · Details → Role and group · Additional Guests → Plus-ones · RSVP Status → Reply · Seat Plan → Seat ·
+              Papic → Photos · Note for them · Private note → Notes. */}
+          <p className="sn-eye px-0.5 pb-1 pt-4" data-card-group="about">
+            About
+          </p>
+          {/* 🎨 Missing shows in colour: with no mobile the row says "Add a mobile", in the accent; filled, it is grey. */}
+          <K.Fold summary="Name and contact" handle="Basic Info" value={guest.mobile?.trim() ? basicSummary : null} emptyValue="Add a mobile" missing={!guest.mobile?.trim()}>
             {/* 🪪 A +1 seat's name boxes may post empty — `updateGuest` then asks the row (`plusOneNameSave`). */}
             {isSeat ? <input type="hidden" name="plus_one_seat" value="1" /> : null}
             {/* 🔒 A linked person keeps their own name — a plus-one who linked
@@ -704,7 +747,7 @@ export function GuestCardBody({
           </K.Fold>
 
           {/* ══ 2 · DETAILS — side, ONE group dropdown, ONE role dropdown ═════════════════════════════════════════ */}
-          <K.Fold summary="Details" value={detailsSummary}>
+          <K.Fold summary="Role and group" handle="Details" value={detailsSummary}>
             {hasSides ? (
               <K.Pick
                 name="side"
@@ -808,7 +851,7 @@ export function GuestCardBody({
           <>
           {/* ══ 3 · ADDITIONAL GUESTS — their extra seats and who fills them (out of RSVP, owner 2026-10-23) ══════════ */}
           {isCouple ? null : (
-            <K.Fold summary="Additional Guests" value={extraSummary}>
+            <K.Fold summary="Plus-ones" handle="Additional Guests" value={extraSummary}>
               {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
               {plusOne ? (
                 /* 🚫 A +1 CANNOT HAVE THEIR OWN +1 (owner 2026-10-21) — no Extra seats pick, one quiet line, and 0 is
@@ -873,7 +916,10 @@ export function GuestCardBody({
           {/* ══ 4 · RSVP STATUS — the answer, to what, what they eat, and what they wrote ══════════════════════════════
               🔴 It OPENS BY ITSELF when the guest wrote a note, so a host never has to guess to open it (owner 2026-10-23:
               the note left its block outside the rows for this one; the promise is the same). */}
-          <K.Fold summary="RSVP Status" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
+          <p className="sn-eye px-0.5 pb-1 pt-4" data-card-group="event">
+            For the event
+          </p>
+          <K.Fold summary="Reply" handle="RSVP Status" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
             {isCouple ? (
               <>
                 <p className="text-sm font-medium text-success-800">Attending · always</p>
@@ -986,13 +1032,56 @@ export function GuestCardBody({
             ) : null}
           </K.Fold>
 
+          {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
+          <K.Fold summary="Seat" handle="Seat Plan" value={seatSummary}>
+            {representedBy ? (
+              /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
+              <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">
+                {representedBy.name} sits in this seat — change it on their card.
+              </p>
+            ) : tables && !guest.passed_away && (guest.rsvp_status !== 'declined' || proxy?.namedByGuest) ? (
+              <>
+                <K.Pick
+                  name="table_id"
+                  label="Table"
+                  value={seatTableId ?? ''}
+                  options={[
+                    { key: '', label: 'Not seated' },
+                    ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) })),
+                  ]}
+                />
+                <input type="hidden" name="table_posted" value="1" />
+                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
+                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
+                {seatTableId && data.seatPlaced ? (
+                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
+                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
+                  </p>
+                ) : null}
+                {/* 🪑 Their seat, the way THEY will see it (owner 2026-11-01): the couple's 2D · 3D · Both, their table lit, tap for
+                    full screen — read when drawn, never with the card. */}
+                {seatTableId ? <GuestSeatPreview eventId={eventId} guestId={guest.guest_id} firstName={typedName.first_name || 'They'} /> : null}
+              </>
+            ) : (
+              <p className="text-sm text-ink/70">{seatSummary}</p>
+            )}
+            {/* 👗 NO ATTIRE PICK (owner 2026-10-20: "the attire depends on the dress code of their role"). What they wear
+                in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
+                plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
+            {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
+            {/* 🧍 A proxy arrives at the role's call time — said where it comes from. */}
+            {standingInFor?.callTime ? (
+              <K.Fact field="call_time" label="Call time" value={standingInFor.callTime} where={`From ${standingInFor.name}’s role`} />
+            ) : null}
+          </K.Fold>
+
           {/* ══ 5 · PAPIC — their camera and their face (owner 2026-10-23; today's "Photos" folds in here) ════════════════
               🔒 THE THREE FACE SWITCHES ALWAYS SHOW AND ALWAYS SAVE (owner 2026-10-23, "Always show them"). They are not
               Papic's: they also govern the public story and recap (`consent-veto.ts`) and the withdrawal blur
               (`face-blur.ts`), and `updateGuest` is the ONLY writer of `photo_consent = false` in the product. The event's
               Papic OFF replaces ONLY "Their camera ▾" — with one line, "Papic is off · Turn on ›", whose door lands on the
               switch (`papicSwitchHref`) and is drawn only for a viewer who can press it (`forTheCouple`). */}
-          <K.Fold summary={papicRow ? 'Papic' : 'Photos'} value={papicSummary}>
+          <K.Fold summary="Photos" handle={papicRow ? 'Papic' : 'Photos'} value={papicSummary}>
             {!storeShell && papicRow?.access === 'off' ? (
               <K.Door label="Their camera" value="Papic is off" href={papicRow.door ?? null} action="Turn on" data="card-papic-off" />
             ) : !storeShell && papicRow?.access === 'unknown' ? (
@@ -1038,54 +1127,11 @@ export function GuestCardBody({
             />
           </K.Fold>
 
-          {/* ══ 6 · SEAT PLAN — the table, in place (never "go edit elsewhere") ════════════════════════════════════════ */}
-          <K.Fold summary="Seat Plan" value={seatSummary}>
-            {representedBy ? (
-              /* 🧍 The role's seat moved to the proxy (`the_proxy_takes_the_seat`) — the holder is not seated twice. */
-              <p className="text-sm text-ink/70" data-guest-seat-is-the-proxys="">
-                {representedBy.name} sits in this seat — change it on their card.
-              </p>
-            ) : tables && !guest.passed_away && (guest.rsvp_status !== 'declined' || proxy?.namedByGuest) ? (
-              <>
-                <K.Pick
-                  name="table_id"
-                  label="Table"
-                  value={seatTableId ?? ''}
-                  options={[
-                    { key: '', label: 'Not seated' },
-                    ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) })),
-                  ]}
-                />
-                <input type="hidden" name="table_posted" value="1" />
-                {/* 🪑 Who placed this seat (owner 2026-10-29, lib/seat-why.ts): "You placed Ana here · yesterday" ·
-                    "Auto arrange placed Ana here · today". Not recorded → nothing. */}
-                {seatTableId && data.seatPlaced ? (
-                  <p className="text-xs text-ink/60" data-guest-seat-placed-by={data.seatPlaced.by}>
-                    {seatWhyWords({ placed_by: data.seatPlaced.by, placed_at: data.seatPlaced.at }, typedName.first_name || 'them')}
-                  </p>
-                ) : null}
-                {/* 🪑 Their seat, the way THEY will see it (owner 2026-11-01): the couple's 2D · 3D · Both, their table lit, tap for
-                    full screen — read when drawn, never with the card. */}
-                {seatTableId ? <GuestSeatPreview eventId={eventId} guestId={guest.guest_id} firstName={typedName.first_name || 'They'} /> : null}
-              </>
-            ) : (
-              <p className="text-sm text-ink/70">{seatSummary}</p>
-            )}
-            {/* 👗 NO ATTIRE PICK (owner 2026-10-20: "the attire depends on the dress code of their role"). What they wear
-                in the 3D seat plan is said, read from their role's dress code (`guestOutfitWords`) — where it is set is
-                plain words, never a link. Nothing is posted: `guests.attire` stays as stored. A refused read says nothing. */}
-            {outfit ? <K.Fact field="attire" label="Attire · 3D seat plan" value={outfit.wear} where={outfit.from} /> : null}
-            {/* 🧍 A proxy arrives at the role's call time — said where it comes from. */}
-            {standingInFor?.callTime ? (
-              <K.Fact field="call_time" label="Call time" value={standingInFor.callTime} where={`From ${standingInFor.name}’s role`} />
-            ) : null}
-          </K.Fold>
-
           {/* ══ 7 · NOTE FOR THEM · PRIVATE NOTE — one group, two fields, as the owner wrote it ═══════════════════════════
               💌 The note FOR them (owner 2026-10-20, DECISION_LOG "A NOTE FOR ONE GUEST"): shown on their own Me, under Your
               role — to them and nobody else (`lib/guest-host-note.ts`). Beside it the couple's own, said plainly which one the
               guest reads. */}
-          <K.Fold summary="Note for them · Private note" value={notesSummary} emptyValue="None">
+          <K.Fold summary="Notes" handle="Note for them · Private note" value={notesSummary} emptyValue="None">
             <K.Field
               id="host_note_for_guest"
               long
@@ -1166,6 +1212,21 @@ export function GuestCardBody({
         </K.Fold>
         )}
 
+        {/* ══ MORE — the rare and heavy things, in ONE row that opens (owner-approved drawing `guests_redesign_2026-11-20_fable.html`
+            § 3, "Yes, build it" 20 Nov 2026: *"Rare and heavy things sit under More: Not counted for, Passed away, Reset or
+            delete"* — each with its ⓘ). Moved, not re-made: every control below is the shipped one, and the two that post
+            with the card still do, by `form=` (a closed fold is out of reach, never out of the form). 🕯 It opens by itself
+            for a guest who passed away — the switch that brings them back is the first thing there. ══ */}
+        <K.Fold
+          summary="More"
+          value={
+            isCouple
+              ? 'Can’t be removed'
+              : [guest.passed_away ? null : 'Not counted', 'Passed away', DeleteControl ? (seatWithNoName ? 'Release seat' : 'Delete') : null].filter(Boolean).join(' · ')
+          }
+          open={away}
+          last
+        >
         {/* ══ 8b · NOT COUNTED FOR ▾ — a guest who COMES but is left out of one booked service's headcount (owner 2026-11-02:
             "a dropdown above passed away … it will list all booked services to pick if they are not counted"). Directly ABOVE
             Passed Away and, like it, outside the autosave form, posting with it by `form=`. Ticks keep the list open; Done
@@ -1175,7 +1236,7 @@ export function GuestCardBody({
             read refused, said as such — the row still shows, greyed and unpressable. It posts NOTHING: a decoy name, a
             form id that does not exist, and no NOT_COUNTED_POSTED marker, so no save can clear what is stored. */}
         {!isCouple && !guest.passed_away && (!notCounted || notCounted.services.length === 0) ? (
-          <div aria-disabled="true" className="pointer-events-none select-none border-b border-ink/10 px-0.5 opacity-50" data-card-not-counted-none="">
+          <div aria-disabled="true" className="pointer-events-none select-none opacity-50" data-card-not-counted-none="">
             <K.Pick
               name="not_counted_unavailable"
               label="Not counted for"
@@ -1187,7 +1248,7 @@ export function GuestCardBody({
           </div>
         ) : null}
         {isCouple || guest.passed_away || !notCounted || notCounted.services.length === 0 ? null : (
-          <div className="border-b border-ink/10 px-0.5" data-card-not-counted="">
+          <div data-card-not-counted="">
             {/* 📏 The row FIRST, its marker after it (owner 2026-11-04: "i see a double line in between access and not counted
                 for"): a Form row drops its own top rule only as its box's first child (`first:border-t-0`). Behind the hidden
                 marker it was not first, so its rule drew under Access's — two hairlines. The Pick is the first child of the
@@ -1228,59 +1289,61 @@ export function GuestCardBody({
           /* 📐 THE SWITCH IS THE ROW (owner-approved prototype `guest_card_groups_and_papic_2026-10-23.html`): no fold to open —
              one yes / no, drawn where the row is, a hairline under it like every group — but only while a group follows: the
              Maker's cards hand no Delete, and there the card's own bottom rule is the line (two would touch). */
-          <div className={`${DeleteControl ? 'border-b border-ink/10 ' : ''}px-0.5`} data-card-passed-away="">
+          <div data-card-passed-away="">
             <K.Toggle
               name="passed_away"
               form={formId}
               defaultChecked={guest.passed_away === true}
-              label="Passed Away"
+              label="Passed away"
               note="Kept on the list as “the late …”. Not counted, seated or sent an invitation."
               soft
             />
           </div>
         )}
 
-        {/* ══ 10 · DELETE — its own group at the bottom (out of the ⋯, owner 2026-10-23): the shipped warning, its button the
-            second tap, and Undo. The couple's rows say why they stay. The Maker's cards hand no Delete and draw none. ══ */}
+        {/* ══ RESET OR DELETE — the last row of More (out of the ⋯, owner 2026-10-23; into More, 20 Nov 2026): the shipped
+            warning, its button the second tap, and Undo. The couple's rows say why they stay. A surface that hands no
+            Delete draws none. What each does is the row's ⓘ. ══ */}
         {isCouple ? (
-          <K.Fold summary="Delete" value="Can’t be removed" last danger>
-            <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
-          </K.Fold>
+          <FormRow name="Reset or delete" about={{ words: 'Foundation of the event — can’t be reset or removed.' }} data="card-delete">
+            <span className="min-w-0 truncate text-[14px] text-ink/60">Can’t be removed</span>
+          </FormRow>
         ) : DeleteControl ? (
-          /* 🔄 RESET · DELETE (owner 2026-10-26: "So at the bottom, have (RESET) (DELETE)") — one bottom group, the two
-             buttons side by side. A +1 seat answers through its guest, so its card keeps Delete / Release alone. */
-          <K.Fold
-            summary={canReset ? 'Reset · Delete' : 'Delete'}
-            /* "Can be undone" with Reset beside Delete — one line at 375 and 390; that both ask first is in the ⓘ. */
-            value={seatWithNoName ? 'Release this +1 seat' : canReset ? 'Can be undone' : seats > 0 ? 'Removes them and their +1' : 'Asks first · can be undone'}
-            last
-            danger
-            /* ⓘ Title + one short line visible, what each does inside the ⓘ (house rule, coordinator review of #6937). */
-            tip={
-              seatWithNoName ? undefined : (
-                <span className="block space-y-1.5" data-card-delete-says="">
-                  {canReset ? <span className="block">Both ask first, and both can be undone right after.</span> : null}
-                  {canReset ? (
-                    <span className="block" data-card-reset-says="">
-                      Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
-                    </span>
-                  ) : null}
-                  <span className="block">
-                    {canReset ? 'Delete: ' : null}
-                    {seats > 0
-                      ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
-                      : 'Their QR and link stop working. You can undo it right after.'}
-                  </span>
-                </span>
-              )
+          /* 🔄 RESET OR DELETE (owner 2026-10-26: "(RESET) (DELETE)"; one dropdown since the 20 Nov drawing). A +1 seat
+             answers through its guest, so its card keeps Delete / Release alone. */
+          <FormRow
+            name={seatWithNoName ? 'Release seat' : canReset ? 'Reset or delete' : 'Delete'}
+            data={canReset ? 'card-reset-delete' : 'card-delete'}
+            about={
+              seatWithNoName
+                ? { words: 'Their seat goes at once, and their guest’s +1 count goes down by one. You can undo it right after.' }
+                : {
+                    words: (
+                      <span className="block space-y-1.5" data-card-delete-says="">
+                        {canReset ? <span className="block">Both ask first, and both can be undone right after.</span> : null}
+                        {canReset ? (
+                          <span className="block" data-card-reset-says="">
+                            Reset: Their reply and what they typed in it are cleared, as if never opened. Their link, QR and seat stay.
+                          </span>
+                        ) : null}
+                        <span className="block">
+                          {canReset ? 'Delete: ' : null}
+                          {seats > 0
+                            ? 'Their QR and link stop working. Their +1’s seat goes too. You can undo it right after.'
+                            : 'Their QR and link stop working. You can undo it right after.'}
+                        </span>
+                      </span>
+                    ),
+                  }
             }
           >
-            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), now inside the ⓘ — all but its last
-                clause: the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX
-                SECONDS (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
+            {/* The prototype's words (`guest_card_groups_and_papic_2026-10-23.html`), inside the ⓘ — all but its last clause:
+                the prototype says "This can be undone for a day", and the shipped Undo is the toast's, open for SIX SECONDS
+                (`undo-store.ts` UNDO_WINDOW_MS). A promise of a day would be false, so it says what is true. */}
             <DeleteControl eventId={eventId} guestId={guest.guest_id} guestName={name} seatWithNoName={seatWithNoName} resettable={canReset} />
-          </K.Fold>
+          </FormRow>
         ) : null}
+        </K.Fold>
       </div>
     </div>
   );

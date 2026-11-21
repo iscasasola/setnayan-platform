@@ -15,6 +15,11 @@ import {
   clearIntegrationSecretColumns,
   CONSOLE_SAVE_NOTE,
 } from '@/lib/integrations/write';
+import { resolveMayaConfig } from '@/lib/integration-config';
+import { registerMayaWebhooks } from '@/lib/maya-checkout.server';
+import { mayaEnvironment } from '@/lib/maya-checkout';
+import { siteOrigin } from '@/lib/site-origin';
+import { routes } from '@/lib/routes';
 
 // Integration Activation Console — PR1 (email slice) · server actions.
 //
@@ -30,7 +35,7 @@ import {
 // actions keep the console's own concerns: the allowlist lookup, the non-secret
 // config columns on platform_settings, and where to redirect afterwards.
 
-async function requireAdmin(): Promise<void> {
+async function requireAdmin(): Promise<{ userId: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -44,6 +49,7 @@ async function requireAdmin(): Promise<void> {
   if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
     throw new Error('Forbidden');
   }
+  return { userId: user.id };
 }
 
 export async function saveResendConfig(formData: FormData): Promise<void> {
@@ -227,7 +233,9 @@ export async function clearResendKey(): Promise<void> {
 // keep current); the endpoint is non-secret config (blank = clear → env fallback).
 
 export async function saveMayaConfig(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const { userId: adminUserId } = await requireAdmin();
+  // 💳 "Register webhooks" on the same card (owner 2026-11-21) — an intent, not a new server action.
+  if (formData.get('intent') === 'register_webhooks') return registerMayaWebhooksFromCard(adminUserId);
   const admin = createAdminClient();
 
   // Non-secret config → platform_settings. Written UNCONDITIONALLY each save
@@ -269,6 +277,27 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
 
   revalidatePath('/admin/integrations');
   redirect('/admin/integrations?saved=1');
+}
+
+/**
+ * Register our webhook URL with Maya for every PAYMENT_* event, with the SECRET
+ * key, against the environment the saved endpoint names (sandbox or production —
+ * Maya keeps them apart, so production needs its own press). Audited.
+ */
+async function registerMayaWebhooksFromCard(adminUserId: string): Promise<never> {
+  const config = await resolveMayaConfig();
+  const callbackUrl = `${siteOrigin()}${routes.api.webhooks.maya()}`;
+  const res = await registerMayaWebhooks(config, callbackUrl);
+  const { error: auditErr } = await createAdminClient().from('admin_audit_log').insert({
+    action: 'maya_webhooks_registered',
+    actor_user_id: adminUserId,
+    metadata: res.ok
+      ? { ok: true, registered: res.registered, kept: res.kept, environment: mayaEnvironment(config.checkoutEndpoint) }
+      : { ok: false, reason: res.reason },
+  });
+  if (auditErr) console.error('[registerMayaWebhooks] audit insert failed (non-fatal):', auditErr);
+  revalidatePath('/admin/integrations');
+  redirect(`/admin/integrations?maya_webhooks=${res.ok ? 'ok' : res.reason}`);
 }
 
 export async function clearMayaSecrets(): Promise<void> {

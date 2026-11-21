@@ -62,11 +62,16 @@ import {
   type ChannelSettings,
   type ReceivingAccount,
 } from '@/lib/payment-channels';
+import { isMayaPayment } from '@/lib/maya-checkout';
+
 import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
 import { randomUUID } from 'node:crypto';
 import { computeVatFromBase } from '@/lib/receipts';
 import { formatCount } from '@/lib/format-number';
 import type { RemedyDesk, RemedyDeskRow } from '@/lib/admin/service-remedies.server';
+
+/** 💳 A payment Maya's API confirmed (owner 2026-11-21) — the Maya id is its reference. */
+const MAYA_TAG = 'Paid via Maya';
 
 export type Filter = 'pending' | 'all' | 'orders_needing_quote';
 
@@ -641,7 +646,7 @@ export function PaymentsList({
                   openHref={deskHref({ ...here, open: d.p.payment_id })}
                   query={query}
                   what={whatTheyBought(d.p, deskBills)}
-                  channel={channelLabel(channelSettings, d.p.channel)}
+                  channel={isMayaPayment(d.p.channel) ? MAYA_TAG : channelLabel(channelSettings, d.p.channel)}
                   verdict={rowVerdict(d.p, deskBills)}
                   read={receiptReads[d.p.payment_id]}
                   age={ageShort(d.p.created_at, nowMs)}
@@ -681,7 +686,9 @@ export function PaymentRow({
   age: string | null;
 }) {
   const { p, decisive, sameDay, dup } = d;
-  const ref = p.reference_number ? `ref ···${p.reference_number.slice(-4)}` : 'no reference given';
+  const ref = p.reference_number
+    ? `${isMayaPayment(p.channel) ? 'Maya id' : 'ref'} ···${p.reference_number.slice(-4)}`
+    : 'no reference given';
   const aiSays =
     read?.status === 'ok'
       ? read.reference_matches === false || read.amount_matches === false
@@ -893,7 +900,7 @@ export function OpenedPayment({
           {(
             [
               ['Amount', <span key="a" className={TEMPLATE_MONEY}>{formatPhp(p.amount_php)}</span>],
-              ['Channel', channelLabel(channelSettings, p.channel)],
+              ['Channel', isMayaPayment(p.channel) ? MAYA_TAG : channelLabel(channelSettings, p.channel)],
               ['Platform', platformWord],
               ['Reference', <span key="r" className="tabular-nums">{p.reference_number ?? '—'}</span>],
               // 🧾 RW-37: a bill's own placeholder row (no reference, no screenshot) is not a payment — say so.

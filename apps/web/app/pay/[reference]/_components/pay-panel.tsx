@@ -99,6 +99,7 @@ export function PayPanel({
   summary,
   initialStage,
   carryQuery,
+  maya,
 }: {
   /**
    * TRUE on the render right after we asked them to check their reference
@@ -134,6 +135,8 @@ export function PayPanel({
   initialStage: PayStage;
   /** Every other query parameter this page was opened with — see `stageHref`. */
   carryQuery: Record<string, string | undefined>;
+  /** 💳 The "Pay with card or Maya" button, server-rendered — null when that rail is off. */
+  maya?: ReactNode;
 }) {
   // The first OPEN account in the admin's order. GCash leads by default: a
   // GCash payer sends for free, a bank transfer into BDO costs them ₱10–15 in
@@ -302,6 +305,8 @@ export function PayPanel({
               />
             </>
           )}
+
+          {maya}
 
           <p className="mt-4 text-xs leading-relaxed text-ink/70">
             Paying on the same phone? Save the code to your photos first.{' '}

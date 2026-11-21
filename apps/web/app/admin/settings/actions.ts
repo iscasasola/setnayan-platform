@@ -506,6 +506,8 @@ export async function savePaymentInstruments(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
 
   const intent = formData.get('intent');
+  // 💳 The Maya Checkout switch (owner 2026-11-21) — saves at once, like an account's own switch.
+  if (intent === 'maya_checkout_toggle') return saveMayaCheckoutSwitch(adminUserId, formData);
   if (
     intent === 'account_save' ||
     intent === 'account_toggle' ||
@@ -583,6 +585,31 @@ export async function savePaymentInstruments(formData: FormData) {
   revalidatePath(PAYMENT_METHODS_PATH);
   revalidatePath('/receipts', 'layout');
   redirect(`${PAYMENT_METHODS_PATH}?saved=1`);
+}
+
+/**
+ * 💳 Turn the Maya Checkout rail on or off (`platform_settings.maya_checkout_enabled`,
+ * migration 20271356998019). Not a destination change — the money lands in the
+ * owner's own Maya merchant account either way — so it never waits on a second
+ * admin, exactly like an account's own switch. Audited.
+ */
+async function saveMayaCheckoutSwitch(adminUserId: string, formData: FormData): Promise<never> {
+  const enabled = formData.get('enabled') === '1';
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('platform_settings')
+    .update({ maya_checkout_enabled: enabled, updated_at: new Date().toISOString() })
+    .eq('id', 1);
+  revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(plainRefusal('AdminSettingsActions', error))}`);
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: enabled ? 'maya_checkout_enabled' : 'maya_checkout_disabled',
+    actor_user_id: adminUserId,
+    metadata: { maya_checkout_enabled: enabled },
+  });
+  if (auditErr) console.error('[saveMayaCheckoutSwitch] audit insert failed (non-fatal):', auditErr);
+  revalidatePath(PAYMENT_METHODS_PATH);
+  return backToPaymentMethods('saved=1');
 }
 
 /** The two migrated rails' own QR columns — kept in step with the list. */

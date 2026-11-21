@@ -20,6 +20,7 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { removeMerchantQr, savePaymentInstruments } from '../actions';
+import { MayaRailSwitch } from './_components/maya-rail-switch';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 export const metadata = { title: 'Payment methods · Admin' };
@@ -288,6 +289,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           </p>
         </form>
       </section>
+
+      {/* ── 💳 CARD OR MAYA (owner 2026-11-21) — an extra rail, off by default ── */}
+      <MayaRailSwitch locked={settingsReadFailed} />
 
       {/* ── MONTHLY LIMITS (GCash + BDO only — their columns predate the list) ── */}
       {cappedRails.length > 0 ? (

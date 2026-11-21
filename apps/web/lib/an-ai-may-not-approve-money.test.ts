@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -198,4 +198,71 @@ test('the message tells them to attach the picture again', () => {
     /formData\.get\('setup'\) === '1' \? '&setup=1'/,
     'a recheck now drops the buyer out of the set-up flow',
   );
+});
+
+/*
+ * ── ⚠ AMENDED DELIBERATELY: A GATEWAY MAY APPROVE — AN AI STILL MAY NOT ──────
+ * Owner 2026-11-21 (Setnayan-specs DECISION_LOG "MAYA CHECKOUT — BUILD IT",
+ * rule 5): a Maya Checkout payment approves itself ONLY when Maya's own API,
+ * called server-side with our SECRET key, confirms PAYMENT_SUCCESS for this
+ * order's exact reference and amount. That is a payment processor's ledger
+ * answering about money it holds — not a model reading a picture. So ONE
+ * allow-listed caller may pass `gateway: 'maya'` to `approvePaymentCore`, and
+ * every rule above still binds the whole Maya path: no receipt reader, no
+ * advisory table. Nothing here relaxes a single line above it.
+ */
+const GATEWAY_GATES = [
+  'lib/maya-checkout.ts', // judgeMayaPayment — the only "paid" verdict
+  'lib/maya-settle.ts', // the decision: verify → judge → approve or queue
+  'lib/maya-api.ts', // Maya's API, secret key
+  'lib/maya-checkout.server.ts', // the real wiring
+  'app/admin/payments/maya.ts', // the ONE gateway caller of approvePaymentCore
+  'app/api/webhooks/maya/route.ts', // hints only
+  'app/pay/[reference]/maya-return.ts', // hints only
+] as const;
+
+/** The one file allowed to pass `gateway:` to approvePaymentCore. */
+const GATEWAY_CALLER = 'app/admin/payments/maya.ts';
+
+test('the Maya path is a money gate too — no receipt reader, no advisory table', () => {
+  for (const f of GATEWAY_GATES) {
+    const src = stripComments(read(f));
+    assert.equal(/payment-receipt-read/.test(src), false, `${f} reaches the receipt reader — a gateway approval must not depend on a model.`);
+    assert.equal(/payment_receipt_reads/.test(src), false, `${f} reads what a model saw.`);
+  }
+});
+
+test('only the allow-listed gateway caller passes `gateway:` to approvePaymentCore', () => {
+  const hits: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(join(WEB, dir))) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const rel = `${dir}/${name}`;
+      if (statSync(join(WEB, rel)).isDirectory()) walk(rel);
+      else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
+        const src = stripComments(read(rel));
+        if (/\bgateway:\s*['"]/.test(src)) hits.push(rel);
+      }
+    }
+  };
+  walk('app');
+  walk('lib');
+  assert.deepEqual(hits, [GATEWAY_CALLER], `gateway approvals now come from ${hits.join(', ')}`);
+});
+
+test('the gateway caller approves only through the settle path, which asks Maya first', () => {
+  const caller = stripComments(read(GATEWAY_CALLER));
+  assert.match(caller, /settleMayaPayment\(/, 'the gateway caller no longer routes through settleMayaPayment');
+  const settle = stripComments(read('lib/maya-settle.ts'));
+  const verify = settle.indexOf('deps.verifyById(');
+  const judge = settle.indexOf('judgeMayaPayment(');
+  const approve = settle.indexOf('deps.approve(');
+  assert.ok(verify > 0 && judge > 0 && approve > 0, 'verify, judge and approve must all be in the settle path');
+  assert.ok(verify < approve && judge < approve, 'settle approves before it has asked Maya and judged the answer');
+  // The webhook and the return pass hints, never a verdict, and never reach the core themselves.
+  for (const door of ['app/api/webhooks/maya/route.ts', 'app/pay/[reference]/maya-return.ts']) {
+    const src = stripComments(read(door));
+    assert.equal(/approvePaymentCore/.test(src), false, `${door} calls approvePaymentCore directly`);
+    assert.match(src, /settleMaya\(/, `${door} no longer goes through settleMaya`);
+  }
 });

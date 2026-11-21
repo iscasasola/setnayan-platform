@@ -21,6 +21,8 @@ import { openAccounts } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
+import { MayaPayButton } from './_components/maya-pay-button';
+import { mayaPayState } from './maya-return';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -53,6 +55,8 @@ type Props = {
     setup?: string;
     /** Which of the three stages to paint — see lib/pay-stages.ts. */
     step?: string;
+    /** 💳 Back from Maya's hosted page: success | failure | cancel. */
+    maya?: string;
   }>;
 };
 
@@ -69,6 +73,11 @@ export default async function PayPage({ params, searchParams }: Props) {
   if (user.is_anonymous) {
     redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
   }
+
+  // 💳 Back from Maya: on `success` the payment is re-verified with Maya's API
+  // BEFORE the order is read (the webhook may be late), so a confirmed payment
+  // paints as Paid on this very render. Hints only — see ./maya-return.ts.
+  const maya = await mayaPayState(decodeURIComponent(reference), search.maya);
 
   const payable = await fetchPayableByReference(
     supabase,
@@ -414,6 +423,9 @@ export default async function PayPage({ params, searchParams }: Props) {
       {search.error && (
         <p role="alert" className="mt-4 text-sm font-medium text-danger-700">{search.error}</p>
       )}
+      {maya.line && !waiting && (
+        <p role="status" data-pay-maya-line="" className="mt-4 text-sm text-ink/75">{maya.line}</p>
+      )}
 
       {/*
         THE ONE ASK. The reference they typed was not on the picture they sent,
@@ -546,6 +558,7 @@ export default async function PayPage({ params, searchParams }: Props) {
           error: search.error,
           recheck: search.recheck,
         }}
+        maya={(await maya.railOpenFor(payable.amountPhp)) ? <MayaPayButton reference={payable.reference} /> : null}
       />
       )}
     </main>

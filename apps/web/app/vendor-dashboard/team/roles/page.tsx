@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { BackButton } from '@/app/_components/back-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchTeamManagerContext, fetchVendorRoleNames } from '@/lib/vendor-team';
@@ -39,9 +40,7 @@ type Search = { saved?: string; error?: string };
 export default async function TeamRolesPage({ searchParams }: { searchParams: Promise<Search> }) {
   const search = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   if (!user) redirect('/login');
 
   const [ctx, standing] = await Promise.all([

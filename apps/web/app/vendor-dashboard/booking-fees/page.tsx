@@ -66,8 +66,8 @@ export default async function VendorBookingFeesPage() {
   const feeSchedule = await getLiveBookingFeeSchedule();
   // 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings, never typed.
   const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
-  // 📅 The new-client window (owner 2026-11-16), named with its length from settings — the supplier's own app only.
-  // Unread → no line (never a guessed number).
+  // 📅 The new-client window (owner 2026-11-16, #8086), named with its length from settings — the supplier's own app
+  // only. Unread → no line (never a guessed number).
   const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);
 
   return (

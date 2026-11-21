@@ -54,9 +54,9 @@ export function BookingFeesBody({
   waived: readonly WaivedFeeCharge[] | null;
   schedule: BookingFeeSchedule | null;
   launchLine: string | null;
-  /** The new-client window line (`feeNewClientLine`), or null when the setting was not read. */
+  /** 📅 #8086: the new-client free window, from settings. null = unread or unset → no line. */
   newClientLine?: string | null;
-  /** The in-app free rule for the empty state's ⓘ (`feeFreeRuleInApp`); omitted → the component's own words. */
+  /** #8086: the in-app free rule the empty state's fee line carries. */
   freeRule?: string;
 }) {
   return (
@@ -69,8 +69,6 @@ export function BookingFeesBody({
         </PartText>
       ) : null}
 
-      {/* 📅 The new-client window (owner 2026-11-16, #8086), its length read from settings — the supplier's own app
-          only. Unread → no line, never a guessed number. */}
       {newClientLine ? (
         <PartText>
           <span data-fees-new-client-window="">
@@ -105,8 +103,8 @@ export function BookingFeesBody({
       ) : orders.length === 0 ? (
         <PartNote tone="plain" icon={ReceiptText}>
           <strong>Nothing to pay yet.</strong>{' '}
-          <BookingFeeLine fee={schedule} leadStyle={{ color: 'rgb(var(--color-ink))' }} freeRule={freeRule} /> A free
-          booking fee ticket pays your next fee by itself.
+          <BookingFeeLine fee={schedule} leadStyle={{ color: 'rgb(var(--color-ink))' }} freeRule={freeRule} /> A free booking fee ticket pays
+          your next fee by itself.
         </PartNote>
       ) : (
         <>

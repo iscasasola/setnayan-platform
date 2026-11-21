@@ -25,6 +25,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ALL_BLOG_ARTICLES } from '@/lib/blog';
+import { JOURNAL_EDITS_AFTER_IMPORT } from '@/lib/journal-edits-after-import';
 import {
   ARTICLE_TAGS_MAX,
   JOURNAL_SLUGS,
@@ -111,11 +112,39 @@ test('6 · the committed import migration is exactly what the corrected source g
   );
   assert.equal(
     fs.readFileSync(file, 'utf8'),
-    journalImportSql(ALL_BLOG_ARTICLES),
+    journalImportSql(ALL_BLOG_ARTICLES.map(asImported)),
     'a post changed and the import did not. Before it reaches production: (cd apps/web && npx tsx ' +
       'scripts/gen-journal-import.ts --write). AFTER it has been applied in production, write a NEW migration ' +
       '(an UPDATE) instead — an applied migration is never edited.',
   );
+});
+
+const D = '$';
+/** The source as the import saw it: every edit made after the import (`JOURNAL_EDITS_AFTER_IMPORT`) undone. */
+function asImported<T extends { slug: string }>(article: T): T {
+  const esc = (t: string) => JSON.stringify(t).slice(1, -1);
+  let json = JSON.stringify(article);
+  for (const e of JOURNAL_EDITS_AFTER_IMPORT) {
+    if (e.slug === article.slug) json = json.split(esc(e.to)).join(esc(e.from));
+  }
+  return JSON.parse(json) as T;
+}
+
+test('6b · every edit made after the import is in the source, and its NEW migration makes the same edit in production', async () => {
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  assert.ok(JOURNAL_EDITS_AFTER_IMPORT.length > 0);
+  for (const e of JOURNAL_EDITS_AFTER_IMPORT) {
+    const article = ALL_BLOG_ARTICLES.find((a) => a.slug === e.slug);
+    assert.ok(article, `${e.slug}: no such post in the source`);
+    const text = JSON.stringify(article);
+    assert.ok(text.includes(JSON.stringify(e.to).slice(1, -1)), `${e.slug}: the source does not carry the edit`);
+    assert.ok(!text.includes(JSON.stringify(e.from).slice(1, -1)), `${e.slug}: the source still carries the old text`);
+    const sql = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations', e.migration), 'utf8');
+    assert.ok(sql.includes(`${D}old${D}${e.from}${D}old${D}`), `${e.migration}: does not replace exactly the old text`);
+    assert.ok(sql.includes(`${D}new${D}${e.to}${D}new${D}`), `${e.migration}: does not write exactly the new text`);
+    assert.ok(sql.includes(`slug = '${e.slug}'`), `${e.migration}: is not scoped to ${e.slug}`);
+  }
 });
 
 test('7 · Q4: no post carries a typed money figure (never guess money — "ask 3 suppliers for a quote")', () => {

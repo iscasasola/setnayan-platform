@@ -277,7 +277,7 @@ export default async function SupplierChatLabPage({
             eventName={picked.name}
             menu={pickedMenuFor(true)}
             initialPage={page}
-            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? { oneChat: sp.one } : {}) })}
+            bodies={labPickedClientBodies(picked.threadId, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? { oneChat: sp.one } : {}) , ...(sp.whisper === '1' ? { whisper: 'on' as const } : sp.whisper === 'fail' ? { whisper: 'fail' as const } : {}) })}
             // 💬 `&one=booked|asking|failed` — the one chat that holds everything (19 Nov 2026), on sample facts: the
             // REAL strip rules (`chatStrip`) and the real strip, the suggested step and the inquiry facts.
             {...(sp.one === 'booked' || sp.one === 'asking' || sp.one === 'failed' ? labOneChat(sp.one, picked.threadId) : {})}

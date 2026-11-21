@@ -25,6 +25,7 @@ import { maybeRunTopUpUnlist } from '@/lib/booking-fee-top-up.server';
 import { maybeRunSupplierPagePublish } from '@/lib/supplier-page-notice.server';
 import { maybeRefillPriceBands } from '@/lib/price-band-refill.server';
 import { countUnread } from '@/lib/notifications';
+import { deliverDueChatReminders } from '@/lib/chat-reminders.server';
 import { countUnreadMessages } from '@/lib/chat';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placeWhoFromSwitcher } from '@/lib/notification-place';
@@ -256,7 +257,8 @@ export default async function VendorDashboardLayout({
     await timer.track('chrome', () => Promise.all([
       // ⚡ The render's one read of this row (`lib/user-row.ts`) — the account switcher beside it reads the same promise.
       getUserRow(user.id),
-      countUnread(supabase, user.id),
+      // ⏰ A due "Remind me" lands in the bell on this render (Unichat H1; cron-free, never throws) — then the count.
+      deliverDueChatReminders(supabase, user.id).then(() => countUnread(supabase, user.id)),
       getSwitcherData(user.id).catch((err: unknown) => {
         logQueryError(
           'VendorDashboardLayout (getSwitcherData threw)',

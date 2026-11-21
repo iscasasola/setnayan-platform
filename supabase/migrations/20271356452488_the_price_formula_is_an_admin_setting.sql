@@ -19,7 +19,7 @@
 --
 -- platform_settings already has RLS + its read-all policy and a TABLE-level
 -- `GRANT SELECT … TO authenticated`, which covers a new column. The only writer
--- is /admin/pricing (`pricingFormula` op=save, service role, audited as
+-- is /admin/pricing (`saveSignupDiscount` with pricing_formula_op=save, service role, audited as
 -- `pricing_formula_edit`). No new policy, no new grant — the same access as the
 -- other pricing settings on this row (booking_fee_*, onboarding_discount_pct).
 -- ════════════════════════════════════════════════════════════════════════════
@@ -61,7 +61,7 @@ ALTER TABLE public.platform_settings
 
 COMMENT ON COLUMN public.platform_settings.pricing_opex_factor IS
   'Price formula (owner 2026-11-21): the OPEX multiplier on a SKU''s base cost (saas_overhead_cost_php). Default 10. '
-  'SUGGESTS a price on /admin/pricing only — nothing reads it to charge anyone. Written only by pricingFormula (op=save) '
+  'SUGGESTS a price on /admin/pricing only — nothing reads it to charge anyone. Written only by saveSignupDiscount (pricing_formula_op=save) '
   '(audited as pricing_formula_edit). Mirror: apps/web/lib/pricing-formula.ts.';
 COMMENT ON COLUMN public.platform_settings.pricing_margin_factor IS
   'Price formula (owner 2026-11-21): the margin multiplier. Default 4.5. Suggests only; see pricing_opex_factor.';

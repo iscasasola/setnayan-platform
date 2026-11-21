@@ -55,7 +55,11 @@ test('the fee is read and computed, never typed as a rate', () => {
   assert.match(page, /bookingFeeFigures\(fee\.schedule\)/, 'the fee sentence does not place the live figures');
   assert.doesNotMatch(page, /\b\d+(\.\d+)?%\s*(on the first|after|booking fee)/i, 'a fee rate is typed into the page');
   const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
-  assert.match(client, /bookingFeePhp\(v, schedule\)/, 'the slider does not compute the fee from the schedule it was handed');
+  // The ruler's stops (with the 🔒 lock point) are built by `feeRulerStops(schedule)` in the data file since the lock landed.
+  assert.match(client, /feeRulerStops\(schedule\)/, 'the slider does not build its stops from the schedule it was handed');
+  const data = code('app/for-suppliers/_components/supplier-front-data.ts');
+  assert.match(data, /bookingFeePhp\(v, schedule\)/, 'the ruler stops do not compute the fee from the schedule they were handed');
+  assert.doesNotMatch(data, /BOOKING_FEE\b(?!_)/, 'the ruler stops can fall back to the code default schedule');
   assert.doesNotMatch(client, /BOOKING_FEE\b(?!_)/, 'the slider can fall back to the code default schedule');
   assert.match(code('app/(shell)/for-suppliers/page.tsx'), /getLiveBookingFeeSchedule\(\)/);
 });
@@ -109,4 +113,13 @@ test('the page says nothing the brief forbids', () => {
     assert.doesNotMatch(src, /(video|audio)\s*(&|and|&amp;)\s*(video|audio)\s+calls?/i, `${rel} promises in-app calls`);
     assert.doesNotMatch(src, /demo shop/i, `${rel} offers a demo shop`);
   }
+});
+
+test('owner 20 Nov: the 3D booth logo and Papic Challenges sit under Pro, never Plus, and nothing calls the booth an add-on', async () => {
+  const { growLines } = await import('./_components/supplier-front-data');
+  const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
+  assert.doesNotMatch(words('solo'), /3D seat plan|All specialized tools/);
+  assert.match(words('pro'), /3D seat plan/);
+  assert.match(words('pro'), /Papic Challenges|All specialized tools/);
+  for (const t of ['solo', 'pro', 'enterprise'] as const) assert.doesNotMatch(words(t), /add-on\)/);
 });

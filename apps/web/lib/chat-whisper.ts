@@ -15,6 +15,28 @@
  * PURE — no React, no I/O. 🔒 lib/a-whisper-never-reaches-the-supplier.test.ts
  */
 import { privateRecipientIds } from './chat-private';
+import { formatCount } from './format-number';
+// 🏪 Every team-side word lives in ONE file the host guard allow-lists (lib/the-host-says-suppliers.test.ts),
+// re-exported here so callers keep one import. The host lines left in THIS file stay guarded.
+import {
+  TEAM_FILTER_WHO,
+  TEAM_WHISPER_STRIP,
+  WHISPER_SIDE_REFUSED_TEAM,
+} from './chat-whisper-team';
+export {
+  TEAM_FILTER_WHO,
+  TEAM_WHISPER_STRIP,
+  WHISPER_NO_TEAM_LINE,
+  WHISPER_NO_TEAM_MESSAGE,
+  WHISPER_SIDE_REFUSED_TEAM,
+  WHISPER_TEAM_ONLY_MESSAGE,
+  WHISPER_TEAM_REACH,
+  WHISPER_TEAM_SWITCH,
+  WHISPER_TEAM_UNREAD_LINE,
+  teamWhisperTitle,
+} from './chat-whisper-team';
+import { WHISPER_NO_TEAM_LINE, WHISPER_TEAM_UNREAD_LINE } from './chat-whisper-team';
+
 import { MOVE_MS, QUICK_MS, RISE_MS_STANDARD, TAP_MS } from './motion-table';
 
 /** The form field the host's composer posts while whisper is on. Its VALUE is never read as a list of people. */
@@ -37,15 +59,16 @@ export function everyoneWillSeeLine(supplierName: string): string {
 /** …and the ONE ask on the first Send after that. */
 export const LEFT_WHISPER_ASK = 'You left Whisper. Send to everyone?';
 export function leftWhisperAskBody(supplierName: string): string {
-  return `${supplierName} will see it.`;
+  // The team's box names the other side in lower case ("the hosts") — a sentence still starts with a capital.
+  return `${supplierName.charAt(0).toUpperCase()}${supplierName.slice(1)} will see it.`;
 }
 
 /** A whisper is words only, like every private line (owner, 9 Nov) — the composer's line and the server's say the same. */
 export const WHISPER_WORDS_ONLY_MESSAGE = 'A whisper is words only — send the file to everyone instead.';
 /** Nobody to whisper to. Said in words; the line is NOT sent (never to everyone). */
 export const WHISPER_NO_COHOSTS_MESSAGE = 'No co-host is in this chat to whisper to — your whisper was not sent.';
-/** Only a host whispers. */
-export const WHISPER_HOSTS_ONLY_MESSAGE = 'Only a host of the event can whisper — your whisper was not sent.';
+/** Only a host in this chat, or the event's coordinator, whispers on the hosts' side. */
+export const WHISPER_HOSTS_ONLY_MESSAGE = 'Only a host in this chat or the event’s coordinator can whisper — your whisper was not sent.';
 /** The box's own line when a drag finds nobody to whisper to. */
 export const WHISPER_NOBODY_LINE = 'No co-host is in this chat yet. Add one to whisper.';
 
@@ -59,9 +82,9 @@ export const WHISPER_UNREAD_MESSAGE = "Couldn't check who is in this chat — yo
 export const WHISPER_UNREAD_LINE = "Couldn't load the co-hosts in this chat. Try again in a moment.";
 
 /** What the box says when a drag cannot turn whisper on — `null` when it can. The failed read wins over the count. */
-export function whisperBlockedLine(w: { coHosts: number; unread?: boolean }): string | null {
-  if (w.unread) return WHISPER_UNREAD_LINE;
-  if (w.coHosts <= 0) return WHISPER_NOBODY_LINE;
+export function whisperBlockedLine(w: { coHosts: number; unread?: boolean; side?: 'hosts' | 'team' }): string | null {
+  if (w.unread) return w.side === 'team' ? WHISPER_TEAM_UNREAD_LINE : WHISPER_UNREAD_LINE;
+  if (w.coHosts <= 0) return w.side === 'team' ? WHISPER_NO_TEAM_LINE : WHISPER_NOBODY_LINE;
   return null;
 }
 
@@ -77,22 +100,179 @@ export function whisperFromForm(raw: FormDataEntryValue | null): boolean {
 
 /**
  * 🔒 WHO HEARS A WHISPER — decided on the server from the thread's own rows, never from the browser:
- * the hosts in this chat now (`chat_thread_members`, `left_at IS NULL`), the sender left out, and ANYONE ON THE SHOP'S
- * SIDE left out (one login can be a host AND the shop's owner or team member — that login is the supplier here).
+ * the hosts in this chat now (`chat_thread_members`, `left_at IS NULL`) AND the event's coordinators (owner, 20 Nov:
+ * *"host and coordinator can whisper to each other"* — `coordinatorIds`), the sender left out, and ANYONE ON THE SHOP'S
+ * TEAM SIDE left out (`shopUserIds` = `teamSideOf(…)`: a login that hosts the event is a host here, whatever its shop
+ * role — controller ruling on #8060, 20 Nov; a coordinator on the shop's team is the supplier here).
  * `[]` = nobody to hear it → the caller refuses the send.
  */
 export function whisperRecipients(input: {
   hostMemberIds: readonly string[];
+  coordinatorIds?: readonly string[];
   shopUserIds: readonly string[];
   senderUserId: string;
 }): string[] {
   const shop = new Set(input.shopUserIds);
   const out: string[] = [];
-  for (const id of input.hostMemberIds) {
+  for (const id of [...input.hostMemberIds, ...(input.coordinatorIds ?? [])]) {
     if (!id || id === input.senderUserId || shop.has(id) || out.includes(id)) continue;
     out.push(id);
   }
   return out;
+}
+
+// ── TWO SIDES (Unichat part E, owner 19–20 Nov) ─────────────────────────────────────────────────────────────────────
+/**
+ * Which side a whisper is on — STORED with the line (`chat_messages.whisper_side`, migration 20271354185201), so its
+ * label never drops off (safety review, 19 Nov). The database re-judges the sender and every recipient against it and
+ * reads the line only to someone on that side NOW (a removed co-host, coordinator or team member reads nothing).
+ *   hosts  the hosts in the chat + the event's coordinators — never the shop.
+ *   team   the shop's own people (owner + live team members) — never a host or a coordinator.
+ */
+export type WhisperSide = 'hosts' | 'team';
+export const CHAT_WHISPER_SIDE_COLUMN = 'whisper_side' as const;
+
+/** The stored side, read safely: anything else is "not a whisper". */
+export function whisperSideOf(raw: unknown): WhisperSide | null {
+  return raw === 'hosts' || raw === 'team' ? raw : null;
+}
+
+/**
+ * 🔒 WHO HEARS A TEAM WHISPER — the shop's team side (`teamSideOf`), the sender left out. `[]` → refused.
+ */
+export function teamWhisperRecipients(input: { teamUserIds: readonly string[]; senderUserId: string }): string[] {
+  const out: string[] = [];
+  for (const id of input.teamUserIds) {
+    if (!id || id === input.senderUserId || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * 🧭 THE SHOP'S TEAM SIDE IN ONE EVENT'S CHAT — the ONE team rule (`chat_shop_team_user_ids`, migration 20271355512715,
+ * read by `readShopChatPeople`: owner · live owner/admin · a live member serving THIS event) with every HOST OF THE EVENT
+ * taken out. Controller ruling on the #8060 review (20 Nov): a host acts on the hosts' side in that event's threads,
+ * whatever their shop role — the same order `chat_whisper_side_of` judges in. Pass this, never the raw team, as
+ * `shopUserIds` to `whisperRecipients` and as `teamUserIds` to `teamWhisperRecipients`.
+ */
+export function teamSideOf(input: { teamUserIds: readonly string[]; eventHostIds: readonly string[] }): string[] {
+  const hosts = new Set(input.eventHostIds);
+  const out: string[] = [];
+  for (const id of input.teamUserIds) {
+    if (!id || hosts.has(id) || out.includes(id)) continue;
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * 🧭 MAY THIS PERSON WHISPER ON THE HOSTS' SIDE HERE — the one test the page (offer) and the send core (refuse) share,
+ * in `chat_whisper_side_of`'s order: a host seated in this chat → yes, whatever their shop role; a coordinator → yes
+ * only when NOT on the shop's team side (`teamSideIds` = `teamSideOf(…)`, the ONE team rule). Controller ruling on the
+ * #8071 review (20 Nov): a coordinator on the shop's team is never OFFERED a hosts' whisper they cannot send.
+ */
+export function isOnHostsSide(input: {
+  viewerId: string;
+  hostMemberIds: readonly string[];
+  coordinatorIds: readonly string[];
+  teamSideIds: readonly string[];
+}): boolean {
+  if (!input.viewerId) return false;
+  if (input.hostMemberIds.includes(input.viewerId)) return true;
+  return input.coordinatorIds.includes(input.viewerId) && !input.teamSideIds.includes(input.viewerId);
+}
+
+/**
+ * The words when the DATABASE refuses a whisper's side (`WHISPER_NOT_YOUR_SIDE` · `WHISPER_CROSSES_SIDES`, the trigger
+ * `tg_chat_messages_whisper_stays_on_its_side`) — plain words, never the raw code.
+ */
+export const WHISPER_SIDE_REFUSED_HOSTS = 'Only the hosts can see this whisper';
+/** Which plain words a refused insert gets — `null` when the refusal is not about a whisper's side. */
+export function whisperSideRefusal(errorMessage: string, side: WhisperSide | null): string | null {
+  if (!side) return null;
+  if (!/WHISPER_NOT_YOUR_SIDE|WHISPER_CROSSES_SIDES/.test(errorMessage)) return null;
+  return side === 'team' ? WHISPER_SIDE_REFUSED_TEAM : WHISPER_SIDE_REFUSED_HOSTS;
+}
+
+/**
+ * 🔎 WHO SEES THE PRIVATE FILTER'S WHISPERS — the drawing's words ("the hosts and Liza only"), built by the SAME read
+ * as the who-it-reaches line (`readHostsWhisper` · `readTeamWhisper`, the ONE team rule): the hosts' side names its
+ * coordinators (a coordinator reading it: "you and the hosts only"); the team's side is `TEAM_FILTER_WHO` (lib/chat-whisper-team.ts).
+ */
+export function whisperFilterWho(input: { side: WhisperSide; coordinatorNames?: readonly string[]; viewerIsCoordinator?: boolean }): string {
+  if (input.side === 'team') return TEAM_FILTER_WHO;
+  // A coordinator reading it: the drawing's own coordinator words, "You and the hosts".
+  if (input.viewerIsCoordinator) return 'you and the hosts only';
+  const names = (input.coordinatorNames ?? []).filter((n) => n.trim().length > 0);
+  if (names.length === 0) return 'the hosts only';
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `the hosts and ${list} only`;
+}
+
+/** What the stream knows about who sees its whispers: the words, or that the read failed (never "no one"). */
+export type PrivateFilterWho = { who: string | null; unread: boolean } | null;
+export const PRIVATE_FILTER_UNREAD = 'couldn’t load who sees these';
+
+/**
+ * The line over a chat showing only Private — the drawing's "Private · N whispers · {who it reaches}" (controller ruling
+ * on #8071, 20 Nov). N goes through `formatCount`; a failed read says so in plain words; with no side to name (a
+ * private line between people, not a whisper side) the line stops after the count — it never says "no one".
+ */
+export function privateFilterLine(n: number, audience: PrivateFilterWho): string {
+  if (n === 0) return 'Nothing private here yet';
+  const head = `Private · ${formatCount(n)} ${n === 1 ? 'whisper' : 'whispers'}`;
+  if (audience?.unread) return `${head} · ${PRIVATE_FILTER_UNREAD}`;
+  if (audience?.who) return `${head} · ${audience.who}`;
+  return head;
+}
+
+/**
+ * 🛡 What the ⓘ beside the line says (safety review F7, 19 Nov): staff can read a private line inside an open dispute,
+ * so "only" must say so — the database's own arm (`chat_private_in_dispute`).
+ */
+export const WHISPER_DISPUTE_NOTE = 'Setnayan staff can read it only while a dispute about this booking is open.';
+
+/**
+ * "Only you, Ana and your coordinator" — who a hosts' whisper reaches, said to the person about to whisper. `names` =
+ * the OTHER hosts in this chat by first name; `coordinators` = how many coordinators (other than the viewer) hear it.
+ * A coordinator whispering sees the hosts by name. Nobody → `null` (the box says so in its own words).
+ */
+/** The coordinator's line, word for word from the drawing (UNICHAT-LIVE 20 Nov; controller under owner delegation 20 Nov). */
+export const WHISPER_COORDINATOR_REACH = 'You and the hosts';
+
+export function hostsWhisperReach(input: {
+  names: readonly string[];
+  coordinators: number;
+  /** The writer IS a coordinator: the drawing's line, "You and the hosts" — never names, never "your coordinator". */
+  viewerIsCoordinator?: boolean;
+}): string | null {
+  const parts = input.names.filter((n) => n.trim().length > 0);
+  // Nobody to hear it is still nobody, for a coordinator too (the box then says so — never "the hosts").
+  if (input.viewerIsCoordinator) return parts.length + input.coordinators > 0 ? WHISPER_COORDINATOR_REACH : null;
+  if (input.coordinators === 1) parts.push('your coordinator');
+  else if (input.coordinators > 1) parts.push('your coordinators');
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? `Only you and ${parts[0]}` : `Only you, ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** The strip across a whispered bubble, by side. The hosts' names the supplier who cannot see it. */
+export function whisperStrip(side: WhisperSide, supplierName: string): string {
+  return side === 'team' ? TEAM_WHISPER_STRIP : `Whisper · ${supplierName} can’t see`;
+}
+
+/**
+ * Is this line a whisper, as THIS viewer reads it? The stored side decides (`whisper_side`); a line written before the
+ * column falls back to the 19 Nov inference (`isWhisperLine` — the hosts' side only, exactly the co-hosts).
+ */
+export function whisperSideOfLine(
+  m: Parameters<typeof privateRecipientIds>[0] & { sender_role?: string | null; whisper_side?: string | null },
+  legacy: { viewerRole: 'couple' | 'vendor'; coHostIds: readonly string[] | null | undefined; viewerUserId: string },
+): WhisperSide | null {
+  const stored = whisperSideOf(m.whisper_side);
+  if (stored) return stored;
+  if (legacy.viewerRole === 'couple' && isWhisperLine(m, legacy.coHostIds, legacy.viewerUserId)) return 'hosts';
+  return null;
 }
 
 /**
@@ -273,4 +453,24 @@ export function whisperTypingFrom(raw: unknown): WhisperTyping | null {
   const o = raw as Record<string, unknown>;
   if (typeof o.threadId !== 'string' || typeof o.userId !== 'string' || typeof o.typing !== 'boolean') return null;
   return { threadId: o.threadId, userId: o.userId, typing: o.typing };
+}
+
+/**
+ * 👀 WHO MAY BE NAMED UNDER "SEEN" (the #8047 review, 20 Nov 2026: under your own whisper it read "Seen · <supplier
+ * person>" for a line they never received). A reader's broadcast says only "I read this chat up to here", and that is
+ * true of a shared line — but a private line or a whisper reached ONLY its recipients, and those were chosen by the
+ * server at Send with the one side rule (`whisperRecipients` for the hosts' side · `teamWhisperRecipients` over
+ * `chat_shop_team_user_ids` for the team) and written onto the line (`recipient_user_ids`). So the names under it come
+ * from that stored list and nowhere else: the supplier is never named under the hosts' whisper, the hosts never under a
+ * team whisper. A whisper whose list is not on the row names nobody — the plain word, never a guess.
+ * `readerIds` = everyone who said they read past the line; returns the ones it may name, in their order.
+ */
+export function seenByWhoGotIt(
+  m: Parameters<typeof privateRecipientIds>[0] & { whisper_side?: string | null },
+  readerIds: readonly string[],
+): string[] {
+  const to = privateRecipientIds(m);
+  if (to.length > 0) return readerIds.filter((id) => to.includes(id));
+  if (whisperSideOf(m.whisper_side)) return [];
+  return [...readerIds];
 }

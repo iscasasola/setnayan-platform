@@ -30,6 +30,8 @@ import {
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 import { BookingFeeLine } from '@/app/_components/booking-fee-line';
+import { InfoTip } from '@/app/_components/info-tip';
+import { FEE_NEW_CLIENT_DETAIL, feeFreeRuleInApp, feeNewClientLine } from '@/lib/booking-fee-who-words';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferFeesLine } from '@/lib/launch-offer';
@@ -46,8 +48,8 @@ function fmtDate(s: string) {
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (5% of a booked total, then 1% beyond ₱100,000, minimum ₱50,
- * past their free-5 — owner-ruled 2026-07-27; NOT a flat rate). Each row links to
+ * booking-fee orders (5% of a booked total, then 3% beyond ₱100,000, never more than ₱100,000, minimum ₱50,
+ * owner 2026-11-20; NOT a flat rate). Each row links to
  * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).
@@ -88,6 +90,9 @@ export default async function VendorBookingFeesPage() {
   const feeSchedule = await getLiveBookingFeeSchedule();
   // 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings, never typed.
   const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
+  // 📅 The new-client window (owner 2026-11-16), named with its length from settings — the supplier's own app only.
+  // Unread → no line (never a guessed number).
+  const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
@@ -106,6 +111,14 @@ export default async function VendorBookingFeesPage() {
       {launchLine ? (
         <p className="mt-3 text-sm text-ink/70" data-fees-launch-offer="">
           {launchLine}
+        </p>
+      ) : null}
+
+      {newClientLine ? (
+        <p className="mt-3 text-sm text-ink/70" data-fees-new-client-window="">
+          <InfoTip label={newClientLine} ariaLabel="About free bookings for new clients">
+            {FEE_NEW_CLIENT_DETAIL}
+          </InfoTip>
         </p>
       ) : null}
 
@@ -156,8 +169,12 @@ export default async function VendorBookingFeesPage() {
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
             {/* Owner 2026-11-04 reword — the one fee line, from the live schedule. */}
             {/* Owner 2026-11-10: "messages that needs to be reworded" — plainer words. */}
-            <BookingFeeLine fee={feeSchedule} leadStyle={{ color: 'var(--sn-ink-700)' }} /> Your free booking
-            still shows what its fee would have been, so you know what the next one costs.
+            <BookingFeeLine
+              fee={feeSchedule}
+              leadStyle={{ color: 'var(--sn-ink-700)' }}
+              freeRule={feeFreeRuleInApp(feeSchedule?.newClientFreeMonths)}
+            />{' '}
+            A free booking fee ticket pays your next fee by itself.
           </p>
         </div>
       ) : (

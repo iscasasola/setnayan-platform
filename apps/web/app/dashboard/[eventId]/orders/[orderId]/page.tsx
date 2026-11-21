@@ -192,7 +192,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
             Here&rsquo;s what the Setnayan team flagged:
           </p>
           {resubmitRequested.notice ? (
-            <p className="whitespace-pre-wrap rounded-md bg-white/70 p-3 text-sm text-warn-900">
+            <p className="whitespace-pre-wrap rounded-md bg-raised/70 p-3 text-sm text-warn-900">
               {resubmitRequested.notice}
             </p>
           ) : null}

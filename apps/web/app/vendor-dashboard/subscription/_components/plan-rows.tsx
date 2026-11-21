@@ -193,12 +193,15 @@ export function PlanRows({
         <DatesRow
           data="plan-cancel"
           lead={ic(CircleX)}
-          title="Cancel the plan"
+          // L-6 (supplier audit 2026-11-17): "Cancel the plan" read as a door and did nothing (no href) — it is a
+          // statement of how stopping works, worded as one. L-7: the ~85-character line was cut off at 390 px and the
+          // END DATE was the part lost — it now leads with the date.
+          title="Nothing renews by itself"
           line={
             isPaid
               ? expiresOn
-                ? `Nothing renews by itself — skip the next payment and you are on Free after ${expiresOn}`
-                : 'Nothing renews by itself — skip the next payment and you are on Free'
+                ? `Free after ${expiresOn} if you skip the next payment`
+                : 'Free once your paid days end, if you skip the next payment'
               : 'You are on Free — there is nothing to cancel'
           }
         />

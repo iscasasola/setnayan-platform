@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { servicesReturnBase } from '@/lib/vendor-services-return';
 import { parseAddonRows, replaceServiceAddons } from '@/lib/service-card-save-parts';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { refuseEditOfBookedCard } from '@/lib/service-open-bookings';
 
 /**
  * Service add-on write path (Vendor Services rework 2026-07-02). Replace-all,
@@ -41,6 +43,9 @@ export async function setServiceAddons(formData: FormData): Promise<void> {
     .eq('vendor_profile_id', profile.vendor_profile_id)
     .maybeSingle();
   if (!svc) back(base, 'error', 'Service not found.');
+  // 🔒 A booked client is using this card → its add-ons stay as booked (owner 19 Nov 2026). Fails closed.
+  const locked = await refuseEditOfBookedCard(supabase, createAdminClient(), profile.vendor_profile_id, serviceId);
+  if (locked) back(base, 'error', locked);
 
   // The one add-on parse + replace-all, shared with the maker's one save (lib/service-card-save-parts.ts).
   const err = await replaceServiceAddons(supabase, serviceId, profile.vendor_profile_id, parseAddonRows(formData));

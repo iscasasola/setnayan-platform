@@ -56,7 +56,9 @@ test('(3) the toolbar draws the lock in its rows, the tab wears 🔒, and the ta
   const tools = read(`${L}/stage-tools.tsx`);
   assert.match(tools, /if \(!toolWorks\(t\)\) return setLockTool\(t\);/);
   assert.match(tools, /<ToolLock\s+problem=\{lock\.problem\}/, 'the lock is not drawn in the rows');
-  assert.match(tools, /data-stage-tool-locked=\{tabLocked\(t\) \? '' : undefined\}/);
+  /* (20 Nov 2026: per TAB — Style is locked when it has nothing at all to set; the others are `tabLocked`, as before.) */
+  assert.match(tools, /data-stage-tool-locked=\{tabLockedNow\(t\) \? '' : undefined\}/);
+  assert.match(tools, /const tabLockedNow = \(t: MakerPartTab\) => \(t === 'style' \? !tabWorks\('style'\) \|\| cameraOpen : tabLocked\(t\)\);/);
   assert.match(tools, /\[data-stage-tool\]\[data-stage-tool-locked\]::before\{content:"🔒/, 'the locked tab does not wear its lock');
   /* …at EVERY width: the rule sits before the phone-only block, never inside it (W1 2026-11-14: missing at 1280). */
   const lockAt = tools.indexOf('[data-stage-tool-locked]::before');

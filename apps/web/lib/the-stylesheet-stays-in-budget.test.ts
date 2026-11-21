@@ -36,8 +36,12 @@ test('1 · Tailwind does not scan test files', () => {
  * (the offline bar on every one), not surface-only rules, and a plain `.css` beside a part breaks every unit test that
  * renders it (no CSS loader under tsx). Moving them to another sheet the root layout loads would save no byte. Headroom
  * is ~0.5% on purpose (controller, 19 Nov: measured plus a small margin): the next growth has to argue for itself.
+ * RAISED 645,000 → 650,000 on 2026-11-21 (dark mode PR #7993; owner's pick "Raise ceiling 650 KB"). The one colour set
+ * by job — every `--color-*` job token in Light and in `html.dark`, which every `--m-*` / `--sn-*` / `--surface*` now
+ * POINTS at — is :root / html.dark tokens, so it cannot live in a surface module; with main's Unichat kind colours the
+ * sheet measured 647,781 B after 22 comments that only repeated a value were cut. Headroom stays ~0.35%.
  */
-const GLOBALS_CSS_CEILING = 645_000;
+const GLOBALS_CSS_CEILING = 650_000;
 
 test('2 · app/globals.css stays under its ceiling', () => {
   const size = statSync(join(WEB, 'app/globals.css')).size;

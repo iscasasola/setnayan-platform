@@ -44,9 +44,11 @@ test('a caterer feeds crews, as the crew-meal provider does; nobody else', () =>
 
 test('the production sheet reads the RPC and says a refused read, never "none"', () => {
   const page = readFileSync(join(__dirname, 'page.tsx'), 'utf8');
+  // Set two (21 Nov 2026): the page reads, the body draws (production-sheet-body.tsx) — the same words, in a note.
+  const body = readFileSync(join(__dirname, 'production-sheet-body.tsx'), 'utf8');
   assert.match(page, /rpc\('get_vendor_crew_meals', \{ p_event_id: eventId \}\)/);
-  assert.match(page, /crewMeals === null \?[\s\S]{0,200}couldn&rsquo;t be read/);
-  assert.match(page, /data-crew-meals=""/);
+  assert.match(body, /crewMeals === null \?[\s\S]{0,200}couldn&rsquo;t be read/);
+  assert.match(body, /data-crew-meals=""/);
 });
 
 test('the couple side extends the EXISTING field: "Crew fed by your caterer", and no second crew-meal column', () => {

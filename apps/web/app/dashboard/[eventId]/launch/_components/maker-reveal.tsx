@@ -321,7 +321,7 @@ export function MakerRevealPicker({
       <li
         className={`relative flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-ink transition-colors duration-sn-control ease-sn ${
           part === 'options' ? 'w-52 shrink-0 self-center lg:w-auto lg:self-auto' : ''
-        } ${on ? 'bg-white ring-2 ring-ink' : 'bg-white/70 hover:bg-white'}`}
+        } ${on ? 'bg-raised ring-2 ring-ink' : 'bg-raised/70 hover:bg-raised'}`}
       >
         <button
           type="button"
@@ -341,7 +341,7 @@ export function MakerRevealPicker({
         </InfoTip>
         {mark ? (
           <span className="pointer-events-none relative">
-            <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} tone="auto" />
+            <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} tone="auto" />
           </span>
         ) : null}
         {on ? <Check aria-hidden className="pointer-events-none relative h-4 w-4 shrink-0" strokeWidth={2.25} /> : null}
@@ -439,7 +439,7 @@ export function MakerRevealPicker({
                 aria-checked={on}
                 data-maker-reveal-stage={s}
                 onClick={() => toggleStage(s)}
-                className="sn-press inline-flex min-h-11 items-center gap-2 rounded-full bg-white/70 pl-3.5 pr-2 text-[13px] font-semibold text-ink hover:bg-white disabled:opacity-60"
+                className="sn-press inline-flex min-h-11 items-center gap-2 rounded-full bg-raised/70 pl-3.5 pr-2 text-[13px] font-semibold text-ink hover:bg-raised disabled:opacity-60"
               >
                 {PUBLIC_STAGE_LABELS[s]}
                 {/* The app's ONE switch (`SwitchTrack`): grey off, the accent on — where an ink pill with a tick stood. */}
@@ -496,7 +496,7 @@ function FineTune({
       aria-checked={on}
       disabled={pending}
       onClick={flip}
-      className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-white/70 px-3 py-2 text-left hover:bg-white disabled:opacity-60"
+      className="sn-press flex min-h-12 w-full items-center gap-3 rounded-md bg-raised/70 px-3 py-2 text-left hover:bg-raised disabled:opacity-60"
     >
       <span className="min-w-0 flex-1 text-[13.5px] font-semibold text-ink">{label}</span>
       {/* The app's ONE switch (`SwitchTrack`) — its "on" was the gold `terracotta-700`, a colour of this file's own. */}
@@ -580,7 +580,7 @@ function TuneFold({
     onChange({ ...effects, tune: { ...(effects.tune ?? {}), [knob.key]: value } });
   };
   return (
-    <div className="rounded-md bg-white/70" data-maker-reveal-tune="">
+    <div className="rounded-md bg-raised/70" data-maker-reveal-tune="">
       <button
         type="button"
         aria-expanded={open}
@@ -662,7 +662,7 @@ function ColourRow({
   const [open, setOpen] = useState(false);
   const shown = value ?? '#f3ece1';
   return (
-    <div className="flex min-h-12 items-center gap-3 rounded-md bg-white/70 px-3 py-2">
+    <div className="flex min-h-12 items-center gap-3 rounded-md bg-raised/70 px-3 py-2">
       <button
         type="button"
         disabled={disabled}
@@ -781,7 +781,7 @@ function RevealStagePart({
                   {id !== REVEAL_NONE_ID ? <RevealPicture kind={id} colours={look.colours} fill over /> : null}
                   {id !== REVEAL_NONE_ID && mark ? (
                     <span data-reveal-kind-mark="" className="absolute right-1.5 top-1 z-[1]">
-                      <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Pro')} size="xs" />
+                      <PaidMark state={mark} label={paidMarkLabel(mark, 'the full Event Hub')} size="xs" />
                     </span>
                   ) : null}
                 </>

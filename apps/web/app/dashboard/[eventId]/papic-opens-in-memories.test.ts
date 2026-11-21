@@ -15,6 +15,14 @@
  *
  * Sabotage (2026-10-23): the head navigates to `…/studio/papic` → 1 red; drop `inert` → 2 red; the page passes
  * `seat="page"` → 3 red. Restored → green. (2026-10-26): the latest-five strip re-added to the card → 5 red.
+ *
+ * 🔁 UPDATED ON PURPOSE 2026-11-20 (owner, "memories approved" — `prototypes/memories_redesign_2026-11-20/`, DECISION_LOG
+ * "EVENT › MEMORIES — PAPIC ON TOP + FIVE OPENED PAGES, APPROVED" (3): *"Tapping the block or that row opens every Papic
+ * setting as a full-screen rising sheet … no longer unfolding in place"*). What changed is HOW it opens — the shared
+ * `RiseScreen` instead of the inline region — so 1, 2, 4 and 5 now hold the rise; what they held is still held: never
+ * another page, every setting reachable, the switch outside the head's button, nothing extra on the face.
+ * Sabotage (2026-11-20): the head's press → `router.push` → 1 red; the settings drawn inline again (no RiseScreen) → 2
+ * red; the chapter row after the settings → 2 red; a meter on the face → 5 red. Restored → green.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -33,19 +41,29 @@ const CARD = 'app/dashboard/[eventId]/_components/papic-home-card.tsx';
 const MEMORIES = 'app/dashboard/[eventId]/memories/page.tsx';
 const CAMERA = 'app/dashboard/[eventId]/studio/papic/_components/papic-camera-settings.tsx';
 
-test('1 · the head is a button that opens the settings under the card — never a door to another page', () => {
+test('1 · the head and the "All Papic settings" row are buttons that RISE the settings — never a door to another page', () => {
   const c = code(CARD);
-  assert.match(c, /<button[\s\S]{0,200}aria-expanded=\{open\}[\s\S]{0,120}onClick=\{\(\) => setOpen/, 'the card head no longer toggles the settings');
+  assert.match(c, /<button\s+type="button"\s+aria-haspopup="dialog"\s+aria-expanded=\{open\}\s+onClick=\{\(\) => setOpen\(true\)\}[^>]*data-papic-card-head=""/, 'the card head no longer opens the settings');
+  assert.match(c, /onClick=\{\(\) => setOpen\(true\)\}[^>]*data-papic-all-settings=""/, 'the "All Papic settings" row does not open them');
+  assert.match(c, /All \{name\} settings/, 'the row is not "All Papic settings"');
   assert.doesNotMatch(c, /studio\/papic/, 'the card links to the Papic page again');
   assert.doesNotMatch(c, /router\.push|startViewTransition/, 'the card navigates');
+  // The block's body opens them too — but never a tap on one of its own presses, or a click bubbling out of a portal.
+  assert.match(c, /if \(!e\.currentTarget\.contains\(t\) \|\| t\.closest\(OWN_PRESS\)\) return;\s*setOpen\(true\);/, 'a tap on the block body is not guarded');
 });
 
-test('2 · the region grows and fades in place, inert while folded, still under reduced motion', () => {
+test('2 · every setting RISES as one full screen — the shared RiseScreen, "Shooting into" first, drawn only while open', () => {
   const c = code(CARD);
-  assert.match(c, /inert=\{!open\}/, 'the folded settings can still take focus');
-  assert.match(c, /duration-\[420ms\]/, 'not the house 420 ms');
-  assert.match(c, /grid-rows-\[1fr\][\s\S]{0,40}grid-rows-\[0fr\]/, 'the region does not grow from its own height');
-  assert.match(c, /motion-reduce:transition-none/, 'reduced motion still animates');
+  assert.match(c, /import \{ RiseScreen \} from '@\/app\/_components\/rise\/rise-screen';/, 'not the shared rise-full-screen part');
+  const rise = /\{open \? \(\s*<RiseScreen\b[\s\S]*?<\/RiseScreen>\s*\) : null\}/.exec(c)?.[0] ?? '';
+  assert.ok(rise, 'the settings are not risen, or are drawn while closed');
+  assert.match(rise, /onClose=\{\(\) => setOpen\(false\)\}/, 'the ✕ / Back does not close it');
+  assert.ok(rise.indexOf('{chapter}') > 0 && rise.indexOf('{chapter}') < rise.indexOf('{settings}'), '"Shooting into" is not the first row of the risen settings');
+  // The inline unfold is gone — no second way to show the same settings.
+  assert.doesNotMatch(c, /grid-rows-\[0fr\]|inert=\{!open\}/, 'the settings still unfold in place under the card');
+  // Rendered: closed, no settings; open, they are there.
+  assert.doesNotMatch(rendered({ open: false }), /data-sentinel-settings/, 'the closed block draws the settings');
+  assert.match(rendered({ open: true }), /data-rise-screen="papic-settings"[\s\S]*data-sentinel-settings/, 'opened, the settings are not in the risen screen');
 });
 
 test('3 · Memories hands over the event-wide settings, and every door the old quick view held is reachable open', () => {
@@ -59,7 +77,8 @@ test('3 · Memories hands over the event-wide settings, and every door the old q
   // a button to add more") — Memories hands them to the card, not to the open settings.
   assert.match(h, /counts: \{ total: now\.total, left: now\.count \},\s*buy: cardBuy,/, 'Memories does not hand the card its counts and Add more');
   assert.doesNotMatch(h, /<PapicCameraSettings[^>]*credits=/, 'the open settings draw a second counter under the face');
-  // After the day the Thank-You Video door leads the OPEN card (it lived on the closed one until 2026-10-26).
+  // After the day the Thank-You Video door leads the OPENED settings where a seat hands one (it lived on the closed card
+  // until 2026-10-26; Memories hands none — its keepsake row is Thank You's one home).
   const open = rendered({ open: true, phase: 'after' });
   assert.match(open, /data-papic-thank-you=""[\s\S]*Thank-You Video[\s\S]*data-sentinel-settings/, 'the Thank-You Video door is lost, or not the open card’s first row');
 });
@@ -72,7 +91,8 @@ test('4 · the controller page is gone — an old link opens the card in Memorie
   const c = code(CARD);
   assert.match(c, /searchParams\.get\('papic'\) !== 'open'/, 'the card does not open itself for an old link');
   assert.match(c, /window\.history\.replaceState\(/, 'the card leaves ?papic=open in the address — the page’s own URL must come back');
-  assert.match(c, /<ChevronRight[\s\S]{0,200}rotate-90/, 'the head’s › does not turn to ⌄ as the card grows');
+  // The › that unfolded the card is now the "All Papic settings ›" row (2026-11-20).
+  assert.match(c, /data-papic-all-settings=""[\s\S]{0,200}<ChevronRight\b/, 'the "All Papic settings" row lost its ›');
 });
 
 /** The real card, rendered: sentinel settings and switch, so whatever else appears was drawn by the card itself. */
@@ -91,21 +111,19 @@ function rendered({ open, phase = 'live' }: { open: boolean; phase?: 'before' | 
   );
 }
 
-test('5 · closed, the card is the head only — mark · Papic · Guest photos · the switch · › (owner 2026-10-26)', () => {
-  const html = rendered({ open: false, phase: 'after' });
-  // Everything above the settings region is what the closed card shows.
-  const cut = html.lastIndexOf('<div', html.indexOf('role="region"'));
-  assert.ok(cut > 0 && html.slice(cut).includes('role="region"'), 'the settings region is not the last part of the card');
-  const closed = html.slice(0, cut);
-  assert.match(closed, /data-sentinel-switch/, 'the Papic switch is not on the closed card');
+test('5 · the block is the mark · Papic · the switch · its line · the › row — nothing else of its own (owner 2026-10-26 → 2026-11-20)', () => {
+  const closed = rendered({ open: false, phase: 'after' });
+  assert.doesNotMatch(closed, /role="region"|data-rise-screen/, 'the closed block draws its settings');
+  assert.match(closed, /data-sentinel-switch/, 'the Papic switch is not on the block');
   assert.match(closed, /data-sentinel-icon/, 'the camera mark is gone');
   assert.match(closed, /lucide-chevron-right/, 'the › is gone');
-  assert.equal((closed.match(/<button\b/g) ?? []).length, 1, 'the closed card draws a press beyond its head');
+  // Its own presses: the head and the "All Papic settings" row (the switch, Add photos and Add more are handed in).
+  assert.equal((closed.match(/<button\b/g) ?? []).length, 2, 'the block draws a press beyond its head and its › row');
   assert.doesNotMatch(closed, /<button[^>]*>(?:(?!<\/button>)[\s\S])*data-sentinel-switch/, 'the switch is inside the head button (invalid HTML)');
-  assert.doesNotMatch(closed, /<(?:a|img|meter|progress)\b|role="progressbar"/, 'the closed card draws a link, a photo or a meter again');
+  assert.doesNotMatch(closed, /<(?:a|img|meter|progress)\b|role="progressbar"/, 'the block draws a link, a photo or a meter again');
   const words = closed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-  assert.equal(words, 'Papic Guest photos', `the closed card says more than its name: "${words}"`);
-  assert.doesNotMatch(html, /\bmd:hidden\b|hidden md:/, 'the phone gets its own closed face again — one card, everywhere');
+  assert.equal(words, 'Papic Guest photos All Papic settings', `the block says more than its name, its line and its row: "${words}"`);
+  assert.doesNotMatch(closed, /\bmd:hidden\b|hidden md:/, 'the phone gets its own closed face again — one card, everywhere');
 
   // The card takes nothing it could draw closed: its props are the head, the switch and what opens under it.
   const c = code(CARD);
@@ -116,5 +134,7 @@ test('5 · closed, the card is the head only — mark · Papic · Guest photos �
   // the line under the title that says what "Let everybody shoot now" has saved — a word in the head, not a face part.
   // 📷 + `chapter` (owner 2026-11-01, "THE PAPIC CARD ON HOME SHOOTS INTO A CHAPTER"): the one added row under the
   // counts — which chapter it shoots into and "This chapter: N photos". Drawn on the face, never on the closed head.
-  assert.deepEqual(names, ['brand', 'buy', 'chapter', 'counts', 'defaultOpen', 'headControl', 'headLine', 'icon', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head, its face and its settings (a strip, a meter, an action row?)');
+  // ＋ `add` and `lineFor` (owner 2026-11-20, "memories approved"): the main "Add photos" beside Add more, and the state
+  // line for each line the head's switch says — the two things the approved block added. Nothing else.
+  assert.deepEqual(names, ['add', 'brand', 'buy', 'chapter', 'counts', 'defaultOpen', 'headControl', 'headLine', 'icon', 'lineFor', 'marker', 'name', 'phase', 'settings', 'thankYouHref'], 'the card takes a prop beyond the head, its face and its settings (a strip, a meter, an action row?)');
 });

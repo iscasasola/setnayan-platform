@@ -341,6 +341,28 @@ export async function SettingsSurface({ searchParams }: Props) {
               className="input-field"
             />
           </Field>
+          <Field
+            label="Who gets new inquiries — own clients before a shop’s own split"
+            htmlFor="inquiry_split_own_enough"
+            help={
+              growLines.read
+                ? 'A supplier’s new inquiries go to one Account Manager by last name. Once a card has this many past clients, its split is cut from the shop’s own clients; until then, and while this is blank, from every Setnayan inquiry of that event type.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="inquiry_split_own_enough"
+              name="inquiry_split_own_enough"
+              type="number"
+              min={1}
+              max={100000}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.splitOwnEnough != null ? growLines.splitOwnEnough : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
         </section>
 
         <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">

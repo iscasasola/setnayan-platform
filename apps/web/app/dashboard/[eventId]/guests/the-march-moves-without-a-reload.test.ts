@@ -117,7 +117,9 @@ test('every drop is bound to NAMES, never to a position on screen', () => {
   */
   assert.doesNotMatch(MAKER, /children\[/, 'the maker indexes a children array');
   assert.match(MAKER, /const zone = `name\|\$\{p\.id\}`;/, 'a name drop zone is not bound to the guest');
-  assert.match(MAKER, /data-march-drag=\{`walk\|\$\{sec\.key\}\|\$\{lead\}`\}/, 'a walk is not dragged by its lead');
+  // 20 Nov 2026 (Guests redesign § 7): the walk's drag marks are ONE object (`walkHandle`) — worn by the step number in
+  // the Maker and by the grip at the right in Guests › March; still bound to the walk's lead.
+  assert.match(MAKER, /'data-march-drag': `walk\|\$\{sec\.key\}\|\$\{lead\}`,/, 'a walk is not dragged by its lead');
   const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
   assert.match(plan, /leads: rows\.map\(leadOf\)/, 'an order step is sent as positions, not names');
 });

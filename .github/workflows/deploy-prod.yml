@@ -260,8 +260,29 @@ jobs:
           if [ "$n" -eq 0 ]; then
             echo "nothing new — skipping the build."
             echo "any=false" >> "$GITHUB_OUTPUT"
+            echo "app=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "any=true" >> "$GITHUB_OUTPUT"
+          # 🔑 A NEW COMMIT IS NOT A NEW APP (owner 2026-11-21, "Yes, fix it").
+          # Migrations still apply on any new commit (db push below), but the
+          # Vercel build — the bill — runs only when a file production is built
+          # from changed. A changelog fragment, a docs edit or the bot's schema
+          # snapshot used to rebuild the whole app. The list lives in ONE place,
+          # scripts/app-build-paths.mjs, which deploy-drift-doctor.mjs reads too,
+          # so a skipped build is never reported as drift.
+          # A failure to read the list must BUILD, never skip (fail open).
+          paths=$(node scripts/app-build-paths.mjs) || paths=""
+          if [ -z "$paths" ]; then
+            echo "could not read scripts/app-build-paths.mjs — building (fail OPEN)."
+            echo "app=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet deployed-prod HEAD -- $paths; then
+            echo "no app file changed since the last publish — migrations only, no build."
+            echo "app=false" >> "$GITHUB_OUTPUT"
           else
-            echo "any=true" >> "$GITHUB_OUTPUT"
+            echo "app files changed — building."
+            git diff --stat deployed-prod HEAD -- $paths | tail -1
+            echo "app=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Apply pending migrations (db push) — BEFORE deploy
@@ -273,13 +294,16 @@ jobs:
       # production build+deploy for the now-migrated commit. -f → curl exits
       # non-zero on an HTTP error so a failed hook reddens the run.
       - name: Trigger Vercel production deploy (post-migration)
-        if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
+        if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.app == 'true'
         run: |
           echo "Migrations applied — triggering Vercel production deploy of the migrated commit."
           curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL" -o /dev/null -w "Vercel deploy hook → HTTP %{http_code}\n"
 
-      # Only after the hook was accepted. The tag is what the next scheduled run
-      # compares against, so moving it on a FAILED run would silently skip work.
+      # Only after the hook was accepted — or, when no app file changed, after
+      # db push succeeded (the build was skipped on purpose, so the app at HEAD
+      # IS what production serves). The tag is what the next scheduled run
+      # compares against, so moving it on a FAILED run would silently skip work:
+      # any failed step above stops this one (default success() gate).
       - name: Move the `deployed-prod` marker
         if: steps.gate.outputs.enabled == 'true' && steps.newwork.outputs.any == 'true'
         run: |

@@ -28,7 +28,8 @@ export function SettingsView({
   payout,
   tools,
 }: {
-  unread: number;
+  /** `null` = the count could not be read (`readUnreadNotificationCount`) — said, never drawn as "nothing new". */
+  unread: number | null;
   /** Owner or admin — a scoped team member sees Account · Notifications · Help · Your events only. */
   manager: boolean;
   payout: PayoutReadiness;
@@ -51,8 +52,14 @@ export function SettingsView({
           data="settings-recent"
           lead={ic(Bell)}
           title="Notifications"
-          line={unread > 0 ? `${formatCount(unread)} new · someone else was booked · payments · reviews` : 'Someone else was booked · payments · reviews'}
-          badge={unread > 0 ? { tone: 'no', word: `${formatCount(unread)} new` } : null}
+          line={
+            unread === null
+              ? 'Couldn’t count what’s new just now · someone else was booked · payments · reviews'
+              : unread > 0
+                ? `${formatCount(unread)} new · someone else was booked · payments · reviews`
+                : 'Someone else was booked · payments · reviews'
+          }
+          badge={unread !== null && unread > 0 ? { tone: 'no', word: `${formatCount(unread)} new` } : null}
           href="/vendor-dashboard/notifications"
         />
 

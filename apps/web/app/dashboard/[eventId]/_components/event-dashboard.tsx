@@ -1826,7 +1826,7 @@ export async function EventDashboard({
                                below keeps the filled action. Either way: one. */
                             style={
                               item.id === oneThingRowId
-                                ? { background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }
+                                ? { background: 'rgb(var(--color-mulberry))', color: 'rgb(var(--sn-on-accent))' }
                                 : {
                                     border: '1px solid var(--sn-gold-500)',
                                     color: 'var(--sn-gold-700)',
@@ -2607,7 +2607,7 @@ export async function EventDashboard({
                   <Link
                     href={`${base}/guests`}
                     className="mt-3 flex min-h-[44px] items-center gap-3 border-t px-1 py-3 transition-colors hover:bg-ink/[0.03]"
-                    style={{ borderColor: '#EDE8DE' }}
+                    style={{ borderColor: 'var(--m-line-soft)' }}
                   >
                     <span
                       aria-hidden
@@ -2680,7 +2680,7 @@ export async function EventDashboard({
                  only premium signature on record is the six monogram effects
                  (2026-07-17), which say nothing about buttons. */
               className="inline-flex flex-none items-center rounded-full px-4 py-2 text-[13px] font-bold transition-transform hover:-translate-y-0.5"
-              style={{ background: 'rgb(var(--color-mulberry))', color: '#FFFFFF' }}
+              style={{ background: 'rgb(var(--color-mulberry))', color: 'rgb(var(--sn-on-accent))' }}
             >
               {topPriorityTask.ctaLabel}
             </Link>
@@ -2764,7 +2764,7 @@ export async function EventDashboard({
                     className="inline-flex flex-none items-center rounded-lg px-2 py-0.5 font-mono text-[11px] font-bold"
                     style={
                       complete
-                        ? { color: 'var(--sn-success)', background: '#E9EEE3' }
+                        ? { color: 'var(--sn-success)', background: 'var(--sn-success-soft)' }
                         : { color: 'var(--sn-gold-800)', background: 'rgba(169,131,75,.12)' }
                     }
                   >
@@ -2839,7 +2839,7 @@ export async function EventDashboard({
               style={{
                 borderRadius: 'var(--m-r-md)',
                 background: 'rgb(var(--color-cream))',
-                border: '1px solid #E1DCD1',
+                border: '1px solid var(--m-line)',
                 boxShadow: '0 1px 3px rgba(30,26,18,0.06)',
               }}
             >
@@ -2852,12 +2852,12 @@ export async function EventDashboard({
                   className="h-11 w-11 flex-none"
                   style={{
                     borderRadius: 'var(--m-r-sm)',
-                    border: '1px solid #E1DCD1',
+                    border: '1px solid var(--m-line)',
                     background:
                       'repeating-linear-gradient(-45deg,#EFE8DA,#EFE8DA 6px,#E6DECB 6px,#E6DECB 12px)',
                   }}
                 />
-                <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: '#6E6A62' }}>
+                <span className="min-w-0 flex-1 text-[13.5px]" style={{ color: 'var(--m-slate-2)' }}>
                   {latestHandover.kind === 'gallery_link'
                     ? `${handoverVendorName} delivered your photos.`
                     : latestHandover.kind === 'file'
@@ -2875,7 +2875,7 @@ export async function EventDashboard({
                 </span>
               </Link>
               {handovers.length > 1 ? (
-                <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
+                <p className="mt-2 text-[12px]" style={{ color: 'var(--m-slate-3)' }}>
                   +{handovers.length - 1} more waiting in your supplier rooms.
                 </p>
               ) : null}

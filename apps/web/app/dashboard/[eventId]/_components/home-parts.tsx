@@ -96,7 +96,13 @@ export function HomeToday({
   calm,
   action = null,
   eventId,
+  level = null,
 }: {
+  /**
+   * 🔴 WHY IT IS FIRST (owner 20 Nov 2026, Event Today drawing: "The strip says why it is first: 'Overdue' in place of
+   * 'Now' — a word plus colour, like the list"): the item's own level word. null = "Now".
+   */
+  level?: { level: 'red' | 'amber'; word: string } | null;
   target: string;
   words: string;
   tail: string;
@@ -153,6 +159,8 @@ export function HomeToday({
       }
     });
   };
+  // The level word already says "Overdue" — the tail does not say it a second time.
+  const shownTail = level ? tail.replace(/\s*·?\s*overdue$/i, '').trim() : tail;
   const Icon = action ? NOW_ICONS[action.icon] : null;
   const button =
     action && Icon ? (
@@ -176,11 +184,16 @@ export function HomeToday({
       )
     ) : null;
   return (
-    <div className={`hc-now${calm ? ' hc-calm' : ''}`} data-home-today={target} data-tour="home-today" role="group" aria-label={`Now: ${words}${tail ? ` · ${tail}` : ''}`}>
-      <span className="hc-now-k">Now</span>
+    <div className={`hc-now${calm ? ' hc-calm' : ''}`} data-home-today={target} data-home-now-level={level?.level} data-tour="home-today" role="group" aria-label={`${level?.word ?? 'Now'}: ${words}${shownTail ? ` · ${shownTail}` : ''}`}>
+      <span className={`hc-now-k${level ? ` hc-now-lv hc-now-${level.level}` : ''}`}>{level?.word ?? 'Now'}</span>
       <span className="hc-now-t">
-        {refused ? <span role="alert">{refused}</span> : words}
-        {!refused && tail ? <span className="hc-now-w"> · {tail}</span> : null}
+        <span className="hc-now-m">{refused ? <span role="alert">{refused}</span> : words}</span>
+        {!refused && shownTail ? (
+          <span className="hc-now-w">
+            <span className="hc-now-sep"> · </span>
+            {shownTail}
+          </span>
+        ) : null}
       </span>
       {button}
     </div>

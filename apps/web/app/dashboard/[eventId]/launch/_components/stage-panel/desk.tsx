@@ -129,7 +129,7 @@ function partSourceWord(key: MakerPartKey): string | null {
 }
 
 const STEP =
-  'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-white px-3 text-[14px] font-semibold text-[var(--sp-ink)] transition-colors duration-sn-control ease-sn hover:border-[var(--sp-gold)] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[var(--sp-line)]';
+  'sn-press inline-flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full border border-[var(--sp-line)] bg-raised px-3 text-[14px] font-semibold text-[var(--sp-ink)] transition-colors duration-sn-control ease-sn hover:border-[var(--sp-gold)] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[var(--sp-line)]';
 
 /**
  * ‹ Previous · Next › · ✕ Done — under the selector, with the picked part's caption over them ("COUNTDOWN · 7 of 8") —

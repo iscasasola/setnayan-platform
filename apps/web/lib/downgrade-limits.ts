@@ -11,10 +11,10 @@
  *                  What does not fit GOES ON HOLD when the lower plan starts (owner 2026-11-06, "A DOWNGRADE PUTS EXTRA
  *                  SERVICES ON HOLD"), and the supplier picks which stay on.
  *   · team seats · branches → `limitOf` (`lib/plan-sheet.ts`), i.e. `TIER_CAPS` (no bookings-a-day row since
- *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Seats and included branches over a lower
- *                  plan are KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN";
- *                  `canSeat` in lib/vendor-free-helper.ts: "a shop already over its seats after a downgrade … just
- *                  cannot grow"). Paid extra seats only count on a plan that holds them (`holdsExtraSeats`, Ultra).
+ *                  2026-11-18 — not a plan limit) (branches 0/0/0/2/5 by plan — Free and Verified have none). Included branches over a lower plan are
+ *                  KEPT, never removed — the shop "can't add more" (owner 2026-11-04 "BRANCHES PER PLAN"). Team seats
+ *                  over a lower plan PAUSE, newest first (owner 21 Nov — overturns ruling 5683; `lib/seat-pause.ts`).
+ *                  Paid extra seats only count on a plan that holds them (`holdsExtraSeats`, Ultra).
  *   · reach      → NOT A ROW since 2026-11-19: reach is not a plan allowance (owner, "unlock the range. not plan
  *                  dependend anymore"), so moving plans never changes how far a shop goes.
  *   · storage    → THE FLOOR: a plan whose storage holds less than the shop already stores cannot be picked until some
@@ -147,7 +147,9 @@ export function downgradeFit(
     // never puts a service over one.
   }
 
-  // ── Team seats — kept over a lower plan; the team just cannot grow ──
+  // ── Team seats — over a lower plan the newest seats PAUSE (owner 21 Nov, DECISION_LOG "YES TO ALL" item 3 — overturns
+  //    ruling 5683 "everyone stays"): they can't sign in to the shop, nothing is deleted, and they come back when a plan
+  //    that covers them is active (`lib/seat-pause.ts`; the founder and the free Helper always stay). ──
   if (facts.seats === null) {
     rows.push({ key: 'teamSeats', title: 'Team seats', line: 'Couldn’t read your helpers just now', state: 'unread', fix: null });
   } else {
@@ -157,7 +159,7 @@ export function downgradeFit(
       rows.push({
         key: 'teamSeats',
         title: 'Team seats',
-        line: `${plural(facts.seats.counted, 'person', 'people')} with you · ${name} holds ${cap <= 0 ? 'no team seats' : plural(cap, 'seat', 'seats')}. Everyone stays; you can’t add more.`,
+        line: `${plural(facts.seats.counted, 'person', 'people')} with you · ${name} holds ${cap <= 0 ? 'no team seats' : plural(cap, 'seat', 'seats')}. The newest ${plural(facts.seats.counted - cap, 'person waits', 'people wait')} for a plan that covers them — nothing is deleted.`,
         state: 'over',
         fix: { label: 'Open Helpers', href: FIX_HREF.teamSeats },
       });

@@ -7,8 +7,8 @@ import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDe
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, History, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
+import { Check, X } from 'lucide-react';
 import type { RiseRect } from '@/lib/rise-motion';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
@@ -132,7 +132,7 @@ export { HubDraftField } from './hub-draft-field';
 export { DraftButton } from './hub-draft-button';
 
 const HELD_REASON: Record<HubDraftRefusal, string> = {
-  needs_pro: 'needs Event Pro — it stays in your draft',
+  needs_pro: 'needs the full Event Hub — it stays in your draft',
   waits_for_pro: 'is waiting for Pro — it stays in your draft',
   not_your_photo: 'uses a photo that is not in your Event Hub',
   song_off_the_list: 'is no longer on our music list — pick another song',
@@ -479,15 +479,33 @@ export function HubDraftToolbar({
   const canRestore = !pending && summary.hasChanges;
   /** The ✓ count — also told to the shell (`MakerDraftDoor.count`). */
   const applyCount = summary.hasChanges ? summary.changeCount : 0;
+  /* ↺ …and HISTORY, for the ⚙ (owner 20 Nov: ↺ leaves the bar and is ⚙'s first group, with "Undo last change"). The
+     list rises from the ⚙'s row; the step back is the same act the hidden step-back button below runs. */
+  const canUndo = !pending && summary.canUndo;
+  const historyRecent = useMemo(
+    () => (summary.history ? summary.history.filter((r) => r.where !== 'ahead' && !r.base).slice(-4).reverse().map((r) => r.what) : null),
+    [summary.history],
+  );
+  const historyBusy = working === 'undo' || working === 'history';
+  const openHistoryRef = useRef(openHistory);
+  openHistoryRef.current = openHistory;
   useEffect(() => {
     if (!setDraftDoor) return;
     setDraftDoor({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
       count: applyCount,
+      proMarks: !ownsPro,
+      history: {
+        recent: historyRecent,
+        open: () => openHistoryRef.current(null),
+        canUndo,
+        undo: () => actRef.current({ intent: 'undo' }),
+        busy: historyBusy,
+      },
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore, applyCount]);
+  }, [setDraftDoor, canRestore, applyCount, ownsPro, historyRecent, canUndo, historyBusy]);
   /* ✓ APPLY IS AN ICON NOW (owner 2026-10-04, *"apply icon · undo icon · exit
      icon"*): its name says the count — "Apply 3 changes" — and its FIRST tap
      opens the Apply sheet; only the sheet's labelled Apply publishes, so a
@@ -497,7 +515,6 @@ export function HubDraftToolbar({
      on the canvas, which is a frame of its own (a tap there never reaches this
      window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
   const panelRef = useRef<HTMLDivElement>(null);
-  const historyAnchor = useRef<HTMLSpanElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -626,22 +643,10 @@ export function HubDraftToolbar({
           Draft could not load
         </span>
       ) : null}
-      {/* 💊 [ ↺ Undo | 👁 Preview ] — ONE shared pill (owner 2026-10-05, the pill
-          system: related controls share one pill); ✓ Apply is its own, green. */}
-      <IconPill label="History and preview">
-        {/* ↺ HISTORY (owner 2026-11-09, "↺ BECOMES A HISTORY LIST"): the list of this draft's edits rises from here. */}
-        <span className="contents" ref={historyAnchor}>
-        <DraftButton
-          label="History"
-          icon={<History aria-hidden className="h-5 w-5" strokeWidth={2} />}
-          bar="icon"
-          phone={{ width: MAKER_BAR_PHONE.undoTop }}
-          disabled={pending || !summary.history}
-          disabledReason={working === 'undo' || working === 'history' ? 'Going back — one moment' : 'Your history could not be read'}
-          working={working === 'undo' || working === 'history'}
-          onClick={() => openHistory(historyAnchor.current?.querySelector('button') ?? null)}
-        />
-        </span>
+      {/* 👁 Preview — its own icon on the bar (owner 20 Nov 2026: ‹ · Stage ▾ · 👁 · ✓ Apply · ⚙). ↺ HISTORY LEFT THE BAR
+          (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR, FULL SCREEN" (5)): it is ⚙'s first group, with "Undo last change"
+          — registered with the shell above (`MakerDraftDoor.history`); the list still rises from `hub-history-sheet.tsx`. */}
+      <IconPill label="Preview">
         {/* ↺ ONE STEP BACK, NOT DRAWN — the button a scene's own "Undo" line presses (`SCENE_UNDO_BUTTON`,
             `scene-drag.tsx`): the step back the History list's row below "here" takes, through the same act (drawn at
             once when the Maker drew that step). ↺ itself opens the list now (owner 2026-11-09). */}
@@ -765,18 +770,18 @@ export function HubDraftToolbar({
           {summary.proCount > 0 &&
             (storeShell ? (
               <p className="inline-flex items-center gap-1 text-sm text-ink/70" data-maker-held-for-pro="">
-                <PaidMark state="try" bare label="Event Pro" size="xs" />
+                <PaidMark state="try" bare label="the full Event Hub" size="xs" />
                 {formatCount(summary.proCount)} waiting for Pro
               </p>
             ) : (
               <p className="text-sm text-ink/70">
-                <PaidMark state="try" bare label={paidMarkLabel('try', 'Event Pro')} className="mr-1 align-middle" />
-                Apply needs Event Pro{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
+                <PaidMark state="try" bare label={paidMarkLabel('try', 'the full Event Hub')} className="mr-1 align-middle" />
+                Apply needs the full Event Hub{priceLabel ? ` · ${priceLabel}` : ''} · one-time · all four stages
                 {proHref && (
                   <>
                     {' '}
                     <Link href={proHref} className="font-semibold text-terracotta-700 underline underline-offset-2">
-                      Get Event Pro
+                      Get the full Event Hub
                     </Link>
                   </>
                 )}

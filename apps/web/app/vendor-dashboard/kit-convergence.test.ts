@@ -51,8 +51,9 @@ const BASELINE_PATH = join(HERE, 'kit-convergence.baseline.json');
  * the tree's deliberate TRANSLUCENT glass variant (a different surface, kept),
  * and a bare-substring count was claiming them as hand-rolled solid cards. */
 const RECIPES = {
-  card: /rounded-2xl border border-ink\/10 bg-white(?![/\-\w])/g,
-  input: /rounded-lg border border-ink\/20 bg-white px-3 py-1\.5 text-sm/g,
+  // `bg-raised` since 18 Nov 2026 (the supplier dashboard opened to dark): the card token — white in Light, the navy card in Dark.
+  card: /rounded-2xl border border-ink\/10 bg-raised(?![/\-\w])/g,
+  input: /rounded-lg border border-ink\/20 bg-raised px-3 py-1\.5 text-sm/g,
 } as const;
 
 /** Strip /* *​/ and // comments (incl. JSX {/* *​/}) so a note NAMING a recipe

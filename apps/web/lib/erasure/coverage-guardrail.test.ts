@@ -167,6 +167,9 @@ const PURGED_WITHOUT_SUBJECT_COLUMN: ReadonlySet<string> = new Set([
   // spot as the wallet; the stamp is nulled (AUTHOR_UUID_NULLS).
   'shop_gift_purchases',
   'shop_gift_stock_entries',
+  // The gift store's order lines (2026-11-17) — one row per item of a cart order, keyed by vendor_profile_id; its one
+  // user column is `created_by` (no FK). Same blind spot; the stamp is nulled (AUTHOR_UUID_NULLS).
+  'shop_gift_order_lines',
   // Badge rewards (2026-11-05) — what each badge gave a shop, keyed by vendor_profile_id; its one user column is
   // `revoked_by` (no FK), the admin who took back a free booking fee. Same blind spot; the stamp is nulled
   // (AUTHOR_UUID_NULLS).

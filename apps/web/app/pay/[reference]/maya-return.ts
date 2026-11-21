@@ -2,7 +2,8 @@ import 'server-only';
 
 import { readMayaGate } from '@/lib/maya-checkout.server';
 import { mayaReturnLine } from '@/lib/maya-checkout';
-import { MAX_PAYMENT_PHP_DEFAULT } from '@/lib/max-payment';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { settleMaya } from '@/app/admin/payments/maya';
 
@@ -32,8 +33,8 @@ export async function mayaPayState(
     railOpenFor: async (amountPhp: number) => {
       const { state } = await readMayaGate();
       if (!state.open) return false;
-      // The ruled ₱100,000 (owner 2026-11-17); swap to `getMaxPaymentPhp` when #7926 brings `max_payment_php`.
-      return paymentWithinCeiling(amountPhp, MAX_PAYMENT_PHP_DEFAULT);
+      // The admin setting `max_payment_php` (owner 2026-11-17: nothing above ₱100,000), the same read the buy action makes.
+      return paymentWithinCeiling(amountPhp, await getMaxPaymentPhp(createAdminClient()));
     },
   };
 }

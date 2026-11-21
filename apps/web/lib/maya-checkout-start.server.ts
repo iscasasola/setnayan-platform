@@ -6,7 +6,7 @@ import { createMoneyWriterClient } from '@/lib/supabase/admin';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { siteOrigin } from '@/lib/site-origin';
-import { MAX_PAYMENT_PHP_DEFAULT } from '@/lib/max-payment';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
 import { paymentWithinCeiling } from '@/lib/payment-ceiling';
 import { createMayaCheckout, readMayaGate, recordMayaCheckout } from '@/lib/maya-checkout.server';
 
@@ -55,9 +55,8 @@ export async function startMayaCheckout(formData: FormData): Promise<never> {
 
   const { state, config } = await readMayaGate();
   if (!state.open) back('Card and Maya payments are off right now. Please use the QR.');
-  // ⚖ Owner 2026-11-17: no single payment to Setnayan above ₱100,000. `max_payment_php` (the admin setting, #7926)
-  // is not on main yet, so this reads the ruled value; swap to `getMaxPaymentPhp` when #7926 lands.
-  if (!paymentWithinCeiling(payable.amountPhp, MAX_PAYMENT_PHP_DEFAULT)) {
+  // ⚖ Owner 2026-11-17: no single payment to Setnayan above the admin's `max_payment_php` (₱100,000 ruled).
+  if (!paymentWithinCeiling(payable.amountPhp, await getMaxPaymentPhp(supabase))) {
     back('This bill is above the most we take in one payment. Please message us.');
   }
 

@@ -15,6 +15,8 @@ import { parseTlv } from '@/lib/emv-qr';
 import { formatPhp } from '@/lib/orders';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { InfoTip } from '@/app/_components/info-tip';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { Field } from '@/app/_components/forms/field';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { QrUploadForm } from '../_components/qr-upload-form';
@@ -187,7 +189,25 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   // array, and a write built on the fall-back two would replace the real list.
   const accounts = receivingAccounts(settings);
   const listLocked = settingsReadFailed || accountsReadFailed;
+  // 💳 The most in one payment (owner 2026-11-17) — read fresh here, never the remembered copy, so the form shows the row.
+  const maxRead = await admin.from('platform_settings').select('max_payment_php').eq('id', 1).maybeSingle();
+  if (maxRead.error) logQueryError('admin/settings/payment-methods: max_payment_php', maxRead.error);
+  const maxPaymentPhp = maxRead.error
+    ? null
+    : Number((maxRead.data as { max_payment_php?: number | string | null } | null)?.max_payment_php ?? NaN);
+  const maxPaymentNote =
+    maxPaymentPhp === null || !Number.isFinite(maxPaymentPhp)
+      ? 'Couldn’t read the current amount — refresh before saving.'
+      : `Now ${formatPhp(maxPaymentPhp)}. The supplier gift store refuses an order above it, and says so.`;
   const cappedRails = PAY_CHANNELS.filter((id) => accounts.some((a) => a.id === id));
+  // ⚖ ONE QR (owner 2026-11-18) — the GCash line and monthly allowance, read
+  // live with this month's GCash total. NULL = could not be read (customers are
+  // then sent to BDO), said on screen rather than shown as ₱0.
+  const gcashGate = await getGcashGate();
+  const gcashUsedLine =
+    gcashGate?.usedThisMonthPhp != null
+      ? `Used this month: ${formatPhp(gcashGate.usedThisMonthPhp)}`
+      : 'Couldn’t read this month’s GCash total — payers are sent to BDO.';
   const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400) : '';
 
   return (
@@ -313,6 +333,49 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
               now={now}
             />
           ))}
+          {cappedRails.includes('gcash') && (
+            <div data-gcash-allowance="" className="space-y-3 border-t border-ink/10 pt-4">
+              <div className="text-sm font-semibold text-ink">
+                <InfoTip label="One QR: GCash for small payments" ariaLabel="How the one QR is picked" align="start">
+                  A payment below the line shows the GCash QR while this month&rsquo;s GCash total
+                  stays within the allowance; everything else shows BDO. Payers never choose.
+                  This allowance is not the wallet&rsquo;s own limit above. If a number cannot be
+                  read, everyone is sent to BDO.
+                </InfoTip>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="GCash below (₱)" htmlFor="gcash_max_php">
+                  <input
+                    id="gcash_max_php"
+                    name="gcash_max_php"
+                    type="number"
+                    min={0}
+                    step="any"
+                    defaultValue={gcashGate?.maxPhp != null ? String(gcashGate.maxPhp) : ''}
+                    inputMode="decimal"
+                    placeholder="1000"
+                    className="input-field font-mono"
+                  />
+                </Field>
+                <Field label="GCash allowance per month (₱)" htmlFor="gcash_allowance_php">
+                  <input
+                    id="gcash_allowance_php"
+                    name="gcash_allowance_php"
+                    type="number"
+                    min={0}
+                    step="any"
+                    defaultValue={gcashGate?.allowancePhp != null ? String(gcashGate.allowancePhp) : ''}
+                    inputMode="decimal"
+                    placeholder="100000"
+                    className="input-field font-mono"
+                  />
+                </Field>
+              </div>
+              <p className="text-[12px] text-ink/60">
+                {gcashUsedLine}
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3">
             <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
               Last updated {new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}
@@ -327,6 +390,29 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           </div>
         </form>
       ) : null}
+
+      {/* ── THE MOST IN ONE PAYMENT (owner 2026-11-17: "We do not allow transactions above 100,000.") ── */}
+      <form action={savePaymentInstruments} className="mt-10 space-y-3 border-t border-ink/10 pt-8" data-admin-max-payment="">
+        <input type="hidden" name="intent" value="max_payment_save" />
+        <h2 className="text-sm font-medium text-ink">Most in one payment</h2>
+        <Field label="Most in one payment (₱)" htmlFor="max_payment_php">
+          <input
+            id="max_payment_php"
+            name="max_payment_php"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            required
+            defaultValue={maxPaymentPhp !== null && Number.isFinite(maxPaymentPhp) ? maxPaymentPhp : undefined}
+            className="input-field font-mono"
+          />
+        </Field>
+        <p className="text-[12px] text-ink/60">{maxPaymentNote}</p>
+        <SubmitButton className="button-primary inline-flex items-center gap-2" pendingLabel="Saving…" disabled={maxPaymentPhp === null}>
+          Save
+        </SubmitButton>
+      </form>
 
       <div className="mt-10 space-y-2 border-t border-ink/10 pt-8">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">

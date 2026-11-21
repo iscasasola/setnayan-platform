@@ -17,7 +17,12 @@ import { parseStage } from '@/lib/pay-stages';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
-import { openAccounts } from '@/lib/payment-channels';
+import { SentScreen } from './_components/sent-screen';
+import { getMaxPaymentPhp } from '@/lib/max-payment.server';
+import { paymentOverCeilingMessage, paymentWithinCeiling } from '@/lib/payment-ceiling';
+import { payerAccountsFor } from '@/lib/payment-channels';
+import { pickPayerRail } from '@/lib/gcash-allowance';
+import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
@@ -38,7 +43,7 @@ import { mayaPayState } from './maya-return';
  *   2. pay this exact amount (the QR carries the figure when it CAN — and
  *      every sentence about that comes from `lib/qr-amount-truth.ts`, never
  *      from a line typed here)
- *   3. after you pay (screenshot, kept on screen, + the last 6 digits)
+ *   3. after you pay (the receipt screenshot, kept on screen — nothing typed, owner 2026-11-17)
  *
  * Everything a buyer needs is HERE, so a buy button's whole job is to mint the
  * order and redirect to this address.
@@ -117,6 +122,14 @@ export default async function PayPage({ params, searchParams }: Props) {
   }
 
   const settings = await fetchPlatformSettings(supabase);
+  /**
+   * ⚖ THE MOST ONE PAYMENT TO SETNAYAN MAY BE (owner 2026-11-17): a bill above
+   * `platform_settings.max_payment_php` shows NO code and no account — the
+   * payer is told why and that nothing was charged. Exactly the ceiling is
+   * allowed. `submitPaymentProof` refuses the same bill on the server.
+   */
+  const maxPaymentPhp = await getMaxPaymentPhp(supabase);
+  const overCeiling = !paymentWithinCeiling(payable.amountPhp, maxPaymentPhp);
 
   // Have they already told us — and is that claim still standing?
   //
@@ -203,7 +216,15 @@ export default async function PayPage({ params, searchParams }: Props) {
   //
   // The rails are Setnayan's receiving-accounts LIST, narrowed by the ONE rule
   // (switch AND something to pay to — `openAccounts`), in the admin's order.
-  const open = openAccounts(settings);
+  // Over the ceiling ⇒ no rail at all, so no code is even drawn.
+  // ⚖ ONE QR (owner 2026-11-18): under the GCash line with room left in this
+  // month's GCash allowance ⇒ GCash; anything else, or anything unreadable ⇒ BDO.
+  // `submitPaymentProof` asks `pickPayerRail` the same question.
+  const railPick = pickPayerRail(
+    payable.amountPhp,
+    await getGcashGate({ excludeOrderId: payable.orderId }),
+  );
+  const open = overCeiling ? [] : payerAccountsFor(settings, railPick);
   const images = await Promise.all(
     open.map((a) => mintedQrImage(a.qrPayload, payable.amountPhp)),
   );
@@ -337,7 +358,7 @@ export default async function PayPage({ params, searchParams }: Props) {
       <div className="mt-5 border-t border-ink/10 pt-4">
         <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)] mb-2">What happens next</p>
         <Step n={1}>{words.scanStep}</Step>
-        <Step n={2}>Send us the screenshot and the last 6 digits of your reference number.</Step>
+        <Step n={2}>Upload the screenshot of your payment receipt — nothing to type.</Step>
         <Step n={3}>{activates}</Step>
       </div>
     )}
@@ -376,8 +397,24 @@ export default async function PayPage({ params, searchParams }: Props) {
     );
   }
 
+  /**
+   * ⚖ THE SENT SCREEN (owner 2026-11-17): straight after the receipt posts
+   * (`?sent=1`), the whole screen says it was sent and counts down to Home;
+   * a tap anywhere returns to where they came from (Gifts for a gift order).
+   * A later visit to the same address (no `?sent=1`) gets the waiting page
+   * below, which is still a way back — the screen is a moment, not a trap.
+   */
+  const justSent = search.sent === '1' && !needsBetterProof;
+
   return (
     <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
+      {justSent && (
+        <SentScreen
+          homeHref={payable.home}
+          backHref={payable.back?.href ?? payable.home}
+          backLabel={payable.back?.label ?? 'Back to Setnayan'}
+        />
+      )}
       {setup ? (
         <p className="mb-4 rounded-[var(--m-r-lg)] bg-terracotta/[0.07] px-4 py-3 text-sm leading-relaxed text-ink">
           <span className="font-semibold">Last step.</span>{' '}
@@ -519,7 +556,14 @@ export default async function PayPage({ params, searchParams }: Props) {
           </div>
         ) : null)}
 
-      {!waiting && (
+      {!waiting && overCeiling && summary}
+      {!waiting && overCeiling && (
+        <p role="status" data-pay-over-ceiling="" className="mt-5 px-1 text-sm font-medium text-ink">
+          {paymentOverCeilingMessage(maxPaymentPhp)}
+        </p>
+      )}
+
+      {!waiting && !overCeiling && (
       <PayPanel
         /*
           Their second attempt carries `rechecked`, which tells the action to
@@ -537,7 +581,6 @@ export default async function PayPage({ params, searchParams }: Props) {
         setup={setup}
         proofSent={false}
         resubmitNotice={resubmitNotice}
-        requiresReference={payable.requiresReference}
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}

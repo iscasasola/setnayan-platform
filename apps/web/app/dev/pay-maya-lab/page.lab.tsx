@@ -82,7 +82,6 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
         setup={false}
         proofSent={false}
         resubmitNotice={null}
-        requiresReference={false}
         amountPhp={AMOUNT}
         reference={REF}
         orderId="00000000-0000-4000-8000-000000000001"

@@ -25,7 +25,7 @@ test('the pay page offers Maya only when the gate is open and the bill is within
   const ret = code('app/pay/[reference]/maya-return.ts');
   assert.match(ret, /readMayaGate\(\)/);
   assert.match(ret, /if \(!state\.open\) return false;/);
-  assert.match(ret, /paymentWithinCeiling\(amountPhp, MAX_PAYMENT_PHP_DEFAULT\)/);
+  assert.match(ret, /paymentWithinCeiling\(amountPhp, await getMaxPaymentPhp\(/);
 });
 
 test('BDO stays the default: the Maya slot renders below the rails, not instead of them', () => {

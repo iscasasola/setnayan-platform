@@ -22,6 +22,7 @@ import {
   openRailOptions,
   channelLabel,
   parseReceivingAccounts,
+  isPayerRail,
 } from './payment-channels';
 
 const NOW = new Date('2026-08-15T10:00:00+08:00');
@@ -42,8 +43,12 @@ const BOTH = {
   bdo_account_number: '006540027965',
 };
 
-test('both rails open when enabled and configured', () => {
-  assert.deepEqual(openChannels(BOTH), ['gcash', 'bdo']);
+// ⚖ BDO ONLY (owner 2026-11-17): "we will make all our transactions enter BDO
+// Account." GCash stays in the list — configured, enabled — and is offered to
+// no payer. Every multi-rail test below reads that way now.
+test('both rails configured and enabled — only BDO is offered to a payer', () => {
+  assert.deepEqual(openChannels(BOTH), ['bdo']);
+  assert.deepEqual(receivingAccounts(BOTH).map((a) => a.id), ['gcash', 'bdo'], 'GCash left the admin list');
 });
 
 test('switching GCash off removes it — the whole point of the switch', () => {
@@ -53,7 +58,8 @@ test('switching GCash off removes it — the whole point of the switch', () => {
 test('an enabled channel with NO account number is not open', () => {
   // Otherwise checkout renders a payment panel with nothing to pay to.
   assert.deepEqual(openChannels({ ...BOTH, gcash_number: '   ' }), ['bdo']);
-  assert.deepEqual(openChannels({ ...BOTH, bdo_account_number: null }), ['gcash']);
+  // …and with BDO unpayable there is nothing to offer: GCash does NOT come back.
+  assert.deepEqual(openChannels({ ...BOTH, bdo_account_number: null }), []);
 });
 
 test('a pre-migration database (flags undefined) behaves as before', () => {
@@ -61,13 +67,14 @@ test('a pre-migration database (flags undefined) behaves as before', () => {
   // worse than showing one option too many.
   assert.deepEqual(
     openChannels({ gcash_number: '0917', bdo_account_number: '0065' }),
-    ['gcash', 'bdo'],
+    ['bdo'],
   );
 });
 
 test('resolveChannel honours a valid request', () => {
   assert.equal(resolveChannel('bdo', BOTH), 'bdo');
-  assert.equal(resolveChannel('gcash', BOTH), 'gcash');
+  // A posted 'gcash' is refused even while GCash is switched on (BDO only).
+  assert.equal(resolveChannel('gcash', BOTH), 'bdo');
 });
 
 test('resolveChannel REFUSES a disabled channel and falls to an open one', () => {
@@ -78,7 +85,7 @@ test('resolveChannel REFUSES a disabled channel and falls to an open one', () =>
 
 test('resolveChannel ignores junk input', () => {
   for (const junk of [null, undefined, '', 'paypal', 42, {}]) {
-    assert.equal(resolveChannel(junk, BOTH), 'gcash', `junk: ${String(junk)}`);
+    assert.equal(resolveChannel(junk, BOTH), 'bdo', `junk: ${String(junk)}`);
   }
 });
 
@@ -297,8 +304,8 @@ test('a rail with only a QR is open — that is how you pay it', () => {
   // render a rail that has a QR and no typed number, and this function would
   // have called it closed. Widening the ONE rule was the fix.
   assert.deepEqual(
-    openChannels({ gcash_qr_url: 'https://r2/gcash.png', bdo_account_number: '0065' }),
-    ['gcash', 'bdo'],
+    openChannels({ gcash_qr_url: 'https://r2/gcash.png', bdo_qr_url: 'https://r2/bdo.png' }),
+    ['bdo'],
   );
 });
 
@@ -336,23 +343,31 @@ const LIST = [
   { id: 'uno-1a2b', kind: 'bank', label: 'UNO', number: '222', enabled: false },
 ];
 
-test('the list is shown in the order the admin set', () => {
-  assert.deepEqual(openChannels({ receiving_accounts: LIST }), ['maribank-7k2q', 'gcash']);
+test('the list is shown in the order the admin set — but only its BDO accounts reach a payer', () => {
+  // ⚖ BDO only (owner 2026-11-17). A list with no BDO account offers nothing.
+  assert.deepEqual(openChannels({ receiving_accounts: LIST }), []);
+  const withBdo = [
+    ...LIST,
+    { id: 'bdo-2', kind: 'bank', label: 'BDO Savings', number: '333', enabled: true },
+    { id: 'bdo', kind: 'bank', label: 'BDO', number: '444', enabled: true },
+  ];
+  assert.deepEqual(openChannels({ receiving_accounts: withBdo }), ['bdo-2', 'bdo']);
   assert.deepEqual(
-    openRailOptions({ receiving_accounts: LIST }).map((r) => r.label),
-    ['Maribank', 'GCash'],
+    openRailOptions({ receiving_accounts: withBdo }).map((r) => r.label),
+    ['BDO Savings', 'BDO'],
   );
 });
 
 test('a switched-off listed account is offered nowhere', () => {
   assert.equal(isChannelOpen({ receiving_accounts: LIST }, 'uno-1a2b'), false);
-  assert.equal(resolveChannel('uno-1a2b', { receiving_accounts: LIST }), 'maribank-7k2q');
+  assert.equal(resolveChannel('uno-1a2b', { receiving_accounts: LIST }), null);
 });
 
 test('an EMPTY list falls back to the two old accounts — checkout keeps working', () => {
   const legacy = { gcash_number: '0917', bdo_account_number: '123' };
   for (const empty of [[], undefined, null, 'not-an-array']) {
-    assert.deepEqual(openChannels({ ...legacy, receiving_accounts: empty }), ['gcash', 'bdo']);
+    assert.deepEqual(openChannels({ ...legacy, receiving_accounts: empty }), ['bdo']);
+    assert.deepEqual(receivingAccounts({ ...legacy, receiving_accounts: empty }).map((a) => a.id), ['gcash', 'bdo']);
   }
 });
 
@@ -372,4 +387,26 @@ test('a list account keeps its own name; an unknown id says its id', () => {
   assert.equal(channelLabel({ receiving_accounts: LIST }, 'maribank-7k2q'), 'Maribank');
   assert.equal(channelLabel({ receiving_accounts: LIST }, 'gone-0000'), 'gone-0000');
   assert.equal(receivingAccounts({ receiving_accounts: LIST }).length, 3);
+});
+
+/* ── BDO ONLY FOR EVERY PAYER (owner 2026-11-17) ─────────────────────────── */
+
+test('GCash is offered to no payer, through any of the one rule’s doors', () => {
+  // "we will make all our transactions enter BDO Account. So we show them QRPH
+  // with the exact data. Show QR." — switched on, configured, with a QR, and
+  // still never offered.
+  const s = { ...BOTH, gcash_qr_url: 'https://r2/gcash.png', gcash_qr_payload: '000201' };
+  assert.equal(isChannelOpen(s, 'gcash'), false);
+  assert.equal(resolveChannel('gcash', s), 'bdo');
+  assert.deepEqual(openRailOptions(s).map((r) => r.id), ['bdo']);
+  // …and it is DORMANT, not deleted: the admin list and the label still know it.
+  assert.ok(receivingAccounts(s).some((a) => a.id === 'gcash' && a.enabled));
+  assert.equal(channelLabel(s, 'gcash'), 'GCash');
+});
+
+test('a BDO account is the bdo rail or one whose label names BDO', () => {
+  assert.equal(isPayerRail({ id: 'bdo', label: 'Anything' }), true);
+  assert.equal(isPayerRail({ id: 'bdo-x1', label: 'BDO Savings' }), true);
+  assert.equal(isPayerRail({ id: 'gcash', label: 'GCash' }), false);
+  assert.equal(isPayerRail({ id: 'maribank', label: 'Maribank (not BDO)' }), false);
 });

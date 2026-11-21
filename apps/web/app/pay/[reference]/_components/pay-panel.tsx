@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ReceiptReadFields } from '@/app/_components/payment/receipt-read-fields';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { submitPaymentProof } from '../actions';
 import { payAmount } from '@/lib/pay-amount';
@@ -35,7 +36,7 @@ import {
  *
  *   1 · What you're paying   the item, the figure, the reference, who it is for
  *   2 · Pay                  the code, the account details, the honest line
- *   3 · Send your proof      the screenshot and the reference digits
+ *   3 · Send your proof      the receipt screenshot — nothing typed (owner 2026-11-17)
  *
  * ── HOW IT MOVES, AND WHY IT IS BUILT THIS WAY ─────────────────────────────
  *
@@ -90,7 +91,6 @@ export function PayPanel({
   setup,
   proofSent,
   resubmitNotice,
-  requiresReference,
   amountPhp,
   reference,
   orderId,
@@ -117,8 +117,6 @@ export function PayPanel({
   proofSent: boolean;
   /** What the admin asked for, when they sent the payer back for better proof. */
   resubmitNotice: string | null;
-  /** The booking-fee lane, where the reference is required (owner 2026-08-06). */
-  requiresReference: boolean;
   amountPhp: number;
   reference: string;
   orderId: string;
@@ -138,9 +136,9 @@ export function PayPanel({
   /** 💳 The "Pay with card or Maya" button, server-rendered — null when that rail is off. */
   maya?: ReactNode;
 }) {
-  // The first OPEN account in the admin's order. GCash leads by default: a
-  // GCash payer sends for free, a bank transfer into BDO costs them ₱10–15 in
-  // InstaPay fees (measured 2026-07-31) — and the admin can reorder the list.
+  // The first OPEN account in the admin's order — BDO, the only rail a payer is
+  // offered (owner 2026-11-17: "we will make all our transactions enter BDO
+  // Account"). `openAccounts` decides that; this only picks the first.
   const [chosen, setChannel] = useState<Channel>(rails[0]?.id ?? '');
   // A rail switched off since this page painted is never the one on screen.
   const info = rails.find((r) => r.id === chosen) ?? rails[0] ?? null;
@@ -309,9 +307,9 @@ export function PayPanel({
           {maya}
 
           <p className="mt-4 text-xs leading-relaxed text-ink/70">
-            Paying on the same phone? Save the code to your photos first.{' '}
+            Paying on the same phone? Tap Share and save the code to your photos.{' '}
             <InfoTip label="" ariaLabel="About paying on the same phone" align="start">
-              Your wallet&rsquo;s scanner can open it from your photos.
+              Your bank app&rsquo;s scanner can open it from your photos.
             </InfoTip>
           </p>
 
@@ -362,8 +360,8 @@ export function PayPanel({
               <ProofForm
                 orderId={orderId}
                 reference={reference}
+                amountPhp={amountPhp}
                 channel={channel}
-                requiresReference={requiresReference}
                 rechecked={rechecked}
                 setup={setup}
               />
@@ -516,7 +514,7 @@ function StepHead({ n, title }: { n: number; title: string }) {
    no window in which the ₱0 code can show. */
 
 /**
- * Proof — screenshot, then the last 6 digits.
+ * Proof — the receipt screenshot, and nothing to type (owner 2026-11-17).
  *
  * Owner, 2026-08-21: *"show the preview of the screenshot so they can read the
  * reference number and type it."* So the picture STAYS on screen above the
@@ -528,19 +526,21 @@ function StepHead({ n, title }: { n: number; title: string }) {
 function ProofForm({
   orderId,
   reference,
+  amountPhp,
   channel,
-  requiresReference,
   rechecked,
   setup,
 }: {
   orderId: string;
   reference: string;
+  amountPhp: number;
   channel: Channel;
-  requiresReference: boolean;
   rechecked: boolean;
   setup: boolean;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
+  // The picked picture, handed to the on-phone reader (ReceiptReadFields).
+  const [picked, setPicked] = useState<File | null>(null);
   const [big, setBig] = useState(false);
   const urlRef = useRef<string | null>(null);
   const bigRef = useRef<HTMLDivElement>(null);
@@ -568,8 +568,7 @@ function ProofForm({
       {setup && <input type="hidden" name="setup" value="1" />}
 
       <p className="text-sm text-ink/65">
-        Send us the screenshot and the last 6 digits of your reference number. We confirm within 24
-        hours.
+        Upload your payment receipt &mdash; nothing to type. We read it and confirm within 24 hours.
       </p>
 
       {preview && (
@@ -582,7 +581,7 @@ function ProofForm({
             onClick={() => setBig(true)}
           />
           <p className="mt-2 text-xs text-ink/60">
-            Read the reference number off it &mdash; tap to enlarge.
+            This is the receipt we&rsquo;ll read &mdash; tap to enlarge.
           </p>
         </div>
       )}
@@ -594,6 +593,7 @@ function ProofForm({
         pathPrefix={`payments/${orderId}`}
         name="screenshot_ref"
         unsavedHint="press I’ve sent the payment below"
+        // The picture IS the proof now that nothing is typed — the action refuses a send without it.
         label={preview ? 'Use a different picture' : 'Your payment screenshot'}
         help="PNG, JPEG, WebP or HEIC up to 5 MB."
         maxSizeMB={5}
@@ -611,43 +611,23 @@ function ProofForm({
           const url = URL.createObjectURL(file);
           urlRef.current = url;
           setPreview(url);
+          setPicked(file);
         }}
       />
 
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-semibold text-ink">
-          Last 6 digits of your reference number
-          {requiresReference && <span className="font-normal text-ink/55"> · required</span>}
-        </span>
-        {/*
-          🪤 THIS FIELD USED TO CARRY `maxLength={6}`, WHICH SILENTLY DELETED
-          MOST OF WHAT ANYBODY PASTED. The sentence below invites a full paste,
-          and the server that receives it says in terms that "six is a minimum,
-          not a maximum" and keeps up to 64 characters — but the browser cut the
-          value to six before either of them ever saw it, with no error and no
-          sign anything had been dropped. Somebody following the instruction
-          exactly got the WORST result: their long, unambiguous reference
-          arrived as the first six characters of itself.
+      {/* 🔒 READ ON THIS PHONE (owner 19 Nov 2026: "BDO buyer receipts are read
+          on the phone; the outside AI call is removed"): the amount, date, time
+          and reference are filled from the picture by the in-app reader, and
+          the payer can fix any of them. No outside AI. */}
+      <ReceiptReadFields file={picked} expectedPhp={amountPhp} channel={channel} />
 
-          The pattern is widened to match, and admits the spaces and dashes
-          GCash prints into a grouped reference ("0043 457 367694") — the server
-          strips them anyway, and refusing them made a correct paste look wrong.
-        */}
-        <input
-          name="reference_last6"
-          inputMode="numeric"
-          autoComplete="off"
-          maxLength={64}
-          pattern="[A-Za-z0-9][A-Za-z0-9 \-]{3,63}"
-          placeholder="••••••"
-          required={requiresReference}
-          className="input-field tabular-nums tracking-[0.2em]"
-        />
-        <span className="mt-1.5 block text-xs text-ink/55">
-          On your receipt it looks like 0043457367694 &mdash; the last six is enough, and you can
-          paste the whole thing if it is easier.
-        </span>
-      </label>
+      {/* ⛔ THE TYPED REFERENCE FIELD IS GONE (owner 2026-11-17, verbatim:
+          *"the don't have to type. we detect after they sent it and log the
+          data for the admin to send his counterpart screenshot"*). The action
+          reads the reference, the amount, the date and the time off this
+          picture ON THIS PHONE (ReceiptReadFields, above) and stores them on
+          the payment for the admin to match. Advisory only — nothing read here
+          approves money. */}
 
       <SubmitButton className="button-primary w-full" pendingLabel="Sending…">
         I&rsquo;ve sent the payment
@@ -722,7 +702,7 @@ function StickyBar({
             second thing to press that does not send the proof. */}
         {last && !proofSent ? (
           <span className="flex-1 text-right text-xs leading-snug text-ink/55">
-            Send your screenshot and reference above.
+            Upload your receipt above.
           </span>
         ) : (
           <StageLink

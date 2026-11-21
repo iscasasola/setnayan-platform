@@ -12,6 +12,7 @@ import {
   ImageIcon,
   CalendarPlus,
   Handshake,
+  History,
   Lock,
   Plus,
   Star,
@@ -32,7 +33,8 @@ import {
 } from '@/lib/vendor-thread-tools';
 import { VENDOR_THREAD_TOOLS } from '@/lib/vendor-thread-tools';
 import { coupleThreadTools } from '@/lib/chat-box-tools';
-import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, PLUS_ROW_SECTION, PLUS_SECTION_WORD, hostPlusRows, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow, type PlusSection } from '@/lib/chat-plus';
+import { NEGOTIATE_GROUP, PLUS_ROW_PAGE, PLUS_ROW_SECTION, PLUS_SECTION_WORD, PLUS_TRAY_UNVERIFIED, PLUS_TRAY_UNVERIFIED_CTA, PLUS_TRAY_VERIFY_HREF, PLUS_TRAY_WORD, hostPlusRows, sheetSlashRows, supplierPlusRows, type PlusGroup, type PlusRow, type PlusSection, type PlusTrayGroup } from '@/lib/chat-plus';
+import { raiseDeal } from '@/lib/chat-kind-store';
 import { PLUS_DRAFT_ANCHOR, jumpTo, patchPlus, usePlus } from '@/lib/chat-plus-store';
 import { TOPIC_ICON } from '@/lib/topic-icons';
 import { PLUS_CARD_TOPIC, RISING_DRAFTS } from '@/lib/chat-plus';
@@ -78,8 +80,8 @@ const ICON: Record<VendorThreadToolIcon, LucideIcon> = {
 };
 
 /** 📷 · 🖼 The composer's two shortcuts live inside the (+) (v8.3) — since 11 Nov as rows of `lib/chat-plus.ts`, under Files. */
-type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo';
-const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon };
+type SheetIcon = VendorThreadToolIcon | 'camera' | 'photo' | 'history';
+const SHEET_ICON: Record<SheetIcon, LucideIcon> = { ...ICON, camera: Camera, photo: ImageIcon, history: History };
 const ATTACH_INPUT: Record<'file' | 'camera' | 'photo', string> = {
   file: CHAT_ATTACH_INPUT_ID,
   camera: CHAT_CAMERA_INPUT_ID,
@@ -129,6 +131,12 @@ export type SheetRow = {
    * of `page`'s tab word.
    */
   section?: PlusSection;
+  /** ＋ FINAL (21 Nov): spans both columns (the first tile; the last when it would sit alone). */
+  wide?: boolean;
+  /** ＋ FINAL: the host's two jobs — the tile sits under its group's word (Ask · Share). */
+  tray?: PlusTrayGroup;
+  /** ＋ FINAL: Every version — raises the chat's versions sheet (`raiseDeal`). */
+  opensVersions?: boolean;
 };
 
 /**
@@ -185,7 +193,18 @@ export function afterSheetStepsBack(fn: () => void, holdsEntry: boolean = Boolea
   const safety = window.setTimeout(go, 1200);
 }
 
-export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly SheetRow[]; sheetMark: string; threadId?: string }) {
+export function ToolsSheetButton({
+  rows,
+  sheetMark,
+  threadId,
+  unverified = false,
+}: {
+  rows: readonly SheetRow[];
+  sheetMark: string;
+  threadId?: string;
+  /** 🪪 ＋ FINAL: the shop is not verified — every tile is locked and the fix is said ONCE, at the top. */
+  unverified?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const plus = usePlus(threadId ?? '');
@@ -218,8 +237,31 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
   const tileClass = 'flex min-h-[56px] w-full min-w-0 items-center gap-2 rounded-2xl bg-[color:var(--m-paper-2)] py-2 pl-2 pr-3 text-left';
   const items: ReactNode[] = [];
   let lastGroup: ThreadToolGroup | undefined;
+  let lastTray: PlusTrayGroup | undefined;
+  /* 🖥 On a computer the same grid sits in the third column; the extra room goes to one helping line per tile (＋ FINAL). */
+  const helping = pickerOpen;
+  if (unverified) {
+    items.push(
+      <li key="unverified" className="col-span-2 flex items-center gap-2 rounded-2xl bg-[color:var(--m-paper-2)] px-3 py-2.5" data-plus-unverified="">
+        <Lock aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-3)]" strokeWidth={1.9} />
+        <span className="min-w-0 flex-1 text-[13px] leading-tight text-ink">{PLUS_TRAY_UNVERIFIED}</span>
+        <Link href={PLUS_TRAY_VERIFY_HREF} className="sn-press shrink-0 text-[13px] font-bold text-sn-accent" data-plus-get-verified="">
+          {PLUS_TRAY_UNVERIFIED_CTA}
+        </Link>
+      </li>,
+    );
+  }
   for (const row of rows) {
     const group = headOf(row)?.key;
+    // ＋ FINAL: the host's two jobs wear their own word — Ask · Share (the one place group words stay).
+    if (row.tray && row.tray !== lastTray) {
+      items.push(
+        <li key={`tray-${row.tray}`} aria-hidden className="col-span-2 pt-1 text-[12px] font-bold text-[color:var(--m-slate-2)]" data-plus-tray={row.tray}>
+          {PLUS_TRAY_WORD[row.tray]}
+        </li>,
+      );
+      lastTray = row.tray;
+    }
     // A row that still carries a registry group (Money · Plan · Talk & files · Just you) keeps its word, across both tiles.
     if (row.group && row.group !== lastGroup) {
       const g = THREAD_TOOL_GROUPS.find((x) => x.key === row.group);
@@ -232,6 +274,7 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     }
     const Icon = row.card ? TOPIC_ICON[PLUS_CARD_TOPIC[row.card]] : SHEET_ICON[row.icon];
     const shut = row.shut;
+    const span = row.wide ? 'col-span-2' : undefined;
     const lead = (
       <span
         aria-hidden
@@ -245,13 +288,14 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
     if (shut) {
       const reasonId = `${headingId}-shut-${row.key}`;
       items.push(
-        <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group} data-shut="" className="col-span-2">
-          <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} className={tileClass}>
+        <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group} data-shut="" data-plus-wide={row.wide ? '' : undefined} className={span}>
+          <span role="button" aria-disabled="true" aria-describedby={reasonId} tabIndex={0} aria-label={`${row.label} — ${shut.reason}`} className={tileClass}>
             {lead}
             <span className="min-w-0 flex-1">
               {/* Shut = the mid grey, at 13 px or larger only (rule 13). */}
               <span className="block truncate text-[14px] font-bold leading-tight text-[color:var(--m-slate-3)]">{row.label}</span>
-              <span id={reasonId} className="mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-3)]">
+              {/* 🪪 Unverified: the fix is said ONCE at the top of the tray, so the tile shows only its lock. */}
+              <span id={reasonId} className={unverified ? 'sr-only' : 'mt-0.5 block truncate text-[13px] leading-tight text-[color:var(--m-slate-3)]'}>
                 {shut.reason}
               </span>
             </span>
@@ -261,9 +305,14 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
       );
       continue;
     }
-    const words = <span className="min-w-0 flex-1 text-[14px] font-bold leading-tight text-ink">{row.label}</span>;
+    const words = (
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold leading-tight text-ink">{row.label}</span>
+        {helping ? <span className="mt-0.5 block text-[13px] leading-tight text-[color:var(--m-slate-2)]">{row.line}</span> : null}
+      </span>
+    );
     items.push(
-      <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group}>
+      <li key={row.key} data-thread-tool-row={row.key} data-plus-group={group} data-plus-wide={row.wide ? '' : undefined} className={span}>
         {row.href ? (
           <Link
             href={row.href}
@@ -288,6 +337,13 @@ export function ToolsSheetButton({ rows, sheetMark, threadId }: { rows: readonly
             title={row.line}
             className={`sn-press ${tileClass}`}
             onClick={() => {
+              if (row.opensVersions && threadId) {
+                // Every version is a place to go: the chat raises its own versions sheet once the tray is away.
+                const holds = open && Boolean(layerHolder(window.history.state));
+                close();
+                afterSheetStepsBack(() => raiseDeal(threadId), holds);
+                return;
+              }
               if (row.card && threadId) {
                 const holds = open && Boolean(layerHolder(window.history.state));
                 setOpen(false);
@@ -427,7 +483,7 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       label: r.label,
       line: r.line,
       // A card wears its topic's glyph (above); a row that is not a card wears its own: the camera, the photo, the flag.
-      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : 'file',
+      icon: r.key === 'camera' ? 'camera' : r.key === 'photo' ? 'photo' : r.key === 'report' ? 'problem' : r.key === 'quote' ? 'quote' : r.key === 'versions' ? 'history' : 'file',
       shut: r.shutNow ?? (r.shutUntilAgreement && !hasAgreement ? r.shutUntilAgreement : null),
       card: r.card,
       href: d?.href,
@@ -439,6 +495,9 @@ function plusSheetRows(rows: PlusRow[], side: 'vendor' | 'couple', eventId: stri
       ...(side === 'vendor' ? { section: PLUS_ROW_SECTION[r.key] } : {}),
       // 🤝 Negotiate's rows wear the brand round (the design's `pri`) — the money moves of this chat.
       primary: PLUS_ROW_PAGE[r.key] === NEGOTIATE_GROUP,
+      wide: r.wide,
+      tray: r.tray,
+      opensVersions: r.opensVersions,
     };
   });
 }
@@ -454,6 +513,7 @@ export function ThreadToolsSheet({
   threadId,
   paid = false,
   hasQuote,
+  verified = null,
 }: {
   eventId: string;
   state: VendorThreadToolsState;
@@ -465,11 +525,13 @@ export function ThreadToolsSheet({
    * "See every version" is not drawn (walk 13 Nov 2026). Omitted keeps "Change quote".
    */
   hasQuote?: boolean;
+  /** 🪪 ＋ FINAL: `false` = the shop is not verified (every tile locked, "Get verified" said once). Null = unknown. */
+  verified?: boolean | null;
 }) {
   // 🗳 One open poll per chat: the stream's poll card tells the store; the Poll row goes grey with its reason.
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement }), 'vendor', eventId, state.hasAgreement);
-  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} />;
+  const rows = plusSheetRows(supplierPlusRows({ paid, pollOpen, hasQuote, booked: state.hasAgreement, verified }), 'vendor', eventId, state.hasAgreement);
+  return <ToolsSheetButton rows={rows} sheetMark="vendor" threadId={threadId} unverified={verified === false} />;
 }
 
 /**
@@ -494,7 +556,8 @@ export function CoupleThreadToolsSheet({
   // rows say so: no deal row ⇒ the Meeting card is SHUT with its reason, never hidden and never a dead Send.
   const meetingOpen = coupleThreadTools(dealReveal).some((t) => t.key === 'deal-or-meeting');
   const { pollOpen } = usePlus(threadId ?? '');
-  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, true).map((r) =>
+  // ＋ FINAL: Log a payment waits for booking like the supplier's booking tools (`AFTER_BOOKING`).
+  const rows = plusSheetRows(hostPlusRows({ canLogPayment, pollOpen, booked }), 'couple', eventId, booked).map((r) =>
     r.key === 'meeting' && !meetingOpen ? { ...r, shut: { reason: 'Not open on this chat yet' } } : r,
   );
   return <ToolsSheetButton rows={rows} sheetMark="couple" threadId={threadId} />;

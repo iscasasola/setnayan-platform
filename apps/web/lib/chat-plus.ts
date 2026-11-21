@@ -67,7 +67,7 @@ export type PlusCardKind =
 /** A row that opens one of the composer's own file inputs inside the tap (a phone only opens a picker from a gesture). */
 export type PlusAttach = 'camera' | 'photo' | 'file';
 
-export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report';
+export type PlusRowKey = PlusCardKind | 'camera' | 'photo' | 'report' | 'versions';
 // ('offer' is a card kind, so it is a row key too. 'versions' left on 20 Nov 2026 and Report a problem moved to the ⋯
 // (part G, `picked-client-more.ts`); the (+) holds only things you send.)
 
@@ -94,7 +94,37 @@ export type PlusRow = {
   shutUntilAgreement?: { reason: string };
   /** Shut by the chat's own state right now (one open poll at a time) — drawn greyed with the reason, never hidden. */
   shutNow?: { reason: string };
+  /** ＋ FINAL (21 Nov): the tile spans both columns — the first tile, and the last when it would sit alone. */
+  wide?: boolean;
+  /** ＋ FINAL: Every version — a place to go (the chat's versions sheet), not a card. */
+  opensVersions?: boolean;
+  /** ＋ FINAL: the host's tray is two jobs, headed by their own words — Ask · Share. */
+  tray?: PlusTrayGroup;
 };
+
+/** ＋ FINAL (owner 21 Nov, "CHAT ＋ FINAL — APPROVED"): the host's two jobs, and their words. */
+export type PlusTrayGroup = 'ask' | 'share';
+export const PLUS_TRAY_WORD: Record<PlusTrayGroup, string> = { ask: 'Ask', share: 'Share' };
+
+/** ＋ FINAL: a tool that waits for booking — a normal tile, dimmed, a lock, and these words under its name. */
+export const AFTER_BOOKING = 'After booking';
+/** ＋ FINAL: an unverified shop — every tile locked, the fix said once at the top of the tray. */
+export const PLUS_TRAY_UNVERIFIED = 'Chat tools open once your shop is verified.';
+export const PLUS_TRAY_UNVERIFIED_CTA = 'Get verified';
+export const PLUS_TRAY_VERIFY_HREF = '/vendor-dashboard/verify';
+/** Every version over no quote yet: there is no history to open. */
+export const NO_VERSIONS_YET = 'After your first quote';
+
+/**
+ * ＋ FINAL — TWO TILES PER ROW, FIXED PLACES (owner 21 Nov). The first tile is full width; so is the last when it
+ * would sit alone (the drawing's own rule). Places never move with the deal: booking only lifts locks.
+ */
+export function withTrayWidths(rows: PlusRow[], lastToo = true): PlusRow[] {
+  return rows.map((r, i) => {
+    const wide = i === 0 || (lastToo && i === rows.length - 1 && (rows.length - 1) % 2 === 1);
+    return wide ? { ...r, wide: true } : r;
+  });
+}
 
 /**
  * The picked client's page each (+) row belongs to — the tab whose word heads the row in the sheet, and the key the
@@ -120,6 +150,7 @@ export const PLUS_ROW_PAGE: Record<PlusRowKey, PlusGroup> = {
   photos: 'files',
   file: 'files',
   report: 'report',
+  versions: NEGOTIATE_GROUP,
 };
 
 /**
@@ -162,6 +193,7 @@ export const PLUS_ROW_SECTION: Record<PlusRowKey, PlusSection> = {
   photos: 'files',
   file: 'files',
   report: 'report',
+  versions: 'negotiate',
 };
 
 /**
@@ -213,9 +245,10 @@ export function supplierChangeOrderHref(eventId: string): string {
 export const DROP_AN_OFFER_LABEL = 'Drop an offer';
 
 /** 📷 Take a photo or a video now — the composer's camera input, the same on both sides. */
-const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
 
 /** 🔒 CHAT-19: a booked quote is not re-quoted — the problem and the way forward, on the shut row. */
+const CAMERA_ROW: PlusRow = { key: 'camera', label: 'Camera', line: 'Take a photo or a video now', card: null, door: null, attach: 'camera' };
+
 export const BOOKED_CHANGE_QUOTE_REASON = 'Booked at this quote · propose a change order on their Schedule';
 export const BOOKED_COUNTER_REASON = 'Booked at this quote · ask for a change order in Details';
 
@@ -243,76 +276,72 @@ export function supplierPlusRows(opts: {
    * (`supplierChangeOrderHref`).
    */
   booked?: boolean;
+  /**
+   * 🪪 ＋ FINAL: `false` = the shop is not verified — every tile is drawn locked and the tray says the fix once (the
+   * server refuses each send too, `lib/shop-plus-gate.server.ts`). `null`/omitted = unknown or verified: drawn open; the
+   * server still has the final say.
+   */
+  verified?: boolean | null;
 }): PlusRow[] {
   const noQuoteYet = opts.hasQuote === false;
   const lockedAtBooking = !noQuoteYet && opts.booked === true;
-  return [
-    // 🤝 NEGOTIATE FIRST (12 Nov): Change quote · Propose a payment plan · See every version. The design's "Offer" row
-    // (drop an offer into the chat) is PR-4 — it is not drawn until that card exists (never a dead row).
-    ...[
-          noQuoteYet
-            ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
-              ({ key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your cards · an offer · good for 14 days', card: 'quote', door: 'build-quote' } as PlusRow)
-            : ({
-                key: 'quote',
-                label: 'Change quote',
-                line: opts.paid ? 'A new version · the paid one is the floor' : 'A new version · they see what changed',
-                card: 'quote',
-                door: 'build-quote',
-                ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
-              } as PlusRow),
-        ],
-    // 🏷 Drop an offer (19 Nov 2026 — PR-4's card, now reachable): one of the shop's own offers, applied by the hosts
-    // with one tap. It changes a quote, so it is not drawn before one exists, and it is shut once they booked at it.
-    ...(noQuoteYet
-      ? []
-      : [
-          {
-            key: 'offer',
-            label: DROP_AN_OFFER_LABEL,
-            line: 'They apply it with one tap',
-            card: 'offer',
-            door: null,
-            ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
-          } as PlusRow,
-        ]),
-    { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
-    { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
-    pollRow(opts.pollOpen),
+  const afterBooking = { shutUntilAgreement: { reason: AFTER_BOOKING } };
+  // ✅ ＋ FINAL (owner 21 Nov, frozen drawing `chat_plus_final_v1_fable.html`): ONE tray, fixed places, in the deal's
+  // order — the quote first and full width · money · time and files · questions · the tools that wait for booking ·
+  // the quote's history last.
+  // ⚠ KEPT, NOT REMOVED: the drawing draws neither Drop an offer nor Camera, and it lists no removal — so both stay, in
+  // fixed places by the same order (an offer is a quote move; Camera sits with Photos & files), pending the controller's
+  // call. Drop an offer is drawn in its place even before a quote, shut with its reason — places never move by stage.
+  // ⏳ Partner card (drawn between Ask for access and Every version) is not drawn until its card is built — never a
+  // dead tile.
+  const rows: PlusRow[] = [
+    noQuoteYet
+      ? // 🧾 Make a quote (cut 7, 2026-11-14): the short card in the chat — your cards, an offer, Good until 14 days.
+        ({ key: 'quote', label: MAKE_A_QUOTE_LABEL, line: 'Your service cards and offers go in here', card: 'quote', door: 'build-quote' } as PlusRow)
+      : ({
+          key: 'quote',
+          label: 'Change quote',
+          line: opts.paid ? 'A new version · the paid one is the floor' : 'Your service cards and offers go in here',
+          card: 'quote',
+          door: 'build-quote',
+          ...(lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
+        } as PlusRow),
     {
-      key: 'form',
-      label: 'Form',
-      line: 'A saved question set, answered one at a time',
-      card: 'form',
-      door: 'questions-for-couple',
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    // 🔗 Every supplier and the coordinator (owner 8 Nov: "suppliers also get ask for access"). The shipped ask — booked
-    // on this event, so it waits for the booking like Payment and Form; the host (or the coordinator) still answers.
-    {
-      key: 'access',
-      label: 'Ask for access',
-      line: 'Seat plan, schedule, guest list… · the host decides',
-      card: 'access',
+      key: 'offer',
+      label: DROP_AN_OFFER_LABEL,
+      line: 'They apply it with one tap',
+      card: 'offer',
       door: null,
-      shutUntilAgreement: { reason: 'Opens once they book you' },
+      ...(noQuoteYet ? { shutNow: { reason: NO_VERSIONS_YET } } : lockedAtBooking ? { shutNow: { reason: BOOKED_CHANGE_QUOTE_REASON } } : {}),
     },
-    {
-      key: 'payment',
-      label: 'Payment',
-      line: 'Ask for the next one now',
-      card: 'payment',
-      door: 'ask-payment',
-      shutUntilAgreement: { reason: 'Opens once they book you' },
-    },
-    { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
-    CAMERA_ROW,
+    { key: 'plan', label: 'Payment plan', line: 'Split the total into dated parts', card: 'plan', door: null },
+    { key: 'payment', label: 'Ask for a payment', line: 'Request one part of the plan', card: 'payment', door: 'ask-payment', ...afterBooking },
+    { key: 'meeting', label: 'Dates & times', line: 'A meeting, a call, a time on the day', card: 'meeting', door: 'deal-or-meeting' },
     // ONE phone picker (owner 11 Nov, "dupes"): the card's "From your phone" is the composer's own input — photo, video
     // or PDF — and its Portfolio source is drawn shut with its reason until the album build.
-    { key: 'photos', label: 'Photos & files', line: 'From your phone or your portfolio', card: 'photos', door: 'share-file' },
-    // 🚩 Report a problem LEFT the (+) (Unichat part G, owner 20 Nov — supersedes 9 Nov "last row of (+)"): it lives
-    // under the head's ⋯ only (`picked-client-more.ts`), so the (+) holds things you SEND.
+    { key: 'photos', label: 'Photos & files', line: 'Upload pictures, plans, contracts', card: 'photos', door: 'share-file' },
+    CAMERA_ROW,
+    { key: 'decision', label: 'Decision', line: 'One question, one clear answer', card: 'decision', door: null },
+    pollRow(opts.pollOpen),
+    { key: 'form', label: 'Form', line: 'Collect details you need for the day', card: 'form', door: 'questions-for-couple', ...afterBooking },
+    // 🔗 Every supplier and the coordinator (owner 8 Nov): booked on this event, so it waits for the booking.
+    { key: 'access', label: 'Ask for access', line: 'Ask to see their schedule or guests', card: 'access', door: null, ...afterBooking },
+    {
+      key: 'versions',
+      label: 'Every version',
+      line: "The quote's full history",
+      card: null,
+      door: null,
+      opensVersions: true,
+      ...(noQuoteYet ? { shutNow: { reason: NO_VERSIONS_YET } } : {}),
+    },
   ];
+  return withTrayWidths(opts.verified === false ? rows.map(lockForVerification) : rows);
+}
+
+/** 🪪 An unverified shop: every tile locked. The tile shows only its lock; the tray says the fix once. */
+function lockForVerification(r: PlusRow): PlusRow {
+  return { ...r, shutNow: { reason: PLUS_TRAY_UNVERIFIED } };
 }
 
 /**
@@ -337,34 +366,37 @@ export function hostPlusRows(opts: {
    */
   booked?: boolean;
 }): PlusRow[] {
-  const rows: PlusRow[] = [
-    // 🤝 NEGOTIATE FIRST (12 Nov): the hosts never edit a price — they counter or propose a plan; the supplier
-    // accepts, counters or declines.
-    // ✋ NO GENERIC "Ask for a change" ROW (owner, ruling 6076): an ask STARTS FROM THE PART being changed and carries
-    // it — the "Ask for a change" action sits on the quote's lines, its payment plan and a sent form, in the chat
-    // (`AskChangeDoor`, `ask-change-card.tsx`). A blank ask from the (+) had to be told afterwards what it was about.
+  // ✅ ＋ FINAL (owner 21 Nov): the host's ＋ is two jobs, ASK the shop for something and SHARE something of yours —
+  // not the supplier's money-first set. Counter is the first ask and sits where the supplier's Change quote sits.
+  // Controller call (DECISION_LOG, 21 Nov): Every version is NOT on the host ＋ — hosts reach it from the quote card.
+  // ⏳ Event detail (the first Share tile) is not drawn until its pick step and card are built — never a dead tile.
+  // ✋ NO GENERIC "Ask for a change" ROW (owner, ruling 6076): an ask STARTS FROM THE PART being changed (`AskChangeDoor`).
+  const ask: PlusRow[] = [
     {
       key: 'counter',
-      label: 'Counter with a price',
-      line: 'The total or one line · good until a date',
+      label: 'Counter',
+      line: 'Answer their quote with your own number',
       card: 'counter',
       door: null,
       ...(opts.booked ? { shutNow: { reason: BOOKED_COUNTER_REASON } } : {}),
     },
-    { key: 'plan', label: 'Propose a payment plan', line: 'Another way to pay · they accept it', card: 'plan', door: null },
-    { key: 'decision', label: 'Decision', line: 'Pin a topic until it is settled', card: 'decision', door: null },
+    { key: 'plan', label: 'Payment plan', line: 'Split the total into dated parts', card: 'plan', door: null },
+    { key: 'meeting', label: 'Dates & times', line: 'A meeting, a call, a time on the day', card: 'meeting', door: 'deal-or-meeting' },
+    { key: 'decision', label: 'Decision', line: 'One question, one clear answer', card: 'decision', door: null },
     pollRow(opts.pollOpen),
   ];
-  if (opts.canLogPayment) {
-    rows.push({ key: 'logpay', label: 'Log a payment', line: 'Paid outside: amount · method · reference · receipt', card: 'logpay', door: 'host-payments' });
-  }
-  rows.push(
-    { key: 'meeting', label: 'Meeting', line: 'Name · date · time · how', card: 'meeting', door: 'deal-or-meeting' },
+  const share: PlusRow[] = [
+    { key: 'file', label: 'Photos & files', line: 'Upload pictures, plans, contracts', card: 'file', door: 'share-file' },
     CAMERA_ROW,
-    { key: 'file', label: 'Photos & files', line: 'From your phone · a photo, a video or a document', card: 'file', door: 'share-file' },
-    // 🚩 Report a problem left the (+) on the host side too (part G): the host's ⋯ holds it (`hostMoreRows`).
-  );
-  return rows;
+  ];
+  // Only hosts log their own money; a coordinator for the hosts drops it (nothing to unlock, nothing to show).
+  if (opts.canLogPayment) {
+    share.push({ key: 'logpay', label: 'Log a payment', line: 'Record money you have paid', card: 'logpay', door: 'host-payments', shutUntilAgreement: { reason: AFTER_BOOKING } });
+  }
+  return [
+    ...withTrayWidths(ask, false).map((r) => ({ ...r, tray: 'ask' as const })),
+    ...share.map((r) => ({ ...r, tray: 'share' as const })),
+  ];
 }
 
 /**

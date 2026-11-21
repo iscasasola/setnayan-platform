@@ -586,6 +586,11 @@ export type NotificationType =
      opening `/host/accept/<token>` — so they accept without the couple copying the link. ⚠ IN-APP ONLY: NOT on
      EMAIL_ENABLED_TYPES (owner: no new emails without his word). ⚠ ENUM value in 20271303211103. */
   | 'coordinator_invited'
+  /* 💸 THE BOOKED COORDINATOR REMINDS THE HOSTS OF A PAYMENT DUE (owner 2026-11-21, DECISION_LOG "COORDINATOR: DUE
+     PAYMENTS VIEWABLE + 'REMIND THE HOSTS', NOT LOGGABLE"). → every host of the event, one notice per press, opening the
+     Budget page. Written by the DATABASE (`remind_the_hosts_of_a_payment`, 20271357113669), never emitNotification — at
+     most one per seat per supplier a day. ⚠ IN-APP ONLY: NOT on EMAIL_ENABLED_TYPES. ⚠ ENUM value in 20271356585725. */
+  | 'coordinator_reminded_payment'
   /* 🗓 A HOST OR THE COORDINATOR ASKED A BOOKED SUPPLIER TO CHANGE THEIR TIMES (owner 2026-11-02, DECISION_LOG "A
      SUPPLIER'S SCHEDULE BASICS FOR THIS WEEK" item 2; supplier gate audit D2). `schedule_ask` → the asked shop's owner,
      opening their Schedule for that event (Accept / Decline there); `schedule_ask_answered` → the asker, when the
@@ -773,6 +778,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   fee_dispute_opened: 'A booking fee is disputed',
   fee_dispute_answered: 'Your fee dispute was answered',
   coordinator_invited: 'You’re invited to coordinate',
+  coordinator_reminded_payment: 'Your coordinator reminds you of a payment',
   schedule_ask: 'Asked to change your times',
   schedule_ask_answered: 'A supplier answered your ask',
   supplier_where_asked: 'A supplier picked their chapters',
@@ -1033,6 +1039,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   fee_dispute_answered: 'bg-sky-100 text-sky-800',
   // Waiting on the coordinator's Accept → the action-needed amber, like every other ask.
   coordinator_invited: 'bg-warn-100 text-warn-900',
+  // A payment waits on the hosts → the action-needed amber.
+  coordinator_reminded_payment: 'bg-warn-100 text-warn-900',
   // A deadline on the couple's own originals → the action-needed amber.
   papic_originals_reminder: 'bg-warn-100 text-warn-900',
   // A supplier waits on the couple's answers → the action-needed amber, like every other ask.
@@ -1353,6 +1361,7 @@ export const NOTIFICATION_TYPE_ICON: Partial<Record<NotificationType, Notificati
   supplier_part_changed: 'calendar',
   schedule_released: 'calendar',
   coordinator_invited: 'user-plus',
+  coordinator_reminded_payment: 'bell',
   schedule_ask: 'calendar',
   schedule_ask_answered: 'calendar',
   supplier_where_asked: 'calendar',

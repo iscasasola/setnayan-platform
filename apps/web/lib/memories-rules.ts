@@ -28,6 +28,7 @@
  *
  * Pure — the reads are `memories-rules.server.ts` — so `memories-rules.test.ts` executes every row of the table.
  */
+import { resolveAreaLevel } from './delegate-areas';
 
 /** The two answers to "who sees what", in the order the dropdown lists them (the default first). */
 export type MemoriesWhoSees = 'tagged' | 'all';
@@ -62,7 +63,7 @@ export const WHO_SEES_LINE: Readonly<Record<MemoriesWhoSees, string>> = {
 };
 
 /** What a person who may not change the rules is told, in place. */
-export const MEMORIES_RULES_FORBIDDEN = 'Only the hosts and the coordinator can change who sees your Memories.';
+export const MEMORIES_RULES_FORBIDDEN = 'Only the hosts can change who sees your Memories.';
 
 /** The facts the server reads about the caller on ONE event. */
 export type MemoriesManagerFacts = {
@@ -85,6 +86,24 @@ export type MemoriesManagerRole = 'host' | 'coordinator';
  */
 export function memoriesManagerRoleOf(f: MemoriesManagerFacts): MemoriesManagerRole | null {
   if (f.memberType === 'couple') return 'host';
-  if (f.coordinatorSeat && !f.coordinatorWindowClosed) return 'coordinator';
+  // 🔒 MEMORIES ARE THE HOSTS' (owner 2026-11-21, DECISION_LOG "BOOKED COORDINATOR = 'THEIR WHOLE DASHBOARD MINUS THE
+  // MEMORIES'"): a coordinator seat no longer manages them — no ⚙ rules, no tagging, no pool moderation. Every action
+  // that asks this (`photo-tag-actions.ts`, `pool-gallery-actions.ts`, the rules writes) now refuses a coordinator.
+  void f.coordinatorSeat;
+  void f.coordinatorWindowClosed;
   return null;
+}
+
+/**
+ * 🔒 Is the Memories tab SHUT for this viewer? A delegate (`coordinator` member with a seat) whose grant does not
+ * open Photos — the booked coordinator's never does (`COORDINATOR_AREAS.photos = null`). A seat whose window has
+ * closed holds no grant at all, and is shut too. The hosts are never shut out.
+ */
+export function memoriesKeptFromViewer(viewer: {
+  isCouple: boolean;
+  delegatePermissions: Parameters<typeof resolveAreaLevel>[0];
+}): boolean {
+  if (viewer.isCouple) return false;
+  if (viewer.delegatePermissions === null) return true;
+  return resolveAreaLevel(viewer.delegatePermissions, 'photos') === null;
 }

@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
+import { TheirEventLine } from '../_components/their-event-line';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, LayoutGrid } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -114,10 +115,12 @@ function isRound(tableType: string): boolean {
   return tableType.startsWith('round') || tableType.startsWith('crescent');
 }
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ door?: string }> };
 
-export default async function VendorSeatPlanPage({ params }: Props) {
+export default async function VendorSeatPlanPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  // 🚪 Opened from "Their event" (owner 2026-11-21): the part alone, with the one line on top and ✕ Close.
+  const fromTheirEvent = (await searchParams)?.door === 'their-event';
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -160,12 +163,16 @@ export default async function VendorSeatPlanPage({ params }: Props) {
 
   return (
     <section className="mx-auto w-full tab:max-w-5xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+      {fromTheirEvent ? (
+        <TheirEventLine eventId={eventId} eventName={null} />
+      ) : (
       <Link
         href={`/vendor-dashboard/clients/${eventId}?tab=details`}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> Event brief
       </Link>
+      )}
 
       <header className="space-y-2">
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">

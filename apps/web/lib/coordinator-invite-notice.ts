@@ -43,3 +43,22 @@ export function coordinatorInviteNotice(input: { token: string; eventName: strin
     relatedUrl: `/host/accept/${input.token}`,
   };
 }
+
+/**
+ * 🧭 ACCESS IS AUTOMATIC ON BOOKING (owner 2026-11-21, DECISION_LOG "COORDINATOR: DUE PAYMENTS VIEWABLE … ACCESS IS
+ * AUTOMATIC": *"if that's their service, then they get the access for free"*). When the booked shop's owner account is
+ * known, the seat is written ALREADY ACCEPTED and the notice opens the hosts' dashboard itself — there is nothing to
+ * accept.
+ */
+export function coordinatorOpenedNotice(input: { eventId: string; eventName: string | null }): {
+  title: string;
+  body: string;
+  relatedUrl: string;
+} {
+  const event = input.eventName?.trim() || 'A couple’s event';
+  return {
+    title: `You can now open ${event}`,
+    body: 'You’re booked as their coordinator. Their dashboard is open to you — everything except Memories and paying.',
+    relatedUrl: `/dashboard/${input.eventId}`,
+  };
+}

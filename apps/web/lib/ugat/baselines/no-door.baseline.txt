@@ -22,6 +22,7 @@
 /dev/avatar-sheet-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bar-lab/[[...path]]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/billing-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/booked-coordinator-lab	# 2026-11-21 · internal (dev lab, 404 in production) · the booked coordinator's new parts (Events you run buttons, Payments due, Suppliers line, Memories shut) on fixtures; reached by typing its address
 /dev/booking-ask-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -99,6 +100,7 @@
 /dev/swipe-rows-lab/repertoire	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/sponsors	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/swipe-rows-lab/suppliers	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/their-event-lab	# 2026-11-21 · internal (dev lab, 404 in production) · a booked supplier's Their event list, one part alone, Numbers on fixtures; reached by typing its address
 /dev/thumb-row-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/unichat-a-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/venue-check-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

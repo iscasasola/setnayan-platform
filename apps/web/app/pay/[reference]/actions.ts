@@ -9,7 +9,7 @@ import { paymentRowFor } from '@/lib/order-mint-identity';
 import { parseClientRef, orderPaymentProofPolicy } from '@/lib/r2-client-ref';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { notifyAdminsPaymentProofSubmitted } from '@/lib/order-admin-notify';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
 import { CANCELLABLE_ORDER_STATUSES } from '@/lib/event-deletion-gate';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { receivingAccounts } from '@/lib/payment-channels';
@@ -108,7 +108,7 @@ export async function submitPaymentProof(formData: FormData): Promise<void> {
       back(
         reference,
         'error',
-        'The couple has not approved payment handling for your access — ask them to re-invite you with payment permission.',
+        ONLY_A_HOST_PAYS,
       );
     }
   }

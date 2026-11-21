@@ -143,7 +143,7 @@ const BENCH = stripComments(readFileSync(join(V, '_components', 'shortlist-categ
 const PAGE = stripComments(readFileSync(join(V, 'page.tsx'), 'utf8'));
 
 test('T4 · the card’s verbs come from the table — one row, every word kept', () => {
-  assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\);/);
+  assert.match(CARD, /const verbs = cardVerbs\(\{ actions: shown, booked, hasPrice, quoteIn, payDue: Boolean\(payHref\) \}\)(?:;|\.filter\(\s*\(v\) => viewerBooks \|\| !HOST_ONLY_VERBS\.has\(v\.key\),?\s*\);)/);
   // Buttons keep their words (owner 2026-10-12, look call 2 — supersedes the 10-07 fit pass): ONE row, no fit
   // pass, and it wraps rather than dropping a word.
   assert.doesNotMatch(CARD, /useFitRow\(/, 'a fit pass would drop the words again');

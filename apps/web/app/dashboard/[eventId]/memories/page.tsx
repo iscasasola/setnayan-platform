@@ -33,6 +33,9 @@ import type { MemoriesAlbumKey } from '@/lib/event-memories';
 import { MemoriesSettings } from './_components/memories-settings';
 import { memoriesNotice } from '@/lib/memories-notice';
 import { memoriesManagerRole } from '@/lib/memories-rules.server';
+import { fetchEventViewer } from '@/lib/event-viewer.server';
+import { memoriesKeptFromViewer } from '@/lib/memories-rules';
+import { HostsKeepThis, MEMORIES_KEPT_WHY } from '../_components/hosts-keep-this';
 import { Suspense } from 'react';
 import { SERVICE_NAMES } from '@/lib/service-names';
 import { resolvePapicHomeTile } from '@/lib/papic-home-tile';
@@ -124,6 +127,15 @@ export default async function EventMemoriesPage({ params, searchParams }: Props)
     | null;
   if (!ev && !eventRes.error) notFound();
   const host = membershipRes.data?.member_type === 'couple';
+  /* 🔒 MEMORIES ARE THE HOSTS' (owner 2026-11-21: *"their whole dashboard minus the memories"*). A delegate seat whose
+     grant does not open Photos — the booked coordinator's never does — gets the shut tab, said, and NOTHING below
+     reads a frame for them. Asked only of a `coordinator` member (a guest's Memories are untouched). */
+  if (membershipRes.data?.member_type === 'coordinator') {
+    const viewer = await fetchEventViewer(supabase, eventId, user.id);
+    if (memoriesKeptFromViewer(viewer)) {
+      return <HostsKeepThis title="Memories" kicker="Photos and videos" why={MEMORIES_KEPT_WHY} />;
+    }
+  }
   /* 👥 WHO MANAGES THE MEMORIES RULES (owner 2026-10-30): the hosts — `host` above, the couple + every co-host — and
      the event's coordinator. Asked only of a non-host (a host needs no second read); a failed read answers null, so a
      refusal hides the ⚙ rather than drawing a control whose save would be refused (`lib/memories-rules.server.ts`). */

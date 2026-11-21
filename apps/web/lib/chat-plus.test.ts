@@ -50,12 +50,12 @@ import { CHAT_TOPICS } from './topic-icons';
 import type { PickedClientPage } from './upcoming-schedule-door';
 import { PICKED_CLIENT_PAGES } from '@/app/vendor-dashboard/clients/[eventId]/_components/picked-client-menu';
 
-test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Ask for access · Payment · Meeting · Camera · Photos & files — Report a problem lives under ⋯ (part G)', () => {
+test('1 · supplier rows: Negotiate (Change quote · Drop an offer · Propose a payment plan · See every version) · Decision · Poll · Form · Payment (Ask for access left the ＋, 21 Nov) · Meeting · Camera · Photos & files — Report a problem lives under ⋯ (part G)', () => {
   // 19 Nov 2026 (drawing S9ScH2Ps v3, screen 6): Drop an offer joins Negotiate (PR-4's card, now reachable), and Form
   // comes before Ask for access under "Ask & decide".
   assert.deepEqual(
     supplierPlusRows({ paid: false }).map((r) => r.label),
-    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Ask for access', 'Payment', 'Meeting', 'Camera', 'Photos & files'],
+    ['Change quote', 'Drop an offer', 'Propose a payment plan', 'See every version', 'Decision', 'Poll', 'Form', 'Payment', 'Meeting', 'Camera', 'Photos & files'],
   );
   // An offer changes a quote: not drawn before one exists, shut (with Change quote's own reason) once they booked at it.
   assert.ok(!supplierPlusRows({ paid: false, hasQuote: false }).some((r) => r.key === 'offer'), 'Drop an offer is drawn with no quote to apply it to');
@@ -106,7 +106,7 @@ test('1b · host rows: Negotiate · Decision · Poll · Log a payment · Meeting
 test('1c · a row that cannot open yet is shut with its reason — never hidden', () => {
   const shut = supplierPlusRows({ paid: false }).filter((r) => r.shutUntilAgreement);
   // Ask for access is the shipped ask, which is for a supplier booked on the event (chat gaps, 8 Nov).
-  assert.deepEqual(shut.map((r) => r.key), ['form', 'access', 'payment']);
+  assert.deepEqual(shut.map((r) => r.key), ['form', 'payment']);
   for (const r of shut) assert.ok(r.shutUntilAgreement!.reason.length > 0);
 });
 
@@ -264,7 +264,7 @@ test('6 · the slash list IS the (+): the same card rows, order, words and reaso
   }
   // The words the ruling names (M14 + /meeting /decision /poll), Negotiate's first (12 Nov: /quote · /plan; the hosts' /ask · /counter).
   assert.deepEqual(slashRows(supplierPlusRows({ paid: false }), true).map((r) => `/${r.word}`), [
-    '/quote', '/offer', '/plan', '/decision', '/poll', '/form', '/access', '/payment', '/meeting', '/file',
+    '/quote', '/offer', '/plan', '/decision', '/poll', '/form', '/payment', '/meeting', '/file',
   ]);
   assert.deepEqual(slashRows(hostPlusRows({ canLogPayment: true }), true).slice(0, 2).map((r) => `/${r.word}`), ['/counter', '/plan']); // no /ask — ruling 6076
   // "/p" → Propose a payment plan (its word /plan) · Poll · Payment · Photos & files.

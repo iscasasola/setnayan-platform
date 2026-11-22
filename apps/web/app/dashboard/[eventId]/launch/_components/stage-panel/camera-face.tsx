@@ -130,7 +130,7 @@ export function CameraFace({ pro, logo, accent }: { pro: boolean; logo: string |
           </span>
           {dressed ? (
             <span data-camera-face-shutter="logo" className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-4 border-white p-1">
-              <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white">
+              <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-raised">
                 {/* The event's own logo, as the canvas drew it (an SVG or image the page already serves). */}
                 <span data-camera-face-logo="" className="block h-12 w-12 [&>*]:h-full [&>*]:w-full" dangerouslySetInnerHTML={{ __html: logo as string }} />
               </span>

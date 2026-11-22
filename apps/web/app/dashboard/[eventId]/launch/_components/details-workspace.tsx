@@ -608,7 +608,7 @@ export function DetailsWorkspace({
                 <span className="relative flex min-h-0 flex-1 items-center justify-center text-ink/75">
                   <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-cream ring-1 ring-ink/10">{i.icon}</span>
                   {i.done ? (
-                    <span aria-label="Done" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-white">
+                    <span aria-label="Done" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-cream">
                       <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={3} />
                     </span>
                   ) : null}
@@ -840,13 +840,13 @@ export function DetailsWorkspace({
                             on ? 'bg-ink/[0.07] text-ink' : 'text-ink/75 hover:bg-ink/[0.04]'
                           }`}
                         >
-                          <span className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ${on ? 'ring-2 ring-ink' : 'ring-1 ring-ink/10'}`}>
+                          <span className={`relative inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-raised ${on ? 'ring-2 ring-ink' : 'ring-1 ring-ink/10'}`}>
                             {i.icon}
                             {i.done ? (
                               <span
                                 data-details-done={i.key}
                                 aria-label="Done"
-                                className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-white ring-2 ring-cream"
+                                className="absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-cream ring-2 ring-cream"
                               >
                                 <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={3} />
                               </span>

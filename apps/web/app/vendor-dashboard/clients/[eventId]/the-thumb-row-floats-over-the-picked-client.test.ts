@@ -68,7 +68,7 @@ test('2 · the shell keeps a thumb host inside its own layer and hands it to eve
   assert.ok(screen.length > 500, 'the shell’s `screen` tree moved — re-anchor this guard');
   assert.match(
     screen,
-    /<ThumbLayerContext\.Provider value=\{thumbLayer\}>\s*(?:\{[^}]*\}\s*)*(?:<PickedCoveredContext\.Provider value=\{risenPage !== null\}>)?\{bodies\[workPage\]\}(?:<\/PickedCoveredContext\.Provider>)?\s*<\/ThumbLayerContext\.Provider>/,
+    /<ThumbLayerContext\.Provider value=\{thumbLayer\}>\s*(?:\{[^}]*\}\s*)*(?:<PickedCoveredContext\.Provider value=\{[^>]*\}>)?\{bodies\[workPage\]\}(?:<\/PickedCoveredContext\.Provider>)?\s*<\/ThumbLayerContext\.Provider>/,
     'the page bodies are not told which layer their thumb row floats in — it lands on <body>, under the client',
   );
   assert.match(SHELL, /useMemo<ThumbLayer>\(\(\) => \(\{ host: thumbHost, column: thumbColumn \}\)/);

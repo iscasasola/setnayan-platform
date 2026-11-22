@@ -99,10 +99,17 @@ export function NfcWriteButton({
   url,
   className,
   iconOnly = false,
+  worded = false,
   name,
 }: {
   url: string;
   className?: string;
+  /**
+   * 🎟 THE BUTTON, WITH ITS WORD — "Write to NFC" (the guest card's opened ticket, owner-approved drawing
+   * `guests_redesign_2026-11-20_fable.html` § 3: "NFC and New QR icons → labelled buttons inside the opened ticket").
+   * The same writer and sheet as `iconOnly`, the word kept.
+   */
+  worded?: boolean;
   /**
    * 🎟 The guest card's ticket row (owner 2026-10-27, "GUEST CARD TICKET ROW = THREE ICON BUTTONS: SHARE · NFC · NEW
    * QR"): the same writer and sheet, drawn as one neutral 44-px icon button named for its guest.
@@ -218,10 +225,10 @@ export function NfcWriteButton({
 
   return (
     <>
-      {iconOnly ? (
+      {iconOnly || worded ? (
         <ActionButton
           tone="neutral"
-          iconOnly
+          iconOnly={!worded}
           icon={Nfc}
           label="Write to NFC"
           name={name}

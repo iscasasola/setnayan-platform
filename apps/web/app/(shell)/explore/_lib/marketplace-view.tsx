@@ -47,6 +47,7 @@ import { EventTypeNotifyForm } from '../_components/marketplace-lazy';
 import { TaxonomySearch } from '../_components/taxonomy-search';
 import { CategoryTile, type CategoryTileData } from '../_components/category-tile';
 import { SaveVendorButton } from '../_components/save-vendor-button';
+
 import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
 // 2026-05-30 Airbnb-vibe redesign — see CLAUDE.md decision log row "Marketplace ·
 // Airbnb vibe with uniform sizing". The chip-style FolderTabs is retired in the
@@ -79,6 +80,8 @@ import { keepCardsThatFit, keepSuppliersThatFit } from '@/lib/discover-shows-wha
 import { dateUncheckedWords, findNobodyFreeWords } from '@/lib/supplier-find-empty';
 import { ServiceCardView } from '@/app/_components/service-card-view';
 import { readMarketplaceCardFaces } from '@/lib/marketplace-service-card-faces';
+import type { MallCardEvent } from '@/lib/marketplace-service-card-faces';
+import { MALL_SAVE_ON_PHOTO, pinOf } from '@/lib/mall-card';
 import { TRENDING_MIN_LIVE_SHOPS } from '@/lib/front-door-composition';
 // ⚡ Supplier view only — fetched only when drawn (../_components/marketplace-lazy.tsx).
 import { StickyMarketplaceHeader } from '../_components/marketplace-lazy';
@@ -1234,6 +1237,9 @@ export async function MarketplaceView({
   // every vendor card. Populated by saveVendorToPicks when the couple saves
   // a category='venue' vendor with coords. NULL = no anchor → no chips.
   let venueAnchor: { lat: number; lng: number } | null = null;
+  // 🃏 Card 14 (owner 20 Nov): "about N km from your venue" measures from the VENUE pin only — never the region
+  // centroid `venueAnchor` falls back to — and the per-guest total reads `events.estimated_pax`. Null = no event read.
+  let mallEvent: MallCardEvent | null = null;
   // Task #45 (2026-05-22) — host's event_date + precision drive the
   // marketplace candidate-window. Read alongside the existing event fields
   // in the same select so the intersection filter doesn't add a roundtrip.
@@ -1263,7 +1269,7 @@ export async function MarketplaceView({
       const { data: ev, error: evError } = await admin
         .from('events')
         .select(
-          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region',
+          'ceremony_type, secondary_ceremony_type, venue_setting, event_type, venue_latitude, venue_longitude, venue_name, event_date, event_date_precision, event_end_date, date_candidates, date_window_start, date_window_end, region, estimated_pax',
         )
         .eq('event_id', coupleEventId)
         .maybeSingle();
@@ -1275,6 +1281,13 @@ export async function MarketplaceView({
       // are deciding what to buy. Same for the event-type default filter, the
       // date-intersection filter and distance sorting, all of which hang off it.
       eventContextFailed = Boolean(evError) || ev === null;
+      if (ev) {
+        const pax = Number((ev as { estimated_pax?: number | null }).estimated_pax);
+        mallEvent = {
+          venue: pinOf(ev.venue_latitude, ev.venue_longitude),
+          guests: Number.isInteger(pax) && pax > 0 ? pax : null,
+        };
+      }
       if (
         ev?.venue_latitude !== null &&
         ev?.venue_latitude !== undefined &&
@@ -1627,7 +1640,23 @@ export async function MarketplaceView({
     docblock carries the four defects (SUP-41 ×2, C2, S43 · 5) each of these pieces once was on this grid. A second
     grid copying them by hand would inherit whichever it forgot.
   */
-  const serviceCardFace = await readMarketplaceCardFaces(admin, serviceCards ?? [], eventTypeLabel, new Date());
+  const serviceCardFace = await readMarketplaceCardFaces(admin, serviceCards ?? [], eventTypeLabel, new Date(), mallEvent);
+  // 🔖 Card 14 (owner 20 Nov): the shipped Save, ON the photo. Saved = already on this event's list (the one read above,
+  // `savedOnEvent`). Signed out → it opens sign-in here and saves after; no event yet → its "start an event" doorway;
+  // two or more ahead → it asks which. A shop still finishing verification gets none (`bookable`, as on the shop card).
+  const mallWithSave = (c: NonNullable<typeof serviceCards>[number]) => ({
+    ...serviceCardFace(c).mall,
+    save: c.bookable ? (
+      <SaveVendorButton
+        vendorProfileId={c.vendorProfileId}
+        initiallySaved={savedOnEvent?.has(c.vendorProfileId) === true}
+        events={saveChoices}
+        label="Save"
+        iconOnly
+        onPhoto={MALL_SAVE_ON_PHOTO}
+      />
+    ) : null,
+  });
   const marketplaceIsEmpty = liveShopCount === 0;
 
   /*
@@ -3285,9 +3314,10 @@ export async function MarketplaceView({
           only to satisfy a type. Same call shape the vendor's own card list
           uses, so all three surfaces draw the identical card.
         */
-        <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-search-results="">
+        /* 🃏 Card 14 runs two across on a phone and four on a desktop (owner 20 Nov, "two across"). */
+        <ul className="mt-8 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-4 lg:grid-cols-4 lg:gap-5" data-search-results="" data-mall-grid="">
           {serviceCards.map((c) => (
-            <li key={c.row.vendor_service_id}>
+            <li key={c.row.vendor_service_id} className="min-w-0">
               {/*
                 TWO DESTINATIONS (owner, 2026-09-09): the BODY opens this
                 service's details, the shop LOGO opens the shop. The card used
@@ -3308,7 +3338,8 @@ export async function MarketplaceView({
                 The public id the address needs is read from the DATABASE ROW,
                 which always carries it — see `lib/service-card-address.ts`.
               */}
-              <ServiceCardView {...serviceCardFace(c)} detailsEnabled />
+              {/* 🔖 Card 14 (owner 20 Nov): the shipped Save, ON the photo (`mallWithSave` below). */}
+              <ServiceCardView {...serviceCardFace(c)} detailsEnabled mall={mallWithSave(c)} />
             </li>
           ))}
         </ul>

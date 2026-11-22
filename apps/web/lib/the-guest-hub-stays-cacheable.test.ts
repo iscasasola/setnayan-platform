@@ -401,11 +401,8 @@ test('§3 · the middleware names the viewer from the pass, and anything uncerta
  * owner's ruling names first: the hub's 45 s fallback tick and the 25 s wall poll.
  */
 const TIMERS: Record<string, { count: number; network: boolean; why: string }> = {
-  'app/[slug]/_components/hub/hub-shell.tsx': {
-    count: 2,
-    network: true,
-    why: 'THE HUB TICK — `useEventPulse` asks the shared, CDN-held /live-pulse (~12 s, visible only) and redraws only on a change; `useDayOfLiveTick` (45 s, visible only) only when the render had no pulse baseline',
-  },
+  /* (No `hub/hub-shell.tsx`: its two timers — the pulse and the 45 s tick — drove `/hub`'s own screen, which went with
+     its bar: one bar per stage, 20 Nov 2026 — /hub draws nothing, it redirects to the event page's tab, `dayHubLanding`.) */
   'app/[slug]/_components/live-wall-block.tsx': {
     count: 2,
     network: true,

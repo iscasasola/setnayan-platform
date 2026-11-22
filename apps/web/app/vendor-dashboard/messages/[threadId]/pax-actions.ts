@@ -212,10 +212,17 @@ export async function acceptPaxSurcharge(formData: FormData): Promise<void> {
 export async function declinePaxSurcharge(formData: FormData): Promise<void> {
   const r = await resolve(formData);
   if (!r) return;
-  await r.admin
+  const { error } = await r.admin
     .from('event_vendors')
     .update({ cost_basis_pax: r.livePax, pax_quote_base: r.base })
     .eq('vendor_id', r.eventVendorId);
+  // H-3 (supplier audit 2026-11-17): the error was never read, so the audit recorded a decline that never happened.
+  // Same rule as accept above: nothing moved → nothing is audited.
+  if (error) {
+    console.error('[pax] surcharge decline refused:', error.message);
+    revalidate(r.threadId);
+    return;
+  }
   await writeAudit(r, 'decline', r.applied, r.currentTotal);
   revalidate(r.threadId);
 }

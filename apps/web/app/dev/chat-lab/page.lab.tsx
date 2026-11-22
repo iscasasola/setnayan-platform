@@ -158,7 +158,7 @@ export default async function ChatLabInboxPage({
           supplierName={picked.name}
           menu={pickedSupplierMenuFor({ chat: true })}
           initialPage={page}
-          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.logo === '1' ? { shopLogoUrl: '/marketing/2026-11-06/coordinators/sw-logo-round-dark.svg' } : {}) })}
+          bodies={labPickedSupplierBodies(picked.id, picked.name, { hostsFail: sp.hosts === 'fail', noMessages: sp.msgs === '0', solo: sp.solo === '1', tallPins: sp.pins === 'tall', ...(sp.self === 'vendor' || sp.self === 'couple' ? { selfShop: sp.self } : {}), ...(sp.logo === '1' ? { shopLogoUrl: '/marketing/2026-11-06/coordinators/sw-logo-round-dark.svg' } : {}) , ...(sp.whisper === '1' ? { whisper: 'on' as const } : sp.whisper === 'fail' ? { whisper: 'fail' as const } : {}) })}
           // 🔴 A lab sample for the Chat tab's badge (the real page reads `readThreadUnreadCount`); none on an empty chat.
           chatUnread={sp.msgs === '0' ? 0 : 2}
           // ➡ The host's Next step row — the real rule on a sample booking (`?next=quote|handover|none` for the others).

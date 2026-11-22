@@ -27,6 +27,7 @@
 
 import {
   countsTowardEvent,
+  guestDisplayName,
   RSVP_ROW_WORDS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -294,6 +295,19 @@ export function rosterStats(guests: readonly GuestRow[]): {
     // The carousel's "To invite" door leaves exactly these rows (`replyFilterMatches(g, 'toinvite')` reads `isToInvite`).
     toInvite: counted.filter((g) => isToInvite(g)).length,
   };
+}
+
+/**
+ * ✉ WHO "N to invite" IS, by name — the SAME rows `rosterStats().toInvite` counts (`countsTowardEvent` + `isToInvite`),
+ * so the names under "Send the invitations" on Home's Today card can never disagree with its count (Event Today
+ * drawing v3, part B: "2 guests have not been sent their invitation. Lola Remedios · Tito Ben"). At most `max` names.
+ */
+export function toInviteNames(guests: readonly GuestRow[], max = 6): string[] {
+  return guests
+    .filter((g) => countsTowardEvent(g) && isToInvite(g))
+    .slice(0, max)
+    .map((g) => guestDisplayName(g))
+    .filter((name) => name.length > 0);
 }
 
 /**

@@ -144,7 +144,7 @@ export function VendorStatusUpdates({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 text-[15px] font-semibold text-cream transition hover:bg-mulberry-600"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 text-[15px] font-semibold text-sn-on-accent transition hover:bg-mulberry-600"
         data-post-an-update-open=""
       >
         <Megaphone aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -205,10 +205,10 @@ export function VendorStatusUpdates({
                   data-post-status={preset.key}
                   className={`min-h-11 rounded-full border px-4 text-[14px] font-medium transition disabled:opacity-40 ${
                     on
-                      ? 'border-mulberry bg-mulberry text-cream'
+                      ? 'border-mulberry bg-mulberry text-sn-on-accent'
                       : urgent
                         ? 'border-warn-600/30 bg-warn-600/5 text-warn-600'
-                        : 'border-ink/15 bg-white text-ink/80'
+                        : 'border-ink/15 bg-raised text-ink/80'
                   }`}
                 >
                   {preset.label}
@@ -227,7 +227,7 @@ export function VendorStatusUpdates({
             maxLength={240}
             disabled={pending}
             placeholder="The cake is melting near the lights…"
-            className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-[15px] text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
+            className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-[15px] text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none disabled:opacity-40"
           />
           <p className="pt-1 text-[12.5px] leading-snug text-ink/60">{POST_AN_UPDATE_READERS}</p>
           {error ? (

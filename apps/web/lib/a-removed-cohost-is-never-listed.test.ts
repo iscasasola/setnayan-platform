@@ -53,7 +53,7 @@ test('a co-host demoted to guest is not a host, and a coordinator is never liste
 
 test('when the event\'s people could not be read, nobody is listed — narrower than the database, never wider', () => {
   const out = threadHostPeopleFrom({ seats: [{ user_id: 'creator', left_at: null }], eventPeople: [] });
-  assert.deepEqual(out, { members: [], coordinators: [] });
+  assert.deepEqual(out, { members: [], coordinators: [], eventHosts: [] });
 });
 
 test('readThreadHostPeople reads the event\'s hosts and hands both reads to the rule', () => {

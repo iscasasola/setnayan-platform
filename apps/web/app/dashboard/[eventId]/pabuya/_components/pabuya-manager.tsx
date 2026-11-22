@@ -289,7 +289,7 @@ export function PabuyaManager({
                 key={m.egift_method_id}
                 className={`rounded-2xl border p-4 shadow-sm ${
                   m.is_enabled
-                    ? 'border-ink/10 bg-white'
+                    ? 'border-ink/10 bg-raised'
                     : 'border-ink/10 bg-cream/70 opacity-70'
                 }`}
               >
@@ -459,7 +459,7 @@ export function PabuyaManager({
                         }
                         className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
                           selected
-                            ? 'border-mulberry bg-mulberry text-white'
+                            ? 'border-mulberry bg-mulberry text-cream'
                             : 'border-ink/15 bg-cream text-ink/75 hover:border-mulberry/50'
                         }`}
                       >
@@ -619,7 +619,7 @@ export function PabuyaManager({
             ) : null}
           </div>
 
-          <div className="rounded-2xl bg-white/60 p-4">
+          <div className="rounded-2xl bg-raised/60 p-4">
             <div className="mb-4 text-center">
               <p className="text-[12px] uppercase tracking-[0.24em] text-gold-deep">
                 Pabuya

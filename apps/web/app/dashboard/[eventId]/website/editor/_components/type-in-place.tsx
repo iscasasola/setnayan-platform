@@ -599,7 +599,7 @@ export function TypeBar(p: TypeBarProps) {
         onDone={p.onClose}
       >
         {error ? (
-          <p role="alert" className="absolute inset-x-3 -top-9 rounded-lg bg-white px-2 py-1 text-[12px] font-semibold text-terracotta-700 shadow">
+          <p role="alert" className="absolute inset-x-3 -top-9 rounded-lg bg-raised px-2 py-1 text-[12px] font-semibold text-terracotta-700 shadow">
             {error}
           </p>
         ) : null}

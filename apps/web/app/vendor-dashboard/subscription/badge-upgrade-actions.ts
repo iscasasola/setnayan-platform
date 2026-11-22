@@ -8,6 +8,8 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { BADGE_UPGRADE_CHOICES, BADGE_UPGRADE_NAME, type BadgeUpgradeChoice } from '@/lib/badge-upgrades';
 import { startBadgeUpgradeCore } from '@/lib/badge-upgrades.server';
+import { SHOP_GIFT_CHOICES, claimedWords, type ShopGiftChoice } from '@/lib/setnayan-shop-gift';
+import { claimSetnayanShopGift } from '@/lib/setnayan-shop-gift.server';
 
 /**
  * ⏱ START A BADGE UPGRADE (owner approved the table 2026-11-06): the supplier's tap on "Start" beside a ready upgrade
@@ -22,7 +24,9 @@ import { startBadgeUpgradeCore } from '@/lib/badge-upgrades.server';
 export type StartBadgeUpgradeState =
   | { status: 'idle' }
   | { status: 'error'; message: string }
-  | { status: 'started'; message: string };
+  | { status: 'started'; message: string }
+  /** 🎁 A Setnayan gift's press (op=gift_claim) — see below. */
+  | { status: 'gift'; outcome: 'claimed' | 'already'; message: string };
 
 const err = (message: string): StartBadgeUpgradeState => ({ status: 'error', message });
 
@@ -44,6 +48,33 @@ export async function startBadgeUpgrade(_prev: StartBadgeUpgradeState, formData:
 
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) return err('Only the owner or an admin can start an upgrade.');
+
+  // 🎁 SETNAYAN GIFTS TO A SHOP (owner 14 Nov 2026) ride this action as an op rather than a new export (the
+  // server-action budget is at its ceiling). The press IS the claim: the database grants once, and a repeat — a
+  // retry after a lost connection, a second tab — answers 'already' (`setnayan_shop_gift_claim`).
+  const op = String(formData.get('op') ?? '');
+  if (op === 'gift_claim') {
+    const giftId = String(formData.get('gift_id') ?? '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(giftId)) return err('This gift isn’t on your shop.');
+    const admin = createAdminClient();
+    const choice = String(formData.get('choice') ?? '').trim();
+    if (!(SHOP_GIFT_CHOICES as readonly string[]).includes(choice)) return err('Pick how to open this gift.');
+    const res = await claimSetnayanShopGift(admin, { vendorProfileId, giftId, choice: choice as ShopGiftChoice, actorUserId: user.id });
+    switch (res.status) {
+      case 'claimed':
+      case 'already':
+        revalidatePath('/vendor-dashboard');
+        revalidatePath('/vendor-dashboard/subscription');
+        revalidatePath('/vendor-dashboard/shop');
+        return { status: 'gift', outcome: res.status, message: claimedWords(res.choice ?? (choice as ShopGiftChoice), res.tier) };
+      case 'bad_choice':
+        return err('Your plan changed since this gift opened. Close it and open it again.');
+      case 'not_found':
+        return err('This gift isn’t on your shop.');
+      default:
+        return err('Couldn’t open it right now. The gift is still waiting — try again.');
+    }
+  }
 
   const upgradeId = String(formData.get('upgrade_id') ?? '').trim();
   const choice = String(formData.get('choice') ?? '').trim();

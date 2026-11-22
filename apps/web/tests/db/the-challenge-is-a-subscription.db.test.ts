@@ -364,9 +364,12 @@ test('the catalogue row is a 28-day subscription at ₱1,490 — RETIRED into Sp
   assert.equal(r.rows[0]!.replaced, 'vendor_specialized_tools');
 });
 
-test('🧰 a VERIFIED shop authors with the Specialized tools unlock — and is refused without it', async () => {
-  // Owner 2026-11-09: the unlock is Verified and up, and it opens Papic challenge. The plan floor admits
-  // `verified`; the entitlement call still decides, so the unlock (not the tier) is what lets them in.
+test('🧰 a VERIFIED shop is refused even holding a Specialized tools window — the challenge is Pro and up', async () => {
+  // ⚖ Specs 66ae2cce (DECISION_LOG 2026-11-21, "SPECIAL TOOLS ARE INCLUDED IN SUPPLIER PRO AND UP — NO UNLOCK FEE"):
+  // Free · Verified · Plus see "Included in Pro · Upgrade" and have no other way in. Superseded: the 2026-11-09 rule
+  // that the unlock (Verified and up) opened the challenge. Grandfathering is the snapshot frozen when
+  // 20271356215288 first applied (vendor_specialized_tools_access.pro_tools_unlock_until); prod held NO live paid
+  // window then (measured 21 Nov: unlock_expires_at is null on every row), so a window granted later opens nothing.
   const shop = await newVendor('verified-author', 'verified');
   const eventId = await newBookedEvent('verified-ev', shop.vendorProfileId);
   assert.match(String(await tryAuthor(shop.userId, eventId)), /PAPIC_CHALLENGE_NOT_SUBSCRIBED/);
@@ -374,7 +377,16 @@ test('🧰 a VERIFIED shop authors with the Specialized tools unlock — and is 
     `INSERT INTO public.vendor_specialized_tools_access (vendor_profile_id, unlock_expires_at) VALUES ($1, $2)`,
     [shop.vendorProfileId, inDays(20)],
   );
-  assert.equal(await tryAuthor(shop.userId, eventId), null);
+  assert.match(
+    String(await tryAuthor(shop.userId, eventId)),
+    /PAPIC_CHALLENGE_NOT_SUBSCRIBED/,
+    'a Specialized tools window bought after 21 Nov must not open the challenge — it is Pro and up',
+  );
+  const n = await db.query<{ c: number }>(
+    `SELECT COUNT(*)::int AS c FROM public.papic_missions WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(n.rows[0]!.c, 0, 'and nothing is written on the way to being refused');
 });
 
 test('A FREE PLAN CANNOT AUTHOR, even holding a live subscription window', async () => {

@@ -966,7 +966,7 @@ export function MakerLogoDoor({
           {writing ? (
             <p
               role="status"
-              className="absolute inset-x-2 bottom-2 flex flex-col items-center gap-2 rounded-2xl bg-white/95 px-3 py-2 text-center text-[13px] font-semibold text-ink shadow ring-1 ring-ink/10"
+              className="absolute inset-x-2 bottom-2 flex flex-col items-center gap-2 rounded-2xl bg-raised/95 px-3 py-2 text-center text-[13px] font-semibold text-ink shadow ring-1 ring-ink/10"
               data-logo-writing=""
             >
               Trace the letter the way it is written — one stroke, starting where the pen starts.

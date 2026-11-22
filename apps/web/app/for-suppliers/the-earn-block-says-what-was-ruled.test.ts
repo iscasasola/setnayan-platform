@@ -120,3 +120,7 @@ test('owner 23 Nov: the block leads with growth and what we give; the 16 Nov rul
   assert.match(block, /\{EARN_HEADLINE\}/);
   assert.match(block, /\{EARN_LEDE\}/);
 });
+
+test('owner 23 Nov: disputing a fee is not something the public page shares — no promise, no ⓘ', () => {
+  for (const src of [block, words, page]) assert.doesNotMatch(src, /Dispute this fee|question any fee|fee is questioned/i);
+});

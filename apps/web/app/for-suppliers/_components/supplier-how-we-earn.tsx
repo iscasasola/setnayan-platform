@@ -18,7 +18,6 @@
  * 🔒 ../the-earn-block-says-what-was-ruled.test.ts
  */
 import { FEE_FREE_CHIP } from '@/lib/booking-fee-who-words';
-import { Info } from './supplier-front-info';
 import s from './supplier-front.module.css';
 import {
   EARN_FREE_ROWS,
@@ -143,12 +142,6 @@ export function SupplierHowWeEarn({
         <a className="fd-chip" href="#plans">
           See the plans
         </a>
-        <Info label="How a fee is questioned">
-          <p>
-            Every fee bill has a “Dispute this fee” button. Your first dispute is accepted. After that, our team reviews each one
-            and writes back with the reason.
-          </p>
-        </Info>
       </div>
     </div>
   );

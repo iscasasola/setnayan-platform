@@ -19,12 +19,13 @@ export { SUPPLIER_FREE_BOOKING_LINE };
  */
 export const EARN_HEADLINE = 'The best place to grow your business. We do well only when you do.';
 export const EARN_RULED_LINE = 'We charge for what we add. Never for what you already had.';
-export const EARN_LEDE = `Setnayan is built to lift your service and grow your business: the tools to run it, a shop page that shows your best work, and the couples planning their events here. ${EARN_RULED_LINE}`;
+// Owner 23 Nov: "we don't want too many words" — the lede is one short line plus the ruled line.
+export const EARN_LEDE = `Your tools, your shop page and the couples planning here. ${EARN_RULED_LINE}`;
 
 /** What we give, first: the growth promise (owner 23 Nov, "we give a lot of services for them"). */
 export const GROW_PROMISE = {
   title: 'Everything you need to grow, in one place.',
-  body: 'Your shop page, quotes, bookings, payments to your own GCash or bank, schedules, chat and your portfolio, all working together.',
+  body: 'Shop page, quotes, bookings, payments, schedules, chat and portfolio.',
 } as const;
 
 /** Ruling e5d166cd (1), verbatim. */
@@ -42,10 +43,6 @@ export const EARN_PROMISES: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: 'You see every fee before you agree.',
     body: 'The fee is written on the booking before you say yes. Nothing is added after.',
-  },
-  {
-    title: 'You can question any fee.',
-    body: 'Tap “Dispute this fee” on the bill. Your first one is on us; after that our team reviews it and tells you why.',
   },
   {
     title: 'We never sell or share your clients.',

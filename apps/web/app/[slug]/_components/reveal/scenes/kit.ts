@@ -185,7 +185,8 @@ export function castShadows(l: THREE.DirectionalLight, size: number, box: [numbe
 /** The veil's own three lights, scaled (`RV.lights(k)`). */
 export function veilLights(c: Ctx, k: number): void {
   c.scene.add(new THREE.HemisphereLight(0xfff6e8, 0x1c1610, 0.55 * k * PI));
-  const key = new THREE.SpotLight(0xfff3e0, 2.2 * k * PI, 40, Math.PI / 5, 0.7, 0);
+  /* r128 faded this light linearly to nothing at 40 units: ~0.85 at the cloth, 5.9 units away — today it does not fade. */
+  const key = new THREE.SpotLight(0xfff3e0, 2.2 * k * PI * 0.85, 40, Math.PI / 5, 0.7, 0);
   key.position.set(2.8, 3.6, 4.4);
   c.scene.add(key, key.target);
   directional(c, 0xfff0d8, 0.5 * k, [-3, 0.4, 2.0]);

@@ -164,6 +164,10 @@ test('1–5 · the seating pack: the cover, every sign and the place-card sheet 
   const [cover, , , , cards] = s;
   assert.ok(cover!.kids.filter(isEl).some((k) => k.tag === 'table'), 'the cover lost its directory table');
   assert.ok(cards!.kids.filter(isEl).some((k) => k.cls.includes('cards')), 'the card sheet lost its grid');
+  // In print the cover ENDS its page, so the first sign never starts mid-page and spills its line onto a page of its own.
+  const { css } = parse(html);
+  const print = css.slice(css.indexOf('@media print'));
+  assert.match(print, /\.cover\s*\{[^}]*(?:page-break-after\s*:\s*always|break-after\s*:\s*page)/, 'the cover does not end its page in print — the first sign spills onto a page holding only its line');
 });
 
 test('1–5 · an empty seating pack (no tables, no cards) still closes its one section with the line', () => {

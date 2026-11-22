@@ -132,6 +132,9 @@ export function seatingPackHtml({ eventId, coupleName, dateStr, signSub, units }
     .toolbar { display: none; }
     .doc { max-width: none; padding: 0; }
     .sheet { box-shadow: none; margin: 0; padding: 0; }
+    /* The cover ends its page: without it the first sign started mid-page 1 and spilled onto a near-empty page 2 (seen
+       in the 2026-10-22 print shots), which would now hold nothing but that sign's brand line. One sign per page. */
+    .cover { page-break-after: always; break-after: page; }
     .sign { min-height: 0; page-break-after: always; height: 96vh; }
     .sign > .print-brand { bottom: 0; }
     .cards-sheet { page-break-before: always; }

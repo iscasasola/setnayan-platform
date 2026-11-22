@@ -58,14 +58,14 @@ export async function POST(
   // 🪪 A QUOTE NEEDS A VERIFIED SHOP on this door too (supplier launch walk 22 Nov, step 8): the SAME gate and the
   // SAME words as the web chat's quote doors (`sendProposalFromChat`), asked BEFORE anything is written. It fails
   // closed: a refused read is 'unknown' and refuses ("couldn't check"), never a pass.
-  const plusGate = await threadPlusGate(auth.supabase, threadId);
-  const plusRefusal = plusGateRefusal(plusGate);
+  const shopGate = await threadPlusGate(auth.supabase, threadId);
+  const plusRefusal = plusGateRefusal(shopGate);
   if (plusRefusal) {
     return Response.json(
-      plusGate === 'unverified'
+      shopGate === 'unverified'
         ? { error: 'plus_unverified', message: plusRefusal, verifyHref: PLUS_TRAY_VERIFY_HREF }
         : { error: 'plus_unknown', message: plusRefusal },
-      { status: plusGate === 'unverified' ? 403 : 503 },
+      { status: shopGate === 'unverified' ? 403 : 503 },
     );
   }
 

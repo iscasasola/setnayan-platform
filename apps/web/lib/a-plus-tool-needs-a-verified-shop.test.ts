@@ -208,7 +208,7 @@ describe('the two older quote doors refuse an unverified shop', () => {
 
   it('the app’s quote route refuses with the gate’s words before it sends', () => {
     const body = bodyOf('app/api/vendor/chat/[threadId]/proposal/route.ts', 'POST');
-    const g = body.indexOf('const plusRefusal = plusGateRefusal(plusGate);');
+    const g = body.indexOf('const plusRefusal = plusGateRefusal(shopGate);');
     const r = body.indexOf('if (plusRefusal) {');
     const ret = body.indexOf('return Response.json(', r);
     const w = body.indexOf('sendProposalCore(');

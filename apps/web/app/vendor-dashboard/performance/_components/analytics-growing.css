@@ -324,7 +324,7 @@
 /* A refused card: "Couldn’t load." sits in the picture's own 144-px place — no picture, never the Example. */
 [data-growth] .ag-card-in > .ag-ln[role='status'] { display: flex; align-items: center; height: 144px; }
 [data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
-[data-growth] .ag-card .ag-exc { position: absolute; top: 18px; right: 44px; }
+[data-growth] .ag-card .ag-exc { position: absolute; top: 18px; right: 44px; height: 24px; display: inline-flex; align-items: center; padding-block: 0; }
 [data-growth] .ag-card.ag-ex .ag-open b { padding-right: 70px; }
 [data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; line-height: 18px; font-weight: 600; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; margin: 0; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }

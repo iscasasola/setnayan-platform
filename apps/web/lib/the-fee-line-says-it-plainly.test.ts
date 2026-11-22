@@ -36,7 +36,7 @@ import {
   bookingFeeMinimumAmount,
   bookingFeePhp,
 } from './booking-fee';
-import { FIRST_BOOKING_FREE, FREE_BOOKING_LIMIT } from './booking-fee-lock';
+import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -50,18 +50,18 @@ const FOR_SUPPLIERS = [
 ] as const;
 
 test('the bands line and the minimum render the CURRENT schedule in the owner’s words', () => {
-  assert.equal(bookingFeeBandsLine(BOOKING_FEE), '5% up to ₱100,000, 1% above');
+  assert.equal(bookingFeeBandsLine(BOOKING_FEE), '5% up to ₱100,000, 3% above');
   assert.equal(bookingFeeMinimumAmount(BOOKING_FEE), '₱50');
-  assert.equal(FIRST_BOOKING_FREE, 'Your first booking through Setnayan is free.');
-  // "first booking" is singular because exactly one booking is free.
-  assert.equal(FREE_BOOKING_LIMIT, 1, 'the copy says ONE free booking — change the sentence with the number');
+  // ⚖ 20 NOV: no booking takes a free first place (FREE_BOOKING_LIMIT 0), and the "first booking is free" sentence is
+  // deleted (the-20-nov-fee-rulings.test.ts scans the whole tree for it).
+  assert.equal(FREE_BOOKING_LIMIT, 0);
 });
 
 test('PIN: every claim in the line is true of the function that bills', () => {
   const { rate, tailRate, tier1LimitPhp, minPhp } = BOOKING_FEE;
   // "5% up to ₱100,000" — the head rate holds exactly at the band edge.
   assert.equal(bookingFeePhp(tier1LimitPhp), tier1LimitPhp * rate);
-  // "1% above" — past the edge only the excess takes the tail rate.
+  // "3% above" — past the edge only the excess takes the tail rate.
   assert.equal(bookingFeePhp(tier1LimitPhp * 3), tier1LimitPhp * rate + tier1LimitPhp * 2 * tailRate);
   // "Minimum fee ₱50" — a tiny booking is billed the floor.
   assert.equal(bookingFeePhp(1), minPhp);
@@ -82,14 +82,17 @@ test('<BookingFeeLine> derives every number and keeps the minimum behind its ⓘ
   // ⟲ 16 Nov (d4899cd5 · 9fe95ebe · answer 3): both sentences quote the one rule in lib/booking-fee-who-words.ts.
   assert.match(src, /FEE_LINE_OWN_CLIENTS = FEE_FREE_RULE;/);
   assert.match(src, /FEE_LINE_WHO = `\$\{FEE_SCOPE\}\.`;/);
-  assert.match(src, /\{FIRST_BOOKING_FREE\}/, 'the lead sentence is typed instead of read');
+  // ⚖ 20 Nov: the lead is the owner's free rule (FEE_FREE_CHIP), read — never the retired free first booking.
+  assert.match(src, /\{FEE_FREE_CHIP\}/, 'the lead sentence is typed instead of read');
+  assert.doesNotMatch(src, /FIRST_BOOKING_FREE/, 'the fee line still promises a free first booking');
+  assert.match(src, /bookingFeeCapAmount\(fee\)/, 'the fee line does not name the lock');
   // NULL = could not read: no rate, no minimum — never the code default.
   assert.doesNotMatch(src, /BOOKING_FEE\b(?!_)/, 'the line can fall back to the code default schedule');
 });
 
 test('every surface that drew the old sentence draws the one line', () => {
   const OLD_SENTENCE = /first booking from Setnayan is on us|FIRST_BOOKING_ON_US_CLAUSE\} — after that/;
-  for (const rel of ['app/vendor-dashboard/booking-fees/page.tsx']) {
+  for (const rel of ['app/vendor-dashboard/booking-fees/booking-fees-body.tsx']) { // set two: the page's body draws the line
     const src = code(rel);
     assert.match(src, /<BookingFeeLine\b/, `${rel} does not draw <BookingFeeLine>`);
     assert.doesNotMatch(src, OLD_SENTENCE, `${rel} still says the old fee sentence`);

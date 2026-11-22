@@ -131,7 +131,7 @@ export async function TellTheHost({
               rows={2}
               maxLength={STAGE_NOTE_MAX}
               placeholder="e.g. Hold the toast — Papa is still parking."
-              className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
+              className="w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta/50 focus:outline-none"
             />
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs text-ink/70">To {host.name}</span>

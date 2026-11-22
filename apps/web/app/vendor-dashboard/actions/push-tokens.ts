@@ -31,6 +31,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
  * vendor profile — callers (client components) should catch and log.
  */
 async function resolveVendorProfileId(): Promise<string> {
+  return (await resolveVendorSeat()).vendorProfileId;
+}
+
+/** The shop AND the person registering — the person lets a chat's mute leave out their own devices (chat-mutes.ts). */
+async function resolveVendorSeat(): Promise<{ vendorProfileId: string; userId: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +45,7 @@ async function resolveVendorProfileId(): Promise<string> {
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) throw new Error('No supplier profile found for this account');
 
-  return profile.vendor_profile_id;
+  return { vendorProfileId: profile.vendor_profile_id, userId: user.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -65,12 +70,14 @@ export async function registerPushToken(
     throw new Error(`Unknown platform: ${platform}`);
   }
 
-  const vendorProfileId = await resolveVendorProfileId();
+  const { vendorProfileId, userId } = await resolveVendorSeat();
   const supabase = await createClient();
 
   const { error } = await supabase.from('vendor_push_tokens').upsert(
     {
       vendor_profile_id: vendorProfileId,
+      // 🔕 Whose phone this is — so a member who mutes a chat stops only their own devices (chat_thread_mutes).
+      user_id: userId,
       token: token.trim(),
       platform,
       last_registered_at: new Date().toISOString(),

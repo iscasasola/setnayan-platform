@@ -28,6 +28,7 @@
  * own title, else the category's label.
  */
 import { displayServiceLabel } from '@/lib/vendors';
+import { perGuestPriceOf, type PerGuestPrice } from '@/lib/mall-card';
 import {
   snapshotFromService,
   type StoredBracket,
@@ -68,6 +69,9 @@ export type BenchServiceCard = {
   /** The card's own id (`vendor_services.vendor_service_id`) — so a liked photo opens the card it was filed under,
    *  never merely the shop's saved card. Absent on a hand-built card. */
   serviceId?: string;
+  /** 🃏 Card 14: the card's per-guest price (`perGuestPriceOf`), so the face can show the total for the event's guest
+   *  count. Null / absent → not a per-guest card, or the shop hides its prices. */
+  perGuest?: PerGuestPrice | null;
 };
 
 export type BenchServiceDiscount = StoredDiscount & { expires_at?: string | null };
@@ -123,6 +127,7 @@ export function benchServiceCard(input: {
     givesSetnayanGift: snap.givesSetnayanGift,
     coverUrl: input.coverUrl,
     photos: [...(input.photos ?? [])],
+    perGuest: perGuestPriceOf(service, hidePrices),
   };
 }
 

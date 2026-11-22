@@ -36,7 +36,7 @@ import { sceneTypeWrite } from './scene-type-words';
 import { typedDisplayName } from './typed-names';
 import { withTypedWords } from './type-in-place';
 import { canvasWriteKey } from './maker-draft-store';
-import { SP_KEY_BAR, STAGE_BAR_ABOUT, STAGE_BAR_LINE_ABOUT } from './maker-stage-room';
+import { SP_KEY_BAR, STAGE_BAR_ABOUT } from './maker-stage-room';
 import { phoneHeightPx } from './maker-phone-room';
 
 /* The panel's pieces are compiled with the classic JSX runtime under `tsx` — they read `React` off the scope. */
@@ -136,7 +136,8 @@ test('(2) the rows, rendered: one typed row per text in rows 1–3 and no door; 
 
   /* A part of TWO texts (a scene of their own): two rows, in the page's order… */
   const own = [field({ key: 'w:custom_1', el: 'heading', field: 'title', label: 'Heading', text: 'Our pets' }), field({ key: 'w:custom_1', el: 'body', field: 'body', label: 'Words', text: 'Two dogs.', long: true })];
-  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
+  // 📋 20 Nov 2026 ("MAKER EDIT ROWS RUN BY IMPORTANCE" (1)): the couple's words first, the heading last.
+  assert.deepEqual(rowsOf(draw(own)).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title']);
   /* …and "adapt to whichever is edited": the words tapped on the page come first. */
   assert.deepEqual(rowsOf(draw(own, 'body')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:body', '2:title']);
   assert.deepEqual(rowsOf(draw(own, 'heading')).map((r) => `${r.row}:${r.id ?? r.kind}`), ['1:title', '2:body']);
@@ -166,10 +167,14 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     ['story', 'Love Story'],
     ['logo', 'Logo'],
     ['gifts', 'E-Gifts'],
-    ['dress', 'Palette + Dress Code'],
   ];
   for (const [k, page] of jumps) {
     assert.equal(makerPartQuietRow(k)?.words, `Open ${page}`, `${k}: its door`);
+    assert.equal(makerPartSource(k).kind, 'studio');
+  }
+  /* 🎨 Dress code (20 Nov, "DRESS COLOURS STAY IN MOOD BOARD" (2)): its door says where the colours are made. */
+  for (const k of ['dress', 'mywear'] as const) {
+    assert.equal(makerPartQuietRow(k)?.words, 'Colours and mood board', `${k}: its door`);
     assert.equal(makerPartSource(k).kind, 'studio');
   }
   for (const k of ['date', 'place', 'venue', 'details'] as const) assert.equal(makerPartQuietRow(k)?.words, 'Change it in Suppliers', `${k}: set by the venue booking`);
@@ -188,7 +193,9 @@ test('(3) which parts jump: "Open in Studio › <page>" for what cannot be edite
     const src = makerPartSource(k);
     const want =
       src.kind === 'studio'
-        ? `Open ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
+        ? src.tool === 'mood'
+          ? 'Colours and mood board' // 🎨 20 Nov: dress colours stay in Mood Board
+          : `Open ${MAKER_STUDIO_TOOL_LABEL[src.tool]}`
         : src.kind === 'supplier'
           ? 'Change it in Suppliers'
           : src.kind === 'guests'
@@ -207,9 +214,11 @@ test('(4) what can be typed is the page’s to say; the page shows the words as 
   assert.equal(PART_WORDS_MAX, 3);
   const a = field({ el: 'heading', field: 'title' });
   const b = field({ el: 'body', field: 'body' });
-  assert.deepEqual(orderPartWords([a, b], null), [a, b]);
+  /* 📋 20 Nov 2026 ("MAKER EDIT ROWS RUN BY IMPORTANCE" (1)): the heading (`title`) runs last; a tap still brings its row first. */
+  assert.deepEqual(orderPartWords([a, b], null), [b, a], 'the heading is not last');
   assert.deepEqual(orderPartWords([a, b], 'body'), [b, a]);
-  assert.deepEqual(orderPartWords([a, b], 'not-there'), [a, b], 'a tap on something else reorders the rows');
+  assert.deepEqual(orderPartWords([a, b], 'heading'), [a, b], 'the tapped heading does not come first');
+  assert.deepEqual(orderPartWords([a, b], 'not-there'), [b, a], 'a tap on something else reorders the rows');
 
   const words = read(`${L}/stage-panel/part-words.ts`);
   /* Read with the canvas's OWN readers, only where the shipped typing door could put a caret. */
@@ -308,16 +317,16 @@ test('(6) one ⓘ: at the right end of the "You’re editing" line, the part’s
   /* Where it is: once, straight after the line, over the handle and the line — never on the selector's band. */
   const tools = read(`${L}/stage-tools.tsx`);
   assert.equal((tools.match(/<StageAbout \/>/g) ?? []).length, 1);
-  assert.match(tools, /<p ref=\{lineRef\} data-stage-caption=""[\s\S]{0,520}<\/p>\s*(?:\{\s*\}\s*)?<StageAbout \/>/);
+  /* 🧰 20 Nov 2026 (DECISION_LOG "EVENT HUB MAKER — ONE TOOLBAR"): the line became the toolbar's HEAD — ‹ · name ▾ · › ·
+     ⓘ · ✕ — and the ⓘ stands in it, right before ✕. */
+  assert.match(tools, /data-stage-head=""[\s\S]{0,2600}<StageAbout \/>\s*<\/span>\s*<button[^>]*data-stage-close=""/);
   const cls = STAGE_BAR_ABOUT.split(' ');
   assert.ok(cls.includes('absolute') && cls.includes('top-0') && cls.includes('right-0.5'));
   assert.ok(cls.includes('h-[38px]') && 38 <= 14 + 20 + 4, 'the ⓘ reaches the selector (14 handle + 20 line + the band’s 4 px)');
   assert.ok(cls.includes('w-11'), 'the ⓘ is under 44 px wide');
-  /* The line keeps clear of it on both sides when there is one, so its words stay centred and never run under it
-     (`lib/the-toolbar-is-four-rows.test.ts` (7) holds how the line is then shortened). */
-  assert.equal(STAGE_BAR_LINE_ABOUT, '!px-11');
-  assert.match(tools, /className=\{`\$\{STAGE_BAR_LINE\} \$\{hasAbout \? STAGE_BAR_LINE_ABOUT : ''\}`\}/);
-  assert.match(tools, /const hasAbout = Boolean\(useStagePanelNow\(\)\.about\);/);
+  /* 🧰 The head (20 Nov 2026) gives the ⓘ its own 44 px cell, so the name never runs under it — it is cut at its end
+     inside the space left (`min-w-0 truncate`), never drawn over the ⓘ or ✕. */
+  assert.match(tools, /data-stage-name=""[\s\S]{0,400}<span className="min-w-0 truncate">/);
   /* The sentences are still worked out from the part (the fixed scene's own line and source; a reply page's). */
   /* 🔁 RE-AIMED 2026-10-09: the same call now also tells the panel which LINE of the part is picked on the RSVP
      stage (`line: rsvpLine`, `the-rsvp-stage-is-parts.test.ts` §8). The claim here is unchanged: `about` is handed on. */

@@ -30,7 +30,6 @@
   "apps/web/app/_components/award/tap-shows.ts": 8,
   "apps/web/app/_components/card-badges/card-badge-row.tsx": 2,
   "apps/web/app/_components/chat-message-stream.tsx": 2,
-  "apps/web/app/_components/chat/cards/quote-step-card.tsx": 1,
   "apps/web/app/_components/chat/changed-row.tsx": 2,
   "apps/web/app/_components/chat/chat-blocker.tsx": 2,
   "apps/web/app/_components/chat/chat-file-swipe.tsx": 1,

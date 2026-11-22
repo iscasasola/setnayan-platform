@@ -26,6 +26,7 @@ const STATUS_BY_CODE: Record<SendMessageError, number> = {
   contact_blocked: 422, // off-platform contact info — caller edits + resends
   private_words_only: 422, // a private message is words only — send the file to everyone instead
   fee_words_only: 403, // a booking-fee top-up is overdue — words only until it is settled
+  plus_unverified: 403, // a file is a ＋ tool — words only until the shop is verified
   private_recipient: 403, // the private recipient is not in this chat
   whisper_refused: 403, // a whisper nobody can hear, or from a non-host — refused, never sent to everyone
   insert_failed: 500,

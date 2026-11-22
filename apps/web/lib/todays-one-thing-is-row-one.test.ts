@@ -78,7 +78,7 @@ test('exactly one filled action on the page, in either state', () => {
     one thing) and once on the fallback card — and those two are mutually
     exclusive at render time, because the card is gated on `!oneThingRowId`.
   */
-  const filled = count(/background: 'rgb\(var\(--color-mulberry\)\)', color: '#FFFFFF'/g);
+  const filled = count(/background: 'rgb\(var\(--color-mulberry\)\)', color: 'rgb\(var\(--sn-on-accent\)\)'/g);
   console.log(`  filled-action sites in source: ${filled} (mutually exclusive at render)`);
   assert.equal(filled, 2, 'one on the row, one on the fallback card, never both on screen');
 

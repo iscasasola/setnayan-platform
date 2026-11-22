@@ -405,7 +405,7 @@ export function EventCardMenu({
         className={`absolute right-1 top-1 z-20 grid h-11 w-11 place-items-center rounded-full backdrop-blur-sm transition-colors duration-sn-control ${
           dark
             ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
-            : 'bg-white/80 text-ink/75 shadow-sn-sm hover:bg-white hover:text-ink'
+            : 'bg-raised/80 text-ink/75 shadow-sn-sm hover:bg-raised hover:text-ink'
         }`}
       >
         <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -845,7 +845,7 @@ export function EventCardMenu({
                     confirmDelete();
                   }}
                   autoComplete="off"
-                  className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-normal text-ink outline-none focus:border-mulberry"
+                  className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-raised px-3 py-2 text-base font-normal text-ink outline-none focus:border-mulberry"
                 />
               </label>
               {error ? (
@@ -1172,7 +1172,7 @@ function ReasonPicker({
         aria-label="Why are you removing it?"
         value={code}
         onChange={(e) => onCode(e.target.value)}
-        className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-semibold text-ink outline-none focus:border-mulberry"
+        className="mt-1 min-h-12 w-full rounded-xl border border-ink/20 bg-raised px-3 py-2 text-base font-semibold text-ink outline-none focus:border-mulberry"
       >
         <option value="">{optional ? 'Choose a reason (optional)' : 'Choose a reason'}</option>
         {DELETION_REASONS.map((r) => (
@@ -1224,7 +1224,7 @@ function ReasonNote({
         onChange={(e) => onText(e.target.value)}
         rows={2}
         maxLength={1000}
-        className="mt-1 w-full rounded-xl border border-ink/20 bg-white px-3 py-2 text-base font-normal leading-snug text-ink outline-none focus:border-mulberry"
+        className="mt-1 w-full rounded-xl border border-ink/20 bg-raised px-3 py-2 text-base font-normal leading-snug text-ink outline-none focus:border-mulberry"
       />
     </label>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCheck, Eraser, Info, Loader2, Mail, MailCheck, RotateCw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronRight, Eraser, Info, Loader2, LogIn, MailCheck, PenLine, RotateCw, SkipForward } from 'lucide-react';
 
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -31,7 +31,38 @@ import { CityPin } from './city-pin';
 import { EventTiles, supplierEventWords, type EventTileOption } from './event-tiles';
 import { ServiceCards, placeIndex, type PickedService, type SpecialtyField, type SpecialtyPicks } from './service-cards';
 import { ServicesAtEvents, eventsTheyCanServe } from './services-at-events';
-import { PLAN_AGREE_ERROR, PlanPane, PlanSheet } from './plan-sheet';
+import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useRidingRow } from '@/app/_components/typing-band';
+import {
+  FIELD_FACT,
+  FIRST_CARD_FIELD,
+  FIRST_CARD_TITLE_MAX,
+  DONE_FREE_LINE,
+  DONE_FREE_ROW,
+  FIRST_CARD_PRICED_LINE,
+  ONBOARDING_HEADS,
+  ONBOARDING_STEP_NAMES,
+  OPEN_YOUR_COORDINATION_HEAD,
+  OPEN_YOUR_SHOP_FREE_LINE,
+  OPEN_YOUR_SHOP_HEAD,
+  APPROVE_PAGE,
+  PAGE_PARTNERS_EMPTY,
+  TRUSTED_PARTNERS,
+  YOUR_PAGE_HEAD,
+  SELF_SERVE_CHECK_NOTE,
+  SELF_SERVE_FACTS,
+  SELF_SERVE_LATER,
+  checkFactEmpty,
+  checkRows,
+  draftFirstCard,
+  firstCardRefusal,
+  firstMissing,
+  parseCardPrice,
+  type CheckFact,
+  type FirstCardChoice,
+} from '@/lib/supplier-onboarding';
 import {
   EXTRA_SERVICES_FIELD,
   MAIN_SERVICE_EVENTS_FIELD,
@@ -48,8 +79,6 @@ import { SHOP_NAME_MAX, shopNameCounter } from '@/lib/business-slug';
 import { ANY_OAUTH_ENABLED, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
-import { OAUTH_BUTTON_CLASS } from '@/app/_components/oauth-icons';
-import { OAUTH_VERB } from '@/lib/oauth-words';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -61,22 +90,32 @@ import {
   serializeOpenShopDraft,
 } from '@/lib/open-shop-draft';
 import { formatCount } from '@/lib/format-number';
-import { useMediaQuery } from '@/lib/use-responsive';
+import { FirstCardDraft } from './first-card-draft';
 import { PasswordField } from '@/app/_components/password-field';
 import { fairRefusal, findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { COORDINATOR_TRADE_SERVICES } from '@/lib/coordinator-trade';
+// 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 
 /**
- * The supplier sign-up door — `/open-shop`. FIVE compact steps, one question each, on ONE always-mounted form
- * (inputs persist across steps; one submit at the end):
+ * The supplier sign-up door — `/open-shop`. 🚪 SINCE 19 NOV 2026 IT IS DOOR B OF THE ONE SUPPLIER ONBOARDING (owner
+ * "supplier both on boarding approved", drawing `36jmQMWrANcgd2HxihAUw5` v3/v4; the vocabulary is
+ * `lib/supplier-onboarding.ts`). FIVE screens on ONE always-mounted form (inputs persist; one submit at the end):
  *
- *   1 · Name your shop   — shop name · its permanent web address
- *   2 · What you do      — page 1: your services (category cards); page 2: the events you serve, and which of your
- *                          services you offer at each
- *   3 · Where you are    — the address, the pin that follows it, and "Is this your address?"
- *   4 · About you        — name · number · role at the shop (optional)
- *   5 · Your account     — Continue with Google / Apple / Email · Terms · Open my shop
+ *   1 · Open your shop     — PB1: the shop name and what you do (the main service) on ONE screen
+ *   2 · Create your account — Google / Apple / Email · Terms. SECOND, never last (owner: "second, not last")
+ *   3 · Check your shop    — ONE list, a sheet per fact: name · contact · what you do · events · where (the map pin
+ *                            stays) · number. Every fact the old steps collected is one of these sheets — none dropped.
+ *   4 · Your first service card — drafted from the category + service; the supplier types the price.
+ *                            Approve (needs a price) · Edit (the shipped Card Maker, once the shop opens) · Skip
+ *   5 · You're all set     — the plan sits here (`PlanOnLastScreen`), then Open my shop. Then Today's welcome.
+ *
+ * What the 5-step wizard was (Name · What you do · Where · About you · Your account) is listed in STATUS.md's
+ * "removed / changed" for this PR. The v16 contract below still holds for every box it describes; only WHERE each box
+ * sits moved.
  *
  * ── THE CONTRACT IS PROTOTYPE v16 (owner, 6 Nov: "those are the last fixes") ──────────────────────────────────────
  * `prototypes/open_shop_redesign_2026-11-06/open-shop-redesign-v16.html` in the specs repo, its "Click through it".
@@ -103,11 +142,25 @@ import { FairNote } from '@/app/_components/fair-note';
  * Google / Apple genuinely LEAVE the page, so the typed steps are parked in a one-hour, same-tab draft
  * (`lib/open-shop-draft.ts`, never the password) and restored when the OAuth callback lands back here.
  */
-/** Five steps, one question each. */
+/** Five screens (`ONBOARDING_SCREENS`): 1 open · 2 account · 3 check · 4 card · 5 done. */
 export type Step = 1 | 2 | 3 | 4 | 5;
 const TOTAL_STEPS = 5;
-/** Step 2's two pages (prototype v13: "events you serve can be a next page?"). */
-type Page2 = 'services' | 'events';
+/** The account screen — SECOND (owner 19 Nov). Google / Apple leave from here, and come back here. */
+const ACCOUNT_STEP = 2;
+/** "Check your shop" — the list whose rows open a sheet each. */
+const CHECK_STEP = 3;
+/** The first service card. */
+const CARD_STEP = 4;
+
+/** A row's sheet title (PB3·a / P3·a): the fact said in full, where the row says it short. */
+const SHEET_TITLE: Partial<Record<CheckFact, string>> = {
+  name: 'Shop name',
+  categories: 'Your services',
+  events: 'Events you serve',
+  where: 'Where you are',
+  contact: 'Contact person',
+  number: 'Contact number',
+};
 
 export function OpenShopWizard({
   mode,
@@ -133,6 +186,7 @@ export function OpenShopWizard({
   specialties = {},
   emailTaken = false,
   sentTo = null,
+  sentToNext = null,
   accountKey = 'guest',
   prefilledAccountEmail = null,
   invitedBy = null,
@@ -167,6 +221,8 @@ export function OpenShopWizard({
   emailTaken?: boolean;
   /** `?check_inbox=`: the shop is open, the account waits for its email link — say so, with the address. */
   sentTo?: string | null;
+  /** Where that screen's "sign in" lands — the welcome the email link opens (it may carry the drafted card). */
+  sentToNext?: string | null;
   /**
    * "Free to join, and here is when you DO pay" — composed on the server by
    * `bookingFeeJoinDisclosure(await readBookingFeeJoinSchedule())`, so the rate
@@ -278,7 +334,6 @@ export function OpenShopWizard({
   // ① "Another category" is open (the tiles are under the cards).
   const [adding, setAdding] = useState(false);
   // ② The plan explainer: open, ticked, and its refusal.
-  const [planOpen, setPlanOpen] = useState(false);
   const [planAgreed, setPlanAgreed] = useState(false);
   const [planErr, setPlanErr] = useState<string | null>(null);
   const places = useMemo(() => placeIndex(serviceTree), [serviceTree]);
@@ -288,6 +343,32 @@ export function OpenShopWizard({
   // 🧭 `?as=coordinator`: "Not a coordinator? Search all services" turns the coordinator view off for this visit.
   const [allServices, setAllServices] = useState(false);
   const coordinating = coordinator && !allServices;
+  /**
+   * 🚪 DOOR C (owner 19 Nov, "COORDINATOR ONBOARDING (Door C) APPROVED"): Coordination is PRE-PICKED, and the main
+   * service is ONE dropdown of the coordination services — the leaves whose key is in `COORDINATOR_TRADE_SERVICES`,
+   * read from the constant (never a word search), in the tree's own order and words.
+   */
+  const coordinationLeaves = useMemo(() => {
+    const set = new Set(COORDINATOR_TRADE_SERVICES);
+    const seen = new Set<string>();
+    const out: { key: string; label: string }[] = [];
+    for (const p of serviceTree)
+      for (const b of p.branches)
+        for (const l of b.leaves)
+          if (set.has(l.canonicalService) && !seen.has(l.canonicalService)) {
+            seen.add(l.canonicalService);
+            out.push({ key: l.canonicalService, label: l.label });
+          }
+    return out;
+  }, [serviceTree]);
+  useEffect(() => {
+    // Pre-picked once: the first coordination service, unless one is already chosen (a re-run, a restored draft).
+    if (coordinator && !service && coordinationLeaves[0]) {
+      setService(coordinationLeaves[0].key);
+      setPickedLabel(coordinationLeaves[0].label);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, as the coordinator door opens
+  }, []);
   /**
    * THE ONE REFUSAL ON SCREEN — seeded from the SERVER and owned by the client thereafter.
    *
@@ -321,16 +402,32 @@ export function OpenShopWizard({
   };
   const describedBy = (field: OpenShopField, ...more: string[]) =>
     [errorFor(field) ? `open-shop-err-${field}` : '', ...more].filter(Boolean).join(' ') || undefined;
-  /** Step 2's page a refusal belongs to — the events and "each service" lines live on page 2. */
-  const pageOf = (field: OpenShopField | null): Page2 => (field === 'events' || field === 'extras' ? 'events' : 'services');
-  const [page2, setPage2] = useState<Page2>(pageOf(errorField));
+  /**
+   * ③ "CHECK YOUR SHOP" — ONE LIST, A SHEET PER FACT (owner 19 Nov). The sheet open over the list, or null. A refusal
+   * about a box that lives in a sheet opens that sheet (`FIELD_FACT`), so the sentence is never behind a closed one.
+   */
+  const sheetOf = (field: OpenShopField | null): CheckFact | null => (field ? (FIELD_FACT[field] ?? null) : null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  /* ⌨ A fact's sheet sits at the screen's foot and holds text boxes, so it RIDES the keyboard (owner 2026-10-24,
+     "Applies all textbox like that"): the ONE riding row — it stands on the keyboard (`--sn-keyboard-h`) and wears the
+     band while a box in it is typed into. */
+  const sheetRide = useRidingRow(sheetRef);
+  const [sheet, setSheet] = useState<CheckFact | null>(
+    refusalStep(errorField, initialStep) === CHECK_STEP ? sheetOf(errorField) : null,
+  );
+  // ④ The first service card — drafted from the main service once it is picked (`draftFirstCard`); the supplier types
+  // the price (none is guessed). `cardTitleTouched` keeps a typed name from being re-drafted by a later service pick.
+  const [cardChoice, setCardChoice] = useState<FirstCardChoice | null>(null);
+  const [cardTitle, setCardTitle] = useState('');
+  const [cardTitleTouched, setCardTitleTouched] = useState(false);
+  const [cardPrice, setCardPrice] = useState('');
+  const [cardErr, setCardErr] = useState<string | null>(null);
   // ⑤ Google / Apple are drawn on this shell (the server's gate, and on the web row at least one provider switched on).
   const waysShown = oauth.show && (oauth.desktop || oauth.native || ANY_OAUTH_ENABLED);
   // "Continue with Email" was chosen — the email + password open in place. A server refusal about either (or the
   // taken-email sign-in) opens them; with no Google / Apple on this shell, Email is the only way and starts open.
-  const [acctEmail, setAcctEmail] = useState(
-    !waysShown || ['contact_email', 'password'].includes(errorField ?? '') || (guest && emailTaken),
-  );
+  // 🚪 PB2 / P2 (owner "approve!", 19 Nov — "Email boxes show at once"): Google · Apple · "or" · Email · Password, all
+  // drawn together. SUPERSEDES the 7 Nov "when email is picked, Google and Apple hide" for this screen.
 
   /** The web address that would be submitted — printed in "Your shop at a glance". */
   const [slug, setSlug] = useState(existingSlug ?? '');
@@ -341,8 +438,6 @@ export function OpenShopWizard({
   const [address, setAddress] = useState(defaults.hqAddress);
   /** The city the vendor said "Yes, that's right" to — null until then. */
   const [confirmedCity, setConfirmedCity] = useState<string | null>(null);
-  /** "Is this your address?" is waiting for an answer — at ≥768 the right column becomes that pane. */
-  const [pinPending, setPinPending] = useState(false);
   // 🪪 The typed name wins (owner 13 Nov 2026): a saved/typed name first, the account's only when nothing was typed.
   const [who, setWho] = useState(titleCasePersonName(shopOwnerNameOf(defaults.contactName, accountName) ?? ''));
   // F-W1-13: a different account → "Contact" in the glance follows it (the box itself is remounted by `accountKey`).
@@ -360,9 +455,6 @@ export function OpenShopWizard({
     setTakenEmail(defaults.contactEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only an account change resets these
   }, [accountKey]);
-  /** The right-hand column's slot the confirmation card is portalled into (≥768 only). */
-  const [sideSlot, setSideSlot] = useState<HTMLElement | null>(null);
-  const wide = useMediaQuery('(min-width: 768px)');
   // 🔄 Page left open across a deploy → the primary button becomes "Tap Reload to keep going" (owner 2026-11-06).
   const stale = useStaleBuild();
   /**
@@ -443,12 +535,16 @@ export function OpenShopWizard({
    * cannot see — and the order of the checks is the order of the boxes on the screen. The server stays
    * authoritative (it runs the same checks in the same order); this only saves the round trip.
    */
-  const validateStep = (n: Step): string | null => {
-    const read = (name: string) =>
-      (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
-    const el = (name: string) =>
-      formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
-    if (n === 1) {
+  /** Read one box off the always-mounted form, by name. */
+  const readBox = (name: string) => (formRef.current?.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '';
+  const boxEl = (name: string) => formRef.current?.elements.namedItem(name) as HTMLInputElement | null;
+
+  /**
+   * ③ ONE FACT'S OWN CHECK — what its sheet's Done refuses with, and what "Check your shop" holds Continue on. The same
+   * shared sentences as before, in the order of the boxes; the server runs the same checks (it stays authoritative).
+   */
+  const validateFact = (fact: CheckFact): string | null => {
+    if (fact === 'name') {
       if (!shopName.trim()) return OPEN_SHOP_ERRORS.shopName;
       if (nameHeld && claimedName !== shopName.trim()) return SHOP_NAME_HELD_MESSAGE;
       if (nameFair.length > 0) return fairRefusal(nameFair);
@@ -456,47 +552,68 @@ export function OpenShopWizard({
       if (OPEN_SHOP_LOGO_REQUIRED && !logoUrl.trim()) return OPEN_SHOP_ERRORS.logo;
       return null;
     }
-    if (n === 2) {
-      if (!service) return OPEN_SHOP_ERRORS.service;
+    if (fact === 'categories') return service ? null : OPEN_SHOP_ERRORS.service;
+    if (fact === 'events') {
       // "Pick at least one event." (owner 2026-11-06) — the server refuses an empty set too. v19: of the SHOWN tiles.
       if (activeEvents.length === 0) return OPEN_SHOP_ERRORS.events;
       // ④ Every service must be on for at least one ticked event — the server refuses it too.
       if (serviceOnNoEvent) return OPEN_SHOP_ERRORS.extraEvents;
       return null;
     }
-    if (n === 3) {
-      // ── THE PIN IS REQUIRED, AND CONFIRMING IT COMPLETES THE STEP ──────────────────────────────────────────────
+    if (fact === 'where') {
+      // ── THE PIN IS REQUIRED, AND CONFIRMING IT COMPLETES THE FACT ──────────────────────────────────────────────
       // Owner-locked 2026-08-10: *"needs to have a pin on the map before they can continue. so you have to ask them
       // if the pin location is correct."* The rule lives in `locationStepError` so it can be RUN — and the server
-      // now runs it too (2026-11-06), so a shop can no longer open without a confirmed pin.
-      const location = locationStepError({
-        hasPin: !!el('hq_latitude')?.value,
-        confirmed: !!el('location_confirmed')?.value,
-        city: el('location_city')?.value ?? '',
-      });
-      return location ?? null;
+      // runs it too (2026-11-06), so a shop can no longer open without a confirmed pin.
+      return (
+        locationStepError({
+          hasPin: !!boxEl('hq_latitude')?.value,
+          confirmed: !!boxEl('location_confirmed')?.value,
+          city: boxEl('location_city')?.value ?? '',
+        }) ?? null
+      );
     }
-    if (n === 4) {
-      if (!read('contact_name').trim()) return OPEN_SHOP_ERRORS.contactName;
-      if (!read('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
+    if (fact === 'contact') return readBox('contact_name').trim() ? null : OPEN_SHOP_ERRORS.contactName;
+    if (fact === 'number') {
+      if (!readBox('contact_phone').trim()) return OPEN_SHOP_ERRORS.contactPhone;
       // The box's own sentence (owner 2026-11-07): "Use 9XX XXX YYYY, or a landline like 2 8XXX YYYY."
-      if (!isPhPhone(read('contact_phone'))) return OPEN_SHOP_PHONE_BOX_ERROR;
+      if (!isPhPhone(readBox('contact_phone'))) return OPEN_SHOP_PHONE_BOX_ERROR;
       return null;
     }
-    // ⑤ Your account. Signed out, a way to sign in must be picked first (Google / Apple leave the page on the tap).
-    if (guest && !acctEmail) return OPEN_SHOP_ACCOUNT_ERRORS.way;
-    if (!isValidOpenShopEmail(read('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
-    // Same floor as /signup, same sentence — see lib/open-shop-account.ts.
-    if (guest && read('password').length < OPEN_SHOP_PASSWORD_MIN) {
-      return OPEN_SHOP_ACCOUNT_ERRORS.password;
+    return null; // package · pay — the self-serve door draws neither
+  };
+
+  /**
+   * ── ONE SCREEN, ONE GATE ──────────────────────────────────────────────────────────────────────────────────────────
+   * Validation is per screen and uses the SHARED strings, so a vendor is never told about a problem on a screen they
+   * cannot see — and the order of the checks is the order of the boxes. The server stays authoritative.
+   */
+  const validateStep = (n: Step): string | null => {
+    if (n === 1) return validateFact('name') ?? validateFact('categories');
+    if (n === ACCOUNT_STEP) {
+      // Signed out, a way to sign in must be picked first (Google / Apple leave the page on the tap).
+      if (!isValidOpenShopEmail(readBox('contact_email'))) return OPEN_SHOP_ERRORS.contactEmail;
+      // Same floor as /signup, same sentence — see lib/open-shop-account.ts.
+      if (guest && readBox('password').length < OPEN_SHOP_PASSWORD_MIN) return OPEN_SHOP_ACCOUNT_ERRORS.password;
+      // The agreement, only where an account is being CREATED. The server refuses it too (`hasAgreedToTerms`).
+      if (guest && !boxEl(TERMS_FIELD)?.checked) return TERMS_REQUIRED_MESSAGE;
+      return null;
     }
-    // The agreement, only where an account is being CREATED. The server refuses
-    // it too (`hasAgreedToTerms`); this only saves the round trip.
-    if (guest && !el(TERMS_FIELD)?.checked) return TERMS_REQUIRED_MESSAGE;
+    if (n === CHECK_STEP) {
+      for (const f of SELF_SERVE_FACTS) {
+        const err = validateFact(f);
+        if (err) return err;
+      }
+      return null;
+    }
+    if (n === CARD_STEP) return null; // the card's own three buttons carry its gate (`chooseCard`)
+    // 5 · You're all set — more than Free holds: the plan's box is ticked here, on the last screen.
+    // PB5 draws "I understand how this works." for EVERY new shop, not only one over Free's limit.
+    if (!planAgreed) return PLAN_AGREE_ERROR;
     return null;
   };
 
-  /** Put the cursor in the box a refusal is about, once its step is on screen. */
+  /** Put the cursor in the box a refusal is about, once its screen (or sheet) is on screen. */
   const focusField = (message: string) => {
     const field = openShopErrorField(message);
     if (!field || field === 'submit' || field === 'way') return;
@@ -518,10 +635,15 @@ export function OpenShopWizard({
    * just completed without me seeing if the address was correct."* A form with
    * one submit on the LAST step implicitly submits on Enter from any box. Enter
    * now advances instead — the same thing Continue does, including its
-   * validation — and on the LAST step it does nothing, so the shop is only ever
-   * created by pressing the button that says so.
+   * validation (inside an open sheet: its Done) — and on the LAST step it does
+   * nothing, so the shop is only ever created by pressing the button that says so.
    */
   const onFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Escape' && sheet) {
+      e.preventDefault();
+      setSheet(null);
+      return;
+    }
     if (e.key !== 'Enter') return;
     // The sign-in pane is a PORTAL: its DOM is under <body>, but React still
     // bubbles its key events through this form. Only keys typed IN this form count.
@@ -530,39 +652,54 @@ export function OpenShopWizard({
     const tag = t?.tagName;
     if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'A' || tag === 'SELECT') return;
     e.preventDefault();
-    if (step < TOTAL_STEPS) go();
+    if (sheet) return doneSheet();
+    if (step < CARD_STEP) go();
   };
 
-  /** Refuse with a sentence: drawn under its box, on its page, the cursor put there. */
+  /** Refuse with a sentence: drawn under its box, on its screen (its sheet open), the cursor put there. */
   const refuse = (err: string) => {
     setBanner(err);
-    if (step === 2) setPage2(pageOf(openShopErrorField(err)));
+    if (step === CHECK_STEP) setSheet(sheetOf(openShopErrorField(err)));
     focusField(err);
   };
 
-  const next = () => {
-    // Step 2, page 1 → the plan explainer (when due), then page 2.
-    if (step === 2 && page2 === 'services') {
-      if (!service) return refuse(OPEN_SHOP_ERRORS.service);
-      if (overFree && !planAgreed) {
-        // ② "Before you continue" — the sheet on a phone, the right pane when wide. Specialties and the add picker close.
-        setOpenSpecialty(null);
-        setAdding(false);
-        setPlanErr(null);
-        setPlanOpen(true);
-        return;
-      }
-      setBanner(null);
-      setDir('fwd');
-      setPage2('events');
-      window.scrollTo({ top: 0 });
+  /** ③ A sheet's Done: its own fact must pass; then the list is back, the line ticked. */
+  const doneSheet = () => {
+    if (!sheet) return;
+    const err = validateFact(sheet);
+    if (err) {
+      setBanner(err);
+      focusField(err);
       return;
     }
+    setBanner(null);
+    setSheet(null);
+    saveDraft({ reload: true });
+  };
+
+  /** ③ Open one fact's sheet over the list. */
+  const openSheet = (fact: CheckFact) => {
+    setBanner(null);
+    setPlanErr(null);
+    setSheet(fact);
+  };
+
+  const next = () => {
     const err = validateStep(step);
     if (err) return refuse(err);
     setBanner(null);
     setDir('fwd');
-    setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
+    // Signed in, there is no account to create: past the account screen to "Check your shop".
+    if (step === 1 && !guest) {
+      setStep(CHECK_STEP);
+    } else {
+      setStep((n) => (n < TOTAL_STEPS ? ((n + 1) as Step) : n));
+    }
+    // ④ Drafted once, as the card screen comes up: the main service's name (unless they already typed one).
+    if (step === CHECK_STEP && !cardTitleTouched) setCardTitle(draftFirstCard({ serviceLabel }).title);
+    // "Your changes save as you go." (PB2) — every step parks what was typed in this browser tab, so a reload or a trip
+    // to Google / Apple brings it all back. Never the password.
+    saveDraft({ reload: true });
     window.scrollTo({ top: 0 });
   };
 
@@ -588,47 +725,65 @@ export function OpenShopWizard({
   const back = () => {
     if (movingRef.current) return;
     setBanner(null);
-    setPlanOpen(false);
+    setPlanErr(null);
+    setSheet(null);
     setDir('back');
-    if (step === 2 && page2 === 'events') {
-      setPage2('services');
+    if (step === CHECK_STEP && !guest) {
+      setStep(1);
       return;
     }
-    if (step === 3) setPage2('events');
     setStep((n) => (n > 1 ? ((n - 1) as Step) : n));
   };
 
-  /** ② "Continue" inside the explainer: the box must be ticked. */
-  const planContinue = () => {
-    if (!planAgreed) {
-      setPlanErr(PLAN_AGREE_ERROR);
+  /**
+   * ④ THE FIRST CARD'S THREE WAYS (owner 19 Nov). Approve needs a price; Edit opens the shipped Card Maker once the shop
+   * is open (with the card made when a price is typed, its kind pre-picked when not); Skip makes no card. Each moves on
+   * to "You're all set" — nothing is written until Open my shop.
+   */
+  const chooseCard = (choice: FirstCardChoice) => {
+    const err = firstCardRefusal({ choice, title: cardTitle, price: cardPrice });
+    if (err) {
+      setCardErr(err);
+      window.requestAnimationFrame(() =>
+        document.getElementById(cardTitle.trim() ? 'open-shop-first_card_price' : 'open-shop-first_card_title')?.focus(),
+      );
       return;
     }
-    setPlanOpen(false);
-    setBanner(null);
+    setCardErr(null);
+    setCardChoice(choice);
     setDir('fwd');
-    setPage2('events');
+    setStep(TOTAL_STEPS);
     window.scrollTo({ top: 0 });
   };
 
   /**
-   * The final gate. Walks EVERY step, not just the last one — a vendor can go
-   * back, clear a field, and jump forward. On a failure it moves to the step
-   * that owns the field, so the message is never about a screen they cannot see.
+   * The final gate. Walks EVERY screen, not just the last one — a vendor can go
+   * back, clear a field, and jump forward. On a failure it moves to the screen
+   * (and the sheet) that owns the field, so the message is never about a screen they cannot see.
    */
   const submitGate = (e: React.FormEvent<HTMLFormElement>) => {
     // Same portal rule: a submit inside the sign-in pane must not be gated here.
     if (e.target !== e.currentTarget) return;
-    for (const n of [1, 2, 3, 4, 5] as Step[]) {
+    for (const n of [1, ACCOUNT_STEP, CHECK_STEP, TOTAL_STEPS] as Step[]) {
       const err = validateStep(n);
       if (err) {
+        e.preventDefault();
+        if (err === PLAN_AGREE_ERROR) {
+          setPlanErr(err);
+          return;
+        }
         setBanner(err);
         setStep(n);
-        if (n === 2) setPage2(pageOf(openShopErrorField(err)));
+        setSheet(n === CHECK_STEP ? sheetOf(openShopErrorField(err)) : null);
         focusField(err);
-        e.preventDefault();
         return;
       }
+    }
+    if (!cardChoice) {
+      e.preventDefault();
+      setStep(CARD_STEP);
+      setCardErr(firstCardRefusal({ choice: null, title: cardTitle, price: cardPrice }));
+      return;
     }
     setBanner(null);
     submittedHere.current = true; // W1-B23 — the sent screen arrives by a fresh load, never swapped in place
@@ -648,8 +803,8 @@ export function OpenShopWizard({
       sessionStorage.setItem(
         OPEN_SHOP_DRAFT_KEY,
         serializeOpenShopDraft({
-          // OAuth leaves from step 5 (the account step); a reload and a submit come back where they were.
-          step: at ? step : 5,
+          // OAuth leaves from the account screen (second, 19 Nov); a reload and a submit come back where they were.
+          step: at ? step : ACCOUNT_STEP,
           shopName,
           logoUrl,
           service,
@@ -663,6 +818,8 @@ export function OpenShopWizard({
           evOff,
           specialties: picks,
           planAgreed,
+          // ④ The first card as drafted / typed — restored with the rest (Google / Apple, a reload, a refusal).
+          card: { title: cardTitle, price: cardPrice, choice: cardChoice ?? '' },
           position: read('contact_position'),
           phone: read('contact_phone'),
           email: read('contact_email'),
@@ -716,6 +873,14 @@ export function OpenShopWizard({
     if (d.evOff) setEvOff(d.evOff);
     if (d.specialties) setPicks(d.specialties);
     if (d.planAgreed) setPlanAgreed(true);
+    if (d.card) {
+      if (d.card.title) {
+        setCardTitle(d.card.title);
+        setCardTitleTouched(true);
+      }
+      if (d.card.price) setCardPrice(d.card.price);
+      if (d.card.choice) setCardChoice(d.card.choice);
+    }
     if (d.phone) setPhoneDigits(phoneDigitsFromTyped(d.phone));
     write('contact_email', d.email);
     write('contact_position', d.position);
@@ -731,7 +896,6 @@ export function OpenShopWizard({
       if (d.slug) setRestoredSlug(d.slug);
     } else {
       setStep(d.step);
-      if (d.step > 2) setPage2('events');
     }
   };
   useEffect(() => {
@@ -756,9 +920,9 @@ export function OpenShopWizard({
     if (mode === 'create') restoreParkedDraft(true);
     setBanner(error);
     const field = openShopErrorField(error);
-    setStep(refusalStep(field, initialStep));
-    if (field === 'events' || field === 'extras' || field === 'service') setPage2(pageOf(field));
-    if (field === 'contact_email' || field === 'password') setAcctEmail(true);
+    const at = refusalStep(field, initialStep);
+    setStep(at);
+    setSheet(at === CHECK_STEP ? sheetOf(field) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new server refusal is the only trigger
   }, [error, refusalStamp]);
 
@@ -777,6 +941,10 @@ export function OpenShopWizard({
   }, [hardLoading]);
 
   // ✉ A1 — the shop is open on the new account, and the account waits for its email link (verification on).
+  // ③ The open fact's sheet holds focus, closes on Escape, and makes the page behind it inert — the house modal hook,
+  // on a sheet that lives INSIDE the one form (see `sheetClass`).
+  useModalA11y({ open: step === CHECK_STEP && sheet !== null, onClose: () => setSheet(null), containerRef: sheetRef });
+
   if (sentTo && !hardLoading) {
     return (
       <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
@@ -796,7 +964,7 @@ export function OpenShopWizard({
           <p className="mt-4 text-xs" style={{ color: 'var(--m-slate-3)' }}>
             Not there? Check your spam folder, or{' '}
             <a
-              href={sentTo.includes('@') ? `/login?check_email=${encodeURIComponent(sentTo)}&next=%2Fvendor-dashboard` : '/login?next=%2Fvendor-dashboard'}
+              href={`/login?${sentTo.includes('@') ? `check_email=${encodeURIComponent(sentTo)}&` : ''}next=${encodeURIComponent(sentToNext ?? '/vendor-dashboard')}`}
               className="text-terracotta"
             >
               sign in
@@ -808,26 +976,19 @@ export function OpenShopWizard({
     );
   }
 
-  // ── THE WORDS AT THE TOP OF EACH STEP — the prototype's, verbatim ─────────────────────────────────────────────────
-  const heads: Record<Step, [string, string | null]> = {
-    1: [coordinator ? 'Name your coordination shop' : 'Name your shop', 'This becomes your page address.'],
-    2:
-      page2 === 'events'
-        ? ['Events you serve', 'Couples find you by event.']
-        : coordinating
-          ? ['What you coordinate', service ? 'Your services. Add more if you do more.' : 'Pick your main coordination service.']
-          : ['What you do', service ? 'Your services. Add more if you do more.' : 'Pick your main service.'],
-    3: ['Where you are', 'Type your address; the pin follows. Then confirm it.'],
-    4: ['About you', 'Who couples will talk to.'],
-    // F-W1-12 (walk 13 Nov): signed in, the step had no line under its title — every other step has one.
-    5: ['Your account', guest ? 'Pick how you’ll sign in. This creates your Setnayan account.' : 'Your shop’s email, then open your shop.'],
+  // ── THE WORDS AT THE TOP OF EACH SCREEN — `lib/supplier-onboarding.ts`, the one vocabulary of every door ───────
+  const heads: Record<Step, readonly [string, string | null]> = {
+    1: coordinator ? OPEN_YOUR_COORDINATION_HEAD : OPEN_YOUR_SHOP_HEAD,
+    // Signed in there is no account to create — the screen holds only the shop's email.
+    2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
+    3: ONBOARDING_HEADS.check,
+    // PB4 → PB4·b: the line turns once a price is typed.
+    // PC4: on Door C the step is their PAGE, drafted with the first card on it — the same lines.
+    4: [coordinating ? YOUR_PAGE_HEAD : ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
+    5: ONBOARDING_HEADS.done,
   };
   const [title, line] = heads[step];
   const phoneOk = phoneBoxState(phoneDigits, true).state === 'ok';
-  /** At ≥768 a pending "Is this your address?" opens in the right column — the third pane. */
-  const confirmPane = wide && step === 3 && pinPending;
-  /** ② At ≥768 the plan explainer is the right column too. */
-  const planPane = wide && step === 2 && planOpen;
 
   const signInLine = guest ? (
     <>
@@ -850,9 +1011,80 @@ export function OpenShopWizard({
     ) : null;
   const logoSrc = logoUrl ? (logoDisplayMap?.[logoUrl] ?? null) : null;
 
+  // ③ "Your shop" (PB3): each row with what it says now (`checkRows`), in the drawing's order and words. A missing row
+  // names what to add and holds Continue; "They pay you" is Later — the self-serve door asks for no pay details.
+  const categoryLabels = Array.from(
+    new Set(picked.map((p) => places.get(p.key)?.categoryLabel ?? p.label).filter(Boolean)),
+  );
+  const eventLabels = eventTypeOptions.filter((e) => activeEvents.includes(e.key)).map((e) => e.label);
+  const rows = checkRows(
+    SELF_SERVE_FACTS,
+    {
+      name: shopName.trim() || null,
+      categories: categoryLabels.length ? categoryLabels.join(' · ') : null,
+      events: eventLabels.length ? eventLabels.join(' · ') : null,
+      where: confirmedCity,
+      contact: who.trim() || null,
+      number: phoneOk ? `+63 ${formatPhoneDigits(phoneDigits)}` : null,
+      pay: null,
+    },
+    SELF_SERVE_LATER,
+  );
+  /**
+   * ③ A ROW'S SHEET (PB3·a, owner's Q3 "one list, a sheet per fact"). It rises from the bottom over the list, on the house
+   * backdrop (`OverlayBackdrop`) with the house modal hook (`useModalA11y`); Save closes it and the list is back, the row
+   * ticked. 🔑 It is NOT the portalled house `Sheet`: every box must stay INSIDE the one form (a single submit posts them
+   * all) and stay MOUNTED when the sheet closes (what was typed must survive). So each fact's panel is a child of the
+   * form, hidden while closed, and the open one is drawn as the sheet — fixed to the bottom of the screen.
+   */
+  const inSheet = (fact: CheckFact) => step === CHECK_STEP && sheet === fact;
+  const orderOf = (fact: CheckFact) => 10 + 2 * Math.max(0, SELF_SERVE_FACTS.indexOf(fact));
+  const sheetClass =
+    'fixed inset-x-0 bottom-[var(--sn-keyboard-h,0px)] z-[var(--sn-z-panel)] mx-auto max-h-[calc(88dvh-var(--sn-keyboard-h,0px))] w-full max-w-[620px] space-y-4 overflow-y-auto overscroll-contain rounded-t-[var(--m-r-lg)] pl-[max(1rem,var(--sn-safe-l))] pr-[max(1rem,var(--sn-safe-r))] pb-[calc(16px+env(safe-area-inset-bottom))] pt-3';
+  const sheetStyle = (fact: CheckFact): React.CSSProperties | undefined =>
+    inSheet(fact) ? { background: 'var(--m-paper)' } : undefined;
+  /** What the open fact's panel carries to be the sheet: its ref, and the dialog's name. */
+  const sheetProps = (fact: CheckFact) =>
+    inSheet(fact)
+      ? ({ ref: sheetRef, role: 'dialog', 'aria-modal': true, 'aria-labelledby': `onboarding-sheet-${fact}`, ...sheetRide.rowProps } as const)
+      : {};
+  /** Each sheet's one line — the shipped steps' own words, carried into the sheet that now holds their boxes. */
+  const factLine: Partial<Record<CheckFact, string>> = {
+    name: 'This becomes your page address.',
+    categories: 'Your services. Add more if you do more.',
+    events: 'Couples find you by event.',
+    where: 'Type your address; the pin follows.',
+    contact: 'Who couples will talk to.',
+  };
+  /** The head every fact sheet wears: the grab bar, its name and line. Save is at its foot (`sheetFoot`). */
+  const sheetHead = (fact: CheckFact) =>
+    inSheet(fact) ? (
+      <div className="grid gap-2 pb-1" data-onboarding-sheet-head={fact}>
+        <span aria-hidden className="mx-auto h-1 w-9 rounded-full" style={{ background: 'var(--m-line)' }} />
+        <span className="grid gap-0.5">
+          <h2 id={`onboarding-sheet-${fact}`} className="text-base font-semibold" style={{ color: 'var(--m-ink)' }}>
+            {SHEET_TITLE[fact] ?? rows.find((r) => r.fact === fact)?.label}
+          </h2>
+          {factLine[fact] ? (
+            <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
+              {factLine[fact]}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    ) : null;
+  /** The sheet's one button — Save (its own check runs first), full width at its foot. */
+  const sheetFoot = (fact: CheckFact) =>
+    inSheet(fact) ? (
+      <div className="grid pt-1 [&>.ab]:w-full [&>.ab]:justify-center">
+        <ActionButton tone="brand" main icon={Check} label="Save" onClick={doneSheet} data-testid="onboarding-sheet-done" />
+        {sheetRide.band}
+      </div>
+    ) : null;
+
   // The bottom bar's primary: Continue · the quiet "not yet" form of it · Open my shop · or, on a stale build,
   // "Tap Reload to keep going" (the draft is parked first).
-  const quiet = (step === 2 && page2 === 'services' && !service) || (step === 3 && !confirmedCity);
+  const quiet = (step === 1 && !service) || (step === CHECK_STEP && firstMissing(rows) !== null);
   const planProps = {
     agreed: planAgreed,
     onAgree: (a: boolean) => {
@@ -860,20 +1092,41 @@ export function OpenShopWizard({
       setPlanErr(null);
     },
     error: planErr,
-    onContinue: planContinue,
-    onBack: () => {
-      setPlanOpen(false);
-      setPlanErr(null);
-    },
     // ② v19 — THEIR picks in two columns: the main stays Free; the plan that holds the rest (TIER_CAPS, never typed).
     main: picked[0]?.label ?? '',
     rest: picked.slice(1).map((p) => p.label),
     split: planSplit(picked.map((p) => ({ categoryId: places.get(p.key)?.categoryId ?? p.key, categoryLabel: '' }))),
   };
+  const cardPriceNumber = parseCardPrice(cardPrice);
+  /**
+   * "Your role at the shop" — FREE TEXT, optional, the shipped `contact_position` → `business_owner_position`. PB2 draws it
+   * on the account screen ("Your role · Owner"); signed in there is no account screen, so it stays in the Contact sheet.
+   * ONE box either way (`guest` never changes on a page), so the form posts it once.
+   */
+  const roleBox = (
+    <label className="block max-w-[620px] space-y-1">
+      <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+        Your role{' '}
+        <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
+          optional
+        </small>
+      </span>
+      <input
+        // field-ok: the door's own plain box, like "Your name" beside it — prototype v16 draws all three alike
+        id="open-shop-contact_position"
+        name="contact_position"
+        defaultValue={defaults.contactPosition}
+        maxLength={64}
+        placeholder="e.g. Owner"
+        autoComplete="organization-title"
+        className="input-field"
+      />
+    </label>
+  );
 
   return (
     // `overflow-x-clip`: a step sliding in from 40px right never widens the page (clip, not hidden — the bar stays sticky).
-    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-wizard="">
+    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-wizard="" data-supplier-look="">
       {/* v18 — the ONE Undo toast (a swiped-away service comes back from here). */}
       <UndoToastHost />
       {/* ── THE TOP LINE (≥768): the wordmark, and "Have an account? Sign in — what you typed stays." ─────────── */}
@@ -891,11 +1144,7 @@ export function OpenShopWizard({
       </div>
 
       <div
-        className={`grid flex-1 gap-7 px-4 pb-0 pt-6 md:px-7 md:pb-9 md:pt-6 lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9 ${
-          confirmPane
-            ? 'md:grid-cols-2'
-            : 'md:grid-cols-[minmax(0,1fr)_280px] lg:grid-cols-[minmax(0,1fr)_380px]'
-        }`}
+        className="grid flex-1 gap-7 px-4 pb-0 pt-6 md:grid-cols-[minmax(0,1fr)_280px] md:px-7 md:pb-9 md:pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9"
       >
         <div className="flex min-w-0 flex-col gap-[18px] md:grid md:content-start">
           {/* ── PROGRESS, NOT PROSE (owner 2026-08-10) — on a phone, the wordmark over five segments that fill. At
@@ -934,15 +1183,23 @@ export function OpenShopWizard({
                     value={n <= step ? 100 : 0}
                     id={`open-shop-seg-${n}`}
                     className="h-full rounded-full"
-                    style={{ background: 'var(--m-orange-deep)' }}
+                    style={{ background: 'rgb(var(--color-mulberry))' }}
                   />
                 </div>
               ))}
             </div>
+            {/* The step names under the bars (the drawing's dots row): Start · Account · Your shop · Your card · Done. */}
+            <ol className="grid grid-cols-5 gap-1.5 text-[11px] md:hidden" aria-hidden data-onboarding-step-names="">
+              {(coordinating ? ONBOARDING_STEP_NAMES.coordinator : ONBOARDING_STEP_NAMES.open).map((name, i) => (
+                <li key={name} className="truncate" style={{ color: i + 1 <= step ? 'var(--m-ink)' : 'var(--m-slate-3)' }}>
+                  {name}
+                </li>
+              ))}
+            </ol>
           </div>
 
           {/* Keyed by the screen, so the words slide in with the step (v19) — a re-render keeps the node, no replay. */}
-          <div key={`${step}-${page2}`} className={`grid gap-[3px] ${slide}`}>
+          <div key={step} className={`grid gap-[3px] ${slide}`}>
             <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
               {title}
             </h1>
@@ -951,7 +1208,7 @@ export function OpenShopWizard({
                 {line}
               </p>
             ) : null}
-            {step === TOTAL_STEPS && signInLine ? (
+            {step === ACCOUNT_STEP && signInLine ? (
               <p className="text-xs md:hidden" style={{ color: 'var(--m-slate-3)' }}>
                 {signInLine}
               </p>
@@ -972,26 +1229,16 @@ export function OpenShopWizard({
             </div>
           ) : null}
 
-          {/* ── STEP 5, SIGNED OUT: ⑤ THREE EQUAL BUTTONS — Continue with Google / Apple / Email. Google / Apple sit
+          {/* ── THE ACCOUNT SCREEN (SECOND), SIGNED OUT: ⑤ THREE EQUAL BUTTONS — Continue with Google / Apple / Email. Google / Apple sit
               OUTSIDE the wizard's own form element: the OAuth row renders its own forms (nested forms are invalid HTML
               and the browser drops the inner one). Email is a plain button that opens the email + password in place,
               inside the form below. */}
-          {guest && step === TOTAL_STEPS ? (
+          {guest && step === ACCOUNT_STEP ? (
             <div className="grid max-w-[620px] gap-2" onSubmitCapture={() => saveDraft()} data-open-shop-ways="">
               {/* ⑥ v19 (owner 7 Nov: "when email is picked, continue with google and apple hides"): Email chosen → the
                   three go; ONE grey "✕ Use another way" brings them back. */}
-              {waysShown && !taken && acctEmail ? (
-                <span className="flex">
-                  <ActionButton
-                    tone="neutral"
-                    icon={X}
-                    label="Use another way"
-                    onClick={() => setAcctEmail(false)}
-                    data-testid="open-shop-another-way"
-                  />
-                </span>
-              ) : null}
-              {waysShown && !taken && !acctEmail ? (
+              {/* PB2: Google · Apple, then "or", then the email boxes (in the form below), all at once. */}
+              {waysShown && !taken ? (
                 <>
                   {oauth.desktop ? (
                     <DesktopOAuthButtons next="/open-shop" />
@@ -1000,24 +1247,11 @@ export function OpenShopWizard({
                   ) : (
                     <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
                   )}
-                  <button /* button-ok: the Email way is one of the three equal sign-up ways — it wears OAUTH_BUTTON_CLASS, the Google/Apple buttons' own shape */
-                    type="button"
-                    className={OAUTH_BUTTON_CLASS}
-                    aria-pressed={false}
-                    aria-describedby={describedBy('way')}
-                    onClick={() => {
-                      setAcctEmail(true);
-                      if (errorField === 'way') setBanner(null);
-                      window.requestAnimationFrame(() =>
-                        document.getElementById('open-shop-contact_email')?.focus({ preventScroll: true }),
-                      );
-                    }}
-                    data-open-shop-email-way=""
-                  >
-                    <Mail aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                    {OAUTH_VERB} Email
-                  </button>
-                  {fieldError('way')}
+                  <span className="flex items-center gap-3 text-xs" style={{ color: 'var(--m-slate-3)' }} data-open-shop-or="">
+                    <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                    or
+                    <span aria-hidden className="h-px flex-1" style={{ background: 'var(--m-line)' }} />
+                  </span>
                 </>
               ) : null}
               {taken ? (
@@ -1027,8 +1261,8 @@ export function OpenShopWizard({
                   onSignedIn={() => {
                     setTaken(false);
                     setBanner(null);
-                    // Signed in, everything kept: on to the last step and "Open my shop".
-                    setStep(TOTAL_STEPS);
+                    // Signed in, everything kept: on to "Check your shop".
+                    setStep(CHECK_STEP);
                   }}
                 />
               ) : null}
@@ -1050,11 +1284,18 @@ export function OpenShopWizard({
             {guest ? <TurnstileField action="signup" /> : null}
             {/* W1-B21 — the plan picked on /for-suppliers, offered once the shop opens (`planOfferPath`). */}
             {plan ? <input type="hidden" name="plan" value={plan} /> : null}
+            {/* 🚪 Door C: the shop opens, then "Invite shops you trust" (`/open-shop/invite`). */}
+            {coordinating ? <input type="hidden" name="as" value="coordinator" /> : null}
             {logoUrl ? <input type="hidden" name="logo_url" value={logoUrl} /> : null}
 
-            {/* 1 · Name your shop. Always mounted, like every panel — inputs persist across steps and there is ONE
-                submit at the end. */}
-            <div className={`${step === 1 ? 'space-y-4' : 'hidden'} ${slide}`}>
+            {/* 1 · Open your shop — the name (PB1, first half). Always mounted, like every panel — inputs persist
+                across screens and there is ONE submit at the end. On "Check your shop" it is the Shop name sheet. */}
+            <div
+              className={inSheet('name') ? sheetClass : `${step === 1 ? 'space-y-4' : 'hidden'} ${slide}`}
+              style={sheetStyle('name')}
+              data-onboarding-fact="name" {...sheetProps('name')}
+            >
+              {sheetHead('name')}
               <label className="block max-w-[620px] space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Shop name
@@ -1105,18 +1346,29 @@ export function OpenShopWizard({
                 }}
                 onHeldChange={setNameHeld}
               />
+              {sheetFoot('name')}
             </div>
 
-            {/* 2 · What you do — page 1 "Your services" (the category cards), page 2 "Events you serve" (prototype
-                v13: events are step 2's own second page). Both pages are always mounted; one shows. */}
-            <div className={step === 2 ? 'space-y-4' : 'hidden'}>
+            {/* 1 · Open your shop — what you do (PB1, second half: the main service, more if they do more). On "Check
+                your shop" it is the What you do sheet; the events are their own sheet. Both always mounted. `contents`:
+                each takes its own place (CSS order) in the form's column. */}
+            <div className="contents">
               <div
-                className={page2 === 'services' ? `block space-y-1.5 ${service ? 'max-w-[620px] lg:max-w-none' : 'max-w-[620px]'} ${slide}` : 'hidden'}
+                className={
+                  inSheet('categories')
+                    ? sheetClass
+                    : step === 1
+                      ? `block space-y-1.5 ${service ? 'max-w-[620px] lg:max-w-none' : 'max-w-[620px]'} ${slide}`
+                      : 'hidden'
+                }
+                style={sheetStyle('categories')}
                 data-open-shop-page="services"
+                data-onboarding-fact="categories" {...sheetProps('categories')}
               >
+                {sheetHead('categories')}
                 {/* "Your services" once the main is picked — the main and every added one are one set of cards. */}
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  {service ? 'Your services' : 'Main service'}
+                  {service && !(coordinating && step === 1) ? 'Your services' : 'Main service'}
                 </span>
                 {/* ── DRILL, DON'T SCROLL (owner 2026-08-09). The flat select survives as the FALLBACK for an empty
                     tree (a failed taxonomy read) — deleting it would turn a read hiccup into "you cannot open a
@@ -1124,7 +1376,29 @@ export function OpenShopWizard({
                 {serviceTree.length > 0 ? (
                   <>
                     <input type="hidden" name="primary_service" value={service} />
-                    {service ? (
+                    {coordinating && step === 1 && coordinationLeaves.length > 0 ? (
+                      // 🚪 Door C: Coordination pre-picked — ONE dropdown for the main service (owner 19 Nov).
+                      <span className="grid gap-2" data-onboarding-coordination="">
+                        <PickMenu
+                          label="Your main coordination service"
+                          value={service}
+                          options={coordinationLeaves}
+                          onPick={(key) => {
+                            setService(key);
+                            setPickedLabel(coordinationLeaves.find((l) => l.key === key)?.label ?? null);
+                            if (errorField === 'service') setBanner(null);
+                          }}
+                          dataAttr="data-onboarding-coordination-pick"
+                        />
+                        <span>
+                          <ActionButton tone="neutral" quiet icon={ArrowRight} label="Not a coordinator? Search all services" onClick={() => {
+                              setAllServices(true);
+                              setService('');
+                              setPickedLabel(null);
+                            }} />
+                        </span>
+                      </span>
+                    ) : service ? (
                       <ServiceCards
                         tree={serviceTree}
                         places={places}
@@ -1229,9 +1503,16 @@ export function OpenShopWizard({
                     <input type="hidden" name={SPECIALTIES_FIELD} value={JSON.stringify(picks)} />
                   </>
                 ) : null}
+                {sheetFoot('categories')}
               </div>
 
-              <div className={page2 === 'events' ? `block space-y-3 ${slide}` : 'hidden'} data-open-shop-page="events">
+              <div
+                className={inSheet('events') ? sheetClass : 'hidden'}
+                style={sheetStyle('events')}
+                data-open-shop-page="events"
+                data-onboarding-fact="events" {...sheetProps('events')}
+              >
+                {sheetHead('events')}
                 <div className="block space-y-2">
                   {/* ✅ A6 → v18 BUTTON_RULE, then the owner's note of 10 Nov ("Button designs"; T19): the label above,
                       then Select all · Clear as ONE row of two EQUAL-width neutral ActionButtons under it — never two chips
@@ -1313,11 +1594,24 @@ export function OpenShopWizard({
                 </Fold>
                 {/* A refusal for a list this page no longer holds — drawn only when the block above cannot name one. */}
                 {errorField === 'extras' && !serviceOnNoEvent ? fieldError('extras') : null}
+                {sheetFoot('events')}
               </div>
             </div>
 
-            {/* 3 · Where you are. The map is the one element that needs full attention and cannot be made smaller. */}
-            <div className={`${step === 3 ? 'space-y-4' : 'hidden'} ${slide}`}>
+            {/* PB1's line under the three answers: what Free is, and who couples find. No lead promised. */}
+            {step === 1 ? (
+              <p className={`max-w-[620px] text-xs ${slide}`} style={{ color: 'var(--m-slate-3)' }} data-onboarding-free-line="">
+                {OPEN_YOUR_SHOP_FREE_LINE}
+              </p>
+            ) : null}
+
+            {/* ③ Where you are — its own sheet; the map pin stays (owner 19 Nov: "keep the map pin"). */}
+            <div
+              className={inSheet('where') ? sheetClass : 'hidden'}
+              style={sheetStyle('where')}
+              data-onboarding-fact="where" {...sheetProps('where')}
+            >
+              {sheetHead('where')}
               <div className="block space-y-1">
                 <label htmlFor="open-shop-hq_address" className="block max-w-[620px] text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Address
@@ -1331,21 +1625,27 @@ export function OpenShopWizard({
                   /* The map is built inside a `display:none` panel, so it measures
                      0×0 and keeps believing it. This tells it the moment it is
                      actually on screen. */
-                  active={step === 3}
+                  active={inSheet('where')}
                   error={errorFor('location')}
-                  sideSlot={wide ? sideSlot : null}
+                  // In a sheet the "Is this your address?" card is drawn in place, never portalled behind the dark.
+                  sideSlot={null}
                   onConfirmedChange={(c) => {
                     setConfirmedCity(c);
                     if (c && errorField === 'location') setBanner(null);
                   }}
                   onAddressChange={setAddress}
-                  onPendingChange={setPinPending}
                 />
               </div>
+              {sheetFoot('where')}
             </div>
 
-            {/* 4 · About you (prototype v16 ⑤: "maybe the name number and role will be the slide before the login"). */}
-            <div className={`${step === 4 ? 'space-y-4' : 'hidden'} ${slide}`}>
+            {/* ③ Contact person — your name, and your role at the shop (optional). */}
+            <div
+              className={inSheet('contact') ? sheetClass : 'hidden'}
+              style={sheetStyle('contact')}
+              data-onboarding-fact="contact" {...sheetProps('contact')}
+            >
+              {sheetHead('contact')}
               <label className="block max-w-[620px] space-y-1">
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Your name
@@ -1372,6 +1672,17 @@ export function OpenShopWizard({
                 {fieldError('contact_name')}
               </label>
 
+              {guest ? null : roleBox}
+              {sheetFoot('contact')}
+            </div>
+
+            {/* ③ Contact number — its own sheet. */}
+            <div
+              className={inSheet('number') ? sheetClass : 'hidden'}
+              style={sheetStyle('number')}
+              data-onboarding-fact="number" {...sheetProps('number')}
+            >
+              {sheetHead('number')}
               <div className="block max-w-[620px] space-y-1">
                 <label htmlFor="open-shop-contact_phone" className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   Contact number
@@ -1380,34 +1691,15 @@ export function OpenShopWizard({
                     right. Posts E.164 as `contact_phone`. Its refusal is drawn under it, by the box itself. */}
                 <PhoneField digits={phoneDigits} onDigits={setPhoneDigits} error={errorFor('contact_phone')} />
               </div>
-
-              {/* The role is FREE TEXT, optional — the shipped `contact_position` → `business_owner_position`. There is
-                  no role list to reuse, so none is invented (prototype v16 `lvS4A`). */}
-              <label className="block max-w-[620px] space-y-1">
-                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
-                  Your role at the shop{' '}
-                  <small className="font-normal" style={{ color: 'var(--m-slate-3)' }}>
-                    optional
-                  </small>
-                </span>
-                <input
-                  // field-ok: the door's own plain box, like "Your name" beside it — prototype v16 draws all three alike
-                  id="open-shop-contact_position"
-                  name="contact_position"
-                  defaultValue={defaults.contactPosition}
-                  maxLength={64}
-                  placeholder="e.g. Owner"
-                  autoComplete="organization-title"
-                  className="input-field"
-                />
-              </label>
+              {sheetFoot('number')}
             </div>
 
-            {/* 5 · Your account — signed out, the email + password open in place once "Continue with Email" is picked
-                (kept MOUNTED either way, so a restored or typed value still posts). Signed in, the shop's email. */}
-            <div className={`${step === 5 ? 'space-y-4' : 'hidden'} ${slide}`}>
+            {/* 2 · Create your account (SECOND) — signed out, the email + password open in place once "Continue with
+                Email" is picked (kept MOUNTED either way, so a restored or typed value still posts). Signed in, the
+                shop's email. */}
+            <div className={`${step === ACCOUNT_STEP ? 'space-y-4' : 'hidden'} ${slide}`}>
               {/* When `taken`, this box has turned into the sign-in above — kept mounted (hidden) so its value posts. */}
-              <label className={taken || (guest && !acctEmail) ? 'hidden' : 'block max-w-[620px] space-y-1'}>
+              <label className={taken ? 'hidden' : 'block max-w-[620px] space-y-1'}>
                 <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                   {guest ? (
                     <>
@@ -1444,7 +1736,7 @@ export function OpenShopWizard({
               </label>
 
               {guest ? (
-                <label className={taken || !acctEmail ? 'hidden' : 'block max-w-[620px] space-y-1'}>
+                <label className={taken ? 'hidden' : 'block max-w-[620px] space-y-1'}>
                   <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                     Password
                   </span>
@@ -1469,10 +1761,11 @@ export function OpenShopWizard({
                 </label>
               ) : null}
 
-              {/* THE AGREEMENT, where an account is being created — on the step that carries the one button that
-                  creates anything, above it, UNTICKED (clickwrap, CTRL-B3). The server refuses without it
-                  (`hasAgreedToTerms`). */}
-              {guest && step === TOTAL_STEPS ? (
+              {guest ? roleBox : null}
+
+              {/* THE AGREEMENT, where the account is made — the account screen, UNTICKED (clickwrap, CTRL-B3). The
+                  server refuses without it (`hasAgreedToTerms`). */}
+              {guest ? (
                 <div className="max-w-[620px] space-y-1">
                   <label className="flex cursor-pointer items-start gap-2 text-sm" style={{ color: 'var(--m-ink)' }}>
                     <input
@@ -1503,7 +1796,216 @@ export function OpenShopWizard({
                 </div>
               ) : null}
 
-              {/* WHAT "FREE" MEANS, SAID ON THE STEP WHERE THEY COMMIT. 🔴 Owner 2026-09-20, as a supplier who had
+            </div>
+
+            {/* 3 · Check your shop — ONE list, a sheet per fact (owner 19 Nov; SUPERSEDES "let it flow step by step"
+                for onboarding). A line with no answer reads "Add" and holds Continue; a tap opens its sheet. */}
+            {step === CHECK_STEP ? <span hidden data-onboarding-check="" /> : null}
+            {/* The house backdrop under an open row's sheet — tap it (or Escape) and the sheet goes; what was typed stays. */}
+            {step === CHECK_STEP && sheet ? <OverlayBackdrop onClose={() => setSheet(null)} className="z-[var(--sn-z-scrim)]" /> : null}
+            {step === CHECK_STEP
+              ? rows.map((r) => {
+                  const refused = errorField ? sheetOf(errorField) === r.fact : false;
+                  const later = SELF_SERVE_LATER.includes(r.fact);
+                  const body = (
+                    <>
+                      <span className="w-[92px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                        {r.label}
+                      </span>
+                      <span
+                        className="min-w-0 flex-1 truncate text-[14.5px] font-medium"
+                        style={{ color: r.value ? 'var(--m-ink)' : refused ? 'var(--m-mulberry-deep)' : 'var(--m-slate)' }}
+                      >
+                        {r.value ?? checkFactEmpty(r.fact)}
+                      </span>
+                      {r.value ? (
+                        <span
+                          aria-label="Done"
+                          className="grid h-6 min-w-6 shrink-0 place-items-center rounded-full px-1.5"
+                          style={{ background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }}
+                        >
+                          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                      ) : later ? (
+                        <span className="shrink-0 rounded-full border px-2 py-0.5 text-[11.5px]" style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate)' }}>
+                          Later
+                        </span>
+                      ) : null}
+                    </>
+                  );
+                  return (
+                    <div key={r.fact} className={`max-w-[620px] border-b ${slide}`} style={{ order: orderOf(r.fact), borderColor: 'var(--m-line)' }}>
+                      {later ? (
+                        /* "They pay you" — added in the shop once it is open, so a quiet line, not a door. */
+                        <div className="flex min-h-14 w-full items-center gap-3 py-3" data-onboarding-row={r.fact} data-later="">
+                          {body}
+                        </div>
+                      ) : (
+                        <button /* button-ok: a row of the "Your shop" list — the whole row opens its fact's sheet */
+                          type="button"
+                          onClick={() => openSheet(r.fact)}
+                          className="flex min-h-14 w-full items-center gap-3 py-3 text-left"
+                          aria-haspopup="dialog"
+                          data-onboarding-row={r.fact}
+                          data-missing={r.missing ? '' : undefined}
+                        >
+                          {body}
+                          <ChevronRight aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--m-slate-3)' }} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              : null}
+            {step === CHECK_STEP ? (
+              <p className="flex max-w-[620px] items-start gap-1.5 text-xs" style={{ order: 40, color: 'var(--m-slate-3)' }} data-onboarding-check-note="">
+                <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                {SELF_SERVE_CHECK_NOTE}
+              </p>
+            ) : null}
+
+            {/* 4 · Your first service card — drafted from the category + the main service; the supplier types the price
+                (no number is guessed). Approve needs the price · Edit opens the shipped Card Maker once the shop is
+                open · Skip makes no card. Posted with the shop; nothing is written before Open my shop. */}
+            <div className={`${step === CARD_STEP ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-card="">
+              <input type="hidden" name={FIRST_CARD_FIELD.choice} value={cardChoice ?? ''} />
+              {/* The card's name is drafted from the main service (PB4); the Card Maker renames it. */}
+              <input type="hidden" name={FIRST_CARD_FIELD.title} value={cardTitle} />
+              {/* PC4 (Door C) — their page, drafted: the shop's name and main service, the first card ON it, and its
+                  Trusted partners section, empty until shops join. */}
+              {coordinating ? (
+                <div className="grid gap-0.5" data-onboarding-page="">
+                  <b className="text-[17px] font-semibold [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                    {shopName.trim() || 'Your shop'}
+                  </b>
+                  <span className="text-xs" style={{ color: 'var(--m-slate)' }}>
+                    {[serviceLabel, confirmedCity].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+              ) : null}
+              {/* PB4 — the drafted card, as couples will see it (its category, its name, its price or "No price yet"),
+                  then "Built from what you typed": where each part of the draft came from. Shared with Door A's P4. */}
+              <FirstCardDraft
+                category={categoryLabels[0] ?? serviceLabel ?? 'Your service'}
+                name={cardTitle.trim() || serviceLabel || 'Your service'}
+                price={cardPriceNumber || null}
+                lines={[]}
+                between={
+                  coordinating ? (
+                    <div className="grid gap-0.5 text-[13.5px]" data-onboarding-page-partners="">
+                      <b style={{ color: 'var(--m-ink)' }}>{TRUSTED_PARTNERS}</b>
+                      <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                        {PAGE_PARTNERS_EMPTY}
+                      </span>
+                    </div>
+                  ) : null
+                }
+                sourceHead="Built from what you typed"
+                sources={[
+                  ['Category', categoryLabels[0] ?? '—', 'you picked it'],
+                  ['Service', serviceLabel ?? '—', 'you named it'],
+                  ['Price', cardPriceNumber ? `₱${formatCount(cardPriceNumber)}` : 'Not set', cardPriceNumber ? 'you typed it' : 'type yours'],
+                ]}
+                faceAttr="data-onboarding-card-face"
+                sourceAttr="data-onboarding-card-source"
+              />
+              <label className="block space-y-1">
+                <span className="block text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
+                  From (PHP)
+                </span>
+                <input
+                  // field-ok: one plain box for the card's price, digits only — the Card Maker holds the full pricing
+                  id="open-shop-first_card_price"
+                  name={FIRST_CARD_FIELD.price}
+                  value={cardPrice}
+                  onChange={(e) => {
+                    setCardPrice(e.target.value.replace(/[^\d]/g, '').slice(0, 9));
+                    setCardErr(null);
+                  }}
+                  inputMode="numeric"
+                  placeholder="e.g. 8,500"
+                  className="input-field"
+                  aria-describedby={cardErr ? 'open-shop-err-card' : undefined}
+                />
+              </label>
+              {cardErr ? (
+                <span id="open-shop-err-card" className="flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-mulberry-deep)' }} role="alert">
+                  <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                  <span>{cardErr}</span>
+                </span>
+              ) : null}
+              {/* PB4·b — no client is booked on it, so it is never locked. Edit opens the shipped Card Maker the moment
+                  the shop is open (it needs the shop); until then the price above is the whole draft. */}
+              {coordinating && slug ? (
+                <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-page-link="">
+                  setnayan.com/{slug} · goes live when you open
+                </p>
+              ) : null}
+              <p className="text-xs" style={{ color: 'var(--m-slate-3)' }} data-onboarding-card-note="">
+                {cardPriceNumber
+                  ? 'Edit any time. No client is booked on it yet.'
+                  : 'Edit opens the Card Maker once your shop is open.'}
+              </p>
+              {/* PB4 as drawn: Approve full width on top, Edit · Skip for now side by side under it (three in one row
+                  ran past the right gutter at 375 px). */}
+              <div className="grid grid-cols-2 gap-2 [&>.ab]:w-full [&>.ab]:justify-center" data-onboarding-card-ways="">
+                <ActionButton tone="brand" main icon={Check} label={coordinating ? APPROVE_PAGE : 'Approve card'} className="col-span-2" onClick={() => chooseCard('approve')} data-testid="onboarding-card-approve" />
+                <ActionButton tone="neutral" icon={PenLine} label="Edit" onClick={() => chooseCard('edit')} data-testid="onboarding-card-edit" />
+                <ActionButton tone="neutral" icon={SkipForward} label="Skip for now" onClick={() => chooseCard('skip')} data-testid="onboarding-card-skip" />
+              </div>
+            </div>
+
+            {/* 5 · You're all set — what opens, the plan (when the picks are more than Free holds), what "free" means,
+                then Open my shop. */}
+            <div className={`${step === TOTAL_STEPS ? 'space-y-4' : 'hidden'} max-w-[620px] ${slide}`} data-onboarding-done="">
+              {/* PB5 — what opens: Shop · Cards · Link. Only what is already true is ticked; the card is made when they open. */}
+              <ul className="grid divide-y border-y text-[14px]" style={{ borderColor: 'var(--m-line)' }} data-onboarding-done-rows="">
+                {(
+                  [
+                    ['Shop', shopName.trim() || 'Your shop', true],
+                    [
+                      'Cards',
+                      cardChoice === 'approve'
+                        ? `${cardTitle.trim()} · made when you open — Today says if it's on your page`
+                        : cardChoice === 'edit'
+                          ? `${cardTitle.trim() || 'Your first card'} · opens in the Card Maker`
+                          : 'None yet — add one from Today',
+                      // 🃏 No tick: the card is not made yet, and the shipped switch decides "on your page" (review 20 Nov).
+                      false,
+                    ],
+                    // PC6 (Door C): "Page" names the address; the invite link comes on the screen right after Open my shop.
+                    [coordinating ? 'Page' : 'Link', slug ? `setnayan.com/${slug}` : null, Boolean(slug)],
+                    ['Invite link', coordinating ? 'Next — then in Shop › Partnerships' : null, false],
+                  ] as const
+                )
+                  .filter(([, v]) => v)
+                  .map(([k, v, ok]) => (
+                    <li key={k} className="flex min-h-12 items-center gap-3 py-2.5" style={{ borderColor: 'var(--m-line)' }} data-onboarding-done-card={k === 'Cards' ? '' : undefined}>
+                      <span className="w-[72px] shrink-0 text-[13px]" style={{ color: 'var(--m-slate-3)' }}>
+                        {k}
+                      </span>
+                      <span className="min-w-0 flex-1 font-medium [overflow-wrap:anywhere]" style={{ color: 'var(--m-ink)' }}>
+                        {v}
+                      </span>
+                      {ok ? (
+                        <span aria-label="Done" className="grid h-6 w-6 shrink-0 place-items-center rounded-full" style={{ background: 'rgb(var(--color-ok))', color: 'var(--m-paper)' }}>
+                          <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+              </ul>
+              {/* PB5's Free row: what Free is, then the honest line — unverified Free is 0 km, nobody finds it in search. */}
+              <div className="grid gap-1" data-onboarding-done-free="">
+                <span className="flex items-baseline gap-2 text-[14px]">
+                  <b style={{ color: 'var(--m-ink)' }}>{DONE_FREE_ROW.name}</b>
+                  <span style={{ color: 'var(--m-slate)' }}>{DONE_FREE_ROW.line}</span>
+                </span>
+                <span className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
+                  {DONE_FREE_LINE}
+                </span>
+              </div>
+              {/* WHAT "FREE" MEANS, SAID ON THE SCREEN WHERE THEY COMMIT (You're all set, 19 Nov). 🔴 Owner 2026-09-20, as a supplier who had
                   just been billed: "as a vendor i do not know i have to pay." ⓘ A10 / 2026-11-06: one line, the
                   numbers inside the ⓘ — `feeNotice` is composed by `bookingFeeJoinDisclosure` from the LIVE
                   schedule, never a rate typed here. (v16 dropped the prototype's "on us" footnote; this line is the
@@ -1521,10 +2023,12 @@ export function OpenShopWizard({
                   </InfoTip>
                 </p>
               ) : null}
+              {/* The plan, when their picks are more than Free holds (its tick inside); else PB5's tick on its own. */}
+              {overFree ? <PlanOnLastScreen {...planProps} /> : <PlanAgree agreed={planAgreed} onAgree={planProps.onAgree} error={planErr} />}
             </div>
 
             {/* A refusal no box owns (the account could not be created just now) — above the button that retries. */}
-            {fieldError('submit')}
+            {errorFor('submit') ? <div style={{ order: 99 }}>{fieldError('submit')}</div> : null}
 
             {/* One nav row for every step — a sticky bar at the bottom of a phone, under the step on wider screens.
                 Back appears from step 2; the primary becomes the real submit only on the last one — a SubmitButton
@@ -1532,7 +2036,7 @@ export function OpenShopWizard({
                 🔘 THE HOUSE PRIMARY SHAPE IS A PILL (both-sign-up-doors-wear-one-button.test.ts). */}
             <div
               className="sticky bottom-0 z-10 -mx-4 mt-auto flex items-center gap-2.5 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:static md:mx-0 md:mt-0 md:max-w-[620px] md:border-0 md:px-0 md:pb-0 md:pt-1"
-              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+              style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)', order: 100 }}
               data-open-shop-bar=""
             >
               {/* 🔘 THE BUTTON RULE (T19, Lane P slice 5 — owner 10 Nov: "the rule or uniform buttons … is not followed
@@ -1541,6 +2045,9 @@ export function OpenShopWizard({
                   carries the form's pending word and the no-touch veil. */}
               {step > 1 ? (
                 <ActionButton tone="neutral" iconOnly icon={ArrowLeft} label="Back" onClick={back} data-testid="open-shop-back" />
+              ) : guest ? (
+                /* PB1's quiet "I have an account" — the same sign-in the top line offers; what was typed stays. */
+                <ActionButton tone="neutral" icon={LogIn} label="I have an account" href={signInHref} data-testid="open-shop-have-account" />
               ) : null}
               {stale ? (
                 <ActionButton
@@ -1552,13 +2059,13 @@ export function OpenShopWizard({
                   onClick={reloadKeepingDraft}
                   data-testid="open-shop-reload"
                 />
-              ) : step < TOTAL_STEPS ? (
+              ) : step === CARD_STEP ? null /* the card's own Skip · Edit · Approve move on */ : step < TOTAL_STEPS ? (
                 quiet ? (
                   /* Not yet — still a real press: it says what is missing, under its box. */
                   <ActionButton
                     tone="neutral"
                     icon={continueIcon}
-                    label={step === 2 ? 'Pick a service to continue' : 'Continue'}
+                    label="Continue"
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}
@@ -1578,7 +2085,7 @@ export function OpenShopWizard({
                 )
               ) : (
                 <SubmitButton className="button-primary inline-flex ml-auto h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm" pendingLabel="Opening your shop…">
-                  Open my shop — free
+                  Open my shop
                 </SubmitButton>
               )}
             </div>
@@ -1589,10 +2096,8 @@ export function OpenShopWizard({
             pane holding "Is this your address?" (CityPin portals it into the slot), or ② the plan explainer. Never on
             a phone. */}
         <aside className="hidden md:block">
-          <div ref={setSideSlot} className={confirmPane ? 'sticky top-5' : 'hidden'} data-open-shop-pane="" />
-          {confirmPane ? null : planPane ? (
-            <PlanPane {...planProps} />
-          ) : (
+          {(
+
             <div
               className="sticky top-5 grid gap-3 rounded-2xl border p-[18px]"
               style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
@@ -1617,17 +2122,14 @@ export function OpenShopWizard({
                 ) : null,
               )}
               {glanceRow('Main service', serviceLabel ? `${serviceLabel}${added.length ? ` +${added.length}` : ''}` : null)}
-              {glanceRow('Page', step === 2 ? (page2 === 'events' ? 'Events you serve' : 'Your services') : null)}
               {glanceRow(
                 'Events',
-                step >= 2 && service && !(step === 2 && page2 === 'services')
-                  ? `${formatCount(activeEvents.length)} of ${formatCount(shownEvents.length)}`
-                  : null,
+                step >= CHECK_STEP && service ? `${formatCount(activeEvents.length)} of ${formatCount(shownEvents.length)}` : null,
               )}
               {glanceRow('Where', confirmedCity)}
               {glanceRow(
                 'Contact',
-                step >= 4 && who.trim() ? `${who.trim()}${phoneOk ? ` · +63 ${formatPhoneDigits(phoneDigits)}` : ''}` : null,
+                step >= CHECK_STEP && who.trim() ? `${who.trim()}${phoneOk ? ` · +63 ${formatPhoneDigits(phoneDigits)}` : ''}` : null,
               )}
               <div className="flex justify-between gap-2.5 border-t pt-2 text-[13.5px]" style={{ borderColor: 'var(--m-line)' }}>
                 <span style={{ color: 'var(--m-slate-3)' }}>Step</span>
@@ -1639,8 +2141,6 @@ export function OpenShopWizard({
           )}
         </aside>
       </div>
-      {/* ② On a phone the explainer rises as the shipped bottom sheet. */}
-      <PlanSheet open={planOpen && !wide && step === 2} {...planProps} />
     </main>
   );
 }

@@ -164,6 +164,8 @@ test('every call to action is the coordinator door of the supplier sign-up', () 
   assert.ok(existsSync(join(APP, 'open-shop', 'page.tsx')), '/open-shop is gone');
   assert.match(PAGE, /const START = '\/open-shop\?as=coordinator';/);
   assert.equal((PAGE.match(/href=\{START\}/g) ?? []).length, 2, 'the hero and the close each open the coordinator door');
+  // 🚪 Owner 19 Nov (COORDINATOR ONBOARDING, Door C): a bare /open-shop here is the self-serve door, the wrong one.
+  assert.equal((PAGE.match(/href="\/open-shop"/g) ?? []).length, 0, 'a /for-coordinators button opens the self-serve door, not the coordinator one');
 });
 
 test('every anchor on the page lands on an id on it; every page link exists', () => {

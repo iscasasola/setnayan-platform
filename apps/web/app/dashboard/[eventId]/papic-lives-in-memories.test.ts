@@ -4,9 +4,10 @@
  * with `git mv` — the same guard, its premise moved).
  *
  * What this holds — each by RENDERING or by the pure function, and each with its sabotage:
- *   1 · Memories draws EXACTLY ONE Papic card, under the keepsake row and before the grid, `id="papic"`, with Total ·
- *       Taken · Remaining and "Add more" on its face; Today draws NONE, and where the card is in Memories Today's Papic
- *       row stands down too (one Papic, never two).
+ *   1 · Memories draws EXACTLY ONE Papic card, FIRST — above the keepsake row and the grid (owner 2026-11-20, "memories
+ *       approved"; it sat under the keepsakes until then) — `id="papic"`, with Remaining big and Total · Taken in its ⓘ,
+ *       and "Add more" on its face; Today draws NONE, and where the card is in Memories Today's Papic row stands down too
+ *       (one Papic, never two).
  *   2 · a failed pot read says "Couldn't check", never 0.
  *   3 · `/dashboard/<id>/studio/papic` is not a page, and the old address — AND the old card address
  *       `/dashboard/<id>?papic=open…` that stored notifications carry — forward to Memories with the card open,
@@ -97,19 +98,20 @@ const count = (html: string, re: RegExp) => (html.match(re) ?? []).length;
 const card = (c: unknown) => renderToStaticMarkup(React.createElement(Card!, { card: c } as never));
 const GALLERY = 'app/_components/memories/event-memories-gallery.tsx';
 
-test('1 · Memories draws EXACTLY ONE Papic card — under the keepsakes, before the grid — with its face', () => {
+test('1 · Memories draws EXACTLY ONE Papic card — first, above the keepsakes and the grid — with its face', () => {
   // The page builds ONE card and hands it to the gallery's one slot.
   const page = code(MEMORIES);
   assert.equal(count(page, /<PapicCard\b/g), 1, 'Memories builds one Papic card');
   assert.equal(count(page, /papic=\{papicCard\}/g), 1, 'and hands it to the gallery once');
   assert.match(page, /seat="memories"/, 'its settings save back to Memories');
   assert.match(page, /thankYouHref:\s*null/, 'Thank You is the keepsake row\'s door — never two doors');
-  // The gallery draws the slot under the keepsake row and before the grid.
+  // The gallery draws the slot FIRST, then the keepsake row, then the grid (2026-11-20; rendered in
+  // `memories/memories-papic-is-on-top.test.ts`).
   const g = code(GALLERY);
   const keep = g.indexOf('{host ? keepsakes : null}');
   const slot = g.indexOf('{host && papic ? <div data-tour="memories-papic">{papic}</div> : null}');
   const grid = g.indexOf('data-tour="memories-grid"');
-  assert.ok(keep >= 0 && slot > keep && grid > slot, 'keepsakes → the Papic card → the grid');
+  assert.ok(slot >= 0 && keep > slot && grid > keep, 'the Papic card → keepsakes → the grid');
   assert.equal(count(g, /\{host && papic \? <div data-tour="memories-papic">\{papic\}<\/div> : null\}/g), 1, 'one slot — and the Memories tour lights it');
   // The card itself: the #papic anchor, the three counts and Add more on its face, outside the head's button.
   const html = card(CARD);

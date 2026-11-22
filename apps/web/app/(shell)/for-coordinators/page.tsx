@@ -49,6 +49,7 @@ import type { CardBadgeView } from '@/lib/card-badges';
 
 import { TIERS } from '@/lib/badge-tiers';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
+import { bookingFeeCapAmount } from '@/lib/booking-fee';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { FEE_FREE_CHIP, FEE_SCOPE, SUPPLIER_FREE_BOOKING_LINE } from '@/lib/booking-fee-who-words';
 import { COORDINATOR_AREAS, areaChoices } from '@/lib/delegate-areas';
@@ -399,7 +400,8 @@ export default async function ForCoordinatorsPage() {
                 {fee ? (
                   <p>
                     <b>Booking fee.</b> {pctWords(fee.rate)} up to {pesoWords(fee.tier1LimitPhp)}, {pctWords(fee.tailRate)}{' '}
-                    above, {FEE_SCOPE}. The smallest fee is {pesoWords(fee.minPhp)}.
+                    above, {FEE_SCOPE}. The smallest fee is {pesoWords(fee.minPhp)}, and it is locked at{' '}
+                    {bookingFeeCapAmount(fee)}: never more, however big the booking.
                   </p>
                 ) : null}
                 <p>{SUPPLIER_FREE_BOOKING_LINE}</p>

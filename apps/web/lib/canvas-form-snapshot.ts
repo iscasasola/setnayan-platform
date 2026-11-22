@@ -20,6 +20,7 @@
  */
 
 import { priceIsSet } from './service-publish-gate';
+import { perUnitPriceLine } from './per-unit-price';
 import { formatCount } from '@/lib/format-number';
 
 export type CanvasFormSnapshot = {
@@ -117,6 +118,13 @@ export function cardPriceLine(fd: FormData): { priceLine: string; hasPrice: bool
       priceLine: `${php(rate)} ${unit}${minPax ? ` · min ${formatCount(minPax)} ${floor}` : ''}`,
       hasPrice: true,
     };
+  }
+
+  if (basis === 'per_unit') {
+    // 📦 Card Maker part 7 — "₱3,500 for 10 chairs · +₱350/chair" (lib/per-unit-price.ts).
+    const w = fd.get('unit_word');
+    const line = perUnitPriceLine({ base: money(fd.get('unit_base_php')), initial: num(fd.get('initial_units')), extra: num(fd.get('extra_unit_php')), word: typeof w === 'string' ? w : null });
+    return line ? { priceLine: line, hasPrice: true } : { priceLine: '', hasPrice: false };
   }
 
   if (basis === 'per_hour') {

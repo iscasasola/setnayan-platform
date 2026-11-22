@@ -34,7 +34,7 @@ export type AskViewer = 'couple' | 'supplier';
 /** The ask states a sentence exists for. `none` has none: nobody asked. */
 export type AskState = Exclude<LockRequestState, 'none'>;
 
-const ASKED = 'Asked to book';
+export const ASKED = 'Asked to book';
 const HOURS = `${formatCount(LOCK_ANSWER_WINDOW_HOURS)} hours`;
 
 const OUTCOME: Record<Exclude<AskState, 'locked'>, Record<AskViewer, string>> = {

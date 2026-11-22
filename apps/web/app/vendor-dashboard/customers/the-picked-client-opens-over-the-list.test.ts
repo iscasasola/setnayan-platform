@@ -69,7 +69,9 @@ test('2 · a pop-up layer: portaled to <body>, the --sn-z-pop token, a modal dia
   assert.match(shell, /aria-modal="true"/);
   // Integration (8 Nov): Esc through the house modal contract (`useModalA11y` — focus in, Tab trapped, only the top layer
   // answers Esc), which `lib/modal-a11y-adoption.test.ts` requires of every aria-modal overlay.
-  assert.match(shell, /useModalA11y\(\{ open: Boolean\(host\), onClose: close, containerRef: rootRef/, 'Esc must close (the house modal contract)');
+  // Unichat G (20 Nov): with the ⋯ menu open, Esc peels that one layer first; otherwise it closes the screen as before.
+  assert.match(shell, /useModalA11y\(\{ open: Boolean\(host\), onClose: escClose, containerRef: rootRef/, 'Esc must close (the house modal contract)');
+  assert.match(shell, /const escClose = useCallback\(\(\) => \(moreOpen \? closeMore\(\) : close\(\)\)/, 'Esc no longer reaches the screen’s close');
   assert.match(shell, /data-testid="picked-close"/, 'the ✕ is the one close');
 });
 

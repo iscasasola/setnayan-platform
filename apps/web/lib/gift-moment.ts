@@ -25,8 +25,12 @@ import { shopInitials } from '@/lib/shop-initials';
 import { TIER_KEYS } from '@/lib/badge-tiers';
 import type { TicketKind } from '@/app/_components/award/ticket-svg';
 
-/** What a gift is. G3 adds `setnayan_gift` here, in the migration's CHECK and in the two read functions. */
-export type GiftMomentSource = 'shop_gift' | 'badge_reward';
+/**
+ * What a gift is. `setnayan_gift` (G3, Setnayan → a shop) is claimed through its own row (`setnayan_shop_gift_claim`,
+ * keyed to `setnayan_shop_gifts.claimed_at`), not through `gift_moment_claims` — so it is a source the popup draws but
+ * deliberately NOT one `/api/unwrap` accepts (`GIFT_MOMENT_SOURCES`).
+ */
+export type GiftMomentSource = 'shop_gift' | 'badge_reward' | 'setnayan_gift';
 
 export const GIFT_MOMENT_SOURCES: readonly GiftMomentSource[] = ['shop_gift', 'badge_reward'];
 

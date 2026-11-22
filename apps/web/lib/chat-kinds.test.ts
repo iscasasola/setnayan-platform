@@ -20,9 +20,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND_CHIPS, chatKindOf, countKinds, filterLine, memberLineOf, paymentLineOf } from './chat-kinds';
+import { KIND_CHIPS, chatKindOf, countKinds, filterLine, isTalkRow, memberLineOf, paymentLineOf, talkLine } from './chat-kinds';
 import { inquiryServiceOf } from './chat-card-lines';
-import { THREAD_KINDS } from './thread-view';
+import { TALK_VIEWS, THREAD_KINDS, isTalkView, parseThreadView, withThreadView } from './thread-view';
 
 const sys = (body: string) => ({ sender_role: 'system', body });
 const said = (body: string, more: object = {}) => ({ sender_role: 'couple', body, ...more });
@@ -61,9 +61,30 @@ test('1 · the counts are the rows each chip shows', () => {
   assert.deepEqual(countKinds(rows, (r) => r === rows[0]).decisions, 2);
 });
 
-test('2 · the chips are All · Decisions · Forms · Money · Dates · Files — the `?view=` kinds, in order', () => {
-  assert.deepEqual(KIND_CHIPS.map((c) => c.label), ['All', 'Decisions', 'Forms', 'Money', 'Dates', 'Files']);
-  assert.deepEqual(KIND_CHIPS.slice(1).map((c) => c.key), [...THREAD_KINDS]);
+test('2 · the chips are All · Chat · Private · Decisions · Forms · Money · Dates · Files — the `?view=` kinds in order, after the two that are not a kind (20 Nov 2026)', () => {
+  assert.deepEqual(KIND_CHIPS.map((c) => c.label), ['All', 'Chat', 'Private', 'Decisions', 'Forms', 'Money', 'Dates', 'Files']);
+  assert.deepEqual(KIND_CHIPS.slice(1, 3).map((c) => c.key), [...TALK_VIEWS]);
+  assert.deepEqual(KIND_CHIPS.slice(3).map((c) => c.key), [...THREAD_KINDS]);
+});
+
+test('2b · Chat and Private are a way of LOOKING, never an address — a reload or a shared link opens the whole chat', () => {
+  for (const v of TALK_VIEWS) {
+    assert.equal(parseThreadView(v), 'all', `?view=${v} is read as a view`);
+    assert.equal(withThreadView('/x?view=money&a=1', v), '/x?a=1', `${v} is written into the address`);
+  }
+  assert.equal(isTalkView('chat'), true);
+  assert.equal(isTalkView('money'), false);
+});
+
+test('2c · Chat shows what people TYPED — never a card, never a line the app wrote; a message with a file is still one', () => {
+  assert.equal(isTalkRow({ body: 'See you there', sender_role: 'couple' }), true);
+  assert.equal(isTalkRow({ body: 'the floor plan', sender_role: 'vendor', attachment_r2_key: 'k' }), true);
+  assert.equal(isTalkRow({ body: 'Booked ✓', sender_role: 'system' }), false);
+  assert.equal(isTalkRow({ body: '', sender_role: 'vendor', proposal_id: 'p1' }), false);
+  assert.equal(isTalkRow({ body: '', sender_role: 'couple', appointment_id: 'a1' }), false);
+  assert.equal(talkLine('chat', 12), 'Showing Chat · 12 messages');
+  assert.equal(talkLine('private', 1), 'Showing Private · 1 message');
+  assert.equal(talkLine('private', 0), 'Nothing private here yet');
 });
 
 test('3 · a payment’s and a member’s line are read by their exact words', () => {

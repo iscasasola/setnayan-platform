@@ -1352,7 +1352,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                                 preview: (
                                   <span
                                     data-mood-board-style-box={state}
-                                    className={`grid h-[22px] w-[22px] place-items-center rounded-md border-[1.5px] text-[13px] text-white ${state === 'on' ? 'border-sn-accent bg-sn-accent' : state === 'half' ? 'border-sn-accent bg-[linear-gradient(90deg,rgb(var(--sn-accent))_50%,transparent_50%)]' : 'border-ink/35'}`}
+                                    className={`grid h-[22px] w-[22px] place-items-center rounded-md border-[1.5px] text-[13px] text-sn-on-accent ${state === 'on' ? 'border-sn-accent bg-sn-accent' : state === 'half' ? 'border-sn-accent bg-[linear-gradient(90deg,rgb(var(--sn-accent))_50%,transparent_50%)]' : 'border-ink/35'}`}
                                   >
                                     {state === 'on' ? '✓' : ''}
                                   </span>

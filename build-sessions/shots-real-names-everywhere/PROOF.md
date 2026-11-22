@@ -31,7 +31,25 @@ changes no layout, only which name and logo fill the existing slots.
 - Notifications carry no shop logo. The bench search card logo still waits on #7898 (see the PR body).
 
 ## 4 · Guards (from `apps/web`)
-See the PR's STATUS comment for the full preflight table (run 22 Nov on `3d82af2d4`).
+**preflight** · `claude/real-names-everywhere` @ `3d82af2d4` · base `origin/main` · 18 changed · wall 56m 30s · **1 FAILED**
+
+| check | result | time | first failing line | re-run |
+|---|---|--:|---|---|
+| 45 cheap CI guards (every `node …mjs` step of ci.yml) | PASS | 2m 11s | | |
+| Unit-test the feature register check + price printout | FAIL | 521ms | # Subtest: SABOTAGE: a new page with no row fails, and is named | `node --test scripts/feature-register-check.test.mjs` |
+| eslint on changed files (15) | PASS | 3.5s |  | `(cd apps/web && npx next lint --file 'app/_components/chat-message-stream.tsx' --file 'app/dashboard/[eventId]/messages/[threadId]/page.tsx' --file 'app/dashboard/[eventId]/messages/page.tsx' …)` |
+| tsc (16 changed + 26 of 26 importers) | PASS | 1m 18s |  | `(cd apps/web && pnpm typecheck)   # the full compile, under the heavy lock — or let CI run it` |
+| tests that name or import a changed file — 194 files, 1,647 tests | PASS | 2m 14s |  |  |
+| whole-tree guard tests — 774 files, 5,340 tests | PASS | 31m 17s |  |  |
+| unit tests that replay the migrations — 6 files, 50 tests | PASS | 49.4s |  |  |
+| DB tests: source scanners + schema pins — 44 files, 300 tests | PASS | 19m 17s |  |  |
+
+Left to CI (not run locally): full typecheck — preflight compiled 42 file(s) · full eslint — preflight linted 15 changed file(s) · full unit suite — preflight ran 974 of 4516 test files (a test more than two imports away from a changed file is not woken) · full DB replay — preflight ran 44 of 643 DB tests · production build · Vercel route count · shared bundle size · the Maker's first-load JS budget · lighthouse · playwright e2e · secret scan (gitleaks is not installed on this machine) · native encoder tests (src-tauri untouched)
+
+**The one red row is not this PR.** `feature-register-check.test.mjs` test 24 runs only when the specs corpus is on
+disk. This machine has it cloned at `../setnayan-specs`; CI does not, and skips the test. `node
+scripts/feature-register-check.mjs` prints byte-identical output on `origin/main` `e72c4f313` (58 lines: routes
+missing from `FEATURE_REGISTER.md`, none from this PR). The fix is a corpus edit, not this PR.
 
 ## 5 · Files overlapping other open PRs
 - `lib/admin-map/admin-routes.generated.ts`: #7585, #7614, #7860 (a generated header).

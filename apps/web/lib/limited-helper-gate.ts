@@ -78,6 +78,7 @@ const AREA_IN_A_SENTENCE: Readonly<Record<DelegateArea, string>> = {
   invitations: 'the Event Hub',
   mood_board: 'the Mood Board',
   budget: 'the budget',
+  payments: 'what is due',
   photos: 'the photos',
 };
 

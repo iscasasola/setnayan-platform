@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
@@ -613,6 +614,9 @@ export async function lockPackage(
     // package's primary service, else whichever row came back first), which
     // could land on a covered row that carries no money at all.
     const anchorRow = insertedRows?.find((r) => r.package_role === 'anchor');
+    // 🚪 A coordinator's package, booked outright, opens their seat (the one shared door; one shop, so the anchor row
+    // answers for the package; a no-op while the rows only ASK).
+    await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: anchorRow?.vendor_id, actorUserId: user.id });
     if (anchorRow) {
       await supabase
         .from('event_vendor_packages')

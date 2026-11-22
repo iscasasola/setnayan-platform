@@ -73,7 +73,7 @@ import {
 } from '@/lib/order-charge-authority';
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
-import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
+import { coordinatorMoneyScopeAllowed, ONLY_A_HOST_PAYS } from '@/lib/coordinator-money-scope';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { getRequestPlatform, isRequestPlatform } from '@/lib/request-platform';
 import { readWelcomeDecision, welcomeChargeFor } from '@/lib/welcome-discount.server';
@@ -441,7 +441,7 @@ export async function submitOrderAction(
       return {
         ok: false,
         reason:
-          'The couple has not approved payment handling for your coordinator access — ask them to re-invite you with payment permission.',
+          ONLY_A_HOST_PAYS,
       };
     }
   }

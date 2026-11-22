@@ -12,6 +12,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 
@@ -114,6 +115,9 @@ export async function claimLockedQr(formData: FormData): Promise<void> {
         console.error('[locked-qr] booking fee mint failed:', err);
       }
     }
+    // 🚪 A coordinator booked by this claim gets their seat (the one shared door; idempotent, so `already_claimed`
+    // is safe too; a no-op unless the row is BOOKED and a coordinator's).
+    await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: result?.event_vendor_id, actorUserId: user.id });
     revalidatePath(`/dashboard/${eventId}/vendors`);
     redirect(`/dashboard/${eventId}/vendors?locked=1`);
   }

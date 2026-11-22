@@ -96,6 +96,7 @@ export function ServiceCards({
   onOpenSpecialty,
   adding,
   onAddingChange,
+  freeOnly = false,
 }: {
   tree: PickerParentView[];
   places: Map<string, LeafPlace>;
@@ -112,6 +113,12 @@ export function ServiceCards({
   onOpenSpecialty: (key: string | null) => void;
   adding: boolean;
   onAddingChange: (adding: boolean) => void;
+  /**
+   * 🍎 THE APP'S DOOR (controller 22 Nov): the picks stay what Free allows — the main service only. No "Also do …"
+   * row, no "Another category", no plan meter and no plan note: the store shell sells no plan, so nothing here may
+   * point at one. The rest of the cards (specialties, remove) are unchanged.
+   */
+  freeOnly?: boolean;
 }) {
   const main = picked[0]!;
   const added = picked.slice(1);
@@ -137,7 +144,7 @@ export function ServiceCards({
     return { categoryId: p?.categoryId ?? key, categoryLabel: p?.categoryLabel ?? key };
   };
   const list = picked.map((s) => meterOf(s.key));
-  const over = holdsMoreThanFree(list);
+  const over = !freeOnly && holdsMoreThanFree(list);
 
   // Picked services grouped by CATEGORY, in the order the categories first appear.
   const byCat: { id: string; services: PickedService[] }[] = [];
@@ -285,7 +292,7 @@ export function ServiceCards({
                       </div>,
                     ),
                   )}
-                  {remain.length ? (
+                  {remain.length && !freeOnly ? (
                     /* The blank row (owner 6 Nov: "a blank row under the wine row. to pick more?") — the house dropdown
                        (`PickMenu`): one tap opens the remaining services of THIS category. */
                     <div className="min-w-0 py-2.5 pl-[66px] pr-3" data-open-shop-also-do={id}>
@@ -302,7 +309,7 @@ export function ServiceCards({
                         className="w-full justify-between border border-dashed !font-normal"
                       />
                     </div>
-                  ) : siblings.length ? (
+                  ) : siblings.length && !freeOnly ? (
                     <div className="flex items-center gap-1.5 px-3 py-2.5 text-xs" style={{ color: 'var(--m-slate-2)' }}>
                       <Check aria-hidden className="h-[15px] w-[15px]" strokeWidth={2} style={{ color: 'var(--m-sage-deep)' }} />
                       Every {cat} service is on your list
@@ -313,7 +320,7 @@ export function ServiceCards({
             </div>
           );
         })}
-        {adding ? null : (
+        {adding || freeOnly ? null : (
           <button
             type="button"
             onClick={() => {
@@ -330,7 +337,7 @@ export function ServiceCards({
         )}
       </div>
 
-      {adding ? (
+      {adding && !freeOnly ? (
         <div className="os-rise grid gap-1.5" data-open-shop-add-picker="">
           {/* The picker's head (prototype v18 `.pkhead`): its label, and a grey ✕ Cancel pill — never a text link. */}
           <div
@@ -357,7 +364,7 @@ export function ServiceCards({
       ) : null}
 
 
-      <CoverageMeter list={list} />
+      {freeOnly ? null : <CoverageMeter list={list} />}
       {/* ② The one-line hint + ⓘ that stays inline; the explainer itself opens on Continue (`PlanSheet`). */}
       {over ? (
         <span className="relative flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }} data-open-shop-plan-note="">

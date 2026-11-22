@@ -36,3 +36,29 @@ with no keyboard). The keyboard-ride path is not visible in these shots and, per
 **Drawing parity** (`Setnayan-specs/prototypes/search_icon_grows_2026-11-21_fable.html`, MOTION_STANDARD #11 already
 records it): end states match (round icon → full-row field, words in, Show gone on phone). The in-between frames of
 the grow (Move 320 · Spring, 8 px overshoot cap) were not filmed here.
+
+## §4 proof (BUILD_RULES) — hand-off 22 Nov
+
+1. **Shots**: above (375 light · 375 dark forced · desktop; rest and after one tap).
+2. **Drawing parity**: above. In-between frames not filmed; the keyboard-ride path not seen (no on-screen keyboard headless).
+3. **Ways in walked**: the thumb row is one shared part (`components/thumb-row.tsx`); walked on the supplier's Today
+   row and the couple's Discover row via the lab. Clients, People, Events, Chats and admin rows use the same part and
+   were not walked here (the PR measured them 0 px off in WebKit + Chromium).
+4. **Preflight from `apps/web`**, full run on `8e0738f49` (wall 35m 35s, 3 files at a time):
+
+| check | result |
+|---|---|
+| 45 cheap CI guards | PASS |
+| Unit-test the feature register check | FAIL — environment only, see below |
+| eslint on changed files (4) | PASS |
+| tsc (4 changed + 34 of 34 importers) | PASS |
+| tests that name or import a changed file — 152 files, 941 tests | PASS |
+| whole-tree guard tests — 783 files, 5,465 tests | PASS |
+| DB tests that scan source — 32 files, 206 tests | PASS |
+
+   - **Feature register test 24** reads the specs corpus when a clone sits beside the repo (here it does; CI has none
+     and skips it). It fails on main's tree too (23 routes, 18 pointers missing from `FEATURE_REGISTER.md`). This PR
+     adds no route and moves no file, so it adds nothing to that list.
+   - Left to CI: full typecheck, full unit suite, DB replay, build, bundle, lighthouse, e2e, secret scan.
+5. **Overlapping open PRs**: none (no other open PR touches `thumb-row.*`, `search-grows.ts`, the lab or the guard).
+6. **§2 rules not followed**: none found.

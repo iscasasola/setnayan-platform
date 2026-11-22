@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 1982
+# ledger: 1984
 # tables: 539
-# columns: 6468
-# notnull: 3893
+# columns: 6472
+# notnull: 3892
 [ledger]
 20260512000000
 20260513000000
@@ -1994,6 +1994,8 @@
 20271358270977
 20271358554489
 20271359080029
+20271359577754
+20271359913146
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2928,12 +2930,14 @@ drive_copy_artifacts.size_bytes
 drive_copy_artifacts.source_ref
 drive_copy_artifacts.source_table
 drive_copy_artifacts.uploaded_at
+drive_copy_artifacts.vendor_profile_id
 drive_copy_folders.created_at
 drive_copy_folders.drive_folder_id
 drive_copy_folders.drive_provider
 drive_copy_folders.event_id
 drive_copy_folders.folder_row_id
 drive_copy_folders.kind
+drive_copy_folders.vendor_profile_id
 earned_token_vouchers.expires_at
 earned_token_vouchers.grant_metadata
 earned_token_vouchers.grant_source
@@ -5118,11 +5122,13 @@ oauth_grants.provider
 oauth_grants.refresh_token
 oauth_grants.revoked_at
 oauth_grants.scopes
+oauth_grants.vendor_profile_id
 oauth_state.created_at
 oauth_state.event_id
 oauth_state.initiated_by
 oauth_state.provider
 oauth_state.state_token
+oauth_state.vendor_profile_id
 onboarding_order_items.created_at
 onboarding_order_items.item_id
 onboarding_order_items.order_id
@@ -10311,7 +10317,6 @@ npc_filing_tasks.tier
 npc_filing_tasks.title
 npc_filing_tasks.updated_at
 oauth_grants.connection_health
-oauth_grants.event_id
 oauth_grants.grant_id
 oauth_grants.granted_at
 oauth_grants.metadata

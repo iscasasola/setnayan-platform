@@ -5,7 +5,8 @@
  *       in it survives; an ask naming no time posts nothing; other lines are not a time card;
  *   2 · the card finds ITS request (direction · kind · new clock · written just before the line) and never another;
  *   3 · whose press it waits for; the settled words;
- *   4 · the wiring: the two writers post the line, the stream draws it, and the card presses the SHIPPED doors.
+ *   4 · the wiring: the two writers post the line, the stream draws it, and the card presses the SHIPPED doors;
+ *   5 · the drawing's v3 card: the facts on its second line and in ⓘ, and a No's reason said back in the chat.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { scheduleChangeFromLine, streamLineKind } from '@/lib/chat-card-lines';
-import { backstageSetLine, findTimeAsk, timeAskFromLine, timeAskLine, timeAskSettledWords, timeAskTurn, type TimeAskRow } from '@/lib/schedule-time-ask';
+import { backstageSetLine, findTimeAsk, timeAskDeclinedLine, timeAskFacts, timeAskFromLine, timeAskLine, timeAskSettledWords, timeAskTurn, type TimeAskRow } from '@/lib/schedule-time-ask';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -110,4 +111,35 @@ test('4 · the wiring: both writers post the line, the stream draws it, the card
   assert.match(card, /findTimeAsk\(/, 'the card guesses its request');
   assert.doesNotMatch(card, /\.from\('event_schedule_(suggestions|blocks)'\)\s*\.(insert|update|delete|upsert)\(/, 'the card writes the schedule itself');
   assert.doesNotMatch(card, /router\.(push|replace|refresh)\(|redirect\(/, 'an answer resets the screen');
+});
+
+test('5 · the v3 card: "· 18 Dec · 30 min", the note and the reason; a No says why, in the chat', () => {
+  assert.deepEqual(timeAskFacts({ proposed_start_at: T('15:00'), proposed_end_at: T('15:30'), note: '  The band needs the stage. ', answer_note: null }), {
+    day: '18 Dec',
+    minutes: 30,
+    note: 'The band needs the stage.',
+    reason: null,
+  });
+  // A request with no end (a new moment) has no minutes — never "0 min"; a blank reason is none.
+  assert.deepEqual(timeAskFacts({ proposed_start_at: T('15:00'), proposed_end_at: null, note: '', answer_note: '   ' }), { day: '18 Dec', minutes: null, note: null, reason: null });
+
+  assert.equal(
+    timeAskDeclinedLine({ label: 'Ingress & setup', fromIso: T('13:00'), reason: 'The venue opens the hall at 1:00 PM.' }),
+    'Ingress & setup stays 1:00 PM · The venue opens the hall at 1:00 PM.',
+  );
+  assert.equal(timeAskDeclinedLine({ label: 'Haze test', add: true, fromIso: null, reason: 'No haze in the garden' }), 'Haze test isn’t added · No haze in the garden');
+  // A Time-TBA moment's placeholder midnight is never said as a time (the caller passes null for it).
+  assert.equal(timeAskDeclinedLine({ label: 'Sparklers', fromIso: null, reason: 'Later' }), 'Sparklers stays as it is · Later');
+  assert.equal(timeAskDeclinedLine({ label: 'Sparklers', fromIso: T('20:00'), reason: '  ' }), null, 'a No with no reason posted a line');
+
+  // Both No doors post it, after the answer is written, and only with a reason.
+  const server = read('lib/schedule-ask.server.ts');
+  assert.match(server, /if \(r === 'done' && why\) await postDeclinedLine\(/, 'the supplier\'s No does not say why in the chat');
+  const poster = server.slice(server.indexOf('export async function postDeclinedLine'));
+  assert.match(poster, /select\('label, start_at, time_tba'\)[\s\S]{0,400}time_tba === true \? null/, 'a Time-TBA moment would be said as 12:00 AM');
+  assert.match(read('app/dashboard/[eventId]/schedule/actions.ts'), /if \(why\) await postDeclinedLine\(\{ eventId, suggestionId, reason: why \}\)/, 'the hosts\' No does not say why in the chat');
+  // The card asks for the reason before a No is sent, on both doors.
+  const card = read('app/_components/chat/cards/schedule-time-ask-card.tsx');
+  assert.match(card, /if \(what === 'no' && !why\)/, 'Decline sends without a reason');
+  assert.equal((card.match(/if \(why\) fd\.set\('reason', why\)/g) ?? []).length, 2, 'a door drops the reason');
 });

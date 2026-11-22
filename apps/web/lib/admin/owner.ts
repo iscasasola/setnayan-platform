@@ -2,9 +2,14 @@
  * Who "the owner" is — pure, so the rule is testable.
  *
  * The owner is the one account the signup trigger already singles out (§ 10a,
- * `on_auth_user_created`): this address AND `is_internal`. Both halves, because
- * a person may edit their own email but may NOT set `is_internal`
- * (`guard_users_privilege_columns`), so neither half is enough alone.
+ * `on_auth_user_created`): this address AND `is_internal`.
+ *
+ * ⚠ `isOwnerProfile` is a PRE-FILTER for display only. It reads a `public.users`
+ * row, whose email is neither unique nor guarded — and an `account_type = 'admin'`
+ * session may set its own `is_internal` (it is "privileged" in
+ * `guard_users_privilege_columns`). So a row can look like the owner without being
+ * him. Every decision asks the database instead: `readIsPlatformOwner`
+ * (`./owner.server.ts`), which reads the sign-in address from `auth.users`.
  *
  * SQL twin: `public.is_platform_owner(uuid)` in migration
  * 20271350705084_admin_team_areas_levels_and_owner_self_approval.sql. The test

@@ -32,7 +32,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { ADMIN_AREAS, areaHasEscalated, isAdminArea, type AdminArea } from '@/lib/admin/areas';
-import { isOwnerProfile } from '@/lib/admin/owner';
+import { readIsPlatformOwner } from '@/lib/admin/owner.server';
 import { typedWordMatches } from '@/lib/admin/self-approval';
 import { startOwnerWait } from '@/lib/admin/self-approval.server';
 
@@ -144,7 +144,7 @@ export async function addAdminOp(formData: FormData) {
   if (error) throw new Error(`Couldn’t look that email up, so nothing was changed: ${error.message}`);
   if (!target) throw new Error('No Setnayan account with that email — they need to sign up first.');
   if (target.user_id === userId) throw new Error('You cannot add yourself.');
-  if (isOwnerProfile(target)) throw new Error('The owner already has every area.');
+  if ((await readIsPlatformOwner(admin, target.user_id)) !== false) throw new Error('The owner already has every area (or that could not be checked — reload and try again).');
 
   const rationale = `${name ? `${name} · ` : ''}${why}`;
 
@@ -254,7 +254,9 @@ export async function saveAdminAreasOp(formData: FormData) {
   if (!targetUserId) throw new Error('Invalid admin');
   if (targetUserId === userId) throw new Error('Nobody edits their own areas — ask the owner.');
   const target = await readPerson(admin, targetUserId);
-  if (isOwnerProfile(target)) throw new Error('The owner has every area and cannot be changed.');
+  if ((await readIsPlatformOwner(admin, targetUserId)) !== false) {
+    throw new Error('The owner has every area and cannot be changed (or that could not be checked — reload and try again).');
+  }
   if (!isAdminProfile(target)) throw new Error('That account is not an admin — use Add an admin.');
 
   const { basic, escalated } = tickedAreas(formData);
@@ -273,7 +275,9 @@ export async function takeAllAreasAwayOp(formData: FormData) {
   if (!targetUserId) throw new Error('Invalid admin');
   if (targetUserId === userId) throw new Error('Nobody edits their own areas — ask the owner.');
   const target = await readPerson(admin, targetUserId);
-  if (isOwnerProfile(target)) throw new Error('The owner has every area and cannot be changed.');
+  if ((await readIsPlatformOwner(admin, targetUserId)) !== false) {
+    throw new Error('The owner has every area and cannot be changed (or that could not be checked — reload and try again).');
+  }
 
   const { data: removed, error } = await admin
     .from('admin_scopes')

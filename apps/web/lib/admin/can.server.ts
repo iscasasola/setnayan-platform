@@ -3,7 +3,7 @@ import { cache } from 'react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdminAction } from './require-admin';
-import { isOwnerProfile } from './owner';
+import { readIsPlatformOwner } from './owner.server';
 import { canWith, refusalFor, type AdminPowers, type AdminScopeRow } from './can';
 import type { AdminArea, AdminLevel } from './areas';
 
@@ -22,15 +22,14 @@ import type { AdminArea, AdminLevel } from './areas';
  */
 export const getAdminPowersFor = cache(async (userId: string): Promise<AdminPowers> => {
   const admin = createAdminClient();
-  const [meRes, scopesRes] = await Promise.all([
-    admin.from('users').select('email, is_internal').eq('user_id', userId).maybeSingle(),
+  const [isOwner, scopesRes] = await Promise.all([
+    readIsPlatformOwner(admin, userId),
     admin.from('admin_scopes').select('area, level').eq('user_id', userId),
   ]);
-  if (meRes.error) logQueryError('getAdminPowers.me', meRes.error, {}, 'graceful_degrade');
   if (scopesRes.error) logQueryError('getAdminPowers.scopes', scopesRes.error, {}, 'graceful_degrade');
   return {
     userId,
-    isOwner: !meRes.error && isOwnerProfile(meRes.data),
+    isOwner: isOwner === true,
     scopes: scopesRes.error ? null : ((scopesRes.data ?? []) as AdminScopeRow[]),
   };
 });

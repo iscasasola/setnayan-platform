@@ -88,11 +88,18 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+  -- 🔒 The address is read from auth.users, NOT public.users. public.users.email
+  -- is neither UNIQUE nor guarded: an account_type = 'admin' session is
+  -- "privileged" in guard_users_privilege_columns, so it could set its OWN
+  -- is_internal = TRUE and email = the owner's address and become "the owner"
+  -- (every area, and self-approval with no second admin). auth.users.email is
+  -- unique and changes only through a confirmed email change.
   SELECT EXISTS (
     SELECT 1 FROM public.users u
+      JOIN auth.users au ON au.id = u.user_id
      WHERE u.user_id = p_user_id
        AND u.is_internal IS TRUE
-       AND lower(u.email) = 'iscasasolaii@gmail.com'
+       AND lower(au.email) = 'iscasasolaii@gmail.com'
   );
 $$;
 
@@ -101,7 +108,8 @@ REVOKE ALL ON FUNCTION public.is_platform_owner(UUID) FROM anon;
 GRANT EXECUTE ON FUNCTION public.is_platform_owner(UUID) TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.is_platform_owner(UUID) IS
-  'TRUE only for the owner (§ 10a): the owner address AND is_internal. The '
+  'TRUE only for the owner (§ 10a): the owner address (auth.users, the unique '
+  'sign-in address) AND is_internal. The '
   'owner has every admin area at both levels, cannot be narrowed, and is the '
   'ONLY admin who may decide his own two-admin request (typed + 24 h).';
 

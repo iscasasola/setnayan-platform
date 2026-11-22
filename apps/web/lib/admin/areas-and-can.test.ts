@@ -82,7 +82,8 @@ test('TypeScript ADMIN_AREAS === SQL public.admin_areas(), in order', () => {
 });
 
 test('the owner address in TypeScript === the one in is_platform_owner()', () => {
-  const m = /FUNCTION public\.is_platform_owner[\s\S]*?lower\(u\.email\) = '([^']+)'/.exec(SQL);
+  // The address is the SIGN-IN address (auth.users `au`), never public.users.email — a profile row can copy it.
+  const m = /FUNCTION public\.is_platform_owner[\s\S]*?lower\(au\.email\) = '([^']+)'/.exec(SQL);
   assert.ok(m, 'could not find the owner address in the migration');
   assert.equal(m?.[1], OWNER_EMAIL);
 });

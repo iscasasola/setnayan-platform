@@ -5,6 +5,7 @@ import { getAdminPowersFor } from '@/lib/admin/can.server';
 import { canWith, refusalFor } from '@/lib/admin/can';
 import { ADMIN_AREA_LIST, adminAreaLabel } from '@/lib/admin/areas';
 import { isOwnerProfile } from '@/lib/admin/owner';
+import { readIsPlatformOwner } from '@/lib/admin/owner.server';
 import { SELF_APPROVAL_WORD } from '@/lib/admin/self-approval';
 import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -135,6 +136,17 @@ export default async function AdminTeamPage() {
   if (peopleRes.error) logQueryError('AdminTeamPage.people', peopleRes.error, {}, 'graceful_degrade');
   if (scopesRes.error) logQueryError('AdminTeamPage.scopes', scopesRes.error, {}, 'graceful_degrade');
   const people = (peopleRes.data ?? null) as Person[] | null;
+  // Who is shown as the owner is the DATABASE's answer (auth sign-in address + is_internal), asked only for the rows
+  // that look like the owner — a profile row's email proves nothing on its own (lib/admin/owner.server.ts).
+  const ownerIds = new Set(
+    (
+      await Promise.all(
+        (people ?? [])
+          .filter((p) => isOwnerProfile(p))
+          .map(async (p) => ((await readIsPlatformOwner(admin, p.user_id)) === true ? p.user_id : null)),
+      )
+    ).filter((id): id is string => id !== null),
+  );
   const scopes = scopesRes.error ? null : ((scopesRes.data ?? []) as ScopeRow[]);
 
   return (
@@ -229,7 +241,7 @@ export default async function AdminTeamPage() {
               </li>
             ) : null}
             {people.map((p) => {
-              const owner = isOwnerProfile(p);
+              const owner = ownerIds.has(p.user_id);
               const mine = (scopes ?? []).filter((s) => s.user_id === p.user_id);
               const has = (area: string, level: 'basic' | 'escalated') =>
                 mine.some((s) => s.area === area && s.level === level);

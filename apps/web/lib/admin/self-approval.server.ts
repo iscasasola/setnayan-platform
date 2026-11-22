@@ -2,7 +2,7 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvalActionLabel } from '@/lib/admin-approvals';
 import { areaForApprovalAction } from './areas';
-import { isOwnerProfile } from './owner';
+import { readIsPlatformOwner } from './owner.server';
 import { SELF_APPROVAL_WORD, expiryAfterConfirm } from './self-approval';
 import { emailOwnerWaiting } from './self-approval-email';
 
@@ -21,13 +21,9 @@ export async function startOwnerWait(
   admin: AdminClient,
   args: { approvalId: string; ownerId: string },
 ): Promise<{ runAfter: string }> {
-  const { data: me, error: meErr } = await admin
-    .from('users')
-    .select('email, is_internal')
-    .eq('user_id', args.ownerId)
-    .maybeSingle();
-  if (meErr) throw new Error('Couldn’t read your account, so nothing was changed. Reload and try again.');
-  if (!isOwnerProfile(me)) {
+  const isOwner = await readIsPlatformOwner(admin, args.ownerId);
+  if (isOwner === null) throw new Error('Couldn’t read your account, so nothing was changed. Reload and try again.');
+  if (!isOwner) {
     throw new Error('Only the owner may approve his own request. A different admin must decide this one.');
   }
 

@@ -110,6 +110,21 @@ test('ANCHOR — the owner is the owner and the staff admin is not', async () =>
   assert.equal(r.rows[0]!.s, false);
 });
 
+test('a look-alike is NOT the owner: an internal admin who copies the owner address into public.users', async () => {
+  // public.users.email is not unique and an admin session may set its own is_internal, so this row LOOKS like the
+  // owner. is_platform_owner must read the sign-in address (auth.users), or this account gets every area and
+  // self-approval with no second admin.
+  const lookAlike = await makeUser('look-alike-admin@test.com');
+  await db.query(
+    `UPDATE public.users SET is_internal = TRUE, account_type = 'admin', email = $2 WHERE user_id = $1`,
+    [lookAlike, OWNER_EMAIL],
+  );
+  const r = await db.query<{ o: boolean }>(`SELECT public.is_platform_owner($1) AS o`, [lookAlike]);
+  assert.equal(r.rows[0]!.o, false, 'a public.users row with the owner address made its account the owner');
+  const id = await newRequest(lookAlike);
+  await assert.rejects(typeTheWord(id), /only the owner may approve his own request/);
+});
+
 test('typing the word: the DATABASE stamps the time — a back-dated start is overwritten', async () => {
   const id = await newRequest(ownerId);
   await typeTheWord(id, '2000-01-01T00:00:00Z');

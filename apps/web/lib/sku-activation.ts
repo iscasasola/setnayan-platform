@@ -23,6 +23,7 @@ import {
   parseUltraAddOnRenewalServiceKey,
   type CountAddOnKind,
   addOnWindowEnd,
+  addOnWindowStamp,
 } from '@/lib/vendor-ultra-addons';
 import { extendedExpiryFrom } from '@/lib/term-extends';
 import { BUNDLE_CHILD_SKUS, eventSkuActive, orderStatusConfersAccess } from '@/lib/entitlements';
@@ -2496,15 +2497,29 @@ const PREFIX_HOOKS: ReadonlyArray<{
       // ⏳ EVERY ADD-ON PAYMENT BUYS 28 DAYS, NEVER FOREVER (owner 2026-11-19 "2490 / 4 weeks"; 2026-11-06 "per 4
       // weeks"; review: a count with no expiry kept one payment forever). THIS order gets its own window —
       // `orders.expires_at` = approval + 28 days, the paid branch's pattern. Stamped once: a re-approval never moves a
-      // window already set. The Ultra Add-on has no stored count (the database's `vendor_live_ultra_addons` reads the
-      // windows live); the "+1" counts are recomputed from the windows that still cover now
+      // window already set (🔒 below says which windows count as "already set"). The Ultra Add-on has no stored count
+      // (the database's `vendor_live_ultra_addons` reads the windows live); the "+1" counts are recomputed from the
+      // windows that still cover now
       // ({@link recomputeVendorAddOnCount}), and `recount_vendor_count_addons()` lowers them when a window lapses.
-      const expiresAt = addOnWindowEnd(Date.now());
-      const { error: stampErr } = await ctx.admin
-        .from('orders')
-        .update({ expires_at: expiresAt })
+      //
+      // 🔒 A WINDOW FOUND ON A NEVER-ACTIVATED ORDER IS NOT TRUSTED (ship review of PR #8019, 22 Nov). "Stamp only
+      // where empty" on every run kept whatever sat on the unpaid order — a date the buyer could type on their own
+      // submitted row — so one payment kept the add-on for as long as they wrote. The FIRST activation (no
+      // `service_activated` ledger row yet; only the service role can write one) OVERWRITES; only a re-approval
+      // keeps a window already there, so a renewal's extension is never reset ({@link addOnWindowStamp}). An unread
+      // ledger throws: guessing "first" would reset a renewed window, guessing "again" would keep a planted one.
+      const { data: priorActivation, error: priorErr } = await ctx.admin
+        .from('order_ledger')
+        .select('order_id')
         .eq('order_id', ctx.orderId)
-        .is('expires_at', null);
+        .eq('event_type', 'service_activated')
+        .limit(1)
+        .maybeSingle();
+      if (priorErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} prior-activation read failed: ${priorErr.message}`);
+      const expiresAt = addOnWindowEnd(Date.now());
+      const stamp = ctx.admin.from('orders').update({ expires_at: expiresAt }).eq('order_id', ctx.orderId);
+      const { error: stampErr } =
+        addOnWindowStamp(Boolean(priorActivation)) === 'only-if-empty' ? await stamp.is('expires_at', null) : await stamp;
       if (stampErr) throw new Error(`${COUNT_ADDONS[target.kind].sku} window stamp failed: ${stampErr.message}`);
       if (target.kind === 'ultra') {
         await appendLedger(ctx.admin, {

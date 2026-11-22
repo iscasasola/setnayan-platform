@@ -6,7 +6,7 @@ import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   effectiveSeatCap,
-  fetchExtraAgentSeats,
+  readExtraPeople,
   fetchSeatFeePhp,
 } from '@/lib/vendor-seats';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
@@ -82,8 +82,10 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
 
   // Team-seat math (owner 2026-07-02 ladder). Seats = members beyond the
   // always-free founding admin. Effective cap = the tier's base agentAccounts +
-  // seats already bought + 3 per Ultra Add-on (`fetchExtraAgentSeats`). No plan
-  // buys a single seat since 2026-11-19, so the "Add a seat" card is not drawn.
+  // what the shop holds on top (`readExtraPeople` → `extraPeopleHeld`: seats already
+  // bought + 3 per live Ultra Add-on, the one rule the invite gate and the seat-pause
+  // job also read). No plan buys a single seat since 2026-11-19, so the "Add a seat"
+  // card is not drawn.
   const canBuySeats = canBuyExtraSeats(ctx.tierState);
   // A plan with 0 seats is a paywall → asked through the one flag-aware
   // allowance (lib/vendor-feature-gate.ts), the same number the invite action
@@ -92,11 +94,14 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
     tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
     entryTierAllowance('agentAccounts'),
   );
-  const [extraSeats, seatFeePhp] = await Promise.all([
-    fetchExtraAgentSeats(supabase, vendorProfileId, ctx.tierState),
+  const [extraPeople, seatFeePhp] = await Promise.all([
+    readExtraPeople(supabase, vendorProfileId, ctx.tierState),
     canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(null),
   ]);
-  const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
+  // 🔑 An UNREAD count is not 0 (ship review 22 Nov): the cap is then unknown, and the line says it couldn't load
+  // (`SEATS_UNREAD`) — never the plan's bare number to a shop that pays for more.
+  const extraSeats = extraPeople.status === 'ok' ? extraPeople.extra : 0;
+  const effectiveCap = extraPeople.status === 'ok' ? effectiveSeatCap(baseSeatCap, extraPeople.extra) : null;
   // 🧑‍🤝‍🧑 One Helper rides free on every plan (lib/vendor-free-helper.ts) — the SAME
   // rule the invite and role-change actions apply, read off the rows already here.
   const seats = teamSeats(enriched, ctx.founderUserId);

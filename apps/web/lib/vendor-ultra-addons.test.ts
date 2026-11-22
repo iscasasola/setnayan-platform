@@ -28,6 +28,7 @@ import {
   countAddOnServiceKey,
   parseCountAddOnServiceKey,
   ULTRA_ADDON_PERIOD_DAYS,
+  addOnWindowStamp,
   addOnPeriodCoversNow,
   addOnWindowEnd,
   ultraAddOnWindowEnd,
@@ -148,9 +149,42 @@ test('ONE PAYMENT BUYS 28 DAYS, NOT FOREVER — the window the activation hook s
   // The hook stamps that window on the order, and the live count reads only paid orders inside it.
   const hook = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
   // Every count add-on — the Ultra Add-on AND the "+1"s — gets that window, before the Ultra early return.
-  assert.match(hook, /const expiresAt = addOnWindowEnd\(Date\.now\(\)\);[\s\S]{0,200}?\.update\(\{ expires_at: expiresAt \}\)[\s\S]{0,200}?\.is\('expires_at', null\)[\s\S]*?if \(target\.kind === 'ultra'\) \{/);
+  assert.match(hook, /const expiresAt = addOnWindowEnd\(Date\.now\(\)\);[\s\S]{0,200}?\.update\(\{ expires_at: expiresAt \}\)[\s\S]{0,300}?\.is\('expires_at', null\)[\s\S]*?if \(target\.kind === 'ultra'\) \{/);
   const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
   assert.match(sql, /o\.status = 'paid'\s+AND o\.expires_at IS NOT NULL\s+AND o\.expires_at > now\(\)/, 'the live count is not "paid AND in window"');
+});
+
+test('🔒 A WINDOW FOUND ON A NEVER-ACTIVATED ORDER IS NOT TRUSTED — the first activation overwrites it (ship review 22 Nov)', () => {
+  // The hole: the hook stamped "only where the window is empty" on EVERY run, and a buyer could write
+  // `orders.expires_at` on their own submitted order — a planted far date survived the approval, so one payment kept
+  // the add-on for as long as the buyer had typed. (The database refuses that write too: 20271358916247 and
+  // tests/db/orders-expires-at-is-the-servers.db.test.ts.)
+  // SABOTAGE THAT TURNS THIS RED (run once, 22 Nov): in lib/sku-activation.ts make the stamp unconditional
+  // `.is('expires_at', null)` again (drop the `addOnWindowStamp(…) === 'only-if-empty' ?` choice) → the third and
+  // fourth assertions fail; return 'only-if-empty' for both arms of addOnWindowStamp → the first one fails.
+  assert.equal(addOnWindowStamp(false), 'overwrite', 'a first activation kept whatever window sat on the unpaid order');
+  assert.equal(addOnWindowStamp(true), 'only-if-empty', 'a re-approval would reset a window a renewal had extended');
+
+  const src = stripComments(readFileSync(join(HERE, 'sku-activation.ts'), 'utf8'));
+  const from = src.indexOf('const target = parseCountAddOnServiceKey(ctx.serviceKey);');
+  const hook = src.slice(from, src.indexOf("if (target.kind === 'ultra') {", from));
+  assert.ok(from > 0 && hook.length > 0, 'the count add-on hook was not found — this test reads nothing');
+  // It asks the ledger whether THIS order was activated before — the service-role-only marker — and an unread answer throws.
+  assert.match(
+    hook,
+    /\.from\('order_ledger'\)[\s\S]{0,200}?\.eq\('order_id', ctx\.orderId\)[\s\S]{0,80}?\.eq\('event_type', 'service_activated'\)[\s\S]{0,200}?if \(priorErr\) throw/,
+    'the hook does not read (or does not refuse on an unread) prior activation',
+  );
+  // The "only where empty" filter is applied ONLY on a re-approval; a first activation writes unconditionally.
+  assert.match(
+    hook,
+    /addOnWindowStamp\(Boolean\(priorActivation\)\) === 'only-if-empty' \? await stamp\.is\('expires_at', null\) : await stamp;/,
+    'the stamp trusts a window already on a never-activated order',
+  );
+  assert.equal((hook.match(/\.is\('expires_at', null\)/g) ?? []).length, 1, 'a second, unconditional "only where empty" stamp is back');
+  // The renewal still moves the add-on's own window in the database — this hook never writes over a renewed one.
+  const sql = readFileSync(join(HERE, '../../../supabase/migrations/20271351415438_ultra_addon_and_the_19_nov_plan_numbers.sql'), 'utf8');
+  assert.match(sql, /v_end := GREATEST\(COALESCE\(t\.expires_at, now\(\)\), now\(\)\) \+ interval '28 days';/);
 });
 
 test('A "+1" ADD-ON COUNTS ONLY THE PAID PERIODS THAT STILL COVER TODAY — never every paid order ever (review 2026-11-19)', () => {

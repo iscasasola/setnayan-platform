@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { countNoun, formatCount } from './format-number';
 import { BRANCH_SKU_CODE } from './vendor-branches';
 import { fetchLiveTierCaps } from './vendor-plan-contents';
 import { SEAT_SKU_CODE } from './vendor-seats';
@@ -48,6 +49,22 @@ import {
  */
 export { ULTRA_ADDON_GIVES };
 
+/**
+ * 🧾 WHAT ONE ULTRA ADD-ON GIVES, IN WORDS — "+1 branch · +15 live cards · +3 people · +50 GB" — built ONCE, from
+ * {@link ULTRA_ADDON_GIVES} (fix pass on PR #8019, 22 Nov). The sentence was typed in three places (the Plan page's
+ * row, the Plans table's cell and this module's purchase label), so a change to the numbers would have left two of
+ * them wrong. Every surface that says it asks here. Pure.
+ */
+export function ultraAddOnGivesWords(): string {
+  const g = ULTRA_ADDON_GIVES;
+  return [
+    `+${countNoun(g.branches, 'branch', 'branches')}`,
+    `+${countNoun(g.liveCards, 'live card', 'live cards')}`,
+    `+${countNoun(g.people, 'person', 'people')}`,
+    `+${formatCount(g.storageGb)} GB`,
+  ].join(' · ');
+}
+
 /** Every Ultra add-on, in the order shown — the Ultra Add-on first (2026-11-19), then the six of 2026-11-06. */
 export const ULTRA_ADDON_ORDER = ['ultra', 'category', 'service_card', 'seat', 'branch', 'waitlist', 'booking_per_date'] as const;
 export type UltraAddOnKind = (typeof ULTRA_ADDON_ORDER)[number];
@@ -86,7 +103,7 @@ export const COUNT_ADDONS: Readonly<Record<CountAddOnKind, CountAddOnDef>> = Obj
     servicePrefix: 'vendor_ultra_addon__',
     column: null,
     capKey: null,
-    label: 'Ultra Add-on: +1 branch · +15 live cards · +3 people · +50 GB',
+    label: `Ultra Add-on: ${ultraAddOnGivesWords()}`,
   },
   category: {
     sku: 'vendor_extra_category',
@@ -278,49 +295,93 @@ export function applyAddOnExtras(caps: TierCaps, extras: AddOnExtras | null | un
 /**
  * Read what a shop has bought. Soft: any read failure (columns not migrated yet, RLS) answers {@link NO_EXTRAS}, so the
  * allowance degrades to the PLAN's number — withholding a purchase's extra room, never granting room nobody paid for.
+ * ⚠ FOR GATES ONLY (a create that must fail closed). A SCREEN that draws an allowance must use {@link readAddOnExtras}:
+ * a refused read drawn as "0 add-ons" tells a paying shop its plan is full.
  */
 export async function fetchAddOnExtras(supabase: SupabaseClient, vendorProfileId: string): Promise<AddOnExtras> {
+  return (await readAddOnExtras(supabase, vendorProfileId)).extras;
+}
+
+/**
+ * 🔑 HONEST READ of what a shop has bought, for anything that DRAWS it (ship review of PR #8019, 22 Nov: a failed
+ * add-on read was counted as 0 and drawn as "storage is full" / "your plan's branches are in use"). `extras` is the
+ * soft answer a gate may still use (unread parts are 0 — withholding); `ultraRead` / `countsRead` say whether each
+ * half was MEASURED, so a screen can say "couldn't load" instead of drawing the smaller number.
+ */
+export type AddOnExtrasRead = {
+  extras: AddOnExtras;
+  /** The live Ultra Add-on count was measured (false → `extras.ultra` is a withheld 0, not a fact). */
+  ultraRead: boolean;
+  /** The four stored "+1" counts were measured. */
+  countsRead: boolean;
+};
+
+export async function readAddOnExtras(supabase: SupabaseClient, vendorProfileId: string): Promise<AddOnExtrasRead> {
   try {
     const cols = COUNT_ADDON_KINDS.map((k) => COUNT_ADDONS[k].column).filter((c): c is NonNullable<typeof c> => c !== null).join(',');
-    const [{ data, error }, ultra] = await Promise.all([
+    const [{ data, error }, live] = await Promise.all([
       supabase.from('vendor_profiles').select(cols).eq('vendor_profile_id', vendorProfileId).maybeSingle(),
-      fetchLiveUltraAddOns(supabase, vendorProfileId),
+      readLiveUltraAddOns(supabase, vendorProfileId),
     ]);
+    const ultraRead = live.status === 'ok';
     if (error) {
       // Withholding, never granting: the plan's own number stands while the bought count is unreadable.
       console.error('[supabase-error] vendor-ultra-addons: add-on counts (using the plan’s number)', error);
-      return NO_EXTRAS;
+      return { extras: NO_EXTRAS, ultraRead, countsRead: false };
     }
-    if (!data) return NO_EXTRAS;
+    if (!data) return { extras: NO_EXTRAS, ultraRead, countsRead: false };
     const row = data as unknown as Record<string, number | null>;
     return {
-      ultra,
-      category: addOnCountFromPaid(row.extra_parent_categories),
-      service_card: addOnCountFromPaid(row.extra_services_per_leaf),
-      waitlist: addOnCountFromPaid(row.extra_waitlist_acceptances),
-      booking_per_date: addOnCountFromPaid(row.extra_bookings_per_date),
+      extras: {
+        ultra: live.status === 'ok' ? live.count : 0,
+        category: addOnCountFromPaid(row.extra_parent_categories),
+        service_card: addOnCountFromPaid(row.extra_services_per_leaf),
+        waitlist: addOnCountFromPaid(row.extra_waitlist_acceptances),
+        booking_per_date: addOnCountFromPaid(row.extra_bookings_per_date),
+      },
+      ultraRead,
+      countsRead: true,
     };
   } catch {
-    return NO_EXTRAS;
+    return { extras: NO_EXTRAS, ultraRead: false, countsRead: false };
+  }
+}
+
+/** The live Ultra Add-on count as MEASURED — or that it could not be read. Never a 0 in place of "unread". */
+export type LiveUltraAddOnsRead = { status: 'ok'; count: number } | { status: 'unread' };
+
+/**
+ * ⏳ THE ULTRA ADD-ONS A SHOP HOLDS NOW, MEASURED — paid `vendor_ultra_addon__<id>` orders whose 28-day window covers
+ * today, from the database's own count (`vendor_live_ultra_addons_for`: the caller's own shop, Setnayan or the service
+ * role). A refused, thrown or malformed answer is `unread` — the caller decides what an unread count means (a gate
+ * withholds; a screen says it couldn't load; the seat pause aborts).
+ */
+export async function readLiveUltraAddOns(supabase: SupabaseClient, vendorProfileId: string): Promise<LiveUltraAddOnsRead> {
+  try {
+    const { data, error } = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
+    if (error) {
+      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-ons unread', error);
+      return { status: 'unread' };
+    }
+    const n = typeof data === 'number' ? data : typeof data === 'string' ? Number(data) : NaN;
+    if (!Number.isFinite(n) || n < 0) {
+      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-ons malformed', data);
+      return { status: 'unread' };
+    }
+    return { status: 'ok', count: Math.floor(n) };
+  } catch (e) {
+    console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-ons read threw', e);
+    return { status: 'unread' };
   }
 }
 
 /**
- * ⏳ THE ULTRA ADD-ONS A SHOP HOLDS NOW — paid `vendor_ultra_addon__<id>` orders whose 28-day window covers today, from
- * the database's own count (`vendor_live_ultra_addons_for`: the caller's own shop, Setnayan or the service role). Soft:
- * any failure answers 0 — withholding the bought room, never granting room nobody paid for.
+ * The same count, SOFT: any failure answers 0 — withholding the bought room, never granting room nobody paid for.
+ * ⚠ For a gate that must fail closed. Anything that DRAWS the number uses {@link readLiveUltraAddOns}.
  */
 export async function fetchLiveUltraAddOns(supabase: SupabaseClient, vendorProfileId: string): Promise<number> {
-  try {
-    const { data, error } = await supabase.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
-    if (error) {
-      console.error('[supabase-error] vendor-ultra-addons: live Ultra Add-ons (using the plan’s number)', error);
-      return 0;
-    }
-    return addOnCountFromPaid(typeof data === 'number' ? data : Number(data));
-  } catch {
-    return 0;
-  }
+  const read = await readLiveUltraAddOns(supabase, vendorProfileId);
+  return read.status === 'ok' ? read.count : 0;
 }
 
 /** The window one add-on payment buys, in days (owner 2026-11-19: "2490 / 4 weeks"; 2026-11-06: "per 4 weeks"). */
@@ -333,6 +394,22 @@ export function addOnWindowEnd(approvedAtMs: number): string {
 
 /** The Ultra Add-on's window — the same 28 days as every add-on ({@link addOnWindowEnd}). */
 export const ultraAddOnWindowEnd = addOnWindowEnd;
+
+/**
+ * 🔒 MAY THE ACTIVATION HOOK KEEP A WINDOW IT FINDS ALREADY ON THE ORDER? Only one that a PRIOR ACTIVATION of this
+ * order put there (ship review of PR #8019, 22 Nov). The hook used to stamp "only where the window is empty" on every
+ * run, which trusted whatever sat on a not-yet-paid order — and a buyer could write that column on their own
+ * submitted order, so a planted far date survived the approval. The rule:
+ *   · FIRST activation (no `service_activated` ledger row for the order yet — a row only the service role can write,
+ *     20271135800722) → `overwrite`: the window is approval + 28 days, whatever was on the row.
+ *   · a RE-approval → `only-if-empty`: a window already stamped is never moved, so a renewal's extension
+ *     (`ultra_addon_apply_renewal` moves the add-on's own `expires_at`) is not reset by approving the order again.
+ * The database refuses the buyer's write as well (`guard_orders_protected_columns`, 20271358916247); this makes the
+ * hook safe on its own. Pure.
+ */
+export function addOnWindowStamp(activatedBefore: boolean): 'overwrite' | 'only-if-empty' {
+  return activatedBefore ? 'only-if-empty' : 'overwrite';
+}
 
 /**
  * ⏳ DOES THIS PAID PERIOD STILL COVER NOW? — the rule `recomputeVendorAddOnCount` and the database's

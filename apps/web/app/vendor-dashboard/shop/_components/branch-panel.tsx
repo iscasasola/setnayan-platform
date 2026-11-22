@@ -48,14 +48,22 @@ export async function BranchPanel({
   isVerified?: boolean;
   /** The plan was read. False → Where you work says so instead of drawing a plan's reach nobody read. */
   tierMeasured?: boolean;
-  /** 🛒 +1 per Ultra Add-on the shop holds (owner 2026-11-19) — read by the page (`fetchAddOnExtras`); 0 when none. */
-  addOnBranches?: number;
+  /**
+   * 🛒 +1 per Ultra Add-on the shop holds (owner 2026-11-19) — read by the page (`readLiveUltraAddOns`); 0 when none.
+   * `null` = the count could NOT BE READ: the allowance is then unknown, and the manager says it couldn't load instead
+   * of "N of M left" or "all in use" made from the plan's bare number (a failed read is never drawn as full).
+   */
+  addOnBranches?: number | null;
 }) {
   // 📐 BRANCHES PER PLAN (owner 2026-11-04, "branches 0,0,3,10"): Pro includes 3, Ultra 6 (trimmed the same day), fee-free; only Ultra buys
   // more. Counted from the shop's own live included branches — a shop over a lowered allowance keeps them (0 left).
   const includedInUse = branches.filter((b) => b.included_in_plan && b.status !== 'cancelled').length;
-  const includedLeft = includedBranchesLeft(tier, includedInUse, addOnBranches);
-  const includedTotal = tierCaps(tier).branchesIncluded + Math.max(0, addOnBranches);
+  const allowanceUnread = addOnBranches === null;
+  // Unread → the plan's OWN branches are still a floor (an add-on only adds): `includedLeft` below is at least true,
+  // and the database gate decides the real answer at the insert.
+  const fromAddOns = Math.max(0, addOnBranches ?? 0);
+  const includedLeft = includedBranchesLeft(tier, includedInUse, fromAddOns);
+  const includedTotal = tierCaps(tier).branchesIncluded + fromAddOns;
   // 🔒 A branch is a paid add-on (₱ per 28 days), bought AND managed in the
   // BranchManager below. The App Store / Play Store shell neither sells nor
   // runs it (guideline 3.1.1 / 3.1.3(b); lib/store-shell.ts), so the manager
@@ -139,7 +147,7 @@ export async function BranchPanel({
             <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
               <PaidMark
                 state="try"
-                label="Extra branches are sold with Supplier Ultra only"
+                label="More branches are part of Supplier Ultra"
                 text="ENTERPRISE"
                 size="xs"
               />
@@ -157,6 +165,7 @@ export async function BranchPanel({
             includedLeft={includedLeft}
             includedTotal={includedTotal}
             canBuyMore={canBuyMore}
+            allowanceUnread={allowanceUnread}
           />
         </>
       )}

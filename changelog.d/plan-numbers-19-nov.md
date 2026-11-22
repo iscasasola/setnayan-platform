@@ -102,3 +102,55 @@ us retiring max already"* (DECISION_LOG 2026-11-21 "SPECIAL TOOLS ARE INCLUDED I
   here; that is the ship session's, once per batch.
 
 SPEC IMPACT: None — the rulings are already in the corpus DECISION_LOG (21 and 22 Nov rows).
+
+## 2026-11-22 · fix(plans): the ship fix pass on PR #8019 — the buyer cannot set their own add-on window; seats, storage and branches a shop pays for are never drawn (or paused) as full
+
+Two read-only audits of the PR head found six things. Each fix has a test that was sabotaged once and seen red.
+
+- **A · security — `orders.expires_at` is the server's.** `authenticated` could UPDATE `orders.expires_at` on its own
+  submitted order (the table grant + `orders_owner_write`; `guard_orders_protected_columns` did not list the column),
+  the activation hook stamped a window only where it was empty, and `vendor_live_ultra_addons` counts an order while
+  `expires_at > now()` — so a buyer could type a far date before paying and keep the Ultra Add-on for one payment.
+  NEW forward-prefixed migration `20271358916247_orders_expires_at_is_the_servers.sql` (made with
+  `pnpm migration:new`; not applied by hand): the guard's body, byte-identical to its newest prior definition
+  (`20271008300000`), plus `or new.expires_at is distinct from old.expires_at`, with the bypass it already had (the
+  service role, SECURITY DEFINER functions, `is_admin()`). The hook is also safe on its own: a FIRST activation (no
+  `service_activated` ledger row — a row only the service role can write) overwrites whatever window is on the order;
+  only a re-approval keeps one, so a renewal's extension is never reset (`addOnWindowStamp`). Tests: DB
+  `orders-expires-at-is-the-servers.db.test.ts` (the owner's UPDATE refused; the service role's allowed; an owner update
+  the guard allowed before still works) and `vendor-ultra-addons.test.ts`.
+- **B · two public pages still promised every special tool on Plus.** `/pricing` ("All specialized tools") and
+  `/features` ("All specialized tools included") had the line TYPED on the Plus row. Both are now placed by
+  `SPECIALIZED_TOOLS_INCLUDED_TIERS` (`lib/supplier-plan-public-words.ts`): the line sits on Pro; Plus says what it
+  holds — on `/pricing` its numbers from `TIER_CAPS` ("10 live cards · 2 people · 5 GB"), on `/features` the Plan
+  page's own words ("Specialized tools: the free set · all of them from Pro"). `/for-suppliers` already read the list.
+  Guard: `public-plan-surfaces-follow-the-tools-gate.test.ts`.
+- **C · the seat-pause job would have locked out seats a shop pays for.** It read `canBuyExtraSeats(tier)` — false on
+  every plan since this PR — and never counted Ultra Add-on people. The allowance is now the plan's people + the single
+  seats the shop still HOLDS + 3 per live Ultra Add-on, from ONE rule (`extraPeopleHeld`, `lib/vendor-seats.ts`) that
+  the Team page's cap and the invite gate read too. The add-on count is a measured read: unread → the job aborts and
+  pauses nobody. ⚠ One behaviour change to know: the invite gate used to count stored single seats on ANY plan; it now
+  counts them on the plan that holds them (Ultra), as the pause job and the downgrade sheet already did. Production
+  has no shop with a paid single seat. Test: `seat-pause-counts-what-the-shop-holds.test.ts` (runs the job).
+- **D · a failed add-on read was drawn as "full".** The live Ultra Add-on count now has a measured read
+  (`readLiveUltraAddOns` → `unread`); the soft 0 stays for gates only. The upload check answers `unavailable` past the
+  plan's own floor (never `full`); the Plan page's Storage row, the Team's seats line and Where you work's branch form
+  say they couldn't load; the invite and branch refusals say "couldn't check" instead of "limit reached" / "all in
+  use". Test: `an-unread-addon-count-is-never-full.test.ts`.
+- **E · screens.** (1) At 375 px the Ultra Add-on buy row cut off its own price: it is two house rows now — what it
+  gives (no control beside it), then the PRICE as the title of the row with "Add one". (2) "+1 branch · +15 live cards
+  · +3 people · +50 GB" is built once (`ultraAddOnGivesWords`, from `ULTRA_ADDON_GIVES`) for the Plan row, the Plans
+  table and the purchase label. (3) For Suppliers › Plans ⓘ draws the approved drawing's two lines: "Branches and
+  storage." (from `TIER_CAPS`) and the Ultra Add-on line (its price from the catalogue row; unread → not drawn).
+  (4) `buyMoreLine` had no reader and is deleted. ⚠ Not seen in a browser — the app could not be run on the build
+  machine that day. Test: `the-ultra-addon-is-said-once-and-fits-a-phone.test.ts`.
+- **F · small.** `ultra_addon_apply_renewal` accepted status `paid` or `fulfilled` while the live count counts `paid`
+  only; it now takes `paid` only (no code path writes `fulfilled` on an order, and every other reader of an add-on
+  asks for `paid`). The header of `20271351415438` no longer claims its prefix sorts after every migration.
+  `renewBranch`'s refusal no longer says single branches are "sold with Ultra only" (none is sold; one already paid
+  for renews on Ultra).
+- Not decided here (open with the controller): more than one add-on per shop, the renewal rule, the retroactive 28-day
+  window on older "+1" orders, a yearly add-on row. No price, limit or period was changed. No server action was added.
+  Generated baselines were NOT regenerated (the ship controller's).
+
+SPEC IMPACT: None — no ruling is changed; the rulings applied are the corpus DECISION_LOG rows of 19–22 Nov.

@@ -37,7 +37,7 @@ import { startSubscriptionPurchase } from '../actions';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
 import { loadBadgeUpgradesSection } from './badge-upgrades-data';
 import { PlanChangeNotice } from './plan-change-notice';
-import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, fetchAddOnExtras, fetchLiveUltraAddOnOrders } from '@/lib/vendor-ultra-addons';
+import { COUNT_ADDON_KINDS, COUNT_ADDONS, canBuyUltraAddOn, readAddOnExtras, fetchLiveUltraAddOnOrders, ultraAddOnGivesWords } from '@/lib/vendor-ultra-addons';
 import { buyUltraAddOn } from '../ultra-addon-actions';
 import { UltraAddOnButton } from './ultra-addon-button';
 import { termIsTooShort, termTooShortMessage } from '@/lib/vendor-plan-change-words';
@@ -228,8 +228,10 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   // price (every plan) and, on Ultra, the Ultra Add-on (2026-11-19 — it replaced the extra seats and branches row). A shop that bought a chatbot window or an Ultra
   // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
   const ultraHoldsExtras = holdsBoughtExtras(currentTier);
-  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead, liveUltraAddOns] = await Promise.all([
-    ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
+  const [ultraExtrasRead, aiAddonState, deepSearchPricePhp, extraSeatsRead, liveUltraAddOns] = await Promise.all([
+    // 🔑 The MEASURED read (`readAddOnExtras`): it says whether the live Ultra Add-on count was read, so the Storage
+    // row below can say "couldn't read" instead of drawing the plan's bare 20 GB to a shop that pays for more.
+    ultraHoldsExtras ? readAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
     fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
     holdsExtraSeats(currentTier)
@@ -239,6 +241,9 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     // must see the add-on the owner paid for; the filter is this shop's own key. null = unread, said as such.
     canBuyUltraAddOn('ultra', currentTier) ? fetchLiveUltraAddOnOrders(createAdminClient(), profile.vendor_profile_id) : Promise.resolve([]),
   ]);
+  const ultraExtras = ultraExtrasRead?.extras ?? null;
+  /** The live Ultra Add-on count for anything DRAWN: a number, or null = it could not be read (never a 0 for that). */
+  const ultraAddOnCount = ultraExtrasRead ? (ultraExtrasRead.ultraRead ? ultraExtrasRead.extras.ultra : null) : 0;
   const aiAddonActive = isVendorAiAddonActive(aiAddonState.expiresAt);
   const extraSeats =
     extraSeatsRead && !extraSeatsRead.error
@@ -511,8 +516,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
               ? { status: 'unread' }
               : { status: 'ok', bytes: downgradeFacts.storedBytes }
             : await readStoredBytes(createAdminClient(), profile.vendor_profile_id),
-          // 🛒 +50 GB per Ultra Add-on held (owner 2026-11-19).
-          ultraExtras?.ultra ?? 0,
+          // 🛒 +50 GB per Ultra Add-on held (owner 2026-11-19). null = the count is unread → the row says so.
+          ultraAddOnCount,
         );
 
   // 💳 The rows that replaced the add-on cards (drawing § 3). Deep Search's own route is web-only (lib/store-shell.ts),
@@ -525,21 +530,25 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             ? `${formatPhp(deepSearchPricePhp)} a search · on every plan`
             : 'One search at a time · on every plan',
       };
-  // 🛒 THE ULTRA ADD-ON (owner 2026-11-19, the ONE add-on): +1 branch · +15 live cards · +3 people · +50 GB per 4 weeks,
-  // Ultra only, may be bought more than once. The price is the live catalogue row (`fetchCountAddOnPricePhp`) — no
-  // readable price, no Add control (never a fallback figure). The form posts only the kind; the action reads the rest.
+  // 🛒 THE ULTRA ADD-ON (owner 2026-11-19, the ONE add-on) per 4 weeks, Ultra only, may be bought more than once. What
+  // it gives is said by `ultraAddOnGivesWords` (built once from ULTRA_ADDON_GIVES — never typed here). The price is
+  // the live catalogue row — no readable price, no figure and no Add control (never a fallback). The form posts only
+  // the kind; the action reads the rest.
+  // 📱 Two rows (fix pass 22 Nov): what it gives has a row to itself; the PRICE is the title of the row that holds
+  // "Add one", so neither is cut off at 375 px (`PlanRows` says why).
   const ultraAddOnRow =
     canBuyUltraAddOn('ultra', currentTier) && !storeShell
       ? {
-          line: [
-            '+1 branch · +15 live cards · +3 people · +50 GB',
-            ultraAddOnPricePhp !== null ? `${formatPhp(ultraAddOnPricePhp)} every 4 weeks` : null,
-            ultraExtras && ultraExtras.ultra > 0 ? `you have ${NUMBER.format(ultraExtras.ultra)}` : null,
-          ]
-            .filter(Boolean)
-            .join(' · '),
-          end:
-            ultraAddOnPricePhp !== null ? <UltraAddOnButton action={buyUltraAddOn} /> : null,
+          gives: ultraAddOnGivesWords(),
+          buy:
+            ultraAddOnPricePhp !== null
+              ? {
+                  price: `${formatPhp(ultraAddOnPricePhp)} every 4 weeks`,
+                  // A MEASURED count only: an unread one says nothing here (the held rows below say it couldn't load).
+                  line: ultraAddOnCount !== null && ultraAddOnCount > 0 ? `You have ${NUMBER.format(ultraAddOnCount)}` : null,
+                  end: <UltraAddOnButton action={buyUltraAddOn} />,
+                }
+              : null,
           // 🔁 One row per add-on held, each with its own Renew (4 more weeks from ITS end — no paid day lost). "Add one"
           // above still buys another. Unread → one honest line, never an empty list that hides the Renew buttons.
           held:

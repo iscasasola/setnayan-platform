@@ -29,7 +29,7 @@ import { fetchVendorBranches, fetchBranchFeePhp, branchAutoRadiusKm, type Vendor
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
 import { isTierAtLeast, canRenewExtraBranches, holdsBoughtExtras, ULTRA_ADDON_GIVES } from '@/lib/vendor-tier-caps';
-import { fetchAddOnExtras } from '@/lib/vendor-ultra-addons';
+import { readLiveUltraAddOns } from '@/lib/vendor-ultra-addons';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { fetchVendorServicePickerVocab } from '@/lib/vendor-service-vocab';
 import { shopCategoryCount } from '@/lib/shop-category-count';
@@ -144,8 +144,9 @@ export type DetailsData = {
     isVerified?: boolean;
     /** The plan was read (false → Where you work says so, never a false 0 km). */
     tierMeasured?: boolean;
-    /** 🛒 +1 included branch per Ultra Add-on the shop holds (owner 2026-11-19); 0 when none. */
-    addOnBranches?: number;
+    /** 🛒 +1 included branch per Ultra Add-on the shop holds (owner 2026-11-19); 0 when none; `null` = the live
+     *  count could not be read (the panel says so — it never draws the plan's bare number as "all in use"). */
+    addOnBranches?: number | null;
   };
   pay: { methods: VendorPaymentMethodRow[]; measured: boolean };
   /** 🔎 What Run Deep Search does for this shop now (`loadDeepSearchOffer` — the Deep Search page's own resolver).
@@ -248,9 +249,13 @@ export async function loadDetailsData(
     let branchFeePhp: number | null = null;
     let branchPay: PayInfo = { accounts: [], open: [] };
     // 🛒 +1 included branch per Ultra Add-on the shop holds (owner 2026-11-19), the same the database gate adds.
-    const addOnBranches = holdsBoughtExtras(own.tier_state ?? null)
-      ? (await fetchAddOnExtras(supabase, vendorId)).ultra * ULTRA_ADDON_GIVES.branches
-      : 0;
+    // 🔑 MEASURED (`readLiveUltraAddOns`): an unread count is `null`, never 0 — a failed read used to draw "your plan's
+    // 3 included branches are in use" to an Ultra shop holding an add-on (ship review of PR #8019, 22 Nov).
+    let addOnBranches: number | null = 0;
+    if (holdsBoughtExtras(own.tier_state ?? null)) {
+      const live = await readLiveUltraAddOns(supabase, vendorId);
+      addOnBranches = live.status === 'ok' ? live.count * ULTRA_ADDON_GIVES.branches : null;
+    }
     // Only an Ultra shop may RENEW a branch it already bought (no single branch is sold since 2026-11-19), so only it
     // pays for the fee + rails reads.
     if (canRenewExtraBranches(own.tier_state ?? null)) {

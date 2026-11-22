@@ -39,7 +39,7 @@ export const STORAGE_FULL_CODE = 'supplier_storage_full';
 /** Where "move to a plan that holds more" goes — the shop's Plan. */
 export const STORAGE_UPGRADE_HREF = '/vendor-dashboard/subscription';
 
-/** The Plan row's line when what the shop stores could not be read — said, never a 0. */
+/** The Plan row's line when what the shop stores — or the storage it holds — could not be read: said, never a 0. */
 export const STORAGE_UNREAD = 'Couldn’t read what you store just now — nothing is lost';
 
 /** The refusal when the allowance could not be checked — fail CLOSED, plain reason + try again. */
@@ -80,15 +80,20 @@ export function nextStoragePlan(plan: string | null | undefined): VendorTier | n
  * The Plan's "Storage" row. Null = the row is not drawn (a plan with no allowance — the screen stays as it was).
  *   ok      "1.2 GB of 5 GB used" · "5 GB of 5 GB used · full" · "6.1 GB of 5 GB used · over — new files wait for room"
  *   unread  `STORAGE_UNREAD` — never "0 MB of 5 GB used".
+ * `ultraAddOns` is the live Ultra Add-on count, or `null` when it could NOT BE READ. On a plan that holds bought extras
+ * (Ultra) an unread count makes the allowance itself unknown, so the line is `STORAGE_UNREAD` — never "20 GB of 20 GB
+ * used · full" to a shop that pays for 50 GB more (ship review of PR #8019, 22 Nov). Below Ultra the count is not part
+ * of the allowance, so an unread one changes nothing.
  */
 export function storageRowLine(
   plan: string | null | undefined,
   read: { status: 'ok'; bytes: number } | { status: 'unread' },
-  ultraAddOns = 0,
+  ultraAddOns: number | null = 0,
 ): string | null {
-  const allowance = storageAllowanceBytes(plan, ultraAddOns);
+  const allowance = storageAllowanceBytes(plan, ultraAddOns ?? 0);
   if (allowance === null) return null;
   if (read.status !== 'ok') return STORAGE_UNREAD;
+  if (ultraAddOns === null && holdsBoughtExtras(plan)) return STORAGE_UNREAD;
   const base = `${words(read.bytes)} of ${storageWords(allowance)} used`;
   if (read.bytes > allowance) return `${base} · over — new files wait for room`;
   if (read.bytes === allowance) return `${base} · full`;

@@ -71,7 +71,9 @@ test('every job keeps its door', () => {
   // 💳 2026-11-14 ("SIMPLER SUPPLIER PLANS"): the add-on cards folded into the plans; what is left to buy is a row each.
   assert.match(ROWS, /title="Deep Search"[\s\S]*?href="\/vendor-dashboard\/deep-search"/);
   // 2026-11-19: the extra seats and branches row became the Ultra Add-on row — its door is its own Add control.
-  assert.match(ROWS, /title="Ultra Add-on" line=\{ultraAddOn\.line\} end=\{ultraAddOn\.end\}/);
+  // 22 Nov: two rows, so nothing is cut off on a phone — what it gives (no control beside it), then the price with Add.
+  assert.match(ROWS, /title="Ultra Add-on" line=\{ultraAddOn\.gives\} \/>/);
+  assert.match(ROWS, /data="plan-ultra-addon-buy"[^>]*title=\{ultraAddOn\.buy\.price\} line=\{ultraAddOn\.buy\.line\} end=\{ultraAddOn\.buy\.end\}/);
   assert.match(PAGE, /fetchVendorAddonPricePhp\(supabase, 'deep_search_about_you', currentTier\)/);
   assert.match(PAGE, /<PlanRows/);
   for (const gone of ['AiAddonCard', 'BoothAddonCard', 'PapicChallengeCard', 'UltraAddonsCard']) {

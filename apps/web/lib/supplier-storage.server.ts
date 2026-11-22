@@ -3,6 +3,8 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { storageAllowanceBytes, storageFits, storageFullMessage } from '@/lib/supplier-storage';
+import { holdsBoughtExtras } from '@/lib/vendor-tier-caps';
+import { readLiveUltraAddOns } from '@/lib/vendor-ultra-addons';
 
 /**
  * lib/supplier-storage.server.ts — THE PLAN HOLDS STORAGE, THE READS (lib/supplier-storage.ts is the rule).
@@ -42,7 +44,10 @@ export type StorageCheck =
   | { kind: 'fits' }
   /** The sentence names the plan, what is left, and the way up. */
   | { kind: 'full'; message: string }
-  /** The plan or the usage could not be read — the caller refuses (a cap that waves uploads through when blind is no cap). */
+  /**
+   * The plan, the usage or the Ultra Add-ons the shop holds could not be read — the caller refuses with "couldn't
+   * check" (a cap that waves uploads through when blind is no cap), and NEVER says "full": full is a measured fact.
+   */
   | { kind: 'unavailable' };
 
 /**
@@ -69,19 +74,22 @@ export async function checkSupplierStorage(
     return { kind: 'unavailable' };
   }
   const plan = (shop.data as { tier_state: string | null }).tier_state;
+  if (storageAllowanceBytes(plan) === null) return { kind: 'fits' }; // no allowance on this plan
   // 🛒 +50 GB per Ultra Add-on held NOW (owner 2026-11-19; 28 days per payment) — the same live count the database
-  // gate adds. Unreadable → no packs (withholding, never granting): the gate still decides at the insert.
-  const live = await admin.rpc('vendor_live_ultra_addons_for', { p_vendor_profile_id: vendorProfileId });
-  if (live.error) {
-    console.error('[supplier-storage] live Ultra Add-ons unreadable (counting none — the plan’s storage stands)', vendorProfileId, live.error.message);
-  }
-  const packs = live.error ? 0 : Math.max(0, Math.floor(Number(live.data) || 0));
-  if (storageAllowanceBytes(plan, packs) === null) return { kind: 'fits' }; // no allowance on this plan
+  // gate adds. Asked only on a plan that holds bought extras (Ultra); every other plan's allowance is the plan's own.
+  const live = holdsBoughtExtras(plan) ? await readLiveUltraAddOns(admin, vendorProfileId) : ({ status: 'ok', count: 0 } as const);
   const used = await readStoredBytes(admin, vendorProfileId);
   if (used.status !== 'ok') return { kind: 'unavailable' };
-  return storageFits(plan, used.bytes, incomingBytes, packs)
+  if (live.status !== 'ok') {
+    // 🔑 A FAILED ADD-ON READ IS NEVER "FULL" (ship review of PR #8019, 22 Nov). It used to count as 0 add-ons, so an
+    // Ultra shop paying for +50 GB was told "your Ultra plan's 20 GB of storage is full" — a sentence about the shop,
+    // made from a read that failed. What is still known: the plan's OWN allowance is a floor (an add-on only adds),
+    // so a file that fits it fits. Past that floor the answer is unknown: `unavailable`, said as "couldn't check".
+    return storageFits(plan, used.bytes, incomingBytes, 0) ? { kind: 'fits' } : { kind: 'unavailable' };
+  }
+  return storageFits(plan, used.bytes, incomingBytes, live.count)
     ? { kind: 'fits' }
-    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes, packs) };
+    : { kind: 'full', message: storageFullMessage(plan, used.bytes, incomingBytes, live.count) };
 }
 
 /**

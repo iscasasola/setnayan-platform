@@ -86,6 +86,7 @@ import { BadgeUpgradesLedger } from '@/app/admin/gifts/_components/badge-upgrade
 import { startableChoices, type BadgeUpgradeChoice, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 import { shopGiftPacksFrom } from '@/lib/shop-gifts';
 import { UltraAddOnButton } from '@/app/vendor-dashboard/subscription/_components/ultra-addon-button';
+import { ultraAddOnGivesWords } from '@/lib/vendor-ultra-addons';
 import { buyUltraAddOn } from '@/app/vendor-dashboard/subscription/ultra-addon-actions';
 import { formatCentavos } from '@/lib/vendor-proposals';
 import { REQUIRED_DOC_COUNT } from '@/lib/vendor-verification';
@@ -249,9 +250,10 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       ultraAddOn={
         shop.tier === 'enterprise'
           ? {
-              line: '+1 branch · +15 live cards · +3 people · +50 GB · lab price every 4 weeks · you have 2',
+              // The shipped words (`ultraAddOnGivesWords`); the price is the lab's own, never a real figure.
+              gives: ultraAddOnGivesWords(),
               // The SHIPPED buy action — with no session it refuses; nothing is written.
-              end: <UltraAddOnButton action={buyUltraAddOn} />,
+              buy: { price: 'Lab price every 4 weeks', line: 'You have 2', end: <UltraAddOnButton action={buyUltraAddOn} /> },
               // 🔁 Each held add-on with its own Renew (PR #8019, option A) — the shipped rows, two sample add-ons.
               held: [
                 { key: 'lab-a1', title: 'Ultra Add-on 1', line: 'Until Thu 3 Dec 2026', end: <UltraAddOnButton action={buyUltraAddOn} renewOrderId="00000000-0000-4000-8000-0000000000a1" /> },

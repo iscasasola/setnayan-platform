@@ -76,11 +76,21 @@ export function PlanRows({
   /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
   deepSearch?: { line: string } | null;
   /**
-   * 🛒 The Ultra Add-on (owner 2026-11-19, the ONE add-on): its line (what it adds · the live catalogue price · how many
-   * the shop holds) and its Add control, built by the page around the `buyUltraAddOn` form. null = not drawn (not
-   * Ultra, or not on sale). It replaces the "Extra seats and branches" row — single extras are not sold any more.
+   * 🛒 The Ultra Add-on (owner 2026-11-19, the ONE add-on), built by the page. null = not drawn (not Ultra, or not on
+   * sale). It replaces the "Extra seats and branches" row — single extras are not sold any more.
+   *
+   * 📱 TWO ROWS, SO NOTHING IS CUT OFF AT 375 px (fix pass on PR #8019, 22 Nov). One row held everything — "+1 branch ·
+   * +15 live cards · +3 people · +50 GB · ₱… every 4 weeks · you have N" beside the Add button — and a row's line never
+   * wraps, so a phone showed "+1 branch · +15 live cards · +3 p…": the PRICE and the +50 GB were the part lost.
+   *   · `gives` — what one add-on adds (`ultraAddOnGivesWords`), on a row with NO control, so it has the whole width;
+   *   · `buy`   — the PRICE first, as the title of the row that holds the Add control, and how many the shop holds.
+   *              null = no readable price: no figure and no Add control (never a fallback).
    */
-  ultraAddOn?: { line: string; end: ReactNode; held?: readonly { key: string; title?: string; line: string; end: ReactNode }[] } | null;
+  ultraAddOn?: {
+    gives: string;
+    buy: { price: string; line: string | null; end: ReactNode } | null;
+    held?: readonly { key: string; title?: string; line: string; end: ReactNode }[];
+  } | null;
   /** 💳 Add-ons bought before they folded into the plans, while they still run (item 11). */
   bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
@@ -164,7 +174,10 @@ export function PlanRows({
           <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
         ) : null}
         {ultraAddOn ? (
-          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Ultra Add-on" line={ultraAddOn.line} end={ultraAddOn.end} />
+          <DatesRow data="plan-ultra-addon" lead={ic(Users)} title="Ultra Add-on" line={ultraAddOn.gives} />
+        ) : null}
+        {ultraAddOn?.buy ? (
+          <DatesRow data="plan-ultra-addon-buy" lead={ic(Users)} title={ultraAddOn.buy.price} line={ultraAddOn.buy.line} end={ultraAddOn.buy.end} />
         ) : null}
         {(ultraAddOn?.held ?? []).map((h) => (
           <DatesRow key={h.key} data="plan-ultra-addon-held" lead={ic(Users)} title={h.title ?? 'Ultra Add-on'} line={h.line} end={h.end} />

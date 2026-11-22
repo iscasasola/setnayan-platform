@@ -144,6 +144,34 @@ test('a renewal that names another shop’s add-on, or an unpaid one, is refused
   await assert.rejects(db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [unpaid]), /is not paid/);
 });
 
+test('ONE STATUS: the renewal accepts exactly what the live count counts — a paid add-on, never a "fulfilled" one', async () => {
+  // Fix pass, 22 Nov. `vendor_live_ultra_addons` counts status 'paid' only (so do the recount, the reminder, the Plan
+  // page's list and its Renew gate), but `ultra_addon_apply_renewal` also took 'fulfilled' — it could have sold 28 more
+  // days on an add-on that is never counted. 'paid' is the one status an approved add-on order carries: no code path
+  // writes 'fulfilled' on an order.
+  // SABOTAGE THAT TURNS THIS RED (run once, 22 Nov): put `NOT IN ('paid', 'fulfilled')` back on either check in
+  // `ultra_addon_apply_renewal` (20271351415438) → the matching `assert.rejects` below fails.
+  const s = await newShop('status');
+  const done = await order(s, addOnKey(s.shop), 'fulfilled', 10);
+  assert.equal(await liveCount(s.shop), 0, 'a "fulfilled" add-on is not counted live');
+  const before = await endsAt(done);
+  const renewal = await order(s, ultraAddOnRenewalServiceKey(done), 'paid', null);
+  await assert.rejects(
+    db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [renewal]),
+    /names no paid Ultra Add-on/,
+    'the renewal extended an add-on the live count does not count',
+  );
+  assert.equal(await endsAt(done), before, 'the uncounted add-on moved');
+  assert.equal(await endsAt(renewal), null, 'a refused renewal left its once-only marker set');
+
+  // And the renewal order itself must be 'paid'.
+  const live = await order(s, addOnKey(s.shop), 'paid', 10);
+  const liveBefore = await endsAt(live);
+  const odd = await order(s, ultraAddOnRenewalServiceKey(live), 'fulfilled', null);
+  await assert.rejects(db.query(`SELECT public.ultra_addon_apply_renewal($1)`, [odd]), /is not paid/);
+  assert.equal(await endsAt(live), liveBefore);
+});
+
 test('a lapsed add-on renews from today, never from a date in the past', async () => {
   const s = await newShop('lapsed');
   const a = await order(s, addOnKey(s.shop), 'paid', -3);

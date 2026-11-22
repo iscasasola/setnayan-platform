@@ -1,6 +1,11 @@
 -- ultra_addon_and_the_19_nov_plan_numbers
--- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
--- existing migration. KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied):
+-- Created via `pnpm migration:new` on 19 Nov. ⚠ Its prefix NO LONGER sorts after every migration: main has merged
+-- later-prefixed files since (re-measure: `ls supabase/migrations | awk -F_ '$1 > "20271351415438"'`). That is
+-- harmless here — none of them redefines a function this file creates or replaces, nor the two catalogue constraints
+-- it re-adds (re-measure: `git grep -l -i "function public.<name>" -- supabase/migrations`) — and the pipeline's
+-- `db push --include-all` applies a file dated before the remote head. A function that a later file DOES redefine
+-- must not be changed here: `guard_orders_protected_columns` has its own forward-prefixed file, 20271358916247.
+-- KEEP THIS MIGRATION IDEMPOTENT (it may be re-applied):
 --   • CREATE TABLE IF NOT EXISTS …   (+ ALTER TABLE … ENABLE ROW LEVEL SECURITY in the SAME migration)
 --   • ALTER TABLE … ADD COLUMN IF NOT EXISTS …
 --   • CREATE INDEX IF NOT EXISTS …
@@ -500,7 +505,11 @@ BEGIN
    WHERE order_id = substr(r.service_key, length(v_prefix) + 1)::uuid
    FOR UPDATE;
   SELECT * INTO r FROM public.orders WHERE order_id = p_renewal_order_id FOR UPDATE;
-  IF r.status NOT IN ('paid', 'fulfilled') THEN
+  -- 'paid' and nothing else — the ONE status an approved add-on order carries (fix pass, 22 Nov). No code path writes
+  -- 'fulfilled' on an order, and everything else that reads an add-on asks for 'paid' alone: the live count
+  -- (vendor_live_ultra_addons), the recount, the reminder (section 6), the Plan page's list and its Renew gate. This
+  -- function used to accept 'fulfilled' as well, so it could have extended an add-on the live count never counts.
+  IF r.status IS DISTINCT FROM 'paid' THEN
     RAISE EXCEPTION 'ultra_addon_apply_renewal: renewal % is not paid (%)', p_renewal_order_id, r.status;
   END IF;
   -- Once only: the end it already set.
@@ -513,7 +522,7 @@ BEGIN
      OR r.vendor_profile_id IS NULL
      OR t.vendor_profile_id IS DISTINCT FROM r.vendor_profile_id
      OR t.service_key IS DISTINCT FROM 'vendor_ultra_addon__' || r.vendor_profile_id::text
-     OR t.status NOT IN ('paid', 'fulfilled') THEN
+     OR t.status IS DISTINCT FROM 'paid' THEN
     RAISE EXCEPTION 'ultra_addon_apply_renewal: renewal % names no paid Ultra Add-on of the same shop', p_renewal_order_id;
   END IF;
 

@@ -15,7 +15,7 @@ import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { allowance } from '@/lib/vendor-plan-rows';
 import { TIER_CAPS, TIER_LABEL, WAITLIST_SETTING_MAX, type VendorTier } from '@/lib/vendor-tier-caps';
-import { ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
+import { COUNT_ADDONS, ULTRA_ADDON_ORDER, canBuyUltraAddOn, ultraAddOnGivesWords, ultraAddOnSku, type UltraAddOnKind } from '@/lib/vendor-ultra-addons';
 
 /**
  * Free's search line: the 15 Nov rule the database applies (`vendor_profiles.is_findable`, lib/findable-shop.ts) — an
@@ -193,7 +193,7 @@ export function planTable(input: { paywallOn: boolean; prices: PlanTablePrices }
   const ultraAddOnCell = (t: VendorTier): TableCell => {
     if (!canBuyUltraAddOn('ultra', t)) return no('Not sold on this plan');
     const price = prices.bySku[ultraAddOnSku('ultra')];
-    return price ? words(`${price} every 4 weeks · +1 branch · +15 live cards · +3 people · +50 GB`) : words(DASH);
+    return price ? words(`${price} every 4 weeks · ${ultraAddOnGivesWords()}`) : words(DASH);
   };
   const buy: TableRow[] = [
     {
@@ -244,7 +244,7 @@ export function addonLines(bySku: Readonly<Record<string, string | null>>): { ki
 
 /** Ultra's add-ons as the table names them — the add-on module's own purchase labels. */
 const ULTRA_ADDON_LABEL: Record<UltraAddOnKind, string> = {
-  ultra: 'Ultra Add-on: +1 branch · +15 live cards · +3 people · +50 GB',
+  ultra: COUNT_ADDONS.ultra.label,
   category: '+1 category',
   service_card: '+1 service card',
   seat: '+1 team seat',

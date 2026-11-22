@@ -100,9 +100,19 @@ export function SignInHerePanel({
   const next = here;
 
   const handleSignedIn = useCallback(
-    () => {
+    (landing: string | null) => {
       onClose();
-      options.onSignedIn?.();
+      if (options.onSignedIn) {
+        options.onSignedIn(landing);
+      } else if (landing) {
+        /*
+          🏠 OWNER 22 NOV 2026 — "when i log in. don't start on discovery. start on their profile page". `landing` is
+          set ONLY when this panel was opened from `/` (Discover): there is no half-written anything to keep, so the
+          person goes to their profile page, Home (`landingForAccount`). Every other page only refreshes, below. The
+          refresh still runs after the push — the same order as the front door's — so the page is read with the session.
+        */
+        router.push(landing);
+      }
       /*
         🔑 REFRESH, NOT PUSH — this is the whole seam in one call.
         `router.refresh()` re-renders the server components with the new

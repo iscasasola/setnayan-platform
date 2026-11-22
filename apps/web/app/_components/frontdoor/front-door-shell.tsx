@@ -960,7 +960,7 @@ export function FrontDoorShell({
   */
   const onSignInPress = (e: React.MouseEvent) => {
     e.preventDefault();
-    openSignIn({ onSignedIn: () => router.push(SIGNED_IN_LANDING) });
+    openSignIn({ onSignedIn: (landing) => router.push(landing ?? SIGNED_IN_LANDING) });
   };
 
   // Escape closes whichever layer is open — the off-canvas rail first, since

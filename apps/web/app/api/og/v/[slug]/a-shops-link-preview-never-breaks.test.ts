@@ -71,7 +71,8 @@ test('the logo is read through the public-bucket-only signer, never a raw ref', 
   const src = read(ROUTE);
   assert.match(
     src,
-    /displayUrlForStoredAsset\(vendor\.logo_url\)/,
+    // 🔒 …under the Free-files rule: a verified shop's logo through that signer, a Free shop's never (spec § ★ J)
+    /ownShopFileUrl\(vendor\.logo_url, own, \(v\) => displayUrlForStoredAsset\(v\)\)/,
     'a logo ref naming a private bucket must be refused, not signed — displayUrlForStoredAsset ' +
       'routes through lib/site-media-ref.ts\'s publicBucketServeRef for exactly this reason',
   );

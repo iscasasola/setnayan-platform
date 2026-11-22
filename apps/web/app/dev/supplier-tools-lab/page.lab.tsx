@@ -201,7 +201,8 @@ const MB_PHOTO = (id: string, label: string, state: 'live' | 'draft' | 'rejected
     approved_at: state === 'live' || state === 'retired' ? ago(5) : null, retired_at: state === 'retired' ? ago(1) : null,
     rejected_at: state === 'rejected' ? ago(2) : null, rejection_reason: state === 'rejected' ? 'This photo shows a phone number.' : null,
     created_at: ago(9), source_event_id: null, from_suggestion: false,
-    public_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAATklEQVR4nGM4ubn/8IauvWtbt69q2Li8evWSsqULC+fPy2HAKjpzdjoDVtHJM5IYsIr2To1lwCraPimCAatoY38wA1bR6h4/BqyipZ2eAJONakGVs7jEAAAAAElFTkSuQmCC',
+    // A sample picture at a real size (a flat gradient, nobody's photo), so the editor's "picture leads" is seen.
+    public_url: "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='640'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%239fc3b1'/%3E%3Cstop offset='1' stop-color='%23a98a66'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='900' height='640' fill='url(%23g)'/%3E%3C/svg%3E",
     color_ranges: {},
   }) as unknown as StylistAsset;
 const PHOTOS = [MB_PHOTO('p1', 'Garden arch, Tagaytay', 'live'), MB_PHOTO('p2', 'Sweetheart table', 'draft'), MB_PHOTO('p3', 'Reception aisle', 'live'), MB_PHOTO('p4', 'Welcome sign', 'rejected'), MB_PHOTO('p5', 'Centrepiece', 'draft'), MB_PHOTO('p6', 'Cake table', 'retired')];

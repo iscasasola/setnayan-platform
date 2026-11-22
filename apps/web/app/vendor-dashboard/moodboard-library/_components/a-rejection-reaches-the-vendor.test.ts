@@ -118,7 +118,9 @@ test('the status line stops saying "pending review" about a rejected photo', () 
 test('the supplier’s own list shows which photo was refused', () => {
   const src = read(EDITOR);
   // The redraw (v3, 21 Nov 2026): the list is the photo grid now — the state is a chip on each photo.
-  const list = windowOf(src, 'assets.map((a) => {', /wide \? uploadSection/);
+  // 22 Nov parity pass: on a computer the upload form now sits ABOVE the grid (the drawing), so the grid's window ends
+  // at the event photos that follow it on a phone.
+  const list = windowOf(src, 'assets.map((a) => {', /wide \? null : eventsSection/);
   assert.match(list, /a\.rejected_at/);
 });
 

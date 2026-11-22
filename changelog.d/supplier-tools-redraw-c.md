@@ -18,4 +18,15 @@ pieces. Look only: every page keeps what it does, its words and the same server 
   are unchanged.
 - `a-rejection-reaches-the-vendor.test.ts` reads the grid now (the state is a chip on each photo).
 
+- **Parity pass (22 Nov), look only:**
+  - **My lines:** an opened line ends in ONE row — Update match at the left, the main **Save** at the right (two forms
+    as shipped; each button names its own). Notes to yourself wear the round mark.
+  - **Moodboard library:** the state on each photo is a solid pill that reads on any picture, light and dark, and never
+    spills past its tile ("Not published" was cut by the tile's edge). Photos from events you worked are rows in one
+    frame — "Add to Inspiration" at the row's right, "Added" as a chip. The editor is in the drawn order: the picture
+    leads, then its name, where it sits and a refusal's reason, the colour tags, Preview palette, and Delete · Save tags
+    last. On a phone it rises under "✕ Tag colours" with Delete · Save tags pinned at the thumb. On a computer the
+    upload form sits above the grid and the event photos under the editor.
+  - `ColorRangeManipulator` gains an optional `afterPicture` slot; the admin console passes nothing and is unchanged.
+
 SPEC IMPACT: None — builds an approved drawing; the corpus row already exists.

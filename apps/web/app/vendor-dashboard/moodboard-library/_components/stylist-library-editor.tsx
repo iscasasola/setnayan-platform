@@ -30,9 +30,9 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Image from 'next/image';
-import { UploadCloud } from 'lucide-react';
+import { Check, Palette, Plus, Trash2, UploadCloud, X } from 'lucide-react';
 import { useConfirm } from '@/app/_components/confirm-dialog';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 // 🔽 ANY SET OF CHOICES IS ONE DROPDOWN (owner rule) — the shipped PickMenu, never a native <select>.
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
@@ -78,7 +78,7 @@ import { preselectedCard, type CardChoice } from '@/lib/inspiration-card-link';
 import { formatCount } from '@/lib/format-number';
 import { Sheet } from '@/app/_components/sheet';
 import { InfoTip } from '@/app/_components/info-tip';
-import { ToolChip } from '../../_components/tool-page';
+import { ToolChip, ToolRow } from '../../_components/tool-page';
 import { ToolAddSheet } from '../../_components/tool-add-sheet';
 
 export type StylistAsset = {
@@ -391,7 +391,7 @@ export function StylistLibraryEditor({
               e.preventDefault();
               handleUpload(e.currentTarget);
             }}
-            className="space-y-3"
+            className={wide ? 'sn-frame space-y-3 p-4' : 'space-y-3'}
           >
             {shopPhoto ? (
               /* 🌱🖼 A photo from the shop itself — sent as its stored ref; the server checks it is this shop's. */
@@ -613,57 +613,44 @@ export function StylistLibraryEditor({
   );
   const editorPane = selected ? (
           <>
-            <header className="flex flex-wrap items-baseline justify-between gap-2">
-              <div>
-                <h2 id="moodboard-editor-title" className="text-lg font-semibold text-ink">{selected.label}</h2>
-                <p className="tabular-nums text-[12px] uppercase tracking-[0.2em] text-[color:var(--m-slate-2)]">
-                  {assetWhere(selected, gallerySlots)} ·{' '}
-                  {selected.rejected_at
-                    ? '✕ not published'
-                    : selected.approved_at
-                      ? '✓ approved by Setnayan'
-                      : 'draft (pending review)'}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveTags}
-                  disabled={isPending}
-                  className={actionButtonClass('ok', { extra: '!min-h-11 disabled:opacity-50' })}
-                >
-                  Save tags
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isPending}
-                  className={actionButtonClass('danger', { extra: '!min-h-11 disabled:opacity-50' })}
-                >
-                  Delete
-                </button>
-              </div>
-            </header>
-
-            {/* 🔑 MB21 · THE REASON REACHES THE PIXEL. Read off the selected
-                asset, never hard-coded — a-rejection-reaches-the-vendor.test.ts
-                pins this mount, because a rejection stored and not shown is
-                exactly the "pending review forever" this replaced. */}
-            <RejectionNotice
-              rejectedAt={selected.rejected_at}
-              reason={selected.rejection_reason}
-            />
-
+            {/* Picture leads (the drawing): the photo first; its name, where it sits and a refusal's reason right under it;
+                then the colour-region tags. */}
             <ColorRangeManipulator
               imageSrc={selected.public_url}
               initialMap={localMaps[selected.asset_id] ?? {}}
               onChange={setMapForSelected}
               previewPalette={previewPalette}
+              afterPicture={
+                <>
+                  <header>
+                    <h2 id="moodboard-editor-title" className="text-[17px] font-bold leading-tight text-ink">{selected.label}</h2>
+                    <p className="mt-0.5 text-[13px] text-[color:var(--m-slate-2)]">
+                      {assetWhere(selected, gallerySlots)} ·{' '}
+                      {selected.rejected_at
+                        ? '✕ not published'
+                        : selected.approved_at
+                          ? '✓ approved by Setnayan'
+                          : 'draft (pending review)'}
+                    </p>
+                  </header>
+
+                  {/* 🔑 MB21 · THE REASON REACHES THE PIXEL. Read off the selected
+                      asset, never hard-coded — a-rejection-reaches-the-vendor.test.ts
+                      pins this mount, because a rejection stored and not shown is
+                      exactly the "pending review forever" this replaced. */}
+                  <RejectionNotice
+                    rejectedAt={selected.rejected_at}
+                    reason={selected.rejection_reason}
+                  />
+                </>
+              }
             />
 
-            <details className="border-y border-[color:var(--m-line)] py-3">
-              <summary className="cursor-pointer text-sm font-medium text-ink">
-                Preview palette (test how your tags look with different colors)
+            <details className="py-1">
+              <summary className="flex min-h-11 cursor-pointer items-center gap-2 text-[15px] font-semibold text-[color:var(--m-slate-2)]">
+                <Palette aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
+                Preview palette
+                <span className="sr-only"> (test how your tags look with different colors)</span>
               </summary>
               <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
                 {[1, 2, 3, 4, 5, 6].map((slotId) => (
@@ -697,6 +684,89 @@ export function StylistLibraryEditor({
             Upload a photo or pick one from your library to start tagging.
           </div>
         );
+
+  // The drawing's last row: Delete at the left (its one confirm kept), the main Save tags at the right. Last in the right
+  // column on a computer; pinned under the risen editor on a phone (the thumb's reach).
+  const editorButtons = selected ? (
+    <div className="flex flex-wrap items-center justify-between gap-2" data-library-editor-buttons="">
+      <ActionButton tone="danger" icon={<Trash2 aria-hidden />} label="Delete" disabled={isPending} onClick={handleDelete} />
+      <ActionButton tone="brand" main icon={<Check aria-hidden />} label="Save tags" disabled={isPending} onClick={handleSaveTags} />
+    </div>
+  ) : null;
+
+  const eventsSection = (
+    <>
+        {/* ── THE EVENT-LINKED ROUTE ───────────────────────────────────────
+            The shop's own day-of photos from `editorial_vendor_media` — a
+            table built in June 2026 and standing at zero rows since. They are
+            already the couple's, already NSFW-screened, and already curated by
+            the couple (a photo they hid on their own story never appears
+            here). Promoting one re-checks `selection_match_rank = 1` server
+            side rather than trusting the gate that let it be submitted, and
+            the result is EVENT-LINKED — so it never touches the
+            back-catalogue allowance, at any tier. */}
+        {importableEditorialFailed ? (
+          <ShopNotice tone="warn" role="status" className="text-sm">
+            We couldn’t load your photos from events you worked just now.
+            They aren’t gone — reload in a moment, or upload from your own files
+            below.
+          </ShopNotice>
+        ) : null}
+
+        {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
+          <section className="mt-[18px]">
+            <h3 className="hc-k2 mb-2 min-h-9">
+              <InfoTip label="From events you worked" align="start">
+                Your day-of photos from couples who picked you. These never count against your back-catalogue allowance.
+              </InfoTip>
+            </h3>
+            <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+              <span className="shrink-0 text-[15px] text-ink">Add to</span>
+              <PickMenu
+                label="Add these photos to"
+                value={importSlot}
+                options={slotOptions(gallerySlots)}
+                onPick={setImportSlot}
+                dataAttr="data-library-import-part"
+                stickyGroups
+                className="!min-h-11"
+              />
+            </div>
+            <div className="mb-3">
+              <InspirationCardPick
+                choices={choicesFor(importSlot)}
+                value={cardFor(importSlot)}
+                onChange={(id) => pickCard(importSlot, id)}
+                dataAttr="data-library-import-card"
+                withHiddenField={false}
+              />
+            </div>
+            <ul className="sn-frame px-4 py-1" aria-label="Photos from events you worked">
+              {importableEditorial.map((photo) => (
+                <ToolRow
+                  key={photo.mediaId}
+                  data="library-event-photo"
+                  title={photo.caption?.trim() || 'Day-of photo'}
+                  right={
+                    photo.alreadyImported ? (
+                      <ToolChip tone="ok">Added</ToolChip>
+                    ) : (
+                      <ActionButton
+                        tone="neutral"
+                        icon={<Plus aria-hidden />}
+                        label="Add to Inspiration"
+                        disabled={isPending}
+                        onClick={() => handleImport(photo.mediaId)}
+                      />
+                    )
+                  }
+                />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+    </>
+  );
 
   return (
     <>
@@ -732,6 +802,7 @@ export function StylistLibraryEditor({
         the shipped two panes stay — the upload form and the grid on the left, the editor on the right. */}
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
       <div className="space-y-4">
+        {wide ? uploadSection : null}
         <section>
           <h3 className="hc-k2 mb-2 min-h-9">
             <span className="inline-flex items-center gap-2">
@@ -759,7 +830,7 @@ export function StylistLibraryEditor({
                       }}
                       aria-label={`${a.label || 'Moodboard photo'} · ${assetWhere(a, gallerySlots)}`}
                       aria-pressed={on}
-                      className={`sn-press absolute inset-0 overflow-hidden rounded-lg ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
+                      className={`sn-press absolute inset-0 overflow-hidden rounded-xl ${on ? 'ring-2 ring-[rgb(var(--color-mulberry))] ring-offset-2' : ''}`}
                     >
                       <Image
                         src={a.public_url}
@@ -769,16 +840,8 @@ export function StylistLibraryEditor({
                         loading="lazy"
                         className="object-cover"
                       />
-                      <span className="absolute bottom-1.5 left-1.5">
-                        {state === 'rejected' ? (
-                          <ToolChip tone="no">✕ Not published</ToolChip>
-                        ) : state === 'live' ? (
-                          <ToolChip tone="ok">✓ Live</ToolChip>
-                        ) : state === 'retired' ? (
-                          <ToolChip tone="quiet">Retired</ToolChip>
-                        ) : (
-                          <ToolChip tone="quiet">Draft</ToolChip>
-                        )}
+                      <span className="absolute inset-x-1 bottom-1 flex">
+                        <PhotoState state={state} />
                       </span>
                     </button>
                   </li>
@@ -788,92 +851,64 @@ export function StylistLibraryEditor({
           )}
         </section>
 
-        {/* ── THE EVENT-LINKED ROUTE ───────────────────────────────────────
-            The shop's own day-of photos from `editorial_vendor_media` — a
-            table built in June 2026 and standing at zero rows since. They are
-            already the couple's, already NSFW-screened, and already curated by
-            the couple (a photo they hid on their own story never appears
-            here). Promoting one re-checks `selection_match_rank = 1` server
-            side rather than trusting the gate that let it be submitted, and
-            the result is EVENT-LINKED — so it never touches the
-            back-catalogue allowance, at any tier. */}
-        {importableEditorialFailed ? (
-          <ShopNotice tone="warn" role="status" className="text-sm">
-            We couldn’t load your photos from events you worked just now.
-            They aren’t gone — reload in a moment, or upload from your own files
-            below.
-          </ShopNotice>
-        ) : null}
-
-        {importableEditorial.length > 0 && gallerySlots.length > 0 ? (
-          <section className="mt-[18px]">
-            <h3 className="hc-k2 mb-2 min-h-9">
-              <InfoTip label="From events you worked" align="start">
-                Your day-of photos from couples who picked you. These never count against your back-catalogue allowance.
-              </InfoTip>
-            </h3>
-            <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-              <span className="shrink-0 tabular-nums text-[12px] uppercase tracking-[0.15em] text-[color:var(--m-slate-2)]">Add to</span>
-              <PickMenu
-                label="Add these photos to"
-                value={importSlot}
-                options={slotOptions(gallerySlots)}
-                onPick={setImportSlot}
-                dataAttr="data-library-import-part"
-                stickyGroups
-                className="!min-h-11"
-              />
-            </div>
-            <div className="mb-3">
-              <InspirationCardPick
-                choices={choicesFor(importSlot)}
-                value={cardFor(importSlot)}
-                onChange={(id) => pickCard(importSlot, id)}
-                dataAttr="data-library-import-card"
-                withHiddenField={false}
-              />
-            </div>
-            <ul className="space-y-2">
-              {importableEditorial.map((photo) => (
-                <li
-                  key={photo.mediaId}
-                  className="flex items-center justify-between gap-3 rounded-md border border-ink/10 p-2"
-                >
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                    {photo.caption?.trim() || 'Day-of photo'}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={isPending || photo.alreadyImported}
-                    onClick={() => handleImport(photo.mediaId)}
-                    className={actionButtonClass('brand', { extra: 'flex-shrink-0 disabled:opacity-50' })}
-                  >
-                    {photo.alreadyImported ? 'Added' : 'Add to Inspiration'}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {wide ? uploadSection : null}
+        {wide ? null : eventsSection}
       </div>
 
-      {wide ? <div className="space-y-4">{editorPane}</div> : null}
+      {wide ? (
+        <div className="space-y-4">
+          {editorPane}
+          {editorButtons}
+          {eventsSection}
+        </div>
+      ) : null}
     </div>
     {!wide ? (
       <>
         <ToolAddSheet name="moodboard-library" label="Upload a photo" title="Upload your design">
           {uploadSection}
         </ToolAddSheet>
-        <Sheet open={editorOpen && Boolean(selected)} onClose={() => setEditorOpen(false)} labelledById="moodboard-editor-title" full>
-          <div className="space-y-4 px-5 pb-6 pt-5">
+        <Sheet
+          open={editorOpen && Boolean(selected)}
+          onClose={() => setEditorOpen(false)}
+          labelledById="moodboard-editor-head"
+          full
+          head={
+            // The drawing's risen editor: ✕ · "Tag colours" as its one top row.
+            <div className="flex min-h-14 items-center gap-2.5 px-4 py-1.5" data-library-editor-head="">
+              <ActionButton tone="neutral" iconOnly icon={<X aria-hidden />} label="Close" onClick={() => setEditorOpen(false)} />
+              <p id="moodboard-editor-head" className="min-w-0 flex-1 truncate text-[22px] font-bold leading-tight tracking-[-0.015em] text-ink">
+                Tag colours
+              </p>
+            </div>
+          }
+          foot={<div className="px-4 pb-1 pt-2.5">{editorButtons}</div>}
+        >
+          <div className="space-y-4 px-4 pb-6 pt-1">
             {editorPane}
           </div>
         </Sheet>
       </>
     ) : null}
     </>
+  );
+}
+
+/**
+ * The state ON a photo (the drawing's pill): a solid pill on the card's own ground, so it reads over any picture, light
+ * and dark; the word carries the state's colour. It never grows past its tile — a long word is cut, not spilled.
+ */
+function PhotoState({ state }: { state: 'rejected' | 'live' | 'retired' | 'draft' }) {
+  const color = state === 'rejected' ? 'rgb(var(--color-danger))' : state === 'live' ? 'rgb(var(--color-ok))' : 'var(--m-slate-2)';
+  return (
+    <span
+      data-photo-state={state}
+      className="inline-flex min-w-0 max-w-full items-center gap-0.5 rounded-full bg-raised px-1.5 py-0.5 text-[11px] font-semibold leading-5"
+      style={{ color }}
+    >
+      {state === 'live' ? <Check aria-hidden className="h-3 w-3 flex-none" strokeWidth={2.5} /> : null}
+      {state === 'rejected' ? <X aria-hidden className="h-3 w-3 flex-none" strokeWidth={2.5} /> : null}
+      <span className="truncate">{state === 'rejected' ? 'Not published' : state === 'live' ? 'Live' : state === 'retired' ? 'Retired' : 'Draft'}</span>
+    </span>
   );
 }
 

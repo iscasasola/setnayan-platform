@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { PlanBuyCta } from '@/app/_components/marketing/plan-buy-cta';
 import Link from 'next/link';
 import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { pricingSupplierPlanWhat } from '@/lib/supplier-plan-public-words';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
@@ -175,9 +176,11 @@ export default async function PricingPage() {
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
     { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
-    { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot' },
-    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
+    // 🧰 What each paid plan adds is PLACED BY THE GATES (`pricingSupplierPlanWhat`, lib/supplier-plan-public-words.ts):
+    // "All specialized tools" was typed on Plus and stayed there after the tools moved to Pro and Ultra (21 / 22 Nov).
+    { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: pricingSupplierPlanWhat('solo') },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: pricingSupplierPlanWhat('pro') },
+    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: pricingSupplierPlanWhat('enterprise') },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
   const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);

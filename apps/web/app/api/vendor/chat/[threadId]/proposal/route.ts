@@ -1,6 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { authVendorBearer } from '@/lib/api/vendor-bearer';
 import { sendProposalCore, type SendProposalError } from '@/lib/proposal-send';
+import { PLUS_TRAY_VERIFY_HREF } from '@/lib/chat-plus';
+import { plusGateRefusal } from '@/lib/shop-plus-gate';
+import { threadPlusGate } from '@/lib/shop-plus-gate.server';
 
 // Native-facing in-chat proposal / quote (a quote is a priced proposal). Shares
 // sendProposalCore with the web action — same ownership + accepted-thread gating
@@ -50,6 +53,20 @@ export async function POST(
     payload = (await req.json()) as typeof payload;
   } catch {
     return Response.json({ error: 'invalid_json', message: 'Couldn’t read your request.' }, { status: 422 });
+  }
+
+  // 🪪 A QUOTE NEEDS A VERIFIED SHOP on this door too (supplier launch walk 22 Nov, step 8): the SAME gate and the
+  // SAME words as the web chat's quote doors (`sendProposalFromChat`), asked BEFORE anything is written. It fails
+  // closed: a refused read is 'unknown' and refuses ("couldn't check"), never a pass.
+  const plusGate = await threadPlusGate(auth.supabase, threadId);
+  const plusRefusal = plusGateRefusal(plusGate);
+  if (plusRefusal) {
+    return Response.json(
+      plusGate === 'unverified'
+        ? { error: 'plus_unverified', message: plusRefusal, verifyHref: PLUS_TRAY_VERIFY_HREF }
+        : { error: 'plus_unknown', message: plusRefusal },
+      { status: plusGate === 'unverified' ? 403 : 503 },
+    );
   }
 
   const totalPhp = Number(payload.totalPhp);

@@ -70,6 +70,8 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
 import { SupplierCountTile } from './_components/supplier-count-tile';
 import { QuoteTopLines } from './_components/quote-top-lines';
+import { YourBookingCard } from './_components/your-booking-card';
+import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, yourBookingView } from '@/lib/your-booking';
 import { quotePlanLine } from '@/lib/quote-top-lines';
 import { ruleRoleLabels, ruleWords } from '@/lib/supplier-count';
 import {
@@ -187,8 +189,6 @@ import { detailsNumbers } from './_components/details-numbers';
 import { OPEN_MEETING_STATUSES, openMeetingsWindow } from '../../customers/clients-tiles';
 import { readShopPerGuest } from '@/lib/claimed-per-guest-shop.server';
 import { DetailsNumbersRow } from './_components/details-numbers-row';
-import { YourBookingCard } from './_components/your-booking-card';
-import { HOSTS_PLANNED_LABEL, HOSTS_PLANNED_NOTE, yourBookingView } from '@/lib/your-booking';
 import { HostsList } from './_components/hosts-list';
 import { SuppliersList } from './_components/suppliers-list';
 import { supplierRows } from './_components/suppliers-rows';

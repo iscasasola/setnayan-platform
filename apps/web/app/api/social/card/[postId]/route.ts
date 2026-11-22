@@ -1,4 +1,5 @@
 import { type NextRequest } from 'next/server';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayServiceLabel } from '@/lib/vendors';
@@ -222,7 +223,7 @@ async function vendorFeatureContext(
   // Pro+ derivation mirrors flush.ts / the queue page: tier_state guarded by
   // tier_expires_at (the downgrade sweep is login-driven).
   const proActive =
-    (vendor?.tier_state === 'pro' || vendor?.tier_state === 'enterprise') &&
+    isPaidSize(vendor?.tier_state) && // every paid size since 2026-11-22 (was Pro and Ultra)
     (!vendor?.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > Date.now());
   const categoryLabel = vendor?.services?.[0]
     ? displayServiceLabel(vendor.services[0])

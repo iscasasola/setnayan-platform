@@ -38,9 +38,9 @@ test('the own web address shows on Supplier Plus and up for a verified domain on
   assert.equal(ownWebAddress({ planAllows: true, domain: 'not a domain', verifiedAt: '2026-10-01' }), null);
   assert.equal(TIER_CAPS.solo.customWebsiteName && TIER_CAPS.pro.customWebsiteName && TIER_CAPS.enterprise.customWebsiteName, true);
   assert.equal(TIER_CAPS.verified.customWebsiteName || TIER_CAPS.free.customWebsiteName, false);
-  // The Pro page parts did NOT move down with the address — they read `premiumPage`.
-  assert.equal(TIER_CAPS.solo.premiumPage, false);
-  assert.equal(TIER_CAPS.pro.premiumPage && TIER_CAPS.enterprise.premiumPage, true);
+  // The page parts read `premiumPage` — on every paid size since 2026-11-22 ("SAME FEATURES IN EVERY SIZE").
+  assert.equal(TIER_CAPS.solo.premiumPage && TIER_CAPS.pro.premiumPage && TIER_CAPS.enterprise.premiumPage, true);
+  assert.equal(TIER_CAPS.verified.premiumPage || TIER_CAPS.free.premiumPage, false);
 });
 
 test('the pinned quote keeps whole words and never invents text', () => {

@@ -101,12 +101,17 @@ test('every limit cell is the entitlement code — in both states of the plan pa
       assert.equal(wl.cells[t].text, v >= WAITLIST_SETTING_MAX ? 'No plan limit' : v > 0 ? formatCount(v) : 'None', `waitlist · ${t} · paywall ${paywallOn}`);
     }
   }
-  // Anti-vacuity: the limits are the plan sheet's, and Pro/Max differ on service cards (20 vs 80 today). No bookings-a-day
-  // row since 2026-11-18 (ruling 17): bookings per date are not a plan limit.
+  // Anti-vacuity (owner 2026-11-22 "FINAL LADDER"): Plus 15 cards, Pro and Ultra no limit. No bookings-a-day row since
+  // 2026-11-18 (ruling 17): bookings per date are not a plan limit.
   const g = planTable({ paywallOn: true, prices: PRICES });
   const cards = row(g, 'limit:serviceCards');
-  assert.equal(cards.cells.pro.text, formatCount(TIER_CAPS.pro.serviceCardsTotal));
-  assert.equal(cards.cells.enterprise.text, formatCount(TIER_CAPS.enterprise.serviceCardsTotal));
+  assert.equal(cards.cells.solo.text, formatCount(TIER_CAPS.solo.serviceCardsTotal));
+  assert.equal(cards.cells.pro.text, 'No limit');
+  assert.equal(cards.cells.enterprise.text, 'No limit');
+  // Storage is the first limit — the plans are storage sizes; Verified's 2 GB is said in the Free cell.
+  const storage = row(g, 'limit:storage');
+  assert.equal(g.find((gr) => gr.rows.some((r) => r.key === 'limit:storage'))!.rows[0]!.key, 'limit:storage');
+  assert.deepEqual(TABLE_TIERS.map((t) => storage.cells[t].text), ['256 MB; 2 GB once Verified', '128 GB', '500 GB', '1 TB']);
   assert.equal(g.flatMap((gr) => gr.rows).some((r) => r.key === 'limit:bookingsPerDate'), false, 'a bookings-a-day row is back');
 });
 
@@ -130,7 +135,8 @@ test('the plan-feature rows are TIER_CAPS, the tools row is the unlock rule, gif
   // Verified, Plus is included, Pro and Ultra name the smarter level.
   const bot = row(g, 'tool:chatbot');
   assert.deepEqual(bot.cells.free, { kind: 'lock', text: 'Opens once Verified' });
-  assert.equal(bot.cells.solo.text, 'Included');
+  // 22 Nov "SAME FEATURES IN EVERY SIZE": the smarter level is on every paid size, Plus included.
+  assert.match(bot.cells.solo.text, /^Smarter level/);
   assert.match(bot.cells.pro.text, /^Smarter level/);
   assert.match(bot.cells.enterprise.text, /^Smarter level/);
   assert.equal(TABLE_TIERS.join(' · '), 'free · solo · pro · enterprise', 'Verified joins Free — four columns');
@@ -149,10 +155,9 @@ test('every price cell is the price the page read — or "—" when it read noth
   assert.equal(row(g, 'price:yr').cells.enterprise.text, SENT('ent-yr'));
   for (const t of TABLE_TIERS) {
     assert.equal(row(g, 'buy:deep').cells[t].text, `${SENT(vendorAddonSkuCode('deep_search_about_you', t))} a search`);
-    const sb = row(g, 'buy:seatbranch').cells[t];
-    if (canBuyExtraSeats(t) && canBuyExtraBranches(t)) assert.match(sb.text, /₱SENT:vendor_extra_seat|₱SENT:vendor_additional_branch/);
-    else assert.equal(sb.kind, 'no', `${t} is offered a seat or branch it cannot buy`);
+    assert.equal(canBuyExtraSeats(t) || canBuyExtraBranches(t), false, `${t} may buy a seat or branch — the table has no row for it`);
   }
+  assert.equal(rowsOf(g).some((r) => r.key === 'buy:seatbranch'), false, 'an extra seat or branch is offered (no add-ons since 2026-11-22)');
   assert.equal(row(g, 'price:yr').cells.free.kind, 'no', 'Free has nothing to pay for a year');
   const none = planTable({ paywallOn: true, prices: { monthly: {}, annual: {}, bySku: {} } });
   const blank = rowsOf(none).flatMap((r) => TABLE_TIERS.map((t) => r.cells[t].text)).filter((t) => t.includes('₱'));
@@ -162,8 +167,8 @@ test('every price cell is the price the page read — or "—" when it read noth
   const buyable = ULTRA_ADDON_ORDER.filter((k) => (['solo', 'pro', 'enterprise'] as const).some((t) => canBuyUltraAddOn(k, t)));
   assert.deepEqual(lines.map((l) => l.kind), buyable);
   for (const l of lines) assert.equal(l.price, SENT(ultraAddOnSku(l.kind)));
-  // 2026-11-14 ("SIMPLER SUPPLIER PLANS"): only the extra seat and the extra branch are left to buy on top of Ultra.
-  assert.deepEqual(lines.map((l) => l.kind), ['seat', 'branch'], 'the add-ons left to buy are the seat and the branch');
+  // Owner 2026-11-22 "FINAL LADDER": no add-ons — nothing is left to buy on top of a plan.
+  assert.deepEqual(lines.map((l) => l.kind), [], 'an add-on is still offered');
 });
 
 test('a lock is printed only when the app enforces it — and every enforced one is', () => {

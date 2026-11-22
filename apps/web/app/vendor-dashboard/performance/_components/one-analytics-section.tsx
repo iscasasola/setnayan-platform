@@ -52,7 +52,6 @@ import { fetchVendorReputationAnalytics } from '@/lib/vendor-reputation-analytic
 import { fetchVendorCapacityAnalytics } from '@/lib/vendor-capacity-analytics';
 import {
   asVendorTier,
-  TIER_PRICE_PHP,
   canSeePerformanceTrends,
   canSeePerformanceAdvanced,
   canSeeMarketIntel,
@@ -557,12 +556,11 @@ export async function OneAnalyticsSection({
       : Promise.resolve(null),
   ]);
 
-  // The vendor's own annual plan cost — DB-catalog-authoritative, keyed off the
-  // vendor's current tier. Falls back to the shipped tier-price constant only if
-  // the catalog lacks the row (mirrors the subscription page's dual source).
-  const annualSku = `${tier}_vendor_annual`;
-  const catalogAnnual = vendorCatalog.find((r) => r.sku_code === annualSku)?.price_php ?? null;
-  const annualPlanPhp = catalogAnnual ?? TIER_PRICE_PHP[tier].annual;
+  // A year of the shop's own plan — 12 × the live monthly row (owner 2026-11-22 "FINAL LADDER": monthly only, no
+  // yearly plan). No row → null → the "× a year of your plan" line is left out, never a typed fallback price.
+  const monthlySku = `${tier}_vendor_monthly`;
+  const catalogMonthly = vendorCatalog.find((r) => r.sku_code === monthlySku)?.price_php ?? null;
+  const annualPlanPhp = catalogMonthly !== null ? catalogMonthly * 12 : null;
 
   // Verified-median pricing (dark behind NEXT_PUBLIC_VERIFIED_MEDIAN_ENABLED).
   // Off → skip the read entirely, render nothing. Computed on the full-render

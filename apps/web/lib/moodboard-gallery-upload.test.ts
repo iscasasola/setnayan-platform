@@ -147,8 +147,9 @@ test('the NEW ladder never overwrote the portfolio ladder beside it', () => {
   // never overwriting it". These are the shipped portfolioPhotos figures; if a
   // future edit collapses the two axes into one, this goes red.
   assert.equal(TIER_CAPS.free.portfolioPhotos, 50);
-  assert.equal(TIER_CAPS.pro.portfolioPhotos, 50);
-  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, 50);
+  // Owner 2026-11-22 "FINAL LADDER": no portfolio photo cap on a paid size — storage is the only limit.
+  assert.equal(TIER_CAPS.pro.portfolioPhotos, Infinity);
+  assert.equal(TIER_CAPS.enterprise.portfolioPhotos, Infinity);
   for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise'] as const) {
     assert.notEqual(
       TIER_CAPS[tier].portfolioPhotos,

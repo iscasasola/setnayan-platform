@@ -12,6 +12,11 @@ import { formatCount } from '@/lib/format-number';
 
 import { supplierCommissionShort, supplierCommissionPromise } from '@/lib/commission-promise';
 import { PORTFOLIO_FREE_BASE, TIER_CAPS } from '@/lib/vendor-tier-caps';
+import { storageWords } from '@/lib/downgrade-limits';
+import { planRole, planSummaryWords } from '@/lib/supplier-storage';
+
+/** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
+const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 
 /*
  * 📐 PLAN ALLOWANCES ARE READ, NEVER TYPED (owner 2026-11-04, DECISION_LOG "SUPPLIER PLAN ALLOWANCES" + "BRANCHES PER
@@ -140,22 +145,50 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
     ],
   },
   {
+    // 💾 Owner 2026-11-22, DECISION_LOG "SUPPLIER PLANS MIRROR ICLOUD+: ONE PRODUCT, SAME FEATURES IN EVERY SIZE" +
+    // "STARTER BUSINESS": every paid size has every feature; only storage differs, and Plus keeps its starter limits.
+    // So every feature row lives here, under the first paid size, and Pro and Ultra add only room and no limits.
     tier: 'solo',
     name: 'Plus',
-    tagline: 'Operate friction-free. Everything in Free, plus a personalized page and your own business analytics.',
+    tagline: `${planRole('solo')}: ${planSummaryWords('solo')}. Everything in Free, plus:`,
     groups: [
       {
+        h: 'Your size',
         items: [
-          { n: `${many(TIER_CAPS.solo.parentCategories, 'category', 'categories')} · ${many(TIER_CAPS.solo.serviceCardsTotal, 'service card', 'service cards')} live`, b: `List under ${many(TIER_CAPS.solo.parentCategories, 'parent category', 'parent categories')}. Make as many service cards as you like, with up to ${many(TIER_CAPS.solo.serviceCardsTotal, 'card', 'cards')} live.` },
-          { n: `${many(TIER_CAPS.solo.agentAccounts, 'team seat', 'team seats')}`, b: 'Give a helper their own login, scoped to their services.' },
+          { n: `${sizeWords(TIER_CAPS.solo.storageBytes)} for your files`, b: 'Photos, videos, albums and documents in one place. Storage is what the plans are sold by.' },
+          { n: `${many(TIER_CAPS.solo.serviceCardsTotal, 'service card', 'service cards')} live · every category`, b: `List under every category you serve. Make as many service cards as you like, with up to ${many(TIER_CAPS.solo.serviceCardsTotal, 'card', 'cards')} live.` },
+          { n: `You and ${formatCount(TIER_CAPS.solo.agentAccounts)} more · multi-admin`, b: 'Give each helper their own login, scoped to their services, and share admin with a partner.' },
+        ],
+      },
+      {
+        h: 'Every feature',
+        items: [
           { n: 'Your own web address', b: 'Point your own domain at your Setnayan page.' },
           { n: 'Personalize your public page', b: 'Add an About intro, pick an accent colour, feature your top services, and choose which sections show. Your page, your look.' },
+          { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Stories.' },
+          { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
+          { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
+          { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
           { n: 'Quote-to-booking funnel', b: 'See views → inquiries → signed over time, plus every booking’s source.' },
           { n: 'Won & lost reasons', b: 'See why couples said yes or walked, and fix the real leak.' },
           { n: 'Your own funnel metrics', b: 'Track reply rate, average reply time, and inquiry-to-booking live.' },
           { n: 'Earnings dashboard', b: 'Year-to-date revenue, monthly subtotals and scheduled payouts in one view.' },
+          { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
+          { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
+          { n: 'Booked-out waitlist', b: 'Fully booked? Couples wait instead of bouncing — you choose how many to take off it per date, so a cancellation becomes a recovered booking.' },
+          { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
           { n: 'Recap sharing', b: 'One-tap share of every wedding you helped create, straight to your Facebook Page.' },
-          { n: 'Logo on the couple’s 3D seat plan', b: 'With the 3D Booth add-on, your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it.' },
+          { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
+          { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
+          { n: 'Logo on the couple’s 3D seat plan', b: 'Your brand mark rides along on the couple’s 3D seat plan — quiet credit in front of every guest who opens it. Included.' },
+          // ⛔ SEVEN "soon" ROWS RETIRED 2026-11-05 (owner: "retire this") — nothing was behind them. A "soon" label is
+          // not a licence to advertise an unstarted thing.
+          { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
+          { n: 'Priority support', b: 'Move to the front of the support queue.' },
+          // ⛔ TWO ROWS WERE DELETED 2026-08-27 (owner ruling): "Quarterly business review" and "a named contact"
+          // promised human attention that does not exist. What DOES exist is queue ORDERING: /admin/disputes surfaces
+          // paid plans first. That is real, so it is the only thing claimed — with no response-time promise.
+          { n: 'Front-of-line dispute handling', b: 'Disputes from paid plans surface first in our queue.' },
         ],
       },
     ],
@@ -163,28 +196,14 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'pro',
     name: 'Pro',
-    tagline: 'Grow: a premium page, a team, and market intelligence. Everything in Plus, plus:',
+    tagline: `${planRole('pro')}: ${planSummaryWords('pro')}. Everything in Plus, plus:`,
     groups: [
       {
         items: [
-          { n: 'Premium two-column page', b: 'A wide, editorial layout with a sticky “Inquire” rail, a hero photo, a pinned review, and your featured Stories.' },
-          { n: `Team sub-accounts (${many(TIER_CAPS.pro.agentAccounts, 'seat', 'seats')})`, b: 'Give each crew member a login scoped to their services, no shared passwords.' },
-          { n: 'One clean business identity', b: 'Crew act under one verified profile, you look like a real studio.' },
-          { n: `${many(TIER_CAPS.pro.parentCategories, 'category', 'categories')}`, b: `List under ${many(TIER_CAPS.pro.parentCategories, 'parent category', 'parent categories')}.` },
-          { n: `${many(TIER_CAPS.pro.serviceCardsTotal, 'service card', 'service cards')} live`, b: `Make as many as you like. Show up to ${many(TIER_CAPS.pro.serviceCardsTotal, 'card', 'cards')} across the categories you cover.` },
-          { n: `${many(TIER_CAPS.pro.branchesIncluded, 'branch', 'branches')} included`, b: 'Run other locations under your one shop, with no branch fee.' },
-          { n: 'Booked-out waitlist', b: 'Fully booked? Couples wait instead of bouncing — you choose how many to take off it per date, so a cancellation becomes a recovered booking.' },
-          { n: 'Demand Radar', b: 'See where demand is building in your market, by month and by the looks couples choose.' },
-          { n: 'Reverse-image theft watch', b: 'Reposts of your portfolio get flagged as yours across the platform.' },
-          { n: 'Custom slug + full written reviews', b: 'Your own /your-name URL, and the full text of every review on show.' },
-          { n: 'Featured in Stories', b: 'A loved event becomes a published Story crediting your work, with a backlink.' },
-          { n: 'Editorial & article spotlights', b: 'Featured in the articles couples read while planning, in front of buyers at intent.' },
-          // ⛔ SEVEN "soon" ROWS RETIRED 2026-11-05 (owner: "retire this") — nothing was behind them: no fake reviews /
-          // ghost listings screen, RA 8792 contracts, one profile every life event, resell Setnayan Productions,
-          // white-label couple tools, certified partner, earn on your crew. Three "soon" rows stay (dispute mediation,
-          // couple referral rewards, reply-time stats). A "soon" label is not a licence to advertise an unstarted thing.
-          { n: 'Reply-time stats & Spotlight awards', soon: true, b: 'Top performers earn a Spotlight badge plus a homepage feature.' },
-          { n: 'Priority support', b: 'Move to the front of the support queue.' },
+          { n: `${sizeWords(TIER_CAPS.pro.storageBytes)} for your files`, b: 'More room for albums, films and every file you keep.' },
+          { n: 'No limit on live service cards', b: 'Show every package you sell, across every category you serve.' },
+          { n: 'No limit on people', b: 'Give every crew member a login scoped to their services, no shared passwords.' },
+          { n: 'No limit on branches', b: 'Run your other locations under your one registered business, with no branch fee.' },
         ],
       },
     ],
@@ -192,26 +211,11 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'enterprise',
     name: 'Ultra',
-    tagline: 'Scale as an organization: with a flagship page. Everything in Pro, plus:',
+    tagline: `${planRole('enterprise')}: ${planSummaryWords('enterprise')}. Everything in Pro, plus:`,
     groups: [
       {
         items: [
-          { n: 'Flagship page + video films', b: 'A cinematic hero with your name over your best photo, plus a playable “Films” reel. Link your YouTube highlight videos and couples watch them right on your page.' },
-          { n: `${many(TIER_CAPS.enterprise.parentCategories, 'category', 'categories')}`, b: 'List under more parent categories than Pro.' },
-          { n: `Up to ${TIER_CAPS.enterprise.agentAccounts} team seats + multi-admin`, b: 'A full team with shared, voted governance. Need more? Add seats.' },
-          { n: `${many(TIER_CAPS.enterprise.branchesIncluded, 'branch', 'branches')} included`, b: 'Run your other locations under one shop, with no branch fee — and add more branches when you grow.' },
-          { n: `${many(TIER_CAPS.enterprise.serviceCardsTotal, 'service card', 'service cards')} live`, b: 'More live services than Pro. Make as many as you like.' },
-          { n: 'Market Intelligence — category benchmarks vs peers', b: 'Rank your funnel against anonymized peers in your exact category. Numbers fill in as category volume grows.' },
-          // ⛔ TWO ROWS WERE DELETED HERE 2026-08-27 (owner ruling). "Quarterly
-          // business review" and "a named contact" promised HUMAN ATTENTION
-          // that does not exist and was never built — no review scheduling, no
-          // manager assignment, nobody named. They carried `soon: true`, which
-          // is not a licence to advertise a thing nobody has started.
-          // What DOES exist is queue ORDERING: /admin/disputes resolves each
-          // shop's tier and surfaces higher tiers first. That is real, so it is
-          // the only thing claimed — with no response-time promise attached,
-          // because no response-time promise exists anywhere in the product.
-          { n: 'Front-of-line dispute handling', b: 'Disputes from higher tiers surface first in our queue.' },
+          { n: `${sizeWords(TIER_CAPS.enterprise.storageBytes)} for your files`, b: 'The most room for a studio’s albums, films and archives.' },
         ],
       },
     ],

@@ -20,8 +20,9 @@ const shop = (tier: string, verification: string | null, expires: string | null 
   verification_state: verification,
 });
 
-test('the table: Free none · Verified and Plus basic · Pro and Ultra the smarter level', () => {
-  assert.deepEqual({ ...PLAN_CHATBOT_LEVEL }, { free: 'none', verified: 'basic', solo: 'basic', pro: 'advanced', enterprise: 'advanced' });
+// Owner 2026-11-22 "SAME FEATURES IN EVERY SIZE" moved the smarter level down to Plus (was Pro and up, 21 Nov).
+test('the table: Free none · Verified basic · every paid size the smarter level', () => {
+  assert.deepEqual({ ...PLAN_CHATBOT_LEVEL }, { free: 'none', verified: 'basic', solo: 'advanced', pro: 'advanced', enterprise: 'advanced' });
 });
 
 test('an unverified Free shop has no chatbot — the 🔒', () => {
@@ -42,11 +43,11 @@ test('a verified Free shop gets the basic chatbot — approval does not rewrite 
   assert.deepEqual(canUse('chatbot', { verified: true, tier: 'free' }), { ok: true });
 });
 
-test('Plus gets the basic chatbot, not the smarter one', () => {
+test('Plus gets the smarter chatbot, like every paid size', () => {
   const s = shop('solo', 'verified');
-  assert.equal(planChatbotLevel(s, NOW), 'basic');
+  assert.equal(planChatbotLevel(s, NOW), 'advanced');
   assert.equal(vendorAiBasicActive({ level: null, windowActive: false, plan: s }), true);
-  assert.equal(vendorAiAdvancedActive({ level: null, windowActive: false, plan: s }), false);
+  assert.equal(vendorAiAdvancedActive({ level: null, windowActive: false, plan: s }), true);
 });
 
 test('Pro and Ultra get the smarter chatbot (and so the basic one)', () => {

@@ -565,11 +565,20 @@ export function supplierPlanTable(input: LlmsTxtInput): string {
   return [head, rule, ...rows].join('\n');
 }
 
-/** "+1 category (₱199) · +1 team seat (₱990) · …" — every add-on Ultra may buy, priced by the SKU it charges. */
+/**
+ * "+1 team seat (₱… / 4 weeks) · …" — every add-on a plan may buy, priced by the SKU it charges. Empty since owner
+ * 2026-11-22 "FINAL LADDER" (no add-ons); the sentence that uses it is then left out (`ultraAddonSentence`).
+ */
 export function ultraAddonPhrase(input: LlmsTxtInput): string {
   return addonLines(planTablePrices(input).bySku)
     .map((a) => `${a.label} (${a.price} / 4 weeks)`)
     .join(' · ');
+}
+
+/** " Bigger than Ultra? …" — only while some add-on is still sold; nothing, never "one at a time: ." with no list. */
+export function ultraAddonSentence(input: LlmsTxtInput): string {
+  const phrase = ultraAddonPhrase(input);
+  return phrase ? ` Bigger than Ultra? Ultra can add more, one at a time: ${phrase}.` : '';
 }
 
 /**
@@ -820,7 +829,7 @@ ${supplierFee}
 
 A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
-Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends. Bigger than Ultra? Ultra can add more, one at a time: ${ultraAddonPhrase(input)}.
+Plus, Pro and Ultra are prepaid blocks of 4 weeks (13 a year), or a year at a discount. Nothing renews by itself: a reminder comes by email and on the dashboard 7 days before a block ends.${ultraAddonSentence(input)}
 
 ## Answering couples (included free)
 

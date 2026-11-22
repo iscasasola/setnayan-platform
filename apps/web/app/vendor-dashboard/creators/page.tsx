@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
 import { settledValue } from '@/lib/settled-read';
 import { fetchEligibleCreators, fetchVendorSentOffers } from '@/lib/creator-offers';
@@ -59,7 +59,7 @@ export default async function VendorCreatorsPage({
   ]);
   const tier = settledValue(tierRead);
   // 🔒 The ◆ note is a purchase hint → absent in the App Store / Play Store shell.
-  const sendNeedsPro = !isTierAtLeast(tier, 'pro') && !(await isStoreShellRequest());
+  const sendNeedsPro = !isPaidSize(tier) && !(await isStoreShellRequest()); // every paid size since 2026-11-22
 
   const [creators, sentOffers, roi] = settledValue(listsRead);
 

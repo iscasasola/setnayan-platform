@@ -101,6 +101,8 @@ const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n 
 
 /** "12.4 GB" · "800 MB" — storage in the words a supplier reads. */
 export function storageWords(bytes: number): string {
+  // 1 TB — the words the owner sells the plans by (2026-11-22 "FINAL LADDER"); decimal, like the GB below.
+  if (bytes >= 1e12) return `${formatCount(Math.round(bytes / 1e11) / 10, 1)} TB`;
   if (bytes >= 1e9) return `${formatCount(Math.round(bytes / 1e8) / 10, 1)} GB`;
   return `${formatCount(Math.max(1, Math.round(bytes / 1e6)))} MB`;
 }
